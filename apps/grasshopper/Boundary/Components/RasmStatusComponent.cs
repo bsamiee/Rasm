@@ -2,6 +2,7 @@ using Grasshopper2.Components;
 using Grasshopper2.Parameters;
 using Grasshopper2.UI;
 using GrasshopperIO;
+using Rasm.Grasshopper.Boundary;
 
 namespace Rasm.Grasshopper.Boundary.Components;
 
@@ -32,6 +33,9 @@ public sealed class RasmStatusComponent : Component {
 
     protected override void Process(IDataAccess access) {
         ArgumentNullException.ThrowIfNull(access);
-        access.SetItem(0, "Rasm Grasshopper loaded.");
+        access.SetItem(0, RasmGrasshopperPlugin.Instance switch {
+            RasmGrasshopperPlugin plugin => plugin.ReportStatus(),
+            _ => "Rasm Grasshopper plugin unavailable.",
+        });
     }
 }

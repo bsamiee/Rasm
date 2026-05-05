@@ -14,8 +14,6 @@ internal static class RuleCatalog {
 
     private static DiagnosticDescriptor Err(string id, string title, string message, string category) =>
         new(id: id, title: title, messageFormat: message, category: category, defaultSeverity: DiagnosticSeverity.Error, isEnabledByDefault: true, customTags: ErrorTag);
-    private static DiagnosticDescriptor Warn(string id, string title, string message, string category) =>
-        new(id: id, title: title, messageFormat: message, category: category, defaultSeverity: DiagnosticSeverity.Warning, isEnabledByDefault: true);
 
     // --- [FOUNDATION_RULES] ---------------------------------------------------
 

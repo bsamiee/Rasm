@@ -2,7 +2,7 @@
     <PropertyGroup Label="Project Classification">
         <IsRhinoPluginProject Condition="'$(MSBuildProjectName)' == 'Rasm.Rhino'">true</IsRhinoPluginProject>
         <IsGrasshopperPluginProject Condition="'$(MSBuildProjectName)' == 'Rasm.Grasshopper'">true</IsGrasshopperPluginProject>
-        <IsRhinoConsumedProject Condition="'$(MSBuildProjectName)' == 'Core'">true</IsRhinoConsumedProject>
+        <IsSharedCSharpLibrary Condition="'$(MSBuildProjectName)' == 'Core'">true</IsSharedCSharpLibrary>
     </PropertyGroup>
 
     <PropertyGroup Label="Language and Build">
@@ -83,10 +83,8 @@
         <SkipBoundaryExemptionContracts>true</SkipBoundaryExemptionContracts>
     </PropertyGroup>
 
-    <PropertyGroup Label="RhinoWIP Consumed Libraries" Condition="'$(IsRhinoConsumedProject)' == 'true'">
+    <PropertyGroup Label="Shared CSharp Libraries" Condition="'$(IsSharedCSharpLibrary)' == 'true'">
         <IsPackable>false</IsPackable>
-        <UseWorkspaceLibraries>false</UseWorkspaceLibraries>
-        <SkipBoundaryExemptionContracts>true</SkipBoundaryExemptionContracts>
     </PropertyGroup>
 
     <ItemGroup Label="Global Libraries" Condition="'$(IsLocalCSharpAnalyzerProject)' != 'true' and '$(UseWorkspaceLibraries)' == 'true'">

@@ -62,7 +62,7 @@ _cmd_package() {
 _package_path() {
     local -r version="$1"
     local -a package_files=()
-    mapfile -t package_files < <(fd -H -g "rasm-${version}-*-mac.yak" . "${STAGE_DIR}" --max-depth 1)
+    mapfile -t package_files < <(fd -H -g "*-${version}-*-mac.yak" . "${STAGE_DIR}" --max-depth 1)
     ((${#package_files[@]} == 1)) || _die "Expected one Yak package for ${version}, found ${#package_files[@]}"
     printf '%s\n' "${package_files[0]}"
 }
