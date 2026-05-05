@@ -127,6 +127,7 @@ Investigate `libs/` before adding code:
 
 - Make surgical changes only.
 - Keep root configs authoritative.
-- Do not add placeholder directories/files just to reserve structure.
+- Use lightweight placeholder files when they preserve a practical, near-term architecture.
+- Avoid excessive guessing or deep pre-planning beyond likely next moves.
 - Do not add broad abstractions before a second real use appears.
 - Re-run impacted gates after any path or project rename.
