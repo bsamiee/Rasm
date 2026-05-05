@@ -3,6 +3,7 @@
         <IsRhinoPluginProject Condition="'$(MSBuildProjectName)' == 'Rasm.Rhino'">true</IsRhinoPluginProject>
         <IsGrasshopperPluginProject Condition="'$(MSBuildProjectName)' == 'Rasm.Grasshopper'">true</IsGrasshopperPluginProject>
         <IsSharedCSharpLibrary Condition="'$(MSBuildProjectName)' == 'Core'">true</IsSharedCSharpLibrary>
+        <IsRhinoCommonAwareProject Condition="'$(MSBuildProjectName)' == 'Core'">true</IsRhinoCommonAwareProject>
     </PropertyGroup>
 
     <PropertyGroup Label="Language and Build">
@@ -46,6 +47,7 @@
         <LanguageExtCoreVersion>5.0.0-beta-77</LanguageExtCoreVersion>
         <FluentValidationVersion>12.1.1</FluentValidationVersion>
         <ThinktectureRuntimeExtensionsVersion>10.2.0</ThinktectureRuntimeExtensionsVersion>
+        <ScrutorVersion>7.0.0</ScrutorVersion>
         <PollyCoreVersion>8.6.6</PollyCoreVersion>
         <NodaTimeVersion>3.3.2</NodaTimeVersion>
         <OpenTelemetryVersion>1.15.3</OpenTelemetryVersion>
@@ -65,6 +67,10 @@
         <NpgsqlOpenTelemetryVersion>10.0.2</NpgsqlOpenTelemetryVersion>
         <TestcontainersPostgreSqlVersion>4.11.0</TestcontainersPostgreSqlVersion>
         <FsCheckVersion>3.3.3</FsCheckVersion>
+        <FsCheckXunitVersion>3.3.3</FsCheckXunitVersion>
+        <MicrosoftNetTestSdkVersion>18.5.1</MicrosoftNetTestSdkVersion>
+        <XunitVersion>2.9.3</XunitVersion>
+        <XunitRunnerVisualStudioVersion>4.0.0-pre.4</XunitRunnerVisualStudioVersion>
         <BenchmarkDotNetVersion>0.15.8</BenchmarkDotNetVersion>
         <RhinoWipAppPath>/Applications/RhinoWIP.app</RhinoWipAppPath>
         <RhinoWipResourcesPath>$(RhinoWipAppPath)/Contents/Frameworks/RhCore.framework/Versions/A/Resources</RhinoWipResourcesPath>
@@ -91,6 +97,7 @@
         <PackageReference Include="LanguageExt.Core" Version="$(LanguageExtCoreVersion)" />
         <PackageReference Include="FluentValidation" Version="$(FluentValidationVersion)" />
         <PackageReference Include="Thinktecture.Runtime.Extensions" Version="$(ThinktectureRuntimeExtensionsVersion)" />
+        <PackageReference Include="Scrutor" Version="$(ScrutorVersion)" />
         <PackageReference Include="Polly.Core" Version="$(PollyCoreVersion)" />
         <PackageReference Include="NodaTime" Version="$(NodaTimeVersion)" />
         <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="$(OpenTelemetryVersion)" />
@@ -118,7 +125,7 @@
         <Using Include="LanguageExt.Prelude" Static="true" />
     </ItemGroup>
 
-    <ItemGroup Label="RhinoWIP Libraries" Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true'">
+    <ItemGroup Label="RhinoWIP Libraries" Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsRhinoCommonAwareProject)' == 'true'">
         <Reference Include="RhinoCommon">
             <HintPath>$(RhinoCommonReferencePath)</HintPath>
             <Private>false</Private>
@@ -156,6 +163,7 @@
 
     <ItemGroup Label="Property Test Packages" Condition="'$(IsTestProject)' == 'true' and '$(EnablePropertyTesting)' == 'true'">
         <PackageReference Include="FsCheck" Version="$(FsCheckVersion)" PrivateAssets="all" />
+        <PackageReference Include="FsCheck.Xunit" Version="$(FsCheckXunitVersion)" PrivateAssets="all" />
     </ItemGroup>
 
     <ItemGroup Label="Benchmark Packages" Condition="'$(IsBenchmarkProject)' == 'true'">

@@ -80,8 +80,8 @@ internal static class Markers {
     internal const string SharedKernelPrefix = ".SharedKernel";
     internal const string LanguageExtNamespace = "LanguageExt";
     internal const string MatchMethodName = "Match";
-    internal static readonly string[] BoundaryNamespace = [".Boundary", ".Adapter", ".Adapters", ".Routes", ".Endpoints", ".Controllers"];
-    internal static readonly string[] BoundaryPath = ["Adapter.cs", "Boundary.cs", "Endpoint.cs", "Controller.cs"];
+    internal static readonly string[] BoundaryNamespace = [".Boundary", ".Rhino", ".Adapter", ".Adapters", ".Routes", ".Endpoints", ".Controllers"];
+    internal static readonly string[] BoundaryPath = ["/Rhino/", "\\Rhino\\", "Adapter.cs", "Boundary.cs", "Endpoint.cs", "Controller.cs"];
     internal static readonly string[] CompositionNamespace = [".Bootstrap", ".Composition", ".DependencyInjection", ".Infrastructure"];
     internal static readonly string[] CompositionPath = ["Composition", "Bootstrap", "DependencyInjection", "Infrastructure"];
     internal static readonly string[] SharedPath = ["/Shared/", "\\Shared\\", "/SharedKernel/", "\\SharedKernel\\"];

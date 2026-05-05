@@ -1,1 +1,10 @@
-<Project Sdk="Microsoft.NET.Sdk" />
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <AssemblyName>Rasm.Core</AssemblyName>
+        <RootNamespace>Core</RootNamespace>
+        <Title>Rasm Core</Title>
+        <Company>Rasm</Company>
+        <Description>RhinoCommon-aware core geometry foundation for Rasm.</Description>
+    </PropertyGroup>
+
+</Project>

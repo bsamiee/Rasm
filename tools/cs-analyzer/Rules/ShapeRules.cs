@@ -1,7 +1,6 @@
 using System.Collections.Immutable;
 using Foundation.CSharp.Analyzers.Kernel;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
@@ -13,7 +12,21 @@ namespace Foundation.CSharp.Analyzers.Rules;
 internal static class ShapeRules {
     // --- [CONSTANTS] ----------------------------------------------------------
 
-    private static readonly SpecialType[] PrimitiveSpecialTypes = [SpecialType.System_String, SpecialType.System_Int32, SpecialType.System_Int64, SpecialType.System_Boolean, SpecialType.System_Decimal];
+    private static readonly SpecialType[] PrimitiveSpecialTypes = [
+        SpecialType.System_String,
+        SpecialType.System_SByte,
+        SpecialType.System_Byte,
+        SpecialType.System_Int16,
+        SpecialType.System_UInt16,
+        SpecialType.System_Int32,
+        SpecialType.System_UInt32,
+        SpecialType.System_Int64,
+        SpecialType.System_UInt64,
+        SpecialType.System_Single,
+        SpecialType.System_Double,
+        SpecialType.System_Boolean,
+        SpecialType.System_Decimal,
+    ];
     private static readonly HashSet<string> PrimitiveMetaNames = new(["Guid", "DateTime", "DateTimeOffset"], StringComparer.Ordinal);
     private static readonly HashSet<string> ConcurrentCollectionNames = new(["ConcurrentDictionary`2", "ConcurrentBag`1", "ConcurrentQueue`1", "ConcurrentStack`1"], StringComparer.Ordinal);
     private static readonly string[] InflationPrefixes = ["Get", "TryGet", "GetOr"];
@@ -24,7 +37,10 @@ internal static class ShapeRules {
 
     internal static void CheckSignatures(SymbolAnalysisContext context, ScopeInfo scope, ISymbol symbol) {
         IEnumerable<ITypeSymbol> signatureTypes = symbol switch {
+            IMethodSymbol method when IsValidatedPrimitiveValueAccessor(method) => [],
+            IMethodSymbol method when IsValidatedPrimitiveFactory(method) => ExpandSignatureTypes(method.ReturnType),
             IMethodSymbol method => method.Parameters.SelectMany(parameter => ExpandSignatureTypes(parameter.Type)).Concat(ExpandSignatureTypes(method.ReturnType)),
+            IPropertySymbol property when IsValidatedPrimitiveValueProjection(property) => [],
             IPropertySymbol property => ExpandSignatureTypes(property.Type),
             _ => [],
         };
@@ -82,7 +98,9 @@ internal static class ShapeRules {
     // --- [MODEL_RULES] --------------------------------------------------------
 
     internal static void CheckPublicCtorOnValidatedPrimitive(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {
-        bool hasPublicInstanceCtor = namedType.InstanceConstructors.Any(constructor => constructor.DeclaredAccessibility == Accessibility.Public);
+        bool hasPublicInstanceCtor = namedType.InstanceConstructors.Any(constructor =>
+            !constructor.IsImplicitlyDeclared
+            && constructor.DeclaredAccessibility == Accessibility.Public);
         AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, namedType.TypeKind, namedType.IsReadOnly, SymbolFacts.HasCreateFactory(namedType), hasPublicInstanceCtor, namedType.Locations.Length) switch {
             (true, TypeKind.Struct, true, true, true, > 0)
                 => Diagnostic.Create(RuleCatalog.CSP0203, namedType.Locations[0], namedType.Name),
@@ -177,13 +195,14 @@ internal static class ShapeRules {
         ITypeSymbol? receiverType = method.Parameters.Length > 0 ? UnwrapNullable(method.Parameters[0].Type) : null;
         string receiverName = receiverType?.ToDisplayString() ?? string.Empty;
         bool staticOrdinaryMethod = method.MethodKind == MethodKind.Ordinary && method.IsStatic;
+        bool validatedFactory = method.Name is "Create" or "CreateK";
         bool receiverDomainOrApplication = receiverType is ITypeSymbol type && SymbolFacts.IsDomainOrApplicationNamespace(type.ContainingNamespace?.ToDisplayString() ?? string.Empty);
         bool externalReceiver = receiverType switch {
             INamedTypeSymbol namedReceiver => !SymbolEqualityComparer.Default.Equals(namedReceiver, method.ContainingType),
             _ => true,
         };
-        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, staticOrdinaryMethod, method.IsExtensionMethod, receiverDomainOrApplication, externalReceiver, method.Locations.Length) switch {
-            (true, true, false, true, true, > 0) => Diagnostic.Create(RuleCatalog.CSP0506, method.Locations[0], method.Name, receiverName),
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, staticOrdinaryMethod, validatedFactory, method.IsExtensionMethod, receiverDomainOrApplication, externalReceiver, method.Locations.Length) switch {
+            (true, true, false, false, true, true, > 0) => Diagnostic.Create(RuleCatalog.CSP0506, method.Locations[0], method.Name, receiverName),
             _ => null,
         });
     }
@@ -269,6 +288,25 @@ internal static class ShapeRules {
             },
             _ => false,
         };
+    private static bool IsValidatedPrimitiveFactory(IMethodSymbol method) =>
+        method is {
+            IsStatic: true,
+            Name: "Create" or "CreateK",
+            ContainingType: INamedTypeSymbol containingType,
+        } && IsPotentialValidatedPrimitive(containingType);
+    private static bool IsValidatedPrimitiveValueProjection(IPropertySymbol property) =>
+        property is {
+            Name: "Value",
+            ContainingType: INamedTypeSymbol containingType,
+        } && IsPotentialValidatedPrimitive(containingType);
+    private static bool IsValidatedPrimitiveValueAccessor(IMethodSymbol method) =>
+        method.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet
+        && method.AssociatedSymbol is IPropertySymbol property
+        && IsValidatedPrimitiveValueProjection(property);
+    private static bool IsPotentialValidatedPrimitive(INamedTypeSymbol type) =>
+        type.TypeKind == TypeKind.Struct
+        && SymbolFacts.HasCreateFactory(type)
+        && type.GetMembers().OfType<IPropertySymbol>().Any(property => property.Name == "Value");
     private static IEnumerable<ITypeSymbol> ExpandSignatureTypes(ITypeSymbol type) {
         ITypeSymbol unwrapped = UnwrapNullable(type);
         IEnumerable<ITypeSymbol> nested = unwrapped switch {

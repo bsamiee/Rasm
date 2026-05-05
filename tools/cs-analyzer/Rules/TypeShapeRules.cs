@@ -15,7 +15,9 @@ internal static class TypeShapeRules {
     internal static void CheckDomainPrimitiveShape(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {
         bool candidate = namedType.TypeKind == TypeKind.Struct
             && namedType.GetMembers().OfType<IPropertySymbol>().Any(property => property.Name == "Value");
-        bool hasPublicCtor = namedType.InstanceConstructors.Any(constructor => constructor.DeclaredAccessibility == Accessibility.Public);
+        bool hasPublicCtor = namedType.InstanceConstructors.Any(constructor =>
+            !constructor.IsImplicitlyDeclared
+            && constructor.DeclaredAccessibility == Accessibility.Public);
         bool shapeValid = namedType.IsRecord && namedType.IsReadOnly && SymbolFacts.HasCreateFactory(namedType) && !hasPublicCtor;
         AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, candidate, shapeValid, namedType.Locations.Length) switch {
             (true, true, false, > 0) => Diagnostic.Create(RuleCatalog.CSP0701, namedType.Locations[0], namedType.Name),

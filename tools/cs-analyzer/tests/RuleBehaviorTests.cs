@@ -52,6 +52,28 @@ public sealed class RuleBehaviorTests {
         Assert.DoesNotContain("CSP0101", diagnosticIds);
     }
     [Fact]
+    public async Task RhinoNamespaceClassifiesAsBoundaryScopeAsync() {
+        ImmutableArray<string> diagnosticIds = [
+            .. (await AnalyzerTestHarness.AnalyzeAsync(
+                    filePath: "/workspace/src/Core/Rhino/RhinoBoundary.cs",
+                    source: """
+                        namespace Core.Rhino;
+
+                        public sealed class RhinoBoundary {
+                            public int Clamp(int value) {
+                                if (value > 0) {
+                                    return value;
+                                }
+                                return 0;
+                            }
+                        }
+                        """).ConfigureAwait(true))
+                .Select(static diagnostic => diagnostic.Id),
+        ];
+        Assert.Contains("CSP0101", diagnosticIds);
+        Assert.DoesNotContain("CSP0001", diagnosticIds);
+    }
+    [Fact]
     public async Task ValidValidationErrorReturnTypeDoesNotEmitValidationTypeDiagnosticAsync() {
         ImmutableArray<string> diagnosticIds = [
             .. (await AnalyzerTestHarness.AnalyzeAsync(
@@ -79,6 +101,33 @@ public sealed class RuleBehaviorTests {
                 .Select(static diagnostic => diagnostic.Id),
         ];
         Assert.DoesNotContain("CSP0703", diagnosticIds);
+    }
+    [Fact]
+    public async Task ValidatedPrimitiveIgnoresImplicitStructConstructorAndValueProjectionAsync() {
+        ImmutableArray<string> diagnosticIds = [
+            .. (await AnalyzerTestHarness.AnalyzeAsync(
+                    filePath: "/workspace/src/Domain/Models/ValidPrimitive.cs",
+                    source: """
+                        namespace LanguageExt {
+                            public sealed class Fin<T> { }
+                        }
+
+                        namespace Domain.Models {
+                            public readonly record struct Distance {
+                                private Distance(double value) {
+                                    Value = value;
+                                }
+
+                                public double Value { get; }
+                                public static LanguageExt.Fin<Distance> Create(double value) => new();
+                            }
+                        }
+                        """).ConfigureAwait(true))
+                .Select(static diagnostic => diagnostic.Id),
+        ];
+        Assert.DoesNotContain("CSP0203", diagnosticIds);
+        Assert.DoesNotContain("CSP0701", diagnosticIds);
+        Assert.DoesNotContain("CSP0003", diagnosticIds);
     }
     [Fact]
     public async Task DomainScopeVarInferenceEmitsOutsideDomainNamespaceAsync() {
@@ -170,6 +219,20 @@ public sealed class RuleBehaviorTests {
                             int offset = 3;
                             System.Func<int, int> projector = value => value + offset;
                             return projector(input);
+                        }
+                    }
+                    """),
+            Case(
+                ruleId: "CSP0003",
+                filePath: "/workspace/src/Domain/Models/DoubleSignature.cs",
+                source: """
+                    namespace Domain.Models;
+
+                    public sealed class DoubleSignature {
+                        public double Magnitude { get; }
+
+                        public DoubleSignature(double magnitude) {
+                            Magnitude = magnitude;
                         }
                     }
                     """),
