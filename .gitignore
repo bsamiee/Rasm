@@ -103,7 +103,6 @@ lerna-debug.log*
 # --- [IDE_AND_EDITOR] ---------------------------------------------------------
 
 .vscode/*
-!.vscode/settings.json
 .idea/
 *.swp
 *.swo
