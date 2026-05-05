@@ -2,7 +2,7 @@
     <PropertyGroup Label="Project Classification">
         <IsRhinoPluginProject Condition="'$(MSBuildProjectName)' == 'Rasm.Rhino'">true</IsRhinoPluginProject>
         <IsGrasshopperPluginProject Condition="'$(MSBuildProjectName)' == 'Rasm.Grasshopper'">true</IsGrasshopperPluginProject>
-        <IsRhinoConsumedProject Condition="'$(MSBuildProjectName)' == 'Rasm.Kernel'">true</IsRhinoConsumedProject>
+        <IsRhinoConsumedProject Condition="'$(MSBuildProjectName)' == 'Core'">true</IsRhinoConsumedProject>
     </PropertyGroup>
 
     <PropertyGroup Label="Language and Build">

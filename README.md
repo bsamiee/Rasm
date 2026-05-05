@@ -1,6 +1,6 @@
 # Rasm
 
-RhinoWIP macOS foundation for Rasm plugins. `Rasm.Rhino` loads as a Rhino `.rhp`; `Rasm.Grasshopper` loads as a Grasshopper plugin backed by McNeel GH2 APIs; `Rasm.Kernel` holds shared C# logic without Rhino or Grasshopper references.
+RhinoWIP macOS foundation for Rasm plugins. `Rasm.Rhino` loads as a Rhino `.rhp`; `Rasm.Grasshopper` loads as a Grasshopper plugin backed by McNeel GH2 APIs; `Core` holds shared C# logic without Rhino or Grasshopper references.
 
 ## Target
 
@@ -14,12 +14,13 @@ RhinoWIP macOS foundation for Rasm plugins. `Rasm.Rhino` loads as a Rhino `.rhp`
 
 | Path                       | Purpose                                                        |
 | -------------------------- | -------------------------------------------------------------- |
-| `libs/Rasm.Kernel`         | Shared C# logic consumed by Rhino and Grasshopper boundaries.  |
+| `libs/csharp/core`         | Shared C# logic consumed by Rhino and Grasshopper boundaries.  |
+| `libs/python/<package>`    | Future shared Python packages when Python runtime code exists. |
 | `apps/rhino`               | RhinoWIP `.rhp` plugin boundary.                               |
 | `apps/grasshopper`         | GH2-backed Grasshopper `.rhp` plugin boundary.                 |
 | `tools/cs-analyzer`        | Local Roslyn analyzer project used by C# builds.               |
 | `tools/py_analyzer`        | Local Python semantic analyzer invoked by `pnpm check:py`.     |
-| `yak/rasm/manifest.yml`    | Tracked Yak package metadata for the aggregate `rasm` package. |
+| `tools/yak/manifest.yml`   | Tracked Yak package metadata for the aggregate `rasm` package. |
 | `scripts/rhino.sh`         | Build, stage, package, and push Rhino artifacts.               |
 | `.artifacts/rhino/package` | Generated Yak package root used by `yak build`.                |
 
@@ -88,12 +89,12 @@ scripts/rhino.sh push 0.1.0-wip
 1. Restore `Workspace.slnx`.
 2. Build `Workspace.slnx` in `Release`.
 3. Stage `Rasm.Rhino.rhp`, `Rasm.Grasshopper.rhp`, and owned output assemblies.
-4. Copy `yak/rasm/manifest.yml` and `yak/rasm/icon.png`.
+4. Copy `tools/yak/manifest.yml` and `tools/yak/icon.png`.
 5. Run RhinoWIP Yak with `--platform mac` and supplied version.
 
 Host assemblies stay outside package output: `RhinoCommon`, `Grasshopper2`, and `GrasshopperIO`.
 
-`yak/rasm` is only the tracked source of package metadata. The actual Yak package root is generated at `.artifacts/rhino/package` so `.rhp` files and `manifest.yml` sit at the top level required by Yak.
+`tools/yak` is only the tracked source of package metadata. The actual Yak package root is generated at `.artifacts/rhino/package` so `.rhp` files and `manifest.yml` sit at the top level required by Yak.
 
 Yak inspects the first `.rhp` and warns that content name `Rasm.Rhino` differs from package name `rasm`. Keep `rasm` as the aggregate package name unless the package is split.
 
@@ -101,6 +102,6 @@ Yak inspects the first `.rhp` and warns that content name `Rasm.Rhino` differs f
 
 Grasshopper uses GH2 component APIs: `Grasshopper2.Components.Component`, `InputAdder`, `OutputAdder`, `IDataAccess`, and `GrasshopperIO.IoIdAttribute`.
 
-GH2 can run component work in parallel. Component code keeps execution state local to `Process` and moves reusable logic into `Rasm.Kernel`.
+GH2 can run component work in parallel. Component code keeps execution state local to `Process` and moves reusable logic into `Core`.
 
 Python and RhinoCode publishing stay out of this foundation until RhinoWIP `rhinocode` resolves its local runtime mismatch.

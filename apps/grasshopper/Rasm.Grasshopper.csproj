@@ -6,7 +6,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="../../libs/Rasm.Kernel/Rasm.Kernel.csproj" />
+        <ProjectReference Include="../../libs/csharp/core/Core.csproj" />
     </ItemGroup>
 
     <ItemGroup>

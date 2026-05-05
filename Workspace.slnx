@@ -6,8 +6,8 @@
   <Folder Name="/apps/rhino/">
     <Project Path="apps/rhino/Rasm.Rhino.csproj" />
   </Folder>
-  <Folder Name="/libs/">
-    <Project Path="libs/Rasm.Kernel/Rasm.Kernel.csproj" />
+  <Folder Name="/libs/csharp/core/">
+    <Project Path="libs/csharp/core/Core.csproj" />
   </Folder>
   <Folder Name="/tools/cs-analyzer/">
     <Project Path="tools/cs-analyzer/CsAnalyzer.csproj" />

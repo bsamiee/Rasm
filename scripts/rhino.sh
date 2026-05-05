@@ -45,8 +45,8 @@ _stage_project_output() {
 _stage_package() {
     rm -rf -- "${STAGE_DIR}"
     mkdir -p -- "${STAGE_DIR}"
-    cp -p -- "${ROOT_DIR}/yak/rasm/manifest.yml" "${STAGE_DIR}/manifest.yml"
-    cp -p -- "${ROOT_DIR}/yak/rasm/icon.png" "${STAGE_DIR}/icon.png"
+    cp -p -- "${ROOT_DIR}/tools/yak/manifest.yml" "${STAGE_DIR}/manifest.yml"
+    cp -p -- "${ROOT_DIR}/tools/yak/icon.png" "${STAGE_DIR}/icon.png"
     _stage_project_output "apps/rhino"
     _stage_project_output "apps/grasshopper"
 }
