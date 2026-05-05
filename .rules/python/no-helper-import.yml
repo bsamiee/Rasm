@@ -1,0 +1,14 @@
+id: no-helper-import
+language: Python
+severity: error
+message: Helper/util/common modules are forbidden; consolidate behavior into the owning domain module.
+rule:
+  any:
+    - pattern: import helpers
+    - pattern: import helper
+    - pattern: import utils
+    - pattern: import util
+    - pattern: from helpers import $$$NAMES
+    - pattern: from helper import $$$NAMES
+    - pattern: from utils import $$$NAMES
+    - pattern: from util import $$$NAMES

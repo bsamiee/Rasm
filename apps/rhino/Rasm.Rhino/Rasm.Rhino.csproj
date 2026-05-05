@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Title>Rasm Rhino</Title>
+        <Company>Rasm</Company>
+        <Description>RhinoWIP plugin boundary for Rasm.</Description>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../../../packages/Rasm.Kernel/Rasm.Kernel.csproj" />
+    </ItemGroup>
+</Project>

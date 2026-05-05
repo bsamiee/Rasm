@@ -1,0 +1,214 @@
+using System.Collections.Immutable;
+using Foundation.CSharp.Analyzers.Contracts;
+using Foundation.CSharp.Analyzers.Kernel;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Operations;
+
+namespace Foundation.CSharp.Analyzers.Rules;
+
+// --- [FLOW_RULES] ------------------------------------------------------------
+
+internal static class FlowRules {
+    // --- [CONTROL_RULES] ------------------------------------------------------
+
+    internal static void CheckImperativeConditional(OperationAnalysisContext context, AnalyzerState state, ScopeInfo scope, IConditionalOperation conditional) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, scope.IsBoundary, conditional.Syntax is IfStatementSyntax) switch {
+            (true, _, true) => Diagnostic.Create(RuleCatalog.CSP0001, context.Operation.Syntax.GetLocation(), "conditional"),
+            (_, true, true) => BoundaryDiagnostic(
+                context, state, construct: "if",
+                reason: (SymbolFacts.IsBoundaryIfCancellationGuard(conditional), SymbolFacts.IsAsyncIteratorYieldGate(conditional)) switch {
+                    (true, _) => BoundaryImperativeReason.CancellationGuard,
+                    (_, true) => BoundaryImperativeReason.AsyncIteratorYieldGate,
+                    _ => BoundaryImperativeReason.ProtocolRequired,
+                },
+                domainRule: RuleCatalog.CSP0001),
+            _ => null,
+        });
+    internal static void CheckImperativeLoop(OperationAnalysisContext context, AnalyzerState state, ScopeInfo scope, ILoopOperation loopOperation) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, scope.IsBoundary) switch {
+            (true, _) => Diagnostic.Create(RuleCatalog.CSP0001, context.Operation.Syntax.GetLocation(), "loop"),
+            (_, true) => BoundaryDiagnostic(
+                context, state, construct: "loop",
+                reason: loopOperation.Syntax is ForEachStatementSyntax { AwaitKeyword.RawKind: > 0 }
+                    ? BoundaryImperativeReason.AsyncIteratorYieldGate
+                    : BoundaryImperativeReason.ProtocolRequired,
+                domainRule: RuleCatalog.CSP0001),
+            _ => null,
+        });
+    internal static void CheckExceptionTry(OperationAnalysisContext context, AnalyzerState state, ScopeInfo scope, ITryOperation tryOperation) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, scope.IsBoundary, tryOperation.Catches.Length > 0, tryOperation.Finally is not null) switch {
+            (true, _, true, _) => Diagnostic.Create(RuleCatalog.CSP0009, context.Operation.Syntax.GetLocation(), "try/catch"),
+            (true, _, false, true) => Diagnostic.Create(RuleCatalog.CSP0009, context.Operation.Syntax.GetLocation(), "try/finally"),
+            (_, true, true, _) => BoundaryDiagnostic(context, state, construct: "try/catch", reason: BoundaryImperativeReason.ProtocolRequired, domainRule: RuleCatalog.CSP0009),
+            (_, true, false, true) => BoundaryDiagnostic(context, state, construct: "try/finally", reason: BoundaryImperativeReason.CleanupFinally, domainRule: RuleCatalog.CSP0009),
+            _ => null,
+        });
+    internal static void CheckExceptionThrow(OperationAnalysisContext context, AnalyzerState state, ScopeInfo scope, IThrowOperation throwOperation) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, scope.IsBoundary, SymbolFacts.IsUnreachableThrow(throwOperation)) switch {
+            (_, _, true) => null,
+            (true, _, false) => Diagnostic.Create(RuleCatalog.CSP0009, context.Operation.Syntax.GetLocation(), "throw"),
+            (_, true, false) => BoundaryDiagnostic(context, state, construct: "throw", reason: BoundaryImperativeReason.ProtocolRequired, domainRule: RuleCatalog.CSP0009),
+            _ => null,
+        });
+
+    // --- [MATCH_RULES] --------------------------------------------------------
+
+    internal static void CheckMatchCollapse(OperationAnalysisContext context, AnalyzerState state, ScopeInfo scope, IInvocationOperation invocation) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, SymbolFacts.IsLanguageExtMatch(invocation, state.LanguageExtNamespace), SymbolFacts.IsBoundaryMatchUsage(invocation), SymbolFacts.IsRegexMatchCall(invocation)) switch {
+            (true, true, false, false) => Diagnostic.Create(RuleCatalog.CSP0002, context.Operation.Syntax.GetLocation()),
+            _ => null,
+        });
+    internal static void CheckMatchBoundaryStrict(OperationAnalysisContext context, AnalyzerState state, ScopeInfo scope, IInvocationOperation invocation) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsBoundary, SymbolFacts.IsLanguageExtMatch(invocation, state.LanguageExtNamespace), SymbolFacts.IsBoundaryMatchUsage(invocation), SymbolFacts.IsRegexMatchCall(invocation)) switch {
+            (true, true, false, false) => Diagnostic.Create(RuleCatalog.CSP0705, context.Operation.Syntax.GetLocation()),
+            _ => null,
+        });
+    internal static void CheckRunInTransform(OperationAnalysisContext context, ScopeInfo scope, IInvocationOperation invocation) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, SymbolFacts.IsLanguageExtRunCollapse(invocation), invocation.TargetMethod.Name) switch {
+            (true, true, string method) => Diagnostic.Create(RuleCatalog.CSP0303, context.Operation.Syntax.GetLocation(), method),
+            _ => null,
+        });
+
+    // --- [NULL_RULES] ---------------------------------------------------------
+
+    internal static void CheckNullSentinel(OperationAnalysisContext context, ScopeInfo scope, IBinaryOperation binaryOperation) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, SymbolFacts.IsNullComparison(binaryOperation)) switch {
+            (true, true) => Diagnostic.Create(RuleCatalog.CSP0104, context.Operation.Syntax.GetLocation()),
+            _ => null,
+        });
+    internal static void CheckNullPatternSentinel(OperationAnalysisContext context, ScopeInfo scope, IIsPatternOperation isPatternOperation) {
+        bool negated = isPatternOperation.Pattern is INegatedPatternOperation;
+        string sentinel = negated ? "is not null" : "is null";
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, SymbolFacts.IsNullPattern(isPatternOperation)) switch {
+            (true, true) => Diagnostic.Create(RuleCatalog.CSP0709, context.Operation.Syntax.GetLocation(), sentinel),
+            _ => null,
+        });
+    }
+    internal static void CheckReferenceEqualsNull(OperationAnalysisContext context, ScopeInfo scope, IInvocationOperation invocation) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, SymbolFacts.IsReferenceEqualsNull(invocation)) switch {
+            (true, true) => Diagnostic.Create(RuleCatalog.CSP0709, context.Operation.Syntax.GetLocation(), "ReferenceEquals"),
+            _ => null,
+        });
+    internal static void CheckEarlyReturnGuardChain(OperationAnalysisContext context, ScopeInfo scope, IConditionalOperation conditional) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, SymbolFacts.IsEarlyReturnGuard(conditional)) switch {
+            (true, true) => Diagnostic.Create(RuleCatalog.CSP0706, context.Operation.Syntax.GetLocation()),
+            _ => null,
+        });
+    internal static void CheckVariableReassignment(OperationAnalysisContext context, ScopeInfo scope, ISimpleAssignmentOperation assignment) {
+        string targetName = assignment.Target is ILocalReferenceOperation local ? local.Local.Name : string.Empty;
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, SymbolFacts.IsSelfReassignment(assignment), targetName.Length > 0) switch {
+            (true, true, true) => Diagnostic.Create(RuleCatalog.CSP0707, context.Operation.Syntax.GetLocation(), targetName),
+            _ => null,
+        });
+    }
+
+    // --- [METADATA_RULES] -----------------------------------------------------
+
+    internal static void CheckExemptionMetadata(SymbolAnalysisContext context, AnalyzerState state, ISymbol symbol) {
+        ImmutableArray<AnalyzerState.BoundaryExemptionInfo> exemptions = state.ExemptionsFor(symbol);
+        IEnumerable<Diagnostic> diagnostics = exemptions.SelectMany(exemption =>
+            (exemption.IsMetadataValid, exemption.IsExpired(state.AnalysisUtcNow), symbol.Locations.Length, FormatTicket(exemption.Ticket)) switch {
+                (false, _, > 0, string ticket) => [Diagnostic.Create(RuleCatalog.CSP0901, symbol.Locations[0], symbol.Name, ticket)],
+                (true, true, > 0, string ticket) => [Diagnostic.Create(RuleCatalog.CSP0902, symbol.Locations[0], symbol.Name, exemption.ExpiresOnUtc, ticket)],
+                _ => Array.Empty<Diagnostic>(),
+            });
+        AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
+    }
+
+    // --- [ASYNC_RULES] --------------------------------------------------------
+
+    internal static void CheckAsyncVoid(SymbolAnalysisContext context, ScopeInfo scope, IMethodSymbol method) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, method.IsAsync, method.ReturnsVoid, method.Locations.Length) switch {
+            (true, true, true, > 0) => Diagnostic.Create(RuleCatalog.CSP0010, method.Locations[0], method.Name),
+            _ => null,
+        });
+    internal static void CheckAsyncBlocking(OperationAnalysisContext context, ScopeInfo scope, IInvocationOperation invocation) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, SymbolFacts.IsBlockingInvocation(invocation)) switch {
+            (true, true) => Diagnostic.Create(RuleCatalog.CSP0006, context.Operation.Syntax.GetLocation(), invocation.TargetMethod.Name),
+            _ => null,
+        });
+    internal static void CheckAsyncBlockingProperty(OperationAnalysisContext context, ScopeInfo scope, IPropertyReferenceOperation propertyReference) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, propertyReference.Property.Name == "Result" && SymbolFacts.IsTaskLikeType(propertyReference.Property.ContainingType)) switch {
+            (true, true) => Diagnostic.Create(RuleCatalog.CSP0006, context.Operation.Syntax.GetLocation(), ".Result"),
+            _ => null,
+        });
+    internal static void CheckTaskRunFanOut(OperationAnalysisContext context, ScopeInfo scope, IInvocationOperation invocation) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, SymbolFacts.IsTaskRun(invocation)) switch {
+            (true, true) => Diagnostic.Create(RuleCatalog.CSP0014, context.Operation.Syntax.GetLocation()),
+            _ => null,
+        });
+    internal static void CheckFireAndForget(OperationAnalysisContext context, ScopeInfo scope, IInvocationOperation invocation) {
+        bool taskLike = SymbolFacts.IsTaskLikeType(invocation.TargetMethod.ReturnType);
+        bool unobservedStatement = invocation.Parent is IExpressionStatementOperation or ISimpleAssignmentOperation {
+            Target: IDiscardOperation,
+            Parent: IExpressionStatementOperation,
+        };
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, taskLike, unobservedStatement) switch {
+            (true, true, true) => Diagnostic.Create(RuleCatalog.CSP0301, context.Operation.Syntax.GetLocation(), invocation.TargetMethod.Name),
+            _ => null,
+        });
+    }
+    internal static void CheckUnboundedWhenAll(OperationAnalysisContext context, ScopeInfo scope, IInvocationOperation invocation) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, SymbolFacts.IsTaskWhenAllUnbounded(invocation)) switch {
+            (true, true) => Diagnostic.Create(RuleCatalog.CSP0302, context.Operation.Syntax.GetLocation()),
+            _ => null,
+        });
+
+    // --- [FUNCTIONAL_RULES] ---------------------------------------------------
+
+    internal static void CheckFilterMapChain(OperationAnalysisContext context, ScopeInfo scope, IInvocationOperation invocation) {
+        bool filterMapChain = invocation.TargetMethod.Name == "Map"
+            && invocation.Instance is IInvocationOperation receiver
+            && receiver.TargetMethod.Name == "Filter"
+            && (receiver.TargetMethod.ContainingType?.ContainingNamespace?.ToDisplayString() ?? string.Empty)
+                .StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal);
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, filterMapChain) switch {
+            (true, true) => Diagnostic.Create(RuleCatalog.CSP0710, context.Operation.Syntax.GetLocation()),
+            _ => null,
+        });
+    }
+    internal static void CheckAsyncAwaitInEff(OperationAnalysisContext context, ScopeInfo scope, IAwaitOperation awaitOperation) {
+        bool effReturning = context.ContainingSymbol is IMethodSymbol method
+            && method.ReturnType.OriginalDefinition.MetadataName is "Eff`1" or "Eff`2"
+            && (method.ReturnType.ContainingNamespace?.ToDisplayString() ?? string.Empty)
+                .StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal);
+        string methodName = context.ContainingSymbol?.Name ?? string.Empty;
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, effReturning) switch {
+            (true, true) => Diagnostic.Create(RuleCatalog.CSP0711, context.Operation.Syntax.GetLocation(), methodName),
+            _ => null,
+        });
+    }
+    internal static void CheckMutableAccumulatorInLoop(OperationAnalysisContext context, ScopeInfo scope, IInvocationOperation invocation) {
+        string? typeName = invocation.TargetMethod.ContainingType?.OriginalDefinition?.MetadataName;
+        bool mutableAdd = invocation.TargetMethod.Name == "Add"
+            && typeName is not null
+            && SymbolFacts.MutableCollectionNames.Contains(typeName);
+        bool insideLoop = SymbolFacts.IsInsideLoop(context.Operation);
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, mutableAdd, insideLoop) switch {
+            (true, true, true) => Diagnostic.Create(RuleCatalog.CSP0718, context.Operation.Syntax.GetLocation(), invocation.TargetMethod.ContainingType?.Name ?? string.Empty),
+            _ => null,
+        });
+    }
+
+    // --- [PRIVATE_FUNCTIONS] --------------------------------------------------
+
+    private static Diagnostic? BoundaryDiagnostic(OperationAnalysisContext context, AnalyzerState state, string construct, BoundaryImperativeReason reason, DiagnosticDescriptor domainRule) {
+        (BoundaryExemptionStatus status, AnalyzerState.BoundaryExemptionInfo? matchingExemption) = state.ExemptionStatus(symbol: context.ContainingSymbol, domainRule: domainRule, expectedReason: reason);
+        string expectedReason = reason.ToString();
+        string expiry = matchingExemption?.ExpiresOnUtc ?? "unknown";
+        string ticket = FormatTicket(matchingExemption?.Ticket ?? string.Empty);
+        return status switch {
+            BoundaryExemptionStatus.Missing => Diagnostic.Create(RuleCatalog.CSP0101, context.Operation.Syntax.GetLocation(), construct),
+            BoundaryExemptionStatus.Invalid => Diagnostic.Create(RuleCatalog.CSP0102, context.Operation.Syntax.GetLocation(), expectedReason, construct),
+            BoundaryExemptionStatus.Expired => Diagnostic.Create(RuleCatalog.CSP0103, context.Operation.Syntax.GetLocation(), construct, expiry, ticket),
+            _ => null,
+        };
+    }
+    private static string FormatTicket(string ticket) =>
+        string.IsNullOrWhiteSpace(ticket) switch {
+            true => "missing-ticket",
+            _ => ticket,
+        };
+}

@@ -1,0 +1,157 @@
+{
+    "name": "workspace-foundation",
+    "version": "0.4.0",
+    "private": true,
+    "type": "module",
+    "workspaces": [],
+    "scripts": {
+        "prepare": "lefthook install || test ! -d .git",
+        "check:ts": "pnpm exec tsc --noEmit -p tsconfig.base.json && pnpm exec biome ci . --files-ignore-unknown=true && pnpm exec ast-grep scan --config sgconfig.yml --filter '^ts-domain-' --error --globs 'apps/**/src/**' --globs 'packages/**/src/**' --globs '!**/*.test.*' --globs '!**/*.spec.*' && pnpm exec ast-grep scan --config sgconfig.yml --filter '^ts-domain-' --error tests/ast-grep/pass && ! pnpm exec ast-grep scan --config sgconfig.yml --filter '^ts-domain-' --error tests/ast-grep/fail >/dev/null 2>&1 && pnpm exec knip --exclude catalog --no-config-hints && pnpm exec sherif && pnpm exec vitest run",
+        "check:py": "export UV_CACHE_DIR=.cache/uv HYPOTHESIS_STORAGE_DIRECTORY=.cache/hypothesis; PY_FILES=\"$(fd -H -e py . apps/py_analyzer tests/py_analyzer .claude/hooks .claude/skills/*/scripts)\"; uv run validate-pyproject pyproject.toml && uv run ruff format --check $PY_FILES && uv run ruff check $PY_FILES && uv run ty check apps/py_analyzer tests/py_analyzer .claude/hooks .claude/skills/*/scripts --no-progress && uv run mypy --explicit-package-bases apps/py_analyzer tests/py_analyzer && fd -H -e py . .claude/hooks .claude/skills/*/scripts -x bash -c 'MYPYPATH=\"$(dirname \"$1\")\" uv run mypy --explicit-package-bases \"$1\"' sh {} && pnpm exec ast-grep scan --config sgconfig.yml --filter '^no-' --error --globs '!tests/ast-grep/**' --globs '!.claude/**' --globs '!.cache/**' --globs '!.git/**' --globs '!.nx/**' --globs '!.venv/**' --globs '!coverage/**' --globs '!node_modules/**' --globs '!test-results/**' --globs '!tmp/**' && ! fd -H -e py '(^|/)(helpers?|utils?|common|config|cfg|misc)\\.py$' . --exclude .cache --exclude .claude --exclude .git --exclude .nx --exclude .venv --exclude coverage --exclude node_modules --exclude test-results --exclude tests/ast-grep | rg . && pnpm exec ast-grep scan --config sgconfig.yml --filter '^no-' --error tests/ast-grep/pass && ! pnpm exec ast-grep scan --config sgconfig.yml --filter '^no-' --error tests/ast-grep/fail >/dev/null 2>&1 && uv run python -m apps.py_analyzer check --root . --format text && uv run pytest tests/py_analyzer",
+        "check:cs": "dotnet restore Workspace.slnx --locked-mode && dotnet build Workspace.slnx --configuration Release --no-restore && dotnet test Workspace.slnx --configuration Release --no-build"
+    },
+    "devDependencies": {
+        "@anthropic-ai/tokenizer": "catalog:",
+        "@ast-grep/cli": "catalog:",
+        "@berenddeboer/nx-biome": "catalog:",
+        "@biomejs/biome": "catalog:",
+        "@effect/experimental": "catalog:",
+        "@effect/platform": "catalog:",
+        "@effect/platform-browser": "catalog:",
+        "@effect/vitest": "catalog:",
+        "@mermaid-js/mermaid-cli": "catalog:",
+        "@nx-extend/pulumi": "catalog:",
+        "@nx-tools/nx-container": "catalog:",
+        "@nx/docker": "catalog:",
+        "@nx/dotnet": "catalog:",
+        "@nx/js": "catalog:",
+        "@nx/playwright": "catalog:",
+        "@nx/react": "catalog:",
+        "@nx/vite": "catalog:",
+        "@nxlv/python": "catalog:",
+        "@octokit/rest": "catalog:",
+        "@playwright/test": "catalog:",
+        "@radix-ui/react-label": "catalog:",
+        "@radix-ui/react-separator": "catalog:",
+        "@radix-ui/react-slot": "catalog:",
+        "@rolldown/plugin-babel": "catalog:",
+        "@rollup/plugin-typescript": "catalog:",
+        "@stryker-mutator/core": "catalog:",
+        "@stryker-mutator/typescript-checker": "catalog:",
+        "@stryker-mutator/vitest-runner": "catalog:",
+        "@swc-node/register": "catalog:",
+        "@swc/core": "catalog:",
+        "@tailwindcss/vite": "catalog:",
+        "@tanstack/react-table": "catalog:",
+        "@tanstack/react-virtual": "catalog:",
+        "@types/k6": "catalog:",
+        "@types/node": "catalog:",
+        "@types/react": "catalog:",
+        "@types/react-dom": "catalog:",
+        "@vitejs/plugin-react": "catalog:",
+        "@vitest/browser-playwright": "catalog:",
+        "@vitest/coverage-v8": "catalog:",
+        "@vitest/ui": "catalog:",
+        "babel-plugin-react-compiler": "catalog:",
+        "browserslist": "catalog:",
+        "class-variance-authority": "catalog:",
+        "clsx": "catalog:",
+        "cmdk": "catalog:",
+        "date-fns": "catalog:",
+        "effect": "catalog:",
+        "fast-check": "catalog:",
+        "happy-dom": "catalog:",
+        "immer": "catalog:",
+        "jsdom": "catalog:",
+        "jspdf": "catalog:",
+        "jszip": "catalog:",
+        "knip": "catalog:",
+        "lefthook": "catalog:",
+        "lightningcss": "catalog:",
+        "lucide-react": "catalog:",
+        "nx": "catalog:",
+        "react-aria": "catalog:",
+        "react-compiler-runtime": "catalog:",
+        "react-stately": "catalog:",
+        "rollup-plugin-visualizer": "catalog:",
+        "sharp": "catalog:",
+        "sherif": "catalog:",
+        "tailwind-merge": "catalog:",
+        "tailwindcss": "catalog:",
+        "testcontainers": "catalog:",
+        "tslib": "catalog:",
+        "tsx": "catalog:",
+        "typescript": "catalog:",
+        "vite": "catalog:",
+        "vite-plugin-compression": "catalog:",
+        "vite-plugin-csp": "catalog:",
+        "vite-plugin-image-optimizer": "catalog:",
+        "vite-plugin-inspect": "catalog:",
+        "vite-plugin-pwa": "catalog:",
+        "vite-plugin-svgr": "catalog:",
+        "vite-plugin-webfont-dl": "catalog:",
+        "vite-tsconfig-paths": "catalog:",
+        "vitest": "catalog:",
+        "zustand": "catalog:"
+    },
+    "browserslist": [
+        "baseline widely available",
+        "not dead",
+        "not ie <= 11"
+    ],
+    "engines": {
+        "node": "25.6.1"
+    },
+    "knip": {
+        "ignoreBinaries": [
+            "dotnet",
+            "fd",
+            "rg",
+            "uv"
+        ],
+        "workspaces": {
+            ".": {
+                "ignoreFiles": [
+                    "tests/ast-grep/**/*.{ts,tsx,mts,cts}"
+                ],
+                "ignoreDependencies": [
+                    "^@anthropic-ai/tokenizer$",
+                    "^@ast-grep/cli$",
+                    "^@berenddeboer/nx-biome$",
+                    "^@biomejs/biome$",
+                    "^@(fast-check|mermaid-js|octokit|radix-ui|tanstack)/",
+                    "^@effect/(experimental|platform|platform-browser|vitest)$",
+                    "^@nx/(docker|dotnet|js|playwright|react|vite)$",
+                    "^@(nx-extend/pulumi|nx-tools/nx-container|nxlv/python)$",
+                    "^@playwright/test$",
+                    "^@swc(-node/register|/core)$",
+                    "^@types/(k6|react|react-dom)$",
+                    "^lightningcss$",
+                    "^nx$",
+                    "^(babel-plugin-react-compiler|browserslist|class-variance-authority|clsx|cmdk|date-fns|fast-check|immer|jspdf|jszip|lucide-react|react-aria|react-compiler-runtime|react-stately|tailwind-merge|tailwindcss|testcontainers|zustand)$"
+                ]
+            }
+        }
+    },
+    "packageManager": "pnpm@11.0.4",
+    "pnpm": {
+        "overrides": {
+            "jiti": "2.6.1",
+            "node-forge": "1.4.0",
+            "puppeteer": "24.42.0",
+            "axios": "1.16.0",
+            "rollup": "4.60.2",
+            "koa": "3.2.0",
+            "minimatch": "10.2.5",
+            "svgo": "4.0.1",
+            "tar": "7.5.13"
+        },
+        "peerDependencyRules": {
+            "allowedVersions": {
+                "puppeteer": "24.42.0",
+                "typescript": "6.0.3",
+                "vitest": "4.1.5"
+            }
+        }
+    }
+}

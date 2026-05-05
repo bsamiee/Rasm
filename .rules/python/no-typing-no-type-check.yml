@@ -1,0 +1,11 @@
+id: no-typing-no-type-check
+language: Python
+severity: error
+message: Rasm type gates are mandatory; refine the signature or isolate a typed boundary adapter instead of suppressing type checking.
+rule:
+  any:
+    - pattern: from typing import no_type_check
+    - pattern: from typing_extensions import no_type_check
+    - pattern: typing.no_type_check
+    - pattern: typing_extensions.no_type_check
+    - pattern: no_type_check

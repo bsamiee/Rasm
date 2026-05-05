@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Title>Rasm Grasshopper</Title>
+        <Company>Rasm</Company>
+        <Description>Grasshopper plugin boundary for Rasm on RhinoWIP.</Description>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../../../packages/Rasm.Kernel/Rasm.Kernel.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <EmbeddedResource Include="Icons/*.ghicon" />
+        <EmbeddedResource Include="Icons/*.ico" />
+    </ItemGroup>
+</Project>

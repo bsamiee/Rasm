@@ -1,0 +1,13 @@
+id: ts-domain-no-let
+language: Tsx
+severity: error
+message: Use const, Effect Ref, or explicit immutable state instead of let in domain/application source.
+files:
+  - apps/**/src/**/domain/**/*.{ts,tsx,mts,cts}
+  - apps/**/src/**/application/**/*.{ts,tsx,mts,cts}
+  - packages/**/src/**/domain/**/*.{ts,tsx,mts,cts}
+  - packages/**/src/**/application/**/*.{ts,tsx,mts,cts}
+  - tests/ast-grep/**/src/**/domain/**/*.{ts,tsx,mts,cts}
+  - tests/ast-grep/**/src/**/application/**/*.{ts,tsx,mts,cts}
+rule:
+  pattern: let $DECL

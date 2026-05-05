@@ -1,0 +1,140 @@
+# --- [DEPENDENCIES] -----------------------------------------------------------
+
+node_modules/
+.pnpm-store/
+pnpm-debug.log*
+
+# --- [BUILD_OUTPUTS] ----------------------------------------------------------
+
+dist/
+build/
+out/
+html/
+public/build/
+.next/
+.nuxt/
+.turbo/
+.docusaurus/
+.rollup.cache/
+.genkit/
+
+# --- [TYPESCRIPT_ARTIFACTS] ---------------------------------------------------
+
+*.tsbuildinfo
+**/dist/**/*.d.ts
+**/dist/**/*.d.ts.map
+*.js.map
+
+# --- [PYTHON_ARTIFACTS] -------------------------------------------------------
+
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info/
+.eggs/
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+.venv/
+venv/
+ENV/
+env/
+.uv/
+
+# --- [TEST_COVERAGE] ----------------------------------------------------------
+
+coverage/
+.nyc_output/
+.coverage
+coverage.xml
+htmlcov/
+test-results/
+.vitest-reports/
+lost-pixel/
+playwright-report/
+playwright/.cache/
+.hypothesis/
+**/__screenshots__/
+.vitest-attachments
+
+# --- [CACHES] -----------------------------------------------------------------
+
+.cache/
+.artifacts/
+.nx/*
+.stryker-tmp/
+test-results/mutation/stryker-incremental.json
+.vite-inspect/
+.vite/
+.scannerwork/
+
+# --- [.NET_ARTIFACTS] ---------------------------------------------------------
+
+**/bin/
+**/obj/
+**/TestResults/
+diagnostics.sarif
+*.rsuser
+*.suo
+
+# --- [ENVIRONMENT_VARIABLES] --------------------------------------------------
+
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+.secrets
+gha-creds-*.json
+
+# --- [LOGS] -------------------------------------------------------------------
+
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# --- [IDE_AND_EDITOR] ---------------------------------------------------------
+
+.vscode/*
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*.tmp
+*.bak
+*.orig
+*~
+
+# --- [MACOS] ------------------------------------------------------------------
+
+.DS_Store
+.DS_Store?
+.AppleDouble
+.LSOverride
+Thumbs.db
+
+# --- [AI_TOOLING] -------------------------------------------------------------
+
+.archive/
+.archive
+.claude/agent-memory-local/
+.claude/skills/**/.cache/
+.claude/settings.local.json
+.claude/worktrees/
+.playwright-mcp/
+# Gemini CLI auto-generated files (keep commands/ and extensions/ tracked)
+.gemini/telemetry.log
+.gemini/settings.json
+.gemini/.DS_Store
+
+# --- [SECRETS] ---------------------------------------------------------------
+
+*.pem
+credentials.json

@@ -1,0 +1,10 @@
+ruleDirs:
+  - .rules/python
+  - .rules/typescript
+
+languageGlobs:
+  tsx:
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.mts"
+    - "**/*.cts"

@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0": {
+      "Meziantou.Analyzer": {
+        "type": "Direct",
+        "requested": "[3.0.61, )",
+        "resolved": "3.0.61",
+        "contentHash": "Ed/5bKmY38QbQJgL9wmWnweX4mq3WaNYNq8kp4Hk/WPIFuLuK/P/dEB/ZnenQius+NNDXxTIiCXFPmQdLrHWMg=="
+      },
+      "Microsoft.Net.Compilers.Toolset": {
+        "type": "Direct",
+        "requested": "[5.3.0, )",
+        "resolved": "5.3.0",
+        "contentHash": "7TEP2rSGCvP7Y1H/Koktzt5xCkf/PWzbTmiDVxztkLTvTeZbj99LgpSjogWEZRpgOTAHlVJK9VfOAxrVKcR5pw=="
+      },
+      "Microsoft.VisualStudio.Threading.Analyzers": {
+        "type": "Direct",
+        "requested": "[17.14.15, )",
+        "resolved": "17.14.15",
+        "contentHash": "mXQPJsbuUD2ydq4/ffd8h8tSOFCXec+2xJOVNCvXjuMOq/+5EKHq3D2m2MC2+nUaXeFMSt66VS/J4HdKBixgcw=="
+      }
+    }
+  }
+}
