@@ -1,18 +1,18 @@
 <Solution>
   <Folder Name="/apps/" />
-  <Folder Name="/apps/cs-analyzer/">
-    <Project Path="apps/cs-analyzer/CsAnalyzer.csproj" />
-  </Folder>
-  <Folder Name="/apps/cs-analyzer/tests/">
-    <Project Path="apps/cs-analyzer/tests/CsAnalyzer.Tests.csproj" />
-  </Folder>
   <Folder Name="/apps/grasshopper/">
-    <Project Path="apps/grasshopper/Rasm.Grasshopper/Rasm.Grasshopper.csproj" />
+    <Project Path="apps/grasshopper/Rasm.Grasshopper.csproj" />
   </Folder>
   <Folder Name="/apps/rhino/">
-    <Project Path="apps/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
+    <Project Path="apps/rhino/Rasm.Rhino.csproj" />
   </Folder>
-  <Folder Name="/packages/">
-    <Project Path="packages/Rasm.Kernel/Rasm.Kernel.csproj" />
+  <Folder Name="/libs/">
+    <Project Path="libs/Rasm.Kernel/Rasm.Kernel.csproj" />
+  </Folder>
+  <Folder Name="/tools/cs-analyzer/">
+    <Project Path="tools/cs-analyzer/CsAnalyzer.csproj" />
+  </Folder>
+  <Folder Name="/tools/cs-analyzer/tests/">
+    <Project Path="tools/cs-analyzer/tests/CsAnalyzer.Tests.csproj" />
   </Folder>
 </Solution>

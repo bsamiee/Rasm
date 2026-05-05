@@ -213,12 +213,12 @@ const clientOnly = (plugin: Plugin): Plugin => ({
 
 // --- [DISPATCH_TABLES] -------------------------------------------------------
 
-const buildApp = (builder: ViteBuilder): Promise<void> =>
+const buildApp = ({ build, environments: { client } }: ViteBuilder): Promise<void> =>
     pipe(
-        Option.fromNullable(builder.environments['client']),
+        Option.fromNullable(client),
         Option.match({
             onNone: () => Promise.resolve(),
-            onSome: (env) => builder.build(env).then(() => undefined),
+            onSome: (env) => build(env).then(() => undefined),
         }),
     );
 const plugins = {

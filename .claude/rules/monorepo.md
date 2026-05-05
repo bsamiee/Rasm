@@ -6,7 +6,7 @@ Always `pnpm exec nx <command>` from repo root — never bare `nx`, `npx nx`, or
 
 ## Workspace Topology
 
-This foundation currently owns root tooling, `.claude/`, `apps/cs-analyzer`, and root `tests/`. Add package roots or new app roots only when the directory exists and its package manifest is real.
+This foundation currently owns root tooling, `.claude/`, `tools/`, and root `tests/`. Add package roots or new app roots only when the directory exists and its package manifest is real.
 
 `pnpm exec nx show projects` currently returns no active Nx projects. Treat Nx guidance as future-ready until a physical project root is added.
 

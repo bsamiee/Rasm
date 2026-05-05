@@ -12,29 +12,34 @@ RhinoWIP macOS foundation for Rasm plugins. `Rasm.Rhino` loads as a Rhino `.rhp`
 
 ## Layout
 
-| Path | Purpose |
-| --- | --- |
-| `packages/Rasm.Kernel` | Shared C# logic consumed by Rhino and Grasshopper boundaries. |
-| `apps/rhino/Rasm.Rhino` | RhinoWIP `.rhp` plugin boundary. |
-| `apps/grasshopper/Rasm.Grasshopper` | GH2-backed Grasshopper `.rhp` plugin boundary. |
-| `packaging/rhino/manifest.yml` | Yak package metadata. |
-| `scripts/rhino.sh` | Build, stage, package, and push Rhino artifacts. |
-| `.artifacts/rhino/package` | Generated package staging directory. |
+| Path                       | Purpose                                                        |
+| -------------------------- | -------------------------------------------------------------- |
+| `libs/Rasm.Kernel`         | Shared C# logic consumed by Rhino and Grasshopper boundaries.  |
+| `apps/rhino`               | RhinoWIP `.rhp` plugin boundary.                               |
+| `apps/grasshopper`         | GH2-backed Grasshopper `.rhp` plugin boundary.                 |
+| `tools/cs-analyzer`        | Local Roslyn analyzer project used by C# builds.               |
+| `tools/py_analyzer`        | Local Python semantic analyzer invoked by `pnpm check:py`.     |
+| `yak/rasm/manifest.yml`    | Tracked Yak package metadata for the aggregate `rasm` package. |
+| `scripts/rhino.sh`         | Build, stage, package, and push Rhino artifacts.               |
+| `.artifacts/rhino/package` | Generated Yak package root used by `yak build`.                |
 
 ## Central Values
 
 `Directory.Build.props` owns shared build policy and RhinoWIP variables:
 
-| Property | Value |
-| --- | --- |
-| `TargetFramework` | `net10.0` |
-| `RhinoWipAppPath` | `/Applications/RhinoWIP.app` |
-| `RhinoCommonReferencePath` | Installed RhinoWIP `RhinoCommon.dll` |
-| `Grasshopper2ReferencePath` | Installed RhinoWIP `Grasshopper2.dll` |
-| `GrasshopperIoReferencePath` | Installed RhinoWIP `GrasshopperIO.dll` |
-| `RhinoYakPath` | `/Applications/RhinoWIP.app/Contents/Resources/bin/yak` |
-| `IsRhinoPluginProject` | Enables Rhino `.rhp` settings and local `RhinoCommon`. |
-| `IsGrasshopperPluginProject` | Enables Grasshopper `.rhp` settings plus local `Grasshopper2` and `GrasshopperIO`. |
+| Property                         | Value                                                                              |
+| -------------------------------- | ---------------------------------------------------------------------------------- |
+| `TargetFramework`                | `net10.0`                                                                          |
+| `RhinoWipAppPath`                | `/Applications/RhinoWIP.app`                                                       |
+| `RhinoCommonReferencePath`       | Installed RhinoWIP `RhinoCommon.dll`                                               |
+| `Grasshopper2ReferencePath`      | Installed RhinoWIP `Grasshopper2.dll`                                              |
+| `GrasshopperIoReferencePath`     | Installed RhinoWIP `GrasshopperIO.dll`                                             |
+| `RhinoYakPath`                   | `/Applications/RhinoWIP.app/Contents/Resources/bin/yak`                            |
+| `LocalCSharpAnalyzerRoot`        | `tools/cs-analyzer`                                                                |
+| `LocalCSharpAnalyzerProject`     | `tools/cs-analyzer/CsAnalyzer.csproj`                                              |
+| `BoundaryExemptionContractsPath` | Local analyzer boundary exemption contract source.                                 |
+| `IsRhinoPluginProject`           | Enables Rhino `.rhp` settings and local `RhinoCommon`.                             |
+| `IsGrasshopperPluginProject`     | Enables Grasshopper `.rhp` settings plus local `Grasshopper2` and `GrasshopperIO`. |
 
 RhinoWIP currently runs on .NET 10. McNeel still builds `RhinoCommon`, `Grasshopper2`, and `GrasshopperIO` as `.NETCoreApp,Version=v8.0` assemblies; those assemblies are referenced from the installed app and loaded by the newer host runtime.
 
@@ -44,6 +49,12 @@ Run C# quality gates:
 
 ```bash
 pnpm check:cs
+```
+
+Run Python quality gates:
+
+```bash
+pnpm check:py
 ```
 
 Build Rhino artifacts:
@@ -77,10 +88,12 @@ scripts/rhino.sh push 0.1.0-wip
 1. Restore `Workspace.slnx`.
 2. Build `Workspace.slnx` in `Release`.
 3. Stage `Rasm.Rhino.rhp`, `Rasm.Grasshopper.rhp`, and owned output assemblies.
-4. Copy `packaging/rhino/manifest.yml` and `packaging/rhino/icon.png`.
+4. Copy `yak/rasm/manifest.yml` and `yak/rasm/icon.png`.
 5. Run RhinoWIP Yak with `--platform mac` and supplied version.
 
 Host assemblies stay outside package output: `RhinoCommon`, `Grasshopper2`, and `GrasshopperIO`.
+
+`yak/rasm` is only the tracked source of package metadata. The actual Yak package root is generated at `.artifacts/rhino/package` so `.rhp` files and `manifest.yml` sit at the top level required by Yak.
 
 Yak inspects the first `.rhp` and warns that content name `Rasm.Rhino` differs from package name `rasm`. Keep `rasm` as the aggregate package name unless the package is split.
 

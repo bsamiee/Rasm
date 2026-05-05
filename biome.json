@@ -10,6 +10,7 @@
             "**",
             "!**/node_modules",
             "!**/.cache",
+            "!**/.artifacts",
             "!**/.claude/skills/**/.cache",
             "!**/.claude/worktrees",
             "!**/.nx",
@@ -18,6 +19,7 @@
             "!**/obj",
             "!**/coverage",
             "!**/dist",
+            "!**/packages.lock.json",
             "!**/test-results"
         ]
     },

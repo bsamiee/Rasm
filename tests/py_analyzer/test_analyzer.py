@@ -6,13 +6,15 @@ import tomllib
 import msgspec
 import pytest
 
-from apps.py_analyzer.analyzer import analyze_paths
-from apps.py_analyzer.cli import emit, main
-from apps.py_analyzer.rules import Diagnostic, OutputFormat, RuleId
+from tools.py_analyzer.analyzer import analyze_paths, PY_ANALYZER_ROOT
+from tools.py_analyzer.cli import emit, main
+from tools.py_analyzer.rules import Diagnostic, OutputFormat, RuleId
 
 
 type DiagnosticRow = tuple[str, str, int, int, str, str]
 type DiagnosticJson = dict[str, str | int]
+
+PY_ANALYZER_SAMPLE = "/".join((*PY_ANALYZER_ROOT, "sample.py"))
 
 
 def write_module(root: Path, relative: str, source: str) -> Path:
@@ -166,7 +168,7 @@ def test_valid_boundary_exemption_suppresses_governance(tmp_path: Path) -> None:
         ("src/application/flow.py", "PYS0001"),
         ("src/domain/adapters/http.py", "PYS0002"),
         ("src/neutral/flow.py", ""),
-        ("apps/py_analyzer/sample.py", ""),
+        (PY_ANALYZER_SAMPLE, ""),
         (".claude/skills/example/scripts/tool.py", ""),
     ],
 )
@@ -236,7 +238,7 @@ def test_default_value_is_not_blanket_rail_escape(tmp_path: Path) -> None:
     assert diagnostic_rows(tmp_path, (path,)) == ()
 
 
-@pytest.mark.parametrize("relative", ["src/boundary/rail.py", "apps/py_analyzer/sample.py"])
+@pytest.mark.parametrize("relative", ["src/boundary/rail.py", PY_ANALYZER_SAMPLE])
 def test_rail_escape_scope_boundaries(tmp_path: Path, relative: str) -> None:
     path = write_module(
         tmp_path, relative, "def run(value: Result[User, DomainError]) -> User:\n    return value.unwrap()\n"

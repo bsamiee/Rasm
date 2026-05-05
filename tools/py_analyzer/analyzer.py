@@ -13,14 +13,14 @@ from typing import override, TYPE_CHECKING
 import libcst as cst
 from libcst.metadata import ParentNodeProvider, PositionProvider
 
-from apps.py_analyzer.rules import diagnostic, RuleId, Scope
+from tools.py_analyzer.rules import diagnostic, RuleId, Scope
 
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
     from pathlib import Path
 
-    from apps.py_analyzer.rules import Diagnostic
+    from tools.py_analyzer.rules import Diagnostic
 
 
 # --- [TYPES] ---------------------------------------------------------------------------
@@ -74,7 +74,17 @@ class ModuleFacts:
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
 
-EXCLUDED_DIRS = frozenset({".cache", ".git", ".nx", ".venv", "coverage", "node_modules", "test-results", "tmp"})
+EXCLUDED_DIRS = frozenset({
+    ".artifacts",
+    ".cache",
+    ".git",
+    ".nx",
+    ".venv",
+    "coverage",
+    "node_modules",
+    "test-results",
+    "tmp",
+})
 BOUNDARY_EXEMPTION = re.compile(
     r"#\s*RASM_BOUNDARY_EXEMPTION:\s+"
     r"rule=(?P<rule>PYS\d{4})\s+"
@@ -130,7 +140,8 @@ MUTABLE_FIELD_NAMES = frozenset({
 PRIMITIVE_NAMES = frozenset({"bool", "float", "int", "str", "tuple"})
 RAIL_NAMES = frozenset({"Option", "Result"})
 RAIL_ESCAPE_METHODS = frozenset({"unwrap", "value_or"})
-TOOLING_ROOTS = ((".claude", "hooks"), (".claude", "skills"), ("apps", "py_analyzer"))
+PY_ANALYZER_ROOT = ("tools", "py_analyzer")
+TOOLING_ROOTS = ((".claude", "hooks"), (".claude", "skills"), PY_ANALYZER_ROOT)
 DOMAIN_SCOPES = frozenset({Scope.domain, Scope.application})
 PUBLIC_SIGNATURE_BANNED_NAMES = ERASED_NAMES | MUTABLE_FIELD_NAMES | PRIMITIVE_NAMES
 

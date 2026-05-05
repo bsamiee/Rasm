@@ -3,7 +3,7 @@
 
 <br>
 
-Canonical standards for test authoring. Root `tests/` owns universal JS, TS, Python, browser, and cross-workspace tests. Language-native app test projects are allowed when tied to a physical app root, such as `apps/cs-analyzer/tests`.
+Canonical standards for test authoring. Root `tests/` owns universal JS, TS, Python, browser, and cross-workspace tests. Language-native test projects are allowed when tied to a physical tool or app root, such as `tools/cs-analyzer/tests`.
 
 [REFERENCE] Patterns: [->patterns.md](patterns.md) | Laws: [->laws.md](laws.md) | Guardrails: [->guardrails.md](guardrails.md)
 

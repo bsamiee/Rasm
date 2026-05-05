@@ -19,9 +19,11 @@ internal static class AnalyzerTestHarness {
         concurrentBuild: false);
     private static readonly ImmutableArray<MetadataReference> FrameworkReferences = LoadFrameworkReferences();
     private static readonly DomainStandardsAnalyzer Analyzer = new();
+    private static readonly string AnalyzerRelativeDirectory = Path.Combine("tools", "cs-analyzer");
+    private static readonly string AnalyzerProjectRelativePath = Path.Combine(AnalyzerRelativeDirectory, "CsAnalyzer.csproj");
 
     internal static string RepositoryRoot { get; } = ResolveRepositoryRoot(startPath: AppContext.BaseDirectory);
-    internal static string AnalyzerDirectory { get; } = Path.Combine(RepositoryRoot, "apps", "cs-analyzer");
+    internal static string AnalyzerDirectory { get; } = Path.Combine(RepositoryRoot, AnalyzerRelativeDirectory);
     internal static string UnshippedReleasePath { get; } = Path.Combine(AnalyzerDirectory, "AnalyzerReleases.Unshipped.md");
     internal static string ShippedReleasePath { get; } = Path.Combine(AnalyzerDirectory, "AnalyzerReleases.Shipped.md");
 
@@ -55,7 +57,7 @@ internal static class AnalyzerTestHarness {
     private static string ResolveRepositoryRoot(DirectoryInfo? directory) =>
         directory switch {
             null => throw new InvalidOperationException(message: "Unable to resolve repository root from test host base directory."),
-            { FullName: string fullName } when File.Exists(Path.Combine(fullName, "apps", "cs-analyzer", "CsAnalyzer.csproj")) => fullName,
+            { FullName: string fullName } when File.Exists(Path.Combine(fullName, AnalyzerProjectRelativePath)) => fullName,
             _ => ResolveRepositoryRoot(directory.Parent),
         };
     private static string BuildAssemblyName(string source, string filePath) {

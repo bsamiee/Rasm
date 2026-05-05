@@ -9,14 +9,14 @@ from typing import TYPE_CHECKING
 
 import msgspec
 
-from apps.py_analyzer.analyzer import analyze_paths
-from apps.py_analyzer.rules import OutputFormat
+from tools.py_analyzer.analyzer import analyze_paths
+from tools.py_analyzer.rules import OutputFormat
 
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from apps.py_analyzer.rules import Diagnostic
+    from tools.py_analyzer.rules import Diagnostic
 
 
 # --- [COMPOSITION] ---------------------------------------------------------------------

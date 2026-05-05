@@ -1,6 +1,6 @@
 # Validation
 
-Checklist for auditing `.py` modules against python-standards contracts. Items below complement Ruff, ty, mypy, validate-pyproject, ast-grep, and `apps.py_analyzer`.
+Checklist for auditing `.py` modules against python-standards contracts. Items below complement Ruff, ty, mypy, validate-pyproject, ast-grep, and `tools.py_analyzer`.
 
 ---
 ## Type Integrity

@@ -44,6 +44,7 @@ respect-type-ignore-comments = false
 
 [tool.ty.src]
 exclude = [
+    ".artifacts",
     ".cache",
     ".claude/skills/**/.cache",
     ".claude/worktrees",
@@ -80,6 +81,7 @@ enable_error_code = [
     "unused-awaitable",
 ]
 exclude = [
+    "^\\.artifacts/",
     "^\\.cache/",
     "^\\.claude/skills/.*/\\.cache/",
     "^\\.claude/worktrees/",
@@ -129,6 +131,7 @@ preview =        true
 force-exclude =  true
 line-length =    120
 extend-exclude = [
+    "**/.artifacts/**",
     "**/.cache/**",
     "**/.claude/skills/**/.cache/**",
     "**/.claude/worktrees/**",

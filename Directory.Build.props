@@ -21,7 +21,9 @@
         <AnalysisLevel>latest-all</AnalysisLevel>
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <ErrorLog Condition="'$(CI)' == 'true'">diagnostics.sarif,version=2.1</ErrorLog>
-        <LocalCSharpAnalyzerProject>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', 'apps', 'cs-analyzer', 'CsAnalyzer.csproj'))</LocalCSharpAnalyzerProject>
+        <LocalCSharpAnalyzerRoot>tools/cs-analyzer</LocalCSharpAnalyzerRoot>
+        <LocalCSharpAnalyzerProject>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '$(LocalCSharpAnalyzerRoot)', 'CsAnalyzer.csproj'))</LocalCSharpAnalyzerProject>
+        <BoundaryExemptionContractsPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '$(LocalCSharpAnalyzerRoot)', 'Contracts', 'BoundaryContracts.cs'))</BoundaryExemptionContractsPath>
         <NormalizedProjectFullPath>$([MSBuild]::NormalizePath('$(MSBuildProjectFullPath)'))</NormalizedProjectFullPath>
         <IsLocalCSharpAnalyzerProject Condition="'$(NormalizedProjectFullPath)' == '$(LocalCSharpAnalyzerProject)'">true</IsLocalCSharpAnalyzerProject>
         <IsLocalCSharpAnalyzerProject Condition="'$(IsLocalCSharpAnalyzerProject)' == ''">false</IsLocalCSharpAnalyzerProject>
@@ -74,6 +76,7 @@
 
     <PropertyGroup Label="RhinoWIP Boundaries" Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true'">
         <EnableDynamicLoading>true</EnableDynamicLoading>
+        <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
         <TargetExt>.rhp</TargetExt>
         <IsPackable>false</IsPackable>
         <UseWorkspaceLibraries>false</UseWorkspaceLibraries>
@@ -146,7 +149,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Boundary Exemption Contracts" Condition="'$(IsLocalCSharpAnalyzerProject)' != 'true' and '$(SkipBoundaryExemptionContracts)' != 'true'">
-        <Compile Include="$(MSBuildThisFileDirectory)apps/cs-analyzer/Contracts/BoundaryContracts.cs" Link="FoundationStandards/BoundaryContracts.cs" />
+        <Compile Include="$(BoundaryExemptionContractsPath)" Link="FoundationStandards/BoundaryContracts.cs" />
     </ItemGroup>
 
     <ItemGroup Label="PostgreSQL Test Packages" Condition="'$(IsTestProject)' == 'true' and '$(EnablePostgreSqlTesting)' == 'true'">

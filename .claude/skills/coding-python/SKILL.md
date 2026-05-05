@@ -140,7 +140,7 @@ Rasm treats PEP 8 and PEP 257 as a floor, not the house style. Ruff format/check
 
 Python 3.15-only PEPs remain non-enforced until the baseline moves beyond 3.14: PEP 728, PEP 747, PEP 800, PEP 810, and PEP 814. Do not enforce these in Ruff, ty, mypy, py-analyzer, or ast-grep while `target-version = "py314"`.
 
-Semantic enforcement uses the LibCST `apps.py_analyzer` gate for `PYS0001`-`PYS0010`: domain imperative flow, boundary exemption metadata, primitive public signatures, fallible return rails, single-use private functions, duplicate model shapes, rail escape, model immutability, mutable model fields, and recovery inside effect builders. ast-grep remains syntax-only: direct `__annotations__`, `typing.no_type_check`, helper imports, and helper filenames.
+Semantic enforcement uses the LibCST `tools.py_analyzer` gate for `PYS0001`-`PYS0010`: domain imperative flow, boundary exemption metadata, primitive public signatures, fallible return rails, single-use private functions, duplicate model shapes, rail escape, model immutability, mutable model fields, and recovery inside effect builders. ast-grep remains syntax-only: direct `__annotations__`, `typing.no_type_check`, helper imports, and helper filenames.
 
 
 ## Validation gate
@@ -149,7 +149,7 @@ Semantic enforcement uses the LibCST `apps.py_analyzer` gate for `PYS0001`-`PYS0
 - Required for final completion: run every impacted language gate explicitly; for shared standards/tooling, run `pnpm check:ts`, `pnpm check:py`, and `pnpm check:cs`.
 - Reject completion when load order, contracts, or checks are not satisfied.
 - Python tool posture is Ruff + ty first; mypy is a configured secondary gate in this repo.
-- Repo-specific semantic posture is `uv run python -m apps.py_analyzer check --root . --format text`.
+- Repo-specific semantic posture is `uv run python -m tools.py_analyzer check --root . --format text`.
 - Examples inside this skill are executable doctrine: no unjustified `type: ignore`, no unmarked `cast`, no `.or_else_with` recovery inside `@effect.result` generators, and `case _ as unreachable: assert_never(unreachable)` for closed domains.
 
 ## Skill eval prompts

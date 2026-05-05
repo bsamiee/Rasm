@@ -5,8 +5,10 @@ message: Use const, Effect Ref, or explicit immutable state instead of let in do
 files:
   - apps/**/src/**/domain/**/*.{ts,tsx,mts,cts}
   - apps/**/src/**/application/**/*.{ts,tsx,mts,cts}
-  - packages/**/src/**/domain/**/*.{ts,tsx,mts,cts}
-  - packages/**/src/**/application/**/*.{ts,tsx,mts,cts}
+  - libs/**/src/**/domain/**/*.{ts,tsx,mts,cts}
+  - libs/**/src/**/application/**/*.{ts,tsx,mts,cts}
+  - tools/**/src/**/domain/**/*.{ts,tsx,mts,cts}
+  - tools/**/src/**/application/**/*.{ts,tsx,mts,cts}
   - tests/ast-grep/**/src/**/domain/**/*.{ts,tsx,mts,cts}
   - tests/ast-grep/**/src/**/application/**/*.{ts,tsx,mts,cts}
 rule:
