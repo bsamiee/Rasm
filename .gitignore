@@ -64,7 +64,7 @@ playwright/.cache/
 # --- [CACHES] -----------------------------------------------------------------
 
 .cache/
-.artifacts/
+/.artifacts/
 .nx/*
 .stryker-tmp/
 test-results/mutation/stryker-incremental.json

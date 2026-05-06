@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <AssemblyName>Core.Tests</AssemblyName>
+        <RootNamespace>Core.Tests</RootNamespace>
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
+        <IsRhinoCommonAwareProject>true</IsRhinoCommonAwareProject>
+        <UseWorkspaceLibraries>false</UseWorkspaceLibraries>
+        <SkipBoundaryExemptionContracts>true</SkipBoundaryExemptionContracts>
+        <NoWarn>$(NoWarn);CA1515</NoWarn>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../../../libs/csharp/core/Core.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="LanguageExt.Core" Version="$(LanguageExtCoreVersion)" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="$(MicrosoftNetTestSdkVersion)" PrivateAssets="all" />
+        <PackageReference Include="xunit.v3.mtp-off" Version="$(XunitV3Version)" PrivateAssets="all" />
+        <PackageReference Include="xunit.runner.visualstudio" Version="$(XunitRunnerVisualStudioVersion)" PrivateAssets="all" />
+        <PackageReference Include="FsCheck" Version="$(FsCheckVersion)" PrivateAssets="all" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Reference Update="RhinoCommon">
+            <Private>true</Private>
+        </Reference>
+    </ItemGroup>
+</Project>

@@ -8,15 +8,15 @@ namespace Core.Domain;
 
 public static class Operation {
     public static Fin<Operation<TIn, TOut>> Create<TIn, TOut>(
-        Func<TIn, Fin<Seq<TOut>>> operation) where TIn : notnull =>
+        Func<TIn, Fin<Seq<TOut>>>? operation) where TIn : notnull =>
             Optional(operation)
                 .ToFin(OperationFault.MissingOperation())
                 .Map(static (Func<TIn, Fin<Seq<TOut>>> candidate) =>
                 (Operation<TIn, TOut>)new Callable<TIn, TOut>(operation: candidate));
 
     public static Fin<Operation<TGeometry, TOut>> WithValidation<TGeometry, TOut>(
-        this Operation<TGeometry, TOut> program,
-        GeometryContext context) where TGeometry : GeometryBase =>
+        this Operation<TGeometry, TOut>? program,
+        GeometryContext? context) where TGeometry : GeometryBase =>
         (
             Optional(program).ToFin(OperationFault.MissingOperation()).ToValidation(),
             Optional(context).ToFin(OperationFault.MissingContext()).ToValidation()
@@ -55,6 +55,12 @@ public static class Operation {
         private byte Mask { get; }
         public static Mode FailFast => new(mask: FailFastMask);
         public static Mode Accumulate => new(mask: AccumulateMask);
+        internal string Name =>
+            Mask switch {
+                FailFastMask => nameof(FailFast),
+                AccumulateMask => nameof(Accumulate),
+                _ => nameof(FailFast),
+            };
         internal bool Accumulates =>
             Mask == AccumulateMask;
     }

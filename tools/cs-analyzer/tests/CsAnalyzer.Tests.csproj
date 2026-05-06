@@ -4,6 +4,7 @@
         <RootNamespace>Foundation.CSharp.Analyzers.Tests</RootNamespace>
         <IsPackable>false</IsPackable>
         <IsTestProject>true</IsTestProject>
+        <UseWorkspaceLibraries>false</UseWorkspaceLibraries>
         <SkipLocalCSharpAnalyzerReference>true</SkipLocalCSharpAnalyzerReference>
         <SkipBoundaryExemptionContracts>true</SkipBoundaryExemptionContracts>
         <NoWarn>$(NoWarn);CA1515;MA0051</NoWarn>
@@ -14,10 +15,10 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.3.0" />
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
-        <PackageReference Include="xunit" Version="2.9.3" />
-        <PackageReference Include="xunit.runner.visualstudio" Version="4.0.0-pre.4">
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="$(MicrosoftNetCompilersToolsetVersion)" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="$(MicrosoftNetTestSdkVersion)" />
+        <PackageReference Include="xunit.v3.mtp-off" Version="$(XunitV3Version)" />
+        <PackageReference Include="xunit.runner.visualstudio" Version="$(XunitRunnerVisualStudioVersion)">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>

@@ -71,7 +71,7 @@ public sealed record GeometryContext {
             angleToleranceRadians: DefaultAngleToleranceRadians,
             modelUnits: ModelUnitSystem.Create(units: units));
 
-    public static Validation<Error, GeometryContext> FromDocument(RhinoDoc doc) =>
+    public static Validation<Error, GeometryContext> FromDocument(RhinoDoc? doc) =>
         Optional(doc)
             .ToValidation(ContextFault.MissingDocument())
             .Bind(static (RhinoDoc candidate) =>
@@ -96,7 +96,7 @@ public sealed record GeometryContext {
                         _ => ModelUnitSystem.Create(units: candidate.ModelUnitSystem),
                     }));
 
-    public Validation<Error, TGeometry> Validate<TGeometry>(TGeometry geometry) where TGeometry : GeometryBase =>
+    public Validation<Error, TGeometry> Validate<TGeometry>(TGeometry? geometry) where TGeometry : GeometryBase =>
         GeometryValidation.Validate(context: this, geometry: geometry);
 
     internal Fin<LengthScale> ScaleTo(ModelUnitSystem targetUnits) =>

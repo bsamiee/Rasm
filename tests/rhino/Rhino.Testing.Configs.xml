@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Settings>
+    <RhinoSystemDirectory>/Applications/RhinoWIP.app/Contents/Frameworks</RhinoSystemDirectory>
+    <CreateRhinoDoc>true</CreateRhinoDoc>
+    <CreateRhinoView>false</CreateRhinoView>
+    <LoadGrasshopper2>false</LoadGrasshopper2>
+</Settings>

@@ -12,7 +12,7 @@ namespace Core.Domain;
 internal static class GeometryValidation {
     internal static Validation<Error, TGeometry> Validate<TGeometry>(
         this GeometryContext context,
-        TGeometry geometry) where TGeometry : GeometryBase =>
+        TGeometry? geometry) where TGeometry : GeometryBase =>
         (Validation<Error, TGeometry>)(
             Optional(context).ToValidation(ValidationFault.MissingContext()),
             Optional(geometry).ToValidation(ValidationFault.MissingGeometry())

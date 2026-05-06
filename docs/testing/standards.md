@@ -3,7 +3,7 @@
 
 <br>
 
-Canonical standards for test authoring. Root `tests/` owns universal JS, TS, Python, browser, and cross-workspace tests. Language-native test projects are allowed when tied to a physical tool or app root, such as `tools/cs-analyzer/tests`.
+Canonical standards for test authoring. Root `tests/` owns universal JS, TS, Python, browser, C#, Rhino, analyzer, and cross-workspace tests. Language-native project files may live under `tests/` when the runner requires a project boundary.
 
 [REFERENCE] Patterns: [->patterns.md](patterns.md) | Laws: [->laws.md](laws.md) | Guardrails: [->guardrails.md](guardrails.md)
 
@@ -13,18 +13,27 @@ Canonical standards for test authoring. Root `tests/` owns universal JS, TS, Pyt
 
 <br>
 
-| [INDEX] | [PATH]                   | [PURPOSE]                                                            |
-| :-----: | ------------------------ | -------------------------------------------------------------------- |
-|   [1]   | **`tests/unit/`**        | Fast contract tests for pure modules and public APIs.                |
-|   [2]   | **`tests/integration/`** | Boundary tests requiring databases, queues, services, or containers. |
-|   [3]   | **`tests/system/`**      | Cross-component behavior and release-critical workflows.             |
-|   [4]   | **`tests/e2e/`**         | Browser, CLI, or external user journeys when configured.             |
-|   [5]   | **`tests/fixtures/`**    | Shared data, oracle vectors, snapshots, and factories.               |
+| [INDEX] | [PATH]                        | [PURPOSE]                                                            |
+| :-----: | ----------------------------- | -------------------------------------------------------------------- |
+|   [1]   | **`tests/unit/`**             | Fast contract tests for pure modules and public APIs.                |
+|   [2]   | **`tests/integration/`**      | Boundary tests requiring databases, queues, services, or containers. |
+|   [3]   | **`tests/system/`**           | Cross-component behavior and release-critical workflows.             |
+|   [4]   | **`tests/e2e/`**              | Browser, CLI, or external user journeys when configured.             |
+|   [5]   | **`tests/fixtures/`**         | Shared data, oracle vectors, snapshots, and factories.               |
+|   [6]   | **`tests/csharp/<project>/`** | .NET xUnit projects for pure C# package contracts.                   |
+|   [7]   | **`tests/rhino/`**            | macOS RhinoWIP runtime integration tests, opt-in by environment.      |
+|   [8]   | **`tests/ast-grep/`**         | Static-rule pass/fail fixture corpus.                                |
+|   [9]   | **`tests/py_analyzer/`**      | Python analyzer contract tests.                                      |
 
 [CRITICAL]:
-- [NEVER] Place JS, TS, Python, browser, or cross-workspace tests outside root `tests/`.
-- [NEVER] create app-local test roots unless the language toolchain requires a project-owned test project.
+- [NEVER] Place JS, TS, Python, C#, Rhino, analyzer, browser, or cross-workspace tests outside root `tests/`.
+- [NEVER] create app-local test roots unless the language toolchain requires a project-owned test project outside `tests/`.
 - [NEVER] reference copied sample paths from prior packages or services.
+
+**Rhino runtime gate:** `RASM_RHINO_TESTS=1 pnpm check:cs` verifies RhinoWIP paths and runs only when `Rhino.Testing`
+resolves a `net10.0` runtime asset. Current `Rhino.Testing 9.0.8-beta` resolves `lib/net9.0/Rhino.Testing.dll`; the
+gate skips instead of launching a known-crashing macOS testhost. Use `RASM_RHINO_TESTS=require` for strict CI failure,
+`RASM_RHINO_TESTS_FORCE=1` for diagnostics, and `RASM_RHINO_DOTNET` to point at an official Microsoft .NET SDK binary.
 
 ---
 ## [2][FILE_STRUCTURE]
@@ -84,8 +93,8 @@ Assert public output, state transition, emitted event, persisted record, or fail
 <br>
 
 [VERIFY]:
-- [ ] Every new or changed JS, TS, Python, browser, or cross-workspace spec lives under `tests/`.
-- [ ] Every app-local test project belongs to a physical app root and is invoked by quality gates.
+- [ ] Every new or changed JS, TS, Python, C#, Rhino, analyzer, browser, or cross-workspace spec lives under `tests/`.
+- [ ] Every native test project is invoked by default quality gates or documented as an explicit opt-in runtime gate.
 - [ ] Each spec names one public contract or workflow.
 - [ ] Expected results come from laws, external oracles, fixtures, or explicit examples.
 - [ ] Tests avoid package/app/source-adjacent roots unless required by language-native project tooling.

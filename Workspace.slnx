@@ -11,6 +11,14 @@
   <Folder Name="/libs/csharp/core/">
     <Project Path="libs/csharp/core/Core.csproj" />
   </Folder>
+  <Folder Name="/tests/" />
+  <Folder Name="/tests/csharp/" />
+  <Folder Name="/tests/csharp/core/">
+    <Project Path="tests/csharp/core/Core.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/rhino/">
+    <Project Path="tests/rhino/Rhino.Tests.csproj" />
+  </Folder>
   <Folder Name="/tools/" />
   <Folder Name="/tools/cs-analyzer/">
     <Project Path="tools/cs-analyzer/CsAnalyzer.csproj" />

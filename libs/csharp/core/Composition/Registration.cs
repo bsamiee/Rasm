@@ -73,7 +73,7 @@ public static class Registration {
             _ = activity?.SetTag(key: "rasm.input.type", value: typeof(TIn).FullName);
             _ = activity?.SetTag(key: "rasm.output.type", value: typeof(TOut).FullName);
             _ = activity?.SetTag(key: "rasm.input.count", value: input.Length);
-            _ = activity?.SetTag(key: "rasm.execution", value: executionMode.ToString());
+            _ = activity?.SetTag(key: "rasm.execution", value: executionMode.Name);
             _ = activity?.SetTag(key: "rasm.success", value: final.IsSucc);
             _ = result.Match(
                 Succ: static (Seq<TOut> _) => unit,
