@@ -5,6 +5,7 @@
         <Title>Rasm Core</Title>
         <Company>Rasm</Company>
         <Description>RhinoCommon-aware core geometry foundation for Rasm.</Description>
+        <SkipBoundaryExemptionContracts>true</SkipBoundaryExemptionContracts>
     </PropertyGroup>
 
 </Project>

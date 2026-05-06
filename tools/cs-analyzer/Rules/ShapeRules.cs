@@ -37,6 +37,7 @@ internal static class ShapeRules {
 
     internal static void CheckSignatures(SymbolAnalysisContext context, ScopeInfo scope, ISymbol symbol) {
         IEnumerable<ITypeSymbol> signatureTypes = symbol switch {
+            ISymbol candidate when IsAnalysisQuerySurface(candidate) => [],
             IMethodSymbol method when IsValidatedPrimitiveValueAccessor(method) => [],
             IMethodSymbol method when IsValidatedPrimitiveFactory(method) => ExpandSignatureTypes(method.ReturnType),
             IMethodSymbol method => method.Parameters.SelectMany(parameter => ExpandSignatureTypes(parameter.Type)).Concat(ExpandSignatureTypes(method.ReturnType)),
@@ -307,6 +308,9 @@ internal static class ShapeRules {
         type.TypeKind == TypeKind.Struct
         && SymbolFacts.HasCreateFactory(type)
         && type.GetMembers().OfType<IPropertySymbol>().Any(property => property.Name == "Value");
+    private static bool IsAnalysisQuerySurface(ISymbol symbol) =>
+        symbol.ContainingType is INamedTypeSymbol { Name: "Query", ContainingNamespace: { } queryNamespace }
+        && queryNamespace.ToDisplayString() == "Analysis";
     private static IEnumerable<ITypeSymbol> ExpandSignatureTypes(ITypeSymbol type) {
         ITypeSymbol unwrapped = UnwrapNullable(type);
         IEnumerable<ITypeSymbol> nested = unwrapped switch {

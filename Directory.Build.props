@@ -2,8 +2,8 @@
     <PropertyGroup Label="Project Classification">
         <IsRhinoPluginProject Condition="'$(MSBuildProjectName)' == 'Rasm.Rhino'">true</IsRhinoPluginProject>
         <IsGrasshopperPluginProject Condition="'$(MSBuildProjectName)' == 'Rasm.Grasshopper'">true</IsGrasshopperPluginProject>
-        <IsSharedCSharpLibrary Condition="'$(MSBuildProjectName)' == 'Core'">true</IsSharedCSharpLibrary>
-        <IsRhinoCommonAwareProject Condition="'$(MSBuildProjectName)' == 'Core'">true</IsRhinoCommonAwareProject>
+        <IsSharedCSharpLibrary Condition="'$(MSBuildProjectName)' == 'Core' or '$(MSBuildProjectName)' == 'Analysis'">true</IsSharedCSharpLibrary>
+        <IsRhinoCommonAwareProject Condition="'$(MSBuildProjectName)' == 'Core' or '$(MSBuildProjectName)' == 'Analysis'">true</IsRhinoCommonAwareProject>
     </PropertyGroup>
 
     <PropertyGroup Label="Language and Build">

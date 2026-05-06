@@ -618,6 +618,31 @@ public sealed class RuleBehaviorTests {
     }
 
     [Fact]
+    public async Task ApplicationScopeVarInferenceEmitsOutsideApplicationNamespaceAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Integration/ApplicationScopeVarInference.cs",
+            source: Contract(type: "ApplicationScopeVarInference", attributes: "[ApplicationScope]", members: """
+                public int Execute() {
+                    var value = 1;
+                    return value;
+                }
+                """)).ConfigureAwait(true);
+
+        Assert.Contains(expected: "CSP0015", collection: ids);
+    }
+
+    [Fact]
+    public async Task AnalysisLibraryPathDoesNotApplyDomainSignatureRulesAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/libs/csharp/analysis/Analyze.cs",
+            source: Source(ns: "Analysis", type: "Analyze", members: """
+                public double Execute(double value) => value;
+                """)).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0003", collection: ids);
+    }
+
+    [Fact]
     public async Task NonScrutorScanDoesNotEmitRegistrationStrategyDiagnosticAsync() {
         ImmutableArray<string> ids = await AnalyzeIdsAsync(
             filePath: "/workspace/src/Application/Bootstrap/UnrelatedScan.cs",

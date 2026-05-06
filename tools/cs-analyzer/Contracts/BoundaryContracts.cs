@@ -40,3 +40,5 @@ public sealed class BoundaryImperativeExemptionAttribute(string ruleId, Boundary
 public sealed class BoundaryAdapterAttribute : Attribute;
 [AttributeUsage(validOn: AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
 public sealed class DomainScopeAttribute : Attribute;
+[AttributeUsage(validOn: AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
+public sealed class ApplicationScopeAttribute : Attribute;

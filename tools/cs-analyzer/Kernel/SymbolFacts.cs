@@ -38,6 +38,7 @@ internal sealed class ScopeKind {
     internal static readonly ScopeKind Domain = new(key: "Domain", isAnalyzable: true, isBoundary: false, isDomainOrApplication: true, isComposition: false);
     internal static readonly ScopeKind Application = new(key: "Application", isAnalyzable: true, isBoundary: false, isDomainOrApplication: true, isComposition: false);
     internal static readonly ScopeKind Shared = new(key: "Shared", isAnalyzable: true, isBoundary: false, isDomainOrApplication: true, isComposition: false);
+    internal static readonly ScopeKind Analysis = new(key: "Analysis", isAnalyzable: true, isBoundary: false, isDomainOrApplication: false, isComposition: false);
     internal static readonly ScopeKind Composition = new(key: "Composition", isAnalyzable: true, isBoundary: false, isDomainOrApplication: false, isComposition: true);
     internal static readonly ScopeKind Other = new(key: "Other", isAnalyzable: false, isBoundary: false, isDomainOrApplication: false, isComposition: false);
 }
@@ -85,6 +86,7 @@ internal static class Markers {
     internal static readonly string[] CompositionNamespace = [".Bootstrap", ".Composition", ".DependencyInjection", ".Infrastructure"];
     internal static readonly string[] CompositionPath = ["Composition", "Bootstrap", "DependencyInjection", "Infrastructure"];
     internal static readonly string[] SharedPath = ["/Shared/", "\\Shared\\", "/SharedKernel/", "\\SharedKernel\\"];
+    internal static readonly string[] AnalysisPath = ["/libs/csharp/analysis/", "\\libs\\csharp\\analysis\\"];
     internal static readonly string[] GeneratedPath = [".g.cs", ".designer.cs", "/obj/", "\\obj\\"];
     internal static readonly string[] TestPath = ["/tests/", "\\tests\\", ".Tests", "Test.cs", "Tests.cs"];
     internal static readonly string[] ObservabilityParts = ["Observability", "Telemetry"];
@@ -110,18 +112,21 @@ internal static class ScopeModel {
             || SymbolFacts.HasAnyAttribute(symbol, nameof(BoundaryAdapterAttribute), "BoundaryAdapter");
         bool domain = SymbolFacts.IsDomainNamespace(namespaceName)
             || SymbolFacts.HasAnyAttribute(symbol, nameof(DomainScopeAttribute), "DomainScope");
-        bool application = SymbolFacts.IsApplicationNamespace(namespaceName);
+        bool application = SymbolFacts.IsApplicationNamespace(namespaceName)
+            || SymbolFacts.HasAnyAttribute(symbol, nameof(ApplicationScopeAttribute), "ApplicationScope");
         bool shared = SymbolFacts.IsSharedNamespace(namespaceName)
             || Markers.SharedPath.Any(marker => filePath.Contains(value: marker, comparisonType: StringComparison.OrdinalIgnoreCase));
+        bool analysis = Markers.AnalysisPath.Any(marker => filePath.Contains(value: marker, comparisonType: StringComparison.OrdinalIgnoreCase));
         bool composition = SymbolFacts.IsCompositionScope(namespaceName: namespaceName, filePath: filePath);
-        ScopeKind kind = (generated, test, boundary, domain, application, shared, composition) switch {
-            (true, _, _, _, _, _, _) => ScopeKind.Generated,
-            (_, true, _, _, _, _, _) => ScopeKind.Test,
-            (_, _, true, _, _, _, _) => ScopeKind.Boundary,
-            (_, _, _, true, _, _, _) => ScopeKind.Domain,
-            (_, _, _, _, true, _, _) => ScopeKind.Application,
-            (_, _, _, _, _, true, _) => ScopeKind.Shared,
-            (_, _, _, _, _, _, true) => ScopeKind.Composition,
+        ScopeKind kind = (generated, test, boundary, domain, application, shared, analysis, composition) switch {
+            (true, _, _, _, _, _, _, _) => ScopeKind.Generated,
+            (_, true, _, _, _, _, _, _) => ScopeKind.Test,
+            (_, _, true, _, _, _, _, _) => ScopeKind.Boundary,
+            (_, _, _, true, _, _, _, _) => ScopeKind.Domain,
+            (_, _, _, _, true, _, _, _) => ScopeKind.Application,
+            (_, _, _, _, _, true, _, _) => ScopeKind.Shared,
+            (_, _, _, _, _, _, true, _) => ScopeKind.Analysis,
+            (_, _, _, _, _, _, _, true) => ScopeKind.Composition,
             _ => ScopeKind.Other,
         };
         return new ScopeInfo(kind: kind, namespaceName: namespaceName, filePath: filePath);

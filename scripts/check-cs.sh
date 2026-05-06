@@ -18,6 +18,7 @@ readonly RHINO_TEST_CONFIG_OUTPUT="${ROOT_DIR}/tests/rhino/bin/Release/net10.0/R
 readonly RHINO_TEST_DEPS_OUTPUT="${ROOT_DIR}/tests/rhino/bin/Release/net10.0/Rhino.Tests.deps.json"
 readonly RHINO_TESTING_NET10_ASSET="lib/net10.0/Rhino.Testing.dll"
 readonly RHINO_DOTNET="${RASM_RHINO_DOTNET:-/usr/local/share/dotnet/dotnet}"
+readonly RHINO_RUNTIME_TEST_PROJECT="tests/rhino/Rhino.Tests.csproj"
 readonly -a PROJECT_EXCLUDE_ARGS=(
     --exclude .artifacts --exclude .cache --exclude .git --exclude .nx --exclude bin
     --exclude coverage --exclude node_modules --exclude obj --exclude test-results --exclude tmp
@@ -46,7 +47,12 @@ _main() {
         command -v "${command}" >/dev/null || _die "Missing required command: ${command}"
     done
     local workspace_projects solution_projects missing
-    workspace_projects="$(cd -- "${ROOT_DIR}" && fd -H -e csproj . --strip-cwd-prefix=always "${PROJECT_EXCLUDE_ARGS[@]}" | LC_ALL=C sort)"
+    workspace_projects="$(
+        cd -- "${ROOT_DIR}" \
+            && fd -H -e csproj . --strip-cwd-prefix=always "${PROJECT_EXCLUDE_ARGS[@]}" \
+            | rg --no-line-number --fixed-strings --invert-match --line-regexp "${RHINO_RUNTIME_TEST_PROJECT}" \
+            | LC_ALL=C sort
+    )"
     readonly workspace_projects
     [[ -n "${workspace_projects}" ]] || _die "No C# projects discovered."
     solution_projects="$(cd -- "${ROOT_DIR}" && dotnet sln "${SOLUTION_PATH}" list | rg --no-line-number '\.csproj$' | LC_ALL=C sort)"
@@ -72,6 +78,7 @@ _main() {
     dotnet format "${SOLUTION_PATH}" --verify-no-changes --severity info --diagnostics "${UNUSED_CODE_DIAGNOSTICS}" --no-restore
     local -a test_projects=()
     test_projects=(
+        tests/csharp/analysis/Analysis.Tests.csproj
         tests/csharp/core/Core.Tests.csproj
         tools/cs-analyzer/tests/CsAnalyzer.Tests.csproj
     )

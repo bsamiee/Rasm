@@ -8,16 +8,19 @@
   </Folder>
   <Folder Name="/libs/" />
   <Folder Name="/libs/csharp/" />
+  <Folder Name="/libs/csharp/analysis/">
+    <Project Path="libs/csharp/analysis/Analysis.csproj" />
+  </Folder>
   <Folder Name="/libs/csharp/core/">
     <Project Path="libs/csharp/core/Core.csproj" />
   </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/csharp/" />
+  <Folder Name="/tests/csharp/analysis/">
+    <Project Path="tests/csharp/analysis/Analysis.Tests.csproj" />
+  </Folder>
   <Folder Name="/tests/csharp/core/">
     <Project Path="tests/csharp/core/Core.Tests.csproj" />
-  </Folder>
-  <Folder Name="/tests/rhino/">
-    <Project Path="tests/rhino/Rhino.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/" />
   <Folder Name="/tools/cs-analyzer/">

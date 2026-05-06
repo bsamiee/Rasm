@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <AssemblyName>Rasm.Analysis</AssemblyName>
+        <RootNamespace>Analysis</RootNamespace>
+        <Title>Rasm Analysis</Title>
+        <Company>Rasm</Company>
+        <Description>RhinoCommon-native geometry analysis algebra.</Description>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../core/Core.csproj" />
+    </ItemGroup>
+</Project>

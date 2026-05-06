@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using LanguageExt.Common;
@@ -53,19 +52,8 @@ public sealed record GeometryContext {
                 modelUnits: modelUnits))
         .As();
 
-    internal static Validation<Error, GeometryContext> FromModelTolerances(
-        double absoluteTolerance,
-        double relativeTolerance,
-        double angleToleranceRadians,
-        Fin<ModelUnitSystem> modelUnits) =>
-        Create(
-            absoluteTolerance: absoluteTolerance,
-            relativeTolerance: relativeTolerance,
-            angleToleranceRadians: angleToleranceRadians,
-            modelUnits: modelUnits);
-
     public static Validation<Error, GeometryContext> CreateDefault(UnitSystem units) =>
-        FromModelTolerances(
+        Create(
             absoluteTolerance: DefaultAbsoluteToleranceScalar,
             relativeTolerance: DefaultRelativeToleranceScalar,
             angleToleranceRadians: DefaultAngleToleranceRadians,
@@ -75,7 +63,7 @@ public sealed record GeometryContext {
         Optional(doc)
             .ToValidation(ContextFault.MissingDocument())
             .Bind(static (RhinoDoc candidate) =>
-                FromModelTolerances(
+                Create(
                     absoluteTolerance: candidate.ModelAbsoluteTolerance,
                     relativeTolerance: candidate.ModelRelativeTolerance,
                     angleToleranceRadians: candidate.ModelAngleToleranceRadians,
@@ -96,35 +84,20 @@ public sealed record GeometryContext {
                         _ => ModelUnitSystem.Create(units: candidate.ModelUnitSystem),
                     }));
 
-    public Validation<Error, TGeometry> Validate<TGeometry>(TGeometry? geometry) where TGeometry : GeometryBase =>
-        GeometryValidation.Validate(context: this, geometry: geometry);
-
-    internal Fin<LengthScale> ScaleTo(ModelUnitSystem targetUnits) =>
-        EqualityComparer<ModelUnitSystem>.Default.Equals(x: ModelUnits, y: targetUnits) switch {
-            true => Fin.Succ(LengthScale.Identity),
-            false => RhinoMath.UnitScale(
-                    from: Units,
-                    fromMetersPerUnit: ModelUnits.MetersPerUnit,
-                    to: targetUnits.Units,
-                    toMetersPerUnit: targetUnits.MetersPerUnit) switch {
-                        double scale => LengthScale.Create(candidate: scale)
-                            .MapFail(static (Error _) => ContextFault.InvalidUnitScale()),
-                    },
-        };
-
-    internal Fin<ModelLength> ConvertLength(ModelLength length, ModelUnitSystem targetUnits) =>
-        (Fin.Succ(length), ScaleTo(targetUnits: targetUnits))
-            .Apply(static (ModelLength modelLength, LengthScale scale) =>
-                modelLength.Value * scale.Value)
-            .Bind(static (double candidate) => ModelLength.Create(candidate: candidate))
-            .As();
+    internal Validation<Error, TGeometry> Validate<TGeometry>(
+        TGeometry? geometry,
+        GeometryRequirement? requirement = null) where TGeometry : GeometryBase =>
+        GeometryValidation.Validate(
+            context: this,
+            geometry: geometry,
+            requirement: requirement ?? GeometryRequirement.Strict);
 
     internal static Validation<Error, GeometryContext> FromKnownUnits(
         double absoluteTolerance,
         double relativeTolerance,
         double angleToleranceRadians,
         UnitSystem units) =>
-        FromModelTolerances(
+        Create(
             absoluteTolerance: absoluteTolerance,
             relativeTolerance: relativeTolerance,
             angleToleranceRadians: angleToleranceRadians,
@@ -247,41 +220,6 @@ public sealed record GeometryContext {
             };
     }
 
-    [StructLayout(LayoutKind.Auto)]
-    internal readonly record struct ModelLength {
-        private ModelLength(double value) =>
-            Value = value;
-
-        internal double Value { get; }
-
-        internal static Fin<ModelLength> Create(double candidate) =>
-            RhinoMath.IsValidDouble(candidate) switch {
-                true => Fin.Succ(new ModelLength(value: candidate)),
-                false => Fin.Fail<ModelLength>(
-                    ContextFault.NonFinite(label: nameof(ModelLength), scalar: candidate)),
-            };
-    }
-
-    [StructLayout(LayoutKind.Auto)]
-    internal readonly record struct LengthScale {
-        private LengthScale(double value) =>
-            Value = value;
-
-        internal double Value { get; }
-        internal static LengthScale Identity => new(value: 1.0);
-
-        internal static Fin<LengthScale> Create(double candidate) =>
-            (RhinoMath.IsValidDouble(candidate), candidate > RhinoMath.ZeroTolerance) switch {
-                (false, _) => Fin.Fail<LengthScale>(
-                    ContextFault.NonFinite(label: nameof(LengthScale), scalar: candidate)),
-                (_, false) => Fin.Fail<LengthScale>(
-                    ContextFault.OutOfRange(
-                        label: nameof(LengthScale),
-                        scalar: candidate,
-                        requirement: "greater than Rhino zero tolerance")),
-                _ => Fin.Succ(new LengthScale(value: candidate)),
-            };
-    }
 }
 
 // --- [ERRORS] ----------------------------------------------------------------------------------
@@ -297,9 +235,6 @@ internal static class ContextFault {
             provider: CultureInfo.InvariantCulture,
             $"Geometry value '{label}' must be {requirement}; actual={scalar:R}."));
 
-    internal static Error InvalidUnitScale() =>
-        Error.New(message: "Rhino unit conversion produced an invalid scale.");
-
     internal static Error InvalidUnitSystem(UnitSystem units, string requirement) =>
         Error.New(message: string.Create(
             provider: CultureInfo.InvariantCulture,
@@ -310,4 +245,5 @@ internal static class ContextFault {
 
     internal static Error MissingCustomUnitScale() =>
         Error.New(message: "Rhino document custom model unit scale is required.");
+
 }
