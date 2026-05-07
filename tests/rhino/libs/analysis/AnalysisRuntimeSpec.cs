@@ -1372,6 +1372,103 @@ public sealed class AnalysisRuntimeSpec {
     }
 
     [Test]
+    public void ConstructsScopeFromKnownUnits() {
+        BoundingBox box = new(
+            min: Point3d.Origin,
+            max: new Point3d(x: 2.0, y: 4.0, z: 6.0));
+
+        BoundingBox[] bounds = Analyze.In(
+                absolute: 0.01,
+                relative: 0.0,
+                angle: Math.PI / 180.0,
+                units: UnitSystem.Millimeters)
+            .Run(
+                query: AnalysisQuery.Bounds<BoundingBox, BoundingBox>(aspect: Bounds.Box),
+                input: [box])
+            .ToFin()
+            .Match(
+                Succ: static (Seq<BoundingBox> output) => output.ToArray(),
+                Fail: static (Error fault) => throw new AssertionException(message: fault.Message));
+
+        Assert.Multiple(() => {
+            Assert.That(actual: bounds, expression: Has.Length.EqualTo(expected: 1));
+            Assert.That(actual: bounds[0].Center, expression: Is.EqualTo(expected: new Point3d(x: 1.0, y: 2.0, z: 3.0)));
+        });
+    }
+
+    [Test]
+    public void DistinguishesBoundsCenterFromMassCentroidOnAsymmetricBrep() {
+        GeometryContext context = Context();
+        Cone cone = new(
+            plane: Plane.WorldXY,
+            height: 4.0,
+            radius: 1.0);
+        using Brep brep = cone.ToBrep(capBottom: true);
+
+        Point3d[] boundsCenter = Run(
+            query: AnalysisQuery.Bounds<Brep, Point3d>(aspect: Bounds.Center),
+            context: context,
+            input: [brep]);
+        Point3d[] volumeCentroid = Run(
+            query: AnalysisQuery.Measure<Brep, Point3d>(aspect: Measure.SpatialMidpoint),
+            context: context,
+            input: [brep]);
+        BoundingBox boundingBox = brep.GetBoundingBox(accurate: true);
+
+        Assert.Multiple(() => {
+            Assert.That(actual: boundsCenter, expression: Has.Length.EqualTo(expected: 1));
+            Assert.That(actual: volumeCentroid, expression: Has.Length.EqualTo(expected: 1));
+            Assert.That(actual: boundsCenter[0], expression: Is.EqualTo(expected: boundingBox.Center));
+            Assert.That(actual: boundsCenter[0].DistanceTo(other: volumeCentroid[0]), expression: Is.GreaterThan(expected: context.Absolute.Value));
+        });
+    }
+
+    [Test]
+    public void ExtractsBoundsCornersFromBrep() {
+        GeometryContext context = Context();
+        BoundingBox box = new(
+            min: Point3d.Origin,
+            max: new Point3d(x: 2.0, y: 4.0, z: 6.0));
+        using Brep brep = Brep.CreateFromBox(box: box);
+
+        Point3d[] corners = Run(
+            query: AnalysisQuery.Bounds<Brep, Point3d>(aspect: Bounds.Corners),
+            context: context,
+            input: [brep]);
+
+        Assert.That(actual: corners, expression: Has.Length.EqualTo(expected: 8));
+    }
+
+    [Test]
+    public void IteratesSubDVerticesInControlNetOrder() {
+        GeometryContext context = Context();
+        using Mesh mesh = new();
+        _ = mesh.Vertices.Add(x: 0.0, y: 0.0, z: 0.0);
+        _ = mesh.Vertices.Add(x: 2.0, y: 0.0, z: 0.0);
+        _ = mesh.Vertices.Add(x: 2.0, y: 2.0, z: 0.0);
+        _ = mesh.Vertices.Add(x: 0.0, y: 2.0, z: 0.0);
+        _ = mesh.Faces.AddFace(vertex1: 0, vertex2: 1, vertex3: 2, vertex4: 3);
+        _ = mesh.Normals.ComputeNormals();
+        _ = mesh.Compact();
+        using SubD subd = SubD.CreateFromMesh(mesh: mesh);
+
+        Point3d[] vertices = Run(
+            query: AnalysisQuery.Vertices<SubD, Point3d>(),
+            context: context,
+            input: [subd]);
+
+        Assert.Multiple(() => {
+            Assert.That(actual: vertices, expression: Has.Length.EqualTo(expected: subd.Vertices.Count));
+            Assert.That(actual: vertices, expression: Is.EquivalentTo(expected: new[] {
+                new Point3d(x: 0.0, y: 0.0, z: 0.0),
+                new Point3d(x: 2.0, y: 0.0, z: 0.0),
+                new Point3d(x: 2.0, y: 2.0, z: 0.0),
+                new Point3d(x: 0.0, y: 2.0, z: 0.0),
+            }));
+        });
+    }
+
+    [Test]
     public void ExtractsMeshVerticesAndAreaCentroid() {
         GeometryContext context = Context();
         using Mesh mesh = new();
@@ -1417,6 +1514,352 @@ public sealed class AnalysisRuntimeSpec {
                 Succ: static (Seq<Point3d> _) => false,
                 Fail: static (Error error) => error.Count == 2 && error.Message.Contains(value: "EdgeMidpoints", comparisonType: StringComparison.Ordinal)),
             expression: Is.True);
+    }
+
+    [Test]
+    public void DetectsBrepSphereKind() {
+        GeometryContext context = Context();
+        Sphere sphere = new(center: Point3d.Origin, radius: 1.0);
+        using Brep brep = sphere.ToBrep();
+
+        GeometryKind[] kind = Run(
+            query: AnalysisQuery.Kind<Brep, GeometryKind>(),
+            context: context,
+            input: [brep]);
+
+        Assert.That(actual: kind, expression: Is.EqualTo(expected: new[] { GeometryKind.BrepSphere }));
+    }
+
+    [Test]
+    public void DetectsBrepBoxKind() {
+        GeometryContext context = Context();
+        BoundingBox bounds = new(min: Point3d.Origin, max: new Point3d(x: 2.0, y: 4.0, z: 6.0));
+        using Brep brep = Brep.CreateFromBox(box: bounds);
+
+        GeometryKind[] kind = Run(
+            query: AnalysisQuery.Kind<Brep, GeometryKind>(),
+            context: context,
+            input: [brep]);
+
+        Assert.That(actual: kind, expression: Is.EqualTo(expected: new[] { GeometryKind.BrepBox }));
+    }
+
+    [Test]
+    public void DetectsBrepGeneralKindForCappedCone() {
+        GeometryContext context = Context();
+        Cone cone = new(plane: Plane.WorldXY, height: 4.0, radius: 1.0);
+        using Brep capped = cone.ToBrep(capBottom: true);
+
+        GeometryKind[] kind = Run(
+            query: AnalysisQuery.Kind<Brep, GeometryKind>(),
+            context: context,
+            input: [capped]);
+
+        Assert.That(actual: kind, expression: Is.EqualTo(expected: new[] { GeometryKind.BrepGeneral }));
+    }
+
+    [Test]
+    public void DetectsBrepConeKindForUncappedCone() {
+        GeometryContext context = Context();
+        Cone cone = new(plane: Plane.WorldXY, height: 4.0, radius: 1.0);
+        using Brep uncapped = cone.ToBrep(capBottom: false);
+
+        GeometryKind[] kind = Run(
+            query: AnalysisQuery.Kind<Brep, GeometryKind>(),
+            context: context,
+            input: [uncapped]);
+
+        Assert.That(actual: kind, expression: Is.EqualTo(expected: new[] { GeometryKind.BrepCone }));
+    }
+
+    [Test]
+    public void DetectsBrepCylinderKindForUncappedCylinder() {
+        GeometryContext context = Context();
+        Cylinder cylinder = new(baseCircle: new Circle(plane: Plane.WorldXY, radius: 1.0), height: 2.0);
+        using Brep uncapped = cylinder.ToBrep(capBottom: false, capTop: false);
+
+        GeometryKind[] kind = Run(
+            query: AnalysisQuery.Kind<Brep, GeometryKind>(),
+            context: context,
+            input: [uncapped]);
+
+        Assert.That(actual: kind, expression: Is.EqualTo(expected: new[] { GeometryKind.BrepCylinder }));
+    }
+
+    [Test]
+    public void DetectsBrepTorusKindForTorusRevolution() {
+        GeometryContext context = Context();
+        Torus torus = new(basePlane: Plane.WorldXY, majorRadius: 2.0, minorRadius: 0.5);
+        using Brep brep = torus.ToRevSurface().ToBrep();
+
+        GeometryKind[] kind = Run(
+            query: AnalysisQuery.Kind<Brep, GeometryKind>(),
+            context: context,
+            input: [brep]);
+
+        Assert.That(actual: kind, expression: Is.EqualTo(expected: new[] { GeometryKind.BrepTorus }));
+    }
+
+    [Test]
+    public void DetectsBrepPlaneKindForPlanarBrep() {
+        GeometryContext context = Context();
+        using PlaneSurface plane = new(plane: Plane.WorldXY, xExtents: new Interval(t0: 0.0, t1: 1.0), yExtents: new Interval(t0: 0.0, t1: 1.0));
+        using Brep brep = plane.ToBrep();
+
+        GeometryKind[] kind = Run(
+            query: AnalysisQuery.Kind<Brep, GeometryKind>(),
+            context: context,
+            input: [brep]);
+
+        Assert.That(actual: kind, expression: Is.EqualTo(expected: new[] { GeometryKind.BrepPlane }));
+    }
+
+    [Test]
+    public void DetectsMeshKind() {
+        GeometryContext context = Context();
+        using Mesh mesh = new();
+        _ = mesh.Vertices.Add(x: 0.0, y: 0.0, z: 0.0);
+        _ = mesh.Vertices.Add(x: 1.0, y: 0.0, z: 0.0);
+        _ = mesh.Vertices.Add(x: 0.0, y: 1.0, z: 0.0);
+        _ = mesh.Faces.AddFace(vertex1: 0, vertex2: 1, vertex3: 2);
+
+        GeometryKind[] kind = Run(
+            query: AnalysisQuery.Kind<Mesh, GeometryKind>(),
+            context: context,
+            input: [mesh]);
+
+        Assert.That(actual: kind, expression: Is.EqualTo(expected: new[] { GeometryKind.Mesh }));
+    }
+
+    [Test]
+    public void DetectsSubDKind() {
+        GeometryContext context = Context();
+        using Mesh mesh = new();
+        _ = mesh.Vertices.Add(x: 0.0, y: 0.0, z: 0.0);
+        _ = mesh.Vertices.Add(x: 2.0, y: 0.0, z: 0.0);
+        _ = mesh.Vertices.Add(x: 2.0, y: 2.0, z: 0.0);
+        _ = mesh.Vertices.Add(x: 0.0, y: 2.0, z: 0.0);
+        _ = mesh.Faces.AddFace(vertex1: 0, vertex2: 1, vertex3: 2, vertex4: 3);
+        using SubD subd = SubD.CreateFromMesh(mesh: mesh);
+
+        GeometryKind[] kind = Run(
+            query: AnalysisQuery.Kind<SubD, GeometryKind>(),
+            context: context,
+            input: [subd]);
+
+        Assert.That(actual: kind, expression: Is.EqualTo(expected: new[] { GeometryKind.SubD }));
+    }
+
+    [Test]
+    public void DetectsCurveKindForOpenNurbs() {
+        GeometryContext context = Context();
+        using NurbsCurve curve = NurbsCurve.Create(
+            periodic: false,
+            degree: 3,
+            points: new[] { Point3d.Origin, new Point3d(x: 1.0, y: 1.0, z: 0.0), new Point3d(x: 2.0, y: 0.0, z: 0.0), new Point3d(x: 3.0, y: 2.0, z: 0.0) });
+
+        GeometryKind[] kind = Run(
+            query: AnalysisQuery.Kind<Curve, GeometryKind>(),
+            context: context,
+            input: [curve]);
+
+        Assert.That(actual: kind, expression: Is.EqualTo(expected: new[] { GeometryKind.Curve }));
+    }
+
+    [Test]
+    public void DetectsPolylineKindForPolylineCurve() {
+        GeometryContext context = Context();
+        using PolylineCurve curve = new(points: new[] {
+            Point3d.Origin,
+            new Point3d(x: 1.0, y: 0.0, z: 0.0),
+            new Point3d(x: 2.0, y: 1.0, z: 0.0),
+        });
+
+        GeometryKind[] kind = Run(
+            query: AnalysisQuery.Kind<Curve, GeometryKind>(),
+            context: context,
+            input: [curve]);
+
+        Assert.That(actual: kind, expression: Is.EqualTo(expected: new[] { GeometryKind.Polyline }));
+    }
+
+    [Test]
+    public void DetectsSurfacePlaneKind() {
+        GeometryContext context = Context();
+        using PlaneSurface plane = new(plane: Plane.WorldXY, xExtents: new Interval(t0: 0.0, t1: 1.0), yExtents: new Interval(t0: 0.0, t1: 1.0));
+
+        GeometryKind[] kind = Run(
+            query: AnalysisQuery.Kind<Surface, GeometryKind>(),
+            context: context,
+            input: [plane]);
+
+        Assert.That(actual: kind, expression: Is.EqualTo(expected: new[] { GeometryKind.Plane }));
+    }
+
+    [Test]
+    public void RejectsEdgeMidpointsForSpherePrimitive() {
+        GeometryContext context = Context();
+        Sphere sphere = new(center: Point3d.Origin, radius: 1.0);
+        using Brep brep = sphere.ToBrep();
+
+        Validation<Error, Seq<Point3d>> result = Analyze.In(context: context)
+            .Run(
+                query: AnalysisQuery.EdgeMidpoints<Brep, Point3d>(),
+                input: [brep]);
+
+        Assert.That(
+            actual: result.ToFin().Match(
+                Succ: static (Seq<Point3d> _) => false,
+                Fail: static (Error error) => error.Message.Contains(value: "EdgeMidpoints", comparisonType: StringComparison.Ordinal)
+                    && error.Message.Contains(value: "Sphere", comparisonType: StringComparison.Ordinal)),
+            expression: Is.True);
+    }
+
+    [Test]
+    public void RejectsEdgeMidpointsForCylinderPrimitive() {
+        GeometryContext context = Context();
+        Cylinder cylinder = new(baseCircle: new Circle(plane: Plane.WorldXY, radius: 1.0), height: 2.0);
+        using Brep brep = cylinder.ToBrep(capBottom: false, capTop: false);
+
+        Validation<Error, Seq<Point3d>> result = Analyze.In(context: context)
+            .Run(
+                query: AnalysisQuery.EdgeMidpoints<Brep, Point3d>(),
+                input: [brep]);
+
+        Assert.That(
+            actual: result.ToFin().Match(
+                Succ: static (Seq<Point3d> _) => false,
+                Fail: static (Error error) => error.Message.Contains(value: "EdgeMidpoints", comparisonType: StringComparison.Ordinal)
+                    && error.Message.Contains(value: "Cylinder", comparisonType: StringComparison.Ordinal)),
+            expression: Is.True);
+    }
+
+    [Test]
+    public void RejectsEdgeMidpointsForConePrimitive() {
+        GeometryContext context = Context();
+        Cone cone = new(plane: Plane.WorldXY, height: 4.0, radius: 1.0);
+        using Brep brep = cone.ToBrep(capBottom: false);
+
+        Validation<Error, Seq<Point3d>> result = Analyze.In(context: context)
+            .Run(
+                query: AnalysisQuery.EdgeMidpoints<Brep, Point3d>(),
+                input: [brep]);
+
+        Assert.That(
+            actual: result.ToFin().Match(
+                Succ: static (Seq<Point3d> _) => false,
+                Fail: static (Error error) => error.Message.Contains(value: "EdgeMidpoints", comparisonType: StringComparison.Ordinal)
+                    && error.Message.Contains(value: "Cone", comparisonType: StringComparison.Ordinal)),
+            expression: Is.True);
+    }
+
+    [Test]
+    public void RejectsEdgeMidpointsForTorusPrimitive() {
+        GeometryContext context = Context();
+        Torus torus = new(basePlane: Plane.WorldXY, majorRadius: 2.0, minorRadius: 0.5);
+        using Brep brep = torus.ToRevSurface().ToBrep();
+
+        Validation<Error, Seq<Point3d>> result = Analyze.In(context: context)
+            .Run(
+                query: AnalysisQuery.EdgeMidpoints<Brep, Point3d>(),
+                input: [brep]);
+
+        Assert.That(
+            actual: result.ToFin().Match(
+                Succ: static (Seq<Point3d> _) => false,
+                Fail: static (Error error) => error.Message.Contains(value: "EdgeMidpoints", comparisonType: StringComparison.Ordinal)
+                    && error.Message.Contains(value: "Torus", comparisonType: StringComparison.Ordinal)),
+            expression: Is.True);
+    }
+
+    [Test]
+    public void RejectsVerticesForSpherePrimitive() {
+        GeometryContext context = Context();
+        Sphere sphere = new(center: Point3d.Origin, radius: 1.0);
+        using Brep brep = sphere.ToBrep();
+
+        Validation<Error, Seq<Point3d>> result = Analyze.In(context: context)
+            .Run(
+                query: AnalysisQuery.Vertices<Brep, Point3d>(),
+                input: [brep]);
+
+        Assert.That(
+            actual: result.ToFin().Match(
+                Succ: static (Seq<Point3d> _) => false,
+                Fail: static (Error error) => error.Message.Contains(value: "Vertices", comparisonType: StringComparison.Ordinal)
+                    && error.Message.Contains(value: "Sphere", comparisonType: StringComparison.Ordinal)),
+            expression: Is.True);
+    }
+
+    [Test]
+    public void RejectsVerticesForCylinderPrimitive() {
+        GeometryContext context = Context();
+        Cylinder cylinder = new(baseCircle: new Circle(plane: Plane.WorldXY, radius: 1.0), height: 2.0);
+        using Brep brep = cylinder.ToBrep(capBottom: false, capTop: false);
+
+        Validation<Error, Seq<Point3d>> result = Analyze.In(context: context)
+            .Run(
+                query: AnalysisQuery.Vertices<Brep, Point3d>(),
+                input: [brep]);
+
+        Assert.That(
+            actual: result.ToFin().Match(
+                Succ: static (Seq<Point3d> _) => false,
+                Fail: static (Error error) => error.Message.Contains(value: "Vertices", comparisonType: StringComparison.Ordinal)
+                    && error.Message.Contains(value: "Cylinder", comparisonType: StringComparison.Ordinal)),
+            expression: Is.True);
+    }
+
+    [Test]
+    public void RejectsVerticesForConePrimitive() {
+        GeometryContext context = Context();
+        Cone cone = new(plane: Plane.WorldXY, height: 4.0, radius: 1.0);
+        using Brep brep = cone.ToBrep(capBottom: false);
+
+        Validation<Error, Seq<Point3d>> result = Analyze.In(context: context)
+            .Run(
+                query: AnalysisQuery.Vertices<Brep, Point3d>(),
+                input: [brep]);
+
+        Assert.That(
+            actual: result.ToFin().Match(
+                Succ: static (Seq<Point3d> _) => false,
+                Fail: static (Error error) => error.Message.Contains(value: "Vertices", comparisonType: StringComparison.Ordinal)
+                    && error.Message.Contains(value: "Cone", comparisonType: StringComparison.Ordinal)),
+            expression: Is.True);
+    }
+
+    [Test]
+    public void RejectsVerticesForTorusPrimitive() {
+        GeometryContext context = Context();
+        Torus torus = new(basePlane: Plane.WorldXY, majorRadius: 2.0, minorRadius: 0.5);
+        using Brep brep = torus.ToRevSurface().ToBrep();
+
+        Validation<Error, Seq<Point3d>> result = Analyze.In(context: context)
+            .Run(
+                query: AnalysisQuery.Vertices<Brep, Point3d>(),
+                input: [brep]);
+
+        Assert.That(
+            actual: result.ToFin().Match(
+                Succ: static (Seq<Point3d> _) => false,
+                Fail: static (Error error) => error.Message.Contains(value: "Vertices", comparisonType: StringComparison.Ordinal)
+                    && error.Message.Contains(value: "Torus", comparisonType: StringComparison.Ordinal)),
+            expression: Is.True);
+    }
+
+    [Test]
+    public void PreservesVerticesForBoxBrep() {
+        GeometryContext context = Context();
+        BoundingBox bounds = new(min: Point3d.Origin, max: new Point3d(x: 2.0, y: 4.0, z: 6.0));
+        using Brep brep = Brep.CreateFromBox(box: bounds);
+
+        Point3d[] vertices = Run(
+            query: AnalysisQuery.Vertices<Brep, Point3d>(),
+            context: context,
+            input: [brep]);
+
+        Assert.That(actual: vertices, expression: Is.EquivalentTo(expected: bounds.GetCorners()));
     }
 
     private static GeometryContext Context() =>

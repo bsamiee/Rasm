@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <AssemblyName>Radyab.Grasshopper</AssemblyName>
+        <RootNamespace>Grasshopper</RootNamespace>
+        <Title>Radyab.Grasshopper</Title>
+        <Description>GH2 boundary plumbing shared across Radyab plugins.</Description>
+        <IsGrasshopperAwareProject>true</IsGrasshopperAwareProject>
+        <SkipBoundaryExemptionContracts>true</SkipBoundaryExemptionContracts>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../analysis/Analysis.csproj" />
+    </ItemGroup>
+</Project>

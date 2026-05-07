@@ -70,6 +70,11 @@ public enum MeshCheckCount { None = 0, DegenerateFaces = 1, DisjointMeshes = 2, 
 public enum ConformanceResidual { None = 0, Distance = 1, Rms = 2, WithinTolerance = 3, Profile = 4, Maximum = 5 }
 public enum MeshFaceMetric { None = 0, AspectRatio = 1 }
 public enum DeviationKind { None = 0, Curve = 1 }
+public enum GeometryKind {
+    Unknown = 0, Curve = 1, Polyline = 2, Mesh = 3, SubD = 4, Surface = 5,
+    BrepGeneral = 10, BrepBox = 11, BrepSphere = 12, BrepCylinder = 13, BrepCone = 14, BrepTorus = 15, BrepPlane = 16,
+    Line = 20, Sphere = 21, Box = 22, BoundingBox = 23, Cylinder = 24, Cone = 25, Torus = 26, Plane = 27,
+}
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CurvatureProfile(
     CurvatureScalar Scalar,
@@ -216,7 +221,8 @@ public static partial class Query {
         VerticesKey = new(name: nameof(Vertices)), ComponentsKey = new(name: "Components"), IsManifoldKey = new(name: nameof(IsManifold)),
         NakedPointStatusKey = new(name: nameof(NakedPointStatus)), MeshCheckKey = new(name: nameof(MeshCheck)), MeshCheckCountKey = new(name: "MeshCheckCount"), MeshFaceMetricKey = new(name: nameof(MeshFaceMetric)), SelfIntersectionsKey = new(name: nameof(SelfIntersections)), IntersectKey = new(name: nameof(Intersect)),
         ConformanceKey = new(name: nameof(Conformance)), DeviationKey = new(name: nameof(Deviation)), SpatialIndexKey = new(name: nameof(SpatialIndex)),
-        TopologyKey = new(name: nameof(Topology)), ScopeKey = new(name: nameof(Analyze.Scope));
+        TopologyKey = new(name: nameof(Topology)), ScopeKey = new(name: nameof(Analyze.Scope)),
+        KindKey = new(name: nameof(Kind));
     internal static Query<TGeometry, TOut> Unsupported<TGeometry, TOut>(this OperationKey key) where TGeometry : notnull =>
         Query<TGeometry, TOut>.Reject(
             key: key,

@@ -25,22 +25,18 @@ public static partial class Query {
             BoundsKind.Box => Box<TGeometry, TOut>(),
             BoundsKind.Oriented => Oriented<TGeometry, TOut>(plane: aspect.Plane),
             BoundsKind.Transformed => Transformed<TGeometry, TOut>(transform: aspect.Transform),
-            BoundsKind.Center when typeof(TGeometry) == typeof(BoundingBox) && typeof(TOut) == typeof(Point3d) =>
-                Cast<TGeometry, TOut>(key: BoundsCenterKey, query: Query<BoundingBox, Point3d>.Build(
+            BoundsKind.Center when typeof(TOut) == typeof(Point3d) =>
+                Cast<TGeometry, TOut>(key: BoundsCenterKey, query: Query<TGeometry, Point3d>.Build(
                     key: BoundsCenterKey,
-                    evaluator: static (BoundingBox geometry, Fin<GeometryContext> _) => One(key: BoundsCenterKey, value: geometry.Center))),
-            BoundsKind.Center when typeof(TGeometry) == typeof(Box) && typeof(TOut) == typeof(Point3d) =>
-                Cast<TGeometry, TOut>(key: BoundsCenterKey, query: Query<Box, Point3d>.Build(
-                    key: BoundsCenterKey,
-                    evaluator: static (Box geometry, Fin<GeometryContext> _) => One(key: BoundsCenterKey, value: geometry.Center))),
-            BoundsKind.Corners when typeof(TGeometry) == typeof(BoundingBox) && typeof(TOut) == typeof(Point3d) =>
-                Cast<TGeometry, TOut>(key: BoundsCornersKey, query: Query<BoundingBox, Point3d>.Build(
+                    evaluator: static (TGeometry geometry, Fin<GeometryContext> _) =>
+                        ExtractBounds(geometry: geometry)
+                            .Bind(static (BoundingBox box) => One(key: BoundsCenterKey, value: box.Center)))),
+            BoundsKind.Corners when typeof(TOut) == typeof(Point3d) =>
+                Cast<TGeometry, TOut>(key: BoundsCornersKey, query: Query<TGeometry, Point3d>.Build(
                     key: BoundsCornersKey,
-                    evaluator: static (BoundingBox geometry, Fin<GeometryContext> _) => Many(key: BoundsCornersKey, values: geometry.GetCorners()))),
-            BoundsKind.Corners when typeof(TGeometry) == typeof(Box) && typeof(TOut) == typeof(Point3d) =>
-                Cast<TGeometry, TOut>(key: BoundsCornersKey, query: Query<Box, Point3d>.Build(
-                    key: BoundsCornersKey,
-                    evaluator: static (Box geometry, Fin<GeometryContext> _) => Many(key: BoundsCornersKey, values: geometry.GetCorners()))),
+                    evaluator: static (TGeometry geometry, Fin<GeometryContext> _) =>
+                        ExtractBounds(geometry: geometry)
+                            .Bind(static (BoundingBox box) => Many(key: BoundsCornersKey, values: box.GetCorners())))),
             BoundsKind.Edges when typeof(TGeometry) == typeof(BoundingBox) && typeof(TOut) == typeof(Line) =>
                 Cast<TGeometry, TOut>(key: BoxEdgesKey, query: Query<BoundingBox, Line>.Build(
                     key: BoxEdgesKey,
@@ -480,18 +476,24 @@ public static partial class Query {
                     || geometry == typeof(Line)
                     || geometry == typeof(Polyline)
                     || geometry == typeof(BoundingBox)
-                    || geometry == typeof(Box)) =>
+                    || geometry == typeof(Box)
+                    || geometry == typeof(Sphere)) =>
                 Cast<TGeometry, TOut>(key: BoundsKey, query: Query<TGeometry, BoundingBox>.Build(
                     key: BoundsKey,
-                    evaluator: static (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
-                        GeometryBase native => One(key: BoundsKey, value: native.GetBoundingBox(accurate: true)),
-                        Line line => One(key: BoundsKey, value: line.BoundingBox),
-                        Polyline polyline => One(key: BoundsKey, value: polyline.BoundingBox),
-                        BoundingBox box => One(key: BoundsKey, value: box),
-                        Box box => One(key: BoundsKey, value: box.BoundingBox),
-                        _ => Fin.Fail<Seq<BoundingBox>>(BoundsKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(BoundingBox))),
-                    })),
+                    evaluator: static (TGeometry geometry, Fin<GeometryContext> _) =>
+                        ExtractBounds(geometry: geometry)
+                            .Bind(static (BoundingBox box) => One(key: BoundsKey, value: box)))),
             _ => BoundsKey.Unsupported<TGeometry, TOut>(),
+        };
+    private static Fin<BoundingBox> ExtractBounds<TGeometry>(TGeometry geometry) where TGeometry : notnull =>
+        geometry switch {
+            GeometryBase native => Fin.Succ(native.GetBoundingBox(accurate: true)),
+            Line line => Fin.Succ(line.BoundingBox),
+            Polyline polyline => Fin.Succ(polyline.BoundingBox),
+            BoundingBox box => Fin.Succ(box),
+            Box box => Fin.Succ(box.BoundingBox),
+            Sphere sphere => Fin.Succ(sphere.BoundingBox),
+            _ => Fin.Fail<BoundingBox>(BoundsKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(BoundingBox))),
         };
     private static Query<TGeometry, TOut> Oriented<TGeometry, TOut>(Plane plane) where TGeometry : notnull =>
         (typeof(TGeometry), typeof(TOut)) switch {

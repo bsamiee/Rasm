@@ -10,6 +10,7 @@
 
     <ItemGroup>
         <ProjectReference Include="../../../libs/csharp/analysis/Analysis.csproj" />
+        <ProjectReference Include="../../../libs/csharp/grasshopper/Grasshopper.csproj" />
     </ItemGroup>
 
     <ItemGroup>

@@ -37,6 +37,17 @@ internal static class OperationFault {
             $"Geometry operation '{key.Name}' does not support geometry '{geometryType.Name}' with output '{outputType.Name}'."));
 }
 
+internal static class SemanticFault {
+    internal static Error PrimitiveNoEdges(this OperationKey key, string primitive) =>
+        Error.New(message: string.Create(
+            provider: CultureInfo.InvariantCulture,
+            $"Geometry operation '{key.Name}' rejects '{primitive}' primitive: no edges."));
+    internal static Error PrimitiveNoVertices(this OperationKey key, string primitive) =>
+        Error.New(message: string.Create(
+            provider: CultureInfo.InvariantCulture,
+            $"Geometry operation '{key.Name}' rejects '{primitive}' primitive: no vertices."));
+}
+
 // --- [OPERATIONS] ------------------------------------------------------------------------------
 
 internal static class GeometryResult {

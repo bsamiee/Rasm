@@ -24,6 +24,16 @@ public static class Analyze {
         new(context: GeometryContext.FromDocument(doc: doc).ToFin());
     public static Scope In(UnitSystem units) =>
         new(context: GeometryContext.CreateDefault(units: units).ToFin());
+    public static Scope In(
+        double absolute,
+        double relative,
+        double angle,
+        UnitSystem units) =>
+        new(context: GeometryContext.FromKnownUnits(
+            absoluteTolerance: absolute,
+            relativeTolerance: relative,
+            angleToleranceRadians: angle,
+            units: units).ToFin());
     public static Scope In(GeometryContext context) =>
         new(context: Optional(context)
             .ToFin(Query.ScopeKey.MissingContext()));

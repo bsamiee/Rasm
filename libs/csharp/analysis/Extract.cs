@@ -82,7 +82,13 @@ public static partial class Query {
                                     geometry: brep,
                                     requirement: GeometryRequirement.Basic)
                                 .ToFin()
-                                .Bind((Brep _) => EdgeCurveMidpoints(curves: brep.DuplicateEdgeCurves(), context: model))),
+                                .Bind((Brep _) => KindOfBrep(brep: brep, context: model) switch {
+                                    GeometryKind.BrepSphere => Fin.Fail<Seq<Point3d>>(EdgeMidpointsKey.PrimitiveNoEdges(primitive: "Sphere")),
+                                    GeometryKind.BrepCylinder => Fin.Fail<Seq<Point3d>>(EdgeMidpointsKey.PrimitiveNoEdges(primitive: "Cylinder")),
+                                    GeometryKind.BrepCone => Fin.Fail<Seq<Point3d>>(EdgeMidpointsKey.PrimitiveNoEdges(primitive: "Cone")),
+                                    GeometryKind.BrepTorus => Fin.Fail<Seq<Point3d>>(EdgeMidpointsKey.PrimitiveNoEdges(primitive: "Torus")),
+                                    _ => EdgeCurveMidpoints(curves: brep.DuplicateEdgeCurves(), context: model),
+                                })),
                         Mesh mesh => context.Bind((GeometryContext model) => model.Validate(
                                     geometry: mesh,
                                     requirement: GeometryRequirement.Basic)
@@ -205,6 +211,43 @@ public static partial class Query {
                         }),
             _ => PrimitiveKey.Unsupported<TGeometry, TOut>(),
         };
+    public static Query<TGeometry, TOut> Kind<TGeometry, TOut>() where TGeometry : notnull =>
+        (typeof(TGeometry), typeof(TOut)) switch {
+            (Type geometry, Type output) when output == typeof(GeometryKind)
+                && (typeof(GeometryBase).IsAssignableFrom(c: geometry)
+                    || geometry == typeof(object)
+                    || geometry == typeof(Line)
+                    || geometry == typeof(Polyline)
+                    || geometry == typeof(BoundingBox)
+                    || geometry == typeof(Box)
+                    || geometry == typeof(Sphere)) =>
+                Cast<TGeometry, TOut>(key: KindKey, query: Query<TGeometry, GeometryKind>.Build(
+                    key: KindKey,
+                    evaluator: static (TGeometry geometry, Fin<GeometryContext> context) => geometry switch {
+                        Brep brep => context.Bind((GeometryContext model) => One(key: KindKey, value: KindOfBrep(brep: brep, context: model))),
+                        Surface surface => context.Bind((GeometryContext model) => One(key: KindKey, value: surface switch {
+                            Surface s when s.TryGetPlane(plane: out Plane _, tolerance: model.Absolute.Value) => GeometryKind.Plane,
+                            Surface s when s.TryGetSphere(sphere: out Sphere _, tolerance: model.Absolute.Value) => GeometryKind.Sphere,
+                            Surface s when s.TryGetCylinder(cylinder: out Cylinder _, tolerance: model.Absolute.Value) => GeometryKind.Cylinder,
+                            Surface s when s.TryGetCone(cone: out Cone _, tolerance: model.Absolute.Value) => GeometryKind.Cone,
+                            Surface s when s.TryGetTorus(torus: out Torus _, tolerance: model.Absolute.Value) => GeometryKind.Torus,
+                            _ => GeometryKind.Surface,
+                        })),
+                        Mesh => One(key: KindKey, value: GeometryKind.Mesh),
+                        SubD => One(key: KindKey, value: GeometryKind.SubD),
+                        Curve curve => One(key: KindKey, value: curve.TryGetPolyline(polyline: out Polyline _) switch {
+                            true => GeometryKind.Polyline,
+                            false => GeometryKind.Curve,
+                        }),
+                        Polyline => One(key: KindKey, value: GeometryKind.Polyline),
+                        Line => One(key: KindKey, value: GeometryKind.Line),
+                        Sphere => One(key: KindKey, value: GeometryKind.Sphere),
+                        Box _ => One(key: KindKey, value: GeometryKind.Box),
+                        BoundingBox => One(key: KindKey, value: GeometryKind.BoundingBox),
+                        _ => One(key: KindKey, value: GeometryKind.Unknown),
+                    })),
+            _ => KindKey.Unsupported<TGeometry, TOut>(),
+        };
     public static Query<TGeometry, TOut> SolidOrientation<TGeometry, TOut>() where TGeometry : notnull =>
         (typeof(TGeometry), typeof(TOut)) switch {
             (Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(BrepSolidOrientation) =>
@@ -248,26 +291,30 @@ public static partial class Query {
                     || geometry == typeof(Box)) =>
                 Cast<TGeometry, TOut>(key: VerticesKey, query: Query<TGeometry, Point3d>.Build(
                     key: VerticesKey,
-                    evaluator: static (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
+                    requiresContext: true,
+                    evaluator: static (TGeometry geometry, Fin<GeometryContext> context) => geometry switch {
                         Line line => Many(key: VerticesKey, values: new[] { line.From, line.To }),
                         Polyline polyline => Many(key: VerticesKey, values: polyline),
                         Curve curve => curve.TryGetPolyline(polyline: out Polyline polyline) switch {
                             true => Many(key: VerticesKey, values: polyline),
                             false => Many(key: VerticesKey, values: new[] { curve.PointAtStart, curve.PointAtEnd }),
                         },
-                        Brep brep => Many(key: VerticesKey, values: brep.DuplicateVertices()),
+                        Brep brep => context.Bind((GeometryContext model) => KindOfBrep(brep: brep, context: model) switch {
+                            GeometryKind.BrepSphere => Fin.Fail<Seq<Point3d>>(VerticesKey.PrimitiveNoVertices(primitive: "Sphere")),
+                            GeometryKind.BrepCylinder => Fin.Fail<Seq<Point3d>>(VerticesKey.PrimitiveNoVertices(primitive: "Cylinder")),
+                            GeometryKind.BrepCone => Fin.Fail<Seq<Point3d>>(VerticesKey.PrimitiveNoVertices(primitive: "Cone")),
+                            GeometryKind.BrepTorus => Fin.Fail<Seq<Point3d>>(VerticesKey.PrimitiveNoVertices(primitive: "Torus")),
+                            _ => Many(key: VerticesKey, values: brep.DuplicateVertices()),
+                        }),
                         Mesh mesh => Many(key: VerticesKey, values: mesh.Vertices.ToPoint3dArray()),
                         SubD subd => Many(
                             key: VerticesKey,
-                            values: Enumerable
-                                .Range(start: 0, count: subd.Vertices.Count)
-                                .Aggregate(
-                                    seed: (Vertex: subd.Vertices.First, Points: Seq<Point3d>()),
-                                    func: static ((SubDVertex? Vertex, Seq<Point3d> Points) state, int _) => state.Vertex switch {
-                                        SubDVertex vertex => (Vertex: vertex.Next, Points: state.Points.Add(vertex.ControlNetPoint)),
-                                        _ => state,
-                                    })
-                                .Points),
+                            values: LanguageExt.List.unfold(
+                                state: (SubDVertex?)subd.Vertices.First,
+                                unfolder: static (SubDVertex? current) => current switch {
+                                    SubDVertex vertex => Some((vertex.ControlNetPoint, (SubDVertex?)vertex.Next)),
+                                    _ => None,
+                                })),
                         BoundingBox box => Many(key: VerticesKey, values: box.GetCorners()),
                         Box box => Many(key: VerticesKey, values: box.GetCorners()),
                         _ => Fin.Fail<Seq<Point3d>>(VerticesKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Point3d))),
@@ -483,6 +530,19 @@ public static partial class Query {
                                 false => Fin.Fail<Seq<Polyline>>(SelfIntersectionsKey.InvalidResult()),
                             };
                     }));
+    internal static GeometryKind KindOfBrep(Brep brep, GeometryContext context) =>
+        brep switch {
+            { IsSurface: true } single => single.Surfaces[0] switch {
+                Surface s when s.TryGetPlane(plane: out Plane _, tolerance: context.Absolute.Value) => GeometryKind.BrepPlane,
+                Surface s when s.TryGetSphere(sphere: out Sphere _, tolerance: context.Absolute.Value) => GeometryKind.BrepSphere,
+                Surface s when s.TryGetCylinder(cylinder: out Cylinder _, tolerance: context.Absolute.Value) => GeometryKind.BrepCylinder,
+                Surface s when s.TryGetCone(cone: out Cone _, tolerance: context.Absolute.Value) => GeometryKind.BrepCone,
+                Surface s when s.TryGetTorus(torus: out Torus _, tolerance: context.Absolute.Value) => GeometryKind.BrepTorus,
+                _ => GeometryKind.BrepGeneral,
+            },
+            Brep candidate when candidate.IsBox(tolerance: context.Absolute.Value) => GeometryKind.BrepBox,
+            _ => GeometryKind.BrepGeneral,
+        };
     private static Fin<Seq<Point3d>> EdgeCurveMidpoints(IEnumerable<Curve>? curves, GeometryContext context) =>
         Optional(curves)
             .ToFin(EdgeMidpointsKey.InvalidResult())

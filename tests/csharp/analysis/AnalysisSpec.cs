@@ -295,6 +295,132 @@ public sealed class AnalysisSpec {
     }
 
     [Fact]
+    public void ComputesBoundsCenterPolymorphicallyOverObject() {
+        object box = new BoundingBox(
+            min: Point3d.Origin,
+            max: new Point3d(x: 2.0, y: 4.0, z: 6.0));
+
+        Point3d[] center = Run(
+            query: Query.Bounds<object, Point3d>(aspect: Bounds.Center),
+            input: [box]);
+
+        _ = Assert.Single(collection: center);
+        Assert.Equal(expected: new Point3d(x: 1.0, y: 2.0, z: 3.0), actual: center[0]);
+    }
+
+    [Fact]
+    public void ComputesBoundsCornersPolymorphicallyOverObject() {
+        BoundingBox boundingBox = new(
+            min: Point3d.Origin,
+            max: new Point3d(x: 2.0, y: 4.0, z: 6.0));
+
+        Point3d[] corners = Run(
+            query: Query.Bounds<object, Point3d>(aspect: Bounds.Corners),
+            input: [(object)boundingBox]);
+
+        Assert.Equal(expected: 8, actual: corners.Length);
+        Assert.Equal(
+            expected: boundingBox.GetCorners(),
+            actual: corners);
+    }
+
+    [Fact]
+    public void ComputesBoundsCenterAndCornersOverLine() {
+        Line line = new(
+            from: Point3d.Origin,
+            to: new Point3d(x: 4.0, y: 6.0, z: 0.0));
+
+        Point3d[] center = Run(
+            query: Query.Bounds<Line, Point3d>(aspect: Bounds.Center),
+            input: [line]);
+        Point3d[] corners = Run(
+            query: Query.Bounds<Line, Point3d>(aspect: Bounds.Corners),
+            input: [line]);
+
+        Assert.Equal(expected: line.BoundingBox.Center, actual: center[0]);
+        Assert.Equal(expected: 8, actual: corners.Length);
+        Assert.Equal(expected: line.BoundingBox.GetCorners(), actual: corners);
+    }
+
+    [Fact]
+    public void ComputesBoundsCenterAndCornersOverPolyline() {
+        Polyline polyline = new([
+            Point3d.Origin,
+            new Point3d(x: 2.0, y: 0.0, z: 0.0),
+            new Point3d(x: 2.0, y: 3.0, z: 4.0),
+        ]);
+
+        Point3d[] center = Run(
+            query: Query.Bounds<Polyline, Point3d>(aspect: Bounds.Center),
+            input: [polyline]);
+        Point3d[] corners = Run(
+            query: Query.Bounds<Polyline, Point3d>(aspect: Bounds.Corners),
+            input: [polyline]);
+
+        Assert.Equal(expected: polyline.BoundingBox.Center, actual: center[0]);
+        Assert.Equal(expected: 8, actual: corners.Length);
+        Assert.Equal(expected: polyline.BoundingBox.GetCorners(), actual: corners);
+    }
+
+    [Fact]
+    public void RejectsKnownUnitsOverloadWithInvalidArguments() {
+        Validation<Error, Seq<BoundingBox>> nonPositiveAbsolute = Analyze.In(
+                absolute: 0.0,
+                relative: 0.0,
+                angle: Math.PI / 180.0,
+                units: UnitSystem.Unset)
+            .Run(
+                query: Query.Bounds<BoundingBox, BoundingBox>(aspect: Bounds.Box),
+                input: [new BoundingBox(min: Point3d.Origin, max: new Point3d(x: 1.0, y: 1.0, z: 1.0))]);
+        Validation<Error, Seq<BoundingBox>> outOfRangeRelative = Analyze.In(
+                absolute: 0.01,
+                relative: 1.0,
+                angle: Math.PI / 180.0,
+                units: UnitSystem.Unset)
+            .Run(
+                query: Query.Bounds<BoundingBox, BoundingBox>(aspect: Bounds.Box),
+                input: [new BoundingBox(min: Point3d.Origin, max: new Point3d(x: 1.0, y: 1.0, z: 1.0))]);
+        Validation<Error, Seq<BoundingBox>> nonPositiveAngle = Analyze.In(
+                absolute: 0.01,
+                relative: 0.0,
+                angle: 0.0,
+                units: UnitSystem.Unset)
+            .Run(
+                query: Query.Bounds<BoundingBox, BoundingBox>(aspect: Bounds.Box),
+                input: [new BoundingBox(min: Point3d.Origin, max: new Point3d(x: 1.0, y: 1.0, z: 1.0))]);
+        Validation<Error, Seq<BoundingBox>> overFullTurnAngle = Analyze.In(
+                absolute: 0.01,
+                relative: 0.0,
+                angle: (2.0 * Math.PI) + 1.0,
+                units: UnitSystem.Unset)
+            .Run(
+                query: Query.Bounds<BoundingBox, BoundingBox>(aspect: Bounds.Box),
+                input: [new BoundingBox(min: Point3d.Origin, max: new Point3d(x: 1.0, y: 1.0, z: 1.0))]);
+        Validation<Error, Seq<BoundingBox>> unsetUnits = Analyze.In(
+                absolute: 0.01,
+                relative: 0.0,
+                angle: Math.PI / 180.0,
+                units: UnitSystem.Unset)
+            .Run(
+                query: Query.Bounds<BoundingBox, BoundingBox>(aspect: Bounds.Box),
+                input: [new BoundingBox(min: Point3d.Origin, max: new Point3d(x: 1.0, y: 1.0, z: 1.0))]);
+
+        Assert.True(condition: nonPositiveAbsolute.ToFin().Match(
+            Succ: static (Seq<BoundingBox> _) => false,
+            Fail: static (Error error) => error.Message.Contains(value: "AbsoluteTolerance", comparisonType: StringComparison.Ordinal)));
+        Assert.True(condition: outOfRangeRelative.ToFin().Match(
+            Succ: static (Seq<BoundingBox> _) => false,
+            Fail: static (Error error) => error.Message.Contains(value: "RelativeTolerance", comparisonType: StringComparison.Ordinal)));
+        Assert.True(condition: nonPositiveAngle.ToFin().Match(
+            Succ: static (Seq<BoundingBox> _) => false,
+            Fail: static (Error error) => error.Message.Contains(value: "AngleTolerance", comparisonType: StringComparison.Ordinal)));
+        Assert.True(condition: overFullTurnAngle.ToFin().Match(
+            Succ: static (Seq<BoundingBox> _) => false,
+            Fail: static (Error error) => error.Message.Contains(value: "AngleTolerance", comparisonType: StringComparison.Ordinal)));
+        Assert.True(condition: unsetUnits.ToFin().IsFail);
+    }
+
+    [Fact]
     public void RejectsUnsupportedQueryBeforeInputExecution() {
         Validation<Error, Seq<Plane>> result = Analyze.Run(
             query: Query.Bounds<Line, Plane>(aspect: Bounds.Box),
@@ -665,6 +791,72 @@ public sealed class AnalysisSpec {
         Assert.True(condition: result.ToFin().Match(
             Succ: static (Seq<CurveDeviation> _) => false,
             Fail: static (Error error) => error.Count == 2));
+    }
+
+    [Fact]
+    public void RejectsKindForUnsupportedOutputType() {
+        Validation<Error, Seq<int>> result = Analyze.Run(
+            query: Query.Kind<BoundingBox, int>(),
+            input: [new BoundingBox(min: Point3d.Origin, max: new Point3d(x: 1.0, y: 1.0, z: 1.0))]);
+
+        Assert.True(condition: result.ToFin().Match(
+            Succ: static (Seq<int> _) => false,
+            Fail: static (Error error) => error.Message.Contains(value: "Kind", comparisonType: StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void RejectsKindForUnsupportedGeometryType() {
+        Validation<Error, Seq<GeometryKind>> result = Analyze.Run(
+            query: Query.Kind<int, GeometryKind>(),
+            input: [42]);
+
+        Assert.True(condition: result.ToFin().Match(
+            Succ: static (Seq<GeometryKind> _) => false,
+            Fail: static (Error error) => error.Message.Contains(value: "Kind", comparisonType: StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void DetectsLineKindOverObjectInput() {
+        object line = new Line(from: Point3d.Origin, to: new Point3d(x: 2.0, y: 0.0, z: 0.0));
+
+        GeometryKind[] kind = Run(
+            query: Query.Kind<object, GeometryKind>(),
+            input: [line]);
+
+        Assert.Equal(expected: [GeometryKind.Line], actual: kind);
+    }
+
+    [Fact]
+    public void DetectsBoundingBoxKindOverObjectInput() {
+        object bounds = new BoundingBox(min: Point3d.Origin, max: new Point3d(x: 1.0, y: 1.0, z: 1.0));
+
+        GeometryKind[] kind = Run(
+            query: Query.Kind<object, GeometryKind>(),
+            input: [bounds]);
+
+        Assert.Equal(expected: [GeometryKind.BoundingBox], actual: kind);
+    }
+
+    [Fact]
+    public void DetectsBoxKindOverObjectInput() {
+        object box = new Box(bbox: new BoundingBox(min: Point3d.Origin, max: new Point3d(x: 1.0, y: 1.0, z: 1.0)));
+
+        GeometryKind[] kind = Run(
+            query: Query.Kind<object, GeometryKind>(),
+            input: [box]);
+
+        Assert.Equal(expected: [GeometryKind.Box], actual: kind);
+    }
+
+    [Fact]
+    public void DetectsSphereKindOverObjectInput() {
+        object sphere = new Sphere(center: Point3d.Origin, radius: 1.0);
+
+        GeometryKind[] kind = Run(
+            query: Query.Kind<object, GeometryKind>(),
+            input: [sphere]);
+
+        Assert.Equal(expected: [GeometryKind.Sphere], actual: kind);
     }
 
     private static Line ValidLine() =>

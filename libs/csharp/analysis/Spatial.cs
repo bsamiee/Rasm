@@ -132,13 +132,14 @@ public sealed class SpatialIndex : IDisposable {
                 needlePts: state.Query,
                 limitDistance: state.Distance)))
         .ToValidation();
-    public void Dispose() {
-        switch (disposed) {
-            case false:
-                tree.Dispose();
-                break;
-        }
-        disposed = true;
+    public void Dispose() =>
+        disposed = disposed switch {
+            false => DisposeTree(),
+            true => true,
+        };
+    private bool DisposeTree() {
+        tree.Dispose();
+        return true;
     }
     private Fin<RTree> Ready() =>
         disposed switch {

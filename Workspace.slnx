@@ -12,6 +12,9 @@
   <Folder Name="/libs/csharp/core/">
     <Project Path="libs/csharp/core/Core.csproj" />
   </Folder>
+  <Folder Name="/libs/csharp/grasshopper/">
+    <Project Path="libs/csharp/grasshopper/Grasshopper.csproj" />
+  </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/csharp/" />
   <Folder Name="/tests/csharp/analysis/">
