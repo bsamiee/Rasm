@@ -1,12 +1,12 @@
 using System.Globalization;
 using System.Linq;
+using System.Runtime.InteropServices;
 using Core.Domain;
 using LanguageExt;
 using LanguageExt.Common;
 using Rhino.Geometry;
 using Rhino.Geometry.Intersect;
 using static LanguageExt.Prelude;
-
 namespace Analysis;
 
 // --- [ALGEBRA] ---------------------------------------------------------------------------------
@@ -24,7 +24,6 @@ public sealed class Query<TGeometry, TOut> where TGeometry : notnull {
         Ready = ready;
         Evaluator = evaluator;
     }
-
     internal OperationKey Key { get; }
     internal GeometryRequirement Requirement { get; }
     internal bool RequiresContext { get; }
@@ -32,7 +31,6 @@ public sealed class Query<TGeometry, TOut> where TGeometry : notnull {
     private Func<TGeometry, Fin<GeometryContext>, Fin<Seq<TOut>>> Evaluator { get; }
     internal Fin<Seq<TOut>> Apply(TGeometry geometry, Fin<GeometryContext> context) =>
         Evaluator(arg1: geometry, arg2: context);
-
     internal static Query<TGeometry, TOut> Build(
         OperationKey key,
         Func<TGeometry, Fin<GeometryContext>, Fin<Seq<TOut>>> evaluator,
@@ -44,7 +42,6 @@ public sealed class Query<TGeometry, TOut> where TGeometry : notnull {
             requiresContext: requiresContext,
             ready: Fin.Succ(unit),
             evaluator: evaluator);
-
     internal static Query<TGeometry, TOut> Build<TState>(
         OperationKey key,
         TState state,
@@ -58,7 +55,6 @@ public sealed class Query<TGeometry, TOut> where TGeometry : notnull {
             ready: Fin.Succ(unit),
             evaluator: (TGeometry geometry, Fin<GeometryContext> context) =>
                 evaluator(arg1: state, arg2: geometry, arg3: context));
-
     internal static Query<TGeometry, TOut> Reject(OperationKey key, Error fault) =>
         new(
             key: key,
@@ -68,53 +64,114 @@ public sealed class Query<TGeometry, TOut> where TGeometry : notnull {
             evaluator: (TGeometry _, Fin<GeometryContext> _) =>
                 Fin.Fail<Seq<TOut>>(error: fault));
 }
-
+public enum MassKind { None = 0, Length = 1, Area = 2, Volume = 3 }
+public enum CurvatureScalar { None = 0, Magnitude = 1, Gaussian = 2, Mean = 3 }
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CurvatureProfile(
+    CurvatureScalar Scalar,
+    int Count,
+    double Minimum,
+    double Maximum,
+    double Mean,
+    double Variance);
+public enum IntersectionKind { Unknown = 0, Point = 1, Overlap = 2 }
+internal enum BoundsKind { Box, Oriented, Transformed, Center, Corners, Edges, Area, Volume }
+internal enum MeasureKind { Scalar, Error, Centroid, CentroidError, Radii, Principal }
+internal enum LocationKind { Midpoint, Tangent, Closest, PointAtCurve, PointAtSurface, PointAtLength, FrameAtCurve, FrameAtSurface, PerpendicularFrameAt, NormalAt, CurvatureAtCurve, CurvatureAtSurface, CurvatureProfile, DerivativeAt, DivideByCount, DivideByLength, Orientation, Contains, ShortPath }
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct Bounds {
+    private Bounds(BoundsKind kind, Plane plane = default, Transform transform = default) {
+        Kind = kind;
+        Plane = plane;
+        Transform = transform;
+    }
+    internal readonly BoundsKind Kind; internal readonly Plane Plane; internal readonly Transform Transform;
+    public static Bounds Box => new(kind: BoundsKind.Box); public static Bounds Center => new(kind: BoundsKind.Center); public static Bounds Corners => new(kind: BoundsKind.Corners);
+    public static Bounds Edges => new(kind: BoundsKind.Edges); public static Bounds Area => new(kind: BoundsKind.Area); public static Bounds Volume => new(kind: BoundsKind.Volume);
+    public static Bounds Oriented(Plane plane) => new(kind: BoundsKind.Oriented, plane: plane);
+    public static Bounds Transformed(Transform transform) => new(kind: BoundsKind.Transformed, transform: transform);
+}
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct Measure {
+    private Measure(MeasureKind kind, MassKind mass) {
+        Kind = kind;
+        Mass = mass;
+    }
+    internal readonly MeasureKind Kind; internal readonly MassKind Mass;
+    public static Measure Length => new(kind: MeasureKind.Scalar, mass: MassKind.Length); public static Measure Area => new(kind: MeasureKind.Scalar, mass: MassKind.Area); public static Measure Volume => new(kind: MeasureKind.Scalar, mass: MassKind.Volume);
+    public static Measure Error(MassKind kind) => new(kind: MeasureKind.Error, mass: kind); public static Measure Centroid(MassKind kind) => new(kind: MeasureKind.Centroid, mass: kind); public static Measure CentroidError(MassKind kind) => new(kind: MeasureKind.CentroidError, mass: kind);
+    public static Measure Radii(MassKind kind) => new(kind: MeasureKind.Radii, mass: kind); public static Measure Principal(MassKind kind) => new(kind: MeasureKind.Principal, mass: kind);
+}
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct Location {
+    private Location(
+        LocationKind kind,
+        Point3d point = default,
+        Point2d uv = default,
+        Point2d end = default,
+        Plane plane = default,
+        double parameter = default,
+        int count = default) {
+        Kind = kind;
+        Point = point;
+        Uv = uv;
+        End = end;
+        Plane = plane;
+        Parameter = parameter;
+        Count = count;
+    }
+    internal readonly LocationKind Kind; internal readonly Point3d Point; internal readonly Point2d Uv; internal readonly Point2d End; internal readonly Plane Plane; internal readonly double Parameter; internal readonly int Count;
+    public static Location Midpoint => new(kind: LocationKind.Midpoint); public static Location Tangent => new(kind: LocationKind.Tangent); public static Location Closest(Point3d point) => new(kind: LocationKind.Closest, point: point);
+    public static Location PointAt(double parameter) => new(kind: LocationKind.PointAtCurve, parameter: parameter); public static Location PointAt(Point2d uv) => new(kind: LocationKind.PointAtSurface, uv: uv); public static Location PointAtLength(double length) => new(kind: LocationKind.PointAtLength, parameter: length);
+    public static Location FrameAt(double parameter) => new(kind: LocationKind.FrameAtCurve, parameter: parameter); public static Location FrameAt(Point2d uv) => new(kind: LocationKind.FrameAtSurface, uv: uv); public static Location PerpendicularFrameAt(double parameter) => new(kind: LocationKind.PerpendicularFrameAt, parameter: parameter);
+    public static Location NormalAt(Point2d uv) => new(kind: LocationKind.NormalAt, uv: uv); public static Location CurvatureAt(double parameter) => new(kind: LocationKind.CurvatureAtCurve, parameter: parameter); public static Location CurvatureAt(Point2d uv) => new(kind: LocationKind.CurvatureAtSurface, uv: uv); public static Location CurvatureProfile(int count) => new(kind: LocationKind.CurvatureProfile, count: count);
+    public static Location DerivativeAt(double parameter, int count) => new(kind: LocationKind.DerivativeAt, parameter: parameter, count: count); public static Location DivideByCount(int count) => new(kind: LocationKind.DivideByCount, count: count); public static Location DivideByLength(double length) => new(kind: LocationKind.DivideByLength, parameter: length);
+    public static Location Orientation(Plane plane) => new(kind: LocationKind.Orientation, plane: plane); public static Location Contains(Point3d point, Plane plane) => new(kind: LocationKind.Contains, point: point, plane: plane); public static Location ShortPath(Point2d start, Point2d end) => new(kind: LocationKind.ShortPath, uv: start, end: end);
+}
 public static partial class Query {
-    internal delegate bool ContextPrimitive<TSource, TValue>(
+    internal delegate bool PrimitiveCase<TSource, TValue>(
         TSource geometry,
         GeometryContext context,
         out TValue value) where TSource : GeometryBase;
-
-    internal delegate bool PurePrimitive<TSource, TValue>(
-        TSource geometry,
-        out TValue value) where TSource : GeometryBase;
-
     internal delegate Fin<Seq<TValue>> ClosestCase<TSource, TValue>(
         Point3d target,
         TSource geometry) where TSource : notnull;
-
     internal static readonly OperationKey
-        MidpointKey = new(name: nameof(Midpoint)), BoundsKey = new(name: nameof(Bounds)), OrientedBoundsKey = new(name: nameof(OrientedBounds)),
-        TransformedBoundsKey = new(name: nameof(TransformedBounds)), BoundsCenterKey = new(name: nameof(BoundsCenter)), BoundsCornersKey = new(name: nameof(BoundsCorners)),
-        BoxEdgesKey = new(name: nameof(BoxEdges)), BoxAreaKey = new(name: nameof(BoxArea)), BoxVolumeKey = new(name: nameof(BoxVolume)),
-        LengthKey = new(name: nameof(Length)), TangentKey = new(name: nameof(Tangent)), ClosestKey = new(name: nameof(Closest)),
-        DomainKey = new(name: nameof(Domain)), PointAtKey = new(name: nameof(PointAt)), PointAtLengthKey = new(name: nameof(PointAtLength)),
-        FrameAtKey = new(name: nameof(FrameAt)), PerpendicularFrameAtKey = new(name: nameof(PerpendicularFrameAt)), NormalAtKey = new(name: nameof(NormalAt)),
-        CurvatureAtKey = new(name: nameof(CurvatureAt)), DerivativeAtKey = new(name: nameof(DerivativeAt)), DivideByCountKey = new(name: nameof(DivideByCount)),
-        DivideByLengthKey = new(name: nameof(DivideByLength)), OrientationKey = new(name: nameof(Orientation)), ContainsKey = new(name: nameof(Contains)),
+        MidpointKey = new(name: "Midpoint"), BoundsKey = new(name: nameof(Bounds)), OrientedBoundsKey = new(name: "OrientedBounds"),
+        TransformedBoundsKey = new(name: "TransformedBounds"), BoundsCenterKey = new(name: "BoundsCenter"), BoundsCornersKey = new(name: "BoundsCorners"),
+        BoxEdgesKey = new(name: "BoxEdges"), BoxAreaKey = new(name: "BoxArea"), BoxVolumeKey = new(name: "BoxVolume"), MeasureKey = new(name: nameof(Measure)),
+        LengthKey = new(name: "Length"), TangentKey = new(name: "Tangent"), ClosestKey = new(name: "Closest"),
+        DomainKey = new(name: nameof(Domain)), PointAtKey = new(name: "PointAt"), PointAtLengthKey = new(name: "PointAtLength"),
+        FrameAtKey = new(name: "FrameAt"), PerpendicularFrameAtKey = new(name: "PerpendicularFrameAt"), NormalAtKey = new(name: "NormalAt"),
+        CurvatureAtKey = new(name: "CurvatureAt"), DerivativeAtKey = new(name: "DerivativeAt"), DivideByCountKey = new(name: "DivideByCount"),
+        DivideByLengthKey = new(name: "DivideByLength"), OrientationKey = new(name: "Orientation"), ContainsKey = new(name: "Contains"),
         SegmentsKey = new(name: nameof(Segments)), EdgesKey = new(name: nameof(Edges)), NakedEdgesKey = new(name: nameof(NakedEdges)),
-        OutlinesKey = new(name: nameof(Outlines)), IsoKey = new(name: nameof(Iso)), PrimitiveKey = new(name: nameof(Primitive)),
-        ShortPathKey = new(name: nameof(ShortPath)), SolidOrientationKey = new(name: nameof(SolidOrientation)), IsPointInsideKey = new(name: nameof(IsPointInside)),
+        OutlinesKey = new(name: nameof(Outlines)), IsoKey = new(name: nameof(Iso)), PrimitiveKey = new(name: "Primitive"),
+        ShortPathKey = new(name: "ShortPath"), SolidOrientationKey = new(name: nameof(SolidOrientation)), IsPointInsideKey = new(name: nameof(IsPointInside)),
         VerticesKey = new(name: nameof(Vertices)), ComponentsKey = new(name: "Components"), IsManifoldKey = new(name: nameof(IsManifold)),
-        NakedPointStatusKey = new(name: nameof(NakedPointStatus)), SelfIntersectionsKey = new(name: nameof(SelfIntersections)), IntersectKey = new(name: nameof(Intersect)),
+        NakedPointStatusKey = new(name: nameof(NakedPointStatus)), MeshCheckKey = new(name: nameof(MeshCheck)), SelfIntersectionsKey = new(name: nameof(SelfIntersections)), IntersectKey = new(name: nameof(Intersect)),
         ScopeKey = new(name: nameof(Analyze.Scope));
-
     internal static Query<TGeometry, TOut> Unsupported<TGeometry, TOut>(this OperationKey key) where TGeometry : notnull =>
         Query<TGeometry, TOut>.Reject(
             key: key,
             fault: key.Unsupported(
                 geometryType: typeof(TGeometry),
                 outputType: typeof(TOut)));
-
-    internal static Query<TGeometry, TOut> Cast<TGeometry, TOut>(object query) where TGeometry : notnull =>
-        (Query<TGeometry, TOut>)query;
-
+    internal static Query<TGeometry, TOut> Cast<TGeometry, TOut>(
+        OperationKey key,
+        object query) where TGeometry : notnull =>
+        query.GetType().Equals(typeof(Query<TGeometry, TOut>)) switch {
+            true => (Query<TGeometry, TOut>)query,
+            false => Query<TGeometry, TOut>.Reject(
+                key: key,
+                fault: key.Unsupported(
+                    geometryType: typeof(TGeometry),
+                    outputType: typeof(TOut))),
+        };
     internal static Fin<Seq<TValue>> One<TValue>(this OperationKey key, TValue value) =>
         GeometryResult.One(key: key, value: value);
-
     internal static Fin<Seq<TValue>> Many<TValue>(this OperationKey key, IEnumerable<TValue>? values) =>
         GeometryResult.Many(key: key, values: values);
-
     internal static Fin<Seq<TOut>> IntersectionOutput<TOut>(
         this OperationKey key,
         IEnumerable<Curve>? curves = null,
@@ -136,56 +193,75 @@ public static partial class Query {
                     .Bind(static (CurveIntersections events) => events)),
             Type output when output == typeof(Polyline) =>
                 key.CastResults<Polyline, TOut>(values: polylines),
+            Type output when output == typeof(IntersectionKind) =>
+                key.CastResults<IntersectionKind, TOut>(values: IntersectionKinds(
+                    curves: curves,
+                    points: points,
+                    polylines: polylines,
+                    intersections: intersections)),
             _ => Fin.Fail<Seq<TOut>>(key.Unsupported(
                 geometryType: typeof(void),
                 outputType: typeof(TOut))),
         };
-
+    private static IEnumerable<IntersectionKind> IntersectionKinds(
+        IEnumerable<Curve>? curves,
+        IEnumerable<Point3d>? points,
+        IEnumerable<Polyline>? polylines,
+        CurveIntersections? intersections) =>
+        Optional(intersections)
+            .ToSeq()
+            .Bind(static (CurveIntersections events) => events)
+            .Select(static (IntersectionEvent intersection) => intersection switch {
+                IntersectionEvent candidate when candidate.IsOverlap => IntersectionKind.Overlap,
+                IntersectionEvent candidate when candidate.IsPoint => IntersectionKind.Point,
+                _ => IntersectionKind.Unknown,
+            })
+            .Concat(second: Optional(curves)
+                .ToSeq()
+                .Bind(static (IEnumerable<Curve> values) => values)
+                .Select(static (Curve _) => IntersectionKind.Overlap))
+            .Concat(second: Optional(points)
+                .ToSeq()
+                .Bind(static (IEnumerable<Point3d> values) => values)
+                .Select(static (Point3d _) => IntersectionKind.Point))
+            .Concat(second: Optional(polylines)
+                .ToSeq()
+                .Bind(static (IEnumerable<Polyline> values) => values)
+                .Select(static (Polyline _) => IntersectionKind.Overlap));
     private static Fin<Seq<TOut>> CastResults<TValue, TOut>(
         this OperationKey key,
         IEnumerable<TValue>? values) =>
         Many(key: key, values: values)
-            .Map(static (Seq<TValue> candidates) => candidates.Map(static (TValue candidate) => (TOut)(object)candidate!));
-
-    internal static Query<TGeometry, TOut> PrimitiveContext<TGeometry, TOut, TSource, TValue>(
-        ContextPrimitive<TSource, TValue> project) where TGeometry : notnull where TSource : GeometryBase =>
-        Cast<TGeometry, TOut>(query: Query<TGeometry, TValue>.Build(
+            .Bind((Seq<TValue> candidates) => key.Retype<TValue, TOut>(values: candidates));
+    internal static Fin<Seq<TOut>> Retype<TValue, TOut>(this OperationKey key, Seq<TValue> values) =>
+        typeof(TValue).Equals(typeof(TOut)) switch {
+            true => Fin.Succ(values.Map(static (TValue candidate) => (TOut)(object)candidate!)),
+            false => Fin.Fail<Seq<TOut>>(key.Unsupported(
+                geometryType: typeof(void),
+                outputType: typeof(TOut))),
+        };
+    internal static Query<TGeometry, TOut> PrimitiveMatch<TGeometry, TOut, TSource, TValue>(
+        PrimitiveCase<TSource, TValue> project) where TGeometry : notnull where TSource : GeometryBase =>
+        Cast<TGeometry, TOut>(key: PrimitiveKey, query: Query<TGeometry, TValue>.Build(
             key: PrimitiveKey,
             requiresContext: true,
-            evaluator: (TGeometry geometry, Fin<GeometryContext> context) => geometry switch {
-                TSource source => context.Bind((GeometryContext model) => project(
-                    geometry: source,
-                    context: model,
-                    value: out TValue value) switch {
-                        true => One(key: PrimitiveKey, value: value),
-                        false => Fin.Fail<Seq<TValue>>(PrimitiveKey.InvalidResult()),
-                    }),
-                _ => Fin.Fail<Seq<TValue>>(PrimitiveKey.Unsupported(
-                    geometryType: typeof(TGeometry),
-                    outputType: typeof(TValue))),
-            }));
-
-    internal static Query<TGeometry, TOut> PrimitivePure<TGeometry, TOut, TSource, TValue>(
-        PurePrimitive<TSource, TValue> project) where TGeometry : notnull where TSource : GeometryBase =>
-        Cast<TGeometry, TOut>(query: Query<TGeometry, TValue>.Build(
-            key: PrimitiveKey,
-            evaluator: static (PurePrimitive<TSource, TValue> extract, TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
-                TSource source => extract(
-                    geometry: source,
-                    value: out TValue value) switch {
-                        true => One(key: PrimitiveKey, value: value),
-                        false => Fin.Fail<Seq<TValue>>(PrimitiveKey.InvalidResult()),
-                    },
-                _ => Fin.Fail<Seq<TValue>>(PrimitiveKey.Unsupported(
-                    geometryType: typeof(TGeometry),
-                    outputType: typeof(TValue))),
-            },
-            state: project));
-
+            state: project,
+            evaluator: static (PrimitiveCase<TSource, TValue> extract, TGeometry geometry, Fin<GeometryContext> context) =>
+                (geometry, context) switch {
+                    (TSource source, Fin<GeometryContext> rail) => rail.Bind((GeometryContext model) => extract(
+                        geometry: source,
+                        context: model,
+                        value: out TValue value) switch {
+                            bool solved => PrimitiveKey.Solved(
+                                solved: solved,
+                                value: value),
+                        }),
+                    _ => Fin.Fail<Seq<TValue>>(PrimitiveKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TValue))),
+                }));
     internal static Query<TGeometry, TOut> ClosestMatch<TGeometry, TOut, TSource, TValue>(
         Point3d point,
         ClosestCase<TSource, TValue> project) where TGeometry : notnull where TSource : notnull =>
-        Cast<TGeometry, TOut>(query: Query<TGeometry, TValue>.Build(
+        Cast<TGeometry, TOut>(key: ClosestKey, query: Query<TGeometry, TValue>.Build(
             key: ClosestKey,
             state: (Point: point, Project: project),
             evaluator: static ((Point3d Point, ClosestCase<TSource, TValue> Project) state, TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
@@ -196,119 +272,114 @@ public static partial class Query {
                     geometryType: typeof(TGeometry),
                     outputType: typeof(TValue))),
             }));
-
-    internal static Query<Curve, TOut> LengthMass<TOut>(
+    internal static Query<TGeometry, TOut> LengthMass<TGeometry, TOut>(
         string name,
         Func<OperationKey, LengthMassProperties, Fin<Seq<TOut>>> project,
         bool secondMoments = true,
-        bool productMoments = false) =>
-        Mass<Curve, LengthMassProperties, TOut>(
+        bool productMoments = false) where TGeometry : notnull =>
+        Mass<TGeometry, LengthMassProperties, TOut>(
             name: name,
             requirement: GeometryRequirement.CurveLength,
-            compute: static (Curve geometry, GeometryContext _, bool second, bool product) =>
-                Optional(geometry)
-                    .ToFin(MassFault.Missing(label: nameof(Curve)))
-                    .Bind(candidate => Optional(LengthMassProperties.Compute(
-                            curve: candidate,
+            compute: static (TGeometry geometry, GeometryContext _, bool second, bool product) =>
+                geometry switch {
+                    Curve curve => Optional(LengthMassProperties.Compute(
+                            curve: curve,
                             length: true,
                             firstMoments: true,
                             secondMoments: second,
                             productMoments: product))
-                        .ToFin(MassFault.Failed(label: nameof(LengthMassProperties)))),
+                        .ToFin(MassFault.Failed(label: nameof(LengthMassProperties))),
+                    _ => Fin.Fail<LengthMassProperties>(MassFault.Unsupported(
+                        label: nameof(LengthMassProperties),
+                        geometryType: geometry.GetType())),
+                },
             project: project,
             secondMoments: secondMoments,
             productMoments: productMoments);
-
-    internal static Query<GeometryBase, TOut> AreaMass<TOut>(
+    internal static Query<TGeometry, TOut> AreaMass<TGeometry, TOut>(
         string name,
         Func<OperationKey, AreaMassProperties, Fin<Seq<TOut>>> project,
         bool secondMoments = false,
-        bool productMoments = false) =>
-        Mass<GeometryBase, AreaMassProperties, TOut>(
+        bool productMoments = false) where TGeometry : notnull =>
+        Mass<TGeometry, AreaMassProperties, TOut>(
             name: name,
             requirement: GeometryRequirement.AreaMass,
-            compute: static (GeometryBase geometry, GeometryContext context, bool second, bool product) =>
-                Optional(geometry)
-                    .ToFin(MassFault.Missing(label: nameof(GeometryBase)))
-                    .Bind(candidate => candidate switch {
-                        Curve curve => AreaMassProperties.Compute(
-                                closedPlanarCurve: curve,
-                                planarTolerance: context.Absolute.Value)
-                            .Mass(label: nameof(AreaMassProperties)),
-                        Mesh mesh => AreaMassProperties.Compute(
-                                mesh: mesh,
-                                area: true,
-                                firstMoments: true,
-                                secondMoments: second,
-                                productMoments: product)
-                            .Mass(label: nameof(AreaMassProperties)),
-                        Brep brep => AreaMassProperties.Compute(
-                                brep: brep,
-                                area: true,
-                                firstMoments: true,
-                                secondMoments: second,
-                                productMoments: product,
-                                relativeTolerance: context.Relative.Value,
-                                absoluteTolerance: context.Absolute.Value)
-                            .Mass(label: nameof(AreaMassProperties)),
-                        Surface surface => AreaMassProperties.Compute(
-                                surface: surface,
-                                area: true,
-                                firstMoments: true,
-                                secondMoments: second,
-                                productMoments: product)
-                            .Mass(label: nameof(AreaMassProperties)),
-                        _ => Fin.Fail<AreaMassProperties>(MassFault.Unsupported(
-                            label: nameof(AreaMassProperties),
-                            geometryType: candidate.GetType())),
-                    }),
+            compute: static (TGeometry geometry, GeometryContext context, bool second, bool product) =>
+                geometry switch {
+                    Curve curve => AreaMassProperties.Compute(
+                            closedPlanarCurve: curve,
+                            planarTolerance: context.Absolute.Value)
+                        .Mass(label: nameof(AreaMassProperties)),
+                    Mesh mesh => AreaMassProperties.Compute(
+                            mesh: mesh,
+                            area: true,
+                            firstMoments: true,
+                            secondMoments: second,
+                            productMoments: product)
+                        .Mass(label: nameof(AreaMassProperties)),
+                    Brep brep => AreaMassProperties.Compute(
+                            brep: brep,
+                            area: true,
+                            firstMoments: true,
+                            secondMoments: second,
+                            productMoments: product,
+                            relativeTolerance: context.Relative.Value,
+                            absoluteTolerance: context.Absolute.Value)
+                        .Mass(label: nameof(AreaMassProperties)),
+                    Surface surface => AreaMassProperties.Compute(
+                            surface: surface,
+                            area: true,
+                            firstMoments: true,
+                            secondMoments: second,
+                            productMoments: product)
+                        .Mass(label: nameof(AreaMassProperties)),
+                    _ => Fin.Fail<AreaMassProperties>(MassFault.Unsupported(
+                        label: nameof(AreaMassProperties),
+                        geometryType: geometry.GetType())),
+                },
             project: project,
             secondMoments: secondMoments,
             productMoments: productMoments);
-
-    internal static Query<GeometryBase, TOut> VolumeMass<TOut>(
+    internal static Query<TGeometry, TOut> VolumeMass<TGeometry, TOut>(
         string name,
         Func<OperationKey, VolumeMassProperties, Fin<Seq<TOut>>> project,
         bool secondMoments = false,
-        bool productMoments = false) =>
-        Mass<GeometryBase, VolumeMassProperties, TOut>(
+        bool productMoments = false) where TGeometry : notnull =>
+        Mass<TGeometry, VolumeMassProperties, TOut>(
             name: name,
             requirement: GeometryRequirement.VolumeMass,
-            compute: static (GeometryBase geometry, GeometryContext context, bool second, bool product) =>
-                Optional(geometry)
-                    .ToFin(MassFault.Missing(label: nameof(GeometryBase)))
-                    .Bind(candidate => candidate switch {
-                        Mesh mesh => VolumeMassProperties.Compute(
-                                mesh: mesh,
-                                volume: true,
-                                firstMoments: true,
-                                secondMoments: second,
-                                productMoments: product)
-                            .Mass(label: nameof(VolumeMassProperties)),
-                        Brep brep => VolumeMassProperties.Compute(
-                                brep: brep,
-                                volume: true,
-                                firstMoments: true,
-                                secondMoments: second,
-                                productMoments: product,
-                                relativeTolerance: context.Relative.Value,
-                                absoluteTolerance: context.Absolute.Value)
-                            .Mass(label: nameof(VolumeMassProperties)),
-                        Surface surface => VolumeMassProperties.Compute(
-                                surface: surface,
-                                volume: true,
-                                firstMoments: true,
-                                secondMoments: second,
-                                productMoments: product)
-                            .Mass(label: nameof(VolumeMassProperties)),
-                        _ => Fin.Fail<VolumeMassProperties>(MassFault.Unsupported(
-                            label: nameof(VolumeMassProperties),
-                            geometryType: candidate.GetType())),
-                    }),
+            compute: static (TGeometry geometry, GeometryContext context, bool second, bool product) =>
+                geometry switch {
+                    Mesh mesh => VolumeMassProperties.Compute(
+                            mesh: mesh,
+                            volume: true,
+                            firstMoments: true,
+                            secondMoments: second,
+                            productMoments: product)
+                        .Mass(label: nameof(VolumeMassProperties)),
+                    Brep brep => VolumeMassProperties.Compute(
+                            brep: brep,
+                            volume: true,
+                            firstMoments: true,
+                            secondMoments: second,
+                            productMoments: product,
+                            relativeTolerance: context.Relative.Value,
+                            absoluteTolerance: context.Absolute.Value)
+                        .Mass(label: nameof(VolumeMassProperties)),
+                    Surface surface => VolumeMassProperties.Compute(
+                            surface: surface,
+                            volume: true,
+                            firstMoments: true,
+                            secondMoments: second,
+                            productMoments: product)
+                        .Mass(label: nameof(VolumeMassProperties)),
+                    _ => Fin.Fail<VolumeMassProperties>(MassFault.Unsupported(
+                        label: nameof(VolumeMassProperties),
+                        geometryType: geometry.GetType())),
+                },
             project: project,
             secondMoments: secondMoments,
             productMoments: productMoments);
-
     private static Query<TGeometry, TOut> Mass<TGeometry, TMass, TOut>(
         string name,
         GeometryRequirement requirement,
@@ -332,39 +403,22 @@ public static partial class Query {
                         return project(arg1: key, arg2: disposable);
                     }));
     }
-
     private static Fin<TMass> Mass<TMass>(this TMass? mass, string label) where TMass : class, IDisposable =>
         Optional(mass)
             .ToFin(MassFault.Failed(label: label));
-
     internal static Fin<Seq<(double Moment, Vector3d Axis)>> Principal(
         this OperationKey key,
         bool solved,
-        double x,
-        Vector3d xAxis,
-        double y,
-        Vector3d yAxis,
-        double z,
-        Vector3d zAxis) =>
+        double x, Vector3d xAxis, double y, Vector3d yAxis, double z, Vector3d zAxis) =>
         solved switch {
-            true => Fin.Succ(Seq(
-                (Moment: x, Axis: xAxis),
-                (Moment: y, Axis: yAxis),
-                (Moment: z, Axis: zAxis))),
+            true => Fin.Succ(Seq((Moment: x, Axis: xAxis), (Moment: y, Axis: yAxis), (Moment: z, Axis: zAxis))),
             false => Fin.Fail<Seq<(double Moment, Vector3d Axis)>>(key.InvalidResult()),
         };
-
     private static class MassFault {
-        internal static Error Missing(string label) =>
-            Error.New(message: string.Create(
-                provider: CultureInfo.InvariantCulture,
-                $"Geometry mass properties require {label} input."));
-
         internal static Error Failed(string label) =>
             Error.New(message: string.Create(
                 provider: CultureInfo.InvariantCulture,
                 $"Rhino {label} computation failed."));
-
         internal static Error Unsupported(string label, Type geometryType) =>
             Error.New(message: string.Create(
                 provider: CultureInfo.InvariantCulture,

@@ -7,206 +7,162 @@ using Rhino.FileIO;
 using Rhino.Geometry;
 using Rhino.Geometry.Intersect;
 using static LanguageExt.Prelude;
-
 namespace Analysis;
 
-// --- [INTERSECT] -------------------------------------------------------------------------------
+// --- [OPERATIONS] ------------------------------------------------------------------------------
 
 public static partial class Query {
-    private delegate bool CurvePointIntersection<TGeometry>(
-        TGeometry geometry,
+    private delegate Fin<Seq<TOut>> PairOutput<TLeft, TRight, TOut>(
+        TLeft left,
+        TRight right,
+        GeometryContext context) where TLeft : notnull where TRight : notnull;
+    private delegate bool CurvePointIntersection<TLeft, TRight>(
+        TLeft left,
+        TRight right,
         GeometryContext context,
         out Curve[] curves,
         out Point3d[] points);
-
-    public static Query<TGeometry, TOut> Intersect<TGeometry, TOut>() where TGeometry : notnull =>
-        (typeof(TGeometry), typeof(TOut)) switch {
-            (Type geometry, Type _) when Events<TOut>() && (geometry == typeof((Curve A, Curve B))
-                || geometry == typeof((Curve Curve, Plane Plane))
-                || geometry == typeof((Curve Curve, Line Line))
-                || geometry == typeof((Curve Curve, Surface Surface))) =>
-                EventIntersect<TGeometry, TOut>(),
-            (Type geometry, Type _) when Curves<TOut>() && (geometry == typeof((Curve Curve, Brep Brep))
-                || geometry == typeof((Curve Curve, BrepFace Face))) =>
-                CurveBrepIntersect<TGeometry, TOut>(),
-            (Type geometry, Type _) when Curves<TOut>() && (geometry == typeof((Surface A, Surface B))
-                || geometry == typeof((Brep Brep, Plane Plane))
-                || geometry == typeof((Brep Brep, Surface Surface))
-                || geometry == typeof((Brep A, Brep B))) =>
-                BrepSurfaceIntersect<TGeometry, TOut>(),
-            (Type geometry, Type output) when geometry == typeof((Mesh Mesh, Plane Plane))
-                || geometry == typeof((Mesh Mesh, Line Line))
-                || geometry == typeof((Mesh A, Mesh B)) =>
-                MeshIntersect<TGeometry, TOut>(output: output),
-            _ => IntersectKey.Unsupported<TGeometry, TOut>(),
-        };
-
-    private static Query<TGeometry, TOut> EventIntersect<TGeometry, TOut>() where TGeometry : notnull =>
-        typeof(TGeometry) switch {
-            Type geometry when geometry == typeof((Curve A, Curve B)) =>
-                Cast<TGeometry, TOut>(query: Event<(Curve A, Curve B), TOut>(
-                    validate: static (geometry, context) => Both(geometry: geometry, context: context),
-                    intersect: static (geometry, context) => Intersection.CurveCurve(
-                        curveA: geometry.A,
-                        curveB: geometry.B,
+    public static Query<(TA A, TB B), TOut> Intersect<TA, TB, TOut>() where TA : notnull where TB : notnull =>
+        (typeof(TA), typeof(TB), typeof(TOut)) switch {
+            (Type a, Type b, Type output) when typeof(Curve).IsAssignableFrom(c: a) && typeof(Curve).IsAssignableFrom(c: b) && Events(output: output) =>
+                PairEvents<TA, TB, Curve, Curve, TOut>(
+                    a: GeometryRequirement.Basic,
+                    b: GeometryRequirement.Basic,
+                    intersect: static (Curve left, Curve right, GeometryContext context) => Intersection.CurveCurve(
+                        curveA: left,
+                        curveB: right,
                         tolerance: context.Absolute.Value,
-                        overlapTolerance: context.Absolute.Value))),
-            Type geometry when geometry == typeof((Curve Curve, Plane Plane)) =>
-                Cast<TGeometry, TOut>(query: Event<(Curve Curve, Plane Plane), TOut>(
-                    validate: static (geometry, context) => One(geometry: geometry, context: context),
-                    intersect: static (geometry, context) => Intersection.CurvePlane(
-                        curve: geometry.Curve,
-                        plane: geometry.Plane,
-                        tolerance: context.Absolute.Value))),
-            Type geometry when geometry == typeof((Curve Curve, Line Line)) =>
-                Cast<TGeometry, TOut>(query: Event<(Curve Curve, Line Line), TOut>(
-                    validate: static (geometry, context) => One(geometry: geometry, context: context),
-                    intersect: static (geometry, context) => Intersection.CurveLine(
-                        curve: geometry.Curve,
-                        line: geometry.Line,
+                        overlapTolerance: context.Absolute.Value)),
+            (Type a, Type b, Type output) when typeof(Curve).IsAssignableFrom(c: a) && b == typeof(Plane) && Events(output: output) =>
+                PairEvents<TA, TB, Curve, Plane, TOut>(
+                    a: GeometryRequirement.Basic,
+                    b: GeometryRequirement.None,
+                    intersect: static (Curve left, Plane right, GeometryContext context) => Intersection.CurvePlane(
+                        curve: left,
+                        plane: right,
+                        tolerance: context.Absolute.Value)),
+            (Type a, Type b, Type output) when typeof(Curve).IsAssignableFrom(c: a) && b == typeof(Line) && Events(output: output) =>
+                PairEvents<TA, TB, Curve, Line, TOut>(
+                    a: GeometryRequirement.Basic,
+                    b: GeometryRequirement.None,
+                    intersect: static (Curve left, Line right, GeometryContext context) => Intersection.CurveLine(
+                        curve: left,
+                        line: right,
                         tolerance: context.Absolute.Value,
-                        overlapTolerance: context.Absolute.Value))),
-            Type geometry when geometry == typeof((Curve Curve, Surface Surface)) =>
-                Cast<TGeometry, TOut>(query: Event<(Curve Curve, Surface Surface), TOut>(
-                    validate: static (geometry, context) => Both(
-                        geometry: geometry,
-                        context: context,
-                        b: GeometryRequirement.SurfaceEvaluation),
-                    intersect: static (geometry, context) => Intersection.CurveSurface(
-                        curve: geometry.Curve,
-                        surface: geometry.Surface,
-                        tolerance: context.Absolute.Value,
-                        overlapTolerance: context.Absolute.Value))),
-            _ => IntersectKey.Unsupported<TGeometry, TOut>(),
-        };
-
-    private static Query<TGeometry, TOut> CurveBrepIntersect<TGeometry, TOut>() where TGeometry : notnull =>
-        typeof(TGeometry) switch {
-            Type geometry when geometry == typeof((Curve Curve, Brep Brep)) =>
-                Cast<TGeometry, TOut>(query: CurvePoint<(Curve Curve, Brep Brep), TOut>(
-                    validate: static (geometry, context) => Both(geometry: geometry, context: context),
-                    intersect: static ((Curve Curve, Brep Brep) geometry, GeometryContext context, out Curve[] curves, out Point3d[] points) =>
+                        overlapTolerance: context.Absolute.Value)),
+            (Type a, Type b, Type output) when typeof(Curve).IsAssignableFrom(c: a) && typeof(Brep).IsAssignableFrom(c: b) && Curves(output: output) =>
+                PairCurvePoint<TA, TB, Curve, Brep, TOut>(
+                    a: GeometryRequirement.Basic,
+                    b: GeometryRequirement.Basic,
+                    acceptPartialResults: true,
+                    intersect: static (Curve left, Brep right, GeometryContext context, out Curve[] curves, out Point3d[] points) =>
                         Intersection.CurveBrep(
-                            curve: geometry.Curve,
-                            brep: geometry.Brep,
+                            curve: left,
+                            brep: right,
                             tolerance: context.Absolute.Value,
                             overlapCurves: out curves,
-                            intersectionPoints: out points))),
-            Type geometry when geometry == typeof((Curve Curve, BrepFace Face)) =>
-                Cast<TGeometry, TOut>(query: CurvePoint<(Curve Curve, BrepFace Face), TOut>(
-                    validate: static (geometry, context) => Both(
-                        geometry: geometry,
-                        context: context,
-                        b: GeometryRequirement.SurfaceEvaluation),
-                    intersect: static ((Curve Curve, BrepFace Face) geometry, GeometryContext context, out Curve[] curves, out Point3d[] points) =>
+                            intersectionPoints: out points)),
+            (Type a, Type b, Type output) when typeof(Curve).IsAssignableFrom(c: a) && typeof(BrepFace).IsAssignableFrom(c: b) && Curves(output: output) =>
+                PairCurvePoint<TA, TB, Curve, BrepFace, TOut>(
+                    a: GeometryRequirement.Basic,
+                    b: GeometryRequirement.SurfaceEvaluation,
+                    acceptPartialResults: false,
+                    intersect: static (Curve left, BrepFace right, GeometryContext context, out Curve[] curves, out Point3d[] points) =>
                         Intersection.CurveBrepFace(
-                            curve: geometry.Curve,
-                            face: geometry.Face,
+                            curve: left,
+                            face: right,
                             tolerance: context.Absolute.Value,
                             overlapCurves: out curves,
-                            intersectionPoints: out points))),
-            _ => IntersectKey.Unsupported<TGeometry, TOut>(),
-        };
-
-    private static Query<TGeometry, TOut> BrepSurfaceIntersect<TGeometry, TOut>() where TGeometry : notnull =>
-        typeof(TGeometry) switch {
-            Type geometry when geometry == typeof((Surface A, Surface B)) =>
-                Cast<TGeometry, TOut>(query: CurvePoint<(Surface A, Surface B), TOut>(
-                    validate: static (geometry, context) => Both(
-                        geometry: geometry,
-                        context: context,
-                        a: GeometryRequirement.SurfaceEvaluation,
-                        b: GeometryRequirement.SurfaceEvaluation),
-                    intersect: static ((Surface A, Surface B) geometry, GeometryContext context, out Curve[] curves, out Point3d[] points) =>
+                            intersectionPoints: out points)),
+            (Type a, Type b, Type output) when typeof(Curve).IsAssignableFrom(c: a) && typeof(Surface).IsAssignableFrom(c: b) && Events(output: output) =>
+                PairEvents<TA, TB, Curve, Surface, TOut>(
+                    a: GeometryRequirement.Basic,
+                    b: GeometryRequirement.SurfaceEvaluation,
+                    intersect: static (Curve left, Surface right, GeometryContext context) => Intersection.CurveSurface(
+                        curve: left,
+                        surface: right,
+                        tolerance: context.Absolute.Value,
+                        overlapTolerance: context.Absolute.Value)),
+            (Type a, Type b, Type output) when typeof(Surface).IsAssignableFrom(c: a) && typeof(Surface).IsAssignableFrom(c: b) && Curves(output: output) =>
+                PairCurvePoint<TA, TB, Surface, Surface, TOut>(
+                    a: GeometryRequirement.SurfaceEvaluation,
+                    b: GeometryRequirement.SurfaceEvaluation,
+                    acceptPartialResults: false,
+                    intersect: static (Surface left, Surface right, GeometryContext context, out Curve[] curves, out Point3d[] points) =>
                         Intersection.SurfaceSurface(
-                            surfaceA: geometry.A,
-                            surfaceB: geometry.B,
+                            surfaceA: left,
+                            surfaceB: right,
                             tolerance: context.Absolute.Value,
                             intersectionCurves: out curves,
-                            intersectionPoints: out points))),
-            Type geometry when geometry == typeof((Brep Brep, Plane Plane)) =>
-                Cast<TGeometry, TOut>(query: CurvePoint<(Brep Brep, Plane Plane), TOut>(
-                    validate: static (geometry, context) => One(geometry: geometry, context: context),
-                    intersect: static ((Brep Brep, Plane Plane) geometry, GeometryContext context, out Curve[] curves, out Point3d[] points) =>
+                            intersectionPoints: out points)),
+            (Type a, Type b, Type output) when typeof(Brep).IsAssignableFrom(c: a) && b == typeof(Plane) && Curves(output: output) =>
+                PairCurvePoint<TA, TB, Brep, Plane, TOut>(
+                    a: GeometryRequirement.Basic,
+                    b: GeometryRequirement.None,
+                    acceptPartialResults: false,
+                    intersect: static (Brep left, Plane right, GeometryContext context, out Curve[] curves, out Point3d[] points) =>
                         Intersection.BrepPlane(
-                            brep: geometry.Brep,
-                            plane: geometry.Plane,
+                            brep: left,
+                            plane: right,
                             tolerance: context.Absolute.Value,
                             intersectionCurves: out curves,
-                            intersectionPoints: out points))),
-            Type geometry when geometry == typeof((Brep Brep, Surface Surface)) =>
-                Cast<TGeometry, TOut>(query: CurvePoint<(Brep Brep, Surface Surface), TOut>(
-                    validate: static (geometry, context) => Both(
-                        geometry: geometry,
-                        context: context,
-                        b: GeometryRequirement.SurfaceEvaluation),
-                    intersect: static ((Brep Brep, Surface Surface) geometry, GeometryContext context, out Curve[] curves, out Point3d[] points) =>
+                            intersectionPoints: out points)),
+            (Type a, Type b, Type output) when typeof(Brep).IsAssignableFrom(c: a) && typeof(Surface).IsAssignableFrom(c: b) && Curves(output: output) =>
+                PairCurvePoint<TA, TB, Brep, Surface, TOut>(
+                    a: GeometryRequirement.Basic,
+                    b: GeometryRequirement.SurfaceEvaluation,
+                    acceptPartialResults: false,
+                    intersect: static (Brep left, Surface right, GeometryContext context, out Curve[] curves, out Point3d[] points) =>
                         Intersection.BrepSurface(
-                            brep: geometry.Brep,
-                            surface: geometry.Surface,
+                            brep: left,
+                            surface: right,
                             tolerance: context.Absolute.Value,
                             joinCurves: true,
                             intersectionCurves: out curves,
-                            intersectionPoints: out points))),
-            Type geometry when geometry == typeof((Brep A, Brep B)) =>
-                Cast<TGeometry, TOut>(query: CurvePoint<(Brep A, Brep B), TOut>(
-                    validate: static (geometry, context) => Both(geometry: geometry, context: context),
-                    intersect: static ((Brep A, Brep B) geometry, GeometryContext context, out Curve[] curves, out Point3d[] points) =>
+                            intersectionPoints: out points)),
+            (Type a, Type b, Type output) when typeof(Brep).IsAssignableFrom(c: a) && typeof(Brep).IsAssignableFrom(c: b) && Curves(output: output) =>
+                PairCurvePoint<TA, TB, Brep, Brep, TOut>(
+                    a: GeometryRequirement.Basic,
+                    b: GeometryRequirement.Basic,
+                    acceptPartialResults: false,
+                    intersect: static (Brep left, Brep right, GeometryContext context, out Curve[] curves, out Point3d[] points) =>
                         Intersection.BrepBrep(
-                            brepA: geometry.A,
-                            brepB: geometry.B,
+                            brepA: left,
+                            brepB: right,
                             tolerance: context.Absolute.Value,
                             joinCurves: true,
                             intersectionCurves: out curves,
-                            intersectionPoints: out points))),
-            _ => IntersectKey.Unsupported<TGeometry, TOut>(),
-        };
-
-    private static Query<TGeometry, TOut> MeshIntersect<TGeometry, TOut>(Type output) where TGeometry : notnull =>
-        typeof(TGeometry) switch {
-            Type geometry when geometry == typeof((Mesh Mesh, Plane Plane)) && output == typeof(Polyline) =>
-                Cast<TGeometry, TOut>(query: PolylineIntersection<(Mesh Mesh, Plane Plane), TOut>(
-                    validate: static (geometry, context) => One(
-                        geometry: geometry,
-                        context: context,
-                        requirement: GeometryRequirement.MeshCheck),
-                    intersect: static (geometry, context) => {
+                            intersectionPoints: out points)),
+            (Type a, Type b, Type output) when typeof(Mesh).IsAssignableFrom(c: a) && b == typeof(Plane) && (output == typeof(Polyline) || output == typeof(IntersectionKind)) =>
+                PairPolylines<TA, TB, Mesh, Plane, TOut>(
+                    a: GeometryRequirement.MeshCheck,
+                    b: GeometryRequirement.None,
+                    intersect: static (Mesh left, Plane right, GeometryContext context) => {
                         using MeshIntersectionCache cache = new();
                         return Intersection.MeshPlane(
-                            mesh: geometry.Mesh,
+                            mesh: left,
                             cache: cache,
-                            plane: geometry.Plane,
-                            tolerance: context.Absolute.Value * Intersection.MeshIntersectionsTolerancesCoefficient);
-                    })),
-            Type geometry when geometry == typeof((Mesh Mesh, Line Line)) && output == typeof(Point3d) =>
-                Cast<TGeometry, TOut>(query: Query<(Mesh Mesh, Line Line), Point3d>.Build(
-                    key: IntersectKey,
-                    requiresContext: true,
-                    evaluator: static ((Mesh Mesh, Line Line) geometry, Fin<GeometryContext> context) =>
-                        context
-                            .Bind((GeometryContext model) => One(
-                                    geometry: geometry,
-                                    context: model,
-                                    requirement: GeometryRequirement.MeshCheck)
-                                .ToFin())
-                            .Bind(static ((Mesh A, Line B) state) => Many(
-                                key: IntersectKey,
-                                values: Intersection.MeshLineSorted(
-                                    mesh: state.A,
-                                    line: state.B,
-                                    faceIds: out int[] _))))),
-            Type geometry when geometry == typeof((Mesh A, Mesh B)) && output == typeof(Polyline) =>
-                Cast<TGeometry, TOut>(query: PolylineIntersection<(Mesh A, Mesh B), TOut>(
-                    validate: static (geometry, context) => Both(
-                        geometry: geometry,
-                        context: context,
-                        a: GeometryRequirement.MeshCheck,
-                        b: GeometryRequirement.MeshCheck),
-                    intersect: static (geometry, context) => {
+                            plane: right,
+                            tolerance: context.MeshIntersectionTolerance);
+                    }),
+            (Type a, Type b, Type output) when typeof(Mesh).IsAssignableFrom(c: a) && b == typeof(Line) && (output == typeof(Point3d) || output == typeof(IntersectionKind)) =>
+                Pair<TA, TB, Mesh, Line, TOut>(
+                    a: GeometryRequirement.MeshCheck,
+                    b: GeometryRequirement.None,
+                    output: static (Mesh left, Line right, GeometryContext _) => IntersectKey.IntersectionOutput<TOut>(
+                        points: Intersection.MeshLineSorted(
+                            mesh: left,
+                            line: right,
+                            faceIds: out int[] _))),
+            (Type a, Type b, Type output) when typeof(Mesh).IsAssignableFrom(c: a) && typeof(Mesh).IsAssignableFrom(c: b) && (output == typeof(Polyline) || output == typeof(IntersectionKind)) =>
+                PairPolylines<TA, TB, Mesh, Mesh, TOut>(
+                    a: GeometryRequirement.MeshCheck,
+                    b: GeometryRequirement.MeshCheck,
+                    intersect: static (Mesh left, Mesh right, GeometryContext context) => {
                         using TextLog textLog = new();
                         return Intersection.MeshMesh(
-                            meshes: [geometry.A, geometry.B],
-                            tolerance: context.Absolute.Value,
+                            meshes: [left, right],
+                            tolerance: context.MeshIntersectionTolerance,
                             intersections: out Polyline[] intersections,
                             overlapsPolylines: true,
                             overlapsPolylinesResult: out Polyline[] overlaps,
@@ -218,87 +174,85 @@ public static partial class Query {
                                 true => intersections.Concat(second: overlaps),
                                 false => null,
                             };
-                    })),
-            _ => IntersectKey.Unsupported<TGeometry, TOut>(),
+                    }),
+            _ => IntersectKey.Unsupported<(TA A, TB B), TOut>(),
         };
-
-    private static Query<TGeometry, TOut> Event<TGeometry, TOut>(
-        Func<TGeometry, GeometryContext, Validation<Error, TGeometry>> validate,
-        Func<TGeometry, GeometryContext, CurveIntersections?> intersect) where TGeometry : notnull =>
-        Query<TGeometry, TOut>.Build(
+    private static Query<(TA A, TB B), TOut> Pair<TA, TB, TLeft, TRight, TOut>(
+        GeometryRequirement a,
+        GeometryRequirement b,
+        PairOutput<TLeft, TRight, TOut> output) where TA : notnull where TB : notnull where TLeft : notnull where TRight : notnull =>
+        Query<(TA A, TB B), TOut>.Build(
             key: IntersectKey,
             requiresContext: true,
-            evaluator: (TGeometry geometry, Fin<GeometryContext> context) =>
+            state: (A: a, B: b, Output: output),
+            evaluator: static ((GeometryRequirement A, GeometryRequirement B, PairOutput<TLeft, TRight, TOut> Output) state, (TA A, TB B) geometry, Fin<GeometryContext> context) =>
                 context
-                    .Bind((GeometryContext model) => validate(arg1: geometry, arg2: model)
+                    .Bind((GeometryContext model) => model.ValidateOperands(
+                            geometry: geometry,
+                            a: state.A,
+                            b: state.B)
                         .ToFin()
-                        .Map((TGeometry valid) => (Geometry: valid, Context: model)))
-                    .Bind(((TGeometry Geometry, GeometryContext Context) state) => {
-                        using CurveIntersections? intersections = intersect(arg1: state.Geometry, arg2: state.Context);
-                        return IntersectKey.IntersectionOutput<TOut>(intersections: intersections);
+                        .Map(((TA A, TB B) valid) => (Geometry: valid, Context: model, state.Output)))
+                    .Bind(((ValueTuple<TA, TB> Geometry, GeometryContext Context, PairOutput<TLeft, TRight, TOut> Output) state) => (state.Geometry.Item1, state.Geometry.Item2) switch {
+                        (TLeft left, TRight right) => state.Output(
+                            left: left,
+                            right: right,
+                            context: state.Context),
+                        _ => Fin.Fail<Seq<TOut>>(IntersectKey.Unsupported(
+                            geometryType: typeof((TA A, TB B)),
+                            outputType: typeof(TOut))),
                     }));
-
-    private static Query<TGeometry, TOut> CurvePoint<TGeometry, TOut>(
-        Func<TGeometry, GeometryContext, Validation<Error, TGeometry>> validate,
-        CurvePointIntersection<TGeometry> intersect) where TGeometry : notnull =>
-        Query<TGeometry, TOut>.Build(
-            key: IntersectKey,
-            requiresContext: true,
-            evaluator: (TGeometry geometry, Fin<GeometryContext> context) =>
-                context
-                    .Bind((GeometryContext model) => validate(arg1: geometry, arg2: model)
-                        .ToFin()
-                        .Map((TGeometry valid) => (Geometry: valid, Context: model)))
-                    .Bind(((TGeometry Geometry, GeometryContext Context) state) => intersect(
-                        geometry: state.Geometry,
-                        context: state.Context,
-                        curves: out Curve[] curves,
-                        points: out Point3d[] points) switch {
-                            true => IntersectKey.IntersectionOutput<TOut>(
-                                curves: curves,
-                                points: points),
-                            false => Fin.Fail<Seq<TOut>>(IntersectKey.InvalidResult()),
-                        }));
-
-    private static Query<TGeometry, TOut> PolylineIntersection<TGeometry, TOut>(
-        Func<TGeometry, GeometryContext, Validation<Error, TGeometry>> validate,
-        Func<TGeometry, GeometryContext, IEnumerable<Polyline>?> intersect) where TGeometry : notnull =>
-        Query<TGeometry, TOut>.Build(
-            key: IntersectKey,
-            requiresContext: true,
-            evaluator: (TGeometry geometry, Fin<GeometryContext> context) =>
-                context
-                    .Bind((GeometryContext model) => validate(arg1: geometry, arg2: model)
-                        .ToFin()
-                        .Map((TGeometry valid) => (Geometry: valid, Context: model)))
-                    .Bind(((TGeometry Geometry, GeometryContext Context) state) =>
+    private static Query<(TA A, TB B), TOut> PairEvents<TA, TB, TLeft, TRight, TOut>(
+        GeometryRequirement a,
+        GeometryRequirement b,
+        Func<TLeft, TRight, GeometryContext, CurveIntersections?> intersect) where TA : notnull where TB : notnull where TLeft : notnull where TRight : notnull =>
+        Pair<TA, TB, TLeft, TRight, TOut>(
+            a: a,
+            b: b,
+            output: (TLeft left, TRight right, GeometryContext context) => {
+                using CurveIntersections? intersections = intersect(
+                    arg1: left,
+                    arg2: right,
+                    arg3: context);
+                return IntersectKey.IntersectionOutput<TOut>(intersections: intersections);
+            });
+    private static Query<(TA A, TB B), TOut> PairCurvePoint<TA, TB, TLeft, TRight, TOut>(
+        GeometryRequirement a,
+        GeometryRequirement b,
+        bool acceptPartialResults,
+        CurvePointIntersection<TLeft, TRight> intersect) where TA : notnull where TB : notnull where TLeft : notnull where TRight : notnull =>
+        Pair<TA, TB, TLeft, TRight, TOut>(
+            a: a,
+            b: b,
+            output: (TLeft left, TRight right, GeometryContext context) => intersect(
+                left: left,
+                right: right,
+                context: context,
+                curves: out Curve[] curves,
+                points: out Point3d[] points) switch {
+                    true => IntersectKey.IntersectionOutput<TOut>(
+                        curves: curves,
+                        points: points),
+                    false when acceptPartialResults && (curves.Length > 0 || points.Length > 0) =>
                         IntersectKey.IntersectionOutput<TOut>(
-                            polylines: intersect(arg1: state.Geometry, arg2: state.Context))));
-
-    private static Validation<Error, (TA A, TB B)> Both<TA, TB>(
-        (TA A, TB B) geometry,
-        GeometryContext context,
-        GeometryRequirement a = default,
-        GeometryRequirement b = default) where TA : GeometryBase where TB : GeometryBase =>
-        (
-            context.Validate(geometry: geometry.A, requirement: a == default ? GeometryRequirement.Basic : a),
-            context.Validate(geometry: geometry.B, requirement: b == default ? GeometryRequirement.Basic : b)
-        ).Apply(static (TA first, TB second) => (A: first, B: second))
-        .As();
-
-    private static Validation<Error, (TA A, TB B)> One<TA, TB>(
-        (TA A, TB B) geometry,
-        GeometryContext context,
-        GeometryRequirement requirement = default) where TA : GeometryBase =>
-        context
-            .Validate(
-                geometry: geometry.A,
-                requirement: requirement == default ? GeometryRequirement.Basic : requirement)
-            .Map((TA first) => (first, geometry.B));
-
-    private static bool Events<TOut>() =>
-        typeof(TOut) == typeof(IntersectionEvent) || typeof(TOut) == typeof(Point3d);
-
-    private static bool Curves<TOut>() =>
-        typeof(TOut) == typeof(Curve) || typeof(TOut) == typeof(Point3d);
+                            curves: curves,
+                            points: points),
+                    false => Fin.Fail<Seq<TOut>>(IntersectKey.InvalidResult()),
+                });
+    private static Query<(TA A, TB B), TOut> PairPolylines<TA, TB, TLeft, TRight, TOut>(
+        GeometryRequirement a,
+        GeometryRequirement b,
+        Func<TLeft, TRight, GeometryContext, IEnumerable<Polyline>?> intersect) where TA : notnull where TB : notnull where TLeft : notnull where TRight : notnull =>
+        Pair<TA, TB, TLeft, TRight, TOut>(
+            a: a,
+            b: b,
+            output: (TLeft left, TRight right, GeometryContext context) => IntersectKey.IntersectionOutput<TOut>(
+                polylines: intersect(
+                    arg1: left,
+                    arg2: right,
+                    arg3: context)));
+    private static bool Events(Type output) =>
+        output == typeof(IntersectionEvent) || output == typeof(Point3d) || output == typeof(IntersectionKind);
+    private static bool Curves(Type output) =>
+        output == typeof(Curve) || output == typeof(Point3d) || output == typeof(IntersectionKind);
 }

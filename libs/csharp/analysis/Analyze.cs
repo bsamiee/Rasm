@@ -4,7 +4,6 @@ using LanguageExt.Common;
 using Rhino;
 using Rhino.Geometry;
 using static LanguageExt.Prelude;
-
 namespace Analysis;
 
 // --- [SURFACE] ---------------------------------------------------------------------------------
@@ -21,20 +20,17 @@ public static class Analyze {
             },
             requiresContext: false,
             input: input);
-
     public static Scope From(RhinoDoc? doc) =>
         new(context: GeometryContext.FromDocument(doc: doc).ToFin());
-
     public static Scope In(UnitSystem units) =>
         new(context: GeometryContext.CreateDefault(units: units).ToFin());
-
     public static Scope In(GeometryContext context) =>
         new(context: Optional(context)
             .ToFin(Query.ScopeKey.MissingContext()));
-
-    public sealed class Scope(Fin<GeometryContext> context) {
-        private readonly Fin<GeometryContext> context = context;
-
+    public sealed class Scope {
+        private readonly Fin<GeometryContext> context;
+        internal Scope(Fin<GeometryContext> context) =>
+            this.context = context;
         public Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(
             Query<TGeometry, TOut>? query,
             params ReadOnlySpan<TGeometry> input) where TGeometry : notnull =>
@@ -44,7 +40,6 @@ public static class Analyze {
                 requiresContext: true,
                 input: input);
     }
-
     private static Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(
         Query<TGeometry, TOut>? query,
         Fin<GeometryContext> context,
@@ -58,11 +53,10 @@ public static class Analyze {
                 .Execute(input: input),
             _ => Fin.Fail<Seq<TOut>>(OperationFault.MissingOperation()).ToValidation(),
         };
-
     private sealed class Program<TGeometry, TOut>(
         Query<TGeometry, TOut> query,
         Fin<GeometryContext> context,
-        bool requiresContext) : Operation<TGeometry, TOut> where TGeometry : notnull {
+        bool requiresContext) where TGeometry : notnull {
         private readonly Fin<Unit> setup = (
                 query.Ready,
                 (requiresContext || query.RequiresContext) switch {
@@ -71,17 +65,38 @@ public static class Analyze {
                 })
             .Apply(static (Unit _, Unit _) => unit)
             .As();
-
-        internal override Validation<Error, Seq<TOut>> Execute(
+        internal Validation<Error, Seq<TOut>> Execute(
             params ReadOnlySpan<TGeometry> input) =>
             setup.IsSucc switch {
-                true => base.Execute(input: input),
+                true => Execute(input: input, start: 0, length: input.Length),
                 false => setup
                     .Map(static (Unit _) => Seq<TOut>())
                     .ToValidation(),
             };
-
-        internal override Fin<Seq<TOut>> Apply(TGeometry input) =>
+        private Validation<Error, Seq<TOut>> Execute(
+            ReadOnlySpan<TGeometry> input,
+            int start,
+            int length) =>
+            length switch {
+                0 => Fin.Succ(Seq<TOut>()).ToValidation(),
+                1 => Apply(input: input[start]).ToValidation(),
+                _ => (
+                    Execute(
+                        input: input,
+                        start: start,
+                        length: length / 2),
+                    Execute(
+                        input: input,
+                        start: start + (length / 2),
+                        length: length - (length / 2))
+                ).Apply(static (Seq<TOut> left, Seq<TOut> right) => left + right)
+                .As(),
+            };
+        private Fin<Seq<TOut>> Apply(TGeometry input) =>
+            Optional(input)
+                .ToFin(ValidationFault.MissingGeometry())
+                .Bind(ApplyValidated);
+        private Fin<Seq<TOut>> ApplyValidated(TGeometry input) =>
             (query.Requirement, input, context) switch {
                 (GeometryRequirement requirement, GeometryBase native, Fin<GeometryContext> rail)
                     when requirement != GeometryRequirement.None =>
