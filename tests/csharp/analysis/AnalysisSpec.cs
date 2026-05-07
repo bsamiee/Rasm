@@ -123,6 +123,7 @@ public sealed class AnalysisSpec {
         Assert.NotNull(@object: Query.Conformance<Curve, Circle, double>(aspect: Conformance.Distance(count: 3)));
         Assert.NotNull(@object: Query.Conformance<Curve, Arc, bool>(aspect: Conformance.WithinTolerance(count: 3)));
         Assert.NotNull(@object: Query.Conformance<Surface, Sphere, ResidualSample>(aspect: Conformance.Maximum(count: 2)));
+        Assert.NotNull(@object: Query.Deviation<Curve, Curve, CurveDeviation>(aspect: Deviation.Curve));
     }
 
     [Fact]
@@ -588,6 +589,44 @@ public sealed class AnalysisSpec {
         Assert.True(condition: result.ToFin().Match(
             Succ: static (Seq<IntersectionKind> _) => false,
             Fail: static (Error error) => error.Count == 1 && error.Message.Contains(value: "Intersect", comparisonType: StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void RejectsInvalidDeviationDescriptorBeforeInputExecution() {
+        Validation<Error, Seq<CurveDeviation>> result = Analyze.Run(
+            query: Query.Deviation<Curve, Curve, CurveDeviation>(aspect: default),
+            input: [(null!, null!), (null!, null!)]);
+
+        Assert.True(condition: result.ToFin().Match(
+            Succ: static (Seq<CurveDeviation> _) => false,
+            Fail: static (Error error) => error.Count == 1 && error.Message.Contains(value: "Deviation", comparisonType: StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void RejectsUnsupportedDeviationSurfaceWithOperationVocabulary() {
+        Validation<Error, Seq<Point3d>> unsupportedOutput = Analyze.Run(
+            query: Query.Deviation<Curve, Curve, Point3d>(aspect: Deviation.Curve),
+            input: [(null!, null!)]);
+        Validation<Error, Seq<CurveDeviation>> unsupportedPair = Analyze.Run(
+            query: Query.Deviation<Curve, Line, CurveDeviation>(aspect: Deviation.Curve),
+            input: [(null!, Line.Unset)]);
+
+        Assert.True(condition: (unsupportedOutput, unsupportedPair).Apply(static (Seq<Point3d> _, Seq<CurveDeviation> _) => false).As().ToFin().Match(
+            Succ: static (bool valid) => valid,
+            Fail: static (Error error) => error.Count == 2 && error.Message.Contains(value: "Deviation", comparisonType: StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void RejectsNullGeometryInsideDeviationRail() {
+        GeometryContext context = (GeometryContext)RuntimeHelpers.GetUninitializedObject(type: typeof(GeometryContext));
+        Validation<Error, Seq<CurveDeviation>> result = Analyze.In(context: context)
+            .Run(
+                query: Query.Deviation<Curve, Curve, CurveDeviation>(aspect: Deviation.Curve),
+                input: [(null!, null!)]);
+
+        Assert.True(condition: result.ToFin().Match(
+            Succ: static (Seq<CurveDeviation> _) => false,
+            Fail: static (Error error) => error.Count == 2));
     }
 
     private static Line ValidLine() =>

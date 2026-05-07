@@ -1079,6 +1079,15 @@ public sealed class AnalysisRuntimeSpec {
         using LineCurve overlapB = new(line: new Line(
             from: new Point3d(x: 0.0, y: 2.0, z: 0.0),
             to: new Point3d(x: 2.0, y: 2.0, z: 0.0)));
+        using LineCurve parallelA = new(line: new Line(
+            from: new Point3d(x: -1.0, y: 4.0, z: 0.0),
+            to: new Point3d(x: 1.0, y: 4.0, z: 0.0)));
+        using LineCurve parallelB = new(line: new Line(
+            from: new Point3d(x: -1.0, y: 5.0, z: 0.0),
+            to: new Point3d(x: 1.0, y: 5.0, z: 0.0)));
+        using LineCurve coincident = new(line: new Line(
+            from: new Point3d(x: -1.0, y: 0.0, z: 0.0),
+            to: new Point3d(x: 1.0, y: 0.0, z: 0.0)));
         using Brep sphere = new Sphere(center: Point3d.Origin, radius: 1.0).ToBrep();
         using PlaneSurface surface = new(
             plane: Plane.WorldXY,
@@ -1148,6 +1157,14 @@ public sealed class AnalysisRuntimeSpec {
             query: AnalysisQuery.Intersect<Mesh, Line, Point3d>(),
             context: context,
             input: [(mesh, new Line(from: new Point3d(x: -2.0, y: 0.0, z: 0.0), to: new Point3d(x: 2.0, y: 0.0, z: 0.0)))]);
+        CurveDeviation[] parallelDeviation = Run(
+            query: AnalysisQuery.Deviation<Curve, Curve, CurveDeviation>(aspect: Deviation.Curve),
+            context: context,
+            input: [(parallelA, parallelB)]);
+        CurveDeviation[] coincidentDeviation = Run(
+            query: AnalysisQuery.Deviation<LineCurve, LineCurve, CurveDeviation>(aspect: Deviation.Curve),
+            context: context,
+            input: [(first, coincident)]);
 
         Assert.Multiple(() => {
             Assert.That(actual: intersections, expression: Has.Length.EqualTo(expected: 1));
@@ -1165,6 +1182,16 @@ public sealed class AnalysisRuntimeSpec {
             Assert.That(actual: genericIntersections, expression: Has.Length.EqualTo(expected: 1));
             Assert.That(actual: genericCurvePlanePoints[0], expression: Is.EqualTo(expected: Point3d.Origin));
             Assert.That(actual: genericMeshLinePoints, expression: Has.Length.GreaterThanOrEqualTo(expected: 2));
+            Assert.That(actual: parallelDeviation, expression: Has.Length.EqualTo(expected: 1));
+            Assert.That(actual: parallelDeviation[0].MinimumDistance, expression: Is.EqualTo(expected: 1.0).Within(1e-12));
+            Assert.That(actual: parallelDeviation[0].MaximumDistance, expression: Is.EqualTo(expected: 1.0).Within(1e-12));
+            Assert.That(actual: parallelDeviation[0].MinimumA.DistanceTo(other: parallelDeviation[0].MinimumB), expression: Is.EqualTo(expected: parallelDeviation[0].MinimumDistance).Within(1e-12));
+            Assert.That(actual: parallelDeviation[0].MaximumA.DistanceTo(other: parallelDeviation[0].MaximumB), expression: Is.EqualTo(expected: parallelDeviation[0].MaximumDistance).Within(1e-12));
+            Assert.That(actual: parallelDeviation[0].MinimumA.IsValid && parallelDeviation[0].MaximumB.IsValid, expression: Is.True);
+            Assert.That(actual: parallelDeviation[0].WithinTolerance, expression: Is.False);
+            Assert.That(actual: coincidentDeviation[0].MinimumDistance, expression: Is.EqualTo(expected: 0.0).Within(1e-12));
+            Assert.That(actual: coincidentDeviation[0].MaximumDistance, expression: Is.EqualTo(expected: 0.0).Within(1e-12));
+            Assert.That(actual: coincidentDeviation[0].WithinTolerance, expression: Is.True);
         });
     }
 

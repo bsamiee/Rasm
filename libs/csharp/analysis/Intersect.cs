@@ -147,6 +147,7 @@ public static partial class Query {
                     }),
             (Type a, Type b, Type output) when typeof(Mesh).IsAssignableFrom(c: a) && b == typeof(Line) && (output == typeof(Point3d) || output == typeof(IntersectionKind)) =>
                 Pair<TA, TB, Mesh, Line, TOut>(
+                    key: IntersectKey,
                     a: GeometryRequirement.MeshCheck,
                     b: GeometryRequirement.None,
                     output: static (Mesh left, Line right, GeometryContext _) => IntersectKey.IntersectionOutput<TOut>(
@@ -177,28 +178,74 @@ public static partial class Query {
                     }),
             _ => IntersectKey.Unsupported<(TA A, TB B), TOut>(),
         };
+    public static Query<(TA A, TB B), TOut> Deviation<TA, TB, TOut>(Deviation aspect) where TA : notnull where TB : notnull =>
+        (aspect.Kind, typeof(TA), typeof(TB), typeof(TOut)) switch {
+            (DeviationKind.None, _, _, _) => Query<(TA A, TB B), TOut>.Reject(
+                key: DeviationKey,
+                fault: DeviationKey.InvalidInput()),
+            (DeviationKind.Curve, Type a, Type b, Type output) when typeof(Curve).IsAssignableFrom(c: a) && typeof(Curve).IsAssignableFrom(c: b) && output == typeof(CurveDeviation) =>
+                Pair<TA, TB, Curve, Curve, TOut>(
+                    key: DeviationKey,
+                    a: GeometryRequirement.CurveLength,
+                    b: GeometryRequirement.CurveLength,
+                    output: static (Curve left, Curve right, GeometryContext context) => Curve.GetDistancesBetweenCurves(
+                            curveA: left,
+                            curveB: right,
+                            tolerance: context.Absolute.Value,
+                            maxDistance: out double maximumDistance,
+                            maxDistanceParameterA: out double maximumA,
+                            maxDistanceParameterB: out double maximumB,
+                            minDistance: out double minimumDistance,
+                            minDistanceParameterA: out double minimumA,
+                            minDistanceParameterB: out double minimumB) switch {
+                                true => new CurveDeviation(
+                                    MinimumDistance: minimumDistance,
+                                    MinimumA: left.PointAt(t: minimumA),
+                                    MinimumB: right.PointAt(t: minimumB),
+                                    MaximumDistance: maximumDistance,
+                                    MaximumA: left.PointAt(t: maximumA),
+                                    MaximumB: right.PointAt(t: maximumB),
+                                    Tolerance: context.Absolute.Value,
+                                    WithinTolerance: maximumDistance <= context.Absolute.Value) switch {
+                                        CurveDeviation deviation when deviation.MinimumDistance >= 0.0
+                                            && deviation.MaximumDistance >= deviation.MinimumDistance
+                                            && double.IsFinite(d: deviation.MinimumDistance)
+                                            && double.IsFinite(d: deviation.MaximumDistance)
+                                            && deviation.MinimumA.IsValid
+                                            && deviation.MinimumB.IsValid
+                                            && deviation.MaximumA.IsValid
+                                            && deviation.MaximumB.IsValid =>
+                                            Fin.Succ(Seq(deviation))
+                                                .Bind(static (Seq<CurveDeviation> values) => DeviationKey.Retype<CurveDeviation, TOut>(values: values)),
+                                        _ => Fin.Fail<Seq<TOut>>(DeviationKey.InvalidResult()),
+                                    },
+                                false => Fin.Fail<Seq<TOut>>(DeviationKey.InvalidResult()),
+                            }),
+            _ => DeviationKey.Unsupported<(TA A, TB B), TOut>(),
+        };
     private static Query<(TA A, TB B), TOut> Pair<TA, TB, TLeft, TRight, TOut>(
+        OperationKey key,
         GeometryRequirement a,
         GeometryRequirement b,
         PairOutput<TLeft, TRight, TOut> output) where TA : notnull where TB : notnull where TLeft : notnull where TRight : notnull =>
         Query<(TA A, TB B), TOut>.Build(
-            key: IntersectKey,
+            key: key,
             requiresContext: true,
-            state: (A: a, B: b, Output: output),
-            evaluator: static ((GeometryRequirement A, GeometryRequirement B, PairOutput<TLeft, TRight, TOut> Output) state, (TA A, TB B) geometry, Fin<GeometryContext> context) =>
+            state: (Key: key, A: a, B: b, Output: output),
+            evaluator: static ((OperationKey Key, GeometryRequirement A, GeometryRequirement B, PairOutput<TLeft, TRight, TOut> Output) state, (TA A, TB B) geometry, Fin<GeometryContext> context) =>
                 context
                     .Bind((GeometryContext model) => model.ValidateOperands(
                             geometry: geometry,
                             a: state.A,
                             b: state.B)
                         .ToFin()
-                        .Map(((TA A, TB B) valid) => (Geometry: valid, Context: model, state.Output)))
-                    .Bind(((ValueTuple<TA, TB> Geometry, GeometryContext Context, PairOutput<TLeft, TRight, TOut> Output) state) => (state.Geometry.Item1, state.Geometry.Item2) switch {
+                        .Map(((TA A, TB B) valid) => (Geometry: valid, Context: model, state.Key, state.Output)))
+                    .Bind(static ((ValueTuple<TA, TB> Geometry, GeometryContext Context, OperationKey Key, PairOutput<TLeft, TRight, TOut> Output) state) => (state.Geometry.Item1, state.Geometry.Item2) switch {
                         (TLeft left, TRight right) => state.Output(
                             left: left,
                             right: right,
                             context: state.Context),
-                        _ => Fin.Fail<Seq<TOut>>(IntersectKey.Unsupported(
+                        _ => Fin.Fail<Seq<TOut>>(state.Key.Unsupported(
                             geometryType: typeof((TA A, TB B)),
                             outputType: typeof(TOut))),
                     }));
@@ -207,6 +254,7 @@ public static partial class Query {
         GeometryRequirement b,
         Func<TLeft, TRight, GeometryContext, CurveIntersections?> intersect) where TA : notnull where TB : notnull where TLeft : notnull where TRight : notnull =>
         Pair<TA, TB, TLeft, TRight, TOut>(
+            key: IntersectKey,
             a: a,
             b: b,
             output: (TLeft left, TRight right, GeometryContext context) => {
@@ -222,6 +270,7 @@ public static partial class Query {
         bool acceptPartialResults,
         CurvePointIntersection<TLeft, TRight> intersect) where TA : notnull where TB : notnull where TLeft : notnull where TRight : notnull =>
         Pair<TA, TB, TLeft, TRight, TOut>(
+            key: IntersectKey,
             a: a,
             b: b,
             output: (TLeft left, TRight right, GeometryContext context) => intersect(
@@ -244,6 +293,7 @@ public static partial class Query {
         GeometryRequirement b,
         Func<TLeft, TRight, GeometryContext, IEnumerable<Polyline>?> intersect) where TA : notnull where TB : notnull where TLeft : notnull where TRight : notnull =>
         Pair<TA, TB, TLeft, TRight, TOut>(
+            key: IntersectKey,
             a: a,
             b: b,
             output: (TLeft left, TRight right, GeometryContext context) => IntersectKey.IntersectionOutput<TOut>(

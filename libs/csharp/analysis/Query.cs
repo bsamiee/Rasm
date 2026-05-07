@@ -69,6 +69,7 @@ public enum CurvatureScalar { None = 0, Magnitude = 1, Gaussian = 2, Mean = 3 }
 public enum MeshCheckCount { None = 0, DegenerateFaces = 1, DisjointMeshes = 2, DuplicateFaces = 3, ExtremelyShortEdges = 4, InvalidNgons = 5, NakedEdges = 6, NonManifoldEdges = 7, NonUnitVectorNormals = 8, RandomFaceNormals = 9, SelfIntersectingPairs = 10, UnusedVertices = 11, VertexFaceNormalsDiffer = 12, ZeroLengthNormals = 13 }
 public enum ConformanceResidual { None = 0, Distance = 1, Rms = 2, WithinTolerance = 3, Profile = 4, Maximum = 5 }
 public enum MeshFaceMetric { None = 0, AspectRatio = 1 }
+public enum DeviationKind { None = 0, Curve = 1 }
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CurvatureProfile(
     CurvatureScalar Scalar,
@@ -100,6 +101,16 @@ public readonly record struct MeshFaceSample(int Face, double Value);
 public readonly record struct SpatialHit(int Id);
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct SpatialPair(int A, int B);
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CurveDeviation(
+    double MinimumDistance,
+    Point3d MinimumA,
+    Point3d MinimumB,
+    double MaximumDistance,
+    Point3d MaximumA,
+    Point3d MaximumB,
+    double Tolerance,
+    bool WithinTolerance);
 public enum IntersectionKind { Unknown = 0, Point = 1, Overlap = 2 }
 internal enum BoundsKind { Box, Oriented, Transformed, Center, Corners, Edges, Area, Volume }
 internal enum MeasureKind { Scalar, Error, Centroid, CentroidError, Radii, Principal }
@@ -173,6 +184,13 @@ public readonly record struct Conformance {
     internal readonly ConformanceResidual Residual; internal readonly int Count;
     public static Conformance Distance(int count) => new(residual: ConformanceResidual.Distance, count: count); public static Conformance Rms(int count) => new(residual: ConformanceResidual.Rms, count: count); public static Conformance WithinTolerance(int count) => new(residual: ConformanceResidual.WithinTolerance, count: count); public static Conformance Profile(int count) => new(residual: ConformanceResidual.Profile, count: count); public static Conformance Maximum(int count) => new(residual: ConformanceResidual.Maximum, count: count);
 }
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct Deviation {
+    private Deviation(DeviationKind kind) =>
+        Kind = kind;
+    internal readonly DeviationKind Kind;
+    public static Deviation Curve => new(kind: DeviationKind.Curve);
+}
 public static partial class Query {
     internal delegate bool PrimitiveCase<TSource, TValue>(
         TSource geometry,
@@ -195,7 +213,7 @@ public static partial class Query {
         ShortPathKey = new(name: "ShortPath"), SolidOrientationKey = new(name: nameof(SolidOrientation)), IsPointInsideKey = new(name: nameof(IsPointInside)),
         VerticesKey = new(name: nameof(Vertices)), ComponentsKey = new(name: "Components"), IsManifoldKey = new(name: nameof(IsManifold)),
         NakedPointStatusKey = new(name: nameof(NakedPointStatus)), MeshCheckKey = new(name: nameof(MeshCheck)), MeshCheckCountKey = new(name: "MeshCheckCount"), MeshFaceMetricKey = new(name: nameof(MeshFaceMetric)), SelfIntersectionsKey = new(name: nameof(SelfIntersections)), IntersectKey = new(name: nameof(Intersect)),
-        ConformanceKey = new(name: nameof(Conformance)), SpatialIndexKey = new(name: nameof(SpatialIndex)),
+        ConformanceKey = new(name: nameof(Conformance)), DeviationKey = new(name: nameof(Deviation)), SpatialIndexKey = new(name: nameof(SpatialIndex)),
         TopologyKey = new(name: nameof(Topology)), ScopeKey = new(name: nameof(Analyze.Scope));
     internal static Query<TGeometry, TOut> Unsupported<TGeometry, TOut>(this OperationKey key) where TGeometry : notnull =>
         Query<TGeometry, TOut>.Reject(

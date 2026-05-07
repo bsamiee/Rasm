@@ -5,7 +5,7 @@
 
 [IMPORTANT] Treat this file as the living roadmap/source of truth for `libs/csharp/analysis` and its relevant `core/Domain` support. Do not use chat history as roadmap state.
 
-[IMPORTANT] The current completed branch is `analysis-spatial-index`. Do not reselect items marked `DONE` or `REJECTED`.
+[IMPORTANT] The current completed branch is `analysis-curve-deviation`. Do not reselect items marked `DONE` or `REJECTED`.
 
 ---
 ## [1][CURRENT_TRUTH]
@@ -15,16 +15,16 @@
 
 **Current branch:** `main`.
 
-**Modern analysis LOC:** `libs/csharp/analysis/*.cs` is 2,525 LOC.
+**Modern analysis LOC:** `libs/csharp/analysis/*.cs` is 2,597 LOC.
 
 | [INDEX] | [FILE] | [LOC] | [ROLE] |
 | :-----: | ------ | ----: | ------ |
 | **1** | `libs/csharp/analysis/Analyze.cs` | 131 | Per-input execution surface, scoped context, null/error rails. |
-| **2** | `libs/csharp/analysis/Query.cs` | 473 | Descriptor algebra and public vocabulary: bounds, measure, location, topology, conformance, mesh face metrics, spatial hit/pair records. |
+| **2** | `libs/csharp/analysis/Query.cs` | 491 | Descriptor algebra and public vocabulary: bounds, measure, location, topology, conformance, mesh face metrics, spatial hit/pair records, curve deviation evidence. |
 | **3** | `libs/csharp/analysis/Measure.cs` | 455 | Bounds, scalar/mass projections, explicit conformance residual/profile/maximum evidence. |
 | **4** | `libs/csharp/analysis/Locate.cs` | 545 | Point/frame/normal/curvature/location queries and normalized profile projections. |
 | **5** | `libs/csharp/analysis/Extract.cs` | 407 | Primitive extraction, read-only topology, mesh diagnostics, mesh check counts, mesh face aspect-ratio samples. |
-| **6** | `libs/csharp/analysis/Intersect.cs` | 258 | Pair intersections, compact intersection classification, native pair rails. |
+| **6** | `libs/csharp/analysis/Intersect.cs` | 308 | Pair intersections, compact intersection classification, native curve deviation, native pair rails. |
 | **7** | `libs/csharp/analysis/Spatial.cs` | 256 | Focused collection-level Rhino `RTree` owner. |
 
 **Relevant core LOC:** `libs/csharp/core/Domain/*.cs` is 773 LOC.
@@ -51,8 +51,8 @@
 
 **Current public analysis vocabulary includes:**
 
-- `Bounds`, `Measure`, `Location`, `Topology`, `Conformance`, `MassKind`, `CurvatureScalar`, `MeshCheckCount`, `MeshFaceMetric`, `ConformanceResidual`, `IntersectionKind`.
-- Compact records: `CurvatureProfile`, `ResidualProfile`, `ResidualSample`, `MeshFaceSample`, `SpatialHit`, `SpatialPair`.
+- `Bounds`, `Measure`, `Location`, `Topology`, `Conformance`, `Deviation`, `MassKind`, `CurvatureScalar`, `MeshCheckCount`, `MeshFaceMetric`, `ConformanceResidual`, `DeviationKind`, `IntersectionKind`.
+- Compact records: `CurvatureProfile`, `ResidualProfile`, `ResidualSample`, `MeshFaceSample`, `SpatialHit`, `SpatialPair`, `CurveDeviation`.
 - Spatial owner: `SpatialIndex`.
 
 **Spatial API shape:**
@@ -73,6 +73,13 @@
 - Duplicate source geometry is represented by duplicate source indices.
 - No custom IDs, geometry references, callback tags, insert/remove mutation, distances, result bags, config objects, broad spatial workflows, clustering, fields, or handrolled spatial algorithms are exposed.
 - `SpatialIndex` owns and idempotently disposes the native Rhino `RTree`.
+
+**Curve deviation API shape:**
+
+- `Query.Deviation<TA,TB,TOut>(Deviation.Curve)` supports curve-derived pairs only.
+- Canonical output is one `CurveDeviation` per pair with native minimum/maximum distance, paired curve points, tolerance, and within-tolerance evidence.
+- `CurveDeviation.WithinTolerance` is `MaximumDistance <= GeometryContext.Absolute.Value`.
+- No near-miss threshold bands, search-radius knobs, tangent/transverse labels, perturbation stability scores, or sampling workflows are exposed.
 
 ---
 ## [3][DONE_LEDGER]
@@ -95,6 +102,7 @@
 | **11** | Conformance max-sample evidence | DONE | `Query.cs`, `Measure.cs` | `ResidualSample` and `Conformance.Maximum(int)`. |
 | **12** | Extra explicit primitive pairs | DONE | `Measure.cs`, `GeometryValidation.cs` | Curve-circle, curve-arc, and surface-sphere conformance. |
 | **13** | Mesh face-level metric stream | DONE | `Query.cs`, `Extract.cs` | `MeshFaceMetric.AspectRatio` via native `Mesh.Faces.GetFaceAspectRatio(index)`. |
+| **14** | Curve deviation evidence | DONE | `Query.cs`, `Intersect.cs` | `Deviation.Curve` via native `Curve.GetDistancesBetweenCurves`, compact `CurveDeviation` output. |
 
 ---
 ## [4][MISSING_OR_DEFERRED]
@@ -107,7 +115,8 @@
 | Surface-cylinder conformance | DEFERRED | Rhino exposes `Surface.TryGetCylinder`, but `Cylinder` has no native closest-point/distance API. A custom formula would be speculative without an approved standard. | `Measure.cs` | Pick up only when Rhino exposes primitive closest/distance semantics or an approved formula standard is named with testable tolerance behavior. |
 | Surface-cone conformance | DEFERRED | Rhino exposes `Surface.TryGetCone`, but `Cone` has no native closest-point/distance API. | `Measure.cs` | Same as cylinder: native API or approved formula standard plus runtime parity tests. |
 | Surface-torus conformance | DEFERRED | Rhino exposes `Surface.TryGetTorus`, but `Torus` has no native closest-point/distance API. | `Measure.cs` | Same as cylinder: native API or approved formula standard plus runtime parity tests. |
-| Near-miss/stability evidence | DEFERRED | Archive concepts use threshold strategy lists and heuristic classifiers. Modern `analysis` needs explicit descriptor semantics and a single tolerance policy before adding API. | `Intersect.cs` candidate | Pick up only with an approved descriptor, canonical compact output, and native backing such as `Curve.GetDistancesBetweenCurves` or another primary Rhino proximity/deviation API. |
+| Near-miss threshold evidence | DEFERRED | Native curve deviation is now done, but near-miss still needs an approved tolerance-band/search policy. Archive threshold strategy lists and heuristic classifiers remain rejected. | `Intersect.cs` candidate | Pick up only with a named native proximity API, one compact descriptor, one tolerance policy, focused tests, and no config table. |
+| Intersection stability evidence | DEFERRED | Archive perturbation sampling creates aggregate scores and unstable flags without Rhino-native stability semantics. | `Intersect.cs` candidate | Pick up only when Rhino exposes native stability semantics or an approved standard defines perturbation geometry, score meaning, and testable tolerance behavior. |
 | Mesh skew/Jacobian/solver-like FEA streams | DEFERRED | Aspect ratio has native face-level semantics; skew/Jacobian/solver-like metrics would need formulas or solver semantics not yet approved. | `Extract.cs` candidate | Pick up only with Rhino-native APIs or named standard formulas, per-face typed outputs, and managed/runtime tests. |
 | Rich feature/pattern detection | DEFERRED | Archive feature workflows are broad classifiers and would reintroduce request/result/config architecture. | Owner not selected | Pick up only as narrow descriptor-first native evidence with no workflow facade. |
 | Rhino runtime execution in default gate | DEFERRED | `Rhino.Testing` resolves below `net10.0` and the RhinoWIP testhost crashes on macOS unless forced. | Test tooling | Pick up when `Rhino.Testing` provides a compatible `net10.0` asset or the testhost/tooling is updated. Runtime specs already compile. |
@@ -146,6 +155,7 @@ Use current primary RhinoCommon docs before changing API claims:
 | Mesh face metrics | [MeshFaceList](https://developer.rhino3d.com/api/rhinocommon/rhino.geometry.collections.meshfacelist) | `GetFaceAspectRatio(index)` for `MeshFaceMetric.AspectRatio`. |
 | Mesh diagnostics | [Mesh](https://developer.rhino3d.com/api/rhinocommon/rhino.geometry.mesh), [MeshCheckParameters](https://developer.rhino3d.com/api/rhinocommon/rhino.geometry.meshcheckparameters) | `Check`, typed `MeshCheckCount`, self-intersections, naked edges, manifold checks. |
 | Intersections/proximity candidate | [Intersection](https://developer.rhino3d.com/api/rhinocommon/rhino.geometry.intersect.intersection), [Curve](https://developer.rhino3d.com/api/rhinocommon/rhino.geometry.curve) | Existing intersections are implemented; near-miss/stability needs a precise native proximity/deviation API and tolerance policy before implementation. |
+| Curve deviation | [Curve](https://developer.rhino3d.com/api/rhinocommon/rhino.geometry.curve), [Curve.GetDistancesBetweenCurves](https://mcneel.github.io/rhinocommon-api-docs/api/RhinoCommon/html/M_Rhino_Geometry_Curve_GetDistancesBetweenCurves.htm) | `Curve.GetDistancesBetweenCurves` computes native minimum/maximum distances and curve parameters for curve deviation. |
 
 ---
 ## [7][TEST_AND_GATE_TRUTH]
@@ -153,15 +163,14 @@ Use current primary RhinoCommon docs before changing API claims:
 
 <br>
 
-**Gates run for `analysis-spatial-index`:**
+**Gates run for `analysis-curve-deviation`:**
 
 - `bash -n scripts/check-cs.sh` passed.
 - `scripts/check-cs.sh --self-test` passed.
-- `dotnet test tests/csharp/analysis/Analysis.Tests.csproj --configuration Release --no-restore` passed: `Analysis.Tests` 47.
-- `dotnet test tests/csharp/core/Core.Tests.csproj --configuration Release --no-restore` passed: `Core.Tests` 10.
+- `dotnet test tests/csharp/analysis/Analysis.Tests.csproj --configuration Release --no-restore` passed: `Analysis.Tests` 50.
 - `dotnet build tests/rhino/Rhino.Tests.csproj --configuration Release --no-restore` passed.
-- `pnpm check:cs` passed Debug/Release builds, format/analyzer posture, and managed tests: `Analysis.Tests` 47, `Core.Tests` 10, `Foundation.CsAnalyzer.Tests` 85.
-- `RASM_RHINO_TESTS=1 pnpm check:cs` passed managed gates and skipped Rhino runtime execution at the asset guard: `Analysis.Tests` 47, `Core.Tests` 10, `Foundation.CsAnalyzer.Tests` 85.
+- `pnpm check:cs` passed Debug/Release builds, format/analyzer posture, and managed tests: `Analysis.Tests` 50, `Core.Tests` 10, `Foundation.CsAnalyzer.Tests` 85.
+- `RASM_RHINO_TESTS=1 pnpm check:cs` passed managed gates and skipped Rhino runtime execution at the asset guard: `Analysis.Tests` 50, `Core.Tests` 10, `Foundation.CsAnalyzer.Tests` 85.
 
 **Runtime caveat:** native `RTree` construction loads `rhcommon_c`, so managed tests cover only pre-native invalid spatial rails. Spatial native behavior is covered by Rhino runtime specs that compile. Runtime execution is currently skipped unless forced because `Rhino.Testing` resolves below `net10.0` and crashes the RhinoWIP testhost on macOS.
 
@@ -170,6 +179,7 @@ Use current primary RhinoCommon docs before changing API claims:
 - `SpatialIndex` point bounding-box search, sphere search, k-nearest, closest, mesh-face overlaps, empty indexes, and disposed-index failure.
 - Conformance maximum samples and explicit curve-circle, curve-arc, and surface-sphere pairs.
 - Mesh face aspect-ratio streams.
+- Curve deviation min/max distance and paired point evidence.
 - Existing curvature, topology, primitive extraction, intersection, mass, and mesh diagnostic behavior.
 
 ---
@@ -178,16 +188,15 @@ Use current primary RhinoCommon docs before changing API claims:
 
 <br>
 
-**Recommended next branch:** `analysis-near-miss-stability`.
+**Recommended next branch:** no `ACTIVE` implementation branch.
 
 **Approval criteria before editing:**
 
-- Choose one owner, likely `Intersect.cs`.
-- Define one narrow descriptor-first API; do not add a workflow facade.
-- Name the native Rhino proximity/deviation API.
-- Define tolerance semantics without config tables or knobs.
-- Define compact typed output shape.
+- Choose one blocked item: near-miss threshold evidence or intersection stability evidence.
+- Name the primary Rhino-native API or approved formula standard.
+- Define one descriptor-first API and one compact typed output.
+- Define tolerance semantics without threshold strategy lists, config tables, or knobs.
 - Keep unsupported/null/invalid cases on typed rails.
 - Add managed rail tests and Rhino runtime specs that compile even if runtime execution is skipped.
 
-**Fallback if not approved:** do not implement near-miss/stability. Keep the roadmap at the current completed evidence surface.
+**Fallback if not approved:** do not implement more near-miss/stability work. Keep the roadmap at the current completed evidence surface.
