@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Analysis;
 using Core.Domain;
 using LanguageExt;
@@ -108,6 +109,16 @@ public sealed class AnalysisSpec {
         Assert.NotNull(@object: Query.IsManifold);
         Assert.NotNull(@object: Query.NakedPointStatus);
         Assert.NotNull(@object: Query.SelfIntersections);
+        Assert.NotNull(@object: Query.MeshCheckCount(count: MeshCheckCount.NakedEdges));
+        Assert.NotNull(@object: Query.Topology<Mesh, Polyline>(aspect: Topology.Boundary));
+        Assert.NotNull(@object: Query.Topology<Mesh, ComponentIndex>(aspect: Topology.Adjacency));
+        Assert.NotNull(@object: Query.Topology<Mesh, bool>(aspect: Topology.NonManifold));
+        Assert.NotNull(@object: Query.Locate<Curve, double>(aspect: Location.CurvatureProfile(count: 3, scalar: CurvatureScalar.Magnitude)));
+        Assert.NotNull(@object: Query.Locate<Surface, double>(aspect: Location.CurvatureProfile(count: 3, scalar: CurvatureScalar.Gaussian)));
+        Assert.NotNull(@object: Query.Locate<Surface, double>(aspect: Location.CurvatureProfile(count: 3, scalar: CurvatureScalar.Mean)));
+        Assert.NotNull(@object: Query.Conformance<Curve, Line, double>(aspect: Conformance.Distance(count: 3)));
+        Assert.NotNull(@object: Query.Conformance<Surface, Plane, bool>(aspect: Conformance.WithinTolerance(count: 2)));
+        Assert.NotNull(@object: Query.Conformance<Curve, Line, ResidualProfile>(aspect: Conformance.Profile(count: 3)));
     }
 
     [Fact]
@@ -299,6 +310,72 @@ public sealed class AnalysisSpec {
     }
 
     [Fact]
+    public void RejectsUnsupportedTopologyBeforeInputExecution() {
+        Validation<Error, Seq<Curve>> result = Analyze.Run(
+            query: Query.Topology<Curve, Curve>(aspect: Topology.Boundary),
+            input: [null!, null!]);
+
+        Assert.True(condition: result.ToFin().Match(
+            Succ: static (Seq<Curve> _) => false,
+            Fail: static (Error error) => error.Count == 1 && error.Message.Contains(value: "Topology", comparisonType: StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void RejectsNullGeometryInsideTopologyRail() {
+        Validation<Error, Seq<Polyline>> result = Analyze.Run(
+            query: Query.Topology<Mesh, Polyline>(aspect: Topology.Boundary),
+            input: [null!]);
+
+        Assert.True(condition: result.ToFin().Match(
+            Succ: static (Seq<Polyline> _) => false,
+            Fail: static (Error error) => error.Count == 1));
+    }
+
+    [Fact]
+    public void RejectsUnsupportedTopologyOutputWithOperationVocabulary() {
+        Validation<Error, Seq<Curve>> result = Analyze.Run(
+            query: Query.Topology<Mesh, Curve>(aspect: Topology.Boundary),
+            input: [null!]);
+
+        Assert.True(condition: result.ToFin().Match(
+            Succ: static (Seq<Curve> _) => false,
+            Fail: static (Error error) => error.Count == 1 && error.Message.Contains(value: "Topology", comparisonType: StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void RejectsInvalidMeshCheckCountBeforeInputExecution() {
+        Validation<Error, Seq<int>> result = Analyze.Run(
+            query: Query.MeshCheckCount(count: MeshCheckCount.None),
+            input: [null!, null!]);
+
+        Assert.True(condition: result.ToFin().Match(
+            Succ: static (Seq<int> _) => false,
+            Fail: static (Error error) => error.Count == 1 && error.Message.Contains(value: "MeshCheckCount", comparisonType: StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void RejectsUnknownMeshCheckCountBeforeInputExecution() {
+        Validation<Error, Seq<int>> result = Analyze.Run(
+            query: Query.MeshCheckCount(count: (MeshCheckCount)999),
+            input: [null!, null!]);
+
+        Assert.True(condition: result.ToFin().Match(
+            Succ: static (Seq<int> _) => false,
+            Fail: static (Error error) => error.Count == 1 && error.Message.Contains(value: "MeshCheckCount", comparisonType: StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void RejectsNullGeometryInsideMeshCheckCountRail() {
+        Validation<Error, Seq<int>> result = Analyze.Run(
+            query: Query.MeshCheckCount(count: MeshCheckCount.NakedEdges),
+            input: [null!]);
+
+        Assert.True(condition: result.ToFin().Match(
+            Succ: static (Seq<int> _) => false,
+            Fail: static (Error error) => error.Count == 1));
+    }
+
+    [Fact]
     public void RejectsMissingContextOnceBeforeInputExecution() {
         Validation<Error, Seq<Point3d>> result = Analyze.Run(
             query: Query.Measure<Curve, Point3d>(aspect: Measure.Centroid(kind: MassKind.Length)),
@@ -357,6 +434,17 @@ public sealed class AnalysisSpec {
     }
 
     [Fact]
+    public void RejectsInvalidExplicitCurvatureScalarCountBeforeInputExecution() {
+        Validation<Error, Seq<double>> result = Analyze.Run(
+            query: Query.Locate<Curve, double>(aspect: Location.CurvatureProfile(count: 0, scalar: CurvatureScalar.Magnitude)),
+            input: [null!, null!]);
+
+        Assert.True(condition: result.ToFin().Match(
+            Succ: static (Seq<double> _) => false,
+            Fail: static (Error error) => error.Count == 1 && error.Message.Contains(value: "invalid Rhino input", comparisonType: StringComparison.Ordinal)));
+    }
+
+    [Fact]
     public void RejectsUnsupportedCurvatureProfileSummaryBeforeInputExecution() {
         Validation<Error, Seq<CurvatureProfile>> result = Analyze.Run(
             query: Query.Locate<Line, CurvatureProfile>(aspect: Location.CurvatureProfile(count: 3)),
@@ -365,6 +453,82 @@ public sealed class AnalysisSpec {
         Assert.True(condition: result.ToFin().Match(
             Succ: static (Seq<CurvatureProfile> _) => false,
             Fail: static (Error error) => error.Count == 1 && error.Message.Contains(value: "CurvatureAt", comparisonType: StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void RejectsDefaultCurvatureScalarOutputBeforeInputExecution() {
+        Validation<Error, Seq<double>> result = Analyze.Run(
+            query: Query.Locate<Curve, double>(aspect: Location.CurvatureProfile(count: 3)),
+            input: [null!]);
+
+        Assert.True(condition: result.ToFin().Match(
+            Succ: static (Seq<double> _) => false,
+            Fail: static (Error error) => error.Count == 1 && error.Message.Contains(value: "CurvatureAt", comparisonType: StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void RejectsUnsupportedExplicitCurvatureScalarBeforeInputExecution() {
+        Validation<Error, Seq<double>> curveMean = Analyze.Run(
+            query: Query.Locate<Curve, double>(aspect: Location.CurvatureProfile(count: 3, scalar: CurvatureScalar.Mean)),
+            input: [null!]);
+        Validation<Error, Seq<double>> curveGaussian = Analyze.Run(
+            query: Query.Locate<Curve, double>(aspect: Location.CurvatureProfile(count: 3, scalar: CurvatureScalar.Gaussian)),
+            input: [null!]);
+        Validation<Error, Seq<double>> surfaceMagnitude = Analyze.Run(
+            query: Query.Locate<Surface, double>(aspect: Location.CurvatureProfile(count: 3, scalar: CurvatureScalar.Magnitude)),
+            input: [null!]);
+
+        Assert.True(condition: (curveMean, curveGaussian, surfaceMagnitude).Apply(static (Seq<double> _, Seq<double> _, Seq<double> _) => false).As().ToFin().Match(
+            Succ: static (bool valid) => valid,
+            Fail: static (Error error) => error.Count == 3 && error.Message.Contains(value: "CurvatureAt", comparisonType: StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void RejectsInvalidConformanceResidualBeforeInputExecution() {
+        Validation<Error, Seq<double>> invalidCount = Analyze.Run(
+            query: Query.Conformance<Curve, Line, double>(aspect: Conformance.Distance(count: 0)),
+            input: [(null!, Line.Unset), (null!, Line.Unset)]);
+        Validation<Error, Seq<double>> invalidResidual = Analyze.Run(
+            query: Query.Conformance<Curve, Line, double>(aspect: default),
+            input: [(null!, Line.Unset), (null!, Line.Unset)]);
+        Validation<Error, Seq<ResidualProfile>> invalidProfileCount = Analyze.Run(
+            query: Query.Conformance<Curve, Line, ResidualProfile>(aspect: Conformance.Profile(count: 0)),
+            input: [(null!, Line.Unset), (null!, Line.Unset)]);
+
+        Assert.True(condition: (invalidCount, invalidResidual, invalidProfileCount).Apply(static (Seq<double> _, Seq<double> _, Seq<ResidualProfile> _) => false).As().ToFin().Match(
+            Succ: static (bool valid) => valid,
+            Fail: static (Error error) => error.Count == 3 && error.Message.Contains(value: "Conformance", comparisonType: StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void RejectsUnsupportedConformanceOutputWithOperationVocabulary() {
+        Validation<Error, Seq<Point3d>> result = Analyze.Run(
+            query: Query.Conformance<Curve, Line, Point3d>(aspect: Conformance.Distance(count: 3)),
+            input: [(null!, Line.Unset)]);
+        Validation<Error, Seq<Point3d>> profile = Analyze.Run(
+            query: Query.Conformance<Curve, Line, Point3d>(aspect: Conformance.Profile(count: 3)),
+            input: [(null!, Line.Unset)]);
+
+        Assert.True(condition: (result, profile).Apply(static (Seq<Point3d> _, Seq<Point3d> _) => false).As().ToFin().Match(
+            Succ: static (bool valid) => valid,
+            Fail: static (Error error) => error.Count == 2 && error.Message.Contains(value: "Conformance", comparisonType: StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void RejectsNullGeometryInsideConformanceRail() {
+        GeometryContext context = (GeometryContext)RuntimeHelpers.GetUninitializedObject(type: typeof(GeometryContext));
+        Validation<Error, Seq<double>> result = Analyze.In(context: context)
+            .Run(
+                query: Query.Conformance<Curve, Line, double>(aspect: Conformance.Distance(count: 3)),
+                input: [(null!, ValidLine())]);
+        Validation<Error, Seq<ResidualProfile>> profile = Analyze.In(context: context)
+            .Run(
+                query: Query.Conformance<Curve, Line, ResidualProfile>(aspect: Conformance.Profile(count: 3)),
+                input: [(null!, ValidLine())]);
+
+        Assert.True(condition: (result, profile).Apply(static (Seq<double> _, Seq<ResidualProfile> _) => false).As().ToFin().Match(
+            Succ: static (bool valid) => valid,
+            Fail: static (Error error) => error.Count == 2));
     }
 
     [Fact]

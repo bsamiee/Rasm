@@ -134,6 +134,18 @@ public sealed class AnalysisRuntimeSpec {
             query: AnalysisQuery.Locate<Curve, CurvatureProfile>(aspect: Location.CurvatureProfile(count: 3)),
             context: context,
             input: [profiled]);
+        double[] curvatureMagnitudes = Run(
+            query: AnalysisQuery.Locate<Curve, double>(aspect: Location.CurvatureProfile(count: 3, scalar: CurvatureScalar.Magnitude)),
+            context: context,
+            input: [profiled]);
+        CurvatureProfile[] midpointSummary = Run(
+            query: AnalysisQuery.Locate<Curve, CurvatureProfile>(aspect: Location.CurvatureProfile(count: 1, scalar: CurvatureScalar.Magnitude)),
+            context: context,
+            input: [profiled]);
+        double[] midpointMagnitude = Run(
+            query: AnalysisQuery.Locate<Curve, double>(aspect: Location.CurvatureProfile(count: 1, scalar: CurvatureScalar.Magnitude)),
+            context: context,
+            input: [profiled]);
         Point3d[] concretePoint = Run(
             query: AnalysisQuery.Locate<LineCurve, Point3d>(aspect: Location.PointAt(parameter: concrete.Domain.Mid)),
             context: context,
@@ -150,6 +162,12 @@ public sealed class AnalysisRuntimeSpec {
             .Run(
                 query: AnalysisQuery.Locate<Curve, Vector3d>(aspect: Location.CurvatureProfile(count: 0)),
                 input: [curve]);
+        double curvatureMagnitudeMean = curvatureMagnitudes.Average();
+        double curvatureMagnitudeVariance = curvatureMagnitudes.Aggregate(
+            seed: (Total: 0.0, Mean: curvatureMagnitudeMean),
+            func: static ((double Total, double Mean) state, double value) => (
+                Total: state.Total + ((value - state.Mean) * (value - state.Mean)),
+                state.Mean)).Total / curvatureMagnitudes.Length;
 
         Assert.Multiple(() => {
             Assert.That(actual: lengthError[0], expression: Is.EqualTo(expected: 0.0).Within(1e-12));
@@ -164,6 +182,18 @@ public sealed class AnalysisRuntimeSpec {
             Assert.That(actual: curvatureSummary[0].Scalar, expression: Is.EqualTo(expected: CurvatureScalar.Magnitude));
             Assert.That(actual: curvatureSummary[0].Count, expression: Is.EqualTo(expected: 3));
             Assert.That(actual: curvatureSummary[0].Minimum, expression: Is.GreaterThanOrEqualTo(expected: 0.0));
+            Assert.That(actual: curvatureSummary[0].Minimum, expression: Is.EqualTo(expected: curvatureMagnitudes.Min()).Within(1e-12));
+            Assert.That(actual: curvatureSummary[0].Maximum, expression: Is.EqualTo(expected: curvatureMagnitudes.Max()).Within(1e-12));
+            Assert.That(actual: curvatureSummary[0].Mean, expression: Is.EqualTo(expected: curvatureMagnitudeMean).Within(1e-12));
+            Assert.That(actual: curvatureSummary[0].Variance, expression: Is.EqualTo(expected: curvatureMagnitudeVariance).Within(1e-12));
+            Assert.That(actual: curvatureMagnitudes, expression: Is.EqualTo(expected: new[] {
+                profiled.CurvatureAt(t: normalizedStart).Length,
+                profiled.CurvatureAt(t: normalizedMiddle).Length,
+                profiled.CurvatureAt(t: normalizedEnd).Length,
+            }).Within(1e-12));
+            Assert.That(actual: midpointSummary[0].Count, expression: Is.EqualTo(expected: 1));
+            Assert.That(actual: midpointSummary[0].Mean, expression: Is.EqualTo(expected: midpointMagnitude[0]).Within(1e-12));
+            Assert.That(actual: midpointSummary[0].Variance, expression: Is.EqualTo(expected: 0.0).Within(1e-12));
             Assert.That(actual: concretePoint[0], expression: Is.EqualTo(expected: new Point3d(x: 3.0, y: 4.0, z: 0.0)));
             Assert.That(actual: concreteFrame[0].Origin, expression: Is.EqualTo(expected: new Point3d(x: 3.0, y: 4.0, z: 0.0)));
             Assert.That(actual: invalidParameter.ToFin().IsFail, expression: Is.True);
@@ -252,6 +282,14 @@ public sealed class AnalysisRuntimeSpec {
             query: AnalysisQuery.Locate<Surface, CurvatureProfile>(aspect: Location.CurvatureProfile(count: 2)),
             context: context,
             input: [surface]);
+        double[] gaussianProfile = Run(
+            query: AnalysisQuery.Locate<Surface, double>(aspect: Location.CurvatureProfile(count: 2, scalar: CurvatureScalar.Gaussian)),
+            context: context,
+            input: [surface]);
+        double[] meanProfile = Run(
+            query: AnalysisQuery.Locate<Surface, double>(aspect: Location.CurvatureProfile(count: 2, scalar: CurvatureScalar.Mean)),
+            context: context,
+            input: [surface]);
         Interval[] domains = Run(
             query: AnalysisQuery.Domain<Surface, Interval>(),
             context: context,
@@ -285,11 +323,189 @@ public sealed class AnalysisRuntimeSpec {
             Assert.That(actual: curvatureSummary[0].Count, expression: Is.EqualTo(expected: 4));
             Assert.That(actual: curvatureSummary[1].Scalar, expression: Is.EqualTo(expected: CurvatureScalar.Mean));
             Assert.That(actual: curvatureSummary[1].Count, expression: Is.EqualTo(expected: 4));
+            Assert.That(actual: gaussianProfile, expression: Has.Length.EqualTo(expected: 4));
+            Assert.That(actual: gaussianProfile, expression: Has.All.EqualTo(expected: surface.CurvatureAt(u: 0.0, v: 0.0).Gaussian).Within(1e-12));
+            Assert.That(actual: meanProfile, expression: Has.Length.EqualTo(expected: 4));
+            Assert.That(actual: meanProfile, expression: Has.All.EqualTo(expected: surface.CurvatureAt(u: 0.0, v: 0.0).Mean).Within(1e-12));
             Assert.That(actual: domains, expression: Has.Length.EqualTo(expected: 2));
             Assert.That(actual: iso, expression: Has.Length.EqualTo(expected: 1));
             Assert.That(actual: middleIso, expression: Has.Length.EqualTo(expected: 1));
             Assert.That(actual: concretePoints[0], expression: Is.EqualTo(expected: new Point3d(x: 1.0, y: 1.0, z: 0.0)));
             Assert.That(actual: concreteFrames[0].Origin, expression: Is.EqualTo(expected: new Point3d(x: 1.0, y: 1.0, z: 0.0)));
+        });
+    }
+
+    [Test]
+    public void ComputesConformanceResidualVocabulary() {
+        GeometryContext context = Context();
+        Line reference = new(
+            from: Point3d.Origin,
+            to: new Point3d(x: 4.0, y: 0.0, z: 0.0));
+        using LineCurve exactCurve = new(line: reference);
+        using LineCurve offsetCurve = new(line: new Line(
+            from: new Point3d(x: 0.0, y: 1.0, z: 0.0),
+            to: new Point3d(x: 4.0, y: 1.0, z: 0.0)));
+        using PlaneSurface surface = new(
+            plane: Plane.WorldXY,
+            xExtents: new Interval(t0: 0.0, t1: 2.0),
+            yExtents: new Interval(t0: 0.0, t1: 2.0));
+        double planeOffset = context.Absolute.Value * 2.0;
+        Plane offsetPlane = new(
+            origin: new Point3d(x: 0.0, y: 0.0, z: planeOffset),
+            normal: Vector3d.ZAxis);
+
+        double[] exactCurveDistance = Run(
+            query: AnalysisQuery.Conformance<Curve, Line, double>(aspect: Conformance.Distance(count: 3)),
+            context: context,
+            input: [(exactCurve, reference)]);
+        double[] offsetCurveDistance = Run(
+            query: AnalysisQuery.Conformance<Curve, Line, double>(aspect: Conformance.Distance(count: 3)),
+            context: context,
+            input: [(offsetCurve, reference)]);
+        double[] offsetCurveRms = Run(
+            query: AnalysisQuery.Conformance<Curve, Line, double>(aspect: Conformance.Rms(count: 3)),
+            context: context,
+            input: [(offsetCurve, reference)]);
+        bool[] exactCurveWithin = Run(
+            query: AnalysisQuery.Conformance<Curve, Line, bool>(aspect: Conformance.WithinTolerance(count: 3)),
+            context: context,
+            input: [(exactCurve, reference)]);
+        ResidualProfile[] exactCurveProfile = Run(
+            query: AnalysisQuery.Conformance<Curve, Line, ResidualProfile>(aspect: Conformance.Profile(count: 3)),
+            context: context,
+            input: [(exactCurve, reference)]);
+        ResidualProfile[] offsetCurveProfile = Run(
+            query: AnalysisQuery.Conformance<Curve, Line, ResidualProfile>(aspect: Conformance.Profile(count: 3)),
+            context: context,
+            input: [(offsetCurve, reference)]);
+        double[] exactSurfaceDistance = Run(
+            query: AnalysisQuery.Conformance<Surface, Plane, double>(aspect: Conformance.Distance(count: 2)),
+            context: context,
+            input: [(surface, Plane.WorldXY)]);
+        double[] offsetSurfaceDistance = Run(
+            query: AnalysisQuery.Conformance<Surface, Plane, double>(aspect: Conformance.Distance(count: 2)),
+            context: context,
+            input: [(surface, offsetPlane)]);
+        double[] offsetSurfaceRms = Run(
+            query: AnalysisQuery.Conformance<Surface, Plane, double>(aspect: Conformance.Rms(count: 2)),
+            context: context,
+            input: [(surface, offsetPlane)]);
+        bool[] exactSurfaceWithin = Run(
+            query: AnalysisQuery.Conformance<Surface, Plane, bool>(aspect: Conformance.WithinTolerance(count: 2)),
+            context: context,
+            input: [(surface, Plane.WorldXY)]);
+        bool[] offsetSurfaceWithin = Run(
+            query: AnalysisQuery.Conformance<Surface, Plane, bool>(aspect: Conformance.WithinTolerance(count: 2)),
+            context: context,
+            input: [(surface, offsetPlane)]);
+        ResidualProfile[] exactSurfaceProfile = Run(
+            query: AnalysisQuery.Conformance<Surface, Plane, ResidualProfile>(aspect: Conformance.Profile(count: 2)),
+            context: context,
+            input: [(surface, Plane.WorldXY)]);
+        ResidualProfile[] offsetSurfaceProfile = Run(
+            query: AnalysisQuery.Conformance<Surface, Plane, ResidualProfile>(aspect: Conformance.Profile(count: 2)),
+            context: context,
+            input: [(surface, offsetPlane)]);
+
+        Assert.Multiple(() => {
+            Assert.That(actual: exactCurveDistance, expression: Has.All.EqualTo(expected: 0.0).Within(1e-12));
+            Assert.That(actual: offsetCurveDistance, expression: Has.All.EqualTo(expected: 1.0).Within(1e-12));
+            Assert.That(actual: offsetCurveRms[0], expression: Is.EqualTo(expected: 1.0).Within(1e-12));
+            Assert.That(actual: exactCurveWithin[0], expression: Is.True);
+            Assert.That(actual: exactCurveProfile[0].Count, expression: Is.EqualTo(expected: 3));
+            Assert.That(actual: exactCurveProfile[0].Minimum, expression: Is.EqualTo(expected: 0.0).Within(1e-12));
+            Assert.That(actual: exactCurveProfile[0].Maximum, expression: Is.EqualTo(expected: 0.0).Within(1e-12));
+            Assert.That(actual: exactCurveProfile[0].Mean, expression: Is.EqualTo(expected: 0.0).Within(1e-12));
+            Assert.That(actual: exactCurveProfile[0].Variance, expression: Is.EqualTo(expected: 0.0).Within(1e-12));
+            Assert.That(actual: exactCurveProfile[0].Rms, expression: Is.EqualTo(expected: 0.0).Within(1e-12));
+            Assert.That(actual: exactCurveProfile[0].Tolerance, expression: Is.EqualTo(expected: context.Absolute.Value).Within(1e-12));
+            Assert.That(actual: exactCurveProfile[0].WithinTolerance, expression: Is.True);
+            Assert.That(actual: offsetCurveProfile[0].Count, expression: Is.EqualTo(expected: 3));
+            Assert.That(actual: offsetCurveProfile[0].Minimum, expression: Is.EqualTo(expected: 1.0).Within(1e-12));
+            Assert.That(actual: offsetCurveProfile[0].Maximum, expression: Is.EqualTo(expected: 1.0).Within(1e-12));
+            Assert.That(actual: offsetCurveProfile[0].Mean, expression: Is.EqualTo(expected: 1.0).Within(1e-12));
+            Assert.That(actual: offsetCurveProfile[0].Variance, expression: Is.EqualTo(expected: 0.0).Within(1e-12));
+            Assert.That(actual: offsetCurveProfile[0].Rms, expression: Is.EqualTo(expected: 1.0).Within(1e-12));
+            Assert.That(actual: offsetCurveProfile[0].WithinTolerance, expression: Is.False);
+            Assert.That(actual: exactSurfaceDistance, expression: Has.All.EqualTo(expected: 0.0).Within(1e-12));
+            Assert.That(actual: offsetSurfaceDistance, expression: Has.All.EqualTo(expected: planeOffset).Within(1e-12));
+            Assert.That(actual: offsetSurfaceRms[0], expression: Is.EqualTo(expected: planeOffset).Within(1e-12));
+            Assert.That(actual: exactSurfaceWithin[0], expression: Is.True);
+            Assert.That(actual: offsetSurfaceWithin[0], expression: Is.False);
+            Assert.That(actual: exactSurfaceProfile[0].Count, expression: Is.EqualTo(expected: 4));
+            Assert.That(actual: exactSurfaceProfile[0].Minimum, expression: Is.EqualTo(expected: 0.0).Within(1e-12));
+            Assert.That(actual: exactSurfaceProfile[0].Maximum, expression: Is.EqualTo(expected: 0.0).Within(1e-12));
+            Assert.That(actual: exactSurfaceProfile[0].Mean, expression: Is.EqualTo(expected: 0.0).Within(1e-12));
+            Assert.That(actual: exactSurfaceProfile[0].Variance, expression: Is.EqualTo(expected: 0.0).Within(1e-12));
+            Assert.That(actual: exactSurfaceProfile[0].Rms, expression: Is.EqualTo(expected: 0.0).Within(1e-12));
+            Assert.That(actual: exactSurfaceProfile[0].WithinTolerance, expression: Is.True);
+            Assert.That(actual: offsetSurfaceProfile[0].Count, expression: Is.EqualTo(expected: 4));
+            Assert.That(actual: offsetSurfaceProfile[0].Minimum, expression: Is.EqualTo(expected: planeOffset).Within(1e-12));
+            Assert.That(actual: offsetSurfaceProfile[0].Maximum, expression: Is.EqualTo(expected: planeOffset).Within(1e-12));
+            Assert.That(actual: offsetSurfaceProfile[0].Mean, expression: Is.EqualTo(expected: planeOffset).Within(1e-12));
+            Assert.That(actual: offsetSurfaceProfile[0].Variance, expression: Is.EqualTo(expected: 0.0).Within(1e-12));
+            Assert.That(actual: offsetSurfaceProfile[0].Rms, expression: Is.EqualTo(expected: planeOffset).Within(1e-12));
+            Assert.That(actual: offsetSurfaceProfile[0].Tolerance, expression: Is.EqualTo(expected: context.Absolute.Value).Within(1e-12));
+            Assert.That(actual: offsetSurfaceProfile[0].WithinTolerance, expression: Is.False);
+        });
+    }
+
+    [Test]
+    public void ComputesNonFlatSurfaceScalarProfilesFromNativeCurvature() {
+        GeometryContext context = Context();
+        using Surface surface = new Cylinder(baseCircle: new Circle(plane: Plane.WorldXY, radius: 2.0), height: 4.0).ToNurbsSurface();
+        Interval uDomain = surface.Domain(direction: 0);
+        Interval vDomain = surface.Domain(direction: 1);
+        SurfaceCurvature first = surface.CurvatureAt(u: uDomain.T0, v: vDomain.T0);
+        SurfaceCurvature second = surface.CurvatureAt(u: uDomain.T0, v: vDomain.T1);
+        SurfaceCurvature third = surface.CurvatureAt(u: uDomain.T1, v: vDomain.T0);
+        SurfaceCurvature fourth = surface.CurvatureAt(u: uDomain.T1, v: vDomain.T1);
+        double[] expectedGaussian = [first.Gaussian, second.Gaussian, third.Gaussian, fourth.Gaussian];
+        double[] expectedMean = [first.Mean, second.Mean, third.Mean, fourth.Mean];
+
+        double[] gaussianProfile = Run(
+            query: AnalysisQuery.Locate<Surface, double>(aspect: Location.CurvatureProfile(count: 2, scalar: CurvatureScalar.Gaussian)),
+            context: context,
+            input: [surface]);
+        double[] meanProfile = Run(
+            query: AnalysisQuery.Locate<Surface, double>(aspect: Location.CurvatureProfile(count: 2, scalar: CurvatureScalar.Mean)),
+            context: context,
+            input: [surface]);
+        CurvatureProfile[] gaussianSummary = Run(
+            query: AnalysisQuery.Locate<Surface, CurvatureProfile>(aspect: Location.CurvatureProfile(count: 2, scalar: CurvatureScalar.Gaussian)),
+            context: context,
+            input: [surface]);
+        CurvatureProfile[] meanSummary = Run(
+            query: AnalysisQuery.Locate<Surface, CurvatureProfile>(aspect: Location.CurvatureProfile(count: 2, scalar: CurvatureScalar.Mean)),
+            context: context,
+            input: [surface]);
+        double gaussianMean = gaussianProfile.Average();
+        double meanMean = meanProfile.Average();
+        double gaussianVariance = gaussianProfile.Aggregate(
+            seed: (Total: 0.0, Mean: gaussianMean),
+            func: static ((double Total, double Mean) state, double value) => (
+                Total: state.Total + ((value - state.Mean) * (value - state.Mean)),
+                state.Mean)).Total / gaussianProfile.Length;
+        double meanVariance = meanProfile.Aggregate(
+            seed: (Total: 0.0, Mean: meanMean),
+            func: static ((double Total, double Mean) state, double value) => (
+                Total: state.Total + ((value - state.Mean) * (value - state.Mean)),
+                state.Mean)).Total / meanProfile.Length;
+
+        Assert.Multiple(() => {
+            Assert.That(actual: gaussianProfile, expression: Is.EqualTo(expected: expectedGaussian).Within(1e-12));
+            Assert.That(actual: meanProfile, expression: Is.EqualTo(expected: expectedMean).Within(1e-12));
+            Assert.That(actual: meanProfile.Any(static (double value) => Math.Abs(value) > RhinoMath.ZeroTolerance), expression: Is.True);
+            Assert.That(actual: gaussianSummary[0].Count, expression: Is.EqualTo(expected: gaussianProfile.Length));
+            Assert.That(actual: gaussianSummary[0].Minimum, expression: Is.EqualTo(expected: gaussianProfile.Min()).Within(1e-12));
+            Assert.That(actual: gaussianSummary[0].Maximum, expression: Is.EqualTo(expected: gaussianProfile.Max()).Within(1e-12));
+            Assert.That(actual: gaussianSummary[0].Mean, expression: Is.EqualTo(expected: gaussianMean).Within(1e-12));
+            Assert.That(actual: gaussianSummary[0].Variance, expression: Is.EqualTo(expected: gaussianVariance).Within(1e-12));
+            Assert.That(actual: meanSummary[0].Count, expression: Is.EqualTo(expected: meanProfile.Length));
+            Assert.That(actual: meanSummary[0].Minimum, expression: Is.EqualTo(expected: meanProfile.Min()).Within(1e-12));
+            Assert.That(actual: meanSummary[0].Maximum, expression: Is.EqualTo(expected: meanProfile.Max()).Within(1e-12));
+            Assert.That(actual: meanSummary[0].Mean, expression: Is.EqualTo(expected: meanMean).Within(1e-12));
+            Assert.That(actual: meanSummary[0].Variance, expression: Is.EqualTo(expected: meanVariance).Within(1e-12));
         });
     }
 
@@ -500,6 +716,10 @@ public sealed class AnalysisRuntimeSpec {
             query: AnalysisQuery.NakedEdges<Mesh, Polyline>(),
             context: context,
             input: [mesh]);
+        Polyline[] boundary = Run(
+            query: AnalysisQuery.Topology<Mesh, Polyline>(aspect: Topology.Boundary),
+            context: context,
+            input: [mesh]);
         MeshPoint[] meshPoints = Run(
             query: AnalysisQuery.Locate<Mesh, MeshPoint>(aspect: Location.Closest(point: new Point3d(x: 0.5, y: 0.5, z: 1.0))),
             context: context,
@@ -520,6 +740,10 @@ public sealed class AnalysisRuntimeSpec {
             query: AnalysisQuery.MeshCheck,
             context: context,
             input: [mesh]);
+        int[] nakedEdgeCount = Run(
+            query: AnalysisQuery.MeshCheckCount(count: MeshCheckCount.NakedEdges),
+            context: context,
+            input: [mesh]);
         Polyline[] selfIntersections = Run(
             query: AnalysisQuery.SelfIntersections,
             context: context,
@@ -531,12 +755,14 @@ public sealed class AnalysisRuntimeSpec {
 
         Assert.Multiple(() => {
             Assert.That(actual: nakedEdges, expression: Is.Not.Empty);
+            Assert.That(actual: boundary, expression: Is.Not.Empty);
             Assert.That(actual: meshPoints[0].Point, expression: Is.EqualTo(expected: new Point3d(x: 0.5, y: 0.5, z: 0.0)));
             Assert.That(actual: normals[0], expression: Is.EqualTo(expected: Vector3d.ZAxis));
             Assert.That(actual: manifold[0], expression: Is.False);
             Assert.That(actual: nakedPointStatus, expression: Has.Length.GreaterThan(expected: 0));
             Assert.That(actual: nakedPointStatus.Any(static (bool status) => status), expression: Is.True);
             Assert.That(actual: meshCheck[0].NakedEdgeCount, expression: Is.GreaterThan(expected: 0));
+            Assert.That(actual: nakedEdgeCount[0], expression: Is.EqualTo(expected: meshCheck[0].NakedEdgeCount));
             Assert.That(actual: selfIntersections, expression: Is.Empty);
             Assert.That(actual: vertices, expression: Has.Length.GreaterThanOrEqualTo(expected: 4));
         });
@@ -613,6 +839,10 @@ public sealed class AnalysisRuntimeSpec {
             query: AnalysisQuery.Intersect<Mesh, Plane, Polyline>(),
             context: context,
             input: [(mesh, Plane.WorldXY)]);
+        Polyline[] closedBoundary = Run(
+            query: AnalysisQuery.Topology<Mesh, Polyline>(aspect: Topology.Boundary),
+            context: context,
+            input: [mesh]);
         Polyline[] selfIntersections = Run(
             query: AnalysisQuery.SelfIntersections,
             context: context,
@@ -623,6 +853,14 @@ public sealed class AnalysisRuntimeSpec {
             input: [mesh]);
         MeshCheckParameters[] meshCheck = Run(
             query: AnalysisQuery.MeshCheck,
+            context: context,
+            input: [mesh]);
+        int[] closedNakedEdgeCount = Run(
+            query: AnalysisQuery.MeshCheckCount(count: MeshCheckCount.NakedEdges),
+            context: context,
+            input: [mesh]);
+        int[] closedNonManifoldEdgeCount = Run(
+            query: AnalysisQuery.MeshCheckCount(count: MeshCheckCount.NonManifoldEdges),
             context: context,
             input: [mesh]);
 
@@ -638,9 +876,75 @@ public sealed class AnalysisRuntimeSpec {
             Assert.That(actual: tori[0].MajorRadius, expression: Is.EqualTo(expected: 3.0).Within(1e-9));
             Assert.That(actual: contains[0], expression: Is.True);
             Assert.That(actual: sections, expression: Is.Not.Empty);
+            Assert.That(actual: closedBoundary, expression: Is.Empty);
             Assert.That(actual: selfIntersections, expression: Is.Not.Empty);
             Assert.That(actual: components, expression: Is.Not.Empty);
             Assert.That(actual: meshCheck[0].NakedEdgeCount, expression: Is.EqualTo(expected: 0));
+            Assert.That(actual: closedNakedEdgeCount[0], expression: Is.EqualTo(expected: 0));
+            Assert.That(actual: closedNonManifoldEdgeCount[0], expression: Is.EqualTo(expected: 0));
+        });
+    }
+
+    [Test]
+    public void ComputesReadOnlyTopologyDiagnostics() {
+        GeometryContext context = Context();
+        using Mesh mesh = new();
+        _ = mesh.Vertices.Add(x: 0.0, y: 0.0, z: 0.0);
+        _ = mesh.Vertices.Add(x: 1.0, y: 0.0, z: 0.0);
+        _ = mesh.Vertices.Add(x: 0.0, y: 1.0, z: 0.0);
+        _ = mesh.Vertices.Add(x: 0.0, y: -1.0, z: 0.0);
+        _ = mesh.Vertices.Add(x: 0.0, y: 0.0, z: 1.0);
+        _ = mesh.Faces.AddFace(vertex1: 0, vertex2: 1, vertex3: 2);
+        _ = mesh.Faces.AddFace(vertex1: 1, vertex2: 0, vertex3: 3);
+        _ = mesh.Faces.AddFace(vertex1: 0, vertex2: 1, vertex3: 4);
+        _ = mesh.Normals.ComputeNormals();
+        _ = mesh.Compact();
+        using Mesh closed = new();
+        _ = closed.Vertices.Add(x: 0.0, y: 0.0, z: 0.0);
+        _ = closed.Vertices.Add(x: 1.0, y: 0.0, z: 0.0);
+        _ = closed.Vertices.Add(x: 0.0, y: 1.0, z: 0.0);
+        _ = closed.Vertices.Add(x: 0.0, y: 0.0, z: 1.0);
+        _ = closed.Faces.AddFace(vertex1: 0, vertex2: 2, vertex3: 1);
+        _ = closed.Faces.AddFace(vertex1: 0, vertex2: 1, vertex3: 3);
+        _ = closed.Faces.AddFace(vertex1: 1, vertex2: 2, vertex3: 3);
+        _ = closed.Faces.AddFace(vertex1: 2, vertex2: 0, vertex3: 3);
+        _ = closed.Normals.ComputeNormals();
+        _ = closed.Compact();
+
+        ComponentIndex[] adjacency = Run(
+            query: AnalysisQuery.Topology<Mesh, ComponentIndex>(aspect: Topology.Adjacency),
+            context: context,
+            input: [mesh]);
+        ComponentIndex[] nonManifoldEdges = Run(
+            query: AnalysisQuery.Topology<Mesh, ComponentIndex>(aspect: Topology.NonManifold),
+            context: context,
+            input: [mesh]);
+        int[] nonManifoldEdgeCount = Run(
+            query: AnalysisQuery.MeshCheckCount(count: MeshCheckCount.NonManifoldEdges),
+            context: context,
+            input: [mesh]);
+        bool[] nonManifoldSummary = Run(
+            query: AnalysisQuery.Topology<Mesh, bool>(aspect: Topology.NonManifold),
+            context: context,
+            input: [mesh]);
+        int[] closedNonManifoldEdgeCount = Run(
+            query: AnalysisQuery.MeshCheckCount(count: MeshCheckCount.NonManifoldEdges),
+            context: context,
+            input: [closed]);
+        bool[] closedNonManifoldSummary = Run(
+            query: AnalysisQuery.Topology<Mesh, bool>(aspect: Topology.NonManifold),
+            context: context,
+            input: [closed]);
+
+        Assert.Multiple(() => {
+            Assert.That(actual: adjacency, expression: Is.Not.Empty);
+            Assert.That(actual: adjacency.All(static (ComponentIndex component) => component.ComponentIndexType == ComponentIndexType.MeshTopologyEdge), expression: Is.True);
+            Assert.That(actual: nonManifoldEdges, expression: Has.Length.EqualTo(expected: 1));
+            Assert.That(actual: nonManifoldEdges[0].ComponentIndexType, expression: Is.EqualTo(expected: ComponentIndexType.MeshTopologyEdge));
+            Assert.That(actual: nonManifoldEdgeCount[0], expression: Is.EqualTo(expected: nonManifoldEdges.Length));
+            Assert.That(actual: nonManifoldSummary[0], expression: Is.True);
+            Assert.That(actual: closedNonManifoldEdgeCount[0], expression: Is.EqualTo(expected: 0));
+            Assert.That(actual: closedNonManifoldSummary[0], expression: Is.False);
         });
     }
 
@@ -801,12 +1105,26 @@ public sealed class AnalysisRuntimeSpec {
             .Run(
                 query: AnalysisQuery.Intersect<LineCurve, Line, Point3d>(),
                 input: [(curve, Line.Unset)]);
+        Validation<Error, Seq<ResidualProfile>> invalidConformanceLine = Analyze.In(context: context)
+            .Run(
+                query: AnalysisQuery.Conformance<Curve, Line, ResidualProfile>(aspect: Conformance.Profile(count: 3)),
+                input: [(curve, Line.Unset)]);
+        using PlaneSurface surface = new(
+            plane: Plane.WorldXY,
+            xExtents: new Interval(t0: 0.0, t1: 1.0),
+            yExtents: new Interval(t0: 0.0, t1: 1.0));
+        Validation<Error, Seq<ResidualProfile>> invalidConformancePlane = Analyze.In(context: context)
+            .Run(
+                query: AnalysisQuery.Conformance<Surface, Plane, ResidualProfile>(aspect: Conformance.Profile(count: 2)),
+                input: [(surface, Plane.Unset)]);
 
         Assert.Multiple(() => {
             Assert.That(actual: invalidPlane.ToFin().IsFail, expression: Is.True);
             Assert.That(actual: invalidLine.ToFin().IsFail, expression: Is.True);
             Assert.That(actual: invalidGenericPlane.ToFin().IsFail, expression: Is.True);
             Assert.That(actual: invalidGenericLine.ToFin().IsFail, expression: Is.True);
+            Assert.That(actual: invalidConformanceLine.ToFin().IsFail, expression: Is.True);
+            Assert.That(actual: invalidConformancePlane.ToFin().IsFail, expression: Is.True);
         });
     }
 

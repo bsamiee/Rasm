@@ -218,6 +218,78 @@ public static partial class Query {
                     })),
             _ => ComponentsKey.Unsupported<TGeometry, TOut>(),
         };
+    public static Query<TGeometry, TOut> Topology<TGeometry, TOut>(Topology aspect) where TGeometry : notnull =>
+        (aspect.Kind, typeof(TGeometry), typeof(TOut)) switch {
+            (TopologyKind.Boundary, Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(Curve) =>
+                NakedEdges<TGeometry, TOut>(),
+            (TopologyKind.Boundary, Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(Polyline) =>
+                NakedEdges<TGeometry, TOut>(),
+            (TopologyKind.Adjacency, Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
+                Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, ComponentIndex>.Build(
+                    key: TopologyKey,
+                    evaluator: static (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
+                        Brep brep => Many(key: TopologyKey, values: Enumerable
+                            .Range(start: 0, count: brep.Edges.Count)
+                            .Select(static (int index) => new ComponentIndex(
+                                type: ComponentIndexType.BrepEdge,
+                                index: index))),
+                        _ => Fin.Fail<Seq<ComponentIndex>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(ComponentIndex))),
+                    })),
+            (TopologyKind.Adjacency, Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
+                Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, ComponentIndex>.Build(
+                    key: TopologyKey,
+                    evaluator: static (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
+                        Mesh mesh => Many(key: TopologyKey, values: Enumerable
+                            .Range(start: 0, count: mesh.TopologyEdges.Count)
+                            .Select(static (int index) => new ComponentIndex(
+                                type: ComponentIndexType.MeshTopologyEdge,
+                                index: index))),
+                        _ => Fin.Fail<Seq<ComponentIndex>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(ComponentIndex))),
+                    })),
+            (TopologyKind.NonManifold, Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
+                Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, ComponentIndex>.Build(
+                    key: TopologyKey,
+                    evaluator: static (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
+                        Brep brep => Many(key: TopologyKey, values: Enumerable
+                            .Range(start: 0, count: brep.Edges.Count)
+                            .Where((int index) => brep.Edges[index].Valence == EdgeAdjacency.NonManifold)
+                            .Select(static (int index) => new ComponentIndex(
+                                type: ComponentIndexType.BrepEdge,
+                                index: index))),
+                        _ => Fin.Fail<Seq<ComponentIndex>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(ComponentIndex))),
+                    })),
+            (TopologyKind.NonManifold, Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
+                Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, ComponentIndex>.Build(
+                    key: TopologyKey,
+                    evaluator: static (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
+                        Mesh mesh => Many(key: TopologyKey, values: Enumerable
+                            .Range(start: 0, count: mesh.TopologyEdges.Count)
+                            .Where((int index) => mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: index).Length > 2)
+                            .Select(static (int index) => new ComponentIndex(
+                                type: ComponentIndexType.MeshTopologyEdge,
+                                index: index))),
+                        _ => Fin.Fail<Seq<ComponentIndex>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(ComponentIndex))),
+                    })),
+            (TopologyKind.NonManifold, Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(bool) =>
+                Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, bool>.Build(
+                    key: TopologyKey,
+                    evaluator: static (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
+                        Brep brep => One(key: TopologyKey, value: Enumerable
+                            .Range(start: 0, count: brep.Edges.Count)
+                            .Any((int index) => brep.Edges[index].Valence == EdgeAdjacency.NonManifold)),
+                        _ => Fin.Fail<Seq<bool>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(bool))),
+                    })),
+            (TopologyKind.NonManifold, Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(bool) =>
+                Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, bool>.Build(
+                    key: TopologyKey,
+                    evaluator: static (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
+                        Mesh mesh => One(key: TopologyKey, value: Enumerable
+                            .Range(start: 0, count: mesh.TopologyEdges.Count)
+                            .Any((int index) => mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: index).Length > 2)),
+                        _ => Fin.Fail<Seq<bool>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(bool))),
+                    })),
+            _ => TopologyKey.Unsupported<TGeometry, TOut>(),
+        };
     public static Query<Mesh, bool> IsManifold =>
         Query<Mesh, bool>.Build(key: IsManifoldKey, evaluator: static (Mesh geometry, Fin<GeometryContext> _) => One(key: IsManifoldKey, value: geometry.IsManifold()));
     public static Query<Mesh, bool> NakedPointStatus =>
@@ -234,6 +306,58 @@ public static partial class Query {
                         true or false => One(key: MeshCheckKey, value: parameters),
                     };
             });
+    public static Query<Mesh, int> MeshCheckCount(Analysis.MeshCheckCount count) =>
+        count switch {
+            Analysis.MeshCheckCount.None => Query<Mesh, int>.Reject(
+                key: MeshCheckCountKey,
+                fault: MeshCheckCountKey.InvalidInput()),
+            Analysis.MeshCheckCount.DegenerateFaces
+                or Analysis.MeshCheckCount.DisjointMeshes
+                or Analysis.MeshCheckCount.DuplicateFaces
+                or Analysis.MeshCheckCount.ExtremelyShortEdges
+                or Analysis.MeshCheckCount.InvalidNgons
+                or Analysis.MeshCheckCount.NakedEdges
+                or Analysis.MeshCheckCount.NonManifoldEdges
+                or Analysis.MeshCheckCount.NonUnitVectorNormals
+                or Analysis.MeshCheckCount.RandomFaceNormals
+                or Analysis.MeshCheckCount.SelfIntersectingPairs
+                or Analysis.MeshCheckCount.UnusedVertices
+                or Analysis.MeshCheckCount.VertexFaceNormalsDiffer
+                or Analysis.MeshCheckCount.ZeroLengthNormals => Query<Mesh, int>.Build(
+                key: MeshCheckCountKey,
+                state: count,
+                evaluator: static (Analysis.MeshCheckCount aspect, Mesh geometry, Fin<GeometryContext> context) => (
+                    Fin.Succ(aspect),
+                    MeshCheck
+                        .Apply(
+                            geometry: geometry,
+                            context: context)
+                        .Bind(static (Seq<MeshCheckParameters> values) =>
+                            values.Head.ToFin(MeshCheckCountKey.InvalidResult()))
+                ).Apply(static (Analysis.MeshCheckCount selected, MeshCheckParameters parameters) => (
+                    Count: selected,
+                    Parameters: parameters))
+                .As()
+                .Bind(static ((Analysis.MeshCheckCount Count, MeshCheckParameters Parameters) state) => state.Count switch {
+                    Analysis.MeshCheckCount.DegenerateFaces => One(key: MeshCheckCountKey, value: state.Parameters.DegenerateFaceCount),
+                    Analysis.MeshCheckCount.DisjointMeshes => One(key: MeshCheckCountKey, value: state.Parameters.DisjointMeshCount),
+                    Analysis.MeshCheckCount.DuplicateFaces => One(key: MeshCheckCountKey, value: state.Parameters.DuplicateFaceCount),
+                    Analysis.MeshCheckCount.ExtremelyShortEdges => One(key: MeshCheckCountKey, value: state.Parameters.ExtremelyShortEdgeCount),
+                    Analysis.MeshCheckCount.InvalidNgons => One(key: MeshCheckCountKey, value: state.Parameters.InvalidNgonCount),
+                    Analysis.MeshCheckCount.NakedEdges => One(key: MeshCheckCountKey, value: state.Parameters.NakedEdgeCount),
+                    Analysis.MeshCheckCount.NonManifoldEdges => One(key: MeshCheckCountKey, value: state.Parameters.NonManifoldEdgeCount),
+                    Analysis.MeshCheckCount.NonUnitVectorNormals => One(key: MeshCheckCountKey, value: state.Parameters.NonUnitVectorNormalCount),
+                    Analysis.MeshCheckCount.RandomFaceNormals => One(key: MeshCheckCountKey, value: state.Parameters.RandomFaceNormalCount),
+                    Analysis.MeshCheckCount.SelfIntersectingPairs => One(key: MeshCheckCountKey, value: state.Parameters.SelfIntersectingPairsCount),
+                    Analysis.MeshCheckCount.UnusedVertices => One(key: MeshCheckCountKey, value: state.Parameters.UnusedVertexCount),
+                    Analysis.MeshCheckCount.VertexFaceNormalsDiffer => One(key: MeshCheckCountKey, value: state.Parameters.VertexFaceNormalsDifferCount),
+                    Analysis.MeshCheckCount.ZeroLengthNormals => One(key: MeshCheckCountKey, value: state.Parameters.ZeroLengthNormalCount),
+                    _ => Fin.Fail<Seq<int>>(MeshCheckCountKey.InvalidInput()),
+                })),
+            _ => Query<Mesh, int>.Reject(
+                key: MeshCheckCountKey,
+                fault: MeshCheckCountKey.InvalidInput()),
+        };
     public static Query<Mesh, Polyline> SelfIntersections =>
         Query<Mesh, Polyline>.Build(
             key: SelfIntersectionsKey,

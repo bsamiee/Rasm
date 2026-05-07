@@ -66,6 +66,8 @@ public sealed class Query<TGeometry, TOut> where TGeometry : notnull {
 }
 public enum MassKind { None = 0, Length = 1, Area = 2, Volume = 3 }
 public enum CurvatureScalar { None = 0, Magnitude = 1, Gaussian = 2, Mean = 3 }
+public enum MeshCheckCount { None = 0, DegenerateFaces = 1, DisjointMeshes = 2, DuplicateFaces = 3, ExtremelyShortEdges = 4, InvalidNgons = 5, NakedEdges = 6, NonManifoldEdges = 7, NonUnitVectorNormals = 8, RandomFaceNormals = 9, SelfIntersectingPairs = 10, UnusedVertices = 11, VertexFaceNormalsDiffer = 12, ZeroLengthNormals = 13 }
+public enum ConformanceResidual { None = 0, Distance = 1, Rms = 2, WithinTolerance = 3, Profile = 4 }
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CurvatureProfile(
     CurvatureScalar Scalar,
@@ -74,10 +76,21 @@ public readonly record struct CurvatureProfile(
     double Maximum,
     double Mean,
     double Variance);
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct ResidualProfile(
+    int Count,
+    double Minimum,
+    double Maximum,
+    double Mean,
+    double Variance,
+    double Rms,
+    double Tolerance,
+    bool WithinTolerance);
 public enum IntersectionKind { Unknown = 0, Point = 1, Overlap = 2 }
 internal enum BoundsKind { Box, Oriented, Transformed, Center, Corners, Edges, Area, Volume }
 internal enum MeasureKind { Scalar, Error, Centroid, CentroidError, Radii, Principal }
 internal enum LocationKind { Midpoint, Tangent, Closest, PointAtCurve, PointAtSurface, PointAtLength, FrameAtCurve, FrameAtSurface, PerpendicularFrameAt, NormalAt, CurvatureAtCurve, CurvatureAtSurface, CurvatureProfile, DerivativeAt, DivideByCount, DivideByLength, Orientation, Contains, ShortPath }
+internal enum TopologyKind { Boundary, Adjacency, NonManifold }
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Bounds {
     private Bounds(BoundsKind kind, Plane plane = default, Transform transform = default) {
@@ -111,7 +124,8 @@ public readonly record struct Location {
         Point2d end = default,
         Plane plane = default,
         double parameter = default,
-        int count = default) {
+        int count = default,
+        CurvatureScalar scalar = CurvatureScalar.None) {
         Kind = kind;
         Point = point;
         Uv = uv;
@@ -119,14 +133,31 @@ public readonly record struct Location {
         Plane = plane;
         Parameter = parameter;
         Count = count;
+        Scalar = scalar;
     }
-    internal readonly LocationKind Kind; internal readonly Point3d Point; internal readonly Point2d Uv; internal readonly Point2d End; internal readonly Plane Plane; internal readonly double Parameter; internal readonly int Count;
+    internal readonly LocationKind Kind; internal readonly Point3d Point; internal readonly Point2d Uv; internal readonly Point2d End; internal readonly Plane Plane; internal readonly double Parameter; internal readonly int Count; internal readonly CurvatureScalar Scalar;
     public static Location Midpoint => new(kind: LocationKind.Midpoint); public static Location Tangent => new(kind: LocationKind.Tangent); public static Location Closest(Point3d point) => new(kind: LocationKind.Closest, point: point);
     public static Location PointAt(double parameter) => new(kind: LocationKind.PointAtCurve, parameter: parameter); public static Location PointAt(Point2d uv) => new(kind: LocationKind.PointAtSurface, uv: uv); public static Location PointAtLength(double length) => new(kind: LocationKind.PointAtLength, parameter: length);
     public static Location FrameAt(double parameter) => new(kind: LocationKind.FrameAtCurve, parameter: parameter); public static Location FrameAt(Point2d uv) => new(kind: LocationKind.FrameAtSurface, uv: uv); public static Location PerpendicularFrameAt(double parameter) => new(kind: LocationKind.PerpendicularFrameAt, parameter: parameter);
-    public static Location NormalAt(Point2d uv) => new(kind: LocationKind.NormalAt, uv: uv); public static Location CurvatureAt(double parameter) => new(kind: LocationKind.CurvatureAtCurve, parameter: parameter); public static Location CurvatureAt(Point2d uv) => new(kind: LocationKind.CurvatureAtSurface, uv: uv); public static Location CurvatureProfile(int count) => new(kind: LocationKind.CurvatureProfile, count: count);
+    public static Location NormalAt(Point2d uv) => new(kind: LocationKind.NormalAt, uv: uv); public static Location CurvatureAt(double parameter) => new(kind: LocationKind.CurvatureAtCurve, parameter: parameter); public static Location CurvatureAt(Point2d uv) => new(kind: LocationKind.CurvatureAtSurface, uv: uv); public static Location CurvatureProfile(int count) => new(kind: LocationKind.CurvatureProfile, count: count, scalar: CurvatureScalar.None); public static Location CurvatureProfile(int count, CurvatureScalar scalar) => new(kind: LocationKind.CurvatureProfile, count: count, scalar: scalar);
     public static Location DerivativeAt(double parameter, int count) => new(kind: LocationKind.DerivativeAt, parameter: parameter, count: count); public static Location DivideByCount(int count) => new(kind: LocationKind.DivideByCount, count: count); public static Location DivideByLength(double length) => new(kind: LocationKind.DivideByLength, parameter: length);
     public static Location Orientation(Plane plane) => new(kind: LocationKind.Orientation, plane: plane); public static Location Contains(Point3d point, Plane plane) => new(kind: LocationKind.Contains, point: point, plane: plane); public static Location ShortPath(Point2d start, Point2d end) => new(kind: LocationKind.ShortPath, uv: start, end: end);
+}
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct Topology {
+    private Topology(TopologyKind kind) =>
+        Kind = kind;
+    internal readonly TopologyKind Kind;
+    public static Topology Boundary => new(kind: TopologyKind.Boundary); public static Topology Adjacency => new(kind: TopologyKind.Adjacency); public static Topology NonManifold => new(kind: TopologyKind.NonManifold);
+}
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct Conformance {
+    private Conformance(ConformanceResidual residual, int count) {
+        Residual = residual;
+        Count = count;
+    }
+    internal readonly ConformanceResidual Residual; internal readonly int Count;
+    public static Conformance Distance(int count) => new(residual: ConformanceResidual.Distance, count: count); public static Conformance Rms(int count) => new(residual: ConformanceResidual.Rms, count: count); public static Conformance WithinTolerance(int count) => new(residual: ConformanceResidual.WithinTolerance, count: count); public static Conformance Profile(int count) => new(residual: ConformanceResidual.Profile, count: count);
 }
 public static partial class Query {
     internal delegate bool PrimitiveCase<TSource, TValue>(
@@ -149,8 +180,9 @@ public static partial class Query {
         OutlinesKey = new(name: nameof(Outlines)), IsoKey = new(name: nameof(Iso)), PrimitiveKey = new(name: "Primitive"),
         ShortPathKey = new(name: "ShortPath"), SolidOrientationKey = new(name: nameof(SolidOrientation)), IsPointInsideKey = new(name: nameof(IsPointInside)),
         VerticesKey = new(name: nameof(Vertices)), ComponentsKey = new(name: "Components"), IsManifoldKey = new(name: nameof(IsManifold)),
-        NakedPointStatusKey = new(name: nameof(NakedPointStatus)), MeshCheckKey = new(name: nameof(MeshCheck)), SelfIntersectionsKey = new(name: nameof(SelfIntersections)), IntersectKey = new(name: nameof(Intersect)),
-        ScopeKey = new(name: nameof(Analyze.Scope));
+        NakedPointStatusKey = new(name: nameof(NakedPointStatus)), MeshCheckKey = new(name: nameof(MeshCheck)), MeshCheckCountKey = new(name: "MeshCheckCount"), SelfIntersectionsKey = new(name: nameof(SelfIntersections)), IntersectKey = new(name: nameof(Intersect)),
+        ConformanceKey = new(name: nameof(Conformance)),
+        TopologyKey = new(name: nameof(Topology)), ScopeKey = new(name: nameof(Analyze.Scope));
     internal static Query<TGeometry, TOut> Unsupported<TGeometry, TOut>(this OperationKey key) where TGeometry : notnull =>
         Query<TGeometry, TOut>.Reject(
             key: key,

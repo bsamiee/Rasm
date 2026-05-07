@@ -6,6 +6,14 @@ using static LanguageExt.Prelude;
 namespace Analysis;
 
 public static partial class Query {
+    private delegate Fin<Seq<double>> ResidualCase<TGeometry, TPrimitive>(
+        TGeometry geometry,
+        TPrimitive primitive,
+        int count,
+        GeometryContext context) where TGeometry : notnull where TPrimitive : notnull;
+    private delegate Fin<Seq<TValue>> ResidualProjection<TValue>(
+        Seq<double> residuals,
+        GeometryContext context);
     public static Query<TGeometry, TOut> Bounds<TGeometry, TOut>(Bounds aspect) where TGeometry : notnull =>
         aspect.Kind switch {
             BoundsKind.Box => Box<TGeometry, TOut>(),
@@ -56,6 +64,207 @@ public static partial class Query {
             (MeasureKind.Principal, MassKind.Volume) when typeof(TOut) == typeof(ValueTuple<double, Vector3d>) => Cast<TGeometry, TOut>(key: new OperationKey(name: "VolumePrincipal"), query: VolumeMass<TGeometry, (double Moment, Vector3d Axis)>(name: "VolumePrincipal", project: static (OperationKey key, VolumeMassProperties mass) => Principal(key: key, mass: mass), secondMoments: true, productMoments: true)),
             _ => MeasureKey.Unsupported<TGeometry, TOut>(),
         };
+    public static Query<(TGeometry Geometry, TPrimitive Primitive), TOut> Conformance<TGeometry, TPrimitive, TOut>(
+        Conformance aspect) where TGeometry : notnull where TPrimitive : notnull =>
+        (aspect.Residual, aspect.Count, typeof(TGeometry), typeof(TPrimitive), typeof(TOut)) switch {
+            (ConformanceResidual.None, _, _, _, _) or (_, <= 0, _, _, _) => Query<(TGeometry Geometry, TPrimitive Primitive), TOut>.Reject(
+                key: ConformanceKey,
+                fault: ConformanceKey.InvalidInput()),
+            (ConformanceResidual.Distance, _, Type geometry, Type primitive, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && primitive == typeof(Line) && output == typeof(double) =>
+                Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: ConformanceKey, query: ConformancePair<TGeometry, TPrimitive, Curve, Line, double>(
+                    count: aspect.Count,
+                    requirement: GeometryRequirement.CurveLength,
+                    residuals: CurveLineResiduals,
+                    project: ResidualDistance)),
+            (ConformanceResidual.Rms, _, Type geometry, Type primitive, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && primitive == typeof(Line) && output == typeof(double) =>
+                Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: ConformanceKey, query: ConformancePair<TGeometry, TPrimitive, Curve, Line, double>(
+                    count: aspect.Count,
+                    requirement: GeometryRequirement.CurveLength,
+                    residuals: CurveLineResiduals,
+                    project: ResidualRms)),
+            (ConformanceResidual.WithinTolerance, _, Type geometry, Type primitive, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && primitive == typeof(Line) && output == typeof(bool) =>
+                Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: ConformanceKey, query: ConformancePair<TGeometry, TPrimitive, Curve, Line, bool>(
+                    count: aspect.Count,
+                    requirement: GeometryRequirement.CurveLength,
+                    residuals: CurveLineResiduals,
+                    project: ResidualWithinTolerance)),
+            (ConformanceResidual.Profile, _, Type geometry, Type primitive, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && primitive == typeof(Line) && output == typeof(ResidualProfile) =>
+                Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: ConformanceKey, query: ConformancePair<TGeometry, TPrimitive, Curve, Line, ResidualProfile>(
+                    count: aspect.Count,
+                    requirement: GeometryRequirement.CurveLength,
+                    residuals: CurveLineResiduals,
+                    project: ResidualProfileProjection)),
+            (ConformanceResidual.Distance, _, Type geometry, Type primitive, Type output) when typeof(Surface).IsAssignableFrom(c: geometry) && primitive == typeof(Plane) && output == typeof(double) =>
+                Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: ConformanceKey, query: ConformancePair<TGeometry, TPrimitive, Surface, Plane, double>(
+                    count: aspect.Count,
+                    requirement: GeometryRequirement.SurfaceEvaluation,
+                    residuals: SurfacePlaneResiduals,
+                    project: ResidualDistance)),
+            (ConformanceResidual.Rms, _, Type geometry, Type primitive, Type output) when typeof(Surface).IsAssignableFrom(c: geometry) && primitive == typeof(Plane) && output == typeof(double) =>
+                Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: ConformanceKey, query: ConformancePair<TGeometry, TPrimitive, Surface, Plane, double>(
+                    count: aspect.Count,
+                    requirement: GeometryRequirement.SurfaceEvaluation,
+                    residuals: SurfacePlaneResiduals,
+                    project: ResidualRms)),
+            (ConformanceResidual.WithinTolerance, _, Type geometry, Type primitive, Type output) when typeof(Surface).IsAssignableFrom(c: geometry) && primitive == typeof(Plane) && output == typeof(bool) =>
+                Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: ConformanceKey, query: ConformancePair<TGeometry, TPrimitive, Surface, Plane, bool>(
+                    count: aspect.Count,
+                    requirement: GeometryRequirement.SurfaceEvaluation,
+                    residuals: SurfacePlaneResiduals,
+                    project: ResidualWithinTolerance)),
+            (ConformanceResidual.Profile, _, Type geometry, Type primitive, Type output) when typeof(Surface).IsAssignableFrom(c: geometry) && primitive == typeof(Plane) && output == typeof(ResidualProfile) =>
+                Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: ConformanceKey, query: ConformancePair<TGeometry, TPrimitive, Surface, Plane, ResidualProfile>(
+                    count: aspect.Count,
+                    requirement: GeometryRequirement.SurfaceEvaluation,
+                    residuals: SurfacePlaneResiduals,
+                    project: ResidualProfileProjection)),
+            _ => ConformanceKey.Unsupported<(TGeometry Geometry, TPrimitive Primitive), TOut>(),
+        };
+    private static Query<(TGeometry Geometry, TPrimitive Primitive), TValue> ConformancePair<TGeometry, TPrimitive, TNativeGeometry, TNativePrimitive, TValue>(
+        int count,
+        GeometryRequirement requirement,
+        ResidualCase<TNativeGeometry, TNativePrimitive> residuals,
+        ResidualProjection<TValue> project) where TGeometry : notnull where TPrimitive : notnull where TNativeGeometry : notnull where TNativePrimitive : notnull =>
+        Query<(TGeometry Geometry, TPrimitive Primitive), TValue>.Build(
+            key: ConformanceKey,
+            requiresContext: true,
+            state: (Count: count, Requirement: requirement, Residuals: residuals, Project: project),
+            evaluator: static ((int Count, GeometryRequirement Requirement, ResidualCase<TNativeGeometry, TNativePrimitive> Residuals, ResidualProjection<TValue> Project) state, (TGeometry Geometry, TPrimitive Primitive) geometry, Fin<GeometryContext> context) => context
+                .Bind((GeometryContext model) => model.ValidateOperands(
+                        geometry: geometry,
+                        a: state.Requirement,
+                        b: GeometryRequirement.None)
+                    .ToFin()
+                    .Map(((TGeometry Geometry, TPrimitive Primitive) validated) => (
+                        Context: model,
+                        validated.Geometry,
+                        validated.Primitive,
+                        state.Count,
+                        state.Residuals,
+                        state.Project)))
+                .Bind(static ((GeometryContext Context, TGeometry Geometry, TPrimitive Primitive, int Count, ResidualCase<TNativeGeometry, TNativePrimitive> Residuals, ResidualProjection<TValue> Project) state) => (state.Geometry, state.Primitive) switch {
+                    (TNativeGeometry geometry, TNativePrimitive primitive) => state.Residuals(
+                            geometry: geometry,
+                            primitive: primitive,
+                            count: state.Count,
+                            context: state.Context)
+                        .Bind((Seq<double> values) => state.Project(
+                            residuals: values,
+                            context: state.Context)),
+                    _ => Fin.Fail<Seq<TValue>>(ConformanceKey.Unsupported(
+                        geometryType: typeof((TGeometry Geometry, TPrimitive Primitive)),
+                        outputType: typeof(TValue))),
+                }));
+    private static Fin<Seq<double>> CurveLineResiduals(Curve geometry, Line primitive, int count, GeometryContext context) =>
+        Fractions(count: count, key: ConformanceKey)
+            .Bind((Seq<double> fractions) => fractions.Fold(
+                    initialState: Fin.Succ(new ResidualState<Curve, Line>(
+                        Residuals: Seq<double>(),
+                        Geometry: geometry,
+                        Primitive: primitive,
+                        Context: context)),
+                    f: static (Fin<ResidualState<Curve, Line>> current, double fraction) => (
+                            current,
+                            Fin.Succ(fraction)
+                        ).Apply(static (ResidualState<Curve, Line> state, double sample) => (
+                            State: state,
+                            Sample: sample))
+                        .As()
+                        .Bind(static ((ResidualState<Curve, Line> State, double Sample) pair) => pair.State.Geometry.NormalizedLengthParameter(
+                            s: pair.Sample,
+                            t: out double parameter,
+                            fractionalTolerance: pair.State.Context.Relative.Value) switch {
+                                true => pair.State.Geometry.PointAt(t: parameter) switch {
+                                    Point3d point => pair.State.Primitive.ClosestPoint(
+                                            testPoint: point,
+                                            limitToFiniteSegment: false) switch {
+                                                Point3d closest => Fin.Succ(pair.State with {
+                                                    Residuals = pair.State.Residuals.Add(point.DistanceTo(other: closest)),
+                                                }),
+                                            },
+                                },
+                                false => Fin.Fail<ResidualState<Curve, Line>>(ConformanceKey.InvalidResult()),
+                            }))
+                .Map(static (ResidualState<Curve, Line> state) => state.Residuals));
+    private static Fin<Seq<double>> SurfacePlaneResiduals(Surface geometry, Plane primitive, int count, GeometryContext context) =>
+        (
+            Samples(domain: geometry.Domain(direction: 0), count: count, key: ConformanceKey),
+            Samples(domain: geometry.Domain(direction: 1), count: count, key: ConformanceKey)
+        ).Apply(static (Seq<double> u, Seq<double> v) => (U: u, V: v)).As()
+        .Bind(((Seq<double> U, Seq<double> V) samples) => samples.U
+            .Bind((double u) => samples.V.Map((double v) => new Point2d(x: u, y: v)))
+            .Fold(
+                initialState: Fin.Succ(new ResidualState<Surface, Plane>(
+                    Residuals: Seq<double>(),
+                    Geometry: geometry,
+                    Primitive: primitive,
+                    Context: context)),
+                f: static (Fin<ResidualState<Surface, Plane>> current, Point2d uv) => current.Map((ResidualState<Surface, Plane> state) => state with {
+                    Residuals = state.Residuals.Add(Math.Abs(value: state.Primitive.DistanceTo(testPoint: state.Geometry.PointAt(u: uv.X, v: uv.Y)))),
+                })))
+        .Map(static (ResidualState<Surface, Plane> state) => state.Residuals);
+    private static Fin<Seq<double>> ResidualDistance(Seq<double> residuals, GeometryContext _) =>
+        Many(key: ConformanceKey, values: residuals);
+    private static Fin<Seq<double>> ResidualRms(Seq<double> residuals, GeometryContext _) =>
+        residuals.Fold(
+            initialState: (Count: 0, SumSquares: 0.0, Valid: true),
+            f: static ((int Count, double SumSquares, bool Valid) state, double residual) => (
+                Count: state.Count + 1,
+                SumSquares: state.SumSquares + (residual * residual),
+                Valid: state.Valid && residual >= 0.0 && double.IsFinite(d: residual))) switch {
+                    (int count, double sumSquares, true) when count > 0 && double.IsFinite(d: sumSquares) =>
+                        One(key: ConformanceKey, value: Math.Sqrt(d: sumSquares / count)),
+                    _ => Fin.Fail<Seq<double>>(ConformanceKey.InvalidResult()),
+                };
+    private static Fin<Seq<bool>> ResidualWithinTolerance(Seq<double> residuals, GeometryContext context) =>
+        residuals.Fold(
+            initialState: (Count: 0, Maximum: 0.0, Valid: true),
+            f: static ((int Count, double Maximum, bool Valid) state, double residual) => (
+                Count: state.Count + 1,
+                Maximum: Math.Max(val1: state.Maximum, val2: residual),
+                Valid: state.Valid && residual >= 0.0 && double.IsFinite(d: residual))) switch {
+                    (int count, double maximum, true) when count > 0 && double.IsFinite(d: maximum) =>
+                        One(key: ConformanceKey, value: maximum <= context.Absolute.Value),
+                    _ => Fin.Fail<Seq<bool>>(ConformanceKey.InvalidResult()),
+                };
+    private static Fin<Seq<ResidualProfile>> ResidualProfileProjection(Seq<double> residuals, GeometryContext context) {
+        (int count, double minimum, double maximum, double sum, double sumSquares, bool valid) = residuals.Fold(
+            initialState: (Count: 0, Minimum: double.PositiveInfinity, Maximum: double.NegativeInfinity, Sum: 0.0, SumSquares: 0.0, Valid: true),
+            f: static ((int Count, double Minimum, double Maximum, double Sum, double SumSquares, bool Valid) state, double residual) => (
+                Count: state.Count + 1,
+                Minimum: Math.Min(val1: state.Minimum, val2: residual),
+                Maximum: Math.Max(val1: state.Maximum, val2: residual),
+                Sum: state.Sum + residual,
+                SumSquares: state.SumSquares + (residual * residual),
+                Valid: state.Valid && residual >= 0.0 && double.IsFinite(d: residual)));
+        double mean = count switch { > 0 => sum / count, _ => double.NaN };
+        double variance = count switch {
+            > 0 => residuals.Fold(
+                initialState: (Mean: mean, Total: 0.0),
+                f: static ((double Mean, double Total) state, double residual) => (
+                    state.Mean,
+                    state.Total + ((residual - state.Mean) * (residual - state.Mean)))).Total / count,
+            _ => double.NaN,
+        };
+        double rms = count switch { > 0 => Math.Sqrt(d: sumSquares / count), _ => double.NaN };
+        return (count, valid, double.IsFinite(d: minimum), double.IsFinite(d: maximum), double.IsFinite(d: mean), double.IsFinite(d: variance), double.IsFinite(d: rms), variance >= 0.0) switch {
+            ( > 0, true, true, true, true, true, true, true) => Fin.Succ(Seq(new ResidualProfile(
+                Count: count,
+                Minimum: minimum,
+                Maximum: maximum,
+                Mean: mean,
+                Variance: variance,
+                Rms: rms,
+                Tolerance: context.Absolute.Value,
+                WithinTolerance: maximum <= context.Absolute.Value))),
+            _ => Fin.Fail<Seq<ResidualProfile>>(ConformanceKey.InvalidResult()),
+        };
+    }
+    private readonly record struct ResidualState<TGeometry, TPrimitive>(
+        Seq<double> Residuals,
+        TGeometry Geometry,
+        TPrimitive Primitive,
+        GeometryContext Context) where TGeometry : notnull where TPrimitive : notnull;
     private static Fin<Seq<(double Moment, Vector3d Axis)>> Principal(OperationKey key, LengthMassProperties mass) =>
         key.Principal(
             solved: mass.WorldCoordinatesPrincipalMoments(x: out double x, xaxis: out Vector3d xAxis, y: out double y, yaxis: out Vector3d yAxis, z: out double z, zaxis: out Vector3d zAxis),
