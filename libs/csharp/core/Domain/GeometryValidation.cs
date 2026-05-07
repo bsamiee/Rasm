@@ -227,7 +227,7 @@ internal sealed class GeometryCheck {
         validate: static (CheckState state) =>
             state.Require(
                 condition: ((Mesh)state.Geometry).IsSolid,
-                log: "Mesh is valid Rhino geometry but is not closed and solid enough for Rasm volume operations."));
+                log: "Mesh is valid Rhino geometry but is not closed and solid enough for volume operations."));
     internal static readonly GeometryCheck BrepSolidReadiness = new(
         key: "brep-solid-readiness",
         requirement: GeometryRequirement.SolidTopology,
@@ -235,7 +235,7 @@ internal sealed class GeometryCheck {
         validate: static (CheckState state) =>
             state.Require(
                 condition: ((Brep)state.Geometry).IsSolid,
-                log: "Brep is valid Rhino geometry but is not solid enough for Rasm volume operations."));
+                log: "Brep is valid Rhino geometry but is not solid enough for volume operations."));
     internal static readonly GeometryCheck SurfaceSolidReadiness = new(
         key: "surface-solid-readiness",
         requirement: GeometryRequirement.VolumeMass,
@@ -243,7 +243,7 @@ internal sealed class GeometryCheck {
         validate: static (CheckState state) =>
             state.Require(
                 condition: ((Surface)state.Geometry).IsSolid,
-                log: "Surface is valid Rhino geometry but is not solid enough for Rasm volume operations."));
+                log: "Surface is valid Rhino geometry but is not solid enough for volume operations."));
     internal static readonly GeometryCheck CurveLengthReadiness = new(
         key: "curve-length-readiness",
         requirement: GeometryRequirement.CurveLength,
@@ -255,7 +255,7 @@ internal sealed class GeometryCheck {
                 curve.GetLength(fractionalTolerance: state.Context.Relative.Value) > state.Context.Absolute.Value
             ) switch {
                 (false, true) => Fin.Succ(unit),
-                _ => state.Invalid(log: "Curve is valid Rhino geometry but is below Rasm model-length tolerance."),
+                _ => state.Invalid(log: "Curve is valid Rhino geometry but is below model-length tolerance."),
             };
         });
     internal static readonly GeometryCheck CurveAreaReadiness = new(
@@ -271,7 +271,7 @@ internal sealed class GeometryCheck {
                     tolerance: state.Context.Absolute.Value)
             ) switch {
                 (true, true) => Fin.Succ(unit),
-                _ => state.Invalid(log: "Curve is valid Rhino geometry but is not closed and planar enough for Rasm area operations."),
+                _ => state.Invalid(log: "Curve is valid Rhino geometry but is not closed and planar enough for area operations."),
             };
         });
     internal static readonly GeometryCheck SurfaceDomainReadiness = new(
@@ -282,7 +282,7 @@ internal sealed class GeometryCheck {
             state.Require(
                 condition: SurfaceProfile.From(surface: (Surface)state.Geometry)
                     .HasUsableDomain(context: state.Context),
-                log: "Surface is valid Rhino geometry but has an unusable Rasm UV domain."));
+                log: "Surface is valid Rhino geometry but has an unusable UV domain."));
     internal static readonly GeometryCheck ContinuityReadiness = new(
         key: "continuity-readiness",
         requirement: GeometryRequirement.StrictStructure,

@@ -1,9 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <AssemblyName>Rasm.Analysis</AssemblyName>
+        <AssemblyName>Analysis</AssemblyName>
         <RootNamespace>Analysis</RootNamespace>
-        <Title>Rasm Analysis</Title>
-        <Company>Rasm</Company>
+        <Title>Analysis</Title>
         <Description>RhinoCommon-native geometry analysis algebra.</Description>
     </PropertyGroup>
 

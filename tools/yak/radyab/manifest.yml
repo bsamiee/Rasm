@@ -1,0 +1,10 @@
+name: Radyab
+version: $version
+authors:
+- Radyab
+description: RhinoWIP macOS package for the Radyab GH2 plugin.
+icon: icon.png
+keywords:
+- rhino-wip
+- grasshopper
+- gh2

@@ -1,10 +1,8 @@
 <Solution>
   <Folder Name="/apps/" />
-  <Folder Name="/apps/grasshopper/">
-    <Project Path="apps/grasshopper/Rasm.Grasshopper.csproj" />
-  </Folder>
-  <Folder Name="/apps/rhino/">
-    <Project Path="apps/rhino/Rasm.Rhino.csproj" />
+  <Folder Name="/apps/grasshopper/" />
+  <Folder Name="/apps/grasshopper/Radyab/">
+    <Project Path="apps/grasshopper/Radyab/Radyab.csproj" />
   </Folder>
   <Folder Name="/libs/" />
   <Folder Name="/libs/csharp/" />

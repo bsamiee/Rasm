@@ -691,9 +691,10 @@
         "resolved": "10.2.0",
         "contentHash": "dakjsj9+k/faX/Ff0Ez+jcV6bqdJ+6fem4sXkNZDL3qZwtyp4SGfZgRHDiOEWrkgq/WBoZWiE+MOaBoXiXObbw=="
       },
-      "Rasm.Analysis": {
+      "analysis": {
         "type": "Project",
         "dependencies": {
+          "Core": "[1.0.0, )",
           "FluentValidation": "[12.1.1, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "Microsoft.Extensions.Http.Resilience": "[10.5.0, )",
@@ -706,7 +707,6 @@
           "OpenTelemetry.Instrumentation.Http": "[1.15.1, )",
           "OpenTelemetry.Instrumentation.Runtime": "[1.15.1, )",
           "Polly.Core": "[8.6.6, )",
-          "Rasm.Core": "[1.0.0, )",
           "Scrutor": "[7.0.0, )",
           "Serilog.AspNetCore": "[10.0.0, )",
           "Serilog.Exceptions": "[8.4.0, )",
@@ -716,7 +716,7 @@
           "Thinktecture.Runtime.Extensions": "[10.2.0, )"
         }
       },
-      "Rasm.Core": {
+      "core": {
         "type": "Project",
         "dependencies": {
           "FluentValidation": "[12.1.1, )",

@@ -1,9 +1,17 @@
 <Project>
     <PropertyGroup Label="Project Classification">
-        <IsRhinoPluginProject Condition="'$(MSBuildProjectName)' == 'Rasm.Rhino'">true</IsRhinoPluginProject>
-        <IsGrasshopperPluginProject Condition="'$(MSBuildProjectName)' == 'Rasm.Grasshopper'">true</IsGrasshopperPluginProject>
+        <GrasshopperAppsRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'apps', 'grasshopper'))</GrasshopperAppsRoot>
+        <RhinoAppsRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'apps', 'rhino'))</RhinoAppsRoot>
+        <NormalizedProjectDirectory>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)'))</NormalizedProjectDirectory>
+        <IsRhinoPluginProject Condition="'$(IsRhinoPluginProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoAppsRoot)'))">true</IsRhinoPluginProject>
+        <IsGrasshopperPluginProject Condition="'$(IsGrasshopperPluginProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(GrasshopperAppsRoot)'))">true</IsGrasshopperPluginProject>
+        <IsRhinoPluginProject Condition="'$(IsRhinoPluginProject)' == ''">false</IsRhinoPluginProject>
+        <IsGrasshopperPluginProject Condition="'$(IsGrasshopperPluginProject)' == ''">false</IsGrasshopperPluginProject>
+        <IsGrasshopperAwareProject Condition="'$(IsGrasshopperAwareProject)' == ''">false</IsGrasshopperAwareProject>
         <IsSharedCSharpLibrary Condition="'$(MSBuildProjectName)' == 'Core' or '$(MSBuildProjectName)' == 'Analysis'">true</IsSharedCSharpLibrary>
         <IsRhinoCommonAwareProject Condition="'$(MSBuildProjectName)' == 'Core' or '$(MSBuildProjectName)' == 'Analysis'">true</IsRhinoCommonAwareProject>
+        <IsSharedCSharpLibrary Condition="'$(IsSharedCSharpLibrary)' == ''">false</IsSharedCSharpLibrary>
+        <IsRhinoCommonAwareProject Condition="'$(IsRhinoCommonAwareProject)' == ''">false</IsRhinoCommonAwareProject>
     </PropertyGroup>
 
     <PropertyGroup Label="Language and Build">
@@ -131,14 +139,14 @@
         <Using Include="LanguageExt.Prelude" Static="true" />
     </ItemGroup>
 
-    <ItemGroup Label="RhinoWIP Libraries" Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsRhinoCommonAwareProject)' == 'true'">
+    <ItemGroup Label="RhinoWIP Libraries" Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true' or '$(IsRhinoCommonAwareProject)' == 'true'">
         <Reference Include="RhinoCommon">
             <HintPath>$(RhinoCommonReferencePath)</HintPath>
             <Private>false</Private>
         </Reference>
     </ItemGroup>
 
-    <ItemGroup Label="Grasshopper Libraries" Condition="'$(IsGrasshopperPluginProject)' == 'true'">
+    <ItemGroup Label="Grasshopper Libraries" Condition="'$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">
         <Reference Include="Grasshopper2">
             <HintPath>$(Grasshopper2ReferencePath)</HintPath>
             <Private>false</Private>

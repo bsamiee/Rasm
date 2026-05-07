@@ -702,7 +702,7 @@
           "xunit.v3.runner.common": "[3.2.2]"
         }
       },
-      "Rasm.Core": {
+      "core": {
         "type": "Project",
         "dependencies": {
           "FluentValidation": "[12.1.1, )",
