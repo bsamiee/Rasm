@@ -112,8 +112,10 @@ public sealed class AnalysisSpec {
         Assert.NotNull(@object: Query.MeshCheckCount(count: MeshCheckCount.NakedEdges));
         Assert.NotNull(@object: Query.MeshFaceMetric(metric: MeshFaceMetric.AspectRatio));
         Assert.NotNull(@object: Query.Topology<Mesh, Polyline>(aspect: Topology.Boundary));
+        Assert.NotNull(@object: Query.Topology<GeometryBase, Point3d>(aspect: Topology.EdgeMidpoints));
         Assert.NotNull(@object: Query.Topology<Mesh, ComponentIndex>(aspect: Topology.Adjacency));
         Assert.NotNull(@object: Query.Topology<Mesh, bool>(aspect: Topology.NonManifold));
+        Assert.NotNull(@object: Query.Measure<GeometryBase, Point3d>(aspect: Measure.SpatialMidpoint));
         Assert.NotNull(@object: Query.Locate<Curve, double>(aspect: Location.CurvatureProfile(count: 3, scalar: CurvatureScalar.Magnitude)));
         Assert.NotNull(@object: Query.Locate<Surface, double>(aspect: Location.CurvatureProfile(count: 3, scalar: CurvatureScalar.Gaussian)));
         Assert.NotNull(@object: Query.Locate<Surface, double>(aspect: Location.CurvatureProfile(count: 3, scalar: CurvatureScalar.Mean)));
@@ -124,6 +126,8 @@ public sealed class AnalysisSpec {
         Assert.NotNull(@object: Query.Conformance<Curve, Arc, bool>(aspect: Conformance.WithinTolerance(count: 3)));
         Assert.NotNull(@object: Query.Conformance<Surface, Sphere, ResidualSample>(aspect: Conformance.Maximum(count: 2)));
         Assert.NotNull(@object: Query.Deviation<Curve, Curve, CurveDeviation>(aspect: Deviation.Curve));
+        Assert.NotNull(@object: Query.EdgeMidpoints<GeometryBase, Point3d>());
+        Assert.NotNull(@object: Query.Vertices<GeometryBase, Point3d>());
     }
 
     [Fact]
@@ -254,6 +258,40 @@ public sealed class AnalysisSpec {
         Assert.Equal(expected: 12, actual: edges.Length);
         Assert.Equal(expected: 88.0, actual: area[0]);
         Assert.Equal(expected: 48.0, actual: volume[0]);
+    }
+
+    [Fact]
+    public void ComputesPureObjectPointExtractionWithoutContext() {
+        object line = new Line(
+            from: Point3d.Origin,
+            to: new Point3d(x: 2.0, y: 0.0, z: 0.0));
+        object polyline = new Polyline([
+            Point3d.Origin,
+            new Point3d(x: 2.0, y: 0.0, z: 0.0),
+            new Point3d(x: 2.0, y: 2.0, z: 0.0),
+        ]);
+        object box = new BoundingBox(
+            min: Point3d.Origin,
+            max: new Point3d(x: 2.0, y: 4.0, z: 6.0));
+
+        Point3d[] lineEdgeMidpoint = Run(
+            query: Query.EdgeMidpoints<object, Point3d>(),
+            input: [line]);
+        Point3d[] polylineEdgeMidpoints = Run(
+            query: Query.EdgeMidpoints<object, Point3d>(),
+            input: [polyline]);
+        Point3d[] boxSpatialMidpoint = Run(
+            query: Query.Measure<object, Point3d>(aspect: Measure.SpatialMidpoint),
+            input: [box]);
+
+        Assert.Equal(expected: new Point3d(x: 1.0, y: 0.0, z: 0.0), actual: lineEdgeMidpoint[0]);
+        Assert.Equal(
+            expected: [
+                new Point3d(x: 1.0, y: 0.0, z: 0.0),
+                new Point3d(x: 2.0, y: 1.0, z: 0.0),
+            ],
+            actual: polylineEdgeMidpoints);
+        Assert.Equal(expected: new Point3d(x: 1.0, y: 2.0, z: 3.0), actual: boxSpatialMidpoint[0]);
     }
 
     [Fact]
@@ -644,4 +682,5 @@ public sealed class AnalysisSpec {
             .Match(
                 Succ: static (Seq<TOut> output) => output.ToArray(),
                 Fail: static (Error error) => throw new Xunit.Sdk.XunitException(error.Message));
+
 }

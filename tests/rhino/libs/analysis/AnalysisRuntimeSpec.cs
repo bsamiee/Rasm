@@ -1262,6 +1262,163 @@ public sealed class AnalysisRuntimeSpec {
         Assert.That(actual: result.ToFin().IsFail, expression: Is.True);
     }
 
+    [Test]
+    public void ExtractsEdgeMidpointsForLinePolylineAndCurve() {
+        GeometryContext context = Context();
+        Line line = new(
+            from: Point3d.Origin,
+            to: new Point3d(x: 2.0, y: 0.0, z: 0.0));
+        Polyline polyline = new([
+            Point3d.Origin,
+            new Point3d(x: 2.0, y: 0.0, z: 0.0),
+            new Point3d(x: 2.0, y: 2.0, z: 0.0),
+        ]);
+        using LineCurve curve = new(
+            from: Point3d.Origin,
+            to: new Point3d(x: 0.0, y: 4.0, z: 0.0));
+
+        Point3d[] lineMidpoints = Run(
+            query: AnalysisQuery.EdgeMidpoints<Line, Point3d>(),
+            context: context,
+            input: [line]);
+        Point3d[] polylineMidpoints = Run(
+            query: AnalysisQuery.EdgeMidpoints<Polyline, Point3d>(),
+            context: context,
+            input: [polyline]);
+        Point3d[] curveMidpoints = Run(
+            query: AnalysisQuery.EdgeMidpoints<Curve, Point3d>(),
+            context: context,
+            input: [curve]);
+
+        Assert.Multiple(() => {
+            Assert.That(actual: lineMidpoints[0], expression: Is.EqualTo(expected: new Point3d(x: 1.0, y: 0.0, z: 0.0)));
+            Assert.That(actual: polylineMidpoints, expression: Is.EqualTo(expected: new[] {
+                new Point3d(x: 1.0, y: 0.0, z: 0.0),
+                new Point3d(x: 2.0, y: 1.0, z: 0.0),
+            }));
+            Assert.That(actual: curveMidpoints[0], expression: Is.EqualTo(expected: new Point3d(x: 0.0, y: 2.0, z: 0.0)));
+        });
+    }
+
+    [Test]
+    public void ExtractsBoundingBoxPointSets() {
+        GeometryContext context = Context();
+        BoundingBox box = new(
+            min: Point3d.Origin,
+            max: new Point3d(x: 2.0, y: 4.0, z: 6.0));
+        Box orientedBox = new(bbox: box);
+
+        Point3d[] edgeMidpoints = Run(
+            query: AnalysisQuery.Topology<BoundingBox, Point3d>(aspect: Topology.EdgeMidpoints),
+            context: context,
+            input: [box]);
+        Point3d[] spatialMidpoint = Run(
+            query: AnalysisQuery.Measure<BoundingBox, Point3d>(aspect: Measure.SpatialMidpoint),
+            context: context,
+            input: [box]);
+        Point3d[] vertices = Run(
+            query: AnalysisQuery.Vertices<BoundingBox, Point3d>(),
+            context: context,
+            input: [box]);
+        Point3d[] orientedBoxEdgeMidpoints = Run(
+            query: AnalysisQuery.EdgeMidpoints<Box, Point3d>(),
+            context: context,
+            input: [orientedBox]);
+        Point3d[] orientedBoxSpatialMidpoint = Run(
+            query: AnalysisQuery.Measure<Box, Point3d>(aspect: Measure.SpatialMidpoint),
+            context: context,
+            input: [orientedBox]);
+        Point3d[] orientedBoxVertices = Run(
+            query: AnalysisQuery.Vertices<Box, Point3d>(),
+            context: context,
+            input: [orientedBox]);
+
+        Assert.Multiple(() => {
+            Assert.That(actual: edgeMidpoints, expression: Has.Length.EqualTo(expected: 12));
+            Assert.That(actual: edgeMidpoints, expression: Does.Contain(expected: new Point3d(x: 1.0, y: 0.0, z: 0.0)));
+            Assert.That(actual: spatialMidpoint, expression: Is.EqualTo(expected: new[] { new Point3d(x: 1.0, y: 2.0, z: 3.0) }));
+            Assert.That(actual: vertices, expression: Has.Length.EqualTo(expected: 8));
+            Assert.That(actual: orientedBoxEdgeMidpoints, expression: Has.Length.EqualTo(expected: 12));
+            Assert.That(actual: orientedBoxSpatialMidpoint, expression: Is.EqualTo(expected: new[] { new Point3d(x: 1.0, y: 2.0, z: 3.0) }));
+            Assert.That(actual: orientedBoxVertices, expression: Has.Length.EqualTo(expected: 8));
+        });
+    }
+
+    [Test]
+    public void ExtractsBrepEdgeMidpointsAndMixedGeometryInOrder() {
+        GeometryContext context = Context();
+        BoundingBox box = new(
+            min: Point3d.Origin,
+            max: new Point3d(x: 2.0, y: 2.0, z: 2.0));
+        using LineCurve curve = new(
+            from: Point3d.Origin,
+            to: new Point3d(x: 4.0, y: 0.0, z: 0.0));
+        using Brep brep = Brep.CreateFromBox(box: box);
+
+        Point3d[] brepMidpoints = Run(
+            query: AnalysisQuery.EdgeMidpoints<Brep, Point3d>(),
+            context: context,
+            input: [brep]);
+        Point3d[] mixedMidpoints = Run(
+            query: AnalysisQuery.Topology<GeometryBase, Point3d>(aspect: Topology.EdgeMidpoints),
+            context: context,
+            input: [curve, brep]);
+
+        Assert.Multiple(() => {
+            Assert.That(actual: brepMidpoints, expression: Has.Length.EqualTo(expected: brep.Edges.Count));
+            Assert.That(actual: mixedMidpoints, expression: Has.Length.EqualTo(expected: brep.Edges.Count + 1));
+            Assert.That(actual: mixedMidpoints[0], expression: Is.EqualTo(expected: new Point3d(x: 2.0, y: 0.0, z: 0.0)));
+        });
+    }
+
+    [Test]
+    public void ExtractsMeshVerticesAndAreaCentroid() {
+        GeometryContext context = Context();
+        using Mesh mesh = new();
+        _ = mesh.Vertices.Add(x: 0.0, y: 0.0, z: 0.0);
+        _ = mesh.Vertices.Add(x: 2.0, y: 0.0, z: 0.0);
+        _ = mesh.Vertices.Add(x: 2.0, y: 2.0, z: 0.0);
+        _ = mesh.Vertices.Add(x: 0.0, y: 2.0, z: 0.0);
+        _ = mesh.Faces.AddFace(vertex1: 0, vertex2: 1, vertex3: 2, vertex4: 3);
+        _ = mesh.Normals.ComputeNormals();
+        _ = mesh.Compact();
+
+        Point3d[] vertices = Run(
+            query: AnalysisQuery.Vertices<Mesh, Point3d>(),
+            context: context,
+            input: [mesh]);
+        Point3d[] spatialMidpoint = Run(
+            query: AnalysisQuery.Measure<Mesh, Point3d>(aspect: Measure.SpatialMidpoint),
+            context: context,
+            input: [mesh]);
+
+        Assert.Multiple(() => {
+            Assert.That(actual: vertices, expression: Has.Length.EqualTo(expected: 4));
+            Assert.That(actual: spatialMidpoint, expression: Is.EqualTo(expected: new[] { new Point3d(x: 1.0, y: 1.0, z: 0.0) }));
+        });
+    }
+
+    [Test]
+    public void AccumulatesUnsupportedMixedGeometryPointExtractionErrors() {
+        GeometryContext context = Context();
+        using Point first = new(location: Point3d.Origin);
+        using LineCurve curve = new(
+            from: Point3d.Origin,
+            to: new Point3d(x: 2.0, y: 0.0, z: 0.0));
+        using Point second = new(location: new Point3d(x: 1.0, y: 1.0, z: 1.0));
+
+        Validation<Error, Seq<Point3d>> result = Analyze.In(context: context)
+            .Run(
+                query: AnalysisQuery.EdgeMidpoints<GeometryBase, Point3d>(),
+                input: [first, curve, second]);
+
+        Assert.That(
+            actual: result.ToFin().Match(
+                Succ: static (Seq<Point3d> _) => false,
+                Fail: static (Error error) => error.Count == 2 && error.Message.Contains(value: "EdgeMidpoints", comparisonType: StringComparison.Ordinal)),
+            expression: Is.True);
+    }
+
     private static GeometryContext Context() =>
         GeometryContext.FromDocument(doc: Optional(RhinoDoc.ActiveDoc)
                 .ToFin(Error.New(message: "Rhino.Testing did not create an active Rhino document."))

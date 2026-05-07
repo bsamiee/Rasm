@@ -179,21 +179,6 @@ public static partial class Query {
                         project: static (Curve curve, double parameter) => curve.TangentAt(t: parameter)))),
             _ => TangentKey.Unsupported<TGeometry, TOut>(),
         };
-    private static Fin<Seq<TOut>> CurveAtNormalized<TGeometry, TOut>(
-        TGeometry geometry,
-        Fin<GeometryContext> context,
-        OperationKey key,
-        Func<Curve, double, TOut> project) where TGeometry : notnull =>
-        (geometry, context) switch {
-            (Curve curve, Fin<GeometryContext> rail) => rail.Bind((GeometryContext model) => curve.NormalizedLengthParameter(
-                s: 0.5,
-                t: out double parameter,
-                fractionalTolerance: model.Relative.Value) switch {
-                    true => One(key: key, value: project(arg1: curve, arg2: parameter)),
-                    false => Fin.Fail<Seq<TOut>>(key.InvalidResult()),
-                }),
-            _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))),
-        };
     private static Query<TGeometry, TOut> CurvatureProfile<TGeometry, TOut>(int count, CurvatureScalar scalar) where TGeometry : notnull =>
         count switch {
             <= 0 => Query<TGeometry, TOut>.Reject(key: CurvatureAtKey, fault: CurvatureAtKey.InvalidInput()),

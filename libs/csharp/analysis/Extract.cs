@@ -49,6 +49,64 @@ public static partial class Query {
         };
     public static Query<Brep, Curve> Edges =>
         Query<Brep, Curve>.Build(key: EdgesKey, evaluator: static (Brep geometry, Fin<GeometryContext> _) => Many(key: EdgesKey, values: geometry.DuplicateEdgeCurves()));
+    public static Query<TGeometry, TOut> EdgeMidpoints<TGeometry, TOut>() where TGeometry : notnull =>
+        (typeof(TGeometry), typeof(TOut)) switch {
+            (Type geometry, Type output) when output == typeof(Point3d)
+                && (typeof(GeometryBase).IsAssignableFrom(c: geometry)
+                    || geometry == typeof(object)
+                    || geometry == typeof(Line)
+                    || geometry == typeof(Polyline)
+                    || geometry == typeof(BoundingBox)
+                    || geometry == typeof(Box)) =>
+                Cast<TGeometry, TOut>(key: EdgeMidpointsKey, query: Query<TGeometry, Point3d>.Build(
+                    key: EdgeMidpointsKey,
+                    evaluator: static (TGeometry geometry, Fin<GeometryContext> context) => geometry switch {
+                        Line line => One(key: EdgeMidpointsKey, value: line.PointAt(t: 0.5)),
+                        Polyline polyline => Many(
+                            key: EdgeMidpointsKey,
+                            values: polyline.GetSegments().Select(static (Line segment) => segment.PointAt(t: 0.5))),
+                        BoundingBox box => Many(
+                            key: EdgeMidpointsKey,
+                            values: box.GetEdges().Select(static (Line edge) => edge.PointAt(t: 0.5))),
+                        Curve curve => context.Bind((GeometryContext model) => model.Validate(
+                                    geometry: curve,
+                                    requirement: GeometryRequirement.CurveLength)
+                                .ToFin()
+                                .Bind((Curve _) => CurveAtNormalizedValue(
+                                    curve: curve,
+                                    context: model,
+                                    key: EdgeMidpointsKey,
+                                    project: static (Curve curve, double parameter) => curve.PointAt(t: parameter)))
+                                .Bind(static (Point3d point) => One(key: EdgeMidpointsKey, value: point))),
+                        Brep brep => context.Bind((GeometryContext model) => model.Validate(
+                                    geometry: brep,
+                                    requirement: GeometryRequirement.Basic)
+                                .ToFin()
+                                .Bind((Brep _) => EdgeCurveMidpoints(curves: brep.DuplicateEdgeCurves(), context: model))),
+                        Mesh mesh => context.Bind((GeometryContext model) => model.Validate(
+                                    geometry: mesh,
+                                    requirement: GeometryRequirement.Basic)
+                                .ToFin()
+                                .Bind((Mesh _) => Many(
+                                    key: EdgeMidpointsKey,
+                                    values: Enumerable
+                                        .Range(start: 0, count: mesh.TopologyEdges.Count)
+                                        .Select((int index) => mesh.TopologyEdges.EdgeLine(topologyEdgeIndex: index).PointAt(t: 0.5))))),
+                        SubD subd => context.Bind((GeometryContext model) => model.Validate(
+                                    geometry: subd,
+                                    requirement: GeometryRequirement.Basic)
+                                .ToFin()
+                                .Bind((SubD _) => EdgeCurveMidpoints(curves: subd.DuplicateEdgeCurves(), context: model))),
+                        Box box => context.Bind((GeometryContext model) => Optional(box.ToBrep())
+                                .ToFin(EdgeMidpointsKey.InvalidResult())
+                                .Bind((Brep brep) => {
+                                    using Brep disposable = brep;
+                                    return EdgeCurveMidpoints(curves: disposable.DuplicateEdgeCurves(), context: model);
+                                })),
+                        _ => Fin.Fail<Seq<Point3d>>(EdgeMidpointsKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Point3d))),
+                    })),
+            _ => EdgeMidpointsKey.Unsupported<TGeometry, TOut>(),
+        };
     public static Query<TGeometry, TOut> NakedEdges<TGeometry, TOut>() where TGeometry : notnull =>
         (typeof(TGeometry), typeof(TOut)) switch {
             (Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(Curve) =>
@@ -181,19 +239,38 @@ public static partial class Query {
         };
     public static Query<TGeometry, TOut> Vertices<TGeometry, TOut>() where TGeometry : notnull =>
         (typeof(TGeometry), typeof(TOut)) switch {
-            (Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(Point3d) =>
+            (Type geometry, Type output) when output == typeof(Point3d)
+                && (typeof(GeometryBase).IsAssignableFrom(c: geometry)
+                    || geometry == typeof(object)
+                    || geometry == typeof(Line)
+                    || geometry == typeof(Polyline)
+                    || geometry == typeof(BoundingBox)
+                    || geometry == typeof(Box)) =>
                 Cast<TGeometry, TOut>(key: VerticesKey, query: Query<TGeometry, Point3d>.Build(
                     key: VerticesKey,
                     evaluator: static (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
+                        Line line => Many(key: VerticesKey, values: new[] { line.From, line.To }),
+                        Polyline polyline => Many(key: VerticesKey, values: polyline),
+                        Curve curve => curve.TryGetPolyline(polyline: out Polyline polyline) switch {
+                            true => Many(key: VerticesKey, values: polyline),
+                            false => Many(key: VerticesKey, values: new[] { curve.PointAtStart, curve.PointAtEnd }),
+                        },
                         Brep brep => Many(key: VerticesKey, values: brep.DuplicateVertices()),
-                        _ => Fin.Fail<Seq<Point3d>>(VerticesKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Point3d))),
-                    })),
-            (Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(Point3d) =>
-                Cast<TGeometry, TOut>(key: VerticesKey, query: Query<TGeometry, Point3d>.Build(
-                    key: VerticesKey,
-                    evaluator: static (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
                         Mesh mesh => Many(key: VerticesKey, values: mesh.Vertices.ToPoint3dArray()),
-                        _ => Fin.Fail<Seq<Point3d>>(VerticesKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Point3d))),
+                        SubD subd => Many(
+                            key: VerticesKey,
+                            values: Enumerable
+                                .Range(start: 0, count: subd.Vertices.Count)
+                                .Aggregate(
+                                    seed: (Vertex: subd.Vertices.First, Points: Seq<Point3d>()),
+                                    func: static ((SubDVertex? Vertex, Seq<Point3d> Points) state, int _) => state.Vertex switch {
+                                        SubDVertex vertex => (Vertex: vertex.Next, Points: state.Points.Add(vertex.ControlNetPoint)),
+                                        _ => state,
+                                    })
+                                .Points),
+                        BoundingBox box => Many(key: VerticesKey, values: box.GetCorners()),
+                        Box box => Many(key: VerticesKey, values: box.GetCorners()),
+                        _ => Fin.Fail<Seq<Point3d>>(VerticesKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Point3d))),
                     })),
             _ => VerticesKey.Unsupported<TGeometry, TOut>(),
         };
@@ -224,6 +301,8 @@ public static partial class Query {
                 NakedEdges<TGeometry, TOut>(),
             (TopologyKind.Boundary, Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(Polyline) =>
                 NakedEdges<TGeometry, TOut>(),
+            (TopologyKind.EdgeMidpoints, _, Type output) when output == typeof(Point3d) =>
+                EdgeMidpoints<TGeometry, TOut>(),
             (TopologyKind.Adjacency, Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
                 Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, ComponentIndex>.Build(
                     key: TopologyKey,
@@ -404,4 +483,19 @@ public static partial class Query {
                                 false => Fin.Fail<Seq<Polyline>>(SelfIntersectionsKey.InvalidResult()),
                             };
                     }));
+    private static Fin<Seq<Point3d>> EdgeCurveMidpoints(IEnumerable<Curve>? curves, GeometryContext context) =>
+        Optional(curves)
+            .ToFin(EdgeMidpointsKey.InvalidResult())
+            .Bind((IEnumerable<Curve> source) => source.Aggregate(
+                seed: Fin.Succ((Points: Seq<Point3d>(), Context: context)),
+                func: static (Fin<(Seq<Point3d> Points, GeometryContext Context)> current, Curve curve) => {
+                    using Curve disposable = curve;
+                    return current.Bind(((Seq<Point3d> Points, GeometryContext Context) state) => CurveAtNormalizedValue(
+                            curve: disposable,
+                            context: state.Context,
+                            key: EdgeMidpointsKey,
+                            project: static (Curve curve, double parameter) => curve.PointAt(t: parameter))
+                        .Map((Point3d point) => (state.Points.Add(point), state.Context)));
+                }))
+            .Bind(static ((Seq<Point3d> Points, GeometryContext Context) state) => Many(key: EdgeMidpointsKey, values: state.Points));
 }

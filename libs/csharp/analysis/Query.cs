@@ -113,9 +113,9 @@ public readonly record struct CurveDeviation(
     bool WithinTolerance);
 public enum IntersectionKind { Unknown = 0, Point = 1, Overlap = 2 }
 internal enum BoundsKind { Box, Oriented, Transformed, Center, Corners, Edges, Area, Volume }
-internal enum MeasureKind { Scalar, Error, Centroid, CentroidError, Radii, Principal }
+internal enum MeasureKind { Scalar, Error, Centroid, SpatialMidpoint, CentroidError, Radii, Principal }
 internal enum LocationKind { Midpoint, Tangent, Closest, PointAtCurve, PointAtSurface, PointAtLength, FrameAtCurve, FrameAtSurface, PerpendicularFrameAt, NormalAt, CurvatureAtCurve, CurvatureAtSurface, CurvatureProfile, DerivativeAt, DivideByCount, DivideByLength, Orientation, Contains, ShortPath }
-internal enum TopologyKind { Boundary, Adjacency, NonManifold }
+internal enum TopologyKind { Boundary, EdgeMidpoints, Adjacency, NonManifold }
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Bounds {
     private Bounds(BoundsKind kind, Plane plane = default, Transform transform = default) {
@@ -137,6 +137,7 @@ public readonly record struct Measure {
     }
     internal readonly MeasureKind Kind; internal readonly MassKind Mass;
     public static Measure Length => new(kind: MeasureKind.Scalar, mass: MassKind.Length); public static Measure Area => new(kind: MeasureKind.Scalar, mass: MassKind.Area); public static Measure Volume => new(kind: MeasureKind.Scalar, mass: MassKind.Volume);
+    public static Measure SpatialMidpoint => new(kind: MeasureKind.SpatialMidpoint, mass: MassKind.None);
     public static Measure Error(MassKind kind) => new(kind: MeasureKind.Error, mass: kind); public static Measure Centroid(MassKind kind) => new(kind: MeasureKind.Centroid, mass: kind); public static Measure CentroidError(MassKind kind) => new(kind: MeasureKind.CentroidError, mass: kind);
     public static Measure Radii(MassKind kind) => new(kind: MeasureKind.Radii, mass: kind); public static Measure Principal(MassKind kind) => new(kind: MeasureKind.Principal, mass: kind);
 }
@@ -173,7 +174,7 @@ public readonly record struct Topology {
     private Topology(TopologyKind kind) =>
         Kind = kind;
     internal readonly TopologyKind Kind;
-    public static Topology Boundary => new(kind: TopologyKind.Boundary); public static Topology Adjacency => new(kind: TopologyKind.Adjacency); public static Topology NonManifold => new(kind: TopologyKind.NonManifold);
+    public static Topology Boundary => new(kind: TopologyKind.Boundary); public static Topology EdgeMidpoints => new(kind: TopologyKind.EdgeMidpoints); public static Topology Adjacency => new(kind: TopologyKind.Adjacency); public static Topology NonManifold => new(kind: TopologyKind.NonManifold);
 }
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Conformance {
@@ -209,6 +210,7 @@ public static partial class Query {
         CurvatureAtKey = new(name: "CurvatureAt"), DerivativeAtKey = new(name: "DerivativeAt"), DivideByCountKey = new(name: "DivideByCount"),
         DivideByLengthKey = new(name: "DivideByLength"), OrientationKey = new(name: "Orientation"), ContainsKey = new(name: "Contains"),
         SegmentsKey = new(name: nameof(Segments)), EdgesKey = new(name: nameof(Edges)), NakedEdgesKey = new(name: nameof(NakedEdges)),
+        EdgeMidpointsKey = new(name: "EdgeMidpoints"), SpatialMidpointKey = new(name: "SpatialMidpoint"),
         OutlinesKey = new(name: nameof(Outlines)), IsoKey = new(name: nameof(Iso)), PrimitiveKey = new(name: "Primitive"),
         ShortPathKey = new(name: "ShortPath"), SolidOrientationKey = new(name: nameof(SolidOrientation)), IsPointInsideKey = new(name: nameof(IsPointInside)),
         VerticesKey = new(name: nameof(Vertices)), ComponentsKey = new(name: "Components"), IsManifoldKey = new(name: nameof(IsManifold)),
@@ -336,6 +338,32 @@ public static partial class Query {
                     geometryType: typeof(TGeometry),
                     outputType: typeof(TValue))),
             }));
+    internal static Fin<TOut> CurveAtNormalizedValue<TOut>(
+        Curve curve,
+        GeometryContext context,
+        OperationKey key,
+        Func<Curve, double, TOut> project) =>
+        curve.NormalizedLengthParameter(
+            s: 0.5,
+            t: out double parameter,
+            fractionalTolerance: context.Relative.Value) switch {
+                true => Fin.Succ(project(arg1: curve, arg2: parameter)),
+                false => Fin.Fail<TOut>(key.InvalidResult()),
+            };
+    internal static Fin<Seq<TOut>> CurveAtNormalized<TGeometry, TOut>(
+        TGeometry geometry,
+        Fin<GeometryContext> context,
+        OperationKey key,
+        Func<Curve, double, TOut> project) where TGeometry : notnull =>
+        (geometry, context) switch {
+            (Curve curve, Fin<GeometryContext> rail) => rail.Bind((GeometryContext model) => CurveAtNormalizedValue(
+                    curve: curve,
+                    context: model,
+                    key: key,
+                    project: project)
+                .Bind((TOut value) => One(key: key, value: value))),
+            _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))),
+        };
     internal static Query<TGeometry, TOut> LengthMass<TGeometry, TOut>(
         string name,
         Func<OperationKey, LengthMassProperties, Fin<Seq<TOut>>> project,
