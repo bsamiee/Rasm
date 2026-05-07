@@ -358,6 +358,28 @@ public static partial class Query {
                 key: MeshCheckCountKey,
                 fault: MeshCheckCountKey.InvalidInput()),
         };
+    public static Query<Mesh, MeshFaceSample> MeshFaceMetric(Analysis.MeshFaceMetric metric) =>
+        metric switch {
+            Analysis.MeshFaceMetric.AspectRatio => Query<Mesh, MeshFaceSample>.Build(
+                key: MeshFaceMetricKey,
+                requirement: GeometryRequirement.MeshCheck,
+                evaluator: static (Mesh geometry, Fin<GeometryContext> _) => Enumerable
+                    .Range(start: 0, count: geometry.Faces.Count)
+                    .Select((int face) => geometry.Faces.GetFaceAspectRatio(index: face) switch {
+                        double value when Rhino.RhinoMath.IsValidDouble(x: value) && value >= 0.0 =>
+                            Fin.Succ(new MeshFaceSample(Face: face, Value: value)),
+                        _ => Fin.Fail<MeshFaceSample>(MeshFaceMetricKey.InvalidResult()),
+                    })
+                    .Aggregate(
+                        seed: Fin.Succ(Seq<MeshFaceSample>()),
+                        func: static (Fin<Seq<MeshFaceSample>> current, Fin<MeshFaceSample> sample) => (
+                            current,
+                            sample
+                        ).Apply(static (Seq<MeshFaceSample> values, MeshFaceSample next) => values.Add(next)).As())),
+            _ => Query<Mesh, MeshFaceSample>.Reject(
+                key: MeshFaceMetricKey,
+                fault: MeshFaceMetricKey.InvalidInput()),
+        };
     public static Query<Mesh, Polyline> SelfIntersections =>
         Query<Mesh, Polyline>.Build(
             key: SelfIntersectionsKey,

@@ -110,6 +110,7 @@ public sealed class AnalysisSpec {
         Assert.NotNull(@object: Query.NakedPointStatus);
         Assert.NotNull(@object: Query.SelfIntersections);
         Assert.NotNull(@object: Query.MeshCheckCount(count: MeshCheckCount.NakedEdges));
+        Assert.NotNull(@object: Query.MeshFaceMetric(metric: MeshFaceMetric.AspectRatio));
         Assert.NotNull(@object: Query.Topology<Mesh, Polyline>(aspect: Topology.Boundary));
         Assert.NotNull(@object: Query.Topology<Mesh, ComponentIndex>(aspect: Topology.Adjacency));
         Assert.NotNull(@object: Query.Topology<Mesh, bool>(aspect: Topology.NonManifold));
@@ -119,6 +120,9 @@ public sealed class AnalysisSpec {
         Assert.NotNull(@object: Query.Conformance<Curve, Line, double>(aspect: Conformance.Distance(count: 3)));
         Assert.NotNull(@object: Query.Conformance<Surface, Plane, bool>(aspect: Conformance.WithinTolerance(count: 2)));
         Assert.NotNull(@object: Query.Conformance<Curve, Line, ResidualProfile>(aspect: Conformance.Profile(count: 3)));
+        Assert.NotNull(@object: Query.Conformance<Curve, Circle, double>(aspect: Conformance.Distance(count: 3)));
+        Assert.NotNull(@object: Query.Conformance<Curve, Arc, bool>(aspect: Conformance.WithinTolerance(count: 3)));
+        Assert.NotNull(@object: Query.Conformance<Surface, Sphere, ResidualSample>(aspect: Conformance.Maximum(count: 2)));
     }
 
     [Fact]
@@ -501,6 +505,20 @@ public sealed class AnalysisSpec {
     }
 
     [Fact]
+    public void RejectsInvalidMaximumConformanceBeforeInputExecution() {
+        Validation<Error, Seq<ResidualSample>> invalidMaximumCount = Analyze.Run(
+            query: Query.Conformance<Curve, Line, ResidualSample>(aspect: Conformance.Maximum(count: 0)),
+            input: [(null!, Line.Unset), (null!, Line.Unset)]);
+        Validation<Error, Seq<ResidualSample>> unsupportedDeferred = Analyze.Run(
+            query: Query.Conformance<Surface, Cylinder, ResidualSample>(aspect: Conformance.Maximum(count: 2)),
+            input: [(null!, Cylinder.Unset)]);
+
+        Assert.True(condition: (invalidMaximumCount, unsupportedDeferred).Apply(static (Seq<ResidualSample> _, Seq<ResidualSample> _) => false).As().ToFin().Match(
+            Succ: static (bool valid) => valid,
+            Fail: static (Error error) => error.Count == 2 && error.Message.Contains(value: "Conformance", comparisonType: StringComparison.Ordinal)));
+    }
+
+    [Fact]
     public void RejectsUnsupportedConformanceOutputWithOperationVocabulary() {
         Validation<Error, Seq<Point3d>> result = Analyze.Run(
             query: Query.Conformance<Curve, Line, Point3d>(aspect: Conformance.Distance(count: 3)),
@@ -512,6 +530,36 @@ public sealed class AnalysisSpec {
         Assert.True(condition: (result, profile).Apply(static (Seq<Point3d> _, Seq<Point3d> _) => false).As().ToFin().Match(
             Succ: static (bool valid) => valid,
             Fail: static (Error error) => error.Count == 2 && error.Message.Contains(value: "Conformance", comparisonType: StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void RejectsInvalidMeshFaceMetricRails() {
+        Validation<Error, Seq<MeshFaceSample>> invalidMetric = Analyze.Run(
+            query: Query.MeshFaceMetric(metric: MeshFaceMetric.None),
+            input: [null!, null!]);
+        Validation<Error, Seq<MeshFaceSample>> nullMesh = Analyze.Run(
+            query: Query.MeshFaceMetric(metric: MeshFaceMetric.AspectRatio),
+            input: [null!]);
+
+        Assert.True(condition: (invalidMetric, nullMesh).Apply(static (Seq<MeshFaceSample> _, Seq<MeshFaceSample> _) => false).As().ToFin().Match(
+            Succ: static (bool valid) => valid,
+            Fail: static (Error error) => error.Count == 2));
+    }
+
+    [Fact]
+    public void RejectsSpatialInputsBeforeNativeRuntime() {
+        Validation<Error, SpatialIndex> invalidPoint = SpatialIndex.Points(points: [Point3d.Unset]);
+        Validation<Error, SpatialIndex> invalidBounds = SpatialIndex.Bounds<GeometryBase>(items: [null!]);
+        Validation<Error, SpatialIndex> invalidMesh = SpatialIndex.MeshFaces(mesh: null!);
+        Validation<Error, Seq<SpatialPair>> invalidNearest = SpatialIndex.KNearest(
+            points: [Point3d.Origin],
+            needles: [Point3d.Origin],
+            count: 0);
+
+        Assert.True(condition: invalidPoint.ToFin().IsFail);
+        Assert.True(condition: invalidBounds.ToFin().IsFail);
+        Assert.True(condition: invalidMesh.ToFin().IsFail);
+        Assert.True(condition: invalidNearest.ToFin().IsFail);
     }
 
     [Fact]

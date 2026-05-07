@@ -114,6 +114,18 @@ internal static class GeometryValidation {
                 true => Fin.Succ(operand).ToValidation(),
                 false => Fin.Fail<TValue>(ValidationFault.InvalidNativeOperand(type: typeof(Line))).ToValidation(),
             },
+            Circle circle => circle.IsValid switch {
+                true => Fin.Succ(operand).ToValidation(),
+                false => Fin.Fail<TValue>(ValidationFault.InvalidNativeOperand(type: typeof(Circle))).ToValidation(),
+            },
+            Arc arc => arc.IsValid switch {
+                true => Fin.Succ(operand).ToValidation(),
+                false => Fin.Fail<TValue>(ValidationFault.InvalidNativeOperand(type: typeof(Arc))).ToValidation(),
+            },
+            Sphere sphere => sphere.IsValid switch {
+                true => Fin.Succ(operand).ToValidation(),
+                false => Fin.Fail<TValue>(ValidationFault.InvalidNativeOperand(type: typeof(Sphere))).ToValidation(),
+            },
             _ => Fin.Succ(operand).ToValidation(),
         };
 }

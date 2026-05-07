@@ -336,6 +336,62 @@ public sealed class AnalysisRuntimeSpec {
     }
 
     [Test]
+    public void ComputesSpatialIndexNativeQueries() {
+        Point3d[] points = [
+            Point3d.Origin,
+            new Point3d(x: 2.0, y: 0.0, z: 0.0),
+            new Point3d(x: 5.0, y: 0.0, z: 0.0),
+        ];
+        using Mesh mesh = Mesh.CreateFromPlane(
+            plane: Plane.WorldXY,
+            xInterval: new Interval(t0: 0.0, t1: 1.0),
+            yInterval: new Interval(t0: 0.0, t1: 1.0),
+            xCount: 1,
+            yCount: 1);
+        using SpatialIndex index = Value(result: SpatialIndex.Points(points: points));
+        using SpatialIndex empty = Value(result: SpatialIndex.Points(points: []));
+        using SpatialIndex meshFaces = Value(result: SpatialIndex.MeshFaces(mesh: mesh));
+
+        SpatialHit[] boxHits = [.. Value(result: index.Search(box: new BoundingBox(
+            min: new Point3d(x: -0.5, y: -0.5, z: -0.5),
+            max: new Point3d(x: 2.5, y: 0.5, z: 0.5))))];
+        SpatialHit[] sphereHits = [.. Value(result: index.Search(sphere: new Sphere(center: Point3d.Origin, radius: 0.5)))];
+        SpatialPair[] nearest = [.. Value(result: SpatialIndex.KNearest(
+                points: points,
+                needles: [
+                    new Point3d(x: 0.2, y: 0.0, z: 0.0),
+                    new Point3d(x: 4.8, y: 0.0, z: 0.0),
+                ],
+                count: 1))];
+        SpatialPair[] closest = [.. Value(result: SpatialIndex.Closest(
+                points: points,
+                needles: [
+                    new Point3d(x: 0.2, y: 0.0, z: 0.0),
+                    new Point3d(x: 4.8, y: 0.0, z: 0.0),
+                ],
+                limitDistance: 0.5))];
+        SpatialPair[] overlaps = [.. Value(result: meshFaces.Overlaps(other: meshFaces))];
+        SpatialHit[] emptyHits = [.. Value(result: empty.Search(box: new BoundingBox(
+            min: new Point3d(x: -1.0, y: -1.0, z: -1.0),
+            max: new Point3d(x: 1.0, y: 1.0, z: 1.0))))];
+        SpatialIndex transient = Value(result: SpatialIndex.Points(points: [Point3d.Origin]));
+        transient.Dispose();
+        Validation<Error, Seq<SpatialHit>> disposed = transient.Search(box: new BoundingBox(
+            min: new Point3d(x: -1.0, y: -1.0, z: -1.0),
+            max: new Point3d(x: 1.0, y: 1.0, z: 1.0)));
+
+        Assert.Multiple(() => {
+            Assert.That(actual: boxHits, expression: Is.EqualTo(expected: new[] { new SpatialHit(Id: 0), new SpatialHit(Id: 1) }));
+            Assert.That(actual: sphereHits, expression: Is.EqualTo(expected: new[] { new SpatialHit(Id: 0) }));
+            Assert.That(actual: nearest, expression: Is.EqualTo(expected: new[] { new SpatialPair(A: 0, B: 0), new SpatialPair(A: 1, B: 2) }));
+            Assert.That(actual: closest, expression: Is.EqualTo(expected: new[] { new SpatialPair(A: 0, B: 0), new SpatialPair(A: 1, B: 2) }));
+            Assert.That(actual: overlaps, expression: Has.Member(expected: new SpatialPair(A: 0, B: 0)));
+            Assert.That(actual: emptyHits, expression: Is.Empty);
+            Assert.That(actual: disposed.ToFin().IsFail, expression: Is.True);
+        });
+    }
+
+    [Test]
     public void ComputesConformanceResidualVocabulary() {
         GeometryContext context = Context();
         Line reference = new(
@@ -349,6 +405,12 @@ public sealed class AnalysisRuntimeSpec {
             plane: Plane.WorldXY,
             xExtents: new Interval(t0: 0.0, t1: 2.0),
             yExtents: new Interval(t0: 0.0, t1: 2.0));
+        Circle circle = new(plane: Plane.WorldXY, radius: 2.0);
+        Arc arc = new(plane: Plane.WorldXY, radius: 3.0, angleRadians: Math.PI / 2.0);
+        Sphere sphere = new(center: Point3d.Origin, radius: 2.0);
+        using Curve circleCurve = circle.ToNurbsCurve();
+        using Curve arcCurve = arc.ToNurbsCurve();
+        using Surface sphereSurface = sphere.ToNurbsSurface();
         double planeOffset = context.Absolute.Value * 2.0;
         Plane offsetPlane = new(
             origin: new Point3d(x: 0.0, y: 0.0, z: planeOffset),
@@ -406,6 +468,22 @@ public sealed class AnalysisRuntimeSpec {
             query: AnalysisQuery.Conformance<Surface, Plane, ResidualProfile>(aspect: Conformance.Profile(count: 2)),
             context: context,
             input: [(surface, offsetPlane)]);
+        ResidualSample[] offsetCurveMaximum = Run(
+            query: AnalysisQuery.Conformance<Curve, Line, ResidualSample>(aspect: Conformance.Maximum(count: 3)),
+            context: context,
+            input: [(offsetCurve, reference)]);
+        double[] circleDistance = Run(
+            query: AnalysisQuery.Conformance<Curve, Circle, double>(aspect: Conformance.Distance(count: 4)),
+            context: context,
+            input: [(circleCurve, circle)]);
+        bool[] arcWithin = Run(
+            query: AnalysisQuery.Conformance<Curve, Arc, bool>(aspect: Conformance.WithinTolerance(count: 4)),
+            context: context,
+            input: [(arcCurve, arc)]);
+        ResidualSample[] sphereMaximum = Run(
+            query: AnalysisQuery.Conformance<Surface, Sphere, ResidualSample>(aspect: Conformance.Maximum(count: 2)),
+            context: context,
+            input: [(sphereSurface, sphere)]);
 
         Assert.Multiple(() => {
             Assert.That(actual: exactCurveDistance, expression: Has.All.EqualTo(expected: 0.0).Within(1e-12));
@@ -447,6 +525,12 @@ public sealed class AnalysisRuntimeSpec {
             Assert.That(actual: offsetSurfaceProfile[0].Rms, expression: Is.EqualTo(expected: planeOffset).Within(1e-12));
             Assert.That(actual: offsetSurfaceProfile[0].Tolerance, expression: Is.EqualTo(expected: context.Absolute.Value).Within(1e-12));
             Assert.That(actual: offsetSurfaceProfile[0].WithinTolerance, expression: Is.False);
+            Assert.That(actual: offsetCurveMaximum[0].Distance, expression: Is.EqualTo(expected: 1.0).Within(1e-12));
+            Assert.That(actual: offsetCurveMaximum[0].WithinTolerance, expression: Is.False);
+            Assert.That(actual: circleDistance, expression: Has.All.EqualTo(expected: 0.0).Within(1e-9));
+            Assert.That(actual: arcWithin[0], expression: Is.True);
+            Assert.That(actual: sphereMaximum[0].Distance, expression: Is.EqualTo(expected: 0.0).Within(1e-8));
+            Assert.That(actual: sphereMaximum[0].WithinTolerance, expression: Is.True);
         });
     }
 
@@ -752,6 +836,10 @@ public sealed class AnalysisRuntimeSpec {
             query: AnalysisQuery.Vertices<Mesh, Point3d>(),
             context: context,
             input: [mesh]);
+        MeshFaceSample[] aspectRatios = Run(
+            query: AnalysisQuery.MeshFaceMetric(metric: MeshFaceMetric.AspectRatio),
+            context: context,
+            input: [mesh]);
 
         Assert.Multiple(() => {
             Assert.That(actual: nakedEdges, expression: Is.Not.Empty);
@@ -765,6 +853,8 @@ public sealed class AnalysisRuntimeSpec {
             Assert.That(actual: nakedEdgeCount[0], expression: Is.EqualTo(expected: meshCheck[0].NakedEdgeCount));
             Assert.That(actual: selfIntersections, expression: Is.Empty);
             Assert.That(actual: vertices, expression: Has.Length.GreaterThanOrEqualTo(expected: 4));
+            Assert.That(actual: aspectRatios, expression: Has.Length.EqualTo(expected: mesh.Faces.Count));
+            Assert.That(actual: aspectRatios.All(static (MeshFaceSample sample) => sample.Value > 0.0), expression: Is.True);
         });
     }
 
@@ -1167,5 +1257,12 @@ public sealed class AnalysisRuntimeSpec {
             .ToFin()
             .Match(
                 Succ: static (Seq<TOut> output) => output.ToArray(),
+                Fail: static (Error fault) => throw new AssertionException(message: fault.Message));
+
+    private static TValue Value<TValue>(Validation<Error, TValue> result) =>
+        result
+            .ToFin()
+            .Match(
+                Succ: static (TValue value) => value,
                 Fail: static (Error fault) => throw new AssertionException(message: fault.Message));
 }
