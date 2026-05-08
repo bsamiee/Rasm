@@ -20,6 +20,30 @@ public static partial class Query {
                 from validated in rt.Context.Validate(geometry: curve, requirement: GeometryRequirement.CurveLength).ToEff()
                 from result in ExtractCardinals(curve: validated, tolerance: rt.Context.Absolute.Value).ToEff()
                 select result);
+    public static Query<TGeometry, TOut> Quadrants<TGeometry, TOut>() where TGeometry : notnull =>
+        typeof(TOut) switch {
+            Type output when output == typeof(Point3d) => Cast<TGeometry, TOut>(key: WorldCardinalPointsKey, query: Query<TGeometry, Point3d>.Build(
+                key: WorldCardinalPointsKey,
+                requirement: GeometryRequirement.CurveLength,
+                evaluator: static (TGeometry geom) =>
+                    from rt in Analyze.Asks
+                    from result in QuadrantsFromGeom(geom: geom, tolerance: rt.Context.Absolute.Value).ToEff()
+                    select result)),
+            _ => WorldCardinalPointsKey.Unsupported<TGeometry, TOut>(),
+        };
+    private static Fin<Seq<Point3d>> QuadrantsFromGeom<TGeometry>(TGeometry geom, double tolerance) where TGeometry : notnull =>
+        geom switch {
+            Curve curve when curve.IsValid => ExtractCardinals(curve: curve, tolerance: tolerance),
+            Polyline polyline when polyline.IsValid => WithOwnedCurve(owned: polyline.ToPolylineCurve(), tolerance: tolerance),
+            Line line when line.IsValid => WithOwnedCurve(owned: new LineCurve(line: line), tolerance: tolerance),
+            Circle circle when circle.IsValid => WithOwnedCurve(owned: circle.ToNurbsCurve(), tolerance: tolerance),
+            Arc arc when arc.IsValid => WithOwnedCurve(owned: arc.ToNurbsCurve(), tolerance: tolerance),
+            _ => Fin.Fail<Seq<Point3d>>(WorldCardinalPointsKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Point3d))),
+        };
+    private static Fin<Seq<Point3d>> WithOwnedCurve(Curve owned, double tolerance) {
+        using Curve disposable = owned;
+        return ExtractCardinals(curve: disposable, tolerance: tolerance);
+    }
     private static Fin<Seq<Point3d>> ExtractCardinals(Curve curve, double tolerance) =>
         (
             ExtremeAlongDirection(curve: curve, direction: Vector3d.XAxis, isMax: false),

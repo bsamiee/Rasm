@@ -17,11 +17,11 @@ internal static class Defaults {
 
 // --- [TYPES] -----------------------------------------------------------------------------------
 
-public readonly record struct PointOutput<TGeometry>(
+public readonly record struct BridgeOutput<TGeometry, TValue>(
     string Name,
     string Code,
     string Description,
-    Query<TGeometry, Point3d> Query) where TGeometry : notnull;
+    Query<TGeometry, TValue> Query) where TGeometry : notnull;
 
 // --- [OPERATIONS] ------------------------------------------------------------------------------
 
@@ -33,20 +33,20 @@ public static class Bridge {
                 Succ: static (AnalysisRuntime runtime) => runtime,
                 Fail: _ => RemarkAndFallback(access: access));
     }
-    public static Unit RunMany<TGeometry>(
+    public static Unit RunMany<TGeometry, TValue>(
         this IDataAccess access,
         AnalysisRuntime scope,
         TGeometry geometry,
-        Seq<PointOutput<TGeometry>> outputs) where TGeometry : notnull {
+        Seq<BridgeOutput<TGeometry, TValue>> outputs) where TGeometry : notnull {
         ArgumentNullException.ThrowIfNull(argument: access);
-        return outputs.Iter((int index, PointOutput<TGeometry> descriptor) => Run(
+        return outputs.Iter((int index, BridgeOutput<TGeometry, TValue> descriptor) => Run(
             access: access,
             scope: scope,
             geometry: geometry,
             index: index,
             descriptor: descriptor));
     }
-    public static Unit MissingInput(
+    public static Unit MissingInput<TValue>(
         this IDataAccess access,
         int outputCount,
         string label,
@@ -54,7 +54,7 @@ public static class Bridge {
         ArgumentNullException.ThrowIfNull(argument: access);
         access.AddError(text: label, details: $"{label} input is required. Connect: {accepted}.");
         return toSeq(Enumerable.Range(start: 0, count: outputCount)).Iter((int index) =>
-            WritePoints(access: access, index: index, points: []));
+            WriteValues<TValue>(access: access, index: index, values: []));
     }
     private static Fin<AnalysisRuntime> ResolveRuntime(IDataAccess access) =>
         (
@@ -82,29 +82,29 @@ public static class Bridge {
                 Succ: static (AnalysisRuntime runtime) => runtime,
                 Fail: static (Error error) => throw new InvalidOperationException(message: error.Message));
     }
-    private static Unit Run<TGeometry>(
+    private static Unit Run<TGeometry, TValue>(
         IDataAccess access,
         AnalysisRuntime scope,
         TGeometry geometry,
         int index,
-        PointOutput<TGeometry> descriptor) where TGeometry : notnull =>
+        BridgeOutput<TGeometry, TValue> descriptor) where TGeometry : notnull =>
         descriptor.Query
             .Apply(geometry: geometry)
             .WithStandardResilience()
             .Run(scope)
             .Match(
-                Succ: (Seq<Point3d> points) => WritePoints(access: access, index: index, points: [.. points]),
-                Fail: (Error error) => Warn(access: access, index: index, name: descriptor.Name, error: error));
-    private static Unit Warn(IDataAccess access, int index, string name, Error error) {
+                Succ: (Seq<TValue> values) => WriteValues<TValue>(access: access, index: index, values: [.. values]),
+                Fail: (Error error) => Warn<TValue>(access: access, index: index, name: descriptor.Name, error: error));
+    private static Unit Warn<TValue>(IDataAccess access, int index, string name, Error error) {
         access.AddWarning(text: name, details: error.Message);
-        return WritePoints(access: access, index: index, points: []);
+        return WriteValues<TValue>(access: access, index: index, values: []);
     }
-    private static Unit WritePoints(IDataAccess access, int index, Point3d[] points) {
-        access.SetTwig<Point3d>(
+    private static Unit WriteValues<TValue>(IDataAccess access, int index, TValue[] values) {
+        access.SetTwig<TValue>(
             index: index,
-            values: points,
-            metas: points.Length switch { 0 => [], _ => new MetaData[points.Length] },
-            nulls: points.Length switch { 0 => [], _ => new bool[points.Length] });
+            values: values,
+            metas: values.Length switch { 0 => [], _ => new MetaData[values.Length] },
+            nulls: values.Length switch { 0 => [], _ => new bool[values.Length] });
         return Unit.Default;
     }
 }

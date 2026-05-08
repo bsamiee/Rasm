@@ -30,6 +30,28 @@ public static partial class Query {
                 from rt in Analyze.Asks
                 from result in DedupeCorners(bbox: bbox, tolerance: rt.Context.Absolute.Value).ToEff()
                 select result);
+    public static Query<TGeometry, TOut> BoundingCorners<TGeometry, TOut>() where TGeometry : notnull =>
+        typeof(TOut) switch {
+            Type output when output == typeof(Point3d) => Cast<TGeometry, TOut>(key: UniqueCornersKey, query: Query<TGeometry, Point3d>.Build(
+                key: UniqueCornersKey,
+                requiresContext: true,
+                evaluator: static (TGeometry geom) =>
+                    from rt in Analyze.Asks
+                    from bbox in BoundingBoxOf(geom: geom).ToEff()
+                    from result in DedupeCorners(bbox: bbox, tolerance: rt.Context.Absolute.Value).ToEff()
+                    select result)),
+            _ => UniqueCornersKey.Unsupported<TGeometry, TOut>(),
+        };
+    private static Fin<BoundingBox> BoundingBoxOf<TGeometry>(TGeometry geom) where TGeometry : notnull =>
+        geom switch {
+            BoundingBox bbox when bbox.IsValid => Fin.Succ(bbox),
+            GeometryBase gb when gb.IsValid => Fin.Succ(gb.GetBoundingBox(accurate: true)),
+            Box box when box.IsValid => Fin.Succ(box.BoundingBox),
+            Sphere sphere when sphere.IsValid => Fin.Succ(sphere.BoundingBox),
+            Line line when line.IsValid => Fin.Succ(line.BoundingBox),
+            Polyline polyline when polyline.IsValid => Fin.Succ(polyline.BoundingBox),
+            _ => Fin.Fail<BoundingBox>(UniqueCornersKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Point3d))),
+        };
     private static Fin<Seq<Point3d>> DedupeCorners(BoundingBox bbox, double tolerance) =>
         bbox.IsValid switch {
             true => Fin.Succ(bbox.GetCorners()
