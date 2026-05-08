@@ -74,6 +74,8 @@ public static class Bridge {
         access.AddRemark(
             text: "Tolerance",
             details: "Host did not supply tolerance/units; using millimetres at default tolerance.");
+        // BOUNDARY ADAPTER — Millimetres validates by construction; throw is unreachable
+        // and required to satisfy the AnalysisRuntime return type at the GH boundary.
         return Analyze.In(units: Rhino.UnitSystem.Millimeters)
             .Runtime
             .Match(
