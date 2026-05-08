@@ -1,4 +1,5 @@
 using Core.Domain;
+using Core.Runtime;
 using LanguageExt;
 using LanguageExt.Common;
 using Rhino.Geometry;
@@ -440,9 +441,8 @@ public static partial class Query {
                     geometry: geometry,
                     requirement: requirement)
                 .ToFin()
-                .Bind((TGeometry _) => query.Apply(
-                    geometry: geometry,
-                    context: Fin.Succ(model))));
+                .Bind((TGeometry _) => query.Apply(geometry: geometry)
+                    .Run(new AnalysisRuntime(Context: model))));
     private static Query<TGeometry, Point3d> LengthCentroid<TGeometry>(string name) where TGeometry : notnull =>
         LengthMass<TGeometry, Point3d>(
             name: name,

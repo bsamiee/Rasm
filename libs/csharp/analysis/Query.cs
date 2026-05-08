@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Linq;
 using System.Runtime.InteropServices;
 using Core.Domain;
+using Core.Runtime;
 using LanguageExt;
 using LanguageExt.Common;
 using Rhino.Geometry;
@@ -29,7 +30,10 @@ public sealed class Query<TGeometry, TOut> where TGeometry : notnull {
     internal bool RequiresContext { get; }
     internal Fin<Unit> Ready { get; }
     private Func<TGeometry, Fin<GeometryContext>, Fin<Seq<TOut>>> Evaluator { get; }
-    internal Fin<Seq<TOut>> Apply(TGeometry geometry, Fin<GeometryContext> context) =>
+    public Eff<AnalysisRuntime, Seq<TOut>> Apply(TGeometry geometry) =>
+        Eff<AnalysisRuntime, Seq<TOut>>.Lift((AnalysisRuntime rt) =>
+            Evaluator(arg1: geometry, arg2: Fin.Succ(value: rt.Context)));
+    internal Fin<Seq<TOut>> ApplyDirect(TGeometry geometry, Fin<GeometryContext> context) =>
         Evaluator(arg1: geometry, arg2: context);
     internal static Query<TGeometry, TOut> Build(
         OperationKey key,

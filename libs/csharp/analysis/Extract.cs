@@ -1,5 +1,6 @@
 using System.Threading;
 using Core.Domain;
+using Core.Runtime;
 using LanguageExt;
 using LanguageExt.Common;
 using Rhino.FileIO;
@@ -454,12 +455,11 @@ public static partial class Query {
                 state: count,
                 evaluator: static (Analysis.MeshCheckCount aspect, Mesh geometry, Fin<GeometryContext> context) => (
                     Fin.Succ(aspect),
-                    MeshCheck
-                        .Apply(
-                            geometry: geometry,
-                            context: context)
+                    context.Bind((GeometryContext model) => MeshCheck
+                        .Apply(geometry: geometry)
+                        .Run(new AnalysisRuntime(Context: model))
                         .Bind(static (Seq<MeshCheckParameters> values) =>
-                            values.Head.ToFin(MeshCheckCountKey.InvalidResult()))
+                            values.Head.ToFin(MeshCheckCountKey.InvalidResult())))
                 ).Apply(static (Analysis.MeshCheckCount selected, MeshCheckParameters parameters) => (
                     Count: selected,
                     Parameters: parameters))

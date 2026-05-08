@@ -1,4 +1,6 @@
 using Analysis;
+using Core;
+using Core.Runtime;
 using Grasshopper2.Components;
 using Grasshopper2.Data.Meta;
 using Grasshopper2.Parameters.Standard;
@@ -24,24 +26,16 @@ public readonly record struct PointOutput<TGeometry>(
 // --- [OPERATIONS] ------------------------------------------------------------------------------
 
 public static class Bridge {
-    public static Analyze.Scope ResolveScope(this IDataAccess access) {
+    public static AnalysisRuntime ResolveScope(this IDataAccess access) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        return (
-            access.GetTolerance(absoluteTolerance: out double absolute),
-            access.GetTolerance(angularTolerance: out Angle angle),
-            access.GetUnitSystem(unitSystem: out UnitSystem units)
-        ) switch {
-            (true, true, true) => Analyze.In(
-                absolute: absolute,
-                relative: 0.0,
-                angle: angle.Radians,
-                units: units.System),
-            _ => RemarkAndFallback(access: access),
-        };
+        return ResolveRuntime(access: access)
+            .Match(
+                Succ: static (AnalysisRuntime runtime) => runtime,
+                Fail: _ => RemarkAndFallback(access: access));
     }
     public static Unit RunMany<TGeometry>(
         this IDataAccess access,
-        Analyze.Scope scope,
+        AnalysisRuntime scope,
         TGeometry geometry,
         Seq<PointOutput<TGeometry>> outputs) where TGeometry : notnull {
         ArgumentNullException.ThrowIfNull(argument: access);
@@ -62,20 +56,40 @@ public static class Bridge {
         return toSeq(Enumerable.Range(start: 0, count: outputCount)).Iter((int index) =>
             WritePoints(access: access, index: index, points: []));
     }
-    private static Analyze.Scope RemarkAndFallback(IDataAccess access) {
+    private static Fin<AnalysisRuntime> ResolveRuntime(IDataAccess access) =>
+        (
+            access.GetTolerance(absoluteTolerance: out double absolute),
+            access.GetTolerance(angularTolerance: out Angle angle),
+            access.GetUnitSystem(unitSystem: out UnitSystem units)
+        ) switch {
+            (true, true, true) => Analyze.In(
+                    absolute: absolute,
+                    relative: 0.0,
+                    angle: angle.Radians,
+                    units: units.System)
+                .Runtime,
+            _ => Fin.Fail<AnalysisRuntime>(error: Error.New(message: "Host did not supply tolerance/units.")),
+        };
+    private static AnalysisRuntime RemarkAndFallback(IDataAccess access) {
         access.AddRemark(
             text: "Tolerance",
             details: "Host did not supply tolerance/units; using millimetres at default tolerance.");
-        return Analyze.In(units: Rhino.UnitSystem.Millimeters);
+        return Analyze.In(units: Rhino.UnitSystem.Millimeters)
+            .Runtime
+            .Match(
+                Succ: static (AnalysisRuntime runtime) => runtime,
+                Fail: static (Error error) => throw new InvalidOperationException(message: error.Message));
     }
     private static Unit Run<TGeometry>(
         IDataAccess access,
-        Analyze.Scope scope,
+        AnalysisRuntime scope,
         TGeometry geometry,
         int index,
         PointOutput<TGeometry> descriptor) where TGeometry : notnull =>
-        scope.Run(query: descriptor.Query, input: geometry)
-            .ToFin()
+        descriptor.Query
+            .Apply(geometry: geometry)
+            .WithStandardResilience()
+            .Run(scope)
             .Match(
                 Succ: (Seq<Point3d> points) => WritePoints(access: access, index: index, points: [.. points]),
                 Fail: (Error error) => Warn(access: access, index: index, name: descriptor.Name, error: error));

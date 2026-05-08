@@ -1,4 +1,5 @@
 using Analysis;
+using Core.Runtime;
 using Grasshopper;
 using Grasshopper2.Components;
 using Grasshopper2.Parameters;
@@ -45,7 +46,7 @@ public sealed class ExtractPointsComponent : Component {
 
     protected override void Process(IDataAccess access) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        Analyze.Scope scope = access.ResolveScope();
+        AnalysisRuntime scope = access.ResolveScope();
         _ = (access.GetItem(index: 0, value: out object? item), item) switch {
             (true, object geometry) => access.RunMany(scope: scope, geometry: geometry, outputs: Outputs),
             _ => access.MissingInput(outputCount: Outputs.Count, label: "Geometry"),
