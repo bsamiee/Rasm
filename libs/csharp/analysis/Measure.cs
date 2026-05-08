@@ -22,6 +22,24 @@ public static partial class Query {
     private delegate Fin<Seq<TValue>> ResidualProjection<TValue>(
         Seq<ResidualSample> samples,
         GeometryContext context);
+    public static Query<BoundingBox, Point3d> UniqueCorners() =>
+        Query<BoundingBox, Point3d>.Build(
+            key: UniqueCornersKey,
+            requiresContext: true,
+            evaluator: static (BoundingBox bbox) =>
+                from rt in Analyze.Asks
+                from result in DedupeCorners(bbox: bbox, tolerance: rt.Context.Absolute.Value).ToEff()
+                select result);
+    private static Fin<Seq<Point3d>> DedupeCorners(BoundingBox bbox, double tolerance) =>
+        bbox.IsValid switch {
+            true => Fin.Succ(bbox.GetCorners()
+                .Aggregate(
+                    seed: Seq<Point3d>(),
+                    func: (Seq<Point3d> acc, Point3d candidate) => acc.Exists((Point3d existing) => existing.DistanceTo(other: candidate) <= tolerance)
+                        ? acc
+                        : acc.Add(candidate))),
+            false => Fin.Fail<Seq<Point3d>>(UniqueCornersKey.InvalidInput()),
+        };
     public static Query<TGeometry, TOut> Bounds<TGeometry, TOut>(Bounds aspect) where TGeometry : notnull =>
         aspect switch {
             Analysis.Bounds.Box => Box<TGeometry, TOut>(),

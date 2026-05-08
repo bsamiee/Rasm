@@ -217,7 +217,9 @@ public static partial class Query {
         NakedPointStatusKey = new(name: nameof(NakedPointStatus)), MeshCheckKey = new(name: nameof(MeshCheck)), MeshCheckCountKey = new(name: "MeshCheckCount"), MeshFaceMetricKey = new(name: nameof(MeshFaceMetric)), SelfIntersectionsKey = new(name: nameof(SelfIntersections)), IntersectKey = new(name: nameof(Intersect)),
         ConformanceKey = new(name: nameof(Conformance)), DeviationKey = new(name: nameof(Deviation)), SpatialIndexKey = new(name: nameof(SpatialIndex)),
         TopologyKey = new(name: nameof(Topology)), ScopeKey = new(name: nameof(Analyze.Scope)),
-        KindKey = new(name: nameof(Kind));
+        KindKey = new(name: nameof(Kind)),
+        UniqueCornersKey = new(name: "UniqueCorners"),
+        WorldCardinalPointsKey = new(name: "WorldCardinalPoints");
     internal static Query<TGeometry, TOut> Unsupported<TGeometry, TOut>(this OperationKey key) where TGeometry : notnull =>
         Query<TGeometry, TOut>.Reject(
             key: key,
