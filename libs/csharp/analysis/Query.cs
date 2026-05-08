@@ -403,8 +403,8 @@ public static partial class Query {
         Mass<TGeometry, LengthMassProperties, TOut>(
             name: name,
             requirement: GeometryRequirement.CurveLength,
-            compute: static (TGeometry geometry, GeometryContext _, bool second, bool product) =>
-                geometry switch {
+            compute: static (TGeometry geometry, bool second, bool product) =>
+                (geometry switch {
                     Curve curve => Optional(LengthMassProperties.Compute(
                             curve: curve,
                             length: true,
@@ -415,7 +415,7 @@ public static partial class Query {
                     _ => Fin.Fail<LengthMassProperties>(MassFault.Unsupported(
                         label: nameof(LengthMassProperties),
                         geometryType: geometry.GetType())),
-                },
+                }).ToEff(),
             project: project,
             secondMoments: secondMoments,
             productMoments: productMoments);
@@ -427,11 +427,12 @@ public static partial class Query {
         Mass<TGeometry, AreaMassProperties, TOut>(
             name: name,
             requirement: GeometryRequirement.AreaMass,
-            compute: static (TGeometry geometry, GeometryContext context, bool second, bool product) =>
-                geometry switch {
+            compute: static (TGeometry geometry, bool second, bool product) =>
+                from rt in Analyze.Asks
+                from props in (geometry switch {
                     Curve curve => AreaMassProperties.Compute(
                             closedPlanarCurve: curve,
-                            planarTolerance: context.Absolute.Value)
+                            planarTolerance: rt.Context.Absolute.Value)
                         .Mass(label: nameof(AreaMassProperties)),
                     Mesh mesh => AreaMassProperties.Compute(
                             mesh: mesh,
@@ -446,8 +447,8 @@ public static partial class Query {
                             firstMoments: true,
                             secondMoments: second,
                             productMoments: product,
-                            relativeTolerance: context.Relative.Value,
-                            absoluteTolerance: context.Absolute.Value)
+                            relativeTolerance: rt.Context.Relative.Value,
+                            absoluteTolerance: rt.Context.Absolute.Value)
                         .Mass(label: nameof(AreaMassProperties)),
                     Surface surface => AreaMassProperties.Compute(
                             surface: surface,
@@ -459,7 +460,8 @@ public static partial class Query {
                     _ => Fin.Fail<AreaMassProperties>(MassFault.Unsupported(
                         label: nameof(AreaMassProperties),
                         geometryType: geometry.GetType())),
-                },
+                }).ToEff()
+                select props,
             project: project,
             secondMoments: secondMoments,
             productMoments: productMoments);
@@ -471,8 +473,9 @@ public static partial class Query {
         Mass<TGeometry, VolumeMassProperties, TOut>(
             name: name,
             requirement: GeometryRequirement.VolumeMass,
-            compute: static (TGeometry geometry, GeometryContext context, bool second, bool product) =>
-                geometry switch {
+            compute: static (TGeometry geometry, bool second, bool product) =>
+                from rt in Analyze.Asks
+                from props in (geometry switch {
                     Mesh mesh => VolumeMassProperties.Compute(
                             mesh: mesh,
                             volume: true,
@@ -486,8 +489,8 @@ public static partial class Query {
                             firstMoments: true,
                             secondMoments: second,
                             productMoments: product,
-                            relativeTolerance: context.Relative.Value,
-                            absoluteTolerance: context.Absolute.Value)
+                            relativeTolerance: rt.Context.Relative.Value,
+                            absoluteTolerance: rt.Context.Absolute.Value)
                         .Mass(label: nameof(VolumeMassProperties)),
                     Surface surface => VolumeMassProperties.Compute(
                             surface: surface,
@@ -499,14 +502,15 @@ public static partial class Query {
                     _ => Fin.Fail<VolumeMassProperties>(MassFault.Unsupported(
                         label: nameof(VolumeMassProperties),
                         geometryType: geometry.GetType())),
-                },
+                }).ToEff()
+                select props,
             project: project,
             secondMoments: secondMoments,
             productMoments: productMoments);
     private static Query<TGeometry, TOut> Mass<TGeometry, TMass, TOut>(
         string name,
         GeometryRequirement requirement,
-        Func<TGeometry, GeometryContext, bool, bool, Fin<TMass>> compute,
+        Func<TGeometry, bool, bool, Eff<AnalysisRuntime, TMass>> compute,
         Func<OperationKey, TMass, Fin<Seq<TOut>>> project,
         bool secondMoments,
         bool productMoments) where TGeometry : notnull where TMass : class, IDisposable {
@@ -515,13 +519,10 @@ public static partial class Query {
             key: key,
             requirement: requirement,
             evaluator: (TGeometry geometry) =>
-                from rt in Analyze.Asks
                 from mass in compute(
-                        arg1: geometry,
-                        arg2: rt.Context,
-                        arg3: secondMoments,
-                        arg4: productMoments)
-                    .ToEff()
+                    arg1: geometry,
+                    arg2: secondMoments,
+                    arg3: productMoments)
                 from values in DisposeAndProject(
                         key: key,
                         mass: mass,
