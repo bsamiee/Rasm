@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -8,6 +9,7 @@ using LanguageExt;
 using LanguageExt.Common;
 using Rhino.Geometry;
 using Rhino.Geometry.Intersect;
+using Thinktecture;
 using static LanguageExt.Prelude;
 namespace Analysis;
 
@@ -119,62 +121,53 @@ public readonly record struct CurveDeviation(
     double Tolerance,
     bool WithinTolerance);
 public enum IntersectionKind { Unknown = 0, Point = 1, Overlap = 2 }
-internal enum BoundsKind { Box, Oriented, Transformed, Center, Corners, Edges, Area, Volume }
-internal enum MeasureKind { Scalar, Error, Centroid, SpatialMidpoint, CentroidError, Radii, Principal }
-internal enum LocationKind { Midpoint, Tangent, Closest, PointAtCurve, PointAtSurface, PointAtLength, FrameAtCurve, FrameAtSurface, PerpendicularFrameAt, NormalAt, CurvatureAtCurve, CurvatureAtSurface, CurvatureProfile, DerivativeAt, DivideByCount, DivideByLength, Orientation, Contains, ShortPath }
 internal enum TopologyKind { Boundary, EdgeMidpoints, Adjacency, NonManifold }
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct Bounds {
-    private Bounds(BoundsKind kind, Plane plane = default, Transform transform = default) {
-        Kind = kind;
-        Plane = plane;
-        Transform = transform;
-    }
-    internal readonly BoundsKind Kind; internal readonly Plane Plane; internal readonly Transform Transform;
-    public static Bounds Box => new(kind: BoundsKind.Box); public static Bounds Center => new(kind: BoundsKind.Center); public static Bounds Corners => new(kind: BoundsKind.Corners);
-    public static Bounds Edges => new(kind: BoundsKind.Edges); public static Bounds Area => new(kind: BoundsKind.Area); public static Bounds Volume => new(kind: BoundsKind.Volume);
-    public static Bounds Oriented(Plane plane) => new(kind: BoundsKind.Oriented, plane: plane);
-    public static Bounds Transformed(Transform transform) => new(kind: BoundsKind.Transformed, transform: transform);
+[Union]
+public partial record Bounds {
+    public sealed record Box : Bounds;
+    public sealed record Oriented(Plane Plane) : Bounds;
+    public sealed record Transformed(Transform Transform) : Bounds;
+    public sealed record Center : Bounds;
+    public sealed record Corners : Bounds;
+    public sealed record Edges : Bounds;
+    public sealed record Area : Bounds;
+    public sealed record Volume : Bounds;
 }
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct Measure {
-    private Measure(MeasureKind kind, MassKind mass) {
-        Kind = kind;
-        Mass = mass;
-    }
-    internal readonly MeasureKind Kind; internal readonly MassKind Mass;
-    public static Measure Length => new(kind: MeasureKind.Scalar, mass: MassKind.Length); public static Measure Area => new(kind: MeasureKind.Scalar, mass: MassKind.Area); public static Measure Volume => new(kind: MeasureKind.Scalar, mass: MassKind.Volume);
-    public static Measure SpatialMidpoint => new(kind: MeasureKind.SpatialMidpoint, mass: MassKind.None);
-    public static Measure Error(MassKind kind) => new(kind: MeasureKind.Error, mass: kind); public static Measure Centroid(MassKind kind) => new(kind: MeasureKind.Centroid, mass: kind); public static Measure CentroidError(MassKind kind) => new(kind: MeasureKind.CentroidError, mass: kind);
-    public static Measure Radii(MassKind kind) => new(kind: MeasureKind.Radii, mass: kind); public static Measure Principal(MassKind kind) => new(kind: MeasureKind.Principal, mass: kind);
+[Union]
+[SuppressMessage(category: "Naming", checkId: "CA1716:Identifiers should not match keywords", Justification = "Measure.Error is a domain-scoped union variant unambiguous within Measure namespace.")]
+[SuppressMessage(category: "Naming", checkId: "CA1724:Type names should not match namespaces", Justification = "Measure.Principal is a domain-scoped union variant unambiguous within Measure namespace.")]
+public partial record Measure {
+    public sealed record Length : Measure;
+    public sealed record Area : Measure;
+    public sealed record Volume : Measure;
+    public sealed record SpatialMidpoint : Measure;
+    public sealed record Centroid(MassKind Mass) : Measure;
+    public sealed record Error(MassKind Mass) : Measure;
+    public sealed record CentroidError(MassKind Mass) : Measure;
+    public sealed record Radii(MassKind Mass) : Measure;
+    public sealed record Principal(MassKind Mass) : Measure;
 }
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct Location {
-    private Location(
-        LocationKind kind,
-        Point3d point = default,
-        Point2d uv = default,
-        Point2d end = default,
-        Plane plane = default,
-        double parameter = default,
-        int count = default,
-        CurvatureScalar scalar = CurvatureScalar.None) {
-        Kind = kind;
-        Point = point;
-        Uv = uv;
-        End = end;
-        Plane = plane;
-        Parameter = parameter;
-        Count = count;
-        Scalar = scalar;
-    }
-    internal readonly LocationKind Kind; internal readonly Point3d Point; internal readonly Point2d Uv; internal readonly Point2d End; internal readonly Plane Plane; internal readonly double Parameter; internal readonly int Count; internal readonly CurvatureScalar Scalar;
-    public static Location Midpoint => new(kind: LocationKind.Midpoint); public static Location Tangent => new(kind: LocationKind.Tangent); public static Location Closest(Point3d point) => new(kind: LocationKind.Closest, point: point);
-    public static Location PointAt(double parameter) => new(kind: LocationKind.PointAtCurve, parameter: parameter); public static Location PointAt(Point2d uv) => new(kind: LocationKind.PointAtSurface, uv: uv); public static Location PointAtLength(double length) => new(kind: LocationKind.PointAtLength, parameter: length);
-    public static Location FrameAt(double parameter) => new(kind: LocationKind.FrameAtCurve, parameter: parameter); public static Location FrameAt(Point2d uv) => new(kind: LocationKind.FrameAtSurface, uv: uv); public static Location PerpendicularFrameAt(double parameter) => new(kind: LocationKind.PerpendicularFrameAt, parameter: parameter);
-    public static Location NormalAt(Point2d uv) => new(kind: LocationKind.NormalAt, uv: uv); public static Location CurvatureAt(double parameter) => new(kind: LocationKind.CurvatureAtCurve, parameter: parameter); public static Location CurvatureAt(Point2d uv) => new(kind: LocationKind.CurvatureAtSurface, uv: uv); public static Location CurvatureProfile(int count) => new(kind: LocationKind.CurvatureProfile, count: count, scalar: CurvatureScalar.None); public static Location CurvatureProfile(int count, CurvatureScalar scalar) => new(kind: LocationKind.CurvatureProfile, count: count, scalar: scalar);
-    public static Location DerivativeAt(double parameter, int count) => new(kind: LocationKind.DerivativeAt, parameter: parameter, count: count); public static Location DivideByCount(int count) => new(kind: LocationKind.DivideByCount, count: count); public static Location DivideByLength(double length) => new(kind: LocationKind.DivideByLength, parameter: length);
-    public static Location Orientation(Plane plane) => new(kind: LocationKind.Orientation, plane: plane); public static Location Contains(Point3d point, Plane plane) => new(kind: LocationKind.Contains, point: point, plane: plane); public static Location ShortPath(Point2d start, Point2d end) => new(kind: LocationKind.ShortPath, uv: start, end: end);
+[Union]
+public partial record Location {
+    public sealed record Midpoint : Location;
+    public sealed record Tangent : Location;
+    public sealed record Closest(Point3d Point) : Location;
+    public sealed record PointAtCurve(double Parameter) : Location;
+    public sealed record PointAtSurface(Point2d Uv) : Location;
+    public sealed record PointAtLength(double Length) : Location;
+    public sealed record FrameAtCurve(double Parameter) : Location;
+    public sealed record FrameAtSurface(Point2d Uv) : Location;
+    public sealed record PerpendicularFrameAt(double Parameter) : Location;
+    public sealed record NormalAt(Point2d Uv) : Location;
+    public sealed record CurvatureAtCurve(double Parameter) : Location;
+    public sealed record CurvatureAtSurface(Point2d Uv) : Location;
+    public sealed record CurvatureProfile(int Count, CurvatureScalar Scalar) : Location;
+    public sealed record DerivativeAt(double Parameter, int Count) : Location;
+    public sealed record DivideByCount(int Count) : Location;
+    public sealed record DivideByLength(double Length) : Location;
+    public sealed record Orientation(Plane Plane) : Location;
+    public sealed record Contains(Point3d Point, Plane Plane) : Location;
+    public sealed record ShortPath(Point2d Start, Point2d End) : Location;
 }
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Topology {

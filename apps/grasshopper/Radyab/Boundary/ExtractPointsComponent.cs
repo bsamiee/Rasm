@@ -19,7 +19,7 @@ public sealed class ExtractPointsComponent : Component {
         new PointOutput<object>("Edge Midpoints", "EM", "Length midpoints of curves and edges.",
             Analysis.Query.EdgeMidpoints<object, Point3d>()),
         new PointOutput<object>("Center", "C", "Intelligent center: bounding box for boxes, mass centroid for solids and curves.",
-            Analysis.Query.Measure<object, Point3d>(aspect: Measure.SpatialMidpoint)),
+            Analysis.Query.Measure<object, Point3d>(aspect: new Measure.SpatialMidpoint())),
         new PointOutput<object>("Vertices", "V", "Native vertices, corners, or curve endpoints.",
             Analysis.Query.Vertices<object, Point3d>()));
 

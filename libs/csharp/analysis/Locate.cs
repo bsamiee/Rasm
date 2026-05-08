@@ -12,71 +12,55 @@ namespace Analysis;
 
 public static partial class Query {
     public static Query<TGeometry, TOut> Locate<TGeometry, TOut>(Location aspect) where TGeometry : notnull =>
-        aspect.Kind switch {
-            LocationKind.Midpoint => Mid<TGeometry, TOut>(),
-            LocationKind.Tangent => TangentAtMiddle<TGeometry, TOut>(),
-            LocationKind.Closest => Closest<TGeometry, TOut>(point: aspect.Point),
-            LocationKind.CurvatureProfile => CurvatureProfile<TGeometry, TOut>(count: aspect.Count, scalar: aspect.Scalar),
-            LocationKind.PointAtCurve or LocationKind.PointAtLength or LocationKind.FrameAtCurve
-                or LocationKind.PerpendicularFrameAt or LocationKind.CurvatureAtCurve
-                or LocationKind.DerivativeAt or LocationKind.DivideByCount
-                or LocationKind.DivideByLength or LocationKind.Orientation
-                or LocationKind.Contains => CurveLocation<TGeometry, TOut>(aspect: aspect),
-            LocationKind.PointAtSurface or LocationKind.FrameAtSurface or LocationKind.NormalAt
-                or LocationKind.CurvatureAtSurface or LocationKind.ShortPath =>
-                SurfaceLocation<TGeometry, TOut>(aspect: aspect),
-            _ => PointAtKey.Unsupported<TGeometry, TOut>(),
-        };
-    private static Query<TGeometry, TOut> CurveLocation<TGeometry, TOut>(Location aspect) where TGeometry : notnull =>
-        aspect.Kind switch {
-            LocationKind.PointAtCurve when typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Point3d) =>
+        aspect switch {
+            Location.Midpoint => Mid<TGeometry, TOut>(),
+            Location.Tangent => TangentAtMiddle<TGeometry, TOut>(),
+            Location.Closest c => Closest<TGeometry, TOut>(point: c.Point),
+            Location.CurvatureProfile cp => CurvatureProfile<TGeometry, TOut>(count: cp.Count, scalar: cp.Scalar),
+            Location.PointAtCurve pac when typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Point3d) =>
                 Cast<TGeometry, TOut>(key: PointAtKey, query: CurveAt<TGeometry, Point3d>(
                     key: PointAtKey,
-                    parameter: aspect.Parameter,
+                    parameter: pac.Parameter,
                     project: static (Curve curve, double parameter) => One(key: PointAtKey, value: curve.PointAt(t: parameter)))),
-            LocationKind.PointAtLength when typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Point3d) =>
+            Location.PointAtLength pal when typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Point3d) =>
                 Cast<TGeometry, TOut>(key: PointAtLengthKey, query: Query<TGeometry, Point3d>.Build(
                     key: PointAtLengthKey,
                     requirement: GeometryRequirement.CurveLength,
-                    state: aspect.Parameter,
+                    state: pal.Length,
                     evaluator: static (double segmentLength, TGeometry geometry) => CurveAtLengthValue(
                         segmentLength: segmentLength,
                         geometry: geometry))),
-            LocationKind.FrameAtCurve when typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Plane) =>
-                Cast<TGeometry, TOut>(key: FrameAtKey, query: CurveFrame<TGeometry>(key: FrameAtKey, parameter: aspect.Parameter, perpendicular: false)),
-            LocationKind.PerpendicularFrameAt when typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Plane) =>
-                Cast<TGeometry, TOut>(key: PerpendicularFrameAtKey, query: CurveFrame<TGeometry>(key: PerpendicularFrameAtKey, parameter: aspect.Parameter, perpendicular: true)),
-            LocationKind.CurvatureAtCurve when typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Vector3d) =>
+            Location.FrameAtCurve fac when typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Plane) =>
+                Cast<TGeometry, TOut>(key: FrameAtKey, query: CurveFrame<TGeometry>(key: FrameAtKey, parameter: fac.Parameter, perpendicular: false)),
+            Location.PerpendicularFrameAt pfa when typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Plane) =>
+                Cast<TGeometry, TOut>(key: PerpendicularFrameAtKey, query: CurveFrame<TGeometry>(key: PerpendicularFrameAtKey, parameter: pfa.Parameter, perpendicular: true)),
+            Location.CurvatureAtCurve cac when typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Vector3d) =>
                 Cast<TGeometry, TOut>(key: CurvatureAtKey, query: CurveAt<TGeometry, Vector3d>(
                     key: CurvatureAtKey,
-                    parameter: aspect.Parameter,
+                    parameter: cac.Parameter,
                     project: static (Curve curve, double parameter) => One(key: CurvatureAtKey, value: curve.CurvatureAt(t: parameter)))),
-            LocationKind.DerivativeAt when typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Vector3d) =>
+            Location.DerivativeAt da when typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Vector3d) =>
                 Cast<TGeometry, TOut>(key: DerivativeAtKey, query: CurveAt<TGeometry, Vector3d>(
                     key: DerivativeAtKey,
-                    parameter: aspect.Parameter,
-                    project: (Curve curve, double parameter) => Many(key: DerivativeAtKey, values: curve.DerivativeAt(t: parameter, derivativeCount: aspect.Count)))),
-            _ => CurveDerivedLocation<TGeometry, TOut>(aspect: aspect),
-        };
-    private static Query<TGeometry, TOut> CurveDerivedLocation<TGeometry, TOut>(Location aspect) where TGeometry : notnull =>
-        aspect.Kind switch {
-            LocationKind.DivideByCount when typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Point3d) =>
-                Cast<TGeometry, TOut>(key: DivideByCountKey, query: Divide<TGeometry>(count: aspect.Count)),
-            LocationKind.DivideByLength when typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Point3d) =>
-                Cast<TGeometry, TOut>(key: DivideByLengthKey, query: Divide<TGeometry>(length: aspect.Parameter)),
-            LocationKind.Orientation when typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(CurveOrientation) =>
+                    parameter: da.Parameter,
+                    project: (Curve curve, double parameter) => Many(key: DerivativeAtKey, values: curve.DerivativeAt(t: parameter, derivativeCount: da.Count)))),
+            Location.DivideByCount dbc when typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Point3d) =>
+                Cast<TGeometry, TOut>(key: DivideByCountKey, query: Divide<TGeometry>(count: dbc.Count)),
+            Location.DivideByLength dbl when typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Point3d) =>
+                Cast<TGeometry, TOut>(key: DivideByLengthKey, query: Divide<TGeometry>(length: dbl.Length)),
+            Location.Orientation o when typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(CurveOrientation) =>
                 Cast<TGeometry, TOut>(key: OrientationKey, query: Query<TGeometry, CurveOrientation>.Build(
                     key: OrientationKey,
-                    state: aspect.Plane,
+                    state: o.Plane,
                     evaluator: static (Plane plane, TGeometry geometry) => geometry switch {
                         Curve curve => One(key: OrientationKey, value: curve.ClosedCurveOrientation(plane: plane)).ToEff(),
                         _ => Eff<AnalysisRuntime, Seq<CurveOrientation>>.Fail(error: OrientationKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(CurveOrientation))),
                     })),
-            LocationKind.Contains when typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(PointContainment) =>
+            Location.Contains cnt when typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(PointContainment) =>
                 Cast<TGeometry, TOut>(key: ContainsKey, query: Query<TGeometry, PointContainment>.Build(
                     key: ContainsKey,
                     requiresContext: true,
-                    state: (Probe: aspect.Point, Frame: aspect.Plane),
+                    state: (Probe: cnt.Point, Frame: cnt.Plane),
                     evaluator: static ((Point3d Probe, Plane Frame) probe, TGeometry geometry) => geometry switch {
                         Curve curve =>
                             from rt in Analyze.Asks
@@ -87,40 +71,36 @@ public static partial class Query {
                             select result,
                         _ => Eff<AnalysisRuntime, Seq<PointContainment>>.Fail(error: ContainsKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(PointContainment))),
                     })),
-            _ => PointAtKey.Unsupported<TGeometry, TOut>(),
-        };
-    private static Query<TGeometry, TOut> SurfaceLocation<TGeometry, TOut>(Location aspect) where TGeometry : notnull =>
-        aspect.Kind switch {
-            LocationKind.PointAtSurface when typeof(Surface).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Point3d) =>
+            Location.PointAtSurface pas when typeof(Surface).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Point3d) =>
                 Cast<TGeometry, TOut>(key: PointAtKey, query: SurfaceUv<TGeometry, Point3d>(
                     key: PointAtKey,
-                    uv: aspect.Uv,
+                    uv: pas.Uv,
                     project: static (Surface geometry, Point2d parameter) => One(key: PointAtKey, value: geometry.PointAt(u: parameter.X, v: parameter.Y)))),
-            LocationKind.FrameAtSurface when typeof(Surface).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Plane) =>
+            Location.FrameAtSurface fas when typeof(Surface).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Plane) =>
                 Cast<TGeometry, TOut>(key: FrameAtKey, query: SurfaceUv<TGeometry, Plane>(
                     key: FrameAtKey,
-                    uv: aspect.Uv,
+                    uv: fas.Uv,
                     project: static (Surface geometry, Point2d parameter) => geometry.FrameAt(u: parameter.X, v: parameter.Y, frame: out Plane frame) switch {
                         true => One(key: FrameAtKey, value: frame),
                         false => Fin.Fail<Seq<Plane>>(FrameAtKey.InvalidResult()),
                     })),
-            LocationKind.NormalAt when typeof(Surface).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Vector3d) =>
+            Location.NormalAt na when typeof(Surface).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Vector3d) =>
                 Cast<TGeometry, TOut>(key: NormalAtKey, query: SurfaceUv<TGeometry, Vector3d>(
                     key: NormalAtKey,
-                    uv: aspect.Uv,
+                    uv: na.Uv,
                     project: static (Surface geometry, Point2d parameter) => geometry.NormalAt(u: parameter.X, v: parameter.Y) switch {
                         Vector3d normal when normal.IsValid && !normal.IsTiny() => One(key: NormalAtKey, value: normal),
                         _ => Fin.Fail<Seq<Vector3d>>(NormalAtKey.InvalidResult()),
                     })),
-            LocationKind.CurvatureAtSurface when typeof(Surface).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(SurfaceCurvature) =>
+            Location.CurvatureAtSurface cas when typeof(Surface).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(SurfaceCurvature) =>
                 Cast<TGeometry, TOut>(key: CurvatureAtKey, query: SurfaceUv<TGeometry, SurfaceCurvature>(
                     key: CurvatureAtKey,
-                    uv: aspect.Uv,
+                    uv: cas.Uv,
                     project: static (Surface geometry, Point2d parameter) => Optional(geometry.CurvatureAt(u: parameter.X, v: parameter.Y))
                         .ToFin(CurvatureAtKey.InvalidResult())
                         .Map(static (SurfaceCurvature curvature) => Seq(curvature)))),
-            LocationKind.ShortPath when typeof(Surface).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Curve) =>
-                Cast<TGeometry, TOut>(key: ShortPathKey, query: ShortPath<TGeometry>(start: aspect.Uv, end: aspect.End)),
+            Location.ShortPath sp when typeof(Surface).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Curve) =>
+                Cast<TGeometry, TOut>(key: ShortPathKey, query: ShortPath<TGeometry>(start: sp.Start, end: sp.End)),
             _ => PointAtKey.Unsupported<TGeometry, TOut>(),
         };
     private static Query<TGeometry, TOut> Mid<TGeometry, TOut>() where TGeometry : notnull =>

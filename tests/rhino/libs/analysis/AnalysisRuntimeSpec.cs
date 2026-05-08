@@ -30,19 +30,19 @@ public sealed class AnalysisRuntimeSpec {
         using LineCurve curve = new(line: line);
 
         Point3d[] midpoint = Run(
-            query: AnalysisQuery.Locate<Polyline, Point3d>(aspect: Location.Midpoint),
+            query: AnalysisQuery.Locate<Polyline, Point3d>(aspect: new Location.Midpoint()),
             context: Context(),
             input: [polyline]);
         Vector3d[] tangent = Run(
-            query: AnalysisQuery.Locate<Line, Vector3d>(aspect: Location.Tangent),
+            query: AnalysisQuery.Locate<Line, Vector3d>(aspect: new Location.Tangent()),
             context: Context(),
             input: [line]);
         Vector3d[] curveTangent = Run(
-            query: AnalysisQuery.Locate<Curve, Vector3d>(aspect: Location.Tangent),
+            query: AnalysisQuery.Locate<Curve, Vector3d>(aspect: new Location.Tangent()),
             context: Context(),
             input: [curve]);
         Point3d[] closest = Run(
-            query: AnalysisQuery.Locate<Line, Point3d>(aspect: Location.Closest(point: new Point3d(x: 2.0, y: 3.0, z: 0.0))),
+            query: AnalysisQuery.Locate<Line, Point3d>(aspect: new Location.Closest(Point: new Point3d(x: 2.0, y: 3.0, z: 0.0))),
             context: Context(),
             input: [line]);
         Line[] segments = Run(
@@ -50,11 +50,11 @@ public sealed class AnalysisRuntimeSpec {
             context: Context(),
             input: [polyline]);
         double[] curveLength = Run(
-            query: AnalysisQuery.Measure<Curve, double>(aspect: Measure.Length),
+            query: AnalysisQuery.Measure<Curve, double>(aspect: new Measure.Length()),
             context: Context(),
             input: [curve]);
         Point3d[] lengthCentroid = Run(
-            query: AnalysisQuery.Measure<Curve, Point3d>(aspect: Measure.Centroid(kind: MassKind.Length)),
+            query: AnalysisQuery.Measure<Curve, Point3d>(aspect: new Measure.Centroid(Mass: MassKind.Length)),
             context: Context(),
             input: [curve]);
 
@@ -111,56 +111,56 @@ public sealed class AnalysisRuntimeSpec {
             };
 
         double[] lengthError = Run(
-            query: AnalysisQuery.Measure<Curve, double>(aspect: Measure.Error(kind: MassKind.Length)),
+            query: AnalysisQuery.Measure<Curve, double>(aspect: new Measure.Error(Mass: MassKind.Length)),
             context: context,
             input: [curve]);
         Plane[] curveFrames = Run(
-            query: AnalysisQuery.Locate<Curve, Plane>(aspect: Location.FrameAt(parameter: curve.Domain.Mid)),
+            query: AnalysisQuery.Locate<Curve, Plane>(aspect: new Location.FrameAtCurve(Parameter: curve.Domain.Mid)),
             context: context,
             input: [curve]);
         Vector3d[] curveCurvature = Run(
-            query: AnalysisQuery.Locate<Curve, Vector3d>(aspect: Location.CurvatureAt(parameter: curve.Domain.Mid)),
+            query: AnalysisQuery.Locate<Curve, Vector3d>(aspect: new Location.CurvatureAtCurve(Parameter: curve.Domain.Mid)),
             context: context,
             input: [curve]);
         Vector3d[] curvatureProfile = Run(
-            query: AnalysisQuery.Locate<Curve, Vector3d>(aspect: Location.CurvatureProfile(count: 3)),
+            query: AnalysisQuery.Locate<Curve, Vector3d>(aspect: new Location.CurvatureProfile(Count: 3, Scalar: CurvatureScalar.None)),
             context: context,
             input: [curve]);
         Vector3d[] normalizedProfile = Run(
-            query: AnalysisQuery.Locate<Curve, Vector3d>(aspect: Location.CurvatureProfile(count: 3)),
+            query: AnalysisQuery.Locate<Curve, Vector3d>(aspect: new Location.CurvatureProfile(Count: 3, Scalar: CurvatureScalar.None)),
             context: context,
             input: [profiled]);
         CurvatureProfile[] curvatureSummary = Run(
-            query: AnalysisQuery.Locate<Curve, CurvatureProfile>(aspect: Location.CurvatureProfile(count: 3)),
+            query: AnalysisQuery.Locate<Curve, CurvatureProfile>(aspect: new Location.CurvatureProfile(Count: 3, Scalar: CurvatureScalar.None)),
             context: context,
             input: [profiled]);
         double[] curvatureMagnitudes = Run(
-            query: AnalysisQuery.Locate<Curve, double>(aspect: Location.CurvatureProfile(count: 3, scalar: CurvatureScalar.Magnitude)),
+            query: AnalysisQuery.Locate<Curve, double>(aspect: new Location.CurvatureProfile(Count: 3, Scalar: CurvatureScalar.Magnitude)),
             context: context,
             input: [profiled]);
         CurvatureProfile[] midpointSummary = Run(
-            query: AnalysisQuery.Locate<Curve, CurvatureProfile>(aspect: Location.CurvatureProfile(count: 1, scalar: CurvatureScalar.Magnitude)),
+            query: AnalysisQuery.Locate<Curve, CurvatureProfile>(aspect: new Location.CurvatureProfile(Count: 1, Scalar: CurvatureScalar.Magnitude)),
             context: context,
             input: [profiled]);
         double[] midpointMagnitude = Run(
-            query: AnalysisQuery.Locate<Curve, double>(aspect: Location.CurvatureProfile(count: 1, scalar: CurvatureScalar.Magnitude)),
+            query: AnalysisQuery.Locate<Curve, double>(aspect: new Location.CurvatureProfile(Count: 1, Scalar: CurvatureScalar.Magnitude)),
             context: context,
             input: [profiled]);
         Point3d[] concretePoint = Run(
-            query: AnalysisQuery.Locate<LineCurve, Point3d>(aspect: Location.PointAt(parameter: concrete.Domain.Mid)),
+            query: AnalysisQuery.Locate<LineCurve, Point3d>(aspect: new Location.PointAtCurve(Parameter: concrete.Domain.Mid)),
             context: context,
             input: [concrete]);
         Plane[] concreteFrame = Run(
-            query: AnalysisQuery.Locate<LineCurve, Plane>(aspect: Location.FrameAt(parameter: concrete.Domain.Mid)),
+            query: AnalysisQuery.Locate<LineCurve, Plane>(aspect: new Location.FrameAtCurve(Parameter: concrete.Domain.Mid)),
             context: context,
             input: [concrete]);
         Validation<Error, Seq<Vector3d>> invalidParameter = Analyze.In(context: context)
             .Run(
-                query: AnalysisQuery.Locate<Curve, Vector3d>(aspect: Location.CurvatureAt(parameter: curve.Domain.T1 + 1.0)),
+                query: AnalysisQuery.Locate<Curve, Vector3d>(aspect: new Location.CurvatureAtCurve(Parameter: curve.Domain.T1 + 1.0)),
                 input: [curve]);
         Validation<Error, Seq<Vector3d>> invalidProfile = Analyze.In(context: context)
             .Run(
-                query: AnalysisQuery.Locate<Curve, Vector3d>(aspect: Location.CurvatureProfile(count: 0)),
+                query: AnalysisQuery.Locate<Curve, Vector3d>(aspect: new Location.CurvatureProfile(Count: 0, Scalar: CurvatureScalar.None)),
                 input: [curve]);
         double curvatureMagnitudeMean = curvatureMagnitudes.Average();
         double curvatureMagnitudeVariance = curvatureMagnitudes.Aggregate(
@@ -212,7 +212,7 @@ public sealed class AnalysisRuntimeSpec {
             to: new Point3d(x: 0.0, y: 4.0, z: 0.0)));
 
         Point3d[] centroids = Run(
-            query: AnalysisQuery.Measure<Curve, Point3d>(aspect: Measure.Centroid(kind: MassKind.Length)),
+            query: AnalysisQuery.Measure<Curve, Point3d>(aspect: new Measure.Centroid(Mass: MassKind.Length)),
             context: context,
             input: [first, second]);
 
@@ -232,11 +232,11 @@ public sealed class AnalysisRuntimeSpec {
         ]);
 
         Point3d[] midpoint = Run(
-            query: AnalysisQuery.Locate<Polyline, Point3d>(aspect: Location.Midpoint),
+            query: AnalysisQuery.Locate<Polyline, Point3d>(aspect: new Location.Midpoint()),
             context: context,
             input: [polyline]);
         Vector3d[] tangent = Run(
-            query: AnalysisQuery.Locate<Polyline, Vector3d>(aspect: Location.Tangent),
+            query: AnalysisQuery.Locate<Polyline, Vector3d>(aspect: new Location.Tangent()),
             context: context,
             input: [polyline]);
 
@@ -255,15 +255,15 @@ public sealed class AnalysisRuntimeSpec {
             yExtents: new Interval(t0: 0.0, t1: 5.0));
 
         Plane[] frames = Run(
-            query: AnalysisQuery.Locate<Surface, Plane>(aspect: Location.FrameAt(uv: new Point2d(x: 1.0, y: 1.0))),
+            query: AnalysisQuery.Locate<Surface, Plane>(aspect: new Location.FrameAtSurface(Uv: new Point2d(x: 1.0, y: 1.0))),
             context: context,
             input: [surface]);
         Point3d[] points = Run(
-            query: AnalysisQuery.Locate<Surface, Point3d>(aspect: Location.PointAt(uv: new Point2d(x: 1.0, y: 1.0))),
+            query: AnalysisQuery.Locate<Surface, Point3d>(aspect: new Location.PointAtSurface(Uv: new Point2d(x: 1.0, y: 1.0))),
             context: context,
             input: [surface]);
         Vector3d[] normals = Run(
-            query: AnalysisQuery.Locate<Surface, Vector3d>(aspect: Location.NormalAt(uv: new Point2d(x: 1.0, y: 1.0))),
+            query: AnalysisQuery.Locate<Surface, Vector3d>(aspect: new Location.NormalAt(Uv: new Point2d(x: 1.0, y: 1.0))),
             context: context,
             input: [surface]);
         Plane[] primitive = Run(
@@ -271,23 +271,23 @@ public sealed class AnalysisRuntimeSpec {
             context: context,
             input: [surface]);
         SurfaceCurvature[] curvature = Run(
-            query: AnalysisQuery.Locate<Surface, SurfaceCurvature>(aspect: Location.CurvatureAt(uv: new Point2d(x: 1.0, y: 1.0))),
+            query: AnalysisQuery.Locate<Surface, SurfaceCurvature>(aspect: new Location.CurvatureAtSurface(Uv: new Point2d(x: 1.0, y: 1.0))),
             context: context,
             input: [surface]);
         SurfaceCurvature[] curvatureProfile = Run(
-            query: AnalysisQuery.Locate<Surface, SurfaceCurvature>(aspect: Location.CurvatureProfile(count: 2)),
+            query: AnalysisQuery.Locate<Surface, SurfaceCurvature>(aspect: new Location.CurvatureProfile(Count: 2, Scalar: CurvatureScalar.None)),
             context: context,
             input: [surface]);
         CurvatureProfile[] curvatureSummary = Run(
-            query: AnalysisQuery.Locate<Surface, CurvatureProfile>(aspect: Location.CurvatureProfile(count: 2)),
+            query: AnalysisQuery.Locate<Surface, CurvatureProfile>(aspect: new Location.CurvatureProfile(Count: 2, Scalar: CurvatureScalar.None)),
             context: context,
             input: [surface]);
         double[] gaussianProfile = Run(
-            query: AnalysisQuery.Locate<Surface, double>(aspect: Location.CurvatureProfile(count: 2, scalar: CurvatureScalar.Gaussian)),
+            query: AnalysisQuery.Locate<Surface, double>(aspect: new Location.CurvatureProfile(Count: 2, Scalar: CurvatureScalar.Gaussian)),
             context: context,
             input: [surface]);
         double[] meanProfile = Run(
-            query: AnalysisQuery.Locate<Surface, double>(aspect: Location.CurvatureProfile(count: 2, scalar: CurvatureScalar.Mean)),
+            query: AnalysisQuery.Locate<Surface, double>(aspect: new Location.CurvatureProfile(Count: 2, Scalar: CurvatureScalar.Mean)),
             context: context,
             input: [surface]);
         Interval[] domains = Run(
@@ -303,11 +303,11 @@ public sealed class AnalysisRuntimeSpec {
             context: context,
             input: [surface]);
         Point3d[] concretePoints = Run(
-            query: AnalysisQuery.Locate<PlaneSurface, Point3d>(aspect: Location.PointAt(uv: new Point2d(x: 1.0, y: 1.0))),
+            query: AnalysisQuery.Locate<PlaneSurface, Point3d>(aspect: new Location.PointAtSurface(Uv: new Point2d(x: 1.0, y: 1.0))),
             context: context,
             input: [surface]);
         Plane[] concreteFrames = Run(
-            query: AnalysisQuery.Locate<PlaneSurface, Plane>(aspect: Location.FrameAt(uv: new Point2d(x: 1.0, y: 1.0))),
+            query: AnalysisQuery.Locate<PlaneSurface, Plane>(aspect: new Location.FrameAtSurface(Uv: new Point2d(x: 1.0, y: 1.0))),
             context: context,
             input: [surface]);
 
@@ -548,19 +548,19 @@ public sealed class AnalysisRuntimeSpec {
         double[] expectedMean = [first.Mean, second.Mean, third.Mean, fourth.Mean];
 
         double[] gaussianProfile = Run(
-            query: AnalysisQuery.Locate<Surface, double>(aspect: Location.CurvatureProfile(count: 2, scalar: CurvatureScalar.Gaussian)),
+            query: AnalysisQuery.Locate<Surface, double>(aspect: new Location.CurvatureProfile(Count: 2, Scalar: CurvatureScalar.Gaussian)),
             context: context,
             input: [surface]);
         double[] meanProfile = Run(
-            query: AnalysisQuery.Locate<Surface, double>(aspect: Location.CurvatureProfile(count: 2, scalar: CurvatureScalar.Mean)),
+            query: AnalysisQuery.Locate<Surface, double>(aspect: new Location.CurvatureProfile(Count: 2, Scalar: CurvatureScalar.Mean)),
             context: context,
             input: [surface]);
         CurvatureProfile[] gaussianSummary = Run(
-            query: AnalysisQuery.Locate<Surface, CurvatureProfile>(aspect: Location.CurvatureProfile(count: 2, scalar: CurvatureScalar.Gaussian)),
+            query: AnalysisQuery.Locate<Surface, CurvatureProfile>(aspect: new Location.CurvatureProfile(Count: 2, Scalar: CurvatureScalar.Gaussian)),
             context: context,
             input: [surface]);
         CurvatureProfile[] meanSummary = Run(
-            query: AnalysisQuery.Locate<Surface, CurvatureProfile>(aspect: Location.CurvatureProfile(count: 2, scalar: CurvatureScalar.Mean)),
+            query: AnalysisQuery.Locate<Surface, CurvatureProfile>(aspect: new Location.CurvatureProfile(Count: 2, Scalar: CurvatureScalar.Mean)),
             context: context,
             input: [surface]);
         double gaussianMean = gaussianProfile.Average();
@@ -600,35 +600,35 @@ public sealed class AnalysisRuntimeSpec {
         using Surface surface = new Sphere(center: Point3d.Origin, radius: 1.0).ToNurbsSurface();
 
         double[] volume = Run(
-            query: AnalysisQuery.Measure<GeometryBase, double>(aspect: Measure.Volume),
+            query: AnalysisQuery.Measure<GeometryBase, double>(aspect: new Measure.Volume()),
             context: context,
             input: [brep]);
         double[] concreteVolume = Run(
-            query: AnalysisQuery.Measure<Brep, double>(aspect: Measure.Volume),
+            query: AnalysisQuery.Measure<Brep, double>(aspect: new Measure.Volume()),
             context: context,
             input: [brep]);
         double[] area = Run(
-            query: AnalysisQuery.Measure<GeometryBase, double>(aspect: Measure.Area),
+            query: AnalysisQuery.Measure<GeometryBase, double>(aspect: new Measure.Area()),
             context: context,
             input: [brep]);
         double[] concreteArea = Run(
-            query: AnalysisQuery.Measure<Brep, double>(aspect: Measure.Area),
+            query: AnalysisQuery.Measure<Brep, double>(aspect: new Measure.Area()),
             context: context,
             input: [brep]);
         double[] surfaceVolume = Run(
-            query: AnalysisQuery.Measure<Surface, double>(aspect: Measure.Volume),
+            query: AnalysisQuery.Measure<Surface, double>(aspect: new Measure.Volume()),
             context: context,
             input: [surface]);
         double[] volumeError = Run(
-            query: AnalysisQuery.Measure<GeometryBase, double>(aspect: Measure.Error(kind: MassKind.Volume)),
+            query: AnalysisQuery.Measure<GeometryBase, double>(aspect: new Measure.Error(Mass: MassKind.Volume)),
             context: context,
             input: [brep]);
         Point3d[] centroid = Run(
-            query: AnalysisQuery.Measure<GeometryBase, Point3d>(aspect: Measure.Centroid(kind: MassKind.Volume)),
+            query: AnalysisQuery.Measure<GeometryBase, Point3d>(aspect: new Measure.Centroid(Mass: MassKind.Volume)),
             context: context,
             input: [brep]);
         Point3d[] areaCentroid = Run(
-            query: AnalysisQuery.Measure<GeometryBase, Point3d>(aspect: Measure.Centroid(kind: MassKind.Area)),
+            query: AnalysisQuery.Measure<GeometryBase, Point3d>(aspect: new Measure.Centroid(Mass: MassKind.Area)),
             context: context,
             input: [brep]);
         Curve[] edges = Run(
@@ -658,19 +658,19 @@ public sealed class AnalysisRuntimeSpec {
         using Brep brep = new Sphere(center: Point3d.Origin, radius: 1.0).ToBrep();
 
         Vector3d[] lengthRadii = Run(
-            query: AnalysisQuery.Measure<Curve, Vector3d>(aspect: Measure.Radii(kind: MassKind.Length)),
+            query: AnalysisQuery.Measure<Curve, Vector3d>(aspect: new Measure.Radii(Mass: MassKind.Length)),
             context: context,
             input: [curve]);
         (double Moment, Vector3d Axis)[] lengthPrincipal = Run(
-            query: AnalysisQuery.Measure<Curve, (double Moment, Vector3d Axis)>(aspect: Measure.Principal(kind: MassKind.Length)),
+            query: AnalysisQuery.Measure<Curve, (double Moment, Vector3d Axis)>(aspect: new Measure.Principal(Mass: MassKind.Length)),
             context: context,
             input: [curve]);
         Vector3d[] areaRadii = Run(
-            query: AnalysisQuery.Measure<GeometryBase, Vector3d>(aspect: Measure.Radii(kind: MassKind.Area)),
+            query: AnalysisQuery.Measure<GeometryBase, Vector3d>(aspect: new Measure.Radii(Mass: MassKind.Area)),
             context: context,
             input: [brep]);
         (double Moment, Vector3d Axis)[] volumePrincipal = Run(
-            query: AnalysisQuery.Measure<GeometryBase, (double Moment, Vector3d Axis)>(aspect: Measure.Principal(kind: MassKind.Volume)),
+            query: AnalysisQuery.Measure<GeometryBase, (double Moment, Vector3d Axis)>(aspect: new Measure.Principal(Mass: MassKind.Volume)),
             context: context,
             input: [brep]);
 
@@ -718,7 +718,7 @@ public sealed class AnalysisRuntimeSpec {
         using Brep brep = new Sphere(center: Point3d.Origin, radius: 1.0).ToBrep();
 
         Validation<Error, Seq<double>> result = Analyze.Run(
-            query: AnalysisQuery.Measure<GeometryBase, double>(aspect: Measure.Volume),
+            query: AnalysisQuery.Measure<GeometryBase, double>(aspect: new Measure.Volume()),
             input: [brep]);
 
         Assert.That(actual: result.ToFin().IsFail, expression: Is.True);
@@ -730,7 +730,7 @@ public sealed class AnalysisRuntimeSpec {
 
         Validation<Error, Seq<double>> result = Analyze.In(context: context)
             .Run(
-                query: AnalysisQuery.Measure<Curve, double>(aspect: Measure.Length),
+                query: AnalysisQuery.Measure<Curve, double>(aspect: new Measure.Length()),
                 input: [null!]);
 
         Assert.That(actual: result.ToFin().IsFail, expression: Is.True);
@@ -746,7 +746,7 @@ public sealed class AnalysisRuntimeSpec {
 
         Validation<Error, Seq<double>> result = Analyze.In(context: context)
             .Run(
-                query: AnalysisQuery.Measure<Surface, double>(aspect: Measure.Volume),
+                query: AnalysisQuery.Measure<Surface, double>(aspect: new Measure.Volume()),
                 input: [surface]);
 
         Assert.That(actual: result.ToFin().IsFail, expression: Is.True);
@@ -768,15 +768,15 @@ public sealed class AnalysisRuntimeSpec {
 
         Validation<Error, Seq<double>> openArea = Analyze.In(context: context)
             .Run(
-                query: AnalysisQuery.Measure<Curve, double>(aspect: Measure.Area),
+                query: AnalysisQuery.Measure<Curve, double>(aspect: new Measure.Area()),
                 input: [open]);
         Validation<Error, Seq<double>> nonPlanarArea = Analyze.In(context: context)
             .Run(
-                query: AnalysisQuery.Measure<Curve, double>(aspect: Measure.Area),
+                query: AnalysisQuery.Measure<Curve, double>(aspect: new Measure.Area()),
                 input: [nonPlanarClosed]);
         Validation<Error, Seq<PointContainment>> openContainment = Analyze.In(context: context)
             .Run(
-                query: AnalysisQuery.Locate<Curve, PointContainment>(aspect: Location.Contains(point: Point3d.Origin, plane: Plane.WorldXY)),
+                query: AnalysisQuery.Locate<Curve, PointContainment>(aspect: new Location.Contains(Point: Point3d.Origin, Plane: Plane.WorldXY)),
                 input: [open]);
 
         Assert.Multiple(() => {
@@ -805,11 +805,11 @@ public sealed class AnalysisRuntimeSpec {
             context: context,
             input: [mesh]);
         MeshPoint[] meshPoints = Run(
-            query: AnalysisQuery.Locate<Mesh, MeshPoint>(aspect: Location.Closest(point: new Point3d(x: 0.5, y: 0.5, z: 1.0))),
+            query: AnalysisQuery.Locate<Mesh, MeshPoint>(aspect: new Location.Closest(Point: new Point3d(x: 0.5, y: 0.5, z: 1.0))),
             context: context,
             input: [mesh]);
         Vector3d[] normals = Run(
-            query: AnalysisQuery.Locate<Mesh, Vector3d>(aspect: Location.Closest(point: new Point3d(x: 0.5, y: 0.5, z: 1.0))),
+            query: AnalysisQuery.Locate<Mesh, Vector3d>(aspect: new Location.Closest(Point: new Point3d(x: 0.5, y: 0.5, z: 1.0))),
             context: context,
             input: [mesh]);
         bool[] manifold = Run(
@@ -1047,11 +1047,11 @@ public sealed class AnalysisRuntimeSpec {
 
         BoundingBox[] transformed = Run(
             query: AnalysisQuery.Bounds<Curve, BoundingBox>(
-                aspect: Bounds.Transformed(transform: Transform.Translation(dx: 1.0, dy: 2.0, dz: 0.0))),
+                aspect: new Bounds.Transformed(Transform: Transform.Translation(dx: 1.0, dy: 2.0, dz: 0.0))),
             context: context,
             input: [first]);
         Box[] oriented = Run(
-            query: AnalysisQuery.Bounds<Curve, Box>(aspect: Bounds.Oriented(plane: Plane.WorldXY)),
+            query: AnalysisQuery.Bounds<Curve, Box>(aspect: new Bounds.Oriented(Plane: Plane.WorldXY)),
             context: context,
             input: [first]);
 
@@ -1313,7 +1313,7 @@ public sealed class AnalysisRuntimeSpec {
             context: context,
             input: [box]);
         Point3d[] spatialMidpoint = Run(
-            query: AnalysisQuery.Measure<BoundingBox, Point3d>(aspect: Measure.SpatialMidpoint),
+            query: AnalysisQuery.Measure<BoundingBox, Point3d>(aspect: new Measure.SpatialMidpoint()),
             context: context,
             input: [box]);
         Point3d[] vertices = Run(
@@ -1325,7 +1325,7 @@ public sealed class AnalysisRuntimeSpec {
             context: context,
             input: [orientedBox]);
         Point3d[] orientedBoxSpatialMidpoint = Run(
-            query: AnalysisQuery.Measure<Box, Point3d>(aspect: Measure.SpatialMidpoint),
+            query: AnalysisQuery.Measure<Box, Point3d>(aspect: new Measure.SpatialMidpoint()),
             context: context,
             input: [orientedBox]);
         Point3d[] orientedBoxVertices = Run(
@@ -1383,7 +1383,7 @@ public sealed class AnalysisRuntimeSpec {
                 angle: Math.PI / 180.0,
                 units: UnitSystem.Millimeters)
             .Run(
-                query: AnalysisQuery.Bounds<BoundingBox, BoundingBox>(aspect: Bounds.Box),
+                query: AnalysisQuery.Bounds<BoundingBox, BoundingBox>(aspect: new Bounds.Box()),
                 input: [box])
             .ToFin()
             .Match(
@@ -1406,11 +1406,11 @@ public sealed class AnalysisRuntimeSpec {
         using Brep brep = cone.ToBrep(capBottom: true);
 
         Point3d[] boundsCenter = Run(
-            query: AnalysisQuery.Bounds<Brep, Point3d>(aspect: Bounds.Center),
+            query: AnalysisQuery.Bounds<Brep, Point3d>(aspect: new Bounds.Center()),
             context: context,
             input: [brep]);
         Point3d[] volumeCentroid = Run(
-            query: AnalysisQuery.Measure<Brep, Point3d>(aspect: Measure.SpatialMidpoint),
+            query: AnalysisQuery.Measure<Brep, Point3d>(aspect: new Measure.SpatialMidpoint()),
             context: context,
             input: [brep]);
         BoundingBox boundingBox = brep.GetBoundingBox(accurate: true);
@@ -1432,7 +1432,7 @@ public sealed class AnalysisRuntimeSpec {
         using Brep brep = Brep.CreateFromBox(box: box);
 
         Point3d[] corners = Run(
-            query: AnalysisQuery.Bounds<Brep, Point3d>(aspect: Bounds.Corners),
+            query: AnalysisQuery.Bounds<Brep, Point3d>(aspect: new Bounds.Corners()),
             context: context,
             input: [brep]);
 
@@ -1485,7 +1485,7 @@ public sealed class AnalysisRuntimeSpec {
             context: context,
             input: [mesh]);
         Point3d[] spatialMidpoint = Run(
-            query: AnalysisQuery.Measure<Mesh, Point3d>(aspect: Measure.SpatialMidpoint),
+            query: AnalysisQuery.Measure<Mesh, Point3d>(aspect: new Measure.SpatialMidpoint()),
             context: context,
             input: [mesh]);
 

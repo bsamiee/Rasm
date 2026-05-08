@@ -18,7 +18,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void ComputesLineMidpoint() {
         Point3d[] points = Run(
-            query: Query.Locate<Line, Point3d>(aspect: Location.Midpoint),
+            query: Query.Locate<Line, Point3d>(aspect: new Location.Midpoint()),
             input: [
                 new Line(
                     from: Point3d.Origin,
@@ -33,7 +33,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void ExecutesEmptyInput() {
         Validation<Error, Seq<Point3d>> result = Analyze.Run(
-            query: Query.Locate<Line, Point3d>(aspect: Location.Midpoint),
+            query: Query.Locate<Line, Point3d>(aspect: new Location.Midpoint()),
             input: []);
 
         Assert.True(condition: result.ToFin().Match(
@@ -44,7 +44,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RejectsContextRequiredEmptyInputWithoutScope() {
         Validation<Error, Seq<Point3d>> result = Analyze.Run(
-            query: Query.Measure<Curve, Point3d>(aspect: Measure.Centroid(kind: MassKind.Length)),
+            query: Query.Measure<Curve, Point3d>(aspect: new Measure.Centroid(Mass: MassKind.Length)),
             input: []);
 
         Assert.True(condition: result.ToFin().IsFail);
@@ -54,7 +54,7 @@ public sealed class AnalysisSpec {
     public void RejectsInvalidUnitScope() {
         Validation<Error, Seq<Point3d>> result = Analyze.In(units: UnitSystem.Unset)
             .Run(
-                query: Query.Locate<Line, Point3d>(aspect: Location.Midpoint),
+                query: Query.Locate<Line, Point3d>(aspect: new Location.Midpoint()),
                 input: [ValidLine()]);
 
         Assert.True(condition: result.ToFin().IsFail);
@@ -64,7 +64,7 @@ public sealed class AnalysisSpec {
     public void RejectsMissingDocumentScope() {
         Validation<Error, Seq<Point3d>> result = Analyze.From(doc: null)
             .Run(
-                query: Query.Locate<Line, Point3d>(aspect: Location.Midpoint),
+                query: Query.Locate<Line, Point3d>(aspect: new Location.Midpoint()),
                 input: [ValidLine()]);
 
         Assert.True(condition: result.ToFin().IsFail);
@@ -96,7 +96,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RejectsNullGeometryInsidePureRail() {
         Validation<Error, Seq<BoundingBox>> result = Analyze.Run(
-            query: Query.Bounds<GeometryBase, BoundingBox>(aspect: Bounds.Box),
+            query: Query.Bounds<GeometryBase, BoundingBox>(aspect: new Bounds.Box()),
             input: [null!]);
 
         Assert.True(condition: result.ToFin().Match(
@@ -116,10 +116,10 @@ public sealed class AnalysisSpec {
         Assert.NotNull(@object: Query.Topology<GeometryBase, Point3d>(aspect: Topology.EdgeMidpoints));
         Assert.NotNull(@object: Query.Topology<Mesh, ComponentIndex>(aspect: Topology.Adjacency));
         Assert.NotNull(@object: Query.Topology<Mesh, bool>(aspect: Topology.NonManifold));
-        Assert.NotNull(@object: Query.Measure<GeometryBase, Point3d>(aspect: Measure.SpatialMidpoint));
-        Assert.NotNull(@object: Query.Locate<Curve, double>(aspect: Location.CurvatureProfile(count: 3, scalar: CurvatureScalar.Magnitude)));
-        Assert.NotNull(@object: Query.Locate<Surface, double>(aspect: Location.CurvatureProfile(count: 3, scalar: CurvatureScalar.Gaussian)));
-        Assert.NotNull(@object: Query.Locate<Surface, double>(aspect: Location.CurvatureProfile(count: 3, scalar: CurvatureScalar.Mean)));
+        Assert.NotNull(@object: Query.Measure<GeometryBase, Point3d>(aspect: new Measure.SpatialMidpoint()));
+        Assert.NotNull(@object: Query.Locate<Curve, double>(aspect: new Location.CurvatureProfile(Count: 3, Scalar: CurvatureScalar.Magnitude)));
+        Assert.NotNull(@object: Query.Locate<Surface, double>(aspect: new Location.CurvatureProfile(Count: 3, Scalar: CurvatureScalar.Gaussian)));
+        Assert.NotNull(@object: Query.Locate<Surface, double>(aspect: new Location.CurvatureProfile(Count: 3, Scalar: CurvatureScalar.Mean)));
         Assert.NotNull(@object: Query.Conformance<Curve, Line, double>(aspect: Conformance.Distance(count: 3)));
         Assert.NotNull(@object: Query.Conformance<Surface, Plane, bool>(aspect: Conformance.WithinTolerance(count: 2)));
         Assert.NotNull(@object: Query.Conformance<Curve, Line, ResidualProfile>(aspect: Conformance.Profile(count: 3)));
@@ -135,7 +135,7 @@ public sealed class AnalysisSpec {
     public void RejectsInvalidContextScope() {
         Validation<Error, Seq<Point3d>> result = Analyze.In(context: null!)
             .Run(
-                query: Query.Locate<Line, Point3d>(aspect: Location.Midpoint),
+                query: Query.Locate<Line, Point3d>(aspect: new Location.Midpoint()),
                 input: [
                     new Line(
                         from: Point3d.Origin,
@@ -154,7 +154,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void PreservesOrderAcrossManyInputs() {
         Point3d[] points = Run(
-            query: Query.Locate<Line, Point3d>(aspect: Location.Midpoint),
+            query: Query.Locate<Line, Point3d>(aspect: new Location.Midpoint()),
             input: [
                 new Line(
                     from: Point3d.Origin,
@@ -182,7 +182,7 @@ public sealed class AnalysisSpec {
                 to: new Point3d(x: index * 2.0, y: 0.0, z: 0.0)))];
 
         Point3d[] points = Run(
-            query: Query.Locate<Line, Point3d>(aspect: Location.Midpoint),
+            query: Query.Locate<Line, Point3d>(aspect: new Location.Midpoint()),
             input: input);
 
         Assert.Equal(expected: count, actual: points.Length);
@@ -195,7 +195,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void PreservesOrderAcrossOddArityInputs() {
         Point3d[] points = Run(
-            query: Query.Locate<Line, Point3d>(aspect: Location.Midpoint),
+            query: Query.Locate<Line, Point3d>(aspect: new Location.Midpoint()),
             input: [
                 new Line(from: Point3d.Origin, to: new Point3d(x: 2.0, y: 0.0, z: 0.0)),
                 new Line(from: Point3d.Origin, to: new Point3d(x: 0.0, y: 4.0, z: 0.0)),
@@ -222,10 +222,10 @@ public sealed class AnalysisSpec {
             to: new Point3d(x: 3.0, y: 4.0, z: 0.0));
 
         double[] lengths = Run(
-            query: Query.Measure<Line, double>(aspect: Measure.Length),
+            query: Query.Measure<Line, double>(aspect: new Measure.Length()),
             input: [line]);
         BoundingBox[] bounds = Run(
-            query: Query.Bounds<Line, BoundingBox>(aspect: Bounds.Box),
+            query: Query.Bounds<Line, BoundingBox>(aspect: new Bounds.Box()),
             input: [line]);
 
         Assert.Equal(expected: 5.0, actual: lengths[0]);
@@ -239,19 +239,19 @@ public sealed class AnalysisSpec {
             max: new Point3d(x: 2.0, y: 4.0, z: 6.0));
 
         Point3d[] center = Run(
-            query: Query.Bounds<BoundingBox, Point3d>(aspect: Bounds.Center),
+            query: Query.Bounds<BoundingBox, Point3d>(aspect: new Bounds.Center()),
             input: [box]);
         Point3d[] corners = Run(
-            query: Query.Bounds<BoundingBox, Point3d>(aspect: Bounds.Corners),
+            query: Query.Bounds<BoundingBox, Point3d>(aspect: new Bounds.Corners()),
             input: [box]);
         Line[] edges = Run(
-            query: Query.Bounds<BoundingBox, Line>(aspect: Bounds.Edges),
+            query: Query.Bounds<BoundingBox, Line>(aspect: new Bounds.Edges()),
             input: [box]);
         double[] area = Run(
-            query: Query.Bounds<BoundingBox, double>(aspect: Bounds.Area),
+            query: Query.Bounds<BoundingBox, double>(aspect: new Bounds.Area()),
             input: [box]);
         double[] volume = Run(
-            query: Query.Bounds<BoundingBox, double>(aspect: Bounds.Volume),
+            query: Query.Bounds<BoundingBox, double>(aspect: new Bounds.Volume()),
             input: [box]);
 
         Assert.Equal(expected: new Point3d(x: 1.0, y: 2.0, z: 3.0), actual: center[0]);
@@ -282,7 +282,7 @@ public sealed class AnalysisSpec {
             query: Query.EdgeMidpoints<object, Point3d>(),
             input: [polyline]);
         Point3d[] boxSpatialMidpoint = Run(
-            query: Query.Measure<object, Point3d>(aspect: Measure.SpatialMidpoint),
+            query: Query.Measure<object, Point3d>(aspect: new Measure.SpatialMidpoint()),
             input: [box]);
 
         Assert.Equal(expected: new Point3d(x: 1.0, y: 0.0, z: 0.0), actual: lineEdgeMidpoint[0]);
@@ -302,7 +302,7 @@ public sealed class AnalysisSpec {
             max: new Point3d(x: 2.0, y: 4.0, z: 6.0));
 
         Point3d[] center = Run(
-            query: Query.Bounds<object, Point3d>(aspect: Bounds.Center),
+            query: Query.Bounds<object, Point3d>(aspect: new Bounds.Center()),
             input: [box]);
 
         _ = Assert.Single(collection: center);
@@ -316,7 +316,7 @@ public sealed class AnalysisSpec {
             max: new Point3d(x: 2.0, y: 4.0, z: 6.0));
 
         Point3d[] corners = Run(
-            query: Query.Bounds<object, Point3d>(aspect: Bounds.Corners),
+            query: Query.Bounds<object, Point3d>(aspect: new Bounds.Corners()),
             input: [(object)boundingBox]);
 
         Assert.Equal(expected: 8, actual: corners.Length);
@@ -332,10 +332,10 @@ public sealed class AnalysisSpec {
             to: new Point3d(x: 4.0, y: 6.0, z: 0.0));
 
         Point3d[] center = Run(
-            query: Query.Bounds<Line, Point3d>(aspect: Bounds.Center),
+            query: Query.Bounds<Line, Point3d>(aspect: new Bounds.Center()),
             input: [line]);
         Point3d[] corners = Run(
-            query: Query.Bounds<Line, Point3d>(aspect: Bounds.Corners),
+            query: Query.Bounds<Line, Point3d>(aspect: new Bounds.Corners()),
             input: [line]);
 
         Assert.Equal(expected: line.BoundingBox.Center, actual: center[0]);
@@ -352,10 +352,10 @@ public sealed class AnalysisSpec {
         ]);
 
         Point3d[] center = Run(
-            query: Query.Bounds<Polyline, Point3d>(aspect: Bounds.Center),
+            query: Query.Bounds<Polyline, Point3d>(aspect: new Bounds.Center()),
             input: [polyline]);
         Point3d[] corners = Run(
-            query: Query.Bounds<Polyline, Point3d>(aspect: Bounds.Corners),
+            query: Query.Bounds<Polyline, Point3d>(aspect: new Bounds.Corners()),
             input: [polyline]);
 
         Assert.Equal(expected: polyline.BoundingBox.Center, actual: center[0]);
@@ -371,7 +371,7 @@ public sealed class AnalysisSpec {
                 angle: Math.PI / 180.0,
                 units: UnitSystem.Unset)
             .Run(
-                query: Query.Bounds<BoundingBox, BoundingBox>(aspect: Bounds.Box),
+                query: Query.Bounds<BoundingBox, BoundingBox>(aspect: new Bounds.Box()),
                 input: [new BoundingBox(min: Point3d.Origin, max: new Point3d(x: 1.0, y: 1.0, z: 1.0))]);
         Validation<Error, Seq<BoundingBox>> outOfRangeRelative = Analyze.In(
                 absolute: 0.01,
@@ -379,7 +379,7 @@ public sealed class AnalysisSpec {
                 angle: Math.PI / 180.0,
                 units: UnitSystem.Unset)
             .Run(
-                query: Query.Bounds<BoundingBox, BoundingBox>(aspect: Bounds.Box),
+                query: Query.Bounds<BoundingBox, BoundingBox>(aspect: new Bounds.Box()),
                 input: [new BoundingBox(min: Point3d.Origin, max: new Point3d(x: 1.0, y: 1.0, z: 1.0))]);
         Validation<Error, Seq<BoundingBox>> nonPositiveAngle = Analyze.In(
                 absolute: 0.01,
@@ -387,7 +387,7 @@ public sealed class AnalysisSpec {
                 angle: 0.0,
                 units: UnitSystem.Unset)
             .Run(
-                query: Query.Bounds<BoundingBox, BoundingBox>(aspect: Bounds.Box),
+                query: Query.Bounds<BoundingBox, BoundingBox>(aspect: new Bounds.Box()),
                 input: [new BoundingBox(min: Point3d.Origin, max: new Point3d(x: 1.0, y: 1.0, z: 1.0))]);
         Validation<Error, Seq<BoundingBox>> overFullTurnAngle = Analyze.In(
                 absolute: 0.01,
@@ -395,7 +395,7 @@ public sealed class AnalysisSpec {
                 angle: (2.0 * Math.PI) + 1.0,
                 units: UnitSystem.Unset)
             .Run(
-                query: Query.Bounds<BoundingBox, BoundingBox>(aspect: Bounds.Box),
+                query: Query.Bounds<BoundingBox, BoundingBox>(aspect: new Bounds.Box()),
                 input: [new BoundingBox(min: Point3d.Origin, max: new Point3d(x: 1.0, y: 1.0, z: 1.0))]);
         Validation<Error, Seq<BoundingBox>> unsetUnits = Analyze.In(
                 absolute: 0.01,
@@ -403,7 +403,7 @@ public sealed class AnalysisSpec {
                 angle: Math.PI / 180.0,
                 units: UnitSystem.Unset)
             .Run(
-                query: Query.Bounds<BoundingBox, BoundingBox>(aspect: Bounds.Box),
+                query: Query.Bounds<BoundingBox, BoundingBox>(aspect: new Bounds.Box()),
                 input: [new BoundingBox(min: Point3d.Origin, max: new Point3d(x: 1.0, y: 1.0, z: 1.0))]);
 
         Assert.True(condition: nonPositiveAbsolute.ToFin().Match(
@@ -424,7 +424,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RejectsUnsupportedQueryBeforeInputExecution() {
         Validation<Error, Seq<Plane>> result = Analyze.Run(
-            query: Query.Bounds<Line, Plane>(aspect: Bounds.Box),
+            query: Query.Bounds<Line, Plane>(aspect: new Bounds.Box()),
             input: [
                 new Line(from: Point3d.Origin, to: new Point3d(x: 1.0, y: 0.0, z: 0.0)),
                 new Line(from: Point3d.Origin, to: new Point3d(x: 0.0, y: 1.0, z: 0.0)),
@@ -438,7 +438,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RejectsUnsupportedBoundsInputBeforeExecution() {
         Validation<Error, Seq<BoundingBox>> result = Analyze.Run(
-            query: Query.Bounds<int, BoundingBox>(aspect: Bounds.Box),
+            query: Query.Bounds<int, BoundingBox>(aspect: new Bounds.Box()),
             input: [1, 2, 3]);
 
         Assert.True(condition: result.ToFin().Match(
@@ -449,7 +449,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RejectsUnsupportedMeasureOutputBeforeInputExecution() {
         Validation<Error, Seq<Plane>> result = Analyze.Run(
-            query: Query.Measure<Mesh, Plane>(aspect: Measure.Area),
+            query: Query.Measure<Mesh, Plane>(aspect: new Measure.Area()),
             input: [null!]);
 
         Assert.True(condition: result.ToFin().Match(
@@ -460,7 +460,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RejectsNoneMassKindOnceBeforeInputExecution() {
         Validation<Error, Seq<double>> result = Analyze.Run(
-            query: Query.Measure<Curve, double>(aspect: Measure.Error(kind: MassKind.None)),
+            query: Query.Measure<Curve, double>(aspect: new Measure.Error(Mass: MassKind.None)),
             input: [null!, null!]);
 
         Assert.True(condition: result.ToFin().Match(
@@ -548,7 +548,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RejectsMissingContextOnceBeforeInputExecution() {
         Validation<Error, Seq<Point3d>> result = Analyze.Run(
-            query: Query.Measure<Curve, Point3d>(aspect: Measure.Centroid(kind: MassKind.Length)),
+            query: Query.Measure<Curve, Point3d>(aspect: new Measure.Centroid(Mass: MassKind.Length)),
             input: [null!, null!]);
 
         Assert.True(condition: result.ToFin().Match(
@@ -559,7 +559,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void AccumulatesInvalidInputFailures() {
         Validation<Error, Seq<Point3d>> result = Analyze.Run(
-            query: Query.Locate<Line, Point3d>(aspect: Location.Midpoint),
+            query: Query.Locate<Line, Point3d>(aspect: new Location.Midpoint()),
             input: [
                 Line.Unset,
                 Line.Unset,
@@ -573,7 +573,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RejectsInvalidValueInput() {
         Validation<Error, Seq<Point3d>> result = Analyze.Run(
-            query: Query.Locate<Line, Point3d>(aspect: Location.Midpoint),
+            query: Query.Locate<Line, Point3d>(aspect: new Location.Midpoint()),
             input: [Line.Unset]);
 
         Assert.True(condition: result.ToFin().IsFail);
@@ -595,7 +595,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RejectsInvalidCurvatureProfileCountBeforeInputExecution() {
         Validation<Error, Seq<Vector3d>> result = Analyze.Run(
-            query: Query.Locate<Curve, Vector3d>(aspect: Location.CurvatureProfile(count: 0)),
+            query: Query.Locate<Curve, Vector3d>(aspect: new Location.CurvatureProfile(Count: 0, Scalar: CurvatureScalar.None)),
             input: [null!, null!]);
 
         Assert.True(condition: result.ToFin().Match(
@@ -606,7 +606,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RejectsInvalidExplicitCurvatureScalarCountBeforeInputExecution() {
         Validation<Error, Seq<double>> result = Analyze.Run(
-            query: Query.Locate<Curve, double>(aspect: Location.CurvatureProfile(count: 0, scalar: CurvatureScalar.Magnitude)),
+            query: Query.Locate<Curve, double>(aspect: new Location.CurvatureProfile(Count: 0, Scalar: CurvatureScalar.Magnitude)),
             input: [null!, null!]);
 
         Assert.True(condition: result.ToFin().Match(
@@ -617,7 +617,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RejectsUnsupportedCurvatureProfileSummaryBeforeInputExecution() {
         Validation<Error, Seq<CurvatureProfile>> result = Analyze.Run(
-            query: Query.Locate<Line, CurvatureProfile>(aspect: Location.CurvatureProfile(count: 3)),
+            query: Query.Locate<Line, CurvatureProfile>(aspect: new Location.CurvatureProfile(Count: 3, Scalar: CurvatureScalar.None)),
             input: [ValidLine()]);
 
         Assert.True(condition: result.ToFin().Match(
@@ -628,7 +628,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RejectsDefaultCurvatureScalarOutputBeforeInputExecution() {
         Validation<Error, Seq<double>> result = Analyze.Run(
-            query: Query.Locate<Curve, double>(aspect: Location.CurvatureProfile(count: 3)),
+            query: Query.Locate<Curve, double>(aspect: new Location.CurvatureProfile(Count: 3, Scalar: CurvatureScalar.None)),
             input: [null!]);
 
         Assert.True(condition: result.ToFin().Match(
@@ -639,13 +639,13 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RejectsUnsupportedExplicitCurvatureScalarBeforeInputExecution() {
         Validation<Error, Seq<double>> curveMean = Analyze.Run(
-            query: Query.Locate<Curve, double>(aspect: Location.CurvatureProfile(count: 3, scalar: CurvatureScalar.Mean)),
+            query: Query.Locate<Curve, double>(aspect: new Location.CurvatureProfile(Count: 3, Scalar: CurvatureScalar.Mean)),
             input: [null!]);
         Validation<Error, Seq<double>> curveGaussian = Analyze.Run(
-            query: Query.Locate<Curve, double>(aspect: Location.CurvatureProfile(count: 3, scalar: CurvatureScalar.Gaussian)),
+            query: Query.Locate<Curve, double>(aspect: new Location.CurvatureProfile(Count: 3, Scalar: CurvatureScalar.Gaussian)),
             input: [null!]);
         Validation<Error, Seq<double>> surfaceMagnitude = Analyze.Run(
-            query: Query.Locate<Surface, double>(aspect: Location.CurvatureProfile(count: 3, scalar: CurvatureScalar.Magnitude)),
+            query: Query.Locate<Surface, double>(aspect: new Location.CurvatureProfile(Count: 3, Scalar: CurvatureScalar.Magnitude)),
             input: [null!]);
 
         Assert.True(condition: (curveMean, curveGaussian, surfaceMagnitude).Apply(static (Seq<double> _, Seq<double> _, Seq<double> _) => false).As().ToFin().Match(
