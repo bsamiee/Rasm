@@ -1,4 +1,5 @@
 using System.Threading;
+using Core;
 using Core.Domain;
 using Core.Runtime;
 using LanguageExt;
@@ -17,19 +18,19 @@ public static partial class Query {
             (Type geometry, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && output == typeof(Interval) =>
                 Cast<TGeometry, TOut>(key: DomainKey, query: Query<TGeometry, Interval>.Build(
                     key: DomainKey,
-                    evaluator: static (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
+                    evaluator: static (TGeometry geometry) => (geometry switch {
                         Curve curve => One(key: DomainKey, value: curve.Domain),
                         _ => Fin.Fail<Seq<Interval>>(DomainKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Interval))),
-                    })),
+                    }).ToEff())),
             (Type geometry, Type output) when typeof(Surface).IsAssignableFrom(c: geometry) && output == typeof(Interval) =>
                 Cast<TGeometry, TOut>(key: DomainKey, query: Query<TGeometry, Interval>.Build(
                     key: DomainKey,
-                    evaluator: static (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
+                    evaluator: static (TGeometry geometry) => (geometry switch {
                         Surface surface => (One(key: DomainKey, value: surface.Domain(direction: 0)), One(key: DomainKey, value: surface.Domain(direction: 1)))
                             .Apply((Seq<Interval> u, Seq<Interval> v) => u + v)
                             .As(),
                         _ => Fin.Fail<Seq<Interval>>(DomainKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Interval))),
-                    })),
+                    }).ToEff())),
             _ => DomainKey.Unsupported<TGeometry, TOut>(),
         };
     public static Query<TGeometry, TOut> Segments<TGeometry, TOut>() where TGeometry : notnull =>
@@ -37,19 +38,19 @@ public static partial class Query {
             (Type geometry, Type output) when geometry == typeof(Polyline) && output == typeof(Line) =>
                 Cast<TGeometry, TOut>(key: SegmentsKey, query: Query<Polyline, Line>.Build(
                     key: SegmentsKey,
-                    evaluator: static (Polyline geometry, Fin<GeometryContext> _) =>
-                        Many(key: SegmentsKey, values: geometry.GetSegments()))),
+                    evaluator: static (Polyline geometry) =>
+                        Many(key: SegmentsKey, values: geometry.GetSegments()).ToEff())),
             (Type geometry, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && output == typeof(Curve) =>
                 Cast<TGeometry, TOut>(key: SegmentsKey, query: Query<TGeometry, Curve>.Build(
                     key: SegmentsKey,
-                    evaluator: static (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
+                    evaluator: static (TGeometry geometry) => (geometry switch {
                         Curve curve => Many(key: SegmentsKey, values: curve.GetSubCurves()),
                         _ => Fin.Fail<Seq<Curve>>(SegmentsKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Curve))),
-                    })),
+                    }).ToEff())),
             _ => SegmentsKey.Unsupported<TGeometry, TOut>(),
         };
     public static Query<Brep, Curve> Edges =>
-        Query<Brep, Curve>.Build(key: EdgesKey, evaluator: static (Brep geometry, Fin<GeometryContext> _) => Many(key: EdgesKey, values: geometry.DuplicateEdgeCurves()));
+        Query<Brep, Curve>.Build(key: EdgesKey, evaluator: static (Brep geometry) => Many(key: EdgesKey, values: geometry.DuplicateEdgeCurves()).ToEff());
     public static Query<TGeometry, TOut> EdgeMidpoints<TGeometry, TOut>() where TGeometry : notnull =>
         (typeof(TGeometry), typeof(TOut)) switch {
             (Type geometry, Type output) when output == typeof(Point3d)
@@ -61,101 +62,118 @@ public static partial class Query {
                     || geometry == typeof(Box)) =>
                 Cast<TGeometry, TOut>(key: EdgeMidpointsKey, query: Query<TGeometry, Point3d>.Build(
                     key: EdgeMidpointsKey,
-                    evaluator: static (TGeometry geometry, Fin<GeometryContext> context) => geometry switch {
-                        Line line => One(key: EdgeMidpointsKey, value: line.PointAt(t: 0.5)),
+                    evaluator: static (TGeometry geometry) => geometry switch {
+                        Line line => One(key: EdgeMidpointsKey, value: line.PointAt(t: 0.5)).ToEff(),
                         Polyline polyline => Many(
                             key: EdgeMidpointsKey,
-                            values: polyline.GetSegments().Select(static (Line segment) => segment.PointAt(t: 0.5))),
+                            values: polyline.GetSegments().Select(static (Line segment) => segment.PointAt(t: 0.5))).ToEff(),
                         BoundingBox box => Many(
                             key: EdgeMidpointsKey,
-                            values: box.GetEdges().Select(static (Line edge) => edge.PointAt(t: 0.5))),
-                        Curve curve => context.Bind((GeometryContext model) => model.Validate(
-                                    geometry: curve,
-                                    requirement: GeometryRequirement.CurveLength)
-                                .ToFin()
-                                .Bind((Curve _) => CurveAtNormalizedValue(
-                                    curve: curve,
-                                    context: model,
-                                    key: EdgeMidpointsKey,
-                                    project: static (Curve curve, double parameter) => curve.PointAt(t: parameter)))
-                                .Bind(static (Point3d point) => One(key: EdgeMidpointsKey, value: point))),
-                        Brep brep => context.Bind((GeometryContext model) => model.Validate(
-                                    geometry: brep,
-                                    requirement: GeometryRequirement.Basic)
-                                .ToFin()
-                                .Bind((Brep _) => KindOfBrep(brep: brep, context: model) switch {
-                                    GeometryKind.BrepSphere => Fin.Fail<Seq<Point3d>>(EdgeMidpointsKey.PrimitiveNoEdges(primitive: "Sphere")),
-                                    GeometryKind.BrepCylinder => Fin.Fail<Seq<Point3d>>(EdgeMidpointsKey.PrimitiveNoEdges(primitive: "Cylinder")),
-                                    GeometryKind.BrepCone => Fin.Fail<Seq<Point3d>>(EdgeMidpointsKey.PrimitiveNoEdges(primitive: "Cone")),
-                                    GeometryKind.BrepTorus => Fin.Fail<Seq<Point3d>>(EdgeMidpointsKey.PrimitiveNoEdges(primitive: "Torus")),
-                                    _ => EdgeCurveMidpoints(curves: brep.DuplicateEdgeCurves(), context: model),
-                                })),
-                        Mesh mesh => context.Bind((GeometryContext model) => model.Validate(
-                                    geometry: mesh,
-                                    requirement: GeometryRequirement.Basic)
-                                .ToFin()
-                                .Bind((Mesh _) => Many(
-                                    key: EdgeMidpointsKey,
-                                    values: Enumerable
-                                        .Range(start: 0, count: mesh.TopologyEdges.Count)
-                                        .Select((int index) => mesh.TopologyEdges.EdgeLine(topologyEdgeIndex: index).PointAt(t: 0.5))))),
-                        SubD subd => context.Bind((GeometryContext model) => model.Validate(
-                                    geometry: subd,
-                                    requirement: GeometryRequirement.Basic)
-                                .ToFin()
-                                .Bind((SubD _) => EdgeCurveMidpoints(curves: subd.DuplicateEdgeCurves(), context: model))),
-                        Box box => context.Bind((GeometryContext model) => Optional(box.ToBrep())
-                                .ToFin(EdgeMidpointsKey.InvalidResult())
-                                .Bind((Brep brep) => {
-                                    using Brep disposable = brep;
-                                    return EdgeCurveMidpoints(curves: disposable.DuplicateEdgeCurves(), context: model);
-                                })),
-                        _ => Fin.Fail<Seq<Point3d>>(EdgeMidpointsKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Point3d))),
+                            values: box.GetEdges().Select(static (Line edge) => edge.PointAt(t: 0.5))).ToEff(),
+                        Curve curve => CurveEdgeMidpoint(curve: curve),
+                        Brep brep => BrepEdgeMidpoints(brep: brep),
+                        Mesh mesh => MeshEdgeMidpoints(mesh: mesh),
+                        SubD subd => SubDEdgeMidpoints(subd: subd),
+                        Box box => BoxEdgeMidpoints(box: box),
+                        _ => Eff<AnalysisRuntime, Seq<Point3d>>.Fail(error: EdgeMidpointsKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Point3d))),
                     })),
             _ => EdgeMidpointsKey.Unsupported<TGeometry, TOut>(),
         };
+    private static Eff<AnalysisRuntime, Seq<Point3d>> CurveEdgeMidpoint(Curve curve) =>
+        from rt in Analyze.Asks
+        from validated in rt.Context.Validate(geometry: curve, requirement: GeometryRequirement.CurveLength).ToEff()
+        from point in CurveAtNormalizedValue(
+                curve: validated,
+                context: rt.Context,
+                key: EdgeMidpointsKey,
+                project: static (Curve geometry, double parameter) => geometry.PointAt(t: parameter))
+            .ToEff()
+        from result in One(key: EdgeMidpointsKey, value: point).ToEff()
+        select result;
+    private static Eff<AnalysisRuntime, Seq<Point3d>> BrepEdgeMidpoints(Brep brep) =>
+        from rt in Analyze.Asks
+        from validated in rt.Context.Validate(geometry: brep, requirement: GeometryRequirement.Basic).ToEff()
+        from result in (KindOfBrep(brep: validated, context: rt.Context) switch {
+            GeometryKind.BrepSphere => Fin.Fail<Seq<Point3d>>(EdgeMidpointsKey.PrimitiveNoEdges(primitive: "Sphere")),
+            GeometryKind.BrepCylinder => Fin.Fail<Seq<Point3d>>(EdgeMidpointsKey.PrimitiveNoEdges(primitive: "Cylinder")),
+            GeometryKind.BrepCone => Fin.Fail<Seq<Point3d>>(EdgeMidpointsKey.PrimitiveNoEdges(primitive: "Cone")),
+            GeometryKind.BrepTorus => Fin.Fail<Seq<Point3d>>(EdgeMidpointsKey.PrimitiveNoEdges(primitive: "Torus")),
+            _ => EdgeCurveMidpoints(curves: validated.DuplicateEdgeCurves(), context: rt.Context),
+        }).ToEff()
+        select result;
+    private static Eff<AnalysisRuntime, Seq<Point3d>> MeshEdgeMidpoints(Mesh mesh) =>
+        from rt in Analyze.Asks
+        from validated in rt.Context.Validate(geometry: mesh, requirement: GeometryRequirement.Basic).ToEff()
+        from result in Many(
+                key: EdgeMidpointsKey,
+                values: Enumerable
+                    .Range(start: 0, count: validated.TopologyEdges.Count)
+                    .Select((int index) => validated.TopologyEdges.EdgeLine(topologyEdgeIndex: index).PointAt(t: 0.5)))
+            .ToEff()
+        select result;
+    private static Eff<AnalysisRuntime, Seq<Point3d>> SubDEdgeMidpoints(SubD subd) =>
+        from rt in Analyze.Asks
+        from validated in rt.Context.Validate(geometry: subd, requirement: GeometryRequirement.Basic).ToEff()
+        from result in EdgeCurveMidpoints(curves: validated.DuplicateEdgeCurves(), context: rt.Context).ToEff()
+        select result;
+    private static Eff<AnalysisRuntime, Seq<Point3d>> BoxEdgeMidpoints(Box box) =>
+        from rt in Analyze.Asks
+        from result in BoxEdgeMidpointsViaBrep(box: box, context: rt.Context).ToEff()
+        select result;
+    private static Fin<Seq<Point3d>> BoxEdgeMidpointsViaBrep(Box box, GeometryContext context) =>
+        Optional(box.ToBrep())
+            .ToFin(EdgeMidpointsKey.InvalidResult())
+            .Bind((Brep brep) => DisposeAndExtract(brep: brep, context: context));
+    private static Fin<Seq<Point3d>> DisposeAndExtract(Brep brep, GeometryContext context) {
+        using Brep disposable = brep;
+        return EdgeCurveMidpoints(curves: disposable.DuplicateEdgeCurves(), context: context);
+    }
     public static Query<TGeometry, TOut> NakedEdges<TGeometry, TOut>() where TGeometry : notnull =>
         (typeof(TGeometry), typeof(TOut)) switch {
             (Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(Curve) =>
                 Cast<TGeometry, TOut>(key: NakedEdgesKey, query: Query<TGeometry, Curve>.Build(
                     key: NakedEdgesKey,
-                    evaluator: static (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
+                    evaluator: static (TGeometry geometry) => (geometry switch {
                         Brep brep => Many(
                             key: NakedEdgesKey,
                             values: brep.DuplicateNakedEdgeCurves(
                                 nakedOuter: true,
                                 nakedInner: true)),
                         _ => Fin.Fail<Seq<Curve>>(NakedEdgesKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Curve))),
-                    })),
+                    }).ToEff())),
             (Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(Polyline) =>
                 Cast<TGeometry, TOut>(key: NakedEdgesKey, query: Query<TGeometry, Polyline>.Build(
                     key: NakedEdgesKey,
-                    evaluator: static (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
+                    evaluator: static (TGeometry geometry) => (geometry switch {
                         Mesh mesh => Many(key: NakedEdgesKey, values: mesh.GetNakedEdges()),
                         _ => Fin.Fail<Seq<Polyline>>(NakedEdgesKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Polyline))),
-                    })),
+                    }).ToEff())),
             _ => NakedEdgesKey.Unsupported<TGeometry, TOut>(),
         };
     public static Query<Mesh, Polyline> Outlines(Plane plane) =>
-        Query<Mesh, Polyline>.Build(key: OutlinesKey, evaluator: (Mesh geometry, Fin<GeometryContext> _) => Many(key: OutlinesKey, values: geometry.GetOutlines(plane: plane)));
+        Query<Mesh, Polyline>.Build(
+            key: OutlinesKey,
+            state: plane,
+            evaluator: static (Plane sectionPlane, Mesh geometry) => Many(key: OutlinesKey, values: geometry.GetOutlines(plane: sectionPlane)).ToEff());
     public static Query<Surface, Curve> Iso(IsoStatus iso, double normalized = 0.5) =>
         Query<Surface, Curve>.Build(
             key: IsoKey,
             requirement: GeometryRequirement.SurfaceEvaluation,
-            evaluator: (Surface geometry, Fin<GeometryContext> _) =>
-                iso switch {
+            state: (Iso: iso, Normalized: normalized),
+            evaluator: static ((IsoStatus Iso, double Normalized) state, Surface geometry) => (
+                state.Iso switch {
                     IsoStatus.West or IsoStatus.South or IsoStatus.East or IsoStatus.North =>
-                        Optional(geometry.IsoCurve(iso: iso))
+                        Optional(geometry.IsoCurve(iso: state.Iso))
                             .ToFin(IsoKey.InvalidResult())
                             .Map(static (Curve curve) => Seq(curve)),
-                    IsoStatus.X or IsoStatus.Y => iso switch {
+                    IsoStatus.X or IsoStatus.Y => state.Iso switch {
                         IsoStatus.X => 0,
                         _ => 1,
                     } switch {
                         int direction => geometry.Domain(direction: direction) switch {
-                            Interval domain when domain.IsValid && normalized is >= 0.0 and <= 1.0 => geometry switch {
-                                BrepFace face => Many(key: IsoKey, values: face.TrimAwareIsoCurve(direction: direction, constantParameter: domain.ParameterAt(normalized))),
-                                _ => Optional(geometry.IsoCurve(iso, domain.ParameterAt(normalized)))
+                            Interval domain when domain.IsValid && state.Normalized is >= 0.0 and <= 1.0 => geometry switch {
+                                BrepFace face => Many(key: IsoKey, values: face.TrimAwareIsoCurve(direction: direction, constantParameter: domain.ParameterAt(state.Normalized))),
+                                _ => Optional(geometry.IsoCurve(state.Iso, domain.ParameterAt(state.Normalized)))
                                     .ToFin(IsoKey.InvalidResult())
                                     .Map(static (Curve curve) => Seq(curve)),
                             },
@@ -163,7 +181,7 @@ public static partial class Query {
                         },
                     },
                     _ => Fin.Fail<Seq<Curve>>(IsoKey.InvalidInput()),
-                });
+                }).ToEff());
     public static Query<TGeometry, TOut> Primitive<TGeometry, TOut>() where TGeometry : notnull =>
         (typeof(TGeometry), typeof(TOut)) switch {
             (Type geometry, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && output == typeof(Circle) =>
@@ -224,28 +242,34 @@ public static partial class Query {
                     || geometry == typeof(Sphere)) =>
                 Cast<TGeometry, TOut>(key: KindKey, query: Query<TGeometry, GeometryKind>.Build(
                     key: KindKey,
-                    evaluator: static (TGeometry geometry, Fin<GeometryContext> context) => geometry switch {
-                        Brep brep => context.Bind((GeometryContext model) => One(key: KindKey, value: KindOfBrep(brep: brep, context: model))),
-                        Surface surface => context.Bind((GeometryContext model) => One(key: KindKey, value: surface switch {
-                            Surface s when s.TryGetPlane(plane: out Plane _, tolerance: model.Absolute.Value) => GeometryKind.Plane,
-                            Surface s when s.TryGetSphere(sphere: out Sphere _, tolerance: model.Absolute.Value) => GeometryKind.Sphere,
-                            Surface s when s.TryGetCylinder(cylinder: out Cylinder _, tolerance: model.Absolute.Value) => GeometryKind.Cylinder,
-                            Surface s when s.TryGetCone(cone: out Cone _, tolerance: model.Absolute.Value) => GeometryKind.Cone,
-                            Surface s when s.TryGetTorus(torus: out Torus _, tolerance: model.Absolute.Value) => GeometryKind.Torus,
-                            _ => GeometryKind.Surface,
-                        })),
-                        Mesh => One(key: KindKey, value: GeometryKind.Mesh),
-                        SubD => One(key: KindKey, value: GeometryKind.SubD),
+                    evaluator: static (TGeometry geometry) => geometry switch {
+                        Brep brep =>
+                            from rt in Analyze.Asks
+                            from result in One(key: KindKey, value: KindOfBrep(brep: brep, context: rt.Context)).ToEff()
+                            select result,
+                        Surface surface =>
+                            from rt in Analyze.Asks
+                            from result in One(key: KindKey, value: surface switch {
+                                Surface s when s.TryGetPlane(plane: out Plane _, tolerance: rt.Context.Absolute.Value) => GeometryKind.Plane,
+                                Surface s when s.TryGetSphere(sphere: out Sphere _, tolerance: rt.Context.Absolute.Value) => GeometryKind.Sphere,
+                                Surface s when s.TryGetCylinder(cylinder: out Cylinder _, tolerance: rt.Context.Absolute.Value) => GeometryKind.Cylinder,
+                                Surface s when s.TryGetCone(cone: out Cone _, tolerance: rt.Context.Absolute.Value) => GeometryKind.Cone,
+                                Surface s when s.TryGetTorus(torus: out Torus _, tolerance: rt.Context.Absolute.Value) => GeometryKind.Torus,
+                                _ => GeometryKind.Surface,
+                            }).ToEff()
+                            select result,
+                        Mesh => One(key: KindKey, value: GeometryKind.Mesh).ToEff(),
+                        SubD => One(key: KindKey, value: GeometryKind.SubD).ToEff(),
                         Curve curve => One(key: KindKey, value: curve.TryGetPolyline(polyline: out Polyline _) switch {
                             true => GeometryKind.Polyline,
                             false => GeometryKind.Curve,
-                        }),
-                        Polyline => One(key: KindKey, value: GeometryKind.Polyline),
-                        Line => One(key: KindKey, value: GeometryKind.Line),
-                        Sphere => One(key: KindKey, value: GeometryKind.Sphere),
-                        Box _ => One(key: KindKey, value: GeometryKind.Box),
-                        BoundingBox => One(key: KindKey, value: GeometryKind.BoundingBox),
-                        _ => One(key: KindKey, value: GeometryKind.Unknown),
+                        }).ToEff(),
+                        Polyline => One(key: KindKey, value: GeometryKind.Polyline).ToEff(),
+                        Line => One(key: KindKey, value: GeometryKind.Line).ToEff(),
+                        Sphere => One(key: KindKey, value: GeometryKind.Sphere).ToEff(),
+                        Box _ => One(key: KindKey, value: GeometryKind.Box).ToEff(),
+                        BoundingBox => One(key: KindKey, value: GeometryKind.BoundingBox).ToEff(),
+                        _ => One(key: KindKey, value: GeometryKind.Unknown).ToEff(),
                     })),
             _ => KindKey.Unsupported<TGeometry, TOut>(),
         };
@@ -254,17 +278,17 @@ public static partial class Query {
             (Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(BrepSolidOrientation) =>
                 Cast<TGeometry, TOut>(key: SolidOrientationKey, query: Query<TGeometry, BrepSolidOrientation>.Build(
                     key: SolidOrientationKey,
-                    evaluator: static (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
+                    evaluator: static (TGeometry geometry) => (geometry switch {
                         Brep brep => One(key: SolidOrientationKey, value: brep.SolidOrientation),
                         _ => Fin.Fail<Seq<BrepSolidOrientation>>(SolidOrientationKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(BrepSolidOrientation))),
-                    })),
+                    }).ToEff())),
             (Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(int) =>
                 Cast<TGeometry, TOut>(key: SolidOrientationKey, query: Query<TGeometry, int>.Build(
                     key: SolidOrientationKey,
-                    evaluator: static (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
+                    evaluator: static (TGeometry geometry) => (geometry switch {
                         Mesh mesh => One(key: SolidOrientationKey, value: mesh.SolidOrientation()),
                         _ => Fin.Fail<Seq<int>>(SolidOrientationKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(int))),
-                    })),
+                    }).ToEff())),
             _ => SolidOrientationKey.Unsupported<TGeometry, TOut>(),
         };
     public static Query<TGeometry, bool> IsPointInside<TGeometry>(Point3d point) where TGeometry : GeometryBase =>
@@ -274,11 +298,14 @@ public static partial class Query {
                     key: IsPointInsideKey,
                     state: point,
                     requirement: GeometryRequirement.SolidTopology,
-                    evaluator: static (Point3d target, TGeometry geometry, Fin<GeometryContext> context) => context.Bind((GeometryContext geometryContext) => geometry switch {
-                        Brep brep => One(key: IsPointInsideKey, value: brep.IsPointInside(point: target, tolerance: geometryContext.Absolute.Value, strictlyIn: false)),
-                        Mesh mesh => One(key: IsPointInsideKey, value: mesh.IsPointInside(point: target, tolerance: geometryContext.Absolute.Value, strictlyIn: false)),
-                        _ => Fin.Fail<Seq<bool>>(IsPointInsideKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(bool))),
-                    }))),
+                    evaluator: static (Point3d target, TGeometry geometry) =>
+                        from rt in Analyze.Asks
+                        from result in (geometry switch {
+                            Brep brep => One(key: IsPointInsideKey, value: brep.IsPointInside(point: target, tolerance: rt.Context.Absolute.Value, strictlyIn: false)),
+                            Mesh mesh => One(key: IsPointInsideKey, value: mesh.IsPointInside(point: target, tolerance: rt.Context.Absolute.Value, strictlyIn: false)),
+                            _ => Fin.Fail<Seq<bool>>(IsPointInsideKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(bool))),
+                        }).ToEff()
+                        select result)),
             _ => IsPointInsideKey.Unsupported<TGeometry, bool>(),
         };
     public static Query<TGeometry, TOut> Vertices<TGeometry, TOut>() where TGeometry : notnull =>
@@ -293,54 +320,59 @@ public static partial class Query {
                 Cast<TGeometry, TOut>(key: VerticesKey, query: Query<TGeometry, Point3d>.Build(
                     key: VerticesKey,
                     requiresContext: true,
-                    evaluator: static (TGeometry geometry, Fin<GeometryContext> context) => geometry switch {
-                        Line line => Many(key: VerticesKey, values: new[] { line.From, line.To }),
-                        Polyline polyline => Many(key: VerticesKey, values: polyline),
-                        Curve curve => curve.TryGetPolyline(polyline: out Polyline polyline) switch {
+                    evaluator: static (TGeometry geometry) => geometry switch {
+                        Line line => Many(key: VerticesKey, values: new[] { line.From, line.To }).ToEff(),
+                        Polyline polyline => Many(key: VerticesKey, values: polyline).ToEff(),
+                        Curve curve => (curve.TryGetPolyline(polyline: out Polyline polyline) switch {
                             true => Many(key: VerticesKey, values: polyline),
                             false => Many(key: VerticesKey, values: new[] { curve.PointAtStart, curve.PointAtEnd }),
-                        },
-                        Brep brep => context.Bind((GeometryContext model) => KindOfBrep(brep: brep, context: model) switch {
-                            GeometryKind.BrepSphere => Fin.Fail<Seq<Point3d>>(VerticesKey.PrimitiveNoVertices(primitive: "Sphere")),
-                            GeometryKind.BrepCylinder => Fin.Fail<Seq<Point3d>>(VerticesKey.PrimitiveNoVertices(primitive: "Cylinder")),
-                            GeometryKind.BrepCone => Fin.Fail<Seq<Point3d>>(VerticesKey.PrimitiveNoVertices(primitive: "Cone")),
-                            GeometryKind.BrepTorus => Fin.Fail<Seq<Point3d>>(VerticesKey.PrimitiveNoVertices(primitive: "Torus")),
-                            _ => Many(key: VerticesKey, values: brep.DuplicateVertices()),
-                        }),
-                        Mesh mesh => Many(key: VerticesKey, values: mesh.Vertices.ToPoint3dArray()),
+                        }).ToEff(),
+                        Brep brep => BrepVertices(brep: brep),
+                        Mesh mesh => Many(key: VerticesKey, values: mesh.Vertices.ToPoint3dArray()).ToEff(),
                         SubD subd => Many(
-                            key: VerticesKey,
-                            values: LanguageExt.List.unfold(
-                                state: (SubDVertex?)subd.Vertices.First,
-                                unfolder: static (SubDVertex? current) => current switch {
-                                    SubDVertex vertex => Some((vertex.ControlNetPoint, (SubDVertex?)vertex.Next)),
-                                    _ => None,
-                                })),
-                        BoundingBox box => Many(key: VerticesKey, values: box.GetCorners()),
-                        Box box => Many(key: VerticesKey, values: box.GetCorners()),
-                        _ => Fin.Fail<Seq<Point3d>>(VerticesKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Point3d))),
+                                key: VerticesKey,
+                                values: LanguageExt.List.unfold(
+                                    state: (SubDVertex?)subd.Vertices.First,
+                                    unfolder: static (SubDVertex? current) => current switch {
+                                        SubDVertex vertex => Some((vertex.ControlNetPoint, (SubDVertex?)vertex.Next)),
+                                        _ => None,
+                                    }))
+                            .ToEff(),
+                        BoundingBox box => Many(key: VerticesKey, values: box.GetCorners()).ToEff(),
+                        Box box => Many(key: VerticesKey, values: box.GetCorners()).ToEff(),
+                        _ => Eff<AnalysisRuntime, Seq<Point3d>>.Fail(error: VerticesKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Point3d))),
                     })),
             _ => VerticesKey.Unsupported<TGeometry, TOut>(),
         };
+    private static Eff<AnalysisRuntime, Seq<Point3d>> BrepVertices(Brep brep) =>
+        from rt in Analyze.Asks
+        from result in (KindOfBrep(brep: brep, context: rt.Context) switch {
+            GeometryKind.BrepSphere => Fin.Fail<Seq<Point3d>>(VerticesKey.PrimitiveNoVertices(primitive: "Sphere")),
+            GeometryKind.BrepCylinder => Fin.Fail<Seq<Point3d>>(VerticesKey.PrimitiveNoVertices(primitive: "Cylinder")),
+            GeometryKind.BrepCone => Fin.Fail<Seq<Point3d>>(VerticesKey.PrimitiveNoVertices(primitive: "Cone")),
+            GeometryKind.BrepTorus => Fin.Fail<Seq<Point3d>>(VerticesKey.PrimitiveNoVertices(primitive: "Torus")),
+            _ => Many(key: VerticesKey, values: brep.DuplicateVertices()),
+        }).ToEff()
+        select result;
     public static Query<TGeometry, TOut> Components<TGeometry, TOut>() where TGeometry : notnull =>
         (typeof(TGeometry), typeof(TOut)) switch {
             (Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(Brep) =>
                 Cast<TGeometry, TOut>(key: ComponentsKey, query: Query<TGeometry, Brep>.Build(
                     key: ComponentsKey,
-                    evaluator: static (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
+                    evaluator: static (TGeometry geometry) => (geometry switch {
                         Brep brep => brep.GetConnectedComponents() switch {
                             Brep[] components when components.Length > 0 => Many(key: ComponentsKey, values: components),
                             _ => Many(key: ComponentsKey, values: Brep.SplitDisjointPieces(brep: brep)),
                         },
                         _ => Fin.Fail<Seq<Brep>>(ComponentsKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Brep))),
-                    })),
+                    }).ToEff())),
             (Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(Mesh) =>
                 Cast<TGeometry, TOut>(key: ComponentsKey, query: Query<TGeometry, Mesh>.Build(
                     key: ComponentsKey,
-                    evaluator: static (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
+                    evaluator: static (TGeometry geometry) => (geometry switch {
                         Mesh mesh => Many(key: ComponentsKey, values: mesh.SplitDisjointPieces()),
                         _ => Fin.Fail<Seq<Mesh>>(ComponentsKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Mesh))),
-                    })),
+                    }).ToEff())),
             _ => ComponentsKey.Unsupported<TGeometry, TOut>(),
         };
     public static Query<TGeometry, TOut> Topology<TGeometry, TOut>(Topology aspect) where TGeometry : notnull =>
@@ -354,29 +386,29 @@ public static partial class Query {
             (TopologyKind.Adjacency, Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
                 Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, ComponentIndex>.Build(
                     key: TopologyKey,
-                    evaluator: static (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
+                    evaluator: static (TGeometry geometry) => (geometry switch {
                         Brep brep => Many(key: TopologyKey, values: Enumerable
                             .Range(start: 0, count: brep.Edges.Count)
                             .Select(static (int index) => new ComponentIndex(
                                 type: ComponentIndexType.BrepEdge,
                                 index: index))),
                         _ => Fin.Fail<Seq<ComponentIndex>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(ComponentIndex))),
-                    })),
+                    }).ToEff())),
             (TopologyKind.Adjacency, Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
                 Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, ComponentIndex>.Build(
                     key: TopologyKey,
-                    evaluator: static (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
+                    evaluator: static (TGeometry geometry) => (geometry switch {
                         Mesh mesh => Many(key: TopologyKey, values: Enumerable
                             .Range(start: 0, count: mesh.TopologyEdges.Count)
                             .Select(static (int index) => new ComponentIndex(
                                 type: ComponentIndexType.MeshTopologyEdge,
                                 index: index))),
                         _ => Fin.Fail<Seq<ComponentIndex>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(ComponentIndex))),
-                    })),
+                    }).ToEff())),
             (TopologyKind.NonManifold, Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
                 Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, ComponentIndex>.Build(
                     key: TopologyKey,
-                    evaluator: static (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
+                    evaluator: static (TGeometry geometry) => (geometry switch {
                         Brep brep => Many(key: TopologyKey, values: Enumerable
                             .Range(start: 0, count: brep.Edges.Count)
                             .Where((int index) => brep.Edges[index].Valence == EdgeAdjacency.NonManifold)
@@ -384,11 +416,11 @@ public static partial class Query {
                                 type: ComponentIndexType.BrepEdge,
                                 index: index))),
                         _ => Fin.Fail<Seq<ComponentIndex>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(ComponentIndex))),
-                    })),
+                    }).ToEff())),
             (TopologyKind.NonManifold, Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
                 Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, ComponentIndex>.Build(
                     key: TopologyKey,
-                    evaluator: static (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
+                    evaluator: static (TGeometry geometry) => (geometry switch {
                         Mesh mesh => Many(key: TopologyKey, values: Enumerable
                             .Range(start: 0, count: mesh.TopologyEdges.Count)
                             .Where((int index) => mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: index).Length > 2)
@@ -396,43 +428,48 @@ public static partial class Query {
                                 type: ComponentIndexType.MeshTopologyEdge,
                                 index: index))),
                         _ => Fin.Fail<Seq<ComponentIndex>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(ComponentIndex))),
-                    })),
+                    }).ToEff())),
             (TopologyKind.NonManifold, Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(bool) =>
                 Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, bool>.Build(
                     key: TopologyKey,
-                    evaluator: static (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
+                    evaluator: static (TGeometry geometry) => (geometry switch {
                         Brep brep => One(key: TopologyKey, value: Enumerable
                             .Range(start: 0, count: brep.Edges.Count)
                             .Any((int index) => brep.Edges[index].Valence == EdgeAdjacency.NonManifold)),
                         _ => Fin.Fail<Seq<bool>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(bool))),
-                    })),
+                    }).ToEff())),
             (TopologyKind.NonManifold, Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(bool) =>
                 Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, bool>.Build(
                     key: TopologyKey,
-                    evaluator: static (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
+                    evaluator: static (TGeometry geometry) => (geometry switch {
                         Mesh mesh => One(key: TopologyKey, value: Enumerable
                             .Range(start: 0, count: mesh.TopologyEdges.Count)
                             .Any((int index) => mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: index).Length > 2)),
                         _ => Fin.Fail<Seq<bool>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(bool))),
-                    })),
+                    }).ToEff())),
             _ => TopologyKey.Unsupported<TGeometry, TOut>(),
         };
     public static Query<Mesh, bool> IsManifold =>
-        Query<Mesh, bool>.Build(key: IsManifoldKey, evaluator: static (Mesh geometry, Fin<GeometryContext> _) => One(key: IsManifoldKey, value: geometry.IsManifold()));
+        Query<Mesh, bool>.Build(
+            key: IsManifoldKey,
+            evaluator: static (Mesh geometry) => One(key: IsManifoldKey, value: geometry.IsManifold()).ToEff());
     public static Query<Mesh, bool> NakedPointStatus =>
-        Query<Mesh, bool>.Build(key: NakedPointStatusKey, evaluator: static (Mesh geometry, Fin<GeometryContext> _) => Many(key: NakedPointStatusKey, values: geometry.GetNakedEdgePointStatus()));
+        Query<Mesh, bool>.Build(
+            key: NakedPointStatusKey,
+            evaluator: static (Mesh geometry) => Many(key: NakedPointStatusKey, values: geometry.GetNakedEdgePointStatus()).ToEff());
     public static Query<Mesh, MeshCheckParameters> MeshCheck =>
         Query<Mesh, MeshCheckParameters>.Build(
             key: MeshCheckKey,
-            evaluator: static (Mesh geometry, Fin<GeometryContext> _) => {
-                using TextLog textLog = new();
-                MeshCheckParameters parameters = MeshCheckParameters.Defaults();
-                return geometry.Check(
-                    textLog: textLog,
-                    parameters: ref parameters) switch {
-                        true or false => One(key: MeshCheckKey, value: parameters),
-                    };
-            });
+            evaluator: static (Mesh geometry) => MeshCheckParametersFor(geometry: geometry).ToEff());
+    private static Fin<Seq<MeshCheckParameters>> MeshCheckParametersFor(Mesh geometry) {
+        using TextLog textLog = new();
+        MeshCheckParameters parameters = MeshCheckParameters.Defaults();
+        return geometry.Check(
+            textLog: textLog,
+            parameters: ref parameters) switch {
+                true or false => One(key: MeshCheckKey, value: parameters),
+            };
+    }
     public static Query<Mesh, int> MeshCheckCount(Analysis.MeshCheckCount count) =>
         count switch {
             Analysis.MeshCheckCount.None => Query<Mesh, int>.Reject(
@@ -453,33 +490,26 @@ public static partial class Query {
                 or Analysis.MeshCheckCount.ZeroLengthNormals => Query<Mesh, int>.Build(
                 key: MeshCheckCountKey,
                 state: count,
-                evaluator: static (Analysis.MeshCheckCount aspect, Mesh geometry, Fin<GeometryContext> context) => (
-                    Fin.Succ(aspect),
-                    context.Bind((GeometryContext model) => MeshCheck
-                        .Apply(geometry: geometry)
-                        .Run(new AnalysisRuntime(Context: model))
-                        .Bind(static (Seq<MeshCheckParameters> values) =>
-                            values.Head.ToFin(MeshCheckCountKey.InvalidResult())))
-                ).Apply(static (Analysis.MeshCheckCount selected, MeshCheckParameters parameters) => (
-                    Count: selected,
-                    Parameters: parameters))
-                .As()
-                .Bind(static ((Analysis.MeshCheckCount Count, MeshCheckParameters Parameters) state) => state.Count switch {
-                    Analysis.MeshCheckCount.DegenerateFaces => One(key: MeshCheckCountKey, value: state.Parameters.DegenerateFaceCount),
-                    Analysis.MeshCheckCount.DisjointMeshes => One(key: MeshCheckCountKey, value: state.Parameters.DisjointMeshCount),
-                    Analysis.MeshCheckCount.DuplicateFaces => One(key: MeshCheckCountKey, value: state.Parameters.DuplicateFaceCount),
-                    Analysis.MeshCheckCount.ExtremelyShortEdges => One(key: MeshCheckCountKey, value: state.Parameters.ExtremelyShortEdgeCount),
-                    Analysis.MeshCheckCount.InvalidNgons => One(key: MeshCheckCountKey, value: state.Parameters.InvalidNgonCount),
-                    Analysis.MeshCheckCount.NakedEdges => One(key: MeshCheckCountKey, value: state.Parameters.NakedEdgeCount),
-                    Analysis.MeshCheckCount.NonManifoldEdges => One(key: MeshCheckCountKey, value: state.Parameters.NonManifoldEdgeCount),
-                    Analysis.MeshCheckCount.NonUnitVectorNormals => One(key: MeshCheckCountKey, value: state.Parameters.NonUnitVectorNormalCount),
-                    Analysis.MeshCheckCount.RandomFaceNormals => One(key: MeshCheckCountKey, value: state.Parameters.RandomFaceNormalCount),
-                    Analysis.MeshCheckCount.SelfIntersectingPairs => One(key: MeshCheckCountKey, value: state.Parameters.SelfIntersectingPairsCount),
-                    Analysis.MeshCheckCount.UnusedVertices => One(key: MeshCheckCountKey, value: state.Parameters.UnusedVertexCount),
-                    Analysis.MeshCheckCount.VertexFaceNormalsDiffer => One(key: MeshCheckCountKey, value: state.Parameters.VertexFaceNormalsDifferCount),
-                    Analysis.MeshCheckCount.ZeroLengthNormals => One(key: MeshCheckCountKey, value: state.Parameters.ZeroLengthNormalCount),
-                    _ => Fin.Fail<Seq<int>>(MeshCheckCountKey.InvalidInput()),
-                })),
+                evaluator: static (Analysis.MeshCheckCount aspect, Mesh geometry) =>
+                    from parameters in MeshCheck.Apply(geometry: geometry)
+                    from head in parameters.Head.ToFin(MeshCheckCountKey.InvalidResult()).ToEff()
+                    from result in (aspect switch {
+                        Analysis.MeshCheckCount.DegenerateFaces => One(key: MeshCheckCountKey, value: head.DegenerateFaceCount),
+                        Analysis.MeshCheckCount.DisjointMeshes => One(key: MeshCheckCountKey, value: head.DisjointMeshCount),
+                        Analysis.MeshCheckCount.DuplicateFaces => One(key: MeshCheckCountKey, value: head.DuplicateFaceCount),
+                        Analysis.MeshCheckCount.ExtremelyShortEdges => One(key: MeshCheckCountKey, value: head.ExtremelyShortEdgeCount),
+                        Analysis.MeshCheckCount.InvalidNgons => One(key: MeshCheckCountKey, value: head.InvalidNgonCount),
+                        Analysis.MeshCheckCount.NakedEdges => One(key: MeshCheckCountKey, value: head.NakedEdgeCount),
+                        Analysis.MeshCheckCount.NonManifoldEdges => One(key: MeshCheckCountKey, value: head.NonManifoldEdgeCount),
+                        Analysis.MeshCheckCount.NonUnitVectorNormals => One(key: MeshCheckCountKey, value: head.NonUnitVectorNormalCount),
+                        Analysis.MeshCheckCount.RandomFaceNormals => One(key: MeshCheckCountKey, value: head.RandomFaceNormalCount),
+                        Analysis.MeshCheckCount.SelfIntersectingPairs => One(key: MeshCheckCountKey, value: head.SelfIntersectingPairsCount),
+                        Analysis.MeshCheckCount.UnusedVertices => One(key: MeshCheckCountKey, value: head.UnusedVertexCount),
+                        Analysis.MeshCheckCount.VertexFaceNormalsDiffer => One(key: MeshCheckCountKey, value: head.VertexFaceNormalsDifferCount),
+                        Analysis.MeshCheckCount.ZeroLengthNormals => One(key: MeshCheckCountKey, value: head.ZeroLengthNormalCount),
+                        _ => Fin.Fail<Seq<int>>(MeshCheckCountKey.InvalidInput()),
+                    }).ToEff()
+                    select result),
             _ => Query<Mesh, int>.Reject(
                 key: MeshCheckCountKey,
                 fault: MeshCheckCountKey.InvalidInput()),
@@ -489,7 +519,7 @@ public static partial class Query {
             Analysis.MeshFaceMetric.AspectRatio => Query<Mesh, MeshFaceSample>.Build(
                 key: MeshFaceMetricKey,
                 requirement: GeometryRequirement.MeshCheck,
-                evaluator: static (Mesh geometry, Fin<GeometryContext> _) => Enumerable
+                evaluator: static (Mesh geometry) => Enumerable
                     .Range(start: 0, count: geometry.Faces.Count)
                     .Select((int face) => geometry.Faces.GetFaceAspectRatio(index: face) switch {
                         double value when Rhino.RhinoMath.IsValidDouble(x: value) && value >= 0.0 =>
@@ -501,7 +531,8 @@ public static partial class Query {
                         func: static (Fin<Seq<MeshFaceSample>> current, Fin<MeshFaceSample> sample) => (
                             current,
                             sample
-                        ).Apply(static (Seq<MeshFaceSample> values, MeshFaceSample next) => values.Add(next)).As())),
+                        ).Apply(static (Seq<MeshFaceSample> values, MeshFaceSample next) => values.Add(next)).As())
+                    .ToEff()),
             _ => Query<Mesh, MeshFaceSample>.Reject(
                 key: MeshFaceMetricKey,
                 fault: MeshFaceMetricKey.InvalidInput()),
@@ -510,26 +541,28 @@ public static partial class Query {
         Query<Mesh, Polyline>.Build(
             key: SelfIntersectionsKey,
             requirement: GeometryRequirement.Basic,
-            evaluator: static (Mesh geometry, Fin<GeometryContext> context) =>
-                context
-                    .Bind((GeometryContext geometryContext) => {
-                        using TextLog textLog = new();
-                        return geometry.GetSelfIntersections(
-                            tolerance: geometryContext.MeshIntersectionTolerance,
-                            perforations: out Polyline[] perforations,
-                            overlapsPolylines: true,
-                            overlapsPolylinesResult: out Polyline[] overlaps,
-                            overlapsMesh: false,
-                            overlapsMeshResult: out Mesh _,
-                            textLog: textLog,
-                            cancel: CancellationToken.None,
-                            progress: null!) switch {
-                                true => (Many(key: SelfIntersectionsKey, values: perforations), Many(key: SelfIntersectionsKey, values: overlaps))
-                                    .Apply((Seq<Polyline> left, Seq<Polyline> right) => left + right)
-                                    .As(),
-                                false => Fin.Fail<Seq<Polyline>>(SelfIntersectionsKey.InvalidResult()),
-                            };
-                    }));
+            evaluator: static (Mesh geometry) =>
+                from rt in Analyze.Asks
+                from result in SelfIntersectionsValue(geometry: geometry, context: rt.Context).ToEff()
+                select result);
+    private static Fin<Seq<Polyline>> SelfIntersectionsValue(Mesh geometry, GeometryContext context) {
+        using TextLog textLog = new();
+        return geometry.GetSelfIntersections(
+            tolerance: context.MeshIntersectionTolerance,
+            perforations: out Polyline[] perforations,
+            overlapsPolylines: true,
+            overlapsPolylinesResult: out Polyline[] overlaps,
+            overlapsMesh: false,
+            overlapsMeshResult: out Mesh _,
+            textLog: textLog,
+            cancel: CancellationToken.None,
+            progress: null!) switch {
+                true => (Many(key: SelfIntersectionsKey, values: perforations), Many(key: SelfIntersectionsKey, values: overlaps))
+                    .Apply((Seq<Polyline> left, Seq<Polyline> right) => left + right)
+                    .As(),
+                false => Fin.Fail<Seq<Polyline>>(SelfIntersectionsKey.InvalidResult()),
+            };
+    }
     internal static GeometryKind KindOfBrep(Brep brep, GeometryContext context) =>
         brep switch {
             { IsSurface: true } single => single.Surfaces[0] switch {

@@ -1,5 +1,7 @@
 using System.Linq;
+using Core;
 using Core.Domain;
+using Core.Runtime;
 using LanguageExt;
 using LanguageExt.Common;
 using Rhino.Geometry;
@@ -36,16 +38,10 @@ public static partial class Query {
                 Cast<TGeometry, TOut>(key: PointAtLengthKey, query: Query<TGeometry, Point3d>.Build(
                     key: PointAtLengthKey,
                     requirement: GeometryRequirement.CurveLength,
-                    evaluator: (TGeometry geometry, Fin<GeometryContext> context) => context.Bind((GeometryContext model) => geometry switch {
-                        Curve curve => curve.LengthParameter(
-                            segmentLength: aspect.Parameter,
-                            t: out double parameter,
-                            fractionalTolerance: model.Relative.Value) switch {
-                                true => One(key: PointAtLengthKey, value: curve.PointAt(t: parameter)),
-                                false => Fin.Fail<Seq<Point3d>>(PointAtLengthKey.InvalidResult()),
-                            },
-                        _ => Fin.Fail<Seq<Point3d>>(PointAtLengthKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Point3d))),
-                    }))),
+                    state: aspect.Parameter,
+                    evaluator: static (double segmentLength, TGeometry geometry) => CurveAtLengthValue(
+                        segmentLength: segmentLength,
+                        geometry: geometry))),
             LocationKind.FrameAtCurve when typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Plane) =>
                 Cast<TGeometry, TOut>(key: FrameAtKey, query: CurveFrame<TGeometry>(key: FrameAtKey, parameter: aspect.Parameter, perpendicular: false)),
             LocationKind.PerpendicularFrameAt when typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Plane) =>
@@ -71,21 +67,26 @@ public static partial class Query {
             LocationKind.Orientation when typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(CurveOrientation) =>
                 Cast<TGeometry, TOut>(key: OrientationKey, query: Query<TGeometry, CurveOrientation>.Build(
                     key: OrientationKey,
-                    evaluator: (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
-                        Curve curve => One(key: OrientationKey, value: curve.ClosedCurveOrientation(plane: aspect.Plane)),
-                        _ => Fin.Fail<Seq<CurveOrientation>>(OrientationKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(CurveOrientation))),
+                    state: aspect.Plane,
+                    evaluator: static (Plane plane, TGeometry geometry) => geometry switch {
+                        Curve curve => One(key: OrientationKey, value: curve.ClosedCurveOrientation(plane: plane)).ToEff(),
+                        _ => Eff<AnalysisRuntime, Seq<CurveOrientation>>.Fail(error: OrientationKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(CurveOrientation))),
                     })),
             LocationKind.Contains when typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(PointContainment) =>
                 Cast<TGeometry, TOut>(key: ContainsKey, query: Query<TGeometry, PointContainment>.Build(
                     key: ContainsKey,
                     requiresContext: true,
-                    evaluator: (TGeometry geometry, Fin<GeometryContext> context) => context.Bind((GeometryContext model) => geometry switch {
-                        Curve curve => curve.Contains(testPoint: aspect.Point, plane: aspect.Plane, tolerance: model.Absolute.Value) switch {
-                            PointContainment.Unset => Fin.Fail<Seq<PointContainment>>(ContainsKey.InvalidResult()),
-                            PointContainment containment => One(key: ContainsKey, value: containment),
-                        },
-                        _ => Fin.Fail<Seq<PointContainment>>(ContainsKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(PointContainment))),
-                    }))),
+                    state: (Probe: aspect.Point, Frame: aspect.Plane),
+                    evaluator: static ((Point3d Probe, Plane Frame) probe, TGeometry geometry) => geometry switch {
+                        Curve curve =>
+                            from rt in Analyze.Asks
+                            from result in (curve.Contains(testPoint: probe.Probe, plane: probe.Frame, tolerance: rt.Context.Absolute.Value) switch {
+                                PointContainment.Unset => Fin.Fail<Seq<PointContainment>>(ContainsKey.InvalidResult()),
+                                PointContainment containment => One(key: ContainsKey, value: containment),
+                            }).ToEff()
+                            select result,
+                        _ => Eff<AnalysisRuntime, Seq<PointContainment>>.Fail(error: ContainsKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(PointContainment))),
+                    })),
             _ => PointAtKey.Unsupported<TGeometry, TOut>(),
         };
     private static Query<TGeometry, TOut> SurfaceLocation<TGeometry, TOut>(Location aspect) where TGeometry : notnull =>
@@ -127,58 +128,58 @@ public static partial class Query {
             (Type geometry, Type output) when geometry == typeof(Line) && output == typeof(Point3d) =>
                 Cast<TGeometry, TOut>(key: MidpointKey, query: Query<Line, Point3d>.Build(
                     key: MidpointKey,
-                    evaluator: static (Line geometry, Fin<GeometryContext> _) => geometry.IsValid switch {
+                    evaluator: static (Line geometry) => (geometry.IsValid switch {
                         true => One(key: MidpointKey, value: geometry.PointAt(t: 0.5)),
                         false => Fin.Fail<Seq<Point3d>>(MidpointKey.InvalidInput()),
-                    })),
+                    }).ToEff())),
             (Type geometry, Type output) when geometry == typeof(Polyline) && output == typeof(Point3d) =>
                 Cast<TGeometry, TOut>(key: MidpointKey, query: Query<Polyline, Point3d>.Build(
                     key: MidpointKey,
-                    evaluator: static (Polyline geometry, Fin<GeometryContext> _) => {
-                        using PolylineCurve curve = geometry.ToPolylineCurve();
-                        return curve.IsValid switch {
-                            true => One(key: MidpointKey, value: curve.PointAtNormalizedLength(length: 0.5)),
-                            false => Fin.Fail<Seq<Point3d>>(MidpointKey.InvalidInput()),
-                        };
-                    })),
+                    evaluator: static (Polyline geometry) => PolylineMidpoint(geometry: geometry).ToEff())),
             (Type geometry, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && output == typeof(Point3d) =>
                 Cast<TGeometry, TOut>(key: MidpointKey, query: Query<TGeometry, Point3d>.Build(
                     key: MidpointKey,
                     requirement: GeometryRequirement.CurveLength,
-                    evaluator: static (TGeometry geometry, Fin<GeometryContext> context) => CurveAtNormalized<TGeometry, Point3d>(
+                    evaluator: static (TGeometry geometry) => CurveAtNormalized<TGeometry, Point3d>(
                         geometry: geometry,
-                        context: context,
                         key: MidpointKey,
                         project: static (Curve curve, double parameter) => curve.PointAt(t: parameter)))),
             _ => MidpointKey.Unsupported<TGeometry, TOut>(),
         };
+    private static Fin<Seq<Point3d>> PolylineMidpoint(Polyline geometry) {
+        using PolylineCurve curve = geometry.ToPolylineCurve();
+        return curve.IsValid switch {
+            true => One(key: MidpointKey, value: curve.PointAtNormalizedLength(length: 0.5)),
+            false => Fin.Fail<Seq<Point3d>>(MidpointKey.InvalidInput()),
+        };
+    }
     private static Query<TGeometry, TOut> TangentAtMiddle<TGeometry, TOut>() where TGeometry : notnull =>
         (typeof(TGeometry), typeof(TOut)) switch {
             (Type geometry, Type output) when geometry == typeof(Line) && output == typeof(Vector3d) =>
                 Cast<TGeometry, TOut>(key: TangentKey, query: Query<Line, Vector3d>.Build(
                     key: TangentKey,
-                    evaluator: static (Line geometry, Fin<GeometryContext> _) => One(key: TangentKey, value: geometry.UnitTangent))),
+                    evaluator: static (Line geometry) => One(key: TangentKey, value: geometry.UnitTangent).ToEff())),
             (Type geometry, Type output) when geometry == typeof(Polyline) && output == typeof(Vector3d) =>
                 Cast<TGeometry, TOut>(key: TangentKey, query: Query<Polyline, Vector3d>.Build(
                     key: TangentKey,
-                    evaluator: static (Polyline geometry, Fin<GeometryContext> _) => {
-                        using PolylineCurve curve = geometry.ToPolylineCurve();
-                        return curve.NormalizedLengthParameter(s: 0.5, t: out double parameter) switch {
-                            true => One(key: TangentKey, value: curve.TangentAt(t: parameter)),
-                            false => Fin.Fail<Seq<Vector3d>>(TangentKey.InvalidResult()),
-                        };
-                    })),
+                    evaluator: static (Polyline geometry) => PolylineTangent(geometry: geometry).ToEff())),
             (Type geometry, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && output == typeof(Vector3d) =>
                 Cast<TGeometry, TOut>(key: TangentKey, query: Query<TGeometry, Vector3d>.Build(
                     key: TangentKey,
                     requirement: GeometryRequirement.CurveLength,
-                    evaluator: static (TGeometry geometry, Fin<GeometryContext> context) => CurveAtNormalized<TGeometry, Vector3d>(
+                    evaluator: static (TGeometry geometry) => CurveAtNormalized<TGeometry, Vector3d>(
                         geometry: geometry,
-                        context: context,
                         key: TangentKey,
                         project: static (Curve curve, double parameter) => curve.TangentAt(t: parameter)))),
             _ => TangentKey.Unsupported<TGeometry, TOut>(),
         };
+    private static Fin<Seq<Vector3d>> PolylineTangent(Polyline geometry) {
+        using PolylineCurve curve = geometry.ToPolylineCurve();
+        return curve.NormalizedLengthParameter(s: 0.5, t: out double parameter) switch {
+            true => One(key: TangentKey, value: curve.TangentAt(t: parameter)),
+            false => Fin.Fail<Seq<Vector3d>>(TangentKey.InvalidResult()),
+        };
+    }
     private static Query<TGeometry, TOut> CurvatureProfile<TGeometry, TOut>(int count, CurvatureScalar scalar) where TGeometry : notnull =>
         count switch {
             <= 0 => Query<TGeometry, TOut>.Reject(key: CurvatureAtKey, fault: CurvatureAtKey.InvalidInput()),
@@ -191,64 +192,70 @@ public static partial class Query {
                     key: CurvatureAtKey,
                     requirement: GeometryRequirement.CurveLength,
                     state: count,
-                    evaluator: static (int sampleCount, TGeometry geometry, Fin<GeometryContext> context) => (geometry, context) switch {
-                        (Curve curve, Fin<GeometryContext> rail) => rail.Bind((GeometryContext model) => CurveCurvatures(
-                            curve: curve,
-                            count: sampleCount,
-                            model: model)),
-                        _ => Fin.Fail<Seq<Vector3d>>(CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Vector3d))),
+                    evaluator: static (int sampleCount, TGeometry geometry) => geometry switch {
+                        Curve curve =>
+                            from rt in Analyze.Asks
+                            from result in CurveCurvatures(
+                                curve: curve,
+                                count: sampleCount,
+                                model: rt.Context).ToEff()
+                            select result,
+                        _ => Eff<AnalysisRuntime, Seq<Vector3d>>.Fail(error: CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Vector3d))),
                     })),
             (CurvatureScalar.None or CurvatureScalar.Magnitude, Type geometry, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && output == typeof(CurvatureProfile) =>
                 Cast<TGeometry, TOut>(key: CurvatureAtKey, query: Query<TGeometry, CurvatureProfile>.Build(
                     key: CurvatureAtKey,
                     requirement: GeometryRequirement.CurveLength,
                     state: count,
-                    evaluator: static (int sampleCount, TGeometry geometry, Fin<GeometryContext> context) => (geometry, context) switch {
-                        (Curve curve, Fin<GeometryContext> rail) => rail
-                            .Bind((GeometryContext model) => CurveScalarProfile(curve: curve, count: sampleCount, model: model, scalar: CurvatureScalar.Magnitude))
-                            .Bind(static (Seq<double> values) => Profile(
-                                    scalar: CurvatureScalar.Magnitude,
-                                    values: values)
-                                .Map(static (CurvatureProfile profile) => Seq(profile))),
-                        _ => Fin.Fail<Seq<CurvatureProfile>>(CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(CurvatureProfile))),
+                    evaluator: static (int sampleCount, TGeometry geometry) => geometry switch {
+                        Curve curve =>
+                            from rt in Analyze.Asks
+                            from values in CurveScalarProfile(curve: curve, count: sampleCount, model: rt.Context, scalar: CurvatureScalar.Magnitude).ToEff()
+                            from profile in Profile(scalar: CurvatureScalar.Magnitude, values: values).ToEff()
+                            select Seq(profile),
+                        _ => Eff<AnalysisRuntime, Seq<CurvatureProfile>>.Fail(error: CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(CurvatureProfile))),
                     })),
             (CurvatureScalar.Magnitude, Type geometry, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && output == typeof(double) =>
                 Cast<TGeometry, TOut>(key: CurvatureAtKey, query: Query<TGeometry, double>.Build(
                     key: CurvatureAtKey,
                     requirement: GeometryRequirement.CurveLength,
                     state: count,
-                    evaluator: static (int sampleCount, TGeometry geometry, Fin<GeometryContext> context) => (geometry, context) switch {
-                        (Curve curve, Fin<GeometryContext> rail) => rail
-                            .Bind((GeometryContext model) => CurveScalarProfile(curve: curve, count: sampleCount, model: model, scalar: CurvatureScalar.Magnitude))
-                            .Bind(static (Seq<double> values) => Many(
-                                key: CurvatureAtKey,
-                                values: values)),
-                        _ => Fin.Fail<Seq<double>>(CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(double))),
+                    evaluator: static (int sampleCount, TGeometry geometry) => geometry switch {
+                        Curve curve =>
+                            from rt in Analyze.Asks
+                            from values in CurveScalarProfile(curve: curve, count: sampleCount, model: rt.Context, scalar: CurvatureScalar.Magnitude).ToEff()
+                            from result in Many(key: CurvatureAtKey, values: values).ToEff()
+                            select result,
+                        _ => Eff<AnalysisRuntime, Seq<double>>.Fail(error: CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(double))),
                     })),
             (CurvatureScalar.None, Type geometry, Type output) when typeof(Surface).IsAssignableFrom(c: geometry) && output == typeof(SurfaceCurvature) =>
                 Cast<TGeometry, TOut>(key: CurvatureAtKey, query: Query<TGeometry, SurfaceCurvature>.Build(
                     key: CurvatureAtKey,
                     requirement: GeometryRequirement.SurfaceEvaluation,
                     state: count,
-                    evaluator: static (int sampleCount, TGeometry geometry, Fin<GeometryContext> context) => geometry switch {
-                        Surface surface => context.Bind((GeometryContext model) => SurfaceCurvatures(
-                            surface: surface,
-                            count: sampleCount,
-                            model: model)),
-                        _ => Fin.Fail<Seq<SurfaceCurvature>>(CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(SurfaceCurvature))),
+                    evaluator: static (int sampleCount, TGeometry geometry) => geometry switch {
+                        Surface surface =>
+                            from rt in Analyze.Asks
+                            from result in SurfaceCurvatures(
+                                surface: surface,
+                                count: sampleCount,
+                                model: rt.Context).ToEff()
+                            select result,
+                        _ => Eff<AnalysisRuntime, Seq<SurfaceCurvature>>.Fail(error: CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(SurfaceCurvature))),
                     })),
             (CurvatureScalar.None, Type geometry, Type output) when typeof(Surface).IsAssignableFrom(c: geometry) && output == typeof(CurvatureProfile) =>
                 Cast<TGeometry, TOut>(key: CurvatureAtKey, query: Query<TGeometry, CurvatureProfile>.Build(
                     key: CurvatureAtKey,
                     requirement: GeometryRequirement.SurfaceEvaluation,
                     state: count,
-                    evaluator: static (int sampleCount, TGeometry geometry, Fin<GeometryContext> context) => geometry switch {
-                        Surface surface => context
-                            .Bind((GeometryContext model) => SurfaceCurvatures(
+                    evaluator: static (int sampleCount, TGeometry geometry) => geometry switch {
+                        Surface surface =>
+                            from rt in Analyze.Asks
+                            from curvatures in SurfaceCurvatures(
                                 surface: surface,
                                 count: sampleCount,
-                                model: model))
-                            .Bind(static (Seq<SurfaceCurvature> curvatures) => (
+                                model: rt.Context).ToEff()
+                            from result in (
                                 SurfaceScalars(
                                     curvatures: curvatures,
                                     scalar: CurvatureScalar.Gaussian).Bind(static (Seq<double> values) => Profile(
@@ -259,35 +266,35 @@ public static partial class Query {
                                     scalar: CurvatureScalar.Mean).Bind(static (Seq<double> values) => Profile(
                                     scalar: CurvatureScalar.Mean,
                                     values: values))
-                            ).Apply(static (CurvatureProfile gaussian, CurvatureProfile mean) => Seq(gaussian, mean)).As()),
-                        _ => Fin.Fail<Seq<CurvatureProfile>>(CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(CurvatureProfile))),
+                            ).Apply(static (CurvatureProfile gaussian, CurvatureProfile mean) => Seq(gaussian, mean)).As().ToEff()
+                            select result,
+                        _ => Eff<AnalysisRuntime, Seq<CurvatureProfile>>.Fail(error: CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(CurvatureProfile))),
                     })),
             (CurvatureScalar.Gaussian or CurvatureScalar.Mean, Type geometry, Type output) when typeof(Surface).IsAssignableFrom(c: geometry) && output == typeof(CurvatureProfile) =>
                 Cast<TGeometry, TOut>(key: CurvatureAtKey, query: Query<TGeometry, CurvatureProfile>.Build(
                     key: CurvatureAtKey,
                     requirement: GeometryRequirement.SurfaceEvaluation,
                     state: (Count: count, Scalar: scalar),
-                    evaluator: static ((int Count, CurvatureScalar Scalar) state, TGeometry geometry, Fin<GeometryContext> context) => geometry switch {
-                        Surface surface => context
-                            .Bind((GeometryContext model) => SurfaceScalarProfile(surface: surface, count: state.Count, model: model, scalar: state.Scalar))
-                            .Bind((Seq<double> values) => Profile(
-                                    scalar: state.Scalar,
-                                    values: values)
-                                .Map(static (CurvatureProfile profile) => Seq(profile))),
-                        _ => Fin.Fail<Seq<CurvatureProfile>>(CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(CurvatureProfile))),
+                    evaluator: static ((int Count, CurvatureScalar Scalar) state, TGeometry geometry) => geometry switch {
+                        Surface surface =>
+                            from rt in Analyze.Asks
+                            from values in SurfaceScalarProfile(surface: surface, count: state.Count, model: rt.Context, scalar: state.Scalar).ToEff()
+                            from profile in Profile(scalar: state.Scalar, values: values).ToEff()
+                            select Seq(profile),
+                        _ => Eff<AnalysisRuntime, Seq<CurvatureProfile>>.Fail(error: CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(CurvatureProfile))),
                     })),
             (CurvatureScalar.Gaussian or CurvatureScalar.Mean, Type geometry, Type output) when typeof(Surface).IsAssignableFrom(c: geometry) && output == typeof(double) =>
                 Cast<TGeometry, TOut>(key: CurvatureAtKey, query: Query<TGeometry, double>.Build(
                     key: CurvatureAtKey,
                     requirement: GeometryRequirement.SurfaceEvaluation,
                     state: (Count: count, Scalar: scalar),
-                    evaluator: static ((int Count, CurvatureScalar Scalar) state, TGeometry geometry, Fin<GeometryContext> context) => geometry switch {
-                        Surface surface => context
-                            .Bind((GeometryContext model) => SurfaceScalarProfile(surface: surface, count: state.Count, model: model, scalar: state.Scalar))
-                            .Bind(static (Seq<double> values) => Many(
-                                key: CurvatureAtKey,
-                                values: values)),
-                        _ => Fin.Fail<Seq<double>>(CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(double))),
+                    evaluator: static ((int Count, CurvatureScalar Scalar) state, TGeometry geometry) => geometry switch {
+                        Surface surface =>
+                            from rt in Analyze.Asks
+                            from values in SurfaceScalarProfile(surface: surface, count: state.Count, model: rt.Context, scalar: state.Scalar).ToEff()
+                            from result in Many(key: CurvatureAtKey, values: values).ToEff()
+                            select result,
+                        _ => Eff<AnalysisRuntime, Seq<double>>.Fail(error: CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(double))),
                     })),
             _ => CurvatureAtKey.Unsupported<TGeometry, TOut>(),
         };
@@ -462,48 +469,52 @@ public static partial class Query {
         Func<Curve, double, Fin<Seq<TOut>>> project) where TGeometry : notnull =>
         Query<TGeometry, TOut>.Build(
             key: key,
-            evaluator: (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
-                Curve curve => curve.Domain.IncludesParameter(t: parameter) switch {
-                    true => project(arg1: curve, arg2: parameter),
-                    false => Fin.Fail<Seq<TOut>>(key.InvalidInput()),
+            state: (Key: key, Parameter: parameter, Project: project),
+            evaluator: static ((OperationKey Key, double Parameter, Func<Curve, double, Fin<Seq<TOut>>> Project) state, TGeometry geometry) => (geometry switch {
+                Curve curve => curve.Domain.IncludesParameter(t: state.Parameter) switch {
+                    true => state.Project(arg1: curve, arg2: state.Parameter),
+                    false => Fin.Fail<Seq<TOut>>(state.Key.InvalidInput()),
                 },
-                _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))),
-            });
+                _ => Fin.Fail<Seq<TOut>>(state.Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))),
+            }).ToEff());
     private static Query<TGeometry, Point3d> Divide<TGeometry>(int count) where TGeometry : notnull =>
         Query<TGeometry, Point3d>.Build(
             key: DivideByCountKey,
-            evaluator: (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
-                Curve curve => curve.DivideByCount(segmentCount: count, includeEnds: true, points: out Point3d[] points) switch {
+            state: count,
+            evaluator: static (int amount, TGeometry geometry) => (geometry switch {
+                Curve curve => curve.DivideByCount(segmentCount: amount, includeEnds: true, points: out Point3d[] points) switch {
                     double[] => Many(key: DivideByCountKey, values: points),
                     _ => Fin.Fail<Seq<Point3d>>(DivideByCountKey.InvalidResult()),
                 },
                 _ => Fin.Fail<Seq<Point3d>>(DivideByCountKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Point3d))),
-            });
+            }).ToEff());
     private static Query<TGeometry, Point3d> Divide<TGeometry>(double length) where TGeometry : notnull =>
         Query<TGeometry, Point3d>.Build(
             key: DivideByLengthKey,
             requirement: GeometryRequirement.CurveLength,
-            evaluator: (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
-                Curve curve => curve.DivideByLength(segmentLength: length, includeEnds: true, points: out Point3d[] points) switch {
+            state: length,
+            evaluator: static (double segmentLength, TGeometry geometry) => (geometry switch {
+                Curve curve => curve.DivideByLength(segmentLength: segmentLength, includeEnds: true, points: out Point3d[] points) switch {
                     double[] => Many(key: DivideByLengthKey, values: points),
                     _ => Fin.Fail<Seq<Point3d>>(DivideByLengthKey.InvalidResult()),
                 },
                 _ => Fin.Fail<Seq<Point3d>>(DivideByLengthKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Point3d))),
-            });
+            }).ToEff());
     private static Query<TGeometry, Curve> ShortPath<TGeometry>(Point2d start, Point2d end) where TGeometry : notnull =>
         Query<TGeometry, Curve>.Build(
             key: ShortPathKey,
             requirement: GeometryRequirement.SurfaceEvaluation,
-            evaluator: (TGeometry geometry, Fin<GeometryContext> context) => geometry switch {
-                Surface surface => context
-                    .Bind((GeometryContext model) => (
-                        Uv(surface: surface, uv: start, context: model, key: ShortPathKey),
-                        Uv(surface: surface, uv: end, context: model, key: ShortPathKey)
-                    ).Apply(static (Point2d a, Point2d b) => (Start: a, End: b)).As()
-                    .Bind((ValueTuple<Point2d, Point2d> uv) => Optional(surface.ShortPath(start: uv.Item1, end: uv.Item2, tolerance: model.Absolute.Value))
-                        .ToFin(ShortPathKey.InvalidResult())))
-                    .Map(static (Curve path) => Seq(path)),
-                _ => Fin.Fail<Seq<Curve>>(ShortPathKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Curve))),
+            state: (Start: start, End: end),
+            evaluator: static ((Point2d Start, Point2d End) endpoints, TGeometry geometry) => geometry switch {
+                Surface surface =>
+                    from rt in Analyze.Asks
+                    from uvStart in Uv(surface: surface, uv: endpoints.Start, context: rt.Context, key: ShortPathKey).ToEff()
+                    from uvEnd in Uv(surface: surface, uv: endpoints.End, context: rt.Context, key: ShortPathKey).ToEff()
+                    from path in Optional(surface.ShortPath(start: uvStart, end: uvEnd, tolerance: rt.Context.Absolute.Value))
+                        .ToFin(ShortPathKey.InvalidResult())
+                        .ToEff()
+                    select Seq(path),
+                _ => Eff<AnalysisRuntime, Seq<Curve>>.Fail(error: ShortPathKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Curve))),
             });
     private static Query<TGeometry, TOut> SurfaceUv<TGeometry, TOut>(
         OperationKey key,
@@ -512,11 +523,14 @@ public static partial class Query {
         Query<TGeometry, TOut>.Build(
             key: key,
             requirement: GeometryRequirement.SurfaceEvaluation,
-            evaluator: (TGeometry geometry, Fin<GeometryContext> context) => geometry switch {
-                Surface surface => context
-                    .Bind((GeometryContext model) => Uv(surface: surface, uv: uv, context: model, key: key))
-                    .Bind((Point2d parameter) => project(arg1: surface, arg2: parameter)),
-                _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))),
+            state: (Key: key, Uv: uv, Project: project),
+            evaluator: static ((OperationKey Key, Point2d Uv, Func<Surface, Point2d, Fin<Seq<TOut>>> Project) state, TGeometry geometry) => geometry switch {
+                Surface surface =>
+                    from rt in Analyze.Asks
+                    from parameter in Uv(surface: surface, uv: state.Uv, context: rt.Context, key: state.Key).ToEff()
+                    from result in state.Project(arg1: surface, arg2: parameter).ToEff()
+                    select result,
+                _ => Eff<AnalysisRuntime, Seq<TOut>>.Fail(error: state.Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))),
             });
     private static Fin<Point2d> Uv(Surface surface, Point2d uv, GeometryContext context, OperationKey key) =>
         (surface.Domain(direction: 0), surface.Domain(direction: 1)) switch {
@@ -526,5 +540,19 @@ public static partial class Query {
                 && v.IncludesParameter(t: uv.Y)
                 && (surface is not BrepFace face || face.IsPointOnFace(u: uv.X, v: uv.Y, tolerance: context.Absolute.Value) != PointFaceRelation.Exterior) => Fin.Succ(uv),
             _ => Fin.Fail<Point2d>(key.InvalidInput()),
+        };
+    private static Eff<AnalysisRuntime, Seq<Point3d>> CurveAtLengthValue<TGeometry>(double segmentLength, TGeometry geometry) where TGeometry : notnull =>
+        geometry switch {
+            Curve curve =>
+                from rt in Analyze.Asks
+                from result in (curve.LengthParameter(
+                    segmentLength: segmentLength,
+                    t: out double parameter,
+                    fractionalTolerance: rt.Context.Relative.Value) switch {
+                        true => One(key: PointAtLengthKey, value: curve.PointAt(t: parameter)),
+                        false => Fin.Fail<Seq<Point3d>>(PointAtLengthKey.InvalidResult()),
+                    }).ToEff()
+                select result,
+            _ => Eff<AnalysisRuntime, Seq<Point3d>>.Fail(error: PointAtLengthKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Point3d))),
         };
 }

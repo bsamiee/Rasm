@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Core.Runtime;
+using LanguageExt.Common;
 namespace Core;
 
 // --- [CONSTANTS] -------------------------------------------------------------------------------
@@ -17,4 +18,8 @@ public static class Resilience {
         this Eff<AnalysisRuntime, T> effect) =>
         retry(schedule: StandardPolicy, ma: effect)
             .As();
+    public static Eff<AnalysisRuntime, T> ToEff<T>(this Fin<T> fin) =>
+        fin;
+    public static Eff<AnalysisRuntime, T> ToEff<T>(this Validation<Error, T> validation) =>
+        validation.ToFin();
 }

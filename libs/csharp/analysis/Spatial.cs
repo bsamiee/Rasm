@@ -1,4 +1,6 @@
+using Core;
 using Core.Domain;
+using Core.Runtime;
 using LanguageExt;
 using LanguageExt.Common;
 using Rhino;
@@ -54,7 +56,7 @@ public sealed class SpatialIndex : IDisposable {
             })
             .Map(static (RTree tree) => new SpatialIndex(tree: tree))
             .ToValidation();
-    public Validation<Error, Seq<SpatialHit>> Search(BoundingBox box) =>
+    public Eff<AnalysisRuntime, Seq<SpatialHit>> Search(BoundingBox box) =>
         Ready()
             .Bind((RTree active) => box.IsValid switch {
                 true => Search(
@@ -62,8 +64,8 @@ public sealed class SpatialIndex : IDisposable {
                     shape: box),
                 false => Fin.Fail<Seq<SpatialHit>>(Query.SpatialIndexKey.InvalidInput()),
             })
-            .ToValidation();
-    public Validation<Error, Seq<SpatialHit>> Search(Sphere sphere) =>
+            .ToEff();
+    public Eff<AnalysisRuntime, Seq<SpatialHit>> Search(Sphere sphere) =>
         Ready()
             .Bind((RTree active) => sphere.IsValid switch {
                 true => Search(
@@ -71,8 +73,8 @@ public sealed class SpatialIndex : IDisposable {
                     shape: sphere),
                 false => Fin.Fail<Seq<SpatialHit>>(Query.SpatialIndexKey.InvalidInput()),
             })
-            .ToValidation();
-    public Validation<Error, Seq<SpatialPair>> Overlaps(SpatialIndex other, double tolerance = 0.0) =>
+            .ToEff();
+    public Eff<AnalysisRuntime, Seq<SpatialPair>> Overlaps(SpatialIndex other, double tolerance = 0.0) =>
         (
             Ready(),
             Optional(other)
@@ -83,19 +85,20 @@ public sealed class SpatialIndex : IDisposable {
                 : Fin.Fail<double>(Query.SpatialIndexKey.InvalidInput())
         ).Apply(static (RTree left, RTree right, double modelTolerance) => (Left: left, Right: right, Tolerance: modelTolerance))
         .As()
-        .Bind(static ((RTree Left, RTree Right, double Tolerance) state) => {
-            SearchState search = new(capacity: state.Left.Count * state.Right.Count);
-            return RTree.SearchOverlaps(
-                treeA: state.Left,
-                treeB: state.Right,
-                tolerance: state.Tolerance,
-                callback: CollectPair(search: search)) switch {
-                    true => Fin.Succ(search.Pairs()),
-                    false => Fin.Fail<Seq<SpatialPair>>(Query.SpatialIndexKey.InvalidResult()),
-                };
-        })
-        .ToValidation();
-    public static Validation<Error, Seq<SpatialPair>> KNearest(
+        .Bind(static ((RTree Left, RTree Right, double Tolerance) state) => OverlapPairs(state: state))
+        .ToEff();
+    private static Fin<Seq<SpatialPair>> OverlapPairs((RTree Left, RTree Right, double Tolerance) state) {
+        SearchState search = new(capacity: state.Left.Count * state.Right.Count);
+        return RTree.SearchOverlaps(
+            treeA: state.Left,
+            treeB: state.Right,
+            tolerance: state.Tolerance,
+            callback: CollectPair(search: search)) switch {
+                true => Fin.Succ(search.Pairs()),
+                false => Fin.Fail<Seq<SpatialPair>>(Query.SpatialIndexKey.InvalidResult()),
+            };
+    }
+    public static Eff<AnalysisRuntime, Seq<SpatialPair>> KNearest(
         ReadOnlySpan<Point3d> points,
         ReadOnlySpan<Point3d> needles,
         int count) =>
@@ -113,8 +116,8 @@ public sealed class SpatialIndex : IDisposable {
                 hayPoints: state.Hay,
                 needlePts: state.Query,
                 amount: state.Count)))
-        .ToValidation();
-    public static Validation<Error, Seq<SpatialPair>> Closest(
+        .ToEff();
+    public static Eff<AnalysisRuntime, Seq<SpatialPair>> Closest(
         ReadOnlySpan<Point3d> points,
         ReadOnlySpan<Point3d> needles,
         double limitDistance) =>
@@ -131,7 +134,7 @@ public sealed class SpatialIndex : IDisposable {
                 hayPoints: state.Hay,
                 needlePts: state.Query,
                 limitDistance: state.Distance)))
-        .ToValidation();
+        .ToEff();
     public void Dispose() =>
         disposed = disposed switch {
             false => DisposeTree(),

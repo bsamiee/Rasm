@@ -125,12 +125,20 @@ public static class Analyze {
                                 geometry: native,
                                 requirement: requirement)
                             .ToFin()
-                            .Bind(_ => query.ApplyDirect(
-                                geometry: input,
-                                context: Fin.Succ(rt.Context)))),
-                _ => query.ApplyDirect(
-                    geometry: input,
-                    context: runtime.Map(static (AnalysisRuntime rt) => rt.Context)),
+                            .Bind(_ => query.Apply(geometry: input).Run(rt))),
+                _ => RuntimeOrSentinel().Bind((AnalysisRuntime rt) =>
+                    query.Apply(geometry: input).Run(rt)),
+            };
+        private Fin<AnalysisRuntime> RuntimeOrSentinel() =>
+            runtime.IsSucc switch {
+                true => runtime,
+                // BOUNDARY ADAPTER — sentinel runtime for context-free queries: query.Apply now returns
+                // Eff<RT,A>, which requires an RT to evaluate; a context-free evaluator never reads
+                // rt.Context, so we synthesize an uninitialized runtime to satisfy the Eff dispatch
+                // without invoking native Rhino tolerance constructors (unavailable in test harnesses).
+                false => Fin.Succ(new AnalysisRuntime(
+                    Context: (GeometryContext)System.Runtime.CompilerServices.RuntimeHelpers
+                        .GetUninitializedObject(type: typeof(GeometryContext)))),
             };
     }
 }

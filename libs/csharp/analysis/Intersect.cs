@@ -1,6 +1,8 @@
 using System.Linq;
 using System.Threading;
+using Core;
 using Core.Domain;
+using Core.Runtime;
 using LanguageExt;
 using LanguageExt.Common;
 using Rhino.FileIO;
@@ -188,41 +190,43 @@ public static partial class Query {
                     key: DeviationKey,
                     a: GeometryRequirement.CurveLength,
                     b: GeometryRequirement.CurveLength,
-                    output: static (Curve left, Curve right, GeometryContext context) => Curve.GetDistancesBetweenCurves(
-                            curveA: left,
-                            curveB: right,
-                            tolerance: context.Absolute.Value,
-                            maxDistance: out double maximumDistance,
-                            maxDistanceParameterA: out double maximumA,
-                            maxDistanceParameterB: out double maximumB,
-                            minDistance: out double minimumDistance,
-                            minDistanceParameterA: out double minimumA,
-                            minDistanceParameterB: out double minimumB) switch {
-                                true => new CurveDeviation(
-                                    MinimumDistance: minimumDistance,
-                                    MinimumA: left.PointAt(t: minimumA),
-                                    MinimumB: right.PointAt(t: minimumB),
-                                    MaximumDistance: maximumDistance,
-                                    MaximumA: left.PointAt(t: maximumA),
-                                    MaximumB: right.PointAt(t: maximumB),
-                                    Tolerance: context.Absolute.Value,
-                                    WithinTolerance: maximumDistance <= context.Absolute.Value) switch {
-                                        CurveDeviation deviation when deviation.MinimumDistance >= 0.0
-                                            && deviation.MaximumDistance >= deviation.MinimumDistance
-                                            && double.IsFinite(d: deviation.MinimumDistance)
-                                            && double.IsFinite(d: deviation.MaximumDistance)
-                                            && deviation.MinimumA.IsValid
-                                            && deviation.MinimumB.IsValid
-                                            && deviation.MaximumA.IsValid
-                                            && deviation.MaximumB.IsValid =>
-                                            Fin.Succ(Seq(deviation))
-                                                .Bind(static (Seq<CurveDeviation> values) => DeviationKey.Retype<CurveDeviation, TOut>(values: values)),
-                                        _ => Fin.Fail<Seq<TOut>>(DeviationKey.InvalidResult()),
-                                    },
-                                false => Fin.Fail<Seq<TOut>>(DeviationKey.InvalidResult()),
-                            }),
+                    output: static (Curve left, Curve right, GeometryContext context) => CurveDeviationValue<TOut>(left: left, right: right, context: context)),
             _ => DeviationKey.Unsupported<(TA A, TB B), TOut>(),
         };
+    private static Fin<Seq<TOut>> CurveDeviationValue<TOut>(Curve left, Curve right, GeometryContext context) =>
+        Curve.GetDistancesBetweenCurves(
+                curveA: left,
+                curveB: right,
+                tolerance: context.Absolute.Value,
+                maxDistance: out double maximumDistance,
+                maxDistanceParameterA: out double maximumA,
+                maxDistanceParameterB: out double maximumB,
+                minDistance: out double minimumDistance,
+                minDistanceParameterA: out double minimumA,
+                minDistanceParameterB: out double minimumB) switch {
+                    true => new CurveDeviation(
+                        MinimumDistance: minimumDistance,
+                        MinimumA: left.PointAt(t: minimumA),
+                        MinimumB: right.PointAt(t: minimumB),
+                        MaximumDistance: maximumDistance,
+                        MaximumA: left.PointAt(t: maximumA),
+                        MaximumB: right.PointAt(t: maximumB),
+                        Tolerance: context.Absolute.Value,
+                        WithinTolerance: maximumDistance <= context.Absolute.Value) switch {
+                            CurveDeviation deviation when deviation.MinimumDistance >= 0.0
+                                && deviation.MaximumDistance >= deviation.MinimumDistance
+                                && double.IsFinite(d: deviation.MinimumDistance)
+                                && double.IsFinite(d: deviation.MaximumDistance)
+                                && deviation.MinimumA.IsValid
+                                && deviation.MinimumB.IsValid
+                                && deviation.MaximumA.IsValid
+                                && deviation.MaximumB.IsValid =>
+                                Fin.Succ(Seq(deviation))
+                                    .Bind(static (Seq<CurveDeviation> values) => DeviationKey.Retype<CurveDeviation, TOut>(values: values)),
+                            _ => Fin.Fail<Seq<TOut>>(DeviationKey.InvalidResult()),
+                        },
+                    false => Fin.Fail<Seq<TOut>>(DeviationKey.InvalidResult()),
+                };
     private static Query<(TA A, TB B), TOut> Pair<TA, TB, TLeft, TRight, TOut>(
         OperationKey key,
         GeometryRequirement a,
@@ -232,23 +236,32 @@ public static partial class Query {
             key: key,
             requiresContext: true,
             state: (Key: key, A: a, B: b, Output: output),
-            evaluator: static ((OperationKey Key, GeometryRequirement A, GeometryRequirement B, PairOutput<TLeft, TRight, TOut> Output) state, (TA A, TB B) geometry, Fin<GeometryContext> context) =>
-                context
-                    .Bind((GeometryContext model) => model.ValidateOperands(
-                            geometry: geometry,
-                            a: state.A,
-                            b: state.B)
-                        .ToFin()
-                        .Map(((TA A, TB B) valid) => (Geometry: valid, Context: model, state.Key, state.Output)))
-                    .Bind(static ((ValueTuple<TA, TB> Geometry, GeometryContext Context, OperationKey Key, PairOutput<TLeft, TRight, TOut> Output) state) => (state.Geometry.Item1, state.Geometry.Item2) switch {
-                        (TLeft left, TRight right) => state.Output(
-                            left: left,
-                            right: right,
-                            context: state.Context),
-                        _ => Fin.Fail<Seq<TOut>>(state.Key.Unsupported(
-                            geometryType: typeof((TA A, TB B)),
-                            outputType: typeof(TOut))),
-                    }));
+            evaluator: static ((OperationKey Key, GeometryRequirement A, GeometryRequirement B, PairOutput<TLeft, TRight, TOut> Output) state, (TA A, TB B) geometry) =>
+                from rt in Analyze.Asks
+                from validated in rt.Context.ValidateOperands(
+                        geometry: geometry,
+                        a: state.A,
+                        b: state.B)
+                    .ToEff()
+                from result in PairOutputValue(
+                        state: state,
+                        geometry: validated,
+                        context: rt.Context)
+                    .ToEff()
+                select result);
+    private static Fin<Seq<TOut>> PairOutputValue<TA, TB, TLeft, TRight, TOut>(
+        (OperationKey Key, GeometryRequirement A, GeometryRequirement B, PairOutput<TLeft, TRight, TOut> Output) state,
+        (TA A, TB B) geometry,
+        GeometryContext context) where TA : notnull where TB : notnull where TLeft : notnull where TRight : notnull =>
+        (geometry.A, geometry.B) switch {
+            (TLeft left, TRight right) => state.Output(
+                left: left,
+                right: right,
+                context: context),
+            _ => Fin.Fail<Seq<TOut>>(state.Key.Unsupported(
+                geometryType: typeof((TA A, TB B)),
+                outputType: typeof(TOut))),
+        };
     private static Query<(TA A, TB B), TOut> PairEvents<TA, TB, TLeft, TRight, TOut>(
         GeometryRequirement a,
         GeometryRequirement b,

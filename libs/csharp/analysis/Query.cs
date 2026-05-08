@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Linq;
 using System.Runtime.InteropServices;
+using Core;
 using Core.Domain;
 using Core.Runtime;
 using LanguageExt;
@@ -18,7 +19,7 @@ public sealed class Query<TGeometry, TOut> where TGeometry : notnull {
         GeometryRequirement requirement,
         bool requiresContext,
         Fin<Unit> ready,
-        Func<TGeometry, Fin<GeometryContext>, Fin<Seq<TOut>>> evaluator) {
+        Func<TGeometry, Eff<AnalysisRuntime, Seq<TOut>>> evaluator) {
         Key = key;
         Requirement = requirement;
         RequiresContext = requiresContext || requirement != GeometryRequirement.None;
@@ -29,15 +30,12 @@ public sealed class Query<TGeometry, TOut> where TGeometry : notnull {
     internal GeometryRequirement Requirement { get; }
     internal bool RequiresContext { get; }
     internal Fin<Unit> Ready { get; }
-    private Func<TGeometry, Fin<GeometryContext>, Fin<Seq<TOut>>> Evaluator { get; }
+    private Func<TGeometry, Eff<AnalysisRuntime, Seq<TOut>>> Evaluator { get; }
     public Eff<AnalysisRuntime, Seq<TOut>> Apply(TGeometry geometry) =>
-        Eff<AnalysisRuntime, Seq<TOut>>.Lift((AnalysisRuntime rt) =>
-            Evaluator(arg1: geometry, arg2: Fin.Succ(value: rt.Context)));
-    internal Fin<Seq<TOut>> ApplyDirect(TGeometry geometry, Fin<GeometryContext> context) =>
-        Evaluator(arg1: geometry, arg2: context);
+        Evaluator(arg: geometry);
     internal static Query<TGeometry, TOut> Build(
         OperationKey key,
-        Func<TGeometry, Fin<GeometryContext>, Fin<Seq<TOut>>> evaluator,
+        Func<TGeometry, Eff<AnalysisRuntime, Seq<TOut>>> evaluator,
         GeometryRequirement requirement = default,
         bool requiresContext = false) =>
         new(
@@ -49,7 +47,7 @@ public sealed class Query<TGeometry, TOut> where TGeometry : notnull {
     internal static Query<TGeometry, TOut> Build<TState>(
         OperationKey key,
         TState state,
-        Func<TState, TGeometry, Fin<GeometryContext>, Fin<Seq<TOut>>> evaluator,
+        Func<TState, TGeometry, Eff<AnalysisRuntime, Seq<TOut>>> evaluator,
         GeometryRequirement requirement = default,
         bool requiresContext = false) =>
         new(
@@ -57,16 +55,16 @@ public sealed class Query<TGeometry, TOut> where TGeometry : notnull {
             requirement: requirement,
             requiresContext: requiresContext,
             ready: Fin.Succ(unit),
-            evaluator: (TGeometry geometry, Fin<GeometryContext> context) =>
-                evaluator(arg1: state, arg2: geometry, arg3: context));
+            evaluator: (TGeometry geometry) =>
+                evaluator(arg1: state, arg2: geometry));
     internal static Query<TGeometry, TOut> Reject(OperationKey key, Error fault) =>
         new(
             key: key,
             requirement: GeometryRequirement.None,
             requiresContext: false,
             ready: Fin.Fail<Unit>(error: fault),
-            evaluator: (TGeometry _, Fin<GeometryContext> _) =>
-                Fin.Fail<Seq<TOut>>(error: fault));
+            evaluator: (TGeometry _) =>
+                Eff<AnalysisRuntime, Seq<TOut>>.Fail(error: fault));
 }
 public enum MassKind { None = 0, Length = 1, Area = 2, Volume = 3 }
 public enum CurvatureScalar { None = 0, Magnitude = 1, Gaussian = 2, Mean = 3 }
@@ -322,32 +320,51 @@ public static partial class Query {
             key: PrimitiveKey,
             requiresContext: true,
             state: project,
-            evaluator: static (PrimitiveCase<TSource, TValue> extract, TGeometry geometry, Fin<GeometryContext> context) =>
-                (geometry, context) switch {
-                    (TSource source, Fin<GeometryContext> rail) => rail.Bind((GeometryContext model) => extract(
-                        geometry: source,
-                        context: model,
-                        value: out TValue value) switch {
-                            bool solved => PrimitiveKey.Solved(
-                                solved: solved,
-                                value: value),
-                        }),
-                    _ => Fin.Fail<Seq<TValue>>(PrimitiveKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TValue))),
+            evaluator: static (PrimitiveCase<TSource, TValue> extract, TGeometry geometry) =>
+                geometry switch {
+                    TSource source =>
+                        from rt in Analyze.Asks
+                        from validated in rt.Context.Validate(geometry: source, requirement: GeometryRequirement.Basic).ToEff()
+                        from result in PrimitiveExtract(
+                                key: PrimitiveKey,
+                                extract: extract,
+                                geometry: validated,
+                                context: rt.Context)
+                            .ToEff()
+                        select result,
+                    _ => Eff<AnalysisRuntime, Seq<TValue>>.Fail(error: PrimitiveKey.Unsupported(
+                        geometryType: typeof(TGeometry),
+                        outputType: typeof(TValue))),
                 }));
+    private static Fin<Seq<TValue>> PrimitiveExtract<TSource, TValue>(
+        OperationKey key,
+        PrimitiveCase<TSource, TValue> extract,
+        TSource geometry,
+        GeometryContext context) where TSource : GeometryBase =>
+        extract(
+            geometry: geometry,
+            context: context,
+            value: out TValue value) switch {
+                bool solved => key.Solved(
+                    solved: solved,
+                    value: value),
+            };
     internal static Query<TGeometry, TOut> ClosestMatch<TGeometry, TOut, TSource, TValue>(
         Point3d point,
         ClosestCase<TSource, TValue> project) where TGeometry : notnull where TSource : notnull =>
         Cast<TGeometry, TOut>(key: ClosestKey, query: Query<TGeometry, TValue>.Build(
             key: ClosestKey,
             state: (Point: point, Project: project),
-            evaluator: static ((Point3d Point, ClosestCase<TSource, TValue> Project) state, TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
-                TSource source => state.Project(
-                    target: state.Point,
-                    geometry: source),
-                _ => Fin.Fail<Seq<TValue>>(ClosestKey.Unsupported(
-                    geometryType: typeof(TGeometry),
-                    outputType: typeof(TValue))),
-            }));
+            evaluator: static ((Point3d Point, ClosestCase<TSource, TValue> Project) state, TGeometry geometry) =>
+                geometry switch {
+                    TSource source => state.Project(
+                            target: state.Point,
+                            geometry: source)
+                        .ToEff(),
+                    _ => Eff<AnalysisRuntime, Seq<TValue>>.Fail(error: ClosestKey.Unsupported(
+                        geometryType: typeof(TGeometry),
+                        outputType: typeof(TValue))),
+                }));
     internal static Fin<TOut> CurveAtNormalizedValue<TOut>(
         Curve curve,
         GeometryContext context,
@@ -360,19 +377,23 @@ public static partial class Query {
                 true => Fin.Succ(project(arg1: curve, arg2: parameter)),
                 false => Fin.Fail<TOut>(key.InvalidResult()),
             };
-    internal static Fin<Seq<TOut>> CurveAtNormalized<TGeometry, TOut>(
+    internal static Eff<AnalysisRuntime, Seq<TOut>> CurveAtNormalized<TGeometry, TOut>(
         TGeometry geometry,
-        Fin<GeometryContext> context,
         OperationKey key,
         Func<Curve, double, TOut> project) where TGeometry : notnull =>
-        (geometry, context) switch {
-            (Curve curve, Fin<GeometryContext> rail) => rail.Bind((GeometryContext model) => CurveAtNormalizedValue(
-                    curve: curve,
-                    context: model,
-                    key: key,
-                    project: project)
-                .Bind((TOut value) => One(key: key, value: value))),
-            _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))),
+        geometry switch {
+            Curve curve =>
+                from rt in Analyze.Asks
+                from validated in rt.Context.Validate(geometry: curve, requirement: GeometryRequirement.CurveLength).ToEff()
+                from value in CurveAtNormalizedValue(
+                        curve: validated,
+                        context: rt.Context,
+                        key: key,
+                        project: project)
+                    .ToEff()
+                from result in One(key: key, value: value).ToEff()
+                select result,
+            _ => Eff<AnalysisRuntime, Seq<TOut>>.Fail(error: key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))),
         };
     internal static Query<TGeometry, TOut> LengthMass<TGeometry, TOut>(
         string name,
@@ -493,17 +514,27 @@ public static partial class Query {
         return Query<TGeometry, TOut>.Build(
             key: key,
             requirement: requirement,
-            evaluator: (TGeometry geometry, Fin<GeometryContext> context) =>
-                context
-                    .Bind((GeometryContext model) => compute(
+            evaluator: (TGeometry geometry) =>
+                from rt in Analyze.Asks
+                from mass in compute(
                         arg1: geometry,
-                        arg2: model,
+                        arg2: rt.Context,
                         arg3: secondMoments,
-                        arg4: productMoments))
-                    .Bind((TMass mass) => {
-                        using TMass disposable = mass;
-                        return project(arg1: key, arg2: disposable);
-                    }));
+                        arg4: productMoments)
+                    .ToEff()
+                from values in DisposeAndProject(
+                        key: key,
+                        mass: mass,
+                        project: project)
+                    .ToEff()
+                select values);
+    }
+    private static Fin<Seq<TOut>> DisposeAndProject<TMass, TOut>(
+        OperationKey key,
+        TMass mass,
+        Func<OperationKey, TMass, Fin<Seq<TOut>>> project) where TMass : class, IDisposable {
+        using TMass disposable = mass;
+        return project(arg1: key, arg2: disposable);
     }
     private static Fin<TMass> Mass<TMass>(this TMass? mass, string label) where TMass : class, IDisposable =>
         Optional(mass)

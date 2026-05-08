@@ -1,3 +1,4 @@
+using Core;
 using Core.Domain;
 using Core.Runtime;
 using LanguageExt;
@@ -29,35 +30,37 @@ public static partial class Query {
             BoundsKind.Center when typeof(TOut) == typeof(Point3d) =>
                 Cast<TGeometry, TOut>(key: BoundsCenterKey, query: Query<TGeometry, Point3d>.Build(
                     key: BoundsCenterKey,
-                    evaluator: static (TGeometry geometry, Fin<GeometryContext> _) =>
+                    evaluator: static (TGeometry geometry) =>
                         ExtractBounds(geometry: geometry)
-                            .Bind(static (BoundingBox box) => One(key: BoundsCenterKey, value: box.Center)))),
+                            .Bind(static (BoundingBox box) => One(key: BoundsCenterKey, value: box.Center))
+                            .ToEff())),
             BoundsKind.Corners when typeof(TOut) == typeof(Point3d) =>
                 Cast<TGeometry, TOut>(key: BoundsCornersKey, query: Query<TGeometry, Point3d>.Build(
                     key: BoundsCornersKey,
-                    evaluator: static (TGeometry geometry, Fin<GeometryContext> _) =>
+                    evaluator: static (TGeometry geometry) =>
                         ExtractBounds(geometry: geometry)
-                            .Bind(static (BoundingBox box) => Many(key: BoundsCornersKey, values: box.GetCorners())))),
+                            .Bind(static (BoundingBox box) => Many(key: BoundsCornersKey, values: box.GetCorners()))
+                            .ToEff())),
             BoundsKind.Edges when typeof(TGeometry) == typeof(BoundingBox) && typeof(TOut) == typeof(Line) =>
                 Cast<TGeometry, TOut>(key: BoxEdgesKey, query: Query<BoundingBox, Line>.Build(
                     key: BoxEdgesKey,
-                    evaluator: static (BoundingBox geometry, Fin<GeometryContext> _) => Many(key: BoxEdgesKey, values: geometry.GetEdges()))),
+                    evaluator: static (BoundingBox geometry) => Many(key: BoxEdgesKey, values: geometry.GetEdges()).ToEff())),
             BoundsKind.Area when typeof(TGeometry) == typeof(BoundingBox) && typeof(TOut) == typeof(double) =>
                 Cast<TGeometry, TOut>(key: BoxAreaKey, query: Query<BoundingBox, double>.Build(
                     key: BoxAreaKey,
-                    evaluator: static (BoundingBox geometry, Fin<GeometryContext> _) => One(key: BoxAreaKey, value: geometry.Area))),
+                    evaluator: static (BoundingBox geometry) => One(key: BoxAreaKey, value: geometry.Area).ToEff())),
             BoundsKind.Area when typeof(TGeometry) == typeof(Box) && typeof(TOut) == typeof(double) =>
                 Cast<TGeometry, TOut>(key: BoxAreaKey, query: Query<Box, double>.Build(
                     key: BoxAreaKey,
-                    evaluator: static (Box geometry, Fin<GeometryContext> _) => One(key: BoxAreaKey, value: geometry.Area))),
+                    evaluator: static (Box geometry) => One(key: BoxAreaKey, value: geometry.Area).ToEff())),
             BoundsKind.Volume when typeof(TGeometry) == typeof(BoundingBox) && typeof(TOut) == typeof(double) =>
                 Cast<TGeometry, TOut>(key: BoxVolumeKey, query: Query<BoundingBox, double>.Build(
                     key: BoxVolumeKey,
-                    evaluator: static (BoundingBox geometry, Fin<GeometryContext> _) => One(key: BoxVolumeKey, value: geometry.Volume))),
+                    evaluator: static (BoundingBox geometry) => One(key: BoxVolumeKey, value: geometry.Volume).ToEff())),
             BoundsKind.Volume when typeof(TGeometry) == typeof(Box) && typeof(TOut) == typeof(double) =>
                 Cast<TGeometry, TOut>(key: BoxVolumeKey, query: Query<Box, double>.Build(
                     key: BoxVolumeKey,
-                    evaluator: static (Box geometry, Fin<GeometryContext> _) => One(key: BoxVolumeKey, value: geometry.Volume))),
+                    evaluator: static (Box geometry) => One(key: BoxVolumeKey, value: geometry.Volume).ToEff())),
             _ => BoundsKey.Unsupported<TGeometry, TOut>(),
         };
     public static Query<TGeometry, TOut> Measure<TGeometry, TOut>(Measure aspect) where TGeometry : notnull =>
@@ -95,38 +98,46 @@ public static partial class Query {
                     || geometry == typeof(Box)) =>
                 Cast<TGeometry, TOut>(key: SpatialMidpointKey, query: Query<TGeometry, Point3d>.Build(
                     key: SpatialMidpointKey,
-                    evaluator: static (TGeometry geometry, Fin<GeometryContext> context) => geometry switch {
-                        Line line => One(key: SpatialMidpointKey, value: line.PointAt(t: 0.5)),
-                        Polyline polyline => One(key: SpatialMidpointKey, value: polyline.CenterPoint()),
-                        Curve curve => context.Bind((GeometryContext model) => (curve.IsClosed, curve.TryGetPlane(plane: out Plane _, tolerance: model.Absolute.Value)) switch {
-                            (true, true) => MassCentroid(geometry: curve, context: Fin.Succ(model), requirement: GeometryRequirement.AreaMass, query: AreaCentroid<Curve>(name: SpatialMidpointKey.Name)),
-                            _ => MassCentroid(geometry: curve, context: Fin.Succ(model), requirement: GeometryRequirement.CurveLength, query: LengthCentroid<Curve>(name: SpatialMidpointKey.Name)),
-                        }),
-                        Brep { IsSolid: true } brep => MassCentroid(geometry: brep, context: context, requirement: GeometryRequirement.VolumeMass, query: VolumeCentroid<Brep>(name: SpatialMidpointKey.Name)),
-                        Brep brep => MassCentroid(geometry: brep, context: context, requirement: GeometryRequirement.AreaMass, query: AreaCentroid<Brep>(name: SpatialMidpointKey.Name)),
-                        Mesh { IsSolid: true } mesh => MassCentroid(geometry: mesh, context: context, requirement: GeometryRequirement.VolumeMass, query: VolumeCentroid<Mesh>(name: SpatialMidpointKey.Name)),
-                        Mesh mesh => MassCentroid(geometry: mesh, context: context, requirement: GeometryRequirement.AreaMass, query: AreaCentroid<Mesh>(name: SpatialMidpointKey.Name)),
-                        Surface { IsSolid: true } surface => MassCentroid(geometry: surface, context: context, requirement: GeometryRequirement.VolumeMass, query: VolumeCentroid<Surface>(name: SpatialMidpointKey.Name)),
-                        Surface surface => MassCentroid(geometry: surface, context: context, requirement: GeometryRequirement.AreaMass, query: AreaCentroid<Surface>(name: SpatialMidpointKey.Name)),
-                        SubD subd => context.Bind((GeometryContext model) => model.Validate(
-                                    geometry: subd,
-                                    requirement: GeometryRequirement.Basic)
-                                .ToFin()
-                                .Bind((SubD _) => Optional(subd.ToBrep())
-                                    .ToFin(SpatialMidpointKey.InvalidResult())
-                                    .Bind((Brep brep) => {
-                                        using Brep disposable = brep;
-                                        return disposable.IsSolid switch {
-                                            true => MassCentroid(geometry: disposable, context: Fin.Succ(model), requirement: GeometryRequirement.VolumeMass, query: VolumeCentroid<Brep>(name: SpatialMidpointKey.Name)),
-                                            false => MassCentroid(geometry: disposable, context: Fin.Succ(model), requirement: GeometryRequirement.AreaMass, query: AreaCentroid<Brep>(name: SpatialMidpointKey.Name)),
-                                        };
-                                    }))),
-                        BoundingBox box => One(key: SpatialMidpointKey, value: box.Center),
-                        Box box => One(key: SpatialMidpointKey, value: box.Center),
-                        _ => Fin.Fail<Seq<Point3d>>(SpatialMidpointKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Point3d))),
+                    evaluator: static (TGeometry geometry) => geometry switch {
+                        Line line => One(key: SpatialMidpointKey, value: line.PointAt(t: 0.5)).ToEff(),
+                        Polyline polyline => One(key: SpatialMidpointKey, value: polyline.CenterPoint()).ToEff(),
+                        Curve curve =>
+                            from rt in Analyze.Asks
+                            from result in CurveSpatialMidpoint(curve: curve, context: rt.Context)
+                            select result,
+                        Brep { IsSolid: true } brep => MassCentroid(geometry: brep, requirement: GeometryRequirement.VolumeMass, query: VolumeCentroid<Brep>(name: SpatialMidpointKey.Name)),
+                        Brep brep => MassCentroid(geometry: brep, requirement: GeometryRequirement.AreaMass, query: AreaCentroid<Brep>(name: SpatialMidpointKey.Name)),
+                        Mesh { IsSolid: true } mesh => MassCentroid(geometry: mesh, requirement: GeometryRequirement.VolumeMass, query: VolumeCentroid<Mesh>(name: SpatialMidpointKey.Name)),
+                        Mesh mesh => MassCentroid(geometry: mesh, requirement: GeometryRequirement.AreaMass, query: AreaCentroid<Mesh>(name: SpatialMidpointKey.Name)),
+                        Surface { IsSolid: true } surface => MassCentroid(geometry: surface, requirement: GeometryRequirement.VolumeMass, query: VolumeCentroid<Surface>(name: SpatialMidpointKey.Name)),
+                        Surface surface => MassCentroid(geometry: surface, requirement: GeometryRequirement.AreaMass, query: AreaCentroid<Surface>(name: SpatialMidpointKey.Name)),
+                        SubD subd => SubDSpatialMidpoint(subd: subd),
+                        BoundingBox box => One(key: SpatialMidpointKey, value: box.Center).ToEff(),
+                        Box box => One(key: SpatialMidpointKey, value: box.Center).ToEff(),
+                        _ => Eff<AnalysisRuntime, Seq<Point3d>>.Fail(error: SpatialMidpointKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Point3d))),
                     })),
             _ => SpatialMidpointKey.Unsupported<TGeometry, TOut>(),
         };
+    private static Eff<AnalysisRuntime, Seq<Point3d>> CurveSpatialMidpoint(Curve curve, GeometryContext context) =>
+        (curve.IsClosed, curve.TryGetPlane(plane: out Plane _, tolerance: context.Absolute.Value)) switch {
+            (true, true) => MassCentroid(geometry: curve, requirement: GeometryRequirement.AreaMass, query: AreaCentroid<Curve>(name: SpatialMidpointKey.Name)),
+            _ => MassCentroid(geometry: curve, requirement: GeometryRequirement.CurveLength, query: LengthCentroid<Curve>(name: SpatialMidpointKey.Name)),
+        };
+    private static Eff<AnalysisRuntime, Seq<Point3d>> SubDSpatialMidpoint(SubD subd) =>
+        from rt in Analyze.Asks
+        from validated in rt.Context.Validate(geometry: subd, requirement: GeometryRequirement.Basic).ToEff()
+        from brep in Optional(validated.ToBrep())
+            .ToFin(SpatialMidpointKey.InvalidResult())
+            .ToEff()
+        from result in SubDBrepSpatialMidpoint(brep: brep)
+        select result;
+    private static Eff<AnalysisRuntime, Seq<Point3d>> SubDBrepSpatialMidpoint(Brep brep) {
+        using Brep disposable = brep;
+        return disposable.IsSolid switch {
+            true => MassCentroid(geometry: disposable, requirement: GeometryRequirement.VolumeMass, query: VolumeCentroid<Brep>(name: SpatialMidpointKey.Name)),
+            false => MassCentroid(geometry: disposable, requirement: GeometryRequirement.AreaMass, query: AreaCentroid<Brep>(name: SpatialMidpointKey.Name)),
+        };
+    }
     public static Query<(TGeometry Geometry, TPrimitive Primitive), TOut> Conformance<TGeometry, TPrimitive, TOut>(
         Conformance aspect) where TGeometry : notnull where TPrimitive : notnull =>
         (aspect.Residual, aspect.Count, typeof(TGeometry), typeof(TPrimitive), typeof(TOut)) switch {
@@ -206,32 +217,40 @@ public static partial class Query {
             key: ConformanceKey,
             requiresContext: true,
             state: (Count: count, Requirement: requirement, Samples: samples, Project: project),
-            evaluator: static ((int Count, GeometryRequirement Requirement, ResidualSampleCase<TNativeGeometry, TNativePrimitive> Samples, ResidualProjection<TValue> Project) state, (TGeometry Geometry, TPrimitive Primitive) geometry, Fin<GeometryContext> context) => context
-                .Bind((GeometryContext model) => model.ValidateOperands(
+            evaluator: static ((int Count, GeometryRequirement Requirement, ResidualSampleCase<TNativeGeometry, TNativePrimitive> Samples, ResidualProjection<TValue> Project) state, (TGeometry Geometry, TPrimitive Primitive) geometry) =>
+                from rt in Analyze.Asks
+                from validated in rt.Context.ValidateOperands(
                         geometry: geometry,
                         a: state.Requirement,
                         b: GeometryRequirement.None)
-                    .ToFin()
-                    .Map(((TGeometry Geometry, TPrimitive Primitive) validated) => (
-                        Context: model,
-                        validated.Geometry,
-                        validated.Primitive,
-                        state.Count,
-                        state.Samples,
-                        state.Project)))
-                .Bind(static ((GeometryContext Context, TGeometry Geometry, TPrimitive Primitive, int Count, ResidualSampleCase<TNativeGeometry, TNativePrimitive> Samples, ResidualProjection<TValue> Project) state) => (state.Geometry, state.Primitive) switch {
-                    (TNativeGeometry geometry, TNativePrimitive primitive) => state.Samples(
-                            geometry: geometry,
-                            primitive: primitive,
-                            count: state.Count,
-                            context: state.Context)
-                        .Bind((Seq<ResidualSample> values) => state.Project(
-                            samples: values,
-                            context: state.Context)),
-                    _ => Fin.Fail<Seq<TValue>>(ConformanceKey.Unsupported(
-                        geometryType: typeof((TGeometry Geometry, TPrimitive Primitive)),
-                        outputType: typeof(TValue))),
-                }));
+                    .ToEff()
+                from result in ConformanceProject(
+                        geometry: validated,
+                        context: rt.Context,
+                        count: state.Count,
+                        samples: state.Samples,
+                        project: state.Project)
+                    .ToEff()
+                select result);
+    private static Fin<Seq<TValue>> ConformanceProject<TGeometry, TPrimitive, TNativeGeometry, TNativePrimitive, TValue>(
+        (TGeometry Geometry, TPrimitive Primitive) geometry,
+        GeometryContext context,
+        int count,
+        ResidualSampleCase<TNativeGeometry, TNativePrimitive> samples,
+        ResidualProjection<TValue> project) where TGeometry : notnull where TPrimitive : notnull where TNativeGeometry : notnull where TNativePrimitive : notnull =>
+        (geometry.Geometry, geometry.Primitive) switch {
+            (TNativeGeometry native, TNativePrimitive primitive) => samples(
+                    geometry: native,
+                    primitive: primitive,
+                    count: count,
+                    context: context)
+                .Bind((Seq<ResidualSample> values) => project(
+                    samples: values,
+                    context: context)),
+            _ => Fin.Fail<Seq<TValue>>(ConformanceKey.Unsupported(
+                geometryType: typeof((TGeometry Geometry, TPrimitive Primitive)),
+                outputType: typeof(TValue))),
+        };
     private static Fin<Seq<ResidualSample>> CurveLineSamples(Curve geometry, Line primitive, int count, GeometryContext context) =>
         CurvePrimitiveSamples(
             geometry: geometry,
@@ -432,17 +451,14 @@ public static partial class Query {
         TGeometry Geometry,
         TPrimitive Primitive,
         GeometryContext Context) where TGeometry : notnull where TPrimitive : notnull;
-    private static Fin<Seq<Point3d>> MassCentroid<TGeometry>(
+    private static Eff<AnalysisRuntime, Seq<Point3d>> MassCentroid<TGeometry>(
         TGeometry geometry,
-        Fin<GeometryContext> context,
         GeometryRequirement requirement,
         Query<TGeometry, Point3d> query) where TGeometry : GeometryBase =>
-        context.Bind((GeometryContext model) => model.Validate(
-                    geometry: geometry,
-                    requirement: requirement)
-                .ToFin()
-                .Bind((TGeometry _) => query.Apply(geometry: geometry)
-                    .Run(new AnalysisRuntime(Context: model))));
+        from rt in Analyze.Asks
+        from validated in rt.Context.Validate(geometry: geometry, requirement: requirement).ToEff()
+        from result in query.Apply(geometry: validated)
+        select result;
     private static Query<TGeometry, Point3d> LengthCentroid<TGeometry>(string name) where TGeometry : notnull =>
         LengthMass<TGeometry, Point3d>(
             name: name,
@@ -480,9 +496,10 @@ public static partial class Query {
                     || geometry == typeof(Sphere)) =>
                 Cast<TGeometry, TOut>(key: BoundsKey, query: Query<TGeometry, BoundingBox>.Build(
                     key: BoundsKey,
-                    evaluator: static (TGeometry geometry, Fin<GeometryContext> _) =>
+                    evaluator: static (TGeometry geometry) =>
                         ExtractBounds(geometry: geometry)
-                            .Bind(static (BoundingBox box) => One(key: BoundsKey, value: box)))),
+                            .Bind(static (BoundingBox box) => One(key: BoundsKey, value: box))
+                            .ToEff())),
             _ => BoundsKey.Unsupported<TGeometry, TOut>(),
         };
     private static Fin<BoundingBox> ExtractBounds<TGeometry>(TGeometry geometry) where TGeometry : notnull =>
@@ -500,13 +517,14 @@ public static partial class Query {
             (Type geometry, Type output) when typeof(GeometryBase).IsAssignableFrom(c: geometry) && output == typeof(Box) =>
                 Cast<TGeometry, TOut>(key: OrientedBoundsKey, query: Query<TGeometry, Box>.Build(
                     key: OrientedBoundsKey,
-                    evaluator: (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
-                        GeometryBase native => native.GetBoundingBox(plane: plane, worldBox: out Box box) switch {
+                    state: plane,
+                    evaluator: static (Plane orientation, TGeometry geometry) => (geometry switch {
+                        GeometryBase native => native.GetBoundingBox(plane: orientation, worldBox: out Box box) switch {
                             BoundingBox local when local.IsValid => One(key: OrientedBoundsKey, value: box),
                             _ => Fin.Fail<Seq<Box>>(OrientedBoundsKey.InvalidResult()),
                         },
                         _ => Fin.Fail<Seq<Box>>(OrientedBoundsKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Box))),
-                    })),
+                    }).ToEff())),
             _ => OrientedBoundsKey.Unsupported<TGeometry, TOut>(),
         };
     private static Query<TGeometry, TOut> Transformed<TGeometry, TOut>(Transform transform) where TGeometry : notnull =>
@@ -514,10 +532,11 @@ public static partial class Query {
             (Type geometry, Type output) when typeof(GeometryBase).IsAssignableFrom(c: geometry) && output == typeof(BoundingBox) =>
                 Cast<TGeometry, TOut>(key: TransformedBoundsKey, query: Query<TGeometry, BoundingBox>.Build(
                     key: TransformedBoundsKey,
-                    evaluator: (TGeometry geometry, Fin<GeometryContext> _) => geometry switch {
-                        GeometryBase native => One(key: TransformedBoundsKey, value: native.GetBoundingBox(xform: transform)),
+                    state: transform,
+                    evaluator: static (Transform xform, TGeometry geometry) => (geometry switch {
+                        GeometryBase native => One(key: TransformedBoundsKey, value: native.GetBoundingBox(xform: xform)),
                         _ => Fin.Fail<Seq<BoundingBox>>(TransformedBoundsKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(BoundingBox))),
-                    })),
+                    }).ToEff())),
             _ => TransformedBoundsKey.Unsupported<TGeometry, TOut>(),
         };
     private static Query<TGeometry, TOut> Length<TGeometry, TOut>() where TGeometry : notnull =>
@@ -525,20 +544,23 @@ public static partial class Query {
             (Type geometry, Type output) when geometry == typeof(Line) && output == typeof(double) =>
                 Cast<TGeometry, TOut>(key: LengthKey, query: Query<Line, double>.Build(
                     key: LengthKey,
-                    evaluator: static (Line geometry, Fin<GeometryContext> _) => One(key: LengthKey, value: geometry.Length))),
+                    evaluator: static (Line geometry) => One(key: LengthKey, value: geometry.Length).ToEff())),
             (Type geometry, Type output) when geometry == typeof(Polyline) && output == typeof(double) =>
                 Cast<TGeometry, TOut>(key: LengthKey, query: Query<Polyline, double>.Build(
                     key: LengthKey,
-                    evaluator: static (Polyline geometry, Fin<GeometryContext> _) => One(key: LengthKey, value: geometry.Length))),
+                    evaluator: static (Polyline geometry) => One(key: LengthKey, value: geometry.Length).ToEff())),
             (Type geometry, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && output == typeof(double) =>
                 Cast<TGeometry, TOut>(key: LengthKey, query: Query<TGeometry, double>.Build(
                     key: LengthKey,
                     requirement: GeometryRequirement.CurveLength,
-                    evaluator: static (TGeometry geometry, Fin<GeometryContext> context) => (geometry, context) switch {
-                        (Curve curve, Fin<GeometryContext> rail) => rail.Bind((GeometryContext model) => One(
-                            key: LengthKey,
-                            value: curve.GetLength(fractionalTolerance: model.Relative.Value))),
-                        _ => Fin.Fail<Seq<double>>(LengthKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(double))),
+                    evaluator: static (TGeometry geometry) => geometry switch {
+                        Curve curve =>
+                            from rt in Analyze.Asks
+                            from result in One(
+                                key: LengthKey,
+                                value: curve.GetLength(fractionalTolerance: rt.Context.Relative.Value)).ToEff()
+                            select result,
+                        _ => Eff<AnalysisRuntime, Seq<double>>.Fail(error: LengthKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(double))),
                     })),
             _ => LengthKey.Unsupported<TGeometry, TOut>(),
         };
