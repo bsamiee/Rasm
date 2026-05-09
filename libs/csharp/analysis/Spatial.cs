@@ -139,15 +139,9 @@ public sealed class SpatialIndex : IDisposable {
         .ToEff();
     public void Dispose() =>
         disposed = disposed switch {
-            false => DisposeTree(),
+            false => fun((RTree t) => { t.Dispose(); return true; })(tree),
             true => true,
         };
-    // BOUNDARY ADAPTER — IDisposable.Dispose() must call tree.Dispose() (void) and return a bool to drive
-    // the assignment-expression form of the public Dispose member; the helper preserves the void→bool bridge.
-    private bool DisposeTree() {
-        tree.Dispose();
-        return true;
-    }
     private Fin<RTree> Ready() =>
         disposed switch {
             true => Fin.Fail<RTree>(Query.SpatialIndexKey.InvalidInput()),
