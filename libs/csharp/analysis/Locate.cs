@@ -470,12 +470,12 @@ public static partial class Query {
             key: key,
             parameter: parameter,
             project: (Curve curve, double t) => perpendicular switch {
-                true => key.Solved(
-                    solved: curve.PerpendicularFrameAt(t: t, plane: out Plane frame),
-                    value: frame),
-                false => key.Solved(
-                    solved: curve.FrameAt(t: t, plane: out Plane frame),
-                    value: frame),
+                true => key.Result(outcome: OperationOutcome<Plane>.Solved(
+                    isSolved: curve.PerpendicularFrameAt(t: t, plane: out Plane perpendicularFrame),
+                    value: perpendicularFrame)),
+                false => key.Result(outcome: OperationOutcome<Plane>.Solved(
+                    isSolved: curve.FrameAt(t: t, plane: out Plane frame),
+                    value: frame)),
             });
     private static Query<TGeometry, TOut> CurveAt<TGeometry, TOut>(
         OperationKey key,

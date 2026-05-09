@@ -1,6 +1,8 @@
+using System.Collections.Generic;
 using System.Globalization;
 using Core.Runtime;
 using LanguageExt.Common;
+using Thinktecture;
 using static LanguageExt.Prelude;
 namespace Core.Domain;
 
@@ -10,6 +12,19 @@ internal readonly record struct OperationKey {
     internal OperationKey(string name) =>
         Name = name;
     internal string Name { get; }
+}
+
+[Union]
+internal abstract partial record OperationOutcome<TValue> {
+    internal sealed record One(TValue Value) : OperationOutcome<TValue>;
+    internal sealed record Many(Seq<TValue> Values) : OperationOutcome<TValue>;
+    internal sealed record SolvedSuccess(TValue Value) : OperationOutcome<TValue>;
+    internal sealed record SolvedFailure(TValue Witness) : OperationOutcome<TValue>;
+    internal static OperationOutcome<TValue> Solved(bool isSolved, TValue value) =>
+        isSolved switch {
+            true => new SolvedSuccess(Value: value),
+            false => new SolvedFailure(Witness: value),
+        };
 }
 
 // --- [ERRORS] ----------------------------------------------------------------------------------
@@ -54,25 +69,21 @@ internal static class OperationFault {
 // --- [OPERATIONS] ------------------------------------------------------------------------------
 
 internal static class GeometryResult {
-    internal static Fin<Seq<TValue>> One<TValue>(this OperationKey key, TValue value) =>
-        key.RequireValid(value: value)
-            .Map(static (TValue candidate) => Seq(candidate));
-    internal static Fin<Seq<TValue>> Many<TValue>(this OperationKey key, System.Collections.Generic.IEnumerable<TValue>? values) =>
-        (Fin.Succ(key), Optional(values).ToFin(key.InvalidResult()))
-            .Apply(static (OperationKey operation, System.Collections.Generic.IEnumerable<TValue> candidates) =>
-                candidates.Aggregate(
-                        seed: (Operation: operation, Result: Fin.Succ(Seq<TValue>())),
-                        func: static ((OperationKey Operation, Fin<Seq<TValue>> Result) current, TValue candidate) => (
-                            current.Operation,
-                            Result: (current.Result, current.Operation.RequireValid(value: candidate))
-                                .Apply(static (Seq<TValue> previous, TValue next) => next.Cons(previous))
-                                .As()))
-                    .Result)
-            .As()
-            .Bind(static (Fin<Seq<TValue>> result) => result.Map(static (Seq<TValue> values) => values.Rev()));
-    internal static Fin<Seq<TValue>> Solved<TValue>(this OperationKey key, bool solved, TValue value) =>
-        solved switch {
-            true => key.One(value: value),
-            false => Fin.Fail<Seq<TValue>>(key.InvalidResult()),
+    internal static Fin<Seq<TValue>> Result<TValue>(this OperationKey key, OperationOutcome<TValue> outcome) =>
+        outcome switch {
+            OperationOutcome<TValue>.One single => key.RequireValid(value: single.Value)
+                .Map(static (TValue candidate) => Seq(candidate)),
+            OperationOutcome<TValue>.Many multi => multi.Values.Fold(
+                    initialState: (Operation: key, Result: Fin.Succ(Seq<TValue>())),
+                    f: static ((OperationKey Operation, Fin<Seq<TValue>> Result) current, TValue candidate) => (
+                        current.Operation,
+                        Result: (current.Result, current.Operation.RequireValid(value: candidate))
+                            .Apply(static (Seq<TValue> previous, TValue next) => next.Cons(previous))
+                            .As()))
+                .Result
+                .Map(static (Seq<TValue> values) => values.Rev()),
+            OperationOutcome<TValue>.SolvedSuccess solved => key.Result(outcome: new OperationOutcome<TValue>.One(Value: solved.Value)),
+            OperationOutcome<TValue>.SolvedFailure => Fin.Fail<Seq<TValue>>(key.InvalidResult()),
+            _ => Fin.Fail<Seq<TValue>>(key.InvalidResult()),
         };
 }

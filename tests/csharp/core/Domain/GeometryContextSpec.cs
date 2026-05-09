@@ -5,6 +5,7 @@ using LanguageExt.Common;
 using Rhino;
 using Rhino.Geometry;
 using Xunit;
+using static LanguageExt.Prelude;
 
 namespace Core.Tests.Domain;
 
@@ -103,23 +104,16 @@ public sealed class GeometryContextSpec {
             from: Point3d.Origin,
             to: new Point3d(x: 0.0, y: 0.0, z: 1.0));
 
-        Assert.True(condition: key.One(value: Point3d.Unset).IsFail);
-        Assert.True(condition: key.One(value: Sphere.Unset).IsFail);
-        Assert.True(condition: key.One(value: new ComponentIndex()).IsFail);
-        Assert.True(condition: key.One(value: new object()).IsFail);
-        Assert.True(condition: key.One(value: MeshCheckParameters.Defaults()).IsSucc);
-        Assert.True(condition: key.Many(values: new[] {
-                first,
-                second,
-                third,
-            })
+        Assert.True(condition: key.Result(outcome: new OperationOutcome<Point3d>.One(Value: Point3d.Unset)).IsFail);
+        Assert.True(condition: key.Result(outcome: new OperationOutcome<Sphere>.One(Value: Sphere.Unset)).IsFail);
+        Assert.True(condition: key.Result(outcome: new OperationOutcome<ComponentIndex>.One(Value: new ComponentIndex())).IsFail);
+        Assert.True(condition: key.Result(outcome: new OperationOutcome<object>.One(Value: new object())).IsFail);
+        Assert.True(condition: key.Result(outcome: new OperationOutcome<MeshCheckParameters>.One(Value: MeshCheckParameters.Defaults())).IsSucc);
+        Assert.True(condition: key.Result(outcome: new OperationOutcome<Line>.Many(Values: Seq(first, second, third)))
             .Match(
                 Succ: (Seq<Line> lines) => lines.ToArray().SequenceEqual(second: [first, second, third]),
                 Fail: static (Error _) => false));
-        Assert.True(condition: key.Many(values: new[] {
-                Line.Unset,
-                Line.Unset,
-            })
+        Assert.True(condition: key.Result(outcome: new OperationOutcome<Line>.Many(Values: Seq(Line.Unset, Line.Unset)))
             .Match(
                 Succ: static (Seq<Line> _) => false,
                 Fail: static (Error error) => error.Count == 2));
@@ -129,8 +123,8 @@ public sealed class GeometryContextSpec {
     public void AdaptsSolvedResultRails() {
         OperationKey key = new(name: "test");
 
-        Assert.True(condition: key.Solved(solved: true, value: Point3d.Origin).IsSucc);
-        Assert.True(condition: key.Solved(solved: false, value: Point3d.Origin).IsFail);
+        Assert.True(condition: key.Result(outcome: OperationOutcome<Point3d>.Solved(isSolved: true, value: Point3d.Origin)).IsSucc);
+        Assert.True(condition: key.Result(outcome: OperationOutcome<Point3d>.Solved(isSolved: false, value: Point3d.Origin)).IsFail);
     }
 
     private static GeometryContext ValidContext() =>

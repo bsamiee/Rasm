@@ -248,9 +248,9 @@ public static partial class Query {
                     outputType: typeof(TOut))),
         };
     internal static Fin<Seq<TValue>> One<TValue>(this OperationKey key, TValue value) =>
-        GeometryResult.One(key: key, value: value);
+        GeometryResult.Result(key: key, outcome: new OperationOutcome<TValue>.One(Value: value));
     internal static Fin<Seq<TValue>> Many<TValue>(this OperationKey key, IEnumerable<TValue>? values) =>
-        GeometryResult.Many(key: key, values: values);
+        GeometryResult.Result(key: key, outcome: new OperationOutcome<TValue>.Many(Values: Optional(values).ToSeq().Bind(static (IEnumerable<TValue> v) => v.AsIterable().ToSeq())));
     internal static Fin<Seq<TOut>> IntersectionOutput<TOut>(
         this OperationKey key,
         IEnumerable<Curve>? curves = null,
@@ -340,9 +340,7 @@ public static partial class Query {
             geometry: geometry,
             context: context,
             value: out TValue value) switch {
-                bool solved => key.Solved(
-                    solved: solved,
-                    value: value),
+                bool solved => key.Result(outcome: OperationOutcome<TValue>.Solved(isSolved: solved, value: value)),
             };
     internal static Query<TGeometry, TOut> ClosestMatch<TGeometry, TOut, TSource, TValue>(
         Point3d point,
