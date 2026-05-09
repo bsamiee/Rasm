@@ -47,12 +47,12 @@ public static partial class Query {
     }
     private static Fin<Seq<Point3d>> ExtractCardinals(Curve curve, double tolerance) =>
         (
-            ExtremeAlongDirection(curve: curve, direction: Vector3d.XAxis, isMax: false),
-            ExtremeAlongDirection(curve: curve, direction: Vector3d.XAxis, isMax: true),
-            ExtremeAlongDirection(curve: curve, direction: Vector3d.YAxis, isMax: false),
-            ExtremeAlongDirection(curve: curve, direction: Vector3d.YAxis, isMax: true),
-            ExtremeAlongDirection(curve: curve, direction: Vector3d.ZAxis, isMax: false),
-            ExtremeAlongDirection(curve: curve, direction: Vector3d.ZAxis, isMax: true)
+            ExtremeAlongDirection(curve: curve, direction: Vector3d.XAxis, maximize: false),
+            ExtremeAlongDirection(curve: curve, direction: Vector3d.XAxis, maximize: true),
+            ExtremeAlongDirection(curve: curve, direction: Vector3d.YAxis, maximize: false),
+            ExtremeAlongDirection(curve: curve, direction: Vector3d.YAxis, maximize: true),
+            ExtremeAlongDirection(curve: curve, direction: Vector3d.ZAxis, maximize: false),
+            ExtremeAlongDirection(curve: curve, direction: Vector3d.ZAxis, maximize: true)
         ).Apply(static (Point3d xMin, Point3d xMax, Point3d yMin, Point3d yMax, Point3d zMin, Point3d zMax) =>
             (XMin: xMin, XMax: xMax, YMin: yMin, YMax: yMax, ZMin: zMin, ZMax: zMax))
         .As()
@@ -60,31 +60,17 @@ public static partial class Query {
             curve.IsPlanar(tolerance: tolerance)
                 ? Seq(state.XMin, state.XMax, state.YMin, state.YMax)
                 : Seq(state.XMin, state.XMax, state.YMin, state.YMax, state.ZMin, state.ZMax));
-    private static Fin<Point3d> ExtremeAlongDirection(Curve curve, Vector3d direction, bool isMax) {
-        double[] parameters = curve.ExtremeParameters(direction: direction);
-        return parameters.Length switch {
-            0 => Fin.Fail<Point3d>(WorldCardinalPointsKey.InvalidResult()),
-            _ => Fin.Succ(parameters
-                .Aggregate(
-                    seed: (Param: parameters[0], Score: Dot(point: curve.PointAt(t: parameters[0]), direction: direction)),
-                    func: (state, t) => Choose(
-                        current: state,
-                        candidate: (Param: t, Score: Dot(point: curve.PointAt(t: t), direction: direction)),
-                        isMax: isMax))
-                switch { (double param, _) => curve.PointAt(t: param) }),
+    private static Fin<Point3d> ExtremeAlongDirection(Curve curve, Vector3d direction, bool maximize) =>
+        (Points: toSeq(curve.ExtremeParameters(direction: direction))
+            .Map(curve.PointAt),
+        Maximize: maximize) switch {
+            (Seq<Point3d> points, true) => points.MaxesBy(projection: (Point3d p) => (Vector3d)p * direction, tolerance: 0.0).Head.Match(
+                Some: static (Point3d best) => Fin.Succ(best),
+                None: static () => Fin.Fail<Point3d>(WorldCardinalPointsKey.InvalidResult())),
+            (Seq<Point3d> points, false) => points.MinesBy(projection: (Point3d p) => (Vector3d)p * direction, tolerance: 0.0).Head.Match(
+                Some: static (Point3d best) => Fin.Succ(best),
+                None: static () => Fin.Fail<Point3d>(WorldCardinalPointsKey.InvalidResult())),
         };
-    }
-    private static (double Param, double Score) Choose(
-        (double Param, double Score) current,
-        (double Param, double Score) candidate,
-        bool isMax) =>
-        (isMax, candidate.Score > current.Score, candidate.Score < current.Score) switch {
-            (true, true, _) => candidate,
-            (false, _, true) => candidate,
-            _ => current,
-        };
-    private static double Dot(Point3d point, Vector3d direction) =>
-        (point.X * direction.X) + (point.Y * direction.Y) + (point.Z * direction.Z);
     public static Query<TGeometry, TOut> Locate<TGeometry, TOut>(Location aspect) where TGeometry : notnull =>
         aspect switch {
             Location.Midpoint => Mid<TGeometry, TOut>(),
