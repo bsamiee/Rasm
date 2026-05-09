@@ -1,5 +1,6 @@
 using Core.Domain;
 using Grasshopper;
+using Grasshopper2.Parameters;
 using Grasshopper2.UI;
 using GrasshopperIO;
 using LanguageExt;
@@ -15,7 +16,12 @@ public sealed class ExtractSurfacesComponent : AnalysisComponent<RhinoGeometry> 
         toSeq(SurfaceAspect.Items.Select((SurfaceAspect aspect) => aspect.ToBridgeOutput()));
 
     protected override Option<IndexInputSpec> IndexInput =>
-        Some(IndexInputSpec.Standard);
+        Some(new IndexInputSpec(
+            Name: "Index",
+            Code: "I",
+            Description: "Zero-based selector; clamped to the available range.",
+            Default: 0,
+            Requirement: Requirement.MayBeMissing));
 
     public ExtractSurfacesComponent()
         : base(nomen: new Nomen(

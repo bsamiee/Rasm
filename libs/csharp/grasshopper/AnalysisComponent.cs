@@ -16,22 +16,14 @@ public readonly record struct InputSpec(
     string Code,
     string Description,
     Access Access,
-    Requirement Requirement) {
-    public static InputSpec Generic =>
-        new(Name: "Geometry", Code: "G", Description: "Geometry to analyse.", Access: Access.Item, Requirement: Requirement.MustExist);
-}
+    Requirement Requirement);
 
 public readonly record struct IndexInputSpec(
     string Name,
     string Code,
     string Description,
     int Default,
-    Requirement Requirement) {
-    public static IndexInputSpec Standard =>
-        new(Name: "Index", Code: "I",
-            Description: "Zero-based selector; clamped to the available range.",
-            Default: 0, Requirement: Requirement.MayBeMissing);
-}
+    Requirement Requirement);
 
 public interface IBridgeOutput<TInput> where TInput : RhinoGeometry {
     public string Name { get; }
@@ -60,7 +52,12 @@ public interface IBridgeOutput<TInput> where TInput : RhinoGeometry {
 public abstract class AnalysisComponent<TInput> : Component where TInput : RhinoGeometry {
     protected abstract Seq<IBridgeOutput<TInput>> Outputs { get; }
     protected virtual InputSpec Input =>
-        InputSpec.Generic;
+        new(
+            Name: "Geometry",
+            Code: "G",
+            Description: "Geometry to analyse.",
+            Access: Access.Item,
+            Requirement: Requirement.MustExist);
     protected virtual Option<IndexInputSpec> IndexInput =>
         None;
     protected AnalysisComponent(Nomen nomen) : base(nomen: nomen) { }
