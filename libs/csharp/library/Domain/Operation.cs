@@ -82,3 +82,10 @@ internal static class OperationFault {
             $"Geometry operation '{key.Name}' rejects '{primitive}' primitive: no vertices."));
 }
 
+// --- [OPERATIONS] ------------------------------------------------------------------------------
+
+internal static class ValidationLifts {
+    internal static Eff<GeometryContext, T> ToEff<T>(this Validation<Error, T> validation) =>
+        validation.ToFin();
+}
+
