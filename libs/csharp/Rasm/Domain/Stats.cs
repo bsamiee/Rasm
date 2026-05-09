@@ -47,12 +47,6 @@ internal readonly record struct Stats {
 // --- [OPERATIONS] ------------------------------------------------------------------------------
 
 internal static class FoldExtensions {
-    internal static Fin<Seq<A>> TraverseFin<A>(this Seq<Fin<A>> items) =>
-        items.Fold(
-            initialState: Fin.Succ(Seq<A>()),
-            f: static (Fin<Seq<A>> acc, Fin<A> fa) => (acc, fa)
-                .Apply(static (Seq<A> previous, A next) => previous.Add(next))
-                .As());
     internal static Seq<TItem> MaxesBy<TItem>(
         this Seq<TItem> items,
         Func<TItem, double> projection,

@@ -147,22 +147,22 @@ public sealed class SpatialIndex : IDisposable {
         };
     private static Fin<Point3d[]> ValidatePoints(ReadOnlySpan<Point3d> points) =>
         toSeq(points.ToArray())
-            .Map(static (Point3d point) => point switch {
+            .TraverseM(static (Point3d point) => point switch {
                 Point3d candidate when candidate.IsValid => Fin.Succ(candidate),
                 _ => Fin.Fail<Point3d>(Query.SpatialIndexKey.InvalidInput()),
             })
-            .TraverseFin()
+            .As()
             .Map(static (Seq<Point3d> values) => values.ToArray());
     private static Fin<BoundingBox[]> ValidateBounds<TGeometry>(
         ReadOnlySpan<TGeometry> items) where TGeometry : GeometryBase =>
         toSeq(items.ToArray())
-            .Map(static (TGeometry geometry) => Optional(geometry)
+            .TraverseM(static (TGeometry geometry) => Optional(geometry)
                 .ToFin(ValidationFault.MissingGeometry())
                 .Bind(static (TGeometry candidate) => (candidate.IsValid, candidate.GetBoundingBox(accurate: true)) switch {
                     (true, BoundingBox box) when box.IsValid => Fin.Succ(box),
                     _ => Fin.Fail<BoundingBox>(Query.SpatialIndexKey.InvalidInput()),
                 }))
-            .TraverseFin()
+            .As()
             .Map(static (Seq<BoundingBox> boxes) => boxes.ToArray());
     private static Fin<Seq<SpatialHit>> Search(RTree tree, BoundingBox shape) {
         Atom<Seq<int>> atom = Atom(value: Seq<int>());

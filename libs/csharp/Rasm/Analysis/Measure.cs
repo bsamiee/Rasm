@@ -432,10 +432,10 @@ public static partial class Query {
                 Tolerance: context.Absolute.Value,
                 WithinTolerance: s.Maximum <= context.Absolute.Value)));
     private static Fin<Seq<ResidualSample>> ResidualMaximum(Seq<ResidualSample> samples, GeometryContext _) =>
-        samples.Map(static (ResidualSample sample) => sample switch {
+        samples.TraverseM(static (ResidualSample sample) => sample switch {
             { Distance: double d, Location.IsValid: true } when d >= 0.0 && RhinoMath.IsValidDouble(x: d) => Fin.Succ(sample),
             _ => Fin.Fail<ResidualSample>(ConformanceKey.InvalidResult()),
-        }).TraverseFin()
+        }).As()
             .Bind(static (Seq<ResidualSample> validated) => validated.MaxesBy(
                     projection: static (ResidualSample sample) => sample.Distance,
                     tolerance: 0.0)
@@ -444,10 +444,10 @@ public static partial class Query {
                     Some: static (ResidualSample best) => Fin.Succ(Seq(best)),
                     None: static () => Fin.Fail<Seq<ResidualSample>>(ConformanceKey.InvalidResult())));
     private static Fin<Seq<double>> ResidualDistances(Seq<ResidualSample> samples) =>
-        samples.Map(static (ResidualSample sample) => sample switch {
+        samples.TraverseM(static (ResidualSample sample) => sample switch {
             { Distance: double distance, Location.IsValid: true } when distance >= 0.0 && RhinoMath.IsValidDouble(x: distance) => Fin.Succ(distance),
             _ => Fin.Fail<double>(ConformanceKey.InvalidResult()),
-        }).TraverseFin();
+        }).As();
     private readonly record struct ResidualState<TGeometry, TPrimitive>(
         Seq<ResidualSample> Samples,
         TGeometry Geometry,

@@ -514,13 +514,13 @@ public static partial class Query {
                 key: MeshFaceMetricKey,
                 requirement: GeometryRequirement.MeshCheck,
                 evaluator: static (Mesh geometry) => toSeq(Enumerable
-                    .Range(start: 0, count: geometry.Faces.Count)
-                    .Select((int face) => geometry.Faces.GetFaceAspectRatio(index: face) switch {
+                    .Range(start: 0, count: geometry.Faces.Count))
+                    .TraverseM((int face) => geometry.Faces.GetFaceAspectRatio(index: face) switch {
                         double value when RhinoMath.IsValidDouble(x: value) && value >= 0.0 =>
                             Fin.Succ(new MeshFaceSample(Face: face, Value: value)),
                         _ => Fin.Fail<MeshFaceSample>(MeshFaceMetricKey.InvalidResult()),
-                    }))
-                    .TraverseFin()
+                    })
+                    .As()
                     .ToEff()),
             _ => Query<Mesh, MeshFaceSample>.Reject(
                 key: MeshFaceMetricKey,
