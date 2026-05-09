@@ -474,33 +474,37 @@ public static partial class Query {
                 true or false => One(key: MeshCheckKey, value: parameters),
             };
     }
-    private static readonly Map<Analysis.MeshCheckCount, Func<MeshCheckParameters, int>> MeshCheckCountTable = Map(
-        (Analysis.MeshCheckCount.DegenerateFaces, static (MeshCheckParameters p) => p.DegenerateFaceCount),
-        (Analysis.MeshCheckCount.DisjointMeshes, static (MeshCheckParameters p) => p.DisjointMeshCount),
-        (Analysis.MeshCheckCount.DuplicateFaces, static (MeshCheckParameters p) => p.DuplicateFaceCount),
-        (Analysis.MeshCheckCount.ExtremelyShortEdges, static (MeshCheckParameters p) => p.ExtremelyShortEdgeCount),
-        (Analysis.MeshCheckCount.InvalidNgons, static (MeshCheckParameters p) => p.InvalidNgonCount),
-        (Analysis.MeshCheckCount.NakedEdges, static (MeshCheckParameters p) => p.NakedEdgeCount),
-        (Analysis.MeshCheckCount.NonManifoldEdges, static (MeshCheckParameters p) => p.NonManifoldEdgeCount),
-        (Analysis.MeshCheckCount.NonUnitVectorNormals, static (MeshCheckParameters p) => p.NonUnitVectorNormalCount),
-        (Analysis.MeshCheckCount.RandomFaceNormals, static (MeshCheckParameters p) => p.RandomFaceNormalCount),
-        (Analysis.MeshCheckCount.SelfIntersectingPairs, static (MeshCheckParameters p) => p.SelfIntersectingPairsCount),
-        (Analysis.MeshCheckCount.UnusedVertices, static (MeshCheckParameters p) => p.UnusedVertexCount),
-        (Analysis.MeshCheckCount.VertexFaceNormalsDiffer, static (MeshCheckParameters p) => p.VertexFaceNormalsDifferCount),
-        (Analysis.MeshCheckCount.ZeroLengthNormals, static (MeshCheckParameters p) => p.ZeroLengthNormalCount));
+    private static class MeshCheckCountDispatch {
+        internal static readonly System.Collections.Generic.Dictionary<Analysis.MeshCheckCount, Func<MeshCheckParameters, int>> Table = new() {
+            [Analysis.MeshCheckCount.DegenerateFaces] = static (MeshCheckParameters p) => p.DegenerateFaceCount,
+            [Analysis.MeshCheckCount.DisjointMeshes] = static (MeshCheckParameters p) => p.DisjointMeshCount,
+            [Analysis.MeshCheckCount.DuplicateFaces] = static (MeshCheckParameters p) => p.DuplicateFaceCount,
+            [Analysis.MeshCheckCount.ExtremelyShortEdges] = static (MeshCheckParameters p) => p.ExtremelyShortEdgeCount,
+            [Analysis.MeshCheckCount.InvalidNgons] = static (MeshCheckParameters p) => p.InvalidNgonCount,
+            [Analysis.MeshCheckCount.NakedEdges] = static (MeshCheckParameters p) => p.NakedEdgeCount,
+            [Analysis.MeshCheckCount.NonManifoldEdges] = static (MeshCheckParameters p) => p.NonManifoldEdgeCount,
+            [Analysis.MeshCheckCount.NonUnitVectorNormals] = static (MeshCheckParameters p) => p.NonUnitVectorNormalCount,
+            [Analysis.MeshCheckCount.RandomFaceNormals] = static (MeshCheckParameters p) => p.RandomFaceNormalCount,
+            [Analysis.MeshCheckCount.SelfIntersectingPairs] = static (MeshCheckParameters p) => p.SelfIntersectingPairsCount,
+            [Analysis.MeshCheckCount.UnusedVertices] = static (MeshCheckParameters p) => p.UnusedVertexCount,
+            [Analysis.MeshCheckCount.VertexFaceNormalsDiffer] = static (MeshCheckParameters p) => p.VertexFaceNormalsDifferCount,
+            [Analysis.MeshCheckCount.ZeroLengthNormals] = static (MeshCheckParameters p) => p.ZeroLengthNormalCount,
+        };
+    }
     public static Query<Mesh, int> MeshCheckCount(Analysis.MeshCheckCount count) =>
-        MeshCheckCountTable.Find(key: count).Match(
-            Some: (Func<MeshCheckParameters, int> project) => Query<Mesh, int>.Build(
+        MeshCheckCountDispatch.Table.TryGetValue(key: count, value: out Func<MeshCheckParameters, int>? project) switch {
+            true => Query<Mesh, int>.Build(
                 key: MeshCheckCountKey,
-                state: project,
+                state: project!,
                 evaluator: static (Func<MeshCheckParameters, int> projector, Mesh geometry) =>
                     from parameters in MeshCheck.Apply(geometry: geometry)
                     from head in parameters.Head.ToFin(MeshCheckCountKey.InvalidResult()).ToEff()
                     from result in One(key: MeshCheckCountKey, value: projector(arg: head)).ToEff()
                     select result),
-            None: () => Query<Mesh, int>.Reject(
+            false => Query<Mesh, int>.Reject(
                 key: MeshCheckCountKey,
-                fault: MeshCheckCountKey.InvalidInput()));
+                fault: MeshCheckCountKey.InvalidInput()),
+        };
     public static Query<Mesh, MeshFaceSample> MeshFaceMetric(Analysis.MeshFaceMetric metric) =>
         metric switch {
             Analysis.MeshFaceMetric.AspectRatio => Query<Mesh, MeshFaceSample>.Build(
@@ -527,6 +531,8 @@ public static partial class Query {
                 from rt in Analyze.Asks
                 from result in SelfIntersectionsValue(geometry: geometry, context: rt.Context).ToEff()
                 select result);
+    // BOUNDARY ADAPTER — Mesh.GetSelfIntersections requires by-ref/out parameters and a TextLog using-local;
+    // imperative shape lives at the GeometryBase boundary and returns Fin<Seq<Polyline>>.
     private static Fin<Seq<Polyline>> SelfIntersectionsValue(Mesh geometry, GeometryContext context) {
         using TextLog textLog = new();
         return geometry.GetSelfIntersections(
