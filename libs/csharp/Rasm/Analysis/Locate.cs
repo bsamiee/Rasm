@@ -111,7 +111,7 @@ public static partial class Query {
                         state: o.Plane,
                         evaluator: static (Plane plane, TGeometry geometry) => geometry switch {
                             Curve curve => One(key: OrientationKey, value: curve.ClosedCurveOrientation(plane: plane)).ToEff(),
-                            _ => Eff<GeometryContext, Seq<CurveOrientation>>.Fail(error: OrientationKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(CurveOrientation))),
+                            _ => Fin.Fail<Seq<CurveOrientation>>(OrientationKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(CurveOrientation))).ToEff(),
                         })),
                 Location.Contains cnt when typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(PointContainment) =>
                     Cast<TGeometry, TOut>(key: ContainsKey, query: Query<TGeometry, PointContainment>.Build(
@@ -126,7 +126,7 @@ public static partial class Query {
                                     PointContainment containment => One(key: ContainsKey, value: containment),
                                 }).ToEff()
                                 select result,
-                            _ => Eff<GeometryContext, Seq<PointContainment>>.Fail(error: ContainsKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(PointContainment))),
+                            _ => Fin.Fail<Seq<PointContainment>>(ContainsKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(PointContainment))).ToEff(),
                         })),
                 Location.PointAtSurface pas when typeof(Surface).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Point3d) =>
                     Cast<TGeometry, TOut>(key: PointAtKey, query: SurfaceUv<TGeometry, Point3d>(
@@ -237,7 +237,7 @@ public static partial class Query {
                                 count: sampleCount,
                                 model: ctx).ToEff()
                             select result,
-                        _ => Eff<GeometryContext, Seq<Vector3d>>.Fail(error: CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Vector3d))),
+                        _ => Fin.Fail<Seq<Vector3d>>(CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Vector3d))).ToEff(),
                     })),
             (CurvatureScalar.None or CurvatureScalar.Magnitude, Type geometry, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && output == typeof(CurvatureProfile) =>
                 Cast<TGeometry, TOut>(key: CurvatureAtKey, query: Query<TGeometry, CurvatureProfile>.Build(
@@ -250,7 +250,7 @@ public static partial class Query {
                             from values in CurveCurvatures(curve: curve, count: sampleCount, model: ctx).Map(static (Seq<Vector3d> vectors) => vectors.Map(static (Vector3d v) => v.Length)).ToEff()
                             from profile in Profile(scalar: CurvatureScalar.Magnitude, values: values).ToEff()
                             select Seq(profile),
-                        _ => Eff<GeometryContext, Seq<CurvatureProfile>>.Fail(error: CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(CurvatureProfile))),
+                        _ => Fin.Fail<Seq<CurvatureProfile>>(CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(CurvatureProfile))).ToEff(),
                     })),
             (CurvatureScalar.Magnitude, Type geometry, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && output == typeof(double) =>
                 Cast<TGeometry, TOut>(key: CurvatureAtKey, query: Query<TGeometry, double>.Build(
@@ -263,7 +263,7 @@ public static partial class Query {
                             from values in CurveCurvatures(curve: curve, count: sampleCount, model: ctx).Map(static (Seq<Vector3d> vectors) => vectors.Map(static (Vector3d v) => v.Length)).ToEff()
                             from result in Many(key: CurvatureAtKey, values: values).ToEff()
                             select result,
-                        _ => Eff<GeometryContext, Seq<double>>.Fail(error: CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(double))),
+                        _ => Fin.Fail<Seq<double>>(CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(double))).ToEff(),
                     })),
             (CurvatureScalar.None, Type geometry, Type output) when typeof(Surface).IsAssignableFrom(c: geometry) && output == typeof(SurfaceCurvature) =>
                 Cast<TGeometry, TOut>(key: CurvatureAtKey, query: Query<TGeometry, SurfaceCurvature>.Build(
@@ -278,7 +278,7 @@ public static partial class Query {
                                 count: sampleCount,
                                 model: ctx).ToEff()
                             select result,
-                        _ => Eff<GeometryContext, Seq<SurfaceCurvature>>.Fail(error: CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(SurfaceCurvature))),
+                        _ => Fin.Fail<Seq<SurfaceCurvature>>(CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(SurfaceCurvature))).ToEff(),
                     })),
             (CurvatureScalar.None, Type geometry, Type output) when typeof(Surface).IsAssignableFrom(c: geometry) && output == typeof(CurvatureProfile) =>
                 Cast<TGeometry, TOut>(key: CurvatureAtKey, query: Query<TGeometry, CurvatureProfile>.Build(
@@ -305,7 +305,7 @@ public static partial class Query {
                                     values: values))
                             ).Apply(static (CurvatureProfile gaussian, CurvatureProfile mean) => Seq(gaussian, mean)).As().ToEff()
                             select result,
-                        _ => Eff<GeometryContext, Seq<CurvatureProfile>>.Fail(error: CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(CurvatureProfile))),
+                        _ => Fin.Fail<Seq<CurvatureProfile>>(CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(CurvatureProfile))).ToEff(),
                     })),
             (CurvatureScalar.Gaussian or CurvatureScalar.Mean, Type geometry, Type output) when typeof(Surface).IsAssignableFrom(c: geometry) && output == typeof(CurvatureProfile) =>
                 Cast<TGeometry, TOut>(key: CurvatureAtKey, query: Query<TGeometry, CurvatureProfile>.Build(
@@ -318,7 +318,7 @@ public static partial class Query {
                             from values in SurfaceScalarProfile(surface: surface, count: state.Count, model: ctx, scalar: state.Scalar).ToEff()
                             from profile in Profile(scalar: state.Scalar, values: values).ToEff()
                             select Seq(profile),
-                        _ => Eff<GeometryContext, Seq<CurvatureProfile>>.Fail(error: CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(CurvatureProfile))),
+                        _ => Fin.Fail<Seq<CurvatureProfile>>(CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(CurvatureProfile))).ToEff(),
                     })),
             (CurvatureScalar.Gaussian or CurvatureScalar.Mean, Type geometry, Type output) when typeof(Surface).IsAssignableFrom(c: geometry) && output == typeof(double) =>
                 Cast<TGeometry, TOut>(key: CurvatureAtKey, query: Query<TGeometry, double>.Build(
@@ -331,7 +331,7 @@ public static partial class Query {
                             from values in SurfaceScalarProfile(surface: surface, count: state.Count, model: ctx, scalar: state.Scalar).ToEff()
                             from result in Many(key: CurvatureAtKey, values: values).ToEff()
                             select result,
-                        _ => Eff<GeometryContext, Seq<double>>.Fail(error: CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(double))),
+                        _ => Fin.Fail<Seq<double>>(CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(double))).ToEff(),
                     })),
             _ => CurvatureAtKey.Unsupported<TGeometry, TOut>(),
         };
@@ -529,7 +529,7 @@ public static partial class Query {
                         .ToFin(ShortPathKey.InvalidResult())
                         .ToEff()
                     select Seq(path),
-                _ => Eff<GeometryContext, Seq<Curve>>.Fail(error: ShortPathKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Curve))),
+                _ => Fin.Fail<Seq<Curve>>(ShortPathKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Curve))).ToEff(),
             });
     private static Query<TGeometry, TOut> SurfaceUv<TGeometry, TOut>(
         OperationKey key,
@@ -545,7 +545,7 @@ public static partial class Query {
                     from parameter in Uv(surface: surface, uv: state.Uv, context: ctx, key: state.Key).ToEff()
                     from result in state.Project(arg1: surface, arg2: parameter).ToEff()
                     select result,
-                _ => Eff<GeometryContext, Seq<TOut>>.Fail(error: state.Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))),
+                _ => Fin.Fail<Seq<TOut>>(state.Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))).ToEff(),
             });
     private static Fin<Point2d> Uv(Surface surface, Point2d uv, GeometryContext context, OperationKey key) =>
         (surface.Domain(direction: 0), surface.Domain(direction: 1)) switch {
@@ -568,6 +568,6 @@ public static partial class Query {
                         false => Fin.Fail<Seq<Point3d>>(PointAtLengthKey.InvalidResult()),
                     }).ToEff()
                 select result,
-            _ => Eff<GeometryContext, Seq<Point3d>>.Fail(error: PointAtLengthKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Point3d))),
+            _ => Fin.Fail<Seq<Point3d>>(PointAtLengthKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Point3d))).ToEff(),
         };
 }

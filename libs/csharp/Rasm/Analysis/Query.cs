@@ -53,7 +53,7 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
     internal static Query<TGeometry, TOut> Reject(OperationKey key, Error fault) =>
         new(
             key: key,
-            effect: (TGeometry _) => Eff<GeometryContext, Seq<TOut>>.Fail(error: fault));
+            effect: (TGeometry _) => Fin.Fail<Seq<TOut>>(fault).ToEff());
 }
 public enum MassKind { None = 0, Length = 1, Area = 2, Volume = 3 }
 public enum CurvatureScalar { None = 0, Magnitude = 1, Gaussian = 2, Mean = 3 }
@@ -310,9 +310,9 @@ public static partial class Query {
                                 context: ctx)
                             .ToEff()
                         select result,
-                    _ => Eff<GeometryContext, Seq<TValue>>.Fail(error: PrimitiveKey.Unsupported(
+                    _ => Fin.Fail<Seq<TValue>>(PrimitiveKey.Unsupported(
                         geometryType: typeof(TGeometry),
-                        outputType: typeof(TValue))),
+                        outputType: typeof(TValue))).ToEff(),
                 }));
     private static Fin<Seq<TValue>> PrimitiveExtract<TSource, TValue>(
         OperationKey key,
@@ -337,9 +337,9 @@ public static partial class Query {
                             target: state.Point,
                             geometry: source)
                         .ToEff(),
-                    _ => Eff<GeometryContext, Seq<TValue>>.Fail(error: ClosestKey.Unsupported(
+                    _ => Fin.Fail<Seq<TValue>>(ClosestKey.Unsupported(
                         geometryType: typeof(TGeometry),
-                        outputType: typeof(TValue))),
+                        outputType: typeof(TValue))).ToEff(),
                 }));
     internal static Fin<TOut> CurveAtNormalizedValue<TOut>(
         Curve curve,
@@ -369,7 +369,7 @@ public static partial class Query {
                     .ToEff()
                 from result in One(key: key, value: value).ToEff()
                 select result,
-            _ => Eff<GeometryContext, Seq<TOut>>.Fail(error: key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))),
+            _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))).ToEff(),
         };
     internal static readonly Func<object, bool, bool, Eff<GeometryContext, LengthMassProperties>> ComputeLength =
         static (object geometry, bool second, bool product) =>

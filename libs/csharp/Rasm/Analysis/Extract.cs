@@ -80,7 +80,7 @@ public static partial class Query {
                                 .Bind((Brep brep) => BrepEdgesViaUsing(brep: brep, context: ctx))
                                 .ToEff()
                             select result,
-                        _ => Eff<GeometryContext, Seq<Point3d>>.Fail(error: EdgeMidpointsKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Point3d))),
+                        _ => Fin.Fail<Seq<Point3d>>(EdgeMidpointsKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Point3d))).ToEff(),
                     })),
             _ => EdgeMidpointsKey.Unsupported<TGeometry, TOut>(),
         };
@@ -339,7 +339,7 @@ public static partial class Query {
                             .ToEff(),
                         BoundingBox box => Many(key: VerticesKey, values: box.GetCorners()).ToEff(),
                         Box box => Many(key: VerticesKey, values: box.GetCorners()).ToEff(),
-                        _ => Eff<GeometryContext, Seq<Point3d>>.Fail(error: VerticesKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Point3d))),
+                        _ => Fin.Fail<Seq<Point3d>>(VerticesKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Point3d))).ToEff(),
                     })),
             _ => VerticesKey.Unsupported<TGeometry, TOut>(),
         };

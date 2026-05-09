@@ -166,7 +166,7 @@ public static partial class Query {
                             select result,
                         BoundingBox box => One(key: SpatialMidpointKey, value: box.Center).ToEff(),
                         Box box => One(key: SpatialMidpointKey, value: box.Center).ToEff(),
-                        _ => Eff<GeometryContext, Seq<Point3d>>.Fail(error: SpatialMidpointKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Point3d))),
+                        _ => Fin.Fail<Seq<Point3d>>(SpatialMidpointKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Point3d))).ToEff(),
                     })),
             _ => SpatialMidpointKey.Unsupported<TGeometry, TOut>(),
         };
@@ -555,7 +555,7 @@ public static partial class Query {
                                 key: LengthKey,
                                 value: curve.GetLength(fractionalTolerance: ctx.Relative.Value)).ToEff()
                             select result,
-                        _ => Eff<GeometryContext, Seq<double>>.Fail(error: LengthKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(double))),
+                        _ => Fin.Fail<Seq<double>>(LengthKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(double))).ToEff(),
                     })),
             _ => LengthKey.Unsupported<TGeometry, TOut>(),
         };
