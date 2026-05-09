@@ -90,11 +90,6 @@ public static class Bridge {
             details: "Host did not supply tolerance/units; using millimetres at default tolerance.");
         return Fin.Succ(Analyze.In(units: Rhino.UnitSystem.Millimeters));
     }
-    private static readonly Schedule StandardPolicy =
-        Schedule.exponential(seed: new Duration(milliseconds: 50.0))
-            | Schedule.recurs(times: 3)
-            | Schedule.upto(max: new Duration(milliseconds: 2_000.0))
-            | Schedule.jitter(factor: 0.1);
     internal static Unit RunOne<TGeometry, TValue>(
         IDataAccess access,
         int index,
@@ -106,8 +101,8 @@ public static class Bridge {
             access: access,
             index: index,
             values: scope.Context.Match(
-                Succ: (GeometryContext context) => retry(schedule: StandardPolicy, ma: query.Apply(geometry: geometry))
-                    .As()
+                Succ: (GeometryContext context) => query
+                    .Apply(geometry: geometry)
                     .Run(context)
                     .Match(
                         Succ: (Seq<TValue> values) => (TValue[])[.. values],
