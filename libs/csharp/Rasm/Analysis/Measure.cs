@@ -1,4 +1,5 @@
 using Core.Domain;
+using Foundation.CSharp.Analyzers.Contracts;
 using LanguageExt;
 using LanguageExt.Common;
 using Rhino;
