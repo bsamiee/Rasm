@@ -1,9 +1,9 @@
 using System.Threading;
 using Core;
 using Core.Domain;
-using Core.Runtime;
 using LanguageExt;
 using LanguageExt.Common;
+using Rhino;
 using Rhino.FileIO;
 using Rhino.Geometry;
 using Rhino.Geometry.Intersect;
@@ -522,7 +522,7 @@ public static partial class Query {
                 evaluator: static (Mesh geometry) => Enumerable
                     .Range(start: 0, count: geometry.Faces.Count)
                     .Select((int face) => geometry.Faces.GetFaceAspectRatio(index: face) switch {
-                        double value when Rhino.RhinoMath.IsValidDouble(x: value) && value >= 0.0 =>
+                        double value when RhinoMath.IsValidDouble(x: value) && value >= 0.0 =>
                             Fin.Succ(new MeshFaceSample(Face: face, Value: value)),
                         _ => Fin.Fail<MeshFaceSample>(MeshFaceMetricKey.InvalidResult()),
                     })
@@ -591,4 +591,89 @@ public static partial class Query {
                         .Map((Point3d point) => (state.Points.Add(point), state.Context)));
                 }))
             .Bind(static ((Seq<Point3d> Points, GeometryContext Context) state) => Many(key: EdgeMidpointsKey, values: state.Points));
+    public static Query<TGeometry, TOut> Faces<TGeometry, TOut>(Faces aspect) where TGeometry : notnull =>
+        Aspect<TGeometry, TOut, Faces>(
+            aspect: aspect,
+            key: FacesKey,
+            dispatch: static (Faces selector) => (typeof(TGeometry), typeof(TOut)) switch {
+                (Type geometry, Type output) when output == typeof(Brep)
+                    && (typeof(GeometryBase).IsAssignableFrom(c: geometry) || geometry == typeof(object)) =>
+                    Cast<TGeometry, TOut>(key: FacesKey, query: Query<TGeometry, Brep>.Build<Faces>(
+                        key: FacesKey,
+                        state: selector,
+                        evaluator: static (Faces inner, TGeometry geometry) =>
+                            from rt in Analyze.Asks
+                            from faces in DecomposeFaces(geometry: geometry).ToEff()
+                            from chosen in SelectFaces(faces: faces, selector: inner, runtime: rt).ToEff()
+                            from result in Many(key: FacesKey, values: chosen).ToEff()
+                            select result)),
+                _ => null,
+            });
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(category: "Reliability", checkId: "CA2000",
+        Justification = "Brep ownership transfers to caller via Seq<Brep> as analysis output; downstream Grasshopper consumers manage lifetime.")]
+    internal static Fin<Seq<Brep>> DecomposeFaces<TGeometry>(TGeometry geometry) where TGeometry : notnull =>
+        geometry switch {
+            Brep brep => Fin.Succ(toSeq(brep.Faces.Select(static (BrepFace face) => face.DuplicateFace(duplicateMeshes: false)))),
+            BrepFace face => Fin.Succ(Seq(face.DuplicateFace(duplicateMeshes: false))),
+            Surface surface => Optional(surface.ToBrep())
+                .ToFin(FacesKey.InvalidResult())
+                .Map(static (Brep wrapped) => Seq(wrapped)),
+            SubD subd => Optional(subd.ToBrep())
+                .ToFin(FacesKey.InvalidResult())
+                .Map(static (Brep brep) => {
+                    using Brep disposable = brep;
+                    return toSeq(disposable.Faces.Select(static (BrepFace face) => face.DuplicateFace(duplicateMeshes: false)));
+                }),
+            _ => Fin.Fail<Seq<Brep>>(FacesKey.Unsupported(
+                geometryType: geometry.GetType(),
+                outputType: typeof(Brep))),
+        };
+    internal static Fin<Seq<Brep>> SelectFaces(Seq<Brep> faces, Faces selector, AnalysisRuntime runtime) =>
+        (selector, faces.Count) switch {
+            (_, 0) => Fin.Succ(Seq<Brep>()),
+            (Analysis.Faces.All, _) => Fin.Succ(faces),
+            (Analysis.Faces.Top, _) => RankByCentroidZ(faces: faces, descending: true, runtime: runtime),
+            (Analysis.Faces.Bottom, _) => RankByCentroidZ(faces: faces, descending: false, runtime: runtime),
+            (Analysis.Faces.At, int count) => Fin.Succ(Seq(faces[Math.Clamp(
+                value: runtime.Index.Match(Some: static (IndexHint hint) => hint.Value, None: static () => 0),
+                min: 0,
+                max: count - 1)])),
+            _ => Fin.Fail<Seq<Brep>>(FacesKey.InvalidInput()),
+        };
+    private static Fin<Seq<Brep>> RankByCentroidZ(Seq<Brep> faces, bool descending, AnalysisRuntime runtime) =>
+        faces
+            .Traverse((Brep face) => FaceCentroidZ(face: face, runtime: runtime).Map((double z) => (Face: face, Z: z))).As()
+            .Map((Seq<(Brep Face, double Z)> ranked) => ranked.IsEmpty switch {
+                true => Seq<Brep>(),
+                false => SelectExtrema(
+                    ranked: ranked,
+                    descending: descending,
+                    tolerance: runtime.Context.Absolute.Value),
+            });
+    private static Seq<Brep> SelectExtrema(Seq<(Brep Face, double Z)> ranked, bool descending, double tolerance) =>
+        ranked
+            .Map(static ((Brep Face, double Z) item) => item.Z)
+            .Aggregate((double current, double next) => descending switch {
+                true => Math.Max(val1: current, val2: next),
+                false => Math.Min(val1: current, val2: next),
+            })
+        switch {
+            double extremum => ranked
+                .Filter(((Brep Face, double Z) item) => Math.Abs(value: item.Z - extremum) <= tolerance)
+                .Map(((Brep Face, double Z) item) => item.Face),
+        };
+    internal static Fin<double> FaceCentroidZ(Brep face, AnalysisRuntime runtime) =>
+        Optional(AreaMassProperties.Compute(
+                brep: face,
+                area: true,
+                firstMoments: true,
+                secondMoments: false,
+                productMoments: false,
+                relativeTolerance: runtime.Context.Relative.Value,
+                absoluteTolerance: runtime.Context.Absolute.Value))
+            .ToFin(FacesKey.InvalidResult())
+            .Map(static (AreaMassProperties mass) => {
+                using AreaMassProperties disposable = mass;
+                return disposable.Centroid.Z;
+            });
 }
