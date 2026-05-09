@@ -64,46 +64,49 @@ public static partial class Query {
             false => Fin.Fail<Seq<Point3d>>(UniqueCornersKey.InvalidInput()),
         };
     public static Query<TGeometry, TOut> Bounds<TGeometry, TOut>(Bounds aspect) where TGeometry : notnull =>
-        aspect switch {
-            Analysis.Bounds.Box => Box<TGeometry, TOut>(),
-            Analysis.Bounds.Oriented o => Oriented<TGeometry, TOut>(plane: o.Plane),
-            Analysis.Bounds.Transformed t => Transformed<TGeometry, TOut>(transform: t.Transform),
-            Analysis.Bounds.Center when typeof(TOut) == typeof(Point3d) =>
-                Cast<TGeometry, TOut>(key: BoundsCenterKey, query: Query<TGeometry, Point3d>.Build(
-                    key: BoundsCenterKey,
-                    evaluator: static (TGeometry geometry) =>
-                        ExtractBounds(geometry: geometry)
-                            .Bind(static (BoundingBox box) => One(key: BoundsCenterKey, value: box.Center))
-                            .ToEff())),
-            Analysis.Bounds.Corners when typeof(TOut) == typeof(Point3d) =>
-                Cast<TGeometry, TOut>(key: BoundsCornersKey, query: Query<TGeometry, Point3d>.Build(
-                    key: BoundsCornersKey,
-                    evaluator: static (TGeometry geometry) =>
-                        ExtractBounds(geometry: geometry)
-                            .Bind(static (BoundingBox box) => Many(key: BoundsCornersKey, values: box.GetCorners()))
-                            .ToEff())),
-            Analysis.Bounds.Edges when typeof(TGeometry) == typeof(BoundingBox) && typeof(TOut) == typeof(Line) =>
-                Cast<TGeometry, TOut>(key: BoxEdgesKey, query: Query<BoundingBox, Line>.Build(
-                    key: BoxEdgesKey,
-                    evaluator: static (BoundingBox geometry) => Many(key: BoxEdgesKey, values: geometry.GetEdges()).ToEff())),
-            Analysis.Bounds.Area when typeof(TGeometry) == typeof(BoundingBox) && typeof(TOut) == typeof(double) =>
-                Cast<TGeometry, TOut>(key: BoxAreaKey, query: Query<BoundingBox, double>.Build(
-                    key: BoxAreaKey,
-                    evaluator: static (BoundingBox geometry) => One(key: BoxAreaKey, value: geometry.Area).ToEff())),
-            Analysis.Bounds.Area when typeof(TGeometry) == typeof(Box) && typeof(TOut) == typeof(double) =>
-                Cast<TGeometry, TOut>(key: BoxAreaKey, query: Query<Box, double>.Build(
-                    key: BoxAreaKey,
-                    evaluator: static (Box geometry) => One(key: BoxAreaKey, value: geometry.Area).ToEff())),
-            Analysis.Bounds.Volume when typeof(TGeometry) == typeof(BoundingBox) && typeof(TOut) == typeof(double) =>
-                Cast<TGeometry, TOut>(key: BoxVolumeKey, query: Query<BoundingBox, double>.Build(
-                    key: BoxVolumeKey,
-                    evaluator: static (BoundingBox geometry) => One(key: BoxVolumeKey, value: geometry.Volume).ToEff())),
-            Analysis.Bounds.Volume when typeof(TGeometry) == typeof(Box) && typeof(TOut) == typeof(double) =>
-                Cast<TGeometry, TOut>(key: BoxVolumeKey, query: Query<Box, double>.Build(
-                    key: BoxVolumeKey,
-                    evaluator: static (Box geometry) => One(key: BoxVolumeKey, value: geometry.Volume).ToEff())),
-            _ => BoundsKey.Unsupported<TGeometry, TOut>(),
-        };
+        Aspect<TGeometry, TOut, Bounds>(
+            aspect: aspect,
+            key: BoundsKey,
+            dispatch: static (Bounds candidate) => candidate switch {
+                Analysis.Bounds.Box => Box<TGeometry, TOut>(),
+                Analysis.Bounds.Oriented o => Oriented<TGeometry, TOut>(plane: o.Plane),
+                Analysis.Bounds.Transformed t => Transformed<TGeometry, TOut>(transform: t.Transform),
+                Analysis.Bounds.Center when typeof(TOut) == typeof(Point3d) =>
+                    Cast<TGeometry, TOut>(key: BoundsCenterKey, query: Query<TGeometry, Point3d>.Build(
+                        key: BoundsCenterKey,
+                        evaluator: static (TGeometry geometry) =>
+                            ExtractBounds(geometry: geometry)
+                                .Bind(static (BoundingBox box) => One(key: BoundsCenterKey, value: box.Center))
+                                .ToEff())),
+                Analysis.Bounds.Corners when typeof(TOut) == typeof(Point3d) =>
+                    Cast<TGeometry, TOut>(key: BoundsCornersKey, query: Query<TGeometry, Point3d>.Build(
+                        key: BoundsCornersKey,
+                        evaluator: static (TGeometry geometry) =>
+                            ExtractBounds(geometry: geometry)
+                                .Bind(static (BoundingBox box) => Many(key: BoundsCornersKey, values: box.GetCorners()))
+                                .ToEff())),
+                Analysis.Bounds.Edges when typeof(TGeometry) == typeof(BoundingBox) && typeof(TOut) == typeof(Line) =>
+                    Cast<TGeometry, TOut>(key: BoxEdgesKey, query: Query<BoundingBox, Line>.Build(
+                        key: BoxEdgesKey,
+                        evaluator: static (BoundingBox geometry) => Many(key: BoxEdgesKey, values: geometry.GetEdges()).ToEff())),
+                Analysis.Bounds.Area when typeof(TGeometry) == typeof(BoundingBox) && typeof(TOut) == typeof(double) =>
+                    Cast<TGeometry, TOut>(key: BoxAreaKey, query: Query<BoundingBox, double>.Build(
+                        key: BoxAreaKey,
+                        evaluator: static (BoundingBox geometry) => One(key: BoxAreaKey, value: geometry.Area).ToEff())),
+                Analysis.Bounds.Area when typeof(TGeometry) == typeof(Box) && typeof(TOut) == typeof(double) =>
+                    Cast<TGeometry, TOut>(key: BoxAreaKey, query: Query<Box, double>.Build(
+                        key: BoxAreaKey,
+                        evaluator: static (Box geometry) => One(key: BoxAreaKey, value: geometry.Area).ToEff())),
+                Analysis.Bounds.Volume when typeof(TGeometry) == typeof(BoundingBox) && typeof(TOut) == typeof(double) =>
+                    Cast<TGeometry, TOut>(key: BoxVolumeKey, query: Query<BoundingBox, double>.Build(
+                        key: BoxVolumeKey,
+                        evaluator: static (BoundingBox geometry) => One(key: BoxVolumeKey, value: geometry.Volume).ToEff())),
+                Analysis.Bounds.Volume when typeof(TGeometry) == typeof(Box) && typeof(TOut) == typeof(double) =>
+                    Cast<TGeometry, TOut>(key: BoxVolumeKey, query: Query<Box, double>.Build(
+                        key: BoxVolumeKey,
+                        evaluator: static (Box geometry) => One(key: BoxVolumeKey, value: geometry.Volume).ToEff())),
+                _ => null,
+            });
     public static Query<TGeometry, TOut> Measure<TGeometry, TOut>(Measure aspect) where TGeometry : notnull =>
         aspect switch {
             Analysis.Measure.SpatialMidpoint when typeof(TOut) == typeof(Point3d) => SpatialMidpoint<TGeometry, TOut>(),
