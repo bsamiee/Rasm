@@ -9,6 +9,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="../library/Rasm.csproj" />
+        <ProjectReference Include="../Rasm/Rasm.csproj" />
     </ItemGroup>
 </Project>

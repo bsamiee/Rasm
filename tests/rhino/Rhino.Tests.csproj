@@ -11,7 +11,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="../../libs/csharp/library/Rasm.csproj" />
+        <ProjectReference Include="../../libs/csharp/Rasm/Rasm.csproj" />
     </ItemGroup>
 
     <ItemGroup>

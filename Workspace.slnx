@@ -6,11 +6,11 @@
   </Folder>
   <Folder Name="/libs/" />
   <Folder Name="/libs/csharp/" />
-  <Folder Name="/libs/csharp/library/">
-    <Project Path="libs/csharp/library/Rasm.csproj" />
+  <Folder Name="/libs/csharp/Rasm/">
+    <Project Path="libs/csharp/Rasm/Rasm.csproj" />
   </Folder>
-  <Folder Name="/libs/csharp/grasshopper/">
-    <Project Path="libs/csharp/grasshopper/Rasm.Grasshopper.csproj" />
+  <Folder Name="/libs/csharp/Rasm.Grasshopper/">
+    <Project Path="libs/csharp/Rasm.Grasshopper/Rasm.Grasshopper.csproj" />
   </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/csharp/" />

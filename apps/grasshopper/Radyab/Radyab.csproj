@@ -9,8 +9,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="../../../libs/csharp/library/Rasm.csproj" />
-        <ProjectReference Include="../../../libs/csharp/grasshopper/Rasm.Grasshopper.csproj" />
+        <ProjectReference Include="../../../libs/csharp/Rasm/Rasm.csproj" />
+        <ProjectReference Include="../../../libs/csharp/Rasm.Grasshopper/Rasm.Grasshopper.csproj" />
     </ItemGroup>
 
     <ItemGroup>
