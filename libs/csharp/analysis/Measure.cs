@@ -9,20 +9,6 @@ using static LanguageExt.Prelude;
 namespace Analysis;
 
 public static partial class Query {
-    private delegate Fin<Seq<ResidualSample>> ResidualSampleCase<TGeometry, TPrimitive>(
-        TGeometry geometry,
-        TPrimitive primitive,
-        int count,
-        GeometryContext context) where TGeometry : notnull where TPrimitive : notnull;
-    private delegate Point3d ClosestPointCase<TPrimitive>(
-        TPrimitive primitive,
-        Point3d point) where TPrimitive : notnull;
-    private delegate double DistanceCase<TPrimitive>(
-        TPrimitive primitive,
-        Point3d point) where TPrimitive : notnull;
-    private delegate Fin<Seq<TValue>> ResidualProjection<TValue>(
-        Seq<ResidualSample> samples,
-        GeometryContext context);
     public static Query<BoundingBox, Point3d> UniqueCorners() =>
         Query<BoundingBox, Point3d>.Build(
             key: UniqueCornersKey,
@@ -240,7 +226,7 @@ public static partial class Query {
     private static Query<(TGeometry Geometry, TPrimitive Primitive), TOut> ConformanceCases<TGeometry, TPrimitive, TOut, TNativeGeometry, TNativePrimitive>(
         Conformance aspect,
         GeometryRequirement requirement,
-        ResidualSampleCase<TNativeGeometry, TNativePrimitive> samples) where TGeometry : notnull where TPrimitive : notnull where TNativeGeometry : notnull where TNativePrimitive : notnull =>
+        Func<TNativeGeometry, TNativePrimitive, int, GeometryContext, Fin<Seq<ResidualSample>>> samples) where TGeometry : notnull where TPrimitive : notnull where TNativeGeometry : notnull where TNativePrimitive : notnull =>
         (aspect.Residual, typeof(TOut)) switch {
             (ConformanceResidual.Distance, Type output) when output == typeof(double) =>
                 Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: ConformanceKey, query: ConformancePair<TGeometry, TPrimitive, TNativeGeometry, TNativePrimitive, double>(
@@ -277,13 +263,13 @@ public static partial class Query {
     private static Query<(TGeometry Geometry, TPrimitive Primitive), TValue> ConformancePair<TGeometry, TPrimitive, TNativeGeometry, TNativePrimitive, TValue>(
         int count,
         GeometryRequirement requirement,
-        ResidualSampleCase<TNativeGeometry, TNativePrimitive> samples,
-        ResidualProjection<TValue> project) where TGeometry : notnull where TPrimitive : notnull where TNativeGeometry : notnull where TNativePrimitive : notnull =>
+        Func<TNativeGeometry, TNativePrimitive, int, GeometryContext, Fin<Seq<ResidualSample>>> samples,
+        Func<Seq<ResidualSample>, GeometryContext, Fin<Seq<TValue>>> project) where TGeometry : notnull where TPrimitive : notnull where TNativeGeometry : notnull where TNativePrimitive : notnull =>
         Query<(TGeometry Geometry, TPrimitive Primitive), TValue>.Build(
             key: ConformanceKey,
             requiresContext: true,
             state: (Count: count, Requirement: requirement, Samples: samples, Project: project),
-            evaluator: static ((int Count, GeometryRequirement Requirement, ResidualSampleCase<TNativeGeometry, TNativePrimitive> Samples, ResidualProjection<TValue> Project) state, (TGeometry Geometry, TPrimitive Primitive) geometry) =>
+            evaluator: static ((int Count, GeometryRequirement Requirement, Func<TNativeGeometry, TNativePrimitive, int, GeometryContext, Fin<Seq<ResidualSample>>> Samples, Func<Seq<ResidualSample>, GeometryContext, Fin<Seq<TValue>>> Project) state, (TGeometry Geometry, TPrimitive Primitive) geometry) =>
                 from rt in Analyze.Asks
                 from validated in rt.Context.ValidateOperands(
                         geometry: geometry,
@@ -302,17 +288,17 @@ public static partial class Query {
         (TGeometry Geometry, TPrimitive Primitive) geometry,
         GeometryContext context,
         int count,
-        ResidualSampleCase<TNativeGeometry, TNativePrimitive> samples,
-        ResidualProjection<TValue> project) where TGeometry : notnull where TPrimitive : notnull where TNativeGeometry : notnull where TNativePrimitive : notnull =>
+        Func<TNativeGeometry, TNativePrimitive, int, GeometryContext, Fin<Seq<ResidualSample>>> samples,
+        Func<Seq<ResidualSample>, GeometryContext, Fin<Seq<TValue>>> project) where TGeometry : notnull where TPrimitive : notnull where TNativeGeometry : notnull where TNativePrimitive : notnull =>
         (geometry.Geometry, geometry.Primitive) switch {
             (TNativeGeometry native, TNativePrimitive primitive) => samples(
-                    geometry: native,
-                    primitive: primitive,
-                    count: count,
-                    context: context)
+                    arg1: native,
+                    arg2: primitive,
+                    arg3: count,
+                    arg4: context)
                 .Bind((Seq<ResidualSample> values) => project(
-                    samples: values,
-                    context: context)),
+                    arg1: values,
+                    arg2: context)),
             _ => Fin.Fail<Seq<TValue>>(ConformanceKey.Unsupported(
                 geometryType: typeof((TGeometry Geometry, TPrimitive Primitive)),
                 outputType: typeof(TValue))),
@@ -345,7 +331,7 @@ public static partial class Query {
         TPrimitive primitive,
         int count,
         GeometryContext context,
-        ClosestPointCase<TPrimitive> closest) where TPrimitive : notnull =>
+        Func<TPrimitive, Point3d, Point3d> closest) where TPrimitive : notnull =>
         Fractions(count: count, key: ConformanceKey)
             .Bind((Seq<double> fractions) => fractions.Fold(
                     initialState: Fin.Succ(new ResidualState<Curve, TPrimitive>(
@@ -366,8 +352,8 @@ public static partial class Query {
                             fractionalTolerance: pair.State.Context.Relative.Value) switch {
                                 true => pair.State.Geometry.PointAt(t: parameter) switch {
                                     Point3d point => closest(
-                                            primitive: pair.State.Primitive,
-                                            point: point) switch {
+                                            arg1: pair.State.Primitive,
+                                            arg2: point) switch {
                                                 Point3d closest => Fin.Succ(pair.State with {
                                                     Samples = pair.State.Samples.Add(new ResidualSample(
                                                         Index: pair.State.Samples.Count,
@@ -400,7 +386,7 @@ public static partial class Query {
         TPrimitive primitive,
         int count,
         GeometryContext context,
-        DistanceCase<TPrimitive> distance) where TPrimitive : notnull =>
+        Func<TPrimitive, Point3d, double> distance) where TPrimitive : notnull =>
         (
             Samples(domain: geometry.Domain(direction: 0), count: count, key: ConformanceKey),
             Samples(domain: geometry.Domain(direction: 1), count: count, key: ConformanceKey)
@@ -418,9 +404,9 @@ public static partial class Query {
                         Samples = state.Samples.Add(new ResidualSample(
                             Index: state.Samples.Count,
                             Location: point,
-                            Distance: distance(primitive: state.Primitive, point: point),
+                            Distance: distance(arg1: state.Primitive, arg2: point),
                             Tolerance: state.Context.Absolute.Value,
-                            WithinTolerance: distance(primitive: state.Primitive, point: point) <= state.Context.Absolute.Value)),
+                            WithinTolerance: distance(arg1: state.Primitive, arg2: point) <= state.Context.Absolute.Value)),
                     },
                 })))
         .Map(static (ResidualState<Surface, TPrimitive> state) => state.Samples);
