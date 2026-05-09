@@ -133,6 +133,7 @@ internal static class ShapeRules {
             true => namedType.GetMembers()
                 .OfType<IMethodSymbol>()
                 .Where(method => method.MethodKind == MethodKind.Ordinary)
+                .Where(method => !method.IsImplicitlyDeclared)
                 .GroupBy(method => method.Name)
                 .Select(group => group.ToImmutableArray())
                 .Where(ShouldReportOverloadCollapse)
