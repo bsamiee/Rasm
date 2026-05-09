@@ -60,10 +60,12 @@ public sealed class GeometryContextSpec {
     public void AccumulatesMissingGeometryPairsInContext() {
         GeometryContext context = ValidContext();
 
-        Validation<Error, (LineCurve A, LineCurve B)> result = context.ValidatePair<LineCurve, LineCurve>(
-            geometry: (A: null!, B: null!),
-            a: GeometryRequirement.CurveLength,
-            b: GeometryRequirement.CurveLength);
+        Validation<Error, (LineCurve A, LineCurve B)> result = context.Validate(
+            shape: new GeometryShape<LineCurve, LineCurve>.Pair(
+                A: null!,
+                B: null!,
+                RequirementA: GeometryRequirement.CurveLength,
+                RequirementB: GeometryRequirement.CurveLength));
 
         Assert.True(condition: result.ToFin().Match(
             Succ: static ((LineCurve A, LineCurve B) _) => false,
@@ -74,9 +76,11 @@ public sealed class GeometryContextSpec {
     public void ValidatesOnlyFirstTupleGeometryWhenSecondIsPlainValue() {
         GeometryContext context = ValidContext();
 
-        Validation<Error, (LineCurve A, int B)> result = context.ValidateFirst<LineCurve, int>(
-            geometry: (A: null!, B: 1),
-            requirement: GeometryRequirement.CurveLength);
+        Validation<Error, (LineCurve A, int B)> result = context.Validate(
+            shape: new GeometryShape<LineCurve, int>.FirstOnly(
+                A: null!,
+                B: 1,
+                Requirement: GeometryRequirement.CurveLength));
 
         Assert.True(condition: result.ToFin().Match(
             Succ: static ((LineCurve A, int B) _) => false,

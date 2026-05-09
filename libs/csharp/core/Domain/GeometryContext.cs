@@ -107,22 +107,9 @@ public sealed record GeometryContext {
             context: this,
             geometry: geometry,
             requirement: requirement ?? GeometryRequirement.Strict);
-    internal Validation<Error, (TA A, TB B)> ValidatePair<TA, TB>(
-        (TA A, TB B) geometry,
-        GeometryRequirement? a = null,
-        GeometryRequirement? b = null) where TA : GeometryBase where TB : GeometryBase =>
-        GeometryValidation.ValidatePair(
-            context: this,
-            geometry: geometry,
-            a: a ?? GeometryRequirement.Basic,
-            b: b ?? GeometryRequirement.Basic);
-    internal Validation<Error, (TA A, TB B)> ValidateFirst<TA, TB>(
-        (TA A, TB B) geometry,
-        GeometryRequirement? requirement = null) where TA : GeometryBase =>
-        GeometryValidation.ValidateFirst(
-            context: this,
-            geometry: geometry,
-            requirement: requirement ?? GeometryRequirement.Basic);
+    internal Validation<Error, (TA A, TB B)> Validate<TA, TB>(
+        GeometryShape<TA, TB> shape) where TA : notnull where TB : notnull =>
+        GeometryValidation.Validate(context: this, shape: shape);
     internal static Validation<Error, GeometryContext> FromKnownUnits(
         double absoluteTolerance,
         double relativeTolerance,

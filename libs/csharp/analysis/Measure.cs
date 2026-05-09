@@ -268,10 +268,12 @@ public static partial class Query {
             state: (Count: count, Requirement: requirement, Samples: samples, Project: project),
             evaluator: static ((int Count, GeometryRequirement Requirement, Func<TNativeGeometry, TNativePrimitive, int, GeometryContext, Fin<Seq<ResidualSample>>> Samples, Func<Seq<ResidualSample>, GeometryContext, Fin<Seq<TValue>>> Project) state, (TGeometry Geometry, TPrimitive Primitive) geometry) =>
                 from rt in Analyze.Asks
-                from validated in rt.Context.ValidateOperands(
-                        geometry: geometry,
-                        a: state.Requirement,
-                        b: GeometryRequirement.None)
+                from validated in rt.Context.Validate(
+                        shape: new GeometryShape<TGeometry, TPrimitive>.Pair(
+                            A: geometry.Geometry,
+                            B: geometry.Primitive,
+                            RequirementA: state.Requirement,
+                            RequirementB: GeometryRequirement.None))
                     .ToEff()
                 from result in ConformanceProject(
                         geometry: validated,

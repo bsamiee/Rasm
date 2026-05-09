@@ -241,10 +241,12 @@ public static partial class Query {
             state: (Key: key, A: a, B: b, Output: output),
             evaluator: static ((OperationKey Key, GeometryRequirement A, GeometryRequirement B, Func<TLeft, TRight, GeometryContext, Fin<Seq<TOut>>> Output) state, (TA A, TB B) geometry) =>
                 from rt in Analyze.Asks
-                from validated in rt.Context.ValidateOperands(
-                        geometry: geometry,
-                        a: state.A,
-                        b: state.B)
+                from validated in rt.Context.Validate(
+                        shape: new GeometryShape<TA, TB>.Pair(
+                            A: geometry.A,
+                            B: geometry.B,
+                            RequirementA: state.A,
+                            RequirementB: state.B))
                     .ToEff()
                 from result in PairOutputValue(
                         state: state,

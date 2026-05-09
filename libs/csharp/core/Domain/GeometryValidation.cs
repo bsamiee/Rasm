@@ -9,6 +9,14 @@ using Thinktecture;
 using static LanguageExt.Prelude;
 namespace Core.Domain;
 
+// --- [MODELS] ----------------------------------------------------------------------------------
+
+[Union]
+public abstract partial record GeometryShape<TA, TB> where TA : notnull where TB : notnull {
+    public sealed record Pair(TA A, TB B, GeometryRequirement RequirementA, GeometryRequirement RequirementB) : GeometryShape<TA, TB>;
+    public sealed record FirstOnly(TA A, TB B, GeometryRequirement Requirement) : GeometryShape<TA, TB>;
+}
+
 // --- [OPERATIONS] ------------------------------------------------------------------------------
 
 internal static class GeometryValidation {
@@ -36,32 +44,22 @@ internal static class GeometryValidation {
                             .As(),
                         accumulator.Context,
                         accumulator.Geometry)).Result);
-    internal static Validation<Error, (TA A, TB B)> ValidatePair<TA, TB>(
+    internal static Validation<Error, (TA A, TB B)> Validate<TA, TB>(
         this GeometryContext context,
-        (TA A, TB B) geometry,
-        GeometryRequirement a,
-        GeometryRequirement b) where TA : GeometryBase where TB : GeometryBase =>
-        (context.Validate(geometry: geometry.A, requirement: a),
-         context.Validate(geometry: geometry.B, requirement: b))
-            .Apply(static (TA a, TB b) => (A: a, B: b))
-            .As();
-    internal static Validation<Error, (TA A, TB B)> ValidateFirst<TA, TB>(
-        this GeometryContext context,
-        (TA A, TB B) geometry,
-        GeometryRequirement requirement) where TA : GeometryBase =>
-        (context.Validate(geometry: geometry.A, requirement: requirement),
-         geometry.B.ValidateNativeOperand())
-            .Apply(static (TA a, TB b) => (A: a, B: b))
-            .As();
-    internal static Validation<Error, (TA A, TB B)> ValidateOperands<TA, TB>(
-        this GeometryContext context,
-        (TA A, TB B) geometry,
-        GeometryRequirement a,
-        GeometryRequirement b) where TA : notnull where TB : notnull =>
-        (context.ValidateOperand(operand: geometry.A, requirement: a),
-         context.ValidateOperand(operand: geometry.B, requirement: b))
-            .Apply(static (TA a, TB b) => (A: a, B: b))
-            .As();
+        GeometryShape<TA, TB> shape) where TA : notnull where TB : notnull =>
+        shape switch {
+            GeometryShape<TA, TB>.Pair pair => (
+                    context.ValidateOperand(operand: pair.A, requirement: pair.RequirementA),
+                    context.ValidateOperand(operand: pair.B, requirement: pair.RequirementB))
+                .Apply(static (TA a, TB b) => (A: a, B: b))
+                .As(),
+            GeometryShape<TA, TB>.FirstOnly firstOnly => (
+                    context.ValidateOperand(operand: firstOnly.A, requirement: firstOnly.Requirement),
+                    firstOnly.B.ValidateNativeOperand())
+                .Apply(static (TA a, TB b) => (A: a, B: b))
+                .As(),
+            _ => Fin.Fail<(TA A, TB B)>(ValidationFault.MissingGeometry()).ToValidation(),
+        };
     internal static Validation<Error, TValue> ValidateOperand<TValue>(
         this GeometryContext context,
         TValue operand,
