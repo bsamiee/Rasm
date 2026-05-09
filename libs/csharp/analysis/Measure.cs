@@ -1,5 +1,6 @@
 using Core;
 using Core.Domain;
+using Core.Runtime;
 using LanguageExt;
 using LanguageExt.Common;
 using Rhino;
@@ -417,91 +418,42 @@ public static partial class Query {
     private static Fin<Seq<double>> ResidualDistance(Seq<ResidualSample> samples, GeometryContext _) =>
         ResidualDistances(samples: samples).Bind(static (Seq<double> residuals) => Many(key: ConformanceKey, values: residuals));
     private static Fin<Seq<double>> ResidualRms(Seq<ResidualSample> samples, GeometryContext _) =>
-        ResidualDistances(samples: samples).Bind(static (Seq<double> residuals) => ResidualRmsDistances(residuals: residuals));
+        ResidualDistances(samples: samples)
+            .Bind(static (Seq<double> residuals) => residuals.StatsOf(key: ConformanceKey))
+            .Bind(static (Stats s) => One(key: ConformanceKey, value: s.Rms));
     private static Fin<Seq<bool>> ResidualWithinTolerance(Seq<ResidualSample> samples, GeometryContext context) =>
-        ResidualDistances(samples: samples).Bind((Seq<double> residuals) => ResidualWithinToleranceDistances(
-            residuals: residuals,
-            context: context));
+        ResidualDistances(samples: samples)
+            .Bind(static (Seq<double> residuals) => residuals.StatsOf(key: ConformanceKey))
+            .Bind((Stats s) => One(key: ConformanceKey, value: s.Maximum <= context.Absolute.Value));
     private static Fin<Seq<ResidualProfile>> ResidualProfileProjection(Seq<ResidualSample> samples, GeometryContext context) =>
-        ResidualDistances(samples: samples).Bind((Seq<double> residuals) => ResidualProfileDistances(
-            residuals: residuals,
-            context: context));
-    private static Fin<Seq<ResidualSample>> ResidualMaximum(Seq<ResidualSample> samples, GeometryContext _) =>
-        samples.Fold(
-            initialState: (Count: 0, Best: default, Valid: true),
-            f: static ((int Count, ResidualSample Best, bool Valid) state, ResidualSample sample) => (
-                Count: state.Count + 1,
-                Best: (state.Count, sample.Distance > state.Best.Distance) switch {
-                    (0, _) or (_, true) => sample,
-                    _ => state.Best,
-                },
-                Valid: state.Valid && sample.Distance >= 0.0 && RhinoMath.IsValidDouble(x: sample.Distance) && sample.Location.IsValid)) switch {
-                    ( > 0, ResidualSample best, true) => Fin.Succ(Seq(best)),
-                    _ => Fin.Fail<Seq<ResidualSample>>(ConformanceKey.InvalidResult()),
-                };
-    private static Fin<Seq<double>> ResidualDistances(Seq<ResidualSample> samples) =>
-        samples.Fold(
-            initialState: Fin.Succ(Seq<double>()),
-            f: static (Fin<Seq<double>> current, ResidualSample sample) => sample switch {
-                { Distance: double distance, Location.IsValid: true } when distance >= 0.0 && RhinoMath.IsValidDouble(x: distance) =>
-                    current.Map((Seq<double> values) => values.Add(distance)),
-                _ => Fin.Fail<Seq<double>>(ConformanceKey.InvalidResult()),
-            });
-    private static Fin<Seq<double>> ResidualRmsDistances(Seq<double> residuals) =>
-        residuals.Fold(
-            initialState: (Count: 0, SumSquares: 0.0, Valid: true),
-            f: static ((int Count, double SumSquares, bool Valid) state, double residual) => (
-                Count: state.Count + 1,
-                SumSquares: state.SumSquares + (residual * residual),
-                Valid: state.Valid && residual >= 0.0 && RhinoMath.IsValidDouble(x: residual))) switch {
-                    (int count, double sumSquares, true) when count > 0 && RhinoMath.IsValidDouble(x: sumSquares) =>
-                        One(key: ConformanceKey, value: Math.Sqrt(d: sumSquares / count)),
-                    _ => Fin.Fail<Seq<double>>(ConformanceKey.InvalidResult()),
-                };
-    private static Fin<Seq<bool>> ResidualWithinToleranceDistances(Seq<double> residuals, GeometryContext context) =>
-        residuals.Fold(
-            initialState: (Count: 0, Maximum: 0.0, Valid: true),
-            f: static ((int Count, double Maximum, bool Valid) state, double residual) => (
-                Count: state.Count + 1,
-                Maximum: Math.Max(val1: state.Maximum, val2: residual),
-                Valid: state.Valid && residual >= 0.0 && RhinoMath.IsValidDouble(x: residual))) switch {
-                    (int count, double maximum, true) when count > 0 && RhinoMath.IsValidDouble(x: maximum) =>
-                        One(key: ConformanceKey, value: maximum <= context.Absolute.Value),
-                    _ => Fin.Fail<Seq<bool>>(ConformanceKey.InvalidResult()),
-                };
-    private static Fin<Seq<ResidualProfile>> ResidualProfileDistances(Seq<double> residuals, GeometryContext context) {
-        (int count, double minimum, double maximum, double sum, double sumSquares, bool valid) = residuals.Fold(
-            initialState: (Count: 0, Minimum: double.PositiveInfinity, Maximum: double.NegativeInfinity, Sum: 0.0, SumSquares: 0.0, Valid: true),
-            f: static ((int Count, double Minimum, double Maximum, double Sum, double SumSquares, bool Valid) state, double residual) => (
-                Count: state.Count + 1,
-                Minimum: Math.Min(val1: state.Minimum, val2: residual),
-                Maximum: Math.Max(val1: state.Maximum, val2: residual),
-                Sum: state.Sum + residual,
-                SumSquares: state.SumSquares + (residual * residual),
-                Valid: state.Valid && residual >= 0.0 && RhinoMath.IsValidDouble(x: residual)));
-        double mean = count switch { > 0 => sum / count, _ => double.NaN };
-        double variance = count switch {
-            > 0 => residuals.Fold(
-                initialState: (Mean: mean, Total: 0.0),
-                f: static ((double Mean, double Total) state, double residual) => (
-                    state.Mean,
-                    state.Total + ((residual - state.Mean) * (residual - state.Mean)))).Total / count,
-            _ => double.NaN,
-        };
-        double rms = count switch { > 0 => Math.Sqrt(d: sumSquares / count), _ => double.NaN };
-        return (count, valid, RhinoMath.IsValidDouble(x: minimum), RhinoMath.IsValidDouble(x: maximum), RhinoMath.IsValidDouble(x: mean), RhinoMath.IsValidDouble(x: variance), RhinoMath.IsValidDouble(x: rms), variance >= 0.0) switch {
-            ( > 0, true, true, true, true, true, true, true) => Fin.Succ(Seq(new ResidualProfile(
-                Count: count,
-                Minimum: minimum,
-                Maximum: maximum,
-                Mean: mean,
-                Variance: variance,
-                Rms: rms,
+        ResidualDistances(samples: samples)
+            .Bind(static (Seq<double> residuals) => residuals.StatsOf(key: ConformanceKey))
+            .Bind((Stats s) => One(key: ConformanceKey, value: new ResidualProfile(
+                Count: s.Count,
+                Minimum: s.Minimum,
+                Maximum: s.Maximum,
+                Mean: s.Mean,
+                Variance: s.Variance,
+                Rms: s.Rms,
                 Tolerance: context.Absolute.Value,
-                WithinTolerance: maximum <= context.Absolute.Value))),
-            _ => Fin.Fail<Seq<ResidualProfile>>(ConformanceKey.InvalidResult()),
-        };
-    }
+                WithinTolerance: s.Maximum <= context.Absolute.Value)));
+    private static Fin<Seq<ResidualSample>> ResidualMaximum(Seq<ResidualSample> samples, GeometryContext _) =>
+        samples.Map(static (ResidualSample sample) => sample switch {
+            { Distance: double d, Location.IsValid: true } when d >= 0.0 && RhinoMath.IsValidDouble(x: d) => Fin.Succ(sample),
+            _ => Fin.Fail<ResidualSample>(ConformanceKey.InvalidResult()),
+        }).TraverseFin()
+            .Bind(static (Seq<ResidualSample> validated) => validated.MaxesBy(
+                    projection: static (ResidualSample sample) => sample.Distance,
+                    tolerance: 0.0)
+                .Head
+                .Match(
+                    Some: static (ResidualSample best) => Fin.Succ(Seq(best)),
+                    None: static () => Fin.Fail<Seq<ResidualSample>>(ConformanceKey.InvalidResult())));
+    private static Fin<Seq<double>> ResidualDistances(Seq<ResidualSample> samples) =>
+        samples.Map(static (ResidualSample sample) => sample switch {
+            { Distance: double distance, Location.IsValid: true } when distance >= 0.0 && RhinoMath.IsValidDouble(x: distance) => Fin.Succ(distance),
+            _ => Fin.Fail<double>(ConformanceKey.InvalidResult()),
+        }).TraverseFin();
     private readonly record struct ResidualState<TGeometry, TPrimitive>(
         Seq<ResidualSample> Samples,
         TGeometry Geometry,
