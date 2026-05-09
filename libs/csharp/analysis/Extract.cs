@@ -92,16 +92,11 @@ public static partial class Query {
         from result in One(key: EdgeMidpointsKey, value: point).ToEff()
         select result;
     private static Eff<AnalysisRuntime, Seq<Point3d>> BrepEdgeMidpoints(Brep brep) =>
-        from rt in Analyze.Asks
-        from validated in rt.Context.Validate(geometry: brep, requirement: GeometryRequirement.Basic).ToEff()
-        from result in (KindOfBrep(brep: validated, context: rt.Context) switch {
-            GeometryKind.BrepSphere => Fin.Fail<Seq<Point3d>>(EdgeMidpointsKey.PrimitiveNoEdges(primitive: "Sphere")),
-            GeometryKind.BrepCylinder => Fin.Fail<Seq<Point3d>>(EdgeMidpointsKey.PrimitiveNoEdges(primitive: "Cylinder")),
-            GeometryKind.BrepCone => Fin.Fail<Seq<Point3d>>(EdgeMidpointsKey.PrimitiveNoEdges(primitive: "Cone")),
-            GeometryKind.BrepTorus => Fin.Fail<Seq<Point3d>>(EdgeMidpointsKey.PrimitiveNoEdges(primitive: "Torus")),
-            _ => EdgeCurveMidpoints(curves: validated.DuplicateEdgeCurves(), context: rt.Context),
-        }).ToEff()
-        select result;
+        BrepLeaves<Point3d>(
+            brep: brep,
+            key: EdgeMidpointsKey,
+            primitiveFault: static (OperationKey key, string label) => key.PrimitiveNoEdges(primitive: label),
+            project: static (Brep validated, GeometryContext context) => EdgeCurveMidpoints(curves: validated.DuplicateEdgeCurves(), context: context));
     private static Eff<AnalysisRuntime, Seq<Point3d>> MeshEdgeMidpoints(Mesh mesh) =>
         from rt in Analyze.Asks
         from validated in rt.Context.Validate(geometry: mesh, requirement: GeometryRequirement.Basic).ToEff()
@@ -346,13 +341,24 @@ public static partial class Query {
             _ => VerticesKey.Unsupported<TGeometry, TOut>(),
         };
     private static Eff<AnalysisRuntime, Seq<Point3d>> BrepVertices(Brep brep) =>
+        BrepLeaves<Point3d>(
+            brep: brep,
+            key: VerticesKey,
+            primitiveFault: static (OperationKey key, string label) => key.PrimitiveNoVertices(primitive: label),
+            project: static (Brep validated, GeometryContext _) => Many(key: VerticesKey, values: validated.DuplicateVertices()));
+    private static Eff<AnalysisRuntime, Seq<TOut>> BrepLeaves<TOut>(
+        Brep brep,
+        OperationKey key,
+        Func<OperationKey, string, Error> primitiveFault,
+        Func<Brep, GeometryContext, Fin<Seq<TOut>>> project) =>
         from rt in Analyze.Asks
-        from result in (KindOfBrep(brep: brep, context: rt.Context) switch {
-            GeometryKind.BrepSphere => Fin.Fail<Seq<Point3d>>(VerticesKey.PrimitiveNoVertices(primitive: "Sphere")),
-            GeometryKind.BrepCylinder => Fin.Fail<Seq<Point3d>>(VerticesKey.PrimitiveNoVertices(primitive: "Cylinder")),
-            GeometryKind.BrepCone => Fin.Fail<Seq<Point3d>>(VerticesKey.PrimitiveNoVertices(primitive: "Cone")),
-            GeometryKind.BrepTorus => Fin.Fail<Seq<Point3d>>(VerticesKey.PrimitiveNoVertices(primitive: "Torus")),
-            _ => Many(key: VerticesKey, values: brep.DuplicateVertices()),
+        from validated in rt.Context.Validate(geometry: brep, requirement: GeometryRequirement.Basic).ToEff()
+        from result in (KindOfBrep(brep: validated, context: rt.Context) switch {
+            GeometryKind.BrepSphere => Fin.Fail<Seq<TOut>>(primitiveFault(arg1: key, arg2: "Sphere")),
+            GeometryKind.BrepCylinder => Fin.Fail<Seq<TOut>>(primitiveFault(arg1: key, arg2: "Cylinder")),
+            GeometryKind.BrepCone => Fin.Fail<Seq<TOut>>(primitiveFault(arg1: key, arg2: "Cone")),
+            GeometryKind.BrepTorus => Fin.Fail<Seq<TOut>>(primitiveFault(arg1: key, arg2: "Torus")),
+            _ => project(arg1: validated, arg2: rt.Context),
         }).ToEff()
         select result;
     public static Query<TGeometry, TOut> Components<TGeometry, TOut>() where TGeometry : notnull =>
