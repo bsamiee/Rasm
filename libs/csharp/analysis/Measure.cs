@@ -1,8 +1,8 @@
 using Core;
 using Core.Domain;
-using Core.Runtime;
 using LanguageExt;
 using LanguageExt.Common;
+using Rhino;
 using Rhino.Geometry;
 using static LanguageExt.Prelude;
 namespace Analysis;
@@ -109,32 +109,31 @@ public static partial class Query {
             Analysis.Measure.Length => Length<TGeometry, TOut>(),
             Analysis.Measure.Area when typeof(TOut) == typeof(double) => Cast<TGeometry, TOut>(key: new OperationKey(name: nameof(Analysis.Measure.Area)), query: AreaMass<TGeometry, double>(name: nameof(Analysis.Measure.Area), project: static (OperationKey key, AreaMassProperties mass) => One(key: key, value: mass.Area))),
             Analysis.Measure.Volume when typeof(TOut) == typeof(double) => Cast<TGeometry, TOut>(key: new OperationKey(name: nameof(Analysis.Measure.Volume)), query: VolumeMass<TGeometry, double>(name: nameof(Analysis.Measure.Volume), project: static (OperationKey key, VolumeMassProperties mass) => One(key: key, value: mass.Volume))),
-            Analysis.Measure.Error e => MassMeasure<TGeometry, TOut>(mass: e.Mass, kind: MeasureCase.Error),
-            Analysis.Measure.Centroid c => MassMeasure<TGeometry, TOut>(mass: c.Mass, kind: MeasureCase.Centroid),
-            Analysis.Measure.CentroidError ce => MassMeasure<TGeometry, TOut>(mass: ce.Mass, kind: MeasureCase.CentroidError),
-            Analysis.Measure.Radii r => MassMeasure<TGeometry, TOut>(mass: r.Mass, kind: MeasureCase.Radii),
-            Analysis.Measure.Principal p => MassMeasure<TGeometry, TOut>(mass: p.Mass, kind: MeasureCase.Principal),
+            Analysis.Measure.Error e => MassMeasure<TGeometry, TOut>(mass: e.Mass, kind: e),
+            Analysis.Measure.Centroid c => MassMeasure<TGeometry, TOut>(mass: c.Mass, kind: c),
+            Analysis.Measure.CentroidError ce => MassMeasure<TGeometry, TOut>(mass: ce.Mass, kind: ce),
+            Analysis.Measure.Radii r => MassMeasure<TGeometry, TOut>(mass: r.Mass, kind: r),
+            Analysis.Measure.Principal p => MassMeasure<TGeometry, TOut>(mass: p.Mass, kind: p),
             _ => MeasureKey.Unsupported<TGeometry, TOut>(),
         };
-    private enum MeasureCase { Error, Centroid, CentroidError, Radii, Principal }
-    private static Query<TGeometry, TOut> MassMeasure<TGeometry, TOut>(MassKind mass, MeasureCase kind) where TGeometry : notnull =>
+    private static Query<TGeometry, TOut> MassMeasure<TGeometry, TOut>(MassKind mass, Measure kind) where TGeometry : notnull =>
         (kind, mass) switch {
             (_, MassKind.None) => Query<TGeometry, TOut>.Reject(key: MeasureKey, fault: MeasureKey.InvalidInput()),
-            (MeasureCase.Error, MassKind.Length) when typeof(TOut) == typeof(double) => Cast<TGeometry, TOut>(key: new OperationKey(name: "LengthError"), query: LengthMass<TGeometry, double>(name: "LengthError", project: static (OperationKey key, LengthMassProperties mass) => One(key: key, value: mass.LengthError))),
-            (MeasureCase.Error, MassKind.Area) when typeof(TOut) == typeof(double) => Cast<TGeometry, TOut>(key: new OperationKey(name: "AreaError"), query: AreaMass<TGeometry, double>(name: "AreaError", project: static (OperationKey key, AreaMassProperties mass) => One(key: key, value: mass.AreaError))),
-            (MeasureCase.Error, MassKind.Volume) when typeof(TOut) == typeof(double) => Cast<TGeometry, TOut>(key: new OperationKey(name: "VolumeError"), query: VolumeMass<TGeometry, double>(name: "VolumeError", project: static (OperationKey key, VolumeMassProperties mass) => One(key: key, value: mass.VolumeError))),
-            (MeasureCase.Centroid, MassKind.Length) when typeof(TOut) == typeof(Point3d) => Cast<TGeometry, TOut>(key: new OperationKey(name: "LengthCentroid"), query: LengthCentroid<TGeometry>(name: "LengthCentroid")),
-            (MeasureCase.Centroid, MassKind.Area) when typeof(TOut) == typeof(Point3d) => Cast<TGeometry, TOut>(key: new OperationKey(name: "AreaCentroid"), query: AreaCentroid<TGeometry>(name: "AreaCentroid")),
-            (MeasureCase.Centroid, MassKind.Volume) when typeof(TOut) == typeof(Point3d) => Cast<TGeometry, TOut>(key: new OperationKey(name: "VolumeCentroid"), query: VolumeCentroid<TGeometry>(name: "VolumeCentroid")),
-            (MeasureCase.CentroidError, MassKind.Length) when typeof(TOut) == typeof(Vector3d) => Cast<TGeometry, TOut>(key: new OperationKey(name: "LengthCentroidError"), query: LengthMass<TGeometry, Vector3d>(name: "LengthCentroidError", project: static (OperationKey key, LengthMassProperties mass) => One(key: key, value: mass.CentroidError))),
-            (MeasureCase.CentroidError, MassKind.Area) when typeof(TOut) == typeof(Vector3d) => Cast<TGeometry, TOut>(key: new OperationKey(name: "AreaCentroidError"), query: AreaMass<TGeometry, Vector3d>(name: "AreaCentroidError", project: static (OperationKey key, AreaMassProperties mass) => One(key: key, value: mass.CentroidError))),
-            (MeasureCase.CentroidError, MassKind.Volume) when typeof(TOut) == typeof(Vector3d) => Cast<TGeometry, TOut>(key: new OperationKey(name: "VolumeCentroidError"), query: VolumeMass<TGeometry, Vector3d>(name: "VolumeCentroidError", project: static (OperationKey key, VolumeMassProperties mass) => One(key: key, value: mass.CentroidError))),
-            (MeasureCase.Radii, MassKind.Length) when typeof(TOut) == typeof(Vector3d) => Cast<TGeometry, TOut>(key: new OperationKey(name: "LengthRadii"), query: LengthMass<TGeometry, Vector3d>(name: "LengthRadii", project: static (OperationKey key, LengthMassProperties mass) => One(key: key, value: mass.CentroidCoordinatesRadiiOfGyration), secondMoments: true)),
-            (MeasureCase.Radii, MassKind.Area) when typeof(TOut) == typeof(Vector3d) => Cast<TGeometry, TOut>(key: new OperationKey(name: "AreaRadii"), query: AreaMass<TGeometry, Vector3d>(name: "AreaRadii", project: static (OperationKey key, AreaMassProperties mass) => One(key: key, value: mass.CentroidCoordinatesRadiiOfGyration), secondMoments: true)),
-            (MeasureCase.Radii, MassKind.Volume) when typeof(TOut) == typeof(Vector3d) => Cast<TGeometry, TOut>(key: new OperationKey(name: "VolumeRadii"), query: VolumeMass<TGeometry, Vector3d>(name: "VolumeRadii", project: static (OperationKey key, VolumeMassProperties mass) => One(key: key, value: mass.CentroidCoordinatesRadiiOfGyration), secondMoments: true)),
-            (MeasureCase.Principal, MassKind.Length) when typeof(TOut) == typeof(ValueTuple<double, Vector3d>) => Cast<TGeometry, TOut>(key: new OperationKey(name: "LengthPrincipal"), query: LengthMass<TGeometry, (double Moment, Vector3d Axis)>(name: "LengthPrincipal", project: static (OperationKey key, LengthMassProperties mass) => Principal(key: key, mass: mass), secondMoments: true, productMoments: true)),
-            (MeasureCase.Principal, MassKind.Area) when typeof(TOut) == typeof(ValueTuple<double, Vector3d>) => Cast<TGeometry, TOut>(key: new OperationKey(name: "AreaPrincipal"), query: AreaMass<TGeometry, (double Moment, Vector3d Axis)>(name: "AreaPrincipal", project: static (OperationKey key, AreaMassProperties mass) => Principal(key: key, mass: mass), secondMoments: true, productMoments: true)),
-            (MeasureCase.Principal, MassKind.Volume) when typeof(TOut) == typeof(ValueTuple<double, Vector3d>) => Cast<TGeometry, TOut>(key: new OperationKey(name: "VolumePrincipal"), query: VolumeMass<TGeometry, (double Moment, Vector3d Axis)>(name: "VolumePrincipal", project: static (OperationKey key, VolumeMassProperties mass) => Principal(key: key, mass: mass), secondMoments: true, productMoments: true)),
+            (Analysis.Measure.Error, MassKind.Length) when typeof(TOut) == typeof(double) => Cast<TGeometry, TOut>(key: new OperationKey(name: "LengthError"), query: LengthMass<TGeometry, double>(name: "LengthError", project: static (OperationKey key, LengthMassProperties mass) => One(key: key, value: mass.LengthError))),
+            (Analysis.Measure.Error, MassKind.Area) when typeof(TOut) == typeof(double) => Cast<TGeometry, TOut>(key: new OperationKey(name: "AreaError"), query: AreaMass<TGeometry, double>(name: "AreaError", project: static (OperationKey key, AreaMassProperties mass) => One(key: key, value: mass.AreaError))),
+            (Analysis.Measure.Error, MassKind.Volume) when typeof(TOut) == typeof(double) => Cast<TGeometry, TOut>(key: new OperationKey(name: "VolumeError"), query: VolumeMass<TGeometry, double>(name: "VolumeError", project: static (OperationKey key, VolumeMassProperties mass) => One(key: key, value: mass.VolumeError))),
+            (Analysis.Measure.Centroid, MassKind.Length) when typeof(TOut) == typeof(Point3d) => Cast<TGeometry, TOut>(key: new OperationKey(name: "LengthCentroid"), query: LengthCentroid<TGeometry>(name: "LengthCentroid")),
+            (Analysis.Measure.Centroid, MassKind.Area) when typeof(TOut) == typeof(Point3d) => Cast<TGeometry, TOut>(key: new OperationKey(name: "AreaCentroid"), query: AreaCentroid<TGeometry>(name: "AreaCentroid")),
+            (Analysis.Measure.Centroid, MassKind.Volume) when typeof(TOut) == typeof(Point3d) => Cast<TGeometry, TOut>(key: new OperationKey(name: "VolumeCentroid"), query: VolumeCentroid<TGeometry>(name: "VolumeCentroid")),
+            (Analysis.Measure.CentroidError, MassKind.Length) when typeof(TOut) == typeof(Vector3d) => Cast<TGeometry, TOut>(key: new OperationKey(name: "LengthCentroidError"), query: LengthMass<TGeometry, Vector3d>(name: "LengthCentroidError", project: static (OperationKey key, LengthMassProperties mass) => One(key: key, value: mass.CentroidError))),
+            (Analysis.Measure.CentroidError, MassKind.Area) when typeof(TOut) == typeof(Vector3d) => Cast<TGeometry, TOut>(key: new OperationKey(name: "AreaCentroidError"), query: AreaMass<TGeometry, Vector3d>(name: "AreaCentroidError", project: static (OperationKey key, AreaMassProperties mass) => One(key: key, value: mass.CentroidError))),
+            (Analysis.Measure.CentroidError, MassKind.Volume) when typeof(TOut) == typeof(Vector3d) => Cast<TGeometry, TOut>(key: new OperationKey(name: "VolumeCentroidError"), query: VolumeMass<TGeometry, Vector3d>(name: "VolumeCentroidError", project: static (OperationKey key, VolumeMassProperties mass) => One(key: key, value: mass.CentroidError))),
+            (Analysis.Measure.Radii, MassKind.Length) when typeof(TOut) == typeof(Vector3d) => Cast<TGeometry, TOut>(key: new OperationKey(name: "LengthRadii"), query: LengthMass<TGeometry, Vector3d>(name: "LengthRadii", project: static (OperationKey key, LengthMassProperties mass) => One(key: key, value: mass.CentroidCoordinatesRadiiOfGyration), secondMoments: true)),
+            (Analysis.Measure.Radii, MassKind.Area) when typeof(TOut) == typeof(Vector3d) => Cast<TGeometry, TOut>(key: new OperationKey(name: "AreaRadii"), query: AreaMass<TGeometry, Vector3d>(name: "AreaRadii", project: static (OperationKey key, AreaMassProperties mass) => One(key: key, value: mass.CentroidCoordinatesRadiiOfGyration), secondMoments: true)),
+            (Analysis.Measure.Radii, MassKind.Volume) when typeof(TOut) == typeof(Vector3d) => Cast<TGeometry, TOut>(key: new OperationKey(name: "VolumeRadii"), query: VolumeMass<TGeometry, Vector3d>(name: "VolumeRadii", project: static (OperationKey key, VolumeMassProperties mass) => One(key: key, value: mass.CentroidCoordinatesRadiiOfGyration), secondMoments: true)),
+            (Analysis.Measure.Principal, MassKind.Length) when typeof(TOut) == typeof(ValueTuple<double, Vector3d>) => Cast<TGeometry, TOut>(key: new OperationKey(name: "LengthPrincipal"), query: LengthMass<TGeometry, (double Moment, Vector3d Axis)>(name: "LengthPrincipal", project: static (OperationKey key, LengthMassProperties mass) => Principal(key: key, mass: mass), secondMoments: true, productMoments: true)),
+            (Analysis.Measure.Principal, MassKind.Area) when typeof(TOut) == typeof(ValueTuple<double, Vector3d>) => Cast<TGeometry, TOut>(key: new OperationKey(name: "AreaPrincipal"), query: AreaMass<TGeometry, (double Moment, Vector3d Axis)>(name: "AreaPrincipal", project: static (OperationKey key, AreaMassProperties mass) => Principal(key: key, mass: mass), secondMoments: true, productMoments: true)),
+            (Analysis.Measure.Principal, MassKind.Volume) when typeof(TOut) == typeof(ValueTuple<double, Vector3d>) => Cast<TGeometry, TOut>(key: new OperationKey(name: "VolumePrincipal"), query: VolumeMass<TGeometry, (double Moment, Vector3d Axis)>(name: "VolumePrincipal", project: static (OperationKey key, VolumeMassProperties mass) => Principal(key: key, mass: mass), secondMoments: true, productMoments: true)),
             _ => MeasureKey.Unsupported<TGeometry, TOut>(),
         };
     public static Query<TGeometry, TOut> SpatialMidpoint<TGeometry, TOut>() where TGeometry : notnull =>
@@ -429,7 +428,7 @@ public static partial class Query {
                     (0, _) or (_, true) => sample,
                     _ => state.Best,
                 },
-                Valid: state.Valid && sample.Distance >= 0.0 && double.IsFinite(d: sample.Distance) && sample.Location.IsValid)) switch {
+                Valid: state.Valid && sample.Distance >= 0.0 && RhinoMath.IsValidDouble(x: sample.Distance) && sample.Location.IsValid)) switch {
                     ( > 0, ResidualSample best, true) => Fin.Succ(Seq(best)),
                     _ => Fin.Fail<Seq<ResidualSample>>(ConformanceKey.InvalidResult()),
                 };
@@ -437,7 +436,7 @@ public static partial class Query {
         samples.Fold(
             initialState: Fin.Succ(Seq<double>()),
             f: static (Fin<Seq<double>> current, ResidualSample sample) => sample switch {
-                { Distance: double distance, Location.IsValid: true } when distance >= 0.0 && double.IsFinite(d: distance) =>
+                { Distance: double distance, Location.IsValid: true } when distance >= 0.0 && RhinoMath.IsValidDouble(x: distance) =>
                     current.Map((Seq<double> values) => values.Add(distance)),
                 _ => Fin.Fail<Seq<double>>(ConformanceKey.InvalidResult()),
             });
@@ -447,8 +446,8 @@ public static partial class Query {
             f: static ((int Count, double SumSquares, bool Valid) state, double residual) => (
                 Count: state.Count + 1,
                 SumSquares: state.SumSquares + (residual * residual),
-                Valid: state.Valid && residual >= 0.0 && double.IsFinite(d: residual))) switch {
-                    (int count, double sumSquares, true) when count > 0 && double.IsFinite(d: sumSquares) =>
+                Valid: state.Valid && residual >= 0.0 && RhinoMath.IsValidDouble(x: residual))) switch {
+                    (int count, double sumSquares, true) when count > 0 && RhinoMath.IsValidDouble(x: sumSquares) =>
                         One(key: ConformanceKey, value: Math.Sqrt(d: sumSquares / count)),
                     _ => Fin.Fail<Seq<double>>(ConformanceKey.InvalidResult()),
                 };
@@ -458,8 +457,8 @@ public static partial class Query {
             f: static ((int Count, double Maximum, bool Valid) state, double residual) => (
                 Count: state.Count + 1,
                 Maximum: Math.Max(val1: state.Maximum, val2: residual),
-                Valid: state.Valid && residual >= 0.0 && double.IsFinite(d: residual))) switch {
-                    (int count, double maximum, true) when count > 0 && double.IsFinite(d: maximum) =>
+                Valid: state.Valid && residual >= 0.0 && RhinoMath.IsValidDouble(x: residual))) switch {
+                    (int count, double maximum, true) when count > 0 && RhinoMath.IsValidDouble(x: maximum) =>
                         One(key: ConformanceKey, value: maximum <= context.Absolute.Value),
                     _ => Fin.Fail<Seq<bool>>(ConformanceKey.InvalidResult()),
                 };
@@ -472,7 +471,7 @@ public static partial class Query {
                 Maximum: Math.Max(val1: state.Maximum, val2: residual),
                 Sum: state.Sum + residual,
                 SumSquares: state.SumSquares + (residual * residual),
-                Valid: state.Valid && residual >= 0.0 && double.IsFinite(d: residual)));
+                Valid: state.Valid && residual >= 0.0 && RhinoMath.IsValidDouble(x: residual)));
         double mean = count switch { > 0 => sum / count, _ => double.NaN };
         double variance = count switch {
             > 0 => residuals.Fold(
@@ -483,7 +482,7 @@ public static partial class Query {
             _ => double.NaN,
         };
         double rms = count switch { > 0 => Math.Sqrt(d: sumSquares / count), _ => double.NaN };
-        return (count, valid, double.IsFinite(d: minimum), double.IsFinite(d: maximum), double.IsFinite(d: mean), double.IsFinite(d: variance), double.IsFinite(d: rms), variance >= 0.0) switch {
+        return (count, valid, RhinoMath.IsValidDouble(x: minimum), RhinoMath.IsValidDouble(x: maximum), RhinoMath.IsValidDouble(x: mean), RhinoMath.IsValidDouble(x: variance), RhinoMath.IsValidDouble(x: rms), variance >= 0.0) switch {
             ( > 0, true, true, true, true, true, true, true) => Fin.Succ(Seq(new ResidualProfile(
                 Count: count,
                 Minimum: minimum,
