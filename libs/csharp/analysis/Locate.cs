@@ -35,15 +35,15 @@ public static partial class Query {
     private static Fin<Seq<Point3d>> QuadrantsFromGeom<TGeometry>(TGeometry geom, double tolerance) where TGeometry : notnull =>
         geom switch {
             Curve curve when curve.IsValid => ExtractCardinals(curve: curve, tolerance: tolerance),
-            Polyline polyline when polyline.IsValid => WithOwnedCurve(owned: polyline.ToPolylineCurve(), tolerance: tolerance),
-            Line line when line.IsValid => WithOwnedCurve(owned: new LineCurve(line: line), tolerance: tolerance),
-            Circle circle when circle.IsValid => WithOwnedCurve(owned: circle.ToNurbsCurve(), tolerance: tolerance),
-            Arc arc when arc.IsValid => WithOwnedCurve(owned: arc.ToNurbsCurve(), tolerance: tolerance),
+            Polyline polyline when polyline.IsValid => Bracket(factory: polyline.ToPolylineCurve, body: (Curve curve) => ExtractCardinals(curve: curve, tolerance: tolerance)),
+            Line line when line.IsValid => Bracket(factory: () => new LineCurve(line: line), body: (Curve curve) => ExtractCardinals(curve: curve, tolerance: tolerance)),
+            Circle circle when circle.IsValid => Bracket(factory: circle.ToNurbsCurve, body: (Curve curve) => ExtractCardinals(curve: curve, tolerance: tolerance)),
+            Arc arc when arc.IsValid => Bracket(factory: arc.ToNurbsCurve, body: (Curve curve) => ExtractCardinals(curve: curve, tolerance: tolerance)),
             _ => Fin.Fail<Seq<Point3d>>(WorldCardinalPointsKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Point3d))),
         };
-    private static Fin<Seq<Point3d>> WithOwnedCurve(Curve owned, double tolerance) {
-        using Curve disposable = owned;
-        return ExtractCardinals(curve: disposable, tolerance: tolerance);
+    private static Fin<TOut> Bracket<TResource, TOut>(Func<TResource> factory, Func<TResource, Fin<TOut>> body) where TResource : class, IDisposable {
+        using TResource resource = factory();
+        return body(arg: resource);
     }
     private static Fin<Seq<Point3d>> ExtractCardinals(Curve curve, double tolerance) =>
         (
