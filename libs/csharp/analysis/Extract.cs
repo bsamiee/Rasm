@@ -463,6 +463,13 @@ public static partial class Query {
         Query<Mesh, MeshCheckParameters>.Build(
             key: MeshCheckKey,
             evaluator: static (Mesh geometry) => MeshCheckParametersFor(geometry: geometry).ToEff());
+    // Mesh.Check requires a TextLog using-local and a by-ref MeshCheckParameters; the imperative
+    // shape is intrinsic to this Mesh.Check boundary adapter and cannot be expression-bodied.
+    [BoundaryImperativeExemption(
+        ruleId: "CSP0001",
+        reason: BoundaryImperativeReason.CleanupFinally,
+        ticket: "RASM-WAVE4",
+        expiresOnUtc: "2027-12-31T00:00:00Z")]
     private static Fin<Seq<MeshCheckParameters>> MeshCheckParametersFor(Mesh geometry) {
         using TextLog textLog = new();
         MeshCheckParameters parameters = MeshCheckParameters.Defaults();
