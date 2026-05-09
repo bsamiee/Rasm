@@ -394,71 +394,61 @@ public static partial class Query {
                 (TopologyKind.EdgeMidpoints, _, Type output) when output == typeof(Point3d) =>
                     EdgeMidpoints<TGeometry, TOut>(),
                 (TopologyKind.Adjacency, Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
-                    Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, ComponentIndex>.Build(
-                        key: TopologyKey,
-                        evaluator: static (TGeometry geometry) => (geometry switch {
-                            Brep brep => Many(key: TopologyKey, values: Enumerable
-                                .Range(start: 0, count: brep.Edges.Count)
-                                .Select(static (int index) => new ComponentIndex(
-                                    type: ComponentIndexType.BrepEdge,
-                                    index: index))),
-                            _ => Fin.Fail<Seq<ComponentIndex>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(ComponentIndex))),
-                        }).ToEff())),
+                    BrepEdgeIndices<TGeometry, TOut>(predicate: static (Brep _, int _) => true),
                 (TopologyKind.Adjacency, Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
-                    Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, ComponentIndex>.Build(
-                        key: TopologyKey,
-                        evaluator: static (TGeometry geometry) => (geometry switch {
-                            Mesh mesh => Many(key: TopologyKey, values: Enumerable
-                                .Range(start: 0, count: mesh.TopologyEdges.Count)
-                                .Select(static (int index) => new ComponentIndex(
-                                    type: ComponentIndexType.MeshTopologyEdge,
-                                    index: index))),
-                            _ => Fin.Fail<Seq<ComponentIndex>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(ComponentIndex))),
-                        }).ToEff())),
+                    MeshEdgeIndices<TGeometry, TOut>(predicate: static (Mesh _, int _) => true),
                 (TopologyKind.NonManifold, Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
-                    Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, ComponentIndex>.Build(
-                        key: TopologyKey,
-                        evaluator: static (TGeometry geometry) => (geometry switch {
-                            Brep brep => Many(key: TopologyKey, values: Enumerable
-                                .Range(start: 0, count: brep.Edges.Count)
-                                .Where((int index) => brep.Edges[index].Valence == EdgeAdjacency.NonManifold)
-                                .Select(static (int index) => new ComponentIndex(
-                                    type: ComponentIndexType.BrepEdge,
-                                    index: index))),
-                            _ => Fin.Fail<Seq<ComponentIndex>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(ComponentIndex))),
-                        }).ToEff())),
+                    BrepEdgeIndices<TGeometry, TOut>(predicate: static (Brep brep, int index) => brep.Edges[index].Valence == EdgeAdjacency.NonManifold),
                 (TopologyKind.NonManifold, Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
-                    Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, ComponentIndex>.Build(
-                        key: TopologyKey,
-                        evaluator: static (TGeometry geometry) => (geometry switch {
-                            Mesh mesh => Many(key: TopologyKey, values: Enumerable
-                                .Range(start: 0, count: mesh.TopologyEdges.Count)
-                                .Where((int index) => mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: index).Length > 2)
-                                .Select(static (int index) => new ComponentIndex(
-                                    type: ComponentIndexType.MeshTopologyEdge,
-                                    index: index))),
-                            _ => Fin.Fail<Seq<ComponentIndex>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(ComponentIndex))),
-                        }).ToEff())),
+                    MeshEdgeIndices<TGeometry, TOut>(predicate: static (Mesh mesh, int index) => mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: index).Length > 2),
                 (TopologyKind.NonManifold, Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(bool) =>
-                    Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, bool>.Build(
-                        key: TopologyKey,
-                        evaluator: static (TGeometry geometry) => (geometry switch {
-                            Brep brep => One(key: TopologyKey, value: Enumerable
-                                .Range(start: 0, count: brep.Edges.Count)
-                                .Any((int index) => brep.Edges[index].Valence == EdgeAdjacency.NonManifold)),
-                            _ => Fin.Fail<Seq<bool>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(bool))),
-                        }).ToEff())),
+                    BrepEdgeAny<TGeometry, TOut>(predicate: static (Brep brep, int index) => brep.Edges[index].Valence == EdgeAdjacency.NonManifold),
                 (TopologyKind.NonManifold, Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(bool) =>
-                    Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, bool>.Build(
-                        key: TopologyKey,
-                        evaluator: static (TGeometry geometry) => (geometry switch {
-                            Mesh mesh => One(key: TopologyKey, value: Enumerable
-                                .Range(start: 0, count: mesh.TopologyEdges.Count)
-                                .Any((int index) => mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: index).Length > 2)),
-                            _ => Fin.Fail<Seq<bool>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(bool))),
-                        }).ToEff())),
+                    MeshEdgeAny<TGeometry, TOut>(predicate: static (Mesh mesh, int index) => mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: index).Length > 2),
                 _ => null,
             });
+    private static Query<TGeometry, TOut> BrepEdgeIndices<TGeometry, TOut>(Func<Brep, int, bool> predicate) where TGeometry : notnull =>
+        Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, ComponentIndex>.Build(
+            key: TopologyKey,
+            state: predicate,
+            evaluator: static (Func<Brep, int, bool> filter, TGeometry geometry) => (geometry switch {
+                Brep brep => Many(key: TopologyKey, values: Enumerable
+                    .Range(start: 0, count: brep.Edges.Count)
+                    .Where((int index) => filter(arg1: brep, arg2: index))
+                    .Select(static (int index) => new ComponentIndex(type: ComponentIndexType.BrepEdge, index: index))),
+                _ => Fin.Fail<Seq<ComponentIndex>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(ComponentIndex))),
+            }).ToEff()));
+    private static Query<TGeometry, TOut> MeshEdgeIndices<TGeometry, TOut>(Func<Mesh, int, bool> predicate) where TGeometry : notnull =>
+        Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, ComponentIndex>.Build(
+            key: TopologyKey,
+            state: predicate,
+            evaluator: static (Func<Mesh, int, bool> filter, TGeometry geometry) => (geometry switch {
+                Mesh mesh => Many(key: TopologyKey, values: Enumerable
+                    .Range(start: 0, count: mesh.TopologyEdges.Count)
+                    .Where((int index) => filter(arg1: mesh, arg2: index))
+                    .Select(static (int index) => new ComponentIndex(type: ComponentIndexType.MeshTopologyEdge, index: index))),
+                _ => Fin.Fail<Seq<ComponentIndex>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(ComponentIndex))),
+            }).ToEff()));
+    private static Query<TGeometry, TOut> BrepEdgeAny<TGeometry, TOut>(Func<Brep, int, bool> predicate) where TGeometry : notnull =>
+        Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, bool>.Build(
+            key: TopologyKey,
+            state: predicate,
+            evaluator: static (Func<Brep, int, bool> filter, TGeometry geometry) => (geometry switch {
+                Brep brep => One(key: TopologyKey, value: Enumerable
+                    .Range(start: 0, count: brep.Edges.Count)
+                    .Any((int index) => filter(arg1: brep, arg2: index))),
+                _ => Fin.Fail<Seq<bool>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(bool))),
+            }).ToEff()));
+    private static Query<TGeometry, TOut> MeshEdgeAny<TGeometry, TOut>(Func<Mesh, int, bool> predicate) where TGeometry : notnull =>
+        Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, bool>.Build(
+            key: TopologyKey,
+            state: predicate,
+            evaluator: static (Func<Mesh, int, bool> filter, TGeometry geometry) => (geometry switch {
+                Mesh mesh => One(key: TopologyKey, value: Enumerable
+                    .Range(start: 0, count: mesh.TopologyEdges.Count)
+                    .Any((int index) => filter(arg1: mesh, arg2: index))),
+                _ => Fin.Fail<Seq<bool>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(bool))),
+            }).ToEff()));
     public static Query<Mesh, bool> IsManifold =>
         Query<Mesh, bool>.Build(
             key: IsManifoldKey,
