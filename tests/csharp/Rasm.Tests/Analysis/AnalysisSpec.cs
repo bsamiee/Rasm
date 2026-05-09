@@ -8,8 +8,9 @@ using Rhino;
 using Rhino.Geometry;
 using Rhino.Geometry.Intersect;
 using Xunit;
+using Query = Analysis.Query;
 
-namespace Analysis.Tests;
+namespace Rasm.Tests.Analysis;
 
 // --- [EXAMPLES] --------------------------------------------------------------------------------
 

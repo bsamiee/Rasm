@@ -2,6 +2,15 @@
   "version": 1,
   "dependencies": {
     "net10.0": {
+      "FsCheck": {
+        "type": "Direct",
+        "requested": "[3.3.3, )",
+        "resolved": "3.3.3",
+        "contentHash": "FtJSNzekCwoVTJPLZwK2In1cr9PhIo6WAX/RSM7BL/jQERgnO0111+hdcN14pcog9BByJmqehBrMbjjKpHZULg==",
+        "dependencies": {
+          "FSharp.Core": "5.0.2"
+        }
+      },
       "LanguageExt.Core": {
         "type": "Direct",
         "requested": "[5.0.0-beta-77, )",
@@ -52,6 +61,11 @@
           "xunit.v3.assert": "[3.2.2]",
           "xunit.v3.core.mtp-off": "[3.2.2]"
         }
+      },
+      "FSharp.Core": {
+        "type": "Transitive",
+        "resolved": "5.0.2",
+        "contentHash": "DpcajqENgb3VXaHw1FKfVS+TWwEzck1PCajqLwBAVrtd1lfxd7T8JISVZBdV1mX9+2g48+tIgpNaVJWObdMrBw=="
       },
       "Microsoft.Bcl.AsyncInterfaces": {
         "type": "Transitive",
@@ -165,15 +179,7 @@
           "xunit.v3.runner.common": "[3.2.2]"
         }
       },
-      "analysis": {
-        "type": "Project",
-        "dependencies": {
-          "Core": "[1.0.0, )",
-          "LanguageExt.Core": "[5.0.0-beta-77, )",
-          "Thinktecture.Runtime.Extensions": "[10.2.0, )"
-        }
-      },
-      "core": {
+      "rasm": {
         "type": "Project",
         "dependencies": {
           "LanguageExt.Core": "[5.0.0-beta-77, )",

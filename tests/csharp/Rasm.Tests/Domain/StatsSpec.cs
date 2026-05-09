@@ -5,7 +5,7 @@ using LanguageExt.Common;
 using Xunit;
 using static LanguageExt.Prelude;
 
-namespace Core.Tests.Runtime;
+namespace Rasm.Tests.Domain;
 
 // --- [EXAMPLES] --------------------------------------------------------------------------------
 

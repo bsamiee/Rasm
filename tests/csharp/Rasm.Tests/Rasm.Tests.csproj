@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <AssemblyName>Core.Tests</AssemblyName>
-        <RootNamespace>Core.Tests</RootNamespace>
+        <AssemblyName>Rasm.Tests</AssemblyName>
+        <RootNamespace>Rasm.Tests</RootNamespace>
         <IsPackable>false</IsPackable>
         <IsTestProject>true</IsTestProject>
         <IsRhinoCommonAwareProject>true</IsRhinoCommonAwareProject>
@@ -11,7 +11,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="../../../libs/csharp/core/Core.csproj" />
+        <ProjectReference Include="../../../libs/csharp/library/Rasm.csproj" />
     </ItemGroup>
 
     <ItemGroup>

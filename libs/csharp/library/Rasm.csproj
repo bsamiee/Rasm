@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <AssemblyName>Rasm</AssemblyName>
+        <RootNamespace>Rasm</RootNamespace>
+        <Title>Rasm</Title>
+        <Description>RhinoCommon-aware geometry foundation and analysis algebra.</Description>
+        <SkipBoundaryExemptionContracts>true</SkipBoundaryExemptionContracts>
+        <NoWarn>$(NoWarn);IDE0130</NoWarn>
+    </PropertyGroup>
+
+</Project>

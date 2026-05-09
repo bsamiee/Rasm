@@ -8,8 +8,8 @@
         <IsRhinoPluginProject Condition="'$(IsRhinoPluginProject)' == ''">false</IsRhinoPluginProject>
         <IsGrasshopperPluginProject Condition="'$(IsGrasshopperPluginProject)' == ''">false</IsGrasshopperPluginProject>
         <IsGrasshopperAwareProject Condition="'$(IsGrasshopperAwareProject)' == ''">false</IsGrasshopperAwareProject>
-        <IsSharedCSharpLibrary Condition="'$(MSBuildProjectName)' == 'Core' or '$(MSBuildProjectName)' == 'Analysis' or '$(MSBuildProjectName)' == 'Grasshopper'">true</IsSharedCSharpLibrary>
-        <IsRhinoCommonAwareProject Condition="'$(MSBuildProjectName)' == 'Core' or '$(MSBuildProjectName)' == 'Analysis' or '$(MSBuildProjectName)' == 'Grasshopper'">true</IsRhinoCommonAwareProject>
+        <IsSharedCSharpLibrary Condition="'$(MSBuildProjectName)' == 'Rasm' or '$(MSBuildProjectName)' == 'Rasm.Grasshopper'">true</IsSharedCSharpLibrary>
+        <IsRhinoCommonAwareProject Condition="'$(MSBuildProjectName)' == 'Rasm' or '$(MSBuildProjectName)' == 'Rasm.Grasshopper'">true</IsRhinoCommonAwareProject>
         <IsSharedCSharpLibrary Condition="'$(IsSharedCSharpLibrary)' == ''">false</IsSharedCSharpLibrary>
         <IsRhinoCommonAwareProject Condition="'$(IsRhinoCommonAwareProject)' == ''">false</IsRhinoCommonAwareProject>
     </PropertyGroup>

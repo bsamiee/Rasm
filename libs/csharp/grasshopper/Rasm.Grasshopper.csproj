@@ -1,14 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <AssemblyName>Radyab.Grasshopper</AssemblyName>
+        <AssemblyName>Rasm.Grasshopper</AssemblyName>
         <RootNamespace>Grasshopper</RootNamespace>
-        <Title>Radyab.Grasshopper</Title>
-        <Description>GH2 boundary plumbing shared across Radyab plugins.</Description>
+        <Title>Rasm.Grasshopper</Title>
+        <Description>GH2 boundary plumbing shared across Rasm plugins.</Description>
         <IsGrasshopperAwareProject>true</IsGrasshopperAwareProject>
         <SkipBoundaryExemptionContracts>true</SkipBoundaryExemptionContracts>
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="../analysis/Analysis.csproj" />
+        <ProjectReference Include="../library/Rasm.csproj" />
     </ItemGroup>
 </Project>

@@ -6,7 +6,7 @@ using Rhino.Geometry;
 using Xunit;
 using static LanguageExt.Prelude;
 
-namespace Core.Tests.Domain;
+namespace Rasm.Tests.Domain;
 
 // --- [EXAMPLES] --------------------------------------------------------------------------------
 
