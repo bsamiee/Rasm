@@ -38,7 +38,8 @@ public readonly record struct BridgeOutput<TInput, TValue>(
     }
     public Unit WriteEmpty(IDataAccess access, int index) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        return Bridge.WriteValues<TValue>(access: access, index: index, values: []);
+        access.SetTwig<TValue>(index: index, values: [], metas: [], nulls: []);
+        return Unit.Default;
     }
 }
 
@@ -82,18 +83,24 @@ public static class Bridge {
         AnalysisRuntime scope,
         TGeometry geometry,
         Query<TGeometry, TValue> query) where TGeometry : notnull =>
-        query
-            .Apply(geometry: geometry)
-            .WithStandardResilience()
-            .Run(scope)
-            .Match(
-                Succ: (Seq<TValue> values) => WriteValues<TValue>(access: access, index: index, values: [.. values]),
-                Fail: (Error error) => Warn<TValue>(access: access, index: index, name: name, error: error));
-    internal static Unit Warn<TValue>(IDataAccess access, int index, string name, Error error) {
+        SetTwig<TValue>(
+            access: access,
+            index: index,
+            values: query
+                .Apply(geometry: geometry)
+                .WithStandardResilience()
+                .Run(scope)
+                .Match(
+                    Succ: (Seq<TValue> values) => (TValue[])[.. values],
+                    Fail: (Error error) => RaiseWarning<TValue>(
+                        access: access,
+                        name: name,
+                        error: error)));
+    private static TValue[] RaiseWarning<TValue>(IDataAccess access, string name, Error error) {
         access.AddWarning(text: name, details: error.Message);
-        return WriteValues<TValue>(access: access, index: index, values: []);
+        return [];
     }
-    internal static Unit WriteValues<TValue>(IDataAccess access, int index, TValue[] values) {
+    private static Unit SetTwig<TValue>(IDataAccess access, int index, TValue[] values) {
         access.SetTwig<TValue>(
             index: index,
             values: values,
