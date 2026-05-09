@@ -611,7 +611,8 @@ public static partial class Query {
                 _ => null,
             });
     // Invariant: face is the single-face Brep produced by DuplicateFace; face.Faces[0] is the BrepFace.
-    // The frame's Z is reoriented when OrientationIsReversed so that Z always points outward on closed solids.
+    // BrepFace.NormalAt returns the oriented outward normal directly (Rhino handles OrientationIsReversed
+    // internally); the frame's Z therefore points outward on closed solids without manual axis flips.
     internal static Fin<Plane> FrameAtCentroid(Brep face, AnalysisRuntime runtime) =>
         Optional(AreaMassProperties.Compute(
                 brep: face,
@@ -625,14 +626,13 @@ public static partial class Query {
             .Bind((AreaMassProperties mass) => {
                 using AreaMassProperties disposable = mass;
                 BrepFace brepFace = face.Faces[0];
-                return (
-                    brepFace.ClosestPoint(testPoint: disposable.Centroid, u: out double u, v: out double v),
-                    brepFace.FrameAt(u: u, v: v, frame: out Plane frame)
-                ) switch {
-                    (true, true) when brepFace.OrientationIsReversed =>
-                        Fin.Succ(new Plane(origin: frame.Origin, xDirection: frame.XAxis, yDirection: -frame.YAxis)),
-                    (true, true) => Fin.Succ(frame),
-                    _ => Fin.Fail<Plane>(FacesKey.InvalidResult()),
+                return brepFace.ClosestPoint(testPoint: disposable.Centroid, u: out double u, v: out double v) switch {
+                    true => (Origin: brepFace.PointAt(u: u, v: v), Normal: brepFace.NormalAt(u: u, v: v)) switch {
+                        (Point3d origin, Vector3d normal) when origin.IsValid && normal.IsValid && !normal.IsTiny() =>
+                            Fin.Succ(new Plane(origin: origin, normal: normal)),
+                        _ => Fin.Fail<Plane>(FacesKey.InvalidResult()),
+                    },
+                    false => Fin.Fail<Plane>(FacesKey.InvalidResult()),
                 };
             });
     [System.Diagnostics.CodeAnalysis.SuppressMessage(category: "Reliability", checkId: "CA2000",
