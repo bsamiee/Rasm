@@ -54,21 +54,9 @@
     <PropertyGroup Label="Package Versions">
         <LanguageExtCoreVersion>5.0.0-beta-77</LanguageExtCoreVersion>
         <ThinktectureRuntimeExtensionsVersion>10.2.0</ThinktectureRuntimeExtensionsVersion>
-        <OpenTelemetryVersion>1.15.3</OpenTelemetryVersion>
-        <OpenTelemetryInstrumentationAspNetCoreVersion>1.15.2</OpenTelemetryInstrumentationAspNetCoreVersion>
-        <OpenTelemetryInstrumentationHttpVersion>1.15.1</OpenTelemetryInstrumentationHttpVersion>
-        <OpenTelemetryInstrumentationRuntimeVersion>1.15.1</OpenTelemetryInstrumentationRuntimeVersion>
-        <SerilogAspNetCoreVersion>10.0.0</SerilogAspNetCoreVersion>
-        <SerilogSinkConsoleVersion>6.1.1</SerilogSinkConsoleVersion>
-        <SerilogSinkOpenTelemetryVersion>4.2.1-nblumhardt-02317</SerilogSinkOpenTelemetryVersion>
-        <SerilogExceptionsVersion>8.4.0</SerilogExceptionsVersion>
         <MicrosoftVisualStudioThreadingAnalyzersVersion>17.14.15</MicrosoftVisualStudioThreadingAnalyzersVersion>
         <MeziantouAnalyzerVersion>3.0.61</MeziantouAnalyzerVersion>
         <MicrosoftNetCompilersToolsetVersion>5.3.0</MicrosoftNetCompilersToolsetVersion>
-        <MicrosoftExtensionsHttpResilienceVersion>10.5.0</MicrosoftExtensionsHttpResilienceVersion>
-        <SerilogExpressionsVersion>5.1.0-dev-02309</SerilogExpressionsVersion>
-        <NpgsqlVersion>10.0.2</NpgsqlVersion>
-        <NpgsqlOpenTelemetryVersion>10.0.2</NpgsqlOpenTelemetryVersion>
         <TestcontainersPostgreSqlVersion>4.11.0</TestcontainersPostgreSqlVersion>
         <FsCheckVersion>3.3.3</FsCheckVersion>
         <FsCheckXunitVersion>3.3.3</FsCheckXunitVersion>
@@ -106,19 +94,6 @@
     <ItemGroup Label="Global Libraries" Condition="'$(IsLocalCSharpAnalyzerProject)' != 'true' and '$(UseWorkspaceLibraries)' == 'true'">
         <PackageReference Include="LanguageExt.Core" Version="$(LanguageExtCoreVersion)" />
         <PackageReference Include="Thinktecture.Runtime.Extensions" Version="$(ThinktectureRuntimeExtensionsVersion)" />
-        <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="$(OpenTelemetryVersion)" />
-        <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="$(OpenTelemetryVersion)" />
-        <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="$(OpenTelemetryInstrumentationAspNetCoreVersion)" />
-        <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="$(OpenTelemetryInstrumentationHttpVersion)" />
-        <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="$(OpenTelemetryInstrumentationRuntimeVersion)" />
-        <PackageReference Include="Serilog.AspNetCore" Version="$(SerilogAspNetCoreVersion)" />
-        <PackageReference Include="Serilog.Sinks.Console" Version="$(SerilogSinkConsoleVersion)" />
-        <PackageReference Include="Serilog.Sinks.OpenTelemetry" Version="$(SerilogSinkOpenTelemetryVersion)" />
-        <PackageReference Include="Serilog.Exceptions" Version="$(SerilogExceptionsVersion)" />
-        <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="$(MicrosoftExtensionsHttpResilienceVersion)" />
-        <PackageReference Include="Serilog.Expressions" Version="$(SerilogExpressionsVersion)" />
-        <PackageReference Include="Npgsql" Version="$(NpgsqlVersion)" />
-        <PackageReference Include="Npgsql.OpenTelemetry" Version="$(NpgsqlOpenTelemetryVersion)" />
     </ItemGroup>
 
     <ItemGroup Label="Global LanguageExt Usings" Condition="'$(IsLocalCSharpAnalyzerProject)' != 'true' and '$(UseWorkspaceLibraries)' == 'true'">
