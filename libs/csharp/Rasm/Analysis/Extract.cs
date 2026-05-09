@@ -575,18 +575,16 @@ public static partial class Query {
     private static Fin<Seq<Point3d>> EdgeCurveMidpoints(IEnumerable<Curve>? curves, GeometryContext context) =>
         Optional(curves)
             .ToFin(EdgeMidpointsKey.InvalidResult())
-            .Bind((IEnumerable<Curve> source) => source.Aggregate(
-                seed: Fin.Succ((Points: Seq<Point3d>(), Context: context)),
-                func: static (Fin<(Seq<Point3d> Points, GeometryContext Context)> current, Curve curve) => {
-                    using Curve disposable = curve;
-                    return current.Bind(((Seq<Point3d> Points, GeometryContext Context) state) => CurveAtNormalizedValue(
-                            curve: disposable,
-                            context: state.Context,
-                            key: EdgeMidpointsKey,
-                            project: static (Curve curve, double parameter) => curve.PointAt(t: parameter))
-                        .Map((Point3d point) => (state.Points.Add(point), state.Context)));
-                }))
-            .Bind(static ((Seq<Point3d> Points, GeometryContext Context) state) => Many(key: EdgeMidpointsKey, values: state.Points));
+            .Bind((IEnumerable<Curve> source) => toSeq(source)
+                .TraverseM((Curve curve) => {
+                    using Curve disposable = curve;  // BOUNDARY ADAPTER -- DisposableCurve
+                    return CurveAtNormalizedValue(
+                        curve: disposable,
+                        context: context,
+                        key: EdgeMidpointsKey,
+                        project: static (Curve c, double parameter) => c.PointAt(t: parameter));
+                }).As())
+            .Bind(static (Seq<Point3d> points) => Many(key: EdgeMidpointsKey, values: points));
     public static Query<TGeometry, TOut> Faces<TGeometry, TOut>(Faces aspect) where TGeometry : notnull =>
         Aspect<TGeometry, TOut, Faces>(
             aspect: aspect,

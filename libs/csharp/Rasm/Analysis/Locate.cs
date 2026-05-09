@@ -59,15 +59,11 @@ public static partial class Query {
                 ? Seq(state.XMin, state.XMax, state.YMin, state.YMax)
                 : Seq(state.XMin, state.XMax, state.YMin, state.YMax, state.ZMin, state.ZMax));
     private static Fin<Point3d> ExtremeAlongDirection(Curve curve, Vector3d direction, bool maximize) =>
-        (Points: toSeq(curve.ExtremeParameters(direction: direction))
-            .Map(curve.PointAt),
-        Maximize: maximize) switch {
-            (Seq<Point3d> points, true) => points.MaxesBy(projection: (Point3d p) => (Vector3d)p * direction, tolerance: 0.0).Head.Match(
-                Some: static (Point3d best) => Fin.Succ(best),
-                None: static () => Fin.Fail<Point3d>(WorldCardinalPointsKey.InvalidResult())),
-            (Seq<Point3d> points, false) => points.MinesBy(projection: (Point3d p) => (Vector3d)p * direction, tolerance: 0.0).Head.Match(
-                Some: static (Point3d best) => Fin.Succ(best),
-                None: static () => Fin.Fail<Point3d>(WorldCardinalPointsKey.InvalidResult())),
+        toSeq(curve.ExtremeParameters(direction: direction)).Map(curve.PointAt) switch {
+            Seq<Point3d> points => (maximize switch {
+                true => points.MaxesBy(projection: (Point3d p) => (Vector3d)p * direction, tolerance: 0.0),
+                false => points.MinesBy(projection: (Point3d p) => (Vector3d)p * direction, tolerance: 0.0),
+            }).Head.ToFin(WorldCardinalPointsKey.InvalidResult()),
         };
     public static Query<TGeometry, TOut> Locate<TGeometry, TOut>(Location aspect) where TGeometry : notnull =>
         Aspect<TGeometry, TOut, Location>(
