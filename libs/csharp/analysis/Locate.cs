@@ -408,13 +408,9 @@ public static partial class Query {
     private static Fin<Seq<double>> Fractions(int count, OperationKey key) =>
         count switch {
             1 => Fin.Succ(Seq(0.5)),
-            > 1 => Fin.Succ(Enumerable
+            > 1 => Fin.Succ(toSeq(Enumerable
                 .Range(start: 0, count: count)
-                .Aggregate(
-                    seed: (Samples: Seq<double>(), Denominator: count - 1.0),
-                    func: static ((Seq<double> Samples, double Denominator) state, int index) => (
-                        Samples: state.Samples.Add(index / state.Denominator),
-                        state.Denominator)).Samples),
+                .Select(i => i / (count - 1.0)))),
             _ => Fin.Fail<Seq<double>>(key.InvalidInput()),
         };
     private static Fin<CurvatureProfile> Profile(CurvatureScalar scalar, Seq<double> values) =>
@@ -427,14 +423,9 @@ public static partial class Query {
                 Mean: s.Mean,
                 Variance: s.Variance));
     private static Fin<Seq<double>> Samples(Interval domain, int count, OperationKey key) =>
-        (domain.IsValid, count) switch {
-            (true, 1) => Fin.Succ(Seq(domain.Mid)),
-            (true, > 1) => Fin.Succ(Enumerable
-                .Range(start: 0, count: count)
-                .Aggregate(
-                    seed: Seq<double>(),
-                    func: (Seq<double> samples, int index) => samples.Add(domain.ParameterAt(index / (count - 1.0))))),
-            _ => Fin.Fail<Seq<double>>(key.InvalidInput()),
+        domain.IsValid switch {
+            true => Fractions(count: count, key: key).Map((Seq<double> fractions) => fractions.Map((double f) => domain.ParameterAt(f))),
+            false => Fin.Fail<Seq<double>>(key.InvalidInput()),
         };
     private static Query<TGeometry, TOut> Closest<TGeometry, TOut>(Point3d point) where TGeometry : notnull =>
         typeof(TOut) switch {
