@@ -514,6 +514,33 @@ public sealed class RuleBehaviorTests {
     }
 
     [Fact]
+    public async Task UnionDispatchingMethodPairDoesNotEmitOverloadSpamDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/UnionDispatchingPair.cs",
+            source: """
+                namespace Core.Domain {
+                    [Thinktecture.Union]
+                    public abstract record GeometryShape<TA, TB> {
+                        public sealed record One(TA Value) : GeometryShape<TA, TB>;
+                        public sealed record Pair(TA First, TB Second) : GeometryShape<TA, TB>;
+                    }
+                }
+
+                namespace Thinktecture {
+                    public sealed class UnionAttribute : System.Attribute { }
+                }
+
+                namespace Domain.Services {
+                    public sealed class UnionDispatchingPair {
+                        public int Validate<T>(T? value) where T : class => 0;
+                        public int Validate<TA, TB>(Core.Domain.GeometryShape<TA, TB> shape) => 0;
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0005", collection: ids);
+    }
+    [Fact]
     public async Task BoundaryPropertyExemptionSuppressesAccessorImperativeDiagnosticAsync() {
         ImmutableArray<string> ids = await AnalyzeIdsAsync(
             filePath: "/workspace/src/Integration/BoundaryPropertyExemption.cs",

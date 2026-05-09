@@ -21,6 +21,15 @@ internal static class RuleCatalog {
     internal static readonly DiagnosticDescriptor CSP0002 = Err("CSP0002", "MatchCollapse", "'Match' is boundary-only; use Map/Bind/BiMap in domain pipelines", "FunctionalDiscipline");
     internal static readonly DiagnosticDescriptor CSP0003 = Err("CSP0003", "PrimitiveSignature", "Raw primitive '{0}' leaked in public domain signature; use a readonly record struct or Thinktecture value object", "TypeDiscipline");
     internal static readonly DiagnosticDescriptor CSP0004 = Err("CSP0004", "CollectionSignature", "BCL collection '{0}' leaked in public domain signature; use LanguageExt Seq<T>/HashMap<K,V>/HashSet<T>", "TypeDiscipline");
+    /// <summary>
+    /// CSP0005 OverloadSpam — fires when a method family carries arity-ladder overloads in domain code.
+    /// Exempt: (a) any overload uses params ReadOnlySpan&lt;T&gt; for arity collapse; (b) the family is exactly two members
+    /// where one is a "single-T" form Validate&lt;T&gt;(T?, ...) and the other is a "Union-dispatching" form
+    /// Validate&lt;TA,TB&gt;(GeometryShape&lt;TA,TB&gt;, ...) — recognised by Thinktecture [Union] attribution on the
+    /// discriminator parameter type, or by a Core.Domain-namespaced generic type with type-parameter type arguments.
+    /// The Union-pair exemption lets a polymorphic Validate(Shape) entrypoint coexist with a non-Union helper without
+    /// tripping the rule, supporting REF-0074-style polymorphic collapse during migration.
+    /// </summary>
     internal static readonly DiagnosticDescriptor CSP0005 = Err("CSP0005", "OverloadSpam", "Method family '{0}' has {1} overloads; collapse to params ReadOnlySpan<T> or query algebra", "SurfaceArea");
     internal static readonly DiagnosticDescriptor CSP0006 = Err("CSP0006", "AsyncBlocking", "Blocking sync-over-async call '{0}' will deadlock in async contexts; use await", "AsyncDiscipline");
     internal static readonly DiagnosticDescriptor CSP0007 = Err("CSP0007", "WallClock", "Direct wall-clock access '{0}' is forbidden; inject NodaTime.IClock", "TimeDiscipline");

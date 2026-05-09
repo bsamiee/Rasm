@@ -277,10 +277,35 @@ internal static class ShapeRules {
     }
     private static bool ShouldReportOverloadCollapse(ImmutableArray<IMethodSymbol> overloads) {
         bool hasReadOnlySpanCollapse = overloads.Any(IsParamsReadOnlySpanOverload);
+        bool unionPolymorphicPair = IsUnionDispatchingPair(overloads);
         bool arityLadder = overloads.Select(overload => overload.Parameters.Length).Distinct().Count() > 1;
         bool overloadPressure = overloads.Length > 2 || (overloads.Length > 1 && arityLadder);
-        return overloadPressure && !hasReadOnlySpanCollapse;
+        return overloadPressure && !hasReadOnlySpanCollapse && !unionPolymorphicPair;
     }
+    private static bool IsUnionDispatchingPair(ImmutableArray<IMethodSymbol> overloads) {
+        ImmutableArray<IMethodSymbol> ordered = overloads.Length switch {
+            2 => [.. overloads.OrderBy(method => method.TypeParameters.Length)],
+            _ => [],
+        };
+        return ordered.Length switch {
+            2 when ordered[1].TypeParameters.Length > ordered[0].TypeParameters.Length
+                && CarriesUnionDiscriminator(ordered[1])
+                && !CarriesUnionDiscriminator(ordered[0]) => true,
+            _ => false,
+        };
+    }
+    private static bool CarriesUnionDiscriminator(IMethodSymbol method) =>
+        method.Parameters.Any(parameter =>
+            parameter.Type switch {
+                INamedTypeSymbol named when SymbolFacts.HasAnyAttribute(named, "UnionAttribute", "Union") => true,
+                INamedTypeSymbol named when IsCoreDomainDiscriminator(named) => true,
+                _ => false,
+            });
+    private static bool IsCoreDomainDiscriminator(INamedTypeSymbol type) =>
+        type.TypeArguments.Length > 0
+        && (type.ContainingNamespace?.ToDisplayString() ?? string.Empty)
+            .StartsWith(value: "Core.Domain", comparisonType: StringComparison.Ordinal)
+        && type.TypeArguments.Any(argument => argument.TypeKind == TypeKind.TypeParameter);
     private static bool IsParamsReadOnlySpanOverload(IMethodSymbol overload) =>
         overload.Parameters switch {
             { Length: > 0 } parameters => parameters[parameters.Length - 1] switch {
