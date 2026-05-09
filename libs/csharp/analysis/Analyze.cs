@@ -1,5 +1,4 @@
 using Core.Domain;
-using Core.Runtime;
 using LanguageExt;
 using LanguageExt.Common;
 using Rhino;
@@ -17,11 +16,7 @@ public static class Analyze {
         params ReadOnlySpan<TGeometry> input) where TGeometry : notnull =>
         Run(
             query: query,
-            runtime: query switch {
-                Query<TGeometry, TOut> candidate => Fin.Fail<AnalysisRuntime>(candidate.Key.MissingContext()),
-                _ => Fin.Fail<AnalysisRuntime>(OperationFault.MissingOperation()),
-            },
-            requiresContext: false,
+            runtime: Option<AnalysisRuntime>.None,
             input: input);
     public static Scope From(RhinoDoc? doc) =>
         new(runtime: GeometryContext.FromDocument(doc: doc)
@@ -51,72 +46,48 @@ public static class Analyze {
         public Fin<AnalysisRuntime> Runtime { get; }
         internal Scope(Fin<AnalysisRuntime> runtime) =>
             Runtime = runtime;
+        public Scope WithIndex(int index) =>
+            new(runtime: Runtime.Map((AnalysisRuntime rt) => rt with {
+                Index = IndexHint.Create(value: index).Match(
+                    Succ: static (IndexHint hint) => Some(hint),
+                    Fail: static (Error _) => Option<IndexHint>.None),
+            }));
         public Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(
             Query<TGeometry, TOut>? query,
             params ReadOnlySpan<TGeometry> input) where TGeometry : notnull =>
             Analyze.Run(
                 query: query,
-                runtime: Runtime,
-                requiresContext: true,
+                runtime: Runtime.ToOption(),
                 input: input);
     }
     private static Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(
         Query<TGeometry, TOut>? query,
-        Fin<AnalysisRuntime> runtime,
-        bool requiresContext,
+        Option<AnalysisRuntime> runtime,
         ReadOnlySpan<TGeometry> input) where TGeometry : notnull =>
         query switch {
             Query<TGeometry, TOut> candidate => new Program<TGeometry, TOut>(
                     query: candidate,
-                    runtime: runtime,
-                    requiresContext: requiresContext)
+                    runtime: runtime)
                 .Execute(input: input),
             _ => Fin.Fail<Seq<TOut>>(OperationFault.MissingOperation()).ToValidation(),
         };
     private sealed class Program<TGeometry, TOut>(
         Query<TGeometry, TOut> query,
-        Fin<AnalysisRuntime> runtime,
-        bool requiresContext) where TGeometry : notnull {
+        Option<AnalysisRuntime> runtime) where TGeometry : notnull {
         internal Validation<Error, Seq<TOut>> Execute(
             params ReadOnlySpan<TGeometry> input) =>
-            Execute(input: input, start: 0, length: input.Length);
-        private Validation<Error, Seq<TOut>> Execute(
-            ReadOnlySpan<TGeometry> input,
-            int start,
-            int length) =>
-            length switch {
-                0 => Fin.Succ(Seq<TOut>()).ToValidation(),
-                1 => Apply(input: input[start]).ToValidation(),
-                _ => (
-                    Execute(
-                        input: input,
-                        start: start,
-                        length: length / 2),
-                    Execute(
-                        input: input,
-                        start: start + (length / 2),
-                        length: length - (length / 2))
-                ).Apply(static (Seq<TOut> left, Seq<TOut> right) => left + right)
-                .As(),
-            };
-        private Fin<Seq<TOut>> Apply(TGeometry input) =>
+            input.ToArray()
+                .AsIterable()
+                .ToSeq()
+                .Traverse(Apply)
+                .As()
+                .Map(static (Seq<Seq<TOut>> chunks) => chunks.Bind(static (Seq<TOut> chunk) => chunk))
+                .ToValidation();
+        internal Fin<Seq<TOut>> Apply(TGeometry input) =>
             Optional(input)
                 .ToFin(ValidationFault.MissingGeometry())
-                .Bind(ApplyValidated);
-        private Fin<Seq<TOut>> ApplyValidated(TGeometry input) =>
-            RuntimeOrSentinel().Bind((AnalysisRuntime rt) =>
-                query.Apply(geometry: input).Run(rt));
-        private Fin<AnalysisRuntime> RuntimeOrSentinel() =>
-            (runtime.IsSucc, requiresContext) switch {
-                (true, _) => runtime,
-                (false, true) => runtime,
-                // BOUNDARY ADAPTER — sentinel runtime for context-free queries: query.Apply returns Eff<RT,A>,
-                // which requires an RT to evaluate; a context-free evaluator never reads rt.Context, so we
-                // synthesize an uninitialized runtime to satisfy the Eff dispatch without invoking native
-                // Rhino tolerance constructors (unavailable in test harnesses).
-                (false, false) => Fin.Succ(new AnalysisRuntime(
-                    Context: (GeometryContext)System.Runtime.CompilerServices.RuntimeHelpers
-                        .GetUninitializedObject(type: typeof(GeometryContext)))),
-            };
+                .Bind((TGeometry geometry) => runtime.Match(
+                    Some: (AnalysisRuntime rt) => query.Apply(geometry: geometry).Run(rt),
+                    None: () => Fin.Fail<Seq<TOut>>(query.Key.MissingContext())));
     }
 }
