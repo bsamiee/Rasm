@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.Linq;
 using System.Runtime.InteropServices;
 using Core;
@@ -403,8 +402,8 @@ public static partial class Query {
                         firstMoments: true,
                         secondMoments: second,
                         productMoments: product))
-                    .ToFin(MassFault.Failed(label: nameof(LengthMassProperties))),
-                _ => Fin.Fail<LengthMassProperties>(MassFault.Unsupported(
+                    .ToFin(OperationFault.ComputationFailed(label: nameof(LengthMassProperties))),
+                _ => Fin.Fail<LengthMassProperties>(OperationFault.ComputationUnsupported(
                     label: nameof(LengthMassProperties),
                     geometryType: geometry.GetType())),
             }).ToEff();
@@ -437,8 +436,8 @@ public static partial class Query {
                     productMoments: product),
                 _ => null,
             }).ToFin(geometry switch {
-                Curve or Mesh or Brep or Surface => MassFault.Failed(label: nameof(AreaMassProperties)),
-                _ => MassFault.Unsupported(label: nameof(AreaMassProperties), geometryType: geometry.GetType()),
+                Curve or Mesh or Brep or Surface => OperationFault.ComputationFailed(label: nameof(AreaMassProperties)),
+                _ => OperationFault.ComputationUnsupported(label: nameof(AreaMassProperties), geometryType: geometry.GetType()),
             }).ToEff()
             select props;
     internal static readonly Func<object, bool, bool, Eff<AnalysisRuntime, VolumeMassProperties>> ComputeVolume =
@@ -467,8 +466,8 @@ public static partial class Query {
                     productMoments: product),
                 _ => null,
             }).ToFin(geometry switch {
-                Mesh or Brep or Surface => MassFault.Failed(label: nameof(VolumeMassProperties)),
-                _ => MassFault.Unsupported(label: nameof(VolumeMassProperties), geometryType: geometry.GetType()),
+                Mesh or Brep or Surface => OperationFault.ComputationFailed(label: nameof(VolumeMassProperties)),
+                _ => OperationFault.ComputationUnsupported(label: nameof(VolumeMassProperties), geometryType: geometry.GetType()),
             }).ToEff()
             select props;
     internal static Query<TGeometry, TOut> Mass<TGeometry, TMass, TOut>(
@@ -524,14 +523,4 @@ public static partial class Query {
             true => Fin.Succ(Seq((Moment: x, Axis: xAxis), (Moment: y, Axis: yAxis), (Moment: z, Axis: zAxis))),
             false => Fin.Fail<Seq<(double Moment, Vector3d Axis)>>(key.InvalidResult()),
         };
-    private static class MassFault {
-        internal static Error Failed(string label) =>
-            Error.New(message: string.Create(
-                provider: CultureInfo.InvariantCulture,
-                $"Rhino {label} computation failed."));
-        internal static Error Unsupported(string label, Type geometryType) =>
-            Error.New(message: string.Create(
-                provider: CultureInfo.InvariantCulture,
-                $"Rhino {label} computation does not support geometry '{geometryType.Name}'."));
-    }
 }
