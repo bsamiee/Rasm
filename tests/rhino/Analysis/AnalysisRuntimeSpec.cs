@@ -10,7 +10,7 @@ using Rhino.Testing.Fixtures;
 using static LanguageExt.Prelude;
 using AnalysisQuery = Analysis.Query;
 
-namespace Runtime.Rhino.Tests.Libs.Analysis;
+namespace Runtime.Rhino.Tests.Analysis;
 
 // --- [RUNTIME SPECS] ---------------------------------------------------------------------------
 

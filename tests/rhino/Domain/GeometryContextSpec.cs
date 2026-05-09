@@ -8,7 +8,7 @@ using Rhino.Geometry;
 using Rhino.Testing.Fixtures;
 using static LanguageExt.Prelude;
 
-namespace Runtime.Rhino.Tests.Libs.Core.Domain;
+namespace Runtime.Rhino.Tests.Domain;
 
 // --- [RUNTIME SPECS] ---------------------------------------------------------------------------
 
