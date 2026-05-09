@@ -77,22 +77,9 @@ public static class Analyze {
         Query<TGeometry, TOut> query,
         Fin<AnalysisRuntime> runtime,
         bool requiresContext) where TGeometry : notnull {
-        private readonly Fin<Unit> setup = (
-                query.Ready,
-                (requiresContext || query.RequiresContext) switch {
-                    true => runtime.Map(static (AnalysisRuntime _) => unit),
-                    false => Fin.Succ(unit),
-                })
-            .Apply(static (Unit _, Unit _) => unit)
-            .As();
         internal Validation<Error, Seq<TOut>> Execute(
             params ReadOnlySpan<TGeometry> input) =>
-            setup.IsSucc switch {
-                true => Execute(input: input, start: 0, length: input.Length),
-                false => setup
-                    .Map(static (Unit _) => Seq<TOut>())
-                    .ToValidation(),
-            };
+            Execute(input: input, start: 0, length: input.Length);
         private Validation<Error, Seq<TOut>> Execute(
             ReadOnlySpan<TGeometry> input,
             int start,
@@ -117,26 +104,17 @@ public static class Analyze {
                 .ToFin(ValidationFault.MissingGeometry())
                 .Bind(ApplyValidated);
         private Fin<Seq<TOut>> ApplyValidated(TGeometry input) =>
-            (query.Requirement, input) switch {
-                (GeometryRequirement requirement, GeometryBase native)
-                    when requirement != GeometryRequirement.None =>
-                    runtime.Bind((AnalysisRuntime rt) =>
-                        rt.Context.Validate(
-                                geometry: native,
-                                requirement: requirement)
-                            .ToFin()
-                            .Bind(_ => query.Apply(geometry: input).Run(rt))),
-                _ => RuntimeOrSentinel().Bind((AnalysisRuntime rt) =>
-                    query.Apply(geometry: input).Run(rt)),
-            };
+            RuntimeOrSentinel().Bind((AnalysisRuntime rt) =>
+                query.Apply(geometry: input).Run(rt));
         private Fin<AnalysisRuntime> RuntimeOrSentinel() =>
-            runtime.IsSucc switch {
-                true => runtime,
-                // BOUNDARY ADAPTER — sentinel runtime for context-free queries: query.Apply now returns
-                // Eff<RT,A>, which requires an RT to evaluate; a context-free evaluator never reads
-                // rt.Context, so we synthesize an uninitialized runtime to satisfy the Eff dispatch
-                // without invoking native Rhino tolerance constructors (unavailable in test harnesses).
-                false => Fin.Succ(new AnalysisRuntime(
+            (runtime.IsSucc, requiresContext) switch {
+                (true, _) => runtime,
+                (false, true) => runtime,
+                // BOUNDARY ADAPTER — sentinel runtime for context-free queries: query.Apply returns Eff<RT,A>,
+                // which requires an RT to evaluate; a context-free evaluator never reads rt.Context, so we
+                // synthesize an uninitialized runtime to satisfy the Eff dispatch without invoking native
+                // Rhino tolerance constructors (unavailable in test harnesses).
+                (false, false) => Fin.Succ(new AnalysisRuntime(
                     Context: (GeometryContext)System.Runtime.CompilerServices.RuntimeHelpers
                         .GetUninitializedObject(type: typeof(GeometryContext)))),
             };

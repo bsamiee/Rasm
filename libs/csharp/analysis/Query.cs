@@ -15,26 +15,15 @@ namespace Analysis;
 
 // --- [ALGEBRA] ---------------------------------------------------------------------------------
 
-public sealed class Query<TGeometry, TOut> where TGeometry : notnull {
-    private Query(
-        OperationKey key,
-        GeometryRequirement requirement,
-        bool requiresContext,
-        Fin<Unit> ready,
-        Func<TGeometry, Eff<AnalysisRuntime, Seq<TOut>>> evaluator) {
-        Key = key;
-        Requirement = requirement;
-        RequiresContext = requiresContext || requirement != GeometryRequirement.None;
-        Ready = ready;
-        Evaluator = evaluator;
-    }
+public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
     internal OperationKey Key { get; }
-    internal GeometryRequirement Requirement { get; }
-    internal bool RequiresContext { get; }
-    internal Fin<Unit> Ready { get; }
-    private Func<TGeometry, Eff<AnalysisRuntime, Seq<TOut>>> Evaluator { get; }
+    internal Func<TGeometry, Eff<AnalysisRuntime, Seq<TOut>>> Effect { get; }
+    internal Query(OperationKey key, Func<TGeometry, Eff<AnalysisRuntime, Seq<TOut>>> effect) {
+        Key = key;
+        Effect = effect;
+    }
     public Eff<AnalysisRuntime, Seq<TOut>> Apply(TGeometry geometry) =>
-        Evaluator(arg: geometry);
+        Effect(arg: geometry);
     internal static Query<TGeometry, TOut> Build(
         OperationKey key,
         Func<TGeometry, Eff<AnalysisRuntime, Seq<TOut>>> evaluator,
@@ -42,31 +31,32 @@ public sealed class Query<TGeometry, TOut> where TGeometry : notnull {
         bool requiresContext = false) =>
         new(
             key: key,
-            requirement: requirement ?? GeometryRequirement.None,
-            requiresContext: requiresContext,
-            ready: Fin.Succ(unit),
-            evaluator: evaluator);
+            effect: (requirement, requiresContext) switch {
+                (null or GeometryRequirement.NoneRequirement, _) => evaluator,
+                (GeometryRequirement r, _) => (TGeometry geometry) => geometry switch {
+                    GeometryBase native =>
+                        from rt in Analyze.Asks
+                        from _ in rt.Context.Validate(geometry: native, requirement: r).ToEff()
+                        from result in evaluator(arg: geometry)
+                        select result,
+                    _ => evaluator(arg: geometry),
+                },
+            });
     internal static Query<TGeometry, TOut> Build<TState>(
         OperationKey key,
         TState state,
         Func<TState, TGeometry, Eff<AnalysisRuntime, Seq<TOut>>> evaluator,
         GeometryRequirement? requirement = null,
         bool requiresContext = false) =>
-        new(
+        Build(
             key: key,
-            requirement: requirement ?? GeometryRequirement.None,
-            requiresContext: requiresContext,
-            ready: Fin.Succ(unit),
-            evaluator: (TGeometry geometry) =>
-                evaluator(arg1: state, arg2: geometry));
+            evaluator: (TGeometry geometry) => evaluator(arg1: state, arg2: geometry),
+            requirement: requirement,
+            requiresContext: requiresContext);
     internal static Query<TGeometry, TOut> Reject(OperationKey key, Error fault) =>
         new(
             key: key,
-            requirement: GeometryRequirement.None,
-            requiresContext: false,
-            ready: Fin.Fail<Unit>(error: fault),
-            evaluator: (TGeometry _) =>
-                Eff<AnalysisRuntime, Seq<TOut>>.Fail(error: fault));
+            effect: (TGeometry _) => Eff<AnalysisRuntime, Seq<TOut>>.Fail(error: fault));
 }
 public enum MassKind { None = 0, Length = 1, Area = 2, Volume = 3 }
 public enum CurvatureScalar { None = 0, Magnitude = 1, Gaussian = 2, Mean = 3 }
