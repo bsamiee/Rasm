@@ -4,7 +4,7 @@ using Grasshopper;
 using Rhino.Geometry;
 using Thinktecture;
 
-namespace Radyab.Boundary;
+namespace Radyab.Components;
 
 // --- [MODELS] ----------------------------------------------------------------------------------
 

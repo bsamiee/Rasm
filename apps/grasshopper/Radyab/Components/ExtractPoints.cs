@@ -5,7 +5,7 @@ using GrasshopperIO;
 using LanguageExt;
 using static LanguageExt.Prelude;
 
-namespace Radyab.Boundary;
+namespace Radyab.Components;
 
 // --- [COMPONENT] -------------------------------------------------------------------------------
 
@@ -15,11 +15,11 @@ namespace Radyab.Boundary;
     info: "Edge midpoints, intelligent center, vertices, bounding corners, and world-cardinal quadrants for any Rhino geometry.",
     category: "Radyab",
     section: "Extraction")]
-public sealed class ExtractPointsComponent : AnalysisComponent<RhinoGeometry> {
+public sealed class ExtractPoints : AnalysisComponent<RhinoGeometry> {
     protected override Seq<IBridgeOutput<RhinoGeometry>> Outputs { get; } =
         toSeq(PointAspect.Items.Select((PointAspect aspect) => aspect.ToBridgeOutput()));
 
-    public ExtractPointsComponent() : base(nomen: NomenOf<ExtractPointsComponent>()) { }
+    public ExtractPoints() : base(nomen: NomenOf<ExtractPoints>()) { }
 
-    public ExtractPointsComponent(IReader reader) : base(reader: reader) { }
+    public ExtractPoints(IReader reader) : base(reader: reader) { }
 }

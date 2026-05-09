@@ -1,6 +1,6 @@
 using Rhino.PlugIns;
 
-namespace Radyab.Boundary;
+namespace Radyab;
 
 // --- [PLUGIN] --------------------------------------------------------------------------
 

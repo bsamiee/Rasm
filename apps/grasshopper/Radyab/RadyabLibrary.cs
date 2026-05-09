@@ -2,7 +2,7 @@ using Grasshopper;
 using Grasshopper2.UI;
 using Grasshopper2.UI.Icon;
 
-namespace Radyab.Boundary;
+namespace Radyab;
 
 // --- [PLUGIN] ----------------------------------------------------------------------------------
 

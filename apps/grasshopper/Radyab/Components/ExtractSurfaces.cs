@@ -6,7 +6,7 @@ using GrasshopperIO;
 using LanguageExt;
 using static LanguageExt.Prelude;
 
-namespace Radyab.Boundary;
+namespace Radyab.Components;
 
 // --- [COMPONENT] -------------------------------------------------------------------------------
 
@@ -16,7 +16,7 @@ namespace Radyab.Boundary;
     info: "All faces, top/bottom by world-Z centroid (ties returned), an index-clamped face, and the UV frame on the indexed face. Accepts Brep, BrepFace, Surface, SubD; rejects Mesh.",
     category: "Radyab",
     section: "Extraction")]
-public sealed class ExtractSurfacesComponent : AnalysisComponent<RhinoGeometry> {
+public sealed class ExtractSurfaces : AnalysisComponent<RhinoGeometry> {
     protected override Seq<IBridgeOutput<RhinoGeometry>> Outputs { get; } =
         toSeq(SurfaceAspect.Items.Select((SurfaceAspect aspect) => aspect.ToBridgeOutput()));
 
@@ -28,7 +28,7 @@ public sealed class ExtractSurfacesComponent : AnalysisComponent<RhinoGeometry> 
             Default: 0,
             Requirement: Requirement.MayBeMissing));
 
-    public ExtractSurfacesComponent() : base(nomen: NomenOf<ExtractSurfacesComponent>()) { }
+    public ExtractSurfaces() : base(nomen: NomenOf<ExtractSurfaces>()) { }
 
-    public ExtractSurfacesComponent(IReader reader) : base(reader: reader) { }
+    public ExtractSurfaces(IReader reader) : base(reader: reader) { }
 }
