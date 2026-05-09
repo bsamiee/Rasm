@@ -22,17 +22,18 @@ public readonly record struct BridgeOutput<TInput, TValue>(
     string Name,
     string Code,
     string Description,
-    Query<TInput, TValue> Query) : IBridgeOutput<TInput> where TInput : notnull {
+    Query<object, TValue> Query) : IBridgeOutput<TInput> where TInput : RhinoGeometry {
     public Type ValueType =>
         typeof(TValue);
     public Unit Execute(IDataAccess access, int index, AnalysisRuntime scope, TInput geometry) {
         ArgumentNullException.ThrowIfNull(argument: access);
+        ArgumentNullException.ThrowIfNull(argument: geometry);
         return Bridge.RunOne(
             access: access,
             index: index,
             name: Name,
             scope: scope,
-            geometry: geometry,
+            geometry: geometry.Inner,
             query: Query);
     }
     public Unit WriteEmpty(IDataAccess access, int index) {

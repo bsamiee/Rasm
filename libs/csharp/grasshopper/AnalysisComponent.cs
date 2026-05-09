@@ -33,7 +33,7 @@ public readonly record struct IndexInputSpec(
             Default: 0, Requirement: Requirement.MayBeMissing);
 }
 
-public interface IBridgeOutput<TInput> where TInput : notnull {
+public interface IBridgeOutput<TInput> where TInput : RhinoGeometry {
     public string Name { get; }
     public string Code { get; }
     public string Description { get; }
@@ -49,12 +49,15 @@ public interface IBridgeOutput<TInput> where TInput : notnull {
 /// <see cref="Outputs"/> as a heterogeneous sequence of <see cref="IBridgeOutput{TInput}"/> — each
 /// slot carries its own value type — and a <see cref="Nomen"/>; the base owns input/output
 /// declaration and the query execution loop. Both input and output types route through
-/// <see cref="ParameterFactory"/> to the canonical Grasshopper2 <see cref="IParameter"/> for the
-/// CLR type. Override <see cref="Input"/> to customise the geometry input slot, or
+/// <see cref="GeometryParameterKind"/> to the canonical Grasshopper2 <see cref="IParameter"/> for
+/// the CLR type. Override <see cref="Input"/> to customise the geometry input slot, or
 /// <see cref="IndexInput"/> to add an optional integer index input that is propagated to queries
-/// via <see cref="AnalysisRuntime.Index"/>.
+/// via <see cref="AnalysisRuntime.Index"/>. The <typeparamref name="TInput"/> constraint pins the
+/// boundary to the closed <see cref="RhinoGeometry"/> Union — value-type primitives and
+/// <see cref="Rhino.Geometry.GeometryBase"/> instances flow through the same canonical
+/// discriminant; non-Union inputs surface an explicit error rather than a silent miscoercion.
 /// </summary>
-public abstract class AnalysisComponent<TInput> : Component where TInput : notnull {
+public abstract class AnalysisComponent<TInput> : Component where TInput : RhinoGeometry {
     protected abstract Seq<IBridgeOutput<TInput>> Outputs { get; }
     protected virtual InputSpec Input =>
         InputSpec.Generic;
@@ -135,15 +138,18 @@ public abstract class AnalysisComponent<TInput> : Component where TInput : notnu
                         Fail: static (Error _) => Option<IndexHint>.None),
             },
             None: () => scope);
-        _ = (access.GetItem(index: 0, value: out object? item), item) switch {
-            (true, TInput input) => Outputs.Iter((int slot, IBridgeOutput<TInput> output) =>
-                output.Execute(access: access, index: slot, scope: scoped, geometry: input)),
-            _ => HandleMissingInput(access: access),
-        };
-    }
-    private Unit HandleMissingInput(IDataAccess access) {
-        _ = access.AddMissingInputError(label: Input.Name);
-        return Outputs.Iter((int slot, IBridgeOutput<TInput> output) =>
-            output.WriteEmpty(access: access, index: slot));
+        _ = (
+                access.GetItem(index: 0, value: out object? item),
+                item is null ? Option<RhinoGeometry>.None : RhinoGeometry.From(value: item)
+            ) switch {
+                (true, { IsSome: true } wrapped) when wrapped.Case is TInput input =>
+                    Outputs.Iter((int slot, IBridgeOutput<TInput> output) =>
+                        output.Execute(access: access, index: slot, scope: scoped, geometry: input)),
+                _ => (
+                    access.AddMissingInputError(label: Input.Name),
+                    Outputs.Iter((int slot, IBridgeOutput<TInput> output) =>
+                        output.WriteEmpty(access: access, index: slot))
+                ).Item2,
+            };
     }
 }

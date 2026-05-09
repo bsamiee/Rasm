@@ -63,4 +63,36 @@ public partial record RhinoGeometry {
         typeof(Rhino.Geometry.Torus),
         typeof(Rhino.Geometry.Circle),
         typeof(Rhino.Geometry.Arc));
+    public object Inner =>
+        this switch {
+            Native native => native.Geometry,
+            Box box => box.Value,
+            BoundingBox bbox => bbox.Value,
+            Line line => line.Value,
+            Polyline polyline => polyline.Value,
+            Plane plane => plane.Value,
+            Sphere sphere => sphere.Value,
+            Cylinder cylinder => cylinder.Value,
+            Cone cone => cone.Value,
+            Torus torus => torus.Value,
+            Circle circle => circle.Value,
+            Arc arc => arc.Value,
+            _ => this,
+        };
+    public static Option<RhinoGeometry> From(object value) =>
+        value switch {
+            GeometryBase geometry => Some<RhinoGeometry>(new Native(Geometry: geometry)),
+            Rhino.Geometry.Box box => Some<RhinoGeometry>(new Box(Value: box)),
+            Rhino.Geometry.BoundingBox bbox => Some<RhinoGeometry>(new BoundingBox(Value: bbox)),
+            Rhino.Geometry.Line line => Some<RhinoGeometry>(new Line(Value: line)),
+            Rhino.Geometry.Polyline polyline => Some<RhinoGeometry>(new Polyline(Value: polyline)),
+            Rhino.Geometry.Plane plane => Some<RhinoGeometry>(new Plane(Value: plane)),
+            Rhino.Geometry.Sphere sphere => Some<RhinoGeometry>(new Sphere(Value: sphere)),
+            Rhino.Geometry.Cylinder cylinder => Some<RhinoGeometry>(new Cylinder(Value: cylinder)),
+            Rhino.Geometry.Cone cone => Some<RhinoGeometry>(new Cone(Value: cone)),
+            Rhino.Geometry.Torus torus => Some<RhinoGeometry>(new Torus(Value: torus)),
+            Rhino.Geometry.Circle circle => Some<RhinoGeometry>(new Circle(Value: circle)),
+            Rhino.Geometry.Arc arc => Some<RhinoGeometry>(new Arc(Value: arc)),
+            _ => None,
+        };
 }
