@@ -3,7 +3,7 @@
         <AssemblyName>Rasm.Grasshopper</AssemblyName>
         <RootNamespace>Grasshopper</RootNamespace>
         <Title>Rasm.Grasshopper</Title>
-        <Description>GH2 boundary plumbing shared across Rasm plugins.</Description>
+        <Description>GH2 component infrastructure for Rasm: typed parameter bindings (GeometryParameterKind), bridge plumbing, and analysis-component base.</Description>
         <IsGrasshopperAwareProject>true</IsGrasshopperAwareProject>
         <SkipBoundaryExemptionContracts>true</SkipBoundaryExemptionContracts>
     </PropertyGroup>
