@@ -492,27 +492,34 @@ public static partial class Query {
                 _ => Fin.Fail<Seq<TOut>>(state.Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))),
             }).ToEff());
     private static Query<TGeometry, Point3d> Divide<TGeometry>(int count) where TGeometry : notnull =>
-        Query<TGeometry, Point3d>.Build(
+        DividePoly<TGeometry>(
             key: DivideByCountKey,
-            state: count,
-            evaluator: static (int amount, TGeometry geometry) => (geometry switch {
-                Curve curve => curve.DivideByCount(segmentCount: amount, includeEnds: true, points: out Point3d[] points) switch {
-                    double[] => Many(key: DivideByCountKey, values: points),
-                    _ => Fin.Fail<Seq<Point3d>>(DivideByCountKey.InvalidResult()),
-                },
-                _ => Fin.Fail<Seq<Point3d>>(DivideByCountKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Point3d))),
-            }).ToEff());
+            requirement: null,
+            divide: (Curve curve) => curve.DivideByCount(segmentCount: count, includeEnds: true, points: out Point3d[] points) switch {
+                double[] => Optional(points),
+                _ => Option<Point3d[]>.None,
+            });
     private static Query<TGeometry, Point3d> Divide<TGeometry>(double length) where TGeometry : notnull =>
-        Query<TGeometry, Point3d>.Build(
+        DividePoly<TGeometry>(
             key: DivideByLengthKey,
             requirement: GeometryRequirement.CurveLength,
-            state: length,
-            evaluator: static (double segmentLength, TGeometry geometry) => (geometry switch {
-                Curve curve => curve.DivideByLength(segmentLength: segmentLength, includeEnds: true, points: out Point3d[] points) switch {
-                    double[] => Many(key: DivideByLengthKey, values: points),
-                    _ => Fin.Fail<Seq<Point3d>>(DivideByLengthKey.InvalidResult()),
-                },
-                _ => Fin.Fail<Seq<Point3d>>(DivideByLengthKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Point3d))),
+            divide: (Curve curve) => curve.DivideByLength(segmentLength: length, includeEnds: true, points: out Point3d[] points) switch {
+                double[] => Optional(points),
+                _ => Option<Point3d[]>.None,
+            });
+    private static Query<TGeometry, Point3d> DividePoly<TGeometry>(
+        OperationKey key,
+        GeometryRequirement? requirement,
+        Func<Curve, Option<Point3d[]>> divide) where TGeometry : notnull =>
+        Query<TGeometry, Point3d>.Build(
+            key: key,
+            requirement: requirement,
+            state: (Key: key, Divide: divide),
+            evaluator: static ((OperationKey Key, Func<Curve, Option<Point3d[]>> Divide) state, TGeometry geometry) => (geometry switch {
+                Curve curve => state.Divide(arg: curve).Match(
+                    Some: (Point3d[] points) => Many(key: state.Key, values: points),
+                    None: () => Fin.Fail<Seq<Point3d>>(state.Key.InvalidResult())),
+                _ => Fin.Fail<Seq<Point3d>>(state.Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Point3d))),
             }).ToEff());
     private static Query<TGeometry, Curve> ShortPath<TGeometry>(Point2d start, Point2d end) where TGeometry : notnull =>
         Query<TGeometry, Curve>.Build(
