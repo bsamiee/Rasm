@@ -41,12 +41,9 @@ public static partial class Query {
         };
     private static Fin<Seq<Point3d>> DedupeCorners(BoundingBox bbox, double tolerance) =>
         bbox.IsValid switch {
-            true => Fin.Succ(bbox.GetCorners()
-                .Aggregate(
-                    seed: Seq<Point3d>(),
-                    func: (Seq<Point3d> acc, Point3d candidate) => acc.Exists((Point3d existing) => existing.DistanceTo(other: candidate) <= tolerance)
-                        ? acc
-                        : acc.Add(candidate))),
+            true => Optional(Point3d.CullDuplicates(points: bbox.GetCorners(), tolerance: tolerance))
+                .ToFin(UniqueCornersKey.InvalidResult())
+                .Map(static (Point3d[] unique) => toSeq(unique)),
             false => Fin.Fail<Seq<Point3d>>(UniqueCornersKey.InvalidInput()),
         };
     public static Query<TGeometry, TOut> Bounds<TGeometry, TOut>(Bounds aspect) where TGeometry : notnull =>
