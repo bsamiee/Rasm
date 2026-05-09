@@ -45,6 +45,7 @@ internal static class AnalyzerDispatcher {
                 TypeShapeRules.CheckDateTimeFieldInDomain(context, scope, namedType);
                 TypeShapeRules.CheckAnemicEntity(context, scope, namedType);
                 TypeShapeRules.CheckInitOnlyBypassOnValidated(context, scope, namedType);
+                TypeShapeRules.TrackFlagsEnumDeclaration(context, state, namedType);
                 ShapeRules.CheckValidationTypeUsage(context, scope, namedType);
                 break;
             default:
@@ -110,6 +111,7 @@ internal static class AnalyzerDispatcher {
                 return;
             case (_, IBinaryOperation binary):
                 FlowRules.CheckNullSentinel(context, scope, binary);
+                TypeShapeRules.TrackFlagsEnumComposition(context, state, binary);
                 return;
             case (_, IIsPatternOperation isPattern):
                 FlowRules.CheckNullPatternSentinel(context, scope, isPattern);
@@ -142,5 +144,6 @@ internal static class AnalyzerDispatcher {
     internal static void Run(CompilationAnalysisContext context, AnalyzerState state) {
         ShapeRules.ReportInterfacePollution(context, state);
         ShapeRules.ReportSingleUseHelpers(context, state);
+        TypeShapeRules.ReportFlagsEnumOveruse(context, state);
     }
 }

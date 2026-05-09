@@ -448,6 +448,16 @@ public sealed class RuleBehaviorTests {
                 public static LanguageExt.Fin<InitBypass> Create(int value) => new();
             }
             """)),
+        new("CSP0724", File(scope: "Domain/Models", type: "FlagsEnumNoComposition"), """
+            namespace Domain.Models;
+
+            [System.Flags]
+            public enum FlagsEnumNoComposition {
+                None = 0,
+                Alpha = 1,
+                Beta = 2,
+            }
+            """),
         new("CSP0901", File(scope: "Integration", type: "InvalidBoundaryExemption"), Boundary(type: "InvalidBoundaryExemption", attributes: """
             [BoundaryImperativeExemption(
                 ruleId: "",
@@ -513,6 +523,29 @@ public sealed class RuleBehaviorTests {
             userMessage: $"Missing behavior cases: {string.Join(", ", missingIds)}. Stale behavior cases: {string.Join(", ", staleIds)}");
     }
 
+    [Fact]
+    public async Task FlagsEnumWithBitwiseCompositionDoesNotEmitFlagsEnumOveruseDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Models/FlagsEnumWithComposition.cs",
+            source: """
+                namespace Domain.Models;
+
+                [System.Flags]
+                public enum FlagsEnumWithComposition {
+                    None = 0,
+                    Alpha = 1,
+                    Beta = 2,
+                    Both = Alpha | Beta,
+                }
+
+                public sealed class FlagsEnumWithCompositionConsumer {
+                    public FlagsEnumWithComposition Combine(FlagsEnumWithComposition lhs, FlagsEnumWithComposition rhs) =>
+                        lhs | rhs;
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0724", collection: ids);
+    }
     [Fact]
     public async Task UnionDispatchingMethodPairDoesNotEmitOverloadSpamDiagnosticAsync() {
         ImmutableArray<string> ids = await AnalyzeIdsAsync(

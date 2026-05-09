@@ -111,6 +111,13 @@ internal static class RuleCatalog {
     internal static readonly DiagnosticDescriptor CSP0718 = Err("CSP0718", "MutableAccumulatorInLoop", "Mutable collection '{0}.Add' inside loop body is forbidden; use Fold/Choose on Seq<T>", "FunctionalDiscipline");
     internal static readonly DiagnosticDescriptor CSP0719 = Err("CSP0719", "UnsafeNumericConversion", "Unsafe numeric conversion '{0}' in domain code is forbidden; use checked arithmetic or SafeConvert", "TypeDiscipline");
     internal static readonly DiagnosticDescriptor CSP0720 = Err("CSP0720", "InitOnlyBypassOnValidated", "Init-only property '{0}' on validated type enables with-expression bypass; use {{ get; }} only", "TypeDiscipline");
+    /// <summary>
+    /// CSP0724 FlagsEnumOveruse — fires when a [Flags] enum has zero callsites performing bitwise composition
+    /// (|, &amp;, ^, ~) across the compilation. Such an enum is acting as a closed vocabulary, not a bitmask, and
+    /// should be replaced with a Thinktecture [SmartEnum&lt;T&gt;] (closed vocabulary with named items) or [Union]
+    /// (closed disjunction with case-specific data).
+    /// </summary>
+    internal static readonly DiagnosticDescriptor CSP0724 = Err("CSP0724", "FlagsEnumOveruse", "[Flags] enum '{0}' has no bitwise-composition callsites; replace with Thinktecture [SmartEnum<T>] or [Union]", "TypeDiscipline");
 
     // --- [CONVENTION_RULES] ---------------------------------------------------
 
@@ -135,5 +142,6 @@ internal static class RuleCatalog {
         CSP0601, CSP0602, CSP0603, CSP0604, CSP0605, CSP0606, CSP0607, CSP0608,
         CSP0701, CSP0702, CSP0703, CSP0704, CSP0705, CSP0706, CSP0707, CSP0708, CSP0709,
         CSP0710, CSP0711, CSP0712, CSP0713, CSP0714, CSP0715, CSP0717, CSP0718, CSP0719, CSP0720,
+        CSP0724,
         CSP0901, CSP0902);
 }

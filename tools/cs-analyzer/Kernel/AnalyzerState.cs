@@ -30,6 +30,8 @@ internal sealed class AnalyzerState {
     private readonly ConcurrentDictionary<IMethodSymbol, int> _methodInvocationCounts = new(comparer: SymbolComparer);
     private readonly ConcurrentDictionary<IMethodSymbol, byte> _privateMethods = new(comparer: SymbolComparer);
     private readonly ConcurrentDictionary<INamedTypeSymbol, ImmutableHashSet<INamedTypeSymbol>> _interfaceImplementations = new(comparer: NamedTypeComparer);
+    private readonly ConcurrentDictionary<INamedTypeSymbol, byte> _flagsEnums = new(comparer: NamedTypeComparer);
+    private readonly ConcurrentDictionary<INamedTypeSymbol, byte> _flagsEnumCompositionSites = new(comparer: NamedTypeComparer);
 
     // --- [CONSTRUCTORS] -------------------------------------------------------
 
@@ -109,6 +111,10 @@ internal sealed class AnalyzerState {
                 => _methodInvocationCounts.AddOrUpdate(key: calledMethod, addValueFactory: static _ => 1, updateValueFactory: static (_, current) => current + 1),
             _ => 0,
         };
+    internal void TrackFlagsEnum(INamedTypeSymbol enumType) =>
+        _ = _flagsEnums.TryAdd(key: enumType, value: 0);
+    internal void TrackFlagsEnumCompositionSite(INamedTypeSymbol enumType) =>
+        _ = _flagsEnumCompositionSites.TryAdd(key: enumType, value: 0);
     internal void TrackInterfaceImplementations(INamedTypeSymbol namedType) {
         // Roslyn API enumeration -- not domain code
         foreach (INamedTypeSymbol interfaceSymbol in (namedType.TypeKind, namedType.IsAbstract, namedType.IsStatic) switch {
@@ -134,6 +140,11 @@ internal sealed class AnalyzerState {
         [
             .. _privateMethods.Keys
                 .Where(method => _methodInvocationCounts.TryGetValue(key: method, value: out int count) && count == 1),
+        ];
+    internal ImmutableArray<INamedTypeSymbol> FlagsEnumsWithoutComposition() =>
+        [
+            .. _flagsEnums.Keys
+                .Where(enumType => !_flagsEnumCompositionSites.ContainsKey(key: enumType)),
         ];
 
     // --- [DIAGNOSTICS] --------------------------------------------------------

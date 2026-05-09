@@ -161,7 +161,52 @@ internal static class TypeShapeRules {
         AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
     }
 
+    // --- [FLAGS_ENUM_OVERUSE] -------------------------------------------------
+
+    internal static void TrackFlagsEnumDeclaration(SymbolAnalysisContext context, AnalyzerState state, INamedTypeSymbol namedType) {
+        bool flagsEnum = namedType.TypeKind == TypeKind.Enum
+            && SymbolFacts.HasAnyAttribute(namedType, "FlagsAttribute", "Flags");
+        _ = (context, flagsEnum) switch {
+            (_, true) => RegisterFlags(state: state, enumType: namedType),
+            _ => 0,
+        };
+    }
+    internal static void TrackFlagsEnumComposition(OperationAnalysisContext context, AnalyzerState state, IBinaryOperation binary) {
+        bool bitwise = binary.OperatorKind is BinaryOperatorKind.Or or BinaryOperatorKind.And or BinaryOperatorKind.ExclusiveOr;
+        INamedTypeSymbol? enumType = (bitwise, UnwrapEnumType(binary.LeftOperand.Type), UnwrapEnumType(binary.RightOperand.Type)) switch {
+            (true, INamedTypeSymbol left, _) => left,
+            (true, _, INamedTypeSymbol right) => right,
+            _ => null,
+        };
+        _ = (context, enumType) switch {
+            (_, INamedTypeSymbol target) => RegisterFlagsComposition(state: state, enumType: target),
+            _ => 0,
+        };
+    }
+    internal static void ReportFlagsEnumOveruse(CompilationAnalysisContext context, AnalyzerState state) {
+        IEnumerable<Diagnostic> diagnostics = state.FlagsEnumsWithoutComposition()
+            .Where(enumType => SymbolEqualityComparer.Default.Equals(enumType.ContainingAssembly, context.Compilation.Assembly))
+            .Where(enumType => enumType.Locations.Length > 0)
+            .Where(enumType => state.ScopeFor(enumType).IsAnalyzable)
+            .Select(enumType => Diagnostic.Create(RuleCatalog.CSP0724, enumType.Locations[0], enumType.Name));
+        AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
+    }
+
     // --- [PRIVATE_FUNCTIONS] --------------------------------------------------
+
+    private static int RegisterFlags(AnalyzerState state, INamedTypeSymbol enumType) {
+        state.TrackFlagsEnum(enumType: enumType);
+        return 0;
+    }
+    private static int RegisterFlagsComposition(AnalyzerState state, INamedTypeSymbol enumType) {
+        state.TrackFlagsEnumCompositionSite(enumType: enumType);
+        return 0;
+    }
+    private static INamedTypeSymbol? UnwrapEnumType(ITypeSymbol? type) =>
+        type switch {
+            INamedTypeSymbol named when named.TypeKind == TypeKind.Enum => named,
+            _ => null,
+        };
 
     private static IEnumerable<INamedTypeSymbol> UnionCases(Compilation compilation, INamedTypeSymbol namedType) =>
         namedType.GetTypeMembers()
