@@ -383,30 +383,27 @@ public static partial class Query {
             _ => ComponentsKey.Unsupported<TGeometry, TOut>(),
         };
     public static Query<TGeometry, TOut> Topology<TGeometry, TOut>(Topology aspect) where TGeometry : notnull =>
-        Aspect<TGeometry, TOut, Topology>(
-            aspect: aspect,
-            key: TopologyKey,
-            dispatch: static (Topology candidate) => (candidate.Kind, typeof(TGeometry), typeof(TOut)) switch {
-                (TopologyKind.Boundary, Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(Curve) =>
-                    NakedEdges<TGeometry, TOut>(),
-                (TopologyKind.Boundary, Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(Polyline) =>
-                    NakedEdges<TGeometry, TOut>(),
-                (TopologyKind.EdgeMidpoints, _, Type output) when output == typeof(Point3d) =>
-                    EdgeMidpoints<TGeometry, TOut>(),
-                (TopologyKind.Adjacency, Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
-                    BrepEdgeIndices<TGeometry, TOut>(predicate: static (Brep _, int _) => true),
-                (TopologyKind.Adjacency, Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
-                    MeshEdgeIndices<TGeometry, TOut>(predicate: static (Mesh _, int _) => true),
-                (TopologyKind.NonManifold, Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
-                    BrepEdgeIndices<TGeometry, TOut>(predicate: static (Brep brep, int index) => brep.Edges[index].Valence == EdgeAdjacency.NonManifold),
-                (TopologyKind.NonManifold, Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
-                    MeshEdgeIndices<TGeometry, TOut>(predicate: static (Mesh mesh, int index) => mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: index).Length > 2),
-                (TopologyKind.NonManifold, Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(bool) =>
-                    BrepEdgeAny<TGeometry, TOut>(predicate: static (Brep brep, int index) => brep.Edges[index].Valence == EdgeAdjacency.NonManifold),
-                (TopologyKind.NonManifold, Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(bool) =>
-                    MeshEdgeAny<TGeometry, TOut>(predicate: static (Mesh mesh, int index) => mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: index).Length > 2),
-                _ => null,
-            });
+        (aspect, typeof(TGeometry), typeof(TOut)) switch {
+            (Analysis.Topology.Boundary, Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(Curve) =>
+                NakedEdges<TGeometry, TOut>(),
+            (Analysis.Topology.Boundary, Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(Polyline) =>
+                NakedEdges<TGeometry, TOut>(),
+            (Analysis.Topology.EdgeMidpoints, _, Type output) when output == typeof(Point3d) =>
+                EdgeMidpoints<TGeometry, TOut>(),
+            (Analysis.Topology.Adjacency, Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
+                BrepEdgeIndices<TGeometry, TOut>(predicate: static (Brep _, int _) => true),
+            (Analysis.Topology.Adjacency, Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
+                MeshEdgeIndices<TGeometry, TOut>(predicate: static (Mesh _, int _) => true),
+            (Analysis.Topology.NonManifold, Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
+                BrepEdgeIndices<TGeometry, TOut>(predicate: static (Brep brep, int index) => brep.Edges[index].Valence == EdgeAdjacency.NonManifold),
+            (Analysis.Topology.NonManifold, Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
+                MeshEdgeIndices<TGeometry, TOut>(predicate: static (Mesh mesh, int index) => mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: index).Length > 2),
+            (Analysis.Topology.NonManifold, Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(bool) =>
+                BrepEdgeAny<TGeometry, TOut>(predicate: static (Brep brep, int index) => brep.Edges[index].Valence == EdgeAdjacency.NonManifold),
+            (Analysis.Topology.NonManifold, Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(bool) =>
+                MeshEdgeAny<TGeometry, TOut>(predicate: static (Mesh mesh, int index) => mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: index).Length > 2),
+            _ => TopologyKey.Unsupported<TGeometry, TOut>(),
+        };
     private static Query<TGeometry, TOut> BrepEdgeIndices<TGeometry, TOut>(Func<Brep, int, bool> predicate) where TGeometry : notnull =>
         Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, ComponentIndex>.Build(
             key: TopologyKey,

@@ -109,7 +109,7 @@ public readonly record struct CurveDeviation(
     double Tolerance,
     bool WithinTolerance);
 public enum IntersectionKind { Unknown = 0, Point = 1, Overlap = 2 }
-internal enum TopologyKind { Boundary, EdgeMidpoints, Adjacency, NonManifold }
+public enum Topology { Boundary, EdgeMidpoints, Adjacency, NonManifold }
 [Union]
 public partial record Bounds {
     public sealed record Box : Bounds;
@@ -170,13 +170,6 @@ public readonly record struct Faces(FaceSelector Selector, Option<int> Index) {
     public static Faces Top => new(Selector: FaceSelector.Top, Index: None);
     public static Faces Bottom => new(Selector: FaceSelector.Bottom, Index: None);
     public static Faces At(int? index = null) => new(Selector: FaceSelector.At, Index: Optional(value: index));
-}
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct Topology {
-    private Topology(TopologyKind kind) =>
-        Kind = kind;
-    internal readonly TopologyKind Kind;
-    public static Topology Boundary => new(kind: TopologyKind.Boundary); public static Topology EdgeMidpoints => new(kind: TopologyKind.EdgeMidpoints); public static Topology Adjacency => new(kind: TopologyKind.Adjacency); public static Topology NonManifold => new(kind: TopologyKind.NonManifold);
 }
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Conformance {
