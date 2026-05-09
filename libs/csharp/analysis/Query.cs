@@ -224,6 +224,12 @@ public static partial class Query {
             fault: key.Unsupported(
                 geometryType: typeof(TGeometry),
                 outputType: typeof(TOut)));
+    internal static Query<TGeometry, TOut> Aspect<TGeometry, TOut, TAspect>(
+        TAspect aspect,
+        OperationKey key,
+        Func<TAspect, Query<TGeometry, TOut>?> dispatch) where TGeometry : notnull where TAspect : notnull =>
+        Optional(dispatch(arg: aspect))
+            .IfNone(() => key.Unsupported<TGeometry, TOut>());
     internal static Query<TGeometry, TOut> Cast<TGeometry, TOut>(
         OperationKey key,
         object query) where TGeometry : notnull =>
