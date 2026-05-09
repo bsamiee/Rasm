@@ -19,9 +19,9 @@ public static class Analyze {
             runtime: Option<GeometryContext>.None,
             input: input);
     public static Scope From(RhinoDoc? doc) =>
-        new(context: GeometryContext.FromDocument(doc: doc).ToFin(), index: None);
+        new(context: GeometryContext.FromDocument(doc: doc).ToFin());
     public static Scope In(UnitSystem units) =>
-        new(context: GeometryContext.CreateDefault(units: units).ToFin(), index: None);
+        new(context: GeometryContext.CreateDefault(units: units).ToFin());
     public static Scope In(
         double absolute,
         double relative,
@@ -33,25 +33,13 @@ public static class Analyze {
                     relativeTolerance: relative,
                     angleToleranceRadians: angle,
                     units: units)
-                .ToFin(),
-            index: None);
+                .ToFin());
     public static Scope In(GeometryContext context) =>
-        new(
-            context: Optional(context).ToFin(Query.ScopeKey.MissingContext()),
-            index: None);
+        new(context: Optional(context).ToFin(Query.ScopeKey.MissingContext()));
     public sealed record Scope {
         public Fin<GeometryContext> Context { get; init; }
-        public Option<IndexHint> Index { get; init; }
-        internal Scope(Fin<GeometryContext> context, Option<IndexHint> index) {
+        internal Scope(Fin<GeometryContext> context) =>
             Context = context;
-            Index = index;
-        }
-        public Scope WithIndex(int index) =>
-            this with {
-                Index = IndexHint.Create(value: index).Match(
-                    Succ: static (IndexHint hint) => Some(hint),
-                    Fail: static (Error _) => Option<IndexHint>.None),
-            };
         public Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(
             Query<TGeometry, TOut>? query,
             params ReadOnlySpan<TGeometry> input) where TGeometry : notnull =>

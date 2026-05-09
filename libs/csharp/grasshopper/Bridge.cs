@@ -21,24 +21,33 @@ public readonly record struct BridgeOutput<TInput, TValue>(
     string Name,
     string Code,
     string Description,
-    Query<object, TValue> Query) : IBridgeOutput<TInput> where TInput : RhinoGeometry {
+    Func<Option<int>, Query<object, TValue>> QueryFactory) : IBridgeOutput<TInput> where TInput : RhinoGeometry {
+    public BridgeOutput(
+        string Name,
+        string Code,
+        string Description,
+        Query<object, TValue> Query) : this(
+            Name: Name,
+            Code: Code,
+            Description: Description,
+            QueryFactory: _ => Query) { }
     public Type ValueType =>
         typeof(TValue);
-    public Unit Execute(IDataAccess access, int index, Analyze.Scope scope, TInput geometry) {
+    public Unit Execute(IDataAccess access, int slot, Analyze.Scope scope, Option<int> indexHint, TInput geometry) {
         ArgumentNullException.ThrowIfNull(argument: access);
         ArgumentNullException.ThrowIfNull(argument: scope);
         ArgumentNullException.ThrowIfNull(argument: geometry);
         return Bridge.RunOne(
             access: access,
-            index: index,
+            index: slot,
             name: Name,
             scope: scope,
             geometry: geometry.Inner,
-            query: Query);
+            query: QueryFactory(arg: indexHint));
     }
-    public Unit WriteEmpty(IDataAccess access, int index) {
+    public Unit WriteEmpty(IDataAccess access, int slot) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        access.SetTwig<TValue>(index: index, values: [], metas: [], nulls: []);
+        access.SetTwig<TValue>(index: slot, values: [], metas: [], nulls: []);
         return Unit.Default;
     }
 }
@@ -69,13 +78,9 @@ public static class Bridge {
         access.AddError(text: label, details: $"{label} input is required. Connect: {accepted}.");
         return Unit.Default;
     }
-    public static Analyze.Scope WithIndex(
-        this Analyze.Scope scope,
-        IDataAccess access,
-        IndexInputSpec spec) {
-        ArgumentNullException.ThrowIfNull(argument: scope);
+    public static Option<int> ResolveIndex(this IDataAccess access, IndexInputSpec spec) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        return scope.WithIndex(index: (access.GetItem(index: 1, value: out int candidate), candidate) switch {
+        return Some((access.GetItem(index: 1, value: out int candidate), candidate) switch {
             (true, int value) => value,
             _ => spec.Default,
         });

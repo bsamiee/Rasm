@@ -1,8 +1,10 @@
 using Analysis;
 using Core.Domain;
 using Grasshopper;
+using LanguageExt;
 using Rhino.Geometry;
 using Thinktecture;
+using Query = Analysis.Query;
 
 namespace Radyab.Components;
 
@@ -49,7 +51,7 @@ public sealed partial class SurfaceAspect {
             Name: "Indexed Surface",
             Code: "IS",
             Description: "Face at the user-supplied Index input; clamped to [0, count-1]. Empty when the input has zero faces.",
-            Query: Query.Faces<object, Brep>(aspect: Faces.At())));
+            QueryFactory: static (Option<int> indexHint) => Query.Faces<object, Brep>(aspect: Faces.At(index: indexHint.Match(Some: static (int v) => (int?)v, None: static () => (int?)null)))));
     public static readonly SurfaceAspect UVFrame = new(
         key: nameof(UVFrame),
         displayName: "UV Frame",
@@ -59,7 +61,7 @@ public sealed partial class SurfaceAspect {
             Name: "UV Frame",
             Code: "UV",
             Description: "Orthonormal frame at the indexed face's area centroid: X aligns with du, Z points outward (orientation-corrected for closed Breps), Y completes the right-handed basis.",
-            Query: Query.Faces<object, Plane>(aspect: Faces.At())));
+            QueryFactory: static (Option<int> indexHint) => Query.Faces<object, Plane>(aspect: Faces.At(index: indexHint.Match(Some: static (int v) => (int?)v, None: static () => (int?)null)))));
     public string DisplayName { get; }
     public string Code { get; }
     public string Description { get; }

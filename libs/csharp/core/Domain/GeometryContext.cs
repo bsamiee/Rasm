@@ -192,14 +192,6 @@ public sealed record GeometryContext {
     }
 }
 
-public readonly record struct IndexHint {
-    private IndexHint(int value) =>
-        Value = value;
-    public int Value { get; }
-    public static Fin<IndexHint> Create(int value) =>
-        Fin.Succ(new IndexHint(value: value));
-}
-
 // --- [ERRORS] ----------------------------------------------------------------------------------
 
 internal static class ContextFault {

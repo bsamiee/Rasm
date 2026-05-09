@@ -855,7 +855,7 @@ public sealed class AnalysisSpec {
     // does not load the native runtime; integration coverage for face decomposition,
     // top/bottom selection, index clamping, UV frame alignment, and the Mesh rejection rail
     // belongs in tests/rhino/ (Rhino.Tests.csproj) where Rhino.Testing supplies the native
-    // shim. The IndexHint plumbing is regression-tested in Core.Tests.GeometryContextSpec.
+    // shim. The selector index flows through Faces.At(index) at the GH boundary.
 
     private static Line ValidLine() =>
         new(

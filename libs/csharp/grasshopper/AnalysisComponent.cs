@@ -30,8 +30,8 @@ public interface IBridgeOutput<TInput> where TInput : RhinoGeometry {
     public string Code { get; }
     public string Description { get; }
     public Type ValueType { get; }
-    public Unit Execute(IDataAccess access, int index, Analyze.Scope scope, TInput geometry);
-    public Unit WriteEmpty(IDataAccess access, int index);
+    public Unit Execute(IDataAccess access, int slot, Analyze.Scope scope, Option<int> indexHint, TInput geometry);
+    public Unit WriteEmpty(IDataAccess access, int slot);
 }
 
 // --- [SERVICES] --------------------------------------------------------------------------------
@@ -43,8 +43,9 @@ public interface IBridgeOutput<TInput> where TInput : RhinoGeometry {
 /// declaration and the query execution loop. Both input and output types route through
 /// <see cref="GeometryParameterKind"/> to the canonical Grasshopper2 <see cref="IParameter"/> for
 /// the CLR type. Override <see cref="Input"/> to customise the geometry input slot, or
-/// <see cref="IndexInput"/> to add an optional integer index input that is propagated to queries
-/// via <see cref="Analyze.Scope.Index"/>. The <typeparamref name="TInput"/> constraint pins the
+/// <see cref="IndexInput"/> to add an optional integer index input that is supplied to each
+/// <see cref="IBridgeOutput{TInput}.Execute"/> as an <see cref="Option{T}"/> hint.
+/// The <typeparamref name="TInput"/> constraint pins the
 /// boundary to the closed <see cref="RhinoGeometry"/> Union — value-type primitives and
 /// <see cref="Rhino.Geometry.GeometryBase"/> instances flow through the same canonical
 /// discriminant; non-Union inputs surface an explicit error rather than a silent miscoercion.
@@ -125,22 +126,22 @@ public abstract class AnalysisComponent<TInput> : Component where TInput : Rhino
     }
     protected sealed override void Process(IDataAccess access) {
         ArgumentNullException.ThrowIfNull(argument: access);
+        Option<int> indexHint = IndexInput.Match(
+            Some: access.ResolveIndex,
+            None: static () => Option<int>.None);
         _ = access
             .ResolveScope()
-            .Map((Analyze.Scope scope) => IndexInput.Match(
-                Some: (IndexInputSpec spec) => scope.WithIndex(access: access, spec: spec),
-                None: () => scope))
-            .Map((Analyze.Scope scoped) => (
+            .Map((Analyze.Scope scope) => (
                 access.GetItem(index: 0, value: out object? item),
                 item is null ? Option<RhinoGeometry>.None : RhinoGeometry.From(value: item)
             ) switch {
                 (true, { IsSome: true } wrapped) when wrapped.Case is TInput input =>
                     Outputs.Iter((int slot, IBridgeOutput<TInput> output) =>
-                        output.Execute(access: access, index: slot, scope: scoped, geometry: input)),
+                        output.Execute(access: access, slot: slot, scope: scope, indexHint: indexHint, geometry: input)),
                 _ => (
                     access.AddMissingInputError(label: Input.Name),
                     Outputs.Iter((int slot, IBridgeOutput<TInput> output) =>
-                        output.WriteEmpty(access: access, index: slot))
+                        output.WriteEmpty(access: access, slot: slot))
                 ).Item2,
             })
             .Match(
@@ -150,6 +151,6 @@ public abstract class AnalysisComponent<TInput> : Component where TInput : Rhino
     private Unit RaiseScopeError(IDataAccess access, Error error) {
         access.AddError(text: "Scope", details: error.Message);
         return Outputs.Iter((int slot, IBridgeOutput<TInput> output) =>
-            output.WriteEmpty(access: access, index: slot));
+            output.WriteEmpty(access: access, slot: slot));
     }
 }
