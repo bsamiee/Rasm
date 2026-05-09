@@ -25,11 +25,12 @@ internal abstract partial record OperationOutcome<TValue> {
             false => new SolvedFailure(Witness: value),
         };
     internal Fin<Seq<TValue>> Reduce(OperationKey key) =>
-        this switch {
-            One single => key.RequireValid(value: single.Value)
+        this.Switch<OperationKey, Fin<Seq<TValue>>>(
+            state: key,
+            one: static (OperationKey k, One single) => k.RequireValid(value: single.Value)
                 .Map(static (TValue candidate) => Seq(candidate)),
-            Many multi => multi.Values.Fold(
-                    initialState: (Operation: key, Result: Fin.Succ(Seq<TValue>())),
+            many: static (OperationKey k, Many multi) => multi.Values.Fold(
+                    initialState: (Operation: k, Result: Fin.Succ(Seq<TValue>())),
                     f: static ((OperationKey Operation, Fin<Seq<TValue>> Result) current, TValue candidate) => (
                         current.Operation,
                         Result: (current.Result, current.Operation.RequireValid(value: candidate))
@@ -37,10 +38,8 @@ internal abstract partial record OperationOutcome<TValue> {
                             .As()))
                 .Result
                 .Map(static (Seq<TValue> values) => values.Rev()),
-            SolvedSuccess solved => new One(Value: solved.Value).Reduce(key: key),
-            SolvedFailure => Fin.Fail<Seq<TValue>>(key.InvalidResult()),
-            _ => Fin.Fail<Seq<TValue>>(key.InvalidResult()),
-        };
+            solvedSuccess: static (OperationKey k, SolvedSuccess solved) => new One(Value: solved.Value).Reduce(key: k),
+            solvedFailure: static (OperationKey k, SolvedFailure _) => Fin.Fail<Seq<TValue>>(k.InvalidResult()));
 }
 
 // --- [ERRORS] ----------------------------------------------------------------------------------
