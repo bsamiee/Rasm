@@ -680,25 +680,15 @@ public static partial class Query {
     private static Fin<Seq<Brep>> RankByCentroidZ(Seq<Brep> faces, bool descending, AnalysisRuntime runtime) =>
         faces
             .Traverse((Brep face) => FaceCentroidZ(face: face, runtime: runtime).Map((double z) => (Face: face, Z: z))).As()
-            .Map((Seq<(Brep Face, double Z)> ranked) => ranked.IsEmpty switch {
-                true => Seq<Brep>(),
-                false => SelectExtrema(
-                    ranked: ranked,
-                    descending: descending,
-                    tolerance: runtime.Context.Absolute.Value),
+            .Map((Seq<(Brep Face, double Z)> ranked) => (ranked.IsEmpty, descending) switch {
+                (true, _) => Seq<Brep>(),
+                (false, true) => ranked
+                    .MaxesBy(projection: static ((Brep Face, double Z) item) => item.Z, tolerance: runtime.Context.Absolute.Value)
+                    .Map(static ((Brep Face, double Z) item) => item.Face),
+                (false, false) => ranked
+                    .MinesBy(projection: static ((Brep Face, double Z) item) => item.Z, tolerance: runtime.Context.Absolute.Value)
+                    .Map(static ((Brep Face, double Z) item) => item.Face),
             });
-    private static Seq<Brep> SelectExtrema(Seq<(Brep Face, double Z)> ranked, bool descending, double tolerance) =>
-        ranked
-            .Map(static ((Brep Face, double Z) item) => item.Z)
-            .Aggregate((double current, double next) => descending switch {
-                true => Math.Max(val1: current, val2: next),
-                false => Math.Min(val1: current, val2: next),
-            })
-        switch {
-            double extremum => ranked
-                .Filter(((Brep Face, double Z) item) => Math.Abs(value: item.Z - extremum) <= tolerance)
-                .Map(((Brep Face, double Z) item) => item.Face),
-        };
     internal static Fin<double> FaceCentroidZ(Brep face, AnalysisRuntime runtime) =>
         Optional(AreaMassProperties.Compute(
                 brep: face,
