@@ -415,15 +415,15 @@ public static partial class Query {
         ResidualDistances(samples: samples).Bind(static (Seq<double> residuals) => Many(key: ConformanceKey, values: residuals));
     private static Fin<Seq<double>> ResidualRms(Seq<ResidualSample> samples, GeometryContext _) =>
         ResidualDistances(samples: samples)
-            .Bind(static (Seq<double> residuals) => residuals.StatsOf(key: ConformanceKey))
+            .Bind(static (Seq<double> residuals) => Stats.From(values: residuals, key: ConformanceKey))
             .Bind(static (Stats s) => One(key: ConformanceKey, value: s.Rms));
     private static Fin<Seq<bool>> ResidualWithinTolerance(Seq<ResidualSample> samples, GeometryContext context) =>
         ResidualDistances(samples: samples)
-            .Bind(static (Seq<double> residuals) => residuals.StatsOf(key: ConformanceKey))
+            .Bind(static (Seq<double> residuals) => Stats.From(values: residuals, key: ConformanceKey))
             .Bind((Stats s) => One(key: ConformanceKey, value: s.Maximum <= context.Absolute.Value));
     private static Fin<Seq<ResidualProfile>> ResidualProfileProjection(Seq<ResidualSample> samples, GeometryContext context) =>
         ResidualDistances(samples: samples)
-            .Bind(static (Seq<double> residuals) => residuals.StatsOf(key: ConformanceKey))
+            .Bind(static (Seq<double> residuals) => Stats.From(values: residuals, key: ConformanceKey))
             .Bind((Stats s) => One(key: ConformanceKey, value: new ResidualProfile(
                 Count: s.Count,
                 Minimum: s.Minimum,

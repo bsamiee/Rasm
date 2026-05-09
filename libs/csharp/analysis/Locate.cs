@@ -397,7 +397,7 @@ public static partial class Query {
             _ => Fin.Fail<Seq<double>>(key.InvalidInput()),
         };
     private static Fin<CurvatureProfile> Profile(CurvatureScalar scalar, Seq<double> values) =>
-        values.StatsOf(key: CurvatureAtKey)
+        Stats.From(values: values, key: CurvatureAtKey)
             .Map((Stats s) => new CurvatureProfile(
                 Scalar: scalar,
                 Count: s.Count,
