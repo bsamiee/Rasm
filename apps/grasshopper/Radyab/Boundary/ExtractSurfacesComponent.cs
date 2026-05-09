@@ -1,10 +1,8 @@
-using Analysis;
 using Core.Domain;
 using Grasshopper;
 using Grasshopper2.UI;
 using GrasshopperIO;
 using LanguageExt;
-using Rhino.Geometry;
 using static LanguageExt.Prelude;
 
 namespace Radyab.Boundary;
@@ -13,32 +11,8 @@ namespace Radyab.Boundary;
 
 [IoId("F51A09A8-A5A5-467A-ADBA-C950511A0020")]
 public sealed class ExtractSurfacesComponent : AnalysisComponent<RhinoGeometry> {
-    protected override Seq<IBridgeOutput<RhinoGeometry>> Outputs { get; } = Seq<IBridgeOutput<RhinoGeometry>>(
-        new BridgeOutput<RhinoGeometry, Brep>(
-            Name: "All Surfaces",
-            Code: "AS",
-            Description: "Every face of the input as a single-face Brep; preserves trims; SubD inputs are converted via SubDToBrepOptions.Default.",
-            Query: Analysis.Query.Faces<object, Brep>(aspect: Faces.All)),
-        new BridgeOutput<RhinoGeometry, Brep>(
-            Name: "Top Surface",
-            Code: "TS",
-            Description: "Face(s) with the maximum area-centroid world-Z; ties returned within absolute tolerance (e.g. both caps of a horizontal cylinder, stacked planar panels).",
-            Query: Analysis.Query.Faces<object, Brep>(aspect: Faces.Top)),
-        new BridgeOutput<RhinoGeometry, Brep>(
-            Name: "Bottom Surface",
-            Code: "BS",
-            Description: "Face(s) with the minimum area-centroid world-Z; ties returned within absolute tolerance.",
-            Query: Analysis.Query.Faces<object, Brep>(aspect: Faces.Bottom)),
-        new BridgeOutput<RhinoGeometry, Brep>(
-            Name: "Indexed Surface",
-            Code: "IS",
-            Description: "Face at the user-supplied Index input; clamped to [0, count-1]. Empty when the input has zero faces.",
-            Query: Analysis.Query.Faces<object, Brep>(aspect: Faces.At())),
-        new BridgeOutput<RhinoGeometry, Plane>(
-            Name: "UV Frame",
-            Code: "UV",
-            Description: "Orthonormal frame at the indexed face's area centroid: X aligns with du, Z points outward (orientation-corrected for closed Breps), Y completes the right-handed basis.",
-            Query: Analysis.Query.Faces<object, Plane>(aspect: Faces.At())));
+    protected override Seq<IBridgeOutput<RhinoGeometry>> Outputs { get; } =
+        toSeq(SurfaceAspect.Items.Select((SurfaceAspect aspect) => aspect.ToBridgeOutput()));
 
     protected override Option<IndexInputSpec> IndexInput =>
         Some(IndexInputSpec.Standard);
