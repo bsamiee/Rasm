@@ -2,9 +2,9 @@ using System.Linq;
 using System.Threading;
 using Core;
 using Core.Domain;
+using Core.Runtime;
 using LanguageExt;
 using LanguageExt.Common;
-using Rhino;
 using Rhino.FileIO;
 using Rhino.Geometry;
 using Rhino.Geometry.Intersect;
@@ -210,27 +210,28 @@ public static partial class Query {
                 minDistance: out double minimumDistance,
                 minDistanceParameterA: out double minimumA,
                 minDistanceParameterB: out double minimumB) switch {
-                    true => new CurveDeviation(
-                        MinimumDistance: minimumDistance,
-                        MinimumA: left.PointAt(t: minimumA),
-                        MinimumB: right.PointAt(t: minimumB),
-                        MaximumDistance: maximumDistance,
-                        MaximumA: left.PointAt(t: maximumA),
-                        MaximumB: right.PointAt(t: maximumB),
-                        Tolerance: context.Absolute.Value,
-                        WithinTolerance: maximumDistance <= context.Absolute.Value) switch {
-                            CurveDeviation deviation when deviation.MinimumDistance >= 0.0
-                                && deviation.MaximumDistance >= deviation.MinimumDistance
-                                && RhinoMath.IsValidDouble(x: deviation.MinimumDistance)
-                                && RhinoMath.IsValidDouble(x: deviation.MaximumDistance)
-                                && deviation.MinimumA.IsValid
-                                && deviation.MinimumB.IsValid
-                                && deviation.MaximumA.IsValid
-                                && deviation.MaximumB.IsValid =>
-                                Fin.Succ(Seq(deviation))
-                                    .Bind(static (Seq<CurveDeviation> values) => DeviationKey.Retype<CurveDeviation, TOut>(values: values)),
-                            _ => Fin.Fail<Seq<TOut>>(DeviationKey.InvalidResult()),
-                        },
+                    true => (
+                        DeviationKey.RequireValid(value: minimumDistance),
+                        DeviationKey.RequireValid(value: maximumDistance),
+                        DeviationKey.RequireValid(value: left.PointAt(t: minimumA)),
+                        DeviationKey.RequireValid(value: right.PointAt(t: minimumB)),
+                        DeviationKey.RequireValid(value: left.PointAt(t: maximumA)),
+                        DeviationKey.RequireValid(value: right.PointAt(t: maximumB))
+                    ).Apply((double minDist, double maxDist, Point3d minA, Point3d minB, Point3d maxA, Point3d maxB) =>
+                        new CurveDeviation(
+                            MinimumDistance: minDist,
+                            MinimumA: minA,
+                            MinimumB: minB,
+                            MaximumDistance: maxDist,
+                            MaximumA: maxA,
+                            MaximumB: maxB,
+                            Tolerance: context.Absolute.Value,
+                            WithinTolerance: maxDist <= context.Absolute.Value))
+                    .As()
+                    .Bind(static (CurveDeviation deviation) => (deviation.MinimumDistance >= 0.0, deviation.MaximumDistance >= deviation.MinimumDistance) switch {
+                        (true, true) => DeviationKey.Retype<CurveDeviation, TOut>(values: Seq(deviation)),
+                        _ => Fin.Fail<Seq<TOut>>(DeviationKey.InvalidResult()),
+                    }),
                     false => Fin.Fail<Seq<TOut>>(DeviationKey.InvalidResult()),
                 };
     private static Query<(TA A, TB B), TOut> Pair<TA, TB, TLeft, TRight, TOut>(

@@ -231,9 +231,9 @@ public static partial class Query {
     internal static Query<TGeometry, TOut> Cast<TGeometry, TOut>(
         OperationKey key,
         object query) where TGeometry : notnull =>
-        query.GetType().Equals(typeof(Query<TGeometry, TOut>)) switch {
-            true => (Query<TGeometry, TOut>)query,
-            false => Query<TGeometry, TOut>.Reject(
+        query switch {
+            Query<TGeometry, TOut> typed => typed,
+            _ => Query<TGeometry, TOut>.Reject(
                 key: key,
                 fault: key.Unsupported(
                     geometryType: typeof(TGeometry),
