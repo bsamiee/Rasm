@@ -108,18 +108,21 @@ public static partial class Query {
                 _ => null,
             });
     public static Query<TGeometry, TOut> Measure<TGeometry, TOut>(Measure aspect) where TGeometry : notnull =>
-        aspect switch {
-            Analysis.Measure.SpatialMidpoint when typeof(TOut) == typeof(Point3d) => SpatialMidpoint<TGeometry, TOut>(),
-            Analysis.Measure.Length => Length<TGeometry, TOut>(),
-            Analysis.Measure.Area when typeof(TOut) == typeof(double) => Cast<TGeometry, TOut>(key: new OperationKey(name: nameof(Analysis.Measure.Area)), query: Mass<TGeometry, AreaMassProperties, double>(name: nameof(Analysis.Measure.Area), requirement: GeometryRequirement.AreaMass, compute: ComputeArea, project: static (OperationKey key, AreaMassProperties mass) => One(key: key, value: mass.Area))),
-            Analysis.Measure.Volume when typeof(TOut) == typeof(double) => Cast<TGeometry, TOut>(key: new OperationKey(name: nameof(Analysis.Measure.Volume)), query: Mass<TGeometry, VolumeMassProperties, double>(name: nameof(Analysis.Measure.Volume), requirement: GeometryRequirement.VolumeMass, compute: ComputeVolume, project: static (OperationKey key, VolumeMassProperties mass) => One(key: key, value: mass.Volume))),
-            Analysis.Measure.Error e => MassMeasure<TGeometry, TOut>(mass: e.Mass, kind: e),
-            Analysis.Measure.Centroid c => MassMeasure<TGeometry, TOut>(mass: c.Mass, kind: c),
-            Analysis.Measure.CentroidError ce => MassMeasure<TGeometry, TOut>(mass: ce.Mass, kind: ce),
-            Analysis.Measure.Radii r => MassMeasure<TGeometry, TOut>(mass: r.Mass, kind: r),
-            Analysis.Measure.Principal p => MassMeasure<TGeometry, TOut>(mass: p.Mass, kind: p),
-            _ => MeasureKey.Unsupported<TGeometry, TOut>(),
-        };
+        Aspect<TGeometry, TOut, Measure>(
+            aspect: aspect,
+            key: MeasureKey,
+            dispatch: static (Measure candidate) => candidate switch {
+                Analysis.Measure.SpatialMidpoint when typeof(TOut) == typeof(Point3d) => SpatialMidpoint<TGeometry, TOut>(),
+                Analysis.Measure.Length => Length<TGeometry, TOut>(),
+                Analysis.Measure.Area when typeof(TOut) == typeof(double) => Cast<TGeometry, TOut>(key: new OperationKey(name: nameof(Analysis.Measure.Area)), query: Mass<TGeometry, AreaMassProperties, double>(name: nameof(Analysis.Measure.Area), requirement: GeometryRequirement.AreaMass, compute: ComputeArea, project: static (OperationKey key, AreaMassProperties mass) => One(key: key, value: mass.Area))),
+                Analysis.Measure.Volume when typeof(TOut) == typeof(double) => Cast<TGeometry, TOut>(key: new OperationKey(name: nameof(Analysis.Measure.Volume)), query: Mass<TGeometry, VolumeMassProperties, double>(name: nameof(Analysis.Measure.Volume), requirement: GeometryRequirement.VolumeMass, compute: ComputeVolume, project: static (OperationKey key, VolumeMassProperties mass) => One(key: key, value: mass.Volume))),
+                Analysis.Measure.Error e => MassMeasure<TGeometry, TOut>(mass: e.Mass, kind: e),
+                Analysis.Measure.Centroid c => MassMeasure<TGeometry, TOut>(mass: c.Mass, kind: c),
+                Analysis.Measure.CentroidError ce => MassMeasure<TGeometry, TOut>(mass: ce.Mass, kind: ce),
+                Analysis.Measure.Radii r => MassMeasure<TGeometry, TOut>(mass: r.Mass, kind: r),
+                Analysis.Measure.Principal p => MassMeasure<TGeometry, TOut>(mass: p.Mass, kind: p),
+                _ => null,
+            });
     private static Query<TGeometry, TOut> MassMeasure<TGeometry, TOut>(MassKind mass, Measure kind) where TGeometry : notnull =>
         (kind, mass) switch {
             (_, MassKind.None) => Query<TGeometry, TOut>.Reject(key: MeasureKey, fault: MeasureKey.InvalidInput()),
