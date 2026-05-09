@@ -45,23 +45,9 @@ public readonly record struct BridgeOutput<TInput, TValue>(
 // --- [OPERATIONS] ------------------------------------------------------------------------------
 
 public static class Bridge {
-    public static AnalysisRuntime ResolveScope(this IDataAccess access) {
+    public static Fin<AnalysisRuntime> ResolveScope(this IDataAccess access) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        return ResolveRuntime(access: access)
-            .Match(
-                Succ: static (AnalysisRuntime runtime) => runtime,
-                Fail: _ => RemarkAndFallback(access: access));
-    }
-    public static Unit AddMissingInputError(
-        this IDataAccess access,
-        string label,
-        string accepted = Defaults.AcceptedGeometry) {
-        ArgumentNullException.ThrowIfNull(argument: access);
-        access.AddError(text: label, details: $"{label} input is required. Connect: {accepted}.");
-        return Unit.Default;
-    }
-    private static Fin<AnalysisRuntime> ResolveRuntime(IDataAccess access) =>
-        (
+        return (
             access.GetTolerance(absoluteTolerance: out double absolute),
             access.GetTolerance(angularTolerance: out Angle angle),
             access.GetUnitSystem(unitSystem: out UnitSystem units)
@@ -72,19 +58,22 @@ public static class Bridge {
                     angle: angle.Radians,
                     units: units.System)
                 .Runtime,
-            _ => Fin.Fail<AnalysisRuntime>(error: Error.New(message: "Host did not supply tolerance/units.")),
+            _ => RemarkAndFallback(access: access),
         };
-    private static AnalysisRuntime RemarkAndFallback(IDataAccess access) {
+    }
+    public static Unit AddMissingInputError(
+        this IDataAccess access,
+        string label,
+        string accepted = Defaults.AcceptedGeometry) {
+        ArgumentNullException.ThrowIfNull(argument: access);
+        access.AddError(text: label, details: $"{label} input is required. Connect: {accepted}.");
+        return Unit.Default;
+    }
+    private static Fin<AnalysisRuntime> RemarkAndFallback(IDataAccess access) {
         access.AddRemark(
             text: "Tolerance",
             details: "Host did not supply tolerance/units; using millimetres at default tolerance.");
-        // BOUNDARY ADAPTER — Millimetres validates by construction; throw is unreachable
-        // and required to satisfy the AnalysisRuntime return type at the GH boundary.
-        return Analyze.In(units: Rhino.UnitSystem.Millimeters)
-            .Runtime
-            .Match(
-                Succ: static (AnalysisRuntime runtime) => runtime,
-                Fail: static (Error error) => throw new InvalidOperationException(message: error.Message));
+        return Analyze.In(units: Rhino.UnitSystem.Millimeters).Runtime;
     }
     internal static Unit RunOne<TGeometry, TValue>(
         IDataAccess access,

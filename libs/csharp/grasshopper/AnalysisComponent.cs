@@ -125,20 +125,21 @@ public abstract class AnalysisComponent<TInput> : Component where TInput : Rhino
     }
     protected sealed override void Process(IDataAccess access) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        AnalysisRuntime scope = access.ResolveScope();
-        AnalysisRuntime scoped = IndexInput.Match(
-            Some: (IndexInputSpec spec) => scope with {
-                Index = IndexHint
-                    .Create(value: (access.GetItem(index: 1, value: out int candidate), candidate) switch {
-                        (true, int value) => value,
-                        _ => spec.Default,
-                    })
-                    .Match(
-                        Succ: static (IndexHint hint) => Some(hint),
-                        Fail: static (Error _) => Option<IndexHint>.None),
-            },
-            None: () => scope);
-        _ = (
+        _ = access
+            .ResolveScope()
+            .Map((AnalysisRuntime scope) => IndexInput.Match(
+                Some: (IndexInputSpec spec) => scope with {
+                    Index = IndexHint
+                        .Create(value: (access.GetItem(index: 1, value: out int candidate), candidate) switch {
+                            (true, int value) => value,
+                            _ => spec.Default,
+                        })
+                        .Match(
+                            Succ: static (IndexHint hint) => Some(hint),
+                            Fail: static (Error _) => Option<IndexHint>.None),
+                },
+                None: () => scope))
+            .Map((AnalysisRuntime scoped) => (
                 access.GetItem(index: 0, value: out object? item),
                 item is null ? Option<RhinoGeometry>.None : RhinoGeometry.From(value: item)
             ) switch {
@@ -150,6 +151,14 @@ public abstract class AnalysisComponent<TInput> : Component where TInput : Rhino
                     Outputs.Iter((int slot, IBridgeOutput<TInput> output) =>
                         output.WriteEmpty(access: access, index: slot))
                 ).Item2,
-            };
+            })
+            .Match(
+                Succ: static (Unit _) => Unit.Default,
+                Fail: (Error error) => RaiseScopeError(access: access, error: error));
+    }
+    private Unit RaiseScopeError(IDataAccess access, Error error) {
+        access.AddError(text: "Scope", details: error.Message);
+        return Outputs.Iter((int slot, IBridgeOutput<TInput> output) =>
+            output.WriteEmpty(access: access, index: slot));
     }
 }
