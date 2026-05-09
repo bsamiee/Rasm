@@ -118,6 +118,14 @@ internal static class RuleCatalog {
     /// (closed disjunction with case-specific data).
     /// </summary>
     internal static readonly DiagnosticDescriptor CSP0724 = Err("CSP0724", "FlagsEnumOveruse", "[Flags] enum '{0}' has no bitwise-composition callsites; replace with Thinktecture [SmartEnum<T>] or [Union]", "TypeDiscipline");
+    /// <summary>
+    /// CSP0725 ImperativeAccumulator — fires on a loop (foreach/for/while) whose body assigns to a variable
+    /// declared in an enclosing scope. This shape models a mutable fold-style accumulator that should be
+    /// expressed via LanguageExt Seq&lt;T&gt;.Fold (pure aggregation) or TraverseFin/TraverseValidation
+    /// (failure-aware aggregation). Distinct from CSP0001 which forbids loops outright; this rule provides
+    /// a targeted remediation when the imperative shape is specifically an accumulator.
+    /// </summary>
+    internal static readonly DiagnosticDescriptor CSP0725 = Err("CSP0725", "ImperativeAccumulator", "Loop body mutates outer-scope variable '{0}'; use Seq<T>.Fold or TraverseFin/TraverseValidation", "FunctionalDiscipline");
 
     // --- [CONVENTION_RULES] ---------------------------------------------------
 
@@ -142,6 +150,6 @@ internal static class RuleCatalog {
         CSP0601, CSP0602, CSP0603, CSP0604, CSP0605, CSP0606, CSP0607, CSP0608,
         CSP0701, CSP0702, CSP0703, CSP0704, CSP0705, CSP0706, CSP0707, CSP0708, CSP0709,
         CSP0710, CSP0711, CSP0712, CSP0713, CSP0714, CSP0715, CSP0717, CSP0718, CSP0719, CSP0720,
-        CSP0724,
+        CSP0724, CSP0725,
         CSP0901, CSP0902);
 }

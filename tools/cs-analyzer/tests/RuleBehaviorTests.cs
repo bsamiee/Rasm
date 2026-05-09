@@ -458,6 +458,15 @@ public sealed class RuleBehaviorTests {
                 Beta = 2,
             }
             """),
+        new("CSP0725", File(scope: "Domain/Services", type: "ImperativeAccumulator"), Domain(type: "ImperativeAccumulator", members: """
+            public int Sum(int[] values) {
+                int total = 0;
+                foreach (int value in values) {
+                    total = total + value;
+                }
+                return total;
+            }
+            """)),
         new("CSP0901", File(scope: "Integration", type: "InvalidBoundaryExemption"), Boundary(type: "InvalidBoundaryExemption", attributes: """
             [BoundaryImperativeExemption(
                 ruleId: "",
@@ -523,6 +532,28 @@ public sealed class RuleBehaviorTests {
             userMessage: $"Missing behavior cases: {string.Join(", ", missingIds)}. Stale behavior cases: {string.Join(", ", staleIds)}");
     }
 
+    [Fact]
+    public async Task LoopWithoutOuterScopeAccumulatorDoesNotEmitImperativeAccumulatorDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Integration/LoopWithLocalAccumulator.cs",
+            source: Boundary(type: "LoopWithLocalAccumulator", attributes: """
+                [BoundaryImperativeExemption(
+                    ruleId: "CSP0001",
+                    reason: BoundaryImperativeReason.ProtocolRequired,
+                    ticket: "RASM-BOUNDARY-CSP0725-A",
+                    expiresOnUtc: "2999-01-01T00:00:00Z")]
+                """, members: """
+                public int LoopOnly(int[] values) {
+                    foreach (int value in values) {
+                        int local = value + 1;
+                        _ = local;
+                    }
+                    return 0;
+                }
+                """)).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0725", collection: ids);
+    }
     [Fact]
     public async Task FlagsEnumWithBitwiseCompositionDoesNotEmitFlagsEnumOveruseDiagnosticAsync() {
         ImmutableArray<string> ids = await AnalyzeIdsAsync(

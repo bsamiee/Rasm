@@ -342,6 +342,28 @@ internal static class SymbolFacts {
             ILoopOperation => true,
             _ => IsInsideLoop(operation.Parent),
         };
+    internal static string OuterAccumulatorTarget(ILoopOperation loop, ISimpleAssignmentOperation assignment) =>
+        assignment.Target switch {
+            ILocalReferenceOperation localRef when IsLocalDeclaredOutsideLoop(loop: loop, local: localRef.Local)
+                => localRef.Local.Name,
+            _ => string.Empty,
+        };
+    private static bool IsLocalDeclaredOutsideLoop(ILoopOperation loop, ILocalSymbol local) =>
+        local.DeclaringSyntaxReferences switch {
+            { IsDefaultOrEmpty: true } => false,
+            ImmutableArray<SyntaxReference> refs => refs[0].GetSyntax() switch {
+                SyntaxNode declarationNode => !loop.Syntax.Span.Contains(declarationNode.Span)
+                    && !IsForLoopHeaderDeclaration(loop: loop, declarationNode: declarationNode),
+                _ => false,
+            },
+        };
+    private static bool IsForLoopHeaderDeclaration(ILoopOperation loop, SyntaxNode declarationNode) =>
+        loop.Syntax switch {
+            ForStatementSyntax forStatement when forStatement.Declaration is VariableDeclarationSyntax declaration
+                => declaration.Span.Contains(declarationNode.Span),
+            ForEachStatementSyntax => false,
+            _ => false,
+        };
     private static readonly HashSet<string> ValidatedReturnTypes = new(["Fin`1", "K`2"], StringComparer.Ordinal);
     internal static bool IsFinOrKReturnType(IMethodSymbol method) =>
         IsValidatedFactoryReturnType(method.ReturnType);

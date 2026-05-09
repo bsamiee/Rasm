@@ -102,6 +102,7 @@ internal static class AnalyzerDispatcher {
                 return;
             case (_, ILoopOperation loop):
                 FlowRules.CheckImperativeLoop(context, state, scope, loop);
+                FlowRules.CheckImperativeAccumulator(context, scope, loop);
                 return;
             case (_, ITryOperation tryOperation):
                 FlowRules.CheckExceptionTry(context, state, scope, tryOperation);

@@ -191,6 +191,20 @@ internal static class FlowRules {
             _ => null,
         });
     }
+    internal static void CheckImperativeAccumulator(OperationAnalysisContext context, ScopeInfo scope, ILoopOperation loopOperation) {
+        ImmutableArray<string> outerVariableAssignments = [
+            .. loopOperation.Body
+                .DescendantsAndSelf()
+                .OfType<ISimpleAssignmentOperation>()
+                .Select(assignment => SymbolFacts.OuterAccumulatorTarget(loop: loopOperation, assignment: assignment))
+                .Where(name => name.Length > 0)
+                .Distinct(StringComparer.Ordinal),
+        ];
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, outerVariableAssignments.Length) switch {
+            (true, > 0) => Diagnostic.Create(RuleCatalog.CSP0725, context.Operation.Syntax.GetLocation(), outerVariableAssignments[0]),
+            _ => null,
+        });
+    }
 
     // --- [PRIVATE_FUNCTIONS] --------------------------------------------------
 
