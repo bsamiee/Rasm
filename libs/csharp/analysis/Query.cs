@@ -215,8 +215,7 @@ public static partial class Query {
         KindKey = new(name: nameof(Kind)),
         UniqueCornersKey = new(name: "UniqueCorners"),
         WorldCardinalPointsKey = new(name: "WorldCardinalPoints"),
-        FacesKey = new(name: nameof(Faces)),
-        FaceFrameKey = new(name: "FaceFrame");
+        FacesKey = new(name: nameof(Faces));
     internal static Query<TGeometry, TOut> Unsupported<TGeometry, TOut>(this OperationKey key) where TGeometry : notnull =>
         Query<TGeometry, TOut>.Reject(
             key: key,

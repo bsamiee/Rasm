@@ -569,46 +569,4 @@ public static partial class Query {
                 select result,
             _ => Eff<AnalysisRuntime, Seq<Point3d>>.Fail(error: PointAtLengthKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Point3d))),
         };
-    public static Query<TGeometry, TOut> FaceFrame<TGeometry, TOut>(Faces aspect) where TGeometry : notnull =>
-        (typeof(TGeometry), typeof(TOut)) switch {
-            (Type geometry, Type output) when output == typeof(Plane)
-                && (typeof(GeometryBase).IsAssignableFrom(c: geometry) || geometry == typeof(object)) =>
-                Cast<TGeometry, TOut>(key: FaceFrameKey, query: Query<TGeometry, Plane>.Build<Faces>(
-                    key: FaceFrameKey,
-                    state: aspect,
-                    requirement: GeometryRequirement.SurfaceEvaluation,
-                    evaluator: static (Faces selector, TGeometry geometry) =>
-                        from rt in Analyze.Asks
-                        from faces in DecomposeFaces(geometry: geometry).ToEff()
-                        from selected in SelectFaces(faces: faces, selector: selector, runtime: rt).ToEff()
-                        from frames in selected.Traverse((Brep face) => FrameAtCentroid(face: face, runtime: rt)).As().ToEff()
-                        from result in Many(key: FaceFrameKey, values: frames).ToEff()
-                        select result)),
-            _ => FaceFrameKey.Unsupported<TGeometry, TOut>(),
-        };
-    // Invariant: face is the single-face Brep produced by DuplicateFace; face.Faces[0] is the BrepFace.
-    // The frame's Z is reoriented when OrientationIsReversed so that Z always points outward on closed solids.
-    private static Fin<Plane> FrameAtCentroid(Brep face, AnalysisRuntime runtime) =>
-        Optional(AreaMassProperties.Compute(
-                brep: face,
-                area: true,
-                firstMoments: true,
-                secondMoments: false,
-                productMoments: false,
-                relativeTolerance: runtime.Context.Relative.Value,
-                absoluteTolerance: runtime.Context.Absolute.Value))
-            .ToFin(FaceFrameKey.InvalidResult())
-            .Bind((AreaMassProperties mass) => {
-                using AreaMassProperties disposable = mass;
-                BrepFace brepFace = face.Faces[0];
-                return (
-                    brepFace.ClosestPoint(testPoint: disposable.Centroid, u: out double u, v: out double v),
-                    brepFace.FrameAt(u: u, v: v, frame: out Plane frame)
-                ) switch {
-                    (true, true) when brepFace.OrientationIsReversed =>
-                        Fin.Succ(new Plane(origin: frame.Origin, xDirection: frame.XAxis, yDirection: -frame.YAxis)),
-                    (true, true) => Fin.Succ(frame),
-                    _ => Fin.Fail<Plane>(FaceFrameKey.InvalidResult()),
-                };
-            });
 }

@@ -610,7 +610,45 @@ public static partial class Query {
                             from chosen in SelectFaces(faces: faces, selector: inner, runtime: rt).ToEff()
                             from result in Many(key: FacesKey, values: chosen).ToEff()
                             select result)),
+                (Type geometry, Type output) when output == typeof(Plane)
+                    && (typeof(GeometryBase).IsAssignableFrom(c: geometry) || geometry == typeof(object)) =>
+                    Cast<TGeometry, TOut>(key: FacesKey, query: Query<TGeometry, Plane>.Build<Faces>(
+                        key: FacesKey,
+                        state: selector,
+                        requirement: GeometryRequirement.SurfaceEvaluation,
+                        evaluator: static (Faces inner, TGeometry geometry) =>
+                            from rt in Analyze.Asks
+                            from faces in DecomposeFaces(geometry: geometry).ToEff()
+                            from chosen in SelectFaces(faces: faces, selector: inner, runtime: rt).ToEff()
+                            from frames in chosen.Traverse((Brep face) => FrameAtCentroid(face: face, runtime: rt)).As().ToEff()
+                            from result in Many(key: FacesKey, values: frames).ToEff()
+                            select result)),
                 _ => null,
+            });
+    // Invariant: face is the single-face Brep produced by DuplicateFace; face.Faces[0] is the BrepFace.
+    // The frame's Z is reoriented when OrientationIsReversed so that Z always points outward on closed solids.
+    internal static Fin<Plane> FrameAtCentroid(Brep face, AnalysisRuntime runtime) =>
+        Optional(AreaMassProperties.Compute(
+                brep: face,
+                area: true,
+                firstMoments: true,
+                secondMoments: false,
+                productMoments: false,
+                relativeTolerance: runtime.Context.Relative.Value,
+                absoluteTolerance: runtime.Context.Absolute.Value))
+            .ToFin(FacesKey.InvalidResult())
+            .Bind((AreaMassProperties mass) => {
+                using AreaMassProperties disposable = mass;
+                BrepFace brepFace = face.Faces[0];
+                return (
+                    brepFace.ClosestPoint(testPoint: disposable.Centroid, u: out double u, v: out double v),
+                    brepFace.FrameAt(u: u, v: v, frame: out Plane frame)
+                ) switch {
+                    (true, true) when brepFace.OrientationIsReversed =>
+                        Fin.Succ(new Plane(origin: frame.Origin, xDirection: frame.XAxis, yDirection: -frame.YAxis)),
+                    (true, true) => Fin.Succ(frame),
+                    _ => Fin.Fail<Plane>(FacesKey.InvalidResult()),
+                };
             });
     [System.Diagnostics.CodeAnalysis.SuppressMessage(category: "Reliability", checkId: "CA2000",
         Justification = "Brep ownership transfers to caller via Seq<Brep> as analysis output; downstream Grasshopper consumers manage lifetime.")]
