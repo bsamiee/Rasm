@@ -25,6 +25,23 @@ internal abstract partial record OperationOutcome<TValue> {
             true => new SolvedSuccess(Value: value),
             false => new SolvedFailure(Witness: value),
         };
+    internal Fin<Seq<TValue>> Reduce(OperationKey key) =>
+        this switch {
+            One single => key.RequireValid(value: single.Value)
+                .Map(static (TValue candidate) => Seq(candidate)),
+            Many multi => multi.Values.Fold(
+                    initialState: (Operation: key, Result: Fin.Succ(Seq<TValue>())),
+                    f: static ((OperationKey Operation, Fin<Seq<TValue>> Result) current, TValue candidate) => (
+                        current.Operation,
+                        Result: (current.Result, current.Operation.RequireValid(value: candidate))
+                            .Apply(static (Seq<TValue> previous, TValue next) => next.Cons(previous))
+                            .As()))
+                .Result
+                .Map(static (Seq<TValue> values) => values.Rev()),
+            SolvedSuccess solved => new One(Value: solved.Value).Reduce(key: key),
+            SolvedFailure => Fin.Fail<Seq<TValue>>(key.InvalidResult()),
+            _ => Fin.Fail<Seq<TValue>>(key.InvalidResult()),
+        };
 }
 
 // --- [ERRORS] ----------------------------------------------------------------------------------
@@ -66,24 +83,3 @@ internal static class OperationFault {
             $"Geometry operation '{key.Name}' rejects '{primitive}' primitive: no vertices."));
 }
 
-// --- [OPERATIONS] ------------------------------------------------------------------------------
-
-internal static class GeometryResult {
-    internal static Fin<Seq<TValue>> Result<TValue>(this OperationKey key, OperationOutcome<TValue> outcome) =>
-        outcome switch {
-            OperationOutcome<TValue>.One single => key.RequireValid(value: single.Value)
-                .Map(static (TValue candidate) => Seq(candidate)),
-            OperationOutcome<TValue>.Many multi => multi.Values.Fold(
-                    initialState: (Operation: key, Result: Fin.Succ(Seq<TValue>())),
-                    f: static ((OperationKey Operation, Fin<Seq<TValue>> Result) current, TValue candidate) => (
-                        current.Operation,
-                        Result: (current.Result, current.Operation.RequireValid(value: candidate))
-                            .Apply(static (Seq<TValue> previous, TValue next) => next.Cons(previous))
-                            .As()))
-                .Result
-                .Map(static (Seq<TValue> values) => values.Rev()),
-            OperationOutcome<TValue>.SolvedSuccess solved => key.Result(outcome: new OperationOutcome<TValue>.One(Value: solved.Value)),
-            OperationOutcome<TValue>.SolvedFailure => Fin.Fail<Seq<TValue>>(key.InvalidResult()),
-            _ => Fin.Fail<Seq<TValue>>(key.InvalidResult()),
-        };
-}

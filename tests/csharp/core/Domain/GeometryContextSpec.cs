@@ -108,16 +108,18 @@ public sealed class GeometryContextSpec {
             from: Point3d.Origin,
             to: new Point3d(x: 0.0, y: 0.0, z: 1.0));
 
-        Assert.True(condition: key.Result(outcome: new OperationOutcome<Point3d>.One(Value: Point3d.Unset)).IsFail);
-        Assert.True(condition: key.Result(outcome: new OperationOutcome<Sphere>.One(Value: Sphere.Unset)).IsFail);
-        Assert.True(condition: key.Result(outcome: new OperationOutcome<ComponentIndex>.One(Value: new ComponentIndex())).IsFail);
-        Assert.True(condition: key.Result(outcome: new OperationOutcome<object>.One(Value: new object())).IsFail);
-        Assert.True(condition: key.Result(outcome: new OperationOutcome<MeshCheckParameters>.One(Value: MeshCheckParameters.Defaults())).IsSucc);
-        Assert.True(condition: key.Result(outcome: new OperationOutcome<Line>.Many(Values: Seq(first, second, third)))
+        Assert.True(condition: new OperationOutcome<Point3d>.One(Value: Point3d.Unset).Reduce(key: key).IsFail);
+        Assert.True(condition: new OperationOutcome<Sphere>.One(Value: Sphere.Unset).Reduce(key: key).IsFail);
+        Assert.True(condition: new OperationOutcome<ComponentIndex>.One(Value: new ComponentIndex()).Reduce(key: key).IsFail);
+        Assert.True(condition: new OperationOutcome<object>.One(Value: new object()).Reduce(key: key).IsFail);
+        Assert.True(condition: new OperationOutcome<MeshCheckParameters>.One(Value: MeshCheckParameters.Defaults()).Reduce(key: key).IsSucc);
+        Assert.True(condition: new OperationOutcome<Line>.Many(Values: Seq(first, second, third))
+            .Reduce(key: key)
             .Match(
                 Succ: (Seq<Line> lines) => lines.ToArray().SequenceEqual(second: [first, second, third]),
                 Fail: static (Error _) => false));
-        Assert.True(condition: key.Result(outcome: new OperationOutcome<Line>.Many(Values: Seq(Line.Unset, Line.Unset)))
+        Assert.True(condition: new OperationOutcome<Line>.Many(Values: Seq(Line.Unset, Line.Unset))
+            .Reduce(key: key)
             .Match(
                 Succ: static (Seq<Line> _) => false,
                 Fail: static (Error error) => error.Count == 2));
@@ -127,8 +129,8 @@ public sealed class GeometryContextSpec {
     public void AdaptsSolvedResultRails() {
         OperationKey key = new(name: "test");
 
-        Assert.True(condition: key.Result(outcome: OperationOutcome<Point3d>.Solved(isSolved: true, value: Point3d.Origin)).IsSucc);
-        Assert.True(condition: key.Result(outcome: OperationOutcome<Point3d>.Solved(isSolved: false, value: Point3d.Origin)).IsFail);
+        Assert.True(condition: OperationOutcome<Point3d>.Solved(isSolved: true, value: Point3d.Origin).Reduce(key: key).IsSucc);
+        Assert.True(condition: OperationOutcome<Point3d>.Solved(isSolved: false, value: Point3d.Origin).Reduce(key: key).IsFail);
     }
 
     private static GeometryContext ValidContext() =>
