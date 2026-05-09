@@ -863,6 +863,13 @@ public sealed class AnalysisSpec {
         Assert.Equal(expected: [GeometryKind.Sphere], actual: kind);
     }
 
+    // Faces / FaceFrame queries operate on Brep, BrepFace, Surface, SubD — all of which
+    // dispatch to native rhcommon_c during construction and analysis. The xUnit runner here
+    // does not load the native runtime; integration coverage for face decomposition,
+    // top/bottom selection, index clamping, UV frame alignment, and the Mesh rejection rail
+    // belongs in tests/rhino/ (Rhino.Tests.csproj) where Rhino.Testing supplies the native
+    // shim. The IndexHint plumbing is regression-tested in Core.Tests.GeometryContextSpec.
+
     private static Line ValidLine() =>
         new(
             from: Point3d.Origin,

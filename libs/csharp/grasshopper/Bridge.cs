@@ -1,5 +1,6 @@
 using Analysis;
 using Core;
+using Core.Domain;
 using Core.Runtime;
 using Grasshopper2.Components;
 using Grasshopper2.Data.Meta;
@@ -17,11 +18,28 @@ internal static class Defaults {
 
 // --- [TYPES] -----------------------------------------------------------------------------------
 
-public readonly record struct BridgeOutput<TGeometry, TValue>(
+public readonly record struct BridgeOutput<TInput, TValue>(
     string Name,
     string Code,
     string Description,
-    Query<TGeometry, TValue> Query) where TGeometry : notnull;
+    Query<TInput, TValue> Query) : IBridgeOutput<TInput> where TInput : notnull {
+    public Type ValueType =>
+        typeof(TValue);
+    public Unit Execute(IDataAccess access, int index, AnalysisRuntime scope, TInput geometry) {
+        ArgumentNullException.ThrowIfNull(argument: access);
+        return Bridge.RunOne(
+            access: access,
+            index: index,
+            name: Name,
+            scope: scope,
+            geometry: geometry,
+            query: Query);
+    }
+    public Unit WriteEmpty(IDataAccess access, int index) {
+        ArgumentNullException.ThrowIfNull(argument: access);
+        return Bridge.WriteValues<TValue>(access: access, index: index, values: []);
+    }
+}
 
 // --- [OPERATIONS] ------------------------------------------------------------------------------
 
@@ -33,28 +51,13 @@ public static class Bridge {
                 Succ: static (AnalysisRuntime runtime) => runtime,
                 Fail: _ => RemarkAndFallback(access: access));
     }
-    public static Unit RunMany<TGeometry, TValue>(
+    public static Unit AddMissingInputError(
         this IDataAccess access,
-        AnalysisRuntime scope,
-        TGeometry geometry,
-        Seq<BridgeOutput<TGeometry, TValue>> outputs) where TGeometry : notnull {
-        ArgumentNullException.ThrowIfNull(argument: access);
-        return outputs.Iter((int index, BridgeOutput<TGeometry, TValue> descriptor) => Run(
-            access: access,
-            scope: scope,
-            geometry: geometry,
-            index: index,
-            descriptor: descriptor));
-    }
-    public static Unit MissingInput<TValue>(
-        this IDataAccess access,
-        int outputCount,
         string label,
         string accepted = Defaults.AcceptedGeometry) {
         ArgumentNullException.ThrowIfNull(argument: access);
         access.AddError(text: label, details: $"{label} input is required. Connect: {accepted}.");
-        return toSeq(Enumerable.Range(start: 0, count: outputCount)).Iter((int index) =>
-            WriteValues<TValue>(access: access, index: index, values: []));
+        return Unit.Default;
     }
     private static Fin<AnalysisRuntime> ResolveRuntime(IDataAccess access) =>
         (
@@ -82,24 +85,25 @@ public static class Bridge {
                 Succ: static (AnalysisRuntime runtime) => runtime,
                 Fail: static (Error error) => throw new InvalidOperationException(message: error.Message));
     }
-    private static Unit Run<TGeometry, TValue>(
+    internal static Unit RunOne<TGeometry, TValue>(
         IDataAccess access,
+        int index,
+        string name,
         AnalysisRuntime scope,
         TGeometry geometry,
-        int index,
-        BridgeOutput<TGeometry, TValue> descriptor) where TGeometry : notnull =>
-        descriptor.Query
+        Query<TGeometry, TValue> query) where TGeometry : notnull =>
+        query
             .Apply(geometry: geometry)
             .WithStandardResilience()
             .Run(scope)
             .Match(
                 Succ: (Seq<TValue> values) => WriteValues<TValue>(access: access, index: index, values: [.. values]),
-                Fail: (Error error) => Warn<TValue>(access: access, index: index, name: descriptor.Name, error: error));
-    private static Unit Warn<TValue>(IDataAccess access, int index, string name, Error error) {
+                Fail: (Error error) => Warn<TValue>(access: access, index: index, name: name, error: error));
+    internal static Unit Warn<TValue>(IDataAccess access, int index, string name, Error error) {
         access.AddWarning(text: name, details: error.Message);
         return WriteValues<TValue>(access: access, index: index, values: []);
     }
-    private static Unit WriteValues<TValue>(IDataAccess access, int index, TValue[] values) {
+    internal static Unit WriteValues<TValue>(IDataAccess access, int index, TValue[] values) {
         access.SetTwig<TValue>(
             index: index,
             values: values,

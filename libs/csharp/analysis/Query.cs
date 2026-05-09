@@ -3,6 +3,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using Core;
 using Core.Domain;
+using Core.Runtime;
 using LanguageExt;
 using LanguageExt.Common;
 using Rhino.Geometry;

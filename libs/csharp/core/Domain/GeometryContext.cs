@@ -4,7 +4,6 @@ using LanguageExt.Common;
 using Rhino;
 using Rhino.Geometry;
 using Rhino.Geometry.Intersect;
-using Thinktecture;
 namespace Core.Domain;
 
 // --- [ATTRIBUTES] ------------------------------------------------------------------------------
@@ -14,20 +13,20 @@ internal sealed class BoundaryAdapterAttribute : Attribute;
 
 // --- [MODELS] ----------------------------------------------------------------------------------
 
-public sealed partial record GeometryContext {
+public sealed record GeometryContext {
     private GeometryContext(
-        AbsoluteTolerance absolute,
-        RelativeTolerance relative,
-        AngleTolerance angle,
+        Tolerance absolute,
+        Tolerance relative,
+        Tolerance angle,
         ModelUnitSystem modelUnits) {
         Absolute = absolute;
         Relative = relative;
         Angle = angle;
         ModelUnits = modelUnits;
     }
-    internal AbsoluteTolerance Absolute { get; }
-    internal RelativeTolerance Relative { get; }
-    internal AngleTolerance Angle { get; }
+    internal Tolerance Absolute { get; }
+    internal Tolerance Relative { get; }
+    internal Tolerance Angle { get; }
     internal ModelUnitSystem ModelUnits { get; }
     internal double MeshIntersectionTolerance =>
         Absolute.Value * Intersection.MeshIntersectionsTolerancesCoefficient;
@@ -40,14 +39,26 @@ public sealed partial record GeometryContext {
         Fin<ModelUnitSystem> modelUnits) =>
         (
             modelUnits.ToValidation(),
-            AbsoluteTolerance.Create(candidate: absoluteTolerance).ToValidation(),
-            RelativeTolerance.Create(candidate: relativeTolerance).ToValidation(),
-            AngleTolerance.Create(candidate: angleToleranceRadians).ToValidation()
+            Tolerance.Create(
+                candidate: absoluteTolerance,
+                label: "AbsoluteTolerance",
+                accepts: static (double candidate) => candidate > RhinoMath.ZeroTolerance,
+                requirement: "greater than Rhino zero tolerance").ToValidation(),
+            Tolerance.Create(
+                candidate: relativeTolerance,
+                label: "RelativeTolerance",
+                accepts: static (double candidate) => candidate is >= 0.0 and < 1.0,
+                requirement: "in the range [0, 1)").ToValidation(),
+            Tolerance.Create(
+                candidate: angleToleranceRadians,
+                label: "AngleTolerance",
+                accepts: static (double candidate) => candidate is > RhinoMath.Epsilon and <= RhinoMath.TwoPI,
+                requirement: "in the range (epsilon, 2*pi] radians").ToValidation()
         ).Apply(static (
                 ModelUnitSystem modelUnits,
-                AbsoluteTolerance absolute,
-                RelativeTolerance relative,
-                AngleTolerance angle) =>
+                Tolerance absolute,
+                Tolerance relative,
+                Tolerance angle) =>
             new GeometryContext(
                 absolute: absolute,
                 relative: relative,
@@ -74,12 +85,16 @@ public sealed partial record GeometryContext {
                             modelUnits: true,
                             customUnitName: out string _,
                             metersPerCustomUnit: out double metersPerCustomUnit) switch {
-                                true => MetersPerUnit
-                                    .Create(candidate: metersPerCustomUnit)
-                                    .Bind(static (MetersPerUnit scale) =>
+                                true => Tolerance
+                                    .Create(
+                                        candidate: metersPerCustomUnit,
+                                        label: "CustomUnitScale",
+                                        accepts: static (double candidate) => candidate > RhinoMath.ZeroTolerance,
+                                        requirement: "greater than Rhino zero tolerance")
+                                    .Bind(static (Tolerance customUnitScale) =>
                                         ModelUnitSystem.FromModelUnits(
                                             units: UnitSystem.CustomUnits,
-                                            metersPerUnit: scale)),
+                                            metersPerUnit: customUnitScale)),
                                 false => Fin.Fail<ModelUnitSystem>(
                                     ContextFault.MissingCustomUnitScale()),
                             },
@@ -118,11 +133,14 @@ public sealed partial record GeometryContext {
             relativeTolerance: relativeTolerance,
             angleToleranceRadians: angleToleranceRadians,
             modelUnits: ModelUnitSystem.Create(units: units));
-    [ComplexValueObject(SkipFactoryMethods = true, ConstructorAccessModifier = AccessModifier.Internal)]
     [StructLayout(LayoutKind.Auto)]
-    internal readonly partial struct ModelUnitSystem {
+    internal readonly record struct ModelUnitSystem {
+        private ModelUnitSystem(UnitSystem units, double metersPerUnit) {
+            Units = units;
+            MetersPerUnit = metersPerUnit;
+        }
         internal UnitSystem Units { get; }
-        internal MetersPerUnit MetersPerUnit { get; }
+        internal double MetersPerUnit { get; }
         internal static Fin<ModelUnitSystem> Create(UnitSystem units) =>
             units switch {
                 UnitSystem.CustomUnits => Fin.Fail<ModelUnitSystem>(
@@ -133,96 +151,42 @@ public sealed partial record GeometryContext {
                     ContextFault.InvalidUnitSystem(
                         units: units,
                         requirement: "must be a Rhino model unit system")),
-                _ => (Fin.Succ(units), MetersPerUnit.Create(candidate: RhinoMath.MetersPerUnit(units)))
-                    .Apply(static (UnitSystem u, MetersPerUnit scale) =>
-                        new ModelUnitSystem(units: u, metersPerUnit: scale))
-                    .As(),
+                _ => RhinoMath.MetersPerUnit(units) switch {
+                    double meters when RhinoMath.IsValidDouble(meters) && meters > RhinoMath.ZeroTolerance =>
+                        Fin.Succ(new ModelUnitSystem(units: units, metersPerUnit: meters)),
+                    _ => Fin.Fail<ModelUnitSystem>(
+                        ContextFault.InvalidUnitSystem(
+                            units: units,
+                            requirement: "must resolve to a positive finite meter scale")),
+                },
             };
-        internal static Fin<ModelUnitSystem> FromModelUnits(UnitSystem units, MetersPerUnit metersPerUnit) =>
+        internal static Fin<ModelUnitSystem> FromModelUnits(UnitSystem units, Tolerance metersPerUnit) =>
             units switch {
                 UnitSystem.CustomUnits => Fin.Succ(new ModelUnitSystem(
                     units: units,
-                    metersPerUnit: metersPerUnit)),
+                    metersPerUnit: metersPerUnit.Value)),
                 _ => Create(units: units),
             };
     }
-    [ValueObject<double>(SkipFactoryMethods = true)]
-    internal readonly partial struct AbsoluteTolerance {
-        internal double Value =>
-            _value;
-        internal static Fin<AbsoluteTolerance> Create(double candidate) =>
-            (RhinoMath.IsValidDouble(candidate), candidate > RhinoMath.ZeroTolerance) switch {
-                (false, _) => Fin.Fail<AbsoluteTolerance>(
-                    ContextFault.NonFinite(label: nameof(AbsoluteTolerance), scalar: candidate)),
-                (_, false) => Fin.Fail<AbsoluteTolerance>(
-                    ContextFault.OutOfRange(
-                        label: nameof(AbsoluteTolerance),
-                        scalar: candidate,
-                        requirement: "greater than Rhino zero tolerance")),
-                _ => Fin.Succ(new AbsoluteTolerance(value: candidate)),
-            };
-    }
-    [ValueObject<double>(SkipFactoryMethods = true)]
-    internal readonly partial struct RelativeTolerance {
-        internal double Value =>
-            _value;
-        internal static Fin<RelativeTolerance> Create(double candidate) =>
-            (RhinoMath.IsValidDouble(candidate), candidate is >= 0.0 and < 1.0) switch {
-                (false, _) => Fin.Fail<RelativeTolerance>(
-                    ContextFault.NonFinite(label: nameof(RelativeTolerance), scalar: candidate)),
-                (_, false) => Fin.Fail<RelativeTolerance>(
-                    ContextFault.OutOfRange(
-                        label: nameof(RelativeTolerance),
-                        scalar: candidate,
-                        requirement: "in the range [0, 1)")),
-                _ => Fin.Succ(new RelativeTolerance(value: candidate)),
-            };
-    }
-    [ValueObject<double>(SkipFactoryMethods = true)]
-    internal readonly partial struct AngleTolerance {
-        internal double Value =>
-            _value;
-        internal static Fin<AngleTolerance> Create(double candidate) =>
-            (RhinoMath.IsValidDouble(candidate), candidate is > RhinoMath.Epsilon and <= RhinoMath.TwoPI) switch {
-                (false, _) => Fin.Fail<AngleTolerance>(
-                    ContextFault.NonFinite(label: nameof(AngleTolerance), scalar: candidate)),
-                (_, false) => Fin.Fail<AngleTolerance>(
-                    ContextFault.OutOfRange(
-                        label: nameof(AngleTolerance),
-                        scalar: candidate,
-                        requirement: "in the range (epsilon, 2*pi] radians")),
-                _ => Fin.Succ(new AngleTolerance(value: candidate)),
-            };
-    }
-    [ValueObject<double>(SkipFactoryMethods = true, ConstructorAccessModifier = AccessModifier.Internal)]
-    internal readonly partial struct MetersPerUnit {
-        internal double Value =>
-            _value;
-        internal static Fin<MetersPerUnit> Create(double candidate) =>
-            (RhinoMath.IsValidDouble(candidate), candidate > RhinoMath.ZeroTolerance) switch {
-                (false, _) => Fin.Fail<MetersPerUnit>(
-                    ContextFault.NonFinite(label: nameof(MetersPerUnit), scalar: candidate)),
-                (_, false) => Fin.Fail<MetersPerUnit>(
-                    ContextFault.OutOfRange(
-                        label: nameof(MetersPerUnit),
-                        scalar: candidate,
-                        requirement: "greater than Rhino zero tolerance")),
-                _ => Fin.Succ(new MetersPerUnit(value: candidate)),
+    [StructLayout(LayoutKind.Auto)]
+    internal readonly record struct Tolerance {
+        private Tolerance(double value) => Value = value;
+        internal double Value { get; }
+        internal static Fin<Tolerance> Create(
+            double candidate,
+            string label,
+            Func<double, bool> accepts,
+            string requirement) =>
+            (RhinoMath.IsValidDouble(candidate), accepts(arg: candidate)) switch {
+                (false, _) => Fin.Fail<Tolerance>(ContextFault.NonFinite(label: label, scalar: candidate)),
+                (_, false) => Fin.Fail<Tolerance>(ContextFault.OutOfRange(
+                    label: label,
+                    scalar: candidate,
+                    requirement: requirement)),
+                _ => Fin.Succ(new Tolerance(value: candidate)),
             };
     }
 }
-
-// --- [RUNTIME] ---------------------------------------------------------------------------------
-
-[ValueObject<int>(SkipFactoryMethods = true)]
-public readonly partial struct IndexHint {
-    public int Value =>
-        _value;
-    public static Fin<IndexHint> Create(int value) =>
-        Fin.Succ(new IndexHint(value: value));
-}
-
-public sealed record AnalysisRuntime(GeometryContext Context, Option<IndexHint> Index = default);
 
 // --- [ERRORS] ----------------------------------------------------------------------------------
 
