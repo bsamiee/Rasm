@@ -140,6 +140,8 @@ public sealed class SpatialIndex : IDisposable {
             false => DisposeTree(),
             true => true,
         };
+    // BOUNDARY ADAPTER — IDisposable.Dispose() must call tree.Dispose() (void) and return a bool to drive
+    // the assignment-expression form of the public Dispose member; the helper preserves the void→bool bridge.
     private bool DisposeTree() {
         tree.Dispose();
         return true;
@@ -149,41 +151,25 @@ public sealed class SpatialIndex : IDisposable {
             true => Fin.Fail<RTree>(Query.SpatialIndexKey.InvalidInput()),
             false => Fin.Succ(tree),
         };
-    private static Fin<Point3d[]> ValidatePoints(ReadOnlySpan<Point3d> points) {
-        Point3d[] raw = points.ToArray();
-        return Enumerable
-            .Range(start: 0, count: raw.Length)
-            .Select((int index) => raw[index] switch {
-                Point3d point when point.IsValid => Fin.Succ(point),
+    private static Fin<Point3d[]> ValidatePoints(ReadOnlySpan<Point3d> points) =>
+        toSeq(points.ToArray())
+            .Map(static (Point3d point) => point switch {
+                Point3d candidate when candidate.IsValid => Fin.Succ(candidate),
                 _ => Fin.Fail<Point3d>(Query.SpatialIndexKey.InvalidInput()),
             })
-            .Aggregate(
-                seed: Fin.Succ(Seq<Point3d>()),
-                func: static (Fin<Seq<Point3d>> current, Fin<Point3d> point) => (
-                    current,
-                    point
-                ).Apply(static (Seq<Point3d> previous, Point3d next) => previous.Add(next)).As())
+            .TraverseFin()
             .Map(static (Seq<Point3d> values) => values.ToArray());
-    }
     private static Fin<BoundingBox[]> ValidateBounds<TGeometry>(
-        ReadOnlySpan<TGeometry> items) where TGeometry : GeometryBase {
-        TGeometry[] raw = items.ToArray();
-        return Enumerable
-            .Range(start: 0, count: raw.Length)
-            .Select((int index) => Optional(raw[index])
+        ReadOnlySpan<TGeometry> items) where TGeometry : GeometryBase =>
+        toSeq(items.ToArray())
+            .Map(static (TGeometry geometry) => Optional(geometry)
                 .ToFin(ValidationFault.MissingGeometry())
-                .Bind(static (TGeometry geometry) => (geometry.IsValid, geometry.GetBoundingBox(accurate: true)) switch {
+                .Bind(static (TGeometry candidate) => (candidate.IsValid, candidate.GetBoundingBox(accurate: true)) switch {
                     (true, BoundingBox box) when box.IsValid => Fin.Succ(box),
                     _ => Fin.Fail<BoundingBox>(Query.SpatialIndexKey.InvalidInput()),
                 }))
-            .Aggregate(
-                seed: Fin.Succ(Seq<BoundingBox>()),
-                func: static (Fin<Seq<BoundingBox>> current, Fin<BoundingBox> box) => (
-                    current,
-                    box
-                ).Apply(static (Seq<BoundingBox> previous, BoundingBox next) => previous.Add(next)).As())
+            .TraverseFin()
             .Map(static (Seq<BoundingBox> boxes) => boxes.ToArray());
-    }
     private static Fin<Seq<SpatialHit>> Search(RTree tree, BoundingBox shape) {
         SearchState search = new(capacity: tree.Count);
         return tree.Search(
