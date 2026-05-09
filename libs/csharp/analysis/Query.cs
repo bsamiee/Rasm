@@ -157,12 +157,19 @@ public partial record Location {
     public sealed record Contains(Point3d Point, Plane Plane) : Location;
     public sealed record ShortPath(Point2d Start, Point2d End) : Location;
 }
-[Union]
-public partial record Faces {
-    public sealed record All : Faces;
-    public sealed record Top : Faces;
-    public sealed record Bottom : Faces;
-    public sealed record At : Faces;
+[SmartEnum<int>]
+public sealed partial class FaceSelector {
+    public static readonly FaceSelector All = new(key: 0);
+    public static readonly FaceSelector Top = new(key: 1);
+    public static readonly FaceSelector Bottom = new(key: 2);
+    public static readonly FaceSelector At = new(key: 3);
+}
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct Faces(FaceSelector Selector, Option<int> Index) {
+    public static Faces All => new(Selector: FaceSelector.All, Index: None);
+    public static Faces Top => new(Selector: FaceSelector.Top, Index: None);
+    public static Faces Bottom => new(Selector: FaceSelector.Bottom, Index: None);
+    public static Faces At(int? index = null) => new(Selector: FaceSelector.At, Index: Optional(value: index));
 }
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Topology {

@@ -651,13 +651,13 @@ public static partial class Query {
                 outputType: typeof(Brep))),
         };
     internal static Fin<Seq<Brep>> SelectFaces(Seq<Brep> faces, Faces selector, AnalysisRuntime runtime) =>
-        (selector, faces.Count) switch {
+        (selector.Selector, faces.Count) switch {
             (_, 0) => Fin.Succ(Seq<Brep>()),
-            (Analysis.Faces.All, _) => Fin.Succ(faces),
-            (Analysis.Faces.Top, _) => RankByCentroidZ(faces: faces, descending: true, runtime: runtime),
-            (Analysis.Faces.Bottom, _) => RankByCentroidZ(faces: faces, descending: false, runtime: runtime),
-            (Analysis.Faces.At, int count) => Fin.Succ(Seq(faces[Math.Clamp(
-                value: runtime.Index.Match(Some: static (IndexHint hint) => hint.Value, None: static () => 0),
+            (FaceSelector all, _) when all == FaceSelector.All => Fin.Succ(faces),
+            (FaceSelector top, _) when top == FaceSelector.Top => RankByCentroidZ(faces: faces, descending: true, runtime: runtime),
+            (FaceSelector bottom, _) when bottom == FaceSelector.Bottom => RankByCentroidZ(faces: faces, descending: false, runtime: runtime),
+            (FaceSelector at, int count) when at == FaceSelector.At => Fin.Succ(Seq(faces[Math.Clamp(
+                value: selector.Index.IfNone(() => runtime.Index.Match(Some: static (IndexHint hint) => hint.Value, None: static () => 0)),
                 min: 0,
                 max: count - 1)])),
             _ => Fin.Fail<Seq<Brep>>(FacesKey.InvalidInput()),
