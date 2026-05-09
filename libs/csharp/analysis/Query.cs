@@ -272,40 +272,30 @@ public static partial class Query {
             Type output when output == typeof(Polyline) =>
                 key.CastResults<Polyline, TOut>(values: polylines),
             Type output when output == typeof(IntersectionKind) =>
-                key.CastResults<IntersectionKind, TOut>(values: IntersectionKinds(
-                    curves: curves,
-                    points: points,
-                    polylines: polylines,
-                    intersections: intersections)),
+                key.CastResults<IntersectionKind, TOut>(values: Optional(intersections)
+                    .ToSeq()
+                    .Bind(static (CurveIntersections events) => events)
+                    .Select(static (IntersectionEvent intersection) => intersection switch {
+                        IntersectionEvent candidate when candidate.IsOverlap => IntersectionKind.Overlap,
+                        IntersectionEvent candidate when candidate.IsPoint => IntersectionKind.Point,
+                        _ => IntersectionKind.Unknown,
+                    })
+                    .Concat(second: Optional(curves)
+                        .ToSeq()
+                        .Bind(static (IEnumerable<Curve> values) => values)
+                        .Select(static (Curve _) => IntersectionKind.Overlap))
+                    .Concat(second: Optional(points)
+                        .ToSeq()
+                        .Bind(static (IEnumerable<Point3d> values) => values)
+                        .Select(static (Point3d _) => IntersectionKind.Point))
+                    .Concat(second: Optional(polylines)
+                        .ToSeq()
+                        .Bind(static (IEnumerable<Polyline> values) => values)
+                        .Select(static (Polyline _) => IntersectionKind.Overlap))),
             _ => Fin.Fail<Seq<TOut>>(key.Unsupported(
                 geometryType: typeof(void),
                 outputType: typeof(TOut))),
         };
-    private static IEnumerable<IntersectionKind> IntersectionKinds(
-        IEnumerable<Curve>? curves,
-        IEnumerable<Point3d>? points,
-        IEnumerable<Polyline>? polylines,
-        CurveIntersections? intersections) =>
-        Optional(intersections)
-            .ToSeq()
-            .Bind(static (CurveIntersections events) => events)
-            .Select(static (IntersectionEvent intersection) => intersection switch {
-                IntersectionEvent candidate when candidate.IsOverlap => IntersectionKind.Overlap,
-                IntersectionEvent candidate when candidate.IsPoint => IntersectionKind.Point,
-                _ => IntersectionKind.Unknown,
-            })
-            .Concat(second: Optional(curves)
-                .ToSeq()
-                .Bind(static (IEnumerable<Curve> values) => values)
-                .Select(static (Curve _) => IntersectionKind.Overlap))
-            .Concat(second: Optional(points)
-                .ToSeq()
-                .Bind(static (IEnumerable<Point3d> values) => values)
-                .Select(static (Point3d _) => IntersectionKind.Point))
-            .Concat(second: Optional(polylines)
-                .ToSeq()
-                .Bind(static (IEnumerable<Polyline> values) => values)
-                .Select(static (Polyline _) => IntersectionKind.Overlap));
     private static Fin<Seq<TOut>> CastResults<TValue, TOut>(
         this OperationKey key,
         IEnumerable<TValue>? values) =>
