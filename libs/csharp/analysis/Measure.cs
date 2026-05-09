@@ -149,7 +149,10 @@ public static partial class Query {
                         Polyline polyline => One(key: SpatialMidpointKey, value: polyline.CenterPoint()).ToEff(),
                         Curve curve =>
                             from rt in Analyze.Asks
-                            from result in CurveSpatialMidpoint(curve: curve, context: rt.Context)
+                            from result in (curve.IsClosed, curve.TryGetPlane(plane: out Plane _, tolerance: rt.Context.Absolute.Value)) switch {
+                                (true, true) => MassCentroid(geometry: curve, requirement: GeometryRequirement.AreaMass, query: AreaCentroid<Curve>(name: SpatialMidpointKey.Name)),
+                                _ => MassCentroid(geometry: curve, requirement: GeometryRequirement.CurveLength, query: LengthCentroid<Curve>(name: SpatialMidpointKey.Name)),
+                            }
                             select result,
                         Brep { IsSolid: true } brep => MassCentroid(geometry: brep, requirement: GeometryRequirement.VolumeMass, query: VolumeCentroid<Brep>(name: SpatialMidpointKey.Name)),
                         Brep brep => MassCentroid(geometry: brep, requirement: GeometryRequirement.AreaMass, query: AreaCentroid<Brep>(name: SpatialMidpointKey.Name)),
@@ -157,26 +160,25 @@ public static partial class Query {
                         Mesh mesh => MassCentroid(geometry: mesh, requirement: GeometryRequirement.AreaMass, query: AreaCentroid<Mesh>(name: SpatialMidpointKey.Name)),
                         Surface { IsSolid: true } surface => MassCentroid(geometry: surface, requirement: GeometryRequirement.VolumeMass, query: VolumeCentroid<Surface>(name: SpatialMidpointKey.Name)),
                         Surface surface => MassCentroid(geometry: surface, requirement: GeometryRequirement.AreaMass, query: AreaCentroid<Surface>(name: SpatialMidpointKey.Name)),
-                        SubD subd => SubDSpatialMidpoint(subd: subd),
+                        SubD subd =>
+                            from rt in Analyze.Asks
+                            from validated in rt.Context.Validate(geometry: subd, requirement: GeometryRequirement.Basic).ToEff()
+                            from brep in Optional(validated.ToBrep()).ToFin(SpatialMidpointKey.InvalidResult()).ToEff()
+                            from result in SubDBrepSpatialMidpoint(brep: brep)
+                            select result,
                         BoundingBox box => One(key: SpatialMidpointKey, value: box.Center).ToEff(),
                         Box box => One(key: SpatialMidpointKey, value: box.Center).ToEff(),
                         _ => Eff<AnalysisRuntime, Seq<Point3d>>.Fail(error: SpatialMidpointKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Point3d))),
                     })),
             _ => SpatialMidpointKey.Unsupported<TGeometry, TOut>(),
         };
-    private static Eff<AnalysisRuntime, Seq<Point3d>> CurveSpatialMidpoint(Curve curve, GeometryContext context) =>
-        (curve.IsClosed, curve.TryGetPlane(plane: out Plane _, tolerance: context.Absolute.Value)) switch {
-            (true, true) => MassCentroid(geometry: curve, requirement: GeometryRequirement.AreaMass, query: AreaCentroid<Curve>(name: SpatialMidpointKey.Name)),
-            _ => MassCentroid(geometry: curve, requirement: GeometryRequirement.CurveLength, query: LengthCentroid<Curve>(name: SpatialMidpointKey.Name)),
-        };
-    private static Eff<AnalysisRuntime, Seq<Point3d>> SubDSpatialMidpoint(SubD subd) =>
-        from rt in Analyze.Asks
-        from validated in rt.Context.Validate(geometry: subd, requirement: GeometryRequirement.Basic).ToEff()
-        from brep in Optional(validated.ToBrep())
-            .ToFin(SpatialMidpointKey.InvalidResult())
-            .ToEff()
-        from result in SubDBrepSpatialMidpoint(brep: brep)
-        select result;
+    // SubD.ToBrep() yields a fresh Brep that must be disposed before MassCentroid finalises;
+    // the using-local is intrinsic to this SubD-to-Brep boundary translation.
+    [BoundaryImperativeExemption(
+        ruleId: "CSP0001",
+        reason: BoundaryImperativeReason.CleanupFinally,
+        ticket: "RASM-WAVE4",
+        expiresOnUtc: "2027-12-31T00:00:00Z")]
     private static Eff<AnalysisRuntime, Seq<Point3d>> SubDBrepSpatialMidpoint(Brep brep) {
         using Brep disposable = brep;
         return disposable.IsSolid switch {

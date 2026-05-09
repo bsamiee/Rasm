@@ -75,7 +75,13 @@ public static partial class Query {
                         Brep brep => BrepEdgeMidpoints(brep: brep),
                         Mesh mesh => MeshEdgeMidpoints(mesh: mesh),
                         SubD subd => SubDEdgeMidpoints(subd: subd),
-                        Box box => BoxEdgeMidpoints(box: box),
+                        Box box =>
+                            from rt in Analyze.Asks
+                            from result in Optional(box.ToBrep())
+                                .ToFin(EdgeMidpointsKey.InvalidResult())
+                                .Bind((Brep brep) => BrepEdgesViaUsing(brep: brep, context: rt.Context))
+                                .ToEff()
+                            select result,
                         _ => Eff<AnalysisRuntime, Seq<Point3d>>.Fail(error: EdgeMidpointsKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Point3d))),
                     })),
             _ => EdgeMidpointsKey.Unsupported<TGeometry, TOut>(),
@@ -112,15 +118,14 @@ public static partial class Query {
         from validated in rt.Context.Validate(geometry: subd, requirement: GeometryRequirement.Basic).ToEff()
         from result in EdgeCurveMidpoints(curves: validated.DuplicateEdgeCurves(), context: rt.Context).ToEff()
         select result;
-    private static Eff<AnalysisRuntime, Seq<Point3d>> BoxEdgeMidpoints(Box box) =>
-        from rt in Analyze.Asks
-        from result in BoxEdgeMidpointsViaBrep(box: box, context: rt.Context).ToEff()
-        select result;
-    private static Fin<Seq<Point3d>> BoxEdgeMidpointsViaBrep(Box box, GeometryContext context) =>
-        Optional(box.ToBrep())
-            .ToFin(EdgeMidpointsKey.InvalidResult())
-            .Bind((Brep brep) => DisposeAndExtract(brep: brep, context: context));
-    private static Fin<Seq<Point3d>> DisposeAndExtract(Brep brep, GeometryContext context) {
+    // Box.ToBrep() yields a fresh Brep that must be disposed; the using-local is intrinsic to this
+    // boundary path between the Rhino native-types layer and the GeometryBase pipeline.
+    [BoundaryImperativeExemption(
+        ruleId: "CSP0001",
+        reason: BoundaryImperativeReason.CleanupFinally,
+        ticket: "RASM-WAVE4",
+        expiresOnUtc: "2027-12-31T00:00:00Z")]
+    private static Fin<Seq<Point3d>> BrepEdgesViaUsing(Brep brep, GeometryContext context) {
         using Brep disposable = brep;
         return EdgeCurveMidpoints(curves: disposable.DuplicateEdgeCurves(), context: context);
     }
