@@ -62,7 +62,6 @@ public enum CurvatureScalar { None = 0, Magnitude = 1, Gaussian = 2, Mean = 3 }
 public enum MeshCheckCount { None = 0, DegenerateFaces = 1, DisjointMeshes = 2, DuplicateFaces = 3, ExtremelyShortEdges = 4, InvalidNgons = 5, NakedEdges = 6, NonManifoldEdges = 7, NonUnitVectorNormals = 8, RandomFaceNormals = 9, SelfIntersectingPairs = 10, UnusedVertices = 11, VertexFaceNormalsDiffer = 12, ZeroLengthNormals = 13 }
 public enum ConformanceResidual { None = 0, Distance = 1, Rms = 2, WithinTolerance = 3, Profile = 4, Maximum = 5 }
 public enum MeshFaceMetric { None = 0, AspectRatio = 1 }
-public enum DeviationKind { None = 0, Curve = 1 }
 public enum GeometryKind {
     Unknown = 0, Curve = 1, Polyline = 2, Mesh = 3, SubD = 4, Surface = 5,
     BrepGeneral = 10, BrepBox = 11, BrepSphere = 12, BrepCylinder = 13, BrepCone = 14, BrepTorus = 15, BrepPlane = 16,
@@ -187,13 +186,6 @@ public readonly record struct Conformance {
     }
     internal readonly ConformanceResidual Residual; internal readonly int Count;
     public static Conformance Distance(int count) => new(residual: ConformanceResidual.Distance, count: count); public static Conformance Rms(int count) => new(residual: ConformanceResidual.Rms, count: count); public static Conformance WithinTolerance(int count) => new(residual: ConformanceResidual.WithinTolerance, count: count); public static Conformance Profile(int count) => new(residual: ConformanceResidual.Profile, count: count); public static Conformance Maximum(int count) => new(residual: ConformanceResidual.Maximum, count: count);
-}
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct Deviation {
-    private Deviation(DeviationKind kind) =>
-        Kind = kind;
-    internal readonly DeviationKind Kind;
-    public static Deviation Curve => new(kind: DeviationKind.Curve);
 }
 public static partial class Query {
     internal delegate bool PrimitiveCase<TSource, TValue>(

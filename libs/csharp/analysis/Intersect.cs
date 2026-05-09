@@ -179,22 +179,16 @@ public static partial class Query {
                         }),
                 _ => null,
             });
-    public static Query<(TA A, TB B), TOut> Deviation<TA, TB, TOut>(Deviation aspect) where TA : notnull where TB : notnull =>
-        Aspect<(TA A, TB B), TOut, Deviation>(
-            aspect: aspect,
-            key: DeviationKey,
-            dispatch: static (Deviation candidate) => (candidate.Kind, typeof(TA), typeof(TB), typeof(TOut)) switch {
-                (DeviationKind.None, _, _, _) => Query<(TA A, TB B), TOut>.Reject(
+    public static Query<(TA A, TB B), TOut> Deviation<TA, TB, TOut>() where TA : notnull where TB : notnull =>
+        (typeof(TA), typeof(TB), typeof(TOut)) switch {
+            (Type a, Type b, Type output) when typeof(Curve).IsAssignableFrom(c: a) && typeof(Curve).IsAssignableFrom(c: b) && output == typeof(CurveDeviation) =>
+                Pair<TA, TB, Curve, Curve, TOut>(
                     key: DeviationKey,
-                    fault: DeviationKey.InvalidInput()),
-                (DeviationKind.Curve, Type a, Type b, Type output) when typeof(Curve).IsAssignableFrom(c: a) && typeof(Curve).IsAssignableFrom(c: b) && output == typeof(CurveDeviation) =>
-                    Pair<TA, TB, Curve, Curve, TOut>(
-                        key: DeviationKey,
-                        a: GeometryRequirement.CurveLength,
-                        b: GeometryRequirement.CurveLength,
-                        output: static (Curve left, Curve right, GeometryContext context) => CurveDeviationValue<TOut>(left: left, right: right, context: context)),
-                _ => null,
-            });
+                    a: GeometryRequirement.CurveLength,
+                    b: GeometryRequirement.CurveLength,
+                    output: static (Curve left, Curve right, GeometryContext context) => CurveDeviationValue<TOut>(left: left, right: right, context: context)),
+            _ => DeviationKey.Unsupported<(TA A, TB B), TOut>(),
+        };
     private static Fin<Seq<TOut>> CurveDeviationValue<TOut>(Curve left, Curve right, GeometryContext context) =>
         Curve.GetDistancesBetweenCurves(
                 curveA: left,
