@@ -14,10 +14,6 @@ namespace Analysis;
 // --- [OPERATIONS] ------------------------------------------------------------------------------
 
 public static partial class Query {
-    private delegate Fin<Seq<TOut>> PairOutput<TLeft, TRight, TOut>(
-        TLeft left,
-        TRight right,
-        GeometryContext context) where TLeft : notnull where TRight : notnull;
     private delegate bool CurvePointIntersection<TLeft, TRight>(
         TLeft left,
         TRight right,
@@ -238,12 +234,12 @@ public static partial class Query {
         OperationKey key,
         GeometryRequirement a,
         GeometryRequirement b,
-        PairOutput<TLeft, TRight, TOut> output) where TA : notnull where TB : notnull where TLeft : notnull where TRight : notnull =>
+        Func<TLeft, TRight, GeometryContext, Fin<Seq<TOut>>> output) where TA : notnull where TB : notnull where TLeft : notnull where TRight : notnull =>
         Query<(TA A, TB B), TOut>.Build(
             key: key,
             requiresContext: true,
             state: (Key: key, A: a, B: b, Output: output),
-            evaluator: static ((OperationKey Key, GeometryRequirement A, GeometryRequirement B, PairOutput<TLeft, TRight, TOut> Output) state, (TA A, TB B) geometry) =>
+            evaluator: static ((OperationKey Key, GeometryRequirement A, GeometryRequirement B, Func<TLeft, TRight, GeometryContext, Fin<Seq<TOut>>> Output) state, (TA A, TB B) geometry) =>
                 from rt in Analyze.Asks
                 from validated in rt.Context.ValidateOperands(
                         geometry: geometry,
@@ -257,14 +253,14 @@ public static partial class Query {
                     .ToEff()
                 select result);
     private static Fin<Seq<TOut>> PairOutputValue<TA, TB, TLeft, TRight, TOut>(
-        (OperationKey Key, GeometryRequirement A, GeometryRequirement B, PairOutput<TLeft, TRight, TOut> Output) state,
+        (OperationKey Key, GeometryRequirement A, GeometryRequirement B, Func<TLeft, TRight, GeometryContext, Fin<Seq<TOut>>> Output) state,
         (TA A, TB B) geometry,
         GeometryContext context) where TA : notnull where TB : notnull where TLeft : notnull where TRight : notnull =>
         (geometry.A, geometry.B) switch {
             (TLeft left, TRight right) => state.Output(
-                left: left,
-                right: right,
-                context: context),
+                arg1: left,
+                arg2: right,
+                arg3: context),
             _ => Fin.Fail<Seq<TOut>>(state.Key.Unsupported(
                 geometryType: typeof((TA A, TB B)),
                 outputType: typeof(TOut))),
@@ -321,8 +317,12 @@ public static partial class Query {
                     arg1: left,
                     arg2: right,
                     arg3: context)));
+    private static readonly System.Collections.Generic.HashSet<Type> EventOutputs =
+        [typeof(IntersectionEvent), typeof(Point3d), typeof(IntersectionKind)];
+    private static readonly System.Collections.Generic.HashSet<Type> CurveOutputs =
+        [typeof(Curve), typeof(Point3d), typeof(IntersectionKind)];
     private static bool Events(Type output) =>
-        output == typeof(IntersectionEvent) || output == typeof(Point3d) || output == typeof(IntersectionKind);
+        EventOutputs.Contains(item: output);
     private static bool Curves(Type output) =>
-        output == typeof(Curve) || output == typeof(Point3d) || output == typeof(IntersectionKind);
+        CurveOutputs.Contains(item: output);
 }
