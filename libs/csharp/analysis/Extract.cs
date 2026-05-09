@@ -376,79 +376,82 @@ public static partial class Query {
             _ => ComponentsKey.Unsupported<TGeometry, TOut>(),
         };
     public static Query<TGeometry, TOut> Topology<TGeometry, TOut>(Topology aspect) where TGeometry : notnull =>
-        (aspect.Kind, typeof(TGeometry), typeof(TOut)) switch {
-            (TopologyKind.Boundary, Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(Curve) =>
-                NakedEdges<TGeometry, TOut>(),
-            (TopologyKind.Boundary, Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(Polyline) =>
-                NakedEdges<TGeometry, TOut>(),
-            (TopologyKind.EdgeMidpoints, _, Type output) when output == typeof(Point3d) =>
-                EdgeMidpoints<TGeometry, TOut>(),
-            (TopologyKind.Adjacency, Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
-                Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, ComponentIndex>.Build(
-                    key: TopologyKey,
-                    evaluator: static (TGeometry geometry) => (geometry switch {
-                        Brep brep => Many(key: TopologyKey, values: Enumerable
-                            .Range(start: 0, count: brep.Edges.Count)
-                            .Select(static (int index) => new ComponentIndex(
-                                type: ComponentIndexType.BrepEdge,
-                                index: index))),
-                        _ => Fin.Fail<Seq<ComponentIndex>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(ComponentIndex))),
-                    }).ToEff())),
-            (TopologyKind.Adjacency, Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
-                Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, ComponentIndex>.Build(
-                    key: TopologyKey,
-                    evaluator: static (TGeometry geometry) => (geometry switch {
-                        Mesh mesh => Many(key: TopologyKey, values: Enumerable
-                            .Range(start: 0, count: mesh.TopologyEdges.Count)
-                            .Select(static (int index) => new ComponentIndex(
-                                type: ComponentIndexType.MeshTopologyEdge,
-                                index: index))),
-                        _ => Fin.Fail<Seq<ComponentIndex>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(ComponentIndex))),
-                    }).ToEff())),
-            (TopologyKind.NonManifold, Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
-                Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, ComponentIndex>.Build(
-                    key: TopologyKey,
-                    evaluator: static (TGeometry geometry) => (geometry switch {
-                        Brep brep => Many(key: TopologyKey, values: Enumerable
-                            .Range(start: 0, count: brep.Edges.Count)
-                            .Where((int index) => brep.Edges[index].Valence == EdgeAdjacency.NonManifold)
-                            .Select(static (int index) => new ComponentIndex(
-                                type: ComponentIndexType.BrepEdge,
-                                index: index))),
-                        _ => Fin.Fail<Seq<ComponentIndex>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(ComponentIndex))),
-                    }).ToEff())),
-            (TopologyKind.NonManifold, Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
-                Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, ComponentIndex>.Build(
-                    key: TopologyKey,
-                    evaluator: static (TGeometry geometry) => (geometry switch {
-                        Mesh mesh => Many(key: TopologyKey, values: Enumerable
-                            .Range(start: 0, count: mesh.TopologyEdges.Count)
-                            .Where((int index) => mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: index).Length > 2)
-                            .Select(static (int index) => new ComponentIndex(
-                                type: ComponentIndexType.MeshTopologyEdge,
-                                index: index))),
-                        _ => Fin.Fail<Seq<ComponentIndex>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(ComponentIndex))),
-                    }).ToEff())),
-            (TopologyKind.NonManifold, Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(bool) =>
-                Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, bool>.Build(
-                    key: TopologyKey,
-                    evaluator: static (TGeometry geometry) => (geometry switch {
-                        Brep brep => One(key: TopologyKey, value: Enumerable
-                            .Range(start: 0, count: brep.Edges.Count)
-                            .Any((int index) => brep.Edges[index].Valence == EdgeAdjacency.NonManifold)),
-                        _ => Fin.Fail<Seq<bool>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(bool))),
-                    }).ToEff())),
-            (TopologyKind.NonManifold, Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(bool) =>
-                Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, bool>.Build(
-                    key: TopologyKey,
-                    evaluator: static (TGeometry geometry) => (geometry switch {
-                        Mesh mesh => One(key: TopologyKey, value: Enumerable
-                            .Range(start: 0, count: mesh.TopologyEdges.Count)
-                            .Any((int index) => mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: index).Length > 2)),
-                        _ => Fin.Fail<Seq<bool>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(bool))),
-                    }).ToEff())),
-            _ => TopologyKey.Unsupported<TGeometry, TOut>(),
-        };
+        Aspect<TGeometry, TOut, Topology>(
+            aspect: aspect,
+            key: TopologyKey,
+            dispatch: static (Topology candidate) => (candidate.Kind, typeof(TGeometry), typeof(TOut)) switch {
+                (TopologyKind.Boundary, Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(Curve) =>
+                    NakedEdges<TGeometry, TOut>(),
+                (TopologyKind.Boundary, Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(Polyline) =>
+                    NakedEdges<TGeometry, TOut>(),
+                (TopologyKind.EdgeMidpoints, _, Type output) when output == typeof(Point3d) =>
+                    EdgeMidpoints<TGeometry, TOut>(),
+                (TopologyKind.Adjacency, Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
+                    Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, ComponentIndex>.Build(
+                        key: TopologyKey,
+                        evaluator: static (TGeometry geometry) => (geometry switch {
+                            Brep brep => Many(key: TopologyKey, values: Enumerable
+                                .Range(start: 0, count: brep.Edges.Count)
+                                .Select(static (int index) => new ComponentIndex(
+                                    type: ComponentIndexType.BrepEdge,
+                                    index: index))),
+                            _ => Fin.Fail<Seq<ComponentIndex>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(ComponentIndex))),
+                        }).ToEff())),
+                (TopologyKind.Adjacency, Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
+                    Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, ComponentIndex>.Build(
+                        key: TopologyKey,
+                        evaluator: static (TGeometry geometry) => (geometry switch {
+                            Mesh mesh => Many(key: TopologyKey, values: Enumerable
+                                .Range(start: 0, count: mesh.TopologyEdges.Count)
+                                .Select(static (int index) => new ComponentIndex(
+                                    type: ComponentIndexType.MeshTopologyEdge,
+                                    index: index))),
+                            _ => Fin.Fail<Seq<ComponentIndex>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(ComponentIndex))),
+                        }).ToEff())),
+                (TopologyKind.NonManifold, Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
+                    Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, ComponentIndex>.Build(
+                        key: TopologyKey,
+                        evaluator: static (TGeometry geometry) => (geometry switch {
+                            Brep brep => Many(key: TopologyKey, values: Enumerable
+                                .Range(start: 0, count: brep.Edges.Count)
+                                .Where((int index) => brep.Edges[index].Valence == EdgeAdjacency.NonManifold)
+                                .Select(static (int index) => new ComponentIndex(
+                                    type: ComponentIndexType.BrepEdge,
+                                    index: index))),
+                            _ => Fin.Fail<Seq<ComponentIndex>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(ComponentIndex))),
+                        }).ToEff())),
+                (TopologyKind.NonManifold, Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
+                    Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, ComponentIndex>.Build(
+                        key: TopologyKey,
+                        evaluator: static (TGeometry geometry) => (geometry switch {
+                            Mesh mesh => Many(key: TopologyKey, values: Enumerable
+                                .Range(start: 0, count: mesh.TopologyEdges.Count)
+                                .Where((int index) => mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: index).Length > 2)
+                                .Select(static (int index) => new ComponentIndex(
+                                    type: ComponentIndexType.MeshTopologyEdge,
+                                    index: index))),
+                            _ => Fin.Fail<Seq<ComponentIndex>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(ComponentIndex))),
+                        }).ToEff())),
+                (TopologyKind.NonManifold, Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(bool) =>
+                    Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, bool>.Build(
+                        key: TopologyKey,
+                        evaluator: static (TGeometry geometry) => (geometry switch {
+                            Brep brep => One(key: TopologyKey, value: Enumerable
+                                .Range(start: 0, count: brep.Edges.Count)
+                                .Any((int index) => brep.Edges[index].Valence == EdgeAdjacency.NonManifold)),
+                            _ => Fin.Fail<Seq<bool>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(bool))),
+                        }).ToEff())),
+                (TopologyKind.NonManifold, Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(bool) =>
+                    Cast<TGeometry, TOut>(key: TopologyKey, query: Query<TGeometry, bool>.Build(
+                        key: TopologyKey,
+                        evaluator: static (TGeometry geometry) => (geometry switch {
+                            Mesh mesh => One(key: TopologyKey, value: Enumerable
+                                .Range(start: 0, count: mesh.TopologyEdges.Count)
+                                .Any((int index) => mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: index).Length > 2)),
+                            _ => Fin.Fail<Seq<bool>>(TopologyKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(bool))),
+                        }).ToEff())),
+                _ => null,
+            });
     public static Query<Mesh, bool> IsManifold =>
         Query<Mesh, bool>.Build(
             key: IsManifoldKey,
