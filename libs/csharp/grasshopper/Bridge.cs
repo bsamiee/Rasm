@@ -70,6 +70,23 @@ public static class Bridge {
         access.AddError(text: label, details: $"{label} input is required. Connect: {accepted}.");
         return Unit.Default;
     }
+    public static AnalysisRuntime WithIndex(
+        this AnalysisRuntime scope,
+        IDataAccess access,
+        IndexInputSpec spec) {
+        ArgumentNullException.ThrowIfNull(argument: scope);
+        ArgumentNullException.ThrowIfNull(argument: access);
+        return scope with {
+            Index = IndexHint
+                .Create(value: (access.GetItem(index: 1, value: out int candidate), candidate) switch {
+                    (true, int value) => value,
+                    _ => spec.Default,
+                })
+                .Match(
+                    Succ: static (IndexHint hint) => Some(hint),
+                    Fail: static (Error _) => Option<IndexHint>.None),
+        };
+    }
     private static Fin<AnalysisRuntime> RemarkAndFallback(IDataAccess access) {
         access.AddRemark(
             text: "Tolerance",

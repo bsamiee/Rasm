@@ -128,16 +128,7 @@ public abstract class AnalysisComponent<TInput> : Component where TInput : Rhino
         _ = access
             .ResolveScope()
             .Map((AnalysisRuntime scope) => IndexInput.Match(
-                Some: (IndexInputSpec spec) => scope with {
-                    Index = IndexHint
-                        .Create(value: (access.GetItem(index: 1, value: out int candidate), candidate) switch {
-                            (true, int value) => value,
-                            _ => spec.Default,
-                        })
-                        .Match(
-                            Succ: static (IndexHint hint) => Some(hint),
-                            Fail: static (Error _) => Option<IndexHint>.None),
-                },
+                Some: (IndexInputSpec spec) => scope.WithIndex(access: access, spec: spec),
                 None: () => scope))
             .Map((AnalysisRuntime scoped) => (
                 access.GetItem(index: 0, value: out object? item),
