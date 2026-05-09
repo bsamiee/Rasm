@@ -100,3 +100,23 @@ Grasshopper uses GH2 component APIs directly: `Grasshopper2.Components.Component
 GH2 can run component work in parallel. Component code must keep execution state local to `Process`; reusable geometry logic belongs in `Core` and `Analysis`.
 
 Python and RhinoCode publishing stay out of this foundation until the local runtime path is proven compatible.
+
+## Adding a New Supported Geometry Type
+
+Components inheriting `AnalysisComponent<TInput>` (with `where TInput : RhinoGeometry`) resolve CLR types to concrete `Grasshopper2.Parameters.Standard` implementations through the [`GeometryParameterKind`](libs/csharp/grasshopper/GeometryParameterKind.cs) SmartEnum. Each case closes over the typed `InputAdder.Add{X}` / `OutputAdder.Add{X}` method groups — adding a case is the single point of extension; an unmapped CLR type returns `Option<GeometryParameterKind>.None` from `From(Type)` rather than silently routing to a generic parameter.
+
+Currently mapped: `Point` (`Point3d`), `Vector` (`Vector3d`), `Curve`, `Surface`, `Brep`, `Mesh`, `Box`, `Plane`, `Line`, `Circle`, `Arc`, `Sphere`, `SubD`, `Polyline`.
+
+To add a new type (e.g. `Point2d`), append one `static readonly` field:
+
+```csharp
+public static readonly GeometryParameterKind Point2 = new(
+    key: nameof(Point2),
+    clrType: typeof(Point2d),
+    addInput: static (InputAdder adder, string name, string code, string info, Access access, Requirement requirement) =>
+        adder.AddPoint2(name: name, code: code, info: info, access: access, requirement: requirement),
+    addOutput: static (OutputAdder adder, string name, string code, string info, Access access) =>
+        adder.AddPoint2(name: name, code: code, info: info, access: access));
+```
+
+The lambdas must be `static` (no captured state). Thinktecture's `[SmartEnum<string>]` source generator exposes the new case via `GeometryParameterKind.Items` — `From<T>()` resolves it without any runtime registration.
