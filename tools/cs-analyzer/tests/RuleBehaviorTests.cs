@@ -764,7 +764,7 @@ public sealed class RuleBehaviorTests {
     [Fact]
     public async Task AnalysisLibraryPathDoesNotApplyDomainSignatureRulesAsync() {
         ImmutableArray<string> ids = await AnalyzeIdsAsync(
-            filePath: "/workspace/libs/csharp/analysis/Analyze.cs",
+            filePath: "/workspace/libs/csharp/Rasm/Analysis/Analyze.cs",
             source: Source(ns: "Analysis", type: "Analyze", members: """
                 public double Execute(double value) => value;
                 """)).ConfigureAwait(true);

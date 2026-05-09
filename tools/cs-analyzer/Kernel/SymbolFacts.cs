@@ -86,7 +86,7 @@ internal static class Markers {
     internal static readonly string[] CompositionNamespace = [".Bootstrap", ".Composition", ".DependencyInjection", ".Infrastructure"];
     internal static readonly string[] CompositionPath = ["Composition", "Bootstrap", "DependencyInjection", "Infrastructure"];
     internal static readonly string[] SharedPath = ["/Shared/", "\\Shared\\", "/SharedKernel/", "\\SharedKernel\\"];
-    internal static readonly string[] AnalysisPath = ["/libs/csharp/analysis/", "\\libs\\csharp\\analysis\\"];
+    internal static readonly string[] AnalysisPath = ["/libs/csharp/Rasm/Analysis/", "\\libs\\csharp\\Rasm\\Analysis\\"];
     internal static readonly string[] GeneratedPath = [".g.cs", ".designer.cs", "/obj/", "\\obj\\"];
     internal static readonly string[] TestPath = ["/tests/", "\\tests\\", ".Tests", "Test.cs", "Tests.cs"];
     internal static readonly string[] ObservabilityParts = ["Observability", "Telemetry"];
