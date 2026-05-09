@@ -264,7 +264,7 @@ public static partial class Query {
                     evaluator: static (int sampleCount, TGeometry geometry) => geometry switch {
                         Curve curve =>
                             from rt in Analyze.Asks
-                            from values in CurveScalarProfile(curve: curve, count: sampleCount, model: rt.Context, scalar: CurvatureScalar.Magnitude).ToEff()
+                            from values in CurveCurvatures(curve: curve, count: sampleCount, model: rt.Context).Map(static (Seq<Vector3d> vectors) => vectors.Map(static (Vector3d v) => v.Length)).ToEff()
                             from profile in Profile(scalar: CurvatureScalar.Magnitude, values: values).ToEff()
                             select Seq(profile),
                         _ => Eff<AnalysisRuntime, Seq<CurvatureProfile>>.Fail(error: CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(CurvatureProfile))),
@@ -277,7 +277,7 @@ public static partial class Query {
                     evaluator: static (int sampleCount, TGeometry geometry) => geometry switch {
                         Curve curve =>
                             from rt in Analyze.Asks
-                            from values in CurveScalarProfile(curve: curve, count: sampleCount, model: rt.Context, scalar: CurvatureScalar.Magnitude).ToEff()
+                            from values in CurveCurvatures(curve: curve, count: sampleCount, model: rt.Context).Map(static (Seq<Vector3d> vectors) => vectors.Map(static (Vector3d v) => v.Length)).ToEff()
                             from result in Many(key: CurvatureAtKey, values: values).ToEff()
                             select result,
                         _ => Eff<AnalysisRuntime, Seq<double>>.Fail(error: CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(double))),
@@ -351,12 +351,6 @@ public static partial class Query {
                         _ => Eff<AnalysisRuntime, Seq<double>>.Fail(error: CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(double))),
                     })),
             _ => CurvatureAtKey.Unsupported<TGeometry, TOut>(),
-        };
-    private static Fin<Seq<double>> CurveScalarProfile(Curve curve, int count, GeometryContext model, CurvatureScalar scalar) =>
-        scalar switch {
-            CurvatureScalar.Magnitude => CurveCurvatures(curve: curve, count: count, model: model)
-                .Map(static (Seq<Vector3d> values) => values.Map(static (Vector3d value) => value.Length)),
-            _ => Fin.Fail<Seq<double>>(CurvatureAtKey.Unsupported(geometryType: typeof(Curve), outputType: typeof(double))),
         };
     private static Fin<Seq<double>> SurfaceScalarProfile(Surface surface, int count, GeometryContext model, CurvatureScalar scalar) =>
         SurfaceCurvatures(surface: surface, count: count, model: model).Bind((Seq<SurfaceCurvature> curvatures) => SurfaceScalars(curvatures: curvatures, scalar: scalar));
