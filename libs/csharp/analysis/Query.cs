@@ -4,7 +4,6 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using Core;
 using Core.Domain;
-using Core.Runtime;
 using LanguageExt;
 using LanguageExt.Common;
 using Rhino.Geometry;
@@ -159,6 +158,13 @@ public partial record Location {
     public sealed record Contains(Point3d Point, Plane Plane) : Location;
     public sealed record ShortPath(Point2d Start, Point2d End) : Location;
 }
+[Union]
+public partial record Faces {
+    public sealed record All : Faces;
+    public sealed record Top : Faces;
+    public sealed record Bottom : Faces;
+    public sealed record At : Faces;
+}
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Topology {
     private Topology(TopologyKind kind) =>
@@ -209,7 +215,9 @@ public static partial class Query {
         TopologyKey = new(name: nameof(Topology)), ScopeKey = new(name: nameof(Analyze.Scope)),
         KindKey = new(name: nameof(Kind)),
         UniqueCornersKey = new(name: "UniqueCorners"),
-        WorldCardinalPointsKey = new(name: "WorldCardinalPoints");
+        WorldCardinalPointsKey = new(name: "WorldCardinalPoints"),
+        FacesKey = new(name: nameof(Faces)),
+        FaceFrameKey = new(name: "FaceFrame");
     internal static Query<TGeometry, TOut> Unsupported<TGeometry, TOut>(this OperationKey key) where TGeometry : notnull =>
         Query<TGeometry, TOut>.Reject(
             key: key,
@@ -380,125 +388,90 @@ public static partial class Query {
                 select result,
             _ => Eff<AnalysisRuntime, Seq<TOut>>.Fail(error: key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))),
         };
-    internal static Query<TGeometry, TOut> LengthMass<TGeometry, TOut>(
-        string name,
-        Func<OperationKey, LengthMassProperties, Fin<Seq<TOut>>> project,
-        bool secondMoments = true,
-        bool productMoments = false) where TGeometry : notnull =>
-        Mass<TGeometry, LengthMassProperties, TOut>(
-            name: name,
-            requirement: GeometryRequirement.CurveLength,
-            compute: static (TGeometry geometry, bool second, bool product) =>
-                (geometry switch {
-                    Curve curve => Optional(LengthMassProperties.Compute(
-                            curve: curve,
-                            length: true,
-                            firstMoments: true,
-                            secondMoments: second,
-                            productMoments: product))
-                        .ToFin(MassFault.Failed(label: nameof(LengthMassProperties))),
-                    _ => Fin.Fail<LengthMassProperties>(MassFault.Unsupported(
-                        label: nameof(LengthMassProperties),
-                        geometryType: geometry.GetType())),
-                }).ToEff(),
-            project: project,
-            secondMoments: secondMoments,
-            productMoments: productMoments);
-    internal static Query<TGeometry, TOut> AreaMass<TGeometry, TOut>(
-        string name,
-        Func<OperationKey, AreaMassProperties, Fin<Seq<TOut>>> project,
-        bool secondMoments = false,
-        bool productMoments = false) where TGeometry : notnull =>
-        Mass<TGeometry, AreaMassProperties, TOut>(
-            name: name,
-            requirement: GeometryRequirement.AreaMass,
-            compute: static (TGeometry geometry, bool second, bool product) =>
-                from rt in Analyze.Asks
-                from props in (geometry switch {
-                    Curve curve => AreaMassProperties.Compute(
-                            closedPlanarCurve: curve,
-                            planarTolerance: rt.Context.Absolute.Value)
-                        .Mass(label: nameof(AreaMassProperties)),
-                    Mesh mesh => AreaMassProperties.Compute(
-                            mesh: mesh,
-                            area: true,
-                            firstMoments: true,
-                            secondMoments: second,
-                            productMoments: product)
-                        .Mass(label: nameof(AreaMassProperties)),
-                    Brep brep => AreaMassProperties.Compute(
-                            brep: brep,
-                            area: true,
-                            firstMoments: true,
-                            secondMoments: second,
-                            productMoments: product,
-                            relativeTolerance: rt.Context.Relative.Value,
-                            absoluteTolerance: rt.Context.Absolute.Value)
-                        .Mass(label: nameof(AreaMassProperties)),
-                    Surface surface => AreaMassProperties.Compute(
-                            surface: surface,
-                            area: true,
-                            firstMoments: true,
-                            secondMoments: second,
-                            productMoments: product)
-                        .Mass(label: nameof(AreaMassProperties)),
-                    _ => Fin.Fail<AreaMassProperties>(MassFault.Unsupported(
-                        label: nameof(AreaMassProperties),
-                        geometryType: geometry.GetType())),
-                }).ToEff()
-                select props,
-            project: project,
-            secondMoments: secondMoments,
-            productMoments: productMoments);
-    internal static Query<TGeometry, TOut> VolumeMass<TGeometry, TOut>(
-        string name,
-        Func<OperationKey, VolumeMassProperties, Fin<Seq<TOut>>> project,
-        bool secondMoments = false,
-        bool productMoments = false) where TGeometry : notnull =>
-        Mass<TGeometry, VolumeMassProperties, TOut>(
-            name: name,
-            requirement: GeometryRequirement.VolumeMass,
-            compute: static (TGeometry geometry, bool second, bool product) =>
-                from rt in Analyze.Asks
-                from props in (geometry switch {
-                    Mesh mesh => VolumeMassProperties.Compute(
-                            mesh: mesh,
-                            volume: true,
-                            firstMoments: true,
-                            secondMoments: second,
-                            productMoments: product)
-                        .Mass(label: nameof(VolumeMassProperties)),
-                    Brep brep => VolumeMassProperties.Compute(
-                            brep: brep,
-                            volume: true,
-                            firstMoments: true,
-                            secondMoments: second,
-                            productMoments: product,
-                            relativeTolerance: rt.Context.Relative.Value,
-                            absoluteTolerance: rt.Context.Absolute.Value)
-                        .Mass(label: nameof(VolumeMassProperties)),
-                    Surface surface => VolumeMassProperties.Compute(
-                            surface: surface,
-                            volume: true,
-                            firstMoments: true,
-                            secondMoments: second,
-                            productMoments: product)
-                        .Mass(label: nameof(VolumeMassProperties)),
-                    _ => Fin.Fail<VolumeMassProperties>(MassFault.Unsupported(
-                        label: nameof(VolumeMassProperties),
-                        geometryType: geometry.GetType())),
-                }).ToEff()
-                select props,
-            project: project,
-            secondMoments: secondMoments,
-            productMoments: productMoments);
-    private static Query<TGeometry, TOut> Mass<TGeometry, TMass, TOut>(
+    internal static readonly Func<object, bool, bool, Eff<AnalysisRuntime, LengthMassProperties>> ComputeLength =
+        static (object geometry, bool second, bool product) =>
+            (geometry switch {
+                Curve curve => Optional(LengthMassProperties.Compute(
+                        curve: curve,
+                        length: true,
+                        firstMoments: true,
+                        secondMoments: second,
+                        productMoments: product))
+                    .ToFin(MassFault.Failed(label: nameof(LengthMassProperties))),
+                _ => Fin.Fail<LengthMassProperties>(MassFault.Unsupported(
+                    label: nameof(LengthMassProperties),
+                    geometryType: geometry.GetType())),
+            }).ToEff();
+    internal static readonly Func<object, bool, bool, Eff<AnalysisRuntime, AreaMassProperties>> ComputeArea =
+        static (object geometry, bool second, bool product) =>
+            from rt in Analyze.Asks
+            from props in Optional(geometry switch {
+                Curve curve => AreaMassProperties.Compute(
+                    closedPlanarCurve: curve,
+                    planarTolerance: rt.Context.Absolute.Value),
+                Mesh mesh => AreaMassProperties.Compute(
+                    mesh: mesh,
+                    area: true,
+                    firstMoments: true,
+                    secondMoments: second,
+                    productMoments: product),
+                Brep brep => AreaMassProperties.Compute(
+                    brep: brep,
+                    area: true,
+                    firstMoments: true,
+                    secondMoments: second,
+                    productMoments: product,
+                    relativeTolerance: rt.Context.Relative.Value,
+                    absoluteTolerance: rt.Context.Absolute.Value),
+                Surface surface => AreaMassProperties.Compute(
+                    surface: surface,
+                    area: true,
+                    firstMoments: true,
+                    secondMoments: second,
+                    productMoments: product),
+                _ => null,
+            }).ToFin(geometry switch {
+                Curve or Mesh or Brep or Surface => MassFault.Failed(label: nameof(AreaMassProperties)),
+                _ => MassFault.Unsupported(label: nameof(AreaMassProperties), geometryType: geometry.GetType()),
+            }).ToEff()
+            select props;
+    internal static readonly Func<object, bool, bool, Eff<AnalysisRuntime, VolumeMassProperties>> ComputeVolume =
+        static (object geometry, bool second, bool product) =>
+            from rt in Analyze.Asks
+            from props in Optional(geometry switch {
+                Mesh mesh => VolumeMassProperties.Compute(
+                    mesh: mesh,
+                    volume: true,
+                    firstMoments: true,
+                    secondMoments: second,
+                    productMoments: product),
+                Brep brep => VolumeMassProperties.Compute(
+                    brep: brep,
+                    volume: true,
+                    firstMoments: true,
+                    secondMoments: second,
+                    productMoments: product,
+                    relativeTolerance: rt.Context.Relative.Value,
+                    absoluteTolerance: rt.Context.Absolute.Value),
+                Surface surface => VolumeMassProperties.Compute(
+                    surface: surface,
+                    volume: true,
+                    firstMoments: true,
+                    secondMoments: second,
+                    productMoments: product),
+                _ => null,
+            }).ToFin(geometry switch {
+                Mesh or Brep or Surface => MassFault.Failed(label: nameof(VolumeMassProperties)),
+                _ => MassFault.Unsupported(label: nameof(VolumeMassProperties), geometryType: geometry.GetType()),
+            }).ToEff()
+            select props;
+    internal static Query<TGeometry, TOut> Mass<TGeometry, TMass, TOut>(
         string name,
         GeometryRequirement requirement,
-        Func<TGeometry, bool, bool, Eff<AnalysisRuntime, TMass>> compute,
+        Func<object, bool, bool, Eff<AnalysisRuntime, TMass>> compute,
         Func<OperationKey, TMass, Fin<Seq<TOut>>> project,
-        bool secondMoments,
-        bool productMoments) where TGeometry : notnull where TMass : class, IDisposable {
+        bool secondMoments = false,
+        bool productMoments = false) where TGeometry : notnull where TMass : class, IDisposable {
         OperationKey key = new(name: name);
         return Query<TGeometry, TOut>.Build(
             key: key,
@@ -522,10 +495,22 @@ public static partial class Query {
         using TMass disposable = mass;
         return project(arg1: key, arg2: disposable);
     }
-    private static Fin<TMass> Mass<TMass>(this TMass? mass, string label) where TMass : class, IDisposable =>
-        Optional(mass)
-            .ToFin(MassFault.Failed(label: label));
-    internal static Fin<Seq<(double Moment, Vector3d Axis)>> Principal(
+    internal static Fin<Seq<(double Moment, Vector3d Axis)>> Principal<TMass>(
+        this OperationKey key,
+        TMass mass) where TMass : class =>
+        mass switch {
+            LengthMassProperties length => key.PrincipalFromMoments(
+                solved: length.WorldCoordinatesPrincipalMoments(x: out double x, xaxis: out Vector3d xAxis, y: out double y, yaxis: out Vector3d yAxis, z: out double z, zaxis: out Vector3d zAxis),
+                x: x, xAxis: xAxis, y: y, yAxis: yAxis, z: z, zAxis: zAxis),
+            AreaMassProperties area => key.PrincipalFromMoments(
+                solved: area.WorldCoordinatesPrincipalMoments(x: out double x, xaxis: out Vector3d xAxis, y: out double y, yaxis: out Vector3d yAxis, z: out double z, zaxis: out Vector3d zAxis),
+                x: x, xAxis: xAxis, y: y, yAxis: yAxis, z: z, zAxis: zAxis),
+            VolumeMassProperties volume => key.PrincipalFromMoments(
+                solved: volume.WorldCoordinatesPrincipalMoments(x: out double x, xaxis: out Vector3d xAxis, y: out double y, yaxis: out Vector3d yAxis, z: out double z, zaxis: out Vector3d zAxis),
+                x: x, xAxis: xAxis, y: y, yAxis: yAxis, z: z, zAxis: zAxis),
+            _ => Fin.Fail<Seq<(double Moment, Vector3d Axis)>>(key.InvalidResult()),
+        };
+    private static Fin<Seq<(double Moment, Vector3d Axis)>> PrincipalFromMoments(
         this OperationKey key,
         bool solved,
         double x, Vector3d xAxis, double y, Vector3d yAxis, double z, Vector3d zAxis) =>
