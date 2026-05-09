@@ -1,11 +1,9 @@
-using System.Diagnostics.CodeAnalysis;
-using Core.Runtime;
+using Core.Domain;
 using LanguageExt.Common;
 namespace Core;
 
 // --- [CONSTANTS] -------------------------------------------------------------------------------
 
-[SuppressMessage(category: "Naming", checkId: "CA1724:Type names should not match namespaces", Justification = "Domain name fixed by refactor plan; conflict is with optional Microsoft.Extensions.Http.Resilience namespace not used in this assembly.")]
 public static class Resilience {
     public static readonly Schedule StandardPolicy =
         Schedule.exponential(seed: new Duration(milliseconds: 50.0))

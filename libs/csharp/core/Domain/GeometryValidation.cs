@@ -42,20 +42,26 @@ internal static class GeometryValidation {
         GeometryRequirement a,
         GeometryRequirement b) where TA : GeometryBase where TB : GeometryBase =>
         (context.Validate(geometry: geometry.A, requirement: a),
-         context.Validate(geometry: geometry.B, requirement: b)).Combine();
+         context.Validate(geometry: geometry.B, requirement: b))
+            .Apply(static (TA a, TB b) => (A: a, B: b))
+            .As();
     internal static Validation<Error, (TA A, TB B)> ValidateFirst<TA, TB>(
         this GeometryContext context,
         (TA A, TB B) geometry,
         GeometryRequirement requirement) where TA : GeometryBase =>
         (context.Validate(geometry: geometry.A, requirement: requirement),
-         geometry.B.ValidateNativeOperand()).Combine();
+         geometry.B.ValidateNativeOperand())
+            .Apply(static (TA a, TB b) => (A: a, B: b))
+            .As();
     internal static Validation<Error, (TA A, TB B)> ValidateOperands<TA, TB>(
         this GeometryContext context,
         (TA A, TB B) geometry,
         GeometryRequirement a,
         GeometryRequirement b) where TA : notnull where TB : notnull =>
         (context.ValidateOperand(operand: geometry.A, requirement: a),
-         context.ValidateOperand(operand: geometry.B, requirement: b)).Combine();
+         context.ValidateOperand(operand: geometry.B, requirement: b))
+            .Apply(static (TA a, TB b) => (A: a, B: b))
+            .As();
     internal static Validation<Error, TValue> ValidateOperand<TValue>(
         this GeometryContext context,
         TValue operand,
