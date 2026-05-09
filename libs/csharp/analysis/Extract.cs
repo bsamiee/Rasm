@@ -1,6 +1,7 @@
 using System.Threading;
 using Core;
 using Core.Domain;
+using Core.Runtime;
 using LanguageExt;
 using LanguageExt.Common;
 using Rhino;
@@ -522,19 +523,14 @@ public static partial class Query {
             Analysis.MeshFaceMetric.AspectRatio => Query<Mesh, MeshFaceSample>.Build(
                 key: MeshFaceMetricKey,
                 requirement: GeometryRequirement.MeshCheck,
-                evaluator: static (Mesh geometry) => Enumerable
+                evaluator: static (Mesh geometry) => toSeq(Enumerable
                     .Range(start: 0, count: geometry.Faces.Count)
                     .Select((int face) => geometry.Faces.GetFaceAspectRatio(index: face) switch {
                         double value when RhinoMath.IsValidDouble(x: value) && value >= 0.0 =>
                             Fin.Succ(new MeshFaceSample(Face: face, Value: value)),
                         _ => Fin.Fail<MeshFaceSample>(MeshFaceMetricKey.InvalidResult()),
-                    })
-                    .Aggregate(
-                        seed: Fin.Succ(Seq<MeshFaceSample>()),
-                        func: static (Fin<Seq<MeshFaceSample>> current, Fin<MeshFaceSample> sample) => (
-                            current,
-                            sample
-                        ).Apply(static (Seq<MeshFaceSample> values, MeshFaceSample next) => values.Add(next)).As())
+                    }))
+                    .TraverseFin()
                     .ToEff()),
             _ => Query<Mesh, MeshFaceSample>.Reject(
                 key: MeshFaceMetricKey,
