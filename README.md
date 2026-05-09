@@ -15,8 +15,8 @@ RhinoWIP macOS workspace for first-party Rhino and Grasshopper products. Each ap
 | Path | Purpose |
 | ---- | ------- |
 | `apps/grasshopper/Radyab` | Radyab GH2 `.rhp` plugin boundary. |
-| `libs/csharp/core` | Shared RhinoCommon-aware geometry context, validation, and result rails. |
-| `libs/csharp/analysis` | RhinoCommon-native analysis query algebra for future components. |
+| `libs/csharp/Rasm` | RhinoCommon-aware geometry domain + analysis algebra (merged). |
+| `libs/csharp/Rasm.Grasshopper` | GH2 component infrastructure: typed parameter bindings, bridge plumbing, component base. |
 | `tests/csharp` | Managed C# contract tests for shared libraries. |
 | `tests/rhino` | Opt-in RhinoWIP runtime specs for shared Rhino behavior. |
 | `tools/cs-analyzer` | Local Roslyn analyzer project used by C# builds. |
@@ -103,7 +103,7 @@ Python and RhinoCode publishing stay out of this foundation until the local runt
 
 ## Adding a New Supported Geometry Type
 
-Components inheriting `AnalysisComponent<TInput>` (with `where TInput : RhinoGeometry`) resolve CLR types to concrete `Grasshopper2.Parameters.Standard` implementations through the [`GeometryParameterKind`](libs/csharp/grasshopper/GeometryParameterKind.cs) SmartEnum. Each case closes over the typed `InputAdder.Add{X}` / `OutputAdder.Add{X}` method groups — adding a case is the single point of extension; an unmapped CLR type returns `Option<GeometryParameterKind>.None` from `From(Type)` rather than silently routing to a generic parameter.
+Components inheriting `AnalysisComponent<TInput>` (with `where TInput : RhinoGeometry`) resolve CLR types to concrete `Grasshopper2.Parameters.Standard` implementations through the [`GeometryParameterKind`](libs/csharp/Rasm.Grasshopper/GeometryParameterKind.cs) SmartEnum. Each case closes over the typed `InputAdder.Add{X}` / `OutputAdder.Add{X}` method groups — adding a case is the single point of extension; an unmapped CLR type returns `Option<GeometryParameterKind>.None` from `From(Type)` rather than silently routing to a generic parameter.
 
 Currently mapped: `Point` (`Point3d`), `Vector` (`Vector3d`), `Curve`, `Surface`, `Brep`, `Mesh`, `Box`, `Plane`, `Line`, `Circle`, `Arc`, `Sphere`, `SubD`, `Polyline`.
 
