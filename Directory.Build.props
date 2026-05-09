@@ -51,6 +51,30 @@
         <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
     </PropertyGroup>
 
+    <PropertyGroup Label="Workspace Integrity">
+        <WorkspaceSolutionPath Condition="'$(WorkspaceSolutionPath)' == ''">$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', 'Workspace.slnx'))</WorkspaceSolutionPath>
+        <SkipWorkspaceIntegrityCheck Condition="'$(SkipWorkspaceIntegrityCheck)' == ''">false</SkipWorkspaceIntegrityCheck>
+    </PropertyGroup>
+
+    <Target Name="ValidateWorkspaceSolution"
+            BeforeTargets="CollectPackageReferences;Restore;_GenerateRestoreProjectPathItems"
+            Condition="'$(SkipWorkspaceIntegrityCheck)' != 'true' and Exists('$(WorkspaceSolutionPath)')">
+        <XmlPeek XmlInputPath="$(WorkspaceSolutionPath)"
+                 Query="/Solution/Folder/Project/@Path | /Solution/Project/@Path">
+            <Output TaskParameter="Result" ItemName="_WorkspaceProjectPath" />
+        </XmlPeek>
+        <ItemGroup>
+            <_WorkspaceProjectAbsolute Include="@(_WorkspaceProjectPath)">
+                <Absolute>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '%(Identity)'))</Absolute>
+            </_WorkspaceProjectAbsolute>
+            <_WorkspaceMissingProject Include="@(_WorkspaceProjectAbsolute)"
+                                      Condition="!Exists('%(Absolute)')" />
+        </ItemGroup>
+        <Error Condition="'@(_WorkspaceMissingProject->Count())' != '0'"
+               Code="RASM0001"
+               Text="Workspace.slnx references project path(s) that do not exist on disk: @(_WorkspaceMissingProject->'%(Identity)', ', '). Run 'dotnet sln Workspace.slnx remove %3CmissingPath%3E' or restore the file before retrying restore." />
+    </Target>
+
     <PropertyGroup Label="Package Versions">
         <LanguageExtCoreVersion>5.0.0-beta-77</LanguageExtCoreVersion>
         <ThinktectureRuntimeExtensionsVersion>10.2.0</ThinktectureRuntimeExtensionsVersion>
