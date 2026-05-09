@@ -126,6 +126,15 @@ internal static class RuleCatalog {
     /// a targeted remediation when the imperative shape is specifically an accumulator.
     /// </summary>
     internal static readonly DiagnosticDescriptor CSP0725 = Err("CSP0725", "ImperativeAccumulator", "Loop body mutates outer-scope variable '{0}'; use Seq<T>.Fold or TraverseFin/TraverseValidation", "FunctionalDiscipline");
+    /// <summary>
+    /// CSP0723 RhinoActiveDocLeak — fires on accesses to ambient Rhino runtime state from non-boundary code:
+    /// RhinoDoc.ActiveDoc (static singleton), RhinoApp.* (any static property or method on RhinoApp), or
+    /// any other static member on a Rhino.* containing type. Such accesses leak host-process global state
+    /// into otherwise-pure code; route the document/app handle through a parameter or composition-root injection.
+    /// Suppressed inside [BoundaryAdapter]-marked types or members, and via [BoundaryImperativeExemption]
+    /// with ruleId="CSP0723" and reason=ProtocolRequired.
+    /// </summary>
+    internal static readonly DiagnosticDescriptor CSP0723 = Err("CSP0723", "RhinoActiveDocLeak", "Ambient Rhino state '{0}' accessed outside boundary adapter; pass RhinoDoc/runtime via parameter", "FunctionalDiscipline");
 
     // --- [CONVENTION_RULES] ---------------------------------------------------
 
@@ -150,6 +159,6 @@ internal static class RuleCatalog {
         CSP0601, CSP0602, CSP0603, CSP0604, CSP0605, CSP0606, CSP0607, CSP0608,
         CSP0701, CSP0702, CSP0703, CSP0704, CSP0705, CSP0706, CSP0707, CSP0708, CSP0709,
         CSP0710, CSP0711, CSP0712, CSP0713, CSP0714, CSP0715, CSP0717, CSP0718, CSP0719, CSP0720,
-        CSP0724, CSP0725,
+        CSP0723, CSP0724, CSP0725,
         CSP0901, CSP0902);
 }

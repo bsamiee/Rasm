@@ -71,6 +71,7 @@ CSP0717 | TypeDiscipline        | Error    | WithExpressionBypass
 CSP0718 | FunctionalDiscipline  | Error    | MutableAccumulatorInLoop
 CSP0719 | TypeDiscipline        | Error    | UnsafeNumericConversion
 CSP0720 | TypeDiscipline        | Error    | InitOnlyBypassOnValidated
+CSP0723 | FunctionalDiscipline  | Error    | RhinoActiveDocLeak
 CSP0724 | TypeDiscipline        | Error    | FlagsEnumOveruse
 CSP0725 | FunctionalDiscipline  | Error    | ImperativeAccumulator
 CSP0901 | Governance            | Error    | ExemptionMetadataInvalid

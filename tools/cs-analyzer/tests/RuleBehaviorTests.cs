@@ -448,6 +448,22 @@ public sealed class RuleBehaviorTests {
                 public static LanguageExt.Fin<InitBypass> Create(int value) => new();
             }
             """)),
+        new("CSP0723", File(scope: "Domain/Services", type: "RhinoActiveDocLeak"), """
+            namespace Rhino {
+                public sealed class RhinoDoc {
+                    public static RhinoDoc? ActiveDoc { get; }
+                }
+                public static class RhinoApp {
+                    public static void WriteLine(string text) { }
+                }
+            }
+
+            namespace Domain.Services {
+                public sealed class RhinoActiveDocLeak {
+                    public Rhino.RhinoDoc? Read() => Rhino.RhinoDoc.ActiveDoc;
+                }
+            }
+            """),
         new("CSP0724", File(scope: "Domain/Models", type: "FlagsEnumNoComposition"), """
             namespace Domain.Models;
 
@@ -532,6 +548,29 @@ public sealed class RuleBehaviorTests {
             userMessage: $"Missing behavior cases: {string.Join(", ", missingIds)}. Stale behavior cases: {string.Join(", ", staleIds)}");
     }
 
+    [Fact]
+    public async Task BoundaryAdapterAccessingRhinoActiveDocDoesNotEmitRhinoActiveDocLeakDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Integration/RhinoActiveDocBoundary.cs",
+            source: """
+                using Foundation.CSharp.Analyzers.Contracts;
+
+                namespace Rhino {
+                    public sealed class RhinoDoc {
+                        public static RhinoDoc? ActiveDoc { get; }
+                    }
+                }
+
+                namespace Integration {
+                    [BoundaryAdapter]
+                    public sealed class RhinoActiveDocBoundary {
+                        public Rhino.RhinoDoc? Read() => Rhino.RhinoDoc.ActiveDoc;
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0723", collection: ids);
+    }
     [Fact]
     public async Task LoopWithoutOuterScopeAccumulatorDoesNotEmitImperativeAccumulatorDiagnosticAsync() {
         ImmutableArray<string> ids = await AnalyzeIdsAsync(

@@ -80,10 +80,12 @@ internal static class AnalyzerDispatcher {
                 RuntimeRules.CheckChannelTopology(context, scope, invocation);
                 RuntimeRules.CheckRegexStaticMethod(context, scope, invocation);
                 RuntimeRules.CheckUnsafeNumericConversion(context, scope, invocation);
+                RuntimeRules.CheckRhinoAmbientInvocation(context, scope, invocation);
                 return;
             case (_, IPropertyReferenceOperation propertyReference):
                 FlowRules.CheckAsyncBlockingProperty(context, scope, propertyReference);
                 RuntimeRules.CheckWallClock(context, scope, propertyReference);
+                RuntimeRules.CheckRhinoAmbientPropertyAccess(context, scope, propertyReference);
                 return;
             case (_, IObjectCreationOperation objectCreation):
                 ShapeRules.CheckMutableCollections(context, scope, objectCreation);

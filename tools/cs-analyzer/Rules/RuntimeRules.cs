@@ -187,6 +187,31 @@ internal static class RuntimeRules {
         });
     }
 
+    // --- [RHINO_AMBIENT_RULES] ------------------------------------------------
+
+    internal static void CheckRhinoAmbientPropertyAccess(OperationAnalysisContext context, ScopeInfo scope, IPropertyReferenceOperation propertyReference) {
+        bool ambientLeak = IsRhinoAmbientStateMember(
+            isStatic: propertyReference.Property.IsStatic,
+            containingType: propertyReference.Property.ContainingType,
+            memberName: propertyReference.Property.Name);
+        bool boundaryAccess = IsBoundaryScopeForAmbient(scope: scope, symbol: context.ContainingSymbol);
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, ambientLeak, boundaryAccess) switch {
+            (true, true, false) => Diagnostic.Create(RuleCatalog.CSP0723, context.Operation.Syntax.GetLocation(), $"{propertyReference.Property.ContainingType?.Name}.{propertyReference.Property.Name}"),
+            _ => null,
+        });
+    }
+    internal static void CheckRhinoAmbientInvocation(OperationAnalysisContext context, ScopeInfo scope, IInvocationOperation invocation) {
+        bool ambientLeak = IsRhinoAmbientStateMember(
+            isStatic: invocation.TargetMethod.IsStatic,
+            containingType: invocation.TargetMethod.ContainingType,
+            memberName: invocation.TargetMethod.Name);
+        bool boundaryAccess = IsBoundaryScopeForAmbient(scope: scope, symbol: context.ContainingSymbol);
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, ambientLeak, boundaryAccess) switch {
+            (true, true, false) => Diagnostic.Create(RuleCatalog.CSP0723, context.Operation.Syntax.GetLocation(), $"{invocation.TargetMethod.ContainingType?.Name}.{invocation.TargetMethod.Name}"),
+            _ => null,
+        });
+    }
+
     // --- [CHANNEL_RULES] ------------------------------------------------------
 
     internal static void CheckChannelTopology(OperationAnalysisContext context, ScopeInfo scope, IInvocationOperation invocation) {
@@ -272,4 +297,19 @@ internal static class RuntimeRules {
             (string name, "System.Threading.Channels.Channel") when string.Equals(name, methodName, StringComparison.Ordinal) => true,
             _ => false,
         };
+    private static bool IsRhinoAmbientStateMember(bool isStatic, INamedTypeSymbol? containingType, string memberName) {
+        string namespaceName = containingType?.ContainingNamespace?.ToDisplayString() ?? string.Empty;
+        bool rhinoNamespace = namespaceName.Equals(value: "Rhino", comparisonType: StringComparison.Ordinal)
+            || namespaceName.StartsWith(value: "Rhino.", comparisonType: StringComparison.Ordinal);
+        bool rhinoDocActive = containingType?.Name == "RhinoDoc" && memberName == "ActiveDoc";
+        bool rhinoApp = containingType?.Name == "RhinoApp";
+        return isStatic && rhinoNamespace && (rhinoDocActive || rhinoApp);
+    }
+    private static bool IsBoundaryScopeForAmbient(ScopeInfo scope, ISymbol? symbol) {
+        bool boundary = scope.IsBoundary;
+        bool exempt = symbol is not null
+            && SymbolFacts.AllAttributes(symbol).Any(attribute =>
+                attribute.AttributeClass?.Name is "BoundaryAdapterAttribute" or "BoundaryAdapter");
+        return boundary || exempt;
+    }
 }
