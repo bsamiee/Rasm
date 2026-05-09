@@ -1,3 +1,4 @@
+using System.Reflection;
 using Analysis;
 using Core.Domain;
 using Core.Runtime;
@@ -50,6 +51,9 @@ public interface IBridgeOutput<TInput> where TInput : RhinoGeometry {
 /// discriminant; non-Union inputs surface an explicit error rather than a silent miscoercion.
 /// </summary>
 public abstract class AnalysisComponent<TInput> : Component where TInput : RhinoGeometry {
+    protected static Nomen NomenOf<TComponent>() where TComponent : AnalysisComponent<TInput> =>
+        typeof(TComponent).GetCustomAttribute<NomenAttribute>()?.Nomen
+            ?? new Nomen(name: typeof(TComponent).Name, info: string.Empty);
     protected abstract Seq<IBridgeOutput<TInput>> Outputs { get; }
     protected virtual InputSpec Input =>
         new(

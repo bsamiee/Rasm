@@ -11,6 +11,11 @@ namespace Radyab.Boundary;
 // --- [COMPONENT] -------------------------------------------------------------------------------
 
 [IoId("F51A09A8-A5A5-467A-ADBA-C950511A0020")]
+[Nomen(
+    name: "Extract Surfaces",
+    info: "All faces, top/bottom by world-Z centroid (ties returned), an index-clamped face, and the UV frame on the indexed face. Accepts Brep, BrepFace, Surface, SubD; rejects Mesh.",
+    category: "Radyab",
+    section: "Extraction")]
 public sealed class ExtractSurfacesComponent : AnalysisComponent<RhinoGeometry> {
     protected override Seq<IBridgeOutput<RhinoGeometry>> Outputs { get; } =
         toSeq(SurfaceAspect.Items.Select((SurfaceAspect aspect) => aspect.ToBridgeOutput()));
@@ -23,12 +28,7 @@ public sealed class ExtractSurfacesComponent : AnalysisComponent<RhinoGeometry> 
             Default: 0,
             Requirement: Requirement.MayBeMissing));
 
-    public ExtractSurfacesComponent()
-        : base(nomen: new Nomen(
-            "Extract Surfaces",
-            "All faces, top/bottom by world-Z centroid (ties returned), an index-clamped face, and the UV frame on the indexed face. Accepts Brep, BrepFace, Surface, SubD; rejects Mesh.",
-            "Radyab",
-            "Extraction")) { }
+    public ExtractSurfacesComponent() : base(nomen: NomenOf<ExtractSurfacesComponent>()) { }
 
     public ExtractSurfacesComponent(IReader reader) : base(reader: reader) { }
 }
