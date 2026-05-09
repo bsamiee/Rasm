@@ -302,7 +302,7 @@ public sealed class AuthorizationPipelineTests {
         Assert.True(result.IsSucc);
     }
 
-    // @catch recovery: stub triggers the error; pipeline must return fallback.
+    // @catchM recovery: stub triggers the error; pipeline must return fallback.
     [Fact]
     public void Gateway_timeout_falls_back_to_faulted_state() {
         Fin<TransactionState> result = AuthorizationPipeline
@@ -320,7 +320,7 @@ public sealed class AuthorizationPipelineTests {
 }
 ```
 
-[IMPORTANT]: Runtime records are plain `sealed record` -- no interfaces. `Run()` at test boundary is the only `Match`-adjacent operation. `@catch` recovery is verified by injecting the error-producing stub and asserting the fallback shape, not by inspecting the error channel.
+[IMPORTANT]: Runtime records are plain `sealed record` -- no interfaces. `Run()` at test boundary is the only `Match`-adjacent operation. `@catchM` recovery is verified by injecting the error-producing stub and asserting the fallback shape, not by inspecting the error channel.
 
 ---
 ## [3][QUALITY_GATES]

@@ -312,7 +312,7 @@ public static class AtomicCoordination {
             return !ReferenceEquals(snapshot, after);
         }).Bind((bool isNew) => isNew
             ? (from result in process
-                   | @catch((Error err) => true, (Error err) => liftEff<RT, TResult>(() => {
+                   | @catchM((Error err) => true, (Error err) => liftEff<RT, TResult>(() => {
                          Processed.Swap((HashMap<EventId, Instant> current) =>
                              current.Remove(eventId));
                          return Prelude.raise<TResult>(

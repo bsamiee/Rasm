@@ -100,7 +100,7 @@ public static class Pipeline {
 
 ## Recovery Algebra and Resilience Injection
 
-Decorator injection via Scrutor interposes `@catch` selective recovery and `Schedule` algebraic retry between caller and capability interface — resilience is a composition-root concern, not a pipeline concern. Each method declares its own recovery topology: `Acquire` degrades through an alternate retry cadence into a typed sentinel, `List` collapses expected failures to `Seq.Empty`; both share the same `static readonly` schedule algebra without per-instance allocation.
+Decorator injection via Scrutor interposes `@catchM` selective recovery and `Schedule` algebraic retry between caller and capability interface — resilience is a composition-root concern, not a pipeline concern. Each method declares its own recovery topology: `Acquire` degrades through an alternate retry cadence into a typed sentinel, `List` collapses expected failures to `Seq.Empty`; both share the same `static readonly` schedule algebra without per-instance allocation.
 
 ```csharp
 namespace Infra.Resilience;
@@ -121,7 +121,7 @@ public sealed class ResilientResourceProvider<RT>(
     public Eff<RT, Resource> Acquire(ResourceKey key) =>
         inner.Acquire(key: key)
             .Retry(schedule: RetryPolicy)
-        | @catch(static (Error err) => err.Code == 503,
+        | @catchM(static (Error err) => err.Code == 503,
             inner.Acquire(key: key)
                 .Retry(schedule: Schedule.spaced(spacing: 5 * sec)
                     | Schedule.recurs(times: 2)))
@@ -129,15 +129,15 @@ public sealed class ResilientResourceProvider<RT>(
     public Eff<RT, Seq<Resource>> List(ResourceFilter filter) =>
         inner.List(filter: filter)
             .Retry(schedule: RetryPolicy)
-        | @catch(static (Error err) => err.IsExpected,
+        | @catchM(static (Error err) => err.IsExpected,
             Eff<RT, Seq<Resource>>.Pure(Seq<Resource>.Empty))
         | Eff<RT, Seq<Resource>>.Pure(Seq<Resource>.Empty);
 }
 ```
 
 - `|` (union) on `Schedule` applies transformers — `jitter`, `recurs` — to the base `exponential`; `&` (intersect) bounds the composite against an independent `upto` constraint, enforcing retry-count AND wall-clock limits simultaneously. The policy is a `static readonly` first-class value: zero per-instance allocation, algebraically composable without builder APIs.
-- `@catch` fires only after `.Retry` exhaustion, discriminating on the terminal `Error` via a `static` predicate; `Acquire` selects `err.Code == 503` for a degraded retry cadence then falls through `|` Alternative to a typed `Unavailable` sentinel, while `List` collapses any expected error to `Seq.Empty` — polymorphic recovery per method over a shared schedule algebra.
-- `services.Decorate<IResourceProvider<RT>, ResilientResourceProvider<RT>>()` replaces the registration transparently at the composition root — primary constructor parameter `inner` is the Scrutor-resolved decorated instance (non-static capture, structurally required); all `Schedule` fields and `@catch` lambdas remain `static`, confining allocation to the policy constants.
+- `@catchM` fires only after `.Retry` exhaustion, discriminating on the terminal `Error` via a `static` predicate; `Acquire` selects `err.Code == 503` for a degraded retry cadence then falls through `|` Alternative to a typed `Unavailable` sentinel, while `List` collapses any expected error to `Seq.Empty` — polymorphic recovery per method over a shared schedule algebra.
+- `services.Decorate<IResourceProvider<RT>, ResilientResourceProvider<RT>>()` replaces the registration transparently at the composition root — primary constructor parameter `inner` is the Scrutor-resolved decorated instance (non-static capture, structurally required); all `Schedule` fields and `@catchM` lambdas remain `static`, confining allocation to the policy constants.
 
 ---
 
@@ -198,7 +198,7 @@ public static class AtomicLedger {
 - [ALWAYS] `Validation<Error,T>` for parallel accumulation — `.Apply()` on tuple, `.ToValidation()` bridges `Fin`.
 - [ALWAYS] `Eff<RT,T>` for environmental pipelines — `sealed record` runtime, `Asks(static rt => ...)` reader-lift.
 - [ALWAYS] `IO<A>` for boundary effect description — `Run`/`RunAsync` collapses description to execution.
-- [ALWAYS] `@catch` with `static` predicate for selective recovery — fires after retry exhaustion, `|` Alternative for fallback.
+- [ALWAYS] `@catchM` with `static` predicate for selective recovery — fires after retry exhaustion, `|` Alternative for fallback (v5; `@catch` retained for non-Eff Fallible types).
 - [ALWAYS] `Schedule` algebra — `|` applies transformers, `&` intersects bounds, `.Retry(schedule)` applies to `Eff`.
 - [ALWAYS] `static readonly` for shared `Atom`/`Ref` state — expression-bodied properties create new instances.
 - [ALWAYS] `Ref<T>` + `atomic()` for multi-ref STM — pure `Swap`, automatic retry on conflict.

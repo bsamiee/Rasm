@@ -30,22 +30,21 @@ All code follows six governing principles:
 - **Programmatic logic**: named parameters at domain call sites, `SmartEnum<T>` over strings, bounded vocabularies
 - **Surface ownership**: one polymorphic entrypoint, `params ReadOnlySpan<T>` for arity collapse, no helpers
 - **Private integration**: module logic is the export's implementation, not its neighbor — `private`/`internal` members are nested types, closures, or inline compositions inside the public class/service, not standalone file-level declarations consumed by a single caller
-- **Cross-cutting composition**: Scrutor `Decorate`/`TryDecorate` for service-level AOP, `K<F,A>` for higher-kinded abstraction
+- **Cross-cutting composition**: Decorator composition for service-level AOP (host-supplied DI when present), `K<F,A>` for higher-kinded abstraction
 
 
 ## Conventions
 
-| Layer               | Library          | Owns                                                                                   |
-| ------------------- | ---------------- | -------------------------------------------------------------------------------------- |
-| ROP / Effects       | LanguageExt      | `Fin<T>`, `Validation<Error,T>`, `Eff<RT,T>`, `IO<A>`, `K<F,A>`, `Option<T>`, `Seq<T>` |
-| Value objects / DUs | Thinktecture     | `[ValueObject<T>]`, `[SmartEnum<T>]`, `[Union]`, generated dispatch                    |
-| DI / AOP            | Scrutor          | `Scan`, `Decorate`/`TryDecorate`, keyed services                                       |
-| Boundary validation | FluentValidation | Async rule sets — bridge to `Validation<Error,T>` at domain edge                       |
-| Time                | NodaTime         | `IClock` injection, zero direct `DateTime`                                             |
+| Layer               | Library      | Owns                                                                                   |
+| ------------------- | ------------ | -------------------------------------------------------------------------------------- |
+| ROP / Effects       | LanguageExt  | `Fin<T>`, `Validation<Error,T>`, `Eff<RT,T>`, `IO<A>`, `K<F,A>`, `Option<T>`, `Seq<T>` |
+| Value objects / DUs | Thinktecture | `[ValueObject<T>]`, `[SmartEnum<T>]`, `[Union]`, generated dispatch                    |
+| Scheduling          | LanguageExt  | `Schedule.exponential` / `spaced` / `jitter` / `recurs` / `upto` algebra               |
+| State               | LanguageExt  | `Atom<T>` validators, `Ref<T>` + `atomic` STM, `Bracket` resource scope                |
 
 - One library's error/option type per module — no mixing across libraries in same file.
-- FluentValidation at HTTP/boundary layer only — bridge to `Validation<Error,T>` before domain entry.
-- Scrutor owns composition-root registration — no runtime service location.
+- Resilience is composition-root concern via `@catchM` + `Schedule` — never a domain primitive (no retry-as-policy library).
+- DI is host-supplied; this codebase favours runtime records over service-locator scans.
 
 
 ## Contracts
@@ -81,8 +80,8 @@ All code follows six governing principles:
 - Expression-bodied members where body is a single expression. Primary constructors preferred.
 
 **Resources**
-- Time via `NodaTime.IClock` injection, never direct `DateTime*`.
-- Retry/timeout/resilience via Polly — declarative only.
+- Time via host-injected clock (e.g. `IClock`), never direct `DateTime*`.
+- Retry/timeout/resilience via LanguageExt `Schedule` algebra + `@catchM` recovery — composition root concern only.
 - `static` lambdas on hot-path closures — zero closure allocations.
 
 **Formatting**
@@ -136,18 +135,14 @@ All code follows six governing principles:
 
 These packages are standard libraries — use over BCL/stdlib equivalents.
 
-| Package                         | Provides                                 |
-| ------------------------------- | ---------------------------------------- |
-| LanguageExt                     | FP primitives, ROP, effects, collections |
-| Thinktecture.Runtime.Extensions | Value objects, smart enums, unions       |
-| Scrutor                         | DI scanning, decorator composition       |
-| FluentValidation                | Boundary validation rule sets            |
-| Serilog                         | Structured logging                       |
-| OpenTelemetry                   | Distributed tracing, metrics             |
-| NodaTime                        | Time and date handling                   |
-| Polly                           | Resilience and retry policies            |
-| Npgsql                          | PostgreSQL data provider                 |
-| Microsoft.EntityFrameworkCore   | ORM and database access                  |
-| FsCheck                         | Property-based testing                   |
-| xUnit                           | Test framework                           |
-| BenchmarkDotNet                 | Performance benchmarking                 |
+| Package                         | Provides                                                       |
+| ------------------------------- | -------------------------------------------------------------- |
+| LanguageExt.Core                | FP primitives, ROP, `Eff`/`Fin`/`Validation`, `Schedule`, STM  |
+| Thinktecture.Runtime.Extensions | Value objects, smart enums, `[Union]` source-generated dispatch |
+| FsCheck (+ FsCheck.Xunit)       | Property-based testing                                          |
+| xUnit / xunit.v3                | Test framework                                                  |
+| BenchmarkDotNet                 | Performance benchmarking                                        |
+| Meziantou.Analyzer              | Static analysis enforcement                                     |
+| Microsoft.VisualStudio.Threading.Analyzers | Threading-correctness diagnostics                  |
+
+Note: Polly, FluentValidation, NodaTime, Scrutor are intentionally absent. Retry/backoff is covered by LanguageExt `Schedule`; validation by `Validation<Error,T>` applicative; time by host injection; DI composition by runtime records (`Eff<RT,T>.Asks`).
