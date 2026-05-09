@@ -128,6 +128,10 @@ Thumbs.db
 .claude/settings.local.json
 .claude/worktrees/
 .playwright-mcp/
+
+# Audit raw API catalogs (regenerable via Mono.Cecil sweep; multi-MB)
+.planning/audit/*.api-catalog.jsonl
+
 # Gemini CLI auto-generated files (keep commands/ and extensions/ tracked)
 .gemini/telemetry.log
 .gemini/settings.json
