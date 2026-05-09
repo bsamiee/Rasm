@@ -203,37 +203,40 @@ public static partial class Query {
     }
     public static Query<(TGeometry Geometry, TPrimitive Primitive), TOut> Conformance<TGeometry, TPrimitive, TOut>(
         Conformance aspect) where TGeometry : notnull where TPrimitive : notnull =>
-        (aspect.Residual, aspect.Count, typeof(TGeometry), typeof(TPrimitive), typeof(TOut)) switch {
-            (ConformanceResidual.None, _, _, _, _) or (_, <= 0, _, _, _) => Query<(TGeometry Geometry, TPrimitive Primitive), TOut>.Reject(
-                key: ConformanceKey,
-                fault: ConformanceKey.InvalidInput()),
-            (_, _, Type geometry, Type primitive, _) when typeof(Curve).IsAssignableFrom(c: geometry) && primitive == typeof(Line) =>
-                ConformanceCases<TGeometry, TPrimitive, TOut, Curve, Line>(
-                    aspect: aspect,
-                    requirement: GeometryRequirement.CurveLength,
-                    samples: CurveLineSamples),
-            (_, _, Type geometry, Type primitive, _) when typeof(Curve).IsAssignableFrom(c: geometry) && primitive == typeof(Circle) =>
-                ConformanceCases<TGeometry, TPrimitive, TOut, Curve, Circle>(
-                    aspect: aspect,
-                    requirement: GeometryRequirement.CurveLength,
-                    samples: CurveCircleSamples),
-            (_, _, Type geometry, Type primitive, _) when typeof(Curve).IsAssignableFrom(c: geometry) && primitive == typeof(Arc) =>
-                ConformanceCases<TGeometry, TPrimitive, TOut, Curve, Arc>(
-                    aspect: aspect,
-                    requirement: GeometryRequirement.CurveLength,
-                    samples: CurveArcSamples),
-            (_, _, Type geometry, Type primitive, _) when typeof(Surface).IsAssignableFrom(c: geometry) && primitive == typeof(Plane) =>
-                ConformanceCases<TGeometry, TPrimitive, TOut, Surface, Plane>(
-                    aspect: aspect,
-                    requirement: GeometryRequirement.SurfaceEvaluation,
-                    samples: SurfacePlaneSamples),
-            (_, _, Type geometry, Type primitive, _) when typeof(Surface).IsAssignableFrom(c: geometry) && primitive == typeof(Sphere) =>
-                ConformanceCases<TGeometry, TPrimitive, TOut, Surface, Sphere>(
-                    aspect: aspect,
-                    requirement: GeometryRequirement.SurfaceEvaluation,
-                    samples: SurfaceSphereSamples),
-            _ => ConformanceKey.Unsupported<(TGeometry Geometry, TPrimitive Primitive), TOut>(),
-        };
+        Aspect<(TGeometry Geometry, TPrimitive Primitive), TOut, Conformance>(
+            aspect: aspect,
+            key: ConformanceKey,
+            dispatch: static (Conformance candidate) => (candidate.Residual, candidate.Count, typeof(TGeometry), typeof(TPrimitive), typeof(TOut)) switch {
+                (ConformanceResidual.None, _, _, _, _) or (_, <= 0, _, _, _) => Query<(TGeometry Geometry, TPrimitive Primitive), TOut>.Reject(
+                    key: ConformanceKey,
+                    fault: ConformanceKey.InvalidInput()),
+                (_, _, Type geometry, Type primitive, _) when typeof(Curve).IsAssignableFrom(c: geometry) && primitive == typeof(Line) =>
+                    ConformanceCases<TGeometry, TPrimitive, TOut, Curve, Line>(
+                        aspect: candidate,
+                        requirement: GeometryRequirement.CurveLength,
+                        samples: CurveLineSamples),
+                (_, _, Type geometry, Type primitive, _) when typeof(Curve).IsAssignableFrom(c: geometry) && primitive == typeof(Circle) =>
+                    ConformanceCases<TGeometry, TPrimitive, TOut, Curve, Circle>(
+                        aspect: candidate,
+                        requirement: GeometryRequirement.CurveLength,
+                        samples: CurveCircleSamples),
+                (_, _, Type geometry, Type primitive, _) when typeof(Curve).IsAssignableFrom(c: geometry) && primitive == typeof(Arc) =>
+                    ConformanceCases<TGeometry, TPrimitive, TOut, Curve, Arc>(
+                        aspect: candidate,
+                        requirement: GeometryRequirement.CurveLength,
+                        samples: CurveArcSamples),
+                (_, _, Type geometry, Type primitive, _) when typeof(Surface).IsAssignableFrom(c: geometry) && primitive == typeof(Plane) =>
+                    ConformanceCases<TGeometry, TPrimitive, TOut, Surface, Plane>(
+                        aspect: candidate,
+                        requirement: GeometryRequirement.SurfaceEvaluation,
+                        samples: SurfacePlaneSamples),
+                (_, _, Type geometry, Type primitive, _) when typeof(Surface).IsAssignableFrom(c: geometry) && primitive == typeof(Sphere) =>
+                    ConformanceCases<TGeometry, TPrimitive, TOut, Surface, Sphere>(
+                        aspect: candidate,
+                        requirement: GeometryRequirement.SurfaceEvaluation,
+                        samples: SurfaceSphereSamples),
+                _ => null,
+            });
     private static Query<(TGeometry Geometry, TPrimitive Primitive), TOut> ConformanceCases<TGeometry, TPrimitive, TOut, TNativeGeometry, TNativePrimitive>(
         Conformance aspect,
         GeometryRequirement requirement,
