@@ -88,16 +88,18 @@ public sealed class SpatialIndex : IDisposable {
         .Bind(static ((RTree Left, RTree Right, double Tolerance) state) => OverlapPairs(state: state))
         .ToEff();
     private static Fin<Seq<SpatialPair>> OverlapPairs((RTree Left, RTree Right, double Tolerance) state) {
-        SearchState search = new(capacity: state.Left.Count * state.Right.Count);
+        Atom<Seq<SpatialPair>> atom = Atom(value: Seq<SpatialPair>());
         return RTree.SearchOverlaps(
             treeA: state.Left,
             treeB: state.Right,
             tolerance: state.Tolerance,
-            callback: CollectPair(search: search)) switch {
-                true => Fin.Succ(search.Pairs()),
+            callback: (object? _, RTreeEventArgs args) => atom.Swap((Seq<SpatialPair> current) => current.Add(new SpatialPair(A: args.Id, B: args.IdB)))) switch {
+                true => Fin.Succ(SortedPairs(pairs: atom.Value)),
                 false => Fin.Fail<Seq<SpatialPair>>(Query.SpatialIndexKey.InvalidResult()),
             };
     }
+    private static Seq<SpatialPair> SortedPairs(Seq<SpatialPair> pairs) =>
+        toSeq(pairs.OrderBy(static (SpatialPair p) => p.A).ThenBy(static (SpatialPair p) => p.B));
     public static Eff<AnalysisRuntime, Seq<SpatialPair>> KNearest(
         ReadOnlySpan<Point3d> points,
         ReadOnlySpan<Point3d> needles,
@@ -171,27 +173,25 @@ public sealed class SpatialIndex : IDisposable {
             .TraverseFin()
             .Map(static (Seq<BoundingBox> boxes) => boxes.ToArray());
     private static Fin<Seq<SpatialHit>> Search(RTree tree, BoundingBox shape) {
-        SearchState search = new(capacity: tree.Count);
+        Atom<Seq<int>> atom = Atom(value: Seq<int>());
         return tree.Search(
             box: shape,
-            callback: CollectHit(search: search)) switch {
-                true => Fin.Succ(search.Hits()),
+            callback: (object? _, RTreeEventArgs args) => atom.Swap((Seq<int> current) => current.Add(args.Id))) switch {
+                true => Fin.Succ(SortedHits(ids: atom.Value)),
                 false => Fin.Fail<Seq<SpatialHit>>(Query.SpatialIndexKey.InvalidResult()),
             };
     }
     private static Fin<Seq<SpatialHit>> Search(RTree tree, Sphere shape) {
-        SearchState search = new(capacity: tree.Count);
+        Atom<Seq<int>> atom = Atom(value: Seq<int>());
         return tree.Search(
             sphere: shape,
-            callback: CollectHit(search: search)) switch {
-                true => Fin.Succ(search.Hits()),
+            callback: (object? _, RTreeEventArgs args) => atom.Swap((Seq<int> current) => current.Add(args.Id))) switch {
+                true => Fin.Succ(SortedHits(ids: atom.Value)),
                 false => Fin.Fail<Seq<SpatialHit>>(Query.SpatialIndexKey.InvalidResult()),
             };
     }
-    private static EventHandler<RTreeEventArgs> CollectHit(SearchState search) =>
-        (object? _, RTreeEventArgs args) => search.Add(id: args.Id);
-    private static EventHandler<RTreeEventArgs> CollectPair(SearchState search) =>
-        (object? _, RTreeEventArgs args) => search.Add(a: args.Id, b: args.IdB);
+    private static Seq<SpatialHit> SortedHits(Seq<int> ids) =>
+        toSeq(ids.Order().Select(static (int id) => new SpatialHit(Id: id)));
     private static Fin<Seq<SpatialPair>> PointPairs(IEnumerable<int[]> values) =>
         Optional(values)
             .ToFin(Query.SpatialIndexKey.InvalidResult())
@@ -203,48 +203,4 @@ public sealed class SpatialIndex : IDisposable {
                 .Aggregate(
                     seed: Seq<SpatialPair>(),
                     func: static (Seq<SpatialPair> current, SpatialPair pair) => current.Add(pair)));
-    private sealed class SearchState {
-        private readonly int[] ids;
-        private readonly SpatialPair[] pairs;
-        private int hitCount;
-        private int pairCount;
-        internal SearchState(int capacity) {
-            ids = new int[capacity];
-            pairs = new SpatialPair[capacity];
-        }
-        internal void Add(int id) =>
-            hitCount = (hitCount < ids.Length) switch {
-                true => AddHit(id: id, count: hitCount),
-                false => hitCount,
-            };
-        internal void Add(int a, int b) =>
-            pairCount = (pairCount < pairs.Length) switch {
-                true => AddPair(pair: new SpatialPair(A: a, B: b), count: pairCount),
-                false => pairCount,
-            };
-        internal Seq<SpatialHit> Hits() =>
-            ids
-                .Take(count: hitCount)
-                .Order()
-                .Select(static (int id) => new SpatialHit(Id: id))
-                .Aggregate(
-                    seed: Seq<SpatialHit>(),
-                    func: static (Seq<SpatialHit> current, SpatialHit hit) => current.Add(hit));
-        internal Seq<SpatialPair> Pairs() =>
-            pairs
-                .Take(count: pairCount)
-                .OrderBy(static (SpatialPair pair) => pair.A)
-                .ThenBy(static (SpatialPair pair) => pair.B)
-                .Aggregate(
-                    seed: Seq<SpatialPair>(),
-                    func: static (Seq<SpatialPair> current, SpatialPair pair) => current.Add(pair));
-        private int AddHit(int id, int count) {
-            ids[count] = id;
-            return count + 1;
-        }
-        private int AddPair(SpatialPair pair, int count) {
-            pairs[count] = pair;
-            return count + 1;
-        }
-    }
 }
