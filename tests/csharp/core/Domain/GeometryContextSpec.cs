@@ -84,9 +84,9 @@ public sealed class GeometryContextSpec {
     [Fact]
     public void IncludesRequiredReadinessMasks() =>
         Assert.True(condition: (
-            GeometryRequirement.VolumeMass.Includes(requirement: GeometryRequirement.SolidTopology),
-            GeometryRequirement.VolumeMass.Includes(requirement: GeometryRequirement.MeshCheck),
-            GeometryRequirement.AreaMass.Includes(requirement: GeometryRequirement.Basic)
+            GeometryRequirement.VolumeMass.Has(other: GeometryRequirement.SolidTopology),
+            GeometryRequirement.VolumeMass.Has(other: GeometryRequirement.MeshCheck),
+            GeometryRequirement.AreaMass.Has(other: GeometryRequirement.Basic)
         ) == (true, true, true));
 
     [Fact]

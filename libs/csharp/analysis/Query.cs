@@ -38,11 +38,11 @@ public sealed class Query<TGeometry, TOut> where TGeometry : notnull {
     internal static Query<TGeometry, TOut> Build(
         OperationKey key,
         Func<TGeometry, Eff<AnalysisRuntime, Seq<TOut>>> evaluator,
-        GeometryRequirement requirement = default,
+        GeometryRequirement? requirement = null,
         bool requiresContext = false) =>
         new(
             key: key,
-            requirement: requirement,
+            requirement: requirement ?? GeometryRequirement.None,
             requiresContext: requiresContext,
             ready: Fin.Succ(unit),
             evaluator: evaluator);
@@ -50,11 +50,11 @@ public sealed class Query<TGeometry, TOut> where TGeometry : notnull {
         OperationKey key,
         TState state,
         Func<TState, TGeometry, Eff<AnalysisRuntime, Seq<TOut>>> evaluator,
-        GeometryRequirement requirement = default,
+        GeometryRequirement? requirement = null,
         bool requiresContext = false) =>
         new(
             key: key,
-            requirement: requirement,
+            requirement: requirement ?? GeometryRequirement.None,
             requiresContext: requiresContext,
             ready: Fin.Succ(unit),
             evaluator: (TGeometry geometry) =>

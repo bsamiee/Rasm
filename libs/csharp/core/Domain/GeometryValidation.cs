@@ -1,12 +1,11 @@
-using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Runtime.InteropServices;
 using LanguageExt.Common;
 using Rhino;
 using Rhino.FileIO;
 using Rhino.Geometry;
 using Rhino.Geometry.Intersect;
+using Thinktecture;
 using static LanguageExt.Prelude;
 namespace Core.Domain;
 
@@ -25,63 +24,38 @@ internal static class GeometryValidation {
             state.Requirement,
             Geometry: candidate))
         .Bind(static ((GeometryContext Context, GeometryRequirement Requirement, TGeometry Geometry) state) =>
-            GeometryCheck.All.Aggregate(
-                seed: (
-                    state.Context,
-                    state.Requirement,
-                    state.Geometry,
-                    Result: Fin.Succ(state.Geometry).ToValidation()),
+            state.Requirement.Checks.Aggregate(
+                seed: (Result: Fin.Succ(state.Geometry).ToValidation(), state.Context, state.Geometry),
                 func: static (
-                    (GeometryContext Context, GeometryRequirement Requirement, TGeometry Geometry, Validation<Error, TGeometry> Result) current,
+                    (Validation<Error, TGeometry> Result, GeometryContext Context, TGeometry Geometry) accumulator,
                     GeometryCheck check) => (
-                    current.Context,
-                    current.Requirement,
-                    current.Geometry,
-                    (current.Result, check.Apply(
-                            context: current.Context,
-                            requirement: current.Requirement,
-                            geometry: current.Geometry).ToValidation())
-                        .Apply(static (TGeometry candidate, Unit _) => candidate)
-                        .As())).Result);
+                        Result: (accumulator.Result, check.Apply(
+                                context: accumulator.Context,
+                                geometry: accumulator.Geometry).ToValidation())
+                            .Apply(static (TGeometry candidate, Unit _) => candidate)
+                            .As(),
+                        accumulator.Context,
+                        accumulator.Geometry)).Result);
     internal static Validation<Error, (TA A, TB B)> ValidatePair<TA, TB>(
         this GeometryContext context,
         (TA A, TB B) geometry,
         GeometryRequirement a,
         GeometryRequirement b) where TA : GeometryBase where TB : GeometryBase =>
-        (
-            context.Validate(
-                geometry: geometry.A,
-                requirement: a),
-            context.Validate(
-                geometry: geometry.B,
-                requirement: b)
-        ).Apply(static (TA first, TB second) => (A: first, B: second))
-        .As();
+        (context.Validate(geometry: geometry.A, requirement: a),
+         context.Validate(geometry: geometry.B, requirement: b)).Combine();
     internal static Validation<Error, (TA A, TB B)> ValidateFirst<TA, TB>(
         this GeometryContext context,
         (TA A, TB B) geometry,
         GeometryRequirement requirement) where TA : GeometryBase =>
-        (
-            context.Validate(
-                geometry: geometry.A,
-                requirement: requirement),
-            geometry.B.ValidateNativeOperand()
-        ).Apply(static (TA first, TB second) => (A: first, B: second))
-        .As();
+        (context.Validate(geometry: geometry.A, requirement: requirement),
+         geometry.B.ValidateNativeOperand()).Combine();
     internal static Validation<Error, (TA A, TB B)> ValidateOperands<TA, TB>(
         this GeometryContext context,
         (TA A, TB B) geometry,
         GeometryRequirement a,
         GeometryRequirement b) where TA : notnull where TB : notnull =>
-        (
-            context.ValidateOperand(
-                operand: geometry.A,
-                requirement: a),
-            context.ValidateOperand(
-                operand: geometry.B,
-                requirement: b)
-        ).Apply(static (TA first, TB second) => (A: first, B: second))
-        .As();
+        (context.ValidateOperand(operand: geometry.A, requirement: a),
+         context.ValidateOperand(operand: geometry.B, requirement: b)).Combine();
     internal static Validation<Error, TValue> ValidateOperand<TValue>(
         this GeometryContext context,
         TValue operand,
@@ -132,170 +106,278 @@ internal static class GeometryValidation {
 
 // --- [MODELS] ----------------------------------------------------------------------------------
 
-public readonly record struct GeometryRequirement {
-    private const ushort NoneMask = 0;
-    private const ushort RhinoMask = 1 << 0;
-    private const ushort BoundsMask = 1 << 1;
-    private const ushort CurveLengthMask = 1 << 2;
-    private const ushort SolidTopologyMask = 1 << 3;
-    private const ushort MeshCheckMask = 1 << 4;
-    private const ushort SurfaceDomainMask = 1 << 5;
-    private const ushort StrictStructureMask = 1 << 6;
-    private const ushort CurveIntersectionMask = 1 << 7;
-    private const ushort StrictMask = RhinoMask
-        | BoundsMask
-        | CurveLengthMask
-        | SolidTopologyMask
-        | MeshCheckMask
-        | SurfaceDomainMask
-        | StrictStructureMask
-        | CurveIntersectionMask;
-    private GeometryRequirement(ushort mask) =>
-        Mask = mask;
-    private ushort Mask { get; }
-    public static GeometryRequirement None => new(mask: NoneMask);
-    public static GeometryRequirement Basic => new(mask: RhinoMask | BoundsMask);
-    public static GeometryRequirement CurveLength => new(mask: RhinoMask | BoundsMask | CurveLengthMask);
-    public static GeometryRequirement AreaMass => new(mask: RhinoMask | BoundsMask | CurveIntersectionMask);
-    public static GeometryRequirement VolumeMass => new(mask: RhinoMask | BoundsMask | SolidTopologyMask | MeshCheckMask);
-    public static GeometryRequirement SurfaceEvaluation => new(mask: RhinoMask | BoundsMask | SurfaceDomainMask);
-    public static GeometryRequirement Strict => new(mask: StrictMask);
-    internal static GeometryRequirement MeshCheck => new(mask: RhinoMask | BoundsMask | MeshCheckMask);
-    internal static GeometryRequirement SolidTopology => new(mask: RhinoMask | BoundsMask | SolidTopologyMask | MeshCheckMask);
-    internal static GeometryRequirement StrictStructure => new(mask: RhinoMask | BoundsMask | SurfaceDomainMask | StrictStructureMask);
-    internal bool Includes(GeometryRequirement requirement) =>
-        (Mask & requirement.Mask) == requirement.Mask;
+[Union]
+public abstract partial record GeometryRequirement {
+    internal abstract Seq<GeometryCheck> Checks { get; }
+    public sealed record NoneRequirement : GeometryRequirement {
+        internal override Seq<GeometryCheck> Checks =>
+            Seq<GeometryCheck>();
+    }
+    public sealed record BasicRequirement : GeometryRequirement {
+        internal override Seq<GeometryCheck> Checks =>
+            Seq<GeometryCheck>(GeometryCheck.RhinoValidity, GeometryCheck.UsableBounds);
+    }
+    public sealed record CurveLengthRequirement : GeometryRequirement {
+        internal override Seq<GeometryCheck> Checks =>
+            GeometryCheck.BasicChecks.Add(GeometryCheck.CurveLengthReadiness);
+    }
+    public sealed record AreaMassRequirement : GeometryRequirement {
+        internal override Seq<GeometryCheck> Checks =>
+            GeometryCheck.BasicChecks.Add(GeometryCheck.CurveAreaReadiness).Add(GeometryCheck.CurveSelfIntersection);
+    }
+    public sealed record MeshCheckRequirement : GeometryRequirement {
+        internal override Seq<GeometryCheck> Checks =>
+            GeometryCheck.BasicChecks.Add(GeometryCheck.MeshRhinoCheck);
+    }
+    public sealed record SolidTopologyRequirement : GeometryRequirement {
+        internal override Seq<GeometryCheck> Checks =>
+            GeometryCheck.BasicChecks
+                .Add(GeometryCheck.BrepIntegrity)
+                .Add(GeometryCheck.MeshManifoldReadiness)
+                .Add(GeometryCheck.BrepSolidReadiness)
+                .Add(GeometryCheck.MeshRhinoCheck);
+    }
+    public sealed record VolumeMassRequirement : GeometryRequirement {
+        internal override Seq<GeometryCheck> Checks =>
+            GeometryCheck.BasicChecks
+                .Add(GeometryCheck.BrepIntegrity)
+                .Add(GeometryCheck.MeshManifoldReadiness)
+                .Add(GeometryCheck.BrepSolidReadiness)
+                .Add(GeometryCheck.MeshRhinoCheck)
+                .Add(GeometryCheck.SurfaceSolidReadiness);
+    }
+    public sealed record SurfaceEvaluationRequirement : GeometryRequirement {
+        internal override Seq<GeometryCheck> Checks =>
+            GeometryCheck.BasicChecks.Add(GeometryCheck.SurfaceDomainReadiness);
+    }
+    public sealed record StrictStructureRequirement : GeometryRequirement {
+        internal override Seq<GeometryCheck> Checks =>
+            GeometryCheck.BasicChecks
+                .Add(GeometryCheck.SurfaceDomainReadiness)
+                .Add(GeometryCheck.ContinuityReadiness)
+                .Add(GeometryCheck.PolycurveStructure);
+    }
+    public sealed record StrictRequirement : GeometryRequirement {
+        internal override Seq<GeometryCheck> Checks =>
+            GeometryCheck.AllChecks;
+    }
+    public static readonly GeometryRequirement None = new NoneRequirement();
+    public static readonly GeometryRequirement Basic = new BasicRequirement();
+    public static readonly GeometryRequirement CurveLength = new CurveLengthRequirement();
+    public static readonly GeometryRequirement AreaMass = new AreaMassRequirement();
+    public static readonly GeometryRequirement MeshCheck = new MeshCheckRequirement();
+    public static readonly GeometryRequirement SolidTopology = new SolidTopologyRequirement();
+    public static readonly GeometryRequirement VolumeMass = new VolumeMassRequirement();
+    public static readonly GeometryRequirement SurfaceEvaluation = new SurfaceEvaluationRequirement();
+    public static readonly GeometryRequirement StrictStructure = new StrictStructureRequirement();
+    public static readonly GeometryRequirement Strict = new StrictRequirement();
 }
 
-// --- [OPERATIONS] ------------------------------------------------------------------------------
+internal static class GeometryRequirementExtensions {
+    internal static bool Has(this GeometryRequirement self, GeometryRequirement other) =>
+        other.Checks.Fold(
+            initialState: (Self: self, AllPresent: true),
+            f: static ((GeometryRequirement Self, bool AllPresent) acc, GeometryCheck check) => (
+                acc.Self,
+                AllPresent: acc.AllPresent && acc.Self.Checks.Fold(
+                    initialState: (Target: check, Found: false),
+                    f: static ((GeometryCheck Target, bool Found) inner, GeometryCheck candidate) => (
+                        inner.Target,
+                        Found: inner.Found || ReferenceEquals(objA: candidate, objB: inner.Target))).Found)).AllPresent;
+}
 
-internal sealed class GeometryCheck {
-    internal static readonly GeometryCheck RhinoValidity = new(
-        key: "rhino-validity",
-        requirement: GeometryRequirement.Basic,
-        applies: static (GeometryBase _) => true,
-        validate: static (CheckState state) =>
-            state.RequireRhinoLog(geometry: state.Geometry));
-    internal static readonly GeometryCheck UsableBounds = new(
-        key: "usable-bounds",
-        requirement: GeometryRequirement.Basic,
-        applies: static (GeometryBase _) => true,
-        validate: static (CheckState state) =>
-            state.Geometry.GetBoundingBox(accurate: true) switch {
-                BoundingBox box => state.Require(
-                    condition: box.IsValid && box.IsDegenerate(tolerance: state.Context.Absolute.Value) < 4,
+// --- [CHECKS] ----------------------------------------------------------------------------------
+
+[Union]
+internal abstract partial record GeometryCheck {
+    internal abstract string Key { get; }
+    internal abstract bool Applies(GeometryBase geometry);
+    internal abstract Fin<Unit> Validate(GeometryContext context, GeometryBase geometry);
+    internal Fin<Unit> Apply(GeometryContext context, GeometryBase geometry) =>
+        Applies(geometry: geometry) switch {
+            true => Validate(context: context, geometry: geometry),
+            false => Fin.Succ(unit),
+        };
+    internal Fin<Unit> Invalid(GeometryBase geometry, string log) =>
+        Fin.Fail<Unit>(error: ValidationFault.InvalidGeometry(
+            geometry: geometry,
+            check: this,
+            log: log));
+    internal Fin<Unit> Require(GeometryBase geometry, bool condition, string log) =>
+        condition switch {
+            true => Fin.Succ(unit),
+            false => Invalid(geometry: geometry, log: log),
+        };
+    private static string Detail(string label, string log) =>
+        string.IsNullOrWhiteSpace(value: log) switch {
+            true => label,
+            false => string.Create(provider: CultureInfo.InvariantCulture, $"{label}: {log}"),
+        };
+    internal sealed record RhinoValidityCheck : GeometryCheck {
+        internal override string Key => "rhino-validity";
+        internal override bool Applies(GeometryBase geometry) => true;
+        internal override Fin<Unit> Validate(GeometryContext context, GeometryBase geometry) =>
+            geometry.IsValidWithLog(out string log) switch {
+                true => Fin.Succ(unit),
+                false => Invalid(geometry: geometry, log: log),
+            };
+    }
+    internal sealed record UsableBoundsCheck : GeometryCheck {
+        internal override string Key => "usable-bounds";
+        internal override bool Applies(GeometryBase geometry) => true;
+        internal override Fin<Unit> Validate(GeometryContext context, GeometryBase geometry) =>
+            geometry.GetBoundingBox(accurate: true) switch {
+                BoundingBox box => Require(
+                    geometry: geometry,
+                    condition: box.IsValid && box.IsDegenerate(tolerance: context.Absolute.Value) < 4,
                     log: "Rhino could not compute a usable accurate bounding box."),
-            });
-    internal static readonly GeometryCheck BrepIntegrity = new(
-        key: "brep-integrity",
-        requirement: GeometryRequirement.SolidTopology,
-        applies: static (GeometryBase geometry) => geometry is Brep,
-        validate: static (CheckState state) => {
-            Brep brep = (Brep)state.Geometry;
-            return (
-                Topology: brep.IsValidTopology(log: out string topologyLog),
-                Geometry: brep.IsValidGeometry(log: out string geometryLog),
-                Tolerances: brep.IsValidTolerancesAndFlags(log: out string toleranceLog)
-            ) switch {
-                (false, _, _) => state.Invalid(log: Detail(label: "Brep topology", log: topologyLog)),
-                (_, false, _) => state.Invalid(log: Detail(label: "Brep geometry", log: geometryLog)),
-                (_, _, false) => state.Invalid(log: Detail(label: "Brep tolerances and flags", log: toleranceLog)),
+            };
+    }
+    internal sealed record BrepIntegrityCheck : GeometryCheck {
+        internal override string Key => "brep-integrity";
+        internal override bool Applies(GeometryBase geometry) => geometry is Brep;
+        internal override Fin<Unit> Validate(GeometryContext context, GeometryBase geometry) =>
+            geometry switch {
+                Brep brep => (
+                    Topology: brep.IsValidTopology(log: out string topologyLog),
+                    Geometry: brep.IsValidGeometry(log: out string geometryLog),
+                    Tolerances: brep.IsValidTolerancesAndFlags(log: out string toleranceLog)
+                ) switch {
+                    (false, _, _) => Invalid(geometry: geometry, log: Detail(label: "Brep topology", log: topologyLog)),
+                    (_, false, _) => Invalid(geometry: geometry, log: Detail(label: "Brep geometry", log: geometryLog)),
+                    (_, _, false) => Invalid(geometry: geometry, log: Detail(label: "Brep tolerances and flags", log: toleranceLog)),
+                    _ => Fin.Succ(unit),
+                },
                 _ => Fin.Succ(unit),
             };
-        });
-    internal static readonly GeometryCheck MeshRhinoCheck = new(
-        key: "mesh-rhino-check",
-        requirement: GeometryRequirement.MeshCheck,
-        applies: static (GeometryBase geometry) => geometry is Mesh,
-        validate: static (CheckState state) => {
-            Mesh mesh = (Mesh)state.Geometry;
+    }
+    internal sealed record MeshRhinoCheckCheck : GeometryCheck {
+        internal override string Key => "mesh-rhino-check";
+        internal override bool Applies(GeometryBase geometry) => geometry is Mesh;
+        internal override Fin<Unit> Validate(GeometryContext context, GeometryBase geometry) {
+            // BOUNDARY ADAPTER — Mesh.Check requires a TextLog by-ref out and ref MeshCheckParameters; using-local +
+            // ref parameter cannot be expressed in pure expression form, so the imperative shape lives at the
+            // GeometryCheck case boundary and returns a Fin<Unit>.
             using TextLog textLog = new();
             MeshCheckParameters parameters = MeshCheckParameters.Defaults();
-            return (
-                mesh.Check(
-                    textLog: textLog,
-                    parameters: ref parameters),
-                mesh.Faces.Count > 0) switch {
+            return geometry switch {
+                Mesh mesh => (
+                    mesh.Check(textLog: textLog, parameters: ref parameters),
+                    mesh.Faces.Count > 0) switch {
+                        (true, true) => Fin.Succ(unit),
+                        _ => Invalid(geometry: mesh, log: textLog.ToString()),
+                    },
+                _ => Fin.Succ(unit),
+            };
+        }
+    }
+    internal sealed record MeshManifoldReadinessCheck : GeometryCheck {
+        internal override string Key => "mesh-manifold-readiness";
+        internal override bool Applies(GeometryBase geometry) => geometry is Mesh;
+        internal override Fin<Unit> Validate(GeometryContext context, GeometryBase geometry) =>
+            Require(
+                geometry: geometry,
+                condition: ((Mesh)geometry).IsSolid,
+                log: "Mesh is valid Rhino geometry but is not closed and solid enough for volume operations.");
+    }
+    internal sealed record BrepSolidReadinessCheck : GeometryCheck {
+        internal override string Key => "brep-solid-readiness";
+        internal override bool Applies(GeometryBase geometry) => geometry is Brep;
+        internal override Fin<Unit> Validate(GeometryContext context, GeometryBase geometry) =>
+            Require(
+                geometry: geometry,
+                condition: ((Brep)geometry).IsSolid,
+                log: "Brep is valid Rhino geometry but is not solid enough for volume operations.");
+    }
+    internal sealed record SurfaceSolidReadinessCheck : GeometryCheck {
+        internal override string Key => "surface-solid-readiness";
+        internal override bool Applies(GeometryBase geometry) => geometry is Surface;
+        internal override Fin<Unit> Validate(GeometryContext context, GeometryBase geometry) =>
+            Require(
+                geometry: geometry,
+                condition: ((Surface)geometry).IsSolid,
+                log: "Surface is valid Rhino geometry but is not solid enough for volume operations.");
+    }
+    internal sealed record CurveLengthReadinessCheck : GeometryCheck {
+        internal override string Key => "curve-length-readiness";
+        internal override bool Applies(GeometryBase geometry) => geometry is Curve;
+        internal override Fin<Unit> Validate(GeometryContext context, GeometryBase geometry) =>
+            geometry switch {
+                Curve curve => (
+                    curve.IsShort(tolerance: context.Absolute.Value),
+                    curve.GetLength(fractionalTolerance: context.Relative.Value) > context.Absolute.Value
+                ) switch {
+                    (false, true) => Fin.Succ(unit),
+                    _ => Invalid(geometry: geometry, log: "Curve is valid Rhino geometry but is below model-length tolerance."),
+                },
+                _ => Fin.Succ(unit),
+            };
+    }
+    internal sealed record CurveAreaReadinessCheck : GeometryCheck {
+        internal override string Key => "curve-area-readiness";
+        internal override bool Applies(GeometryBase geometry) => geometry is Curve;
+        internal override Fin<Unit> Validate(GeometryContext context, GeometryBase geometry) =>
+            geometry switch {
+                Curve curve => (
+                    curve.IsClosed,
+                    curve.TryGetPlane(
+                        plane: out Plane _,
+                        tolerance: context.Absolute.Value)
+                ) switch {
                     (true, true) => Fin.Succ(unit),
-                    _ => state.Invalid(log: textLog.ToString()),
-                };
-        });
-    internal static readonly GeometryCheck MeshManifoldReadiness = new(
-        key: "mesh-manifold-readiness",
-        requirement: GeometryRequirement.SolidTopology,
-        applies: static (GeometryBase geometry) => geometry is Mesh,
-        validate: static (CheckState state) =>
-            state.Require(
-                condition: ((Mesh)state.Geometry).IsSolid,
-                log: "Mesh is valid Rhino geometry but is not closed and solid enough for volume operations."));
-    internal static readonly GeometryCheck BrepSolidReadiness = new(
-        key: "brep-solid-readiness",
-        requirement: GeometryRequirement.SolidTopology,
-        applies: static (GeometryBase geometry) => geometry is Brep,
-        validate: static (CheckState state) =>
-            state.Require(
-                condition: ((Brep)state.Geometry).IsSolid,
-                log: "Brep is valid Rhino geometry but is not solid enough for volume operations."));
-    internal static readonly GeometryCheck SurfaceSolidReadiness = new(
-        key: "surface-solid-readiness",
-        requirement: GeometryRequirement.VolumeMass,
-        applies: static (GeometryBase geometry) => geometry is Surface,
-        validate: static (CheckState state) =>
-            state.Require(
-                condition: ((Surface)state.Geometry).IsSolid,
-                log: "Surface is valid Rhino geometry but is not solid enough for volume operations."));
-    internal static readonly GeometryCheck CurveLengthReadiness = new(
-        key: "curve-length-readiness",
-        requirement: GeometryRequirement.CurveLength,
-        applies: static (GeometryBase geometry) => geometry is Curve,
-        validate: static (CheckState state) => {
-            Curve curve = (Curve)state.Geometry;
-            return (
-                curve.IsShort(tolerance: state.Context.Absolute.Value),
-                curve.GetLength(fractionalTolerance: state.Context.Relative.Value) > state.Context.Absolute.Value
-            ) switch {
-                (false, true) => Fin.Succ(unit),
-                _ => state.Invalid(log: "Curve is valid Rhino geometry but is below model-length tolerance."),
+                    _ => Invalid(geometry: geometry, log: "Curve is valid Rhino geometry but is not closed and planar enough for area operations."),
+                },
+                _ => Fin.Succ(unit),
             };
-        });
-    internal static readonly GeometryCheck CurveAreaReadiness = new(
-        key: "curve-area-readiness",
-        requirement: GeometryRequirement.AreaMass,
-        applies: static (GeometryBase geometry) => geometry is Curve,
-        validate: static (CheckState state) => {
-            Curve curve = (Curve)state.Geometry;
-            return (
-                curve.IsClosed,
-                curve.TryGetPlane(
-                    plane: out Plane _,
-                    tolerance: state.Context.Absolute.Value)
+    }
+    internal sealed record SurfaceDomainReadinessCheck : GeometryCheck {
+        internal override string Key => "surface-domain-readiness";
+        internal override bool Applies(GeometryBase geometry) => geometry is Surface;
+        internal override Fin<Unit> Validate(GeometryContext context, GeometryBase geometry) =>
+            Require(
+                geometry: geometry,
+                condition: HasUsableDomain(surface: (Surface)geometry, context: context),
+                log: "Surface is valid Rhino geometry but has an unusable UV domain.");
+        internal static bool HasUsableDomain(Surface surface, GeometryContext context) =>
+            (
+                surface.Domain(direction: 0).IsValid,
+                surface.Domain(direction: 1).IsValid,
+                surface.Domain(direction: 0).Length > context.Absolute.Value,
+                surface.Domain(direction: 1).Length > context.Absolute.Value
             ) switch {
-                (true, true) => Fin.Succ(unit),
-                _ => state.Invalid(log: "Curve is valid Rhino geometry but is not closed and planar enough for area operations."),
+                (true, true, true, true) => true,
+                _ => false,
             };
-        });
-    internal static readonly GeometryCheck SurfaceDomainReadiness = new(
-        key: "surface-domain-readiness",
-        requirement: GeometryRequirement.SurfaceEvaluation,
-        applies: static (GeometryBase geometry) => geometry is Surface,
-        validate: static (CheckState state) =>
-            state.Require(
-                condition: SurfaceProfile.From(surface: (Surface)state.Geometry)
-                    .HasUsableDomain(context: state.Context),
-                log: "Surface is valid Rhino geometry but has an unusable UV domain."));
-    internal static readonly GeometryCheck ContinuityReadiness = new(
-        key: "continuity-readiness",
-        requirement: GeometryRequirement.StrictStructure,
-        applies: static (GeometryBase geometry) => geometry is Curve or Surface,
-        validate: static (CheckState state) =>
-            state.Geometry switch {
-                Surface surface => state.Require(
-                    condition: SurfaceProfile.From(surface: surface)
-                        .HasUsableContinuity(
-                            surface: surface,
-                            context: state.Context),
+    }
+    internal sealed record ContinuityReadinessCheck : GeometryCheck {
+        internal override string Key => "continuity-readiness";
+        internal override bool Applies(GeometryBase geometry) => geometry is Curve or Surface;
+        internal override Fin<Unit> Validate(GeometryContext context, GeometryBase geometry) =>
+            geometry switch {
+                Surface surface => Require(
+                    geometry: geometry,
+                    condition: SurfaceDomainReadinessCheck.HasUsableDomain(surface: surface, context: context) switch {
+                        false => true,
+                        true => (
+                            surface.GetNextDiscontinuity(
+                                direction: 0,
+                                continuityType: Continuity.C1_continuous,
+                                t0: surface.Domain(direction: 0).T0,
+                                t1: surface.Domain(direction: 0).T1,
+                                t: out double _),
+                            surface.GetNextDiscontinuity(
+                                direction: 1,
+                                continuityType: Continuity.C1_continuous,
+                                t0: surface.Domain(direction: 1).T0,
+                                t1: surface.Domain(direction: 1).T1,
+                                t: out double _)) switch {
+                                    (false, false) => true,
+                                    _ => false,
+                                },
+                    },
                     log: "Surface is valid Rhino geometry but contains a C1 discontinuity."),
-                Curve curve => state.Require(
+                Curve curve => Require(
+                    geometry: geometry,
                     condition: curve.GetNextDiscontinuity(
                         continuityType: Continuity.C1_continuous,
                         t0: curve.Domain.T0,
@@ -306,42 +388,65 @@ internal sealed class GeometryCheck {
                         },
                     log: "Curve is valid Rhino geometry but contains a C1 discontinuity."),
                 _ => Fin.Succ(unit),
-            });
-    internal static readonly GeometryCheck PolycurveStructure = new(
-        key: "polycurve-structure",
-        requirement: GeometryRequirement.StrictStructure,
-        applies: static (GeometryBase geometry) => geometry is PolyCurve,
-        validate: static (CheckState state) => {
-            PolyCurve polyCurve = (PolyCurve)state.Geometry;
-            return (polyCurve.HasGap, polyCurve.IsNested) switch {
-                (false, false) => Fin.Succ(unit),
-                _ => state.Invalid(log: (polyCurve.HasGap, polyCurve.IsNested) switch {
-                    (true, true) => "PolyCurve has gaps between segments and nested polycurves.",
-                    (true, false) => "PolyCurve has gaps between segments.",
-                    (false, true) => "PolyCurve contains nested polycurves.",
-                    _ => "PolyCurve structure is usable.",
-                }),
             };
-        });
-    internal static readonly GeometryCheck CurveSelfIntersection = new(
-        key: "curve-self-intersection",
-        requirement: GeometryRequirement.AreaMass,
-        applies: static (GeometryBase geometry) => geometry is Curve,
-        validate: static (CheckState state) => {
-            using CurveIntersections? intersections = Intersection.CurveSelf(
-                curve: (Curve)state.Geometry,
-                tolerance: state.Context.Absolute.Value);
+    }
+    internal sealed record PolycurveStructureCheck : GeometryCheck {
+        internal override string Key => "polycurve-structure";
+        internal override bool Applies(GeometryBase geometry) => geometry is PolyCurve;
+        internal override Fin<Unit> Validate(GeometryContext context, GeometryBase geometry) =>
+            geometry switch {
+                PolyCurve polyCurve => (polyCurve.HasGap, polyCurve.IsNested) switch {
+                    (false, false) => Fin.Succ(unit),
+                    _ => Invalid(geometry: geometry, log: (polyCurve.HasGap, polyCurve.IsNested) switch {
+                        (true, true) => "PolyCurve has gaps between segments and nested polycurves.",
+                        (true, false) => "PolyCurve has gaps between segments.",
+                        (false, true) => "PolyCurve contains nested polycurves.",
+                        _ => "PolyCurve structure is usable.",
+                    }),
+                },
+                _ => Fin.Succ(unit),
+            };
+    }
+    internal sealed record CurveSelfIntersectionCheck : GeometryCheck {
+        internal override string Key => "curve-self-intersection";
+        internal override bool Applies(GeometryBase geometry) => geometry is Curve;
+        internal override Fin<Unit> Validate(GeometryContext context, GeometryBase geometry) {
+            // BOUNDARY ADAPTER — CurveIntersections owns native unmanaged state and must be disposed via using;
+            // its construction lives at the GeometryCheck case boundary and returns a Fin<Unit>.
+            using CurveIntersections? intersections = geometry switch {
+                Curve curve => Intersection.CurveSelf(curve: curve, tolerance: context.Absolute.Value),
+                _ => null,
+            };
             return intersections switch {
                 CurveIntersections hits => hits.Count switch {
                     0 => Fin.Succ(unit),
-                    _ => state.Invalid(log: string.Create(
+                    _ => Invalid(geometry: geometry, log: string.Create(
                         provider: CultureInfo.InvariantCulture,
                         $"Rhino found {hits.Count} curve self-intersection event(s).")),
                 },
-                _ => state.Invalid(log: "Rhino curve self-intersection computation failed."),
+                _ => geometry switch {
+                    Curve _ => Invalid(geometry: geometry, log: "Rhino curve self-intersection computation failed."),
+                    _ => Fin.Succ(unit),
+                },
             };
-        });
-    internal static readonly Seq<GeometryCheck> All = Seq(
+        }
+    }
+    internal static readonly GeometryCheck RhinoValidity = new RhinoValidityCheck();
+    internal static readonly GeometryCheck UsableBounds = new UsableBoundsCheck();
+    internal static readonly GeometryCheck BrepIntegrity = new BrepIntegrityCheck();
+    internal static readonly GeometryCheck MeshRhinoCheck = new MeshRhinoCheckCheck();
+    internal static readonly GeometryCheck MeshManifoldReadiness = new MeshManifoldReadinessCheck();
+    internal static readonly GeometryCheck BrepSolidReadiness = new BrepSolidReadinessCheck();
+    internal static readonly GeometryCheck SurfaceSolidReadiness = new SurfaceSolidReadinessCheck();
+    internal static readonly GeometryCheck CurveLengthReadiness = new CurveLengthReadinessCheck();
+    internal static readonly GeometryCheck CurveAreaReadiness = new CurveAreaReadinessCheck();
+    internal static readonly GeometryCheck SurfaceDomainReadiness = new SurfaceDomainReadinessCheck();
+    internal static readonly GeometryCheck ContinuityReadiness = new ContinuityReadinessCheck();
+    internal static readonly GeometryCheck PolycurveStructure = new PolycurveStructureCheck();
+    internal static readonly GeometryCheck CurveSelfIntersection = new CurveSelfIntersectionCheck();
+    internal static readonly Seq<GeometryCheck> BasicChecks =
+        Seq<GeometryCheck>(RhinoValidity, UsableBounds);
+    internal static readonly Seq<GeometryCheck> AllChecks = Seq<GeometryCheck>(
         RhinoValidity,
         UsableBounds,
         BrepIntegrity,
@@ -355,93 +460,6 @@ internal sealed class GeometryCheck {
         ContinuityReadiness,
         PolycurveStructure,
         CurveSelfIntersection);
-    private readonly GeometryRequirement requirement;
-    private readonly Func<GeometryBase, bool> applies;
-    private readonly Func<CheckState, Fin<Unit>> validate;
-    private GeometryCheck(
-        string key,
-        GeometryRequirement requirement,
-        Func<GeometryBase, bool> applies,
-        Func<CheckState, Fin<Unit>> validate) {
-        Key = key;
-        this.requirement = requirement;
-        this.applies = applies;
-        this.validate = validate;
-    }
-    internal string Key { get; }
-    internal Fin<Unit> Apply(GeometryContext context, GeometryRequirement requirement, GeometryBase geometry) =>
-        (requirement.Includes(requirement: this.requirement), applies(arg: geometry)) switch {
-            (true, true) => validate(arg: new CheckState(
-                Context: context,
-                Check: this,
-                Geometry: geometry)),
-            (true, false) or (false, _) => Fin.Succ(unit),
-        };
-    private static string Detail(string label, string log) =>
-        string.IsNullOrWhiteSpace(value: log) switch {
-            true => label,
-            false => string.Create(provider: CultureInfo.InvariantCulture, $"{label}: {log}"),
-        };
-    [StructLayout(LayoutKind.Auto)]
-    private readonly record struct CheckState(
-        GeometryContext Context,
-        GeometryCheck Check,
-        GeometryBase Geometry) {
-        internal Fin<Unit> Invalid(string log) =>
-            Fin.Fail<Unit>(ValidationFault.InvalidGeometry(
-                geometry: Geometry,
-                check: Check,
-                log: log));
-        internal Fin<Unit> Require(bool condition, string log) =>
-            condition switch {
-                true => Fin.Succ(unit),
-                false => Invalid(log: log),
-            };
-        internal Fin<Unit> RequireRhinoLog(GeometryBase geometry) {
-            bool isValid = geometry.IsValidWithLog(out string log);
-            return isValid switch {
-                true => Fin.Succ(unit),
-                false => Invalid(log: log),
-            };
-        }
-    }
-    [StructLayout(LayoutKind.Auto)]
-    private readonly record struct SurfaceProfile(Interval UDomain, Interval VDomain) {
-        internal static SurfaceProfile From(Surface surface) =>
-            new(
-                UDomain: surface.Domain(direction: 0),
-                VDomain: surface.Domain(direction: 1));
-        internal bool HasUsableDomain(GeometryContext context) =>
-            (
-                UDomain.IsValid,
-                VDomain.IsValid,
-                UDomain.Length > context.Absolute.Value,
-                VDomain.Length > context.Absolute.Value
-            ) switch {
-                (true, true, true, true) => true,
-                _ => false,
-            };
-        internal bool HasUsableContinuity(Surface surface, GeometryContext context) =>
-            HasUsableDomain(context: context) switch {
-                false => true,
-                true => (
-                    surface.GetNextDiscontinuity(
-                        direction: 0,
-                        continuityType: Continuity.C1_continuous,
-                        t0: UDomain.T0,
-                        t1: UDomain.T1,
-                        t: out double _),
-                    surface.GetNextDiscontinuity(
-                        direction: 1,
-                        continuityType: Continuity.C1_continuous,
-                        t0: VDomain.T0,
-                        t1: VDomain.T1,
-                        t: out double _)) switch {
-                            (false, false) => true,
-                            _ => false,
-                        },
-            };
-    }
 }
 
 // --- [ERRORS] ----------------------------------------------------------------------------------
