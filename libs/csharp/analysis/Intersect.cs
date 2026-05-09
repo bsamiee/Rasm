@@ -2,7 +2,6 @@ using System.Linq;
 using System.Threading;
 using Core;
 using Core.Domain;
-using Core.Runtime;
 using LanguageExt;
 using LanguageExt.Common;
 using Rhino.FileIO;
@@ -234,8 +233,8 @@ public static partial class Query {
             requiresContext: true,
             state: (Key: key, A: a, B: b, Output: output),
             evaluator: static ((OperationKey Key, GeometryRequirement A, GeometryRequirement B, Func<TLeft, TRight, GeometryContext, Fin<Seq<TOut>>> Output) state, (TA A, TB B) geometry) =>
-                from rt in Analyze.Asks
-                from validated in rt.Context.Validate(
+                from ctx in Analyze.Asks
+                from validated in ctx.Validate(
                         shape: new GeometryShape<TA, TB>.Pair(
                             A: geometry.A,
                             B: geometry.B,
@@ -245,7 +244,7 @@ public static partial class Query {
                 from result in PairOutputValue(
                         state: state,
                         geometry: validated,
-                        context: rt.Context)
+                        context: ctx)
                     .ToEff()
                 select result);
     private static Fin<Seq<TOut>> PairOutputValue<TA, TB, TLeft, TRight, TOut>(

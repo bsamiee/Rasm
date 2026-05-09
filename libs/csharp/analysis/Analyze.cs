@@ -1,5 +1,4 @@
 using Core.Domain;
-using Core.Runtime;
 using LanguageExt;
 using LanguageExt.Common;
 using Rhino;
@@ -10,60 +9,60 @@ namespace Analysis;
 // --- [SURFACE] ---------------------------------------------------------------------------------
 
 public static class Analyze {
-    public static readonly Eff<AnalysisRuntime, AnalysisRuntime> Asks =
-        Eff.runtime<AnalysisRuntime>().As();
+    public static readonly Eff<GeometryContext, GeometryContext> Asks =
+        Eff.runtime<GeometryContext>().As();
     public static Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(
         Query<TGeometry, TOut>? query,
         params ReadOnlySpan<TGeometry> input) where TGeometry : notnull =>
         Run(
             query: query,
-            runtime: Option<AnalysisRuntime>.None,
+            runtime: Option<GeometryContext>.None,
             input: input);
     public static Scope From(RhinoDoc? doc) =>
-        new(runtime: GeometryContext.FromDocument(doc: doc)
-            .ToFin()
-            .Map(static (GeometryContext context) => new AnalysisRuntime(Context: context)));
+        new(context: GeometryContext.FromDocument(doc: doc).ToFin(), index: None);
     public static Scope In(UnitSystem units) =>
-        new(runtime: GeometryContext.CreateDefault(units: units)
-            .ToFin()
-            .Map(static (GeometryContext context) => new AnalysisRuntime(Context: context)));
+        new(context: GeometryContext.CreateDefault(units: units).ToFin(), index: None);
     public static Scope In(
         double absolute,
         double relative,
         double angle,
         UnitSystem units) =>
-        new(runtime: GeometryContext.FromKnownUnits(
-                absoluteTolerance: absolute,
-                relativeTolerance: relative,
-                angleToleranceRadians: angle,
-                units: units)
-            .ToFin()
-            .Map(static (GeometryContext context) => new AnalysisRuntime(Context: context)));
+        new(
+            context: GeometryContext.FromKnownUnits(
+                    absoluteTolerance: absolute,
+                    relativeTolerance: relative,
+                    angleToleranceRadians: angle,
+                    units: units)
+                .ToFin(),
+            index: None);
     public static Scope In(GeometryContext context) =>
-        new(runtime: Optional(context)
-            .ToFin(Query.ScopeKey.MissingContext())
-            .Map(static (GeometryContext geometryContext) => new AnalysisRuntime(Context: geometryContext)));
+        new(
+            context: Optional(context).ToFin(Query.ScopeKey.MissingContext()),
+            index: None);
     public sealed record Scope {
-        public Fin<AnalysisRuntime> Runtime { get; }
-        internal Scope(Fin<AnalysisRuntime> runtime) =>
-            Runtime = runtime;
+        public Fin<GeometryContext> Context { get; init; }
+        public Option<IndexHint> Index { get; init; }
+        internal Scope(Fin<GeometryContext> context, Option<IndexHint> index) {
+            Context = context;
+            Index = index;
+        }
         public Scope WithIndex(int index) =>
-            new(runtime: Runtime.Map((AnalysisRuntime rt) => rt with {
+            this with {
                 Index = IndexHint.Create(value: index).Match(
                     Succ: static (IndexHint hint) => Some(hint),
                     Fail: static (Error _) => Option<IndexHint>.None),
-            }));
+            };
         public Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(
             Query<TGeometry, TOut>? query,
             params ReadOnlySpan<TGeometry> input) where TGeometry : notnull =>
             Analyze.Run(
                 query: query,
-                runtime: Runtime.ToOption(),
+                runtime: Context.ToOption(),
                 input: input);
     }
     private static Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(
         Query<TGeometry, TOut>? query,
-        Option<AnalysisRuntime> runtime,
+        Option<GeometryContext> runtime,
         ReadOnlySpan<TGeometry> input) where TGeometry : notnull =>
         query switch {
             Query<TGeometry, TOut> candidate => new Program<TGeometry, TOut>(
@@ -74,7 +73,7 @@ public static class Analyze {
         };
     private sealed class Program<TGeometry, TOut>(
         Query<TGeometry, TOut> query,
-        Option<AnalysisRuntime> runtime) where TGeometry : notnull {
+        Option<GeometryContext> runtime) where TGeometry : notnull {
         internal Validation<Error, Seq<TOut>> Execute(
             params ReadOnlySpan<TGeometry> input) =>
             input.ToArray()
@@ -88,7 +87,7 @@ public static class Analyze {
             Optional(input)
                 .ToFin(ValidationFault.MissingGeometry())
                 .Bind((TGeometry geometry) => runtime.Match(
-                    Some: (AnalysisRuntime rt) => query.Apply(geometry: geometry).Run(rt),
+                    Some: (GeometryContext context) => query.Apply(geometry: geometry).Run(context),
                     None: () => Fin.Fail<Seq<TOut>>(query.Key.MissingContext())));
     }
 }

@@ -1,7 +1,6 @@
 using System.Reflection;
 using Analysis;
 using Core.Domain;
-using Core.Runtime;
 using Grasshopper2.Components;
 using Grasshopper2.Parameters;
 using Grasshopper2.UI;
@@ -31,7 +30,7 @@ public interface IBridgeOutput<TInput> where TInput : RhinoGeometry {
     public string Code { get; }
     public string Description { get; }
     public Type ValueType { get; }
-    public Unit Execute(IDataAccess access, int index, AnalysisRuntime scope, TInput geometry);
+    public Unit Execute(IDataAccess access, int index, Analyze.Scope scope, TInput geometry);
     public Unit WriteEmpty(IDataAccess access, int index);
 }
 
@@ -45,7 +44,7 @@ public interface IBridgeOutput<TInput> where TInput : RhinoGeometry {
 /// <see cref="GeometryParameterKind"/> to the canonical Grasshopper2 <see cref="IParameter"/> for
 /// the CLR type. Override <see cref="Input"/> to customise the geometry input slot, or
 /// <see cref="IndexInput"/> to add an optional integer index input that is propagated to queries
-/// via <see cref="AnalysisRuntime.Index"/>. The <typeparamref name="TInput"/> constraint pins the
+/// via <see cref="Analyze.Scope.Index"/>. The <typeparamref name="TInput"/> constraint pins the
 /// boundary to the closed <see cref="RhinoGeometry"/> Union — value-type primitives and
 /// <see cref="Rhino.Geometry.GeometryBase"/> instances flow through the same canonical
 /// discriminant; non-Union inputs surface an explicit error rather than a silent miscoercion.
@@ -128,10 +127,10 @@ public abstract class AnalysisComponent<TInput> : Component where TInput : Rhino
         ArgumentNullException.ThrowIfNull(argument: access);
         _ = access
             .ResolveScope()
-            .Map((AnalysisRuntime scope) => IndexInput.Match(
+            .Map((Analyze.Scope scope) => IndexInput.Match(
                 Some: (IndexInputSpec spec) => scope.WithIndex(access: access, spec: spec),
                 None: () => scope))
-            .Map((AnalysisRuntime scoped) => (
+            .Map((Analyze.Scope scoped) => (
                 access.GetItem(index: 0, value: out object? item),
                 item is null ? Option<RhinoGeometry>.None : RhinoGeometry.From(value: item)
             ) switch {

@@ -1,7 +1,6 @@
 using Analysis;
 using Core;
 using Core.Domain;
-using Core.Runtime;
 using Grasshopper2.Components;
 using Grasshopper2.Data.Meta;
 using Grasshopper2.Parameters.Standard;
@@ -25,8 +24,9 @@ public readonly record struct BridgeOutput<TInput, TValue>(
     Query<object, TValue> Query) : IBridgeOutput<TInput> where TInput : RhinoGeometry {
     public Type ValueType =>
         typeof(TValue);
-    public Unit Execute(IDataAccess access, int index, AnalysisRuntime scope, TInput geometry) {
+    public Unit Execute(IDataAccess access, int index, Analyze.Scope scope, TInput geometry) {
         ArgumentNullException.ThrowIfNull(argument: access);
+        ArgumentNullException.ThrowIfNull(argument: scope);
         ArgumentNullException.ThrowIfNull(argument: geometry);
         return Bridge.RunOne(
             access: access,
@@ -46,19 +46,18 @@ public readonly record struct BridgeOutput<TInput, TValue>(
 // --- [OPERATIONS] ------------------------------------------------------------------------------
 
 public static class Bridge {
-    public static Fin<AnalysisRuntime> ResolveScope(this IDataAccess access) {
+    public static Fin<Analyze.Scope> ResolveScope(this IDataAccess access) {
         ArgumentNullException.ThrowIfNull(argument: access);
         return (
             access.GetTolerance(absoluteTolerance: out double absolute),
             access.GetTolerance(angularTolerance: out Angle angle),
             access.GetUnitSystem(unitSystem: out UnitSystem units)
         ) switch {
-            (true, true, true) => Analyze.In(
-                    absolute: absolute,
-                    relative: 0.0,
-                    angle: angle.Radians,
-                    units: units.System)
-                .Runtime,
+            (true, true, true) => Fin.Succ(Analyze.In(
+                absolute: absolute,
+                relative: 0.0,
+                angle: angle.Radians,
+                units: units.System)),
             _ => RemarkAndFallback(access: access),
         };
     }
@@ -70,49 +69,48 @@ public static class Bridge {
         access.AddError(text: label, details: $"{label} input is required. Connect: {accepted}.");
         return Unit.Default;
     }
-    public static AnalysisRuntime WithIndex(
-        this AnalysisRuntime scope,
+    public static Analyze.Scope WithIndex(
+        this Analyze.Scope scope,
         IDataAccess access,
         IndexInputSpec spec) {
         ArgumentNullException.ThrowIfNull(argument: scope);
         ArgumentNullException.ThrowIfNull(argument: access);
-        return scope with {
-            Index = IndexHint
-                .Create(value: (access.GetItem(index: 1, value: out int candidate), candidate) switch {
-                    (true, int value) => value,
-                    _ => spec.Default,
-                })
-                .Match(
-                    Succ: static (IndexHint hint) => Some(hint),
-                    Fail: static (Error _) => Option<IndexHint>.None),
-        };
+        return scope.WithIndex(index: (access.GetItem(index: 1, value: out int candidate), candidate) switch {
+            (true, int value) => value,
+            _ => spec.Default,
+        });
     }
-    private static Fin<AnalysisRuntime> RemarkAndFallback(IDataAccess access) {
+    private static Fin<Analyze.Scope> RemarkAndFallback(IDataAccess access) {
         access.AddRemark(
             text: "Tolerance",
             details: "Host did not supply tolerance/units; using millimetres at default tolerance.");
-        return Analyze.In(units: Rhino.UnitSystem.Millimeters).Runtime;
+        return Fin.Succ(Analyze.In(units: Rhino.UnitSystem.Millimeters));
     }
     internal static Unit RunOne<TGeometry, TValue>(
         IDataAccess access,
         int index,
         string name,
-        AnalysisRuntime scope,
+        Analyze.Scope scope,
         TGeometry geometry,
         Query<TGeometry, TValue> query) where TGeometry : notnull =>
         SetTwig<TValue>(
             access: access,
             index: index,
-            values: query
-                .Apply(geometry: geometry)
-                .WithStandardResilience()
-                .Run(scope)
-                .Match(
-                    Succ: (Seq<TValue> values) => (TValue[])[.. values],
-                    Fail: (Error error) => RaiseWarning<TValue>(
-                        access: access,
-                        name: name,
-                        error: error)));
+            values: scope.Context.Match(
+                Succ: (GeometryContext context) => query
+                    .Apply(geometry: geometry)
+                    .WithStandardResilience()
+                    .Run(context)
+                    .Match(
+                        Succ: (Seq<TValue> values) => (TValue[])[.. values],
+                        Fail: (Error error) => RaiseWarning<TValue>(
+                            access: access,
+                            name: name,
+                            error: error)),
+                Fail: (Error error) => RaiseWarning<TValue>(
+                    access: access,
+                    name: name,
+                    error: error)));
     private static TValue[] RaiseWarning<TValue>(IDataAccess access, string name, Error error) {
         access.AddWarning(text: name, details: error.Message);
         return [];

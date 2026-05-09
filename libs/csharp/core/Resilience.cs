@@ -1,4 +1,4 @@
-using Core.Runtime;
+using Core.Domain;
 using LanguageExt.Common;
 namespace Core;
 
@@ -13,10 +13,10 @@ public static class Resilience {
 
     // --- [OPERATIONS] --------------------------------------------------------------------------
 
-    public static Eff<AnalysisRuntime, T> WithStandardResilience<T>(
-        this Eff<AnalysisRuntime, T> effect) =>
+    public static Eff<GeometryContext, T> WithStandardResilience<T>(
+        this Eff<GeometryContext, T> effect) =>
         retry(schedule: StandardPolicy, ma: effect)
             .As();
-    public static Eff<AnalysisRuntime, T> ToEff<T>(this Validation<Error, T> validation) =>
+    public static Eff<GeometryContext, T> ToEff<T>(this Validation<Error, T> validation) =>
         validation.ToFin();
 }

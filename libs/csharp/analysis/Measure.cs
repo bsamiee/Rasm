@@ -1,6 +1,5 @@
 using Core;
 using Core.Domain;
-using Core.Runtime;
 using LanguageExt;
 using LanguageExt.Common;
 using Rhino;
@@ -14,8 +13,8 @@ public static partial class Query {
             key: UniqueCornersKey,
             requiresContext: true,
             evaluator: static (BoundingBox bbox) =>
-                from rt in Analyze.Asks
-                from result in DedupeCorners(bbox: bbox, tolerance: rt.Context.Absolute.Value).ToEff()
+                from ctx in Analyze.Asks
+                from result in DedupeCorners(bbox: bbox, tolerance: ctx.Absolute.Value).ToEff()
                 select result);
     public static Query<TGeometry, TOut> BoundingCorners<TGeometry, TOut>() where TGeometry : notnull =>
         typeof(TOut) switch {
@@ -23,9 +22,9 @@ public static partial class Query {
                 key: UniqueCornersKey,
                 requiresContext: true,
                 evaluator: static (TGeometry geom) =>
-                    from rt in Analyze.Asks
+                    from ctx in Analyze.Asks
                     from bbox in BoundingBoxOf(geom: geom).ToEff()
-                    from result in DedupeCorners(bbox: bbox, tolerance: rt.Context.Absolute.Value).ToEff()
+                    from result in DedupeCorners(bbox: bbox, tolerance: ctx.Absolute.Value).ToEff()
                     select result)),
             _ => UniqueCornersKey.Unsupported<TGeometry, TOut>(),
         };
@@ -148,8 +147,8 @@ public static partial class Query {
                         Line line => One(key: SpatialMidpointKey, value: line.PointAt(t: 0.5)).ToEff(),
                         Polyline polyline => One(key: SpatialMidpointKey, value: polyline.CenterPoint()).ToEff(),
                         Curve curve =>
-                            from rt in Analyze.Asks
-                            from result in (curve.IsClosed, curve.TryGetPlane(plane: out Plane _, tolerance: rt.Context.Absolute.Value)) switch {
+                            from ctx in Analyze.Asks
+                            from result in (curve.IsClosed, curve.TryGetPlane(plane: out Plane _, tolerance: ctx.Absolute.Value)) switch {
                                 (true, true) => MassCentroid(geometry: curve, requirement: GeometryRequirement.AreaMass, query: AreaCentroid<Curve>(name: SpatialMidpointKey.Name)),
                                 _ => MassCentroid(geometry: curve, requirement: GeometryRequirement.CurveLength, query: LengthCentroid<Curve>(name: SpatialMidpointKey.Name)),
                             }
@@ -161,14 +160,14 @@ public static partial class Query {
                         Surface { IsSolid: true } surface => MassCentroid(geometry: surface, requirement: GeometryRequirement.VolumeMass, query: VolumeCentroid<Surface>(name: SpatialMidpointKey.Name)),
                         Surface surface => MassCentroid(geometry: surface, requirement: GeometryRequirement.AreaMass, query: AreaCentroid<Surface>(name: SpatialMidpointKey.Name)),
                         SubD subd =>
-                            from rt in Analyze.Asks
-                            from validated in rt.Context.Validate(geometry: subd, requirement: GeometryRequirement.Basic).ToEff()
+                            from ctx in Analyze.Asks
+                            from validated in ctx.Validate(geometry: subd, requirement: GeometryRequirement.Basic).ToEff()
                             from brep in Optional(validated.ToBrep()).ToFin(SpatialMidpointKey.InvalidResult()).ToEff()
                             from result in SubDBrepSpatialMidpoint(brep: brep)
                             select result,
                         BoundingBox box => One(key: SpatialMidpointKey, value: box.Center).ToEff(),
                         Box box => One(key: SpatialMidpointKey, value: box.Center).ToEff(),
-                        _ => Eff<AnalysisRuntime, Seq<Point3d>>.Fail(error: SpatialMidpointKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Point3d))),
+                        _ => Eff<GeometryContext, Seq<Point3d>>.Fail(error: SpatialMidpointKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Point3d))),
                     })),
             _ => SpatialMidpointKey.Unsupported<TGeometry, TOut>(),
         };
@@ -179,7 +178,7 @@ public static partial class Query {
         reason: BoundaryImperativeReason.CleanupFinally,
         ticket: "RASM-WAVE4",
         expiresOnUtc: "2027-12-31T00:00:00Z")]
-    private static Eff<AnalysisRuntime, Seq<Point3d>> SubDBrepSpatialMidpoint(Brep brep) {
+    private static Eff<GeometryContext, Seq<Point3d>> SubDBrepSpatialMidpoint(Brep brep) {
         using Brep disposable = brep;
         return disposable.IsSolid switch {
             true => MassCentroid(geometry: disposable, requirement: GeometryRequirement.VolumeMass, query: VolumeCentroid<Brep>(name: SpatialMidpointKey.Name)),
@@ -269,8 +268,8 @@ public static partial class Query {
             requiresContext: true,
             state: (Count: count, Requirement: requirement, Samples: samples, Project: project),
             evaluator: static ((int Count, GeometryRequirement Requirement, Func<TNativeGeometry, TNativePrimitive, int, GeometryContext, Fin<Seq<ResidualSample>>> Samples, Func<Seq<ResidualSample>, GeometryContext, Fin<Seq<TValue>>> Project) state, (TGeometry Geometry, TPrimitive Primitive) geometry) =>
-                from rt in Analyze.Asks
-                from validated in rt.Context.Validate(
+                from ctx in Analyze.Asks
+                from validated in ctx.Validate(
                         shape: new GeometryShape<TGeometry, TPrimitive>.Pair(
                             A: geometry.Geometry,
                             B: geometry.Primitive,
@@ -279,7 +278,7 @@ public static partial class Query {
                     .ToEff()
                 from result in ConformanceProject(
                         geometry: validated,
-                        context: rt.Context,
+                        context: ctx,
                         count: state.Count,
                         samples: state.Samples,
                         project: state.Project)
@@ -455,12 +454,12 @@ public static partial class Query {
         TGeometry Geometry,
         TPrimitive Primitive,
         GeometryContext Context) where TGeometry : notnull where TPrimitive : notnull;
-    private static Eff<AnalysisRuntime, Seq<Point3d>> MassCentroid<TGeometry>(
+    private static Eff<GeometryContext, Seq<Point3d>> MassCentroid<TGeometry>(
         TGeometry geometry,
         GeometryRequirement requirement,
         Query<TGeometry, Point3d> query) where TGeometry : GeometryBase =>
-        from rt in Analyze.Asks
-        from validated in rt.Context.Validate(geometry: geometry, requirement: requirement).ToEff()
+        from ctx in Analyze.Asks
+        from validated in ctx.Validate(geometry: geometry, requirement: requirement).ToEff()
         from result in query.Apply(geometry: validated)
         select result;
     private static Query<TGeometry, Point3d> LengthCentroid<TGeometry>(string name) where TGeometry : notnull =>
@@ -552,12 +551,12 @@ public static partial class Query {
                     requirement: GeometryRequirement.CurveLength,
                     evaluator: static (TGeometry geometry) => geometry switch {
                         Curve curve =>
-                            from rt in Analyze.Asks
+                            from ctx in Analyze.Asks
                             from result in One(
                                 key: LengthKey,
-                                value: curve.GetLength(fractionalTolerance: rt.Context.Relative.Value)).ToEff()
+                                value: curve.GetLength(fractionalTolerance: ctx.Relative.Value)).ToEff()
                             select result,
-                        _ => Eff<AnalysisRuntime, Seq<double>>.Fail(error: LengthKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(double))),
+                        _ => Eff<GeometryContext, Seq<double>>.Fail(error: LengthKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(double))),
                     })),
             _ => LengthKey.Unsupported<TGeometry, TOut>(),
         };

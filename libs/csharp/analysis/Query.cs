@@ -3,7 +3,6 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using Core;
 using Core.Domain;
-using Core.Runtime;
 using LanguageExt;
 using LanguageExt.Common;
 using Rhino.Geometry;
@@ -16,16 +15,16 @@ namespace Analysis;
 
 public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
     internal OperationKey Key { get; }
-    internal Func<TGeometry, Eff<AnalysisRuntime, Seq<TOut>>> Effect { get; }
-    internal Query(OperationKey key, Func<TGeometry, Eff<AnalysisRuntime, Seq<TOut>>> effect) {
+    internal Func<TGeometry, Eff<GeometryContext, Seq<TOut>>> Effect { get; }
+    internal Query(OperationKey key, Func<TGeometry, Eff<GeometryContext, Seq<TOut>>> effect) {
         Key = key;
         Effect = effect;
     }
-    public Eff<AnalysisRuntime, Seq<TOut>> Apply(TGeometry geometry) =>
+    public Eff<GeometryContext, Seq<TOut>> Apply(TGeometry geometry) =>
         Effect(arg: geometry);
     internal static Query<TGeometry, TOut> Build(
         OperationKey key,
-        Func<TGeometry, Eff<AnalysisRuntime, Seq<TOut>>> evaluator,
+        Func<TGeometry, Eff<GeometryContext, Seq<TOut>>> evaluator,
         GeometryRequirement? requirement = null,
         bool requiresContext = false) =>
         new(
@@ -34,8 +33,8 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
                 (null or GeometryRequirement.NoneRequirement, _) => evaluator,
                 (GeometryRequirement r, _) => (TGeometry geometry) => geometry switch {
                     GeometryBase native =>
-                        from rt in Analyze.Asks
-                        from _ in rt.Context.Validate(geometry: native, requirement: r).ToEff()
+                        from ctx in Analyze.Asks
+                        from _ in ctx.Validate(geometry: native, requirement: r).ToEff()
                         from result in evaluator(arg: geometry)
                         select result,
                     _ => evaluator(arg: geometry),
@@ -44,7 +43,7 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
     internal static Query<TGeometry, TOut> Build<TState>(
         OperationKey key,
         TState state,
-        Func<TState, TGeometry, Eff<AnalysisRuntime, Seq<TOut>>> evaluator,
+        Func<TState, TGeometry, Eff<GeometryContext, Seq<TOut>>> evaluator,
         GeometryRequirement? requirement = null,
         bool requiresContext = false) =>
         Build(
@@ -55,7 +54,7 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
     internal static Query<TGeometry, TOut> Reject(OperationKey key, Error fault) =>
         new(
             key: key,
-            effect: (TGeometry _) => Eff<AnalysisRuntime, Seq<TOut>>.Fail(error: fault));
+            effect: (TGeometry _) => Eff<GeometryContext, Seq<TOut>>.Fail(error: fault));
 }
 public enum MassKind { None = 0, Length = 1, Area = 2, Volume = 3 }
 public enum CurvatureScalar { None = 0, Magnitude = 1, Gaussian = 2, Mean = 3 }
@@ -303,16 +302,16 @@ public static partial class Query {
             evaluator: static (PrimitiveCase<TSource, TValue> extract, TGeometry geometry) =>
                 geometry switch {
                     TSource source =>
-                        from rt in Analyze.Asks
-                        from validated in rt.Context.Validate(geometry: source, requirement: GeometryRequirement.Basic).ToEff()
+                        from ctx in Analyze.Asks
+                        from validated in ctx.Validate(geometry: source, requirement: GeometryRequirement.Basic).ToEff()
                         from result in PrimitiveExtract(
                                 key: PrimitiveKey,
                                 extract: extract,
                                 geometry: validated,
-                                context: rt.Context)
+                                context: ctx)
                             .ToEff()
                         select result,
-                    _ => Eff<AnalysisRuntime, Seq<TValue>>.Fail(error: PrimitiveKey.Unsupported(
+                    _ => Eff<GeometryContext, Seq<TValue>>.Fail(error: PrimitiveKey.Unsupported(
                         geometryType: typeof(TGeometry),
                         outputType: typeof(TValue))),
                 }));
@@ -339,7 +338,7 @@ public static partial class Query {
                             target: state.Point,
                             geometry: source)
                         .ToEff(),
-                    _ => Eff<AnalysisRuntime, Seq<TValue>>.Fail(error: ClosestKey.Unsupported(
+                    _ => Eff<GeometryContext, Seq<TValue>>.Fail(error: ClosestKey.Unsupported(
                         geometryType: typeof(TGeometry),
                         outputType: typeof(TValue))),
                 }));
@@ -355,25 +354,25 @@ public static partial class Query {
                 true => Fin.Succ(project(arg1: curve, arg2: parameter)),
                 false => Fin.Fail<TOut>(key.InvalidResult()),
             };
-    internal static Eff<AnalysisRuntime, Seq<TOut>> CurveAtNormalized<TGeometry, TOut>(
+    internal static Eff<GeometryContext, Seq<TOut>> CurveAtNormalized<TGeometry, TOut>(
         TGeometry geometry,
         OperationKey key,
         Func<Curve, double, TOut> project) where TGeometry : notnull =>
         geometry switch {
             Curve curve =>
-                from rt in Analyze.Asks
-                from validated in rt.Context.Validate(geometry: curve, requirement: GeometryRequirement.CurveLength).ToEff()
+                from ctx in Analyze.Asks
+                from validated in ctx.Validate(geometry: curve, requirement: GeometryRequirement.CurveLength).ToEff()
                 from value in CurveAtNormalizedValue(
                         curve: validated,
-                        context: rt.Context,
+                        context: ctx,
                         key: key,
                         project: project)
                     .ToEff()
                 from result in One(key: key, value: value).ToEff()
                 select result,
-            _ => Eff<AnalysisRuntime, Seq<TOut>>.Fail(error: key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))),
+            _ => Eff<GeometryContext, Seq<TOut>>.Fail(error: key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))),
         };
-    internal static readonly Func<object, bool, bool, Eff<AnalysisRuntime, LengthMassProperties>> ComputeLength =
+    internal static readonly Func<object, bool, bool, Eff<GeometryContext, LengthMassProperties>> ComputeLength =
         static (object geometry, bool second, bool product) =>
             (geometry switch {
                 Curve curve => Optional(LengthMassProperties.Compute(
@@ -387,13 +386,13 @@ public static partial class Query {
                     label: nameof(LengthMassProperties),
                     geometryType: geometry.GetType())),
             }).ToEff();
-    internal static readonly Func<object, bool, bool, Eff<AnalysisRuntime, AreaMassProperties>> ComputeArea =
+    internal static readonly Func<object, bool, bool, Eff<GeometryContext, AreaMassProperties>> ComputeArea =
         static (object geometry, bool second, bool product) =>
-            from rt in Analyze.Asks
+            from ctx in Analyze.Asks
             from props in Optional(geometry switch {
                 Curve curve => AreaMassProperties.Compute(
                     closedPlanarCurve: curve,
-                    planarTolerance: rt.Context.Absolute.Value),
+                    planarTolerance: ctx.Absolute.Value),
                 Mesh mesh => AreaMassProperties.Compute(
                     mesh: mesh,
                     area: true,
@@ -406,8 +405,8 @@ public static partial class Query {
                     firstMoments: true,
                     secondMoments: second,
                     productMoments: product,
-                    relativeTolerance: rt.Context.Relative.Value,
-                    absoluteTolerance: rt.Context.Absolute.Value),
+                    relativeTolerance: ctx.Relative.Value,
+                    absoluteTolerance: ctx.Absolute.Value),
                 Surface surface => AreaMassProperties.Compute(
                     surface: surface,
                     area: true,
@@ -420,9 +419,9 @@ public static partial class Query {
                 _ => OperationFault.ComputationUnsupported(label: nameof(AreaMassProperties), geometryType: geometry.GetType()),
             }).ToEff()
             select props;
-    internal static readonly Func<object, bool, bool, Eff<AnalysisRuntime, VolumeMassProperties>> ComputeVolume =
+    internal static readonly Func<object, bool, bool, Eff<GeometryContext, VolumeMassProperties>> ComputeVolume =
         static (object geometry, bool second, bool product) =>
-            from rt in Analyze.Asks
+            from ctx in Analyze.Asks
             from props in Optional(geometry switch {
                 Mesh mesh => VolumeMassProperties.Compute(
                     mesh: mesh,
@@ -436,8 +435,8 @@ public static partial class Query {
                     firstMoments: true,
                     secondMoments: second,
                     productMoments: product,
-                    relativeTolerance: rt.Context.Relative.Value,
-                    absoluteTolerance: rt.Context.Absolute.Value),
+                    relativeTolerance: ctx.Relative.Value,
+                    absoluteTolerance: ctx.Absolute.Value),
                 Surface surface => VolumeMassProperties.Compute(
                     surface: surface,
                     volume: true,
@@ -453,7 +452,7 @@ public static partial class Query {
     internal static Query<TGeometry, TOut> Mass<TGeometry, TMass, TOut>(
         string name,
         GeometryRequirement requirement,
-        Func<object, bool, bool, Eff<AnalysisRuntime, TMass>> compute,
+        Func<object, bool, bool, Eff<GeometryContext, TMass>> compute,
         Func<OperationKey, TMass, Fin<Seq<TOut>>> project,
         bool secondMoments = false,
         bool productMoments = false) where TGeometry : notnull where TMass : class, IDisposable {

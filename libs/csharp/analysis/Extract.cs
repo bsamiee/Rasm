@@ -1,7 +1,6 @@
 using System.Threading;
 using Core;
 using Core.Domain;
-using Core.Runtime;
 using LanguageExt;
 using LanguageExt.Common;
 using Rhino;
@@ -76,36 +75,36 @@ public static partial class Query {
                         Mesh mesh => MeshEdgeMidpoints(mesh: mesh),
                         SubD subd => SubDEdgeMidpoints(subd: subd),
                         Box box =>
-                            from rt in Analyze.Asks
+                            from ctx in Analyze.Asks
                             from result in Optional(box.ToBrep())
                                 .ToFin(EdgeMidpointsKey.InvalidResult())
-                                .Bind((Brep brep) => BrepEdgesViaUsing(brep: brep, context: rt.Context))
+                                .Bind((Brep brep) => BrepEdgesViaUsing(brep: brep, context: ctx))
                                 .ToEff()
                             select result,
-                        _ => Eff<AnalysisRuntime, Seq<Point3d>>.Fail(error: EdgeMidpointsKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Point3d))),
+                        _ => Eff<GeometryContext, Seq<Point3d>>.Fail(error: EdgeMidpointsKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Point3d))),
                     })),
             _ => EdgeMidpointsKey.Unsupported<TGeometry, TOut>(),
         };
-    private static Eff<AnalysisRuntime, Seq<Point3d>> CurveEdgeMidpoint(Curve curve) =>
-        from rt in Analyze.Asks
-        from validated in rt.Context.Validate(geometry: curve, requirement: GeometryRequirement.CurveLength).ToEff()
+    private static Eff<GeometryContext, Seq<Point3d>> CurveEdgeMidpoint(Curve curve) =>
+        from ctx in Analyze.Asks
+        from validated in ctx.Validate(geometry: curve, requirement: GeometryRequirement.CurveLength).ToEff()
         from point in CurveAtNormalizedValue(
                 curve: validated,
-                context: rt.Context,
+                context: ctx,
                 key: EdgeMidpointsKey,
                 project: static (Curve geometry, double parameter) => geometry.PointAt(t: parameter))
             .ToEff()
         from result in One(key: EdgeMidpointsKey, value: point).ToEff()
         select result;
-    private static Eff<AnalysisRuntime, Seq<Point3d>> BrepEdgeMidpoints(Brep brep) =>
+    private static Eff<GeometryContext, Seq<Point3d>> BrepEdgeMidpoints(Brep brep) =>
         BrepLeaves<Point3d>(
             brep: brep,
             key: EdgeMidpointsKey,
             primitiveFault: static (OperationKey key, string label) => key.PrimitiveNoEdges(primitive: label),
             project: static (Brep validated, GeometryContext context) => EdgeCurveMidpoints(curves: validated.DuplicateEdgeCurves(), context: context));
-    private static Eff<AnalysisRuntime, Seq<Point3d>> MeshEdgeMidpoints(Mesh mesh) =>
-        from rt in Analyze.Asks
-        from validated in rt.Context.Validate(geometry: mesh, requirement: GeometryRequirement.Basic).ToEff()
+    private static Eff<GeometryContext, Seq<Point3d>> MeshEdgeMidpoints(Mesh mesh) =>
+        from ctx in Analyze.Asks
+        from validated in ctx.Validate(geometry: mesh, requirement: GeometryRequirement.Basic).ToEff()
         from result in Many(
                 key: EdgeMidpointsKey,
                 values: Enumerable
@@ -113,10 +112,10 @@ public static partial class Query {
                     .Select((int index) => validated.TopologyEdges.EdgeLine(topologyEdgeIndex: index).PointAt(t: 0.5)))
             .ToEff()
         select result;
-    private static Eff<AnalysisRuntime, Seq<Point3d>> SubDEdgeMidpoints(SubD subd) =>
-        from rt in Analyze.Asks
-        from validated in rt.Context.Validate(geometry: subd, requirement: GeometryRequirement.Basic).ToEff()
-        from result in EdgeCurveMidpoints(curves: validated.DuplicateEdgeCurves(), context: rt.Context).ToEff()
+    private static Eff<GeometryContext, Seq<Point3d>> SubDEdgeMidpoints(SubD subd) =>
+        from ctx in Analyze.Asks
+        from validated in ctx.Validate(geometry: subd, requirement: GeometryRequirement.Basic).ToEff()
+        from result in EdgeCurveMidpoints(curves: validated.DuplicateEdgeCurves(), context: ctx).ToEff()
         select result;
     // Box.ToBrep() yields a fresh Brep that must be disposed; the using-local is intrinsic to this
     // boundary path between the Rhino native-types layer and the GeometryBase pipeline.
@@ -245,17 +244,17 @@ public static partial class Query {
                     key: KindKey,
                     evaluator: static (TGeometry geometry) => geometry switch {
                         Brep brep =>
-                            from rt in Analyze.Asks
-                            from result in One(key: KindKey, value: KindOfBrep(brep: brep, context: rt.Context)).ToEff()
+                            from ctx in Analyze.Asks
+                            from result in One(key: KindKey, value: KindOfBrep(brep: brep, context: ctx)).ToEff()
                             select result,
                         Surface surface =>
-                            from rt in Analyze.Asks
+                            from ctx in Analyze.Asks
                             from result in One(key: KindKey, value: surface switch {
-                                Surface s when s.TryGetPlane(plane: out Plane _, tolerance: rt.Context.Absolute.Value) => GeometryKind.Plane,
-                                Surface s when s.TryGetSphere(sphere: out Sphere _, tolerance: rt.Context.Absolute.Value) => GeometryKind.Sphere,
-                                Surface s when s.TryGetCylinder(cylinder: out Cylinder _, tolerance: rt.Context.Absolute.Value) => GeometryKind.Cylinder,
-                                Surface s when s.TryGetCone(cone: out Cone _, tolerance: rt.Context.Absolute.Value) => GeometryKind.Cone,
-                                Surface s when s.TryGetTorus(torus: out Torus _, tolerance: rt.Context.Absolute.Value) => GeometryKind.Torus,
+                                Surface s when s.TryGetPlane(plane: out Plane _, tolerance: ctx.Absolute.Value) => GeometryKind.Plane,
+                                Surface s when s.TryGetSphere(sphere: out Sphere _, tolerance: ctx.Absolute.Value) => GeometryKind.Sphere,
+                                Surface s when s.TryGetCylinder(cylinder: out Cylinder _, tolerance: ctx.Absolute.Value) => GeometryKind.Cylinder,
+                                Surface s when s.TryGetCone(cone: out Cone _, tolerance: ctx.Absolute.Value) => GeometryKind.Cone,
+                                Surface s when s.TryGetTorus(torus: out Torus _, tolerance: ctx.Absolute.Value) => GeometryKind.Torus,
                                 _ => GeometryKind.Surface,
                             }).ToEff()
                             select result,
@@ -300,10 +299,10 @@ public static partial class Query {
                     state: point,
                     requirement: GeometryRequirement.SolidTopology,
                     evaluator: static (Point3d target, TGeometry geometry) =>
-                        from rt in Analyze.Asks
+                        from ctx in Analyze.Asks
                         from result in (geometry switch {
-                            Brep brep => One(key: IsPointInsideKey, value: brep.IsPointInside(point: target, tolerance: rt.Context.Absolute.Value, strictlyIn: false)),
-                            Mesh mesh => One(key: IsPointInsideKey, value: mesh.IsPointInside(point: target, tolerance: rt.Context.Absolute.Value, strictlyIn: false)),
+                            Brep brep => One(key: IsPointInsideKey, value: brep.IsPointInside(point: target, tolerance: ctx.Absolute.Value, strictlyIn: false)),
+                            Mesh mesh => One(key: IsPointInsideKey, value: mesh.IsPointInside(point: target, tolerance: ctx.Absolute.Value, strictlyIn: false)),
                             _ => Fin.Fail<Seq<bool>>(IsPointInsideKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(bool))),
                         }).ToEff()
                         select result)),
@@ -341,29 +340,29 @@ public static partial class Query {
                             .ToEff(),
                         BoundingBox box => Many(key: VerticesKey, values: box.GetCorners()).ToEff(),
                         Box box => Many(key: VerticesKey, values: box.GetCorners()).ToEff(),
-                        _ => Eff<AnalysisRuntime, Seq<Point3d>>.Fail(error: VerticesKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Point3d))),
+                        _ => Eff<GeometryContext, Seq<Point3d>>.Fail(error: VerticesKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Point3d))),
                     })),
             _ => VerticesKey.Unsupported<TGeometry, TOut>(),
         };
-    private static Eff<AnalysisRuntime, Seq<Point3d>> BrepVertices(Brep brep) =>
+    private static Eff<GeometryContext, Seq<Point3d>> BrepVertices(Brep brep) =>
         BrepLeaves<Point3d>(
             brep: brep,
             key: VerticesKey,
             primitiveFault: static (OperationKey key, string label) => key.PrimitiveNoVertices(primitive: label),
             project: static (Brep validated, GeometryContext _) => Many(key: VerticesKey, values: validated.DuplicateVertices()));
-    private static Eff<AnalysisRuntime, Seq<TOut>> BrepLeaves<TOut>(
+    private static Eff<GeometryContext, Seq<TOut>> BrepLeaves<TOut>(
         Brep brep,
         OperationKey key,
         Func<OperationKey, string, Error> primitiveFault,
         Func<Brep, GeometryContext, Fin<Seq<TOut>>> project) =>
-        from rt in Analyze.Asks
-        from validated in rt.Context.Validate(geometry: brep, requirement: GeometryRequirement.Basic).ToEff()
-        from result in (KindOfBrep(brep: validated, context: rt.Context) switch {
+        from ctx in Analyze.Asks
+        from validated in ctx.Validate(geometry: brep, requirement: GeometryRequirement.Basic).ToEff()
+        from result in (KindOfBrep(brep: validated, context: ctx) switch {
             GeometryKind.BrepSphere => Fin.Fail<Seq<TOut>>(primitiveFault(arg1: key, arg2: "Sphere")),
             GeometryKind.BrepCylinder => Fin.Fail<Seq<TOut>>(primitiveFault(arg1: key, arg2: "Cylinder")),
             GeometryKind.BrepCone => Fin.Fail<Seq<TOut>>(primitiveFault(arg1: key, arg2: "Cone")),
             GeometryKind.BrepTorus => Fin.Fail<Seq<TOut>>(primitiveFault(arg1: key, arg2: "Torus")),
-            _ => project(arg1: validated, arg2: rt.Context),
+            _ => project(arg1: validated, arg2: ctx),
         }).ToEff()
         select result;
     public static Query<TGeometry, TOut> Components<TGeometry, TOut>() where TGeometry : notnull =>
@@ -533,8 +532,8 @@ public static partial class Query {
             key: SelfIntersectionsKey,
             requirement: GeometryRequirement.Basic,
             evaluator: static (Mesh geometry) =>
-                from rt in Analyze.Asks
-                from result in SelfIntersectionsValue(geometry: geometry, context: rt.Context).ToEff()
+                from ctx in Analyze.Asks
+                from result in SelfIntersectionsValue(geometry: geometry, context: ctx).ToEff()
                 select result);
     // Mesh.GetSelfIntersections requires by-ref/out parameters and a TextLog using-local; the
     // CleanupFinally exemption permits the using-block at this GeometryBase boundary adapter.
@@ -600,9 +599,9 @@ public static partial class Query {
                         key: FacesKey,
                         state: selector,
                         evaluator: static (Faces inner, TGeometry geometry) =>
-                            from rt in Analyze.Asks
+                            from ctx in Analyze.Asks
                             from faces in DecomposeFaces(geometry: geometry).ToEff()
-                            from chosen in SelectFaces(faces: faces, selector: inner, runtime: rt).ToEff()
+                            from chosen in SelectFaces(faces: faces, selector: inner, runtime: ctx).ToEff()
                             from result in Many(key: FacesKey, values: chosen).ToEff()
                             select result)),
                 (Type geometry, Type output) when output == typeof(Plane)
@@ -612,10 +611,10 @@ public static partial class Query {
                         state: selector,
                         requirement: GeometryRequirement.SurfaceEvaluation,
                         evaluator: static (Faces inner, TGeometry geometry) =>
-                            from rt in Analyze.Asks
+                            from ctx in Analyze.Asks
                             from faces in DecomposeFaces(geometry: geometry).ToEff()
-                            from chosen in SelectFaces(faces: faces, selector: inner, runtime: rt).ToEff()
-                            from frames in chosen.Traverse((Brep face) => FrameAtCentroid(face: face, runtime: rt)).As().ToEff()
+                            from chosen in SelectFaces(faces: faces, selector: inner, runtime: ctx).ToEff()
+                            from frames in chosen.Traverse((Brep face) => FrameAtCentroid(face: face, runtime: ctx)).As().ToEff()
                             from result in Many(key: FacesKey, values: frames).ToEff()
                             select result)),
                 _ => null,
@@ -623,15 +622,15 @@ public static partial class Query {
     // Invariant: face is the single-face Brep produced by DuplicateFace; face.Faces[0] is the BrepFace.
     // BrepFace.NormalAt returns the oriented outward normal directly (Rhino handles OrientationIsReversed
     // internally); the frame's Z therefore points outward on closed solids without manual axis flips.
-    internal static Fin<Plane> FrameAtCentroid(Brep face, AnalysisRuntime runtime) =>
+    internal static Fin<Plane> FrameAtCentroid(Brep face, GeometryContext runtime) =>
         Optional(AreaMassProperties.Compute(
                 brep: face,
                 area: true,
                 firstMoments: true,
                 secondMoments: false,
                 productMoments: false,
-                relativeTolerance: runtime.Context.Relative.Value,
-                absoluteTolerance: runtime.Context.Absolute.Value))
+                relativeTolerance: runtime.Relative.Value,
+                absoluteTolerance: runtime.Absolute.Value))
             .ToFin(FacesKey.InvalidResult())
             .Bind((AreaMassProperties mass) => {
                 using AreaMassProperties disposable = mass;
@@ -664,39 +663,39 @@ public static partial class Query {
                 geometryType: geometry.GetType(),
                 outputType: typeof(Brep))),
         };
-    internal static Fin<Seq<Brep>> SelectFaces(Seq<Brep> faces, Faces selector, AnalysisRuntime runtime) =>
+    internal static Fin<Seq<Brep>> SelectFaces(Seq<Brep> faces, Faces selector, GeometryContext runtime) =>
         (selector.Selector, faces.Count) switch {
             (_, 0) => Fin.Succ(Seq<Brep>()),
             (FaceSelector all, _) when all == FaceSelector.All => Fin.Succ(faces),
             (FaceSelector top, _) when top == FaceSelector.Top => RankByCentroidZ(faces: faces, descending: true, runtime: runtime),
             (FaceSelector bottom, _) when bottom == FaceSelector.Bottom => RankByCentroidZ(faces: faces, descending: false, runtime: runtime),
             (FaceSelector at, int count) when at == FaceSelector.At => Fin.Succ(Seq(faces[Math.Clamp(
-                value: selector.Index.IfNone(() => runtime.Index.Match(Some: static (IndexHint hint) => hint.Value, None: static () => 0)),
+                value: selector.Index.IfNone(static () => 0),
                 min: 0,
                 max: count - 1)])),
             _ => Fin.Fail<Seq<Brep>>(FacesKey.InvalidInput()),
         };
-    private static Fin<Seq<Brep>> RankByCentroidZ(Seq<Brep> faces, bool descending, AnalysisRuntime runtime) =>
+    private static Fin<Seq<Brep>> RankByCentroidZ(Seq<Brep> faces, bool descending, GeometryContext runtime) =>
         faces
             .Traverse((Brep face) => FaceCentroidZ(face: face, runtime: runtime).Map((double z) => (Face: face, Z: z))).As()
             .Map((Seq<(Brep Face, double Z)> ranked) => (ranked.IsEmpty, descending) switch {
                 (true, _) => Seq<Brep>(),
                 (false, true) => ranked
-                    .MaxesBy(projection: static ((Brep Face, double Z) item) => item.Z, tolerance: runtime.Context.Absolute.Value)
+                    .MaxesBy(projection: static ((Brep Face, double Z) item) => item.Z, tolerance: runtime.Absolute.Value)
                     .Map(static ((Brep Face, double Z) item) => item.Face),
                 (false, false) => ranked
-                    .MinesBy(projection: static ((Brep Face, double Z) item) => item.Z, tolerance: runtime.Context.Absolute.Value)
+                    .MinesBy(projection: static ((Brep Face, double Z) item) => item.Z, tolerance: runtime.Absolute.Value)
                     .Map(static ((Brep Face, double Z) item) => item.Face),
             });
-    internal static Fin<double> FaceCentroidZ(Brep face, AnalysisRuntime runtime) =>
+    internal static Fin<double> FaceCentroidZ(Brep face, GeometryContext runtime) =>
         Optional(AreaMassProperties.Compute(
                 brep: face,
                 area: true,
                 firstMoments: true,
                 secondMoments: false,
                 productMoments: false,
-                relativeTolerance: runtime.Context.Relative.Value,
-                absoluteTolerance: runtime.Context.Absolute.Value))
+                relativeTolerance: runtime.Relative.Value,
+                absoluteTolerance: runtime.Absolute.Value))
             .ToFin(FacesKey.InvalidResult())
             .Map(static (AreaMassProperties mass) => {
                 using AreaMassProperties disposable = mass;

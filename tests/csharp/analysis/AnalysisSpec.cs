@@ -2,7 +2,6 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using Analysis;
 using Core.Domain;
-using Core.Runtime;
 using LanguageExt;
 using LanguageExt.Common;
 using Rhino;
@@ -717,13 +716,12 @@ public sealed class AnalysisSpec {
         Validation<Error, SpatialIndex> invalidPoint = SpatialIndex.Points(points: [Point3d.Unset]);
         Validation<Error, SpatialIndex> invalidBounds = SpatialIndex.Bounds<GeometryBase>(items: [null!]);
         Validation<Error, SpatialIndex> invalidMesh = SpatialIndex.MeshFaces(mesh: null!);
-        AnalysisRuntime runtime = new(
-            Context: (GeometryContext)RuntimeHelpers.GetUninitializedObject(type: typeof(GeometryContext)));
+        GeometryContext context = (GeometryContext)RuntimeHelpers.GetUninitializedObject(type: typeof(GeometryContext));
         Fin<Seq<SpatialPair>> invalidNearest = SpatialIndex.KNearest(
                 points: [Point3d.Origin],
                 needles: [Point3d.Origin],
                 count: 0)
-            .Run(runtime);
+            .Run(context);
 
         Assert.True(condition: invalidPoint.ToFin().IsFail);
         Assert.True(condition: invalidBounds.ToFin().IsFail);

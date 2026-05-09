@@ -1,6 +1,5 @@
 using Core;
 using Core.Domain;
-using Core.Runtime;
 using LanguageExt;
 using LanguageExt.Common;
 using Rhino;
@@ -56,7 +55,7 @@ public sealed class SpatialIndex : IDisposable {
             })
             .Map(static (RTree tree) => new SpatialIndex(tree: tree))
             .ToValidation();
-    public Eff<AnalysisRuntime, Seq<SpatialHit>> Search(BoundingBox box) =>
+    public Eff<GeometryContext, Seq<SpatialHit>> Search(BoundingBox box) =>
         Ready()
             .Bind((RTree active) => box.IsValid switch {
                 true => Search(
@@ -65,7 +64,7 @@ public sealed class SpatialIndex : IDisposable {
                 false => Fin.Fail<Seq<SpatialHit>>(Query.SpatialIndexKey.InvalidInput()),
             })
             .ToEff();
-    public Eff<AnalysisRuntime, Seq<SpatialHit>> Search(Sphere sphere) =>
+    public Eff<GeometryContext, Seq<SpatialHit>> Search(Sphere sphere) =>
         Ready()
             .Bind((RTree active) => sphere.IsValid switch {
                 true => Search(
@@ -74,7 +73,7 @@ public sealed class SpatialIndex : IDisposable {
                 false => Fin.Fail<Seq<SpatialHit>>(Query.SpatialIndexKey.InvalidInput()),
             })
             .ToEff();
-    public Eff<AnalysisRuntime, Seq<SpatialPair>> Overlaps(SpatialIndex other, double tolerance = 0.0) =>
+    public Eff<GeometryContext, Seq<SpatialPair>> Overlaps(SpatialIndex other, double tolerance = 0.0) =>
         (
             Ready(),
             Optional(other)
@@ -100,7 +99,7 @@ public sealed class SpatialIndex : IDisposable {
     }
     private static Seq<SpatialPair> SortedPairs(Seq<SpatialPair> pairs) =>
         toSeq(pairs.OrderBy(static (SpatialPair p) => p.A).ThenBy(static (SpatialPair p) => p.B));
-    public static Eff<AnalysisRuntime, Seq<SpatialPair>> KNearest(
+    public static Eff<GeometryContext, Seq<SpatialPair>> KNearest(
         ReadOnlySpan<Point3d> points,
         ReadOnlySpan<Point3d> needles,
         int count) =>
@@ -119,7 +118,7 @@ public sealed class SpatialIndex : IDisposable {
                 needlePts: state.Query,
                 amount: state.Count)))
         .ToEff();
-    public static Eff<AnalysisRuntime, Seq<SpatialPair>> Closest(
+    public static Eff<GeometryContext, Seq<SpatialPair>> Closest(
         ReadOnlySpan<Point3d> points,
         ReadOnlySpan<Point3d> needles,
         double limitDistance) =>
