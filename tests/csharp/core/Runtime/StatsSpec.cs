@@ -1,0 +1,40 @@
+using System.Linq;
+using Core.Domain;
+using Core.Runtime;
+using LanguageExt;
+using LanguageExt.Common;
+using Xunit;
+using static LanguageExt.Prelude;
+
+namespace Core.Tests.Runtime;
+
+// --- [EXAMPLES] --------------------------------------------------------------------------------
+
+public sealed class StatsSpec {
+    [Fact]
+    public void StatsOfMatchesNaiveTwoPassWithinTolerance() {
+        double[] sample = [.. Enumerable.Range(start: 1, count: 100).Select(static (int i) => (double)i)];
+        Seq<double> values = toSeq(sample);
+        OperationKey key = new(name: "stats-numerical-stability");
+
+        Fin<Stats> result = values.StatsOf(key: key);
+
+        double naiveMean = Enumerable.Sum(sample) / sample.Length;
+        double naiveVariance = Enumerable.Sum(sample.Select(value => (value - naiveMean) * (value - naiveMean))) / sample.Length;
+
+        Assert.True(condition: result.Match(
+            Succ: stats =>
+                stats.Count == 100
+                && Math.Abs(value: stats.Mean - naiveMean) < 1e-12
+                && Math.Abs(value: stats.Variance - naiveVariance) < 1e-9 * Math.Max(val1: naiveVariance, val2: 1.0),
+            Fail: static (Error _) => false));
+    }
+
+    [Fact]
+    public void StatsOfRejectsEmpty() =>
+        Assert.True(condition: LanguageExt.Seq<double>.Empty.StatsOf(key: new OperationKey(name: "stats-empty")).IsFail);
+
+    [Fact]
+    public void StatsOfRejectsNonFinite() =>
+        Assert.True(condition: toSeq<double>([1.0, 2.0, double.NaN]).StatsOf(key: new OperationKey(name: "stats-non-finite")).IsFail);
+}
