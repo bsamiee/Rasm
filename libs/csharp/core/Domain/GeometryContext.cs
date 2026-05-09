@@ -11,6 +11,23 @@ namespace Core.Domain;
 [AttributeUsage(validOn: AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
 internal sealed class BoundaryAdapterAttribute : Attribute;
 
+internal enum BoundaryImperativeReason {
+    CancellationGuard = 0,
+    AsyncIteratorYieldGate = 1,
+    CleanupFinally = 2,
+    ProtocolRequired = 3,
+}
+
+[AttributeUsage(validOn: AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Method | AttributeTargets.Property, AllowMultiple = true, Inherited = false)]
+internal sealed class BoundaryImperativeExemptionAttribute : Attribute {
+    internal BoundaryImperativeExemptionAttribute(string ruleId, BoundaryImperativeReason reason, string ticket, string expiresOnUtc) {
+        _ = ruleId;
+        _ = reason;
+        _ = ticket;
+        _ = expiresOnUtc;
+    }
+}
+
 // --- [MODELS] ----------------------------------------------------------------------------------
 
 public sealed record GeometryContext {

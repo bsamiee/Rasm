@@ -524,8 +524,13 @@ public static partial class Query {
                 from rt in Analyze.Asks
                 from result in SelfIntersectionsValue(geometry: geometry, context: rt.Context).ToEff()
                 select result);
-    // BOUNDARY ADAPTER — Mesh.GetSelfIntersections requires by-ref/out parameters and a TextLog using-local;
-    // imperative shape lives at the GeometryBase boundary and returns Fin<Seq<Polyline>>.
+    // Mesh.GetSelfIntersections requires by-ref/out parameters and a TextLog using-local; the
+    // CleanupFinally exemption permits the using-block at this GeometryBase boundary adapter.
+    [BoundaryImperativeExemption(
+        ruleId: "CSP0001",
+        reason: BoundaryImperativeReason.CleanupFinally,
+        ticket: "RASM-WAVE4",
+        expiresOnUtc: "2027-12-31T00:00:00Z")]
     private static Fin<Seq<Polyline>> SelfIntersectionsValue(Mesh geometry, GeometryContext context) {
         using TextLog textLog = new();
         return geometry.GetSelfIntersections(
