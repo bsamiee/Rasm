@@ -7,8 +7,8 @@ using Xunit;
 namespace Foundation.CSharp.Analyzers.Tests;
 
 public sealed partial class ReleaseDisciplineTests {
-    private static readonly Regex ReleaseRowPattern = ReleaseRowRegex();
-    private static readonly Regex DiagnosticEmissionPattern = DiagnosticEmissionRegex();
+    private static readonly Regex ReleaseRowPattern = ReleaseRowRegex;
+    private static readonly Regex DiagnosticEmissionPattern = DiagnosticEmissionRegex;
     [Fact]
     public void UnshippedReleaseMetadataMatchesActiveSupportedDiagnostics() {
         ImmutableArray<DiagnosticDescriptor> supportedDiagnostics = AnalyzerTestHarness.SupportedDiagnostics();
@@ -31,7 +31,7 @@ public sealed partial class ReleaseDisciplineTests {
         ImmutableArray<string> overlap = [
             .. unshippedEntries.Keys
                 .Intersect(second: shippedEntries.Keys, comparer: StringComparer.Ordinal)
-                .OrderBy(static id => id, StringComparer.Ordinal),
+                .Order(StringComparer.Ordinal),
         ];
         Assert.Empty(overlap);
     }
@@ -40,13 +40,13 @@ public sealed partial class ReleaseDisciplineTests {
         ImmutableArray<string> activeIds = [
             .. AnalyzerTestHarness.SupportedDiagnostics()
                 .Select(static descriptor => descriptor.Id)
-                .OrderBy(static id => id, StringComparer.Ordinal),
+                .Order(StringComparer.Ordinal),
         ];
         ImmutableHashSet<string> emittedIds = CollectDiagnosticEmissionReferences();
         ImmutableArray<string> missing = [
             .. activeIds
                 .Where(id => !emittedIds.Contains(id))
-                .OrderBy(static id => id, StringComparer.Ordinal),
+                .Order(StringComparer.Ordinal),
         ];
         Assert.True(
             condition: missing.IsEmpty,
@@ -58,8 +58,7 @@ public sealed partial class ReleaseDisciplineTests {
                 path: AnalyzerTestHarness.AnalyzerDirectory,
                 searchPattern: "*.cs",
                 searchOption: SearchOption.AllDirectories)
-            .Where(static path => !string.Equals(Path.GetFileName(path), "RuleCatalog.cs", StringComparison.Ordinal))
-            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}tests{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase));
+.Where(path => !string.Equals(Path.GetFileName(path), "RuleCatalog.cs", StringComparison.Ordinal) && !path.Contains($"{Path.DirectorySeparatorChar}tests{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase));
         IEnumerable<string> emissionRuleIds = analyzerSourceFiles
             .SelectMany(path => DiagnosticEmissionPattern
                 .Matches(File.ReadAllText(path))
@@ -76,9 +75,9 @@ public sealed partial class ReleaseDisciplineTests {
         ImmutableArray<string> duplicates = [
             .. entries
                 .GroupBy(static entry => entry.Id, StringComparer.Ordinal)
-                .Where(static group => group.Count() > 1)
+                .Where(static group => group.Skip(1).Any())
                 .Select(static group => group.Key)
-                .OrderBy(static id => id, StringComparer.Ordinal),
+                .Order(StringComparer.Ordinal),
         ];
         Assert.True(
             condition: duplicates.IsEmpty,
@@ -102,12 +101,12 @@ public sealed partial class ReleaseDisciplineTests {
         pattern: @"^(?<Id>CSP\d{4})\s*\|\s*(?<Category>[^|]+?)\s*\|\s*(?<Severity>[^|]+?)\s*\|",
         options: RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
         matchTimeoutMilliseconds: 100)]
-    private static partial Regex ReleaseRowRegex();
+    private static partial Regex ReleaseRowRegex { get; }
     [GeneratedRegex(
         pattern: @"Diagnostic\.Create\(\s*RuleCatalog\.(?<Id>CSP\d{4})\b",
         options: RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
         matchTimeoutMilliseconds: 100)]
-    private static partial Regex DiagnosticEmissionRegex();
+    private static partial Regex DiagnosticEmissionRegex { get; }
 
     private sealed record ReleaseEntry(string Id, string Category, string Severity);
 }

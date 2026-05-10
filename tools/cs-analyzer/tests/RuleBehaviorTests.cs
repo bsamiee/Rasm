@@ -100,40 +100,6 @@ public sealed class RuleBehaviorTests {
                 return projector(input);
             }
             """)),
-        new("CSP0101", File(scope: "Integration", type: "BoundaryAdapterUsage"), Boundary(type: "BoundaryAdapterUsage", members: """
-            public int Clamp(int value) {
-                if (value > 0) {
-                    return value;
-                }
-                return 0;
-            }
-            """)),
-        new("CSP0102", File(scope: "Integration", type: "InvalidReasonBoundary"), Boundary(type: "InvalidReasonBoundary", members: """
-            [BoundaryImperativeExemption(
-                ruleId: "CSP0001",
-                reason: BoundaryImperativeReason.CleanupFinally,
-                ticket: "RASM-BOUNDARY-0102",
-                expiresOnUtc: "2999-01-01T00:00:00Z")]
-            public int Clamp(int value) {
-                if (value > 0) {
-                    return value;
-                }
-                return 0;
-            }
-            """)),
-        new("CSP0103", File(scope: "Integration", type: "ExpiredBoundary"), Boundary(type: "ExpiredBoundary", members: """
-            [BoundaryImperativeExemption(
-                ruleId: "CSP0001",
-                reason: BoundaryImperativeReason.ProtocolRequired,
-                ticket: "RASM-BOUNDARY-0103",
-                expiresOnUtc: "2000-01-01T00:00:00Z")]
-            public int Clamp(int value) {
-                if (value > 0) {
-                    return value;
-                }
-                return 0;
-            }
-            """)),
         new("CSP0104", File(scope: "Domain/Services", type: "NullSentinel"), Domain(type: "NullSentinel", members: """
             public bool Missing(string value) => value == null;
             """)),
@@ -143,7 +109,7 @@ public sealed class RuleBehaviorTests {
         new("CSP0202", File(scope: "Domain/Models", type: "MutableField"), Model(type: "MutableField", members: """
             public int Count;
             """)),
-        new("CSP0203", File(scope: "Domain/Models", type: "PublicCtorPrimitive"), WithFin(ns: "Domain.Models", type: "PublicCtorPrimitive", declaration: """
+        new("CSP0203", File(scope: "Domain/Models", type: "PublicCtorPrimitive"), WithFin(ns: "Domain.Models", declaration: """
             public readonly record struct PublicCtorPrimitive(int Value) {
                 public static LanguageExt.Fin<PublicCtorPrimitive> Create(int value) => new();
             }
@@ -414,7 +380,7 @@ public sealed class RuleBehaviorTests {
             public int Id { get; set; }
             public string Name { get; set; } = string.Empty;
             """)),
-        new("CSP0717", File(scope: "Domain/Services", type: "WithBypass"), WithFin(ns: "Domain.Services", type: "WithBypass", declaration: """
+        new("CSP0717", File(scope: "Domain/Services", type: "WithBypass"), WithFin(ns: "Domain.Services", declaration: """
             public sealed record Customer {
                 private Customer(string name) {
                     Name = name;
@@ -442,7 +408,7 @@ public sealed class RuleBehaviorTests {
         new("CSP0719", File(scope: "Domain/Services", type: "UnsafeNumericConversion"), Domain(type: "UnsafeNumericConversion", members: """
             public int Run(long value) => System.Convert.ToInt32(value);
             """)),
-        new("CSP0720", File(scope: "Domain/Models", type: "InitBypass"), WithFin(ns: "Domain.Models", type: "InitBypass", declaration: """
+        new("CSP0720", File(scope: "Domain/Models", type: "InitBypass"), WithFin(ns: "Domain.Models", declaration: """
             public readonly record struct InitBypass {
                 public int Value { get; init; }
                 public static LanguageExt.Fin<InitBypass> Create(int value) => new();
@@ -483,24 +449,6 @@ public sealed class RuleBehaviorTests {
                 return total;
             }
             """)),
-        new("CSP0901", File(scope: "Integration", type: "InvalidBoundaryExemption"), Boundary(type: "InvalidBoundaryExemption", attributes: """
-            [BoundaryImperativeExemption(
-                ruleId: "",
-                reason: (BoundaryImperativeReason)999,
-                ticket: "",
-                expiresOnUtc: "not-a-utc-date")]
-            """, members: """
-            public void Handle() { }
-            """)),
-        new("CSP0902", File(scope: "Integration", type: "ExpiredBoundaryExemption"), Boundary(type: "ExpiredBoundaryExemption", attributes: """
-            [BoundaryImperativeExemption(
-                ruleId: "CSP0009",
-                reason: BoundaryImperativeReason.ProtocolRequired,
-                ticket: "RASM-EXPIRED-001",
-                expiresOnUtc: "2000-01-01T00:00:00Z")]
-            """, members: """
-            public void Handle() { }
-            """)),
     ];
 
     [Theory]
@@ -510,13 +458,13 @@ public sealed class RuleBehaviorTests {
             .AnalyzeAsync(source: source, filePath: filePath)
             .ConfigureAwait(true);
         ImmutableArray<Diagnostic> matches = [
-            .. diagnostics.Where((Diagnostic diagnostic) => StringComparer.Ordinal.Equals(x: diagnostic.Id, y: expectedRuleId)),
+            .. diagnostics.Where(diagnostic => StringComparer.Ordinal.Equals(x: diagnostic.Id, y: expectedRuleId)),
         ];
         DiagnosticDescriptor descriptor = AnalyzerTestHarness.SupportedDiagnostics()
-            .Single((DiagnosticDescriptor candidate) => StringComparer.Ordinal.Equals(x: candidate.Id, y: expectedRuleId));
+            .Single(candidate => StringComparer.Ordinal.Equals(x: candidate.Id, y: expectedRuleId));
 
-        Assert.True(
-            condition: !matches.IsEmpty,
+        Assert.False(
+            condition: matches.IsEmpty,
             userMessage: $"Expected diagnostic '{expectedRuleId}'. Actual diagnostics:{Environment.NewLine}{DiagnosticText(diagnostics: diagnostics)}");
         Diagnostic match = matches[0];
         Assert.Equal(expected: descriptor.DefaultSeverity, actual: match.Severity);
@@ -528,20 +476,20 @@ public sealed class RuleBehaviorTests {
     [Fact]
     public void RuleCasesCoverEveryActiveDiagnostic() {
         ImmutableHashSet<string> activeIds = AnalyzerTestHarness.SupportedDiagnostics()
-            .Select(static (DiagnosticDescriptor descriptor) => descriptor.Id)
+            .Select(static descriptor => descriptor.Id)
             .ToImmutableHashSet(StringComparer.Ordinal);
         ImmutableHashSet<string> coveredIds = Cases
-            .Select(static (RuleCase row) => row.Id)
+            .Select(static row => row.Id)
             .ToImmutableHashSet(StringComparer.Ordinal);
         ImmutableArray<string> missingIds = [
             .. activeIds
                 .Except(coveredIds, StringComparer.Ordinal)
-                .OrderBy(static (string id) => id, StringComparer.Ordinal),
+                .Order(StringComparer.Ordinal),
         ];
         ImmutableArray<string> staleIds = [
             .. coveredIds
                 .Except(activeIds, StringComparer.Ordinal)
-                .OrderBy(static (string id) => id, StringComparer.Ordinal),
+                .Order(StringComparer.Ordinal),
         ];
         Assert.True(
             condition: missingIds.IsEmpty && staleIds.IsEmpty,
@@ -569,19 +517,13 @@ public sealed class RuleBehaviorTests {
                 }
                 """).ConfigureAwait(true);
 
-        Assert.DoesNotContain(expected: "CSP0723", collection: ids);
+        Assert.Empty(collection: ids);
     }
     [Fact]
     public async Task LoopWithoutOuterScopeAccumulatorDoesNotEmitImperativeAccumulatorDiagnosticAsync() {
         ImmutableArray<string> ids = await AnalyzeIdsAsync(
             filePath: "/workspace/src/Integration/LoopWithLocalAccumulator.cs",
-            source: Boundary(type: "LoopWithLocalAccumulator", attributes: """
-                [BoundaryImperativeExemption(
-                    ruleId: "CSP0001",
-                    reason: BoundaryImperativeReason.ProtocolRequired,
-                    ticket: "RASM-BOUNDARY-CSP0725-A",
-                    expiresOnUtc: "2999-01-01T00:00:00Z")]
-                """, members: """
+            source: Boundary(type: "LoopWithLocalAccumulator", attributes: string.Empty, members: """
                 public int LoopOnly(int[] values) {
                     foreach (int value in values) {
                         int local = value + 1;
@@ -591,7 +533,7 @@ public sealed class RuleBehaviorTests {
                 }
                 """)).ConfigureAwait(true);
 
-        Assert.DoesNotContain(expected: "CSP0725", collection: ids);
+        Assert.Empty(collection: ids);
     }
     [Fact]
     public async Task FlagsEnumWithBitwiseCompositionDoesNotEmitFlagsEnumOveruseDiagnosticAsync() {
@@ -644,17 +586,12 @@ public sealed class RuleBehaviorTests {
         Assert.DoesNotContain(expected: "CSP0005", collection: ids);
     }
     [Fact]
-    public async Task BoundaryPropertyExemptionSuppressesAccessorImperativeDiagnosticAsync() {
+    public async Task BoundaryPropertyAccessorImperativeControlFlowIsStructurallyAllowedAsync() {
         ImmutableArray<string> ids = await AnalyzeIdsAsync(
-            filePath: "/workspace/src/Integration/BoundaryPropertyExemption.cs",
-            source: Boundary(type: "BoundaryPropertyExemption", members: """
+            filePath: "/workspace/src/Integration/BoundaryPropertyAccess.cs",
+            source: Boundary(type: "BoundaryPropertyAccess", members: """
                 private int _value;
 
-                [BoundaryImperativeExemption(
-                    ruleId: "CSP0001",
-                    reason: BoundaryImperativeReason.ProtocolRequired,
-                    ticket: "RASM-BOUNDARY-001",
-                    expiresOnUtc: "2999-01-01T00:00:00Z")]
                 public int Value {
                     get {
                         if (_value > 0) {
@@ -665,7 +602,7 @@ public sealed class RuleBehaviorTests {
                 }
                 """)).ConfigureAwait(true);
 
-        Assert.DoesNotContain(expected: "CSP0101", collection: ids);
+        Assert.Empty(collection: ids);
     }
 
     [Fact]
@@ -681,8 +618,7 @@ public sealed class RuleBehaviorTests {
                 }
                 """)).ConfigureAwait(true);
 
-        Assert.Contains(expected: "CSP0101", collection: ids);
-        Assert.DoesNotContain(expected: "CSP0001", collection: ids);
+        Assert.Empty(collection: ids);
     }
 
     [Fact]
@@ -717,7 +653,7 @@ public sealed class RuleBehaviorTests {
     public async Task ValidatedPrimitiveIgnoresImplicitStructConstructorAndValueProjectionAsync() {
         ImmutableArray<string> ids = await AnalyzeIdsAsync(
             filePath: "/workspace/src/Domain/Models/ValidPrimitive.cs",
-            source: WithFin(ns: "Domain.Models", type: "Distance", declaration: """
+            source: WithFin(ns: "Domain.Models", declaration: """
                 public readonly record struct Distance {
                     private Distance(double value) {
                         Value = value;
@@ -821,20 +757,25 @@ public sealed class RuleBehaviorTests {
         Assert.DoesNotContain(expected: "CSP0405", collection: ids);
     }
 
-    public static IEnumerable<object[]> RuleCases() =>
-        Cases.Select(static (RuleCase row) => new object[] { row.Id, row.Path, row.Source });
+    public static TheoryData<string, string, string> RuleCases() =>
+        Cases.Aggregate(
+            seed: [],
+            func: static (TheoryData<string, string, string> data, RuleCase row) => {
+                data.Add(row.Id, row.Path, row.Source);
+                return data;
+            });
 
     private static async Task<ImmutableArray<string>> AnalyzeIdsAsync(string filePath, string source) =>
         [
             .. (await AnalyzerTestHarness.AnalyzeAsync(source: source, filePath: filePath).ConfigureAwait(true))
-                .Select(static (Diagnostic diagnostic) => diagnostic.Id),
+                .Select(static diagnostic => diagnostic.Id)
+                .Distinct(StringComparer.Ordinal),
         ];
 
     private static string DiagnosticText(ImmutableArray<Diagnostic> diagnostics) =>
         string.Join(
             separator: Environment.NewLine,
-            values: diagnostics.Select(static (Diagnostic diagnostic) =>
-                $"{diagnostic.Id}|{diagnostic.Severity}|{diagnostic.Descriptor.Category}|{diagnostic.Location.GetLineSpan().StartLinePosition}|{diagnostic.GetMessage(formatProvider: CultureInfo.InvariantCulture)}"));
+            values: diagnostics.Select(static diagnostic => $"{diagnostic.Id}|{diagnostic.Severity}|{diagnostic.Descriptor.Category}|{diagnostic.Location.GetLineSpan().StartLinePosition}|{diagnostic.GetMessage(formatProvider: CultureInfo.InvariantCulture)}"));
 
     private static string File(string scope, string type) =>
         $"/workspace/src/{scope}/{type}.cs";
@@ -885,7 +826,7 @@ public sealed class RuleBehaviorTests {
         {{source}}
         """;
 
-    private static string WithFin(string ns, string type, string declaration) =>
+    private static string WithFin(string ns, string declaration) =>
         $$"""
         namespace LanguageExt {
             public sealed class Fin<T> { }

@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Linq;
-using Foundation.CSharp.Analyzers.Contracts;
 using LanguageExt.Common;
 using Rhino;
 using Rhino.FileIO;
@@ -8,7 +7,7 @@ using Rhino.Geometry;
 using Rhino.Geometry.Intersect;
 using Thinktecture;
 using static LanguageExt.Prelude;
-namespace Core.Domain;
+namespace Rasm.Domain;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -28,20 +27,19 @@ internal static class Check {
         (Validation<Error, TGeometry>)(
             Fin.Succ((Context: context, Requirement: requirement)).ToValidation(),
             Optional(geometry).ToValidation(ValidationFault.MissingGeometry())
-        ).Apply(static ((Context Context, Requirement Requirement) state, TGeometry candidate) => (
+        ).Apply(static (state, candidate) => (
             state.Context,
             state.Requirement,
             Geometry: candidate))
-        .Bind(static ((Context Context, Requirement Requirement, TGeometry Geometry) state) =>
-            state.Requirement.Checks.Aggregate(
+        .Bind(static state => state.Requirement.Checks.Aggregate(
                 seed: (Result: Fin.Succ(state.Geometry).ToValidation(), state.Context, state.Geometry),
                 func: static (
-                    (Validation<Error, TGeometry> Result, Context Context, TGeometry Geometry) accumulator,
-                    Rule check) => (
+                    accumulator,
+                    check) => (
                         Result: (accumulator.Result, check.Apply(
                                 context: accumulator.Context,
                                 geometry: accumulator.Geometry).ToValidation())
-                            .Apply(static (TGeometry candidate, Unit _) => candidate)
+                            .Apply(static (candidate, _) => candidate)
                             .As(),
                         accumulator.Context,
                         accumulator.Geometry)).Result);
@@ -52,12 +50,12 @@ internal static class Check {
             Pair<TA, TB>.Both both => (
                     context.ValidateOperand(operand: both.A, requirement: both.RequirementA),
                     context.ValidateOperand(operand: both.B, requirement: both.RequirementB))
-                .Apply(static (TA a, TB b) => (A: a, B: b))
+                .Apply(static (a, b) => (A: a, B: b))
                 .As(),
             Pair<TA, TB>.FirstOnly firstOnly => (
                     context.ValidateOperand(operand: firstOnly.A, requirement: firstOnly.Requirement),
                     firstOnly.B.ValidateNativeOperand())
-                .Apply(static (TA a, TB b) => (A: a, B: b))
+                .Apply(static (a, b) => (A: a, B: b))
                 .As(),
             _ => Fin.Fail<(TA A, TB B)>(ValidationFault.MissingGeometry()).ToValidation(),
         };
@@ -68,17 +66,17 @@ internal static class Check {
         (
             Fin.Succ((Context: context, Requirement: requirement)).ToValidation(),
             Optional(operand).ToValidation(ValidationFault.MissingGeometry())
-        ).Apply(static ((Context Context, Requirement Requirement) state, TValue candidate) => (
+        ).Apply(static (state, candidate) => (
             state.Context,
             state.Requirement,
             Candidate: candidate))
-        .Bind(static ((Context Context, Requirement Requirement, TValue Candidate) state) => state.Candidate switch {
+        .Bind(static state => state.Candidate switch {
             GeometryBase geometry => (
                 state.Context.Validate(
                     geometry: geometry,
                     requirement: state.Requirement),
                 Fin.Succ(state.Candidate).ToValidation()
-            ).Apply(static (GeometryBase _, TValue candidate) => candidate)
+            ).Apply(static (_, candidate) => candidate)
             .As(),
             _ => state.Candidate.ValidateNativeOperand(),
         })
@@ -182,11 +180,11 @@ internal static class RequirementExtensions {
     internal static bool Has(this Requirement self, Requirement other) =>
         other.Checks.Fold(
             initialState: (Self: self, AllPresent: true),
-            f: static ((Requirement Self, bool AllPresent) acc, Rule check) => (
+            f: static (acc, check) => (
                 acc.Self,
                 AllPresent: acc.AllPresent && acc.Self.Checks.Fold(
                     initialState: (Target: check, Found: false),
-                    f: static ((Rule Target, bool Found) inner, Rule candidate) => (
+                    f: static (inner, candidate) => (
                         inner.Target,
                         Found: inner.Found || ReferenceEquals(objA: candidate, objB: inner.Target))).Found)).AllPresent;
 }
@@ -259,11 +257,6 @@ internal abstract partial record Rule {
     internal sealed record MeshRhinoCheckCheck : Rule {
         internal override string Key => "mesh-rhino-check";
         internal override bool Applies(GeometryBase geometry) => geometry is Mesh;
-        [BoundaryImperativeExemption(
-            ruleId: "CSP0001",
-            reason: BoundaryImperativeReason.ProtocolRequired,
-            ticket: "RASM-MESH-CHECK",
-            expiresOnUtc: "2027-12-31T00:00:00Z")]
         internal override Fin<Unit> Validate(Context context, GeometryBase geometry) {
             // BOUNDARY ADAPTER — Mesh.Check requires a TextLog by-ref out and ref MeshCheckParameters; using-local +
             // ref parameter cannot be expressed in pure expression form, so the imperative shape lives at the
@@ -421,7 +414,6 @@ internal abstract partial record Rule {
         internal override string Key => "curve-self-intersection";
         internal override bool Applies(GeometryBase geometry) => geometry is Curve;
         internal override Fin<Unit> Validate(Context context, GeometryBase geometry) {
-            // BOUNDARY ADAPTER — CurveIntersections owns native unmanaged state and must be disposed via using;
             // its construction lives at the Rule case boundary and returns a Fin<Unit>.
             using CurveIntersections? intersections = geometry switch {
                 Curve curve => Intersection.CurveSelf(curve: curve, tolerance: context.Absolute.Value),

@@ -1,13 +1,13 @@
 using System.Linq;
 using System.Threading;
-using Core.Domain;
 using LanguageExt;
 using LanguageExt.Common;
+using Rasm.Domain;
 using Rhino.FileIO;
 using Rhino.Geometry;
 using Rhino.Geometry.Intersect;
 using static LanguageExt.Prelude;
-namespace Analysis;
+namespace Rasm.Analysis;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -22,12 +22,12 @@ public static partial class Query {
         Aspect<(TA A, TB B), TOut, Unit>(
             aspect: unit,
             key: IntersectKey,
-            dispatch: static (Unit _) => (typeof(TA), typeof(TB), typeof(TOut)) switch {
+            dispatch: static _ => (typeof(TA), typeof(TB), typeof(TOut)) switch {
                 (Type a, Type b, Type output) when typeof(Curve).IsAssignableFrom(c: a) && typeof(Curve).IsAssignableFrom(c: b) && Events(output: output) =>
                     PairEvents<TA, TB, Curve, Curve, TOut>(
                         a: Requirement.Basic,
                         b: Requirement.Basic,
-                        intersect: static (Curve left, Curve right, Context context) => Intersection.CurveCurve(
+                        intersect: static (left, right, context) => Intersection.CurveCurve(
                             curveA: left,
                             curveB: right,
                             tolerance: context.Absolute.Value,
@@ -36,7 +36,7 @@ public static partial class Query {
                     PairEvents<TA, TB, Curve, Plane, TOut>(
                         a: Requirement.Basic,
                         b: Requirement.None,
-                        intersect: static (Curve left, Plane right, Context context) => Intersection.CurvePlane(
+                        intersect: static (left, right, context) => Intersection.CurvePlane(
                             curve: left,
                             plane: right,
                             tolerance: context.Absolute.Value)),
@@ -44,7 +44,7 @@ public static partial class Query {
                     PairEvents<TA, TB, Curve, Line, TOut>(
                         a: Requirement.Basic,
                         b: Requirement.None,
-                        intersect: static (Curve left, Line right, Context context) => Intersection.CurveLine(
+                        intersect: static (left, right, context) => Intersection.CurveLine(
                             curve: left,
                             line: right,
                             tolerance: context.Absolute.Value,
@@ -54,7 +54,7 @@ public static partial class Query {
                         a: Requirement.Basic,
                         b: Requirement.Basic,
                         acceptPartialResults: true,
-                        intersect: static (Curve left, Brep right, Context context, out Curve[] curves, out Point3d[] points) =>
+                        intersect: static (left, right, context, out curves, out points) =>
                             Intersection.CurveBrep(
                                 curve: left,
                                 brep: right,
@@ -66,7 +66,7 @@ public static partial class Query {
                         a: Requirement.Basic,
                         b: Requirement.SurfaceEvaluation,
                         acceptPartialResults: false,
-                        intersect: static (Curve left, BrepFace right, Context context, out Curve[] curves, out Point3d[] points) =>
+                        intersect: static (left, right, context, out curves, out points) =>
                             Intersection.CurveBrepFace(
                                 curve: left,
                                 face: right,
@@ -77,7 +77,7 @@ public static partial class Query {
                     PairEvents<TA, TB, Curve, Surface, TOut>(
                         a: Requirement.Basic,
                         b: Requirement.SurfaceEvaluation,
-                        intersect: static (Curve left, Surface right, Context context) => Intersection.CurveSurface(
+                        intersect: static (left, right, context) => Intersection.CurveSurface(
                             curve: left,
                             surface: right,
                             tolerance: context.Absolute.Value,
@@ -87,7 +87,7 @@ public static partial class Query {
                         a: Requirement.SurfaceEvaluation,
                         b: Requirement.SurfaceEvaluation,
                         acceptPartialResults: false,
-                        intersect: static (Surface left, Surface right, Context context, out Curve[] curves, out Point3d[] points) =>
+                        intersect: static (left, right, context, out curves, out points) =>
                             Intersection.SurfaceSurface(
                                 surfaceA: left,
                                 surfaceB: right,
@@ -99,7 +99,7 @@ public static partial class Query {
                         a: Requirement.Basic,
                         b: Requirement.None,
                         acceptPartialResults: false,
-                        intersect: static (Brep left, Plane right, Context context, out Curve[] curves, out Point3d[] points) =>
+                        intersect: static (left, right, context, out curves, out points) =>
                             Intersection.BrepPlane(
                                 brep: left,
                                 plane: right,
@@ -111,7 +111,7 @@ public static partial class Query {
                         a: Requirement.Basic,
                         b: Requirement.SurfaceEvaluation,
                         acceptPartialResults: false,
-                        intersect: static (Brep left, Surface right, Context context, out Curve[] curves, out Point3d[] points) =>
+                        intersect: static (left, right, context, out curves, out points) =>
                             Intersection.BrepSurface(
                                 brep: left,
                                 surface: right,
@@ -124,7 +124,7 @@ public static partial class Query {
                         a: Requirement.Basic,
                         b: Requirement.Basic,
                         acceptPartialResults: false,
-                        intersect: static (Brep left, Brep right, Context context, out Curve[] curves, out Point3d[] points) =>
+                        intersect: static (left, right, context, out curves, out points) =>
                             Intersection.BrepBrep(
                                 brepA: left,
                                 brepB: right,
@@ -136,7 +136,7 @@ public static partial class Query {
                     PairPolylines<TA, TB, Mesh, Plane, TOut>(
                         a: Requirement.MeshCheck,
                         b: Requirement.None,
-                        intersect: static (Mesh left, Plane right, Context context) => {
+                        intersect: static (left, right, context) => {
                             using MeshIntersectionCache cache = new();
                             return Intersection.MeshPlane(
                                 mesh: left,
@@ -149,7 +149,7 @@ public static partial class Query {
                         key: IntersectKey,
                         a: Requirement.MeshCheck,
                         b: Requirement.None,
-                        output: static (Mesh left, Line right, Context _) => IntersectKey.IntersectionOutput<TOut>(
+                        output: static (left, right, _) => IntersectKey.IntersectionOutput<TOut>(
                             points: Intersection.MeshLineSorted(
                                 mesh: left,
                                 line: right,
@@ -158,7 +158,7 @@ public static partial class Query {
                     PairPolylines<TA, TB, Mesh, Mesh, TOut>(
                         a: Requirement.MeshCheck,
                         b: Requirement.MeshCheck,
-                        intersect: static (Mesh left, Mesh right, Context context) => {
+                        intersect: static (left, right, context) => {
                             using TextLog textLog = new();
                             return Intersection.MeshMesh(
                                 meshes: [left, right],
@@ -184,7 +184,7 @@ public static partial class Query {
                     key: DeviationKey,
                     a: Requirement.CurveLength,
                     b: Requirement.CurveLength,
-                    output: static (Curve left, Curve right, Context context) => CurveDeviationValue<TOut>(left: left, right: right, context: context)),
+                    output: static (left, right, context) => CurveDeviationValue<TOut>(left: left, right: right, context: context)),
             _ => DeviationKey.Unsupported<(TA A, TB B), TOut>(),
         };
     private static Fin<Seq<TOut>> CurveDeviationValue<TOut>(Curve left, Curve right, Context context) =>
@@ -205,7 +205,7 @@ public static partial class Query {
                         DeviationKey.RequireValid(value: right.PointAt(t: minimumB)),
                         DeviationKey.RequireValid(value: left.PointAt(t: maximumA)),
                         DeviationKey.RequireValid(value: right.PointAt(t: maximumB))
-                    ).Apply((double minDist, double maxDist, Point3d minA, Point3d minB, Point3d maxA, Point3d maxB) =>
+                    ).Apply((minDist, maxDist, minA, minB, maxA, maxB) =>
                         new CurveDeviation(
                             MinimumDistance: minDist,
                             MinimumA: minA,
@@ -216,7 +216,7 @@ public static partial class Query {
                             Tolerance: context.Absolute.Value,
                             WithinTolerance: maxDist <= context.Absolute.Value))
                     .As()
-                    .Bind(static (CurveDeviation deviation) => (deviation.MinimumDistance >= 0.0, deviation.MaximumDistance >= deviation.MinimumDistance) switch {
+                    .Bind(static deviation => (deviation.MinimumDistance >= 0.0, deviation.MaximumDistance >= deviation.MinimumDistance) switch {
                         (true, true) => DeviationKey.Retype<CurveDeviation, TOut>(values: Seq(deviation)),
                         _ => Fin.Fail<Seq<TOut>>(DeviationKey.InvalidResult()),
                     }),
@@ -231,7 +231,7 @@ public static partial class Query {
             key: key,
             requiresContext: true,
             state: (Key: key, A: a, B: b, Output: output),
-            evaluator: static ((Op Key, Requirement A, Requirement B, Func<TLeft, TRight, Context, Fin<Seq<TOut>>> Output) state, (TA A, TB B) geometry) =>
+            evaluator: static (state, geometry) =>
                 from ctx in Analyze.Asks
                 from validated in ctx.Validate(
                         shape: new Pair<TA, TB>.Both(
@@ -267,7 +267,7 @@ public static partial class Query {
             key: IntersectKey,
             a: a,
             b: b,
-            output: (TLeft left, TRight right, Context context) => {
+            output: (left, right, context) => {
                 using CurveIntersections? intersections = intersect(
                     arg1: left,
                     arg2: right,
@@ -283,7 +283,7 @@ public static partial class Query {
             key: IntersectKey,
             a: a,
             b: b,
-            output: (TLeft left, TRight right, Context context) => intersect(
+            output: (left, right, context) => intersect(
                 left: left,
                 right: right,
                 context: context,
@@ -306,7 +306,7 @@ public static partial class Query {
             key: IntersectKey,
             a: a,
             b: b,
-            output: (TLeft left, TRight right, Context context) => IntersectKey.IntersectionOutput<TOut>(
+            output: (left, right, context) => IntersectKey.IntersectionOutput<TOut>(
                 polylines: intersect(
                     arg1: left,
                     arg2: right,

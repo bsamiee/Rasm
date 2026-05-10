@@ -1,10 +1,10 @@
-using Core.Domain;
 using LanguageExt;
 using LanguageExt.Common;
+using Rasm.Domain;
 using Rhino;
 using Rhino.Geometry;
 using static LanguageExt.Prelude;
-namespace Analysis;
+namespace Rasm.Analysis;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -16,7 +16,7 @@ public static class Analyze {
         params ReadOnlySpan<TGeometry> input) where TGeometry : notnull =>
         Run(
             query: query,
-            runtime: Option<Context>.None,
+            scope: Option<Fin<Context>>.None,
             input: input);
     public static Scope From(RhinoDoc? doc) =>
         new(context: Context.FromDocument(doc: doc).ToFin());
@@ -45,37 +45,55 @@ public static class Analyze {
             params ReadOnlySpan<TGeometry> input) where TGeometry : notnull =>
             Analyze.Run(
                 query: query,
-                runtime: Context.ToOption(),
+                scope: Some(Context),
                 input: input);
     }
     private static Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(
         Query<TGeometry, TOut>? query,
-        Option<Context> runtime,
+        Option<Fin<Context>> scope,
         ReadOnlySpan<TGeometry> input) where TGeometry : notnull =>
-        query switch {
-            Query<TGeometry, TOut> candidate => new Program<TGeometry, TOut>(
-                    query: candidate,
-                    runtime: runtime)
-                .Execute(input: input),
-            _ => Fin.Fail<Seq<TOut>>(OpFault.MissingOperation()).ToValidation(),
-        };
+        RunMaterialized(query: query, scope: scope, input: input.ToArray());
+    private static Validation<Error, Seq<TOut>> RunMaterialized<TGeometry, TOut>(
+        Query<TGeometry, TOut>? query,
+        Option<Fin<Context>> scope,
+        TGeometry[] input) where TGeometry : notnull =>
+        Optional(query)
+            .ToFin(OpFault.MissingOperation())
+            .Match(
+                Succ: resolved => RunQuery(query: resolved, scope: scope, input: input),
+                Fail: error => Fin.Fail<Seq<TOut>>(error).ToValidation());
+    private static Validation<Error, Seq<TOut>> RunQuery<TGeometry, TOut>(
+        Query<TGeometry, TOut> query,
+        Option<Fin<Context>> scope,
+        TGeometry[] input) where TGeometry : notnull =>
+        query.PreflightFault.Match(
+            Some: fault => Fin.Fail<Seq<TOut>>(fault).ToValidation(),
+            None: () => ResolveContext(query: query, scope: scope).Match(
+                Succ: context => new Program<TGeometry, TOut>(query: query, context: context).Execute(input: input),
+                Fail: error => Fin.Fail<Seq<TOut>>(error).ToValidation()));
+    private static Fin<Context> ResolveContext<TGeometry, TOut>(
+        Query<TGeometry, TOut> query,
+        Option<Fin<Context>> scope) where TGeometry : notnull =>
+        scope.Match(
+            Some: provided => provided,
+            None: () => query.RequiresContext switch {
+                true => Fin.Fail<Context>(query.Key.MissingContext()),
+                false => Context.CreateDefault(units: UnitSystem.Millimeters).ToFin(),
+            });
     private sealed class Program<TGeometry, TOut>(
         Query<TGeometry, TOut> query,
-        Option<Context> runtime) where TGeometry : notnull {
-        internal Validation<Error, Seq<TOut>> Execute(
-            params ReadOnlySpan<TGeometry> input) =>
-            input.ToArray()
+        Context context) where TGeometry : notnull {
+        internal Validation<Error, Seq<TOut>> Execute(TGeometry[] input) =>
+            input
                 .AsIterable()
                 .ToSeq()
                 .Traverse(Apply)
                 .As()
-                .Map(static (Seq<Seq<TOut>> chunks) => chunks.Bind(static (Seq<TOut> chunk) => chunk))
+                .Map(static chunks => chunks.Bind(static chunk => chunk))
                 .ToValidation();
         internal Fin<Seq<TOut>> Apply(TGeometry input) =>
             Optional(input)
                 .ToFin(ValidationFault.MissingGeometry())
-                .Bind((TGeometry geometry) => runtime.Match(
-                    Some: (Context context) => query.Apply(geometry: geometry).Run(context),
-                    None: () => Fin.Fail<Seq<TOut>>(query.Key.MissingContext())));
+                .Bind(geometry => query.Apply(geometry: geometry).Run(context));
     }
 }

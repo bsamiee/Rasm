@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using LanguageExt.Common;
 using Thinktecture;
 using static LanguageExt.Prelude;
-namespace Core.Domain;
+namespace Rasm.Domain;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -26,19 +26,19 @@ internal abstract partial record OpResult<TValue> {
     internal Fin<Seq<TValue>> Reduce(Op key) =>
         Switch<Op, Fin<Seq<TValue>>>(
             state: key,
-            one: static (Op k, One single) => k.RequireValid(value: single.Value)
-                .Map(static (TValue candidate) => Seq(candidate)),
-            many: static (Op k, Many multi) => multi.Values.Fold(
+            one: static (k, single) => k.RequireValid(value: single.Value)
+                .Map(static candidate => Seq(candidate)),
+            many: static (k, multi) => multi.Values.Fold(
                     initialState: (Operation: k, Result: Fin.Succ(Seq<TValue>())),
-                    f: static ((Op Operation, Fin<Seq<TValue>> Result) current, TValue candidate) => (
+                    f: static (current, candidate) => (
                         current.Operation,
                         Result: (current.Result, current.Operation.RequireValid(value: candidate))
-                            .Apply(static (Seq<TValue> previous, TValue next) => next.Cons(previous))
+                            .Apply(static (previous, next) => next.Cons(previous))
                             .As()))
                 .Result
-                .Map(static (Seq<TValue> values) => values.Rev()),
-            solvedSuccess: static (Op k, SolvedSuccess solved) => new One(Value: solved.Value).Reduce(key: k),
-            solvedFailure: static (Op k, SolvedFailure _) => Fin.Fail<Seq<TValue>>(k.InvalidResult()));
+                .Map(static values => values.Rev()),
+            solvedSuccess: static (k, solved) => new One(Value: solved.Value).Reduce(key: k),
+            solvedFailure: static (k, _) => Fin.Fail<Seq<TValue>>(k.InvalidResult()));
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------

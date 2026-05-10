@@ -9,14 +9,17 @@ namespace Foundation.CSharp.Analyzers;
 
 // --- [ANALYZER] --------------------------------------------------------------
 
+/// <summary>Analyzes C# code for Rasm functional-domain standards.</summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class DomainStandardsAnalyzer : DiagnosticAnalyzer {
     // --- [DIAGNOSTICS] --------------------------------------------------------
 
+    /// <inheritdoc />
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => RuleCatalog.All;
 
     // --- [ENTRY_POINT] --------------------------------------------------------
 
+    /// <inheritdoc />
     public override void Initialize(AnalysisContext context) {
         _ = context ?? throw new ArgumentNullException(paramName: nameof(context));
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);

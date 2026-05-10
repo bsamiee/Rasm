@@ -1,7 +1,7 @@
 using System.Linq;
-using Core.Domain;
 using LanguageExt;
 using LanguageExt.Common;
+using Rasm.Domain;
 using Xunit;
 using static LanguageExt.Prelude;
 
@@ -12,7 +12,7 @@ namespace Rasm.Tests.Domain;
 public sealed class StatsSpec {
     [Fact]
     public void StatsOfMatchesNaiveTwoPassWithinTolerance() {
-        double[] sample = [.. Enumerable.Range(start: 1, count: 100).Select(static (int i) => (double)i)];
+        double[] sample = [.. Enumerable.Range(start: 1, count: 100).Select(static i => (double)i)];
         Seq<double> values = toSeq(sample);
         Op key = new(name: "stats-numerical-stability");
 
@@ -26,7 +26,7 @@ public sealed class StatsSpec {
                 stats.Count == 100
                 && Math.Abs(value: stats.Mean - naiveMean) < 1e-12
                 && Math.Abs(value: stats.Variance - naiveVariance) < 1e-9 * Math.Max(val1: naiveVariance, val2: 1.0),
-            Fail: static (Error _) => false));
+            Fail: static _ => false));
     }
 
     [Fact]

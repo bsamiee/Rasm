@@ -49,16 +49,16 @@ internal static class TypeShapeRules {
         bool privateCtor = namedType.InstanceConstructors.Any(constructor => constructor.DeclaredAccessibility == Accessibility.Private);
         bool allCasesSealed = unionCases.All(caseType => caseType.IsSealed);
         bool hasUnreachableGuard = namedType.DeclaringSyntaxReferences
-            .GroupBy(static (SyntaxReference reference) => reference.SyntaxTree)
-            .Any((IGrouping<SyntaxTree, SyntaxReference> group) => {
+            .GroupBy(static reference => reference.SyntaxTree)
+            .Any(group => {
                 SemanticModel model = context.Compilation.GetSemanticModel(group.Key);
-                return group.Any((SyntaxReference reference) => reference.GetSyntax(context.CancellationToken)
+                return group.Any(reference => reference.GetSyntax(context.CancellationToken)
                     .DescendantNodesAndSelf()
                     .OfType<ThrowExpressionSyntax>()
-                    .Select((ThrowExpressionSyntax node) => model.GetOperation(node, context.CancellationToken))
+                    .Select(node => model.GetOperation(node, context.CancellationToken))
                     .Concat(reference.GetSyntax(context.CancellationToken).DescendantNodesAndSelf()
                         .OfType<ThrowStatementSyntax>()
-                        .Select((ThrowStatementSyntax node) => model.GetOperation(node, context.CancellationToken)))
+                        .Select(node => model.GetOperation(node, context.CancellationToken)))
                     .OfType<IThrowOperation>()
                     .Any(SymbolFacts.IsUnreachableThrow));
             });

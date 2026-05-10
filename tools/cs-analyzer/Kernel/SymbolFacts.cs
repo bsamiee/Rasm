@@ -277,17 +277,6 @@ internal static class SymbolFacts {
 
     // --- [BOUNDARY_FACTS] -----------------------------------------------------
 
-    internal static bool IsBoundaryIfCancellationGuard(IConditionalOperation conditional) =>
-        conditional.Condition.DescendantsAndSelf().Any(operation =>
-            operation switch {
-                IPropertyReferenceOperation { Property: { Name: "IsCancellationRequested", ContainingType: INamedTypeSymbol { } type } }
-                    when type.ToDisplayString() == "System.Threading.CancellationToken" => true,
-                IInvocationOperation { TargetMethod: { Name: "ThrowIfCancellationRequested", ContainingType: INamedTypeSymbol { } type } }
-                    when type.ToDisplayString() == "System.Threading.CancellationToken" => true,
-                _ => false,
-            });
-    internal static bool IsAsyncIteratorYieldGate(IConditionalOperation conditional) =>
-        HasYieldDescendant(conditional.WhenTrue.Syntax) || (conditional.WhenFalse?.Syntax is SyntaxNode falseBranch && HasYieldDescendant(falseBranch));
     internal static bool IsBoundaryMatchUsage(IInvocationOperation invocation) =>
         CollapseTransparentParents(invocation) is IReturnOperation
         || (invocation.Syntax.Parent is ArrowExpressionClauseSyntax clause
@@ -439,9 +428,6 @@ internal static class SymbolFacts {
             > 1 when constructorArguments[1].Value is int raw => (RegexOptions)raw,
             _ => RegexOptions.None,
         };
-    private static bool HasYieldDescendant(SyntaxNode syntax) =>
-        syntax.DescendantNodes(descendIntoChildren: static _ => true)
-            .Any(node => node.IsKind(SyntaxKind.YieldReturnStatement) || node.IsKind(SyntaxKind.YieldBreakStatement));
     private static SyntaxNode UnwrapTransparentExpression(SyntaxNode node) =>
         node switch {
             ParenthesizedExpressionSyntax parenthesized => UnwrapTransparentExpression(parenthesized.Expression),

@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <AssemblyName>Rasm.Grasshopper</AssemblyName>
-        <RootNamespace>Grasshopper</RootNamespace>
+        <RootNamespace>Rasm.Grasshopper</RootNamespace>
         <Title>Rasm.Grasshopper</Title>
         <Description>GH2 polymorphic component infrastructure for Rasm: Component&lt;TIn&gt; base, IOutput&lt;TIn&gt;/Output catalog, IPort/Port descriptors, Param SmartEnum (GH2 InputAdder/OutputAdder surface), Bridge IDataAccess extensions, Plugin manifest base.</Description>
         <IsGrasshopperAwareProject>true</IsGrasshopperAwareProject>

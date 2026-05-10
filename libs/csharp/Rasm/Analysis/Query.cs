@@ -1,23 +1,30 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Runtime.InteropServices;
-using Core.Domain;
 using LanguageExt;
 using LanguageExt.Common;
+using Rasm.Domain;
 using Rhino.Geometry;
 using Rhino.Geometry.Intersect;
 using Thinktecture;
 using static LanguageExt.Prelude;
-namespace Analysis;
+namespace Rasm.Analysis;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
     internal Op Key { get; }
     internal Func<TGeometry, Eff<Context, Seq<TOut>>> Effect { get; }
-    internal Query(Op key, Func<TGeometry, Eff<Context, Seq<TOut>>> effect) {
+    internal bool RequiresContext { get; }
+    internal Option<Error> PreflightFault { get; }
+    internal Query(
+        Op key,
+        Func<TGeometry, Eff<Context, Seq<TOut>>> effect,
+        bool requiresContext = false,
+        Option<Error> preflightFault = default) {
         Key = key;
         Effect = effect;
+        RequiresContext = requiresContext;
+        PreflightFault = preflightFault;
     }
     public Eff<Context, Seq<TOut>> Apply(TGeometry geometry) =>
         Effect(arg: geometry);
@@ -28,9 +35,10 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
         bool requiresContext = false) =>
         new(
             key: key,
+            requiresContext: requiresContext,
             effect: (requirement, requiresContext) switch {
                 (null or Requirement.NoneRequirement, _) => evaluator,
-                (Requirement r, _) => (TGeometry geometry) => geometry switch {
+                (Requirement r, _) => geometry => geometry switch {
                     GeometryBase native =>
                         from ctx in Analyze.Asks
                         from _ in ctx.Validate(geometry: native, requirement: r).ToEff()
@@ -47,13 +55,14 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
         bool requiresContext = false) =>
         Build(
             key: key,
-            evaluator: (TGeometry geometry) => evaluator(arg1: state, arg2: geometry),
+            evaluator: geometry => evaluator(arg1: state, arg2: geometry),
             requirement: requirement,
             requiresContext: requiresContext);
     internal static Query<TGeometry, TOut> Reject(Op key, Error fault) =>
         new(
             key: key,
-            effect: (TGeometry _) => Fin.Fail<Seq<TOut>>(fault).ToEff());
+            preflightFault: Some(fault),
+            effect: _ => Fin.Fail<Seq<TOut>>(fault).ToEff());
 }
 public enum MassKind { None = 0, Length = 1, Area = 2, Volume = 3 }
 public enum CurvatureScalar { None = 0, Magnitude = 1, Gaussian = 2, Mean = 3 }
@@ -126,12 +135,10 @@ public partial record Measure {
     public sealed record Volume : Measure;
     public sealed record SpatialMidpoint : Measure;
     public sealed record Centroid(MassKind Mass) : Measure;
-    [SuppressMessage(category: "Naming", checkId: "CA1716:Identifiers should not match keywords", Justification = "Measure.Error mirrors Rhino MassProperties error term; domain-scoped, not part of public cross-language API.")]
-    public sealed record Error(MassKind Mass) : Measure;
+    public sealed record MassError(MassKind Mass) : Measure;
     public sealed record CentroidError(MassKind Mass) : Measure;
     public sealed record Radii(MassKind Mass) : Measure;
-    [SuppressMessage(category: "Naming", checkId: "CA1724:Type names should not match namespaces", Justification = "Measure.Principal denotes principal-axis moments under Measure; domain-scoped, not a top-level identifier in the public surface.")]
-    public sealed record Principal(MassKind Mass) : Measure;
+    public sealed record PrincipalAxes(MassKind Mass) : Measure;
 }
 [Union]
 public partial record Location {
@@ -168,6 +175,22 @@ public readonly record struct Faces(FaceSelector Selector, Option<int> Index) {
     public static Faces Top => new(Selector: FaceSelector.Top, Index: None);
     public static Faces Bottom => new(Selector: FaceSelector.Bottom, Index: None);
     public static Faces At(int? index = null) => new(Selector: FaceSelector.At, Index: Optional(value: index));
+}
+[SmartEnum<int>]
+public sealed partial class CurveSelector {
+    public static readonly CurveSelector All = new(key: 0);
+    public static readonly CurveSelector Boundary = new(key: 1);
+    public static readonly CurveSelector IsoU = new(key: 2);
+    public static readonly CurveSelector IsoV = new(key: 3);
+    public static readonly CurveSelector At = new(key: 4);
+}
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct Curves(CurveSelector Selector, Option<int> Index) {
+    public static Curves All => new(Selector: CurveSelector.All, Index: None);
+    public static Curves Boundary => new(Selector: CurveSelector.Boundary, Index: None);
+    public static Curves IsoU => new(Selector: CurveSelector.IsoU, Index: None);
+    public static Curves IsoV => new(Selector: CurveSelector.IsoV, Index: None);
+    public static Curves At(int? index = null) => new(Selector: CurveSelector.At, Index: Optional(value: index));
 }
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Conformance {
@@ -206,7 +229,8 @@ public static partial class Query {
         KindKey = new(name: nameof(Kind)),
         UniqueCornersKey = new(name: "UniqueCorners"),
         WorldCardinalPointsKey = new(name: "WorldCardinalPoints"),
-        FacesKey = new(name: nameof(Faces));
+        FacesKey = new(name: nameof(Faces)),
+        CurvesKey = new(name: nameof(Curves));
     internal static Query<TGeometry, TOut> Unsupported<TGeometry, TOut>(this Op key) where TGeometry : notnull =>
         Query<TGeometry, TOut>.Reject(
             key: key,
@@ -233,7 +257,7 @@ public static partial class Query {
     internal static Fin<Seq<TValue>> One<TValue>(this Op key, TValue value) =>
         new OpResult<TValue>.One(Value: value).Reduce(key: key);
     internal static Fin<Seq<TValue>> Many<TValue>(this Op key, IEnumerable<TValue>? values) =>
-        new OpResult<TValue>.Many(Values: Optional(values).ToSeq().Bind(static (IEnumerable<TValue> v) => v.AsIterable().ToSeq())).Reduce(key: key);
+        new OpResult<TValue>.Many(Values: Optional(values).ToSeq().Bind(static v => v.AsIterable().ToSeq())).Reduce(key: key);
     internal static Fin<Seq<TOut>> IntersectionOutput<TOut>(
         this Op key,
         IEnumerable<Curve>? curves = null,
@@ -246,36 +270,36 @@ public static partial class Query {
             Type output when output == typeof(Point3d) =>
                 key.CastResults<Point3d, TOut>(values: points ?? Optional(intersections)
                     .ToSeq()
-                    .Bind(static (CurveIntersections events) => events)
-                    .Where(static (IntersectionEvent intersection) => intersection.IsPoint)
-                    .Select(static (IntersectionEvent intersection) => intersection.PointA)),
+                    .Bind(static events => events)
+                    .Where(static intersection => intersection.IsPoint)
+                    .Select(static intersection => intersection.PointA)),
             Type output when output == typeof(IntersectionEvent) =>
                 key.CastResults<IntersectionEvent, TOut>(values: Optional(intersections)
                     .ToSeq()
-                    .Bind(static (CurveIntersections events) => events)),
+                    .Bind(static events => events)),
             Type output when output == typeof(Polyline) =>
                 key.CastResults<Polyline, TOut>(values: polylines),
             Type output when output == typeof(IntersectionKind) =>
                 key.CastResults<IntersectionKind, TOut>(values: Optional(intersections)
                     .ToSeq()
-                    .Bind(static (CurveIntersections events) => events)
-                    .Select(static (IntersectionEvent intersection) => intersection switch {
+                    .Bind(static events => events)
+                    .Select(static intersection => intersection switch {
                         IntersectionEvent candidate when candidate.IsOverlap => IntersectionKind.Overlap,
                         IntersectionEvent candidate when candidate.IsPoint => IntersectionKind.Point,
                         _ => IntersectionKind.Unknown,
                     })
                     .Concat(second: Optional(curves)
                         .ToSeq()
-                        .Bind(static (IEnumerable<Curve> values) => values)
-                        .Select(static (Curve _) => IntersectionKind.Overlap))
+                        .Bind(static values => values)
+                        .Select(static _ => IntersectionKind.Overlap))
                     .Concat(second: Optional(points)
                         .ToSeq()
-                        .Bind(static (IEnumerable<Point3d> values) => values)
-                        .Select(static (Point3d _) => IntersectionKind.Point))
+                        .Bind(static values => values)
+                        .Select(static _ => IntersectionKind.Point))
                     .Concat(second: Optional(polylines)
                         .ToSeq()
-                        .Bind(static (IEnumerable<Polyline> values) => values)
-                        .Select(static (Polyline _) => IntersectionKind.Overlap))),
+                        .Bind(static values => values)
+                        .Select(static _ => IntersectionKind.Overlap))),
             _ => Fin.Fail<Seq<TOut>>(key.Unsupported(
                 geometryType: typeof(void),
                 outputType: typeof(TOut))),
@@ -284,10 +308,10 @@ public static partial class Query {
         this Op key,
         IEnumerable<TValue>? values) =>
         Many(key: key, values: values)
-            .Bind((Seq<TValue> candidates) => key.Retype<TValue, TOut>(values: candidates));
+            .Bind(candidates => key.Retype<TValue, TOut>(values: candidates));
     internal static Fin<Seq<TOut>> Retype<TValue, TOut>(this Op key, Seq<TValue> values) =>
         typeof(TValue).Equals(typeof(TOut)) switch {
-            true => Fin.Succ(values.Map(static (TValue candidate) => (TOut)(object)candidate!)),
+            true => Fin.Succ(values.Map(static candidate => (TOut)(object)candidate!)),
             false => Fin.Fail<Seq<TOut>>(key.Unsupported(
                 geometryType: typeof(void),
                 outputType: typeof(TOut))),
@@ -298,7 +322,7 @@ public static partial class Query {
             key: PrimitiveKey,
             requiresContext: true,
             state: project,
-            evaluator: static (PrimitiveCase<TSource, TValue> extract, TGeometry geometry) =>
+            evaluator: static (extract, geometry) =>
                 geometry switch {
                     TSource source =>
                         from ctx in Analyze.Asks
@@ -331,7 +355,7 @@ public static partial class Query {
         Cast<TGeometry, TOut>(key: ClosestKey, query: Query<TGeometry, TValue>.Build(
             key: ClosestKey,
             state: (Point: point, Project: project),
-            evaluator: static ((Point3d Point, ClosestCase<TSource, TValue> Project) state, TGeometry geometry) =>
+            evaluator: static (state, geometry) =>
                 geometry switch {
                     TSource source => state.Project(
                             target: state.Point,
@@ -372,7 +396,7 @@ public static partial class Query {
             _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))).ToEff(),
         };
     internal static readonly Func<object, bool, bool, Eff<Context, LengthMassProperties>> ComputeLength =
-        static (object geometry, bool second, bool product) =>
+        static (geometry, second, product) =>
             (geometry switch {
                 Curve curve => Optional(LengthMassProperties.Compute(
                         curve: curve,
@@ -386,7 +410,7 @@ public static partial class Query {
                     geometryType: geometry.GetType())),
             }).ToEff();
     internal static readonly Func<object, bool, bool, Eff<Context, AreaMassProperties>> ComputeArea =
-        static (object geometry, bool second, bool product) =>
+        static (geometry, second, product) =>
             from ctx in Analyze.Asks
             from props in Optional(geometry switch {
                 Curve curve => AreaMassProperties.Compute(
@@ -419,7 +443,7 @@ public static partial class Query {
             }).ToEff()
             select props;
     internal static readonly Func<object, bool, bool, Eff<Context, VolumeMassProperties>> ComputeVolume =
-        static (object geometry, bool second, bool product) =>
+        static (geometry, second, product) =>
             from ctx in Analyze.Asks
             from props in Optional(geometry switch {
                 Mesh mesh => VolumeMassProperties.Compute(
@@ -459,17 +483,17 @@ public static partial class Query {
         return Query<TGeometry, TOut>.Build(
             key: key,
             requirement: requirement,
-            evaluator: (TGeometry geometry) =>
-                from mass in compute(
+            requiresContext: true,
+            evaluator: geometry => from mass in compute(
                     arg1: geometry,
                     arg2: secondMoments,
                     arg3: productMoments)
-                from values in DisposeAndProject(
-                        key: key,
-                        mass: mass,
-                        project: project)
-                    .ToEff()
-                select values);
+                                   from values in DisposeAndProject(
+                                           key: key,
+                                           mass: mass,
+                                           project: project)
+                                       .ToEff()
+                                   select values);
     }
     private static Fin<Seq<TOut>> DisposeAndProject<TMass, TOut>(
         Op key,

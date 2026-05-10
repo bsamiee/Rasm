@@ -1,5 +1,5 @@
 using System.Xml.Linq;
-using Core.Domain;
+using Rasm.Domain;
 using LanguageExt;
 using LanguageExt.Common;
 using NUnit.Framework;
@@ -38,10 +38,10 @@ public sealed class GeometryContextSpec {
     [TestCase(UnitSystem.Meters)]
     [TestCase(UnitSystem.Feet)]
     public void CreatesDefault(UnitSystem units) {
-        GeometryContext context = GeometryContext.CreateDefault(units: units)
+        Context context = global::Rasm.Domain.Context.CreateDefault(units: units)
             .ToFin()
             .Match(
-                Succ: static (GeometryContext candidate) => candidate,
+                Succ: static (Context candidate) => candidate,
                 Fail: static (Error fault) => throw new AssertionException(message: fault.Message));
 
         Assert.That(actual: context.Units, expression: Is.EqualTo(expected: units));
@@ -52,7 +52,7 @@ public sealed class GeometryContextSpec {
     [TestCase(UnitSystem.Feet)]
     public void CreatesKnownUnits(UnitSystem units) =>
         Assert.That(
-            actual: GeometryContext.FromKnownUnits(
+            actual: global::Rasm.Domain.Context.FromKnownUnits(
                     absoluteTolerance: 0.01,
                     relativeTolerance: 0.0,
                     angleToleranceRadians: RhinoMath.ToRadians(1.0),
@@ -65,7 +65,7 @@ public sealed class GeometryContextSpec {
     [TestCase(UnitSystem.CustomUnits)]
     public void RejectsKnownUnitsWithoutScale(UnitSystem units) =>
         Assert.That(
-            actual: GeometryContext.FromKnownUnits(
+            actual: global::Rasm.Domain.Context.FromKnownUnits(
                     absoluteTolerance: 0.01,
                     relativeTolerance: 0.0,
                     angleToleranceRadians: RhinoMath.ToRadians(1.0),
@@ -81,7 +81,7 @@ public sealed class GeometryContextSpec {
     [TestCase(-1.0)]
     public void RejectsInvalidAbsoluteTolerance(double absoluteTolerance) =>
         Assert.That(
-            actual: GeometryContext.FromKnownUnits(
+            actual: global::Rasm.Domain.Context.FromKnownUnits(
                     absoluteTolerance: absoluteTolerance,
                     relativeTolerance: 0.0,
                     angleToleranceRadians: RhinoMath.ToRadians(1.0),
@@ -95,7 +95,7 @@ public sealed class GeometryContextSpec {
     [TestCase(0.999)]
     public void AcceptsRelativeToleranceRange(double relativeTolerance) =>
         Assert.That(
-            actual: GeometryContext.FromKnownUnits(
+            actual: global::Rasm.Domain.Context.FromKnownUnits(
                     absoluteTolerance: 0.01,
                     relativeTolerance: relativeTolerance,
                     angleToleranceRadians: RhinoMath.ToRadians(1.0),
@@ -111,7 +111,7 @@ public sealed class GeometryContextSpec {
     [TestCase(1.0)]
     public void RejectsInvalidRelativeTolerance(double relativeTolerance) =>
         Assert.That(
-            actual: GeometryContext.FromKnownUnits(
+            actual: global::Rasm.Domain.Context.FromKnownUnits(
                     absoluteTolerance: 0.01,
                     relativeTolerance: relativeTolerance,
                     angleToleranceRadians: RhinoMath.ToRadians(1.0),
@@ -125,7 +125,7 @@ public sealed class GeometryContextSpec {
     [TestCase(Math.Tau)]
     public void AcceptsAngleToleranceRange(double angleToleranceRadians) =>
         Assert.That(
-            actual: GeometryContext.FromKnownUnits(
+            actual: global::Rasm.Domain.Context.FromKnownUnits(
                     absoluteTolerance: 0.01,
                     relativeTolerance: 0.0,
                     angleToleranceRadians: angleToleranceRadians,
@@ -142,7 +142,7 @@ public sealed class GeometryContextSpec {
     [TestCase(7.0)]
     public void RejectsInvalidAngleTolerance(double angleToleranceRadians) =>
         Assert.That(
-            actual: GeometryContext.FromKnownUnits(
+            actual: global::Rasm.Domain.Context.FromKnownUnits(
                     absoluteTolerance: 0.01,
                     relativeTolerance: 0.0,
                     angleToleranceRadians: angleToleranceRadians,
@@ -159,10 +159,10 @@ public sealed class GeometryContextSpec {
                 Succ: static (RhinoDoc candidate) => candidate,
                 Fail: static (Error fault) => throw new AssertionException(message: fault.Message));
 
-        GeometryContext context = GeometryContext.FromDocument(doc: doc)
+        Context context = global::Rasm.Domain.Context.FromDocument(doc: doc)
             .ToFin()
             .Match(
-                Succ: static (GeometryContext candidate) => candidate,
+                Succ: static (Context candidate) => candidate,
                 Fail: static (Error fault) => throw new AssertionException(message: fault.Message));
 
         Assert.That(actual: context.Units, expression: Is.EqualTo(expected: doc.ModelUnitSystem));
@@ -170,7 +170,7 @@ public sealed class GeometryContextSpec {
 
     [Test]
     public void ValidatesClosedCurve() {
-        GeometryContext context = Context();
+        Context context = Context();
         using Curve curve = new Circle(plane: Plane.WorldXY, radius: 1.0).ToNurbsCurve();
 
         Assert.That(
@@ -180,7 +180,7 @@ public sealed class GeometryContextSpec {
 
     [Test]
     public void ValidatesClosedBrep() {
-        GeometryContext context = Context();
+        Context context = Context();
         using Brep brep = new Sphere(center: Point3d.Origin, radius: 1.0).ToBrep();
 
         Assert.That(
@@ -190,7 +190,7 @@ public sealed class GeometryContextSpec {
 
     [Test]
     public void ValidatesClosedMesh() {
-        GeometryContext context = Context();
+        Context context = Context();
         using Mesh mesh = Mesh.CreateFromSphere(sphere: new Sphere(center: Point3d.Origin, radius: 1.0), xCount: 16, yCount: 16);
 
         Assert.That(
@@ -200,7 +200,7 @@ public sealed class GeometryContextSpec {
 
     [Test]
     public void ValidatesExtrusion() {
-        GeometryContext context = Context();
+        Context context = Context();
         using Curve profile = new Circle(plane: Plane.WorldXY, radius: 1.0).ToNurbsCurve();
         using Extrusion extrusion = Extrusion.Create(planarCurve: profile, height: 1.0, cap: true);
 
@@ -211,7 +211,7 @@ public sealed class GeometryContextSpec {
 
     [Test]
     public void RejectsShortCurve() {
-        GeometryContext context = Context();
+        Context context = Context();
         using Curve curve = new Circle(plane: Plane.WorldXY, radius: 0.0001).ToNurbsCurve();
 
         Assert.That(
@@ -225,7 +225,7 @@ public sealed class GeometryContextSpec {
 
     [Test]
     public void RejectsSelfIntersectingCurve() {
-        GeometryContext context = Context();
+        Context context = Context();
         using Curve curve = new Polyline([
                 Point3d.Origin,
                 new Point3d(x: 1.0, y: 1.0, z: 0.0),
@@ -246,7 +246,7 @@ public sealed class GeometryContextSpec {
 
     [Test]
     public void RejectsDiscontinuousCurve() {
-        GeometryContext context = Context();
+        Context context = Context();
         using Curve curve = new Polyline([
                 Point3d.Origin,
                 new Point3d(x: 1.0, y: 0.0, z: 0.0),
@@ -265,7 +265,7 @@ public sealed class GeometryContextSpec {
 
     [Test]
     public void RejectsOpenMesh() {
-        GeometryContext context = Context();
+        Context context = Context();
         using Mesh mesh = new();
         _ = mesh.Vertices.Add(x: 0.0, y: 0.0, z: 0.0);
         _ = mesh.Vertices.Add(x: 1.0, y: 0.0, z: 0.0);
@@ -286,7 +286,7 @@ public sealed class GeometryContextSpec {
 
     [Test]
     public void RejectsGappedPolycurve() {
-        GeometryContext context = Context();
+        Context context = Context();
         using PolyCurve polyCurve = new();
         using LineCurve first = new(from: Point3d.Origin, to: new Point3d(x: 1.0, y: 0.0, z: 0.0));
         using LineCurve second = new(from: new Point3d(x: 2.0, y: 0.0, z: 0.0), to: new Point3d(x: 3.0, y: 0.0, z: 0.0));
@@ -304,7 +304,7 @@ public sealed class GeometryContextSpec {
 
     [Test]
     public void RejectsUnusableSurfaceDomain() {
-        GeometryContext context = Context();
+        Context context = Context();
         using NurbsSurface surface = NurbsSurface.CreateFromCorners(
             corner1: Point3d.Origin,
             corner2: new Point3d(x: 1.0, y: 0.0, z: 0.0),
@@ -321,14 +321,14 @@ public sealed class GeometryContextSpec {
             expression: Is.True);
     }
 
-    private static GeometryContext Context() =>
-        GeometryContext.FromDocument(doc: Optional(RhinoDoc.ActiveDoc)
+    private static Context Context() =>
+        global::Rasm.Domain.Context.FromDocument(doc: Optional(RhinoDoc.ActiveDoc)
                 .ToFin(Error.New(message: "Rhino.Testing did not create an active Rhino document."))
                 .Match(
                     Succ: static (RhinoDoc candidate) => candidate,
                     Fail: static (Error fault) => throw new AssertionException(message: fault.Message)))
             .ToFin()
             .Match(
-                Succ: static (GeometryContext context) => context,
+                Succ: static (Context context) => context,
                 Fail: static (Error fault) => throw new AssertionException(message: fault.Message));
 }

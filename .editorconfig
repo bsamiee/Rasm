@@ -258,6 +258,7 @@ dotnet_diagnostic.CA2025.severity = error                                     # 
 dotnet_diagnostic.CA2026.severity = error                                     # Prefer JsonElement.Parse over JsonDocument.Parse().RootElement.
 dotnet_diagnostic.CA2200.severity = error                                     # Preserve stack traces by rethrowing correctly.
 dotnet_diagnostic.CA2201.severity = error                                     # Avoid throwing reserved/general exception types.
+
 dotnet_diagnostic.CA2208.severity = error                                     # Construct argument exceptions with correct parameter names.
 dotnet_diagnostic.CA2213.severity = error                                     # Dispose disposable fields when owning lifetime.
 dotnet_diagnostic.CA2214.severity = error                                     # Avoid calling overridable members in constructors.

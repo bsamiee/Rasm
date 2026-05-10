@@ -1,14 +1,14 @@
-using Analysis;
-using Core.Domain;
 using LanguageExt;
 using LanguageExt.Common;
 using NUnit.Framework;
+using Rasm.Analysis;
+using Rasm.Domain;
 using Rhino;
 using Rhino.Geometry;
 using Rhino.Geometry.Intersect;
 using Rhino.Testing.Fixtures;
 using static LanguageExt.Prelude;
-using AnalysisQuery = Analysis.Query;
+using AnalysisQuery = Rasm.Analysis.Query;
 
 namespace Runtime.Rhino.Tests.Analysis;
 
@@ -71,7 +71,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void ComputesCurveEvaluationAnalysis() {
-        GeometryContext context = Context();
+        Context context = Context();
         using LineCurve curve = new(line: new Line(
             from: Point3d.Origin,
             to: new Point3d(x: 3.0, y: 4.0, z: 0.0)));
@@ -111,7 +111,7 @@ public sealed class AnalysisRuntimeSpec {
             };
 
         double[] lengthError = Run(
-            query: AnalysisQuery.Measure<Curve, double>(aspect: new Measure.Error(Mass: MassKind.Length)),
+            query: AnalysisQuery.Measure<Curve, double>(aspect: new Measure.MassError(Mass: MassKind.Length)),
             context: context,
             input: [curve]);
         Plane[] curveFrames = Run(
@@ -203,7 +203,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void PreservesLengthCentroidOrderAcrossManyCurves() {
-        GeometryContext context = Context();
+        Context context = Context();
         using LineCurve first = new(line: new Line(
             from: Point3d.Origin,
             to: new Point3d(x: 2.0, y: 0.0, z: 0.0)));
@@ -224,7 +224,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void ComputesPolylineLocationByArcLength() {
-        GeometryContext context = Context();
+        Context context = Context();
         Polyline polyline = new([
             Point3d.Origin,
             new Point3d(x: 10.0, y: 0.0, z: 0.0),
@@ -248,7 +248,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void ComputesSurfaceAnalysis() {
-        GeometryContext context = Context();
+        Context context = Context();
         using PlaneSurface surface = new(
             plane: Plane.WorldXY,
             xExtents: new Interval(t0: 0.0, t1: 2.0),
@@ -337,6 +337,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void ComputesSpatialIndexNativeQueries() {
+        Context context = Context();
         Point3d[] points = [
             Point3d.Origin,
             new Point3d(x: 2.0, y: 0.0, z: 0.0),
@@ -348,52 +349,52 @@ public sealed class AnalysisRuntimeSpec {
             yInterval: new Interval(t0: 0.0, t1: 1.0),
             xCount: 1,
             yCount: 1);
-        using SpatialIndex index = Value(result: SpatialIndex.Points(points: points));
-        using SpatialIndex empty = Value(result: SpatialIndex.Points(points: []));
-        using SpatialIndex meshFaces = Value(result: SpatialIndex.MeshFaces(mesh: mesh));
+        using Tree index = Value(result: Tree.Points(points: points));
+        using Tree empty = Value(result: Tree.Points(points: []));
+        using Tree meshFaces = Value(result: Tree.MeshFaces(mesh: mesh));
 
-        SpatialHit[] boxHits = [.. Value(result: index.Search(box: new BoundingBox(
+        Hit[] boxHits = [.. Value(result: index.Search(box: new BoundingBox(
             min: new Point3d(x: -0.5, y: -0.5, z: -0.5),
-            max: new Point3d(x: 2.5, y: 0.5, z: 0.5))))];
-        SpatialHit[] sphereHits = [.. Value(result: index.Search(sphere: new Sphere(center: Point3d.Origin, radius: 0.5)))];
-        SpatialPair[] nearest = [.. Value(result: SpatialIndex.KNearest(
+            max: new Point3d(x: 2.5, y: 0.5, z: 0.5))).Run(env: context))];
+        Hit[] sphereHits = [.. Value(result: index.Search(sphere: new Sphere(center: Point3d.Origin, radius: 0.5)).Run(env: context))];
+        Couple[] nearest = [.. Value(result: Tree.KNearest(
                 points: points,
                 needles: [
                     new Point3d(x: 0.2, y: 0.0, z: 0.0),
                     new Point3d(x: 4.8, y: 0.0, z: 0.0),
                 ],
-                count: 1))];
-        SpatialPair[] closest = [.. Value(result: SpatialIndex.Closest(
+                count: 1).Run(env: context))];
+        Couple[] closest = [.. Value(result: Tree.Closest(
                 points: points,
                 needles: [
                     new Point3d(x: 0.2, y: 0.0, z: 0.0),
                     new Point3d(x: 4.8, y: 0.0, z: 0.0),
                 ],
-                limitDistance: 0.5))];
-        SpatialPair[] overlaps = [.. Value(result: meshFaces.Overlaps(other: meshFaces))];
-        SpatialHit[] emptyHits = [.. Value(result: empty.Search(box: new BoundingBox(
+                limitDistance: 0.5).Run(env: context))];
+        Couple[] overlaps = [.. Value(result: meshFaces.Overlaps(other: meshFaces).Run(env: context))];
+        Hit[] emptyHits = [.. Value(result: empty.Search(box: new BoundingBox(
             min: new Point3d(x: -1.0, y: -1.0, z: -1.0),
-            max: new Point3d(x: 1.0, y: 1.0, z: 1.0))))];
-        SpatialIndex transient = Value(result: SpatialIndex.Points(points: [Point3d.Origin]));
+            max: new Point3d(x: 1.0, y: 1.0, z: 1.0))).Run(env: context))];
+        Tree transient = Value(result: Tree.Points(points: [Point3d.Origin]));
         transient.Dispose();
-        Validation<Error, Seq<SpatialHit>> disposed = transient.Search(box: new BoundingBox(
+        Fin<Seq<Hit>> disposed = transient.Search(box: new BoundingBox(
             min: new Point3d(x: -1.0, y: -1.0, z: -1.0),
-            max: new Point3d(x: 1.0, y: 1.0, z: 1.0)));
+            max: new Point3d(x: 1.0, y: 1.0, z: 1.0))).Run(env: context);
 
         Assert.Multiple(() => {
-            Assert.That(actual: boxHits, expression: Is.EqualTo(expected: new[] { new SpatialHit(Id: 0), new SpatialHit(Id: 1) }));
-            Assert.That(actual: sphereHits, expression: Is.EqualTo(expected: new[] { new SpatialHit(Id: 0) }));
-            Assert.That(actual: nearest, expression: Is.EqualTo(expected: new[] { new SpatialPair(A: 0, B: 0), new SpatialPair(A: 1, B: 2) }));
-            Assert.That(actual: closest, expression: Is.EqualTo(expected: new[] { new SpatialPair(A: 0, B: 0), new SpatialPair(A: 1, B: 2) }));
-            Assert.That(actual: overlaps, expression: Has.Member(expected: new SpatialPair(A: 0, B: 0)));
+            Assert.That(actual: boxHits, expression: Is.EqualTo(expected: new[] { new Hit(Id: 0), new Hit(Id: 1) }));
+            Assert.That(actual: sphereHits, expression: Is.EqualTo(expected: new[] { new Hit(Id: 0) }));
+            Assert.That(actual: nearest, expression: Is.EqualTo(expected: new[] { new Couple(A: 0, B: 0), new Couple(A: 1, B: 2) }));
+            Assert.That(actual: closest, expression: Is.EqualTo(expected: new[] { new Couple(A: 0, B: 0), new Couple(A: 1, B: 2) }));
+            Assert.That(actual: overlaps, expression: Has.Member(expected: new Couple(A: 0, B: 0)));
             Assert.That(actual: emptyHits, expression: Is.Empty);
-            Assert.That(actual: disposed.ToFin().IsFail, expression: Is.True);
+            Assert.That(actual: disposed.IsFail, expression: Is.True);
         });
     }
 
     [Test]
     public void ComputesConformanceResidualVocabulary() {
-        GeometryContext context = Context();
+        Context context = Context();
         Line reference = new(
             from: Point3d.Origin,
             to: new Point3d(x: 4.0, y: 0.0, z: 0.0));
@@ -536,7 +537,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void ComputesNonFlatSurfaceScalarProfilesFromNativeCurvature() {
-        GeometryContext context = Context();
+        Context context = Context();
         using Surface surface = new Cylinder(baseCircle: new Circle(plane: Plane.WorldXY, radius: 2.0), height: 4.0).ToNurbsSurface();
         Interval uDomain = surface.Domain(direction: 0);
         Interval vDomain = surface.Domain(direction: 1);
@@ -595,7 +596,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void ComputesBrepMassAndEdges() {
-        GeometryContext context = Context();
+        Context context = Context();
         using Brep brep = new Sphere(center: Point3d.Origin, radius: 1.0).ToBrep();
         using Surface surface = new Sphere(center: Point3d.Origin, radius: 1.0).ToNurbsSurface();
 
@@ -620,7 +621,7 @@ public sealed class AnalysisRuntimeSpec {
             context: context,
             input: [surface]);
         double[] volumeError = Run(
-            query: AnalysisQuery.Measure<GeometryBase, double>(aspect: new Measure.Error(Mass: MassKind.Volume)),
+            query: AnalysisQuery.Measure<GeometryBase, double>(aspect: new Measure.MassError(Mass: MassKind.Volume)),
             context: context,
             input: [brep]);
         Point3d[] centroid = Run(
@@ -651,7 +652,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void ComputesMassMomentProjections() {
-        GeometryContext context = Context();
+        Context context = Context();
         using LineCurve curve = new(line: new Line(
             from: Point3d.Origin,
             to: new Point3d(x: 3.0, y: 4.0, z: 0.0)));
@@ -662,7 +663,7 @@ public sealed class AnalysisRuntimeSpec {
             context: context,
             input: [curve]);
         (double Moment, Vector3d Axis)[] lengthPrincipal = Run(
-            query: AnalysisQuery.Measure<Curve, (double Moment, Vector3d Axis)>(aspect: new Measure.Principal(Mass: MassKind.Length)),
+            query: AnalysisQuery.Measure<Curve, (double Moment, Vector3d Axis)>(aspect: new Measure.PrincipalAxes(Mass: MassKind.Length)),
             context: context,
             input: [curve]);
         Vector3d[] areaRadii = Run(
@@ -670,7 +671,7 @@ public sealed class AnalysisRuntimeSpec {
             context: context,
             input: [brep]);
         (double Moment, Vector3d Axis)[] volumePrincipal = Run(
-            query: AnalysisQuery.Measure<GeometryBase, (double Moment, Vector3d Axis)>(aspect: new Measure.Principal(Mass: MassKind.Volume)),
+            query: AnalysisQuery.Measure<GeometryBase, (double Moment, Vector3d Axis)>(aspect: new Measure.PrincipalAxes(Mass: MassKind.Volume)),
             context: context,
             input: [brep]);
 
@@ -685,7 +686,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void ComputesBrepTopologyAnalysis() {
-        GeometryContext context = Context();
+        Context context = Context();
         using Brep brep = new Sphere(center: Point3d.Origin, radius: 1.0).ToBrep();
 
         Curve[] nakedEdges = Run(
@@ -726,7 +727,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void RejectsNullGeometryInsideScopedMassRail() {
-        GeometryContext context = Context();
+        Context context = Context();
 
         Validation<Error, Seq<double>> result = Analyze.In(context: context)
             .Run(
@@ -738,7 +739,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void RejectsOpenSurfaceForVolumeMass() {
-        GeometryContext context = Context();
+        Context context = Context();
         using PlaneSurface surface = new(
             plane: Plane.WorldXY,
             xExtents: new Interval(t0: 0.0, t1: 1.0),
@@ -754,7 +755,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void RejectsInvalidCurveAreaAndContainmentInputs() {
-        GeometryContext context = Context();
+        Context context = Context();
         using LineCurve open = new(line: new Line(
             from: Point3d.Origin,
             to: new Point3d(x: 1.0, y: 0.0, z: 0.0)));
@@ -788,7 +789,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void ExtractsOpenMeshNakedEdges() {
-        GeometryContext context = Context();
+        Context context = Context();
         using Mesh mesh = Mesh.CreateFromPlane(
             plane: Plane.WorldXY,
             xInterval: new Interval(t0: 0.0, t1: 1.0),
@@ -860,7 +861,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void ComputesPrimitiveMeshAndComponentAdditions() {
-        GeometryContext context = Context();
+        Context context = Context();
         using Curve circleCurve = new Circle(plane: Plane.WorldXY, radius: 2.0).ToNurbsCurve();
         using Curve arcCurve = new Arc(plane: Plane.WorldXY, radius: 3.0, angleRadians: Math.PI / 2.0).ToNurbsCurve();
         using Curve ellipseCurve = new Ellipse(plane: Plane.WorldXY, radius1: 3.0, radius2: 1.5).ToNurbsCurve();
@@ -977,7 +978,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void ComputesReadOnlyTopologyDiagnostics() {
-        GeometryContext context = Context();
+        Context context = Context();
         using Mesh mesh = new();
         _ = mesh.Vertices.Add(x: 0.0, y: 0.0, z: 0.0);
         _ = mesh.Vertices.Add(x: 1.0, y: 0.0, z: 0.0);
@@ -1040,7 +1041,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void ComputesBounds() {
-        GeometryContext context = Context();
+        Context context = Context();
         using LineCurve first = new(line: new Line(
             from: new Point3d(x: -1.0, y: 0.0, z: 0.0),
             to: new Point3d(x: 1.0, y: 0.0, z: 0.0)));
@@ -1063,7 +1064,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void ComputesIntersections() {
-        GeometryContext context = Context();
+        Context context = Context();
         using LineCurve first = new(line: new Line(
             from: new Point3d(x: -1.0, y: 0.0, z: 0.0),
             to: new Point3d(x: 1.0, y: 0.0, z: 0.0)));
@@ -1158,11 +1159,11 @@ public sealed class AnalysisRuntimeSpec {
             context: context,
             input: [(mesh, new Line(from: new Point3d(x: -2.0, y: 0.0, z: 0.0), to: new Point3d(x: 2.0, y: 0.0, z: 0.0)))]);
         CurveDeviation[] parallelDeviation = Run(
-            query: AnalysisQuery.Deviation<Curve, Curve, CurveDeviation>(aspect: Deviation.Curve),
+            query: AnalysisQuery.Deviation<Curve, Curve, CurveDeviation>(),
             context: context,
-            input: [(parallelA, parallelB)]);
+            input: [((Curve)parallelA, (Curve)parallelB)]);
         CurveDeviation[] coincidentDeviation = Run(
-            query: AnalysisQuery.Deviation<LineCurve, LineCurve, CurveDeviation>(aspect: Deviation.Curve),
+            query: AnalysisQuery.Deviation<LineCurve, LineCurve, CurveDeviation>(),
             context: context,
             input: [(first, coincident)]);
 
@@ -1197,7 +1198,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void RejectsInvalidNativeIntersectionOperandsBeforeDispatch() {
-        GeometryContext context = Context();
+        Context context = Context();
         using LineCurve curve = new(line: new Line(
             from: new Point3d(x: -1.0, y: 0.0, z: 0.0),
             to: new Point3d(x: 1.0, y: 0.0, z: 0.0)));
@@ -1247,7 +1248,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void RejectsOpenBrepForSolidContainment() {
-        GeometryContext context = Context();
+        Context context = Context();
         using PlaneSurface surface = new(
             plane: Plane.WorldXY,
             xExtents: new Interval(t0: 0.0, t1: 1.0),
@@ -1264,7 +1265,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void ExtractsEdgeMidpointsForLinePolylineAndCurve() {
-        GeometryContext context = Context();
+        Context context = Context();
         Line line = new(
             from: Point3d.Origin,
             to: new Point3d(x: 2.0, y: 0.0, z: 0.0));
@@ -1302,7 +1303,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void ExtractsBoundingBoxPointSets() {
-        GeometryContext context = Context();
+        Context context = Context();
         BoundingBox box = new(
             min: Point3d.Origin,
             max: new Point3d(x: 2.0, y: 4.0, z: 6.0));
@@ -1346,7 +1347,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void ExtractsBrepEdgeMidpointsAndMixedGeometryInOrder() {
-        GeometryContext context = Context();
+        Context context = Context();
         BoundingBox box = new(
             min: Point3d.Origin,
             max: new Point3d(x: 2.0, y: 2.0, z: 2.0));
@@ -1398,7 +1399,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void DistinguishesBoundsCenterFromMassCentroidOnAsymmetricBrep() {
-        GeometryContext context = Context();
+        Context context = Context();
         Cone cone = new(
             plane: Plane.WorldXY,
             height: 4.0,
@@ -1425,7 +1426,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void ExtractsBoundsCornersFromBrep() {
-        GeometryContext context = Context();
+        Context context = Context();
         BoundingBox box = new(
             min: Point3d.Origin,
             max: new Point3d(x: 2.0, y: 4.0, z: 6.0));
@@ -1441,7 +1442,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void IteratesSubDVerticesInControlNetOrder() {
-        GeometryContext context = Context();
+        Context context = Context();
         using Mesh mesh = new();
         _ = mesh.Vertices.Add(x: 0.0, y: 0.0, z: 0.0);
         _ = mesh.Vertices.Add(x: 2.0, y: 0.0, z: 0.0);
@@ -1470,7 +1471,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void ExtractsMeshVerticesAndAreaCentroid() {
-        GeometryContext context = Context();
+        Context context = Context();
         using Mesh mesh = new();
         _ = mesh.Vertices.Add(x: 0.0, y: 0.0, z: 0.0);
         _ = mesh.Vertices.Add(x: 2.0, y: 0.0, z: 0.0);
@@ -1497,7 +1498,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void AccumulatesUnsupportedMixedGeometryPointExtractionErrors() {
-        GeometryContext context = Context();
+        Context context = Context();
         using Point first = new(location: Point3d.Origin);
         using LineCurve curve = new(
             from: Point3d.Origin,
@@ -1518,7 +1519,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void DetectsBrepSphereKind() {
-        GeometryContext context = Context();
+        Context context = Context();
         Sphere sphere = new(center: Point3d.Origin, radius: 1.0);
         using Brep brep = sphere.ToBrep();
 
@@ -1532,7 +1533,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void DetectsBrepBoxKind() {
-        GeometryContext context = Context();
+        Context context = Context();
         BoundingBox bounds = new(min: Point3d.Origin, max: new Point3d(x: 2.0, y: 4.0, z: 6.0));
         using Brep brep = Brep.CreateFromBox(box: bounds);
 
@@ -1546,7 +1547,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void DetectsBrepGeneralKindForCappedCone() {
-        GeometryContext context = Context();
+        Context context = Context();
         Cone cone = new(plane: Plane.WorldXY, height: 4.0, radius: 1.0);
         using Brep capped = cone.ToBrep(capBottom: true);
 
@@ -1560,7 +1561,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void DetectsBrepConeKindForUncappedCone() {
-        GeometryContext context = Context();
+        Context context = Context();
         Cone cone = new(plane: Plane.WorldXY, height: 4.0, radius: 1.0);
         using Brep uncapped = cone.ToBrep(capBottom: false);
 
@@ -1574,7 +1575,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void DetectsBrepCylinderKindForUncappedCylinder() {
-        GeometryContext context = Context();
+        Context context = Context();
         Cylinder cylinder = new(baseCircle: new Circle(plane: Plane.WorldXY, radius: 1.0), height: 2.0);
         using Brep uncapped = cylinder.ToBrep(capBottom: false, capTop: false);
 
@@ -1588,7 +1589,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void DetectsBrepTorusKindForTorusRevolution() {
-        GeometryContext context = Context();
+        Context context = Context();
         Torus torus = new(basePlane: Plane.WorldXY, majorRadius: 2.0, minorRadius: 0.5);
         using Brep brep = torus.ToRevSurface().ToBrep();
 
@@ -1602,7 +1603,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void DetectsBrepPlaneKindForPlanarBrep() {
-        GeometryContext context = Context();
+        Context context = Context();
         using PlaneSurface plane = new(plane: Plane.WorldXY, xExtents: new Interval(t0: 0.0, t1: 1.0), yExtents: new Interval(t0: 0.0, t1: 1.0));
         using Brep brep = plane.ToBrep();
 
@@ -1616,7 +1617,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void DetectsMeshKind() {
-        GeometryContext context = Context();
+        Context context = Context();
         using Mesh mesh = new();
         _ = mesh.Vertices.Add(x: 0.0, y: 0.0, z: 0.0);
         _ = mesh.Vertices.Add(x: 1.0, y: 0.0, z: 0.0);
@@ -1633,7 +1634,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void DetectsSubDKind() {
-        GeometryContext context = Context();
+        Context context = Context();
         using Mesh mesh = new();
         _ = mesh.Vertices.Add(x: 0.0, y: 0.0, z: 0.0);
         _ = mesh.Vertices.Add(x: 2.0, y: 0.0, z: 0.0);
@@ -1652,7 +1653,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void DetectsCurveKindForOpenNurbs() {
-        GeometryContext context = Context();
+        Context context = Context();
         using NurbsCurve curve = NurbsCurve.Create(
             periodic: false,
             degree: 3,
@@ -1668,7 +1669,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void DetectsPolylineKindForPolylineCurve() {
-        GeometryContext context = Context();
+        Context context = Context();
         using PolylineCurve curve = new(points: new[] {
             Point3d.Origin,
             new Point3d(x: 1.0, y: 0.0, z: 0.0),
@@ -1685,7 +1686,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void DetectsSurfacePlaneKind() {
-        GeometryContext context = Context();
+        Context context = Context();
         using PlaneSurface plane = new(plane: Plane.WorldXY, xExtents: new Interval(t0: 0.0, t1: 1.0), yExtents: new Interval(t0: 0.0, t1: 1.0));
 
         GeometryKind[] kind = Run(
@@ -1698,7 +1699,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void RejectsEdgeMidpointsForSpherePrimitive() {
-        GeometryContext context = Context();
+        Context context = Context();
         Sphere sphere = new(center: Point3d.Origin, radius: 1.0);
         using Brep brep = sphere.ToBrep();
 
@@ -1717,7 +1718,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void RejectsEdgeMidpointsForCylinderPrimitive() {
-        GeometryContext context = Context();
+        Context context = Context();
         Cylinder cylinder = new(baseCircle: new Circle(plane: Plane.WorldXY, radius: 1.0), height: 2.0);
         using Brep brep = cylinder.ToBrep(capBottom: false, capTop: false);
 
@@ -1736,7 +1737,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void RejectsEdgeMidpointsForConePrimitive() {
-        GeometryContext context = Context();
+        Context context = Context();
         Cone cone = new(plane: Plane.WorldXY, height: 4.0, radius: 1.0);
         using Brep brep = cone.ToBrep(capBottom: false);
 
@@ -1755,7 +1756,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void RejectsEdgeMidpointsForTorusPrimitive() {
-        GeometryContext context = Context();
+        Context context = Context();
         Torus torus = new(basePlane: Plane.WorldXY, majorRadius: 2.0, minorRadius: 0.5);
         using Brep brep = torus.ToRevSurface().ToBrep();
 
@@ -1774,7 +1775,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void RejectsVerticesForSpherePrimitive() {
-        GeometryContext context = Context();
+        Context context = Context();
         Sphere sphere = new(center: Point3d.Origin, radius: 1.0);
         using Brep brep = sphere.ToBrep();
 
@@ -1793,7 +1794,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void RejectsVerticesForCylinderPrimitive() {
-        GeometryContext context = Context();
+        Context context = Context();
         Cylinder cylinder = new(baseCircle: new Circle(plane: Plane.WorldXY, radius: 1.0), height: 2.0);
         using Brep brep = cylinder.ToBrep(capBottom: false, capTop: false);
 
@@ -1812,7 +1813,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void RejectsVerticesForConePrimitive() {
-        GeometryContext context = Context();
+        Context context = Context();
         Cone cone = new(plane: Plane.WorldXY, height: 4.0, radius: 1.0);
         using Brep brep = cone.ToBrep(capBottom: false);
 
@@ -1831,7 +1832,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void RejectsVerticesForTorusPrimitive() {
-        GeometryContext context = Context();
+        Context context = Context();
         Torus torus = new(basePlane: Plane.WorldXY, majorRadius: 2.0, minorRadius: 0.5);
         using Brep brep = torus.ToRevSurface().ToBrep();
 
@@ -1850,7 +1851,7 @@ public sealed class AnalysisRuntimeSpec {
 
     [Test]
     public void PreservesVerticesForBoxBrep() {
-        GeometryContext context = Context();
+        Context context = Context();
         BoundingBox bounds = new(min: Point3d.Origin, max: new Point3d(x: 2.0, y: 4.0, z: 6.0));
         using Brep brep = Brep.CreateFromBox(box: bounds);
 
@@ -1862,20 +1863,149 @@ public sealed class AnalysisRuntimeSpec {
         Assert.That(actual: vertices, expression: Is.EquivalentTo(expected: bounds.GetCorners()));
     }
 
-    private static GeometryContext Context() =>
-        GeometryContext.FromDocument(doc: Optional(RhinoDoc.ActiveDoc)
+    [Test]
+    public void ExtractsRhinoPointAndNativePrimitivePointData() {
+        Context context = Context();
+        Point3d location = new(x: 1.0, y: 2.0, z: 3.0);
+        using Point point = new(location: location);
+        object[] primitives = [
+            new Circle(plane: Plane.WorldXY, radius: 2.0),
+            new Arc(plane: Plane.WorldXY, radius: 3.0, angleRadians: Math.PI / 2.0),
+            new Cylinder(baseCircle: new Circle(plane: Plane.WorldXY, radius: 1.0), height: 4.0),
+            new Cone(plane: Plane.WorldXY, height: 5.0, radius: 2.0),
+            new Torus(basePlane: Plane.WorldXY, majorRadius: 4.0, minorRadius: 1.0),
+        ];
+
+        Point3d[] pointCenter = Run(
+            query: AnalysisQuery.SpatialMidpoint<object, Point3d>(),
+            context: context,
+            input: [point]);
+        Point3d[] pointVertices = Run(
+            query: AnalysisQuery.Vertices<object, Point3d>(),
+            context: context,
+            input: [point]);
+        Point3d[] pointCorners = Run(
+            query: AnalysisQuery.BoundingCorners<object, Point3d>(),
+            context: context,
+            input: [point]);
+        BoundingBox[] bounds = Run(
+            query: AnalysisQuery.Bounds<object, BoundingBox>(aspect: new Bounds.Box()),
+            context: context,
+            input: primitives);
+        Point3d[] centers = Run(
+            query: AnalysisQuery.SpatialMidpoint<object, Point3d>(),
+            context: context,
+            input: primitives);
+
+        Assert.Multiple(() => {
+            Assert.That(actual: pointCenter, expression: Is.EqualTo(expected: new[] { location }));
+            Assert.That(actual: pointVertices, expression: Is.EqualTo(expected: new[] { location }));
+            Assert.That(actual: pointCorners, expression: Is.EqualTo(expected: new[] { location }));
+            Assert.That(actual: bounds, expression: Has.Length.EqualTo(expected: primitives.Length));
+            Assert.That(actual: centers, expression: Is.EqualTo(expected: bounds.Select(static bound => bound.Center)).Within(1e-12));
+            Assert.That(actual: bounds.All(static (BoundingBox box) => box.IsValid), expression: Is.True);
+        });
+    }
+
+    [Test]
+    public void ExtractsFacesSelectionFramesAndRejectsMeshSurfaces() {
+        Context context = Context();
+        BoundingBox bounds = new(min: Point3d.Origin, max: new Point3d(x: 2.0, y: 4.0, z: 6.0));
+        using Brep brep = Brep.CreateFromBox(box: bounds);
+        using Mesh mesh = Mesh.CreateFromBox(box: bounds, xCount: 1, yCount: 1, zCount: 1);
+        Brep[] FaceBrep(Faces aspect) =>
+            Run(query: AnalysisQuery.Faces<Brep, Brep>(aspect: aspect), context: context, input: [brep]);
+
+        Brep[] all = FaceBrep(aspect: Faces.All);
+        Brep[] top = FaceBrep(aspect: Faces.Top);
+        Brep[] bottom = FaceBrep(aspect: Faces.Bottom);
+        Brep[] atDefault = FaceBrep(aspect: Faces.At());
+        Brep[] atNegative = FaceBrep(aspect: Faces.At(index: -100));
+        Brep[] atLarge = FaceBrep(aspect: Faces.At(index: 100));
+        Plane[] frames = Run(
+            query: AnalysisQuery.Faces<Brep, Plane>(aspect: Faces.At()),
+            context: context,
+            input: [brep]);
+        BrepFace firstFace = brep.Faces[0];
+        _ = firstFace.ClosestPointOnFace(testPoint: frames[0].Origin, u: out double u, v: out double v, maximumDistance: 0.0);
+        Vector3d firstNormal = firstFace.OrientationIsReversed ? -firstFace.NormalAt(u: u, v: v) : firstFace.NormalAt(u: u, v: v);
+        Validation<Error, Seq<Brep>> meshSurfaces = Analyze.In(context: context)
+            .Run(
+                query: AnalysisQuery.Faces<Mesh, Brep>(aspect: Faces.All),
+                input: [mesh]);
+
+        Assert.Multiple(() => {
+            Assert.That(actual: all, expression: Has.Length.EqualTo(expected: brep.Faces.Count));
+            Assert.That(actual: top.Select(static face => face.GetBoundingBox(accurate: true).Center.Z), expression: Has.All.EqualTo(expected: bounds.Max.Z).Within(context.Absolute.Value));
+            Assert.That(actual: bottom.Select(static face => face.GetBoundingBox(accurate: true).Center.Z), expression: Has.All.EqualTo(expected: bounds.Min.Z).Within(context.Absolute.Value));
+            Assert.That(actual: atDefault[0].GetBoundingBox(accurate: true).Center, expression: Is.EqualTo(expected: all[0].GetBoundingBox(accurate: true).Center).Within(context.Absolute.Value));
+            Assert.That(actual: atNegative[0].GetBoundingBox(accurate: true).Center, expression: Is.EqualTo(expected: all[0].GetBoundingBox(accurate: true).Center).Within(context.Absolute.Value));
+            Assert.That(actual: atLarge[0].GetBoundingBox(accurate: true).Center, expression: Is.EqualTo(expected: all[^1].GetBoundingBox(accurate: true).Center).Within(context.Absolute.Value));
+            Assert.That(actual: frames[0].XAxis.IsValid, expression: Is.True);
+            Assert.That(actual: frames[0].ZAxis * firstNormal, expression: Is.GreaterThan(expected: 0.0));
+            Assert.That(actual: meshSurfaces.ToFin().IsFail, expression: Is.True);
+        });
+    }
+
+    [Test]
+    public void ExtractsCurvesAcrossNativeGeometryFamilies() {
+        Context context = Context();
+        using PolylineCurve curve = new(points: [
+            Point3d.Origin,
+            new Point3d(x: 1.0, y: 0.0, z: 0.0),
+            new Point3d(x: 1.0, y: 1.0, z: 0.0),
+        ]);
+        using PlaneSurface surface = new(plane: Plane.WorldXY, xExtents: new Interval(t0: 0.0, t1: 2.0), yExtents: new Interval(t0: 0.0, t1: 2.0));
+        using Brep brep = surface.ToBrep();
+        BrepFace face = brep.Faces[0];
+        using Mesh mesh = new();
+        _ = mesh.Vertices.Add(x: 0.0, y: 0.0, z: 0.0);
+        _ = mesh.Vertices.Add(x: 2.0, y: 0.0, z: 0.0);
+        _ = mesh.Vertices.Add(x: 2.0, y: 2.0, z: 0.0);
+        _ = mesh.Vertices.Add(x: 0.0, y: 2.0, z: 0.0);
+        _ = mesh.Faces.AddFace(vertex1: 0, vertex2: 1, vertex3: 2, vertex4: 3);
+        _ = mesh.Normals.ComputeNormals();
+        _ = mesh.Compact();
+        using SubD subd = SubD.CreateFromMesh(mesh: mesh);
+        Curve[] CurveSet<TGeometry>(global::Rasm.Analysis.Query<TGeometry, Curve> query, TGeometry input) where TGeometry : notnull =>
+            Run(query: query, context: context, input: [input]);
+
+        Curve[] curveAll = CurveSet(query: AnalysisQuery.Curves<Curve, Curve>(aspect: Curves.All), input: curve);
+        Curve[] brepBoundary = CurveSet(query: AnalysisQuery.Curves<Brep, Curve>(aspect: Curves.Boundary), input: brep);
+        Curve[] faceIsoU = CurveSet(query: AnalysisQuery.Curves<BrepFace, Curve>(aspect: Curves.IsoU), input: face);
+        Curve[] surfaceIsoV = CurveSet(query: AnalysisQuery.Curves<Surface, Curve>(aspect: Curves.IsoV), input: surface);
+        Curve[] subdAll = CurveSet(query: AnalysisQuery.Curves<SubD, Curve>(aspect: Curves.All), input: subd);
+        Curve[] meshAll = CurveSet(query: AnalysisQuery.Curves<Mesh, Curve>(aspect: Curves.All), input: mesh);
+        Curve[] meshBoundary = CurveSet(query: AnalysisQuery.Curves<Mesh, Curve>(aspect: Curves.Boundary), input: mesh);
+        Curve[] indexed = CurveSet(query: AnalysisQuery.Curves<Brep, Curve>(aspect: Curves.At(index: 100)), input: brep);
+
+        Assert.Multiple(() => {
+            Assert.That(actual: curveAll, expression: Has.Length.EqualTo(expected: 2));
+            Assert.That(actual: brepBoundary, expression: Has.Length.EqualTo(expected: 4));
+            Assert.That(actual: faceIsoU, expression: Has.Length.EqualTo(expected: 1));
+            Assert.That(actual: surfaceIsoV, expression: Has.Length.EqualTo(expected: 1));
+            Assert.That(actual: subdAll, expression: Has.Length.GreaterThanOrEqualTo(expected: 4));
+            Assert.That(actual: meshAll, expression: Has.Length.EqualTo(expected: mesh.TopologyEdges.Count));
+            Assert.That(actual: meshBoundary, expression: Has.Length.EqualTo(expected: 1));
+            Assert.That(actual: indexed, expression: Has.Length.EqualTo(expected: 1));
+            Assert.That(actual: indexed[0].GetLength(), expression: Is.EqualTo(expected: brep.DuplicateEdgeCurves()[^1].GetLength()).Within(context.Absolute.Value));
+        });
+    }
+
+    private static Context Context() =>
+        global::Rasm.Domain.Context.FromDocument(doc: Optional(RhinoDoc.ActiveDoc)
                 .ToFin(Error.New(message: "Rhino.Testing did not create an active Rhino document."))
                 .Match(
                     Succ: static (RhinoDoc candidate) => candidate,
                     Fail: static (Error fault) => throw new AssertionException(message: fault.Message)))
             .ToFin()
             .Match(
-                Succ: static (GeometryContext context) => context,
+                Succ: static (Context context) => context,
                 Fail: static (Error fault) => throw new AssertionException(message: fault.Message));
 
     private static TOut[] Run<TGeometry, TOut>(
-        global::Analysis.Query<TGeometry, TOut> query,
-        GeometryContext context,
+        global::Rasm.Analysis.Query<TGeometry, TOut> query,
+        Context context,
         params ReadOnlySpan<TGeometry> input) where TGeometry : notnull =>
         Analyze.In(context: context)
             .Run(
@@ -1892,4 +2022,8 @@ public sealed class AnalysisRuntimeSpec {
             .Match(
                 Succ: static (TValue value) => value,
                 Fail: static (Error fault) => throw new AssertionException(message: fault.Message));
+    private static TValue Value<TValue>(Fin<TValue> result) =>
+        result.Match(
+            Succ: static (TValue value) => value,
+            Fail: static (Error fault) => throw new AssertionException(message: fault.Message));
 }

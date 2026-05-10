@@ -1,17 +1,19 @@
-using Analysis;
-using Core.Domain;
 using Grasshopper2.Components;
 using Grasshopper2.Data.Meta;
+using Grasshopper2.Parameters;
 using Grasshopper2.Parameters.Standard;
 using Grasshopper2.Types.Numeric;
 using LanguageExt.Common;
+using Rasm.Analysis;
+using Rasm.Domain;
 using Rhino.Geometry;
-namespace Grasshopper;
+namespace Rasm.Grasshopper;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class Bridge {
-    private const string Accepted = "Curve, Brep, Mesh, SubD, Surface, Box, BoundingBox, Line, Polyline, Sphere, Cylinder, Cone, Torus, Plane";
+    private static string Accepted =>
+        string.Join(separator: ", ", values: Shape.Items.Map(static type => type.Name));
 
     public static Fin<Analyze.Scope> Scope(this IDataAccess access) {
         ArgumentNullException.ThrowIfNull(argument: access);
@@ -24,55 +26,52 @@ public static class Bridge {
             _ => Remark(access: access),
         };
     }
-    public static Fin<TIn> Item<TIn>(this IDataAccess access, int slot, IPort port) where TIn : Shape {
+    public static Fin<Shape> ReadShape(this IDataAccess access, int slot, IPort port) {
         ArgumentNullException.ThrowIfNull(argument: access);
         ArgumentNullException.ThrowIfNull(argument: port);
         return (
             access.GetItem(index: slot, value: out object? raw),
             raw is null ? Option<Shape>.None : Shape.From(value: raw)
         ) switch {
-            (true, { IsSome: true } wrapped) when wrapped.Case is TIn input => Fin.Succ(input),
-            _ => Fin.Fail<TIn>(error: Error.New(message: $"{port.Name} input is required. Connect: {Accepted}.")),
+            (true, { IsSome: true } wrapped) when wrapped.Case is Shape shape => Fin.Succ(shape),
+            _ => Fin.Fail<Shape>(error: Error.New(message: $"{port.Name} input is required. Connect: {Accepted}.")),
         };
     }
-    /// <summary>
-    /// Resolves the index hint from the first <see cref="IPort.IsIndex"/> port. Reads from slot 1
-    /// only when the head of <paramref name="ports"/> is the IsIndex port; multi-Auxiliary
-    /// components with a non-head IsIndex port are not yet supported (generalise the scan when
-    /// the first such layout lands).
-    /// </summary>
-    public static Option<int> Index(this IDataAccess access, Seq<IPort> ports) {
+    public static Option<int> Index(this IDataAccess access, int slot) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        return (ports.Count, ports) switch {
-            ( > 0, var ps) when ps[0].IsIndex => Some((access.GetItem(index: 1, value: out int candidate), candidate) switch {
-                (true, int value) => value,
-                _ => 0,
-            }),
+        return (access.GetIndex(indexParameter: slot, limit: int.MaxValue, index: out int value), value) switch {
+            (true, int index) => Some(index),
             _ => Option<int>.None,
         };
     }
-    public static Unit MissingInput(this IDataAccess access, IPort port, Error error) {
+    public static Unit MissingInput(this IDataAccess access, Error error) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        ArgumentNullException.ThrowIfNull(argument: port);
         ArgumentNullException.ThrowIfNull(argument: error);
-        access.AddError(text: port.Name, details: error.Message);
+        access.AddError(text: "Input", details: error.Message);
         return Unit.Default;
     }
-    internal static Unit Run<TIn, TOut>(IDataAccess access, int slot, string name, Analyze.Scope scope, TIn input, Query<TIn, TOut> query) where TIn : notnull =>
-        WriteTwig<TOut>(
+    internal static Unit Run<TIn, TOut>(IDataAccess access, int slot, Port<TOut> port, Analyze.Scope scope, TIn input, Query<TIn, TOut> query) where TIn : notnull =>
+        Write<TOut>(
             access: access,
             slot: slot,
+            targetAccess: port.Access,
             values: scope.Context.Match(
-                Succ: (Context context) => query.Apply(geometry: input).Run(context).Match(
-                    Succ: (Seq<TOut> values) => (TOut[])[.. values],
-                    Fail: (Error error) => Warn<TOut>(access: access, name: name, error: error)),
-                Fail: (Error error) => Warn<TOut>(access: access, name: name, error: error)));
-    internal static Unit WriteTwig<TOut>(IDataAccess access, int slot, TOut[] values) {
-        access.SetTwig<TOut>(
-            index: slot,
-            values: values,
-            metas: values.Length switch { 0 => [], _ => new MetaData[values.Length] },
-            nulls: values.Length switch { 0 => [], _ => new bool[values.Length] });
+                Succ: context => query.Apply(geometry: input).Run(context).Match(
+                    Succ: values => (TOut[])[.. values],
+                    Fail: error => Warn<TOut>(access: access, name: port.Name, error: error)),
+                Fail: error => Warn<TOut>(access: access, name: port.Name, error: error)));
+    internal static Unit Write<TOut>(IDataAccess access, int slot, Access targetAccess, TOut[] values) =>
+        targetAccess switch {
+            Access.Item => WriteItem(access: access, slot: slot, values: values),
+            Access.Twig => WriteTwig(access: access, slot: slot, values: values),
+            _ => Unit.Default,
+        };
+    private static Unit WriteItem<TOut>(IDataAccess access, int slot, TOut[] values) {
+        access.SetItem(index: slot, value: values.FirstOrDefault());
+        return Unit.Default;
+    }
+    private static Unit WriteTwig<TOut>(IDataAccess access, int slot, TOut[] values) {
+        access.SetTwig<TOut>(index: slot, values: values, metas: values.Length switch { 0 => [], _ => new MetaData[values.Length] }, nulls: values.Length switch { 0 => [], _ => new bool[values.Length] });
         return Unit.Default;
     }
     private static Fin<Analyze.Scope> Remark(IDataAccess access) {

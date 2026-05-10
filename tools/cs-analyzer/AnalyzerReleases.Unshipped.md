@@ -21,9 +21,6 @@ CSP0013 | PerformanceDiscipline | Error    | ClosureCapture
 CSP0014 | AsyncDiscipline       | Error    | TaskRunFanOut
 CSP0015 | TypeDiscipline        | Error    | VarInference
 CSP0017 | PerformanceDiscipline | Error    | NonStaticHotPathClosure
-CSP0101 | FunctionalDiscipline  | Error    | BoundaryImperativeMissingExemption
-CSP0102 | FunctionalDiscipline  | Error    | BoundaryImperativeInvalidReason
-CSP0103 | FunctionalDiscipline  | Error    | BoundaryImperativeExpiredExemption
 CSP0104 | FunctionalDiscipline  | Error    | NullSentinel
 CSP0201 | TypeDiscipline        | Error    | ArraySignature
 CSP0202 | TypeDiscipline        | Error    | MutableField
@@ -74,5 +71,3 @@ CSP0720 | TypeDiscipline        | Error    | InitOnlyBypassOnValidated
 CSP0723 | FunctionalDiscipline  | Error    | RhinoActiveDocLeak
 CSP0724 | TypeDiscipline        | Error    | FlagsEnumOveruse
 CSP0725 | FunctionalDiscipline  | Error    | ImperativeAccumulator
-CSP0901 | Governance            | Error    | ExemptionMetadataInvalid
-CSP0902 | Governance            | Error    | ExemptionMetadataExpired

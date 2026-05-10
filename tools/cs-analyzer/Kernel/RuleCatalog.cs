@@ -43,9 +43,6 @@ internal static class RuleCatalog {
 
     // --- [BOUNDARY_RULES] -----------------------------------------------------
 
-    internal static readonly DiagnosticDescriptor CSP0101 = Err("CSP0101", "BoundaryImperativeMissingExemption", "Boundary construct '{0}' requires [BoundaryImperativeExemption] metadata", "FunctionalDiscipline");
-    internal static readonly DiagnosticDescriptor CSP0102 = Err("CSP0102", "BoundaryImperativeInvalidReason", "Boundary exemption reason '{0}' is invalid for construct '{1}'", "FunctionalDiscipline");
-    internal static readonly DiagnosticDescriptor CSP0103 = Err("CSP0103", "BoundaryImperativeExpiredExemption", "Boundary exemption for '{0}' expired at '{1}' (ticket: '{2}')", "FunctionalDiscipline");
     internal static readonly DiagnosticDescriptor CSP0104 = Err("CSP0104", "NullSentinel", "Null sentinel comparison in domain/application flow is forbidden; use Option<T>/Fin<T>", "FunctionalDiscipline");
 
     // --- [SHAPE_RULES] --------------------------------------------------------
@@ -131,8 +128,7 @@ internal static class RuleCatalog {
     /// RhinoDoc.ActiveDoc (static singleton), RhinoApp.* (any static property or method on RhinoApp), or
     /// any other static member on a Rhino.* containing type. Such accesses leak host-process global state
     /// into otherwise-pure code; route the document/app handle through a parameter or composition-root injection.
-    /// Suppressed inside [BoundaryAdapter]-marked types or members, and via [BoundaryImperativeExemption]
-    /// with ruleId="CSP0723" and reason=ProtocolRequired.
+    /// Suppressed inside [BoundaryAdapter]-marked types or members.
     /// </summary>
     internal static readonly DiagnosticDescriptor CSP0723 = Err("CSP0723", "RhinoActiveDocLeak", "Ambient Rhino state '{0}' accessed outside boundary adapter; pass RhinoDoc/runtime via parameter", "FunctionalDiscipline");
 
@@ -141,17 +137,12 @@ internal static class RuleCatalog {
     internal static readonly DiagnosticDescriptor CSP0015 = Err("CSP0015", "VarInference", "Explicit 'var' usage in domain/application code is forbidden; declare explicit type for '{0}'", "TypeDiscipline");
     internal static readonly DiagnosticDescriptor CSP0017 = Err("CSP0017", "NonStaticHotPathClosure", "Non-static lambda capturing '{0}' in performance namespace is forbidden; use static lambda and tuple threading", "PerformanceDiscipline");
 
-    // --- [GOVERNANCE_RULES] ---------------------------------------------------
-
-    internal static readonly DiagnosticDescriptor CSP0901 = Err("CSP0901", "ExemptionMetadataInvalid", "BoundaryImperativeExemption metadata is invalid for symbol '{0}' (ticket: '{1}')", "Governance");
-    internal static readonly DiagnosticDescriptor CSP0902 = Err("CSP0902", "ExemptionMetadataExpired", "BoundaryImperativeExemption expired for symbol '{0}' at '{1}' (ticket: '{2}')", "Governance");
-
     // --- [ENTRY_POINT] --------------------------------------------------------
 
     internal static ImmutableArray<DiagnosticDescriptor> All { get; } = ImmutableArray.Create(
         CSP0001, CSP0002, CSP0003, CSP0004, CSP0005, CSP0006, CSP0007, CSP0008, CSP0009, CSP0010, CSP0011, CSP0012, CSP0013, CSP0014,
         CSP0015, CSP0017,
-        CSP0101, CSP0102, CSP0103, CSP0104,
+        CSP0104,
         CSP0201, CSP0202, CSP0203, CSP0204,
         CSP0301, CSP0302, CSP0303,
         CSP0401, CSP0402, CSP0403, CSP0404, CSP0405, CSP0406,
@@ -159,6 +150,5 @@ internal static class RuleCatalog {
         CSP0601, CSP0602, CSP0603, CSP0604, CSP0605, CSP0606, CSP0607, CSP0608,
         CSP0701, CSP0702, CSP0703, CSP0704, CSP0705, CSP0706, CSP0707, CSP0708, CSP0709,
         CSP0710, CSP0711, CSP0712, CSP0713, CSP0714, CSP0715, CSP0717, CSP0718, CSP0719, CSP0720,
-        CSP0723, CSP0724, CSP0725,
-        CSP0901, CSP0902);
+        CSP0723, CSP0724, CSP0725);
 }

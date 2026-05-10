@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 using LanguageExt.Common;
 using Rhino;
 using static LanguageExt.Prelude;
-namespace Core.Domain;
+namespace Rasm.Domain;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -25,7 +25,7 @@ internal readonly record struct Stats {
     internal static Fin<Stats> From(Seq<double> values, Op key) =>
         values.Fold(
             initialState: (Count: 0, Sum: 0.0, SumSquares: 0.0, Minimum: double.PositiveInfinity, Maximum: double.NegativeInfinity, AllFinite: true),
-            f: static ((int Count, double Sum, double SumSquares, double Minimum, double Maximum, bool AllFinite) acc, double v) => (
+            f: static (acc, v) => (
                 Count: acc.Count + 1,
                 Sum: acc.Sum + v,
                 SumSquares: acc.SumSquares + (v * v),
@@ -54,7 +54,7 @@ internal static class FoldExtensions {
         items
             .Fold(
                 initialState: (Best: double.NegativeInfinity, Hits: Seq<TItem>(), Tolerance: tolerance, Projection: projection),
-                f: static ((double Best, Seq<TItem> Hits, double Tolerance, Func<TItem, double> Projection) acc, TItem item) =>
+                f: static (acc, item) =>
                     acc.Projection(arg: item) switch {
                         double s when s > acc.Best + acc.Tolerance => acc with { Best = s, Hits = Seq(item) },
                         double s when s >= acc.Best - acc.Tolerance => acc with { Best = Math.Max(val1: acc.Best, val2: s), Hits = acc.Hits.Add(item) },
@@ -68,7 +68,7 @@ internal static class FoldExtensions {
         items
             .Fold(
                 initialState: (Best: double.PositiveInfinity, Hits: Seq<TItem>(), Tolerance: tolerance, Projection: projection),
-                f: static ((double Best, Seq<TItem> Hits, double Tolerance, Func<TItem, double> Projection) acc, TItem item) =>
+                f: static (acc, item) =>
                     acc.Projection(arg: item) switch {
                         double s when s < acc.Best - acc.Tolerance => acc with { Best = s, Hits = Seq(item) },
                         double s when s <= acc.Best + acc.Tolerance => acc with { Best = Math.Min(val1: acc.Best, val2: s), Hits = acc.Hits.Add(item) },

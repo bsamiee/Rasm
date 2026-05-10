@@ -5,7 +5,7 @@ using Grasshopper2.Types.Numeric;
 using Grasshopper2.UI;
 using Rhino.Geometry;
 using Thinktecture;
-namespace Grasshopper;
+namespace Rasm.Grasshopper;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -25,6 +25,7 @@ public sealed partial class Param {
     public static readonly Param Sphere = Of<Sphere>(static (a, n, c, i, ac, r) => a.AddSphere(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddSphere(name: n, code: c, info: i, access: ac));
     public static readonly Param Polyline = Of<Polyline>(static (a, n, c, i, ac, r) => a.AddPolyline(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddPolyline(name: n, code: c, info: i, access: ac));
     public static readonly Param SubD = Of<SubD>(static (a, n, c, i, ac, r) => a.AddGeneric(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddGeneric(name: n, code: c, info: i, access: ac));
+    public static readonly Param Index = Of<int>(key: nameof(Index), onInput: static (a, n, c, i, ac, r) => a.AddIndex(name: n, code: c, info: i, access: ac, requirement: r), onOutput: static (a, n, c, i, ac) => a.AddInteger(name: n, code: c, info: i, access: ac));
     public static readonly Param Integer = Of<int>(static (a, n, c, i, ac, r) => a.AddInteger(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddInteger(name: n, code: c, info: i, access: ac));
     public static readonly Param Number = Of<double>(static (a, n, c, i, ac, r) => a.AddNumber(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddNumber(name: n, code: c, info: i, access: ac));
     public static readonly Param Text = Of<string>(static (a, n, c, i, ac, r) => a.AddText(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddText(name: n, code: c, info: i, access: ac));
@@ -43,13 +44,18 @@ public sealed partial class Param {
         Action<InputAdder, string, string, string, Access, Requirement> onInput,
         Action<OutputAdder, string, string, string, Access> onOutput) =>
         new(key: typeof(T).Name, type: typeof(T), onInput: onInput, onOutput: onOutput);
+    private static Param Of<T>(
+        string key,
+        Action<InputAdder, string, string, string, Access, Requirement> onInput,
+        Action<OutputAdder, string, string, string, Access> onOutput) =>
+        new(key: key, type: typeof(T), onInput: onInput, onOutput: onOutput);
 
     // --- [OPERATIONS] ------------------------------------------------------------------
 
     public static Option<Param> From(Type type) =>
-        Optional(System.Linq.Enumerable.FirstOrDefault(source: Items, predicate: (Param p) => p.Type.Equals(o: type)));
-    public static Param Resolve(Type type) =>
-        From(type: type).IfNone(() => Generic);
+        type == typeof(int)
+            ? Some(Integer)
+            : Optional(System.Linq.Enumerable.FirstOrDefault(source: Items, predicate: p => p.Type.Equals(o: type)));
     public Unit Bind(InputAdder adder, string name, string code, string info, Access access, Requirement requirement) {
         ArgumentNullException.ThrowIfNull(argument: adder);
         OnInput(arg1: adder, arg2: name, arg3: code, arg4: info, arg5: access, arg6: requirement);

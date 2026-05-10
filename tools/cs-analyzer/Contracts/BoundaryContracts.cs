@@ -1,44 +1,13 @@
 namespace Foundation.CSharp.Analyzers.Contracts;
 
-// --- [ENUMS] -----------------------------------------------------------------
-
-public enum BoundaryImperativeReason {
-    CancellationGuard = 0,
-    AsyncIteratorYieldGate = 1,
-    CleanupFinally = 2,
-    ProtocolRequired = 3,
-}
-public static class BoundaryImperativeReasonFacts {
-    public static bool TryParse(object? raw, out BoundaryImperativeReason reason) {
-        (bool valid, BoundaryImperativeReason parsed) = raw switch {
-            BoundaryImperativeReason.CancellationGuard => (true, BoundaryImperativeReason.CancellationGuard),
-            BoundaryImperativeReason.AsyncIteratorYieldGate => (true, BoundaryImperativeReason.AsyncIteratorYieldGate),
-            BoundaryImperativeReason.CleanupFinally => (true, BoundaryImperativeReason.CleanupFinally),
-            BoundaryImperativeReason.ProtocolRequired => (true, BoundaryImperativeReason.ProtocolRequired),
-            int value when value is
-                (int)BoundaryImperativeReason.CancellationGuard or
-                (int)BoundaryImperativeReason.AsyncIteratorYieldGate or
-                (int)BoundaryImperativeReason.CleanupFinally or
-                (int)BoundaryImperativeReason.ProtocolRequired => (true, (BoundaryImperativeReason)value),
-            _ => (false, BoundaryImperativeReason.ProtocolRequired),
-        };
-        reason = parsed;
-        return valid;
-    }
-}
-
 // --- [ATTRIBUTES] ------------------------------------------------------------
 
-[AttributeUsage(validOn: AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Method | AttributeTargets.Constructor | AttributeTargets.Property, AllowMultiple = true, Inherited = false)]
-public sealed class BoundaryImperativeExemptionAttribute(string ruleId, BoundaryImperativeReason reason, string ticket, string expiresOnUtc) : Attribute {
-    public string RuleId { get; } = ruleId;
-    public BoundaryImperativeReason Reason { get; } = reason;
-    public string Ticket { get; } = ticket;
-    public string ExpiresOnUtc { get; } = expiresOnUtc;
-}
+/// <summary>Marks a type or member as an imperative host/runtime boundary.</summary>
 [AttributeUsage(validOn: AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
-public sealed class BoundaryAdapterAttribute : Attribute;
+public sealed class BoundaryAdapterAttribute : Attribute { }
+/// <summary>Marks a type or member as domain scope when namespace or path classification is insufficient.</summary>
 [AttributeUsage(validOn: AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
-public sealed class DomainScopeAttribute : Attribute;
+public sealed class DomainScopeAttribute : Attribute { }
+/// <summary>Marks a type or member as application scope when namespace or path classification is insufficient.</summary>
 [AttributeUsage(validOn: AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
-public sealed class ApplicationScopeAttribute : Attribute;
+public sealed class ApplicationScopeAttribute : Attribute { }

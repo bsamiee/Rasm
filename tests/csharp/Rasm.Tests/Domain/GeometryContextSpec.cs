@@ -1,6 +1,6 @@
-using Core.Domain;
 using LanguageExt;
 using LanguageExt.Common;
+using Rasm.Domain;
 using Rhino;
 using Rhino.Geometry;
 using Xunit;
@@ -36,8 +36,8 @@ public sealed class ContextSpec {
             modelUnits: Context.ModelUnitSystem.Create(units: UnitSystem.Unset));
 
         Assert.True(condition: result.ToFin().Match(
-            Succ: static (Context _) => false,
-            Fail: static (Error error) => error.Count == 4));
+            Succ: static _ => false,
+            Fail: static error => error.Count == 4));
     }
 
     [Fact]
@@ -51,8 +51,8 @@ public sealed class ContextSpec {
             modelUnits: CustomModelUnits());
 
         Assert.True(condition: result.ToFin().Match(
-            Succ: (Context context) => context.Angle.Value == angle,
-            Fail: static (Error _) => false));
+            Succ: context => context.Angle.Value == angle,
+            Fail: static _ => false));
     }
 
     [Fact]
@@ -67,8 +67,8 @@ public sealed class ContextSpec {
                 RequirementB: Requirement.CurveLength));
 
         Assert.True(condition: result.ToFin().Match(
-            Succ: static ((LineCurve A, LineCurve B) _) => false,
-            Fail: static (Error error) => error.Count == 2));
+            Succ: static _ => false,
+            Fail: static error => error.Count == 2));
     }
 
     [Fact]
@@ -82,8 +82,8 @@ public sealed class ContextSpec {
                 Requirement: Requirement.CurveLength));
 
         Assert.True(condition: result.ToFin().Match(
-            Succ: static ((LineCurve A, int B) _) => false,
-            Fail: static (Error error) => error.Count == 1));
+            Succ: static _ => false,
+            Fail: static error => error.Count == 1));
     }
 
     [Fact]
@@ -115,13 +115,13 @@ public sealed class ContextSpec {
         Assert.True(condition: new OpResult<Line>.Many(Values: Seq(first, second, third))
             .Reduce(key: key)
             .Match(
-                Succ: (Seq<Line> lines) => lines.ToArray().SequenceEqual(second: [first, second, third]),
-                Fail: static (Error _) => false));
+                Succ: lines => lines.ToArray().SequenceEqual(second: [first, second, third]),
+                Fail: static _ => false));
         Assert.True(condition: new OpResult<Line>.Many(Values: Seq(Line.Unset, Line.Unset))
             .Reduce(key: key)
             .Match(
-                Succ: static (Seq<Line> _) => false,
-                Fail: static (Error error) => error.Count == 2));
+                Succ: static _ => false,
+                Fail: static error => error.Count == 2));
     }
 
     [Fact]
@@ -140,17 +140,16 @@ public sealed class ContextSpec {
                 modelUnits: CustomModelUnits())
             .ToFin()
             .Match(
-                Succ: static (Context context) => context,
-                Fail: static (Error error) => throw new Xunit.Sdk.XunitException(error.Message));
+                Succ: static context => context,
+                Fail: static error => throw new Xunit.Sdk.XunitException(error.Message));
 
     private static Fin<Context.ModelUnitSystem> CustomModelUnits() =>
         Context.Tolerance.Create(
                 candidate: 1.0,
                 label: "CustomUnitScale",
-                accepts: static (double candidate) => candidate > RhinoMath.ZeroTolerance,
+                accepts: static candidate => candidate > RhinoMath.ZeroTolerance,
                 requirement: "greater than Rhino zero tolerance")
-            .Bind(static (Context.Tolerance customUnitScale) =>
-                Context.ModelUnitSystem.FromModelUnits(
+            .Bind(static customUnitScale => Context.ModelUnitSystem.FromModelUnits(
                     units: UnitSystem.CustomUnits,
                     metersPerUnit: customUnitScale));
 }

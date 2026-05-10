@@ -8,7 +8,6 @@
         <RootNamespace>Foundation.CSharp.Analyzers</RootNamespace>
         <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
-        <NoWarn>$(NoWarn);1591;RS2002</NoWarn>
         <IsPackable>false</IsPackable>
     </PropertyGroup>
 

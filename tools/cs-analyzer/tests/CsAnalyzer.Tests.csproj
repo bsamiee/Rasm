@@ -7,7 +7,6 @@
         <UseWorkspaceLibraries>false</UseWorkspaceLibraries>
         <SkipLocalCSharpAnalyzerReference>true</SkipLocalCSharpAnalyzerReference>
         <SkipBoundaryExemptionContracts>true</SkipBoundaryExemptionContracts>
-        <NoWarn>$(NoWarn);CA1515;MA0051</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>

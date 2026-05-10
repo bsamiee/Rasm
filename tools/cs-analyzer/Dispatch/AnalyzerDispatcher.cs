@@ -51,7 +51,6 @@ internal static class AnalyzerDispatcher {
             default:
                 return;
         }
-        FlowRules.CheckExemptionMetadata(context, state, context.Symbol);
     }
 
     // --- [OPERATION_DISPATCH] -------------------------------------------------
@@ -99,18 +98,18 @@ internal static class AnalyzerDispatcher {
                 RuntimeRules.CheckHotPathNonStaticLambda(context, scope, anonymousFunction);
                 return;
             case (_, IConditionalOperation conditional):
-                FlowRules.CheckImperativeConditional(context, state, scope, conditional);
+                FlowRules.CheckImperativeConditional(context, scope, conditional);
                 FlowRules.CheckEarlyReturnGuardChain(context, scope, conditional);
                 return;
             case (_, ILoopOperation loop):
-                FlowRules.CheckImperativeLoop(context, state, scope, loop);
+                FlowRules.CheckImperativeLoop(context, scope);
                 FlowRules.CheckImperativeAccumulator(context, scope, loop);
                 return;
             case (_, ITryOperation tryOperation):
-                FlowRules.CheckExceptionTry(context, state, scope, tryOperation);
+                FlowRules.CheckExceptionTry(context, scope, tryOperation);
                 return;
             case (_, IThrowOperation throwOperation):
-                FlowRules.CheckExceptionThrow(context, state, scope, throwOperation);
+                FlowRules.CheckExceptionThrow(context, scope, throwOperation);
                 return;
             case (_, IBinaryOperation binary):
                 FlowRules.CheckNullSentinel(context, scope, binary);
@@ -125,8 +124,8 @@ internal static class AnalyzerDispatcher {
             case (_, ILiteralOperation literal):
                 RuntimeRules.CheckHardcodedOtlp(context, scope, literal);
                 return;
-            case (_, IAwaitOperation awaitOperation):
-                FlowRules.CheckAsyncAwaitInEff(context, scope, awaitOperation);
+            case (_, IAwaitOperation):
+                FlowRules.CheckAsyncAwaitInEff(context, scope);
                 return;
             case (_, IConversionOperation conversion):
                 RuntimeRules.CheckUnsafeNarrowingCast(context, scope, conversion);

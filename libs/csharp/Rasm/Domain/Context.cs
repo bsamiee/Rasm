@@ -4,7 +4,7 @@ using Foundation.CSharp.Analyzers.Contracts;
 using Rhino;
 using Rhino.Geometry;
 using Rhino.Geometry.Intersect;
-namespace Core.Domain;
+namespace Rasm.Domain;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -37,23 +37,23 @@ public sealed record Context {
             Tolerance.Create(
                 candidate: absoluteTolerance,
                 label: "AbsoluteTolerance",
-                accepts: static (double candidate) => candidate > RhinoMath.ZeroTolerance,
+                accepts: static candidate => candidate > RhinoMath.ZeroTolerance,
                 requirement: "greater than Rhino zero tolerance").ToValidation(),
             Tolerance.Create(
                 candidate: relativeTolerance,
                 label: "RelativeTolerance",
-                accepts: static (double candidate) => candidate is >= 0.0 and < 1.0,
+                accepts: static candidate => candidate is >= 0.0 and < 1.0,
                 requirement: "in the range [0, 1)").ToValidation(),
             Tolerance.Create(
                 candidate: angleToleranceRadians,
                 label: "AngleTolerance",
-                accepts: static (double candidate) => candidate is > RhinoMath.Epsilon and <= RhinoMath.TwoPI,
+                accepts: static candidate => candidate is > RhinoMath.Epsilon and <= RhinoMath.TwoPI,
                 requirement: "in the range (epsilon, 2*pi] radians").ToValidation()
         ).Apply(static (
-                ModelUnitSystem modelUnits,
-                Tolerance absolute,
-                Tolerance relative,
-                Tolerance angle) =>
+                modelUnits,
+                absolute,
+                relative,
+                angle) =>
             new Context(
                 absolute: absolute,
                 relative: relative,
@@ -70,8 +70,7 @@ public sealed record Context {
     public static Validation<Error, Context> FromDocument(RhinoDoc? doc) =>
         Optional(doc)
             .ToValidation(ContextFault.MissingDocument())
-            .Bind(static (RhinoDoc candidate) =>
-                Create(
+            .Bind(static candidate => Create(
                     absoluteTolerance: candidate.ModelAbsoluteTolerance,
                     relativeTolerance: candidate.ModelRelativeTolerance,
                     angleToleranceRadians: candidate.ModelAngleToleranceRadians,
@@ -84,10 +83,9 @@ public sealed record Context {
                                     .Create(
                                         candidate: metersPerCustomUnit,
                                         label: "CustomUnitScale",
-                                        accepts: static (double candidate) => candidate > RhinoMath.ZeroTolerance,
+                                        accepts: static candidate => candidate > RhinoMath.ZeroTolerance,
                                         requirement: "greater than Rhino zero tolerance")
-                                    .Bind(static (Tolerance customUnitScale) =>
-                                        ModelUnitSystem.FromModelUnits(
+                                    .Bind(static customUnitScale => ModelUnitSystem.FromModelUnits(
                                             units: UnitSystem.CustomUnits,
                                             metersPerUnit: customUnitScale)),
                                 false => Fin.Fail<ModelUnitSystem>(
