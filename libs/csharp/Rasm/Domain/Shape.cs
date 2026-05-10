@@ -37,7 +37,9 @@ public partial record Shape {
             torus: static _ => typeof(Rhino.Geometry.Torus),
             circle: static _ => typeof(Rhino.Geometry.Circle),
             arc: static _ => typeof(Rhino.Geometry.Arc));
-    internal Fin<Shape> Validate(Op key) =>
+    public Fin<Shape> Validate() =>
+        ValidateWith(key: new Op(name: nameof(Shape)));
+    internal Fin<Shape> ValidateWith(Op key) =>
         Switch(
             state: (Self: this, Key: key),
             native: static (s, n) => n.Geometry.IsValid ? Fin.Succ(s.Self) : Fin.Fail<Shape>(s.Key.InvalidInput()),

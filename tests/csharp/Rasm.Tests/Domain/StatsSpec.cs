@@ -1,7 +1,10 @@
 using System.Linq;
+using FsCheck;
 using LanguageExt;
 using LanguageExt.Common;
+using Microsoft.FSharp.Core;
 using Rasm.Domain;
+using Rhino;
 using Xunit;
 using static LanguageExt.Prelude;
 
@@ -36,4 +39,26 @@ public sealed class StatsSpec {
     [Fact]
     public void StatsOfRejectsNonFinite() =>
         Assert.True(condition: Stats.From(values: toSeq<double>([1.0, 2.0, double.NaN]), key: new Op(name: "stats-non-finite")).IsFail);
+
+    [Fact]
+    public void StatsFromPreservesPropertyInvariants() {
+        static bool Property(double[] values) =>
+            toSeq(values.Where(static value => RhinoMath.IsValidDouble(x: value) && RhinoMath.IsValidDouble(x: value * value)).Take(count: 64))
+                .ToArr() switch {
+                    { Count: 0 } => true,
+                    Arr<double> sample => Stats.From(values: sample.ToSeq(), key: new Op(name: "stats-laws")).Match(
+                        Succ: static stats =>
+                            stats.Count > 0
+                            && stats.Minimum <= stats.Mean
+                            && stats.Mean <= stats.Maximum
+                            && stats.Variance >= 0.0
+                            && stats.Rms >= 0.0,
+                        Fail: static _ => false),
+                };
+
+        FsCheck.Check.QuickThrowOnFailure(
+            property: FsCheck.FSharp.Prop.ForAll<double[], bool>(
+                FsCheck.FSharp.ArbMap.defaults.ArbFor<double[]>(),
+                FuncConvert.FromFunc<double[], bool>(Property)));
+    }
 }

@@ -1,13 +1,20 @@
 using Grasshopper2.Components;
 using Grasshopper2.Data;
+using Grasshopper2.Data.Meta;
 using Rasm.Analysis;
 namespace Rasm.Grasshopper;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-public interface IOutput<TIn> where TIn : notnull {
+public interface IOutputGroup<TState> where TState : notnull {
+    public Seq<IPort> Ports { get; }
+    public Unit Run(IDataAccess access, int slot, TState state);
+    public Unit Empty(IDataAccess access, int slot);
+}
+
+public interface IOutputSlot<TState, TSource> where TState : notnull {
     public IPort Port { get; }
-    public Unit Run(IDataAccess access, int slot, Analyze.Scope scope, Hints hints, TIn input);
+    public Unit Write(IDataAccess access, int slot, TState state, Seq<TSource> source);
     public Unit Empty(IDataAccess access, int slot);
 }
 
@@ -16,9 +23,9 @@ public interface IOutput<TIn> where TIn : notnull {
 public readonly record struct Hints(Seq<(IPort Port, int Slot)> Inputs) {
     public static Hints Capture(Seq<IPort> inputs) =>
         new(Inputs: inputs.Map(static (port, slot) => (Port: port, Slot: slot)));
-    public Option<int> Index(IDataAccess access, Port<int> port) {
+    public Option<int> Index(IDataAccess access, Port<int> port, int limit) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        return Inputs.Find(predicate: input => input.Port.Equals(port)).Bind(input => access.Index(slot: input.Slot));
+        return Inputs.Find(predicate: input => input.Port.Equals(port)).Bind(input => access.Index(slot: input.Slot, limit: limit));
     }
     public Option<TVal> Value<TVal>(IDataAccess access, Port<TVal> port) {
         ArgumentNullException.ThrowIfNull(argument: access);
@@ -29,58 +36,124 @@ public readonly record struct Hints(Seq<(IPort Port, int Slot)> Inputs) {
     }
 }
 
-public readonly record struct Output<TIn, TQuery, TOut>(
-    Port<TOut> Port,
-    Func<TIn, TQuery> Select,
-    Func<IDataAccess, Hints, Query<TQuery, TOut>> Build) : IOutput<TIn>
-    where TIn : notnull
-    where TQuery : notnull {
-    IPort IOutput<TIn>.Port => Port;
+public readonly record struct OutputValue<TValue>(TValue Value, MetaData? Meta);
 
-    public Unit Run(IDataAccess access, int slot, Analyze.Scope scope, Hints hints, TIn input) {
+public static class OutputValue {
+    public static OutputValue<TValue> Plain<TValue>(TValue value) =>
+        new(Value: value, Meta: null);
+}
+
+public sealed record OutputSlot<TState, TSource, TOut>(
+    Port<TOut> Port,
+    Func<TState, Seq<TSource>, Fin<Seq<OutputValue<TOut>>>> Project) : IOutputSlot<TState, TSource>
+    where TState : notnull {
+    IPort IOutputSlot<TState, TSource>.Port => Port;
+
+    public Unit Write(IDataAccess access, int slot, TState state, Seq<TSource> source) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        ArgumentNullException.ThrowIfNull(argument: scope);
-        ArgumentNullException.ThrowIfNull(argument: input);
-        return Bridge.Run(access: access, slot: slot, port: Port, scope: scope, input: Select(arg: input), query: Build(arg1: access, arg2: hints));
+        ArgumentNullException.ThrowIfNull(argument: state);
+        return Project(arg1: state, arg2: source).Match(
+            Succ: values => Bridge.Write(access: access, slot: slot, name: Port.Name, targetAccess: Port.Access, values: [.. values]),
+            Fail: error => {
+                access.AddWarning(text: Port.Name, details: error.Message);
+                return Empty(access: access, slot: slot);
+            });
     }
     public Unit Empty(IDataAccess access, int slot) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        return Bridge.Write<TOut>(access: access, slot: slot, name: Port.Name, targetAccess: Port.Access, values: []);
+        return Bridge.Write(access: access, slot: slot, name: Port.Name, targetAccess: Port.Access, values: System.Array.Empty<OutputValue<TOut>>());
+    }
+}
+
+public sealed record OutputGroup<TState, TGeometry, TSource>(
+    Seq<IOutputSlot<TState, TSource>> Slots,
+    Func<TState, Analyze.Scope> Scope,
+    Func<TState, TGeometry> Select,
+    Func<TState, Query<TGeometry, TSource>> Query) : IOutputGroup<TState>
+    where TState : notnull
+    where TGeometry : notnull {
+    public Seq<IPort> Ports =>
+        Slots.Map(static slot => slot.Port);
+
+    public Unit Run(IDataAccess access, int slot, TState state) {
+        ArgumentNullException.ThrowIfNull(argument: access);
+        ArgumentNullException.ThrowIfNull(argument: state);
+        return Bridge.Values(scope: Scope(arg: state), input: Select(arg: state), query: Query(arg: state)).Match(
+            Succ: values => Slots.Iter((offset, output) => output.Write(access: access, slot: slot + offset, state: state, source: values)),
+            Fail: error => {
+                access.AddWarning(text: Ports.Head.Map(static port => port.Name).IfNone("Output"), details: error.Message);
+                return Empty(access: access, slot: slot);
+            });
+    }
+    public Unit Empty(IDataAccess access, int slot) {
+        ArgumentNullException.ThrowIfNull(argument: access);
+        return Slots.Iter((offset, output) => output.Empty(access: access, slot: slot + offset));
+    }
+}
+
+public sealed record PreparedGroup<TState, TSource>(
+    Seq<IOutputSlot<TState, TSource>> Slots,
+    Func<IDataAccess, TState, Fin<Seq<TSource>>> Source,
+    bool EmptyUnsupported) : IOutputGroup<TState>
+    where TState : notnull {
+    public Seq<IPort> Ports =>
+        Slots.Map(static slot => slot.Port);
+
+    public Unit Run(IDataAccess access, int slot, TState state) {
+        ArgumentNullException.ThrowIfNull(argument: access);
+        ArgumentNullException.ThrowIfNull(argument: state);
+        return Source(arg1: access, arg2: state).Match(
+            Succ: values => Slots.Iter((offset, output) => output.Write(access: access, slot: slot + offset, state: state, source: values)),
+            Fail: error => {
+                _ = (EmptyUnsupported, Unsupported(error: error)) switch {
+                    (true, true) => Unit.Default,
+                    _ => Warning(access: access, name: Ports.Head.Map(static port => port.Name).IfNone("Output"), error: error),
+                };
+                return Empty(access: access, slot: slot);
+            });
+    }
+    public Unit Empty(IDataAccess access, int slot) {
+        ArgumentNullException.ThrowIfNull(argument: access);
+        return Slots.Iter((offset, output) => output.Empty(access: access, slot: slot + offset));
+    }
+    private static bool Unsupported(Error error) =>
+        error.Message.Contains(value: "does not support", comparisonType: StringComparison.Ordinal);
+    private static Unit Warning(IDataAccess access, string name, Error error) {
+        access.AddWarning(text: name, details: error.Message);
+        return Unit.Default;
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class Output {
-    public static Output<TIn, TQuery, TOut> Of<TIn, TQuery, TOut>(Port<TOut> port, Func<TIn, TQuery> select, Query<TQuery, TOut> query)
-        where TIn : notnull
-        where TQuery : notnull =>
-        new(Port: port, Select: select, Build: (_, _) => query);
-    public static Output<TIn, TQuery, TOut> Indexed<TIn, TQuery, TOut>(
+    public static IOutputSlot<TState, TSource> Slot<TState, TSource, TOut>(
         Port<TOut> port,
-        Port<int> index,
-        Func<TIn, TQuery> select,
-        Func<int?, Query<TQuery, TOut>> build)
-        where TIn : notnull
-        where TQuery : notnull =>
-        new(Port: port, Select: select, Build: (access, hints) => build(arg: hints.Index(access: access, port: index).Map(static value => (int?)value).IfNone(static () => null)));
-    public static Output<TIn, TQuery, TOut> Controlled<TIn, TQuery, THint, TOut>(
-        Port<TOut> port,
-        Port<THint> control,
-        Func<TIn, TQuery> select,
-        Func<Option<THint>, Query<TQuery, TOut>> build)
-        where TIn : notnull
-        where TQuery : notnull =>
-        new(Port: port, Select: select, Build: (access, hints) => build(arg: hints.Value(access: access, port: control)));
-    public static Output<TIn, TQuery, TOut> Controlled<TIn, TQuery, THintA, THintB, TOut>(
-        Port<TOut> port,
-        Port<THintA> controlA,
-        Port<THintB> controlB,
-        Func<TIn, TQuery> select,
-        Func<Option<THintA>, Option<THintB>, Query<TQuery, TOut>> build)
-        where TIn : notnull
-        where TQuery : notnull =>
-        new(Port: port, Select: select, Build: (access, hints) => build(
-            arg1: hints.Value(access: access, port: controlA),
-            arg2: hints.Value(access: access, port: controlB)));
+        Func<TState, Seq<TSource>, Fin<Seq<OutputValue<TOut>>>> project)
+        where TState : notnull =>
+        new OutputSlot<TState, TSource, TOut>(Port: port, Project: project);
+    public static IOutputSlot<TState, TOut> Slot<TState, TOut>(Port<TOut> port)
+        where TState : notnull =>
+        Slot<TState, TOut, TOut>(
+            port: port,
+            project: static (_, values) => Fin.Succ(values.Map(static value => OutputValue.Plain(value: value))));
+    public static IOutputGroup<TState> Query<TState, TGeometry, TSource>(
+        Func<TState, Analyze.Scope> scope,
+        Func<TState, TGeometry> select,
+        Func<TState, Query<TGeometry, TSource>> query,
+        params IOutputSlot<TState, TSource>[] slots)
+        where TState : notnull
+        where TGeometry : notnull =>
+        new OutputGroup<TState, TGeometry, TSource>(Slots: toSeq(slots), Scope: scope, Select: select, Query: query);
+    public static IOutputGroup<TState> Prepared<TState, TSource>(
+        Func<IDataAccess, TState, Fin<Seq<TSource>>> source,
+        bool emptyUnsupported,
+        params IOutputSlot<TState, TSource>[] slots)
+        where TState : notnull =>
+        new PreparedGroup<TState, TSource>(Slots: toSeq(slots), Source: source, EmptyUnsupported: emptyUnsupported);
+    public static IOutputGroup<TState> Prepared<TState, TSource>(
+        Func<IDataAccess, TState, Fin<Seq<TSource>>> source,
+        params IOutputSlot<TState, TSource>[] slots)
+        where TState : notnull =>
+        Prepared(source: source, emptyUnsupported: false, slots: slots);
 }

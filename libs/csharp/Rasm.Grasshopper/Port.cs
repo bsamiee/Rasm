@@ -36,6 +36,8 @@ public static class Port {
         new(Name: name, Code: code, Info: info, Param: param ?? Param.From(type: typeof(TVal)).IfNone(Param.Generic), Access: Access.Item, Requirement: Requirement.MayBeMissing);
     public static Port<TVal> List<TVal>(string name, string code, string info, Requirement requirement = Requirement.MustExist, Param? param = null) =>
         new(Name: name, Code: code, Info: info, Param: param ?? Param.From(type: typeof(TVal)).IfNone(Param.Generic), Access: Access.Twig, Requirement: requirement);
+    public static Port<TVal> Tree<TVal>(string name, string code, string info, Requirement requirement = Requirement.MustExist, Param? param = null) =>
+        new(Name: name, Code: code, Info: info, Param: param ?? Param.From(type: typeof(TVal)).IfNone(Param.Generic), Access: Access.Tree, Requirement: requirement);
     public static Port<int> Index(
         string name = "Index",
         string code = "I",

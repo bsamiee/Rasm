@@ -24,24 +24,27 @@ internal readonly record struct Stats {
     internal double Rms { get; }
     internal static Fin<Stats> From(Seq<double> values, Op key) =>
         values.Fold(
-            initialState: (Count: 0, Sum: 0.0, SumSquares: 0.0, Minimum: double.PositiveInfinity, Maximum: double.NegativeInfinity, AllFinite: true),
-            f: static (acc, v) => (
-                Count: acc.Count + 1,
-                Sum: acc.Sum + v,
-                SumSquares: acc.SumSquares + (v * v),
-                Minimum: Math.Min(val1: acc.Minimum, val2: v),
-                Maximum: Math.Max(val1: acc.Maximum, val2: v),
-                AllFinite: acc.AllFinite && RhinoMath.IsValidDouble(x: v))) switch {
-                    (0, _, _, _, _, _) => Fin.Fail<Stats>(key.InvalidResult()),
-                    (_, _, _, _, _, false) => Fin.Fail<Stats>(key.InvalidResult()),
-                    (int count, double sum, double sumSquares, double minimum, double maximum, _) => Fin.Succ(new Stats(
-                        count: count,
-                        minimum: minimum,
-                        maximum: maximum,
-                        mean: sum / count,
-                        variance: Math.Max(val1: 0.0, val2: (sumSquares / count) - (sum * sum / (double)count / count)),
-                        rms: Math.Sqrt(d: sumSquares / count))),
-                };
+            initialState: (Count: 0, Mean: 0.0, M2: 0.0, SumSquares: 0.0, Minimum: double.PositiveInfinity, Maximum: double.NegativeInfinity, AllFinite: true),
+            f: static (acc, value) => (Count: acc.Count + 1, Delta: value - acc.Mean, Square: value * value) switch {
+                (int count, double delta, double square) => (
+                    Count: count,
+                    Mean: acc.Mean + (delta / count),
+                    M2: acc.M2 + (delta * (value - (acc.Mean + (delta / count)))),
+                    SumSquares: acc.SumSquares + square,
+                    Minimum: Math.Min(val1: acc.Minimum, val2: value),
+                    Maximum: Math.Max(val1: acc.Maximum, val2: value),
+                    AllFinite: acc.AllFinite && RhinoMath.IsValidDouble(x: value) && RhinoMath.IsValidDouble(x: square)),
+            }) switch {
+                (0, _, _, _, _, _, _) => Fin.Fail<Stats>(key.InvalidResult()),
+                (_, _, _, _, _, _, false) => Fin.Fail<Stats>(key.InvalidResult()),
+                (int count, double mean, double m2, double sumSquares, double minimum, double maximum, _) => Fin.Succ(new Stats(
+                    count: count,
+                    minimum: minimum,
+                    maximum: maximum,
+                    mean: mean,
+                    variance: Math.Max(val1: 0.0, val2: m2 / count),
+                    rms: Math.Sqrt(d: sumSquares / count))),
+            };
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

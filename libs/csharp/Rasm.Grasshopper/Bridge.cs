@@ -1,4 +1,5 @@
 using Grasshopper2.Components;
+using Grasshopper2.Data;
 using Grasshopper2.Data.Meta;
 using Grasshopper2.Parameters;
 using Grasshopper2.Parameters.Standard;
@@ -20,10 +21,11 @@ public static class Bridge {
         return (
             access.GetTolerance(absoluteTolerance: out double absolute),
             access.GetTolerance(angularTolerance: out Angle angle),
-            access.GetUnitSystem(unitSystem: out UnitSystem units)
+            Units: access.GetUnitSystem(unitSystem: out UnitSystem units),
+            Value: units
         ) switch {
-            (true, true, true) => Fin.Succ(Analyze.In(absolute: absolute, relative: 0.0, angle: angle.Radians, units: units.System)),
-            _ => Remark(access: access),
+            (true, true, _, UnitSystem unitSystem) => Fin.Succ(Analyze.In(absolute: absolute, relative: 0.0, angle: angle.Radians, units: unitSystem.System)),
+            _ => Remark(access: access, units: units.System),
         };
     }
     public static Fin<Shape> ReadShape(this IDataAccess access, int slot, IPort port) {
@@ -33,13 +35,13 @@ public static class Bridge {
             access.GetItem(slot, value: out object? raw),
             raw is null ? Option<Shape>.None : NormalizeShape(raw: raw)
         ) switch {
-            (true, { IsSome: true } wrapped) when wrapped.Case is Shape shape => Fin.Succ(shape),
+            (true, { IsSome: true } wrapped) when wrapped.Case is Shape shape => shape.Validate(),
             _ => Fin.Fail<Shape>(error: Error.New(message: $"{port.Name} input is required. Connect: {Accepted}.")),
         };
     }
-    public static Option<int> Index(this IDataAccess access, int slot) {
+    public static Option<int> Index(this IDataAccess access, int slot, int limit) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        return (access.GetIndex(indexParameter: slot, limit: int.MaxValue, index: out int value), value) switch {
+        return (access.GetIndex(indexParameter: slot, limit: limit, index: out int value), value) switch {
             (true, int index) => Some(index),
             _ => Option<int>.None,
         };
@@ -50,37 +52,47 @@ public static class Bridge {
         access.AddError(text: "Input", details: error.Message);
         return Unit.Default;
     }
-    internal static Unit Run<TIn, TOut>(IDataAccess access, int slot, Port<TOut> port, Analyze.Scope scope, TIn input, Query<TIn, TOut> query) where TIn : notnull =>
-        Write<TOut>(
-            access: access,
-            slot: slot,
-            name: port.Name,
-            targetAccess: port.Access,
-            values: scope.Context.Bind(context => query.Apply(geometry: input).Run(context)).Match(
-                Succ: values => (TOut[])[.. values],
-                Fail: error => Warn<TOut>(access: access, name: port.Name, error: error)));
-    internal static Unit Write<TOut>(IDataAccess access, int slot, string name, Access targetAccess, TOut[] values) =>
+    internal static Fin<Seq<TOut>> Values<TIn, TOut>(Analyze.Scope scope, TIn input, Query<TIn, TOut> query) where TIn : notnull {
+        ArgumentNullException.ThrowIfNull(argument: scope);
+        return scope.Context.Bind(context => query.Apply(geometry: input).Run(env: context));
+    }
+    internal static Unit Write<TOut>(IDataAccess access, int slot, string name, Access targetAccess, OutputValue<TOut>[] values) =>
         (targetAccess, values) switch {
-            (Access.Item, TOut[] output) => WriteItem(access: access, slot: slot, values: output),
-            (Access.Twig, TOut[] output) => WriteTwig(access: access, slot: slot, values: output),
+            (Access.Item, OutputValue<TOut>[] output) => WriteItem(access: access, slot: slot, values: output),
+            (Access.Twig, OutputValue<TOut>[] output) => WriteTwig(access: access, slot: slot, values: output),
+            (Access.Tree, OutputValue<TOut>[] output) => WriteTree(access: access, slot: slot, values: output),
             _ => UnsupportedAccess(access: access, name: name, accessKind: targetAccess),
         };
-    private static Unit WriteItem<TOut>(IDataAccess access, int slot, TOut[] values) {
+    private static Unit WriteItem<TOut>(IDataAccess access, int slot, OutputValue<TOut>[] values) {
         // Boundary adapter: GH2 item outputs expose a void setter; empty results leave the slot unset.
         switch (values.Length) {
+            case > 0 when values[0].Meta is MetaData meta:
+                access.SetItem(index: slot, value: values[0].Value!, meta: meta);
+                break;
             case > 0:
-                access.SetItem(index: slot, value: values[0]);
+                access.SetItem(index: slot, value: values[0].Value!);
                 break;
         }
         return Unit.Default;
     }
-    private static Unit WriteTwig<TOut>(IDataAccess access, int slot, TOut[] values) {
-        access.SetTwig<TOut>(index: slot, values: values, metas: values.Length switch { 0 => [], _ => new MetaData[values.Length] }, nulls: values.Length switch { 0 => [], _ => new bool[values.Length] });
+    private static Unit WriteTwig<TOut>(IDataAccess access, int slot, OutputValue<TOut>[] values) {
+        access.SetTwig<TOut>(
+            index: slot,
+            values: [.. values.Select(static value => value.Value)],
+            metas: [.. values.Select(static value => value.Meta ?? MetaData.Empty)],
+            nulls: values.Length switch { 0 => [], _ => new bool[values.Length] });
         return Unit.Default;
     }
-    private static Fin<Analyze.Scope> Remark(IDataAccess access) {
-        access.AddRemark(text: "Tolerance", details: "Host did not supply tolerance/units; using millimetres at default tolerance.");
-        return Fin.Succ(Analyze.In(units: Rhino.UnitSystem.Millimeters));
+    private static Unit WriteTree<TOut>(IDataAccess access, int slot, OutputValue<TOut>[] values) {
+        access.SetTree(index: slot, tree: Garden.TreeFromList(
+            items: values.Select(static value => value.Value),
+            metas: values.Select(static value => value.Meta ?? MetaData.Empty),
+            nulls: values.Select(static _ => false)));
+        return Unit.Default;
+    }
+    private static Fin<Analyze.Scope> Remark(IDataAccess access, Rhino.UnitSystem units) {
+        access.AddRemark(text: "Tolerance", details: "Host did not supply reliable tolerance; using default tolerance with document units.");
+        return Fin.Succ(Analyze.In(units: units));
     }
     private static Option<Shape> NormalizeShape(object raw) =>
         Shape.From(value: raw).Match(
@@ -96,9 +108,5 @@ public static class Bridge {
     private static Unit UnsupportedAccess(IDataAccess access, string name, Access accessKind) {
         access.AddError(text: name, details: $"Unsupported output access: {accessKind}.");
         return Unit.Default;
-    }
-    private static TOut[] Warn<TOut>(IDataAccess access, string name, Error error) {
-        access.AddWarning(text: name, details: error.Message);
-        return [];
     }
 }

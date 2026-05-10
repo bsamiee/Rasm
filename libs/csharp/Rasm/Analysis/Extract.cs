@@ -13,12 +13,12 @@ namespace Rasm.Analysis;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 [StructLayout(LayoutKind.Auto)]
-internal readonly record struct FaceProjection(Brep Brep, int FaceIndex, bool Reversed) {
+public readonly record struct FaceProjection(Brep Brep, int FaceIndex, bool Reversed) {
     internal static FaceProjection From(BrepFace face) =>
         new(Brep: face.DuplicateFace(duplicateMeshes: false), FaceIndex: face.FaceIndex, Reversed: face.OrientationIsReversed);
 }
 [StructLayout(LayoutKind.Auto)]
-internal readonly record struct CurveProjection(Curve Curve, CurveFeature Feature, ComponentIndex Source) {
+public readonly record struct CurveProjection(Curve Curve, CurveFeature Feature, ComponentIndex Source) {
     internal CurveProjection(Curve curve, CurveFeature feature, ComponentIndexType type, int index) : this(Curve: curve, Feature: feature, Source: new ComponentIndex(type: type, index: index)) { }
 }
 
@@ -442,6 +442,11 @@ public static partial class Query {
                 },
                 false => null,
             });
+    public static Eff<Context, Seq<FaceProjection>> FaceProjections<TGeometry>(TGeometry geometry, Faces selector) where TGeometry : notnull =>
+        from ctx in Analyze.Asks
+        from faces in DecomposeFaces(geometry: geometry).ToEff()
+        from chosen in SelectFaces(faces: faces, selector: selector, runtime: ctx).ToEff()
+        select chosen;
     private static Query<TGeometry, TOut> FaceQuery<TGeometry, TOut, TValue>(
         Faces selector,
         Requirement requirement,
@@ -467,6 +472,10 @@ public static partial class Query {
                     CurveQuery<TGeometry, TOut, ComponentIndex>(selector: selector, project: static chosen => Many(key: CurvesKey, values: chosen.Map(static curve => curve.Source))),
                 _ => null,
             });
+    public static Eff<Context, Seq<CurveProjection>> CurveProjections<TGeometry>(TGeometry geometry, Curves aspect) where TGeometry : notnull =>
+        from ctx in Analyze.Asks
+        from curves in ExtractCurveProjections(geometry: geometry, aspect: aspect, runtime: ctx).ToEff()
+        select curves;
     private static Query<TGeometry, TOut> CurveQuery<TGeometry, TOut, TValue>(
         Curves selector,
         Func<Seq<CurveProjection>, Fin<Seq<TValue>>> project) where TGeometry : notnull =>
@@ -506,6 +515,7 @@ public static partial class Query {
                 .Bind(duplicate => { using Brep disposable = duplicate; return BrepEdgeCurves(brep: disposable, feature: CurveFeature.Boundary, predicate: static _ => true); }),
             (CurveSelector kind, Surface surface) when kind == CurveSelector.All || kind == CurveSelector.Boundary => SurfaceBoundaryCurves(surface: surface, feature: CurveFeature.Boundary),
             (CurveSelector kind, SubD subd) when kind == CurveSelector.All || kind == CurveSelector.Segments => IndexedCurves(curves: subd.DuplicateEdgeCurves(), feature: kind == CurveSelector.Segments ? CurveFeature.Segment : CurveFeature.Edge, sourceType: ComponentIndexType.SubdEdge),
+            (CurveSelector kind, Mesh) when kind == CurveSelector.NakedInner => Fin.Succ(Seq<CurveProjection>()),
             (CurveSelector kind, Mesh mesh) when kind != CurveSelector.NakedInner && EdgeCurveCase(selector: kind) is { } edge => MeshEdgeCurves(mesh: mesh, feature: edge.Feature, predicate: edge.Mesh),
             _ => Fin.Fail<Seq<CurveProjection>>(CurvesKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Curve))),
         };
@@ -656,11 +666,11 @@ public static partial class Query {
                 BrepLoopType.Inner => nakedInner,
                 _ => false,
             });
-    internal static Fin<Plane> FrameAtCentroid(FaceProjection face, Context runtime) =>
+    public static Fin<Plane> FrameAtCentroid(FaceProjection face, Context runtime) =>
         FaceCentroid(face: face, runtime: runtime)
             .Bind(centroid => {
                 BrepFace brepFace = face.Brep.Faces[0];
-                return brepFace.ClosestPointOnFace(testPoint: centroid, u: out double u, v: out double v, maximumDistance: 0.0) switch {
+                return brepFace.ClosestPointOnFace(testPoint: centroid, u: out double u, v: out double v, maximumDistance: double.MaxValue) switch {
                     true => (brepFace.FrameAt(u: u, v: v, frame: out Plane frame), brepFace.NormalAt(u: u, v: v)) switch {
                         (true, Vector3d normal) when frame.IsValid && normal.IsValid && !normal.IsTiny() =>
                             Fin.Succ((frame.ZAxis * (face.Reversed ? -normal : normal)) switch {
@@ -672,20 +682,22 @@ public static partial class Query {
                     false => Fin.Fail<Plane>(FacesKey.InvalidResult()),
                 };
             });
-    internal static Fin<Point3d> FaceCentroid(FaceProjection face, Context runtime) =>
-        Optional(AreaMassProperties.Compute(brep: face.Brep, area: true, firstMoments: true, secondMoments: false, productMoments: false, relativeTolerance: runtime.Relative.Value, absoluteTolerance: runtime.Absolute.Value))
+    public static Fin<Point3d> FaceCentroid(FaceProjection face, Context runtime) {
+        ArgumentNullException.ThrowIfNull(argument: runtime);
+        return Optional(AreaMassProperties.Compute(brep: face.Brep, area: true, firstMoments: true, secondMoments: false, productMoments: false, relativeTolerance: runtime.Relative.Value, absoluteTolerance: runtime.Absolute.Value))
             .ToFin(FacesKey.InvalidResult())
             .Map(static mass => { using AreaMassProperties disposable = mass; return disposable.Centroid; });
+    }
     internal static Fin<Seq<FaceProjection>> DecomposeFaces<TGeometry>(TGeometry geometry) where TGeometry : notnull =>
         geometry switch {
-            Brep brep => Fin.Succ(FaceProjections(brep: brep)),
+            Brep brep => Fin.Succ(BrepFaceProjections(brep: brep)),
             BrepFace face => Fin.Succ(Seq(FaceProjection.From(face: face))),
             GeometryBase native when native is not Mesh && native.HasBrepForm => Optional(Brep.TryConvertBrep(geometry: native))
                 .ToFin(FacesKey.InvalidResult())
-                .Map(static brep => { using Brep disposable = brep; return FaceProjections(brep: disposable); }),
+                .Map(static brep => { using Brep disposable = brep; return BrepFaceProjections(brep: disposable); }),
             _ => Fin.Fail<Seq<FaceProjection>>(FacesKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Brep))),
         };
-    private static Seq<FaceProjection> FaceProjections(Brep brep) =>
+    private static Seq<FaceProjection> BrepFaceProjections(Brep brep) =>
         toSeq(brep.Faces.Select(static face => FaceProjection.From(face: face)));
     internal static Fin<Seq<FaceProjection>> SelectFaces(Seq<FaceProjection> faces, Faces selector, Context runtime) =>
         (selector.Selector, faces.Count) switch {

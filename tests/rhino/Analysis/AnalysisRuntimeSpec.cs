@@ -1971,6 +1971,44 @@ public sealed class AnalysisRuntimeSpec {
     }
 
     [Test]
+    public void ComputesHoledFaceFramesFromRepresentativeEvaluationPoint() {
+        Context context = Context();
+        using PolylineCurve outer = new(points: [
+            new Point3d(x: -2.0, y: -2.0, z: 0.0),
+            new Point3d(x: 2.0, y: -2.0, z: 0.0),
+            new Point3d(x: 2.0, y: 2.0, z: 0.0),
+            new Point3d(x: -2.0, y: 2.0, z: 0.0),
+            new Point3d(x: -2.0, y: -2.0, z: 0.0),
+        ]);
+        using PolylineCurve inner = new(points: [
+            new Point3d(x: -0.5, y: -0.5, z: 0.0),
+            new Point3d(x: -0.5, y: 0.5, z: 0.0),
+            new Point3d(x: 0.5, y: 0.5, z: 0.0),
+            new Point3d(x: 0.5, y: -0.5, z: 0.0),
+            new Point3d(x: -0.5, y: -0.5, z: 0.0),
+        ]);
+        using Brep brep = Brep.CreatePlanarBreps(inputLoops: [outer, inner], tolerance: context.Absolute.Value)[0];
+        Point3d[] centers = Run(
+            query: AnalysisQuery.Faces<Brep, Point3d>(aspect: Faces.At()),
+            context: context,
+            input: [brep]);
+        Plane[] frames = Run(
+            query: AnalysisQuery.Faces<Brep, Plane>(aspect: Faces.At()),
+            context: context,
+            input: [brep]);
+        Vector3d[] normals = Run(
+            query: AnalysisQuery.Faces<Brep, Vector3d>(aspect: Faces.At()),
+            context: context,
+            input: [brep]);
+
+        Assert.Multiple(() => {
+            Assert.That(actual: centers, expression: Is.EqualTo(expected: new[] { Point3d.Origin }).Within(context.Absolute.Value));
+            Assert.That(actual: frames[0].IsValid, expression: Is.True);
+            Assert.That(actual: normals[0] * frames[0].ZAxis, expression: Is.GreaterThan(expected: 0.99));
+        });
+    }
+
+    [Test]
     public void ExtractsFacesSelectionFramesAndRejectsMeshSurfaces() {
         Context context = Context();
         BoundingBox bounds = new(min: Point3d.Origin, max: new Point3d(x: 2.0, y: 4.0, z: 6.0));
@@ -2061,9 +2099,9 @@ public sealed class AnalysisRuntimeSpec {
         _ = nested.Append(line: new Line(
             from: new Point3d(x: 1.0, y: 1.0, z: 0.0),
             to: new Point3d(x: 2.0, y: 1.0, z: 0.0)));
-        Line primitiveLine = new(from: Point3d.Origin, to: Point3d.XAxis);
+        Line primitiveLine = new(from: Point3d.Origin, to: new Point3d(x: 1.0, y: 0.0, z: 0.0));
         Circle primitiveCircle = new(plane: Plane.WorldXY, radius: 1.0);
-        Arc primitiveArc = new(circle: primitiveCircle, angleRadians: RhinoMath.PiOver2);
+        Arc primitiveArc = new(circle: primitiveCircle, angleRadians: Math.PI / 2.0);
         using PlaneSurface surface = new(plane: Plane.WorldXY, xExtents: new Interval(t0: 0.0, t1: 2.0), yExtents: new Interval(t0: 0.0, t1: 2.0));
         using Brep brep = surface.ToBrep();
         using Brep boxBrep = Brep.CreateFromBox(box: new BoundingBox(min: Point3d.Origin, max: new Point3d(x: 2.0, y: 2.0, z: 2.0)));
@@ -2124,6 +2162,15 @@ public sealed class AnalysisRuntimeSpec {
             query: AnalysisQuery.Curves<Brep, ComponentIndex>(aspect: Curves.All),
             context: context,
             input: [brep]);
+        CurveFeature[] meshFeatures = Run(
+            query: AnalysisQuery.Curves<Mesh, CurveFeature>(aspect: Curves.All),
+            context: context,
+            input: [mesh]);
+        ComponentIndex[] meshSources = Run(
+            query: AnalysisQuery.Curves<Mesh, ComponentIndex>(aspect: Curves.All),
+            context: context,
+            input: [mesh]);
+        Curve[] meshNakedInner = CurveSet(query: AnalysisQuery.Curves<Mesh, Curve>(aspect: Curves.NakedInner), input: mesh);
         Point3d[] controlPoints = Run(
             query: AnalysisQuery.Locate<Surface, Point3d>(aspect: new Location.ControlPoints()),
             context: context,
@@ -2161,10 +2208,14 @@ public sealed class AnalysisRuntimeSpec {
             Assert.That(actual: CurveSet(query: AnalysisQuery.Curves<SubD, Curve>(aspect: Curves.All), input: subd), expression: Has.Length.GreaterThanOrEqualTo(expected: 4));
             Assert.That(actual: CurveSet(query: AnalysisQuery.Curves<Mesh, Curve>(aspect: Curves.All), input: mesh), expression: Has.Length.EqualTo(expected: mesh.TopologyEdges.Count));
             Assert.That(actual: CurveSet(query: AnalysisQuery.Curves<Mesh, Curve>(aspect: Curves.Boundary), input: mesh), expression: Has.Length.EqualTo(expected: 4));
+            Assert.That(actual: meshNakedInner, expression: Is.Empty);
             Assert.That(actual: indexed, expression: Has.Length.EqualTo(expected: 1));
             Assert.That(actual: features, expression: Is.EqualTo(expected: Enumerable.Repeat(element: CurveFeature.Edge, count: brep.Edges.Count)));
             Assert.That(actual: sources.Select(static source => source.ComponentIndexType), expression: Is.EqualTo(expected: Enumerable.Repeat(element: ComponentIndexType.BrepEdge, count: brep.Edges.Count)));
             Assert.That(actual: sources.Select(static source => source.Index), expression: Is.EqualTo(expected: Enumerable.Range(start: 0, count: brep.Edges.Count)));
+            Assert.That(actual: meshFeatures, expression: Is.EqualTo(expected: Enumerable.Repeat(element: CurveFeature.Edge, count: mesh.TopologyEdges.Count)));
+            Assert.That(actual: meshSources.Select(static source => source.ComponentIndexType), expression: Is.EqualTo(expected: Enumerable.Repeat(element: ComponentIndexType.MeshTopologyEdge, count: mesh.TopologyEdges.Count)));
+            Assert.That(actual: meshSources.Select(static source => source.Index), expression: Is.EqualTo(expected: Enumerable.Range(start: 0, count: mesh.TopologyEdges.Count)));
             Assert.That(actual: controlPoints, expression: Has.Length.EqualTo(expected: expectedControlPointCount));
             Assert.That(actual: indexed[0].GetLength(), expression: Is.EqualTo(expected: brep.DuplicateEdgeCurves()[^1].GetLength()).Within(context.Absolute.Value));
         });

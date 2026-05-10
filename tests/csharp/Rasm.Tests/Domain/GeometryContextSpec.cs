@@ -125,6 +125,10 @@ public sealed class ContextSpec {
     }
 
     [Fact]
+    public void RejectsInvalidShapeDuringNormalization() =>
+        Assert.True(condition: new Shape.Line(Value: Line.Unset).Validate().IsFail);
+
+    [Fact]
     public void AdaptsSolvedResultRails() {
         Op key = new(name: "test");
 
