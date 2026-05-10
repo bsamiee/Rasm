@@ -10,7 +10,7 @@ using Rhino.Geometry.Intersect;
 using static LanguageExt.Prelude;
 namespace Analysis;
 
-// --- [EXTRACT] ---------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static partial class Query {
     public static Query<TGeometry, TOut> Domain<TGeometry, TOut>() where TGeometry : notnull =>

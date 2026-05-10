@@ -6,7 +6,7 @@ using Rhino.Geometry;
 using Rhino.Geometry.Intersect;
 namespace Core.Domain;
 
-// --- [MODELS] ----------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record Context {
     private Context(
@@ -170,7 +170,7 @@ public sealed record Context {
     }
 }
 
-// --- [ERRORS] ----------------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
 internal static class ContextFault {
     internal static Error NonFinite(string label, double scalar) =>

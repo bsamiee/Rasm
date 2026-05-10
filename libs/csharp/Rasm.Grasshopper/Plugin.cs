@@ -6,7 +6,7 @@ using Grasshopper2.UI;
 using GhPlugin = Grasshopper2.Framework.Plugin;
 namespace Grasshopper;
 
-// --- [SERVICES] --------------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
 /// <summary>
 /// Polymorphic base for Grasshopper 2 plugin manifests. Subclasses pass an id and a fallback

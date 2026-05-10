@@ -3,7 +3,7 @@ using Grasshopper2.Parameters;
 using Grasshopper2.UI;
 namespace Grasshopper;
 
-// --- [TYPES] -----------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 public interface IPort {
     public string Name { get; }
@@ -15,7 +15,7 @@ public interface IPort {
     public bool IsIndex { get; }
 }
 
-// --- [MODELS] ----------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct Port<TVal>(
     string Name,
@@ -27,7 +27,7 @@ public readonly record struct Port<TVal>(
     public Type Type => typeof(TVal);
 }
 
-// --- [OPERATIONS] ------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class Port {
     public static Port<TVal> Required<TVal>(string name, string code, string info) =>

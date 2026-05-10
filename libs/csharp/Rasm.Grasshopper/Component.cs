@@ -7,7 +7,7 @@ using Grasshopper2.UI;
 using GrasshopperIO;
 namespace Grasshopper;
 
-// --- [SERVICES] --------------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
 /// <summary>
 /// Polymorphic base for Rasm-family Grasshopper 2 components. Subclasses declare a Nomen, the

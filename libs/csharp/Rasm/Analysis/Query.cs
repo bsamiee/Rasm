@@ -10,7 +10,7 @@ using Thinktecture;
 using static LanguageExt.Prelude;
 namespace Analysis;
 
-// --- [ALGEBRA] ---------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
     internal Op Key { get; }

@@ -4,7 +4,7 @@ using Rhino;
 using static LanguageExt.Prelude;
 namespace Core.Domain;
 
-// --- [MODELS] ----------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct Stats {
@@ -44,7 +44,7 @@ internal readonly record struct Stats {
                 };
 }
 
-// --- [OPERATIONS] ------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 internal static class FoldExtensions {
     internal static Seq<TItem> Maxima<TItem>(

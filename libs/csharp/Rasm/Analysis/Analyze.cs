@@ -6,7 +6,7 @@ using Rhino.Geometry;
 using static LanguageExt.Prelude;
 namespace Analysis;
 
-// --- [SURFACE] ---------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class Analyze {
     public static readonly Eff<Context, Context> Asks =

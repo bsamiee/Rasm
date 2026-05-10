@@ -6,7 +6,7 @@ using Rhino.Geometry;
 using static LanguageExt.Prelude;
 namespace Analysis;
 
-// --- [SPATIAL] ---------------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
 public sealed class Tree : IDisposable {
     private readonly RTree tree;

@@ -5,7 +5,7 @@ using Rhino.Geometry.Intersect;
 using Thinktecture;
 namespace Core.Domain;
 
-// --- [MODELS] ----------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 [Union]
 public partial record Shape {
@@ -95,7 +95,7 @@ public partial record Shape {
         };
 }
 
-// --- [OPERATIONS] ------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 internal static class Validity {
     internal static Fin<TValue> RequireValid<TValue>(this Op key, TValue value) =>

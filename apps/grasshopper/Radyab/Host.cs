@@ -2,7 +2,7 @@ using Rhino.PlugIns;
 
 namespace Radyab;
 
-// --- [EXPORTS] ----------------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 /// <summary>
 /// Rhino plug-in shell required by HostUtils.CreatePlugIn for the .rhp loader. Components register

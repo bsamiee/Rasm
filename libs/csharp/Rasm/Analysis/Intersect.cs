@@ -9,7 +9,7 @@ using Rhino.Geometry.Intersect;
 using static LanguageExt.Prelude;
 namespace Analysis;
 
-// --- [OPERATIONS] ------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static partial class Query {
     private delegate bool CurvePointIntersection<TLeft, TRight>(

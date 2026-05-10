@@ -7,7 +7,7 @@ using Rhino.Geometry;
 using Thinktecture;
 namespace Grasshopper;
 
-// --- [MODELS] ----------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 [SmartEnum<string>]
 public sealed partial class Param {
@@ -44,7 +44,7 @@ public sealed partial class Param {
         Action<OutputAdder, string, string, string, Access> onOutput) =>
         new(key: typeof(T).Name, type: typeof(T), onInput: onInput, onOutput: onOutput);
 
-    // --- [OPERATIONS] --------------------------------------------------------------------------
+    // --- [OPERATIONS] ------------------------------------------------------------------
 
     public static Option<Param> From(Type type) =>
         Optional(System.Linq.Enumerable.FirstOrDefault(source: Items, predicate: (Param p) => p.Type.Equals(o: type)));

@@ -8,7 +8,7 @@ using LanguageExt.Common;
 using Rhino.Geometry;
 namespace Grasshopper;
 
-// --- [OPERATIONS] ------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class Bridge {
     private const string Accepted = "Curve, Brep, Mesh, SubD, Surface, Box, BoundingBox, Line, Polyline, Sphere, Cylinder, Cone, Torus, Plane";

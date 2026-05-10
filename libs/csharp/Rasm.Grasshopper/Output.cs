@@ -3,7 +3,7 @@ using Core.Domain;
 using Grasshopper2.Components;
 namespace Grasshopper;
 
-// --- [TYPES] -----------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 public interface IOutput<TIn> where TIn : Shape {
     public string Name { get; }
@@ -14,7 +14,7 @@ public interface IOutput<TIn> where TIn : Shape {
     public Unit Empty(IDataAccess access, int slot);
 }
 
-// --- [MODELS] ----------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct Output<TIn, TOut>(
     string Name,
@@ -38,7 +38,7 @@ public readonly record struct Output<TIn, TOut>(
     }
 }
 
-// --- [OPERATIONS] ------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class Output {
     public static Output<TIn, TOut> Of<TIn, TOut>(string name, string code, string info, Query<object, TOut> query)

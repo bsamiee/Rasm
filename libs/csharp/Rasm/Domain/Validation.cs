@@ -10,7 +10,7 @@ using Thinktecture;
 using static LanguageExt.Prelude;
 namespace Core.Domain;
 
-// --- [MODELS] ----------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 [Union]
 public abstract partial record Pair<TA, TB> where TA : notnull where TB : notnull {
@@ -18,7 +18,7 @@ public abstract partial record Pair<TA, TB> where TA : notnull where TB : notnul
     public sealed record FirstOnly(TA A, TB B, Requirement Requirement) : Pair<TA, TB>;
 }
 
-// --- [OPERATIONS] ------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 internal static class Check {
     internal static Validation<Error, TGeometry> Validate<TGeometry>(
@@ -109,7 +109,7 @@ internal static class Check {
         };
 }
 
-// --- [MODELS] ----------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 [Union]
 public abstract partial record Requirement {
@@ -191,7 +191,7 @@ internal static class RequirementExtensions {
                         Found: inner.Found || ReferenceEquals(objA: candidate, objB: inner.Target))).Found)).AllPresent;
 }
 
-// --- [CHECKS] ----------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 [Union]
 internal abstract partial record Rule {
@@ -472,7 +472,7 @@ internal abstract partial record Rule {
         CurveSelfIntersection);
 }
 
-// --- [ERRORS] ----------------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
 internal static class ValidationFault {
     internal static Error MissingGeometry() =>

@@ -4,7 +4,7 @@ using Thinktecture;
 using static LanguageExt.Prelude;
 namespace Core.Domain;
 
-// --- [MODELS] ----------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 internal readonly record struct Op {
     internal Op(string name) =>
@@ -41,7 +41,7 @@ internal abstract partial record OpResult<TValue> {
             solvedFailure: static (Op k, SolvedFailure _) => Fin.Fail<Seq<TValue>>(k.InvalidResult()));
 }
 
-// --- [ERRORS] ----------------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
 internal static class OpFault {
     internal static Error MissingOperation() =>
@@ -64,7 +64,7 @@ internal static class OpFault {
         Error.New(message: $"Geometry operation '{key.Name}' rejects '{primitive}' primitive: no vertices.");
 }
 
-// --- [OPERATIONS] ------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 internal static class ValidationLifts {
     internal static Eff<Context, T> ToEff<T>(this Validation<Error, T> validation) =>
