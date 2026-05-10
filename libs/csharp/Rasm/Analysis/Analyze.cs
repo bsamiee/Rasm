@@ -54,18 +54,18 @@ public static class Analyze {
         Query<TGeometry, TOut>? query,
         Option<Fin<Context>> scope,
         ReadOnlySpan<TGeometry> input) where TGeometry : notnull {
-        TGeometry[] materialized = input.ToArray();
-        return Optional(query)
+        Fin<(Query<TGeometry, TOut> Query, Context Context)> ready = Optional(query)
             .ToFin(OpFault.MissingOperation())
+            .Bind(resolved => resolved.PreflightFault.Match(
+                Some: fault => Fin.Fail<(Query<TGeometry, TOut> Query, Context Context)>(fault),
+                None: () => ResolveContext(query: resolved, scope: scope).Map(context => (Query: resolved, Context: context))));
+        TGeometry[] materialized = ready.IsSucc switch {
+            true => input.ToArray(),
+            false => [],
+        };
+        return ready
             .Match(
-                Succ: resolved => resolved.PreflightFault.Match(
-                    Some: fault => Fin.Fail<Seq<TOut>>(fault).ToValidation(),
-                    None: () => ResolveContext(query: resolved, scope: scope).Match(
-                        Succ: context => Execute(
-                            query: resolved,
-                            runtime: new Runtime(Context: context, Cancellation: CancellationToken.None, Progress: null),
-                            input: materialized),
-                        Fail: error => Fin.Fail<Seq<TOut>>(error).ToValidation())),
+                Succ: state => Execute(query: state.Query, runtime: new Runtime(Context: state.Context, Cancellation: CancellationToken.None, Progress: null), input: materialized),
                 Fail: error => Fin.Fail<Seq<TOut>>(error).ToValidation());
     }
     private static Fin<Context> ResolveContext<TGeometry, TOut>(

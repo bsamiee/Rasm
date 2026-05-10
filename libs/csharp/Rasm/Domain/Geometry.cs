@@ -24,6 +24,32 @@ public readonly record struct Shape(object Inner) {
                 .Map(static valid => new Shape(Inner: valid!)));
 }
 
+public enum GeometryKind { Unknown = 0, Curve = 1, Polyline = 2, Mesh = 3, SubD = 4, Surface = 5, BrepGeneral = 10, BrepBox = 11, BrepSphere = 12, BrepCylinder = 13, BrepCone = 14, BrepTorus = 15, BrepPlane = 16, Line = 20, Sphere = 21, Box = 22, BoundingBox = 23, Cylinder = 24, Cone = 25, Torus = 26, Plane = 27 }
+public enum CurveFeature { Input, Segment, Edge, Boundary, NakedOuter, NakedInner, Interior, NonManifold, OuterLoop, InnerLoop, IsoU, IsoV, Silhouette, SubCurve, Draft }
+
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct FaceProjection {
+    private FaceProjection(Brep brep, int faceIndex, bool reversed) { Brep = brep; FaceIndex = faceIndex; Reversed = reversed; }
+    internal Brep Brep { get; }
+    internal int FaceIndex { get; }
+    internal bool Reversed { get; }
+    internal static FaceProjection From(BrepFace face) =>
+        new(brep: face.DuplicateFace(duplicateMeshes: false), faceIndex: face.FaceIndex, reversed: face.OrientationIsReversed);
+    internal Unit Dispose() =>
+        fun(static (Brep brep) => { brep.Dispose(); return Unit.Default; })(Brep);
+}
+
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct CurveProjection {
+    internal CurveProjection(Curve curve, CurveFeature feature, ComponentIndexType type, int index) : this(curve: curve, feature: feature, source: new ComponentIndex(type: type, index: index)) { }
+    internal CurveProjection(Curve curve, CurveFeature feature, ComponentIndex source) { Curve = curve; Feature = feature; Source = source; }
+    internal Curve Curve { get; }
+    internal CurveFeature Feature { get; }
+    internal ComponentIndex Source { get; }
+    internal Unit Dispose() =>
+        fun(static (Curve curve) => { curve.Dispose(); return Unit.Default; })(Curve);
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 internal static class Validity {
@@ -62,9 +88,38 @@ internal static class Validity {
             _ => Fin.Fail<TValue>(key.InvalidResult()),
         };
     private static Fin<TValue> Require<TValue>(this Op key, bool condition, TValue value) =>
-        condition switch {
-            true => Fin.Succ(value),
-            false => Fin.Fail<TValue>(key.InvalidResult()),
+        condition ? Fin.Succ(value) : Fin.Fail<TValue>(key.InvalidResult());
+}
+
+internal static class GeometryKinds {
+    internal static GeometryKind Kind(object geometry, Context context) =>
+        geometry switch {
+            Brep brep => KindOfBrep(brep: brep, context: context),
+            Surface surface => KindOfSurface(surface: surface, context: context, brep: false),
+            Mesh => GeometryKind.Mesh,
+            SubD => GeometryKind.SubD,
+            Curve curve => curve.TryGetPolyline(polyline: out Polyline _) ? GeometryKind.Polyline : GeometryKind.Curve,
+            Polyline => GeometryKind.Polyline,
+            Line => GeometryKind.Line,
+            Sphere => GeometryKind.Sphere,
+            Box => GeometryKind.Box,
+            BoundingBox => GeometryKind.BoundingBox,
+            _ => GeometryKind.Unknown,
+        };
+    internal static GeometryKind KindOfBrep(Brep brep, Context context) =>
+        brep switch {
+            { IsSurface: true } single => KindOfSurface(surface: single.Surfaces[0], context: context, brep: true),
+            Brep candidate when candidate.IsBox(tolerance: context.Absolute.Value) => GeometryKind.BrepBox,
+            _ => GeometryKind.BrepGeneral,
+        };
+    private static GeometryKind KindOfSurface(Surface surface, Context context, bool brep) =>
+        surface switch {
+            Surface s when s.TryGetPlane(plane: out Plane _, tolerance: context.Absolute.Value) => brep ? GeometryKind.BrepPlane : GeometryKind.Plane,
+            Surface s when s.TryGetSphere(sphere: out Sphere _, tolerance: context.Absolute.Value) => brep ? GeometryKind.BrepSphere : GeometryKind.Sphere,
+            Surface s when s.TryGetCylinder(cylinder: out Cylinder _, tolerance: context.Absolute.Value) => brep ? GeometryKind.BrepCylinder : GeometryKind.Cylinder,
+            Surface s when s.TryGetCone(cone: out Cone _, tolerance: context.Absolute.Value) => brep ? GeometryKind.BrepCone : GeometryKind.Cone,
+            Surface s when s.TryGetTorus(torus: out Torus _, tolerance: context.Absolute.Value) => brep ? GeometryKind.BrepTorus : GeometryKind.Torus,
+            _ => brep ? GeometryKind.BrepGeneral : GeometryKind.Surface,
         };
 }
 
@@ -120,10 +175,10 @@ internal static class FoldExtensions {
                 f: static (acc, item) =>
                     acc.Projection(arg: item) switch {
                         double s when s > acc.Best + acc.Tolerance => acc with { Best = s, Hits = Seq(item) },
-                        double s when s >= acc.Best - acc.Tolerance => acc with { Best = Math.Max(val1: acc.Best, val2: s), Hits = acc.Hits.Add(item) },
+                        double s when s >= acc.Best - acc.Tolerance => acc with { Best = Math.Max(val1: acc.Best, val2: s), Hits = item.Cons(acc.Hits) },
                         _ => acc,
                     })
-            .Hits;
+            .Hits.Rev();
     internal static Seq<TItem> Minima<TItem>(
         this Seq<TItem> items,
         Func<TItem, double> projection,
@@ -134,8 +189,8 @@ internal static class FoldExtensions {
                 f: static (acc, item) =>
                     acc.Projection(arg: item) switch {
                         double s when s < acc.Best - acc.Tolerance => acc with { Best = s, Hits = Seq(item) },
-                        double s when s <= acc.Best + acc.Tolerance => acc with { Best = Math.Min(val1: acc.Best, val2: s), Hits = acc.Hits.Add(item) },
+                        double s when s <= acc.Best + acc.Tolerance => acc with { Best = Math.Min(val1: acc.Best, val2: s), Hits = item.Cons(acc.Hits) },
                         _ => acc,
                     })
-            .Hits;
+            .Hits.Rev();
 }

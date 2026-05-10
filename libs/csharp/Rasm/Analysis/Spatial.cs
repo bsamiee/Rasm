@@ -91,7 +91,7 @@ public sealed class Tree : IDisposable {
             treeA: state.Left,
             treeB: state.Right,
             tolerance: state.Tolerance,
-            callback: (_, args) => atom.Swap(current => current.Add(new Couple(A: args.Id, B: args.IdB)))) switch {
+            callback: (_, args) => atom.Swap(current => new Couple(A: args.Id, B: args.IdB).Cons(current))) switch {
                 true => Fin.Succ(SortedPairs(pairs: atom.Value)),
                 false => Fin.Fail<Seq<Couple>>(Query.TreeKey.InvalidResult()),
             };
@@ -168,7 +168,7 @@ public sealed class Tree : IDisposable {
         Atom<Seq<int>> atom = Atom(value: Seq<int>());
         return tree.Search(
             box: shape,
-            callback: (_, args) => atom.Swap(current => current.Add(args.Id))) switch {
+            callback: (_, args) => atom.Swap(current => args.Id.Cons(current))) switch {
                 true => Fin.Succ(SortedHits(ids: atom.Value)),
                 false => Fin.Fail<Seq<Hit>>(Query.TreeKey.InvalidResult()),
             };
@@ -177,7 +177,7 @@ public sealed class Tree : IDisposable {
         Atom<Seq<int>> atom = Atom(value: Seq<int>());
         return tree.Search(
             sphere: shape,
-            callback: (_, args) => atom.Swap(current => current.Add(args.Id))) switch {
+            callback: (_, args) => atom.Swap(current => args.Id.Cons(current))) switch {
                 true => Fin.Succ(SortedHits(ids: atom.Value)),
                 false => Fin.Fail<Seq<Hit>>(Query.TreeKey.InvalidResult()),
             };
@@ -194,5 +194,6 @@ public sealed class Tree : IDisposable {
                 .ThenBy(static pair => pair.B)
                 .Aggregate(
                     seed: Seq<Couple>(),
-                    func: static (current, pair) => current.Add(pair)));
+                    func: static (current, pair) => pair.Cons(current))
+                .Rev());
 }

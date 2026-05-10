@@ -46,6 +46,14 @@ public sealed class ComponentRuntimeSpec {
     }
 
     [Test]
+    public void PreservesExtractionOutputOrdering() =>
+        Assert.Multiple(static () => {
+            Assert.That(actual: Codes(outputs: ExtractCurves.Spec.Outputs), expression: Is.EqualTo(expected: new[] { "AC", "CS", "CF", "S", "SCV", "BC", "NO", "NI", "IE", "NE", "OL", "IL", "U", "V", "SC", "DC", "IC" }));
+            Assert.That(actual: Codes(outputs: ExtractPoints.Spec.Outputs), expression: Is.EqualTo(expected: new[] { "EM", "SC", "BC", "V", "CP", "B", "Q", "K" }));
+            Assert.That(actual: Codes(outputs: ExtractSurfaces.Spec.Outputs), expression: Is.EqualTo(expected: new[] { "AS", "SI", "TS", "BS", "IS", "UV", "FC", "FN", "FI", "CI", "UD" }));
+        });
+
+    [Test]
     public void MapsDefaultPortKindsAndEnumKinds() =>
         Assert.Multiple(static () => {
             Assert.That(actual: PortKind.From(type: typeof(int)).IfNone(PortKind.Generic), expression: Is.SameAs(expected: PortKind.Integer));
@@ -60,4 +68,7 @@ public sealed class ComponentRuntimeSpec {
             Assert.That(actual: component.Parameters.InputCount, expression: Is.EqualTo(expected: inputs.Count));
             Assert.That(actual: component.Parameters.OutputCount, expression: Is.EqualTo(expected: outputs.Bind(static group => group.Ports).Count));
         });
+
+    private static string[] Codes(Seq<IOutputGroup> outputs) =>
+        [.. outputs.Bind(static group => group.Ports).Map(static port => port.Code)];
 }

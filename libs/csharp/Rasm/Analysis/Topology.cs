@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using System.Threading;
 using LanguageExt;
 using LanguageExt.Common;
@@ -9,22 +8,6 @@ using Rhino.Geometry;
 using Rhino.Geometry.Intersect;
 using static LanguageExt.Prelude;
 namespace Rasm.Analysis;
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-[StructLayout(LayoutKind.Auto)]
-internal readonly record struct FaceProjection(Brep Brep, int FaceIndex, bool Reversed) : IDisposable {
-    internal static FaceProjection From(BrepFace face) =>
-        new(Brep: face.DuplicateFace(duplicateMeshes: false), FaceIndex: face.FaceIndex, Reversed: face.OrientationIsReversed);
-    public void Dispose() =>
-        Brep.Dispose();
-}
-[StructLayout(LayoutKind.Auto)]
-internal readonly record struct CurveProjection(Curve Curve, CurveFeature Feature, ComponentIndex Source) : IDisposable {
-    internal CurveProjection(Curve curve, CurveFeature feature, ComponentIndexType type, int index) : this(Curve: curve, Feature: feature, Source: new ComponentIndex(type: type, index: index)) { }
-    public void Dispose() =>
-        Curve.Dispose();
-}
 
 public static partial class Query {
     public static Query<TGeometry, TOut> Domain<TGeometry, TOut>() where TGeometry : notnull =>
@@ -148,26 +131,10 @@ public static partial class Query {
                 Cast<TGeometry, TOut>(key: KindKey, query: Query<TGeometry, GeometryKind>.Build(
                     key: KindKey,
                     evaluator: static geometry => geometry switch {
-                        Brep brep =>
+                        object value =>
                             from ctx in Analyze.Asks
-                            from result in One(key: KindKey, value: KindOfBrep(brep: brep, context: ctx)).ToEff()
+                            from result in One(key: KindKey, value: GeometryKinds.Kind(geometry: value, context: ctx)).ToEff()
                             select result,
-                        Surface surface =>
-                            from ctx in Analyze.Asks
-                            from result in One(key: KindKey, value: KindOfSurface(surface: surface, context: ctx, brep: false)).ToEff()
-                            select result,
-                        Mesh => One(key: KindKey, value: GeometryKind.Mesh).ToEff(),
-                        SubD => One(key: KindKey, value: GeometryKind.SubD).ToEff(),
-                        Curve curve => One(key: KindKey, value: curve.TryGetPolyline(polyline: out Polyline _) switch {
-                            true => GeometryKind.Polyline,
-                            false => GeometryKind.Curve,
-                        }).ToEff(),
-                        Polyline => One(key: KindKey, value: GeometryKind.Polyline).ToEff(),
-                        Line => One(key: KindKey, value: GeometryKind.Line).ToEff(),
-                        Sphere => One(key: KindKey, value: GeometryKind.Sphere).ToEff(),
-                        Box _ => One(key: KindKey, value: GeometryKind.Box).ToEff(),
-                        BoundingBox => One(key: KindKey, value: GeometryKind.BoundingBox).ToEff(),
-                        _ => One(key: KindKey, value: GeometryKind.Unknown).ToEff(),
                     })),
             _ => KindKey.Unsupported<TGeometry, TOut>(),
         };
@@ -247,7 +214,7 @@ public static partial class Query {
         Func<Brep, Context, Fin<Seq<TOut>>> project) =>
         from ctx in Analyze.Asks
         from validated in ctx.Validate(geometry: brep, requirement: Requirement.Basic).ToEff()
-        from result in (KindOfBrep(brep: validated, context: ctx) switch {
+        from result in (GeometryKinds.KindOfBrep(brep: validated, context: ctx) switch {
             GeometryKind.BrepSphere => Fin.Fail<Seq<TOut>>(primitiveFault(arg1: key, arg2: "Sphere")),
             GeometryKind.BrepCylinder => Fin.Fail<Seq<TOut>>(primitiveFault(arg1: key, arg2: "Cylinder")),
             GeometryKind.BrepCone => Fin.Fail<Seq<TOut>>(primitiveFault(arg1: key, arg2: "Cone")),
@@ -367,21 +334,6 @@ public static partial class Query {
                 false => Fin.Fail<Seq<Polyline>>(SelfIntersectionsKey.InvalidResult()),
             };
     }
-    internal static GeometryKind KindOfBrep(Brep brep, Context context) =>
-        brep switch {
-            { IsSurface: true } single => KindOfSurface(surface: single.Surfaces[0], context: context, brep: true),
-            Brep candidate when candidate.IsBox(tolerance: context.Absolute.Value) => GeometryKind.BrepBox,
-            _ => GeometryKind.BrepGeneral,
-        };
-    private static GeometryKind KindOfSurface(Surface surface, Context context, bool brep) =>
-        surface switch {
-            Surface s when s.TryGetPlane(plane: out Plane _, tolerance: context.Absolute.Value) => brep ? GeometryKind.BrepPlane : GeometryKind.Plane,
-            Surface s when s.TryGetSphere(sphere: out Sphere _, tolerance: context.Absolute.Value) => brep ? GeometryKind.BrepSphere : GeometryKind.Sphere,
-            Surface s when s.TryGetCylinder(cylinder: out Cylinder _, tolerance: context.Absolute.Value) => brep ? GeometryKind.BrepCylinder : GeometryKind.Cylinder,
-            Surface s when s.TryGetCone(cone: out Cone _, tolerance: context.Absolute.Value) => brep ? GeometryKind.BrepCone : GeometryKind.Cone,
-            Surface s when s.TryGetTorus(torus: out Torus _, tolerance: context.Absolute.Value) => brep ? GeometryKind.BrepTorus : GeometryKind.Torus,
-            _ => brep ? GeometryKind.BrepGeneral : GeometryKind.Surface,
-        };
     private static Fin<Seq<Point3d>> EdgeCurveMidpoints(IEnumerable<Curve>? curves, Context context) =>
         Optional(curves)
             .ToFin(EdgeMidpointsKey.InvalidResult())
@@ -415,11 +367,6 @@ public static partial class Query {
                 },
                 false => null,
             });
-    internal static Eff<Analyze.Runtime, Seq<FaceProjection>> FaceProjections<TGeometry>(TGeometry geometry, Faces selector) where TGeometry : notnull =>
-        from context in Analyze.Asks
-        from faces in DecomposeFaces(geometry: geometry).ToEff()
-        from chosen in SelectFaces(faces: faces, selector: selector, runtime: context).ToEff()
-        select chosen;
     private static Query<TGeometry, TOut> FaceQuery<TGeometry, TOut, TValue>(
         Faces selector,
         Requirement requirement,
@@ -433,6 +380,12 @@ public static partial class Query {
                 from chosen in SelectFaces(faces: faces, selector: state.Selector, runtime: ctx).ToEff()
                 from result in FaceProject(faces: faces, chosen: chosen, runtime: ctx, transfer: state.Transfer, project: state.Project).ToEff()
                 select result));
+    internal static Eff<Analyze.Runtime, Seq<FaceProjection>> FaceProjections(Shape shape, Faces selector) =>
+        from ctx in Analyze.Asks
+        from faces in DecomposeFaces(geometry: shape.Inner).ToEff()
+        from chosen in SelectFaces(faces: faces, selector: selector, runtime: ctx).ToEff()
+        from result in FaceProject(faces: faces, chosen: chosen, runtime: ctx, transfer: true, project: static (values, _) => Fin.Succ(values)).ToEff()
+        select result;
     public static Query<TGeometry, TOut> Curves<TGeometry, TOut>(Curves aspect) where TGeometry : notnull =>
         Aspect(
             aspect: aspect,
@@ -446,11 +399,12 @@ public static partial class Query {
                     CurveQuery<TGeometry, TOut, ComponentIndex>(selector: selector, project: static chosen => Many(key: CurvesKey, values: chosen.Map(static curve => curve.Source))),
                 _ => null,
             });
-    internal static Eff<Analyze.Runtime, Seq<CurveProjection>> CurveProjections<TGeometry>(TGeometry geometry, Curves aspect) where TGeometry : notnull =>
+    internal static Eff<Analyze.Runtime, Seq<CurveProjection>> CurveProjections(Shape shape, Curves aspect) =>
         from runtime in Analyze.RuntimeAsks
-        from curves in ExtractCurveProjections(geometry: geometry, aspect: aspect.Selector == CurveSelector.At ? Rasm.Analysis.Curves.All : aspect, runtime: runtime).ToEff()
+        from curves in ExtractCurveProjections(geometry: shape.Inner, aspect: aspect.Selector == CurveSelector.At ? Rasm.Analysis.Curves.All : aspect, runtime: runtime).ToEff()
         from chosen in SelectCurves(curves: curves, aspect: aspect).ToEff()
-        select chosen;
+        from result in CurveProject(curves: curves, chosen: chosen, transfer: true, project: static values => Fin.Succ(values)).ToEff()
+        select result;
     private static Query<TGeometry, TOut> CurveQuery<TGeometry, TOut, TValue>(
         Curves selector,
         Func<Seq<CurveProjection>, Fin<Seq<TValue>>> project,
@@ -560,7 +514,7 @@ public static partial class Query {
                 iso: direction switch { 0 => IsoStatus.X, _ => IsoStatus.Y },
                 normalized: 0.5,
                 key: CurvesKey)
-            .Map(curves => curves.Map(curve => new CurveProjection(Curve: curve, Feature: feature, Source: source)));
+            .Map(curves => curves.Map(curve => new CurveProjection(curve: curve, feature: feature, source: source)));
     private static Fin<Seq<CurveProjection>> OneCurve(Curve? curve, CurveFeature feature, ComponentIndexType type) =>
         Optional(curve)
             .Bind(static value => Optional(value.DuplicateCurve()))
@@ -628,7 +582,7 @@ public static partial class Query {
         (geometry, valid(arg: state)) switch {
             (GeometryBase native, true) => Optional(project(arg1: native, arg2: state))
                 .ToFin(CurvesKey.InvalidResult())
-                .Map(values => toSeq(values).Map(silhouette => new CurveProjection(Curve: silhouette.Curve, Feature: feature, Source: silhouette.GeometryComponentIndex))),
+                .Map(values => toSeq(values).Map(silhouette => new CurveProjection(curve: silhouette.Curve, feature: feature, source: silhouette.GeometryComponentIndex))),
             _ => Fin.Fail<Seq<CurveProjection>>(CurvesKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Curve))),
         };
     private static bool IsInputCurveCase(CurveSelector selector) =>

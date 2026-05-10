@@ -86,11 +86,6 @@ public enum CurvatureScalar { None = 0, Magnitude = 1, Gaussian = 2, Mean = 3 }
 public enum MeshCheckCount { None = 0, DegenerateFaces = 1, DisjointMeshes = 2, DuplicateFaces = 3, ExtremelyShortEdges = 4, InvalidNgons = 5, NakedEdges = 6, NonManifoldEdges = 7, NonUnitVectorNormals = 8, RandomFaceNormals = 9, SelfIntersectingPairs = 10, UnusedVertices = 11, VertexFaceNormalsDiffer = 12, ZeroLengthNormals = 13 }
 public enum ConformanceResidual { None = 0, Distance = 1, Rms = 2, WithinTolerance = 3, Profile = 4, Maximum = 5 }
 public enum MeshFaceMetric { None = 0, AspectRatio = 1 }
-public enum GeometryKind {
-    Unknown = 0, Curve = 1, Polyline = 2, Mesh = 3, SubD = 4, Surface = 5,
-    BrepGeneral = 10, BrepBox = 11, BrepSphere = 12, BrepCylinder = 13, BrepCone = 14, BrepTorus = 15, BrepPlane = 16,
-    Line = 20, Sphere = 21, Box = 22, BoundingBox = 23, Cylinder = 24, Cone = 25, Torus = 26, Plane = 27,
-}
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CurvatureProfile(CurvatureScalar Scalar, int Count, double Minimum, double Maximum, double Mean, double Variance);
 [StructLayout(LayoutKind.Auto)]
@@ -106,23 +101,6 @@ public readonly record struct Couple(int A, int B);
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CurveDeviation(double MinimumDistance, Point3d MinimumA, Point3d MinimumB, double MaximumDistance, Point3d MaximumA, Point3d MaximumB, double Tolerance, bool WithinTolerance);
 public enum IntersectionKind { Unknown = 0, Point = 1, Overlap = 2, Curve = 3 }
-public enum CurveFeature {
-    Input,
-    Segment,
-    Edge,
-    Boundary,
-    NakedOuter,
-    NakedInner,
-    Interior,
-    NonManifold,
-    OuterLoop,
-    InnerLoop,
-    IsoU,
-    IsoV,
-    Silhouette,
-    SubCurve,
-    Draft,
-}
 [Union]
 public partial record Bounds {
     public sealed record Box : Bounds; public sealed record Oriented(Plane Plane) : Bounds; public sealed record Transformed(Transform Transform) : Bounds; public sealed record Center : Bounds;
