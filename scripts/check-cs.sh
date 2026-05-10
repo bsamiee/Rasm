@@ -78,8 +78,7 @@ _main() {
     dotnet format "${SOLUTION_PATH}" --verify-no-changes --severity info --diagnostics "${UNUSED_CODE_DIAGNOSTICS}" --no-restore
     local -a test_projects=()
     test_projects=(
-        tests/csharp/analysis/Analysis.Tests.csproj
-        tests/csharp/core/Core.Tests.csproj
+        tests/csharp/Rasm.Tests/Rasm.Tests.csproj
         tools/cs-analyzer/tests/CsAnalyzer.Tests.csproj
     )
     readonly -a test_projects
