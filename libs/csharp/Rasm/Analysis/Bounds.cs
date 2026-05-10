@@ -132,7 +132,7 @@ public static partial class Query {
                         SubD subd =>
                             from runtime in Analyze.RuntimeAsks
                             from validated in runtime.Context.Validate(geometry: subd, requirement: Requirement.Basic).ToEff()
-                            from result in Optional(validated.ToBrep())
+                            from result in Optional(validated.ToBrep(options: SubDToBrepOptions.Default))
                                 .ToFin(SpatialMidpointKey.InvalidResult())
                                 .Bind(brep => {
                                     using Brep disposable = brep;

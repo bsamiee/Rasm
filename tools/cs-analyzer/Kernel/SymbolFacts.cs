@@ -62,6 +62,7 @@ internal sealed class ScopeInfo {
     internal bool IsAnalyzable => Kind.IsAnalyzable;
     internal bool IsBoundary => Kind.IsBoundary;
     internal bool IsDomainOrApplication => Kind.IsDomainOrApplication;
+    internal bool IsFunctional => Kind.IsDomainOrApplication || ReferenceEquals(objA: Kind, objB: ScopeKind.Analysis);
     internal bool IsComposition => Kind.IsComposition;
     internal bool IsHotPath =>
         NamespaceName.Contains(value: ".Performance", comparisonType: StringComparison.Ordinal)
@@ -79,6 +80,8 @@ internal static class Markers {
     internal const string SharedPrefix = ".Shared";
     internal const string SharedKernelNamespace = "SharedKernel";
     internal const string SharedKernelPrefix = ".SharedKernel";
+    internal const string AnalysisNamespace = "Rasm.Analysis";
+    internal const string AnalysisPrefix = "Rasm.Analysis.";
     internal const string LanguageExtNamespace = "LanguageExt";
     internal const string MatchMethodName = "Match";
     internal static readonly string[] BoundaryNamespace = [".Boundary", ".Rhino", ".Adapter", ".Adapters", ".Routes", ".Endpoints", ".Controllers"];
@@ -116,7 +119,9 @@ internal static class ScopeModel {
             || SymbolFacts.HasAnyAttribute(symbol, nameof(ApplicationScopeAttribute), "ApplicationScope");
         bool shared = SymbolFacts.IsSharedNamespace(namespaceName)
             || Markers.SharedPath.Any(marker => filePath.Contains(value: marker, comparisonType: StringComparison.OrdinalIgnoreCase));
-        bool analysis = Markers.AnalysisPath.Any(marker => filePath.Contains(value: marker, comparisonType: StringComparison.OrdinalIgnoreCase));
+        bool analysis = namespaceName.Equals(value: Markers.AnalysisNamespace, comparisonType: StringComparison.OrdinalIgnoreCase)
+            || namespaceName.StartsWith(value: Markers.AnalysisPrefix, comparisonType: StringComparison.OrdinalIgnoreCase)
+            || Markers.AnalysisPath.Any(marker => filePath.Contains(value: marker, comparisonType: StringComparison.OrdinalIgnoreCase));
         bool composition = SymbolFacts.IsCompositionScope(namespaceName: namespaceName, filePath: filePath);
         ScopeKind kind = (generated, test, boundary, domain, application, shared, analysis, composition) switch {
             (true, _, _, _, _, _, _, _) => ScopeKind.Generated,

@@ -7,15 +7,15 @@ namespace Rasm.Grasshopper;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-public interface IOutputGroup<TState> where TState : notnull {
+public interface IOutputGroup {
     public Seq<IPort> Ports { get; }
-    public Unit Run(IDataAccess access, int slot, TState state);
+    public Unit Run(IDataAccess access, int slot, GrasshopperRuntime runtime);
     public Unit Empty(IDataAccess access, int slot);
 }
 
-public interface IOutputSlot<TState, TSource> where TState : notnull {
+public interface IOutputSlot<TSource> {
     public IPort Port { get; }
-    public Unit Write(IDataAccess access, int slot, TState state, Seq<TSource> source);
+    public Unit Write(IDataAccess access, int slot, GrasshopperRuntime runtime, Seq<TSource> source);
     public Unit Empty(IDataAccess access, int slot);
 }
 
@@ -41,6 +41,8 @@ public readonly record struct Hints(
         };
         return new(Inputs: captured, Pears: pears);
     }
+    public Option<int> Slot(IPort port) =>
+        Inputs.Find(predicate: input => input.Port.Equals(port)).Map(static input => input.Slot);
     public Option<int> Index(IDataAccess access, Port<int> port, int limit) {
         ArgumentNullException.ThrowIfNull(argument: access);
         return Inputs.Find(predicate: input => input.Port.Equals(port)).Bind(input => access.Index(slot: input.Slot, limit: limit));
@@ -68,16 +70,14 @@ public static class OutputValue {
         new(Value: default!, Meta: null, IsNull: true);
 }
 
-public sealed record OutputSlot<TState, TSource, TOut>(
+public sealed record OutputSlot<TSource, TOut>(
     Port<TOut> Port,
-    Func<TState, Seq<TSource>, Fin<Seq<OutputValue<TOut>>>> Project) : IOutputSlot<TState, TSource>
-    where TState : notnull {
-    IPort IOutputSlot<TState, TSource>.Port => Port;
+    Func<GrasshopperRuntime, Seq<TSource>, Fin<Seq<OutputValue<TOut>>>> Project) : IOutputSlot<TSource> {
+    IPort IOutputSlot<TSource>.Port => Port;
 
-    public Unit Write(IDataAccess access, int slot, TState state, Seq<TSource> source) {
+    public Unit Write(IDataAccess access, int slot, GrasshopperRuntime runtime, Seq<TSource> source) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        ArgumentNullException.ThrowIfNull(argument: state);
-        return Project(arg1: state, arg2: source).Match(
+        return Project(arg1: runtime, arg2: source).Match(
             Succ: values => Bridge.Write(access: access, slot: slot, name: Port.Name, targetAccess: Port.Access, values: [.. values]),
             Fail: error => {
                 access.AddWarning(text: Port.Name, details: error.Message);
@@ -90,19 +90,17 @@ public sealed record OutputSlot<TState, TSource, TOut>(
     }
 }
 
-public sealed record PreparedGroup<TState, TSource>(
-    Seq<IOutputSlot<TState, TSource>> Slots,
-    Func<IDataAccess, TState, Fin<Seq<TSource>>> Source,
-    bool EmptyUnsupported) : IOutputGroup<TState>
-    where TState : notnull {
+public sealed record PreparedGroup<TSource>(
+    Seq<IOutputSlot<TSource>> Slots,
+    Func<IDataAccess, GrasshopperRuntime, Fin<Seq<TSource>>> Source,
+    bool EmptyUnsupported) : IOutputGroup {
     public Seq<IPort> Ports =>
         Slots.Map(static slot => slot.Port);
 
-    public Unit Run(IDataAccess access, int slot, TState state) {
+    public Unit Run(IDataAccess access, int slot, GrasshopperRuntime runtime) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        ArgumentNullException.ThrowIfNull(argument: state);
-        return Source(arg1: access, arg2: state).Match(
-            Succ: values => Slots.Iter((offset, output) => output.Write(access: access, slot: slot + offset, state: state, source: values)),
+        return Source(arg1: access, arg2: runtime).Match(
+            Succ: values => Slots.Iter((offset, output) => output.Write(access: access, slot: slot + offset, runtime: runtime, source: values)),
             Fail: error => {
                 // BOUNDARY ADAPTER — GH2 warnings are void side effects on IDataAccess.
                 switch (EmptyUnsupported, Unsupported(error: error)) {
@@ -126,25 +124,29 @@ public sealed record PreparedGroup<TState, TSource>(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class Output {
-    public static IOutputSlot<TState, TSource> Slot<TState, TSource, TOut>(
+    public static IOutputSlot<TSource> Slot<TSource, TOut>(
         Port<TOut> port,
-        Func<TState, Seq<TSource>, Fin<Seq<OutputValue<TOut>>>> project)
-        where TState : notnull =>
-        new OutputSlot<TState, TSource, TOut>(Port: port, Project: project);
-    public static IOutputSlot<TState, TOut> Slot<TState, TOut>(Port<TOut> port)
-        where TState : notnull =>
-        Slot<TState, TOut, TOut>(
+        Func<GrasshopperRuntime, Seq<TSource>, Fin<Seq<OutputValue<TOut>>>> project) =>
+        new OutputSlot<TSource, TOut>(Port: port, Project: project);
+    public static IOutputSlot<TOut> Slot<TOut>(Port<TOut> port) =>
+        Slot<TOut, TOut>(
             port: port,
             project: static (_, values) => Fin.Succ(values.Map(static value => OutputValue.Plain(value: value))));
-    public static IOutputGroup<TState> Prepared<TState, TSource>(
-        Func<IDataAccess, TState, Fin<Seq<TSource>>> source,
-        bool emptyUnsupported,
-        params IOutputSlot<TState, TSource>[] slots)
-        where TState : notnull =>
-        new PreparedGroup<TState, TSource>(Slots: toSeq(slots), Source: source, EmptyUnsupported: emptyUnsupported);
-    public static IOutputGroup<TState> Prepared<TState, TSource>(
-        Func<IDataAccess, TState, Fin<Seq<TSource>>> source,
-        params IOutputSlot<TState, TSource>[] slots)
-        where TState : notnull =>
-        Prepared(source: source, emptyUnsupported: false, slots: slots);
+    public static IOutputGroup Prepared<TSource>(
+        Func<IDataAccess, GrasshopperRuntime, Fin<Seq<TSource>>> source,
+        bool emptyUnsupported = false,
+        params IOutputSlot<TSource>[] slots) =>
+        new PreparedGroup<TSource>(Slots: toSeq(slots), Source: source, EmptyUnsupported: emptyUnsupported);
+    public static Unit Write(IDataAccess access, GrasshopperRuntime runtime, Seq<IOutputGroup> groups) =>
+        groups.Fold(
+            initialState: 0,
+            f: (slot, group) => (group.Run(access: access, slot: slot, runtime: runtime), slot + group.Ports.Count).Item2) switch {
+                _ => Unit.Default,
+            };
+    public static Unit Empty(IDataAccess access, Seq<IOutputGroup> groups) =>
+        groups.Fold(
+            initialState: 0,
+            f: (slot, group) => (group.Empty(access: access, slot: slot), slot + group.Ports.Count).Item2) switch {
+                _ => Unit.Default,
+            };
 }

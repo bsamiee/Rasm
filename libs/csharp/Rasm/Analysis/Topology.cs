@@ -491,7 +491,10 @@ public static partial class Query {
                 .ToFin(CurvesKey.InvalidResult())
                 .Bind(duplicate => { using Brep disposable = duplicate; return BrepEdgeCurves(brep: disposable, feature: CurveFeature.Boundary, predicate: static _ => true); }),
             (CurveSelector kind, Surface surface) when kind == CurveSelector.All || kind == CurveSelector.Boundary => SurfaceBoundaryCurves(surface: surface, feature: CurveFeature.Boundary),
-            (CurveSelector kind, SubD subd) when kind == CurveSelector.All || kind == CurveSelector.Segments => IndexedCurves(curves: subd.DuplicateEdgeCurves(), feature: kind == CurveSelector.Segments ? CurveFeature.Segment : CurveFeature.Edge, sourceType: ComponentIndexType.SubdEdge),
+            (CurveSelector kind, SubD subd) when kind == CurveSelector.All || kind == CurveSelector.Segments =>
+                subd.UpdateSurfaceMeshCache(lazyUpdate: true) switch {
+                    _ => IndexedCurves(curves: subd.DuplicateEdgeCurves(), feature: kind == CurveSelector.Segments ? CurveFeature.Segment : CurveFeature.Edge, sourceType: ComponentIndexType.SubdEdge),
+                },
             (CurveSelector kind, Mesh) when kind == CurveSelector.NakedInner => Fin.Succ(Seq<CurveProjection>()),
             (CurveSelector kind, Mesh mesh) when kind != CurveSelector.NakedInner && EdgeCurveCase(selector: kind) is { } edge => MeshEdgeCurves(mesh: mesh, feature: edge.Feature, predicate: edge.Mesh),
             _ => Fin.Fail<Seq<CurveProjection>>(CurvesKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Curve))),

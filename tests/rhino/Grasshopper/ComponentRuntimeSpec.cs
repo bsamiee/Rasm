@@ -2,6 +2,8 @@ using Grasshopper2.Components;
 using Grasshopper2.Parameters.Standard;
 using NUnit.Framework;
 using Radyab.Components;
+using Rasm.Domain;
+using Rasm.Grasshopper;
 using Rhino.Testing.Fixtures;
 
 namespace Runtime.Rhino.Tests.Grasshopper;
@@ -12,11 +14,19 @@ namespace Runtime.Rhino.Tests.Grasshopper;
 [RhinoTestFixture]
 public sealed class ComponentRuntimeSpec {
     [Test]
-    public void ConstructsExtractionComponentsWithStablePortCatalogs() =>
+    public void ConstructsExtractionComponentsFromDeclaredContracts() =>
         Assert.Multiple(static () => {
-            AssertComponent(new ExtractCurves(), inputs: 4, outputs: 17);
-            AssertComponent(new ExtractPoints(), inputs: 1, outputs: 8);
-            AssertComponent(new ExtractSurfaces(), inputs: 2, outputs: 11);
+            AssertComponent(component: new ExtractCurves(), inputs: ExtractCurves.Spec.Inputs, outputs: ExtractCurves.Spec.Outputs);
+            AssertComponent(component: new ExtractPoints(), inputs: ExtractPoints.Spec.Inputs, outputs: ExtractPoints.Spec.Outputs);
+            AssertComponent(component: new ExtractSurfaces(), inputs: ExtractSurfaces.Spec.Inputs, outputs: ExtractSurfaces.Spec.Outputs);
+        });
+
+    [Test]
+    public void UsesSingleGenericGeometryInputContract() =>
+        Assert.Multiple(static () => {
+            Assert.That(actual: new ExtractCurves().Parameters.Input(index: 0), expression: Is.TypeOf<GenericParameter>());
+            Assert.That(actual: new ExtractPoints().Parameters.Input(index: 0), expression: Is.TypeOf<GenericParameter>());
+            Assert.That(actual: new ExtractSurfaces().Parameters.Input(index: 0), expression: Is.TypeOf<GenericParameter>());
         });
 
     [Test]
@@ -35,9 +45,19 @@ public sealed class ComponentRuntimeSpec {
         });
     }
 
-    private static void AssertComponent(Component component, int inputs, int outputs) =>
+    [Test]
+    public void MapsDefaultPortKindsAndEnumKinds() =>
+        Assert.Multiple(static () => {
+            Assert.That(actual: PortKind.From(type: typeof(int)).IfNone(PortKind.Generic), expression: Is.SameAs(expected: PortKind.Integer));
+            Assert.That(actual: PortKind.From(type: typeof(double)).IfNone(PortKind.Generic), expression: Is.SameAs(expected: PortKind.Number));
+            Assert.That(actual: PortKind.From(type: typeof(string)).IfNone(PortKind.Generic), expression: Is.SameAs(expected: PortKind.Text));
+            Assert.That(actual: PortKind.From(type: typeof(GeometryKind)).IfNone(PortKind.Generic), expression: Is.SameAs(expected: PortKind.Generic));
+            Assert.That(actual: PortKind.Enum(initial: GeometryKind.Unknown).Type, expression: Is.EqualTo(expected: typeof(GeometryKind)));
+        });
+
+    private static void AssertComponent(Component component, Seq<IPort> inputs, Seq<IOutputGroup> outputs) =>
         Assert.Multiple(() => {
-            Assert.That(actual: component.Parameters.InputCount, expression: Is.EqualTo(expected: inputs));
-            Assert.That(actual: component.Parameters.OutputCount, expression: Is.EqualTo(expected: outputs));
+            Assert.That(actual: component.Parameters.InputCount, expression: Is.EqualTo(expected: inputs.Count));
+            Assert.That(actual: component.Parameters.OutputCount, expression: Is.EqualTo(expected: outputs.Bind(static group => group.Ports).Count));
         });
 }

@@ -698,13 +698,53 @@ public sealed class RuleBehaviorTests {
     }
 
     [Fact]
-    public async Task AnalysisLibraryPathDoesNotApplyDomainSignatureRulesAsync() {
+    public async Task AnalysisLibraryPathAppliesFunctionalRulesAsync() {
         ImmutableArray<string> ids = await AnalyzeIdsAsync(
             filePath: "/workspace/libs/csharp/Rasm/Analysis/Analyze.cs",
             source: Source(ns: "Rasm.Analysis", type: "Analyze", members: """
-                public double Execute(double value) => value;
+                public int Execute(int value) {
+                    if (value > 0) {
+                        return value;
+                    }
+                    return 0;
+                }
                 """)).ConfigureAwait(true);
 
+        Assert.Contains(expected: "CSP0001", collection: ids);
+        Assert.DoesNotContain(expected: "CSP0003", collection: ids);
+    }
+
+    [Fact]
+    public async Task RasmAnalysisNamespaceOutsideCanonicalPathAppliesFunctionalRulesAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Features/Evaluate.cs",
+            source: Source(ns: "Rasm.Analysis.Spatial", type: "Evaluate", members: """
+                public int Execute(int value) {
+                    if (value > 0) {
+                        return value;
+                    }
+                    return 0;
+                }
+                """)).ConfigureAwait(true);
+
+        Assert.Contains(expected: "CSP0001", collection: ids);
+        Assert.DoesNotContain(expected: "CSP0003", collection: ids);
+    }
+
+    [Fact]
+    public async Task AnalysisQuerySurfaceAppliesFunctionalRulesAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/libs/csharp/Rasm/Analysis/Query.cs",
+            source: Source(ns: "Rasm.Analysis", type: "Query", members: """
+                public double Execute(double value) {
+                    if (value > 0) {
+                        return value;
+                    }
+                    return 0;
+                }
+                """)).ConfigureAwait(true);
+
+        Assert.Contains(expected: "CSP0001", collection: ids);
         Assert.DoesNotContain(expected: "CSP0003", collection: ids);
     }
 
@@ -722,6 +762,25 @@ public sealed class RuleBehaviorTests {
                 """)).ConfigureAwait(true);
 
         Assert.Contains(expected: "CSP0003", collection: ids);
+    }
+
+    [Fact]
+    public async Task BoundaryAdapterInsideAnalysisScopeKeepsBoundaryStrictnessOnlyAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/libs/csharp/Rasm/Analysis/RhinoBoundary.cs",
+            source: WithLanguageExt(ns: "Rasm.Analysis", type: "RhinoBoundary", attributes: "[Foundation.CSharp.Analyzers.Contracts.BoundaryAdapter]", members: """
+                public int Run(LanguageExt.Fin<int> value) {
+                    if (value is null) {
+                        return 0;
+                    }
+                    int result = value.Match(Succ: static input => input, Fail: static _ => 0);
+                    return result;
+                }
+                """)).ConfigureAwait(true);
+
+        Assert.Contains(expected: "CSP0705", collection: ids);
+        Assert.DoesNotContain(expected: "CSP0001", collection: ids);
+        Assert.DoesNotContain(expected: "CSP0002", collection: ids);
     }
 
     [Fact]

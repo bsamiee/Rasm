@@ -286,9 +286,7 @@ public static partial class Query {
                     .Concat(second: Optional(circles).ToSeq().Bind(static values => values).Select(static _ => IntersectionKind.Curve))
                     .Concat(second: Optional(points).ToSeq().Bind(static values => values).Select(static _ => IntersectionKind.Point))
                     .Concat(second: Optional(intervals).ToSeq().Bind(static values => values).Select(static _ => IntersectionKind.Overlap))
-                    .Concat(second: Optional(kinds).Match(
-                        Some: static values => values,
-                        None: () => Optional(polylines).ToSeq().Bind(static values => values).Select(static _ => IntersectionKind.Overlap)))),
+                    .Concat(second: Optional(kinds).IfNone(() => Optional(polylines).ToSeq().Bind(static values => values).Select(static _ => IntersectionKind.Overlap)))),
             _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
         };
     private static Fin<Seq<TOut>> CastResults<TValue, TOut>(

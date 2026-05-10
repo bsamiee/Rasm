@@ -3,6 +3,7 @@ using Grasshopper2.Data;
 using Grasshopper2.Data.Meta;
 using Grasshopper2.Parameters;
 using Grasshopper2.Parameters.Standard;
+using Grasshopper2.Types.Assistant;
 using Grasshopper2.Types.Numeric;
 using LanguageExt.Common;
 using Rasm.Analysis;
@@ -16,12 +17,12 @@ public static class Bridge {
     public static Fin<Analyze.Scope> Scope(this IDataAccess access) {
         ArgumentNullException.ThrowIfNull(argument: access);
         return (
-            access.GetTolerance(absoluteTolerance: out double absolute),
+            access.GetTolerance(absoluteTolerance: out double absolute, relativeTolerance: out double relative),
             access.GetTolerance(angularTolerance: out Angle angle),
             Units: access.GetUnitSystem(unitSystem: out UnitSystem units),
             Value: units
         ) switch {
-            (true, true, _, Grasshopper2.Parameters.Standard.UnitSystem unitSystem) => Fin.Succ(Analyze.In(absolute: absolute, relative: 0.0, angle: angle.Radians, units: unitSystem.System)),
+            (true, true, _, Grasshopper2.Parameters.Standard.UnitSystem unitSystem) => Fin.Succ(Analyze.In(absolute: absolute, relative: relative, angle: angle.Radians, units: unitSystem.System)),
             _ => Remark(access: access, units: units.System),
         };
     }
@@ -30,7 +31,7 @@ public static class Bridge {
         ArgumentNullException.ThrowIfNull(argument: port);
         return Read<object>(access: access, slot: slot, port: port)
             .Bind(data => data.Value
-                .Bind(NormalizeShape)
+                .Bind(raw => NormalizeShape(access: access, slot: slot, raw: raw))
                 .ToFin(Error.New(message: $"{port.Name} input is required. Connect: {Shape.Accepted}."))
                 .Bind(static shape => shape.Validate()));
     }
@@ -43,17 +44,17 @@ public static class Bridge {
             Access.Item => access.GetPear<TVal>(index: slot, pear: out Pear<TVal> pear) switch {
                 true => Fin.Succ(new PortData<TVal>(
                     Access: Access.Item,
-                    Values: Seq(new PortValue<TVal>(Value: pear.Item, Meta: pear.Meta, IsNull: !access.GetNull(index: slot), Index: Some(0), Coverage: coverage)),
+                    Values: Seq(new PortValue<TVal>(Value: pear.Item, Meta: pear.Meta, IsNull: pear.Item is null, Index: Some(0), Coverage: coverage)),
                     Twig: Option<Twig<TVal>>.None,
                     Tree: Option<Tree<TVal>>.None,
                     Coverage: coverage,
                     Changed: changed)),
                 _ => Missing<TVal>(port: port),
             },
-            Access.Twig => access.GetItemArray<TVal>(index: slot, items: out TVal[] items) switch {
-                true when items.Length > 0 => Fin.Succ(new PortData<TVal>(
+            Access.Twig => access.GetPears<TVal>(index: slot, pears: out Pear<TVal>[] pears) switch {
+                true when pears.Length > 0 => Fin.Succ(new PortData<TVal>(
                     Access: Access.Twig,
-                    Values: Values(items: items, metas: access.GetMetaArray(index: slot, metas: out MetaData[] metas) ? metas : [], nulls: access.GetNullArray(index: slot, nulls: out bool[] nulls) ? nulls : [], coverage: coverage),
+                    Values: Values(pears: pears, coverage: coverage),
                     Twig: access.GetTwig<TVal>(index: slot, twig: out Twig<TVal> twig) ? Some(twig) : Option<Twig<TVal>>.None,
                     Tree: Option<Tree<TVal>>.None,
                     Coverage: coverage,
@@ -139,24 +140,27 @@ public static class Bridge {
             IsNull: pear is null || pear.Item is null,
             Index: Some(index),
             Coverage: coverage)));
-    private static Seq<PortValue<TVal>> Values<TVal>(TVal[] items, MetaData[] metas, bool[] nulls, Coverage coverage) =>
-        toSeq(items.Select((item, index) => new PortValue<TVal>(
-            Value: item,
-            Meta: metas.Length > index ? metas[index] : MetaData.Empty,
-            IsNull: nulls.Length > index ? nulls[index] : item is null,
-            Index: Some(index),
-            Coverage: coverage)));
-    private static Option<Shape> NormalizeShape(object raw) =>
+    private static Option<Shape> NormalizeShape(IDataAccess access, int slot, object raw) =>
         Shape.From(value: raw).Match(
             Some: static shape => Some(shape),
-            None: () => Optional(CurveBroker.ToRhinoCurve(raw)).Bind(static curve => Shape.From(value: curve)).Match(
-                Some: static shape => Some(shape),
-                None: () => SurfaceBroker.CastOrConvert(data: raw, p1: out Surface surface, p3: out Brep brep, p4: out SubD subd) switch {
-                    SurfaceLikeType.Surf => Shape.From(value: surface),
-                    SurfaceLikeType.Brep => Shape.From(value: brep),
-                    SurfaceLikeType.SubD => Shape.From(value: subd),
-                    _ => Option<Shape>.None,
-                }));
+            None: () => CurveAssistant(access: access, slot: slot)
+                .Bind(assistant => Optional(assistant.Assistant.ConvertToRhinoCurve(assistant.Raw)))
+                .Bind(static curve => Shape.From(value: curve))
+                .Match(
+                    Some: static shape => Some(shape),
+                    None: () => SurfaceAssistant(access: access, slot: slot)
+                        .Bind(assistant => Optional(assistant.Assistant.ConvertToBrep(assistant.Raw)))
+                        .Bind(static brep => Shape.From(value: brep))));
+    private static Option<(object Raw, ICurveAssistant Assistant)> CurveAssistant(IDataAccess access, int slot) =>
+        access.GetItem(index: slot, value: out object raw) switch {
+            true => Optional(TypeAssistantServer.FindCurveAssistant(targetObject: raw)).Map(assistant => (Raw: raw, Assistant: assistant)),
+            false => Option<(object Raw, ICurveAssistant Assistant)>.None,
+        };
+    private static Option<(object Raw, ISurfaceAssistant Assistant)> SurfaceAssistant(IDataAccess access, int slot) =>
+        access.GetItem(index: slot, value: out object raw) switch {
+            true => Optional(TypeAssistantServer.FindSurfaceAssistant(targetObject: raw)).Map(assistant => (Raw: raw, Assistant: assistant)),
+            false => Option<(object Raw, ISurfaceAssistant Assistant)>.None,
+        };
     private sealed class Progress(IDataAccess access) : IProgress<double> {
         public void Report(double value) =>
             access.SetProgress(percentage: (int)Rhino.RhinoMath.Clamp(value: value switch {
