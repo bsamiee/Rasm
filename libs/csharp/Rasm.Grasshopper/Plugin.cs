@@ -1,7 +1,9 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using Grasshopper2.Framework;
+using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.UI;
+using GhPlugin = Grasshopper2.Framework.Plugin;
 namespace Grasshopper;
 
 // --- [SERVICES] --------------------------------------------------------------------------------
@@ -11,22 +13,26 @@ namespace Grasshopper;
 /// display name; the calling assembly (resolved via <see cref="Assembly.GetCallingAssembly"/>,
 /// pinned with <see cref="MethodImplOptions.NoInlining"/> to defeat JIT inlining) supplies the
 /// title/description/version metadata at base construction. Author/Copyright at runtime read
-/// from <see cref="Plugin.Assembly"/>, which Grasshopper2 populates after construction.
-/// Subclasses bind <see cref="Plugin.Icon"/> in their own constructor.
+/// from <see cref="GhPlugin.Assembly"/>, which Grasshopper2 populates after construction.
+/// Subclasses bind <see cref="GhPlugin.Icon"/> in their own constructor.
 /// </summary>
-public abstract class PluginBase : Plugin {
+public abstract class Plugin : GhPlugin {
     private readonly string fallbackName;
 
-#pragma warning disable IDE0290 // primary constructor cannot carry MethodImpl(NoInlining)
+    [SuppressMessage(category: "Style", checkId: "IDE0290:Use primary constructor", Justification = "MethodImpl(NoInlining) cannot decorate primary constructor parameters.")]
+    [BoundaryImperativeExemption(
+        ruleId: "IDE0290",
+        reason: BoundaryImperativeReason.ProtocolRequired,
+        ticket: "RASM-PLUGIN-CTOR",
+        expiresOnUtc: "2027-12-31T00:00:00Z")]
     [MethodImpl(MethodImplOptions.NoInlining)]
-    protected PluginBase(Guid id, string fallbackName) : base(
+    protected Plugin(Guid id, string fallbackName) : base(
         id: id,
         nomen: new Nomen(
             Assembly.GetCallingAssembly().GetCustomAttribute<AssemblyTitleAttribute>()?.Title ?? fallbackName,
             Assembly.GetCallingAssembly().GetCustomAttribute<AssemblyDescriptionAttribute>()?.Description ?? string.Empty),
         version: Assembly.GetCallingAssembly().GetName().Version) =>
         this.fallbackName = fallbackName;
-#pragma warning restore IDE0290
     public override string Author =>
         Assembly.GetCustomAttribute<AssemblyCompanyAttribute>()?.Company ?? fallbackName;
     public override string Copyright =>

@@ -29,7 +29,7 @@ public static class BoundaryImperativeReasonFacts {
 
 // --- [ATTRIBUTES] ------------------------------------------------------------
 
-[AttributeUsage(validOn: AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Method | AttributeTargets.Property, AllowMultiple = true, Inherited = false)]
+[AttributeUsage(validOn: AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Method | AttributeTargets.Constructor | AttributeTargets.Property, AllowMultiple = true, Inherited = false)]
 public sealed class BoundaryImperativeExemptionAttribute(string ruleId, BoundaryImperativeReason reason, string ticket, string expiresOnUtc) : Attribute {
     public string RuleId { get; } = ruleId;
     public BoundaryImperativeReason Reason { get; } = reason;

@@ -1,14 +1,16 @@
+using Analysis;
 using Core.Domain;
 using Grasshopper;
-using Grasshopper2.Parameters;
 using Grasshopper2.UI;
 using GrasshopperIO;
 using LanguageExt;
+using Rhino.Geometry;
 using static LanguageExt.Prelude;
+using Query = Analysis.Query;
 
 namespace Radyab.Components;
 
-// --- [COMPONENT] -------------------------------------------------------------------------------
+// --- [EXPORTS] ----------------------------------------------------------------------------------
 
 [IoId("F51A09A8-A5A5-467A-ADBA-C950511A0020")]
 [Nomen(
@@ -16,19 +18,16 @@ namespace Radyab.Components;
     info: "All faces, top/bottom by world-Z centroid (ties returned), an index-clamped face, and the UV frame on the indexed face. Accepts Brep, BrepFace, Surface, SubD; rejects Mesh.",
     category: "Radyab",
     section: "Extraction")]
-public sealed class ExtractSurfaces : AnalysisComponent<RhinoGeometry> {
-    protected override Seq<IBridgeOutput<RhinoGeometry>> Outputs { get; } =
-        toSeq(SurfaceAspect.Items.Select((SurfaceAspect aspect) => aspect.ToBridgeOutput()));
+public sealed class ExtractSurfaces : Component<RhinoGeometry> {
+    protected override Seq<IPort> Auxiliaries { get; } = Seq<IPort>(Port.Index());
 
-    protected override Option<IndexInputSpec> IndexInput =>
-        Some(new IndexInputSpec(
-            Name: "Index",
-            Code: "I",
-            Description: "Zero-based selector; clamped to the available range.",
-            Default: 0,
-            Requirement: Requirement.MayBeMissing));
+    protected override Seq<IOutput<RhinoGeometry>> Slots { get; } = Seq<IOutput<RhinoGeometry>>(
+        Output.Of<RhinoGeometry, Brep>(name: "All Surfaces", code: "AS", info: "Every face as single-face Brep; preserves trims; SubD via SubDToBrepOptions.Default.", query: Query.Faces<object, Brep>(aspect: Faces.All)),
+        Output.Of<RhinoGeometry, Brep>(name: "Top Surface", code: "TS", info: "Face(s) with maximum world-Z centroid; ties within tolerance.", query: Query.Faces<object, Brep>(aspect: Faces.Top)),
+        Output.Of<RhinoGeometry, Brep>(name: "Bottom Surface", code: "BS", info: "Face(s) with minimum world-Z centroid; ties within tolerance.", query: Query.Faces<object, Brep>(aspect: Faces.Bottom)),
+        Output.Indexed<RhinoGeometry, Brep>(name: "Indexed Surface", code: "IS", info: "Face at Index input; clamped to [0, count-1]. Empty when zero faces.", build: static (Option<int> hint) => Query.Faces<object, Brep>(aspect: Faces.At(index: hint.Match(Some: static (int v) => (int?)v, None: static () => (int?)null)))),
+        Output.Indexed<RhinoGeometry, Plane>(name: "UV Frame", code: "UV", info: "Orthonormal frame at indexed face centroid; X=du, Z=outward, Y completes RH basis.", build: static (Option<int> hint) => Query.Faces<object, Plane>(aspect: Faces.At(index: hint.Match(Some: static (int v) => (int?)v, None: static () => (int?)null)))));
 
     public ExtractSurfaces() : base(nomen: NomenOf<ExtractSurfaces>()) { }
-
     public ExtractSurfaces(IReader reader) : base(reader: reader) { }
 }

@@ -151,6 +151,7 @@ dotnet_diagnostic.IDE0055.severity = error                                    # 
 dotnet_diagnostic.MA0048.severity = none                                      # Allow intentionally consolidated domain/type modules.
 dotnet_diagnostic.MA0051.severity = none                                      # Allow dense expression-owned dispatch; repo standards police real bloat.
 dotnet_diagnostic.CA1034.severity = none                                      # Nested types are intentional for Thinktecture regular unions.
+dotnet_diagnostic.CA1720.severity = none                                      # Param SmartEnum variants are intentionally type-named (Integer, Boolean, etc.) — they map CLR types to GH adders.
 dotnet_diagnostic.MA0182.severity = none                                      # Cross-assembly internal usage via [InternalsVisibleTo] is opaque to single-project analysis.
 dotnet_diagnostic.TTRESG1000.severity = none                                  # Thinktecture source-generator self-warning on its own internal IMetadataOwner; not actionable in user code.
 dotnet_diagnostic.CA1002.severity = error                                     # Avoid exposing mutable List<T> in public APIs.
@@ -288,6 +289,7 @@ dotnet_diagnostic.VSTHRD111.severity = error                                  # 
 # --- [MEZIANTOU_ANALYZERS] ---------------------------------------------------
 dotnet_diagnostic.MA0004.severity = none                                      # Covered by VSTHRD111 to avoid duplicate ConfigureAwait diagnostics.
 dotnet_diagnostic.MA0038.severity = none                                      # Deprecated; covered by CA1822 to avoid duplicate static-method diagnostics.
+dotnet_diagnostic.MA0176.severity = none                                      # Plugin GUIDs are one-shot identity literals; ModuleInitializer pattern is overkill for the use case.
 dotnet_diagnostic.MA0032.severity = error                                     # Require using overloads with CancellationToken when available.
 dotnet_diagnostic.MA0035.severity = error                                     # Ban dangerous threading APIs.
 dotnet_diagnostic.MA0040.severity = none                                      # Covered by CA2016 to avoid duplicate CancellationToken-forwarding diagnostics.

@@ -3,7 +3,7 @@
         <AssemblyName>Rasm.Grasshopper</AssemblyName>
         <RootNamespace>Grasshopper</RootNamespace>
         <Title>Rasm.Grasshopper</Title>
-        <Description>GH2 component infrastructure for Rasm: typed parameter bindings (GeometryParameterKind), bridge plumbing, and analysis-component base.</Description>
+        <Description>GH2 polymorphic component infrastructure for Rasm: Component&lt;TIn&gt; base, IOutput&lt;TIn&gt;/Output catalog, IPort/Port descriptors, Param SmartEnum (GH2 InputAdder/OutputAdder surface), Bridge IDataAccess extensions, Plugin manifest base.</Description>
         <IsGrasshopperAwareProject>true</IsGrasshopperAwareProject>
         <SkipBoundaryExemptionContracts>true</SkipBoundaryExemptionContracts>
     </PropertyGroup>
