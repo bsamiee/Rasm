@@ -15,7 +15,7 @@ public static partial class Query {
     private delegate bool CurvePointIntersection<TLeft, TRight>(
         TLeft left,
         TRight right,
-        GeometryContext context,
+        Context context,
         out Curve[] curves,
         out Point3d[] points);
     public static Query<(TA A, TB B), TOut> Intersect<TA, TB, TOut>() where TA : notnull where TB : notnull =>
@@ -25,36 +25,36 @@ public static partial class Query {
             dispatch: static (Unit _) => (typeof(TA), typeof(TB), typeof(TOut)) switch {
                 (Type a, Type b, Type output) when typeof(Curve).IsAssignableFrom(c: a) && typeof(Curve).IsAssignableFrom(c: b) && Events(output: output) =>
                     PairEvents<TA, TB, Curve, Curve, TOut>(
-                        a: GeometryRequirement.Basic,
-                        b: GeometryRequirement.Basic,
-                        intersect: static (Curve left, Curve right, GeometryContext context) => Intersection.CurveCurve(
+                        a: Requirement.Basic,
+                        b: Requirement.Basic,
+                        intersect: static (Curve left, Curve right, Context context) => Intersection.CurveCurve(
                             curveA: left,
                             curveB: right,
                             tolerance: context.Absolute.Value,
                             overlapTolerance: context.Absolute.Value)),
                 (Type a, Type b, Type output) when typeof(Curve).IsAssignableFrom(c: a) && b == typeof(Plane) && Events(output: output) =>
                     PairEvents<TA, TB, Curve, Plane, TOut>(
-                        a: GeometryRequirement.Basic,
-                        b: GeometryRequirement.None,
-                        intersect: static (Curve left, Plane right, GeometryContext context) => Intersection.CurvePlane(
+                        a: Requirement.Basic,
+                        b: Requirement.None,
+                        intersect: static (Curve left, Plane right, Context context) => Intersection.CurvePlane(
                             curve: left,
                             plane: right,
                             tolerance: context.Absolute.Value)),
                 (Type a, Type b, Type output) when typeof(Curve).IsAssignableFrom(c: a) && b == typeof(Line) && Events(output: output) =>
                     PairEvents<TA, TB, Curve, Line, TOut>(
-                        a: GeometryRequirement.Basic,
-                        b: GeometryRequirement.None,
-                        intersect: static (Curve left, Line right, GeometryContext context) => Intersection.CurveLine(
+                        a: Requirement.Basic,
+                        b: Requirement.None,
+                        intersect: static (Curve left, Line right, Context context) => Intersection.CurveLine(
                             curve: left,
                             line: right,
                             tolerance: context.Absolute.Value,
                             overlapTolerance: context.Absolute.Value)),
                 (Type a, Type b, Type output) when typeof(Curve).IsAssignableFrom(c: a) && typeof(Brep).IsAssignableFrom(c: b) && Curves(output: output) =>
                     PairCurvePoint<TA, TB, Curve, Brep, TOut>(
-                        a: GeometryRequirement.Basic,
-                        b: GeometryRequirement.Basic,
+                        a: Requirement.Basic,
+                        b: Requirement.Basic,
                         acceptPartialResults: true,
-                        intersect: static (Curve left, Brep right, GeometryContext context, out Curve[] curves, out Point3d[] points) =>
+                        intersect: static (Curve left, Brep right, Context context, out Curve[] curves, out Point3d[] points) =>
                             Intersection.CurveBrep(
                                 curve: left,
                                 brep: right,
@@ -63,10 +63,10 @@ public static partial class Query {
                                 intersectionPoints: out points)),
                 (Type a, Type b, Type output) when typeof(Curve).IsAssignableFrom(c: a) && typeof(BrepFace).IsAssignableFrom(c: b) && Curves(output: output) =>
                     PairCurvePoint<TA, TB, Curve, BrepFace, TOut>(
-                        a: GeometryRequirement.Basic,
-                        b: GeometryRequirement.SurfaceEvaluation,
+                        a: Requirement.Basic,
+                        b: Requirement.SurfaceEvaluation,
                         acceptPartialResults: false,
-                        intersect: static (Curve left, BrepFace right, GeometryContext context, out Curve[] curves, out Point3d[] points) =>
+                        intersect: static (Curve left, BrepFace right, Context context, out Curve[] curves, out Point3d[] points) =>
                             Intersection.CurveBrepFace(
                                 curve: left,
                                 face: right,
@@ -75,19 +75,19 @@ public static partial class Query {
                                 intersectionPoints: out points)),
                 (Type a, Type b, Type output) when typeof(Curve).IsAssignableFrom(c: a) && typeof(Surface).IsAssignableFrom(c: b) && Events(output: output) =>
                     PairEvents<TA, TB, Curve, Surface, TOut>(
-                        a: GeometryRequirement.Basic,
-                        b: GeometryRequirement.SurfaceEvaluation,
-                        intersect: static (Curve left, Surface right, GeometryContext context) => Intersection.CurveSurface(
+                        a: Requirement.Basic,
+                        b: Requirement.SurfaceEvaluation,
+                        intersect: static (Curve left, Surface right, Context context) => Intersection.CurveSurface(
                             curve: left,
                             surface: right,
                             tolerance: context.Absolute.Value,
                             overlapTolerance: context.Absolute.Value)),
                 (Type a, Type b, Type output) when typeof(Surface).IsAssignableFrom(c: a) && typeof(Surface).IsAssignableFrom(c: b) && Curves(output: output) =>
                     PairCurvePoint<TA, TB, Surface, Surface, TOut>(
-                        a: GeometryRequirement.SurfaceEvaluation,
-                        b: GeometryRequirement.SurfaceEvaluation,
+                        a: Requirement.SurfaceEvaluation,
+                        b: Requirement.SurfaceEvaluation,
                         acceptPartialResults: false,
-                        intersect: static (Surface left, Surface right, GeometryContext context, out Curve[] curves, out Point3d[] points) =>
+                        intersect: static (Surface left, Surface right, Context context, out Curve[] curves, out Point3d[] points) =>
                             Intersection.SurfaceSurface(
                                 surfaceA: left,
                                 surfaceB: right,
@@ -96,10 +96,10 @@ public static partial class Query {
                                 intersectionPoints: out points)),
                 (Type a, Type b, Type output) when typeof(Brep).IsAssignableFrom(c: a) && b == typeof(Plane) && Curves(output: output) =>
                     PairCurvePoint<TA, TB, Brep, Plane, TOut>(
-                        a: GeometryRequirement.Basic,
-                        b: GeometryRequirement.None,
+                        a: Requirement.Basic,
+                        b: Requirement.None,
                         acceptPartialResults: false,
-                        intersect: static (Brep left, Plane right, GeometryContext context, out Curve[] curves, out Point3d[] points) =>
+                        intersect: static (Brep left, Plane right, Context context, out Curve[] curves, out Point3d[] points) =>
                             Intersection.BrepPlane(
                                 brep: left,
                                 plane: right,
@@ -108,10 +108,10 @@ public static partial class Query {
                                 intersectionPoints: out points)),
                 (Type a, Type b, Type output) when typeof(Brep).IsAssignableFrom(c: a) && typeof(Surface).IsAssignableFrom(c: b) && Curves(output: output) =>
                     PairCurvePoint<TA, TB, Brep, Surface, TOut>(
-                        a: GeometryRequirement.Basic,
-                        b: GeometryRequirement.SurfaceEvaluation,
+                        a: Requirement.Basic,
+                        b: Requirement.SurfaceEvaluation,
                         acceptPartialResults: false,
-                        intersect: static (Brep left, Surface right, GeometryContext context, out Curve[] curves, out Point3d[] points) =>
+                        intersect: static (Brep left, Surface right, Context context, out Curve[] curves, out Point3d[] points) =>
                             Intersection.BrepSurface(
                                 brep: left,
                                 surface: right,
@@ -121,10 +121,10 @@ public static partial class Query {
                                 intersectionPoints: out points)),
                 (Type a, Type b, Type output) when typeof(Brep).IsAssignableFrom(c: a) && typeof(Brep).IsAssignableFrom(c: b) && Curves(output: output) =>
                     PairCurvePoint<TA, TB, Brep, Brep, TOut>(
-                        a: GeometryRequirement.Basic,
-                        b: GeometryRequirement.Basic,
+                        a: Requirement.Basic,
+                        b: Requirement.Basic,
                         acceptPartialResults: false,
-                        intersect: static (Brep left, Brep right, GeometryContext context, out Curve[] curves, out Point3d[] points) =>
+                        intersect: static (Brep left, Brep right, Context context, out Curve[] curves, out Point3d[] points) =>
                             Intersection.BrepBrep(
                                 brepA: left,
                                 brepB: right,
@@ -134,9 +134,9 @@ public static partial class Query {
                                 intersectionPoints: out points)),
                 (Type a, Type b, Type output) when typeof(Mesh).IsAssignableFrom(c: a) && b == typeof(Plane) && (output == typeof(Polyline) || output == typeof(IntersectionKind)) =>
                     PairPolylines<TA, TB, Mesh, Plane, TOut>(
-                        a: GeometryRequirement.MeshCheck,
-                        b: GeometryRequirement.None,
-                        intersect: static (Mesh left, Plane right, GeometryContext context) => {
+                        a: Requirement.MeshCheck,
+                        b: Requirement.None,
+                        intersect: static (Mesh left, Plane right, Context context) => {
                             using MeshIntersectionCache cache = new();
                             return Intersection.MeshPlane(
                                 mesh: left,
@@ -147,18 +147,18 @@ public static partial class Query {
                 (Type a, Type b, Type output) when typeof(Mesh).IsAssignableFrom(c: a) && b == typeof(Line) && (output == typeof(Point3d) || output == typeof(IntersectionKind)) =>
                     Pair<TA, TB, Mesh, Line, TOut>(
                         key: IntersectKey,
-                        a: GeometryRequirement.MeshCheck,
-                        b: GeometryRequirement.None,
-                        output: static (Mesh left, Line right, GeometryContext _) => IntersectKey.IntersectionOutput<TOut>(
+                        a: Requirement.MeshCheck,
+                        b: Requirement.None,
+                        output: static (Mesh left, Line right, Context _) => IntersectKey.IntersectionOutput<TOut>(
                             points: Intersection.MeshLineSorted(
                                 mesh: left,
                                 line: right,
                                 faceIds: out int[] _))),
                 (Type a, Type b, Type output) when typeof(Mesh).IsAssignableFrom(c: a) && typeof(Mesh).IsAssignableFrom(c: b) && (output == typeof(Polyline) || output == typeof(IntersectionKind)) =>
                     PairPolylines<TA, TB, Mesh, Mesh, TOut>(
-                        a: GeometryRequirement.MeshCheck,
-                        b: GeometryRequirement.MeshCheck,
-                        intersect: static (Mesh left, Mesh right, GeometryContext context) => {
+                        a: Requirement.MeshCheck,
+                        b: Requirement.MeshCheck,
+                        intersect: static (Mesh left, Mesh right, Context context) => {
                             using TextLog textLog = new();
                             return Intersection.MeshMesh(
                                 meshes: [left, right],
@@ -182,12 +182,12 @@ public static partial class Query {
             (Type a, Type b, Type output) when typeof(Curve).IsAssignableFrom(c: a) && typeof(Curve).IsAssignableFrom(c: b) && output == typeof(CurveDeviation) =>
                 Pair<TA, TB, Curve, Curve, TOut>(
                     key: DeviationKey,
-                    a: GeometryRequirement.CurveLength,
-                    b: GeometryRequirement.CurveLength,
-                    output: static (Curve left, Curve right, GeometryContext context) => CurveDeviationValue<TOut>(left: left, right: right, context: context)),
+                    a: Requirement.CurveLength,
+                    b: Requirement.CurveLength,
+                    output: static (Curve left, Curve right, Context context) => CurveDeviationValue<TOut>(left: left, right: right, context: context)),
             _ => DeviationKey.Unsupported<(TA A, TB B), TOut>(),
         };
-    private static Fin<Seq<TOut>> CurveDeviationValue<TOut>(Curve left, Curve right, GeometryContext context) =>
+    private static Fin<Seq<TOut>> CurveDeviationValue<TOut>(Curve left, Curve right, Context context) =>
         Curve.GetDistancesBetweenCurves(
                 curveA: left,
                 curveB: right,
@@ -223,18 +223,18 @@ public static partial class Query {
                     false => Fin.Fail<Seq<TOut>>(DeviationKey.InvalidResult()),
                 };
     private static Query<(TA A, TB B), TOut> Pair<TA, TB, TLeft, TRight, TOut>(
-        OperationKey key,
-        GeometryRequirement a,
-        GeometryRequirement b,
-        Func<TLeft, TRight, GeometryContext, Fin<Seq<TOut>>> output) where TA : notnull where TB : notnull where TLeft : notnull where TRight : notnull =>
+        Op key,
+        Requirement a,
+        Requirement b,
+        Func<TLeft, TRight, Context, Fin<Seq<TOut>>> output) where TA : notnull where TB : notnull where TLeft : notnull where TRight : notnull =>
         Query<(TA A, TB B), TOut>.Build(
             key: key,
             requiresContext: true,
             state: (Key: key, A: a, B: b, Output: output),
-            evaluator: static ((OperationKey Key, GeometryRequirement A, GeometryRequirement B, Func<TLeft, TRight, GeometryContext, Fin<Seq<TOut>>> Output) state, (TA A, TB B) geometry) =>
+            evaluator: static ((Op Key, Requirement A, Requirement B, Func<TLeft, TRight, Context, Fin<Seq<TOut>>> Output) state, (TA A, TB B) geometry) =>
                 from ctx in Analyze.Asks
                 from validated in ctx.Validate(
-                        shape: new GeometryShape<TA, TB>.Pair(
+                        shape: new Pair<TA, TB>.Both(
                             A: geometry.A,
                             B: geometry.B,
                             RequirementA: state.A,
@@ -247,9 +247,9 @@ public static partial class Query {
                     .ToEff()
                 select result);
     private static Fin<Seq<TOut>> PairOutputValue<TA, TB, TLeft, TRight, TOut>(
-        (OperationKey Key, GeometryRequirement A, GeometryRequirement B, Func<TLeft, TRight, GeometryContext, Fin<Seq<TOut>>> Output) state,
+        (Op Key, Requirement A, Requirement B, Func<TLeft, TRight, Context, Fin<Seq<TOut>>> Output) state,
         (TA A, TB B) geometry,
-        GeometryContext context) where TA : notnull where TB : notnull where TLeft : notnull where TRight : notnull =>
+        Context context) where TA : notnull where TB : notnull where TLeft : notnull where TRight : notnull =>
         (geometry.A, geometry.B) switch {
             (TLeft left, TRight right) => state.Output(
                 arg1: left,
@@ -260,14 +260,14 @@ public static partial class Query {
                 outputType: typeof(TOut))),
         };
     private static Query<(TA A, TB B), TOut> PairEvents<TA, TB, TLeft, TRight, TOut>(
-        GeometryRequirement a,
-        GeometryRequirement b,
-        Func<TLeft, TRight, GeometryContext, CurveIntersections?> intersect) where TA : notnull where TB : notnull where TLeft : notnull where TRight : notnull =>
+        Requirement a,
+        Requirement b,
+        Func<TLeft, TRight, Context, CurveIntersections?> intersect) where TA : notnull where TB : notnull where TLeft : notnull where TRight : notnull =>
         Pair<TA, TB, TLeft, TRight, TOut>(
             key: IntersectKey,
             a: a,
             b: b,
-            output: (TLeft left, TRight right, GeometryContext context) => {
+            output: (TLeft left, TRight right, Context context) => {
                 using CurveIntersections? intersections = intersect(
                     arg1: left,
                     arg2: right,
@@ -275,15 +275,15 @@ public static partial class Query {
                 return IntersectKey.IntersectionOutput<TOut>(intersections: intersections);
             });
     private static Query<(TA A, TB B), TOut> PairCurvePoint<TA, TB, TLeft, TRight, TOut>(
-        GeometryRequirement a,
-        GeometryRequirement b,
+        Requirement a,
+        Requirement b,
         bool acceptPartialResults,
         CurvePointIntersection<TLeft, TRight> intersect) where TA : notnull where TB : notnull where TLeft : notnull where TRight : notnull =>
         Pair<TA, TB, TLeft, TRight, TOut>(
             key: IntersectKey,
             a: a,
             b: b,
-            output: (TLeft left, TRight right, GeometryContext context) => intersect(
+            output: (TLeft left, TRight right, Context context) => intersect(
                 left: left,
                 right: right,
                 context: context,
@@ -299,14 +299,14 @@ public static partial class Query {
                     false => Fin.Fail<Seq<TOut>>(IntersectKey.InvalidResult()),
                 });
     private static Query<(TA A, TB B), TOut> PairPolylines<TA, TB, TLeft, TRight, TOut>(
-        GeometryRequirement a,
-        GeometryRequirement b,
-        Func<TLeft, TRight, GeometryContext, IEnumerable<Polyline>?> intersect) where TA : notnull where TB : notnull where TLeft : notnull where TRight : notnull =>
+        Requirement a,
+        Requirement b,
+        Func<TLeft, TRight, Context, IEnumerable<Polyline>?> intersect) where TA : notnull where TB : notnull where TLeft : notnull where TRight : notnull =>
         Pair<TA, TB, TLeft, TRight, TOut>(
             key: IntersectKey,
             a: a,
             b: b,
-            output: (TLeft left, TRight right, GeometryContext context) => IntersectKey.IntersectionOutput<TOut>(
+            output: (TLeft left, TRight right, Context context) => IntersectKey.IntersectionOutput<TOut>(
                 polylines: intersect(
                     arg1: left,
                     arg2: right,

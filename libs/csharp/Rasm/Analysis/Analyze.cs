@@ -9,36 +9,36 @@ namespace Analysis;
 // --- [SURFACE] ---------------------------------------------------------------------------------
 
 public static class Analyze {
-    public static readonly Eff<GeometryContext, GeometryContext> Asks =
-        Eff.runtime<GeometryContext>().As();
+    public static readonly Eff<Context, Context> Asks =
+        Eff.runtime<Context>().As();
     public static Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(
         Query<TGeometry, TOut>? query,
         params ReadOnlySpan<TGeometry> input) where TGeometry : notnull =>
         Run(
             query: query,
-            runtime: Option<GeometryContext>.None,
+            runtime: Option<Context>.None,
             input: input);
     public static Scope From(RhinoDoc? doc) =>
-        new(context: GeometryContext.FromDocument(doc: doc).ToFin());
+        new(context: Context.FromDocument(doc: doc).ToFin());
     public static Scope In(UnitSystem units) =>
-        new(context: GeometryContext.CreateDefault(units: units).ToFin());
+        new(context: Context.CreateDefault(units: units).ToFin());
     public static Scope In(
         double absolute,
         double relative,
         double angle,
         UnitSystem units) =>
         new(
-            context: GeometryContext.FromKnownUnits(
+            context: Context.FromKnownUnits(
                     absoluteTolerance: absolute,
                     relativeTolerance: relative,
                     angleToleranceRadians: angle,
                     units: units)
                 .ToFin());
-    public static Scope In(GeometryContext context) =>
+    public static Scope In(Context context) =>
         new(context: Optional(context).ToFin(Query.ScopeKey.MissingContext()));
     public sealed record Scope {
-        public Fin<GeometryContext> Context { get; }
-        internal Scope(Fin<GeometryContext> context) =>
+        public Fin<Context> Context { get; }
+        internal Scope(Fin<Context> context) =>
             Context = context;
         public Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(
             Query<TGeometry, TOut>? query,
@@ -50,18 +50,18 @@ public static class Analyze {
     }
     private static Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(
         Query<TGeometry, TOut>? query,
-        Option<GeometryContext> runtime,
+        Option<Context> runtime,
         ReadOnlySpan<TGeometry> input) where TGeometry : notnull =>
         query switch {
             Query<TGeometry, TOut> candidate => new Program<TGeometry, TOut>(
                     query: candidate,
                     runtime: runtime)
                 .Execute(input: input),
-            _ => Fin.Fail<Seq<TOut>>(OperationFault.MissingOperation()).ToValidation(),
+            _ => Fin.Fail<Seq<TOut>>(OpFault.MissingOperation()).ToValidation(),
         };
     private sealed class Program<TGeometry, TOut>(
         Query<TGeometry, TOut> query,
-        Option<GeometryContext> runtime) where TGeometry : notnull {
+        Option<Context> runtime) where TGeometry : notnull {
         internal Validation<Error, Seq<TOut>> Execute(
             params ReadOnlySpan<TGeometry> input) =>
             input.ToArray()
@@ -75,7 +75,7 @@ public static class Analyze {
             Optional(input)
                 .ToFin(ValidationFault.MissingGeometry())
                 .Bind((TGeometry geometry) => runtime.Match(
-                    Some: (GeometryContext context) => query.Apply(geometry: geometry).Run(context),
+                    Some: (Context context) => query.Apply(geometry: geometry).Run(context),
                     None: () => Fin.Fail<Seq<TOut>>(query.Key.MissingContext())));
     }
 }

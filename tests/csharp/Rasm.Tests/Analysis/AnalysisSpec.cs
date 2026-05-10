@@ -714,11 +714,11 @@ public sealed class AnalysisSpec {
 
     [Fact]
     public void RejectsSpatialInputsBeforeNativeRuntime() {
-        Validation<Error, SpatialIndex> invalidPoint = SpatialIndex.Points(points: [Point3d.Unset]);
-        Validation<Error, SpatialIndex> invalidBounds = SpatialIndex.Bounds<GeometryBase>(items: [null!]);
-        Validation<Error, SpatialIndex> invalidMesh = SpatialIndex.MeshFaces(mesh: null!);
-        GeometryContext context = (GeometryContext)RuntimeHelpers.GetUninitializedObject(type: typeof(GeometryContext));
-        Fin<Seq<SpatialPair>> invalidNearest = SpatialIndex.KNearest(
+        Validation<Error, Tree> invalidPoint = Tree.Points(points: [Point3d.Unset]);
+        Validation<Error, Tree> invalidBounds = Tree.Bounds<GeometryBase>(items: [null!]);
+        Validation<Error, Tree> invalidMesh = Tree.MeshFaces(mesh: null!);
+        Context context = (Context)RuntimeHelpers.GetUninitializedObject(type: typeof(Context));
+        Fin<Seq<Couple>> invalidNearest = Tree.KNearest(
                 points: [Point3d.Origin],
                 needles: [Point3d.Origin],
                 count: 0)
@@ -732,7 +732,7 @@ public sealed class AnalysisSpec {
 
     [Fact]
     public void RejectsNullGeometryInsideConformanceRail() {
-        GeometryContext context = (GeometryContext)RuntimeHelpers.GetUninitializedObject(type: typeof(GeometryContext));
+        Context context = (Context)RuntimeHelpers.GetUninitializedObject(type: typeof(Context));
         Validation<Error, Seq<double>> result = Analyze.In(context: context)
             .Run(
                 query: Query.Conformance<Curve, Line, double>(aspect: Conformance.Distance(count: 3)),
@@ -774,7 +774,7 @@ public sealed class AnalysisSpec {
 
     [Fact]
     public void RejectsNullGeometryInsideDeviationRail() {
-        GeometryContext context = (GeometryContext)RuntimeHelpers.GetUninitializedObject(type: typeof(GeometryContext));
+        Context context = (Context)RuntimeHelpers.GetUninitializedObject(type: typeof(Context));
         Validation<Error, Seq<CurveDeviation>> result = Analyze.In(context: context)
             .Run(
                 query: Query.Deviation<Curve, Curve, CurveDeviation>(),

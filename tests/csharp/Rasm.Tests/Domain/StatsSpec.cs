@@ -14,7 +14,7 @@ public sealed class StatsSpec {
     public void StatsOfMatchesNaiveTwoPassWithinTolerance() {
         double[] sample = [.. Enumerable.Range(start: 1, count: 100).Select(static (int i) => (double)i)];
         Seq<double> values = toSeq(sample);
-        OperationKey key = new(name: "stats-numerical-stability");
+        Op key = new(name: "stats-numerical-stability");
 
         Fin<Stats> result = Stats.From(values: values, key: key);
 
@@ -31,9 +31,9 @@ public sealed class StatsSpec {
 
     [Fact]
     public void StatsOfRejectsEmpty() =>
-        Assert.True(condition: Stats.From(values: Seq<double>(), key: new OperationKey(name: "stats-empty")).IsFail);
+        Assert.True(condition: Stats.From(values: Seq<double>(), key: new Op(name: "stats-empty")).IsFail);
 
     [Fact]
     public void StatsOfRejectsNonFinite() =>
-        Assert.True(condition: Stats.From(values: toSeq<double>([1.0, 2.0, double.NaN]), key: new OperationKey(name: "stats-non-finite")).IsFail);
+        Assert.True(condition: Stats.From(values: toSeq<double>([1.0, 2.0, double.NaN]), key: new Op(name: "stats-non-finite")).IsFail);
 }

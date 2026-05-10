@@ -8,8 +8,8 @@ namespace Core.Domain;
 
 // --- [MODELS] ----------------------------------------------------------------------------------
 
-public sealed record GeometryContext {
-    private GeometryContext(
+public sealed record Context {
+    private Context(
         Tolerance absolute,
         Tolerance relative,
         Tolerance angle,
@@ -27,7 +27,7 @@ public sealed record GeometryContext {
         Absolute.Value * Intersection.MeshIntersectionsTolerancesCoefficient;
     public UnitSystem Units =>
         ModelUnits.Units;
-    internal static Validation<Error, GeometryContext> Create(
+    internal static Validation<Error, Context> Create(
         double absoluteTolerance,
         double relativeTolerance,
         double angleToleranceRadians,
@@ -54,20 +54,20 @@ public sealed record GeometryContext {
                 Tolerance absolute,
                 Tolerance relative,
                 Tolerance angle) =>
-            new GeometryContext(
+            new Context(
                 absolute: absolute,
                 relative: relative,
                 angle: angle,
                 modelUnits: modelUnits))
         .As();
-    public static Validation<Error, GeometryContext> CreateDefault(UnitSystem units) =>
+    public static Validation<Error, Context> CreateDefault(UnitSystem units) =>
         Create(
             absoluteTolerance: 0.01,
             relativeTolerance: 0.0,
             angleToleranceRadians: RhinoMath.DefaultAngleTolerance,
             modelUnits: ModelUnitSystem.Create(units: units));
     [BoundaryAdapter]
-    public static Validation<Error, GeometryContext> FromDocument(RhinoDoc? doc) =>
+    public static Validation<Error, Context> FromDocument(RhinoDoc? doc) =>
         Optional(doc)
             .ToValidation(ContextFault.MissingDocument())
             .Bind(static (RhinoDoc candidate) =>
@@ -97,15 +97,15 @@ public sealed record GeometryContext {
                     }));
     internal Validation<Error, TGeometry> Validate<TGeometry>(
         TGeometry? geometry,
-        GeometryRequirement? requirement = null) where TGeometry : GeometryBase =>
-        GeometryValidation.Validate(
+        Requirement? requirement = null) where TGeometry : GeometryBase =>
+        Check.Validate(
             context: this,
             geometry: geometry,
-            requirement: requirement ?? GeometryRequirement.Strict);
+            requirement: requirement ?? Requirement.Strict);
     internal Validation<Error, (TA A, TB B)> Validate<TA, TB>(
-        GeometryShape<TA, TB> shape) where TA : notnull where TB : notnull =>
-        GeometryValidation.Validate(context: this, shape: shape);
-    internal static Validation<Error, GeometryContext> FromKnownUnits(
+        Pair<TA, TB> shape) where TA : notnull where TB : notnull =>
+        Check.Validate(context: this, shape: shape);
+    internal static Validation<Error, Context> FromKnownUnits(
         double absoluteTolerance,
         double relativeTolerance,
         double angleToleranceRadians,

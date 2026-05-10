@@ -5,7 +5,7 @@ namespace Grasshopper;
 
 // --- [TYPES] -----------------------------------------------------------------------------------
 
-public interface IOutput<TIn> where TIn : RhinoGeometry {
+public interface IOutput<TIn> where TIn : Shape {
     public string Name { get; }
     public string Code { get; }
     public string Info { get; }
@@ -20,7 +20,7 @@ public readonly record struct Output<TIn, TOut>(
     string Name,
     string Code,
     string Info,
-    Func<Option<int>, Query<object, TOut>> Build) : IOutput<TIn> where TIn : RhinoGeometry {
+    Func<Option<int>, Query<object, TOut>> Build) : IOutput<TIn> where TIn : Shape {
     public Output(string name, string code, string info, Query<object, TOut> query)
         : this(Name: name, Code: code, Info: info, Build: _ => query) { }
 
@@ -42,9 +42,9 @@ public readonly record struct Output<TIn, TOut>(
 
 public static class Output {
     public static Output<TIn, TOut> Of<TIn, TOut>(string name, string code, string info, Query<object, TOut> query)
-        where TIn : RhinoGeometry =>
+        where TIn : Shape =>
         new(name: name, code: code, info: info, query: query);
     public static Output<TIn, TOut> Indexed<TIn, TOut>(string name, string code, string info, Func<Option<int>, Query<object, TOut>> build)
-        where TIn : RhinoGeometry =>
+        where TIn : Shape =>
         new(Name: name, Code: code, Info: info, Build: build);
 }

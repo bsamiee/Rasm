@@ -22,7 +22,7 @@ internal readonly record struct Stats {
     internal double Mean { get; }
     internal double Variance { get; }
     internal double Rms { get; }
-    internal static Fin<Stats> From(Seq<double> values, OperationKey key) =>
+    internal static Fin<Stats> From(Seq<double> values, Op key) =>
         values.Fold(
             initialState: (Count: 0, Sum: 0.0, SumSquares: 0.0, Minimum: double.PositiveInfinity, Maximum: double.NegativeInfinity, AllFinite: true),
             f: static ((int Count, double Sum, double SumSquares, double Minimum, double Maximum, bool AllFinite) acc, double v) => (
@@ -47,7 +47,7 @@ internal readonly record struct Stats {
 // --- [OPERATIONS] ------------------------------------------------------------------------------
 
 internal static class FoldExtensions {
-    internal static Seq<TItem> MaxesBy<TItem>(
+    internal static Seq<TItem> Maxima<TItem>(
         this Seq<TItem> items,
         Func<TItem, double> projection,
         double tolerance) =>
@@ -61,7 +61,7 @@ internal static class FoldExtensions {
                         _ => acc,
                     })
             .Hits;
-    internal static Seq<TItem> MinesBy<TItem>(
+    internal static Seq<TItem> Minima<TItem>(
         this Seq<TItem> items,
         Func<TItem, double> projection,
         double tolerance) =>

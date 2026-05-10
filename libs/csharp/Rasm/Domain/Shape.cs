@@ -8,19 +8,19 @@ namespace Core.Domain;
 // --- [MODELS] ----------------------------------------------------------------------------------
 
 [Union]
-public partial record RhinoGeometry {
-    public sealed record Native(GeometryBase Geometry) : RhinoGeometry;
-    public sealed record Box(Rhino.Geometry.Box Value) : RhinoGeometry;
-    public sealed record BoundingBox(Rhino.Geometry.BoundingBox Value) : RhinoGeometry;
-    public sealed record Line(Rhino.Geometry.Line Value) : RhinoGeometry;
-    public sealed record Polyline(Rhino.Geometry.Polyline Value) : RhinoGeometry;
-    public sealed record Plane(Rhino.Geometry.Plane Value) : RhinoGeometry;
-    public sealed record Sphere(Rhino.Geometry.Sphere Value) : RhinoGeometry;
-    public sealed record Cylinder(Rhino.Geometry.Cylinder Value) : RhinoGeometry;
-    public sealed record Cone(Rhino.Geometry.Cone Value) : RhinoGeometry;
-    public sealed record Torus(Rhino.Geometry.Torus Value) : RhinoGeometry;
-    public sealed record Circle(Rhino.Geometry.Circle Value) : RhinoGeometry;
-    public sealed record Arc(Rhino.Geometry.Arc Value) : RhinoGeometry;
+public partial record Shape {
+    public sealed record Native(GeometryBase Geometry) : Shape;
+    public sealed record Box(Rhino.Geometry.Box Value) : Shape;
+    public sealed record BoundingBox(Rhino.Geometry.BoundingBox Value) : Shape;
+    public sealed record Line(Rhino.Geometry.Line Value) : Shape;
+    public sealed record Polyline(Rhino.Geometry.Polyline Value) : Shape;
+    public sealed record Plane(Rhino.Geometry.Plane Value) : Shape;
+    public sealed record Sphere(Rhino.Geometry.Sphere Value) : Shape;
+    public sealed record Cylinder(Rhino.Geometry.Cylinder Value) : Shape;
+    public sealed record Cone(Rhino.Geometry.Cone Value) : Shape;
+    public sealed record Torus(Rhino.Geometry.Torus Value) : Shape;
+    public sealed record Circle(Rhino.Geometry.Circle Value) : Shape;
+    public sealed record Arc(Rhino.Geometry.Arc Value) : Shape;
     public Type ClrType =>
         Switch<Type>(
             native: static (Native n) => n.Geometry.GetType(),
@@ -35,21 +35,21 @@ public partial record RhinoGeometry {
             torus: static (Torus _) => typeof(Rhino.Geometry.Torus),
             circle: static (Circle _) => typeof(Rhino.Geometry.Circle),
             arc: static (Arc _) => typeof(Rhino.Geometry.Arc));
-    internal Fin<RhinoGeometry> Validate(OperationKey key) =>
-        Switch<(RhinoGeometry Self, OperationKey Key), Fin<RhinoGeometry>>(
+    internal Fin<Shape> Validate(Op key) =>
+        Switch<(Shape Self, Op Key), Fin<Shape>>(
             state: (Self: this, Key: key),
-            native: static ((RhinoGeometry Self, OperationKey Key) s, Native n) => n.Geometry.IsValid ? Fin.Succ(s.Self) : Fin.Fail<RhinoGeometry>(s.Key.InvalidInput()),
-            box: static ((RhinoGeometry Self, OperationKey Key) s, Box b) => b.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<RhinoGeometry>(s.Key.InvalidInput()),
-            boundingBox: static ((RhinoGeometry Self, OperationKey Key) s, BoundingBox bbox) => bbox.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<RhinoGeometry>(s.Key.InvalidInput()),
-            line: static ((RhinoGeometry Self, OperationKey Key) s, Line line) => line.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<RhinoGeometry>(s.Key.InvalidInput()),
-            polyline: static ((RhinoGeometry Self, OperationKey Key) s, Polyline polyline) => polyline.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<RhinoGeometry>(s.Key.InvalidInput()),
-            plane: static ((RhinoGeometry Self, OperationKey Key) s, Plane plane) => plane.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<RhinoGeometry>(s.Key.InvalidInput()),
-            sphere: static ((RhinoGeometry Self, OperationKey Key) s, Sphere sphere) => sphere.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<RhinoGeometry>(s.Key.InvalidInput()),
-            cylinder: static ((RhinoGeometry Self, OperationKey Key) s, Cylinder cylinder) => cylinder.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<RhinoGeometry>(s.Key.InvalidInput()),
-            cone: static ((RhinoGeometry Self, OperationKey Key) s, Cone cone) => cone.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<RhinoGeometry>(s.Key.InvalidInput()),
-            torus: static ((RhinoGeometry Self, OperationKey Key) s, Torus torus) => torus.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<RhinoGeometry>(s.Key.InvalidInput()),
-            circle: static ((RhinoGeometry Self, OperationKey Key) s, Circle circle) => circle.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<RhinoGeometry>(s.Key.InvalidInput()),
-            arc: static ((RhinoGeometry Self, OperationKey Key) s, Arc arc) => arc.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<RhinoGeometry>(s.Key.InvalidInput()));
+            native: static ((Shape Self, Op Key) s, Native n) => n.Geometry.IsValid ? Fin.Succ(s.Self) : Fin.Fail<Shape>(s.Key.InvalidInput()),
+            box: static ((Shape Self, Op Key) s, Box b) => b.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<Shape>(s.Key.InvalidInput()),
+            boundingBox: static ((Shape Self, Op Key) s, BoundingBox bbox) => bbox.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<Shape>(s.Key.InvalidInput()),
+            line: static ((Shape Self, Op Key) s, Line line) => line.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<Shape>(s.Key.InvalidInput()),
+            polyline: static ((Shape Self, Op Key) s, Polyline polyline) => polyline.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<Shape>(s.Key.InvalidInput()),
+            plane: static ((Shape Self, Op Key) s, Plane plane) => plane.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<Shape>(s.Key.InvalidInput()),
+            sphere: static ((Shape Self, Op Key) s, Sphere sphere) => sphere.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<Shape>(s.Key.InvalidInput()),
+            cylinder: static ((Shape Self, Op Key) s, Cylinder cylinder) => cylinder.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<Shape>(s.Key.InvalidInput()),
+            cone: static ((Shape Self, Op Key) s, Cone cone) => cone.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<Shape>(s.Key.InvalidInput()),
+            torus: static ((Shape Self, Op Key) s, Torus torus) => torus.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<Shape>(s.Key.InvalidInput()),
+            circle: static ((Shape Self, Op Key) s, Circle circle) => circle.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<Shape>(s.Key.InvalidInput()),
+            arc: static ((Shape Self, Op Key) s, Arc arc) => arc.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<Shape>(s.Key.InvalidInput()));
     public static Seq<Type> Items { get; } = Seq(
         typeof(GeometryBase),
         typeof(Rhino.Geometry.Box),
@@ -77,28 +77,28 @@ public partial record RhinoGeometry {
             torus: static (Torus torus) => torus.Value,
             circle: static (Circle circle) => circle.Value,
             arc: static (Arc arc) => arc.Value);
-    public static Option<RhinoGeometry> From(object value) =>
+    public static Option<Shape> From(object value) =>
         value switch {
-            GeometryBase geometry => Some<RhinoGeometry>(new Native(Geometry: geometry)),
-            Rhino.Geometry.Box box => Some<RhinoGeometry>(new Box(Value: box)),
-            Rhino.Geometry.BoundingBox bbox => Some<RhinoGeometry>(new BoundingBox(Value: bbox)),
-            Rhino.Geometry.Line line => Some<RhinoGeometry>(new Line(Value: line)),
-            Rhino.Geometry.Polyline polyline => Some<RhinoGeometry>(new Polyline(Value: polyline)),
-            Rhino.Geometry.Plane plane => Some<RhinoGeometry>(new Plane(Value: plane)),
-            Rhino.Geometry.Sphere sphere => Some<RhinoGeometry>(new Sphere(Value: sphere)),
-            Rhino.Geometry.Cylinder cylinder => Some<RhinoGeometry>(new Cylinder(Value: cylinder)),
-            Rhino.Geometry.Cone cone => Some<RhinoGeometry>(new Cone(Value: cone)),
-            Rhino.Geometry.Torus torus => Some<RhinoGeometry>(new Torus(Value: torus)),
-            Rhino.Geometry.Circle circle => Some<RhinoGeometry>(new Circle(Value: circle)),
-            Rhino.Geometry.Arc arc => Some<RhinoGeometry>(new Arc(Value: arc)),
+            GeometryBase geometry => Some<Shape>(new Native(Geometry: geometry)),
+            Rhino.Geometry.Box box => Some<Shape>(new Box(Value: box)),
+            Rhino.Geometry.BoundingBox bbox => Some<Shape>(new BoundingBox(Value: bbox)),
+            Rhino.Geometry.Line line => Some<Shape>(new Line(Value: line)),
+            Rhino.Geometry.Polyline polyline => Some<Shape>(new Polyline(Value: polyline)),
+            Rhino.Geometry.Plane plane => Some<Shape>(new Plane(Value: plane)),
+            Rhino.Geometry.Sphere sphere => Some<Shape>(new Sphere(Value: sphere)),
+            Rhino.Geometry.Cylinder cylinder => Some<Shape>(new Cylinder(Value: cylinder)),
+            Rhino.Geometry.Cone cone => Some<Shape>(new Cone(Value: cone)),
+            Rhino.Geometry.Torus torus => Some<Shape>(new Torus(Value: torus)),
+            Rhino.Geometry.Circle circle => Some<Shape>(new Circle(Value: circle)),
+            Rhino.Geometry.Arc arc => Some<Shape>(new Arc(Value: arc)),
             _ => None,
         };
 }
 
 // --- [OPERATIONS] ------------------------------------------------------------------------------
 
-internal static class RhinoValidity {
-    internal static Fin<TValue> RequireValid<TValue>(this OperationKey key, TValue value) =>
+internal static class Validity {
+    internal static Fin<TValue> RequireValid<TValue>(this Op key, TValue value) =>
         value switch {
             Point2d point => key.Require(condition: point.IsValid, value: value),
             Point3d point => key.Require(condition: point.IsValid, value: value),
@@ -131,7 +131,7 @@ internal static class RhinoValidity {
             bool or int or Enum => Fin.Succ(value),
             _ => Fin.Fail<TValue>(key.InvalidResult()),
         };
-    private static Fin<TValue> Require<TValue>(this OperationKey key, bool condition, TValue value) =>
+    private static Fin<TValue> Require<TValue>(this Op key, bool condition, TValue value) =>
         condition switch {
             true => Fin.Succ(value),
             false => Fin.Fail<TValue>(key.InvalidResult()),

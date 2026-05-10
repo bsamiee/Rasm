@@ -13,31 +13,31 @@ namespace Core.Domain;
 // --- [MODELS] ----------------------------------------------------------------------------------
 
 [Union]
-public abstract partial record GeometryShape<TA, TB> where TA : notnull where TB : notnull {
-    public sealed record Pair(TA A, TB B, GeometryRequirement RequirementA, GeometryRequirement RequirementB) : GeometryShape<TA, TB>;
-    public sealed record FirstOnly(TA A, TB B, GeometryRequirement Requirement) : GeometryShape<TA, TB>;
+public abstract partial record Pair<TA, TB> where TA : notnull where TB : notnull {
+    public sealed record Both(TA A, TB B, Requirement RequirementA, Requirement RequirementB) : Pair<TA, TB>;
+    public sealed record FirstOnly(TA A, TB B, Requirement Requirement) : Pair<TA, TB>;
 }
 
 // --- [OPERATIONS] ------------------------------------------------------------------------------
 
-internal static class GeometryValidation {
+internal static class Check {
     internal static Validation<Error, TGeometry> Validate<TGeometry>(
-        this GeometryContext context,
+        this Context context,
         TGeometry? geometry,
-        GeometryRequirement requirement) where TGeometry : GeometryBase =>
+        Requirement requirement) where TGeometry : GeometryBase =>
         (Validation<Error, TGeometry>)(
             Fin.Succ((Context: context, Requirement: requirement)).ToValidation(),
             Optional(geometry).ToValidation(ValidationFault.MissingGeometry())
-        ).Apply(static ((GeometryContext Context, GeometryRequirement Requirement) state, TGeometry candidate) => (
+        ).Apply(static ((Context Context, Requirement Requirement) state, TGeometry candidate) => (
             state.Context,
             state.Requirement,
             Geometry: candidate))
-        .Bind(static ((GeometryContext Context, GeometryRequirement Requirement, TGeometry Geometry) state) =>
+        .Bind(static ((Context Context, Requirement Requirement, TGeometry Geometry) state) =>
             state.Requirement.Checks.Aggregate(
                 seed: (Result: Fin.Succ(state.Geometry).ToValidation(), state.Context, state.Geometry),
                 func: static (
-                    (Validation<Error, TGeometry> Result, GeometryContext Context, TGeometry Geometry) accumulator,
-                    GeometryCheck check) => (
+                    (Validation<Error, TGeometry> Result, Context Context, TGeometry Geometry) accumulator,
+                    Rule check) => (
                         Result: (accumulator.Result, check.Apply(
                                 context: accumulator.Context,
                                 geometry: accumulator.Geometry).ToValidation())
@@ -46,15 +46,15 @@ internal static class GeometryValidation {
                         accumulator.Context,
                         accumulator.Geometry)).Result);
     internal static Validation<Error, (TA A, TB B)> Validate<TA, TB>(
-        this GeometryContext context,
-        GeometryShape<TA, TB> shape) where TA : notnull where TB : notnull =>
+        this Context context,
+        Pair<TA, TB> shape) where TA : notnull where TB : notnull =>
         shape switch {
-            GeometryShape<TA, TB>.Pair pair => (
-                    context.ValidateOperand(operand: pair.A, requirement: pair.RequirementA),
-                    context.ValidateOperand(operand: pair.B, requirement: pair.RequirementB))
+            Pair<TA, TB>.Both both => (
+                    context.ValidateOperand(operand: both.A, requirement: both.RequirementA),
+                    context.ValidateOperand(operand: both.B, requirement: both.RequirementB))
                 .Apply(static (TA a, TB b) => (A: a, B: b))
                 .As(),
-            GeometryShape<TA, TB>.FirstOnly firstOnly => (
+            Pair<TA, TB>.FirstOnly firstOnly => (
                     context.ValidateOperand(operand: firstOnly.A, requirement: firstOnly.Requirement),
                     firstOnly.B.ValidateNativeOperand())
                 .Apply(static (TA a, TB b) => (A: a, B: b))
@@ -62,17 +62,17 @@ internal static class GeometryValidation {
             _ => Fin.Fail<(TA A, TB B)>(ValidationFault.MissingGeometry()).ToValidation(),
         };
     internal static Validation<Error, TValue> ValidateOperand<TValue>(
-        this GeometryContext context,
+        this Context context,
         TValue operand,
-        GeometryRequirement requirement) where TValue : notnull =>
+        Requirement requirement) where TValue : notnull =>
         (
             Fin.Succ((Context: context, Requirement: requirement)).ToValidation(),
             Optional(operand).ToValidation(ValidationFault.MissingGeometry())
-        ).Apply(static ((GeometryContext Context, GeometryRequirement Requirement) state, TValue candidate) => (
+        ).Apply(static ((Context Context, Requirement Requirement) state, TValue candidate) => (
             state.Context,
             state.Requirement,
             Candidate: candidate))
-        .Bind(static ((GeometryContext Context, GeometryRequirement Requirement, TValue Candidate) state) => state.Candidate switch {
+        .Bind(static ((Context Context, Requirement Requirement, TValue Candidate) state) => state.Candidate switch {
             GeometryBase geometry => (
                 state.Context.Validate(
                     geometry: geometry,
@@ -112,81 +112,81 @@ internal static class GeometryValidation {
 // --- [MODELS] ----------------------------------------------------------------------------------
 
 [Union]
-public abstract partial record GeometryRequirement {
-    internal abstract Seq<GeometryCheck> Checks { get; }
-    public sealed record NoneRequirement : GeometryRequirement {
-        internal override Seq<GeometryCheck> Checks =>
-            Seq<GeometryCheck>();
+public abstract partial record Requirement {
+    internal abstract Seq<Rule> Checks { get; }
+    public sealed record NoneRequirement : Requirement {
+        internal override Seq<Rule> Checks =>
+            Seq<Rule>();
     }
-    public sealed record BasicRequirement : GeometryRequirement {
-        internal override Seq<GeometryCheck> Checks =>
-            Seq<GeometryCheck>(GeometryCheck.RhinoValidity, GeometryCheck.UsableBounds);
+    public sealed record BasicRequirement : Requirement {
+        internal override Seq<Rule> Checks =>
+            Seq<Rule>(Rule.Validity, Rule.UsableBounds);
     }
-    public sealed record CurveLengthRequirement : GeometryRequirement {
-        internal override Seq<GeometryCheck> Checks =>
-            GeometryCheck.BasicChecks.Add(GeometryCheck.CurveLengthReadiness);
+    public sealed record CurveLengthRequirement : Requirement {
+        internal override Seq<Rule> Checks =>
+            Rule.BasicChecks.Add(Rule.CurveLengthReadiness);
     }
-    public sealed record AreaMassRequirement : GeometryRequirement {
-        internal override Seq<GeometryCheck> Checks =>
-            GeometryCheck.BasicChecks.Add(GeometryCheck.CurveAreaReadiness).Add(GeometryCheck.CurveSelfIntersection);
+    public sealed record AreaMassRequirement : Requirement {
+        internal override Seq<Rule> Checks =>
+            Rule.BasicChecks.Add(Rule.CurveAreaReadiness).Add(Rule.CurveSelfIntersection);
     }
-    public sealed record MeshCheckRequirement : GeometryRequirement {
-        internal override Seq<GeometryCheck> Checks =>
-            GeometryCheck.BasicChecks.Add(GeometryCheck.MeshRhinoCheck);
+    public sealed record MeshCheckRequirement : Requirement {
+        internal override Seq<Rule> Checks =>
+            Rule.BasicChecks.Add(Rule.MeshRhinoCheck);
     }
-    public sealed record SolidTopologyRequirement : GeometryRequirement {
-        internal override Seq<GeometryCheck> Checks =>
-            GeometryCheck.BasicChecks
-                .Add(GeometryCheck.BrepIntegrity)
-                .Add(GeometryCheck.MeshManifoldReadiness)
-                .Add(GeometryCheck.BrepSolidReadiness)
-                .Add(GeometryCheck.MeshRhinoCheck);
+    public sealed record SolidTopologyRequirement : Requirement {
+        internal override Seq<Rule> Checks =>
+            Rule.BasicChecks
+                .Add(Rule.BrepIntegrity)
+                .Add(Rule.MeshManifoldReadiness)
+                .Add(Rule.BrepSolidReadiness)
+                .Add(Rule.MeshRhinoCheck);
     }
-    public sealed record VolumeMassRequirement : GeometryRequirement {
-        internal override Seq<GeometryCheck> Checks =>
-            GeometryCheck.BasicChecks
-                .Add(GeometryCheck.BrepIntegrity)
-                .Add(GeometryCheck.MeshManifoldReadiness)
-                .Add(GeometryCheck.BrepSolidReadiness)
-                .Add(GeometryCheck.MeshRhinoCheck)
-                .Add(GeometryCheck.SurfaceSolidReadiness);
+    public sealed record VolumeMassRequirement : Requirement {
+        internal override Seq<Rule> Checks =>
+            Rule.BasicChecks
+                .Add(Rule.BrepIntegrity)
+                .Add(Rule.MeshManifoldReadiness)
+                .Add(Rule.BrepSolidReadiness)
+                .Add(Rule.MeshRhinoCheck)
+                .Add(Rule.SurfaceSolidReadiness);
     }
-    public sealed record SurfaceEvaluationRequirement : GeometryRequirement {
-        internal override Seq<GeometryCheck> Checks =>
-            GeometryCheck.BasicChecks.Add(GeometryCheck.SurfaceDomainReadiness);
+    public sealed record SurfaceEvaluationRequirement : Requirement {
+        internal override Seq<Rule> Checks =>
+            Rule.BasicChecks.Add(Rule.SurfaceDomainReadiness);
     }
-    public sealed record StrictStructureRequirement : GeometryRequirement {
-        internal override Seq<GeometryCheck> Checks =>
-            GeometryCheck.BasicChecks
-                .Add(GeometryCheck.SurfaceDomainReadiness)
-                .Add(GeometryCheck.ContinuityReadiness)
-                .Add(GeometryCheck.PolycurveStructure);
+    public sealed record StrictStructureRequirement : Requirement {
+        internal override Seq<Rule> Checks =>
+            Rule.BasicChecks
+                .Add(Rule.SurfaceDomainReadiness)
+                .Add(Rule.ContinuityReadiness)
+                .Add(Rule.PolycurveStructure);
     }
-    public sealed record StrictRequirement : GeometryRequirement {
-        internal override Seq<GeometryCheck> Checks =>
-            GeometryCheck.AllChecks;
+    public sealed record StrictRequirement : Requirement {
+        internal override Seq<Rule> Checks =>
+            Rule.AllChecks;
     }
-    public static readonly GeometryRequirement None = new NoneRequirement();
-    public static readonly GeometryRequirement Basic = new BasicRequirement();
-    public static readonly GeometryRequirement CurveLength = new CurveLengthRequirement();
-    public static readonly GeometryRequirement AreaMass = new AreaMassRequirement();
-    public static readonly GeometryRequirement MeshCheck = new MeshCheckRequirement();
-    public static readonly GeometryRequirement SolidTopology = new SolidTopologyRequirement();
-    public static readonly GeometryRequirement VolumeMass = new VolumeMassRequirement();
-    public static readonly GeometryRequirement SurfaceEvaluation = new SurfaceEvaluationRequirement();
-    public static readonly GeometryRequirement StrictStructure = new StrictStructureRequirement();
-    public static readonly GeometryRequirement Strict = new StrictRequirement();
+    public static readonly Requirement None = new NoneRequirement();
+    public static readonly Requirement Basic = new BasicRequirement();
+    public static readonly Requirement CurveLength = new CurveLengthRequirement();
+    public static readonly Requirement AreaMass = new AreaMassRequirement();
+    public static readonly Requirement MeshCheck = new MeshCheckRequirement();
+    public static readonly Requirement SolidTopology = new SolidTopologyRequirement();
+    public static readonly Requirement VolumeMass = new VolumeMassRequirement();
+    public static readonly Requirement SurfaceEvaluation = new SurfaceEvaluationRequirement();
+    public static readonly Requirement StrictStructure = new StrictStructureRequirement();
+    public static readonly Requirement Strict = new StrictRequirement();
 }
 
-internal static class GeometryRequirementExtensions {
-    internal static bool Has(this GeometryRequirement self, GeometryRequirement other) =>
+internal static class RequirementExtensions {
+    internal static bool Has(this Requirement self, Requirement other) =>
         other.Checks.Fold(
             initialState: (Self: self, AllPresent: true),
-            f: static ((GeometryRequirement Self, bool AllPresent) acc, GeometryCheck check) => (
+            f: static ((Requirement Self, bool AllPresent) acc, Rule check) => (
                 acc.Self,
                 AllPresent: acc.AllPresent && acc.Self.Checks.Fold(
                     initialState: (Target: check, Found: false),
-                    f: static ((GeometryCheck Target, bool Found) inner, GeometryCheck candidate) => (
+                    f: static ((Rule Target, bool Found) inner, Rule candidate) => (
                         inner.Target,
                         Found: inner.Found || ReferenceEquals(objA: candidate, objB: inner.Target))).Found)).AllPresent;
 }
@@ -194,11 +194,11 @@ internal static class GeometryRequirementExtensions {
 // --- [CHECKS] ----------------------------------------------------------------------------------
 
 [Union]
-internal abstract partial record GeometryCheck {
+internal abstract partial record Rule {
     internal abstract string Key { get; }
     internal abstract bool Applies(GeometryBase geometry);
-    internal abstract Fin<Unit> Validate(GeometryContext context, GeometryBase geometry);
-    internal Fin<Unit> Apply(GeometryContext context, GeometryBase geometry) =>
+    internal abstract Fin<Unit> Validate(Context context, GeometryBase geometry);
+    internal Fin<Unit> Apply(Context context, GeometryBase geometry) =>
         Applies(geometry: geometry) switch {
             true => Validate(context: context, geometry: geometry),
             false => Fin.Succ(unit),
@@ -218,19 +218,19 @@ internal abstract partial record GeometryCheck {
             true => label,
             false => $"{label}: {log}",
         };
-    internal sealed record RhinoValidityCheck : GeometryCheck {
+    internal sealed record ValidityCheck : Rule {
         internal override string Key => "rhino-validity";
         internal override bool Applies(GeometryBase geometry) => true;
-        internal override Fin<Unit> Validate(GeometryContext context, GeometryBase geometry) =>
+        internal override Fin<Unit> Validate(Context context, GeometryBase geometry) =>
             geometry.IsValidWithLog(out string log) switch {
                 true => Fin.Succ(unit),
                 false => Invalid(geometry: geometry, log: log),
             };
     }
-    internal sealed record UsableBoundsCheck : GeometryCheck {
+    internal sealed record UsableBoundsCheck : Rule {
         internal override string Key => "usable-bounds";
         internal override bool Applies(GeometryBase geometry) => true;
-        internal override Fin<Unit> Validate(GeometryContext context, GeometryBase geometry) =>
+        internal override Fin<Unit> Validate(Context context, GeometryBase geometry) =>
             geometry.GetBoundingBox(accurate: true) switch {
                 BoundingBox box => Require(
                     geometry: geometry,
@@ -238,10 +238,10 @@ internal abstract partial record GeometryCheck {
                     log: "Rhino could not compute a usable accurate bounding box."),
             };
     }
-    internal sealed record BrepIntegrityCheck : GeometryCheck {
+    internal sealed record BrepIntegrityCheck : Rule {
         internal override string Key => "brep-integrity";
         internal override bool Applies(GeometryBase geometry) => geometry is Brep;
-        internal override Fin<Unit> Validate(GeometryContext context, GeometryBase geometry) =>
+        internal override Fin<Unit> Validate(Context context, GeometryBase geometry) =>
             geometry switch {
                 Brep brep => (
                     Topology: brep.IsValidTopology(log: out string topologyLog),
@@ -256,7 +256,7 @@ internal abstract partial record GeometryCheck {
                 _ => Fin.Succ(unit),
             };
     }
-    internal sealed record MeshRhinoCheckCheck : GeometryCheck {
+    internal sealed record MeshRhinoCheckCheck : Rule {
         internal override string Key => "mesh-rhino-check";
         internal override bool Applies(GeometryBase geometry) => geometry is Mesh;
         [BoundaryImperativeExemption(
@@ -264,10 +264,10 @@ internal abstract partial record GeometryCheck {
             reason: BoundaryImperativeReason.ProtocolRequired,
             ticket: "RASM-MESH-CHECK",
             expiresOnUtc: "2027-12-31T00:00:00Z")]
-        internal override Fin<Unit> Validate(GeometryContext context, GeometryBase geometry) {
+        internal override Fin<Unit> Validate(Context context, GeometryBase geometry) {
             // BOUNDARY ADAPTER — Mesh.Check requires a TextLog by-ref out and ref MeshCheckParameters; using-local +
             // ref parameter cannot be expressed in pure expression form, so the imperative shape lives at the
-            // GeometryCheck case boundary and returns a Fin<Unit>.
+            // Rule case boundary and returns a Fin<Unit>.
             using TextLog textLog = new();
             MeshCheckParameters parameters = MeshCheckParameters.Defaults();
             return geometry switch {
@@ -281,37 +281,37 @@ internal abstract partial record GeometryCheck {
             };
         }
     }
-    internal sealed record MeshManifoldReadinessCheck : GeometryCheck {
+    internal sealed record MeshManifoldReadinessCheck : Rule {
         internal override string Key => "mesh-manifold-readiness";
         internal override bool Applies(GeometryBase geometry) => geometry is Mesh;
-        internal override Fin<Unit> Validate(GeometryContext context, GeometryBase geometry) =>
+        internal override Fin<Unit> Validate(Context context, GeometryBase geometry) =>
             Require(
                 geometry: geometry,
                 condition: ((Mesh)geometry).IsSolid,
                 log: "Mesh is valid Rhino geometry but is not closed and solid enough for volume operations.");
     }
-    internal sealed record BrepSolidReadinessCheck : GeometryCheck {
+    internal sealed record BrepSolidReadinessCheck : Rule {
         internal override string Key => "brep-solid-readiness";
         internal override bool Applies(GeometryBase geometry) => geometry is Brep;
-        internal override Fin<Unit> Validate(GeometryContext context, GeometryBase geometry) =>
+        internal override Fin<Unit> Validate(Context context, GeometryBase geometry) =>
             Require(
                 geometry: geometry,
                 condition: ((Brep)geometry).IsSolid,
                 log: "Brep is valid Rhino geometry but is not solid enough for volume operations.");
     }
-    internal sealed record SurfaceSolidReadinessCheck : GeometryCheck {
+    internal sealed record SurfaceSolidReadinessCheck : Rule {
         internal override string Key => "surface-solid-readiness";
         internal override bool Applies(GeometryBase geometry) => geometry is Surface;
-        internal override Fin<Unit> Validate(GeometryContext context, GeometryBase geometry) =>
+        internal override Fin<Unit> Validate(Context context, GeometryBase geometry) =>
             Require(
                 geometry: geometry,
                 condition: ((Surface)geometry).IsSolid,
                 log: "Surface is valid Rhino geometry but is not solid enough for volume operations.");
     }
-    internal sealed record CurveLengthReadinessCheck : GeometryCheck {
+    internal sealed record CurveLengthReadinessCheck : Rule {
         internal override string Key => "curve-length-readiness";
         internal override bool Applies(GeometryBase geometry) => geometry is Curve;
-        internal override Fin<Unit> Validate(GeometryContext context, GeometryBase geometry) =>
+        internal override Fin<Unit> Validate(Context context, GeometryBase geometry) =>
             geometry switch {
                 Curve curve => (
                     curve.IsShort(tolerance: context.Absolute.Value),
@@ -323,10 +323,10 @@ internal abstract partial record GeometryCheck {
                 _ => Fin.Succ(unit),
             };
     }
-    internal sealed record CurveAreaReadinessCheck : GeometryCheck {
+    internal sealed record CurveAreaReadinessCheck : Rule {
         internal override string Key => "curve-area-readiness";
         internal override bool Applies(GeometryBase geometry) => geometry is Curve;
-        internal override Fin<Unit> Validate(GeometryContext context, GeometryBase geometry) =>
+        internal override Fin<Unit> Validate(Context context, GeometryBase geometry) =>
             geometry switch {
                 Curve curve => (
                     curve.IsClosed,
@@ -340,15 +340,15 @@ internal abstract partial record GeometryCheck {
                 _ => Fin.Succ(unit),
             };
     }
-    internal sealed record SurfaceDomainReadinessCheck : GeometryCheck {
+    internal sealed record SurfaceDomainReadinessCheck : Rule {
         internal override string Key => "surface-domain-readiness";
         internal override bool Applies(GeometryBase geometry) => geometry is Surface;
-        internal override Fin<Unit> Validate(GeometryContext context, GeometryBase geometry) =>
+        internal override Fin<Unit> Validate(Context context, GeometryBase geometry) =>
             Require(
                 geometry: geometry,
                 condition: HasUsableDomain(surface: (Surface)geometry, context: context),
                 log: "Surface is valid Rhino geometry but has an unusable UV domain.");
-        internal static bool HasUsableDomain(Surface surface, GeometryContext context) =>
+        internal static bool HasUsableDomain(Surface surface, Context context) =>
             (
                 surface.Domain(direction: 0).IsValid,
                 surface.Domain(direction: 1).IsValid,
@@ -359,10 +359,10 @@ internal abstract partial record GeometryCheck {
                 _ => false,
             };
     }
-    internal sealed record ContinuityReadinessCheck : GeometryCheck {
+    internal sealed record ContinuityReadinessCheck : Rule {
         internal override string Key => "continuity-readiness";
         internal override bool Applies(GeometryBase geometry) => geometry is Curve or Surface;
-        internal override Fin<Unit> Validate(GeometryContext context, GeometryBase geometry) =>
+        internal override Fin<Unit> Validate(Context context, GeometryBase geometry) =>
             geometry switch {
                 Surface surface => Require(
                     geometry: geometry,
@@ -400,10 +400,10 @@ internal abstract partial record GeometryCheck {
                 _ => Fin.Succ(unit),
             };
     }
-    internal sealed record PolycurveStructureCheck : GeometryCheck {
+    internal sealed record PolycurveStructureCheck : Rule {
         internal override string Key => "polycurve-structure";
         internal override bool Applies(GeometryBase geometry) => geometry is PolyCurve;
-        internal override Fin<Unit> Validate(GeometryContext context, GeometryBase geometry) =>
+        internal override Fin<Unit> Validate(Context context, GeometryBase geometry) =>
             geometry switch {
                 PolyCurve polyCurve => (polyCurve.HasGap, polyCurve.IsNested) switch {
                     (false, false) => Fin.Succ(unit),
@@ -417,12 +417,12 @@ internal abstract partial record GeometryCheck {
                 _ => Fin.Succ(unit),
             };
     }
-    internal sealed record CurveSelfIntersectionCheck : GeometryCheck {
+    internal sealed record CurveSelfIntersectionCheck : Rule {
         internal override string Key => "curve-self-intersection";
         internal override bool Applies(GeometryBase geometry) => geometry is Curve;
-        internal override Fin<Unit> Validate(GeometryContext context, GeometryBase geometry) {
+        internal override Fin<Unit> Validate(Context context, GeometryBase geometry) {
             // BOUNDARY ADAPTER — CurveIntersections owns native unmanaged state and must be disposed via using;
-            // its construction lives at the GeometryCheck case boundary and returns a Fin<Unit>.
+            // its construction lives at the Rule case boundary and returns a Fin<Unit>.
             using CurveIntersections? intersections = geometry switch {
                 Curve curve => Intersection.CurveSelf(curve: curve, tolerance: context.Absolute.Value),
                 _ => null,
@@ -441,23 +441,23 @@ internal abstract partial record GeometryCheck {
             };
         }
     }
-    internal static readonly GeometryCheck RhinoValidity = new RhinoValidityCheck();
-    internal static readonly GeometryCheck UsableBounds = new UsableBoundsCheck();
-    internal static readonly GeometryCheck BrepIntegrity = new BrepIntegrityCheck();
-    internal static readonly GeometryCheck MeshRhinoCheck = new MeshRhinoCheckCheck();
-    internal static readonly GeometryCheck MeshManifoldReadiness = new MeshManifoldReadinessCheck();
-    internal static readonly GeometryCheck BrepSolidReadiness = new BrepSolidReadinessCheck();
-    internal static readonly GeometryCheck SurfaceSolidReadiness = new SurfaceSolidReadinessCheck();
-    internal static readonly GeometryCheck CurveLengthReadiness = new CurveLengthReadinessCheck();
-    internal static readonly GeometryCheck CurveAreaReadiness = new CurveAreaReadinessCheck();
-    internal static readonly GeometryCheck SurfaceDomainReadiness = new SurfaceDomainReadinessCheck();
-    internal static readonly GeometryCheck ContinuityReadiness = new ContinuityReadinessCheck();
-    internal static readonly GeometryCheck PolycurveStructure = new PolycurveStructureCheck();
-    internal static readonly GeometryCheck CurveSelfIntersection = new CurveSelfIntersectionCheck();
-    internal static readonly Seq<GeometryCheck> BasicChecks =
-        Seq<GeometryCheck>(RhinoValidity, UsableBounds);
-    internal static readonly Seq<GeometryCheck> AllChecks = Seq<GeometryCheck>(
-        RhinoValidity,
+    internal static readonly Rule Validity = new ValidityCheck();
+    internal static readonly Rule UsableBounds = new UsableBoundsCheck();
+    internal static readonly Rule BrepIntegrity = new BrepIntegrityCheck();
+    internal static readonly Rule MeshRhinoCheck = new MeshRhinoCheckCheck();
+    internal static readonly Rule MeshManifoldReadiness = new MeshManifoldReadinessCheck();
+    internal static readonly Rule BrepSolidReadiness = new BrepSolidReadinessCheck();
+    internal static readonly Rule SurfaceSolidReadiness = new SurfaceSolidReadinessCheck();
+    internal static readonly Rule CurveLengthReadiness = new CurveLengthReadinessCheck();
+    internal static readonly Rule CurveAreaReadiness = new CurveAreaReadinessCheck();
+    internal static readonly Rule SurfaceDomainReadiness = new SurfaceDomainReadinessCheck();
+    internal static readonly Rule ContinuityReadiness = new ContinuityReadinessCheck();
+    internal static readonly Rule PolycurveStructure = new PolycurveStructureCheck();
+    internal static readonly Rule CurveSelfIntersection = new CurveSelfIntersectionCheck();
+    internal static readonly Seq<Rule> BasicChecks =
+        Seq<Rule>(Validity, UsableBounds);
+    internal static readonly Seq<Rule> AllChecks = Seq<Rule>(
+        Validity,
         UsableBounds,
         BrepIntegrity,
         MeshRhinoCheck,
@@ -479,7 +479,7 @@ internal static class ValidationFault {
         Error.New(message: "Geometry input is required.");
     internal static Error InvalidNativeOperand(Type type) =>
         Error.New(message: $"Geometry native operand '{type.Name}' is invalid.");
-    internal static Error InvalidGeometry(GeometryBase geometry, GeometryCheck check, string log) =>
+    internal static Error InvalidGeometry(GeometryBase geometry, Rule check, string log) =>
         Error.New(message: string.IsNullOrWhiteSpace(value: log) switch {
             true => $"Geometry validation failed for {geometry.GetType().Name} under check '{check.Key}'.",
             false => $"Geometry validation failed for {geometry.GetType().Name} under check '{check.Key}': {log}",

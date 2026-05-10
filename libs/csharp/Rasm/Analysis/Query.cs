@@ -13,24 +13,24 @@ namespace Analysis;
 // --- [ALGEBRA] ---------------------------------------------------------------------------------
 
 public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
-    internal OperationKey Key { get; }
-    internal Func<TGeometry, Eff<GeometryContext, Seq<TOut>>> Effect { get; }
-    internal Query(OperationKey key, Func<TGeometry, Eff<GeometryContext, Seq<TOut>>> effect) {
+    internal Op Key { get; }
+    internal Func<TGeometry, Eff<Context, Seq<TOut>>> Effect { get; }
+    internal Query(Op key, Func<TGeometry, Eff<Context, Seq<TOut>>> effect) {
         Key = key;
         Effect = effect;
     }
-    public Eff<GeometryContext, Seq<TOut>> Apply(TGeometry geometry) =>
+    public Eff<Context, Seq<TOut>> Apply(TGeometry geometry) =>
         Effect(arg: geometry);
     internal static Query<TGeometry, TOut> Build(
-        OperationKey key,
-        Func<TGeometry, Eff<GeometryContext, Seq<TOut>>> evaluator,
-        GeometryRequirement? requirement = null,
+        Op key,
+        Func<TGeometry, Eff<Context, Seq<TOut>>> evaluator,
+        Requirement? requirement = null,
         bool requiresContext = false) =>
         new(
             key: key,
             effect: (requirement, requiresContext) switch {
-                (null or GeometryRequirement.NoneRequirement, _) => evaluator,
-                (GeometryRequirement r, _) => (TGeometry geometry) => geometry switch {
+                (null or Requirement.NoneRequirement, _) => evaluator,
+                (Requirement r, _) => (TGeometry geometry) => geometry switch {
                     GeometryBase native =>
                         from ctx in Analyze.Asks
                         from _ in ctx.Validate(geometry: native, requirement: r).ToEff()
@@ -40,17 +40,17 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
                 },
             });
     internal static Query<TGeometry, TOut> Build<TState>(
-        OperationKey key,
+        Op key,
         TState state,
-        Func<TState, TGeometry, Eff<GeometryContext, Seq<TOut>>> evaluator,
-        GeometryRequirement? requirement = null,
+        Func<TState, TGeometry, Eff<Context, Seq<TOut>>> evaluator,
+        Requirement? requirement = null,
         bool requiresContext = false) =>
         Build(
             key: key,
             evaluator: (TGeometry geometry) => evaluator(arg1: state, arg2: geometry),
             requirement: requirement,
             requiresContext: requiresContext);
-    internal static Query<TGeometry, TOut> Reject(OperationKey key, Error fault) =>
+    internal static Query<TGeometry, TOut> Reject(Op key, Error fault) =>
         new(
             key: key,
             effect: (TGeometry _) => Fin.Fail<Seq<TOut>>(fault).ToEff());
@@ -93,9 +93,9 @@ public readonly record struct ResidualSample(
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct MeshFaceSample(int Face, double Value);
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct SpatialHit(int Id);
+public readonly record struct Hit(int Id);
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct SpatialPair(int A, int B);
+public readonly record struct Couple(int A, int B);
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CurveDeviation(
     double MinimumDistance,
@@ -181,12 +181,12 @@ public readonly record struct Conformance {
 public static partial class Query {
     internal delegate bool PrimitiveCase<TSource, TValue>(
         TSource geometry,
-        GeometryContext context,
+        Context context,
         out TValue value) where TSource : GeometryBase;
     internal delegate Fin<Seq<TValue>> ClosestCase<TSource, TValue>(
         Point3d target,
         TSource geometry) where TSource : notnull;
-    internal static readonly OperationKey
+    internal static readonly Op
         MidpointKey = new(name: "Midpoint"), BoundsKey = new(name: nameof(Bounds)), OrientedBoundsKey = new(name: "OrientedBounds"),
         TransformedBoundsKey = new(name: "TransformedBounds"), BoundsCenterKey = new(name: "BoundsCenter"), BoundsCornersKey = new(name: "BoundsCorners"),
         BoxEdgesKey = new(name: "BoxEdges"), BoxAreaKey = new(name: "BoxArea"), BoxVolumeKey = new(name: "BoxVolume"), MeasureKey = new(name: nameof(Measure)),
@@ -201,13 +201,13 @@ public static partial class Query {
         ShortPathKey = new(name: "ShortPath"), SolidOrientationKey = new(name: nameof(SolidOrientation)), IsPointInsideKey = new(name: nameof(IsPointInside)),
         VerticesKey = new(name: nameof(Vertices)), ComponentsKey = new(name: "Components"), IsManifoldKey = new(name: nameof(IsManifold)),
         NakedPointStatusKey = new(name: nameof(NakedPointStatus)), MeshCheckKey = new(name: nameof(MeshCheck)), MeshCheckCountKey = new(name: "MeshCheckCount"), MeshFaceMetricKey = new(name: nameof(MeshFaceMetric)), SelfIntersectionsKey = new(name: nameof(SelfIntersections)), IntersectKey = new(name: nameof(Intersect)),
-        ConformanceKey = new(name: nameof(Conformance)), DeviationKey = new(name: nameof(Deviation)), SpatialIndexKey = new(name: nameof(SpatialIndex)),
+        ConformanceKey = new(name: nameof(Conformance)), DeviationKey = new(name: nameof(Deviation)), TreeKey = new(name: nameof(Tree)),
         TopologyKey = new(name: nameof(Topology)), ScopeKey = new(name: nameof(Analyze.Scope)),
         KindKey = new(name: nameof(Kind)),
         UniqueCornersKey = new(name: "UniqueCorners"),
         WorldCardinalPointsKey = new(name: "WorldCardinalPoints"),
         FacesKey = new(name: nameof(Faces));
-    internal static Query<TGeometry, TOut> Unsupported<TGeometry, TOut>(this OperationKey key) where TGeometry : notnull =>
+    internal static Query<TGeometry, TOut> Unsupported<TGeometry, TOut>(this Op key) where TGeometry : notnull =>
         Query<TGeometry, TOut>.Reject(
             key: key,
             fault: key.Unsupported(
@@ -215,12 +215,12 @@ public static partial class Query {
                 outputType: typeof(TOut)));
     internal static Query<TGeometry, TOut> Aspect<TGeometry, TOut, TAspect>(
         TAspect aspect,
-        OperationKey key,
+        Op key,
         Func<TAspect, Query<TGeometry, TOut>?> dispatch) where TGeometry : notnull where TAspect : notnull =>
         Optional(dispatch(arg: aspect))
             .IfNone(() => key.Unsupported<TGeometry, TOut>());
     internal static Query<TGeometry, TOut> Cast<TGeometry, TOut>(
-        OperationKey key,
+        Op key,
         object query) where TGeometry : notnull =>
         query switch {
             Query<TGeometry, TOut> typed => typed,
@@ -230,12 +230,12 @@ public static partial class Query {
                     geometryType: typeof(TGeometry),
                     outputType: typeof(TOut))),
         };
-    internal static Fin<Seq<TValue>> One<TValue>(this OperationKey key, TValue value) =>
-        new OperationOutcome<TValue>.One(Value: value).Reduce(key: key);
-    internal static Fin<Seq<TValue>> Many<TValue>(this OperationKey key, IEnumerable<TValue>? values) =>
-        new OperationOutcome<TValue>.Many(Values: Optional(values).ToSeq().Bind(static (IEnumerable<TValue> v) => v.AsIterable().ToSeq())).Reduce(key: key);
+    internal static Fin<Seq<TValue>> One<TValue>(this Op key, TValue value) =>
+        new OpResult<TValue>.One(Value: value).Reduce(key: key);
+    internal static Fin<Seq<TValue>> Many<TValue>(this Op key, IEnumerable<TValue>? values) =>
+        new OpResult<TValue>.Many(Values: Optional(values).ToSeq().Bind(static (IEnumerable<TValue> v) => v.AsIterable().ToSeq())).Reduce(key: key);
     internal static Fin<Seq<TOut>> IntersectionOutput<TOut>(
-        this OperationKey key,
+        this Op key,
         IEnumerable<Curve>? curves = null,
         IEnumerable<Point3d>? points = null,
         IEnumerable<Polyline>? polylines = null,
@@ -281,11 +281,11 @@ public static partial class Query {
                 outputType: typeof(TOut))),
         };
     private static Fin<Seq<TOut>> CastResults<TValue, TOut>(
-        this OperationKey key,
+        this Op key,
         IEnumerable<TValue>? values) =>
         Many(key: key, values: values)
             .Bind((Seq<TValue> candidates) => key.Retype<TValue, TOut>(values: candidates));
-    internal static Fin<Seq<TOut>> Retype<TValue, TOut>(this OperationKey key, Seq<TValue> values) =>
+    internal static Fin<Seq<TOut>> Retype<TValue, TOut>(this Op key, Seq<TValue> values) =>
         typeof(TValue).Equals(typeof(TOut)) switch {
             true => Fin.Succ(values.Map(static (TValue candidate) => (TOut)(object)candidate!)),
             false => Fin.Fail<Seq<TOut>>(key.Unsupported(
@@ -302,7 +302,7 @@ public static partial class Query {
                 geometry switch {
                     TSource source =>
                         from ctx in Analyze.Asks
-                        from validated in ctx.Validate(geometry: source, requirement: GeometryRequirement.Basic).ToEff()
+                        from validated in ctx.Validate(geometry: source, requirement: Requirement.Basic).ToEff()
                         from result in PrimitiveExtract(
                                 key: PrimitiveKey,
                                 extract: extract,
@@ -315,15 +315,15 @@ public static partial class Query {
                         outputType: typeof(TValue))).ToEff(),
                 }));
     private static Fin<Seq<TValue>> PrimitiveExtract<TSource, TValue>(
-        OperationKey key,
+        Op key,
         PrimitiveCase<TSource, TValue> extract,
         TSource geometry,
-        GeometryContext context) where TSource : GeometryBase =>
+        Context context) where TSource : GeometryBase =>
         extract(
             geometry: geometry,
             context: context,
             value: out TValue value) switch {
-                bool solved => OperationOutcome<TValue>.Solved(isSolved: solved, value: value).Reduce(key: key),
+                bool solved => OpResult<TValue>.Solved(isSolved: solved, value: value).Reduce(key: key),
             };
     internal static Query<TGeometry, TOut> ClosestMatch<TGeometry, TOut, TSource, TValue>(
         Point3d point,
@@ -343,8 +343,8 @@ public static partial class Query {
                 }));
     internal static Fin<TOut> CurveAtNormalizedValue<TOut>(
         Curve curve,
-        GeometryContext context,
-        OperationKey key,
+        Context context,
+        Op key,
         Func<Curve, double, TOut> project) =>
         curve.NormalizedLengthParameter(
             s: 0.5,
@@ -353,14 +353,14 @@ public static partial class Query {
                 true => Fin.Succ(project(arg1: curve, arg2: parameter)),
                 false => Fin.Fail<TOut>(key.InvalidResult()),
             };
-    internal static Eff<GeometryContext, Seq<TOut>> CurveAtNormalized<TGeometry, TOut>(
+    internal static Eff<Context, Seq<TOut>> CurveAtNormalized<TGeometry, TOut>(
         TGeometry geometry,
-        OperationKey key,
+        Op key,
         Func<Curve, double, TOut> project) where TGeometry : notnull =>
         geometry switch {
             Curve curve =>
                 from ctx in Analyze.Asks
-                from validated in ctx.Validate(geometry: curve, requirement: GeometryRequirement.CurveLength).ToEff()
+                from validated in ctx.Validate(geometry: curve, requirement: Requirement.CurveLength).ToEff()
                 from value in CurveAtNormalizedValue(
                         curve: validated,
                         context: ctx,
@@ -371,7 +371,7 @@ public static partial class Query {
                 select result,
             _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))).ToEff(),
         };
-    internal static readonly Func<object, bool, bool, Eff<GeometryContext, LengthMassProperties>> ComputeLength =
+    internal static readonly Func<object, bool, bool, Eff<Context, LengthMassProperties>> ComputeLength =
         static (object geometry, bool second, bool product) =>
             (geometry switch {
                 Curve curve => Optional(LengthMassProperties.Compute(
@@ -380,12 +380,12 @@ public static partial class Query {
                         firstMoments: true,
                         secondMoments: second,
                         productMoments: product))
-                    .ToFin(OperationFault.ComputationFailed(label: nameof(LengthMassProperties))),
-                _ => Fin.Fail<LengthMassProperties>(OperationFault.ComputationUnsupported(
+                    .ToFin(OpFault.ComputationFailed(label: nameof(LengthMassProperties))),
+                _ => Fin.Fail<LengthMassProperties>(OpFault.ComputationUnsupported(
                     label: nameof(LengthMassProperties),
                     geometryType: geometry.GetType())),
             }).ToEff();
-    internal static readonly Func<object, bool, bool, Eff<GeometryContext, AreaMassProperties>> ComputeArea =
+    internal static readonly Func<object, bool, bool, Eff<Context, AreaMassProperties>> ComputeArea =
         static (object geometry, bool second, bool product) =>
             from ctx in Analyze.Asks
             from props in Optional(geometry switch {
@@ -414,11 +414,11 @@ public static partial class Query {
                     productMoments: product),
                 _ => null,
             }).ToFin(geometry switch {
-                Curve or Mesh or Brep or Surface => OperationFault.ComputationFailed(label: nameof(AreaMassProperties)),
-                _ => OperationFault.ComputationUnsupported(label: nameof(AreaMassProperties), geometryType: geometry.GetType()),
+                Curve or Mesh or Brep or Surface => OpFault.ComputationFailed(label: nameof(AreaMassProperties)),
+                _ => OpFault.ComputationUnsupported(label: nameof(AreaMassProperties), geometryType: geometry.GetType()),
             }).ToEff()
             select props;
-    internal static readonly Func<object, bool, bool, Eff<GeometryContext, VolumeMassProperties>> ComputeVolume =
+    internal static readonly Func<object, bool, bool, Eff<Context, VolumeMassProperties>> ComputeVolume =
         static (object geometry, bool second, bool product) =>
             from ctx in Analyze.Asks
             from props in Optional(geometry switch {
@@ -444,18 +444,18 @@ public static partial class Query {
                     productMoments: product),
                 _ => null,
             }).ToFin(geometry switch {
-                Mesh or Brep or Surface => OperationFault.ComputationFailed(label: nameof(VolumeMassProperties)),
-                _ => OperationFault.ComputationUnsupported(label: nameof(VolumeMassProperties), geometryType: geometry.GetType()),
+                Mesh or Brep or Surface => OpFault.ComputationFailed(label: nameof(VolumeMassProperties)),
+                _ => OpFault.ComputationUnsupported(label: nameof(VolumeMassProperties), geometryType: geometry.GetType()),
             }).ToEff()
             select props;
     internal static Query<TGeometry, TOut> Mass<TGeometry, TMass, TOut>(
         string name,
-        GeometryRequirement requirement,
-        Func<object, bool, bool, Eff<GeometryContext, TMass>> compute,
-        Func<OperationKey, TMass, Fin<Seq<TOut>>> project,
+        Requirement requirement,
+        Func<object, bool, bool, Eff<Context, TMass>> compute,
+        Func<Op, TMass, Fin<Seq<TOut>>> project,
         bool secondMoments = false,
         bool productMoments = false) where TGeometry : notnull where TMass : class, IDisposable {
-        OperationKey key = new(name: name);
+        Op key = new(name: name);
         return Query<TGeometry, TOut>.Build(
             key: key,
             requirement: requirement,
@@ -472,14 +472,14 @@ public static partial class Query {
                 select values);
     }
     private static Fin<Seq<TOut>> DisposeAndProject<TMass, TOut>(
-        OperationKey key,
+        Op key,
         TMass mass,
-        Func<OperationKey, TMass, Fin<Seq<TOut>>> project) where TMass : class, IDisposable {
+        Func<Op, TMass, Fin<Seq<TOut>>> project) where TMass : class, IDisposable {
         using TMass disposable = mass;
         return project(arg1: key, arg2: disposable);
     }
     internal static Fin<Seq<(double Moment, Vector3d Axis)>> Principal<TMass>(
-        this OperationKey key,
+        this Op key,
         TMass mass) where TMass : class =>
         mass switch {
             LengthMassProperties length => key.PrincipalFromMoments(
@@ -494,7 +494,7 @@ public static partial class Query {
             _ => Fin.Fail<Seq<(double Moment, Vector3d Axis)>>(key.InvalidResult()),
         };
     private static Fin<Seq<(double Moment, Vector3d Axis)>> PrincipalFromMoments(
-        this OperationKey key,
+        this Op key,
         bool solved,
         double x, Vector3d xAxis, double y, Vector3d yAxis, double z, Vector3d zAxis) =>
         solved switch {

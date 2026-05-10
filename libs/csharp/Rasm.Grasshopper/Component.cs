@@ -16,9 +16,9 @@ namespace Grasshopper;
 /// scalar/index inputs. The base owns input/output declaration via <see cref="Param.Resolve"/> and
 /// the <see cref="Process"/> lifecycle: resolve scope, resolve primary input, iterate slots,
 /// route faults to the canvas. The <typeparamref name="TIn"/> constraint pins the boundary to the
-/// closed <see cref="RhinoGeometry"/> Union; non-Union inputs surface an explicit canvas error.
+/// closed <see cref="Shape"/> Union; non-Union inputs surface an explicit canvas error.
 /// </summary>
-public abstract class Component<TIn> : Grasshopper2.Components.Component where TIn : RhinoGeometry {
+public abstract class Component<TIn> : Grasshopper2.Components.Component where TIn : Shape {
     protected static Nomen NomenOf<TSelf>() where TSelf : Component<TIn> =>
         typeof(TSelf).GetCustomAttribute<NomenAttribute>()?.Nomen
             ?? new Nomen(name: typeof(TSelf).Name, info: string.Empty);

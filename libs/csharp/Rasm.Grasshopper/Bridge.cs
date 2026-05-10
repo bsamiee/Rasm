@@ -24,12 +24,12 @@ public static class Bridge {
             _ => Remark(access: access),
         };
     }
-    public static Fin<TIn> Item<TIn>(this IDataAccess access, int slot, IPort port) where TIn : RhinoGeometry {
+    public static Fin<TIn> Item<TIn>(this IDataAccess access, int slot, IPort port) where TIn : Shape {
         ArgumentNullException.ThrowIfNull(argument: access);
         ArgumentNullException.ThrowIfNull(argument: port);
         return (
             access.GetItem(index: slot, value: out object? raw),
-            raw is null ? Option<RhinoGeometry>.None : RhinoGeometry.From(value: raw)
+            raw is null ? Option<Shape>.None : Shape.From(value: raw)
         ) switch {
             (true, { IsSome: true } wrapped) when wrapped.Case is TIn input => Fin.Succ(input),
             _ => Fin.Fail<TIn>(error: Error.New(message: $"{port.Name} input is required. Connect: {Accepted}.")),
@@ -63,7 +63,7 @@ public static class Bridge {
             access: access,
             slot: slot,
             values: scope.Context.Match(
-                Succ: (GeometryContext context) => query.Apply(geometry: input).Run(context).Match(
+                Succ: (Context context) => query.Apply(geometry: input).Run(context).Match(
                     Succ: (Seq<TOut> values) => (TOut[])[.. values],
                     Fail: (Error error) => Warn<TOut>(access: access, name: name, error: error)),
                 Fail: (Error error) => Warn<TOut>(access: access, name: name, error: error)));
