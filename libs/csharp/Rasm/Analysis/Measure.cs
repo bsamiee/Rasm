@@ -7,7 +7,7 @@ using Rhino.Geometry;
 using static LanguageExt.Prelude;
 namespace Analysis;
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static partial class Query {
     public static Query<BoundingBox, Point3d> UniqueCorners() =>
