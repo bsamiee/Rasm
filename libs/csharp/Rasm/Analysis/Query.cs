@@ -120,17 +120,17 @@ public partial record Bounds {
     public sealed record Volume : Bounds;
 }
 [Union]
-[SuppressMessage(category: "Naming", checkId: "CA1716:Identifiers should not match keywords", Justification = "Measure.Error is a domain-scoped union variant unambiguous within Measure namespace.")]
-[SuppressMessage(category: "Naming", checkId: "CA1724:Type names should not match namespaces", Justification = "Measure.Principal is a domain-scoped union variant unambiguous within Measure namespace.")]
 public partial record Measure {
     public sealed record Length : Measure;
     public sealed record Area : Measure;
     public sealed record Volume : Measure;
     public sealed record SpatialMidpoint : Measure;
     public sealed record Centroid(MassKind Mass) : Measure;
+    [SuppressMessage(category: "Naming", checkId: "CA1716:Identifiers should not match keywords", Justification = "Measure.Error mirrors Rhino MassProperties error term; domain-scoped, not part of public cross-language API.")]
     public sealed record Error(MassKind Mass) : Measure;
     public sealed record CentroidError(MassKind Mass) : Measure;
     public sealed record Radii(MassKind Mass) : Measure;
+    [SuppressMessage(category: "Naming", checkId: "CA1724:Type names should not match namespaces", Justification = "Measure.Principal denotes principal-axis moments under Measure; domain-scoped, not a top-level identifier in the public surface.")]
     public sealed record Principal(MassKind Mass) : Measure;
 }
 [Union]

@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Runtime.InteropServices;
 using Foundation.CSharp.Analyzers.Contracts;
-using LanguageExt.Common;
 using Rhino;
 using Rhino.Geometry;
 using Rhino.Geometry.Intersect;
@@ -183,9 +182,7 @@ internal static class ContextFault {
             provider: CultureInfo.InvariantCulture,
             $"Geometry value '{label}' must be {requirement}; actual={scalar:R}."));
     internal static Error InvalidUnitSystem(UnitSystem units, string requirement) =>
-        Error.New(message: string.Create(
-            provider: CultureInfo.InvariantCulture,
-            $"Model unit system must be {requirement}; actual={units}."));
+        Error.New(message: $"Model unit system must be {requirement}; actual={units}.");
     internal static Error MissingDocument() =>
         Error.New(message: "Rhino document context is required.");
     internal static Error MissingCustomUnitScale() =>

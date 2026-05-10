@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Globalization;
 using LanguageExt.Common;
 using Thinktecture;
 using static LanguageExt.Prelude;
@@ -25,7 +24,7 @@ internal abstract partial record OperationOutcome<TValue> {
             false => new SolvedFailure(Witness: value),
         };
     internal Fin<Seq<TValue>> Reduce(OperationKey key) =>
-        this.Switch<OperationKey, Fin<Seq<TValue>>>(
+        Switch<OperationKey, Fin<Seq<TValue>>>(
             state: key,
             one: static (OperationKey k, One single) => k.RequireValid(value: single.Value)
                 .Map(static (TValue candidate) => Seq(candidate)),
@@ -48,37 +47,21 @@ internal static class OperationFault {
     internal static Error MissingOperation() =>
         Error.New(message: "Geometry operation requires a query.");
     internal static Error MissingContext(this OperationKey key) =>
-        Error.New(message: string.Create(
-            provider: CultureInfo.InvariantCulture,
-            $"Geometry operation '{key.Name}' requires a model context."));
+        Error.New(message: $"Geometry operation '{key.Name}' requires a model context.");
     internal static Error InvalidInput(this OperationKey key) =>
-        Error.New(message: string.Create(
-            provider: CultureInfo.InvariantCulture,
-            $"Geometry operation '{key.Name}' received invalid Rhino input."));
+        Error.New(message: $"Geometry operation '{key.Name}' received invalid Rhino input.");
     internal static Error InvalidResult(this OperationKey key) =>
-        Error.New(message: string.Create(
-            provider: CultureInfo.InvariantCulture,
-            $"Geometry operation '{key.Name}' produced no valid Rhino result."));
+        Error.New(message: $"Geometry operation '{key.Name}' produced no valid Rhino result.");
     internal static Error Unsupported(this OperationKey key, Type geometryType, Type outputType) =>
-        Error.New(message: string.Create(
-            provider: CultureInfo.InvariantCulture,
-            $"Geometry operation '{key.Name}' does not support geometry '{geometryType.Name}' with output '{outputType.Name}'."));
+        Error.New(message: $"Geometry operation '{key.Name}' does not support geometry '{geometryType.Name}' with output '{outputType.Name}'.");
     internal static Error ComputationFailed(string label) =>
-        Error.New(message: string.Create(
-            provider: CultureInfo.InvariantCulture,
-            $"Rhino {label} computation failed."));
+        Error.New(message: $"Rhino {label} computation failed.");
     internal static Error ComputationUnsupported(string label, Type geometryType) =>
-        Error.New(message: string.Create(
-            provider: CultureInfo.InvariantCulture,
-            $"Rhino {label} computation does not support geometry '{geometryType.Name}'."));
+        Error.New(message: $"Rhino {label} computation does not support geometry '{geometryType.Name}'.");
     internal static Error PrimitiveNoEdges(this OperationKey key, string primitive) =>
-        Error.New(message: string.Create(
-            provider: CultureInfo.InvariantCulture,
-            $"Geometry operation '{key.Name}' rejects '{primitive}' primitive: no edges."));
+        Error.New(message: $"Geometry operation '{key.Name}' rejects '{primitive}' primitive: no edges.");
     internal static Error PrimitiveNoVertices(this OperationKey key, string primitive) =>
-        Error.New(message: string.Create(
-            provider: CultureInfo.InvariantCulture,
-            $"Geometry operation '{key.Name}' rejects '{primitive}' primitive: no vertices."));
+        Error.New(message: $"Geometry operation '{key.Name}' rejects '{primitive}' primitive: no vertices.");
 }
 
 // --- [OPERATIONS] ------------------------------------------------------------------------------
@@ -87,4 +70,3 @@ internal static class ValidationLifts {
     internal static Eff<GeometryContext, T> ToEff<T>(this Validation<Error, T> validation) =>
         validation.ToFin();
 }
-

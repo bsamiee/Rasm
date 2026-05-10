@@ -215,7 +215,7 @@ internal abstract partial record GeometryCheck {
     private static string Detail(string label, string log) =>
         string.IsNullOrWhiteSpace(value: log) switch {
             true => label,
-            false => string.Create(provider: CultureInfo.InvariantCulture, $"{label}: {log}"),
+            false => $"{label}: {log}",
         };
     internal sealed record RhinoValidityCheck : GeometryCheck {
         internal override string Key => "rhino-validity";
@@ -472,16 +472,10 @@ internal static class ValidationFault {
     internal static Error MissingGeometry() =>
         Error.New(message: "Geometry input is required.");
     internal static Error InvalidNativeOperand(Type type) =>
-        Error.New(message: string.Create(
-            provider: CultureInfo.InvariantCulture,
-            $"Geometry native operand '{type.Name}' is invalid."));
+        Error.New(message: $"Geometry native operand '{type.Name}' is invalid.");
     internal static Error InvalidGeometry(GeometryBase geometry, GeometryCheck check, string log) =>
         Error.New(message: string.IsNullOrWhiteSpace(value: log) switch {
-            true => string.Create(
-                provider: CultureInfo.InvariantCulture,
-                $"Geometry validation failed for {geometry.GetType().Name} under check '{check.Key}'."),
-            false => string.Create(
-                provider: CultureInfo.InvariantCulture,
-                $"Geometry validation failed for {geometry.GetType().Name} under check '{check.Key}': {log}"),
+            true => $"Geometry validation failed for {geometry.GetType().Name} under check '{check.Key}'.",
+            false => $"Geometry validation failed for {geometry.GetType().Name} under check '{check.Key}': {log}",
         });
 }
