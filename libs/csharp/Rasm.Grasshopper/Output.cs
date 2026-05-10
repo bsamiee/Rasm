@@ -1,7 +1,7 @@
 using Grasshopper2.Components;
 using Grasshopper2.Data;
 using Grasshopper2.Data.Meta;
-using Rasm.Analysis;
+using Rasm.Domain;
 namespace Rasm.Grasshopper;
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -65,32 +65,6 @@ public sealed record OutputSlot<TState, TSource, TOut>(
     }
 }
 
-public sealed record OutputGroup<TState, TGeometry, TSource>(
-    Seq<IOutputSlot<TState, TSource>> Slots,
-    Func<TState, Analyze.Scope> Scope,
-    Func<TState, TGeometry> Select,
-    Func<TState, Query<TGeometry, TSource>> Query) : IOutputGroup<TState>
-    where TState : notnull
-    where TGeometry : notnull {
-    public Seq<IPort> Ports =>
-        Slots.Map(static slot => slot.Port);
-
-    public Unit Run(IDataAccess access, int slot, TState state) {
-        ArgumentNullException.ThrowIfNull(argument: access);
-        ArgumentNullException.ThrowIfNull(argument: state);
-        return Bridge.Values(scope: Scope(arg: state), input: Select(arg: state), query: Query(arg: state)).Match(
-            Succ: values => Slots.Iter((offset, output) => output.Write(access: access, slot: slot + offset, state: state, source: values)),
-            Fail: error => {
-                access.AddWarning(text: Ports.Head.Map(static port => port.Name).IfNone("Output"), details: error.Message);
-                return Empty(access: access, slot: slot);
-            });
-    }
-    public Unit Empty(IDataAccess access, int slot) {
-        ArgumentNullException.ThrowIfNull(argument: access);
-        return Slots.Iter((offset, output) => output.Empty(access: access, slot: slot + offset));
-    }
-}
-
 public sealed record PreparedGroup<TState, TSource>(
     Seq<IOutputSlot<TState, TSource>> Slots,
     Func<IDataAccess, TState, Fin<Seq<TSource>>> Source,
@@ -105,10 +79,14 @@ public sealed record PreparedGroup<TState, TSource>(
         return Source(arg1: access, arg2: state).Match(
             Succ: values => Slots.Iter((offset, output) => output.Write(access: access, slot: slot + offset, state: state, source: values)),
             Fail: error => {
-                _ = (EmptyUnsupported, Unsupported(error: error)) switch {
-                    (true, true) => Unit.Default,
-                    _ => Warning(access: access, name: Ports.Head.Map(static port => port.Name).IfNone("Output"), error: error),
-                };
+                // BOUNDARY ADAPTER — GH2 warnings are void side effects on IDataAccess.
+                switch (EmptyUnsupported, Unsupported(error: error)) {
+                    case (true, true):
+                        break;
+                    default:
+                        access.AddWarning(text: Ports.Head.Map(static port => port.Name).IfNone("Output"), details: error.Message);
+                        break;
+                }
                 return Empty(access: access, slot: slot);
             });
     }
@@ -117,11 +95,7 @@ public sealed record PreparedGroup<TState, TSource>(
         return Slots.Iter((offset, output) => output.Empty(access: access, slot: slot + offset));
     }
     private static bool Unsupported(Error error) =>
-        error.Message.Contains(value: "does not support", comparisonType: StringComparison.Ordinal);
-    private static Unit Warning(IDataAccess access, string name, Error error) {
-        access.AddWarning(text: name, details: error.Message);
-        return Unit.Default;
-    }
+        error.Code == OpFault.UnsupportedCode;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -137,14 +111,6 @@ public static class Output {
         Slot<TState, TOut, TOut>(
             port: port,
             project: static (_, values) => Fin.Succ(values.Map(static value => OutputValue.Plain(value: value))));
-    public static IOutputGroup<TState> Query<TState, TGeometry, TSource>(
-        Func<TState, Analyze.Scope> scope,
-        Func<TState, TGeometry> select,
-        Func<TState, Query<TGeometry, TSource>> query,
-        params IOutputSlot<TState, TSource>[] slots)
-        where TState : notnull
-        where TGeometry : notnull =>
-        new OutputGroup<TState, TGeometry, TSource>(Slots: toSeq(slots), Scope: scope, Select: select, Query: query);
     public static IOutputGroup<TState> Prepared<TState, TSource>(
         Func<IDataAccess, TState, Fin<Seq<TSource>>> source,
         bool emptyUnsupported,

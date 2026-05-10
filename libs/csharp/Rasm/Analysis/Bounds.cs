@@ -15,11 +15,16 @@ public static partial class Query {
         typeof(TOut) switch {
             Type output when output == typeof(Point3d) => Cast<TGeometry, TOut>(key: UniqueCornersKey, query: Query<TGeometry, Point3d>.Build(
                 key: UniqueCornersKey,
-                requiresContext: true,
-                evaluator: static geom => from ctx in Analyze.Asks
-                                          from bbox in BoundingBoxOf(geom: geom, key: UniqueCornersKey, outputType: typeof(Point3d)).ToEff()
-                                          from result in DedupeCorners(bbox: bbox, tolerance: ctx.Absolute.Value).ToEff()
-                                          select result)),
+                    requiresContext: true,
+                    evaluator: static geom => from ctx in Analyze.Asks
+                                              from bbox in BoundingBoxOf(geom: geom, key: UniqueCornersKey, outputType: typeof(Point3d)).ToEff()
+                                              from result in (bbox.IsValid switch {
+                                                  true => Optional(Point3d.CullDuplicates(points: bbox.GetCorners(), tolerance: ctx.Absolute.Value))
+                                                      .ToFin(UniqueCornersKey.InvalidResult())
+                                                      .Map(static unique => toSeq(unique)),
+                                                  false => Fin.Fail<Seq<Point3d>>(UniqueCornersKey.InvalidInput()),
+                                              }).ToEff()
+                                              select result)),
             _ => UniqueCornersKey.Unsupported<TGeometry, TOut>(),
         };
     private static Fin<BoundingBox> BoundingBoxOf<TGeometry>(TGeometry geom, Op key, Type outputType) where TGeometry : notnull =>
@@ -46,13 +51,6 @@ public static partial class Query {
                 using TNative disposable = value;
                 return disposable.GetBoundingBox(accurate: true);
             });
-    private static Fin<Seq<Point3d>> DedupeCorners(BoundingBox bbox, double tolerance) =>
-        bbox.IsValid switch {
-            true => Optional(Point3d.CullDuplicates(points: bbox.GetCorners(), tolerance: tolerance))
-                .ToFin(UniqueCornersKey.InvalidResult())
-                .Map(static unique => toSeq(unique)),
-            false => Fin.Fail<Seq<Point3d>>(UniqueCornersKey.InvalidInput()),
-        };
     public static Query<TGeometry, TOut> Bounds<TGeometry, TOut>(Bounds aspect) where TGeometry : notnull =>
         Aspect(
             aspect: aspect,
@@ -108,7 +106,7 @@ public static partial class Query {
             (Analysis.Measure.PrincipalAxes, MassKind.Volume) when typeof(TOut) == typeof(ValueTuple<double, Vector3d>) => MassCast<TGeometry, TOut, VolumeMassProperties, (double Moment, Vector3d Axis)>(name: "VolumePrincipal", requirement: Requirement.VolumeMass, compute: ComputeVolume, project: static (key, props) => key.Principal(mass: props), secondMoments: true, productMoments: true),
             _ => MeasureKey.Unsupported<TGeometry, TOut>(),
         };
-    private static Query<TGeometry, TOut> MassCast<TGeometry, TOut, TMass, TValue>(string name, Requirement requirement, Func<object, bool, bool, Eff<Context, TMass>> compute, Func<Op, TMass, Fin<Seq<TValue>>> project, bool secondMoments = false, bool productMoments = false) where TGeometry : notnull where TMass : class, IDisposable =>
+    private static Query<TGeometry, TOut> MassCast<TGeometry, TOut, TMass, TValue>(string name, Requirement requirement, Func<object, bool, bool, Eff<Analyze.Runtime, TMass>> compute, Func<Op, TMass, Fin<Seq<TValue>>> project, bool secondMoments = false, bool productMoments = false) where TGeometry : notnull where TMass : class, IDisposable =>
         Cast<TGeometry, TOut>(key: new Op(name: name), query: Mass<TGeometry, TMass, TValue>(name: name, requirement: requirement, compute: compute, project: project, secondMoments: secondMoments, productMoments: productMoments));
     public static Query<TGeometry, TOut> SpatialMidpoint<TGeometry, TOut>() where TGeometry : notnull =>
         (typeof(TGeometry), typeof(TOut)) switch {
@@ -132,10 +130,15 @@ public static partial class Query {
                         Mesh mesh => MassCentroid(geometry: mesh, mass: mesh.IsSolid ? MassKind.Volume : MassKind.Area),
                         Surface surface => MassCentroid(geometry: surface, mass: surface.IsSolid ? MassKind.Volume : MassKind.Area),
                         SubD subd =>
-                            from ctx in Analyze.Asks
-                            from validated in ctx.Validate(geometry: subd, requirement: Requirement.Basic).ToEff()
-                            from brep in Optional(validated.ToBrep()).ToFin(SpatialMidpointKey.InvalidResult()).ToEff()
-                            from result in SubDBrepSpatialMidpoint(brep: brep)
+                            from runtime in Analyze.RuntimeAsks
+                            from validated in runtime.Context.Validate(geometry: subd, requirement: Requirement.Basic).ToEff()
+                            from result in Optional(validated.ToBrep())
+                                .ToFin(SpatialMidpointKey.InvalidResult())
+                                .Bind(brep => {
+                                    using Brep disposable = brep;
+                                    return MassCentroid(geometry: disposable, mass: disposable.IsSolid ? MassKind.Volume : MassKind.Area).Run(env: runtime);
+                                })
+                                .ToEff()
                             select result,
                         BoundingBox box => One(key: SpatialMidpointKey, value: box.Center).ToEff(),
                         Box box => One(key: SpatialMidpointKey, value: box.Center).ToEff(),
@@ -147,13 +150,6 @@ public static partial class Query {
                     })),
             _ => SpatialMidpointKey.Unsupported<TGeometry, TOut>(),
         };
-    private static Eff<Context, Seq<Point3d>> SubDBrepSpatialMidpoint(Brep brep) {
-        using Brep disposable = brep;
-        return disposable.IsSolid switch {
-            true => MassCentroid(geometry: disposable, mass: MassKind.Volume),
-            false => MassCentroid(geometry: disposable, mass: MassKind.Area),
-        };
-    }
     public static Query<(TGeometry Geometry, TPrimitive Primitive), TOut> Conformance<TGeometry, TPrimitive, TOut>(
         Conformance aspect) where TGeometry : notnull where TPrimitive : notnull =>
         Aspect(
@@ -238,12 +234,10 @@ public static partial class Query {
             state: (Count: count, Requirement: requirement, Samples: samples, Project: project),
             evaluator: static (state, geometry) =>
                 from ctx in Analyze.Asks
-                from validated in ctx.Validate(
-                        shape: new Pair<TGeometry, TPrimitive>.Both(
-                            A: geometry.Geometry,
-                            B: geometry.Primitive,
-                            RequirementA: state.Requirement,
-                            RequirementB: Requirement.None))
+                from validated in ctx.ValidatePair(a: geometry.Geometry,
+                        b: geometry.Primitive,
+                        requirementA: state.Requirement,
+                        requirementB: Requirement.None)
                     .ToEff()
                 from result in ConformanceProject(
                         geometry: validated,
@@ -333,15 +327,14 @@ public static partial class Query {
                     projection: static sample => sample.Distance,
                     tolerance: 0.0)
                 .Head
-                .Match(
-                    Some: static best => Fin.Succ(Seq(best)),
-                    None: static () => Fin.Fail<Seq<ResidualSample>>(ConformanceKey.InvalidResult())));
+                .ToFin(ConformanceKey.InvalidResult())
+                .Map(static best => Seq(best)));
     private static Fin<Seq<double>> ResidualDistances(Seq<ResidualSample> samples) =>
         samples.TraverseM(static sample => sample switch {
             { Distance: double distance, Location.IsValid: true } when distance >= 0.0 && RhinoMath.IsValidDouble(x: distance) => Fin.Succ(distance),
             _ => Fin.Fail<double>(ConformanceKey.InvalidResult()),
         }).As();
-    private static Eff<Context, Seq<Point3d>> MassCentroid<TGeometry>(
+    private static Eff<Analyze.Runtime, Seq<Point3d>> MassCentroid<TGeometry>(
         TGeometry geometry,
         MassKind mass) where TGeometry : GeometryBase =>
         mass switch {
@@ -356,8 +349,12 @@ public static partial class Query {
             : null;
     private static Query<TGeometry, TOut>? BoxMetric<TGeometry, TOut>(Op key, Func<BoundingBox, double> boundingBox, Func<Box, double> box) where TGeometry : notnull =>
         (typeof(TGeometry), typeof(TOut)) switch {
-            (Type geometry, Type output) when geometry == typeof(BoundingBox) && output == typeof(double) => Cast<TGeometry, TOut>(key: key, query: Query<BoundingBox, double>.Build(key: key, evaluator: geometry => One(key: key, value: boundingBox(arg: geometry)).ToEff())),
-            (Type geometry, Type output) when geometry == typeof(Box) && output == typeof(double) => Cast<TGeometry, TOut>(key: key, query: Query<Box, double>.Build(key: key, evaluator: geometry => One(key: key, value: box(arg: geometry)).ToEff())),
+            (Type geometry, Type output) when geometry == typeof(BoundingBox) && output == typeof(double) => Cast<TGeometry, TOut>(key: key, query: Query<BoundingBox, double>.Build(
+                key: key,
+                evaluator: geometry => key.RequireValid(value: geometry).Bind(validated => One(key: key, value: boundingBox(arg: validated))).ToEff())),
+            (Type geometry, Type output) when geometry == typeof(Box) && output == typeof(double) => Cast<TGeometry, TOut>(key: key, query: Query<Box, double>.Build(
+                key: key,
+                evaluator: geometry => key.RequireValid(value: geometry).Bind(validated => One(key: key, value: box(arg: validated))).ToEff())),
             _ => null,
         };
     private static Query<TGeometry, TOut> Box<TGeometry, TOut>() where TGeometry : notnull =>
@@ -407,11 +404,11 @@ public static partial class Query {
             (Type geometry, Type output) when geometry == typeof(Line) && output == typeof(double) =>
                 Cast<TGeometry, TOut>(key: LengthKey, query: Query<Line, double>.Build(
                     key: LengthKey,
-                    evaluator: static geometry => One(key: LengthKey, value: geometry.Length).ToEff())),
+                    evaluator: static geometry => LengthKey.RequireValid(value: geometry).Bind(static validated => One(key: LengthKey, value: validated.Length)).ToEff())),
             (Type geometry, Type output) when geometry == typeof(Polyline) && output == typeof(double) =>
                 Cast<TGeometry, TOut>(key: LengthKey, query: Query<Polyline, double>.Build(
                     key: LengthKey,
-                    evaluator: static geometry => One(key: LengthKey, value: geometry.Length).ToEff())),
+                    evaluator: static geometry => LengthKey.RequireValid(value: geometry).Bind(static validated => One(key: LengthKey, value: validated.Length)).ToEff())),
             (Type geometry, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && output == typeof(double) =>
                 Cast<TGeometry, TOut>(key: LengthKey, query: Query<TGeometry, double>.Build(
                     key: LengthKey,

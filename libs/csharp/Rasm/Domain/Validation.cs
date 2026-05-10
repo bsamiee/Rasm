@@ -9,14 +9,6 @@ using Thinktecture;
 using static LanguageExt.Prelude;
 namespace Rasm.Domain;
 
-// --- [MODELS] --------------------------------------------------------------------------
-
-[Union]
-public abstract partial record Pair<TA, TB> where TA : notnull where TB : notnull {
-    public sealed record Both(TA A, TB B, Requirement RequirementA, Requirement RequirementB) : Pair<TA, TB>;
-    public sealed record FirstOnly(TA A, TB B, Requirement Requirement) : Pair<TA, TB>;
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 internal static class Check {
@@ -43,22 +35,16 @@ internal static class Check {
                             .As(),
                         accumulator.Context,
                         accumulator.Geometry)).Result);
-    internal static Validation<Error, (TA A, TB B)> Validate<TA, TB>(
+    internal static Validation<Error, (TA A, TB B)> ValidatePair<TA, TB>(
         this Context context,
-        Pair<TA, TB> shape) where TA : notnull where TB : notnull =>
-        shape switch {
-            Pair<TA, TB>.Both both => (
-                    context.ValidateOperand(operand: both.A, requirement: both.RequirementA),
-                    context.ValidateOperand(operand: both.B, requirement: both.RequirementB))
-                .Apply(static (a, b) => (A: a, B: b))
-                .As(),
-            Pair<TA, TB>.FirstOnly firstOnly => (
-                    context.ValidateOperand(operand: firstOnly.A, requirement: firstOnly.Requirement),
-                    firstOnly.B.ValidateNativeOperand())
-                .Apply(static (a, b) => (A: a, B: b))
-                .As(),
-            _ => Fin.Fail<(TA A, TB B)>(ValidationFault.MissingGeometry()).ToValidation(),
-        };
+        TA a,
+        TB b,
+        Requirement requirementA,
+        Requirement requirementB) where TA : notnull where TB : notnull =>
+        (
+            context.ValidateOperand(operand: a, requirement: requirementA),
+            context.ValidateOperand(operand: b, requirement: requirementB)
+        ).Apply(static (left, right) => (A: left, B: right)).As();
     internal static Validation<Error, TValue> ValidateOperand<TValue>(
         this Context context,
         TValue operand,
@@ -78,115 +64,29 @@ internal static class Check {
                 Fin.Succ(state.Candidate).ToValidation()
             ).Apply(static (_, candidate) => candidate)
             .As(),
-            _ => state.Candidate.ValidateNativeOperand(),
+            _ => new Op(name: "Operand").RequireValid(value: state.Candidate).ToValidation(),
         })
         .As();
-    private static Validation<Error, TValue> ValidateNativeOperand<TValue>(this TValue operand) =>
-        operand switch {
-            Plane plane => plane.IsValid switch {
-                true => Fin.Succ(operand).ToValidation(),
-                false => Fin.Fail<TValue>(ValidationFault.InvalidNativeOperand(type: typeof(Plane))).ToValidation(),
-            },
-            Line line => line.IsValid switch {
-                true => Fin.Succ(operand).ToValidation(),
-                false => Fin.Fail<TValue>(ValidationFault.InvalidNativeOperand(type: typeof(Line))).ToValidation(),
-            },
-            Circle circle => circle.IsValid switch {
-                true => Fin.Succ(operand).ToValidation(),
-                false => Fin.Fail<TValue>(ValidationFault.InvalidNativeOperand(type: typeof(Circle))).ToValidation(),
-            },
-            Arc arc => arc.IsValid switch {
-                true => Fin.Succ(operand).ToValidation(),
-                false => Fin.Fail<TValue>(ValidationFault.InvalidNativeOperand(type: typeof(Arc))).ToValidation(),
-            },
-            Sphere sphere => sphere.IsValid switch {
-                true => Fin.Succ(operand).ToValidation(),
-                false => Fin.Fail<TValue>(ValidationFault.InvalidNativeOperand(type: typeof(Sphere))).ToValidation(),
-            },
-            _ => Fin.Succ(operand).ToValidation(),
-        };
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-[Union]
-public abstract partial record Requirement {
-    internal abstract Seq<Rule> Checks { get; }
-    public sealed record NoneRequirement : Requirement {
-        internal override Seq<Rule> Checks =>
-            Seq<Rule>();
-    }
-    public sealed record BasicRequirement : Requirement {
-        internal override Seq<Rule> Checks =>
-            Seq<Rule>(Rule.Validity, Rule.UsableBounds);
-    }
-    public sealed record CurveLengthRequirement : Requirement {
-        internal override Seq<Rule> Checks =>
-            Rule.BasicChecks.Add(Rule.CurveLengthReadiness);
-    }
-    public sealed record AreaMassRequirement : Requirement {
-        internal override Seq<Rule> Checks =>
-            Rule.BasicChecks.Add(Rule.CurveAreaReadiness).Add(Rule.CurveSelfIntersection);
-    }
-    public sealed record MeshCheckRequirement : Requirement {
-        internal override Seq<Rule> Checks =>
-            Rule.BasicChecks.Add(Rule.MeshRhinoCheck);
-    }
-    public sealed record SolidTopologyRequirement : Requirement {
-        internal override Seq<Rule> Checks =>
-            Rule.BasicChecks
-                .Add(Rule.BrepIntegrity)
-                .Add(Rule.MeshManifoldReadiness)
-                .Add(Rule.BrepSolidReadiness)
-                .Add(Rule.MeshRhinoCheck);
-    }
-    public sealed record VolumeMassRequirement : Requirement {
-        internal override Seq<Rule> Checks =>
-            Rule.BasicChecks
-                .Add(Rule.BrepIntegrity)
-                .Add(Rule.MeshManifoldReadiness)
-                .Add(Rule.BrepSolidReadiness)
-                .Add(Rule.MeshRhinoCheck)
-                .Add(Rule.SurfaceSolidReadiness);
-    }
-    public sealed record SurfaceEvaluationRequirement : Requirement {
-        internal override Seq<Rule> Checks =>
-            Rule.BasicChecks.Add(Rule.SurfaceDomainReadiness);
-    }
-    public sealed record StrictStructureRequirement : Requirement {
-        internal override Seq<Rule> Checks =>
-            Rule.BasicChecks
-                .Add(Rule.SurfaceDomainReadiness)
-                .Add(Rule.ContinuityReadiness)
-                .Add(Rule.PolycurveStructure);
-    }
-    public sealed record StrictRequirement : Requirement {
-        internal override Seq<Rule> Checks =>
-            Rule.AllChecks;
-    }
-    public static readonly Requirement None = new NoneRequirement();
-    public static readonly Requirement Basic = new BasicRequirement();
-    public static readonly Requirement CurveLength = new CurveLengthRequirement();
-    public static readonly Requirement AreaMass = new AreaMassRequirement();
-    public static readonly Requirement MeshCheck = new MeshCheckRequirement();
-    public static readonly Requirement SolidTopology = new SolidTopologyRequirement();
-    public static readonly Requirement VolumeMass = new VolumeMassRequirement();
-    public static readonly Requirement SurfaceEvaluation = new SurfaceEvaluationRequirement();
-    public static readonly Requirement StrictStructure = new StrictStructureRequirement();
-    public static readonly Requirement Strict = new StrictRequirement();
-}
-
-internal static class RequirementExtensions {
-    internal static bool Has(this Requirement self, Requirement other) =>
-        other.Checks.Fold(
-            initialState: (Self: self, AllPresent: true),
-            f: static (acc, check) => (
-                acc.Self,
-                AllPresent: acc.AllPresent && acc.Self.Checks.Fold(
-                    initialState: (Target: check, Found: false),
-                    f: static (inner, candidate) => (
-                        inner.Target,
-                        Found: inner.Found || ReferenceEquals(objA: candidate, objB: inner.Target))).Found)).AllPresent;
+public sealed record Requirement {
+    private Requirement(Seq<Rule> checks) =>
+        Checks = checks;
+    internal Seq<Rule> Checks { get; }
+    internal bool IsEmpty =>
+        Checks.IsEmpty;
+    public static readonly Requirement None = new(checks: Seq<Rule>());
+    public static readonly Requirement Basic = new(checks: Rule.BasicChecks);
+    public static readonly Requirement CurveLength = new(checks: Rule.BasicChecks.Add(Rule.CurveLengthReadiness));
+    public static readonly Requirement AreaMass = new(checks: Rule.BasicChecks.Add(Rule.CurveAreaReadiness).Add(Rule.CurveSelfIntersection));
+    public static readonly Requirement MeshCheck = new(checks: Rule.BasicChecks.Add(Rule.MeshRhinoCheck));
+    public static readonly Requirement SolidTopology = new(checks: Rule.BasicChecks.Add(Rule.BrepIntegrity).Add(Rule.MeshManifoldReadiness).Add(Rule.BrepSolidReadiness).Add(Rule.MeshRhinoCheck));
+    public static readonly Requirement VolumeMass = new(checks: Rule.BasicChecks.Add(Rule.BrepIntegrity).Add(Rule.MeshManifoldReadiness).Add(Rule.BrepSolidReadiness).Add(Rule.MeshRhinoCheck).Add(Rule.SurfaceSolidReadiness));
+    public static readonly Requirement SurfaceEvaluation = new(checks: Rule.BasicChecks.Add(Rule.SurfaceDomainReadiness));
+    public static readonly Requirement StrictStructure = new(checks: Rule.BasicChecks.Add(Rule.SurfaceDomainReadiness).Add(Rule.ContinuityReadiness).Add(Rule.PolycurveStructure));
+    public static readonly Requirement Strict = new(checks: Rule.AllChecks);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -241,15 +141,15 @@ internal abstract partial record Rule {
         internal override bool Applies(GeometryBase geometry) => geometry is Brep;
         internal override Fin<Unit> Validate(Context context, GeometryBase geometry) =>
             geometry switch {
-                Brep brep => (
-                    Topology: brep.IsValidTopology(log: out string topologyLog),
-                    Geometry: brep.IsValidGeometry(log: out string geometryLog),
-                    Tolerances: brep.IsValidTolerancesAndFlags(log: out string toleranceLog)
-                ) switch {
-                    (false, _, _) => Invalid(geometry: geometry, log: Detail(label: "Brep topology", log: topologyLog)),
-                    (_, false, _) => Invalid(geometry: geometry, log: Detail(label: "Brep geometry", log: geometryLog)),
-                    (_, _, false) => Invalid(geometry: geometry, log: Detail(label: "Brep tolerances and flags", log: toleranceLog)),
-                    _ => Fin.Succ(unit),
+                Brep brep => brep.IsValidTopology(log: out string topologyLog) switch {
+                    false => Invalid(geometry: geometry, log: Detail(label: "Brep topology", log: topologyLog)),
+                    true => brep.IsValidGeometry(log: out string geometryLog) switch {
+                        false => Invalid(geometry: geometry, log: Detail(label: "Brep geometry", log: geometryLog)),
+                        true => brep.IsValidTolerancesAndFlags(log: out string toleranceLog) switch {
+                            true => Fin.Succ(unit),
+                            false => Invalid(geometry: geometry, log: Detail(label: "Brep tolerances and flags", log: toleranceLog)),
+                        },
+                    },
                 },
                 _ => Fin.Succ(unit),
             };
@@ -469,8 +369,6 @@ internal abstract partial record Rule {
 internal static class ValidationFault {
     internal static Error MissingGeometry() =>
         Error.New(message: "Geometry input is required.");
-    internal static Error InvalidNativeOperand(Type type) =>
-        Error.New(message: $"Geometry native operand '{type.Name}' is invalid.");
     internal static Error InvalidGeometry(GeometryBase geometry, Rule check, string log) =>
         Error.New(message: string.IsNullOrWhiteSpace(value: log) switch {
             true => $"Geometry validation failed for {geometry.GetType().Name} under check '{check.Key}'.",

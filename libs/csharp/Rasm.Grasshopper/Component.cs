@@ -4,6 +4,7 @@ using Grasshopper2.UI;
 using GrasshopperIO;
 using Rasm.Analysis;
 using Rasm.Domain;
+using Rhino.Geometry;
 namespace Rasm.Grasshopper;
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -47,14 +48,45 @@ public static class ShapeFoundation {
     }
     public static Seq<IPort> Inputs(Seq<IPort> controls) =>
         toSeq(Seq<IPort>(Geometry).Concat(second: controls));
+    public static IOutputGroup<ShapeState> Query<TOut>(Port<TOut> port, Func<Rasm.Analysis.Query<object, TOut>> query, bool emptyUnsupported = false) =>
+        Query(port: port, query: (_, _) => query(), emptyUnsupported: emptyUnsupported);
+    public static IOutputGroup<ShapeState> Query<TOut>(Port<TOut> port, Func<IDataAccess, ShapeState, Rasm.Analysis.Query<object, TOut>> query, bool emptyUnsupported = false) =>
+        Output.Prepared<ShapeState, TOut>(
+            source: (access, state) => Bridge.Values(access: access, scope: state.Scope, input: state.Geometry, query: query(arg1: access, arg2: state)),
+            emptyUnsupported: emptyUnsupported,
+            slots: [Output.Slot<ShapeState, TOut>(port: port)]);
+    public static IOutputGroup<ShapeState> CurveDetails(Port<Curve> curves, Port<ComponentIndex> sources, Port<CurveFeature> features, Func<IDataAccess, ShapeState, Curves> aspect, bool emptyUnsupported = false) =>
+        Output.Prepared<ShapeState, CurveProjection>(
+            source: (access, state) => state.Scope.Context.Bind(context => Rasm.Analysis.Query.CurveProjections<object>(geometry: state.Geometry, aspect: aspect(arg1: access, arg2: state)).Run(env: Bridge.Runtime(access: access, context: context))),
+            emptyUnsupported: emptyUnsupported,
+            slots: [
+                Output.Slot<ShapeState, CurveProjection, Curve>(port: curves, project: static (_, values) => Fin.Succ(values.Map(static value => OutputValue.Plain(value: value.Curve)))),
+                Output.Slot<ShapeState, CurveProjection, ComponentIndex>(port: sources, project: static (_, values) => Fin.Succ(values.Map(static value => OutputValue.Plain(value: value.Source)))),
+                Output.Slot<ShapeState, CurveProjection, CurveFeature>(port: features, project: static (_, values) => Fin.Succ(values.Map(static value => OutputValue.Plain(value: value.Feature)))),
+            ]);
+    public static IOutputGroup<ShapeState> FaceDetails(Faces selector, Port<Brep> breps, Port<int> indices) =>
+        Output.Prepared<ShapeState, FaceProjection>(
+            source: (access, state) => state.Scope.Context.Bind(context => Rasm.Analysis.Query.FaceProjections<object>(geometry: state.Geometry, selector: selector).Run(env: Bridge.Runtime(access: access, context: context))),
+            slots: [
+                Output.Slot<ShapeState, FaceProjection, Brep>(port: breps, project: static (_, values) => Fin.Succ(values.Map(static value => OutputValue.Plain(value: value.Brep)))),
+                Output.Slot<ShapeState, FaceProjection, int>(port: indices, project: static (_, values) => Fin.Succ(values.Map(static value => OutputValue.Plain(value: value.FaceIndex)))),
+            ]);
+    public static IOutputGroup<ShapeState> IndexedFaceDetails(Port<int> index, Port<Brep> brep, Port<Plane> frame, Port<Point3d> center, Port<Vector3d> normal, Port<int> face, Port<ComponentIndex> component, Port<Interval> domains) =>
+        Output.Prepared<ShapeState, FaceProjection>(
+            source: (access, state) => state.Scope.Context.Bind(context => Rasm.Analysis.Query.FaceProjections<object>(geometry: state.Geometry, selector: Rasm.Analysis.Faces.At(index: state.Hints.Index(access: access, port: index, limit: int.MaxValue).Map(static value => (int?)value).IfNone(static () => null))).Run(env: Bridge.Runtime(access: access, context: context))),
+            slots: [
+                Output.Slot<ShapeState, FaceProjection, Brep>(port: brep, project: static (_, values) => Fin.Succ(values.Map(static value => OutputValue.Plain(value: value.Brep)))),
+                Output.Slot<ShapeState, FaceProjection, Plane>(port: frame, project: static (state, values) => state.Scope.Context.Bind(context => values.Traverse(value => Rasm.Analysis.Query.FrameAtCentroid(face: value, runtime: context)).Map(static items => items.Map(static value => OutputValue.Plain(value: value))).As())),
+                Output.Slot<ShapeState, FaceProjection, Point3d>(port: center, project: static (state, values) => state.Scope.Context.Bind(context => values.Traverse(value => Rasm.Analysis.Query.FaceCentroid(face: value, runtime: context)).Map(static items => items.Map(static value => OutputValue.Plain(value: value))).As())),
+                Output.Slot<ShapeState, FaceProjection, Vector3d>(port: normal, project: static (state, values) => state.Scope.Context.Bind(context => values.Traverse(value => Rasm.Analysis.Query.FrameAtCentroid(face: value, runtime: context).Map(static value => value.ZAxis)).Map(static items => items.Map(static value => OutputValue.Plain(value: value))).As())),
+                Output.Slot<ShapeState, FaceProjection, int>(port: face, project: static (_, values) => Fin.Succ(values.Map(static value => OutputValue.Plain(value: value.FaceIndex)))),
+                Output.Slot<ShapeState, FaceProjection, ComponentIndex>(port: component, project: static (_, values) => Fin.Succ(values.Map(static value => OutputValue.Plain(value: new ComponentIndex(type: ComponentIndexType.BrepFace, index: value.FaceIndex))))),
+                Output.Slot<ShapeState, FaceProjection, Interval>(port: domains, project: static (_, values) => Fin.Succ(values.Bind(static value => Seq(value.Brep.Faces[0].Domain(direction: 0), value.Brep.Faces[0].Domain(direction: 1))).Map(static value => OutputValue.Plain(value: value)))),
+            ]);
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-/// <summary>
-/// Polymorphic base for Rasm-family Grasshopper 2 components. Static specs own the complete
-/// port and output declaration so GH2 constructor-time registration never reads derived instance state.
-/// </summary>
 public abstract class Component<TSpec, TInput, TState> : Grasshopper2.Components.Component
     where TSpec : IComponentSpec<TInput, TState>
     where TInput : notnull
@@ -79,28 +111,21 @@ public abstract class Component<TSpec, TInput, TState> : Grasshopper2.Components
             from state in TSpec.Prepare(access: access, scope: scope, hints: hints, input: input)
             select state)
             .Match(
-                Succ: state => Run(access: access, state: state),
+                Succ: state => TSpec.Outputs.Fold(
+                    initialState: 0,
+                    f: (slot, group) => (group.Run(access: access, slot: slot, state: state), slot + group.Ports.Count).Item2) switch {
+                        _ => Unit.Default,
+                    },
                 Fail: error => (
                     access.MissingInput(error: error),
-                    Empty(access: access)).Item2);
+                    TSpec.Outputs.Fold(
+                        initialState: 0,
+                        f: (slot, group) => (group.Empty(access: access, slot: slot), slot + group.Ports.Count).Item2) switch {
+                            _ => Unit.Default,
+                        }).Item2);
     }
-    private static Unit Run(IDataAccess access, TState state) =>
-        TSpec.Outputs.Fold(
-            initialState: 0,
-            f: (slot, group) => (group.Run(access: access, slot: slot, state: state), slot + group.Ports.Count).Item2) switch {
-                _ => Unit.Default,
-            };
-    private static Unit Empty(IDataAccess access) =>
-        TSpec.Outputs.Fold(
-            initialState: 0,
-            f: (slot, group) => (group.Empty(access: access, slot: slot), slot + group.Ports.Count).Item2) switch {
-                _ => Unit.Default,
-            };
 }
 
-/// <summary>
-/// Shared base for geometry-query components that operate on the canonical Shape input.
-/// </summary>
 public abstract class ShapeComponent<TSpec> : Component<TSpec, Shape, ShapeState>
     where TSpec : IComponentSpec<Shape, ShapeState> {
     protected ShapeComponent(Nomen nomen) : base(nomen: nomen) { }

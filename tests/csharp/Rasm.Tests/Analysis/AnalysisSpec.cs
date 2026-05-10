@@ -108,7 +108,7 @@ public sealed class AnalysisSpec {
         object[] factories = [
             Query.Edges, Query.IsManifold, Query.NakedPointStatus, Query.SelfIntersections,
             Query.MeshCheckCount(count: MeshCheckCount.NakedEdges), Query.MeshFaceMetric(metric: MeshFaceMetric.AspectRatio),
-            Query.Topology<Mesh, Polyline>(aspect: Topology.Boundary), Query.Topology<GeometryBase, Point3d>(aspect: Topology.EdgeMidpoints), Query.Topology<Mesh, ComponentIndex>(aspect: Topology.Adjacency), Query.Topology<Mesh, bool>(aspect: Topology.NonManifold),
+            Query.NakedEdges<Mesh, Polyline>(), Query.EdgeMidpoints<GeometryBase, Point3d>(), Query.Curves<Mesh, ComponentIndex>(aspect: Curves.All), Query.Curves<Mesh, ComponentIndex>(aspect: Curves.NonManifold),
             Query.Measure<GeometryBase, Point3d>(aspect: new Measure.SpatialMidpoint()), Query.Locate<Curve, double>(aspect: new Location.CurvatureProfile(Count: 3, Scalar: CurvatureScalar.Magnitude)), Query.Locate<Surface, double>(aspect: new Location.CurvatureProfile(Count: 3, Scalar: CurvatureScalar.Gaussian)), Query.Locate<Surface, double>(aspect: new Location.CurvatureProfile(Count: 3, Scalar: CurvatureScalar.Mean)),
             Query.Conformance<Curve, Line, double>(aspect: Conformance.Distance(count: 3)), Query.Conformance<Surface, Plane, bool>(aspect: Conformance.WithinTolerance(count: 2)), Query.Conformance<Curve, Line, ResidualProfile>(aspect: Conformance.Profile(count: 3)), Query.Conformance<Curve, Circle, double>(aspect: Conformance.Distance(count: 3)), Query.Conformance<Curve, Arc, bool>(aspect: Conformance.WithinTolerance(count: 3)), Query.Conformance<Surface, Sphere, ResidualSample>(aspect: Conformance.Maximum(count: 2)),
             Query.Deviation<Curve, Curve, CurveDeviation>(), Query.EdgeMidpoints<GeometryBase, Point3d>(), Query.Vertices<GeometryBase, Point3d>(),
@@ -468,20 +468,20 @@ public sealed class AnalysisSpec {
     }
 
     [Fact]
-    public void RejectsUnsupportedTopologyBeforeInputExecution() {
-        Validation<Error, Seq<Curve>> result = Analyze.In(context: ValidContext()).Run(
-            query: Query.Topology<Curve, Curve>(aspect: Topology.Boundary),
+    public void RejectsUnsupportedCurveExtractionBeforeInputExecution() {
+        Validation<Error, Seq<Mesh>> result = Analyze.In(context: ValidContext()).Run(
+            query: Query.Curves<Curve, Mesh>(aspect: Curves.NonManifold),
             input: [null!, null!]);
 
         Assert.True(condition: result.ToFin().Match(
             Succ: static _ => false,
-            Fail: static error => error.Count == 1 && error.Message.Contains(value: "Topology", comparisonType: StringComparison.Ordinal)));
+            Fail: static error => error.Count == 1 && error.Message.Contains(value: "Curves", comparisonType: StringComparison.Ordinal)));
     }
 
     [Fact]
-    public void RejectsNullGeometryInsideTopologyRail() {
+    public void RejectsNullGeometryInsideNakedEdgeRail() {
         Validation<Error, Seq<Polyline>> result = Analyze.In(context: ValidContext()).Run(
-            query: Query.Topology<Mesh, Polyline>(aspect: Topology.Boundary),
+            query: Query.NakedEdges<Mesh, Polyline>(),
             input: [null!]);
 
         Assert.True(condition: result.ToFin().Match(
@@ -490,14 +490,14 @@ public sealed class AnalysisSpec {
     }
 
     [Fact]
-    public void RejectsUnsupportedTopologyOutputWithOperationVocabulary() {
+    public void RejectsUnsupportedNakedEdgeOutputWithOperationVocabulary() {
         Validation<Error, Seq<Curve>> result = Analyze.In(context: ValidContext()).Run(
-            query: Query.Topology<Mesh, Curve>(aspect: Topology.Boundary),
+            query: Query.NakedEdges<Mesh, Curve>(),
             input: [null!]);
 
         Assert.True(condition: result.ToFin().Match(
             Succ: static _ => false,
-            Fail: static error => error.Count == 1 && error.Message.Contains(value: "Topology", comparisonType: StringComparison.Ordinal)));
+            Fail: static error => error.Count == 1 && error.Message.Contains(value: "NakedEdges", comparisonType: StringComparison.Ordinal)));
     }
 
     [Fact]

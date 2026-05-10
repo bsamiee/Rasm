@@ -13,9 +13,6 @@ namespace Rasm.Grasshopper;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class Bridge {
-    private static string Accepted =>
-        string.Join(separator: ", ", values: Shape.Items.Map(static type => type.Name));
-
     public static Fin<Analyze.Scope> Scope(this IDataAccess access) {
         ArgumentNullException.ThrowIfNull(argument: access);
         return (
@@ -36,7 +33,7 @@ public static class Bridge {
             raw is null ? Option<Shape>.None : NormalizeShape(raw: raw)
         ) switch {
             (true, { IsSome: true } wrapped) when wrapped.Case is Shape shape => shape.Validate(),
-            _ => Fin.Fail<Shape>(error: Error.New(message: $"{port.Name} input is required. Connect: {Accepted}.")),
+            _ => Fin.Fail<Shape>(error: Error.New(message: $"{port.Name} input is required. Connect: {Shape.Accepted}.")),
         };
     }
     public static Option<int> Index(this IDataAccess access, int slot, int limit) {
@@ -52,42 +49,33 @@ public static class Bridge {
         access.AddError(text: "Input", details: error.Message);
         return Unit.Default;
     }
-    internal static Fin<Seq<TOut>> Values<TIn, TOut>(Analyze.Scope scope, TIn input, Query<TIn, TOut> query) where TIn : notnull {
+    internal static Fin<Seq<TOut>> Values<TIn, TOut>(IDataAccess access, Analyze.Scope scope, TIn input, Query<TIn, TOut> query) where TIn : notnull {
+        ArgumentNullException.ThrowIfNull(argument: access);
         ArgumentNullException.ThrowIfNull(argument: scope);
-        return scope.Context.Bind(context => query.Apply(geometry: input).Run(env: context));
+        return scope.Context.Bind(context => query.Apply(geometry: input).Run(env: Runtime(access: access, context: context)));
     }
-    internal static Unit Write<TOut>(IDataAccess access, int slot, string name, Access targetAccess, OutputValue<TOut>[] values) =>
-        (targetAccess, values) switch {
-            (Access.Item, OutputValue<TOut>[] output) => WriteItem(access: access, slot: slot, values: output),
-            (Access.Twig, OutputValue<TOut>[] output) => WriteTwig(access: access, slot: slot, values: output),
-            (Access.Tree, OutputValue<TOut>[] output) => WriteTree(access: access, slot: slot, values: output),
-            _ => UnsupportedAccess(access: access, name: name, accessKind: targetAccess),
-        };
-    private static Unit WriteItem<TOut>(IDataAccess access, int slot, OutputValue<TOut>[] values) {
-        // Boundary adapter: GH2 item outputs expose a void setter; empty results leave the slot unset.
-        switch (values.Length) {
-            case > 0 when values[0].Meta is MetaData meta:
+    internal static Analyze.Runtime Runtime(IDataAccess access, Context context) =>
+        new(Context: context, Cancellation: access.Solution.Token, Progress: new Progress(access: access));
+    internal static Unit Write<TOut>(IDataAccess access, int slot, string name, Access targetAccess, OutputValue<TOut>[] values) {
+        switch (targetAccess, values.Length) {
+            case (Access.Item, > 0) when values[0].Meta is MetaData meta:
                 access.SetItem(index: slot, value: values[0].Value!, meta: meta);
                 break;
-            case > 0:
+            case (Access.Item, > 0):
                 access.SetItem(index: slot, value: values[0].Value!);
                 break;
+            case (Access.Twig, _):
+                access.SetTwig<TOut>(index: slot, values: [.. values.Select(static value => value.Value)], metas: [.. values.Select(static value => value.Meta ?? MetaData.Empty)], nulls: []);
+                break;
+            case (Access.Tree, _):
+                access.SetTree(index: slot, tree: Garden.TreeFromList(path: new Grasshopper2.Data.Path(access.Index), items: values.Select(static value => value.Value), metas: values.Select(static value => value.Meta ?? MetaData.Empty), nulls: []));
+                break;
+            case (Access.Item, _):
+                break;
+            default:
+                access.AddError(text: name, details: $"Unsupported output access: {targetAccess}.");
+                break;
         }
-        return Unit.Default;
-    }
-    private static Unit WriteTwig<TOut>(IDataAccess access, int slot, OutputValue<TOut>[] values) {
-        access.SetTwig<TOut>(
-            index: slot,
-            values: [.. values.Select(static value => value.Value)],
-            metas: [.. values.Select(static value => value.Meta ?? MetaData.Empty)],
-            nulls: values.Length switch { 0 => [], _ => new bool[values.Length] });
-        return Unit.Default;
-    }
-    private static Unit WriteTree<TOut>(IDataAccess access, int slot, OutputValue<TOut>[] values) {
-        access.SetTree(index: slot, tree: Garden.TreeFromList(
-            items: values.Select(static value => value.Value),
-            metas: values.Select(static value => value.Meta ?? MetaData.Empty),
-            nulls: values.Select(static _ => false)));
         return Unit.Default;
     }
     private static Fin<Analyze.Scope> Remark(IDataAccess access, Rhino.UnitSystem units) {
@@ -105,8 +93,11 @@ public static class Bridge {
                     SurfaceLikeType.SubD => Shape.From(value: subd),
                     _ => Option<Shape>.None,
                 }));
-    private static Unit UnsupportedAccess(IDataAccess access, string name, Access accessKind) {
-        access.AddError(text: name, details: $"Unsupported output access: {accessKind}.");
-        return Unit.Default;
+    private sealed class Progress(IDataAccess access) : IProgress<double> {
+        public void Report(double value) =>
+            access.SetProgress(percentage: (int)Math.Clamp(value: value switch {
+                >= 0.0 and <= 1.0 => value * 100.0,
+                _ => value,
+            }, min: 0.0, max: 100.0));
     }
 }

@@ -1,14 +1,18 @@
+using System.Runtime.InteropServices;
 using LanguageExt.Common;
 using Rhino;
 using Rhino.Geometry;
 using Rhino.Geometry.Intersect;
 using Thinktecture;
+using static LanguageExt.Prelude;
 namespace Rasm.Domain;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 [Union]
 public partial record Shape {
+    public const string Accepted = "GeometryBase, Point3d, Box, BoundingBox, Line, Polyline, Plane, Sphere, Cylinder, Cone, Torus, Circle, Arc";
+
     public sealed record Native(GeometryBase Geometry) : Shape;
     public sealed record Point(Rhino.Geometry.Point3d Value) : Shape;
     public sealed record Box(Rhino.Geometry.Box Value) : Shape;
@@ -22,53 +26,10 @@ public partial record Shape {
     public sealed record Torus(Rhino.Geometry.Torus Value) : Shape;
     public sealed record Circle(Rhino.Geometry.Circle Value) : Shape;
     public sealed record Arc(Rhino.Geometry.Arc Value) : Shape;
-    public Type ClrType =>
-        Switch(
-            native: static n => n.Geometry.GetType(),
-            point: static _ => typeof(Rhino.Geometry.Point3d),
-            box: static _ => typeof(Rhino.Geometry.Box),
-            boundingBox: static _ => typeof(Rhino.Geometry.BoundingBox),
-            line: static _ => typeof(Rhino.Geometry.Line),
-            polyline: static _ => typeof(Rhino.Geometry.Polyline),
-            plane: static _ => typeof(Rhino.Geometry.Plane),
-            sphere: static _ => typeof(Rhino.Geometry.Sphere),
-            cylinder: static _ => typeof(Rhino.Geometry.Cylinder),
-            cone: static _ => typeof(Rhino.Geometry.Cone),
-            torus: static _ => typeof(Rhino.Geometry.Torus),
-            circle: static _ => typeof(Rhino.Geometry.Circle),
-            arc: static _ => typeof(Rhino.Geometry.Arc));
     public Fin<Shape> Validate() =>
         ValidateWith(key: new Op(name: nameof(Shape)));
     internal Fin<Shape> ValidateWith(Op key) =>
-        Switch(
-            state: (Self: this, Key: key),
-            native: static (s, n) => n.Geometry.IsValid ? Fin.Succ(s.Self) : Fin.Fail<Shape>(s.Key.InvalidInput()),
-            point: static (s, point) => point.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<Shape>(s.Key.InvalidInput()),
-            box: static (s, b) => b.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<Shape>(s.Key.InvalidInput()),
-            boundingBox: static (s, bbox) => bbox.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<Shape>(s.Key.InvalidInput()),
-            line: static (s, line) => line.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<Shape>(s.Key.InvalidInput()),
-            polyline: static (s, polyline) => polyline.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<Shape>(s.Key.InvalidInput()),
-            plane: static (s, plane) => plane.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<Shape>(s.Key.InvalidInput()),
-            sphere: static (s, sphere) => sphere.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<Shape>(s.Key.InvalidInput()),
-            cylinder: static (s, cylinder) => cylinder.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<Shape>(s.Key.InvalidInput()),
-            cone: static (s, cone) => cone.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<Shape>(s.Key.InvalidInput()),
-            torus: static (s, torus) => torus.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<Shape>(s.Key.InvalidInput()),
-            circle: static (s, circle) => circle.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<Shape>(s.Key.InvalidInput()),
-            arc: static (s, arc) => arc.Value.IsValid ? Fin.Succ(s.Self) : Fin.Fail<Shape>(s.Key.InvalidInput()));
-    public static Seq<Type> Items { get; } = Seq(
-        typeof(GeometryBase),
-        typeof(Rhino.Geometry.Point3d),
-        typeof(Rhino.Geometry.Box),
-        typeof(Rhino.Geometry.BoundingBox),
-        typeof(Rhino.Geometry.Line),
-        typeof(Rhino.Geometry.Polyline),
-        typeof(Rhino.Geometry.Plane),
-        typeof(Rhino.Geometry.Sphere),
-        typeof(Rhino.Geometry.Cylinder),
-        typeof(Rhino.Geometry.Cone),
-        typeof(Rhino.Geometry.Torus),
-        typeof(Rhino.Geometry.Circle),
-        typeof(Rhino.Geometry.Arc));
+        key.RequireValid(value: Inner).Bind(static value => From(value: value).ToFin(Error.New(message: "Shape payload is not supported.")));
     public object Inner =>
         Switch<object>(
             native: static n => n.Geometry,
@@ -144,4 +105,76 @@ internal static class Validity {
             true => Fin.Succ(value),
             false => Fin.Fail<TValue>(key.InvalidResult()),
         };
+}
+
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct Stats {
+    private Stats(int count, double minimum, double maximum, double mean, double variance, double rms) {
+        Count = count;
+        Minimum = minimum;
+        Maximum = maximum;
+        Mean = mean;
+        Variance = variance;
+        Rms = rms;
+    }
+    internal int Count { get; }
+    internal double Minimum { get; }
+    internal double Maximum { get; }
+    internal double Mean { get; }
+    internal double Variance { get; }
+    internal double Rms { get; }
+    internal static Fin<Stats> From(Seq<double> values, Op key) =>
+        values.Fold(
+            initialState: (Count: 0, Mean: 0.0, M2: 0.0, SumSquares: 0.0, Minimum: double.PositiveInfinity, Maximum: double.NegativeInfinity, AllFinite: true),
+            f: static (acc, value) => (Count: acc.Count + 1, Delta: value - acc.Mean, Square: value * value) switch {
+                (int count, double delta, double square) => (
+                    Count: count,
+                    Mean: acc.Mean + (delta / count),
+                    M2: acc.M2 + (delta * (value - (acc.Mean + (delta / count)))),
+                    SumSquares: acc.SumSquares + square,
+                    Minimum: Math.Min(val1: acc.Minimum, val2: value),
+                    Maximum: Math.Max(val1: acc.Maximum, val2: value),
+                    AllFinite: acc.AllFinite && RhinoMath.IsValidDouble(x: value) && RhinoMath.IsValidDouble(x: square)),
+            }) switch {
+                (0, _, _, _, _, _, _) => Fin.Fail<Stats>(key.InvalidResult()),
+                (_, _, _, _, _, _, false) => Fin.Fail<Stats>(key.InvalidResult()),
+                (int count, double mean, double m2, double sumSquares, double minimum, double maximum, _) => Fin.Succ(new Stats(
+                    count: count,
+                    minimum: minimum,
+                    maximum: maximum,
+                    mean: mean,
+                    variance: Math.Max(val1: 0.0, val2: m2 / count),
+                    rms: Math.Sqrt(d: sumSquares / count))),
+            };
+}
+
+internal static class FoldExtensions {
+    internal static Seq<TItem> Maxima<TItem>(
+        this Seq<TItem> items,
+        Func<TItem, double> projection,
+        double tolerance) =>
+        items
+            .Fold(
+                initialState: (Best: double.NegativeInfinity, Hits: Seq<TItem>(), Tolerance: tolerance, Projection: projection),
+                f: static (acc, item) =>
+                    acc.Projection(arg: item) switch {
+                        double s when s > acc.Best + acc.Tolerance => acc with { Best = s, Hits = Seq(item) },
+                        double s when s >= acc.Best - acc.Tolerance => acc with { Best = Math.Max(val1: acc.Best, val2: s), Hits = acc.Hits.Add(item) },
+                        _ => acc,
+                    })
+            .Hits;
+    internal static Seq<TItem> Minima<TItem>(
+        this Seq<TItem> items,
+        Func<TItem, double> projection,
+        double tolerance) =>
+        items
+            .Fold(
+                initialState: (Best: double.PositiveInfinity, Hits: Seq<TItem>(), Tolerance: tolerance, Projection: projection),
+                f: static (acc, item) =>
+                    acc.Projection(arg: item) switch {
+                        double s when s < acc.Best - acc.Tolerance => acc with { Best = s, Hits = Seq(item) },
+                        double s when s <= acc.Best + acc.Tolerance => acc with { Best = Math.Min(val1: acc.Best, val2: s), Hits = acc.Hits.Add(item) },
+                        _ => acc,
+                    })
+            .Hits;
 }

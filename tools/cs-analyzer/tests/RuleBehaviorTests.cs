@@ -563,7 +563,11 @@ public sealed class RuleBehaviorTests {
         ImmutableArray<string> ids = await AnalyzeIdsAsync(
             filePath: "/workspace/src/Domain/Services/UnionDispatchingPair.cs",
             source: """
-                namespace Core.Domain {
+                namespace Thinktecture {
+                    public sealed class UnionAttribute : System.Attribute { }
+                }
+
+                namespace Rasm.Domain {
                     [Thinktecture.Union]
                     public abstract record GeometryShape<TA, TB> {
                         public sealed record One(TA Value) : GeometryShape<TA, TB>;
@@ -571,14 +575,10 @@ public sealed class RuleBehaviorTests {
                     }
                 }
 
-                namespace Thinktecture {
-                    public sealed class UnionAttribute : System.Attribute { }
-                }
-
                 namespace Domain.Services {
                     public sealed class UnionDispatchingPair {
                         public int Validate<T>(T? value) where T : class => 0;
-                        public int Validate<TA, TB>(Core.Domain.GeometryShape<TA, TB> shape) => 0;
+                        public int Validate<TA, TB>(Rasm.Domain.GeometryShape<TA, TB> shape) => 0;
                     }
                 }
                 """).ConfigureAwait(true);
@@ -701,11 +701,27 @@ public sealed class RuleBehaviorTests {
     public async Task AnalysisLibraryPathDoesNotApplyDomainSignatureRulesAsync() {
         ImmutableArray<string> ids = await AnalyzeIdsAsync(
             filePath: "/workspace/libs/csharp/Rasm/Analysis/Analyze.cs",
-            source: Source(ns: "Analysis", type: "Analyze", members: """
+            source: Source(ns: "Rasm.Analysis", type: "Analyze", members: """
                 public double Execute(double value) => value;
                 """)).ConfigureAwait(true);
 
         Assert.DoesNotContain(expected: "CSP0003", collection: ids);
+    }
+
+    [Fact]
+    public async Task AnalysisQuerySurfaceExemptionIsRasmOnlyAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/Query.cs",
+            source: BoundaryPrelude(source: """
+                namespace Other.Analysis;
+
+                [DomainScope]
+                public sealed class Query {
+                    public double Execute(double value) => value;
+                }
+                """)).ConfigureAwait(true);
+
+        Assert.Contains(expected: "CSP0003", collection: ids);
     }
 
     [Fact]

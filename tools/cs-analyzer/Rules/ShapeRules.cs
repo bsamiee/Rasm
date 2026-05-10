@@ -303,9 +303,8 @@ internal static class ShapeRules {
     private static bool IsTypeParameterizedDiscriminator(INamedTypeSymbol type) =>
         type.TypeArguments.Length > 0
         && type.TypeArguments.Any(argument => argument.TypeKind == TypeKind.TypeParameter)
-        && (SymbolFacts.HasAnyAttribute(type, "UnionAttribute", "Union")
-            || (type.ContainingNamespace?.ToDisplayString() ?? string.Empty)
-                .StartsWith(value: "Core.Domain", comparisonType: StringComparison.Ordinal));
+        && SymbolFacts.HasAnyAttribute(type, "UnionAttribute", "Union")
+        && SymbolFacts.IsDomainNamespace(type.ContainingNamespace?.ToDisplayString() ?? string.Empty);
     private static bool IsParamsReadOnlySpanOverload(IMethodSymbol overload) =>
         overload.Parameters switch {
             { Length: > 0 } parameters => parameters[parameters.Length - 1] switch {
@@ -336,7 +335,7 @@ internal static class ShapeRules {
         && type.GetMembers().OfType<IPropertySymbol>().Any(property => property.Name == "Value");
     private static bool IsAnalysisQuerySurface(ISymbol symbol) =>
         symbol.ContainingType is INamedTypeSymbol { Name: "Query", ContainingNamespace: { } queryNamespace }
-        && queryNamespace.ToDisplayString() == "Analysis";
+        && queryNamespace.ToDisplayString() == "Rasm.Analysis";
     private static IEnumerable<ITypeSymbol> ExpandSignatureTypes(ITypeSymbol type) {
         ITypeSymbol unwrapped = UnwrapNullable(type);
         IEnumerable<ITypeSymbol> nested = unwrapped switch {

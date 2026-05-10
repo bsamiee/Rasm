@@ -25,8 +25,8 @@ internal static class RuleCatalog {
     /// CSP0005 OverloadSpam — fires when a method family carries arity-ladder overloads in domain code.
     /// Exempt: (a) any overload uses params ReadOnlySpan&lt;T&gt; for arity collapse; (b) the family is exactly two members
     /// where one is a "single-T" form Validate&lt;T&gt;(T?, ...) and the other is a "Union-dispatching" form
-    /// Validate&lt;TA,TB&gt;(GeometryShape&lt;TA,TB&gt;, ...) — recognised by Thinktecture [Union] attribution on the
-    /// discriminator parameter type, or by a Core.Domain-namespaced generic type with type-parameter type arguments.
+    /// Validate&lt;TA,TB&gt;(GeometryShape&lt;TA,TB&gt;, ...) — recognised by Thinktecture [Union] attribution on a
+    /// domain-namespaced generic discriminator type with type-parameter type arguments.
     /// The Union-pair exemption lets a polymorphic Validate(Shape) entrypoint coexist with a non-Union helper without
     /// tripping the rule, supporting REF-0074-style polymorphic collapse during migration.
     /// </summary>

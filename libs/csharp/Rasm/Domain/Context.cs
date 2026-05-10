@@ -100,9 +100,12 @@ public sealed record Context {
             context: this,
             geometry: geometry,
             requirement: requirement ?? Requirement.Strict);
-    internal Validation<Error, (TA A, TB B)> Validate<TA, TB>(
-        Pair<TA, TB> shape) where TA : notnull where TB : notnull =>
-        Check.Validate(context: this, shape: shape);
+    internal Validation<Error, (TA A, TB B)> ValidatePair<TA, TB>(
+        TA a,
+        TB b,
+        Requirement requirementA,
+        Requirement requirementB) where TA : notnull where TB : notnull =>
+        Check.ValidatePair(context: this, a: a, b: b, requirementA: requirementA, requirementB: requirementB);
     internal static Validation<Error, Context> FromKnownUnits(
         double absoluteTolerance,
         double relativeTolerance,

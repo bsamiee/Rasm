@@ -10,22 +10,15 @@ namespace Rasm.Analysis;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static partial class Query {
-    public static Query<Curve, Point3d> WorldCardinalPoints() =>
-        Query<Curve, Point3d>.Build(
-            key: WorldCardinalPointsKey,
-            requirement: Requirement.CurveLength,
-            evaluator: static curve => from ctx in Analyze.Asks
-                                       from result in ExtractCardinals(curve: curve, tolerance: ctx.Absolute.Value).ToEff()
-                                       select result);
     public static Query<TGeometry, TOut> Quadrants<TGeometry, TOut>() where TGeometry : notnull =>
         typeof(TOut) switch {
-            Type output when output == typeof(Point3d) => Cast<TGeometry, TOut>(key: WorldCardinalPointsKey, query: Query<TGeometry, Point3d>.Build(
-                key: WorldCardinalPointsKey,
+            Type output when output == typeof(Point3d) => Cast<TGeometry, TOut>(key: QuadrantsKey, query: Query<TGeometry, Point3d>.Build(
+                key: QuadrantsKey,
                 requirement: Requirement.CurveLength,
                 evaluator: static geom => from ctx in Analyze.Asks
                                           from result in QuadrantsFromGeom(geom: geom, tolerance: ctx.Absolute.Value).ToEff()
                                           select result)),
-            _ => WorldCardinalPointsKey.Unsupported<TGeometry, TOut>(),
+            _ => QuadrantsKey.Unsupported<TGeometry, TOut>(),
         };
     private static Fin<Seq<Point3d>> QuadrantsFromGeom<TGeometry>(TGeometry geom, double tolerance) where TGeometry : notnull =>
         geom switch {
@@ -34,12 +27,8 @@ public static partial class Query {
             Line line when line.IsValid => Bracket(factory: () => new LineCurve(line: line), body: (Curve curve) => ExtractCardinals(curve: curve, tolerance: tolerance)),
             Circle circle when circle.IsValid => Bracket(factory: circle.ToNurbsCurve, body: (Curve curve) => ExtractCardinals(curve: curve, tolerance: tolerance)),
             Arc arc when arc.IsValid => Bracket(factory: arc.ToNurbsCurve, body: (Curve curve) => ExtractCardinals(curve: curve, tolerance: tolerance)),
-            _ => Fin.Fail<Seq<Point3d>>(WorldCardinalPointsKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Point3d))),
+            _ => Fin.Fail<Seq<Point3d>>(QuadrantsKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Point3d))),
         };
-    private static Fin<TOut> Bracket<TResource, TOut>(Func<TResource> factory, Func<TResource, Fin<TOut>> body) where TResource : class, IDisposable {
-        using TResource resource = factory();
-        return body(arg: resource);
-    }
     private static Fin<Seq<Point3d>> ExtractCardinals(Curve curve, double tolerance) =>
         (ExtremeAlongDirection(curve: curve, direction: Vector3d.XAxis, maximize: false), ExtremeAlongDirection(curve: curve, direction: Vector3d.XAxis, maximize: true), ExtremeAlongDirection(curve: curve, direction: Vector3d.YAxis, maximize: false), ExtremeAlongDirection(curve: curve, direction: Vector3d.YAxis, maximize: true), ExtremeAlongDirection(curve: curve, direction: Vector3d.ZAxis, maximize: false), ExtremeAlongDirection(curve: curve, direction: Vector3d.ZAxis, maximize: true))
             .Apply(static (xMin, xMax, yMin, yMax, zMin, zMax) => (XMin: xMin, XMax: xMax, YMin: yMin, YMax: yMax, ZMin: zMin, ZMax: zMax)).As()
@@ -49,7 +38,7 @@ public static partial class Query {
             Seq<Point3d> points => (maximize switch {
                 true => points.Maxima(projection: p => (Vector3d)p * direction, tolerance: 0.0),
                 false => points.Minima(projection: p => (Vector3d)p * direction, tolerance: 0.0),
-            }).Head.ToFin(WorldCardinalPointsKey.InvalidResult()),
+            }).Head.ToFin(QuadrantsKey.InvalidResult()),
         };
     public static Query<TGeometry, TOut> Locate<TGeometry, TOut>(Location aspect) where TGeometry : notnull =>
         Aspect<TGeometry, TOut, Location>(
@@ -326,62 +315,65 @@ public static partial class Query {
             false => Fin.Fail<Seq<double>>(key.InvalidInput()),
         };
     private static Query<TGeometry, TOut> Closest<TGeometry, TOut>(Point3d point) where TGeometry : notnull =>
-        (typeof(TGeometry), typeof(TOut)) switch {
-            (Type geometry, Type output) when geometry == typeof(Line) && output == typeof(Point3d) =>
-                ClosestMatch<TGeometry, TOut, Line, Point3d>(point: point, project: static (target, geometry) => One(key: ClosestKey, value: geometry.ClosestPoint(testPoint: target, limitToFiniteSegment: true))),
-            (Type geometry, Type output) when geometry == typeof(Polyline) && output == typeof(Point3d) =>
-                ClosestMatch<TGeometry, TOut, Polyline, Point3d>(point: point, project: static (target, geometry) => One(key: ClosestKey, value: geometry.ClosestPoint(testPoint: target))),
-            (Type geometry, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && output == typeof(Point3d) =>
-                ClosestMatch<TGeometry, TOut, Curve, Point3d>(point: point, project: static (target, geometry) => geometry.ClosestPoint(testPoint: target, t: out double parameter) switch {
-                    true => One(key: ClosestKey, value: geometry.PointAt(t: parameter)),
-                    false => Fin.Fail<Seq<Point3d>>(ClosestKey.InvalidResult()),
-                }),
-            (Type geometry, Type output) when typeof(Surface).IsAssignableFrom(c: geometry) && output == typeof(Point3d) =>
-                ClosestMatch<TGeometry, TOut, Surface, Point3d>(point: point, project: static (target, geometry) => geometry.ClosestPoint(testPoint: target, u: out double u, v: out double v) switch {
-                    true => One(key: ClosestKey, value: geometry.PointAt(u: u, v: v)),
-                    false => Fin.Fail<Seq<Point3d>>(ClosestKey.InvalidResult()),
-                }),
-            (Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(Point3d) =>
-                ClosestMatch<TGeometry, TOut, Brep, Point3d>(point: point, project: static (target, geometry) => One(key: ClosestKey, value: geometry.ClosestPoint(testPoint: target))),
-            (Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(Point3d) =>
-                ClosestMatch<TGeometry, TOut, Mesh, Point3d>(point: point, project: static (target, geometry) => One(key: ClosestKey, value: geometry.ClosestPoint(testPoint: target))),
-            (Type geometry, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && output == typeof(double) =>
-                ClosestMatch<TGeometry, TOut, Curve, double>(point: point, project: static (target, geometry) => geometry.ClosestPoint(testPoint: target, t: out double parameter) switch {
-                    true => One(key: ClosestKey, value: parameter),
-                    false => Fin.Fail<Seq<double>>(ClosestKey.InvalidResult()),
-                }),
-            (Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(Vector3d) =>
-                ClosestMatch<TGeometry, TOut, Brep, Vector3d>(point: point, project: static (target, geometry) => geometry.ClosestPoint(testPoint: target, closestPoint: out Point3d _, ci: out ComponentIndex _, s: out double _, t: out double _, maximumDistance: 0.0, normal: out Vector3d normal) switch {
-                    true => One(key: ClosestKey, value: normal),
-                    false => Fin.Fail<Seq<Vector3d>>(ClosestKey.InvalidResult()),
-                }),
-            (Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(Vector3d) =>
-                ClosestMatch<TGeometry, TOut, Mesh, Vector3d>(point: point, project: static (target, geometry) => geometry.ClosestPoint(testPoint: target, pointOnMesh: out Point3d _, normalAtPoint: out Vector3d normal, maximumDistance: 0.0) switch {
-                    >= 0 => One(key: ClosestKey, value: normal),
-                    _ => Fin.Fail<Seq<Vector3d>>(ClosestKey.InvalidResult()),
-                }),
-            (Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
-                ClosestMatch<TGeometry, TOut, Brep, ComponentIndex>(point: point, project: static (target, geometry) => geometry.ClosestPoint(testPoint: target, closestPoint: out Point3d _, ci: out ComponentIndex component, s: out double _, t: out double _, maximumDistance: 0.0, normal: out Vector3d _) switch {
-                    true => One(key: ClosestKey, value: component),
-                    false => Fin.Fail<Seq<ComponentIndex>>(ClosestKey.InvalidResult()),
-                }),
-            (Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(MeshPoint) =>
-                ClosestMatch<TGeometry, TOut, Mesh, MeshPoint>(point: point, project: static (target, geometry) => Optional(geometry.ClosestMeshPoint(testPoint: target, maximumDistance: 0.0))
-                    .ToFin(ClosestKey.InvalidResult())
-                    .Map(static meshPoint => Seq(meshPoint))),
-            _ => ClosestKey.Unsupported<TGeometry, TOut>(),
+        point.IsValid switch {
+            false => Query<TGeometry, TOut>.Reject(key: ClosestKey, fault: ClosestKey.InvalidInput()),
+            true => (typeof(TGeometry), typeof(TOut)) switch {
+                (Type geometry, Type output) when geometry == typeof(Line) && output == typeof(Point3d) =>
+                    ClosestMatch<TGeometry, TOut, Line, Point3d>(point: point, project: static (target, geometry) => One(key: ClosestKey, value: geometry.ClosestPoint(testPoint: target, limitToFiniteSegment: true))),
+                (Type geometry, Type output) when geometry == typeof(Polyline) && output == typeof(Point3d) =>
+                    ClosestMatch<TGeometry, TOut, Polyline, Point3d>(point: point, project: static (target, geometry) => One(key: ClosestKey, value: geometry.ClosestPoint(testPoint: target))),
+                (Type geometry, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && output == typeof(Point3d) =>
+                    ClosestMatch<TGeometry, TOut, Curve, Point3d>(point: point, project: static (target, geometry) => geometry.ClosestPoint(testPoint: target, t: out double parameter) switch {
+                        true => One(key: ClosestKey, value: geometry.PointAt(t: parameter)),
+                        false => Fin.Fail<Seq<Point3d>>(ClosestKey.InvalidResult()),
+                    }),
+                (Type geometry, Type output) when typeof(Surface).IsAssignableFrom(c: geometry) && output == typeof(Point3d) =>
+                    ClosestMatch<TGeometry, TOut, Surface, Point3d>(point: point, project: static (target, geometry) => geometry.ClosestPoint(testPoint: target, u: out double u, v: out double v) switch {
+                        true => One(key: ClosestKey, value: geometry.PointAt(u: u, v: v)),
+                        false => Fin.Fail<Seq<Point3d>>(ClosestKey.InvalidResult()),
+                    }),
+                (Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(Point3d) =>
+                    ClosestMatch<TGeometry, TOut, Brep, Point3d>(point: point, project: static (target, geometry) => One(key: ClosestKey, value: geometry.ClosestPoint(testPoint: target))),
+                (Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(Point3d) =>
+                    ClosestMatch<TGeometry, TOut, Mesh, Point3d>(point: point, project: static (target, geometry) => One(key: ClosestKey, value: geometry.ClosestPoint(testPoint: target))),
+                (Type geometry, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && output == typeof(double) =>
+                    ClosestMatch<TGeometry, TOut, Curve, double>(point: point, project: static (target, geometry) => geometry.ClosestPoint(testPoint: target, t: out double parameter) switch {
+                        true => One(key: ClosestKey, value: parameter),
+                        false => Fin.Fail<Seq<double>>(ClosestKey.InvalidResult()),
+                    }),
+                (Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(Vector3d) =>
+                    ClosestMatch<TGeometry, TOut, Brep, Vector3d>(point: point, project: static (target, geometry) => geometry.ClosestPoint(testPoint: target, closestPoint: out Point3d _, ci: out ComponentIndex _, s: out double _, t: out double _, maximumDistance: 0.0, normal: out Vector3d normal) switch {
+                        true => One(key: ClosestKey, value: normal),
+                        false => Fin.Fail<Seq<Vector3d>>(ClosestKey.InvalidResult()),
+                    }),
+                (Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(Vector3d) =>
+                    ClosestMatch<TGeometry, TOut, Mesh, Vector3d>(point: point, project: static (target, geometry) => geometry.ClosestPoint(testPoint: target, pointOnMesh: out Point3d _, normalAtPoint: out Vector3d normal, maximumDistance: 0.0) switch {
+                        >= 0 => One(key: ClosestKey, value: normal),
+                        _ => Fin.Fail<Seq<Vector3d>>(ClosestKey.InvalidResult()),
+                    }),
+                (Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(ComponentIndex) =>
+                    ClosestMatch<TGeometry, TOut, Brep, ComponentIndex>(point: point, project: static (target, geometry) => geometry.ClosestPoint(testPoint: target, closestPoint: out Point3d _, ci: out ComponentIndex component, s: out double _, t: out double _, maximumDistance: 0.0, normal: out Vector3d _) switch {
+                        true => One(key: ClosestKey, value: component),
+                        false => Fin.Fail<Seq<ComponentIndex>>(ClosestKey.InvalidResult()),
+                    }),
+                (Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(MeshPoint) =>
+                    ClosestMatch<TGeometry, TOut, Mesh, MeshPoint>(point: point, project: static (target, geometry) => Optional(geometry.ClosestMeshPoint(testPoint: target, maximumDistance: 0.0))
+                        .ToFin(ClosestKey.InvalidResult())
+                        .Map(static meshPoint => Seq(meshPoint))),
+                _ => ClosestKey.Unsupported<TGeometry, TOut>(),
+            },
         };
     private static Query<TGeometry, Plane> CurveFrame<TGeometry>(Op key, double parameter, bool perpendicular) where TGeometry : notnull =>
         CurveAt<TGeometry, Plane>(
             key: key,
             parameter: parameter,
             project: (curve, t) => perpendicular switch {
-                true => OpResult<Plane>.Solved(
+                true => key.Solved(
                     isSolved: curve.PerpendicularFrameAt(t: t, plane: out Plane perpendicularFrame),
-                    value: perpendicularFrame).Reduce(key: key),
-                false => OpResult<Plane>.Solved(
+                    value: perpendicularFrame),
+                false => key.Solved(
                     isSolved: curve.FrameAt(t: t, plane: out Plane frame),
-                    value: frame).Reduce(key: key),
+                    value: frame),
             });
     private static Query<TGeometry, TOut> CurveAt<TGeometry, TOut>(
         Op key,
@@ -422,9 +414,9 @@ public static partial class Query {
             requirement: requirement,
             state: (Key: key, Divide: divide),
             evaluator: static (state, geometry) => (geometry switch {
-                Curve curve => state.Divide(arg: curve).Match(
-                    Some: points => Many(key: state.Key, values: points),
-                    None: () => Fin.Fail<Seq<Point3d>>(state.Key.InvalidResult())),
+                Curve curve => state.Divide(arg: curve)
+                    .ToFin(state.Key.InvalidResult())
+                    .Bind(points => Many(key: state.Key, values: points)),
                 _ => Fin.Fail<Seq<Point3d>>(state.Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Point3d))),
             }).ToEff());
     private static Query<TGeometry, Curve> ShortPath<TGeometry>(Point2d start, Point2d end) where TGeometry : notnull =>
@@ -464,7 +456,7 @@ public static partial class Query {
             (Interval u, Interval v) when u.IsValid && v.IsValid && u.IncludesParameter(t: uv.X) && v.IncludesParameter(t: uv.Y) && (surface is not BrepFace face || face.IsPointOnFace(u: uv.X, v: uv.Y, tolerance: context.Absolute.Value) != PointFaceRelation.Exterior) => Fin.Succ(uv),
             _ => Fin.Fail<Point2d>(key.InvalidInput()),
         };
-    private static Eff<Context, Seq<Point3d>> CurveAtLengthValue<TGeometry>(double segmentLength, TGeometry geometry) where TGeometry : notnull =>
+    private static Eff<Analyze.Runtime, Seq<Point3d>> CurveAtLengthValue<TGeometry>(double segmentLength, TGeometry geometry) where TGeometry : notnull =>
         geometry switch {
             Curve curve =>
                 from ctx in Analyze.Asks

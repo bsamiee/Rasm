@@ -62,7 +62,7 @@ public sealed class Tree : IDisposable {
                     shape: box),
                 false => Fin.Fail<Seq<Hit>>(Query.TreeKey.InvalidInput()),
             })
-            .ToEff();
+            ;
     public Eff<Context, Seq<Hit>> Search(Sphere sphere) =>
         Ready()
             .Bind(active => sphere.IsValid switch {
@@ -71,7 +71,7 @@ public sealed class Tree : IDisposable {
                     shape: sphere),
                 false => Fin.Fail<Seq<Hit>>(Query.TreeKey.InvalidInput()),
             })
-            .ToEff();
+            ;
     public Eff<Context, Seq<Couple>> Overlaps(Tree other, double tolerance = 0.0) =>
         (
             Ready(),
@@ -84,7 +84,7 @@ public sealed class Tree : IDisposable {
         ).Apply(static (left, right, modelTolerance) => (Left: left, Right: right, Tolerance: modelTolerance))
         .As()
         .Bind(static state => OverlapPairs(state: state))
-        .ToEff();
+        ;
     private static Fin<Seq<Couple>> OverlapPairs((RTree Left, RTree Right, double Tolerance) state) {
         Atom<Seq<Couple>> atom = Atom(value: Seq<Couple>());
         return RTree.SearchOverlaps(
@@ -116,7 +116,7 @@ public sealed class Tree : IDisposable {
                 hayPoints: state.Hay,
                 needlePts: state.Query,
                 amount: state.Count)))
-        .ToEff();
+        ;
     public static Eff<Context, Seq<Couple>> Closest(
         ReadOnlySpan<Point3d> points,
         ReadOnlySpan<Point3d> needles,
@@ -134,7 +134,7 @@ public sealed class Tree : IDisposable {
                 hayPoints: state.Hay,
                 needlePts: state.Query,
                 limitDistance: state.Distance)))
-        .ToEff();
+        ;
     public void Dispose() =>
         disposed = disposed switch {
             false => fun((RTree t) => { t.Dispose(); return true; })(tree),

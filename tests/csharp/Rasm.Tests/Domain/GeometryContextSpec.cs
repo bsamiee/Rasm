@@ -1,5 +1,7 @@
+using System.Threading;
 using LanguageExt;
 using LanguageExt.Common;
+using Rasm.Analysis;
 using Rasm.Domain;
 using Rhino;
 using Rhino.Geometry;
@@ -59,12 +61,10 @@ public sealed class ContextSpec {
     public void AccumulatesMissingGeometryPairsInContext() {
         Context context = ValidContext();
 
-        Validation<Error, (LineCurve A, LineCurve B)> result = context.Validate(
-            shape: new Pair<LineCurve, LineCurve>.Both(
-                A: null!,
-                B: null!,
-                RequirementA: Requirement.CurveLength,
-                RequirementB: Requirement.CurveLength));
+        Validation<Error, (LineCurve A, LineCurve B)> result = context.ValidatePair<LineCurve, LineCurve>(a: null!,
+            b: null!,
+            requirementA: Requirement.CurveLength,
+            requirementB: Requirement.CurveLength);
 
         Assert.True(condition: result.ToFin().Match(
             Succ: static _ => false,
@@ -75,11 +75,10 @@ public sealed class ContextSpec {
     public void ValidatesOnlyFirstTupleGeometryWhenSecondIsPlainValue() {
         Context context = ValidContext();
 
-        Validation<Error, (LineCurve A, int B)> result = context.Validate(
-            shape: new Pair<LineCurve, int>.FirstOnly(
-                A: null!,
-                B: 1,
-                Requirement: Requirement.CurveLength));
+        Validation<Error, (LineCurve A, int B)> result = context.ValidatePair<LineCurve, int>(a: null!,
+            b: 1,
+            requirementA: Requirement.CurveLength,
+            requirementB: Requirement.None);
 
         Assert.True(condition: result.ToFin().Match(
             Succ: static _ => false,
@@ -87,12 +86,24 @@ public sealed class ContextSpec {
     }
 
     [Fact]
-    public void IncludesRequiredReadinessMasks() =>
-        Assert.True(condition: (
-            Requirement.VolumeMass.Has(other: Requirement.SolidTopology),
-            Requirement.VolumeMass.Has(other: Requirement.MeshCheck),
-            Requirement.AreaMass.Has(other: Requirement.Basic)
-        ) == (true, true, true));
+    public void RejectsInvalidPlainPairOperands() {
+        Context context = ValidContext();
+
+        Validation<Error, (Point3d A, Line B)> result = context.ValidatePair(a: Point3d.Unset,
+            b: Line.Unset,
+            requirementA: Requirement.None,
+            requirementB: Requirement.None);
+
+        Assert.True(condition: result.ToFin().Match(
+            Succ: static _ => false,
+            Fail: static error => error.Count == 2));
+    }
+
+    [Fact]
+    public void KeepsContextPureRuntimeStateOutOfDomain() =>
+        Assert.DoesNotContain(collection: typeof(Context).GetProperties(), filter: static property =>
+            property.PropertyType == typeof(CancellationToken)
+            || property.PropertyType == typeof(IProgress<double>));
 
     [Fact]
     public void RejectsInvalidGeometryResults() {
@@ -107,18 +118,16 @@ public sealed class ContextSpec {
             from: Point3d.Origin,
             to: new Point3d(x: 0.0, y: 0.0, z: 1.0));
 
-        Assert.True(condition: new OpResult<Point3d>.One(Value: Point3d.Unset).Reduce(key: key).IsFail);
-        Assert.True(condition: new OpResult<Sphere>.One(Value: Sphere.Unset).Reduce(key: key).IsFail);
-        Assert.True(condition: new OpResult<ComponentIndex>.One(Value: new ComponentIndex()).Reduce(key: key).IsFail);
-        Assert.True(condition: new OpResult<object>.One(Value: new object()).Reduce(key: key).IsFail);
-        Assert.True(condition: new OpResult<MeshCheckParameters>.One(Value: MeshCheckParameters.Defaults()).Reduce(key: key).IsSucc);
-        Assert.True(condition: new OpResult<Line>.Many(Values: Seq(first, second, third))
-            .Reduce(key: key)
+        Assert.True(condition: key.One(value: Point3d.Unset).IsFail);
+        Assert.True(condition: key.One(value: Sphere.Unset).IsFail);
+        Assert.True(condition: key.One(value: new ComponentIndex()).IsFail);
+        Assert.True(condition: key.One(value: new object()).IsFail);
+        Assert.True(condition: key.One(value: MeshCheckParameters.Defaults()).IsSucc);
+        Assert.True(condition: key.Many(values: Seq(first, second, third))
             .Match(
                 Succ: lines => lines.ToArray().SequenceEqual(second: [first, second, third]),
                 Fail: static _ => false));
-        Assert.True(condition: new OpResult<Line>.Many(Values: Seq(Line.Unset, Line.Unset))
-            .Reduce(key: key)
+        Assert.True(condition: key.Many(values: Seq(Line.Unset, Line.Unset))
             .Match(
                 Succ: static _ => false,
                 Fail: static error => error.Count == 2));
@@ -132,8 +141,21 @@ public sealed class ContextSpec {
     public void AdaptsSolvedResultRails() {
         Op key = new(name: "test");
 
-        Assert.True(condition: OpResult<Point3d>.Solved(isSolved: true, value: Point3d.Origin).Reduce(key: key).IsSucc);
-        Assert.True(condition: OpResult<Point3d>.Solved(isSolved: false, value: Point3d.Origin).Reduce(key: key).IsFail);
+        Assert.True(condition: key.Solved(isSolved: true, value: Point3d.Origin).IsSucc);
+        Assert.True(condition: key.Solved(isSolved: false, value: Point3d.Origin).IsFail);
+    }
+
+    [Fact]
+    public void PreservesExplicitIntersectionKindsForPolylineResults() {
+        Op key = new(name: "test");
+
+        IntersectionKind[] kinds = key.IntersectionOutput<IntersectionKind>(
+                kinds: [IntersectionKind.Curve, IntersectionKind.Overlap])
+            .Match(
+                Succ: static output => output.ToArray(),
+                Fail: static error => throw new Xunit.Sdk.XunitException(error.Message));
+
+        Assert.Equal(expected: [IntersectionKind.Curve, IntersectionKind.Overlap], actual: kinds);
     }
 
     private static Context ValidContext() =>
