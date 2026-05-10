@@ -16,11 +16,7 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
     internal Func<TGeometry, Eff<Context, Seq<TOut>>> Effect { get; }
     internal bool RequiresContext { get; }
     internal Option<Error> PreflightFault { get; }
-    internal Query(
-        Op key,
-        Func<TGeometry, Eff<Context, Seq<TOut>>> effect,
-        bool requiresContext = false,
-        Option<Error> preflightFault = default) {
+    internal Query(Op key, Func<TGeometry, Eff<Context, Seq<TOut>>> effect, bool requiresContext = false, Option<Error> preflightFault = default) {
         Key = key;
         Effect = effect;
         RequiresContext = requiresContext;
@@ -36,9 +32,9 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
         new(
             key: key,
             requiresContext: requiresContext,
-            effect: (requirement, requiresContext) switch {
-                (null or Requirement.NoneRequirement, _) => evaluator,
-                (Requirement r, _) => geometry => geometry switch {
+            effect: requirement switch {
+                null or Requirement.NoneRequirement => evaluator,
+                Requirement r => geometry => geometry switch {
                     GeometryBase native =>
                         from ctx in Analyze.Asks
                         from _ in ctx.Validate(geometry: native, requirement: r).ToEff()
@@ -75,30 +71,11 @@ public enum GeometryKind {
     Line = 20, Sphere = 21, Box = 22, BoundingBox = 23, Cylinder = 24, Cone = 25, Torus = 26, Plane = 27,
 }
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct CurvatureProfile(
-    CurvatureScalar Scalar,
-    int Count,
-    double Minimum,
-    double Maximum,
-    double Mean,
-    double Variance);
+public readonly record struct CurvatureProfile(CurvatureScalar Scalar, int Count, double Minimum, double Maximum, double Mean, double Variance);
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct ResidualProfile(
-    int Count,
-    double Minimum,
-    double Maximum,
-    double Mean,
-    double Variance,
-    double Rms,
-    double Tolerance,
-    bool WithinTolerance);
+public readonly record struct ResidualProfile(int Count, double Minimum, double Maximum, double Mean, double Variance, double Rms, double Tolerance, bool WithinTolerance);
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct ResidualSample(
-    int Index,
-    Point3d Location,
-    double Distance,
-    double Tolerance,
-    bool WithinTolerance);
+public readonly record struct ResidualSample(int Index, Point3d Location, double Distance, double Tolerance, bool WithinTolerance);
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct MeshFaceSample(int Face, double Value);
 [StructLayout(LayoutKind.Auto)]
@@ -106,90 +83,47 @@ public readonly record struct Hit(int Id);
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Couple(int A, int B);
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct CurveDeviation(
-    double MinimumDistance,
-    Point3d MinimumA,
-    Point3d MinimumB,
-    double MaximumDistance,
-    Point3d MaximumA,
-    Point3d MaximumB,
-    double Tolerance,
-    bool WithinTolerance);
+public readonly record struct CurveDeviation(double MinimumDistance, Point3d MinimumA, Point3d MinimumB, double MaximumDistance, Point3d MaximumA, Point3d MaximumB, double Tolerance, bool WithinTolerance);
 public enum IntersectionKind { Unknown = 0, Point = 1, Overlap = 2 }
 public enum Topology { Boundary, EdgeMidpoints, Adjacency, NonManifold }
 [Union]
 public partial record Bounds {
-    public sealed record Box : Bounds;
-    public sealed record Oriented(Plane Plane) : Bounds;
-    public sealed record Transformed(Transform Transform) : Bounds;
-    public sealed record Center : Bounds;
-    public sealed record Corners : Bounds;
-    public sealed record Edges : Bounds;
-    public sealed record Area : Bounds;
-    public sealed record Volume : Bounds;
+    public sealed record Box : Bounds; public sealed record Oriented(Plane Plane) : Bounds; public sealed record Transformed(Transform Transform) : Bounds; public sealed record Center : Bounds;
+    public sealed record Corners : Bounds; public sealed record Edges : Bounds; public sealed record Area : Bounds; public sealed record Volume : Bounds;
 }
 [Union]
 public partial record Measure {
-    public sealed record Length : Measure;
-    public sealed record Area : Measure;
-    public sealed record Volume : Measure;
-    public sealed record SpatialMidpoint : Measure;
-    public sealed record Centroid(MassKind Mass) : Measure;
-    public sealed record MassError(MassKind Mass) : Measure;
-    public sealed record CentroidError(MassKind Mass) : Measure;
-    public sealed record Radii(MassKind Mass) : Measure;
-    public sealed record PrincipalAxes(MassKind Mass) : Measure;
+    public sealed record Length : Measure; public sealed record Area : Measure; public sealed record Volume : Measure; public sealed record SpatialMidpoint : Measure;
+    public sealed record Centroid(MassKind Mass) : Measure; public sealed record MassError(MassKind Mass) : Measure; public sealed record CentroidError(MassKind Mass) : Measure;
+    public sealed record Radii(MassKind Mass) : Measure; public sealed record PrincipalAxes(MassKind Mass) : Measure;
 }
 [Union]
 public partial record Location {
-    public sealed record Midpoint : Location;
-    public sealed record Tangent : Location;
-    public sealed record Closest(Point3d Point) : Location;
-    public sealed record PointAtCurve(double Parameter) : Location;
-    public sealed record PointAtSurface(Point2d Uv) : Location;
-    public sealed record PointAtLength(double Length) : Location;
-    public sealed record FrameAtCurve(double Parameter) : Location;
-    public sealed record FrameAtSurface(Point2d Uv) : Location;
-    public sealed record PerpendicularFrameAt(double Parameter) : Location;
-    public sealed record NormalAt(Point2d Uv) : Location;
-    public sealed record CurvatureAtCurve(double Parameter) : Location;
-    public sealed record CurvatureAtSurface(Point2d Uv) : Location;
-    public sealed record CurvatureProfile(int Count, CurvatureScalar Scalar) : Location;
-    public sealed record DerivativeAt(double Parameter, int Count) : Location;
-    public sealed record DivideByCount(int Count) : Location;
-    public sealed record DivideByLength(double Length) : Location;
-    public sealed record Orientation(Plane Plane) : Location;
-    public sealed record Contains(Point3d Point, Plane Plane) : Location;
-    public sealed record ShortPath(Point2d Start, Point2d End) : Location;
+    public sealed record Midpoint : Location; public sealed record Tangent : Location; public sealed record Closest(Point3d Point) : Location;
+    public sealed record PointAtCurve(double Parameter) : Location; public sealed record PointAtSurface(Point2d Uv) : Location; public sealed record PointAtLength(double Length) : Location;
+    public sealed record FrameAtCurve(double Parameter) : Location; public sealed record FrameAtSurface(Point2d Uv) : Location; public sealed record PerpendicularFrameAt(double Parameter) : Location;
+    public sealed record NormalAt(Point2d Uv) : Location; public sealed record CurvatureAtCurve(double Parameter) : Location; public sealed record CurvatureAtSurface(Point2d Uv) : Location;
+    public sealed record CurvatureProfile(int Count, CurvatureScalar Scalar) : Location; public sealed record DerivativeAt(double Parameter, int Count) : Location;
+    public sealed record DivideByCount(int Count) : Location; public sealed record DivideByLength(double Length) : Location; public sealed record Orientation(Plane Plane) : Location;
+    public sealed record Contains(Point3d Point, Plane Plane) : Location; public sealed record ShortPath(Point2d Start, Point2d End) : Location;
 }
 [SmartEnum<int>]
 public sealed partial class FaceSelector {
-    public static readonly FaceSelector All = new(key: 0);
-    public static readonly FaceSelector Top = new(key: 1);
-    public static readonly FaceSelector Bottom = new(key: 2);
-    public static readonly FaceSelector At = new(key: 3);
+    public static readonly FaceSelector All = new(key: 0), Top = new(key: 1), Bottom = new(key: 2), At = new(key: 3);
 }
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Faces(FaceSelector Selector, Option<int> Index) {
-    public static Faces All => new(Selector: FaceSelector.All, Index: None);
-    public static Faces Top => new(Selector: FaceSelector.Top, Index: None);
-    public static Faces Bottom => new(Selector: FaceSelector.Bottom, Index: None);
+    public static Faces All => new(Selector: FaceSelector.All, Index: None); public static Faces Top => new(Selector: FaceSelector.Top, Index: None); public static Faces Bottom => new(Selector: FaceSelector.Bottom, Index: None);
     public static Faces At(int? index = null) => new(Selector: FaceSelector.At, Index: Optional(value: index));
 }
 [SmartEnum<int>]
 public sealed partial class CurveSelector {
-    public static readonly CurveSelector All = new(key: 0);
-    public static readonly CurveSelector Boundary = new(key: 1);
-    public static readonly CurveSelector IsoU = new(key: 2);
-    public static readonly CurveSelector IsoV = new(key: 3);
-    public static readonly CurveSelector At = new(key: 4);
+    public static readonly CurveSelector All = new(key: 0), Boundary = new(key: 1), IsoU = new(key: 2), IsoV = new(key: 3), At = new(key: 4);
 }
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Curves(CurveSelector Selector, Option<int> Index) {
-    public static Curves All => new(Selector: CurveSelector.All, Index: None);
-    public static Curves Boundary => new(Selector: CurveSelector.Boundary, Index: None);
-    public static Curves IsoU => new(Selector: CurveSelector.IsoU, Index: None);
-    public static Curves IsoV => new(Selector: CurveSelector.IsoV, Index: None);
+    public static Curves All => new(Selector: CurveSelector.All, Index: None); public static Curves Boundary => new(Selector: CurveSelector.Boundary, Index: None);
+    public static Curves IsoU => new(Selector: CurveSelector.IsoU, Index: None); public static Curves IsoV => new(Selector: CurveSelector.IsoV, Index: None);
     public static Curves At(int? index = null) => new(Selector: CurveSelector.At, Index: Optional(value: index));
 }
 [StructLayout(LayoutKind.Auto)]
@@ -198,17 +132,13 @@ public readonly record struct Conformance {
         Residual = residual;
         Count = count;
     }
-    internal readonly ConformanceResidual Residual; internal readonly int Count;
-    public static Conformance Distance(int count) => new(residual: ConformanceResidual.Distance, count: count); public static Conformance Rms(int count) => new(residual: ConformanceResidual.Rms, count: count); public static Conformance WithinTolerance(int count) => new(residual: ConformanceResidual.WithinTolerance, count: count); public static Conformance Profile(int count) => new(residual: ConformanceResidual.Profile, count: count); public static Conformance Maximum(int count) => new(residual: ConformanceResidual.Maximum, count: count);
+    internal readonly ConformanceResidual Residual; internal readonly int Count; public static Conformance Distance(int count) => new(residual: ConformanceResidual.Distance, count: count); public static Conformance Rms(int count) => new(residual: ConformanceResidual.Rms, count: count); public static Conformance WithinTolerance(int count) => new(residual: ConformanceResidual.WithinTolerance, count: count); public static Conformance Profile(int count) => new(residual: ConformanceResidual.Profile, count: count); public static Conformance Maximum(int count) => new(residual: ConformanceResidual.Maximum, count: count);
 }
 public static partial class Query {
     internal delegate bool PrimitiveCase<TSource, TValue>(
         TSource geometry,
         Context context,
         out TValue value) where TSource : GeometryBase;
-    internal delegate Fin<Seq<TValue>> ClosestCase<TSource, TValue>(
-        Point3d target,
-        TSource geometry) where TSource : notnull;
     internal static readonly Op
         MidpointKey = new(name: "Midpoint"), BoundsKey = new(name: nameof(Bounds)), OrientedBoundsKey = new(name: "OrientedBounds"),
         TransformedBoundsKey = new(name: "TransformedBounds"), BoundsCenterKey = new(name: "BoundsCenter"), BoundsCornersKey = new(name: "BoundsCorners"),
@@ -265,44 +195,21 @@ public static partial class Query {
         IEnumerable<Polyline>? polylines = null,
         CurveIntersections? intersections = null) =>
         typeof(TOut) switch {
-            Type output when output == typeof(Curve) =>
-                key.CastResults<Curve, TOut>(values: curves),
-            Type output when output == typeof(Point3d) =>
-                key.CastResults<Point3d, TOut>(values: points ?? Optional(intersections)
-                    .ToSeq()
-                    .Bind(static events => events)
-                    .Where(static intersection => intersection.IsPoint)
-                    .Select(static intersection => intersection.PointA)),
-            Type output when output == typeof(IntersectionEvent) =>
-                key.CastResults<IntersectionEvent, TOut>(values: Optional(intersections)
-                    .ToSeq()
-                    .Bind(static events => events)),
-            Type output when output == typeof(Polyline) =>
-                key.CastResults<Polyline, TOut>(values: polylines),
+            Type output when output == typeof(Curve) => key.CastResults<Curve, TOut>(values: curves),
+            Type output when output == typeof(Point3d) => key.CastResults<Point3d, TOut>(values: points ?? Optional(intersections).ToSeq().Bind(static events => events).Where(static intersection => intersection.IsPoint).Select(static intersection => intersection.PointA)),
+            Type output when output == typeof(IntersectionEvent) => key.CastResults<IntersectionEvent, TOut>(values: Optional(intersections).ToSeq().Bind(static events => events)),
+            Type output when output == typeof(Polyline) => key.CastResults<Polyline, TOut>(values: polylines),
             Type output when output == typeof(IntersectionKind) =>
-                key.CastResults<IntersectionKind, TOut>(values: Optional(intersections)
-                    .ToSeq()
-                    .Bind(static events => events)
+                key.CastResults<IntersectionKind, TOut>(values: Optional(intersections).ToSeq().Bind(static events => events)
                     .Select(static intersection => intersection switch {
                         IntersectionEvent candidate when candidate.IsOverlap => IntersectionKind.Overlap,
                         IntersectionEvent candidate when candidate.IsPoint => IntersectionKind.Point,
                         _ => IntersectionKind.Unknown,
                     })
-                    .Concat(second: Optional(curves)
-                        .ToSeq()
-                        .Bind(static values => values)
-                        .Select(static _ => IntersectionKind.Overlap))
-                    .Concat(second: Optional(points)
-                        .ToSeq()
-                        .Bind(static values => values)
-                        .Select(static _ => IntersectionKind.Point))
-                    .Concat(second: Optional(polylines)
-                        .ToSeq()
-                        .Bind(static values => values)
-                        .Select(static _ => IntersectionKind.Overlap))),
-            _ => Fin.Fail<Seq<TOut>>(key.Unsupported(
-                geometryType: typeof(void),
-                outputType: typeof(TOut))),
+                    .Concat(second: Optional(curves).ToSeq().Bind(static values => values).Select(static _ => IntersectionKind.Overlap))
+                    .Concat(second: Optional(points).ToSeq().Bind(static values => values).Select(static _ => IntersectionKind.Point))
+                    .Concat(second: Optional(polylines).ToSeq().Bind(static values => values).Select(static _ => IntersectionKind.Overlap))),
+            _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
         };
     private static Fin<Seq<TOut>> CastResults<TValue, TOut>(
         this Op key,
@@ -327,39 +234,26 @@ public static partial class Query {
                     TSource source =>
                         from ctx in Analyze.Asks
                         from validated in ctx.Validate(geometry: source, requirement: Requirement.Basic).ToEff()
-                        from result in PrimitiveExtract(
-                                key: PrimitiveKey,
-                                extract: extract,
-                                geometry: validated,
-                                context: ctx)
+                        from result in (extract(geometry: validated, context: ctx, value: out TValue value) switch {
+                            bool solved => OpResult<TValue>.Solved(isSolved: solved, value: value).Reduce(key: PrimitiveKey),
+                        })
                             .ToEff()
                         select result,
                     _ => Fin.Fail<Seq<TValue>>(PrimitiveKey.Unsupported(
                         geometryType: typeof(TGeometry),
                         outputType: typeof(TValue))).ToEff(),
                 }));
-    private static Fin<Seq<TValue>> PrimitiveExtract<TSource, TValue>(
-        Op key,
-        PrimitiveCase<TSource, TValue> extract,
-        TSource geometry,
-        Context context) where TSource : GeometryBase =>
-        extract(
-            geometry: geometry,
-            context: context,
-            value: out TValue value) switch {
-                bool solved => OpResult<TValue>.Solved(isSolved: solved, value: value).Reduce(key: key),
-            };
     internal static Query<TGeometry, TOut> ClosestMatch<TGeometry, TOut, TSource, TValue>(
         Point3d point,
-        ClosestCase<TSource, TValue> project) where TGeometry : notnull where TSource : notnull =>
+        Func<Point3d, TSource, Fin<Seq<TValue>>> project) where TGeometry : notnull where TSource : notnull =>
         Cast<TGeometry, TOut>(key: ClosestKey, query: Query<TGeometry, TValue>.Build(
             key: ClosestKey,
             state: (Point: point, Project: project),
             evaluator: static (state, geometry) =>
                 geometry switch {
                     TSource source => state.Project(
-                            target: state.Point,
-                            geometry: source)
+                            arg1: state.Point,
+                            arg2: source)
                         .ToEff(),
                     _ => Fin.Fail<Seq<TValue>>(ClosestKey.Unsupported(
                         geometryType: typeof(TGeometry),
@@ -488,19 +382,8 @@ public static partial class Query {
                     arg1: geometry,
                     arg2: secondMoments,
                     arg3: productMoments)
-                                   from values in DisposeAndProject(
-                                           key: key,
-                                           mass: mass,
-                                           project: project)
-                                       .ToEff()
+                                   from values in Bracket(factory: () => mass, body: disposable => project(arg1: key, arg2: disposable)).ToEff()
                                    select values);
-    }
-    private static Fin<Seq<TOut>> DisposeAndProject<TMass, TOut>(
-        Op key,
-        TMass mass,
-        Func<Op, TMass, Fin<Seq<TOut>>> project) where TMass : class, IDisposable {
-        using TMass disposable = mass;
-        return project(arg1: key, arg2: disposable);
     }
     internal static Fin<Seq<(double Moment, Vector3d Axis)>> Principal<TMass>(
         this Op key,

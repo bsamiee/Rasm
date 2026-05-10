@@ -67,7 +67,12 @@ public static class Bridge {
             _ => Unit.Default,
         };
     private static Unit WriteItem<TOut>(IDataAccess access, int slot, TOut[] values) {
-        access.SetItem(index: slot, value: values.FirstOrDefault());
+        // Boundary adapter: GH2 item outputs expose a void setter; empty results leave the slot unset.
+        switch (values.Length) {
+            case > 0:
+                access.SetItem(index: slot, value: values[0]);
+                break;
+        }
         return Unit.Default;
     }
     private static Unit WriteTwig<TOut>(IDataAccess access, int slot, TOut[] values) {

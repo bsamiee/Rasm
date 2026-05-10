@@ -12,6 +12,7 @@ namespace Rasm.Grasshopper;
 [SmartEnum<string>]
 public sealed partial class Param {
     public static readonly Param Point = Of<Point3d>(static (a, n, c, i, ac, r) => a.AddPoint(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddPoint(name: n, code: c, info: i, access: ac));
+    public static readonly Param UvPoint = Of<Point2d>(static (a, n, c, i, ac, r) => a.AddUvPoint(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddUvPoint(name: n, code: c, info: i, access: ac));
     public static readonly Param Vector = Of<Vector3d>(static (a, n, c, i, ac, r) => a.AddVector(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddVector(name: n, code: c, info: i, access: ac));
     public static readonly Param Curve = Of<Curve>(static (a, n, c, i, ac, r) => a.AddCurve(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddCurve(name: n, code: c, info: i, access: ac));
     public static readonly Param Surface = Of<Surface>(static (a, n, c, i, ac, r) => a.AddSurface(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddSurface(name: n, code: c, info: i, access: ac));
@@ -32,6 +33,7 @@ public sealed partial class Param {
     public static readonly Param Boolean = Of<bool>(static (a, n, c, i, ac, r) => a.AddBoolean(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddBoolean(name: n, code: c, info: i, access: ac));
     public static readonly Param Colour = Of<Color>(static (a, n, c, i, ac, r) => a.AddColour(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddColour(name: n, code: c, info: i, access: ac));
     public static readonly Param Interval = Of<Interval>(static (a, n, c, i, ac, r) => a.AddInterval(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddInterval(name: n, code: c, info: i, access: ac));
+    public static readonly Param GeometryKind = Of<Rasm.Analysis.GeometryKind>(static (a, n, c, i, ac, r) => a.AddEnum<Rasm.Analysis.GeometryKind>(name: n, code: c, info: i, initial: Rasm.Analysis.GeometryKind.Unknown, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddEnum<Rasm.Analysis.GeometryKind>(name: n, code: c, info: i, access: ac));
     public static readonly Param Angle = Of<Angle>(static (a, n, c, i, ac, r) => a.AddAngle(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddAngle(name: n, code: c, info: i, access: ac));
     public static readonly Param Transform = Of<Transform>(static (a, n, c, i, ac, r) => a.AddTransform(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddTransform(name: n, code: c, info: i, access: ac));
     public static readonly Param Generic = Of<object>(static (a, n, c, i, ac, r) => a.AddGeneric(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddGeneric(name: n, code: c, info: i, access: ac));
@@ -55,7 +57,7 @@ public sealed partial class Param {
     public static Option<Param> From(Type type) =>
         type == typeof(int)
             ? Some(Integer)
-            : Optional(System.Linq.Enumerable.FirstOrDefault(source: Items, predicate: p => p.Type.Equals(o: type)));
+            : toSeq(Items).Find(predicate: p => p.Type.Equals(o: type));
     public Unit Bind(InputAdder adder, string name, string code, string info, Access access, Requirement requirement) {
         ArgumentNullException.ThrowIfNull(argument: adder);
         OnInput(arg1: adder, arg2: name, arg3: code, arg4: info, arg5: access, arg6: requirement);

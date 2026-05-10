@@ -128,6 +128,12 @@ public sealed class AnalysisSpec {
         Assert.NotNull(@object: Query.Deviation<Curve, Curve, CurveDeviation>());
         Assert.NotNull(@object: Query.EdgeMidpoints<GeometryBase, Point3d>());
         Assert.NotNull(@object: Query.Vertices<GeometryBase, Point3d>());
+        Assert.NotNull(@object: Query.Faces<GeometryBase, Brep>(aspect: Faces.At()));
+        Assert.NotNull(@object: Query.Faces<GeometryBase, Plane>(aspect: Faces.At()));
+        Assert.NotNull(@object: Query.Faces<GeometryBase, Point3d>(aspect: Faces.At()));
+        Assert.NotNull(@object: Query.Faces<GeometryBase, Vector3d>(aspect: Faces.At()));
+        Assert.NotNull(@object: Query.Faces<GeometryBase, int>(aspect: Faces.At()));
+        Assert.NotNull(@object: Query.Faces<GeometryBase, Interval>(aspect: Faces.At()));
     }
 
     [Fact]

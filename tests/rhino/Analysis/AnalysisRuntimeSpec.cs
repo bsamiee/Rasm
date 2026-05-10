@@ -1908,11 +1908,75 @@ public sealed class AnalysisRuntimeSpec {
     }
 
     [Test]
+    public void ExtractsPointCloudPointsAndBoundingCenter() {
+        Context context = Context();
+        Point3d[] points = [
+            new Point3d(x: -1.0, y: 0.0, z: 2.0),
+            new Point3d(x: 3.0, y: 4.0, z: 6.0),
+        ];
+        using PointCloud cloud = [];
+        cloud.Add(point: points[0]);
+        cloud.Add(point: points[1]);
+        Point3d[] vertices = Run(
+            query: AnalysisQuery.Vertices<object, Point3d>(),
+            context: context,
+            input: [cloud]);
+        Point3d[] spatialCenter = Run(
+            query: AnalysisQuery.SpatialMidpoint<object, Point3d>(),
+            context: context,
+            input: [cloud]);
+        Point3d[] boundsCenter = Run(
+            query: AnalysisQuery.Bounds<object, Point3d>(aspect: new Bounds.Center()),
+            context: context,
+            input: [cloud]);
+
+        Assert.Multiple(() => {
+            Assert.That(actual: vertices, expression: Is.EqualTo(expected: points));
+            Assert.That(actual: spatialCenter, expression: Is.EqualTo(expected: new[] { new Point3d(x: 1.0, y: 2.0, z: 4.0) }));
+            Assert.That(actual: boundsCenter, expression: Is.EqualTo(expected: spatialCenter));
+        });
+    }
+
+    [Test]
+    public void PreservesTrimmedFaceAndCorrectsReversedNormal() {
+        Context context = Context();
+        using Curve boundary = new Circle(plane: Plane.WorldXY, radius: 2.0).ToNurbsCurve();
+        Brep[] planar = Brep.CreatePlanarBreps(inputLoop: boundary, tolerance: context.Absolute.Value);
+        using Brep brep = planar[0];
+        brep.Faces.Flip(onlyReversedFaces: false);
+        Brep[] faces = Run(
+            query: AnalysisQuery.Faces<Brep, Brep>(aspect: Faces.At()),
+            context: context,
+            input: [brep]);
+        Point3d[] centers = Run(
+            query: AnalysisQuery.Faces<Brep, Point3d>(aspect: Faces.At()),
+            context: context,
+            input: [brep]);
+        Vector3d[] normals = Run(
+            query: AnalysisQuery.Faces<Brep, Vector3d>(aspect: Faces.At()),
+            context: context,
+            input: [brep]);
+        Plane[] frames = Run(
+            query: AnalysisQuery.Faces<Brep, Plane>(aspect: Faces.At()),
+            context: context,
+            input: [brep]);
+
+        Assert.Multiple(() => {
+            Assert.That(actual: brep.Faces[0].OrientationIsReversed, expression: Is.True);
+            Assert.That(actual: faces[0].Faces[0].Loops.Count, expression: Is.EqualTo(expected: brep.Faces[0].Loops.Count));
+            Assert.That(actual: centers, expression: Is.EqualTo(expected: new[] { Point3d.Origin }).Within(context.Absolute.Value));
+            Assert.That(actual: normals[0] * -Vector3d.ZAxis, expression: Is.GreaterThan(expected: 0.99));
+            Assert.That(actual: frames[0].ZAxis * normals[0], expression: Is.GreaterThan(expected: 0.99));
+        });
+    }
+
+    [Test]
     public void ExtractsFacesSelectionFramesAndRejectsMeshSurfaces() {
         Context context = Context();
         BoundingBox bounds = new(min: Point3d.Origin, max: new Point3d(x: 2.0, y: 4.0, z: 6.0));
         using Brep brep = Brep.CreateFromBox(box: bounds);
         using Mesh mesh = Mesh.CreateFromBox(box: bounds, xCount: 1, yCount: 1, zCount: 1);
+        using LineCurve curve = new(line: new Line(from: Point3d.Origin, to: new Point3d(x: 1.0, y: 0.0, z: 0.0)));
         Brep[] FaceBrep(Faces aspect) =>
             Run(query: AnalysisQuery.Faces<Brep, Brep>(aspect: aspect), context: context, input: [brep]);
 
@@ -1926,6 +1990,22 @@ public sealed class AnalysisRuntimeSpec {
             query: AnalysisQuery.Faces<Brep, Plane>(aspect: Faces.At()),
             context: context,
             input: [brep]);
+        Point3d[] centers = Run(
+            query: AnalysisQuery.Faces<Brep, Point3d>(aspect: Faces.At()),
+            context: context,
+            input: [brep]);
+        Vector3d[] normals = Run(
+            query: AnalysisQuery.Faces<Brep, Vector3d>(aspect: Faces.At()),
+            context: context,
+            input: [brep]);
+        int[] faceIndices = Run(
+            query: AnalysisQuery.Faces<Brep, int>(aspect: Faces.At()),
+            context: context,
+            input: [brep]);
+        Interval[] domains = Run(
+            query: AnalysisQuery.Faces<Brep, Interval>(aspect: Faces.At()),
+            context: context,
+            input: [brep]);
         BrepFace firstFace = brep.Faces[0];
         _ = firstFace.ClosestPointOnFace(testPoint: frames[0].Origin, u: out double u, v: out double v, maximumDistance: 0.0);
         Vector3d firstNormal = firstFace.OrientationIsReversed ? -firstFace.NormalAt(u: u, v: v) : firstFace.NormalAt(u: u, v: v);
@@ -1933,6 +2013,10 @@ public sealed class AnalysisRuntimeSpec {
             .Run(
                 query: AnalysisQuery.Faces<Mesh, Brep>(aspect: Faces.All),
                 input: [mesh]);
+        Validation<Error, Seq<Brep>> curveSurfaces = Analyze.In(context: context)
+            .Run(
+                query: AnalysisQuery.Faces<Curve, Brep>(aspect: Faces.All),
+                input: [curve]);
 
         Assert.Multiple(() => {
             Assert.That(actual: all, expression: Has.Length.EqualTo(expected: brep.Faces.Count));
@@ -1943,7 +2027,12 @@ public sealed class AnalysisRuntimeSpec {
             Assert.That(actual: atLarge[0].GetBoundingBox(accurate: true).Center, expression: Is.EqualTo(expected: all[^1].GetBoundingBox(accurate: true).Center).Within(context.Absolute.Value));
             Assert.That(actual: frames[0].XAxis.IsValid, expression: Is.True);
             Assert.That(actual: frames[0].ZAxis * firstNormal, expression: Is.GreaterThan(expected: 0.0));
+            Assert.That(actual: centers, expression: Is.EqualTo(expected: new[] { frames[0].Origin }).Within(context.Absolute.Value));
+            Assert.That(actual: normals[0] * firstNormal, expression: Is.GreaterThan(expected: 0.0));
+            Assert.That(actual: faceIndices, expression: Is.EqualTo(expected: new[] { firstFace.FaceIndex }));
+            Assert.That(actual: domains, expression: Is.EqualTo(expected: new[] { firstFace.Domain(direction: 0), firstFace.Domain(direction: 1) }));
             Assert.That(actual: meshSurfaces.ToFin().IsFail, expression: Is.True);
+            Assert.That(actual: curveSurfaces.ToFin().IsFail, expression: Is.True);
         });
     }
 

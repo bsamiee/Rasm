@@ -16,31 +16,25 @@ namespace Radyab.Components;
 [IoId("F51A09A8-A5A5-467A-ADBA-C950511A0020")]
 [Nomen(
     name: "Extract Surfaces",
-    info: "All faces, top/bottom by world-Z centroid (ties returned), an index-clamped face, and the UV frame on the indexed face. Accepts Brep, BrepFace, Surface, SubD; rejects Mesh.",
+    info: "Trimmed faces, world-Z top/bottom faces, indexed face details, and centroid UV frame for Brep, BrepFace, Surface, and SubD values.",
     category: "Radyab",
     section: "Extraction")]
-public sealed class ExtractSurfaces : Component<Shape> {
-    private static readonly Port<Shape> Geometry = Port.Required<Shape>(
-        param: Param.Generic,
-        name: "Geometry",
-        code: "G",
-        info: "Brep, BrepFace, Surface, or SubD to extract as surface faces; Mesh is intentionally rejected.");
+public sealed class ExtractSurfaces : ShapeComponent {
     private static readonly Port<int> Index = Port.Index(info: "Zero-based face selector; missing Index defaults to face 0 and supplied values clamp to [0, count-1].");
 
-    protected override Seq<IPort> Inputs { get; } = Seq<IPort>(Geometry, Index);
+    protected override Option<Port<int>> IndexInput => Some(Index);
 
     protected override Seq<IOutput<Shape>> Slots { get; } = Seq<IOutput<Shape>>(
-        Output.Of<Shape, object, Brep>(port: Port.List<Brep>(param: Param.Brep, name: "All Surfaces", code: "AS", info: "Every face as single-face Brep; preserves trims; SubD via SubDToBrepOptions.Default; Mesh is not a GH2 surface-broker surface."), select: static shape => shape.Inner, query: Query.Faces<object, Brep>(aspect: Faces.All)),
-        Output.Of<Shape, object, Brep>(port: Port.List<Brep>(param: Param.Brep, name: "Top Surface", code: "TS", info: "Face(s) with maximum world-Z centroid; ties within tolerance."), select: static shape => shape.Inner, query: Query.Faces<object, Brep>(aspect: Faces.Top)),
-        Output.Of<Shape, object, Brep>(port: Port.List<Brep>(param: Param.Brep, name: "Bottom Surface", code: "BS", info: "Face(s) with minimum world-Z centroid; ties within tolerance."), select: static shape => shape.Inner, query: Query.Faces<object, Brep>(aspect: Faces.Bottom)),
-        Output.Indexed<Shape, object, Brep>(port: Port.List<Brep>(param: Param.Brep, name: "Indexed Surface", code: "IS", info: "Face at Index input; missing Index defaults to 0, supplied values clamp to [0, count-1]. Empty when zero faces."), select: static shape => shape.Inner, build: static hint => Query.Faces<object, Brep>(aspect: Faces.At(index: hint.Match(Some: static v => (int?)v, None: static () => (int?)null)))),
-        Output.Indexed<Shape, object, Plane>(port: Port.List<Plane>(param: Param.Plane, name: "UV Frame", code: "UV", info: "Native face frame at indexed face centroid; missing Index defaults to 0. X=surface U direction, Z=outward, Y completes the basis."), select: static shape => shape.Inner, build: static hint => Query.Faces<object, Plane>(aspect: Faces.At(index: hint.Match(Some: static v => (int?)v, None: static () => (int?)null)))));
+        ShapeOutput(port: Port.List<Brep>(name: "All Surfaces", code: "AS", info: "Every face as a trimmed single-face Brep. Mesh is intentionally rejected."), query: Query.Faces<object, Brep>(aspect: Faces.All)),
+        ShapeOutput(port: Port.List<Brep>(name: "Top Surface", code: "TS", info: "Trimmed face(s) with maximum world-Z centroid; ties within tolerance."), query: Query.Faces<object, Brep>(aspect: Faces.Top)),
+        ShapeOutput(port: Port.List<Brep>(name: "Bottom Surface", code: "BS", info: "Trimmed face(s) with minimum world-Z centroid; ties within tolerance."), query: Query.Faces<object, Brep>(aspect: Faces.Bottom)),
+        IndexedShapeOutput(port: Port.List<Brep>(name: "Indexed Surface", code: "IS", info: "Trimmed face at Index input; missing Index defaults to 0, supplied values clamp to [0, count-1]. Empty when zero faces."), build: static hint => Query.Faces<object, Brep>(aspect: Faces.At(index: hint.Match(Some: static v => (int?)v, None: static () => (int?)null)))),
+        IndexedShapeOutput(port: Port.List<Plane>(name: "UV Frame", code: "UV", info: "Native U/V face frame at indexed face centroid. X=surface U direction, Z=orientation-corrected normal, Y completes the basis."), build: static hint => Query.Faces<object, Plane>(aspect: Faces.At(index: hint.Match(Some: static v => (int?)v, None: static () => (int?)null)))),
+        IndexedShapeOutput(port: Port.List<Point3d>(name: "Face Center", code: "FC", info: "Area centroid of the indexed trimmed face."), build: static hint => Query.Faces<object, Point3d>(aspect: Faces.At(index: hint.Match(Some: static v => (int?)v, None: static () => (int?)null)))),
+        IndexedShapeOutput(port: Port.List<Vector3d>(name: "Face Normal", code: "FN", info: "Orientation-corrected indexed face normal at the face centroid."), build: static hint => Query.Faces<object, Vector3d>(aspect: Faces.At(index: hint.Match(Some: static v => (int?)v, None: static () => (int?)null)))),
+        IndexedShapeOutput(port: Port.List<int>(name: "Face Index", code: "FI", info: "Source Brep face index selected by the clamped Index input."), build: static hint => Query.Faces<object, int>(aspect: Faces.At(index: hint.Match(Some: static v => (int?)v, None: static () => (int?)null)))),
+        IndexedShapeOutput(port: Port.List<Interval>(name: "UV Domains", code: "UD", info: "Indexed face domains as U then V intervals."), build: static hint => Query.Faces<object, Interval>(aspect: Faces.At(index: hint.Match(Some: static v => (int?)v, None: static () => (int?)null)))));
 
     public ExtractSurfaces() : base(nomen: NomenOf<ExtractSurfaces>()) { }
     public ExtractSurfaces(IReader reader) : base(reader: reader) { }
-
-    protected override Fin<Shape> Read(IDataAccess access) =>
-        access.ReadShape(slot: 0, port: Geometry);
-    protected override Option<int> Hint(IDataAccess access) =>
-        access.Index(slot: 1);
 }
