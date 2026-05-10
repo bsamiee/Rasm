@@ -81,6 +81,12 @@ diagnostics.sarif
 *.rsuser
 *.suo
 
+# Grasshopper2.dll extracts embedded resources (icons, color dictionaries,
+# .3dm crystal models, .ghicon bitmaps, .ghdic) to the cwd of `dotnet build`
+# whenever Grasshopper2 is referenced. Root-anchored so we don't shadow the
+# real `apps/grasshopper/` tree.
+/Grasshopper.*
+
 # --- [ENVIRONMENT_VARIABLES] --------------------------------------------------
 
 .env

@@ -1,0 +1,18 @@
+<Project>
+    <!--
+        Grasshopper2.dll embeds resources (icons, color dictionaries, .3dm crystal models,
+        .ghicon bitmaps, .ghdic) and extracts them on demand to the current working directory
+        when an unusual host context cannot resolve a writable Grasshopper2.Folders.ResourcesFolder
+        path. Build hosts (`dotnet build` invoked from the repo root) hit this case sporadically.
+        The scrub target removes the spillover after every build; .gitignore root-anchors the
+        pattern so accidental commits cannot occur. The pattern is deliberately root-anchored:
+        the real `apps/grasshopper/` and `libs/csharp/Rasm.Grasshopper/` trees are unaffected.
+    -->
+    <Target Name="ScrubGrasshopperResourceSpillover" AfterTargets="Build" Condition="'$(MSBuildProjectFile)' == 'Rasm.Grasshopper.csproj' or '$(MSBuildProjectFile)' == 'Radyab.csproj'">
+        <ItemGroup>
+            <_GrasshopperSpillover Include="$(MSBuildThisFileDirectory)Grasshopper.*" />
+        </ItemGroup>
+        <Delete Files="@(_GrasshopperSpillover)" Condition="'@(_GrasshopperSpillover)' != ''" />
+        <Message Text="check-build: scrubbed @(_GrasshopperSpillover->Count()) Grasshopper2 resource spillover file(s) from repo root." Importance="normal" Condition="'@(_GrasshopperSpillover)' != ''" />
+    </Target>
+</Project>
