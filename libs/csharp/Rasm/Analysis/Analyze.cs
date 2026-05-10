@@ -37,7 +37,7 @@ public static class Analyze {
     public static Scope In(GeometryContext context) =>
         new(context: Optional(context).ToFin(Query.ScopeKey.MissingContext()));
     public sealed record Scope {
-        public Fin<GeometryContext> Context { get; init; }
+        public Fin<GeometryContext> Context { get; }
         internal Scope(Fin<GeometryContext> context) =>
             Context = context;
         public Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(

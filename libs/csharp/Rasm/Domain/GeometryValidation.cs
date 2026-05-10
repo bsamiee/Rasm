@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Linq;
+using Foundation.CSharp.Analyzers.Contracts;
 using LanguageExt.Common;
 using Rhino;
 using Rhino.FileIO;
@@ -258,6 +259,11 @@ internal abstract partial record GeometryCheck {
     internal sealed record MeshRhinoCheckCheck : GeometryCheck {
         internal override string Key => "mesh-rhino-check";
         internal override bool Applies(GeometryBase geometry) => geometry is Mesh;
+        [BoundaryImperativeExemption(
+            ruleId: "CSP0001",
+            reason: BoundaryImperativeReason.ProtocolRequired,
+            ticket: "RASM-MESH-CHECK",
+            expiresOnUtc: "2027-12-31T00:00:00Z")]
         internal override Fin<Unit> Validate(GeometryContext context, GeometryBase geometry) {
             // BOUNDARY ADAPTER — Mesh.Check requires a TextLog by-ref out and ref MeshCheckParameters; using-local +
             // ref parameter cannot be expressed in pure expression form, so the imperative shape lives at the
