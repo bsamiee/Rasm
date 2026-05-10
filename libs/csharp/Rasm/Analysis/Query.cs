@@ -86,6 +86,23 @@ public readonly record struct Couple(int A, int B);
 public readonly record struct CurveDeviation(double MinimumDistance, Point3d MinimumA, Point3d MinimumB, double MaximumDistance, Point3d MaximumA, Point3d MaximumB, double Tolerance, bool WithinTolerance);
 public enum IntersectionKind { Unknown = 0, Point = 1, Overlap = 2 }
 public enum Topology { Boundary, EdgeMidpoints, Adjacency, NonManifold }
+public enum CurveFeature {
+    Input,
+    Segment,
+    Edge,
+    Boundary,
+    NakedOuter,
+    NakedInner,
+    Interior,
+    NonManifold,
+    OuterLoop,
+    InnerLoop,
+    IsoU,
+    IsoV,
+    Silhouette,
+    SubCurve,
+    Draft,
+}
 [Union]
 public partial record Bounds {
     public sealed record Box : Bounds; public sealed record Oriented(Plane Plane) : Bounds; public sealed record Transformed(Transform Transform) : Bounds; public sealed record Center : Bounds;
@@ -106,6 +123,7 @@ public partial record Location {
     public sealed record CurvatureProfile(int Count, CurvatureScalar Scalar) : Location; public sealed record DerivativeAt(double Parameter, int Count) : Location;
     public sealed record DivideByCount(int Count) : Location; public sealed record DivideByLength(double Length) : Location; public sealed record Orientation(Plane Plane) : Location;
     public sealed record Contains(Point3d Point, Plane Plane) : Location; public sealed record ShortPath(Point2d Start, Point2d End) : Location;
+    public sealed record ControlPoints : Location;
 }
 [SmartEnum<int>]
 public sealed partial class FaceSelector {
@@ -118,13 +136,19 @@ public readonly record struct Faces(FaceSelector Selector, Option<int> Index) {
 }
 [SmartEnum<int>]
 public sealed partial class CurveSelector {
-    public static readonly CurveSelector All = new(key: 0), Boundary = new(key: 1), IsoU = new(key: 2), IsoV = new(key: 3), At = new(key: 4);
+    public static readonly CurveSelector All = new(key: 0), Boundary = new(key: 1), IsoU = new(key: 2), IsoV = new(key: 3), At = new(key: 4), Segments = new(key: 5), NakedOuter = new(key: 6), NakedInner = new(key: 7), Interior = new(key: 8), NonManifold = new(key: 9), OuterLoop = new(key: 10), InnerLoop = new(key: 11), Silhouette = new(key: 12), SubCurves = new(key: 13), Draft = new(key: 14);
 }
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct Curves(CurveSelector Selector, Option<int> Index) {
-    public static Curves All => new(Selector: CurveSelector.All, Index: None); public static Curves Boundary => new(Selector: CurveSelector.Boundary, Index: None);
-    public static Curves IsoU => new(Selector: CurveSelector.IsoU, Index: None); public static Curves IsoV => new(Selector: CurveSelector.IsoV, Index: None);
-    public static Curves At(int? index = null) => new(Selector: CurveSelector.At, Index: Optional(value: index));
+public readonly record struct Curves(CurveSelector Selector, Option<int> Index, Option<Vector3d> Direction, Option<double> Angle) {
+    public static Curves All => new(Selector: CurveSelector.All, Index: None, Direction: None, Angle: None); public static Curves Segments => new(Selector: CurveSelector.Segments, Index: None, Direction: None, Angle: None);
+    public static Curves Boundary => new(Selector: CurveSelector.Boundary, Index: None, Direction: None, Angle: None); public static Curves NakedOuter => new(Selector: CurveSelector.NakedOuter, Index: None, Direction: None, Angle: None);
+    public static Curves NakedInner => new(Selector: CurveSelector.NakedInner, Index: None, Direction: None, Angle: None); public static Curves Interior => new(Selector: CurveSelector.Interior, Index: None, Direction: None, Angle: None);
+    public static Curves NonManifold => new(Selector: CurveSelector.NonManifold, Index: None, Direction: None, Angle: None); public static Curves OuterLoop => new(Selector: CurveSelector.OuterLoop, Index: None, Direction: None, Angle: None);
+    public static Curves InnerLoop => new(Selector: CurveSelector.InnerLoop, Index: None, Direction: None, Angle: None); public static Curves IsoU => new(Selector: CurveSelector.IsoU, Index: None, Direction: None, Angle: None);
+    public static Curves IsoV => new(Selector: CurveSelector.IsoV, Index: None, Direction: None, Angle: None); public static Curves SubCurves => new(Selector: CurveSelector.SubCurves, Index: None, Direction: None, Angle: None);
+    public static Curves Silhouette(Vector3d? direction = null) => new(Selector: CurveSelector.Silhouette, Index: None, Direction: Optional(value: direction), Angle: None);
+    public static Curves Draft(Vector3d? direction = null, double? angle = null) => new(Selector: CurveSelector.Draft, Index: None, Direction: Optional(value: direction), Angle: Optional(value: angle));
+    public static Curves At(int? index = null) => new(Selector: CurveSelector.At, Index: Optional(value: index), Direction: None, Angle: None);
 }
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Conformance {
@@ -160,7 +184,8 @@ public static partial class Query {
         UniqueCornersKey = new(name: "UniqueCorners"),
         WorldCardinalPointsKey = new(name: "WorldCardinalPoints"),
         FacesKey = new(name: nameof(Faces)),
-        CurvesKey = new(name: nameof(Curves));
+        CurvesKey = new(name: nameof(Curves)),
+        ControlPointsKey = new(name: "ControlPoints");
     internal static Query<TGeometry, TOut> Unsupported<TGeometry, TOut>(this Op key) where TGeometry : notnull =>
         Query<TGeometry, TOut>.Reject(
             key: key,

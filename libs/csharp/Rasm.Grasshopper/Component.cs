@@ -33,16 +33,16 @@ public abstract class Component<TIn> : Grasshopper2.Components.Component where T
     }
     protected sealed override void Process(IDataAccess access) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        _ = access.Scope().Bind(scope => Read(access: access).Map(input => (Scope: scope, Hint: Hint(access: access), Input: input)))
+        Seq<IPort> inputs = Inputs;
+        Hints hints = Hints.Capture(inputs: inputs);
+        _ = access.Scope().Bind(scope => Read(access: access).Map(input => (Scope: scope, Hints: hints, Input: input)))
             .Match(
-                Succ: state => Slots.Iter((i, slot) => slot.Run(access: access, slot: i, scope: state.Scope, hint: state.Hint, input: state.Input)),
+                Succ: state => Slots.Iter((i, slot) => slot.Run(access: access, slot: i, scope: state.Scope, hints: state.Hints, input: state.Input)),
                 Fail: error => (
                     access.MissingInput(error: error),
                     Slots.Iter((i, slot) => slot.Empty(access: access, slot: i))).Item2);
     }
     protected abstract Fin<TIn> Read(IDataAccess access);
-    protected virtual Option<int> Hint(IDataAccess access) =>
-        Option<int>.None;
 }
 
 /// <summary>
@@ -54,24 +54,22 @@ public abstract class ShapeComponent : Component<Shape> {
         name: "Geometry",
         code: "G",
         info: "Geometry to analyse.");
-    protected virtual Option<Port<int>> IndexInput =>
-        Option<Port<int>>.None;
+    protected virtual Seq<IPort> Controls =>
+        Seq<IPort>();
     protected sealed override Seq<IPort> Inputs =>
-        IndexInput.Match(
-            Some: index => Seq<IPort>(Geometry, index),
-            None: static () => Seq<IPort>(Geometry));
+        toSeq(Seq<IPort>(Geometry).Concat(second: Controls));
 
     protected ShapeComponent(Nomen nomen) : base(nomen: nomen) { }
     protected ShapeComponent(IReader reader) : base(reader: reader) { }
 
     protected static Output<Shape, object, TOut> ShapeOutput<TOut>(Port<TOut> port, Query<object, TOut> query) =>
         Output.Of<Shape, object, TOut>(port: port, select: static shape => shape.Inner, query: query);
-    protected static Output<Shape, object, TOut> IndexedShapeOutput<TOut>(Port<TOut> port, Func<Option<int>, Query<object, TOut>> build) =>
-        Output.Indexed<Shape, object, TOut>(port: port, select: static shape => shape.Inner, build: build);
+    protected static Output<Shape, object, TOut> IndexedShapeOutput<TOut>(Port<TOut> port, Port<int> index, Func<int?, Query<object, TOut>> build) =>
+        Output.Indexed<Shape, object, TOut>(port: port, index: index, select: static shape => shape.Inner, build: build);
+    protected static Output<Shape, object, TOut> ControlledShapeOutput<TControl, TOut>(Port<TOut> port, Port<TControl> control, Func<Option<TControl>, Query<object, TOut>> build) =>
+        Output.Controlled<Shape, object, TControl, TOut>(port: port, control: control, select: static shape => shape.Inner, build: build);
+    protected static Output<Shape, object, TOut> ControlledShapeOutput<TControlA, TControlB, TOut>(Port<TOut> port, Port<TControlA> controlA, Port<TControlB> controlB, Func<Option<TControlA>, Option<TControlB>, Query<object, TOut>> build) =>
+        Output.Controlled<Shape, object, TControlA, TControlB, TOut>(port: port, controlA: controlA, controlB: controlB, select: static shape => shape.Inner, build: build);
     protected sealed override Fin<Shape> Read(IDataAccess access) =>
         access.ReadShape(slot: 0, port: Geometry);
-    protected sealed override Option<int> Hint(IDataAccess access) =>
-        IndexInput.Match(
-            Some: _ => access.Index(slot: 1),
-            None: static () => Option<int>.None);
 }

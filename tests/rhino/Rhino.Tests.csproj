@@ -5,12 +5,14 @@
         <IsPackable>false</IsPackable>
         <IsTestProject>true</IsTestProject>
         <IsRhinoCommonAwareProject>true</IsRhinoCommonAwareProject>
+        <IsGrasshopperAwareProject>true</IsGrasshopperAwareProject>
         <UseWorkspaceLibraries>false</UseWorkspaceLibraries>
         <SkipBoundaryExemptionContracts>true</SkipBoundaryExemptionContracts>
     </PropertyGroup>
 
     <ItemGroup>
         <ProjectReference Include="../../libs/csharp/Rasm/Rasm.csproj" />
+        <ProjectReference Include="../../apps/grasshopper/Radyab/Radyab.csproj" />
     </ItemGroup>
 
     <ItemGroup>

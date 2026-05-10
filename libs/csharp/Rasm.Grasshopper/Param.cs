@@ -25,7 +25,7 @@ public sealed partial class Param {
     public static readonly Param Arc = Of<Arc>(static (a, n, c, i, ac, r) => a.AddArc(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddArc(name: n, code: c, info: i, access: ac));
     public static readonly Param Sphere = Of<Sphere>(static (a, n, c, i, ac, r) => a.AddSphere(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddSphere(name: n, code: c, info: i, access: ac));
     public static readonly Param Polyline = Of<Polyline>(static (a, n, c, i, ac, r) => a.AddPolyline(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddPolyline(name: n, code: c, info: i, access: ac));
-    public static readonly Param SubD = Of<SubD>(static (a, n, c, i, ac, r) => a.AddGeneric(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddGeneric(name: n, code: c, info: i, access: ac));
+    public static readonly Param SubD = Of<SubD>(static (a, n, c, i, ac, r) => a.AddSurface(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddSurface(name: n, code: c, info: i, access: ac));
     public static readonly Param Index = Of<int>(key: nameof(Index), onInput: static (a, n, c, i, ac, r) => a.AddIndex(name: n, code: c, info: i, access: ac, requirement: r), onOutput: static (a, n, c, i, ac) => a.AddInteger(name: n, code: c, info: i, access: ac));
     public static readonly Param Integer = Of<int>(static (a, n, c, i, ac, r) => a.AddInteger(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddInteger(name: n, code: c, info: i, access: ac));
     public static readonly Param Number = Of<double>(static (a, n, c, i, ac, r) => a.AddNumber(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddNumber(name: n, code: c, info: i, access: ac));
@@ -33,7 +33,8 @@ public sealed partial class Param {
     public static readonly Param Boolean = Of<bool>(static (a, n, c, i, ac, r) => a.AddBoolean(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddBoolean(name: n, code: c, info: i, access: ac));
     public static readonly Param Colour = Of<Color>(static (a, n, c, i, ac, r) => a.AddColour(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddColour(name: n, code: c, info: i, access: ac));
     public static readonly Param Interval = Of<Interval>(static (a, n, c, i, ac, r) => a.AddInterval(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddInterval(name: n, code: c, info: i, access: ac));
-    public static readonly Param GeometryKind = Of<Rasm.Analysis.GeometryKind>(static (a, n, c, i, ac, r) => a.AddEnum<Rasm.Analysis.GeometryKind>(name: n, code: c, info: i, initial: Rasm.Analysis.GeometryKind.Unknown, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddEnum<Rasm.Analysis.GeometryKind>(name: n, code: c, info: i, access: ac));
+    public static readonly Param GeometryKind = Enum(initial: Rasm.Analysis.GeometryKind.Unknown);
+    public static readonly Param CurveFeature = Enum(initial: Rasm.Analysis.CurveFeature.Input);
     public static readonly Param Angle = Of<Angle>(static (a, n, c, i, ac, r) => a.AddAngle(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddAngle(name: n, code: c, info: i, access: ac));
     public static readonly Param Transform = Of<Transform>(static (a, n, c, i, ac, r) => a.AddTransform(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddTransform(name: n, code: c, info: i, access: ac));
     public static readonly Param Generic = Of<object>(static (a, n, c, i, ac, r) => a.AddGeneric(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddGeneric(name: n, code: c, info: i, access: ac));
@@ -51,6 +52,11 @@ public sealed partial class Param {
         Action<InputAdder, string, string, string, Access, Requirement> onInput,
         Action<OutputAdder, string, string, string, Access> onOutput) =>
         new(key: key, type: typeof(T), onInput: onInput, onOutput: onOutput);
+    private static Param Enum<T>(T initial) where T : struct, Enum =>
+        Of<T>(
+            key: typeof(T).Name,
+            onInput: (a, n, c, i, ac, r) => a.AddEnum<T>(name: n, code: c, info: i, initial: initial, access: ac, requirement: r),
+            onOutput: static (a, n, c, i, ac) => a.AddEnum<T>(name: n, code: c, info: i, access: ac));
 
     // --- [OPERATIONS] ------------------------------------------------------------------
 

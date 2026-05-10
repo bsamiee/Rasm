@@ -30,18 +30,12 @@ public readonly record struct Port<TVal>(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class Port {
-    public static Port<TVal> Required<TVal>(string name, string code, string info) =>
-        Required<TVal>(param: Param.From(type: typeof(TVal)).IfNone(Param.Generic), name: name, code: code, info: info);
-    public static Port<TVal> Required<TVal>(Param param, string name, string code, string info) =>
-        new(Name: name, Code: code, Info: info, Param: param, Access: Access.Item, Requirement: Requirement.MustExist);
-    public static Port<TVal> Optional<TVal>(string name, string code, string info) =>
-        Optional<TVal>(param: Param.From(type: typeof(TVal)).IfNone(Param.Generic), name: name, code: code, info: info);
-    public static Port<TVal> Optional<TVal>(Param param, string name, string code, string info) =>
-        new(Name: name, Code: code, Info: info, Param: param, Access: Access.Item, Requirement: Requirement.MayBeMissing);
-    public static Port<TVal> List<TVal>(string name, string code, string info, Requirement requirement = Requirement.MustExist) =>
-        List<TVal>(param: Param.From(type: typeof(TVal)).IfNone(Param.Generic), name: name, code: code, info: info, requirement: requirement);
-    public static Port<TVal> List<TVal>(Param param, string name, string code, string info, Requirement requirement = Requirement.MustExist) =>
-        new(Name: name, Code: code, Info: info, Param: param, Access: Access.Twig, Requirement: requirement);
+    public static Port<TVal> Required<TVal>(string name, string code, string info, Param? param = null) =>
+        new(Name: name, Code: code, Info: info, Param: param ?? Param.From(type: typeof(TVal)).IfNone(Param.Generic), Access: Access.Item, Requirement: Requirement.MustExist);
+    public static Port<TVal> Optional<TVal>(string name, string code, string info, Param? param = null) =>
+        new(Name: name, Code: code, Info: info, Param: param ?? Param.From(type: typeof(TVal)).IfNone(Param.Generic), Access: Access.Item, Requirement: Requirement.MayBeMissing);
+    public static Port<TVal> List<TVal>(string name, string code, string info, Requirement requirement = Requirement.MustExist, Param? param = null) =>
+        new(Name: name, Code: code, Info: info, Param: param ?? Param.From(type: typeof(TVal)).IfNone(Param.Generic), Access: Access.Twig, Requirement: requirement);
     public static Port<int> Index(
         string name = "Index",
         string code = "I",

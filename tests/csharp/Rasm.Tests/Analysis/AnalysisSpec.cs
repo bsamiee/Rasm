@@ -105,35 +105,18 @@ public sealed class AnalysisSpec {
 
     [Fact]
     public void KeepsParameterlessFactoriesAsProperties() {
-        Assert.NotNull(@object: Query.Edges);
-        Assert.NotNull(@object: Query.IsManifold);
-        Assert.NotNull(@object: Query.NakedPointStatus);
-        Assert.NotNull(@object: Query.SelfIntersections);
-        Assert.NotNull(@object: Query.MeshCheckCount(count: MeshCheckCount.NakedEdges));
-        Assert.NotNull(@object: Query.MeshFaceMetric(metric: MeshFaceMetric.AspectRatio));
-        Assert.NotNull(@object: Query.Topology<Mesh, Polyline>(aspect: Topology.Boundary));
-        Assert.NotNull(@object: Query.Topology<GeometryBase, Point3d>(aspect: Topology.EdgeMidpoints));
-        Assert.NotNull(@object: Query.Topology<Mesh, ComponentIndex>(aspect: Topology.Adjacency));
-        Assert.NotNull(@object: Query.Topology<Mesh, bool>(aspect: Topology.NonManifold));
-        Assert.NotNull(@object: Query.Measure<GeometryBase, Point3d>(aspect: new Measure.SpatialMidpoint()));
-        Assert.NotNull(@object: Query.Locate<Curve, double>(aspect: new Location.CurvatureProfile(Count: 3, Scalar: CurvatureScalar.Magnitude)));
-        Assert.NotNull(@object: Query.Locate<Surface, double>(aspect: new Location.CurvatureProfile(Count: 3, Scalar: CurvatureScalar.Gaussian)));
-        Assert.NotNull(@object: Query.Locate<Surface, double>(aspect: new Location.CurvatureProfile(Count: 3, Scalar: CurvatureScalar.Mean)));
-        Assert.NotNull(@object: Query.Conformance<Curve, Line, double>(aspect: Conformance.Distance(count: 3)));
-        Assert.NotNull(@object: Query.Conformance<Surface, Plane, bool>(aspect: Conformance.WithinTolerance(count: 2)));
-        Assert.NotNull(@object: Query.Conformance<Curve, Line, ResidualProfile>(aspect: Conformance.Profile(count: 3)));
-        Assert.NotNull(@object: Query.Conformance<Curve, Circle, double>(aspect: Conformance.Distance(count: 3)));
-        Assert.NotNull(@object: Query.Conformance<Curve, Arc, bool>(aspect: Conformance.WithinTolerance(count: 3)));
-        Assert.NotNull(@object: Query.Conformance<Surface, Sphere, ResidualSample>(aspect: Conformance.Maximum(count: 2)));
-        Assert.NotNull(@object: Query.Deviation<Curve, Curve, CurveDeviation>());
-        Assert.NotNull(@object: Query.EdgeMidpoints<GeometryBase, Point3d>());
-        Assert.NotNull(@object: Query.Vertices<GeometryBase, Point3d>());
-        Assert.NotNull(@object: Query.Faces<GeometryBase, Brep>(aspect: Faces.At()));
-        Assert.NotNull(@object: Query.Faces<GeometryBase, Plane>(aspect: Faces.At()));
-        Assert.NotNull(@object: Query.Faces<GeometryBase, Point3d>(aspect: Faces.At()));
-        Assert.NotNull(@object: Query.Faces<GeometryBase, Vector3d>(aspect: Faces.At()));
-        Assert.NotNull(@object: Query.Faces<GeometryBase, int>(aspect: Faces.At()));
-        Assert.NotNull(@object: Query.Faces<GeometryBase, Interval>(aspect: Faces.At()));
+        object[] factories = [
+            Query.Edges, Query.IsManifold, Query.NakedPointStatus, Query.SelfIntersections,
+            Query.MeshCheckCount(count: MeshCheckCount.NakedEdges), Query.MeshFaceMetric(metric: MeshFaceMetric.AspectRatio),
+            Query.Topology<Mesh, Polyline>(aspect: Topology.Boundary), Query.Topology<GeometryBase, Point3d>(aspect: Topology.EdgeMidpoints), Query.Topology<Mesh, ComponentIndex>(aspect: Topology.Adjacency), Query.Topology<Mesh, bool>(aspect: Topology.NonManifold),
+            Query.Measure<GeometryBase, Point3d>(aspect: new Measure.SpatialMidpoint()), Query.Locate<Curve, double>(aspect: new Location.CurvatureProfile(Count: 3, Scalar: CurvatureScalar.Magnitude)), Query.Locate<Surface, double>(aspect: new Location.CurvatureProfile(Count: 3, Scalar: CurvatureScalar.Gaussian)), Query.Locate<Surface, double>(aspect: new Location.CurvatureProfile(Count: 3, Scalar: CurvatureScalar.Mean)),
+            Query.Conformance<Curve, Line, double>(aspect: Conformance.Distance(count: 3)), Query.Conformance<Surface, Plane, bool>(aspect: Conformance.WithinTolerance(count: 2)), Query.Conformance<Curve, Line, ResidualProfile>(aspect: Conformance.Profile(count: 3)), Query.Conformance<Curve, Circle, double>(aspect: Conformance.Distance(count: 3)), Query.Conformance<Curve, Arc, bool>(aspect: Conformance.WithinTolerance(count: 3)), Query.Conformance<Surface, Sphere, ResidualSample>(aspect: Conformance.Maximum(count: 2)),
+            Query.Deviation<Curve, Curve, CurveDeviation>(), Query.EdgeMidpoints<GeometryBase, Point3d>(), Query.Vertices<GeometryBase, Point3d>(),
+            Query.Faces<GeometryBase, int>(aspect: Faces.All), Query.Faces<GeometryBase, Brep>(aspect: Faces.At()), Query.Faces<GeometryBase, Plane>(aspect: Faces.At()), Query.Faces<GeometryBase, Point3d>(aspect: Faces.At()), Query.Faces<GeometryBase, Vector3d>(aspect: Faces.At()), Query.Faces<GeometryBase, int>(aspect: Faces.At()), Query.Faces<GeometryBase, ComponentIndex>(aspect: Faces.At()), Query.Faces<GeometryBase, Interval>(aspect: Faces.At()),
+            Query.Curves<GeometryBase, Curve>(aspect: Curves.Segments), Query.Curves<GeometryBase, Curve>(aspect: Curves.SubCurves), Query.Curves<GeometryBase, CurveFeature>(aspect: Curves.All), Query.Curves<GeometryBase, ComponentIndex>(aspect: Curves.All), Query.Curves<GeometryBase, Curve>(aspect: Curves.Silhouette()), Query.Curves<GeometryBase, Curve>(aspect: Curves.Draft()), Query.Locate<Curve, Point3d>(aspect: new Location.ControlPoints()),
+        ];
+
+        Assert.All(collection: factories, action: static factory => Assert.NotNull(@object: factory));
     }
 
     [Fact]

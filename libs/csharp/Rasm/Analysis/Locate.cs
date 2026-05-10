@@ -148,7 +148,45 @@ public static partial class Query {
                         project: static (geometry, parameter) => Optional(geometry.CurvatureAt(u: parameter.X, v: parameter.Y))
                             .ToFin(CurvatureAtKey.InvalidResult())
                             .Map(static curvature => Seq(curvature)))),
-                shortPath: static sp => SurfaceLocated<TGeometry, TOut, Curve>(key: ShortPathKey, query: ShortPath<TGeometry>(start: sp.Start, end: sp.End))));
+                shortPath: static sp => SurfaceLocated<TGeometry, TOut, Curve>(key: ShortPathKey, query: ShortPath<TGeometry>(start: sp.Start, end: sp.End)),
+                controlPoints: static _ => ControlPoints<TGeometry, TOut>()));
+    private static Query<TGeometry, TOut> ControlPoints<TGeometry, TOut>() where TGeometry : notnull =>
+        (typeof(TGeometry), typeof(TOut)) switch {
+            (Type geometry, Type output) when output == typeof(Point3d) && (typeof(Curve).IsAssignableFrom(c: geometry) || typeof(Surface).IsAssignableFrom(c: geometry) || typeof(Brep).IsAssignableFrom(c: geometry) || geometry == typeof(object)) =>
+                Cast<TGeometry, TOut>(key: ControlPointsKey, query: Query<TGeometry, Point3d>.Build(
+                    key: ControlPointsKey,
+                    evaluator: static geometry => (geometry switch {
+                        NurbsCurve curve => CurveControlPoints(curve: curve),
+                        Curve curve => Optional(curve.ToNurbsCurve())
+                            .ToFin(ControlPointsKey.InvalidResult())
+                            .Bind(static nurbs => { using NurbsCurve disposable = nurbs; return CurveControlPoints(curve: disposable); }),
+                        NurbsSurface surface => SurfaceControlPoints(surface: surface),
+                        Surface surface => Optional(surface.ToNurbsSurface())
+                            .ToFin(ControlPointsKey.InvalidResult())
+                            .Bind(static nurbs => { using NurbsSurface disposable = nurbs; return SurfaceControlPoints(surface: disposable); }),
+                        Brep brep => BrepControlPoints(brep: brep),
+                        _ => Fin.Fail<Seq<Point3d>>(ControlPointsKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Point3d))),
+                    }).ToEff())),
+            _ => ControlPointsKey.Unsupported<TGeometry, TOut>(),
+        };
+    private static Fin<Seq<Point3d>> CurveControlPoints(NurbsCurve curve) =>
+        Many(
+            key: ControlPointsKey,
+            values: Enumerable.Range(start: 0, count: curve.Points.Count)
+                .Select(index => curve.Points[index].Location));
+    private static Fin<Seq<Point3d>> SurfaceControlPoints(NurbsSurface surface) =>
+        Many(
+            key: ControlPointsKey,
+            values: Enumerable.Range(start: 0, count: surface.Points.CountU)
+                .SelectMany(u => Enumerable.Range(start: 0, count: surface.Points.CountV)
+                    .Select(v => surface.Points.GetControlPoint(u: u, v: v).Location)));
+    private static Fin<Seq<Point3d>> BrepControlPoints(Brep brep) =>
+        toSeq(brep.Faces)
+            .TraverseM(face => Optional(face.ToNurbsSurface())
+                .ToFin(ControlPointsKey.InvalidResult())
+                .Bind(static nurbs => { using NurbsSurface disposable = nurbs; return SurfaceControlPoints(surface: disposable); }))
+            .As()
+            .Map(static nested => nested.Bind(static points => points));
     private static Query<TGeometry, TOut>? CurveLocated<TGeometry, TOut, TValue>(Op key, Query<TGeometry, TValue> query) where TGeometry : notnull =>
         typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(TValue) ? Cast<TGeometry, TOut>(key: key, query: query) : null;
     private static Query<TGeometry, TOut>? SurfaceLocated<TGeometry, TOut, TValue>(Op key, Query<TGeometry, TValue> query) where TGeometry : notnull =>

@@ -168,10 +168,25 @@
         "resolved": "10.2.0",
         "contentHash": "dakjsj9+k/faX/Ff0Ez+jcV6bqdJ+6fem4sXkNZDL3qZwtyp4SGfZgRHDiOEWrkgq/WBoZWiE+MOaBoXiXObbw=="
       },
+      "radyab": {
+        "type": "Project",
+        "dependencies": {
+          "Rasm": "[1.0.0, )",
+          "Rasm.Grasshopper": "[1.0.0, )"
+        }
+      },
       "rasm": {
         "type": "Project",
         "dependencies": {
           "LanguageExt.Core": "[5.0.0-beta-77, )",
+          "Thinktecture.Runtime.Extensions": "[10.2.0, )"
+        }
+      },
+      "rasm.grasshopper": {
+        "type": "Project",
+        "dependencies": {
+          "LanguageExt.Core": "[5.0.0-beta-77, )",
+          "Rasm": "[1.0.0, )",
           "Thinktecture.Runtime.Extensions": "[10.2.0, )"
         }
       }
