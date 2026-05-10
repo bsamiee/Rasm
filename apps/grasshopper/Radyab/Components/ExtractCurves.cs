@@ -8,7 +8,6 @@ using Rasm.Domain;
 using Rasm.Grasshopper;
 using Rhino.Geometry;
 using static LanguageExt.Prelude;
-using Query = Rasm.Analysis.Query;
 
 namespace Radyab.Components;
 
@@ -23,8 +22,8 @@ namespace Radyab.Components;
 public sealed class ExtractCurves : ShapeComponent<ExtractCurves.Spec> {
     public sealed class Spec : IComponentSpec<Shape, ShapeState> {
         private static readonly Port<int> Index = Port.Index(info: "Zero-based curve selector; missing Index defaults to curve 0 and supplied values clamp to [0, count-1].");
-        private static readonly Port<Vector3d> Direction = Port.Optional<Vector3d>(name: "Direction", code: "D", info: "Parallel projection or pull direction for silhouette and draft extraction. Missing Direction uses world Z.");
-        private static readonly Port<Angle> DraftAngle = Port.Optional<Angle>(param: Param.Angle, name: "Draft Angle", code: "A", info: "Draft angle for draft-curve extraction. Missing Draft Angle uses 0 radians.");
+        private static readonly Port<Vector3d> Direction = Port.Optional<Vector3d>(name: "Direction", code: "D", info: "Parallel projection or pull direction for silhouette and draft extraction. Missing Direction uses world Z.", policy: PortPolicy.Vector(unitise: true));
+        private static readonly Port<Angle> DraftAngle = Port.Optional<Angle>(param: Param.Angle, name: "Draft Angle", code: "A", info: "Draft angle for draft-curve extraction. Missing Draft Angle uses 0 radians.", policy: PortPolicy.Angle(reduce: true));
         private static Seq<IPort> Controls { get; } = Seq<IPort>(Index, Direction, DraftAngle);
 
         public static Seq<IPort> Inputs =>
@@ -48,17 +47,17 @@ public sealed class ExtractCurves : ShapeComponent<ExtractCurves.Spec> {
             CurvesOutput(port: Port.List<Curve>(name: "V Iso Curves", code: "V", info: "Trim-aware mid-domain V-direction iso curves for Brep faces and surface values."), aspect: Rasm.Analysis.Curves.IsoV),
             ShapeFoundation.Query(
                 port: Port.List<Curve>(name: "Silhouette Curves", code: "SC", info: "Parallel-projection silhouette curves using Direction, defaulting to world Z."),
-                query: static (access, state) => Query.Curves<object, Curve>(aspect: Rasm.Analysis.Curves.Silhouette(direction: state.Hints.Value(access: access, port: Direction).Map(static value => (Vector3d?)value).IfNone(static () => null))),
+                operation: static (access, state) => ShapeFoundation.Curves<Curve>(aspect: Rasm.Analysis.Curves.Silhouette(direction: state.Hints.Value(access: access, port: Direction).Map(static value => (Vector3d?)value).IfNone(static () => null))),
                 emptyUnsupported: true),
             ShapeFoundation.Query(
                 port: Port.List<Curve>(name: "Draft Curves", code: "DC", info: "Draft transition curves using Direction as pull direction and Draft Angle, defaulting to 0 radians."),
-                query: static (access, state) => Query.Curves<object, Curve>(aspect: Rasm.Analysis.Curves.Draft(
+                operation: static (access, state) => ShapeFoundation.Curves<Curve>(aspect: Rasm.Analysis.Curves.Draft(
                     direction: state.Hints.Value(access: access, port: Direction).Map(static value => (Vector3d?)value).IfNone(static () => null),
                     angle: state.Hints.Value(access: access, port: DraftAngle).Map(static value => (double?)value.Radians).IfNone(static () => null))),
                 emptyUnsupported: true),
             ShapeFoundation.Query(
                 port: Port.List<Curve>(name: "Indexed Curve", code: "IC", info: "Curve at Index input; missing Index defaults to 0, supplied values clamp to [0, count-1]. Empty when zero curves."),
-                query: static (access, state) => Query.Curves<object, Curve>(aspect: Rasm.Analysis.Curves.At(index: state.Hints.Index(access: access, port: Index, limit: int.MaxValue).Map(static value => (int?)value).IfNone(static () => null)))));
+                operation: static (access, state) => ShapeFoundation.Curves<Curve>(aspect: Rasm.Analysis.Curves.At(index: state.Hints.Index(access: access, port: Index, limit: int.MaxValue).Map(static value => (int?)value).IfNone(static () => null)))));
 
         public static Fin<Shape> Read(IDataAccess access) =>
             ShapeFoundation.Read(access: access);
@@ -66,7 +65,7 @@ public sealed class ExtractCurves : ShapeComponent<ExtractCurves.Spec> {
             ShapeFoundation.Prepare(access: access, scope: scope, hints: hints, input: input);
 
         private static IOutputGroup<ShapeState> CurvesOutput(Port<Curve> port, Rasm.Analysis.Curves aspect) =>
-            ShapeFoundation.Query(port: port, query: () => Query.Curves<object, Curve>(aspect: aspect), emptyUnsupported: true);
+            ShapeFoundation.Query(port: port, operation: () => ShapeFoundation.Curves<Curve>(aspect: aspect), emptyUnsupported: true);
     }
 
     public ExtractCurves() : base(nomen: ComponentNomen.Of<ExtractCurves>()) { }

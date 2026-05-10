@@ -667,7 +667,7 @@ public static partial class Query {
     private static Fin<Seq<CurveProjection>> SelectCurves(Seq<CurveProjection> curves, Curves aspect) =>
         (aspect.Selector, curves.Count) switch {
             (_, 0) => Fin.Succ(Seq<CurveProjection>()),
-            (CurveSelector selector, int count) when selector == CurveSelector.At => Fin.Succ(Seq(curves[Math.Clamp(value: aspect.Index.IfNone(static () => 0), min: 0, max: count - 1)])),
+            (CurveSelector selector, int count) when selector == CurveSelector.At => Fin.Succ(Seq(curves[RhinoMath.Clamp(aspect.Index.IfNone(static () => 0), 0, count - 1)])),
             _ => Fin.Succ(curves),
         };
     internal static Fin<Plane> FrameAtCentroid(FaceProjection face, Context runtime) =>
@@ -707,7 +707,7 @@ public static partial class Query {
             (FaceSelector all, _) when all == FaceSelector.All => Fin.Succ(faces),
             (FaceSelector top, _) when top == FaceSelector.Top => RankByCentroidZ(faces: faces, descending: true, runtime: runtime),
             (FaceSelector bottom, _) when bottom == FaceSelector.Bottom => RankByCentroidZ(faces: faces, descending: false, runtime: runtime),
-            (FaceSelector at, int count) when at == FaceSelector.At => Fin.Succ(Seq(faces[Math.Clamp(value: selector.Index.IfNone(static () => 0), min: 0, max: count - 1)])),
+            (FaceSelector at, int count) when at == FaceSelector.At => Fin.Succ(Seq(faces[RhinoMath.Clamp(selector.Index.IfNone(static () => 0), 0, count - 1)])),
             _ => Fin.Fail<Seq<FaceProjection>>(FacesKey.InvalidInput()),
         };
     private static Fin<Seq<TValue>> FaceProject<TValue>(

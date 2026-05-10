@@ -738,8 +738,8 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RejectsUnsupportedIntersectionClassificationWithOperationVocabulary() {
         Validation<Error, Seq<IntersectionKind>> result = Analyze.In(context: ValidContext()).Run(
-            query: Query.Intersect<Line, Line, IntersectionKind>(),
-            input: [(ValidLine(), ValidLine())]);
+            query: Query.Intersect<Line, int, IntersectionKind>(),
+            input: [(ValidLine(), 1)]);
 
         Assert.True(condition: result.ToFin().Match(
             Succ: static _ => false,

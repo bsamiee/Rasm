@@ -38,17 +38,17 @@ public sealed partial class Param {
     public static readonly Param Generic = Of<object>(static (a, n, c, i, ac, r) => a.AddGeneric(name: n, code: c, info: i, access: ac, requirement: r), static (a, n, c, i, ac) => a.AddGeneric(name: n, code: c, info: i, access: ac));
 
     public Type Type { get; }
-    private Action<InputAdder, string, string, string, Access, Requirement> OnInput { get; }
-    private Action<OutputAdder, string, string, string, Access> OnOutput { get; }
+    private Func<InputAdder, string, string, string, Access, Requirement, object> OnInput { get; }
+    private Func<OutputAdder, string, string, string, Access, object> OnOutput { get; }
 
     private static Param Of<T>(
-        Action<InputAdder, string, string, string, Access, Requirement> onInput,
-        Action<OutputAdder, string, string, string, Access> onOutput) =>
+        Func<InputAdder, string, string, string, Access, Requirement, object> onInput,
+        Func<OutputAdder, string, string, string, Access, object> onOutput) =>
         new(key: typeof(T).Name, type: typeof(T), onInput: onInput, onOutput: onOutput);
     private static Param Of<T>(
         string key,
-        Action<InputAdder, string, string, string, Access, Requirement> onInput,
-        Action<OutputAdder, string, string, string, Access> onOutput) =>
+        Func<InputAdder, string, string, string, Access, Requirement, object> onInput,
+        Func<OutputAdder, string, string, string, Access, object> onOutput) =>
         new(key: key, type: typeof(T), onInput: onInput, onOutput: onOutput);
     public static Param Enum<T>(T initial) where T : struct, Enum =>
         Of<T>(
@@ -62,14 +62,12 @@ public sealed partial class Param {
         type == typeof(int)
             ? Some(Integer)
             : toSeq(Items).Find(predicate: p => p.Type.Equals(o: type));
-    public Unit Bind(InputAdder adder, string name, string code, string info, Access access, Requirement requirement) {
+    public Unit Bind(InputAdder adder, string name, string code, string info, Access access, Requirement requirement, PortPolicy policy) {
         ArgumentNullException.ThrowIfNull(argument: adder);
-        OnInput(arg1: adder, arg2: name, arg3: code, arg4: info, arg5: access, arg6: requirement);
-        return Unit.Default;
+        return policy.Apply(parameter: OnInput(arg1: adder, arg2: name, arg3: code, arg4: info, arg5: access, arg6: requirement));
     }
-    public Unit Bind(OutputAdder adder, string name, string code, string info, Access access) {
+    public Unit Bind(OutputAdder adder, string name, string code, string info, Access access, PortPolicy policy) {
         ArgumentNullException.ThrowIfNull(argument: adder);
-        OnOutput(arg1: adder, arg2: name, arg3: code, arg4: info, arg5: access);
-        return Unit.Default;
+        return policy.Apply(parameter: OnOutput(arg1: adder, arg2: name, arg3: code, arg4: info, arg5: access));
     }
 }

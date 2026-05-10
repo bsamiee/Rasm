@@ -135,7 +135,19 @@ public sealed class ContextSpec {
 
     [Fact]
     public void RejectsInvalidShapeDuringNormalization() =>
-        Assert.True(condition: new Shape.Line(Value: Line.Unset).Validate().IsFail);
+        Assert.True(condition: new Shape(Inner: Line.Unset).Validate().IsFail);
+
+    [Fact]
+    public void ShapeKeepsNativePayloadInsteadOfFixedCaseHierarchy() {
+        Interval interval = new(t0: 0.0, t1: 1.0);
+
+        Assert.Empty(collection: typeof(Shape).GetNestedTypes());
+        Assert.True(condition: Shape.From(value: interval)
+            .Bind(static shape => shape.Validate().ToOption())
+            .Match(
+                Some: static shape => shape.Inner is Interval,
+                None: static () => false));
+    }
 
     [Fact]
     public void AdaptsSolvedResultRails() {

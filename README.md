@@ -97,26 +97,23 @@ Package-to-plugin membership is explicit in `scripts/rhino.sh`. The current pack
 
 Grasshopper uses GH2 component APIs directly: `Grasshopper2.Components.Component`, `InputAdder`, `OutputAdder`, `IDataAccess`, and `GrasshopperIO.IoIdAttribute`.
 
-GH2 can run component work in parallel. Component code must keep execution state local to `Process`; reusable geometry logic belongs in `Core` and `Analysis`.
+GH2 can run component work in parallel. Component code must keep execution state local to `Process`; reusable geometry logic belongs in `Rasm.Analysis` and `Rasm.Domain`.
 
 Python and RhinoCode publishing stay out of this foundation until the local runtime path is proven compatible.
 
-## Adding a New Supported Geometry Type
+## GH2 Foundation
 
-Components inheriting `AnalysisComponent<TInput>` (with `where TInput : RhinoGeometry`) resolve CLR types to concrete `Grasshopper2.Parameters.Standard` implementations through the [`GeometryParameterKind`](libs/csharp/Rasm.Grasshopper/GeometryParameterKind.cs) SmartEnum. Each case closes over the typed `InputAdder.Add{X}` / `OutputAdder.Add{X}` method groups — adding a case is the single point of extension; an unmapped CLR type returns `Option<GeometryParameterKind>.None` from `From(Type)` rather than silently routing to a generic parameter.
+`libs/csharp/Rasm.Grasshopper` provides the reusable component boundary for GH2 plugins:
 
-Currently mapped: `Point` (`Point3d`), `Vector` (`Vector3d`), `Curve`, `Surface`, `Brep`, `Mesh`, `Box`, `Plane`, `Line`, `Circle`, `Arc`, `Sphere`, `SubD`, `Polyline`.
+- `Param` maps CLR types to native `Grasshopper2.Parameters.Standard` parameters.
+- `Port<T>` describes item, twig, and tree access plus requirement and parameter policy.
+- `PortPolicy` applies native GH2 behavior for vectors, angles, indices, curve domains, and surface acceptance.
+- `Bridge.Read<T>` uses `IDataAccess.GetPear<T>`, `GetTwig<T>`, and `GetTree<T>` to preserve metadata, null state, and topology.
+- `Bridge.Write<T>` uses `SetPear`, `SetTwig<T>`, and `SetTree` with `Garden.TreeFromList`.
+- `Output` keeps final GH2 side effects at the component boundary.
 
-To add a new type (e.g. `Point2d`), append one `static readonly` field:
+The current API ledger is [`docs/rhino-gh2-api-ledger.md`](docs/rhino-gh2-api-ledger.md). It tracks RhinoCommon/GH2 APIs as used, underused, or intentionally unused against the installed RhinoWIP XML docs.
 
-```csharp
-public static readonly GeometryParameterKind Point2 = new(
-    key: nameof(Point2),
-    clrType: typeof(Point2d),
-    addInput: static (InputAdder adder, string name, string code, string info, Access access, Requirement requirement) =>
-        adder.AddPoint2(name: name, code: code, info: info, access: access, requirement: requirement),
-    addOutput: static (OutputAdder adder, string name, string code, string info, Access access) =>
-        adder.AddPoint2(name: name, code: code, info: info, access: access));
-```
+To add a new parameter type, extend `Param` with a static case that returns the native `InputAdder.Add{X}` and `OutputAdder.Add{X}` parameter instances. Port factories automatically fall back to `Param.Generic` for unmapped CLR types, so new typed mappings should be added only when GH2 has a real native parameter.
 
-The lambdas must be `static` (no captured state). Thinktecture's `[SmartEnum<string>]` source generator exposes the new case via `GeometryParameterKind.Items` — `From<T>()` resolves it without any runtime registration.
+To add a component, define an `IComponentSpec<TInput,TState>` with explicit `Inputs`, `Outputs`, `Read`, and `Prepare` members, then inherit `ShapeComponent<TSpec>` or `Component<TSpec,TInput,TState>`. Prefer adding `PortPolicy` at the port declaration over local validation or conversion code.

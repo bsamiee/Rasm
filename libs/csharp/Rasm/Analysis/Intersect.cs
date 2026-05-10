@@ -27,6 +27,98 @@ public static partial class Query {
             aspect: unit,
             key: IntersectKey,
             dispatch: static _ => (typeof(TA), typeof(TB), typeof(TOut)) switch {
+                (Type a, Type b, Type output) when a == typeof(Line) && b == typeof(Plane) && (output == typeof(Point3d) || output == typeof(IntersectionKind)) =>
+                    Pair<TA, TB, Line, Plane, TOut>(
+                        key: IntersectKey,
+                        a: Requirement.None,
+                        b: Requirement.None,
+                        output: static (left, right, _) => IntersectKey.IntersectionOutput<TOut>(
+                            points: Intersection.LinePlane(
+                                line: left,
+                                plane: right,
+                                lineParameter: out double parameter)
+                                ? [left.PointAt(t: parameter)]
+                                : [])),
+                (Type a, Type b, Type output) when a == typeof(Plane) && b == typeof(Line) && (output == typeof(Point3d) || output == typeof(IntersectionKind)) =>
+                    Pair<TA, TB, Plane, Line, TOut>(
+                        key: IntersectKey,
+                        a: Requirement.None,
+                        b: Requirement.None,
+                        output: static (left, right, _) => IntersectKey.IntersectionOutput<TOut>(
+                            points: Intersection.LinePlane(
+                                line: right,
+                                plane: left,
+                                lineParameter: out double parameter)
+                                ? [right.PointAt(t: parameter)]
+                                : [])),
+                (Type a, Type b, Type output) when a == typeof(Plane) && b == typeof(Plane) && (output == typeof(Line) || output == typeof(IntersectionKind)) =>
+                    Pair<TA, TB, Plane, Plane, TOut>(
+                        key: IntersectKey,
+                        a: Requirement.None,
+                        b: Requirement.None,
+                        output: static (left, right, _) => IntersectKey.IntersectionOutput<TOut>(
+                            lines: Intersection.PlanePlane(
+                                planeA: left,
+                                planeB: right,
+                                intersectionLine: out Line line)
+                                ? [line]
+                                : [])),
+                (Type a, Type b, Type output) when a == typeof(Line) && b == typeof(Circle) && (output == typeof(Point3d) || output == typeof(IntersectionKind)) =>
+                    Pair<TA, TB, Line, Circle, TOut>(
+                        key: IntersectKey,
+                        a: Requirement.None,
+                        b: Requirement.None,
+                        output: static (left, right, _) => Intersection.LineCircle(
+                            line: left,
+                            circle: right,
+                            t1: out double _,
+                            point1: out Point3d a,
+                            t2: out double _,
+                            point2: out Point3d b) switch {
+                                LineCircleIntersection.Single => IntersectKey.IntersectionOutput<TOut>(points: [a]),
+                                LineCircleIntersection.Multiple => IntersectKey.IntersectionOutput<TOut>(points: [a, b]),
+                                _ => IntersectKey.IntersectionOutput<TOut>(points: []),
+                            }),
+                (Type a, Type b, Type output) when a == typeof(Line) && b == typeof(Sphere) && (output == typeof(Point3d) || output == typeof(IntersectionKind)) =>
+                    Pair<TA, TB, Line, Sphere, TOut>(
+                        key: IntersectKey,
+                        a: Requirement.None,
+                        b: Requirement.None,
+                        output: static (left, right, _) => Intersection.LineSphere(
+                            line: left,
+                            sphere: right,
+                            intersectionPoint1: out Point3d a,
+                            intersectionPoint2: out Point3d b) switch {
+                                LineSphereIntersection.Single => IntersectKey.IntersectionOutput<TOut>(points: [a]),
+                                LineSphereIntersection.Multiple => IntersectKey.IntersectionOutput<TOut>(points: [a, b]),
+                                _ => IntersectKey.IntersectionOutput<TOut>(points: []),
+                            }),
+                (Type a, Type b, Type output) when a == typeof(Line) && b == typeof(BoundingBox) && (output == typeof(Interval) || output == typeof(IntersectionKind)) =>
+                    Pair<TA, TB, Line, BoundingBox, TOut>(
+                        key: IntersectKey,
+                        a: Requirement.None,
+                        b: Requirement.None,
+                        output: static (left, right, runtime) => IntersectKey.IntersectionOutput<TOut>(
+                            intervals: Intersection.LineBox(
+                                line: left,
+                                box: right,
+                                tolerance: runtime.Context.Absolute.Value,
+                                lineParameters: out Interval interval)
+                                ? [interval]
+                                : [])),
+                (Type a, Type b, Type output) when a == typeof(Line) && b == typeof(Box) && (output == typeof(Interval) || output == typeof(IntersectionKind)) =>
+                    Pair<TA, TB, Line, Box, TOut>(
+                        key: IntersectKey,
+                        a: Requirement.None,
+                        b: Requirement.None,
+                        output: static (left, right, runtime) => IntersectKey.IntersectionOutput<TOut>(
+                            intervals: Intersection.LineBox(
+                                line: left,
+                                box: right,
+                                tolerance: runtime.Context.Absolute.Value,
+                                lineParameters: out Interval interval)
+                                ? [interval]
+                                : [])),
                 (Type a, Type b, Type output) when typeof(Curve).IsAssignableFrom(c: a) && typeof(Curve).IsAssignableFrom(c: b) && Events(output: output) =>
                     PairEvents<TA, TB, Curve, Curve, TOut>(
                         a: Requirement.Basic,

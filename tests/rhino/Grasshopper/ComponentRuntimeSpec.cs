@@ -1,4 +1,5 @@
 using Grasshopper2.Components;
+using Grasshopper2.Parameters.Standard;
 using NUnit.Framework;
 using Radyab.Components;
 using Rhino.Testing.Fixtures;
@@ -17,6 +18,22 @@ public sealed class ComponentRuntimeSpec {
             AssertComponent(new ExtractPoints(), inputs: 1, outputs: 8);
             AssertComponent(new ExtractSurfaces(), inputs: 2, outputs: 11);
         });
+
+    [Test]
+    public void AppliesNativeParameterPolicies() {
+        Component component = new ExtractCurves();
+        IntegerParameter index = (IntegerParameter)component.Parameters.Input(index: 1);
+        VectorParameter direction = (VectorParameter)component.Parameters.Input(index: 2);
+        AngleParameter draft = (AngleParameter)component.Parameters.Input(index: 3);
+
+        Assert.Multiple(() => {
+            Assert.That(actual: index.IsIndex, expression: Is.True);
+            Assert.That(actual: index.Indexing, expression: Is.EqualTo(expected: IndexModifier.Clip));
+            Assert.That(actual: direction.UnitiseVectors, expression: Is.True);
+            Assert.That(actual: direction.ReverseVectors, expression: Is.False);
+            Assert.That(actual: draft.ReduceAngles, expression: Is.True);
+        });
+    }
 
     private static void AssertComponent(Component component, int inputs, int outputs) =>
         Assert.Multiple(() => {

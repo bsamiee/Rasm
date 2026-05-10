@@ -1,6 +1,7 @@
 using Grasshopper2.Components;
 using Grasshopper2.Data;
 using Grasshopper2.Data.Meta;
+using Grasshopper2.Parameters;
 using Rasm.Domain;
 namespace Rasm.Grasshopper;
 
@@ -20,27 +21,51 @@ public interface IOutputSlot<TState, TSource> where TState : notnull {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public readonly record struct Hints(Seq<(IPort Port, int Slot)> Inputs) {
-    public static Hints Capture(Seq<IPort> inputs) =>
-        new(Inputs: inputs.Map(static (port, slot) => (Port: port, Slot: slot)));
+public readonly record struct Hints(
+    Seq<(IPort Port, int Slot, Coverage Coverage, bool Changed)> Inputs,
+    Seq<(int Slot, IPear Pear)> Pears) {
+    public static Hints Capture(Seq<IPort> inputs, IDataAccess access) {
+        ArgumentNullException.ThrowIfNull(argument: access);
+        Seq<(IPort Port, int Slot, Coverage Coverage, bool Changed)> captured = inputs.Map((port, slot) => (
+            Port: port,
+            Slot: slot,
+            Coverage: access.CoverageIn(index: slot),
+            Changed: access.HasInputChanged(index: slot)));
+        int[] slots = [.. captured.Filter(static input => input.Port.Access is Access.Item).Map(static input => input.Slot)];
+        Seq<(int Slot, IPear Pear)> pears = slots.Length switch {
+            > 0 => fun((IDataAccess data, int[] itemSlots) => {
+                data.GetIPears(pears: out IPear[] values, indexMap: out int[] map, inputs: itemSlots);
+                return toSeq(values.Zip(second: map, resultSelector: static (pear, slot) => (Slot: slot, Pear: pear)));
+            })(access, slots),
+            _ => Seq<(int Slot, IPear Pear)>(),
+        };
+        return new(Inputs: captured, Pears: pears);
+    }
     public Option<int> Index(IDataAccess access, Port<int> port, int limit) {
         ArgumentNullException.ThrowIfNull(argument: access);
         return Inputs.Find(predicate: input => input.Port.Equals(port)).Bind(input => access.Index(slot: input.Slot, limit: limit));
     }
     public Option<TVal> Value<TVal>(IDataAccess access, Port<TVal> port) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        return Inputs.Find(predicate: input => input.Port.Equals(port)).Bind(input => access.GetPear(index: input.Slot, pear: out Pear<TVal> pear) switch {
-            true when !access.GetNull(index: input.Slot) => Some(pear.Item),
-            _ => Option<TVal>.None,
-        });
+        return Inputs.Find(predicate: input => input.Port.Equals(port)).Bind(input => Bridge.Read<TVal>(access: access, slot: input.Slot, port: port).ToOption().Bind(static data => data.Value));
     }
+    public Option<PortData<TVal>> Data<TVal>(IDataAccess access, Port<TVal> port) {
+        ArgumentNullException.ThrowIfNull(argument: access);
+        return Inputs.Find(predicate: input => input.Port.Equals(port)).Bind(input => Bridge.Read<TVal>(access: access, slot: input.Slot, port: port).ToOption());
+    }
+    public bool HasChanged(IPort port) =>
+        Inputs.Find(predicate: input => input.Port.Equals(port)).Map(static input => input.Changed).IfNone(static () => false);
 }
 
-public readonly record struct OutputValue<TValue>(TValue Value, MetaData? Meta);
+public readonly record struct OutputValue<TValue>(TValue Value, MetaData? Meta, bool IsNull);
 
 public static class OutputValue {
     public static OutputValue<TValue> Plain<TValue>(TValue value) =>
-        new(Value: value, Meta: null);
+        new(Value: value, Meta: null, IsNull: false);
+    public static OutputValue<TValue> WithMeta<TValue>(TValue value, MetaData meta) =>
+        new(Value: value, Meta: meta, IsNull: false);
+    public static OutputValue<TValue> Null<TValue>() =>
+        new(Value: default!, Meta: null, IsNull: true);
 }
 
 public sealed record OutputSlot<TState, TSource, TOut>(

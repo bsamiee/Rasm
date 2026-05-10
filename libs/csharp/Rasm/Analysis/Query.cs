@@ -11,33 +11,53 @@ namespace Rasm.Analysis;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
+internal enum ContextPolicy { Optional = 0, Required = 1 }
+
 public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
     internal Op Key { get; }
-    internal Func<TGeometry, Eff<Analyze.Runtime, Seq<TOut>>> Effect { get; }
-    internal bool RequiresContext { get; }
+    internal Requirement Requirement { get; }
+    internal ContextPolicy Context { get; }
+    internal bool RequiresContext =>
+        Context is ContextPolicy.Required;
     internal Option<Error> PreflightFault { get; }
-    internal Query(Op key, Func<TGeometry, Eff<Analyze.Runtime, Seq<TOut>>> effect, bool requiresContext = false, Option<Error> preflightFault = default) {
+    private Func<TGeometry, Eff<Analyze.Runtime, Seq<TOut>>> Evaluate { get; }
+    internal Query(
+        Op key,
+        Func<TGeometry, Eff<Analyze.Runtime, Seq<TOut>>> effect,
+        Requirement? requirement = null,
+        bool requiresContext = false,
+        Option<Error> preflightFault = default) {
         Key = key;
-        Effect = effect;
-        RequiresContext = requiresContext;
+        Requirement = requirement ?? Requirement.None;
+        Context = requiresContext ? ContextPolicy.Required : ContextPolicy.Optional;
+        Evaluate = effect;
         PreflightFault = preflightFault;
     }
     internal Eff<Analyze.Runtime, Seq<TOut>> Apply(TGeometry geometry) =>
-        Effect(arg: geometry);
+        Evaluate(arg: geometry);
+    internal Query<TIn, TOut> Contramap<TIn>(Func<TIn, TGeometry> map) where TIn : notnull =>
+        new(
+            key: Key,
+            requirement: Requirement,
+            requiresContext: RequiresContext,
+            preflightFault: PreflightFault,
+            effect: input => Evaluate(arg: map(arg: input)));
     internal static Query<TGeometry, TOut> Build(
         Op key,
         Func<TGeometry, Eff<Analyze.Runtime, Seq<TOut>>> evaluator,
         Requirement? requirement = null,
         bool requiresContext = false) {
+        Requirement activeRequirement = requirement ?? Requirement.None;
         return new(
             key: key,
+            requirement: activeRequirement,
             requiresContext: requiresContext,
-            effect: requirement switch {
-                null or { IsEmpty: true } => evaluator,
-                Requirement active => geometry => geometry switch {
+            effect: activeRequirement.IsEmpty switch {
+                true => evaluator,
+                false => geometry => geometry switch {
                     GeometryBase native =>
                         from ctx in Analyze.Asks
-                        from _ in ctx.Validate(geometry: native, requirement: active).ToEff()
+                        from _ in ctx.Validate(geometry: native, requirement: activeRequirement).ToEff()
                         from result in evaluator(arg: geometry)
                         select result,
                     _ => evaluator(arg: geometry),
@@ -225,15 +245,8 @@ public static partial class Query {
         Optional(values)
             .ToSeq()
             .Bind(static value => value.AsIterable().ToSeq())
-            .Fold(
-                initialState: (Operation: key, Result: Fin.Succ(Seq<TValue>())),
-                f: static (current, candidate) => (
-                    current.Operation,
-                    Result: (current.Result, current.Operation.RequireValid(value: candidate))
-                        .Apply(static (previous, next) => next.Cons(previous))
-                        .As()))
-            .Result
-            .Map(static result => result.Rev());
+            .Traverse(value => key.RequireValid(value: value))
+            .As();
     internal static Fin<Seq<TValue>> Solved<TValue>(this Op key, bool isSolved, TValue value) =>
         isSolved switch {
             true => key.One(value: value),
@@ -246,12 +259,18 @@ public static partial class Query {
     internal static Fin<Seq<TOut>> IntersectionOutput<TOut>(
         this Op key,
         IEnumerable<Curve>? curves = null,
+        IEnumerable<Line>? lines = null,
+        IEnumerable<Circle>? circles = null,
         IEnumerable<Point3d>? points = null,
         IEnumerable<Polyline>? polylines = null,
+        IEnumerable<Interval>? intervals = null,
         IEnumerable<IntersectionKind>? kinds = null,
         CurveIntersections? intersections = null) =>
         typeof(TOut) switch {
             Type output when output == typeof(Curve) => key.CastResults<Curve, TOut>(values: curves),
+            Type output when output == typeof(Line) => key.CastResults<Line, TOut>(values: lines),
+            Type output when output == typeof(Circle) => key.CastResults<Circle, TOut>(values: circles),
+            Type output when output == typeof(Interval) => key.CastResults<Interval, TOut>(values: intervals),
             Type output when output == typeof(Point3d) => key.CastResults<Point3d, TOut>(values: points ?? Optional(intersections).ToSeq().Bind(static events => events).Where(static intersection => intersection.IsPoint).Select(static intersection => intersection.PointA)),
             Type output when output == typeof(IntersectionEvent) => key.CastResults<IntersectionEvent, TOut>(values: Optional(intersections).ToSeq().Bind(static events => events)),
             Type output when output == typeof(Polyline) => key.CastResults<Polyline, TOut>(values: polylines),
@@ -263,7 +282,10 @@ public static partial class Query {
                         _ => IntersectionKind.Unknown,
                     })
                     .Concat(second: Optional(curves).ToSeq().Bind(static values => values).Select(static _ => IntersectionKind.Overlap))
+                    .Concat(second: Optional(lines).ToSeq().Bind(static values => values).Select(static _ => IntersectionKind.Curve))
+                    .Concat(second: Optional(circles).ToSeq().Bind(static values => values).Select(static _ => IntersectionKind.Curve))
                     .Concat(second: Optional(points).ToSeq().Bind(static values => values).Select(static _ => IntersectionKind.Point))
+                    .Concat(second: Optional(intervals).ToSeq().Bind(static values => values).Select(static _ => IntersectionKind.Overlap))
                     .Concat(second: Optional(kinds).Match(
                         Some: static values => values,
                         None: () => Optional(polylines).ToSeq().Bind(static values => values).Select(static _ => IntersectionKind.Overlap)))),

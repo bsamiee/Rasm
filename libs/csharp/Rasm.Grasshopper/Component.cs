@@ -43,21 +43,40 @@ public static class ShapeFoundation {
     public static Fin<ShapeState> Prepare(IDataAccess access, Analyze.Scope scope, Hints hints, Shape input) {
         ArgumentNullException.ThrowIfNull(argument: access);
         ArgumentNullException.ThrowIfNull(argument: scope);
-        ArgumentNullException.ThrowIfNull(argument: input);
         return Fin.Succ(new ShapeState(Scope: scope, Hints: hints, Input: input));
     }
     public static Seq<IPort> Inputs(Seq<IPort> controls) =>
         toSeq(Seq<IPort>(Geometry).Concat(second: controls));
-    public static IOutputGroup<ShapeState> Query<TOut>(Port<TOut> port, Func<Rasm.Analysis.Query<object, TOut>> query, bool emptyUnsupported = false) =>
-        Query(port: port, query: (_, _) => query(), emptyUnsupported: emptyUnsupported);
-    public static IOutputGroup<ShapeState> Query<TOut>(Port<TOut> port, Func<IDataAccess, ShapeState, Rasm.Analysis.Query<object, TOut>> query, bool emptyUnsupported = false) =>
+    public static Analysis.Query<Shape, TOut> EdgeMidpoints<TOut>() =>
+        OverShape(query: Analysis.Query.EdgeMidpoints<object, TOut>());
+    public static Analysis.Query<Shape, TOut> SpatialMidpoint<TOut>() =>
+        OverShape(query: Analysis.Query.SpatialMidpoint<object, TOut>());
+    public static Analysis.Query<Shape, TOut> Bounds<TOut>(Bounds aspect) =>
+        OverShape(query: Analysis.Query.Bounds<object, TOut>(aspect: aspect));
+    public static Analysis.Query<Shape, TOut> BoundingCorners<TOut>() =>
+        OverShape(query: Analysis.Query.BoundingCorners<object, TOut>());
+    public static Analysis.Query<Shape, TOut> Quadrants<TOut>() =>
+        OverShape(query: Analysis.Query.Quadrants<object, TOut>());
+    public static Analysis.Query<Shape, TOut> Vertices<TOut>() =>
+        OverShape(query: Analysis.Query.Vertices<object, TOut>());
+    public static Analysis.Query<Shape, TOut> Locate<TOut>(Location aspect) =>
+        OverShape(query: Analysis.Query.Locate<object, TOut>(aspect: aspect));
+    public static Analysis.Query<Shape, TOut> Kind<TOut>() =>
+        OverShape(query: Analysis.Query.Kind<object, TOut>());
+    public static Analysis.Query<Shape, TOut> Curves<TOut>(Curves aspect) =>
+        OverShape(query: Analysis.Query.Curves<object, TOut>(aspect: aspect));
+    public static Analysis.Query<Shape, TOut> Faces<TOut>(Faces aspect) =>
+        OverShape(query: Analysis.Query.Faces<object, TOut>(aspect: aspect));
+    public static IOutputGroup<ShapeState> Query<TOut>(Port<TOut> port, Func<Analysis.Query<Shape, TOut>> operation, bool emptyUnsupported = false) =>
+        Query(port: port, operation: (_, _) => operation(), emptyUnsupported: emptyUnsupported);
+    public static IOutputGroup<ShapeState> Query<TOut>(Port<TOut> port, Func<IDataAccess, ShapeState, Analysis.Query<Shape, TOut>> operation, bool emptyUnsupported = false) =>
         Output.Prepared<ShapeState, TOut>(
-            source: (access, state) => Bridge.Values(access: access, scope: state.Scope, input: state.Geometry, query: query(arg1: access, arg2: state)),
+            source: (access, state) => Bridge.Values(access: access, scope: state.Scope, input: state.Input, operation: operation(arg1: access, arg2: state)),
             emptyUnsupported: emptyUnsupported,
             slots: [Output.Slot<ShapeState, TOut>(port: port)]);
     public static IOutputGroup<ShapeState> CurveDetails(Port<Curve> curves, Port<ComponentIndex> sources, Port<CurveFeature> features, Func<IDataAccess, ShapeState, Curves> aspect, bool emptyUnsupported = false) =>
         Output.Prepared<ShapeState, CurveProjection>(
-            source: (access, state) => state.Scope.Context.Bind(context => Rasm.Analysis.Query.CurveProjections<object>(geometry: state.Geometry, aspect: aspect(arg1: access, arg2: state)).Run(env: Bridge.Runtime(access: access, context: context))),
+            source: (access, state) => state.Scope.Context.Bind(context => Analysis.Query.CurveProjections<object>(geometry: state.Geometry, aspect: aspect(arg1: access, arg2: state)).Run(env: Bridge.Runtime(access: access, context: context))),
             emptyUnsupported: emptyUnsupported,
             slots: [
                 Output.Slot<ShapeState, CurveProjection, Curve>(port: curves, project: static (_, values) => Fin.Succ(values.Map(static value => OutputValue.Plain(value: value.Curve)))),
@@ -66,23 +85,25 @@ public static class ShapeFoundation {
             ]);
     public static IOutputGroup<ShapeState> FaceDetails(Faces selector, Port<Brep> breps, Port<int> indices) =>
         Output.Prepared<ShapeState, FaceProjection>(
-            source: (access, state) => state.Scope.Context.Bind(context => Rasm.Analysis.Query.FaceProjections<object>(geometry: state.Geometry, selector: selector).Run(env: Bridge.Runtime(access: access, context: context))),
+            source: (access, state) => state.Scope.Context.Bind(context => Analysis.Query.FaceProjections<object>(geometry: state.Geometry, selector: selector).Run(env: Bridge.Runtime(access: access, context: context))),
             slots: [
                 Output.Slot<ShapeState, FaceProjection, Brep>(port: breps, project: static (_, values) => Fin.Succ(values.Map(static value => OutputValue.Plain(value: value.Brep)))),
                 Output.Slot<ShapeState, FaceProjection, int>(port: indices, project: static (_, values) => Fin.Succ(values.Map(static value => OutputValue.Plain(value: value.FaceIndex)))),
             ]);
     public static IOutputGroup<ShapeState> IndexedFaceDetails(Port<int> index, Port<Brep> brep, Port<Plane> frame, Port<Point3d> center, Port<Vector3d> normal, Port<int> face, Port<ComponentIndex> component, Port<Interval> domains) =>
         Output.Prepared<ShapeState, FaceProjection>(
-            source: (access, state) => state.Scope.Context.Bind(context => Rasm.Analysis.Query.FaceProjections<object>(geometry: state.Geometry, selector: Rasm.Analysis.Faces.At(index: state.Hints.Index(access: access, port: index, limit: int.MaxValue).Map(static value => (int?)value).IfNone(static () => null))).Run(env: Bridge.Runtime(access: access, context: context))),
+            source: (access, state) => state.Scope.Context.Bind(context => Analysis.Query.FaceProjections<object>(geometry: state.Geometry, selector: Analysis.Faces.At(index: state.Hints.Index(access: access, port: index, limit: int.MaxValue).Map(static value => (int?)value).IfNone(static () => null))).Run(env: Bridge.Runtime(access: access, context: context))),
             slots: [
                 Output.Slot<ShapeState, FaceProjection, Brep>(port: brep, project: static (_, values) => Fin.Succ(values.Map(static value => OutputValue.Plain(value: value.Brep)))),
-                Output.Slot<ShapeState, FaceProjection, Plane>(port: frame, project: static (state, values) => state.Scope.Context.Bind(context => values.Traverse(value => Rasm.Analysis.Query.FrameAtCentroid(face: value, runtime: context)).Map(static items => items.Map(static value => OutputValue.Plain(value: value))).As())),
-                Output.Slot<ShapeState, FaceProjection, Point3d>(port: center, project: static (state, values) => state.Scope.Context.Bind(context => values.Traverse(value => Rasm.Analysis.Query.FaceCentroid(face: value, runtime: context)).Map(static items => items.Map(static value => OutputValue.Plain(value: value))).As())),
-                Output.Slot<ShapeState, FaceProjection, Vector3d>(port: normal, project: static (state, values) => state.Scope.Context.Bind(context => values.Traverse(value => Rasm.Analysis.Query.FrameAtCentroid(face: value, runtime: context).Map(static value => value.ZAxis)).Map(static items => items.Map(static value => OutputValue.Plain(value: value))).As())),
+                Output.Slot<ShapeState, FaceProjection, Plane>(port: frame, project: static (state, values) => state.Scope.Context.Bind(context => values.Traverse(value => Analysis.Query.FrameAtCentroid(face: value, runtime: context)).Map(static items => items.Map(static value => OutputValue.Plain(value: value))).As())),
+                Output.Slot<ShapeState, FaceProjection, Point3d>(port: center, project: static (state, values) => state.Scope.Context.Bind(context => values.Traverse(value => Analysis.Query.FaceCentroid(face: value, runtime: context)).Map(static items => items.Map(static value => OutputValue.Plain(value: value))).As())),
+                Output.Slot<ShapeState, FaceProjection, Vector3d>(port: normal, project: static (state, values) => state.Scope.Context.Bind(context => values.Traverse(value => Analysis.Query.FrameAtCentroid(face: value, runtime: context).Map(static value => value.ZAxis)).Map(static items => items.Map(static value => OutputValue.Plain(value: value))).As())),
                 Output.Slot<ShapeState, FaceProjection, int>(port: face, project: static (_, values) => Fin.Succ(values.Map(static value => OutputValue.Plain(value: value.FaceIndex)))),
                 Output.Slot<ShapeState, FaceProjection, ComponentIndex>(port: component, project: static (_, values) => Fin.Succ(values.Map(static value => OutputValue.Plain(value: new ComponentIndex(type: ComponentIndexType.BrepFace, index: value.FaceIndex))))),
                 Output.Slot<ShapeState, FaceProjection, Interval>(port: domains, project: static (_, values) => Fin.Succ(values.Bind(static value => Seq(value.Brep.Faces[0].Domain(direction: 0), value.Brep.Faces[0].Domain(direction: 1))).Map(static value => OutputValue.Plain(value: value)))),
             ]);
+    private static Analysis.Query<Shape, TOut> OverShape<TOut>(Analysis.Query<object, TOut> query) =>
+        query.Contramap<Shape>(map: static shape => shape.Inner);
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -96,15 +117,15 @@ public abstract class Component<TSpec, TInput, TState> : Grasshopper2.Components
 
     protected sealed override void AddInputs(InputAdder inputs) {
         ArgumentNullException.ThrowIfNull(argument: inputs);
-        _ = TSpec.Inputs.Iter(port => port.Param.Bind(adder: inputs, name: port.Name, code: port.Code, info: port.Info, access: port.Access, requirement: port.Requirement));
+        _ = TSpec.Inputs.Iter(port => port.Param.Bind(adder: inputs, name: port.Name, code: port.Code, info: port.Info, access: port.Access, requirement: port.Requirement, policy: port.Policy));
     }
     protected sealed override void AddOutputs(OutputAdder outputs) {
         ArgumentNullException.ThrowIfNull(argument: outputs);
-        _ = TSpec.Outputs.Bind(static group => group.Ports).Iter(port => port.Param.Bind(adder: outputs, name: port.Name, code: port.Code, info: port.Info, access: port.Access));
+        _ = TSpec.Outputs.Bind(static group => group.Ports).Iter(port => port.Param.Bind(adder: outputs, name: port.Name, code: port.Code, info: port.Info, access: port.Access, policy: port.Policy));
     }
     protected sealed override void Process(IDataAccess access) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        Hints hints = Hints.Capture(inputs: TSpec.Inputs);
+        Hints hints = Hints.Capture(inputs: TSpec.Inputs, access: access);
         _ = (
             from scope in access.Scope()
             from input in TSpec.Read(access: access)

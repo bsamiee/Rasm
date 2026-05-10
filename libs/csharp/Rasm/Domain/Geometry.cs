@@ -3,65 +3,25 @@ using LanguageExt.Common;
 using Rhino;
 using Rhino.Geometry;
 using Rhino.Geometry.Intersect;
-using Thinktecture;
 using static LanguageExt.Prelude;
 namespace Rasm.Domain;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-[Union]
-public partial record Shape {
-    public const string Accepted = "GeometryBase, Point3d, Box, BoundingBox, Line, Polyline, Plane, Sphere, Cylinder, Cone, Torus, Circle, Arc";
+public readonly record struct Shape(object Inner) {
+    public const string Accepted = "Rhino/GH geometry convertible through native RhinoCommon or GH2 brokers";
 
-    public sealed record Native(GeometryBase Geometry) : Shape;
-    public sealed record Point(Rhino.Geometry.Point3d Value) : Shape;
-    public sealed record Box(Rhino.Geometry.Box Value) : Shape;
-    public sealed record BoundingBox(Rhino.Geometry.BoundingBox Value) : Shape;
-    public sealed record Line(Rhino.Geometry.Line Value) : Shape;
-    public sealed record Polyline(Rhino.Geometry.Polyline Value) : Shape;
-    public sealed record Plane(Rhino.Geometry.Plane Value) : Shape;
-    public sealed record Sphere(Rhino.Geometry.Sphere Value) : Shape;
-    public sealed record Cylinder(Rhino.Geometry.Cylinder Value) : Shape;
-    public sealed record Cone(Rhino.Geometry.Cone Value) : Shape;
-    public sealed record Torus(Rhino.Geometry.Torus Value) : Shape;
-    public sealed record Circle(Rhino.Geometry.Circle Value) : Shape;
-    public sealed record Arc(Rhino.Geometry.Arc Value) : Shape;
     public Fin<Shape> Validate() =>
         ValidateWith(key: new Op(name: nameof(Shape)));
     internal Fin<Shape> ValidateWith(Op key) =>
-        key.RequireValid(value: Inner).Bind(static value => From(value: value).ToFin(Error.New(message: "Shape payload is not supported.")));
-    public object Inner =>
-        Switch<object>(
-            native: static n => n.Geometry,
-            point: static point => point.Value,
-            box: static b => b.Value,
-            boundingBox: static bbox => bbox.Value,
-            line: static line => line.Value,
-            polyline: static polyline => polyline.Value,
-            plane: static plane => plane.Value,
-            sphere: static sphere => sphere.Value,
-            cylinder: static cylinder => cylinder.Value,
-            cone: static cone => cone.Value,
-            torus: static torus => torus.Value,
-            circle: static circle => circle.Value,
-            arc: static arc => arc.Value);
-    public static Option<Shape> From(object value) =>
-        value switch {
-            GeometryBase geometry => Some<Shape>(new Native(Geometry: geometry)),
-            Rhino.Geometry.Point3d point => Some<Shape>(new Point(Value: point)),
-            Rhino.Geometry.Box box => Some<Shape>(new Box(Value: box)),
-            Rhino.Geometry.BoundingBox bbox => Some<Shape>(new BoundingBox(Value: bbox)),
-            Rhino.Geometry.Line line => Some<Shape>(new Line(Value: line)),
-            Rhino.Geometry.Polyline polyline => Some<Shape>(new Polyline(Value: polyline)),
-            Rhino.Geometry.Plane plane => Some<Shape>(new Plane(Value: plane)),
-            Rhino.Geometry.Sphere sphere => Some<Shape>(new Sphere(Value: sphere)),
-            Rhino.Geometry.Cylinder cylinder => Some<Shape>(new Cylinder(Value: cylinder)),
-            Rhino.Geometry.Cone cone => Some<Shape>(new Cone(Value: cone)),
-            Rhino.Geometry.Torus torus => Some<Shape>(new Torus(Value: torus)),
-            Rhino.Geometry.Circle circle => Some<Shape>(new Circle(Value: circle)),
-            Rhino.Geometry.Arc arc => Some<Shape>(new Arc(Value: arc)),
-            _ => None,
-        };
+        key.RequireValid(value: Inner)
+            .Map(static value => new Shape(Inner: value));
+    public static Option<Shape> From(object? value) =>
+        Optional(value)
+            .Bind(static raw => new Op(name: nameof(Shape))
+                .RequireValid(value: raw)
+                .ToOption()
+                .Map(static valid => new Shape(Inner: valid!)));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -91,6 +51,7 @@ internal static class Validity {
             MeshCheckParameters => Fin.Succ(value),
             MeshPoint meshPoint => key.Require(condition: meshPoint.Point.IsValid, value: value),
             ComponentIndex component => key.Require(condition: component.ComponentIndexType != ComponentIndexType.InvalidType && component.Index >= 0, value: value),
+            Shape shape => shape.ValidateWith(key: key).Map(static valid => (TValue)(object)valid),
             IntersectionEvent intersection => key.Require(condition:
                 (intersection.IsPoint || intersection.IsOverlap)
                 && intersection.PointA.IsValid

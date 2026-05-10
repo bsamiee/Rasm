@@ -7,7 +7,6 @@ using Rasm.Domain;
 using Rasm.Grasshopper;
 using Rhino.Geometry;
 using static LanguageExt.Prelude;
-using Query = Rasm.Analysis.Query;
 
 namespace Radyab.Components;
 
@@ -31,8 +30,8 @@ public sealed class ExtractSurfaces : ShapeComponent<ExtractSurfaces.Spec> {
                 selector: Rasm.Analysis.Faces.All,
                 breps: Port.List<Brep>(name: "All Surfaces", code: "AS", info: "Every face as a trimmed single-face Brep. Mesh input is intentionally rejected."),
                 indices: Port.List<int>(name: "Surface Indices", code: "SI", info: "Source Brep face index aligned with every extracted surface.")),
-            ShapeFoundation.Query(port: Port.List<Brep>(name: "Top Surface", code: "TS", info: "Trimmed face(s) with maximum world-Z centroid; ties within tolerance."), query: static () => Query.Faces<object, Brep>(aspect: Rasm.Analysis.Faces.Top)),
-            ShapeFoundation.Query(port: Port.List<Brep>(name: "Bottom Surface", code: "BS", info: "Trimmed face(s) with minimum world-Z centroid; ties within tolerance."), query: static () => Query.Faces<object, Brep>(aspect: Rasm.Analysis.Faces.Bottom)),
+            ShapeFoundation.Query(port: Port.List<Brep>(name: "Top Surface", code: "TS", info: "Trimmed face(s) with maximum world-Z centroid; ties within tolerance."), operation: static () => ShapeFoundation.Faces<Brep>(aspect: Rasm.Analysis.Faces.Top)),
+            ShapeFoundation.Query(port: Port.List<Brep>(name: "Bottom Surface", code: "BS", info: "Trimmed face(s) with minimum world-Z centroid; ties within tolerance."), operation: static () => ShapeFoundation.Faces<Brep>(aspect: Rasm.Analysis.Faces.Bottom)),
             ShapeFoundation.IndexedFaceDetails(
                 index: Index,
                 brep: Port.List<Brep>(name: "Indexed Surface", code: "IS", info: "Trimmed single-face Brep at Index input; missing Index defaults to 0, supplied values clamp to [0, count-1]. Empty when zero faces."),

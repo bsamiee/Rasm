@@ -802,7 +802,7 @@ public sealed class AnalysisRuntimeSpec {
             context: context,
             input: [mesh]);
         Polyline[] boundary = Run(
-            query: AnalysisQuery.Topology<Mesh, Polyline>(aspect: Topology.Boundary),
+            query: AnalysisQuery.NakedEdges<Mesh, Polyline>(),
             context: context,
             input: [mesh]);
         MeshPoint[] meshPoints = Run(
@@ -931,7 +931,7 @@ public sealed class AnalysisRuntimeSpec {
             context: context,
             input: [(mesh, Plane.WorldXY)]);
         Polyline[] closedBoundary = Run(
-            query: AnalysisQuery.Topology<Mesh, Polyline>(aspect: Topology.Boundary),
+            query: AnalysisQuery.NakedEdges<Mesh, Polyline>(),
             context: context,
             input: [mesh]);
         Polyline[] selfIntersections = Run(
@@ -1003,27 +1003,19 @@ public sealed class AnalysisRuntimeSpec {
         _ = closed.Compact();
 
         ComponentIndex[] adjacency = Run(
-            query: AnalysisQuery.Topology<Mesh, ComponentIndex>(aspect: Topology.Adjacency),
+            query: AnalysisQuery.Curves<Mesh, ComponentIndex>(aspect: Curves.All),
             context: context,
             input: [mesh]);
         ComponentIndex[] nonManifoldEdges = Run(
-            query: AnalysisQuery.Topology<Mesh, ComponentIndex>(aspect: Topology.NonManifold),
+            query: AnalysisQuery.Curves<Mesh, ComponentIndex>(aspect: Curves.NonManifold),
             context: context,
             input: [mesh]);
         int[] nonManifoldEdgeCount = Run(
             query: AnalysisQuery.MeshCheckCount(count: MeshCheckCount.NonManifoldEdges),
             context: context,
             input: [mesh]);
-        bool[] nonManifoldSummary = Run(
-            query: AnalysisQuery.Topology<Mesh, bool>(aspect: Topology.NonManifold),
-            context: context,
-            input: [mesh]);
         int[] closedNonManifoldEdgeCount = Run(
             query: AnalysisQuery.MeshCheckCount(count: MeshCheckCount.NonManifoldEdges),
-            context: context,
-            input: [closed]);
-        bool[] closedNonManifoldSummary = Run(
-            query: AnalysisQuery.Topology<Mesh, bool>(aspect: Topology.NonManifold),
             context: context,
             input: [closed]);
 
@@ -1033,9 +1025,7 @@ public sealed class AnalysisRuntimeSpec {
             Assert.That(actual: nonManifoldEdges, expression: Has.Length.EqualTo(expected: 1));
             Assert.That(actual: nonManifoldEdges[0].ComponentIndexType, expression: Is.EqualTo(expected: ComponentIndexType.MeshTopologyEdge));
             Assert.That(actual: nonManifoldEdgeCount[0], expression: Is.EqualTo(expected: nonManifoldEdges.Length));
-            Assert.That(actual: nonManifoldSummary[0], expression: Is.True);
             Assert.That(actual: closedNonManifoldEdgeCount[0], expression: Is.EqualTo(expected: 0));
-            Assert.That(actual: closedNonManifoldSummary[0], expression: Is.False);
         });
     }
 
@@ -1134,6 +1124,18 @@ public sealed class AnalysisRuntimeSpec {
             query: AnalysisQuery.Intersect<Mesh, Line, Point3d>(),
             context: context,
             input: [(mesh, new Line(from: new Point3d(x: -2.0, y: 0.0, z: 0.0), to: new Point3d(x: 2.0, y: 0.0, z: 0.0)))]);
+        Point3d[] exactLinePlanePoints = Run(
+            query: AnalysisQuery.Intersect<Line, Plane, Point3d>(),
+            context: context,
+            input: [(new Line(from: new Point3d(x: -1.0, y: 0.0, z: 0.0), to: new Point3d(x: 1.0, y: 0.0, z: 0.0)), Plane.WorldYZ)]);
+        IntersectionKind[] exactLineSphereClassifications = Run(
+            query: AnalysisQuery.Intersect<Line, Sphere, IntersectionKind>(),
+            context: context,
+            input: [(new Line(from: new Point3d(x: -2.0, y: 0.0, z: 0.0), to: new Point3d(x: 2.0, y: 0.0, z: 0.0)), new Sphere(center: Point3d.Origin, radius: 1.0))]);
+        Interval[] exactLineBoxParameters = Run(
+            query: AnalysisQuery.Intersect<Line, BoundingBox, Interval>(),
+            context: context,
+            input: [(new Line(from: new Point3d(x: -2.0, y: 0.0, z: 0.0), to: new Point3d(x: 2.0, y: 0.0, z: 0.0)), new BoundingBox(min: new Point3d(x: -1.0, y: -1.0, z: -1.0), max: new Point3d(x: 1.0, y: 1.0, z: 1.0)))]);
         Polyline[] meshMeshCurves = Run(
             query: AnalysisQuery.Intersect<Mesh, Mesh, Polyline>(),
             context: context,
@@ -1177,6 +1179,10 @@ public sealed class AnalysisRuntimeSpec {
             Assert.That(actual: sectionPoints, expression: Is.Not.Null);
             Assert.That(actual: brepSurfaceCurves, expression: Is.Not.Empty);
             Assert.That(actual: meshLinePoints, expression: Has.Length.GreaterThanOrEqualTo(expected: 2));
+            Assert.That(actual: exactLinePlanePoints, expression: Is.EqualTo(expected: new[] { Point3d.Origin }));
+            Assert.That(actual: exactLineSphereClassifications, expression: Is.EqualTo(expected: new[] { IntersectionKind.Point, IntersectionKind.Point }));
+            Assert.That(actual: exactLineBoxParameters, expression: Has.Length.EqualTo(expected: 1));
+            Assert.That(actual: exactLineBoxParameters[0].IsValid, expression: Is.True);
             Assert.That(actual: meshMeshCurves, expression: Is.Not.Empty);
             Assert.That(actual: meshPlaneClassifications, expression: Has.All.EqualTo(expected: IntersectionKind.Overlap));
             Assert.That(actual: meshMeshClassifications, expression: Has.All.EqualTo(expected: IntersectionKind.Overlap));
@@ -1310,7 +1316,7 @@ public sealed class AnalysisRuntimeSpec {
         Box orientedBox = new(bbox: box);
 
         Point3d[] edgeMidpoints = Run(
-            query: AnalysisQuery.Topology<BoundingBox, Point3d>(aspect: Topology.EdgeMidpoints),
+            query: AnalysisQuery.EdgeMidpoints<BoundingBox, Point3d>(),
             context: context,
             input: [box]);
         Point3d[] spatialMidpoint = Run(
@@ -1361,7 +1367,7 @@ public sealed class AnalysisRuntimeSpec {
             context: context,
             input: [brep]);
         Point3d[] mixedMidpoints = Run(
-            query: AnalysisQuery.Topology<GeometryBase, Point3d>(aspect: Topology.EdgeMidpoints),
+            query: AnalysisQuery.EdgeMidpoints<GeometryBase, Point3d>(),
             context: context,
             input: [curve, brep]);
 
