@@ -87,9 +87,7 @@ public static class Output {
         Port<TOut> port,
         Func<GrasshopperRuntime, Seq<TSource>, Fin<Seq<OutputValue<TOut>>>> project) => new OutputSlot<TSource, TOut>(Port: port, Project: project);
     public static IOutputSlot<TOut> Slot<TOut>(Port<TOut> port) =>
-        Slot<TOut, TOut>(
-            port: port,
-            project: static (_, values) => Fin.Succ(values.Map(static value => OutputValue.Plain(value: value))));
+        Slot<TOut, TOut>(port: port, project: static (_, values) => Fin.Succ(values.Map(static value => OutputValue.Plain(value: value))));
     public static IOutputGroup Prepared<TSource>(
         Func<IDataAccess, GrasshopperRuntime, Fin<Seq<TSource>>> source,
         bool emptyUnsupported = false,
@@ -99,9 +97,52 @@ public static class Output {
     public static Unit Empty(IDataAccess access, Seq<IOutputGroup> groups) =>
         Fold(groups: groups, action: group => slot => group.Empty(access: access, slot: slot));
     private static Unit Fold(Seq<IOutputGroup> groups, Func<IOutputGroup, Func<int, Unit>> action) =>
-        groups.Fold(
-            initialState: 0,
-            f: (slot, group) => (action(arg: group)(arg: slot), slot + group.Ports.Count).Item2) switch {
-                _ => Unit.Default,
-            };
+        groups.Fold(initialState: 0, f: (slot, group) => (action(arg: group)(arg: slot), slot + group.Ports.Count).Item2) switch { _ => Unit.Default };
+    // --- [SHAPE_BINDINGS] -----------------------------------------------------------------
+    public static IOutputGroup Query<TOut>(Port<Shape> input, Port<TOut> port, Func<IDataAccess, GrasshopperRuntime, Query<object, TOut>> operation, bool emptyUnsupported = false) =>
+        Prepared(
+            source: (access, runtime) => ShapeSource(input: input, access: access, runtime: runtime, project: shape => operation(arg1: access, arg2: runtime).Apply(geometry: shape.Inner)),
+            emptyUnsupported: emptyUnsupported,
+            slots: [Slot(port: port)]);
+    public static IOutputGroup CurveDetails(Port<Shape> input, Port<Curve> curves, Port<ComponentIndex> sources, Port<CurveFeature> features, Func<IDataAccess, GrasshopperRuntime, Curves> aspect, bool emptyUnsupported = false) =>
+        Prepared(
+            source: (access, runtime) => ShapeSource(input: input, access: access, runtime: runtime, project: shape => Rasm.Analysis.Query.CurveProjections(shape: shape, aspect: aspect(arg1: access, arg2: runtime))),
+            emptyUnsupported: emptyUnsupported,
+            slots: [
+                Plain<CurveProjection, Curve>(port: curves, project: static value => value.Curve),
+                Plain<CurveProjection, ComponentIndex>(port: sources, project: static value => value.Source),
+                Plain<CurveProjection, CurveFeature>(port: features, project: static value => value.Feature),
+            ]);
+    public static IOutputGroup FaceDetails(Port<Shape> input, Port<Brep> faces, Port<int> indices, Func<IDataAccess, GrasshopperRuntime, Faces> selector) =>
+        Prepared(
+            source: (access, runtime) => ShapeSource(input: input, access: access, runtime: runtime, project: shape => Rasm.Analysis.Query.FaceProjections(shape: shape, selector: selector(arg1: access, arg2: runtime))),
+            slots: [
+                Plain<FaceProjection, Brep>(port: faces, project: static value => value.Brep),
+                Plain<FaceProjection, int>(port: indices, project: static value => value.FaceIndex),
+            ]);
+    public static IOutputGroup IndexedFaceDetails(Port<Shape> input, Port<int> index, Port<Brep> faces, Port<Plane> frames, Port<Point3d> centers, Port<Vector3d> normals, Port<int> indices, Port<ComponentIndex> components, Port<Interval> domains) =>
+        Prepared(
+            source: (access, runtime) => ShapeSource(input: input, access: access, runtime: runtime, project: shape => Rasm.Analysis.Query.FaceProjections(
+                shape: shape,
+                selector: Faces.At(index: runtime.Hints.Index(access: access, port: index, limit: int.MaxValue).Map(static value => (int?)value).IfNone(static () => null)))),
+            slots: [
+                Plain<FaceProjection, Brep>(port: faces, project: static value => value.Brep),
+                FaceValue(port: frames, project: static (face, context) => Rasm.Analysis.Query.FrameAtCentroid(face: face, runtime: context)),
+                FaceValue(port: centers, project: static (face, context) => Rasm.Analysis.Query.FaceCentroid(face: face, runtime: context)),
+                FaceValue(port: normals, project: static (face, context) => Rasm.Analysis.Query.FrameAtCentroid(face: face, runtime: context).Map(static frame => frame.ZAxis)),
+                Plain<FaceProjection, int>(port: indices, project: static value => value.FaceIndex),
+                Plain<FaceProjection, ComponentIndex>(port: components, project: static value => new ComponentIndex(type: ComponentIndexType.BrepFace, index: value.FaceIndex)),
+                Slot<FaceProjection, Interval>(port: domains, project: static (_, values) => values.Traverse(static face => Rasm.Analysis.Query.FaceDomains(face: face).Map(static domains => domains.Map(static domain => OutputValue.Plain(value: domain)))).Map(static nested => nested.Bind(static value => value)).As()),
+            ]);
+    private static Fin<Seq<TSource>> ShapeSource<TSource>(Port<Shape> input, IDataAccess access, GrasshopperRuntime runtime, Func<Shape, Eff<Analyze.Runtime, Seq<TSource>>> project) =>
+        from shape in runtime.Shape(access: access, port: input)
+        from context in runtime.Scope.Context
+        from values in project(arg: shape).Run(env: Bridge.Runtime(access: access, context: context))
+        select values;
+    private static IOutputSlot<TSource> Plain<TSource, TOut>(Port<TOut> port, Func<TSource, TOut> project) =>
+        Slot<TSource, TOut>(port: port, project: (_, values) => Fin.Succ(values.Map(value => OutputValue.Plain(value: project(arg: value)))));
+    private static IOutputSlot<FaceProjection> FaceValue<TOut>(Port<TOut> port, Func<FaceProjection, Context, Fin<TOut>> project) =>
+        Slot<FaceProjection, TOut>(port: port, project: (runtime, values) => runtime.Scope.Context
+                .Bind(context => values.Traverse(face => project(arg1: face, arg2: context)).As())
+                .Map(values => values.Map(static value => OutputValue.Plain(value: value))));
 }

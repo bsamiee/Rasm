@@ -29,28 +29,17 @@ public static class Bridge {
         return port.Access switch {
             Access.Item => access.GetPear<TVal>(index: slot, pear: out Pear<TVal> pear) switch {
                 true => Fin.Succ(Data(
-                    access: Access.Item,
-                    values: Seq(new PortValue<TVal>(Value: pear.Item, Meta: pear.Meta, IsNull: pear.Item is null, Index: Some(0), Coverage: coverage)),
-                    coverage: coverage,
-                    changed: changed)),
+                    access: Access.Item, values: Seq(new PortValue<TVal>(Value: pear.Item, Meta: pear.Meta, IsNull: pear.Item is null, Index: Some(0), Coverage: coverage)), coverage: coverage, changed: changed)),
                 _ => Missing<TVal>(port: port),
             },
             Access.Twig => access.GetPears<TVal>(index: slot, pears: out Pear<TVal>[] pears) switch {
                 true when pears.Length > 0 => Fin.Succ(Data(
-                    access: Access.Twig,
-                    values: Values(pears: pears, coverage: coverage),
-                    coverage: coverage,
-                    changed: changed,
-                    twig: access.GetTwig<TVal>(index: slot, twig: out Twig<TVal> twig) ? Some(twig) : Option<Twig<TVal>>.None)),
+                    access: Access.Twig, values: Values(pears: pears, coverage: coverage), coverage: coverage, changed: changed, twig: access.GetTwig<TVal>(index: slot, twig: out Twig<TVal> twig) ? Some(twig) : Option<Twig<TVal>>.None)),
                 _ => Missing<TVal>(port: port),
             },
             Access.Tree => access.GetTree<TVal>(index: slot, tree: out Tree<TVal> tree) switch {
                 true => Fin.Succ(Data(
-                    access: Access.Tree,
-                    values: Values(pears: tree.AllPears, coverage: coverage),
-                    coverage: coverage,
-                    changed: changed,
-                    tree: Some(tree))),
+                    access: Access.Tree, values: Values(pears: tree.AllPears, coverage: coverage), coverage: coverage, changed: changed, tree: Some(tree))),
                 _ => Missing<TVal>(port: port),
             },
             _ => Fin.Fail<PortData<TVal>>(Error.New(message: $"Unsupported input access: {port.Access}.")),
@@ -77,26 +66,17 @@ public static class Bridge {
     }
     internal static Analyze.Runtime Runtime(IDataAccess access, Context context) => new(Context: context, Cancellation: access.Solution.Token, Progress: new Progress(access: access));
     internal static Unit Write<TOut>(IDataAccess access, int slot, string name, Access targetAccess, OutputValue<TOut>[] values) {
+        // BOUNDARY ADAPTER — GH2 SetPear/SetTwig/SetTree are void; dispatched as a single Action invoked once.
         Coverage coverage = access.CoverageOut(index: slot);
-        switch (targetAccess, values.Length) {
-            case (Access.Item, > 0) when values[0].Meta is MetaData meta:
-                access.SetPear(index: slot, pear: Pear<TOut>.Create(item: values[0].Value!, meta: meta));
-                break;
-            case (Access.Item, > 0):
-                access.SetPear(index: slot, pear: Pear<TOut>.Create(item: values[0].Value!));
-                break;
-            case (Access.Twig, _):
-                access.SetTwig<TOut>(index: slot, values: [.. values.Select(static value => value.Value)], metas: [.. values.Select(static value => value.Meta ?? MetaData.Empty)], nulls: [.. values.Select(static value => value.IsNull)]);
-                break;
-            case (Access.Tree, _):
-                access.SetTree(index: slot, tree: Garden.TreeFromList(items: values.Select(static value => value.Value), metas: values.Select(static value => value.Meta ?? MetaData.Empty), nulls: values.Select(static value => value.IsNull)).WithPathPrefix(element: coverage.TwigIndex >= 0 ? coverage.TwigIndex : access.Index));
-                break;
-            case (Access.Item, _):
-                break;
-            default:
-                access.AddError(text: name, details: $"Unsupported output access: {targetAccess}.");
-                break;
-        }
+        Action effect = (targetAccess, values.Length) switch {
+            (Access.Item, > 0) => () => access.SetPear(index: slot, pear: values[0].Meta is MetaData meta ? Pear<TOut>.Create(item: values[0].Value!, meta: meta) : Pear<TOut>.Create(item: values[0].Value!)),
+            (Access.Twig, _) => () => access.SetTwig<TOut>(index: slot, values: [.. values.Select(static value => value.Value)], metas: [.. values.Select(static value => value.Meta ?? MetaData.Empty)], nulls: [.. values.Select(static value => value.IsNull)]),
+            (Access.Tree, _) => () => access.SetTree(index: slot, tree: Garden.TreeFromList(items: values.Select(static value => value.Value), metas: values.Select(static value => value.Meta ?? MetaData.Empty), nulls: values.Select(static value => value.IsNull)).WithPathPrefix(element: coverage.TwigIndex >= 0 ? coverage.TwigIndex : access.Index)),
+            (Access.Item, _) => static () => { }
+            ,
+            _ => () => access.AddError(text: name, details: $"Unsupported output access: {targetAccess}."),
+        };
+        effect();
         return Unit.Default;
     }
     private static Fin<Analyze.Scope> Remark(IDataAccess access, Rhino.UnitSystem units) {
@@ -123,14 +103,12 @@ public static class Bridge {
             None: () => Optional(CurveBroker.ToRhinoCurve(raw))
                 .Bind(static curve => Shape.Create(value: curve).ToOption())
                 .Match(
-                    Some: static shape => Some(shape),
-                    None: () => Optional(SurfaceBroker.ToBrep(raw))
+                    Some: static shape => Some(shape), None: () => Optional(SurfaceBroker.ToBrep(raw))
                         .Bind(static brep => Shape.Create(value: brep).ToOption())));
     private sealed class Progress(IDataAccess access) : IProgress<double> {
-        public void Report(double value) =>
-            access.SetProgress(percentage: (int)Rhino.RhinoMath.Clamp(value: value switch {
-                >= 0.0 and <= 1.0 => value * 100.0,
-                _ => value,
-            }, 0.0, 100.0));
+        public void Report(double value) => access.SetProgress(percentage: (int)Rhino.RhinoMath.Clamp(value: value switch {
+            >= 0.0 and <= 1.0 => value * 100.0,
+            _ => value,
+        }, 0.0, 100.0));
     }
 }

@@ -30,7 +30,8 @@ internal static class ShapeRules {
     private static readonly HashSet<string> PrimitiveMetaNames = new(["Guid", "DateTime", "DateTimeOffset"], StringComparer.Ordinal);
     private static readonly HashSet<string> ConcurrentCollectionNames = new(["ConcurrentDictionary`2", "ConcurrentBag`1", "ConcurrentQueue`1", "ConcurrentStack`1"], StringComparer.Ordinal);
     private static readonly string[] InflationPrefixes = ["Get", "TryGet", "GetOr"];
-    private static readonly HashSet<string> InterfaceExemptionAttributes = new(["UnionAttribute", "Union", "SmartEnumAttribute", "SmartEnum"], StringComparer.Ordinal);
+    private static readonly string[] SourceGeneratorAttributeNamespaces = ["Thinktecture", "Vogen", "StronglyTypedIds"];
+    private static readonly HashSet<string> InterfaceExemptionAttributes = new(["UnionAttribute", "Union", "SmartEnumAttribute", "SmartEnum", "ValueObjectAttribute", "ValueObject", "ComplexValueObjectAttribute", "ComplexValueObject", "KeyedAttribute", "Keyed"], StringComparer.Ordinal);
     private static readonly HashSet<string> TypeClassHintAttributes = new(["TypeClassAttribute", "TypeClass", "TraitAttribute", "Trait"], StringComparer.Ordinal);
 
     // --- [SIGNATURE_RULES] ----------------------------------------------------
@@ -144,7 +145,13 @@ internal static class ShapeRules {
         AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
     }
     internal static void CheckApiSurfaceInflationByPrefix(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {
-        ImmutableArray<IMethodSymbol> familyMethods = [
+        // Source-generator-driven types (Thinktecture, Vogen, StronglyTypedIds) emit Get/TryGet companions by convention.
+        // Detection is namespace-prefix based so future attributes from these generators inherit the exemption automatically.
+        bool generatedSurface = namedType.GetAttributes().Any(attribute =>
+            attribute.AttributeClass is INamedTypeSymbol attributeClass
+            && (InterfaceExemptionAttributes.Contains(attributeClass.Name)
+                || SourceGeneratorAttributeNamespaces.Any(prefix => (attributeClass.ContainingNamespace?.ToDisplayString() ?? string.Empty).StartsWith(prefix, StringComparison.Ordinal))));
+        ImmutableArray<IMethodSymbol> familyMethods = generatedSurface ? [] : [
             .. namedType.GetMembers().OfType<IMethodSymbol>()
                 .Where(method => method.MethodKind == MethodKind.Ordinary)
                 .Where(method => method.DeclaredAccessibility == Accessibility.Public)

@@ -51,22 +51,20 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
             key: key,
             requirement: activeRequirement,
             requiresContext: requiresContext,
-            aggregate: aggregate.Map<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>>>(project => geometry =>
-                from runtime in Analyze.RuntimeAsks
-                from resolved in geometry.Traverse(item => Ready(geometry: item).Run(env: runtime)).As().ToEff()
-                from result in project(arg: resolved)
-                select result),
-            effect: geometry =>
-                from runtime in Analyze.RuntimeAsks
-                from result in geometry.Traverse(item => (
-                        from resolved in Ready(geometry: item)
-                        from valid in Validate(geometry: resolved, requirement: activeRequirement)
-                        from value in evaluator(arg: valid)
-                        select value).Run(env: runtime))
-                    .Map(static chunks => chunks.Bind(static chunk => chunk))
-                    .As()
-                    .ToEff()
-                select result);
+            aggregate: aggregate.Map<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>>>(project => geometry => from runtime in Analyze.RuntimeAsks
+                                                                                                                   from resolved in geometry.Traverse(item => Ready(geometry: item).Run(env: runtime)).As().ToEff()
+                                                                                                                   from result in project(arg: resolved)
+                                                                                                                   select result),
+            effect: geometry => from runtime in Analyze.RuntimeAsks
+                                from result in geometry.Traverse(item => (
+                                        from resolved in Ready(geometry: item)
+                                        from valid in Validate(geometry: resolved, requirement: activeRequirement)
+                                        from value in evaluator(arg: valid)
+                                        select value).Run(env: runtime))
+                                    .Map(static chunks => chunks.Bind(static chunk => chunk))
+                                    .As()
+                                    .ToEff()
+                                select result);
     }
     internal static Query<TGeometry, TOut> Build<TState>(
         Op key,
@@ -93,10 +91,9 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
         select resolved;
     private static Eff<Analyze.Runtime, TGeometry> Validate(TGeometry geometry, Requirement requirement) =>
         (requirement.IsEmpty, geometry) switch {
-            (false, GeometryBase native) =>
-                from ctx in Analyze.Asks
-                from _ in ctx.Validate(geometry: native, requirement: requirement).ToEff()
-                select geometry,
+            (false, GeometryBase native) => from context in Analyze.Asks
+                                            from _ in context.Validate(geometry: native, requirement: requirement).ToEff()
+                                            select geometry,
             _ => Fin.Succ(geometry).ToEff(),
         };
 }
@@ -121,19 +118,18 @@ public sealed partial class MassKind {
         key: 2,
         label: nameof(Area),
         requirement: Requirement.AreaMass,
-        compute: static (geometry, secondMoments, productMoments) =>
-            from ctx in Analyze.Asks
-            from props in Optional(geometry switch {
-                Curve curve => AreaMassProperties.Compute(closedPlanarCurve: curve, planarTolerance: ctx.Absolute.Value),
-                Mesh mesh => AreaMassProperties.Compute(mesh: mesh, area: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments),
-                Brep brep => AreaMassProperties.Compute(brep: brep, area: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments, relativeTolerance: ctx.Relative.Value, absoluteTolerance: ctx.Absolute.Value),
-                Surface surface => AreaMassProperties.Compute(surface: surface, area: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments),
-                _ => null,
-            }).ToFin(geometry switch {
-                Curve or Mesh or Brep or Surface => OpFault.ComputationFailed(label: nameof(AreaMassProperties)),
-                _ => OpFault.ComputationUnsupported(label: nameof(AreaMassProperties), geometryType: geometry.GetType()),
-            }).Map(static props => (IDisposable)props).ToEff()
-            select props,
+        compute: static (geometry, secondMoments, productMoments) => from context in Analyze.Asks
+                                                                     from props in Optional(geometry switch {
+                                                                         Curve curve => AreaMassProperties.Compute(closedPlanarCurve: curve, planarTolerance: context.Absolute.Value),
+                                                                         Mesh mesh => AreaMassProperties.Compute(mesh: mesh, area: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments),
+                                                                         Brep brep => AreaMassProperties.Compute(brep: brep, area: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments, relativeTolerance: context.Relative.Value, absoluteTolerance: context.Absolute.Value),
+                                                                         Surface surface => AreaMassProperties.Compute(surface: surface, area: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments),
+                                                                         _ => null,
+                                                                     }).ToFin(geometry switch {
+                                                                         Curve or Mesh or Brep or Surface => OpFault.ComputationFailed(label: nameof(AreaMassProperties)),
+                                                                         _ => OpFault.ComputationUnsupported(label: nameof(AreaMassProperties), geometryType: geometry.GetType()),
+                                                                     }).Map(static props => (IDisposable)props).ToEff()
+                                                                     select props,
         sum: static props => Optional(AreaMassProperties.WeightedSum(summands: props.AsIterable().Cast<AreaMassProperties>(), weights: Enumerable.Repeat(element: 1.0, count: props.Count)))
             .ToFin(OpFault.ComputationFailed(label: nameof(AreaMassProperties)))
             .Map(static props => (IDisposable)props));
@@ -141,18 +137,17 @@ public sealed partial class MassKind {
         key: 3,
         label: nameof(Volume),
         requirement: Requirement.VolumeMass,
-        compute: static (geometry, secondMoments, productMoments) =>
-            from ctx in Analyze.Asks
-            from props in Optional(geometry switch {
-                Mesh mesh => VolumeMassProperties.Compute(mesh: mesh, volume: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments),
-                Brep brep => VolumeMassProperties.Compute(brep: brep, volume: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments, relativeTolerance: ctx.Relative.Value, absoluteTolerance: ctx.Absolute.Value),
-                Surface surface => VolumeMassProperties.Compute(surface: surface, volume: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments),
-                _ => null,
-            }).ToFin(geometry switch {
-                Mesh or Brep or Surface => OpFault.ComputationFailed(label: nameof(VolumeMassProperties)),
-                _ => OpFault.ComputationUnsupported(label: nameof(VolumeMassProperties), geometryType: geometry.GetType()),
-            }).Map(static props => (IDisposable)props).ToEff()
-            select props,
+        compute: static (geometry, secondMoments, productMoments) => from context in Analyze.Asks
+                                                                     from props in Optional(geometry switch {
+                                                                         Mesh mesh => VolumeMassProperties.Compute(mesh: mesh, volume: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments),
+                                                                         Brep brep => VolumeMassProperties.Compute(brep: brep, volume: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments, relativeTolerance: context.Relative.Value, absoluteTolerance: context.Absolute.Value),
+                                                                         Surface surface => VolumeMassProperties.Compute(surface: surface, volume: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments),
+                                                                         _ => null,
+                                                                     }).ToFin(geometry switch {
+                                                                         Mesh or Brep or Surface => OpFault.ComputationFailed(label: nameof(VolumeMassProperties)),
+                                                                         _ => OpFault.ComputationUnsupported(label: nameof(VolumeMassProperties), geometryType: geometry.GetType()),
+                                                                     }).Map(static props => (IDisposable)props).ToEff()
+                                                                     select props,
         sum: static props => Optional(VolumeMassProperties.WeightedSum(summands: props.AsIterable().Cast<VolumeMassProperties>(), weights: Enumerable.Repeat(element: 1.0, count: props.Count)))
             .ToFin(OpFault.ComputationFailed(label: nameof(VolumeMassProperties)))
             .Map(static props => (IDisposable)props));
@@ -165,15 +160,13 @@ public sealed partial class MassKind {
             key: key,
             requirement: Requirement,
             requiresContext: true,
-            aggregate: Some<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TValue>>>>(geometry =>
-                from props in geometry.Traverse(item => Compute(geometry: item, secondMoments: secondMoments, productMoments: productMoments)).As()
-                from mass in Sum(arg: props).ToEff()
-                from values in Query.Bracket(factory: () => mass, body: disposable => project(arg1: key, arg2: disposable)).ToEff()
-                select values),
-            evaluator: geometry =>
-                from mass in Compute(geometry: geometry, secondMoments: secondMoments, productMoments: productMoments)
-                from values in Query.Bracket(factory: () => mass, body: disposable => project(arg1: key, arg2: disposable)).ToEff()
-                select values);
+            aggregate: Some<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TValue>>>>(geometry => from props in geometry.Traverse(item => Compute(geometry: item, secondMoments: secondMoments, productMoments: productMoments)).As()
+                                                                                                 from mass in Sum(arg: props).ToEff()
+                                                                                                 from values in Query.Bracket(factory: () => mass, body: disposable => project(arg1: key, arg2: disposable)).ToEff()
+                                                                                                 select values),
+            evaluator: geometry => from mass in Compute(geometry: geometry, secondMoments: secondMoments, productMoments: productMoments)
+                                   from values in Query.Bracket(factory: () => mass, body: disposable => project(arg1: key, arg2: disposable)).ToEff()
+                                   select values);
 }
 public enum CurvatureScalar { None = 0, Magnitude = 1, Gaussian = 2, Mean = 3 }
 [SmartEnum<int>]
@@ -294,27 +287,11 @@ public static partial class Query {
         CurvesKey = new(name: nameof(Curves)),
         ControlPointsKey = new(name: "ControlPoints");
     internal static Query<TGeometry, TOut> Unsupported<TGeometry, TOut>(this Op key) where TGeometry : notnull =>
-        Query<TGeometry, TOut>.Reject(
-            key: key,
-            fault: key.Unsupported(
-                geometryType: typeof(TGeometry),
-                outputType: typeof(TOut)));
-    internal static Query<TGeometry, TOut> Aspect<TGeometry, TOut, TAspect>(
-        TAspect aspect,
-        Op key,
-        Func<TAspect, Query<TGeometry, TOut>?> dispatch) where TGeometry : notnull where TAspect : notnull =>
-        Optional(dispatch(arg: aspect))
-            .IfNone(() => key.Unsupported<TGeometry, TOut>());
-    internal static Query<TGeometry, TOut> Cast<TGeometry, TOut>(
-        Op key,
-        object query) where TGeometry : notnull =>
+        Query<TGeometry, TOut>.Reject(key: key, fault: key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut)));
+    internal static Query<TGeometry, TOut> Cast<TGeometry, TOut>(Op key, object query) where TGeometry : notnull =>
         query switch {
             Query<TGeometry, TOut> typed => typed,
-            _ => Query<TGeometry, TOut>.Reject(
-                key: key,
-                fault: key.Unsupported(
-                    geometryType: typeof(TGeometry),
-                    outputType: typeof(TOut))),
+            _ => Query<TGeometry, TOut>.Reject(key: key, fault: key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))),
         };
     internal static Query<TGeometry, TOut> Native<TGeometry, TOut, TNative, TValue>(
         Op key,
@@ -339,78 +316,46 @@ public static partial class Query {
                 _ => Fin.Fail<Seq<TValue>>(state.Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TValue))).ToEff(),
             }));
     internal static Fin<Seq<TValue>> One<TValue>(this Op key, TValue value) => key.RequireValid(value: value).Map(static candidate => Seq(candidate));
-    internal static Fin<Seq<TValue>> Many<TValue>(this Op key, IEnumerable<TValue>? values) =>
-        Optional(values)
-            .ToSeq()
-            .Bind(static value => value.AsIterable().ToSeq())
-            .Traverse(value => key.RequireValid(value: value))
-            .As();
+    internal static Fin<Seq<TValue>> Many<TValue>(this Op key, IEnumerable<TValue>? values) => Optional(values).ToSeq().Bind(static value => value.AsIterable().ToSeq()).Traverse(value => key.RequireValid(value: value)).As();
     internal static Fin<Seq<TValue>> Solved<TValue>(this Op key, bool isSolved, TValue value) =>
-        isSolved switch {
-            true => key.One(value: value),
-            false => Fin.Fail<Seq<TValue>>(key.InvalidResult()),
-        };
+        isSolved switch { true => key.One(value: value), false => Fin.Fail<Seq<TValue>>(key.InvalidResult()) };
     internal static Fin<TOut> Bracket<TResource, TOut>(Func<TResource> factory, Func<TResource, Fin<TOut>> body) where TResource : class, IDisposable {
         using TResource resource = factory();
         return body(arg: resource);
     }
-    internal static Fin<Seq<TOut>> IntersectionOutput<TOut>(
-        this Op key,
-        IEnumerable<Curve>? curves = null,
-        IEnumerable<Line>? lines = null,
-        IEnumerable<Circle>? circles = null,
-        IEnumerable<Point3d>? points = null,
-        IEnumerable<Polyline>? polylines = null,
-        IEnumerable<Interval>? intervals = null,
-        IEnumerable<IntersectionKind>? kinds = null,
-        CurveIntersections? intersections = null) =>
-        typeof(TOut) switch {
-            Type output when output == typeof(Curve) => key.Results<Curve, TOut>(values: curves),
-            Type output when output == typeof(Line) => key.Results<Line, TOut>(values: lines),
-            Type output when output == typeof(Circle) => key.Results<Circle, TOut>(values: circles),
-            Type output when output == typeof(Interval) => key.Results<Interval, TOut>(values: intervals),
-            Type output when output == typeof(Point3d) => key.Results<Point3d, TOut>(values: points ?? Optional(intersections).ToSeq().Bind(static events => events).Where(static intersection => intersection.IsPoint).Select(static intersection => intersection.PointA)),
-            Type output when output == typeof(IntersectionEvent) => key.Results<IntersectionEvent, TOut>(values: Optional(intersections).ToSeq().Bind(static events => events)),
-            Type output when output == typeof(Polyline) => key.Results<Polyline, TOut>(values: polylines),
-            Type output when output == typeof(IntersectionKind) =>
-                key.Results<IntersectionKind, TOut>(values: Optional(intersections).ToSeq().Bind(static events => events)
-                    .Select(static intersection => intersection switch {
-                        IntersectionEvent candidate when candidate.IsOverlap => IntersectionKind.Overlap,
-                        IntersectionEvent candidate when candidate.IsPoint => IntersectionKind.Point,
-                        _ => IntersectionKind.Unknown,
-                    })
-                    .Concat(second: Classify(values: curves, kind: IntersectionKind.Overlap))
-                    .Concat(second: Classify(values: lines, kind: IntersectionKind.Curve))
-                    .Concat(second: Classify(values: circles, kind: IntersectionKind.Curve))
-                    .Concat(second: Classify(values: points, kind: IntersectionKind.Point))
-                    .Concat(second: Classify(values: intervals, kind: IntersectionKind.Overlap))
-                    .Concat(second: Optional(kinds).IfNone(() => Classify(values: polylines, kind: IntersectionKind.Overlap)))),
-            _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
-        };
+    internal static Fin<Seq<TOut>> IntersectionOutput<TOut>(this Op key, IEnumerable<Curve>? curves = null, IEnumerable<Line>? lines = null, IEnumerable<Circle>? circles = null, IEnumerable<Point3d>? points = null, IEnumerable<Polyline>? polylines = null, IEnumerable<Interval>? intervals = null, IEnumerable<IntersectionKind>? kinds = null, CurveIntersections? intersections = null) => typeof(TOut) switch {
+        Type output when output == typeof(Curve) => key.Results<Curve, TOut>(values: curves),
+        Type output when output == typeof(Line) => key.Results<Line, TOut>(values: lines),
+        Type output when output == typeof(Circle) => key.Results<Circle, TOut>(values: circles),
+        Type output when output == typeof(Interval) => key.Results<Interval, TOut>(values: intervals),
+        Type output when output == typeof(Point3d) => key.Results<Point3d, TOut>(values: points ?? Optional(intersections).ToSeq().Bind(static events => events).Where(static intersection => intersection.IsPoint).Select(static intersection => intersection.PointA)),
+        Type output when output == typeof(IntersectionEvent) => key.Results<IntersectionEvent, TOut>(values: Optional(intersections).ToSeq().Bind(static events => events)),
+        Type output when output == typeof(Polyline) => key.Results<Polyline, TOut>(values: polylines),
+        Type output when output == typeof(IntersectionKind) => key.Results<IntersectionKind, TOut>(values: Optional(intersections).ToSeq().Bind(static events => events)
+            .Select(static intersection => intersection switch { IntersectionEvent c when c.IsOverlap => IntersectionKind.Overlap, IntersectionEvent c when c.IsPoint => IntersectionKind.Point, _ => IntersectionKind.Unknown })
+            .Concat(second: Classify(values: curves, kind: IntersectionKind.Overlap)).Concat(second: Classify(values: lines, kind: IntersectionKind.Curve)).Concat(second: Classify(values: circles, kind: IntersectionKind.Curve))
+            .Concat(second: Classify(values: points, kind: IntersectionKind.Point)).Concat(second: Classify(values: intervals, kind: IntersectionKind.Overlap))
+            .Concat(second: Optional(kinds).IfNone(() => Classify(values: polylines, kind: IntersectionKind.Overlap)))),
+        _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
+    };
     private static Seq<IntersectionKind> Classify<TValue>(IEnumerable<TValue>? values, IntersectionKind kind) =>
         toSeq(Optional(values).ToSeq().Bind(static source => source).Select(_ => kind));
-    internal static Fin<Seq<TOut>> Results<TValue, TOut>(
-        this Op key,
-        IEnumerable<TValue>? values) =>
-        typeof(TValue).Equals(typeof(TOut)) switch {
-            true => Many(key: key, values: values).Map(static candidates => candidates.Map(static candidate => (TOut)(object)candidate!)),
-            false => Fin.Fail<Seq<TOut>>(key.Unsupported(
-                geometryType: typeof(void),
-                outputType: typeof(TOut))),
-        };
+    internal static Fin<Seq<TOut>> Results<TValue, TOut>(this Op key, IEnumerable<TValue>? values) => typeof(TValue).Equals(typeof(TOut)) switch {
+        true => Many(key: key, values: values).Map(static candidates => candidates.Map(static candidate => (TOut)(object)candidate!)),
+        false => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
+    };
     internal static Query<TGeometry, TOut> PrimitiveMatch<TGeometry, TOut, TSource, TValue>(
         PrimitiveCase<TSource, TValue> project) where TGeometry : notnull where TSource : GeometryBase =>
         Native<TGeometry, TOut, TSource, TValue, PrimitiveCase<TSource, TValue>>(
             key: PrimitiveKey,
             state: project,
             requiresContext: true,
-            project: static (extract, source) =>
-                from ctx in Analyze.Asks
-                from validated in ctx.Validate(geometry: source, requirement: Requirement.Basic).ToEff()
-                from result in (extract(geometry: validated, context: ctx, value: out TValue value) switch {
-                    bool solved => PrimitiveKey.Solved(isSolved: solved, value: value),
-                }).ToEff()
-                select result);
+            project: static (extract, source) => from context in Analyze.Asks
+                                                 from validated in context.Validate(geometry: source, requirement: Requirement.Basic).ToEff()
+                                                 from result in (extract(geometry: validated, context: context, value: out TValue value) switch {
+                                                     bool solved => PrimitiveKey.Solved(isSolved: solved, value: value),
+                                                 }).ToEff()
+                                                 select result);
     internal static Query<TGeometry, TOut> ClosestMatch<TGeometry, TOut, TSource, TValue>(
         Point3d point,
         Func<Point3d, TSource, Fin<Seq<TValue>>> project) where TGeometry : notnull where TSource : notnull =>
@@ -418,34 +363,23 @@ public static partial class Query {
             key: ClosestKey,
             state: (Point: point, Project: project),
             project: static (state, source) => state.Project(arg1: state.Point, arg2: source).ToEff());
-    internal static Fin<TOut> CurveAtNormalizedValue<TOut>(
-        Curve curve,
-        Context context,
-        Op key,
-        Func<Curve, double, TOut> project) =>
-        curve.NormalizedLengthParameter(
-            s: 0.5,
-            t: out double parameter,
-            fractionalTolerance: context.Relative.Value) switch {
-                true => Fin.Succ(project(arg1: curve, arg2: parameter)),
-                false => Fin.Fail<TOut>(key.InvalidResult()),
-            };
+    internal static Fin<TOut> CurveAtNormalizedValue<TOut>(Curve curve, Context context, Op key, Func<Curve, double, TOut> project) =>
+        curve.NormalizedLengthParameter(s: 0.5, t: out double parameter, fractionalTolerance: context.Relative.Value) switch {
+            true => Fin.Succ(project(arg1: curve, arg2: parameter)),
+            false => Fin.Fail<TOut>(key.InvalidResult()),
+        };
     internal static Eff<Analyze.Runtime, Seq<TOut>> CurveAtNormalized<TGeometry, TOut>(
         TGeometry geometry,
         Op key,
         Func<Curve, double, TOut> project) where TGeometry : notnull =>
         geometry switch {
-            Curve curve =>
-                from ctx in Analyze.Asks
-                from validated in ctx.Validate(geometry: curve, requirement: Requirement.CurveLength).ToEff()
-                from value in CurveAtNormalizedValue(
-                        curve: validated,
-                        context: ctx,
-                        key: key,
-                        project: project)
-                    .ToEff()
-                from result in One(key: key, value: value).ToEff()
-                select result,
+            Curve curve => from context in Analyze.Asks
+                           from validated in context.Validate(geometry: curve, requirement: Requirement.CurveLength).ToEff()
+                           from value in CurveAtNormalizedValue(
+                                   curve: validated, context: context, key: key, project: project)
+                               .ToEff()
+                           from result in One(key: key, value: value).ToEff()
+                           select result,
             _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))).ToEff(),
         };
     internal static Fin<Seq<(double Moment, Vector3d Axis)>> Principal<TMass>(

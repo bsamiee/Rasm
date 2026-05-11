@@ -18,31 +18,24 @@ public readonly record struct GrasshopperRuntime(Analyze.Scope Scope, Hints Hint
             .Bind(slot => access.ReadShape(slot: slot, port: port));
     }
 }
-public static class ComponentNomen {
-    public static Nomen Of<TSelf>() =>
-        typeof(TSelf).GetCustomAttribute<NomenAttribute>()?.Nomen
-            ?? new Nomen(name: typeof(TSelf).Name, info: string.Empty);
-}
-public abstract class Component<TSpec> : Grasshopper2.Components.Component
-    where TSpec : IComponentSpec {
-    protected Component(Nomen nomen) : base(nomen: nomen) { }
+public abstract class Component<TSelf> : Grasshopper2.Components.Component
+    where TSelf : Component<TSelf>, IComponentSpec {
+    protected Component() : base(nomen: typeof(TSelf).GetCustomAttribute<NomenAttribute>()?.Nomen ?? new Nomen(name: typeof(TSelf).Name, info: string.Empty)) { }
     protected Component(IReader reader) : base(reader: reader) { }
     protected sealed override void AddInputs(InputAdder inputs) {
         ArgumentNullException.ThrowIfNull(argument: inputs);
-        _ = TSpec.Inputs.Iter(port => port.Kind.Bind(adder: inputs, name: port.Name, code: port.Code, info: port.Info, access: port.Access, requirement: port.Requirement, policy: port.Policy));
+        _ = TSelf.Inputs.Iter(port => port.Kind.Bind(adder: inputs, name: port.Name, code: port.Code, info: port.Info, access: port.Access, requirement: port.Requirement, policy: port.Policy));
     }
     protected sealed override void AddOutputs(OutputAdder outputs) {
         ArgumentNullException.ThrowIfNull(argument: outputs);
-        _ = TSpec.Outputs.Bind(static group => group.Ports).Iter(port => port.Kind.Bind(adder: outputs, name: port.Name, code: port.Code, info: port.Info, access: port.Access, policy: port.Policy));
+        _ = TSelf.Outputs.Bind(static group => group.Ports).Iter(port => port.Kind.Bind(adder: outputs, name: port.Name, code: port.Code, info: port.Info, access: port.Access, policy: port.Policy));
     }
     protected sealed override void Process(IDataAccess access) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        _ = GrasshopperRuntime.Capture(access: access, inputs: TSpec.Inputs)
-            .Map(runtime => Output.Write(access: access, runtime: runtime, groups: TSpec.Outputs))
+        _ = GrasshopperRuntime.Capture(access: access, inputs: TSelf.Inputs)
+            .Map(runtime => Output.Write(access: access, runtime: runtime, groups: TSelf.Outputs))
             .Match(
                 Succ: static _ => Unit.Default,
-                Fail: error => (
-                    access.MissingInput(error: error),
-                    Output.Empty(access: access, groups: TSpec.Outputs)).Item2);
+                Fail: error => (access.MissingInput(error: error), Output.Empty(access: access, groups: TSelf.Outputs)).Item2);
     }
 }

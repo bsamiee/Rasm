@@ -20,10 +20,7 @@ public static class Analyze {
         UnitSystem units) =>
         new(
             context: Context.FromKnownUnits(
-                    absoluteTolerance: absolute,
-                    relativeTolerance: relative,
-                    angleToleranceRadians: angle,
-                    units: units)
+                    absoluteTolerance: absolute, relativeTolerance: relative, angleToleranceRadians: angle, units: units)
                 .ToFin());
     public static Scope In(Context context) => new(context: Optional(context).ToFin(Query.ScopeKey.MissingContext()));
     public sealed record Scope {
@@ -31,8 +28,7 @@ public static class Analyze {
         internal Scope(Fin<Context> context) => Context = context;
         public Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(
             Query<TGeometry, TOut>? query,
-            params ReadOnlySpan<TGeometry> input) where TGeometry : notnull =>
-            Analyze.Run(
+            params ReadOnlySpan<TGeometry> input) where TGeometry : notnull => Analyze.Run(
                 query: query,
                 scope: Some(Context),
                 input: input);
@@ -54,8 +50,7 @@ public static class Analyze {
                         false => [],
                     };
                     return ready.Match(
-                        Succ: state => Execute(query: state.Query, runtime: new Runtime(Context: state.Context, Cancellation: CancellationToken.None, Progress: null), input: materialized),
-                        Fail: error => Fin.Fail<Seq<TOut>>(error).ToValidation());
+                        Succ: state => Execute(query: state.Query, runtime: new Runtime(Context: state.Context, Cancellation: CancellationToken.None, Progress: null), input: materialized), Fail: error => Fin.Fail<Seq<TOut>>(error).ToValidation());
                 }));
     }
     private static Fin<Context> ResolveContext<TGeometry, TOut>(

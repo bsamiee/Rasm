@@ -94,6 +94,8 @@
         <RhinoNUnitVersion>3.14.0</RhinoNUnitVersion>
         <RhinoNUnit3TestAdapterVersion>4.6.0</RhinoNUnit3TestAdapterVersion>
         <BenchmarkDotNetVersion>0.15.8</BenchmarkDotNetVersion>
+        <ScrutorVersion>7.0.0</ScrutorVersion>
+        <MicrosoftExtensionsDependencyInjectionVersion>9.0.8</MicrosoftExtensionsDependencyInjectionVersion>
         <RhinoWipAppPath>/Applications/RhinoWIP.app</RhinoWipAppPath>
         <RhinoWipResourcesPath>$(RhinoWipAppPath)/Contents/Frameworks/RhCore.framework/Versions/A/Resources</RhinoWipResourcesPath>
         <RhinoCommonReferencePath>$(RhinoWipResourcesPath)/RhinoCommon.dll</RhinoCommonReferencePath>
@@ -173,5 +175,10 @@
 
     <ItemGroup Label="Benchmark Packages" Condition="'$(IsBenchmarkProject)' == 'true'">
         <PackageReference Include="BenchmarkDotNet" Version="$(BenchmarkDotNetVersion)" PrivateAssets="all" />
+    </ItemGroup>
+
+    <ItemGroup Label="Composition Libraries" Condition="'$(IsGrasshopperPluginProject)' == 'true'">
+        <PackageReference Include="Scrutor" Version="$(ScrutorVersion)" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="$(MicrosoftExtensionsDependencyInjectionVersion)" />
     </ItemGroup>
 </Project>

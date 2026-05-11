@@ -24,34 +24,12 @@ public sealed record Context {
         double relativeTolerance,
         double angleToleranceRadians,
         Fin<ModelUnitSystem> modelUnits) =>
-        (
-            modelUnits.ToValidation(),
-            Tolerance.Create(
-                candidate: absoluteTolerance,
-                label: "AbsoluteTolerance",
-                accepts: static candidate => candidate > RhinoMath.ZeroTolerance,
-                requirement: "greater than Rhino zero tolerance").ToValidation(),
-            Tolerance.Create(
-                candidate: relativeTolerance,
-                label: "RelativeTolerance",
-                accepts: static candidate => candidate is >= 0.0 and < 1.0,
-                requirement: "in the range [0, 1)").ToValidation(),
-            Tolerance.Create(
-                candidate: angleToleranceRadians,
-                label: "AngleTolerance",
-                accepts: static candidate => candidate is > RhinoMath.Epsilon and <= RhinoMath.TwoPI,
-                requirement: "in the range (epsilon, 2*pi] radians").ToValidation()
-        ).Apply(static (
-                modelUnits,
-                absolute,
-                relative,
-                angle) =>
-            new Context(
-                absolute: absolute,
-                relative: relative,
-                angle: angle,
-                modelUnits: modelUnits))
-        .As();
+        (modelUnits.ToValidation(),
+         Tolerance.Absolute(candidate: absoluteTolerance).ToValidation(),
+         Tolerance.Relative(candidate: relativeTolerance).ToValidation(),
+         Tolerance.Angle(candidate: angleToleranceRadians).ToValidation())
+            .Apply(static (units, absolute, relative, angle) => new Context(absolute: absolute, relative: relative, angle: angle, modelUnits: units))
+            .As();
     public static Validation<Error, Context> CreateDefault(UnitSystem units) =>
         Create(
             absoluteTolerance: 0.01,
@@ -63,40 +41,26 @@ public sealed record Context {
         Optional(doc)
             .ToValidation(ContextFault.MissingDocument())
             .Bind(static candidate => Create(
-                    absoluteTolerance: candidate.ModelAbsoluteTolerance,
-                    relativeTolerance: candidate.ModelRelativeTolerance,
-                    angleToleranceRadians: candidate.ModelAngleToleranceRadians,
-                    modelUnits: candidate.ModelUnitSystem switch {
+                    absoluteTolerance: candidate.ModelAbsoluteTolerance, relativeTolerance: candidate.ModelRelativeTolerance, angleToleranceRadians: candidate.ModelAngleToleranceRadians, modelUnits: candidate.ModelUnitSystem switch {
                         UnitSystem.CustomUnits => candidate.GetCustomUnitSystem(
-                            modelUnits: true,
-                            customUnitName: out string _,
-                            metersPerCustomUnit: out double metersPerCustomUnit) switch {
-                                true => Tolerance
-                                    .Create(
-                                        candidate: metersPerCustomUnit,
-                                        label: "CustomUnitScale",
-                                        accepts: static candidate => candidate > RhinoMath.ZeroTolerance,
-                                        requirement: "greater than Rhino zero tolerance")
+                            modelUnits: true, customUnitName: out string _, metersPerCustomUnit: out double metersPerCustomUnit) switch {
+                                true => Tolerance.CustomUnitScale(candidate: metersPerCustomUnit)
                                     .Bind(static customUnitScale => ModelUnitSystem.FromModelUnits(
-                                            units: UnitSystem.CustomUnits,
-                                            metersPerUnit: customUnitScale)),
-                                false => Fin.Fail<ModelUnitSystem>(
-                                    ContextFault.MissingCustomUnitScale()),
+                                        units: UnitSystem.CustomUnits, metersPerUnit: customUnitScale)),
+                                false => Fin.Fail<ModelUnitSystem>(ContextFault.MissingCustomUnitScale()),
                             },
                         _ => ModelUnitSystem.Create(units: candidate.ModelUnitSystem),
                     }));
     internal Validation<Error, TGeometry> Validate<TGeometry>(
         TGeometry? geometry,
         Requirement? requirement = null) where TGeometry : GeometryBase =>
-        Check.Validate(
-            context: this,
-            geometry: geometry,
-            requirement: requirement ?? Requirement.Strict);
+        Verify.Apply(context: this, geometry: geometry, requirement: requirement ?? Requirement.Strict);
     internal Validation<Error, (TA A, TB B)> ValidatePair<TA, TB>(
         TA a,
         TB b,
         Requirement requirementA,
-        Requirement requirementB) where TA : notnull where TB : notnull => Check.ValidatePair(context: this, a: a, b: b, requirementA: requirementA, requirementB: requirementB);
+        Requirement requirementB) where TA : notnull where TB : notnull =>
+        Verify.Pair(context: this, a: a, b: b, requirementA: requirementA, requirementB: requirementB);
     internal static Validation<Error, Context> FromKnownUnits(
         double absoluteTolerance,
         double relativeTolerance,
@@ -115,50 +79,39 @@ public sealed record Context {
         }
         internal UnitSystem Units { get; }
         internal double MetersPerUnit { get; }
-        internal static Fin<ModelUnitSystem> Create(UnitSystem units) =>
-            units switch {
-                UnitSystem.CustomUnits => Fin.Fail<ModelUnitSystem>(
+        internal static Fin<ModelUnitSystem> Create(UnitSystem units) => units switch {
+            UnitSystem.CustomUnits => Fin.Fail<ModelUnitSystem>(
+                ContextFault.InvalidUnitSystem(
+                    units: units, requirement: "custom units require meters-per-unit metadata")),
+            UnitSystem.Unset => Fin.Fail<ModelUnitSystem>(
+                ContextFault.InvalidUnitSystem(
+                    units: units, requirement: "must be a Rhino model unit system")),
+            _ => RhinoMath.MetersPerUnit(units) switch {
+                double meters when RhinoMath.IsValidDouble(meters) && meters > RhinoMath.ZeroTolerance => Fin.Succ(new ModelUnitSystem(units: units, metersPerUnit: meters)),
+                _ => Fin.Fail<ModelUnitSystem>(
                     ContextFault.InvalidUnitSystem(
-                        units: units,
-                        requirement: "custom units require meters-per-unit metadata")),
-                UnitSystem.Unset => Fin.Fail<ModelUnitSystem>(
-                    ContextFault.InvalidUnitSystem(
-                        units: units,
-                        requirement: "must be a Rhino model unit system")),
-                _ => RhinoMath.MetersPerUnit(units) switch {
-                    double meters when RhinoMath.IsValidDouble(meters) && meters > RhinoMath.ZeroTolerance =>
-                        Fin.Succ(new ModelUnitSystem(units: units, metersPerUnit: meters)),
-                    _ => Fin.Fail<ModelUnitSystem>(
-                        ContextFault.InvalidUnitSystem(
-                            units: units,
-                            requirement: "must resolve to a positive finite meter scale")),
-                },
-            };
-        internal static Fin<ModelUnitSystem> FromModelUnits(UnitSystem units, Tolerance metersPerUnit) =>
-            units switch {
-                UnitSystem.CustomUnits => Fin.Succ(new ModelUnitSystem(
-                    units: units,
-                    metersPerUnit: metersPerUnit.Value)),
-                _ => Create(units: units),
-            };
+                        units: units, requirement: "must resolve to a positive finite meter scale")),
+            },
+        };
+        internal static Fin<ModelUnitSystem> FromModelUnits(UnitSystem units, Tolerance metersPerUnit) => units switch {
+            UnitSystem.CustomUnits => Fin.Succ(new ModelUnitSystem(
+                units: units, metersPerUnit: metersPerUnit.Value)),
+            _ => Create(units: units),
+        };
     }
     [StructLayout(LayoutKind.Auto)]
     internal readonly record struct Tolerance {
         private Tolerance(double value) => Value = value;
         internal double Value { get; }
-        internal static Fin<Tolerance> Create(
-            double candidate,
-            string label,
-            Func<double, bool> accepts,
-            string requirement) =>
-            (RhinoMath.IsValidDouble(candidate), accepts(arg: candidate)) switch {
-                (false, _) => Fin.Fail<Tolerance>(ContextFault.NonFinite(label: label, scalar: candidate)),
-                (_, false) => Fin.Fail<Tolerance>(ContextFault.OutOfRange(
-                    label: label,
-                    scalar: candidate,
-                    requirement: requirement)),
-                _ => Fin.Succ(new Tolerance(value: candidate)),
-            };
+        internal static Fin<Tolerance> Absolute(double candidate) => Create(candidate: candidate, label: "AbsoluteTolerance", accepts: static c => c > RhinoMath.ZeroTolerance, requirement: "greater than Rhino zero tolerance");
+        internal static Fin<Tolerance> Relative(double candidate) => Create(candidate: candidate, label: "RelativeTolerance", accepts: static c => c is >= 0.0 and < 1.0, requirement: "in the range [0, 1)");
+        internal static Fin<Tolerance> Angle(double candidate) => Create(candidate: candidate, label: "AngleTolerance", accepts: static c => c is > RhinoMath.Epsilon and <= RhinoMath.TwoPI, requirement: "in the range (epsilon, 2*pi] radians");
+        internal static Fin<Tolerance> CustomUnitScale(double candidate) => Create(candidate: candidate, label: "CustomUnitScale", accepts: static c => c > RhinoMath.ZeroTolerance, requirement: "greater than Rhino zero tolerance");
+        internal static Fin<Tolerance> Create(double candidate, string label, Func<double, bool> accepts, string requirement) => (RhinoMath.IsValidDouble(candidate), accepts(arg: candidate)) switch {
+            (false, _) => Fin.Fail<Tolerance>(ContextFault.NonFinite(label: label, scalar: candidate)),
+            (_, false) => Fin.Fail<Tolerance>(ContextFault.OutOfRange(label: label, scalar: candidate, requirement: requirement)),
+            _ => Fin.Succ(new Tolerance(value: candidate)),
+        };
     }
 }
 internal static class ContextFault {

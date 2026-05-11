@@ -123,54 +123,27 @@ internal readonly record struct Stats {
     internal static Fin<Stats> From(Seq<double> values, Op key) =>
         values.Fold(
             initialState: (Count: 0, Mean: 0.0, M2: 0.0, SumSquares: 0.0, Minimum: double.PositiveInfinity, Maximum: double.NegativeInfinity, AllFinite: true),
-            f: static (acc, value) => (Count: acc.Count + 1, Delta: value - acc.Mean, Square: value * value) switch {
+            f: static (state, value) => (Count: state.Count + 1, Delta: value - state.Mean, Square: value * value) switch {
                 (int count, double delta, double square) => (
-                    Count: count,
-                    Mean: acc.Mean + (delta / count),
-                    M2: acc.M2 + (delta * (value - (acc.Mean + (delta / count)))),
-                    SumSquares: acc.SumSquares + square,
-                    Minimum: Math.Min(val1: acc.Minimum, val2: value),
-                    Maximum: Math.Max(val1: acc.Maximum, val2: value),
-                    AllFinite: acc.AllFinite && RhinoMath.IsValidDouble(x: value) && RhinoMath.IsValidDouble(x: square)),
+                    Count: count, Mean: state.Mean + (delta / count), M2: state.M2 + (delta * (value - (state.Mean + (delta / count)))), SumSquares: state.SumSquares + square, Minimum: Math.Min(val1: state.Minimum, val2: value), Maximum: Math.Max(val1: state.Maximum, val2: value), AllFinite: state.AllFinite && RhinoMath.IsValidDouble(x: value) && RhinoMath.IsValidDouble(x: square)),
             }) switch {
                 (0, _, _, _, _, _, _) => Fin.Fail<Stats>(key.InvalidResult()),
                 (_, _, _, _, _, _, false) => Fin.Fail<Stats>(key.InvalidResult()),
                 (int count, double mean, double m2, double sumSquares, double minimum, double maximum, _) => Fin.Succ(new Stats(
-                    count: count,
-                    minimum: minimum,
-                    maximum: maximum,
-                    mean: mean,
-                    variance: Math.Max(val1: 0.0, val2: m2 / count),
-                    rms: Math.Sqrt(d: sumSquares / count))),
+                    count: count, minimum: minimum, maximum: maximum, mean: mean, variance: Math.Max(val1: 0.0, val2: m2 / count), rms: Math.Sqrt(d: sumSquares / count))),
             };
 }
 internal static class FoldExtensions {
-    internal static Seq<TItem> Maxima<TItem>(
-        this Seq<TItem> items,
-        Func<TItem, double> projection,
-        double tolerance) =>
-        items
-            .Fold(
-                initialState: (Best: double.NegativeInfinity, Hits: Seq<TItem>(), Tolerance: tolerance, Projection: projection),
-                f: static (acc, item) =>
-                    acc.Projection(arg: item) switch {
-                        double s when s > acc.Best + acc.Tolerance => acc with { Best = s, Hits = Seq(item) },
-                        double s when s >= acc.Best - acc.Tolerance => acc with { Best = Math.Max(val1: acc.Best, val2: s), Hits = item.Cons(acc.Hits) },
-                        _ => acc,
-                    })
-            .Hits.Rev();
-    internal static Seq<TItem> Minima<TItem>(
-        this Seq<TItem> items,
-        Func<TItem, double> projection,
-        double tolerance) =>
-        items
-            .Fold(
-                initialState: (Best: double.PositiveInfinity, Hits: Seq<TItem>(), Tolerance: tolerance, Projection: projection),
-                f: static (acc, item) =>
-                    acc.Projection(arg: item) switch {
-                        double s when s < acc.Best - acc.Tolerance => acc with { Best = s, Hits = Seq(item) },
-                        double s when s <= acc.Best + acc.Tolerance => acc with { Best = Math.Min(val1: acc.Best, val2: s), Hits = item.Cons(acc.Hits) },
-                        _ => acc,
-                    })
-            .Hits.Rev();
+    internal static Seq<TItem> Maxima<TItem>(this Seq<TItem> items, Func<TItem, double> projection, double tolerance) =>
+        Extrema(items: items, projection: projection, tolerance: tolerance, direction: +1);
+    internal static Seq<TItem> Minima<TItem>(this Seq<TItem> items, Func<TItem, double> projection, double tolerance) =>
+        Extrema(items: items, projection: projection, tolerance: tolerance, direction: -1);
+    private static Seq<TItem> Extrema<TItem>(Seq<TItem> items, Func<TItem, double> projection, double tolerance, int direction) =>
+        items.Fold(
+            initialState: (Best: direction > 0 ? double.NegativeInfinity : double.PositiveInfinity, Hits: Seq<TItem>(), Tolerance: tolerance, Projection: projection, Direction: (double)direction),
+            f: static (state, item) => state.Projection(arg: item) switch {
+                double score when state.Direction * score > (state.Direction * state.Best) + state.Tolerance => state with { Best = score, Hits = Seq(item) },
+                double score when state.Direction * score >= (state.Direction * state.Best) - state.Tolerance => state with { Best = state.Direction * score > state.Direction * state.Best ? score : state.Best, Hits = item.Cons(state.Hits) },
+                _ => state,
+            }).Hits.Rev();
 }

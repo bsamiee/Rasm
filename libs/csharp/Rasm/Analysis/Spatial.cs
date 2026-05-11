@@ -10,8 +10,7 @@ public sealed class Tree : IDisposable {
                 .ToFin(Query.TreeKey.InvalidResult()))
             .Map(static tree => new Tree(tree: tree))
             .ToValidation();
-    public static Validation<Error, Tree> PointCloud(PointCloud cloud) =>
-        Optional(cloud)
+    public static Validation<Error, Tree> PointCloud(PointCloud cloud) => Optional(cloud)
             .ToFin(ValidationFault.MissingGeometry())
             .Bind(static candidate => candidate.IsValid switch {
                 true => Optional(RTree.CreatePointCloudTree(cloud: candidate))
@@ -26,17 +25,14 @@ public sealed class Tree : IDisposable {
             .Bind(static boxes => boxes
                 .Select(static (box, index) => (Box: box, Index: index))
                 .Aggregate(
-                    seed: Fin.Succ(new RTree()),
-                    func: static (current, item) => current.Bind(tree => tree.Insert(
-                            box: item.Box,
-                            elementId: item.Index) switch {
+                    seed: Fin.Succ(new RTree()), func: static (current, item) => current.Bind(tree => tree.Insert(
+                            box: item.Box, elementId: item.Index) switch {
                                 true => Fin.Succ(tree),
                                 false => Fin.Fail<RTree>(Query.TreeKey.InvalidResult()),
                             })))
             .Map(static tree => new Tree(tree: tree))
             .ToValidation();
-    public static Validation<Error, Tree> MeshFaces(Mesh mesh) =>
-        Optional(mesh)
+    public static Validation<Error, Tree> MeshFaces(Mesh mesh) => Optional(mesh)
             .ToFin(ValidationFault.MissingGeometry())
             .Bind(static candidate => candidate.IsValid switch {
                 true => Optional(RTree.CreateMeshFaceTree(mesh: candidate))
@@ -148,8 +144,7 @@ public sealed class Tree : IDisposable {
             };
     }
     private static Seq<Hit> SortedHits(Seq<int> ids) => toSeq(ids.Order().Select(static id => new Hit(Id: id)));
-    private static Fin<Seq<Couple>> PointPairs(IEnumerable<int[]> values) =>
-        Optional(values)
+    private static Fin<Seq<Couple>> PointPairs(IEnumerable<int[]> values) => Optional(values)
             .ToFin(Query.TreeKey.InvalidResult())
             .Map(static rows => rows
                 .SelectMany(static (ids, needle) => ids
@@ -157,7 +152,6 @@ public sealed class Tree : IDisposable {
                 .OrderBy(static pair => pair.A)
                 .ThenBy(static pair => pair.B)
                 .Aggregate(
-                    seed: Seq<Couple>(),
-                    func: static (current, pair) => pair.Cons(current))
+                    seed: Seq<Couple>(), func: static (current, pair) => pair.Cons(current))
                 .Rev());
 }

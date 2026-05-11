@@ -18,30 +18,25 @@ public sealed record PortPolicy {
     private readonly Func<object, Unit> apply;
     private PortPolicy(Func<object, Unit> apply) => this.apply = apply;
     public static PortPolicy Empty { get; } = new(apply: static _ => Unit.Default);
-    public static PortPolicy Vector(bool unitise = false, bool reverse = false) => new(apply: parameter => parameter switch {
-        VectorParameter vector => fun((VectorParameter target) => { target.UnitiseVectors = unitise; target.ReverseVectors = reverse; return Unit.Default; })(vector),
-        _ => Unit.Default,
-    });
-    public static PortPolicy Angle(int kind = 0, bool reduce = false) => new(apply: parameter => parameter switch {
-        AngleParameter angle => fun((AngleParameter target) => { target.EnforceKind = kind; target.ReduceAngles = reduce; return Unit.Default; })(angle),
-        _ => Unit.Default,
-    });
-    public static PortPolicy Curve(CurveParameter.NormalisationMethod domains = CurveParameter.NormalisationMethod.None, bool flip = false) => new(apply: parameter => parameter switch {
-        CurveParameter curve => fun((CurveParameter target) => { target.NormaliseDomains = domains; target.FlipCurves = flip; return Unit.Default; })(curve),
-        _ => Unit.Default,
-    });
-    public static PortPolicy Surface(bool acceptMeshes = false, CurveParameter.NormalisationMethod domains = CurveParameter.NormalisationMethod.None, bool flip = false) => new(apply: parameter => parameter switch {
-        SurfaceParameter surface => fun((SurfaceParameter target) => { target.AcceptMeshes = acceptMeshes; target.NormaliseDomains = domains; target.FlipSurfaces = flip; return Unit.Default; })(surface),
-        _ => Unit.Default,
-    });
-    public static PortPolicy Index(IndexModifier indexing = IndexModifier.Clip) => new(apply: parameter => parameter switch {
-        IntegerParameter integer => fun((IntegerParameter target) => { target.IsIndex = true; target.Indexing = indexing; return Unit.Default; })(integer),
-        _ => Unit.Default,
-    });
+    public static PortPolicy Vector(bool unitise = false, bool reverse = false) =>
+        On<VectorParameter>(mutate: target => { target.UnitiseVectors = unitise; target.ReverseVectors = reverse; });
+    public static PortPolicy Angle(int kind = 0, bool reduce = false) =>
+        On<AngleParameter>(mutate: target => { target.EnforceKind = kind; target.ReduceAngles = reduce; });
+    public static PortPolicy Curve(CurveParameter.NormalisationMethod domains = CurveParameter.NormalisationMethod.None, bool flip = false) =>
+        On<CurveParameter>(mutate: target => { target.NormaliseDomains = domains; target.FlipCurves = flip; });
+    public static PortPolicy Surface(bool acceptMeshes = false, CurveParameter.NormalisationMethod domains = CurveParameter.NormalisationMethod.None, bool flip = false) =>
+        On<SurfaceParameter>(mutate: target => { target.AcceptMeshes = acceptMeshes; target.NormaliseDomains = domains; target.FlipSurfaces = flip; });
+    public static PortPolicy Index(IndexModifier indexing = IndexModifier.Clip) =>
+        On<IntegerParameter>(mutate: target => { target.IsIndex = true; target.Indexing = indexing; });
     public Unit Apply(object parameter) {
         ArgumentNullException.ThrowIfNull(argument: parameter);
         return apply(arg: parameter);
     }
+    private static PortPolicy On<TParam>(Action<TParam> mutate) where TParam : class =>
+        new(apply: parameter => parameter switch {
+            TParam target => fun((TParam t) => { mutate(obj: t); return Unit.Default; })(target),
+            _ => Unit.Default,
+        });
 }
 [SmartEnum<string>]
 public sealed partial class PortKind {
@@ -79,14 +74,12 @@ public sealed partial class PortKind {
     public Unit Bind(InputAdder adder, string name, string code, string info, Access access, Requirement requirement, PortPolicy policy) {
         ArgumentNullException.ThrowIfNull(argument: adder);
         ArgumentNullException.ThrowIfNull(argument: policy);
-        IParameter parameter = AddInput(adder: adder, name: name, code: code, info: info, access: access, requirement: requirement);
-        return policy.Apply(parameter: parameter);
+        return policy.Apply(parameter: AddInput(adder: adder, name: name, code: code, info: info, access: access, requirement: requirement));
     }
     public Unit Bind(OutputAdder adder, string name, string code, string info, Access access, PortPolicy policy) {
         ArgumentNullException.ThrowIfNull(argument: adder);
         ArgumentNullException.ThrowIfNull(argument: policy);
-        IParameter parameter = AddOutput(adder: adder, name: name, code: code, info: info, access: access);
-        return policy.Apply(parameter: parameter);
+        return policy.Apply(parameter: AddOutput(adder: adder, name: name, code: code, info: info, access: access));
     }
     private static PortKind Of<T>(string key, Input input, Output output) => new(key: key, type: typeof(T), addInput: input, addOutput: output);
 }
