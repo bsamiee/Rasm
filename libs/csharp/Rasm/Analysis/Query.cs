@@ -49,11 +49,9 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
                     .ToEff()
                     .Bind(project => project(arg: geometry)),
             _ =>
-                from runtime in Analyze.RuntimeAsks
-                from result in geometry.Traverse(item => Evaluate(arg: item).Run(env: runtime))
-                    .As()
+                from result in geometry.Traverse(item => Evaluate(arg: item))
                     .Map(static chunks => chunks.Bind(static chunk => chunk))
-                    .ToEff()
+                    .As()
                 select result,
         };
     internal Query<TIn, TOut> Contramap<TIn>(Func<TIn, TGeometry> map) where TIn : notnull =>
@@ -117,7 +115,6 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
 }
 public enum MassKind { None = 0, Length = 1, Area = 2, Volume = 3 }
 public enum CurvatureScalar { None = 0, Magnitude = 1, Gaussian = 2, Mean = 3 }
-public enum MeshCheckCount { None = 0, DegenerateFaces = 1, DisjointMeshes = 2, DuplicateFaces = 3, ExtremelyShortEdges = 4, InvalidNgons = 5, NakedEdges = 6, NonManifoldEdges = 7, NonUnitVectorNormals = 8, RandomFaceNormals = 9, SelfIntersectingPairs = 10, UnusedVertices = 11, VertexFaceNormalsDiffer = 12, ZeroLengthNormals = 13 }
 public enum ConformanceResidual { None = 0, Distance = 1, Rms = 2, WithinTolerance = 3, Profile = 4, Maximum = 5 }
 public enum MeshFaceMetric { None = 0, AspectRatio = 1 }
 [StructLayout(LayoutKind.Auto)]
@@ -169,6 +166,18 @@ public readonly record struct Faces(FaceSelector Selector, Option<int> Index) {
 [SmartEnum<int>]
 public sealed partial class CurveSelector {
     public static readonly CurveSelector All = new(key: 0), Boundary = new(key: 1), IsoU = new(key: 2), IsoV = new(key: 3), At = new(key: 4), Segments = new(key: 5), NakedOuter = new(key: 6), NakedInner = new(key: 7), Interior = new(key: 8), NonManifold = new(key: 9), OuterLoop = new(key: 10), InnerLoop = new(key: 11), Silhouette = new(key: 12), SubCurves = new(key: 13), Draft = new(key: 14);
+}
+[SmartEnum<int>]
+public sealed partial class MeshCheckCount {
+    public static readonly MeshCheckCount None = new(key: 0, project: Option<Func<MeshCheckParameters, int>>.None);
+    public static readonly MeshCheckCount DegenerateFaces = new(key: 1, project: Some<Func<MeshCheckParameters, int>>(static parameters => parameters.DegenerateFaceCount)), DisjointMeshes = new(key: 2, project: Some<Func<MeshCheckParameters, int>>(static parameters => parameters.DisjointMeshCount));
+    public static readonly MeshCheckCount DuplicateFaces = new(key: 3, project: Some<Func<MeshCheckParameters, int>>(static parameters => parameters.DuplicateFaceCount)), ExtremelyShortEdges = new(key: 4, project: Some<Func<MeshCheckParameters, int>>(static parameters => parameters.ExtremelyShortEdgeCount));
+    public static readonly MeshCheckCount InvalidNgons = new(key: 5, project: Some<Func<MeshCheckParameters, int>>(static parameters => parameters.InvalidNgonCount)), NakedEdges = new(key: 6, project: Some<Func<MeshCheckParameters, int>>(static parameters => parameters.NakedEdgeCount));
+    public static readonly MeshCheckCount NonManifoldEdges = new(key: 7, project: Some<Func<MeshCheckParameters, int>>(static parameters => parameters.NonManifoldEdgeCount)), NonUnitVectorNormals = new(key: 8, project: Some<Func<MeshCheckParameters, int>>(static parameters => parameters.NonUnitVectorNormalCount));
+    public static readonly MeshCheckCount RandomFaceNormals = new(key: 9, project: Some<Func<MeshCheckParameters, int>>(static parameters => parameters.RandomFaceNormalCount)), SelfIntersectingPairs = new(key: 10, project: Some<Func<MeshCheckParameters, int>>(static parameters => parameters.SelfIntersectingPairsCount));
+    public static readonly MeshCheckCount UnusedVertices = new(key: 11, project: Some<Func<MeshCheckParameters, int>>(static parameters => parameters.UnusedVertexCount)), VertexFaceNormalsDiffer = new(key: 12, project: Some<Func<MeshCheckParameters, int>>(static parameters => parameters.VertexFaceNormalsDifferCount));
+    public static readonly MeshCheckCount ZeroLengthNormals = new(key: 13, project: Some<Func<MeshCheckParameters, int>>(static parameters => parameters.ZeroLengthNormalCount));
+    public Option<Func<MeshCheckParameters, int>> Project { get; }
 }
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Curves(CurveSelector Selector, Option<int> Index, Option<Vector3d> Direction, Option<double> Angle) {
@@ -469,8 +478,7 @@ public static partial class Query {
             requirement: requirement,
             requiresContext: true,
             aggregate: Some<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>>>(geometry =>
-                from runtime in Analyze.RuntimeAsks
-                from props in geometry.Traverse(item => compute(arg1: item, arg2: secondMoments, arg3: productMoments).Run(env: runtime)).As().ToEff()
+                from props in geometry.Traverse(item => compute(arg1: item, arg2: secondMoments, arg3: productMoments)).As()
                 from mass in (typeof(TMass) switch {
                     Type mass when mass == typeof(LengthMassProperties) =>
                         Optional(LengthMassProperties.WeightedSum(

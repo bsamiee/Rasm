@@ -606,11 +606,76 @@ public sealed class RuleBehaviorTests {
     }
 
     [Fact]
+    public async Task BoundaryTerminalMatchCallsAreStructurallyAllowedAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Integration/BoundaryTerminalMatch.cs",
+            source: WithLanguageExt(ns: "Integration", type: "BoundaryTerminalMatch", attributes: "[Foundation.CSharp.Analyzers.Contracts.BoundaryAdapter]", members: """
+                public void RunExpression(LanguageExt.Fin<int> value) {
+                    value.Match(Succ: static _ => LanguageExt.Unit.Default, Fail: static _ => LanguageExt.Unit.Default);
+                }
+
+                public void RunDiscard(LanguageExt.Fin<int> value) {
+                    _ = value.Match(Succ: static _ => LanguageExt.Unit.Default, Fail: static _ => LanguageExt.Unit.Default);
+                }
+                """)).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0705", collection: ids);
+    }
+
+    [Fact]
+    public async Task BoundaryTerminalPureMatchStillReportsBoundaryDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Integration/BoundaryTerminalPureMatch.cs",
+            source: WithLanguageExt(ns: "Integration", type: "BoundaryTerminalPureMatch", attributes: "[Foundation.CSharp.Analyzers.Contracts.BoundaryAdapter]", members: """
+                public void Run(LanguageExt.Fin<int> value) {
+                    _ = value.Match(Succ: static input => input, Fail: static _ => 0);
+                }
+                """)).ConfigureAwait(true);
+
+        Assert.Contains(expected: "CSP0705", collection: ids);
+    }
+
+    [Fact]
     public async Task RhinoNamespaceClassifiesAsBoundaryScopeAsync() {
         ImmutableArray<string> ids = await AnalyzeIdsAsync(
             filePath: "/workspace/src/Core/Rhino/RhinoBoundary.cs",
             source: Source(ns: "Core.Rhino", type: "RhinoBoundary", members: """
                 public int Clamp(int value) {
+                    if (value > 0) {
+                        return value;
+                    }
+                    return 0;
+                }
+                """)).ConfigureAwait(true);
+
+        Assert.Empty(collection: ids);
+    }
+
+    [Fact]
+    public async Task GrasshopperLibraryPathClassifiesAsBoundaryScopeAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/libs/csharp/Rasm.Grasshopper/Bridge.cs",
+            source: WithLanguageExt(ns: "Rasm.Grasshopper", type: "Bridge", members: """
+                public int Run(LanguageExt.Fin<int> value) {
+                    if (value is null) {
+                        return 0;
+                    }
+                    int result = value.Match(Succ: static input => input, Fail: static _ => 0);
+                    return result;
+                }
+                """)).ConfigureAwait(true);
+
+        Assert.Contains(expected: "CSP0705", collection: ids);
+        Assert.DoesNotContain(expected: "CSP0001", collection: ids);
+        Assert.DoesNotContain(expected: "CSP0002", collection: ids);
+    }
+
+    [Fact]
+    public async Task RadyabComponentNamespaceClassifiesAsBoundaryScopeAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/apps/grasshopper/Radyab/Components/ExtractPoints.cs",
+            source: Source(ns: "Radyab.Components", type: "ExtractPoints", members: """
+                public int Run(int value) {
                     if (value > 0) {
                         return value;
                     }
@@ -933,6 +998,9 @@ public sealed class RuleBehaviorTests {
     private static string WithLanguageExt(string ns, string type, string attributes, string members) =>
         $$"""
         namespace LanguageExt {
+            public readonly struct Unit {
+                public static Unit Default => new();
+            }
             public sealed class Option<T> { }
             public sealed class Fin<T> {
                 public TResult Match<TResult>(System.Func<T, TResult> Succ, System.Func<object, TResult> Fail) => default!;

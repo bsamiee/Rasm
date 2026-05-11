@@ -8,20 +8,19 @@ namespace Rasm.Domain;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public readonly record struct Shape(object Inner) {
+public readonly record struct Shape {
+    private Shape(object inner) => Inner = inner;
+    public object Inner { get; }
     public const string Accepted = "Rhino/GH geometry convertible through native RhinoCommon or GH2 brokers";
-
-    public Fin<Shape> Validate() =>
-        ValidateWith(key: new Op(name: nameof(Shape)));
     internal Fin<Shape> ValidateWith(Op key) =>
         key.RequireValid(value: Inner)
-            .Map(static value => new Shape(Inner: value));
-    public static Option<Shape> From(object? value) =>
+            .Map(static value => new Shape(inner: value));
+    public static Fin<Shape> Create(object? value) =>
         Optional(value)
+            .ToFin(new Op(name: nameof(Shape)).InvalidInput())
             .Bind(static raw => new Op(name: nameof(Shape))
                 .RequireValid(value: raw)
-                .ToOption()
-                .Map(static valid => new Shape(Inner: valid!)));
+                .Map(static valid => new Shape(inner: valid)));
 }
 
 public enum GeometryKind { Unknown = 0, Curve = 1, Polyline = 2, Mesh = 3, SubD = 4, Surface = 5, BrepGeneral = 10, BrepBox = 11, BrepSphere = 12, BrepCylinder = 13, BrepCone = 14, BrepTorus = 15, BrepPlane = 16, Line = 20, Sphere = 21, Box = 22, BoundingBox = 23, Cylinder = 24, Cone = 25, Torus = 26, Plane = 27 }

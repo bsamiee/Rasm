@@ -32,8 +32,7 @@ public static class Bridge {
         return Read<object>(access: access, slot: slot, port: port)
             .Bind(data => data.Value
                 .Bind(raw => NormalizeShape(access: access, slot: slot, raw: raw))
-                .ToFin(Error.New(message: $"{port.Name} input is required. Connect: {Shape.Accepted}."))
-                .Bind(static shape => shape.Validate()));
+                .ToFin(Error.New(message: $"{port.Name} input is required. Connect: {Shape.Accepted}.")));
     }
     public static Fin<PortData<TVal>> Read<TVal>(this IDataAccess access, int slot, IPort port) {
         ArgumentNullException.ThrowIfNull(argument: access);
@@ -140,27 +139,34 @@ public static class Bridge {
             IsNull: pear is null || pear.Item is null,
             Index: Some(index),
             Coverage: coverage)));
-    private static Option<Shape> NormalizeShape(IDataAccess access, int slot, object raw) =>
-        Shape.From(value: raw).Match(
+    private static Option<Shape> NormalizeShape(IDataAccess access, int slot, object raw) {
+        // BOUNDARY ADAPTER — GH2 assistant-aware getters append host messages and throw when
+        // no assistant exists, so exception containment stays at the IDataAccess boundary.
+        return Shape.Create(value: raw).ToOption().Match(
             Some: static shape => Some(shape),
-            None: () => CurveAssistant(access: access, slot: slot)
-                .Bind(assistant => Optional(assistant.Assistant.ConvertToRhinoCurve(assistant.Raw)))
-                .Bind(static curve => Shape.From(value: curve))
-                .Match(
-                    Some: static shape => Some(shape),
-                    None: () => SurfaceAssistant(access: access, slot: slot)
-                        .Bind(assistant => Optional(assistant.Assistant.ConvertToBrep(assistant.Raw)))
-                        .Bind(static brep => Shape.From(value: brep))));
-    private static Option<(object Raw, ICurveAssistant Assistant)> CurveAssistant(IDataAccess access, int slot) =>
-        access.GetItem(index: slot, value: out object raw) switch {
-            true => Optional(TypeAssistantServer.FindCurveAssistant(targetObject: raw)).Map(assistant => (Raw: raw, Assistant: assistant)),
-            false => Option<(object Raw, ICurveAssistant Assistant)>.None,
-        };
-    private static Option<(object Raw, ISurfaceAssistant Assistant)> SurfaceAssistant(IDataAccess access, int slot) =>
-        access.GetItem(index: slot, value: out object raw) switch {
-            true => Optional(TypeAssistantServer.FindSurfaceAssistant(targetObject: raw)).Map(assistant => (Raw: raw, Assistant: assistant)),
-            false => Option<(object Raw, ISurfaceAssistant Assistant)>.None,
-        };
+            None: () => {
+                try {
+                    return access.GetItemWithCurveAssistant(index: slot, value: out object curveRaw, assistant: out ICurveAssistant curveAssistant) switch {
+                        true => Optional(curveAssistant.ConvertToRhinoCurve(curveRaw))
+                            .Bind(static curve => Shape.Create(value: curve).ToOption()),
+                        false => Option<Shape>.None,
+                    };
+                } catch (InvalidOperationException) {
+                } catch (ArgumentException) {
+                }
+                try {
+                    return access.GetItemWithSurfaceAssistant(index: slot, value: out object surfaceRaw, assistant: out ISurfaceAssistant surfaceAssistant) switch {
+                        true => Optional(surfaceAssistant.ConvertToBrep(surfaceRaw))
+                            .Bind(static brep => Shape.Create(value: brep).ToOption()),
+                        false => Option<Shape>.None,
+                    };
+                } catch (InvalidOperationException) {
+                    return Option<Shape>.None;
+                } catch (ArgumentException) {
+                    return Option<Shape>.None;
+                }
+            });
+    }
     private sealed class Progress(IDataAccess access) : IProgress<double> {
         public void Report(double value) =>
             access.SetProgress(percentage: (int)Rhino.RhinoMath.Clamp(value: value switch {

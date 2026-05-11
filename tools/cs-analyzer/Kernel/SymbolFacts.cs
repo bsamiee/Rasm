@@ -84,8 +84,8 @@ internal static class Markers {
     internal const string AnalysisPrefix = "Rasm.Analysis.";
     internal const string LanguageExtNamespace = "LanguageExt";
     internal const string MatchMethodName = "Match";
-    internal static readonly string[] BoundaryNamespace = [".Boundary", ".Rhino", ".Adapter", ".Adapters", ".Routes", ".Endpoints", ".Controllers"];
-    internal static readonly string[] BoundaryPath = ["/Rhino/", "\\Rhino\\", "Adapter.cs", "Boundary.cs", "Endpoint.cs", "Controller.cs"];
+    internal static readonly string[] BoundaryNamespace = [".Boundary", ".Rhino", ".Grasshopper", ".Adapter", ".Adapters", ".Routes", ".Endpoints", ".Controllers", "Radyab.Components"];
+    internal static readonly string[] BoundaryPath = ["/Rhino/", "\\Rhino\\", "/grasshopper/", "\\grasshopper\\", "/Rasm.Grasshopper/", "\\Rasm.Grasshopper\\", "Adapter.cs", "Boundary.cs", "Endpoint.cs", "Controller.cs"];
     internal static readonly string[] CompositionNamespace = [".Bootstrap", ".Composition", ".DependencyInjection", ".Infrastructure"];
     internal static readonly string[] CompositionPath = ["Composition", "Bootstrap", "DependencyInjection", "Infrastructure"];
     internal static readonly string[] SharedPath = ["/Shared/", "\\Shared\\", "/SharedKernel/", "\\SharedKernel\\"];
@@ -284,9 +284,22 @@ internal static class SymbolFacts {
 
     internal static bool IsBoundaryMatchUsage(IInvocationOperation invocation) =>
         CollapseTransparentParents(invocation) is IReturnOperation
+        || (IsLanguageExtUnit(type: invocation.Type)
+            && (IsTerminalExpressionStatement(operation: CollapseTransparentParents(operation: invocation))
+                || IsTerminalDiscardAssignment(operation: CollapseTransparentParents(operation: invocation))))
         || (invocation.Syntax.Parent is ArrowExpressionClauseSyntax clause
             && clause.Expression is ExpressionSyntax expression
             && SyntaxFactory.AreEquivalent(UnwrapTransparentExpression(invocation.Syntax), UnwrapTransparentExpression(expression)));
+    private static bool IsLanguageExtUnit(ITypeSymbol? type) =>
+        type?.ToDisplayString() == "LanguageExt.Unit";
+    private static bool IsTerminalExpressionStatement(IOperation? operation) =>
+        operation is IExpressionStatementOperation statement
+        && statement.Parent is IBlockOperation block
+        && block.Operations.LastOrDefault() == statement;
+    private static bool IsTerminalDiscardAssignment(IOperation? operation) =>
+        operation is ISimpleAssignmentOperation { Target: IDiscardOperation, Parent: IExpressionStatementOperation statement }
+        && statement.Parent is IBlockOperation block
+        && block.Operations.LastOrDefault() == statement;
     internal static bool IsEarlyReturnGuard(IConditionalOperation conditional) =>
         conditional.Syntax is IfStatementSyntax {
             Else: null,

@@ -90,7 +90,7 @@ public static class Analyze {
                 .As()
                 .Bind(resolved => query.Apply(geometry: resolved).Run(env: runtime))
                 .ToValidation(),
-            _ => input.AsIterable().ToSeq()
+            false => input.AsIterable().ToSeq()
                 .Traverse(geometry => (runtime.Cancellation.IsCancellationRequested switch {
                     true => Fin.Fail<TGeometry>(OpFault.Cancelled()),
                     false => Optional(geometry).ToFin(ValidationFault.MissingGeometry()),

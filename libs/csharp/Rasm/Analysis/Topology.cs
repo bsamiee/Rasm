@@ -261,7 +261,8 @@ public static partial class Query {
             };
     }
     public static Query<Mesh, int> MeshCheckCount(MeshCheckCount count) =>
-        MeshCheckCounter(count: count)
+        Optional(value: count)
+            .Bind(static metric => metric.Project)
             .Map(static project => Query<Mesh, int>.Build(
                 key: MeshCheckCountKey,
                 state: project,
@@ -271,23 +272,6 @@ public static partial class Query {
                     from result in One(key: MeshCheckCountKey, value: counter(arg: head)).ToEff()
                     select result))
             .IfNone(static () => Query<Mesh, int>.Reject(key: MeshCheckCountKey, fault: MeshCheckCountKey.InvalidInput()));
-    private static Option<Func<MeshCheckParameters, int>> MeshCheckCounter(MeshCheckCount count) =>
-        count switch {
-            Analysis.MeshCheckCount.DegenerateFaces => Some<Func<MeshCheckParameters, int>>(static parameters => parameters.DegenerateFaceCount),
-            Analysis.MeshCheckCount.DisjointMeshes => Some<Func<MeshCheckParameters, int>>(static parameters => parameters.DisjointMeshCount),
-            Analysis.MeshCheckCount.DuplicateFaces => Some<Func<MeshCheckParameters, int>>(static parameters => parameters.DuplicateFaceCount),
-            Analysis.MeshCheckCount.ExtremelyShortEdges => Some<Func<MeshCheckParameters, int>>(static parameters => parameters.ExtremelyShortEdgeCount),
-            Analysis.MeshCheckCount.InvalidNgons => Some<Func<MeshCheckParameters, int>>(static parameters => parameters.InvalidNgonCount),
-            Analysis.MeshCheckCount.NakedEdges => Some<Func<MeshCheckParameters, int>>(static parameters => parameters.NakedEdgeCount),
-            Analysis.MeshCheckCount.NonManifoldEdges => Some<Func<MeshCheckParameters, int>>(static parameters => parameters.NonManifoldEdgeCount),
-            Analysis.MeshCheckCount.NonUnitVectorNormals => Some<Func<MeshCheckParameters, int>>(static parameters => parameters.NonUnitVectorNormalCount),
-            Analysis.MeshCheckCount.RandomFaceNormals => Some<Func<MeshCheckParameters, int>>(static parameters => parameters.RandomFaceNormalCount),
-            Analysis.MeshCheckCount.SelfIntersectingPairs => Some<Func<MeshCheckParameters, int>>(static parameters => parameters.SelfIntersectingPairsCount),
-            Analysis.MeshCheckCount.UnusedVertices => Some<Func<MeshCheckParameters, int>>(static parameters => parameters.UnusedVertexCount),
-            Analysis.MeshCheckCount.VertexFaceNormalsDiffer => Some<Func<MeshCheckParameters, int>>(static parameters => parameters.VertexFaceNormalsDifferCount),
-            Analysis.MeshCheckCount.ZeroLengthNormals => Some<Func<MeshCheckParameters, int>>(static parameters => parameters.ZeroLengthNormalCount),
-            _ => None,
-        };
     public static Query<Mesh, MeshFaceSample> MeshFaceMetric(MeshFaceMetric metric) =>
         metric switch {
             Analysis.MeshFaceMetric.AspectRatio => Query<Mesh, MeshFaceSample>.Build(

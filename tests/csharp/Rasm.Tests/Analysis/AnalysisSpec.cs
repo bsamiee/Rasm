@@ -512,17 +512,6 @@ public sealed class AnalysisSpec {
     }
 
     [Fact]
-    public void RejectsUnknownMeshCheckCountBeforeInputExecution() {
-        Validation<Error, Seq<int>> result = Analyze.In(context: ValidContext()).Run(
-            query: Query.MeshCheckCount(count: (MeshCheckCount)999),
-            input: [null!, null!]);
-
-        Assert.True(condition: result.ToFin().Match(
-            Succ: static _ => false,
-            Fail: static error => error.Count == 1 && error.Message.Contains(value: "MeshCheckCount", comparisonType: StringComparison.Ordinal)));
-    }
-
-    [Fact]
     public void RejectsNullGeometryInsideMeshCheckCountRail() {
         Validation<Error, Seq<int>> result = Analyze.In(context: ValidContext()).Run(
             query: Query.MeshCheckCount(count: MeshCheckCount.NakedEdges),
