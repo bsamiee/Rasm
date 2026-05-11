@@ -68,24 +68,9 @@ public static class Analyze {
         Query<TGeometry, TOut> query,
         Runtime runtime,
         TGeometry[] input) where TGeometry : notnull =>
-        query.BatchesInput switch {
-            true => input.AsIterable().ToSeq()
-                .Traverse(geometry => runtime.Cancellation.IsCancellationRequested switch {
-                    true => Fin.Fail<TGeometry>(OpFault.Cancelled()),
-                    false => Optional(geometry).ToFin(ValidationFault.MissingGeometry()),
-                })
-                .As()
-                .Bind(resolved => query.Apply(geometry: resolved).Run(env: runtime))
-                .ToValidation(),
-            false => input.AsIterable().ToSeq()
-                .Traverse(geometry => (runtime.Cancellation.IsCancellationRequested switch {
-                    true => Fin.Fail<TGeometry>(OpFault.Cancelled()),
-                    false => Optional(geometry).ToFin(ValidationFault.MissingGeometry()),
-                }).Bind(resolved => query.Apply(geometry: resolved).Run(env: runtime)))
-                .As()
-                .Map(static chunks => chunks.Bind(static chunk => chunk))
-                .ToValidation(),
-        };
+        query.Apply(geometry: input.AsIterable().ToSeq())
+            .Run(env: runtime)
+            .ToValidation();
 }
 internal static class ValidationLifts {
     internal static Eff<Analyze.Runtime, T> ToEff<T>(this Validation<Error, T> validation) => validation.ToFin();

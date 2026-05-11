@@ -13,17 +13,13 @@ internal static class Check {
             state.Requirement,
             Geometry: candidate))
         .Bind(static state => state.Requirement.Checks.Aggregate(
-                seed: (Result: Fin.Succ(state.Geometry).ToValidation(), state.Context, state.Geometry),
-                func: static (
-                    accumulator,
-                    check) => (
-                        Result: (accumulator.Result, check.Apply(
-                                context: accumulator.Context,
-                                geometry: accumulator.Geometry).ToValidation())
-                            .Apply(static (candidate, _) => candidate)
-                            .As(),
-                        accumulator.Context,
-                        accumulator.Geometry)).Result);
+                seed: (Value: Fin.Succ(state.Geometry).ToValidation(), state.Context, state.Geometry),
+                func: static (accumulator, check) => (
+                    Value: (accumulator.Value, check.Apply(context: accumulator.Context, geometry: accumulator.Geometry).ToValidation())
+                        .Apply(static (candidate, _) => candidate)
+                        .As(),
+                    accumulator.Context,
+                    accumulator.Geometry)).Value);
     internal static Validation<Error, (TA A, TB B)> ValidatePair<TA, TB>(
         this Context context,
         TA a,
@@ -47,15 +43,11 @@ internal static class Check {
             Candidate: candidate))
         .Bind(static state => state.Candidate switch {
             GeometryBase geometry => (
-                state.Context.Validate(
-                    geometry: geometry,
-                    requirement: state.Requirement),
+                state.Context.Validate(geometry: geometry, requirement: state.Requirement),
                 Fin.Succ(state.Candidate).ToValidation()
-            ).Apply(static (_, candidate) => candidate)
-            .As(),
+            ).Apply(static (_, candidate) => candidate).As(),
             _ => new Op(name: "Operand").RequireValid(value: state.Candidate).ToValidation(),
-        })
-        .As();
+        }).As();
 }
 public sealed record Requirement {
     private Requirement(Seq<Rule> checks) => Checks = checks;

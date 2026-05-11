@@ -4,36 +4,25 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
     internal Op Key { get; }
     internal Requirement Requirement { get; }
     internal bool RequiresContext { get; }
-    internal bool BatchesInput => EvaluateBatch.IsSome;
     internal Option<Error> PreflightFault { get; }
-    private Func<TGeometry, Eff<Analyze.Runtime, Seq<TOut>>> Evaluate { get; }
+    private Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>> Evaluate { get; }
     private Option<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>>> AggregateCandidate { get; }
-    private Option<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>>> EvaluateBatch { get; }
     internal Query(
         Op key,
-        Func<TGeometry, Eff<Analyze.Runtime, Seq<TOut>>> effect,
+        Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>> effect,
         Requirement? requirement = null,
         bool requiresContext = false,
         Option<Error> preflightFault = default,
-        Option<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>>> aggregate = default,
-        Option<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>>> batch = default) {
+        Option<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>>> aggregate = default) {
         Key = key;
         Requirement = requirement ?? Requirement.None;
         RequiresContext = requiresContext;
         Evaluate = effect;
         PreflightFault = preflightFault;
         AggregateCandidate = aggregate;
-        EvaluateBatch = batch;
     }
-    internal Eff<Analyze.Runtime, Seq<TOut>> Apply(TGeometry geometry) => Evaluate(arg: geometry);
-    internal Eff<Analyze.Runtime, Seq<TOut>> Apply(Seq<TGeometry> geometry) =>
-        EvaluateBatch.Match(
-            Some: project => project(arg: geometry),
-            None: () =>
-                from result in geometry.Traverse(item => Evaluate(arg: item))
-                    .Map(static chunks => chunks.Bind(static chunk => chunk))
-                    .As()
-                select result);
+    internal Eff<Analyze.Runtime, Seq<TOut>> Apply(TGeometry geometry) => Evaluate(arg: Seq(geometry));
+    internal Eff<Analyze.Runtime, Seq<TOut>> Apply(Seq<TGeometry> geometry) => Evaluate(arg: geometry);
     internal Query<TIn, TOut> Contramap<TIn>(Func<TIn, TGeometry> map) where TIn : notnull =>
         new(
             key: Key,
@@ -41,8 +30,7 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
             requiresContext: RequiresContext,
             preflightFault: PreflightFault,
             aggregate: AggregateCandidate.Map<Func<Seq<TIn>, Eff<Analyze.Runtime, Seq<TOut>>>>(project => input => project(arg: input.Map(value => map(arg: value)))),
-            batch: EvaluateBatch.Map<Func<Seq<TIn>, Eff<Analyze.Runtime, Seq<TOut>>>>(project => input => project(arg: input.Map(value => map(arg: value)))),
-            effect: input => Evaluate(arg: map(arg: input)));
+            effect: input => Evaluate(arg: input.Map(value => map(arg: value))));
     public Query<TGeometry, TOut> Aggregate() =>
         AggregateCandidate
             .ToFin(Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut)))
@@ -53,8 +41,7 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
                     requiresContext: RequiresContext,
                     preflightFault: PreflightFault,
                     aggregate: AggregateCandidate,
-                    batch: Some(aggregate),
-                    effect: Evaluate),
+                    effect: aggregate),
                 Fail: fault => Reject(key: Key, fault: fault));
     internal static Query<TGeometry, TOut> Build(
         Op key,
@@ -67,18 +54,22 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
             key: key,
             requirement: activeRequirement,
             requiresContext: requiresContext,
-            aggregate: aggregate,
-            effect: activeRequirement.IsEmpty switch {
-                true => evaluator,
-                false => geometry => geometry switch {
-                    GeometryBase native =>
-                        from ctx in Analyze.Asks
-                        from _ in ctx.Validate(geometry: native, requirement: activeRequirement).ToEff()
-                        from result in evaluator(arg: geometry)
-                        select result,
-                    _ => evaluator(arg: geometry),
-                },
-            });
+            aggregate: aggregate.Map<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>>>(project => geometry =>
+                from runtime in Analyze.RuntimeAsks
+                from resolved in geometry.Traverse(item => Ready(geometry: item).Run(env: runtime)).As().ToEff()
+                from result in project(arg: resolved)
+                select result),
+            effect: geometry =>
+                from runtime in Analyze.RuntimeAsks
+                from result in geometry.Traverse(item => (
+                        from resolved in Ready(geometry: item)
+                        from valid in Validate(geometry: resolved, requirement: activeRequirement)
+                        from value in evaluator(arg: valid)
+                        select value).Run(env: runtime))
+                    .Map(static chunks => chunks.Bind(static chunk => chunk))
+                    .As()
+                    .ToEff()
+                select result);
     }
     internal static Query<TGeometry, TOut> Build<TState>(
         Op key,
@@ -96,6 +87,21 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
             key: key,
             preflightFault: Some(fault),
             effect: _ => Fin.Fail<Seq<TOut>>(fault).ToEff());
+    private static Eff<Analyze.Runtime, TGeometry> Ready(TGeometry geometry) =>
+        from runtime in Analyze.RuntimeAsks
+        from resolved in (runtime.Cancellation.IsCancellationRequested switch {
+            true => Fin.Fail<TGeometry>(OpFault.Cancelled()),
+            false => Optional(geometry).ToFin(ValidationFault.MissingGeometry()),
+        }).ToEff()
+        select resolved;
+    private static Eff<Analyze.Runtime, TGeometry> Validate(TGeometry geometry, Requirement requirement) =>
+        (requirement.IsEmpty, geometry) switch {
+            (false, GeometryBase native) =>
+                from ctx in Analyze.Asks
+                from _ in ctx.Validate(geometry: native, requirement: requirement).ToEff()
+                select geometry,
+            _ => Fin.Succ(geometry).ToEff(),
+        };
 }
 public enum MassKind { None = 0, Length = 1, Area = 2, Volume = 3 }
 public enum CurvatureScalar { None = 0, Magnitude = 1, Gaussian = 2, Mean = 3 }
@@ -450,6 +456,7 @@ public static partial class Query {
         string name,
         Requirement requirement,
         Func<object, bool, bool, Eff<Analyze.Runtime, TMass>> compute,
+        Func<Seq<TMass>, Fin<TMass>> aggregate,
         Func<Op, TMass, Fin<Seq<TOut>>> project,
         bool secondMoments = false,
         bool productMoments = false) where TGeometry : notnull where TMass : class, IDisposable {
@@ -460,27 +467,7 @@ public static partial class Query {
             requiresContext: true,
             aggregate: Some<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>>>(geometry =>
                 from props in geometry.Traverse(item => compute(arg1: item, arg2: secondMoments, arg3: productMoments)).As()
-                from mass in (typeof(TMass) switch {
-                    Type mass when mass == typeof(LengthMassProperties) =>
-                        Optional(LengthMassProperties.WeightedSum(
-                                summands: props.Map(static prop => (LengthMassProperties)(object)prop).AsIterable(),
-                                weights: props.Map(static _ => 1.0).AsIterable()))
-                            .ToFin(OpFault.ComputationFailed(label: nameof(LengthMassProperties)))
-                            .Map(static value => (TMass)(object)value),
-                    Type mass when mass == typeof(AreaMassProperties) =>
-                        Optional(AreaMassProperties.WeightedSum(
-                                summands: props.Map(static prop => (AreaMassProperties)(object)prop).AsIterable(),
-                                weights: props.Map(static _ => 1.0).AsIterable()))
-                            .ToFin(OpFault.ComputationFailed(label: nameof(AreaMassProperties)))
-                            .Map(static value => (TMass)(object)value),
-                    Type mass when mass == typeof(VolumeMassProperties) =>
-                        Optional(VolumeMassProperties.WeightedSum(
-                                summands: props.Map(static prop => (VolumeMassProperties)(object)prop).AsIterable(),
-                                weights: props.Map(static _ => 1.0).AsIterable()))
-                            .ToFin(OpFault.ComputationFailed(label: nameof(VolumeMassProperties)))
-                            .Map(static value => (TMass)(object)value),
-                    _ => Fin.Fail<TMass>(OpFault.ComputationUnsupported(label: typeof(TMass).Name, geometryType: typeof(TGeometry))),
-                }).ToEff()
+                from mass in aggregate(arg: props).ToEff()
                 from values in Bracket(
                         factory: () => mass,
                         body: disposable => project(arg1: key, arg2: disposable))
@@ -493,6 +480,15 @@ public static partial class Query {
                                    from values in Bracket(factory: () => mass, body: disposable => project(arg1: key, arg2: disposable)).ToEff()
                                    select values);
     }
+    internal static Fin<LengthMassProperties> SumLength(Seq<LengthMassProperties> props) =>
+        Optional(LengthMassProperties.WeightedSum(summands: props.AsIterable(), weights: props.Map(static _ => 1.0).AsIterable()))
+            .ToFin(OpFault.ComputationFailed(label: nameof(LengthMassProperties)));
+    internal static Fin<AreaMassProperties> SumArea(Seq<AreaMassProperties> props) =>
+        Optional(AreaMassProperties.WeightedSum(summands: props.AsIterable(), weights: props.Map(static _ => 1.0).AsIterable()))
+            .ToFin(OpFault.ComputationFailed(label: nameof(AreaMassProperties)));
+    internal static Fin<VolumeMassProperties> SumVolume(Seq<VolumeMassProperties> props) =>
+        Optional(VolumeMassProperties.WeightedSum(summands: props.AsIterable(), weights: props.Map(static _ => 1.0).AsIterable()))
+            .ToFin(OpFault.ComputationFailed(label: nameof(VolumeMassProperties)));
     internal static Fin<Seq<(double Moment, Vector3d Axis)>> Principal<TMass>(
         this Op key,
         TMass mass) where TMass : class =>

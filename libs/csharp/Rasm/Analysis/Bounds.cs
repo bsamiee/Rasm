@@ -67,10 +67,10 @@ public static partial class Query {
                 spatialMidpoint: static _ => typeof(TOut) == typeof(Point3d) ? SpatialMidpoint<TGeometry, TOut>() : null,
                 length: static _ => Length<TGeometry, TOut>(),
                 area: static _ => typeof(TOut) == typeof(double)
-                    ? MassCast<TGeometry, TOut, AreaMassProperties, double>(name: nameof(Analysis.Measure.Area), requirement: Requirement.AreaMass, compute: ComputeArea, project: static (key, mass) => One(key: key, value: mass.Area))
+                    ? MassCast<TGeometry, TOut, AreaMassProperties, double>(name: nameof(Analysis.Measure.Area), requirement: Requirement.AreaMass, compute: ComputeArea, aggregate: SumArea, project: static (key, mass) => One(key: key, value: mass.Area))
                     : null,
                 volume: static _ => typeof(TOut) == typeof(double)
-                    ? MassCast<TGeometry, TOut, VolumeMassProperties, double>(name: nameof(Analysis.Measure.Volume), requirement: Requirement.VolumeMass, compute: ComputeVolume, project: static (key, mass) => One(key: key, value: mass.Volume))
+                    ? MassCast<TGeometry, TOut, VolumeMassProperties, double>(name: nameof(Analysis.Measure.Volume), requirement: Requirement.VolumeMass, compute: ComputeVolume, aggregate: SumVolume, project: static (key, mass) => One(key: key, value: mass.Volume))
                     : null,
                 massError: static e => MassMeasure<TGeometry, TOut>(mass: e.Mass, kind: e),
                 centroid: static c => MassMeasure<TGeometry, TOut>(mass: c.Mass, kind: c),
@@ -89,12 +89,12 @@ public static partial class Query {
         };
     private static Query<TGeometry, TOut> MassByKind<TGeometry, TOut, TValue>(MassKind mass, string suffix, Func<Op, LengthMassProperties, Fin<Seq<TValue>>> length, Func<Op, AreaMassProperties, Fin<Seq<TValue>>> area, Func<Op, VolumeMassProperties, Fin<Seq<TValue>>> volume, bool lengthSecond = false, bool areaSecond = false, bool volumeSecond = false, bool product = false) where TGeometry : notnull =>
         mass switch {
-            MassKind.Length => MassCast<TGeometry, TOut, LengthMassProperties, TValue>(name: $"Length{suffix}", requirement: Requirement.CurveLength, compute: ComputeLength, project: length, secondMoments: lengthSecond, productMoments: product),
-            MassKind.Area => MassCast<TGeometry, TOut, AreaMassProperties, TValue>(name: $"Area{suffix}", requirement: Requirement.AreaMass, compute: ComputeArea, project: area, secondMoments: areaSecond, productMoments: product),
-            MassKind.Volume => MassCast<TGeometry, TOut, VolumeMassProperties, TValue>(name: $"Volume{suffix}", requirement: Requirement.VolumeMass, compute: ComputeVolume, project: volume, secondMoments: volumeSecond, productMoments: product),
+            MassKind.Length => MassCast<TGeometry, TOut, LengthMassProperties, TValue>(name: $"Length{suffix}", requirement: Requirement.CurveLength, compute: ComputeLength, aggregate: SumLength, project: length, secondMoments: lengthSecond, productMoments: product),
+            MassKind.Area => MassCast<TGeometry, TOut, AreaMassProperties, TValue>(name: $"Area{suffix}", requirement: Requirement.AreaMass, compute: ComputeArea, aggregate: SumArea, project: area, secondMoments: areaSecond, productMoments: product),
+            MassKind.Volume => MassCast<TGeometry, TOut, VolumeMassProperties, TValue>(name: $"Volume{suffix}", requirement: Requirement.VolumeMass, compute: ComputeVolume, aggregate: SumVolume, project: volume, secondMoments: volumeSecond, productMoments: product),
             _ => Query<TGeometry, TOut>.Reject(key: MeasureKey, fault: MeasureKey.InvalidInput()),
         };
-    private static Query<TGeometry, TOut> MassCast<TGeometry, TOut, TMass, TValue>(string name, Requirement requirement, Func<object, bool, bool, Eff<Analyze.Runtime, TMass>> compute, Func<Op, TMass, Fin<Seq<TValue>>> project, bool secondMoments = false, bool productMoments = false) where TGeometry : notnull where TMass : class, IDisposable => Cast<TGeometry, TOut>(key: new Op(name: name), query: Mass<TGeometry, TMass, TValue>(name: name, requirement: requirement, compute: compute, project: project, secondMoments: secondMoments, productMoments: productMoments));
+    private static Query<TGeometry, TOut> MassCast<TGeometry, TOut, TMass, TValue>(string name, Requirement requirement, Func<object, bool, bool, Eff<Analyze.Runtime, TMass>> compute, Func<Seq<TMass>, Fin<TMass>> aggregate, Func<Op, TMass, Fin<Seq<TValue>>> project, bool secondMoments = false, bool productMoments = false) where TGeometry : notnull where TMass : class, IDisposable => Cast<TGeometry, TOut>(key: new Op(name: name), query: Mass<TGeometry, TMass, TValue>(name: name, requirement: requirement, compute: compute, aggregate: aggregate, project: project, secondMoments: secondMoments, productMoments: productMoments));
     public static Query<TGeometry, TOut> SpatialMidpoint<TGeometry, TOut>() where TGeometry : notnull =>
         (typeof(TGeometry), typeof(TOut)) switch {
             (Type geometry, Type output) when output == typeof(Point3d)
@@ -330,9 +330,9 @@ public static partial class Query {
         TGeometry geometry,
         MassKind mass) where TGeometry : GeometryBase =>
         mass switch {
-            MassKind.Length => Mass<TGeometry, LengthMassProperties, Point3d>(name: SpatialMidpointKey.Name, requirement: Requirement.CurveLength, compute: ComputeLength, project: static (key, props) => One(key: key, value: props.Centroid)).Apply(geometry: geometry),
-            MassKind.Area => Mass<TGeometry, AreaMassProperties, Point3d>(name: SpatialMidpointKey.Name, requirement: Requirement.AreaMass, compute: ComputeArea, project: static (key, props) => One(key: key, value: props.Centroid)).Apply(geometry: geometry),
-            MassKind.Volume => Mass<TGeometry, VolumeMassProperties, Point3d>(name: SpatialMidpointKey.Name, requirement: Requirement.VolumeMass, compute: ComputeVolume, project: static (key, props) => One(key: key, value: props.Centroid)).Apply(geometry: geometry),
+            MassKind.Length => Mass<TGeometry, LengthMassProperties, Point3d>(name: SpatialMidpointKey.Name, requirement: Requirement.CurveLength, compute: ComputeLength, aggregate: SumLength, project: static (key, props) => One(key: key, value: props.Centroid)).Apply(geometry: geometry),
+            MassKind.Area => Mass<TGeometry, AreaMassProperties, Point3d>(name: SpatialMidpointKey.Name, requirement: Requirement.AreaMass, compute: ComputeArea, aggregate: SumArea, project: static (key, props) => One(key: key, value: props.Centroid)).Apply(geometry: geometry),
+            MassKind.Volume => Mass<TGeometry, VolumeMassProperties, Point3d>(name: SpatialMidpointKey.Name, requirement: Requirement.VolumeMass, compute: ComputeVolume, aggregate: SumVolume, project: static (key, props) => One(key: key, value: props.Centroid)).Apply(geometry: geometry),
             _ => Fin.Fail<Seq<Point3d>>(SpatialMidpointKey.InvalidInput()).ToEff(),
         };
     private static Query<TGeometry, TOut>? BoundsFromBox<TGeometry, TOut, TValue>(Op key, Func<BoundingBox, Fin<Seq<TValue>>> project) where TGeometry : notnull =>

@@ -1,4 +1,5 @@
 using System.Drawing;
+using Grasshopper2.Parameters;
 using Requirement = Grasshopper2.Parameters.Requirement;
 
 namespace Rasm.Grasshopper;
@@ -54,31 +55,29 @@ public partial record PortPolicy {
 }
 [SmartEnum<string>]
 public sealed partial class PortKind {
-    public static readonly PortKind Point = Of<Point3d>(key: nameof(Point), onInput: static (adder, name, code, info, access, requirement) => adder.AddPoint(name: name, code: code, info: info, access: access, requirement: requirement), onOutput: static (adder, name, code, info, access) => adder.AddPoint(name: name, code: code, info: info, access: access));
-    public static readonly PortKind Vector = Of<Vector3d>(key: nameof(Vector), onInput: static (adder, name, code, info, access, requirement) => adder.AddVector(name: name, code: code, info: info, access: access, requirement: requirement), onOutput: static (adder, name, code, info, access) => adder.AddVector(name: name, code: code, info: info, access: access));
-    public static readonly PortKind Curve = Of<Curve>(key: nameof(Curve), onInput: static (adder, name, code, info, access, requirement) => adder.AddCurve(name: name, code: code, info: info, access: access, requirement: requirement), onOutput: static (adder, name, code, info, access) => adder.AddCurve(name: name, code: code, info: info, access: access));
-    public static readonly PortKind CurveLocus = Of<CurveLocus>(key: nameof(CurveLocus), onInput: static (adder, name, code, info, access, requirement) => adder.AddCurveLocus(name: name, code: code, info: info, access: access, requirement: requirement), onOutput: static (adder, name, code, info, access) => adder.AddCurveLocus(name: name, code: code, info: info, access: access));
-    public static readonly PortKind Brep = Of<Brep>(key: nameof(Brep), onInput: static (adder, name, code, info, access, requirement) => adder.AddSurface(name: name, code: code, info: info, access: access, requirement: requirement), onOutput: static (adder, name, code, info, access) => adder.AddSurface(name: name, code: code, info: info, access: access));
-    public static readonly PortKind SurfaceLocus = Of<SurfaceLocus>(key: nameof(SurfaceLocus), onInput: static (adder, name, code, info, access, requirement) => adder.AddSurfaceLocus(name: name, code: code, info: info, access: access, requirement: requirement), onOutput: static (adder, name, code, info, access) => adder.AddSurfaceLocus(name: name, code: code, info: info, access: access));
-    public static readonly PortKind Plane = Of<Plane>(key: nameof(Plane), onInput: static (adder, name, code, info, access, requirement) => adder.AddPlane(name: name, code: code, info: info, access: access, requirement: requirement), onOutput: static (adder, name, code, info, access) => adder.AddPlane(name: name, code: code, info: info, access: access));
-    public static readonly PortKind Index = Of<int>(key: nameof(Index), onInput: static (adder, name, code, info, access, requirement) => adder.AddIndex(name: name, code: code, info: info, access: access, requirement: requirement), onOutput: static (adder, name, code, info, access) => adder.AddInteger(name: name, code: code, info: info, access: access));
-    public static readonly PortKind Integer = Of<int>(key: nameof(Integer), onInput: static (adder, name, code, info, access, requirement) => adder.AddInteger(name: name, code: code, info: info, access: access, requirement: requirement), onOutput: static (adder, name, code, info, access) => adder.AddInteger(name: name, code: code, info: info, access: access));
-    public static readonly PortKind Number = Of<double>(key: nameof(Number), onInput: static (adder, name, code, info, access, requirement) => adder.AddNumber(name: name, code: code, info: info, access: access, requirement: requirement), onOutput: static (adder, name, code, info, access) => adder.AddNumber(name: name, code: code, info: info, access: access));
-    public static readonly PortKind Text = Of<string>(key: nameof(Text), onInput: static (adder, name, code, info, access, requirement) => adder.AddText(name: name, code: code, info: info, access: access, requirement: requirement), onOutput: static (adder, name, code, info, access) => adder.AddText(name: name, code: code, info: info, access: access));
-    public static readonly PortKind Boolean = Of<bool>(key: nameof(Boolean), onInput: static (adder, name, code, info, access, requirement) => adder.AddBoolean(name: name, code: code, info: info, access: access, requirement: requirement), onOutput: static (adder, name, code, info, access) => adder.AddBoolean(name: name, code: code, info: info, access: access));
-    public static readonly PortKind Colour = Of<Color>(key: nameof(Colour), onInput: static (adder, name, code, info, access, requirement) => adder.AddColour(name: name, code: code, info: info, access: access, requirement: requirement), onOutput: static (adder, name, code, info, access) => adder.AddColour(name: name, code: code, info: info, access: access));
-    public static readonly PortKind Interval = Of<Interval>(key: nameof(Interval), onInput: static (adder, name, code, info, access, requirement) => adder.AddInterval(name: name, code: code, info: info, access: access, requirement: requirement), onOutput: static (adder, name, code, info, access) => adder.AddInterval(name: name, code: code, info: info, access: access));
-    public static readonly PortKind Angle = Of<Angle>(key: nameof(Angle), onInput: static (adder, name, code, info, access, requirement) => adder.AddAngle(name: name, code: code, info: info, access: access, requirement: requirement), onOutput: static (adder, name, code, info, access) => adder.AddAngle(name: name, code: code, info: info, access: access));
-    public static readonly PortKind Transform = Of<Transform>(key: nameof(Transform), onInput: static (adder, name, code, info, access, requirement) => adder.AddTransform(name: name, code: code, info: info, access: access, requirement: requirement), onOutput: static (adder, name, code, info, access) => adder.AddTransform(name: name, code: code, info: info, access: access));
-    public static readonly PortKind Generic = Of<object>(key: nameof(Generic), onInput: static (adder, name, code, info, access, requirement) => adder.AddGeneric(name: name, code: code, info: info, access: access, requirement: requirement), onOutput: static (adder, name, code, info, access) => adder.AddGeneric(name: name, code: code, info: info, access: access));
+    public static readonly PortKind Point = Of<Point3d, Point3Parameter>(key: nameof(Point));
+    public static readonly PortKind Vector = Of<Vector3d, VectorParameter>(key: nameof(Vector));
+    public static readonly PortKind Curve = Of<Curve, CurveParameter>(key: nameof(Curve));
+    public static readonly PortKind CurveLocus = Of<CurveLocus, CurveLocusParameter>(key: nameof(CurveLocus));
+    public static readonly PortKind Brep = Of<Brep, SurfaceParameter>(key: nameof(Brep));
+    public static readonly PortKind SurfaceLocus = Of<SurfaceLocus, SurfaceLocusParameter>(key: nameof(SurfaceLocus));
+    public static readonly PortKind Plane = Of<Plane, PlaneParameter>(key: nameof(Plane));
+    public static readonly PortKind Index = Of<int, IntegerParameter>(key: nameof(Index), configure: static parameter => { parameter.IsIndex = true; return parameter; });
+    public static readonly PortKind Integer = Of<int, IntegerParameter>(key: nameof(Integer));
+    public static readonly PortKind Number = Of<double, NumberParameter>(key: nameof(Number));
+    public static readonly PortKind Text = Of<string, TextParameter>(key: nameof(Text));
+    public static readonly PortKind Boolean = Of<bool, BooleanParameter>(key: nameof(Boolean));
+    public static readonly PortKind Colour = Of<Color, ColourParameter>(key: nameof(Colour));
+    public static readonly PortKind Interval = Of<Interval, IntervalParameter>(key: nameof(Interval));
+    public static readonly PortKind Angle = Of<Angle, AngleParameter>(key: nameof(Angle));
+    public static readonly PortKind Transform = Of<Transform, TransformParameter>(key: nameof(Transform));
+    public static readonly PortKind Generic = Of<object, GenericParameter>(key: nameof(Generic));
     public Type Type { get; }
-    private Func<InputAdder, string, string, string, Access, Requirement, object> AddInput { get; }
-    private Func<OutputAdder, string, string, string, Access, object> AddOutput { get; }
+    private Func<string, string, string, Access, IParameter> Create { get; }
     public static PortKind Enum<T>(T initial) where T : struct, Enum =>
-        Of<T>(
+        Of<T, IntegerParameter>(
             key: typeof(T).Name,
-            onInput: (adder, name, code, info, access, requirement) => adder.AddEnum<T>(name: name, code: code, info: info, initial: initial, access: access, requirement: requirement),
-            onOutput: static (adder, name, code, info, access) => adder.AddEnum<T>(name: name, code: code, info: info, access: access));
+            configure: parameter => parameter.SetEnum(values: [initial]));
     public static Option<PortKind> From(Type type) {
         ArgumentNullException.ThrowIfNull(argument: type);
         return type.Equals(o: typeof(int)) ? Some(Integer) : toSeq(Items).Find(kind => kind.Type.Equals(o: type));
@@ -86,14 +85,28 @@ public sealed partial class PortKind {
     public Unit Bind(InputAdder adder, string name, string code, string info, Access access, Requirement requirement, PortPolicy policy) {
         ArgumentNullException.ThrowIfNull(argument: adder);
         ArgumentNullException.ThrowIfNull(argument: policy);
-        return policy.Apply(parameter: AddInput(arg1: adder, arg2: name, arg3: code, arg4: info, arg5: access, arg6: requirement));
+        IParameter parameter = Create(arg1: name, arg2: code, arg3: info, arg4: access);
+        adder.Add(parameter: parameter, requirement: requirement);
+        return policy.Apply(parameter: parameter);
     }
     public Unit Bind(OutputAdder adder, string name, string code, string info, Access access, PortPolicy policy) {
         ArgumentNullException.ThrowIfNull(argument: adder);
         ArgumentNullException.ThrowIfNull(argument: policy);
-        return policy.Apply(parameter: AddOutput(arg1: adder, arg2: name, arg3: code, arg4: info, arg5: access));
+        IParameter parameter = Create(arg1: name, arg2: code, arg3: info, arg4: access);
+        adder.Add(parameter: parameter);
+        return policy.Apply(parameter: parameter);
     }
-    private static PortKind Of<T>(string key, Func<InputAdder, string, string, string, Access, Requirement, object> onInput, Func<OutputAdder, string, string, string, Access, object> onOutput) => new(key: key, type: typeof(T), addInput: onInput, addOutput: onOutput);
+    private static PortKind Of<T, TParameter>(
+        string key,
+        Func<TParameter, TParameter>? configure = null) where TParameter : IParameter =>
+        new(
+            key: key,
+            type: typeof(T),
+            create: (name, code, info, access) => {
+                TParameter parameter = (TParameter)Activator.CreateInstance(type: typeof(TParameter), args: [name, code, info, access])!;
+                Func<TParameter, TParameter> project = configure ?? (static value => value);
+                return project(arg: parameter);
+            });
 }
 public readonly record struct PortValue<TVal>(
     TVal Value,

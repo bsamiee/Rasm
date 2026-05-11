@@ -41,6 +41,20 @@ public sealed class AnalysisSpec {
     }
 
     [Fact]
+    public void ExecutesAggregateQueryAsSequenceEvaluator() {
+        Query<int, int> query = new(
+            key: new Op(name: "SyntheticAggregate"),
+            effect: static input => Fin.Succ(input.Map(static value => value * 2)).ToEff(),
+            aggregate: LanguageExt.Prelude.Some<Func<Seq<int>, Eff<Analyze.Runtime, Seq<int>>>>(
+                static input => input.Fold(initialState: 0, f: static (sum, value) => sum + value) switch {
+                    int sum => Fin.Succ(LanguageExt.Prelude.toSeq([sum])).ToEff(),
+                }));
+
+        Assert.Equal(expected: [2, 4, 6], actual: Run(query: query, input: [1, 2, 3]));
+        Assert.Equal(expected: [6], actual: Run(query: query.Aggregate(), input: [1, 2, 3]));
+    }
+
+    [Fact]
     public void RejectsContextRequiredEmptyInputWithoutScope() {
         Validation<Error, Seq<Point3d>> result = Analyze.Run(
             query: Query.Measure<Curve, Point3d>(aspect: new Measure.Centroid(Mass: MassKind.Length)),
