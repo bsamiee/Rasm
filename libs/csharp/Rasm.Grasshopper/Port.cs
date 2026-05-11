@@ -14,43 +14,33 @@ public interface IPort {
     public Requirement Requirement { get; }
     public PortPolicy Policy { get; }
 }
-[Union]
-public partial record PortPolicy {
-    public sealed record None : PortPolicy; public sealed record VectorCase(bool Unitise, bool Reverse) : PortPolicy; public sealed record AngleCase(int Kind, bool Reduce) : PortPolicy;
-    public sealed record CurveCase(CurveParameter.NormalisationMethod Domains, bool Flip) : PortPolicy; public sealed record SurfaceCase(bool AcceptMeshes, CurveParameter.NormalisationMethod Domains, bool Flip) : PortPolicy; public sealed record IndexCase(IndexModifier Indexing) : PortPolicy;
-    public static PortPolicy Empty => new None();
-    public static PortPolicy Vector(bool unitise = false, bool reverse = false) => new VectorCase(Unitise: unitise, Reverse: reverse);
-    public static PortPolicy Angle(int kind = 0, bool reduce = false) => new AngleCase(Kind: kind, Reduce: reduce);
-    public static PortPolicy Curve(CurveParameter.NormalisationMethod domains = CurveParameter.NormalisationMethod.None, bool flip = false) => new CurveCase(Domains: domains, Flip: flip);
-    public static PortPolicy Surface(bool acceptMeshes = false, CurveParameter.NormalisationMethod domains = CurveParameter.NormalisationMethod.None, bool flip = false) => new SurfaceCase(AcceptMeshes: acceptMeshes, Domains: domains, Flip: flip);
-    public static PortPolicy Index(IndexModifier indexing = IndexModifier.Clip) => new IndexCase(Indexing: indexing);
+public sealed record PortPolicy {
+    private readonly Func<object, Unit> apply;
+    private PortPolicy(Func<object, Unit> apply) => this.apply = apply;
+    public static PortPolicy Empty { get; } = new(apply: static _ => Unit.Default);
+    public static PortPolicy Vector(bool unitise = false, bool reverse = false) => new(apply: parameter => parameter switch {
+        VectorParameter vector => fun((VectorParameter target) => { target.UnitiseVectors = unitise; target.ReverseVectors = reverse; return Unit.Default; })(vector),
+        _ => Unit.Default,
+    });
+    public static PortPolicy Angle(int kind = 0, bool reduce = false) => new(apply: parameter => parameter switch {
+        AngleParameter angle => fun((AngleParameter target) => { target.EnforceKind = kind; target.ReduceAngles = reduce; return Unit.Default; })(angle),
+        _ => Unit.Default,
+    });
+    public static PortPolicy Curve(CurveParameter.NormalisationMethod domains = CurveParameter.NormalisationMethod.None, bool flip = false) => new(apply: parameter => parameter switch {
+        CurveParameter curve => fun((CurveParameter target) => { target.NormaliseDomains = domains; target.FlipCurves = flip; return Unit.Default; })(curve),
+        _ => Unit.Default,
+    });
+    public static PortPolicy Surface(bool acceptMeshes = false, CurveParameter.NormalisationMethod domains = CurveParameter.NormalisationMethod.None, bool flip = false) => new(apply: parameter => parameter switch {
+        SurfaceParameter surface => fun((SurfaceParameter target) => { target.AcceptMeshes = acceptMeshes; target.NormaliseDomains = domains; target.FlipSurfaces = flip; return Unit.Default; })(surface),
+        _ => Unit.Default,
+    });
+    public static PortPolicy Index(IndexModifier indexing = IndexModifier.Clip) => new(apply: parameter => parameter switch {
+        IntegerParameter integer => fun((IntegerParameter target) => { target.IsIndex = true; target.Indexing = indexing; return Unit.Default; })(integer),
+        _ => Unit.Default,
+    });
     public Unit Apply(object parameter) {
         ArgumentNullException.ThrowIfNull(argument: parameter);
-        // BOUNDARY ADAPTER — GH2 parameter policies are mutable SDK configuration.
-        switch (this, parameter) {
-            case (VectorCase policy, VectorParameter vector):
-                vector.UnitiseVectors = policy.Unitise;
-                vector.ReverseVectors = policy.Reverse;
-                break;
-            case (AngleCase policy, AngleParameter angle):
-                angle.EnforceKind = policy.Kind;
-                angle.ReduceAngles = policy.Reduce;
-                break;
-            case (CurveCase policy, CurveParameter curve):
-                curve.NormaliseDomains = policy.Domains;
-                curve.FlipCurves = policy.Flip;
-                break;
-            case (SurfaceCase policy, SurfaceParameter surface):
-                surface.AcceptMeshes = policy.AcceptMeshes;
-                surface.NormaliseDomains = policy.Domains;
-                surface.FlipSurfaces = policy.Flip;
-                break;
-            case (IndexCase policy, IntegerParameter integer):
-                integer.IsIndex = true;
-                integer.Indexing = policy.Indexing;
-                break;
-        }
-        return Unit.Default;
+        return apply(arg: parameter);
     }
 }
 [SmartEnum<string>]

@@ -288,17 +288,14 @@ public static partial class Query {
     private static Query<TGeometry, TOut> FaceQuery<TGeometry, TOut, TValue>(Faces selector, Requirement requirement, bool transfer, Func<Seq<FaceProjection>, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull =>
         Cast<TGeometry, TOut>(key: FacesKey, query: Query<TGeometry, TValue>.Build(
             key: FacesKey, state: (Selector: selector, Transfer: transfer, Project: project), requirement: requirement,
-            evaluator: static (state, geometry) =>
-                from ctx in Analyze.Asks
-                from faces in DecomposeFaces(geometry: geometry).ToEff()
-                from chosen in SelectFaces(faces: faces, selector: state.Selector, runtime: ctx).ToEff()
-                from result in ProjectOwned(all: faces, chosen: chosen, transfer: state.Transfer, project: values => state.Project(arg1: values, arg2: ctx), same: static (left, right) => ReferenceEquals(objA: left.Brep, objB: right.Brep), dispose: static face => face.Dispose()).ToEff()
-                select result));
+            evaluator: static (state, geometry) => ProjectFaces(geometry: geometry, selector: state.Selector, transfer: state.Transfer, project: state.Project)));
     internal static Eff<Analyze.Runtime, Seq<FaceProjection>> FaceProjections(Shape shape, Faces selector) =>
+        ProjectFaces(geometry: shape.Inner, selector: selector, transfer: true, project: static (values, _) => Fin.Succ(values));
+    private static Eff<Analyze.Runtime, Seq<TValue>> ProjectFaces<TGeometry, TValue>(TGeometry geometry, Faces selector, bool transfer, Func<Seq<FaceProjection>, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull =>
         from ctx in Analyze.Asks
-        from faces in DecomposeFaces(geometry: shape.Inner).ToEff()
+        from faces in DecomposeFaces(geometry: geometry).ToEff()
         from chosen in SelectFaces(faces: faces, selector: selector, runtime: ctx).ToEff()
-        from result in ProjectOwned(all: faces, chosen: chosen, transfer: true, project: static values => Fin.Succ(values), same: static (left, right) => ReferenceEquals(objA: left.Brep, objB: right.Brep), dispose: static face => face.Dispose()).ToEff()
+        from result in ProjectOwned(all: faces, chosen: chosen, transfer: transfer, project: values => project(arg1: values, arg2: ctx), same: static (left, right) => ReferenceEquals(objA: left.Brep, objB: right.Brep), dispose: static face => face.Dispose()).ToEff()
         select result;
     public static Query<TGeometry, TOut> Curves<TGeometry, TOut>(Curves aspect) where TGeometry : notnull =>
         Aspect(
@@ -314,21 +311,18 @@ public static partial class Query {
                 _ => null,
             });
     internal static Eff<Analyze.Runtime, Seq<CurveProjection>> CurveProjections(Shape shape, Curves aspect) =>
-        from runtime in Analyze.RuntimeAsks
-        from curves in ExtractCurveProjections(geometry: shape.Inner, aspect: aspect.Selector == CurveSelector.At ? Rasm.Analysis.Curves.All : aspect, runtime: runtime).ToEff()
-        from chosen in SelectCurves(curves: curves, aspect: aspect).ToEff()
-        from result in ProjectOwned(all: curves, chosen: chosen, transfer: true, project: static values => Fin.Succ(values), same: static (left, right) => ReferenceEquals(objA: left.Curve, objB: right.Curve), dispose: static curve => curve.Dispose()).ToEff()
-        select result;
+        ProjectCurves(geometry: shape.Inner, selector: aspect, transfer: true, project: static values => Fin.Succ(values));
     private static Query<TGeometry, TOut> CurveQuery<TGeometry, TOut, TValue>(Curves selector, Func<Seq<CurveProjection>, Fin<Seq<TValue>>> project, bool transfer = false) where TGeometry : notnull =>
         Cast<TGeometry, TOut>(key: CurvesKey, query: Query<TGeometry, TValue>.Build(
             key: CurvesKey,
             state: (Selector: selector, Transfer: transfer, Project: project),
-            evaluator: static (state, geometry) =>
-                from runtime in Analyze.RuntimeAsks
-                from curves in ExtractCurveProjections(geometry: geometry, aspect: state.Selector.Selector == CurveSelector.At ? Rasm.Analysis.Curves.All : state.Selector, runtime: runtime).ToEff()
-                from chosen in SelectCurves(curves: curves, aspect: state.Selector).ToEff()
-                from result in ProjectOwned(all: curves, chosen: chosen, transfer: state.Transfer, project: state.Project, same: static (left, right) => ReferenceEquals(objA: left.Curve, objB: right.Curve), dispose: static curve => curve.Dispose()).ToEff()
-                select result));
+            evaluator: static (state, geometry) => ProjectCurves(geometry: geometry, selector: state.Selector, transfer: state.Transfer, project: state.Project)));
+    private static Eff<Analyze.Runtime, Seq<TValue>> ProjectCurves<TGeometry, TValue>(TGeometry geometry, Curves selector, bool transfer, Func<Seq<CurveProjection>, Fin<Seq<TValue>>> project) where TGeometry : notnull =>
+        from runtime in Analyze.RuntimeAsks
+        from curves in ExtractCurveProjections(geometry: geometry, aspect: selector.Selector == CurveSelector.At ? Rasm.Analysis.Curves.All : selector, runtime: runtime).ToEff()
+        from chosen in SelectCurves(curves: curves, aspect: selector).ToEff()
+        from result in ProjectOwned(all: curves, chosen: chosen, transfer: transfer, project: project, same: static (left, right) => ReferenceEquals(objA: left.Curve, objB: right.Curve), dispose: static curve => curve.Dispose()).ToEff()
+        select result;
     private static Fin<Seq<CurveProjection>> ExtractCurveProjections<TGeometry>(TGeometry geometry, Curves aspect, Analyze.Runtime runtime) where TGeometry : notnull =>
         (aspect.Selector, geometry) switch {
             (CurveSelector selector, _) when EdgeCurveCase(selector: selector) is { } || selector == CurveSelector.SubCurves => CurvesOf(geometry: geometry, selector: selector),

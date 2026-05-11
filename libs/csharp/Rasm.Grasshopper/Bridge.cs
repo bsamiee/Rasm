@@ -28,33 +28,29 @@ public static class Bridge {
         bool changed = access.HasInputChanged(index: slot);
         return port.Access switch {
             Access.Item => access.GetPear<TVal>(index: slot, pear: out Pear<TVal> pear) switch {
-                true => Fin.Succ(new PortData<TVal>(
-                    Access: Access.Item,
-                    Values: Seq(new PortValue<TVal>(Value: pear.Item, Meta: pear.Meta, IsNull: pear.Item is null, Index: Some(0), Coverage: coverage)),
-                    Twig: Option<Twig<TVal>>.None,
-                    Tree: Option<Tree<TVal>>.None,
-                    Coverage: coverage,
-                    Changed: changed)),
+                true => Fin.Succ(Data(
+                    access: Access.Item,
+                    values: Seq(new PortValue<TVal>(Value: pear.Item, Meta: pear.Meta, IsNull: pear.Item is null, Index: Some(0), Coverage: coverage)),
+                    coverage: coverage,
+                    changed: changed)),
                 _ => Missing<TVal>(port: port),
             },
             Access.Twig => access.GetPears<TVal>(index: slot, pears: out Pear<TVal>[] pears) switch {
-                true when pears.Length > 0 => Fin.Succ(new PortData<TVal>(
-                    Access: Access.Twig,
-                    Values: Values(pears: pears, coverage: coverage),
-                    Twig: access.GetTwig<TVal>(index: slot, twig: out Twig<TVal> twig) ? Some(twig) : Option<Twig<TVal>>.None,
-                    Tree: Option<Tree<TVal>>.None,
-                    Coverage: coverage,
-                    Changed: changed)),
+                true when pears.Length > 0 => Fin.Succ(Data(
+                    access: Access.Twig,
+                    values: Values(pears: pears, coverage: coverage),
+                    coverage: coverage,
+                    changed: changed,
+                    twig: access.GetTwig<TVal>(index: slot, twig: out Twig<TVal> twig) ? Some(twig) : Option<Twig<TVal>>.None)),
                 _ => Missing<TVal>(port: port),
             },
             Access.Tree => access.GetTree<TVal>(index: slot, tree: out Tree<TVal> tree) switch {
-                true => Fin.Succ(new PortData<TVal>(
-                    Access: Access.Tree,
-                    Values: Values(pears: tree.AllPears, coverage: coverage),
-                    Twig: Option<Twig<TVal>>.None,
-                    Tree: Some(tree),
-                    Coverage: coverage,
-                    Changed: changed)),
+                true => Fin.Succ(Data(
+                    access: Access.Tree,
+                    values: Values(pears: tree.AllPears, coverage: coverage),
+                    coverage: coverage,
+                    changed: changed,
+                    tree: Some(tree))),
                 _ => Missing<TVal>(port: port),
             },
             _ => Fin.Fail<PortData<TVal>>(Error.New(message: $"Unsupported input access: {port.Access}.")),
@@ -109,15 +105,11 @@ public static class Bridge {
     }
     private static Fin<PortData<TVal>> Missing<TVal>(IPort port) =>
         port.Requirement switch {
-            Grasshopper2.Parameters.Requirement.MayBeMissing => Fin.Succ(new PortData<TVal>(
-                Access: port.Access,
-                Values: Seq<PortValue<TVal>>(),
-                Twig: Option<Twig<TVal>>.None,
-                Tree: Option<Tree<TVal>>.None,
-                Coverage: Coverage.CreateFromAccess(access: port.Access),
-                Changed: false)),
+            Grasshopper2.Parameters.Requirement.MayBeMissing => Fin.Succ(Data(access: port.Access, values: Seq<PortValue<TVal>>(), coverage: Coverage.CreateFromAccess(access: port.Access), changed: false)),
             _ => Fin.Fail<PortData<TVal>>(Error.New(message: $"{port.Name} input is required.")),
         };
+    private static PortData<TVal> Data<TVal>(Access access, Seq<PortValue<TVal>> values, Coverage coverage, bool changed, Option<Twig<TVal>> twig = default, Option<Tree<TVal>> tree = default) =>
+        new(Access: access, Values: values, Twig: twig, Tree: tree, Coverage: coverage, Changed: changed);
     private static Seq<PortValue<TVal>> Values<TVal>(IEnumerable<Pear<TVal>?> pears, Coverage coverage) =>
         toSeq(pears.Select((pear, index) => new PortValue<TVal>(
             Value: pear is null ? default! : pear.Item,

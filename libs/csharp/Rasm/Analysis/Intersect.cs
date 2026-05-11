@@ -201,7 +201,7 @@ public static partial class Query {
                                             WithinTolerance: maxDist <= runtime.Context.Absolute.Value))
                                     .As()
                                     .Bind(static deviation => (deviation.MinimumDistance >= 0.0, deviation.MaximumDistance >= deviation.MinimumDistance) switch {
-                                        (true, true) => DeviationKey.Retype<CurveDeviation, TOut>(values: Seq(deviation)),
+                                        (true, true) => DeviationKey.Results<CurveDeviation, TOut>(values: Seq(deviation)),
                                         _ => Fin.Fail<Seq<TOut>>(DeviationKey.InvalidResult()),
                                     }),
                                     false => Fin.Fail<Seq<TOut>>(DeviationKey.InvalidResult()),

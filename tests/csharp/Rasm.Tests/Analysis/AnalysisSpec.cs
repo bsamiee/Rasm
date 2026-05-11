@@ -460,6 +460,17 @@ public sealed class AnalysisSpec {
     }
 
     [Fact]
+    public void RejectsUnsupportedAggregateBeforeContextResolution() {
+        Validation<Error, Seq<Point3d>> result = Analyze.Run(
+            query: Query.BoundingCorners<object, Point3d>().Aggregate(),
+            input: [Point3d.Origin]);
+
+        Assert.True(condition: result.ToFin().Match(
+            Succ: static _ => false,
+            Fail: static error => error.Count == 1 && error.Message.Contains(value: "UniqueCorners", comparisonType: StringComparison.Ordinal)));
+    }
+
+    [Fact]
     public void RejectsNoneMassKindOnceBeforeInputExecution() {
         Validation<Error, Seq<double>> result = Analyze.In(context: ValidContext()).Run(
             query: Query.Measure<Curve, double>(aspect: new Measure.MassError(Mass: MassKind.None)),

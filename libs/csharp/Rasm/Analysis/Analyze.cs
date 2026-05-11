@@ -41,19 +41,22 @@ public static class Analyze {
         Query<TGeometry, TOut>? query,
         Option<Fin<Context>> scope,
         ReadOnlySpan<TGeometry> input) where TGeometry : notnull {
-        Fin<(Query<TGeometry, TOut> Query, Context Context)> ready = Optional(query)
+        TGeometry[] inputValues = input.ToArray();
+        return Optional(query)
             .ToFin(OpFault.MissingOperation())
-            .Bind(resolved => resolved.PreflightFault.Match(
-                Some: fault => Fin.Fail<(Query<TGeometry, TOut> Query, Context Context)>(fault),
-                None: () => ResolveContext(query: resolved, scope: scope).Map(context => (Query: resolved, Context: context))));
-        TGeometry[] materialized = ready.IsSucc switch {
-            true => input.ToArray(),
-            false => [],
-        };
-        return ready
-            .Match(
-                Succ: state => Execute(query: state.Query, runtime: new Runtime(Context: state.Context, Cancellation: CancellationToken.None, Progress: null), input: materialized),
-                Fail: error => Fin.Fail<Seq<TOut>>(error).ToValidation());
+            .ToValidation()
+            .Bind(active => active.Rejection.Match(
+                Some: error => Fin.Fail<Seq<TOut>>(error).ToValidation(),
+                None: () => {
+                    Fin<(Query<TGeometry, TOut> Query, Context Context)> ready = ResolveContext(query: active, scope: scope).Map(context => (Query: active, Context: context));
+                    TGeometry[] materialized = ready.IsSucc switch {
+                        true => inputValues,
+                        false => [],
+                    };
+                    return ready.Match(
+                        Succ: state => Execute(query: state.Query, runtime: new Runtime(Context: state.Context, Cancellation: CancellationToken.None, Progress: null), input: materialized),
+                        Fail: error => Fin.Fail<Seq<TOut>>(error).ToValidation());
+                }));
     }
     private static Fin<Context> ResolveContext<TGeometry, TOut>(
         Query<TGeometry, TOut> query,
