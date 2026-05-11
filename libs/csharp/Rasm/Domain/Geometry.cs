@@ -1,12 +1,4 @@
-using System.Runtime.InteropServices;
-using LanguageExt.Common;
-using Rhino;
-using Rhino.Geometry;
-using Rhino.Geometry.Intersect;
-using static LanguageExt.Prelude;
 namespace Rasm.Domain;
-
-// --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct Shape {
     private Shape(object inner) => Inner = inner;
@@ -22,22 +14,18 @@ public readonly record struct Shape {
                 .RequireValid(value: raw)
                 .Map(static valid => new Shape(inner: valid)));
 }
-
 public enum GeometryKind { Unknown = 0, Curve = 1, Polyline = 2, Mesh = 3, SubD = 4, Surface = 5, BrepGeneral = 10, BrepBox = 11, BrepSphere = 12, BrepCylinder = 13, BrepCone = 14, BrepTorus = 15, BrepPlane = 16, Line = 20, Sphere = 21, Box = 22, BoundingBox = 23, Cylinder = 24, Cone = 25, Torus = 26, Plane = 27 }
 public enum CurveFeature { Input, Segment, Edge, Boundary, NakedOuter, NakedInner, Interior, NonManifold, OuterLoop, InnerLoop, IsoU, IsoV, Silhouette, SubCurve, Draft }
-
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct FaceProjection {
     private FaceProjection(Brep brep, int faceIndex, bool reversed) { Brep = brep; FaceIndex = faceIndex; Reversed = reversed; }
     internal Brep Brep { get; }
     internal int FaceIndex { get; }
     internal bool Reversed { get; }
-    internal static FaceProjection From(BrepFace face) =>
-        new(brep: face.DuplicateFace(duplicateMeshes: false), faceIndex: face.FaceIndex, reversed: face.OrientationIsReversed);
+    internal static FaceProjection From(BrepFace face) => new(brep: face.DuplicateFace(duplicateMeshes: false), faceIndex: face.FaceIndex, reversed: face.OrientationIsReversed);
     internal Unit Dispose() =>
         fun(static (Brep brep) => { brep.Dispose(); return Unit.Default; })(Brep);
 }
-
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct CurveProjection {
     internal CurveProjection(Curve curve, CurveFeature feature, ComponentIndexType type, int index) : this(curve: curve, feature: feature, source: new ComponentIndex(type: type, index: index)) { }
@@ -48,9 +36,6 @@ internal readonly record struct CurveProjection {
     internal Unit Dispose() =>
         fun(static (Curve curve) => { curve.Dispose(); return Unit.Default; })(Curve);
 }
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
 internal static class Validity {
     internal static Fin<TValue> RequireValid<TValue>(this Op key, TValue value) =>
         value switch {
@@ -86,10 +71,8 @@ internal static class Validity {
             bool or int or Enum => Fin.Succ(value),
             _ => Fin.Fail<TValue>(key.InvalidResult()),
         };
-    private static Fin<TValue> Require<TValue>(this Op key, bool condition, TValue value) =>
-        condition ? Fin.Succ(value) : Fin.Fail<TValue>(key.InvalidResult());
+    private static Fin<TValue> Require<TValue>(this Op key, bool condition, TValue value) => condition ? Fin.Succ(value) : Fin.Fail<TValue>(key.InvalidResult());
 }
-
 internal static class GeometryKinds {
     internal static GeometryKind Kind(object geometry, Context context) =>
         geometry switch {
@@ -121,7 +104,6 @@ internal static class GeometryKinds {
             _ => brep ? GeometryKind.BrepGeneral : GeometryKind.Surface,
         };
 }
-
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct Stats {
     private Stats(int count, double minimum, double maximum, double mean, double variance, double rms) {
@@ -162,7 +144,6 @@ internal readonly record struct Stats {
                     rms: Math.Sqrt(d: sumSquares / count))),
             };
 }
-
 internal static class FoldExtensions {
     internal static Seq<TItem> Maxima<TItem>(
         this Seq<TItem> items,

@@ -1,21 +1,11 @@
 using System.Reflection;
-using Grasshopper2.Components;
-using Grasshopper2.UI;
-using GrasshopperIO;
-using Rasm.Analysis;
-using Rasm.Domain;
-using Rhino.Geometry;
-namespace Rasm.Grasshopper;
 
-// --- [TYPES] ---------------------------------------------------------------------------
+namespace Rasm.Grasshopper;
 
 public interface IComponentSpec {
     public static abstract Seq<IPort> Inputs { get; }
     public static abstract Seq<IOutputGroup> Outputs { get; }
 }
-
-// --- [MODELS] --------------------------------------------------------------------------
-
 public readonly record struct GrasshopperRuntime(Analyze.Scope Scope, Hints Hints) {
     public static Fin<GrasshopperRuntime> Capture(IDataAccess access, Seq<IPort> inputs) {
         ArgumentNullException.ThrowIfNull(argument: access);
@@ -28,20 +18,15 @@ public readonly record struct GrasshopperRuntime(Analyze.Scope Scope, Hints Hint
             .Bind(slot => access.ReadShape(slot: slot, port: port));
     }
 }
-
 public static class ComponentNomen {
     public static Nomen Of<TSelf>() =>
         typeof(TSelf).GetCustomAttribute<NomenAttribute>()?.Nomen
             ?? new Nomen(name: typeof(TSelf).Name, info: string.Empty);
 }
-
-// --- [SERVICES] ------------------------------------------------------------------------
-
 public abstract class Component<TSpec> : Grasshopper2.Components.Component
     where TSpec : IComponentSpec {
     protected Component(Nomen nomen) : base(nomen: nomen) { }
     protected Component(IReader reader) : base(reader: reader) { }
-
     protected sealed override void AddInputs(InputAdder inputs) {
         ArgumentNullException.ThrowIfNull(argument: inputs);
         _ = TSpec.Inputs.Iter(port => port.Kind.Bind(adder: inputs, name: port.Name, code: port.Code, info: port.Info, access: port.Access, requirement: port.Requirement, policy: port.Policy));

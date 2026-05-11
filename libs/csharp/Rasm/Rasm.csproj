@@ -6,4 +6,15 @@
         <Description>RhinoCommon-aware geometry foundation and analysis algebra.</Description>
     </PropertyGroup>
 
+    <ItemGroup>
+        <Using Include="Rasm.Domain" />
+        <Using Include="Rhino" />
+        <Using Include="Rhino.FileIO" />
+        <Using Include="Rhino.Geometry" />
+        <Using Include="Rhino.Geometry.Intersect" />
+        <Using Include="System.Globalization" />
+        <Using Include="System.Runtime.InteropServices" />
+        <Using Include="Thinktecture" />
+    </ItemGroup>
+
 </Project>

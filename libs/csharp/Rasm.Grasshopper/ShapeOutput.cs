@@ -1,8 +1,3 @@
-using Grasshopper2.Components;
-using LanguageExt;
-using Rasm.Analysis;
-using Rasm.Domain;
-using Rhino.Geometry;
 namespace Rasm.Grasshopper;
 
 public static class ShapeOutput {
@@ -15,8 +10,7 @@ public static class ShapeOutput {
                 select values,
             emptyUnsupported: emptyUnsupported,
             slots: [Output.Slot(port: port)]);
-    private static IOutputSlot<TSource> Plain<TSource, TOut>(Port<TOut> port, Func<TSource, TOut> project) =>
-        Output.Slot<TSource, TOut>(port: port, project: (_, values) => Fin.Succ(values.Map(value => OutputValue.Plain(value: project(arg: value)))));
+    private static IOutputSlot<TSource> Plain<TSource, TOut>(Port<TOut> port, Func<TSource, TOut> project) => Output.Slot<TSource, TOut>(port: port, project: (_, values) => Fin.Succ(values.Map(value => OutputValue.Plain(value: project(arg: value)))));
     private static IOutputSlot<FaceProjection> FaceValue<TOut>(Port<TOut> port, Func<FaceProjection, Context, Fin<TOut>> project) =>
         Output.Slot<FaceProjection, TOut>(port: port, project: (runtime, values) =>
             runtime.Scope.Context

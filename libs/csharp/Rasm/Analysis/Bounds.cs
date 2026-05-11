@@ -1,16 +1,7 @@
-using LanguageExt;
-using LanguageExt.Common;
-using Rasm.Domain;
-using Rhino;
-using Rhino.Geometry;
-using static LanguageExt.Prelude;
 namespace Rasm.Analysis;
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
 public static partial class Query {
-    public static Query<BoundingBox, Point3d> UniqueCorners() =>
-        BoundingCorners<BoundingBox, Point3d>();
+    public static Query<BoundingBox, Point3d> UniqueCorners() => BoundingCorners<BoundingBox, Point3d>();
     public static Query<TGeometry, TOut> BoundingCorners<TGeometry, TOut>() where TGeometry : notnull =>
         typeof(TOut) switch {
             Type output when output == typeof(Point3d) => Cast<TGeometry, TOut>(key: UniqueCornersKey, query: Query<TGeometry, Point3d>.Build(
@@ -103,8 +94,7 @@ public static partial class Query {
             MassKind.Volume => MassCast<TGeometry, TOut, VolumeMassProperties, TValue>(name: $"Volume{suffix}", requirement: Requirement.VolumeMass, compute: ComputeVolume, project: volume, secondMoments: volumeSecond, productMoments: product),
             _ => Query<TGeometry, TOut>.Reject(key: MeasureKey, fault: MeasureKey.InvalidInput()),
         };
-    private static Query<TGeometry, TOut> MassCast<TGeometry, TOut, TMass, TValue>(string name, Requirement requirement, Func<object, bool, bool, Eff<Analyze.Runtime, TMass>> compute, Func<Op, TMass, Fin<Seq<TValue>>> project, bool secondMoments = false, bool productMoments = false) where TGeometry : notnull where TMass : class, IDisposable =>
-        Cast<TGeometry, TOut>(key: new Op(name: name), query: Mass<TGeometry, TMass, TValue>(name: name, requirement: requirement, compute: compute, project: project, secondMoments: secondMoments, productMoments: productMoments));
+    private static Query<TGeometry, TOut> MassCast<TGeometry, TOut, TMass, TValue>(string name, Requirement requirement, Func<object, bool, bool, Eff<Analyze.Runtime, TMass>> compute, Func<Op, TMass, Fin<Seq<TValue>>> project, bool secondMoments = false, bool productMoments = false) where TGeometry : notnull where TMass : class, IDisposable => Cast<TGeometry, TOut>(key: new Op(name: name), query: Mass<TGeometry, TMass, TValue>(name: name, requirement: requirement, compute: compute, project: project, secondMoments: secondMoments, productMoments: productMoments));
     public static Query<TGeometry, TOut> SpatialMidpoint<TGeometry, TOut>() where TGeometry : notnull =>
         (typeof(TGeometry), typeof(TOut)) switch {
             (Type geometry, Type output) when output == typeof(Point3d)
@@ -293,8 +283,7 @@ public static partial class Query {
             Distance: distance(arg1: primitive, arg2: point),
             Tolerance: context.Absolute.Value,
             WithinTolerance: distance(arg1: primitive, arg2: point) <= context.Absolute.Value))));
-    private static Fin<Seq<double>> ResidualDistance(Seq<ResidualSample> samples, Context _) =>
-        ResidualDistances(samples: samples).Bind(static residuals => Many(key: ConformanceKey, values: residuals));
+    private static Fin<Seq<double>> ResidualDistance(Seq<ResidualSample> samples, Context _) => ResidualDistances(samples: samples).Bind(static residuals => Many(key: ConformanceKey, values: residuals));
     private static Fin<Seq<double>> ResidualRms(Seq<ResidualSample> samples, Context _) =>
         ResidualDistances(samples: samples)
             .Bind(static residuals => Stats.From(values: residuals, key: ConformanceKey))
@@ -365,10 +354,8 @@ public static partial class Query {
                             .ToEff())),
             _ => BoundsKey.Unsupported<TGeometry, TOut>(),
         };
-    private static Fin<BoundingBox> ExtractBounds<TGeometry>(TGeometry geometry) where TGeometry : notnull =>
-        BoundingBoxOf(geom: geometry, key: BoundsKey, outputType: typeof(BoundingBox));
-    private static bool SupportsBounds(Type geometry, bool includeSphere) =>
-        typeof(GeometryBase).IsAssignableFrom(c: geometry) || geometry == typeof(object) || geometry == typeof(Point3d) || geometry == typeof(Line) || geometry == typeof(Polyline) || geometry == typeof(BoundingBox) || geometry == typeof(Box) || geometry == typeof(Circle) || geometry == typeof(Arc) || geometry == typeof(Cylinder) || geometry == typeof(Cone) || geometry == typeof(Torus) || (includeSphere && geometry == typeof(Sphere));
+    private static Fin<BoundingBox> ExtractBounds<TGeometry>(TGeometry geometry) where TGeometry : notnull => BoundingBoxOf(geom: geometry, key: BoundsKey, outputType: typeof(BoundingBox));
+    private static bool SupportsBounds(Type geometry, bool includeSphere) => typeof(GeometryBase).IsAssignableFrom(c: geometry) || geometry == typeof(object) || geometry == typeof(Point3d) || geometry == typeof(Line) || geometry == typeof(Polyline) || geometry == typeof(BoundingBox) || geometry == typeof(Box) || geometry == typeof(Circle) || geometry == typeof(Arc) || geometry == typeof(Cylinder) || geometry == typeof(Cone) || geometry == typeof(Torus) || (includeSphere && geometry == typeof(Sphere));
     private static Query<TGeometry, TOut> Oriented<TGeometry, TOut>(Plane plane) where TGeometry : notnull =>
         (typeof(TGeometry), typeof(TOut)) switch {
             (Type geometry, Type output) when typeof(GeometryBase).IsAssignableFrom(c: geometry) && output == typeof(Box) =>

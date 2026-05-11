@@ -1,26 +1,15 @@
-using Grasshopper2.Components;
-using Grasshopper2.Data;
-using Grasshopper2.Data.Meta;
-using Grasshopper2.Parameters;
-using Rasm.Domain;
 namespace Rasm.Grasshopper;
-
-// --- [TYPES] ---------------------------------------------------------------------------
 
 public interface IOutputGroup {
     public Seq<IPort> Ports { get; }
     public Unit Run(IDataAccess access, int slot, GrasshopperRuntime runtime);
     public Unit Empty(IDataAccess access, int slot);
 }
-
 public interface IOutputSlot<TSource> {
     public IPort Port { get; }
     public Unit Write(IDataAccess access, int slot, GrasshopperRuntime runtime, Seq<TSource> source);
     public Unit Empty(IDataAccess access, int slot);
 }
-
-// --- [MODELS] --------------------------------------------------------------------------
-
 public readonly record struct Hints(
     Seq<(IPort Port, int Slot, Coverage Coverage, bool Changed)> Inputs,
     Seq<(int Slot, IPear Pear)> Pears) {
@@ -41,8 +30,7 @@ public readonly record struct Hints(
         };
         return new(Inputs: captured, Pears: pears);
     }
-    public Option<int> Slot(IPort port) =>
-        Inputs.Find(predicate: input => input.Port.Equals(port)).Map(static input => input.Slot);
+    public Option<int> Slot(IPort port) => Inputs.Find(predicate: input => input.Port.Equals(port)).Map(static input => input.Slot);
     public Option<int> Index(IDataAccess access, Port<int> port, int limit) {
         ArgumentNullException.ThrowIfNull(argument: access);
         return Inputs.Find(predicate: input => input.Port.Equals(port)).Bind(input => access.Index(slot: input.Slot, limit: limit));
@@ -55,26 +43,18 @@ public readonly record struct Hints(
         ArgumentNullException.ThrowIfNull(argument: access);
         return Inputs.Find(predicate: input => input.Port.Equals(port)).Bind(input => Bridge.Read<TVal>(access: access, slot: input.Slot, port: port).ToOption());
     }
-    public bool HasChanged(IPort port) =>
-        Inputs.Find(predicate: input => input.Port.Equals(port)).Map(static input => input.Changed).IfNone(static () => false);
+    public bool HasChanged(IPort port) => Inputs.Find(predicate: input => input.Port.Equals(port)).Map(static input => input.Changed).IfNone(static () => false);
 }
-
 public readonly record struct OutputValue<TValue>(TValue Value, MetaData? Meta, bool IsNull);
-
 public static class OutputValue {
-    public static OutputValue<TValue> Plain<TValue>(TValue value) =>
-        new(Value: value, Meta: null, IsNull: false);
-    public static OutputValue<TValue> WithMeta<TValue>(TValue value, MetaData meta) =>
-        new(Value: value, Meta: meta, IsNull: false);
-    public static OutputValue<TValue> Null<TValue>() =>
-        new(Value: default!, Meta: null, IsNull: true);
+    public static OutputValue<TValue> Plain<TValue>(TValue value) => new(Value: value, Meta: null, IsNull: false);
+    public static OutputValue<TValue> WithMeta<TValue>(TValue value, MetaData meta) => new(Value: value, Meta: meta, IsNull: false);
+    public static OutputValue<TValue> Null<TValue>() => new(Value: default!, Meta: null, IsNull: true);
 }
-
 public sealed record OutputSlot<TSource, TOut>(
     Port<TOut> Port,
     Func<GrasshopperRuntime, Seq<TSource>, Fin<Seq<OutputValue<TOut>>>> Project) : IOutputSlot<TSource> {
     IPort IOutputSlot<TSource>.Port => Port;
-
     public Unit Write(IDataAccess access, int slot, GrasshopperRuntime runtime, Seq<TSource> source) {
         ArgumentNullException.ThrowIfNull(argument: access);
         return Project(arg1: runtime, arg2: source).Match(
@@ -89,14 +69,11 @@ public sealed record OutputSlot<TSource, TOut>(
         return Bridge.Write(access: access, slot: slot, name: Port.Name, targetAccess: Port.Access, values: System.Array.Empty<OutputValue<TOut>>());
     }
 }
-
 public sealed record PreparedGroup<TSource>(
     Seq<IOutputSlot<TSource>> Slots,
     Func<IDataAccess, GrasshopperRuntime, Fin<Seq<TSource>>> Source,
     bool EmptyUnsupported) : IOutputGroup {
-    public Seq<IPort> Ports =>
-        Slots.Map(static slot => slot.Port);
-
+    public Seq<IPort> Ports => Slots.Map(static slot => slot.Port);
     public Unit Run(IDataAccess access, int slot, GrasshopperRuntime runtime) {
         ArgumentNullException.ThrowIfNull(argument: access);
         return Source(arg1: access, arg2: runtime).Match(
@@ -117,17 +94,12 @@ public sealed record PreparedGroup<TSource>(
         ArgumentNullException.ThrowIfNull(argument: access);
         return Slots.Iter((offset, output) => output.Empty(access: access, slot: slot + offset));
     }
-    private static bool Unsupported(Error error) =>
-        error.Code == OpFault.UnsupportedCode;
+    private static bool Unsupported(Error error) => error.Code == OpFault.UnsupportedCode;
 }
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
 public static class Output {
     public static IOutputSlot<TSource> Slot<TSource, TOut>(
         Port<TOut> port,
-        Func<GrasshopperRuntime, Seq<TSource>, Fin<Seq<OutputValue<TOut>>>> project) =>
-        new OutputSlot<TSource, TOut>(Port: port, Project: project);
+        Func<GrasshopperRuntime, Seq<TSource>, Fin<Seq<OutputValue<TOut>>>> project) => new OutputSlot<TSource, TOut>(Port: port, Project: project);
     public static IOutputSlot<TOut> Slot<TOut>(Port<TOut> port) =>
         Slot<TOut, TOut>(
             port: port,
@@ -135,8 +107,7 @@ public static class Output {
     public static IOutputGroup Prepared<TSource>(
         Func<IDataAccess, GrasshopperRuntime, Fin<Seq<TSource>>> source,
         bool emptyUnsupported = false,
-        params IOutputSlot<TSource>[] slots) =>
-        new PreparedGroup<TSource>(Slots: toSeq(slots), Source: source, EmptyUnsupported: emptyUnsupported);
+        params IOutputSlot<TSource>[] slots) => new PreparedGroup<TSource>(Slots: toSeq(slots), Source: source, EmptyUnsupported: emptyUnsupported);
     public static Unit Write(IDataAccess access, GrasshopperRuntime runtime, Seq<IOutputGroup> groups) =>
         groups.Fold(
             initialState: 0,

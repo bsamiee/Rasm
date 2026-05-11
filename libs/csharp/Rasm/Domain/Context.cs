@@ -1,12 +1,6 @@
-using System.Globalization;
-using System.Runtime.InteropServices;
 using Foundation.CSharp.Analyzers.Contracts;
-using Rhino;
-using Rhino.Geometry;
-using Rhino.Geometry.Intersect;
-namespace Rasm.Domain;
 
-// --- [MODELS] --------------------------------------------------------------------------
+namespace Rasm.Domain;
 
 public sealed record Context {
     private Context(
@@ -23,10 +17,8 @@ public sealed record Context {
     internal Tolerance Relative { get; }
     internal Tolerance Angle { get; }
     internal ModelUnitSystem ModelUnits { get; }
-    internal double MeshIntersectionTolerance =>
-        Absolute.Value * Intersection.MeshIntersectionsTolerancesCoefficient;
-    public UnitSystem Units =>
-        ModelUnits.Units;
+    internal double MeshIntersectionTolerance => Absolute.Value * Intersection.MeshIntersectionsTolerancesCoefficient;
+    public UnitSystem Units => ModelUnits.Units;
     internal static Validation<Error, Context> Create(
         double absoluteTolerance,
         double relativeTolerance,
@@ -104,8 +96,7 @@ public sealed record Context {
         TA a,
         TB b,
         Requirement requirementA,
-        Requirement requirementB) where TA : notnull where TB : notnull =>
-        Check.ValidatePair(context: this, a: a, b: b, requirementA: requirementA, requirementB: requirementB);
+        Requirement requirementB) where TA : notnull where TB : notnull => Check.ValidatePair(context: this, a: a, b: b, requirementA: requirementA, requirementB: requirementB);
     internal static Validation<Error, Context> FromKnownUnits(
         double absoluteTolerance,
         double relativeTolerance,
@@ -170,9 +161,6 @@ public sealed record Context {
             };
     }
 }
-
-// --- [ERRORS] --------------------------------------------------------------------------
-
 internal static class ContextFault {
     internal static Error NonFinite(string label, double scalar) =>
         Error.New(message: string.Create(
@@ -184,8 +172,6 @@ internal static class ContextFault {
             $"Geometry value '{label}' must be {requirement}; actual={scalar:R}."));
     internal static Error InvalidUnitSystem(UnitSystem units, string requirement) =>
         Error.New(message: $"Model unit system must be {requirement}; actual={units}.");
-    internal static Error MissingDocument() =>
-        Error.New(message: "Rhino document context is required.");
-    internal static Error MissingCustomUnitScale() =>
-        Error.New(message: "Rhino document custom model unit scale is required.");
+    internal static Error MissingDocument() => Error.New(message: "Rhino document context is required.");
+    internal static Error MissingCustomUnitScale() => Error.New(message: "Rhino document custom model unit scale is required.");
 }

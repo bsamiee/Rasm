@@ -1,31 +1,21 @@
 using System.Collections.Generic;
-using LanguageExt.Common;
-using static LanguageExt.Prelude;
+
 namespace Rasm.Domain;
 
-// --- [MODELS] --------------------------------------------------------------------------
-
 internal readonly record struct Op {
-    internal Op(string name) =>
-        Name = name;
+    internal Op(string name) => Name = name;
     internal string Name { get; }
 }
-
-// --- [ERRORS] --------------------------------------------------------------------------
-
 internal static class OpFault {
     internal const int UnsupportedCode = 9104;
-
-    internal static Error MissingOperation() =>
-        Error.New(message: "Geometry operation requires a query.");
+    internal static Error MissingOperation() => Error.New(message: "Geometry operation requires a query.");
     internal static Error MissingContext(this Op key) =>
         Error.New(message: $"Geometry operation '{key.Name}' requires a model context.");
     internal static Error InvalidInput(this Op key) =>
         Error.New(message: $"Geometry operation '{key.Name}' received invalid Rhino input.");
     internal static Error InvalidResult(this Op key) =>
         Error.New(message: $"Geometry operation '{key.Name}' produced no valid Rhino result.");
-    internal static Error Cancelled() =>
-        Error.New(message: "Geometry operation was cancelled.");
+    internal static Error Cancelled() => Error.New(message: "Geometry operation was cancelled.");
     internal static Error Unsupported(this Op key, Type geometryType, Type outputType) =>
         Error.New(code: UnsupportedCode, message: $"Geometry operation '{key.Name}' does not support geometry '{geometryType.Name}' with output '{outputType.Name}'.");
     internal static Error ComputationFailed(string label) =>

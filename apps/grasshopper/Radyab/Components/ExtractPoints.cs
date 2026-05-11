@@ -1,17 +1,4 @@
-using Grasshopper2.Components;
-using Grasshopper2.UI;
-using GrasshopperIO;
-using LanguageExt;
-using Rasm.Analysis;
-using Rasm.Domain;
-using Rasm.Grasshopper;
-using Rhino.Geometry;
-using static LanguageExt.Prelude;
-using Query = Rasm.Analysis.Query;
-
 namespace Radyab.Components;
-
-// --- [EXPORTS] -------------------------------------------------------------------------
 
 [IoId("0C58A2D3-4709-4D74-85B1-48BC85FA1F69")]
 [Nomen(
@@ -22,9 +9,7 @@ namespace Radyab.Components;
 public sealed class ExtractPoints : Component<ExtractPoints.Spec> {
     public sealed class Spec : IComponentSpec {
         private static readonly Port<Shape> Geometry = Port.Required<Shape>(kind: PortKind.Generic, name: "Geometry", code: "G", info: "Geometry to analyse.");
-
-        public static Seq<IPort> Inputs =>
-            Seq<IPort>(Geometry);
+        public static Seq<IPort> Inputs => Seq<IPort>(Geometry);
         public static Seq<IOutputGroup> Outputs { get; } = Seq<IOutputGroup>(
             ShapeOutput.Query(input: Geometry, port: Port.List<Point3d>(name: "Edge Midpoints", code: "EM", info: "Length midpoints of curves and edges; per-segment for polylines and box-like geometry."), operation: static (_, _) => Query.EdgeMidpoints<object, Point3d>()),
             ShapeOutput.Query(input: Geometry, port: Port.List<Point3d>(name: "Spatial Center", code: "SC", info: "Mass-weighted center where native mass exists; bbox center for bounded primitives and point clouds."), operation: static (_, _) => Query.SpatialMidpoint<object, Point3d>()),
@@ -35,7 +20,6 @@ public sealed class ExtractPoints : Component<ExtractPoints.Spec> {
             ShapeOutput.Query(input: Geometry, port: Port.List<Point3d>(name: "Quadrants", code: "Q", info: "World-cardinal extrema (top/bottom/left/right + Z) of a curve. Curve-only output."), operation: static (_, _) => Query.Quadrants<object, Point3d>()),
             ShapeOutput.Query(input: Geometry, port: Port.List<GeometryKind>(kind: PortKind.Enum(initial: GeometryKind.Unknown), name: "Kind", code: "K", info: "Detected geometry kind, including primitive Brep and Surface families when Rhino can classify them."), operation: static (_, _) => Query.Kind<object, GeometryKind>()));
     }
-
     public ExtractPoints() : base(nomen: ComponentNomen.Of<ExtractPoints>()) { }
     public ExtractPoints(IReader reader) : base(reader: reader) { }
 }

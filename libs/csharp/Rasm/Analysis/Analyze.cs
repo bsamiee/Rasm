@@ -1,13 +1,4 @@
-using System.Threading;
-using LanguageExt;
-using LanguageExt.Common;
-using Rasm.Domain;
-using Rhino;
-using Rhino.Geometry;
-using static LanguageExt.Prelude;
 namespace Rasm.Analysis;
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class Analyze {
     internal sealed record Runtime(Context Context, CancellationToken Cancellation, IProgress<double>? Progress);
@@ -20,10 +11,8 @@ public static class Analyze {
             query: query,
             scope: Option<Fin<Context>>.None,
             input: input);
-    public static Scope From(RhinoDoc? doc) =>
-        new(context: Context.FromDocument(doc: doc).ToFin());
-    public static Scope In(UnitSystem units) =>
-        new(context: Context.CreateDefault(units: units).ToFin());
+    public static Scope From(RhinoDoc? doc) => new(context: Context.FromDocument(doc: doc).ToFin());
+    public static Scope In(UnitSystem units) => new(context: Context.CreateDefault(units: units).ToFin());
     public static Scope In(
         double absolute,
         double relative,
@@ -36,12 +25,10 @@ public static class Analyze {
                     angleToleranceRadians: angle,
                     units: units)
                 .ToFin());
-    public static Scope In(Context context) =>
-        new(context: Optional(context).ToFin(Query.ScopeKey.MissingContext()));
+    public static Scope In(Context context) => new(context: Optional(context).ToFin(Query.ScopeKey.MissingContext()));
     public sealed record Scope {
         public Fin<Context> Context { get; }
-        internal Scope(Fin<Context> context) =>
-            Context = context;
+        internal Scope(Fin<Context> context) => Context = context;
         public Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(
             Query<TGeometry, TOut>? query,
             params ReadOnlySpan<TGeometry> input) where TGeometry : notnull =>
@@ -81,7 +68,7 @@ public static class Analyze {
         Query<TGeometry, TOut> query,
         Runtime runtime,
         TGeometry[] input) where TGeometry : notnull =>
-        query.AggregatesInput switch {
+        query.BatchesInput switch {
             true => input.AsIterable().ToSeq()
                 .Traverse(geometry => runtime.Cancellation.IsCancellationRequested switch {
                     true => Fin.Fail<TGeometry>(OpFault.Cancelled()),
@@ -100,10 +87,6 @@ public static class Analyze {
                 .ToValidation(),
         };
 }
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
 internal static class ValidationLifts {
-    internal static Eff<Analyze.Runtime, T> ToEff<T>(this Validation<Error, T> validation) =>
-        validation.ToFin();
+    internal static Eff<Analyze.Runtime, T> ToEff<T>(this Validation<Error, T> validation) => validation.ToFin();
 }

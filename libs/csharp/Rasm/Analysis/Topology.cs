@@ -1,12 +1,3 @@
-using System.Threading;
-using LanguageExt;
-using LanguageExt.Common;
-using Rasm.Domain;
-using Rhino;
-using Rhino.FileIO;
-using Rhino.Geometry;
-using Rhino.Geometry.Intersect;
-using static LanguageExt.Prelude;
 namespace Rasm.Analysis;
 
 public static partial class Query {
@@ -34,8 +25,7 @@ public static partial class Query {
                     project: static curve => Many(key: SegmentsKey, values: curve.DuplicateSegments()).ToEff()),
             _ => SegmentsKey.Unsupported<TGeometry, TOut>(),
         };
-    public static Query<Brep, Curve> Edges =>
-        Query<Brep, Curve>.Build(key: EdgesKey, evaluator: static geometry => Many(key: EdgesKey, values: geometry.DuplicateEdgeCurves()).ToEff());
+    public static Query<Brep, Curve> Edges => Query<Brep, Curve>.Build(key: EdgesKey, evaluator: static geometry => Many(key: EdgesKey, values: geometry.DuplicateEdgeCurves()).ToEff());
     public static Query<TGeometry, TOut> EdgeMidpoints<TGeometry, TOut>() where TGeometry : notnull =>
         (typeof(TGeometry), typeof(TOut)) switch {
             (Type geometry, Type output) when Supports(geometry: geometry, output: output, target: typeof(Point3d), native: [typeof(Line), typeof(Polyline), typeof(BoundingBox), typeof(Box)]) =>
@@ -362,13 +352,13 @@ public static partial class Query {
                 from ctx in Analyze.Asks
                 from faces in DecomposeFaces(geometry: geometry).ToEff()
                 from chosen in SelectFaces(faces: faces, selector: state.Selector, runtime: ctx).ToEff()
-                from result in FaceProject(faces: faces, chosen: chosen, runtime: ctx, transfer: state.Transfer, project: state.Project).ToEff()
+                from result in ProjectOwned(all: faces, chosen: chosen, transfer: state.Transfer, project: values => state.Project(arg1: values, arg2: ctx), same: static (left, right) => ReferenceEquals(objA: left.Brep, objB: right.Brep), dispose: static face => face.Dispose()).ToEff()
                 select result));
     internal static Eff<Analyze.Runtime, Seq<FaceProjection>> FaceProjections(Shape shape, Faces selector) =>
         from ctx in Analyze.Asks
         from faces in DecomposeFaces(geometry: shape.Inner).ToEff()
         from chosen in SelectFaces(faces: faces, selector: selector, runtime: ctx).ToEff()
-        from result in FaceProject(faces: faces, chosen: chosen, runtime: ctx, transfer: true, project: static (values, _) => Fin.Succ(values)).ToEff()
+        from result in ProjectOwned(all: faces, chosen: chosen, transfer: true, project: static values => Fin.Succ(values), same: static (left, right) => ReferenceEquals(objA: left.Brep, objB: right.Brep), dispose: static face => face.Dispose()).ToEff()
         select result;
     public static Query<TGeometry, TOut> Curves<TGeometry, TOut>(Curves aspect) where TGeometry : notnull =>
         Aspect(
@@ -387,7 +377,7 @@ public static partial class Query {
         from runtime in Analyze.RuntimeAsks
         from curves in ExtractCurveProjections(geometry: shape.Inner, aspect: aspect.Selector == CurveSelector.At ? Rasm.Analysis.Curves.All : aspect, runtime: runtime).ToEff()
         from chosen in SelectCurves(curves: curves, aspect: aspect).ToEff()
-        from result in CurveProject(curves: curves, chosen: chosen, transfer: true, project: static values => Fin.Succ(values)).ToEff()
+        from result in ProjectOwned(all: curves, chosen: chosen, transfer: true, project: static values => Fin.Succ(values), same: static (left, right) => ReferenceEquals(objA: left.Curve, objB: right.Curve), dispose: static curve => curve.Dispose()).ToEff()
         select result;
     private static Query<TGeometry, TOut> CurveQuery<TGeometry, TOut, TValue>(
         Curves selector,
@@ -400,7 +390,7 @@ public static partial class Query {
                 from runtime in Analyze.RuntimeAsks
                 from curves in ExtractCurveProjections(geometry: geometry, aspect: state.Selector.Selector == CurveSelector.At ? Rasm.Analysis.Curves.All : state.Selector, runtime: runtime).ToEff()
                 from chosen in SelectCurves(curves: curves, aspect: state.Selector).ToEff()
-                from result in CurveProject(curves: curves, chosen: chosen, transfer: state.Transfer, project: state.Project).ToEff()
+                from result in ProjectOwned(all: curves, chosen: chosen, transfer: state.Transfer, project: state.Project, same: static (left, right) => ReferenceEquals(objA: left.Curve, objB: right.Curve), dispose: static curve => curve.Dispose()).ToEff()
                 select result));
     private static Fin<Seq<CurveProjection>> ExtractCurveProjections<TGeometry>(TGeometry geometry, Curves aspect, Analyze.Runtime runtime) where TGeometry : notnull =>
         (aspect.Selector, geometry) switch {
@@ -417,13 +407,13 @@ public static partial class Query {
         (selector, geometry) switch {
             (CurveSelector kind, Curve curve) when IsInputCurveCase(selector: kind) => ProjectCurve(curve: curve, selector: kind, pieceSource: ComponentIndexType.PolycurveSegment, splitInput: true),
             (CurveSelector kind, Line line) when line.IsValid && IsInputCurveCase(selector: kind) =>
-                Optional(line.ToNurbsCurve()).ToFin(CurvesKey.InvalidResult()).Bind(curve => { using Curve disposable = curve; return ProjectCurve(curve: disposable, selector: kind, pieceSource: ComponentIndexType.NoType, splitInput: false); }),
+                PrimitiveCurve(primitive: line, selector: kind, pieceSource: ComponentIndexType.NoType, convert: static value => value.ToNurbsCurve()),
             (CurveSelector kind, Polyline polyline) when polyline.IsValid && IsInputCurveCase(selector: kind) =>
-                Optional(polyline.ToPolylineCurve()).ToFin(CurvesKey.InvalidResult()).Bind(curve => { using Curve disposable = curve; return ProjectCurve(curve: disposable, selector: kind, pieceSource: ComponentIndexType.PolycurveSegment, splitInput: false); }),
+                PrimitiveCurve(primitive: polyline, selector: kind, pieceSource: ComponentIndexType.PolycurveSegment, convert: static value => value.ToPolylineCurve()),
             (CurveSelector kind, Circle circle) when circle.IsValid && IsInputCurveCase(selector: kind) =>
-                Optional(circle.ToNurbsCurve()).ToFin(CurvesKey.InvalidResult()).Bind(curve => { using Curve disposable = curve; return ProjectCurve(curve: disposable, selector: kind, pieceSource: ComponentIndexType.NoType, splitInput: false); }),
+                PrimitiveCurve(primitive: circle, selector: kind, pieceSource: ComponentIndexType.NoType, convert: static value => value.ToNurbsCurve()),
             (CurveSelector kind, Arc arc) when arc.IsValid && IsInputCurveCase(selector: kind) =>
-                Optional(arc.ToNurbsCurve()).ToFin(CurvesKey.InvalidResult()).Bind(curve => { using Curve disposable = curve; return ProjectCurve(curve: disposable, selector: kind, pieceSource: ComponentIndexType.NoType, splitInput: false); }),
+                PrimitiveCurve(primitive: arc, selector: kind, pieceSource: ComponentIndexType.NoType, convert: static value => value.ToNurbsCurve()),
             (CurveSelector kind, Brep brep) when EdgeCurveCase(selector: kind) is { } edge => BrepEdgeCurves(brep: brep, feature: edge.Feature, predicate: edge.Brep),
             (CurveSelector kind, BrepFace face) when kind == CurveSelector.All || kind == CurveSelector.Boundary => Optional(face.DuplicateFace(duplicateMeshes: false))
                 .ToFin(CurvesKey.InvalidResult())
@@ -437,6 +427,8 @@ public static partial class Query {
             (CurveSelector kind, Mesh mesh) when kind != CurveSelector.NakedInner && EdgeCurveCase(selector: kind) is { } edge => MeshEdgeCurves(mesh: mesh, feature: edge.Feature, predicate: edge.Mesh),
             _ => Fin.Fail<Seq<CurveProjection>>(CurvesKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Curve))),
         };
+    private static Fin<Seq<CurveProjection>> PrimitiveCurve<TPrimitive>(TPrimitive primitive, CurveSelector selector, ComponentIndexType pieceSource, Func<TPrimitive, Curve?> convert) =>
+        Optional(convert(arg: primitive)).ToFin(CurvesKey.InvalidResult()).Bind(curve => { using Curve disposable = curve; return ProjectCurve(curve: disposable, selector: selector, pieceSource: pieceSource, splitInput: false); });
     private static Fin<Seq<CurveProjection>> IsoCurves<TGeometry>(TGeometry geometry, int direction, CurveFeature feature) where TGeometry : notnull =>
         geometry switch {
             Brep brep => toSeq(brep.Faces)
@@ -569,10 +561,8 @@ public static partial class Query {
                 .Map(values => toSeq(values).Map(silhouette => new CurveProjection(curve: silhouette.Curve, feature: feature, source: silhouette.GeometryComponentIndex))),
             _ => Fin.Fail<Seq<CurveProjection>>(CurvesKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Curve))),
         };
-    private static bool IsInputCurveCase(CurveSelector selector) =>
-        selector == CurveSelector.All || selector == CurveSelector.Segments || selector == CurveSelector.Boundary || selector == CurveSelector.SubCurves;
-    private static bool IsEdgeLike(CurveSelector selector) =>
-        IsInputCurveCase(selector: selector) || selector == CurveSelector.NakedOuter || selector == CurveSelector.NakedInner || selector == CurveSelector.Interior || selector == CurveSelector.NonManifold;
+    private static bool IsInputCurveCase(CurveSelector selector) => selector == CurveSelector.All || selector == CurveSelector.Segments || selector == CurveSelector.Boundary || selector == CurveSelector.SubCurves;
+    private static bool IsEdgeLike(CurveSelector selector) => IsInputCurveCase(selector: selector) || selector == CurveSelector.NakedOuter || selector == CurveSelector.NakedInner || selector == CurveSelector.Interior || selector == CurveSelector.NonManifold;
     private static (CurveFeature Feature, Func<BrepEdge, bool> Brep, Func<Mesh, int, bool> Mesh)? EdgeCurveCase(CurveSelector selector) =>
         selector switch {
             CurveSelector kind when kind == CurveSelector.All => (CurveFeature.Edge, static _ => true, static (_, _) => true),
@@ -591,18 +581,20 @@ public static partial class Query {
                 BrepLoopType.Inner => nakedInner,
                 _ => false,
             });
-    private static Fin<Seq<TValue>> CurveProject<TValue>(
-        Seq<CurveProjection> curves,
-        Seq<CurveProjection> chosen,
+    private static Fin<Seq<TValue>> ProjectOwned<TProjection, TValue>(
+        Seq<TProjection> all,
+        Seq<TProjection> chosen,
         bool transfer,
-        Func<Seq<CurveProjection>, Fin<Seq<TValue>>> project) {
+        Func<Seq<TProjection>, Fin<Seq<TValue>>> project,
+        Func<TProjection, TProjection, bool> same,
+        Func<TProjection, Unit> dispose) {
         Fin<Seq<TValue>> result = project(arg: chosen);
-        _ = curves
-            .Filter(curve => (transfer && result.IsSucc, chosen.Exists(candidate => ReferenceEquals(objA: candidate.Curve, objB: curve.Curve))) switch {
+        _ = all
+            .Filter(value => (transfer && result.IsSucc, chosen.Exists(candidate => same(arg1: candidate, arg2: value))) switch {
                 (true, true) => false,
                 _ => true,
             })
-            .Iter(static curve => curve.Dispose());
+            .Iter(value => dispose(arg: value));
         return result;
     }
     private static Fin<Seq<CurveProjection>> SelectCurves(Seq<CurveProjection> curves, Curves aspect) =>
@@ -640,8 +632,7 @@ public static partial class Query {
                 .Map(static brep => { using Brep disposable = brep; return BrepFaceProjections(brep: disposable); }),
             _ => Fin.Fail<Seq<FaceProjection>>(FacesKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Brep))),
         };
-    private static Seq<FaceProjection> BrepFaceProjections(Brep brep) =>
-        toSeq(brep.Faces.Select(static face => FaceProjection.From(face: face)));
+    private static Seq<FaceProjection> BrepFaceProjections(Brep brep) => toSeq(brep.Faces.Select(static face => FaceProjection.From(face: face)));
     private static Fin<Seq<FaceProjection>> SelectFaces(Seq<FaceProjection> faces, Faces selector, Context runtime) =>
         (selector.Selector, faces.Count) switch {
             (_, 0) => Fin.Succ(Seq<FaceProjection>()),
@@ -651,21 +642,6 @@ public static partial class Query {
             (FaceSelector at, int count) when at == FaceSelector.At => Fin.Succ(Seq(faces[RhinoMath.Clamp(selector.Index.IfNone(static () => 0), 0, count - 1)])),
             _ => Fin.Fail<Seq<FaceProjection>>(FacesKey.InvalidInput()),
         };
-    private static Fin<Seq<TValue>> FaceProject<TValue>(
-        Seq<FaceProjection> faces,
-        Seq<FaceProjection> chosen,
-        Context runtime,
-        bool transfer,
-        Func<Seq<FaceProjection>, Context, Fin<Seq<TValue>>> project) {
-        Fin<Seq<TValue>> result = project(arg1: chosen, arg2: runtime);
-        _ = faces
-            .Filter(face => (transfer && result.IsSucc, chosen.Exists(candidate => ReferenceEquals(objA: candidate.Brep, objB: face.Brep))) switch {
-                (true, true) => false,
-                _ => true,
-            })
-            .Iter(static face => face.Dispose());
-        return result;
-    }
     private static Fin<Seq<FaceProjection>> RankByCentroidZ(Seq<FaceProjection> faces, bool descending, Context runtime) =>
         faces
             .Traverse(face => FaceCentroid(face: face, runtime: runtime).Map(point => (face, point.Z))).As()

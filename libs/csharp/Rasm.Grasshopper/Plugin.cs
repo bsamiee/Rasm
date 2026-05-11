@@ -1,8 +1,6 @@
-using Grasshopper2.UI;
 using GhPlugin = Grasshopper2.Framework.Plugin;
-namespace Rasm.Grasshopper;
 
-// --- [SERVICES] ------------------------------------------------------------------------
+namespace Rasm.Grasshopper;
 
 /// <summary>
 /// Polymorphic base for Grasshopper 2 plugin manifests. Subclasses pass explicit manifest metadata
@@ -17,8 +15,6 @@ public abstract class Plugin(
         id: id,
         nomen: nomen,
         version: version) {
-    public override string Author =>
-        author;
-    public override string Copyright =>
-        copyright;
+    public override string Author => author;
+    public override string Copyright => copyright;
 }

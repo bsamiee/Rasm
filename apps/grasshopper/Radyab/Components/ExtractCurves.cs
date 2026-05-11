@@ -1,18 +1,4 @@
-using Grasshopper2.Components;
-using Grasshopper2.Types.Numeric;
-using Grasshopper2.UI;
-using GrasshopperIO;
-using LanguageExt;
-using Rasm.Analysis;
-using Rasm.Domain;
-using Rasm.Grasshopper;
-using Rhino.Geometry;
-using static LanguageExt.Prelude;
-using Query = Rasm.Analysis.Query;
-
 namespace Radyab.Components;
-
-// --- [EXPORTS] -------------------------------------------------------------------------
 
 [IoId("B88A1248-28B8-4F87-A178-6BCBD2458B33")]
 [Nomen(
@@ -27,9 +13,7 @@ public sealed class ExtractCurves : Component<ExtractCurves.Spec> {
         private static readonly Port<Vector3d> Direction = Port.Optional<Vector3d>(name: "Direction", code: "D", info: "Parallel projection or pull direction for silhouette and draft extraction. Missing Direction uses world Z.", policy: PortPolicy.Vector(unitise: true));
         private static readonly Port<Angle> DraftAngle = Port.Optional<Angle>(kind: PortKind.Angle, name: "Draft Angle", code: "A", info: "Draft angle for draft-curve extraction. Missing Draft Angle uses 0 radians.", policy: PortPolicy.Angle(reduce: true));
         private static Seq<IPort> Controls { get; } = Seq<IPort>(Index, Direction, DraftAngle);
-
-        public static Seq<IPort> Inputs =>
-            toSeq(Seq<IPort>(Geometry).Concat(second: Controls));
+        public static Seq<IPort> Inputs => toSeq(Seq<IPort>(Geometry).Concat(second: Controls));
         public static Seq<IOutputGroup> Outputs { get; } = Seq<IOutputGroup>(
             ShapeOutput.CurveDetails(input: Geometry, curves: Port.List<Curve>(name: "All Curves", code: "AC", info: "All native curve pieces: structural curve segments, Brep/SubD edges, surface boundary iso curves, or mesh topology edge curves."), sources: Port.List<ComponentIndex>(kind: PortKind.Generic, name: "Curve Sources", code: "CS", info: "Component index aligned with All Curves."), features: Port.List<CurveFeature>(kind: PortKind.Enum(initial: CurveFeature.Input), name: "Curve Features", code: "CF", info: "Feature label aligned with All Curves."), aspect: static (_, _) => Rasm.Analysis.Curves.All, emptyUnsupported: true),
             CurvesOutput(port: Port.List<Curve>(name: "Segments", code: "S", info: "Structural segments from the curve data model, Brep/SubD edges, or mesh topology edge lines."), aspect: Rasm.Analysis.Curves.Segments),
@@ -46,11 +30,8 @@ public sealed class ExtractCurves : Component<ExtractCurves.Spec> {
             ShapeOutput.Query(input: Geometry, port: Port.List<Curve>(name: "Silhouette Curves", code: "SC", info: "Parallel-projection silhouette curves using Direction, defaulting to world Z."), operation: static (access, runtime) => Query.Curves<object, Curve>(aspect: Rasm.Analysis.Curves.Silhouette(direction: runtime.Hints.Value(access: access, port: Direction).Map(static value => (Vector3d?)value).IfNone(static () => null))), emptyUnsupported: true),
             ShapeOutput.Query(input: Geometry, port: Port.List<Curve>(name: "Draft Curves", code: "DC", info: "Draft transition curves using Direction as pull direction and Draft Angle, defaulting to 0 radians."), operation: static (access, runtime) => Query.Curves<object, Curve>(aspect: Rasm.Analysis.Curves.Draft(direction: runtime.Hints.Value(access: access, port: Direction).Map(static value => (Vector3d?)value).IfNone(static () => null), angle: runtime.Hints.Value(access: access, port: DraftAngle).Map(static value => (double?)value.Radians).IfNone(static () => null))), emptyUnsupported: true),
             ShapeOutput.Query(input: Geometry, port: Port.List<Curve>(name: "Indexed Curve", code: "IC", info: "Curve at Index input; missing Index defaults to 0, supplied values clamp to [0, count-1]. Empty when zero curves."), operation: static (access, runtime) => Query.Curves<object, Curve>(aspect: Rasm.Analysis.Curves.At(index: runtime.Hints.Index(access: access, port: Index, limit: int.MaxValue).Map(static value => (int?)value).IfNone(static () => null)))));
-
-        private static IOutputGroup CurvesOutput(Port<Curve> port, Rasm.Analysis.Curves aspect) =>
-            ShapeOutput.Query(input: Geometry, port: port, operation: (_, _) => Query.Curves<object, Curve>(aspect: aspect), emptyUnsupported: true);
+        private static IOutputGroup CurvesOutput(Port<Curve> port, Rasm.Analysis.Curves aspect) => ShapeOutput.Query(input: Geometry, port: port, operation: (_, _) => Query.Curves<object, Curve>(aspect: aspect), emptyUnsupported: true);
     }
-
     public ExtractCurves() : base(nomen: ComponentNomen.Of<ExtractCurves>()) { }
     public ExtractCurves(IReader reader) : base(reader: reader) { }
 }

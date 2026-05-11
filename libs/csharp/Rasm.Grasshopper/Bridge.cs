@@ -1,17 +1,6 @@
-using Grasshopper2.Components;
-using Grasshopper2.Data;
-using Grasshopper2.Data.Meta;
-using Grasshopper2.Parameters;
-using Grasshopper2.Parameters.Standard;
 using Grasshopper2.Types.Assistant;
-using Grasshopper2.Types.Numeric;
-using LanguageExt.Common;
-using Rasm.Analysis;
-using Rasm.Domain;
-using Rhino.Geometry;
-namespace Rasm.Grasshopper;
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
+namespace Rasm.Grasshopper;
 
 public static class Bridge {
     public static Fin<Analyze.Scope> Scope(this IDataAccess access) {
@@ -92,8 +81,7 @@ public static class Bridge {
         ArgumentNullException.ThrowIfNull(argument: operation);
         return scope.Context.Bind(context => operation.Apply(geometry: input).Run(env: Runtime(access: access, context: context)));
     }
-    internal static Analyze.Runtime Runtime(IDataAccess access, Context context) =>
-        new(Context: context, Cancellation: access.Solution.Token, Progress: new Progress(access: access));
+    internal static Analyze.Runtime Runtime(IDataAccess access, Context context) => new(Context: context, Cancellation: access.Solution.Token, Progress: new Progress(access: access));
     internal static Unit Write<TOut>(IDataAccess access, int slot, string name, Access targetAccess, OutputValue<TOut>[] values) {
         Coverage coverage = access.CoverageOut(index: slot);
         switch (targetAccess, values.Length) {

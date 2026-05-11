@@ -1,15 +1,4 @@
-using System.Linq;
-using System.Threading;
-using LanguageExt;
-using LanguageExt.Common;
-using Rasm.Domain;
-using Rhino.FileIO;
-using Rhino.Geometry;
-using Rhino.Geometry.Intersect;
-using static LanguageExt.Prelude;
 namespace Rasm.Analysis;
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static partial class Query {
     private delegate bool CurvePointIntersection<TLeft, TRight>(
@@ -413,8 +402,6 @@ public static partial class Query {
         [typeof(IntersectionEvent), typeof(Point3d), typeof(IntersectionKind)];
     private static readonly System.Collections.Generic.HashSet<Type> CurveOutputs =
         [typeof(Curve), typeof(Point3d), typeof(IntersectionKind)];
-    private static bool Events(Type output) =>
-        EventOutputs.Contains(item: output);
-    private static bool Curves(Type output) =>
-        CurveOutputs.Contains(item: output);
+    private static bool Events(Type output) => EventOutputs.Contains(item: output);
+    private static bool Curves(Type output) => CurveOutputs.Contains(item: output);
 }

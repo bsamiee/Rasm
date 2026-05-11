@@ -1,77 +1,63 @@
-using System.Linq;
-using System.Runtime.InteropServices;
-using LanguageExt;
-using LanguageExt.Common;
-using Rasm.Domain;
-using Rhino.Geometry;
-using Rhino.Geometry.Intersect;
-using Thinktecture;
-using static LanguageExt.Prelude;
 namespace Rasm.Analysis;
 
-// --- [TYPES] ---------------------------------------------------------------------------
-
 internal enum ContextPolicy { Optional = 0, Required = 1 }
-
 public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
     internal Op Key { get; }
     internal Requirement Requirement { get; }
     internal ContextPolicy Context { get; }
-    internal bool AggregatesInput { get; }
-    internal bool RequiresContext =>
-        Context is ContextPolicy.Required;
+    internal bool RequiresContext => Context is ContextPolicy.Required;
+    internal bool BatchesInput => EvaluateBatch.IsSome;
     internal Option<Error> PreflightFault { get; }
     private Func<TGeometry, Eff<Analyze.Runtime, Seq<TOut>>> Evaluate { get; }
-    private Option<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>>> EvaluateAggregate { get; }
+    private Option<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>>> AggregateCandidate { get; }
+    private Option<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>>> EvaluateBatch { get; }
     internal Query(
         Op key,
         Func<TGeometry, Eff<Analyze.Runtime, Seq<TOut>>> effect,
         Requirement? requirement = null,
         bool requiresContext = false,
         Option<Error> preflightFault = default,
-        bool aggregatesInput = false,
-        Option<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>>> aggregate = default) {
+        Option<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>>> aggregate = default,
+        Option<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>>> batch = default) {
         Key = key;
         Requirement = requirement ?? Requirement.None;
         Context = requiresContext ? ContextPolicy.Required : ContextPolicy.Optional;
-        AggregatesInput = aggregatesInput;
         Evaluate = effect;
         PreflightFault = preflightFault;
-        EvaluateAggregate = aggregate;
+        AggregateCandidate = aggregate;
+        EvaluateBatch = batch;
     }
-    internal Eff<Analyze.Runtime, Seq<TOut>> Apply(TGeometry geometry) =>
-        Evaluate(arg: geometry);
+    internal Eff<Analyze.Runtime, Seq<TOut>> Apply(TGeometry geometry) => Evaluate(arg: geometry);
     internal Eff<Analyze.Runtime, Seq<TOut>> Apply(Seq<TGeometry> geometry) =>
-        AggregatesInput switch {
-            true =>
-                EvaluateAggregate
-                    .ToFin(Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut)))
-                    .ToEff()
-                    .Bind(project => project(arg: geometry)),
-            _ =>
+        EvaluateBatch.Match(
+            Some: project => project(arg: geometry),
+            None: () =>
                 from result in geometry.Traverse(item => Evaluate(arg: item))
                     .Map(static chunks => chunks.Bind(static chunk => chunk))
                     .As()
-                select result,
-        };
+                select result);
     internal Query<TIn, TOut> Contramap<TIn>(Func<TIn, TGeometry> map) where TIn : notnull =>
         new(
             key: Key,
             requirement: Requirement,
             requiresContext: RequiresContext,
             preflightFault: PreflightFault,
-            aggregatesInput: AggregatesInput,
-            aggregate: EvaluateAggregate.Map<Func<Seq<TIn>, Eff<Analyze.Runtime, Seq<TOut>>>>(project => input => project(arg: input.Map(value => map(arg: value)))),
+            aggregate: AggregateCandidate.Map<Func<Seq<TIn>, Eff<Analyze.Runtime, Seq<TOut>>>>(project => input => project(arg: input.Map(value => map(arg: value)))),
+            batch: EvaluateBatch.Map<Func<Seq<TIn>, Eff<Analyze.Runtime, Seq<TOut>>>>(project => input => project(arg: input.Map(value => map(arg: value)))),
             effect: input => Evaluate(arg: map(arg: input)));
     public Query<TGeometry, TOut> Aggregate() =>
-        new(
-            key: Key,
-            requirement: Requirement,
-            requiresContext: RequiresContext,
-            preflightFault: PreflightFault,
-            aggregatesInput: true,
-            aggregate: EvaluateAggregate,
-            effect: Evaluate);
+        AggregateCandidate
+            .ToFin(Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut)))
+            .Match(
+                Succ: aggregate => new Query<TGeometry, TOut>(
+                    key: Key,
+                    requirement: Requirement,
+                    requiresContext: RequiresContext,
+                    preflightFault: PreflightFault,
+                    aggregate: AggregateCandidate,
+                    batch: Some(aggregate),
+                    effect: Evaluate),
+                Fail: fault => Reject(key: Key, fault: fault));
     internal static Query<TGeometry, TOut> Build(
         Op key,
         Func<TGeometry, Eff<Analyze.Runtime, Seq<TOut>>> evaluator,
@@ -260,8 +246,7 @@ public static partial class Query {
                 TNative native => state.Project(arg: native),
                 _ => Fin.Fail<Seq<TValue>>(state.Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TValue))).ToEff(),
             }));
-    internal static Fin<Seq<TValue>> One<TValue>(this Op key, TValue value) =>
-        key.RequireValid(value: value).Map(static candidate => Seq(candidate));
+    internal static Fin<Seq<TValue>> One<TValue>(this Op key, TValue value) => key.RequireValid(value: value).Map(static candidate => Seq(candidate));
     internal static Fin<Seq<TValue>> Many<TValue>(this Op key, IEnumerable<TValue>? values) =>
         Optional(values)
             .ToSeq()

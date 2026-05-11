@@ -14,6 +14,21 @@
     </ItemGroup>
 
     <ItemGroup>
+        <Using Include="Grasshopper2.Components" />
+        <Using Include="Grasshopper2.Types.Numeric" />
+        <Using Include="Grasshopper2.UI" />
+        <Using Include="GrasshopperIO" />
+        <Using Include="LanguageExt" />
+        <Using Include="LanguageExt.Prelude" Static="true" />
+        <Using Include="Rasm.Analysis" />
+        <Using Include="Rasm.Analysis.Query" Alias="Query" />
+        <Using Include="Rasm.Domain" />
+        <Using Include="Rasm.Grasshopper" />
+        <Using Include="Rhino.Geometry" />
+        <Using Include="Rhino.PlugIns" />
+    </ItemGroup>
+
+    <ItemGroup>
         <EmbeddedResource Include="Icons/*.ghicon" />
         <EmbeddedResource Include="Icons/*.ico" />
     </ItemGroup>

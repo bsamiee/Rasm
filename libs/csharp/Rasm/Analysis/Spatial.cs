@@ -1,18 +1,9 @@
-using LanguageExt;
-using LanguageExt.Common;
-using Rasm.Domain;
-using Rhino;
-using Rhino.Geometry;
-using static LanguageExt.Prelude;
 namespace Rasm.Analysis;
-
-// --- [SERVICES] ------------------------------------------------------------------------
 
 public sealed class Tree : IDisposable {
     private readonly RTree tree;
     private bool disposed;
-    private Tree(RTree tree) =>
-        this.tree = tree;
+    private Tree(RTree tree) => this.tree = tree;
     public static Validation<Error, Tree> Points(params ReadOnlySpan<Point3d> points) =>
         ValidatePoints(points: points)
             .Bind(static values => Optional(RTree.CreateFromPointArray(points: values))
@@ -96,8 +87,7 @@ public sealed class Tree : IDisposable {
                 false => Fin.Fail<Seq<Couple>>(Query.TreeKey.InvalidResult()),
             };
     }
-    private static Seq<Couple> SortedPairs(Seq<Couple> pairs) =>
-        toSeq(pairs.OrderBy(static p => p.A).ThenBy(static p => p.B));
+    private static Seq<Couple> SortedPairs(Seq<Couple> pairs) => toSeq(pairs.OrderBy(static p => p.A).ThenBy(static p => p.B));
     public static Eff<Context, Seq<Couple>> KNearest(
         ReadOnlySpan<Point3d> points,
         ReadOnlySpan<Point3d> needles,
@@ -182,8 +172,7 @@ public sealed class Tree : IDisposable {
                 false => Fin.Fail<Seq<Hit>>(Query.TreeKey.InvalidResult()),
             };
     }
-    private static Seq<Hit> SortedHits(Seq<int> ids) =>
-        toSeq(ids.Order().Select(static id => new Hit(Id: id)));
+    private static Seq<Hit> SortedHits(Seq<int> ids) => toSeq(ids.Order().Select(static id => new Hit(Id: id)));
     private static Fin<Seq<Couple>> PointPairs(IEnumerable<int[]> values) =>
         Optional(values)
             .ToFin(Query.TreeKey.InvalidResult())

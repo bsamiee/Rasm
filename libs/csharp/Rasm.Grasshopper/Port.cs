@@ -1,17 +1,7 @@
 using System.Drawing;
-using Grasshopper2.Components;
-using Grasshopper2.Data;
-using Grasshopper2.Data.Meta;
-using Grasshopper2.Parameters;
-using Grasshopper2.Parameters.Standard;
-using Grasshopper2.Types.Numeric;
-using Grasshopper2.Types.Shapes;
-using Grasshopper2.UI;
-using Rhino.Geometry;
-using Thinktecture;
-namespace Rasm.Grasshopper;
+using Requirement = Grasshopper2.Parameters.Requirement;
 
-// --- [TYPES] ---------------------------------------------------------------------------
+namespace Rasm.Grasshopper;
 
 public interface IPort {
     public string Name { get; }
@@ -23,9 +13,6 @@ public interface IPort {
     public Requirement Requirement { get; }
     public PortPolicy Policy { get; }
 }
-
-// --- [MODELS] --------------------------------------------------------------------------
-
 public readonly record struct PortPolicy(
     bool UnitiseVectors,
     bool ReverseVectors,
@@ -90,7 +77,6 @@ public readonly record struct PortPolicy(
         return Unit.Default;
     }
 }
-
 [SmartEnum<string>]
 public sealed partial class PortKind {
     public static readonly PortKind Point = Of<Point3d>(key: nameof(Point), onInput: static (adder, name, code, info, access, requirement) => adder.AddPoint(name: name, code: code, info: info, access: access, requirement: requirement), onOutput: static (adder, name, code, info, access) => adder.AddPoint(name: name, code: code, info: info, access: access));
@@ -110,11 +96,9 @@ public sealed partial class PortKind {
     public static readonly PortKind Angle = Of<Angle>(key: nameof(Angle), onInput: static (adder, name, code, info, access, requirement) => adder.AddAngle(name: name, code: code, info: info, access: access, requirement: requirement), onOutput: static (adder, name, code, info, access) => adder.AddAngle(name: name, code: code, info: info, access: access));
     public static readonly PortKind Transform = Of<Transform>(key: nameof(Transform), onInput: static (adder, name, code, info, access, requirement) => adder.AddTransform(name: name, code: code, info: info, access: access, requirement: requirement), onOutput: static (adder, name, code, info, access) => adder.AddTransform(name: name, code: code, info: info, access: access));
     public static readonly PortKind Generic = Of<object>(key: nameof(Generic), onInput: static (adder, name, code, info, access, requirement) => adder.AddGeneric(name: name, code: code, info: info, access: access, requirement: requirement), onOutput: static (adder, name, code, info, access) => adder.AddGeneric(name: name, code: code, info: info, access: access));
-
     public Type Type { get; }
     private Func<InputAdder, string, string, string, Access, Requirement, object> AddInput { get; }
     private Func<OutputAdder, string, string, string, Access, object> AddOutput { get; }
-
     public static PortKind Enum<T>(T initial) where T : struct, Enum =>
         Of<T>(
             key: typeof(T).Name,
@@ -132,17 +116,14 @@ public sealed partial class PortKind {
         ArgumentNullException.ThrowIfNull(argument: adder);
         return policy.Apply(parameter: AddOutput(arg1: adder, arg2: name, arg3: code, arg4: info, arg5: access));
     }
-    private static PortKind Of<T>(string key, Func<InputAdder, string, string, string, Access, Requirement, object> onInput, Func<OutputAdder, string, string, string, Access, object> onOutput) =>
-        new(key: key, type: typeof(T), addInput: onInput, addOutput: onOutput);
+    private static PortKind Of<T>(string key, Func<InputAdder, string, string, string, Access, Requirement, object> onInput, Func<OutputAdder, string, string, string, Access, object> onOutput) => new(key: key, type: typeof(T), addInput: onInput, addOutput: onOutput);
 }
-
 public readonly record struct PortValue<TVal>(
     TVal Value,
     MetaData Meta,
     bool IsNull,
     Option<int> Index,
     Coverage Coverage);
-
 public readonly record struct PortData<TVal>(
     Access Access,
     Seq<PortValue<TVal>> Values,
@@ -150,12 +131,9 @@ public readonly record struct PortData<TVal>(
     Option<Tree<TVal>> Tree,
     Coverage Coverage,
     bool Changed) {
-    public Option<TVal> Value =>
-        Values.Find(static value => !value.IsNull).Map(static value => value.Value);
-    public Seq<TVal> NonNullValues =>
-        Values.Filter(static value => !value.IsNull).Map(static value => value.Value);
+    public Option<TVal> Value => Values.Find(static value => !value.IsNull).Map(static value => value.Value);
+    public Seq<TVal> NonNullValues => Values.Filter(static value => !value.IsNull).Map(static value => value.Value);
 }
-
 public readonly record struct Port<TVal>(
     string Name,
     string Code,
@@ -166,23 +144,14 @@ public readonly record struct Port<TVal>(
     PortPolicy Policy) : IPort {
     public Type Type => typeof(TVal);
 }
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
 public static class Port {
-    public static Port<TVal> Required<TVal>(string name, string code, string info, PortKind? kind = null, PortPolicy? policy = null) =>
-        Create<TVal>(name: name, code: code, info: info, kind: kind, access: Access.Item, requirement: Requirement.MustExist, policy: policy);
-    public static Port<TVal> Optional<TVal>(string name, string code, string info, PortKind? kind = null, PortPolicy? policy = null) =>
-        Create<TVal>(name: name, code: code, info: info, kind: kind, access: Access.Item, requirement: Requirement.MayBeMissing, policy: policy);
-    public static Port<TVal> List<TVal>(string name, string code, string info, Requirement requirement = Requirement.MustExist, PortKind? kind = null, PortPolicy? policy = null) =>
-        Create<TVal>(name: name, code: code, info: info, kind: kind, access: Access.Twig, requirement: requirement, policy: policy);
-    public static Port<TVal> Tree<TVal>(string name, string code, string info, Requirement requirement = Requirement.MustExist, PortKind? kind = null, PortPolicy? policy = null) =>
-        Create<TVal>(name: name, code: code, info: info, kind: kind, access: Access.Tree, requirement: requirement, policy: policy);
+    public static Port<TVal> Required<TVal>(string name, string code, string info, PortKind? kind = null, PortPolicy? policy = null) => Create<TVal>(name: name, code: code, info: info, kind: kind, access: Access.Item, requirement: Requirement.MustExist, policy: policy);
+    public static Port<TVal> Optional<TVal>(string name, string code, string info, PortKind? kind = null, PortPolicy? policy = null) => Create<TVal>(name: name, code: code, info: info, kind: kind, access: Access.Item, requirement: Requirement.MayBeMissing, policy: policy);
+    public static Port<TVal> List<TVal>(string name, string code, string info, Requirement requirement = Requirement.MustExist, PortKind? kind = null, PortPolicy? policy = null) => Create<TVal>(name: name, code: code, info: info, kind: kind, access: Access.Twig, requirement: requirement, policy: policy);
+    public static Port<TVal> Tree<TVal>(string name, string code, string info, Requirement requirement = Requirement.MustExist, PortKind? kind = null, PortPolicy? policy = null) => Create<TVal>(name: name, code: code, info: info, kind: kind, access: Access.Tree, requirement: requirement, policy: policy);
     public static Port<int> Index(
         string name = "Index",
         string code = "I",
-        string info = "Zero-based selector; clamped to [0, count-1].") =>
-        new(Name: name, Code: code, Info: info, Kind: PortKind.Index, Access: Access.Item, Requirement: Requirement.MayBeMissing, Policy: PortPolicy.Index());
-    private static Port<TVal> Create<TVal>(string name, string code, string info, PortKind? kind, Access access, Requirement requirement, PortPolicy? policy) =>
-        new(Name: name, Code: code, Info: info, Kind: kind ?? PortKind.From(type: typeof(TVal)).IfNone(PortKind.Generic), Access: access, Requirement: requirement, Policy: policy ?? PortPolicy.Empty);
+        string info = "Zero-based selector; clamped to [0, count-1].") => new(Name: name, Code: code, Info: info, Kind: PortKind.Index, Access: Access.Item, Requirement: Requirement.MayBeMissing, Policy: PortPolicy.Index());
+    private static Port<TVal> Create<TVal>(string name, string code, string info, PortKind? kind, Access access, Requirement requirement, PortPolicy? policy) => new(Name: name, Code: code, Info: info, Kind: kind ?? PortKind.From(type: typeof(TVal)).IfNone(PortKind.Generic), Access: access, Requirement: requirement, Policy: policy ?? PortPolicy.Empty);
 }

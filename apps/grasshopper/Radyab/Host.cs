@@ -1,8 +1,4 @@
-using Rhino.PlugIns;
-
 namespace Radyab;
-
-// --- [EXPORTS] -------------------------------------------------------------------------
 
 /// <summary>
 /// Rhino plug-in shell required by HostUtils.CreatePlugIn for the .rhp loader. Components register
@@ -10,6 +6,5 @@ namespace Radyab;
 /// Rhino host contract.
 /// </summary>
 public sealed class Host : PlugIn {
-    protected override LoadReturnCode OnLoad(ref string errorMessage) =>
-        LoadReturnCode.Success;
+    protected override LoadReturnCode OnLoad(ref string errorMessage) => LoadReturnCode.Success;
 }
