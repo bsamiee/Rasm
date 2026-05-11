@@ -5,25 +5,13 @@ using Rasm.Domain;
 using Rhino.Geometry;
 namespace Rasm.Grasshopper;
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-public static class ShapeQuery {
-    public static Query<Shape, TOut> BoundingCorners<TOut>() => FromObject(query: Rasm.Analysis.Query.BoundingCorners<object, TOut>()); public static Query<Shape, TOut> Bounds<TOut>(Bounds aspect) => FromObject(query: Rasm.Analysis.Query.Bounds<object, TOut>(aspect: aspect));
-    public static Query<Shape, TOut> Curves<TOut>(Curves aspect) => FromObject(query: Rasm.Analysis.Query.Curves<object, TOut>(aspect: aspect)); public static Query<Shape, TOut> EdgeMidpoints<TOut>() => FromObject(query: Rasm.Analysis.Query.EdgeMidpoints<object, TOut>());
-    public static Query<Shape, TOut> Faces<TOut>(Faces aspect) => FromObject(query: Rasm.Analysis.Query.Faces<object, TOut>(aspect: aspect)); public static Query<Shape, TOut> Kind<TOut>() => FromObject(query: Rasm.Analysis.Query.Kind<object, TOut>());
-    public static Query<Shape, TOut> Locate<TOut>(Location aspect) => FromObject(query: Rasm.Analysis.Query.Locate<object, TOut>(aspect: aspect)); public static Query<Shape, TOut> Quadrants<TOut>() => FromObject(query: Rasm.Analysis.Query.Quadrants<object, TOut>());
-    public static Query<Shape, TOut> SpatialMidpoint<TOut>() => FromObject(query: Rasm.Analysis.Query.SpatialMidpoint<object, TOut>()); public static Query<Shape, TOut> Vertices<TOut>() => FromObject(query: Rasm.Analysis.Query.Vertices<object, TOut>());
-
-    private static Query<Shape, TOut> FromObject<TOut>(Query<object, TOut> query) =>
-        query.Contramap<Shape>(static shape => shape.Inner);
-}
 public static class ShapeOutput {
-    public static IOutputGroup Query<TOut>(Port<Shape> input, Port<TOut> port, Func<IDataAccess, GrasshopperRuntime, Query<Shape, TOut>> operation, bool emptyUnsupported = false) =>
+    public static IOutputGroup Query<TOut>(Port<Shape> input, Port<TOut> port, Func<IDataAccess, GrasshopperRuntime, Query<object, TOut>> operation, bool emptyUnsupported = false) =>
         Output.Prepared(
             source: (access, runtime) =>
                 from shape in runtime.Shape(access: access, port: input)
                 from context in runtime.Scope.Context
-                from values in operation(arg1: access, arg2: runtime).Apply(geometry: shape).Run(env: Bridge.Runtime(access: access, context: context))
+                from values in operation(arg1: access, arg2: runtime).Apply(geometry: shape.Inner).Run(env: Bridge.Runtime(access: access, context: context))
                 select values,
             emptyUnsupported: emptyUnsupported,
             slots: [Output.Slot(port: port)]);

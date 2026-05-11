@@ -208,17 +208,23 @@ public sealed class AnalysisRuntimeSpec {
             from: Point3d.Origin,
             to: new Point3d(x: 2.0, y: 0.0, z: 0.0)));
         using LineCurve second = new(line: new Line(
-            from: Point3d.Origin,
-            to: new Point3d(x: 0.0, y: 4.0, z: 0.0)));
+            from: new Point3d(x: 10.0, y: 0.0, z: 0.0),
+            to: new Point3d(x: 10.0, y: 4.0, z: 0.0)));
 
         Point3d[] centroids = Run(
             query: AnalysisQuery.Measure<Curve, Point3d>(aspect: new Measure.Centroid(Mass: MassKind.Length)),
             context: context,
             input: [first, second]);
+        Point3d[] aggregate = Run(
+            query: AnalysisQuery.Measure<Curve, Point3d>(aspect: new Measure.Centroid(Mass: MassKind.Length)).Aggregate(),
+            context: context,
+            input: [first, second]);
 
         Assert.Multiple(() => {
             Assert.That(actual: centroids[0], expression: Is.EqualTo(expected: new Point3d(x: 1.0, y: 0.0, z: 0.0)));
-            Assert.That(actual: centroids[1], expression: Is.EqualTo(expected: new Point3d(x: 0.0, y: 2.0, z: 0.0)));
+            Assert.That(actual: centroids[1], expression: Is.EqualTo(expected: new Point3d(x: 10.0, y: 2.0, z: 0.0)));
+            Assert.That(actual: aggregate, expression: Has.Length.EqualTo(expected: 1));
+            Assert.That(actual: aggregate[0], expression: Is.EqualTo(expected: new Point3d(x: 7.0, y: 1.5, z: 0.0)));
         });
     }
 

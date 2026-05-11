@@ -17,41 +17,75 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
     internal Op Key { get; }
     internal Requirement Requirement { get; }
     internal ContextPolicy Context { get; }
+    internal bool AggregatesInput { get; }
     internal bool RequiresContext =>
         Context is ContextPolicy.Required;
     internal Option<Error> PreflightFault { get; }
     private Func<TGeometry, Eff<Analyze.Runtime, Seq<TOut>>> Evaluate { get; }
+    private Option<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>>> EvaluateAggregate { get; }
     internal Query(
         Op key,
         Func<TGeometry, Eff<Analyze.Runtime, Seq<TOut>>> effect,
         Requirement? requirement = null,
         bool requiresContext = false,
-        Option<Error> preflightFault = default) {
+        Option<Error> preflightFault = default,
+        bool aggregatesInput = false,
+        Option<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>>> aggregate = default) {
         Key = key;
         Requirement = requirement ?? Requirement.None;
         Context = requiresContext ? ContextPolicy.Required : ContextPolicy.Optional;
+        AggregatesInput = aggregatesInput;
         Evaluate = effect;
         PreflightFault = preflightFault;
+        EvaluateAggregate = aggregate;
     }
     internal Eff<Analyze.Runtime, Seq<TOut>> Apply(TGeometry geometry) =>
         Evaluate(arg: geometry);
+    internal Eff<Analyze.Runtime, Seq<TOut>> Apply(Seq<TGeometry> geometry) =>
+        AggregatesInput switch {
+            true =>
+                EvaluateAggregate
+                    .ToFin(Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut)))
+                    .ToEff()
+                    .Bind(project => project(arg: geometry)),
+            _ =>
+                from runtime in Analyze.RuntimeAsks
+                from result in geometry.Traverse(item => Evaluate(arg: item).Run(env: runtime))
+                    .As()
+                    .Map(static chunks => chunks.Bind(static chunk => chunk))
+                    .ToEff()
+                select result,
+        };
     internal Query<TIn, TOut> Contramap<TIn>(Func<TIn, TGeometry> map) where TIn : notnull =>
         new(
             key: Key,
             requirement: Requirement,
             requiresContext: RequiresContext,
             preflightFault: PreflightFault,
+            aggregatesInput: AggregatesInput,
+            aggregate: EvaluateAggregate.Map<Func<Seq<TIn>, Eff<Analyze.Runtime, Seq<TOut>>>>(project => input => project(arg: input.Map(value => map(arg: value)))),
             effect: input => Evaluate(arg: map(arg: input)));
+    public Query<TGeometry, TOut> Aggregate() =>
+        new(
+            key: Key,
+            requirement: Requirement,
+            requiresContext: RequiresContext,
+            preflightFault: PreflightFault,
+            aggregatesInput: true,
+            aggregate: EvaluateAggregate,
+            effect: Evaluate);
     internal static Query<TGeometry, TOut> Build(
         Op key,
         Func<TGeometry, Eff<Analyze.Runtime, Seq<TOut>>> evaluator,
         Requirement? requirement = null,
-        bool requiresContext = false) {
+        bool requiresContext = false,
+        Option<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>>> aggregate = default) {
         Requirement activeRequirement = requirement ?? Requirement.None;
         return new(
             key: key,
             requirement: activeRequirement,
             requiresContext: requiresContext,
+            aggregate: aggregate,
             effect: activeRequirement.IsEmpty switch {
                 true => evaluator,
                 false => geometry => geometry switch {
@@ -434,6 +468,35 @@ public static partial class Query {
             key: key,
             requirement: requirement,
             requiresContext: true,
+            aggregate: Some<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>>>(geometry =>
+                from runtime in Analyze.RuntimeAsks
+                from props in geometry.Traverse(item => compute(arg1: item, arg2: secondMoments, arg3: productMoments).Run(env: runtime)).As().ToEff()
+                from mass in (typeof(TMass) switch {
+                    Type mass when mass == typeof(LengthMassProperties) =>
+                        Optional(LengthMassProperties.WeightedSum(
+                                summands: props.Map(static prop => (LengthMassProperties)(object)prop).AsIterable(),
+                                weights: props.Map(static _ => 1.0).AsIterable()))
+                            .ToFin(OpFault.ComputationFailed(label: nameof(LengthMassProperties)))
+                            .Map(static value => (TMass)(object)value),
+                    Type mass when mass == typeof(AreaMassProperties) =>
+                        Optional(AreaMassProperties.WeightedSum(
+                                summands: props.Map(static prop => (AreaMassProperties)(object)prop).AsIterable(),
+                                weights: props.Map(static _ => 1.0).AsIterable()))
+                            .ToFin(OpFault.ComputationFailed(label: nameof(AreaMassProperties)))
+                            .Map(static value => (TMass)(object)value),
+                    Type mass when mass == typeof(VolumeMassProperties) =>
+                        Optional(VolumeMassProperties.WeightedSum(
+                                summands: props.Map(static prop => (VolumeMassProperties)(object)prop).AsIterable(),
+                                weights: props.Map(static _ => 1.0).AsIterable()))
+                            .ToFin(OpFault.ComputationFailed(label: nameof(VolumeMassProperties)))
+                            .Map(static value => (TMass)(object)value),
+                    _ => Fin.Fail<TMass>(OpFault.ComputationUnsupported(label: typeof(TMass).Name, geometryType: typeof(TGeometry))),
+                }).ToEff()
+                from values in Bracket(
+                        factory: () => mass,
+                        body: disposable => project(arg1: key, arg2: disposable))
+                    .ToEff()
+                select values),
             evaluator: geometry => from mass in compute(
                     arg1: geometry,
                     arg2: secondMoments,

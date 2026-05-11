@@ -81,14 +81,24 @@ public static class Analyze {
         Query<TGeometry, TOut> query,
         Runtime runtime,
         TGeometry[] input) where TGeometry : notnull =>
-        input.AsIterable().ToSeq()
-            .Traverse(geometry => (runtime.Cancellation.IsCancellationRequested switch {
-                true => Fin.Fail<TGeometry>(OpFault.Cancelled()),
-                false => Optional(geometry).ToFin(ValidationFault.MissingGeometry()),
-            }).Bind(resolved => query.Apply(geometry: resolved).Run(env: runtime)))
-            .As()
-            .Map(static chunks => chunks.Bind(static chunk => chunk))
-            .ToValidation();
+        query.AggregatesInput switch {
+            true => input.AsIterable().ToSeq()
+                .Traverse(geometry => runtime.Cancellation.IsCancellationRequested switch {
+                    true => Fin.Fail<TGeometry>(OpFault.Cancelled()),
+                    false => Optional(geometry).ToFin(ValidationFault.MissingGeometry()),
+                })
+                .As()
+                .Bind(resolved => query.Apply(geometry: resolved).Run(env: runtime))
+                .ToValidation(),
+            _ => input.AsIterable().ToSeq()
+                .Traverse(geometry => (runtime.Cancellation.IsCancellationRequested switch {
+                    true => Fin.Fail<TGeometry>(OpFault.Cancelled()),
+                    false => Optional(geometry).ToFin(ValidationFault.MissingGeometry()),
+                }).Bind(resolved => query.Apply(geometry: resolved).Run(env: runtime)))
+                .As()
+                .Map(static chunks => chunks.Bind(static chunk => chunk))
+                .ToValidation(),
+        };
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
