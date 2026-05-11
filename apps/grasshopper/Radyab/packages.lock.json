@@ -90,7 +90,9 @@
         "type": "Project",
         "dependencies": {
           "LanguageExt.Core": "[5.0.0-beta-77, )",
+          "Microsoft.Extensions.DependencyInjection": "[9.0.8, )",
           "Rasm": "[1.0.0, )",
+          "Scrutor": "[7.0.0, )",
           "Thinktecture.Runtime.Extensions": "[10.2.0, )"
         }
       }

@@ -259,10 +259,6 @@ public partial record Conformance {
     public sealed record Distance(int Count) : Conformance; public sealed record Rms(int Count) : Conformance; public sealed record WithinTolerance(int Count) : Conformance; public sealed record ProfileResidual(int Count) : Conformance; public sealed record Maximum(int Count) : Conformance;
 }
 public static partial class Query {
-    internal delegate bool PrimitiveCase<TSource, TValue>(
-        TSource geometry,
-        Context context,
-        out TValue value) where TSource : GeometryBase;
     internal static readonly Op
         MidpointKey = new(name: "Midpoint"), BoundsKey = new(name: nameof(Bounds)), OrientedBoundsKey = new(name: "OrientedBounds"),
         TransformedBoundsKey = new(name: "TransformedBounds"), BoundsCenterKey = new(name: "BoundsCenter"), BoundsCornersKey = new(name: "BoundsCorners"),
@@ -323,39 +319,10 @@ public static partial class Query {
         using TResource resource = factory();
         return body(arg: resource);
     }
-    internal static Fin<Seq<TOut>> IntersectionOutput<TOut>(this Op key, IEnumerable<Curve>? curves = null, IEnumerable<Line>? lines = null, IEnumerable<Circle>? circles = null, IEnumerable<Point3d>? points = null, IEnumerable<Polyline>? polylines = null, IEnumerable<Interval>? intervals = null, IEnumerable<IntersectionKind>? kinds = null, CurveIntersections? intersections = null) => typeof(TOut) switch {
-        Type output when output == typeof(Curve) => key.Results<Curve, TOut>(values: curves),
-        Type output when output == typeof(Line) => key.Results<Line, TOut>(values: lines),
-        Type output when output == typeof(Circle) => key.Results<Circle, TOut>(values: circles),
-        Type output when output == typeof(Interval) => key.Results<Interval, TOut>(values: intervals),
-        Type output when output == typeof(Point3d) => key.Results<Point3d, TOut>(values: points ?? Optional(intersections).ToSeq().Bind(static events => events).Where(static intersection => intersection.IsPoint).Select(static intersection => intersection.PointA)),
-        Type output when output == typeof(IntersectionEvent) => key.Results<IntersectionEvent, TOut>(values: Optional(intersections).ToSeq().Bind(static events => events)),
-        Type output when output == typeof(Polyline) => key.Results<Polyline, TOut>(values: polylines),
-        Type output when output == typeof(IntersectionKind) => key.Results<IntersectionKind, TOut>(values: Optional(intersections).ToSeq().Bind(static events => events)
-            .Select(static intersection => intersection switch { IntersectionEvent c when c.IsOverlap => IntersectionKind.Overlap, IntersectionEvent c when c.IsPoint => IntersectionKind.Point, _ => IntersectionKind.Unknown })
-            .Concat(second: Classify(values: curves, kind: IntersectionKind.Overlap)).Concat(second: Classify(values: lines, kind: IntersectionKind.Curve)).Concat(second: Classify(values: circles, kind: IntersectionKind.Curve))
-            .Concat(second: Classify(values: points, kind: IntersectionKind.Point)).Concat(second: Classify(values: intervals, kind: IntersectionKind.Overlap))
-            .Concat(second: Optional(kinds).IfNone(() => Classify(values: polylines, kind: IntersectionKind.Overlap)))),
-        _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
-    };
-    private static Seq<IntersectionKind> Classify<TValue>(IEnumerable<TValue>? values, IntersectionKind kind) =>
-        toSeq(Optional(values).ToSeq().Bind(static source => source).Select(_ => kind));
     internal static Fin<Seq<TOut>> Results<TValue, TOut>(this Op key, IEnumerable<TValue>? values) => typeof(TValue).Equals(typeof(TOut)) switch {
         true => Many(key: key, values: values).Map(static candidates => candidates.Map(static candidate => (TOut)(object)candidate!)),
         false => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
     };
-    internal static Query<TGeometry, TOut> PrimitiveMatch<TGeometry, TOut, TSource, TValue>(
-        PrimitiveCase<TSource, TValue> project) where TGeometry : notnull where TSource : GeometryBase =>
-        Native<TGeometry, TOut, TSource, TValue, PrimitiveCase<TSource, TValue>>(
-            key: PrimitiveKey,
-            state: project,
-            requiresContext: true,
-            project: static (extract, source) => from context in Analyze.Asks
-                                                 from validated in context.Validate(geometry: source, requirement: Requirement.Basic).ToEff()
-                                                 from result in (extract(geometry: validated, context: context, value: out TValue value) switch {
-                                                     bool solved => PrimitiveKey.Solved(isSolved: solved, value: value),
-                                                 }).ToEff()
-                                                 select result);
     internal static Query<TGeometry, TOut> ClosestMatch<TGeometry, TOut, TSource, TValue>(
         Point3d point,
         Func<Point3d, TSource, Fin<Seq<TValue>>> project) where TGeometry : notnull where TSource : notnull =>

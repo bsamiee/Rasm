@@ -160,8 +160,10 @@ public sealed class ContextSpec {
     public void PreservesExplicitIntersectionKindsForPolylineResults() {
         Op key = new(name: "test");
 
-        IntersectionKind[] kinds = key.IntersectionOutput<IntersectionKind>(
-                kinds: [IntersectionKind.Curve, IntersectionKind.Overlap])
+        IntersectionKind[] kinds = new IntersectionResult.Polylines(
+                Values: Seq<Polyline>(),
+                Kinds: Seq(IntersectionKind.Curve, IntersectionKind.Overlap))
+            .Project<IntersectionKind>(key: key)
             .Match(
                 Succ: static output => output.ToArray(),
                 Fail: static error => throw new Xunit.Sdk.XunitException(error.Message));

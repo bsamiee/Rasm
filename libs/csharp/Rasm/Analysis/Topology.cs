@@ -51,28 +51,11 @@ public static partial class Query {
     internal static bool Supports(Type geometry, params Type[] native) => typeof(GeometryBase).IsAssignableFrom(c: geometry) || geometry == typeof(object) || native.Contains(value: geometry);
     public static Query<Surface, Curve> Iso(IsoStatus iso, double normalized = 0.5) =>
         Query<Surface, Curve>.Build(key: IsoKey, requirement: Requirement.SurfaceEvaluation, state: (Iso: iso, Normalized: normalized), evaluator: static (state, geometry) => IsoCurveValues(surface: geometry, iso: state.Iso, normalized: state.Normalized, key: IsoKey).ToEff());
-    public static Query<TGeometry, TOut> Primitive<TGeometry, TOut>() where TGeometry : notnull => typeof(TGeometry) switch {
-        Type geometry when typeof(Curve).IsAssignableFrom(c: geometry) => typeof(TOut) switch {
-            Type output when output == typeof(Circle) => PrimitiveMatch<TGeometry, TOut, Curve, Circle>(project: static (curve, context, out circle) => curve.TryGetCircle(circle: out circle, tolerance: context.Absolute.Value)),
-            Type output when output == typeof(Arc) => PrimitiveMatch<TGeometry, TOut, Curve, Arc>(project: static (curve, context, out arc) => curve.TryGetArc(arc: out arc, tolerance: context.Absolute.Value)),
-            Type output when output == typeof(Ellipse) => PrimitiveMatch<TGeometry, TOut, Curve, Ellipse>(project: static (curve, context, out ellipse) => curve.TryGetEllipse(ellipse: out ellipse, tolerance: context.Absolute.Value)),
-            Type output when output == typeof(Polyline) => PrimitiveMatch<TGeometry, TOut, Curve, Polyline>(project: static (curve, _, out polyline) => curve.TryGetPolyline(polyline: out polyline)),
-            _ => PrimitiveKey.Unsupported<TGeometry, TOut>(),
-        },
-        Type geometry when typeof(Surface).IsAssignableFrom(c: geometry) => typeof(TOut) switch {
-            Type output when output == typeof(Plane) => PrimitiveMatch<TGeometry, TOut, Surface, Plane>(project: static (surface, context, out plane) => surface.TryGetPlane(plane: out plane, tolerance: context.Absolute.Value)),
-            Type output when output == typeof(Cylinder) => PrimitiveMatch<TGeometry, TOut, Surface, Cylinder>(project: static (surface, context, out cylinder) => surface.TryGetCylinder(cylinder: out cylinder, tolerance: context.Absolute.Value)),
-            Type output when output == typeof(Sphere) => PrimitiveMatch<TGeometry, TOut, Surface, Sphere>(project: static (surface, context, out sphere) => surface.TryGetSphere(sphere: out sphere, tolerance: context.Absolute.Value)),
-            Type output when output == typeof(Cone) => PrimitiveMatch<TGeometry, TOut, Surface, Cone>(project: static (surface, context, out cone) => surface.TryGetCone(cone: out cone, tolerance: context.Absolute.Value)),
-            Type output when output == typeof(Torus) => PrimitiveMatch<TGeometry, TOut, Surface, Torus>(project: static (surface, context, out torus) => surface.TryGetTorus(torus: out torus, tolerance: context.Absolute.Value)),
-            _ => PrimitiveKey.Unsupported<TGeometry, TOut>(),
-        },
-        Type geometry when typeof(Brep).IsAssignableFrom(c: geometry) && typeof(TOut) == typeof(Box) => PrimitiveMatch<TGeometry, TOut, Brep, Box>(project: static (brep, context, out box) => (brep.IsBox(tolerance: context.Absolute.Value), brep.GetBoundingBox(plane: Plane.WorldXY, worldBox: out box)) switch {
-            (true, BoundingBox local) => local.IsValid,
-            _ => false,
-        }),
-        _ => PrimitiveKey.Unsupported<TGeometry, TOut>(),
-    };
+    public static Query<TGeometry, TOut> Primitive<TGeometry, TOut>() where TGeometry : notnull =>
+        toSeq(PrimitiveDispatch.Items).Find(dispatch => dispatch.SourceType.IsAssignableFrom(c: typeof(TGeometry)) && dispatch.ResultType == typeof(TOut))
+            .Match(
+                Some: dispatch => dispatch.Build<TGeometry, TOut>(),
+                None: () => PrimitiveKey.Unsupported<TGeometry, TOut>());
     public static Query<TGeometry, TOut> Kind<TGeometry, TOut>() where TGeometry : notnull => (typeof(TGeometry), typeof(TOut)) switch {
         (Type geometry, Type output) when Supports(geometry: geometry, output: output, target: typeof(GeometryKind), native: [typeof(Line), typeof(Polyline), typeof(BoundingBox), typeof(Box), typeof(Sphere)]) => Cast<TGeometry, TOut>(key: KindKey, query: Query<TGeometry, GeometryKind>.Build(
                 key: KindKey,
@@ -487,4 +470,77 @@ internal static class CurvesRole {
             (Type geometry, Type output) when Query.Supports(geometry: geometry, output: output, target: typeof(ComponentIndex), native: [typeof(Line), typeof(Polyline), typeof(Circle), typeof(Arc)]) => Query.CurveQuery<TGeometry, TOut, ComponentIndex>(selector: selector, project: static chosen => Query.Many(key: Query.CurvesKey, values: chosen.Map(static curve => curve.Source))),
             _ => Query.CurvesKey.Unsupported<TGeometry, TOut>(),
         };
+}
+
+// --- [PRIMITIVE_DISPATCH] ----------------------------------------------------------------
+[SmartEnum<int>]
+public sealed partial class PrimitiveDispatch {
+    public static readonly PrimitiveDispatch Circle = new(key: 1, sourceType: typeof(Curve), resultType: typeof(Circle), extract: static (geometry, context) => geometry switch {
+        Curve curve when curve.TryGetCircle(circle: out Circle value, tolerance: context.Absolute.Value) => Fin.Succ<object>(value),
+        Curve => Fin.Fail<object>(Query.PrimitiveKey.InvalidResult()),
+        _ => Fin.Fail<object>(Query.PrimitiveKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Circle))),
+    });
+    public static readonly PrimitiveDispatch Arc = new(key: 2, sourceType: typeof(Curve), resultType: typeof(Arc), extract: static (geometry, context) => geometry switch {
+        Curve curve when curve.TryGetArc(arc: out Arc value, tolerance: context.Absolute.Value) => Fin.Succ<object>(value),
+        Curve => Fin.Fail<object>(Query.PrimitiveKey.InvalidResult()),
+        _ => Fin.Fail<object>(Query.PrimitiveKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Arc))),
+    });
+    public static readonly PrimitiveDispatch Ellipse = new(key: 3, sourceType: typeof(Curve), resultType: typeof(Ellipse), extract: static (geometry, context) => geometry switch {
+        Curve curve when curve.TryGetEllipse(ellipse: out Ellipse value, tolerance: context.Absolute.Value) => Fin.Succ<object>(value),
+        Curve => Fin.Fail<object>(Query.PrimitiveKey.InvalidResult()),
+        _ => Fin.Fail<object>(Query.PrimitiveKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Ellipse))),
+    });
+    public static readonly PrimitiveDispatch Polyline = new(key: 4, sourceType: typeof(Curve), resultType: typeof(Polyline), extract: static (geometry, _) => geometry switch {
+        Curve curve when curve.TryGetPolyline(polyline: out Polyline value) => Fin.Succ<object>(value),
+        Curve => Fin.Fail<object>(Query.PrimitiveKey.InvalidResult()),
+        _ => Fin.Fail<object>(Query.PrimitiveKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Polyline))),
+    });
+    public static readonly PrimitiveDispatch Plane = new(key: 5, sourceType: typeof(Surface), resultType: typeof(Plane), extract: static (geometry, context) => geometry switch {
+        Surface surface when surface.TryGetPlane(plane: out Plane value, tolerance: context.Absolute.Value) => Fin.Succ<object>(value),
+        Surface => Fin.Fail<object>(Query.PrimitiveKey.InvalidResult()),
+        _ => Fin.Fail<object>(Query.PrimitiveKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Plane))),
+    });
+    public static readonly PrimitiveDispatch Cylinder = new(key: 6, sourceType: typeof(Surface), resultType: typeof(Cylinder), extract: static (geometry, context) => geometry switch {
+        Surface surface when surface.TryGetCylinder(cylinder: out Cylinder value, tolerance: context.Absolute.Value) => Fin.Succ<object>(value),
+        Surface => Fin.Fail<object>(Query.PrimitiveKey.InvalidResult()),
+        _ => Fin.Fail<object>(Query.PrimitiveKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Cylinder))),
+    });
+    public static readonly PrimitiveDispatch Sphere = new(key: 7, sourceType: typeof(Surface), resultType: typeof(Sphere), extract: static (geometry, context) => geometry switch {
+        Surface surface when surface.TryGetSphere(sphere: out Sphere value, tolerance: context.Absolute.Value) => Fin.Succ<object>(value),
+        Surface => Fin.Fail<object>(Query.PrimitiveKey.InvalidResult()),
+        _ => Fin.Fail<object>(Query.PrimitiveKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Sphere))),
+    });
+    public static readonly PrimitiveDispatch Cone = new(key: 8, sourceType: typeof(Surface), resultType: typeof(Cone), extract: static (geometry, context) => geometry switch {
+        Surface surface when surface.TryGetCone(cone: out Cone value, tolerance: context.Absolute.Value) => Fin.Succ<object>(value),
+        Surface => Fin.Fail<object>(Query.PrimitiveKey.InvalidResult()),
+        _ => Fin.Fail<object>(Query.PrimitiveKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Cone))),
+    });
+    public static readonly PrimitiveDispatch Torus = new(key: 9, sourceType: typeof(Surface), resultType: typeof(Torus), extract: static (geometry, context) => geometry switch {
+        Surface surface when surface.TryGetTorus(torus: out Torus value, tolerance: context.Absolute.Value) => Fin.Succ<object>(value),
+        Surface => Fin.Fail<object>(Query.PrimitiveKey.InvalidResult()),
+        _ => Fin.Fail<object>(Query.PrimitiveKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Torus))),
+    });
+    public static readonly PrimitiveDispatch Box = new(key: 10, sourceType: typeof(Brep), resultType: typeof(Box), extract: static (geometry, context) => geometry switch {
+        Brep brep when brep.IsBox(tolerance: context.Absolute.Value)
+                       && brep.GetBoundingBox(plane: Rhino.Geometry.Plane.WorldXY, worldBox: out Box value) is { IsValid: true } => Fin.Succ<object>(value),
+        Brep => Fin.Fail<object>(Query.PrimitiveKey.InvalidResult()),
+        _ => Fin.Fail<object>(Query.PrimitiveKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Box))),
+    });
+    public Type SourceType { get; }
+    public Type ResultType { get; }
+    internal Func<GeometryBase, Context, Fin<object>> Extract { get; }
+    internal Query<TGeometry, TOut> Build<TGeometry, TOut>() where TGeometry : notnull =>
+        Query<TGeometry, TOut>.Build(
+            key: Query.PrimitiveKey,
+            requirement: Requirement.Basic,
+            requiresContext: true,
+            state: this,
+            evaluator: static (dispatch, geometry) => from context in Analyze.Asks
+                                                      from native in (geometry switch {
+                                                          GeometryBase value => Fin.Succ(value),
+                                                          _ => Fin.Fail<GeometryBase>(Query.PrimitiveKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))),
+                                                      }).ToEff()
+                                                      from boxed in dispatch.Extract(arg1: native, arg2: context).ToEff()
+                                                      from result in Query.PrimitiveKey.One(value: (TOut)boxed).ToEff()
+                                                      select result);
 }

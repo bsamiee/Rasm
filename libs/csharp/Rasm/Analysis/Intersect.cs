@@ -8,17 +8,17 @@ public static partial class Query {
             (Type a, Type b, Type output) when ((a == typeof(Line) && b == typeof(Plane)) || (a == typeof(Plane) && b == typeof(Line))) && (output == typeof(Point3d) || output == typeof(IntersectionKind)) => a == typeof(Line)
                     ? Pair<TA, TB, Line, Plane, TOut>(key: IntersectKey, a: Requirement.None, b: Requirement.None, output: static (left, right, _) => LinePlane<TOut>(line: left, plane: right))
                     : Pair<TA, TB, Plane, Line, TOut>(key: IntersectKey, a: Requirement.None, b: Requirement.None, output: static (left, right, _) => LinePlane<TOut>(line: right, plane: left)),
-            (Type a, Type b, Type output) when a == typeof(Plane) && b == typeof(Plane) && (output == typeof(Line) || output == typeof(IntersectionKind)) => Pair<TA, TB, Plane, Plane, TOut>(key: IntersectKey, a: Requirement.None, b: Requirement.None, output: static (left, right, _) => IntersectKey.IntersectionOutput<TOut>(lines: Intersection.PlanePlane(planeA: left, planeB: right, intersectionLine: out Line line) ? [line] : [])),
-            (Type a, Type b, Type output) when a == typeof(Line) && b == typeof(Circle) && (output == typeof(Point3d) || output == typeof(IntersectionKind)) => Pair<TA, TB, Line, Circle, TOut>(key: IntersectKey, a: Requirement.None, b: Requirement.None, output: static (left, right, _) => Intersection.LineCircle(line: left, circle: right, t1: out double _, point1: out Point3d a, t2: out double _, point2: out Point3d b) switch {
-                LineCircleIntersection.Single => IntersectKey.IntersectionOutput<TOut>(points: [a]),
-                LineCircleIntersection.Multiple => IntersectKey.IntersectionOutput<TOut>(points: [a, b]),
-                _ => IntersectKey.IntersectionOutput<TOut>(points: []),
-            }),
-            (Type a, Type b, Type output) when a == typeof(Line) && b == typeof(Sphere) && (output == typeof(Point3d) || output == typeof(IntersectionKind)) => Pair<TA, TB, Line, Sphere, TOut>(key: IntersectKey, a: Requirement.None, b: Requirement.None, output: static (left, right, _) => Intersection.LineSphere(line: left, sphere: right, intersectionPoint1: out Point3d a, intersectionPoint2: out Point3d b) switch {
-                LineSphereIntersection.Single => IntersectKey.IntersectionOutput<TOut>(points: [a]),
-                LineSphereIntersection.Multiple => IntersectKey.IntersectionOutput<TOut>(points: [a, b]),
-                _ => IntersectKey.IntersectionOutput<TOut>(points: []),
-            }),
+            (Type a, Type b, Type output) when a == typeof(Plane) && b == typeof(Plane) && (output == typeof(Line) || output == typeof(IntersectionKind)) => Pair<TA, TB, Plane, Plane, TOut>(key: IntersectKey, a: Requirement.None, b: Requirement.None, output: static (left, right, _) => new IntersectionResult.Lines(Values: Intersection.PlanePlane(planeA: left, planeB: right, intersectionLine: out Line line) ? Seq(line) : Seq<Line>()).Project<TOut>(key: IntersectKey)),
+            (Type a, Type b, Type output) when a == typeof(Line) && b == typeof(Circle) && (output == typeof(Point3d) || output == typeof(IntersectionKind)) => Pair<TA, TB, Line, Circle, TOut>(key: IntersectKey, a: Requirement.None, b: Requirement.None, output: static (left, right, _) => new IntersectionResult.Points(Values: Intersection.LineCircle(line: left, circle: right, t1: out double _, point1: out Point3d a, t2: out double _, point2: out Point3d b) switch {
+                LineCircleIntersection.Single => Seq(a),
+                LineCircleIntersection.Multiple => Seq(a, b),
+                _ => Seq<Point3d>(),
+            }).Project<TOut>(key: IntersectKey)),
+            (Type a, Type b, Type output) when a == typeof(Line) && b == typeof(Sphere) && (output == typeof(Point3d) || output == typeof(IntersectionKind)) => Pair<TA, TB, Line, Sphere, TOut>(key: IntersectKey, a: Requirement.None, b: Requirement.None, output: static (left, right, _) => new IntersectionResult.Points(Values: Intersection.LineSphere(line: left, sphere: right, intersectionPoint1: out Point3d a, intersectionPoint2: out Point3d b) switch {
+                LineSphereIntersection.Single => Seq(a),
+                LineSphereIntersection.Multiple => Seq(a, b),
+                _ => Seq<Point3d>(),
+            }).Project<TOut>(key: IntersectKey)),
             (Type a, Type b, Type output) when a == typeof(Line) && (b == typeof(BoundingBox) || b == typeof(Box)) && (output == typeof(Interval) || output == typeof(IntersectionKind)) => b == typeof(BoundingBox)
                     ? Pair<TA, TB, Line, BoundingBox, TOut>(key: IntersectKey, a: Requirement.None, b: Requirement.None, output: static (left, right, runtime) => LineBox<TOut, BoundingBox>(line: left, box: right, runtime: runtime))
                     : Pair<TA, TB, Line, Box, TOut>(key: IntersectKey, a: Requirement.None, b: Requirement.None, output: static (left, right, runtime) => LineBox<TOut, Box>(line: left, box: right, runtime: runtime)),
@@ -48,7 +48,7 @@ public static partial class Query {
                             .Select(static polyline => (Polyline: polyline, Kind: IntersectionKind.Unknown));
                     }),
             (Type a, Type b, Type output) when typeof(Mesh).IsAssignableFrom(c: a) && b == typeof(Line) && (output == typeof(Point3d) || output == typeof(IntersectionKind)) => Pair<TA, TB, Mesh, Line, TOut>(
-                    key: IntersectKey, a: Requirement.MeshCheck, b: Requirement.None, output: static (left, right, _) => IntersectKey.IntersectionOutput<TOut>(points: Intersection.MeshLineSorted(mesh: left, line: right, faceIds: out int[] _))),
+                    key: IntersectKey, a: Requirement.MeshCheck, b: Requirement.None, output: static (left, right, _) => new IntersectionResult.Points(Values: toSeq(Intersection.MeshLineSorted(mesh: left, line: right, faceIds: out int[] _) ?? [])).Project<TOut>(key: IntersectKey)),
             (Type a, Type b, Type output) when typeof(Mesh).IsAssignableFrom(c: a) && typeof(Mesh).IsAssignableFrom(c: b) && (output == typeof(Polyline) || output == typeof(IntersectionKind)) => PairPolylines<TA, TB, Mesh, Mesh, TOut>(
                     a: Requirement.MeshCheck, b: Requirement.MeshCheck, intersect: (left, right, runtime) => {
                         using TextLog textLog = new();
@@ -94,11 +94,11 @@ public static partial class Query {
                                                    }).ToEff()
                                                    select result);
     private static Fin<Seq<TOut>> LinePlane<TOut>(Line line, Plane plane) =>
-        IntersectKey.IntersectionOutput<TOut>(points: Intersection.LinePlane(line: line, plane: plane, lineParameter: out double parameter) ? [line.PointAt(t: parameter)] : []);
+        new IntersectionResult.Points(Values: Intersection.LinePlane(line: line, plane: plane, lineParameter: out double parameter) ? Seq(line.PointAt(t: parameter)) : Seq<Point3d>()).Project<TOut>(key: IntersectKey);
     private static Fin<Seq<TOut>> LineBox<TOut, TBox>(Line line, TBox box, Analyze.Runtime runtime) =>
         box switch {
-            BoundingBox bounds => IntersectKey.IntersectionOutput<TOut>(intervals: Intersection.LineBox(line: line, box: bounds, tolerance: runtime.Context.Absolute.Value, lineParameters: out Interval interval) ? [interval] : []),
-            Box oriented => IntersectKey.IntersectionOutput<TOut>(intervals: Intersection.LineBox(line: line, box: oriented, tolerance: runtime.Context.Absolute.Value, lineParameters: out Interval interval) ? [interval] : []),
+            BoundingBox bounds => new IntersectionResult.Intervals(Values: Intersection.LineBox(line: line, box: bounds, tolerance: runtime.Context.Absolute.Value, lineParameters: out Interval interval) ? Seq(interval) : Seq<Interval>()).Project<TOut>(key: IntersectKey),
+            Box oriented => new IntersectionResult.Intervals(Values: Intersection.LineBox(line: line, box: oriented, tolerance: runtime.Context.Absolute.Value, lineParameters: out Interval interval) ? Seq(interval) : Seq<Interval>()).Project<TOut>(key: IntersectKey),
             _ => Fin.Fail<Seq<TOut>>(IntersectKey.InvalidInput()),
         };
     private static Query<(TA A, TB B), TOut> PairEvents<TA, TB, TLeft, TRight, TOut>(Requirement a, Requirement b, Func<TLeft, TRight, Context, CurveIntersections?> intersect) where TA : notnull where TB : notnull where TLeft : notnull where TRight : notnull =>
@@ -108,7 +108,7 @@ public static partial class Query {
             b: b,
             output: (left, right, runtime) => {
                 using CurveIntersections? intersections = intersect(arg1: left, arg2: right, arg3: runtime.Context);
-                return IntersectKey.IntersectionOutput<TOut>(intersections: intersections);
+                return IntersectionResultRole.FromEvents(intersections: intersections).Project<TOut>(key: IntersectKey);
             });
     private static Query<(TA A, TB B), TOut> PairCurvePoint<TA, TB, TLeft, TRight, TOut>(Requirement a, Requirement b, bool acceptPartialResults, CurvePointIntersection<TLeft, TRight> intersect) where TA : notnull where TB : notnull where TLeft : notnull where TRight : notnull =>
         Pair<TA, TB, TLeft, TRight, TOut>(
@@ -116,9 +116,9 @@ public static partial class Query {
             a: a,
             b: b,
             output: (left, right, runtime) => intersect(left: left, right: right, context: runtime.Context, curves: out Curve[] curves, points: out Point3d[] points) switch {
-                true => IntersectKey.IntersectionOutput<TOut>(curves: curves, points: points),
-                false when acceptPartialResults && (Optional(curves).Map(static values => values.Length).IfNone(0) > 0 || Optional(points).Map(static values => values.Length).IfNone(0) > 0) => IntersectKey.IntersectionOutput<TOut>(curves: curves, points: points),
-                false => Fin.Fail<Seq<TOut>>(IntersectKey.InvalidResult()),
+                bool solved when solved || (acceptPartialResults && ((curves?.Length ?? 0) > 0 || (points?.Length ?? 0) > 0)) =>
+                    new IntersectionResult.Mixed(CurveValues: toSeq(curves ?? []), PointValues: toSeq(points ?? [])).Project<TOut>(key: IntersectKey),
+                _ => Fin.Fail<Seq<TOut>>(IntersectKey.InvalidResult()),
             });
     private static Query<(TA A, TB B), TOut> PairPolylines<TA, TB, TLeft, TRight, TOut>(Requirement a, Requirement b, PolylineIntersection<TLeft, TRight> intersect) where TA : notnull where TB : notnull where TLeft : notnull where TRight : notnull =>
         Pair<TA, TB, TLeft, TRight, TOut>(
@@ -126,10 +126,78 @@ public static partial class Query {
             a: a,
             b: b,
             output: (left, right, runtime) => intersect(left: left, right: right, runtime: runtime) switch {
-                IEnumerable<(Polyline Polyline, IntersectionKind Kind)> polylines => IntersectKey.IntersectionOutput<TOut>(polylines: polylines.Select(static value => value.Polyline), kinds: polylines.Select(static value => value.Kind)),
+                IEnumerable<(Polyline Polyline, IntersectionKind Kind)> polylines => new IntersectionResult.Polylines(Values: toSeq(polylines.Select(static value => value.Polyline)), Kinds: toSeq(polylines.Select(static value => value.Kind))).Project<TOut>(key: IntersectKey),
                 _ when runtime.Cancellation.IsCancellationRequested => Fin.Fail<Seq<TOut>>(OpFault.Cancelled()),
                 _ => Fin.Fail<Seq<TOut>>(IntersectKey.InvalidResult()),
             });
     private static bool Events(Type output) => output == typeof(IntersectionEvent) || output == typeof(Point3d) || output == typeof(IntersectionKind);
     private static bool Curves(Type output) => output == typeof(Curve) || output == typeof(Point3d) || output == typeof(IntersectionKind);
+}
+
+// --- [INTERSECTION_RESULT] ---------------------------------------------------------------
+[Union]
+public partial record IntersectionResult {
+    public sealed record Curves(Seq<Curve> Values) : IntersectionResult;
+    public sealed record Lines(Seq<Line> Values) : IntersectionResult;
+    public sealed record Circles(Seq<Circle> Values) : IntersectionResult;
+    public sealed record Points(Seq<Point3d> Values) : IntersectionResult;
+    public sealed record Intervals(Seq<Interval> Values) : IntersectionResult;
+    public sealed record Polylines(Seq<Polyline> Values, Seq<IntersectionKind> Kinds) : IntersectionResult;
+    public sealed record Events(Seq<IntersectionEvent> Values) : IntersectionResult;
+    public sealed record Mixed(Seq<Curve> CurveValues, Seq<Point3d> PointValues) : IntersectionResult;
+}
+
+// --- [INTERSECTION_RESULT_ROLE] ----------------------------------------------------------
+internal static class IntersectionResultRole {
+    internal static Fin<Seq<TOut>> Project<TOut>(this IntersectionResult result, Op key) => result switch {
+        IntersectionResult.Curves curves => typeof(TOut) switch {
+            Type t when t == typeof(Curve) => key.Results<Curve, TOut>(values: curves.Values),
+            Type t when t == typeof(IntersectionKind) => key.Results<IntersectionKind, TOut>(values: curves.Values.Map(static _ => IntersectionKind.Overlap)),
+            _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
+        },
+        IntersectionResult.Lines lines => typeof(TOut) switch {
+            Type t when t == typeof(Line) => key.Results<Line, TOut>(values: lines.Values),
+            Type t when t == typeof(IntersectionKind) => key.Results<IntersectionKind, TOut>(values: lines.Values.Map(static _ => IntersectionKind.Curve)),
+            _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
+        },
+        IntersectionResult.Circles circles => typeof(TOut) switch {
+            Type t when t == typeof(Circle) => key.Results<Circle, TOut>(values: circles.Values),
+            Type t when t == typeof(IntersectionKind) => key.Results<IntersectionKind, TOut>(values: circles.Values.Map(static _ => IntersectionKind.Curve)),
+            _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
+        },
+        IntersectionResult.Points points => typeof(TOut) switch {
+            Type t when t == typeof(Point3d) => key.Results<Point3d, TOut>(values: points.Values),
+            Type t when t == typeof(IntersectionKind) => key.Results<IntersectionKind, TOut>(values: points.Values.Map(static _ => IntersectionKind.Point)),
+            _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
+        },
+        IntersectionResult.Intervals intervals => typeof(TOut) switch {
+            Type t when t == typeof(Interval) => key.Results<Interval, TOut>(values: intervals.Values),
+            Type t when t == typeof(IntersectionKind) => key.Results<IntersectionKind, TOut>(values: intervals.Values.Map(static _ => IntersectionKind.Overlap)),
+            _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
+        },
+        IntersectionResult.Polylines polylines => typeof(TOut) switch {
+            Type t when t == typeof(Polyline) => key.Results<Polyline, TOut>(values: polylines.Values),
+            Type t when t == typeof(IntersectionKind) => key.Results<IntersectionKind, TOut>(values: polylines.Kinds),
+            _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
+        },
+        IntersectionResult.Events events => typeof(TOut) switch {
+            Type t when t == typeof(IntersectionEvent) => key.Results<IntersectionEvent, TOut>(values: events.Values),
+            Type t when t == typeof(Point3d) => key.Results<Point3d, TOut>(values: events.Values.Choose(static value => value.IsPoint ? Some(value.PointA) : Option<Point3d>.None)),
+            Type t when t == typeof(IntersectionKind) => key.Results<IntersectionKind, TOut>(values: events.Values.Map(static value => value switch {
+                { IsOverlap: true } => IntersectionKind.Overlap,
+                { IsPoint: true } => IntersectionKind.Point,
+                _ => IntersectionKind.Unknown,
+            })),
+            _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
+        },
+        IntersectionResult.Mixed mixed => typeof(TOut) switch {
+            Type t when t == typeof(Curve) => key.Results<Curve, TOut>(values: mixed.CurveValues),
+            Type t when t == typeof(Point3d) => key.Results<Point3d, TOut>(values: mixed.PointValues),
+            Type t when t == typeof(IntersectionKind) => key.Results<IntersectionKind, TOut>(values: mixed.CurveValues.Map(static _ => IntersectionKind.Overlap).Concat(second: mixed.PointValues.Map(static _ => IntersectionKind.Point))),
+            _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
+        },
+        _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
+    };
+    internal static IntersectionResult FromEvents(CurveIntersections? intersections) =>
+        new IntersectionResult.Events(Values: toSeq(Optional(intersections).ToSeq().Bind(static events => events)));
 }
