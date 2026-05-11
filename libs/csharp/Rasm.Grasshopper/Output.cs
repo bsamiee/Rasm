@@ -69,17 +69,12 @@ public sealed record PreparedGroup<TSource>(
         ArgumentNullException.ThrowIfNull(argument: access);
         return Source(arg1: access, arg2: runtime).Match(
             Succ: values => Slots.Iter((offset, output) => output.Write(access: access, slot: slot + offset, runtime: runtime, source: values)),
-            Fail: error => {
-                // BOUNDARY ADAPTER — GH2 warnings are void side effects on IDataAccess.
-                switch (EmptyUnsupported, Unsupported(error: error)) {
-                    case (true, true):
-                        break;
-                    default:
-                        access.AddWarning(text: Ports.Head.Map(static port => port.Name).IfNone("Output"), details: error.Message);
-                        break;
-                }
-                return Empty(access: access, slot: slot);
-            });
+            Fail: error => (
+                (EmptyUnsupported, Unsupported(error: error)) switch {
+                    (true, true) => Unit.Default,
+                    _ => fun((IDataAccess target) => { target.AddWarning(text: Ports.Head.Map(static port => port.Name).IfNone("Output"), details: error.Message); return Unit.Default; })(access),
+                },
+                Empty(access: access, slot: slot)).Item2);
     }
     public Unit Empty(IDataAccess access, int slot) {
         ArgumentNullException.ThrowIfNull(argument: access);

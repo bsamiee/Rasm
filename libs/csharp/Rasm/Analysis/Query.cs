@@ -6,8 +6,7 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
     internal bool RequiresContext { get; }
     internal Option<Error> Rejection { get; }
     private Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>> Evaluate { get; }
-    private Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>> EvaluateAggregate { get; }
-    private bool SupportsAggregate { get; }
+    private Option<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>>> AggregatePlan { get; }
     internal Query(
         Op key,
         Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>> effect,
@@ -20,8 +19,7 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
         RequiresContext = requiresContext;
         Rejection = rejection;
         Evaluate = effect;
-        EvaluateAggregate = aggregate.IfNone(() => _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))).ToEff());
-        SupportsAggregate = aggregate.ToSeq().IsEmpty switch { true => false, false => true };
+        AggregatePlan = aggregate;
     }
     internal Eff<Analyze.Runtime, Seq<TOut>> Apply(TGeometry geometry) => Evaluate(arg: Seq(geometry));
     internal Eff<Analyze.Runtime, Seq<TOut>> Apply(Seq<TGeometry> geometry) => Evaluate(arg: geometry);
@@ -30,22 +28,18 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
             key: Key,
             requirement: Requirement,
             requiresContext: RequiresContext,
-            aggregate: SupportsAggregate switch {
-                true => Some<Func<Seq<TIn>, Eff<Analyze.Runtime, Seq<TOut>>>>(input => EvaluateAggregate(arg: input.Map(value => map(arg: value)))),
-                false => Option<Func<Seq<TIn>, Eff<Analyze.Runtime, Seq<TOut>>>>.None,
-            },
+            aggregate: AggregatePlan.Map<Func<Seq<TIn>, Eff<Analyze.Runtime, Seq<TOut>>>>(project => input => project(arg: input.Map(value => map(arg: value)))),
             rejection: Rejection,
             effect: input => Evaluate(arg: input.Map(value => map(arg: value))));
     public Query<TGeometry, TOut> Aggregate() =>
-        SupportsAggregate switch {
-            true => new(
+        AggregatePlan.Match(
+            Some: project => new Query<TGeometry, TOut>(
                 key: Key,
                 requirement: Requirement,
                 requiresContext: RequiresContext,
-                aggregate: Some(EvaluateAggregate),
-                effect: EvaluateAggregate),
-            false => Reject(key: Key, fault: Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))),
-        };
+                aggregate: Some(project),
+                effect: project),
+            None: () => Reject(key: Key, fault: Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))));
     internal static Query<TGeometry, TOut> Build(
         Op key,
         Func<TGeometry, Eff<Analyze.Runtime, Seq<TOut>>> evaluator,
@@ -106,7 +100,81 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
             _ => Fin.Succ(geometry).ToEff(),
         };
 }
-public enum MassKind { None = 0, Length = 1, Area = 2, Volume = 3 }
+[SmartEnum<int>]
+public sealed partial class MassKind {
+    private delegate Eff<Analyze.Runtime, IDisposable> ComputeMass(object geometry, bool secondMoments, bool productMoments);
+    public static readonly MassKind None = new(key: 0, label: nameof(None), requirement: Requirement.None, compute: static (geometry, _, _) => Fin.Fail<IDisposable>(OpFault.ComputationUnsupported(label: nameof(None), geometryType: geometry.GetType())).ToEff(), sum: static _ => Fin.Fail<IDisposable>(OpFault.ComputationFailed(label: nameof(None))));
+    public static readonly MassKind Length = new(
+        key: 1,
+        label: nameof(Length),
+        requirement: Requirement.CurveLength,
+        compute: static (geometry, secondMoments, productMoments) => (geometry switch {
+            Curve curve => Optional(LengthMassProperties.Compute(curve: curve, length: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments))
+                .ToFin(OpFault.ComputationFailed(label: nameof(LengthMassProperties)))
+                .Map(static props => (IDisposable)props),
+            _ => Fin.Fail<IDisposable>(OpFault.ComputationUnsupported(label: nameof(LengthMassProperties), geometryType: geometry.GetType())),
+        }).ToEff(),
+        sum: static props => Optional(LengthMassProperties.WeightedSum(summands: props.AsIterable().Cast<LengthMassProperties>(), weights: Enumerable.Repeat(element: 1.0, count: props.Count)))
+            .ToFin(OpFault.ComputationFailed(label: nameof(LengthMassProperties)))
+            .Map(static props => (IDisposable)props));
+    public static readonly MassKind Area = new(
+        key: 2,
+        label: nameof(Area),
+        requirement: Requirement.AreaMass,
+        compute: static (geometry, secondMoments, productMoments) =>
+            from ctx in Analyze.Asks
+            from props in Optional(geometry switch {
+                Curve curve => AreaMassProperties.Compute(closedPlanarCurve: curve, planarTolerance: ctx.Absolute.Value),
+                Mesh mesh => AreaMassProperties.Compute(mesh: mesh, area: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments),
+                Brep brep => AreaMassProperties.Compute(brep: brep, area: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments, relativeTolerance: ctx.Relative.Value, absoluteTolerance: ctx.Absolute.Value),
+                Surface surface => AreaMassProperties.Compute(surface: surface, area: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments),
+                _ => null,
+            }).ToFin(geometry switch {
+                Curve or Mesh or Brep or Surface => OpFault.ComputationFailed(label: nameof(AreaMassProperties)),
+                _ => OpFault.ComputationUnsupported(label: nameof(AreaMassProperties), geometryType: geometry.GetType()),
+            }).Map(static props => (IDisposable)props).ToEff()
+            select props,
+        sum: static props => Optional(AreaMassProperties.WeightedSum(summands: props.AsIterable().Cast<AreaMassProperties>(), weights: Enumerable.Repeat(element: 1.0, count: props.Count)))
+            .ToFin(OpFault.ComputationFailed(label: nameof(AreaMassProperties)))
+            .Map(static props => (IDisposable)props));
+    public static readonly MassKind Volume = new(
+        key: 3,
+        label: nameof(Volume),
+        requirement: Requirement.VolumeMass,
+        compute: static (geometry, secondMoments, productMoments) =>
+            from ctx in Analyze.Asks
+            from props in Optional(geometry switch {
+                Mesh mesh => VolumeMassProperties.Compute(mesh: mesh, volume: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments),
+                Brep brep => VolumeMassProperties.Compute(brep: brep, volume: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments, relativeTolerance: ctx.Relative.Value, absoluteTolerance: ctx.Absolute.Value),
+                Surface surface => VolumeMassProperties.Compute(surface: surface, volume: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments),
+                _ => null,
+            }).ToFin(geometry switch {
+                Mesh or Brep or Surface => OpFault.ComputationFailed(label: nameof(VolumeMassProperties)),
+                _ => OpFault.ComputationUnsupported(label: nameof(VolumeMassProperties), geometryType: geometry.GetType()),
+            }).Map(static props => (IDisposable)props).ToEff()
+            select props,
+        sum: static props => Optional(VolumeMassProperties.WeightedSum(summands: props.AsIterable().Cast<VolumeMassProperties>(), weights: Enumerable.Repeat(element: 1.0, count: props.Count)))
+            .ToFin(OpFault.ComputationFailed(label: nameof(VolumeMassProperties)))
+            .Map(static props => (IDisposable)props));
+    public string Label { get; }
+    internal Requirement Requirement { get; }
+    private ComputeMass Compute { get; }
+    private Func<Seq<IDisposable>, Fin<IDisposable>> Sum { get; }
+    internal Query<TGeometry, TValue> Build<TGeometry, TValue>(Op key, Func<Op, IDisposable, Fin<Seq<TValue>>> project, bool secondMoments = false, bool productMoments = false) where TGeometry : notnull =>
+        Query<TGeometry, TValue>.Build(
+            key: key,
+            requirement: Requirement,
+            requiresContext: true,
+            aggregate: Some<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TValue>>>>(geometry =>
+                from props in geometry.Traverse(item => Compute(geometry: item, secondMoments: secondMoments, productMoments: productMoments)).As()
+                from mass in Sum(arg: props).ToEff()
+                from values in Query.Bracket(factory: () => mass, body: disposable => project(arg1: key, arg2: disposable)).ToEff()
+                select values),
+            evaluator: geometry =>
+                from mass in Compute(geometry: geometry, secondMoments: secondMoments, productMoments: productMoments)
+                from values in Query.Bracket(factory: () => mass, body: disposable => project(arg1: key, arg2: disposable)).ToEff()
+                select values);
+}
 public enum CurvatureScalar { None = 0, Magnitude = 1, Gaussian = 2, Mean = 3 }
 [SmartEnum<int>]
 public sealed partial class MeshFaceMetric {
@@ -151,18 +219,11 @@ public partial record Location {
     public sealed record Contains(Point3d Point, Plane Plane) : Location; public sealed record ShortPath(Point2d Start, Point2d End) : Location;
     public sealed record ControlPoints : Location;
 }
-[SmartEnum<int>]
-public sealed partial class FaceSelector {
-    public static readonly FaceSelector All = new(key: 0), Top = new(key: 1), Bottom = new(key: 2), At = new(key: 3);
-}
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct Faces(FaceSelector Selector, Option<int> Index) {
-    public static Faces All => new(Selector: FaceSelector.All, Index: None); public static Faces Top => new(Selector: FaceSelector.Top, Index: None); public static Faces Bottom => new(Selector: FaceSelector.Bottom, Index: None);
-    public static Faces At(int? index = null) => new(Selector: FaceSelector.At, Index: Optional(value: index));
-}
-[SmartEnum<int>]
-public sealed partial class CurveSelector {
-    public static readonly CurveSelector All = new(key: 0), Boundary = new(key: 1), IsoU = new(key: 2), IsoV = new(key: 3), At = new(key: 4), Segments = new(key: 5), NakedOuter = new(key: 6), NakedInner = new(key: 7), Interior = new(key: 8), NonManifold = new(key: 9), OuterLoop = new(key: 10), InnerLoop = new(key: 11), Silhouette = new(key: 12), SubCurves = new(key: 13), Draft = new(key: 14);
+[Union]
+public partial record Faces {
+    public sealed record AllCase : Faces; public sealed record TopCase : Faces; public sealed record BottomCase : Faces; public sealed record AtCase(int? Value) : Faces;
+    public static Faces All => new AllCase(); public static Faces Top => new TopCase(); public static Faces Bottom => new BottomCase();
+    public static Faces At(int? index = null) => new AtCase(Value: index);
 }
 [SmartEnum<int>]
 public sealed partial class MeshCheckCount {
@@ -176,17 +237,29 @@ public sealed partial class MeshCheckCount {
     public static readonly MeshCheckCount ZeroLengthNormals = new(key: 13, project: Some<Func<MeshCheckParameters, int>>(static parameters => parameters.ZeroLengthNormalCount));
     public Option<Func<MeshCheckParameters, int>> Project { get; }
 }
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct Curves(CurveSelector Selector, Option<int> Index, Option<Vector3d> Direction, Option<double> Angle) {
-    public static Curves All => new(Selector: CurveSelector.All, Index: None, Direction: None, Angle: None); public static Curves Segments => new(Selector: CurveSelector.Segments, Index: None, Direction: None, Angle: None);
-    public static Curves Boundary => new(Selector: CurveSelector.Boundary, Index: None, Direction: None, Angle: None); public static Curves NakedOuter => new(Selector: CurveSelector.NakedOuter, Index: None, Direction: None, Angle: None);
-    public static Curves NakedInner => new(Selector: CurveSelector.NakedInner, Index: None, Direction: None, Angle: None); public static Curves Interior => new(Selector: CurveSelector.Interior, Index: None, Direction: None, Angle: None);
-    public static Curves NonManifold => new(Selector: CurveSelector.NonManifold, Index: None, Direction: None, Angle: None); public static Curves OuterLoop => new(Selector: CurveSelector.OuterLoop, Index: None, Direction: None, Angle: None);
-    public static Curves InnerLoop => new(Selector: CurveSelector.InnerLoop, Index: None, Direction: None, Angle: None); public static Curves IsoU => new(Selector: CurveSelector.IsoU, Index: None, Direction: None, Angle: None);
-    public static Curves IsoV => new(Selector: CurveSelector.IsoV, Index: None, Direction: None, Angle: None); public static Curves SubCurves => new(Selector: CurveSelector.SubCurves, Index: None, Direction: None, Angle: None);
-    public static Curves Silhouette(Vector3d? direction = null) => new(Selector: CurveSelector.Silhouette, Index: None, Direction: Optional(value: direction), Angle: None);
-    public static Curves Draft(Vector3d? direction = null, double? angle = null) => new(Selector: CurveSelector.Draft, Index: None, Direction: Optional(value: direction), Angle: Optional(value: angle));
-    public static Curves At(int? index = null) => new(Selector: CurveSelector.At, Index: Optional(value: index), Direction: None, Angle: None);
+[Union]
+public partial record Curves {
+    public sealed record AllCase : Curves; public sealed record SegmentsCase : Curves; public sealed record BoundaryCase : Curves; public sealed record NakedOuterCase : Curves; public sealed record NakedInnerCase : Curves; public sealed record InteriorCase : Curves; public sealed record NonManifoldCase : Curves; public sealed record OuterLoopCase : Curves; public sealed record InnerLoopCase : Curves; public sealed record IsoUCase : Curves; public sealed record IsoVCase : Curves; public sealed record SubCurvesCase : Curves; public sealed record SilhouetteCase(Vector3d? Direction) : Curves; public sealed record DraftCase(Vector3d? Direction, double? Angle) : Curves; public sealed record AtCase(int? Value) : Curves;
+    public static Curves All => new AllCase(); public static Curves Segments => new SegmentsCase(); public static Curves Boundary => new BoundaryCase(); public static Curves NakedOuter => new NakedOuterCase();
+    public static Curves NakedInner => new NakedInnerCase(); public static Curves Interior => new InteriorCase(); public static Curves NonManifold => new NonManifoldCase(); public static Curves OuterLoop => new OuterLoopCase();
+    public static Curves InnerLoop => new InnerLoopCase(); public static Curves IsoU => new IsoUCase(); public static Curves IsoV => new IsoVCase(); public static Curves SubCurves => new SubCurvesCase();
+    public static Curves Silhouette(Vector3d? direction = null) => new SilhouetteCase(Direction: direction);
+    public static Curves Draft(Vector3d? direction = null, double? angle = null) => new DraftCase(Direction: direction, Angle: angle);
+    public static Curves At(int? index = null) => new AtCase(Value: index);
+    internal bool InputCurve => InputBoundary || this is SegmentsCase or SubCurvesCase;
+    internal bool InputBoundary => this is AllCase or BoundaryCase;
+    internal (CurveFeature Feature, Func<BrepEdge, bool> Brep, Func<Mesh, int, bool> Mesh)? Edge => this switch {
+        AllCase => (CurveFeature.Edge, static _ => true, static (_, _) => true),
+        SegmentsCase => (CurveFeature.Segment, static _ => true, static (_, _) => true),
+        BoundaryCase => (CurveFeature.Boundary, BrepNakedEdge(nakedOuter: true, nakedInner: true), static (mesh, index) => mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: index).Length == 1),
+        NakedOuterCase => (CurveFeature.NakedOuter, BrepNakedEdge(nakedOuter: true, nakedInner: false), static (mesh, index) => mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: index).Length == 1),
+        NakedInnerCase => (CurveFeature.NakedInner, BrepNakedEdge(nakedOuter: false, nakedInner: true), static (_, _) => false),
+        InteriorCase => (CurveFeature.Interior, static edge => edge.Valence == EdgeAdjacency.Interior, static (mesh, index) => mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: index).Length == 2),
+        NonManifoldCase => (CurveFeature.NonManifold, static edge => edge.Valence == EdgeAdjacency.NonManifold, static (mesh, index) => mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: index).Length > 2),
+        _ => null,
+    };
+    private static Func<BrepEdge, bool> BrepNakedEdge(bool nakedOuter, bool nakedInner) =>
+        edge => edge.Valence == EdgeAdjacency.Naked && toSeq(edge.TrimIndices()).Exists(trim => edge.Brep.Trims[trim].Loop.LoopType switch { BrepLoopType.Outer => nakedOuter, BrepLoopType.Inner => nakedInner, _ => false });
 }
 [Union]
 public partial record Conformance {
@@ -374,88 +447,6 @@ public static partial class Query {
                 from result in One(key: key, value: value).ToEff()
                 select result,
             _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))).ToEff(),
-        };
-    internal static Eff<Analyze.Runtime, TMass> ComputeMass<TMass>(
-        object geometry,
-        bool secondMoments,
-        bool productMoments) where TMass : class, IDisposable =>
-        typeof(TMass) switch {
-            Type mass when mass == typeof(LengthMassProperties) => (geometry switch {
-                Curve curve => Optional(LengthMassProperties.Compute(
-                        curve: curve,
-                        length: true,
-                        firstMoments: true,
-                        secondMoments: secondMoments,
-                        productMoments: productMoments))
-                    .ToFin(OpFault.ComputationFailed(label: nameof(LengthMassProperties)))
-                    .Map(static props => (TMass)(object)props),
-                _ => Fin.Fail<TMass>(OpFault.ComputationUnsupported(label: nameof(LengthMassProperties), geometryType: geometry.GetType())),
-            }).ToEff(),
-            Type mass when mass == typeof(AreaMassProperties) =>
-                from ctx in Analyze.Asks
-                from props in Optional(geometry switch {
-                    Curve curve => AreaMassProperties.Compute(closedPlanarCurve: curve, planarTolerance: ctx.Absolute.Value),
-                    Mesh mesh => AreaMassProperties.Compute(mesh: mesh, area: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments),
-                    Brep brep => AreaMassProperties.Compute(brep: brep, area: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments, relativeTolerance: ctx.Relative.Value, absoluteTolerance: ctx.Absolute.Value),
-                    Surface surface => AreaMassProperties.Compute(surface: surface, area: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments),
-                    _ => null,
-                }).ToFin(geometry switch {
-                    Curve or Mesh or Brep or Surface => OpFault.ComputationFailed(label: nameof(AreaMassProperties)),
-                    _ => OpFault.ComputationUnsupported(label: nameof(AreaMassProperties), geometryType: geometry.GetType()),
-                }).Map(static props => (TMass)(object)props).ToEff()
-                select props,
-            Type mass when mass == typeof(VolumeMassProperties) =>
-                from ctx in Analyze.Asks
-                from props in Optional(geometry switch {
-                    Mesh mesh => VolumeMassProperties.Compute(mesh: mesh, volume: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments),
-                    Brep brep => VolumeMassProperties.Compute(brep: brep, volume: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments, relativeTolerance: ctx.Relative.Value, absoluteTolerance: ctx.Absolute.Value),
-                    Surface surface => VolumeMassProperties.Compute(surface: surface, volume: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments),
-                    _ => null,
-                }).ToFin(geometry switch {
-                    Mesh or Brep or Surface => OpFault.ComputationFailed(label: nameof(VolumeMassProperties)),
-                    _ => OpFault.ComputationUnsupported(label: nameof(VolumeMassProperties), geometryType: geometry.GetType()),
-                }).Map(static props => (TMass)(object)props).ToEff()
-                select props,
-            _ => Fin.Fail<TMass>(OpFault.ComputationUnsupported(label: typeof(TMass).Name, geometryType: geometry.GetType())).ToEff(),
-        };
-    internal static Query<TGeometry, TOut> Mass<TGeometry, TMass, TOut>(
-        string name,
-        Requirement requirement,
-        Func<Op, TMass, Fin<Seq<TOut>>> project,
-        bool secondMoments = false,
-        bool productMoments = false) where TGeometry : notnull where TMass : class, IDisposable {
-        Op key = new(name: name);
-        return Query<TGeometry, TOut>.Build(
-            key: key,
-            requirement: requirement,
-            requiresContext: true,
-            aggregate: Some<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>>>(geometry =>
-                from props in geometry.Traverse(item => ComputeMass<TMass>(geometry: item, secondMoments: secondMoments, productMoments: productMoments)).As()
-                from mass in SumMass(props: props).ToEff()
-                from values in Bracket(
-                        factory: () => mass,
-                        body: disposable => project(arg1: key, arg2: disposable))
-                    .ToEff()
-                select values),
-            evaluator: geometry => from mass in ComputeMass<TMass>(
-                    geometry: geometry,
-                    secondMoments: secondMoments,
-                    productMoments: productMoments)
-                                   from values in Bracket(factory: () => mass, body: disposable => project(arg1: key, arg2: disposable)).ToEff()
-                                   select values);
-    }
-    internal static Fin<TMass> SumMass<TMass>(Seq<TMass> props) where TMass : class, IDisposable =>
-        typeof(TMass) switch {
-            Type mass when mass == typeof(LengthMassProperties) => Optional(LengthMassProperties.WeightedSum(summands: props.AsIterable().Cast<LengthMassProperties>(), weights: Enumerable.Repeat(element: 1.0, count: props.Count)))
-                .ToFin(OpFault.ComputationFailed(label: nameof(LengthMassProperties)))
-                .Map(static sum => (TMass)(object)sum),
-            Type mass when mass == typeof(AreaMassProperties) => Optional(AreaMassProperties.WeightedSum(summands: props.AsIterable().Cast<AreaMassProperties>(), weights: Enumerable.Repeat(element: 1.0, count: props.Count)))
-                .ToFin(OpFault.ComputationFailed(label: nameof(AreaMassProperties)))
-                .Map(static sum => (TMass)(object)sum),
-            Type mass when mass == typeof(VolumeMassProperties) => Optional(VolumeMassProperties.WeightedSum(summands: props.AsIterable().Cast<VolumeMassProperties>(), weights: Enumerable.Repeat(element: 1.0, count: props.Count)))
-                .ToFin(OpFault.ComputationFailed(label: nameof(VolumeMassProperties)))
-                .Map(static sum => (TMass)(object)sum),
-            _ => Fin.Fail<TMass>(OpFault.ComputationFailed(label: typeof(TMass).Name)),
         };
     internal static Fin<Seq<(double Moment, Vector3d Axis)>> Principal<TMass>(
         this Op key,

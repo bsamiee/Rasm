@@ -319,46 +319,46 @@ public static partial class Query {
             evaluator: static (state, geometry) => ProjectCurves(geometry: geometry, selector: state.Selector, transfer: state.Transfer, project: state.Project)));
     private static Eff<Analyze.Runtime, Seq<TValue>> ProjectCurves<TGeometry, TValue>(TGeometry geometry, Curves selector, bool transfer, Func<Seq<CurveProjection>, Fin<Seq<TValue>>> project) where TGeometry : notnull =>
         from runtime in Analyze.RuntimeAsks
-        from curves in ExtractCurveProjections(geometry: geometry, aspect: selector.Selector == CurveSelector.At ? Rasm.Analysis.Curves.All : selector, runtime: runtime).ToEff()
+        from curves in ExtractCurveProjections(geometry: geometry, aspect: selector is Rasm.Analysis.Curves.AtCase ? Rasm.Analysis.Curves.All : selector, runtime: runtime).ToEff()
         from chosen in SelectCurves(curves: curves, aspect: selector).ToEff()
         from result in ProjectOwned(all: curves, chosen: chosen, transfer: transfer, project: project, same: static (left, right) => ReferenceEquals(objA: left.Curve, objB: right.Curve), dispose: static curve => curve.Dispose()).ToEff()
         select result;
     private static Fin<Seq<CurveProjection>> ExtractCurveProjections<TGeometry>(TGeometry geometry, Curves aspect, Analyze.Runtime runtime) where TGeometry : notnull =>
-        (aspect.Selector, geometry) switch {
-            (CurveSelector selector, _) when EdgeCurveCase(selector: selector) is { } || selector == CurveSelector.SubCurves => CurvesOf(geometry: geometry, selector: selector),
-            (CurveSelector selector, _) when selector == CurveSelector.OuterLoop => LoopCurves(geometry: geometry, feature: CurveFeature.OuterLoop, loopType: BrepLoopType.Outer),
-            (CurveSelector selector, _) when selector == CurveSelector.InnerLoop => LoopCurves(geometry: geometry, feature: CurveFeature.InnerLoop, loopType: BrepLoopType.Inner),
-            (CurveSelector selector, _) when selector == CurveSelector.IsoU => IsoCurves(geometry: geometry, direction: 0, feature: CurveFeature.IsoU),
-            (CurveSelector selector, _) when selector == CurveSelector.IsoV => IsoCurves(geometry: geometry, direction: 1, feature: CurveFeature.IsoV),
-            (CurveSelector selector, _) when selector == CurveSelector.Silhouette => SilhouetteCurves(geometry: geometry, direction: aspect.Direction.IfNone(static () => Vector3d.ZAxis), runtime: runtime),
-            (CurveSelector selector, _) when selector == CurveSelector.Draft => DraftCurves(geometry: geometry, direction: aspect.Direction.IfNone(static () => Vector3d.ZAxis), angle: aspect.Angle.IfNone(static () => 0.0), runtime: runtime),
+        aspect switch {
+            Rasm.Analysis.Curves.AllCase or Rasm.Analysis.Curves.BoundaryCase or Rasm.Analysis.Curves.SegmentsCase or Rasm.Analysis.Curves.NakedOuterCase or Rasm.Analysis.Curves.NakedInnerCase or Rasm.Analysis.Curves.InteriorCase or Rasm.Analysis.Curves.NonManifoldCase or Rasm.Analysis.Curves.SubCurvesCase => CurvesOf(geometry: geometry, selector: aspect),
+            Rasm.Analysis.Curves.OuterLoopCase => LoopCurves(geometry: geometry, feature: CurveFeature.OuterLoop, loopType: BrepLoopType.Outer),
+            Rasm.Analysis.Curves.InnerLoopCase => LoopCurves(geometry: geometry, feature: CurveFeature.InnerLoop, loopType: BrepLoopType.Inner),
+            Rasm.Analysis.Curves.IsoUCase => IsoCurves(geometry: geometry, direction: 0, feature: CurveFeature.IsoU),
+            Rasm.Analysis.Curves.IsoVCase => IsoCurves(geometry: geometry, direction: 1, feature: CurveFeature.IsoV),
+            Rasm.Analysis.Curves.SilhouetteCase silhouette => SilhouetteCurves(geometry: geometry, direction: Optional(value: silhouette.Direction).IfNone(static () => Vector3d.ZAxis), runtime: runtime),
+            Rasm.Analysis.Curves.DraftCase draft => DraftCurves(geometry: geometry, direction: Optional(value: draft.Direction).IfNone(static () => Vector3d.ZAxis), angle: Optional(value: draft.Angle).IfNone(static () => 0.0), runtime: runtime),
             _ => Fin.Fail<Seq<CurveProjection>>(CurvesKey.InvalidInput()),
         };
-    private static Fin<Seq<CurveProjection>> CurvesOf<TGeometry>(TGeometry geometry, CurveSelector selector) where TGeometry : notnull =>
+    private static Fin<Seq<CurveProjection>> CurvesOf<TGeometry>(TGeometry geometry, Curves selector) where TGeometry : notnull =>
         (selector, geometry) switch {
-            (CurveSelector kind, Curve curve) when InputCurveCase(selector: kind) => ProjectCurve(curve: curve, selector: kind, pieceSource: ComponentIndexType.PolycurveSegment, splitInput: true),
-            (CurveSelector kind, Line line) when line.IsValid && InputCurveCase(selector: kind) =>
+            (Curves kind, Curve curve) when kind.InputCurve => ProjectCurve(curve: curve, selector: kind, pieceSource: ComponentIndexType.PolycurveSegment, splitInput: true),
+            (Curves kind, Line line) when line.IsValid && kind.InputCurve =>
                 PrimitiveCurve(primitive: line, selector: kind, pieceSource: ComponentIndexType.NoType, convert: static value => value.ToNurbsCurve()),
-            (CurveSelector kind, Polyline polyline) when polyline.IsValid && InputCurveCase(selector: kind) =>
+            (Curves kind, Polyline polyline) when polyline.IsValid && kind.InputCurve =>
                 PrimitiveCurve(primitive: polyline, selector: kind, pieceSource: ComponentIndexType.PolycurveSegment, convert: static value => value.ToPolylineCurve()),
-            (CurveSelector kind, Circle circle) when circle.IsValid && InputCurveCase(selector: kind) =>
+            (Curves kind, Circle circle) when circle.IsValid && kind.InputCurve =>
                 PrimitiveCurve(primitive: circle, selector: kind, pieceSource: ComponentIndexType.NoType, convert: static value => value.ToNurbsCurve()),
-            (CurveSelector kind, Arc arc) when arc.IsValid && InputCurveCase(selector: kind) =>
+            (Curves kind, Arc arc) when arc.IsValid && kind.InputCurve =>
                 PrimitiveCurve(primitive: arc, selector: kind, pieceSource: ComponentIndexType.NoType, convert: static value => value.ToNurbsCurve()),
-            (CurveSelector kind, Brep brep) when EdgeCurveCase(selector: kind) is { } edge => BrepEdgeCurves(brep: brep, feature: edge.Feature, predicate: edge.Brep),
-            (CurveSelector kind, BrepFace face) when kind == CurveSelector.All || kind == CurveSelector.Boundary => Optional(face.DuplicateFace(duplicateMeshes: false))
+            (Curves kind, Brep brep) when kind.Edge is { } edge => BrepEdgeCurves(brep: brep, feature: edge.Feature, predicate: edge.Brep),
+            (Rasm.Analysis.Curves.AllCase or Rasm.Analysis.Curves.BoundaryCase, BrepFace face) => Optional(face.DuplicateFace(duplicateMeshes: false))
                 .ToFin(CurvesKey.InvalidResult())
                 .Bind(duplicate => { using Brep disposable = duplicate; return BrepEdgeCurves(brep: disposable, feature: CurveFeature.Boundary, predicate: static _ => true); }),
-            (CurveSelector kind, Surface surface) when kind == CurveSelector.All || kind == CurveSelector.Boundary => SurfaceBoundaryCurves(surface: surface, feature: CurveFeature.Boundary),
-            (CurveSelector kind, SubD subd) when kind == CurveSelector.All || kind == CurveSelector.Segments =>
+            (Rasm.Analysis.Curves.AllCase or Rasm.Analysis.Curves.BoundaryCase, Surface surface) => SurfaceBoundaryCurves(surface: surface, feature: CurveFeature.Boundary),
+            (Rasm.Analysis.Curves.AllCase or Rasm.Analysis.Curves.SegmentsCase, SubD subd) =>
                 subd.UpdateSurfaceMeshCache(lazyUpdate: true) switch {
-                    _ => IndexedCurves(curves: subd.DuplicateEdgeCurves(), feature: kind == CurveSelector.Segments ? CurveFeature.Segment : CurveFeature.Edge, sourceType: ComponentIndexType.SubdEdge),
+                    _ => IndexedCurves(curves: subd.DuplicateEdgeCurves(), feature: selector is Rasm.Analysis.Curves.SegmentsCase ? CurveFeature.Segment : CurveFeature.Edge, sourceType: ComponentIndexType.SubdEdge),
                 },
-            (CurveSelector kind, Mesh) when kind == CurveSelector.NakedInner => Fin.Succ(Seq<CurveProjection>()),
-            (CurveSelector kind, Mesh mesh) when kind != CurveSelector.NakedInner && EdgeCurveCase(selector: kind) is { } edge => MeshEdgeCurves(mesh: mesh, feature: edge.Feature, predicate: edge.Mesh),
+            (Rasm.Analysis.Curves.NakedInnerCase, Mesh) => Fin.Succ(Seq<CurveProjection>()),
+            (Curves kind, Mesh mesh) when kind.Edge is { } edge => MeshEdgeCurves(mesh: mesh, feature: edge.Feature, predicate: edge.Mesh),
             _ => Fin.Fail<Seq<CurveProjection>>(CurvesKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Curve))),
         };
-    private static Fin<Seq<CurveProjection>> PrimitiveCurve<TPrimitive>(TPrimitive primitive, CurveSelector selector, ComponentIndexType pieceSource, Func<TPrimitive, Curve?> convert) =>
+    private static Fin<Seq<CurveProjection>> PrimitiveCurve<TPrimitive>(TPrimitive primitive, Curves selector, ComponentIndexType pieceSource, Func<TPrimitive, Curve?> convert) =>
         Optional(convert(arg: primitive)).ToFin(CurvesKey.InvalidResult()).Bind(curve => { using Curve disposable = curve; return ProjectCurve(curve: disposable, selector: selector, pieceSource: pieceSource, splitInput: false); });
     private static Fin<Seq<CurveProjection>> IsoCurves<TGeometry>(TGeometry geometry, int direction, CurveFeature feature) where TGeometry : notnull =>
         geometry switch {
@@ -369,16 +369,14 @@ public static partial class Query {
             Surface surface => MidIsoCurve(surface: surface, direction: direction, feature: feature, source: new ComponentIndex(type: ComponentIndexType.NoType, index: 0)),
             _ => Fin.Fail<Seq<CurveProjection>>(CurvesKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Curve))),
         };
-    private static Fin<Seq<CurveProjection>> ProjectCurve(Curve? curve, CurveSelector selector, ComponentIndexType pieceSource, bool splitInput) =>
+    private static Fin<Seq<CurveProjection>> ProjectCurve(Curve? curve, Curves selector, ComponentIndexType pieceSource, bool splitInput) =>
         Optional(curve).ToFin(CurvesKey.InvalidResult()).Bind(value => (selector, splitInput) switch {
-            (CurveSelector kind, true) when InputBoundaryCase(selector: kind) => CurvePieces(curve: value, feature: CurveFeature.Input, pieceSource: ComponentIndexType.NoType, fallbackSource: ComponentIndexType.NoType, project: static candidate => candidate.DuplicateSegments()),
-            (CurveSelector kind, _) when InputBoundaryCase(selector: kind) => OneCurve(curve: value, feature: CurveFeature.Input, type: ComponentIndexType.NoType),
-            (CurveSelector kind, _) when kind == CurveSelector.Segments => CurvePieces(curve: value, feature: CurveFeature.Segment, pieceSource: pieceSource, fallbackSource: pieceSource, project: static candidate => candidate.DuplicateSegments()),
-            (CurveSelector kind, _) when kind == CurveSelector.SubCurves => CurvePieces(curve: value, feature: CurveFeature.SubCurve, pieceSource: pieceSource, fallbackSource: ComponentIndexType.NoType, project: static candidate => candidate.GetSubCurves()),
+            (Curves kind, true) when kind.InputBoundary => CurvePieces(curve: value, feature: CurveFeature.Input, pieceSource: ComponentIndexType.NoType, fallbackSource: ComponentIndexType.NoType, project: static candidate => candidate.DuplicateSegments()),
+            (Curves kind, _) when kind.InputBoundary => OneCurve(curve: value, feature: CurveFeature.Input, type: ComponentIndexType.NoType),
+            (Rasm.Analysis.Curves.SegmentsCase, _) => CurvePieces(curve: value, feature: CurveFeature.Segment, pieceSource: pieceSource, fallbackSource: pieceSource, project: static candidate => candidate.DuplicateSegments()),
+            (Rasm.Analysis.Curves.SubCurvesCase, _) => CurvePieces(curve: value, feature: CurveFeature.SubCurve, pieceSource: pieceSource, fallbackSource: ComponentIndexType.NoType, project: static candidate => candidate.GetSubCurves()),
             _ => Fin.Fail<Seq<CurveProjection>>(CurvesKey.InvalidInput()),
         });
-    private static bool InputCurveCase(CurveSelector selector) => InputBoundaryCase(selector: selector) || selector == CurveSelector.Segments || selector == CurveSelector.SubCurves;
-    private static bool InputBoundaryCase(CurveSelector selector) => selector == CurveSelector.All || selector == CurveSelector.Boundary;
     private static Fin<Seq<CurveProjection>> CurvePieces(Curve curve, CurveFeature feature, ComponentIndexType pieceSource, ComponentIndexType fallbackSource, Func<Curve, Curve[]?> project) =>
         project(arg: curve) switch {
             Curve[] pieces when pieces.Length > 0 => IndexedCurves(curves: pieces, feature: feature, sourceType: pieceSource),
@@ -452,32 +450,9 @@ public static partial class Query {
             _ => Fin.Fail<Seq<CurveProjection>>(CurvesKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Curve))),
         };
     private static Fin<Seq<CurveProjection>> SilhouetteCurves<TGeometry>(TGeometry geometry, Vector3d direction, Analyze.Runtime runtime) where TGeometry : notnull =>
-        SilhouetteProjections(
-            geometry: geometry,
-            state: (Direction: direction, Runtime: runtime),
-            feature: CurveFeature.Silhouette,
-            valid: static state => state.Direction.IsValid && !state.Direction.IsTiny(),
-            project: static (native, state) => Silhouette.Compute(
-                geometry: native,
-                silhouetteType: SilhouetteType.Projecting | SilhouetteType.TangentProjects | SilhouetteType.Tangent | SilhouetteType.Crease | SilhouetteType.Boundary,
-                parallelCameraDirection: state.Direction,
-                tolerance: state.Runtime.Context.Absolute.Value,
-                angleToleranceRadians: state.Runtime.Context.Angle.Value,
-                clippingPlanes: null!,
-                cancelToken: state.Runtime.Cancellation));
+        SilhouetteProjections(geometry: geometry, state: (Direction: direction, Runtime: runtime), feature: CurveFeature.Silhouette, valid: static state => state.Direction.IsValid && !state.Direction.IsTiny(), project: static (native, state) => Silhouette.Compute(geometry: native, silhouetteType: SilhouetteType.Projecting | SilhouetteType.TangentProjects | SilhouetteType.Tangent | SilhouetteType.Crease | SilhouetteType.Boundary, parallelCameraDirection: state.Direction, tolerance: state.Runtime.Context.Absolute.Value, angleToleranceRadians: state.Runtime.Context.Angle.Value, clippingPlanes: null!, cancelToken: state.Runtime.Cancellation));
     private static Fin<Seq<CurveProjection>> DraftCurves<TGeometry>(TGeometry geometry, Vector3d direction, double angle, Analyze.Runtime runtime) where TGeometry : notnull =>
-        SilhouetteProjections(
-            geometry: geometry,
-            state: (Direction: direction, Angle: angle, Runtime: runtime),
-            feature: CurveFeature.Draft,
-            valid: static state => state.Direction.IsValid && !state.Direction.IsTiny() && RhinoMath.IsValidDouble(x: state.Angle),
-            project: static (native, state) => Silhouette.ComputeDraftCurve(
-                geometry: native,
-                draftAngle: state.Angle,
-                pullDirection: state.Direction,
-                tolerance: state.Runtime.Context.Absolute.Value,
-                angleToleranceRadians: state.Runtime.Context.Angle.Value,
-                cancelToken: state.Runtime.Cancellation));
+        SilhouetteProjections(geometry: geometry, state: (Direction: direction, Angle: angle, Runtime: runtime), feature: CurveFeature.Draft, valid: static state => state.Direction.IsValid && !state.Direction.IsTiny() && RhinoMath.IsValidDouble(x: state.Angle), project: static (native, state) => Silhouette.ComputeDraftCurve(geometry: native, draftAngle: state.Angle, pullDirection: state.Direction, tolerance: state.Runtime.Context.Absolute.Value, angleToleranceRadians: state.Runtime.Context.Angle.Value, cancelToken: state.Runtime.Cancellation));
     private static Fin<Seq<CurveProjection>> SilhouetteProjections<TGeometry, TState>(TGeometry geometry, TState state, CurveFeature feature, Func<TState, bool> valid, Func<GeometryBase, TState, Silhouette[]?> project) where TGeometry : notnull =>
         (geometry, valid(arg: state)) switch {
             (GeometryBase native, true) => Optional(project(arg1: native, arg2: state))
@@ -485,24 +460,6 @@ public static partial class Query {
                 .Map(values => toSeq(values).Map(silhouette => new CurveProjection(curve: silhouette.Curve, feature: feature, source: silhouette.GeometryComponentIndex))),
             _ => Fin.Fail<Seq<CurveProjection>>(CurvesKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Curve))),
         };
-    private static (CurveFeature Feature, Func<BrepEdge, bool> Brep, Func<Mesh, int, bool> Mesh)? EdgeCurveCase(CurveSelector selector) =>
-        selector switch {
-            CurveSelector kind when kind == CurveSelector.All => (CurveFeature.Edge, static _ => true, static (_, _) => true),
-            CurveSelector kind when kind == CurveSelector.Segments => (CurveFeature.Segment, static _ => true, static (_, _) => true),
-            CurveSelector kind when kind == CurveSelector.Boundary => (CurveFeature.Boundary, BrepNakedEdge(nakedOuter: true, nakedInner: true), static (mesh, index) => mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: index).Length == 1),
-            CurveSelector kind when kind == CurveSelector.NakedOuter => (CurveFeature.NakedOuter, BrepNakedEdge(nakedOuter: true, nakedInner: false), static (mesh, index) => mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: index).Length == 1),
-            CurveSelector kind when kind == CurveSelector.NakedInner => (CurveFeature.NakedInner, BrepNakedEdge(nakedOuter: false, nakedInner: true), static (_, _) => false),
-            CurveSelector kind when kind == CurveSelector.Interior => (CurveFeature.Interior, static edge => edge.Valence == EdgeAdjacency.Interior, static (mesh, index) => mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: index).Length == 2),
-            CurveSelector kind when kind == CurveSelector.NonManifold => (CurveFeature.NonManifold, static edge => edge.Valence == EdgeAdjacency.NonManifold, static (mesh, index) => mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: index).Length > 2),
-            _ => null,
-        };
-    private static Func<BrepEdge, bool> BrepNakedEdge(bool nakedOuter, bool nakedInner) =>
-        edge => edge.Valence == EdgeAdjacency.Naked
-            && toSeq(edge.TrimIndices()).Exists(trim => edge.Brep.Trims[trim].Loop.LoopType switch {
-                BrepLoopType.Outer => nakedOuter,
-                BrepLoopType.Inner => nakedInner,
-                _ => false,
-            });
     private static Fin<Seq<TValue>> ProjectOwned<TProjection, TValue>(
         Seq<TProjection> all,
         Seq<TProjection> chosen,
@@ -520,9 +477,9 @@ public static partial class Query {
         return result;
     }
     private static Fin<Seq<CurveProjection>> SelectCurves(Seq<CurveProjection> curves, Curves aspect) =>
-        (aspect.Selector, curves.Count) switch {
+        (aspect, curves.Count) switch {
             (_, 0) => Fin.Succ(Seq<CurveProjection>()),
-            (CurveSelector selector, int count) when selector == CurveSelector.At => Fin.Succ(Seq(curves[RhinoMath.Clamp(aspect.Index.IfNone(static () => 0), 0, count - 1)])),
+            (Rasm.Analysis.Curves.AtCase at, int count) => Fin.Succ(Seq(curves[RhinoMath.Clamp(at.Value ?? 0, 0, count - 1)])),
             _ => Fin.Succ(curves),
         };
     internal static Fin<Plane> FrameAtCentroid(FaceProjection face, Context runtime) =>
@@ -561,12 +518,12 @@ public static partial class Query {
         };
     private static Seq<FaceProjection> BrepFaceProjections(Brep brep) => toSeq(brep.Faces.Select(static face => FaceProjection.From(face: face)));
     private static Fin<Seq<FaceProjection>> SelectFaces(Seq<FaceProjection> faces, Faces selector, Context runtime) =>
-        (selector.Selector, faces.Count) switch {
+        (selector, faces.Count) switch {
             (_, 0) => Fin.Succ(Seq<FaceProjection>()),
-            (FaceSelector all, _) when all == FaceSelector.All => Fin.Succ(faces),
-            (FaceSelector top, _) when top == FaceSelector.Top => RankByCentroidZ(faces: faces, descending: true, runtime: runtime),
-            (FaceSelector bottom, _) when bottom == FaceSelector.Bottom => RankByCentroidZ(faces: faces, descending: false, runtime: runtime),
-            (FaceSelector at, int count) when at == FaceSelector.At => Fin.Succ(Seq(faces[RhinoMath.Clamp(selector.Index.IfNone(static () => 0), 0, count - 1)])),
+            (Rasm.Analysis.Faces.AllCase, _) => Fin.Succ(faces),
+            (Rasm.Analysis.Faces.TopCase, _) => RankByCentroidZ(faces: faces, descending: true, runtime: runtime),
+            (Rasm.Analysis.Faces.BottomCase, _) => RankByCentroidZ(faces: faces, descending: false, runtime: runtime),
+            (Rasm.Analysis.Faces.AtCase at, int count) => Fin.Succ(Seq(faces[RhinoMath.Clamp(at.Value ?? 0, 0, count - 1)])),
             _ => Fin.Fail<Seq<FaceProjection>>(FacesKey.InvalidInput()),
         };
     private static Fin<Seq<FaceProjection>> RankByCentroidZ(Seq<FaceProjection> faces, bool descending, Context runtime) =>

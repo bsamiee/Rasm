@@ -46,23 +46,9 @@ public sealed class Tree : IDisposable {
             .Map(static tree => new Tree(tree: tree))
             .ToValidation();
     public Eff<Context, Seq<Hit>> Search(BoundingBox box) =>
-        Ready()
-            .Bind(active => box.IsValid switch {
-                true => Search(
-                    tree: active,
-                    shape: box),
-                false => Fin.Fail<Seq<Hit>>(Query.TreeKey.InvalidInput()),
-            })
-            ;
+        Ready().Bind(active => box.IsValid switch { true => Search(tree: active, shape: box), false => Fin.Fail<Seq<Hit>>(Query.TreeKey.InvalidInput()) });
     public Eff<Context, Seq<Hit>> Search(Sphere sphere) =>
-        Ready()
-            .Bind(active => sphere.IsValid switch {
-                true => Search(
-                    tree: active,
-                    shape: sphere),
-                false => Fin.Fail<Seq<Hit>>(Query.TreeKey.InvalidInput()),
-            })
-            ;
+        Ready().Bind(active => sphere.IsValid switch { true => Search(tree: active, shape: sphere), false => Fin.Fail<Seq<Hit>>(Query.TreeKey.InvalidInput()) });
     public Eff<Context, Seq<Couple>> Overlaps(Tree other, double tolerance = 0.0) =>
         (
             Ready(),
@@ -74,8 +60,7 @@ public sealed class Tree : IDisposable {
                 : Fin.Fail<double>(Query.TreeKey.InvalidInput())
         ).Apply(static (left, right, modelTolerance) => (Left: left, Right: right, Tolerance: modelTolerance))
         .As()
-        .Bind(static state => OverlapPairs(state: state))
-        ;
+        .Bind(static state => OverlapPairs(state: state));
     private static Fin<Seq<Couple>> OverlapPairs((RTree Left, RTree Right, double Tolerance) state) {
         Atom<Seq<Couple>> atom = Atom(value: Seq<Couple>());
         return RTree.SearchOverlaps(
@@ -101,12 +86,7 @@ public sealed class Tree : IDisposable {
             }
         ).Apply(static (hay, query, k) => (Hay: hay, Query: query, Count: k))
         .As()
-        .Bind(static state => PointPairs(
-            values: RTree.Point3dKNeighbors(
-                hayPoints: state.Hay,
-                needlePts: state.Query,
-                amount: state.Count)))
-        ;
+        .Bind(static state => PointPairs(values: RTree.Point3dKNeighbors(hayPoints: state.Hay, needlePts: state.Query, amount: state.Count)));
     public static Eff<Context, Seq<Couple>> Closest(
         ReadOnlySpan<Point3d> points,
         ReadOnlySpan<Point3d> needles,
@@ -119,12 +99,7 @@ public sealed class Tree : IDisposable {
                 : Fin.Fail<double>(Query.TreeKey.InvalidInput())
         ).Apply(static (hay, query, distance) => (Hay: hay, Query: query, Distance: distance))
         .As()
-        .Bind(static state => PointPairs(
-            values: RTree.Point3dClosestPoints(
-                hayPoints: state.Hay,
-                needlePts: state.Query,
-                limitDistance: state.Distance)))
-        ;
+        .Bind(static state => PointPairs(values: RTree.Point3dClosestPoints(hayPoints: state.Hay, needlePts: state.Query, limitDistance: state.Distance)));
     public void Dispose() =>
         disposed = disposed switch {
             false => fun((RTree t) => { t.Dispose(); return true; })(tree),

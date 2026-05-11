@@ -41,25 +41,13 @@ public static partial class Query {
                         a: Requirement.Basic,
                         b: Requirement.Basic,
                         acceptPartialResults: true,
-                        intersect: static (left, right, context, out curves, out points) =>
-                            Intersection.CurveBrep(
-                                curve: left,
-                                brep: right,
-                                tolerance: context.Absolute.Value,
-                                overlapCurves: out curves,
-                                intersectionPoints: out points)),
+                        intersect: static (left, right, context, out curves, out points) => Intersection.CurveBrep(curve: left, brep: right, tolerance: context.Absolute.Value, overlapCurves: out curves, intersectionPoints: out points)),
                 (Type a, Type b, Type output) when typeof(Curve).IsAssignableFrom(c: a) && typeof(BrepFace).IsAssignableFrom(c: b) && Curves(output: output) =>
                     PairCurvePoint<TA, TB, Curve, BrepFace, TOut>(
                         a: Requirement.Basic,
                         b: Requirement.SurfaceEvaluation,
                         acceptPartialResults: false,
-                        intersect: static (left, right, context, out curves, out points) =>
-                            Intersection.CurveBrepFace(
-                                curve: left,
-                                face: right,
-                                tolerance: context.Absolute.Value,
-                                overlapCurves: out curves,
-                                intersectionPoints: out points)),
+                        intersect: static (left, right, context, out curves, out points) => Intersection.CurveBrepFace(curve: left, face: right, tolerance: context.Absolute.Value, overlapCurves: out curves, intersectionPoints: out points)),
                 (Type a, Type b, Type output) when typeof(Curve).IsAssignableFrom(c: a) && typeof(Surface).IsAssignableFrom(c: b) && Events(output: output) =>
                     PairEvents<TA, TB, Curve, Surface, TOut>(a: Requirement.Basic, b: Requirement.SurfaceEvaluation, intersect: static (left, right, context) => Intersection.CurveSurface(curve: left, surface: right, tolerance: context.Absolute.Value, overlapTolerance: context.Absolute.Value)),
                 (Type a, Type b, Type output) when typeof(Surface).IsAssignableFrom(c: a) && typeof(Surface).IsAssignableFrom(c: b) && Curves(output: output) =>
@@ -67,51 +55,25 @@ public static partial class Query {
                         a: Requirement.SurfaceEvaluation,
                         b: Requirement.SurfaceEvaluation,
                         acceptPartialResults: false,
-                        intersect: static (left, right, context, out curves, out points) =>
-                            Intersection.SurfaceSurface(
-                                surfaceA: left,
-                                surfaceB: right,
-                                tolerance: context.Absolute.Value,
-                                intersectionCurves: out curves,
-                                intersectionPoints: out points)),
+                        intersect: static (left, right, context, out curves, out points) => Intersection.SurfaceSurface(surfaceA: left, surfaceB: right, tolerance: context.Absolute.Value, intersectionCurves: out curves, intersectionPoints: out points)),
                 (Type a, Type b, Type output) when typeof(Brep).IsAssignableFrom(c: a) && b == typeof(Plane) && Curves(output: output) =>
                     PairCurvePoint<TA, TB, Brep, Plane, TOut>(
                         a: Requirement.Basic,
                         b: Requirement.None,
                         acceptPartialResults: false,
-                        intersect: static (left, right, context, out curves, out points) =>
-                            Intersection.BrepPlane(
-                                brep: left,
-                                plane: right,
-                                tolerance: context.Absolute.Value,
-                                intersectionCurves: out curves,
-                                intersectionPoints: out points)),
+                        intersect: static (left, right, context, out curves, out points) => Intersection.BrepPlane(brep: left, plane: right, tolerance: context.Absolute.Value, intersectionCurves: out curves, intersectionPoints: out points)),
                 (Type a, Type b, Type output) when typeof(Brep).IsAssignableFrom(c: a) && typeof(Surface).IsAssignableFrom(c: b) && Curves(output: output) =>
                     PairCurvePoint<TA, TB, Brep, Surface, TOut>(
                         a: Requirement.Basic,
                         b: Requirement.SurfaceEvaluation,
                         acceptPartialResults: false,
-                        intersect: static (left, right, context, out curves, out points) =>
-                            Intersection.BrepSurface(
-                                brep: left,
-                                surface: right,
-                                tolerance: context.Absolute.Value,
-                                joinCurves: true,
-                                intersectionCurves: out curves,
-                                intersectionPoints: out points)),
+                        intersect: static (left, right, context, out curves, out points) => Intersection.BrepSurface(brep: left, surface: right, tolerance: context.Absolute.Value, joinCurves: true, intersectionCurves: out curves, intersectionPoints: out points)),
                 (Type a, Type b, Type output) when typeof(Brep).IsAssignableFrom(c: a) && typeof(Brep).IsAssignableFrom(c: b) && Curves(output: output) =>
                     PairCurvePoint<TA, TB, Brep, Brep, TOut>(
                         a: Requirement.Basic,
                         b: Requirement.Basic,
                         acceptPartialResults: false,
-                        intersect: static (left, right, context, out curves, out points) =>
-                            Intersection.BrepBrep(
-                                brepA: left,
-                                brepB: right,
-                                tolerance: context.Absolute.Value,
-                                joinCurves: true,
-                                intersectionCurves: out curves,
-                                intersectionPoints: out points)),
+                        intersect: static (left, right, context, out curves, out points) => Intersection.BrepBrep(brepA: left, brepB: right, tolerance: context.Absolute.Value, joinCurves: true, intersectionCurves: out curves, intersectionPoints: out points)),
                 (Type a, Type b, Type output) when typeof(Mesh).IsAssignableFrom(c: a) && b == typeof(Plane) && (output == typeof(Polyline) || output == typeof(IntersectionKind)) =>
                     PairPolylines<TA, TB, Mesh, Plane, TOut>(
                         a: Requirement.MeshCheck,
@@ -133,11 +95,7 @@ public static partial class Query {
                         key: IntersectKey,
                         a: Requirement.MeshCheck,
                         b: Requirement.None,
-                        output: static (left, right, _) => IntersectKey.IntersectionOutput<TOut>(
-                            points: Intersection.MeshLineSorted(
-                                mesh: left,
-                                line: right,
-                                faceIds: out int[] _))),
+                        output: static (left, right, _) => IntersectKey.IntersectionOutput<TOut>(points: Intersection.MeshLineSorted(mesh: left, line: right, faceIds: out int[] _))),
                 (Type a, Type b, Type output) when typeof(Mesh).IsAssignableFrom(c: a) && typeof(Mesh).IsAssignableFrom(c: b) && (output == typeof(Polyline) || output == typeof(IntersectionKind)) =>
                     PairPolylines<TA, TB, Mesh, Mesh, TOut>(
                         a: Requirement.MeshCheck,

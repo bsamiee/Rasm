@@ -41,12 +41,7 @@ public static partial class Query {
                 tangent: static _ => TangentAtMiddle<TGeometry, TOut>(),
                 closest: static c => Closest<TGeometry, TOut>(point: c.Point),
                 curvatureProfile: static cp => CurvatureProfile<TGeometry, TOut>(count: cp.Count, scalar: cp.Scalar),
-                pointAtCurve: static pac => Located<TGeometry, TOut, Curve, Point3d>(
-                    key: PointAtKey,
-                    query: CurveAt<TGeometry, Point3d>(
-                        key: PointAtKey,
-                        parameter: pac.Parameter,
-                        project: static (curve, parameter) => One(key: PointAtKey, value: curve.PointAt(t: parameter)))),
+                pointAtCurve: static pac => Located<TGeometry, TOut, Curve, Point3d>(key: PointAtKey, query: CurveAt<TGeometry, Point3d>(key: PointAtKey, parameter: pac.Parameter, project: static (curve, parameter) => One(key: PointAtKey, value: curve.PointAt(t: parameter)))),
                 pointAtLength: static pal => Located<TGeometry, TOut, Curve, Point3d>(
                     key: PointAtLengthKey,
                     query: Query<TGeometry, Point3d>.Build(
@@ -65,30 +60,10 @@ public static partial class Query {
                         })),
                 frameAtCurve: static fac => Located<TGeometry, TOut, Curve, Plane>(key: FrameAtKey, query: CurveFrame<TGeometry>(key: FrameAtKey, parameter: fac.Parameter, perpendicular: false)),
                 perpendicularFrameAt: static pfa => Located<TGeometry, TOut, Curve, Plane>(key: PerpendicularFrameAtKey, query: CurveFrame<TGeometry>(key: PerpendicularFrameAtKey, parameter: pfa.Parameter, perpendicular: true)),
-                curvatureAtCurve: static cac => Located<TGeometry, TOut, Curve, Vector3d>(
-                    key: CurvatureAtKey,
-                    query: CurveAt<TGeometry, Vector3d>(
-                        key: CurvatureAtKey,
-                        parameter: cac.Parameter,
-                        project: static (curve, parameter) => One(key: CurvatureAtKey, value: curve.CurvatureAt(t: parameter)))),
-                derivativeAt: static da => Located<TGeometry, TOut, Curve, Vector3d>(
-                    key: DerivativeAtKey,
-                    query: CurveAt<TGeometry, Vector3d>(
-                        key: DerivativeAtKey,
-                        parameter: da.Parameter,
-                        project: (curve, parameter) => Many(key: DerivativeAtKey, values: curve.DerivativeAt(t: parameter, derivativeCount: da.Count)))),
-                divideByCount: static dbc => Located<TGeometry, TOut, Curve, Point3d>(
-                    key: DivideByCountKey,
-                    query: DividePoly<TGeometry>(
-                        key: DivideByCountKey,
-                        requirement: null,
-                        divide: curve => curve.DivideByCount(segmentCount: dbc.Count, includeEnds: true, points: out Point3d[] points) switch { double[] => Optional(points), _ => Option<Point3d[]>.None })),
-                divideByLength: static dbl => Located<TGeometry, TOut, Curve, Point3d>(
-                    key: DivideByLengthKey,
-                    query: DividePoly<TGeometry>(
-                        key: DivideByLengthKey,
-                        requirement: Requirement.CurveLength,
-                        divide: curve => curve.DivideByLength(segmentLength: dbl.Length, includeEnds: true, points: out Point3d[] points) switch { double[] => Optional(points), _ => Option<Point3d[]>.None })),
+                curvatureAtCurve: static cac => Located<TGeometry, TOut, Curve, Vector3d>(key: CurvatureAtKey, query: CurveAt<TGeometry, Vector3d>(key: CurvatureAtKey, parameter: cac.Parameter, project: static (curve, parameter) => One(key: CurvatureAtKey, value: curve.CurvatureAt(t: parameter)))),
+                derivativeAt: static da => Located<TGeometry, TOut, Curve, Vector3d>(key: DerivativeAtKey, query: CurveAt<TGeometry, Vector3d>(key: DerivativeAtKey, parameter: da.Parameter, project: (curve, parameter) => Many(key: DerivativeAtKey, values: curve.DerivativeAt(t: parameter, derivativeCount: da.Count)))),
+                divideByCount: static dbc => Located<TGeometry, TOut, Curve, Point3d>(key: DivideByCountKey, query: DividePoly<TGeometry>(key: DivideByCountKey, requirement: null, divide: curve => curve.DivideByCount(segmentCount: dbc.Count, includeEnds: true, points: out Point3d[] points) switch { double[] => Optional(points), _ => Option<Point3d[]>.None })),
+                divideByLength: static dbl => Located<TGeometry, TOut, Curve, Point3d>(key: DivideByLengthKey, query: DividePoly<TGeometry>(key: DivideByLengthKey, requirement: Requirement.CurveLength, divide: curve => curve.DivideByLength(segmentLength: dbl.Length, includeEnds: true, points: out Point3d[] points) switch { double[] => Optional(points), _ => Option<Point3d[]>.None })),
                 orientation: static o => Located<TGeometry, TOut, Curve, CurveOrientation>(
                     key: OrientationKey,
                     query: Query<TGeometry, CurveOrientation>.Build(
@@ -114,12 +89,7 @@ public static partial class Query {
                                 select result,
                             _ => Fin.Fail<Seq<PointContainment>>(ContainsKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(PointContainment))).ToEff(),
                         })),
-                pointAtSurface: static pas => Located<TGeometry, TOut, Surface, Point3d>(
-                    key: PointAtKey,
-                    query: SurfaceUv<TGeometry, Point3d>(
-                        key: PointAtKey,
-                        uv: pas.Uv,
-                        project: static (geometry, parameter) => One(key: PointAtKey, value: geometry.PointAt(u: parameter.X, v: parameter.Y)))),
+                pointAtSurface: static pas => Located<TGeometry, TOut, Surface, Point3d>(key: PointAtKey, query: SurfaceUv<TGeometry, Point3d>(key: PointAtKey, uv: pas.Uv, project: static (geometry, parameter) => One(key: PointAtKey, value: geometry.PointAt(u: parameter.X, v: parameter.Y)))),
                 frameAtSurface: static fas => Located<TGeometry, TOut, Surface, Plane>(
                     key: FrameAtKey,
                     query: SurfaceUv<TGeometry, Plane>(
@@ -138,14 +108,7 @@ public static partial class Query {
                             Vector3d normal when normal.IsValid && !normal.IsTiny() => One(key: NormalAtKey, value: normal),
                             _ => Fin.Fail<Seq<Vector3d>>(NormalAtKey.InvalidResult()),
                         })),
-                curvatureAtSurface: static cas => Located<TGeometry, TOut, Surface, SurfaceCurvature>(
-                    key: CurvatureAtKey,
-                    query: SurfaceUv<TGeometry, SurfaceCurvature>(
-                        key: CurvatureAtKey,
-                        uv: cas.Uv,
-                        project: static (geometry, parameter) => Optional(geometry.CurvatureAt(u: parameter.X, v: parameter.Y))
-                            .ToFin(CurvatureAtKey.InvalidResult())
-                            .Map(static curvature => Seq(curvature)))),
+                curvatureAtSurface: static cas => Located<TGeometry, TOut, Surface, SurfaceCurvature>(key: CurvatureAtKey, query: SurfaceUv<TGeometry, SurfaceCurvature>(key: CurvatureAtKey, uv: cas.Uv, project: static (geometry, parameter) => Optional(geometry.CurvatureAt(u: parameter.X, v: parameter.Y)).ToFin(CurvatureAtKey.InvalidResult()).Map(static curvature => Seq(curvature)))),
                 shortPath: static sp => Located<TGeometry, TOut, Surface, Curve>(key: ShortPathKey, query: ShortPath<TGeometry>(start: sp.Start, end: sp.End)),
                 controlPoints: static _ => ControlPoints<TGeometry, TOut>()));
     private static Query<TGeometry, TOut> ControlPoints<TGeometry, TOut>() where TGeometry : notnull =>
