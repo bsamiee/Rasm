@@ -8,18 +8,10 @@ public static partial class Query {
             aspect: unit,
             key: IntersectKey,
             dispatch: static _ => (typeof(TA), typeof(TB), typeof(TOut)) switch {
-                (Type a, Type b, Type output) when a == typeof(Line) && b == typeof(Plane) && (output == typeof(Point3d) || output == typeof(IntersectionKind)) =>
-                    Pair<TA, TB, Line, Plane, TOut>(
-                        key: IntersectKey,
-                        a: Requirement.None,
-                        b: Requirement.None,
-                        output: static (left, right, _) => LinePlane<TOut>(line: left, plane: right)),
-                (Type a, Type b, Type output) when a == typeof(Plane) && b == typeof(Line) && (output == typeof(Point3d) || output == typeof(IntersectionKind)) =>
-                    Pair<TA, TB, Plane, Line, TOut>(
-                        key: IntersectKey,
-                        a: Requirement.None,
-                        b: Requirement.None,
-                        output: static (left, right, _) => LinePlane<TOut>(line: right, plane: left)),
+                (Type a, Type b, Type output) when ((a == typeof(Line) && b == typeof(Plane)) || (a == typeof(Plane) && b == typeof(Line))) && (output == typeof(Point3d) || output == typeof(IntersectionKind)) =>
+                    a == typeof(Line)
+                        ? Pair<TA, TB, Line, Plane, TOut>(key: IntersectKey, a: Requirement.None, b: Requirement.None, output: static (left, right, _) => LinePlane<TOut>(line: left, plane: right))
+                        : Pair<TA, TB, Plane, Line, TOut>(key: IntersectKey, a: Requirement.None, b: Requirement.None, output: static (left, right, _) => LinePlane<TOut>(line: right, plane: left)),
                 (Type a, Type b, Type output) when a == typeof(Plane) && b == typeof(Plane) && (output == typeof(Line) || output == typeof(IntersectionKind)) =>
                     Pair<TA, TB, Plane, Plane, TOut>(key: IntersectKey, a: Requirement.None, b: Requirement.None, output: static (left, right, _) => IntersectKey.IntersectionOutput<TOut>(lines: Intersection.PlanePlane(planeA: left, planeB: right, intersectionLine: out Line line) ? [line] : [])),
                 (Type a, Type b, Type output) when a == typeof(Line) && b == typeof(Circle) && (output == typeof(Point3d) || output == typeof(IntersectionKind)) =>
@@ -34,10 +26,10 @@ public static partial class Query {
                         LineSphereIntersection.Multiple => IntersectKey.IntersectionOutput<TOut>(points: [a, b]),
                         _ => IntersectKey.IntersectionOutput<TOut>(points: []),
                     }),
-                (Type a, Type b, Type output) when a == typeof(Line) && b == typeof(BoundingBox) && (output == typeof(Interval) || output == typeof(IntersectionKind)) =>
-                    Pair<TA, TB, Line, BoundingBox, TOut>(key: IntersectKey, a: Requirement.None, b: Requirement.None, output: static (left, right, runtime) => IntersectKey.IntersectionOutput<TOut>(intervals: Intersection.LineBox(line: left, box: right, tolerance: runtime.Context.Absolute.Value, lineParameters: out Interval interval) ? [interval] : [])),
-                (Type a, Type b, Type output) when a == typeof(Line) && b == typeof(Box) && (output == typeof(Interval) || output == typeof(IntersectionKind)) =>
-                    Pair<TA, TB, Line, Box, TOut>(key: IntersectKey, a: Requirement.None, b: Requirement.None, output: static (left, right, runtime) => IntersectKey.IntersectionOutput<TOut>(intervals: Intersection.LineBox(line: left, box: right, tolerance: runtime.Context.Absolute.Value, lineParameters: out Interval interval) ? [interval] : [])),
+                (Type a, Type b, Type output) when a == typeof(Line) && (b == typeof(BoundingBox) || b == typeof(Box)) && (output == typeof(Interval) || output == typeof(IntersectionKind)) =>
+                    b == typeof(BoundingBox)
+                        ? Pair<TA, TB, Line, BoundingBox, TOut>(key: IntersectKey, a: Requirement.None, b: Requirement.None, output: static (left, right, runtime) => LineBox<TOut, BoundingBox>(line: left, box: right, runtime: runtime))
+                        : Pair<TA, TB, Line, Box, TOut>(key: IntersectKey, a: Requirement.None, b: Requirement.None, output: static (left, right, runtime) => LineBox<TOut, Box>(line: left, box: right, runtime: runtime)),
                 (Type a, Type b, Type output) when typeof(Curve).IsAssignableFrom(c: a) && typeof(Curve).IsAssignableFrom(c: b) && Events(output: output) =>
                     PairEvents<TA, TB, Curve, Curve, TOut>(a: Requirement.Basic, b: Requirement.Basic, intersect: static (left, right, context) => Intersection.CurveCurve(curveA: left, curveB: right, tolerance: context.Absolute.Value, overlapTolerance: context.Absolute.Value)),
                 (Type a, Type b, Type output) when typeof(Curve).IsAssignableFrom(c: a) && b == typeof(Plane) && Events(output: output) =>
@@ -231,6 +223,12 @@ public static partial class Query {
                 select result);
     private static Fin<Seq<TOut>> LinePlane<TOut>(Line line, Plane plane) =>
         IntersectKey.IntersectionOutput<TOut>(points: Intersection.LinePlane(line: line, plane: plane, lineParameter: out double parameter) ? [line.PointAt(t: parameter)] : []);
+    private static Fin<Seq<TOut>> LineBox<TOut, TBox>(Line line, TBox box, Analyze.Runtime runtime) =>
+        box switch {
+            BoundingBox bounds => IntersectKey.IntersectionOutput<TOut>(intervals: Intersection.LineBox(line: line, box: bounds, tolerance: runtime.Context.Absolute.Value, lineParameters: out Interval interval) ? [interval] : []),
+            Box oriented => IntersectKey.IntersectionOutput<TOut>(intervals: Intersection.LineBox(line: line, box: oriented, tolerance: runtime.Context.Absolute.Value, lineParameters: out Interval interval) ? [interval] : []),
+            _ => Fin.Fail<Seq<TOut>>(IntersectKey.InvalidInput()),
+        };
     private static Query<(TA A, TB B), TOut> PairEvents<TA, TB, TLeft, TRight, TOut>(Requirement a, Requirement b, Func<TLeft, TRight, Context, CurveIntersections?> intersect) where TA : notnull where TB : notnull where TLeft : notnull where TRight : notnull =>
         Pair<TA, TB, TLeft, TRight, TOut>(
             key: IntersectKey,

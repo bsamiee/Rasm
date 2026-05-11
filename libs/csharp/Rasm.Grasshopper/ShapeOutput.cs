@@ -57,11 +57,6 @@ public static class ShapeOutput {
                 FaceValue(port: normals, project: static (face, context) => Rasm.Analysis.Query.FrameAtCentroid(face: face, runtime: context).Map(static frame => frame.ZAxis)),
                 Plain<FaceProjection, int>(port: indices, project: static value => value.FaceIndex),
                 Plain<FaceProjection, ComponentIndex>(port: components, project: static value => new ComponentIndex(type: ComponentIndexType.BrepFace, index: value.FaceIndex)),
-                Output.Slot<FaceProjection, Interval>(port: domains, project: static (_, values) => values.Traverse(static face => (face.Brep.Faces[0].Domain(direction: 0), face.Brep.Faces[0].Domain(direction: 1)) switch {
-                    (Interval u, Interval v) when u.IsValid && v.IsValid => Fin.Succ(Seq(
-                        OutputValue.Plain(value: u),
-                        OutputValue.Plain(value: v))),
-                    _ => Fin.Fail<Seq<OutputValue<Interval>>>(LanguageExt.Common.Error.New(message: "Indexed face produced invalid UV domains.")),
-                }).Map(static nested => nested.Bind(static value => value)).As()),
+                Output.Slot<FaceProjection, Interval>(port: domains, project: static (_, values) => values.Traverse(static face => Rasm.Analysis.Query.FaceDomains(face: face).Map(static domains => domains.Map(static domain => OutputValue.Plain(value: domain)))).Map(static nested => nested.Bind(static value => value)).As()),
             ]);
 }

@@ -13,65 +13,40 @@ public interface IPort {
     public Requirement Requirement { get; }
     public PortPolicy Policy { get; }
 }
-public readonly record struct PortPolicy(
-    bool UnitiseVectors,
-    bool ReverseVectors,
-    int AngleKind,
-    bool ReduceAngles,
-    CurveParameter.NormalisationMethod CurveDomains,
-    bool FlipCurves,
-    bool AcceptMeshes,
-    CurveParameter.NormalisationMethod SurfaceDomains,
-    bool FlipSurfaces,
-    bool IsIndex,
-    IndexModifier Indexing) {
-    public static PortPolicy Empty =>
-        new(
-            UnitiseVectors: false,
-            ReverseVectors: false,
-            AngleKind: 0,
-            ReduceAngles: false,
-            CurveDomains: CurveParameter.NormalisationMethod.None,
-            FlipCurves: false,
-            AcceptMeshes: false,
-            SurfaceDomains: CurveParameter.NormalisationMethod.None,
-            FlipSurfaces: false,
-            IsIndex: false,
-            Indexing: IndexModifier.None);
-    public static PortPolicy Vector(bool unitise = false, bool reverse = false) =>
-        Empty with { UnitiseVectors = unitise, ReverseVectors = reverse };
-    public static PortPolicy Angle(int kind = 0, bool reduce = false) =>
-        Empty with { AngleKind = kind, ReduceAngles = reduce };
-    public static PortPolicy Curve(CurveParameter.NormalisationMethod domains = CurveParameter.NormalisationMethod.None, bool flip = false) =>
-        Empty with { CurveDomains = domains, FlipCurves = flip };
-    public static PortPolicy Surface(bool acceptMeshes = false, CurveParameter.NormalisationMethod domains = CurveParameter.NormalisationMethod.None, bool flip = false) =>
-        Empty with { AcceptMeshes = acceptMeshes, SurfaceDomains = domains, FlipSurfaces = flip };
-    public static PortPolicy Index(IndexModifier indexing = IndexModifier.Clip) =>
-        Empty with { IsIndex = true, Indexing = indexing };
+[Union]
+public partial record PortPolicy {
+    public sealed record None : PortPolicy; public sealed record VectorCase(bool Unitise, bool Reverse) : PortPolicy; public sealed record AngleCase(int Kind, bool Reduce) : PortPolicy;
+    public sealed record CurveCase(CurveParameter.NormalisationMethod Domains, bool Flip) : PortPolicy; public sealed record SurfaceCase(bool AcceptMeshes, CurveParameter.NormalisationMethod Domains, bool Flip) : PortPolicy; public sealed record IndexCase(IndexModifier Indexing) : PortPolicy;
+    public static PortPolicy Empty => new None();
+    public static PortPolicy Vector(bool unitise = false, bool reverse = false) => new VectorCase(Unitise: unitise, Reverse: reverse);
+    public static PortPolicy Angle(int kind = 0, bool reduce = false) => new AngleCase(Kind: kind, Reduce: reduce);
+    public static PortPolicy Curve(CurveParameter.NormalisationMethod domains = CurveParameter.NormalisationMethod.None, bool flip = false) => new CurveCase(Domains: domains, Flip: flip);
+    public static PortPolicy Surface(bool acceptMeshes = false, CurveParameter.NormalisationMethod domains = CurveParameter.NormalisationMethod.None, bool flip = false) => new SurfaceCase(AcceptMeshes: acceptMeshes, Domains: domains, Flip: flip);
+    public static PortPolicy Index(IndexModifier indexing = IndexModifier.Clip) => new IndexCase(Indexing: indexing);
     public Unit Apply(object parameter) {
         ArgumentNullException.ThrowIfNull(argument: parameter);
         // BOUNDARY ADAPTER — GH2 parameter policies are mutable SDK configuration.
-        switch (parameter) {
-            case VectorParameter vector:
-                vector.UnitiseVectors = UnitiseVectors;
-                vector.ReverseVectors = ReverseVectors;
+        switch (this, parameter) {
+            case (VectorCase policy, VectorParameter vector):
+                vector.UnitiseVectors = policy.Unitise;
+                vector.ReverseVectors = policy.Reverse;
                 break;
-            case AngleParameter angle:
-                angle.EnforceKind = AngleKind;
-                angle.ReduceAngles = ReduceAngles;
+            case (AngleCase policy, AngleParameter angle):
+                angle.EnforceKind = policy.Kind;
+                angle.ReduceAngles = policy.Reduce;
                 break;
-            case CurveParameter curve:
-                curve.NormaliseDomains = CurveDomains;
-                curve.FlipCurves = FlipCurves;
+            case (CurveCase policy, CurveParameter curve):
+                curve.NormaliseDomains = policy.Domains;
+                curve.FlipCurves = policy.Flip;
                 break;
-            case SurfaceParameter surface:
-                surface.AcceptMeshes = AcceptMeshes;
-                surface.NormaliseDomains = SurfaceDomains;
-                surface.FlipSurfaces = FlipSurfaces;
+            case (SurfaceCase policy, SurfaceParameter surface):
+                surface.AcceptMeshes = policy.AcceptMeshes;
+                surface.NormaliseDomains = policy.Domains;
+                surface.FlipSurfaces = policy.Flip;
                 break;
-            case IntegerParameter integer:
-                integer.IsIndex = IsIndex;
-                integer.Indexing = Indexing;
+            case (IndexCase policy, IntegerParameter integer):
+                integer.IsIndex = true;
+                integer.Indexing = policy.Indexing;
                 break;
         }
         return Unit.Default;
@@ -110,10 +85,12 @@ public sealed partial class PortKind {
     }
     public Unit Bind(InputAdder adder, string name, string code, string info, Access access, Requirement requirement, PortPolicy policy) {
         ArgumentNullException.ThrowIfNull(argument: adder);
+        ArgumentNullException.ThrowIfNull(argument: policy);
         return policy.Apply(parameter: AddInput(arg1: adder, arg2: name, arg3: code, arg4: info, arg5: access, arg6: requirement));
     }
     public Unit Bind(OutputAdder adder, string name, string code, string info, Access access, PortPolicy policy) {
         ArgumentNullException.ThrowIfNull(argument: adder);
+        ArgumentNullException.ThrowIfNull(argument: policy);
         return policy.Apply(parameter: AddOutput(arg1: adder, arg2: name, arg3: code, arg4: info, arg5: access));
     }
     private static PortKind Of<T>(string key, Func<InputAdder, string, string, string, Access, Requirement, object> onInput, Func<OutputAdder, string, string, string, Access, object> onOutput) => new(key: key, type: typeof(T), addInput: onInput, addOutput: onOutput);

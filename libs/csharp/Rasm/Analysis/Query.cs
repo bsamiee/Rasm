@@ -1,11 +1,9 @@
 namespace Rasm.Analysis;
 
-internal enum ContextPolicy { Optional = 0, Required = 1 }
 public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
     internal Op Key { get; }
     internal Requirement Requirement { get; }
-    internal ContextPolicy Context { get; }
-    internal bool RequiresContext => Context is ContextPolicy.Required;
+    internal bool RequiresContext { get; }
     internal bool BatchesInput => EvaluateBatch.IsSome;
     internal Option<Error> PreflightFault { get; }
     private Func<TGeometry, Eff<Analyze.Runtime, Seq<TOut>>> Evaluate { get; }
@@ -21,7 +19,7 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
         Option<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>>> batch = default) {
         Key = key;
         Requirement = requirement ?? Requirement.None;
-        Context = requiresContext ? ContextPolicy.Required : ContextPolicy.Optional;
+        RequiresContext = requiresContext;
         Evaluate = effect;
         PreflightFault = preflightFault;
         AggregateCandidate = aggregate;
@@ -101,8 +99,12 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
 }
 public enum MassKind { None = 0, Length = 1, Area = 2, Volume = 3 }
 public enum CurvatureScalar { None = 0, Magnitude = 1, Gaussian = 2, Mean = 3 }
-public enum ConformanceResidual { None = 0, Distance = 1, Rms = 2, WithinTolerance = 3, Profile = 4, Maximum = 5 }
-public enum MeshFaceMetric { None = 0, AspectRatio = 1 }
+[SmartEnum<int>]
+public sealed partial class MeshFaceMetric {
+    public static readonly MeshFaceMetric None = new(key: 0, project: Option<Func<Mesh, int, double>>.None);
+    public static readonly MeshFaceMetric AspectRatio = new(key: 1, project: Some<Func<Mesh, int, double>>(static (mesh, face) => mesh.Faces.GetFaceAspectRatio(index: face)));
+    public Option<Func<Mesh, int, double>> Project { get; }
+}
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CurvatureProfile(CurvatureScalar Scalar, int Count, double Minimum, double Maximum, double Mean, double Variance);
 [StructLayout(LayoutKind.Auto)]
@@ -177,13 +179,9 @@ public readonly record struct Curves(CurveSelector Selector, Option<int> Index, 
     public static Curves Draft(Vector3d? direction = null, double? angle = null) => new(Selector: CurveSelector.Draft, Index: None, Direction: Optional(value: direction), Angle: Optional(value: angle));
     public static Curves At(int? index = null) => new(Selector: CurveSelector.At, Index: Optional(value: index), Direction: None, Angle: None);
 }
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct Conformance {
-    private Conformance(ConformanceResidual residual, int count) {
-        Residual = residual;
-        Count = count;
-    }
-    internal readonly ConformanceResidual Residual; internal readonly int Count; public static Conformance Distance(int count) => new(residual: ConformanceResidual.Distance, count: count); public static Conformance Rms(int count) => new(residual: ConformanceResidual.Rms, count: count); public static Conformance WithinTolerance(int count) => new(residual: ConformanceResidual.WithinTolerance, count: count); public static Conformance Profile(int count) => new(residual: ConformanceResidual.Profile, count: count); public static Conformance Maximum(int count) => new(residual: ConformanceResidual.Maximum, count: count);
+[Union]
+public partial record Conformance {
+    public sealed record Distance(int Count) : Conformance; public sealed record Rms(int Count) : Conformance; public sealed record WithinTolerance(int Count) : Conformance; public sealed record ProfileResidual(int Count) : Conformance; public sealed record Maximum(int Count) : Conformance;
 }
 public static partial class Query {
     internal delegate bool PrimitiveCase<TSource, TValue>(
@@ -239,11 +237,23 @@ public static partial class Query {
     internal static Query<TGeometry, TOut> Native<TGeometry, TOut, TNative, TValue>(
         Op key,
         Func<TNative, Eff<Analyze.Runtime, Seq<TValue>>> project) where TGeometry : notnull where TNative : notnull =>
+        Native<TGeometry, TOut, TNative, TValue, Func<TNative, Eff<Analyze.Runtime, Seq<TValue>>>>(
+            key: key,
+            state: project,
+            project: static (nativeProject, native) => nativeProject(arg: native));
+    internal static Query<TGeometry, TOut> Native<TGeometry, TOut, TNative, TValue, TState>(
+        Op key,
+        TState state,
+        Func<TState, TNative, Eff<Analyze.Runtime, Seq<TValue>>> project,
+        Requirement? requirement = null,
+        bool requiresContext = false) where TGeometry : notnull where TNative : notnull =>
         Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, TValue>.Build(
             key: key,
-            state: (Key: key, Project: project),
+            requirement: requirement,
+            requiresContext: requiresContext,
+            state: (Key: key, State: state, Project: project),
             evaluator: static (state, geometry) => geometry switch {
-                TNative native => state.Project(arg: native),
+                TNative native => state.Project(arg1: state.State, arg2: native),
                 _ => Fin.Fail<Seq<TValue>>(state.Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TValue))).ToEff(),
             }));
     internal static Fin<Seq<TValue>> One<TValue>(this Op key, TValue value) => key.RequireValid(value: value).Map(static candidate => Seq(candidate));
@@ -311,40 +321,24 @@ public static partial class Query {
         };
     internal static Query<TGeometry, TOut> PrimitiveMatch<TGeometry, TOut, TSource, TValue>(
         PrimitiveCase<TSource, TValue> project) where TGeometry : notnull where TSource : GeometryBase =>
-        Cast<TGeometry, TOut>(key: PrimitiveKey, query: Query<TGeometry, TValue>.Build(
+        Native<TGeometry, TOut, TSource, TValue, PrimitiveCase<TSource, TValue>>(
             key: PrimitiveKey,
-            requiresContext: true,
             state: project,
-            evaluator: static (extract, geometry) =>
-                geometry switch {
-                    TSource source =>
-                        from ctx in Analyze.Asks
-                        from validated in ctx.Validate(geometry: source, requirement: Requirement.Basic).ToEff()
-                        from result in (extract(geometry: validated, context: ctx, value: out TValue value) switch {
-                            bool solved => PrimitiveKey.Solved(isSolved: solved, value: value),
-                        })
-                            .ToEff()
-                        select result,
-                    _ => Fin.Fail<Seq<TValue>>(PrimitiveKey.Unsupported(
-                        geometryType: typeof(TGeometry),
-                        outputType: typeof(TValue))).ToEff(),
-                }));
+            requiresContext: true,
+            project: static (extract, source) =>
+                from ctx in Analyze.Asks
+                from validated in ctx.Validate(geometry: source, requirement: Requirement.Basic).ToEff()
+                from result in (extract(geometry: validated, context: ctx, value: out TValue value) switch {
+                    bool solved => PrimitiveKey.Solved(isSolved: solved, value: value),
+                }).ToEff()
+                select result);
     internal static Query<TGeometry, TOut> ClosestMatch<TGeometry, TOut, TSource, TValue>(
         Point3d point,
         Func<Point3d, TSource, Fin<Seq<TValue>>> project) where TGeometry : notnull where TSource : notnull =>
-        Cast<TGeometry, TOut>(key: ClosestKey, query: Query<TGeometry, TValue>.Build(
+        Native<TGeometry, TOut, TSource, TValue, (Point3d Point, Func<Point3d, TSource, Fin<Seq<TValue>>> Project)>(
             key: ClosestKey,
             state: (Point: point, Project: project),
-            evaluator: static (state, geometry) =>
-                geometry switch {
-                    TSource source => state.Project(
-                            arg1: state.Point,
-                            arg2: source)
-                        .ToEff(),
-                    _ => Fin.Fail<Seq<TValue>>(ClosestKey.Unsupported(
-                        geometryType: typeof(TGeometry),
-                        outputType: typeof(TValue))).ToEff(),
-                }));
+            project: static (state, source) => state.Project(arg1: state.Point, arg2: source).ToEff());
     internal static Fin<TOut> CurveAtNormalizedValue<TOut>(
         Curve curve,
         Context context,

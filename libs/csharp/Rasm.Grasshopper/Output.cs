@@ -11,8 +11,7 @@ public interface IOutputSlot<TSource> {
     public Unit Empty(IDataAccess access, int slot);
 }
 public readonly record struct Hints(
-    Seq<(IPort Port, int Slot, Coverage Coverage, bool Changed)> Inputs,
-    Seq<(int Slot, IPear Pear)> Pears) {
+    Seq<(IPort Port, int Slot, Coverage Coverage, bool Changed)> Inputs) {
     public static Hints Capture(Seq<IPort> inputs, IDataAccess access) {
         ArgumentNullException.ThrowIfNull(argument: access);
         Seq<(IPort Port, int Slot, Coverage Coverage, bool Changed)> captured = inputs.Map((port, slot) => (
@@ -20,15 +19,7 @@ public readonly record struct Hints(
             Slot: slot,
             Coverage: access.CoverageIn(index: slot),
             Changed: access.HasInputChanged(index: slot)));
-        int[] slots = [.. captured.Filter(static input => input.Port.Access is Access.Item).Map(static input => input.Slot)];
-        Seq<(int Slot, IPear Pear)> pears = slots.Length switch {
-            > 0 => fun((IDataAccess data, int[] itemSlots) => {
-                data.GetIPears(pears: out IPear[] values, indexMap: out int[] map, inputs: itemSlots);
-                return toSeq(values.Zip(second: map, resultSelector: static (pear, slot) => (Slot: slot, Pear: pear)));
-            })(access, slots),
-            _ => Seq<(int Slot, IPear Pear)>(),
-        };
-        return new(Inputs: captured, Pears: pears);
+        return new(Inputs: captured);
     }
     public Option<int> Slot(IPort port) => Inputs.Find(predicate: input => input.Port.Equals(port)).Map(static input => input.Slot);
     public Option<int> Index(IDataAccess access, Port<int> port, int limit) {
@@ -109,15 +100,13 @@ public static class Output {
         bool emptyUnsupported = false,
         params IOutputSlot<TSource>[] slots) => new PreparedGroup<TSource>(Slots: toSeq(slots), Source: source, EmptyUnsupported: emptyUnsupported);
     public static Unit Write(IDataAccess access, GrasshopperRuntime runtime, Seq<IOutputGroup> groups) =>
-        groups.Fold(
-            initialState: 0,
-            f: (slot, group) => (group.Run(access: access, slot: slot, runtime: runtime), slot + group.Ports.Count).Item2) switch {
-                _ => Unit.Default,
-            };
+        Fold(groups: groups, action: group => slot => group.Run(access: access, slot: slot, runtime: runtime));
     public static Unit Empty(IDataAccess access, Seq<IOutputGroup> groups) =>
+        Fold(groups: groups, action: group => slot => group.Empty(access: access, slot: slot));
+    private static Unit Fold(Seq<IOutputGroup> groups, Func<IOutputGroup, Func<int, Unit>> action) =>
         groups.Fold(
             initialState: 0,
-            f: (slot, group) => (group.Empty(access: access, slot: slot), slot + group.Ports.Count).Item2) switch {
+            f: (slot, group) => (action(arg: group)(arg: slot), slot + group.Ports.Count).Item2) switch {
                 _ => Unit.Default,
             };
 }

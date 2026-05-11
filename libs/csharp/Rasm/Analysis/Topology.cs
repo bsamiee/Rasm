@@ -220,19 +220,20 @@ public static partial class Query {
                     select result))
             .IfNone(static () => Query<Mesh, int>.Reject(key: MeshCheckCountKey, fault: MeshCheckCountKey.InvalidInput()));
     public static Query<Mesh, MeshFaceSample> MeshFaceMetric(MeshFaceMetric metric) =>
-        metric switch {
-            Analysis.MeshFaceMetric.AspectRatio => Query<Mesh, MeshFaceSample>.Build(
+        Optional(value: metric)
+            .Bind(static candidate => candidate.Project)
+            .Map(static project => Query<Mesh, MeshFaceSample>.Build(
                 key: MeshFaceMetricKey,
+                state: project,
                 requirement: Requirement.MeshCheck,
-                evaluator: static geometry => toSeq(Enumerable.Range(start: 0, count: geometry.Faces.Count))
-                    .TraverseM(face => geometry.Faces.GetFaceAspectRatio(index: face) switch {
+                evaluator: static (faceMetric, geometry) => toSeq(Enumerable.Range(start: 0, count: geometry.Faces.Count))
+                    .TraverseM(face => faceMetric(arg1: geometry, arg2: face) switch {
                         double value when RhinoMath.IsValidDouble(x: value) && value >= 0.0 => Fin.Succ(new MeshFaceSample(Face: face, Value: value)),
                         _ => Fin.Fail<MeshFaceSample>(MeshFaceMetricKey.InvalidResult()),
                     })
                     .As()
-                    .ToEff()),
-            _ => Query<Mesh, MeshFaceSample>.Reject(key: MeshFaceMetricKey, fault: MeshFaceMetricKey.InvalidInput()),
-        };
+                    .ToEff()))
+            .IfNone(static () => Query<Mesh, MeshFaceSample>.Reject(key: MeshFaceMetricKey, fault: MeshFaceMetricKey.InvalidInput()));
     public static Query<Mesh, Polyline> SelfIntersections =>
         Query<Mesh, Polyline>.Build(
             key: SelfIntersectionsKey,
@@ -279,10 +280,7 @@ public static partial class Query {
                     Type output when output == typeof(Vector3d) => FaceQuery<TGeometry, TOut, Vector3d>(selector: selector, requirement: Requirement.SurfaceEvaluation, transfer: false, project: static (chosen, runtime) => chosen.Traverse(face => FrameAtCentroid(face: face, runtime: runtime).Map(static frame => frame.ZAxis)).As()),
                     Type output when output == typeof(int) => FaceQuery<TGeometry, TOut, int>(selector: selector, requirement: Requirement.None, transfer: false, project: static (chosen, _) => Many(key: FacesKey, values: chosen.Map(static face => face.FaceIndex))),
                     Type output when output == typeof(ComponentIndex) => FaceQuery<TGeometry, TOut, ComponentIndex>(selector: selector, requirement: Requirement.None, transfer: false, project: static (chosen, _) => Many(key: FacesKey, values: chosen.Map(static face => new ComponentIndex(type: ComponentIndexType.BrepFace, index: face.FaceIndex)))),
-                    Type output when output == typeof(Interval) => FaceQuery<TGeometry, TOut, Interval>(selector: selector, requirement: Requirement.SurfaceEvaluation, transfer: false, project: static (chosen, _) => chosen.Traverse(static face => (face.Brep.Faces[0].Domain(direction: 0), face.Brep.Faces[0].Domain(direction: 1)) switch {
-                        (Interval u, Interval v) when u.IsValid && v.IsValid => Fin.Succ(Seq(u, v)),
-                        _ => Fin.Fail<Seq<Interval>>(FacesKey.InvalidResult()),
-                    }).Map(static nested => nested.Bind(static domain => domain)).As()),
+                    Type output when output == typeof(Interval) => FaceQuery<TGeometry, TOut, Interval>(selector: selector, requirement: Requirement.SurfaceEvaluation, transfer: false, project: static (chosen, _) => chosen.Traverse(FaceDomains).Map(static nested => nested.Bind(static domain => domain)).As()),
                     _ => null,
                 },
                 false => null,
@@ -344,14 +342,14 @@ public static partial class Query {
         };
     private static Fin<Seq<CurveProjection>> CurvesOf<TGeometry>(TGeometry geometry, CurveSelector selector) where TGeometry : notnull =>
         (selector, geometry) switch {
-            (CurveSelector kind, Curve curve) when kind == CurveSelector.All || kind == CurveSelector.Segments || kind == CurveSelector.Boundary || kind == CurveSelector.SubCurves => ProjectCurve(curve: curve, selector: kind, pieceSource: ComponentIndexType.PolycurveSegment, splitInput: true),
-            (CurveSelector kind, Line line) when line.IsValid && (kind == CurveSelector.All || kind == CurveSelector.Segments || kind == CurveSelector.Boundary || kind == CurveSelector.SubCurves) =>
+            (CurveSelector kind, Curve curve) when InputCurveCase(selector: kind) => ProjectCurve(curve: curve, selector: kind, pieceSource: ComponentIndexType.PolycurveSegment, splitInput: true),
+            (CurveSelector kind, Line line) when line.IsValid && InputCurveCase(selector: kind) =>
                 PrimitiveCurve(primitive: line, selector: kind, pieceSource: ComponentIndexType.NoType, convert: static value => value.ToNurbsCurve()),
-            (CurveSelector kind, Polyline polyline) when polyline.IsValid && (kind == CurveSelector.All || kind == CurveSelector.Segments || kind == CurveSelector.Boundary || kind == CurveSelector.SubCurves) =>
+            (CurveSelector kind, Polyline polyline) when polyline.IsValid && InputCurveCase(selector: kind) =>
                 PrimitiveCurve(primitive: polyline, selector: kind, pieceSource: ComponentIndexType.PolycurveSegment, convert: static value => value.ToPolylineCurve()),
-            (CurveSelector kind, Circle circle) when circle.IsValid && (kind == CurveSelector.All || kind == CurveSelector.Segments || kind == CurveSelector.Boundary || kind == CurveSelector.SubCurves) =>
+            (CurveSelector kind, Circle circle) when circle.IsValid && InputCurveCase(selector: kind) =>
                 PrimitiveCurve(primitive: circle, selector: kind, pieceSource: ComponentIndexType.NoType, convert: static value => value.ToNurbsCurve()),
-            (CurveSelector kind, Arc arc) when arc.IsValid && (kind == CurveSelector.All || kind == CurveSelector.Segments || kind == CurveSelector.Boundary || kind == CurveSelector.SubCurves) =>
+            (CurveSelector kind, Arc arc) when arc.IsValid && InputCurveCase(selector: kind) =>
                 PrimitiveCurve(primitive: arc, selector: kind, pieceSource: ComponentIndexType.NoType, convert: static value => value.ToNurbsCurve()),
             (CurveSelector kind, Brep brep) when EdgeCurveCase(selector: kind) is { } edge => BrepEdgeCurves(brep: brep, feature: edge.Feature, predicate: edge.Brep),
             (CurveSelector kind, BrepFace face) when kind == CurveSelector.All || kind == CurveSelector.Boundary => Optional(face.DuplicateFace(duplicateMeshes: false))
@@ -379,12 +377,14 @@ public static partial class Query {
         };
     private static Fin<Seq<CurveProjection>> ProjectCurve(Curve? curve, CurveSelector selector, ComponentIndexType pieceSource, bool splitInput) =>
         Optional(curve).ToFin(CurvesKey.InvalidResult()).Bind(value => (selector, splitInput) switch {
-            (CurveSelector kind, true) when kind == CurveSelector.All || kind == CurveSelector.Boundary => CurvePieces(curve: value, feature: CurveFeature.Input, pieceSource: ComponentIndexType.NoType, fallbackSource: ComponentIndexType.NoType, project: static candidate => candidate.DuplicateSegments()),
-            (CurveSelector kind, _) when kind == CurveSelector.All || kind == CurveSelector.Boundary => OneCurve(curve: value, feature: CurveFeature.Input, type: ComponentIndexType.NoType),
+            (CurveSelector kind, true) when InputBoundaryCase(selector: kind) => CurvePieces(curve: value, feature: CurveFeature.Input, pieceSource: ComponentIndexType.NoType, fallbackSource: ComponentIndexType.NoType, project: static candidate => candidate.DuplicateSegments()),
+            (CurveSelector kind, _) when InputBoundaryCase(selector: kind) => OneCurve(curve: value, feature: CurveFeature.Input, type: ComponentIndexType.NoType),
             (CurveSelector kind, _) when kind == CurveSelector.Segments => CurvePieces(curve: value, feature: CurveFeature.Segment, pieceSource: pieceSource, fallbackSource: pieceSource, project: static candidate => candidate.DuplicateSegments()),
             (CurveSelector kind, _) when kind == CurveSelector.SubCurves => CurvePieces(curve: value, feature: CurveFeature.SubCurve, pieceSource: pieceSource, fallbackSource: ComponentIndexType.NoType, project: static candidate => candidate.GetSubCurves()),
             _ => Fin.Fail<Seq<CurveProjection>>(CurvesKey.InvalidInput()),
         });
+    private static bool InputCurveCase(CurveSelector selector) => InputBoundaryCase(selector: selector) || selector == CurveSelector.Segments || selector == CurveSelector.SubCurves;
+    private static bool InputBoundaryCase(CurveSelector selector) => selector == CurveSelector.All || selector == CurveSelector.Boundary;
     private static Fin<Seq<CurveProjection>> CurvePieces(Curve curve, CurveFeature feature, ComponentIndexType pieceSource, ComponentIndexType fallbackSource, Func<Curve, Curve[]?> project) =>
         project(arg: curve) switch {
             Curve[] pieces when pieces.Length > 0 => IndexedCurves(curves: pieces, feature: feature, sourceType: pieceSource),
@@ -551,6 +551,11 @@ public static partial class Query {
         Optional(AreaMassProperties.Compute(brep: face.Brep, area: true, firstMoments: true, secondMoments: false, productMoments: false, relativeTolerance: runtime.Relative.Value, absoluteTolerance: runtime.Absolute.Value))
             .ToFin(FacesKey.InvalidResult())
             .Map(static mass => { using AreaMassProperties disposable = mass; return disposable.Centroid; });
+    internal static Fin<Seq<Interval>> FaceDomains(FaceProjection face) =>
+        (face.Brep.Faces[0].Domain(direction: 0), face.Brep.Faces[0].Domain(direction: 1)) switch {
+            (Interval u, Interval v) when u.IsValid && v.IsValid => Fin.Succ(Seq(u, v)),
+            _ => Fin.Fail<Seq<Interval>>(FacesKey.InvalidResult()),
+        };
     private static Fin<Seq<FaceProjection>> DecomposeFaces<TGeometry>(TGeometry geometry) where TGeometry : notnull =>
         geometry switch {
             Brep brep => Fin.Succ(BrepFaceProjections(brep: brep)),

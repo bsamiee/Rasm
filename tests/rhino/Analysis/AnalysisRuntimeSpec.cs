@@ -424,71 +424,71 @@ public sealed class AnalysisRuntimeSpec {
             normal: Vector3d.ZAxis);
 
         double[] exactCurveDistance = Run(
-            query: AnalysisQuery.Conformance<Curve, Line, double>(aspect: Conformance.Distance(count: 3)),
+            query: AnalysisQuery.Conformance<Curve, Line, double>(aspect: new Conformance.Distance(Count: 3)),
             context: context,
             input: [(exactCurve, reference)]);
         double[] offsetCurveDistance = Run(
-            query: AnalysisQuery.Conformance<Curve, Line, double>(aspect: Conformance.Distance(count: 3)),
+            query: AnalysisQuery.Conformance<Curve, Line, double>(aspect: new Conformance.Distance(Count: 3)),
             context: context,
             input: [(offsetCurve, reference)]);
         double[] offsetCurveRms = Run(
-            query: AnalysisQuery.Conformance<Curve, Line, double>(aspect: Conformance.Rms(count: 3)),
+            query: AnalysisQuery.Conformance<Curve, Line, double>(aspect: new Conformance.Rms(Count: 3)),
             context: context,
             input: [(offsetCurve, reference)]);
         bool[] exactCurveWithin = Run(
-            query: AnalysisQuery.Conformance<Curve, Line, bool>(aspect: Conformance.WithinTolerance(count: 3)),
+            query: AnalysisQuery.Conformance<Curve, Line, bool>(aspect: new Conformance.WithinTolerance(Count: 3)),
             context: context,
             input: [(exactCurve, reference)]);
         ResidualProfile[] exactCurveProfile = Run(
-            query: AnalysisQuery.Conformance<Curve, Line, ResidualProfile>(aspect: Conformance.Profile(count: 3)),
+            query: AnalysisQuery.Conformance<Curve, Line, ResidualProfile>(aspect: new Conformance.ProfileResidual(Count: 3)),
             context: context,
             input: [(exactCurve, reference)]);
         ResidualProfile[] offsetCurveProfile = Run(
-            query: AnalysisQuery.Conformance<Curve, Line, ResidualProfile>(aspect: Conformance.Profile(count: 3)),
+            query: AnalysisQuery.Conformance<Curve, Line, ResidualProfile>(aspect: new Conformance.ProfileResidual(Count: 3)),
             context: context,
             input: [(offsetCurve, reference)]);
         double[] exactSurfaceDistance = Run(
-            query: AnalysisQuery.Conformance<Surface, Plane, double>(aspect: Conformance.Distance(count: 2)),
+            query: AnalysisQuery.Conformance<Surface, Plane, double>(aspect: new Conformance.Distance(Count: 2)),
             context: context,
             input: [(surface, Plane.WorldXY)]);
         double[] offsetSurfaceDistance = Run(
-            query: AnalysisQuery.Conformance<Surface, Plane, double>(aspect: Conformance.Distance(count: 2)),
+            query: AnalysisQuery.Conformance<Surface, Plane, double>(aspect: new Conformance.Distance(Count: 2)),
             context: context,
             input: [(surface, offsetPlane)]);
         double[] offsetSurfaceRms = Run(
-            query: AnalysisQuery.Conformance<Surface, Plane, double>(aspect: Conformance.Rms(count: 2)),
+            query: AnalysisQuery.Conformance<Surface, Plane, double>(aspect: new Conformance.Rms(Count: 2)),
             context: context,
             input: [(surface, offsetPlane)]);
         bool[] exactSurfaceWithin = Run(
-            query: AnalysisQuery.Conformance<Surface, Plane, bool>(aspect: Conformance.WithinTolerance(count: 2)),
+            query: AnalysisQuery.Conformance<Surface, Plane, bool>(aspect: new Conformance.WithinTolerance(Count: 2)),
             context: context,
             input: [(surface, Plane.WorldXY)]);
         bool[] offsetSurfaceWithin = Run(
-            query: AnalysisQuery.Conformance<Surface, Plane, bool>(aspect: Conformance.WithinTolerance(count: 2)),
+            query: AnalysisQuery.Conformance<Surface, Plane, bool>(aspect: new Conformance.WithinTolerance(Count: 2)),
             context: context,
             input: [(surface, offsetPlane)]);
         ResidualProfile[] exactSurfaceProfile = Run(
-            query: AnalysisQuery.Conformance<Surface, Plane, ResidualProfile>(aspect: Conformance.Profile(count: 2)),
+            query: AnalysisQuery.Conformance<Surface, Plane, ResidualProfile>(aspect: new Conformance.ProfileResidual(Count: 2)),
             context: context,
             input: [(surface, Plane.WorldXY)]);
         ResidualProfile[] offsetSurfaceProfile = Run(
-            query: AnalysisQuery.Conformance<Surface, Plane, ResidualProfile>(aspect: Conformance.Profile(count: 2)),
+            query: AnalysisQuery.Conformance<Surface, Plane, ResidualProfile>(aspect: new Conformance.ProfileResidual(Count: 2)),
             context: context,
             input: [(surface, offsetPlane)]);
         ResidualSample[] offsetCurveMaximum = Run(
-            query: AnalysisQuery.Conformance<Curve, Line, ResidualSample>(aspect: Conformance.Maximum(count: 3)),
+            query: AnalysisQuery.Conformance<Curve, Line, ResidualSample>(aspect: new Conformance.Maximum(Count: 3)),
             context: context,
             input: [(offsetCurve, reference)]);
         double[] circleDistance = Run(
-            query: AnalysisQuery.Conformance<Curve, Circle, double>(aspect: Conformance.Distance(count: 4)),
+            query: AnalysisQuery.Conformance<Curve, Circle, double>(aspect: new Conformance.Distance(Count: 4)),
             context: context,
             input: [(circleCurve, circle)]);
         bool[] arcWithin = Run(
-            query: AnalysisQuery.Conformance<Curve, Arc, bool>(aspect: Conformance.WithinTolerance(count: 4)),
+            query: AnalysisQuery.Conformance<Curve, Arc, bool>(aspect: new Conformance.WithinTolerance(Count: 4)),
             context: context,
             input: [(arcCurve, arc)]);
         ResidualSample[] sphereMaximum = Run(
-            query: AnalysisQuery.Conformance<Surface, Sphere, ResidualSample>(aspect: Conformance.Maximum(count: 2)),
+            query: AnalysisQuery.Conformance<Surface, Sphere, ResidualSample>(aspect: new Conformance.Maximum(Count: 2)),
             context: context,
             input: [(sphereSurface, sphere)]);
 
@@ -1237,7 +1237,7 @@ public sealed class AnalysisRuntimeSpec {
                 input: [(curve, Line.Unset)]);
         Validation<Error, Seq<ResidualProfile>> invalidConformanceLine = Analyze.In(context: context)
             .Run(
-                query: AnalysisQuery.Conformance<Curve, Line, ResidualProfile>(aspect: Conformance.Profile(count: 3)),
+                query: AnalysisQuery.Conformance<Curve, Line, ResidualProfile>(aspect: new Conformance.ProfileResidual(Count: 3)),
                 input: [(curve, Line.Unset)]);
         using PlaneSurface surface = new(
             plane: Plane.WorldXY,
@@ -1245,7 +1245,7 @@ public sealed class AnalysisRuntimeSpec {
             yExtents: new Interval(t0: 0.0, t1: 1.0));
         Validation<Error, Seq<ResidualProfile>> invalidConformancePlane = Analyze.In(context: context)
             .Run(
-                query: AnalysisQuery.Conformance<Surface, Plane, ResidualProfile>(aspect: Conformance.Profile(count: 2)),
+                query: AnalysisQuery.Conformance<Surface, Plane, ResidualProfile>(aspect: new Conformance.ProfileResidual(Count: 2)),
                 input: [(surface, Plane.Unset)]);
 
         Assert.Multiple(() => {

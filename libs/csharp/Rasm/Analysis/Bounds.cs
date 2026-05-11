@@ -139,72 +139,72 @@ public static partial class Query {
         };
     public static Query<(TGeometry Geometry, TPrimitive Primitive), TOut> Conformance<TGeometry, TPrimitive, TOut>(
         Conformance aspect) where TGeometry : notnull where TPrimitive : notnull =>
-        Aspect(
-            aspect: aspect,
-            key: ConformanceKey,
-            dispatch: static candidate => (candidate.Residual, candidate.Count, typeof(TGeometry), typeof(TPrimitive), typeof(TOut)) switch {
-                (ConformanceResidual.None, _, _, _, _) or (_, <= 0, _, _, _) => Query<(TGeometry Geometry, TPrimitive Primitive), TOut>.Reject(
-                    key: ConformanceKey,
-                    fault: ConformanceKey.InvalidInput()),
-                (_, _, Type geometry, Type primitive, _) when typeof(Curve).IsAssignableFrom(c: geometry) && primitive == typeof(Line) =>
+        Optional(aspect)
+            .Map(candidate => Aspect(
+                aspect: candidate,
+                key: ConformanceKey,
+                dispatch: static candidate => (candidate, typeof(TGeometry), typeof(TPrimitive)) switch {
+                    (Conformance.Distance { Count: <= 0 } or Conformance.Rms { Count: <= 0 } or Conformance.WithinTolerance { Count: <= 0 } or Conformance.ProfileResidual { Count: <= 0 } or Conformance.Maximum { Count: <= 0 }, _, _) => Query<(TGeometry Geometry, TPrimitive Primitive), TOut>.Reject(key: ConformanceKey, fault: ConformanceKey.InvalidInput()),
+                    (_, Type geometry, Type primitive) when typeof(Curve).IsAssignableFrom(c: geometry) && primitive == typeof(Line) =>
                     ConformanceCases<TGeometry, TPrimitive, TOut, Curve, Line>(
                         aspect: candidate,
                         requirement: Requirement.CurveLength,
                         samples: static (geometry, primitive, count, context) => CurvePrimitiveSamples(geometry: geometry, primitive: primitive, count: count, context: context, distance: static (line, point) => point.DistanceTo(other: line.ClosestPoint(testPoint: point, limitToFiniteSegment: false)))),
-                (_, _, Type geometry, Type primitive, _) when typeof(Curve).IsAssignableFrom(c: geometry) && primitive == typeof(Circle) =>
+                    (_, Type geometry, Type primitive) when typeof(Curve).IsAssignableFrom(c: geometry) && primitive == typeof(Circle) =>
                     ConformanceCases<TGeometry, TPrimitive, TOut, Curve, Circle>(
                         aspect: candidate,
                         requirement: Requirement.CurveLength,
                         samples: static (geometry, primitive, count, context) => CurvePrimitiveSamples(geometry: geometry, primitive: primitive, count: count, context: context, distance: static (circle, point) => point.DistanceTo(other: circle.ClosestPoint(testPoint: point)))),
-                (_, _, Type geometry, Type primitive, _) when typeof(Curve).IsAssignableFrom(c: geometry) && primitive == typeof(Arc) =>
+                    (_, Type geometry, Type primitive) when typeof(Curve).IsAssignableFrom(c: geometry) && primitive == typeof(Arc) =>
                     ConformanceCases<TGeometry, TPrimitive, TOut, Curve, Arc>(
                         aspect: candidate,
                         requirement: Requirement.CurveLength,
                         samples: static (geometry, primitive, count, context) => CurvePrimitiveSamples(geometry: geometry, primitive: primitive, count: count, context: context, distance: static (arc, point) => point.DistanceTo(other: arc.ClosestPoint(testPoint: point)))),
-                (_, _, Type geometry, Type primitive, _) when typeof(Surface).IsAssignableFrom(c: geometry) && primitive == typeof(Plane) =>
+                    (_, Type geometry, Type primitive) when typeof(Surface).IsAssignableFrom(c: geometry) && primitive == typeof(Plane) =>
                     ConformanceCases<TGeometry, TPrimitive, TOut, Surface, Plane>(
                         aspect: candidate,
                         requirement: Requirement.SurfaceEvaluation,
                         samples: static (geometry, primitive, count, context) => SurfacePrimitiveSamples(geometry: geometry, primitive: primitive, count: count, context: context, distance: static (plane, point) => Math.Abs(value: plane.DistanceTo(testPoint: point)))),
-                (_, _, Type geometry, Type primitive, _) when typeof(Surface).IsAssignableFrom(c: geometry) && primitive == typeof(Sphere) =>
+                    (_, Type geometry, Type primitive) when typeof(Surface).IsAssignableFrom(c: geometry) && primitive == typeof(Sphere) =>
                     ConformanceCases<TGeometry, TPrimitive, TOut, Surface, Sphere>(
                         aspect: candidate,
                         requirement: Requirement.SurfaceEvaluation,
                         samples: static (geometry, primitive, count, context) => SurfacePrimitiveSamples(geometry: geometry, primitive: primitive, count: count, context: context, distance: static (sphere, point) => point.DistanceTo(other: sphere.ClosestPoint(testPoint: point)))),
-                _ => null,
-            });
+                    _ => null,
+                }))
+            .IfNone(() => Query<(TGeometry Geometry, TPrimitive Primitive), TOut>.Reject(key: ConformanceKey, fault: ConformanceKey.InvalidInput()));
     private static Query<(TGeometry Geometry, TPrimitive Primitive), TOut> ConformanceCases<TGeometry, TPrimitive, TOut, TNativeGeometry, TNativePrimitive>(
         Conformance aspect,
         Requirement requirement,
         Func<TNativeGeometry, TNativePrimitive, int, Context, Fin<Seq<ResidualSample>>> samples) where TGeometry : notnull where TPrimitive : notnull where TNativeGeometry : notnull where TNativePrimitive : notnull =>
-        (aspect.Residual, typeof(TOut)) switch {
-            (ConformanceResidual.Distance, Type output) when output == typeof(double) =>
+        (aspect, typeof(TOut)) switch {
+            (Conformance.Distance item, Type output) when output == typeof(double) =>
                 Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: ConformanceKey, query: ConformancePair<TGeometry, TPrimitive, TNativeGeometry, TNativePrimitive, double>(
-                    count: aspect.Count,
+                    count: item.Count,
                     requirement: requirement,
                     samples: samples,
                     project: ResidualDistance)),
-            (ConformanceResidual.Rms, Type output) when output == typeof(double) =>
+            (Conformance.Rms item, Type output) when output == typeof(double) =>
                 Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: ConformanceKey, query: ConformancePair<TGeometry, TPrimitive, TNativeGeometry, TNativePrimitive, double>(
-                    count: aspect.Count,
+                    count: item.Count,
                     requirement: requirement,
                     samples: samples,
                     project: ResidualRms)),
-            (ConformanceResidual.WithinTolerance, Type output) when output == typeof(bool) =>
+            (Conformance.WithinTolerance item, Type output) when output == typeof(bool) =>
                 Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: ConformanceKey, query: ConformancePair<TGeometry, TPrimitive, TNativeGeometry, TNativePrimitive, bool>(
-                    count: aspect.Count,
+                    count: item.Count,
                     requirement: requirement,
                     samples: samples,
                     project: ResidualWithinTolerance)),
-            (ConformanceResidual.Profile, Type output) when output == typeof(ResidualProfile) =>
+            (Conformance.ProfileResidual item, Type output) when output == typeof(ResidualProfile) =>
                 Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: ConformanceKey, query: ConformancePair<TGeometry, TPrimitive, TNativeGeometry, TNativePrimitive, ResidualProfile>(
-                    count: aspect.Count,
+                    count: item.Count,
                     requirement: requirement,
                     samples: samples,
                     project: ResidualProfileProjection)),
-            (ConformanceResidual.Maximum, Type output) when output == typeof(ResidualSample) =>
+            (Conformance.Maximum item, Type output) when output == typeof(ResidualSample) =>
                 Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: ConformanceKey, query: ConformancePair<TGeometry, TPrimitive, TNativeGeometry, TNativePrimitive, ResidualSample>(
-                    count: aspect.Count,
+                    count: item.Count,
                     requirement: requirement,
                     samples: samples,
                     project: ResidualMaximum)),
@@ -260,11 +260,17 @@ public static partial class Query {
         Context context,
         Func<TPrimitive, Point3d, double> distance) where TPrimitive : notnull =>
         Fractions(count: count, key: ConformanceKey)
-            .Bind(fractions => fractions.TraverseM(fraction => geometry.NormalizedLengthParameter(s: fraction, t: out double parameter, fractionalTolerance: context.Relative.Value) switch {
-                true => Fin.Succ(geometry.PointAt(t: parameter)),
-                false => Fin.Fail<Point3d>(ConformanceKey.InvalidResult()),
-            }).As())
-            .Bind(points => ResidualSamples(points: points, primitive: primitive, context: context, distance: distance));
+            .Bind(fractions => Optional(geometry.NormalizedLengthParameters(
+                    s: [.. fractions.AsIterable()],
+                    absoluteTolerance: context.Absolute.Value,
+                    fractionalTolerance: context.Relative.Value))
+                .ToFin(ConformanceKey.InvalidResult())
+                .Map(parameters => toSeq(parameters).Map(geometry.PointAt)))
+            .Bind(points => ResidualSamples(
+                points: points,
+                primitive: primitive,
+                context: context,
+                distance: distance));
     private static Fin<Seq<ResidualSample>> SurfacePrimitiveSamples<TPrimitive>(
         Surface geometry,
         TPrimitive primitive,

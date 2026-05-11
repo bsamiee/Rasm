@@ -187,53 +187,43 @@ public static partial class Query {
             .Map(static nested => nested.Bind(static points => points));
     private static Query<TGeometry, TOut>? Located<TGeometry, TOut, TNative, TValue>(Op key, Query<TGeometry, TValue> query) where TGeometry : notnull => typeof(TNative).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(TValue) ? Cast<TGeometry, TOut>(key: key, query: query) : null;
     private static Query<TGeometry, TOut> Mid<TGeometry, TOut>() where TGeometry : notnull =>
-        (typeof(TGeometry), typeof(TOut)) switch {
-            (Type geometry, Type output) when geometry == typeof(Line) && output == typeof(Point3d) =>
-                Cast<TGeometry, TOut>(key: MidpointKey, query: Query<Line, Point3d>.Build(
-                    key: MidpointKey,
-                    evaluator: static geometry => (geometry.IsValid switch {
-                        true => One(key: MidpointKey, value: geometry.PointAt(t: 0.5)),
-                        false => Fin.Fail<Seq<Point3d>>(MidpointKey.InvalidInput()),
-                    }).ToEff())),
-            (Type geometry, Type output) when geometry == typeof(Polyline) && output == typeof(Point3d) =>
-                Cast<TGeometry, TOut>(key: MidpointKey, query: Query<Polyline, Point3d>.Build(
-                    key: MidpointKey,
-                    evaluator: static geometry => Bracket(factory: geometry.ToPolylineCurve, body: static curve => curve.IsValid switch {
-                        true => One(key: MidpointKey, value: curve.PointAtNormalizedLength(length: 0.5)),
-                        false => Fin.Fail<Seq<Point3d>>(MidpointKey.InvalidInput()),
-                    }).ToEff())),
-            (Type geometry, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && output == typeof(Point3d) =>
-                Cast<TGeometry, TOut>(key: MidpointKey, query: Query<TGeometry, Point3d>.Build(
-                    key: MidpointKey,
-                    requirement: Requirement.CurveLength,
-                    evaluator: static geometry => CurveAtNormalized<TGeometry, Point3d>(
-                        geometry: geometry,
-                        key: MidpointKey,
-                        project: static (curve, parameter) => curve.PointAt(t: parameter)))),
-            _ => MidpointKey.Unsupported<TGeometry, TOut>(),
-        };
+        Middle<TGeometry, TOut, Point3d>(
+            key: MidpointKey,
+            line: static line => line.PointAt(t: 0.5),
+            curve: static (curve, parameter) => curve.PointAt(t: parameter));
     private static Query<TGeometry, TOut> TangentAtMiddle<TGeometry, TOut>() where TGeometry : notnull =>
+        Middle<TGeometry, TOut, Vector3d>(
+            key: TangentKey,
+            line: static line => line.UnitTangent,
+            curve: static (curve, parameter) => curve.TangentAt(t: parameter));
+    private static Query<TGeometry, TOut> Middle<TGeometry, TOut, TValue>(
+        Op key,
+        Func<Line, TValue> line,
+        Func<Curve, double, TValue> curve) where TGeometry : notnull =>
         (typeof(TGeometry), typeof(TOut)) switch {
-            (Type geometry, Type output) when geometry == typeof(Line) && output == typeof(Vector3d) =>
-                Cast<TGeometry, TOut>(key: TangentKey, query: Query<Line, Vector3d>.Build(
-                    key: TangentKey,
-                    evaluator: static geometry => One(key: TangentKey, value: geometry.UnitTangent).ToEff())),
-            (Type geometry, Type output) when geometry == typeof(Polyline) && output == typeof(Vector3d) =>
-                Cast<TGeometry, TOut>(key: TangentKey, query: Query<Polyline, Vector3d>.Build(
-                    key: TangentKey,
-                    evaluator: static geometry => Bracket(factory: geometry.ToPolylineCurve, body: static curve => curve.NormalizedLengthParameter(s: 0.5, t: out double parameter) switch {
-                        true => One(key: TangentKey, value: curve.TangentAt(t: parameter)),
-                        false => Fin.Fail<Seq<Vector3d>>(TangentKey.InvalidResult()),
+            (Type geometry, Type output) when geometry == typeof(Line) && output == typeof(TValue) =>
+                Cast<TGeometry, TOut>(key: key, query: Query<Line, TValue>.Build(
+                    key: key,
+                    state: (Key: key, Project: line),
+                    evaluator: static (state, geometry) => state.Key.RequireValid(value: geometry).Bind(validated => One(key: state.Key, value: state.Project(arg: validated))).ToEff())),
+            (Type geometry, Type output) when geometry == typeof(Polyline) && output == typeof(TValue) =>
+                Cast<TGeometry, TOut>(key: key, query: Query<Polyline, TValue>.Build(
+                    key: key,
+                    state: (Key: key, Project: curve),
+                    evaluator: static (state, geometry) => Bracket(factory: geometry.ToPolylineCurve, body: polyCurve => polyCurve.NormalizedLengthParameter(s: 0.5, t: out double parameter) switch {
+                        true => One(key: state.Key, value: state.Project(arg1: polyCurve, arg2: parameter)),
+                        false => Fin.Fail<Seq<TValue>>(state.Key.InvalidResult()),
                     }).ToEff())),
-            (Type geometry, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && output == typeof(Vector3d) =>
-                Cast<TGeometry, TOut>(key: TangentKey, query: Query<TGeometry, Vector3d>.Build(
-                    key: TangentKey,
+            (Type geometry, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && output == typeof(TValue) =>
+                Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, TValue>.Build(
+                    key: key,
                     requirement: Requirement.CurveLength,
-                    evaluator: static geometry => CurveAtNormalized<TGeometry, Vector3d>(
+                    state: (Key: key, Project: curve),
+                    evaluator: static (state, geometry) => CurveAtNormalized<TGeometry, TValue>(
                         geometry: geometry,
-                        key: TangentKey,
-                        project: static (curve, parameter) => curve.TangentAt(t: parameter)))),
-            _ => TangentKey.Unsupported<TGeometry, TOut>(),
+                        key: state.Key,
+                        project: state.Project))),
+            _ => key.Unsupported<TGeometry, TOut>(),
         };
     private static Query<TGeometry, TOut> CurvatureProfile<TGeometry, TOut>(int count, CurvatureScalar scalar) where TGeometry : notnull =>
         (count, scalar, typeof(TGeometry), typeof(TOut)) switch {
@@ -262,17 +252,15 @@ public static partial class Query {
             _ => CurvatureAtKey.Unsupported<TGeometry, TOut>(),
         };
     private static Query<TGeometry, TOut> CurvatureQuery<TGeometry, TOut, TNative, TValue>(Requirement requirement, int count, Func<TNative, int, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull where TNative : notnull =>
-        Cast<TGeometry, TOut>(key: CurvatureAtKey, query: Query<TGeometry, TValue>.Build(
+        Native<TGeometry, TOut, TNative, TValue, (int Count, Func<TNative, int, Context, Fin<Seq<TValue>>> Project)>(
             key: CurvatureAtKey,
+            state: (Count: count, Project: project),
             requirement: requirement,
             requiresContext: true,
-            state: (Count: count, Project: project),
-            evaluator: static (state, geometry) => geometry switch {
-                TNative native => from ctx in Analyze.Asks
-                                  from result in state.Project(arg1: native, arg2: state.Count, arg3: ctx).ToEff()
-                                  select result,
-                _ => Fin.Fail<Seq<TValue>>(CurvatureAtKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TValue))).ToEff(),
-            }));
+            project: static (state, native) =>
+                from ctx in Analyze.Asks
+                from result in state.Project(arg1: native, arg2: state.Count, arg3: ctx).ToEff()
+                select result);
     private static Fin<Seq<double>> SurfaceScalars(Seq<SurfaceCurvature> curvatures, CurvatureScalar scalar) =>
         scalar switch {
             CurvatureScalar.Gaussian => Fin.Succ(curvatures.Map(static curvature => curvature.Gaussian)),
@@ -384,15 +372,12 @@ public static partial class Query {
         Op key,
         double parameter,
         Func<Curve, double, Fin<Seq<TOut>>> project) where TGeometry : notnull =>
-        Query<TGeometry, TOut>.Build(
+        Native<TGeometry, TOut, Curve, TOut, (Op Key, double Parameter, Func<Curve, double, Fin<Seq<TOut>>> Project)>(
             key: key,
             state: (Key: key, Parameter: parameter, Project: project),
-            evaluator: static (state, geometry) => (geometry switch {
-                Curve curve => curve.Domain.IncludesParameter(t: state.Parameter) switch {
-                    true => state.Project(arg1: curve, arg2: state.Parameter),
-                    false => Fin.Fail<Seq<TOut>>(state.Key.InvalidInput()),
-                },
-                _ => Fin.Fail<Seq<TOut>>(state.Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))),
+            project: static (state, curve) => (curve.Domain.IncludesParameter(t: state.Parameter) switch {
+                true => state.Project(arg1: curve, arg2: state.Parameter),
+                false => Fin.Fail<Seq<TOut>>(state.Key.InvalidInput()),
             }).ToEff());
     private static Query<TGeometry, Point3d> DividePoly<TGeometry>(
         Op key,
@@ -428,18 +413,15 @@ public static partial class Query {
         Op key,
         Point2d uv,
         Func<Surface, Point2d, Fin<Seq<TOut>>> project) where TGeometry : notnull =>
-        Query<TGeometry, TOut>.Build(
+        Native<TGeometry, TOut, Surface, TOut, (Op Key, Point2d Uv, Func<Surface, Point2d, Fin<Seq<TOut>>> Project)>(
             key: key,
             requirement: Requirement.SurfaceEvaluation,
             state: (Key: key, Uv: uv, Project: project),
-            evaluator: static (state, geometry) => geometry switch {
-                Surface surface =>
-                    from ctx in Analyze.Asks
-                    from parameter in Uv(surface: surface, uv: state.Uv, context: ctx, key: state.Key).ToEff()
-                    from result in state.Project(arg1: surface, arg2: parameter).ToEff()
-                    select result,
-                _ => Fin.Fail<Seq<TOut>>(state.Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))).ToEff(),
-            });
+            project: static (state, surface) =>
+                from ctx in Analyze.Asks
+                from parameter in Uv(surface: surface, uv: state.Uv, context: ctx, key: state.Key).ToEff()
+                from result in state.Project(arg1: surface, arg2: parameter).ToEff()
+                select result);
     private static Fin<Point2d> Uv(Surface surface, Point2d uv, Context context, Op key) =>
         (surface.Domain(direction: 0), surface.Domain(direction: 1)) switch {
             (Interval u, Interval v) when u.IsValid && v.IsValid && u.IncludesParameter(t: uv.X) && v.IncludesParameter(t: uv.Y) && (surface is not BrepFace face || face.IsPointOnFace(u: uv.X, v: uv.Y, tolerance: context.Absolute.Value) != PointFaceRelation.Exterior) => Fin.Succ(uv),
