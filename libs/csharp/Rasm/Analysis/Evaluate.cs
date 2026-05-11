@@ -236,25 +236,30 @@ public static partial class Query {
             _ => TangentKey.Unsupported<TGeometry, TOut>(),
         };
     private static Query<TGeometry, TOut> CurvatureProfile<TGeometry, TOut>(int count, CurvatureScalar scalar) where TGeometry : notnull =>
-        count switch {
-            <= 0 => Query<TGeometry, TOut>.Reject(key: CurvatureAtKey, fault: CurvatureAtKey.InvalidInput()),
-            _ => (scalar, typeof(TGeometry), typeof(TOut)) switch {
-                (CurvatureScalar.None, Type geometry, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && output == typeof(Vector3d) =>
-                    CurvatureQuery<TGeometry, TOut, Curve, Vector3d>(requirement: Requirement.CurveLength, count: count, project: static (curve, sampleCount, ctx) => CurveCurvatures(curve: curve, count: sampleCount, model: ctx)),
-                (CurvatureScalar.None or CurvatureScalar.Magnitude, Type geometry, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && output == typeof(CurvatureProfile) =>
-                    CurvatureQuery<TGeometry, TOut, Curve, CurvatureProfile>(requirement: Requirement.CurveLength, count: count, project: static (curve, sampleCount, ctx) => CurveMagnitudes(curve: curve, count: sampleCount, model: ctx).Bind(static values => Profile(scalar: CurvatureScalar.Magnitude, values: values).Map(static profile => Seq(profile)))),
-                (CurvatureScalar.Magnitude, Type geometry, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && output == typeof(double) =>
-                    CurvatureQuery<TGeometry, TOut, Curve, double>(requirement: Requirement.CurveLength, count: count, project: static (curve, sampleCount, ctx) => CurveMagnitudes(curve: curve, count: sampleCount, model: ctx).Bind(static values => Many(key: CurvatureAtKey, values: values))),
-                (CurvatureScalar.None, Type geometry, Type output) when typeof(Surface).IsAssignableFrom(c: geometry) && output == typeof(SurfaceCurvature) =>
-                    CurvatureQuery<TGeometry, TOut, Surface, SurfaceCurvature>(requirement: Requirement.SurfaceEvaluation, count: count, project: static (surface, sampleCount, ctx) => SurfaceCurvatures(surface: surface, count: sampleCount, model: ctx)),
-                (CurvatureScalar.None, Type geometry, Type output) when typeof(Surface).IsAssignableFrom(c: geometry) && output == typeof(CurvatureProfile) =>
-                    CurvatureQuery<TGeometry, TOut, Surface, CurvatureProfile>(requirement: Requirement.SurfaceEvaluation, count: count, project: static (surface, sampleCount, ctx) => SurfaceCurvatures(surface: surface, count: sampleCount, model: ctx).Bind(static curvatures => (SurfaceScalars(curvatures: curvatures, scalar: CurvatureScalar.Gaussian).Bind(static values => Profile(scalar: CurvatureScalar.Gaussian, values: values)), SurfaceScalars(curvatures: curvatures, scalar: CurvatureScalar.Mean).Bind(static values => Profile(scalar: CurvatureScalar.Mean, values: values))).Apply(static (gaussian, mean) => Seq(gaussian, mean)).As())),
-                (CurvatureScalar.Gaussian or CurvatureScalar.Mean, Type geometry, Type output) when typeof(Surface).IsAssignableFrom(c: geometry) && output == typeof(CurvatureProfile) =>
-                    CurvatureQuery<TGeometry, TOut, Surface, CurvatureProfile>(requirement: Requirement.SurfaceEvaluation, count: count, project: (surface, sampleCount, ctx) => SurfaceCurvatures(surface: surface, count: sampleCount, model: ctx).Bind(curvatures => SurfaceScalars(curvatures: curvatures, scalar: scalar)).Bind(values => Profile(scalar: scalar, values: values).Map(static profile => Seq(profile)))),
-                (CurvatureScalar.Gaussian or CurvatureScalar.Mean, Type geometry, Type output) when typeof(Surface).IsAssignableFrom(c: geometry) && output == typeof(double) =>
-                    CurvatureQuery<TGeometry, TOut, Surface, double>(requirement: Requirement.SurfaceEvaluation, count: count, project: (surface, sampleCount, ctx) => SurfaceCurvatures(surface: surface, count: sampleCount, model: ctx).Bind(curvatures => SurfaceScalars(curvatures: curvatures, scalar: scalar)).Bind(static values => Many(key: CurvatureAtKey, values: values))),
-                _ => CurvatureAtKey.Unsupported<TGeometry, TOut>(),
-            },
+        (count, scalar, typeof(TGeometry), typeof(TOut)) switch {
+            ( <= 0, _, _, _) =>
+                Query<TGeometry, TOut>.Reject(key: CurvatureAtKey, fault: CurvatureAtKey.InvalidInput()),
+            (_, CurvatureScalar.None, Type geometry, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && output == typeof(Vector3d) =>
+                CurvatureQuery<TGeometry, TOut, Curve, Vector3d>(requirement: Requirement.CurveLength, count: count, project: static (curve, sampleCount, ctx) => CurveCurvatures(curve: curve, count: sampleCount, model: ctx)),
+            (_, CurvatureScalar.None, Type geometry, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && output == typeof(CurvatureProfile) =>
+                ScalarCurvature<TGeometry, TOut, Curve>(requirement: Requirement.CurveLength, count: count, scalar: CurvatureScalar.Magnitude, project: static (curve, sampleCount, ctx) => CurveMagnitudes(curve: curve, count: sampleCount, model: ctx)),
+            (_, CurvatureScalar.Magnitude, Type geometry, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && (output == typeof(double) || output == typeof(CurvatureProfile)) =>
+                ScalarCurvature<TGeometry, TOut, Curve>(requirement: Requirement.CurveLength, count: count, scalar: CurvatureScalar.Magnitude, project: static (curve, sampleCount, ctx) => CurveMagnitudes(curve: curve, count: sampleCount, model: ctx)),
+            (_, CurvatureScalar.None, Type geometry, Type output) when typeof(Surface).IsAssignableFrom(c: geometry) && output == typeof(SurfaceCurvature) =>
+                CurvatureQuery<TGeometry, TOut, Surface, SurfaceCurvature>(requirement: Requirement.SurfaceEvaluation, count: count, project: static (surface, sampleCount, ctx) => SurfaceCurvatures(surface: surface, count: sampleCount, model: ctx)),
+            (_, CurvatureScalar.None, Type geometry, Type output) when typeof(Surface).IsAssignableFrom(c: geometry) && output == typeof(CurvatureProfile) =>
+                CurvatureQuery<TGeometry, TOut, Surface, CurvatureProfile>(requirement: Requirement.SurfaceEvaluation, count: count, project: static (surface, sampleCount, ctx) => SurfaceCurvatures(surface: surface, count: sampleCount, model: ctx).Bind(static curvatures => (SurfaceScalars(curvatures: curvatures, scalar: CurvatureScalar.Gaussian).Bind(static values => Profile(scalar: CurvatureScalar.Gaussian, values: values)), SurfaceScalars(curvatures: curvatures, scalar: CurvatureScalar.Mean).Bind(static values => Profile(scalar: CurvatureScalar.Mean, values: values))).Apply(static (gaussian, mean) => Seq(gaussian, mean)).As())),
+            (_, CurvatureScalar.Gaussian or CurvatureScalar.Mean, Type geometry, Type output) when typeof(Surface).IsAssignableFrom(c: geometry) && (output == typeof(double) || output == typeof(CurvatureProfile)) =>
+                ScalarCurvature<TGeometry, TOut, Surface>(requirement: Requirement.SurfaceEvaluation, count: count, scalar: scalar, project: (surface, sampleCount, ctx) => SurfaceCurvatures(surface: surface, count: sampleCount, model: ctx).Bind(curvatures => SurfaceScalars(curvatures: curvatures, scalar: scalar))),
+            _ => CurvatureAtKey.Unsupported<TGeometry, TOut>(),
+        };
+    private static Query<TGeometry, TOut> ScalarCurvature<TGeometry, TOut, TNative>(Requirement requirement, int count, CurvatureScalar scalar, Func<TNative, int, Context, Fin<Seq<double>>> project) where TGeometry : notnull where TNative : notnull =>
+        typeof(TOut) switch {
+            Type output when output == typeof(double) =>
+                CurvatureQuery<TGeometry, TOut, TNative, double>(requirement: requirement, count: count, project: (native, sampleCount, ctx) => project(arg1: native, arg2: sampleCount, arg3: ctx).Bind(static values => Many(key: CurvatureAtKey, values: values))),
+            Type output when output == typeof(CurvatureProfile) =>
+                CurvatureQuery<TGeometry, TOut, TNative, CurvatureProfile>(requirement: requirement, count: count, project: (native, sampleCount, ctx) => project(arg1: native, arg2: sampleCount, arg3: ctx).Bind(values => Profile(scalar: scalar, values: values).Map(static profile => Seq(profile)))),
+            _ => CurvatureAtKey.Unsupported<TGeometry, TOut>(),
         };
     private static Query<TGeometry, TOut> CurvatureQuery<TGeometry, TOut, TNative, TValue>(Requirement requirement, int count, Func<TNative, int, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull where TNative : notnull =>
         Cast<TGeometry, TOut>(key: CurvatureAtKey, query: Query<TGeometry, TValue>.Build(

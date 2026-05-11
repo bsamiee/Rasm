@@ -4,25 +4,17 @@ public static partial class Query {
     public static Query<TGeometry, TOut> Domain<TGeometry, TOut>() where TGeometry : notnull =>
         (typeof(TGeometry), typeof(TOut)) switch {
             (Type geometry, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && output == typeof(Interval) =>
-                Native<TGeometry, TOut, Curve, Interval>(
-                    key: DomainKey,
-                    project: static curve => One(key: DomainKey, value: curve.Domain).ToEff()),
+                Native<TGeometry, TOut, Curve, Interval>(key: DomainKey, project: static curve => One(key: DomainKey, value: curve.Domain).ToEff()),
             (Type geometry, Type output) when typeof(Surface).IsAssignableFrom(c: geometry) && output == typeof(Interval) =>
-                Native<TGeometry, TOut, Surface, Interval>(
-                    key: DomainKey,
-                    project: static surface => (One(key: DomainKey, value: surface.Domain(direction: 0)), One(key: DomainKey, value: surface.Domain(direction: 1))).Apply((u, v) => u + v).As().ToEff()),
+                Native<TGeometry, TOut, Surface, Interval>(key: DomainKey, project: static surface => (One(key: DomainKey, value: surface.Domain(direction: 0)), One(key: DomainKey, value: surface.Domain(direction: 1))).Apply((u, v) => u + v).As().ToEff()),
             _ => DomainKey.Unsupported<TGeometry, TOut>(),
         };
     public static Query<TGeometry, TOut> Segments<TGeometry, TOut>() where TGeometry : notnull =>
         (typeof(TGeometry), typeof(TOut)) switch {
             (Type geometry, Type output) when geometry == typeof(Polyline) && output == typeof(Line) =>
-                Cast<TGeometry, TOut>(key: SegmentsKey, query: Query<Polyline, Line>.Build(
-                    key: SegmentsKey,
-                    evaluator: static geometry => Many(key: SegmentsKey, values: geometry.GetSegments()).ToEff())),
+                Cast<TGeometry, TOut>(key: SegmentsKey, query: Query<Polyline, Line>.Build(key: SegmentsKey, evaluator: static geometry => Many(key: SegmentsKey, values: geometry.GetSegments()).ToEff())),
             (Type geometry, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && output == typeof(Curve) =>
-                Native<TGeometry, TOut, Curve, Curve>(
-                    key: SegmentsKey,
-                    project: static curve => Many(key: SegmentsKey, values: curve.DuplicateSegments()).ToEff()),
+                Native<TGeometry, TOut, Curve, Curve>(key: SegmentsKey, project: static curve => Many(key: SegmentsKey, values: curve.DuplicateSegments()).ToEff()),
             _ => SegmentsKey.Unsupported<TGeometry, TOut>(),
         };
     public static Query<Brep, Curve> Edges => Query<Brep, Curve>.Build(key: EdgesKey, evaluator: static geometry => Many(key: EdgesKey, values: geometry.DuplicateEdgeCurves()).ToEff());
@@ -61,33 +53,19 @@ public static partial class Query {
     public static Query<TGeometry, TOut> NakedEdges<TGeometry, TOut>() where TGeometry : notnull =>
         (typeof(TGeometry), typeof(TOut)) switch {
             (Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(Curve) =>
-                Native<TGeometry, TOut, Brep, Curve>(
-                    key: NakedEdgesKey,
-                    project: static brep => Many(key: NakedEdgesKey, values: brep.DuplicateNakedEdgeCurves(nakedOuter: true, nakedInner: true)).ToEff()),
+                Native<TGeometry, TOut, Brep, Curve>(key: NakedEdgesKey, project: static brep => Many(key: NakedEdgesKey, values: brep.DuplicateNakedEdgeCurves(nakedOuter: true, nakedInner: true)).ToEff()),
             (Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(Polyline) =>
-                Native<TGeometry, TOut, Mesh, Polyline>(
-                    key: NakedEdgesKey,
-                    project: static mesh => Many(key: NakedEdgesKey, values: mesh.GetNakedEdges()).ToEff()),
+                Native<TGeometry, TOut, Mesh, Polyline>(key: NakedEdgesKey, project: static mesh => Many(key: NakedEdgesKey, values: mesh.GetNakedEdges()).ToEff()),
             _ => NakedEdgesKey.Unsupported<TGeometry, TOut>(),
         };
     public static Query<Mesh, Polyline> Outlines(Plane plane) =>
-        Query<Mesh, Polyline>.Build(
-            key: OutlinesKey,
-            state: plane,
-            evaluator: static (sectionPlane, geometry) => Many(key: OutlinesKey, values: geometry.GetOutlines(plane: sectionPlane)).ToEff());
+        Query<Mesh, Polyline>.Build(key: OutlinesKey, state: plane, evaluator: static (sectionPlane, geometry) => Many(key: OutlinesKey, values: geometry.GetOutlines(plane: sectionPlane)).ToEff());
     private static bool Supports(Type geometry, Type output, Type target, params Type[] native) =>
-        output == target
-        && Supports(geometry: geometry, native: native);
+        output == target && Supports(geometry: geometry, native: native);
     private static bool Supports(Type geometry, params Type[] native) =>
-        typeof(GeometryBase).IsAssignableFrom(c: geometry)
-        || geometry == typeof(object)
-        || native.Contains(value: geometry);
+        typeof(GeometryBase).IsAssignableFrom(c: geometry) || geometry == typeof(object) || native.Contains(value: geometry);
     public static Query<Surface, Curve> Iso(IsoStatus iso, double normalized = 0.5) =>
-        Query<Surface, Curve>.Build(
-            key: IsoKey,
-            requirement: Requirement.SurfaceEvaluation,
-            state: (Iso: iso, Normalized: normalized),
-            evaluator: static (state, geometry) => IsoCurveValues(surface: geometry, iso: state.Iso, normalized: state.Normalized, key: IsoKey).ToEff());
+        Query<Surface, Curve>.Build(key: IsoKey, requirement: Requirement.SurfaceEvaluation, state: (Iso: iso, Normalized: normalized), evaluator: static (state, geometry) => IsoCurveValues(surface: geometry, iso: state.Iso, normalized: state.Normalized, key: IsoKey).ToEff());
     public static Query<TGeometry, TOut> Primitive<TGeometry, TOut>() where TGeometry : notnull =>
         typeof(TGeometry) switch {
             Type geometry when typeof(Curve).IsAssignableFrom(c: geometry) => typeof(TOut) switch {
@@ -106,13 +84,10 @@ public static partial class Query {
                 _ => PrimitiveKey.Unsupported<TGeometry, TOut>(),
             },
             Type geometry when typeof(Brep).IsAssignableFrom(c: geometry) && typeof(TOut) == typeof(Box) =>
-                PrimitiveMatch<TGeometry, TOut, Brep, Box>(
-                    project: static (brep, context, out box) => (
-                        brep.IsBox(tolerance: context.Absolute.Value),
-                        brep.GetBoundingBox(plane: Plane.WorldXY, worldBox: out box)) switch {
-                            (true, BoundingBox local) => local.IsValid,
-                            _ => false,
-                        }),
+                PrimitiveMatch<TGeometry, TOut, Brep, Box>(project: static (brep, context, out box) => (brep.IsBox(tolerance: context.Absolute.Value), brep.GetBoundingBox(plane: Plane.WorldXY, worldBox: out box)) switch {
+                    (true, BoundingBox local) => local.IsValid,
+                    _ => false,
+                }),
             _ => PrimitiveKey.Unsupported<TGeometry, TOut>(),
         };
     public static Query<TGeometry, TOut> Kind<TGeometry, TOut>() where TGeometry : notnull =>
@@ -131,13 +106,9 @@ public static partial class Query {
     public static Query<TGeometry, TOut> SolidOrientation<TGeometry, TOut>() where TGeometry : notnull =>
         (typeof(TGeometry), typeof(TOut)) switch {
             (Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(BrepSolidOrientation) =>
-                Native<TGeometry, TOut, Brep, BrepSolidOrientation>(
-                    key: SolidOrientationKey,
-                    project: static brep => One(key: SolidOrientationKey, value: brep.SolidOrientation).ToEff()),
+                Native<TGeometry, TOut, Brep, BrepSolidOrientation>(key: SolidOrientationKey, project: static brep => One(key: SolidOrientationKey, value: brep.SolidOrientation).ToEff()),
             (Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(int) =>
-                Native<TGeometry, TOut, Mesh, int>(
-                    key: SolidOrientationKey,
-                    project: static mesh => One(key: SolidOrientationKey, value: mesh.SolidOrientation()).ToEff()),
+                Native<TGeometry, TOut, Mesh, int>(key: SolidOrientationKey, project: static mesh => One(key: SolidOrientationKey, value: mesh.SolidOrientation()).ToEff()),
             _ => SolidOrientationKey.Unsupported<TGeometry, TOut>(),
         };
     public static Query<TGeometry, bool> IsPointInside<TGeometry>(Point3d point) where TGeometry : GeometryBase =>
@@ -197,11 +168,7 @@ public static partial class Query {
                     })),
             _ => VerticesKey.Unsupported<TGeometry, TOut>(),
         };
-    private static Eff<Analyze.Runtime, Seq<TOut>> BrepLeaves<TOut>(
-        Brep brep,
-        Op key,
-        Func<Op, string, Error> primitiveFault,
-        Func<Brep, Context, Fin<Seq<TOut>>> project) =>
+    private static Eff<Analyze.Runtime, Seq<TOut>> BrepLeaves<TOut>(Brep brep, Op key, Func<Op, string, Error> primitiveFault, Func<Brep, Context, Fin<Seq<TOut>>> project) =>
         from ctx in Analyze.Asks
         from validated in ctx.Validate(geometry: brep, requirement: Requirement.Basic).ToEff()
         from result in (GeometryKinds.KindOfBrep(brep: validated, context: ctx) switch {
@@ -215,30 +182,20 @@ public static partial class Query {
     public static Query<TGeometry, TOut> Components<TGeometry, TOut>() where TGeometry : notnull =>
         (typeof(TGeometry), typeof(TOut)) switch {
             (Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(Brep) =>
-                Native<TGeometry, TOut, Brep, Brep>(
-                    key: ComponentsKey,
-                    project: static brep => (brep.GetConnectedComponents() switch {
-                        Brep[] components when components.Length > 0 => Many(key: ComponentsKey, values: components),
-                        _ => Many(key: ComponentsKey, values: Brep.SplitDisjointPieces(brep: brep)),
-                    }).ToEff()),
+                Native<TGeometry, TOut, Brep, Brep>(key: ComponentsKey, project: static brep => (brep.GetConnectedComponents() switch {
+                    Brep[] components when components.Length > 0 => Many(key: ComponentsKey, values: components),
+                    _ => Many(key: ComponentsKey, values: Brep.SplitDisjointPieces(brep: brep)),
+                }).ToEff()),
             (Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(Mesh) =>
-                Native<TGeometry, TOut, Mesh, Mesh>(
-                    key: ComponentsKey,
-                    project: static mesh => Many(key: ComponentsKey, values: mesh.SplitDisjointPieces()).ToEff()),
+                Native<TGeometry, TOut, Mesh, Mesh>(key: ComponentsKey, project: static mesh => Many(key: ComponentsKey, values: mesh.SplitDisjointPieces()).ToEff()),
             _ => ComponentsKey.Unsupported<TGeometry, TOut>(),
         };
     public static Query<Mesh, bool> IsManifold =>
-        Query<Mesh, bool>.Build(
-            key: IsManifoldKey,
-            evaluator: static geometry => One(key: IsManifoldKey, value: geometry.IsManifold()).ToEff());
+        Query<Mesh, bool>.Build(key: IsManifoldKey, evaluator: static geometry => One(key: IsManifoldKey, value: geometry.IsManifold()).ToEff());
     public static Query<Mesh, bool> NakedPointStatus =>
-        Query<Mesh, bool>.Build(
-            key: NakedPointStatusKey,
-            evaluator: static geometry => Many(key: NakedPointStatusKey, values: geometry.GetNakedEdgePointStatus()).ToEff());
+        Query<Mesh, bool>.Build(key: NakedPointStatusKey, evaluator: static geometry => Many(key: NakedPointStatusKey, values: geometry.GetNakedEdgePointStatus()).ToEff());
     public static Query<Mesh, MeshCheckParameters> MeshCheck =>
-        Query<Mesh, MeshCheckParameters>.Build(
-            key: MeshCheckKey,
-            evaluator: static geometry => MeshCheckParametersFor(geometry: geometry).ToEff());
+        Query<Mesh, MeshCheckParameters>.Build(key: MeshCheckKey, evaluator: static geometry => MeshCheckParametersFor(geometry: geometry).ToEff());
     // Mesh.Check requires a TextLog using-local and a by-ref MeshCheckParameters; the imperative
     // shape is intrinsic to this Mesh.Check boundary adapter and cannot be expression-bodied.
     private static Fin<Seq<MeshCheckParameters>> MeshCheckParametersFor(Mesh geometry) {
@@ -267,18 +224,14 @@ public static partial class Query {
             Analysis.MeshFaceMetric.AspectRatio => Query<Mesh, MeshFaceSample>.Build(
                 key: MeshFaceMetricKey,
                 requirement: Requirement.MeshCheck,
-                evaluator: static geometry => toSeq(Enumerable
-                    .Range(start: 0, count: geometry.Faces.Count))
+                evaluator: static geometry => toSeq(Enumerable.Range(start: 0, count: geometry.Faces.Count))
                     .TraverseM(face => geometry.Faces.GetFaceAspectRatio(index: face) switch {
-                        double value when RhinoMath.IsValidDouble(x: value) && value >= 0.0 =>
-                            Fin.Succ(new MeshFaceSample(Face: face, Value: value)),
+                        double value when RhinoMath.IsValidDouble(x: value) && value >= 0.0 => Fin.Succ(new MeshFaceSample(Face: face, Value: value)),
                         _ => Fin.Fail<MeshFaceSample>(MeshFaceMetricKey.InvalidResult()),
                     })
                     .As()
                     .ToEff()),
-            _ => Query<Mesh, MeshFaceSample>.Reject(
-                key: MeshFaceMetricKey,
-                fault: MeshFaceMetricKey.InvalidInput()),
+            _ => Query<Mesh, MeshFaceSample>.Reject(key: MeshFaceMetricKey, fault: MeshFaceMetricKey.InvalidInput()),
         };
     public static Query<Mesh, Polyline> SelfIntersections =>
         Query<Mesh, Polyline>.Build(
@@ -309,18 +262,11 @@ public static partial class Query {
             };
     }
     private static Fin<Seq<Point3d>> EdgeCurveMidpoints(IEnumerable<Curve>? curves, Context context) =>
-        Optional(curves)
-            .ToFin(EdgeMidpointsKey.InvalidResult())
-            .Bind(source => toSeq(source)
-                .TraverseM(curve => {
-                    using Curve disposable = curve;  // BOUNDARY ADAPTER -- DisposableCurve
-                    return CurveAtNormalizedValue(
-                        curve: disposable,
-                        context: context,
-                        key: EdgeMidpointsKey,
-                        project: static (c, parameter) => c.PointAt(t: parameter));
-                }).As())
-            .Bind(static points => Many(key: EdgeMidpointsKey, values: points));
+        Optional(curves).ToFin(EdgeMidpointsKey.InvalidResult()).Bind(source => toSeq(source)
+            .TraverseM(curve => {
+                using Curve disposable = curve;  // BOUNDARY ADAPTER -- DisposableCurve
+                return CurveAtNormalizedValue(curve: disposable, context: context, key: EdgeMidpointsKey, project: static (c, parameter) => c.PointAt(t: parameter));
+            }).As()).Bind(static points => Many(key: EdgeMidpointsKey, values: points));
     public static Query<TGeometry, TOut> Faces<TGeometry, TOut>(Faces aspect) where TGeometry : notnull =>
         Aspect(
             aspect: aspect,
@@ -341,11 +287,7 @@ public static partial class Query {
                 },
                 false => null,
             });
-    private static Query<TGeometry, TOut> FaceQuery<TGeometry, TOut, TValue>(
-        Faces selector,
-        Requirement requirement,
-        bool transfer,
-        Func<Seq<FaceProjection>, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull =>
+    private static Query<TGeometry, TOut> FaceQuery<TGeometry, TOut, TValue>(Faces selector, Requirement requirement, bool transfer, Func<Seq<FaceProjection>, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull =>
         Cast<TGeometry, TOut>(key: FacesKey, query: Query<TGeometry, TValue>.Build(
             key: FacesKey, state: (Selector: selector, Transfer: transfer, Project: project), requirement: requirement,
             evaluator: static (state, geometry) =>
@@ -379,10 +321,7 @@ public static partial class Query {
         from chosen in SelectCurves(curves: curves, aspect: aspect).ToEff()
         from result in ProjectOwned(all: curves, chosen: chosen, transfer: true, project: static values => Fin.Succ(values), same: static (left, right) => ReferenceEquals(objA: left.Curve, objB: right.Curve), dispose: static curve => curve.Dispose()).ToEff()
         select result;
-    private static Query<TGeometry, TOut> CurveQuery<TGeometry, TOut, TValue>(
-        Curves selector,
-        Func<Seq<CurveProjection>, Fin<Seq<TValue>>> project,
-        bool transfer = false) where TGeometry : notnull =>
+    private static Query<TGeometry, TOut> CurveQuery<TGeometry, TOut, TValue>(Curves selector, Func<Seq<CurveProjection>, Fin<Seq<TValue>>> project, bool transfer = false) where TGeometry : notnull =>
         Cast<TGeometry, TOut>(key: CurvesKey, query: Query<TGeometry, TValue>.Build(
             key: CurvesKey,
             state: (Selector: selector, Transfer: transfer, Project: project),
@@ -394,7 +333,7 @@ public static partial class Query {
                 select result));
     private static Fin<Seq<CurveProjection>> ExtractCurveProjections<TGeometry>(TGeometry geometry, Curves aspect, Analyze.Runtime runtime) where TGeometry : notnull =>
         (aspect.Selector, geometry) switch {
-            (CurveSelector selector, _) when IsEdgeLike(selector: selector) => CurvesOf(geometry: geometry, selector: selector),
+            (CurveSelector selector, _) when EdgeCurveCase(selector: selector) is { } || selector == CurveSelector.SubCurves => CurvesOf(geometry: geometry, selector: selector),
             (CurveSelector selector, _) when selector == CurveSelector.OuterLoop => LoopCurves(geometry: geometry, feature: CurveFeature.OuterLoop, loopType: BrepLoopType.Outer),
             (CurveSelector selector, _) when selector == CurveSelector.InnerLoop => LoopCurves(geometry: geometry, feature: CurveFeature.InnerLoop, loopType: BrepLoopType.Inner),
             (CurveSelector selector, _) when selector == CurveSelector.IsoU => IsoCurves(geometry: geometry, direction: 0, feature: CurveFeature.IsoU),
@@ -405,14 +344,14 @@ public static partial class Query {
         };
     private static Fin<Seq<CurveProjection>> CurvesOf<TGeometry>(TGeometry geometry, CurveSelector selector) where TGeometry : notnull =>
         (selector, geometry) switch {
-            (CurveSelector kind, Curve curve) when IsInputCurveCase(selector: kind) => ProjectCurve(curve: curve, selector: kind, pieceSource: ComponentIndexType.PolycurveSegment, splitInput: true),
-            (CurveSelector kind, Line line) when line.IsValid && IsInputCurveCase(selector: kind) =>
+            (CurveSelector kind, Curve curve) when kind == CurveSelector.All || kind == CurveSelector.Segments || kind == CurveSelector.Boundary || kind == CurveSelector.SubCurves => ProjectCurve(curve: curve, selector: kind, pieceSource: ComponentIndexType.PolycurveSegment, splitInput: true),
+            (CurveSelector kind, Line line) when line.IsValid && (kind == CurveSelector.All || kind == CurveSelector.Segments || kind == CurveSelector.Boundary || kind == CurveSelector.SubCurves) =>
                 PrimitiveCurve(primitive: line, selector: kind, pieceSource: ComponentIndexType.NoType, convert: static value => value.ToNurbsCurve()),
-            (CurveSelector kind, Polyline polyline) when polyline.IsValid && IsInputCurveCase(selector: kind) =>
+            (CurveSelector kind, Polyline polyline) when polyline.IsValid && (kind == CurveSelector.All || kind == CurveSelector.Segments || kind == CurveSelector.Boundary || kind == CurveSelector.SubCurves) =>
                 PrimitiveCurve(primitive: polyline, selector: kind, pieceSource: ComponentIndexType.PolycurveSegment, convert: static value => value.ToPolylineCurve()),
-            (CurveSelector kind, Circle circle) when circle.IsValid && IsInputCurveCase(selector: kind) =>
+            (CurveSelector kind, Circle circle) when circle.IsValid && (kind == CurveSelector.All || kind == CurveSelector.Segments || kind == CurveSelector.Boundary || kind == CurveSelector.SubCurves) =>
                 PrimitiveCurve(primitive: circle, selector: kind, pieceSource: ComponentIndexType.NoType, convert: static value => value.ToNurbsCurve()),
-            (CurveSelector kind, Arc arc) when arc.IsValid && IsInputCurveCase(selector: kind) =>
+            (CurveSelector kind, Arc arc) when arc.IsValid && (kind == CurveSelector.All || kind == CurveSelector.Segments || kind == CurveSelector.Boundary || kind == CurveSelector.SubCurves) =>
                 PrimitiveCurve(primitive: arc, selector: kind, pieceSource: ComponentIndexType.NoType, convert: static value => value.ToNurbsCurve()),
             (CurveSelector kind, Brep brep) when EdgeCurveCase(selector: kind) is { } edge => BrepEdgeCurves(brep: brep, feature: edge.Feature, predicate: edge.Brep),
             (CurveSelector kind, BrepFace face) when kind == CurveSelector.All || kind == CurveSelector.Boundary => Optional(face.DuplicateFace(duplicateMeshes: false))
@@ -439,15 +378,11 @@ public static partial class Query {
             _ => Fin.Fail<Seq<CurveProjection>>(CurvesKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Curve))),
         };
     private static Fin<Seq<CurveProjection>> ProjectCurve(Curve? curve, CurveSelector selector, ComponentIndexType pieceSource, bool splitInput) =>
-        Optional(curve).ToFin(CurvesKey.InvalidResult()).Bind(value => selector switch {
-            CurveSelector kind when (kind == CurveSelector.All || kind == CurveSelector.Boundary) && splitInput =>
-                CurvePieces(curve: value, feature: CurveFeature.Input, pieceSource: ComponentIndexType.NoType, fallbackSource: ComponentIndexType.NoType, project: static candidate => candidate.DuplicateSegments()),
-            CurveSelector kind when kind == CurveSelector.All || kind == CurveSelector.Boundary =>
-                OneCurve(curve: value, feature: CurveFeature.Input, type: ComponentIndexType.NoType),
-            CurveSelector kind when kind == CurveSelector.Segments =>
-                CurvePieces(curve: value, feature: CurveFeature.Segment, pieceSource: pieceSource, fallbackSource: pieceSource, project: static candidate => candidate.DuplicateSegments()),
-            CurveSelector kind when kind == CurveSelector.SubCurves =>
-                CurvePieces(curve: value, feature: CurveFeature.SubCurve, pieceSource: pieceSource, fallbackSource: ComponentIndexType.NoType, project: static candidate => candidate.GetSubCurves()),
+        Optional(curve).ToFin(CurvesKey.InvalidResult()).Bind(value => (selector, splitInput) switch {
+            (CurveSelector kind, true) when kind == CurveSelector.All || kind == CurveSelector.Boundary => CurvePieces(curve: value, feature: CurveFeature.Input, pieceSource: ComponentIndexType.NoType, fallbackSource: ComponentIndexType.NoType, project: static candidate => candidate.DuplicateSegments()),
+            (CurveSelector kind, _) when kind == CurveSelector.All || kind == CurveSelector.Boundary => OneCurve(curve: value, feature: CurveFeature.Input, type: ComponentIndexType.NoType),
+            (CurveSelector kind, _) when kind == CurveSelector.Segments => CurvePieces(curve: value, feature: CurveFeature.Segment, pieceSource: pieceSource, fallbackSource: pieceSource, project: static candidate => candidate.DuplicateSegments()),
+            (CurveSelector kind, _) when kind == CurveSelector.SubCurves => CurvePieces(curve: value, feature: CurveFeature.SubCurve, pieceSource: pieceSource, fallbackSource: ComponentIndexType.NoType, project: static candidate => candidate.GetSubCurves()),
             _ => Fin.Fail<Seq<CurveProjection>>(CurvesKey.InvalidInput()),
         });
     private static Fin<Seq<CurveProjection>> CurvePieces(Curve curve, CurveFeature feature, ComponentIndexType pieceSource, ComponentIndexType fallbackSource, Func<Curve, Curve[]?> project) =>
@@ -549,20 +484,13 @@ public static partial class Query {
                 tolerance: state.Runtime.Context.Absolute.Value,
                 angleToleranceRadians: state.Runtime.Context.Angle.Value,
                 cancelToken: state.Runtime.Cancellation));
-    private static Fin<Seq<CurveProjection>> SilhouetteProjections<TGeometry, TState>(
-        TGeometry geometry,
-        TState state,
-        CurveFeature feature,
-        Func<TState, bool> valid,
-        Func<GeometryBase, TState, Silhouette[]?> project) where TGeometry : notnull =>
+    private static Fin<Seq<CurveProjection>> SilhouetteProjections<TGeometry, TState>(TGeometry geometry, TState state, CurveFeature feature, Func<TState, bool> valid, Func<GeometryBase, TState, Silhouette[]?> project) where TGeometry : notnull =>
         (geometry, valid(arg: state)) switch {
             (GeometryBase native, true) => Optional(project(arg1: native, arg2: state))
                 .ToFin(CurvesKey.InvalidResult())
                 .Map(values => toSeq(values).Map(silhouette => new CurveProjection(curve: silhouette.Curve, feature: feature, source: silhouette.GeometryComponentIndex))),
             _ => Fin.Fail<Seq<CurveProjection>>(CurvesKey.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Curve))),
         };
-    private static bool IsInputCurveCase(CurveSelector selector) => selector == CurveSelector.All || selector == CurveSelector.Segments || selector == CurveSelector.Boundary || selector == CurveSelector.SubCurves;
-    private static bool IsEdgeLike(CurveSelector selector) => IsInputCurveCase(selector: selector) || selector == CurveSelector.NakedOuter || selector == CurveSelector.NakedInner || selector == CurveSelector.Interior || selector == CurveSelector.NonManifold;
     private static (CurveFeature Feature, Func<BrepEdge, bool> Brep, Func<Mesh, int, bool> Mesh)? EdgeCurveCase(CurveSelector selector) =>
         selector switch {
             CurveSelector kind when kind == CurveSelector.All => (CurveFeature.Edge, static _ => true, static (_, _) => true),

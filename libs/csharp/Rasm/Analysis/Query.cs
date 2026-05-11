@@ -287,14 +287,16 @@ public static partial class Query {
                         IntersectionEvent candidate when candidate.IsPoint => IntersectionKind.Point,
                         _ => IntersectionKind.Unknown,
                     })
-                    .Concat(second: Optional(curves).ToSeq().Bind(static values => values).Select(static _ => IntersectionKind.Overlap))
-                    .Concat(second: Optional(lines).ToSeq().Bind(static values => values).Select(static _ => IntersectionKind.Curve))
-                    .Concat(second: Optional(circles).ToSeq().Bind(static values => values).Select(static _ => IntersectionKind.Curve))
-                    .Concat(second: Optional(points).ToSeq().Bind(static values => values).Select(static _ => IntersectionKind.Point))
-                    .Concat(second: Optional(intervals).ToSeq().Bind(static values => values).Select(static _ => IntersectionKind.Overlap))
-                    .Concat(second: Optional(kinds).IfNone(() => Optional(polylines).ToSeq().Bind(static values => values).Select(static _ => IntersectionKind.Overlap)))),
+                    .Concat(second: Kinds(values: curves, kind: IntersectionKind.Overlap))
+                    .Concat(second: Kinds(values: lines, kind: IntersectionKind.Curve))
+                    .Concat(second: Kinds(values: circles, kind: IntersectionKind.Curve))
+                    .Concat(second: Kinds(values: points, kind: IntersectionKind.Point))
+                    .Concat(second: Kinds(values: intervals, kind: IntersectionKind.Overlap))
+                    .Concat(second: Optional(kinds).IfNone(() => Kinds(values: polylines, kind: IntersectionKind.Overlap)))),
             _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
         };
+    private static Seq<IntersectionKind> Kinds<TValue>(IEnumerable<TValue>? values, IntersectionKind kind) =>
+        toSeq(Optional(values).ToSeq().Bind(static source => source).Select(_ => kind));
     private static Fin<Seq<TOut>> CastResults<TValue, TOut>(
         this Op key,
         IEnumerable<TValue>? values) =>
