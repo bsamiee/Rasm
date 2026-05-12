@@ -910,24 +910,19 @@ public sealed class AnalysisSpec {
             to: new Point3d(x: 2.0, y: 0.0, z: 0.0));
     private static Context ValidContext() =>
         Context.Create(
-                absoluteTolerance: 0.01,
-                relativeTolerance: 0.001,
-                angleToleranceRadians: Math.PI / 180.0,
-                unitScale: CustomUnitScale())
+                absolute: 0.01,
+                relative: 0.001,
+                angle: Math.PI / 180.0,
+                scale: CustomUnitScale())
             .ToFin()
             .Match(
                 Succ: static context => context,
                 Fail: static error => throw new Xunit.Sdk.XunitException(error.Message));
-    private static Fin<Context.UnitScale> CustomUnitScale() =>
-        Context.Tolerance.Create(
-                candidate: 1.0,
-                label: "CustomUnitScale",
-                accepts: static candidate => candidate > RhinoMath.ZeroTolerance,
-                requirement: "greater than Rhino zero tolerance")
-            .Bind(static customUnitScale =>
-                Context.UnitScale.FromModelUnits(
-                    units: UnitSystem.CustomUnits,
-                    metersPerUnit: customUnitScale));
+    private static Fin<UnitScale> CustomUnitScale() =>
+        Rasm.Domain.CustomUnitScale.TryCreate(value: 1.0, obj: out Rasm.Domain.CustomUnitScale customScale) switch {
+            true => UnitScale.FromModelUnits(units: UnitSystem.CustomUnits, customScale: customScale),
+            false => Fin.Fail<UnitScale>(error: new Fault.OutOfRange(Label: nameof(Rasm.Domain.CustomUnitScale), Scalar: 1.0, Requirement: "validation failed")),
+        };
 
     private static TOut[] Run<TGeometry, TOut>(
         Query<TGeometry, TOut> query,

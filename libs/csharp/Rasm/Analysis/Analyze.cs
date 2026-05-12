@@ -20,7 +20,7 @@ public static class Analyze {
         UnitSystem units) =>
         new(
             context: Context.FromKnownUnits(
-                    absoluteTolerance: absolute, relativeTolerance: relative, angleToleranceRadians: angle, units: units)
+                    absolute: absolute, relative: relative, angle: angle, units: units)
                 .ToFin());
     public static Scope In(Context context) => new(context: Optional(context).ToFin(Query.ScopeKey.MissingContext()));
     public sealed record Scope {

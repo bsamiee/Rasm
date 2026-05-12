@@ -252,7 +252,6 @@ public readonly record struct Hit(int Id);
 public readonly record struct Couple(int A, int B);
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CurveDeviation(double MinimumDistance, Point3d MinimumA, Point3d MinimumB, double MaximumDistance, Point3d MaximumA, Point3d MaximumB, double Tolerance, bool WithinTolerance);
-public enum IntersectionKind { Unknown = 0, Point = 1, Overlap = 2, Curve = 3 }
 [Union]
 public partial record Bounds {
     public sealed record Box : Bounds; public sealed record Oriented(Plane Plane) : Bounds; public sealed record Transformed(Transform Transform) : Bounds; public sealed record Center : Bounds;

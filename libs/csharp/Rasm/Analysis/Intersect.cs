@@ -134,19 +134,6 @@ public static partial class Query {
     private static bool Curves(Type output) => output == typeof(Curve) || output == typeof(Point3d) || output == typeof(IntersectionKind);
 }
 
-// --- [INTERSECTION_RESULT] ---------------------------------------------------------------
-[Union]
-public partial record IntersectionResult {
-    public sealed record Curves(Seq<Curve> Values) : IntersectionResult;
-    public sealed record Lines(Seq<Line> Values) : IntersectionResult;
-    public sealed record Circles(Seq<Circle> Values) : IntersectionResult;
-    public sealed record Points(Seq<Point3d> Values) : IntersectionResult;
-    public sealed record Intervals(Seq<Interval> Values) : IntersectionResult;
-    public sealed record Polylines(Seq<Polyline> Values, Seq<IntersectionKind> Kinds) : IntersectionResult;
-    public sealed record Events(Seq<IntersectionEvent> Values) : IntersectionResult;
-    public sealed record Mixed(Seq<Curve> CurveValues, Seq<Point3d> PointValues) : IntersectionResult;
-}
-
 // --- [INTERSECTION_RESULT_ROLE] ----------------------------------------------------------
 internal static class IntersectionResultRole {
     internal static Fin<Seq<TOut>> Project<TOut>(this IntersectionResult result, Op key) => result.Switch(

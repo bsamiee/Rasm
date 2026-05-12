@@ -2,13 +2,6 @@ using System.Collections.Frozen;
 
 namespace Rasm.Analysis;
 
-// --- [TYPES] ----------------------------------------------------------------------------
-public interface ITopologyProjection {
-    public ComponentIndex Source { get; }
-    public Unit Dispose();
-    public bool SameAs(ITopologyProjection other);
-}
-
 // --- [MODELS] ---------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct FaceProjection : ITopologyProjection {
@@ -23,13 +16,6 @@ public readonly record struct FaceProjection : ITopologyProjection {
     }
     public Unit Dispose() => fun(static (Brep brep) => { brep.Dispose(); return Unit.Default; })(Brep);
     public bool SameAs(ITopologyProjection other) => other is FaceProjection f && ReferenceEquals(objA: Brep, objB: f.Brep);
-}
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct CurveProjection(Curve Curve, CurveFeature Feature, ComponentIndex Source) : ITopologyProjection {
-    public CurveProjection(Curve curve, CurveFeature feature, ComponentIndexType type, int index)
-        : this(Curve: curve, Feature: feature, Source: new ComponentIndex(type: type, index: index)) { }
-    public Unit Dispose() => fun(static (Curve curve) => { curve.Dispose(); return Unit.Default; })(Curve);
-    public bool SameAs(ITopologyProjection other) => other is CurveProjection c && ReferenceEquals(objA: Curve, objB: c.Curve);
 }
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct MeshFaceProjection(Mesh Mesh, int Face) : ITopologyProjection {
@@ -87,7 +73,7 @@ public static partial class Query {
                     Polyline polyline => Many(key: EdgeMidpointsKey, values: polyline.GetSegments().Select(static segment => segment.PointAt(t: 0.5))).ToEff(),
                     BoundingBox box => Many(key: EdgeMidpointsKey, values: box.GetEdges().Select(static edge => edge.PointAt(t: 0.5))).ToEff(),
                     Curve curve => CurveAtNormalized(geometry: curve, key: EdgeMidpointsKey, project: static (geometry, parameter) => geometry.PointAt(t: parameter)),
-                    Brep brep => BrepLeaves(brep: brep, key: EdgeMidpointsKey, primitiveFault: static (key, label) => key.PrimitiveNoEdges(primitive: label), project: static (validated, context) => EdgeCurveMidpoints(curves: validated.DuplicateEdgeCurves(), context: context)),
+                    Brep brep => BrepLeaves(brep: brep, key: EdgeMidpointsKey, primitiveFault: static (key, label) => key.PrimitiveRejected(primitive: label, reason: "no edges"), project: static (validated, context) => EdgeCurveMidpoints(curves: validated.DuplicateEdgeCurves(), context: context)),
                     Mesh mesh => from context in Analyze.Asks
                                  from validated in context.Validate(geometry: mesh, requirement: Requirement.Basic).ToEff()
                                  from result in Many(key: EdgeMidpointsKey, values: Enumerable.Range(start: 0, count: validated.TopologyEdges.Count).Select(index => validated.TopologyEdges.EdgeLine(topologyEdgeIndex: index).PointAt(t: 0.5))).ToEff()
@@ -119,28 +105,49 @@ public static partial class Query {
     public static Query<Surface, Curve> Iso(IsoStatus iso, double normalized = 0.5) =>
         Query<Surface, Curve>.Build(key: IsoKey, requirement: Requirement.SurfaceEvaluation, state: (Iso: iso, Normalized: normalized), evaluator: static (state, geometry) => IsoCurveValues(surface: geometry, iso: state.Iso, normalized: state.Normalized, key: IsoKey).ToEff());
     public static Query<TGeometry, TOut> Primitive<TGeometry, TOut>() where TGeometry : notnull =>
-        GeometryClassifier.For(type: typeof(TOut)).Case switch {
-            GeometryClassifier classifier when classifier.ExtractFrom.Case is Type source && source.IsAssignableFrom(c: typeof(TGeometry)) =>
-                Query<TGeometry, TOut>.Build(
-                    key: PrimitiveKey,
-                    requirement: Requirement.Basic,
-                    requiresContext: true,
-                    state: classifier,
-                    evaluator: static (c, geometry) =>
-                        from context in Analyze.Asks
-                        from boxed in c.ExtractPrimitive(geometry: geometry, context: context, key: PrimitiveKey).ToEff()
-                        from result in PrimitiveKey.One(value: (TOut)boxed).ToEff()
-                        select result),
+        (typeof(TOut).AsKind(), Coercion.Supports(geometryType: typeof(TGeometry), targetType: typeof(TOut))) switch {
+            (Option<Kind> someKind, true) when someKind.IsSome => Query<TGeometry, TOut>.Build(
+                key: PrimitiveKey,
+                requirement: Requirement.Basic,
+                requiresContext: true,
+                state: someKind.IfNone(() => Rasm.Domain.Kind.Surface),
+                evaluator: static (k, geometry) =>
+                    from context in Analyze.Asks
+                    from coerced in k.Coerce<TOut>(value: geometry, ctx: context, op: PrimitiveKey).ToEff()
+                    from result in PrimitiveKey.One(value: coerced).ToEff()
+                    select result),
             _ => PrimitiveKey.Unsupported<TGeometry, TOut>(),
         };
     public static Query<TGeometry, TOut> Kind<TGeometry, TOut>() where TGeometry : notnull => (typeof(TGeometry), typeof(TOut)) switch {
         (Type geometry, Type output) when Supports(geometry: geometry, output: output, target: typeof(GeometryKind), native: [typeof(Line), typeof(Polyline), typeof(BoundingBox), typeof(Box), typeof(Sphere)]) => Cast<TGeometry, TOut>(key: KindKey, query: Query<TGeometry, GeometryKind>.Build(
                 key: KindKey,
-                evaluator: static geometry => geometry switch {
-                    object value => from context in Analyze.Asks
-                                    from result in One(key: KindKey, value: GeometryClassifier.KindOf(geometry: value, context: context)).ToEff()
-                                    select result,
-                })),
+                requiresContext: true,
+                evaluator: static geometry => from context in Analyze.Asks
+                                              from kind in geometry.Kind(ctx: context).ToEff()
+                                              from result in One(key: KindKey, value: (kind.Primitive, kind.Topology) switch {
+                                                  (Rasm.Domain.Primitive.BoundingBox, _) => GeometryKind.BoundingBox,
+                                                  (Rasm.Domain.Primitive.Box, _) when kind.Type == typeof(Rhino.Geometry.Box) => GeometryKind.Box,
+                                                  (Rasm.Domain.Primitive.Box, Rasm.Domain.Topology.Brep) => GeometryKind.BrepBox,
+                                                  (Rasm.Domain.Primitive.Sphere, Rasm.Domain.Topology.Brep) => GeometryKind.BrepSphere,
+                                                  (Rasm.Domain.Primitive.Cylinder, Rasm.Domain.Topology.Brep) => GeometryKind.BrepCylinder,
+                                                  (Rasm.Domain.Primitive.Cone, Rasm.Domain.Topology.Brep) => GeometryKind.BrepCone,
+                                                  (Rasm.Domain.Primitive.Torus, Rasm.Domain.Topology.Brep) => GeometryKind.BrepTorus,
+                                                  (Rasm.Domain.Primitive.Plane, Rasm.Domain.Topology.Brep) => GeometryKind.BrepPlane,
+                                                  (_, Rasm.Domain.Topology.Brep) => GeometryKind.BrepGeneral,
+                                                  (Rasm.Domain.Primitive.Plane, Rasm.Domain.Topology.Surface) => GeometryKind.Plane,
+                                                  (Rasm.Domain.Primitive.Sphere, Rasm.Domain.Topology.Surface) => GeometryKind.Sphere,
+                                                  (Rasm.Domain.Primitive.Cylinder, Rasm.Domain.Topology.Surface) => GeometryKind.Cylinder,
+                                                  (Rasm.Domain.Primitive.Cone, Rasm.Domain.Topology.Surface) => GeometryKind.Cone,
+                                                  (Rasm.Domain.Primitive.Torus, Rasm.Domain.Topology.Surface) => GeometryKind.Torus,
+                                                  (_, Rasm.Domain.Topology.Surface) => GeometryKind.Surface,
+                                                  (Rasm.Domain.Primitive.Line, Rasm.Domain.Topology.Curve) => GeometryKind.Line,
+                                                  (Rasm.Domain.Primitive.Polyline, Rasm.Domain.Topology.Curve) => GeometryKind.Polyline,
+                                                  (_, Rasm.Domain.Topology.Curve) => GeometryKind.Curve,
+                                                  (_, Rasm.Domain.Topology.Mesh) => GeometryKind.Mesh,
+                                                  (_, Rasm.Domain.Topology.SubD) => GeometryKind.SubD,
+                                                  _ => GeometryKind.Unknown,
+                                              }).ToEff()
+                                              select result)),
         _ => KindKey.Unsupported<TGeometry, TOut>(),
     };
     public static Query<TGeometry, TOut> SolidOrientation<TGeometry, TOut>() where TGeometry : notnull => (typeof(TGeometry), typeof(TOut)) switch {
@@ -177,7 +184,7 @@ public static partial class Query {
                         false => Many(key: VerticesKey, values: new[] { curve.PointAtStart, curve.PointAtEnd }),
                     }).ToEff(),
                     Brep brep => BrepLeaves(
-                        brep: brep, key: VerticesKey, primitiveFault: static (key, label) => key.PrimitiveNoVertices(primitive: label), project: static (validated, _) => Many(key: VerticesKey, values: validated.DuplicateVertices())),
+                        brep: brep, key: VerticesKey, primitiveFault: static (key, label) => key.PrimitiveRejected(primitive: label, reason: "no vertices"), project: static (validated, _) => Many(key: VerticesKey, values: validated.DuplicateVertices())),
                     Mesh mesh => Many(key: VerticesKey, values: mesh.Vertices.ToPoint3dArray()).ToEff(),
                     PointCloud cloud => Many(key: VerticesKey, values: cloud.GetPoints()).ToEff(),
                     SubD subd => Many(
@@ -196,11 +203,12 @@ public static partial class Query {
     internal static Eff<Analyze.Env, Seq<TOut>> BrepLeaves<TOut>(Brep brep, Op key, Func<Op, string, Error> primitiveFault, Func<Brep, Context, Fin<Seq<TOut>>> project) =>
         from context in Analyze.Asks
         from validated in context.Validate(geometry: brep, requirement: Requirement.Basic).ToEff()
-        from result in (GeometryClassifier.KindOf(geometry: validated, context: context) switch {
-            GeometryKind.BrepSphere => Fin.Fail<Seq<TOut>>(primitiveFault(arg1: key, arg2: "Sphere")),
-            GeometryKind.BrepCylinder => Fin.Fail<Seq<TOut>>(primitiveFault(arg1: key, arg2: "Cylinder")),
-            GeometryKind.BrepCone => Fin.Fail<Seq<TOut>>(primitiveFault(arg1: key, arg2: "Cone")),
-            GeometryKind.BrepTorus => Fin.Fail<Seq<TOut>>(primitiveFault(arg1: key, arg2: "Torus")),
+        from kind in validated.Kind(ctx: context).ToEff()
+        from result in ((kind.Topology, kind.Primitive) switch {
+            (Rasm.Domain.Topology.Brep, Rasm.Domain.Primitive.Sphere) => Fin.Fail<Seq<TOut>>(primitiveFault(arg1: key, arg2: "Sphere")),
+            (Rasm.Domain.Topology.Brep, Rasm.Domain.Primitive.Cylinder) => Fin.Fail<Seq<TOut>>(primitiveFault(arg1: key, arg2: "Cylinder")),
+            (Rasm.Domain.Topology.Brep, Rasm.Domain.Primitive.Cone) => Fin.Fail<Seq<TOut>>(primitiveFault(arg1: key, arg2: "Cone")),
+            (Rasm.Domain.Topology.Brep, Rasm.Domain.Primitive.Torus) => Fin.Fail<Seq<TOut>>(primitiveFault(arg1: key, arg2: "Torus")),
             _ => project(arg1: validated, arg2: context),
         }).ToEff()
         select result;

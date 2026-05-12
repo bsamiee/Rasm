@@ -7,7 +7,7 @@ public static partial class Query {
             key: UniqueCornersKey,
                 requiresContext: true,
                 evaluator: static geometry => from context in Analyze.Asks
-                                              from bbox in GeometryClassifier.BoundingBoxOf(geometry: geometry, key: UniqueCornersKey, outputType: typeof(Point3d)).ToEff()
+                                              from bbox in geometry.Bounds(op: UniqueCornersKey).ToEff()
                                               from result in (bbox.IsValid switch {
                                                   true => Optional(Point3d.CullDuplicates(points: bbox.GetCorners(), tolerance: context.Absolute.Value))
                                                       .ToFin(UniqueCornersKey.InvalidResult())
@@ -67,7 +67,7 @@ public static partial class Query {
         };
     public static Query<TGeometry, TOut> SpatialMidpoint<TGeometry, TOut>() where TGeometry : notnull => (typeof(TGeometry), typeof(TOut)) switch {
         (Type geometry, Type output) when output == typeof(Point3d)
-            && GeometryClassifier.SupportsBounds(type: geometry, includeSphere: false) => Cast<TGeometry, TOut>(key: SpatialMidpointKey, query: Query<TGeometry, Point3d>.Build(
+            && geometry.SupportsBounds(includeSphere: false) => Cast<TGeometry, TOut>(key: SpatialMidpointKey, query: Query<TGeometry, Point3d>.Build(
                 key: SpatialMidpointKey,
                 evaluator: static geometry => geometry switch {
                     Point3d point => One(key: SpatialMidpointKey, value: point).ToEff(),
@@ -95,7 +95,7 @@ public static partial class Query {
                                  select result,
                     BoundingBox box => One(key: SpatialMidpointKey, value: box.Center).ToEff(),
                     Box box => One(key: SpatialMidpointKey, value: box.Center).ToEff(),
-                    PointCloud or Circle or Arc or Cylinder or Cone or Torus => GeometryClassifier.BoundingBoxOf(geometry: geometry, key: SpatialMidpointKey, outputType: typeof(Point3d))
+                    PointCloud or Circle or Arc or Cylinder or Cone or Torus => geometry.Bounds(op: SpatialMidpointKey)
                             .Bind(static box => One(key: SpatialMidpointKey, value: box.Center))
                             .ToEff(),
                     _ => Fin.Fail<Seq<Point3d>>(SpatialMidpointKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Point3d))).ToEff(),
@@ -218,7 +218,7 @@ public static partial class Query {
                 secondMoments: candidate.Equals(MassKind.Length)).Apply(geometry: geometry),
         };
     internal static Query<TGeometry, TOut> BoundsFromBox<TGeometry, TOut, TValue>(Op key, Func<BoundingBox, Fin<Seq<TValue>>> project) where TGeometry : notnull => typeof(TOut) == typeof(TValue)
-            ? Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, TValue>.Build(key: key, evaluator: static (state, geometry) => GeometryClassifier.BoundingBoxOf(geometry: geometry, key: BoundsKey, outputType: typeof(BoundingBox)).Bind(state).ToEff(), state: project))
+            ? Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, TValue>.Build(key: key, evaluator: static (state, geometry) => geometry.Bounds(op: BoundsKey).Bind(state).ToEff(), state: project))
             : key.Unsupported<TGeometry, TOut>();
     internal static Query<TGeometry, TOut> BoxMetric<TGeometry, TOut>(Op key, Func<BoundingBox, double> boundingBox, Func<Box, double> box) where TGeometry : notnull => (typeof(TGeometry), typeof(TOut)) switch {
         (Type geometry, Type output) when geometry == typeof(BoundingBox) && output == typeof(double) => Cast<TGeometry, TOut>(key: key, query: Query<BoundingBox, double>.Build(
@@ -231,9 +231,9 @@ public static partial class Query {
     };
     internal static Query<TGeometry, TOut> Box<TGeometry, TOut>() where TGeometry : notnull => (typeof(TGeometry), typeof(TOut)) switch {
         (Type geometry, Type output) when output == typeof(BoundingBox)
-            && GeometryClassifier.SupportsBounds(type: geometry, includeSphere: true) => Cast<TGeometry, TOut>(key: BoundsKey, query: Query<TGeometry, BoundingBox>.Build(
+            && geometry.SupportsBounds(includeSphere: true) => Cast<TGeometry, TOut>(key: BoundsKey, query: Query<TGeometry, BoundingBox>.Build(
                 key: BoundsKey,
-                evaluator: static geometry => GeometryClassifier.BoundingBoxOf(geometry: geometry, key: BoundsKey, outputType: typeof(BoundingBox))
+                evaluator: static geometry => geometry.Bounds(op: BoundsKey)
                         .Bind(static box => One(key: BoundsKey, value: box))
                         .ToEff())),
         _ => BoundsKey.Unsupported<TGeometry, TOut>(),
