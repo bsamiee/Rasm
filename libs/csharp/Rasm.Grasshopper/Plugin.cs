@@ -1,4 +1,5 @@
 using System.Reflection;
+using Foundation.CSharp.Analyzers.Contracts;
 using GhPlugin = Grasshopper2.Framework.Plugin;
 
 namespace Rasm.Grasshopper;
@@ -7,6 +8,7 @@ namespace Rasm.Grasshopper;
 /// Polymorphic base for Grasshopper 2 plugin manifests. Subclasses pass explicit manifest metadata
 /// and bind <see cref="GhPlugin.Icon"/> in their own constructor.
 /// </summary>
+[BoundaryAdapter]
 public abstract class Plugin : GhPlugin {
     private const BindingFlags StaticPublic = BindingFlags.Public | BindingFlags.Static;
 

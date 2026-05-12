@@ -1,3 +1,5 @@
+using Foundation.CSharp.Analyzers.Contracts;
+
 namespace Rasm.Domain;
 
 // --- [TYPES] ----------------------------------------------------------------------------
@@ -49,8 +51,8 @@ internal sealed partial class Rule {
             (true, true, true, true) => true,
             _ => false,
         };
+    [BoundaryAdapter]
     private static Fin<Unit> RunMeshCheck(Rule rule, Context context, GeometryBase geometry) {
-        // BOUNDARY ADAPTER — Mesh.Check requires a TextLog out and ref MeshCheckParameters.
         using TextLog textLog = new();
         MeshCheckParameters parameters = MeshCheckParameters.Defaults();
         return geometry switch {
@@ -61,6 +63,7 @@ internal sealed partial class Rule {
             _ => Fin.Succ(unit),
         };
     }
+    [BoundaryAdapter]
     private static Fin<Unit> RunCurveSelfIntersection(Rule rule, Context context, GeometryBase geometry) {
         using CurveIntersections? intersections = geometry switch {
             Curve curve => Intersection.CurveSelf(curve: curve, tolerance: context.Absolute.Value),
