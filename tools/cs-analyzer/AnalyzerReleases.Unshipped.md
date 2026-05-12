@@ -71,3 +71,4 @@ CSP0720 | TypeDiscipline        | Error    | InitOnlyBypassOnValidated
 CSP0723 | FunctionalDiscipline  | Error    | RhinoActiveDocLeak
 CSP0724 | TypeDiscipline        | Error    | FlagsEnumOveruse
 CSP0725 | FunctionalDiscipline  | Error    | ImperativeAccumulator
+CSP0726 | SurfaceArea           | Error    | PositionalRecordConstructor

@@ -177,6 +177,21 @@ internal static class ShapeRules {
         };
         AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
     }
+    internal static void CheckPositionalRecordConstructor(OperationAnalysisContext context, ScopeInfo scope, IObjectCreationOperation objectCreation) {
+        int parameterCount = objectCreation.Constructor?.Parameters.Length ?? 0;
+        ImmutableArray<ArgumentSyntax> positionalArguments = objectCreation.Syntax switch {
+            ObjectCreationExpressionSyntax { ArgumentList.Arguments: { Count: > 0 } arguments } =>
+                [.. arguments.Where(argument => argument.NameColon is null)],
+            ImplicitObjectCreationExpressionSyntax { ArgumentList.Arguments: { Count: > 0 } arguments } =>
+                [.. arguments.Where(argument => argument.NameColon is null)],
+            _ => [],
+        };
+        IEnumerable<Diagnostic> diagnostics = (scope.IsDomainOrApplication, objectCreation.Type is INamedTypeSymbol { IsRecord: true } recordType, parameterCount >= 3, positionalArguments.Length > 0) switch {
+            (true, true, true, true) => positionalArguments.Select(argument => Diagnostic.Create(RuleCatalog.CSP0726, argument.GetLocation(), ((INamedTypeSymbol)objectCreation.Type!).Name, parameterCount)),
+            _ => [],
+        };
+        AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
+    }
     internal static void CheckEffectReturnPolicy(SymbolAnalysisContext context, ScopeInfo scope, IMethodSymbol method) {
         bool ordinaryMethod = method.MethodKind == MethodKind.Ordinary;
         bool disallowedReturn = method.ReturnsVoid || SymbolFacts.IsTaskLikeType(method.ReturnType);

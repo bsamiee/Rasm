@@ -123,7 +123,7 @@ public static class Output {
     internal static Fin<Seq<TSource>> ShapeSource<TSource>(Port<Shape> input, IDataAccess access, GrasshopperRuntime runtime, Func<Shape, Eff<Analyze.Runtime, Seq<TSource>>> project) =>
         from shape in runtime.Shape(access: access, port: input)
         from context in runtime.Scope.Context
-        from values in project(arg: shape).Run(env: new Analyze.Runtime(Context: context, Cancellation: access.Solution.Token, Progress: new Bridge.Progress(access: access)))
+        from values in project(arg: shape).Run(env: new Analyze.Runtime(Context: context, Progress: new Bridge.Progress(access: access), Cancellation: access.Solution.Token))
         select values;
     internal static OutputSlot<TSource> Plain<TSource, TOut>(Port<TOut> port, Func<TSource, TOut> project) =>
         Slot<TSource, TOut>(port: port, project: (_, values) => Fin.Succ(values.Map(value => project(arg: value))));

@@ -88,6 +88,7 @@ internal static class AnalyzerDispatcher {
                 return;
             case (_, IObjectCreationOperation objectCreation):
                 ShapeRules.CheckMutableCollections(context, scope, objectCreation);
+                ShapeRules.CheckPositionalRecordConstructor(context, scope, objectCreation);
                 RuntimeRules.CheckHttpClient(context, scope, objectCreation);
                 RuntimeRules.CheckTimerCreation(context, scope, objectCreation);
                 RuntimeRules.CheckTelemetryIdentityConstruction(context, scope, objectCreation);

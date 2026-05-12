@@ -75,6 +75,13 @@ internal static class RuleCatalog {
     internal static readonly DiagnosticDescriptor CSP0504 = Err("CSP0504", "EffectReturnPolicy", "Method '{0}' returns '{1}' in domain/application flow; use Fin<T>, Validation<Error,T>, Eff<RT,T>, K<F,T>, or IO<A>", "FunctionalDiscipline");
     internal static readonly DiagnosticDescriptor CSP0505 = Err("CSP0505", "TypeClassStaticAbstractPolicy", "Type-class interface '{0}' must declare at least one static abstract member", "TypeDiscipline");
     internal static readonly DiagnosticDescriptor CSP0506 = Err("CSP0506", "ExtensionProjectionRequired", "Static projection method '{0}' over receiver '{1}' must be an extension method", "SurfaceArea");
+    /// <summary>
+    /// CSP0726 PositionalRecordConstructor — fires on `new RecordType(positional, args, ...)` where the record's primary constructor
+    /// has 3+ parameters and any call-site argument lacks a name. Records with three or more fields are prone to silent reordering
+    /// when fields are repositioned in the declaration; named arguments lock down call-site readability and survive declaration churn.
+    /// Threshold of 3 mirrors the call-site cognitive load — two-field records read clearly positionally, three-plus do not.
+    /// </summary>
+    internal static readonly DiagnosticDescriptor CSP0726 = Err("CSP0726", "PositionalRecordConstructor", "Record '{0}' has {1} primary-constructor parameters; use named arguments at every call site to survive field reordering", "SurfaceArea");
 
     // --- [PERFORMANCE_RULES] --------------------------------------------------
 
@@ -150,5 +157,5 @@ internal static class RuleCatalog {
         CSP0601, CSP0602, CSP0603, CSP0604, CSP0605, CSP0606, CSP0607, CSP0608,
         CSP0701, CSP0702, CSP0703, CSP0704, CSP0705, CSP0706, CSP0707, CSP0708, CSP0709,
         CSP0710, CSP0711, CSP0712, CSP0713, CSP0714, CSP0715, CSP0717, CSP0718, CSP0719, CSP0720,
-        CSP0723, CSP0724, CSP0725);
+        CSP0723, CSP0724, CSP0725, CSP0726);
 }

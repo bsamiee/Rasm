@@ -449,6 +449,15 @@ public sealed class RuleBehaviorTests {
                 return total;
             }
             """)),
+        new("CSP0726", File(scope: "Domain/Services", type: "PositionalRecordConstructor"), """
+            namespace Domain.Services;
+
+            public sealed record Triple(int A, int B, int C);
+
+            public sealed class PositionalRecordConstructor {
+                public Triple Build() => new Triple(1, 2, 3);
+            }
+            """),
     ];
 
     [Theory]

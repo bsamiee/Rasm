@@ -57,12 +57,12 @@ public static class Bridge {
             _ => Fin.Fail<Seq<TVal>>(Error.New(message: $"Unsupported input access: {port.Access}.")),
         };
     }
+    private static readonly Action NoOp = static () => { };
     internal static Unit Write<TOut>(IDataAccess access, int slot, string name, Access targetAccess, Seq<TOut> values) {
         // BOUNDARY ADAPTER — GH2 SetPear/SetTwig/SetTree are void; dispatched as a single Action invoked once.
         Action effect = (targetAccess, values.Count) switch {
             (Access.Item, > 0) => () => access.SetPear(index: slot, pear: Pear<TOut>.Create(item: values[0]!)),
-            (Access.Item, _) => static () => { }
-            ,
+            (Access.Item, _) => NoOp,
             (Access.Twig, _) => () => access.SetTwig(index: slot, twig: Garden.TwigFromPears(pears: values.AsIterable().Select(static value => Pear<TOut>.Create(item: value!)))),
             (Access.Tree, _) => () => access.SetTree(index: slot, tree: Garden.TreeFromPears(pears: values.AsIterable().Select(static value => Pear<TOut>.Create(item: value!))).WithPathPrefix(element: TreePrefix(access: access, slot: slot))),
             _ => () => access.AddError(text: name, details: $"Unsupported output access: {targetAccess}."),
