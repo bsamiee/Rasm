@@ -125,8 +125,9 @@ public static class Output {
             source: (access, runtime) => ShapeSource(input: input, access: access, runtime: runtime, project: shape => DispatchAspect<TAspect, TOut>(aspect: aspect).Apply(geometry: shape.Inner)),
             emptyUnsupported: emptyUnsupported,
             slots: [Slot<TOut, TOut>(port: port, project: static (_, values) => Fin.Succ(values))]);
-    private static Query<object, TOut> DispatchAspect<TAspect, TOut>(TAspect aspect) where TAspect : notnull =>
-        aspect switch {
+    private static Query<object, TOut> DispatchAspect<TAspect, TOut>(TAspect aspect) where TAspect : notnull {
+        Op key = Op.Of();
+        return aspect switch {
             Curves c => Rasm.Analysis.Query.Curves<object, TOut>(aspect: c),
             Faces f => Rasm.Analysis.Query.Faces<object, TOut>(aspect: f),
             Meshes mesh => Rasm.Analysis.Query.Meshes<object, TOut>(aspect: mesh),
@@ -134,9 +135,10 @@ public static class Output {
             Bounds b => Rasm.Analysis.Query.Bounds<object, TOut>(aspect: b),
             Measure m => Rasm.Analysis.Query.Measure<object, TOut>(aspect: m),
             _ => Rasm.Analysis.Query<object, TOut>.Reject(
-                key: Rasm.Analysis.Query.AspectDispatchKey,
-                fault: Rasm.Analysis.Query.AspectDispatchKey.Unsupported(geometryType: typeof(TAspect), outputType: typeof(TOut))),
+                key: key,
+                fault: key.Unsupported(geometryType: typeof(TAspect), outputType: typeof(TOut))),
         };
+    }
     public static IOutputGroup Details<TProjection>(
         Port<Shape> input,
         Func<IDataAccess, GrasshopperRuntime, Func<Shape, Eff<Analyze.Env, Seq<TProjection>>>> source,

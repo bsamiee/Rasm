@@ -22,7 +22,7 @@ public static class Analyze {
             context: Context.FromKnownUnits(
                     absolute: absolute, relative: relative, angle: angle, units: units)
                 .ToFin());
-    public static Scope In(Context context) => new(context: Optional(context).ToFin(Query.ScopeKey.MissingContext()));
+    public static Scope In(Context context) => new(context: Optional(context).ToFin(Op.Of(name: nameof(Scope)).MissingContext()));
     public sealed record Scope {
         public Fin<Context> Context { get; }
         public IProgress<double>? Progress { get; init; }
@@ -58,7 +58,7 @@ public static class Analyze {
                         false => [],
                     };
                     return ready.Match(
-                        Succ: state => Execute(query: state.Query, env: new Env(Context: state.Context, Progress: progress, Cancellation: cancellation), input: materialized),
+                        Succ: state => state.Query.Apply(geometry: materialized.AsIterable().ToSeq()).Run(env: new Env(Context: state.Context, Progress: progress, Cancellation: cancellation)).ToValidation(),
                         Fail: error => Fin.Fail<Seq<TOut>>(error).ToValidation());
                 }));
     }
@@ -71,13 +71,6 @@ public static class Analyze {
                 true => Fin.Fail<Context>(query.Key.MissingContext()),
                 false => Context.CreateDefault(units: UnitSystem.Millimeters).ToFin(),
             });
-    private static Validation<Error, Seq<TOut>> Execute<TGeometry, TOut>(
-        Query<TGeometry, TOut> query,
-        Env env,
-        TGeometry[] input) where TGeometry : notnull =>
-        query.Apply(geometry: input.AsIterable().ToSeq())
-            .Run(env: env)
-            .ToValidation();
 }
 internal static class ValidationLifts {
     internal static Eff<Analyze.Env, T> ToEff<T>(this Validation<Error, T> validation) => validation.ToFin();

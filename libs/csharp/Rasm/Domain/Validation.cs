@@ -221,7 +221,7 @@ public static class Verify {
             null => Fin.Fail<T>(error: new Fault.InvalidResult(Key: key)),
             GeometryBase g => key.Demand(condition: g.IsValid, value: value),
             double d => key.Demand(condition: RhinoMath.IsValidDouble(x: d), value: value),
-            bool or int or Enum or SurfaceCurvature or MeshCheckParameters => Fin.Succ(value),
+            bool or int or Enum or SurfaceCurvature or MeshCheckParameters or Kind => Fin.Succ(value),
             MeshPoint mp => key.Demand(condition: mp.Point.IsValid, value: value),
             ComponentIndex ci => key.Demand(condition: ci.ComponentIndexType != ComponentIndexType.InvalidType && ci.Index >= 0, value: value),
             IntersectionEvent ie => key.Demand(condition: (ie.IsPoint || ie.IsOverlap) && ie.PointA.IsValid && ie.PointB.IsValid, value: value),

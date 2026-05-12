@@ -495,7 +495,7 @@ public sealed class AnalysisSpec {
 
         Assert.True(condition: result.ToFin().Match(
             Succ: static _ => false,
-            Fail: static error => error.Count == 1 && error.Message.Contains(value: "UniqueCorners", comparisonType: StringComparison.Ordinal)));
+            Fail: static error => error.Count == 1 && error.Message.Contains(value: "BoundingCorners", comparisonType: StringComparison.Ordinal)));
     }
 
     [Fact]
@@ -849,8 +849,8 @@ public sealed class AnalysisSpec {
 
     [Fact]
     public void RejectsKindForUnsupportedGeometryType() {
-        Validation<Error, Seq<GeometryKind>> result = Analyze.In(context: ValidContext()).Run(
-            query: Query.Kind<int, GeometryKind>(),
+        Validation<Error, Seq<Kind>> result = Analyze.In(context: ValidContext()).Run(
+            query: Query.Kind<int, Kind>(),
             input: [42]);
 
         Assert.True(condition: result.ToFin().Match(
@@ -867,12 +867,12 @@ public sealed class AnalysisSpec {
             new Sphere(center: Point3d.Origin, radius: 1.0),
         ];
 
-        GeometryKind[] kind = Run(
-            query: Query.Kind<object, GeometryKind>(),
+        Kind[] kind = Run(
+            query: Query.Kind<object, Kind>(),
             input: input);
 
         Assert.Equal(
-            expected: [GeometryKind.Line, GeometryKind.BoundingBox, GeometryKind.Box, GeometryKind.Sphere],
+            expected: [Kind.Line, Kind.BBox, Kind.Box, Kind.Sphere],
             actual: kind);
     }
 
