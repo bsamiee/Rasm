@@ -61,10 +61,11 @@ public static partial class Query {
                 .Head
                 .ToFin(QuadrantsKey.InvalidResult()),
         };
-    public static Query<TGeometry, TOut> Locate<TGeometry, TOut>(Location aspect) where TGeometry : notnull {
-        ArgumentNullException.ThrowIfNull(argument: aspect);
-        return aspect.Apply<TGeometry, TOut>();
-    }
+    public static Query<TGeometry, TOut> Locate<TGeometry, TOut>(Location aspect) where TGeometry : notnull =>
+        aspect switch {
+            null => Query<TGeometry, TOut>.Reject(key: AspectDispatchKey, fault: AspectDispatchKey.InvalidInput()),
+            _ => aspect.Apply<TGeometry, TOut>(),
+        };
     internal static Query<TGeometry, TOut> ControlPoints<TGeometry, TOut>() where TGeometry : notnull => (typeof(TGeometry), typeof(TOut)) switch {
         (Type geometry, Type output) when output == typeof(Point3d) && (typeof(Curve).IsAssignableFrom(c: geometry) || typeof(Surface).IsAssignableFrom(c: geometry) || typeof(Brep).IsAssignableFrom(c: geometry) || geometry == typeof(object)) => Cast<TGeometry, TOut>(key: ControlPointsKey, query: Query<TGeometry, Point3d>.Build(
                 key: ControlPointsKey,

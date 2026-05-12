@@ -149,53 +149,40 @@ public partial record IntersectionResult {
 
 // --- [INTERSECTION_RESULT_ROLE] ----------------------------------------------------------
 internal static class IntersectionResultRole {
-    internal static Fin<Seq<TOut>> Project<TOut>(this IntersectionResult result, Op key) => result switch {
-        IntersectionResult.Curves curves => typeof(TOut) switch {
-            Type t when t == typeof(Curve) => key.Results<Curve, TOut>(values: curves.Values),
-            Type t when t == typeof(IntersectionKind) => key.Results<IntersectionKind, TOut>(values: curves.Values.Map(static _ => IntersectionKind.Overlap)),
-            _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
-        },
-        IntersectionResult.Lines lines => typeof(TOut) switch {
-            Type t when t == typeof(Line) => key.Results<Line, TOut>(values: lines.Values),
-            Type t when t == typeof(IntersectionKind) => key.Results<IntersectionKind, TOut>(values: lines.Values.Map(static _ => IntersectionKind.Curve)),
-            _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
-        },
-        IntersectionResult.Circles circles => typeof(TOut) switch {
-            Type t when t == typeof(Circle) => key.Results<Circle, TOut>(values: circles.Values),
-            Type t when t == typeof(IntersectionKind) => key.Results<IntersectionKind, TOut>(values: circles.Values.Map(static _ => IntersectionKind.Curve)),
-            _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
-        },
-        IntersectionResult.Points points => typeof(TOut) switch {
-            Type t when t == typeof(Point3d) => key.Results<Point3d, TOut>(values: points.Values),
-            Type t when t == typeof(IntersectionKind) => key.Results<IntersectionKind, TOut>(values: points.Values.Map(static _ => IntersectionKind.Point)),
-            _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
-        },
-        IntersectionResult.Intervals intervals => typeof(TOut) switch {
-            Type t when t == typeof(Interval) => key.Results<Interval, TOut>(values: intervals.Values),
-            Type t when t == typeof(IntersectionKind) => key.Results<IntersectionKind, TOut>(values: intervals.Values.Map(static _ => IntersectionKind.Overlap)),
-            _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
-        },
-        IntersectionResult.Polylines polylines => typeof(TOut) switch {
-            Type t when t == typeof(Polyline) => key.Results<Polyline, TOut>(values: polylines.Values),
-            Type t when t == typeof(IntersectionKind) => key.Results<IntersectionKind, TOut>(values: polylines.Kinds),
-            _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
-        },
-        IntersectionResult.Events events => typeof(TOut) switch {
-            Type t when t == typeof(IntersectionEvent) => key.Results<IntersectionEvent, TOut>(values: events.Values),
-            Type t when t == typeof(Point3d) => key.Results<Point3d, TOut>(values: events.Values.Choose(static value => value.IsPoint ? Some(value.PointA) : Option<Point3d>.None)),
-            Type t when t == typeof(IntersectionKind) => key.Results<IntersectionKind, TOut>(values: events.Values.Map(static value => value switch {
-                { IsOverlap: true } => IntersectionKind.Overlap,
-                { IsPoint: true } => IntersectionKind.Point,
-                _ => IntersectionKind.Unknown,
-            })),
-            _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
-        },
-        IntersectionResult.Mixed mixed => typeof(TOut) switch {
-            Type t when t == typeof(Curve) => key.Results<Curve, TOut>(values: mixed.CurveValues),
-            Type t when t == typeof(Point3d) => key.Results<Point3d, TOut>(values: mixed.PointValues),
-            Type t when t == typeof(IntersectionKind) => key.Results<IntersectionKind, TOut>(values: mixed.CurveValues.Map(static _ => IntersectionKind.Overlap).Concat(second: mixed.PointValues.Map(static _ => IntersectionKind.Point))),
-            _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
-        },
+    internal static Fin<Seq<TOut>> Project<TOut>(this IntersectionResult result, Op key) => result.Switch(
+        state: key,
+        curves: static (k, c) => ProjectUniform<Curve, TOut>(key: k, values: c.Values, tag: IntersectionKind.Overlap),
+        lines: static (k, l) => ProjectUniform<Line, TOut>(key: k, values: l.Values, tag: IntersectionKind.Curve),
+        circles: static (k, c) => ProjectUniform<Circle, TOut>(key: k, values: c.Values, tag: IntersectionKind.Curve),
+        points: static (k, p) => ProjectUniform<Point3d, TOut>(key: k, values: p.Values, tag: IntersectionKind.Point),
+        intervals: static (k, i) => ProjectUniform<Interval, TOut>(key: k, values: i.Values, tag: IntersectionKind.Overlap),
+        polylines: static (k, p) => ProjectPolylines<TOut>(key: k, polylines: p),
+        events: static (k, e) => ProjectEvents<TOut>(key: k, events: e),
+        mixed: static (k, m) => ProjectMixed<TOut>(key: k, mixed: m));
+    private static Fin<Seq<TOut>> ProjectUniform<TNative, TOut>(Op key, Seq<TNative> values, IntersectionKind tag) where TNative : notnull => typeof(TOut) switch {
+        Type t when t == typeof(TNative) => key.Results<TNative, TOut>(values: values),
+        Type t when t == typeof(IntersectionKind) => key.Results<IntersectionKind, TOut>(values: values.Map(_ => tag)),
+        _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
+    };
+    private static Fin<Seq<TOut>> ProjectPolylines<TOut>(Op key, IntersectionResult.Polylines polylines) => typeof(TOut) switch {
+        Type t when t == typeof(Polyline) => key.Results<Polyline, TOut>(values: polylines.Values),
+        Type t when t == typeof(IntersectionKind) => key.Results<IntersectionKind, TOut>(values: polylines.Kinds),
+        _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
+    };
+    private static Fin<Seq<TOut>> ProjectEvents<TOut>(Op key, IntersectionResult.Events events) => typeof(TOut) switch {
+        Type t when t == typeof(IntersectionEvent) => key.Results<IntersectionEvent, TOut>(values: events.Values),
+        Type t when t == typeof(Point3d) => key.Results<Point3d, TOut>(values: events.Values.Choose(static value => value.IsPoint ? Some(value.PointA) : Option<Point3d>.None)),
+        Type t when t == typeof(IntersectionKind) => key.Results<IntersectionKind, TOut>(values: events.Values.Map(static value => value switch {
+            { IsOverlap: true } => IntersectionKind.Overlap,
+            { IsPoint: true } => IntersectionKind.Point,
+            _ => IntersectionKind.Unknown,
+        })),
+        _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
+    };
+    private static Fin<Seq<TOut>> ProjectMixed<TOut>(Op key, IntersectionResult.Mixed mixed) => typeof(TOut) switch {
+        Type t when t == typeof(Curve) => key.Results<Curve, TOut>(values: mixed.CurveValues),
+        Type t when t == typeof(Point3d) => key.Results<Point3d, TOut>(values: mixed.PointValues),
+        Type t when t == typeof(IntersectionKind) => key.Results<IntersectionKind, TOut>(values: mixed.CurveValues.Map(static _ => IntersectionKind.Overlap).Concat(second: mixed.PointValues.Map(static _ => IntersectionKind.Point))),
         _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
     };
     internal static IntersectionResult FromEvents(CurveIntersections? intersections) =>

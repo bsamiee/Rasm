@@ -252,10 +252,11 @@ public static partial class Query {
                 using Curve disposable = curve;  // BOUNDARY ADAPTER -- DisposableCurve
                 return CurveAtNormalizedValue(curve: disposable, context: context, key: EdgeMidpointsKey, project: static (c, parameter) => c.PointAt(t: parameter));
             }).As()).Bind(static points => Many(key: EdgeMidpointsKey, values: points));
-    public static Query<TGeometry, TOut> Faces<TGeometry, TOut>(Faces aspect) where TGeometry : notnull {
-        ArgumentNullException.ThrowIfNull(argument: aspect);
-        return aspect.Apply<TGeometry, TOut>();
-    }
+    public static Query<TGeometry, TOut> Faces<TGeometry, TOut>(Faces aspect) where TGeometry : notnull =>
+        aspect switch {
+            null => Query<TGeometry, TOut>.Reject(key: FacesKey, fault: FacesKey.InvalidInput()),
+            _ => aspect.Apply<TGeometry, TOut>(),
+        };
     internal static Query<TGeometry, TOut> FaceQuery<TGeometry, TOut, TValue>(Faces selector, Requirement requirement, bool transfer, Func<Seq<FaceProjection>, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull =>
         Cast<TGeometry, TOut>(key: FacesKey, query: Query<TGeometry, TValue>.Build(
             key: FacesKey, state: (Selector: selector, Transfer: transfer, Project: project), requirement: requirement,
@@ -268,10 +269,11 @@ public static partial class Query {
         from chosen in SelectFaces(faces: faces, selector: selector, runtime: context).ToEff()
         from result in ProjectOwned(all: faces, chosen: chosen, transfer: transfer, project: values => project(arg1: values, arg2: context), same: static (left, right) => ReferenceEquals(objA: left.Brep, objB: right.Brep), dispose: static face => face.Dispose()).ToEff()
         select result;
-    public static Query<TGeometry, TOut> Curves<TGeometry, TOut>(Curves aspect) where TGeometry : notnull {
-        ArgumentNullException.ThrowIfNull(argument: aspect);
-        return aspect.Apply<TGeometry, TOut>();
-    }
+    public static Query<TGeometry, TOut> Curves<TGeometry, TOut>(Curves aspect) where TGeometry : notnull =>
+        aspect switch {
+            null => Query<TGeometry, TOut>.Reject(key: CurvesKey, fault: CurvesKey.InvalidInput()),
+            _ => aspect.Apply<TGeometry, TOut>(),
+        };
     internal static Eff<Analyze.Runtime, Seq<CurveProjection>> CurveProjections(object geometry, Curves aspect) =>
         ProjectCurves(geometry: geometry, selector: aspect, transfer: true, project: static values => Fin.Succ(values));
     internal static Query<TGeometry, TOut> CurveQuery<TGeometry, TOut, TValue>(Curves selector, Func<Seq<CurveProjection>, Fin<Seq<TValue>>> project, bool transfer = false) where TGeometry : notnull =>
@@ -402,7 +404,7 @@ public static partial class Query {
             _ => Fin.Fail<Seq<CurveProjection>>(CurvesKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Curve))),
         };
     internal static Fin<Seq<CurveProjection>> SilhouetteCurves<TGeometry>(TGeometry geometry, Vector3d direction, Analyze.Runtime runtime) where TGeometry : notnull =>
-        SilhouetteProjections(geometry: geometry, state: (Direction: direction, Runtime: runtime), feature: CurveFeature.Silhouette, valid: static state => state.Direction.IsValid && !state.Direction.IsTiny(), project: static (native, state) => Silhouette.Compute(geometry: native, silhouetteType: SilhouetteType.Projecting | SilhouetteType.TangentProjects | SilhouetteType.Tangent | SilhouetteType.Crease | SilhouetteType.Boundary, parallelCameraDirection: state.Direction, tolerance: state.Runtime.Context.Absolute.Value, angleToleranceRadians: state.Runtime.Context.Angle.Value, clippingPlanes: null!, cancelToken: state.Runtime.Cancellation));
+        SilhouetteProjections(geometry: geometry, state: (Direction: direction, Runtime: runtime), feature: CurveFeature.Silhouette, valid: static state => state.Direction.IsValid && !state.Direction.IsTiny(), project: static (native, state) => Silhouette.Compute(geometry: native, silhouetteType: SilhouetteType.Projecting | SilhouetteType.TangentProjects | SilhouetteType.Tangent | SilhouetteType.Crease | SilhouetteType.Boundary, parallelCameraDirection: state.Direction, tolerance: state.Runtime.Context.Absolute.Value, angleToleranceRadians: state.Runtime.Context.Angle.Value, clippingPlanes: [], cancelToken: state.Runtime.Cancellation));
     internal static Fin<Seq<CurveProjection>> DraftCurves<TGeometry>(TGeometry geometry, Vector3d direction, double angle, Analyze.Runtime runtime) where TGeometry : notnull =>
         SilhouetteProjections(geometry: geometry, state: (Direction: direction, Angle: angle, Runtime: runtime), feature: CurveFeature.Draft, valid: static state => state.Direction.IsValid && !state.Direction.IsTiny() && RhinoMath.IsValidDouble(x: state.Angle), project: static (native, state) => Silhouette.ComputeDraftCurve(geometry: native, draftAngle: state.Angle, pullDirection: state.Direction, tolerance: state.Runtime.Context.Absolute.Value, angleToleranceRadians: state.Runtime.Context.Angle.Value, cancelToken: state.Runtime.Cancellation));
     internal static Fin<Seq<CurveProjection>> SilhouetteProjections<TGeometry, TState>(TGeometry geometry, TState state, CurveFeature feature, Func<TState, bool> valid, Func<GeometryBase, TState, Silhouette[]?> project) where TGeometry : notnull =>

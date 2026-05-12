@@ -17,14 +17,16 @@ public static partial class Query {
                                               select result)),
         _ => UniqueCornersKey.Unsupported<TGeometry, TOut>(),
     };
-    public static Query<TGeometry, TOut> Bounds<TGeometry, TOut>(Bounds aspect) where TGeometry : notnull {
-        ArgumentNullException.ThrowIfNull(argument: aspect);
-        return aspect.Apply<TGeometry, TOut>();
-    }
-    public static Query<TGeometry, TOut> Measure<TGeometry, TOut>(Measure aspect) where TGeometry : notnull {
-        ArgumentNullException.ThrowIfNull(argument: aspect);
-        return aspect.Apply<TGeometry, TOut>();
-    }
+    public static Query<TGeometry, TOut> Bounds<TGeometry, TOut>(Bounds aspect) where TGeometry : notnull =>
+        aspect switch {
+            null => Query<TGeometry, TOut>.Reject(key: BoundsKey, fault: BoundsKey.InvalidInput()),
+            _ => aspect.Apply<TGeometry, TOut>(),
+        };
+    public static Query<TGeometry, TOut> Measure<TGeometry, TOut>(Measure aspect) where TGeometry : notnull =>
+        aspect switch {
+            null => Query<TGeometry, TOut>.Reject(key: MeasureKey, fault: MeasureKey.InvalidInput()),
+            _ => aspect.Apply<TGeometry, TOut>(),
+        };
     internal static Query<TGeometry, TOut> MassMeasure<TGeometry, TOut>(MassKind mass, Measure kind) where TGeometry : notnull =>
         (kind, typeof(TOut)) switch {
             (_, _) when mass.Equals(MassKind.None) => Query<TGeometry, TOut>.Reject(key: MeasureKey, fault: MeasureKey.InvalidInput()),
@@ -48,16 +50,19 @@ public static partial class Query {
         return Cast<TGeometry, TOut>(key: key, query: mass.Build<TGeometry, TValue>(key: key, project: project, secondMoments: secondMoments, productMoments: productMoments));
     }
     internal static Fin<Seq<TValue>> MassProject<TValue>(Measure kind, Op key, IDisposable props) =>
-        (kind, props) switch {
-            (Analysis.Measure.MassError, LengthMassProperties mass) => key.Results<double, TValue>(values: Seq(mass.LengthError)),
-            (Analysis.Measure.MassError, AreaMassProperties mass) => key.Results<double, TValue>(values: Seq(mass.AreaError)),
-            (Analysis.Measure.MassError, VolumeMassProperties mass) => key.Results<double, TValue>(values: Seq(mass.VolumeError)),
-            (Analysis.Measure.Centroid, LengthMassProperties or AreaMassProperties or VolumeMassProperties) => key.Results<Point3d, TValue>(values: Seq(props switch { LengthMassProperties mass => mass.Centroid, AreaMassProperties mass => mass.Centroid, VolumeMassProperties mass => mass.Centroid, _ => Point3d.Unset })),
-            (Analysis.Measure.CentroidError, LengthMassProperties or AreaMassProperties or VolumeMassProperties) => key.Results<Vector3d, TValue>(values: Seq(props switch { LengthMassProperties mass => mass.CentroidError, AreaMassProperties mass => mass.CentroidError, VolumeMassProperties mass => mass.CentroidError, _ => Vector3d.Unset })),
-            (Analysis.Measure.Radii, LengthMassProperties or AreaMassProperties or VolumeMassProperties) => key.Results<Vector3d, TValue>(values: Seq(props switch { LengthMassProperties mass => mass.CentroidCoordinatesRadiiOfGyration, AreaMassProperties mass => mass.CentroidCoordinatesRadiiOfGyration, VolumeMassProperties mass => mass.CentroidCoordinatesRadiiOfGyration, _ => Vector3d.Unset })),
-            (Analysis.Measure.PrincipalAxes, LengthMassProperties mass) => key.Principal(mass: mass).Bind(values => key.Results<(double Moment, Vector3d Axis), TValue>(values: values)),
-            (Analysis.Measure.PrincipalAxes, AreaMassProperties mass) => key.Principal(mass: mass).Bind(values => key.Results<(double Moment, Vector3d Axis), TValue>(values: values)),
-            (Analysis.Measure.PrincipalAxes, VolumeMassProperties mass) => key.Principal(mass: mass).Bind(values => key.Results<(double Moment, Vector3d Axis), TValue>(values: values)),
+        kind switch {
+            Analysis.Measure.MassError => key.PickMass<double, TValue>(props: props, length: static l => l.LengthError, area: static a => a.AreaError, volume: static v => v.VolumeError),
+            Analysis.Measure.Centroid => key.PickMass<Point3d, TValue>(props: props, length: static l => l.Centroid, area: static a => a.Centroid, volume: static v => v.Centroid),
+            Analysis.Measure.CentroidError => key.PickMass<Vector3d, TValue>(props: props, length: static l => l.CentroidError, area: static a => a.CentroidError, volume: static v => v.CentroidError),
+            Analysis.Measure.Radii => key.PickMass<Vector3d, TValue>(props: props, length: static l => l.CentroidCoordinatesRadiiOfGyration, area: static a => a.CentroidCoordinatesRadiiOfGyration, volume: static v => v.CentroidCoordinatesRadiiOfGyration),
+            Analysis.Measure.PrincipalAxes => key.Principal(mass: props).Bind(values => key.Results<(double Moment, Vector3d Axis), TValue>(values: values)),
+            _ => Fin.Fail<Seq<TValue>>(key.InvalidResult()),
+        };
+    private static Fin<Seq<TValue>> PickMass<TProp, TValue>(this Op key, IDisposable props, Func<LengthMassProperties, TProp> length, Func<AreaMassProperties, TProp> area, Func<VolumeMassProperties, TProp> volume) =>
+        props switch {
+            LengthMassProperties l => key.Results<TProp, TValue>(values: Seq(length(arg: l))),
+            AreaMassProperties a => key.Results<TProp, TValue>(values: Seq(area(arg: a))),
+            VolumeMassProperties v => key.Results<TProp, TValue>(values: Seq(volume(arg: v))),
             _ => Fin.Fail<Seq<TValue>>(key.InvalidResult()),
         };
     public static Query<TGeometry, TOut> SpatialMidpoint<TGeometry, TOut>() where TGeometry : notnull => (typeof(TGeometry), typeof(TOut)) switch {
