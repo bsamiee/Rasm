@@ -29,7 +29,9 @@
         <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
         <AnalysisLevel>latest-all</AnalysisLevel>
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-        <ErrorLog Condition="'$(CI)' == 'true'">diagnostics.sarif,version=2.1</ErrorLog>
+        <!-- Sarif diagnostics never emit unless explicitly requested via -p:SarifReport=true (CI workflows opt in; local builds never trigger it through ambient $(CI)). -->
+        <SarifReport Condition="'$(SarifReport)' == ''">false</SarifReport>
+        <ErrorLog Condition="'$(SarifReport)' == 'true'">diagnostics.sarif,version=2.1</ErrorLog>
         <LocalCSharpAnalyzerRoot>tools/cs-analyzer</LocalCSharpAnalyzerRoot>
         <LocalCSharpAnalyzerProject>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '$(LocalCSharpAnalyzerRoot)', 'CsAnalyzer.csproj'))</LocalCSharpAnalyzerProject>
         <BoundaryExemptionContractsPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '$(LocalCSharpAnalyzerRoot)', 'Contracts', 'BoundaryContracts.cs'))</BoundaryExemptionContractsPath>
