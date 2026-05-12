@@ -47,38 +47,36 @@ public sealed record PortPolicy {
             _ => Unit.Default,
         });
 }
+public readonly record struct Port<TVal>(
+    string Name,
+    string Code,
+    string Info,
+    PortKind Kind,
+    Access Access,
+    Requirement Requirement,
+    PortPolicy Policy) : IPort;
 
 // --- [CONSTANTS] ------------------------------------------------------------------------
-// Typed wrap over GH2 ModularComponent custom-value magic strings. The whole canonical surface
-// (Optional / HideByDefault / Category / Colour) routes through this single SmartEnum so future
-// GH2 internal renames break compilation here at a single point rather than scattered
-// `parameter.CustomValues.Set("__category", ...)` literals across plugin authors.
 [SmartEnum<string>]
 internal sealed partial class CustomKey {
     public static readonly CustomKey Optional = new(key: ModularComponent.__Optional);
     public static readonly CustomKey HideByDefault = new(key: ModularComponent.__HideByDefault);
     public static readonly CustomKey Category = new(key: ModularComponent.__Category);
     public static readonly CustomKey Colour = new(key: ModularComponent.__Colour);
-    internal Unit Set(IParameter parameter, bool value) {
+    // GH2 KeyedValues.Set has typed (non-generic) overloads per supported value type.
+    internal Unit Set(IParameter parameter, bool value) => Apply(parameter: parameter, set: kv => kv.Set(key: Key, value: value));
+    internal Unit Set(IParameter parameter, string value) => Apply(parameter: parameter, set: kv => kv.Set(key: Key, value: value));
+    internal Unit Set(IParameter parameter, Color value) => Apply(parameter: parameter, set: kv => kv.Set(key: Key, value: value));
+    private static Unit Apply(IParameter parameter, Action<Grasshopper2.Doc.KeyedValues> set) {
         ArgumentNullException.ThrowIfNull(argument: parameter);
-        parameter.CustomValues.Set(key: Key, value: value);
-        return Unit.Default;
-    }
-    internal Unit Set(IParameter parameter, string value) {
-        ArgumentNullException.ThrowIfNull(argument: parameter);
-        parameter.CustomValues.Set(key: Key, value: value);
-        return Unit.Default;
-    }
-    internal Unit Set(IParameter parameter, Color value) {
-        ArgumentNullException.ThrowIfNull(argument: parameter);
-        parameter.CustomValues.Set(key: Key, value: value);
+        set(obj: parameter.CustomValues);
         return Unit.Default;
     }
 }
-
-// --- [SERVICES] -------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class PortKind {
+    private delegate IParameter Input(InputAdder adder, string name, string code, string info, Access access, Requirement requirement);
+    private delegate IParameter Output(OutputAdder adder, string name, string code, string info, Access access);
     public static readonly PortKind Point = Of<Point3d>(key: nameof(Point), input: static (adder, name, code, info, access, requirement) => adder.AddPoint(name: name, code: code, info: info, access: access, requirement: requirement), output: static (adder, name, code, info, access) => adder.AddPoint(name: name, code: code, info: info, access: access));
     public static readonly PortKind Vector = Of<Vector3d>(key: nameof(Vector), input: static (adder, name, code, info, access, requirement) => adder.AddVector(name: name, code: code, info: info, access: access, requirement: requirement), output: static (adder, name, code, info, access) => adder.AddVector(name: name, code: code, info: info, access: access));
     public static readonly PortKind Curve = Of<Curve>(key: nameof(Curve), input: static (adder, name, code, info, access, requirement) => adder.AddCurve(name: name, code: code, info: info, access: access, requirement: requirement), output: static (adder, name, code, info, access) => adder.AddCurve(name: name, code: code, info: info, access: access));
@@ -109,35 +107,13 @@ public sealed partial class PortKind {
             _ => Optional(Lookup.GetValueOrDefault(type)),
         };
     }
-    // FrozenDictionary on `Type` — three structural reasons:
-    // (1) `Type` keys lack a usable LanguageExt trait: the v5 reflection-based Ord/Hashable
-    //     resolvers walk every loaded assembly via `Module.GetDefinedTypes()` and one of the Rhino
-    //     assemblies throws during enumeration, poisoning Map<Type,_> and HashMap<Type,_>.
-    // (2) Referencing the items by name avoids the SmartEnum `Items` collection, whose `Lazy`
-    //     backing field lives in the auto-generated partial; cross-partial field-initialiser
-    //     ordering is implementation-defined, so `_lookups` may still be null at this point.
-    // (3) FrozenDictionary is the .NET 9 optimal read-only hash dictionary — eager construction at
-    //     cctor, allocation-free lookups, no Lazy indirection, no per-call overhead.
-    // The dictionary-initialiser indexer form tolerates the typeof(int) collision between Index and
-    // Integer (Integer wins by declaration order, matching the typeof(int) special case in `From`).
     private static readonly FrozenDictionary<Type, PortKind> Lookup = BuildLookup();
     [BoundaryAdapter]
     private static FrozenDictionary<Type, PortKind> BuildLookup() =>
         new Dictionary<Type, PortKind> {
-            [Point.Type] = Point,
-            [Vector.Type] = Vector,
-            [Curve.Type] = Curve,
-            [Brep.Type] = Brep,
-            [Plane.Type] = Plane,
-            [Index.Type] = Index,
-            [Integer.Type] = Integer,
-            [Interval.Type] = Interval,
-            [Angle.Type] = Angle,
-            [Number.Type] = Number,
-            [Boolean.Type] = Boolean,
-            [Text.Type] = Text,
-            [Mesh.Type] = Mesh,
-            [Generic.Type] = Generic,
+            [Point.Type] = Point, [Vector.Type] = Vector, [Curve.Type] = Curve, [Brep.Type] = Brep, [Plane.Type] = Plane,
+            [Index.Type] = Index, [Integer.Type] = Integer, [Interval.Type] = Interval, [Angle.Type] = Angle,
+            [Number.Type] = Number, [Boolean.Type] = Boolean, [Text.Type] = Text, [Mesh.Type] = Mesh, [Generic.Type] = Generic,
         }.ToFrozenDictionary();
     public Unit Bind(InputAdder adder, string name, string code, string info, Access access, Requirement requirement, PortPolicy policy, bool hidden) {
         ArgumentNullException.ThrowIfNull(argument: adder);
@@ -165,15 +141,7 @@ public sealed partial class PortKind {
         new(key: key, type: typeof(T), addInput: input, addOutput: output);
 }
 
-public readonly record struct Port<TVal>(
-    string Name,
-    string Code,
-    string Info,
-    PortKind Kind,
-    Access Access,
-    Requirement Requirement,
-    PortPolicy Policy) : IPort;
-
+// --- [SERVICES] -------------------------------------------------------------------------
 public static class Port {
     public static Port<TVal> Required<TVal>(string name, string code, string info, PortKind? kind = null, PortPolicy? policy = null) =>
         Create<TVal>(name: name, code: code, info: info, kind: kind, access: Access.Item, requirement: Requirement.MustExist, policy: policy);
@@ -188,7 +156,7 @@ public static class Port {
         string name = "Index",
         string code = "I",
         string info = "Zero-based selector; clamped to [0, count-1].") =>
-        new(Name: name, Code: code, Info: info, Kind: PortKind.Index, Access: Access.Item, Requirement: Requirement.MayBeMissing, Policy: PortPolicy.Index());
+        Optional<int>(name: name, code: code, info: info, kind: PortKind.Index, policy: PortPolicy.Index());
     public static Port<Shape> Shape(
         string name = "Geometry",
         string code = "G",
@@ -199,9 +167,12 @@ public static class Port {
             Kind: kind ?? PortKind.From(type: typeof(TVal)).IfNone(PortKind.Generic),
             Access: access, Requirement: requirement,
             Policy: policy ?? DefaultPolicy(type: typeof(TVal)));
-    private static PortPolicy DefaultPolicy(Type type) => PolicyDefaults.Find(type).IfNone(PortPolicy.Empty);
-    private static readonly Map<Type, PortPolicy> PolicyDefaults =
-        Map<Type, PortPolicy>()
-            .Add(typeof(Vector3d), PortPolicy.Vector(unitise: true))
-            .Add(typeof(Angle), PortPolicy.Angle(reduce: true));
+    private static PortPolicy DefaultPolicy(Type type) => PolicyDefaults.GetValueOrDefault(type) ?? PortPolicy.Empty;
+    private static readonly FrozenDictionary<Type, PortPolicy> PolicyDefaults = BuildPolicyDefaults();
+    [BoundaryAdapter]
+    private static FrozenDictionary<Type, PortPolicy> BuildPolicyDefaults() =>
+        new Dictionary<Type, PortPolicy> {
+            [typeof(Vector3d)] = PortPolicy.Vector(unitise: true),
+            [typeof(Angle)] = PortPolicy.Angle(reduce: true),
+        }.ToFrozenDictionary();
 }

@@ -137,10 +137,6 @@ internal static class FoldExtensions {
 }
 
 // --- [GEOMETRY_CLASSIFIER] --------------------------------------------------------------
-// Single SmartEnum that owns "which geometry types have a native bounding box and how to
-// compute it". Bounds.cs / Topology.cs delegate to this instead of duplicating the type list.
-// Lookup is type-keyed (Lazy Map built once from Items) — no predicate-based search, hence no
-// closure captures. The Native catch-all covers any GeometryBase subclass not enumerated.
 [SmartEnum<int>]
 internal sealed partial class GeometryClassifier {
     private delegate Fin<BoundingBox> BoundsFn(object geometry, Op key);
@@ -214,17 +210,7 @@ internal sealed partial class GeometryClassifier {
         });
     internal Type Type { get; }
     private BoundsFn Bounds { get; }
-    // FrozenDictionary on `Type` — three structural reasons:
-    // (1) `Type` keys lack a usable LanguageExt trait: the v5 reflection-based Ord/Hashable
-    //     resolvers walk every loaded assembly via `Module.GetDefinedTypes()` and one of the Rhino
-    //     assemblies throws during enumeration, poisoning Map<Type,_> and HashMap<Type,_>.
-    // (2) Referencing the items by name avoids the SmartEnum `Items` collection, whose `Lazy`
-    //     backing field lives in the auto-generated partial; cross-partial field-initialiser
-    //     ordering is implementation-defined, so `_lookups` may still be null at this point.
-    // (3) FrozenDictionary is the .NET 9 optimal read-only hash dictionary — eager construction at
-    //     cctor, allocation-free lookups, no Lazy indirection, no per-call overhead.
-    // The dictionary-initialiser indexer form tolerates the typeof(int) collision between Index and
-    // Integer (Integer wins by declaration order, matching the typeof(int) special case in `For`).
+    // FrozenDictionary because LanguageExt v5 Map/HashMap<Type,_> trips a Rhino reflection enumeration bug.
     private static readonly FrozenDictionary<Type, GeometryClassifier> Lookup = BuildLookup();
     [BoundaryAdapter]
     private static FrozenDictionary<Type, GeometryClassifier> BuildLookup() =>

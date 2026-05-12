@@ -2,6 +2,11 @@ using System.Runtime.InteropServices;
 
 namespace Rasm.Grasshopper;
 
+// --- [TYPES] ----------------------------------------------------------------------------
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct Sourced<T>(T Value, MetaData Meta);
+
+// --- [MODELS] ---------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Shape {
     private Shape(object inner) => Inner = inner;
@@ -11,11 +16,12 @@ public readonly record struct Shape {
         Optional(value)
             .ToFin(Error.New(message: $"Shape is required. Connect: {Accepted}."))
             .Bind(static raw => raw switch {
-                Shape shape => Create(value: shape.Inner),
+                Shape shape => Fin.Succ(shape),
                 _ => Op.Create(value: nameof(Shape)).RequireValid(value: raw).Map(static valid => new Shape(inner: valid)),
             });
 }
 
+// --- [SERVICES] -------------------------------------------------------------------------
 public static class Bridge {
     public static Fin<Analyze.Scope> Scope(this IDataAccess access) {
         ArgumentNullException.ThrowIfNull(argument: access);
@@ -30,41 +36,44 @@ public static class Bridge {
             _ => Remark(access: access, units: units.System),
         };
     }
-    public static Fin<Shape> ReadShape(this IDataAccess access, int slot, IPort port) {
+    internal static Fin<Sourced<Shape>> ReadShape(this IDataAccess access, int slot, IPort port) {
         ArgumentNullException.ThrowIfNull(argument: access);
         ArgumentNullException.ThrowIfNull(argument: port);
         return Read<object>(access: access, slot: slot, port: port)
-            .Bind(values => values.Head.Bind(NormalizeShape)
+            .Bind(values => values.Head
+                .Bind(sourced => NormalizeShape(raw: sourced.Value).Map(shape => new Sourced<Shape>(Value: shape, Meta: sourced.Meta)))
                 .ToFin(Error.New(message: $"{port.Name} input is required. Connect: {Shape.Accepted}.")));
     }
-    public static Fin<Seq<TVal>> Read<TVal>(this IDataAccess access, int slot, IPort port) {
+    internal static Fin<Seq<Sourced<TVal>>> Read<TVal>(this IDataAccess access, int slot, IPort port) {
         ArgumentNullException.ThrowIfNull(argument: access);
         ArgumentNullException.ThrowIfNull(argument: port);
         return port.Access switch {
             Access.Item => access.GetPear<TVal>(index: slot, pear: out Pear<TVal> pear) switch {
-                true when pear.Item is not null => Fin.Succ(Seq(pear.Item)),
-                true => Fin.Succ(Seq<TVal>()),
+                true when pear is { Item: not null } => Fin.Succ(Seq(new Sourced<TVal>(Value: pear.Item, Meta: pear.Meta))),
+                true => Fin.Succ(Seq<Sourced<TVal>>()),
                 _ => Missing<TVal>(port: port),
             },
             Access.Twig => access.GetPears<TVal>(index: slot, pears: out Pear<TVal>[] pears) switch {
-                true when pears.Length > 0 => Fin.Succ(toSeq(pears).Choose(static pear => pear is { Item: not null } ? Some(pear.Item) : Option<TVal>.None)),
+                true when pears.Length > 0 => Fin.Succ(toSeq(pears).Choose(static pear =>
+                    pear is { Item: not null } ? Some(new Sourced<TVal>(Value: pear.Item, Meta: pear.Meta)) : Option<Sourced<TVal>>.None)),
                 _ => Missing<TVal>(port: port),
             },
             Access.Tree => access.GetTree<TVal>(index: slot, tree: out Tree<TVal> tree) switch {
-                true => Fin.Succ(toSeq(tree.NonNullItems)),
+                true => Fin.Succ(toSeq(tree.NonNullPears).Map(static pear => new Sourced<TVal>(Value: pear.Item, Meta: pear.Meta))),
                 _ => Missing<TVal>(port: port),
             },
-            _ => Fin.Fail<Seq<TVal>>(Error.New(message: $"Unsupported input access: {port.Access}.")),
+            _ => Fin.Fail<Seq<Sourced<TVal>>>(Error.New(message: $"Unsupported input access: {port.Access}.")),
         };
     }
     private static readonly Action NoOp = static () => { };
-    internal static Unit Write<TOut>(IDataAccess access, int slot, string name, Access targetAccess, Seq<TOut> values) {
-        // BOUNDARY ADAPTER — GH2 SetPear/SetTwig/SetTree are void; dispatched as a single Action invoked once.
+    internal static Unit Write<TOut>(IDataAccess access, int slot, string name, Access targetAccess, Seq<Sourced<TOut>> values) {
+        // GH2 SetPear/SetTwig/SetTree are void.
+        static Pear<TOut> ToPear(Sourced<TOut> src) => Pear<TOut>.Create(item: src.Value!, meta: src.Meta);
         Action effect = (targetAccess, values.Count) switch {
-            (Access.Item, > 0) => () => access.SetPear(index: slot, pear: Pear<TOut>.Create(item: values[0]!)),
+            (Access.Item, > 0) => () => access.SetPear(index: slot, pear: ToPear(src: values[0])),
             (Access.Item, _) => NoOp,
-            (Access.Twig, _) => () => access.SetTwig(index: slot, twig: Garden.TwigFromPears(pears: values.AsIterable().Select(static value => Pear<TOut>.Create(item: value!)))),
-            (Access.Tree, _) => () => access.SetTree(index: slot, tree: Garden.TreeFromPears(pears: values.AsIterable().Select(static value => Pear<TOut>.Create(item: value!))).WithPathPrefix(element: TreePrefix(access: access, slot: slot))),
+            (Access.Twig, _) => () => access.SetTwig(index: slot, twig: Garden.TwigFromPears(pears: values.AsIterable().Select(ToPear))),
+            (Access.Tree, _) => () => access.SetTree(index: slot, tree: Garden.TreeFromPears(pears: values.AsIterable().Select(ToPear)).WithPathPrefix(element: TreePrefix(access: access, slot: slot))),
             _ => () => access.AddError(text: name, details: $"Unsupported output access: {targetAccess}."),
         };
         effect();
@@ -76,18 +85,17 @@ public static class Bridge {
         access.AddRemark(text: "Tolerance", details: "Host did not supply reliable tolerance; using default tolerance with document units.");
         return Fin.Succ(Analyze.In(units: units));
     }
-    private static Fin<Seq<TVal>> Missing<TVal>(IPort port) =>
+    private static Fin<Seq<Sourced<TVal>>> Missing<TVal>(IPort port) =>
         port.Requirement switch {
-            Grasshopper2.Parameters.Requirement.MayBeMissing => Fin.Succ(Seq<TVal>()),
-            _ => Fin.Fail<Seq<TVal>>(Error.New(message: $"{port.Name} input is required.")),
+            Grasshopper2.Parameters.Requirement.MayBeMissing => Fin.Succ(Seq<Sourced<TVal>>()),
+            _ => Fin.Fail<Seq<Sourced<TVal>>>(Error.New(message: $"{port.Name} input is required.")),
         };
-    // Append-friendly broker registry. Rhino 9 / GH2 expose only Curve and Surface brokers; future brokers extend the Seq without touching callers.
     internal static Seq<Func<object, Option<Shape>>> ShapeBrokers { get; } = Seq<Func<object, Option<Shape>>>(
         static raw => AsShape(value: raw),
         static raw => AsShape(value: CurveBroker.ToRhinoCurve(raw)),
         static raw => AsShape(value: SurfaceBroker.ToBrep(raw)));
     private static Option<Shape> NormalizeShape(object raw) =>
-        ShapeBrokers.Fold(initialState: Option<Shape>.None, f: (acc, broker) => acc.IsSome ? acc : broker(arg: raw));
+        ShapeBrokers.Choose(broker => broker(arg: raw)).Head;
     private static Option<Shape> AsShape(object? value) =>
         Optional(value).Bind(static candidate => Shape.Create(value: candidate).ToOption());
     internal sealed class Progress(IDataAccess access) : IProgress<double> {

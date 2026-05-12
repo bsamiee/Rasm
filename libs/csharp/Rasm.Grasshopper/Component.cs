@@ -1,98 +1,102 @@
-using System.Collections.Concurrent;
 using System.Reflection;
+using Grasshopper2.Doc;
+using Grasshopper2.UI.Icon;
 
 namespace Rasm.Grasshopper;
 
-/// <summary>
-/// Marks an instance <see cref="Port{TVal}"/> field as a component input, declaring its registration order.
-/// <see cref="ComponentManifest"/> discovers every <see cref="InputAttribute"/>-decorated field, sorts by <see cref="Order"/>,
-/// and binds each to GH2's <see cref="InputAdder"/> via the port's <see cref="PortKind"/>. Order values must be unique
-/// within a component; ordinals do not need to be contiguous but ascending integers from zero are the canonical convention.
-/// </summary>
+// --- [TYPES] ----------------------------------------------------------------------------
 [AttributeUsage(validOn: AttributeTargets.Field, AllowMultiple = false, Inherited = false)]
-public sealed class InputAttribute(int order) : Attribute {
-    public int Order { get; } = order;
-}
-/// <summary>
-/// Marks an instance property returning <see cref="IOutputGroup"/> as a component output group, declaring its registration order.
-/// <see cref="ComponentManifest"/> discovers every <see cref="OutputAttribute"/>-decorated property, sorts by <see cref="Order"/>,
-/// and binds each group's ports to GH2's <see cref="OutputAdder"/>. Order values must be unique within a component.
-/// </summary>
+public sealed class InputAttribute : Attribute;
 [AttributeUsage(validOn: AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
-public sealed class OutputAttribute(int order) : Attribute {
-    public int Order { get; } = order;
+public sealed class OutputAttribute : Attribute;
+[AttributeUsage(validOn: AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
+public sealed class HiddenAttribute : Attribute;
+[AttributeUsage(validOn: AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
+public sealed class IconAttribute(string name) : Attribute {
+    public string Name { get; } = name;
 }
+
+// --- [MODELS] ---------------------------------------------------------------------------
 public readonly record struct GrasshopperRuntime(Analyze.Scope Scope, Hints Hints) {
     public static Fin<GrasshopperRuntime> Capture(IDataAccess access, Seq<IPort> inputs) {
         ArgumentNullException.ThrowIfNull(argument: access);
         return access.Scope().Map(scope => new GrasshopperRuntime(Scope: scope, Hints: Hints.Capture(inputs: inputs, access: access)));
     }
-    public Fin<Shape> Shape(IDataAccess access, Port<Shape> port) {
+    internal Fin<Sourced<Shape>> Shape(IDataAccess access, Port<Shape> port) {
         ArgumentNullException.ThrowIfNull(argument: access);
         return Hints.Slot(port: port)
             .ToFin(Error.New(message: $"{port.Name} input is required."))
             .Bind(slot => access.ReadShape(slot: slot, port: port));
     }
 }
-/// <summary>
-/// Per-Type cache of a component's reflective declaration: <see cref="InputAttribute"/>-decorated <see cref="Port{TVal}"/> fields
-/// and <see cref="OutputAttribute"/>-decorated <see cref="IOutputGroup"/>-returning properties, each pre-sorted by declared order.
-/// One manifest is built on first observation of a component type and reused for every subsequent instance.
-/// </summary>
-internal sealed record ComponentManifest(Seq<FieldInfo> InputFields, Seq<PropertyInfo> OutputProperties) {
-    private static readonly ConcurrentDictionary<Type, ComponentManifest> cache = new();
+
+// --- [SERVICES] -------------------------------------------------------------------------
+internal sealed record ComponentManifest(Seq<(FieldInfo Field, bool Hidden)> InputFields, Seq<(PropertyInfo Property, bool Hidden)> OutputProperties) {
+    private static readonly AtomHashMap<Type, ComponentManifest> cache = AtomHashMap<Type, ComponentManifest>();
     public static ComponentManifest For(Type type) {
         ArgumentNullException.ThrowIfNull(argument: type);
-        return cache.GetOrAdd(key: type, valueFactory: static probed => Build(type: probed));
+        return cache.Find(type).IfNone(() => {
+            ComponentManifest built = Build(type: type);
+            _ = cache.AddOrUpdate(type, built);
+            return built;
+        });
     }
-    public Seq<IPort> ReadInputs(object instance) {
+    public Seq<(IPort Port, bool Hidden)> ReadInputs(object instance) {
         ArgumentNullException.ThrowIfNull(argument: instance);
-        return InputFields.Map(field => (IPort)field.GetValue(obj: instance)!);
+        return InputFields.Map(pair => ((IPort)pair.Field.GetValue(obj: instance)!, pair.Hidden));
     }
-    public Seq<IOutputGroup> ReadOutputs(object instance) {
+    public Seq<(IOutputGroup Group, bool Hidden)> ReadOutputs(object instance) {
         ArgumentNullException.ThrowIfNull(argument: instance);
-        return OutputProperties.Map(property => (IOutputGroup)property.GetValue(obj: instance)!);
+        return OutputProperties.Map(pair => ((IOutputGroup)pair.Property.GetValue(obj: instance)!, pair.Hidden));
     }
     private static ComponentManifest Build(Type type) {
-        const BindingFlags instanceMembers = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
-        Seq<FieldInfo> fields = toSeq(type.GetFields(bindingAttr: instanceMembers))
-            .Choose(field => Optional(field.GetCustomAttribute<InputAttribute>())
-                .Map(attribute => (attribute.Order, Field: field)))
-            .OrderBy(static pair => pair.Order)
-            .AsIterable()
-            .Map(static pair => pair.Field)
-            .ToSeq();
-        Seq<PropertyInfo> properties = toSeq(type.GetProperties(bindingAttr: instanceMembers))
-            .Choose(property => Optional(property.GetCustomAttribute<OutputAttribute>())
-                .Map(attribute => (attribute.Order, Property: property)))
-            .OrderBy(static pair => pair.Order)
-            .AsIterable()
-            .Map(static pair => pair.Property)
-            .ToSeq();
-        return new ComponentManifest(InputFields: fields, OutputProperties: properties);
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+        return new ComponentManifest(
+            InputFields: Members<FieldInfo, InputAttribute>(members: type.GetFields(bindingAttr: flags)),
+            OutputProperties: Members<PropertyInfo, OutputAttribute>(members: type.GetProperties(bindingAttr: flags)));
     }
+    private static Seq<(TMember Member, bool Hidden)> Members<TMember, TAttr>(TMember[] members)
+        where TMember : MemberInfo
+        where TAttr : Attribute =>
+        toSeq(members)
+            .Choose(m => Optional(m.GetCustomAttribute<TAttr>())
+                .Map(_ => (Token: m.MetadataToken, Member: m, Hidden: m.IsDefined(attributeType: typeof(HiddenAttribute), inherit: false))))
+            .OrderBy(static t => t.Token)
+            .AsIterable()
+            .Map(static t => (t.Member, t.Hidden))
+            .ToSeq();
 }
-/// <summary>
-/// Polymorphic base for Grasshopper 2 components. Subclasses declare inputs as instance <see cref="Port{TVal}"/> fields
-/// decorated with <see cref="InputAttribute"/> and outputs as instance properties decorated with <see cref="OutputAttribute"/>
-/// returning <see cref="IOutputGroup"/>. The component lifecycle (<see cref="AddInputs"/>, <see cref="AddOutputs"/>,
-/// <see cref="Process"/>) is driven by the cached <see cref="ComponentManifest"/>; subclasses may override these methods
-/// to add variable-parameter behavior on top of the manifest-driven defaults.
-/// </summary>
-public abstract class Component<TSelf> : Grasshopper2.Components.Component
+
+// --- [COMPOSITION] ----------------------------------------------------------------------
+public abstract class Component<TSelf> : Grasshopper2.Components.ModularComponent
     where TSelf : Component<TSelf> {
     private Seq<IPort> inputs = Seq<IPort>();
     private Seq<IOutputGroup> outputs = Seq<IOutputGroup>();
     protected Component() : base(nomen: typeof(TSelf).GetCustomAttribute<NomenAttribute>()?.Nomen ?? new Nomen(name: typeof(TSelf).Name, info: string.Empty)) { }
-    protected override void AddInputs(InputAdder inputs) {
+    protected override IIcon IconInternal =>
+        typeof(TSelf).GetCustomAttribute<IconAttribute>() switch {
+            IconAttribute attr => AbstractIcon.FromResource(name: attr.Name, type: typeof(TSelf)),
+            _ => base.IconInternal,
+        };
+    protected override void AddInputs(ModularInputAdder inputs) {
         ArgumentNullException.ThrowIfNull(argument: inputs);
-        this.inputs = ComponentManifest.For(type: typeof(TSelf)).ReadInputs(instance: this);
-        _ = this.inputs.Iter(port => port.Kind.Bind(adder: inputs, name: port.Name, code: port.Code, info: port.Info, access: port.Access, requirement: port.Requirement, policy: port.Policy));
+        Seq<(IPort Port, bool Hidden)> pairs = ComponentManifest.For(type: typeof(TSelf)).ReadInputs(instance: this);
+        this.inputs = pairs.Map(static pair => pair.Port);
+        _ = pairs.Iter(pair => pair.Port.Kind.Bind(adder: inputs.RegularAdder, name: pair.Port.Name, code: pair.Port.Code, info: pair.Port.Info, access: pair.Port.Access, requirement: pair.Port.Requirement, policy: pair.Port.Policy, hidden: pair.Hidden));
     }
-    protected override void AddOutputs(OutputAdder outputs) {
+    protected override void AddOutputs(ModularOutputAdder outputs) {
         ArgumentNullException.ThrowIfNull(argument: outputs);
-        this.outputs = ComponentManifest.For(type: typeof(TSelf)).ReadOutputs(instance: this);
-        _ = this.outputs.Bind(static group => group.Ports).Iter(port => port.Kind.Bind(adder: outputs, name: port.Name, code: port.Code, info: port.Info, access: port.Access, policy: port.Policy));
+        Seq<(IOutputGroup Group, bool Hidden)> pairs = ComponentManifest.For(type: typeof(TSelf)).ReadOutputs(instance: this);
+        this.outputs = pairs.Map(static pair => pair.Group);
+        _ = pairs.Iter(pair => pair.Group.Ports.Iter(port => port.Kind.Bind(adder: outputs.RegularAdder, name: port.Name, code: port.Code, info: port.Info, access: port.Access, policy: port.Policy, hidden: pair.Hidden)));
+    }
+    protected override void BeforeProcess(Solution solution) {
+        base.BeforeProcess(solution: solution);
+        OnBeforeSolve(solution: solution);
+    }
+    protected override void PostProcess(Solution solution, FleetingCustomData customData) {
+        OnAfterSolve(solution: solution);
+        base.PostProcess(solution: solution, customData: customData);
     }
     protected override void Process(IDataAccess access) {
         ArgumentNullException.ThrowIfNull(argument: access);
@@ -100,6 +104,11 @@ public abstract class Component<TSelf> : Grasshopper2.Components.Component
             .Map(runtime => Output.Write(access: access, runtime: runtime, groups: outputs))
             .Match(
                 Succ: static _ => Unit.Default,
-                Fail: error => (fun((IDataAccess target) => { target.AddError(text: "Input", details: error.Message); return Unit.Default; })(access), Output.Empty(access: access, groups: outputs)).Item2);
+                Fail: error => {
+                    access.AddError(text: error.Category(), details: error.Message);
+                    return Output.Empty(access: access, groups: outputs);
+                });
     }
+    protected virtual void OnBeforeSolve(Solution solution) { }
+    protected virtual void OnAfterSolve(Solution solution) { }
 }
