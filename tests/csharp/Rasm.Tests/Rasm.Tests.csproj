@@ -7,6 +7,8 @@
         <IsRhinoCommonAwareProject>true</IsRhinoCommonAwareProject>
         <UseWorkspaceLibraries>false</UseWorkspaceLibraries>
         <SkipBoundaryExemptionContracts>true</SkipBoundaryExemptionContracts>
+        <!-- xUnit1051 fires on tests that call Analyze.Run after CancellationToken became an optional parameter; tests do not exercise cancellation and would require ~70 call-site edits. -->
+        <NoWarn>$(NoWarn);xUnit1051</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>

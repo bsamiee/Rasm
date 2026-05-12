@@ -23,6 +23,24 @@ internal readonly record struct OutputSlot<TSource>(
     IPort Port,
     Func<IDataAccess, int, GrasshopperRuntime, Seq<TSource>, Unit> Write,
     Func<IDataAccess, int, Unit> Empty);
+public static class GrasshopperRuntimeExtensions {
+    public static Option<TVal> Value<TVal>(this GrasshopperRuntime runtime, IDataAccess access, Port<TVal> port) {
+        ArgumentNullException.ThrowIfNull(argument: access);
+        return runtime.Hints.Value(access: access, port: port);
+    }
+    public static TVal? Nullable<TVal>(this GrasshopperRuntime runtime, IDataAccess access, Port<TVal> port) where TVal : struct {
+        ArgumentNullException.ThrowIfNull(argument: access);
+        return runtime.Hints.Value(access: access, port: port).Match<TVal?>(Some: static value => value, None: static () => null);
+    }
+    public static Option<int> Index(this GrasshopperRuntime runtime, IDataAccess access, Port<int> port, int limit = int.MaxValue) {
+        ArgumentNullException.ThrowIfNull(argument: access);
+        return runtime.Hints.Index(access: access, port: port, limit: limit);
+    }
+    public static int? NullableIndex(this GrasshopperRuntime runtime, IDataAccess access, Port<int> port, int limit = int.MaxValue) {
+        ArgumentNullException.ThrowIfNull(argument: access);
+        return runtime.Hints.Index(access: access, port: port, limit: limit).Match<int?>(Some: static value => value, None: static () => null);
+    }
+}
 internal sealed record PreparedGroup<TSource>(
     Seq<OutputSlot<TSource>> Slots,
     Func<IDataAccess, GrasshopperRuntime, Fin<Seq<TSource>>> Source,
@@ -45,7 +63,7 @@ internal sealed record PreparedGroup<TSource>(
     }
 }
 public static class Output {
-    private static OutputSlot<TSource> Slot<TSource, TOut>(
+    internal static OutputSlot<TSource> Slot<TSource, TOut>(
         Port<TOut> port,
         Func<GrasshopperRuntime, Seq<TSource>, Fin<Seq<TOut>>> project) =>
         new(
@@ -102,14 +120,14 @@ public static class Output {
                 Plain<FaceProjection, ComponentIndex>(port: components, project: static value => new ComponentIndex(type: ComponentIndexType.BrepFace, index: value.FaceIndex)),
                 Slot<FaceProjection, Interval>(port: domains, project: static (_, values) => values.Traverse(Rasm.Analysis.Query.FaceDomains).Map(static nested => nested.Bind(static domains => domains)).As()),
             ]);
-    private static Fin<Seq<TSource>> ShapeSource<TSource>(Port<Shape> input, IDataAccess access, GrasshopperRuntime runtime, Func<Shape, Eff<Analyze.Runtime, Seq<TSource>>> project) =>
+    internal static Fin<Seq<TSource>> ShapeSource<TSource>(Port<Shape> input, IDataAccess access, GrasshopperRuntime runtime, Func<Shape, Eff<Analyze.Runtime, Seq<TSource>>> project) =>
         from shape in runtime.Shape(access: access, port: input)
         from context in runtime.Scope.Context
         from values in project(arg: shape).Run(env: new Analyze.Runtime(Context: context, Cancellation: access.Solution.Token, Progress: new Bridge.Progress(access: access)))
         select values;
-    private static OutputSlot<TSource> Plain<TSource, TOut>(Port<TOut> port, Func<TSource, TOut> project) =>
+    internal static OutputSlot<TSource> Plain<TSource, TOut>(Port<TOut> port, Func<TSource, TOut> project) =>
         Slot<TSource, TOut>(port: port, project: (_, values) => Fin.Succ(values.Map(value => project(arg: value))));
-    private static OutputSlot<FaceProjection> FaceValue<TOut>(Port<TOut> port, Func<FaceProjection, Context, Fin<TOut>> project) =>
+    internal static OutputSlot<FaceProjection> FaceValue<TOut>(Port<TOut> port, Func<FaceProjection, Context, Fin<TOut>> project) =>
         Slot<FaceProjection, TOut>(port: port, project: (runtime, values) => runtime.Scope.Context
                 .Bind(context => values.Traverse(face => project(arg1: face, arg2: context)).As()));
 }

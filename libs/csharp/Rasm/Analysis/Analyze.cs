@@ -6,10 +6,14 @@ public static class Analyze {
     internal static readonly Eff<Runtime, Runtime> RuntimeAsks = Eff.runtime<Runtime>().As();
     public static Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(
         Query<TGeometry, TOut>? query,
+        CancellationToken cancellation = default,
+        IProgress<double>? progress = null,
         params ReadOnlySpan<TGeometry> input) where TGeometry : notnull =>
         Run(
             query: query,
             scope: Option<Fin<Context>>.None,
+            cancellation: cancellation,
+            progress: progress,
             input: input);
     public static Scope From(RhinoDoc? doc) => new(context: Context.FromDocument(doc: doc).ToFin());
     public static Scope In(UnitSystem units) => new(context: Context.CreateDefault(units: units).ToFin());
@@ -28,14 +32,20 @@ public static class Analyze {
         internal Scope(Fin<Context> context) => Context = context;
         public Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(
             Query<TGeometry, TOut>? query,
+            CancellationToken cancellation = default,
+            IProgress<double>? progress = null,
             params ReadOnlySpan<TGeometry> input) where TGeometry : notnull => Analyze.Run(
                 query: query,
                 scope: Some(Context),
+                cancellation: cancellation,
+                progress: progress,
                 input: input);
     }
     private static Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(
         Query<TGeometry, TOut>? query,
         Option<Fin<Context>> scope,
+        CancellationToken cancellation,
+        IProgress<double>? progress,
         ReadOnlySpan<TGeometry> input) where TGeometry : notnull {
         TGeometry[] inputValues = input.ToArray();
         return Optional(query)
@@ -50,7 +60,7 @@ public static class Analyze {
                         false => [],
                     };
                     return ready.Match(
-                        Succ: state => Execute(query: state.Query, runtime: new Runtime(Context: state.Context, Cancellation: CancellationToken.None, Progress: null), input: materialized), Fail: error => Fin.Fail<Seq<TOut>>(error).ToValidation());
+                        Succ: state => Execute(query: state.Query, runtime: new Runtime(Context: state.Context, Cancellation: cancellation, Progress: progress), input: materialized), Fail: error => Fin.Fail<Seq<TOut>>(error).ToValidation());
                 }));
     }
     private static Fin<Context> ResolveContext<TGeometry, TOut>(

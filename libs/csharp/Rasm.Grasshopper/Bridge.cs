@@ -81,10 +81,13 @@ public static class Bridge {
             Grasshopper2.Parameters.Requirement.MayBeMissing => Fin.Succ(Seq<TVal>()),
             _ => Fin.Fail<Seq<TVal>>(Error.New(message: $"{port.Name} input is required.")),
         };
+    // Append-friendly broker registry. Rhino 9 / GH2 expose only Curve and Surface brokers; future brokers extend the Seq without touching callers.
+    internal static Seq<Func<object, Option<Shape>>> ShapeBrokers { get; } = Seq<Func<object, Option<Shape>>>(
+        static raw => AsShape(value: raw),
+        static raw => AsShape(value: CurveBroker.ToRhinoCurve(raw)),
+        static raw => AsShape(value: SurfaceBroker.ToBrep(raw)));
     private static Option<Shape> NormalizeShape(object raw) =>
-        AsShape(value: raw)
-            | AsShape(value: CurveBroker.ToRhinoCurve(raw))
-            | AsShape(value: SurfaceBroker.ToBrep(raw));
+        ShapeBrokers.Fold(initialState: Option<Shape>.None, f: (acc, broker) => acc.IsSome ? acc : broker(arg: raw));
     private static Option<Shape> AsShape(object? value) =>
         Optional(value).Bind(static candidate => Shape.Create(value: candidate).ToOption());
     internal sealed class Progress(IDataAccess access) : IProgress<double> {
