@@ -9,9 +9,18 @@ namespace Radyab.Components;
 public sealed class ExtractCurves : Component<ExtractCurves> {
     [Input] private readonly Port<Shape> Geometry = Port.Shape();
     [Input] private readonly Port<int> Index = Port.Index(info: "Zero-based curve selector; missing Index defaults to curve 0 and supplied values clamp to [0, count-1].");
-    [Input] private readonly Port<Vector3d> Direction = Port.Optional<Vector3d>(name: "Direction", code: "D", info: "Parallel projection or pull direction for silhouette and draft extraction. Missing Direction uses world Z.");
+    [Input] private readonly Port<Vector3d> Direction = Port.Direction(info: "Parallel projection or pull direction for silhouette and draft extraction. Missing Direction uses world Z.");
     [Input] private readonly Port<Angle> DraftAngle = Port.Optional<Angle>(name: "Draft Angle", code: "A", info: "Draft angle for draft-curve extraction. Missing Draft Angle uses 0 radians.");
-    [Output] private IOutputGroup AllCurves => Output.CurveDetails(input: Geometry, curves: Port.List<Curve>(name: "All Curves", code: "AC", info: "All native curve pieces: structural curve segments, Brep/SubD edges, surface boundary iso curves, or mesh topology edge curves."), sources: Port.List<ComponentIndex>(name: "Curve Sources", code: "CS", info: "Component index aligned with All Curves."), features: Port.List<CurveFeature>(kind: PortKind.Enum(initial: CurveFeature.Input), name: "Curve Features", code: "CF", info: "Feature label aligned with All Curves."), aspect: static (_, _) => Curves.All, emptyUnsupported: true);
+    [Output]
+    private IOutputGroup AllCurves => Output.Details<CurveProjection>(
+        input: Geometry,
+        source: static (_, _) => shape => Rasm.Analysis.Query.CurveProjections(geometry: shape.Inner, aspect: Curves.All),
+        emptyUnsupported: true,
+        slots: [
+            Output.Plain<CurveProjection, Curve>(port: Port.List<Curve>(name: "All Curves", code: "AC", info: "All native curve pieces: structural curve segments, Brep/SubD edges, surface boundary iso curves, or mesh topology edge curves."), project: static value => value.Curve),
+            Output.Plain<CurveProjection, ComponentIndex>(port: Port.List<ComponentIndex>(name: "Source", code: "S", info: "Component index aligned with All Curves."), project: static value => value.Source),
+            Output.Plain<CurveProjection, CurveFeature>(port: Port.List<CurveFeature>(kind: PortKind.Enum(initial: CurveFeature.Input), name: "Feature", code: "F", info: "Feature label aligned with All Curves."), project: static value => value.Feature),
+        ]);
     [Output] private IOutputGroup Segments => Output.Query(input: Geometry, port: Port.List<Curve>(name: "Segments", code: "S", info: "Structural segments from the curve data model, Brep/SubD edges, or mesh topology edge lines."), aspect: Curves.Segments, emptyUnsupported: true);
     [Output] private IOutputGroup SubCurves => Output.Query(input: Geometry, port: Port.List<Curve>(name: "Sub Curves", code: "SCV", info: "Geometry-based curve subcurves, matching Rhino explode-style curve decomposition."), aspect: Curves.SubCurves, emptyUnsupported: true);
     [Output] private IOutputGroup Boundary => Output.Query(input: Geometry, port: Port.List<Curve>(name: "Boundary Curves", code: "BC", info: "Boundary curves: naked Brep/mesh edges, surface/face boundary iso curves, or the input curve itself."), aspect: Curves.Boundary, emptyUnsupported: true);

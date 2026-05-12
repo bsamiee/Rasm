@@ -146,12 +146,8 @@ public sealed class Tree : IDisposable {
     private static Seq<Hit> SortedHits(Seq<int> ids) => toSeq(ids.Order().Select(static id => new Hit(Id: id)));
     private static Fin<Seq<Couple>> PointPairs(IEnumerable<int[]> values) => Optional(values)
             .ToFin(Query.TreeKey.InvalidResult())
-            .Map(static rows => rows
-                .SelectMany(static (ids, needle) => ids
-                    .Select(source => new Couple(A: needle, B: source)))
+            .Map(static rows => toSeq(rows
+                .SelectMany(static (ids, needle) => ids.Select(source => new Couple(A: needle, B: source)))
                 .OrderBy(static pair => pair.A)
-                .ThenBy(static pair => pair.B)
-                .Aggregate(
-                    seed: Seq<Couple>(), func: static (current, pair) => pair.Cons(current))
-                .Rev());
+                .ThenBy(static pair => pair.B)));
 }

@@ -2,7 +2,7 @@ namespace Rasm.Analysis;
 
 public static partial class Query {
     private delegate bool CurvePointIntersection<TLeft, TRight>(TLeft left, TRight right, Context context, out Curve[] curves, out Point3d[] points);
-    private delegate IEnumerable<(Polyline Polyline, IntersectionKind Kind)>? PolylineIntersection<TLeft, TRight>(TLeft left, TRight right, Analyze.Runtime runtime);
+    private delegate IEnumerable<(Polyline Polyline, IntersectionKind Kind)>? PolylineIntersection<TLeft, TRight>(TLeft left, TRight right, Analyze.Env runtime);
     public static Query<(TA A, TB B), TOut> Intersect<TA, TB, TOut>() where TA : notnull where TB : notnull =>
         (typeof(TA), typeof(TB), typeof(TOut)) switch {
             (Type a, Type b, Type output) when ((a == typeof(Line) && b == typeof(Plane)) || (a == typeof(Plane) && b == typeof(Line))) && (output == typeof(Point3d) || output == typeof(IntersectionKind)) => a == typeof(Line)
@@ -81,12 +81,12 @@ public static partial class Query {
                             }),
         _ => DeviationKey.Unsupported<(TA A, TB B), TOut>(),
     };
-    private static Query<(TA A, TB B), TOut> Pair<TA, TB, TLeft, TRight, TOut>(Op key, Requirement a, Requirement b, Func<TLeft, TRight, Analyze.Runtime, Fin<Seq<TOut>>> output) where TA : notnull where TB : notnull where TLeft : notnull where TRight : notnull =>
+    private static Query<(TA A, TB B), TOut> Pair<TA, TB, TLeft, TRight, TOut>(Op key, Requirement a, Requirement b, Func<TLeft, TRight, Analyze.Env, Fin<Seq<TOut>>> output) where TA : notnull where TB : notnull where TLeft : notnull where TRight : notnull =>
         Query<(TA A, TB B), TOut>.Build(
             key: key,
             requiresContext: true,
             state: (Key: key, A: a, B: b, Output: output),
-            evaluator: static (state, geometry) => from runtime in Analyze.RuntimeAsks
+            evaluator: static (state, geometry) => from runtime in Analyze.EnvAsks
                                                    from validated in runtime.Context.ValidatePair(a: geometry.A, b: geometry.B, requirementA: state.A, requirementB: state.B).ToEff()
                                                    from result in ((validated.A, validated.B) switch {
                                                        (TLeft left, TRight right) => state.Output(arg1: left, arg2: right, arg3: runtime),
@@ -95,7 +95,7 @@ public static partial class Query {
                                                    select result);
     private static Fin<Seq<TOut>> LinePlane<TOut>(Line line, Plane plane) =>
         new IntersectionResult.Points(Values: Intersection.LinePlane(line: line, plane: plane, lineParameter: out double parameter) ? Seq(line.PointAt(t: parameter)) : Seq<Point3d>()).Project<TOut>(key: IntersectKey);
-    private static Fin<Seq<TOut>> LineBox<TOut, TBox>(Line line, TBox box, Analyze.Runtime runtime) =>
+    private static Fin<Seq<TOut>> LineBox<TOut, TBox>(Line line, TBox box, Analyze.Env runtime) =>
         box switch {
             BoundingBox bounds => new IntersectionResult.Intervals(Values: Intersection.LineBox(line: line, box: bounds, tolerance: runtime.Context.Absolute.Value, lineParameters: out Interval interval) ? Seq(interval) : Seq<Interval>()).Project<TOut>(key: IntersectKey),
             Box oriented => new IntersectionResult.Intervals(Values: Intersection.LineBox(line: line, box: oriented, tolerance: runtime.Context.Absolute.Value, lineParameters: out Interval interval) ? Seq(interval) : Seq<Interval>()).Project<TOut>(key: IntersectKey),

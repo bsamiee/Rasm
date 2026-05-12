@@ -4,7 +4,7 @@ namespace Rasm.Grasshopper;
 
 // --- [TYPES] ----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
-internal readonly record struct Sourced<T>(T Value, MetaData Meta);
+public readonly record struct Sourced<T>(T Value, MetaData Meta);
 
 // --- [MODELS] ---------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
@@ -87,18 +87,19 @@ public static class Bridge {
             _ => Fin.Fail<Seq<Sourced<TVal>>>(new BridgeFault.UnsupportedAccess(Access: port.Access)),
         };
     }
-    private static readonly Action NoOp = static () => { };
     internal static Unit Write<TOut>(IDataAccess access, int slot, string name, Access targetAccess, Seq<Sourced<TOut>> values) {
-        // GH2 SetPear/SetTwig/SetTree are void.
+        // GH2 SetPear/SetTwig/SetTree are void; Effect adapts void to Unit at the boundary.
         static Pear<TOut> ToPear(Sourced<TOut> src) => Pear<TOut>.Create(item: src.Value!, meta: src.Meta);
-        Action effect = (targetAccess, values.Count) switch {
-            (Access.Item, > 0) => () => access.SetPear(index: slot, pear: ToPear(src: values[0])),
-            (Access.Item, _) => NoOp,
-            (Access.Twig, _) => () => access.SetTwig(index: slot, twig: Garden.TwigFromPears(pears: values.AsIterable().Select(ToPear))),
-            (Access.Tree, _) => () => access.SetTree(index: slot, tree: Garden.TreeFromPears(pears: values.AsIterable().Select(ToPear)).WithPathPrefix(element: TreePrefix(access: access, slot: slot))),
-            _ => () => access.AddError(text: name, details: $"Unsupported output access: {targetAccess}."),
+        return (targetAccess, values.Count) switch {
+            (Access.Item, > 0) => Effect(action: () => access.SetPear(index: slot, pear: ToPear(src: values[0]))),
+            (Access.Item, _) => Unit.Default,
+            (Access.Twig, _) => Effect(action: () => access.SetTwig(index: slot, twig: Garden.TwigFromPears(pears: values.AsIterable().Select(ToPear)))),
+            (Access.Tree, _) => Effect(action: () => access.SetTree(index: slot, tree: Garden.TreeFromPears(pears: values.AsIterable().Select(ToPear)).WithPathPrefix(element: TreePrefix(access: access, slot: slot)))),
+            _ => Effect(action: () => access.AddError(text: name, details: $"Unsupported output access: {targetAccess}.")),
         };
-        effect();
+    }
+    private static Unit Effect(Action action) {
+        action();
         return Unit.Default;
     }
     private static int TreePrefix(IDataAccess access, int slot) =>

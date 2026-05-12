@@ -83,7 +83,7 @@ public static partial class Query {
                     Brep brep => MassCentroid(geometry: brep, mass: brep.IsSolid ? MassKind.Volume : MassKind.Area),
                     Mesh mesh => MassCentroid(geometry: mesh, mass: mesh.IsSolid ? MassKind.Volume : MassKind.Area),
                     Surface surface => MassCentroid(geometry: surface, mass: surface.IsSolid ? MassKind.Volume : MassKind.Area),
-                    SubD subd => from runtime in Analyze.RuntimeAsks
+                    SubD subd => from runtime in Analyze.EnvAsks
                                  from validated in runtime.Context.Validate(geometry: subd, requirement: Requirement.Basic).ToEff()
                                  from result in Optional(validated.ToBrep(options: SubDToBrepOptions.Default))
                                      .ToFin(SpatialMidpointKey.InvalidResult())
@@ -202,7 +202,7 @@ public static partial class Query {
             { Distance: double distance, Location.IsValid: true } when distance >= 0.0 && RhinoMath.IsValidDouble(x: distance) => Fin.Succ(distance),
             _ => Fin.Fail<double>(ConformanceKey.InvalidResult()),
         }).As();
-    internal static Eff<Analyze.Runtime, Seq<Point3d>> MassCentroid<TGeometry>(
+    internal static Eff<Analyze.Env, Seq<Point3d>> MassCentroid<TGeometry>(
         TGeometry geometry,
         MassKind mass) where TGeometry : GeometryBase =>
         mass switch {
@@ -217,17 +217,17 @@ public static partial class Query {
                 },
                 secondMoments: candidate.Equals(MassKind.Length)).Apply(geometry: geometry),
         };
-    internal static Query<TGeometry, TOut>? BoundsFromBox<TGeometry, TOut, TValue>(Op key, Func<BoundingBox, Fin<Seq<TValue>>> project) where TGeometry : notnull => typeof(TOut) == typeof(TValue)
+    internal static Query<TGeometry, TOut> BoundsFromBox<TGeometry, TOut, TValue>(Op key, Func<BoundingBox, Fin<Seq<TValue>>> project) where TGeometry : notnull => typeof(TOut) == typeof(TValue)
             ? Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, TValue>.Build(key: key, evaluator: static (state, geometry) => GeometryClassifier.BoundingBoxOf(geometry: geometry, key: BoundsKey, outputType: typeof(BoundingBox)).Bind(state).ToEff(), state: project))
-            : null;
-    internal static Query<TGeometry, TOut>? BoxMetric<TGeometry, TOut>(Op key, Func<BoundingBox, double> boundingBox, Func<Box, double> box) where TGeometry : notnull => (typeof(TGeometry), typeof(TOut)) switch {
+            : key.Unsupported<TGeometry, TOut>();
+    internal static Query<TGeometry, TOut> BoxMetric<TGeometry, TOut>(Op key, Func<BoundingBox, double> boundingBox, Func<Box, double> box) where TGeometry : notnull => (typeof(TGeometry), typeof(TOut)) switch {
         (Type geometry, Type output) when geometry == typeof(BoundingBox) && output == typeof(double) => Cast<TGeometry, TOut>(key: key, query: Query<BoundingBox, double>.Build(
             key: key,
             evaluator: geometry => key.RequireValid(value: geometry).Bind(validated => One(key: key, value: boundingBox(arg: validated))).ToEff())),
         (Type geometry, Type output) when geometry == typeof(Box) && output == typeof(double) => Cast<TGeometry, TOut>(key: key, query: Query<Box, double>.Build(
             key: key,
             evaluator: geometry => key.RequireValid(value: geometry).Bind(validated => One(key: key, value: box(arg: validated))).ToEff())),
-        _ => null,
+        _ => key.Unsupported<TGeometry, TOut>(),
     };
     internal static Query<TGeometry, TOut> Box<TGeometry, TOut>() where TGeometry : notnull => (typeof(TGeometry), typeof(TOut)) switch {
         (Type geometry, Type output) when output == typeof(BoundingBox)
@@ -278,13 +278,13 @@ internal static class BoundsRole {
         box: static _ => Query.Box<TGeometry, TOut>(),
         oriented: static o => Query.Oriented<TGeometry, TOut>(plane: o.Plane),
         transformed: static t => Query.Transformed<TGeometry, TOut>(transform: t.Transform),
-        center: static _ => Query.BoundsFromBox<TGeometry, TOut, Point3d>(key: Query.BoundsCenterKey, project: static box => Query.One(key: Query.BoundsCenterKey, value: box.Center)) ?? Query.BoundsCenterKey.Unsupported<TGeometry, TOut>(),
-        corners: static _ => Query.BoundsFromBox<TGeometry, TOut, Point3d>(key: Query.BoundsCornersKey, project: static box => Query.Many(key: Query.BoundsCornersKey, values: box.GetCorners())) ?? Query.BoundsCornersKey.Unsupported<TGeometry, TOut>(),
+        center: static _ => Query.BoundsFromBox<TGeometry, TOut, Point3d>(key: Query.BoundsCenterKey, project: static box => Query.One(key: Query.BoundsCenterKey, value: box.Center)),
+        corners: static _ => Query.BoundsFromBox<TGeometry, TOut, Point3d>(key: Query.BoundsCornersKey, project: static box => Query.Many(key: Query.BoundsCornersKey, values: box.GetCorners())),
         edges: static _ => (typeof(TGeometry) == typeof(BoundingBox) && typeof(TOut) == typeof(Line))
             ? Query.Cast<TGeometry, TOut>(key: Query.BoxEdgesKey, query: Query<BoundingBox, Line>.Build(key: Query.BoxEdgesKey, evaluator: static geometry => Query.Many(key: Query.BoxEdgesKey, values: geometry.GetEdges()).ToEff()))
             : Query.BoxEdgesKey.Unsupported<TGeometry, TOut>(),
-        area: static _ => Query.BoxMetric<TGeometry, TOut>(key: Query.BoxAreaKey, boundingBox: static g => g.Area, box: static g => g.Area) ?? Query.BoxAreaKey.Unsupported<TGeometry, TOut>(),
-        volume: static _ => Query.BoxMetric<TGeometry, TOut>(key: Query.BoxVolumeKey, boundingBox: static g => g.Volume, box: static g => g.Volume) ?? Query.BoxVolumeKey.Unsupported<TGeometry, TOut>());
+        area: static _ => Query.BoxMetric<TGeometry, TOut>(key: Query.BoxAreaKey, boundingBox: static g => g.Area, box: static g => g.Area),
+        volume: static _ => Query.BoxMetric<TGeometry, TOut>(key: Query.BoxVolumeKey, boundingBox: static g => g.Volume, box: static g => g.Volume));
 }
 
 // --- [MEASURE_ROLE] ----------------------------------------------------------------------

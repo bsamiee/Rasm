@@ -1,9 +1,9 @@
 namespace Rasm.Analysis;
 
 public static class Analyze {
-    internal sealed record Runtime(Context Context, IProgress<double>? Progress, CancellationToken Cancellation);
-    internal static readonly Eff<Runtime, Context> Asks = Eff.runtime<Runtime>().Map(static runtime => runtime.Context).As();
-    internal static readonly Eff<Runtime, Runtime> RuntimeAsks = Eff.runtime<Runtime>().As();
+    public sealed record Env(Context Context, IProgress<double>? Progress, CancellationToken Cancellation);
+    internal static readonly Eff<Env, Context> Asks = Eff.runtime<Env>().Map(static env => env.Context).As();
+    internal static readonly Eff<Env, Env> EnvAsks = Eff.runtime<Env>().As();
     public static Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(
         Query<TGeometry, TOut>? query,
         params ReadOnlySpan<TGeometry> input) where TGeometry : notnull =>
@@ -58,7 +58,7 @@ public static class Analyze {
                         false => [],
                     };
                     return ready.Match(
-                        Succ: state => Execute(query: state.Query, runtime: new Runtime(Context: state.Context, Progress: progress, Cancellation: cancellation), input: materialized),
+                        Succ: state => Execute(query: state.Query, env: new Env(Context: state.Context, Progress: progress, Cancellation: cancellation), input: materialized),
                         Fail: error => Fin.Fail<Seq<TOut>>(error).ToValidation());
                 }));
     }
@@ -73,12 +73,12 @@ public static class Analyze {
             });
     private static Validation<Error, Seq<TOut>> Execute<TGeometry, TOut>(
         Query<TGeometry, TOut> query,
-        Runtime runtime,
+        Env env,
         TGeometry[] input) where TGeometry : notnull =>
         query.Apply(geometry: input.AsIterable().ToSeq())
-            .Run(env: runtime)
+            .Run(env: env)
             .ToValidation();
 }
 internal static class ValidationLifts {
-    internal static Eff<Analyze.Runtime, T> ToEff<T>(this Validation<Error, T> validation) => validation.ToFin();
+    internal static Eff<Analyze.Env, T> ToEff<T>(this Validation<Error, T> validation) => validation.ToFin();
 }

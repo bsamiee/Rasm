@@ -5,14 +5,14 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
     internal Requirement Requirement { get; }
     internal bool RequiresContext { get; }
     internal Option<Error> Rejection { get; }
-    private Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>> Evaluate { get; }
-    private Option<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>>> AggregatePlan { get; }
+    private Func<Seq<TGeometry>, Eff<Analyze.Env, Seq<TOut>>> Evaluate { get; }
+    private Option<Func<Seq<TGeometry>, Eff<Analyze.Env, Seq<TOut>>>> AggregatePlan { get; }
     internal Query(
         Op key,
-        Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>> effect,
+        Func<Seq<TGeometry>, Eff<Analyze.Env, Seq<TOut>>> effect,
         Requirement? requirement = null,
         bool requiresContext = false,
-        Option<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>>> aggregate = default,
+        Option<Func<Seq<TGeometry>, Eff<Analyze.Env, Seq<TOut>>>> aggregate = default,
         Option<Error> rejection = default) {
         Key = key;
         Requirement = requirement ?? Requirement.None;
@@ -21,14 +21,14 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
         Evaluate = effect;
         AggregatePlan = aggregate;
     }
-    internal Eff<Analyze.Runtime, Seq<TOut>> Apply(TGeometry geometry) => Evaluate(arg: Seq(geometry));
-    internal Eff<Analyze.Runtime, Seq<TOut>> Apply(Seq<TGeometry> geometry) => Evaluate(arg: geometry);
+    public Eff<Analyze.Env, Seq<TOut>> Apply(TGeometry geometry) => Evaluate(arg: Seq(geometry));
+    public Eff<Analyze.Env, Seq<TOut>> Apply(Seq<TGeometry> geometry) => Evaluate(arg: geometry);
     internal Query<TIn, TOut> Contramap<TIn>(Func<TIn, TGeometry> map) where TIn : notnull =>
         new(
             key: Key,
             requirement: Requirement,
             requiresContext: RequiresContext,
-            aggregate: AggregatePlan.Map<Func<Seq<TIn>, Eff<Analyze.Runtime, Seq<TOut>>>>(project => input => project(arg: input.Map(value => map(arg: value)))),
+            aggregate: AggregatePlan.Map<Func<Seq<TIn>, Eff<Analyze.Env, Seq<TOut>>>>(project => input => project(arg: input.Map(value => map(arg: value)))),
             rejection: Rejection,
             effect: input => Evaluate(arg: input.Map(value => map(arg: value))));
     public Query<TGeometry, TOut> Aggregate() =>
@@ -42,20 +42,20 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
             None: () => Reject(key: Key, fault: Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))));
     internal static Query<TGeometry, TOut> Build(
         Op key,
-        Func<TGeometry, Eff<Analyze.Runtime, Seq<TOut>>> evaluator,
+        Func<TGeometry, Eff<Analyze.Env, Seq<TOut>>> evaluator,
         Requirement? requirement = null,
         bool requiresContext = false,
-        Option<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>>> aggregate = default) {
+        Option<Func<Seq<TGeometry>, Eff<Analyze.Env, Seq<TOut>>>> aggregate = default) {
         Requirement activeRequirement = requirement ?? Requirement.None;
         return new(
             key: key,
             requirement: activeRequirement,
             requiresContext: requiresContext,
-            aggregate: aggregate.Map<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TOut>>>>(project => geometry => from runtime in Analyze.RuntimeAsks
-                                                                                                                   from resolved in geometry.Traverse(item => Ready(geometry: item).Run(env: runtime)).As().ToEff()
-                                                                                                                   from result in project(arg: resolved)
-                                                                                                                   select result),
-            effect: geometry => from runtime in Analyze.RuntimeAsks
+            aggregate: aggregate.Map<Func<Seq<TGeometry>, Eff<Analyze.Env, Seq<TOut>>>>(project => geometry => from runtime in Analyze.EnvAsks
+                                                                                                               from resolved in geometry.Traverse(item => Ready(geometry: item).Run(env: runtime)).As().ToEff()
+                                                                                                               from result in project(arg: resolved)
+                                                                                                               select result),
+            effect: geometry => from runtime in Analyze.EnvAsks
                                 from result in geometry.Traverse(item => (
                                         from resolved in Ready(geometry: item)
                                         from valid in Validate(geometry: resolved, requirement: activeRequirement)
@@ -69,7 +69,7 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
     internal static Query<TGeometry, TOut> Build<TState>(
         Op key,
         TState state,
-        Func<TState, TGeometry, Eff<Analyze.Runtime, Seq<TOut>>> evaluator,
+        Func<TState, TGeometry, Eff<Analyze.Env, Seq<TOut>>> evaluator,
         Requirement? requirement = null,
         bool requiresContext = false) =>
         Build(
@@ -82,14 +82,14 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
             key: key,
             effect: _ => Fin.Fail<Seq<TOut>>(fault).ToEff(),
             rejection: Some(fault));
-    private static Eff<Analyze.Runtime, TGeometry> Ready(TGeometry geometry) =>
-        from runtime in Analyze.RuntimeAsks
+    private static Eff<Analyze.Env, TGeometry> Ready(TGeometry geometry) =>
+        from runtime in Analyze.EnvAsks
         from resolved in (runtime.Cancellation.IsCancellationRequested switch {
             true => Fin.Fail<TGeometry>(new Fault.Cancelled()),
             false => Optional(geometry).ToFin(new Fault.MissingGeometry()),
         }).ToEff()
         select resolved;
-    private static Eff<Analyze.Runtime, TGeometry> Validate(TGeometry geometry, Requirement requirement) =>
+    private static Eff<Analyze.Env, TGeometry> Validate(TGeometry geometry, Requirement requirement) =>
         (requirement.IsEmpty, geometry) switch {
             (false, GeometryBase native) => from context in Analyze.Asks
                                             from _ in context.Validate(geometry: native, requirement: requirement).ToEff()
@@ -99,7 +99,7 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
 }
 [SmartEnum<int>]
 public sealed partial class MassKind {
-    private delegate Eff<Analyze.Runtime, IDisposable> ComputeMass(object geometry, bool secondMoments, bool productMoments);
+    private delegate Eff<Analyze.Env, IDisposable> ComputeMass(object geometry, bool secondMoments, bool productMoments);
     public static readonly MassKind None = new(key: 0, label: nameof(None), requirement: Requirement.None, compute: static (geometry, _, _) => Fin.Fail<IDisposable>(new Fault.ComputationUnsupported(Label: nameof(None), GeometryType: geometry.GetType())).ToEff(), sum: static _ => Fin.Fail<IDisposable>(new Fault.ComputationFailed(Label: nameof(None))));
     public static readonly MassKind Length = new(
         key: 1,
@@ -160,7 +160,7 @@ public sealed partial class MassKind {
             key: key,
             requirement: Requirement,
             requiresContext: true,
-            aggregate: Some<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TValue>>>>(
+            aggregate: Some<Func<Seq<TGeometry>, Eff<Analyze.Env, Seq<TValue>>>>(
                 geometry => from props in ComputeAll(geometry: geometry, secondMoments: secondMoments, productMoments: productMoments)
                             from values in Query.BracketEach(
                                 resources: props,
@@ -171,8 +171,8 @@ public sealed partial class MassKind {
             evaluator: geometry => from mass in Compute(geometry: geometry, secondMoments: secondMoments, productMoments: productMoments)
                                    from values in Query.Bracket(factory: () => mass, body: disposable => project(arg1: key, arg2: disposable)).ToEff()
                                    select values);
-    private Eff<Analyze.Runtime, Seq<IDisposable>> ComputeAll<TGeometry>(Seq<TGeometry> geometry, bool secondMoments, bool productMoments) where TGeometry : notnull =>
-        from runtime in Analyze.RuntimeAsks
+    private Eff<Analyze.Env, Seq<IDisposable>> ComputeAll<TGeometry>(Seq<TGeometry> geometry, bool secondMoments, bool productMoments) where TGeometry : notnull =>
+        from runtime in Analyze.EnvAsks
         from props in geometry.Fold(
                 initialState: Fin.Succ(Seq<IDisposable>()),
                 f: (state, item) => state.Bind(owned => Compute(geometry: item, secondMoments: secondMoments, productMoments: productMoments)
@@ -184,11 +184,59 @@ public sealed partial class MassKind {
         select props;
 }
 public enum CurvatureScalar { None = 0, Magnitude = 1, Gaussian = 2, Mean = 3 }
-[SmartEnum<int>]
-public sealed partial class MeshFaceMetric {
-    public static readonly MeshFaceMetric None = new(key: 0, project: Option<Func<Mesh, int, double>>.None);
-    public static readonly MeshFaceMetric AspectRatio = new(key: 1, project: Some<Func<Mesh, int, double>>(static (mesh, face) => mesh.Faces.GetFaceAspectRatio(index: face)));
-    public Option<Func<Mesh, int, double>> Project { get; }
+public enum MeshFaceMetric { None = 0, AspectRatio = 1, Area = 2, Perimeter = 3, Skewness = 4, DihedralAngle = 5 }
+public static class MeshFaceMetrics {
+    public static Option<double> Sample(this MeshFaceMetric metric, Mesh mesh, int face) {
+        ArgumentNullException.ThrowIfNull(argument: mesh);
+        return metric switch {
+            MeshFaceMetric.AspectRatio => Some(mesh.Faces.GetFaceAspectRatio(index: face)),
+            MeshFaceMetric.Area => Some(FaceArea(mesh: mesh, face: face)),
+            MeshFaceMetric.Perimeter => Some(FacePerimeter(mesh: mesh, face: face)),
+            MeshFaceMetric.Skewness => Some(FaceSkewness(mesh: mesh, face: face)),
+            MeshFaceMetric.DihedralAngle => Some(FaceMaxDihedral(mesh: mesh, face: face)),
+            _ => Option<double>.None,
+        };
+    }
+    internal static Vector3d ComputeFaceNormal(Mesh mesh, int face) {
+        Seq<Point3d> verts = FaceVertices(mesh: mesh, face: face);
+        Vector3d cross = Vector3d.CrossProduct(a: verts[1] - verts[0], b: verts[2] - verts[0]);
+        _ = cross.Unitize();
+        return cross;
+    }
+    internal static Seq<Point3d> FaceVertices(Mesh mesh, int face) {
+        MeshFace mf = mesh.Faces[face];
+        return mf.IsQuad switch {
+            true => Seq((Point3d)mesh.Vertices[mf.A], (Point3d)mesh.Vertices[mf.B], (Point3d)mesh.Vertices[mf.C], (Point3d)mesh.Vertices[mf.D]),
+            false => Seq((Point3d)mesh.Vertices[mf.A], (Point3d)mesh.Vertices[mf.B], (Point3d)mesh.Vertices[mf.C]),
+        };
+    }
+    private static double FaceArea(Mesh mesh, int face) =>
+        FaceVertices(mesh: mesh, face: face) switch {
+            Seq<Point3d> v when v.Count == 4 => 0.5 * (Vector3d.CrossProduct(a: v[1] - v[0], b: v[2] - v[0]).Length + Vector3d.CrossProduct(a: v[2] - v[0], b: v[3] - v[0]).Length),
+            Seq<Point3d> v => 0.5 * Vector3d.CrossProduct(a: v[1] - v[0], b: v[2] - v[0]).Length,
+        };
+    private static double FacePerimeter(Mesh mesh, int face) =>
+        FaceVertices(mesh: mesh, face: face) switch {
+            Seq<Point3d> v => v.Map((p, i) => p.DistanceTo(other: v[(i + 1) % v.Count])).Fold(initialState: 0.0, f: static (acc, d) => acc + d),
+        };
+    private static double FaceSkewness(Mesh mesh, int face) {
+        Seq<Point3d> v = FaceVertices(mesh: mesh, face: face);
+        double ideal = v.Count == 4 ? Math.PI / 2.0 : Math.PI / 3.0;
+        return v.Map((vertex, i) => Vector3d.VectorAngle(a: v[(i + v.Count - 1) % v.Count] - vertex, b: v[(i + 1) % v.Count] - vertex))
+            .Fold(initialState: 0.0, f: (acc, angle) => Math.Max(val1: acc, val2: Math.Max(val1: (angle - ideal) / (Math.PI - ideal), val2: (ideal - angle) / ideal)));
+    }
+    private static double FaceMaxDihedral(Mesh mesh, int face) {
+        Vector3d normal = ComputeFaceNormal(mesh: mesh, face: face);
+        return normal.IsValid switch {
+            false => 0.0,
+            true => toSeq(mesh.TopologyEdges.GetEdgesForFace(faceIndex: face))
+                .Bind(edge => toSeq(mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: edge)).Filter(other => other != face))
+                .Fold(initialState: 0.0, f: (max, other) => ComputeFaceNormal(mesh: mesh, face: other) switch {
+                    { IsValid: true } neighbour => Math.Max(val1: max, val2: Vector3d.VectorAngle(a: normal, b: neighbour)),
+                    _ => max,
+                }),
+        };
+    }
 }
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CurvatureProfile(CurvatureScalar Scalar, int Count, double Minimum, double Maximum, double Mean, double Variance);
@@ -233,17 +281,31 @@ public partial record Faces {
     public static Faces All => new AllCase(); public static Faces Top(Vector3d axis) => new TopCase(Axis: axis); public static Faces Bottom(Vector3d axis) => new BottomCase(Axis: axis);
     public static Faces At(int? index = null) => new AtCase(Value: index);
 }
-[SmartEnum<int>]
-public sealed partial class MeshCheckCount {
-    public static readonly MeshCheckCount None = new(key: 0, project: Option<Func<MeshCheckParameters, int>>.None);
-    public static readonly MeshCheckCount DegenerateFaces = new(key: 1, project: Some<Func<MeshCheckParameters, int>>(static parameters => parameters.DegenerateFaceCount)), DisjointMeshes = new(key: 2, project: Some<Func<MeshCheckParameters, int>>(static parameters => parameters.DisjointMeshCount));
-    public static readonly MeshCheckCount DuplicateFaces = new(key: 3, project: Some<Func<MeshCheckParameters, int>>(static parameters => parameters.DuplicateFaceCount)), ExtremelyShortEdges = new(key: 4, project: Some<Func<MeshCheckParameters, int>>(static parameters => parameters.ExtremelyShortEdgeCount));
-    public static readonly MeshCheckCount InvalidNgons = new(key: 5, project: Some<Func<MeshCheckParameters, int>>(static parameters => parameters.InvalidNgonCount)), NakedEdges = new(key: 6, project: Some<Func<MeshCheckParameters, int>>(static parameters => parameters.NakedEdgeCount));
-    public static readonly MeshCheckCount NonManifoldEdges = new(key: 7, project: Some<Func<MeshCheckParameters, int>>(static parameters => parameters.NonManifoldEdgeCount)), NonUnitVectorNormals = new(key: 8, project: Some<Func<MeshCheckParameters, int>>(static parameters => parameters.NonUnitVectorNormalCount));
-    public static readonly MeshCheckCount RandomFaceNormals = new(key: 9, project: Some<Func<MeshCheckParameters, int>>(static parameters => parameters.RandomFaceNormalCount)), SelfIntersectingPairs = new(key: 10, project: Some<Func<MeshCheckParameters, int>>(static parameters => parameters.SelfIntersectingPairsCount));
-    public static readonly MeshCheckCount UnusedVertices = new(key: 11, project: Some<Func<MeshCheckParameters, int>>(static parameters => parameters.UnusedVertexCount)), VertexFaceNormalsDiffer = new(key: 12, project: Some<Func<MeshCheckParameters, int>>(static parameters => parameters.VertexFaceNormalsDifferCount));
-    public static readonly MeshCheckCount ZeroLengthNormals = new(key: 13, project: Some<Func<MeshCheckParameters, int>>(static parameters => parameters.ZeroLengthNormalCount));
-    public Option<Func<MeshCheckParameters, int>> Project { get; }
+public enum MeshCheckCount {
+    None = 0,
+    DegenerateFaces = 1, DisjointMeshes = 2, DuplicateFaces = 3, ExtremelyShortEdges = 4,
+    InvalidNgons = 5, NakedEdges = 6, NonManifoldEdges = 7, NonUnitVectorNormals = 8,
+    RandomFaceNormals = 9, SelfIntersectingPairs = 10, UnusedVertices = 11,
+    VertexFaceNormalsDiffer = 12, ZeroLengthNormals = 13,
+}
+public static class MeshCheckCounts {
+    public static int Get(this MeshCheckCount metric, MeshCheckParameters parameters) => metric switch {
+        MeshCheckCount.DegenerateFaces => parameters.DegenerateFaceCount,
+        MeshCheckCount.DisjointMeshes => parameters.DisjointMeshCount,
+        MeshCheckCount.DuplicateFaces => parameters.DuplicateFaceCount,
+        MeshCheckCount.ExtremelyShortEdges => parameters.ExtremelyShortEdgeCount,
+        MeshCheckCount.InvalidNgons => parameters.InvalidNgonCount,
+        MeshCheckCount.NakedEdges => parameters.NakedEdgeCount,
+        MeshCheckCount.NonManifoldEdges => parameters.NonManifoldEdgeCount,
+        MeshCheckCount.NonUnitVectorNormals => parameters.NonUnitVectorNormalCount,
+        MeshCheckCount.RandomFaceNormals => parameters.RandomFaceNormalCount,
+        MeshCheckCount.SelfIntersectingPairs => parameters.SelfIntersectingPairsCount,
+        MeshCheckCount.UnusedVertices => parameters.UnusedVertexCount,
+        MeshCheckCount.VertexFaceNormalsDiffer => parameters.VertexFaceNormalsDifferCount,
+        MeshCheckCount.ZeroLengthNormals => parameters.ZeroLengthNormalCount,
+        _ => 0,
+    };
+    internal static IEnumerable<MeshCheckCount> Defects => Enum.GetValues<MeshCheckCount>().Where(static m => m != MeshCheckCount.None);
 }
 [Union]
 public partial record Curves {
@@ -270,6 +332,14 @@ public partial record Curves {
         edge => edge.Valence == EdgeAdjacency.Naked && toSeq(edge.TrimIndices()).Exists(trim => edge.Brep.Trims[trim].Loop.LoopType switch { BrepLoopType.Outer => nakedOuter, BrepLoopType.Inner => nakedInner, _ => false });
 }
 [Union]
+public partial record Meshes {
+    public sealed record ValidityBundleCase : Meshes; public sealed record StatsBundleCase : Meshes; public sealed record DefectsBundleCase : Meshes;
+    public sealed record FaceQualityCase(MeshFaceMetric Metric) : Meshes; public sealed record AtFaceCase(int? Value) : Meshes;
+    public static Meshes ValidityBundle => new ValidityBundleCase(); public static Meshes StatsBundle => new StatsBundleCase(); public static Meshes DefectsBundle => new DefectsBundleCase();
+    public static Meshes FaceQuality(MeshFaceMetric metric) => new FaceQualityCase(Metric: metric);
+    public static Meshes AtFace(int? index = null) => new AtFaceCase(Value: index);
+}
+[Union]
 public partial record Conformance {
     public sealed record Distance(int Count) : Conformance; public sealed record Rms(int Count) : Conformance; public sealed record WithinTolerance(int Count) : Conformance; public sealed record ProfileResidual(int Count) : Conformance; public sealed record Maximum(int Count) : Conformance;
 }
@@ -290,14 +360,10 @@ public static partial class Query {
         VerticesKey = Op.Create(value: nameof(Vertices)), ComponentsKey = Op.Create(value: "Components"), IsManifoldKey = Op.Create(value: nameof(IsManifold)),
         NakedPointStatusKey = Op.Create(value: nameof(NakedPointStatus)), MeshCheckKey = Op.Create(value: nameof(MeshCheck)), MeshCheckCountKey = Op.Create(value: "MeshCheckCount"), MeshFaceMetricKey = Op.Create(value: nameof(MeshFaceMetric)), SelfIntersectionsKey = Op.Create(value: nameof(SelfIntersections)), IntersectKey = Op.Create(value: nameof(Intersect)),
         ConformanceKey = Op.Create(value: nameof(Conformance)), DeviationKey = Op.Create(value: nameof(Deviation)), TreeKey = Op.Create(value: nameof(Tree)),
-        ScopeKey = Op.Create(value: nameof(Analyze.Scope)),
-        KindKey = Op.Create(value: nameof(Kind)),
-        UniqueCornersKey = Op.Create(value: "UniqueCorners"),
-        QuadrantsKey = Op.Create(value: nameof(Quadrants)),
-        FacesKey = Op.Create(value: nameof(Faces)),
-        CurvesKey = Op.Create(value: nameof(Curves)),
-        ControlPointsKey = Op.Create(value: "ControlPoints"),
-        AspectDispatchKey = Op.Create(value: "AspectDispatch");
+        ScopeKey = Op.Create(value: nameof(Analyze.Scope)), KindKey = Op.Create(value: nameof(Kind)), UniqueCornersKey = Op.Create(value: "UniqueCorners"),
+        QuadrantsKey = Op.Create(value: nameof(Quadrants)), FacesKey = Op.Create(value: nameof(Faces)), CurvesKey = Op.Create(value: nameof(Curves)), MeshesKey = Op.Create(value: nameof(Meshes)),
+        MeshValidityBundleKey = Op.Create(value: "MeshValidityBundle"), MeshStatsBundleKey = Op.Create(value: "MeshStatsBundle"), MeshDefectsBundleKey = Op.Create(value: "MeshDefectsBundle"), MeshAtFaceKey = Op.Create(value: "MeshAtFace"),
+        ControlPointsKey = Op.Create(value: "ControlPoints"), AspectDispatchKey = Op.Create(value: "AspectDispatch");
     internal static Query<TGeometry, TOut> Unsupported<TGeometry, TOut>(this Op key) where TGeometry : notnull =>
         Query<TGeometry, TOut>.Reject(key: key, fault: key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut)));
     internal static Query<TGeometry, TOut> Cast<TGeometry, TOut>(Op key, object query) where TGeometry : notnull =>
@@ -307,15 +373,15 @@ public static partial class Query {
         };
     internal static Query<TGeometry, TOut> Native<TGeometry, TOut, TNative, TValue>(
         Op key,
-        Func<TNative, Eff<Analyze.Runtime, Seq<TValue>>> project) where TGeometry : notnull where TNative : notnull =>
-        Native<TGeometry, TOut, TNative, TValue, Func<TNative, Eff<Analyze.Runtime, Seq<TValue>>>>(
+        Func<TNative, Eff<Analyze.Env, Seq<TValue>>> project) where TGeometry : notnull where TNative : notnull =>
+        Native<TGeometry, TOut, TNative, TValue, Func<TNative, Eff<Analyze.Env, Seq<TValue>>>>(
             key: key,
             state: project,
             project: static (nativeProject, native) => nativeProject(arg: native));
     internal static Query<TGeometry, TOut> Native<TGeometry, TOut, TNative, TValue, TState>(
         Op key,
         TState state,
-        Func<TState, TNative, Eff<Analyze.Runtime, Seq<TValue>>> project,
+        Func<TState, TNative, Eff<Analyze.Env, Seq<TValue>>> project,
         Requirement? requirement = null,
         bool requiresContext = false) where TGeometry : notnull where TNative : notnull =>
         Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, TValue>.Build(
@@ -360,7 +426,7 @@ public static partial class Query {
             true => Fin.Succ(project(arg1: curve, arg2: parameter)),
             false => Fin.Fail<TOut>(key.InvalidResult()),
         };
-    internal static Eff<Analyze.Runtime, Seq<TOut>> CurveAtNormalized<TGeometry, TOut>(
+    internal static Eff<Analyze.Env, Seq<TOut>> CurveAtNormalized<TGeometry, TOut>(
         TGeometry geometry,
         Op key,
         Func<Curve, double, TOut> project) where TGeometry : notnull =>

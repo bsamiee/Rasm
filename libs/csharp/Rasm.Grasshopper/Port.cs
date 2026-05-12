@@ -157,6 +157,11 @@ public static class Port {
         string code = "I",
         string info = "Zero-based selector; clamped to [0, count-1].") =>
         Optional<int>(name: name, code: code, info: info, kind: PortKind.Index, policy: PortPolicy.Index());
+    public static Port<Vector3d> Direction(
+        string name = "Direction",
+        string code = "D",
+        string info = "Direction vector; missing Direction uses world Z.") =>
+        Optional<Vector3d>(name: name, code: code, info: info);
     public static Port<Shape> Shape(
         string name = "Geometry",
         string code = "G",
