@@ -47,7 +47,7 @@ public static class Analyze {
             _ => (null, CancellationToken.None),
         };
         return Optional(query)
-            .ToFin(new OpFault.MissingOperation())
+            .ToFin(new Fault.MissingOperation())
             .ToValidation()
             .Bind(active => active.Rejection.Match(
                 Some: error => Fin.Fail<Seq<TOut>>(error).ToValidation(),

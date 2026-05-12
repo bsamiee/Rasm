@@ -1,5 +1,35 @@
 namespace Rasm.Analysis;
 
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct Stats {
+    private Stats(int count, double minimum, double maximum, double mean, double variance, double rms) {
+        Count = count;
+        Minimum = minimum;
+        Maximum = maximum;
+        Mean = mean;
+        Variance = variance;
+        Rms = rms;
+    }
+    internal int Count { get; }
+    internal double Minimum { get; }
+    internal double Maximum { get; }
+    internal double Mean { get; }
+    internal double Variance { get; }
+    internal double Rms { get; }
+    internal static Fin<Stats> From(Seq<double> values, Op key) =>
+        values.Fold(
+            initialState: (Count: 0, Mean: 0.0, M2: 0.0, SumSquares: 0.0, Minimum: double.PositiveInfinity, Maximum: double.NegativeInfinity, AllFinite: true),
+            f: static (state, value) => (Count: state.Count + 1, Delta: value - state.Mean, Square: value * value) switch {
+                (int count, double delta, double square) => (
+                    Count: count, Mean: state.Mean + (delta / count), M2: state.M2 + (delta * (value - (state.Mean + (delta / count)))), SumSquares: state.SumSquares + square, Minimum: Math.Min(val1: state.Minimum, val2: value), Maximum: Math.Max(val1: state.Maximum, val2: value), AllFinite: state.AllFinite && RhinoMath.IsValidDouble(x: value) && RhinoMath.IsValidDouble(x: square)),
+            }) switch {
+                (0, _, _, _, _, _, _) => Fin.Fail<Stats>(key.InvalidResult()),
+                (_, _, _, _, _, _, false) => Fin.Fail<Stats>(key.InvalidResult()),
+                (int count, double mean, double m2, double sumSquares, double minimum, double maximum, _) => Fin.Succ(new Stats(
+                    count: count, minimum: minimum, maximum: maximum, mean: mean, variance: Math.Max(val1: 0.0, val2: m2 / count), rms: Math.Sqrt(d: sumSquares / count))),
+            };
+}
+
 public static partial class Query {
     public static Query<TGeometry, TOut> Quadrants<TGeometry, TOut>() where TGeometry : notnull => typeof(TOut) switch {
         Type output when output == typeof(Point3d) => Cast<TGeometry, TOut>(key: QuadrantsKey, query: Query<TGeometry, Point3d>.Build(

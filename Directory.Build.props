@@ -140,6 +140,10 @@
             <HintPath>$(GrasshopperIoReferencePath)</HintPath>
             <Private>false</Private>
         </Reference>
+        <Reference Include="Eto">
+            <HintPath>$(RhinoWipResourcesPath)/Eto.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
     </ItemGroup>
 
     <ItemGroup Label="Analyzer Packages" Condition="'$(IsLocalCSharpAnalyzerProject)' != 'true'">

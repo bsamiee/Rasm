@@ -5,26 +5,7 @@ namespace Rasm.Domain;
 
 public enum GeometryKind { Unknown = 0, Curve = 1, Polyline = 2, Mesh = 3, SubD = 4, Surface = 5, BrepGeneral = 10, BrepBox = 11, BrepSphere = 12, BrepCylinder = 13, BrepCone = 14, BrepTorus = 15, BrepPlane = 16, Line = 20, Sphere = 21, Box = 22, BoundingBox = 23, Cylinder = 24, Cone = 25, Torus = 26, Plane = 27 }
 public enum CurveFeature { Input, Segment, Edge, Boundary, NakedOuter, NakedInner, Interior, NonManifold, OuterLoop, InnerLoop, IsoU, IsoV, Silhouette, SubCurve, Draft }
-[StructLayout(LayoutKind.Auto)]
-internal readonly record struct FaceProjection {
-    private FaceProjection(Brep brep, int faceIndex, bool reversed) { Brep = brep; FaceIndex = faceIndex; Reversed = reversed; }
-    internal Brep Brep { get; }
-    internal int FaceIndex { get; }
-    internal bool Reversed { get; }
-    internal static FaceProjection From(BrepFace face) => new(brep: face.DuplicateFace(duplicateMeshes: false), faceIndex: face.FaceIndex, reversed: face.OrientationIsReversed);
-    internal Unit Dispose() =>
-        fun(static (Brep brep) => { brep.Dispose(); return Unit.Default; })(Brep);
-}
-[StructLayout(LayoutKind.Auto)]
-internal readonly record struct CurveProjection {
-    internal CurveProjection(Curve curve, CurveFeature feature, ComponentIndexType type, int index) : this(curve: curve, feature: feature, source: new ComponentIndex(type: type, index: index)) { }
-    internal CurveProjection(Curve curve, CurveFeature feature, ComponentIndex source) { Curve = curve; Feature = feature; Source = source; }
-    internal Curve Curve { get; }
-    internal CurveFeature Feature { get; }
-    internal ComponentIndex Source { get; }
-    internal Unit Dispose() =>
-        fun(static (Curve curve) => { curve.Dispose(); return Unit.Default; })(Curve);
-}
+
 internal static class Validity {
     internal static Fin<TValue> RequireValid<TValue>(this Op key, TValue value) =>
         value switch {
@@ -61,172 +42,68 @@ internal static class Validity {
         };
     private static Fin<TValue> Require<TValue>(this Op key, bool condition, TValue value) => condition ? Fin.Succ(value) : Fin.Fail<TValue>(key.InvalidResult());
 }
-internal static class GeometryKinds {
-    internal static GeometryKind Kind(object geometry, Context context) =>
-        geometry switch {
-            Brep brep => KindOfBrep(brep: brep, context: context),
-            Surface surface => KindOfSurface(surface: surface, context: context, brep: false),
-            Mesh => GeometryKind.Mesh,
-            SubD => GeometryKind.SubD,
-            Curve curve => curve.TryGetPolyline(polyline: out Polyline _) ? GeometryKind.Polyline : GeometryKind.Curve,
-            Polyline => GeometryKind.Polyline,
-            Line => GeometryKind.Line,
-            Sphere => GeometryKind.Sphere,
-            Box => GeometryKind.Box,
-            BoundingBox => GeometryKind.BoundingBox,
-            _ => GeometryKind.Unknown,
-        };
-    internal static GeometryKind KindOfBrep(Brep brep, Context context) =>
-        brep switch {
-            { IsSurface: true } single => KindOfSurface(surface: single.Surfaces[0], context: context, brep: true),
-            Brep candidate when candidate.IsBox(tolerance: context.Absolute.Value) => GeometryKind.BrepBox,
-            _ => GeometryKind.BrepGeneral,
-        };
-    private static GeometryKind KindOfSurface(Surface surface, Context context, bool brep) =>
-        surface switch {
-            Surface s when s.TryGetPlane(plane: out Plane _, tolerance: context.Absolute.Value) => brep ? GeometryKind.BrepPlane : GeometryKind.Plane,
-            Surface s when s.TryGetSphere(sphere: out Sphere _, tolerance: context.Absolute.Value) => brep ? GeometryKind.BrepSphere : GeometryKind.Sphere,
-            Surface s when s.TryGetCylinder(cylinder: out Cylinder _, tolerance: context.Absolute.Value) => brep ? GeometryKind.BrepCylinder : GeometryKind.Cylinder,
-            Surface s when s.TryGetCone(cone: out Cone _, tolerance: context.Absolute.Value) => brep ? GeometryKind.BrepCone : GeometryKind.Cone,
-            Surface s when s.TryGetTorus(torus: out Torus _, tolerance: context.Absolute.Value) => brep ? GeometryKind.BrepTorus : GeometryKind.Torus,
-            _ => brep ? GeometryKind.BrepGeneral : GeometryKind.Surface,
-        };
-}
-[StructLayout(LayoutKind.Auto)]
-internal readonly record struct Stats {
-    private Stats(int count, double minimum, double maximum, double mean, double variance, double rms) {
-        Count = count;
-        Minimum = minimum;
-        Maximum = maximum;
-        Mean = mean;
-        Variance = variance;
-        Rms = rms;
-    }
-    internal int Count { get; }
-    internal double Minimum { get; }
-    internal double Maximum { get; }
-    internal double Mean { get; }
-    internal double Variance { get; }
-    internal double Rms { get; }
-    internal static Fin<Stats> From(Seq<double> values, Op key) =>
-        values.Fold(
-            initialState: (Count: 0, Mean: 0.0, M2: 0.0, SumSquares: 0.0, Minimum: double.PositiveInfinity, Maximum: double.NegativeInfinity, AllFinite: true),
-            f: static (state, value) => (Count: state.Count + 1, Delta: value - state.Mean, Square: value * value) switch {
-                (int count, double delta, double square) => (
-                    Count: count, Mean: state.Mean + (delta / count), M2: state.M2 + (delta * (value - (state.Mean + (delta / count)))), SumSquares: state.SumSquares + square, Minimum: Math.Min(val1: state.Minimum, val2: value), Maximum: Math.Max(val1: state.Maximum, val2: value), AllFinite: state.AllFinite && RhinoMath.IsValidDouble(x: value) && RhinoMath.IsValidDouble(x: square)),
-            }) switch {
-                (0, _, _, _, _, _, _) => Fin.Fail<Stats>(key.InvalidResult()),
-                (_, _, _, _, _, _, false) => Fin.Fail<Stats>(key.InvalidResult()),
-                (int count, double mean, double m2, double sumSquares, double minimum, double maximum, _) => Fin.Succ(new Stats(
-                    count: count, minimum: minimum, maximum: maximum, mean: mean, variance: Math.Max(val1: 0.0, val2: m2 / count), rms: Math.Sqrt(d: sumSquares / count))),
-            };
-}
-internal static class FoldExtensions {
-    internal static Seq<TItem> Maxima<TItem>(this Seq<TItem> items, Func<TItem, double> projection, double tolerance) =>
-        Extrema(items: items, projection: projection, tolerance: tolerance, direction: +1);
-    internal static Seq<TItem> Minima<TItem>(this Seq<TItem> items, Func<TItem, double> projection, double tolerance) =>
-        Extrema(items: items, projection: projection, tolerance: tolerance, direction: -1);
-    private static Seq<TItem> Extrema<TItem>(Seq<TItem> items, Func<TItem, double> projection, double tolerance, int direction) =>
-        items.Fold(
-            initialState: (Best: direction > 0 ? double.NegativeInfinity : double.PositiveInfinity, Hits: Seq<TItem>(), Tolerance: tolerance, Projection: projection, Direction: (double)direction),
-            f: static (state, item) => state.Projection(arg: item) switch {
-                double score when state.Direction * score > (state.Direction * state.Best) + state.Tolerance => state with { Best = score, Hits = Seq(item) },
-                double score when state.Direction * score >= (state.Direction * state.Best) - state.Tolerance => state with { Best = state.Direction * score > state.Direction * state.Best ? score : state.Best, Hits = item.Cons(state.Hits) },
-                _ => state,
-            }).Hits.Rev();
-}
 
 // --- [GEOMETRY_CLASSIFIER] --------------------------------------------------------------
 [SmartEnum<int>]
 internal sealed partial class GeometryClassifier {
     private delegate Fin<BoundingBox> BoundsFn(object geometry, Op key);
-    public static readonly GeometryClassifier Point3d = new(key: 0, type: typeof(Point3d),
-        bounds: static (g, key) => g switch {
-            Point3d { IsValid: true } p => Fin.Succ(new BoundingBox(min: p, max: p)),
-            _ => Fin.Fail<BoundingBox>(key.InvalidInput()),
-        });
-    public static readonly GeometryClassifier BoundingBox = new(key: 1, type: typeof(BoundingBox),
-        bounds: static (g, key) => g switch {
-            BoundingBox { IsValid: true } b => Fin.Succ(b),
-            _ => Fin.Fail<BoundingBox>(key.InvalidInput()),
-        });
-    public static readonly GeometryClassifier Box = new(key: 2, type: typeof(Box),
-        bounds: static (g, key) => g switch {
-            Box { IsValid: true } b => Fin.Succ(b.BoundingBox),
-            _ => Fin.Fail<BoundingBox>(key.InvalidInput()),
-        });
-    public static readonly GeometryClassifier Sphere = new(key: 3, type: typeof(Sphere),
-        bounds: static (g, key) => g switch {
-            Sphere { IsValid: true } s => Fin.Succ(s.BoundingBox),
-            _ => Fin.Fail<BoundingBox>(key.InvalidInput()),
-        });
-    public static readonly GeometryClassifier Line = new(key: 4, type: typeof(Line),
-        bounds: static (g, key) => g switch {
-            Line { IsValid: true } l => Fin.Succ(l.BoundingBox),
-            _ => Fin.Fail<BoundingBox>(key.InvalidInput()),
-        });
-    public static readonly GeometryClassifier Polyline = new(key: 5, type: typeof(Polyline),
-        bounds: static (g, key) => g switch {
-            Polyline p => Fin.Succ(p.BoundingBox),
-            _ => Fin.Fail<BoundingBox>(key.InvalidInput()),
-        });
-    public static readonly GeometryClassifier Circle = new(key: 6, type: typeof(Circle),
-        bounds: static (g, key) => g switch {
-            Circle c => Fin.Succ(c.BoundingBox),
-            _ => Fin.Fail<BoundingBox>(key.InvalidInput()),
-        });
-    public static readonly GeometryClassifier Arc = new(key: 7, type: typeof(Arc),
-        bounds: static (g, key) => g switch {
-            Arc { IsValid: true } a => Optional(a.ToNurbsCurve())
-                .ToFin(key.InvalidResult())
-                .Map(static curve => { using NurbsCurve disposable = curve; return disposable.GetBoundingBox(accurate: true); }),
-            _ => Fin.Fail<BoundingBox>(key.InvalidInput()),
-        });
-    public static readonly GeometryClassifier Cylinder = new(key: 8, type: typeof(Cylinder),
-        bounds: static (g, key) => g switch {
-            Cylinder { IsValid: true } c => Optional(c.ToBrep(capBottom: true, capTop: true))
-                .ToFin(key.InvalidResult())
-                .Map(static brep => { using Brep disposable = brep; return disposable.GetBoundingBox(accurate: true); }),
-            _ => Fin.Fail<BoundingBox>(key.InvalidInput()),
-        });
-    public static readonly GeometryClassifier Cone = new(key: 9, type: typeof(Cone),
-        bounds: static (g, key) => g switch {
-            Cone { IsValid: true } c => Optional(c.ToBrep(capBottom: true))
-                .ToFin(key.InvalidResult())
-                .Map(static brep => { using Brep disposable = brep; return disposable.GetBoundingBox(accurate: true); }),
-            _ => Fin.Fail<BoundingBox>(key.InvalidInput()),
-        });
-    public static readonly GeometryClassifier Torus = new(key: 10, type: typeof(Torus),
-        bounds: static (g, key) => g switch {
-            Torus { IsValid: true } t => Optional(t.ToBrep())
-                .ToFin(key.InvalidResult())
-                .Map(static brep => { using Brep disposable = brep; return disposable.GetBoundingBox(accurate: true); }),
-            _ => Fin.Fail<BoundingBox>(key.InvalidInput()),
-        });
-    public static readonly GeometryClassifier Native = new(key: 11, type: typeof(GeometryBase),
-        bounds: static (g, key) => g switch {
-            GeometryBase { IsValid: true } b => Fin.Succ(b.GetBoundingBox(accurate: true)),
-            _ => Fin.Fail<BoundingBox>(key.InvalidInput()),
-        });
+    private delegate Fin<object> ExtractFn(object geometry, Context context, Op key);
+    public static readonly GeometryClassifier Point3d = new(key: 0, type: typeof(Point3d), kind: GeometryKind.Unknown, extractFrom: Option<Type>.None,
+        bounds: static (g, key) => g switch { Point3d { IsValid: true } p => Fin.Succ(new BoundingBox(min: p, max: p)), _ => Fin.Fail<BoundingBox>(key.InvalidInput()) },
+        extract: Option<ExtractFn>.None);
+    public static readonly GeometryClassifier BoundingBox = new(key: 1, type: typeof(BoundingBox), kind: GeometryKind.BoundingBox, extractFrom: Option<Type>.None,
+        bounds: static (g, key) => g switch { BoundingBox { IsValid: true } b => Fin.Succ(b), _ => Fin.Fail<BoundingBox>(key.InvalidInput()) },
+        extract: Option<ExtractFn>.None);
+    public static readonly GeometryClassifier Box = new(key: 2, type: typeof(Box), kind: GeometryKind.Box, extractFrom: Some(typeof(Brep)),
+        bounds: static (g, key) => g switch { Box { IsValid: true } b => Fin.Succ(b.BoundingBox), _ => Fin.Fail<BoundingBox>(key.InvalidInput()) },
+        extract: Some<ExtractFn>(static (g, c, key) => g switch { Brep brep when brep.IsBox(tolerance: c.Absolute.Value) && brep.GetBoundingBox(plane: Rhino.Geometry.Plane.WorldXY, worldBox: out Box value) is { IsValid: true } => Fin.Succ<object>(value), Brep => Fin.Fail<object>(key.InvalidResult()), _ => Fin.Fail<object>(key.Unsupported(geometryType: g.GetType(), outputType: typeof(Box))) }));
+    public static readonly GeometryClassifier Sphere = new(key: 3, type: typeof(Sphere), kind: GeometryKind.Sphere, extractFrom: Some(typeof(Surface)),
+        bounds: static (g, key) => g switch { Sphere { IsValid: true } s => Fin.Succ(s.BoundingBox), _ => Fin.Fail<BoundingBox>(key.InvalidInput()) },
+        extract: Some<ExtractFn>(static (g, c, key) => g switch { Surface s when s.TryGetSphere(sphere: out Sphere value, tolerance: c.Absolute.Value) => Fin.Succ<object>(value), Surface => Fin.Fail<object>(key.InvalidResult()), _ => Fin.Fail<object>(key.Unsupported(geometryType: g.GetType(), outputType: typeof(Sphere))) }));
+    public static readonly GeometryClassifier Line = new(key: 4, type: typeof(Line), kind: GeometryKind.Line, extractFrom: Option<Type>.None,
+        bounds: static (g, key) => g switch { Line { IsValid: true } l => Fin.Succ(l.BoundingBox), _ => Fin.Fail<BoundingBox>(key.InvalidInput()) },
+        extract: Option<ExtractFn>.None);
+    public static readonly GeometryClassifier Polyline = new(key: 5, type: typeof(Polyline), kind: GeometryKind.Polyline, extractFrom: Some(typeof(Curve)),
+        bounds: static (g, key) => g switch { Polyline p => Fin.Succ(p.BoundingBox), _ => Fin.Fail<BoundingBox>(key.InvalidInput()) },
+        extract: Some<ExtractFn>(static (g, _, key) => g switch { Curve curve when curve.TryGetPolyline(polyline: out Polyline value) => Fin.Succ<object>(value), Curve => Fin.Fail<object>(key.InvalidResult()), _ => Fin.Fail<object>(key.Unsupported(geometryType: g.GetType(), outputType: typeof(Polyline))) }));
+    public static readonly GeometryClassifier Circle = new(key: 6, type: typeof(Circle), kind: GeometryKind.Unknown, extractFrom: Some(typeof(Curve)),
+        bounds: static (g, key) => g switch { Circle c => Fin.Succ(c.BoundingBox), _ => Fin.Fail<BoundingBox>(key.InvalidInput()) },
+        extract: Some<ExtractFn>(static (g, c, key) => g switch { Curve curve when curve.TryGetCircle(circle: out Circle value, tolerance: c.Absolute.Value) => Fin.Succ<object>(value), Curve => Fin.Fail<object>(key.InvalidResult()), _ => Fin.Fail<object>(key.Unsupported(geometryType: g.GetType(), outputType: typeof(Circle))) }));
+    public static readonly GeometryClassifier Arc = new(key: 7, type: typeof(Arc), kind: GeometryKind.Unknown, extractFrom: Some(typeof(Curve)),
+        bounds: static (g, key) => g switch { Arc { IsValid: true } a => Optional(a.ToNurbsCurve()).ToFin(key.InvalidResult()).Map(static curve => { using NurbsCurve disposable = curve; return disposable.GetBoundingBox(accurate: true); }), _ => Fin.Fail<BoundingBox>(key.InvalidInput()) },
+        extract: Some<ExtractFn>(static (g, c, key) => g switch { Curve curve when curve.TryGetArc(arc: out Arc value, tolerance: c.Absolute.Value) => Fin.Succ<object>(value), Curve => Fin.Fail<object>(key.InvalidResult()), _ => Fin.Fail<object>(key.Unsupported(geometryType: g.GetType(), outputType: typeof(Arc))) }));
+    public static readonly GeometryClassifier Cylinder = new(key: 8, type: typeof(Cylinder), kind: GeometryKind.Cylinder, extractFrom: Some(typeof(Surface)),
+        bounds: static (g, key) => g switch { Cylinder { IsValid: true } c => Optional(c.ToBrep(capBottom: true, capTop: true)).ToFin(key.InvalidResult()).Map(static brep => { using Brep disposable = brep; return disposable.GetBoundingBox(accurate: true); }), _ => Fin.Fail<BoundingBox>(key.InvalidInput()) },
+        extract: Some<ExtractFn>(static (g, c, key) => g switch { Surface s when s.TryGetCylinder(cylinder: out Cylinder value, tolerance: c.Absolute.Value) => Fin.Succ<object>(value), Surface => Fin.Fail<object>(key.InvalidResult()), _ => Fin.Fail<object>(key.Unsupported(geometryType: g.GetType(), outputType: typeof(Cylinder))) }));
+    public static readonly GeometryClassifier Cone = new(key: 9, type: typeof(Cone), kind: GeometryKind.Cone, extractFrom: Some(typeof(Surface)),
+        bounds: static (g, key) => g switch { Cone { IsValid: true } c => Optional(c.ToBrep(capBottom: true)).ToFin(key.InvalidResult()).Map(static brep => { using Brep disposable = brep; return disposable.GetBoundingBox(accurate: true); }), _ => Fin.Fail<BoundingBox>(key.InvalidInput()) },
+        extract: Some<ExtractFn>(static (g, c, key) => g switch { Surface s when s.TryGetCone(cone: out Cone value, tolerance: c.Absolute.Value) => Fin.Succ<object>(value), Surface => Fin.Fail<object>(key.InvalidResult()), _ => Fin.Fail<object>(key.Unsupported(geometryType: g.GetType(), outputType: typeof(Cone))) }));
+    public static readonly GeometryClassifier Torus = new(key: 10, type: typeof(Torus), kind: GeometryKind.Torus, extractFrom: Some(typeof(Surface)),
+        bounds: static (g, key) => g switch { Torus { IsValid: true } t => Optional(t.ToBrep()).ToFin(key.InvalidResult()).Map(static brep => { using Brep disposable = brep; return disposable.GetBoundingBox(accurate: true); }), _ => Fin.Fail<BoundingBox>(key.InvalidInput()) },
+        extract: Some<ExtractFn>(static (g, c, key) => g switch { Surface s when s.TryGetTorus(torus: out Torus value, tolerance: c.Absolute.Value) => Fin.Succ<object>(value), Surface => Fin.Fail<object>(key.InvalidResult()), _ => Fin.Fail<object>(key.Unsupported(geometryType: g.GetType(), outputType: typeof(Torus))) }));
+    public static readonly GeometryClassifier Native = new(key: 11, type: typeof(GeometryBase), kind: GeometryKind.Unknown, extractFrom: Option<Type>.None,
+        bounds: static (g, key) => g switch { GeometryBase { IsValid: true } b => Fin.Succ(b.GetBoundingBox(accurate: true)), _ => Fin.Fail<BoundingBox>(key.InvalidInput()) },
+        extract: Option<ExtractFn>.None);
+    public static readonly GeometryClassifier Ellipse = new(key: 12, type: typeof(Ellipse), kind: GeometryKind.Unknown, extractFrom: Some(typeof(Curve)),
+        bounds: static (g, key) => g switch { Ellipse e => Optional(e.ToNurbsCurve()).ToFin(key.InvalidResult()).Map(static curve => { using NurbsCurve disposable = curve; return disposable.GetBoundingBox(accurate: true); }), _ => Fin.Fail<BoundingBox>(key.InvalidInput()) },
+        extract: Some<ExtractFn>(static (g, c, key) => g switch { Curve curve when curve.TryGetEllipse(ellipse: out Ellipse value, tolerance: c.Absolute.Value) => Fin.Succ<object>(value), Curve => Fin.Fail<object>(key.InvalidResult()), _ => Fin.Fail<object>(key.Unsupported(geometryType: g.GetType(), outputType: typeof(Ellipse))) }));
+    public static readonly GeometryClassifier Plane = new(key: 13, type: typeof(Plane), kind: GeometryKind.Plane, extractFrom: Some(typeof(Surface)),
+        bounds: static (g, key) => Fin.Fail<BoundingBox>(key.Unsupported(geometryType: g.GetType(), outputType: typeof(BoundingBox))),
+        extract: Some<ExtractFn>(static (g, c, key) => g switch { Surface s when s.TryGetPlane(plane: out Plane value, tolerance: c.Absolute.Value) => Fin.Succ<object>(value), Surface => Fin.Fail<object>(key.InvalidResult()), _ => Fin.Fail<object>(key.Unsupported(geometryType: g.GetType(), outputType: typeof(Plane))) }));
     internal Type Type { get; }
+    public GeometryKind Kind { get; }
+    public Option<Type> ExtractFrom { get; }
     private BoundsFn Bounds { get; }
+    private Option<ExtractFn> Extract { get; }
     // FrozenDictionary because LanguageExt v5 Map/HashMap<Type,_> trips a Rhino reflection enumeration bug.
     private static readonly FrozenDictionary<Type, GeometryClassifier> Lookup = BuildLookup();
     [BoundaryAdapter]
     private static FrozenDictionary<Type, GeometryClassifier> BuildLookup() =>
         new Dictionary<Type, GeometryClassifier> {
-            [Point3d.Type] = Point3d,
-            [BoundingBox.Type] = BoundingBox,
-            [Box.Type] = Box,
-            [Sphere.Type] = Sphere,
-            [Line.Type] = Line,
-            [Polyline.Type] = Polyline,
-            [Circle.Type] = Circle,
-            [Arc.Type] = Arc,
-            [Cylinder.Type] = Cylinder,
-            [Cone.Type] = Cone,
-            [Torus.Type] = Torus,
-            [Native.Type] = Native,
+            [Point3d.Type] = Point3d, [BoundingBox.Type] = BoundingBox, [Box.Type] = Box, [Sphere.Type] = Sphere,
+            [Line.Type] = Line, [Polyline.Type] = Polyline, [Circle.Type] = Circle, [Arc.Type] = Arc,
+            [Cylinder.Type] = Cylinder, [Cone.Type] = Cone, [Torus.Type] = Torus, [Native.Type] = Native,
+            [Ellipse.Type] = Ellipse, [Plane.Type] = Plane,
         }.ToFrozenDictionary();
     internal static Option<GeometryClassifier> For(Type type) =>
         Optional(Lookup.GetValueOrDefault(type)) | (typeof(GeometryBase).IsAssignableFrom(c: type) ? Some(Native) : Option<GeometryClassifier>.None);
@@ -238,5 +115,33 @@ internal sealed partial class GeometryClassifier {
             _ => Fin.Fail<BoundingBox>(key.Unsupported(geometryType: geometry.GetType(), outputType: outputType)),
         };
     internal static bool SupportsBounds(Type type, bool includeSphere) =>
-        (For(type: type).IsSome || type == typeof(object)) && (includeSphere || type != typeof(Sphere));
+        (For(type: type).IsSome || type == typeof(object)) && (includeSphere || type != typeof(Sphere)) && type != typeof(Plane);
+    internal static GeometryKind KindOf(object geometry, Context context) =>
+        geometry switch {
+            Brep { IsSurface: true } single => KindOfSurface(surface: single.Surfaces[0], context: context, brep: true),
+            Brep candidate when candidate.IsBox(tolerance: context.Absolute.Value) => GeometryKind.BrepBox,
+            Brep => GeometryKind.BrepGeneral,
+            Surface surface => KindOfSurface(surface: surface, context: context, brep: false),
+            Mesh => GeometryKind.Mesh,
+            SubD => GeometryKind.SubD,
+            Curve curve => curve.TryGetPolyline(polyline: out Polyline _) ? GeometryKind.Polyline : GeometryKind.Curve,
+            _ => For(type: geometry.GetType()).Case switch {
+                GeometryClassifier classifier => classifier.Kind,
+                _ => GeometryKind.Unknown,
+            },
+        };
+    private static GeometryKind KindOfSurface(Surface surface, Context context, bool brep) =>
+        surface switch {
+            Surface s when s.TryGetPlane(plane: out Plane _, tolerance: context.Absolute.Value) => brep ? GeometryKind.BrepPlane : GeometryKind.Plane,
+            Surface s when s.TryGetSphere(sphere: out Sphere _, tolerance: context.Absolute.Value) => brep ? GeometryKind.BrepSphere : GeometryKind.Sphere,
+            Surface s when s.TryGetCylinder(cylinder: out Cylinder _, tolerance: context.Absolute.Value) => brep ? GeometryKind.BrepCylinder : GeometryKind.Cylinder,
+            Surface s when s.TryGetCone(cone: out Cone _, tolerance: context.Absolute.Value) => brep ? GeometryKind.BrepCone : GeometryKind.Cone,
+            Surface s when s.TryGetTorus(torus: out Torus _, tolerance: context.Absolute.Value) => brep ? GeometryKind.BrepTorus : GeometryKind.Torus,
+            _ => brep ? GeometryKind.BrepGeneral : GeometryKind.Surface,
+        };
+    internal Fin<object> ExtractPrimitive(object geometry, Context context, Op key) =>
+        Extract.Case switch {
+            ExtractFn fn => fn(geometry: geometry, context: context, key: key),
+            _ => Fin.Fail<object>(key.Unsupported(geometryType: geometry.GetType(), outputType: Type)),
+        };
 }

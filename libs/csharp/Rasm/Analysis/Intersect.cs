@@ -127,7 +127,7 @@ public static partial class Query {
             b: b,
             output: (left, right, runtime) => intersect(left: left, right: right, runtime: runtime) switch {
                 IEnumerable<(Polyline Polyline, IntersectionKind Kind)> polylines => new IntersectionResult.Polylines(Values: toSeq(polylines.Select(static value => value.Polyline)), Kinds: toSeq(polylines.Select(static value => value.Kind))).Project<TOut>(key: IntersectKey),
-                _ when runtime.Cancellation.IsCancellationRequested => Fin.Fail<Seq<TOut>>(new OpFault.Cancelled()),
+                _ when runtime.Cancellation.IsCancellationRequested => Fin.Fail<Seq<TOut>>(new Fault.Cancelled()),
                 _ => Fin.Fail<Seq<TOut>>(IntersectKey.InvalidResult()),
             });
     private static bool Events(Type output) => output == typeof(IntersectionEvent) || output == typeof(Point3d) || output == typeof(IntersectionKind);

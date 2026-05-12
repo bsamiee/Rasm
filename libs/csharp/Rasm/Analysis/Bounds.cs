@@ -7,7 +7,7 @@ public static partial class Query {
             key: UniqueCornersKey,
                 requiresContext: true,
                 evaluator: static geometry => from context in Analyze.Asks
-                                              from bbox in BoundingBoxOf(geometry: geometry, key: UniqueCornersKey, outputType: typeof(Point3d)).ToEff()
+                                              from bbox in GeometryClassifier.BoundingBoxOf(geometry: geometry, key: UniqueCornersKey, outputType: typeof(Point3d)).ToEff()
                                               from result in (bbox.IsValid switch {
                                                   true => Optional(Point3d.CullDuplicates(points: bbox.GetCorners(), tolerance: context.Absolute.Value))
                                                       .ToFin(UniqueCornersKey.InvalidResult())
@@ -17,29 +17,6 @@ public static partial class Query {
                                               select result)),
         _ => UniqueCornersKey.Unsupported<TGeometry, TOut>(),
     };
-    internal static Fin<BoundingBox> BoundingBoxOf<TGeometry>(TGeometry geometry, Op key, Type outputType) where TGeometry : notnull =>
-        geometry switch {
-            Point3d point when point.IsValid => Fin.Succ(new BoundingBox(min: point, max: point)),
-            Point point when point.IsValid => Fin.Succ(point.GetBoundingBox(accurate: true)),
-            BoundingBox bbox when bbox.IsValid => Fin.Succ(bbox),
-            GeometryBase native when native.IsValid => Fin.Succ(native.GetBoundingBox(accurate: true)),
-            Box box when box.IsValid => Fin.Succ(box.BoundingBox),
-            Sphere sphere when sphere.IsValid => Fin.Succ(sphere.BoundingBox),
-            Line line when line.IsValid => Fin.Succ(line.BoundingBox),
-            Polyline polyline => Fin.Succ(polyline.BoundingBox),
-            Circle circle => Fin.Succ(circle.BoundingBox),
-            Arc arc when arc.IsValid => NativeBounds(source: arc.ToNurbsCurve(), key: key),
-            Cylinder cylinder when cylinder.IsValid => NativeBounds(source: cylinder.ToBrep(capBottom: true, capTop: true), key: key),
-            Cone cone when cone.IsValid => NativeBounds(source: cone.ToBrep(capBottom: true), key: key),
-            Torus torus when torus.IsValid => NativeBounds(source: torus.ToBrep(), key: key),
-            _ => Fin.Fail<BoundingBox>(key.Unsupported(geometryType: typeof(TGeometry), outputType: outputType)),
-        };
-    internal static Fin<BoundingBox> NativeBounds<TNative>(TNative? source, Op key) where TNative : GeometryBase => Optional(source)
-            .ToFin(key.InvalidResult())
-            .Map(static value => {
-                using TNative disposable = value;
-                return disposable.GetBoundingBox(accurate: true);
-            });
     public static Query<TGeometry, TOut> Bounds<TGeometry, TOut>(Bounds aspect) where TGeometry : notnull {
         ArgumentNullException.ThrowIfNull(argument: aspect);
         return aspect.Apply<TGeometry, TOut>();
@@ -85,7 +62,7 @@ public static partial class Query {
         };
     public static Query<TGeometry, TOut> SpatialMidpoint<TGeometry, TOut>() where TGeometry : notnull => (typeof(TGeometry), typeof(TOut)) switch {
         (Type geometry, Type output) when output == typeof(Point3d)
-            && SupportsBounds(geometry: geometry, includeSphere: false) => Cast<TGeometry, TOut>(key: SpatialMidpointKey, query: Query<TGeometry, Point3d>.Build(
+            && GeometryClassifier.SupportsBounds(type: geometry, includeSphere: false) => Cast<TGeometry, TOut>(key: SpatialMidpointKey, query: Query<TGeometry, Point3d>.Build(
                 key: SpatialMidpointKey,
                 evaluator: static geometry => geometry switch {
                     Point3d point => One(key: SpatialMidpointKey, value: point).ToEff(),
@@ -113,7 +90,7 @@ public static partial class Query {
                                  select result,
                     BoundingBox box => One(key: SpatialMidpointKey, value: box.Center).ToEff(),
                     Box box => One(key: SpatialMidpointKey, value: box.Center).ToEff(),
-                    PointCloud or Circle or Arc or Cylinder or Cone or Torus => BoundingBoxOf(geometry: geometry, key: SpatialMidpointKey, outputType: typeof(Point3d))
+                    PointCloud or Circle or Arc or Cylinder or Cone or Torus => GeometryClassifier.BoundingBoxOf(geometry: geometry, key: SpatialMidpointKey, outputType: typeof(Point3d))
                             .Bind(static box => One(key: SpatialMidpointKey, value: box.Center))
                             .ToEff(),
                     _ => Fin.Fail<Seq<Point3d>>(SpatialMidpointKey.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Point3d))).ToEff(),
@@ -236,7 +213,7 @@ public static partial class Query {
                 secondMoments: candidate.Equals(MassKind.Length)).Apply(geometry: geometry),
         };
     internal static Query<TGeometry, TOut>? BoundsFromBox<TGeometry, TOut, TValue>(Op key, Func<BoundingBox, Fin<Seq<TValue>>> project) where TGeometry : notnull => typeof(TOut) == typeof(TValue)
-            ? Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, TValue>.Build(key: key, evaluator: static (state, geometry) => ExtractBounds(geometry: geometry).Bind(state).ToEff(), state: project))
+            ? Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, TValue>.Build(key: key, evaluator: static (state, geometry) => GeometryClassifier.BoundingBoxOf(geometry: geometry, key: BoundsKey, outputType: typeof(BoundingBox)).Bind(state).ToEff(), state: project))
             : null;
     internal static Query<TGeometry, TOut>? BoxMetric<TGeometry, TOut>(Op key, Func<BoundingBox, double> boundingBox, Func<Box, double> box) where TGeometry : notnull => (typeof(TGeometry), typeof(TOut)) switch {
         (Type geometry, Type output) when geometry == typeof(BoundingBox) && output == typeof(double) => Cast<TGeometry, TOut>(key: key, query: Query<BoundingBox, double>.Build(
@@ -249,15 +226,13 @@ public static partial class Query {
     };
     internal static Query<TGeometry, TOut> Box<TGeometry, TOut>() where TGeometry : notnull => (typeof(TGeometry), typeof(TOut)) switch {
         (Type geometry, Type output) when output == typeof(BoundingBox)
-            && SupportsBounds(geometry: geometry, includeSphere: true) => Cast<TGeometry, TOut>(key: BoundsKey, query: Query<TGeometry, BoundingBox>.Build(
+            && GeometryClassifier.SupportsBounds(type: geometry, includeSphere: true) => Cast<TGeometry, TOut>(key: BoundsKey, query: Query<TGeometry, BoundingBox>.Build(
                 key: BoundsKey,
-                evaluator: static geometry => ExtractBounds(geometry: geometry)
+                evaluator: static geometry => GeometryClassifier.BoundingBoxOf(geometry: geometry, key: BoundsKey, outputType: typeof(BoundingBox))
                         .Bind(static box => One(key: BoundsKey, value: box))
                         .ToEff())),
         _ => BoundsKey.Unsupported<TGeometry, TOut>(),
     };
-    internal static Fin<BoundingBox> ExtractBounds<TGeometry>(TGeometry geometry) where TGeometry : notnull => BoundingBoxOf(geometry: geometry, key: BoundsKey, outputType: typeof(BoundingBox));
-    internal static bool SupportsBounds(Type geometry, bool includeSphere) => typeof(GeometryBase).IsAssignableFrom(c: geometry) || geometry == typeof(object) || geometry == typeof(Point3d) || geometry == typeof(Line) || geometry == typeof(Polyline) || geometry == typeof(BoundingBox) || geometry == typeof(Box) || geometry == typeof(Circle) || geometry == typeof(Arc) || geometry == typeof(Cylinder) || geometry == typeof(Cone) || geometry == typeof(Torus) || (includeSphere && geometry == typeof(Sphere));
     internal static Query<TGeometry, TOut> Oriented<TGeometry, TOut>(Plane plane) where TGeometry : notnull => (typeof(TGeometry), typeof(TOut)) switch {
         (Type geometry, Type output) when typeof(GeometryBase).IsAssignableFrom(c: geometry) && output == typeof(Box) => Native<TGeometry, TOut, GeometryBase, Box, Plane>(
                 key: OrientedBoundsKey,
