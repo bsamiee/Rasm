@@ -43,7 +43,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void ExecutesAggregateQueryAsSequenceEvaluator() {
         Query<int, int> query = new(
-            key: new Op(name: "SyntheticAggregate"),
+            key: Op.Create(value: "SyntheticAggregate"),
             effect: static input => Fin.Succ(input.Map(static value => value * 2)).ToEff(),
             aggregate: LanguageExt.Prelude.Some<Func<Seq<int>, Eff<Analyze.Runtime, Seq<int>>>>(
                 static input => input.Fold(initialState: 0, f: static (sum, value) => sum + value) switch {
@@ -66,7 +66,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RejectsRequirementDerivedContextNeedWithoutScope() {
         Query<Line, Point3d> query = Query<Line, Point3d>.Build(
-            key: new Op(name: "SyntheticRequirement"),
+            key: Op.Create(value: "SyntheticRequirement"),
             evaluator: static _ => Fin.Succ(LanguageExt.Prelude.Seq(Point3d.Origin)).ToEff(),
             requirement: Requirement.Basic,
             requiresContext: false);

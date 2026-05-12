@@ -17,7 +17,7 @@ public sealed class StatsSpec {
     public void StatsOfMatchesNaiveTwoPassWithinTolerance() {
         double[] sample = [.. Enumerable.Range(start: 1, count: 100).Select(static i => (double)i)];
         Seq<double> values = toSeq(sample);
-        Op key = new(name: "stats-numerical-stability");
+        Op key = Op.Create(value: "stats-numerical-stability");
 
         Fin<Stats> result = Stats.From(values: values, key: key);
 
@@ -34,11 +34,11 @@ public sealed class StatsSpec {
 
     [Fact]
     public void StatsOfRejectsEmpty() =>
-        Assert.True(condition: Stats.From(values: Seq<double>(), key: new Op(name: "stats-empty")).IsFail);
+        Assert.True(condition: Stats.From(values: Seq<double>(), key: Op.Create(value: "stats-empty")).IsFail);
 
     [Fact]
     public void StatsOfRejectsNonFinite() =>
-        Assert.True(condition: Stats.From(values: toSeq<double>([1.0, 2.0, double.NaN]), key: new Op(name: "stats-non-finite")).IsFail);
+        Assert.True(condition: Stats.From(values: toSeq<double>([1.0, 2.0, double.NaN]), key: Op.Create(value: "stats-non-finite")).IsFail);
 
     [Fact]
     public void StatsFromPreservesPropertyInvariants() {
@@ -46,7 +46,7 @@ public sealed class StatsSpec {
             toSeq(values.Where(static value => RhinoMath.IsValidDouble(x: value) && RhinoMath.IsValidDouble(x: value * value)).Take(count: 64))
                 .ToArr() switch {
                     { Count: 0 } => true,
-                    Arr<double> sample => Stats.From(values: sample.ToSeq(), key: new Op(name: "stats-laws")).Match(
+                    Arr<double> sample => Stats.From(values: sample.ToSeq(), key: Op.Create(value: "stats-laws")).Match(
                         Succ: static stats =>
                             stats.Count > 0
                             && stats.Minimum <= stats.Mean

@@ -12,7 +12,7 @@ public readonly record struct Shape {
             .ToFin(Error.New(message: $"Shape is required. Connect: {Accepted}."))
             .Bind(static raw => raw switch {
                 Shape shape => Create(value: shape.Inner),
-                _ => new Op(name: nameof(Shape)).RequireValid(value: raw).Map(static valid => new Shape(inner: valid)),
+                _ => Op.Create(value: nameof(Shape)).RequireValid(value: raw).Map(static valid => new Shape(inner: valid)),
             });
 }
 
@@ -63,17 +63,8 @@ public static class Bridge {
             (Access.Item, > 0) => () => access.SetPear(index: slot, pear: Pear<TOut>.Create(item: values[0]!)),
             (Access.Item, _) => static () => { }
             ,
-            (Access.Twig, _) => () => access.SetTwig<TOut>(
-                index: slot,
-                values: [.. values],
-                metas: [.. Enumerable.Repeat(element: MetaData.Empty, count: values.Count)],
-                nulls: new bool[values.Count]),
-            (Access.Tree, _) => () => access.SetTree(
-                index: slot,
-                tree: Garden.TreeFromList(
-                    items: values.AsIterable(),
-                    metas: Enumerable.Repeat(element: MetaData.Empty, count: values.Count),
-                    nulls: new bool[values.Count]).WithPathPrefix(element: TreePrefix(access: access, slot: slot))),
+            (Access.Twig, _) => () => access.SetTwig(index: slot, twig: Garden.TwigFromPears(pears: values.AsIterable().Select(static value => Pear<TOut>.Create(item: value!)))),
+            (Access.Tree, _) => () => access.SetTree(index: slot, tree: Garden.TreeFromPears(pears: values.AsIterable().Select(static value => Pear<TOut>.Create(item: value!))).WithPathPrefix(element: TreePrefix(access: access, slot: slot))),
             _ => () => access.AddError(text: name, details: $"Unsupported output access: {targetAccess}."),
         };
         effect();

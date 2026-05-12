@@ -120,7 +120,7 @@ public sealed class ContextSpec {
 
     [Fact]
     public void RejectsInvalidGeometryResults() {
-        Op key = new(name: "test");
+        Op key = Op.Create(value: "test");
         Line first = new(
             from: Point3d.Origin,
             to: new Point3d(x: 1.0, y: 0.0, z: 0.0));
@@ -148,7 +148,7 @@ public sealed class ContextSpec {
 
     [Fact]
     public void AdaptsSolvedResultRails() {
-        Op key = new(name: "test");
+        Op key = Op.Create(value: "test");
 
         Assert.True(condition: key.Solved(isSolved: true, value: Point3d.Origin).IsSucc);
         Assert.True(condition: key.Solved(isSolved: false, value: Point3d.Origin).IsFail);
@@ -156,7 +156,7 @@ public sealed class ContextSpec {
 
     [Fact]
     public void PreservesExplicitIntersectionKindsForPolylineResults() {
-        Op key = new(name: "test");
+        Op key = Op.Create(value: "test");
 
         IntersectionKind[] kinds = new IntersectionResult.Polylines(
                 Values: Seq<Polyline>(),

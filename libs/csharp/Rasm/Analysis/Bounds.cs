@@ -67,7 +67,7 @@ public static partial class Query {
             _ => MeasureKey.Unsupported<TGeometry, TOut>(),
         };
     internal static Query<TGeometry, TOut> MassCast<TGeometry, TOut, TValue>(MassKind mass, string suffix, Func<Op, IDisposable, Fin<Seq<TValue>>> project, bool secondMoments = false, bool productMoments = false) where TGeometry : notnull {
-        Op key = new(name: $"{mass.Label}{suffix}");
+        Op key = Op.Create(value: $"{mass.Label}{suffix}");
         return Cast<TGeometry, TOut>(key: key, query: mass.Build<TGeometry, TValue>(key: key, project: project, secondMoments: secondMoments, productMoments: productMoments));
     }
     internal static Fin<Seq<TValue>> MassProject<TValue>(Measure kind, Op key, IDisposable props) =>

@@ -28,10 +28,17 @@ internal static class TypeShapeRules {
     // --- [CREATE_FACTORY_RETURN] ----------------------------------------------
 
     internal static void CheckCreateFactoryReturnType(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {
+        // Thinktecture [ValueObject<T>] / [ComplexValueObject] / [SmartEnum<T>] source-gen factories
+        // are canonical per coding-csharp objects.md ("Create is for trusted internal construction") --
+        // they intentionally return raw T paired with TryCreate for boundary-safe parsing.
+        bool isThinktectureValueObject = SymbolFacts.HasAnyAttribute(namedType,
+            "ValueObjectAttribute", "ValueObject",
+            "ComplexValueObjectAttribute", "ComplexValueObject",
+            "SmartEnumAttribute", "SmartEnum");
         IEnumerable<IMethodSymbol> factories = namedType.GetMembers().OfType<IMethodSymbol>()
             .Where(method => method.IsStatic && method.Name is "Create" or "CreateK");
-        IEnumerable<Diagnostic> diagnostics = (scope.IsDomainOrApplication, namedType.Locations.Length) switch {
-            (true, > 0) => factories
+        IEnumerable<Diagnostic> diagnostics = (scope.IsDomainOrApplication, isThinktectureValueObject, namedType.Locations.Length) switch {
+            (true, false, > 0) => factories
                 .Where(factory => !SymbolFacts.IsFinOrKReturnType(factory))
                 .Select(factory => Diagnostic.Create(RuleCatalog.CSP0713, namedType.Locations[0], namedType.Name)),
             _ => [],
