@@ -106,34 +106,31 @@ public static partial class Query {
             ? Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, double>.Build(
                 key: key,
                 requirement: typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) ? Requirement.CurveLength : Requirement.None,
+                requiresContext: true,
                 state: key,
-                evaluator: static (op, geometry) => geometry switch {
-                    Line line => op.RequireValid(value: line).Bind(validated => One(key: op, value: validated.Length)).ToEff(),
-                    Polyline polyline => op.RequireValid(value: polyline).Bind(validated => One(key: op, value: validated.Length)).ToEff(),
-                    Curve curve => from context in Analyze.Asks
-                                   from result in One(key: op, value: curve.GetLength(fractionalTolerance: context.Relative.Value)).ToEff()
-                                   select result,
-                    _ => Fin.Fail<Seq<double>>(op.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(double))).ToEff(),
-                }))
+                evaluator: static (op, geometry) =>
+                    from context in Analyze.Asks
+                    from kind in ((object)geometry).Kind(ctx: context).ToEff()
+                    from length in kind.Length(value: geometry, ctx: context, op: op).ToEff()
+                    from result in One(key: op, value: length).ToEff()
+                    select result))
             : key.Unsupported<TGeometry, TOut>();
     }
-    internal static Query<(TGeometry Geometry, TPrimitive Primitive), TOut> ConformanceCases<TGeometry, TPrimitive, TOut, TNativeGeometry, TNativePrimitive>(
-        Conformance aspect, Requirement requirement,
-        Func<TNativeGeometry, TNativePrimitive, int, Context, Fin<Seq<ResidualSample>>> samples) where TGeometry : notnull where TPrimitive : notnull where TNativeGeometry : notnull where TNativePrimitive : notnull {
+    internal static Query<(TGeometry Geometry, TPrimitive Primitive), TOut> ConformanceProject<TGeometry, TPrimitive, TOut>(Conformance aspect, Requirement requirement) where TGeometry : notnull where TPrimitive : notnull {
         Op key = Op.Of(name: nameof(Conformance));
         return (aspect, typeof(TOut)) switch {
-            (Conformance.Distance item, Type output) when output == typeof(double) => Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: key, query: ConformancePair<TGeometry, TPrimitive, TNativeGeometry, TNativePrimitive, double>(
-                count: item.Count, requirement: requirement, samples: samples, project: static (residuals, _) => ResidualDistances(key: Op.Of(name: nameof(Conformance)), samples: residuals).Bind(values => Many(key: Op.Of(name: nameof(Conformance)), values: values)))),
-            (Conformance.Rms item, Type output) when output == typeof(double) => Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: key, query: ConformancePair<TGeometry, TPrimitive, TNativeGeometry, TNativePrimitive, double>(
-                count: item.Count, requirement: requirement, samples: samples, project: static (residuals, _) => ResidualDistances(key: Op.Of(name: nameof(Conformance)), samples: residuals).Bind(values => Stats.From(values: values, key: Op.Of(name: nameof(Conformance)))).Bind(stats => One(key: Op.Of(name: nameof(Conformance)), value: stats.Rms)))),
-            (Conformance.WithinTolerance item, Type output) when output == typeof(bool) => Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: key, query: ConformancePair<TGeometry, TPrimitive, TNativeGeometry, TNativePrimitive, bool>(
-                count: item.Count, requirement: requirement, samples: samples, project: static (residuals, context) => ResidualDistances(key: Op.Of(name: nameof(Conformance)), samples: residuals).Bind(values => Stats.From(values: values, key: Op.Of(name: nameof(Conformance)))).Bind(stats => One(key: Op.Of(name: nameof(Conformance)), value: stats.Maximum <= context.Absolute.Value)))),
-            (Conformance.ProfileResidual item, Type output) when output == typeof(ResidualProfile) => Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: key, query: ConformancePair<TGeometry, TPrimitive, TNativeGeometry, TNativePrimitive, ResidualProfile>(
-                count: item.Count, requirement: requirement, samples: samples, project: static (residuals, context) => ResidualDistances(key: Op.Of(name: nameof(Conformance)), samples: residuals)
+            (Conformance.Distance item, Type output) when output == typeof(double) => Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: key, query: ConformancePair<TGeometry, TPrimitive, double>(
+                count: item.Count, requirement: requirement, project: static (residuals, _) => ResidualDistances(key: Op.Of(name: nameof(Conformance)), samples: residuals).Bind(values => Many(key: Op.Of(name: nameof(Conformance)), values: values)))),
+            (Conformance.Rms item, Type output) when output == typeof(double) => Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: key, query: ConformancePair<TGeometry, TPrimitive, double>(
+                count: item.Count, requirement: requirement, project: static (residuals, _) => ResidualDistances(key: Op.Of(name: nameof(Conformance)), samples: residuals).Bind(values => Stats.From(values: values, key: Op.Of(name: nameof(Conformance)))).Bind(stats => One(key: Op.Of(name: nameof(Conformance)), value: stats.Rms)))),
+            (Conformance.WithinTolerance item, Type output) when output == typeof(bool) => Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: key, query: ConformancePair<TGeometry, TPrimitive, bool>(
+                count: item.Count, requirement: requirement, project: static (residuals, context) => ResidualDistances(key: Op.Of(name: nameof(Conformance)), samples: residuals).Bind(values => Stats.From(values: values, key: Op.Of(name: nameof(Conformance)))).Bind(stats => One(key: Op.Of(name: nameof(Conformance)), value: stats.Maximum <= context.Absolute.Value)))),
+            (Conformance.ProfileResidual item, Type output) when output == typeof(ResidualProfile) => Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: key, query: ConformancePair<TGeometry, TPrimitive, ResidualProfile>(
+                count: item.Count, requirement: requirement, project: static (residuals, context) => ResidualDistances(key: Op.Of(name: nameof(Conformance)), samples: residuals)
                     .Bind(values => Stats.From(values: values, key: Op.Of(name: nameof(Conformance))))
                     .Bind(stats => One(key: Op.Of(name: nameof(Conformance)), value: new ResidualProfile(Count: stats.Count, Minimum: stats.Minimum, Maximum: stats.Maximum, Mean: stats.Mean, Variance: stats.Variance, Rms: stats.Rms, Tolerance: context.Absolute.Value, WithinTolerance: stats.Maximum <= context.Absolute.Value))))),
-            (Conformance.Maximum item, Type output) when output == typeof(ResidualSample) => Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: key, query: ConformancePair<TGeometry, TPrimitive, TNativeGeometry, TNativePrimitive, ResidualSample>(
-                count: item.Count, requirement: requirement, samples: samples, project: static (residuals, _) => residuals
+            (Conformance.Maximum item, Type output) when output == typeof(ResidualSample) => Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: key, query: ConformancePair<TGeometry, TPrimitive, ResidualSample>(
+                count: item.Count, requirement: requirement, project: static (residuals, _) => residuals
                     .TraverseM(static sample => sample switch {
                         { Distance: double d, Location.IsValid: true } when d >= 0.0 && RhinoMath.IsValidDouble(x: d) => Fin.Succ(sample),
                         _ => Fin.Fail<ResidualSample>(Op.Of(name: nameof(Conformance)).InvalidResult()),
@@ -143,42 +140,18 @@ public static partial class Query {
             _ => key.Unsupported<(TGeometry Geometry, TPrimitive Primitive), TOut>(),
         };
     }
-    private static Query<(TGeometry Geometry, TPrimitive Primitive), TValue> ConformancePair<TGeometry, TPrimitive, TNativeGeometry, TNativePrimitive, TValue>(
-        int count, Requirement requirement,
-        Func<TNativeGeometry, TNativePrimitive, int, Context, Fin<Seq<ResidualSample>>> samples,
-        Func<Seq<ResidualSample>, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull where TPrimitive : notnull where TNativeGeometry : notnull where TNativePrimitive : notnull =>
+    private static Query<(TGeometry Geometry, TPrimitive Primitive), TValue> ConformancePair<TGeometry, TPrimitive, TValue>(int count, Requirement requirement, Func<Seq<ResidualSample>, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull where TPrimitive : notnull =>
         Query<(TGeometry Geometry, TPrimitive Primitive), TValue>.Build(
             key: Op.Of(name: nameof(Conformance)), requiresContext: true,
-            state: (Op: Op.Of(name: nameof(Conformance)), Count: count, Requirement: requirement, Samples: samples, Project: project),
-            evaluator: static (state, geometry) => from context in Analyze.Asks
-                                                   from validated in context.ValidatePair(a: geometry.Geometry, b: geometry.Primitive, requirementA: state.Requirement, requirementB: Requirement.None)
-                                                       .ToEff()
-                                                   from result in ((validated.A, validated.B) switch {
-                                                       (TNativeGeometry native, TNativePrimitive primitive) => state.Samples(arg1: native, arg2: primitive, arg3: state.Count, arg4: context).Bind(values => state.Project(arg1: values, arg2: context)),
-                                                       _ => Fin.Fail<Seq<TValue>>(state.Op.Unsupported(geometryType: typeof((TGeometry Geometry, TPrimitive Primitive)), outputType: typeof(TValue))),
-                                                   }).ToEff()
-                                                   select result);
-    internal static Fin<Seq<ResidualSample>> CurvePrimitiveSamples<TPrimitive>(Curve geometry, TPrimitive primitive, int count, Context context, Func<TPrimitive, Point3d, double> distance) where TPrimitive : notnull {
-        Op key = Op.Of(name: nameof(Conformance));
-        return Fractions(count: count, key: key)
-            .Bind(fractions => Optional(geometry.NormalizedLengthParameters(s: [.. fractions.AsIterable()], absoluteTolerance: context.Absolute.Value, fractionalTolerance: context.Relative.Value))
-                .ToFin(key.InvalidResult())
-                .Map(parameters => toSeq(parameters).Map(geometry.PointAt)))
-            .Bind(points => ResidualSamples(points: points, primitive: primitive, context: context, distance: distance));
-    }
-    internal static Fin<Seq<ResidualSample>> SurfacePrimitiveSamples<TPrimitive>(Surface geometry, TPrimitive primitive, int count, Context context, Func<TPrimitive, Point3d, double> distance) where TPrimitive : notnull {
-        Op key = Op.Of(name: nameof(Conformance));
-        return (Samples(domain: geometry.Domain(direction: 0), count: count, key: key),
-                Samples(domain: geometry.Domain(direction: 1), count: count, key: key))
-            .Apply(static (u, v) => (U: u, V: v)).As()
-            .Bind(samples => ResidualSamples(points: samples.U.Bind(u => samples.V.Map(v => geometry.PointAt(u: u, v: v))), primitive: primitive, context: context, distance: distance));
-    }
-    private static Fin<Seq<ResidualSample>> ResidualSamples<TPrimitive>(Seq<Point3d> points, TPrimitive primitive, Context context, Func<TPrimitive, Point3d, double> distance) where TPrimitive : notnull =>
-        Fin.Succ(toSeq(points.AsIterable().Select((point, index) => new ResidualSample(
-            Index: index, Location: point,
-            Distance: distance(arg1: primitive, arg2: point),
-            Tolerance: context.Absolute.Value,
-            WithinTolerance: distance(arg1: primitive, arg2: point) <= context.Absolute.Value))));
+            state: (Op: Op.Of(name: nameof(Conformance)), Count: count, Requirement: requirement, Project: project),
+            evaluator: static (state, pair) =>
+                from context in Analyze.Asks
+                from validated in context.ValidatePair(a: pair.Geometry, b: pair.Primitive, requirementA: state.Requirement, requirementB: Requirement.None).ToEff()
+                from kindG in ((object)validated.A).Kind(ctx: context).ToEff()
+                from kindP in ((object)validated.B).Kind(ctx: context).ToEff()
+                from residuals in kindG.Conformance(kindP: kindP, geometry: validated.A, primitive: validated.B, count: state.Count, ctx: context, op: state.Op).ToEff()
+                from result in state.Project(arg1: residuals, arg2: context).ToEff()
+                select result);
     private static Fin<Seq<double>> ResidualDistances(Op key, Seq<ResidualSample> samples) =>
         samples.TraverseM(sample => sample switch {
             { Distance: double distance, Location.IsValid: true } when distance >= 0.0 && RhinoMath.IsValidDouble(x: distance) => Fin.Succ(distance),
@@ -249,16 +222,8 @@ internal static class ConformanceRole {
         return (aspect, typeof(TGeometry), typeof(TPrimitive)) switch {
             (Conformance.Distance { Count: <= 0 } or Conformance.Rms { Count: <= 0 } or Conformance.WithinTolerance { Count: <= 0 } or Conformance.ProfileResidual { Count: <= 0 } or Conformance.Maximum { Count: <= 0 }, _, _) =>
                 Query<(TGeometry Geometry, TPrimitive Primitive), TOut>.Reject(key: key, fault: key.InvalidInput()),
-            (_, Type geometry, Type primitive) when typeof(Curve).IsAssignableFrom(c: geometry) && primitive == typeof(Line) => Query.ConformanceCases<TGeometry, TPrimitive, TOut, Curve, Line>(
-                aspect: aspect, requirement: Requirement.CurveLength, samples: static (g, p, count, context) => Query.CurvePrimitiveSamples(geometry: g, primitive: p, count: count, context: context, distance: static (line, point) => point.DistanceTo(other: line.ClosestPoint(testPoint: point, limitToFiniteSegment: false)))),
-            (_, Type geometry, Type primitive) when typeof(Curve).IsAssignableFrom(c: geometry) && primitive == typeof(Circle) => Query.ConformanceCases<TGeometry, TPrimitive, TOut, Curve, Circle>(
-                aspect: aspect, requirement: Requirement.CurveLength, samples: static (g, p, count, context) => Query.CurvePrimitiveSamples(geometry: g, primitive: p, count: count, context: context, distance: static (circle, point) => point.DistanceTo(other: circle.ClosestPoint(testPoint: point)))),
-            (_, Type geometry, Type primitive) when typeof(Curve).IsAssignableFrom(c: geometry) && primitive == typeof(Arc) => Query.ConformanceCases<TGeometry, TPrimitive, TOut, Curve, Arc>(
-                aspect: aspect, requirement: Requirement.CurveLength, samples: static (g, p, count, context) => Query.CurvePrimitiveSamples(geometry: g, primitive: p, count: count, context: context, distance: static (arc, point) => point.DistanceTo(other: arc.ClosestPoint(testPoint: point)))),
-            (_, Type geometry, Type primitive) when typeof(Surface).IsAssignableFrom(c: geometry) && primitive == typeof(Plane) => Query.ConformanceCases<TGeometry, TPrimitive, TOut, Surface, Plane>(
-                aspect: aspect, requirement: Requirement.SurfaceEvaluation, samples: static (g, p, count, context) => Query.SurfacePrimitiveSamples(geometry: g, primitive: p, count: count, context: context, distance: static (plane, point) => Math.Abs(value: plane.DistanceTo(testPoint: point)))),
-            (_, Type geometry, Type primitive) when typeof(Surface).IsAssignableFrom(c: geometry) && primitive == typeof(Sphere) => Query.ConformanceCases<TGeometry, TPrimitive, TOut, Surface, Sphere>(
-                aspect: aspect, requirement: Requirement.SurfaceEvaluation, samples: static (g, p, count, context) => Query.SurfacePrimitiveSamples(geometry: g, primitive: p, count: count, context: context, distance: static (sphere, point) => point.DistanceTo(other: sphere.ClosestPoint(testPoint: point)))),
+            (_, Type g, Type p) when typeof(Curve).IsAssignableFrom(c: g) && (p == typeof(Line) || p == typeof(Circle) || p == typeof(Arc)) => Query.ConformanceProject<TGeometry, TPrimitive, TOut>(aspect: aspect, requirement: Requirement.CurveLength),
+            (_, Type g, Type p) when typeof(Surface).IsAssignableFrom(c: g) && (p == typeof(Plane) || p == typeof(Sphere)) => Query.ConformanceProject<TGeometry, TPrimitive, TOut>(aspect: aspect, requirement: Requirement.SurfaceEvaluation),
             _ => key.Unsupported<(TGeometry Geometry, TPrimitive Primitive), TOut>(),
         };
     }

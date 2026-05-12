@@ -109,13 +109,16 @@ public static partial class Query {
                     select result))
             : key.Unsupported<TGeometry, TOut>();
     }
-    public static Query<TGeometry, TOut> SolidOrientation<TGeometry, TOut>() where TGeometry : notnull {
+    public static Query<TGeometry, Rasm.Domain.SolidOrientation> SolidOrientation<TGeometry>() where TGeometry : GeometryBase {
         Op key = Op.Of();
-        return (typeof(TGeometry), typeof(TOut)) switch {
-            (Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(BrepSolidOrientation) => Native<TGeometry, TOut, Brep, BrepSolidOrientation>(key: key, project: brep => One(key: key, value: brep.SolidOrientation).ToEff()),
-            (Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(int) => Native<TGeometry, TOut, Mesh, int>(key: key, project: mesh => One(key: key, value: mesh.SolidOrientation()).ToEff()),
-            _ => key.Unsupported<TGeometry, TOut>(),
-        };
+        return Query<TGeometry, Rasm.Domain.SolidOrientation>.Build(
+            key: key, requiresContext: true, state: key,
+            evaluator: static (op, geometry) =>
+                from context in Analyze.Asks
+                from kind in ((object)geometry).Kind(ctx: context).ToEff()
+                from orientation in kind.SolidOrientation(value: geometry, op: op).ToEff()
+                from result in One(key: op, value: orientation).ToEff()
+                select result);
     }
     public static Query<TGeometry, bool> IsPointInside<TGeometry>(Point3d point) where TGeometry : GeometryBase {
         Op key = Op.Of();
@@ -146,17 +149,16 @@ public static partial class Query {
     }
     public static Query<TGeometry, TOut> Components<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
-        return (typeof(TGeometry), typeof(TOut)) switch {
-            (Type geometry, Type output) when (typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(Brep)) || (typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(Mesh)) => Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, TOut>.Build(
+        return (typeof(Brep).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Brep)) || (typeof(Mesh).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Mesh))
+            ? Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, TOut>.Build(
                 key: key, requiresContext: true, state: key,
                 evaluator: static (op, geometry) =>
                     from context in Analyze.Asks
                     from kind in ((object)geometry).Kind(ctx: context).ToEff()
                     from components in kind.Components(value: geometry, ctx: context, op: op).ToEff()
                     from result in op.Results<GeometryBase, TOut>(values: components).ToEff()
-                    select result)),
-            _ => key.Unsupported<TGeometry, TOut>(),
-        };
+                    select result))
+            : key.Unsupported<TGeometry, TOut>();
     }
     public static Query<Mesh, bool> IsManifold {
         get { Op key = Op.Of(); return Query<Mesh, bool>.Build(key: key, state: key, evaluator: static (op, geometry) => One(key: op, value: geometry.IsManifold()).ToEff()); }
@@ -283,19 +285,12 @@ public static partial class Query {
     public static Eff<Env, Seq<FaceProjection>> FaceProjections(object geometry, Faces selector) {
         Op key = Op.Of(name: nameof(Faces));
         return from context in Analyze.Asks
-               from faces in DecomposeFaces(key: key, geometry: geometry).ToEff()
+               from faces in DecomposeFaces(key: key, ctx: context, geometry: geometry).ToEff()
                from chosen in SelectFaces(key: key, faces: faces, selector: selector, runtime: context).ToEff()
                select chosen;
     }
-    internal static Fin<Seq<FaceProjection>> DecomposeFaces<TGeometry>(Op key, TGeometry geometry) where TGeometry : notnull =>
-        geometry switch {
-            Brep brep => Fin.Succ(toSeq(brep.Faces.Select(static face => FaceProjection.From(face: face)))),
-            BrepFace face => Fin.Succ(Seq(FaceProjection.From(face: face))),
-            GeometryBase native when native is not Mesh && native.HasBrepForm => Optional(Brep.TryConvertBrep(geometry: native))
-                .ToFin(key.InvalidResult())
-                .Map(static brep => { using Brep disposable = brep; return toSeq(disposable.Faces.Select(static f => FaceProjection.From(face: f))); }),
-            _ => Fin.Fail<Seq<FaceProjection>>(key.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Brep))),
-        };
+    internal static Fin<Seq<FaceProjection>> DecomposeFaces<TGeometry>(Op key, Context ctx, TGeometry geometry) where TGeometry : notnull =>
+        ((object)geometry).Kind(ctx: ctx).Bind(kind => kind.Faces(value: geometry, ctx: ctx, op: key));
     internal static Fin<Seq<FaceProjection>> SelectFaces(Op key, Seq<FaceProjection> faces, Faces selector, Context runtime) => selector.Switch(
         state: (Key: key, Faces: faces, Runtime: runtime),
         allCase: static (s, _) => Fin.Succ(s.Faces),
@@ -316,7 +311,7 @@ public static partial class Query {
             key: key, state: (Key: key, Selector: selector, Transfer: transfer, Project: project), requirement: requirement, requiresContext: true,
             evaluator: static (state, geometry) =>
                 from context in Analyze.Asks
-                from faces in DecomposeFaces(key: state.Key, geometry: geometry).ToEff()
+                from faces in DecomposeFaces(key: state.Key, ctx: context, geometry: geometry).ToEff()
                 from chosen in SelectFaces(key: state.Key, faces: faces, selector: state.Selector, runtime: context).ToEff()
                 from result in ProjectOwned(all: faces, chosen: chosen, transfer: state.Transfer, project: values => state.Project(arg1: values, arg2: context)).ToEff()
                 select result));
