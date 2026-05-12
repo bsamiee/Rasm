@@ -177,7 +177,7 @@ public static class Verify {
     public static Validation<Error, (TA A, TB B)> Pair<TA, TB>(this Context context, TA a, TB b, Requirement? requirementA = null, Requirement? requirementB = null) where TA : notnull where TB : notnull =>
         (context.Apply(value: a, requirement: requirementA ?? Requirement.Strict),
          context.Apply(value: b, requirement: requirementB ?? Requirement.Strict))
-            .Apply(static (TA left, TB right) => (A: left, B: right)).As();
+            .Apply(static (left, right) => (A: left, B: right)).As();
     public static Validation<Error, Seq<T>> All<T>(this Context context, Seq<T> values, Requirement? requirement = null) where T : notnull =>
         values.Fold(
             initialState: (Acc: Fin.Succ(Seq<T>()).ToValidation(), Ctx: context, Req: requirement),

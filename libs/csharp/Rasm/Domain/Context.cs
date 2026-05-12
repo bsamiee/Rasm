@@ -9,8 +9,8 @@ public readonly partial struct AbsoluteTolerance {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
         validationError = (double.IsFinite(d: value), value > RhinoMath.ZeroTolerance) switch {
             (true, true) => null,
-            (false, _) => new ValidationError(message: $"AbsoluteTolerance must be finite (got {value})."),
-            (_, false) => new ValidationError(message: $"AbsoluteTolerance must be > {RhinoMath.ZeroTolerance}."),
+            (false, _) => new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"AbsoluteTolerance must be finite (got {value}).")),
+            (_, false) => new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"AbsoluteTolerance must be > {RhinoMath.ZeroTolerance}.")),
         };
 }
 
@@ -20,7 +20,7 @@ public readonly partial struct RelativeTolerance {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
         validationError = (double.IsFinite(d: value), value is >= 0.0 and < 1.0) switch {
             (true, true) => null,
-            _ => new ValidationError(message: $"RelativeTolerance must lie in [0,1) (got {value})."),
+            _ => new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"RelativeTolerance must lie in [0,1) (got {value}).")),
         };
 }
 
@@ -30,7 +30,7 @@ public readonly partial struct AngleTolerance {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
         validationError = (double.IsFinite(d: value), value is > RhinoMath.Epsilon and <= RhinoMath.TwoPI) switch {
             (true, true) => null,
-            _ => new ValidationError(message: $"AngleTolerance must be in (epsilon, 2*pi] radians (got {value})."),
+            _ => new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"AngleTolerance must be in (epsilon, 2*pi] radians (got {value}).")),
         };
 }
 
@@ -40,7 +40,7 @@ public readonly partial struct CustomUnitScale {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
         validationError = (double.IsFinite(d: value), value > RhinoMath.ZeroTolerance) switch {
             (true, true) => null,
-            _ => new ValidationError(message: $"CustomUnitScale must be > {RhinoMath.ZeroTolerance} (got {value})."),
+            _ => new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"CustomUnitScale must be > {RhinoMath.ZeroTolerance} (got {value}).")),
         };
 }
 
@@ -89,7 +89,7 @@ public sealed record Context {
          relative.TryCreateValidated<RelativeTolerance>(),
          angle.TryCreateValidated<AngleTolerance>(),
          scale.ToValidation())
-            .Apply(static (AbsoluteTolerance a, RelativeTolerance r, AngleTolerance n, UnitScale s) => new Context(absolute: a, relative: r, angle: n, scale: s))
+            .Apply(static (a, r, n, s) => new Context(absolute: a, relative: r, angle: n, scale: s))
             .As();
     public static Validation<Error, Context> CreateDefault(UnitSystem units) =>
         UnitScale.Create(units: units).Match(

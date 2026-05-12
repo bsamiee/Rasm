@@ -9,6 +9,7 @@ public enum Primitive { None, Line, Polyline, Circle, Arc, Ellipse, Plane, Spher
 public enum Closure { Unknown, Open, Closed }
 public enum Solidity { Unknown, Open, Solid }
 public enum IntersectionKind { Unknown = 0, Point = 1, Overlap = 2, Curve = 3 }
+public enum SolidOrientation { Unknown = 0, Outward = 1, Inward = -1 }
 public enum CurveFeature { Input, Segment, Edge, Boundary, NakedOuter, NakedInner, Interior, NonManifold, OuterLoop, InnerLoop, Iso, Silhouette, SubCurve, Draft }
 [BoundaryAdapter]
 public interface ITopologyProjection {
@@ -127,7 +128,7 @@ internal static class Coercion {
     internal static Fin<TTarget> Of<TTarget>(object source, Context ctx, Op op) => source switch {
         null => Fin.Fail<TTarget>(error: op.InvalidInput()),
         _ => (Table.GetValueOrDefault(key: (source.GetType(), typeof(TTarget))) ?? (Base(t: source.GetType()) is Type bt ? Table.GetValueOrDefault(key: (bt, typeof(TTarget))) : null)) switch {
-            Func<Context, object, Op, Fin<object>> fn => fn(arg1: ctx, arg2: source, arg3: op).Map(static (object v) => (TTarget)v),
+            Func<Context, object, Op, Fin<object>> fn => fn(arg1: ctx, arg2: source, arg3: op).Map(static v => (TTarget)v),
             _ => Fin.Fail<TTarget>(error: op.Unsupported(geometryType: source.GetType(), outputType: typeof(TTarget))),
         },
     };
@@ -192,7 +193,8 @@ internal static class Dispatch {
     }.ToFrozenDictionary();
     private static readonly Func<object, (CurveSelector, Context, Op), Fin<Seq<CurveProjection>>> CurveOrPrimitiveInput = static (g, args) => (g is Curve c ? c : g switch { Line l => (Curve?)l.ToNurbsCurve(), Polyline p => p.ToPolylineCurve(), Circle ci => ci.ToNurbsCurve(), Arc a => a.ToNurbsCurve(), _ => null }) switch { Curve native => ((args.Item1.Feature is CurveFeature.Segment or CurveFeature.SubCurve) ? Optional(args.Item1.Feature == CurveFeature.SubCurve ? native.GetSubCurves() : native.DuplicateSegments()) switch { Option<Curve[]> opt when opt.Case is Curve[] arr && arr.Length > 0 => Fin.Succ(toSeq(arr.Select((cc, i) => new CurveProjection(curve: cc, feature: args.Item1.Feature, type: ComponentIndexType.PolycurveSegment, index: i)))), _ => Optional(native.DuplicateCurve()).ToFin(Fail: args.Item3.InvalidResult()).Map(d => Seq(new CurveProjection(curve: d, feature: args.Item1.Feature, type: ComponentIndexType.PolycurveSegment, index: 0))) } : Optional(native.DuplicateCurve()).ToFin(Fail: args.Item3.InvalidResult()).Map(d => Seq(new CurveProjection(curve: d, feature: args.Item1.Feature, type: ComponentIndexType.NoType, index: 0)))).Map(seq => (g is not Curve) switch { true => fun(static (Curve n, Seq<CurveProjection> s) => { n.Dispose(); return s; })(native, seq), false => seq }), _ => Fin.Fail<Seq<CurveProjection>>(error: args.Item3.InvalidResult()) };
     private static readonly Func<object, (CurveSelector, Context, Op), Fin<Seq<CurveProjection>>> BrepEdgeHandler = static (g, args) => Fin.Succ(toSeq(((Brep)g).Edges).Where(e => (args.Item1.Feature, e.Valence) switch { (CurveFeature.Edge, _) => true, (CurveFeature.Interior, EdgeAdjacency.Interior) => true, (CurveFeature.NonManifold, EdgeAdjacency.NonManifold) => true, (CurveFeature.NakedOuter, EdgeAdjacency.Naked) => toSeq(e.TrimIndices()).Exists(t => e.Brep.Trims[t].Loop.LoopType == BrepLoopType.Outer), (CurveFeature.NakedInner, EdgeAdjacency.Naked) => toSeq(e.TrimIndices()).Exists(t => e.Brep.Trims[t].Loop.LoopType == BrepLoopType.Inner), (CurveFeature.Boundary, EdgeAdjacency.Naked) => true, _ => false }).Bind(e => Optional(e.DuplicateCurve()).Map(c => new CurveProjection(curve: c, feature: args.Item1.Feature, type: ComponentIndexType.BrepEdge, index: e.EdgeIndex)).ToSeq()));
-    private static readonly Func<object, (CurveSelector, Context, Op), Fin<Seq<CurveProjection>>> MeshEdgeHandler = static (g, args) => Fin.Succ(toSeq(Enumerable.Range(start: 0, count: ((Mesh)g).TopologyEdges.Count)).Where(i => (args.Item1.Feature, ((Mesh)g).TopologyEdges.GetConnectedFaces(topologyEdgeIndex: i).Length) switch { (CurveFeature.Edge, _) => true, (CurveFeature.Boundary or CurveFeature.NakedOuter, 1) => true, (CurveFeature.Interior, 2) => true, (CurveFeature.NonManifold, > 2) => true, _ => false }).Map(i => new CurveProjection(curve: ((Mesh)g).TopologyEdges.EdgeLine(topologyEdgeIndex: i).ToNurbsCurve(), feature: args.Item1.Feature, type: ComponentIndexType.MeshTopologyEdge, index: i)));
+    private static readonly Func<object, (CurveSelector, Context, Op), Fin<Seq<CurveProjection>>> MeshEdgeHandler = static (g, args) => Fin.Succ(toSeq(Enumerable.Range(start: 0, count: ((Mesh)g).TopologyEdges.Count)).Where(i => (args.Item1.Feature, ((Mesh)g).TopologyEdges.GetConnectedFaces(topologyEdgeIndex: i).Length) switch { (CurveFeature.Edge, _) => true, (CurveFeature.Boundary, 1) => true, (CurveFeature.Interior, 2) => true, (CurveFeature.NonManifold, > 2) => true, _ => false }).Map(i => new CurveProjection(curve: ((Mesh)g).TopologyEdges.EdgeLine(topologyEdgeIndex: i).ToNurbsCurve(), feature: args.Item1.Feature, type: ComponentIndexType.MeshTopologyEdge, index: i)));
+    private static readonly Func<object, (CurveSelector, Context, Op), Fin<Seq<CurveProjection>>> MeshNakedEdgeHandler = static (g, args) => Fin.Succ(toSeq(Optional(((Mesh)g).GetNakedEdges()).IfNone(static () => [])).Map((poly, i) => new CurveProjection(curve: poly.ToPolylineCurve(), feature: args.Item1.Feature, type: ComponentIndexType.NoType, index: i)));
     private static readonly Func<object, (CurveSelector, Context, Op), Fin<Seq<CurveProjection>>> BrepLoopHandler = static (g, args) => Fin.Succ(toSeq(((Brep)g).Loops).Where(l => (args.Item1.Feature, l.LoopType) switch { (CurveFeature.OuterLoop, BrepLoopType.Outer) => true, (CurveFeature.InnerLoop, BrepLoopType.Inner) => true, _ => false }).Bind(l => Optional(l.To3dCurve()).Map(c => new CurveProjection(curve: c, feature: args.Item1.Feature, type: ComponentIndexType.BrepLoop, index: l.LoopIndex)).ToSeq()));
     private static readonly Func<object, (CurveSelector, Context, Op), Fin<Seq<CurveProjection>>> IsoHandler = static (g, args) => g switch { Brep b => toSeq(b.Faces).TraverseM(f => IsoSeq(surface: f, iso: args.Item1.Iso.IfNone(static () => IsoStatus.X), normalized: args.Item1.Normalized.IfNone(static () => 0.5), op: args.Item3).Map(s => s.Map(c => new CurveProjection(Curve: c, Feature: args.Item1.Feature, Source: new ComponentIndex(type: ComponentIndexType.BrepFace, index: f.FaceIndex))))).As().Map(static n => n.Bind(static s => s)), Surface s => IsoSeq(surface: s, iso: args.Item1.Iso.IfNone(static () => IsoStatus.X), normalized: args.Item1.Normalized.IfNone(static () => 0.5), op: args.Item3).Map(seq => seq.Map(c => new CurveProjection(Curve: c, Feature: args.Item1.Feature, Source: new ComponentIndex(type: ComponentIndexType.NoType, index: 0)))), _ => Fin.Fail<Seq<CurveProjection>>(error: args.Item3.Unsupported(geometryType: g.GetType(), outputType: typeof(Curve))) };
     private static readonly Func<object, (CurveSelector, Context, Op), Fin<Seq<CurveProjection>>> SilhouetteHandler = static (g, args) => g switch { GeometryBase native when args.Item1.Direction.IfNone(static () => Vector3d.ZAxis) is { IsValid: true } dir && !dir.IsTiny() => Optional((args.Item1.Feature == CurveFeature.Draft ? Some(args.Item1.Angle.IfNone(static () => 0.0)) : None).Case switch { double angle => Silhouette.ComputeDraftCurve(geometry: native, draftAngle: angle, pullDirection: dir, tolerance: args.Item2.Absolute.Value, angleToleranceRadians: args.Item2.Angle.Value, cancelToken: CancellationToken.None), _ => Silhouette.Compute(geometry: native, silhouetteType: SilhouetteType.Projecting | SilhouetteType.TangentProjects | SilhouetteType.Tangent | SilhouetteType.Crease | SilhouetteType.Boundary, parallelCameraDirection: dir, tolerance: args.Item2.Absolute.Value, angleToleranceRadians: args.Item2.Angle.Value, clippingPlanes: [], cancelToken: CancellationToken.None) }).ToFin(Fail: args.Item3.InvalidResult()).Map(arr => toSeq(arr).Map(sil => new CurveProjection(Curve: sil.Curve, Feature: args.Item1.Feature, Source: sil.GeometryComponentIndex))), _ => Fin.Fail<Seq<CurveProjection>>(error: args.Item3.Unsupported(geometryType: g.GetType(), outputType: typeof(Curve))) };
@@ -202,7 +204,7 @@ internal static class Dispatch {
         [(typeof(Curve), CurveFeature.Input)] = CurveOrPrimitiveInput, [(typeof(Curve), CurveFeature.Boundary)] = CurveOrPrimitiveInput, [(typeof(Curve), CurveFeature.Segment)] = CurveOrPrimitiveInput, [(typeof(Curve), CurveFeature.SubCurve)] = CurveOrPrimitiveInput,
         [(typeof(Line), CurveFeature.Input)] = CurveOrPrimitiveInput, [(typeof(Polyline), CurveFeature.Input)] = CurveOrPrimitiveInput, [(typeof(Polyline), CurveFeature.Segment)] = CurveOrPrimitiveInput, [(typeof(Circle), CurveFeature.Input)] = CurveOrPrimitiveInput, [(typeof(Arc), CurveFeature.Input)] = CurveOrPrimitiveInput,
         [(typeof(Brep), CurveFeature.Edge)] = BrepEdgeHandler, [(typeof(Brep), CurveFeature.Boundary)] = BrepEdgeHandler, [(typeof(Brep), CurveFeature.NakedOuter)] = BrepEdgeHandler, [(typeof(Brep), CurveFeature.NakedInner)] = BrepEdgeHandler, [(typeof(Brep), CurveFeature.Interior)] = BrepEdgeHandler, [(typeof(Brep), CurveFeature.NonManifold)] = BrepEdgeHandler,
-        [(typeof(Mesh), CurveFeature.Edge)] = MeshEdgeHandler, [(typeof(Mesh), CurveFeature.Boundary)] = MeshEdgeHandler, [(typeof(Mesh), CurveFeature.NakedOuter)] = MeshEdgeHandler, [(typeof(Mesh), CurveFeature.Interior)] = MeshEdgeHandler, [(typeof(Mesh), CurveFeature.NonManifold)] = MeshEdgeHandler,
+        [(typeof(Mesh), CurveFeature.Edge)] = MeshEdgeHandler, [(typeof(Mesh), CurveFeature.Boundary)] = MeshEdgeHandler, [(typeof(Mesh), CurveFeature.NakedOuter)] = MeshNakedEdgeHandler, [(typeof(Mesh), CurveFeature.Interior)] = MeshEdgeHandler, [(typeof(Mesh), CurveFeature.NonManifold)] = MeshEdgeHandler,
         [(typeof(Brep), CurveFeature.OuterLoop)] = BrepLoopHandler, [(typeof(Brep), CurveFeature.InnerLoop)] = BrepLoopHandler, [(typeof(Brep), CurveFeature.Iso)] = IsoHandler, [(typeof(Surface), CurveFeature.Iso)] = IsoHandler,
         [(typeof(Brep), CurveFeature.Silhouette)] = SilhouetteHandler, [(typeof(Mesh), CurveFeature.Silhouette)] = SilhouetteHandler, [(typeof(Surface), CurveFeature.Silhouette)] = SilhouetteHandler, [(typeof(SubD), CurveFeature.Silhouette)] = SilhouetteHandler, [(typeof(Brep), CurveFeature.Draft)] = SilhouetteHandler, [(typeof(Mesh), CurveFeature.Draft)] = SilhouetteHandler, [(typeof(Surface), CurveFeature.Draft)] = SilhouetteHandler, [(typeof(SubD), CurveFeature.Draft)] = SilhouetteHandler,
         [(typeof(Surface), CurveFeature.Boundary)] = SurfaceBoundaryHandler, [(typeof(SubD), CurveFeature.Edge)] = SubdEdgeHandler, [(typeof(SubD), CurveFeature.Segment)] = SubdEdgeHandler,
@@ -272,6 +274,78 @@ public static class KindRole {
     public static Fin<IntersectionResult> Intersect(this Kind a, Kind b, object valueA, object valueB, Context ctx, Op op, IProgress<double>? progress = null, CancellationToken cancel = default) { ArgumentNullException.ThrowIfNull(argument: valueA); ArgumentNullException.ThrowIfNull(argument: valueB); return Dispatch.ResolvePair(table: Dispatch.IntersectTable, left: valueA, right: valueB, args: (ctx, op, cancel, progress), op: op); }
     public static Fin<bool> Contains(this Kind kind, object value, Point3d target, Context ctx, Op op) { ArgumentNullException.ThrowIfNull(argument: value); ArgumentNullException.ThrowIfNull(argument: ctx); return (target.IsValid, value) switch { (false, _) => Fin.Fail<bool>(error: op.InvalidInput()), (true, Brep b) => Fin.Succ(b.IsPointInside(point: target, tolerance: ctx.Absolute.Value, strictlyIn: false)), (true, Mesh m) => Fin.Succ(m.IsPointInside(point: target, tolerance: ctx.Absolute.Value, strictlyIn: false)), _ => Fin.Fail<bool>(error: op.Unsupported(geometryType: value.GetType(), outputType: typeof(bool))) }; }
     public static Fin<TTarget> Coerce<TTarget>(this Kind kind, object value, Context ctx, Op op) => Coercion.Of<TTarget>(source: value, ctx: ctx, op: op);
+    public static Fin<SolidOrientation> SolidOrientation(this Kind kind, object value, Op op) {
+        ArgumentNullException.ThrowIfNull(argument: value);
+        return value switch {
+            Brep b => Fin.Succ((SolidOrientation)(int)b.SolidOrientation),
+            Mesh m => Fin.Succ((SolidOrientation)m.SolidOrientation()),
+            _ => Fin.Fail<SolidOrientation>(error: op.Unsupported(geometryType: value.GetType(), outputType: typeof(SolidOrientation))),
+        };
+    }
+    public static Fin<double> Length(this Kind kind, object value, Context ctx, Op op) {
+        ArgumentNullException.ThrowIfNull(argument: value);
+        ArgumentNullException.ThrowIfNull(argument: ctx);
+        return value switch {
+            Line { IsValid: true } l => Fin.Succ(l.Length),
+            Line => Fin.Fail<double>(error: op.InvalidInput()),
+            Polyline { IsValid: true } p => Fin.Succ(p.Length),
+            Polyline => Fin.Fail<double>(error: op.InvalidInput()),
+            Curve c => c.GetLength(fractionalTolerance: ctx.Relative.Value) switch {
+                double l when RhinoMath.IsValidDouble(x: l) && l >= 0.0 => Fin.Succ(l),
+                _ => Fin.Fail<double>(error: op.InvalidResult()),
+            },
+            _ => Fin.Fail<double>(error: op.Unsupported(geometryType: value.GetType(), outputType: typeof(double))),
+        };
+    }
+    public static Fin<SegmentResult> Segments(this Kind kind, object value, Op op) {
+        ArgumentNullException.ThrowIfNull(argument: value);
+        return value switch {
+            Polyline p => Fin.Succ<SegmentResult>(new SegmentResult.Lines(Values: toSeq(p.GetSegments()))),
+            Curve c => Optional(c.DuplicateSegments()).ToFin(Fail: op.InvalidResult()).Map(static arr => (SegmentResult)new SegmentResult.Curves(Values: toSeq(arr))),
+            _ => Fin.Fail<SegmentResult>(error: op.Unsupported(geometryType: value.GetType(), outputType: typeof(SegmentResult))),
+        };
+    }
+    public static Fin<Seq<FaceProjection>> Faces(this Kind kind, object value, Context ctx, Op op) {
+        ArgumentNullException.ThrowIfNull(argument: value);
+        return value switch {
+            Brep b => Fin.Succ(toSeq(b.Faces.Cast<BrepFace>().Select(static f => FaceProjection.From(face: f)))),
+            BrepFace bf => Fin.Succ(Seq(FaceProjection.From(face: bf))),
+            GeometryBase gb when gb.HasBrepForm => Optional(Brep.TryConvertBrep(geometry: gb)).ToFin(Fail: op.InvalidResult()).Bind(b => { using Brep d = b; return Faces(kind: kind, value: d, ctx: ctx, op: op); }),
+            _ => Fin.Fail<Seq<FaceProjection>>(error: op.Unsupported(geometryType: value.GetType(), outputType: typeof(Seq<FaceProjection>))),
+        };
+    }
+    public static Fin<Seq<ResidualSample>> Conformance(this Kind kindG, Kind kindP, object geometry, object primitive, int count, Context ctx, Op op) {
+        ArgumentNullException.ThrowIfNull(argument: geometry);
+        ArgumentNullException.ThrowIfNull(argument: primitive);
+        ArgumentNullException.ThrowIfNull(argument: ctx);
+        return (geometry, primitive) switch {
+            (Curve c, Line l) => SampleCurveAgainst(curve: c, primitive: l, count: count, ctx: ctx, op: op, distance: static (line, p) => p.DistanceTo(other: line.ClosestPoint(testPoint: p, limitToFiniteSegment: false))),
+            (Curve c, Circle k) => SampleCurveAgainst(curve: c, primitive: k, count: count, ctx: ctx, op: op, distance: static (circle, p) => p.DistanceTo(other: circle.ClosestPoint(testPoint: p))),
+            (Curve c, Arc a) => SampleCurveAgainst(curve: c, primitive: a, count: count, ctx: ctx, op: op, distance: static (arc, p) => p.DistanceTo(other: arc.ClosestPoint(testPoint: p))),
+            (Surface s, Plane pl) => SampleSurfaceAgainst(surface: s, primitive: pl, count: count, ctx: ctx, op: op, distance: static (plane, p) => Math.Abs(value: plane.DistanceTo(testPoint: p))),
+            (Surface s, Sphere sp) => SampleSurfaceAgainst(surface: s, primitive: sp, count: count, ctx: ctx, op: op, distance: static (sphere, p) => p.DistanceTo(other: sphere.ClosestPoint(testPoint: p))),
+            _ => Fin.Fail<Seq<ResidualSample>>(error: op.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Seq<ResidualSample>))),
+        };
+    }
+    private static Seq<double> Fractions(int count) => count switch {
+        1 => Seq(0.5),
+        > 1 => toSeq(Enumerable.Range(start: 0, count: count).Select(i => i / (count - 1.0))),
+        _ => Seq<double>(),
+    };
+    private static Seq<ResidualSample> Residuals<TPrimitive>(Seq<Point3d> points, TPrimitive primitive, Context ctx, Func<TPrimitive, Point3d, double> distance) where TPrimitive : notnull =>
+        toSeq(points.AsIterable().Select((p, i) => distance(arg1: primitive, arg2: p) switch {
+            double d => new ResidualSample(Index: i, Location: p, Distance: d, Tolerance: ctx.Absolute.Value, WithinTolerance: d <= ctx.Absolute.Value),
+        }));
+    private static Fin<Seq<ResidualSample>> SampleCurveAgainst<TPrimitive>(Curve curve, TPrimitive primitive, int count, Context ctx, Op op, Func<TPrimitive, Point3d, double> distance) where TPrimitive : notnull =>
+        Fractions(count: count) switch {
+            Seq<double> { IsEmpty: true } => Fin.Fail<Seq<ResidualSample>>(error: op.InvalidInput()),
+            Seq<double> fs => Optional(curve.NormalizedLengthParameters(s: [.. fs.AsIterable()], absoluteTolerance: ctx.Absolute.Value, fractionalTolerance: ctx.Relative.Value)).ToFin(Fail: op.InvalidResult()).Map(ps => Residuals(points: toSeq(ps).Map(curve.PointAt), primitive: primitive, ctx: ctx, distance: distance)),
+        };
+    private static Fin<Seq<ResidualSample>> SampleSurfaceAgainst<TPrimitive>(Surface surface, TPrimitive primitive, int count, Context ctx, Op op, Func<TPrimitive, Point3d, double> distance) where TPrimitive : notnull =>
+        (surface.Domain(direction: 0), surface.Domain(direction: 1), Fractions(count: count)) switch {
+            ( { IsValid: true } u, { IsValid: true } v, Seq<double> fs) when !fs.IsEmpty => Fin.Succ(Residuals(points: fs.Map(f => u.ParameterAt(normalizedParameter: f)).Bind(pu => fs.Map(f => v.ParameterAt(normalizedParameter: f)).Map(pv => surface.PointAt(u: pu, v: pv))), primitive: primitive, ctx: ctx, distance: distance)),
+            _ => Fin.Fail<Seq<ResidualSample>>(error: op.InvalidInput()),
+        };
 }
 [BoundaryAdapter]
 public static class MassKindRole {
@@ -294,4 +368,9 @@ public partial record IntersectionResult {
     public sealed record Polylines(Seq<Polyline> Values, Seq<IntersectionKind> Kinds) : IntersectionResult;
     public sealed record Events(Seq<IntersectionEvent> Values) : IntersectionResult;
     public sealed record Mixed(Seq<Curve> CurveValues, Seq<Point3d> PointValues) : IntersectionResult;
+}
+[Union]
+public partial record SegmentResult {
+    public sealed record Lines(Seq<Line> Values) : SegmentResult;
+    public sealed record Curves(Seq<Curve> Values) : SegmentResult;
 }

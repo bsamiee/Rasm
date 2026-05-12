@@ -40,11 +40,11 @@ public abstract class Plugin : GhPlugin {
             .Map(pair => $"{spec.FullName}: [Output] property '{pair.Property.Name}' must return IOutputGroup (found {pair.Property.PropertyType.Name})");
         Seq<string> codeDuplicates = toSeq(inputs.Concat(outputs)
             .GroupBy(keySelector: static port => port.Code, comparer: StringComparer.Ordinal)
-            .Where(static group => group.Count() > 1)
+            .Where(static group => group.Skip(1).Any())
             .Select(group => $"{spec.FullName}: duplicate port code '{group.Key}' on {string.Join(separator: ", ", values: group.Select(static port => port.Name))}"));
         Seq<string> nameDuplicates = toSeq(inputs.Concat(outputs)
             .GroupBy(keySelector: static port => port.Name, comparer: StringComparer.Ordinal)
-            .Where(static group => group.Count() > 1)
+            .Where(static group => group.Skip(1).Any())
             .Select(group => $"{spec.FullName}: duplicate port name '{group.Key}' on codes {string.Join(separator: ", ", values: group.Select(static port => port.Code))}"));
         return structuralFaults.Concat(returnTypeFaults).Concat(codeDuplicates).Concat(nameDuplicates).ToSeq();
     }

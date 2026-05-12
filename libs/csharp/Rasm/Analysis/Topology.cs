@@ -309,7 +309,7 @@ public static partial class Query {
             _ => state.Faces.Traverse(face => FaceCentroid(face: face, runtime: state.Runtime).Map(point => (face, Score: new Vector3d(x: point.X, y: point.Y, z: point.Z) * axis))).As()
                 .Map(ranked => descending
                     ? ranked.Maxima(projection: static item => item.Score, tolerance: state.Runtime.Absolute.Value * axis.Length).Map(static item => item.face)
-                    : ranked.Minima(projection: static item => item.Score, tolerance: state.Runtime.Absolute.Value * axis.Length).Map(static item => item.face))
+                    : ranked.Minima(projection: static item => item.Score, tolerance: state.Runtime.Absolute.Value * axis.Length).Map(static item => item.face)),
         };
     internal static Query<TGeometry, TOut> FaceQuery<TGeometry, TOut, TValue>(Op key, Faces selector, Requirement requirement, bool transfer, Func<Seq<FaceProjection>, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull =>
         Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, TValue>.Build(
