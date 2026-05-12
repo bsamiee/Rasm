@@ -14,11 +14,33 @@ public readonly record struct Shape {
     public const string Accepted = "Rhino/GH geometry convertible through native RhinoCommon or GH2 brokers";
     public static Fin<Shape> Create(object? value) =>
         Optional(value)
-            .ToFin(Error.New(message: $"Shape is required. Connect: {Accepted}."))
+            .ToFin(new BridgeFault.ShapeRequired())
             .Bind(static raw => raw switch {
                 Shape shape => Fin.Succ(shape),
                 _ => Op.Create(value: nameof(Shape)).RequireValid(value: raw).Map(static valid => new Shape(inner: valid)),
             });
+}
+
+// --- [ERRORS] ---------------------------------------------------------------------------
+[Union]
+internal abstract partial record BridgeFault : Error {
+    private BridgeFault() { }
+    public override bool IsExpected => true;
+    public override bool IsExceptional => false;
+    public override ErrorException ToErrorException() => new WrappedErrorExpectedException(this);
+    internal abstract string Category { get; }
+    internal sealed record ShapeRequired : BridgeFault {
+        public override string Message => $"Shape is required. Connect: {Shape.Accepted}.";
+        internal override string Category => "Input";
+    }
+    internal sealed record InputRequired(string PortName, string? Hint = null) : BridgeFault {
+        public override string Message => Hint is null ? $"{PortName} input is required." : $"{PortName} input is required. Connect: {Hint}.";
+        internal override string Category => "Input";
+    }
+    internal sealed record UnsupportedAccess(Access Access) : BridgeFault {
+        public override string Message => $"Unsupported input access: {Access}.";
+        internal override string Category => "Access";
+    }
 }
 
 // --- [SERVICES] -------------------------------------------------------------------------
@@ -42,7 +64,7 @@ public static class Bridge {
         return Read<object>(access: access, slot: slot, port: port)
             .Bind(values => values.Head
                 .Bind(sourced => NormalizeShape(raw: sourced.Value).Map(shape => new Sourced<Shape>(Value: shape, Meta: sourced.Meta)))
-                .ToFin(Error.New(message: $"{port.Name} input is required. Connect: {Shape.Accepted}.")));
+                .ToFin(new BridgeFault.InputRequired(PortName: port.Name, Hint: Shape.Accepted)));
     }
     internal static Fin<Seq<Sourced<TVal>>> Read<TVal>(this IDataAccess access, int slot, IPort port) {
         ArgumentNullException.ThrowIfNull(argument: access);
@@ -62,7 +84,7 @@ public static class Bridge {
                 true => Fin.Succ(toSeq(tree.NonNullPears).Map(static pear => new Sourced<TVal>(Value: pear.Item, Meta: pear.Meta))),
                 _ => Missing<TVal>(port: port),
             },
-            _ => Fin.Fail<Seq<Sourced<TVal>>>(Error.New(message: $"Unsupported input access: {port.Access}.")),
+            _ => Fin.Fail<Seq<Sourced<TVal>>>(new BridgeFault.UnsupportedAccess(Access: port.Access)),
         };
     }
     private static readonly Action NoOp = static () => { };
@@ -88,7 +110,7 @@ public static class Bridge {
     private static Fin<Seq<Sourced<TVal>>> Missing<TVal>(IPort port) =>
         port.Requirement switch {
             Grasshopper2.Parameters.Requirement.MayBeMissing => Fin.Succ(Seq<Sourced<TVal>>()),
-            _ => Fin.Fail<Seq<Sourced<TVal>>>(Error.New(message: $"{port.Name} input is required.")),
+            _ => Fin.Fail<Seq<Sourced<TVal>>>(new BridgeFault.InputRequired(PortName: port.Name)),
         };
     internal static Seq<Func<object, Option<Shape>>> ShapeBrokers { get; } = Seq<Func<object, Option<Shape>>>(
         static raw => AsShape(value: raw),

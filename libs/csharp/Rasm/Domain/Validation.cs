@@ -210,6 +210,8 @@ internal static class FaultExtensions {
             Fault.PrimitiveNoVertices => "Primitive",
             Fault.MissingGeometry => "Geometry",
             Fault.InvalidGeometry => "Geometry",
+            ContextFault.MissingDocument or ContextFault.MissingCustomUnitScale or ContextFault.InvalidUnitSystem => "Context",
+            ContextFault.NonFinite or ContextFault.OutOfRange => "Tolerance",
             _ => "Fault",
         };
 }

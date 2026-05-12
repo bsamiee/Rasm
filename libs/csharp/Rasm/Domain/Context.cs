@@ -42,7 +42,7 @@ public sealed record Context {
     [BoundaryAdapter]
     public static Validation<Error, Context> FromDocument(RhinoDoc? doc) =>
         Optional(doc)
-            .ToValidation(ContextFault.MissingDocument())
+            .ToValidation<Error>(new ContextFault.MissingDocument())
             .Bind(static candidate => Create(
                     absoluteTolerance: candidate.ModelAbsoluteTolerance, relativeTolerance: candidate.ModelRelativeTolerance, angleToleranceRadians: candidate.ModelAngleToleranceRadians, unitScale: candidate.ModelUnitSystem switch {
                         UnitSystem.CustomUnits => candidate.GetCustomUnitSystem(
@@ -50,7 +50,7 @@ public sealed record Context {
                                 true => Tolerance.CustomUnitScale(candidate: metersPerCustomUnit)
                                     .Bind(static customUnitScale => UnitScale.FromModelUnits(
                                         units: UnitSystem.CustomUnits, metersPerUnit: customUnitScale)),
-                                false => Fin.Fail<UnitScale>(ContextFault.MissingCustomUnitScale()),
+                                false => Fin.Fail<UnitScale>(new ContextFault.MissingCustomUnitScale()),
                             },
                         _ => UnitScale.Create(units: candidate.ModelUnitSystem),
                     }));
@@ -84,16 +84,16 @@ public sealed record Context {
         internal double MetersPerUnit { get; }
         internal static Fin<UnitScale> Create(UnitSystem units) => units switch {
             UnitSystem.CustomUnits => Fin.Fail<UnitScale>(
-                ContextFault.InvalidUnitSystem(
-                    units: units, requirement: "custom units require meters-per-unit metadata")),
+                new ContextFault.InvalidUnitSystem(
+                    Units: units, Requirement: "custom units require meters-per-unit metadata")),
             UnitSystem.Unset or UnitSystem.None => Fin.Fail<UnitScale>(
-                ContextFault.InvalidUnitSystem(
-                    units: units, requirement: "must be a Rhino model unit system")),
+                new ContextFault.InvalidUnitSystem(
+                    Units: units, Requirement: "must be a Rhino model unit system")),
             _ => RhinoMath.MetersPerUnit(units: units) switch {
                 double meters when RhinoMath.IsValidDouble(x: meters) && meters > RhinoMath.ZeroTolerance => Fin.Succ(new UnitScale(units: units, metersPerUnit: meters)),
                 _ => Fin.Fail<UnitScale>(
-                    ContextFault.InvalidUnitSystem(
-                        units: units, requirement: "must resolve to a positive finite meter scale")),
+                    new ContextFault.InvalidUnitSystem(
+                        Units: units, Requirement: "must resolve to a positive finite meter scale")),
             },
         };
         internal static Fin<UnitScale> FromModelUnits(UnitSystem units, Tolerance metersPerUnit) => units switch {
@@ -111,23 +111,33 @@ public sealed record Context {
         internal static Fin<Tolerance> Angle(double candidate) => Create(candidate: candidate, label: "AngleTolerance", accepts: static c => c is > RhinoMath.Epsilon and <= RhinoMath.TwoPI, requirement: "in the range (epsilon, 2*pi] radians");
         internal static Fin<Tolerance> CustomUnitScale(double candidate) => Create(candidate: candidate, label: "CustomUnitScale", accepts: static c => c > RhinoMath.ZeroTolerance, requirement: "greater than Rhino zero tolerance");
         internal static Fin<Tolerance> Create(double candidate, string label, Func<double, bool> accepts, string requirement) => (RhinoMath.IsValidDouble(candidate), accepts(arg: candidate)) switch {
-            (false, _) => Fin.Fail<Tolerance>(ContextFault.NonFinite(label: label, scalar: candidate)),
-            (_, false) => Fin.Fail<Tolerance>(ContextFault.OutOfRange(label: label, scalar: candidate, requirement: requirement)),
+            (false, _) => Fin.Fail<Tolerance>(new ContextFault.NonFinite(Label: label, Scalar: candidate)),
+            (_, false) => Fin.Fail<Tolerance>(new ContextFault.OutOfRange(Label: label, Scalar: candidate, Requirement: requirement)),
             _ => Fin.Succ(new Tolerance(value: candidate)),
         };
     }
 }
-internal static class ContextFault {
-    internal static Error NonFinite(string label, double scalar) =>
-        Error.New(message: string.Create(
-            provider: CultureInfo.InvariantCulture,
-            $"Geometry value '{label}' must be finite; actual={scalar:R}."));
-    internal static Error OutOfRange(string label, double scalar, string requirement) =>
-        Error.New(message: string.Create(
-            provider: CultureInfo.InvariantCulture,
-            $"Geometry value '{label}' must be {requirement}; actual={scalar:R}."));
-    internal static Error InvalidUnitSystem(UnitSystem units, string requirement) =>
-        Error.New(message: $"Model unit system must be {requirement}; actual={units}.");
-    internal static Error MissingDocument() => Error.New(message: "Rhino document context is required.");
-    internal static Error MissingCustomUnitScale() => Error.New(message: "Rhino document custom model unit scale is required.");
+
+// --- [ERRORS] ---------------------------------------------------------------------------
+[Union]
+internal abstract partial record ContextFault : Error {
+    private ContextFault() { }
+    public override bool IsExpected => true;
+    public override bool IsExceptional => false;
+    public override ErrorException ToErrorException() => new WrappedErrorExpectedException(this);
+    internal sealed record NonFinite(string Label, double Scalar) : ContextFault {
+        public override string Message => string.Create(provider: CultureInfo.InvariantCulture, $"Geometry value '{Label}' must be finite; actual={Scalar:R}.");
+    }
+    internal sealed record OutOfRange(string Label, double Scalar, string Requirement) : ContextFault {
+        public override string Message => string.Create(provider: CultureInfo.InvariantCulture, $"Geometry value '{Label}' must be {Requirement}; actual={Scalar:R}.");
+    }
+    internal sealed record InvalidUnitSystem(UnitSystem Units, string Requirement) : ContextFault {
+        public override string Message => $"Model unit system must be {Requirement}; actual={Units}.";
+    }
+    internal sealed record MissingDocument : ContextFault {
+        public override string Message => "Rhino document context is required.";
+    }
+    internal sealed record MissingCustomUnitScale : ContextFault {
+        public override string Message => "Rhino document custom model unit scale is required.";
+    }
 }
