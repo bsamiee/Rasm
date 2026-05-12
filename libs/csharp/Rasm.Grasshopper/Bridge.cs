@@ -26,10 +26,7 @@ public static class Bridge {
             units.System
         ) switch {
             (_, _, _, not Rhino.UnitSystem.Unset) => Fin.Succ(Analyze.In(
-                absolute: absolute,
-                relative: relative,
-                angle: angle.Radians,
-                units: units.System)),
+                absolute: absolute, relative: relative, angle: angle.Radians, units: units.System)),
             _ => Remark(access: access, units: units.System),
         };
     }
@@ -37,85 +34,62 @@ public static class Bridge {
         ArgumentNullException.ThrowIfNull(argument: access);
         ArgumentNullException.ThrowIfNull(argument: port);
         return Read<object>(access: access, slot: slot, port: port)
-            .Bind(data => data.Value
-                .Bind(NormalizeShape)
+            .Bind(values => values.Head.Bind(NormalizeShape)
                 .ToFin(Error.New(message: $"{port.Name} input is required. Connect: {Shape.Accepted}.")));
     }
-    public static Fin<PortData<TVal>> Read<TVal>(this IDataAccess access, int slot, IPort port) {
+    public static Fin<Seq<TVal>> Read<TVal>(this IDataAccess access, int slot, IPort port) {
         ArgumentNullException.ThrowIfNull(argument: access);
         ArgumentNullException.ThrowIfNull(argument: port);
-        Coverage coverage = access.CoverageIn(index: slot);
         return port.Access switch {
             Access.Item => access.GetPear<TVal>(index: slot, pear: out Pear<TVal> pear) switch {
-                true => Fin.Succ(Data(values: Seq(new PortValue<TVal>(Value: pear.Item, Meta: pear.Meta, IsNull: pear.Item is null, Index: Some(0), Coverage: coverage, Path: Option<Grasshopper2.Data.Path>.None)))),
+                true when pear.Item is not null => Fin.Succ(Seq(pear.Item)),
+                true => Fin.Succ(Seq<TVal>()),
                 _ => Missing<TVal>(port: port),
             },
             Access.Twig => access.GetPears<TVal>(index: slot, pears: out Pear<TVal>[] pears) switch {
-                true when pears.Length > 0 => Fin.Succ(Data(values: Values(pears: pears, coverage: coverage))),
+                true when pears.Length > 0 => Fin.Succ(toSeq(pears).Choose(static pear => pear is { Item: not null } ? Some(pear.Item) : Option<TVal>.None)),
                 _ => Missing<TVal>(port: port),
             },
             Access.Tree => access.GetTree<TVal>(index: slot, tree: out Tree<TVal> tree) switch {
-                true => Fin.Succ(Data(values: Values(tree: tree, coverage: coverage))),
+                true => Fin.Succ(toSeq(tree.NonNullItems)),
                 _ => Missing<TVal>(port: port),
             },
-            _ => Fin.Fail<PortData<TVal>>(Error.New(message: $"Unsupported input access: {port.Access}.")),
+            _ => Fin.Fail<Seq<TVal>>(Error.New(message: $"Unsupported input access: {port.Access}.")),
         };
     }
-    internal static Unit Write<TOut>(IDataAccess access, int slot, string name, Access targetAccess, OutputValue<TOut>[] values) {
+    internal static Unit Write<TOut>(IDataAccess access, int slot, string name, Access targetAccess, Seq<TOut> values) {
         // BOUNDARY ADAPTER — GH2 SetPear/SetTwig/SetTree are void; dispatched as a single Action invoked once.
-        Coverage coverage = access.CoverageOut(index: slot);
-        Action effect = (targetAccess, values.Length) switch {
-            (Access.Item, > 0) => () => access.SetPear(index: slot, pear: values[0].Meta is MetaData meta ? Pear<TOut>.Create(item: values[0].Value!, meta: meta) : Pear<TOut>.Create(item: values[0].Value!)),
-            (Access.Twig, _) => () => access.SetTwig<TOut>(index: slot, values: [.. values.Select(static value => value.Value)], metas: [.. values.Select(static value => value.Meta ?? MetaData.Empty)], nulls: [.. values.Select(static value => value.IsNull)]),
-            (Access.Tree, _) => () => access.SetTree(index: slot, tree: Tree(access: access, values: values, coverage: coverage)),
+        Action effect = (targetAccess, values.Count) switch {
+            (Access.Item, > 0) => () => access.SetPear(index: slot, pear: Pear<TOut>.Create(item: values[0]!)),
             (Access.Item, _) => static () => { }
             ,
+            (Access.Twig, _) => () => access.SetTwig<TOut>(
+                index: slot,
+                values: [.. values],
+                metas: [.. Enumerable.Repeat(element: MetaData.Empty, count: values.Count)],
+                nulls: new bool[values.Count]),
+            (Access.Tree, _) => () => access.SetTree(
+                index: slot,
+                tree: Garden.TreeFromList(
+                    items: values.AsIterable(),
+                    metas: Enumerable.Repeat(element: MetaData.Empty, count: values.Count),
+                    nulls: new bool[values.Count]).WithPathPrefix(element: TreePrefix(access: access, slot: slot))),
             _ => () => access.AddError(text: name, details: $"Unsupported output access: {targetAccess}."),
         };
         effect();
         return Unit.Default;
     }
+    private static int TreePrefix(IDataAccess access, int slot) =>
+        access.CoverageOut(index: slot) switch { { TwigIndex: >= 0 } coverage => coverage.TwigIndex, _ => access.Index };
     private static Fin<Analyze.Scope> Remark(IDataAccess access, Rhino.UnitSystem units) {
         access.AddRemark(text: "Tolerance", details: "Host did not supply reliable tolerance; using default tolerance with document units.");
         return Fin.Succ(Analyze.In(units: units));
     }
-    private static Fin<PortData<TVal>> Missing<TVal>(IPort port) =>
+    private static Fin<Seq<TVal>> Missing<TVal>(IPort port) =>
         port.Requirement switch {
-            Grasshopper2.Parameters.Requirement.MayBeMissing => Fin.Succ(Data(values: Seq<PortValue<TVal>>())),
-            _ => Fin.Fail<PortData<TVal>>(Error.New(message: $"{port.Name} input is required.")),
+            Grasshopper2.Parameters.Requirement.MayBeMissing => Fin.Succ(Seq<TVal>()),
+            _ => Fin.Fail<Seq<TVal>>(Error.New(message: $"{port.Name} input is required.")),
         };
-    private static PortData<TVal> Data<TVal>(Seq<PortValue<TVal>> values) => new(Values: values);
-    private static Seq<PortValue<TVal>> Values<TVal>(IEnumerable<Pear<TVal>?> pears, Coverage coverage, Option<Grasshopper2.Data.Path> path = default) =>
-        toSeq(pears.Select((pear, index) => new PortValue<TVal>(
-            Value: pear is null ? default! : pear.Item,
-            Meta: pear?.Meta ?? MetaData.Empty,
-            IsNull: pear is null || pear.Item is null,
-            Index: Some(index),
-            Coverage: coverage,
-            Path: path)));
-    private static Seq<PortValue<TVal>> Values<TVal>(Tree<TVal> tree, Coverage coverage) =>
-        toSeq(tree.AllTwigs.Select((twig, index) => (Path: tree.Paths[index], Twig: twig)))
-            .Bind(branch => Values(pears: branch.Twig.Pears, coverage: coverage, path: Some(branch.Path)));
-    private static Tree<TOut> Tree<TOut>(IDataAccess access, OutputValue<TOut>[] values, Coverage coverage) =>
-        (values.Length > 0 && values.All(static value => value.Path.IsSome)) switch {
-            true => Tree(values: values),
-            false => Garden.TreeFromList(
-                items: values.Select(static value => value.Value),
-                metas: values.Select(static value => value.Meta ?? MetaData.Empty),
-                nulls: values.Select(static value => value.IsNull)).WithPathPrefix(element: coverage.TwigIndex >= 0 ? coverage.TwigIndex : access.Index),
-        };
-    private static Tree<TOut> Tree<TOut>(OutputValue<TOut>[] values) {
-        IGrouping<Grasshopper2.Data.Path, OutputValue<TOut>>[] groups = [.. values.GroupBy(static value => value.Path.IfNone(Grasshopper2.Data.Path.Zero))];
-        Paths paths = Paths.FromUnsorted(
-            paths: groups.Select(static group => group.Key),
-            data: groups,
-            sortedData: out IGrouping<Grasshopper2.Data.Path, OutputValue<TOut>>[] sorted);
-        return Garden.TreeFromArrays(
-            paths: paths,
-            items: [.. sorted.Select(static group => group.Select(static value => value.Value).ToArray())],
-            metas: [.. sorted.Select(static group => group.Select(static value => value.Meta ?? MetaData.Empty).ToArray())],
-            nulls: [.. sorted.Select(static group => group.Select(static value => value.IsNull).ToArray())]);
-    }
     private static Option<Shape> NormalizeShape(object raw) =>
         AsShape(value: raw)
             | AsShape(value: CurveBroker.ToRhinoCurve(raw))

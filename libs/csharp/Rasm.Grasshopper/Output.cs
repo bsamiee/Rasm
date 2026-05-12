@@ -19,12 +19,8 @@ public readonly record struct Hints(
     }
     public Option<TVal> Value<TVal>(IDataAccess access, Port<TVal> port) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        return Inputs.Find(predicate: input => input.Port.Equals(port)).Bind(input => Bridge.Read<TVal>(access: access, slot: input.Slot, port: port).ToOption().Bind(static data => data.Value));
+        return Inputs.Find(predicate: input => input.Port.Equals(port)).Bind(input => Bridge.Read<TVal>(access: access, slot: input.Slot, port: port).ToOption().Bind(static values => values.Head));
     }
-}
-public readonly record struct OutputValue<TValue>(TValue Value, MetaData? Meta, bool IsNull, Option<Grasshopper2.Data.Path> Path = default);
-public static class OutputValue {
-    public static OutputValue<TValue> Plain<TValue>(TValue value) => new(Value: value, Meta: null, IsNull: false);
 }
 internal readonly record struct OutputSlot<TSource>(
     IPort Port,
@@ -54,16 +50,16 @@ internal sealed record PreparedGroup<TSource>(
 public static class Output {
     private static OutputSlot<TSource> Slot<TSource, TOut>(
         Port<TOut> port,
-        Func<GrasshopperRuntime, Seq<TSource>, Fin<Seq<OutputValue<TOut>>>> project) =>
+        Func<GrasshopperRuntime, Seq<TSource>, Fin<Seq<TOut>>> project) =>
         new(
             Port: port,
             Write: (access, slot, runtime, source) => project(arg1: runtime, arg2: source).Match(
-                Succ: values => Bridge.Write(access: access, slot: slot, name: port.Name, targetAccess: port.Access, values: [.. values]),
+                Succ: values => Bridge.Write(access: access, slot: slot, name: port.Name, targetAccess: port.Access, values: values),
                 Fail: error => {
                     access.AddWarning(text: port.Name, details: error.Message);
-                    return Bridge.Write(access: access, slot: slot, name: port.Name, targetAccess: port.Access, values: System.Array.Empty<OutputValue<TOut>>());
+                    return Bridge.Write(access: access, slot: slot, name: port.Name, targetAccess: port.Access, values: Seq<TOut>());
                 }),
-            Empty: (access, slot) => Bridge.Write(access: access, slot: slot, name: port.Name, targetAccess: port.Access, values: System.Array.Empty<OutputValue<TOut>>()));
+            Empty: (access, slot) => Bridge.Write(access: access, slot: slot, name: port.Name, targetAccess: port.Access, values: Seq<TOut>()));
     private static PreparedGroup<TSource> Prepared<TSource>(
         Func<IDataAccess, GrasshopperRuntime, Fin<Seq<TSource>>> source,
         bool emptyUnsupported = false,
@@ -78,7 +74,7 @@ public static class Output {
         Prepared(
             source: (access, runtime) => ShapeSource(input: input, access: access, runtime: runtime, project: shape => operation(arg1: access, arg2: runtime).Apply(geometry: shape.Inner)),
             emptyUnsupported: emptyUnsupported,
-            slots: [Slot<TOut, TOut>(port: port, project: static (_, values) => Fin.Succ(values.Map(static value => OutputValue.Plain(value: value))))]);
+            slots: [Slot<TOut, TOut>(port: port, project: static (_, values) => Fin.Succ(values))]);
     public static IOutputGroup CurveDetails(Port<Shape> input, Port<Curve> curves, Port<ComponentIndex> sources, Port<CurveFeature> features, Func<IDataAccess, GrasshopperRuntime, Curves> aspect, bool emptyUnsupported = false) =>
         Prepared(
             source: (access, runtime) => ShapeSource(input: input, access: access, runtime: runtime, project: shape => Rasm.Analysis.Query.CurveProjections(geometry: shape.Inner, aspect: aspect(arg1: access, arg2: runtime))),
@@ -107,7 +103,7 @@ public static class Output {
                 FaceValue(port: normals, project: static (face, context) => Rasm.Analysis.Query.FrameAtCentroid(face: face, runtime: context).Map(static frame => frame.ZAxis)),
                 Plain<FaceProjection, int>(port: indices, project: static value => value.FaceIndex),
                 Plain<FaceProjection, ComponentIndex>(port: components, project: static value => new ComponentIndex(type: ComponentIndexType.BrepFace, index: value.FaceIndex)),
-                Slot<FaceProjection, Interval>(port: domains, project: static (_, values) => values.Traverse(static face => Rasm.Analysis.Query.FaceDomains(face: face).Map(static domains => domains.Map(static domain => OutputValue.Plain(value: domain)))).Map(static nested => nested.Bind(static value => value)).As()),
+                Slot<FaceProjection, Interval>(port: domains, project: static (_, values) => values.Traverse(Rasm.Analysis.Query.FaceDomains).Map(static nested => nested.Bind(static domains => domains)).As()),
             ]);
     private static Fin<Seq<TSource>> ShapeSource<TSource>(Port<Shape> input, IDataAccess access, GrasshopperRuntime runtime, Func<Shape, Eff<Analyze.Runtime, Seq<TSource>>> project) =>
         from shape in runtime.Shape(access: access, port: input)
@@ -115,9 +111,8 @@ public static class Output {
         from values in project(arg: shape).Run(env: new Analyze.Runtime(Context: context, Cancellation: access.Solution.Token, Progress: new Bridge.Progress(access: access)))
         select values;
     private static OutputSlot<TSource> Plain<TSource, TOut>(Port<TOut> port, Func<TSource, TOut> project) =>
-        Slot<TSource, TOut>(port: port, project: (_, values) => Fin.Succ(values.Map(value => OutputValue.Plain(value: project(arg: value)))));
+        Slot<TSource, TOut>(port: port, project: (_, values) => Fin.Succ(values.Map(value => project(arg: value))));
     private static OutputSlot<FaceProjection> FaceValue<TOut>(Port<TOut> port, Func<FaceProjection, Context, Fin<TOut>> project) =>
         Slot<FaceProjection, TOut>(port: port, project: (runtime, values) => runtime.Scope.Context
-                .Bind(context => values.Traverse(face => project(arg1: face, arg2: context)).As())
-                .Map(values => values.Map(static value => OutputValue.Plain(value: value))));
+                .Bind(context => values.Traverse(face => project(arg1: face, arg2: context)).As()));
 }

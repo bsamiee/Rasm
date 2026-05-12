@@ -70,16 +70,6 @@ public sealed partial class PortKind {
     }
     private static PortKind Of<T>(string key, Input input, Output output) => new(key: key, type: typeof(T), addInput: input, addOutput: output);
 }
-public readonly record struct PortValue<TVal>(
-    TVal Value,
-    MetaData Meta,
-    bool IsNull,
-    Option<int> Index,
-    Coverage Coverage,
-    Option<Grasshopper2.Data.Path> Path);
-public readonly record struct PortData<TVal>(Seq<PortValue<TVal>> Values) {
-    public Option<TVal> Value => Values.Find(static value => !value.IsNull).Map(static value => value.Value);
-}
 public readonly record struct Port<TVal>(
     string Name,
     string Code,
