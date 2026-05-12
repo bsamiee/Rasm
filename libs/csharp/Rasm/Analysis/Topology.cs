@@ -217,8 +217,8 @@ public static partial class Query {
         Cast<TGeometry, TOut>(key: FacesKey, query: Query<TGeometry, TValue>.Build(
             key: FacesKey, state: (Selector: selector, Transfer: transfer, Project: project), requirement: requirement,
             evaluator: static (state, geometry) => ProjectFaces(geometry: geometry, selector: state.Selector, transfer: state.Transfer, project: state.Project)));
-    internal static Eff<Analyze.Runtime, Seq<FaceProjection>> FaceProjections(Shape shape, Faces selector) =>
-        ProjectFaces(geometry: shape.Inner, selector: selector, transfer: true, project: static (values, _) => Fin.Succ(values));
+    internal static Eff<Analyze.Runtime, Seq<FaceProjection>> FaceProjections(object geometry, Faces selector) =>
+        ProjectFaces(geometry: geometry, selector: selector, transfer: true, project: static (values, _) => Fin.Succ(values));
     internal static Eff<Analyze.Runtime, Seq<TValue>> ProjectFaces<TGeometry, TValue>(TGeometry geometry, Faces selector, bool transfer, Func<Seq<FaceProjection>, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull =>
         from context in Analyze.Asks
         from faces in DecomposeFaces(geometry: geometry).ToEff()
@@ -229,8 +229,8 @@ public static partial class Query {
         ArgumentNullException.ThrowIfNull(argument: aspect);
         return aspect.Apply<TGeometry, TOut>();
     }
-    internal static Eff<Analyze.Runtime, Seq<CurveProjection>> CurveProjections(Shape shape, Curves aspect) =>
-        ProjectCurves(geometry: shape.Inner, selector: aspect, transfer: true, project: static values => Fin.Succ(values));
+    internal static Eff<Analyze.Runtime, Seq<CurveProjection>> CurveProjections(object geometry, Curves aspect) =>
+        ProjectCurves(geometry: geometry, selector: aspect, transfer: true, project: static values => Fin.Succ(values));
     internal static Query<TGeometry, TOut> CurveQuery<TGeometry, TOut, TValue>(Curves selector, Func<Seq<CurveProjection>, Fin<Seq<TValue>>> project, bool transfer = false) where TGeometry : notnull =>
         Cast<TGeometry, TOut>(key: CurvesKey, query: Query<TGeometry, TValue>.Build(
             key: CurvesKey,
@@ -428,19 +428,23 @@ public static partial class Query {
         (selector, faces.Count) switch {
             (_, 0) => Fin.Succ(Seq<FaceProjection>()),
             (Rasm.Analysis.Faces.AllCase, _) => Fin.Succ(faces),
-            (Rasm.Analysis.Faces.TopCase, _) => RankByCentroidZ(faces: faces, descending: true, runtime: runtime),
-            (Rasm.Analysis.Faces.BottomCase, _) => RankByCentroidZ(faces: faces, descending: false, runtime: runtime),
+            (Rasm.Analysis.Faces.TopCase top, _) => RankByCentroidAxis(faces: faces, axis: top.Axis, descending: true, runtime: runtime),
+            (Rasm.Analysis.Faces.BottomCase bottom, _) => RankByCentroidAxis(faces: faces, axis: bottom.Axis, descending: false, runtime: runtime),
             (Rasm.Analysis.Faces.AtCase at, int count) => Fin.Succ(Seq(faces[RhinoMath.Clamp(at.Value ?? 0, 0, count - 1)])),
             _ => Fin.Fail<Seq<FaceProjection>>(FacesKey.InvalidInput()),
         };
-    internal static Fin<Seq<FaceProjection>> RankByCentroidZ(Seq<FaceProjection> faces, bool descending, Context runtime) =>
-        faces
-            .Traverse(face => FaceCentroid(face: face, runtime: runtime).Map(point => (face, point.Z))).As()
-            .Map(ranked => (ranked.IsEmpty, descending) switch {
-                (true, _) => Seq<FaceProjection>(),
-                (false, true) => ranked.Maxima(projection: static item => item.Z, tolerance: runtime.Absolute.Value).Map(static item => item.face),
-                (false, false) => ranked.Minima(projection: static item => item.Z, tolerance: runtime.Absolute.Value).Map(static item => item.face),
-            });
+    internal static Fin<Seq<FaceProjection>> RankByCentroidAxis(Seq<FaceProjection> faces, Vector3d axis, bool descending, Context runtime) =>
+        axis switch {
+            { IsValid: true } when !axis.IsTiny() => faces
+                .Traverse(face => FaceCentroid(face: face, runtime: runtime)
+                    .Map(point => (face, Score: new Vector3d(x: point.X, y: point.Y, z: point.Z) * axis))).As()
+                .Map(ranked => (ranked.IsEmpty, descending) switch {
+                    (true, _) => Seq<FaceProjection>(),
+                    (false, true) => ranked.Maxima(projection: static item => item.Score, tolerance: runtime.Absolute.Value * axis.Length).Map(static item => item.face),
+                    (false, false) => ranked.Minima(projection: static item => item.Score, tolerance: runtime.Absolute.Value * axis.Length).Map(static item => item.face),
+                }),
+            _ => Fin.Fail<Seq<FaceProjection>>(FacesKey.InvalidInput()),
+        };
 }
 
 // --- [FACES_ROLE] ------------------------------------------------------------------------

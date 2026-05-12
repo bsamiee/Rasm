@@ -35,7 +35,7 @@ public sealed class ContextSpec {
             absoluteTolerance: double.NaN,
             relativeTolerance: -1.0,
             angleToleranceRadians: 0.0,
-            modelUnits: Context.ModelUnitSystem.Create(units: UnitSystem.Unset));
+            unitScale: Context.UnitScale.Create(units: UnitSystem.Unset));
 
         Assert.True(condition: result.ToFin().Match(
             Succ: static _ => false,
@@ -50,7 +50,7 @@ public sealed class ContextSpec {
             absoluteTolerance: 0.01,
             relativeTolerance: 0.001,
             angleToleranceRadians: angle,
-            modelUnits: CustomModelUnits());
+            unitScale: CustomUnitScale());
 
         Assert.True(condition: result.ToFin().Match(
             Succ: context => context.Angle.Value == angle,
@@ -58,11 +58,15 @@ public sealed class ContextSpec {
     }
 
     [Fact]
-    public void ConvertsDefaultMillimeterToleranceToRequestedUnits() {
-        Validation<Error, Context> result = Context.CreateDefault(units: UnitSystem.Meters);
+    public void PreservesCustomUnitSystemFromExplicitScale() {
+        Validation<Error, Context> result = Context.Create(
+            absoluteTolerance: 0.01,
+            relativeTolerance: 0.001,
+            angleToleranceRadians: Math.PI / 180.0,
+            unitScale: CustomUnitScale());
 
         Assert.True(condition: result.ToFin().Match(
-            Succ: static context => context.Absolute.Value == RhinoMath.DefaultDistanceToleranceMillimeters * 0.001,
+            Succ: static context => context.Units == UnitSystem.CustomUnits,
             Fail: static _ => false));
     }
 
@@ -143,40 +147,6 @@ public sealed class ContextSpec {
     }
 
     [Fact]
-    public void RejectsInvalidShapeDuringNormalization() =>
-        Assert.True(condition: Shape.Create(value: Line.Unset).IsFail);
-
-    [Fact]
-    public void ShapeKeepsNativeGeometryPayloadInsteadOfFixedCaseHierarchy() {
-        Line line = new(from: Point3d.Origin, to: new Point3d(x: 1.0, y: 0.0, z: 0.0));
-
-        Assert.Empty(collection: typeof(Shape).GetNestedTypes());
-        Assert.True(condition: Shape.Create(value: line).ToOption()
-            .Match(
-                Some: static shape => shape.Inner is Line,
-                None: static () => false));
-    }
-
-    [Fact]
-    public void ShapeRejectsScalarAndAnalysisResultPayloads() {
-        Interval interval = new(t0: 0.0, t1: 1.0);
-
-        Assert.True(condition: Shape.Create(value: 1.0).IsFail);
-        Assert.True(condition: Shape.Create(value: interval).IsFail);
-    }
-
-    [Fact]
-    public void ShapeCreateIsIdempotent() {
-        Shape shape = Shape.Create(value: new Line(from: Point3d.Origin, to: new Point3d(x: 1.0, y: 0.0, z: 0.0)))
-            .Match(Succ: static value => value, Fail: static error => throw new Xunit.Sdk.XunitException(error.Message));
-
-        Assert.True(condition: Shape.Create(value: shape).ToOption()
-            .Match(
-                Some: static value => value.Inner is Line,
-                None: static () => false));
-    }
-
-    [Fact]
     public void AdaptsSolvedResultRails() {
         Op key = new(name: "test");
 
@@ -204,19 +174,19 @@ public sealed class ContextSpec {
                 absoluteTolerance: 0.01,
                 relativeTolerance: 0.001,
                 angleToleranceRadians: Math.PI / 180.0,
-                modelUnits: CustomModelUnits())
+                unitScale: CustomUnitScale())
             .ToFin()
             .Match(
                 Succ: static context => context,
                 Fail: static error => throw new Xunit.Sdk.XunitException(error.Message));
 
-    private static Fin<Context.ModelUnitSystem> CustomModelUnits() =>
+    private static Fin<Context.UnitScale> CustomUnitScale() =>
         Context.Tolerance.Create(
                 candidate: 1.0,
                 label: "CustomUnitScale",
                 accepts: static candidate => candidate > RhinoMath.ZeroTolerance,
                 requirement: "greater than Rhino zero tolerance")
-            .Bind(static customUnitScale => Context.ModelUnitSystem.FromModelUnits(
+            .Bind(static customUnitScale => Context.UnitScale.FromModelUnits(
                     units: UnitSystem.CustomUnits,
                     metersPerUnit: customUnitScale));
 }

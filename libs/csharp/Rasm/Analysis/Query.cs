@@ -229,8 +229,8 @@ public partial record Location {
 }
 [Union]
 public partial record Faces {
-    public sealed record AllCase : Faces; public sealed record TopCase : Faces; public sealed record BottomCase : Faces; public sealed record AtCase(int? Value) : Faces;
-    public static Faces All => new AllCase(); public static Faces Top => new TopCase(); public static Faces Bottom => new BottomCase();
+    public sealed record AllCase : Faces; public sealed record TopCase(Vector3d Axis) : Faces; public sealed record BottomCase(Vector3d Axis) : Faces; public sealed record AtCase(int? Value) : Faces;
+    public static Faces All => new AllCase(); public static Faces Top(Vector3d axis) => new TopCase(Axis: axis); public static Faces Bottom(Vector3d axis) => new BottomCase(Axis: axis);
     public static Faces At(int? index = null) => new AtCase(Value: index);
 }
 [SmartEnum<int>]

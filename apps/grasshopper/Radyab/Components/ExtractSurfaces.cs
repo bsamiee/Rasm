@@ -3,7 +3,7 @@ namespace Radyab.Components;
 [IoId("F51A09A8-A5A5-467A-ADBA-C950511A0020")]
 [Nomen(
     name: "Extract Surfaces",
-    info: "Trimmed faces, world-Z top/bottom faces, indexed face details, and centroid UV frame for Brep, BrepFace, Surface, and SubD values.",
+    info: "Trimmed faces, direction-ranked top/bottom faces, indexed face details, and centroid UV frame for Brep, BrepFace, Surface, and SubD values.",
     category: "Radyab",
     section: "Extraction")]
 public sealed class ExtractSurfaces : Component<ExtractSurfaces>, IComponentSpec {
@@ -11,10 +11,11 @@ public sealed class ExtractSurfaces : Component<ExtractSurfaces>, IComponentSpec
     public ExtractSurfaces(IReader reader) : base(reader: reader) { }
     private static readonly Port<Shape> Geometry = Port.Required<Shape>(kind: PortKind.Generic, name: "Geometry", code: "G", info: "Geometry to analyse.");
     private static readonly Port<int> Index = Port.Index(info: "Zero-based face selector; missing Index defaults to face 0 and supplied values clamp to [0, count-1].");
-    public static Seq<IPort> Inputs { get; } = Seq<IPort>(Geometry, Index);
+    private static readonly Port<Vector3d> Direction = Port.Optional<Vector3d>(kind: PortKind.Vector, name: "Direction", code: "D", info: "Ranking direction for Top/Bottom surfaces; missing Direction uses world Z.", policy: PortPolicy.Vector(unitise: true));
+    public static Seq<IPort> Inputs { get; } = Seq<IPort>(Geometry, Index, Direction);
     public static Seq<IOutputGroup> Outputs { get; } = Seq<IOutputGroup>(
         Output.FaceDetails(input: Geometry, faces: Port.List<Brep>(name: "All Surfaces", code: "AS", info: "Every face as a trimmed single-face Brep. Mesh input is intentionally rejected."), indices: Port.List<int>(name: "Surface Indices", code: "SI", info: "Source Brep face index aligned with every extracted surface."), selector: static (_, _) => Rasm.Analysis.Faces.All),
-        Output.Query(input: Geometry, port: Port.List<Brep>(name: "Top Surface", code: "TS", info: "Trimmed face(s) with maximum world-Z centroid; ties within tolerance."), operation: static (_, _) => Query.Faces<object, Brep>(aspect: Rasm.Analysis.Faces.Top)),
-        Output.Query(input: Geometry, port: Port.List<Brep>(name: "Bottom Surface", code: "BS", info: "Trimmed face(s) with minimum world-Z centroid; ties within tolerance."), operation: static (_, _) => Query.Faces<object, Brep>(aspect: Rasm.Analysis.Faces.Bottom)),
+        Output.Query(input: Geometry, port: Port.List<Brep>(name: "Top Surface", code: "TS", info: "Trimmed face(s) with maximum centroid projection along Direction; ties within tolerance."), operation: static (access, runtime) => Query.Faces<object, Brep>(aspect: Rasm.Analysis.Faces.Top(axis: runtime.Hints.Value(access: access, port: Direction).IfNone(Vector3d.ZAxis)))),
+        Output.Query(input: Geometry, port: Port.List<Brep>(name: "Bottom Surface", code: "BS", info: "Trimmed face(s) with minimum centroid projection along Direction; ties within tolerance."), operation: static (access, runtime) => Query.Faces<object, Brep>(aspect: Rasm.Analysis.Faces.Bottom(axis: runtime.Hints.Value(access: access, port: Direction).IfNone(Vector3d.ZAxis)))),
         Output.IndexedFaceDetails(input: Geometry, index: Index, faces: Port.List<Brep>(name: "Indexed Surface", code: "IS", info: "Trimmed single-face Brep at Index input; missing Index defaults to 0, supplied values clamp to [0, count-1]. Empty when zero faces."), frames: Port.List<Plane>(name: "UV Frame", code: "UV", info: "Native U/V frame at the indexed face centroid. X=surface U direction, Z=orientation-corrected normal, Y completes the basis."), centers: Port.List<Point3d>(name: "Face Center", code: "FC", info: "Area centroid of the indexed trimmed face."), normals: Port.List<Vector3d>(name: "Face Normal", code: "FN", info: "Orientation-corrected indexed face normal at the face centroid."), indices: Port.List<int>(name: "Face Index", code: "FI", info: "Source Brep face index selected by the clamped Index input."), components: Port.List<ComponentIndex>(kind: PortKind.Generic, name: "Face Component", code: "CI", info: "Source Brep face component index selected by the clamped Index input."), domains: Port.List<Interval>(name: "UV Domains", code: "UD", info: "Indexed face domains as two intervals: U first, then V.")));
 }

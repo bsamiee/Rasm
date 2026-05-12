@@ -7,7 +7,6 @@ public interface IPort {
     public string Name { get; }
     public string Code { get; }
     public string Info { get; }
-    public Type Type { get; }
     public PortKind Kind { get; }
     public Access Access { get; }
     public Requirement Requirement { get; }
@@ -88,9 +87,7 @@ public readonly record struct Port<TVal>(
     PortKind Kind,
     Access Access,
     Requirement Requirement,
-    PortPolicy Policy) : IPort {
-    public Type Type => typeof(TVal);
-}
+    PortPolicy Policy) : IPort;
 public static class Port {
     public static Port<TVal> Required<TVal>(string name, string code, string info, PortKind? kind = null, PortPolicy? policy = null) => Create<TVal>(name: name, code: code, info: info, kind: kind, access: Access.Item, requirement: Requirement.MustExist, policy: policy);
     public static Port<TVal> Optional<TVal>(string name, string code, string info, PortKind? kind = null, PortPolicy? policy = null) => Create<TVal>(name: name, code: code, info: info, kind: kind, access: Access.Item, requirement: Requirement.MayBeMissing, policy: policy);

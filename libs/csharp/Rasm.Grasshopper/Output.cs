@@ -22,7 +22,6 @@ public readonly record struct Hints(
 public readonly record struct OutputValue<TValue>(TValue Value, MetaData? Meta, bool IsNull, Option<Grasshopper2.Data.Path> Path = default);
 public static class OutputValue {
     public static OutputValue<TValue> Plain<TValue>(TValue value) => new(Value: value, Meta: null, IsNull: false);
-    public static OutputValue<TValue> At<TValue>(Grasshopper2.Data.Path path, TValue value, MetaData? meta = null, bool isNull = false) => new(Value: value, Meta: meta, IsNull: isNull, Path: Some(path));
 }
 internal readonly record struct OutputSlot<TSource>(
     IPort Port,
@@ -38,7 +37,7 @@ internal sealed record PreparedGroup<TSource>(
         return Source(arg1: access, arg2: runtime).Match(
             Succ: values => Slots.Iter((offset, output) => output.Write(arg1: access, arg2: slot + offset, arg3: runtime, arg4: values)),
             Fail: error => (
-                (EmptyUnsupported, Unsupported(error: error)) switch {
+                (EmptyUnsupported, error.Code == OpFault.UnsupportedCode) switch {
                     (true, true) => Unit.Default,
                     _ => fun((IDataAccess target) => { target.AddWarning(text: Ports.Head.Map(static port => port.Name).IfNone("Output"), details: error.Message); return Unit.Default; })(access),
                 },
@@ -48,7 +47,6 @@ internal sealed record PreparedGroup<TSource>(
         ArgumentNullException.ThrowIfNull(argument: access);
         return Slots.Iter((offset, output) => output.Empty(arg1: access, arg2: slot + offset));
     }
-    private static bool Unsupported(Error error) => error.Code == OpFault.UnsupportedCode;
 }
 public static class Output {
     private static OutputSlot<TSource> Slot<TSource, TOut>(
@@ -67,8 +65,6 @@ public static class Output {
         Func<IDataAccess, GrasshopperRuntime, Fin<Seq<TSource>>> source,
         bool emptyUnsupported = false,
         params OutputSlot<TSource>[] slots) => new(Slots: toSeq(slots), Source: source, EmptyUnsupported: emptyUnsupported);
-    private static OutputSlot<TOut> Slot<TOut>(Port<TOut> port) =>
-        Slot<TOut, TOut>(port: port, project: static (_, values) => Fin.Succ(values.Map(static value => OutputValue.Plain(value: value))));
     public static Unit Write(IDataAccess access, GrasshopperRuntime runtime, Seq<IOutputGroup> groups) =>
         Fold(groups: groups, action: group => slot => group.Run(access: access, slot: slot, runtime: runtime));
     public static Unit Empty(IDataAccess access, Seq<IOutputGroup> groups) =>
@@ -79,10 +75,10 @@ public static class Output {
         Prepared(
             source: (access, runtime) => ShapeSource(input: input, access: access, runtime: runtime, project: shape => operation(arg1: access, arg2: runtime).Apply(geometry: shape.Inner)),
             emptyUnsupported: emptyUnsupported,
-            slots: [Slot(port: port)]);
+            slots: [Slot<TOut, TOut>(port: port, project: static (_, values) => Fin.Succ(values.Map(static value => OutputValue.Plain(value: value))))]);
     public static IOutputGroup CurveDetails(Port<Shape> input, Port<Curve> curves, Port<ComponentIndex> sources, Port<CurveFeature> features, Func<IDataAccess, GrasshopperRuntime, Curves> aspect, bool emptyUnsupported = false) =>
         Prepared(
-            source: (access, runtime) => ShapeSource(input: input, access: access, runtime: runtime, project: shape => Rasm.Analysis.Query.CurveProjections(shape: shape, aspect: aspect(arg1: access, arg2: runtime))),
+            source: (access, runtime) => ShapeSource(input: input, access: access, runtime: runtime, project: shape => Rasm.Analysis.Query.CurveProjections(geometry: shape.Inner, aspect: aspect(arg1: access, arg2: runtime))),
             emptyUnsupported: emptyUnsupported,
             slots: [
                 Plain<CurveProjection, Curve>(port: curves, project: static value => value.Curve),
@@ -91,7 +87,7 @@ public static class Output {
             ]);
     public static IOutputGroup FaceDetails(Port<Shape> input, Port<Brep> faces, Port<int> indices, Func<IDataAccess, GrasshopperRuntime, Faces> selector) =>
         Prepared(
-            source: (access, runtime) => ShapeSource(input: input, access: access, runtime: runtime, project: shape => Rasm.Analysis.Query.FaceProjections(shape: shape, selector: selector(arg1: access, arg2: runtime))),
+            source: (access, runtime) => ShapeSource(input: input, access: access, runtime: runtime, project: shape => Rasm.Analysis.Query.FaceProjections(geometry: shape.Inner, selector: selector(arg1: access, arg2: runtime))),
             slots: [
                 Plain<FaceProjection, Brep>(port: faces, project: static value => value.Brep),
                 Plain<FaceProjection, int>(port: indices, project: static value => value.FaceIndex),
@@ -99,7 +95,7 @@ public static class Output {
     public static IOutputGroup IndexedFaceDetails(Port<Shape> input, Port<int> index, Port<Brep> faces, Port<Plane> frames, Port<Point3d> centers, Port<Vector3d> normals, Port<int> indices, Port<ComponentIndex> components, Port<Interval> domains) =>
         Prepared(
             source: (access, runtime) => ShapeSource(input: input, access: access, runtime: runtime, project: shape => Rasm.Analysis.Query.FaceProjections(
-                shape: shape,
+                geometry: shape.Inner,
                 selector: Faces.At(index: runtime.Hints.Index(access: access, port: index, limit: int.MaxValue).Map(static value => (int?)value).IfNone(static () => null)))),
             slots: [
                 Plain<FaceProjection, Brep>(port: faces, project: static value => value.Brep),

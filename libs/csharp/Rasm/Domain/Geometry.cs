@@ -1,27 +1,5 @@
 namespace Rasm.Domain;
 
-public readonly record struct Shape {
-    private Shape(object inner) => Inner = inner;
-    public object Inner { get; }
-    public const string Accepted = "Rhino/GH geometry convertible through native RhinoCommon or GH2 brokers";
-    internal Fin<Shape> ValidateWith(Op key) =>
-        RequireShape(value: Inner, key: key)
-            .Map(static value => new Shape(inner: value));
-    public static Fin<Shape> Create(object? value) =>
-        Optional(value)
-            .ToFin(new Op(name: nameof(Shape)).InvalidInput())
-            .Bind(static raw => raw switch {
-                Shape shape => shape.ValidateWith(key: new Op(name: nameof(Shape))),
-                _ => RequireShape(value: raw, key: new Op(name: nameof(Shape)))
-                    .Map(static valid => new Shape(inner: valid)),
-            });
-    private static Fin<object> RequireShape(object value, Op key) =>
-        value switch {
-            Point2d or Point3d or Vector3d or Plane or BoundingBox or Box or Sphere or Cylinder or Cone or Torus or Arc or Circle or Ellipse or Rectangle3d or Line or Polyline or MeshPoint or GeometryBase => key.RequireValid(value: value).Map(static valid => (object)valid),
-            Shape shape => shape.ValidateWith(key: key).Map(static valid => valid.Inner),
-            _ => Fin.Fail<object>(key.Unsupported(geometryType: value.GetType(), outputType: typeof(Shape))),
-        };
-}
 public enum GeometryKind { Unknown = 0, Curve = 1, Polyline = 2, Mesh = 3, SubD = 4, Surface = 5, BrepGeneral = 10, BrepBox = 11, BrepSphere = 12, BrepCylinder = 13, BrepCone = 14, BrepTorus = 15, BrepPlane = 16, Line = 20, Sphere = 21, Box = 22, BoundingBox = 23, Cylinder = 24, Cone = 25, Torus = 26, Plane = 27 }
 public enum CurveFeature { Input, Segment, Edge, Boundary, NakedOuter, NakedInner, Interior, NonManifold, OuterLoop, InnerLoop, IsoU, IsoV, Silhouette, SubCurve, Draft }
 [StructLayout(LayoutKind.Auto)]
@@ -69,7 +47,6 @@ internal static class Validity {
             MeshCheckParameters => Fin.Succ(value),
             MeshPoint meshPoint => key.Require(condition: meshPoint.Point.IsValid, value: value),
             ComponentIndex component => key.Require(condition: component.ComponentIndexType != ComponentIndexType.InvalidType && component.Index >= 0, value: value),
-            Shape shape => shape.ValidateWith(key: key).Map(static valid => (TValue)(object)valid),
             IntersectionEvent intersection => key.Require(condition:
                 (intersection.IsPoint || intersection.IsOverlap)
                 && intersection.PointA.IsValid

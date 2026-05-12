@@ -913,19 +913,19 @@ public sealed class AnalysisSpec {
                 absoluteTolerance: 0.01,
                 relativeTolerance: 0.001,
                 angleToleranceRadians: Math.PI / 180.0,
-                modelUnits: CustomModelUnits())
+                unitScale: CustomUnitScale())
             .ToFin()
             .Match(
                 Succ: static context => context,
                 Fail: static error => throw new Xunit.Sdk.XunitException(error.Message));
-    private static Fin<Context.ModelUnitSystem> CustomModelUnits() =>
+    private static Fin<Context.UnitScale> CustomUnitScale() =>
         Context.Tolerance.Create(
                 candidate: 1.0,
                 label: "CustomUnitScale",
                 accepts: static candidate => candidate > RhinoMath.ZeroTolerance,
                 requirement: "greater than Rhino zero tolerance")
             .Bind(static customUnitScale =>
-                Context.ModelUnitSystem.FromModelUnits(
+                Context.UnitScale.FromModelUnits(
                     units: UnitSystem.CustomUnits,
                     metersPerUnit: customUnitScale));
 

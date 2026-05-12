@@ -1,4 +1,22 @@
+using System.Runtime.InteropServices;
+
 namespace Rasm.Grasshopper;
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct Shape {
+    private Shape(object inner) => Inner = inner;
+    public object Inner { get; }
+    public const string Accepted = "Rhino/GH geometry convertible through native RhinoCommon or GH2 brokers";
+    public static Fin<Shape> Create(object? value) =>
+        Optional(value)
+            .ToFin(Error.New(message: $"Shape is required. Connect: {Accepted}."))
+            .Bind(static raw => raw switch {
+                Shape shape => Create(value: shape.Inner),
+                Point2d or Point3d or Vector3d or Plane or BoundingBox or Box or Sphere or Cylinder or Cone or Torus or Arc or Circle or Ellipse or Rectangle3d or Line or Polyline or MeshPoint or GeometryBase =>
+                    new Op(name: nameof(Shape)).RequireValid(value: raw).Map(static valid => new Shape(inner: valid)),
+                _ => Fin.Fail<Shape>(new Op(name: nameof(Shape)).InvalidInput()),
+            });
+}
 
 public static class Bridge {
     public static Fin<Analyze.Scope> Scope(this IDataAccess access) {
