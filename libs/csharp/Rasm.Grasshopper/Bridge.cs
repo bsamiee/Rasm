@@ -12,9 +12,7 @@ public readonly record struct Shape {
             .ToFin(Error.New(message: $"Shape is required. Connect: {Accepted}."))
             .Bind(static raw => raw switch {
                 Shape shape => Create(value: shape.Inner),
-                Point2d or Point3d or Vector3d or Plane or BoundingBox or Box or Sphere or Cylinder or Cone or Torus or Arc or Circle or Ellipse or Rectangle3d or Line or Polyline or MeshPoint or GeometryBase =>
-                    new Op(name: nameof(Shape)).RequireValid(value: raw).Map(static valid => new Shape(inner: valid)),
-                _ => Fin.Fail<Shape>(new Op(name: nameof(Shape)).InvalidInput()),
+                _ => new Op(name: nameof(Shape)).RequireValid(value: raw).Map(static valid => new Shape(inner: valid)),
             });
 }
 
@@ -63,20 +61,6 @@ public static class Bridge {
             _ => Fin.Fail<PortData<TVal>>(Error.New(message: $"Unsupported input access: {port.Access}.")),
         };
     }
-    public static Option<int> Index(this IDataAccess access, int slot, int limit) {
-        ArgumentNullException.ThrowIfNull(argument: access);
-        return (access.GetIndex(indexParameter: slot, limit: limit, index: out int value), value) switch {
-            (true, int index) => Some(index),
-            _ => Option<int>.None,
-        };
-    }
-    public static Unit MissingInput(this IDataAccess access, Error error) {
-        ArgumentNullException.ThrowIfNull(argument: access);
-        ArgumentNullException.ThrowIfNull(argument: error);
-        access.AddError(text: "Input", details: error.Message);
-        return Unit.Default;
-    }
-    internal static Analyze.Runtime Runtime(IDataAccess access, Context context) => new(Context: context, Cancellation: access.Solution.Token, Progress: new Progress(access: access));
     internal static Unit Write<TOut>(IDataAccess access, int slot, string name, Access targetAccess, OutputValue<TOut>[] values) {
         // BOUNDARY ADAPTER — GH2 SetPear/SetTwig/SetTree are void; dispatched as a single Action invoked once.
         Coverage coverage = access.CoverageOut(index: slot);
@@ -133,14 +117,12 @@ public static class Bridge {
             nulls: [.. sorted.Select(static group => group.Select(static value => value.IsNull).ToArray())]);
     }
     private static Option<Shape> NormalizeShape(object raw) =>
-        Shape.Create(value: raw).ToOption().Match(
-            Some: static shape => Some(shape),
-            None: () => Optional(CurveBroker.ToRhinoCurve(raw))
-                .Bind(static curve => Shape.Create(value: curve).ToOption())
-                .Match(
-                    Some: static shape => Some(shape), None: () => Optional(SurfaceBroker.ToBrep(raw))
-                        .Bind(static brep => Shape.Create(value: brep).ToOption())));
-    private sealed class Progress(IDataAccess access) : IProgress<double> {
+        AsShape(value: raw)
+            | AsShape(value: CurveBroker.ToRhinoCurve(raw))
+            | AsShape(value: SurfaceBroker.ToBrep(raw));
+    private static Option<Shape> AsShape(object? value) =>
+        Optional(value).Bind(static candidate => Shape.Create(value: candidate).ToOption());
+    internal sealed class Progress(IDataAccess access) : IProgress<double> {
         public void Report(double value) => access.SetProgress(percentage: (int)Rhino.RhinoMath.Clamp(value: value switch {
             >= 0.0 and <= 1.0 => value * 100.0,
             _ => value,

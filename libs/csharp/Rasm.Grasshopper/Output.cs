@@ -12,7 +12,10 @@ public readonly record struct Hints(
     public Option<int> Slot(IPort port) => Inputs.Find(predicate: input => input.Port.Equals(port)).Map(static input => input.Slot);
     public Option<int> Index(IDataAccess access, Port<int> port, int limit) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        return Inputs.Find(predicate: input => input.Port.Equals(port)).Bind(input => access.Index(slot: input.Slot, limit: limit));
+        return Slot(port: port).Bind(slot => (access.GetIndex(indexParameter: slot, limit: limit, index: out int value), value) switch {
+            (true, int index) => Some(index),
+            _ => Option<int>.None,
+        });
     }
     public Option<TVal> Value<TVal>(IDataAccess access, Port<TVal> port) {
         ArgumentNullException.ThrowIfNull(argument: access);
@@ -109,7 +112,7 @@ public static class Output {
     private static Fin<Seq<TSource>> ShapeSource<TSource>(Port<Shape> input, IDataAccess access, GrasshopperRuntime runtime, Func<Shape, Eff<Analyze.Runtime, Seq<TSource>>> project) =>
         from shape in runtime.Shape(access: access, port: input)
         from context in runtime.Scope.Context
-        from values in project(arg: shape).Run(env: Bridge.Runtime(access: access, context: context))
+        from values in project(arg: shape).Run(env: new Analyze.Runtime(Context: context, Cancellation: access.Solution.Token, Progress: new Bridge.Progress(access: access)))
         select values;
     private static OutputSlot<TSource> Plain<TSource, TOut>(Port<TOut> port, Func<TSource, TOut> project) =>
         Slot<TSource, TOut>(port: port, project: (_, values) => Fin.Succ(values.Map(value => OutputValue.Plain(value: project(arg: value)))));

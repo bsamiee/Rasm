@@ -36,6 +36,6 @@ public abstract class Component<TSelf> : Grasshopper2.Components.Component
             .Map(runtime => Output.Write(access: access, runtime: runtime, groups: TSelf.Outputs))
             .Match(
                 Succ: static _ => Unit.Default,
-                Fail: error => (access.MissingInput(error: error), Output.Empty(access: access, groups: TSelf.Outputs)).Item2);
+                Fail: error => (fun((IDataAccess target) => { target.AddError(text: "Input", details: error.Message); return Unit.Default; })(access), Output.Empty(access: access, groups: TSelf.Outputs)).Item2);
     }
 }
