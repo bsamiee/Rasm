@@ -24,6 +24,40 @@ public readonly record struct CurveProjection(Curve Curve, CurveFeature Feature,
 }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct ClosestHit(Point3d Point, Option<double> Distance, Option<Vector3d> Normal, Option<ComponentIndex> Component, Option<MeshPoint> MeshPoint);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct CurveSelector(CurveFeature Feature, Option<Vector3d> Direction, Option<double> Angle, Option<int> Index, Option<double> Normalized, Option<IsoStatus> Iso);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct FaceProjection : ITopologyProjection {
+    private FaceProjection(Brep brep, int faceIndex, bool reversed) { Brep = brep; FaceIndex = faceIndex; Reversed = reversed; }
+    public Brep Brep { get; }
+    public int FaceIndex { get; }
+    public bool Reversed { get; }
+    public ComponentIndex Source => new(type: ComponentIndexType.BrepFace, index: FaceIndex);
+    public static FaceProjection From(BrepFace face) { ArgumentNullException.ThrowIfNull(argument: face); return new(brep: face.DuplicateFace(duplicateMeshes: false), faceIndex: face.FaceIndex, reversed: face.OrientationIsReversed); }
+    public Unit Dispose() => fun(static (Brep b) => { b.Dispose(); return Unit.Default; })(Brep);
+    public bool SameAs(ITopologyProjection other) => other is FaceProjection f && ReferenceEquals(objA: Brep, objB: f.Brep);
+}
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct MeshFaceProjection(Mesh Mesh, int Face) : ITopologyProjection {
+    public ComponentIndex Source => new(type: ComponentIndexType.MeshFace, index: Face);
+    public Unit Dispose() => Unit.Default;
+    public bool SameAs(ITopologyProjection other) => other is MeshFaceProjection m && ReferenceEquals(objA: Mesh, objB: m.Mesh) && Face == m.Face;
+    public Seq<Point3d> Vertices => Mesh.Faces[Face] switch {
+        MeshFace mf when mf.IsQuad => Seq((Point3d)Mesh.Vertices[mf.A], (Point3d)Mesh.Vertices[mf.B], (Point3d)Mesh.Vertices[mf.C], (Point3d)Mesh.Vertices[mf.D]),
+        MeshFace mf => Seq((Point3d)Mesh.Vertices[mf.A], (Point3d)Mesh.Vertices[mf.B], (Point3d)Mesh.Vertices[mf.C]),
+    };
+    public Vector3d Normal => Vertices switch {
+        Seq<Point3d> verts => fun(static (Seq<Point3d> v) => { Vector3d cross = Vector3d.CrossProduct(a: v[1] - v[0], b: v[2] - v[0]); _ = cross.Unitize(); return cross; })(verts),
+    };
+    public Point3d Center => Vertices switch { Seq<Point3d> v when v.Count > 0 => (Point3d)(v.Fold(Vector3d.Zero, static (acc, p) => acc + (Vector3d)p) / v.Count), _ => Point3d.Unset };
+    public Mesh Isolated() {
+        // BOUNDARY ADAPTER — Rhino Mesh builder is intrinsically mutable.
+        Mesh result = new();
+        _ = Vertices.Iter(v => result.Vertices.Add(vertex: v));
+        _ = Mesh.Faces[Face].IsQuad ? result.Faces.AddFace(vertex1: 0, vertex2: 1, vertex3: 2, vertex4: 3) : result.Faces.AddFace(vertex1: 0, vertex2: 1, vertex3: 2);
+        result.RebuildNormals();
+        return result;
+    }
+}
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct ResidualSample(int Index, Point3d Location, double Distance, double Tolerance, bool WithinTolerance);
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [SmartEnum<int>]
@@ -54,6 +88,59 @@ public sealed partial class Kind {
     public Primitive Primitive { get; }
     public Closure NominalClosure { get; }
     public Solidity NominalSolidity { get; }
+}
+[BoundaryAdapter, SmartEnum<int>]
+public sealed partial class MassKind {
+    internal delegate Eff<Env, IDisposable> ComputeMass(object geometry, bool secondMoments, bool productMoments);
+    public static readonly MassKind None = new(key: 0, label: nameof(None), requirement: Requirement.None, compute: static (geometry, _, _) => Fin.Fail<IDisposable>(new Fault.ComputationUnsupported(Label: nameof(None), GeometryType: geometry.GetType())).ToEff(), sum: static _ => Fin.Fail<IDisposable>(new Fault.ComputationFailed(Label: nameof(None))));
+    public static readonly MassKind Length = new(
+        key: 1, label: nameof(Length), requirement: Requirement.CurveLength,
+        compute: static (geometry, secondMoments, productMoments) => (geometry switch {
+            Curve curve => Optional(LengthMassProperties.Compute(curve: curve, length: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments))
+                .ToFin(new Fault.ComputationFailed(Label: nameof(LengthMassProperties)))
+                .Map(static props => (IDisposable)props),
+            _ => Fin.Fail<IDisposable>(new Fault.ComputationUnsupported(Label: nameof(LengthMassProperties), GeometryType: geometry.GetType())),
+        }).ToEff(),
+        sum: static props => Optional(LengthMassProperties.WeightedSum(summands: props.AsIterable().Cast<LengthMassProperties>(), weights: Enumerable.Repeat(element: 1.0, count: props.Count)))
+            .ToFin(new Fault.ComputationFailed(Label: nameof(LengthMassProperties)))
+            .Map(static props => (IDisposable)props));
+    public static readonly MassKind Area = new(
+        key: 2, label: nameof(Area), requirement: Requirement.AreaMass,
+        compute: static (geometry, secondMoments, productMoments) => from context in Env.Asks
+                                                                     from props in Optional(geometry switch {
+                                                                         Curve curve => AreaMassProperties.Compute(closedPlanarCurve: curve, planarTolerance: context.Absolute.Value),
+                                                                         Mesh mesh => AreaMassProperties.Compute(mesh: mesh, area: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments),
+                                                                         Brep brep => AreaMassProperties.Compute(brep: brep, area: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments, relativeTolerance: context.Relative.Value, absoluteTolerance: context.Absolute.Value),
+                                                                         Surface surface => AreaMassProperties.Compute(surface: surface, area: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments),
+                                                                         _ => null,
+                                                                     }).ToFin(geometry switch {
+                                                                         Curve or Mesh or Brep or Surface => new Fault.ComputationFailed(Label: nameof(AreaMassProperties)),
+                                                                         _ => new Fault.ComputationUnsupported(Label: nameof(AreaMassProperties), GeometryType: geometry.GetType()),
+                                                                     }).Map(static props => (IDisposable)props).ToEff()
+                                                                     select props,
+        sum: static props => Optional(AreaMassProperties.WeightedSum(summands: props.AsIterable().Cast<AreaMassProperties>(), weights: Enumerable.Repeat(element: 1.0, count: props.Count)))
+            .ToFin(new Fault.ComputationFailed(Label: nameof(AreaMassProperties)))
+            .Map(static props => (IDisposable)props));
+    public static readonly MassKind Volume = new(
+        key: 3, label: nameof(Volume), requirement: Requirement.VolumeMass,
+        compute: static (geometry, secondMoments, productMoments) => from context in Env.Asks
+                                                                     from props in Optional(geometry switch {
+                                                                         Mesh mesh => VolumeMassProperties.Compute(mesh: mesh, volume: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments),
+                                                                         Brep brep => VolumeMassProperties.Compute(brep: brep, volume: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments, relativeTolerance: context.Relative.Value, absoluteTolerance: context.Absolute.Value),
+                                                                         Surface surface => VolumeMassProperties.Compute(surface: surface, volume: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments),
+                                                                         _ => null,
+                                                                     }).ToFin(geometry switch {
+                                                                         Mesh or Brep or Surface => new Fault.ComputationFailed(Label: nameof(VolumeMassProperties)),
+                                                                         _ => new Fault.ComputationUnsupported(Label: nameof(VolumeMassProperties), GeometryType: geometry.GetType()),
+                                                                     }).Map(static props => (IDisposable)props).ToEff()
+                                                                     select props,
+        sum: static props => Optional(VolumeMassProperties.WeightedSum(summands: props.AsIterable().Cast<VolumeMassProperties>(), weights: Enumerable.Repeat(element: 1.0, count: props.Count)))
+            .ToFin(new Fault.ComputationFailed(Label: nameof(VolumeMassProperties)))
+            .Map(static props => (IDisposable)props));
+    public string Label { get; }
+    internal Requirement Requirement { get; }
+    internal ComputeMass Compute { get; }
+    internal Func<Seq<IDisposable>, Fin<IDisposable>> Sum { get; }
 }
 
 // --- [CONSTANTS] --------------------------------------------------------------------------

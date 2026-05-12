@@ -45,7 +45,7 @@ public sealed class AnalysisSpec {
         Query<int, int> query = new(
             key: Op.Create(value: "SyntheticAggregate"),
             effect: static input => Fin.Succ(input.Map(static value => value * 2)).ToEff(),
-            aggregate: LanguageExt.Prelude.Some<Func<Seq<int>, Eff<Analyze.Env, Seq<int>>>>(
+            aggregate: LanguageExt.Prelude.Some<Func<Seq<int>, Eff<Env, Seq<int>>>>(
                 static input => input.Fold(initialState: 0, f: static (sum, value) => sum + value) switch {
                     int sum => Fin.Succ(LanguageExt.Prelude.toSeq([sum])).ToEff(),
                 }));

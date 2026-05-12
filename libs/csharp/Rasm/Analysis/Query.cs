@@ -3,29 +3,29 @@ namespace Rasm.Analysis;
 // --- [SERVICES] ---------------------------------------------------------------------------
 public sealed record Query<TGeometry, TOut>(
     Op Key,
-    Func<Seq<TGeometry>, Eff<Analyze.Env, Seq<TOut>>> Evaluate,
+    Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>> Evaluate,
     Requirement Requirement,
     bool RequiresContext,
     Option<Error> Rejection,
-    Option<Func<Seq<TGeometry>, Eff<Analyze.Env, Seq<TOut>>>> AggregatePlan) where TGeometry : notnull {
-    internal Query(Op key, Func<Seq<TGeometry>, Eff<Analyze.Env, Seq<TOut>>> effect, Requirement? requirement = null, bool requiresContext = false, Option<Func<Seq<TGeometry>, Eff<Analyze.Env, Seq<TOut>>>> aggregate = default, Option<Error> rejection = default)
+    Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> AggregatePlan) where TGeometry : notnull {
+    internal Query(Op key, Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>> effect, Requirement? requirement = null, bool requiresContext = false, Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> aggregate = default, Option<Error> rejection = default)
         : this(Key: key, Evaluate: effect, Requirement: requirement ?? Requirement.None, RequiresContext: requiresContext, Rejection: rejection, AggregatePlan: aggregate) { }
-    public Eff<Analyze.Env, Seq<TOut>> Apply(TGeometry geometry) => Evaluate(arg: Seq(geometry));
-    public Eff<Analyze.Env, Seq<TOut>> Apply(Seq<TGeometry> geometry) => Evaluate(arg: geometry);
+    public Eff<Env, Seq<TOut>> Apply(TGeometry geometry) => Evaluate(arg: Seq(geometry));
+    public Eff<Env, Seq<TOut>> Apply(Seq<TGeometry> geometry) => Evaluate(arg: geometry);
     internal Query<TIn, TOut> Contramap<TIn>(Func<TIn, TGeometry> map) where TIn : notnull => new(
         Key: Key, Requirement: Requirement, RequiresContext: RequiresContext, Rejection: Rejection,
-        AggregatePlan: AggregatePlan.Map<Func<Seq<TIn>, Eff<Analyze.Env, Seq<TOut>>>>(project => input => project(arg: input.Map(value => map(arg: value)))),
+        AggregatePlan: AggregatePlan.Map<Func<Seq<TIn>, Eff<Env, Seq<TOut>>>>(project => input => project(arg: input.Map(value => map(arg: value)))),
         Evaluate: input => Evaluate(arg: input.Map(value => map(arg: value))));
     public Query<TGeometry, TOut> Aggregate() => AggregatePlan.Match(
         Some: project => this with { Evaluate = project },
         None: () => Reject(key: Key, fault: Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))));
-    internal static Query<TGeometry, TOut> Build(Op key, Func<TGeometry, Eff<Analyze.Env, Seq<TOut>>> evaluator, Requirement? requirement = null, bool requiresContext = false, Option<Func<Seq<TGeometry>, Eff<Analyze.Env, Seq<TOut>>>> aggregate = default) =>
+    internal static Query<TGeometry, TOut> Build(Op key, Func<TGeometry, Eff<Env, Seq<TOut>>> evaluator, Requirement? requirement = null, bool requiresContext = false, Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> aggregate = default) =>
         Build(key: key, state: Unit.Default, evaluator: (_, geometry) => evaluator(arg: geometry), requirement: requirement, requiresContext: requiresContext, aggregate: aggregate);
-    internal static Query<TGeometry, TOut> Build<TState>(Op key, TState state, Func<TState, TGeometry, Eff<Analyze.Env, Seq<TOut>>> evaluator, Requirement? requirement = null, bool requiresContext = false, Option<Func<Seq<TGeometry>, Eff<Analyze.Env, Seq<TOut>>>> aggregate = default) {
+    internal static Query<TGeometry, TOut> Build<TState>(Op key, TState state, Func<TState, TGeometry, Eff<Env, Seq<TOut>>> evaluator, Requirement? requirement = null, bool requiresContext = false, Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> aggregate = default) {
         Requirement active = requirement ?? Requirement.None;
         return new(
             key: key, requirement: active, requiresContext: requiresContext,
-            aggregate: aggregate.Map<Func<Seq<TGeometry>, Eff<Analyze.Env, Seq<TOut>>>>(project => geometry =>
+            aggregate: aggregate.Map<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>>(project => geometry =>
                 from runtime in Analyze.EnvAsks
                 from resolved in geometry.Traverse(item => Prepare(geometry: item, requirement: Requirement.None).Run(env: runtime)).As().ToEff()
                 from result in project(arg: resolved)
@@ -41,7 +41,7 @@ public sealed record Query<TGeometry, TOut>(
     }
     internal static Query<TGeometry, TOut> Reject(Op key, Error fault) =>
         new(key: key, effect: _ => Fin.Fail<Seq<TOut>>(fault).ToEff(), rejection: Some(fault));
-    private static Eff<Analyze.Env, TGeometry> Prepare(TGeometry geometry, Requirement requirement) =>
+    private static Eff<Env, TGeometry> Prepare(TGeometry geometry, Requirement requirement) =>
         from runtime in Analyze.EnvAsks
         from ready in (runtime.Cancellation.IsCancellationRequested switch {
             true => Fin.Fail<TGeometry>(new Fault.Cancelled()),
@@ -57,77 +57,28 @@ public sealed record Query<TGeometry, TOut>(
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-[SmartEnum<int>]
-public sealed partial class MassKind {
-    private delegate Eff<Analyze.Env, IDisposable> ComputeMass(object geometry, bool secondMoments, bool productMoments);
-    public static readonly MassKind None = new(key: 0, label: nameof(None), requirement: Requirement.None, compute: static (geometry, _, _) => Fin.Fail<IDisposable>(new Fault.ComputationUnsupported(Label: nameof(None), GeometryType: geometry.GetType())).ToEff(), sum: static _ => Fin.Fail<IDisposable>(new Fault.ComputationFailed(Label: nameof(None))));
-    public static readonly MassKind Length = new(
-        key: 1, label: nameof(Length), requirement: Requirement.CurveLength,
-        compute: static (geometry, secondMoments, productMoments) => (geometry switch {
-            Curve curve => Optional(LengthMassProperties.Compute(curve: curve, length: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments))
-                .ToFin(new Fault.ComputationFailed(Label: nameof(LengthMassProperties)))
-                .Map(static props => (IDisposable)props),
-            _ => Fin.Fail<IDisposable>(new Fault.ComputationUnsupported(Label: nameof(LengthMassProperties), GeometryType: geometry.GetType())),
-        }).ToEff(),
-        sum: static props => Optional(LengthMassProperties.WeightedSum(summands: props.AsIterable().Cast<LengthMassProperties>(), weights: Enumerable.Repeat(element: 1.0, count: props.Count)))
-            .ToFin(new Fault.ComputationFailed(Label: nameof(LengthMassProperties)))
-            .Map(static props => (IDisposable)props));
-    public static readonly MassKind Area = new(
-        key: 2, label: nameof(Area), requirement: Requirement.AreaMass,
-        compute: static (geometry, secondMoments, productMoments) => from context in Analyze.Asks
-                                                                     from props in Optional(geometry switch {
-                                                                         Curve curve => AreaMassProperties.Compute(closedPlanarCurve: curve, planarTolerance: context.Absolute.Value),
-                                                                         Mesh mesh => AreaMassProperties.Compute(mesh: mesh, area: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments),
-                                                                         Brep brep => AreaMassProperties.Compute(brep: brep, area: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments, relativeTolerance: context.Relative.Value, absoluteTolerance: context.Absolute.Value),
-                                                                         Surface surface => AreaMassProperties.Compute(surface: surface, area: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments),
-                                                                         _ => null,
-                                                                     }).ToFin(geometry switch {
-                                                                         Curve or Mesh or Brep or Surface => new Fault.ComputationFailed(Label: nameof(AreaMassProperties)),
-                                                                         _ => new Fault.ComputationUnsupported(Label: nameof(AreaMassProperties), GeometryType: geometry.GetType()),
-                                                                     }).Map(static props => (IDisposable)props).ToEff()
-                                                                     select props,
-        sum: static props => Optional(AreaMassProperties.WeightedSum(summands: props.AsIterable().Cast<AreaMassProperties>(), weights: Enumerable.Repeat(element: 1.0, count: props.Count)))
-            .ToFin(new Fault.ComputationFailed(Label: nameof(AreaMassProperties)))
-            .Map(static props => (IDisposable)props));
-    public static readonly MassKind Volume = new(
-        key: 3, label: nameof(Volume), requirement: Requirement.VolumeMass,
-        compute: static (geometry, secondMoments, productMoments) => from context in Analyze.Asks
-                                                                     from props in Optional(geometry switch {
-                                                                         Mesh mesh => VolumeMassProperties.Compute(mesh: mesh, volume: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments),
-                                                                         Brep brep => VolumeMassProperties.Compute(brep: brep, volume: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments, relativeTolerance: context.Relative.Value, absoluteTolerance: context.Absolute.Value),
-                                                                         Surface surface => VolumeMassProperties.Compute(surface: surface, volume: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments),
-                                                                         _ => null,
-                                                                     }).ToFin(geometry switch {
-                                                                         Mesh or Brep or Surface => new Fault.ComputationFailed(Label: nameof(VolumeMassProperties)),
-                                                                         _ => new Fault.ComputationUnsupported(Label: nameof(VolumeMassProperties), GeometryType: geometry.GetType()),
-                                                                     }).Map(static props => (IDisposable)props).ToEff()
-                                                                     select props,
-        sum: static props => Optional(VolumeMassProperties.WeightedSum(summands: props.AsIterable().Cast<VolumeMassProperties>(), weights: Enumerable.Repeat(element: 1.0, count: props.Count)))
-            .ToFin(new Fault.ComputationFailed(Label: nameof(VolumeMassProperties)))
-            .Map(static props => (IDisposable)props));
-    public string Label { get; }
-    internal Requirement Requirement { get; }
-    private ComputeMass Compute { get; }
-    private Func<Seq<IDisposable>, Fin<IDisposable>> Sum { get; }
-    internal Query<TGeometry, TValue> Build<TGeometry, TValue>(Op key, Func<Op, IDisposable, Fin<Seq<TValue>>> project, bool secondMoments = false, bool productMoments = false) where TGeometry : notnull =>
-        Query<TGeometry, TValue>.Build(
-            key: key, requirement: Requirement, requiresContext: true,
-            aggregate: Some<Func<Seq<TGeometry>, Eff<Analyze.Env, Seq<TValue>>>>(
-                geometry => from props in ComputeAll(geometry: geometry, secondMoments: secondMoments, productMoments: productMoments)
-                            from values in Query.BracketEach(
-                                resources: props,
-                                body: owned => from mass in Sum(arg: owned)
-                                               from projected in Query.Bracket(factory: () => mass, body: disposable => project(arg1: key, arg2: disposable))
-                                               select projected).ToEff()
-                            select values),
-            evaluator: geometry => from mass in Compute(geometry: geometry, secondMoments: secondMoments, productMoments: productMoments)
-                                   from values in Query.Bracket(factory: () => mass, body: disposable => project(arg1: key, arg2: disposable)).ToEff()
-                                   select values);
-    private Eff<Analyze.Env, Seq<IDisposable>> ComputeAll<TGeometry>(Seq<TGeometry> geometry, bool secondMoments, bool productMoments) where TGeometry : notnull =>
+internal static class MassKindRole {
+    extension(MassKind mass) {
+        internal Query<TGeometry, TValue> Build<TGeometry, TValue>(Op key, Func<Op, IDisposable, Fin<Seq<TValue>>> project, bool secondMoments = false, bool productMoments = false) where TGeometry : notnull =>
+            Query<TGeometry, TValue>.Build(
+                key: key, requirement: mass.Requirement, requiresContext: true,
+                aggregate: Some<Func<Seq<TGeometry>, Eff<Env, Seq<TValue>>>>(
+                    geometry => from props in ComputeAll(mass: mass, geometry: geometry, secondMoments: secondMoments, productMoments: productMoments)
+                                from values in Query.BracketEach(
+                                    resources: props,
+                                    body: owned => from summed in mass.Sum(arg: owned)
+                                                   from projected in Query.Bracket(factory: () => summed, body: disposable => project(arg1: key, arg2: disposable))
+                                                   select projected).ToEff()
+                                select values),
+                evaluator: geometry => from computed in mass.Compute(geometry: geometry, secondMoments: secondMoments, productMoments: productMoments)
+                                       from values in Query.Bracket(factory: () => computed, body: disposable => project(arg1: key, arg2: disposable)).ToEff()
+                                       select values);
+    }
+    private static Eff<Env, Seq<IDisposable>> ComputeAll<TGeometry>(MassKind mass, Seq<TGeometry> geometry, bool secondMoments, bool productMoments) where TGeometry : notnull =>
         from runtime in Analyze.EnvAsks
         from props in geometry.Fold(
                 initialState: Fin.Succ(Seq<IDisposable>()),
-                f: (state, item) => state.Bind(owned => Compute(geometry: item, secondMoments: secondMoments, productMoments: productMoments)
+                f: (state, item) => state.Bind(owned => mass.Compute(geometry: item, secondMoments: secondMoments, productMoments: productMoments)
                     .Run(env: runtime)
                     .Match(
                         Succ: resource => Fin.Succ(resource.Cons(owned)),
@@ -151,41 +102,28 @@ public static class MeshFaceMetrics {
             _ => Option<double>.None,
         };
     }
-    internal static Vector3d ComputeFaceNormal(Mesh mesh, int face) {
-        Seq<Point3d> verts = FaceVertices(mesh: mesh, face: face);
-        Vector3d cross = Vector3d.CrossProduct(a: verts[1] - verts[0], b: verts[2] - verts[0]);
-        _ = cross.Unitize();
-        return cross;
-    }
-    internal static Seq<Point3d> FaceVertices(Mesh mesh, int face) {
-        MeshFace mf = mesh.Faces[face];
-        return mf.IsQuad switch {
-            true => Seq((Point3d)mesh.Vertices[mf.A], (Point3d)mesh.Vertices[mf.B], (Point3d)mesh.Vertices[mf.C], (Point3d)mesh.Vertices[mf.D]),
-            false => Seq((Point3d)mesh.Vertices[mf.A], (Point3d)mesh.Vertices[mf.B], (Point3d)mesh.Vertices[mf.C]),
-        };
-    }
     private static double FaceArea(Mesh mesh, int face) =>
-        FaceVertices(mesh: mesh, face: face) switch {
+        new MeshFaceProjection(Mesh: mesh, Face: face).Vertices switch {
             Seq<Point3d> v when v.Count == 4 => 0.5 * (Vector3d.CrossProduct(a: v[1] - v[0], b: v[2] - v[0]).Length + Vector3d.CrossProduct(a: v[2] - v[0], b: v[3] - v[0]).Length),
             Seq<Point3d> v => 0.5 * Vector3d.CrossProduct(a: v[1] - v[0], b: v[2] - v[0]).Length,
         };
     private static double FacePerimeter(Mesh mesh, int face) =>
-        FaceVertices(mesh: mesh, face: face) switch {
+        new MeshFaceProjection(Mesh: mesh, Face: face).Vertices switch {
             Seq<Point3d> v => v.Map((p, i) => p.DistanceTo(other: v[(i + 1) % v.Count])).Fold(initialState: 0.0, f: static (acc, d) => acc + d),
         };
     private static double FaceSkewness(Mesh mesh, int face) {
-        Seq<Point3d> v = FaceVertices(mesh: mesh, face: face);
+        Seq<Point3d> v = new MeshFaceProjection(Mesh: mesh, Face: face).Vertices;
         double ideal = v.Count == 4 ? Math.PI / 2.0 : Math.PI / 3.0;
         return v.Map((vertex, i) => Vector3d.VectorAngle(a: v[(i + v.Count - 1) % v.Count] - vertex, b: v[(i + 1) % v.Count] - vertex))
             .Fold(initialState: 0.0, f: (acc, angle) => Math.Max(val1: acc, val2: Math.Max(val1: (angle - ideal) / (Math.PI - ideal), val2: (ideal - angle) / ideal)));
     }
     private static double FaceMaxDihedral(Mesh mesh, int face) {
-        Vector3d normal = ComputeFaceNormal(mesh: mesh, face: face);
+        Vector3d normal = new MeshFaceProjection(Mesh: mesh, Face: face).Normal;
         return normal.IsValid switch {
             false => 0.0,
             true => toSeq(mesh.TopologyEdges.GetEdgesForFace(faceIndex: face))
                 .Bind(edge => toSeq(mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: edge)).Filter(other => other != face))
-                .Fold(initialState: 0.0, f: (max, other) => ComputeFaceNormal(mesh: mesh, face: other) switch {
+                .Fold(initialState: 0.0, f: (max, other) => new MeshFaceProjection(Mesh: mesh, Face: other).Normal switch {
                     { IsValid: true } neighbour => Math.Max(val1: max, val2: Vector3d.VectorAngle(a: normal, b: neighbour)),
                     _ => max,
                 }),
@@ -194,7 +132,6 @@ public static class MeshFaceMetrics {
 }
 [StructLayout(LayoutKind.Auto)] public readonly record struct CurvatureProfile(CurvatureScalar Scalar, int Count, double Minimum, double Maximum, double Mean, double Variance);
 [StructLayout(LayoutKind.Auto)] public readonly record struct ResidualProfile(int Count, double Minimum, double Maximum, double Mean, double Variance, double Rms, double Tolerance, bool WithinTolerance);
-[StructLayout(LayoutKind.Auto)] public readonly record struct ResidualSample(int Index, Point3d Location, double Distance, double Tolerance, bool WithinTolerance);
 [StructLayout(LayoutKind.Auto)] public readonly record struct MeshFaceSample(int Face, double Value);
 [StructLayout(LayoutKind.Auto)] public readonly record struct Hit(int Id);
 [StructLayout(LayoutKind.Auto)] public readonly record struct Couple(int A, int B);
@@ -303,9 +240,9 @@ public static partial class Query {
         Query<TGeometry, TOut> typed => typed,
         _ => Query<TGeometry, TOut>.Reject(key: key, fault: key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))),
     };
-    internal static Query<TGeometry, TOut> Native<TGeometry, TOut, TNative, TValue>(Op key, Func<TNative, Eff<Analyze.Env, Seq<TValue>>> project) where TGeometry : notnull where TNative : notnull =>
-        Native<TGeometry, TOut, TNative, TValue, Func<TNative, Eff<Analyze.Env, Seq<TValue>>>>(key: key, state: project, project: static (nativeProject, native) => nativeProject(arg: native));
-    internal static Query<TGeometry, TOut> Native<TGeometry, TOut, TNative, TValue, TState>(Op key, TState state, Func<TState, TNative, Eff<Analyze.Env, Seq<TValue>>> project, Requirement? requirement = null, bool requiresContext = false) where TGeometry : notnull where TNative : notnull =>
+    internal static Query<TGeometry, TOut> Native<TGeometry, TOut, TNative, TValue>(Op key, Func<TNative, Eff<Env, Seq<TValue>>> project) where TGeometry : notnull where TNative : notnull =>
+        Native<TGeometry, TOut, TNative, TValue, Func<TNative, Eff<Env, Seq<TValue>>>>(key: key, state: project, project: static (nativeProject, native) => nativeProject(arg: native));
+    internal static Query<TGeometry, TOut> Native<TGeometry, TOut, TNative, TValue, TState>(Op key, TState state, Func<TState, TNative, Eff<Env, Seq<TValue>>> project, Requirement? requirement = null, bool requiresContext = false) where TGeometry : notnull where TNative : notnull =>
         Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, TValue>.Build(
             key: key, requirement: requirement, requiresContext: requiresContext, state: (Key: key, State: state, Project: project),
             evaluator: static (state, geometry) => geometry switch {
@@ -333,7 +270,7 @@ public static partial class Query {
         true => Many(key: key, values: values).Map(static candidates => candidates.Map(static candidate => (TOut)(object)candidate!)),
         false => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
     };
-    internal static Eff<Analyze.Env, Seq<TOut>> CurveAtNormalized<TGeometry, TOut>(TGeometry geometry, Op key, Func<Curve, double, TOut> project) where TGeometry : notnull =>
+    internal static Eff<Env, Seq<TOut>> CurveAtNormalized<TGeometry, TOut>(TGeometry geometry, Op key, Func<Curve, double, TOut> project) where TGeometry : notnull =>
         geometry switch {
             Curve curve => from context in Analyze.Asks
                            from validated in context.Validate(geometry: curve, requirement: Requirement.CurveLength).ToEff()

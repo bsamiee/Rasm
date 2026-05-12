@@ -1,9 +1,8 @@
 namespace Rasm.Analysis;
 
 public static class Analyze {
-    public sealed record Env(Context Context, IProgress<double>? Progress, CancellationToken Cancellation);
-    internal static readonly Eff<Env, Context> Asks = Eff.runtime<Env>().Map(static env => env.Context).As();
-    internal static readonly Eff<Env, Env> EnvAsks = Eff.runtime<Env>().As();
+    internal static readonly Eff<Env, Context> Asks = Env.Asks;
+    internal static readonly Eff<Env, Env> EnvAsks = Env.EnvAsks;
     public static Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(
         Query<TGeometry, TOut>? query,
         params ReadOnlySpan<TGeometry> input) where TGeometry : notnull =>
@@ -73,5 +72,5 @@ public static class Analyze {
             });
 }
 internal static class ValidationLifts {
-    internal static Eff<Analyze.Env, T> ToEff<T>(this Validation<Error, T> validation) => validation.ToFin();
+    internal static Eff<Env, T> ToEff<T>(this Validation<Error, T> validation) => validation.ToFin();
 }

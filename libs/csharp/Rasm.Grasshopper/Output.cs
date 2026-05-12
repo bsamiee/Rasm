@@ -141,16 +141,16 @@ public static class Output {
     }
     public static IOutputGroup Details<TProjection>(
         Port<Shape> input,
-        Func<IDataAccess, GrasshopperRuntime, Func<Shape, Eff<Analyze.Env, Seq<TProjection>>>> source,
+        Func<IDataAccess, GrasshopperRuntime, Func<Shape, Eff<Env, Seq<TProjection>>>> source,
         bool emptyUnsupported = false,
         params OutputSlot<TProjection>[] slots) where TProjection : notnull =>
         Prepared(
             source: (access, runtime) => ShapeSource(input: input, access: access, runtime: runtime, project: source(arg1: access, arg2: runtime)),
             emptyUnsupported: emptyUnsupported,
             slots: slots);
-    internal static Fin<Seq<Sourced<TSource>>> ShapeSource<TSource>(Port<Shape> input, IDataAccess access, GrasshopperRuntime runtime, Func<Shape, Eff<Analyze.Env, Seq<TSource>>> project) =>
+    internal static Fin<Seq<Sourced<TSource>>> ShapeSource<TSource>(Port<Shape> input, IDataAccess access, GrasshopperRuntime runtime, Func<Shape, Eff<Env, Seq<TSource>>> project) =>
         from sourced in runtime.Shape(access: access, port: input)
         from context in runtime.Scope.Context
-        from values in project(arg: sourced.Value).Run(env: new Analyze.Env(Context: context, Progress: new Bridge.Progress(access: access), Cancellation: access.Solution.Token))
+        from values in project(arg: sourced.Value).Run(env: new Env(Context: context, Progress: new Bridge.Progress(access: access), Cancellation: access.Solution.Token))
         select values.Map(value => new Sourced<TSource>(Value: value, Meta: sourced.Meta));
 }

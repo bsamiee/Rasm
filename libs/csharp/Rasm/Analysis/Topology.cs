@@ -1,34 +1,6 @@
 namespace Rasm.Analysis;
 
 // --- [MODELS] ----------------------------------------------------------------------------
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct FaceProjection : ITopologyProjection {
-    private FaceProjection(Brep brep, int faceIndex, bool reversed) { Brep = brep; FaceIndex = faceIndex; Reversed = reversed; }
-    public Brep Brep { get; }
-    public int FaceIndex { get; }
-    public bool Reversed { get; }
-    public ComponentIndex Source => new(type: ComponentIndexType.BrepFace, index: FaceIndex);
-    public static FaceProjection From(BrepFace face) { ArgumentNullException.ThrowIfNull(argument: face); return new(brep: face.DuplicateFace(duplicateMeshes: false), faceIndex: face.FaceIndex, reversed: face.OrientationIsReversed); }
-    public Unit Dispose() => fun(static (Brep b) => { b.Dispose(); return Unit.Default; })(Brep);
-    public bool SameAs(ITopologyProjection other) => other is FaceProjection f && ReferenceEquals(objA: Brep, objB: f.Brep);
-}
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct MeshFaceProjection(Mesh Mesh, int Face) : ITopologyProjection {
-    public ComponentIndex Source => new(type: ComponentIndexType.MeshFace, index: Face);
-    public Unit Dispose() => Unit.Default;
-    public bool SameAs(ITopologyProjection other) => other is MeshFaceProjection m && ReferenceEquals(objA: Mesh, objB: m.Mesh) && Face == m.Face;
-    public Vector3d Normal => MeshFaceMetrics.ComputeFaceNormal(mesh: Mesh, face: Face);
-    public Seq<Point3d> Vertices => MeshFaceMetrics.FaceVertices(mesh: Mesh, face: Face);
-    public Point3d Center => Vertices switch { Seq<Point3d> v when v.Count > 0 => (Point3d)(v.Fold(Vector3d.Zero, static (acc, p) => acc + (Vector3d)p) / v.Count), _ => Point3d.Unset };
-    public Mesh Isolated() {
-        // BOUNDARY ADAPTER — Rhino Mesh builder is intrinsically mutable.
-        Mesh result = new();
-        _ = Vertices.Iter(v => result.Vertices.Add(vertex: v));
-        _ = Mesh.Faces[Face].IsQuad ? result.Faces.AddFace(vertex1: 0, vertex2: 1, vertex3: 2, vertex4: 3) : result.Faces.AddFace(vertex1: 0, vertex2: 1, vertex3: 2);
-        result.RebuildNormals();
-        return result;
-    }
-}
 internal static class FoldExtensions {
     internal static Seq<TItem> Maxima<TItem>(this Seq<TItem> items, Func<TItem, double> projection, double tolerance) => Extrema(items: items, projection: projection, tolerance: tolerance, direction: +1);
     internal static Seq<TItem> Minima<TItem>(this Seq<TItem> items, Func<TItem, double> projection, double tolerance) => Extrema(items: items, projection: projection, tolerance: tolerance, direction: -1);
@@ -284,7 +256,7 @@ public static partial class Query {
                                                     select result);
         }
     }
-    private static Fin<Seq<Polyline>> SelfIntersectionsValue(Op op, Mesh geometry, Analyze.Env runtime) {
+    private static Fin<Seq<Polyline>> SelfIntersectionsValue(Op op, Mesh geometry, Env runtime) {
         // BOUNDARY ADAPTER — Rhino GetSelfIntersections takes IDisposable TextLog + multi-out.
         using TextLog textLog = new();
         return geometry.GetSelfIntersections(
@@ -308,7 +280,7 @@ public static partial class Query {
         Op key = Op.Of();
         return aspect?.Apply<TGeometry, TOut>() ?? Query<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput());
     }
-    public static Eff<Analyze.Env, Seq<FaceProjection>> FaceProjections(object geometry, Faces selector) {
+    public static Eff<Env, Seq<FaceProjection>> FaceProjections(object geometry, Faces selector) {
         Op key = Op.Of(name: nameof(Faces));
         return from context in Analyze.Asks
                from faces in DecomposeFaces(key: key, geometry: geometry).ToEff()
@@ -383,7 +355,7 @@ public static partial class Query {
         Op key = Op.Of();
         return aspect?.Apply<TGeometry, TOut>() ?? Query<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput());
     }
-    public static Eff<Analyze.Env, Seq<CurveProjection>> CurveProjections(object geometry, Curves aspect) {
+    public static Eff<Env, Seq<CurveProjection>> CurveProjections(object geometry, Curves aspect) {
         Op key = Op.Of(name: nameof(Curves));
         return from context in Analyze.Asks
                from kind in geometry.Kind(ctx: context).ToEff()

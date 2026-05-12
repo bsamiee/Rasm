@@ -116,3 +116,8 @@ public sealed record Context {
     internal static Validation<Error, Context> FromKnownUnits(double absolute, double relative, double angle, UnitSystem units) =>
         Create(absolute: absolute, relative: relative, angle: angle, scale: UnitScale.Create(units: units));
 }
+[BoundaryAdapter]
+public sealed record Env(Context Context, IProgress<double>? Progress, CancellationToken Cancellation) {
+    public static readonly Eff<Env, Context> Asks = Eff.runtime<Env>().Map(static env => env.Context).As();
+    public static readonly Eff<Env, Env> EnvAsks = Eff.runtime<Env>().As();
+}
