@@ -297,14 +297,6 @@ public static class KindRole {
             _ => Fin.Fail<double>(error: op.Unsupported(geometryType: value.GetType(), outputType: typeof(double))),
         };
     }
-    public static Fin<SegmentResult> Segments(this Kind kind, object value, Op op) {
-        ArgumentNullException.ThrowIfNull(argument: value);
-        return value switch {
-            Polyline p => Fin.Succ<SegmentResult>(new SegmentResult.Lines(Values: toSeq(p.GetSegments()))),
-            Curve c => Optional(c.DuplicateSegments()).ToFin(Fail: op.InvalidResult()).Map(static arr => (SegmentResult)new SegmentResult.Curves(Values: toSeq(arr))),
-            _ => Fin.Fail<SegmentResult>(error: op.Unsupported(geometryType: value.GetType(), outputType: typeof(SegmentResult))),
-        };
-    }
     public static Fin<Seq<FaceProjection>> Faces(this Kind kind, object value, Context ctx, Op op) {
         ArgumentNullException.ThrowIfNull(argument: value);
         return value switch {
@@ -368,9 +360,4 @@ public partial record IntersectionResult {
     public sealed record Polylines(Seq<Polyline> Values, Seq<IntersectionKind> Kinds) : IntersectionResult;
     public sealed record Events(Seq<IntersectionEvent> Values) : IntersectionResult;
     public sealed record Mixed(Seq<Curve> CurveValues, Seq<Point3d> PointValues) : IntersectionResult;
-}
-[Union]
-public partial record SegmentResult {
-    public sealed record Lines(Seq<Line> Values) : SegmentResult;
-    public sealed record Curves(Seq<Curve> Values) : SegmentResult;
 }
