@@ -44,8 +44,9 @@ public readonly record struct MeshFaceProjection(Mesh Mesh, int Face) : ITopolog
         MeshFace mf when mf.IsQuad => Seq((Point3d)Mesh.Vertices[mf.A], (Point3d)Mesh.Vertices[mf.B], (Point3d)Mesh.Vertices[mf.C], (Point3d)Mesh.Vertices[mf.D]),
         MeshFace mf => Seq((Point3d)Mesh.Vertices[mf.A], (Point3d)Mesh.Vertices[mf.B], (Point3d)Mesh.Vertices[mf.C]),
     };
-    public Vector3d Normal => Vertices switch {
-        Seq<Point3d> verts => fun(static (Seq<Point3d> v) => { Vector3d cross = Vector3d.CrossProduct(a: v[1] - v[0], b: v[2] - v[0]); _ = cross.Unitize(); return cross; })(verts),
+    public Vector3d Normal => Vector3d.CrossProduct(a: Vertices[1] - Vertices[0], b: Vertices[2] - Vertices[0]) switch {
+        { Length: > 0.0 } c => c / c.Length,
+        Vector3d v => v,
     };
     public Point3d Center => Vertices switch { Seq<Point3d> v when v.Count > 0 => (Point3d)(v.Fold(Vector3d.Zero, static (acc, p) => acc + (Vector3d)p) / v.Count), _ => Point3d.Unset };
     public Mesh Isolated() {
@@ -91,55 +92,16 @@ public sealed partial class Kind {
 }
 [BoundaryAdapter, SmartEnum<int>]
 public sealed partial class MassKind {
-    internal delegate Eff<Env, IDisposable> ComputeMass(object geometry, bool secondMoments, bool productMoments);
-    public static readonly MassKind None = new(key: 0, label: nameof(None), requirement: Requirement.None, compute: static (geometry, _, _) => Fin.Fail<IDisposable>(new Fault.ComputationUnsupported(Label: nameof(None), GeometryType: geometry.GetType())).ToEff(), sum: static _ => Fin.Fail<IDisposable>(new Fault.ComputationFailed(Label: nameof(None))));
-    public static readonly MassKind Length = new(
-        key: 1, label: nameof(Length), requirement: Requirement.CurveLength,
-        compute: static (geometry, secondMoments, productMoments) => (geometry switch {
-            Curve curve => Optional(LengthMassProperties.Compute(curve: curve, length: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments))
-                .ToFin(new Fault.ComputationFailed(Label: nameof(LengthMassProperties)))
-                .Map(static props => (IDisposable)props),
-            _ => Fin.Fail<IDisposable>(new Fault.ComputationUnsupported(Label: nameof(LengthMassProperties), GeometryType: geometry.GetType())),
-        }).ToEff(),
-        sum: static props => Optional(LengthMassProperties.WeightedSum(summands: props.AsIterable().Cast<LengthMassProperties>(), weights: Enumerable.Repeat(element: 1.0, count: props.Count)))
-            .ToFin(new Fault.ComputationFailed(Label: nameof(LengthMassProperties)))
-            .Map(static props => (IDisposable)props));
-    public static readonly MassKind Area = new(
-        key: 2, label: nameof(Area), requirement: Requirement.AreaMass,
-        compute: static (geometry, secondMoments, productMoments) => from context in Env.Asks
-                                                                     from props in Optional(geometry switch {
-                                                                         Curve curve => AreaMassProperties.Compute(closedPlanarCurve: curve, planarTolerance: context.Absolute.Value),
-                                                                         Mesh mesh => AreaMassProperties.Compute(mesh: mesh, area: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments),
-                                                                         Brep brep => AreaMassProperties.Compute(brep: brep, area: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments, relativeTolerance: context.Relative.Value, absoluteTolerance: context.Absolute.Value),
-                                                                         Surface surface => AreaMassProperties.Compute(surface: surface, area: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments),
-                                                                         _ => null,
-                                                                     }).ToFin(geometry switch {
-                                                                         Curve or Mesh or Brep or Surface => new Fault.ComputationFailed(Label: nameof(AreaMassProperties)),
-                                                                         _ => new Fault.ComputationUnsupported(Label: nameof(AreaMassProperties), GeometryType: geometry.GetType()),
-                                                                     }).Map(static props => (IDisposable)props).ToEff()
-                                                                     select props,
-        sum: static props => Optional(AreaMassProperties.WeightedSum(summands: props.AsIterable().Cast<AreaMassProperties>(), weights: Enumerable.Repeat(element: 1.0, count: props.Count)))
-            .ToFin(new Fault.ComputationFailed(Label: nameof(AreaMassProperties)))
-            .Map(static props => (IDisposable)props));
-    public static readonly MassKind Volume = new(
-        key: 3, label: nameof(Volume), requirement: Requirement.VolumeMass,
-        compute: static (geometry, secondMoments, productMoments) => from context in Env.Asks
-                                                                     from props in Optional(geometry switch {
-                                                                         Mesh mesh => VolumeMassProperties.Compute(mesh: mesh, volume: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments),
-                                                                         Brep brep => VolumeMassProperties.Compute(brep: brep, volume: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments, relativeTolerance: context.Relative.Value, absoluteTolerance: context.Absolute.Value),
-                                                                         Surface surface => VolumeMassProperties.Compute(surface: surface, volume: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments),
-                                                                         _ => null,
-                                                                     }).ToFin(geometry switch {
-                                                                         Mesh or Brep or Surface => new Fault.ComputationFailed(Label: nameof(VolumeMassProperties)),
-                                                                         _ => new Fault.ComputationUnsupported(Label: nameof(VolumeMassProperties), GeometryType: geometry.GetType()),
-                                                                     }).Map(static props => (IDisposable)props).ToEff()
-                                                                     select props,
-        sum: static props => Optional(VolumeMassProperties.WeightedSum(summands: props.AsIterable().Cast<VolumeMassProperties>(), weights: Enumerable.Repeat(element: 1.0, count: props.Count)))
-            .ToFin(new Fault.ComputationFailed(Label: nameof(VolumeMassProperties)))
-            .Map(static props => (IDisposable)props));
+    public static readonly MassKind None = new(key: 0, label: nameof(None), requirement: Requirement.None,
+        sum: static _ => Fin.Fail<IDisposable>(new Fault.ComputationFailed(Label: nameof(None))));
+    public static readonly MassKind Length = new(key: 1, label: nameof(Length), requirement: Requirement.CurveLength,
+        sum: static props => Optional(LengthMassProperties.WeightedSum(summands: props.AsIterable().Cast<LengthMassProperties>(), weights: Enumerable.Repeat(element: 1.0, count: props.Count))).ToFin(Fail: new Fault.ComputationFailed(Label: nameof(LengthMassProperties))).Map(static p => (IDisposable)p));
+    public static readonly MassKind Area = new(key: 2, label: nameof(Area), requirement: Requirement.AreaMass,
+        sum: static props => Optional(AreaMassProperties.WeightedSum(summands: props.AsIterable().Cast<AreaMassProperties>(), weights: Enumerable.Repeat(element: 1.0, count: props.Count))).ToFin(Fail: new Fault.ComputationFailed(Label: nameof(AreaMassProperties))).Map(static p => (IDisposable)p));
+    public static readonly MassKind Volume = new(key: 3, label: nameof(Volume), requirement: Requirement.VolumeMass,
+        sum: static props => Optional(VolumeMassProperties.WeightedSum(summands: props.AsIterable().Cast<VolumeMassProperties>(), weights: Enumerable.Repeat(element: 1.0, count: props.Count))).ToFin(Fail: new Fault.ComputationFailed(Label: nameof(VolumeMassProperties))).Map(static p => (IDisposable)p));
     public string Label { get; }
     internal Requirement Requirement { get; }
-    internal ComputeMass Compute { get; }
     internal Func<Seq<IDisposable>, Fin<IDisposable>> Sum { get; }
 }
 
@@ -258,6 +220,16 @@ internal static class Dispatch {
         [(typeof(Mesh), typeof(Plane))] = static (a, b, args) => { using MeshIntersectionCache cache = new(); Polyline[]? polylines = Intersection.MeshPlane(mesh: (Mesh)a, cache: cache, plane: (Plane)b, tolerance: args.Item1.Absolute.Value * Intersection.MeshIntersectionsTolerancesCoefficient, overlaps: true); Seq<Polyline> values = toSeq(Optional(polylines).ToSeq().Bind(static h => h)); return Fin.Succ((IntersectionResult)new IntersectionResult.Polylines(Values: values, Kinds: values.Map(static _ => IntersectionKind.Unknown))); },
         [(typeof(Mesh), typeof(Mesh))] = static (a, b, args) => { using TextLog textLog = new(); return Intersection.MeshMesh(meshes: [(Mesh)a, (Mesh)b], tolerance: args.Item1.Absolute.Value * Intersection.MeshIntersectionsTolerancesCoefficient, intersections: out Polyline[] ints, overlapsPolylines: true, overlapsPolylinesResult: out Polyline[] olap, overlapsMesh: false, overlapsMeshResult: out Mesh _, textLog: textLog, cancel: args.Item3, progress: args.Item4) switch { true => Fin.Succ((IntersectionResult)new IntersectionResult.Polylines(Values: toSeq(Optional(ints).ToSeq().Bind(static p => p)) + toSeq(Optional(olap).ToSeq().Bind(static p => p)), Kinds: toSeq(Optional(ints).ToSeq().Bind(static p => p)).Map(static _ => IntersectionKind.Curve) + toSeq(Optional(olap).ToSeq().Bind(static p => p)).Map(static _ => IntersectionKind.Overlap))), false when args.Item3.IsCancellationRequested => Fin.Fail<IntersectionResult>(error: new Fault.Cancelled()), false => Fin.Fail<IntersectionResult>(error: args.Item2.InvalidResult()) }; },
     }.ToFrozenDictionary();
+    internal static readonly FrozenDictionary<(Type Geometry, MassKind Mass), Func<object, (Context Ctx, bool SecondMoments, bool ProductMoments), Fin<IDisposable>>> MassPropertiesTable = new Dictionary<(Type, MassKind), Func<object, (Context, bool, bool), Fin<IDisposable>>> {
+        [(typeof(Curve), MassKind.Length)] = static (g, args) => Optional(LengthMassProperties.Compute(curve: (Curve)g, length: true, firstMoments: true, secondMoments: args.Item2, productMoments: args.Item3)).ToFin(Fail: new Fault.ComputationFailed(Label: nameof(LengthMassProperties))).Map(static p => (IDisposable)p),
+        [(typeof(Curve), MassKind.Area)] = static (g, args) => Optional(AreaMassProperties.Compute(closedPlanarCurve: (Curve)g, planarTolerance: args.Item1.Absolute.Value)).ToFin(Fail: new Fault.ComputationFailed(Label: nameof(AreaMassProperties))).Map(static p => (IDisposable)p),
+        [(typeof(Mesh), MassKind.Area)] = static (g, args) => Optional(AreaMassProperties.Compute(mesh: (Mesh)g, area: true, firstMoments: true, secondMoments: args.Item2, productMoments: args.Item3)).ToFin(Fail: new Fault.ComputationFailed(Label: nameof(AreaMassProperties))).Map(static p => (IDisposable)p),
+        [(typeof(Brep), MassKind.Area)] = static (g, args) => Optional(AreaMassProperties.Compute(brep: (Brep)g, area: true, firstMoments: true, secondMoments: args.Item2, productMoments: args.Item3, relativeTolerance: args.Item1.Relative.Value, absoluteTolerance: args.Item1.Absolute.Value)).ToFin(Fail: new Fault.ComputationFailed(Label: nameof(AreaMassProperties))).Map(static p => (IDisposable)p),
+        [(typeof(Surface), MassKind.Area)] = static (g, args) => Optional(AreaMassProperties.Compute(surface: (Surface)g, area: true, firstMoments: true, secondMoments: args.Item2, productMoments: args.Item3)).ToFin(Fail: new Fault.ComputationFailed(Label: nameof(AreaMassProperties))).Map(static p => (IDisposable)p),
+        [(typeof(Mesh), MassKind.Volume)] = static (g, args) => Optional(VolumeMassProperties.Compute(mesh: (Mesh)g, volume: true, firstMoments: true, secondMoments: args.Item2, productMoments: args.Item3)).ToFin(Fail: new Fault.ComputationFailed(Label: nameof(VolumeMassProperties))).Map(static p => (IDisposable)p),
+        [(typeof(Brep), MassKind.Volume)] = static (g, args) => Optional(VolumeMassProperties.Compute(brep: (Brep)g, volume: true, firstMoments: true, secondMoments: args.Item2, productMoments: args.Item3, relativeTolerance: args.Item1.Relative.Value, absoluteTolerance: args.Item1.Absolute.Value)).ToFin(Fail: new Fault.ComputationFailed(Label: nameof(VolumeMassProperties))).Map(static p => (IDisposable)p),
+        [(typeof(Surface), MassKind.Volume)] = static (g, args) => Optional(VolumeMassProperties.Compute(surface: (Surface)g, volume: true, firstMoments: true, secondMoments: args.Item2, productMoments: args.Item3)).ToFin(Fail: new Fault.ComputationFailed(Label: nameof(VolumeMassProperties))).Map(static p => (IDisposable)p),
+    }.ToFrozenDictionary();
     internal static Fin<TOut> Resolve<TOut, TArgs>(FrozenDictionary<Type, Func<object, TArgs, Fin<TOut>>> table, object source, TArgs args, Op op) => (table.GetValueOrDefault(key: source.GetType()) ?? (KindLookup.Inherits(type: source.GetType())?.Type is Type bt ? table.GetValueOrDefault(key: bt) : null) ?? (source is GeometryBase ? table.GetValueOrDefault(key: typeof(GeometryBase)) : null)) switch { Func<object, TArgs, Fin<TOut>> fn => fn(arg1: source, arg2: args), _ => Fin.Fail<TOut>(error: op.Unsupported(geometryType: source.GetType(), outputType: typeof(TOut))) };
     internal static Fin<TOut> ResolveTagged<TOut, TTag, TArgs>(FrozenDictionary<(Type, TTag), Func<object, TArgs, Fin<TOut>>> table, object source, TTag tag, TArgs args, Op op) where TTag : notnull => (table.GetValueOrDefault(key: (source.GetType(), tag)) ?? (KindLookup.Inherits(type: source.GetType())?.Type is Type bt ? table.GetValueOrDefault(key: (bt, tag)) : null)) switch { Func<object, TArgs, Fin<TOut>> fn => fn(arg1: source, arg2: args), _ => Fin.Fail<TOut>(error: op.Unsupported(geometryType: source.GetType(), outputType: typeof(TOut))) };
     internal static Fin<TOut> ResolvePair<TOut, TArgs>(FrozenDictionary<(Type, Type), Func<object, object, TArgs, Fin<TOut>>> table, object left, object right, TArgs args, Op op) => (table.GetValueOrDefault(key: (left.GetType(), right.GetType())) ?? (KindLookup.Inherits(type: left.GetType())?.Type is Type lb ? table.GetValueOrDefault(key: (lb, right.GetType())) : null) ?? (KindLookup.Inherits(type: right.GetType())?.Type is Type rb ? table.GetValueOrDefault(key: (left.GetType(), rb)) : null) ?? (KindLookup.Inherits(type: left.GetType())?.Type is Type lb2 && KindLookup.Inherits(type: right.GetType())?.Type is Type rb2 ? table.GetValueOrDefault(key: (lb2, rb2)) : null)) switch { Func<object, object, TArgs, Fin<TOut>> fn => fn(arg1: left, arg2: right, arg3: args), _ => Fin.Fail<TOut>(error: op.Unsupported(geometryType: left.GetType(), outputType: right.GetType())) };
@@ -300,6 +272,15 @@ public static class KindRole {
     public static Fin<IntersectionResult> Intersect(this Kind a, Kind b, object valueA, object valueB, Context ctx, Op op, IProgress<double>? progress = null, CancellationToken cancel = default) { ArgumentNullException.ThrowIfNull(argument: valueA); ArgumentNullException.ThrowIfNull(argument: valueB); return Dispatch.ResolvePair(table: Dispatch.IntersectTable, left: valueA, right: valueB, args: (ctx, op, cancel, progress), op: op); }
     public static Fin<bool> Contains(this Kind kind, object value, Point3d target, Context ctx, Op op) { ArgumentNullException.ThrowIfNull(argument: value); ArgumentNullException.ThrowIfNull(argument: ctx); return (target.IsValid, value) switch { (false, _) => Fin.Fail<bool>(error: op.InvalidInput()), (true, Brep b) => Fin.Succ(b.IsPointInside(point: target, tolerance: ctx.Absolute.Value, strictlyIn: false)), (true, Mesh m) => Fin.Succ(m.IsPointInside(point: target, tolerance: ctx.Absolute.Value, strictlyIn: false)), _ => Fin.Fail<bool>(error: op.Unsupported(geometryType: value.GetType(), outputType: typeof(bool))) }; }
     public static Fin<TTarget> Coerce<TTarget>(this Kind kind, object value, Context ctx, Op op) => Coercion.Of<TTarget>(source: value, ctx: ctx, op: op);
+}
+[BoundaryAdapter]
+public static class MassKindRole {
+    public static Eff<Env, IDisposable> Compute(this MassKind mass, object value, Op op, bool secondMoments = false, bool productMoments = false) {
+        ArgumentNullException.ThrowIfNull(argument: value);
+        return from context in Env.Asks
+               from result in Dispatch.ResolveTagged(table: Dispatch.MassPropertiesTable, source: value, tag: mass, args: (context, secondMoments, productMoments), op: op).ToEff()
+               select result;
+    }
 }
 
 // --- [COMPOSITION] ------------------------------------------------------------------------

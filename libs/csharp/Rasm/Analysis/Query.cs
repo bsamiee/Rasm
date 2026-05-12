@@ -57,28 +57,28 @@ public sealed record Query<TGeometry, TOut>(
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-internal static class MassKindRole {
+internal static class MassKindBuild {
     extension(MassKind mass) {
         internal Query<TGeometry, TValue> Build<TGeometry, TValue>(Op key, Func<Op, IDisposable, Fin<Seq<TValue>>> project, bool secondMoments = false, bool productMoments = false) where TGeometry : notnull =>
             Query<TGeometry, TValue>.Build(
                 key: key, requirement: mass.Requirement, requiresContext: true,
                 aggregate: Some<Func<Seq<TGeometry>, Eff<Env, Seq<TValue>>>>(
-                    geometry => from props in ComputeAll(mass: mass, geometry: geometry, secondMoments: secondMoments, productMoments: productMoments)
+                    geometry => from props in ComputeAll(mass: mass, key: key, geometry: geometry, secondMoments: secondMoments, productMoments: productMoments)
                                 from values in Query.BracketEach(
                                     resources: props,
                                     body: owned => from summed in mass.Sum(arg: owned)
                                                    from projected in Query.Bracket(factory: () => summed, body: disposable => project(arg1: key, arg2: disposable))
                                                    select projected).ToEff()
                                 select values),
-                evaluator: geometry => from computed in mass.Compute(geometry: geometry, secondMoments: secondMoments, productMoments: productMoments)
+                evaluator: geometry => from computed in mass.Compute(value: geometry, op: key, secondMoments: secondMoments, productMoments: productMoments)
                                        from values in Query.Bracket(factory: () => computed, body: disposable => project(arg1: key, arg2: disposable)).ToEff()
                                        select values);
     }
-    private static Eff<Env, Seq<IDisposable>> ComputeAll<TGeometry>(MassKind mass, Seq<TGeometry> geometry, bool secondMoments, bool productMoments) where TGeometry : notnull =>
-        from runtime in Analyze.EnvAsks
+    private static Eff<Env, Seq<IDisposable>> ComputeAll<TGeometry>(MassKind mass, Op key, Seq<TGeometry> geometry, bool secondMoments, bool productMoments) where TGeometry : notnull =>
+        from runtime in Env.EnvAsks
         from props in geometry.Fold(
                 initialState: Fin.Succ(Seq<IDisposable>()),
-                f: (state, item) => state.Bind(owned => mass.Compute(geometry: item, secondMoments: secondMoments, productMoments: productMoments)
+                f: (state, item) => state.Bind(owned => mass.Compute(value: item, op: key, secondMoments: secondMoments, productMoments: productMoments)
                     .Run(env: runtime)
                     .Match(
                         Succ: resource => Fin.Succ(resource.Cons(owned)),
