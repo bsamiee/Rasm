@@ -8,7 +8,7 @@ public static partial class Query {
         return typeof(TOut) == typeof(Point3d)
             ? Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, Point3d>.Build(
                 key: key, requiresContext: true, state: key,
-                evaluator: static (op, geometry) => from context in Analyze.Asks
+                evaluator: static (op, geometry) => from context in Env.Asks
                                                     from bbox in geometry.Bounds(op: op).ToEff()
                                                     from result in (bbox.IsValid switch {
                                                         true => Many(key: op, values: Point3d.CullDuplicates(points: bbox.GetCorners(), tolerance: context.Absolute.Value)),
@@ -43,7 +43,7 @@ public static partial class Query {
         return (typeof(TOut) == typeof(Point3d) && typeof(TGeometry).SupportsBounds(includeSphere: false))
             ? Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, Point3d>.Build(
                 key: key, requiresContext: true, state: key,
-                evaluator: static (op, geometry) => from context in Analyze.Asks
+                evaluator: static (op, geometry) => from context in Env.Asks
                                                     from kind in ((object)geometry).Kind(ctx: context).ToEff()
                                                     from centroid in kind.Centroid(value: geometry, ctx: context, op: op).ToEff()
                                                     from result in One(key: op, value: centroid).ToEff()
@@ -132,7 +132,7 @@ public static partial class Query {
                 requiresContext: true,
                 state: key,
                 evaluator: static (op, geometry) =>
-                    from context in Analyze.Asks
+                    from context in Env.Asks
                     from kind in ((object)geometry).Kind(ctx: context).ToEff()
                     from length in kind.Length(value: geometry, ctx: context, op: op).ToEff()
                     from result in One(key: op, value: length).ToEff()
@@ -168,7 +168,7 @@ public static partial class Query {
             key: Op.Of(name: nameof(Conformance)), requiresContext: true,
             state: (Op: Op.Of(name: nameof(Conformance)), Count: count, Requirement: requirement, Project: project),
             evaluator: static (state, pair) =>
-                from context in Analyze.Asks
+                from context in Env.Asks
                 from validated in context.ValidatePair(a: pair.Geometry, b: pair.Primitive, requirementA: state.Requirement, requirementB: Requirement.None).ToEff()
                 from kindG in ((object)validated.A).Kind(ctx: context).ToEff()
                 from kindP in ((object)validated.B).Kind(ctx: context).ToEff()

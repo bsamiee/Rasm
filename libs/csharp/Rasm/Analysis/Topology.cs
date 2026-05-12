@@ -21,7 +21,7 @@ public static partial class Query {
             ? Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, Interval>.Build(
                 key: key, requiresContext: true, state: key,
                 evaluator: static (op, geometry) =>
-                    from context in Analyze.Asks
+                    from context in Env.Asks
                     from kind in ((object)geometry).Kind(ctx: context).ToEff()
                     from domains in kind.Domains(value: geometry, op: op).ToEff()
                     from result in Many(key: op, values: domains).ToEff()
@@ -49,7 +49,7 @@ public static partial class Query {
                     Polyline polyline => Many(key: op, values: polyline.GetSegments().Select(static segment => segment.PointAt(t: 0.5))).ToEff(),
                     BoundingBox box => Many(key: op, values: box.GetEdges().Select(static edge => edge.PointAt(t: 0.5))).ToEff(),
                     Box box => Many(key: op, values: box.BoundingBox.GetEdges().Select(static edge => edge.PointAt(t: 0.5))).ToEff(),
-                    _ => from context in Analyze.Asks
+                    _ => from context in Env.Asks
                          from kind in ((object)geometry).Kind(ctx: context).ToEff()
                          from curves in kind.Curves(value: geometry, selector: new CurveSelector(Feature: CurveFeature.Edge, Direction: None, Angle: None, Index: None, Normalized: None, Iso: None), ctx: context, op: op).ToEff()
                          from result in Many(key: op, values: curves.Map(static projection => { using Curve c = projection.Curve; return c.PointAtNormalizedLength(length: 0.5); })).ToEff()
@@ -77,7 +77,7 @@ public static partial class Query {
         return Query<Surface, Curve>.Build(
             key: key, requirement: Requirement.SurfaceEvaluation, state: (Key: key, Iso: iso, Normalized: normalized), requiresContext: true,
             evaluator: static (state, geometry) =>
-                from context in Analyze.Asks
+                from context in Env.Asks
                 from kind in ((object)geometry).Kind(ctx: context).ToEff()
                 from curves in kind.IsoCurves(value: geometry, direction: state.Iso, normalized: state.Normalized, op: state.Key).ToEff()
                 from result in Many(key: state.Key, values: curves).ToEff()
@@ -90,7 +90,7 @@ public static partial class Query {
                 key: key, requirement: Requirement.Basic, requiresContext: true,
                 state: (Key: key, Kind: someKind.IfNone(() => Rasm.Domain.Kind.Surface)),
                 evaluator: static (state, geometry) =>
-                    from context in Analyze.Asks
+                    from context in Env.Asks
                     from coerced in state.Kind.Coerce<TOut>(value: geometry, ctx: context, op: state.Key).ToEff()
                     from result in state.Key.One(value: coerced).ToEff()
                     select result),
@@ -103,7 +103,7 @@ public static partial class Query {
             ? Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, Rasm.Domain.Kind>.Build(
                 key: key, requiresContext: true, state: key,
                 evaluator: static (op, geometry) =>
-                    from context in Analyze.Asks
+                    from context in Env.Asks
                     from kind in ((object)geometry).Kind(ctx: context).ToEff()
                     from result in One(key: op, value: kind).ToEff()
                     select result))
@@ -114,7 +114,7 @@ public static partial class Query {
         return Query<TGeometry, Rasm.Domain.SolidOrientation>.Build(
             key: key, requiresContext: true, state: key,
             evaluator: static (op, geometry) =>
-                from context in Analyze.Asks
+                from context in Env.Asks
                 from kind in ((object)geometry).Kind(ctx: context).ToEff()
                 from orientation in kind.SolidOrientation(value: geometry, op: op).ToEff()
                 from result in One(key: op, value: orientation).ToEff()
@@ -127,7 +127,7 @@ public static partial class Query {
             true => Cast<TGeometry, bool>(key: key, query: Query<TGeometry, bool>.Build(
                 key: key, state: (Key: key, Target: point), requirement: Requirement.SolidTopology, requiresContext: true,
                 evaluator: static (state, geometry) =>
-                    from context in Analyze.Asks
+                    from context in Env.Asks
                     from kind in ((object)geometry).Kind(ctx: context).ToEff()
                     from contained in kind.Contains(value: geometry, target: state.Target, ctx: context, op: state.Key).ToEff()
                     from result in One(key: state.Key, value: contained).ToEff()
@@ -140,7 +140,7 @@ public static partial class Query {
             ? Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, Point3d>.Build(
                 key: key, requiresContext: true, state: key,
                 evaluator: static (op, geometry) =>
-                    from context in Analyze.Asks
+                    from context in Env.Asks
                     from kind in ((object)geometry).Kind(ctx: context).ToEff()
                     from points in kind.Vertices(value: geometry, ctx: context, op: op).ToEff()
                     from result in Many(key: op, values: points).ToEff()
@@ -153,7 +153,7 @@ public static partial class Query {
             ? Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, TOut>.Build(
                 key: key, requiresContext: true, state: key,
                 evaluator: static (op, geometry) =>
-                    from context in Analyze.Asks
+                    from context in Env.Asks
                     from kind in ((object)geometry).Kind(ctx: context).ToEff()
                     from components in kind.Components(value: geometry, ctx: context, op: op).ToEff()
                     from result in op.Results<GeometryBase, TOut>(values: components).ToEff()
@@ -253,7 +253,7 @@ public static partial class Query {
             Op key = Op.Of();
             return Query<Mesh, Polyline>.Build(
                 key: key, requirement: Requirement.Basic, state: key,
-                evaluator: static (op, geometry) => from runtime in Analyze.EnvAsks
+                evaluator: static (op, geometry) => from runtime in Env.EnvAsks
                                                     from result in SelfIntersectionsValue(op: op, geometry: geometry, runtime: runtime).ToEff()
                                                     select result);
         }
@@ -284,7 +284,7 @@ public static partial class Query {
     }
     public static Eff<Env, Seq<FaceProjection>> FaceProjections(object geometry, Faces selector) {
         Op key = Op.Of(name: nameof(Faces));
-        return from context in Analyze.Asks
+        return from context in Env.Asks
                from faces in DecomposeFaces(key: key, ctx: context, geometry: geometry).ToEff()
                from chosen in SelectFaces(key: key, faces: faces, selector: selector, runtime: context).ToEff()
                select chosen;
@@ -310,7 +310,7 @@ public static partial class Query {
         Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, TValue>.Build(
             key: key, state: (Key: key, Selector: selector, Transfer: transfer, Project: project), requirement: requirement, requiresContext: true,
             evaluator: static (state, geometry) =>
-                from context in Analyze.Asks
+                from context in Env.Asks
                 from faces in DecomposeFaces(key: state.Key, ctx: context, geometry: geometry).ToEff()
                 from chosen in SelectFaces(key: state.Key, faces: faces, selector: state.Selector, runtime: context).ToEff()
                 from result in ProjectOwned(all: faces, chosen: chosen, transfer: state.Transfer, project: values => state.Project(arg1: values, arg2: context)).ToEff()
@@ -352,7 +352,7 @@ public static partial class Query {
     }
     public static Eff<Env, Seq<CurveProjection>> CurveProjections(object geometry, Curves aspect) {
         Op key = Op.Of(name: nameof(Curves));
-        return from context in Analyze.Asks
+        return from context in Env.Asks
                from kind in geometry.Kind(ctx: context).ToEff()
                from curves in kind.Curves(value: geometry, selector: aspect.ToSelector(topology: kind.Topology), ctx: context, op: key).ToEff()
                from chosen in SelectCurves(curves: curves, aspect: aspect).ToEff()
@@ -411,7 +411,7 @@ internal static class CurvesRole {
         Query.Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, TValue>.Build(
             key: key, state: (Key: key, Aspect: aspect, Project: project), requiresContext: true,
             evaluator: static (state, geometry) =>
-                from context in Analyze.Asks
+                from context in Env.Asks
                 from kind in ((object)geometry).Kind(ctx: context).ToEff()
                 from curves in kind.Curves(value: geometry, selector: state.Aspect.ToSelector(topology: kind.Topology), ctx: context, op: state.Key).ToEff()
                 from chosen in Query.SelectCurves(curves: curves, aspect: state.Aspect).ToEff()

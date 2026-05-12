@@ -8,7 +8,7 @@ public static partial class Query {
             false => key.Unsupported<(TA A, TB B), TOut>(),
             true => Query<(TA A, TB B), TOut>.Build(
                 key: key, requiresContext: true, state: key,
-                evaluator: static (op, pair) => from runtime in Analyze.EnvAsks
+                evaluator: static (op, pair) => from runtime in Env.EnvAsks
                                                 from kA in ((object)pair.A).Kind(ctx: runtime.Context).ToEff()
                                                 from kB in ((object)pair.B).Kind(ctx: runtime.Context).ToEff()
                                                 from result in kA.Intersect(b: kB, valueA: pair.A, valueB: pair.B, ctx: runtime.Context, op: op, progress: runtime.Progress, cancel: runtime.Cancellation).ToEff()
@@ -21,7 +21,7 @@ public static partial class Query {
         return (typeof(Curve).IsAssignableFrom(c: typeof(TA)) && typeof(Curve).IsAssignableFrom(c: typeof(TB)) && typeof(TOut) == typeof(CurveDeviation))
             ? Query<(TA A, TB B), TOut>.Build(
                 key: key, requiresContext: true, state: key,
-                evaluator: static (op, pair) => from context in Analyze.Asks
+                evaluator: static (op, pair) => from context in Env.Asks
                                                 from validated in context.ValidatePair(a: pair.A, b: pair.B, requirementA: Requirement.CurveLength, requirementB: Requirement.CurveLength).ToEff()
                                                 from result in DeviationProject<TOut>(op: op, left: (Curve)(object)validated.A, right: (Curve)(object)validated.B, ctx: context).ToEff()
                                                 select result)

@@ -26,11 +26,11 @@ public sealed record Query<TGeometry, TOut>(
         return new(
             key: key, requirement: active, requiresContext: requiresContext,
             aggregate: aggregate.Map<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>>(project => geometry =>
-                from runtime in Analyze.EnvAsks
+                from runtime in Env.EnvAsks
                 from resolved in geometry.Traverse(item => Prepare(geometry: item, requirement: Requirement.None).Run(env: runtime)).As().ToEff()
                 from result in project(arg: resolved)
                 select result),
-            effect: geometry => from runtime in Analyze.EnvAsks
+            effect: geometry => from runtime in Env.EnvAsks
                                 from result in geometry.Traverse(item => (
                                     from prepared in Prepare(geometry: item, requirement: active)
                                     from value in evaluator(arg1: state, arg2: prepared)
@@ -42,13 +42,13 @@ public sealed record Query<TGeometry, TOut>(
     internal static Query<TGeometry, TOut> Reject(Op key, Error fault) =>
         new(key: key, effect: _ => Fin.Fail<Seq<TOut>>(fault).ToEff(), rejection: Some(fault));
     private static Eff<Env, TGeometry> Prepare(TGeometry geometry, Requirement requirement) =>
-        from runtime in Analyze.EnvAsks
+        from runtime in Env.EnvAsks
         from ready in (runtime.Cancellation.IsCancellationRequested switch {
             true => Fin.Fail<TGeometry>(new Fault.Cancelled()),
             false => Optional(geometry).ToFin(new Fault.MissingGeometry()),
         }).ToEff()
         from validated in (requirement.IsEmpty, ready) switch {
-            (false, GeometryBase native) => from context in Analyze.Asks
+            (false, GeometryBase native) => from context in Env.Asks
                                             from _ in context.Validate(geometry: native, requirement: requirement).ToEff()
                                             select ready,
             _ => Fin.Succ(ready).ToEff(),
@@ -241,7 +241,7 @@ public static partial class Query {
     };
     internal static Eff<Env, Seq<TOut>> CurveAtNormalized<TGeometry, TOut>(TGeometry geometry, Op key, Func<Curve, double, TOut> project) where TGeometry : notnull =>
         geometry switch {
-            Curve curve => from context in Analyze.Asks
+            Curve curve => from context in Env.Asks
                            from validated in context.Validate(geometry: curve, requirement: Requirement.CurveLength).ToEff()
                            from parameter in (validated.NormalizedLengthParameter(s: 0.5, t: out double p, fractionalTolerance: context.Relative.Value) switch {
                                true => Fin.Succ(p),

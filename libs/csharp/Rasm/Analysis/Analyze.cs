@@ -1,8 +1,6 @@
 namespace Rasm.Analysis;
 
 public static class Analyze {
-    internal static readonly Eff<Env, Context> Asks = Env.Asks;
-    internal static readonly Eff<Env, Env> EnvAsks = Env.EnvAsks;
     public static Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(
         Query<TGeometry, TOut>? query,
         params ReadOnlySpan<TGeometry> input) where TGeometry : notnull =>

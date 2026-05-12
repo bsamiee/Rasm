@@ -38,7 +38,7 @@ public static partial class Query {
         return typeof(TOut) switch {
             Type output when output == typeof(Point3d) => Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, Point3d>.Build(
                 key: key, requirement: Requirement.CurveLength, state: key,
-                evaluator: static (op, geometry) => from context in Analyze.Asks
+                evaluator: static (op, geometry) => from context in Env.Asks
                                                     from result in (geometry switch {
                                                         Curve curve when curve.IsValid => ExtractCardinals(op: op, curve: curve, tolerance: context.Absolute.Value),
                                                         Polyline polyline when polyline.IsValid => Bracket(factory: polyline.ToPolylineCurve, body: (Curve curve) => ExtractCardinals(op: op, curve: curve, tolerance: context.Absolute.Value)),
@@ -70,7 +70,7 @@ public static partial class Query {
         return (typeof(TOut) == typeof(Point3d) && (typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) || typeof(Surface).IsAssignableFrom(c: typeof(TGeometry)) || typeof(Brep).IsAssignableFrom(c: typeof(TGeometry)) || typeof(TGeometry) == typeof(object)))
             ? Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, Point3d>.Build(
                 key: key, requiresContext: true, state: key,
-                evaluator: static (op, geometry) => from context in Analyze.Asks
+                evaluator: static (op, geometry) => from context in Env.Asks
                                                     from kind in ((object)geometry).Kind(ctx: context).ToEff()
                                                     from points in kind.ControlPoints(value: geometry, op: op).ToEff()
                                                     from result in Many(key: op, values: points).ToEff()
@@ -116,7 +116,7 @@ public static partial class Query {
     private static Query<TGeometry, TOut> CurvatureQuery<TGeometry, TOut, TNative, TValue>(Op key, Requirement requirement, int count, Func<Op, TNative, int, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull where TNative : notnull =>
         Native<TGeometry, TOut, TNative, TValue, (Op Key, int Count, Func<Op, TNative, int, Context, Fin<Seq<TValue>>> Project)>(
             key: key, state: (Key: key, Count: count, Project: project), requirement: requirement, requiresContext: true,
-            project: static (state, native) => from context in Analyze.Asks
+            project: static (state, native) => from context in Env.Asks
                                                from result in state.Project(arg1: state.Key, arg2: native, arg3: state.Count, arg4: context).ToEff()
                                                select result);
     private static Fin<Seq<double>> SurfaceScalars(Op key, Seq<SurfaceCurvature> curvatures, CurvatureScalar scalar) =>
@@ -164,7 +164,7 @@ public static partial class Query {
             true => Query<TGeometry, TOut>.Build(
                 key: key, state: (Key: key, Target: point), requiresContext: true,
                 evaluator: static (state, geometry) =>
-                    from context in Analyze.Asks
+                    from context in Env.Asks
                     from kind in ((object)geometry).Kind(ctx: context).ToEff()
                     from hit in kind.Closest(value: geometry, target: state.Target, ctx: context, op: state.Key).ToEff()
                     from result in (typeof(TOut) switch {
@@ -205,7 +205,7 @@ public static partial class Query {
             key: key, requirement: Requirement.SurfaceEvaluation,
             state: (Key: key, Start: start, End: end),
             evaluator: static (state, geometry) => geometry switch {
-                Surface surface => from context in Analyze.Asks
+                Surface surface => from context in Env.Asks
                                    from uvStart in Uv(surface: surface, uv: state.Start, context: context, key: state.Key).ToEff()
                                    from uvEnd in Uv(surface: surface, uv: state.End, context: context, key: state.Key).ToEff()
                                    from path in Optional(surface.ShortPath(start: uvStart, end: uvEnd, tolerance: context.Absolute.Value))
@@ -218,7 +218,7 @@ public static partial class Query {
     internal static Query<TGeometry, TOut> SurfaceUv<TGeometry, TOut>(Op key, Point2d uv, Func<Surface, Point2d, Fin<Seq<TOut>>> project) where TGeometry : notnull =>
         Native<TGeometry, TOut, Surface, TOut, (Op Key, Point2d Uv, Func<Surface, Point2d, Fin<Seq<TOut>>> Project)>(
             key: key, requirement: Requirement.SurfaceEvaluation, state: (Key: key, Uv: uv, Project: project),
-            project: static (state, surface) => from context in Analyze.Asks
+            project: static (state, surface) => from context in Env.Asks
                                                 from parameter in Uv(surface: surface, uv: state.Uv, context: context, key: state.Key).ToEff()
                                                 from result in state.Project(arg1: surface, arg2: parameter).ToEff()
                                                 select result);
@@ -241,7 +241,7 @@ internal static class LocationRole {
             key: Op.Of(name: "PointAtLength"), query: () => Query<TGeometry, Point3d>.Build(
                 key: Op.Of(name: "PointAtLength"), requirement: Requirement.CurveLength, state: (Key: Op.Of(name: "PointAtLength"), Distance: pal.Length),
                 evaluator: static (state, geometry) => geometry switch {
-                    Curve curve => from context in Analyze.Asks
+                    Curve curve => from context in Env.Asks
                                    from result in (curve.LengthParameter(segmentLength: state.Distance, t: out double parameter, fractionalTolerance: context.Relative.Value) switch {
                                        true => Query.One(key: state.Key, value: curve.PointAt(t: parameter)),
                                        false => Fin.Fail<Seq<Point3d>>(state.Key.InvalidResult()),
@@ -264,7 +264,7 @@ internal static class LocationRole {
         contains: static cnt => Query.Located<TGeometry, TOut, Curve, PointContainment>(key: Op.Of(name: "Contains"), query: () => Query<TGeometry, PointContainment>.Build(
             key: Op.Of(name: "Contains"), requiresContext: true, state: (Key: Op.Of(name: "Contains"), Probe: cnt.Point, Frame: cnt.Plane),
             evaluator: static (state, geometry) => geometry switch {
-                Curve curve => from context in Analyze.Asks
+                Curve curve => from context in Env.Asks
                                from result in (curve.Contains(testPoint: state.Probe, plane: state.Frame, tolerance: context.Absolute.Value) switch {
                                    PointContainment.Unset => Fin.Fail<Seq<PointContainment>>(state.Key.InvalidResult()),
                                    PointContainment containment => Query.One(key: state.Key, value: containment),
