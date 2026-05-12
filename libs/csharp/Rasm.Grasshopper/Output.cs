@@ -12,10 +12,7 @@ public readonly record struct Hints(
     public Option<int> Slot(IPort port) => Inputs.Find(predicate: input => input.Port.Equals(port)).Map(static input => input.Slot);
     public Option<int> Index(IDataAccess access, Port<int> port, int limit) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        return Slot(port: port).Bind(slot => (access.GetIndex(indexParameter: slot, limit: limit, index: out int value), value) switch {
-            (true, int index) => Some(index),
-            _ => Option<int>.None,
-        });
+        return Slot(port: port).Bind(slot => access.GetIndex(indexParameter: slot, limit: limit, index: out int value) ? Some(value) : Option<int>.None);
     }
     public Option<TVal> Value<TVal>(IDataAccess access, Port<TVal> port) {
         ArgumentNullException.ThrowIfNull(argument: access);
