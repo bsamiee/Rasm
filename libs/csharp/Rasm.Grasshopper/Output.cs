@@ -5,22 +5,10 @@ public interface IOutputGroup {
     public Unit Run(IDataAccess access, int slot, GrasshopperRuntime runtime);
     public Unit Empty(IDataAccess access, int slot);
 }
-public interface IOutputSlot<TSource> {
-    public IPort Port { get; }
-    public Unit Write(IDataAccess access, int slot, GrasshopperRuntime runtime, Seq<TSource> source);
-    public Unit Empty(IDataAccess access, int slot);
-}
 public readonly record struct Hints(
-    Seq<(IPort Port, int Slot, Coverage Coverage, bool Changed)> Inputs) {
-    public static Hints Capture(Seq<IPort> inputs, IDataAccess access) {
-        ArgumentNullException.ThrowIfNull(argument: access);
-        Seq<(IPort Port, int Slot, Coverage Coverage, bool Changed)> captured = inputs.Map((port, slot) => (
-            Port: port,
-            Slot: slot,
-            Coverage: access.CoverageIn(index: slot),
-            Changed: access.HasInputChanged(index: slot)));
-        return new(Inputs: captured);
-    }
+    Seq<(IPort Port, int Slot)> Inputs) {
+    public static Hints Capture(Seq<IPort> inputs, IDataAccess access) =>
+        new(Inputs: inputs.Map((port, slot) => (Port: port, Slot: slot)));
     public Option<int> Slot(IPort port) => Inputs.Find(predicate: input => input.Port.Equals(port)).Map(static input => input.Slot);
     public Option<int> Index(IDataAccess access, Port<int> port, int limit) {
         ArgumentNullException.ThrowIfNull(argument: access);
@@ -30,45 +18,25 @@ public readonly record struct Hints(
         ArgumentNullException.ThrowIfNull(argument: access);
         return Inputs.Find(predicate: input => input.Port.Equals(port)).Bind(input => Bridge.Read<TVal>(access: access, slot: input.Slot, port: port).ToOption().Bind(static data => data.Value));
     }
-    public Option<PortData<TVal>> Data<TVal>(IDataAccess access, Port<TVal> port) {
-        ArgumentNullException.ThrowIfNull(argument: access);
-        return Inputs.Find(predicate: input => input.Port.Equals(port)).Bind(input => Bridge.Read<TVal>(access: access, slot: input.Slot, port: port).ToOption());
-    }
-    public bool HasChanged(IPort port) => Inputs.Find(predicate: input => input.Port.Equals(port)).Map(static input => input.Changed).IfNone(static () => false);
 }
-public readonly record struct OutputValue<TValue>(TValue Value, MetaData? Meta, bool IsNull);
+public readonly record struct OutputValue<TValue>(TValue Value, MetaData? Meta, bool IsNull, Option<Grasshopper2.Data.Path> Path = default);
 public static class OutputValue {
     public static OutputValue<TValue> Plain<TValue>(TValue value) => new(Value: value, Meta: null, IsNull: false);
-    public static OutputValue<TValue> WithMeta<TValue>(TValue value, MetaData meta) => new(Value: value, Meta: meta, IsNull: false);
-    public static OutputValue<TValue> Null<TValue>() => new(Value: default!, Meta: null, IsNull: true);
+    public static OutputValue<TValue> At<TValue>(Grasshopper2.Data.Path path, TValue value, MetaData? meta = null, bool isNull = false) => new(Value: value, Meta: meta, IsNull: isNull, Path: Some(path));
 }
-public sealed record OutputSlot<TSource, TOut>(
-    Port<TOut> Port,
-    Func<GrasshopperRuntime, Seq<TSource>, Fin<Seq<OutputValue<TOut>>>> Project) : IOutputSlot<TSource> {
-    IPort IOutputSlot<TSource>.Port => Port;
-    public Unit Write(IDataAccess access, int slot, GrasshopperRuntime runtime, Seq<TSource> source) {
-        ArgumentNullException.ThrowIfNull(argument: access);
-        return Project(arg1: runtime, arg2: source).Match(
-            Succ: values => Bridge.Write(access: access, slot: slot, name: Port.Name, targetAccess: Port.Access, values: [.. values]),
-            Fail: error => {
-                access.AddWarning(text: Port.Name, details: error.Message);
-                return Empty(access: access, slot: slot);
-            });
-    }
-    public Unit Empty(IDataAccess access, int slot) {
-        ArgumentNullException.ThrowIfNull(argument: access);
-        return Bridge.Write(access: access, slot: slot, name: Port.Name, targetAccess: Port.Access, values: System.Array.Empty<OutputValue<TOut>>());
-    }
-}
-public sealed record PreparedGroup<TSource>(
-    Seq<IOutputSlot<TSource>> Slots,
+internal readonly record struct OutputSlot<TSource>(
+    IPort Port,
+    Func<IDataAccess, int, GrasshopperRuntime, Seq<TSource>, Unit> Write,
+    Func<IDataAccess, int, Unit> Empty);
+internal sealed record PreparedGroup<TSource>(
+    Seq<OutputSlot<TSource>> Slots,
     Func<IDataAccess, GrasshopperRuntime, Fin<Seq<TSource>>> Source,
     bool EmptyUnsupported) : IOutputGroup {
     public Seq<IPort> Ports => Slots.Map(static slot => slot.Port);
     public Unit Run(IDataAccess access, int slot, GrasshopperRuntime runtime) {
         ArgumentNullException.ThrowIfNull(argument: access);
         return Source(arg1: access, arg2: runtime).Match(
-            Succ: values => Slots.Iter((offset, output) => output.Write(access: access, slot: slot + offset, runtime: runtime, source: values)),
+            Succ: values => Slots.Iter((offset, output) => output.Write(arg1: access, arg2: slot + offset, arg3: runtime, arg4: values)),
             Fail: error => (
                 (EmptyUnsupported, Unsupported(error: error)) switch {
                     (true, true) => Unit.Default,
@@ -78,27 +46,35 @@ public sealed record PreparedGroup<TSource>(
     }
     public Unit Empty(IDataAccess access, int slot) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        return Slots.Iter((offset, output) => output.Empty(access: access, slot: slot + offset));
+        return Slots.Iter((offset, output) => output.Empty(arg1: access, arg2: slot + offset));
     }
     private static bool Unsupported(Error error) => error.Code == OpFault.UnsupportedCode;
 }
 public static class Output {
-    public static IOutputSlot<TSource> Slot<TSource, TOut>(
+    private static OutputSlot<TSource> Slot<TSource, TOut>(
         Port<TOut> port,
-        Func<GrasshopperRuntime, Seq<TSource>, Fin<Seq<OutputValue<TOut>>>> project) => new OutputSlot<TSource, TOut>(Port: port, Project: project);
-    public static IOutputSlot<TOut> Slot<TOut>(Port<TOut> port) =>
-        Slot<TOut, TOut>(port: port, project: static (_, values) => Fin.Succ(values.Map(static value => OutputValue.Plain(value: value))));
-    public static IOutputGroup Prepared<TSource>(
+        Func<GrasshopperRuntime, Seq<TSource>, Fin<Seq<OutputValue<TOut>>>> project) =>
+        new(
+            Port: port,
+            Write: (access, slot, runtime, source) => project(arg1: runtime, arg2: source).Match(
+                Succ: values => Bridge.Write(access: access, slot: slot, name: port.Name, targetAccess: port.Access, values: [.. values]),
+                Fail: error => {
+                    access.AddWarning(text: port.Name, details: error.Message);
+                    return Bridge.Write(access: access, slot: slot, name: port.Name, targetAccess: port.Access, values: System.Array.Empty<OutputValue<TOut>>());
+                }),
+            Empty: (access, slot) => Bridge.Write(access: access, slot: slot, name: port.Name, targetAccess: port.Access, values: System.Array.Empty<OutputValue<TOut>>()));
+    private static PreparedGroup<TSource> Prepared<TSource>(
         Func<IDataAccess, GrasshopperRuntime, Fin<Seq<TSource>>> source,
         bool emptyUnsupported = false,
-        params IOutputSlot<TSource>[] slots) => new PreparedGroup<TSource>(Slots: toSeq(slots), Source: source, EmptyUnsupported: emptyUnsupported);
+        params OutputSlot<TSource>[] slots) => new(Slots: toSeq(slots), Source: source, EmptyUnsupported: emptyUnsupported);
+    private static OutputSlot<TOut> Slot<TOut>(Port<TOut> port) =>
+        Slot<TOut, TOut>(port: port, project: static (_, values) => Fin.Succ(values.Map(static value => OutputValue.Plain(value: value))));
     public static Unit Write(IDataAccess access, GrasshopperRuntime runtime, Seq<IOutputGroup> groups) =>
         Fold(groups: groups, action: group => slot => group.Run(access: access, slot: slot, runtime: runtime));
     public static Unit Empty(IDataAccess access, Seq<IOutputGroup> groups) =>
         Fold(groups: groups, action: group => slot => group.Empty(access: access, slot: slot));
     private static Unit Fold(Seq<IOutputGroup> groups, Func<IOutputGroup, Func<int, Unit>> action) =>
         groups.Fold(initialState: 0, f: (slot, group) => (action(arg: group)(arg: slot), slot + group.Ports.Count).Item2) switch { _ => Unit.Default };
-    // --- [SHAPE_BINDINGS] -----------------------------------------------------------------
     public static IOutputGroup Query<TOut>(Port<Shape> input, Port<TOut> port, Func<IDataAccess, GrasshopperRuntime, Query<object, TOut>> operation, bool emptyUnsupported = false) =>
         Prepared(
             source: (access, runtime) => ShapeSource(input: input, access: access, runtime: runtime, project: shape => operation(arg1: access, arg2: runtime).Apply(geometry: shape.Inner)),
@@ -139,9 +115,9 @@ public static class Output {
         from context in runtime.Scope.Context
         from values in project(arg: shape).Run(env: Bridge.Runtime(access: access, context: context))
         select values;
-    private static IOutputSlot<TSource> Plain<TSource, TOut>(Port<TOut> port, Func<TSource, TOut> project) =>
+    private static OutputSlot<TSource> Plain<TSource, TOut>(Port<TOut> port, Func<TSource, TOut> project) =>
         Slot<TSource, TOut>(port: port, project: (_, values) => Fin.Succ(values.Map(value => OutputValue.Plain(value: project(arg: value)))));
-    private static IOutputSlot<FaceProjection> FaceValue<TOut>(Port<TOut> port, Func<FaceProjection, Context, Fin<TOut>> project) =>
+    private static OutputSlot<FaceProjection> FaceValue<TOut>(Port<TOut> port, Func<FaceProjection, Context, Fin<TOut>> project) =>
         Slot<FaceProjection, TOut>(port: port, project: (runtime, values) => runtime.Scope.Context
                 .Bind(context => values.Traverse(face => project(arg1: face, arg2: context)).As())
                 .Map(values => values.Map(static value => OutputValue.Plain(value: value))));

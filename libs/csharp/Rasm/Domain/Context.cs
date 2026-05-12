@@ -31,11 +31,14 @@ public sealed record Context {
             .Apply(static (units, absolute, relative, angle) => new Context(absolute: absolute, relative: relative, angle: angle, modelUnits: units))
             .As();
     public static Validation<Error, Context> CreateDefault(UnitSystem units) =>
-        Create(
-            absoluteTolerance: 0.01,
-            relativeTolerance: 0.0,
-            angleToleranceRadians: RhinoMath.DefaultAngleTolerance,
-            modelUnits: ModelUnitSystem.Create(units: units));
+        ModelUnitSystem.Create(units: units)
+            .Match(
+                Succ: static modelUnits => Create(
+                    absoluteTolerance: RhinoMath.DefaultDistanceToleranceMillimeters * 0.001 / modelUnits.MetersPerUnit,
+                    relativeTolerance: 0.0,
+                    angleToleranceRadians: RhinoMath.DefaultAngleTolerance,
+                    modelUnits: Fin.Succ(modelUnits)),
+                Fail: static error => Fin.Fail<Context>(error).ToValidation());
     [BoundaryAdapter]
     public static Validation<Error, Context> FromDocument(RhinoDoc? doc) =>
         Optional(doc)
@@ -83,10 +86,36 @@ public sealed record Context {
             UnitSystem.CustomUnits => Fin.Fail<ModelUnitSystem>(
                 ContextFault.InvalidUnitSystem(
                     units: units, requirement: "custom units require meters-per-unit metadata")),
-            UnitSystem.Unset => Fin.Fail<ModelUnitSystem>(
+            UnitSystem.Unset or UnitSystem.None => Fin.Fail<ModelUnitSystem>(
                 ContextFault.InvalidUnitSystem(
                     units: units, requirement: "must be a Rhino model unit system")),
-            _ => RhinoMath.MetersPerUnit(units) switch {
+            _ => units switch {
+                UnitSystem.Angstroms => 1e-10,
+                UnitSystem.Nanometers => 1e-9,
+                UnitSystem.Microns => 1e-6,
+                UnitSystem.Millimeters => 0.001,
+                UnitSystem.Centimeters => 0.01,
+                UnitSystem.Decimeters => 0.1,
+                UnitSystem.Meters => 1.0,
+                UnitSystem.Dekameters => 10.0,
+                UnitSystem.Hectometers => 100.0,
+                UnitSystem.Kilometers => 1_000.0,
+                UnitSystem.Megameters => 1_000_000.0,
+                UnitSystem.Gigameters => 1_000_000_000.0,
+                UnitSystem.Microinches => 0.0000000254,
+                UnitSystem.Mils => 0.0000254,
+                UnitSystem.Inches => 0.0254,
+                UnitSystem.Feet => 0.3048,
+                UnitSystem.Yards => 0.9144,
+                UnitSystem.Miles => 1_609.344,
+                UnitSystem.PrinterPoints => 0.0254 / 72.0,
+                UnitSystem.PrinterPicas => 0.0254 / 6.0,
+                UnitSystem.NauticalMiles => 1_852.0,
+                UnitSystem.AstronomicalUnits => 149_597_870_700.0,
+                UnitSystem.LightYears => 9_460_730_472_580_800.0,
+                UnitSystem.Parsecs => 30_856_775_814_913_673.0,
+                _ => double.NaN,
+            } switch {
                 double meters when RhinoMath.IsValidDouble(meters) && meters > RhinoMath.ZeroTolerance => Fin.Succ(new ModelUnitSystem(units: units, metersPerUnit: meters)),
                 _ => Fin.Fail<ModelUnitSystem>(
                     ContextFault.InvalidUnitSystem(

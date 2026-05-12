@@ -64,6 +64,23 @@ public sealed class AnalysisSpec {
     }
 
     [Fact]
+    public void RejectsRequirementDerivedContextNeedWithoutScope() {
+        Query<Line, Point3d> query = Query<Line, Point3d>.Build(
+            key: new Op(name: "SyntheticRequirement"),
+            evaluator: static _ => Fin.Succ(LanguageExt.Prelude.Seq(Point3d.Origin)).ToEff(),
+            requirement: Requirement.Basic,
+            requiresContext: false);
+
+        Validation<Error, Seq<Point3d>> result = Analyze.Run(
+            query: query,
+            input: []);
+
+        Assert.True(condition: result.ToFin().Match(
+            Succ: static _ => false,
+            Fail: static error => error.Count == 1 && error.Message.Contains(value: "model context", comparisonType: StringComparison.Ordinal)));
+    }
+
+    [Fact]
     public void RejectsInvalidUnitScope() {
         Validation<Error, Seq<Point3d>> result = Analyze.In(units: UnitSystem.Unset)
             .Run(
@@ -457,6 +474,17 @@ public sealed class AnalysisSpec {
         Assert.True(condition: result.ToFin().Match(
             Succ: static _ => false,
             Fail: static error => error.Count == 1 && error.Message.Contains(value: "Measure", comparisonType: StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void ReportsRuntimeUnsupportedObjectInputType() {
+        Validation<Error, Seq<double>> result = Analyze.In(context: ValidContext()).Run(
+            query: Query.Measure<object, double>(aspect: new Measure.Length()),
+            input: [1.0]);
+
+        Assert.True(condition: result.ToFin().Match(
+            Succ: static _ => false,
+            Fail: static error => error.Count == 1 && error.Message.Contains(value: "Double", comparisonType: StringComparison.Ordinal)));
     }
 
     [Fact]
@@ -873,8 +901,8 @@ public sealed class AnalysisSpec {
     // dispatch to native rhcommon_c during construction and analysis. The xUnit runner here
     // does not load the native runtime; integration coverage for face decomposition,
     // top/bottom selection, index clamping, UV frame alignment, and the Mesh rejection rail
-    // belongs in tests/rhino/ (Rhino.Tests.csproj) where Rhino.Testing supplies the native
-    // The selector index flows through Faces.At(index) at the GH boundary.
+    // should wait for a current Rhino.Testing runtime path. The selector index flows through
+    // Faces.At(index) at the GH boundary.
 
     private static Line ValidLine() =>
         new(

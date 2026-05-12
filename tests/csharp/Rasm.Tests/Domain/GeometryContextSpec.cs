@@ -58,6 +58,15 @@ public sealed class ContextSpec {
     }
 
     [Fact]
+    public void ConvertsDefaultMillimeterToleranceToRequestedUnits() {
+        Validation<Error, Context> result = Context.CreateDefault(units: UnitSystem.Meters);
+
+        Assert.True(condition: result.ToFin().Match(
+            Succ: static context => context.Absolute.Value == RhinoMath.DefaultDistanceToleranceMillimeters * 0.001,
+            Fail: static _ => false));
+    }
+
+    [Fact]
     public void AccumulatesMissingGeometryPairsInContext() {
         Context context = ValidContext();
 
@@ -138,13 +147,32 @@ public sealed class ContextSpec {
         Assert.True(condition: Shape.Create(value: Line.Unset).IsFail);
 
     [Fact]
-    public void ShapeKeepsNativePayloadInsteadOfFixedCaseHierarchy() {
-        Interval interval = new(t0: 0.0, t1: 1.0);
+    public void ShapeKeepsNativeGeometryPayloadInsteadOfFixedCaseHierarchy() {
+        Line line = new(from: Point3d.Origin, to: new Point3d(x: 1.0, y: 0.0, z: 0.0));
 
         Assert.Empty(collection: typeof(Shape).GetNestedTypes());
-        Assert.True(condition: Shape.Create(value: interval).ToOption()
+        Assert.True(condition: Shape.Create(value: line).ToOption()
             .Match(
-                Some: static shape => shape.Inner is Interval,
+                Some: static shape => shape.Inner is Line,
+                None: static () => false));
+    }
+
+    [Fact]
+    public void ShapeRejectsScalarAndAnalysisResultPayloads() {
+        Interval interval = new(t0: 0.0, t1: 1.0);
+
+        Assert.True(condition: Shape.Create(value: 1.0).IsFail);
+        Assert.True(condition: Shape.Create(value: interval).IsFail);
+    }
+
+    [Fact]
+    public void ShapeCreateIsIdempotent() {
+        Shape shape = Shape.Create(value: new Line(from: Point3d.Origin, to: new Point3d(x: 1.0, y: 0.0, z: 0.0)))
+            .Match(Succ: static value => value, Fail: static error => throw new Xunit.Sdk.XunitException(error.Message));
+
+        Assert.True(condition: Shape.Create(value: shape).ToOption()
+            .Match(
+                Some: static value => value.Inner is Line,
                 None: static () => false));
     }
 

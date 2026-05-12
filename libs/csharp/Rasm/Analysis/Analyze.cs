@@ -58,7 +58,7 @@ public static class Analyze {
         Option<Fin<Context>> scope) where TGeometry : notnull =>
         scope.Match(
             Some: provided => provided,
-            None: () => query.RequiresContext switch {
+            None: () => (query.RequiresContext || !query.Requirement.IsEmpty) switch {
                 true => Fin.Fail<Context>(query.Key.MissingContext()),
                 false => Context.CreateDefault(units: UnitSystem.Millimeters).ToFin(),
             });

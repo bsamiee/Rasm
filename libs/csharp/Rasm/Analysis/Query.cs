@@ -160,13 +160,28 @@ public sealed partial class MassKind {
             key: key,
             requirement: Requirement,
             requiresContext: true,
-            aggregate: Some<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TValue>>>>(geometry => from props in geometry.Traverse(item => Compute(geometry: item, secondMoments: secondMoments, productMoments: productMoments)).As()
-                                                                                                 from mass in Sum(arg: props).ToEff()
-                                                                                                 from values in Query.Bracket(factory: () => mass, body: disposable => project(arg1: key, arg2: disposable)).ToEff()
-                                                                                                 select values),
+            aggregate: Some<Func<Seq<TGeometry>, Eff<Analyze.Runtime, Seq<TValue>>>>(
+                geometry => from props in ComputeAll(geometry: geometry, secondMoments: secondMoments, productMoments: productMoments)
+                            from values in Query.BracketEach(
+                                resources: props,
+                                body: owned => from mass in Sum(arg: owned)
+                                               from projected in Query.Bracket(factory: () => mass, body: disposable => project(arg1: key, arg2: disposable))
+                                               select projected).ToEff()
+                            select values),
             evaluator: geometry => from mass in Compute(geometry: geometry, secondMoments: secondMoments, productMoments: productMoments)
                                    from values in Query.Bracket(factory: () => mass, body: disposable => project(arg1: key, arg2: disposable)).ToEff()
                                    select values);
+    private Eff<Analyze.Runtime, Seq<IDisposable>> ComputeAll<TGeometry>(Seq<TGeometry> geometry, bool secondMoments, bool productMoments) where TGeometry : notnull =>
+        from runtime in Analyze.RuntimeAsks
+        from props in geometry.Fold(
+                initialState: Fin.Succ(Seq<IDisposable>()),
+                f: (state, item) => state.Bind(owned => Compute(geometry: item, secondMoments: secondMoments, productMoments: productMoments)
+                    .Run(env: runtime)
+                    .Match(
+                        Succ: resource => Fin.Succ(resource.Cons(owned)),
+                        Fail: error => (Query.DisposeAll(resources: owned), Fin.Fail<Seq<IDisposable>>(error)).Item2)))
+            .ToEff()
+        select props;
 }
 public enum CurvatureScalar { None = 0, Magnitude = 1, Gaussian = 2, Mean = 3 }
 [SmartEnum<int>]
@@ -309,7 +324,7 @@ public static partial class Query {
             state: (Key: key, State: state, Project: project),
             evaluator: static (state, geometry) => geometry switch {
                 TNative native => state.Project(arg1: state.State, arg2: native),
-                _ => Fin.Fail<Seq<TValue>>(state.Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TValue))).ToEff(),
+                _ => Fin.Fail<Seq<TValue>>(state.Key.Unsupported(geometryType: geometry.GetType(), outputType: typeof(TValue))).ToEff(),
             }));
     internal static Fin<Seq<TValue>> One<TValue>(this Op key, TValue value) => key.RequireValid(value: value).Map(static candidate => Seq(candidate));
     internal static Fin<Seq<TValue>> Many<TValue>(this Op key, IEnumerable<TValue>? values) => Optional(values).ToSeq().Bind(static value => value.AsIterable().ToSeq()).Traverse(value => key.RequireValid(value: value)).As();
@@ -318,6 +333,15 @@ public static partial class Query {
     internal static Fin<TOut> Bracket<TResource, TOut>(Func<TResource> factory, Func<TResource, Fin<TOut>> body) where TResource : class, IDisposable {
         using TResource resource = factory();
         return body(arg: resource);
+    }
+    internal static Fin<TOut> BracketEach<TResource, TOut>(Seq<TResource> resources, Func<Seq<TResource>, Fin<TOut>> body) where TResource : class, IDisposable {
+        Fin<TOut> result = body(arg: resources);
+        _ = DisposeAll(resources: resources);
+        return result;
+    }
+    internal static Unit DisposeAll<TResource>(Seq<TResource> resources) where TResource : class, IDisposable {
+        _ = resources.Iter(static resource => resource.Dispose());
+        return Unit.Default;
     }
     internal static Fin<Seq<TOut>> Results<TValue, TOut>(this Op key, IEnumerable<TValue>? values) => typeof(TValue).Equals(typeof(TOut)) switch {
         true => Many(key: key, values: values).Map(static candidates => candidates.Map(static candidate => (TOut)(object)candidate!)),
@@ -347,7 +371,7 @@ public static partial class Query {
                                .ToEff()
                            from result in One(key: key, value: value).ToEff()
                            select result,
-            _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))).ToEff(),
+            _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: geometry.GetType(), outputType: typeof(TOut))).ToEff(),
         };
     internal static Fin<Seq<(double Moment, Vector3d Axis)>> Principal<TMass>(
         this Op key,

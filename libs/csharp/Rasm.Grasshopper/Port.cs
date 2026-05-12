@@ -1,4 +1,3 @@
-using System.Drawing;
 using Grasshopper2.Parameters;
 using Requirement = Grasshopper2.Parameters.Requirement;
 
@@ -22,10 +21,6 @@ public sealed record PortPolicy {
         On<VectorParameter>(mutate: target => { target.UnitiseVectors = unitise; target.ReverseVectors = reverse; });
     public static PortPolicy Angle(int kind = 0, bool reduce = false) =>
         On<AngleParameter>(mutate: target => { target.EnforceKind = kind; target.ReduceAngles = reduce; });
-    public static PortPolicy Curve(CurveParameter.NormalisationMethod domains = CurveParameter.NormalisationMethod.None, bool flip = false) =>
-        On<CurveParameter>(mutate: target => { target.NormaliseDomains = domains; target.FlipCurves = flip; });
-    public static PortPolicy Surface(bool acceptMeshes = false, CurveParameter.NormalisationMethod domains = CurveParameter.NormalisationMethod.None, bool flip = false) =>
-        On<SurfaceParameter>(mutate: target => { target.AcceptMeshes = acceptMeshes; target.NormaliseDomains = domains; target.FlipSurfaces = flip; });
     public static PortPolicy Index(IndexModifier indexing = IndexModifier.Clip) =>
         On<IntegerParameter>(mutate: target => { target.IsIndex = true; target.Indexing = indexing; });
     public Unit Apply(object parameter) {
@@ -45,19 +40,12 @@ public sealed partial class PortKind {
     public static readonly PortKind Point = Of<Point3d>(key: nameof(Point), input: static (adder, name, code, info, access, requirement) => adder.AddPoint(name: name, code: code, info: info, access: access, requirement: requirement), output: static (adder, name, code, info, access) => adder.AddPoint(name: name, code: code, info: info, access: access));
     public static readonly PortKind Vector = Of<Vector3d>(key: nameof(Vector), input: static (adder, name, code, info, access, requirement) => adder.AddVector(name: name, code: code, info: info, access: access, requirement: requirement), output: static (adder, name, code, info, access) => adder.AddVector(name: name, code: code, info: info, access: access));
     public static readonly PortKind Curve = Of<Curve>(key: nameof(Curve), input: static (adder, name, code, info, access, requirement) => adder.AddCurve(name: name, code: code, info: info, access: access, requirement: requirement), output: static (adder, name, code, info, access) => adder.AddCurve(name: name, code: code, info: info, access: access));
-    public static readonly PortKind CurveLocus = Of<CurveLocus>(key: nameof(CurveLocus), input: static (adder, name, code, info, access, requirement) => adder.AddCurveLocus(name: name, code: code, info: info, access: access, requirement: requirement), output: static (adder, name, code, info, access) => adder.AddCurveLocus(name: name, code: code, info: info, access: access));
     public static readonly PortKind Brep = Of<Brep>(key: nameof(Brep), input: static (adder, name, code, info, access, requirement) => adder.AddSurface(name: name, code: code, info: info, access: access, requirement: requirement), output: static (adder, name, code, info, access) => adder.AddSurface(name: name, code: code, info: info, access: access));
-    public static readonly PortKind SurfaceLocus = Of<SurfaceLocus>(key: nameof(SurfaceLocus), input: static (adder, name, code, info, access, requirement) => adder.AddSurfaceLocus(name: name, code: code, info: info, access: access, requirement: requirement), output: static (adder, name, code, info, access) => adder.AddSurfaceLocus(name: name, code: code, info: info, access: access));
     public static readonly PortKind Plane = Of<Plane>(key: nameof(Plane), input: static (adder, name, code, info, access, requirement) => adder.AddPlane(name: name, code: code, info: info, access: access, requirement: requirement), output: static (adder, name, code, info, access) => adder.AddPlane(name: name, code: code, info: info, access: access));
     public static readonly PortKind Index = Of<int>(key: nameof(Index), input: static (adder, name, code, info, access, requirement) => adder.AddIndex(name: name, code: code, info: info, access: access, requirement: requirement), output: static (adder, name, code, info, access) => { IntegerParameter parameter = adder.AddInteger(name: name, code: code, info: info, access: access); parameter.IsIndex = true; return parameter; });
     public static readonly PortKind Integer = Of<int>(key: nameof(Integer), input: static (adder, name, code, info, access, requirement) => adder.AddInteger(name: name, code: code, info: info, access: access, requirement: requirement), output: static (adder, name, code, info, access) => adder.AddInteger(name: name, code: code, info: info, access: access));
-    public static readonly PortKind Number = Of<double>(key: nameof(Number), input: static (adder, name, code, info, access, requirement) => adder.AddNumber(name: name, code: code, info: info, access: access, requirement: requirement), output: static (adder, name, code, info, access) => adder.AddNumber(name: name, code: code, info: info, access: access));
-    public static readonly PortKind Text = Of<string>(key: nameof(Text), input: static (adder, name, code, info, access, requirement) => adder.AddText(name: name, code: code, info: info, access: access, requirement: requirement), output: static (adder, name, code, info, access) => adder.AddText(name: name, code: code, info: info, access: access));
-    public static readonly PortKind Boolean = Of<bool>(key: nameof(Boolean), input: static (adder, name, code, info, access, requirement) => adder.AddBoolean(name: name, code: code, info: info, access: access, requirement: requirement), output: static (adder, name, code, info, access) => adder.AddBoolean(name: name, code: code, info: info, access: access));
-    public static readonly PortKind Colour = Of<Color>(key: nameof(Colour), input: static (adder, name, code, info, access, requirement) => adder.AddColour(name: name, code: code, info: info, access: access, requirement: requirement), output: static (adder, name, code, info, access) => adder.AddColour(name: name, code: code, info: info, access: access));
     public static readonly PortKind Interval = Of<Interval>(key: nameof(Interval), input: static (adder, name, code, info, access, requirement) => adder.AddInterval(name: name, code: code, info: info, access: access, requirement: requirement), output: static (adder, name, code, info, access) => adder.AddInterval(name: name, code: code, info: info, access: access));
     public static readonly PortKind Angle = Of<Angle>(key: nameof(Angle), input: static (adder, name, code, info, access, requirement) => adder.AddAngle(name: name, code: code, info: info, access: access, requirement: requirement), output: static (adder, name, code, info, access) => adder.AddAngle(name: name, code: code, info: info, access: access));
-    public static readonly PortKind Transform = Of<Transform>(key: nameof(Transform), input: static (adder, name, code, info, access, requirement) => adder.AddTransform(name: name, code: code, info: info, access: access, requirement: requirement), output: static (adder, name, code, info, access) => adder.AddTransform(name: name, code: code, info: info, access: access));
     public static readonly PortKind Generic = Of<object>(key: nameof(Generic), input: static (adder, name, code, info, access, requirement) => adder.AddGeneric(name: name, code: code, info: info, access: access, requirement: requirement), output: static (adder, name, code, info, access) => adder.AddGeneric(name: name, code: code, info: info, access: access));
     public Type Type { get; }
     private Input AddInput { get; }
@@ -88,16 +76,10 @@ public readonly record struct PortValue<TVal>(
     MetaData Meta,
     bool IsNull,
     Option<int> Index,
-    Coverage Coverage);
-public readonly record struct PortData<TVal>(
-    Access Access,
-    Seq<PortValue<TVal>> Values,
-    Option<Twig<TVal>> Twig,
-    Option<Tree<TVal>> Tree,
     Coverage Coverage,
-    bool Changed) {
+    Option<Grasshopper2.Data.Path> Path);
+public readonly record struct PortData<TVal>(Seq<PortValue<TVal>> Values) {
     public Option<TVal> Value => Values.Find(static value => !value.IsNull).Map(static value => value.Value);
-    public Seq<TVal> NonNullValues => Values.Filter(static value => !value.IsNull).Map(static value => value.Value);
 }
 public readonly record struct Port<TVal>(
     string Name,
@@ -113,7 +95,6 @@ public static class Port {
     public static Port<TVal> Required<TVal>(string name, string code, string info, PortKind? kind = null, PortPolicy? policy = null) => Create<TVal>(name: name, code: code, info: info, kind: kind, access: Access.Item, requirement: Requirement.MustExist, policy: policy);
     public static Port<TVal> Optional<TVal>(string name, string code, string info, PortKind? kind = null, PortPolicy? policy = null) => Create<TVal>(name: name, code: code, info: info, kind: kind, access: Access.Item, requirement: Requirement.MayBeMissing, policy: policy);
     public static Port<TVal> List<TVal>(string name, string code, string info, Requirement requirement = Requirement.MustExist, PortKind? kind = null, PortPolicy? policy = null) => Create<TVal>(name: name, code: code, info: info, kind: kind, access: Access.Twig, requirement: requirement, policy: policy);
-    public static Port<TVal> Tree<TVal>(string name, string code, string info, Requirement requirement = Requirement.MustExist, PortKind? kind = null, PortPolicy? policy = null) => Create<TVal>(name: name, code: code, info: info, kind: kind, access: Access.Tree, requirement: requirement, policy: policy);
     public static Port<int> Index(
         string name = "Index",
         string code = "I",

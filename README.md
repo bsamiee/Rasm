@@ -18,7 +18,6 @@ RhinoWIP macOS workspace for first-party Rhino and Grasshopper products. Each ap
 | `libs/csharp/Rasm` | RhinoCommon-aware geometry domain + analysis algebra (merged). |
 | `libs/csharp/Rasm.Grasshopper` | GH2 component infrastructure: typed parameter bindings, bridge plumbing, component base. |
 | `tests/csharp` | Managed C# contract tests for shared libraries. |
-| `tests/rhino` | Opt-in RhinoWIP runtime specs for shared Rhino behavior. |
 | `tools/cs-analyzer` | Local Roslyn analyzer project used by C# builds. |
 | `tools/yak/<package>` | Tracked Yak metadata for one package. |
 | `scripts/rhino.sh` | Build, stage, package, and push Rhino artifacts. |
@@ -34,7 +33,6 @@ RhinoWIP macOS workspace for first-party Rhino and Grasshopper products. Each ap
 | `RhinoCommonReferencePath` | Installed RhinoWIP `RhinoCommon.dll` |
 | `Grasshopper2ReferencePath` | Installed RhinoWIP `Grasshopper2.dll` |
 | `GrasshopperIoReferencePath` | Installed RhinoWIP `GrasshopperIO.dll` |
-| `RhinoYakPath` | `/Applications/RhinoWIP.app/Contents/Resources/bin/yak` |
 | `IsGrasshopperPluginProject` | Enables `.rhp` output plus local Grasshopper2 and GrasshopperIO references. |
 | `IsGrasshopperAwareProject` | Enables Grasshopper2 and GrasshopperIO references without plugin output. |
 | `IsRhinoCommonAwareProject` | Enables local RhinoCommon references. |
@@ -99,7 +97,7 @@ Grasshopper uses GH2 component APIs directly: `Grasshopper2.Components.Component
 
 GH2 can run component work in parallel. Component code must keep execution state local to `Process`; reusable geometry logic belongs in `Rasm.Analysis` and `Rasm.Domain`.
 
-Python and RhinoCode publishing stay out of this foundation until the local runtime path is proven compatible.
+Automated Rhino/GH2 runtime tests stay out of this foundation until Rhino.Testing exposes a current `net10.0` path. Python and RhinoCode publishing stay out until the local runtime path is proven compatible.
 
 ## GH2 Foundation
 

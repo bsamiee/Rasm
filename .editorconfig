@@ -290,7 +290,7 @@ dotnet_diagnostic.VSTHRD111.severity = error                                  # 
 # --- [MEZIANTOU_ANALYZERS] ---------------------------------------------------
 dotnet_diagnostic.MA0004.severity = none                                      # Covered by VSTHRD111 to avoid duplicate ConfigureAwait diagnostics.
 dotnet_diagnostic.MA0038.severity = none                                      # Deprecated; covered by CA1822 to avoid duplicate static-method diagnostics.
-dotnet_diagnostic.MA0176.severity = none                                      # Plugin GUIDs are one-shot identity literals; ModuleInitializer pattern is overkill for the use case.
+dotnet_diagnostic.MA0176.severity = none                                      # Plugin GUIDs are one-shot identity literals; constant extraction adds no value.
 dotnet_diagnostic.MA0032.severity = error                                     # Require using overloads with CancellationToken when available.
 dotnet_diagnostic.MA0035.severity = error                                     # Ban dangerous threading APIs.
 dotnet_diagnostic.MA0040.severity = none                                      # Covered by CA2016 to avoid duplicate CancellationToken-forwarding diagnostics.

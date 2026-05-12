@@ -10,8 +10,6 @@
 
     <ItemGroup>
         <ProjectReference Include="../Rasm/Rasm.csproj" />
-        <PackageReference Include="Scrutor" Version="$(ScrutorVersion)" />
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="$(MicrosoftExtensionsDependencyInjectionVersion)" />
     </ItemGroup>
 
     <ItemGroup>

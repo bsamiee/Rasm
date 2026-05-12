@@ -21,19 +21,13 @@ Canonical standards for test authoring. Root `tests/` owns universal JS, TS, Pyt
 |   [4]   | **`tests/e2e/`**              | Browser, CLI, or external user journeys when configured.             |
 |   [5]   | **`tests/fixtures/`**         | Shared data, oracle vectors, snapshots, and factories.               |
 |   [6]   | **`tests/csharp/<project>/`** | .NET xUnit projects for pure C# package contracts.                   |
-|   [7]   | **`tests/rhino/`**            | macOS RhinoWIP runtime integration tests, opt-in by environment.      |
-|   [8]   | **`tests/ast-grep/`**         | Static-rule pass/fail fixture corpus.                                |
-|   [9]   | **`tests/py_analyzer/`**      | Python analyzer contract tests.                                      |
+|   [7]   | **`tests/ast-grep/`**         | Static-rule pass/fail fixture corpus.                                |
+|   [8]   | **`tests/py_analyzer/`**      | Python analyzer contract tests.                                      |
 
 [CRITICAL]:
 - [NEVER] Place JS, TS, Python, C#, Rhino, analyzer, browser, or cross-workspace tests outside root `tests/`.
 - [NEVER] create app-local test roots unless the language toolchain requires a project-owned test project outside `tests/`.
 - [NEVER] reference copied sample paths from prior packages or services.
-
-**Rhino runtime gate:** `RASM_RHINO_TESTS=1 pnpm check:cs` verifies RhinoWIP paths and runs only when `Rhino.Testing`
-resolves a `net10.0` runtime asset. Current `Rhino.Testing 9.0.8-beta` resolves `lib/net9.0/Rhino.Testing.dll`; the
-gate skips instead of launching a known-crashing macOS testhost. Use `RASM_RHINO_TESTS=require` for strict CI failure,
-`RASM_RHINO_TESTS_FORCE=1` for diagnostics, and `RASM_RHINO_DOTNET` to point at an official Microsoft .NET SDK binary.
 
 ---
 ## [2][FILE_STRUCTURE]

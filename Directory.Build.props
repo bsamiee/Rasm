@@ -81,19 +81,10 @@
         <MicrosoftVisualStudioThreadingAnalyzersVersion>17.14.15</MicrosoftVisualStudioThreadingAnalyzersVersion>
         <MeziantouAnalyzerVersion>3.0.77</MeziantouAnalyzerVersion>
         <MicrosoftNetCompilersToolsetVersion>5.3.0</MicrosoftNetCompilersToolsetVersion>
-        <TestcontainersPostgreSqlVersion>4.11.0</TestcontainersPostgreSqlVersion>
         <FsCheckVersion>3.3.3</FsCheckVersion>
-        <FsCheckXunitVersion>3.3.3</FsCheckXunitVersion>
         <MicrosoftNetTestSdkVersion>18.5.1</MicrosoftNetTestSdkVersion>
-        <MicrosoftBclAsyncInterfacesVersion>9.0.8</MicrosoftBclAsyncInterfacesVersion>
-        <RhinoMicrosoftNetTestSdkVersion>$(MicrosoftNetTestSdkVersion)</RhinoMicrosoftNetTestSdkVersion>
-        <XunitVersion>2.9.3</XunitVersion>
         <XunitV3Version>3.2.2</XunitV3Version>
         <XunitRunnerVisualStudioVersion>3.1.5</XunitRunnerVisualStudioVersion>
-        <RhinoTestingVersion>9.0.8-beta</RhinoTestingVersion>
-        <RhinoNUnitVersion>3.14.0</RhinoNUnitVersion>
-        <RhinoNUnit3TestAdapterVersion>4.6.0</RhinoNUnit3TestAdapterVersion>
-        <BenchmarkDotNetVersion>0.15.8</BenchmarkDotNetVersion>
         <ScrutorVersion>7.0.0</ScrutorVersion>
         <MicrosoftExtensionsDependencyInjectionVersion>9.0.8</MicrosoftExtensionsDependencyInjectionVersion>
         <RhinoWipAppPath>/Applications/RhinoWIP.app</RhinoWipAppPath>
@@ -101,7 +92,6 @@
         <RhinoCommonReferencePath>$(RhinoWipResourcesPath)/RhinoCommon.dll</RhinoCommonReferencePath>
         <Grasshopper2ReferencePath>$(RhinoWipResourcesPath)/ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.dll</Grasshopper2ReferencePath>
         <GrasshopperIoReferencePath>$(RhinoWipResourcesPath)/ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.dll</GrasshopperIoReferencePath>
-        <RhinoYakPath>/Applications/RhinoWIP.app/Contents/Resources/bin/yak</RhinoYakPath>
     </PropertyGroup>
 
     <PropertyGroup Label="RhinoWIP Boundaries" Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true'">
@@ -164,20 +154,7 @@
         <Compile Include="$(BoundaryExemptionContractsPath)" Link="FoundationStandards/BoundaryContracts.cs" />
     </ItemGroup>
 
-    <ItemGroup Label="PostgreSQL Test Packages" Condition="'$(IsTestProject)' == 'true' and '$(EnablePostgreSqlTesting)' == 'true'">
-        <PackageReference Include="Testcontainers.PostgreSql" Version="$(TestcontainersPostgreSqlVersion)" PrivateAssets="all" />
-    </ItemGroup>
-
-    <ItemGroup Label="Property Test Packages" Condition="'$(IsTestProject)' == 'true' and '$(EnablePropertyTesting)' == 'true'">
-        <PackageReference Include="FsCheck" Version="$(FsCheckVersion)" PrivateAssets="all" />
-        <PackageReference Include="FsCheck.Xunit" Version="$(FsCheckXunitVersion)" PrivateAssets="all" />
-    </ItemGroup>
-
-    <ItemGroup Label="Benchmark Packages" Condition="'$(IsBenchmarkProject)' == 'true'">
-        <PackageReference Include="BenchmarkDotNet" Version="$(BenchmarkDotNetVersion)" PrivateAssets="all" />
-    </ItemGroup>
-
-    <ItemGroup Label="Composition Libraries" Condition="'$(IsGrasshopperPluginProject)' == 'true'">
+    <ItemGroup Label="Composition Libraries" Condition="'$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">
         <PackageReference Include="Scrutor" Version="$(ScrutorVersion)" />
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="$(MicrosoftExtensionsDependencyInjectionVersion)" />
     </ItemGroup>
