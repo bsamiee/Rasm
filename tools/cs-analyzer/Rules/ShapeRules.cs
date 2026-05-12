@@ -39,6 +39,7 @@ internal static class ShapeRules {
     internal static void CheckSignatures(SymbolAnalysisContext context, ScopeInfo scope, ISymbol symbol) {
         IEnumerable<ITypeSymbol> signatureTypes = symbol switch {
             ISymbol candidate when IsAnalysisQuerySurface(candidate) => [],
+            ISymbol candidate when IsUnionCasePayload(candidate) => [],
             IMethodSymbol method when IsValidatedPrimitiveValueAccessor(method) => [],
             IMethodSymbol method when IsValidatedPrimitiveFactory(method) => ExpandSignatureTypes(method.ReturnType),
             IMethodSymbol method => method.Parameters.SelectMany(parameter => ExpandSignatureTypes(parameter.Type)).Concat(ExpandSignatureTypes(method.ReturnType)),
@@ -343,6 +344,11 @@ internal static class ShapeRules {
     private static bool IsAnalysisQuerySurface(ISymbol symbol) =>
         symbol.ContainingType is INamedTypeSymbol { Name: "Query", ContainingNamespace: { } queryNamespace }
         && queryNamespace.ToDisplayString() == "Rasm.Analysis";
+    private static bool IsUnionCasePayload(ISymbol symbol) =>
+        symbol.ContainingType is INamedTypeSymbol containingType
+        && (SymbolFacts.HasAnyAttribute(containingType, "UnionAttribute", "Union")
+            || (containingType is { IsSealed: true, IsRecord: true } && containingType.ContainingType is INamedTypeSymbol unionBase
+                && SymbolFacts.HasAnyAttribute(unionBase, "UnionAttribute", "Union")));
     private static IEnumerable<ITypeSymbol> ExpandSignatureTypes(ITypeSymbol type) {
         ITypeSymbol unwrapped = UnwrapNullable(type);
         IEnumerable<ITypeSymbol> nested = unwrapped switch {

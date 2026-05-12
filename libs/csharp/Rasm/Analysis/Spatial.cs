@@ -11,7 +11,7 @@ public sealed class Tree : IDisposable {
             .Map(static tree => new Tree(tree: tree))
             .ToValidation();
     public static Validation<Error, Tree> PointCloud(PointCloud cloud) => Optional(cloud)
-            .ToFin(ValidationFault.MissingGeometry())
+            .ToFin(new ValidationFault.MissingGeometry())
             .Bind(static candidate => candidate.IsValid switch {
                 true => Optional(RTree.CreatePointCloudTree(cloud: candidate))
                     .ToFin(Query.TreeKey.InvalidResult()),
@@ -33,7 +33,7 @@ public sealed class Tree : IDisposable {
             .Map(static tree => new Tree(tree: tree))
             .ToValidation();
     public static Validation<Error, Tree> MeshFaces(Mesh mesh) => Optional(mesh)
-            .ToFin(ValidationFault.MissingGeometry())
+            .ToFin(new ValidationFault.MissingGeometry())
             .Bind(static candidate => candidate.IsValid switch {
                 true => Optional(RTree.CreateMeshFaceTree(mesh: candidate))
                     .ToFin(Query.TreeKey.InvalidResult()),
@@ -49,7 +49,7 @@ public sealed class Tree : IDisposable {
         (
             Ready(),
             Optional(other)
-                .ToFin(ValidationFault.MissingGeometry())
+                .ToFin(new ValidationFault.MissingGeometry())
                 .Bind(static index => index.Ready()),
             RhinoMath.IsValidDouble(x: tolerance) && tolerance >= 0.0
                 ? Fin.Succ(tolerance)
@@ -118,7 +118,7 @@ public sealed class Tree : IDisposable {
         ReadOnlySpan<TGeometry> items) where TGeometry : GeometryBase =>
         toSeq(items.ToArray())
             .TraverseM(static geometry => Optional(geometry)
-                .ToFin(ValidationFault.MissingGeometry())
+                .ToFin(new ValidationFault.MissingGeometry())
                 .Bind(static candidate => (candidate.IsValid, candidate.GetBoundingBox(accurate: true)) switch {
                     (true, BoundingBox box) when box.IsValid => Fin.Succ(box),
                     _ => Fin.Fail<BoundingBox>(Query.TreeKey.InvalidInput()),

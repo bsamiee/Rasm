@@ -200,7 +200,7 @@ public static partial class Query {
                 true => (Many(key: SelfIntersectionsKey, values: perforations), Many(key: SelfIntersectionsKey, values: overlaps))
                     .Apply((left, right) => left + right)
                     .As(),
-                false when runtime.Cancellation.IsCancellationRequested => Fin.Fail<Seq<Polyline>>(OpFault.Cancelled()),
+                false when runtime.Cancellation.IsCancellationRequested => Fin.Fail<Seq<Polyline>>(new OpFault.Cancelled()),
                 false => Fin.Fail<Seq<Polyline>>(SelfIntersectionsKey.InvalidResult()),
             };
     }

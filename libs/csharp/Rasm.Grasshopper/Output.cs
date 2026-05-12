@@ -33,7 +33,7 @@ internal sealed record PreparedGroup<TSource>(
         return Source(arg1: access, arg2: runtime).Match(
             Succ: values => Slots.Iter((offset, output) => output.Write(arg1: access, arg2: slot + offset, arg3: runtime, arg4: values)),
             Fail: error => (
-                (EmptyUnsupported, error.Code == OpFault.UnsupportedCode) switch {
+                (EmptyUnsupported, error is OpFault.Unsupported) switch {
                     (true, true) => Unit.Default,
                     _ => fun((IDataAccess target) => { target.AddWarning(text: Ports.Head.Map(static port => port.Name).IfNone("Output"), details: error.Message); return Unit.Default; })(access),
                 },

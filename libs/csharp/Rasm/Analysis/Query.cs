@@ -85,8 +85,8 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
     private static Eff<Analyze.Runtime, TGeometry> Ready(TGeometry geometry) =>
         from runtime in Analyze.RuntimeAsks
         from resolved in (runtime.Cancellation.IsCancellationRequested switch {
-            true => Fin.Fail<TGeometry>(OpFault.Cancelled()),
-            false => Optional(geometry).ToFin(ValidationFault.MissingGeometry()),
+            true => Fin.Fail<TGeometry>(new OpFault.Cancelled()),
+            false => Optional(geometry).ToFin(new ValidationFault.MissingGeometry()),
         }).ToEff()
         select resolved;
     private static Eff<Analyze.Runtime, TGeometry> Validate(TGeometry geometry, Requirement requirement) =>
@@ -100,19 +100,19 @@ public sealed record Query<TGeometry, TOut> where TGeometry : notnull {
 [SmartEnum<int>]
 public sealed partial class MassKind {
     private delegate Eff<Analyze.Runtime, IDisposable> ComputeMass(object geometry, bool secondMoments, bool productMoments);
-    public static readonly MassKind None = new(key: 0, label: nameof(None), requirement: Requirement.None, compute: static (geometry, _, _) => Fin.Fail<IDisposable>(OpFault.ComputationUnsupported(label: nameof(None), geometryType: geometry.GetType())).ToEff(), sum: static _ => Fin.Fail<IDisposable>(OpFault.ComputationFailed(label: nameof(None))));
+    public static readonly MassKind None = new(key: 0, label: nameof(None), requirement: Requirement.None, compute: static (geometry, _, _) => Fin.Fail<IDisposable>(new OpFault.ComputationUnsupported(Label: nameof(None), GeometryType: geometry.GetType())).ToEff(), sum: static _ => Fin.Fail<IDisposable>(new OpFault.ComputationFailed(Label: nameof(None))));
     public static readonly MassKind Length = new(
         key: 1,
         label: nameof(Length),
         requirement: Requirement.CurveLength,
         compute: static (geometry, secondMoments, productMoments) => (geometry switch {
             Curve curve => Optional(LengthMassProperties.Compute(curve: curve, length: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments))
-                .ToFin(OpFault.ComputationFailed(label: nameof(LengthMassProperties)))
+                .ToFin(new OpFault.ComputationFailed(Label: nameof(LengthMassProperties)))
                 .Map(static props => (IDisposable)props),
-            _ => Fin.Fail<IDisposable>(OpFault.ComputationUnsupported(label: nameof(LengthMassProperties), geometryType: geometry.GetType())),
+            _ => Fin.Fail<IDisposable>(new OpFault.ComputationUnsupported(Label: nameof(LengthMassProperties), GeometryType: geometry.GetType())),
         }).ToEff(),
         sum: static props => Optional(LengthMassProperties.WeightedSum(summands: props.AsIterable().Cast<LengthMassProperties>(), weights: Enumerable.Repeat(element: 1.0, count: props.Count)))
-            .ToFin(OpFault.ComputationFailed(label: nameof(LengthMassProperties)))
+            .ToFin(new OpFault.ComputationFailed(Label: nameof(LengthMassProperties)))
             .Map(static props => (IDisposable)props));
     public static readonly MassKind Area = new(
         key: 2,
@@ -126,12 +126,12 @@ public sealed partial class MassKind {
                                                                          Surface surface => AreaMassProperties.Compute(surface: surface, area: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments),
                                                                          _ => null,
                                                                      }).ToFin(geometry switch {
-                                                                         Curve or Mesh or Brep or Surface => OpFault.ComputationFailed(label: nameof(AreaMassProperties)),
-                                                                         _ => OpFault.ComputationUnsupported(label: nameof(AreaMassProperties), geometryType: geometry.GetType()),
+                                                                         Curve or Mesh or Brep or Surface => new OpFault.ComputationFailed(Label: nameof(AreaMassProperties)),
+                                                                         _ => new OpFault.ComputationUnsupported(Label: nameof(AreaMassProperties), GeometryType: geometry.GetType()),
                                                                      }).Map(static props => (IDisposable)props).ToEff()
                                                                      select props,
         sum: static props => Optional(AreaMassProperties.WeightedSum(summands: props.AsIterable().Cast<AreaMassProperties>(), weights: Enumerable.Repeat(element: 1.0, count: props.Count)))
-            .ToFin(OpFault.ComputationFailed(label: nameof(AreaMassProperties)))
+            .ToFin(new OpFault.ComputationFailed(Label: nameof(AreaMassProperties)))
             .Map(static props => (IDisposable)props));
     public static readonly MassKind Volume = new(
         key: 3,
@@ -144,12 +144,12 @@ public sealed partial class MassKind {
                                                                          Surface surface => VolumeMassProperties.Compute(surface: surface, volume: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments),
                                                                          _ => null,
                                                                      }).ToFin(geometry switch {
-                                                                         Mesh or Brep or Surface => OpFault.ComputationFailed(label: nameof(VolumeMassProperties)),
-                                                                         _ => OpFault.ComputationUnsupported(label: nameof(VolumeMassProperties), geometryType: geometry.GetType()),
+                                                                         Mesh or Brep or Surface => new OpFault.ComputationFailed(Label: nameof(VolumeMassProperties)),
+                                                                         _ => new OpFault.ComputationUnsupported(Label: nameof(VolumeMassProperties), GeometryType: geometry.GetType()),
                                                                      }).Map(static props => (IDisposable)props).ToEff()
                                                                      select props,
         sum: static props => Optional(VolumeMassProperties.WeightedSum(summands: props.AsIterable().Cast<VolumeMassProperties>(), weights: Enumerable.Repeat(element: 1.0, count: props.Count)))
-            .ToFin(OpFault.ComputationFailed(label: nameof(VolumeMassProperties)))
+            .ToFin(new OpFault.ComputationFailed(Label: nameof(VolumeMassProperties)))
             .Map(static props => (IDisposable)props));
     public string Label { get; }
     internal Requirement Requirement { get; }

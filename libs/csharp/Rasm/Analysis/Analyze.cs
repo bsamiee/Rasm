@@ -39,7 +39,7 @@ public static class Analyze {
         ReadOnlySpan<TGeometry> input) where TGeometry : notnull {
         TGeometry[] inputValues = input.ToArray();
         return Optional(query)
-            .ToFin(OpFault.MissingOperation())
+            .ToFin(new OpFault.MissingOperation())
             .ToValidation()
             .Bind(active => active.Rejection.Match(
                 Some: error => Fin.Fail<Seq<TOut>>(error).ToValidation(),

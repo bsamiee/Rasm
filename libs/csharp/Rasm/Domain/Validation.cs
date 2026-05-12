@@ -5,7 +5,7 @@ namespace Rasm.Domain;
 // --- [TYPES] ----------------------------------------------------------------------------
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 internal readonly partial struct Op;
 
 // --- [MODELS] ---------------------------------------------------------------------------
@@ -38,7 +38,7 @@ internal sealed partial class Rule {
             false => Fin.Succ(unit),
         };
     internal Fin<Unit> Invalid(GeometryBase geometry, string log) =>
-        Fin.Fail<Unit>(error: ValidationFault.InvalidGeometry(geometry: geometry, check: this, log: log));
+        Fin.Fail<Unit>(error: new ValidationFault.InvalidGeometry(Geometry: geometry, Check: this, Log: log));
     internal Fin<Unit> Require(GeometryBase geometry, bool condition, string log) =>
         condition switch { true => Fin.Succ(unit), false => Invalid(geometry: geometry, log: log) };
     private static string Detail(string label, string log) =>
@@ -140,41 +140,81 @@ internal sealed partial class Rule {
 }
 
 // --- [ERRORS] ---------------------------------------------------------------------------
-internal static class OpFault {
+[Union]
+internal abstract partial record OpFault : Error {
+    private OpFault() { }
     internal const int UnsupportedCode = 9104;
-    internal static Error MissingOperation() => Error.New(message: "Geometry operation requires a query.");
-    internal static Error MissingContext(this Op key) =>
-        Error.New(message: $"Geometry operation '{key}' requires a model context.");
-    internal static Error InvalidInput(this Op key) =>
-        Error.New(message: $"Geometry operation '{key}' received invalid Rhino input.");
-    internal static Error InvalidResult(this Op key) =>
-        Error.New(message: $"Geometry operation '{key}' produced no valid Rhino result.");
-    internal static Error Cancelled() => Error.New(message: "Geometry operation was cancelled.");
-    internal static Error Unsupported(this Op key, Type geometryType, Type outputType) =>
-        Error.New(code: UnsupportedCode, message: $"Geometry operation '{key}' does not support geometry '{geometryType.Name}' with output '{outputType.Name}'.");
-    internal static Error ComputationFailed(string label) =>
-        Error.New(message: $"Rhino {label} computation failed.");
-    internal static Error ComputationUnsupported(string label, Type geometryType) =>
-        Error.New(message: $"Rhino {label} computation does not support geometry '{geometryType.Name}'.");
-    internal static Error PrimitiveNoEdges(this Op key, string primitive) =>
-        Error.New(message: $"Geometry operation '{key}' rejects '{primitive}' primitive: no edges.");
-    internal static Error PrimitiveNoVertices(this Op key, string primitive) =>
-        Error.New(message: $"Geometry operation '{key}' rejects '{primitive}' primitive: no vertices.");
+    public override bool IsExpected => true;
+    public override bool IsExceptional => false;
+    public override ErrorException ToErrorException() => new WrappedErrorExpectedException(this);
+    internal sealed record MissingOperation : OpFault {
+        public override string Message => "Geometry operation requires a query.";
+    }
+    internal sealed record MissingContext(Op Key) : OpFault {
+        public override string Message => $"Geometry operation '{Key}' requires a model context.";
+    }
+    internal sealed record InvalidInput(Op Key) : OpFault {
+        public override string Message => $"Geometry operation '{Key}' received invalid Rhino input.";
+    }
+    internal sealed record InvalidResult(Op Key) : OpFault {
+        public override string Message => $"Geometry operation '{Key}' produced no valid Rhino result.";
+    }
+    internal sealed record Cancelled : OpFault {
+        public override string Message => "Geometry operation was cancelled.";
+    }
+    internal sealed record Unsupported(Op Key, Type GeometryType, Type OutputType) : OpFault {
+        public override string Message => $"Geometry operation '{Key}' does not support geometry '{GeometryType.Name}' with output '{OutputType.Name}'.";
+        public override int Code => UnsupportedCode;
+    }
+    internal sealed record ComputationFailed(string Label) : OpFault {
+        public override string Message => $"Rhino {Label} computation failed.";
+    }
+    internal sealed record ComputationUnsupported(string Label, Type GeometryType) : OpFault {
+        public override string Message => $"Rhino {Label} computation does not support geometry '{GeometryType.Name}'.";
+    }
+    internal sealed record PrimitiveNoEdges(Op Key, string Primitive) : OpFault {
+        public override string Message => $"Geometry operation '{Key}' rejects '{Primitive}' primitive: no edges.";
+    }
+    internal sealed record PrimitiveNoVertices(Op Key, string Primitive) : OpFault {
+        public override string Message => $"Geometry operation '{Key}' rejects '{Primitive}' primitive: no vertices.";
+    }
 }
-internal static class ValidationFault {
-    internal static Error MissingGeometry() => Error.New(message: "Geometry input is required.");
-    internal static Error InvalidGeometry(GeometryBase geometry, Rule check, string log) =>
-        Error.New(message: string.IsNullOrWhiteSpace(value: log) switch {
-            true => $"Geometry validation failed for {geometry.GetType().Name} under check '{check.Key}'.",
-            false => $"Geometry validation failed for {geometry.GetType().Name} under check '{check.Key}': {log}",
-        });
+[Union]
+internal abstract partial record ValidationFault : Error {
+    private ValidationFault() { }
+    public override bool IsExpected => true;
+    public override bool IsExceptional => false;
+    public override ErrorException ToErrorException() => new WrappedErrorExpectedException(this);
+    internal sealed record MissingGeometry : ValidationFault {
+        public override string Message => "Geometry input is required.";
+    }
+    internal sealed record InvalidGeometry(GeometryBase Geometry, Rule Check, string Log) : ValidationFault {
+        public override string Message => string.IsNullOrWhiteSpace(value: Log) switch {
+            true => $"Geometry validation failed for {Geometry.GetType().Name} under check '{Check.Key}'.",
+            false => $"Geometry validation failed for {Geometry.GetType().Name} under check '{Check.Key}': {Log}",
+        };
+    }
+}
+// Extension surface on Op preserves the 216 `key.X()` ergonomic call sites while
+// the construction is now backed by the sealed OpFault DU above. Each call lifts
+// into the corresponding OpFault case via its primary constructor.
+internal static class OpFaultExtensions {
+    internal static Error MissingContext(this Op key) => new OpFault.MissingContext(Key: key);
+    internal static Error InvalidInput(this Op key) => new OpFault.InvalidInput(Key: key);
+    internal static Error InvalidResult(this Op key) => new OpFault.InvalidResult(Key: key);
+    internal static Error Unsupported(this Op key, Type geometryType, Type outputType) =>
+        new OpFault.Unsupported(Key: key, GeometryType: geometryType, OutputType: outputType);
+    internal static Error PrimitiveNoEdges(this Op key, string primitive) =>
+        new OpFault.PrimitiveNoEdges(Key: key, Primitive: primitive);
+    internal static Error PrimitiveNoVertices(this Op key, string primitive) =>
+        new OpFault.PrimitiveNoVertices(Key: key, Primitive: primitive);
 }
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
 internal static class Verify {
     internal static Validation<Error, TGeometry> Apply<TGeometry>(this Context context, TGeometry? geometry, Requirement requirement) where TGeometry : GeometryBase =>
         (Fin.Succ((Context: context, Requirement: requirement)).ToValidation(),
-         Optional(geometry).ToValidation(ValidationFault.MissingGeometry()))
+         Optional(geometry).ToValidation<Error>(new ValidationFault.MissingGeometry()))
             .Apply(static (state, candidate) => (state.Context, state.Requirement, Candidate: candidate))
             .Bind(static state => state.Requirement.Checks.Aggregate(
                 seed: (Acc: Fin.Succ(state.Candidate).ToValidation(), state.Context, state.Candidate),
@@ -187,7 +227,7 @@ internal static class Verify {
             .Apply(static (left, right) => (A: left, B: right)).As();
     private static Validation<Error, TValue> Operand<TValue>(this Context context, TValue value, Requirement requirement) where TValue : notnull =>
         (Fin.Succ((Context: context, Requirement: requirement)).ToValidation(),
-         Optional(value).ToValidation(ValidationFault.MissingGeometry()))
+         Optional(value).ToValidation<Error>(new ValidationFault.MissingGeometry()))
             .Apply(static (state, candidate) => (state.Context, state.Requirement, Candidate: candidate))
             .Bind(static state => state.Candidate switch {
                 GeometryBase geometry => (
