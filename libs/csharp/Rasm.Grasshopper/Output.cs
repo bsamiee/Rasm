@@ -10,7 +10,7 @@ public interface IOutputGroup {
 // --- [MODELS] ---------------------------------------------------------------------------
 public readonly record struct Hints(
     Seq<(IPort Port, int Slot)> Inputs) {
-    public static Hints Capture(Seq<IPort> inputs, IDataAccess access) =>
+    public static Hints Capture(Seq<IPort> inputs) =>
         new(Inputs: inputs.Map((port, slot) => (Port: port, Slot: slot)));
     public Option<int> Slot(IPort port) => Inputs.Find(predicate: input => input.Port.Equals(port)).Map(static input => input.Slot);
     public Option<int> Index(IDataAccess access, Port<int> port, int limit) {
@@ -38,7 +38,7 @@ public static class GrasshopperRuntimeExtensions {
     }
     public static TVal? Nullable<TVal>(this GrasshopperRuntime runtime, IDataAccess access, Port<TVal> port) where TVal : struct {
         ArgumentNullException.ThrowIfNull(argument: access);
-        return runtime.Hints.Value(access: access, port: port).Match<TVal?>(Some: static value => value, None: static () => null);
+        return runtime.Hints.Value(access: access, port: port).ToNullable();
     }
     public static Option<int> Index(this GrasshopperRuntime runtime, IDataAccess access, Port<int> port, int limit = int.MaxValue) {
         ArgumentNullException.ThrowIfNull(argument: access);
@@ -46,7 +46,7 @@ public static class GrasshopperRuntimeExtensions {
     }
     public static int? NullableIndex(this GrasshopperRuntime runtime, IDataAccess access, Port<int> port, int limit = int.MaxValue) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        return runtime.Hints.Index(access: access, port: port, limit: limit).Match<int?>(Some: static value => value, None: static () => null);
+        return runtime.Hints.Index(access: access, port: port, limit: limit).ToNullable();
     }
 }
 internal sealed record PreparedGroup<TSource>(

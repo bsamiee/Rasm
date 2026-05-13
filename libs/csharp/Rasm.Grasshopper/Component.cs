@@ -20,7 +20,7 @@ public sealed class IconAttribute(string name) : Attribute {
 public readonly record struct GrasshopperRuntime(Analyze.Scope Scope, Hints Hints) {
     public static Fin<GrasshopperRuntime> Capture(IDataAccess access, Seq<IPort> inputs) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        return access.Scope().Map(scope => new GrasshopperRuntime(Scope: scope, Hints: Hints.Capture(inputs: inputs, access: access)));
+        return access.Scope().Map(scope => new GrasshopperRuntime(Scope: scope, Hints: Hints.Capture(inputs: inputs)));
     }
     internal Fin<Sourced<Shape>> Shape(IDataAccess access, Port<Shape> port) {
         ArgumentNullException.ThrowIfNull(argument: access);

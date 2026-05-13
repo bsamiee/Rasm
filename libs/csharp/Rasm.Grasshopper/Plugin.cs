@@ -7,12 +7,12 @@ namespace Rasm.Grasshopper;
 
 [BoundaryAdapter]
 public abstract class Plugin : GhPlugin {
-    private readonly Lazy<string> author;
-    private readonly Lazy<string> copyright;
+    private readonly string author;
+    private readonly string copyright;
     protected Plugin(Guid id, Nomen nomen, Version? version) : base(id: id, nomen: nomen, version: version) {
         Type self = GetType();
-        author = new Lazy<string>(valueFactory: () => self.GetCustomAttribute<Grasshopper2.AuthorAttribute>()?.Author ?? string.Empty);
-        copyright = new Lazy<string>(valueFactory: () => self.Assembly.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright ?? string.Empty);
+        author = self.GetCustomAttribute<Grasshopper2.AuthorAttribute>()?.Author ?? string.Empty;
+        copyright = self.Assembly.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright ?? string.Empty;
     }
     public override void OnLoaded() {
         base.OnLoaded();
@@ -48,8 +48,8 @@ public abstract class Plugin : GhPlugin {
             .Select(group => $"{spec.FullName}: duplicate port name '{group.Key}' on codes {string.Join(separator: ", ", values: group.Select(static port => port.Code))}"));
         return structuralFaults.Concat(returnTypeFaults).Concat(codeDuplicates).Concat(nameDuplicates).ToSeq();
     }
-    public override string Author => author.Value;
-    public override string Copyright => copyright.Value;
+    public override string Author => author;
+    public override string Copyright => copyright;
     public override IIcon Icon =>
         GetType().GetCustomAttribute<IconAttribute>() switch {
             IconAttribute attr => AbstractIcon.FromResource(name: attr.Name, type: GetType()),
