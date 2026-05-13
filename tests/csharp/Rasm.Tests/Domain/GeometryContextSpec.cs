@@ -77,7 +77,8 @@ public sealed class ContextSpec {
         Validation<Error, (LineCurve A, LineCurve B)> result = context.ValidatePair<LineCurve, LineCurve>(a: null!,
             b: null!,
             requirementA: Requirement.CurveLength,
-            requirementB: Requirement.CurveLength);
+            requirementB: Requirement.CurveLength,
+            cancel: TestContext.Current.CancellationToken);
 
         Assert.True(condition: result.ToFin().Match(
             Succ: static _ => false,
@@ -91,7 +92,8 @@ public sealed class ContextSpec {
         Validation<Error, (LineCurve A, int B)> result = context.ValidatePair<LineCurve, int>(a: null!,
             b: 1,
             requirementA: Requirement.CurveLength,
-            requirementB: Requirement.None);
+            requirementB: Requirement.None,
+            cancel: TestContext.Current.CancellationToken);
 
         Assert.True(condition: result.ToFin().Match(
             Succ: static _ => false,
@@ -105,7 +107,8 @@ public sealed class ContextSpec {
         Validation<Error, (Point3d A, Line B)> result = context.ValidatePair(a: Point3d.Unset,
             b: Line.Unset,
             requirementA: Requirement.None,
-            requirementB: Requirement.None);
+            requirementB: Requirement.None,
+            cancel: TestContext.Current.CancellationToken);
 
         Assert.True(condition: result.ToFin().Match(
             Succ: static _ => false,

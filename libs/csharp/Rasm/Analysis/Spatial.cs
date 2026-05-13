@@ -1,7 +1,15 @@
 namespace Rasm.Analysis;
 
+// --- [MODELS] -----------------------------------------------------------------------------
+[Union]
+public partial record Probe {
+    public sealed record KNearest(int Count) : Probe;
+    public sealed record Closest(double LimitDistance) : Probe;
+}
+
+// --- [SERVICES] ---------------------------------------------------------------------------
 public sealed class Tree : IDisposable {
-    private static readonly Op Key = Op.Of(name: nameof(Tree));
+    internal static readonly Op Key = Op.Of(name: nameof(Tree));
     private readonly RTree tree;
     private bool disposed;
     private Tree(RTree tree) => this.tree = tree;
@@ -11,15 +19,10 @@ public sealed class Tree : IDisposable {
                 .ToFin(Key.InvalidResult()))
             .Map(static tree => new Tree(tree: tree))
             .ToValidation();
-    public static Validation<Error, Tree> PointCloud(PointCloud cloud) => Optional(cloud)
-            .ToFin(new Fault.MissingGeometry())
-            .Bind(static candidate => candidate.IsValid switch {
-                true => Optional(RTree.CreatePointCloudTree(cloud: candidate))
-                    .ToFin(Key.InvalidResult()),
-                false => Fin.Fail<RTree>(Key.InvalidInput()),
-            })
-            .Map(static tree => new Tree(tree: tree))
-            .ToValidation();
+    public static Validation<Error, Tree> PointCloud(PointCloud cloud) =>
+        FromValid(input: cloud, isValid: static c => c.IsValid, create: static c => RTree.CreatePointCloudTree(cloud: c));
+    public static Validation<Error, Tree> MeshFaces(Mesh mesh) =>
+        FromValid(input: mesh, isValid: static m => m.IsValid, create: static m => RTree.CreateMeshFaceTree(mesh: m));
     public static Validation<Error, Tree> Bounds<TGeometry>(
         params ReadOnlySpan<TGeometry> items) where TGeometry : GeometryBase =>
         ValidateBounds(items: items)
@@ -33,21 +36,28 @@ public sealed class Tree : IDisposable {
                             })))
             .Map(static tree => new Tree(tree: tree))
             .ToValidation();
-    public static Validation<Error, Tree> MeshFaces(Mesh mesh) => Optional(mesh)
+    private static Validation<Error, Tree> FromValid<TInput>(TInput input, Func<TInput, bool> isValid, Func<TInput, RTree?> create) where TInput : class =>
+        Optional(input)
             .ToFin(new Fault.MissingGeometry())
-            .Bind(static candidate => candidate.IsValid switch {
-                true => Optional(RTree.CreateMeshFaceTree(mesh: candidate))
-                    .ToFin(Key.InvalidResult()),
+            .Bind(candidate => isValid(arg: candidate) switch {
+                true => Optional(create(arg: candidate)).ToFin(Key.InvalidResult()),
                 false => Fin.Fail<RTree>(Key.InvalidInput()),
             })
             .Map(static tree => new Tree(tree: tree))
             .ToValidation();
-    public Eff<Context, Seq<Hit>> Search(BoundingBox box) =>
-        Ready().Bind(active => box.IsValid switch { true => Search(tree: active, shape: box), false => Fin.Fail<Seq<Hit>>(Key.InvalidInput()) });
-    public Eff<Context, Seq<Hit>> Search(Sphere sphere) =>
-        Ready().Bind(active => sphere.IsValid switch { true => Search(tree: active, shape: sphere), false => Fin.Fail<Seq<Hit>>(Key.InvalidInput()) });
-    public Eff<Context, Seq<Couple>> Overlaps(Tree other, double tolerance = 0.0) =>
-        (
+    public Eff<Env, Seq<Hit>> Search(BoundingBox box) =>
+        from runtime in Env.EnvAsks
+        from active in Ready().ToEff()
+        from result in (box.IsValid switch { true => Search(tree: active, shape: box, cancel: runtime.Cancellation), false => Fin.Fail<Seq<Hit>>(Key.InvalidInput()) }).ToEff()
+        select result;
+    public Eff<Env, Seq<Hit>> Search(Sphere sphere) =>
+        from runtime in Env.EnvAsks
+        from active in Ready().ToEff()
+        from result in (sphere.IsValid switch { true => Search(tree: active, shape: sphere, cancel: runtime.Cancellation), false => Fin.Fail<Seq<Hit>>(Key.InvalidInput()) }).ToEff()
+        select result;
+    public Eff<Env, Seq<Couple>> Overlaps(Tree other, double tolerance = 0.0) =>
+        from runtime in Env.EnvAsks
+        from state in (
             Ready(),
             Optional(other)
                 .ToFin(new Fault.MissingGeometry())
@@ -55,48 +65,23 @@ public sealed class Tree : IDisposable {
             RhinoMath.IsValidDouble(x: tolerance) && tolerance >= 0.0
                 ? Fin.Succ(tolerance)
                 : Fin.Fail<double>(Key.InvalidInput())
-        ).Apply(static (left, right, modelTolerance) => (Left: left, Right: right, Tolerance: modelTolerance))
-        .As()
-        .Bind(static state => OverlapPairs(state: state));
-    private static Fin<Seq<Couple>> OverlapPairs((RTree Left, RTree Right, double Tolerance) state) {
-        // BOUNDARY ADAPTER — Rhino RTree.SearchOverlaps uses a mutating callback delegate.
-        Atom<Seq<Couple>> atom = Atom(value: Seq<Couple>());
+        ).Apply(static (left, right, modelTolerance) => (Left: left, Right: right, Tolerance: modelTolerance)).As().ToEff()
+        from pairs in OverlapPairs(state: state, cancel: runtime.Cancellation).ToEff()
+        select pairs;
+    private static Fin<Seq<Couple>> OverlapPairs((RTree Left, RTree Right, double Tolerance) state, CancellationToken cancel) {
+        // BOUNDARY ADAPTER — Rhino RTree.SearchOverlaps uses a mutating callback delegate, single-threaded per search.
+        List<Couple> buffer = [];
         return RTree.SearchOverlaps(
             treeA: state.Left,
             treeB: state.Right,
             tolerance: state.Tolerance,
-            callback: (_, args) => atom.Swap(current => new Couple(A: args.Id, B: args.IdB).Cons(current))) switch {
-                true => Fin.Succ(toSeq(atom.Value.OrderBy(static p => p.A).ThenBy(static p => p.B))),
+            callback: (_, args) => { args.Cancel = cancel.IsCancellationRequested; buffer.Add(item: new Couple(A: args.Id, B: args.IdB)); }) switch {
+                true when cancel.IsCancellationRequested => Fin.Fail<Seq<Couple>>(new Fault.Cancelled()),
+                true => Fin.Succ(SortedCouples(buffer: buffer)),
+                false when cancel.IsCancellationRequested => Fin.Fail<Seq<Couple>>(new Fault.Cancelled()),
                 false => Fin.Fail<Seq<Couple>>(Key.InvalidResult()),
             };
     }
-    public static Eff<Context, Seq<Couple>> KNearest(
-        ReadOnlySpan<Point3d> points,
-        ReadOnlySpan<Point3d> needles,
-        int count) =>
-        (
-            ValidatePoints(points: points),
-            ValidatePoints(points: needles),
-            count switch {
-                > 0 => Fin.Succ(count),
-                _ => Fin.Fail<int>(Key.InvalidInput()),
-            }
-        ).Apply(static (hay, query, k) => (Hay: hay, Query: query, Count: k))
-        .As()
-        .Bind(static state => PointPairs(values: RTree.Point3dKNeighbors(hayPoints: state.Hay, needlePts: state.Query, amount: state.Count)));
-    public static Eff<Context, Seq<Couple>> Closest(
-        ReadOnlySpan<Point3d> points,
-        ReadOnlySpan<Point3d> needles,
-        double limitDistance) =>
-        (
-            ValidatePoints(points: points),
-            ValidatePoints(points: needles),
-            RhinoMath.IsValidDouble(x: limitDistance) && limitDistance > 0.0
-                ? Fin.Succ(limitDistance)
-                : Fin.Fail<double>(Key.InvalidInput())
-        ).Apply(static (hay, query, distance) => (Hay: hay, Query: query, Distance: distance))
-        .As()
-        .Bind(static state => PointPairs(values: RTree.Point3dClosestPoints(hayPoints: state.Hay, needlePts: state.Query, limitDistance: state.Distance)));
     public void Dispose() =>
         disposed = disposed switch {
             false => fun((RTree t) => { t.Dispose(); return true; })(tree),
@@ -107,7 +92,7 @@ public sealed class Tree : IDisposable {
             true => Fin.Fail<RTree>(Key.InvalidInput()),
             false => Fin.Succ(tree),
         };
-    private static Fin<Point3d[]> ValidatePoints(ReadOnlySpan<Point3d> points) =>
+    internal static Fin<Point3d[]> ValidatePoints(ReadOnlySpan<Point3d> points) =>
         toSeq(points.ToArray())
             .TraverseM(static point => point switch {
                 Point3d candidate when candidate.IsValid => Fin.Succ(candidate),
@@ -125,29 +110,64 @@ public sealed class Tree : IDisposable {
                     : Fin.Fail<BoundingBox>(Key.InvalidInput())))
             .As()
             .Map(static boxes => boxes.ToArray());
-    private static Fin<Seq<Hit>> Search(RTree tree, BoundingBox shape) {
-        Atom<Seq<int>> atom = Atom(value: Seq<int>());
+    private static Fin<Seq<Hit>> Search(RTree tree, BoundingBox shape, CancellationToken cancel) {
+        // BOUNDARY ADAPTER — Rhino RTree.Search uses a mutating callback delegate, single-threaded per search.
+        List<int> buffer = [];
         return tree.Search(
             box: shape,
-            callback: (_, args) => atom.Swap(current => args.Id.Cons(current))) switch {
-                true => Fin.Succ(SortedHits(ids: atom.Value)),
+            callback: (_, args) => { args.Cancel = cancel.IsCancellationRequested; buffer.Add(item: args.Id); }) switch {
+                true when cancel.IsCancellationRequested => Fin.Fail<Seq<Hit>>(new Fault.Cancelled()),
+                true => Fin.Succ(SortedHits(buffer: buffer)),
+                false when cancel.IsCancellationRequested => Fin.Fail<Seq<Hit>>(new Fault.Cancelled()),
                 false => Fin.Fail<Seq<Hit>>(Key.InvalidResult()),
             };
     }
-    private static Fin<Seq<Hit>> Search(RTree tree, Sphere shape) {
-        Atom<Seq<int>> atom = Atom(value: Seq<int>());
+    private static Fin<Seq<Hit>> Search(RTree tree, Sphere shape, CancellationToken cancel) {
+        // BOUNDARY ADAPTER — Rhino RTree.Search uses a mutating callback delegate, single-threaded per search.
+        List<int> buffer = [];
         return tree.Search(
             sphere: shape,
-            callback: (_, args) => atom.Swap(current => args.Id.Cons(current))) switch {
-                true => Fin.Succ(SortedHits(ids: atom.Value)),
+            callback: (_, args) => { args.Cancel = cancel.IsCancellationRequested; buffer.Add(item: args.Id); }) switch {
+                true when cancel.IsCancellationRequested => Fin.Fail<Seq<Hit>>(new Fault.Cancelled()),
+                true => Fin.Succ(SortedHits(buffer: buffer)),
+                false when cancel.IsCancellationRequested => Fin.Fail<Seq<Hit>>(new Fault.Cancelled()),
                 false => Fin.Fail<Seq<Hit>>(Key.InvalidResult()),
             };
     }
-    private static Seq<Hit> SortedHits(Seq<int> ids) => toSeq(ids.Order().Select(static id => new Hit(Id: id)));
-    private static Fin<Seq<Couple>> PointPairs(IEnumerable<int[]> values) => Optional(values)
+    private static Seq<Hit> SortedHits(List<int> buffer) {
+        buffer.Sort();
+        return toSeq(buffer.Select(static id => new Hit(Id: id)));
+    }
+    private static Seq<Couple> SortedCouples(List<Couple> buffer) {
+        buffer.Sort(comparison: static (left, right) => (left.A, right.A) switch {
+            (int a, int b) when a != b => a.CompareTo(value: b),
+            _ => left.B.CompareTo(value: right.B),
+        });
+        return toSeq(buffer);
+    }
+    internal static Fin<Seq<Couple>> PointPairs(IEnumerable<int[]> values) => Optional(values)
             .ToFin(Key.InvalidResult())
-            .Map(static rows => toSeq(rows
-                .SelectMany(static (ids, needle) => ids.Select(source => new Couple(A: needle, B: source)))
-                .OrderBy(static pair => pair.A)
-                .ThenBy(static pair => pair.B)));
+            .Map(static rows => SortedCouples(buffer: [.. rows.SelectMany(static (ids, needle) => ids.Select(source => new Couple(A: needle, B: source)))]));
+}
+
+// --- [OPERATIONS] -------------------------------------------------------------------------
+public static class Spatial {
+    public static Eff<Context, Seq<Couple>> NearestPoints(
+        ReadOnlySpan<Point3d> points,
+        ReadOnlySpan<Point3d> needles,
+        Probe probe) =>
+        (Tree.ValidatePoints(points: points), Tree.ValidatePoints(points: needles), ValidateProbe(probe: probe))
+            .Apply(static (hay, query, valid) => (Hay: hay, Query: query, Probe: valid))
+            .As()
+            .Bind(static state => Tree.PointPairs(values: Neighbors(state: state)));
+    private static IEnumerable<int[]> Neighbors((Point3d[] Hay, Point3d[] Query, Probe Probe) state) => state.Probe switch {
+        Probe.KNearest k => RTree.Point3dKNeighbors(hayPoints: state.Hay, needlePts: state.Query, amount: k.Count),
+        Probe.Closest c => RTree.Point3dClosestPoints(hayPoints: state.Hay, needlePts: state.Query, limitDistance: c.LimitDistance),
+        _ => [],
+    };
+    private static Fin<Probe> ValidateProbe(Probe probe) => probe switch {
+        Probe.KNearest { Count: > 0 } => Fin.Succ(probe),
+        Probe.Closest c when RhinoMath.IsValidDouble(x: c.LimitDistance) && c.LimitDistance > 0.0 => Fin.Succ(probe),
+        _ => Fin.Fail<Probe>(Tree.Key.InvalidInput()),
+    };
 }

@@ -1,7 +1,7 @@
-using System.Collections.Frozen;
 using Eto.Drawing;
 using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Components;
+using Grasshopper2.Doc;
 using Grasshopper2.Parameters;
 using Requirement = Grasshopper2.Parameters.Requirement;
 
@@ -16,6 +16,7 @@ public interface IPort {
     public Access Access { get; }
     public Requirement Requirement { get; }
     public PortPolicy Policy { get; }
+    public Option<object> FallbackValue { get; }
 }
 
 // --- [MODELS] ---------------------------------------------------------------------------
@@ -30,9 +31,11 @@ public sealed record PortPolicy {
     public static PortPolicy Index(IndexModifier indexing = IndexModifier.Clip) =>
         On<IntegerParameter>(mutate: target => { target.IsIndex = true; target.Indexing = indexing; });
     public static PortPolicy Category(string name) =>
-        On<IParameter>(mutate: parameter => CustomKey.Category.Set(parameter: parameter, value: name));
+        On<IParameter>(mutate: parameter => SetCustom(parameter: parameter, key: ModularComponent.__Category, set: (kv, k) => kv.Set(key: k, value: name)));
     public static PortPolicy Colour(Color color) =>
-        On<IParameter>(mutate: parameter => CustomKey.Colour.Set(parameter: parameter, value: color));
+        On<IParameter>(mutate: parameter => SetCustom(parameter: parameter, key: ModularComponent.__Colour, set: (kv, k) => kv.Set(key: k, value: color)));
+    public static PortPolicy Hidden { get; } = On<IParameter>(mutate: parameter => Seq(ModularComponent.__Optional, ModularComponent.__HideByDefault)
+        .Iter(key => SetCustom(parameter: parameter, key: key, set: (kv, k) => kv.Set(key: k, value: true))));
     public static PortPolicy Compose(params PortPolicy[] policies) {
         ArgumentNullException.ThrowIfNull(argument: policies);
         return new PortPolicy(apply: parameter => toSeq(policies).Iter(policy => policy.Apply(parameter: parameter)));
@@ -46,6 +49,10 @@ public sealed record PortPolicy {
             TParam target => fun((TParam t) => { mutate(obj: t); return Unit.Default; })(target),
             _ => Unit.Default,
         });
+    private static Unit SetCustom(IParameter parameter, string key, Action<KeyedValues, string> set) {
+        set(arg1: parameter.CustomValues, arg2: key);
+        return Unit.Default;
+    }
 }
 public readonly record struct Port<TVal>(
     string Name,
@@ -54,25 +61,12 @@ public readonly record struct Port<TVal>(
     PortKind Kind,
     Access Access,
     Requirement Requirement,
-    PortPolicy Policy) : IPort;
+    PortPolicy Policy,
+    Option<TVal> Fallback) : IPort {
+    public Option<object> FallbackValue => Fallback.Map(static value => (object)value!);
+}
 
 // --- [CONSTANTS] ------------------------------------------------------------------------
-[SmartEnum<string>]
-internal sealed partial class CustomKey {
-    public static readonly CustomKey Optional = new(key: ModularComponent.__Optional);
-    public static readonly CustomKey HideByDefault = new(key: ModularComponent.__HideByDefault);
-    public static readonly CustomKey Category = new(key: ModularComponent.__Category);
-    public static readonly CustomKey Colour = new(key: ModularComponent.__Colour);
-    // GH2 KeyedValues.Set has typed (non-generic) overloads per supported value type.
-    internal Unit Set(IParameter parameter, bool value) => Apply(parameter: parameter, set: kv => kv.Set(key: Key, value: value));
-    internal Unit Set(IParameter parameter, string value) => Apply(parameter: parameter, set: kv => kv.Set(key: Key, value: value));
-    internal Unit Set(IParameter parameter, Color value) => Apply(parameter: parameter, set: kv => kv.Set(key: Key, value: value));
-    private static Unit Apply(IParameter parameter, Action<Grasshopper2.Doc.KeyedValues> set) {
-        ArgumentNullException.ThrowIfNull(argument: parameter);
-        set(obj: parameter.CustomValues);
-        return Unit.Default;
-    }
-}
 [SmartEnum<string>]
 public sealed partial class PortKind {
     private delegate IParameter Input(InputAdder adder, string name, string code, string info, Access access, Requirement requirement);
@@ -101,36 +95,24 @@ public sealed partial class PortKind {
             output: static (adder, name, code, info, access) => adder.AddEnum<T>(name: name, code: code, info: info, access: access));
     public static Option<PortKind> From(Type type) {
         ArgumentNullException.ThrowIfNull(argument: type);
-        return Optional(Lookup.GetValueOrDefault(type));
+        return type == typeof(Shape)
+            ? Some(Generic)
+            : toSeq(Items).Find(predicate: kind => kind.Type == type);
     }
-    private static readonly FrozenDictionary<Type, PortKind> Lookup = BuildLookup();
-    [BoundaryAdapter]
-    private static FrozenDictionary<Type, PortKind> BuildLookup() =>
-        new Dictionary<Type, PortKind> {
-            [Point.Type] = Point, [Vector.Type] = Vector, [Curve.Type] = Curve, [Brep.Type] = Brep, [Plane.Type] = Plane,
-            [Integer.Type] = Integer, [Interval.Type] = Interval, [Angle.Type] = Angle,
-            [Number.Type] = Number, [Boolean.Type] = Boolean, [Text.Type] = Text, [Mesh.Type] = Mesh, [Generic.Type] = Generic,
-            [typeof(Shape)] = Generic,
-        }.ToFrozenDictionary();
     public Unit Bind(InputAdder adder, string name, string code, string info, Access access, Requirement requirement, PortPolicy policy, bool hidden) {
         ArgumentNullException.ThrowIfNull(argument: adder);
         ArgumentNullException.ThrowIfNull(argument: policy);
         IParameter parameter = AddInput(adder: adder, name: name, code: code, info: info, access: access, requirement: requirement);
         _ = policy.Apply(parameter: parameter);
-        return ApplyHidden(parameter: parameter, hidden: hidden);
+        return hidden ? PortPolicy.Hidden.Apply(parameter: parameter) : Unit.Default;
     }
     public Unit Bind(OutputAdder adder, string name, string code, string info, Access access, PortPolicy policy, bool hidden) {
         ArgumentNullException.ThrowIfNull(argument: adder);
         ArgumentNullException.ThrowIfNull(argument: policy);
         IParameter parameter = AddOutput(adder: adder, name: name, code: code, info: info, access: access);
         _ = policy.Apply(parameter: parameter);
-        return ApplyHidden(parameter: parameter, hidden: hidden);
+        return hidden ? PortPolicy.Hidden.Apply(parameter: parameter) : Unit.Default;
     }
-    private static Unit ApplyHidden(IParameter parameter, bool hidden) =>
-        hidden switch {
-            true => Seq(CustomKey.Optional, CustomKey.HideByDefault).Iter(key => key.Set(parameter: parameter, value: true)),
-            false => Unit.Default,
-        };
     private static PortKind Of<T>(
         string key,
         Func<InputAdder, string, string, string, Access, Requirement, IParameter> input,
@@ -141,14 +123,15 @@ public sealed partial class PortKind {
 // --- [SERVICES] -------------------------------------------------------------------------
 public static class Port {
     public static Port<TVal> Required<TVal>(string name, string code, string info, PortKind? kind = null, PortPolicy? policy = null) =>
-        Create<TVal>(name: name, code: code, info: info, kind: kind, access: Access.Item, requirement: Requirement.MustExist, policy: policy);
-    public static Port<TVal> Optional<TVal>(string name, string code, string info, PortKind? kind = null, PortPolicy? policy = null, string category = "Optional") =>
-        Create<TVal>(
+        Of<TVal>(name: name, code: code, info: info, kind: kind, access: Access.Item, requirement: Requirement.MustExist, policy: policy, fallback: Option<TVal>.None);
+    public static Port<TVal> Optional<TVal>(string name, string code, string info, PortKind? kind = null, PortPolicy? policy = null, string category = "Optional", Option<TVal> fallback = default) =>
+        Of<TVal>(
             name: name, code: code, info: info, kind: kind,
             access: Access.Item, requirement: Requirement.MayBeMissing,
-            policy: PortPolicy.Compose(policy ?? DefaultPolicy(type: typeof(TVal)), PortPolicy.Category(name: category)));
+            policy: PortPolicy.Compose(policy ?? DefaultPolicy(type: typeof(TVal)), PortPolicy.Category(name: category)),
+            fallback: fallback);
     public static Port<TVal> List<TVal>(string name, string code, string info, Requirement requirement = Requirement.MustExist, PortKind? kind = null, PortPolicy? policy = null) =>
-        Create<TVal>(name: name, code: code, info: info, kind: kind, access: Access.Twig, requirement: requirement, policy: policy);
+        Of<TVal>(name: name, code: code, info: info, kind: kind, access: Access.Twig, requirement: requirement, policy: policy, fallback: Option<TVal>.None);
     public static Port<int> Index(
         string name = "Index",
         string code = "I",
@@ -158,23 +141,21 @@ public static class Port {
         string name = "Direction",
         string code = "D",
         string info = "Direction vector; missing Direction uses world Z.") =>
-        Optional<Vector3d>(name: name, code: code, info: info);
+        Optional<Vector3d>(name: name, code: code, info: info, fallback: Some(Vector3d.ZAxis));
     public static Port<Shape> Shape(
         string name = "Geometry",
         string code = "G",
         string info = "Geometry to analyse.") =>
-        Create<Shape>(name: name, code: code, info: info, kind: null, access: Access.Item, requirement: Requirement.MustExist, policy: null);
-    private static Port<TVal> Create<TVal>(string name, string code, string info, PortKind? kind, Access access, Requirement requirement, PortPolicy? policy) =>
+        Of<Shape>(name: name, code: code, info: info, kind: null, access: Access.Item, requirement: Requirement.MustExist, policy: null, fallback: Option<Shape>.None);
+    private static Port<TVal> Of<TVal>(string name, string code, string info, PortKind? kind, Access access, Requirement requirement, PortPolicy? policy, Option<TVal> fallback) =>
         new(Name: name, Code: code, Info: info,
             Kind: kind ?? PortKind.From(type: typeof(TVal)).IfNone(PortKind.Generic),
             Access: access, Requirement: requirement,
-            Policy: policy ?? DefaultPolicy(type: typeof(TVal)));
-    private static PortPolicy DefaultPolicy(Type type) => PolicyDefaults.GetValueOrDefault(type) ?? PortPolicy.Empty;
-    private static readonly FrozenDictionary<Type, PortPolicy> PolicyDefaults = BuildPolicyDefaults();
-    [BoundaryAdapter]
-    private static FrozenDictionary<Type, PortPolicy> BuildPolicyDefaults() =>
-        new Dictionary<Type, PortPolicy> {
-            [typeof(Vector3d)] = PortPolicy.Vector(unitise: true),
-            [typeof(Angle)] = PortPolicy.Angle(reduce: true),
-        }.ToFrozenDictionary();
+            Policy: policy ?? DefaultPolicy(type: typeof(TVal)),
+            Fallback: fallback);
+    private static PortPolicy DefaultPolicy(Type type) => type switch {
+        _ when type == typeof(Vector3d) => PortPolicy.Vector(unitise: true),
+        _ when type == typeof(Angle) => PortPolicy.Angle(reduce: true),
+        _ => PortPolicy.Empty,
+    };
 }

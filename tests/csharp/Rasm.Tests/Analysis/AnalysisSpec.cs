@@ -137,14 +137,14 @@ public sealed class AnalysisSpec {
     [Fact]
     public void KeepsParameterlessFactoriesAsProperties() {
         object[] factories = [
-            Query.Edges, Query.IsManifold, Query.NakedPointStatus, Query.SelfIntersections,
+            Query.Boundaries<Brep, Curve>(aspect: Boundaries.All), Query.IsManifold, Query.NakedPointStatus, Query.Boundaries<Mesh, Polyline>(aspect: Boundaries.SelfIntersection),
             Query.MeshCheckCount(count: MeshCheckCount.NakedEdges), Query.MeshFaceMetric(metric: MeshFaceMetric.AspectRatio),
-            Query.NakedEdges<Mesh, Polyline>(), Query.EdgeMidpoints<GeometryBase, Point3d>(), Query.Curves<Mesh, ComponentIndex>(aspect: Curves.All), Query.Curves<Mesh, ComponentIndex>(aspect: Curves.NonManifold),
+            Query.Boundaries<Mesh, Polyline>(aspect: Boundaries.Naked), Query.Points<GeometryBase, Point3d>(sampling: new PointSampling.EdgeMidpoints()), Query.Curves<Mesh, ComponentIndex>(aspect: Curves.All), Query.Curves<Mesh, ComponentIndex>(aspect: Curves.NonManifold),
             Query.Measure<GeometryBase, Point3d>(aspect: new Measure.SpatialMidpoint()), Query.Locate<Curve, double>(aspect: new Location.CurvatureProfile(Count: 3, Scalar: CurvatureScalar.Magnitude)), Query.Locate<Surface, double>(aspect: new Location.CurvatureProfile(Count: 3, Scalar: CurvatureScalar.Gaussian)), Query.Locate<Surface, double>(aspect: new Location.CurvatureProfile(Count: 3, Scalar: CurvatureScalar.Mean)),
             Query.Conformance<Curve, Line, double>(aspect: new Conformance.Distance(Count: 3)), Query.Conformance<Surface, Plane, bool>(aspect: new Conformance.WithinTolerance(Count: 2)), Query.Conformance<Curve, Line, ResidualProfile>(aspect: new Conformance.ProfileResidual(Count: 3)), Query.Conformance<Curve, Circle, double>(aspect: new Conformance.Distance(Count: 3)), Query.Conformance<Curve, Arc, bool>(aspect: new Conformance.WithinTolerance(Count: 3)), Query.Conformance<Surface, Sphere, ResidualSample>(aspect: new Conformance.Maximum(Count: 2)),
-            Query.Deviation<Curve, Curve, CurveDeviation>(), Query.EdgeMidpoints<GeometryBase, Point3d>(), Query.Vertices<GeometryBase, Point3d>(),
+            Query.Deviation<Curve, Curve, CurveDeviation>(), Query.Points<GeometryBase, Point3d>(sampling: new PointSampling.EdgeMidpoints()), Query.Points<GeometryBase, Point3d>(sampling: new PointSampling.Vertices()),
             Query.Faces<GeometryBase, int>(aspect: Faces.All), Query.Faces<GeometryBase, Brep>(aspect: Faces.At()), Query.Faces<GeometryBase, Plane>(aspect: Faces.At()), Query.Faces<GeometryBase, Point3d>(aspect: Faces.At()), Query.Faces<GeometryBase, Vector3d>(aspect: Faces.At()), Query.Faces<GeometryBase, int>(aspect: Faces.At()), Query.Faces<GeometryBase, ComponentIndex>(aspect: Faces.At()), Query.Faces<GeometryBase, Interval>(aspect: Faces.At()),
-            Query.Curves<GeometryBase, Curve>(aspect: Curves.Segments), Query.Curves<GeometryBase, Curve>(aspect: Curves.SubCurves), Query.Curves<GeometryBase, CurveFeature>(aspect: Curves.All), Query.Curves<GeometryBase, ComponentIndex>(aspect: Curves.All), Query.Curves<GeometryBase, Curve>(aspect: Curves.Silhouette()), Query.Curves<GeometryBase, Curve>(aspect: Curves.Draft()), Query.Locate<Curve, Point3d>(aspect: new Location.ControlPoints()),
+            Query.Curves<GeometryBase, Curve>(aspect: Curves.Segments), Query.Curves<GeometryBase, Curve>(aspect: Curves.SubCurves), Query.Curves<GeometryBase, CurveFeature>(aspect: Curves.All), Query.Curves<GeometryBase, ComponentIndex>(aspect: Curves.All), Query.Curves<GeometryBase, Curve>(aspect: Curves.Silhouette()), Query.Curves<GeometryBase, Curve>(aspect: Curves.Draft()), Query.Points<Curve, Point3d>(sampling: new PointSampling.ControlPoints()),
         ];
 
         Assert.All(collection: factories, action: static factory => Assert.NotNull(@object: factory));
@@ -295,10 +295,10 @@ public sealed class AnalysisSpec {
             max: new Point3d(x: 2.0, y: 4.0, z: 6.0));
 
         Point3d[] lineEdgeMidpoint = Run(
-            query: Query.EdgeMidpoints<object, Point3d>(),
+            query: Query.Points<object, Point3d>(sampling: new PointSampling.EdgeMidpoints()),
             input: [line]);
         Point3d[] polylineEdgeMidpoints = Run(
-            query: Query.EdgeMidpoints<object, Point3d>(),
+            query: Query.Points<object, Point3d>(sampling: new PointSampling.EdgeMidpoints()),
             input: [polyline]);
         Point3d[] boxSpatialMidpoint = Run(
             query: Query.Measure<object, Point3d>(aspect: new Measure.SpatialMidpoint()),
@@ -490,12 +490,12 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RejectsUnsupportedAggregateBeforeContextResolution() {
         Validation<Error, Seq<Point3d>> result = Analyze.Run(
-            query: Query.BoundingCorners<object, Point3d>().Aggregate(),
+            query: Query.Bounds<object, Point3d>(aspect: new Bounds.Corners(Unique: true)).Aggregate(),
             input: [Point3d.Origin]);
 
         Assert.True(condition: result.ToFin().Match(
             Succ: static _ => false,
-            Fail: static error => error.Count == 1 && error.Message.Contains(value: "BoundingCorners", comparisonType: StringComparison.Ordinal)));
+            Fail: static error => error.Count == 1 && error.Message.Contains(value: "BoundsCorners", comparisonType: StringComparison.Ordinal)));
     }
 
     [Fact]
@@ -534,7 +534,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RejectsNullGeometryInsideNakedEdgeRail() {
         Validation<Error, Seq<Polyline>> result = Analyze.In(context: ValidContext()).Run(
-            query: Query.NakedEdges<Mesh, Polyline>(),
+            query: Query.Boundaries<Mesh, Polyline>(aspect: Boundaries.Naked),
             input: [null!]);
 
         Assert.True(condition: result.ToFin().Match(
@@ -545,7 +545,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RejectsUnsupportedNakedEdgeOutputWithOperationVocabulary() {
         Validation<Error, Seq<Curve>> result = Analyze.In(context: ValidContext()).Run(
-            query: Query.NakedEdges<Mesh, Curve>(),
+            query: Query.Boundaries<Mesh, Curve>(aspect: Boundaries.Naked),
             input: [null!]);
 
         Assert.True(condition: result.ToFin().Match(
@@ -769,10 +769,10 @@ public sealed class AnalysisSpec {
         Validation<Error, Tree> invalidBounds = Tree.Bounds<GeometryBase>(items: [null!]);
         Validation<Error, Tree> invalidMesh = Tree.MeshFaces(mesh: null!);
         Context context = ValidContext();
-        Fin<Seq<Couple>> invalidNearest = Tree.KNearest(
+        Fin<Seq<Couple>> invalidNearest = Spatial.NearestPoints(
                 points: [Point3d.Origin],
                 needles: [Point3d.Origin],
-                count: 0)
+                probe: new Probe.KNearest(Count: 0))
             .Run(context);
 
         Assert.True(condition: invalidPoint.ToFin().IsFail);
@@ -886,10 +886,10 @@ public sealed class AnalysisSpec {
             query: Query.SpatialMidpoint<object, Point3d>(),
             input: input);
         Point3d[] vertices = Run(
-            query: Query.Vertices<object, Point3d>(),
+            query: Query.Points<object, Point3d>(sampling: new PointSampling.Vertices()),
             input: input);
         Point3d[] corners = Run(
-            query: Query.BoundingCorners<object, Point3d>(),
+            query: Query.Bounds<object, Point3d>(aspect: new Bounds.Corners(Unique: true)),
             input: input);
 
         Assert.Equal(expected: [first, second], actual: centers);

@@ -21,14 +21,14 @@ public static partial class Query {
         return (typeof(Curve).IsAssignableFrom(c: typeof(TA)) && typeof(Curve).IsAssignableFrom(c: typeof(TB)) && typeof(TOut) == typeof(CurveDeviation))
             ? Query<(TA A, TB B), TOut>.Build(
                 key: key, requiresContext: true, state: key,
-                evaluator: static (op, pair) => from context in Env.Asks
-                                                from validated in context.ValidatePair(a: pair.A, b: pair.B, requirementA: Requirement.CurveLength, requirementB: Requirement.CurveLength).ToEff()
-                                                from result in DeviationProject<TOut>(op: op, left: (Curve)(object)validated.A, right: (Curve)(object)validated.B, ctx: context).ToEff()
+                evaluator: static (op, pair) => from runtime in Env.EnvAsks
+                                                from validated in runtime.Context.ValidatePair(a: pair.A, b: pair.B, requirementA: Requirement.CurveLength, requirementB: Requirement.CurveLength, cancel: runtime.Cancellation).ToEff()
+                                                from result in DeviationProject<TOut>(op: op, left: (Curve)(object)validated.A, right: (Curve)(object)validated.B, ctx: runtime.Context).ToEff()
                                                 select result)
             : key.Unsupported<(TA A, TB B), TOut>();
     }
+    // BOUNDARY ADAPTER — Rhino emits 6 out parameters; collapse into one CurveDeviation value object.
     private static Fin<Seq<TOut>> DeviationProject<TOut>(Op op, Curve left, Curve right, Context ctx) =>
-        // BOUNDARY ADAPTER — Rhino GetDistancesBetweenCurves uses 6 out parameters.
         Curve.GetDistancesBetweenCurves(curveA: left, curveB: right, tolerance: ctx.Absolute.Value, maxDistance: out double maxDist, maxDistanceParameterA: out double maxA, maxDistanceParameterB: out double maxB, minDistance: out double minDist, minDistanceParameterA: out double minA, minDistanceParameterB: out double minB) switch {
             true => (op.RequireValid(value: minDist), op.RequireValid(value: maxDist), op.RequireValid(value: left.PointAt(t: minA)), op.RequireValid(value: right.PointAt(t: minB)), op.RequireValid(value: left.PointAt(t: maxA)), op.RequireValid(value: right.PointAt(t: maxB)))
                 .Apply((minD, maxD, mA, mB, xA, xB) => new CurveDeviation(MinimumDistance: minD, MinimumA: mA, MinimumB: mB, MaximumDistance: maxD, MaximumA: xA, MaximumB: xB, Tolerance: ctx.Absolute.Value, WithinTolerance: maxD <= ctx.Absolute.Value))

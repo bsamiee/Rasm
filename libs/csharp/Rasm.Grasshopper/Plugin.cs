@@ -1,6 +1,8 @@
 using System.Reflection;
 using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.UI.Icon;
+using Microsoft.Extensions.DependencyInjection;
+using Scrutor;
 using GhPlugin = Grasshopper2.Framework.Plugin;
 
 namespace Rasm.Grasshopper;
@@ -16,17 +18,18 @@ public abstract class Plugin : GhPlugin {
     }
     public override void OnLoaded() {
         base.OnLoaded();
-        Seq<string> faults = toSeq(GetType().Assembly.GetTypes())
-            .Filter(static type => !type.IsAbstract && !type.IsGenericTypeDefinition && type.IsClass && IsComponentSubclass(type: type))
+        ServiceCollection services = new();
+        _ = services.Scan(scan => scan
+            .FromAssemblies(GetType().Assembly)
+            .AddClasses(action: filter => filter.AssignableTo<Component>().Where(t => !t.IsAbstract && !t.IsGenericTypeDefinition))
+            .UsingRegistrationStrategy(RegistrationStrategy.Throw)
+            .AsSelf()
+            .WithSingletonLifetime());
+        Seq<string> faults = toSeq(services.Select(static descriptor => descriptor.ImplementationType!))
             .Distinct()
-            .Bind(static spec => Validate(spec: spec));
-        _ = faults.IsEmpty
-            ? Unit.Default
-            : throw new InvalidOperationException(message: string.Join(separator: "; ", values: faults));
+            .Bind(Validate);
+        _ = faults.IsEmpty ? Unit.Default : throw new InvalidOperationException(message: string.Join(separator: "; ", values: faults));
     }
-    private static bool IsComponentSubclass(Type type) =>
-        type.BaseType is { } parent && (
-            (parent.IsGenericType && parent.GetGenericTypeDefinition() == typeof(Component<>)) || IsComponentSubclass(type: parent));
     private static Seq<string> Validate(Type spec) {
         ComponentManifest manifest = ComponentManifest.For(type: spec);
         object probe = Activator.CreateInstance(type: spec)!;

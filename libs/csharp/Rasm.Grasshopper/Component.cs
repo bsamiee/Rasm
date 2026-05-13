@@ -17,15 +17,15 @@ public sealed class IconAttribute(string name) : Attribute {
 }
 
 // --- [MODELS] ---------------------------------------------------------------------------
-public readonly record struct GrasshopperRuntime(Analyze.Scope Scope, Hints Hints) {
+public readonly record struct GrasshopperRuntime(IDataAccess Access, Analyze.Scope Scope, Hints Hints) {
     public static Fin<GrasshopperRuntime> Capture(IDataAccess access, Seq<IPort> inputs) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        return access.Scope().Map(scope => new GrasshopperRuntime(Scope: scope, Hints: Hints.Capture(inputs: inputs)));
+        return access.Scope().Map(scope => new GrasshopperRuntime(Access: access, Scope: scope, Hints: Hints.Capture(inputs: inputs)));
     }
-    internal Fin<Sourced<Shape>> Shape(IDataAccess access, Port<Shape> port) {
+    internal Fin<Pear<Shape>> Shape(IDataAccess access, Port<Shape> port) {
         ArgumentNullException.ThrowIfNull(argument: access);
         return Hints.Slot(port: port)
-            .ToFin(new BridgeFault.InputRequired(PortName: port.Name))
+            .ToFin(new Fault.InputRequired(PortName: port.Name))
             .Bind(slot => access.ReadShape(slot: slot, port: port));
     }
 }
@@ -68,25 +68,24 @@ internal sealed record ComponentManifest(Seq<(FieldInfo Field, bool Hidden)> Inp
 }
 
 // --- [COMPOSITION] ----------------------------------------------------------------------
-public abstract class Component<TSelf> : Grasshopper2.Components.ModularComponent
-    where TSelf : Component<TSelf> {
+public abstract class Component(Type self) : Grasshopper2.Components.ModularComponent(nomen: (self ?? throw new ArgumentNullException(paramName: nameof(self))).GetCustomAttribute<NomenAttribute>()?.Nomen ?? new Nomen(name: self.Name, info: string.Empty)) {
     private Seq<IPort> inputs = Seq<IPort>();
     private Seq<IOutputGroup> outputs = Seq<IOutputGroup>();
-    protected Component() : base(nomen: typeof(TSelf).GetCustomAttribute<NomenAttribute>()?.Nomen ?? new Nomen(name: typeof(TSelf).Name, info: string.Empty)) { }
+    private Type Self { get; } = self;
     protected override IIcon IconInternal =>
-        typeof(TSelf).GetCustomAttribute<IconAttribute>() switch {
-            IconAttribute attr => AbstractIcon.FromResource(name: attr.Name, type: typeof(TSelf)),
+        Self.GetCustomAttribute<IconAttribute>() switch {
+            IconAttribute attr => AbstractIcon.FromResource(name: attr.Name, type: Self),
             _ => base.IconInternal,
         };
     protected override void AddInputs(ModularInputAdder inputs) {
         ArgumentNullException.ThrowIfNull(argument: inputs);
-        Seq<(IPort Port, bool Hidden)> pairs = ComponentManifest.For(type: typeof(TSelf)).ReadInputs(instance: this);
+        Seq<(IPort Port, bool Hidden)> pairs = ComponentManifest.For(type: Self).ReadInputs(instance: this);
         this.inputs = pairs.Map(static pair => pair.Port);
         _ = pairs.Iter(pair => pair.Port.Kind.Bind(adder: inputs.RegularAdder, name: pair.Port.Name, code: pair.Port.Code, info: pair.Port.Info, access: pair.Port.Access, requirement: pair.Port.Requirement, policy: pair.Port.Policy, hidden: pair.Hidden));
     }
     protected override void AddOutputs(ModularOutputAdder outputs) {
         ArgumentNullException.ThrowIfNull(argument: outputs);
-        Seq<(IOutputGroup Group, bool Hidden)> pairs = ComponentManifest.For(type: typeof(TSelf)).ReadOutputs(instance: this);
+        Seq<(IOutputGroup Group, bool Hidden)> pairs = ComponentManifest.For(type: Self).ReadOutputs(instance: this);
         this.outputs = pairs.Map(static pair => pair.Group);
         _ = pairs.Iter(pair => pair.Group.Ports.Iter(port => port.Kind.Bind(adder: outputs.RegularAdder, name: port.Name, code: port.Code, info: port.Info, access: port.Access, policy: port.Policy, hidden: pair.Hidden)));
     }
@@ -101,11 +100,10 @@ public abstract class Component<TSelf> : Grasshopper2.Components.ModularComponen
     protected override void Process(IDataAccess access) {
         ArgumentNullException.ThrowIfNull(argument: access);
         _ = GrasshopperRuntime.Capture(access: access, inputs: inputs)
-            .Map(runtime => Output.Write(access: access, runtime: runtime, groups: outputs))
             .Match(
-                Succ: static _ => Unit.Default,
+                Succ: runtime => Output.Write(access: access, runtime: runtime, groups: outputs),
                 Fail: error => {
-                    access.AddError(text: error.Category(), details: error.Message);
+                    access.AddWarning(text: error.Category(), details: error.Message);
                     return Output.Empty(access: access, groups: outputs);
                 });
     }

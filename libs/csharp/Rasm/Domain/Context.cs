@@ -80,10 +80,10 @@ public sealed record Context {
     public UnitScale Scale { get; }
     public UnitSystem Units => Scale.Units;
     internal double MeshIntersectionTolerance => Absolute.Value * Intersection.MeshIntersectionsTolerancesCoefficient;
-    internal Validation<Error, T> Validate<T>(T? geometry, Requirement? requirement = null) where T : GeometryBase =>
-        Verify.Apply(context: this, value: geometry, requirement: requirement);
-    internal Validation<Error, (TA A, TB B)> ValidatePair<TA, TB>(TA a, TB b, Requirement requirementA, Requirement requirementB) where TA : notnull where TB : notnull =>
-        Verify.Pair(context: this, a: a, b: b, requirementA: requirementA, requirementB: requirementB);
+    internal Validation<Error, T> Validate<T>(T? geometry, Requirement? requirement = null, CancellationToken cancel = default) where T : GeometryBase =>
+        Verify.Apply(context: this, value: geometry, requirement: requirement, cancel: cancel);
+    internal Validation<Error, (TA A, TB B)> ValidatePair<TA, TB>(TA a, TB b, Requirement requirementA, Requirement requirementB, CancellationToken cancel = default) where TA : notnull where TB : notnull =>
+        Verify.Pair(context: this, a: a, b: b, requirementA: requirementA, requirementB: requirementB, cancel: cancel);
     internal static Validation<Error, Context> Create(double absolute, double relative, double angle, Fin<UnitScale> scale) =>
         (absolute.TryCreateValidated<AbsoluteTolerance>(),
          relative.TryCreateValidated<RelativeTolerance>(),
@@ -94,7 +94,7 @@ public sealed record Context {
     public static Validation<Error, Context> CreateDefault(UnitSystem units) =>
         UnitScale.Create(units: units).Match(
             Succ: static unitScale => Create(
-                absolute: RhinoMath.DefaultDistanceToleranceMillimeters * RhinoMath.MetersPerUnit(units: UnitSystem.Millimeters) / unitScale.MetersPerUnit,
+                absolute: RhinoMath.DefaultDistanceToleranceMillimeters * RhinoMath.UnitScale(from: UnitSystem.Millimeters, to: unitScale.Units),
                 relative: 0.0,
                 angle: RhinoMath.DefaultAngleTolerance,
                 scale: Fin.Succ(unitScale)),
