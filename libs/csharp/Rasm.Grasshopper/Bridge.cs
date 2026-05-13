@@ -119,15 +119,12 @@ public static class Bridge {
             Grasshopper2.Parameters.Requirement.MayBeMissing => Fin.Succ(Seq<Sourced<TVal>>()),
             _ => Fin.Fail<Seq<Sourced<TVal>>>(new BridgeFault.InputRequired(PortName: port.Name)),
         };
-    // Shape.Create + Op.RequireValid already filter non-Rhino inputs; the broker chain only needs to recover
-    // opaque GH2 wrappers whose runtime type cannot be enumerated ahead of time (CurveBroker/SurfaceBroker).
     private static readonly Seq<Func<object, Option<Shape>>> Brokers = Seq<Func<object, Option<Shape>>>(
+        static raw => AsShape(value: raw),
         static raw => AsShape(value: CurveBroker.ToRhinoCurve(raw)),
         static raw => AsShape(value: SurfaceBroker.ToBrep(raw)));
-    private static Option<Shape> NormalizeShape(object raw) =>
-        AsShape(value: raw) | Brokers.Choose(b => b(arg: raw)).Head;
-    private static Option<Shape> AsShape(object? value) =>
-        Optional(value).Bind(static candidate => Shape.Create(value: candidate).ToOption());
+    private static Option<Shape> NormalizeShape(object raw) => Brokers.Choose(b => b(arg: raw)).Head;
+    private static Option<Shape> AsShape(object? value) => Optional(value).Bind(static candidate => Shape.Create(value: candidate).ToOption());
     internal sealed class Progress(IDataAccess access) : IProgress<double> {
         public void Report(double value) => access.SetProgress(percentage: (int)Rhino.RhinoMath.Clamp(value: value switch {
             >= 0.0 and <= 1.0 => value * 100.0,
