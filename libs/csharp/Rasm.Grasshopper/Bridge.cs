@@ -1,4 +1,3 @@
-using System.Collections.Frozen;
 using System.Runtime.InteropServices;
 
 namespace Rasm.Grasshopper;
@@ -120,26 +119,13 @@ public static class Bridge {
             Grasshopper2.Parameters.Requirement.MayBeMissing => Fin.Succ(Seq<Sourced<TVal>>()),
             _ => Fin.Fail<Seq<Sourced<TVal>>>(new BridgeFault.InputRequired(PortName: port.Name)),
         };
-    // DirectBrokers maps statically known Rhino types (seeded from Kind.Items) and Shape itself to the identity
-    // adapter. Concrete derived types (NurbsCurve, BrepFace, ...) resolve via AsKind's inheritance walk to the
-    // registered base. FallbackBrokers handles opaque GH2 wrapper sources whose runtime type cannot be enumerated
-    // ahead of time (CurveBroker/SurfaceBroker).
-    private static readonly Func<object, Option<Shape>> Identity = static raw => AsShape(value: raw);
-    private static readonly FrozenDictionary<Type, Func<object, Option<Shape>>> DirectBrokers =
-        Seq(typeof(Shape)).Concat(Rasm.Domain.Kind.Items.AsIterable().Select(static k => k.Type))
-            .Distinct()
-            .ToFrozenDictionary(keySelector: static t => t, elementSelector: static _ => Identity);
-    private static readonly Seq<Func<object, Option<Shape>>> FallbackBrokers = Seq<Func<object, Option<Shape>>>(
+    // Shape.Create + Op.RequireValid already filter non-Rhino inputs; the broker chain only needs to recover
+    // opaque GH2 wrappers whose runtime type cannot be enumerated ahead of time (CurveBroker/SurfaceBroker).
+    private static readonly Seq<Func<object, Option<Shape>>> Brokers = Seq<Func<object, Option<Shape>>>(
         static raw => AsShape(value: CurveBroker.ToRhinoCurve(raw)),
         static raw => AsShape(value: SurfaceBroker.ToBrep(raw)));
     private static Option<Shape> NormalizeShape(object raw) =>
-        ResolveDirect(raw: raw) switch {
-            Func<object, Option<Shape>> broker => broker(arg: raw),
-            _ => FallbackBrokers.Choose(b => b(arg: raw)).Head,
-        };
-    private static Func<object, Option<Shape>>? ResolveDirect(object raw) =>
-        DirectBrokers.GetValueOrDefault(key: raw.GetType())
-        ?? (raw.GetType().AsKind().Case is Rasm.Domain.Kind k ? DirectBrokers.GetValueOrDefault(key: k.Type) : null);
+        AsShape(value: raw) | Brokers.Choose(b => b(arg: raw)).Head;
     private static Option<Shape> AsShape(object? value) =>
         Optional(value).Bind(static candidate => Shape.Create(value: candidate).ToOption());
     internal sealed class Progress(IDataAccess access) : IProgress<double> {

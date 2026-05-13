@@ -108,9 +108,7 @@ public sealed partial class PortKind {
     private static FrozenDictionary<Type, PortKind> BuildLookup() =>
         new Dictionary<Type, PortKind> {
             [Point.Type] = Point, [Vector.Type] = Vector, [Curve.Type] = Curve, [Brep.Type] = Brep, [Plane.Type] = Plane,
-            // Index and Integer both key on typeof(int); the indexer assignment makes Integer win, matching the prior
-            // PortKind.From shortcut. Index remains usable as an explicit kind constant for IndexModifier policies.
-            [Index.Type] = Index, [Integer.Type] = Integer, [Interval.Type] = Interval, [Angle.Type] = Angle,
+            [Integer.Type] = Integer, [Interval.Type] = Interval, [Angle.Type] = Angle,
             [Number.Type] = Number, [Boolean.Type] = Boolean, [Text.Type] = Text, [Mesh.Type] = Mesh, [Generic.Type] = Generic,
             [typeof(Shape)] = Generic,
         }.ToFrozenDictionary();

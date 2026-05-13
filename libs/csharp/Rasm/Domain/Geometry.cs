@@ -336,17 +336,10 @@ public static class KindRole {
     public static Fin<Kind> Kind(this object value, Context ctx) {
         ArgumentNullException.ThrowIfNull(argument: value);
         ArgumentNullException.ThrowIfNull(argument: ctx);
-        return Dispatch.KindPredicates
-            .Choose(predicate => predicate(arg1: value, arg2: ctx))
-            .Head
-            .Match(
-                Some: static kind => Fin.Succ(kind),
-                None: () => KindLookup.For(type: value.GetType()).ToFin(Fail: Op.Of(name: nameof(Kind)).InvalidInput()));
+        return (Dispatch.KindPredicates.Choose(predicate => predicate(arg1: value, arg2: ctx)).Head | KindLookup.For(type: value.GetType()))
+            .ToFin(Fail: Op.Of(name: nameof(Kind)).InvalidInput());
     }
-    public static bool IsGeometryBaseDerived(this Kind kind) {
-        ArgumentNullException.ThrowIfNull(argument: kind);
-        return typeof(GeometryBase).IsAssignableFrom(c: kind.Type);
-    }
+    public static bool IsGeometryBaseDerived(this Kind kind) { ArgumentNullException.ThrowIfNull(argument: kind); return typeof(GeometryBase).IsAssignableFrom(c: kind.Type); }
     public static Fin<BoundingBox> Bounds(this object value, Op op) { ArgumentNullException.ThrowIfNull(argument: value); return Dispatch.Resolve(table: Dispatch.BoundsTable, source: value, args: op, op: op); }
     public static Fin<Seq<Point3d>> Vertices(this Kind kind, object value, Context ctx, Op op) { ArgumentNullException.ThrowIfNull(argument: value); return Dispatch.Resolve(table: Dispatch.VerticesTable, source: value, args: (ctx, op), op: op); }
     public static Fin<Point3d> Centroid(this Kind kind, object value, Context ctx, Op op) { ArgumentNullException.ThrowIfNull(argument: value); return Dispatch.Resolve(table: Dispatch.CentroidTable, source: value, args: (ctx, op), op: op); }
