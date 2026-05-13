@@ -75,28 +75,14 @@ public static partial class Query {
         return Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, TValue>.Build(
             key: key, requirement: mass.Requirement, requiresContext: true,
             aggregate: Some<Func<Seq<TGeometry>, Eff<Env, Seq<TValue>>>>(
-                geometry => from props in ComputeAll(mass: mass, key: key, geometry: geometry, secondMoments: secondMoments, productMoments: productMoments)
-                            from values in BracketEach(
-                                resources: props,
-                                body: owned => from summed in mass.Sum(arg: owned)
-                                               from projected in Bracket(factory: () => summed, body: disposable => project(arg1: key, arg2: disposable))
-                                               select projected).ToEff()
+                geometry => from context in Env.Asks
+                            from aggregate in mass.Aggregate(arg1: geometry.AsIterable().Cast<GeometryBase>(), arg2: context, arg3: secondMoments, arg4: productMoments, arg5: key).ToEff()
+                            from values in Bracket(factory: () => aggregate, body: disposable => project(arg1: key, arg2: disposable)).ToEff()
                             select values),
             evaluator: geometry => from computed in mass.Compute(value: geometry, op: key, secondMoments: secondMoments, productMoments: productMoments)
                                    from values in Bracket(factory: () => computed, body: disposable => project(arg1: key, arg2: disposable)).ToEff()
                                    select values));
     }
-    private static Eff<Env, Seq<IDisposable>> ComputeAll<TGeometry>(MassKind mass, Op key, Seq<TGeometry> geometry, bool secondMoments, bool productMoments) where TGeometry : notnull =>
-        from runtime in Env.EnvAsks
-        from props in geometry.Fold(
-                initialState: Fin.Succ(Seq<IDisposable>()),
-                f: (state, item) => state.Bind(owned => mass.Compute(value: item, op: key, secondMoments: secondMoments, productMoments: productMoments)
-                    .Run(env: runtime)
-                    .Match(
-                        Succ: resource => Fin.Succ(resource.Cons(owned)),
-                        Fail: error => (DisposeAll(resources: owned), Fin.Fail<Seq<IDisposable>>(error)).Item2)))
-            .ToEff()
-        select props;
     private static Fin<Seq<TValue>> MassProject<TValue>(Measure kind, Op key, IDisposable props) =>
         kind switch {
             Analysis.Measure.MassError => key.PickMass<double, TValue>(props: props, length: static l => l.LengthError, area: static a => a.AreaError, volume: static v => v.VolumeError),

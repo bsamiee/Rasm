@@ -27,7 +27,7 @@ public sealed record Query<TGeometry, TOut>(
             key: key, requirement: active, requiresContext: requiresContext,
             aggregate: aggregate.Map<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>>(project => geometry =>
                 from runtime in Env.EnvAsks
-                from resolved in geometry.Traverse(item => Prepare(geometry: item, requirement: Requirement.None).Run(env: runtime)).As().ToEff()
+                from resolved in geometry.Traverse(item => Prepare(geometry: item, requirement: active).Run(env: runtime)).As().ToEff()
                 from result in project(arg: resolved)
                 select result),
             effect: geometry => from runtime in Env.EnvAsks
@@ -225,11 +225,6 @@ public static partial class Query {
     internal static Fin<TOut> Bracket<TResource, TOut>(Func<TResource> factory, Func<TResource, Fin<TOut>> body) where TResource : class, IDisposable {
         using TResource resource = factory();
         return body(arg: resource);
-    }
-    internal static Fin<TOut> BracketEach<TResource, TOut>(Seq<TResource> resources, Func<Seq<TResource>, Fin<TOut>> body) where TResource : class, IDisposable {
-        Fin<TOut> result = body(arg: resources);
-        _ = DisposeAll(resources: resources);
-        return result;
     }
     internal static Unit DisposeAll<TResource>(Seq<TResource> resources) where TResource : class, IDisposable {
         _ = resources.Iter(static resource => resource.Dispose());

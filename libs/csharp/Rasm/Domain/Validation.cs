@@ -15,6 +15,11 @@ public readonly partial struct Op {
 }
 
 [BoundaryAdapter]
+public interface ICategorized {
+    public string Category { get; }
+}
+
+[BoundaryAdapter]
 internal static class OpCache {
     private static readonly ConcurrentDictionary<string, Op> Cache = new(comparer: StringComparer.Ordinal);
     internal static Op GetOrCreate(string name) => Cache.GetOrAdd(key: name, valueFactory: static n => Op.Create(value: n));
@@ -51,7 +56,7 @@ public sealed partial class Rule {
     public static readonly Rule CurveAreaReadiness = Define(key: "curve-area-readiness", applies: static g => g is Curve, check: static (rule, ctx, g) => g is Curve c && c.IsClosed && c.TryGetPlane(plane: out Plane _, tolerance: ctx.Absolute.Value) ? rule.Pass() : rule.Reject(geometry: g, log: "Curve is valid Rhino geometry but is not closed and planar enough for area operations."));
     public static readonly Rule SurfaceDomainReadiness = Define(key: "surface-domain-readiness", applies: static g => g is Surface, check: static (rule, ctx, g) => rule.Demand(geometry: g, condition: HasUsableDomain(surface: (Surface)g, context: ctx), log: "Surface is valid Rhino geometry but has an unusable UV domain."));
     public static readonly Rule ContinuityReadiness = Define(key: "continuity-readiness", applies: static g => g is Curve or Surface, check: RunContinuity);
-    public static readonly Rule PolycurveStructure = Define(key: "polycurve-structure", applies: static g => g is PolyCurve, check: static (rule, _, g) => g is PolyCurve p ? (p.HasGap, p.IsNested) switch { (false, false) => rule.Pass(), (true, true) => rule.Reject(geometry: p, log: "PolyCurve has gaps between segments and nested polycurves."), (true, false) => rule.Reject(geometry: p, log: "PolyCurve has gaps between segments."), _ => rule.Reject(geometry: p, log: "PolyCurve contains nested polycurves.") } : rule.Pass());
+    public static readonly Rule PolycurveStructure = Define(key: "polycurve-structure", applies: static g => g is PolyCurve, check: static (rule, _, g) => g is PolyCurve p ? rule.Demand(geometry: p, condition: !p.HasGap, log: "PolyCurve has gaps between segments.") : rule.Pass());
     public static readonly Rule CurveSelfIntersection = Define(key: "curve-self-intersection", applies: static g => g is Curve, check: RunCurveSelfIntersection);
     internal Func<GeometryBase, bool> Applies { get; }
     internal Func<Rule, Context, GeometryBase, Fin<Unit>> Check { get; }
@@ -141,6 +146,7 @@ public abstract partial record Fault : Error {
 public static class FaultExtensions {
     [BoundaryAdapter]
     public static string Category(this Error error) => error switch {
+        ICategorized categorized => categorized.Category,
         Fault.MissingOperation or Fault.MissingContext => "Operation",
         Fault.InvalidInput => "Input",
         Fault.InvalidResult => "Result",
@@ -191,8 +197,6 @@ public static class Verify {
             (ValidationError err, _) => Fin.Fail<TVO>(error: new Fault.OutOfRange(Label: typeof(TVO).Name, Scalar: candidate, Requirement: err.Message)).ToValidation(),
             _ => Fin.Fail<TVO>(error: new Fault.OutOfRange(Label: typeof(TVO).Name, Scalar: candidate, Requirement: "validation failed")).ToValidation(),
         };
-    // Rhino value structs each expose `IsValid` but share no base type; a frozen lookup keyed by
-    // runtime Type collapses 17 boxing-dispatch arms into one polymorphic surface.
     private static readonly FrozenDictionary<Type, Func<object, bool>> StructValidators = BuildStructValidators();
     [BoundaryAdapter]
     private static FrozenDictionary<Type, Func<object, bool>> BuildStructValidators() =>

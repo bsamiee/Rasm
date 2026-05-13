@@ -105,7 +105,7 @@ public abstract class Component<TSelf> : Grasshopper2.Components.ModularComponen
             .Match(
                 Succ: static _ => Unit.Default,
                 Fail: error => {
-                    access.AddError(text: error switch { BridgeFault bf => bf.Category, _ => error.Category() }, details: error.Message);
+                    access.AddError(text: error.Category(), details: error.Message);
                     return Output.Empty(access: access, groups: outputs);
                 });
     }

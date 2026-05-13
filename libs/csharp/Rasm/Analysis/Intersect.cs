@@ -51,8 +51,8 @@ internal static class IntersectionResultRole {
         points: static (k, p) => ProjectUniform<Point3d, TOut>(key: k, caseType: typeof(IntersectionResult.Points), values: p.Values, tag: IntersectionKind.Point),
         intervals: static (k, i) => ProjectUniform<Interval, TOut>(key: k, caseType: typeof(IntersectionResult.Intervals), values: i.Values, tag: IntersectionKind.Overlap),
         polylines: static (k, p) => typeof(TOut) switch {
-            Type t when t == typeof(Polyline) => k.Results<Polyline, TOut>(values: p.Values),
-            Type t when t == typeof(IntersectionKind) => k.Results<IntersectionKind, TOut>(values: p.Kinds),
+            Type t when t == typeof(Polyline) => k.Results<Polyline, TOut>(values: p.Values.Map(static x => x.Curve)),
+            Type t when t == typeof(IntersectionKind) => k.Results<IntersectionKind, TOut>(values: p.Values.Map(static x => x.Kind)),
             _ => Fin.Fail<Seq<TOut>>(k.Unsupported(geometryType: typeof(IntersectionResult.Polylines), outputType: typeof(TOut))),
         },
         events: static (k, e) => typeof(TOut) switch {

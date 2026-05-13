@@ -368,7 +368,8 @@ public static partial class Query {
         Seq<TProjection> all, Seq<TProjection> chosen, bool transfer,
         Func<Seq<TProjection>, Fin<Seq<TValue>>> project) where TProjection : ITopologyProjection {
         Fin<Seq<TValue>> result = project(arg: chosen);
-        _ = all.Filter(value => !(transfer && result.IsSucc && chosen.Exists(c => c.SameAs(other: value)))).Iter(static v => v.Dispose());
+        bool keep = transfer && result.IsSucc;
+        _ = all.Filter(value => !keep || !chosen.Exists(c => c.SameAs(other: value))).Iter(static v => v.Dispose());
         return result;
     }
 }

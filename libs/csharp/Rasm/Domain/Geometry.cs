@@ -94,16 +94,38 @@ public sealed partial class Kind {
 [BoundaryAdapter, SmartEnum<int>]
 public sealed partial class MassKind {
     public static readonly MassKind None = new(key: 0, label: nameof(None), requirement: Requirement.None,
-        sum: static _ => Fin.Fail<IDisposable>(new Fault.ComputationFailed(Label: nameof(None))));
+        aggregate: static (_, _, _, _, _) => Fin.Fail<IDisposable>(new Fault.ComputationFailed(Label: nameof(None))));
     public static readonly MassKind Length = new(key: 1, label: nameof(Length), requirement: Requirement.CurveLength,
-        sum: static props => Optional(LengthMassProperties.WeightedSum(summands: props.AsIterable().Cast<LengthMassProperties>(), weights: Enumerable.Repeat(element: 1.0, count: props.Count))).ToFin(Fail: new Fault.ComputationFailed(Label: nameof(LengthMassProperties))).Map(static p => (IDisposable)p));
+        aggregate: LengthAggregate);
     public static readonly MassKind Area = new(key: 2, label: nameof(Area), requirement: Requirement.AreaMass,
-        sum: static props => Optional(AreaMassProperties.WeightedSum(summands: props.AsIterable().Cast<AreaMassProperties>(), weights: Enumerable.Repeat(element: 1.0, count: props.Count))).ToFin(Fail: new Fault.ComputationFailed(Label: nameof(AreaMassProperties))).Map(static p => (IDisposable)p));
+        aggregate: static (geometry, _, secondMoments, productMoments, _) => Optional(AreaMassProperties.Compute(
+                geometry: geometry, area: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments))
+            .ToFin(Fail: new Fault.ComputationFailed(Label: nameof(AreaMassProperties))).Map(static p => (IDisposable)p));
     public static readonly MassKind Volume = new(key: 3, label: nameof(Volume), requirement: Requirement.VolumeMass,
-        sum: static props => Optional(VolumeMassProperties.WeightedSum(summands: props.AsIterable().Cast<VolumeMassProperties>(), weights: Enumerable.Repeat(element: 1.0, count: props.Count))).ToFin(Fail: new Fault.ComputationFailed(Label: nameof(VolumeMassProperties))).Map(static p => (IDisposable)p));
+        aggregate: static (geometry, _, secondMoments, productMoments, _) => Optional(VolumeMassProperties.Compute(
+                geometry: geometry, volume: true, firstMoments: true, secondMoments: secondMoments, productMoments: productMoments))
+            .ToFin(Fail: new Fault.ComputationFailed(Label: nameof(VolumeMassProperties))).Map(static p => (IDisposable)p));
     public string Label { get; }
     internal Requirement Requirement { get; }
-    internal Func<Seq<IDisposable>, Fin<IDisposable>> Sum { get; }
+    internal Func<IEnumerable<GeometryBase>, Context, bool, bool, Op, Fin<IDisposable>> Aggregate { get; }
+    // LengthMassProperties has no native IEnumerable Compute overload; fold per-item via the same dispatch table used by per-geometry mass queries, then WeightedSum the results with unit densities.
+    private static Fin<IDisposable> LengthAggregate(IEnumerable<GeometryBase> geometry, Context ctx, bool secondMoments, bool productMoments, Op op) =>
+        toSeq(geometry).Fold(
+            initialState: Fin.Succ(Seq<IDisposable>()),
+            f: (state, item) => state.Bind(owned =>
+                Dispatch.ResolveTagged(table: Dispatch.MassPropertiesTable, source: item, tag: Length, args: (ctx, secondMoments, productMoments), op: op)
+                    .Match(
+                        Succ: resource => Fin.Succ(resource.Cons(owned)),
+                        Fail: error => (owned.Iter(static r => r.Dispose()), Fin.Fail<Seq<IDisposable>>(error)).Item2)))
+            .Bind(owned => {
+                Fin<IDisposable> result = Optional(LengthMassProperties.WeightedSum(
+                        summands: owned.AsIterable().Cast<LengthMassProperties>(),
+                        weights: Enumerable.Repeat(element: 1.0, count: owned.Count)))
+                    .ToFin(Fail: new Fault.ComputationFailed(Label: nameof(LengthMassProperties)))
+                    .Map(static p => (IDisposable)p);
+                _ = owned.Iter(static r => r.Dispose());
+                return result;
+            });
 }
 
 // --- [CONSTANTS] --------------------------------------------------------------------------
@@ -218,8 +240,8 @@ internal static class Dispatch {
         [(typeof(Surface), typeof(Surface))] = static (a, b, args) => Intersection.SurfaceSurface(surfaceA: (Surface)a, surfaceB: (Surface)b, tolerance: args.Item1.Absolute.Value, intersectionCurves: out Curve[] curves, intersectionPoints: out Point3d[] points) ? Fin.Succ((IntersectionResult)new IntersectionResult.Mixed(CurveValues: toSeq(curves ?? []), PointValues: toSeq(points ?? []))) : Fin.Fail<IntersectionResult>(error: args.Item2.InvalidResult()), [(typeof(Brep), typeof(Plane))] = static (a, b, args) => Intersection.BrepPlane(brep: (Brep)a, plane: (Plane)b, tolerance: args.Item1.Absolute.Value, intersectionCurves: out Curve[] curves, intersectionPoints: out Point3d[] points) ? Fin.Succ((IntersectionResult)new IntersectionResult.Mixed(CurveValues: toSeq(curves ?? []), PointValues: toSeq(points ?? []))) : Fin.Fail<IntersectionResult>(error: args.Item2.InvalidResult()),
         [(typeof(Brep), typeof(Surface))] = static (a, b, args) => Intersection.BrepSurface(brep: (Brep)a, surface: (Surface)b, tolerance: args.Item1.Absolute.Value, joinCurves: true, intersectionCurves: out Curve[] curves, intersectionPoints: out Point3d[] points) ? Fin.Succ((IntersectionResult)new IntersectionResult.Mixed(CurveValues: toSeq(curves ?? []), PointValues: toSeq(points ?? []))) : Fin.Fail<IntersectionResult>(error: args.Item2.InvalidResult()), [(typeof(Brep), typeof(Brep))] = static (a, b, args) => Intersection.BrepBrep(brepA: (Brep)a, brepB: (Brep)b, tolerance: args.Item1.Absolute.Value, joinCurves: true, intersectionCurves: out Curve[] curves, intersectionPoints: out Point3d[] points) ? Fin.Succ((IntersectionResult)new IntersectionResult.Mixed(CurveValues: toSeq(curves ?? []), PointValues: toSeq(points ?? []))) : Fin.Fail<IntersectionResult>(error: args.Item2.InvalidResult()),
         [(typeof(Mesh), typeof(Line))] = static (a, b, _) => Fin.Succ((IntersectionResult)new IntersectionResult.Points(Values: toSeq(Intersection.MeshLineSorted(mesh: (Mesh)a, line: (Line)b, faceIds: out int[] _) ?? []))),
-        [(typeof(Mesh), typeof(Plane))] = static (a, b, args) => { using MeshIntersectionCache cache = new(); Polyline[]? polylines = Intersection.MeshPlane(mesh: (Mesh)a, cache: cache, plane: (Plane)b, tolerance: args.Item1.Absolute.Value * Intersection.MeshIntersectionsTolerancesCoefficient, overlaps: true); Seq<Polyline> values = toSeq(Optional(polylines).ToSeq().Bind(static h => h)); return Fin.Succ((IntersectionResult)new IntersectionResult.Polylines(Values: values, Kinds: values.Map(static _ => IntersectionKind.Unknown))); },
-        [(typeof(Mesh), typeof(Mesh))] = static (a, b, args) => { using TextLog textLog = new(); return Intersection.MeshMesh(meshes: [(Mesh)a, (Mesh)b], tolerance: args.Item1.Absolute.Value * Intersection.MeshIntersectionsTolerancesCoefficient, intersections: out Polyline[] ints, overlapsPolylines: true, overlapsPolylinesResult: out Polyline[] olap, overlapsMesh: false, overlapsMeshResult: out Mesh _, textLog: textLog, cancel: args.Item3, progress: args.Item4) switch { true => Fin.Succ((IntersectionResult)new IntersectionResult.Polylines(Values: toSeq(Optional(ints).ToSeq().Bind(static p => p)) + toSeq(Optional(olap).ToSeq().Bind(static p => p)), Kinds: toSeq(Optional(ints).ToSeq().Bind(static p => p)).Map(static _ => IntersectionKind.Curve) + toSeq(Optional(olap).ToSeq().Bind(static p => p)).Map(static _ => IntersectionKind.Overlap))), false when args.Item3.IsCancellationRequested => Fin.Fail<IntersectionResult>(error: new Fault.Cancelled()), false => Fin.Fail<IntersectionResult>(error: args.Item2.InvalidResult()) }; },
+        [(typeof(Mesh), typeof(Plane))] = static (a, b, args) => { using MeshIntersectionCache cache = new(); Polyline[]? polylines = Intersection.MeshPlane(mesh: (Mesh)a, cache: cache, plane: (Plane)b, tolerance: args.Item1.Absolute.Value * Intersection.MeshIntersectionsTolerancesCoefficient, overlaps: true); return Fin.Succ((IntersectionResult)new IntersectionResult.Polylines(Values: toSeq(Optional(polylines).ToSeq().Bind(static h => h)).Map(static p => (Curve: p, Kind: IntersectionKind.Unknown)))); },
+        [(typeof(Mesh), typeof(Mesh))] = static (a, b, args) => { using TextLog textLog = new(); return Intersection.MeshMesh(meshes: [(Mesh)a, (Mesh)b], tolerance: args.Item1.Absolute.Value * Intersection.MeshIntersectionsTolerancesCoefficient, intersections: out Polyline[] ints, overlapsPolylines: true, overlapsPolylinesResult: out Polyline[] olap, overlapsMesh: false, overlapsMeshResult: out Mesh _, textLog: textLog, cancel: args.Item3, progress: args.Item4) switch { true => Fin.Succ((IntersectionResult)new IntersectionResult.Polylines(Values: toSeq(Optional(ints).ToSeq().Bind(static p => p)).Map(static p => (Curve: p, Kind: IntersectionKind.Curve)) + toSeq(Optional(olap).ToSeq().Bind(static p => p)).Map(static p => (Curve: p, Kind: IntersectionKind.Overlap)))), false when args.Item3.IsCancellationRequested => Fin.Fail<IntersectionResult>(error: new Fault.Cancelled()), false => Fin.Fail<IntersectionResult>(error: args.Item2.InvalidResult()) }; },
     }.ToFrozenDictionary();
     // Ordered most-specific first. Each predicate returns Some(Kind) when the input matches, None otherwise.
     // Brep{IsSurface:true} surface primitives report as the primitive Kind except for Plane, which reports as Kind.Surface
@@ -377,7 +399,7 @@ public partial record IntersectionResult {
     public sealed record Circles(Seq<Circle> Values) : IntersectionResult;
     public sealed record Points(Seq<Point3d> Values) : IntersectionResult;
     public sealed record Intervals(Seq<Interval> Values) : IntersectionResult;
-    public sealed record Polylines(Seq<Polyline> Values, Seq<IntersectionKind> Kinds) : IntersectionResult;
+    public sealed record Polylines(Seq<(Polyline Curve, IntersectionKind Kind)> Values) : IntersectionResult;
     public sealed record Events(Seq<IntersectionEvent> Values) : IntersectionResult;
     public sealed record Mixed(Seq<Curve> CurveValues, Seq<Point3d> PointValues) : IntersectionResult;
 }

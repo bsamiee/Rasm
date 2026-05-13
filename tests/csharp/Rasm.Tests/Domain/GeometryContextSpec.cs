@@ -159,8 +159,7 @@ public sealed class ContextSpec {
         Op key = Op.Create(value: "test");
 
         IntersectionKind[] kinds = new IntersectionResult.Polylines(
-                Values: Seq<Polyline>(),
-                Kinds: Seq(IntersectionKind.Curve, IntersectionKind.Overlap))
+                Values: Seq((Curve: (Polyline)[], Kind: IntersectionKind.Curve), (Curve: (Polyline)[], Kind: IntersectionKind.Overlap)))
             .Project<IntersectionKind>(key: key)
             .Match(
                 Succ: static output => output.ToArray(),
