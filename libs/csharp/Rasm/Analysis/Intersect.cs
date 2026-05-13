@@ -45,15 +45,15 @@ public static partial class Query {
 internal static class IntersectionResultRole {
     internal static Fin<Seq<TOut>> Project<TOut>(this IntersectionResult result, Op key) => result.Switch(
         state: key,
-        curves: static (k, c) => ProjectUniform<Curve, TOut>(key: k, values: c.Values, tag: IntersectionKind.Overlap),
-        lines: static (k, l) => ProjectUniform<Line, TOut>(key: k, values: l.Values, tag: IntersectionKind.Curve),
-        circles: static (k, c) => ProjectUniform<Circle, TOut>(key: k, values: c.Values, tag: IntersectionKind.Curve),
-        points: static (k, p) => ProjectUniform<Point3d, TOut>(key: k, values: p.Values, tag: IntersectionKind.Point),
-        intervals: static (k, i) => ProjectUniform<Interval, TOut>(key: k, values: i.Values, tag: IntersectionKind.Overlap),
+        curves: static (k, c) => ProjectUniform<Curve, TOut>(key: k, caseType: typeof(IntersectionResult.Curves), values: c.Values, tag: IntersectionKind.Overlap),
+        lines: static (k, l) => ProjectUniform<Line, TOut>(key: k, caseType: typeof(IntersectionResult.Lines), values: l.Values, tag: IntersectionKind.Curve),
+        circles: static (k, c) => ProjectUniform<Circle, TOut>(key: k, caseType: typeof(IntersectionResult.Circles), values: c.Values, tag: IntersectionKind.Curve),
+        points: static (k, p) => ProjectUniform<Point3d, TOut>(key: k, caseType: typeof(IntersectionResult.Points), values: p.Values, tag: IntersectionKind.Point),
+        intervals: static (k, i) => ProjectUniform<Interval, TOut>(key: k, caseType: typeof(IntersectionResult.Intervals), values: i.Values, tag: IntersectionKind.Overlap),
         polylines: static (k, p) => typeof(TOut) switch {
             Type t when t == typeof(Polyline) => k.Results<Polyline, TOut>(values: p.Values),
             Type t when t == typeof(IntersectionKind) => k.Results<IntersectionKind, TOut>(values: p.Kinds),
-            _ => Fin.Fail<Seq<TOut>>(k.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
+            _ => Fin.Fail<Seq<TOut>>(k.Unsupported(geometryType: typeof(IntersectionResult.Polylines), outputType: typeof(TOut))),
         },
         events: static (k, e) => typeof(TOut) switch {
             Type t when t == typeof(IntersectionEvent) => k.Results<IntersectionEvent, TOut>(values: e.Values),
@@ -63,17 +63,17 @@ internal static class IntersectionResultRole {
                 { IsPoint: true } => IntersectionKind.Point,
                 _ => IntersectionKind.Unknown,
             })),
-            _ => Fin.Fail<Seq<TOut>>(k.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
+            _ => Fin.Fail<Seq<TOut>>(k.Unsupported(geometryType: typeof(IntersectionResult.Events), outputType: typeof(TOut))),
         },
         mixed: static (k, m) => typeof(TOut) switch {
             Type t when t == typeof(Curve) => k.Results<Curve, TOut>(values: m.CurveValues),
             Type t when t == typeof(Point3d) => k.Results<Point3d, TOut>(values: m.PointValues),
             Type t when t == typeof(IntersectionKind) => k.Results<IntersectionKind, TOut>(values: m.CurveValues.Map(static _ => IntersectionKind.Overlap).Concat(second: m.PointValues.Map(static _ => IntersectionKind.Point))),
-            _ => Fin.Fail<Seq<TOut>>(k.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
+            _ => Fin.Fail<Seq<TOut>>(k.Unsupported(geometryType: typeof(IntersectionResult.Mixed), outputType: typeof(TOut))),
         });
-    private static Fin<Seq<TOut>> ProjectUniform<TNative, TOut>(Op key, Seq<TNative> values, IntersectionKind tag) where TNative : notnull => typeof(TOut) switch {
+    private static Fin<Seq<TOut>> ProjectUniform<TNative, TOut>(Op key, Type caseType, Seq<TNative> values, IntersectionKind tag) where TNative : notnull => typeof(TOut) switch {
         Type t when t == typeof(TNative) => key.Results<TNative, TOut>(values: values),
         Type t when t == typeof(IntersectionKind) => key.Results<IntersectionKind, TOut>(values: values.Map(_ => tag)),
-        _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
+        _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: caseType, outputType: typeof(TOut))),
     };
 }
