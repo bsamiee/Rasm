@@ -221,6 +221,41 @@ internal static class Dispatch {
         [(typeof(Mesh), typeof(Plane))] = static (a, b, args) => { using MeshIntersectionCache cache = new(); Polyline[]? polylines = Intersection.MeshPlane(mesh: (Mesh)a, cache: cache, plane: (Plane)b, tolerance: args.Item1.Absolute.Value * Intersection.MeshIntersectionsTolerancesCoefficient, overlaps: true); Seq<Polyline> values = toSeq(Optional(polylines).ToSeq().Bind(static h => h)); return Fin.Succ((IntersectionResult)new IntersectionResult.Polylines(Values: values, Kinds: values.Map(static _ => IntersectionKind.Unknown))); },
         [(typeof(Mesh), typeof(Mesh))] = static (a, b, args) => { using TextLog textLog = new(); return Intersection.MeshMesh(meshes: [(Mesh)a, (Mesh)b], tolerance: args.Item1.Absolute.Value * Intersection.MeshIntersectionsTolerancesCoefficient, intersections: out Polyline[] ints, overlapsPolylines: true, overlapsPolylinesResult: out Polyline[] olap, overlapsMesh: false, overlapsMeshResult: out Mesh _, textLog: textLog, cancel: args.Item3, progress: args.Item4) switch { true => Fin.Succ((IntersectionResult)new IntersectionResult.Polylines(Values: toSeq(Optional(ints).ToSeq().Bind(static p => p)) + toSeq(Optional(olap).ToSeq().Bind(static p => p)), Kinds: toSeq(Optional(ints).ToSeq().Bind(static p => p)).Map(static _ => IntersectionKind.Curve) + toSeq(Optional(olap).ToSeq().Bind(static p => p)).Map(static _ => IntersectionKind.Overlap))), false when args.Item3.IsCancellationRequested => Fin.Fail<IntersectionResult>(error: new Fault.Cancelled()), false => Fin.Fail<IntersectionResult>(error: args.Item2.InvalidResult()) }; },
     }.ToFrozenDictionary();
+    // Ordered most-specific first. Each predicate returns Some(Kind) when the input matches, None otherwise.
+    // Brep{IsSurface:true} surface primitives report as the primitive Kind except for Plane, which reports as Kind.Surface
+    // to preserve the original Brep-vs-Surface asymmetry.
+    internal static readonly Seq<Func<object, Context, Option<Kind>>> KindPredicates = Seq<Func<object, Context, Option<Kind>>>(
+        static (v, ctx) => v is Brep b && b.IsBox(tolerance: ctx.Absolute.Value) ? Some(Kind.Box) : Option<Kind>.None,
+        static (v, _) => v is Curve c && c.TryGetPolyline(polyline: out Polyline _) ? Some(Kind.Polyline) : Option<Kind>.None,
+        static (v, ctx) => v is Curve c && c.TryGetCircle(circle: out Circle _, tolerance: ctx.Absolute.Value) ? Some(Kind.Circle) : Option<Kind>.None,
+        static (v, ctx) => v is Curve c && c.TryGetArc(arc: out Arc _, tolerance: ctx.Absolute.Value) ? Some(Kind.Arc) : Option<Kind>.None,
+        static (v, ctx) => v is Curve c && c.TryGetEllipse(ellipse: out Ellipse _, tolerance: ctx.Absolute.Value) ? Some(Kind.Ellipse) : Option<Kind>.None,
+        static (v, ctx) => v switch {
+            Brep { IsSurface: true } b when b.Surfaces[0].TryGetPlane(plane: out Plane _, tolerance: ctx.Absolute.Value) => Some(Kind.Surface),
+            Surface s when s.TryGetPlane(plane: out Plane _, tolerance: ctx.Absolute.Value) => Some(Kind.Plane),
+            _ => Option<Kind>.None,
+        },
+        static (v, ctx) => v switch {
+            Brep { IsSurface: true } b when b.Surfaces[0].TryGetSphere(sphere: out Sphere _, tolerance: ctx.Absolute.Value) => Some(Kind.Sphere),
+            Surface s when s.TryGetSphere(sphere: out Sphere _, tolerance: ctx.Absolute.Value) => Some(Kind.Sphere),
+            _ => Option<Kind>.None,
+        },
+        static (v, ctx) => v switch {
+            Brep { IsSurface: true } b when b.Surfaces[0].TryGetCylinder(cylinder: out Cylinder _, tolerance: ctx.Absolute.Value) => Some(Kind.Cylinder),
+            Surface s when s.TryGetCylinder(cylinder: out Cylinder _, tolerance: ctx.Absolute.Value) => Some(Kind.Cylinder),
+            _ => Option<Kind>.None,
+        },
+        static (v, ctx) => v switch {
+            Brep { IsSurface: true } b when b.Surfaces[0].TryGetCone(cone: out Cone _, tolerance: ctx.Absolute.Value) => Some(Kind.Cone),
+            Surface s when s.TryGetCone(cone: out Cone _, tolerance: ctx.Absolute.Value) => Some(Kind.Cone),
+            _ => Option<Kind>.None,
+        },
+        static (v, ctx) => v switch {
+            Brep { IsSurface: true } b when b.Surfaces[0].TryGetTorus(torus: out Torus _, tolerance: ctx.Absolute.Value) => Some(Kind.Torus),
+            Surface s when s.TryGetTorus(torus: out Torus _, tolerance: ctx.Absolute.Value) => Some(Kind.Torus),
+            _ => Option<Kind>.None,
+        },
+        static (v, ctx) => v is Curve c && c.IsLinear(tolerance: ctx.Absolute.Value) ? Some(Kind.Line) : Option<Kind>.None);
     internal static readonly FrozenDictionary<(Type Geometry, MassKind Mass), Func<object, (Context Ctx, bool SecondMoments, bool ProductMoments), Fin<IDisposable>>> MassPropertiesTable = new Dictionary<(Type, MassKind), Func<object, (Context, bool, bool), Fin<IDisposable>>> {
         [(typeof(Curve), MassKind.Length)] = static (g, args) => Optional(LengthMassProperties.Compute(curve: (Curve)g, length: true, firstMoments: true, secondMoments: args.Item2, productMoments: args.Item3)).ToFin(Fail: new Fault.ComputationFailed(Label: nameof(LengthMassProperties))).Map(static p => (IDisposable)p),
         [(typeof(Curve), MassKind.Area)] = static (g, args) => Optional(AreaMassProperties.Compute(closedPlanarCurve: (Curve)g, planarTolerance: args.Item1.Absolute.Value)).ToFin(Fail: new Fault.ComputationFailed(Label: nameof(AreaMassProperties))).Map(static p => (IDisposable)p),
@@ -246,19 +281,17 @@ public static class KindRole {
     public static Fin<Kind> Kind(this object value, Context ctx) {
         ArgumentNullException.ThrowIfNull(argument: value);
         ArgumentNullException.ThrowIfNull(argument: ctx);
-        return value switch {
-            Brep b when b.IsBox(tolerance: ctx.Absolute.Value) => Fin.Succ(Rasm.Domain.Kind.Box),
-            Brep { IsSurface: true } single => ClassifySurface(s: single.Surfaces[0], abs: ctx.Absolute.Value, brep: true),
-            Surface s => ClassifySurface(s: s, abs: ctx.Absolute.Value, brep: false),
-            Curve c when c.TryGetPolyline(polyline: out Polyline _) => Fin.Succ(Rasm.Domain.Kind.Polyline),
-            Curve c when c.TryGetCircle(circle: out Circle _, tolerance: ctx.Absolute.Value) => Fin.Succ(Rasm.Domain.Kind.Circle),
-            Curve c when c.TryGetArc(arc: out Arc _, tolerance: ctx.Absolute.Value) => Fin.Succ(Rasm.Domain.Kind.Arc),
-            Curve c when c.TryGetEllipse(ellipse: out Ellipse _, tolerance: ctx.Absolute.Value) => Fin.Succ(Rasm.Domain.Kind.Ellipse),
-            Curve c when c.IsLinear(tolerance: ctx.Absolute.Value) => Fin.Succ(Rasm.Domain.Kind.Line),
-            _ => KindLookup.For(type: value.GetType()).ToFin(Fail: Op.Of(name: nameof(Kind)).InvalidInput()),
-        };
+        return Dispatch.KindPredicates
+            .Choose(predicate => predicate(arg1: value, arg2: ctx))
+            .Head
+            .Match(
+                Some: static kind => Fin.Succ(kind),
+                None: () => KindLookup.For(type: value.GetType()).ToFin(Fail: Op.Of(name: nameof(Kind)).InvalidInput()));
     }
-    private static Fin<Kind> ClassifySurface(Surface s, double abs, bool brep) => s.TryGetPlane(plane: out Plane _, tolerance: abs) ? Fin.Succ(brep ? Rasm.Domain.Kind.Surface : Rasm.Domain.Kind.Plane) : s.TryGetSphere(sphere: out Sphere _, tolerance: abs) ? Fin.Succ(Rasm.Domain.Kind.Sphere) : s.TryGetCylinder(cylinder: out Cylinder _, tolerance: abs) ? Fin.Succ(Rasm.Domain.Kind.Cylinder) : s.TryGetCone(cone: out Cone _, tolerance: abs) ? Fin.Succ(Rasm.Domain.Kind.Cone) : s.TryGetTorus(torus: out Torus _, tolerance: abs) ? Fin.Succ(Rasm.Domain.Kind.Torus) : Fin.Succ(brep ? Rasm.Domain.Kind.Brep : Rasm.Domain.Kind.Surface);
+    public static bool IsGeometryBaseDerived(this Kind kind) {
+        ArgumentNullException.ThrowIfNull(argument: kind);
+        return typeof(GeometryBase).IsAssignableFrom(c: kind.Type);
+    }
     public static Fin<BoundingBox> Bounds(this object value, Op op) { ArgumentNullException.ThrowIfNull(argument: value); return Dispatch.Resolve(table: Dispatch.BoundsTable, source: value, args: op, op: op); }
     public static Fin<Seq<Point3d>> Vertices(this Kind kind, object value, Context ctx, Op op) { ArgumentNullException.ThrowIfNull(argument: value); return Dispatch.Resolve(table: Dispatch.VerticesTable, source: value, args: (ctx, op), op: op); }
     public static Fin<Point3d> Centroid(this Kind kind, object value, Context ctx, Op op) { ArgumentNullException.ThrowIfNull(argument: value); return Dispatch.Resolve(table: Dispatch.CentroidTable, source: value, args: (ctx, op), op: op); }

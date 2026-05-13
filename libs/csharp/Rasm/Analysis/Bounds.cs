@@ -125,19 +125,20 @@ public static partial class Query {
         };
     internal static Query<TGeometry, TOut> Length<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
-        return (typeof(TOut) == typeof(double) && (typeof(TGeometry) == typeof(Line) || typeof(TGeometry) == typeof(Polyline) || typeof(Curve).IsAssignableFrom(c: typeof(TGeometry))))
-            ? Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, double>.Build(
+        return (typeof(TOut) == typeof(double), typeof(TGeometry).AsKind().Case) switch {
+            (true, Kind { Topology: Topology.Curve } kind) => Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, double>.Build(
                 key: key,
-                requirement: typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) ? Requirement.CurveLength : Requirement.None,
+                requirement: kind.IsGeometryBaseDerived() ? Requirement.CurveLength : Requirement.None,
                 requiresContext: true,
                 state: key,
                 evaluator: static (op, geometry) =>
                     from context in Env.Asks
-                    from kind in ((object)geometry).Kind(ctx: context).ToEff()
-                    from length in kind.Length(value: geometry, ctx: context, op: op).ToEff()
+                    from kindAt in ((object)geometry).Kind(ctx: context).ToEff()
+                    from length in kindAt.Length(value: geometry, ctx: context, op: op).ToEff()
                     from result in One(key: op, value: length).ToEff()
-                    select result))
-            : key.Unsupported<TGeometry, TOut>();
+                    select result)),
+            _ => key.Unsupported<TGeometry, TOut>(),
+        };
     }
     internal static Query<(TGeometry Geometry, TPrimitive Primitive), TOut> ConformanceProject<TGeometry, TPrimitive, TOut>(Conformance aspect, Requirement requirement) where TGeometry : notnull where TPrimitive : notnull {
         Op key = Op.Of(name: nameof(Conformance));
