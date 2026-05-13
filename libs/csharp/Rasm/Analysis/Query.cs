@@ -123,7 +123,7 @@ public partial record Bounds : IAspect {
     private static readonly Op BoxEdgesKey = Op.Of(name: "BoxEdges");
     private static readonly Op BoxAreaKey = Op.Of(name: "BoxArea");
     private static readonly Op BoxVolumeKey = Op.Of(name: "BoxVolume");
-    public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull => this.Switch<Query<TGeometry, TOut>>(
+    public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull => Switch<Query<TGeometry, TOut>>(
         box: static _ => (typeof(TOut) == typeof(BoundingBox) && typeof(TGeometry).SupportsBounds(includeSphere: true))
             ? Query.Cast<TGeometry, TOut>(key: BoundsKey, query: Query<TGeometry, BoundingBox>.Build(
                 key: BoundsKey, state: BoundsKey,
@@ -170,7 +170,7 @@ public partial record Measure : IAspect {
     public sealed record Centroid(MassKind Mass) : Measure; public sealed record MassError(MassKind Mass) : Measure; public sealed record CentroidError(MassKind Mass) : Measure;
     public sealed record Radii(MassKind Mass) : Measure; public sealed record PrincipalAxes(MassKind Mass) : Measure;
     public bool EmptyOnUnsupported => true;
-    public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull => this.Switch<Query<TGeometry, TOut>>(
+    public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull => Switch<Query<TGeometry, TOut>>(
         spatialMidpoint: static _ => typeof(TOut) == typeof(Point3d) ? Query.SpatialMidpoint<TGeometry, TOut>() : Op.Of(name: "SpatialMidpoint").Unsupported<TGeometry, TOut>(),
         length: static _ => Query.Length<TGeometry, TOut>(),
         area: static a => Query.MassMeasure<TGeometry, TOut>(mass: MassKind.Area, kind: a),
@@ -203,7 +203,7 @@ public partial record Location : IAspect {
     private static readonly Op ContainsKey = Op.Of(name: "Contains");
     private static readonly Op NormalAtKey = Op.Of(name: "NormalAt");
     private static readonly Op ShortPathKey = Op.Of(name: "ShortPath");
-    public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull => this.Switch<Query<TGeometry, TOut>>(
+    public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull => Switch<Query<TGeometry, TOut>>(
         midpoint: static _ => Query.Mid<TGeometry, TOut>(),
         tangent: static _ => Query.TangentAtMiddle<TGeometry, TOut>(),
         closest: static c => Query.Closest<TGeometry, TOut>(point: c.Point),
@@ -266,22 +266,21 @@ public partial record Faces : IAspect {
     public static Faces Bottom(Vector3d? axis = null) => new BottomCase(Axis: axis ?? Vector3d.ZAxis);
     public static Faces At(int? index = null) => new AtCase(Value: index);
     public bool EmptyOnUnsupported => true;
-    public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull {
-        Op key = Op.Of(name: nameof(Faces));
-        return Query.Supports(typeof(TGeometry)) switch {
-            false => key.Unsupported<TGeometry, TOut>(),
+    internal static readonly Op Key = Op.Of(name: nameof(Faces));
+    public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull =>
+        Query.Supports(typeof(TGeometry)) switch {
+            false => Key.Unsupported<TGeometry, TOut>(),
             true => typeof(TOut) switch {
-                Type t when t == typeof(Brep) => Query.FaceQuery<TGeometry, TOut, Brep>(key: key, selector: this, requirement: Requirement.None, transfer: true, project: static (chosen, _) => Query.Many(key: Op.Of(name: nameof(Faces)), values: chosen.Map(static face => face.Brep))),
-                Type t when t == typeof(Plane) => Query.FaceQuery<TGeometry, TOut, Plane>(key: key, selector: this, requirement: Requirement.SurfaceEvaluation, transfer: false, project: static (chosen, runtime) => chosen.Traverse(face => Query.FrameAtCentroid(face: face, runtime: runtime)).As()),
-                Type t when t == typeof(Point3d) => Query.FaceQuery<TGeometry, TOut, Point3d>(key: key, selector: this, requirement: Requirement.SurfaceEvaluation, transfer: false, project: static (chosen, runtime) => chosen.Traverse(face => Query.FaceCentroid(face: face, runtime: runtime)).As()),
-                Type t when t == typeof(Vector3d) => Query.FaceQuery<TGeometry, TOut, Vector3d>(key: key, selector: this, requirement: Requirement.SurfaceEvaluation, transfer: false, project: static (chosen, runtime) => chosen.Traverse(face => Query.FrameAtCentroid(face: face, runtime: runtime).Map(static frame => frame.ZAxis)).As()),
-                Type t when t == typeof(int) => Query.FaceQuery<TGeometry, TOut, int>(key: key, selector: this, requirement: Requirement.None, transfer: false, project: static (chosen, _) => Query.Many(key: Op.Of(name: nameof(Faces)), values: chosen.Map(static face => face.FaceIndex))),
-                Type t when t == typeof(ComponentIndex) => Query.FaceQuery<TGeometry, TOut, ComponentIndex>(key: key, selector: this, requirement: Requirement.None, transfer: false, project: static (chosen, _) => Query.Many(key: Op.Of(name: nameof(Faces)), values: chosen.Map(static face => new ComponentIndex(type: ComponentIndexType.BrepFace, index: face.FaceIndex)))),
-                Type t when t == typeof(Interval) => Query.FaceQuery<TGeometry, TOut, Interval>(key: key, selector: this, requirement: Requirement.SurfaceEvaluation, transfer: false, project: static (chosen, _) => chosen.Traverse(Query.FaceDomains).Map(static nested => nested.Bind(static domain => domain)).As()),
-                _ => key.Unsupported<TGeometry, TOut>(),
+                Type t when t == typeof(Brep) => Query.FaceQuery<TGeometry, TOut, Brep>(key: Key, selector: this, requirement: Requirement.None, transfer: true, project: static (chosen, _) => Query.Many(key: Key, values: chosen.Map(static face => face.Brep))),
+                Type t when t == typeof(Plane) => Query.FaceQuery<TGeometry, TOut, Plane>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation, transfer: false, project: static (chosen, runtime) => chosen.Traverse(face => Query.FrameAtCentroid(face: face, runtime: runtime)).As()),
+                Type t when t == typeof(Point3d) => Query.FaceQuery<TGeometry, TOut, Point3d>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation, transfer: false, project: static (chosen, runtime) => chosen.Traverse(face => Query.FaceCentroid(face: face, runtime: runtime)).As()),
+                Type t when t == typeof(Vector3d) => Query.FaceQuery<TGeometry, TOut, Vector3d>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation, transfer: false, project: static (chosen, runtime) => chosen.Traverse(face => Query.FrameAtCentroid(face: face, runtime: runtime).Map(static frame => frame.ZAxis)).As()),
+                Type t when t == typeof(int) => Query.FaceQuery<TGeometry, TOut, int>(key: Key, selector: this, requirement: Requirement.None, transfer: false, project: static (chosen, _) => Query.Many(key: Key, values: chosen.Map(static face => face.FaceIndex))),
+                Type t when t == typeof(ComponentIndex) => Query.FaceQuery<TGeometry, TOut, ComponentIndex>(key: Key, selector: this, requirement: Requirement.None, transfer: false, project: static (chosen, _) => Query.Many(key: Key, values: chosen.Map(static face => new ComponentIndex(type: ComponentIndexType.BrepFace, index: face.FaceIndex)))),
+                Type t when t == typeof(Interval) => Query.FaceQuery<TGeometry, TOut, Interval>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation, transfer: false, project: static (chosen, _) => chosen.Traverse(Query.FaceDomains).Map(static nested => nested.Bind(static domain => domain)).As()),
+                _ => Key.Unsupported<TGeometry, TOut>(),
             },
         };
-    }
 }
 [SmartEnum<int>]
 public partial class MeshCheckCount {
@@ -314,18 +313,17 @@ public partial record Curves : IAspect {
     public static Curves Draft(Vector3d? direction = null, double? angle = null) => new DraftCase(Direction: direction, Angle: angle);
     public static Curves At(int? index = null) => new AtCase(Value: index);
     public bool EmptyOnUnsupported => this is not AtCase;
-    public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull {
-        Op key = Op.Of(name: nameof(Curves));
-        return Query.Supports(geometry: typeof(TGeometry), native: [typeof(Line), typeof(Polyline), typeof(Circle), typeof(Arc)]) switch {
-            false => key.Unsupported<TGeometry, TOut>(),
+    internal static readonly Op Key = Op.Of(name: nameof(Curves));
+    public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull =>
+        Query.Supports(geometry: typeof(TGeometry), native: [typeof(Line), typeof(Polyline), typeof(Circle), typeof(Arc)]) switch {
+            false => Key.Unsupported<TGeometry, TOut>(),
             true => typeof(TOut) switch {
-                Type t when t == typeof(Curve) => Query.CurveProject<TGeometry, TOut, Curve>(key: key, aspect: this, project: static p => p.Curve),
-                Type t when t == typeof(CurveFeature) => Query.CurveProject<TGeometry, TOut, CurveFeature>(key: key, aspect: this, project: static p => p.Feature),
-                Type t when t == typeof(ComponentIndex) => Query.CurveProject<TGeometry, TOut, ComponentIndex>(key: key, aspect: this, project: static p => p.Source),
-                _ => key.Unsupported<TGeometry, TOut>(),
+                Type t when t == typeof(Curve) => Query.CurveProject<TGeometry, TOut, Curve>(key: Key, aspect: this, project: static p => p.Curve),
+                Type t when t == typeof(CurveFeature) => Query.CurveProject<TGeometry, TOut, CurveFeature>(key: Key, aspect: this, project: static p => p.Feature),
+                Type t when t == typeof(ComponentIndex) => Query.CurveProject<TGeometry, TOut, ComponentIndex>(key: Key, aspect: this, project: static p => p.Source),
+                _ => Key.Unsupported<TGeometry, TOut>(),
             },
         };
-    }
     internal Fin<Seq<CurveProjection>> Select(Seq<CurveProjection> curves) =>
         (this, curves.Count) switch {
             (_, 0) => Fin.Succ(Seq<CurveProjection>()),
@@ -358,12 +356,17 @@ public partial record Meshes : IAspect {
     public static Meshes FaceQuality(MeshFaceMetric? metric = null) => new FaceQualityCase(Metric: metric ?? MeshFaceMetric.AspectRatio);
     public static Meshes AtFace(int? index = null) => new AtFaceCase(Value: index);
     public bool EmptyOnUnsupported => this is not AtFaceCase;
-    public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull => this.Switch<Query<TGeometry, TOut>>(
-        validityBundleCase: static _ => Query.MeshLift<TGeometry, TOut, bool>(key: Op.Of(name: "MeshValidityBundle"), source: Query.MeshValidityBundle),
-        statsBundleCase: static _ => Query.MeshLift<TGeometry, TOut, int>(key: Op.Of(name: "MeshStatsBundle"), source: Query.MeshStatsBundle),
-        defectsBundleCase: static _ => Query.MeshLift<TGeometry, TOut, int>(key: Op.Of(name: "MeshDefectsBundle"), source: Query.MeshDefectsBundle),
-        faceQualityCase: static fq => Query.MeshLift<TGeometry, TOut, MeshFaceSample>(key: Op.Of(name: nameof(MeshFaceMetric)), source: Query.MeshFaceMetric(metric: fq.Metric)),
-        atFaceCase: static at => Query.MeshLift<TGeometry, TOut, MeshFaceProjection>(key: Op.Of(name: "MeshAtFace"), source: Query.MeshAtFace(index: at.Value)));
+    private static readonly Op ValidityBundleKey = Op.Of(name: "MeshValidityBundle");
+    private static readonly Op StatsBundleKey = Op.Of(name: "MeshStatsBundle");
+    private static readonly Op DefectsBundleKey = Op.Of(name: "MeshDefectsBundle");
+    private static readonly Op FaceMetricKey = Op.Of(name: nameof(MeshFaceMetric));
+    private static readonly Op AtFaceKey = Op.Of(name: "MeshAtFace");
+    public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull => Switch<Query<TGeometry, TOut>>(
+        validityBundleCase: static _ => Query.MeshLift<TGeometry, TOut, bool>(key: ValidityBundleKey, source: Query.MeshValidityBundle),
+        statsBundleCase: static _ => Query.MeshLift<TGeometry, TOut, int>(key: StatsBundleKey, source: Query.MeshStatsBundle),
+        defectsBundleCase: static _ => Query.MeshLift<TGeometry, TOut, int>(key: DefectsBundleKey, source: Query.MeshDefectsBundle),
+        faceQualityCase: static fq => Query.MeshLift<TGeometry, TOut, MeshFaceSample>(key: FaceMetricKey, source: Query.MeshFaceMetric(metric: fq.Metric)),
+        atFaceCase: static at => Query.MeshLift<TGeometry, TOut, MeshFaceProjection>(key: AtFaceKey, source: Query.MeshAtFace(index: at.Value)));
 }
 [Union]
 public partial record PointSampling : IAspect {
@@ -373,7 +376,7 @@ public partial record PointSampling : IAspect {
     private static readonly Op EdgeMidpointsKey = Op.Of(name: nameof(EdgeMidpoints));
     private static readonly Op VerticesKey = Op.Of(name: nameof(Vertices));
     private static readonly Op ControlPointsKey = Op.Of(name: nameof(ControlPoints));
-    public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull => this.Switch<Query<TGeometry, TOut>>(
+    public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull => Switch<Query<TGeometry, TOut>>(
         quadrants: static _ => typeof(TOut) == typeof(Point3d)
             ? Query.Cast<TGeometry, TOut>(key: QuadrantsKey, query: Query<TGeometry, Point3d>.Build(
                 key: QuadrantsKey, requirement: Requirement.CurveLength, state: QuadrantsKey,
@@ -434,7 +437,7 @@ public partial record Boundaries : IAspect {
     private static readonly Op OutlineKey = Op.Of(name: "Outlines");
     private static readonly Op SelfIntersectionKey = Op.Of(name: "SelfIntersections");
     private static readonly Op AllKey = Op.Of(name: "Edges");
-    public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull => this.Switch<Query<TGeometry, TOut>>(
+    public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull => Switch<Query<TGeometry, TOut>>(
         nakedCase: static _ => (typeof(TGeometry), typeof(TOut)) switch {
             (Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(Curve) => Query.Native<TGeometry, TOut, Brep, Curve>(key: NakedKey, project: static brep => Query.Many(key: NakedKey, values: brep.DuplicateNakedEdgeCurves(nakedOuter: true, nakedInner: true)).ToEff()),
             (Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(Polyline) => Query.Native<TGeometry, TOut, Mesh, Polyline>(key: NakedKey, project: static mesh => Query.Many(key: NakedKey, values: mesh.GetNakedEdges()).ToEff()),
@@ -459,16 +462,15 @@ public partial record Boundaries : IAspect {
 [Union]
 public partial record Conformance {
     public sealed record Distance(int Count) : Conformance; public sealed record Rms(int Count) : Conformance; public sealed record WithinTolerance(int Count) : Conformance; public sealed record ProfileResidual(int Count) : Conformance; public sealed record Maximum(int Count) : Conformance;
-    public Query<(TGeometry Geometry, TPrimitive Primitive), TOut> ToQuery<TGeometry, TPrimitive, TOut>() where TGeometry : notnull where TPrimitive : notnull {
-        Op key = Op.Of(name: nameof(Conformance));
-        return (this, typeof(TGeometry).AsKind().Case, Dispatch.SupportsPair(table: Dispatch.ConformanceTable, left: typeof(TGeometry), right: typeof(TPrimitive))) switch {
+    internal static readonly Op Key = Op.Of(name: nameof(Conformance));
+    public Query<(TGeometry Geometry, TPrimitive Primitive), TOut> ToQuery<TGeometry, TPrimitive, TOut>() where TGeometry : notnull where TPrimitive : notnull =>
+        (this, typeof(TGeometry).AsKind().Case, Dispatch.SupportsPair(table: Dispatch.ConformanceTable, left: typeof(TGeometry), right: typeof(TPrimitive))) switch {
             (Distance { Count: <= 0 } or Rms { Count: <= 0 } or WithinTolerance { Count: <= 0 } or ProfileResidual { Count: <= 0 } or Maximum { Count: <= 0 }, _, _) =>
-                Query<(TGeometry Geometry, TPrimitive Primitive), TOut>.Reject(key: key, fault: key.InvalidInput()),
+                Query<(TGeometry Geometry, TPrimitive Primitive), TOut>.Reject(key: Key, fault: Key.InvalidInput()),
             (_, Kind { Topology: Topology.Curve }, true) => Query.ConformanceProject<TGeometry, TPrimitive, TOut>(aspect: this, requirement: Requirement.CurveLength),
             (_, Kind { Topology: Topology.Surface }, true) => Query.ConformanceProject<TGeometry, TPrimitive, TOut>(aspect: this, requirement: Requirement.SurfaceEvaluation),
-            _ => key.Unsupported<(TGeometry Geometry, TPrimitive Primitive), TOut>(),
+            _ => Key.Unsupported<(TGeometry Geometry, TPrimitive Primitive), TOut>(),
         };
-    }
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------

@@ -96,34 +96,32 @@ public static partial class Query {
             _ => key.Unsupported<TGeometry, TOut>(),
         };
     }
-    internal static Query<(TGeometry Geometry, TPrimitive Primitive), TOut> ConformanceProject<TGeometry, TPrimitive, TOut>(Conformance aspect, Requirement requirement) where TGeometry : notnull where TPrimitive : notnull {
-        Op key = Op.Of(name: nameof(Conformance));
-        return (aspect, typeof(TOut)) switch {
-            (Conformance.Distance item, Type output) when output == typeof(double) => Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: key, query: ConformancePair<TGeometry, TPrimitive, double>(
-                count: item.Count, requirement: requirement, project: static (residuals, _) => ResidualDistances(key: Op.Of(name: nameof(Conformance)), samples: residuals).Bind(values => Many(key: Op.Of(name: nameof(Conformance)), values: values)))),
-            (Conformance.Rms item, Type output) when output == typeof(double) => Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: key, query: ConformancePair<TGeometry, TPrimitive, double>(
-                count: item.Count, requirement: requirement, project: static (residuals, _) => ResidualDistances(key: Op.Of(name: nameof(Conformance)), samples: residuals).Bind(values => Stats.From(values: values, key: Op.Of(name: nameof(Conformance)))).Bind(stats => One(key: Op.Of(name: nameof(Conformance)), value: stats.Rms)))),
-            (Conformance.WithinTolerance item, Type output) when output == typeof(bool) => Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: key, query: ConformancePair<TGeometry, TPrimitive, bool>(
-                count: item.Count, requirement: requirement, project: static (residuals, context) => ResidualDistances(key: Op.Of(name: nameof(Conformance)), samples: residuals).Bind(values => Stats.From(values: values, key: Op.Of(name: nameof(Conformance)))).Bind(stats => One(key: Op.Of(name: nameof(Conformance)), value: stats.Maximum <= context.Absolute.Value)))),
-            (Conformance.ProfileResidual item, Type output) when output == typeof(ResidualProfile) => Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: key, query: ConformancePair<TGeometry, TPrimitive, ResidualProfile>(
-                count: item.Count, requirement: requirement, project: static (residuals, context) => ResidualDistances(key: Op.Of(name: nameof(Conformance)), samples: residuals)
-                    .Bind(values => Stats.From(values: values, key: Op.Of(name: nameof(Conformance))))
-                    .Bind(stats => One(key: Op.Of(name: nameof(Conformance)), value: new ResidualProfile(Count: stats.Count, Minimum: stats.Minimum, Maximum: stats.Maximum, Mean: stats.Mean, Variance: stats.Variance, Rms: stats.Rms, Tolerance: context.Absolute.Value, WithinTolerance: stats.Maximum <= context.Absolute.Value))))),
-            (Conformance.Maximum item, Type output) when output == typeof(ResidualSample) => Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: key, query: ConformancePair<TGeometry, TPrimitive, ResidualSample>(
+    internal static Query<(TGeometry Geometry, TPrimitive Primitive), TOut> ConformanceProject<TGeometry, TPrimitive, TOut>(Conformance aspect, Requirement requirement) where TGeometry : notnull where TPrimitive : notnull =>
+        (aspect, typeof(TOut)) switch {
+            (Conformance.Distance item, Type output) when output == typeof(double) => Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: Rasm.Analysis.Conformance.Key, query: ConformancePair<TGeometry, TPrimitive, double>(
+                count: item.Count, requirement: requirement, project: static (residuals, _) => ResidualDistances(key: Rasm.Analysis.Conformance.Key, samples: residuals).Bind(values => Many(key: Rasm.Analysis.Conformance.Key, values: values)))),
+            (Conformance.Rms item, Type output) when output == typeof(double) => Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: Rasm.Analysis.Conformance.Key, query: ConformancePair<TGeometry, TPrimitive, double>(
+                count: item.Count, requirement: requirement, project: static (residuals, _) => ResidualDistances(key: Rasm.Analysis.Conformance.Key, samples: residuals).Bind(values => Stats.From(values: values, key: Rasm.Analysis.Conformance.Key)).Bind(stats => One(key: Rasm.Analysis.Conformance.Key, value: stats.Rms)))),
+            (Conformance.WithinTolerance item, Type output) when output == typeof(bool) => Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: Rasm.Analysis.Conformance.Key, query: ConformancePair<TGeometry, TPrimitive, bool>(
+                count: item.Count, requirement: requirement, project: static (residuals, context) => ResidualDistances(key: Rasm.Analysis.Conformance.Key, samples: residuals).Bind(values => Stats.From(values: values, key: Rasm.Analysis.Conformance.Key)).Bind(stats => One(key: Rasm.Analysis.Conformance.Key, value: stats.Maximum <= context.Absolute.Value)))),
+            (Conformance.ProfileResidual item, Type output) when output == typeof(ResidualProfile) => Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: Rasm.Analysis.Conformance.Key, query: ConformancePair<TGeometry, TPrimitive, ResidualProfile>(
+                count: item.Count, requirement: requirement, project: static (residuals, context) => ResidualDistances(key: Rasm.Analysis.Conformance.Key, samples: residuals)
+                    .Bind(values => Stats.From(values: values, key: Rasm.Analysis.Conformance.Key))
+                    .Bind(stats => One(key: Rasm.Analysis.Conformance.Key, value: new ResidualProfile(Count: stats.Count, Minimum: stats.Minimum, Maximum: stats.Maximum, Mean: stats.Mean, Variance: stats.Variance, Rms: stats.Rms, Tolerance: context.Absolute.Value, WithinTolerance: stats.Maximum <= context.Absolute.Value))))),
+            (Conformance.Maximum item, Type output) when output == typeof(ResidualSample) => Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: Rasm.Analysis.Conformance.Key, query: ConformancePair<TGeometry, TPrimitive, ResidualSample>(
                 count: item.Count, requirement: requirement, project: static (residuals, _) => residuals
                     .TraverseM(static sample => sample switch {
                         { Distance: double d, Location.IsValid: true } when d >= 0.0 && RhinoMath.IsValidDouble(x: d) => Fin.Succ(sample),
-                        _ => Fin.Fail<ResidualSample>(Op.Of(name: nameof(Conformance)).InvalidResult()),
+                        _ => Fin.Fail<ResidualSample>(Rasm.Analysis.Conformance.Key.InvalidResult()),
                     })
                     .As()
-                    .Bind(values => values.Maxima(projection: static sample => sample.Distance, tolerance: 0.0).Head.ToFin(Op.Of(name: nameof(Conformance)).InvalidResult()).Map(static best => Seq(best))))),
-            _ => key.Unsupported<(TGeometry Geometry, TPrimitive Primitive), TOut>(),
+                    .Bind(values => values.Maxima(projection: static sample => sample.Distance, tolerance: 0.0).Head.ToFin(Rasm.Analysis.Conformance.Key.InvalidResult()).Map(static best => Seq(best))))),
+            _ => Rasm.Analysis.Conformance.Key.Unsupported<(TGeometry Geometry, TPrimitive Primitive), TOut>(),
         };
-    }
     private static Query<(TGeometry Geometry, TPrimitive Primitive), TValue> ConformancePair<TGeometry, TPrimitive, TValue>(int count, Requirement requirement, Func<Seq<ResidualSample>, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull where TPrimitive : notnull =>
         Query<(TGeometry Geometry, TPrimitive Primitive), TValue>.Build(
-            key: Op.Of(name: nameof(Conformance)), requiresContext: true,
-            state: (Op: Op.Of(name: nameof(Conformance)), Count: count, Requirement: requirement, Project: project),
+            key: Rasm.Analysis.Conformance.Key, requiresContext: true,
+            state: (Op: Rasm.Analysis.Conformance.Key, Count: count, Requirement: requirement, Project: project),
             evaluator: static (state, pair) =>
                 from runtime in Env.EnvAsks
                 from validated in runtime.Context.ValidatePair(a: pair.Geometry, b: pair.Primitive, requirementA: state.Requirement, requirementB: Requirement.None, cancel: runtime.Cancellation).ToEff()

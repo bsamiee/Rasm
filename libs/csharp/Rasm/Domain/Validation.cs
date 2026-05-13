@@ -200,31 +200,11 @@ public static class Verify {
     internal static Fin<T> RequireValid<T>(this Op key, T value) =>
         value switch {
             null => Fin.Fail<T>(error: new Fault.InvalidResult(Key: key)),
-            GeometryBase g => key.Demand(condition: g.IsValid, value: value),
-            double d => key.Demand(condition: RhinoMath.IsValidDouble(x: d), value: value),
-            bool or int or Enum or SurfaceCurvature or MeshCheckParameters or Kind => Fin.Succ(value),
-            MeshPoint mp => key.Demand(condition: mp.Point.IsValid, value: value),
-            ComponentIndex ci => key.Demand(condition: ci.ComponentIndexType != ComponentIndexType.InvalidType && ci.Index >= 0, value: value),
-            IntersectionEvent ie => key.Demand(condition: (ie.IsPoint || ie.IsOverlap) && ie.PointA.IsValid && ie.PointB.IsValid, value: value),
-            ValueTuple<double, Vector3d> p => key.Demand(condition: RhinoMath.IsValidDouble(x: p.Item1) && p.Item2.IsValid, value: value),
-            Point2d p => key.Demand(condition: p.IsValid, value: value),
-            Point3d p => key.Demand(condition: p.IsValid, value: value),
-            Vector3d v => key.Demand(condition: v.IsValid, value: value),
-            Plane p => key.Demand(condition: p.IsValid, value: value),
-            BoundingBox b => key.Demand(condition: b.IsValid, value: value),
-            Box b => key.Demand(condition: b.IsValid, value: value),
-            Sphere s => key.Demand(condition: s.IsValid, value: value),
-            Cylinder c => key.Demand(condition: c.IsValid, value: value),
-            Cone c => key.Demand(condition: c.IsValid, value: value),
-            Torus t => key.Demand(condition: t.IsValid, value: value),
-            Arc a => key.Demand(condition: a.IsValid, value: value),
-            Circle c => key.Demand(condition: c.IsValid, value: value),
-            Ellipse e => key.Demand(condition: e.IsValid, value: value),
-            Rectangle3d r => key.Demand(condition: r.IsValid, value: value),
-            Interval i => key.Demand(condition: i.IsValid, value: value),
-            Line l => key.Demand(condition: l.IsValid, value: value),
-            Polyline p => key.Demand(condition: p.IsValid, value: value),
-            _ => Fin.Fail<T>(error: new Fault.InvalidResult(Key: key)),
+            Enum => Fin.Succ(value),
+            _ => Dispatch.ValidityOf(source: value!).Case switch {
+                bool ok => key.Demand(condition: ok, value: value),
+                _ => Fin.Fail<T>(error: new Fault.InvalidResult(Key: key)),
+            },
         };
     private static Fin<T> Demand<T>(this Op key, bool condition, T value) =>
         condition ? Fin.Succ(value) : Fin.Fail<T>(error: new Fault.InvalidResult(Key: key));

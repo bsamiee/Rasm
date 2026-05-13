@@ -49,7 +49,7 @@ public readonly record struct MeshFaceProjection(Mesh Mesh, int Face) : ITopolog
         { Length: > 0.0 } c => c / c.Length,
         Vector3d v => v,
     };
-    public Point3d Center => Vertices switch { Seq<Point3d> v when v.Count > 0 => (Point3d)(v.Fold(Vector3d.Zero, static (acc, p) => acc + (Vector3d)p) / v.Count), _ => Point3d.Unset };
+    public Point3d Center => Mesh.Faces.GetFaceCenter(faceIndex: Face);
     public Mesh Isolated() {
         // BOUNDARY ADAPTER — Rhino Mesh builder is intrinsically mutable.
         Mesh result = new();
@@ -108,7 +108,7 @@ public sealed partial class MassKind {
     public string Label { get; }
     internal Requirement Requirement { get; }
     internal Func<IEnumerable<GeometryBase>, Context, bool, bool, bool, Op, Fin<IDisposable>> Aggregate { get; }
-    // LengthMassProperties has no native IEnumerable Compute overload; fold per-item via the same dispatch table used by per-geometry mass queries, then WeightedSum the results with unit densities.
+    // Rhino exposes no IEnumerable LengthMassProperties.Compute overload; fold per-item, then WeightedSum.
     private static Fin<IDisposable> LengthAggregate(IEnumerable<GeometryBase> geometry, Context ctx, bool firstMoments, bool secondMoments, bool productMoments, Op op) =>
         toSeq(geometry).Fold(
             initialState: Fin.Succ(Seq<IDisposable>()),
@@ -246,9 +246,7 @@ internal static class Dispatch {
         [(typeof(Mesh), typeof(Plane))] = static (a, b, args) => { using MeshIntersectionCache cache = new(); Polyline[]? polylines = Intersection.MeshPlane(mesh: (Mesh)a, cache: cache, plane: (Plane)b, tolerance: args.Item1.Absolute.Value * Intersection.MeshIntersectionsTolerancesCoefficient, overlaps: true); return Fin.Succ((IntersectionResult)new IntersectionResult.Polylines(Values: toSeq(Optional(polylines).ToSeq().Bind(static h => h)).Map(static p => (Curve: p, Kind: IntersectionKind.Unknown)))); },
         [(typeof(Mesh), typeof(Mesh))] = static (a, b, args) => { using TextLog textLog = new(); return Intersection.MeshMesh(meshes: [(Mesh)a, (Mesh)b], tolerance: args.Item1.Absolute.Value * Intersection.MeshIntersectionsTolerancesCoefficient, intersections: out Polyline[] ints, overlapsPolylines: true, overlapsPolylinesResult: out Polyline[] olap, overlapsMesh: false, overlapsMeshResult: out Mesh _, textLog: textLog, cancel: args.Item3, progress: args.Item4) switch { true => Fin.Succ((IntersectionResult)new IntersectionResult.Polylines(Values: toSeq(Optional(ints).ToSeq().Bind(static p => p)).Map(static p => (Curve: p, Kind: IntersectionKind.Curve)) + toSeq(Optional(olap).ToSeq().Bind(static p => p)).Map(static p => (Curve: p, Kind: IntersectionKind.Overlap)))), false when args.Item3.IsCancellationRequested => Fin.Fail<IntersectionResult>(error: new Fault.Cancelled()), false => Fin.Fail<IntersectionResult>(error: args.Item2.InvalidResult()) }; },
     }.ToFrozenDictionary();
-    // Ordered most-specific first. Each predicate returns Some(Kind) when the input matches, None otherwise.
-    // Brep{IsSurface:true} surface primitives report as the primitive Kind except for Plane, which reports as Kind.Surface
-    // to preserve the original Brep-vs-Surface asymmetry.
+    // Brep{IsSurface:true} reports the primitive Kind, except Plane which reports Kind.Surface — preserves the Brep-vs-Surface asymmetry.
     internal static readonly Seq<Func<object, Context, Option<Kind>>> KindPredicates = Seq<Func<object, Context, Option<Kind>>>(
         static (v, ctx) => v is Brep b && b.IsBox(tolerance: ctx.Absolute.Value) ? Some(Kind.Box) : Option<Kind>.None,
         static (v, _) => v is Curve c && c.TryGetPolyline(polyline: out Polyline _) ? Some(Kind.Polyline) : Option<Kind>.None,
@@ -349,6 +347,22 @@ internal static class Dispatch {
         || (KindLookup.InheritsBase(type: left) is Type lb && table.ContainsKey(key: (lb, right)))
         || (KindLookup.InheritsBase(type: right) is Type rb && table.ContainsKey(key: (left, rb)))
         || (KindLookup.InheritsBase(type: left) is Type lb2 && KindLookup.InheritsBase(type: right) is Type rb2 && table.ContainsKey(key: (lb2, rb2)));
+    internal static readonly FrozenDictionary<Type, Func<object, bool>> ValidityTable = new Dictionary<Type, Func<object, bool>> {
+        [typeof(GeometryBase)] = static g => ((GeometryBase)g).IsValid,
+        [typeof(double)] = static d => RhinoMath.IsValidDouble(x: (double)d),
+        [typeof(bool)] = static _ => true, [typeof(int)] = static _ => true, [typeof(SurfaceCurvature)] = static _ => true, [typeof(MeshCheckParameters)] = static _ => true, [typeof(Kind)] = static _ => true,
+        [typeof(MeshPoint)] = static m => ((MeshPoint)m).Point.IsValid,
+        [typeof(ComponentIndex)] = static c => (ComponentIndex)c is { ComponentIndexType: not ComponentIndexType.InvalidType } ci && ci.Index >= 0,
+        [typeof(IntersectionEvent)] = static ie => (IntersectionEvent)ie is { PointA.IsValid: true, PointB.IsValid: true } e && (e.IsPoint || e.IsOverlap),
+        [typeof(ValueTuple<double, Vector3d>)] = static t => (ValueTuple<double, Vector3d>)t is var tup && RhinoMath.IsValidDouble(x: tup.Item1) && tup.Item2.IsValid,
+        [typeof(Point2d)] = static p => ((Point2d)p).IsValid, [typeof(Point3d)] = static p => ((Point3d)p).IsValid, [typeof(Vector3d)] = static v => ((Vector3d)v).IsValid, [typeof(Plane)] = static p => ((Plane)p).IsValid,
+        [typeof(BoundingBox)] = static b => ((BoundingBox)b).IsValid, [typeof(Box)] = static b => ((Box)b).IsValid, [typeof(Sphere)] = static s => ((Sphere)s).IsValid,
+        [typeof(Cylinder)] = static c => ((Cylinder)c).IsValid, [typeof(Cone)] = static c => ((Cone)c).IsValid, [typeof(Torus)] = static t => ((Torus)t).IsValid,
+        [typeof(Arc)] = static a => ((Arc)a).IsValid, [typeof(Circle)] = static c => ((Circle)c).IsValid, [typeof(Ellipse)] = static e => ((Ellipse)e).IsValid,
+        [typeof(Rectangle3d)] = static r => ((Rectangle3d)r).IsValid, [typeof(Interval)] = static i => ((Interval)i).IsValid,
+        [typeof(Line)] = static l => ((Line)l).IsValid, [typeof(Polyline)] = static p => ((Polyline)p).IsValid,
+    }.ToFrozenDictionary();
+    internal static Option<bool> ValidityOf(object source) => (ValidityTable.GetValueOrDefault(key: source.GetType()) ?? (KindLookup.InheritsBase(type: source.GetType()) is Type bt ? ValidityTable.GetValueOrDefault(key: bt) : null) ?? (source is GeometryBase ? ValidityTable[typeof(GeometryBase)] : null)) switch { Func<object, bool> predicate => Some(predicate(arg: source)), _ => Option<bool>.None };
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------

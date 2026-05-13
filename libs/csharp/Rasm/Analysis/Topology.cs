@@ -221,14 +221,12 @@ public static partial class Query {
             };
     }
     public static Query<TGeometry, TOut> Faces<TGeometry, TOut>(Faces aspect) where TGeometry : notnull =>
-        aspect?.ToQuery<TGeometry, TOut>() ?? Query<TGeometry, TOut>.Reject(key: Op.Of(), fault: Op.Of().InvalidInput());
-    public static Eff<Env, Seq<FaceProjection>> FaceProjections(object geometry, Faces selector) {
-        Op key = Op.Of(name: nameof(Faces));
-        return from context in Env.Asks
-               from faces in DecomposeFaces(key: key, ctx: context, geometry: geometry).ToEff()
-               from chosen in SelectFaces(key: key, faces: faces, selector: selector, runtime: context).ToEff()
-               select chosen;
-    }
+        aspect?.ToQuery<TGeometry, TOut>() ?? Query<TGeometry, TOut>.Reject(key: Rasm.Analysis.Faces.Key, fault: Rasm.Analysis.Faces.Key.InvalidInput());
+    public static Eff<Env, Seq<FaceProjection>> FaceProjections(object geometry, Faces selector) =>
+        from context in Env.Asks
+        from faces in DecomposeFaces(key: Rasm.Analysis.Faces.Key, ctx: context, geometry: geometry).ToEff()
+        from chosen in SelectFaces(key: Rasm.Analysis.Faces.Key, faces: faces, selector: selector, runtime: context).ToEff()
+        select chosen;
     internal static Fin<Seq<FaceProjection>> DecomposeFaces<TGeometry>(Op key, Context ctx, TGeometry geometry) where TGeometry : notnull =>
         ((object)geometry).Kind(ctx: ctx).Bind(kind => kind.Faces(value: geometry, ctx: ctx, op: key));
     internal static Fin<Seq<FaceProjection>> SelectFaces(Op key, Seq<FaceProjection> faces, Faces selector, Context runtime) => selector.Switch(
@@ -255,9 +253,8 @@ public static partial class Query {
                 from chosen in SelectFaces(key: state.Key, faces: faces, selector: state.Selector, runtime: context).ToEff()
                 from result in ProjectOwned(all: faces, chosen: chosen, transfer: state.Transfer, project: values => state.Project(arg1: values, arg2: context)).ToEff()
                 select result));
-    public static Fin<Plane> FrameAtCentroid(FaceProjection face, Context runtime) {
-        Op key = Op.Of(name: nameof(Faces));
-        return FaceCentroid(face: face, runtime: runtime)
+    public static Fin<Plane> FrameAtCentroid(FaceProjection face, Context runtime) =>
+        FaceCentroid(face: face, runtime: runtime)
             .Bind(centroid => {
                 BrepFace brepFace = face.Brep.Faces[0];
                 return brepFace.ClosestPointOnFace(testPoint: centroid, u: out double u, v: out double v, maximumDistance: double.MaxValue) switch {
@@ -266,28 +263,24 @@ public static partial class Query {
                             >= 0.0 => frame,
                             _ => new Plane(frame.Origin, frame.XAxis, -frame.YAxis),
                         }),
-                        _ => Fin.Fail<Plane>(key.InvalidResult()),
+                        _ => Fin.Fail<Plane>(Rasm.Analysis.Faces.Key.InvalidResult()),
                     },
-                    false => Fin.Fail<Plane>(key.InvalidResult()),
+                    false => Fin.Fail<Plane>(Rasm.Analysis.Faces.Key.InvalidResult()),
                 };
             });
-    }
     public static Fin<Point3d> FaceCentroid(FaceProjection face, Context runtime) {
         ArgumentNullException.ThrowIfNull(argument: runtime);
-        Op key = Op.Of(name: nameof(Faces));
         return Optional(AreaMassProperties.Compute(brep: face.Brep, area: true, firstMoments: true, secondMoments: false, productMoments: false, relativeTolerance: runtime.Relative.Value, absoluteTolerance: runtime.Absolute.Value))
-            .ToFin(key.InvalidResult())
+            .ToFin(Rasm.Analysis.Faces.Key.InvalidResult())
             .Map(static mass => { using AreaMassProperties disposable = mass; return disposable.Centroid; });
     }
-    public static Fin<Seq<Interval>> FaceDomains(FaceProjection face) {
-        Op key = Op.Of(name: nameof(Faces));
-        return (face.Brep.Faces[0].Domain(direction: 0), face.Brep.Faces[0].Domain(direction: 1)) switch {
+    public static Fin<Seq<Interval>> FaceDomains(FaceProjection face) =>
+        (face.Brep.Faces[0].Domain(direction: 0), face.Brep.Faces[0].Domain(direction: 1)) switch {
             (Interval u, Interval v) when u.IsValid && v.IsValid => Fin.Succ(Seq(u, v)),
-            _ => Fin.Fail<Seq<Interval>>(key.InvalidResult()),
+            _ => Fin.Fail<Seq<Interval>>(Rasm.Analysis.Faces.Key.InvalidResult()),
         };
-    }
     public static Query<TGeometry, TOut> Curves<TGeometry, TOut>(Curves aspect) where TGeometry : notnull =>
-        aspect?.ToQuery<TGeometry, TOut>() ?? Query<TGeometry, TOut>.Reject(key: Op.Of(), fault: Op.Of().InvalidInput());
+        aspect?.ToQuery<TGeometry, TOut>() ?? Query<TGeometry, TOut>.Reject(key: Rasm.Analysis.Curves.Key, fault: Rasm.Analysis.Curves.Key.InvalidInput());
     internal static Query<TGeometry, TOut> CurveProject<TGeometry, TOut, TValue>(Op key, Curves aspect, Func<CurveProjection, TValue> project) where TGeometry : notnull =>
         Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, TValue>.Build(
             key: key, state: (Key: key, Aspect: aspect, Project: project), requiresContext: true,
@@ -298,14 +291,12 @@ public static partial class Query {
                 from chosen in state.Aspect.Select(curves: curves).ToEff()
                 from result in ProjectOwned(all: curves, chosen: chosen, transfer: typeof(TValue) == typeof(Curve), project: values => Many(key: state.Key, values: values.Map(state.Project))).ToEff()
                 select result));
-    public static Eff<Env, Seq<CurveProjection>> CurveProjections(object geometry, Curves aspect) {
-        Op key = Op.Of(name: nameof(Curves));
-        return from runtime in Env.EnvAsks
-               from kind in geometry.Kind(ctx: runtime.Context).ToEff()
-               from curves in kind.Curves(value: geometry, selector: aspect.ToSelector(topology: kind.Topology), ctx: runtime.Context, op: key, cancel: runtime.Cancellation).ToEff()
-               from chosen in aspect.Select(curves: curves).ToEff()
-               select chosen;
-    }
+    public static Eff<Env, Seq<CurveProjection>> CurveProjections(object geometry, Curves aspect) =>
+        from runtime in Env.EnvAsks
+        from kind in geometry.Kind(ctx: runtime.Context).ToEff()
+        from curves in kind.Curves(value: geometry, selector: aspect.ToSelector(topology: kind.Topology), ctx: runtime.Context, op: Rasm.Analysis.Curves.Key, cancel: runtime.Cancellation).ToEff()
+        from chosen in aspect.Select(curves: curves).ToEff()
+        select chosen;
     internal static Fin<Seq<TValue>> ProjectOwned<TProjection, TValue>(
         Seq<TProjection> all, Seq<TProjection> chosen, bool transfer,
         Func<Seq<TProjection>, Fin<Seq<TValue>>> project) where TProjection : ITopologyProjection {
