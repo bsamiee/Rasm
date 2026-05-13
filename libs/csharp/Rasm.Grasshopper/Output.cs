@@ -1,3 +1,5 @@
+using System.Collections.Frozen;
+
 namespace Rasm.Grasshopper;
 
 // --- [TYPES] ----------------------------------------------------------------------------
@@ -5,6 +7,31 @@ public interface IOutputGroup {
     public Seq<IPort> Ports { get; }
     public Unit Run(IDataAccess access, int slot, GrasshopperRuntime runtime);
     public Unit Empty(IDataAccess access, int slot);
+}
+internal interface IAspectBuilder {
+    public Query<object, TOut> Build<TOut>(object aspect);
+}
+internal sealed class CurvesAspectBuilder : IAspectBuilder { public Query<object, TOut> Build<TOut>(object aspect) => Rasm.Analysis.Query.Curves<object, TOut>(aspect: (Curves)aspect); }
+internal sealed class FacesAspectBuilder : IAspectBuilder { public Query<object, TOut> Build<TOut>(object aspect) => Rasm.Analysis.Query.Faces<object, TOut>(aspect: (Faces)aspect); }
+internal sealed class MeshesAspectBuilder : IAspectBuilder { public Query<object, TOut> Build<TOut>(object aspect) => Rasm.Analysis.Query.Meshes<object, TOut>(aspect: (Meshes)aspect); }
+internal sealed class LocationAspectBuilder : IAspectBuilder { public Query<object, TOut> Build<TOut>(object aspect) => Rasm.Analysis.Query.Locate<object, TOut>(aspect: (Location)aspect); }
+internal sealed class BoundsAspectBuilder : IAspectBuilder { public Query<object, TOut> Build<TOut>(object aspect) => Rasm.Analysis.Query.Bounds<object, TOut>(aspect: (Bounds)aspect); }
+internal sealed class MeasureAspectBuilder : IAspectBuilder { public Query<object, TOut> Build<TOut>(object aspect) => Rasm.Analysis.Query.Measure<object, TOut>(aspect: (Measure)aspect); }
+internal static class AspectRegistry {
+    private static readonly FrozenDictionary<Type, IAspectBuilder> Builders = new Dictionary<Type, IAspectBuilder> {
+        [typeof(Curves)] = new CurvesAspectBuilder(),
+        [typeof(Faces)] = new FacesAspectBuilder(),
+        [typeof(Meshes)] = new MeshesAspectBuilder(),
+        [typeof(Location)] = new LocationAspectBuilder(),
+        [typeof(Bounds)] = new BoundsAspectBuilder(),
+        [typeof(Measure)] = new MeasureAspectBuilder(),
+    }.ToFrozenDictionary();
+    private static IAspectBuilder? Find(Type? type) => type is null ? null : Builders.GetValueOrDefault(key: type) ?? Find(type: type.BaseType);
+    internal static Query<object, TOut> Resolve<TAspect, TOut>(TAspect aspect, Op key) where TAspect : notnull =>
+        Find(type: aspect.GetType()) switch {
+            IAspectBuilder builder => builder.Build<TOut>(aspect: aspect),
+            _ => Rasm.Analysis.Query<object, TOut>.Reject(key: key, fault: key.Unsupported(geometryType: aspect.GetType(), outputType: typeof(TOut))),
+        };
 }
 
 // --- [MODELS] ---------------------------------------------------------------------------
@@ -122,23 +149,9 @@ public static class Output {
             slots: [Slot<TOut, TOut>(port: port, project: static (_, values) => Fin.Succ(values))]);
     public static IOutputGroup Query<TAspect, TOut>(Port<Shape> input, Port<TOut> port, TAspect aspect, bool emptyUnsupported = false) where TAspect : notnull =>
         Prepared(
-            source: (access, runtime) => ShapeSource(input: input, access: access, runtime: runtime, project: shape => DispatchAspect<TAspect, TOut>(aspect: aspect).Apply(geometry: shape.Inner)),
+            source: (access, runtime) => ShapeSource(input: input, access: access, runtime: runtime, project: shape => AspectRegistry.Resolve<TAspect, TOut>(aspect: aspect, key: Op.Of()).Apply(geometry: shape.Inner)),
             emptyUnsupported: emptyUnsupported,
             slots: [Slot<TOut, TOut>(port: port, project: static (_, values) => Fin.Succ(values))]);
-    private static Query<object, TOut> DispatchAspect<TAspect, TOut>(TAspect aspect) where TAspect : notnull {
-        Op key = Op.Of();
-        return aspect switch {
-            Curves c => Rasm.Analysis.Query.Curves<object, TOut>(aspect: c),
-            Faces f => Rasm.Analysis.Query.Faces<object, TOut>(aspect: f),
-            Meshes mesh => Rasm.Analysis.Query.Meshes<object, TOut>(aspect: mesh),
-            Location l => Rasm.Analysis.Query.Locate<object, TOut>(aspect: l),
-            Bounds b => Rasm.Analysis.Query.Bounds<object, TOut>(aspect: b),
-            Measure m => Rasm.Analysis.Query.Measure<object, TOut>(aspect: m),
-            _ => Rasm.Analysis.Query<object, TOut>.Reject(
-                key: key,
-                fault: key.Unsupported(geometryType: typeof(TAspect), outputType: typeof(TOut))),
-        };
-    }
     public static IOutputGroup Details<TProjection>(
         Port<Shape> input,
         Func<IDataAccess, GrasshopperRuntime, Func<Shape, Eff<Env, Seq<TProjection>>>> source,

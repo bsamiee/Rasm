@@ -101,19 +101,18 @@ public sealed partial class PortKind {
             output: static (adder, name, code, info, access) => adder.AddEnum<T>(name: name, code: code, info: info, access: access));
     public static Option<PortKind> From(Type type) {
         ArgumentNullException.ThrowIfNull(argument: type);
-        return (type.Equals(o: typeof(int)), type.Equals(o: typeof(Shape))) switch {
-            (true, _) => Some(Integer),
-            (_, true) => Some(Generic),
-            _ => Optional(Lookup.GetValueOrDefault(type)),
-        };
+        return Optional(Lookup.GetValueOrDefault(type));
     }
     private static readonly FrozenDictionary<Type, PortKind> Lookup = BuildLookup();
     [BoundaryAdapter]
     private static FrozenDictionary<Type, PortKind> BuildLookup() =>
         new Dictionary<Type, PortKind> {
             [Point.Type] = Point, [Vector.Type] = Vector, [Curve.Type] = Curve, [Brep.Type] = Brep, [Plane.Type] = Plane,
+            // Index and Integer both key on typeof(int); the indexer assignment makes Integer win, matching the prior
+            // PortKind.From shortcut. Index remains usable as an explicit kind constant for IndexModifier policies.
             [Index.Type] = Index, [Integer.Type] = Integer, [Interval.Type] = Interval, [Angle.Type] = Angle,
             [Number.Type] = Number, [Boolean.Type] = Boolean, [Text.Type] = Text, [Mesh.Type] = Mesh, [Generic.Type] = Generic,
+            [typeof(Shape)] = Generic,
         }.ToFrozenDictionary();
     public Unit Bind(InputAdder adder, string name, string code, string info, Access access, Requirement requirement, PortPolicy policy, bool hidden) {
         ArgumentNullException.ThrowIfNull(argument: adder);
