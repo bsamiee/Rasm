@@ -243,11 +243,11 @@ internal static class MeasureRole {
 internal static class ConformanceRole {
     internal static Query<(TGeometry Geometry, TPrimitive Primitive), TOut> Apply<TGeometry, TPrimitive, TOut>(this Conformance aspect) where TGeometry : notnull where TPrimitive : notnull {
         Op key = Op.Of(name: nameof(Conformance));
-        return (aspect, typeof(TGeometry), typeof(TPrimitive)) switch {
+        return (aspect, typeof(TGeometry).AsKind().Case, Dispatch.SupportsPair(table: Dispatch.ConformanceTable, left: typeof(TGeometry), right: typeof(TPrimitive))) switch {
             (Conformance.Distance { Count: <= 0 } or Conformance.Rms { Count: <= 0 } or Conformance.WithinTolerance { Count: <= 0 } or Conformance.ProfileResidual { Count: <= 0 } or Conformance.Maximum { Count: <= 0 }, _, _) =>
                 Query<(TGeometry Geometry, TPrimitive Primitive), TOut>.Reject(key: key, fault: key.InvalidInput()),
-            (_, Type g, Type p) when typeof(Curve).IsAssignableFrom(c: g) && (p == typeof(Line) || p == typeof(Circle) || p == typeof(Arc)) => Query.ConformanceProject<TGeometry, TPrimitive, TOut>(aspect: aspect, requirement: Requirement.CurveLength),
-            (_, Type g, Type p) when typeof(Surface).IsAssignableFrom(c: g) && (p == typeof(Plane) || p == typeof(Sphere)) => Query.ConformanceProject<TGeometry, TPrimitive, TOut>(aspect: aspect, requirement: Requirement.SurfaceEvaluation),
+            (_, Kind { Topology: Topology.Curve }, true) => Query.ConformanceProject<TGeometry, TPrimitive, TOut>(aspect: aspect, requirement: Requirement.CurveLength),
+            (_, Kind { Topology: Topology.Surface }, true) => Query.ConformanceProject<TGeometry, TPrimitive, TOut>(aspect: aspect, requirement: Requirement.SurfaceEvaluation),
             _ => key.Unsupported<(TGeometry Geometry, TPrimitive Primitive), TOut>(),
         };
     }
