@@ -1,5 +1,6 @@
 using System.Collections.Frozen;
 using System.Runtime.InteropServices;
+using Foundation.CSharp.Analyzers.Contracts;
 
 namespace Rasm.Grasshopper;
 
@@ -9,6 +10,7 @@ public readonly record struct Shape {
     private Shape(object inner) => Inner = inner;
     public object Inner { get; }
     public const string Accepted = "Rhino/GH geometry convertible through native RhinoCommon or GH2 brokers";
+    // BOUNDARY ADAPTER — RequireValid gates broker output through the domain ValidityTable before sealing into Shape.
     public static Fin<Shape> Create(object? value) =>
         Optional(value)
             .ToFin(new Fault.InputRequired(PortName: nameof(Shape), Hint: Accepted))
@@ -19,6 +21,7 @@ public readonly record struct Shape {
 }
 
 // --- [SERVICES] -------------------------------------------------------------------------
+[BoundaryAdapter]
 public static class Bridge {
     public static Fin<Analyze.Scope> Scope(this IDataAccess access) {
         ArgumentNullException.ThrowIfNull(argument: access);
@@ -51,7 +54,7 @@ public static class Bridge {
             _ => Fin.Fail<Seq<Pear<TVal>>>(new Fault.UnsupportedAccess(AccessName: port.Access.ToString())),
         };
     }
-    internal static Unit Write<TOut>(IDataAccess access, int slot, string name, Access targetAccess, Seq<Pear<TOut>> values) =>
+    internal static Unit Write<TOut>(this IDataAccess access, int slot, string name, Access targetAccess, Seq<Pear<TOut>> values) =>
         AccessDispatch<TOut>.Writers.GetValueOrDefault(key: targetAccess) switch {
             Func<IDataAccess, int, Seq<Pear<TOut>>, Unit> writer => writer(arg1: access, arg2: slot, arg3: values),
             _ => Effect(action: () => access.AddError(text: name, details: $"Unsupported output access: {targetAccess}.")),

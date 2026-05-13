@@ -772,7 +772,7 @@ public sealed class AnalysisSpec {
         Fin<Seq<Couple>> invalidNearest = Spatial.NearestPoints(
                 points: [Point3d.Origin],
                 needles: [Point3d.Origin],
-                probe: new Probe.KNearest(Count: 0))
+                probe: new Probe.Nearest(Count: 0))
             .Run(context);
 
         Assert.True(condition: invalidPoint.ToFin().IsFail);

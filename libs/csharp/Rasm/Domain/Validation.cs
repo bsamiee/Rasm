@@ -61,9 +61,9 @@ public sealed partial class Rule {
     private static Fin<Unit> RunContinuity(Rule rule, Context context, GeometryBase geometry, CancellationToken cancel) =>
         geometry switch {
             Surface surface => rule.Demand(geometry: surface,
-                condition: !HasUsableDomain(surface: surface, context: context)
-                    || (!surface.GetNextDiscontinuity(direction: 0, continuityType: Continuity.C1_continuous, t0: surface.Domain(direction: 0).T0, t1: surface.Domain(direction: 0).T1, t: out double _)
-                        && !surface.GetNextDiscontinuity(direction: 1, continuityType: Continuity.C1_continuous, t0: surface.Domain(direction: 1).T0, t1: surface.Domain(direction: 1).T1, t: out double _)),
+                condition: HasUsableDomain(surface: surface, context: context)
+                    && !surface.GetNextDiscontinuity(direction: 0, continuityType: Continuity.C1_continuous, t0: surface.Domain(direction: 0).T0, t1: surface.Domain(direction: 0).T1, t: out double _)
+                    && !surface.GetNextDiscontinuity(direction: 1, continuityType: Continuity.C1_continuous, t0: surface.Domain(direction: 1).T0, t1: surface.Domain(direction: 1).T1, t: out double _),
                 log: "Surface is valid Rhino geometry but contains a C1 discontinuity."),
             Curve curve => rule.Demand(geometry: curve, condition: !curve.GetNextDiscontinuity(continuityType: Continuity.C1_continuous, t0: curve.Domain.T0, t1: curve.Domain.T1, t: out double _), log: "Curve is valid Rhino geometry but contains a C1 discontinuity."),
             _ => rule.Pass(),
@@ -72,7 +72,7 @@ public sealed partial class Rule {
     private static Fin<Unit> RunMeshCheck(Rule rule, Context context, GeometryBase geometry, CancellationToken cancel) {
         using TextLog textLog = new();
         MeshCheckParameters parameters = MeshCheckParameters.Defaults();
-        return geometry is Mesh mesh && mesh.Check(textLog: textLog, parameters: ref parameters) && mesh.Faces.Count > 0
+        return geometry is Mesh mesh && mesh.Check(textLog: textLog, parameters: ref parameters)
             ? rule.Pass()
             : rule.Reject(geometry: geometry, log: textLog.ToString());
     }

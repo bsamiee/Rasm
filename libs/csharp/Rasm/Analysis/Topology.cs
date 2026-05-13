@@ -52,7 +52,7 @@ public static partial class Query {
     }
     public static Query<TGeometry, TOut> Primitive<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
-        return (typeof(TOut).AsKind(), Coercion.Supports(geometryType: typeof(TGeometry), targetType: typeof(TOut))) switch {
+        return (typeof(TOut).AsKind(), Dispatch.SupportsCoercion(source: typeof(TGeometry), target: typeof(TOut))) switch {
             (Option<Kind> someKind, true) when someKind.IsSome => Query<TGeometry, TOut>.Build(
                 key: key, requirement: Requirement.Basic, requiresContext: true,
                 state: (Key: key, Kind: someKind.IfNone(() => Rasm.Domain.Kind.Surface)),
@@ -274,11 +274,13 @@ public static partial class Query {
             .ToFin(Rasm.Analysis.Faces.Key.InvalidResult())
             .Map(static mass => { using AreaMassProperties disposable = mass; return disposable.Centroid; });
     }
-    public static Fin<Seq<Interval>> FaceDomains(FaceProjection face) =>
-        (face.Brep.Faces[0].Domain(direction: 0), face.Brep.Faces[0].Domain(direction: 1)) switch {
+    public static Fin<Seq<Interval>> FaceDomains(FaceProjection face) {
+        BrepFace brepFace = face.Brep.Faces[0];
+        return (brepFace.Domain(direction: 0), brepFace.Domain(direction: 1)) switch {
             (Interval u, Interval v) when u.IsValid && v.IsValid => Fin.Succ(Seq(u, v)),
             _ => Fin.Fail<Seq<Interval>>(Rasm.Analysis.Faces.Key.InvalidResult()),
         };
+    }
     public static Query<TGeometry, TOut> Curves<TGeometry, TOut>(Curves aspect) where TGeometry : notnull =>
         aspect?.ToQuery<TGeometry, TOut>() ?? Query<TGeometry, TOut>.Reject(key: Rasm.Analysis.Curves.Key, fault: Rasm.Analysis.Curves.Key.InvalidInput());
     internal static Query<TGeometry, TOut> CurveProject<TGeometry, TOut, TValue>(Op key, Curves aspect, Func<CurveProjection, TValue> project) where TGeometry : notnull =>

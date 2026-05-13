@@ -20,7 +20,7 @@ public interface ITopologyProjection {
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct CurveProjection(Curve Curve, CurveFeature Feature, ComponentIndex Source) : ITopologyProjection {
     internal CurveProjection(Curve curve, CurveFeature feature, ComponentIndexType type, int index) : this(Curve: curve, Feature: feature, Source: new ComponentIndex(type: type, index: index)) { }
-    public Unit Dispose() => fun(static (Curve curve) => { curve.Dispose(); return Unit.Default; })(Curve);
+    public Unit Dispose() { Curve.Dispose(); return Unit.Default; }
     public bool SameAs(ITopologyProjection other) => other is CurveProjection c && ReferenceEquals(objA: Curve, objB: c.Curve);
 }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct ClosestHit(Point3d Point, Option<double> Distance, Option<Vector3d> Normal, Option<ComponentIndex> Component, Option<MeshPoint> MeshPoint);
@@ -33,7 +33,7 @@ public readonly record struct FaceProjection : ITopologyProjection {
     public bool Reversed { get; }
     public ComponentIndex Source => new(type: ComponentIndexType.BrepFace, index: FaceIndex);
     public static FaceProjection From(BrepFace face) { ArgumentNullException.ThrowIfNull(argument: face); return new(brep: face.DuplicateFace(duplicateMeshes: false), faceIndex: face.FaceIndex, reversed: face.OrientationIsReversed); }
-    public Unit Dispose() => fun(static (Brep b) => { b.Dispose(); return Unit.Default; })(Brep);
+    public Unit Dispose() { Brep.Dispose(); return Unit.Default; }
     public bool SameAs(ITopologyProjection other) => other is FaceProjection f && ReferenceEquals(objA: Brep, objB: f.Brep);
 }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -137,30 +137,29 @@ internal static class KindLookup {
     internal static Type? InheritsBase(Type type) => type.BaseType is Type b ? (ByType.ContainsKey(key: b) ? b : InheritsBase(type: b)) : null;
 }
 [BoundaryAdapter]
-internal static class Coercion {
-    internal static bool Supports(Type geometryType, Type targetType) => Table.ContainsKey(key: (geometryType, targetType)) || (KindLookup.InheritsBase(type: geometryType) is Type bt && Table.ContainsKey(key: (bt, targetType)));
-    private static readonly FrozenDictionary<(Type Source, Type Target), Func<Context, object, Op, Fin<object>>> Table = new Dictionary<(Type, Type), Func<Context, object, Op, Fin<object>>> {
-        [(typeof(Curve), typeof(Line))] = static (ctx, g, op) => ((Curve)g).IsLinear(tolerance: ctx.Absolute.Value) ? Fin.Succ<object>(new Line(from: ((Curve)g).PointAtStart, to: ((Curve)g).PointAtEnd)) : Fin.Fail<object>(error: op.InvalidResult()), [(typeof(Curve), typeof(Polyline))] = static (_, g, op) => ((Curve)g).TryGetPolyline(polyline: out Polyline poly) ? Fin.Succ<object>(poly) : Fin.Fail<object>(error: op.InvalidResult()),
-        [(typeof(Curve), typeof(Circle))] = static (ctx, g, op) => ((Curve)g).TryGetCircle(circle: out Circle c, tolerance: ctx.Absolute.Value) ? Fin.Succ<object>(c) : Fin.Fail<object>(error: op.InvalidResult()), [(typeof(Curve), typeof(Arc))] = static (ctx, g, op) => ((Curve)g).TryGetArc(arc: out Arc a, tolerance: ctx.Absolute.Value) ? Fin.Succ<object>(a) : Fin.Fail<object>(error: op.InvalidResult()), [(typeof(Curve), typeof(Ellipse))] = static (ctx, g, op) => ((Curve)g).TryGetEllipse(ellipse: out Ellipse e, tolerance: ctx.Absolute.Value) ? Fin.Succ<object>(e) : Fin.Fail<object>(error: op.InvalidResult()),
-        [(typeof(Surface), typeof(Plane))] = static (ctx, g, op) => ((Surface)g).TryGetPlane(plane: out Plane p, tolerance: ctx.Absolute.Value) ? Fin.Succ<object>(p) : Fin.Fail<object>(error: op.InvalidResult()), [(typeof(Surface), typeof(Sphere))] = static (ctx, g, op) => ((Surface)g).TryGetSphere(sphere: out Sphere s, tolerance: ctx.Absolute.Value) ? Fin.Succ<object>(s) : Fin.Fail<object>(error: op.InvalidResult()),
-        [(typeof(Surface), typeof(Cylinder))] = static (ctx, g, op) => ((Surface)g).TryGetCylinder(cylinder: out Cylinder c, tolerance: ctx.Absolute.Value) ? Fin.Succ<object>(c) : Fin.Fail<object>(error: op.InvalidResult()), [(typeof(Surface), typeof(Cone))] = static (ctx, g, op) => ((Surface)g).TryGetCone(cone: out Cone c, tolerance: ctx.Absolute.Value) ? Fin.Succ<object>(c) : Fin.Fail<object>(error: op.InvalidResult()), [(typeof(Surface), typeof(Torus))] = static (ctx, g, op) => ((Surface)g).TryGetTorus(torus: out Torus t, tolerance: ctx.Absolute.Value) ? Fin.Succ<object>(t) : Fin.Fail<object>(error: op.InvalidResult()),
-        [(typeof(Brep), typeof(Box))] = static (ctx, g, op) => ((Brep)g).IsBox(tolerance: ctx.Absolute.Value) && ((Brep)g).Faces[0].UnderlyingSurface().TryGetPlane(plane: out Plane plane, tolerance: ctx.Absolute.Value) && ((Brep)g).GetBoundingBox(plane: plane, worldBox: out Box box) is { IsValid: true } ? Fin.Succ<object>(box) : Fin.Fail<object>(error: op.InvalidResult()),
+internal static class Dispatch {
+    internal static readonly FrozenDictionary<(Type Source, Type Target), Func<object, (Context Ctx, Op Op), Fin<object>>> CoercionTable = new Dictionary<(Type, Type), Func<object, (Context, Op), Fin<object>>> {
+        [(typeof(Curve), typeof(Line))] = static (g, a) => ((Curve)g).IsLinear(tolerance: a.Item1.Absolute.Value) ? Fin.Succ<object>(new Line(from: ((Curve)g).PointAtStart, to: ((Curve)g).PointAtEnd)) : Fin.Fail<object>(error: a.Item2.InvalidResult()), [(typeof(Curve), typeof(Polyline))] = static (g, a) => ((Curve)g).TryGetPolyline(polyline: out Polyline poly) ? Fin.Succ<object>(poly) : Fin.Fail<object>(error: a.Item2.InvalidResult()),
+        [(typeof(Curve), typeof(Circle))] = static (g, a) => ((Curve)g).TryGetCircle(circle: out Circle c, tolerance: a.Item1.Absolute.Value) ? Fin.Succ<object>(c) : Fin.Fail<object>(error: a.Item2.InvalidResult()), [(typeof(Curve), typeof(Arc))] = static (g, a) => ((Curve)g).TryGetArc(arc: out Arc r, tolerance: a.Item1.Absolute.Value) ? Fin.Succ<object>(r) : Fin.Fail<object>(error: a.Item2.InvalidResult()), [(typeof(Curve), typeof(Ellipse))] = static (g, a) => ((Curve)g).TryGetEllipse(ellipse: out Ellipse e, tolerance: a.Item1.Absolute.Value) ? Fin.Succ<object>(e) : Fin.Fail<object>(error: a.Item2.InvalidResult()),
+        [(typeof(Surface), typeof(Plane))] = static (g, a) => ((Surface)g).TryGetPlane(plane: out Plane p, tolerance: a.Item1.Absolute.Value) ? Fin.Succ<object>(p) : Fin.Fail<object>(error: a.Item2.InvalidResult()), [(typeof(Surface), typeof(Sphere))] = static (g, a) => ((Surface)g).TryGetSphere(sphere: out Sphere s, tolerance: a.Item1.Absolute.Value) ? Fin.Succ<object>(s) : Fin.Fail<object>(error: a.Item2.InvalidResult()),
+        [(typeof(Surface), typeof(Cylinder))] = static (g, a) => ((Surface)g).TryGetCylinder(cylinder: out Cylinder c, tolerance: a.Item1.Absolute.Value) ? Fin.Succ<object>(c) : Fin.Fail<object>(error: a.Item2.InvalidResult()), [(typeof(Surface), typeof(Cone))] = static (g, a) => ((Surface)g).TryGetCone(cone: out Cone c, tolerance: a.Item1.Absolute.Value) ? Fin.Succ<object>(c) : Fin.Fail<object>(error: a.Item2.InvalidResult()), [(typeof(Surface), typeof(Torus))] = static (g, a) => ((Surface)g).TryGetTorus(torus: out Torus t, tolerance: a.Item1.Absolute.Value) ? Fin.Succ<object>(t) : Fin.Fail<object>(error: a.Item2.InvalidResult()),
+        [(typeof(Brep), typeof(Box))] = static (g, a) => ((Brep)g).IsBox(tolerance: a.Item1.Absolute.Value) && ((Brep)g).Faces[0].UnderlyingSurface().TryGetPlane(plane: out Plane plane, tolerance: a.Item1.Absolute.Value) && ((Brep)g).GetBoundingBox(plane: plane, worldBox: out Box box) is { IsValid: true } ? Fin.Succ<object>(box) : Fin.Fail<object>(error: a.Item2.InvalidResult()),
     }.ToFrozenDictionary();
-    internal static Fin<TTarget> Of<TTarget>(object source, Context ctx, Op op) => source switch {
+    internal static Fin<TTarget> Coerce<TTarget>(object source, Context ctx, Op op) => source switch {
         null => Fin.Fail<TTarget>(error: op.InvalidInput()),
-        _ => (Table.GetValueOrDefault(key: (source.GetType(), typeof(TTarget))) ?? (KindLookup.InheritsBase(type: source.GetType()) is Type bt ? Table.GetValueOrDefault(key: (bt, typeof(TTarget))) : null)) switch {
-            Func<Context, object, Op, Fin<object>> fn => fn(arg1: ctx, arg2: source, arg3: op).Map(static v => (TTarget)v),
+        _ => (CoercionTable.GetValueOrDefault(key: (source.GetType(), typeof(TTarget))) ?? (KindLookup.InheritsBase(type: source.GetType()) is Type bt ? CoercionTable.GetValueOrDefault(key: (bt, typeof(TTarget))) : null)) switch {
+            Func<object, (Context, Op), Fin<object>> fn => fn(arg1: source, arg2: (ctx, op)).Map(static v => (TTarget)v),
             _ => Fin.Fail<TTarget>(error: op.Unsupported(geometryType: source.GetType(), outputType: typeof(TTarget))),
         },
     };
-}
-[BoundaryAdapter]
-internal static class Dispatch {
+    internal static bool SupportsCoercion(Type source, Type target) =>
+        CoercionTable.ContainsKey(key: (source, target))
+        || (KindLookup.InheritsBase(type: source) is Type bt && CoercionTable.ContainsKey(key: (bt, target)));
     internal static readonly FrozenDictionary<Type, Func<object, Op, Fin<BoundingBox>>> BoundsTable = new Dictionary<Type, Func<object, Op, Fin<BoundingBox>>> {
         [typeof(BoundingBox)] = static (g, op) => ((BoundingBox)g).IsValid ? Fin.Succ((BoundingBox)g) : Fin.Fail<BoundingBox>(error: op.InvalidInput()), [typeof(Box)] = static (g, op) => ((Box)g).IsValid ? Fin.Succ(((Box)g).BoundingBox) : Fin.Fail<BoundingBox>(error: op.InvalidInput()), [typeof(Sphere)] = static (g, op) => ((Sphere)g).IsValid ? Fin.Succ(((Sphere)g).BoundingBox) : Fin.Fail<BoundingBox>(error: op.InvalidInput()),
         [typeof(Plane)] = static (_, op) => Fin.Fail<BoundingBox>(error: op.Unsupported(geometryType: typeof(Plane), outputType: typeof(BoundingBox))), [typeof(Line)] = static (g, op) => ((Line)g).IsValid ? Fin.Succ(((Line)g).BoundingBox) : Fin.Fail<BoundingBox>(error: op.InvalidInput()), [typeof(Polyline)] = static (g, _) => Fin.Succ(((Polyline)g).BoundingBox),
         [typeof(Point3d)] = static (g, op) => ((Point3d)g).IsValid ? Fin.Succ(new BoundingBox(min: (Point3d)g, max: (Point3d)g)) : Fin.Fail<BoundingBox>(error: op.InvalidInput()), [typeof(Circle)] = static (g, _) => Fin.Succ(((Circle)g).BoundingBox),
-        [typeof(Arc)] = static (g, op) => ((Arc)g).IsValid ? Optional(((Arc)g).ToNurbsCurve()).ToFin(Fail: op.InvalidResult()).Map(static c => { using NurbsCurve d = c; return d.GetBoundingBox(accurate: true); }) : Fin.Fail<BoundingBox>(error: op.InvalidInput()), [typeof(Ellipse)] = static (g, op) => Optional(((Ellipse)g).ToNurbsCurve()).ToFin(Fail: op.InvalidResult()).Map(static c => { using NurbsCurve d = c; return d.GetBoundingBox(accurate: true); }),
+        [typeof(Arc)] = static (g, op) => ((Arc)g).IsValid ? Fin.Succ(((Arc)g).BoundingBox()) : Fin.Fail<BoundingBox>(error: op.InvalidInput()), [typeof(Ellipse)] = static (g, op) => Optional(((Ellipse)g).ToNurbsCurve()).ToFin(Fail: op.InvalidResult()).Map(static c => { using NurbsCurve d = c; return d.GetBoundingBox(accurate: true); }),
         [typeof(Cylinder)] = static (g, op) => ((Cylinder)g).IsValid ? Optional(((Cylinder)g).ToBrep(capBottom: true, capTop: true)).ToFin(Fail: op.InvalidResult()).Map(static b => { using Brep d = b; return d.GetBoundingBox(accurate: true); }) : Fin.Fail<BoundingBox>(error: op.InvalidInput()), [typeof(Cone)] = static (g, op) => ((Cone)g).IsValid ? Optional(((Cone)g).ToBrep(capBottom: true)).ToFin(Fail: op.InvalidResult()).Map(static b => { using Brep d = b; return d.GetBoundingBox(accurate: true); }) : Fin.Fail<BoundingBox>(error: op.InvalidInput()),
         [typeof(Torus)] = static (g, op) => ((Torus)g).IsValid ? Optional(((Torus)g).ToBrep()).ToFin(Fail: op.InvalidResult()).Map(static b => { using Brep d = b; return d.GetBoundingBox(accurate: true); }) : Fin.Fail<BoundingBox>(error: op.InvalidInput()), [typeof(GeometryBase)] = static (g, op) => g is GeometryBase { IsValid: true } gb ? Fin.Succ(gb.GetBoundingBox(accurate: true)) : Fin.Fail<BoundingBox>(error: op.InvalidInput()),
     }.ToFrozenDictionary();
@@ -176,15 +175,9 @@ internal static class Dispatch {
         [typeof(Brep)] = static (g, args) => MassCentroid(source: g, isSolid: ((Brep)g).IsSolid, ctx: args.Item1, op: args.Item2), [typeof(Mesh)] = static (g, args) => MassCentroid(source: g, isSolid: ((Mesh)g).IsSolid, ctx: args.Item1, op: args.Item2), [typeof(Surface)] = static (g, args) => MassCentroid(source: g, isSolid: ((Surface)g).IsSolid, ctx: args.Item1, op: args.Item2),
         [typeof(SubD)] = static (g, args) => Optional(((SubD)g).ToBrep(options: SubDToBrepOptions.Default)).ToFin(Fail: args.Item2.InvalidResult()).Bind(brep => { using Brep d = brep; return MassCentroid(source: d, isSolid: d.IsSolid, ctx: args.Item1, op: args.Item2); }),
     }.ToFrozenDictionary();
-    private static Fin<Point3d> MassCentroid(object source, bool isSolid, Context ctx, Op op) => (isSolid, source) switch {
-        (true, Mesh m) => Optional(VolumeMassProperties.Compute(mesh: m, volume: true, firstMoments: true, secondMoments: false, productMoments: false)).ToFin(Fail: op.InvalidResult()).Map(static mp => { using VolumeMassProperties d = mp; return d.Centroid; }),
-        (true, Brep b) => Optional(VolumeMassProperties.Compute(brep: b, volume: true, firstMoments: true, secondMoments: false, productMoments: false, relativeTolerance: ctx.Relative.Value, absoluteTolerance: ctx.Absolute.Value)).ToFin(Fail: op.InvalidResult()).Map(static mp => { using VolumeMassProperties d = mp; return d.Centroid; }),
-        (true, Surface s) => Optional(VolumeMassProperties.Compute(surface: s, volume: true, firstMoments: true, secondMoments: false, productMoments: false)).ToFin(Fail: op.InvalidResult()).Map(static mp => { using VolumeMassProperties d = mp; return d.Centroid; }),
-        (false, Mesh m) => Optional(AreaMassProperties.Compute(mesh: m, area: true, firstMoments: true, secondMoments: false, productMoments: false)).ToFin(Fail: op.InvalidResult()).Map(static mp => { using AreaMassProperties d = mp; return d.Centroid; }),
-        (false, Brep b) => Optional(AreaMassProperties.Compute(brep: b, area: true, firstMoments: true, secondMoments: false, productMoments: false, relativeTolerance: ctx.Relative.Value, absoluteTolerance: ctx.Absolute.Value)).ToFin(Fail: op.InvalidResult()).Map(static mp => { using AreaMassProperties d = mp; return d.Centroid; }),
-        (false, Surface s) => Optional(AreaMassProperties.Compute(surface: s, area: true, firstMoments: true, secondMoments: false, productMoments: false)).ToFin(Fail: op.InvalidResult()).Map(static mp => { using AreaMassProperties d = mp; return d.Centroid; }),
-        _ => Fin.Fail<Point3d>(error: op.InvalidInput()),
-    };
+    private static Fin<Point3d> MassCentroid(object source, bool isSolid, Context ctx, Op op) =>
+        ResolveTagged(table: MassPropertiesTable, source: source, tag: isSolid ? MassKind.Volume : MassKind.Area, args: (ctx, true, false, false), op: op)
+            .Map(static disposable => { using IDisposable owned = disposable; return owned switch { LengthMassProperties l => l.Centroid, AreaMassProperties a => a.Centroid, VolumeMassProperties v => v.Centroid, _ => Point3d.Unset }; });
     internal static readonly FrozenDictionary<Type, Func<object, (Point3d Target, Context Ctx, Op Op), Fin<ClosestHit>>> ClosestTable = new Dictionary<Type, Func<object, (Point3d, Context, Op), Fin<ClosestHit>>> {
         [typeof(Line)] = static (g, args) => Fin.Succ(new ClosestHit(Point: ((Line)g).ClosestPoint(testPoint: args.Item1, limitToFiniteSegment: true), Distance: None, Normal: None, Component: None, MeshPoint: None)), [typeof(Polyline)] = static (g, args) => Fin.Succ(new ClosestHit(Point: ((Polyline)g).ClosestPoint(testPoint: args.Item1), Distance: None, Normal: None, Component: None, MeshPoint: None)),
         [typeof(Curve)] = static (g, args) => ((Curve)g).ClosestPoint(testPoint: args.Item1, t: out double p) ? Fin.Succ(new ClosestHit(Point: ((Curve)g).PointAt(t: p), Distance: Some(args.Item1.DistanceTo(other: ((Curve)g).PointAt(t: p))), Normal: None, Component: None, MeshPoint: None)) : Fin.Fail<ClosestHit>(error: args.Item3.InvalidResult()), [typeof(Surface)] = static (g, args) => ((Surface)g).ClosestPoint(testPoint: args.Item1, u: out double u, v: out double v) ? Fin.Succ(new ClosestHit(Point: ((Surface)g).PointAt(u: u, v: v), Distance: Some(args.Item1.DistanceTo(other: ((Surface)g).PointAt(u: u, v: v))), Normal: Some(((Surface)g).NormalAt(u: u, v: v)), Component: None, MeshPoint: None)) : Fin.Fail<ClosestHit>(error: args.Item3.InvalidResult()),
@@ -212,7 +205,29 @@ internal static class Dispatch {
         [typeof(Surface)] = static (g, op) => ((Surface)g) is NurbsSurface ns ? Fin.Succ(toSeq(Enumerable.Range(start: 0, count: ns.Points.CountU).SelectMany(u => Enumerable.Range(start: 0, count: ns.Points.CountV).Select(v => ns.Points.GetControlPoint(u: u, v: v).Location)))) : Optional(((Surface)g).ToNurbsSurface()).ToFin(Fail: op.InvalidResult()).Map(static s => { using NurbsSurface d = s; return toSeq(Enumerable.Range(start: 0, count: d.Points.CountU).SelectMany(u => Enumerable.Range(start: 0, count: d.Points.CountV).Select(v => d.Points.GetControlPoint(u: u, v: v).Location))); }),
         [typeof(Brep)] = static (g, op) => toSeq(((Brep)g).Faces).TraverseM(face => Optional(face.ToNurbsSurface()).ToFin(Fail: op.InvalidResult()).Map(static s => { using NurbsSurface d = s; return toSeq(Enumerable.Range(start: 0, count: d.Points.CountU).SelectMany(u => Enumerable.Range(start: 0, count: d.Points.CountV).Select(v => d.Points.GetControlPoint(u: u, v: v).Location))); })).As().Map(static nested => nested.Bind(static pts => pts)),
     }.ToFrozenDictionary();
-    private static readonly Func<object, (CurveSelector, Context, Op, CancellationToken), Fin<Seq<CurveProjection>>> CurveOrPrimitiveInput = static (g, args) => (g is Curve c ? c : g switch { Line l => (Curve?)new LineCurve(line: l), Polyline p => p.ToPolylineCurve(), Circle ci => new ArcCurve(circle: ci), Arc a => new ArcCurve(arc: a), _ => null }) switch { Curve native => ((args.Item1.Feature is CurveFeature.Segment or CurveFeature.SubCurve) ? Optional(args.Item1.Feature == CurveFeature.SubCurve ? native.GetSubCurves() : native.DuplicateSegments()) switch { Option<Curve[]> opt when opt.Case is Curve[] arr && arr.Length > 0 => Fin.Succ(toSeq(arr.Select((cc, i) => new CurveProjection(curve: cc, feature: args.Item1.Feature, type: ComponentIndexType.PolycurveSegment, index: i)))), _ => Optional(native.DuplicateCurve()).ToFin(Fail: args.Item3.InvalidResult()).Map(d => Seq(new CurveProjection(curve: d, feature: args.Item1.Feature, type: ComponentIndexType.PolycurveSegment, index: 0))) } : Optional(native.DuplicateCurve()).ToFin(Fail: args.Item3.InvalidResult()).Map(d => Seq(new CurveProjection(curve: d, feature: args.Item1.Feature, type: ComponentIndexType.NoType, index: 0)))).Map(seq => (g is not Curve) switch { true => fun(static (Curve n, Seq<CurveProjection> s) => { n.Dispose(); return s; })(native, seq), false => seq }), _ => Fin.Fail<Seq<CurveProjection>>(error: args.Item3.InvalidResult()) };
+    private static readonly Func<object, (CurveSelector, Context, Op, CancellationToken), Fin<Seq<CurveProjection>>> CurveOrPrimitiveInput = static (g, args) =>
+        (g is Curve c ? c : g switch {
+            Line l => (Curve?)new LineCurve(line: l),
+            Polyline p => p.ToPolylineCurve(),
+            Circle ci => new ArcCurve(circle: ci),
+            Arc a => new ArcCurve(arc: a),
+            _ => null,
+        }) switch {
+            Curve native => ((args.Item1.Feature is CurveFeature.Segment or CurveFeature.SubCurve)
+                ? Optional(args.Item1.Feature == CurveFeature.SubCurve ? native.GetSubCurves() : native.DuplicateSegments()) switch {
+                    Option<Curve[]> opt when opt.Case is Curve[] arr && arr.Length > 0 =>
+                        Fin.Succ(toSeq(arr.Select((cc, i) => new CurveProjection(curve: cc, feature: args.Item1.Feature, type: ComponentIndexType.PolycurveSegment, index: i)))),
+                    _ => Optional(native.DuplicateCurve()).ToFin(Fail: args.Item3.InvalidResult())
+                        .Map(d => Seq(new CurveProjection(curve: d, feature: args.Item1.Feature, type: ComponentIndexType.PolycurveSegment, index: 0))),
+                }
+                : Optional(native.DuplicateCurve()).ToFin(Fail: args.Item3.InvalidResult())
+                    .Map(d => Seq(new CurveProjection(curve: d, feature: args.Item1.Feature, type: ComponentIndexType.NoType, index: 0))))
+            .Map(seq => (g is not Curve) switch {
+                true => fun(static (Curve n, Seq<CurveProjection> s) => { n.Dispose(); return s; })(native, seq),
+                false => seq,
+            }),
+            _ => Fin.Fail<Seq<CurveProjection>>(error: args.Item3.InvalidResult()),
+        };
     private static readonly Func<object, (CurveSelector, Context, Op, CancellationToken), Fin<Seq<CurveProjection>>> BrepEdgeHandler = static (g, args) => Fin.Succ(toSeq(((Brep)g).Edges).Where(e => (args.Item1.Feature, e.Valence) switch { (CurveFeature.Edge, _) => true, (CurveFeature.Interior, EdgeAdjacency.Interior) => true, (CurveFeature.NonManifold, EdgeAdjacency.NonManifold) => true, (CurveFeature.NakedOuter, EdgeAdjacency.Naked) => toSeq(e.TrimIndices()).Exists(t => e.Brep.Trims[t].Loop.LoopType == BrepLoopType.Outer), (CurveFeature.NakedInner, EdgeAdjacency.Naked) => toSeq(e.TrimIndices()).Exists(t => e.Brep.Trims[t].Loop.LoopType == BrepLoopType.Inner), (CurveFeature.Boundary, EdgeAdjacency.Naked) => true, _ => false }).Bind(e => Optional(e.DuplicateCurve()).Map(c => new CurveProjection(curve: c, feature: args.Item1.Feature, type: ComponentIndexType.BrepEdge, index: e.EdgeIndex)).ToSeq()));
     private static readonly Func<object, (CurveSelector, Context, Op, CancellationToken), Fin<Seq<CurveProjection>>> MeshEdgeHandler = static (g, args) => Fin.Succ(toSeq(Enumerable.Range(start: 0, count: ((Mesh)g).TopologyEdges.Count)).Where(i => (args.Item1.Feature, ((Mesh)g).TopologyEdges.GetConnectedFaces(topologyEdgeIndex: i).Length) switch { (CurveFeature.Edge, _) => true, (CurveFeature.Boundary, 1) => true, (CurveFeature.Interior, 2) => true, (CurveFeature.NonManifold, > 2) => true, _ => false }).Map(i => new CurveProjection(curve: ((Mesh)g).TopologyEdges.EdgeLine(topologyEdgeIndex: i).ToNurbsCurve(), feature: args.Item1.Feature, type: ComponentIndexType.MeshTopologyEdge, index: i)));
     private static readonly Func<object, (CurveSelector, Context, Op, CancellationToken), Fin<Seq<CurveProjection>>> MeshNakedEdgeHandler = static (g, args) => Fin.Succ(toSeq(Optional(((Mesh)g).GetNakedEdges()).IfNone(static () => [])).Map((poly, i) => new CurveProjection(curve: poly.ToPolylineCurve(), feature: args.Item1.Feature, type: ComponentIndexType.NoType, index: i)));
@@ -246,6 +261,12 @@ internal static class Dispatch {
         [(typeof(Mesh), typeof(Plane))] = static (a, b, args) => { using MeshIntersectionCache cache = new(); Polyline[]? polylines = Intersection.MeshPlane(mesh: (Mesh)a, cache: cache, plane: (Plane)b, tolerance: args.Item1.Absolute.Value * Intersection.MeshIntersectionsTolerancesCoefficient, overlaps: true); return Fin.Succ((IntersectionResult)new IntersectionResult.Polylines(Values: toSeq(Optional(polylines).ToSeq().Bind(static h => h)).Map(static p => (Curve: p, Kind: IntersectionKind.Unknown)))); },
         [(typeof(Mesh), typeof(Mesh))] = static (a, b, args) => { using TextLog textLog = new(); return Intersection.MeshMesh(meshes: [(Mesh)a, (Mesh)b], tolerance: args.Item1.Absolute.Value * Intersection.MeshIntersectionsTolerancesCoefficient, intersections: out Polyline[] ints, overlapsPolylines: true, overlapsPolylinesResult: out Polyline[] olap, overlapsMesh: false, overlapsMeshResult: out Mesh _, textLog: textLog, cancel: args.Item3, progress: args.Item4) switch { true => Fin.Succ((IntersectionResult)new IntersectionResult.Polylines(Values: toSeq(Optional(ints).ToSeq().Bind(static p => p)).Map(static p => (Curve: p, Kind: IntersectionKind.Curve)) + toSeq(Optional(olap).ToSeq().Bind(static p => p)).Map(static p => (Curve: p, Kind: IntersectionKind.Overlap)))), false when args.Item3.IsCancellationRequested => Fin.Fail<IntersectionResult>(error: new Fault.Cancelled()), false => Fin.Fail<IntersectionResult>(error: args.Item2.InvalidResult()) }; },
     }.ToFrozenDictionary();
+    private static Option<Kind> ShapedAs(object value, Context ctx, Kind kind, Func<Surface, double, bool> probe) =>
+        value switch {
+            Brep { IsSurface: true } b when probe(arg1: b.Surfaces[0], arg2: ctx.Absolute.Value) => Some(kind),
+            Surface s when probe(arg1: s, arg2: ctx.Absolute.Value) => Some(kind),
+            _ => Option<Kind>.None,
+        };
     // Brep{IsSurface:true} reports the primitive Kind, except Plane which reports Kind.Surface — preserves the Brep-vs-Surface asymmetry.
     internal static readonly Seq<Func<object, Context, Option<Kind>>> KindPredicates = Seq<Func<object, Context, Option<Kind>>>(
         static (v, ctx) => v is Brep b && b.IsBox(tolerance: ctx.Absolute.Value) ? Some(Kind.Box) : Option<Kind>.None,
@@ -258,26 +279,10 @@ internal static class Dispatch {
             Surface s when s.TryGetPlane(plane: out Plane _, tolerance: ctx.Absolute.Value) => Some(Kind.Plane),
             _ => Option<Kind>.None,
         },
-        static (v, ctx) => v switch {
-            Brep { IsSurface: true } b when b.Surfaces[0].TryGetSphere(sphere: out Sphere _, tolerance: ctx.Absolute.Value) => Some(Kind.Sphere),
-            Surface s when s.TryGetSphere(sphere: out Sphere _, tolerance: ctx.Absolute.Value) => Some(Kind.Sphere),
-            _ => Option<Kind>.None,
-        },
-        static (v, ctx) => v switch {
-            Brep { IsSurface: true } b when b.Surfaces[0].TryGetCylinder(cylinder: out Cylinder _, tolerance: ctx.Absolute.Value) => Some(Kind.Cylinder),
-            Surface s when s.TryGetCylinder(cylinder: out Cylinder _, tolerance: ctx.Absolute.Value) => Some(Kind.Cylinder),
-            _ => Option<Kind>.None,
-        },
-        static (v, ctx) => v switch {
-            Brep { IsSurface: true } b when b.Surfaces[0].TryGetCone(cone: out Cone _, tolerance: ctx.Absolute.Value) => Some(Kind.Cone),
-            Surface s when s.TryGetCone(cone: out Cone _, tolerance: ctx.Absolute.Value) => Some(Kind.Cone),
-            _ => Option<Kind>.None,
-        },
-        static (v, ctx) => v switch {
-            Brep { IsSurface: true } b when b.Surfaces[0].TryGetTorus(torus: out Torus _, tolerance: ctx.Absolute.Value) => Some(Kind.Torus),
-            Surface s when s.TryGetTorus(torus: out Torus _, tolerance: ctx.Absolute.Value) => Some(Kind.Torus),
-            _ => Option<Kind>.None,
-        },
+        static (v, ctx) => ShapedAs(value: v, ctx: ctx, kind: Kind.Sphere, probe: static (s, t) => s.TryGetSphere(sphere: out Sphere _, tolerance: t)),
+        static (v, ctx) => ShapedAs(value: v, ctx: ctx, kind: Kind.Cylinder, probe: static (s, t) => s.TryGetCylinder(cylinder: out Cylinder _, tolerance: t)),
+        static (v, ctx) => ShapedAs(value: v, ctx: ctx, kind: Kind.Cone, probe: static (s, t) => s.TryGetCone(cone: out Cone _, tolerance: t)),
+        static (v, ctx) => ShapedAs(value: v, ctx: ctx, kind: Kind.Torus, probe: static (s, t) => s.TryGetTorus(torus: out Torus _, tolerance: t)),
         static (v, ctx) => v is Curve c && c.IsLinear(tolerance: ctx.Absolute.Value) ? Some(Kind.Line) : Option<Kind>.None);
     internal static readonly FrozenDictionary<(Type Geometry, MassKind Mass), Func<object, (Context Ctx, bool FirstMoments, bool SecondMoments, bool ProductMoments), Fin<IDisposable>>> MassPropertiesTable = new Dictionary<(Type, MassKind), Func<object, (Context, bool, bool, bool), Fin<IDisposable>>> {
         [(typeof(Curve), MassKind.Length)] = static (g, args) => Optional(LengthMassProperties.Compute(curve: (Curve)g, length: true, firstMoments: args.Item2, secondMoments: args.Item3, productMoments: args.Item4)).ToFin(Fail: new Fault.ComputationFailed(Label: nameof(LengthMassProperties))).Map(static p => (IDisposable)p),
@@ -392,7 +397,7 @@ public static class KindRole {
     public static Solidity SolidityOf(this Kind kind, object value, Context ctx) { ArgumentNullException.ThrowIfNull(argument: kind); return (kind.Topology, value) switch { (Topology.Brep, Brep b) => b.IsSolid ? Solidity.Solid : Solidity.Open, (Topology.Mesh, Mesh m) => m.IsSolid ? Solidity.Solid : Solidity.Open, (Topology.Surface, Surface s) => s.IsSolid ? Solidity.Solid : Solidity.Open, _ => kind.NominalSolidity }; }
     public static Fin<IntersectionResult> Intersect(this Kind a, Kind b, object valueA, object valueB, Context ctx, Op op, IProgress<double>? progress = null, CancellationToken cancel = default) { ArgumentNullException.ThrowIfNull(argument: valueA); ArgumentNullException.ThrowIfNull(argument: valueB); return Dispatch.ResolvePair(table: Dispatch.IntersectTable, left: valueA, right: valueB, args: (ctx, op, cancel, progress), op: op); }
     public static Fin<bool> Contains(this Kind kind, object value, Point3d target, Context ctx, Op op) { ArgumentNullException.ThrowIfNull(argument: value); ArgumentNullException.ThrowIfNull(argument: ctx); return target.IsValid ? Dispatch.Resolve(table: Dispatch.ContainsTable, source: value, args: (target, ctx, op), op: op) : Fin.Fail<bool>(error: op.InvalidInput()); }
-    public static Fin<TTarget> Coerce<TTarget>(this Kind kind, object value, Context ctx, Op op) => Coercion.Of<TTarget>(source: value, ctx: ctx, op: op);
+    public static Fin<TTarget> Coerce<TTarget>(this Kind kind, object value, Context ctx, Op op) => Dispatch.Coerce<TTarget>(source: value, ctx: ctx, op: op);
     public static Fin<SolidOrientation> SolidOrientation(this Kind kind, object value, Op op) { ArgumentNullException.ThrowIfNull(argument: value); return Dispatch.Resolve(table: Dispatch.SolidOrientationTable, source: value, args: op, op: op); }
     public static Fin<double> Length(this Kind kind, object value, Context ctx, Op op) { ArgumentNullException.ThrowIfNull(argument: value); ArgumentNullException.ThrowIfNull(argument: ctx); return Dispatch.Resolve(table: Dispatch.LengthTable, source: value, args: (ctx, op), op: op); }
     public static Fin<Seq<FaceProjection>> Faces(this Kind kind, object value, Context ctx, Op op) { ArgumentNullException.ThrowIfNull(argument: value); return Dispatch.Resolve(table: Dispatch.FacesTable, source: value, args: (ctx, op), op: op); }

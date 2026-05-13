@@ -74,12 +74,12 @@ public static class Output {
         new(
             Port: port,
             Write: (access, slot, runtime, source) => project(arg1: runtime, arg2: source).Match(
-                Succ: values => Bridge.Write(access: access, slot: slot, name: port.Name, targetAccess: port.Access, values: values),
+                Succ: values => access.Write(slot: slot, name: port.Name, targetAccess: port.Access, values: values),
                 Fail: error => {
                     access.AddWarning(text: port.Name, details: error.Message);
-                    return Bridge.Write(access: access, slot: slot, name: port.Name, targetAccess: port.Access, values: Seq<Pear<TOut>>());
+                    return access.Write(slot: slot, name: port.Name, targetAccess: port.Access, values: Seq<Pear<TOut>>());
                 }),
-            Empty: (access, slot) => Bridge.Write(access: access, slot: slot, name: port.Name, targetAccess: port.Access, values: Seq<Pear<TOut>>()));
+            Empty: (access, slot) => access.Write(slot: slot, name: port.Name, targetAccess: port.Access, values: Seq<Pear<TOut>>()));
     public static OutputSlot<TSource> Plain<TSource, TOut>(Port<TOut> port, Func<TSource, TOut> project) =>
         Slot<TSource, TOut>(port: port, project: (_, sources) =>
             Fin.Succ(sources.Map(src => Pear<TOut>.Create(item: project(arg: src.Item), meta: src.Meta))));
@@ -133,6 +133,6 @@ public static class Output {
     internal static Fin<Seq<Pear<TSource>>> ShapeSource<TSource>(Port<Shape> input, IDataAccess access, GrasshopperRuntime runtime, Func<Shape, Eff<Env, Seq<TSource>>> project) =>
         from sourced in runtime.Shape(access: access, port: input)
         from context in runtime.Scope.Context
-        from values in project(arg: sourced.Item).Run(env: new Env(Context: context, Progress: new Bridge.Progress(access: access), Cancellation: access.Solution.Token))
+        from values in project(arg: sourced.Item).Run(env: new Env(Context: context, Progress: runtime.Progress, Cancellation: runtime.Cancellation))
         select values.Map(value => Pear<TSource>.Create(item: value, meta: sourced.Meta));
 }
