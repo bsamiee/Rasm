@@ -26,11 +26,11 @@ public sealed record PortPolicy {
     private PortPolicy(Func<object, Unit> apply) => this.apply = apply;
     public static PortPolicy Empty { get; } = new(apply: static _ => Unit.Default);
     public static PortPolicy Vector(bool unitise = false, bool reverse = false) =>
-        On<VectorParameter>(mutate: target => { target.UnitiseVectors = unitise; target.ReverseVectors = reverse; });
+        On<VectorParameter>(mutate: target => { target.UnitiseVectors = unitise; target.ReverseVectors = reverse; return Unit.Default; });
     public static PortPolicy Angle(int kind = 0, bool reduce = false) =>
-        On<AngleParameter>(mutate: target => { target.EnforceKind = kind; target.ReduceAngles = reduce; });
+        On<AngleParameter>(mutate: target => { target.EnforceKind = kind; target.ReduceAngles = reduce; return Unit.Default; });
     public static PortPolicy Index(IndexModifier indexing = IndexModifier.Clip) =>
-        On<IntegerParameter>(mutate: target => { target.IsIndex = true; target.Indexing = indexing; });
+        On<IntegerParameter>(mutate: target => { target.IsIndex = true; target.Indexing = indexing; return Unit.Default; });
     public static PortPolicy Category(string name) =>
         On<IParameter>(mutate: parameter => SetCustom(parameter: parameter, key: ModularComponent.__Category, set: (kv, k) => kv.Set(key: k, value: name)));
     public static PortPolicy Colour(Color color) =>
@@ -47,13 +47,11 @@ public sealed record PortPolicy {
         ArgumentNullException.ThrowIfNull(argument: parameter);
         return apply(arg: parameter);
     }
-    public static PortPolicy On<TParam>(Action<TParam> mutate) where TParam : class {
-        return new(apply: parameter => parameter switch {
-            TParam target => Tap(target),
+    public static PortPolicy On<TParam>(Func<TParam, Unit> mutate) where TParam : class =>
+        new(apply: parameter => parameter switch {
+            TParam target => mutate(arg: target),
             _ => Unit.Default,
         });
-        Unit Tap(TParam target) { mutate(obj: target); return Unit.Default; }
-    }
     private static Unit SetCustom(IParameter parameter, string key, Action<KeyedValues, string> set) {
         set(arg1: parameter.CustomValues, arg2: key);
         return Unit.Default;
