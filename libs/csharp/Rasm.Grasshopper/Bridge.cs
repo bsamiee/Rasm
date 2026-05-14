@@ -135,16 +135,8 @@ public static class Bridge {
     private static class AccessDispatch<T> {
         internal static readonly FrozenDictionary<Access, Func<IDataAccess, int, IPort, Fin<Seq<Flow<T>>>>> Readers =
             new Dictionary<Access, Func<IDataAccess, int, IPort, Fin<Seq<Flow<T>>>>> {
-                [Access.Item] = static (access, slot, port) => access.GetPear<T>(index: slot, pear: out Pear<T> pear) switch {
-                    true when pear is { Item: not null } => Fin.Succ(Seq(new Flow<T>(Pear: pear, Site: Option<Site>.None))),
-                    _ => MissingFlow<T>(port: port),
-                },
-                [Access.Twig] = static (access, slot, port) => access.GetPears<T>(index: slot, pears: out Pear<T>[] pears) switch {
-                    true when pears.Length > 0 => toSeq(pears.Select((pear, index) => (Pear: pear, Index: index))).TraverseM(item => item.Pear is { Item: not null }
-                        ? Fin.Succ(new Flow<T>(Pear: item.Pear, Site: Some(new Site(path: TwigPath(access: access, slot: slot), item: item.Index))))
-                        : Fin.Fail<Flow<T>>(new Fault.InputRequired(PortName: port.Name, Hint: $"Null twig item at index {item.Index}."))).As(),
-                    _ => MissingFlow<T>(port: port),
-                },
+                [Access.Item] = static (access, slot, port) => ReadPears(access: access, slot: slot, port: port, site: static (_, _, _) => Option<Site>.None),
+                [Access.Twig] = static (access, slot, port) => ReadPears(access: access, slot: slot, port: port, site: static (host, index, item) => Some(new Site(path: TwigPath(access: host, slot: index), item: item))),
                 [Access.Tree] = static (access, slot, port) => access.GetTree<T>(index: slot, tree: out Tree<T> tree) switch {
                     true => toSeq(tree.EnumerateLeaves().Select((leaf, index) => (Leaf: leaf, Index: index))).TraverseM(item => item.Leaf.Pear is { Item: not null }
                         ? Fin.Succ(new Flow<T>(Pear: item.Leaf.Pear, Site: Some(item.Leaf.Site)))
@@ -156,7 +148,7 @@ public static class Bridge {
             new Dictionary<Access, Func<IDataAccess, int, Seq<Flow<T>>, Unit>> {
                 [Access.Item] = static (access, slot, values) => values.Count switch {
                     > 0 => Effect(action: () => access.SetPear(index: slot, pear: values[0].Pear)),
-                    _ => Effect(action: () => access.SetPear(index: slot, pear: Pear<T>.Create(item: default!))),
+                    _ => Effect(action: () => access.SetPear(index: slot, pear: null!)),
                 },
                 [Access.Twig] = static (access, slot, values) => Effect(action: () => access.SetTwig(index: slot, twig: Garden.TwigFromPears(pears: values.Map(static value => value.Pear).AsIterable()))),
                 [Access.Tree] = static (access, slot, values) => Effect(action: () => {
@@ -166,5 +158,12 @@ public static class Bridge {
                     access.SetTree(index: slot, tree: TreePrefix(access: access, slot: slot) is int prefix ? tree.WithPathPrefix(element: prefix) : tree);
                 }),
             }.ToFrozenDictionary();
+        private static Fin<Seq<Flow<T>>> ReadPears(IDataAccess access, int slot, IPort port, Func<IDataAccess, int, int, Option<Site>> site) =>
+            access.GetPears<T>(index: slot, pears: out Pear<T>[] pears) switch {
+                true when pears.Length > 0 => toSeq(pears.Select((pear, index) => (Pear: pear, Index: index))).TraverseM(item => item.Pear is { Item: not null }
+                    ? Fin.Succ(new Flow<T>(Pear: item.Pear, Site: site(arg1: access, arg2: slot, arg3: item.Index)))
+                    : Fin.Fail<Flow<T>>(new Fault.InputRequired(PortName: port.Name, Hint: $"Null item at index {item.Index}."))).As(),
+                _ => MissingFlow<T>(port: port),
+            };
     }
 }

@@ -37,7 +37,7 @@ public partial record Location : IAspect {
                 key: PointAtLengthKey, requirement: Requirement.CurveLength, state: (Key: PointAtLengthKey, Distance: pal.Length),
                 evaluator: static (state, geometry) => geometry switch {
                     Curve curve => from context in Env.Asks
-                                   from result in (curve.LengthParameter(segmentLength: state.Distance, t: out double parameter, fractionalTolerance: context.Relative.Value) switch {
+                                   from result in (curve.LengthParameter(segmentLength: state.Distance, t: out double parameter, fractionalTolerance: context.Fractional) switch {
                                        true => Analyze.One(key: state.Key, value: curve.PointAt(t: parameter)),
                                        false => Fin.Fail<Seq<Point3d>>(state.Key.InvalidResult()),
                                    }).ToEff()
@@ -153,7 +153,7 @@ public static partial class Analyze {
             .As());
     private static Fin<Seq<double>> CurveSamples(Curve curve, int count, Context model, Op key) =>
         Dispatch.Fractions(count: count, op: key)
-            .Bind(fractions => Optional(curve.NormalizedLengthParameters(s: [.. fractions.AsIterable()], absoluteTolerance: model.Absolute.Value, fractionalTolerance: model.Relative.Value))
+                .Bind(fractions => Optional(curve.NormalizedLengthParameters(s: [.. fractions.AsIterable()], absoluteTolerance: model.Absolute.Value, fractionalTolerance: model.Fractional))
                 .ToFin(key.InvalidResult())
                 .Map(static parameters => toSeq(parameters)));
     private static Fin<CurvatureProfile> Profile(Op key, CurvatureScalar scalar, Seq<double> values) =>
@@ -175,7 +175,7 @@ public static partial class Analyze {
                     from hit in kind.Closest(geometry: geometry, target: state.Target, context: context, op: state.Key).ToEff()
                     from result in (typeof(TOut) switch {
                         Type t when t == typeof(Point3d) => state.Key.Results<Point3d, TOut>(values: Seq(hit.Point)),
-                        Type t when t == typeof(double) => hit.Distance.ToFin(Fail: state.Key.InvalidResult()).Bind(d => state.Key.Results<double, TOut>(values: Seq(d))),
+                        Type t when t == typeof(double) => state.Key.Results<double, TOut>(values: Seq(hit.Distance.IfNone(state.Target.DistanceTo(other: hit.Point)))),
                         Type t when t == typeof(Vector3d) => hit.Normal.ToFin(Fail: state.Key.InvalidResult()).Bind(n => state.Key.Results<Vector3d, TOut>(values: Seq(n))),
                         Type t when t == typeof(ComponentIndex) => hit.Component.ToFin(Fail: state.Key.InvalidResult()).Bind(c => state.Key.Results<ComponentIndex, TOut>(values: Seq(c))),
                         Type t when t == typeof(MeshPoint) => hit.MeshPoint.ToFin(Fail: state.Key.InvalidResult()).Bind(mp => state.Key.Results<MeshPoint, TOut>(values: Seq(mp))),
@@ -237,7 +237,7 @@ public static partial class Analyze {
         geometry switch {
             Curve curve => from runtime in Env.EnvAsks
                            from validated in runtime.Context.Validate(geometry: curve, requirement: Requirement.CurveLength, cancel: runtime.Cancellation).ToEff()
-                           from parameter in (validated.NormalizedLengthParameter(s: 0.5, t: out double p, fractionalTolerance: runtime.Context.Relative.Value) switch {
+                           from parameter in (validated.NormalizedLengthParameter(s: 0.5, t: out double p, fractionalTolerance: runtime.Context.Fractional) switch {
                                true => Fin.Succ(p),
                                false => Fin.Fail<double>(key.InvalidResult()),
                            }).ToEff()

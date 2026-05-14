@@ -31,7 +31,7 @@ trap '_err "${BASH_COMMAND}" "${LINENO}"' ERR
 _main() {
     (($# <= 1)) || _die "Unexpected arguments: $*"
     local -r mode="${1:-check}"
-    [[ "${mode}" == "check" || "${mode}" == "--self-test" ]] || _die "Unexpected argument: ${mode}"
+    [[ "${mode}" == "check" || "${mode}" == "test" || "${mode}" == "--self-test" ]] || _die "Unexpected argument: ${mode}"
     [[ -f "${SOLUTION_PATH}" ]] || _die "Missing solution: ${SOLUTION_PATH}"
     local command
     for command in dotnet fd rg; do
@@ -66,6 +66,7 @@ _main() {
     done
     dotnet format "${SOLUTION_PATH}" --verify-no-changes --severity "${FORMAT_SEVERITY}" --no-restore
     dotnet format "${SOLUTION_PATH}" --verify-no-changes --severity info --diagnostics "${UNUSED_CODE_DIAGNOSTICS}" --no-restore
+    [[ "${mode}" == "test" ]] || return 0
     local -a test_projects=()
     test_projects=(
         tests/csharp/Rasm.Tests/Rasm.Tests.csproj

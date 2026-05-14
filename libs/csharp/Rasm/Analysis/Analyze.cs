@@ -12,16 +12,20 @@ public sealed record Query<TGeometry, TOut>(
     Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>> Evaluate,
     Requirement Requirement,
     bool RequiresContext,
-    Option<Error> Rejection,
-    Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> AggregatePlan) where TGeometry : notnull {
-    internal Query(Op key, Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>> effect, Requirement? requirement = null, bool requiresContext = false, Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> aggregate = default, Option<Error> rejection = default)
-        : this(Key: key, Evaluate: effect, Requirement: requirement ?? Requirement.None, RequiresContext: requiresContext, Rejection: rejection, AggregatePlan: aggregate) { }
+    Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> AggregatePlan,
+    Option<Error> Rejection) where TGeometry : notnull {
+    internal Query(Op key, Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>> effect, Requirement? requirement = null, bool requiresContext = false, Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> aggregate = default, Option<Error> rejection = default, Unit _ = default)
+        : this(Key: key, Evaluate: effect, Requirement: requirement ?? Requirement.None, RequiresContext: requiresContext, AggregatePlan: aggregate, Rejection: rejection) { }
+    internal bool NeedsContext => RequiresContext || !Requirement.IsEmpty;
     public Eff<Env, Seq<TOut>> Apply(TGeometry geometry) => Evaluate(arg: Seq(geometry));
     public Eff<Env, Seq<TOut>> Apply(Seq<TGeometry> geometry) => Evaluate(arg: geometry);
     internal Query<TIn, TOut> Contramap<TIn>(Func<TIn, TGeometry> map) where TIn : notnull => new(
-        Key: Key, Requirement: Requirement, RequiresContext: RequiresContext, Rejection: Rejection,
+        Key: Key,
+        Evaluate: input => Evaluate(arg: input.Map(value => map(arg: value))),
+        Requirement: Requirement,
+        RequiresContext: RequiresContext,
         AggregatePlan: AggregatePlan.Map<Func<Seq<TIn>, Eff<Env, Seq<TOut>>>>(project => input => project(arg: input.Map(value => map(arg: value)))),
-        Evaluate: input => Evaluate(arg: input.Map(value => map(arg: value))));
+        Rejection: Rejection);
     public Query<TGeometry, TOut> Aggregate() => AggregatePlan.Match(
         Some: project => this with { Evaluate = project },
         None: () => Reject(key: Key, fault: Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))));
@@ -30,23 +34,26 @@ public sealed record Query<TGeometry, TOut>(
     internal static Query<TGeometry, TOut> Build<TState>(Op key, TState state, Func<TState, TGeometry, Eff<Env, Seq<TOut>>> evaluator, Requirement? requirement = null, bool requiresContext = false, Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> aggregate = default) {
         Requirement active = requirement ?? Requirement.None;
         return new(
-            key: key, requirement: active, requiresContext: requiresContext,
-            aggregate: aggregate.Map<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>>(project => geometry =>
+            Key: key,
+            Requirement: active,
+            RequiresContext: requiresContext,
+            Rejection: Option<Error>.None,
+            AggregatePlan: aggregate.Map<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>>(project => geometry =>
                 from runtime in Env.EnvAsks
                 from resolved in geometry.Traverse(item => Prepare(geometry: item, requirement: active).Run(env: runtime)).As().ToEff()
                 from result in project(arg: resolved)
                 select result),
-            effect: geometry => from runtime in Env.EnvAsks
-                                from result in geometry.Traverse(item => (
-                                    from prepared in Prepare(geometry: item, requirement: active)
-                                    from value in evaluator(arg1: state, arg2: prepared)
-                                    select value).Run(env: runtime))
-                                .Map(static chunks => chunks.Bind(static chunk => chunk))
-                                .As().ToEff()
-                                select result);
+            Evaluate: geometry => from runtime in Env.EnvAsks
+                                  from result in geometry.Traverse(item => (
+                                      from prepared in Prepare(geometry: item, requirement: active)
+                                      from value in evaluator(arg1: state, arg2: prepared)
+                                      select value).Run(env: runtime))
+                                  .Map(static chunks => chunks.Bind(static chunk => chunk))
+                                  .As().ToEff()
+                                  select result);
     }
     internal static Query<TGeometry, TOut> Reject(Op key, Error fault) =>
-        new(key: key, effect: _ => Fin.Fail<Seq<TOut>>(fault).ToEff(), rejection: Some(fault));
+        new(Key: key, Evaluate: _ => Fin.Fail<Seq<TOut>>(fault).ToEff(), Requirement: Requirement.None, RequiresContext: false, AggregatePlan: None, Rejection: Some(fault));
     private static Eff<Env, TGeometry> Prepare(TGeometry geometry, Requirement requirement) =>
         from runtime in Env.EnvAsks
         from ready in (runtime.Cancellation.IsCancellationRequested switch {
@@ -112,7 +119,7 @@ public static partial class Analyze {
         Option<Fin<Context>> scope) where TGeometry : notnull =>
         scope.Match(
             Some: provided => provided,
-            None: () => (query.RequiresContext || !query.Requirement.IsEmpty) switch {
+            None: () => query.NeedsContext switch {
                 true => Fin.Fail<Context>(query.Key.MissingContext()),
                 false => Context.CreateDefault(units: UnitSystem.Millimeters).ToFin(),
             });

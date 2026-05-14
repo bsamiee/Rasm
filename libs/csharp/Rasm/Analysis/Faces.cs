@@ -71,7 +71,7 @@ public static partial class Analyze {
         FaceCentroid(face: face, runtime: runtime)
             .Bind(centroid => {
                 BrepFace brepFace = face.Brep.Faces[0];
-                return brepFace.ClosestPointOnFace(testPoint: centroid, u: out double u, v: out double v, maximumDistance: double.MaxValue) switch {
+                return brepFace.ClosestPointOnFace(testPoint: centroid, u: out double u, v: out double v, maximumDistance: 0.0) switch {
                     true => (brepFace.FrameAt(u: u, v: v, frame: out Plane frame), brepFace.NormalAt(u: u, v: v)) switch {
                         (true, Vector3d normal) when frame.IsValid && normal.IsValid && !normal.IsTiny() => Fin.Succ((frame.ZAxis * (face.Reversed ? -normal : normal)) switch {
                             >= 0.0 => frame,
@@ -84,7 +84,7 @@ public static partial class Analyze {
             });
     public static Fin<Point3d> FaceCentroid(FaceProjection face, Context runtime) {
         ArgumentNullException.ThrowIfNull(argument: runtime);
-        return Optional(AreaMassProperties.Compute(brep: face.Brep, area: true, firstMoments: true, secondMoments: false, productMoments: false, relativeTolerance: runtime.Relative.Value, absoluteTolerance: runtime.Absolute.Value))
+        return Optional(AreaMassProperties.Compute(brep: face.Brep, area: true, firstMoments: true, secondMoments: false, productMoments: false, relativeTolerance: runtime.Fractional, absoluteTolerance: runtime.Absolute.Value))
             .ToFin(Rasm.Analysis.Faces.Key.InvalidResult())
             .Map(static mass => { using AreaMassProperties disposable = mass; return disposable.Centroid; });
     }

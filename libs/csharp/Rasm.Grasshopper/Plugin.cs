@@ -48,9 +48,10 @@ public abstract class Plugin : GhPlugin {
             .Where(static group => group.Skip(1).Any())
             .Select(group => $"{spec.FullName}: duplicate {side} port {key} '{group.Key}' on {string.Join(separator: ", ", values: group.Select(label))}"));
     private static Seq<string> EnumWireFaults(Type spec, string side, Seq<IPort> ports) =>
-        ports.Choose(port => (port.ValueType.IsEnum, port.Kind.Type == port.ValueType, port.Kind.WireType == typeof(int)) switch {
-            (true, false, _) => Some($"{spec.FullName}: {side} enum port '{port.Name}' uses logical type '{port.Kind.Type.Name}' instead of '{port.ValueType.Name}'"),
-            (true, _, false) => Some($"{spec.FullName}: {side} enum port '{port.Name}' uses GH2 wire type '{port.Kind.WireType.Name}' instead of 'Int32'"),
+        ports.Choose(port => (port.ValueType.IsEnum, port.Kind.Type == port.ValueType, port.Kind.WireType == typeof(int), port.ValueType.IsEnum && Enum.GetUnderlyingType(enumType: port.ValueType) == typeof(int)) switch {
+            (true, false, _, _) => Some($"{spec.FullName}: {side} enum port '{port.Name}' uses logical type '{port.Kind.Type.Name}' instead of '{port.ValueType.Name}'"),
+            (true, _, false, _) => Some($"{spec.FullName}: {side} enum port '{port.Name}' uses GH2 wire type '{port.Kind.WireType.Name}' instead of 'Int32'"),
+            (true, _, _, false) => Some($"{spec.FullName}: {side} enum port '{port.Name}' uses enum underlying type '{Enum.GetUnderlyingType(enumType: port.ValueType).Name}' instead of 'Int32'"),
             _ => Option<string>.None,
         });
     public override string Author => author;

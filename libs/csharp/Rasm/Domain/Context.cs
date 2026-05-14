@@ -36,6 +36,7 @@ public readonly partial struct AngleTolerance {
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 public sealed record Context {
+    private const double DefaultFractionalTolerance = 1.0e-8;
     private Context(AbsoluteTolerance absolute, RelativeTolerance relative, AngleTolerance angle, UnitSystem units) {
         Absolute = absolute;
         Relative = relative;
@@ -46,6 +47,7 @@ public sealed record Context {
     public RelativeTolerance Relative { get; }
     public AngleTolerance Angle { get; }
     public UnitSystem Units { get; }
+    internal double Fractional => Relative.Value > 0.0 ? Relative.Value : DefaultFractionalTolerance;
     internal double MeshIntersectionTolerance => Absolute.Value * Intersection.MeshIntersectionsTolerancesCoefficient;
     internal Validation<Error, T> Validate<T>(T? geometry, Requirement? requirement = null, CancellationToken cancel = default) where T : GeometryBase =>
         Verify.Apply(context: this, value: geometry, requirement: requirement, cancel: cancel);
@@ -67,7 +69,7 @@ public sealed record Context {
         _ => RhinoMath.UnitScale(from: UnitSystem.Millimeters, to: units) switch {
             double scale when RhinoMath.IsValidDouble(x: scale) && scale > RhinoMath.ZeroTolerance => Create(
                 absolute: RhinoMath.DefaultDistanceToleranceMillimeters * scale,
-                relative: 0.0,
+                relative: DefaultFractionalTolerance,
                 angle: RhinoMath.DefaultAngleTolerance,
                 units: units),
             _ => Fin.Fail<Context>(error: new Fault.InvalidUnitSystem(Units: units, Requirement: "must resolve to a positive finite default scale")).ToValidation(),

@@ -60,9 +60,9 @@ internal static class IntersectionResultRole {
         },
         hits: static (k, h) => typeof(TOut) switch {
             Type t when t == typeof(IntersectionHit) => k.Results<IntersectionHit, TOut>(values: h.Values),
-            Type t when t == typeof(Curve) => k.Results<Curve, TOut>(values: h.Values.Choose(static value => value.Curve)),
-            Type t when t == typeof(Point3d) => k.Results<Point3d, TOut>(values: h.Values.Choose(static value => value.Point)),
-            Type t when t == typeof(Interval) => k.Results<Interval, TOut>(values: h.Values.Bind(static value => value.OverlapA.ToSeq() + value.OverlapB.ToSeq())),
+            Type t when t == typeof(Curve) => k.Results<Curve, TOut>(values: h.Values.Bind(static value => value.Curves)),
+            Type t when t == typeof(Point3d) => k.Results<Point3d, TOut>(values: h.Values.Bind(static value => value.Points)),
+            Type t when t == typeof(Interval) => k.Results<Interval, TOut>(values: h.Values.Bind(static value => value.Intervals)),
             Type t when t == typeof(IntersectionKind) => k.Results<IntersectionKind, TOut>(values: h.Values.Map(static value => value.Kind)),
             _ => Fin.Fail<Seq<TOut>>(k.Unsupported(geometryType: typeof(IntersectionResult.Hits), outputType: typeof(TOut))),
         });

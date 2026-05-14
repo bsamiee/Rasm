@@ -1,9 +1,6 @@
-using System.Collections.Frozen;
-
 namespace Rasm.Analysis;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-public enum MeshFaceMetric { None = 0, AspectRatio = 1, Area = 2, Perimeter = 3, Skewness = 4, DihedralAngle = 5 }
 [StructLayout(LayoutKind.Auto)] public readonly record struct MeshFaceSample(int Face, double Value);
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -48,21 +45,19 @@ public partial class MeshCheckCount {
     internal static IEnumerable<MeshCheckCount> Defects => [DegenerateFaces, DuplicateFaces, NakedEdges, NonManifoldEdges, SelfIntersectingPairs];
 }
 
-public static class MeshFaceMetrics {
-    private static readonly FrozenDictionary<MeshFaceMetric, Func<MeshFaceProjection, Fin<double>>> Metrics =
-        new Dictionary<MeshFaceMetric, Func<MeshFaceProjection, Fin<double>>> {
-            [MeshFaceMetric.AspectRatio] = static projection => Fin.Succ(projection.Mesh.Faces.GetFaceAspectRatio(index: projection.Face)),
-            [MeshFaceMetric.Area] = FaceArea,
-            [MeshFaceMetric.Perimeter] = FacePerimeter,
-            [MeshFaceMetric.Skewness] = FaceSkewness,
-            [MeshFaceMetric.DihedralAngle] = FaceMaxDihedral,
-        }.ToFrozenDictionary();
-    public static Fin<double> Sample(this MeshFaceMetric metric, Mesh mesh, int face) {
+[SmartEnum<int>]
+public sealed partial class MeshFaceMetric {
+    public static readonly MeshFaceMetric None = new(key: 0, sample: static _ => Fin.Fail<double>(Op.Of(name: nameof(MeshFaceMetric)).InvalidInput()));
+    public static readonly MeshFaceMetric AspectRatio = new(key: 1, sample: static projection => Fin.Succ(projection.Mesh.Faces.GetFaceAspectRatio(index: projection.Face)));
+    public static readonly MeshFaceMetric Area = new(key: 2, sample: FaceArea);
+    public static readonly MeshFaceMetric Perimeter = new(key: 3, sample: FacePerimeter);
+    public static readonly MeshFaceMetric Skewness = new(key: 4, sample: FaceSkewness);
+    public static readonly MeshFaceMetric DihedralAngle = new(key: 5, sample: FaceMaxDihedral);
+    private readonly Func<MeshFaceProjection, Fin<double>> sample;
+    public Fin<double> Sample(Mesh mesh, int face) {
         ArgumentNullException.ThrowIfNull(argument: mesh);
         return MeshFaceProjection.Create(mesh: mesh, face: face)
-            .Bind(projection => Optional(Metrics.GetValueOrDefault(key: metric))
-                .ToFin(Op.Of(name: nameof(MeshFaceMetric)).InvalidInput())
-                .Bind(sample => sample(arg: projection)));
+            .Bind(projection => sample(arg: projection));
     }
     private static Fin<double> FaceArea(MeshFaceProjection projection) =>
         projection.Vertices.Map(vertices => vertices switch {
@@ -122,17 +117,17 @@ public static partial class Analyze {
                                                        from result in One(key: state.Key, value: state.Count.Get(parameters: head)).ToEff()
                                                        select result);
     }
-    public static Query<Mesh, MeshFaceSample> MeshFaceMetric(MeshFaceMetric metric) {
+    public static Query<Mesh, MeshFaceSample> MeshFaceMetric(MeshFaceMetric? metric) {
         Op key = Op.Of();
-        return metric switch {
-            Rasm.Analysis.MeshFaceMetric.None => Query<Mesh, MeshFaceSample>.Reject(key: key, fault: key.InvalidInput()),
-            _ => Query<Mesh, MeshFaceSample>.Build(
-                key: key, state: (Key: key, Metric: metric), requirement: Requirement.MeshCheck,
+        return Optional(metric).Filter(static candidate => !candidate.Equals(Rasm.Analysis.MeshFaceMetric.None)).Case switch {
+            MeshFaceMetric active => Query<Mesh, MeshFaceSample>.Build(
+                key: key, state: (Key: key, Metric: active), requirement: Requirement.MeshCheck,
                 evaluator: static (state, geometry) => toSeq(Enumerable.Range(start: 0, count: geometry.Faces.Count))
                     .TraverseM(face => state.Metric.Sample(mesh: geometry, face: face)
                         .Bind(v => RhinoMath.IsValidDouble(x: v) && v >= 0.0
                             ? Fin.Succ(new MeshFaceSample(Face: face, Value: v))
                             : Fin.Fail<MeshFaceSample>(state.Key.InvalidResult()))).As().ToEff()),
+            _ => Query<Mesh, MeshFaceSample>.Reject(key: key, fault: key.InvalidInput()),
         };
     }
     public static Query<Mesh, bool> MeshValidityBundle {

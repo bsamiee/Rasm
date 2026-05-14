@@ -24,7 +24,7 @@ public partial record Points : IAspect {
                     }).ToEff()
                     select result))
             : QuadrantsKey.Unsupported<TGeometry, TOut>(),
-        edgeMidpoints: static _ => typeof(TOut) == typeof(Point3d) && Analyze.Supports(geometry: typeof(TGeometry), native: [typeof(Line), typeof(Polyline), typeof(BoundingBox), typeof(Box)])
+        edgeMidpoints: static _ => typeof(TOut) == typeof(Point3d) && (Analyze.Supports(geometry: typeof(TGeometry), native: [typeof(Line), typeof(Polyline), typeof(BoundingBox), typeof(Box)]) || Dispatch.SupportsCurves(source: typeof(TGeometry)))
             ? Analyze.Cast<TGeometry, TOut>(key: EdgeMidpointsKey, query: Query<TGeometry, Point3d>.Build(
                 key: EdgeMidpointsKey, requiresContext: true, state: EdgeMidpointsKey,
                 evaluator: static (op, geometry) => geometry switch {

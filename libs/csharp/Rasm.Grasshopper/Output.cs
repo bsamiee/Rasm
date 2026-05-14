@@ -50,7 +50,11 @@ internal sealed record PreparedGroup<TSource>(
             true => Fin.Succ(Unit.Default),
             false => Source(arg: runtime).Map(values => values.IsEmpty switch {
                 true => RemarkEmpty(access: access, outputs: outputs),
-                false => active.Iter(pair => pair.Output.Write(arg1: access, arg2: pair.Slot, arg3: runtime, arg4: values)),
+                false => fun((Seq<Flow<TSource>> sourced, Seq<(OutputSlot<TSource> Output, int Slot)> writers) => {
+                    Unit written = writers.Iter(pair => pair.Output.Write(arg1: access, arg2: pair.Slot, arg3: runtime, arg4: sourced));
+                    _ = DisposeOwned(values: sourced, outputs: writers.Map(static pair => pair.Output.Port.ValueType));
+                    return written;
+                })(values, active),
             }),
         };
         return result.Match(
@@ -81,6 +85,9 @@ internal sealed record PreparedGroup<TSource>(
         access.AddRemark(text: Ports.Head.Map(static port => port.Name).IfNone("Output"), details: "No result for sourced input.");
         return Empty(access: access, outputs: outputs);
     }
+    private static Unit DisposeOwned(Seq<Flow<TSource>> values, Seq<Type> outputs) =>
+        values.Choose(static value => value.Item is ITopologyProjection projection ? Some(projection) : Option<ITopologyProjection>.None)
+            .Iter(projection => Optional(projection).Filter(p => !outputs.Exists(output => p.Transfers(outputType: output))).Iter(static p => p.Dispose()));
 }
 public static class Output {
     internal static OutputSlot<TSource> Slot<TSource, TOut>(
