@@ -7,7 +7,7 @@ namespace Rasm.Analysis;
 public static partial class Analyze {
     public static Query<(TA A, TB B), TOut> Intersect<TA, TB, TOut>() where TA : notnull where TB : notnull {
         Op key = Op.Of();
-        return Dispatch.SupportsUnorderedPair(table: Dispatch.IntersectTable, left: typeof(TA), right: typeof(TB)) switch {
+        return Dispatch.IntersectTable.SupportsUnordered(left: typeof(TA), right: typeof(TB)) switch {
             true => Query<(TA A, TB B), TOut>.Build(
                 key: key, requiresContext: true, state: key,
                 evaluator: static (op, pair) => from runtime in Env.EnvAsks

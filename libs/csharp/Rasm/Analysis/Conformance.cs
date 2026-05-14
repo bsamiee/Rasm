@@ -23,7 +23,7 @@ public partial record Conformance {
     public sealed record Distance(int Count) : Conformance; public sealed record Rms(int Count) : Conformance; public sealed record WithinTolerance(int Count) : Conformance; public sealed record ProfileResidual(int Count) : Conformance; public sealed record Maximum(int Count) : Conformance;
     internal static readonly Op Key = Op.Of(name: nameof(Conformance));
     public Query<(TGeometry Geometry, TPrimitive Primitive), TOut> ToQuery<TGeometry, TPrimitive, TOut>() where TGeometry : notnull where TPrimitive : notnull =>
-        (this, Dispatch.SupportsPair(table: Dispatch.ConformanceTable, left: typeof(TGeometry), right: typeof(TPrimitive))) switch {
+        (this, Dispatch.ConformanceTable.SupportsPair(left: typeof(TGeometry), right: typeof(TPrimitive))) switch {
             (Distance { Count: <= 0 } or Rms { Count: <= 0 } or WithinTolerance { Count: <= 0 } or ProfileResidual { Count: <= 0 } or Maximum { Count: <= 0 }, _) =>
                 Query<(TGeometry Geometry, TPrimitive Primitive), TOut>.Reject(key: Key, fault: Key.InvalidInput()),
             (_, true) => Analyze.ConformanceProject<TGeometry, TPrimitive, TOut>(aspect: this),
