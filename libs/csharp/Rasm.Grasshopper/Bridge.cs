@@ -21,10 +21,11 @@ public readonly record struct Shape {
             });
 }
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct Flow<T>(Pear<T> Pear, Option<Grasshopper2.Data.Path> Branch) {
+public readonly record struct Flow<T>(Pear<T> Pear, Option<Site> Site) {
     public T Item => Pear.Item;
     public MetaData Meta => Pear.Meta;
-    public Flow<TOut> Project<TOut>(TOut item) => new(Pear: Pear<TOut>.Create(item: item, meta: Meta), Branch: Branch);
+    public Flow<TOut> Project<TOut>(TOut item) => new(Pear: Pear<TOut>.Create(item: item, meta: Meta), Site: Site);
+    public Flow<TOut> Project<TOut>(TOut item, int index) => new(Pear: Pear<TOut>.Create(item: item, meta: Meta), Site: Site.Map(site => new Site(path: site.Path, item: index)));
 }
 
 // --- [SERVICES] -------------------------------------------------------------------------
@@ -45,7 +46,7 @@ public static class Bridge {
         return Read<object>(access: access, slot: slot, port: port)
             .Bind(values => values.TraverseM(sourced => NormalizeShape(raw: sourced.Item)
                 .ToFin(new Fault.UnsupportedSource(PortName: port.Name, SourceType: sourced.Item.GetType(), Hint: Shape.Accepted))
-                .Map(shape => new Flow<Shape>(Pear: Pear<Shape>.Create(item: shape, meta: sourced.Meta), Branch: sourced.Branch))).As());
+                .Map(shape => new Flow<Shape>(Pear: Pear<Shape>.Create(item: shape, meta: sourced.Meta), Site: sourced.Site))).As());
     }
     internal static Fin<Seq<Flow<TVal>>> Read<TVal>(this IDataAccess access, int slot, IPort port) {
         ArgumentNullException.ThrowIfNull(argument: access);
@@ -76,10 +77,9 @@ public static class Bridge {
             _ => Fin.Fail<Seq<Pear<TVal>>>(new Fault.InputRequired(PortName: port.Name)),
         };
     private static Fin<Seq<Flow<TVal>>> MissingFlow<TVal>(IPort port) =>
-        Missing<TVal>(port: port).Map(static pears => pears.Map(static pear => new Flow<TVal>(Pear: pear, Branch: Option<Grasshopper2.Data.Path>.None)));
+        Missing<TVal>(port: port).Map(static pears => pears.Map(static pear => new Flow<TVal>(Pear: pear, Site: Option<Site>.None)));
     private static Seq<Leaf<T>> Leaves<T>(Seq<Flow<T>> values) =>
-        toSeq(values.GroupBy(static value => value.Branch.IfNone(new Grasshopper2.Data.Path(0)))
-            .SelectMany(static group => group.Select((value, index) => new Leaf<T>(pear: value.Pear, site: new Site(path: group.Key, item: index)))));
+        values.Map((value, index) => new Leaf<T>(pear: value.Pear, site: value.Site.IfNone(new Site(path: new Grasshopper2.Data.Path(0), item: index))));
     private static readonly Seq<Func<object, Option<Shape>>> Brokers = Seq<Func<object, Option<Shape>>>(
         static raw => AsShape(value: raw),
         static raw => CurveBroker.CastOrConvert(data: raw, p2: out Line line, p3: out Triangle triangle, p4: out Rectangle3d rectangle, pn: out Polyline polyline, a360: out Circle circle, ax: out Arc arc, c: out Curve curve) switch {
@@ -110,18 +110,18 @@ public static class Bridge {
         internal static readonly FrozenDictionary<Access, Func<IDataAccess, int, IPort, Fin<Seq<Flow<T>>>>> Readers =
             new Dictionary<Access, Func<IDataAccess, int, IPort, Fin<Seq<Flow<T>>>>> {
                 [Access.Item] = static (access, slot, port) => access.GetPear<T>(index: slot, pear: out Pear<T> pear) switch {
-                    true when pear is { Item: not null } => Fin.Succ(Seq(new Flow<T>(Pear: pear, Branch: Option<Grasshopper2.Data.Path>.None))),
+                    true when pear is { Item: not null } => Fin.Succ(Seq(new Flow<T>(Pear: pear, Site: Option<Site>.None))),
                     _ => MissingFlow<T>(port: port),
                 },
                 [Access.Twig] = static (access, slot, port) => access.GetPears<T>(index: slot, pears: out Pear<T>[] pears) switch {
-                    true => toSeq(pears.Select((pear, index) => (Pear: pear, Index: index))).TraverseM(item => item.Pear is { Item: not null }
-                        ? Fin.Succ(new Flow<T>(Pear: item.Pear, Branch: Option<Grasshopper2.Data.Path>.None))
+                    true when pears.Length > 0 => toSeq(pears.Select((pear, index) => (Pear: pear, Index: index))).TraverseM(item => item.Pear is { Item: not null }
+                        ? Fin.Succ(new Flow<T>(Pear: item.Pear, Site: Some(new Site(path: new Grasshopper2.Data.Path(0), item: item.Index))))
                         : Fin.Fail<Flow<T>>(new Fault.InputRequired(PortName: port.Name, Hint: $"Null twig item at index {item.Index}."))).As(),
                     _ => MissingFlow<T>(port: port),
                 },
                 [Access.Tree] = static (access, slot, port) => access.GetTree<T>(index: slot, tree: out Tree<T> tree) switch {
                     true => toSeq(tree.EnumerateLeaves().Select((leaf, index) => (Leaf: leaf, Index: index))).TraverseM(item => item.Leaf.Pear is { Item: not null }
-                        ? Fin.Succ(new Flow<T>(Pear: item.Leaf.Pear, Branch: Some(item.Leaf.Site.Path)))
+                        ? Fin.Succ(new Flow<T>(Pear: item.Leaf.Pear, Site: Some(item.Leaf.Site)))
                         : Fin.Fail<Flow<T>>(new Fault.InputRequired(PortName: port.Name, Hint: $"Null tree item at index {item.Index}."))).As(),
                     _ => MissingFlow<T>(port: port),
                 },
@@ -134,7 +134,7 @@ public static class Bridge {
                 },
                 [Access.Twig] = static (access, slot, values) => Effect(action: () => access.SetTwig(index: slot, twig: Garden.TwigFromPears(pears: values.Map(static value => value.Pear).AsIterable()))),
                 [Access.Tree] = static (access, slot, values) => Effect(action: () => {
-                    ITree tree = values.Exists(static value => value.Branch.IsSome)
+                    ITree tree = values.Exists(static value => value.Site.IsSome)
                         ? Garden.TreeFromLeaves(leaves: Leaves(values: values).AsIterable())
                         : Garden.TreeFromPears(pears: values.Map(static value => value.Pear).AsIterable());
                     access.SetTree(index: slot, tree: TreePrefix(access: access, slot: slot) is int prefix ? tree.WithPathPrefix(element: prefix) : tree);

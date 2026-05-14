@@ -61,7 +61,7 @@ public static partial class Query {
     }
     public static Query<TGeometry, TOut> Kind<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
-        return Supports(geometry: typeof(TGeometry), output: typeof(TOut), target: typeof(Rasm.Domain.Kind), native: [typeof(Line), typeof(Polyline), typeof(BoundingBox), typeof(Box), typeof(Sphere)])
+        return typeof(TOut) == typeof(Rasm.Domain.Kind) && Dispatch.SupportsKind(source: typeof(TGeometry))
             ? Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, Rasm.Domain.Kind>.Build(
                 key: key, requiresContext: true, state: key,
                 evaluator: static (op, geometry) =>
@@ -157,7 +157,7 @@ public static partial class Query {
             Op key = Op.Of();
             return Query<Mesh, bool>.Build(key: key, state: key, evaluator: static (op, geometry) => {
                 bool manifold = geometry.IsManifold(topologicalTest: true, isOriented: out bool oriented, hasBoundary: out bool boundary);
-                return Many(key: op, values: new[] { geometry.IsValid, geometry.IsClosed, oriented, geometry.IsSolid, manifold, boundary }).ToEff();
+                return Many(key: op, values: new[] { geometry.IsValid, geometry.IsClosed, oriented, geometry.IsSolid, manifold, !boundary }).ToEff();
             });
         }
     }
@@ -189,7 +189,8 @@ public static partial class Query {
             key: key, state: (Key: key, Selector: index),
             evaluator: static (state, geometry) => geometry.Faces.Count switch {
                 0 => Fin.Fail<Seq<MeshFaceProjection>>(state.Key.InvalidResult()).ToEff(),
-                int count => MeshFaceProjection.Create(mesh: geometry, face: RhinoMath.Clamp(state.Selector ?? 0, 0, count - 1))
+                int count when state.Selector is int selected && (selected < 0 || selected >= count) => Fin.Fail<Seq<MeshFaceProjection>>(state.Key.InvalidInput()).ToEff(),
+                _ => MeshFaceProjection.Create(mesh: geometry, face: state.Selector ?? 0)
                     .Bind(projection => One(key: state.Key, value: projection))
                     .ToEff(),
             });
@@ -233,7 +234,12 @@ public static partial class Query {
         allCase: static (s, _) => Fin.Succ(s.Faces),
         topCase: static (s, top) => RankFaces(state: s, axis: top.Axis, descending: true),
         bottomCase: static (s, bottom) => RankFaces(state: s, axis: bottom.Axis, descending: false),
-        atCase: static (s, at) => s.Faces.Count switch { 0 => Fin.Succ(Seq<FaceProjection>()), int n => Fin.Succ(Seq(s.Faces[RhinoMath.Clamp(at.Value ?? 0, 0, n - 1)])) });
+        atCase: static (s, at) => (s.Faces.Count, at.Value) switch {
+            (0, _) => Fin.Succ(Seq<FaceProjection>()),
+            (int n, int index) when index < 0 || index >= n => Fin.Fail<Seq<FaceProjection>>(s.Key.InvalidInput()),
+            (_, int index) => Fin.Succ(Seq(s.Faces[index])),
+            _ => Fin.Succ(Seq(s.Faces[0])),
+        });
     private static Fin<Seq<FaceProjection>> RankFaces((Op Key, Seq<FaceProjection> Faces, Context Runtime) state, Vector3d axis, bool descending) =>
         (state.Faces.IsEmpty, axis.IsValid && !axis.IsTiny()) switch {
             (true, _) => Fin.Succ(Seq<FaceProjection>()),

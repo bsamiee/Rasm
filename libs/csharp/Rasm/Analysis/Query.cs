@@ -260,7 +260,7 @@ public partial record Faces : IAspect {
     public static Faces At(int? index = null) => new AtCase(Value: index);
     internal static readonly Op Key = Op.Of(name: nameof(Faces));
     public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull =>
-        Query.Supports(typeof(TGeometry)) switch {
+        Dispatch.SupportsFaces(source: typeof(TGeometry)) switch {
             false => Key.Unsupported<TGeometry, TOut>(),
             true => typeof(TOut) switch {
                 Type t when t == typeof(Brep) => Query.FaceQuery<TGeometry, TOut, Brep>(key: Key, selector: this, requirement: Requirement.None, transfer: true, project: static (chosen, _) => Query.Many(key: Key, values: chosen.Map(static face => face.Brep))),
@@ -306,7 +306,7 @@ public partial record Curves : IAspect {
     public static Curves At(int? index = null) => new AtCase(Value: index);
     internal static readonly Op Key = Op.Of(name: nameof(Curves));
     public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull =>
-        Query.Supports(geometry: typeof(TGeometry), native: [typeof(Line), typeof(Polyline), typeof(Circle), typeof(Arc)]) switch {
+        Dispatch.SupportsCurves(source: typeof(TGeometry)) switch {
             false => Key.Unsupported<TGeometry, TOut>(),
             true => typeof(TOut) switch {
                 Type t when t == typeof(Curve) => Query.CurveProject<TGeometry, TOut, Curve>(key: Key, aspect: this, project: static p => p.Curve),
@@ -318,7 +318,9 @@ public partial record Curves : IAspect {
     internal Fin<Seq<CurveProjection>> Select(Seq<CurveProjection> curves) =>
         (this, curves.Count) switch {
             (_, 0) => Fin.Succ(Seq<CurveProjection>()),
-            (AtCase at, int count) => Fin.Succ(Seq(curves[RhinoMath.Clamp(at.Value ?? 0, 0, count - 1)])),
+            (AtCase { Value: int index }, int count) when index < 0 || index >= count => Fin.Fail<Seq<CurveProjection>>(Key.InvalidInput()),
+            (AtCase { Value: int index }, _) => Fin.Succ(Seq(curves[index])),
+            (AtCase, _) => Fin.Succ(Seq(curves[0])),
             _ => Fin.Succ(curves),
         };
     internal CurveSelector ToSelector(Topology topology) => this switch {
@@ -404,7 +406,7 @@ public partial record PointSampling : IAspect {
                          select result,
                 }))
             : EdgeMidpointsKey.Unsupported<TGeometry, TOut>(),
-        vertices: static _ => Query.Supports(geometry: typeof(TGeometry), output: typeof(TOut), target: typeof(Point3d), native: [typeof(Line), typeof(Polyline), typeof(Point3d), typeof(BoundingBox), typeof(Box)])
+        vertices: static _ => typeof(TOut) == typeof(Point3d) && Dispatch.SupportsVertices(source: typeof(TGeometry))
             ? Query.Cast<TGeometry, TOut>(key: VerticesKey, query: Query<TGeometry, Point3d>.Build(
                 key: VerticesKey, requiresContext: true, state: VerticesKey,
                 evaluator: static (op, geometry) =>
@@ -414,7 +416,7 @@ public partial record PointSampling : IAspect {
                     from result in Query.Many(key: op, values: points).ToEff()
                     select result))
             : VerticesKey.Unsupported<TGeometry, TOut>(),
-        controlPoints: static _ => typeof(TOut) == typeof(Point3d) && (typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) || typeof(Surface).IsAssignableFrom(c: typeof(TGeometry)) || typeof(Brep).IsAssignableFrom(c: typeof(TGeometry)) || typeof(TGeometry) == typeof(object))
+        controlPoints: static _ => typeof(TOut) == typeof(Point3d) && Dispatch.SupportsControlPoints(source: typeof(TGeometry))
             ? Query.Cast<TGeometry, TOut>(key: ControlPointsKey, query: Query<TGeometry, Point3d>.Build(
                 key: ControlPointsKey, requiresContext: true, state: ControlPointsKey,
                 evaluator: static (op, geometry) => from context in Env.Asks
@@ -450,7 +452,7 @@ public partial record Boundaries : IAspect {
                                                     from result in Query.SelfIntersectionsValue(op: op, geometry: geometry, runtime: runtime).ToEff()
                                                     select result))
             : SelfIntersectionKey.Unsupported<TGeometry, TOut>(),
-        allCase: static _ => Query.Supports(geometry: typeof(TGeometry), native: [typeof(Line), typeof(Polyline), typeof(Circle), typeof(Arc)]) && typeof(TOut) == typeof(Curve)
+        allCase: static _ => Dispatch.SupportsCurves(source: typeof(TGeometry)) && typeof(TOut) == typeof(Curve)
             ? Query.Curves<TGeometry, TOut>(aspect: Curves.All)
             : Curves.Key.Unsupported<TGeometry, TOut>());
 }

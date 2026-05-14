@@ -47,12 +47,16 @@ internal sealed record PreparedGroup<TSource>(
     public Seq<IPort> Ports => Slots.Map(static slot => slot.Port);
     public Unit Run(IDataAccess access, Hints outputs, GrasshopperRuntime runtime) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        return Source(arg: runtime).Match(
-            Succ: values => values.IsEmpty switch {
+        Seq<(OutputSlot<TSource> Output, int Slot)> active = Slots.Choose(output => outputs.Slot(port: output.Port).Map(slot => (Output: output, Slot: slot)));
+        Fin<Unit> result = active.IsEmpty switch {
+            true => Fin.Succ(Unit.Default),
+            false => Source(arg: runtime).Map(values => values.IsEmpty switch {
                 true => RemarkEmpty(access: access, outputs: outputs),
-                false => Slots.Choose(output => outputs.Slot(port: output.Port).Map(slot => (output, slot)))
-                    .Iter(pair => pair.output.Write(arg1: access, arg2: pair.slot, arg3: runtime, arg4: values)),
-            },
+                false => active.Iter(pair => pair.Output.Write(arg1: access, arg2: pair.Slot, arg3: runtime, arg4: values)),
+            }),
+        };
+        return result.Match(
+            Succ: static value => value,
             Fail: error => {
                 _ = (EmptyUnsupported(arg: runtime), error) switch {
                     (true, Fault.Unsupported u) => RemarkUnsupported(access: access, fault: u),
@@ -101,7 +105,7 @@ public static class Output {
             .Bind(context => sources.Traverse(src => project(arg1: src.Item, arg2: context).Map(src.Project)).As()));
     public static OutputSlot<TSource> Many<TSource, TOut>(Port<TOut> port, Func<TSource, Fin<Seq<TOut>>> project) =>
         Slot<TSource, TOut>(port: port, project: (_, sources) => sources.Traverse(src =>
-            project(arg: src.Item).Map(values => values.Map(src.Project)))
+            project(arg: src.Item).Map(values => values.Map((value, index) => src.Project(item: value, index: index))))
             .Map(static nested => nested.Bind(static x => x)).As());
     public static Unit Write(IDataAccess access, GrasshopperRuntime runtime, Seq<IOutputGroup> groups, Hints outputs) =>
         groups.Iter(group => group.Run(access: access, outputs: outputs, runtime: runtime));
@@ -160,7 +164,7 @@ public static class Output {
         from sourced in runtime.Shape(port: input)
         from context in runtime.Scope.Context
         from values in sourced.Traverse(src => project(arg: src.Item)
-            .Map(values => values.Map(src.Project))
+            .Map(values => values.Map(value => src.Project(item: value)))
             .Run(env: new Env(Context: context, Progress: runtime.Progress, Cancellation: runtime.Cancellation))).As()
         select values.Bind(static value => value);
 }

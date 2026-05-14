@@ -74,104 +74,84 @@ public sealed partial class PortKind {
     private const string Category = "";
     private delegate IParameter Input(ModularInputAdder adder, string name, string code, string info, Access access, Requirement requirement, bool hidden);
     private delegate IParameter Output(ModularOutputAdder adder, string name, string code, string info, Access access, bool hidden);
-    public static readonly PortKind Point = Of<Point3d>(key: nameof(Point),
-        input: static (adder, name, code, info, access, requirement, hidden) => hidden
-            ? adder.AddHiddenPoint(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement)
-            : adder.AddPoint(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
-        output: static (adder, name, code, info, access, hidden) => hidden
-            ? adder.AddHiddenPoint(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)
-            : adder.AddPoint(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access));
-    public static readonly PortKind Vector = Of<Vector3d>(key: nameof(Vector),
-        input: static (adder, name, code, info, access, requirement, hidden) => hidden
-            ? adder.AddHiddenVector(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement)
-            : adder.AddVector(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
-        output: static (adder, name, code, info, access, hidden) => hidden
-            ? adder.AddHiddenVector(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)
-            : adder.AddVector(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access));
-    public static readonly PortKind Curve = Of<Curve>(key: nameof(Curve),
-        input: static (adder, name, code, info, access, requirement, hidden) => hidden
-            ? adder.AddHiddenCurve(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement)
-            : adder.AddCurve(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
-        output: static (adder, name, code, info, access, hidden) => hidden
-            ? adder.AddHiddenCurve(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)
-            : adder.AddCurve(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access));
-    public static readonly PortKind Brep = Of<Brep>(key: nameof(Brep),
-        input: static (adder, name, code, info, access, requirement, hidden) => hidden
-            ? adder.AddHiddenSurface(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement)
-            : adder.AddSurface(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
-        output: static (adder, name, code, info, access, hidden) => hidden
-            ? adder.AddHiddenSurface(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)
-            : adder.AddSurface(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access));
-    public static readonly PortKind Plane = Of<Plane>(key: nameof(Plane),
-        input: static (adder, name, code, info, access, requirement, hidden) => hidden
-            ? adder.AddHiddenPlane(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement)
-            : adder.AddPlane(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
-        output: static (adder, name, code, info, access, hidden) => hidden
-            ? adder.AddHiddenPlane(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)
-            : adder.AddPlane(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access));
-    public static readonly PortKind Integer = Of<int>(key: nameof(Integer),
-        input: static (adder, name, code, info, access, requirement, hidden) => hidden
-            ? adder.AddHiddenInteger(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement)
-            : adder.AddInteger(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
-        output: static (adder, name, code, info, access, hidden) => hidden
-            ? adder.AddHiddenInteger(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)
-            : adder.AddInteger(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access));
-    public static readonly PortKind Interval = Of<Interval>(key: nameof(Interval),
-        input: static (adder, name, code, info, access, requirement, hidden) => hidden
-            ? adder.AddHiddenInterval(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement)
-            : adder.AddInterval(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
-        output: static (adder, name, code, info, access, hidden) => hidden
-            ? adder.AddHiddenInterval(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)
-            : adder.AddInterval(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access));
-    public static readonly PortKind Angle = Of<Angle>(key: nameof(Angle),
-        input: static (adder, name, code, info, access, requirement, hidden) => hidden
-            ? adder.AddHiddenAngle(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement)
-            : adder.AddAngle(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
-        output: static (adder, name, code, info, access, hidden) => hidden
-            ? adder.AddHiddenAngle(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)
-            : adder.AddAngle(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access));
-    public static readonly PortKind Number = Of<double>(key: nameof(Number),
-        input: static (adder, name, code, info, access, requirement, hidden) => hidden
-            ? adder.AddHiddenNumber(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement)
-            : adder.AddNumber(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
-        output: static (adder, name, code, info, access, hidden) => hidden
-            ? adder.AddHiddenNumber(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)
-            : adder.AddNumber(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access));
-    public static readonly PortKind Boolean = Of<bool>(key: nameof(Boolean),
-        input: static (adder, name, code, info, access, requirement, hidden) => hidden
-            ? adder.AddHiddenBoolean(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement)
-            : adder.AddBoolean(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
-        output: static (adder, name, code, info, access, hidden) => hidden
-            ? adder.AddHiddenBoolean(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)
-            : adder.AddBoolean(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access));
-    public static readonly PortKind Text = Of<string>(key: nameof(Text),
-        input: static (adder, name, code, info, access, requirement, hidden) => hidden
-            ? adder.AddHiddenText(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement)
-            : adder.AddText(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
-        output: static (adder, name, code, info, access, hidden) => hidden
-            ? adder.AddHiddenText(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)
-            : adder.AddText(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access));
-    public static readonly PortKind Mesh = Of<Mesh>(key: nameof(Mesh),
-        input: static (adder, name, code, info, access, requirement, hidden) => hidden
-            ? adder.AddHiddenMesh(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement)
-            : adder.AddMesh(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
-        output: static (adder, name, code, info, access, hidden) => hidden
-            ? adder.AddHiddenMesh(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)
-            : adder.AddMesh(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access));
-    public static readonly PortKind Polyline = Of<Polyline>(key: nameof(Polyline),
-        input: static (adder, name, code, info, access, requirement, hidden) => hidden
-            ? adder.AddHiddenPolyline(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement)
-            : adder.AddPolyline(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
-        output: static (adder, name, code, info, access, hidden) => hidden
-            ? adder.AddHiddenPolyline(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)
-            : adder.AddPolyline(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access));
-    public static readonly PortKind Generic = Of<object>(key: nameof(Generic),
-        input: static (adder, name, code, info, access, requirement, hidden) => hidden
-            ? adder.AddHiddenGeneric(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement)
-            : adder.AddGeneric(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
-        output: static (adder, name, code, info, access, hidden) => hidden
-            ? adder.AddHiddenGeneric(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)
-            : adder.AddGeneric(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access));
+    private delegate IParameter VisibleInput(ModularInputAdder adder, string name, string code, string info, Access access, Requirement requirement);
+    private delegate IParameter VisibleOutput(ModularOutputAdder adder, string name, string code, string info, Access access);
+    private readonly record struct Descriptor(VisibleInput Input, VisibleInput HiddenInput, VisibleOutput Output, VisibleOutput HiddenOutput) {
+        internal IParameter AddInput(ModularInputAdder adder, string name, string code, string info, Access access, Requirement requirement, bool hidden) =>
+            (hidden ? HiddenInput : Input)(adder: adder, name: name, code: code, info: info, access: access, requirement: requirement);
+        internal IParameter AddOutput(ModularOutputAdder adder, string name, string code, string info, Access access, bool hidden) =>
+            (hidden ? HiddenOutput : Output)(adder: adder, name: name, code: code, info: info, access: access);
+    }
+    public static readonly PortKind Point = Of<Point3d>(key: nameof(Point), descriptor: new(
+        Input: static (adder, name, code, info, access, requirement) => adder.AddPoint(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
+        HiddenInput: static (adder, name, code, info, access, requirement) => adder.AddHiddenPoint(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
+        Output: static (adder, name, code, info, access) => adder.AddPoint(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access),
+        HiddenOutput: static (adder, name, code, info, access) => adder.AddHiddenPoint(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)));
+    public static readonly PortKind Vector = Of<Vector3d>(key: nameof(Vector), descriptor: new(
+        Input: static (adder, name, code, info, access, requirement) => adder.AddVector(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
+        HiddenInput: static (adder, name, code, info, access, requirement) => adder.AddHiddenVector(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
+        Output: static (adder, name, code, info, access) => adder.AddVector(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access),
+        HiddenOutput: static (adder, name, code, info, access) => adder.AddHiddenVector(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)));
+    public static readonly PortKind Curve = Of<Curve>(key: nameof(Curve), descriptor: new(
+        Input: static (adder, name, code, info, access, requirement) => adder.AddCurve(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
+        HiddenInput: static (adder, name, code, info, access, requirement) => adder.AddHiddenCurve(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
+        Output: static (adder, name, code, info, access) => adder.AddCurve(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access),
+        HiddenOutput: static (adder, name, code, info, access) => adder.AddHiddenCurve(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)));
+    public static readonly PortKind Brep = Of<Brep>(key: nameof(Brep), descriptor: new(
+        Input: static (adder, name, code, info, access, requirement) => adder.AddSurface(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
+        HiddenInput: static (adder, name, code, info, access, requirement) => adder.AddHiddenSurface(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
+        Output: static (adder, name, code, info, access) => adder.AddSurface(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access),
+        HiddenOutput: static (adder, name, code, info, access) => adder.AddHiddenSurface(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)));
+    public static readonly PortKind Plane = Of<Plane>(key: nameof(Plane), descriptor: new(
+        Input: static (adder, name, code, info, access, requirement) => adder.AddPlane(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
+        HiddenInput: static (adder, name, code, info, access, requirement) => adder.AddHiddenPlane(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
+        Output: static (adder, name, code, info, access) => adder.AddPlane(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access),
+        HiddenOutput: static (adder, name, code, info, access) => adder.AddHiddenPlane(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)));
+    public static readonly PortKind Integer = Of<int>(key: nameof(Integer), descriptor: new(
+        Input: static (adder, name, code, info, access, requirement) => adder.AddInteger(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
+        HiddenInput: static (adder, name, code, info, access, requirement) => adder.AddHiddenInteger(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
+        Output: static (adder, name, code, info, access) => adder.AddInteger(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access),
+        HiddenOutput: static (adder, name, code, info, access) => adder.AddHiddenInteger(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)));
+    public static readonly PortKind Interval = Of<Interval>(key: nameof(Interval), descriptor: new(
+        Input: static (adder, name, code, info, access, requirement) => adder.AddInterval(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
+        HiddenInput: static (adder, name, code, info, access, requirement) => adder.AddHiddenInterval(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
+        Output: static (adder, name, code, info, access) => adder.AddInterval(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access),
+        HiddenOutput: static (adder, name, code, info, access) => adder.AddHiddenInterval(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)));
+    public static readonly PortKind Angle = Of<Angle>(key: nameof(Angle), descriptor: new(
+        Input: static (adder, name, code, info, access, requirement) => adder.AddAngle(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
+        HiddenInput: static (adder, name, code, info, access, requirement) => adder.AddHiddenAngle(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
+        Output: static (adder, name, code, info, access) => adder.AddAngle(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access),
+        HiddenOutput: static (adder, name, code, info, access) => adder.AddHiddenAngle(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)));
+    public static readonly PortKind Number = Of<double>(key: nameof(Number), descriptor: new(
+        Input: static (adder, name, code, info, access, requirement) => adder.AddNumber(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
+        HiddenInput: static (adder, name, code, info, access, requirement) => adder.AddHiddenNumber(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
+        Output: static (adder, name, code, info, access) => adder.AddNumber(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access),
+        HiddenOutput: static (adder, name, code, info, access) => adder.AddHiddenNumber(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)));
+    public static readonly PortKind Boolean = Of<bool>(key: nameof(Boolean), descriptor: new(
+        Input: static (adder, name, code, info, access, requirement) => adder.AddBoolean(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
+        HiddenInput: static (adder, name, code, info, access, requirement) => adder.AddHiddenBoolean(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
+        Output: static (adder, name, code, info, access) => adder.AddBoolean(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access),
+        HiddenOutput: static (adder, name, code, info, access) => adder.AddHiddenBoolean(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)));
+    public static readonly PortKind Text = Of<string>(key: nameof(Text), descriptor: new(
+        Input: static (adder, name, code, info, access, requirement) => adder.AddText(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
+        HiddenInput: static (adder, name, code, info, access, requirement) => adder.AddHiddenText(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
+        Output: static (adder, name, code, info, access) => adder.AddText(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access),
+        HiddenOutput: static (adder, name, code, info, access) => adder.AddHiddenText(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)));
+    public static readonly PortKind Mesh = Of<Mesh>(key: nameof(Mesh), descriptor: new(
+        Input: static (adder, name, code, info, access, requirement) => adder.AddMesh(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
+        HiddenInput: static (adder, name, code, info, access, requirement) => adder.AddHiddenMesh(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
+        Output: static (adder, name, code, info, access) => adder.AddMesh(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access),
+        HiddenOutput: static (adder, name, code, info, access) => adder.AddHiddenMesh(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)));
+    public static readonly PortKind Polyline = Of<Polyline>(key: nameof(Polyline), descriptor: new(
+        Input: static (adder, name, code, info, access, requirement) => adder.AddPolyline(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
+        HiddenInput: static (adder, name, code, info, access, requirement) => adder.AddHiddenPolyline(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
+        Output: static (adder, name, code, info, access) => adder.AddPolyline(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access),
+        HiddenOutput: static (adder, name, code, info, access) => adder.AddHiddenPolyline(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)));
+    public static readonly PortKind Generic = Of<object>(key: nameof(Generic), descriptor: new(
+        Input: static (adder, name, code, info, access, requirement) => adder.AddGeneric(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
+        HiddenInput: static (adder, name, code, info, access, requirement) => adder.AddHiddenGeneric(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
+        Output: static (adder, name, code, info, access) => adder.AddGeneric(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access),
+        HiddenOutput: static (adder, name, code, info, access) => adder.AddHiddenGeneric(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)));
     public Type Type { get; }
     [UseDelegateFromConstructor] private partial IParameter AddInput(ModularInputAdder adder, string name, string code, string info, Access access, Requirement requirement, bool hidden);
     [UseDelegateFromConstructor] private partial IParameter AddOutput(ModularOutputAdder adder, string name, string code, string info, Access access, bool hidden);
@@ -214,6 +194,8 @@ public sealed partial class PortKind {
         Func<ModularInputAdder, string, string, string, Access, Requirement, bool, IParameter> input,
         Func<ModularOutputAdder, string, string, string, Access, bool, IParameter> output) =>
         new(key: key, type: typeof(T), addInput: input, addOutput: output);
+    private static PortKind Of<T>(string key, Descriptor descriptor) =>
+        Of<T>(key: key, input: descriptor.AddInput, output: descriptor.AddOutput);
 }
 
 // --- [SERVICES] -------------------------------------------------------------------------

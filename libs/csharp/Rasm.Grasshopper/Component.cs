@@ -65,8 +65,8 @@ public abstract class Component(Type self, ComponentSpec spec) : Grasshopper2.Co
             Port: port,
             Parameter: port.Kind.Bind(adder: outputs, name: port.Name, code: port.Code, info: port.Info, access: port.Access, policy: port.Policy, hidden: pair.Hidden))));
     }
-    protected override void BeforeProcess(Solution solution) {
-        base.BeforeProcess(solution: solution);
+    protected override void PreProcess(Solution solution) {
+        base.PreProcess(solution: solution);
         OnBeforeSolve(solution: solution);
     }
     protected override void PostProcess(Solution solution, FleetingCustomData customData) {
