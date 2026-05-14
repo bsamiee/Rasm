@@ -35,19 +35,17 @@ public static class Bridge {
         _ = access.GetUnitSystem(unitSystem: out UnitSystem units);
         Rhino.UnitSystem system = units.System == Rhino.UnitSystem.Unset ? Rhino.UnitSystem.Millimeters : units.System;
         return (access.GetTolerance(absoluteTolerance: out double absolute, relativeTolerance: out double relative), access.GetTolerance(angularTolerance: out Angle angle), system) switch {
-            (true, true, Rhino.UnitSystem known) => MetersPerUnit(units: units, system: known)
-                .Map(metersPerUnit => Analyze.InScaled(absolute: absolute, relative: relative, angle: angle.Radians, units: known, metersPerUnit: metersPerUnit)),
+            (true, true, Rhino.UnitSystem known) => Fin.Succ(Analyze.In(absolute: absolute, relative: relative, angle: angle.Radians, units: known)),
             _ => Remark(access: access, units: units.System),
         };
     }
-    internal static Fin<Flow<Shape>> ReadShape(this IDataAccess access, int slot, IPort port) {
+    internal static Fin<Seq<Flow<Shape>>> ReadShape(this IDataAccess access, int slot, IPort port) {
         ArgumentNullException.ThrowIfNull(argument: access);
         ArgumentNullException.ThrowIfNull(argument: port);
         return Read<object>(access: access, slot: slot, port: port)
-            .Bind(values => values.Head.ToFin(new Fault.InputRequired(PortName: port.Name, Hint: Shape.Accepted)))
-            .Bind(sourced => NormalizeShape(raw: sourced.Item)
+            .Bind(values => values.TraverseM(sourced => NormalizeShape(raw: sourced.Item)
                 .ToFin(new Fault.UnsupportedSource(PortName: port.Name, SourceType: sourced.Item.GetType(), Hint: Shape.Accepted))
-                .Map(shape => new Flow<Shape>(Pear: Pear<Shape>.Create(item: shape, meta: sourced.Meta), Path: sourced.Path)));
+                .Map(shape => new Flow<Shape>(Pear: Pear<Shape>.Create(item: shape, meta: sourced.Meta), Path: sourced.Path))).As());
     }
     internal static Fin<Seq<Flow<TVal>>> Read<TVal>(this IDataAccess access, int slot, IPort port) {
         ArgumentNullException.ThrowIfNull(argument: access);
@@ -68,19 +66,6 @@ public static class Bridge {
     }
     private static int? TreePrefix(IDataAccess access, int slot) =>
         access.CoverageOut(index: slot) switch { { TwigIndex: >= 0 } coverage => coverage.TwigIndex, _ => null };
-    private static Fin<double> MetersPerUnit(UnitSystem units, Rhino.UnitSystem system) =>
-        (system, units.Factor) switch {
-            (Rhino.UnitSystem.CustomUnits, double factor) when Rhino.RhinoMath.IsValidDouble(x: factor) && factor > Rhino.RhinoMath.ZeroTolerance => Fin.Succ(factor),
-            (_, double factor) when Rhino.RhinoMath.IsValidDouble(x: factor) && factor > Rhino.RhinoMath.ZeroTolerance => Rhino.RhinoMath.MetersPerUnit(units: system) switch {
-                double meters when Rhino.RhinoMath.IsValidDouble(x: meters) && meters > Rhino.RhinoMath.ZeroTolerance => Fin.Succ(meters * factor),
-                _ => Fin.Fail<double>(new Fault.InvalidUnitSystem(Units: system, Requirement: "must resolve to a positive finite meter scale")),
-            },
-            (Rhino.UnitSystem.CustomUnits, _) => Fin.Fail<double>(new Fault.InvalidUnitSystem(Units: system, Requirement: "must resolve to a positive finite meter scale")),
-            _ => Rhino.RhinoMath.MetersPerUnit(units: system) switch {
-                double meters when Rhino.RhinoMath.IsValidDouble(x: meters) && meters > Rhino.RhinoMath.ZeroTolerance => Fin.Succ(meters),
-                _ => Fin.Fail<double>(new Fault.InvalidUnitSystem(Units: system, Requirement: "must resolve to a positive finite meter scale")),
-            },
-        };
     private static Fin<Analyze.Scope> Remark(IDataAccess access, Rhino.UnitSystem units) {
         access.AddRemark(text: "Tolerance", details: "Host did not supply reliable tolerance; using default tolerance with document units.");
         return Fin.Succ(Analyze.In(units: units == Rhino.UnitSystem.Unset ? Rhino.UnitSystem.Millimeters : units));

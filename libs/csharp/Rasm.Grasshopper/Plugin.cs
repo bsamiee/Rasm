@@ -1,8 +1,6 @@
 using System.Reflection;
 using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.UI.Icon;
-using Microsoft.Extensions.DependencyInjection;
-using Scrutor;
 using GhPlugin = Grasshopper2.Framework.Plugin;
 
 namespace Rasm.Grasshopper;
@@ -18,14 +16,8 @@ public abstract class Plugin : GhPlugin {
     }
     public override void OnLoaded() {
         base.OnLoaded();
-        ServiceCollection services = new();
-        _ = services.Scan(scan => scan
-            .FromAssemblies(GetType().Assembly)
-            .AddClasses(action: filter => filter.AssignableTo<Component>().Where(t => !t.IsAbstract && !t.IsGenericTypeDefinition))
-            .UsingRegistrationStrategy(RegistrationStrategy.Throw)
-            .AsSelf()
-            .WithSingletonLifetime());
-        Seq<string> faults = toSeq(services.Select(static descriptor => descriptor.ImplementationType!))
+        Seq<string> faults = toSeq(GetType().Assembly.GetTypes())
+            .Filter(static type => typeof(Component).IsAssignableFrom(c: type) && !type.IsAbstract && !type.IsGenericTypeDefinition)
             .Distinct()
             .Bind(Validate);
         _ = faults.IsEmpty ? Unit.Default : throw new InvalidOperationException(message: string.Join(separator: "; ", values: faults));

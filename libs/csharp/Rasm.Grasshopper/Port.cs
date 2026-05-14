@@ -109,21 +109,6 @@ public sealed partial class PortKind {
         output: static (adder, name, code, info, access, hidden) => hidden
             ? adder.AddHiddenPlane(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)
             : adder.AddPlane(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access));
-    public static readonly PortKind Index = Of<int>(key: nameof(Index),
-        input: static (adder, name, code, info, access, requirement, hidden) => {
-            IntegerParameter parameter = hidden
-                ? adder.AddHiddenInteger(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement)
-                : adder.AddInteger(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement);
-            parameter.IsIndex = true;
-            return parameter;
-        },
-        output: static (adder, name, code, info, access, hidden) => {
-            IntegerParameter parameter = hidden
-                ? adder.AddHiddenInteger(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)
-                : adder.AddInteger(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access);
-            parameter.IsIndex = true;
-            return parameter;
-        });
     public static readonly PortKind Integer = Of<int>(key: nameof(Integer),
         input: static (adder, name, code, info, access, requirement, hidden) => hidden
             ? adder.AddHiddenInteger(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement)
@@ -197,10 +182,11 @@ public sealed partial class PortKind {
                 ? adder.AddHiddenEnum(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, initial: initial, access: access, requirement: requirement)
                 : adder.AddEnum(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, initial: initial, access: access, requirement: requirement),
             output: static (adder, name, code, info, access, hidden) => {
-                IntegerParameter parameter = hidden
-                    ? adder.AddHiddenInteger(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)
-                    : adder.AddInteger(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access);
-                _ = parameter.Presets.AddEnum<T>();
+                IntegerParameter parameter = adder.RegularAdder.AddEnum<T>(name: name, code: code, info: info, access: access);
+                _ = PortPolicy.Compose(
+                    PortPolicy.Category(name: Category),
+                    PortPolicy.Colour(color: Colors.Transparent),
+                    hidden ? PortPolicy.Hidden : PortPolicy.Empty).Apply(parameter: parameter);
                 return parameter;
             });
     public static Option<PortKind> From(Type type) {
@@ -244,7 +230,7 @@ public static class Port {
         string name = "Index",
         string code = "I",
         string info = "Zero-based selector; clamped to [0, count-1].") =>
-        Optional<int>(name: name, code: code, info: info, kind: PortKind.Index, policy: PortPolicy.Index());
+        Optional<int>(name: name, code: code, info: info, kind: PortKind.Integer, policy: PortPolicy.Index());
     public static Port<Vector3d> Direction(
         string name = "Direction",
         string code = "D",
@@ -253,8 +239,9 @@ public static class Port {
     public static Port<Shape> Shape(
         string name = "Geometry",
         string code = "G",
-        string info = "Geometry to analyse.") =>
-        Of<Shape>(name: name, code: code, info: info, kind: null, access: Access.Item, requirement: Requirement.MustExist, policy: null, fallback: Option<Shape>.None);
+        string info = "Geometry to analyse.",
+        Access access = Access.Tree) =>
+        Of<Shape>(name: name, code: code, info: info, kind: null, access: access, requirement: Requirement.MustExist, policy: null, fallback: Option<Shape>.None);
     private static Port<TVal> Of<TVal>(string name, string code, string info, PortKind? kind, Access access, Requirement requirement, PortPolicy? policy, Option<TVal> fallback) =>
         new(Name: name, Code: code, Info: info,
             Kind: kind ?? PortKind.From(type: typeof(TVal)).IfNone(PortKind.Generic),

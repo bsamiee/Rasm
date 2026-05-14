@@ -35,7 +35,7 @@ public sealed class ContextSpec {
             absolute: double.NaN,
             relative: -1.0,
             angle: 0.0,
-            scale: UnitScale.Create(units: UnitSystem.Unset));
+            units: UnitSystem.Unset);
 
         Assert.True(condition: result.ToFin().Match(
             Succ: static _ => false,
@@ -50,7 +50,7 @@ public sealed class ContextSpec {
             absolute: 0.01,
             relative: 0.001,
             angle: angle,
-            scale: CustomUnitScale());
+            units: UnitSystem.Millimeters);
 
         Assert.True(condition: result.ToFin().Match(
             Succ: context => context.Angle.Value == angle,
@@ -58,12 +58,12 @@ public sealed class ContextSpec {
     }
 
     [Fact]
-    public void PreservesCustomUnitSystemFromExplicitScale() {
+    public void PreservesExplicitCustomUnitSystem() {
         Validation<Error, Context> result = Context.Create(
             absolute: 0.01,
             relative: 0.001,
             angle: Math.PI / 180.0,
-            scale: CustomUnitScale());
+            units: UnitSystem.CustomUnits);
 
         Assert.True(condition: result.ToFin().Match(
             Succ: static context => context.Units == UnitSystem.CustomUnits,
@@ -190,15 +190,9 @@ public sealed class ContextSpec {
                 absolute: 0.01,
                 relative: 0.001,
                 angle: Math.PI / 180.0,
-                scale: CustomUnitScale())
+                units: UnitSystem.Millimeters)
             .ToFin()
             .Match(
                 Succ: static context => context,
                 Fail: static error => throw new Xunit.Sdk.XunitException(error.Message));
-
-    private static Fin<UnitScale> CustomUnitScale() =>
-        Rasm.Domain.CustomUnitScale.TryCreate(value: 1.0, obj: out Rasm.Domain.CustomUnitScale customScale) switch {
-            true => UnitScale.FromModelUnits(units: UnitSystem.CustomUnits, customScale: customScale),
-            false => Fin.Fail<UnitScale>(error: new Fault.OutOfRange(Label: nameof(Rasm.Domain.CustomUnitScale), Scalar: 1.0, Requirement: "validation failed")),
-        };
 }

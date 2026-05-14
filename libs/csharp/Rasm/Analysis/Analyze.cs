@@ -19,16 +19,6 @@ public static class Analyze {
             context: Context.FromKnownUnits(
                     absolute: absolute, relative: relative, angle: angle, units: units)
                 .ToFin());
-    public static Scope InScaled(
-        double absolute,
-        double relative,
-        double angle,
-        UnitSystem units,
-        double metersPerUnit) =>
-        new(
-            context: Context.FromKnownScale(
-                    absolute: absolute, relative: relative, angle: angle, units: units, metersPerUnit: metersPerUnit)
-                .ToFin());
     public static Scope In(Context context) => new(context: Optional(context).ToFin(Op.Of(name: nameof(Scope)).MissingContext()));
     public sealed record Scope {
         public Fin<Context> Context { get; }

@@ -28,7 +28,7 @@ public readonly record struct GrasshopperRuntime(IDataAccess Access, Analyze.Sco
             Progress: new Bridge.Progress(access: access),
             Cancellation: access.Solution.Token));
     }
-    internal Fin<Flow<Shape>> Shape(Port<Shape> port) {
+    internal Fin<Seq<Flow<Shape>>> Shape(Port<Shape> port) {
         IDataAccess access = Access;
         return Hints.Slot(port: port)
             .ToFin(new Fault.InputRequired(PortName: port.Name))

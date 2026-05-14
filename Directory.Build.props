@@ -87,8 +87,6 @@
         <MicrosoftNetTestSdkVersion>18.5.1</MicrosoftNetTestSdkVersion>
         <XunitV3Version>3.2.2</XunitV3Version>
         <XunitRunnerVisualStudioVersion>3.1.5</XunitRunnerVisualStudioVersion>
-        <ScrutorVersion>7.0.0</ScrutorVersion>
-        <MicrosoftExtensionsDependencyInjectionVersion>9.0.8</MicrosoftExtensionsDependencyInjectionVersion>
         <RhinoWipAppPath>/Applications/RhinoWIP.app</RhinoWipAppPath>
         <RhinoWipResourcesPath>$(RhinoWipAppPath)/Contents/Frameworks/RhCore.framework/Versions/A/Resources</RhinoWipResourcesPath>
         <RhinoCommonReferencePath>$(RhinoWipResourcesPath)/RhinoCommon.dll</RhinoCommonReferencePath>
@@ -158,10 +156,5 @@
 
     <ItemGroup Label="Boundary Exemption Contracts" Condition="'$(IsLocalCSharpAnalyzerProject)' != 'true' and '$(SkipBoundaryExemptionContracts)' != 'true'">
         <Compile Include="$(BoundaryExemptionContractsPath)" Link="FoundationStandards/BoundaryContracts.cs" />
-    </ItemGroup>
-
-    <ItemGroup Label="Composition Libraries" Condition="'$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">
-        <PackageReference Include="Scrutor" Version="$(ScrutorVersion)" />
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="$(MicrosoftExtensionsDependencyInjectionVersion)" />
     </ItemGroup>
 </Project>

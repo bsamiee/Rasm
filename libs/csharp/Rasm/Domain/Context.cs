@@ -34,76 +34,45 @@ public readonly partial struct AngleTolerance {
         };
 }
 
-[ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
-public readonly partial struct CustomUnitScale {
-    [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
-        validationError = (double.IsFinite(d: value), value > RhinoMath.ZeroTolerance) switch {
-            (true, true) => null,
-            _ => new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"CustomUnitScale must be > {RhinoMath.ZeroTolerance} (got {value}).")),
-        };
-}
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct UnitScale {
-    private UnitScale(UnitSystem units, double metersPerUnit) {
-        Units = units;
-        MetersPerUnit = metersPerUnit;
-    }
-    public UnitSystem Units { get; }
-    internal double MetersPerUnit { get; }
-    public static Fin<UnitScale> Create(UnitSystem units) => units switch {
-        UnitSystem.CustomUnits => Fin.Fail<UnitScale>(error: new Fault.InvalidUnitSystem(Units: units, Requirement: "custom units require meters-per-unit metadata")),
-        UnitSystem.Unset or UnitSystem.None => Fin.Fail<UnitScale>(error: new Fault.InvalidUnitSystem(Units: units, Requirement: "must be a Rhino model unit system")),
-        _ => RhinoMath.MetersPerUnit(units: units) switch {
-            double meters when RhinoMath.IsValidDouble(x: meters) && meters > RhinoMath.ZeroTolerance => Fin.Succ(new UnitScale(units: units, metersPerUnit: meters)),
-            _ => Fin.Fail<UnitScale>(error: new Fault.InvalidUnitSystem(Units: units, Requirement: "must resolve to a positive finite meter scale")),
-        },
-    };
-    internal static Fin<UnitScale> FromScale(UnitSystem units, double metersPerUnit) => units switch {
-        UnitSystem.Unset or UnitSystem.None => Fin.Fail<UnitScale>(error: new Fault.InvalidUnitSystem(Units: units, Requirement: "must be a Rhino model unit system")),
-        _ when RhinoMath.IsValidDouble(x: metersPerUnit) && metersPerUnit > RhinoMath.ZeroTolerance => Fin.Succ(new UnitScale(units: units, metersPerUnit: metersPerUnit)),
-        _ => Fin.Fail<UnitScale>(error: new Fault.InvalidUnitSystem(Units: units, Requirement: "must resolve to a positive finite meter scale")),
-    };
-    internal static Fin<UnitScale> FromModelUnits(UnitSystem units, CustomUnitScale customScale) => units switch {
-        UnitSystem.CustomUnits => Fin.Succ(new UnitScale(units: units, metersPerUnit: customScale.Value)),
-        _ => Create(units: units),
-    };
-}
-
 // --- [SERVICES] ---------------------------------------------------------------------------
 public sealed record Context {
-    private Context(AbsoluteTolerance absolute, RelativeTolerance relative, AngleTolerance angle, UnitScale scale) {
+    private Context(AbsoluteTolerance absolute, RelativeTolerance relative, AngleTolerance angle, UnitSystem units) {
         Absolute = absolute;
         Relative = relative;
         Angle = angle;
-        Scale = scale;
+        Units = units;
     }
     public AbsoluteTolerance Absolute { get; }
     public RelativeTolerance Relative { get; }
     public AngleTolerance Angle { get; }
-    public UnitScale Scale { get; }
-    public UnitSystem Units => Scale.Units;
+    public UnitSystem Units { get; }
     internal double MeshIntersectionTolerance => Absolute.Value * Intersection.MeshIntersectionsTolerancesCoefficient;
     internal Validation<Error, T> Validate<T>(T? geometry, Requirement? requirement = null, CancellationToken cancel = default) where T : GeometryBase =>
         Verify.Apply(context: this, value: geometry, requirement: requirement, cancel: cancel);
     internal Validation<Error, (TA A, TB B)> ValidatePair<TA, TB>(TA a, TB b, Requirement requirementA, Requirement requirementB, CancellationToken cancel = default) where TA : notnull where TB : notnull =>
         Verify.Pair(context: this, a: a, b: b, requirementA: requirementA, requirementB: requirementB, cancel: cancel);
-    internal static Validation<Error, Context> Create(double absolute, double relative, double angle, Fin<UnitScale> scale) =>
+    internal static Validation<Error, Context> Create(double absolute, double relative, double angle, UnitSystem units) =>
         (absolute.TryCreateValidated<AbsoluteTolerance>(),
          relative.TryCreateValidated<RelativeTolerance>(),
          angle.TryCreateValidated<AngleTolerance>(),
-         scale.ToValidation())
-            .Apply(static (a, r, n, s) => new Context(absolute: a, relative: r, angle: n, scale: s))
+         (units switch {
+             UnitSystem.Unset or UnitSystem.None => Fin.Fail<UnitSystem>(error: new Fault.InvalidUnitSystem(Units: units, Requirement: "must be a Rhino model unit system")),
+             _ => Fin.Succ(units),
+         }).ToValidation())
+            .Apply(static (a, r, n, u) => new Context(absolute: a, relative: r, angle: n, units: u))
             .As();
-    public static Validation<Error, Context> CreateDefault(UnitSystem units) =>
-        UnitScale.Create(units: units)
-            .Bind(static unitScale => Create(
-                absolute: RhinoMath.DefaultDistanceToleranceMillimeters * RhinoMath.UnitScale(from: UnitSystem.Millimeters, to: unitScale.Units),
+    public static Validation<Error, Context> CreateDefault(UnitSystem units) => units switch {
+        UnitSystem.CustomUnits => Fin.Fail<Context>(error: new Fault.InvalidUnitSystem(Units: units, Requirement: "must be explicit when custom")).ToValidation(),
+        UnitSystem.Unset or UnitSystem.None => Fin.Fail<Context>(error: new Fault.InvalidUnitSystem(Units: units, Requirement: "must be a Rhino model unit system")).ToValidation(),
+        _ => RhinoMath.UnitScale(from: UnitSystem.Millimeters, to: units) switch {
+            double scale when RhinoMath.IsValidDouble(x: scale) && scale > RhinoMath.ZeroTolerance => Create(
+                absolute: RhinoMath.DefaultDistanceToleranceMillimeters * scale,
                 relative: 0.0,
                 angle: RhinoMath.DefaultAngleTolerance,
-                scale: Fin.Succ(unitScale)).ToFin())
-            .ToValidation();
+                units: units),
+            _ => Fin.Fail<Context>(error: new Fault.InvalidUnitSystem(Units: units, Requirement: "must resolve to a positive finite default scale")).ToValidation(),
+        },
+    };
     [BoundaryAdapter]
     public static Validation<Error, Context> FromDocument(RhinoDoc? doc) =>
         Optional(doc).ToValidation<Error>(Fail: new Fault.MissingDocument())
@@ -111,17 +80,9 @@ public sealed record Context {
                 absolute: candidate.ModelAbsoluteTolerance,
                 relative: candidate.ModelRelativeTolerance,
                 angle: candidate.ModelAngleToleranceRadians,
-                scale: candidate.ModelUnitSystem switch {
-                    UnitSystem.CustomUnits => candidate.GetCustomUnitSystem(modelUnits: true, customUnitName: out string _, metersPerCustomUnit: out double metersPerCustomUnit) switch {
-                        true => metersPerCustomUnit.TryCreateValidated<CustomUnitScale>().ToFin().Bind(static unitScale => UnitScale.FromModelUnits(units: UnitSystem.CustomUnits, customScale: unitScale)),
-                        false => Fin.Fail<UnitScale>(error: new Fault.MissingCustomUnitScale()),
-                    },
-                    _ => UnitScale.Create(units: candidate.ModelUnitSystem),
-                }));
+                units: candidate.ModelUnitSystem));
     internal static Validation<Error, Context> FromKnownUnits(double absolute, double relative, double angle, UnitSystem units) =>
-        Create(absolute: absolute, relative: relative, angle: angle, scale: UnitScale.Create(units: units));
-    internal static Validation<Error, Context> FromKnownScale(double absolute, double relative, double angle, UnitSystem units, double metersPerUnit) =>
-        Create(absolute: absolute, relative: relative, angle: angle, scale: UnitScale.FromScale(units: units, metersPerUnit: metersPerUnit));
+        Create(absolute: absolute, relative: relative, angle: angle, units: units);
 }
 [BoundaryAdapter]
 public sealed record Env(Context Context, IProgress<double>? Progress, CancellationToken Cancellation) {

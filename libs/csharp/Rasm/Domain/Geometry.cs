@@ -69,16 +69,13 @@ public readonly record struct MeshFaceProjection : ITopologyProjection {
         Point3d point when point.IsValid => Fin.Succ(point),
         _ => Fin.Fail<Point3d>(Key.InvalidResult()),
     });
-    public Fin<Mesh> Isolated() => Vertices.Bind(vertices => {
+    public Fin<Mesh> Isolated() => Create(mesh: Mesh, face: Face).Bind(projection => {
         // BOUNDARY ADAPTER — CA2000 requires explicit ownership transfer when wrapping IDisposable in Fin.
-        Mesh? result = new();
+        Mesh? result = Rhino.Geometry.Mesh.CreateFromFilteredFaceList(
+            original: projection.Mesh,
+            inclusion: Enumerable.Range(start: 0, count: projection.Mesh.Faces.Count).Select(index => index == projection.Face));
         try {
-            _ = vertices.Iter(v => result.Vertices.Add(vertex: v));
-            _ = vertices.Count switch {
-                4 => result.Faces.AddFace(vertex1: 0, vertex2: 1, vertex3: 2, vertex4: 3),
-                _ => result.Faces.AddFace(vertex1: 0, vertex2: 1, vertex3: 2),
-            };
-            Fin<Mesh> output = (result.IsValid, result.FaceNormals.ComputeFaceNormals(), result.FaceNormals.UnitizeFaceNormals()) switch {
+            Fin<Mesh> output = (result is { IsValid: true }, result?.FaceNormals.ComputeFaceNormals(), result?.FaceNormals.UnitizeFaceNormals()) switch {
                 (true, true, true) => Fin.Succ(result),
                 _ => Fin.Fail<Mesh>(Key.InvalidResult()),
             };
@@ -90,10 +87,11 @@ public readonly record struct MeshFaceProjection : ITopologyProjection {
     });
 }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct IntersectionHit(Option<Curve> Curve, Option<Point3d> Point, IntersectionKind Kind) {
-    public static IntersectionHit At(Point3d point) => new(Curve: Option<Curve>.None, Point: Some(point), Kind: IntersectionKind.Point);
-    public static IntersectionHit Along(Curve curve, IntersectionKind kind) => new(Curve: Some(curve), Point: Option<Point3d>.None, Kind: kind);
-    public static IntersectionHit Tag(IntersectionKind kind) => new(Curve: Option<Curve>.None, Point: Option<Point3d>.None, Kind: kind);
+public readonly record struct IntersectionHit(Option<Curve> Curve, Option<Point3d> Point, Option<Point3d> PointB, Option<Interval> OverlapA, Option<Interval> OverlapB, IntersectionKind Kind) {
+    public static IntersectionHit At(Point3d point) => new(Curve: Option<Curve>.None, Point: Some(point), PointB: Option<Point3d>.None, OverlapA: Option<Interval>.None, OverlapB: Option<Interval>.None, Kind: IntersectionKind.Point);
+    public static IntersectionHit Along(Curve curve, IntersectionKind kind) => new(Curve: Some(curve), Point: Option<Point3d>.None, PointB: Option<Point3d>.None, OverlapA: Option<Interval>.None, OverlapB: Option<Interval>.None, Kind: kind);
+    public static IntersectionHit Overlap(Point3d start, Point3d end, Interval overlapA, Interval overlapB) => new(Curve: Option<Curve>.None, Point: Some(start), PointB: Some(end), OverlapA: Some(overlapA), OverlapB: Some(overlapB), Kind: IntersectionKind.Overlap);
+    public static IntersectionHit Tag(IntersectionKind kind) => new(Curve: Option<Curve>.None, Point: Option<Point3d>.None, PointB: Option<Point3d>.None, OverlapA: Option<Interval>.None, OverlapB: Option<Interval>.None, Kind: kind);
 }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct ResidualSample(int Index, Point3d Location, double Distance, double Tolerance, bool WithinTolerance);
 
@@ -320,22 +318,31 @@ internal static class Dispatch {
     private static IntersectionResult.Hits EventHits(CurveIntersections? hits) =>
         new(Values: toSeq(Optional(hits).ToSeq().Bind(static h => h)).Map(static hit => hit switch {
             { IsPoint: true } => IntersectionHit.At(point: hit.PointA),
-            { IsOverlap: true } => IntersectionHit.Tag(kind: IntersectionKind.Overlap),
+            { IsOverlap: true } => IntersectionHit.Overlap(start: hit.PointA, end: hit.PointA2, overlapA: hit.OverlapA, overlapB: hit.OverlapB),
             _ => IntersectionHit.Tag(kind: IntersectionKind.Unknown),
         }));
     private static IntersectionResult.Hits Hits(Curve[]? curves, Point3d[]? points, IntersectionKind curveKind) =>
         new(Values:
             toSeq(curves ?? []).Map(curve => IntersectionHit.Along(curve: curve, kind: curveKind))
             + toSeq(points ?? []).Map(static point => IntersectionHit.At(point: point)));
+    private static Fin<IntersectionResult> SolvedHits(bool solved, Curve[]? curves, Point3d[]? points, IntersectionKind curveKind, (Context Ctx, Op Op, CancellationToken Cancel, IProgress<double>? Progress) args) =>
+        (solved, args.Cancel.IsCancellationRequested) switch {
+            (true, _) => Fin.Succ((IntersectionResult)Hits(curves: curves, points: points, curveKind: curveKind)),
+            (false, true) => Fin.Fail<IntersectionResult>(error: new Fault.Cancelled()),
+            _ => Fin.Fail<IntersectionResult>(error: args.Op.InvalidResult()),
+        };
     internal static readonly FrozenDictionary<(Type, Type), Func<object, object, (Context Ctx, Op Op, CancellationToken Cancel, IProgress<double>? Progress), Fin<IntersectionResult>>> IntersectTable = new Dictionary<(Type, Type), Func<object, object, (Context, Op, CancellationToken, IProgress<double>?), Fin<IntersectionResult>>> {
         [(typeof(Line), typeof(Plane))] = static (a, b, _) => Fin.Succ((IntersectionResult)new IntersectionResult.Points(Values: Intersection.LinePlane(line: (Line)a, plane: (Plane)b, lineParameter: out double t) ? Seq(((Line)a).PointAt(t: t)) : Seq<Point3d>())), [(typeof(Plane), typeof(Plane))] = static (a, b, _) => Fin.Succ((IntersectionResult)new IntersectionResult.Lines(Values: Intersection.PlanePlane(planeA: (Plane)a, planeB: (Plane)b, intersectionLine: out Line line) ? Seq(line) : Seq<Line>())),
         [(typeof(Line), typeof(Circle))] = static (a, b, _) => Fin.Succ((IntersectionResult)new IntersectionResult.Points(Values: Intersection.LineCircle(line: (Line)a, circle: (Circle)b, t1: out double _, point1: out Point3d p1, t2: out double _, point2: out Point3d p2) switch { LineCircleIntersection.Single => Seq(p1), LineCircleIntersection.Multiple => Seq(p1, p2), _ => Seq<Point3d>() })), [(typeof(Line), typeof(Sphere))] = static (a, b, _) => Fin.Succ((IntersectionResult)new IntersectionResult.Points(Values: Intersection.LineSphere(line: (Line)a, sphere: (Sphere)b, intersectionPoint1: out Point3d p1, intersectionPoint2: out Point3d p2) switch { LineSphereIntersection.Single => Seq(p1), LineSphereIntersection.Multiple => Seq(p1, p2), _ => Seq<Point3d>() })),
         [(typeof(Line), typeof(BoundingBox))] = static (a, b, args) => Fin.Succ((IntersectionResult)new IntersectionResult.Intervals(Values: Intersection.LineBox(line: (Line)a, box: (BoundingBox)b, tolerance: args.Item1.Absolute.Value, lineParameters: out Interval iv) ? Seq(iv) : Seq<Interval>())), [(typeof(Line), typeof(Box))] = static (a, b, args) => Fin.Succ((IntersectionResult)new IntersectionResult.Intervals(Values: Intersection.LineBox(line: (Line)a, box: (Box)b, tolerance: args.Item1.Absolute.Value, lineParameters: out Interval iv) ? Seq(iv) : Seq<Interval>())),
         [(typeof(Curve), typeof(Curve))] = static (a, b, args) => args.Item3.IsCancellationRequested ? Fin.Fail<IntersectionResult>(error: new Fault.Cancelled()) : new Func<Fin<IntersectionResult>>(() => { using CurveIntersections? hits = Intersection.CurveCurve(curveA: (Curve)a, curveB: (Curve)b, tolerance: args.Item1.Absolute.Value, overlapTolerance: args.Item1.Absolute.Value); return args.Item3.IsCancellationRequested ? Fin.Fail<IntersectionResult>(error: new Fault.Cancelled()) : Fin.Succ((IntersectionResult)EventHits(hits: hits)); })(), [(typeof(Curve), typeof(Plane))] = static (a, b, args) => { using CurveIntersections? hits = Intersection.CurvePlane(curve: (Curve)a, plane: (Plane)b, tolerance: args.Item1.Absolute.Value); return Fin.Succ((IntersectionResult)EventHits(hits: hits)); },
         [(typeof(Curve), typeof(Line))] = static (a, b, args) => { using CurveIntersections? hits = Intersection.CurveLine(curve: (Curve)a, line: (Line)b, tolerance: args.Item1.Absolute.Value, overlapTolerance: args.Item1.Absolute.Value); return Fin.Succ((IntersectionResult)EventHits(hits: hits)); }, [(typeof(Curve), typeof(Surface))] = static (a, b, args) => { using CurveIntersections? hits = Intersection.CurveSurface(curve: (Curve)a, surface: (Surface)b, tolerance: args.Item1.Absolute.Value, overlapTolerance: args.Item1.Absolute.Value); return Fin.Succ((IntersectionResult)EventHits(hits: hits)); },
-        [(typeof(Curve), typeof(Brep))] = static (a, b, args) => { _ = Intersection.CurveBrep(curve: (Curve)a, brep: (Brep)b, tolerance: args.Item1.Absolute.Value, overlapCurves: out Curve[] curves, intersectionPoints: out Point3d[] points); return Fin.Succ((IntersectionResult)Hits(curves: curves, points: points, curveKind: IntersectionKind.Overlap)); }, [(typeof(Curve), typeof(BrepFace))] = static (a, b, args) => { _ = Intersection.CurveBrepFace(curve: (Curve)a, face: (BrepFace)b, tolerance: args.Item1.Absolute.Value, overlapCurves: out Curve[] curves, intersectionPoints: out Point3d[] points); return Fin.Succ((IntersectionResult)Hits(curves: curves, points: points, curveKind: IntersectionKind.Overlap)); },
-        [(typeof(Surface), typeof(Surface))] = static (a, b, args) => { _ = Intersection.SurfaceSurface(surfaceA: (Surface)a, surfaceB: (Surface)b, tolerance: args.Item1.Absolute.Value, intersectionCurves: out Curve[] curves, intersectionPoints: out Point3d[] points); return Fin.Succ((IntersectionResult)Hits(curves: curves, points: points, curveKind: IntersectionKind.Curve)); }, [(typeof(Brep), typeof(Plane))] = static (a, b, args) => { _ = Intersection.BrepPlane(brep: (Brep)a, plane: (Plane)b, tolerance: args.Item1.Absolute.Value, intersectionCurves: out Curve[] curves, intersectionPoints: out Point3d[] points); return Fin.Succ((IntersectionResult)Hits(curves: curves, points: points, curveKind: IntersectionKind.Curve)); },
-        [(typeof(Brep), typeof(Surface))] = static (a, b, args) => { _ = Intersection.BrepSurface(brep: (Brep)a, surface: (Surface)b, tolerance: args.Item1.Absolute.Value, joinCurves: true, intersectionCurves: out Curve[] curves, intersectionPoints: out Point3d[] points); return Fin.Succ((IntersectionResult)Hits(curves: curves, points: points, curveKind: IntersectionKind.Curve)); }, [(typeof(Brep), typeof(Brep))] = static (a, b, args) => { _ = Intersection.BrepBrep(brepA: (Brep)a, brepB: (Brep)b, tolerance: args.Item1.Absolute.Value, joinCurves: true, intersectionCurves: out Curve[] curves, intersectionPoints: out Point3d[] points); return Fin.Succ((IntersectionResult)Hits(curves: curves, points: points, curveKind: IntersectionKind.Curve)); },
+        [(typeof(Curve), typeof(Brep))] = static (a, b, args) => SolvedHits(solved: Intersection.CurveBrep(curve: (Curve)a, brep: (Brep)b, tolerance: args.Item1.Absolute.Value, overlapCurves: out Curve[] curves, intersectionPoints: out Point3d[] points), curves: curves, points: points, curveKind: IntersectionKind.Overlap, args: args),
+        [(typeof(Curve), typeof(BrepFace))] = static (a, b, args) => SolvedHits(solved: Intersection.CurveBrepFace(curve: (Curve)a, face: (BrepFace)b, tolerance: args.Item1.Absolute.Value, overlapCurves: out Curve[] curves, intersectionPoints: out Point3d[] points), curves: curves, points: points, curveKind: IntersectionKind.Overlap, args: args),
+        [(typeof(Surface), typeof(Surface))] = static (a, b, args) => SolvedHits(solved: Intersection.SurfaceSurface(surfaceA: (Surface)a, surfaceB: (Surface)b, tolerance: args.Item1.Absolute.Value, intersectionCurves: out Curve[] curves, intersectionPoints: out Point3d[] points), curves: curves, points: points, curveKind: IntersectionKind.Curve, args: args),
+        [(typeof(Brep), typeof(Plane))] = static (a, b, args) => SolvedHits(solved: Intersection.BrepPlane(brep: (Brep)a, plane: (Plane)b, tolerance: args.Item1.Absolute.Value, intersectionCurves: out Curve[] curves, intersectionPoints: out Point3d[] points), curves: curves, points: points, curveKind: IntersectionKind.Curve, args: args),
+        [(typeof(Brep), typeof(Surface))] = static (a, b, args) => SolvedHits(solved: Intersection.BrepSurface(brep: (Brep)a, surface: (Surface)b, tolerance: args.Item1.Absolute.Value, joinCurves: true, intersectionCurves: out Curve[] curves, intersectionPoints: out Point3d[] points), curves: curves, points: points, curveKind: IntersectionKind.Curve, args: args),
+        [(typeof(Brep), typeof(Brep))] = static (a, b, args) => SolvedHits(solved: Intersection.BrepBrep(brepA: (Brep)a, brepB: (Brep)b, tolerance: args.Item1.Absolute.Value, joinCurves: true, intersectionCurves: out Curve[] curves, intersectionPoints: out Point3d[] points), curves: curves, points: points, curveKind: IntersectionKind.Curve, args: args),
         [(typeof(Mesh), typeof(Line))] = static (a, b, _) => Fin.Succ((IntersectionResult)new IntersectionResult.Points(Values: toSeq(Intersection.MeshLineSorted(mesh: (Mesh)a, line: (Line)b, faceIds: out int[] _) ?? []))),
         [(typeof(Mesh), typeof(Plane))] = static (a, b, args) => { using MeshIntersectionCache cache = new(); Polyline[]? polylines = Intersection.MeshPlane(mesh: (Mesh)a, cache: cache, plane: (Plane)b, tolerance: args.Item1.Absolute.Value * Intersection.MeshIntersectionsTolerancesCoefficient, overlaps: true); return Fin.Succ((IntersectionResult)new IntersectionResult.Polylines(Values: toSeq(Optional(polylines).ToSeq().Bind(static h => h)).Map(static p => (Curve: p, Kind: IntersectionKind.Unknown)))); },
         [(typeof(Mesh), typeof(Mesh))] = static (a, b, args) => { using TextLog textLog = new(); return Intersection.MeshMesh(meshes: [(Mesh)a, (Mesh)b], tolerance: args.Item1.Absolute.Value * Intersection.MeshIntersectionsTolerancesCoefficient, intersections: out Polyline[] ints, overlapsPolylines: true, overlapsPolylinesResult: out Polyline[] olap, overlapsMesh: false, overlapsMeshResult: out Mesh _, textLog: textLog, cancel: args.Item3, progress: args.Item4) switch { true => Fin.Succ((IntersectionResult)new IntersectionResult.Polylines(Values: toSeq(Optional(ints).ToSeq().Bind(static p => p)).Map(static p => (Curve: p, Kind: IntersectionKind.Curve)) + toSeq(Optional(olap).ToSeq().Bind(static p => p)).Map(static p => (Curve: p, Kind: IntersectionKind.Overlap)))), false when args.Item3.IsCancellationRequested => Fin.Fail<IntersectionResult>(error: new Fault.Cancelled()), false => Fin.Fail<IntersectionResult>(error: args.Item2.InvalidResult()) }; },
@@ -349,10 +356,11 @@ internal static class Dispatch {
     // Brep{IsSurface:true} reports the primitive Kind, except Plane which reports Kind.Surface — preserves the Brep-vs-Surface asymmetry.
     internal static readonly Seq<Func<object, Context, Option<Kind>>> KindPredicates = Seq<Func<object, Context, Option<Kind>>>(
         static (v, ctx) => v is Brep b && b.IsBox(tolerance: ctx.Absolute.Value) ? Some(Kind.Box) : Option<Kind>.None,
-        static (v, _) => v is Curve c && c.TryGetPolyline(polyline: out Polyline _) ? Some(Kind.Polyline) : Option<Kind>.None,
+        static (v, ctx) => v is Curve c && c.IsLinear(tolerance: ctx.Absolute.Value) ? Some(Kind.Line) : Option<Kind>.None,
         static (v, ctx) => v is Curve c && c.TryGetCircle(circle: out Circle _, tolerance: ctx.Absolute.Value) ? Some(Kind.Circle) : Option<Kind>.None,
         static (v, ctx) => v is Curve c && c.TryGetArc(arc: out Arc _, tolerance: ctx.Absolute.Value) ? Some(Kind.Arc) : Option<Kind>.None,
         static (v, ctx) => v is Curve c && c.TryGetEllipse(ellipse: out Ellipse _, tolerance: ctx.Absolute.Value) ? Some(Kind.Ellipse) : Option<Kind>.None,
+        static (v, _) => v is Curve c && c.TryGetPolyline(polyline: out Polyline _) ? Some(Kind.Polyline) : Option<Kind>.None,
         static (v, ctx) => v switch {
             Brep { IsSurface: true } b when b.Surfaces[0].TryGetPlane(plane: out Plane _, tolerance: ctx.Absolute.Value) => Some(Kind.Surface),
             Surface s when s.TryGetPlane(plane: out Plane _, tolerance: ctx.Absolute.Value) => Some(Kind.Plane),
@@ -361,8 +369,7 @@ internal static class Dispatch {
         static (v, ctx) => ShapedAs(value: v, ctx: ctx, kind: Kind.Sphere, probe: static (s, t) => s.TryGetSphere(sphere: out Sphere _, tolerance: t)),
         static (v, ctx) => ShapedAs(value: v, ctx: ctx, kind: Kind.Cylinder, probe: static (s, t) => s.TryGetCylinder(cylinder: out Cylinder _, tolerance: t)),
         static (v, ctx) => ShapedAs(value: v, ctx: ctx, kind: Kind.Cone, probe: static (s, t) => s.TryGetCone(cone: out Cone _, tolerance: t)),
-        static (v, ctx) => ShapedAs(value: v, ctx: ctx, kind: Kind.Torus, probe: static (s, t) => s.TryGetTorus(torus: out Torus _, tolerance: t)),
-        static (v, ctx) => v is Curve c && c.IsLinear(tolerance: ctx.Absolute.Value) ? Some(Kind.Line) : Option<Kind>.None);
+        static (v, ctx) => ShapedAs(value: v, ctx: ctx, kind: Kind.Torus, probe: static (s, t) => s.TryGetTorus(torus: out Torus _, tolerance: t)));
     internal static readonly FrozenDictionary<(Type Geometry, MassKind Mass), Func<object, (Context Ctx, bool FirstMoments, bool SecondMoments, bool ProductMoments), Fin<IDisposable>>> MassPropertiesTable = new Dictionary<(Type, MassKind), Func<object, (Context, bool, bool, bool), Fin<IDisposable>>> {
         [(typeof(Curve), MassKind.Length)] = static (g, args) => Optional(LengthMassProperties.Compute(curve: (Curve)g, length: true, firstMoments: args.Item2, secondMoments: args.Item3, productMoments: args.Item4)).ToFin(Fail: new Fault.ComputationFailed(Label: nameof(LengthMassProperties))).Map(static p => (IDisposable)p),
         [(typeof(Curve), MassKind.Area)] = static (g, args) => Optional(AreaMassProperties.Compute(closedPlanarCurve: (Curve)g, planarTolerance: args.Item1.Absolute.Value)).ToFin(Fail: new Fault.ComputationFailed(Label: nameof(AreaMassProperties))).Map(static p => (IDisposable)p),
@@ -460,6 +467,9 @@ internal static class Dispatch {
         [typeof(ComponentIndex)] = static c => (ComponentIndex)c is { ComponentIndexType: not ComponentIndexType.InvalidType } ci && ci.Index >= 0,
         [typeof(IntersectionHit)] = static h => (IntersectionHit)h is { Kind: not IntersectionKind.Unknown } hit
             && hit.Point.Map(static point => point.IsValid).IfNone(true)
+            && hit.PointB.Map(static point => point.IsValid).IfNone(true)
+            && hit.OverlapA.Map(static interval => interval.IsValid).IfNone(true)
+            && hit.OverlapB.Map(static interval => interval.IsValid).IfNone(true)
             && hit.Curve.Map(static curve => curve.IsValid).IfNone(true),
         [typeof(ValueTuple<double, Vector3d>)] = static t => (ValueTuple<double, Vector3d>)t is var tup && RhinoMath.IsValidDouble(x: tup.Item1) && tup.Item2.IsValid,
         [typeof(Point2d)] = static p => ((Point2d)p).IsValid, [typeof(Point3d)] = static p => ((Point3d)p).IsValid, [typeof(Vector3d)] = static v => ((Vector3d)v).IsValid, [typeof(Plane)] = static p => ((Plane)p).IsValid,

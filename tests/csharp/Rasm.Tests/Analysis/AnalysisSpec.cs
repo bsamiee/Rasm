@@ -967,16 +967,11 @@ public sealed class AnalysisSpec {
                 absolute: 0.01,
                 relative: 0.001,
                 angle: Math.PI / 180.0,
-                scale: CustomUnitScale())
+                units: UnitSystem.Millimeters)
             .ToFin()
             .Match(
                 Succ: static context => context,
                 Fail: static error => throw new Xunit.Sdk.XunitException(error.Message));
-    private static Fin<UnitScale> CustomUnitScale() =>
-        Rasm.Domain.CustomUnitScale.TryCreate(value: 1.0, obj: out Rasm.Domain.CustomUnitScale customScale) switch {
-            true => UnitScale.FromModelUnits(units: UnitSystem.CustomUnits, customScale: customScale),
-            false => Fin.Fail<UnitScale>(error: new Fault.OutOfRange(Label: nameof(Rasm.Domain.CustomUnitScale), Scalar: 1.0, Requirement: "validation failed")),
-        };
     private static TOut[] Run<TGeometry, TOut>(
         Query<TGeometry, TOut> query,
         params ReadOnlySpan<TGeometry> input) where TGeometry : notnull =>

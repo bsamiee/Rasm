@@ -30,7 +30,7 @@ public sealed class ExtractMesh : Component {
         emptyUnsupported: true,
         aspectLabel: nameof(Meshes),
         slots: [
-            Output.Plain<MeshFaceSample, int>(port: Port.List<int>(name: "Face Index", code: "FI", info: "Face index for each metric sample.", kind: PortKind.Index), project: static value => value.Face),
+            Output.Plain<MeshFaceSample, int>(port: Port.List<int>(name: "Face Index", code: "FI", info: "Face index for each metric sample.", kind: PortKind.Integer, policy: PortPolicy.Index()), project: static value => value.Face),
             Output.Plain<MeshFaceSample, double>(port: Port.List<double>(name: "Face Quality", code: "Q", info: "Metric value for each face."), project: static value => value.Value),
         ]);
     private static readonly IOutputGroup IndexedFace = Output.Details<MeshFaceProjection>(
@@ -43,7 +43,7 @@ public sealed class ExtractMesh : Component {
             Output.Many<MeshFaceProjection, Point3d>(port: Port.List<Point3d>(name: "Face Vertices", code: "FV", info: "Vertex positions of the selected face."), project: static value => value.Vertices),
             Output.One<MeshFaceProjection, Point3d>(port: Port.List<Point3d>(name: "Face Center", code: "FC", info: "Centroid of the selected face."), project: static (value, _) => value.Center),
             Output.One<MeshFaceProjection, Vector3d>(port: Port.List<Vector3d>(name: "Face Normal", code: "FN", info: "Unit normal of the selected face."), project: static (value, _) => value.Normal),
-            Output.Plain<MeshFaceProjection, int>(port: Port.List<int>(name: "Source Face", code: "S", info: "Source mesh face index.", kind: PortKind.Index), project: static value => value.Source.Index),
+            Output.Plain<MeshFaceProjection, int>(port: Port.List<int>(name: "Source Face", code: "S", info: "Source mesh face index.", kind: PortKind.Integer, policy: PortPolicy.Index()), project: static value => value.Source.Index),
         ]);
     private static readonly ComponentSpec Definition = new(
         Inputs: Seq(new PortSpec(Port: Geometry), new PortSpec(Port: FaceIndex), new PortSpec(Port: Metric)),
