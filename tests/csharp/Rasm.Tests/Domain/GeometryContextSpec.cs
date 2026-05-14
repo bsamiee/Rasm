@@ -147,6 +147,7 @@ public sealed class ContextSpec {
             .Match(
                 Succ: static _ => false,
                 Fail: static error => error.Count == 2));
+        Assert.True(condition: key.Many<Point3d>(values: null!).IsFail);
     }
 
     [Fact]
@@ -169,6 +170,19 @@ public sealed class ContextSpec {
                 Fail: static error => throw new Xunit.Sdk.XunitException(error.Message));
 
         Assert.Equal(expected: [IntersectionKind.Curve, IntersectionKind.Overlap], actual: kinds);
+    }
+
+    [Fact]
+    public void ProjectsSnapshotIntersectionHits() {
+        Op key = Op.Create(value: "test");
+
+        IntersectionKind[] kinds = new IntersectionResult.Hits(Values: Seq(IntersectionHit.At(point: Point3d.Origin)))
+            .Project<IntersectionKind>(key: key)
+            .Match(
+                Succ: static output => output.ToArray(),
+                Fail: static error => throw new Xunit.Sdk.XunitException(error.Message));
+
+        Assert.Equal(expected: [IntersectionKind.Point], actual: kinds);
     }
 
     private static Context ValidContext() =>

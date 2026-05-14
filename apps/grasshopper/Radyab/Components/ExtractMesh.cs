@@ -24,18 +24,26 @@ public sealed class ExtractMesh : Component {
             Output.Plain<(double Moment, Vector3d Axis), double>(port: Port.List<double>(name: "Principal Moments", code: "PM", info: "Three volume-mass principal moments of inertia (X, Y, Z). Empty when the mesh is not solid."), project: static value => value.Moment),
             Output.Plain<(double Moment, Vector3d Axis), Vector3d>(port: Port.List<Vector3d>(name: "Principal Axes", code: "PA", info: "Three world-coordinate principal axes aligned with the moments; surfaces intrinsic geometric orientation."), project: static value => value.Axis),
         ]);
-    private static readonly IOutputGroup Quality = Output.Query(input: Geometry, port: Port.List<MeshFaceSample>(name: "Face Quality", code: "Q", info: "Per-face metric samples selected by Quality Metric; each sample carries the face index and metric value."), aspect: runtime => Rasm.Analysis.Query.Meshes<object, MeshFaceSample>(aspect: Meshes.FaceQuality(metric: runtime.Read(port: Metric).ToNullable())));
+    private static readonly IOutputGroup Quality = Output.Details<MeshFaceSample>(
+        input: Geometry,
+        aspect: runtime => shape => Rasm.Analysis.Query.Meshes<object, MeshFaceSample>(aspect: Meshes.FaceQuality(metric: runtime.ReadOrInvalid(port: Metric, invalid: MeshFaceMetric.None).ToNullable())).Apply(geometry: shape.Inner),
+        emptyUnsupported: true,
+        aspectLabel: nameof(Meshes),
+        slots: [
+            Output.Plain<MeshFaceSample, int>(port: Port.List<int>(name: "Face Index", code: "FI", info: "Face index for each metric sample.", kind: PortKind.Index), project: static value => value.Face),
+            Output.Plain<MeshFaceSample, double>(port: Port.List<double>(name: "Face Quality", code: "Q", info: "Metric value for each face."), project: static value => value.Value),
+        ]);
     private static readonly IOutputGroup IndexedFace = Output.Details<MeshFaceProjection>(
         input: Geometry,
-        aspect: runtime => shape => Rasm.Analysis.Query.Meshes<object, MeshFaceProjection>(aspect: Meshes.AtFace(index: shape.Inner is Mesh mesh ? runtime.Index(port: FaceIndex, limit: mesh.Faces.Count).ToNullable() : runtime.Read(port: FaceIndex).ToNullable())).Apply(geometry: shape.Inner),
+        aspect: runtime => shape => Rasm.Analysis.Query.Meshes<object, MeshFaceProjection>(aspect: Meshes.AtFace(index: shape.Inner is Mesh mesh ? runtime.Index(port: FaceIndex, limit: mesh.Faces.Count).ToNullable() : runtime.ReadOrInvalid(port: FaceIndex, invalid: int.MinValue).ToNullable())).Apply(geometry: shape.Inner),
         emptyUnsupported: false,
         aspectLabel: nameof(Meshes),
         slots: [
             Output.One<MeshFaceProjection, Mesh>(port: Port.List<Mesh>(name: "Indexed Face", code: "IF", info: "Mesh containing only the selected face."), project: static (value, _) => value.Isolated()),
-            Output.Many<MeshFaceProjection, Point3d>(port: Port.List<Point3d>(name: "Face Vertices", code: "FV", info: "Vertex positions of the selected face."), project: static value => Fin.Succ(value.Vertices)),
-            Output.Plain<MeshFaceProjection, Point3d>(port: Port.List<Point3d>(name: "Face Center", code: "FC", info: "Centroid of the selected face."), project: static value => value.Center),
+            Output.Many<MeshFaceProjection, Point3d>(port: Port.List<Point3d>(name: "Face Vertices", code: "FV", info: "Vertex positions of the selected face."), project: static value => value.Vertices),
+            Output.One<MeshFaceProjection, Point3d>(port: Port.List<Point3d>(name: "Face Center", code: "FC", info: "Centroid of the selected face."), project: static (value, _) => value.Center),
             Output.One<MeshFaceProjection, Vector3d>(port: Port.List<Vector3d>(name: "Face Normal", code: "FN", info: "Unit normal of the selected face."), project: static (value, _) => value.Normal),
-            Output.Plain<MeshFaceProjection, ComponentIndex>(port: Port.List<ComponentIndex>(name: "Source", code: "S", info: "Component index identifying the selected face."), project: static value => value.Source),
+            Output.Plain<MeshFaceProjection, int>(port: Port.List<int>(name: "Source Face", code: "S", info: "Source mesh face index.", kind: PortKind.Index), project: static value => value.Source.Index),
         ]);
     private static readonly ComponentSpec Definition = new(
         Inputs: Seq(new PortSpec(Port: Geometry), new PortSpec(Port: FaceIndex), new PortSpec(Port: Metric)),

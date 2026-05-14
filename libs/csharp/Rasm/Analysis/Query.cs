@@ -59,45 +59,39 @@ public sealed record Query<TGeometry, TOut>(
 public enum CurvatureScalar { None = 0, Magnitude = 1, Gaussian = 2, Mean = 3 }
 public enum MeshFaceMetric { None = 0, AspectRatio = 1, Area = 2, Perimeter = 3, Skewness = 4, DihedralAngle = 5 }
 public static class MeshFaceMetrics {
-    public static Option<double> Sample(this MeshFaceMetric metric, Mesh mesh, int face) {
+    public static Fin<double> Sample(this MeshFaceMetric metric, Mesh mesh, int face) {
         ArgumentNullException.ThrowIfNull(argument: mesh);
-        MeshFaceProjection projection = new(Mesh: mesh, Face: face);
-        return metric switch {
-            MeshFaceMetric.AspectRatio => Some(mesh.Faces.GetFaceAspectRatio(index: face)),
-            MeshFaceMetric.Area => Some(FaceArea(projection: projection)),
-            MeshFaceMetric.Perimeter => Some(FacePerimeter(projection: projection)),
-            MeshFaceMetric.Skewness => Some(FaceSkewness(projection: projection)),
-            MeshFaceMetric.DihedralAngle => Some(FaceMaxDihedral(projection: projection)),
-            _ => Option<double>.None,
-        };
+        return MeshFaceProjection.Create(mesh: mesh, face: face).Bind(projection => metric switch {
+            MeshFaceMetric.AspectRatio => Fin.Succ(mesh.Faces.GetFaceAspectRatio(index: face)),
+            MeshFaceMetric.Area => FaceArea(projection: projection),
+            MeshFaceMetric.Perimeter => FacePerimeter(projection: projection),
+            MeshFaceMetric.Skewness => FaceSkewness(projection: projection),
+            MeshFaceMetric.DihedralAngle => FaceMaxDihedral(projection: projection),
+            _ => Fin.Fail<double>(Op.Of(name: nameof(MeshFaceMetric)).InvalidInput()),
+        });
     }
-    private static double FaceArea(MeshFaceProjection projection) =>
-        projection.Vertices switch {
+    private static Fin<double> FaceArea(MeshFaceProjection projection) =>
+        projection.Vertices.Map(vertices => vertices switch {
             Seq<Point3d> v when v.Count == 4 => 0.5 * (Vector3d.CrossProduct(a: v[1] - v[0], b: v[2] - v[0]).Length + Vector3d.CrossProduct(a: v[2] - v[0], b: v[3] - v[0]).Length),
             Seq<Point3d> v => 0.5 * Vector3d.CrossProduct(a: v[1] - v[0], b: v[2] - v[0]).Length,
-        };
-    private static double FacePerimeter(MeshFaceProjection projection) =>
-        projection.Vertices switch {
-            Seq<Point3d> v => v.Map((p, i) => p.DistanceTo(other: v[(i + 1) % v.Count])).Fold(initialState: 0.0, f: static (acc, d) => acc + d),
-        };
-    private static double FaceSkewness(MeshFaceProjection projection) {
-        Seq<Point3d> v = projection.Vertices;
-        double ideal = v.Count == 4 ? Math.PI / 2.0 : Math.PI / 3.0;
-        return v.Map((vertex, i) => Vector3d.VectorAngle(a: v[(i + v.Count - 1) % v.Count] - vertex, b: v[(i + 1) % v.Count] - vertex))
-            .Fold(initialState: 0.0, f: (acc, angle) => Math.Max(val1: acc, val2: Math.Max(val1: (angle - ideal) / (Math.PI - ideal), val2: (ideal - angle) / ideal)));
-    }
-    private static double FaceMaxDihedral(MeshFaceProjection projection) {
-        return projection.Normal.Match(
-            Succ: normal => normal.IsValid switch {
-                false => 0.0,
-                true => toSeq(projection.Mesh.TopologyEdges.GetEdgesForFace(faceIndex: projection.Face))
-                    .Bind(edge => toSeq(projection.Mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: edge)).Filter(other => other != projection.Face))
-                    .Fold(initialState: 0.0, f: (max, other) => new MeshFaceProjection(Mesh: projection.Mesh, Face: other).Normal.Match(
+        });
+    private static Fin<double> FacePerimeter(MeshFaceProjection projection) =>
+        projection.Vertices.Map(static v => v.Map((p, i) => p.DistanceTo(other: v[(i + 1) % v.Count])).Fold(initialState: 0.0, f: static (acc, d) => acc + d));
+    private static Fin<double> FaceSkewness(MeshFaceProjection projection) =>
+        projection.Vertices.Map(static v => (Ideal: v.Count == 4 ? Math.PI / 2.0 : Math.PI / 3.0, Vertices: v))
+            .Map(static state => state.Vertices.Map((vertex, i) => Vector3d.VectorAngle(a: state.Vertices[(i + state.Vertices.Count - 1) % state.Vertices.Count] - vertex, b: state.Vertices[(i + 1) % state.Vertices.Count] - vertex))
+                .Fold(initialState: 0.0, f: (acc, angle) => Math.Max(val1: acc, val2: Math.Max(val1: (angle - state.Ideal) / (Math.PI - state.Ideal), val2: (state.Ideal - angle) / state.Ideal))));
+    private static Fin<double> FaceMaxDihedral(MeshFaceProjection projection) =>
+        projection.Normal.Map(normal => normal.IsValid switch {
+            false => 0.0,
+            true => toSeq(projection.Mesh.TopologyEdges.GetEdgesForFace(faceIndex: projection.Face))
+                .Bind(edge => toSeq(projection.Mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: edge)).Filter(other => other != projection.Face))
+                .Fold(initialState: 0.0, f: (max, other) => MeshFaceProjection.Create(mesh: projection.Mesh, face: other)
+                    .Bind(static otherProjection => otherProjection.Normal)
+                    .Match(
                         Succ: neighbour => neighbour.IsValid ? Math.Max(val1: max, val2: Vector3d.VectorAngle(a: normal, b: neighbour)) : max,
                         Fail: _ => max)),
-            },
-            Fail: _ => 0.0);
-    }
+        });
 }
 [StructLayout(LayoutKind.Auto)] public readonly record struct CurvatureProfile(CurvatureScalar Scalar, int Count, double Minimum, double Maximum, double Mean, double Variance);
 [StructLayout(LayoutKind.Auto)] public readonly record struct ResidualProfile(int Count, double Minimum, double Maximum, double Mean, double Variance, double Rms, double Tolerance, bool WithinTolerance);
@@ -509,14 +503,17 @@ public static partial class Query {
                 _ => Fin.Fail<Seq<TValue>>(state.Key.Unsupported(geometryType: geometry.GetType(), outputType: typeof(TValue))).ToEff(),
             }));
     internal static Fin<Seq<TValue>> One<TValue>(this Op key, TValue value) => key.RequireValid(value: value).Map(static candidate => Seq(candidate));
-    internal static Fin<Seq<TValue>> Many<TValue>(this Op key, IEnumerable<TValue>? values) => Optional(values).ToSeq().Bind(static value => value.AsIterable().ToSeq()).Traverse(value => key.RequireValid(value: value)).As();
+    internal static Fin<Seq<TValue>> Many<TValue>(this Op key, IEnumerable<TValue> values) =>
+        Optional(values).ToFin(key.InvalidResult()).Bind(candidates => candidates.AsIterable().ToSeq().Traverse(value => key.RequireValid(value: value)).As());
+    internal static Fin<Seq<TValue>> ManyOrEmpty<TValue>(this Op key, IEnumerable<TValue>? values) =>
+        Optional(values).Match(Some: candidates => key.Many(values: candidates), None: () => Fin.Succ(Seq<TValue>()));
     internal static Fin<Seq<TValue>> Solved<TValue>(this Op key, bool isSolved, TValue value) =>
         isSolved switch { true => key.One(value: value), false => Fin.Fail<Seq<TValue>>(key.InvalidResult()) };
     internal static Fin<TOut> Bracket<TResource, TOut>(Func<TResource> factory, Func<TResource, Fin<TOut>> body) where TResource : class, IDisposable {
         using TResource resource = factory();
         return body(arg: resource);
     }
-    internal static Fin<Seq<TOut>> Results<TValue, TOut>(this Op key, IEnumerable<TValue>? values) => typeof(TValue).Equals(typeof(TOut)) switch {
+    internal static Fin<Seq<TOut>> Results<TValue, TOut>(this Op key, IEnumerable<TValue> values) => typeof(TValue).Equals(typeof(TOut)) switch {
         true => Many(key: key, values: values).Map(static candidates => candidates.Map(static candidate => (TOut)(object)candidate!)),
         false => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
     };

@@ -143,9 +143,9 @@ public static partial class Query {
             true => key.Solved(isSolved: curve.PerpendicularFrameAt(t: t, plane: out Plane perpendicularFrame), value: perpendicularFrame),
             false => key.Solved(isSolved: curve.FrameAt(t: t, plane: out Plane frame), value: frame),
         });
-    internal static Query<TGeometry, TOut> CurveAt<TGeometry, TOut>(Op key, double parameter, Func<Curve, double, Fin<Seq<TOut>>> project) where TGeometry : notnull =>
+    internal static Query<TGeometry, TOut> CurveAt<TGeometry, TOut>(Op key, double parameter, Func<Curve, double, Fin<Seq<TOut>>> project, Requirement? requirement = null) where TGeometry : notnull =>
         Native<TGeometry, TOut, Curve, TOut, (Op Key, double Parameter, Func<Curve, double, Fin<Seq<TOut>>> Project)>(
-            key: key, state: (Key: key, Parameter: parameter, Project: project),
+            key: key, requirement: requirement ?? Requirement.Basic, state: (Key: key, Parameter: parameter, Project: project),
             project: static (state, curve) => (curve.Domain.IncludesParameter(t: state.Parameter) switch {
                 true => state.Project(arg1: curve, arg2: state.Parameter),
                 false => Fin.Fail<Seq<TOut>>(state.Key.InvalidInput()),

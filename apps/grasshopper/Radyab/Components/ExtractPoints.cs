@@ -15,7 +15,17 @@ public sealed class ExtractPoints : Component {
     private static readonly IOutputGroup ControlPointsOut = Output.Query(input: Geometry, port: Port.List<Point3d>(name: "Control Points", code: "CP", info: "NURBS control polygon points for curves and surfaces, converting through RhinoCommon when required."), aspect: new PointSampling.ControlPoints());
     private static readonly IOutputGroup BoundingCorners = Output.Query(input: Geometry, port: Port.List<Point3d>(name: "Bounding Corners", code: "B", info: "Unique axis-aligned bounding-box corners: 8 for full 3D, 4 for planar, 2 for linear, 1 for point."), aspect: new Bounds.Corners(Unique: true));
     private static readonly IOutputGroup QuadrantsOut = Output.Query(input: Geometry, port: Port.List<Point3d>(name: "Quadrants", code: "Q", info: "World-cardinal extrema (top/bottom/left/right + Z) of a curve. Curve-only output."), aspect: new PointSampling.Quadrants());
-    private static readonly IOutputGroup KindOut = Output.Query(input: Geometry, port: Port.List<Rasm.Domain.Kind>(name: "Kind", code: "K", info: "Detected geometry kind, including primitive Brep and Surface families when Rhino can classify them."), aspect: static _ => Rasm.Analysis.Query.Kind<object, Rasm.Domain.Kind>());
+    private static readonly IOutputGroup KindOut = Output.Details<Rasm.Domain.Kind>(
+        input: Geometry,
+        aspect: static _ => shape => Rasm.Analysis.Query.Kind<object, Rasm.Domain.Kind>().Apply(geometry: shape.Inner),
+        emptyUnsupported: true,
+        aspectLabel: nameof(Rasm.Domain.Kind),
+        slots: [
+            Output.Plain<Rasm.Domain.Kind, string>(port: Port.List<string>(name: "Kind Label", code: "KL", info: "Detected geometry kind label."), project: static value => value.ToString(null, System.Globalization.CultureInfo.InvariantCulture)),
+            Output.Plain<Rasm.Domain.Kind, int>(port: Port.List<int>(name: "Kind Key", code: "KK", info: "Detected geometry kind key."), project: static value => value.Key),
+            Output.Plain<Rasm.Domain.Kind, Topology>(port: Port.List<Topology>(name: "Topology", code: "T", info: "Detected topology family.", kind: PortKind.Enum(initial: Topology.Unknown)), project: static value => value.Topology),
+            Output.Plain<Rasm.Domain.Kind, Primitive>(port: Port.List<Primitive>(name: "Primitive", code: "P", info: "Detected primitive family.", kind: PortKind.Enum(initial: Primitive.None)), project: static value => value.Primitive),
+        ]);
     private static readonly ComponentSpec Definition = new(
         Inputs: Seq(new PortSpec(Port: Geometry)),
         Outputs: Seq(new OutputSpec(Group: EdgeMidpointsOut), new OutputSpec(Group: SpatialCenter), new OutputSpec(Group: BoundsCenter), new OutputSpec(Group: VerticesOut), new OutputSpec(Group: ControlPointsOut), new OutputSpec(Group: BoundingCorners), new OutputSpec(Group: QuadrantsOut), new OutputSpec(Group: KindOut)));

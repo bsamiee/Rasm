@@ -146,9 +146,9 @@ public static partial class Query {
                 key: key, state: (Key: key, Metric: metric), requirement: Requirement.MeshCheck,
                 evaluator: static (state, geometry) => toSeq(Enumerable.Range(start: 0, count: geometry.Faces.Count))
                     .TraverseM(face => state.Metric.Sample(mesh: geometry, face: face)
-                        .Filter(v => RhinoMath.IsValidDouble(x: v) && v >= 0.0)
-                        .ToFin(state.Key.InvalidResult())
-                        .Map(v => new MeshFaceSample(Face: face, Value: v))).As().ToEff()),
+                        .Bind(v => RhinoMath.IsValidDouble(x: v) && v >= 0.0
+                            ? Fin.Succ(new MeshFaceSample(Face: face, Value: v))
+                            : Fin.Fail<MeshFaceSample>(state.Key.InvalidResult()))).As().ToEff()),
         };
     }
     public static Query<Mesh, bool> MeshValidityBundle {
@@ -188,7 +188,9 @@ public static partial class Query {
             key: key, state: (Key: key, Selector: index),
             evaluator: static (state, geometry) => geometry.Faces.Count switch {
                 0 => Fin.Fail<Seq<MeshFaceProjection>>(state.Key.InvalidResult()).ToEff(),
-                int count => One(key: state.Key, value: new MeshFaceProjection(Mesh: geometry, Face: RhinoMath.Clamp(state.Selector ?? 0, 0, count - 1))).ToEff(),
+                int count => MeshFaceProjection.Create(mesh: geometry, face: RhinoMath.Clamp(state.Selector ?? 0, 0, count - 1))
+                    .Bind(projection => One(key: state.Key, value: projection))
+                    .ToEff(),
             });
     }
     public static Query<TGeometry, TOut> Meshes<TGeometry, TOut>(Meshes aspect) where TGeometry : notnull =>
@@ -208,7 +210,7 @@ public static partial class Query {
             textLog: textLog,
             cancel: runtime.Cancellation,
             progress: runtime.Progress) switch {
-                true => (Many(key: op, values: perforations), Many(key: op, values: overlaps))
+                true => (ManyOrEmpty(key: op, values: perforations), ManyOrEmpty(key: op, values: overlaps))
                     .Apply((left, right) => left + right)
                     .As(),
                 false when runtime.Cancellation.IsCancellationRequested => Fin.Fail<Seq<Polyline>>(new Fault.Cancelled()),

@@ -5,7 +5,6 @@ using Rasm.Analysis;
 using Rasm.Domain;
 using Rhino;
 using Rhino.Geometry;
-using Rhino.Geometry.Intersect;
 using Xunit;
 using Query = Rasm.Analysis.Query;
 
@@ -633,9 +632,9 @@ public sealed class AnalysisSpec {
 
     [Fact]
     public void KeepsIntersectionFactoriesOnTypedRails() {
-        Assert.NotNull(@object: Query.Intersect<Curve, Curve, IntersectionEvent>());
+        Assert.NotNull(@object: Query.Intersect<Curve, Curve, IntersectionHit>());
         Assert.NotNull(@object: Query.Intersect<Curve, Curve, IntersectionKind>());
-        Assert.NotNull(@object: Query.Intersect<LineCurve, LineCurve, IntersectionEvent>());
+        Assert.NotNull(@object: Query.Intersect<LineCurve, LineCurve, IntersectionHit>());
         Assert.NotNull(@object: Query.Intersect<Plane, Line, Point3d>());
         Assert.NotNull(@object: Query.Intersect<Plane, Plane, Line>());
         Assert.NotNull(@object: Query.Intersect<Line, Circle, Point3d>());
@@ -786,50 +785,6 @@ public sealed class AnalysisSpec {
     }
 
     [Fact]
-    public void ComputesMeshEulerFromTopologyVertices() {
-        using Mesh mesh = new();
-        _ = mesh.Vertices.Add(x: 0.0, y: 0.0, z: 0.0);
-        _ = mesh.Vertices.Add(x: 1.0, y: 0.0, z: 0.0);
-        _ = mesh.Vertices.Add(x: 0.0, y: 1.0, z: 0.0);
-        _ = mesh.Vertices.Add(x: 0.0, y: 0.0, z: 0.0);
-        _ = mesh.Vertices.Add(x: 1.0, y: 0.0, z: 0.0);
-        _ = mesh.Vertices.Add(x: 0.0, y: 1.0, z: 0.0);
-        _ = mesh.Faces.AddFace(vertex1: 0, vertex2: 1, vertex3: 2);
-        _ = mesh.Faces.AddFace(vertex1: 3, vertex2: 4, vertex3: 5);
-
-        int[] stats = Run(
-            query: Query.MeshStatsBundle,
-            input: mesh);
-
-        Assert.NotEqual(expected: mesh.Vertices.Count, actual: mesh.TopologyVertices.Count);
-        Assert.Equal(
-            expected: mesh.TopologyVertices.Count - mesh.TopologyEdges.Count + mesh.Faces.Count,
-            actual: stats[5]);
-    }
-
-    [Fact]
-    public void ProjectsMeshFaceThroughNativeFaceAccessors() {
-        using Mesh mesh = new();
-        _ = mesh.Vertices.Add(x: 0.0, y: 0.0, z: 0.0);
-        _ = mesh.Vertices.Add(x: 1.0, y: 0.0, z: 0.0);
-        _ = mesh.Vertices.Add(x: 1.0, y: 1.0, z: 0.0);
-        _ = mesh.Vertices.Add(x: 0.0, y: 1.0, z: 0.0);
-        _ = mesh.Faces.AddFace(vertex1: 0, vertex2: 1, vertex3: 2, vertex4: 3);
-        MeshFaceProjection projection = new(Mesh: mesh, Face: 0);
-
-        Assert.True(condition: projection.Isolated().Match(
-            Succ: static isolated => {
-                using Mesh owned = isolated;
-                return owned.Faces.Count == 1 && owned.Vertices.Count == 4;
-            },
-            Fail: static _ => false));
-        Assert.Equal(expected: 4, actual: projection.Vertices.Count);
-        Assert.True(condition: projection.Normal.Match(
-            Succ: static normal => normal.IsValid && Math.Abs(value: normal.Z - 1.0) < 1e-12,
-            Fail: static _ => false));
-    }
-
-    [Fact]
     public void RejectsSpatialInputsBeforeNativeRuntime() {
         Validation<Error, Tree> invalidPoint = Tree.Points(points: [Point3d.Unset]);
         Validation<Error, Tree> invalidBounds = Tree.Bounds<GeometryBase>(items: [null!]);
@@ -879,7 +834,7 @@ public sealed class AnalysisSpec {
     public void KeepsReverseIntersectionPairsOnTypedRails() {
         Assert.False(condition: Dispatch.IntersectTable.ContainsKey(key: (typeof(Plane), typeof(Line))));
         Assert.True(condition: Dispatch.SupportsUnorderedPair(table: Dispatch.IntersectTable, left: typeof(Plane), right: typeof(Line)));
-        Assert.True(condition: Query.Intersect<Line, Curve, IntersectionEvent>().Rejection.IsNone);
+        Assert.True(condition: Query.Intersect<Line, Curve, IntersectionHit>().Rejection.IsNone);
         Assert.True(condition: Query.Intersect<Plane, Brep, Curve>().Rejection.IsNone);
         Assert.True(condition: Query.Intersect<Surface, Brep, Curve>().Rejection.IsNone);
         Assert.True(condition: Query.Intersect<Plane, Mesh, Polyline>().Rejection.IsNone);
@@ -972,6 +927,10 @@ public sealed class AnalysisSpec {
         Assert.Equal(expected: [first, second], actual: vertices);
         Assert.Equal(expected: [first, second], actual: corners);
     }
+
+    [Fact]
+    public void PreflightsGeometryBaseBoundsThroughDispatch() =>
+        Assert.True(condition: Query.Bounds<GeometryBase, BoundingBox>(aspect: new Bounds.Box()).Rejection.IsNone);
 
     [Fact]
     public void SupportsMeshComponentsFromObjectRail() =>

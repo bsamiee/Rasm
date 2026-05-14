@@ -16,18 +16,18 @@ public readonly record struct Hints(Seq<(IPort Port, int Slot)> Inputs) {
 }
 public readonly record struct OutputSlot<TSource>(
     IPort Port,
-    Func<IDataAccess, int, GrasshopperRuntime, Seq<Pear<TSource>>, Unit> Write,
+    Func<IDataAccess, int, GrasshopperRuntime, Seq<Flow<TSource>>, Unit> Write,
     Func<IDataAccess, int, Unit> Empty);
 
 // --- [SERVICES] -------------------------------------------------------------------------
 public static class GrasshopperRuntimeExtensions {
-    public static Option<TVal> Read<TVal>(this GrasshopperRuntime runtime, Port<TVal> port) {
-        Option<TVal> wired = runtime.Hints.Slot(port: port)
-            .Bind(slot => Bridge.Read<TVal>(access: runtime.Access, slot: slot, port: port).ToOption()
-                .Bind(static values => values.Head)
-                .Map(static pear => pear.Item));
-        return wired.IsSome ? wired : port.Fallback;
-    }
+    public static Fin<Option<TVal>> Read<TVal>(this GrasshopperRuntime runtime, Port<TVal> port) =>
+        runtime.Hints.Slot(port: port).Match(
+            Some: slot => Bridge.Read<TVal>(access: runtime.Access, slot: slot, port: port)
+                .Map(values => values.Head.Map(static pear => pear.Item) | port.Fallback),
+            None: () => Fin.Succ(port.Fallback));
+    public static Option<TVal> ReadOrInvalid<TVal>(this GrasshopperRuntime runtime, Port<TVal> port, TVal invalid) =>
+        runtime.Read(port: port).Match(Succ: static value => value, Fail: _ => Some(invalid));
     public static Option<int> Index(this GrasshopperRuntime runtime, Port<int> port, int limit) =>
         limit switch {
             <= 0 => Option<int>.None,
@@ -38,7 +38,7 @@ public static class GrasshopperRuntimeExtensions {
 }
 internal sealed record PreparedGroup<TSource>(
     Seq<OutputSlot<TSource>> Slots,
-    Func<GrasshopperRuntime, Fin<Seq<Pear<TSource>>>> Source,
+    Func<GrasshopperRuntime, Fin<Seq<Flow<TSource>>>> Source,
     Func<GrasshopperRuntime, bool> EmptyUnsupported,
     string AspectLabel) : IOutputGroup {
     public Seq<IPort> Ports => Slots.Map(static slot => slot.Port);
@@ -54,7 +54,8 @@ internal sealed record PreparedGroup<TSource>(
                     (true, Fault.Unsupported u) => RemarkUnsupported(access: access, fault: u),
                     _ => Warn(access: access, error: error),
                 };
-                return Empty(access: access, slot: slot);
+                _ = Empty(access: access, slot: slot);
+                return Unit.Default;
             });
     }
     public Unit Empty(IDataAccess access, int slot) {
@@ -77,25 +78,25 @@ internal sealed record PreparedGroup<TSource>(
 public static class Output {
     internal static OutputSlot<TSource> Slot<TSource, TOut>(
         Port<TOut> port,
-        Func<GrasshopperRuntime, Seq<Pear<TSource>>, Fin<Seq<Pear<TOut>>>> project) =>
+        Func<GrasshopperRuntime, Seq<Flow<TSource>>, Fin<Seq<Flow<TOut>>>> project) =>
         new(
             Port: port,
             Write: (access, slot, runtime, source) => project(arg1: runtime, arg2: source).Match(
-                Succ: values => access.Write(slot: slot, name: port.Name, targetAccess: port.Access, values: values),
+                Succ: values => access.Write<TOut>(slot: slot, name: port.Name, targetAccess: port.Access, values: values),
                 Fail: error => {
                     access.AddWarning(text: port.Name, details: error.Message);
-                    return access.Write(slot: slot, name: port.Name, targetAccess: port.Access, values: Seq<Pear<TOut>>());
+                    return access.Write<TOut>(slot: slot, name: port.Name, targetAccess: port.Access, values: Seq<Flow<TOut>>());
                 }),
-            Empty: (access, slot) => access.Write(slot: slot, name: port.Name, targetAccess: port.Access, values: Seq<Pear<TOut>>()));
+            Empty: (access, slot) => access.Write<TOut>(slot: slot, name: port.Name, targetAccess: port.Access, values: Seq<Flow<TOut>>()));
     public static OutputSlot<TSource> Plain<TSource, TOut>(Port<TOut> port, Func<TSource, TOut> project) =>
         Slot<TSource, TOut>(port: port, project: (_, sources) =>
-            Fin.Succ(sources.Map(src => Pear<TOut>.Create(item: project(arg: src.Item), meta: src.Meta))));
+            Fin.Succ(sources.Map(src => src.Project(item: project(arg: src.Item)))));
     public static OutputSlot<TSource> One<TSource, TOut>(Port<TOut> port, Func<TSource, Context, Fin<TOut>> project) =>
         Slot<TSource, TOut>(port: port, project: (runtime, sources) => runtime.Scope.Context
-            .Bind(context => sources.Traverse(src => project(arg1: src.Item, arg2: context).Map(value => Pear<TOut>.Create(item: value, meta: src.Meta))).As()));
+            .Bind(context => sources.Traverse(src => project(arg1: src.Item, arg2: context).Map(src.Project)).As()));
     public static OutputSlot<TSource> Many<TSource, TOut>(Port<TOut> port, Func<TSource, Fin<Seq<TOut>>> project) =>
         Slot<TSource, TOut>(port: port, project: (_, sources) => sources.Traverse(src =>
-            project(arg: src.Item).Map(values => values.Map(value => Pear<TOut>.Create(item: value, meta: src.Meta))))
+            project(arg: src.Item).Map(values => values.Map(src.Project)))
             .Map(static nested => nested.Bind(static x => x)).As());
     public static Unit Write(IDataAccess access, GrasshopperRuntime runtime, Seq<IOutputGroup> groups) =>
         Fold(groups: groups, action: group => slot => group.Run(access: access, slot: slot, runtime: runtime));
@@ -131,15 +132,15 @@ public static class Output {
             aspectLabel: aspectLabel,
             slots: slots);
     private static PreparedGroup<TSource> Prepared<TSource>(
-        Func<GrasshopperRuntime, Fin<Seq<Pear<TSource>>>> source,
+        Func<GrasshopperRuntime, Fin<Seq<Flow<TSource>>>> source,
         Func<GrasshopperRuntime, bool> emptyUnsupported,
         string aspectLabel,
         params OutputSlot<TSource>[] slots) => new(Slots: toSeq(slots), Source: source, EmptyUnsupported: emptyUnsupported, AspectLabel: aspectLabel);
     private static Unit Fold(Seq<IOutputGroup> groups, Func<IOutputGroup, Func<int, Unit>> action) =>
         groups.Fold(initialState: 0, f: (slot, group) => (action(arg: group)(arg: slot), slot + group.Ports.Count).Item2) switch { _ => Unit.Default };
-    internal static Fin<Seq<Pear<TSource>>> ShapeSource<TSource>(Port<Shape> input, GrasshopperRuntime runtime, Func<Shape, Eff<Env, Seq<TSource>>> project) =>
+    internal static Fin<Seq<Flow<TSource>>> ShapeSource<TSource>(Port<Shape> input, GrasshopperRuntime runtime, Func<Shape, Eff<Env, Seq<TSource>>> project) =>
         from sourced in runtime.Shape(port: input)
         from context in runtime.Scope.Context
         from values in project(arg: sourced.Item).Run(env: new Env(Context: context, Progress: runtime.Progress, Cancellation: runtime.Cancellation))
-        select values.Map(value => Pear<TSource>.Create(item: value, meta: sourced.Meta));
+        select values.Map(value => sourced.Project(item: value));
 }

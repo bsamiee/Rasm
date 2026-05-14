@@ -28,7 +28,7 @@ public readonly record struct GrasshopperRuntime(IDataAccess Access, Analyze.Sco
             Progress: new Bridge.Progress(access: access),
             Cancellation: access.Solution.Token));
     }
-    internal Fin<Pear<Shape>> Shape(Port<Shape> port) {
+    internal Fin<Flow<Shape>> Shape(Port<Shape> port) {
         IDataAccess access = Access;
         return Hints.Slot(port: port)
             .ToFin(new Fault.InputRequired(PortName: port.Name))
@@ -50,12 +50,12 @@ public abstract class Component(Type self, ComponentSpec spec) : Grasshopper2.Co
     protected override void AddInputs(ModularInputAdder inputs) {
         ArgumentNullException.ThrowIfNull(argument: inputs);
         cachedInputs = spec.InputPorts;
-        _ = spec.Inputs.Iter(pair => pair.Port.Kind.Bind(adder: inputs.RegularAdder, name: pair.Port.Name, code: pair.Port.Code, info: pair.Port.Info, access: pair.Port.Access, requirement: pair.Port.Requirement, policy: pair.Port.Policy, hidden: pair.Hidden));
+        _ = spec.Inputs.Iter(pair => pair.Port.Kind.Bind(adder: inputs, name: pair.Port.Name, code: pair.Port.Code, info: pair.Port.Info, access: pair.Port.Access, requirement: pair.Port.Requirement, policy: pair.Port.Policy, hidden: pair.Hidden));
     }
     protected override void AddOutputs(ModularOutputAdder outputs) {
         ArgumentNullException.ThrowIfNull(argument: outputs);
         cachedOutputs = spec.OutputGroups;
-        _ = spec.Outputs.Iter(pair => pair.Group.Ports.Iter(port => port.Kind.Bind(adder: outputs.RegularAdder, name: port.Name, code: port.Code, info: port.Info, access: port.Access, policy: port.Policy, hidden: pair.Hidden)));
+        _ = spec.Outputs.Iter(pair => pair.Group.Ports.Iter(port => port.Kind.Bind(adder: outputs, name: port.Name, code: port.Code, info: port.Info, access: port.Access, policy: port.Policy, hidden: pair.Hidden)));
     }
     protected override void BeforeProcess(Solution solution) {
         base.BeforeProcess(solution: solution);
