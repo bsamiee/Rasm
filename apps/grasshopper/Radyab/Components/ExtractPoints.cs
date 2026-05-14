@@ -8,14 +8,14 @@ namespace Radyab.Components;
     section: Library.Extraction)]
 public sealed class ExtractPoints : Component {
     private static readonly Port<Shape> Geometry = Port.Shape();
-    private static readonly IOutputGroup Vertices = Output.Single(input: Geometry, port: Port.Tree<Point3d>(name: "Vertices", code: "V", info: "Native vertices, point-cloud locations, polyline corners, curve endpoints, points, or bbox corners."), aspect: new Points.Vertices());
-    private static readonly IOutputGroup ControlPoints = Output.Single(input: Geometry, port: Port.Tree<Point3d>(name: "Control Points", code: "CP", info: "NURBS control polygon points for curves and surfaces, converting through RhinoCommon when required."), aspect: new Points.ControlPoints());
-    private static readonly IOutputGroup EdgeMidpoints = Output.Single(input: Geometry, port: Port.Tree<Point3d>(name: "Edge Midpoints", code: "EM", info: "Length midpoints of curves and edges; per-segment for polylines and box-like geometry."), aspect: new Points.EdgeMidpoints());
-    private static readonly IOutputGroup Quadrants = Output.Single(input: Geometry, port: Port.Tree<Point3d>(name: "Quadrants", code: "Q", info: "World-cardinal extrema (top/bottom/left/right + Z) of a curve. Curve-only output."), aspect: new Points.Quadrants());
-    private static readonly IOutputGroup Centroid = Output.Single(input: Geometry, port: Port.Tree<Point3d>(name: "Centroid", code: "C", info: "Mass-weighted center where native mass exists; bbox center for bounded primitives and point clouds."), aspect: new Measure.SpatialMidpoint());
-    private static readonly IOutputGroup BBoxCenter = Output.Single(input: Geometry, port: Port.Tree<Point3d>(name: "BBox Center", code: "B", info: "Axis-aligned bounding box center for bounded geometry and primitives."), aspect: new Bounds.Center());
-    private static readonly IOutputGroup BoundingCorners = Output.Single(input: Geometry, port: Port.Tree<Point3d>(name: "Bounding Corners", code: "BX", info: "Unique axis-aligned bounding-box corners: 8 for full 3D, 4 for planar, 2 for linear, 1 for point."), aspect: new Bounds.Corners(Unique: true));
-    private static readonly IOutputGroup Kind = Output.Details<Rasm.Domain.Kind>(
+    private static readonly OutputGroup Vertices = Output.Single(input: Geometry, port: Port.Tree<Point3d>(name: "Vertices", code: "V", info: "Native vertices, point-cloud locations, polyline corners, curve endpoints, points, or bbox corners."), aspect: new Points.Vertices());
+    private static readonly OutputGroup ControlPoints = Output.Single(input: Geometry, port: Port.Tree<Point3d>(name: "Control Points", code: "CP", info: "NURBS control polygon points for curves and surfaces, converting through RhinoCommon when required."), aspect: new Points.ControlPoints());
+    private static readonly OutputGroup EdgeMidpoints = Output.Single(input: Geometry, port: Port.Tree<Point3d>(name: "Edge Midpoints", code: "EM", info: "Length midpoints of curves and edges; per-segment for polylines and box-like geometry."), aspect: new Points.EdgeMidpoints());
+    private static readonly OutputGroup Quadrants = Output.Single(input: Geometry, port: Port.Tree<Point3d>(name: "Quadrants", code: "Q", info: "World-cardinal extrema (top/bottom/left/right + Z) of a curve. Curve-only output."), aspect: new Points.Quadrants());
+    private static readonly OutputGroup Centroid = Output.Single(input: Geometry, port: Port.Tree<Point3d>(name: "Centroid", code: "C", info: "Mass-weighted center where native mass exists; bbox center for bounded primitives and point clouds."), aspect: new Measure.SpatialMidpoint());
+    private static readonly OutputGroup BBoxCenter = Output.Single(input: Geometry, port: Port.Tree<Point3d>(name: "BBox Center", code: "B", info: "Axis-aligned bounding box center for bounded geometry and primitives."), aspect: new Bounds.Center());
+    private static readonly OutputGroup BoundingCorners = Output.Single(input: Geometry, port: Port.Tree<Point3d>(name: "Bounding Corners", code: "BX", info: "Unique axis-aligned bounding-box corners: 8 for full 3D, 4 for planar, 2 for linear, 1 for point."), aspect: new Bounds.Corners(Unique: true));
+    private static readonly OutputGroup Kind = Output.Details<Rasm.Domain.Kind>(
         input: Geometry,
         aspect: static _ => Fin.Succ<Func<Shape, Eff<Env, Seq<Rasm.Domain.Kind>>>>(shape => Rasm.Analysis.Analyze.Kind<object, Rasm.Domain.Kind>().Apply(geometry: shape.Inner)),
         emptyUnsupported: true,
@@ -27,5 +27,5 @@ public sealed class ExtractPoints : Component {
         ]);
     public ExtractPoints() : base(self: typeof(ExtractPoints), spec: ComponentSpec.Of(
         inputs: Seq<IPort>(Geometry),
-        outputs: Seq<IOutputGroup>(Vertices, ControlPoints, EdgeMidpoints, Quadrants, Centroid, BBoxCenter, BoundingCorners, Kind))) { }
+        outputs: Seq<OutputGroup>(Vertices, ControlPoints, EdgeMidpoints, Quadrants, Centroid, BBoxCenter, BoundingCorners, Kind))) { }
 }

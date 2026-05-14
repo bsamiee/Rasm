@@ -80,7 +80,7 @@ public static partial class Analyze {
                                 GeometryBase gb => Fin.Succ(gb),
                                 _ => Fin.Fail<GeometryBase>(key.Unsupported(geometryType: item.GetType(), outputType: typeof(GeometryBase))),
                             }).As().ToEff()
-                            from aggregate in mass.Aggregate(arg1: native.AsIterable(), arg2: context, arg3: firstMoments, arg4: secondMoments, arg5: productMoments, arg6: key).ToEff()
+                            from aggregate in mass.Aggregate(geometry: native.AsIterable(), context: context, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments, op: key).ToEff()
                             from values in Bracket(factory: () => aggregate, body: disposable => project(arg1: key, arg2: disposable)).ToEff()
                             select values),
             evaluator: geometry => from computed in mass.Compute(geometry: geometry, op: key, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments)

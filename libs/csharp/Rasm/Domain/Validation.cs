@@ -110,7 +110,7 @@ public static class RuleRole {
 // --- [ERRORS] -----------------------------------------------------------------------------
 [BoundaryAdapter]
 public abstract record Expected : Error, ICategorized {
-    private protected Expected() { }
+    protected Expected() { }
     public override bool IsExpected => true;
     public override bool IsExceptional => false;
     public override ErrorException ToErrorException() => new WrappedErrorExpectedException(this);
@@ -144,9 +144,6 @@ public abstract partial record Fault : Expected {
     public sealed record OutOfRange(string Label, double Scalar, string Requirement) : Fault { public override string Message => string.Create(provider: CultureInfo.InvariantCulture, $"Geometry value '{Label}' must be {Requirement}; actual={Scalar:R}."); public override string Category => "Tolerance"; }
     public sealed record InvalidUnitSystem(UnitSystem Units, string Requirement) : Fault { public override string Message => $"Model unit system must be {Requirement}; actual={Units}."; public override string Category => "Context"; }
     public sealed record MissingDocument : Fault { public override string Message => "Rhino document context is required."; public override string Category => "Context"; }
-    public sealed record InputRequired(string PortName, string? Hint = null) : Fault { public override string Message => Hint switch { string h => $"{PortName} input is required. Connect: {h}.", _ => $"{PortName} input is required." }; public override string Category => "Input"; }
-    public sealed record UnsupportedSource(string PortName, Type SourceType, string? Hint = null) : Fault { public override string Message => Hint switch { string h => $"{PortName} input type '{SourceType.Name}' is not supported. Connect: {h}.", _ => $"{PortName} input type '{SourceType.Name}' is not supported." }; public override string Category => "Input"; }
-    public sealed record UnsupportedAccess(string AccessName) : Fault { public override string Message => $"Unsupported input access: {AccessName}."; public override string Category => "Access"; }
 }
 
 [BoundaryAdapter]
@@ -180,6 +177,22 @@ public static class Verify {
         (context.Apply(value: a, requirement: requirementA ?? Requirement.Strict, cancel: cancel),
          context.Apply(value: b, requirement: requirementB ?? Requirement.Strict, cancel: cancel))
             .Apply(static (left, right) => (A: left, B: right)).As();
+    public static Validation<Error, (TA A, TB B, Kind KindA, Kind KindB)> Pair<TA, TB>(
+        this Context context,
+        TA a,
+        TB b,
+        Op op,
+        Func<Op, Kind, Kind, Fin<(Requirement A, Requirement B)>> requirements,
+        CancellationToken cancel = default) where TA : notnull where TB : notnull =>
+        Fin.Succ(new PairRail<TA, TB>(Context: context, A: a, B: b, Op: op, Requirements: requirements, Cancel: cancel)).ToValidation()
+            .Bind(static rail => (rail.Context.Pair(a: rail.A, b: rail.B, requirementA: Requirement.None, requirementB: Requirement.None, cancel: rail.Cancel), Fin.Succ(rail).ToValidation())
+                .Apply(static (pair, state) => state with { A = pair.A, B = pair.B }).As())
+            .Bind(static rail => (((object)rail.A).Kind(context: rail.Context).ToValidation(), ((object)rail.B).Kind(context: rail.Context).ToValidation(), Fin.Succ(rail).ToValidation())
+                .Apply(static (kindA, kindB, state) => state with { KindA = kindA, KindB = kindB }).As())
+            .Bind(static rail => (rail.Requirements(arg1: rail.Op, arg2: rail.KindA!, arg3: rail.KindB!).ToValidation(), Fin.Succ(rail).ToValidation())
+                .Apply(static (required, state) => (Required: required, State: state)).As())
+            .Bind(static resolved => (resolved.State.Context.Pair(a: resolved.State.A, b: resolved.State.B, requirementA: resolved.Required.A, requirementB: resolved.Required.B, cancel: resolved.State.Cancel), Fin.Succ(resolved.State).ToValidation())
+                .Apply(static (pair, state) => (pair.A, pair.B, state.KindA!, state.KindB!)).As());
     public static Validation<Error, Seq<T>> All<T>(this Context context, Seq<T> values, Requirement? requirement = null, CancellationToken cancel = default) where T : notnull =>
         values.Fold(
             initialState: (Acc: Fin.Succ(Seq<T>()).ToValidation(), Ctx: context, Req: requirement, Cancel: cancel),
@@ -205,4 +218,13 @@ public static class Verify {
         };
     private static Fin<T> Demand<T>(this Op key, bool condition, T value) =>
         condition ? Fin.Succ(value) : Fin.Fail<T>(error: new Fault.InvalidResult(Key: key));
+    private readonly record struct PairRail<TA, TB>(
+        Context Context,
+        TA A,
+        TB B,
+        Op Op,
+        Func<Op, Kind, Kind, Fin<(Requirement A, Requirement B)>> Requirements,
+        CancellationToken Cancel,
+        Kind? KindA = null,
+        Kind? KindB = null) where TA : notnull where TB : notnull;
 }

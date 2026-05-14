@@ -11,9 +11,8 @@ public static partial class Analyze {
             true => Query<(TA A, TB B), TOut>.Build(
                 key: key, requiresContext: true, state: key,
                 evaluator: static (op, pair) => from runtime in Env.EnvAsks
-                                                from kA in ((object)pair.A).Kind(context: runtime.Context).ToEff()
-                                                from kB in ((object)pair.B).Kind(context: runtime.Context).ToEff()
-                                                from result in kA.Intersect(b: kB, geometryA: pair.A, geometryB: pair.B, context: runtime.Context, op: op, progress: runtime.Progress, cancel: runtime.Cancellation).ToEff()
+                                                from resolved in runtime.Context.ValidatePair(a: pair.A, b: pair.B, op: op, requirements: static (_, _, _) => Fin.Succ((A: Requirement.Basic, B: Requirement.Basic)), cancel: runtime.Cancellation).ToEff()
+                                                from result in resolved.KindA.Intersect(b: resolved.KindB, geometryA: resolved.A, geometryB: resolved.B, context: runtime.Context, op: op, progress: runtime.Progress, cancel: runtime.Cancellation).ToEff()
                                                 from typed in IntersectionResultRole.Project<TOut>(result: result, key: op).ToEff()
                                                 select typed),
             false => key.Unsupported<(TA A, TB B), TOut>(),
@@ -25,8 +24,8 @@ public static partial class Analyze {
             ? Query<(TA A, TB B), TOut>.Build(
                 key: key, requiresContext: true, state: key,
                 evaluator: static (op, pair) => from runtime in Env.EnvAsks
-                                                from validated in runtime.Context.ValidatePair(a: pair.A, b: pair.B, requirementA: Requirement.CurveLength, requirementB: Requirement.CurveLength, cancel: runtime.Cancellation).ToEff()
-                                                from result in DeviationProject<TOut>(op: op, left: (Curve)(object)validated.A, right: (Curve)(object)validated.B, context: runtime.Context).ToEff()
+                                                from resolved in runtime.Context.ValidatePair(a: pair.A, b: pair.B, op: op, requirements: static (_, _, _) => Fin.Succ((A: Requirement.CurveLength, B: Requirement.CurveLength)), cancel: runtime.Cancellation).ToEff()
+                                                from result in DeviationProject<TOut>(op: op, left: (Curve)(object)resolved.A, right: (Curve)(object)resolved.B, context: runtime.Context).ToEff()
                                                 select result)
             : key.Unsupported<(TA A, TB B), TOut>();
     }

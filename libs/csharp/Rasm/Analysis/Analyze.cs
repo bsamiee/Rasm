@@ -161,9 +161,9 @@ public static partial class Analyze {
         true => Many(key: key, values: values).Map(static candidates => candidates.Map(static candidate => (TOut)(object)candidate!)),
         false => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(TValue), outputType: typeof(TOut))),
     };
-    internal static Fin<Seq<TValue>> ProjectOwned<TProjection, TValue>(
-        Seq<TProjection> all, Seq<TProjection> chosen, ProjectionOwnership ownership,
-        Func<Seq<TProjection>, Fin<Seq<TValue>>> project) where TProjection : ITopologyProjection {
+    internal static Fin<Seq<TValue>> ProjectOwned<TValue>(
+        Seq<TopologyProjection> all, Seq<TopologyProjection> chosen, ProjectionOwnership ownership,
+        Func<Seq<TopologyProjection>, Fin<Seq<TValue>>> project) {
         Fin<Seq<TValue>> result = project(arg: chosen);
         bool keep = ownership == ProjectionOwnership.Transfer && result.IsSucc;
         _ = all.Filter(value => !keep || !chosen.Exists(c => c.SameAs(other: value))).Iter(static v => v.Dispose());

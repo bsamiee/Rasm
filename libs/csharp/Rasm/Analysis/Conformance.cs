@@ -1,7 +1,21 @@
 namespace Rasm.Analysis;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-[StructLayout(LayoutKind.Auto)] public readonly record struct ResidualProfile(int Count, double Minimum, double Maximum, double Mean, double Variance, double Rms, double Tolerance, bool WithinTolerance);
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct ResidualProfile {
+    public ResidualProfile(Stats stats, double tolerance, bool withinTolerance) { Stats = stats; Tolerance = tolerance; WithinTolerance = withinTolerance; }
+    public ResidualProfile(int Count, double Minimum, double Maximum, double Mean, double Variance, double Rms, double Tolerance, bool WithinTolerance)
+        : this(stats: new Stats(count: Count, minimum: Minimum, maximum: Maximum, mean: Mean, variance: Variance), tolerance: Tolerance, withinTolerance: WithinTolerance) { }
+    public Stats Stats { get; }
+    public int Count => Stats.Count;
+    public double Minimum => Stats.Minimum;
+    public double Maximum => Stats.Maximum;
+    public double Mean => Stats.Mean;
+    public double Variance => Stats.Variance;
+    public double Rms => Stats.Rms;
+    public double Tolerance { get; }
+    public bool WithinTolerance { get; }
+}
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [Union]
@@ -32,7 +46,7 @@ public static partial class Analyze {
             (Conformance.ProfileResidual item, Type output) when output == typeof(ResidualProfile) => Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: Rasm.Analysis.Conformance.Key, query: ConformancePair<TGeometry, TPrimitive, ResidualProfile>(
                 count: item.Count, project: static (residuals, context) => ResidualDistances(key: Rasm.Analysis.Conformance.Key, samples: residuals)
                     .Bind(values => Stats.From(values: values, key: Rasm.Analysis.Conformance.Key))
-                    .Bind(stats => One(key: Rasm.Analysis.Conformance.Key, value: new ResidualProfile(Count: stats.Count, Minimum: stats.Minimum, Maximum: stats.Maximum, Mean: stats.Mean, Variance: stats.Variance, Rms: stats.Rms, Tolerance: context.Absolute.Value, WithinTolerance: stats.Maximum <= context.Absolute.Value))))),
+                    .Bind(stats => One(key: Rasm.Analysis.Conformance.Key, value: new ResidualProfile(stats: stats, tolerance: context.Absolute.Value, withinTolerance: stats.Maximum <= context.Absolute.Value))))),
             (Conformance.Maximum item, Type output) when output == typeof(ResidualSample) => Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: Rasm.Analysis.Conformance.Key, query: ConformancePair<TGeometry, TPrimitive, ResidualSample>(
                 count: item.Count, project: static (residuals, _) => residuals
                     .TraverseM(static sample => sample switch {
@@ -49,16 +63,12 @@ public static partial class Analyze {
             state: (Op: Rasm.Analysis.Conformance.Key, Count: count, Project: project),
             evaluator: static (state, pair) =>
                 from runtime in Env.EnvAsks
-                from candidate in runtime.Context.ValidatePair(a: pair.Geometry, b: pair.Primitive, requirementA: Requirement.None, requirementB: Requirement.None, cancel: runtime.Cancellation).ToEff()
-                from kindG in ((object)candidate.A).Kind(context: runtime.Context).ToEff()
-                from kindP in ((object)candidate.B).Kind(context: runtime.Context).ToEff()
-                from requirement in (kindG.Topology switch {
-                    Topology.Curve => Fin.Succ(Requirement.CurveLength),
-                    Topology.Surface => Fin.Succ(Requirement.SurfaceEvaluation),
-                    _ => Fin.Fail<Requirement>(state.Op.Unsupported(geometryType: kindG.Type, outputType: typeof(ResidualSample))),
-                }).ToEff()
-                from validated in runtime.Context.ValidatePair(a: candidate.A, b: candidate.B, requirementA: requirement, requirementB: Requirement.None, cancel: runtime.Cancellation).ToEff()
-                from residuals in kindG.Conformance(kindP: kindP, geometry: validated.A, primitive: validated.B, count: state.Count, context: runtime.Context, op: state.Op).ToEff()
+                from resolved in runtime.Context.ValidatePair(a: pair.Geometry, b: pair.Primitive, op: state.Op, requirements: static (op, kindG, _) => kindG.Topology switch {
+                    Topology.Curve => Fin.Succ((A: Requirement.CurveLength, B: Requirement.None)),
+                    Topology.Surface => Fin.Succ((A: Requirement.SurfaceEvaluation, B: Requirement.None)),
+                    _ => Fin.Fail<(Requirement A, Requirement B)>(op.Unsupported(geometryType: kindG.Type, outputType: typeof(ResidualSample))),
+                }, cancel: runtime.Cancellation).ToEff()
+                from residuals in resolved.KindA.Conformance(kindP: resolved.KindB, geometry: resolved.A, primitive: resolved.B, count: state.Count, context: runtime.Context, op: state.Op).ToEff()
                 from result in state.Project(arg1: residuals, arg2: runtime.Context).ToEff()
                 select result);
     private static Fin<Seq<double>> ResidualDistances(Op key, Seq<ResidualSample> samples) =>

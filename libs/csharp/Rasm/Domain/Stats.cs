@@ -2,8 +2,8 @@ namespace Rasm.Domain;
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
-internal readonly record struct Stats {
-    private Stats(int count, double minimum, double maximum, double mean, double variance) {
+public readonly record struct Stats {
+    internal Stats(int count, double minimum, double maximum, double mean, double variance) {
         Count = count;
         Minimum = minimum;
         Maximum = maximum;

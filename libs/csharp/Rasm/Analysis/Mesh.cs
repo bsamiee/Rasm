@@ -21,7 +21,7 @@ public partial record Meshes : IAspect {
         statsBundleCase: static _ => Analyze.MeshLift<TGeometry, TOut, int>(key: StatsBundleKey, source: Analyze.MeshStatsBundle),
         defectsBundleCase: static _ => Analyze.MeshLift<TGeometry, TOut, int>(key: DefectsBundleKey, source: Analyze.MeshDefectsBundle),
         faceQualityCase: static fq => Analyze.MeshLift<TGeometry, TOut, MeshFaceSample>(key: FaceMetricKey, source: Analyze.MeshFaceMetric(metric: fq.Metric)),
-        atFaceCase: static at => Analyze.MeshLift<TGeometry, TOut, MeshFaceProjection>(key: AtFaceKey, source: Analyze.MeshAtFace(index: at.Value)));
+        atFaceCase: static at => Analyze.MeshLift<TGeometry, TOut, TopologyProjection>(key: AtFaceKey, source: Analyze.MeshAtFace(index: at.Value)));
 }
 
 [SmartEnum<int>]
@@ -53,29 +53,29 @@ public sealed partial class MeshFaceMetric {
     public static readonly MeshFaceMetric Perimeter = new(key: 3, sample: FacePerimeter);
     public static readonly MeshFaceMetric Skewness = new(key: 4, sample: FaceSkewness);
     public static readonly MeshFaceMetric DihedralAngle = new(key: 5, sample: FaceMaxDihedral);
-    private readonly Func<MeshFaceProjection, Fin<double>> sample;
+    private readonly Func<TopologyProjection, Fin<double>> sample;
     public Fin<double> Sample(Mesh mesh, int face) {
         ArgumentNullException.ThrowIfNull(argument: mesh);
-        return MeshFaceProjection.Create(mesh: mesh, face: face)
+        return TopologyProjection.MeshFace(mesh: mesh, face: face)
             .Bind(projection => sample(arg: projection));
     }
-    private static Fin<double> FaceArea(MeshFaceProjection projection) =>
+    private static Fin<double> FaceArea(TopologyProjection projection) =>
         projection.Vertices.Map(vertices => vertices switch {
             Seq<Point3d> v when v.Count == 4 => 0.5 * (Vector3d.CrossProduct(a: v[1] - v[0], b: v[2] - v[0]).Length + Vector3d.CrossProduct(a: v[2] - v[0], b: v[3] - v[0]).Length),
             Seq<Point3d> v => 0.5 * Vector3d.CrossProduct(a: v[1] - v[0], b: v[2] - v[0]).Length,
         });
-    private static Fin<double> FacePerimeter(MeshFaceProjection projection) =>
+    private static Fin<double> FacePerimeter(TopologyProjection projection) =>
         projection.Vertices.Map(static v => v.Map((p, i) => p.DistanceTo(other: v[(i + 1) % v.Count])).Fold(initialState: 0.0, f: static (acc, d) => acc + d));
-    private static Fin<double> FaceSkewness(MeshFaceProjection projection) =>
+    private static Fin<double> FaceSkewness(TopologyProjection projection) =>
         projection.Vertices.Map(static v => (Ideal: v.Count == 4 ? Math.PI / 2.0 : Math.PI / 3.0, Vertices: v))
             .Map(static state => state.Vertices.Map((vertex, i) => Vector3d.VectorAngle(a: state.Vertices[(i + state.Vertices.Count - 1) % state.Vertices.Count] - vertex, b: state.Vertices[(i + 1) % state.Vertices.Count] - vertex))
                 .Fold(initialState: 0.0, f: (acc, angle) => Math.Max(val1: acc, val2: Math.Max(val1: (angle - state.Ideal) / (Math.PI - state.Ideal), val2: (state.Ideal - angle) / state.Ideal))));
-    private static Fin<double> FaceMaxDihedral(MeshFaceProjection projection) =>
+    private static Fin<double> FaceMaxDihedral(TopologyProjection projection) =>
         projection.Normal.Bind(normal => normal.IsValid switch {
             false => Fin.Succ(0.0),
             true => toSeq(projection.Mesh.TopologyEdges.GetEdgesForFace(faceIndex: projection.Face))
                 .Bind(edge => toSeq(projection.Mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: edge)).Filter(other => other != projection.Face))
-                .Fold(initialState: Fin.Succ((Max: 0.0, projection.Mesh, Normal: normal)), f: static (state, other) => state.Bind(s => MeshFaceProjection.Create(mesh: s.Mesh, face: other)
+                .Fold(initialState: Fin.Succ((Max: 0.0, projection.Mesh, Normal: normal)), f: static (state, other) => state.Bind(s => TopologyProjection.MeshFace(mesh: s.Mesh, face: other)
                     .Bind(static otherProjection => otherProjection.Normal)
                     .Map(neighbour => neighbour.IsValid switch {
                         true => (Math.Max(val1: s.Max, val2: Vector3d.VectorAngle(a: s.Normal, b: neighbour)), s.Mesh, s.Normal),
@@ -161,14 +161,14 @@ public static partial class Analyze {
                                                     select result);
         }
     }
-    public static Query<Mesh, MeshFaceProjection> MeshAtFace(int? index = null) {
+    public static Query<Mesh, TopologyProjection> MeshAtFace(int? index = null) {
         Op key = Op.Of();
-        return Query<Mesh, MeshFaceProjection>.Build(
+        return Query<Mesh, TopologyProjection>.Build(
             key: key, state: (Key: key, Selector: index),
             evaluator: static (state, geometry) => geometry.Faces.Count switch {
-                0 => Fin.Fail<Seq<MeshFaceProjection>>(state.Key.InvalidResult()).ToEff(),
-                int count when state.Selector is int selected && (selected < 0 || selected >= count) => Fin.Fail<Seq<MeshFaceProjection>>(state.Key.InvalidInput()).ToEff(),
-                _ => MeshFaceProjection.Create(mesh: geometry, face: state.Selector ?? 0)
+                0 => Fin.Fail<Seq<TopologyProjection>>(state.Key.InvalidResult()).ToEff(),
+                int count when state.Selector is int selected && (selected < 0 || selected >= count) => Fin.Fail<Seq<TopologyProjection>>(state.Key.InvalidInput()).ToEff(),
+                _ => TopologyProjection.MeshFace(mesh: geometry, face: state.Selector ?? 0)
                     .Bind(projection => One(key: state.Key, value: projection))
                     .ToEff(),
             });

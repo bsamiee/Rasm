@@ -53,6 +53,13 @@ public sealed record Context {
         Verify.Apply(context: this, value: geometry, requirement: requirement, cancel: cancel);
     internal Validation<Error, (TA A, TB B)> ValidatePair<TA, TB>(TA a, TB b, Requirement requirementA, Requirement requirementB, CancellationToken cancel = default) where TA : notnull where TB : notnull =>
         Verify.Pair(context: this, a: a, b: b, requirementA: requirementA, requirementB: requirementB, cancel: cancel);
+    internal Validation<Error, (TA A, TB B, Kind KindA, Kind KindB)> ValidatePair<TA, TB>(
+        TA a,
+        TB b,
+        Op op,
+        Func<Op, Kind, Kind, Fin<(Requirement A, Requirement B)>> requirements,
+        CancellationToken cancel = default) where TA : notnull where TB : notnull =>
+        Verify.Pair(context: this, a: a, b: b, op: op, requirements: requirements, cancel: cancel);
     internal static Validation<Error, Context> Create(double absolute, double relative, double angle, UnitSystem units) =>
         (absolute.TryCreateValidated<AbsoluteTolerance>(),
          relative.TryCreateValidated<RelativeTolerance>(),

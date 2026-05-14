@@ -18,13 +18,13 @@ public sealed class IconAttribute(string name) : Attribute {
 
 // --- [MODELS] ---------------------------------------------------------------------------
 public readonly record struct PortSpec(IPort Port, bool Hidden = false);
-public readonly record struct OutputSpec(IOutputGroup Group, bool Hidden = false);
+public readonly record struct OutputSpec(OutputGroup Group, bool Hidden = false);
 internal readonly record struct BoundPort(IPort Port, IParameter Parameter);
 public readonly record struct ComponentSpec(Seq<PortSpec> Inputs, Seq<OutputSpec> Outputs) {
     public Seq<IPort> InputPorts => Inputs.Map(static spec => spec.Port);
-    public Seq<IOutputGroup> OutputGroups => Outputs.Map(static spec => spec.Group);
+    public Seq<OutputGroup> OutputGroups => Outputs.Map(static spec => spec.Group);
     public Seq<IPort> OutputPorts => OutputGroups.Bind(static group => group.Ports);
-    public static ComponentSpec Of(Seq<IPort> inputs, Seq<IOutputGroup> outputs) =>
+    public static ComponentSpec Of(Seq<IPort> inputs, Seq<OutputGroup> outputs) =>
         new(Inputs: inputs.Map(static port => new PortSpec(Port: port)), Outputs: outputs.Map(static group => new OutputSpec(Group: group)));
 }
 public readonly record struct GrasshopperRuntime(IDataAccess Access, Analyze.Scope Scope, Hints Hints, IProgress<double> Progress, CancellationToken Cancellation) {
@@ -41,7 +41,7 @@ public readonly record struct GrasshopperRuntime(IDataAccess Access, Analyze.Sco
     internal Fin<Seq<Flow<Shape>>> Shape(Port<Shape> port) {
         IDataAccess access = Access;
         return Hints.Slot(port: port)
-            .ToFin(new Fault.InputRequired(PortName: port.Name))
+            .ToFin(new GrasshopperFault.InputRequired(PortName: port.Name))
             .Bind(slot => access.ReadShape(slot: slot, port: port));
     }
 }

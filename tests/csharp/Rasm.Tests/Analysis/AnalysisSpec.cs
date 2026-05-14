@@ -124,7 +124,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RejectsNullGeometryInsidePureRail() {
         Validation<Error, Seq<BoundingBox>> result = Analyze.In(context: ValidContext()).Run(
-            query: Analyze.Bounds<GeometryBase, BoundingBox>(aspect: new Bounds.Box()),
+            query: Analyze.Bounds<GeometryBase, BoundingBox>(aspect: new Bounds.AxisAligned()),
             input: [null!]);
 
         Assert.True(condition: result.ToFin().Match(
@@ -264,7 +264,7 @@ public sealed class AnalysisSpec {
             query: Analyze.Measure<Line, double>(aspect: new Measure.Length()),
             input: [line]);
         BoundingBox[] bounds = Run(
-            query: Analyze.Bounds<Line, BoundingBox>(aspect: new Bounds.Box()),
+            query: Analyze.Bounds<Line, BoundingBox>(aspect: new Bounds.AxisAligned()),
             input: [line]);
 
         Assert.Equal(expected: 5.0, actual: lengths[0]);
@@ -410,7 +410,7 @@ public sealed class AnalysisSpec {
                 angle: Math.PI / 180.0,
                 units: UnitSystem.Unset)
             .Run(
-                query: Analyze.Bounds<BoundingBox, BoundingBox>(aspect: new Bounds.Box()),
+                query: Analyze.Bounds<BoundingBox, BoundingBox>(aspect: new Bounds.AxisAligned()),
                 input: [new BoundingBox(min: Point3d.Origin, max: new Point3d(x: 1.0, y: 1.0, z: 1.0))]);
         Validation<Error, Seq<BoundingBox>> outOfRangeRelative = Analyze.In(
                 absolute: 0.01,
@@ -418,7 +418,7 @@ public sealed class AnalysisSpec {
                 angle: Math.PI / 180.0,
                 units: UnitSystem.Unset)
             .Run(
-                query: Analyze.Bounds<BoundingBox, BoundingBox>(aspect: new Bounds.Box()),
+                query: Analyze.Bounds<BoundingBox, BoundingBox>(aspect: new Bounds.AxisAligned()),
                 input: [new BoundingBox(min: Point3d.Origin, max: new Point3d(x: 1.0, y: 1.0, z: 1.0))]);
         Validation<Error, Seq<BoundingBox>> nonPositiveAngle = Analyze.In(
                 absolute: 0.01,
@@ -426,7 +426,7 @@ public sealed class AnalysisSpec {
                 angle: 0.0,
                 units: UnitSystem.Unset)
             .Run(
-                query: Analyze.Bounds<BoundingBox, BoundingBox>(aspect: new Bounds.Box()),
+                query: Analyze.Bounds<BoundingBox, BoundingBox>(aspect: new Bounds.AxisAligned()),
                 input: [new BoundingBox(min: Point3d.Origin, max: new Point3d(x: 1.0, y: 1.0, z: 1.0))]);
         Validation<Error, Seq<BoundingBox>> overFullTurnAngle = Analyze.In(
                 absolute: 0.01,
@@ -434,7 +434,7 @@ public sealed class AnalysisSpec {
                 angle: (2.0 * Math.PI) + 1.0,
                 units: UnitSystem.Unset)
             .Run(
-                query: Analyze.Bounds<BoundingBox, BoundingBox>(aspect: new Bounds.Box()),
+                query: Analyze.Bounds<BoundingBox, BoundingBox>(aspect: new Bounds.AxisAligned()),
                 input: [new BoundingBox(min: Point3d.Origin, max: new Point3d(x: 1.0, y: 1.0, z: 1.0))]);
         Validation<Error, Seq<BoundingBox>> unsetUnits = Analyze.In(
                 absolute: 0.01,
@@ -442,7 +442,7 @@ public sealed class AnalysisSpec {
                 angle: Math.PI / 180.0,
                 units: UnitSystem.Unset)
             .Run(
-                query: Analyze.Bounds<BoundingBox, BoundingBox>(aspect: new Bounds.Box()),
+                query: Analyze.Bounds<BoundingBox, BoundingBox>(aspect: new Bounds.AxisAligned()),
                 input: [new BoundingBox(min: Point3d.Origin, max: new Point3d(x: 1.0, y: 1.0, z: 1.0))]);
 
         Assert.True(condition: nonPositiveAbsolute.ToFin().Match(
@@ -463,7 +463,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RejectsUnsupportedQueryBeforeInputExecution() {
         Validation<Error, Seq<Plane>> result = Analyze.In(context: ValidContext()).Run(
-            query: Analyze.Bounds<Line, Plane>(aspect: new Bounds.Box()),
+            query: Analyze.Bounds<Line, Plane>(aspect: new Bounds.AxisAligned()),
             input: [
                 new Line(from: Point3d.Origin, to: new Point3d(x: 1.0, y: 0.0, z: 0.0)),
                 new Line(from: Point3d.Origin, to: new Point3d(x: 0.0, y: 1.0, z: 0.0)),
@@ -477,7 +477,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RejectsUnsupportedBoundsInputBeforeExecution() {
         Validation<Error, Seq<BoundingBox>> result = Analyze.In(context: ValidContext()).Run(
-            query: Analyze.Bounds<int, BoundingBox>(aspect: new Bounds.Box()),
+            query: Analyze.Bounds<int, BoundingBox>(aspect: new Bounds.AxisAligned()),
             input: [1, 2, 3]);
 
         Assert.True(condition: result.ToFin().Match(
@@ -725,6 +725,15 @@ public sealed class AnalysisSpec {
     }
 
     [Fact]
+    public void ProfilesUseStatsAsCanonicalSummary() {
+        CurvatureProfile curvature = new(Scalar: CurvatureScalar.Magnitude, Count: 2, Minimum: 1.0, Maximum: 3.0, Mean: 2.0, Variance: 1.0);
+        ResidualProfile residual = new(Count: 2, Minimum: 1.0, Maximum: 3.0, Mean: 2.0, Variance: 1.0, Rms: Math.Sqrt(d: 5.0), Tolerance: 3.0, WithinTolerance: true);
+
+        Assert.Equal(expected: curvature.Mean, actual: curvature.Stats.Mean);
+        Assert.Equal(expected: residual.Rms, actual: residual.Stats.Rms);
+    }
+
+    [Fact]
     public void RejectsInvalidConformanceResidualBeforeInputExecution() {
         Validation<Error, Seq<double>> invalidCount = Analyze.In(context: ValidContext()).Run(
             query: Analyze.Conformance<Curve, Line, double>(aspect: new Conformance.Distance(Count: 0)),
@@ -830,6 +839,17 @@ public sealed class AnalysisSpec {
     }
 
     [Fact]
+    public void IntersectValidatesBothPairMembersBeforeNativeRuntime() {
+        Validation<Error, Seq<Point3d>> result = Analyze.In(context: ValidContext()).Run(
+            query: Analyze.Intersect<Curve, Curve, Point3d>(),
+            input: [(null!, null!)]);
+
+        Assert.True(condition: result.ToFin().Match(
+            Succ: static _ => false,
+            Fail: static error => error.Count == 2));
+    }
+
+    [Fact]
     public void KeepsReverseIntersectionPairsOnTypedRails() {
         Assert.False(condition: Dispatch.IntersectTable.ContainsKey(key: (typeof(Plane), typeof(Line))));
         Assert.True(condition: Dispatch.SupportsUnorderedPair(table: Dispatch.IntersectTable, left: typeof(Plane), right: typeof(Line)));
@@ -929,25 +949,86 @@ public sealed class AnalysisSpec {
 
     [Fact]
     public void PreflightsGeometryBaseBoundsThroughDispatch() =>
-        Assert.True(condition: Analyze.Bounds<GeometryBase, BoundingBox>(aspect: new Bounds.Box()).Rejection.IsNone);
+        Assert.True(condition: Analyze.Bounds<GeometryBase, BoundingBox>(aspect: new Bounds.AxisAligned()).Rejection.IsNone);
 
     [Fact]
     public void SupportsMeshComponentsFromObjectRail() =>
         Assert.True(condition: Analyze.Components<object, Mesh>().Rejection.IsNone);
 
     [Fact]
-    public void KeepsSegmentsAsCurveProjectionAlias() =>
-        Assert.Equal(expected: Analyze.Curves<Curve, Curve>(aspect: Curves.Segments).Key, actual: Analyze.Segments<Curve, Curve>().Key);
+    public void SupportsSegmentsThroughCurveTopologyProjection() {
+        Assert.True(condition: Analyze.Curves<Curve, Curve>(aspect: Curves.Segments).Rejection.IsNone);
+        Assert.True(condition: Analyze.Segments<Curve, Curve>().Rejection.IsNone);
+    }
 
     [Fact]
-    public void RoutesBrepBoundariesThroughCurveProjection() =>
-        Assert.Equal(expected: Analyze.Curves<Brep, Curve>(aspect: Curves.All).Key, actual: Analyze.Boundaries<Brep, Curve>(aspect: Boundaries.All).Key);
+    public void SupportsBrepBoundariesThroughCurveTopologyProjection() {
+        Assert.True(condition: Analyze.Boundaries<Brep, Curve>(aspect: Boundaries.All).Rejection.IsNone);
+        Assert.True(condition: Analyze.Boundaries<BrepFace, Curve>(aspect: Boundaries.All).Rejection.IsNone);
+    }
 
     [Fact]
     public void RegistersBrepFaceBoundaryAsTrimAwareCurveCapability() {
         Assert.True(condition: Dispatch.CurvesTable.ContainsKey(key: (typeof(BrepFace), CurveFeature.Boundary)));
         Assert.True(condition: Analyze.Boundaries<Surface, Curve>(aspect: Boundaries.All).Rejection.IsNone);
         Assert.True(condition: Analyze.Boundaries<BrepFace, Curve>(aspect: Boundaries.All).Rejection.IsNone);
+    }
+
+    [Fact]
+    public void ProjectsCurveTopologyWithSourceAndFeature() {
+        ComponentIndex source = new(type: ComponentIndexType.BrepEdge, index: 3);
+        TopologyProjection projection = new TopologyProjection.CurveCase(Value: null!, Kind: CurveFeature.Edge, Origin: source);
+
+        Assert.Equal(expected: CurveFeature.Edge, actual: projection.Feature);
+        Assert.Equal(expected: source, actual: projection.Source);
+        Assert.True(condition: projection.Transfers(outputType: typeof(Curve)));
+    }
+
+    [Fact]
+    public void ProjectOwnedTransferKeepsChosenResult() {
+        TopologyProjection chosen = new TopologyProjection.MeshFaceCase(Value: null!, Index: 0);
+        TopologyProjection rejected = new TopologyProjection.MeshFaceCase(Value: null!, Index: 1);
+
+        Fin<Seq<ComponentIndex>> result = Analyze.ProjectOwned(
+            all: LanguageExt.Prelude.Seq(chosen, rejected),
+            chosen: LanguageExt.Prelude.Seq(chosen),
+            ownership: ProjectionOwnership.Transfer,
+            project: static values => Fin.Succ(values.Map(static projection => projection.Source)));
+
+        Assert.True(condition: result.IsSucc);
+        Assert.Equal(expected: new ComponentIndex(type: ComponentIndexType.MeshFace, index: 0), actual: result.Match(
+            Succ: static output => output[0],
+            Fail: static error => throw new Xunit.Sdk.XunitException(error.Message)));
+    }
+
+    [Fact]
+    public void ProjectOwnedDisposeAndFailureUseSameRail() {
+        TopologyProjection scalarProjection = new TopologyProjection.MeshFaceCase(Value: null!, Index: 0);
+        TopologyProjection failedProjection = new TopologyProjection.MeshFaceCase(Value: null!, Index: 1);
+
+        Fin<Seq<ComponentIndex>> scalarResult = Analyze.ProjectOwned(
+            all: LanguageExt.Prelude.Seq(scalarProjection),
+            chosen: LanguageExt.Prelude.Seq(scalarProjection),
+            ownership: ProjectionOwnership.Dispose,
+            project: static values => Fin.Succ(values.Map(static projection => projection.Source)));
+        Fin<Seq<ComponentIndex>> failedResult = Analyze.ProjectOwned(
+            all: LanguageExt.Prelude.Seq(failedProjection),
+            chosen: LanguageExt.Prelude.Seq(failedProjection),
+            ownership: ProjectionOwnership.Transfer,
+            project: static _ => Fin.Fail<Seq<ComponentIndex>>(Op.Of(name: "SyntheticProjection").InvalidResult()));
+
+        Assert.True(condition: scalarResult.IsSucc);
+        Assert.True(condition: failedResult.IsFail);
+    }
+
+    [Fact]
+    public void CreatesBorrowedMeshFaceIdentityWithoutOwnershipTransfer() {
+        TopologyProjection projection = new TopologyProjection.MeshFaceCase(Value: null!, Index: 5);
+
+        Assert.Equal(expected: 5, actual: projection.Face);
+        Assert.Equal(expected: new ComponentIndex(type: ComponentIndexType.MeshFace, index: 5), actual: projection.Source);
+        Assert.False(condition: projection.Transfers(outputType: typeof(Mesh)));
+        Assert.True(condition: TopologyProjection.MeshFace(mesh: null, face: 0).IsFail);
     }
 
     // Faces / FaceFrame queries operate on Brep, BrepFace, Surface, SubD — all of which

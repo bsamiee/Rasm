@@ -6,6 +6,24 @@ using Grasshopper2.Extensions;
 
 namespace Rasm.Grasshopper;
 
+// --- [ERRORS] ----------------------------------------------------------------------------
+[Union]
+internal abstract partial record GrasshopperFault : Rasm.Domain.Expected {
+    private GrasshopperFault() { }
+    public sealed record InputRequired(string PortName, string? Hint = null) : GrasshopperFault {
+        public override string Message => Hint switch { string h => $"{PortName} input is required. Connect: {h}.", _ => $"{PortName} input is required." };
+        public override string Category => "Input";
+    }
+    public sealed record UnsupportedSource(string PortName, Type SourceType, string? Hint = null) : GrasshopperFault {
+        public override string Message => Hint switch { string h => $"{PortName} input type '{SourceType.Name}' is not supported. Connect: {h}.", _ => $"{PortName} input type '{SourceType.Name}' is not supported." };
+        public override string Category => "Input";
+    }
+    public sealed record UnsupportedAccess(string AccessName) : GrasshopperFault {
+        public override string Message => $"Unsupported input access: {AccessName}.";
+        public override string Category => "Access";
+    }
+}
+
 // --- [MODELS] ---------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Shape {
@@ -14,11 +32,11 @@ public readonly record struct Shape {
     public const string Accepted = "Rhino/GH geometry convertible through native RhinoCommon or GH2 brokers";
     internal static Fin<Shape> Create(object? value) =>
         Optional(value)
-            .ToFin(new Fault.InputRequired(PortName: nameof(Shape), Hint: Accepted))
+            .ToFin(new GrasshopperFault.InputRequired(PortName: nameof(Shape), Hint: Accepted))
             .Bind(static raw => raw switch {
                 Shape shape => Fin.Succ(shape),
                 object candidate when candidate.GetType().AsKind().IsSome => Op.Create(value: nameof(Shape)).RequireValid(value: candidate).Map(static valid => new Shape(inner: valid)),
-                object candidate => Fin.Fail<Shape>(new Fault.UnsupportedSource(PortName: nameof(Shape), SourceType: candidate.GetType(), Hint: Accepted)),
+                object candidate => Fin.Fail<Shape>(new GrasshopperFault.UnsupportedSource(PortName: nameof(Shape), SourceType: candidate.GetType(), Hint: Accepted)),
             });
 }
 [StructLayout(LayoutKind.Auto)]
@@ -42,19 +60,35 @@ public static class Bridge {
     public static Fin<Analyze.Scope> Scope(this IDataAccess access) {
         ArgumentNullException.ThrowIfNull(argument: access);
         _ = access.GetUnitSystem(unitSystem: out UnitSystem units);
-        Rhino.UnitSystem system = units.System == Rhino.UnitSystem.Unset ? Rhino.UnitSystem.Millimeters : units.System;
-        return (access.GetTolerance(absoluteTolerance: out double absolute, relativeTolerance: out double relative), access.GetTolerance(angularTolerance: out Angle angle), system) switch {
-            (true, true, Rhino.UnitSystem known) => Fin.Succ(Analyze.In(absolute: absolute, relative: relative, angle: angle.Radians, units: known)),
-            _ => Remark(access: access, units: units.System),
+        Rhino.UnitSystem system = units.System switch {
+            Rhino.UnitSystem.Unset or Rhino.UnitSystem.None => Rhino.UnitSystem.Millimeters,
+            Rhino.UnitSystem known => known,
         };
+        bool lengthReliable = access.GetTolerance(absoluteTolerance: out double absolute, relativeTolerance: out double relative);
+        bool angleReliable = access.GetTolerance(angularTolerance: out Angle angle);
+        return Analyze.In(absolute: absolute, relative: relative, angle: angle.Radians, units: system).Context.Match(
+            Succ: context => {
+                _ = (lengthReliable && angleReliable) switch {
+                    true => Unit.Default,
+                    false => Effect(action: () => access.AddRemark(text: "Tolerance", details: "Host supplied fallback tolerance values; using them because they are valid.")),
+                };
+                return Fin.Succ(Analyze.In(context: context));
+            },
+            Fail: _ => Remark(access: access, units: system));
     }
     internal static Fin<Seq<Flow<Shape>>> ReadShape(this IDataAccess access, int slot, IPort port) {
         ArgumentNullException.ThrowIfNull(argument: access);
         ArgumentNullException.ThrowIfNull(argument: port);
         return Read<object>(access: access, slot: slot, port: port)
-            .Bind(values => values.TraverseM(sourced => NormalizeShape(raw: sourced.Item)
-                .ToFin(new Fault.UnsupportedSource(PortName: port.Name, SourceType: sourced.Item.GetType(), Hint: Shape.Accepted))
-                .Map(shape => new Flow<Shape>(Pear: Pear<Shape>.Create(item: shape, meta: sourced.Meta), Site: sourced.Site))).As());
+            .Bind(values => values.TraverseM(sourced => ((access.GetUnitScaling(unitSystemScaling: out double scale), scale) switch {
+                (true, double factor) when Rhino.RhinoMath.IsValidDouble(x: factor) && Math.Abs(value: factor - 1.0) > Rhino.RhinoMath.ZeroTolerance =>
+                    Optional(access.TryTransform(value: sourced.Pear, transformation: Transform.Scale(anchor: Point3d.Origin, scaleFactor: factor))).ToFin(new Fault.ComputationFailed(Label: "UnitScaling")),
+                (_, double factor) when Rhino.RhinoMath.IsValidDouble(x: factor) => Fin.Succ<IPear>(sourced.Pear),
+                _ => Fin.Fail<IPear>(new Fault.ComputationFailed(Label: "UnitScaling")),
+            })
+                .Bind(pear => NormalizeShape(raw: pear.Item)
+                .ToFin(new GrasshopperFault.UnsupportedSource(PortName: port.Name, SourceType: sourced.Item.GetType(), Hint: Shape.Accepted))
+                .Map(shape => new Flow<Shape>(Pear: Pear<Shape>.Create(item: shape, meta: pear.Meta), Site: sourced.Site)))).As());
     }
     internal static Fin<Seq<Flow<TVal>>> Read<TVal>(this IDataAccess access, int slot, IPort port) {
         ArgumentNullException.ThrowIfNull(argument: access);
@@ -73,7 +107,7 @@ public static class Bridge {
     private static Fin<Seq<Flow<TVal>>> ReadNative<TVal>(IDataAccess access, int slot, IPort port) =>
         AccessDispatch<TVal>.Readers.GetValueOrDefault(key: port.Access) switch {
             Func<IDataAccess, int, IPort, Fin<Seq<Flow<TVal>>>> reader => reader(arg1: access, arg2: slot, arg3: port),
-            _ => Fin.Fail<Seq<Flow<TVal>>>(new Fault.UnsupportedAccess(AccessName: port.Access.ToString())),
+            _ => Fin.Fail<Seq<Flow<TVal>>>(new GrasshopperFault.UnsupportedAccess(AccessName: port.Access.ToString())),
         };
     private static Unit WriteNative<TOut>(IDataAccess access, int slot, string name, Access targetAccess, Seq<Flow<TOut>> values) =>
         AccessDispatch<TOut>.Writers.GetValueOrDefault(key: targetAccess) switch {
@@ -95,12 +129,12 @@ public static class Bridge {
         access.CoverageIn(index: slot) switch { { TwigIndex: >= 0 } coverage => new Grasshopper2.Data.Path(coverage.TwigIndex), _ => new Grasshopper2.Data.Path(0) };
     private static Fin<Analyze.Scope> Remark(IDataAccess access, Rhino.UnitSystem units) {
         access.AddRemark(text: "Tolerance", details: "Host did not supply reliable tolerance; using default tolerance with document units.");
-        return Fin.Succ(Analyze.In(units: units == Rhino.UnitSystem.Unset ? Rhino.UnitSystem.Millimeters : units));
+        return Fin.Succ(Analyze.In(units: units == Rhino.UnitSystem.CustomUnits ? Rhino.UnitSystem.Millimeters : units));
     }
     private static Fin<Seq<Pear<TVal>>> Missing<TVal>(IPort port) =>
         port.Requirement switch {
             Grasshopper2.Parameters.Requirement.MayBeMissing => Fin.Succ(Seq<Pear<TVal>>()),
-            _ => Fin.Fail<Seq<Pear<TVal>>>(new Fault.InputRequired(PortName: port.Name)),
+            _ => Fin.Fail<Seq<Pear<TVal>>>(new GrasshopperFault.InputRequired(PortName: port.Name)),
         };
     private static Fin<Seq<Flow<TVal>>> MissingFlow<TVal>(IPort port) =>
         Missing<TVal>(port: port).Map(static pears => pears.Map(static pear => new Flow<TVal>(Pear: pear, Site: Option<Site>.None)));
@@ -140,7 +174,7 @@ public static class Bridge {
                 [Access.Tree] = static (access, slot, port) => access.GetTree<T>(index: slot, tree: out Tree<T> tree) switch {
                     true => toSeq(tree.EnumerateLeaves().Select((leaf, index) => (Leaf: leaf, Index: index))).TraverseM(item => item.Leaf.Pear is { Item: not null }
                         ? Fin.Succ(new Flow<T>(Pear: item.Leaf.Pear, Site: Some(item.Leaf.Site)))
-                        : Fin.Fail<Flow<T>>(new Fault.InputRequired(PortName: port.Name, Hint: $"Null tree item at index {item.Index}."))).As(),
+                        : Fin.Fail<Flow<T>>(new GrasshopperFault.InputRequired(PortName: port.Name, Hint: $"Null tree item at index {item.Index}."))).As(),
                     _ => MissingFlow<T>(port: port),
                 },
             }.ToFrozenDictionary();
@@ -152,9 +186,11 @@ public static class Bridge {
                 },
                 [Access.Twig] = static (access, slot, values) => Effect(action: () => access.SetTwig(index: slot, twig: Garden.TwigFromPears(pears: values.Map(static value => value.Pear).AsIterable()))),
                 [Access.Tree] = static (access, slot, values) => Effect(action: () => {
-                    ITree tree = values.Exists(static value => value.Site.IsSome)
-                        ? Garden.TreeFromLeaves(leaves: Leaves(values: values).AsIterable())
-                        : Garden.TreeFromPears(pears: values.Map(static value => value.Pear).AsIterable());
+                    ITree tree = values.Count switch {
+                        0 => Garden.TreeEmpty<T>(),
+                        _ when values.Exists(static value => value.Site.IsSome) => Garden.TreeFromLeaves(leaves: Leaves(values: values).AsIterable()),
+                        _ => Garden.TreeFromPears(pears: values.Map(static value => value.Pear).AsIterable()),
+                    };
                     access.SetTree(index: slot, tree: TreePrefix(access: access, slot: slot) is int prefix ? tree.WithPathPrefix(element: prefix) : tree);
                 }),
             }.ToFrozenDictionary();
@@ -162,7 +198,7 @@ public static class Bridge {
             access.GetPears<T>(index: slot, pears: out Pear<T>[] pears) switch {
                 true when pears.Length > 0 => toSeq(pears.Select((pear, index) => (Pear: pear, Index: index))).TraverseM(item => item.Pear is { Item: not null }
                     ? Fin.Succ(new Flow<T>(Pear: item.Pear, Site: site(arg1: access, arg2: slot, arg3: item.Index)))
-                    : Fin.Fail<Flow<T>>(new Fault.InputRequired(PortName: port.Name, Hint: $"Null item at index {item.Index}."))).As(),
+                    : Fin.Fail<Flow<T>>(new GrasshopperFault.InputRequired(PortName: port.Name, Hint: $"Null item at index {item.Index}."))).As(),
                 _ => MissingFlow<T>(port: port),
             };
     }

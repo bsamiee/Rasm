@@ -2,7 +2,19 @@ namespace Rasm.Analysis;
 
 // --- [TYPES] ------------------------------------------------------------------------------
 public enum CurvatureScalar { None = 0, Magnitude = 1, Gaussian = 2, Mean = 3 }
-[StructLayout(LayoutKind.Auto)] public readonly record struct CurvatureProfile(CurvatureScalar Scalar, int Count, double Minimum, double Maximum, double Mean, double Variance);
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CurvatureProfile {
+    public CurvatureProfile(CurvatureScalar scalar, Stats stats) { Scalar = scalar; Stats = stats; }
+    public CurvatureProfile(CurvatureScalar Scalar, int Count, double Minimum, double Maximum, double Mean, double Variance)
+        : this(scalar: Scalar, stats: new Stats(count: Count, minimum: Minimum, maximum: Maximum, mean: Mean, variance: Variance)) { }
+    public CurvatureScalar Scalar { get; }
+    public Stats Stats { get; }
+    public int Count => Stats.Count;
+    public double Minimum => Stats.Minimum;
+    public double Maximum => Stats.Maximum;
+    public double Mean => Stats.Mean;
+    public double Variance => Stats.Variance;
+}
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [Union]
@@ -157,7 +169,7 @@ public static partial class Analyze {
                 .ToFin(key.InvalidResult())
                 .Map(static parameters => toSeq(parameters)));
     private static Fin<CurvatureProfile> Profile(Op key, CurvatureScalar scalar, Seq<double> values) =>
-        Stats.From(values: values, key: key).Map(s => new CurvatureProfile(Scalar: scalar, Count: s.Count, Minimum: s.Minimum, Maximum: s.Maximum, Mean: s.Mean, Variance: s.Variance));
+        Stats.From(values: values, key: key).Map(s => new CurvatureProfile(scalar: scalar, stats: s));
     internal static Fin<Seq<double>> Samples(Interval domain, int resolution, Op key) =>
         domain.IsValid switch {
             true => Dispatch.Fractions(count: resolution, op: key).Map(fractions => fractions.Map(f => domain.ParameterAt(f))),

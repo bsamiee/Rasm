@@ -16,16 +16,16 @@ public partial record Curves : IAspect {
         Dispatch.SupportsCurves(source: typeof(TGeometry)) switch {
             false => Key.Unsupported<TGeometry, TOut>(),
             true => typeof(TOut) switch {
-                Type t when t == typeof(Curve) => Analyze.CurveProject<TGeometry, TOut, Curve>(key: Key, aspect: this, project: static p => p.Curve),
+                Type t when t == typeof(Curve) => Analyze.CurveProject<TGeometry, TOut, Curve>(key: Key, aspect: this, project: static p => p.OwnedCurve),
                 Type t when t == typeof(CurveFeature) => Analyze.CurveProject<TGeometry, TOut, CurveFeature>(key: Key, aspect: this, project: static p => p.Feature),
                 Type t when t == typeof(ComponentIndex) => Analyze.CurveProject<TGeometry, TOut, ComponentIndex>(key: Key, aspect: this, project: static p => p.Source),
                 _ => Key.Unsupported<TGeometry, TOut>(),
             },
         };
-    internal Fin<Seq<CurveProjection>> Select(Seq<CurveProjection> curves) =>
+    internal Fin<Seq<TopologyProjection>> Select(Seq<TopologyProjection> curves) =>
         (this, curves.Count) switch {
-            (_, 0) => Fin.Succ(Seq<CurveProjection>()),
-            (AtCase { Value: int index }, int count) when index < 0 || index >= count => Fin.Fail<Seq<CurveProjection>>(Key.InvalidInput()),
+            (_, 0) => Fin.Succ(Seq<TopologyProjection>()),
+            (AtCase { Value: int index }, int count) when index < 0 || index >= count => Fin.Fail<Seq<TopologyProjection>>(Key.InvalidInput()),
             (AtCase { Value: int index }, _) => Fin.Succ(Seq(curves[index])),
             (AtCase, _) => Fin.Succ(Seq(curves[0])),
             _ => Fin.Succ(curves),
@@ -73,7 +73,7 @@ public static partial class Analyze {
                 from result in Many(key: state.Key, values: curves).ToEff()
                 select result);
     }
-    internal static Query<TGeometry, TOut> CurveProject<TGeometry, TOut, TValue>(Op key, Curves aspect, Func<CurveProjection, TValue> project) where TGeometry : notnull =>
+    internal static Query<TGeometry, TOut> CurveProject<TGeometry, TOut, TValue>(Op key, Curves aspect, Func<TopologyProjection, TValue> project) where TGeometry : notnull =>
         Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, TValue>.Build(
             key: key, state: (Key: key, Aspect: aspect, Project: project), requiresContext: true,
             evaluator: static (state, geometry) =>
@@ -83,14 +83,14 @@ public static partial class Analyze {
                 from chosen in state.Aspect.Select(curves: curves).ToEff()
                 from result in ProjectOwned(all: curves, chosen: chosen, ownership: typeof(TValue) == typeof(Curve) ? ProjectionOwnership.Transfer : ProjectionOwnership.Dispose, project: values => Many(key: state.Key, values: values.Map(state.Project))).ToEff()
                 select result));
-    public static Eff<Env, Seq<CurveProjection>> CurveProjections(object geometry, Curves aspect) =>
+    public static Eff<Env, Seq<TopologyProjection>> TopologyProjections(object geometry, Curves aspect) =>
         from runtime in Env.EnvAsks
         from kind in geometry.Kind(context: runtime.Context).ToEff()
         from curves in kind.Curves(geometry: geometry, selector: aspect.ToSelector(topology: kind.Topology), context: runtime.Context, op: Rasm.Analysis.Curves.Key, cancel: runtime.Cancellation).ToEff()
         from chosen in aspect.Select(curves: curves).ToEff()
         from result in ProjectOwned(all: curves, chosen: chosen, ownership: ProjectionOwnership.Transfer, project: static values => Fin.Succ(values)).ToEff()
         select result;
-    public static Eff<Env, Seq<CurveProjection>> CurveProjections(object geometry, Func<int, Curves> choose) =>
+    public static Eff<Env, Seq<TopologyProjection>> TopologyProjections(object geometry, Func<int, Curves> choose) =>
         from runtime in Env.EnvAsks
         from kind in geometry.Kind(context: runtime.Context).ToEff()
         from curves in kind.Curves(geometry: geometry, selector: Rasm.Analysis.Curves.All.ToSelector(topology: kind.Topology), context: runtime.Context, op: Rasm.Analysis.Curves.Key, cancel: runtime.Cancellation).ToEff()

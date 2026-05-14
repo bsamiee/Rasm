@@ -3,7 +3,7 @@ namespace Rasm.Analysis;
 // --- [MODELS] -----------------------------------------------------------------------------
 [Union]
 public partial record Bounds : IAspect {
-    public sealed record Box : Bounds; public sealed record Oriented(Plane Plane) : Bounds; public sealed record Transformed(Transform Transform) : Bounds; public sealed record Center : Bounds;
+    public sealed record AxisAligned : Bounds; public sealed record Oriented(Plane Plane) : Bounds; public sealed record Transformed(Transform Transform) : Bounds; public sealed record Center : Bounds;
     public sealed record Corners(bool Unique = false) : Bounds; public sealed record Edges : Bounds; public sealed record Area : Bounds; public sealed record Volume : Bounds;
     private static readonly Op BoundsKey = Op.Of(name: nameof(Bounds));
     private static readonly Op OrientedKey = Op.Of(name: "OrientedBounds");
@@ -14,7 +14,7 @@ public partial record Bounds : IAspect {
     private static readonly Op BoxAreaKey = Op.Of(name: "BoxArea");
     private static readonly Op BoxVolumeKey = Op.Of(name: "BoxVolume");
     public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull => Switch<Query<TGeometry, TOut>>(
-        box: static _ => (typeof(TOut) == typeof(BoundingBox) && typeof(TGeometry).SupportsBounds(includeSphere: true))
+        axisAligned: static _ => (typeof(TOut) == typeof(BoundingBox) && typeof(TGeometry).SupportsBounds(includeSphere: true))
             ? Analyze.Cast<TGeometry, TOut>(key: BoundsKey, query: Query<TGeometry, BoundingBox>.Build(
                 key: BoundsKey, state: BoundsKey,
                 evaluator: static (op, geometry) => geometry.Bounds(op: op).Bind(b => Analyze.One(key: op, value: b)).ToEff()))
