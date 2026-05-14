@@ -1025,7 +1025,7 @@ public sealed class AnalysisSpec {
     public void CreatesBorrowedMeshFaceIdentityWithoutOwnershipTransfer() {
         TopologyProjection projection = new TopologyProjection.MeshFaceCase(Value: null!, Index: 5);
 
-        Assert.Equal(expected: 5, actual: projection.Face);
+        Assert.Equal(expected: 5, actual: projection.FaceIndex);
         Assert.Equal(expected: new ComponentIndex(type: ComponentIndexType.MeshFace, index: 5), actual: projection.Source);
         Assert.False(condition: projection.Transfers(outputType: typeof(Mesh)));
         Assert.True(condition: TopologyProjection.MeshFace(mesh: null, face: 0).IsFail);

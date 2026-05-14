@@ -104,6 +104,9 @@ public static class Output {
     public static OutputSlot<TSource> Plain<TSource, TOut>(Port<TOut> port, Func<TSource, TOut> project) =>
         Slot<TSource, TOut>(port: port, project: (_, sources) =>
             Fin.Succ(sources.Map(src => src.Project(item: project(arg: src.Item)))));
+    public static OutputSlot<TSource> Choose<TSource, TOut>(Port<TOut> port, Func<TSource, Option<TOut>> project) =>
+        Slot<TSource, TOut>(port: port, project: (_, sources) =>
+            Fin.Succ(sources.Choose(src => project(arg: src.Item).Map(src.Project))));
     public static OutputSlot<TSource> One<TSource, TOut>(Port<TOut> port, Func<TSource, Context, Fin<TOut>> project) =>
         Slot<TSource, TOut>(port: port, project: (runtime, sources) => runtime.Scope.Context
             .Bind(context => sources.Traverse(src => project(arg1: src.Item, arg2: context).Map(src.Project)).As()));

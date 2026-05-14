@@ -13,7 +13,7 @@ public partial record Faces : IAspect {
         Dispatch.SupportsFaces(source: typeof(TGeometry)) switch {
             false => Key.Unsupported<TGeometry, TOut>(),
             true => typeof(TOut) switch {
-                Type t when t == typeof(Brep) => Analyze.FaceQuery<TGeometry, TOut, Brep>(key: Key, selector: this, requirement: Requirement.None, ownership: ProjectionOwnership.Transfer, project: static (chosen, _) => Analyze.Many(key: Key, values: chosen.Map(static face => face.Brep))),
+                Type t when t == typeof(Brep) => Analyze.FaceQuery<TGeometry, TOut, Brep>(key: Key, selector: this, requirement: Requirement.None, ownership: ProjectionOwnership.Transfer, project: static (chosen, _) => Analyze.Many(key: Key, values: chosen.Choose(static face => face.As<Brep>()))),
                 Type t when t == typeof(Plane) => Analyze.FaceQuery<TGeometry, TOut, Plane>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation, ownership: ProjectionOwnership.Dispose, project: static (chosen, runtime) => chosen.Traverse(face => Analyze.FrameAtCentroid(face: face, runtime: runtime)).As()),
                 Type t when t == typeof(Point3d) => Analyze.FaceQuery<TGeometry, TOut, Point3d>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation, ownership: ProjectionOwnership.Dispose, project: static (chosen, runtime) => chosen.Traverse(face => Analyze.FaceCentroid(face: face, runtime: runtime)).As()),
                 Type t when t == typeof(Vector3d) => Analyze.FaceQuery<TGeometry, TOut, Vector3d>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation, ownership: ProjectionOwnership.Dispose, project: static (chosen, runtime) => chosen.Traverse(face => Analyze.FrameAtCentroid(face: face, runtime: runtime).Map(static frame => frame.ZAxis)).As()),
@@ -70,12 +70,12 @@ public static partial class Analyze {
     public static Fin<Plane> FrameAtCentroid(TopologyProjection face, Context runtime) {
         ArgumentNullException.ThrowIfNull(argument: face);
         return face switch {
-            TopologyProjection.FaceCase => FaceCentroid(face: face, runtime: runtime)
+            TopologyProjection.FaceCase faceCase => FaceCentroid(face: face, runtime: runtime)
                 .Bind(centroid => {
-                    BrepFace brepFace = face.Brep.Faces[0];
+                    BrepFace brepFace = faceCase.Value.Faces[0];
                     return brepFace.ClosestPointOnFace(testPoint: centroid, u: out double u, v: out double v, maximumDistance: 0.0) switch {
                         true => (brepFace.FrameAt(u: u, v: v, frame: out Plane frame), brepFace.NormalAt(u: u, v: v)) switch {
-                            (true, Vector3d normal) when frame.IsValid && normal.IsValid && !normal.IsTiny() => Fin.Succ((frame.ZAxis * (face.Reversed ? -normal : normal)) switch {
+                            (true, Vector3d normal) when frame.IsValid && normal.IsValid && !normal.IsTiny() => Fin.Succ((frame.ZAxis * (faceCase.IsReversed ? -normal : normal)) switch {
                                 >= 0.0 => frame,
                                 _ => new Plane(frame.Origin, frame.XAxis, -frame.YAxis),
                             }),
@@ -91,7 +91,7 @@ public static partial class Analyze {
         ArgumentNullException.ThrowIfNull(argument: face);
         ArgumentNullException.ThrowIfNull(argument: runtime);
         return face switch {
-            TopologyProjection.FaceCase => Optional(AreaMassProperties.Compute(brep: face.Brep, area: true, firstMoments: true, secondMoments: false, productMoments: false, relativeTolerance: runtime.Fractional, absoluteTolerance: runtime.Absolute.Value))
+            TopologyProjection.FaceCase faceCase => Optional(AreaMassProperties.Compute(brep: faceCase.Value, area: true, firstMoments: true, secondMoments: false, productMoments: false, relativeTolerance: runtime.Fractional, absoluteTolerance: runtime.Absolute.Value))
                 .ToFin(Rasm.Analysis.Faces.Key.InvalidResult())
                 .Map(static mass => { using AreaMassProperties disposable = mass; return disposable.Centroid; }),
             _ => Fin.Fail<Point3d>(Rasm.Analysis.Faces.Key.InvalidInput()),
@@ -100,7 +100,7 @@ public static partial class Analyze {
     public static Fin<Seq<Interval>> FaceDomains(TopologyProjection face) {
         ArgumentNullException.ThrowIfNull(argument: face);
         return face switch {
-            TopologyProjection.FaceCase => face.Brep.Faces[0] switch {
+            TopologyProjection.FaceCase faceCase => faceCase.Value.Faces[0] switch {
                 BrepFace brepFace => (brepFace.Domain(direction: 0), brepFace.Domain(direction: 1)) switch {
                     (Interval u, Interval v) when u.IsValid && v.IsValid => Fin.Succ(Seq(u, v)),
                     _ => Fin.Fail<Seq<Interval>>(Rasm.Analysis.Faces.Key.InvalidResult()),

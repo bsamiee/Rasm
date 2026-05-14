@@ -21,12 +21,9 @@ public abstract partial record TopologyProjection {
     public sealed record MeshFaceCase(Mesh Value, int Index) : TopologyProjection;
     public ComponentIndex Source => this switch { CurveCase curve => curve.Origin, FaceCase face => new ComponentIndex(type: ComponentIndexType.BrepFace, index: face.Index), MeshFaceCase mesh => new ComponentIndex(type: ComponentIndexType.MeshFace, index: mesh.Index), _ => ComponentIndex.Unset };
     public CurveFeature Feature => this switch { CurveCase curve => curve.Kind, _ => CurveFeature.Input };
-    public Curve OwnedCurve => this switch { CurveCase curve => curve.Value, _ => throw new InvalidOperationException(message: "Projection is not a curve.") };
-    public Brep Brep => this switch { FaceCase face => face.Value, _ => throw new InvalidOperationException(message: "Projection is not a Brep face.") };
-    public Mesh Mesh => this switch { MeshFaceCase mesh => mesh.Value, _ => throw new InvalidOperationException(message: "Projection is not a mesh face.") };
-    public int FaceIndex => this switch { FaceCase face => face.Index, _ => Source.Index };
-    public int Face => this switch { MeshFaceCase mesh => mesh.Index, _ => Source.Index };
-    public bool Reversed => this switch { FaceCase face => face.IsReversed, _ => false };
+    public int FaceIndex => this switch { FaceCase face => face.Index, MeshFaceCase mesh => mesh.Index, _ => Source.Index };
+    public Option<T> As<T>() where T : class => this switch { CurveCase c when c.Value is T m => Some(m), FaceCase f when f.Value is T m => Some(m), MeshFaceCase x when x.Value is T m => Some(m), _ => Option<T>.None };
+    internal Fin<T> OnMeshFace<T>(Func<Mesh, int, Fin<T>> use) where T : notnull => this switch { MeshFaceCase x when x.Value is Mesh m && x.Index >= 0 && x.Index < m.Faces.Count => use(arg1: m, arg2: x.Index), _ => Fin.Fail<T>(Key.InvalidInput()) };
     public static TopologyProjection FromCurve(Curve curve, CurveFeature feature, ComponentIndex source) => new CurveCase(Value: curve, Kind: feature, Origin: source);
     internal static TopologyProjection FromCurve(Curve curve, CurveFeature feature, ComponentIndexType type, int index) => FromCurve(curve: curve, feature: feature, source: new ComponentIndex(type: type, index: index));
     public static TopologyProjection FaceFrom(BrepFace face) { ArgumentNullException.ThrowIfNull(argument: face); return new FaceCase(Value: face.DuplicateFace(duplicateMeshes: false), Index: face.FaceIndex, IsReversed: face.OrientationIsReversed); }
@@ -36,18 +33,14 @@ public abstract partial record TopologyProjection {
             (int count, int index) when index >= 0 && index < count => Fin.Succ<TopologyProjection>(new MeshFaceCase(Value: native, Index: index)),
             _ => Fin.Fail<TopologyProjection>(Key.InvalidInput()),
         });
-    public Unit Dispose() =>
-        Optional(this switch { CurveCase curve => (IDisposable)curve.Value, FaceCase face => face.Value, _ => null }).Iter(static disposable => disposable.Dispose());
+    public Unit Dispose() => Optional(this switch { CurveCase curve => (IDisposable)curve.Value, FaceCase face => face.Value, _ => null }).Iter(static disposable => disposable.Dispose());
     public bool SameAs(TopologyProjection other) => (this, other) switch { (CurveCase a, CurveCase b) => ReferenceEquals(objA: a.Value, objB: b.Value), (FaceCase a, FaceCase b) => ReferenceEquals(objA: a.Value, objB: b.Value), (MeshFaceCase a, MeshFaceCase b) => ReferenceEquals(objA: a.Value, objB: b.Value) && a.Index == b.Index, _ => false };
-    public bool Transfers(Type outputType) =>
-        (this is CurveCase && outputType == typeof(Curve)) || (this is FaceCase && outputType == typeof(Brep));
-    public Fin<Seq<Point3d>> Vertices =>
-        MeshFace(mesh: this switch { MeshFaceCase mesh => mesh.Value, _ => null }, face: Source.Index)
-            .Bind(static projection => projection.Mesh.Faces.GetFaceVertices(faceIndex: projection.Face, a: out Point3f a, b: out Point3f b, c: out Point3f c, d: out Point3f d) switch {
-                true when projection.Mesh.Faces[projection.Face].IsQuad => Fin.Succ(Seq((Point3d)a, (Point3d)b, (Point3d)c, (Point3d)d)),
-                true => Fin.Succ(Seq((Point3d)a, (Point3d)b, (Point3d)c)),
-                false => Fin.Fail<Seq<Point3d>>(Key.InvalidResult()),
-            });
+    public bool Transfers(Type outputType) => (this is CurveCase && outputType == typeof(Curve)) || (this is FaceCase && outputType == typeof(Brep));
+    public Fin<Seq<Point3d>> Vertices => OnMeshFace<Seq<Point3d>>(static (mesh, face) => mesh.Faces.GetFaceVertices(faceIndex: face, a: out Point3f a, b: out Point3f b, c: out Point3f c, d: out Point3f d) switch {
+        true when mesh.Faces[face].IsQuad => Fin.Succ(Seq((Point3d)a, (Point3d)b, (Point3d)c, (Point3d)d)),
+        true => Fin.Succ(Seq((Point3d)a, (Point3d)b, (Point3d)c)),
+        false => Fin.Fail<Seq<Point3d>>(Key.InvalidResult()),
+    });
     public Fin<Vector3d> Normal => Isolated().Bind(static mesh => {
         Fin<Vector3d> result = (mesh.FaceNormals.ComputeFaceNormals(), mesh.FaceNormals.UnitizeFaceNormals(), mesh.FaceNormals.Count) switch {
             (true, true, > 0) => Fin.Succ((Vector3d)mesh.FaceNormals[0]),
@@ -56,22 +49,17 @@ public abstract partial record TopologyProjection {
         mesh.Dispose();
         return result;
     });
-    public Fin<Point3d> Center =>
-        MeshFace(mesh: this switch { MeshFaceCase mesh => mesh.Value, _ => null }, face: Source.Index)
-            .Bind(static projection => projection.Mesh.Faces.GetFaceCenter(faceIndex: projection.Face) switch {
-                Point3d point when point.IsValid => Fin.Succ(point),
-                _ => Fin.Fail<Point3d>(Key.InvalidResult()),
-            });
-    public Fin<Mesh> Isolated() =>
-        MeshFace(mesh: this switch { MeshFaceCase mesh => mesh.Value, _ => null }, face: Source.Index)
-            .Bind(projection => Optional(Rhino.Geometry.Mesh.CreateFromFilteredFaceList(
-                    original: projection.Mesh,
-                    inclusion: Enumerable.Range(start: 0, count: projection.Mesh.Faces.Count).Select(index => index == projection.Face)))
-                .ToFin(Key.InvalidResult())
-                .Bind(isolated => (isolated.IsValid, isolated.FaceNormals.ComputeFaceNormals(), isolated.FaceNormals.UnitizeFaceNormals()) switch {
-                    (true, true, true) => Fin.Succ(isolated),
-                    _ => fun((Mesh failed) => { failed.Dispose(); return Fin.Fail<Mesh>(Key.InvalidResult()); })(isolated),
-                }));
+    public Fin<Point3d> Center => OnMeshFace<Point3d>(static (mesh, face) => mesh.Faces.GetFaceCenter(faceIndex: face) switch {
+        Point3d point when point.IsValid => Fin.Succ(point),
+        _ => Fin.Fail<Point3d>(Key.InvalidResult()),
+    });
+    public Fin<Mesh> Isolated() => OnMeshFace<Mesh>(static (mesh, face) =>
+        Optional(Rhino.Geometry.Mesh.CreateFromFilteredFaceList(original: mesh, inclusion: Enumerable.Range(start: 0, count: mesh.Faces.Count).Select(index => index == face)))
+            .ToFin(Key.InvalidResult())
+            .Bind(static isolated => (isolated.IsValid, isolated.FaceNormals.ComputeFaceNormals(), isolated.FaceNormals.UnitizeFaceNormals()) switch {
+                (true, true, true) => Fin.Succ(isolated),
+                _ => fun((Mesh failed) => { failed.Dispose(); return Fin.Fail<Mesh>(Key.InvalidResult()); })(isolated),
+            }));
 }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct ClosestHit(Point3d Point, Option<double> Distance, Option<Vector3d> Normal, Option<ComponentIndex> Component, Option<MeshPoint> MeshPoint);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct CurveSelector(CurveFeature Feature, Option<Vector3d> Direction = default, Option<double> Angle = default, Option<int> Index = default, Option<double> Normalized = default, Option<IsoStatus> Iso = default);

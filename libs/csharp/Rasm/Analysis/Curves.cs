@@ -16,9 +16,9 @@ public partial record Curves : IAspect {
         Dispatch.SupportsCurves(source: typeof(TGeometry)) switch {
             false => Key.Unsupported<TGeometry, TOut>(),
             true => typeof(TOut) switch {
-                Type t when t == typeof(Curve) => Analyze.CurveProject<TGeometry, TOut, Curve>(key: Key, aspect: this, project: static p => p.OwnedCurve),
-                Type t when t == typeof(CurveFeature) => Analyze.CurveProject<TGeometry, TOut, CurveFeature>(key: Key, aspect: this, project: static p => p.Feature),
-                Type t when t == typeof(ComponentIndex) => Analyze.CurveProject<TGeometry, TOut, ComponentIndex>(key: Key, aspect: this, project: static p => p.Source),
+                Type t when t == typeof(Curve) => Analyze.CurveProject<TGeometry, TOut, Curve>(key: Key, aspect: this, project: static p => p.As<Curve>()),
+                Type t when t == typeof(CurveFeature) => Analyze.CurveProject<TGeometry, TOut, CurveFeature>(key: Key, aspect: this, project: static p => Some(p.Feature)),
+                Type t when t == typeof(ComponentIndex) => Analyze.CurveProject<TGeometry, TOut, ComponentIndex>(key: Key, aspect: this, project: static p => Some(p.Source)),
                 _ => Key.Unsupported<TGeometry, TOut>(),
             },
         };
@@ -73,7 +73,7 @@ public static partial class Analyze {
                 from result in Many(key: state.Key, values: curves).ToEff()
                 select result);
     }
-    internal static Query<TGeometry, TOut> CurveProject<TGeometry, TOut, TValue>(Op key, Curves aspect, Func<TopologyProjection, TValue> project) where TGeometry : notnull =>
+    internal static Query<TGeometry, TOut> CurveProject<TGeometry, TOut, TValue>(Op key, Curves aspect, Func<TopologyProjection, Option<TValue>> project) where TGeometry : notnull =>
         Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, TValue>.Build(
             key: key, state: (Key: key, Aspect: aspect, Project: project), requiresContext: true,
             evaluator: static (state, geometry) =>
@@ -81,7 +81,7 @@ public static partial class Analyze {
                 from kind in ((object)geometry).Kind(context: runtime.Context).ToEff()
                 from curves in kind.Curves(geometry: geometry, selector: state.Aspect.ToSelector(topology: kind.Topology), context: runtime.Context, op: state.Key, cancel: runtime.Cancellation).ToEff()
                 from chosen in state.Aspect.Select(curves: curves).ToEff()
-                from result in ProjectOwned(all: curves, chosen: chosen, ownership: typeof(TValue) == typeof(Curve) ? ProjectionOwnership.Transfer : ProjectionOwnership.Dispose, project: values => Many(key: state.Key, values: values.Map(state.Project))).ToEff()
+                from result in ProjectOwned(all: curves, chosen: chosen, ownership: typeof(TValue) == typeof(Curve) ? ProjectionOwnership.Transfer : ProjectionOwnership.Dispose, project: values => Many(key: state.Key, values: values.Choose(state.Project))).ToEff()
                 select result));
     public static Eff<Env, Seq<TopologyProjection>> TopologyProjections(object geometry, Curves aspect) =>
         from runtime in Env.EnvAsks

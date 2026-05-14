@@ -16,7 +16,7 @@ public sealed class ExtractSurfaces : Component {
         emptyUnsupported: true,
         aspectLabel: nameof(Rasm.Analysis.Faces),
         slots: [
-            Output.Plain<TopologyProjection, Brep>(port: Port.Tree<Brep>(name: "Faces", code: "F", info: "Every face as a trimmed single-face Brep."), project: static value => value.Brep),
+            Output.Choose<TopologyProjection, Brep>(port: Port.Tree<Brep>(name: "Faces", code: "F", info: "Every face as a trimmed single-face Brep."), project: static value => value.As<Brep>()),
             Output.Plain<TopologyProjection, int>(port: Port.Tree<int>(name: "Face Index", code: "FX", info: "Source Brep face index aligned with each face."), project: static value => value.FaceIndex),
         ]);
     private static readonly OutputGroup Top = Output.Single<Rasm.Analysis.Faces, Brep>(
@@ -31,7 +31,7 @@ public sealed class ExtractSurfaces : Component {
         emptyUnsupported: false,
         aspectLabel: nameof(Rasm.Analysis.Faces),
         slots: [
-            Output.Plain<TopologyProjection, Brep>(port: Port.Tree<Brep>(name: "Face", code: "FA", info: "Trimmed single-face Brep at Index; missing Index defaults to 0 and supplied values clamp to [0, count-1]."), project: static value => value.Brep),
+            Output.Choose<TopologyProjection, Brep>(port: Port.Tree<Brep>(name: "Face", code: "FA", info: "Trimmed single-face Brep at Index; missing Index defaults to 0 and supplied values clamp to [0, count-1]."), project: static value => value.As<Brep>()),
             Output.One<TopologyProjection, Plane>(port: Port.Tree<Plane>(name: "UV Frame", code: "UV", info: "Native U/V frame at the indexed face centroid: X = surface U direction, Z = orientation-corrected normal, Y completes the basis."), project: static (face, context) => Rasm.Analysis.Analyze.FrameAtCentroid(face: face, runtime: context)),
             Output.One<TopologyProjection, Point3d>(port: Port.Tree<Point3d>(name: "Centroid", code: "FC", info: "Area centroid of the indexed trimmed face."), project: static (face, context) => Rasm.Analysis.Analyze.FaceCentroid(face: face, runtime: context)),
             Output.One<TopologyProjection, Vector3d>(port: Port.Tree<Vector3d>(name: "Normal", code: "FN", info: "Orientation-corrected indexed face normal at the face centroid."), project: static (face, context) => Rasm.Analysis.Analyze.FrameAtCentroid(face: face, runtime: context).Map(static frame => frame.ZAxis)),

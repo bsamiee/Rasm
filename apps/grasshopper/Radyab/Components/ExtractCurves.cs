@@ -33,7 +33,7 @@ public sealed class ExtractCurves : Component {
         emptyUnsupported: true,
         aspectLabel: nameof(Curves),
         slots: [
-            Output.Plain<TopologyProjection, Curve>(port: Port.Tree<Curve>(name: "Curves", code: "C", info: "Every curve piece: structural segments, Brep/SubD edges, surface boundary iso curves, mesh topology edge curves, and loop curves."), project: static value => value.OwnedCurve),
+            Output.Choose<TopologyProjection, Curve>(port: Port.Tree<Curve>(name: "Curves", code: "C", info: "Every curve piece: structural segments, Brep/SubD edges, surface boundary iso curves, mesh topology edge curves, and loop curves."), project: static value => value.As<Curve>()),
             Output.Plain<TopologyProjection, ComponentIndex>(port: Port.Tree<ComponentIndex>(name: "Source", code: "X", info: "Source component index aligned with each curve."), project: static value => value.Source),
             Output.Plain<TopologyProjection, CurveFeature>(port: Port.Tree<CurveFeature>(kind: PortKind.Enum(initial: CurveFeature.Input), name: "Feature", code: "F", info: "Feature classification aligned with each curve (boundary, naked, interior, loop, segment, iso, silhouette, draft)."), project: static value => value.Feature),
         ]);

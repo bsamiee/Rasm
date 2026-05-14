@@ -48,7 +48,8 @@ public partial class MeshCheckCount {
 [SmartEnum<int>]
 public sealed partial class MeshFaceMetric {
     public static readonly MeshFaceMetric None = new(key: 0, sample: static _ => Fin.Fail<double>(Op.Of(name: nameof(MeshFaceMetric)).InvalidInput()));
-    public static readonly MeshFaceMetric AspectRatio = new(key: 1, sample: static projection => Fin.Succ(projection.Mesh.Faces.GetFaceAspectRatio(index: projection.Face)));
+    public static readonly MeshFaceMetric AspectRatio = new(key: 1, sample: static projection =>
+        projection.OnMeshFace<double>(static (mesh, face) => Fin.Succ(mesh.Faces.GetFaceAspectRatio(index: face))));
     public static readonly MeshFaceMetric Area = new(key: 2, sample: FaceArea);
     public static readonly MeshFaceMetric Perimeter = new(key: 3, sample: FacePerimeter);
     public static readonly MeshFaceMetric Skewness = new(key: 4, sample: FaceSkewness);
@@ -73,15 +74,15 @@ public sealed partial class MeshFaceMetric {
     private static Fin<double> FaceMaxDihedral(TopologyProjection projection) =>
         projection.Normal.Bind(normal => normal.IsValid switch {
             false => Fin.Succ(0.0),
-            true => toSeq(projection.Mesh.TopologyEdges.GetEdgesForFace(faceIndex: projection.Face))
-                .Bind(edge => toSeq(projection.Mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: edge)).Filter(other => other != projection.Face))
-                .Fold(initialState: Fin.Succ((Max: 0.0, projection.Mesh, Normal: normal)), f: static (state, other) => state.Bind(s => TopologyProjection.MeshFace(mesh: s.Mesh, face: other)
+            true => projection.OnMeshFace<double>((mesh, face) => toSeq(mesh.TopologyEdges.GetEdgesForFace(faceIndex: face))
+                .Bind(edge => toSeq(mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: edge)).Filter(other => other != face))
+                .Fold(initialState: Fin.Succ((Max: 0.0, Mesh: mesh, Normal: normal)), f: static (state, other) => state.Bind(s => TopologyProjection.MeshFace(mesh: s.Mesh, face: other)
                     .Bind(static otherProjection => otherProjection.Normal)
                     .Map(neighbour => neighbour.IsValid switch {
                         true => (Math.Max(val1: s.Max, val2: Vector3d.VectorAngle(a: s.Normal, b: neighbour)), s.Mesh, s.Normal),
                         false => s,
                     })))
-                .Map(static state => state.Max),
+                .Map(static state => state.Max)),
         });
 }
 
