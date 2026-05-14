@@ -922,7 +922,7 @@ public sealed class AnalysisSpec {
             input: input);
 
         Assert.Equal(
-            expected: [Kind.Line, Kind.BBox, Kind.Box, Kind.Sphere],
+            expected: [Kind.Line, Kind.BoundingBox, Kind.Box, Kind.Sphere],
             actual: kind);
     }
 
@@ -975,59 +975,9 @@ public sealed class AnalysisSpec {
     }
 
     [Fact]
-    public void ProjectsCurveTopologyWithSourceAndFeature() {
-        ComponentIndex source = new(type: ComponentIndexType.BrepEdge, index: 3);
-        TopologyProjection projection = new TopologyProjection.CurveCase(Value: null!, Kind: CurveFeature.Edge, Origin: source);
-
-        Assert.Equal(expected: CurveFeature.Edge, actual: projection.Feature);
-        Assert.Equal(expected: source, actual: projection.Source);
-        Assert.True(condition: projection.Transfers(outputType: typeof(Curve)));
-    }
-
-    [Fact]
-    public void ProjectOwnedTransferKeepsChosenResult() {
-        TopologyProjection chosen = new TopologyProjection.MeshFaceCase(Value: null!, Index: 0);
-        TopologyProjection rejected = new TopologyProjection.MeshFaceCase(Value: null!, Index: 1);
-
-        Fin<Seq<ComponentIndex>> result = Analyze.ProjectOwned(
-            all: LanguageExt.Prelude.Seq(chosen, rejected),
-            chosen: LanguageExt.Prelude.Seq(chosen),
-            ownership: ProjectionOwnership.Transfer,
-            project: static values => Fin.Succ(values.Map(static projection => projection.Source)));
-
-        Assert.True(condition: result.IsSucc);
-        Assert.Equal(expected: new ComponentIndex(type: ComponentIndexType.MeshFace, index: 0), actual: result.Match(
-            Succ: static output => output[0],
-            Fail: static error => throw new Xunit.Sdk.XunitException(error.Message)));
-    }
-
-    [Fact]
-    public void ProjectOwnedDisposeAndFailureUseSameRail() {
-        TopologyProjection scalarProjection = new TopologyProjection.MeshFaceCase(Value: null!, Index: 0);
-        TopologyProjection failedProjection = new TopologyProjection.MeshFaceCase(Value: null!, Index: 1);
-
-        Fin<Seq<ComponentIndex>> scalarResult = Analyze.ProjectOwned(
-            all: LanguageExt.Prelude.Seq(scalarProjection),
-            chosen: LanguageExt.Prelude.Seq(scalarProjection),
-            ownership: ProjectionOwnership.Dispose,
-            project: static values => Fin.Succ(values.Map(static projection => projection.Source)));
-        Fin<Seq<ComponentIndex>> failedResult = Analyze.ProjectOwned(
-            all: LanguageExt.Prelude.Seq(failedProjection),
-            chosen: LanguageExt.Prelude.Seq(failedProjection),
-            ownership: ProjectionOwnership.Transfer,
-            project: static _ => Fin.Fail<Seq<ComponentIndex>>(Op.Of(name: "SyntheticProjection").InvalidResult()));
-
-        Assert.True(condition: scalarResult.IsSucc);
-        Assert.True(condition: failedResult.IsFail);
-    }
-
-    [Fact]
-    public void CreatesBorrowedMeshFaceIdentityWithoutOwnershipTransfer() {
-        TopologyProjection projection = new TopologyProjection.MeshFaceCase(Value: null!, Index: 5);
-
-        Assert.Equal(expected: 5, actual: projection.FaceIndex);
-        Assert.Equal(expected: new ComponentIndex(type: ComponentIndexType.MeshFace, index: 5), actual: projection.Source);
-        Assert.False(condition: projection.Transfers(outputType: typeof(Mesh)));
+    public void TopologyProjectionFactoriesAreOnlyPublicConstructionSurface() {
+        Assert.Empty(collection: typeof(TopologyProjection).GetConstructors(bindingAttr: BindingFlags.Public | BindingFlags.Instance));
+        Assert.DoesNotContain(collection: typeof(TopologyProjection).GetNestedTypes(bindingAttr: BindingFlags.Public), filter: static type => type.Name is "CurveCase" or "FaceCase" or "MeshFaceCase");
         Assert.True(condition: TopologyProjection.MeshFace(mesh: null, face: 0).IsFail);
     }
 

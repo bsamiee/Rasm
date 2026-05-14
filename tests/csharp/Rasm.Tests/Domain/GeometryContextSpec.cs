@@ -159,6 +159,28 @@ public sealed class ContextSpec {
     }
 
     [Fact]
+    public void RegistersUniqueKindDescriptorsWithLineageFallback() {
+        Assert.Equal(expected: Kind.Items.Count, actual: Kind.Items.Select(static kind => kind.Type).Distinct().Count());
+        Assert.True(condition: KindLookup.For(type: typeof(LineCurve)).Match(Some: static kind => kind == Kind.Curve, None: static () => false));
+    }
+
+    [Fact]
+    public void DispatchFractionsRejectsInvalidAndSpreadsCounts() {
+        Op key = Op.Create(value: "fractions");
+
+        double[] single = Dispatch.Fractions(count: 1, op: key).Match(
+            Succ: static values => values.ToArray(),
+            Fail: static error => throw new Xunit.Sdk.XunitException(error.Message));
+        double[] multiple = Dispatch.Fractions(count: 3, op: key).Match(
+            Succ: static values => values.ToArray(),
+            Fail: static error => throw new Xunit.Sdk.XunitException(error.Message));
+
+        Assert.True(condition: Dispatch.Fractions(count: 0, op: key).IsFail);
+        Assert.Equal(expected: [0.5], actual: single);
+        Assert.Equal(expected: [0.0, 0.5, 1.0], actual: multiple);
+    }
+
+    [Fact]
     public void PreservesExplicitIntersectionKindsForPolylineResults() {
         Op key = Op.Create(value: "test");
 
@@ -185,6 +207,24 @@ public sealed class ContextSpec {
         Assert.Equal(expected: [IntersectionKind.Point], actual: kinds);
     }
 
+    [Fact]
+    public void ProjectsEveryIntersectionResultShape() {
+        Op key = Op.Create(value: "test");
+        Polyline polyline = new([
+            Point3d.Origin,
+            new Point3d(x: 1.0, y: 0.0, z: 0.0),
+        ]);
+
+        Assert.True(condition: Seq(
+            new IntersectionResult.Curves(Values: Seq<Curve>()).Project<Curve>(key: key).IsSucc,
+            new IntersectionResult.Lines(Values: Seq(ValidLine())).Project<Line>(key: key).IsSucc,
+            new IntersectionResult.Circles(Values: Seq(new Circle(plane: Plane.WorldXY, radius: 1.0))).Project<Circle>(key: key).IsSucc,
+            new IntersectionResult.Points(Values: Seq(Point3d.Origin)).Project<Point3d>(key: key).IsSucc,
+            new IntersectionResult.Intervals(Values: Seq(new Interval(t0: 0.0, t1: 1.0))).Project<Interval>(key: key).IsSucc,
+            new IntersectionResult.Polylines(Values: Seq((Curve: polyline, Kind: IntersectionKind.Curve))).Project<Polyline>(key: key).IsSucc,
+            new IntersectionResult.Hits(Values: Seq(IntersectionHit.At(point: Point3d.Origin))).Project<IntersectionHit>(key: key).IsSucc).ForAll(static passed => passed));
+    }
+
     private static Context ValidContext() =>
         Context.Create(
                 absolute: 0.01,
@@ -195,4 +235,8 @@ public sealed class ContextSpec {
             .Match(
                 Succ: static context => context,
                 Fail: static error => throw new Xunit.Sdk.XunitException(error.Message));
+    private static Line ValidLine() =>
+        new(
+            from: Point3d.Origin,
+            to: new Point3d(x: 2.0, y: 0.0, z: 0.0));
 }
