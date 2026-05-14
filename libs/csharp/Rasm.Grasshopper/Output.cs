@@ -51,11 +51,7 @@ public static class Output {
             true => Fin.Succ(Unit.Default),
             false => source(arg: runtime).Map(values => values.IsEmpty switch {
                 true => RemarkEmpty(slots: slots, access: access, outputs: outputs),
-                false => fun((Seq<Flow<TSource>> sourced, Seq<(OutputSlot<TSource> Output, int Slot)> writers) => {
-                    Unit written = writers.Iter(pair => pair.Output.Write(arg1: access, arg2: pair.Slot, arg3: runtime, arg4: sourced));
-                    _ = DisposeOwned(values: sourced, outputs: writers.Map(static pair => pair.Output.Port.ValueType));
-                    return written;
-                })(values, active),
+                false => Drain(values),
             }),
         };
         return result.Match(
@@ -68,6 +64,9 @@ public static class Output {
                 _ = EmptyDetails(slots: slots, access: access, outputs: outputs);
                 return Unit.Default;
             });
+        Unit Drain(Seq<Flow<TSource>> sourced) => active.Iter(pair => pair.Output.Write(arg1: access, arg2: pair.Slot, arg3: runtime, arg4: sourced)) switch {
+            _ => DisposeOwned(values: sourced, outputs: active.Map(static pair => pair.Output.Port.ValueType)),
+        };
     }
     private static Unit EmptyDetails<TSource>(Seq<OutputSlot<TSource>> slots, IDataAccess access, Hints outputs) {
         ArgumentNullException.ThrowIfNull(argument: access);

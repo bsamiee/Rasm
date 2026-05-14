@@ -36,7 +36,7 @@ public sealed class Tree : IDisposable {
                     seed: Fin.Succ(new RTree()), func: static (current, item) => current.Bind(tree => tree.Insert(
                             box: item.Box, elementId: item.Index) switch {
                                 true => Fin.Succ(tree),
-                                false => fun((RTree failed) => { failed.Dispose(); return Fin.Fail<RTree>(Key.InvalidResult()); })(tree),
+                                false => Dispatch.Borrowed(tree, static _ => Fin.Fail<RTree>(Key.InvalidResult())),
                             })))
             .Map(static tree => new Tree(tree: tree))
             .ToValidation();
@@ -92,7 +92,7 @@ public sealed class Tree : IDisposable {
     }
     public void Dispose() =>
         disposed = disposed switch {
-            false => fun((RTree t) => { t.Dispose(); return true; })(tree),
+            false => Dispatch.Borrowed(tree, static _ => true),
             true => true,
         };
     private Fin<RTree> Ready() =>

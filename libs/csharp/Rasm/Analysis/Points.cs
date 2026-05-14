@@ -35,7 +35,7 @@ public partial record Points : IAspect {
                     _ => from runtime in Env.EnvAsks
                          from kind in ((object)geometry).Kind(context: runtime.Context).ToEff()
                          from curves in kind.Curves(geometry: geometry, selector: new CurveSelector(Feature: CurveFeature.Edge), context: runtime.Context, op: op, cancel: runtime.Cancellation).ToEff()
-                         from result in Analyze.Many(key: op, values: curves.Choose(static projection => projection.As<Curve>().Map(static c => { using Curve owned = c; return owned.PointAtNormalizedLength(length: 0.5); }))).ToEff()
+                         from result in Analyze.Many(key: op, values: curves.Choose(static projection => projection.As<Curve>().Map(static c => Dispatch.Borrowed(c, static owned => owned.PointAtNormalizedLength(length: 0.5))))).ToEff()
                          select result,
                 }))
             : EdgeMidpointsKey.Unsupported<TGeometry, TOut>(),

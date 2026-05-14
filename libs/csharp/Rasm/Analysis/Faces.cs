@@ -93,7 +93,7 @@ public static partial class Analyze {
         return face switch {
             TopologyProjection.FaceCase faceCase => Optional(AreaMassProperties.Compute(brep: faceCase.Value, area: true, firstMoments: true, secondMoments: false, productMoments: false, relativeTolerance: runtime.Fractional, absoluteTolerance: runtime.Absolute.Value))
                 .ToFin(Rasm.Analysis.Faces.Key.InvalidResult())
-                .Map(static mass => { using AreaMassProperties disposable = mass; return disposable.Centroid; }),
+                .Map(static mass => Dispatch.Borrowed(mass, static disposable => disposable.Centroid)),
             _ => Fin.Fail<Point3d>(Rasm.Analysis.Faces.Key.InvalidInput()),
         };
     }

@@ -313,15 +313,13 @@ internal static class Dispatch {
     private static readonly Func<object, (CurveSelector, Context, Op, CancellationToken), Fin<Seq<TopologyProjection>>> BrepFaceBoundaryHandler = static (g, args) =>
         Optional(((BrepFace)g).DuplicateFace(duplicateMeshes: false))
             .ToFin(Fail: args.Item3.InvalidResult())
-            .Bind(faceBrep => {
-                using Brep owned = faceBrep;
-                return Optional(owned.DuplicateNakedEdgeCurves(true, true))
+            .Bind(faceBrep => Borrowed(faceBrep, owned =>
+                Optional(owned.DuplicateNakedEdgeCurves(true, true))
                     .ToFin(Fail: args.Item3.InvalidResult())
                     .Map(curves => toSeq(curves.Select(curve => TopologyProjection.FromCurve(
                         curve: curve,
                         feature: CurveFeature.Boundary,
-                        source: new ComponentIndex(type: ComponentIndexType.BrepFace, index: ((BrepFace)g).FaceIndex))).ToArray()));
-            });
+                        source: new ComponentIndex(type: ComponentIndexType.BrepFace, index: ((BrepFace)g).FaceIndex))).ToArray()))));
     private static readonly Func<object, (CurveSelector, Context, Op, CancellationToken), Fin<Seq<TopologyProjection>>> MeshEdgeHandler = static (g, args) => Fin.Succ(toSeq(Enumerable.Range(start: 0, count: ((Mesh)g).TopologyEdges.Count)).Where(i => (args.Item1.Feature, ((Mesh)g).TopologyEdges.GetConnectedFaces(topologyEdgeIndex: i).Length) switch { (CurveFeature.Edge, _) => true, (CurveFeature.Boundary, 1) => true, (CurveFeature.Interior, 2) => true, (CurveFeature.NonManifold, > 2) => true, _ => false }).Map(i => TopologyProjection.FromCurve(curve: ((Mesh)g).TopologyEdges.EdgeLine(topologyEdgeIndex: i).ToNurbsCurve(), feature: args.Item1.Feature, type: ComponentIndexType.MeshTopologyEdge, index: i)));
     private static readonly Func<object, (CurveSelector, Context, Op, CancellationToken), Fin<Seq<TopologyProjection>>> MeshNakedEdgeHandler = static (g, args) =>
         Optional(((Mesh)g).GetNakedEdges()).ToFin(Fail: args.Item3.InvalidResult())

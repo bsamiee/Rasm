@@ -47,11 +47,13 @@ public sealed record PortPolicy {
         ArgumentNullException.ThrowIfNull(argument: parameter);
         return apply(arg: parameter);
     }
-    public static PortPolicy On<TParam>(Action<TParam> mutate) where TParam : class =>
-        new(apply: parameter => parameter switch {
-            TParam target => fun((TParam t) => { mutate(obj: t); return Unit.Default; })(target),
+    public static PortPolicy On<TParam>(Action<TParam> mutate) where TParam : class {
+        return new(apply: parameter => parameter switch {
+            TParam target => Tap(target),
             _ => Unit.Default,
         });
+        Unit Tap(TParam target) { mutate(obj: target); return Unit.Default; }
+    }
     private static Unit SetCustom(IParameter parameter, string key, Action<KeyedValues, string> set) {
         set(arg1: parameter.CustomValues, arg2: key);
         return Unit.Default;
