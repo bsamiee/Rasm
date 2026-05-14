@@ -3,9 +3,9 @@ namespace Rasm.Analysis;
 // --- [OPERATIONS] ------------------------------------------------------------------------
 public static partial class Query {
     public static Query<TGeometry, TOut> Bounds<TGeometry, TOut>(Bounds aspect) where TGeometry : notnull =>
-        aspect?.ToQuery<TGeometry, TOut>() ?? Query<TGeometry, TOut>.Reject(key: Op.Of(), fault: Op.Of().InvalidInput());
+        Aspect<Bounds, TGeometry, TOut>(aspect: aspect, key: Op.Of());
     public static Query<TGeometry, TOut> Measure<TGeometry, TOut>(Measure aspect) where TGeometry : notnull =>
-        aspect?.ToQuery<TGeometry, TOut>() ?? Query<TGeometry, TOut>.Reject(key: Op.Of(), fault: Op.Of().InvalidInput());
+        Aspect<Measure, TGeometry, TOut>(aspect: aspect, key: Op.Of());
     public static Query<(TGeometry Geometry, TPrimitive Primitive), TOut> Conformance<TGeometry, TPrimitive, TOut>(Conformance aspect) where TGeometry : notnull where TPrimitive : notnull =>
         aspect?.ToQuery<TGeometry, TPrimitive, TOut>() ?? Query<(TGeometry Geometry, TPrimitive Primitive), TOut>.Reject(key: Op.Of(), fault: Op.Of().InvalidInput());
     public static Query<TGeometry, TOut> SpatialMidpoint<TGeometry, TOut>() where TGeometry : notnull {
@@ -46,7 +46,11 @@ public static partial class Query {
             key: key, requirement: mass.Requirement, requiresContext: true,
             aggregate: Some<Func<Seq<TGeometry>, Eff<Env, Seq<TValue>>>>(
                 geometry => from context in Env.Asks
-                            from aggregate in mass.Aggregate(arg1: geometry.AsIterable().Cast<GeometryBase>(), arg2: context, arg3: firstMoments, arg4: secondMoments, arg5: productMoments, arg6: key).ToEff()
+                            from native in geometry.Traverse(item => item switch {
+                                GeometryBase gb => Fin.Succ(gb),
+                                _ => Fin.Fail<GeometryBase>(key.Unsupported(geometryType: item.GetType(), outputType: typeof(GeometryBase))),
+                            }).As().ToEff()
+                            from aggregate in mass.Aggregate(arg1: native.AsIterable(), arg2: context, arg3: firstMoments, arg4: secondMoments, arg5: productMoments, arg6: key).ToEff()
                             from values in Bracket(factory: () => aggregate, body: disposable => project(arg1: key, arg2: disposable)).ToEff()
                             select values),
             evaluator: geometry => from computed in mass.Compute(value: geometry, op: key, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments)

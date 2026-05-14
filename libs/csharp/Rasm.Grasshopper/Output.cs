@@ -28,6 +28,13 @@ public static class GrasshopperRuntimeExtensions {
                 .Map(static pear => pear.Item));
         return wired.IsSome ? wired : port.Fallback;
     }
+    public static Option<int> Index(this GrasshopperRuntime runtime, Port<int> port, int limit) =>
+        limit switch {
+            <= 0 => Option<int>.None,
+            _ => runtime.Hints.Slot(port: port)
+                .Bind(slot => runtime.Access.GetIndex(indexParameter: slot, limit: limit, index: out int index) ? Some(index) : Option<int>.None)
+                | port.Fallback,
+        };
 }
 internal sealed record PreparedGroup<TSource>(
     Seq<OutputSlot<TSource>> Slots,

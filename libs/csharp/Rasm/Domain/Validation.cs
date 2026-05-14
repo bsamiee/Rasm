@@ -133,7 +133,6 @@ public abstract partial record Fault : Expected {
     }
     public sealed record ComputationFailed(string Label) : Fault { public override string Message => $"Rhino {Label} computation failed."; public override string Category => "Computation"; }
     public sealed record ComputationUnsupported(string Label, Type GeometryType) : Fault { public override string Message => $"Rhino {Label} computation does not support geometry '{GeometryType.Name}'."; public override string Category => "Unsupported"; }
-    public sealed record PrimitiveRejected(Op Key, string Primitive, string Reason) : Fault { public override string Message => $"Geometry operation '{Key}' rejects '{Primitive}' primitive: {Reason}."; public override string Category => "Primitive"; }
     public sealed record MissingGeometry : Fault { public override string Message => "Geometry input is required."; public override string Category => "Geometry"; }
     public sealed record InvalidGeometry(GeometryBase Geometry, Rule Check, string Log) : Fault {
         public override string Message => string.IsNullOrWhiteSpace(value: Log)
@@ -162,7 +161,6 @@ public static class FaultExtensions {
     [BoundaryAdapter] public static Error InvalidInput(this Op key) => new Fault.InvalidInput(Key: key);
     [BoundaryAdapter] public static Error InvalidResult(this Op key) => new Fault.InvalidResult(Key: key);
     [BoundaryAdapter] public static Error Unsupported(this Op key, Type geometryType, Type outputType) => new Fault.Unsupported(Key: key, GeometryType: geometryType, OutputType: outputType);
-    [BoundaryAdapter] public static Error PrimitiveRejected(this Op key, string primitive, string reason) => new Fault.PrimitiveRejected(Key: key, Primitive: primitive, Reason: reason);
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------

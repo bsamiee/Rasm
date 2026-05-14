@@ -34,8 +34,10 @@ public sealed record PortPolicy {
         On<IParameter>(mutate: parameter => SetCustom(parameter: parameter, key: ModularComponent.__Category, set: (kv, k) => kv.Set(key: k, value: name)));
     public static PortPolicy Colour(Color color) =>
         On<IParameter>(mutate: parameter => SetCustom(parameter: parameter, key: ModularComponent.__Colour, set: (kv, k) => kv.Set(key: k, value: color)));
-    public static PortPolicy Hidden { get; } = On<IParameter>(mutate: parameter => Seq(ModularComponent.__Optional, ModularComponent.__HideByDefault)
-        .Iter(key => SetCustom(parameter: parameter, key: key, set: (kv, k) => kv.Set(key: k, value: true))));
+    public static PortPolicy Optional { get; } =
+        On<IParameter>(mutate: parameter => SetCustom(parameter: parameter, key: ModularComponent.__Optional, set: (kv, k) => kv.Set(key: k, value: true)));
+    public static PortPolicy Hidden { get; } = Compose(Optional,
+        On<IParameter>(mutate: parameter => SetCustom(parameter: parameter, key: ModularComponent.__HideByDefault, set: (kv, k) => kv.Set(key: k, value: true))));
     public static PortPolicy Compose(params PortPolicy[] policies) {
         ArgumentNullException.ThrowIfNull(argument: policies);
         return new PortPolicy(apply: parameter => toSeq(policies).Iter(policy => policy.Apply(parameter: parameter)));
@@ -84,6 +86,7 @@ public sealed partial class PortKind {
     public static readonly PortKind Boolean = Of<bool>(key: nameof(Boolean), input: static (adder, name, code, info, access, requirement) => adder.AddBoolean(name: name, code: code, info: info, access: access, requirement: requirement), output: static (adder, name, code, info, access) => adder.AddBoolean(name: name, code: code, info: info, access: access));
     public static readonly PortKind Text = Of<string>(key: nameof(Text), input: static (adder, name, code, info, access, requirement) => adder.AddText(name: name, code: code, info: info, access: access, requirement: requirement), output: static (adder, name, code, info, access) => adder.AddText(name: name, code: code, info: info, access: access));
     public static readonly PortKind Mesh = Of<Mesh>(key: nameof(Mesh), input: static (adder, name, code, info, access, requirement) => adder.AddMesh(name: name, code: code, info: info, access: access, requirement: requirement), output: static (adder, name, code, info, access) => adder.AddMesh(name: name, code: code, info: info, access: access));
+    public static readonly PortKind Polyline = Of<Polyline>(key: nameof(Polyline), input: static (adder, name, code, info, access, requirement) => adder.AddPolyline(name: name, code: code, info: info, access: access, requirement: requirement), output: static (adder, name, code, info, access) => adder.AddPolyline(name: name, code: code, info: info, access: access));
     public static readonly PortKind Generic = Of<object>(key: nameof(Generic), input: static (adder, name, code, info, access, requirement) => adder.AddGeneric(name: name, code: code, info: info, access: access, requirement: requirement), output: static (adder, name, code, info, access) => adder.AddGeneric(name: name, code: code, info: info, access: access));
     public Type Type { get; }
     [UseDelegateFromConstructor] private partial IParameter AddInput(InputAdder adder, string name, string code, string info, Access access, Requirement requirement);
@@ -128,7 +131,7 @@ public static class Port {
         Of<TVal>(
             name: name, code: code, info: info, kind: kind,
             access: Access.Item, requirement: Requirement.MayBeMissing,
-            policy: PortPolicy.Compose(policy ?? DefaultPolicy(type: typeof(TVal)), PortPolicy.Category(name: category)),
+            policy: PortPolicy.Compose(policy ?? DefaultPolicy(type: typeof(TVal)), PortPolicy.Category(name: category), PortPolicy.Optional),
             fallback: fallback);
     public static Port<TVal> List<TVal>(string name, string code, string info, Requirement requirement = Requirement.MustExist, PortKind? kind = null, PortPolicy? policy = null) =>
         Of<TVal>(name: name, code: code, info: info, kind: kind, access: Access.Twig, requirement: requirement, policy: policy, fallback: Option<TVal>.None);

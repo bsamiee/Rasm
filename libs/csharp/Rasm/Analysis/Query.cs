@@ -61,37 +61,38 @@ public enum MeshFaceMetric { None = 0, AspectRatio = 1, Area = 2, Perimeter = 3,
 public static class MeshFaceMetrics {
     public static Option<double> Sample(this MeshFaceMetric metric, Mesh mesh, int face) {
         ArgumentNullException.ThrowIfNull(argument: mesh);
+        MeshFaceProjection projection = new(Mesh: mesh, Face: face);
         return metric switch {
             MeshFaceMetric.AspectRatio => Some(mesh.Faces.GetFaceAspectRatio(index: face)),
-            MeshFaceMetric.Area => Some(FaceArea(mesh: mesh, face: face)),
-            MeshFaceMetric.Perimeter => Some(FacePerimeter(mesh: mesh, face: face)),
-            MeshFaceMetric.Skewness => Some(FaceSkewness(mesh: mesh, face: face)),
-            MeshFaceMetric.DihedralAngle => Some(FaceMaxDihedral(mesh: mesh, face: face)),
+            MeshFaceMetric.Area => Some(FaceArea(projection: projection)),
+            MeshFaceMetric.Perimeter => Some(FacePerimeter(projection: projection)),
+            MeshFaceMetric.Skewness => Some(FaceSkewness(projection: projection)),
+            MeshFaceMetric.DihedralAngle => Some(FaceMaxDihedral(projection: projection)),
             _ => Option<double>.None,
         };
     }
-    private static double FaceArea(Mesh mesh, int face) =>
-        new MeshFaceProjection(Mesh: mesh, Face: face).Vertices switch {
+    private static double FaceArea(MeshFaceProjection projection) =>
+        projection.Vertices switch {
             Seq<Point3d> v when v.Count == 4 => 0.5 * (Vector3d.CrossProduct(a: v[1] - v[0], b: v[2] - v[0]).Length + Vector3d.CrossProduct(a: v[2] - v[0], b: v[3] - v[0]).Length),
             Seq<Point3d> v => 0.5 * Vector3d.CrossProduct(a: v[1] - v[0], b: v[2] - v[0]).Length,
         };
-    private static double FacePerimeter(Mesh mesh, int face) =>
-        new MeshFaceProjection(Mesh: mesh, Face: face).Vertices switch {
+    private static double FacePerimeter(MeshFaceProjection projection) =>
+        projection.Vertices switch {
             Seq<Point3d> v => v.Map((p, i) => p.DistanceTo(other: v[(i + 1) % v.Count])).Fold(initialState: 0.0, f: static (acc, d) => acc + d),
         };
-    private static double FaceSkewness(Mesh mesh, int face) {
-        Seq<Point3d> v = new MeshFaceProjection(Mesh: mesh, Face: face).Vertices;
+    private static double FaceSkewness(MeshFaceProjection projection) {
+        Seq<Point3d> v = projection.Vertices;
         double ideal = v.Count == 4 ? Math.PI / 2.0 : Math.PI / 3.0;
         return v.Map((vertex, i) => Vector3d.VectorAngle(a: v[(i + v.Count - 1) % v.Count] - vertex, b: v[(i + 1) % v.Count] - vertex))
             .Fold(initialState: 0.0, f: (acc, angle) => Math.Max(val1: acc, val2: Math.Max(val1: (angle - ideal) / (Math.PI - ideal), val2: (ideal - angle) / ideal)));
     }
-    private static double FaceMaxDihedral(Mesh mesh, int face) {
-        Vector3d normal = new MeshFaceProjection(Mesh: mesh, Face: face).Normal;
+    private static double FaceMaxDihedral(MeshFaceProjection projection) {
+        Vector3d normal = projection.Normal;
         return normal.IsValid switch {
             false => 0.0,
-            true => toSeq(mesh.TopologyEdges.GetEdgesForFace(faceIndex: face))
-                .Bind(edge => toSeq(mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: edge)).Filter(other => other != face))
-                .Fold(initialState: 0.0, f: (max, other) => new MeshFaceProjection(Mesh: mesh, Face: other).Normal switch {
+            true => toSeq(projection.Mesh.TopologyEdges.GetEdgesForFace(faceIndex: projection.Face))
+                .Bind(edge => toSeq(projection.Mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: edge)).Filter(other => other != projection.Face))
+                .Fold(initialState: 0.0, f: (max, other) => new MeshFaceProjection(Mesh: projection.Mesh, Face: other).Normal switch {
                     { IsValid: true } neighbour => Math.Max(val1: max, val2: Vector3d.VectorAngle(a: normal, b: neighbour)),
                     _ => max,
                 }),
@@ -224,7 +225,9 @@ public partial record Location : IAspect {
         frameAtCurve: static fac => Query.Located<TGeometry, TOut, Curve, Plane>(key: FrameAtKey, query: () => Query.CurveFrame<TGeometry>(key: FrameAtKey, parameter: fac.Parameter, perpendicular: false)),
         perpendicularFrameAt: static pfa => Query.Located<TGeometry, TOut, Curve, Plane>(key: PerpendicularFrameAtKey, query: () => Query.CurveFrame<TGeometry>(key: PerpendicularFrameAtKey, parameter: pfa.Parameter, perpendicular: true)),
         curvatureAtCurve: static cac => Query.Located<TGeometry, TOut, Curve, Vector3d>(key: CurvatureAtKey, query: () => Query.CurveAt<TGeometry, Vector3d>(key: CurvatureAtKey, parameter: cac.Parameter, project: static (curve, p) => Query.One(key: CurvatureAtKey, value: curve.CurvatureAt(t: p)))),
-        derivativeAt: static da => Query.Located<TGeometry, TOut, Curve, Vector3d>(key: DerivativeAtKey, query: () => Query.CurveAt<TGeometry, Vector3d>(key: DerivativeAtKey, parameter: da.Parameter, project: (curve, p) => Query.Many(key: DerivativeAtKey, values: curve.DerivativeAt(t: p, derivativeCount: da.Count)))),
+        derivativeAt: static da => da.Count < 0
+            ? Query<TGeometry, TOut>.Reject(key: DerivativeAtKey, fault: DerivativeAtKey.InvalidInput())
+            : Query.Located<TGeometry, TOut, Curve, Vector3d>(key: DerivativeAtKey, query: () => Query.CurveAt<TGeometry, Vector3d>(key: DerivativeAtKey, parameter: da.Parameter, project: (curve, p) => Query.Many(key: DerivativeAtKey, values: curve.DerivativeAt(t: p, derivativeCount: da.Count)))),
         divideByCount: static dbc => Query.Located<TGeometry, TOut, Curve, Point3d>(key: DivideByCountKey, query: () => Query.DividePoly<TGeometry>(key: DivideByCountKey, requirement: null, divide: curve => curve.DivideByCount(segmentCount: dbc.Count, includeEnds: true, points: out Point3d[] points) switch { double[] => Optional(points), _ => Option<Point3d[]>.None })),
         divideByLength: static dbl => Query.Located<TGeometry, TOut, Curve, Point3d>(key: DivideByLengthKey, query: () => Query.DividePoly<TGeometry>(key: DivideByLengthKey, requirement: Requirement.CurveLength, divide: curve => curve.DivideByLength(segmentLength: dbl.Length, includeEnds: true, points: out Point3d[] points) switch { double[] => Optional(points), _ => Option<Point3d[]>.None })),
         orientation: static o => Query.Located<TGeometry, TOut, Curve, CurveOrientation>(key: OrientationKey, query: () => Query<TGeometry, CurveOrientation>.Build(
@@ -439,7 +442,7 @@ public partial record Boundaries : IAspect {
     private static readonly Op AllKey = Op.Of(name: "Edges");
     public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull => Switch<Query<TGeometry, TOut>>(
         nakedCase: static _ => (typeof(TGeometry), typeof(TOut)) switch {
-            (Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(Curve) => Query.Native<TGeometry, TOut, Brep, Curve>(key: NakedKey, project: static brep => Query.Many(key: NakedKey, values: brep.DuplicateNakedEdgeCurves(nakedOuter: true, nakedInner: true)).ToEff()),
+            (Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(Curve) => Query.Curves<TGeometry, TOut>(aspect: Curves.Boundary),
             (Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(Polyline) => Query.Native<TGeometry, TOut, Mesh, Polyline>(key: NakedKey, project: static mesh => Query.Many(key: NakedKey, values: mesh.GetNakedEdges()).ToEff()),
             _ => NakedKey.Unsupported<TGeometry, TOut>(),
         },
@@ -455,8 +458,8 @@ public partial record Boundaries : IAspect {
                                                     from result in Query.SelfIntersectionsValue(op: op, geometry: geometry, runtime: runtime).ToEff()
                                                     select result))
             : SelfIntersectionKey.Unsupported<TGeometry, TOut>(),
-        allCase: static _ => (typeof(TGeometry) == typeof(Brep) && typeof(TOut) == typeof(Curve))
-            ? Query.Cast<TGeometry, TOut>(key: AllKey, query: Query<Brep, Curve>.Build(key: AllKey, state: AllKey, evaluator: static (op, geometry) => Query.Many(key: op, values: geometry.DuplicateEdgeCurves()).ToEff()))
+        allCase: static _ => (typeof(Brep).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Curve))
+            ? Query.Curves<TGeometry, TOut>(aspect: Curves.All)
             : AllKey.Unsupported<TGeometry, TOut>());
 }
 [Union]
@@ -475,10 +478,14 @@ public partial record Conformance {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Query {
+    public static Query<TGeometry, TOut> Aspect<TAspect, TGeometry, TOut>(TAspect? aspect, Op key)
+        where TAspect : class, IAspect
+        where TGeometry : notnull =>
+        aspect?.ToQuery<TGeometry, TOut>() ?? Query<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput());
     public static Query<TGeometry, TOut> Points<TGeometry, TOut>(PointSampling sampling) where TGeometry : notnull =>
-        sampling?.ToQuery<TGeometry, TOut>() ?? Query<TGeometry, TOut>.Reject(key: Op.Of(), fault: Op.Of().InvalidInput());
+        Aspect<PointSampling, TGeometry, TOut>(aspect: sampling, key: Op.Of());
     public static Query<TGeometry, TOut> Boundaries<TGeometry, TOut>(Boundaries aspect) where TGeometry : notnull =>
-        aspect?.ToQuery<TGeometry, TOut>() ?? Query<TGeometry, TOut>.Reject(key: Op.Of(), fault: Op.Of().InvalidInput());
+        Aspect<Boundaries, TGeometry, TOut>(aspect: aspect, key: Op.Of());
     internal static Query<TGeometry, TOut> Unsupported<TGeometry, TOut>(this Op key) where TGeometry : notnull =>
         Query<TGeometry, TOut>.Reject(key: key, fault: key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut)));
     internal static Query<TGeometry, TOut> Cast<TGeometry, TOut>(Op key, object query) where TGeometry : notnull => query switch {
@@ -501,10 +508,6 @@ public static partial class Query {
     internal static Fin<TOut> Bracket<TResource, TOut>(Func<TResource> factory, Func<TResource, Fin<TOut>> body) where TResource : class, IDisposable {
         using TResource resource = factory();
         return body(arg: resource);
-    }
-    internal static Unit DisposeAll<TResource>(Seq<TResource> resources) where TResource : class, IDisposable {
-        _ = resources.Iter(static resource => resource.Dispose());
-        return Unit.Default;
     }
     internal static Fin<Seq<TOut>> Results<TValue, TOut>(this Op key, IEnumerable<TValue>? values) => typeof(TValue).Equals(typeof(TOut)) switch {
         true => Many(key: key, values: values).Map(static candidates => candidates.Map(static candidate => (TOut)(object)candidate!)),

@@ -93,7 +93,7 @@ public sealed class Tree : IDisposable {
             false => Fin.Succ(tree),
         };
     internal static Fin<Point3d[]> ValidatePoints(ReadOnlySpan<Point3d> points) =>
-        toSeq(points.ToArray())
+        Seq(points)
             .TraverseM(static point => point switch {
                 Point3d candidate when candidate.IsValid => Fin.Succ(candidate),
                 _ => Fin.Fail<Point3d>(Key.InvalidInput()),
@@ -102,7 +102,7 @@ public sealed class Tree : IDisposable {
             .Map(static values => values.ToArray());
     private static Fin<BoundingBox[]> ValidateBounds<TGeometry>(
         ReadOnlySpan<TGeometry> items) where TGeometry : GeometryBase =>
-        toSeq(items.ToArray())
+        Seq(items)
             .TraverseM(static geometry => Optional(geometry)
                 .ToFin(new Fault.MissingGeometry())
                 .Bind(static candidate => candidate.IsValid

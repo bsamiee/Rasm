@@ -19,6 +19,16 @@ public static class Analyze {
             context: Context.FromKnownUnits(
                     absolute: absolute, relative: relative, angle: angle, units: units)
                 .ToFin());
+    public static Scope InScaled(
+        double absolute,
+        double relative,
+        double angle,
+        UnitSystem units,
+        double metersPerUnit) =>
+        new(
+            context: Context.FromKnownScale(
+                    absolute: absolute, relative: relative, angle: angle, units: units, metersPerUnit: metersPerUnit)
+                .ToFin());
     public static Scope In(Context context) => new(context: Optional(context).ToFin(Op.Of(name: nameof(Scope)).MissingContext()));
     public sealed record Scope {
         public Fin<Context> Context { get; }
@@ -43,21 +53,14 @@ public static class Analyze {
             Scope active => (active.Progress, active.Cancellation),
             _ => (null, CancellationToken.None),
         };
-        return Optional(query)
-            .ToFin(new Fault.MissingOperation())
-            .ToValidation()
-            .Bind(active => active.Rejection.Match(
-                Some: error => Fin.Fail<Seq<TOut>>(error).ToValidation(),
-                None: () => {
-                    Fin<(Query<TGeometry, TOut> Query, Context Context)> ready = ResolveContext(query: active, scope: scope.Map(static s => s.Context)).Map(context => (Query: active, Context: context));
-                    TGeometry[] materialized = ready.IsSucc switch {
-                        true => inputValues,
-                        false => [],
-                    };
-                    return ready.Match(
-                        Succ: state => state.Query.Apply(geometry: materialized.AsIterable().ToSeq()).Run(env: new Env(Context: state.Context, Progress: progress, Cancellation: cancellation)).ToValidation(),
-                        Fail: error => Fin.Fail<Seq<TOut>>(error).ToValidation());
-                }));
+        return (
+            from active in Optional(query).ToFin(new Fault.MissingOperation())
+            from accepted in active.Rejection.Match(
+                Some: Fin.Fail<Query<TGeometry, TOut>>,
+                None: () => Fin.Succ(active))
+            from context in ResolveContext(query: accepted, scope: scope.Map(static s => s.Context))
+            from result in accepted.Apply(geometry: inputValues.AsIterable().ToSeq()).Run(env: new Env(Context: context, Progress: progress, Cancellation: cancellation))
+            select result).ToValidation();
     }
     private static Fin<Context> ResolveContext<TGeometry, TOut>(
         Query<TGeometry, TOut> query,

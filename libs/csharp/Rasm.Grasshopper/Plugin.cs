@@ -31,25 +31,33 @@ public abstract class Plugin : GhPlugin {
         _ = faults.IsEmpty ? Unit.Default : throw new InvalidOperationException(message: string.Join(separator: "; ", values: faults));
     }
     private static Seq<string> Validate(Type spec) {
-        ComponentManifest manifest = ComponentManifest.For(type: spec);
-        object probe = Activator.CreateInstance(type: spec)!;
-        Seq<IPort> inputs = manifest.ReadInputs(instance: probe).Map(static pair => pair.Port);
-        Seq<IPort> outputs = manifest.ReadOutputs(instance: probe).Map(static pair => pair.Group).Bind(static group => group.Ports);
+        Component probe = (Component)Activator.CreateInstance(type: spec)!;
+        Seq<IPort> inputs = probe.Spec.InputPorts;
+        Seq<IPort> outputs = probe.Spec.OutputPorts;
         Seq<string> structuralFaults = toSeq(Seq(
             inputs.IsEmpty ? Some($"{spec.FullName}: Inputs is empty") : Option<string>.None,
             outputs.IsEmpty ? Some($"{spec.FullName}: Outputs is empty") : Option<string>.None).Somes());
-        Seq<string> returnTypeFaults = manifest.OutputProperties
-            .Filter(static pair => !typeof(IOutputGroup).IsAssignableFrom(c: pair.Property.PropertyType))
-            .Map(pair => $"{spec.FullName}: [Output] property '{pair.Property.Name}' must return IOutputGroup (found {pair.Property.PropertyType.Name})");
-        Seq<string> codeDuplicates = toSeq(inputs.Concat(outputs)
+        Seq<string> nullFaults = toSeq(probe.Spec.Inputs
+                .AsIterable()
+                .Select((pair, index) => pair.Port is null ? $"{spec.FullName}: input {index} is null" : null)
+                .Where(static fault => fault is not null)
+                .Select(static fault => fault!))
+            .Concat(toSeq(probe.Spec.Outputs
+                .AsIterable()
+                .Select((pair, index) => pair.Group is null ? $"{spec.FullName}: output {index} is null" : null)
+                .Where(static fault => fault is not null)
+                .Select(static fault => fault!)))
+            .ToSeq();
+        Seq<(string Side, Seq<IPort> Ports)> sides = Seq((Side: "input", Ports: inputs), (Side: "output", Ports: outputs));
+        Seq<string> codeDuplicates = sides.Bind(side => toSeq(side.Ports
             .GroupBy(keySelector: static port => port.Code, comparer: StringComparer.Ordinal)
             .Where(static group => group.Skip(1).Any())
-            .Select(group => $"{spec.FullName}: duplicate port code '{group.Key}' on {string.Join(separator: ", ", values: group.Select(static port => port.Name))}"));
-        Seq<string> nameDuplicates = toSeq(inputs.Concat(outputs)
+            .Select(group => $"{spec.FullName}: duplicate {side.Side} port code '{group.Key}' on {string.Join(separator: ", ", values: group.Select(static port => port.Name))}")));
+        Seq<string> nameDuplicates = sides.Bind(side => toSeq(side.Ports
             .GroupBy(keySelector: static port => port.Name, comparer: StringComparer.Ordinal)
             .Where(static group => group.Skip(1).Any())
-            .Select(group => $"{spec.FullName}: duplicate port name '{group.Key}' on codes {string.Join(separator: ", ", values: group.Select(static port => port.Code))}"));
-        return structuralFaults.Concat(returnTypeFaults).Concat(codeDuplicates).Concat(nameDuplicates).ToSeq();
+            .Select(group => $"{spec.FullName}: duplicate {side.Side} port name '{group.Key}' on codes {string.Join(separator: ", ", values: group.Select(static port => port.Code))}")));
+        return structuralFaults.Concat(nullFaults).Concat(codeDuplicates).Concat(nameDuplicates).ToSeq();
     }
     public override string Author => author;
     public override string Copyright => copyright;

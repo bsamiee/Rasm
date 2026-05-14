@@ -60,6 +60,11 @@ public readonly record struct UnitScale {
             _ => Fin.Fail<UnitScale>(error: new Fault.InvalidUnitSystem(Units: units, Requirement: "must resolve to a positive finite meter scale")),
         },
     };
+    internal static Fin<UnitScale> FromScale(UnitSystem units, double metersPerUnit) => units switch {
+        UnitSystem.Unset or UnitSystem.None => Fin.Fail<UnitScale>(error: new Fault.InvalidUnitSystem(Units: units, Requirement: "must be a Rhino model unit system")),
+        _ when RhinoMath.IsValidDouble(x: metersPerUnit) && metersPerUnit > RhinoMath.ZeroTolerance => Fin.Succ(new UnitScale(units: units, metersPerUnit: metersPerUnit)),
+        _ => Fin.Fail<UnitScale>(error: new Fault.InvalidUnitSystem(Units: units, Requirement: "must resolve to a positive finite meter scale")),
+    };
     internal static Fin<UnitScale> FromModelUnits(UnitSystem units, CustomUnitScale customScale) => units switch {
         UnitSystem.CustomUnits => Fin.Succ(new UnitScale(units: units, metersPerUnit: customScale.Value)),
         _ => Create(units: units),
@@ -92,13 +97,13 @@ public sealed record Context {
             .Apply(static (a, r, n, s) => new Context(absolute: a, relative: r, angle: n, scale: s))
             .As();
     public static Validation<Error, Context> CreateDefault(UnitSystem units) =>
-        UnitScale.Create(units: units).Match(
-            Succ: static unitScale => Create(
+        UnitScale.Create(units: units)
+            .Bind(static unitScale => Create(
                 absolute: RhinoMath.DefaultDistanceToleranceMillimeters * RhinoMath.UnitScale(from: UnitSystem.Millimeters, to: unitScale.Units),
                 relative: 0.0,
                 angle: RhinoMath.DefaultAngleTolerance,
-                scale: Fin.Succ(unitScale)),
-            Fail: static error => Fin.Fail<Context>(error: error).ToValidation());
+                scale: Fin.Succ(unitScale)).ToFin())
+            .ToValidation();
     [BoundaryAdapter]
     public static Validation<Error, Context> FromDocument(RhinoDoc? doc) =>
         Optional(doc).ToValidation<Error>(Fail: new Fault.MissingDocument())
@@ -115,6 +120,8 @@ public sealed record Context {
                 }));
     internal static Validation<Error, Context> FromKnownUnits(double absolute, double relative, double angle, UnitSystem units) =>
         Create(absolute: absolute, relative: relative, angle: angle, scale: UnitScale.Create(units: units));
+    internal static Validation<Error, Context> FromKnownScale(double absolute, double relative, double angle, UnitSystem units, double metersPerUnit) =>
+        Create(absolute: absolute, relative: relative, angle: angle, scale: UnitScale.FromScale(units: units, metersPerUnit: metersPerUnit));
 }
 [BoundaryAdapter]
 public sealed record Env(Context Context, IProgress<double>? Progress, CancellationToken Cancellation) {

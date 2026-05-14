@@ -135,6 +135,28 @@ public sealed class AnalysisSpec {
     }
 
     [Fact]
+    public void RejectsNegativeDerivativeCountBeforeRhinoCall() {
+        Validation<Error, Seq<Vector3d>> result = Analyze.Run(
+            query: Query.Locate<Curve, Vector3d>(aspect: new Location.DerivativeAt(Parameter: 0.5, Count: -1)),
+            input: []);
+
+        Assert.True(condition: result.ToFin().Match(
+            Succ: static _ => false,
+            Fail: static error => error.Count == 1 && error.Message.Contains(value: "DerivativeAt", comparisonType: StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void RejectsNonGeometryBeforeAggregateMassCast() {
+        Validation<Error, Seq<double>> result = Analyze.In(context: ValidContext()).Run(
+            query: Query.Measure<object, double>(aspect: new Measure.Area()).Aggregate(),
+            input: [new object()]);
+
+        Assert.True(condition: result.ToFin().Match(
+            Succ: static _ => false,
+            Fail: static error => error.Count == 1 && error.Message.Contains(value: "Area", comparisonType: StringComparison.Ordinal)));
+    }
+
+    [Fact]
     public void KeepsParameterlessFactoriesAsProperties() {
         object[] factories = [
             Query.Boundaries<Brep, Curve>(aspect: Boundaries.All), Query.IsManifold, Query.NakedPointStatus, Query.Boundaries<Mesh, Polyline>(aspect: Boundaries.SelfIntersection),
@@ -810,6 +832,14 @@ public sealed class AnalysisSpec {
     }
 
     [Fact]
+    public void KeepsReverseIntersectionPairsOnTypedRails() {
+        Assert.True(condition: Query.Intersect<Line, Curve, IntersectionEvent>().Rejection.IsNone);
+        Assert.True(condition: Query.Intersect<Plane, Brep, Curve>().Rejection.IsNone);
+        Assert.True(condition: Query.Intersect<Surface, Brep, Curve>().Rejection.IsNone);
+        Assert.True(condition: Query.Intersect<Plane, Mesh, Polyline>().Rejection.IsNone);
+    }
+
+    [Fact]
     public void RejectsUnsupportedDeviationSurfaceWithOperationVocabulary() {
         Validation<Error, Seq<Point3d>> unsupportedOutput = Analyze.In(context: ValidContext()).Run(
             query: Query.Deviation<Curve, Curve, Point3d>(),
@@ -897,6 +927,18 @@ public sealed class AnalysisSpec {
         Assert.Equal(expected: [first, second], actual: corners);
     }
 
+    [Fact]
+    public void SupportsMeshComponentsFromObjectRail() =>
+        Assert.True(condition: Query.Components<object, Mesh>().Rejection.IsNone);
+
+    [Fact]
+    public void KeepsSegmentsAsCurveProjectionAlias() =>
+        Assert.Equal(expected: Query.Curves<Curve, Curve>(aspect: Curves.Segments).Key, actual: Query.Segments<Curve, Curve>().Key);
+
+    [Fact]
+    public void RoutesBrepBoundariesThroughCurveProjection() =>
+        Assert.Equal(expected: Query.Curves<Brep, Curve>(aspect: Curves.All).Key, actual: Query.Boundaries<Brep, Curve>(aspect: Boundaries.All).Key);
+
     // Faces / FaceFrame queries operate on Brep, BrepFace, Surface, SubD — all of which
     // dispatch to native rhcommon_c during construction and analysis. The xUnit runner here
     // does not load the native runtime; integration coverage for face decomposition,
@@ -923,7 +965,6 @@ public sealed class AnalysisSpec {
             true => UnitScale.FromModelUnits(units: UnitSystem.CustomUnits, customScale: customScale),
             false => Fin.Fail<UnitScale>(error: new Fault.OutOfRange(Label: nameof(Rasm.Domain.CustomUnitScale), Scalar: 1.0, Requirement: "validation failed")),
         };
-
     private static TOut[] Run<TGeometry, TOut>(
         Query<TGeometry, TOut> query,
         params ReadOnlySpan<TGeometry> input) where TGeometry : notnull =>

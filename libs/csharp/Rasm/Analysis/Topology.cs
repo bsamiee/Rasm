@@ -28,14 +28,8 @@ public static partial class Query {
                     select result))
             : key.Unsupported<TGeometry, TOut>();
     }
-    public static Query<TGeometry, TOut> Segments<TGeometry, TOut>() where TGeometry : notnull {
-        Op key = Op.Of();
-        return (typeof(TGeometry), typeof(TOut)) switch {
-            (Type geometry, Type output) when geometry == typeof(Polyline) && output == typeof(Line) => Cast<TGeometry, TOut>(key: key, query: Query<Polyline, Line>.Build(key: key, state: key, evaluator: static (op, geometry) => Many(key: op, values: geometry.GetSegments()).ToEff())),
-            (Type geometry, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && output == typeof(Curve) => Native<TGeometry, TOut, Curve, Curve>(key: key, project: curve => Many(key: key, values: curve.DuplicateSegments()).ToEff()),
-            _ => key.Unsupported<TGeometry, TOut>(),
-        };
-    }
+    public static Query<TGeometry, TOut> Segments<TGeometry, TOut>() where TGeometry : notnull =>
+        Query.Curves<TGeometry, TOut>(aspect: Rasm.Analysis.Curves.Segments);
     internal static bool Supports(Type geometry, Type output, Type target, params Type[] native) =>
         output == target && Supports(geometry: geometry, native: native);
     internal static bool Supports(Type geometry, params Type[] native) => typeof(GeometryBase).IsAssignableFrom(c: geometry) || geometry == typeof(object) || native.Contains(value: geometry);
@@ -103,14 +97,15 @@ public static partial class Query {
     }
     public static Query<TGeometry, TOut> Components<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
-        return (typeof(Brep).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Brep)) || (typeof(Mesh).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Mesh))
+        return ((typeof(Brep).IsAssignableFrom(c: typeof(TGeometry)) || typeof(TGeometry) == typeof(object)) && typeof(TOut) == typeof(Brep))
+            || ((typeof(Mesh).IsAssignableFrom(c: typeof(TGeometry)) || typeof(TGeometry) == typeof(object)) && typeof(TOut) == typeof(Mesh))
             ? Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, TOut>.Build(
                 key: key, requiresContext: true, state: key,
                 evaluator: static (op, geometry) =>
                     from context in Env.Asks
                     from kind in ((object)geometry).Kind(ctx: context).ToEff()
                     from components in kind.Components(value: geometry, ctx: context, op: op).ToEff()
-                    from result in op.Results<GeometryBase, TOut>(values: components).ToEff()
+                    from result in components.TraverseM(component => component is TOut typed ? Fin.Succ(typed) : Fin.Fail<TOut>(op.Unsupported(geometryType: component.GetType(), outputType: typeof(TOut)))).As().ToEff()
                     select result))
             : key.Unsupported<TGeometry, TOut>();
     }
@@ -197,7 +192,7 @@ public static partial class Query {
             });
     }
     public static Query<TGeometry, TOut> Meshes<TGeometry, TOut>(Meshes aspect) where TGeometry : notnull =>
-        aspect?.ToQuery<TGeometry, TOut>() ?? Query<TGeometry, TOut>.Reject(key: Op.Of(), fault: Op.Of().InvalidInput());
+        Aspect<Meshes, TGeometry, TOut>(aspect: aspect, key: Op.Of());
     internal static Query<TGeometry, TOut> MeshLift<TGeometry, TOut, TValue>(Op key, Query<Mesh, TValue> source) where TGeometry : notnull =>
         Native<TGeometry, TOut, Mesh, TValue, Query<Mesh, TValue>>(key: key, state: source, project: static (q, mesh) => q.Apply(geometry: mesh));
     internal static Fin<Seq<Polyline>> SelfIntersectionsValue(Op op, Mesh geometry, Env runtime) {
@@ -221,12 +216,15 @@ public static partial class Query {
             };
     }
     public static Query<TGeometry, TOut> Faces<TGeometry, TOut>(Faces aspect) where TGeometry : notnull =>
-        aspect?.ToQuery<TGeometry, TOut>() ?? Query<TGeometry, TOut>.Reject(key: Rasm.Analysis.Faces.Key, fault: Rasm.Analysis.Faces.Key.InvalidInput());
+        Aspect<Faces, TGeometry, TOut>(aspect: aspect, key: Rasm.Analysis.Faces.Key);
     public static Eff<Env, Seq<FaceProjection>> FaceProjections(object geometry, Faces selector) =>
+        FaceProjections(geometry: geometry, choose: _ => selector);
+    public static Eff<Env, Seq<FaceProjection>> FaceProjections(object geometry, Func<int, Faces> choose) =>
         from context in Env.Asks
         from faces in DecomposeFaces(key: Rasm.Analysis.Faces.Key, ctx: context, geometry: geometry).ToEff()
-        from chosen in SelectFaces(key: Rasm.Analysis.Faces.Key, faces: faces, selector: selector, runtime: context).ToEff()
-        select chosen;
+        from chosen in SelectFaces(key: Rasm.Analysis.Faces.Key, faces: faces, selector: choose(arg: faces.Count), runtime: context).ToEff()
+        from result in ProjectOwned(all: faces, chosen: chosen, transfer: true, project: static values => Fin.Succ(values)).ToEff()
+        select result;
     internal static Fin<Seq<FaceProjection>> DecomposeFaces<TGeometry>(Op key, Context ctx, TGeometry geometry) where TGeometry : notnull =>
         ((object)geometry).Kind(ctx: ctx).Bind(kind => kind.Faces(value: geometry, ctx: ctx, op: key));
     internal static Fin<Seq<FaceProjection>> SelectFaces(Op key, Seq<FaceProjection> faces, Faces selector, Context runtime) => selector.Switch(
@@ -282,7 +280,7 @@ public static partial class Query {
         };
     }
     public static Query<TGeometry, TOut> Curves<TGeometry, TOut>(Curves aspect) where TGeometry : notnull =>
-        aspect?.ToQuery<TGeometry, TOut>() ?? Query<TGeometry, TOut>.Reject(key: Rasm.Analysis.Curves.Key, fault: Rasm.Analysis.Curves.Key.InvalidInput());
+        Aspect<Curves, TGeometry, TOut>(aspect: aspect, key: Rasm.Analysis.Curves.Key);
     internal static Query<TGeometry, TOut> CurveProject<TGeometry, TOut, TValue>(Op key, Curves aspect, Func<CurveProjection, TValue> project) where TGeometry : notnull =>
         Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, TValue>.Build(
             key: key, state: (Key: key, Aspect: aspect, Project: project), requiresContext: true,
@@ -298,7 +296,16 @@ public static partial class Query {
         from kind in geometry.Kind(ctx: runtime.Context).ToEff()
         from curves in kind.Curves(value: geometry, selector: aspect.ToSelector(topology: kind.Topology), ctx: runtime.Context, op: Rasm.Analysis.Curves.Key, cancel: runtime.Cancellation).ToEff()
         from chosen in aspect.Select(curves: curves).ToEff()
-        select chosen;
+        from result in ProjectOwned(all: curves, chosen: chosen, transfer: true, project: static values => Fin.Succ(values)).ToEff()
+        select result;
+    public static Eff<Env, Seq<CurveProjection>> CurveProjections(object geometry, Func<int, Curves> choose) =>
+        from runtime in Env.EnvAsks
+        from kind in geometry.Kind(ctx: runtime.Context).ToEff()
+        from curves in kind.Curves(value: geometry, selector: Rasm.Analysis.Curves.All.ToSelector(topology: kind.Topology), ctx: runtime.Context, op: Rasm.Analysis.Curves.Key, cancel: runtime.Cancellation).ToEff()
+        from aspect in Fin.Succ(choose(arg: curves.Count)).ToEff()
+        from chosen in aspect.Select(curves: curves).ToEff()
+        from result in ProjectOwned(all: curves, chosen: chosen, transfer: true, project: static values => Fin.Succ(values)).ToEff()
+        select result;
     internal static Fin<Seq<TValue>> ProjectOwned<TProjection, TValue>(
         Seq<TProjection> all, Seq<TProjection> chosen, bool transfer,
         Func<Seq<TProjection>, Fin<Seq<TValue>>> project) where TProjection : ITopologyProjection {

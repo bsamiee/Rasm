@@ -10,13 +10,13 @@ public readonly record struct Shape {
     private Shape(object inner) => Inner = inner;
     public object Inner { get; }
     public const string Accepted = "Rhino/GH geometry convertible through native RhinoCommon or GH2 brokers";
-    // BOUNDARY ADAPTER — RequireValid gates broker output through the domain ValidityTable before sealing into Shape.
     public static Fin<Shape> Create(object? value) =>
         Optional(value)
             .ToFin(new Fault.InputRequired(PortName: nameof(Shape), Hint: Accepted))
             .Bind(static raw => raw switch {
                 Shape shape => Fin.Succ(shape),
-                _ => Op.Create(value: nameof(Shape)).RequireValid(value: raw).Map(static valid => new Shape(inner: valid)),
+                object candidate when candidate.GetType().AsKind().IsSome => Op.Create(value: nameof(Shape)).RequireValid(value: candidate).Map(static valid => new Shape(inner: valid)),
+                object candidate => Fin.Fail<Shape>(new Fault.UnsupportedSource(PortName: nameof(Shape), SourceType: candidate.GetType(), Hint: Accepted)),
             });
 }
 
@@ -25,14 +25,11 @@ public readonly record struct Shape {
 public static class Bridge {
     public static Fin<Analyze.Scope> Scope(this IDataAccess access) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        return (
-            access.GetTolerance(absoluteTolerance: out double absolute, relativeTolerance: out double relative),
-            access.GetTolerance(angularTolerance: out Angle angle),
-            access.GetUnitSystem(unitSystem: out UnitSystem units),
-            units.System
-        ) switch {
-            (true, true, true, not Rhino.UnitSystem.Unset) => Fin.Succ(Analyze.In(
-                absolute: absolute, relative: relative, angle: angle.Radians, units: units.System)),
+        _ = access.GetUnitSystem(unitSystem: out UnitSystem units);
+        Rhino.UnitSystem system = units.System == Rhino.UnitSystem.Unset ? Rhino.UnitSystem.Millimeters : units.System;
+        return (access.GetTolerance(absoluteTolerance: out double absolute, relativeTolerance: out double relative), access.GetTolerance(angularTolerance: out Angle angle), system) switch {
+            (true, true, Rhino.UnitSystem known) => MetersPerUnit(units: units, system: known)
+                .Map(metersPerUnit => Analyze.InScaled(absolute: absolute, relative: relative, angle: angle.Radians, units: known, metersPerUnit: metersPerUnit)),
             _ => Remark(access: access, units: units.System),
         };
     }
@@ -65,6 +62,19 @@ public static class Bridge {
     }
     private static int? TreePrefix(IDataAccess access, int slot) =>
         access.CoverageOut(index: slot) switch { { TwigIndex: >= 0 } coverage => coverage.TwigIndex, _ => null };
+    private static Fin<double> MetersPerUnit(UnitSystem units, Rhino.UnitSystem system) =>
+        (system, units.Factor) switch {
+            (Rhino.UnitSystem.CustomUnits, double factor) when Rhino.RhinoMath.IsValidDouble(x: factor) && factor > Rhino.RhinoMath.ZeroTolerance => Fin.Succ(factor),
+            (_, double factor) when Rhino.RhinoMath.IsValidDouble(x: factor) && factor > Rhino.RhinoMath.ZeroTolerance => Rhino.RhinoMath.MetersPerUnit(units: system) switch {
+                double meters when Rhino.RhinoMath.IsValidDouble(x: meters) && meters > Rhino.RhinoMath.ZeroTolerance => Fin.Succ(meters * factor),
+                _ => Fin.Fail<double>(new Fault.InvalidUnitSystem(Units: system, Requirement: "must resolve to a positive finite meter scale")),
+            },
+            (Rhino.UnitSystem.CustomUnits, _) => Fin.Fail<double>(new Fault.InvalidUnitSystem(Units: system, Requirement: "must resolve to a positive finite meter scale")),
+            _ => Rhino.RhinoMath.MetersPerUnit(units: system) switch {
+                double meters when Rhino.RhinoMath.IsValidDouble(x: meters) && meters > Rhino.RhinoMath.ZeroTolerance => Fin.Succ(meters),
+                _ => Fin.Fail<double>(new Fault.InvalidUnitSystem(Units: system, Requirement: "must resolve to a positive finite meter scale")),
+            },
+        };
     private static Fin<Analyze.Scope> Remark(IDataAccess access, Rhino.UnitSystem units) {
         access.AddRemark(text: "Tolerance", details: "Host did not supply reliable tolerance; using default tolerance with document units.");
         return Fin.Succ(Analyze.In(units: units == Rhino.UnitSystem.Unset ? Rhino.UnitSystem.Millimeters : units));
@@ -78,8 +88,8 @@ public static class Bridge {
         static raw => AsShape(value: raw),
         static raw => CurveBroker.CastOrConvert(data: raw, p2: out Line line, p3: out Triangle triangle, p4: out Rectangle3d rectangle, pn: out Polyline polyline, a360: out Circle circle, ax: out Arc arc, c: out Curve curve) switch {
             CurveType.Line => AsShape(value: line),
-            CurveType.Triangle => AsShape(value: triangle),
-            CurveType.Rectangle => AsShape(value: rectangle),
+            CurveType.Triangle => AsShape(value: triangle.ToPolyline()),
+            CurveType.Rectangle => AsShape(value: rectangle.ToPolyline()),
             CurveType.Polyline => AsShape(value: polyline),
             CurveType.Circle => AsShape(value: circle),
             CurveType.Arc => AsShape(value: arc),
@@ -108,11 +118,15 @@ public static class Bridge {
                     _ => Missing<T>(port: port),
                 },
                 [Access.Twig] = static (access, slot, port) => access.GetPears<T>(index: slot, pears: out Pear<T>[] pears) switch {
-                    true when pears.Length > 0 => Fin.Succ(toSeq(pears).Filter(static pear => pear is { Item: not null })),
+                    true when pears.Length > 0 => toSeq(pears.Select((pear, index) => (Pear: pear, Index: index))).TraverseM(item => item.Pear is { Item: not null }
+                        ? Fin.Succ(item.Pear)
+                        : Fin.Fail<Pear<T>>(new Fault.InputRequired(PortName: port.Name, Hint: $"Null twig item at index {item.Index}."))).As(),
                     _ => Missing<T>(port: port),
                 },
                 [Access.Tree] = static (access, slot, port) => access.GetTree<T>(index: slot, tree: out Tree<T> tree) switch {
-                    true => Fin.Succ(toSeq(tree.NonNullPears)),
+                    true when tree.ItemCount > 0 => toSeq(tree.AllPears.Select((pear, index) => (Pear: pear, Index: index))).TraverseM(item => item.Pear is { Item: not null }
+                        ? Fin.Succ(item.Pear)
+                        : Fin.Fail<Pear<T>>(new Fault.InputRequired(PortName: port.Name, Hint: $"Null tree item at index {item.Index}."))).As(),
                     _ => Missing<T>(port: port),
                 },
             }.ToFrozenDictionary();

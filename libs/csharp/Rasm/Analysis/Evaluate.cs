@@ -40,9 +40,11 @@ public static partial class Query {
                 .Head.ToFin(op.InvalidResult()))
             .As();
     public static Query<TGeometry, TOut> Locate<TGeometry, TOut>(Location aspect) where TGeometry : notnull =>
-        aspect?.ToQuery<TGeometry, TOut>() ?? Query<TGeometry, TOut>.Reject(key: Op.Of(), fault: Op.Of().InvalidInput());
+        Aspect<Location, TGeometry, TOut>(aspect: aspect, key: Op.Of());
     internal static Query<TGeometry, TOut> Located<TGeometry, TOut, TNative, TValue>(Op key, Func<Query<TGeometry, TValue>> query) where TGeometry : notnull =>
-        typeof(TNative).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(TValue) ? Cast<TGeometry, TOut>(key: key, query: query()) : key.Unsupported<TGeometry, TOut>();
+        (typeof(TNative).IsAssignableFrom(c: typeof(TGeometry)) || typeof(TGeometry) == typeof(object) || typeof(GeometryBase).IsAssignableFrom(c: typeof(TGeometry))) && typeof(TOut) == typeof(TValue)
+            ? Cast<TGeometry, TOut>(key: key, query: query())
+            : key.Unsupported<TGeometry, TOut>();
     internal static Query<TGeometry, TOut> Mid<TGeometry, TOut>() where TGeometry : notnull =>
         Middle<TGeometry, TOut, Point3d>(key: Op.Of(name: "Midpoint"), line: static line => line.PointAt(t: 0.5), curve: static (curve, parameter) => curve.PointAt(t: parameter));
     internal static Query<TGeometry, TOut> TangentAtMiddle<TGeometry, TOut>() where TGeometry : notnull =>
@@ -98,26 +100,21 @@ public static partial class Query {
         (Samples(domain: surface.Domain(direction: 0), count: count, key: key),
          Samples(domain: surface.Domain(direction: 1), count: count, key: key))
         .Apply(static (u, v) => (U: u, V: v)).As()
-        .Map(samples => samples.U
+        .Bind(samples => samples.U
             .Bind(u => samples.V.Map(v => new Point2d(x: u, y: v)))
-            .Choose(uv => Uv(surface: surface, uv: uv, context: model, key: key).ToOption()
-                .Bind(parameter => Optional(surface.CurvatureAt(u: parameter.X, v: parameter.Y)))));
+            .TraverseM(uv => Uv(surface: surface, uv: uv, context: model, key: key)
+                .Bind(parameter => Optional(surface.CurvatureAt(u: parameter.X, v: parameter.Y)).ToFin(key.InvalidResult())))
+            .As());
     private static Fin<Seq<double>> CurveSamples(Curve curve, int count, Context model, Op key) =>
-        Fractions(count: count, key: key)
+        Dispatch.Fractions(count: count, op: key)
             .Bind(fractions => Optional(curve.NormalizedLengthParameters(s: [.. fractions.AsIterable()], absoluteTolerance: model.Absolute.Value, fractionalTolerance: model.Relative.Value))
                 .ToFin(key.InvalidResult())
                 .Map(static parameters => toSeq(parameters)));
-    internal static Fin<Seq<double>> Fractions(int count, Op key) =>
-        count switch {
-            1 => Fin.Succ(Seq(0.5)),
-            > 1 => Fin.Succ(toSeq(Enumerable.Range(start: 0, count: count).Select(i => i / (count - 1.0)))),
-            _ => Fin.Fail<Seq<double>>(key.InvalidInput()),
-        };
     private static Fin<CurvatureProfile> Profile(Op key, CurvatureScalar scalar, Seq<double> values) =>
         Stats.From(values: values, key: key).Map(s => new CurvatureProfile(Scalar: scalar, Count: s.Count, Minimum: s.Minimum, Maximum: s.Maximum, Mean: s.Mean, Variance: s.Variance));
     internal static Fin<Seq<double>> Samples(Interval domain, int count, Op key) =>
         domain.IsValid switch {
-            true => Fractions(count: count, key: key).Map(fractions => fractions.Map(f => domain.ParameterAt(f))),
+            true => Dispatch.Fractions(count: count, op: key).Map(fractions => fractions.Map(f => domain.ParameterAt(f))),
             false => Fin.Fail<Seq<double>>(key.InvalidInput()),
         };
     internal static Query<TGeometry, TOut> Closest<TGeometry, TOut>(Point3d point) where TGeometry : notnull {
