@@ -47,7 +47,8 @@ public partial class MeshCheckCount {
 
 [SmartEnum<int>]
 public sealed partial class MeshFaceMetric {
-    public static readonly MeshFaceMetric None = new(key: 0, sample: static _ => Fin.Fail<double>(Op.Of(name: nameof(MeshFaceMetric)).InvalidInput()));
+    private static readonly Op MetricKey = Op.Of(name: nameof(MeshFaceMetric));
+    public static readonly MeshFaceMetric None = new(key: 0, sample: static _ => Fin.Fail<double>(MetricKey.InvalidInput()));
     public static readonly MeshFaceMetric AspectRatio = new(key: 1, sample: static projection =>
         projection.OnMeshFace<double>(static (mesh, face) => Fin.Succ(mesh.Faces.GetFaceAspectRatio(index: face))));
     public static readonly MeshFaceMetric Area = new(key: 2, sample: FaceArea);
@@ -61,20 +62,18 @@ public sealed partial class MeshFaceMetric {
             .Bind(projection => sample(arg: projection));
     }
     private static Fin<double> FaceArea(TopologyProjection projection) =>
-        projection.Vertices.Bind(static v => v.Count switch {
-            4 => Fin.Succ(0.5 * (Vector3d.CrossProduct(a: v[1] - v[0], b: v[2] - v[0]).Length + Vector3d.CrossProduct(a: v[2] - v[0], b: v[3] - v[0]).Length)),
-            3 => Fin.Succ(0.5 * Vector3d.CrossProduct(a: v[1] - v[0], b: v[2] - v[0]).Length),
-            _ => Fin.Fail<double>(Op.Of(name: nameof(MeshFaceMetric)).InvalidResult()),
-        });
+        projection.Vertices.Bind(static v => v.Count >= 3
+            ? Fin.Succ(0.5 * Enumerable.Range(start: 1, count: v.Count - 2).Sum(i => Vector3d.CrossProduct(a: v[i] - v[0], b: v[i + 1] - v[0]).Length))
+            : Fin.Fail<double>(MetricKey.InvalidResult()));
     private static Fin<double> FacePerimeter(TopologyProjection projection) =>
         projection.Vertices.Map(static v => v.Map((p, i) => p.DistanceTo(other: v[(i + 1) % v.Count])).Fold(initialState: 0.0, f: static (acc, d) => acc + d));
     private static Fin<double> FaceSkewness(TopologyProjection projection) =>
         projection.Vertices.Bind(static v => v.Count switch {
-            < 3 => Fin.Fail<double>(Op.Of(name: nameof(MeshFaceMetric)).InvalidResult()),
+            < 3 => Fin.Fail<double>(MetricKey.InvalidResult()),
             int n => v.Map((vertex, i) => Vector3d.VectorAngle(a: v[(i + n - 1) % n] - vertex, b: v[(i + 1) % n] - vertex))
-                .Fold(initialState: Fin.Succ((Max: 0.0, Ideal: n == 4 ? Math.PI / 2.0 : Math.PI / 3.0)), f: static (state, angle) => state.Bind(s => RhinoMath.IsValidDouble(x: angle)
+                .Fold(initialState: Fin.Succ((Max: 0.0, Ideal: (n - 2) * Math.PI / n)), f: static (state, angle) => state.Bind(s => RhinoMath.IsValidDouble(x: angle)
                     ? Fin.Succ((Math.Max(val1: s.Max, val2: Math.Max(val1: (angle - s.Ideal) / (Math.PI - s.Ideal), val2: (s.Ideal - angle) / s.Ideal)), s.Ideal))
-                    : Fin.Fail<(double Max, double Ideal)>(Op.Of(name: nameof(MeshFaceMetric)).InvalidResult())))
+                    : Fin.Fail<(double Max, double Ideal)>(MetricKey.InvalidResult())))
                 .Map(static state => state.Max),
         });
     private static Fin<double> FaceMaxDihedral(TopologyProjection projection) =>

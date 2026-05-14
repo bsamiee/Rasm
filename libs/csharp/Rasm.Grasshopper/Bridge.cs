@@ -140,8 +140,10 @@ public static class Bridge {
         Missing<TVal>(port: port).Map(static pears => pears.Map(static pear => new Flow<TVal>(Pear: pear, Site: Option<Site>.None)));
     private static Seq<Leaf<T>> Leaves<T>(Seq<Flow<T>> values) =>
         values.Map((value, index) => new Leaf<T>(pear: value.Pear, site: value.Site.IfNone(new Site(path: new Grasshopper2.Data.Path(0), item: index))));
-    private static readonly Seq<Func<object, Option<Shape>>> Brokers = Seq<Func<object, Option<Shape>>>(
-        static raw => CurveBroker.CastOrConvert(data: raw, p2: out Line line, p3: out Triangle triangle, p4: out Rectangle3d rectangle, pn: out Polyline polyline, a360: out Circle circle, ax: out Arc arc, c: out Curve curve) switch {
+    private readonly record struct Broker(int Priority, Func<object, Option<Shape>> Convert);
+    // Priority sorts at construction (descending); declaration order is irrelevant. CurveBroker and SurfaceBroker handle disjoint inputs and share priority 100; AsShape catches any registered geometry kind at 10.
+    private static readonly Seq<Broker> Brokers = toSeq(new Broker[] {
+        new(Priority: 100, Convert: static raw => CurveBroker.CastOrConvert(data: raw, p2: out Line line, p3: out Triangle triangle, p4: out Rectangle3d rectangle, pn: out Polyline polyline, a360: out Circle circle, ax: out Arc arc, c: out Curve curve) switch {
             CurveType.Line => AsShape(value: line),
             CurveType.Triangle => AsShape(value: triangle.ToPolyline()),
             CurveType.Rectangle => AsShape(value: rectangle.ToPolyline()),
@@ -150,15 +152,16 @@ public static class Bridge {
             CurveType.Arc => AsShape(value: arc),
             CurveType.Curve => AsShape(value: curve),
             _ => Option<Shape>.None,
-        },
-        static raw => SurfaceBroker.CastOrConvert(data: raw, p1: out Surface surface, p3: out Brep brep, p4: out SubD subd) switch {
+        }),
+        new(Priority: 100, Convert: static raw => SurfaceBroker.CastOrConvert(data: raw, p1: out Surface surface, p3: out Brep brep, p4: out SubD subd) switch {
             SurfaceLikeType.Surf => AsShape(value: surface),
             SurfaceLikeType.Brep => AsShape(value: brep),
             SurfaceLikeType.SubD => AsShape(value: subd),
             _ => Option<Shape>.None,
-        },
-        static raw => AsShape(value: raw));
-    private static Option<Shape> NormalizeShape(object raw) => Brokers.Choose(b => b(arg: raw)).Head;
+        }),
+        new(Priority:  10, Convert: static raw => AsShape(value: raw)),
+    }.OrderByDescending(static b => b.Priority));
+    private static Option<Shape> NormalizeShape(object raw) => Brokers.Choose(broker => broker.Convert(arg: raw)).Head;
     private static Option<Shape> AsShape(object? value) => Optional(value).Bind(static candidate => Shape.Create(value: candidate).ToOption());
     internal sealed class Progress(IDataAccess access) : IProgress<double> {
         public void Report(double value) => access.SetProgress(percentage: (int)Rhino.RhinoMath.Clamp(value: value switch {

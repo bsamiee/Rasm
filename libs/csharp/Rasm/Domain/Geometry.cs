@@ -194,23 +194,37 @@ internal static class KindLookup {
 }
 [BoundaryAdapter]
 internal static class Dispatch {
-    internal static readonly FrozenDictionary<(Type Source, Type Target), Func<object, (Context Ctx, Op Op), Fin<object>>> CoercionTable = new Dictionary<(Type, Type), Func<object, (Context, Op), Fin<object>>> {
-        [(typeof(Curve), typeof(Line))] = static (g, a) => ((Curve)g).IsLinear(tolerance: a.Item1.Absolute.Value) ? Fin.Succ<object>(new Line(from: ((Curve)g).PointAtStart, to: ((Curve)g).PointAtEnd)) : Fin.Fail<object>(error: a.Item2.InvalidResult()), [(typeof(Curve), typeof(Polyline))] = static (g, a) => ((Curve)g).TryGetPolyline(polyline: out Polyline poly) ? Fin.Succ<object>(poly) : Fin.Fail<object>(error: a.Item2.InvalidResult()),
-        [(typeof(Curve), typeof(Circle))] = static (g, a) => ((Curve)g).TryGetCircle(circle: out Circle c, tolerance: a.Item1.Absolute.Value) ? Fin.Succ<object>(c) : Fin.Fail<object>(error: a.Item2.InvalidResult()), [(typeof(Curve), typeof(Arc))] = static (g, a) => ((Curve)g).TryGetArc(arc: out Arc r, tolerance: a.Item1.Absolute.Value) ? Fin.Succ<object>(r) : Fin.Fail<object>(error: a.Item2.InvalidResult()), [(typeof(Curve), typeof(Ellipse))] = static (g, a) => ((Curve)g).TryGetEllipse(ellipse: out Ellipse e, tolerance: a.Item1.Absolute.Value) ? Fin.Succ<object>(e) : Fin.Fail<object>(error: a.Item2.InvalidResult()),
-        [(typeof(Surface), typeof(Plane))] = static (g, a) => ((Surface)g).TryGetPlane(plane: out Plane p, tolerance: a.Item1.Absolute.Value) ? Fin.Succ<object>(p) : Fin.Fail<object>(error: a.Item2.InvalidResult()), [(typeof(Surface), typeof(Sphere))] = static (g, a) => ((Surface)g).TryGetSphere(sphere: out Sphere s, tolerance: a.Item1.Absolute.Value) ? Fin.Succ<object>(s) : Fin.Fail<object>(error: a.Item2.InvalidResult()),
-        [(typeof(Surface), typeof(Cylinder))] = static (g, a) => ((Surface)g).TryGetCylinder(cylinder: out Cylinder c, tolerance: a.Item1.Absolute.Value) ? Fin.Succ<object>(c) : Fin.Fail<object>(error: a.Item2.InvalidResult()), [(typeof(Surface), typeof(Cone))] = static (g, a) => ((Surface)g).TryGetCone(cone: out Cone c, tolerance: a.Item1.Absolute.Value) ? Fin.Succ<object>(c) : Fin.Fail<object>(error: a.Item2.InvalidResult()), [(typeof(Surface), typeof(Torus))] = static (g, a) => ((Surface)g).TryGetTorus(torus: out Torus t, tolerance: a.Item1.Absolute.Value) ? Fin.Succ<object>(t) : Fin.Fail<object>(error: a.Item2.InvalidResult()),
-        [(typeof(Brep), typeof(Box))] = static (g, a) => ((Brep)g).IsBox(tolerance: a.Item1.Absolute.Value) && ((Brep)g).Faces[0].UnderlyingSurface().TryGetPlane(plane: out Plane plane, tolerance: a.Item1.Absolute.Value) && ((Brep)g).GetBoundingBox(plane: plane, worldBox: out Box box) is { IsValid: true } ? Fin.Succ<object>(box) : Fin.Fail<object>(error: a.Item2.InvalidResult()),
-        [(typeof(Extrusion), typeof(Brep))] = static (g, a) => Optional(((Extrusion)g).ToBrep()).ToFin(Fail: a.Item2.InvalidResult()).Map(static b => (object)b),
-    }.ToFrozenDictionary();
+    [BoundaryAdapter] internal readonly record struct Probe(int Priority, Type Source, Type Target, Kind Inferred, Func<object, Context, Option<object>> Run);
+    // Priority sorts at construction (descending); declaration order is irrelevant. Bands: 100 Brep/Box, 95-90 Curve primitives (Line>Circle>Arc>Ellipse>Polyline), 70 Brep/Plane→Kind.Surface (asymmetric, preserves Brep-vs-Surface distinction), 60 Surface/Plane, 50-47 curved primitives (Sphere>Cylinder>Cone>Torus; Brep/Surface variants share priority — mutual exclusion via Source-type filter at iteration), 10 Extrusion→Brep fallback.
+    internal static readonly Seq<Probe> Probes = toSeq(new Probe[] {
+        new(Priority: 100, Source: typeof(Brep), Target: typeof(Box), Inferred: Kind.Box, Run: static (g, c) => ((Brep)g).IsBox(tolerance: c.Absolute.Value) && ((Brep)g).Faces[0].UnderlyingSurface().TryGetPlane(plane: out Plane plane, tolerance: c.Absolute.Value) && ((Brep)g).GetBoundingBox(plane: plane, worldBox: out Box box) is { IsValid: true } ? Some<object>(box) : Option<object>.None),
+        new(Priority:  95, Source: typeof(Curve), Target: typeof(Line), Inferred: Kind.Line, Run: static (g, c) => ((Curve)g).IsLinear(tolerance: c.Absolute.Value) ? Some<object>(new Line(from: ((Curve)g).PointAtStart, to: ((Curve)g).PointAtEnd)) : Option<object>.None),
+        new(Priority:  94, Source: typeof(Curve), Target: typeof(Circle), Inferred: Kind.Circle, Run: static (g, c) => ((Curve)g).TryGetCircle(circle: out Circle x, tolerance: c.Absolute.Value) ? Some<object>(x) : Option<object>.None),
+        new(Priority:  93, Source: typeof(Curve), Target: typeof(Arc), Inferred: Kind.Arc, Run: static (g, c) => ((Curve)g).TryGetArc(arc: out Arc x, tolerance: c.Absolute.Value) ? Some<object>(x) : Option<object>.None),
+        new(Priority:  92, Source: typeof(Curve), Target: typeof(Ellipse), Inferred: Kind.Ellipse, Run: static (g, c) => ((Curve)g).TryGetEllipse(ellipse: out Ellipse x, tolerance: c.Absolute.Value) ? Some<object>(x) : Option<object>.None),
+        new(Priority:  90, Source: typeof(Curve), Target: typeof(Polyline), Inferred: Kind.Polyline, Run: static (g, _) => ((Curve)g).TryGetPolyline(polyline: out Polyline x) ? Some<object>(x) : Option<object>.None),
+        new(Priority:  70, Source: typeof(Brep), Target: typeof(Plane), Inferred: Kind.Surface, Run: static (g, c) => g is Brep { IsSurface: true } b && b.Surfaces[0].TryGetPlane(plane: out Plane x, tolerance: c.Absolute.Value) ? Some<object>(x) : Option<object>.None),
+        new(Priority:  60, Source: typeof(Surface), Target: typeof(Plane), Inferred: Kind.Plane, Run: static (g, c) => ((Surface)g).TryGetPlane(plane: out Plane x, tolerance: c.Absolute.Value) ? Some<object>(x) : Option<object>.None),
+        new(Priority:  50, Source: typeof(Brep), Target: typeof(Sphere), Inferred: Kind.Sphere, Run: static (g, c) => g is Brep { IsSurface: true } b && b.Surfaces[0].TryGetSphere(sphere: out Sphere x, tolerance: c.Absolute.Value) ? Some<object>(x) : Option<object>.None),
+        new(Priority:  50, Source: typeof(Surface), Target: typeof(Sphere), Inferred: Kind.Sphere, Run: static (g, c) => ((Surface)g).TryGetSphere(sphere: out Sphere x, tolerance: c.Absolute.Value) ? Some<object>(x) : Option<object>.None),
+        new(Priority:  49, Source: typeof(Brep), Target: typeof(Cylinder), Inferred: Kind.Cylinder, Run: static (g, c) => g is Brep { IsSurface: true } b && b.Surfaces[0].TryGetCylinder(cylinder: out Cylinder x, tolerance: c.Absolute.Value) ? Some<object>(x) : Option<object>.None),
+        new(Priority:  49, Source: typeof(Surface), Target: typeof(Cylinder), Inferred: Kind.Cylinder, Run: static (g, c) => ((Surface)g).TryGetCylinder(cylinder: out Cylinder x, tolerance: c.Absolute.Value) ? Some<object>(x) : Option<object>.None),
+        new(Priority:  48, Source: typeof(Brep), Target: typeof(Cone), Inferred: Kind.Cone, Run: static (g, c) => g is Brep { IsSurface: true } b && b.Surfaces[0].TryGetCone(cone: out Cone x, tolerance: c.Absolute.Value) ? Some<object>(x) : Option<object>.None),
+        new(Priority:  48, Source: typeof(Surface), Target: typeof(Cone), Inferred: Kind.Cone, Run: static (g, c) => ((Surface)g).TryGetCone(cone: out Cone x, tolerance: c.Absolute.Value) ? Some<object>(x) : Option<object>.None),
+        new(Priority:  47, Source: typeof(Brep), Target: typeof(Torus), Inferred: Kind.Torus, Run: static (g, c) => g is Brep { IsSurface: true } b && b.Surfaces[0].TryGetTorus(torus: out Torus x, tolerance: c.Absolute.Value) ? Some<object>(x) : Option<object>.None),
+        new(Priority:  47, Source: typeof(Surface), Target: typeof(Torus), Inferred: Kind.Torus, Run: static (g, c) => ((Surface)g).TryGetTorus(torus: out Torus x, tolerance: c.Absolute.Value) ? Some<object>(x) : Option<object>.None),
+        new(Priority:  10, Source: typeof(Extrusion), Target: typeof(Brep), Inferred: Kind.Brep, Run: static (g, _) => Optional((object?)((Extrusion)g).ToBrep())),
+    }.OrderByDescending(static p => p.Priority));
+    internal static readonly FrozenDictionary<(Type, Type), Probe> ProbeIndex = Probes.AsIterable().ToDictionary(keySelector: static p => (p.Source, p.Target), elementSelector: static p => p).ToFrozenDictionary();
     internal static Fin<TTarget> Coerce<TTarget>(object? source, Context context, Op op) => Optional(source)
         .ToFin(op.InvalidInput())
         .Bind(s => s switch {
             TTarget target => op.RequireValid(value: target),
-            _ => LookupPair(table: CoercionTable, left: s.GetType(), right: typeof(TTarget))
+            _ => LookupPair(table: ProbeIndex, left: s.GetType(), right: typeof(TTarget))
                 .ToFin(Fail: op.Unsupported(geometryType: s.GetType(), outputType: typeof(TTarget)))
-                .Bind(fn => fn(arg1: s, arg2: (context, op)).Map(static v => (TTarget)v)),
+                .Bind(probe => probe.Run(arg1: s, arg2: context).ToFin(Fail: op.InvalidResult()).Map(static v => (TTarget)v)),
         });
-    internal static bool SupportsCoercion(Type source, Type target) => target.IsAssignableFrom(c: source) || LookupPair(table: CoercionTable, left: source, right: target).IsSome;
+    internal static bool SupportsCoercion(Type source, Type target) => target.IsAssignableFrom(c: source) || LookupPair(table: ProbeIndex, left: source, right: target).IsSome;
     internal static readonly FrozenDictionary<Type, Func<object, Op, Fin<BoundingBox>>> BoundsTable = new Dictionary<Type, Func<object, Op, Fin<BoundingBox>>> {
         [typeof(BoundingBox)] = static (g, op) => ((BoundingBox)g).IsValid ? Fin.Succ((BoundingBox)g) : Fin.Fail<BoundingBox>(error: op.InvalidInput()), [typeof(Box)] = static (g, op) => ((Box)g).IsValid ? Fin.Succ(((Box)g).BoundingBox) : Fin.Fail<BoundingBox>(error: op.InvalidInput()), [typeof(Sphere)] = static (g, op) => ((Sphere)g).IsValid ? Fin.Succ(((Sphere)g).BoundingBox) : Fin.Fail<BoundingBox>(error: op.InvalidInput()),
         [typeof(Plane)] = static (_, op) => Fin.Fail<BoundingBox>(error: op.Unsupported(geometryType: typeof(Plane), outputType: typeof(BoundingBox))), [typeof(Line)] = static (g, op) => ((Line)g).IsValid ? Fin.Succ(((Line)g).BoundingBox) : Fin.Fail<BoundingBox>(error: op.InvalidInput()), [typeof(Polyline)] = static (g, _) => Fin.Succ(((Polyline)g).BoundingBox),
@@ -415,29 +429,6 @@ internal static class Dispatch {
                 t1: interval.T0 <= interval.T1 ? Math.Min(val1: max, val2: 1.0) : Math.Max(val1: min, val2: 0.0))),
             _ => Seq<Interval>(),
         };
-    private static Option<Kind> ShapedAs(object geometry, Context context, Kind kind, Func<Surface, double, bool> probe) =>
-        geometry switch {
-            Brep { IsSurface: true } b when probe(arg1: b.Surfaces[0], arg2: context.Absolute.Value) => Some(kind),
-            Surface s when probe(arg1: s, arg2: context.Absolute.Value) => Some(kind),
-            _ => Option<Kind>.None,
-        };
-    // Brep{IsSurface:true} reports the primitive Kind, except Plane which reports Kind.Surface — preserves the Brep-vs-Surface asymmetry.
-    internal static readonly Seq<Func<object, Context, Option<Kind>>> KindPredicates = Seq<Func<object, Context, Option<Kind>>>(
-        static (g, c) => g is Brep b && b.IsBox(tolerance: c.Absolute.Value) ? Some(Kind.Box) : Option<Kind>.None,
-        static (g, c) => g is Curve curve && curve.IsLinear(tolerance: c.Absolute.Value) ? Some(Kind.Line) : Option<Kind>.None,
-        static (g, c) => g is Curve curve && curve.TryGetCircle(circle: out Circle _, tolerance: c.Absolute.Value) ? Some(Kind.Circle) : Option<Kind>.None,
-        static (g, c) => g is Curve curve && curve.TryGetArc(arc: out Arc _, tolerance: c.Absolute.Value) ? Some(Kind.Arc) : Option<Kind>.None,
-        static (g, c) => g is Curve curve && curve.TryGetEllipse(ellipse: out Ellipse _, tolerance: c.Absolute.Value) ? Some(Kind.Ellipse) : Option<Kind>.None,
-        static (g, _) => g is Curve curve && curve.TryGetPolyline(polyline: out Polyline _) ? Some(Kind.Polyline) : Option<Kind>.None,
-        static (g, c) => g switch {
-            Brep { IsSurface: true } b when b.Surfaces[0].TryGetPlane(plane: out Plane _, tolerance: c.Absolute.Value) => Some(Kind.Surface),
-            Surface s when s.TryGetPlane(plane: out Plane _, tolerance: c.Absolute.Value) => Some(Kind.Plane),
-            _ => Option<Kind>.None,
-        },
-        static (g, c) => ShapedAs(geometry: g, context: c, kind: Kind.Sphere, probe: static (s, t) => s.TryGetSphere(sphere: out Sphere _, tolerance: t)),
-        static (g, c) => ShapedAs(geometry: g, context: c, kind: Kind.Cylinder, probe: static (s, t) => s.TryGetCylinder(cylinder: out Cylinder _, tolerance: t)),
-        static (g, c) => ShapedAs(geometry: g, context: c, kind: Kind.Cone, probe: static (s, t) => s.TryGetCone(cone: out Cone _, tolerance: t)),
-        static (g, c) => ShapedAs(geometry: g, context: c, kind: Kind.Torus, probe: static (s, t) => s.TryGetTorus(torus: out Torus _, tolerance: t)));
     internal static readonly FrozenDictionary<(Type Geometry, MassKind Mass), Func<object, (Context Ctx, bool FirstMoments, bool SecondMoments, bool ProductMoments), Fin<IDisposable>>> MassPropertiesTable = new Dictionary<(Type, MassKind), Func<object, (Context, bool, bool, bool), Fin<IDisposable>>> {
         [(typeof(Curve), MassKind.Length)] = static (g, args) => Optional(LengthMassProperties.Compute(curve: (Curve)g, length: true, firstMoments: args.Item2, secondMoments: args.Item3, productMoments: args.Item4)).ToFin(Fail: new Fault.ComputationFailed(Label: nameof(LengthMassProperties))).Map(static p => (IDisposable)p),
         [(typeof(Curve), MassKind.Area)] = static (g, args) => Optional(AreaMassProperties.Compute(closedPlanarCurve: (Curve)g, planarTolerance: args.Item1.Absolute.Value)).ToFin(Fail: new Fault.ComputationFailed(Label: nameof(AreaMassProperties))).Map(static p => (IDisposable)p),
@@ -604,7 +595,7 @@ public static class KindRole {
     public static bool InputBoundary(this CurveFeature feature) => feature is CurveFeature.Input or CurveFeature.Boundary;
     public static bool IsGeometryBaseDerived(this Kind kind) => typeof(GeometryBase).IsAssignableFrom(c: kind?.Type);
     public static Fin<Kind> Kind(this object geometry, Context context) =>
-        (Dispatch.KindPredicates.Choose(predicate => predicate(arg1: geometry, arg2: context)).Head | KindLookup.For(type: geometry?.GetType() ?? typeof(object)))
+        (Dispatch.Probes.Choose(probe => probe.Source.IsInstanceOfType(o: geometry) ? probe.Run(arg1: geometry, arg2: context).Map(_ => probe.Inferred) : Option<Kind>.None).Head | KindLookup.For(type: geometry?.GetType() ?? typeof(object)))
             .ToFin(Fail: Op.Of(name: nameof(Kind)).InvalidInput());
     public static Fin<BoundingBox> Bounds(this object geometry, Op op) => Dispatch.Resolve(table: Dispatch.BoundsTable, source: geometry, args: op, op: op);
     public static Fin<Seq<Point3d>> Vertices(this Kind kind, object geometry, Context context, Op op) => Dispatch.Resolve(table: Dispatch.VerticesTable, source: geometry, args: (context, op), op: op);
