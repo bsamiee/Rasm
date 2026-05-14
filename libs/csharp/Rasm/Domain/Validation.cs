@@ -59,12 +59,12 @@ public sealed partial class Rule {
         && u.IsValid && v.IsValid && u.Length > context.Absolute.Value && v.Length > context.Absolute.Value;
     [BoundaryAdapter]
     private static Fin<Unit> RunContinuity(Rule rule, Context context, GeometryBase geometry, CancellationToken cancel) =>
+        // BOUNDARY ADAPTER — Rhino 9 RhinoCommon exposes no cancellation-aware GetNextDiscontinuity overload; pre-check between direction probes is the only bail-out point.
         geometry switch {
-            Surface surface => rule.Demand(geometry: surface,
-                condition: HasUsableDomain(surface: surface, context: context)
-                    && !surface.GetNextDiscontinuity(direction: 0, continuityType: Continuity.C1_continuous, t0: surface.Domain(direction: 0).T0, t1: surface.Domain(direction: 0).T1, t: out double _)
-                    && !surface.GetNextDiscontinuity(direction: 1, continuityType: Continuity.C1_continuous, t0: surface.Domain(direction: 1).T0, t1: surface.Domain(direction: 1).T1, t: out double _),
-                log: "Surface is valid Rhino geometry but contains a C1 discontinuity."),
+            Surface surface => rule.Demand(geometry: surface, condition: HasUsableDomain(surface: surface, context: context) && !surface.GetNextDiscontinuity(direction: 0, continuityType: Continuity.C1_continuous, t0: surface.Domain(direction: 0).T0, t1: surface.Domain(direction: 0).T1, t: out double _), log: "Surface is valid Rhino geometry but contains a C1 discontinuity.")
+                .Bind(_ => cancel.IsCancellationRequested
+                    ? Fin.Fail<Unit>(new Fault.Cancelled())
+                    : rule.Demand(geometry: surface, condition: !surface.GetNextDiscontinuity(direction: 1, continuityType: Continuity.C1_continuous, t0: surface.Domain(direction: 1).T0, t1: surface.Domain(direction: 1).T1, t: out double _), log: "Surface is valid Rhino geometry but contains a C1 discontinuity.")),
             Curve curve => rule.Demand(geometry: curve, condition: !curve.GetNextDiscontinuity(continuityType: Continuity.C1_continuous, t0: curve.Domain.T0, t1: curve.Domain.T1, t: out double _), log: "Curve is valid Rhino geometry but contains a C1 discontinuity."),
             _ => rule.Pass(),
         };
@@ -78,7 +78,7 @@ public sealed partial class Rule {
     }
     [BoundaryAdapter]
     private static Fin<Unit> RunCurveSelfIntersection(Rule rule, Context context, GeometryBase geometry, CancellationToken cancel) {
-        // BOUNDARY ADAPTER — Rhino Intersection.CurveSelf has no cancellation overload; pre-check token to short-circuit the per-rule loop.
+        // BOUNDARY ADAPTER — Rhino 9 RhinoCommon Intersection.CurveSelf has no cancellation overload; pre-check token to short-circuit the per-rule loop.
         return cancel.IsCancellationRequested switch {
             true => Fin.Fail<Unit>(new Fault.Cancelled()),
             false => Probe(rule: rule, geometry: geometry, tolerance: context.Absolute.Value),

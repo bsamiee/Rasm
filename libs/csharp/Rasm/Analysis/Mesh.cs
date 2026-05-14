@@ -61,16 +61,22 @@ public sealed partial class MeshFaceMetric {
             .Bind(projection => sample(arg: projection));
     }
     private static Fin<double> FaceArea(TopologyProjection projection) =>
-        projection.Vertices.Map(vertices => vertices switch {
-            Seq<Point3d> v when v.Count == 4 => 0.5 * (Vector3d.CrossProduct(a: v[1] - v[0], b: v[2] - v[0]).Length + Vector3d.CrossProduct(a: v[2] - v[0], b: v[3] - v[0]).Length),
-            Seq<Point3d> v => 0.5 * Vector3d.CrossProduct(a: v[1] - v[0], b: v[2] - v[0]).Length,
+        projection.Vertices.Bind(static v => v.Count switch {
+            4 => Fin.Succ(0.5 * (Vector3d.CrossProduct(a: v[1] - v[0], b: v[2] - v[0]).Length + Vector3d.CrossProduct(a: v[2] - v[0], b: v[3] - v[0]).Length)),
+            3 => Fin.Succ(0.5 * Vector3d.CrossProduct(a: v[1] - v[0], b: v[2] - v[0]).Length),
+            _ => Fin.Fail<double>(Op.Of(name: nameof(MeshFaceMetric)).InvalidResult()),
         });
     private static Fin<double> FacePerimeter(TopologyProjection projection) =>
         projection.Vertices.Map(static v => v.Map((p, i) => p.DistanceTo(other: v[(i + 1) % v.Count])).Fold(initialState: 0.0, f: static (acc, d) => acc + d));
     private static Fin<double> FaceSkewness(TopologyProjection projection) =>
-        projection.Vertices.Map(static v => (Ideal: v.Count == 4 ? Math.PI / 2.0 : Math.PI / 3.0, Vertices: v))
-            .Map(static state => state.Vertices.Map((vertex, i) => Vector3d.VectorAngle(a: state.Vertices[(i + state.Vertices.Count - 1) % state.Vertices.Count] - vertex, b: state.Vertices[(i + 1) % state.Vertices.Count] - vertex))
-                .Fold(initialState: 0.0, f: (acc, angle) => Math.Max(val1: acc, val2: Math.Max(val1: (angle - state.Ideal) / (Math.PI - state.Ideal), val2: (state.Ideal - angle) / state.Ideal))));
+        projection.Vertices.Bind(static v => v.Count switch {
+            < 3 => Fin.Fail<double>(Op.Of(name: nameof(MeshFaceMetric)).InvalidResult()),
+            int n => v.Map((vertex, i) => Vector3d.VectorAngle(a: v[(i + n - 1) % n] - vertex, b: v[(i + 1) % n] - vertex))
+                .Fold(initialState: Fin.Succ((Max: 0.0, Ideal: n == 4 ? Math.PI / 2.0 : Math.PI / 3.0)), f: static (state, angle) => state.Bind(s => RhinoMath.IsValidDouble(x: angle)
+                    ? Fin.Succ((Math.Max(val1: s.Max, val2: Math.Max(val1: (angle - s.Ideal) / (Math.PI - s.Ideal), val2: (s.Ideal - angle) / s.Ideal)), s.Ideal))
+                    : Fin.Fail<(double Max, double Ideal)>(Op.Of(name: nameof(MeshFaceMetric)).InvalidResult())))
+                .Map(static state => state.Max),
+        });
     private static Fin<double> FaceMaxDihedral(TopologyProjection projection) =>
         projection.Normal.Bind(normal => normal.IsValid switch {
             false => Fin.Succ(0.0),
