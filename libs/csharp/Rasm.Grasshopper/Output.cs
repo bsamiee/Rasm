@@ -3,14 +3,17 @@ namespace Rasm.Grasshopper;
 // --- [TYPES] ----------------------------------------------------------------------------
 public interface IOutputGroup {
     public Seq<IPort> Ports { get; }
-    public Unit Run(IDataAccess access, int slot, GrasshopperRuntime runtime);
-    public Unit Empty(IDataAccess access, int slot);
+    public Unit Run(IDataAccess access, Hints outputs, GrasshopperRuntime runtime);
+    public Unit Empty(IDataAccess access, Hints outputs);
 }
 
 // --- [MODELS] ---------------------------------------------------------------------------
 public readonly record struct Hints(Seq<(IPort Port, int Slot)> Inputs) {
-    public static Hints Capture(Seq<IPort> inputs) =>
-        new(Inputs: inputs.Map((port, slot) => (Port: port, Slot: slot)));
+    internal static Hints Capture(Seq<BoundPort> ports, Func<IParameter, int> index) =>
+        new(Inputs: ports.Choose(bound => index(arg: bound.Parameter) switch {
+            >= 0 and int slot => Some((bound.Port, slot)),
+            _ => Option<(IPort Port, int Slot)>.None,
+        }));
     public Option<int> Slot(IPort port) =>
         Inputs.Find(predicate: input => input.Port.Equals(port)).Map(static input => input.Slot);
 }
@@ -42,25 +45,27 @@ internal sealed record PreparedGroup<TSource>(
     Func<GrasshopperRuntime, bool> EmptyUnsupported,
     string AspectLabel) : IOutputGroup {
     public Seq<IPort> Ports => Slots.Map(static slot => slot.Port);
-    public Unit Run(IDataAccess access, int slot, GrasshopperRuntime runtime) {
+    public Unit Run(IDataAccess access, Hints outputs, GrasshopperRuntime runtime) {
         ArgumentNullException.ThrowIfNull(argument: access);
         return Source(arg: runtime).Match(
             Succ: values => values.IsEmpty switch {
-                true => RemarkEmpty(access: access, slot: slot),
-                false => Slots.Iter((offset, output) => output.Write(arg1: access, arg2: slot + offset, arg3: runtime, arg4: values)),
+                true => RemarkEmpty(access: access, outputs: outputs),
+                false => Slots.Choose(output => outputs.Slot(port: output.Port).Map(slot => (output, slot)))
+                    .Iter(pair => pair.output.Write(arg1: access, arg2: pair.slot, arg3: runtime, arg4: values)),
             },
             Fail: error => {
                 _ = (EmptyUnsupported(arg: runtime), error) switch {
                     (true, Fault.Unsupported u) => RemarkUnsupported(access: access, fault: u),
                     _ => Warn(access: access, error: error),
                 };
-                _ = Empty(access: access, slot: slot);
+                _ = Empty(access: access, outputs: outputs);
                 return Unit.Default;
             });
     }
-    public Unit Empty(IDataAccess access, int slot) {
+    public Unit Empty(IDataAccess access, Hints outputs) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        return Slots.Iter((offset, output) => output.Empty(arg1: access, arg2: slot + offset));
+        return Slots.Choose(output => outputs.Slot(port: output.Port).Map(slot => (output, slot)))
+            .Iter(pair => pair.output.Empty(arg1: access, arg2: pair.slot));
     }
     private Unit RemarkUnsupported(IDataAccess access, Fault.Unsupported fault) {
         access.AddRemark(text: Ports.Head.Map(static port => port.Name).IfNone("Output"), details: $"Unsupported source type '{fault.GeometryType.Name}' for aspect '{AspectLabel}'.");
@@ -70,9 +75,9 @@ internal sealed record PreparedGroup<TSource>(
         access.AddWarning(text: Ports.Head.Map(static port => port.Name).IfNone("Output"), details: error.Message);
         return Unit.Default;
     }
-    private Unit RemarkEmpty(IDataAccess access, int slot) {
+    private Unit RemarkEmpty(IDataAccess access, Hints outputs) {
         access.AddRemark(text: Ports.Head.Map(static port => port.Name).IfNone("Output"), details: "No result for sourced input.");
-        return Empty(access: access, slot: slot);
+        return Empty(access: access, outputs: outputs);
     }
 }
 public static class Output {
@@ -98,22 +103,22 @@ public static class Output {
         Slot<TSource, TOut>(port: port, project: (_, sources) => sources.Traverse(src =>
             project(arg: src.Item).Map(values => values.Map(src.Project)))
             .Map(static nested => nested.Bind(static x => x)).As());
-    public static Unit Write(IDataAccess access, GrasshopperRuntime runtime, Seq<IOutputGroup> groups) =>
-        Fold(groups: groups, action: group => slot => group.Run(access: access, slot: slot, runtime: runtime));
-    public static Unit Empty(IDataAccess access, Seq<IOutputGroup> groups) =>
-        Fold(groups: groups, action: group => slot => group.Empty(access: access, slot: slot));
+    public static Unit Write(IDataAccess access, GrasshopperRuntime runtime, Seq<IOutputGroup> groups, Hints outputs) =>
+        groups.Iter(group => group.Run(access: access, outputs: outputs, runtime: runtime));
+    public static Unit Empty(IDataAccess access, Seq<IOutputGroup> groups, Hints outputs) =>
+        groups.Iter(group => group.Empty(access: access, outputs: outputs));
     public static IOutputGroup Query<TAspect, TOut>(Port<Shape> input, Port<TOut> port, TAspect aspect) where TAspect : IAspect where TOut : notnull =>
         FromShapes(
             input: input,
             project: _ => shape => aspect.ToQuery<object, TOut>().Apply(geometry: shape.Inner),
-            emptyUnsupported: _ => aspect.EmptyOnUnsupported,
+            emptyUnsupported: static _ => true,
             aspectLabel: aspect.GetType().Name,
             slots: [Slot<TOut, TOut>(port: port, project: static (_, values) => Fin.Succ(values))]);
     public static IOutputGroup Query<TAspect, TOut>(Port<Shape> input, Port<TOut> port, Func<GrasshopperRuntime, TAspect> aspect) where TAspect : IAspect where TOut : notnull =>
         FromShapes(
             input: input,
             project: runtime => shape => aspect(arg: runtime).ToQuery<object, TOut>().Apply(geometry: shape.Inner),
-            emptyUnsupported: runtime => aspect(arg: runtime).EmptyOnUnsupported,
+            emptyUnsupported: static _ => true,
             aspectLabel: typeof(TAspect).Name,
             slots: [Slot<TOut, TOut>(port: port, project: static (_, values) => Fin.Succ(values))]);
     public static IOutputGroup Query<TOut>(Port<Shape> input, Port<TOut> port, Func<GrasshopperRuntime, Query<object, TOut>> aspect, bool emptyUnsupported = false, string aspectLabel = "Query") where TOut : notnull =>
@@ -151,8 +156,6 @@ public static class Output {
         Func<GrasshopperRuntime, bool> emptyUnsupported,
         string aspectLabel,
         params OutputSlot<TSource>[] slots) => new(Slots: toSeq(slots), Source: source, EmptyUnsupported: emptyUnsupported, AspectLabel: aspectLabel);
-    private static Unit Fold(Seq<IOutputGroup> groups, Func<IOutputGroup, Func<int, Unit>> action) =>
-        groups.Fold(initialState: 0, f: (slot, group) => (action(arg: group)(arg: slot), slot + group.Ports.Count).Item2) switch { _ => Unit.Default };
     internal static Fin<Seq<Flow<TSource>>> ShapeSource<TSource>(Port<Shape> input, GrasshopperRuntime runtime, Func<Shape, Eff<Env, Seq<TSource>>> project) =>
         from sourced in runtime.Shape(port: input)
         from context in runtime.Scope.Context

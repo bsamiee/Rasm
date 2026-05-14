@@ -195,17 +195,19 @@ public sealed partial class PortKind {
             ? Some(Generic)
             : toSeq(Items).Find(predicate: kind => kind.Type == type);
     }
-    public Unit Bind(ModularInputAdder adder, string name, string code, string info, Access access, Requirement requirement, PortPolicy policy, bool hidden) {
+    public IParameter Bind(ModularInputAdder adder, string name, string code, string info, Access access, Requirement requirement, PortPolicy policy, bool hidden) {
         ArgumentNullException.ThrowIfNull(argument: adder);
         ArgumentNullException.ThrowIfNull(argument: policy);
         IParameter parameter = AddInput(adder: adder, name: name, code: code, info: info, access: access, requirement: requirement, hidden: hidden);
-        return policy.Apply(parameter: parameter);
+        _ = policy.Apply(parameter: parameter);
+        return parameter;
     }
-    public Unit Bind(ModularOutputAdder adder, string name, string code, string info, Access access, PortPolicy policy, bool hidden) {
+    public IParameter Bind(ModularOutputAdder adder, string name, string code, string info, Access access, PortPolicy policy, bool hidden) {
         ArgumentNullException.ThrowIfNull(argument: adder);
         ArgumentNullException.ThrowIfNull(argument: policy);
         IParameter parameter = AddOutput(adder: adder, name: name, code: code, info: info, access: access, hidden: hidden);
-        return policy.Apply(parameter: parameter);
+        _ = policy.Apply(parameter: parameter);
+        return parameter;
     }
     private static PortKind Of<T>(
         string key,

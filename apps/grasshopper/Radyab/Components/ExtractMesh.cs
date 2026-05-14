@@ -9,7 +9,7 @@ namespace Radyab.Components;
 public sealed class ExtractMesh : Component {
     private static readonly Port<Shape> Geometry = Port.Shape();
     private static readonly Port<int> FaceIndex = Port.Index(name: "Face Index", code: "FI", info: "Zero-based face selector for the Indexed Face output; missing Face Index defaults to face 0 and supplied values clamp to [0, faces-1].");
-    private static readonly Port<MeshFaceMetric> Metric = Port.Optional<MeshFaceMetric>(name: "Quality Metric", code: "M", info: "Per-face metric for the Face Quality output. Missing Quality Metric defaults to AspectRatio.", kind: PortKind.Enum(initial: MeshFaceMetric.AspectRatio));
+    private static readonly Port<MeshFaceMetric> Metric = Port.Optional<MeshFaceMetric>(name: "Quality Metric", code: "M", info: "Per-face metric for the Face Quality output. Missing Quality Metric defaults to AspectRatio.", kind: PortKind.Enum(initial: MeshFaceMetric.AspectRatio), fallback: Some(MeshFaceMetric.AspectRatio));
     private static readonly IOutputGroup Validity = Output.Query(input: Geometry, port: Port.List<bool>(name: "Validity", code: "V", info: "[IsValid, IsClosed, IsOriented, IsSolid, IsManifold, HasBoundary] per mesh; all six derive from one Mesh.IsManifold pass plus native validity properties."), aspect: Meshes.ValidityBundle);
     private static readonly IOutputGroup Stats = Output.Query(input: Geometry, port: Port.List<int>(name: "Stats", code: "ST", info: "[VertexCount, FaceCount, TriangleCount, QuadCount, EdgeCount, EulerCharacteristic] as a six-item list per mesh."), aspect: Meshes.StatsBundle);
     private static readonly IOutputGroup Defects = Output.Query(input: Geometry, port: Port.List<int>(name: "Defect Counts", code: "D", info: "Thirteen-item list of MeshCheckParameters counts in MeshCheckCount enum order (DegenerateFaces, DisjointMeshes, DuplicateFaces, ExtremelyShortEdges, InvalidNgons, NakedEdges, NonManifoldEdges, NonUnitVectorNormals, RandomFaceNormals, SelfIntersectingPairs, UnusedVertices, VertexFaceNormalsDiffer, ZeroLengthNormals)."), aspect: Meshes.DefectsBundle);
@@ -26,7 +26,7 @@ public sealed class ExtractMesh : Component {
         ]);
     private static readonly IOutputGroup Quality = Output.Details<MeshFaceSample>(
         input: Geometry,
-        aspect: runtime => shape => Rasm.Analysis.Query.Meshes<object, MeshFaceSample>(aspect: Meshes.FaceQuality(metric: runtime.ReadOrInvalid(port: Metric, invalid: MeshFaceMetric.None).ToNullable())).Apply(geometry: shape.Inner),
+        aspect: runtime => shape => Rasm.Analysis.Query.Meshes<object, MeshFaceSample>(aspect: Meshes.FaceQuality(metric: runtime.ReadOrInvalid(port: Metric, invalid: MeshFaceMetric.AspectRatio).ToNullable())).Apply(geometry: shape.Inner),
         emptyUnsupported: true,
         aspectLabel: nameof(Meshes),
         slots: [

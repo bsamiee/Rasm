@@ -103,13 +103,11 @@ public static class MeshFaceMetrics {
 // --- [ASPECTS] ----------------------------------------------------------------------------
 public interface IAspect {
     public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull;
-    public bool EmptyOnUnsupported { get; }
 }
 [Union]
 public partial record Bounds : IAspect {
     public sealed record Box : Bounds; public sealed record Oriented(Plane Plane) : Bounds; public sealed record Transformed(Transform Transform) : Bounds; public sealed record Center : Bounds;
     public sealed record Corners(bool Unique = false) : Bounds; public sealed record Edges : Bounds; public sealed record Area : Bounds; public sealed record Volume : Bounds;
-    public bool EmptyOnUnsupported => true;
     private static readonly Op BoundsKey = Op.Of(name: nameof(Bounds));
     private static readonly Op OrientedKey = Op.Of(name: "OrientedBounds");
     private static readonly Op TransformedKey = Op.Of(name: "TransformedBounds");
@@ -164,7 +162,6 @@ public partial record Measure : IAspect {
     public sealed record Length : Measure; public sealed record Area : Measure; public sealed record Volume : Measure; public sealed record SpatialMidpoint : Measure;
     public sealed record Centroid(MassKind Mass) : Measure; public sealed record MassError(MassKind Mass) : Measure; public sealed record CentroidError(MassKind Mass) : Measure;
     public sealed record Radii(MassKind Mass) : Measure; public sealed record PrincipalAxes(MassKind Mass) : Measure;
-    public bool EmptyOnUnsupported => true;
     public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull => Switch<Query<TGeometry, TOut>>(
         spatialMidpoint: static _ => typeof(TOut) == typeof(Point3d) ? Query.SpatialMidpoint<TGeometry, TOut>() : Op.Of(name: "SpatialMidpoint").Unsupported<TGeometry, TOut>(),
         length: static _ => Query.Length<TGeometry, TOut>(),
@@ -185,7 +182,6 @@ public partial record Location : IAspect {
     public sealed record CurvatureProfile(int Count, CurvatureScalar Scalar) : Location; public sealed record DerivativeAt(double Parameter, int Count) : Location;
     public sealed record DivideByCount(int Count) : Location; public sealed record DivideByLength(double Length) : Location; public sealed record Orientation(Plane Plane) : Location;
     public sealed record Contains(Point3d Point, Plane Plane) : Location; public sealed record ShortPath(Point2d Start, Point2d End) : Location;
-    public bool EmptyOnUnsupported => true;
     private static readonly Op PointAtKey = Op.Of(name: "PointAt");
     private static readonly Op PointAtLengthKey = Op.Of(name: "PointAtLength");
     private static readonly Op FrameAtKey = Op.Of(name: "FrameAt");
@@ -262,7 +258,6 @@ public partial record Faces : IAspect {
     public static Faces Top(Vector3d? axis = null) => new TopCase(Axis: axis ?? Vector3d.ZAxis);
     public static Faces Bottom(Vector3d? axis = null) => new BottomCase(Axis: axis ?? Vector3d.ZAxis);
     public static Faces At(int? index = null) => new AtCase(Value: index);
-    public bool EmptyOnUnsupported => true;
     internal static readonly Op Key = Op.Of(name: nameof(Faces));
     public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull =>
         Query.Supports(typeof(TGeometry)) switch {
@@ -309,7 +304,6 @@ public partial record Curves : IAspect {
     public static Curves Silhouette(Vector3d? direction = null) => new SilhouetteCase(Direction: direction);
     public static Curves Draft(Vector3d? direction = null, double? angle = null) => new DraftCase(Direction: direction, Angle: angle);
     public static Curves At(int? index = null) => new AtCase(Value: index);
-    public bool EmptyOnUnsupported => this is not AtCase;
     internal static readonly Op Key = Op.Of(name: nameof(Curves));
     public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull =>
         Query.Supports(geometry: typeof(TGeometry), native: [typeof(Line), typeof(Polyline), typeof(Circle), typeof(Arc)]) switch {
@@ -360,7 +354,6 @@ public partial record Meshes : IAspect {
     public static Meshes ValidityBundle => new ValidityBundleCase(); public static Meshes StatsBundle => new StatsBundleCase(); public static Meshes DefectsBundle => new DefectsBundleCase();
     public static Meshes FaceQuality(MeshFaceMetric? metric = null) => new FaceQualityCase(Metric: metric ?? MeshFaceMetric.AspectRatio);
     public static Meshes AtFace(int? index = null) => new AtFaceCase(Value: index);
-    public bool EmptyOnUnsupported => this is not AtFaceCase;
     private static readonly Op ValidityBundleKey = Op.Of(name: "MeshValidityBundle");
     private static readonly Op StatsBundleKey = Op.Of(name: "MeshStatsBundle");
     private static readonly Op DefectsBundleKey = Op.Of(name: "MeshDefectsBundle");
@@ -376,7 +369,6 @@ public partial record Meshes : IAspect {
 [Union]
 public partial record PointSampling : IAspect {
     public sealed record Quadrants : PointSampling; public sealed record EdgeMidpoints : PointSampling; public sealed record Vertices : PointSampling; public sealed record ControlPoints : PointSampling;
-    public bool EmptyOnUnsupported => true;
     private static readonly Op QuadrantsKey = Op.Of(name: nameof(Quadrants));
     private static readonly Op EdgeMidpointsKey = Op.Of(name: nameof(EdgeMidpoints));
     private static readonly Op VerticesKey = Op.Of(name: nameof(Vertices));
@@ -437,7 +429,6 @@ public partial record Boundaries : IAspect {
     public sealed record NakedCase : Boundaries; public sealed record OutlineCase(Plane Plane) : Boundaries; public sealed record SelfIntersectionCase : Boundaries; public sealed record AllCase : Boundaries;
     public static Boundaries Naked => new NakedCase(); public static Boundaries Outline(Plane plane) => new OutlineCase(Plane: plane);
     public static Boundaries SelfIntersection => new SelfIntersectionCase(); public static Boundaries All => new AllCase();
-    public bool EmptyOnUnsupported => true;
     private static readonly Op NakedKey = Op.Of(name: "NakedEdges");
     private static readonly Op OutlineKey = Op.Of(name: "Outlines");
     private static readonly Op SelfIntersectionKey = Op.Of(name: "SelfIntersections");
@@ -513,7 +504,7 @@ public static partial class Query {
     }
     internal static Fin<Seq<TOut>> Results<TValue, TOut>(this Op key, IEnumerable<TValue> values) => typeof(TValue).Equals(typeof(TOut)) switch {
         true => Many(key: key, values: values).Map(static candidates => candidates.Map(static candidate => (TOut)(object)candidate!)),
-        false => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(void), outputType: typeof(TOut))),
+        false => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(TValue), outputType: typeof(TOut))),
     };
     internal static Eff<Env, Seq<TOut>> CurveAtNormalized<TGeometry, TOut>(TGeometry geometry, Op key, Func<Curve, double, TOut> project) where TGeometry : notnull =>
         geometry switch {

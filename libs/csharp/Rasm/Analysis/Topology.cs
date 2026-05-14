@@ -32,7 +32,8 @@ public static partial class Query {
         Query.Curves<TGeometry, TOut>(aspect: Rasm.Analysis.Curves.Segments);
     internal static bool Supports(Type geometry, Type output, Type target, params Type[] native) =>
         output == target && Supports(geometry: geometry, native: native);
-    internal static bool Supports(Type geometry, params Type[] native) => typeof(GeometryBase).IsAssignableFrom(c: geometry) || geometry == typeof(object) || native.Contains(value: geometry);
+    internal static bool Supports(Type geometry, params Type[] native) =>
+        geometry == typeof(object) || geometry == typeof(GeometryBase) || native.Any(predicate: candidate => candidate.IsAssignableFrom(c: geometry));
     public static Query<Surface, Curve> Iso(IsoStatus iso, double normalized = 0.5) {
         Op key = Op.Of();
         return Query<Surface, Curve>.Build(

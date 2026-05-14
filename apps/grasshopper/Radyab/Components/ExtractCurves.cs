@@ -10,7 +10,7 @@ public sealed class ExtractCurves : Component {
     private static readonly Port<Shape> Geometry = Port.Shape();
     private static readonly Port<int> Index = Port.Index(info: "Zero-based curve selector; missing Index defaults to curve 0 and supplied values clamp to [0, count-1].");
     private static readonly Port<Vector3d> Direction = Port.Direction(info: "Parallel projection or pull direction for silhouette and draft extraction. Missing Direction uses world Z.");
-    private static readonly Port<Angle> DraftAngle = Port.Optional<Angle>(name: "Draft Angle", code: "A", info: "Draft angle for draft-curve extraction. Missing Draft Angle uses 0 radians.");
+    private static readonly Port<Angle> DraftAngle = Port.Optional<Angle>(name: "Draft Angle", code: "A", info: "Draft angle for draft-curve extraction. Missing Draft Angle uses 0 radians.", fallback: Some(Angle.Zero));
     private static readonly IOutputGroup AllCurves = Output.Details<CurveProjection>(
         input: Geometry,
         aspect: static _ => shape => Rasm.Analysis.Query.CurveProjections(geometry: shape.Inner, aspect: Curves.All),
