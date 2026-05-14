@@ -7,12 +7,12 @@ namespace Rasm.Analysis;
 public static partial class Analyze {
     public static Query<(TA A, TB B), TOut> Intersect<TA, TB, TOut>() where TA : notnull where TB : notnull {
         Op key = Op.Of();
-        return Dispatch.IntersectTable.SupportsUnordered(left: typeof(TA), right: typeof(TB)) switch {
+        return Dispatch.Supports(CapTag.Intersect, typeof(TA), typeof(TB), unordered: true) switch {
             true => Query<(TA A, TB B), TOut>.Build(
                 key: key, requiresContext: true, state: key,
                 evaluator: static (op, pair) => from runtime in Env.EnvAsks
                                                 from resolved in runtime.Context.ValidatePair(a: pair.A, b: pair.B, op: op, requirements: static (_, _, _) => Fin.Succ((A: Requirement.Basic, B: Requirement.Basic)), cancel: runtime.Cancellation).ToEff()
-                                                from result in resolved.KindA.Intersect(b: resolved.KindB, geometryA: resolved.A, geometryB: resolved.B, context: runtime.Context, op: op, progress: runtime.Progress, cancel: runtime.Cancellation).ToEff()
+                                                from result in Dispatch.Resolve<IntersectionResult, (Context, Op, CancellationToken, IProgress<double>?)>(CapTag.Intersect, resolved.A, resolved.B, (runtime.Context, op, runtime.Cancellation, runtime.Progress), op, unordered: true).ToEff()
                                                 from typed in IntersectionResultRole.Project<TOut>(result: result, key: op).ToEff()
                                                 select typed),
             false => key.Unsupported<(TA A, TB B), TOut>(),

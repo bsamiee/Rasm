@@ -183,8 +183,7 @@ public static partial class Analyze {
                 key: key, state: (Key: key, Target: point), requiresContext: true,
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
-                    from kind in ((object)geometry).Kind(context: context).ToEff()
-                    from hit in kind.Closest(geometry: geometry, target: state.Target, context: context, op: state.Key).ToEff()
+                    from hit in Dispatch.Resolve<ClosestHit, (Point3d, Context, Op)>(CapTag.Closest, geometry, (state.Target, context, state.Key), state.Key).ToEff()
                     from result in (typeof(TOut) switch {
                         Type t when t == typeof(Point3d) => state.Key.Results<Point3d, TOut>(values: Seq(hit.Point)),
                         Type t when t == typeof(double) => state.Key.Results<double, TOut>(values: Seq(hit.Distance.IfNone(state.Target.DistanceTo(other: hit.Point)))),

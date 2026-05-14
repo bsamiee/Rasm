@@ -14,7 +14,7 @@ public partial record Bounds : IAspect {
     private static readonly Op BoxAreaKey = Op.Of(name: "BoxArea");
     private static readonly Op BoxVolumeKey = Op.Of(name: "BoxVolume");
     public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull => Switch<Query<TGeometry, TOut>>(
-        axisAligned: static _ => (typeof(TOut) == typeof(BoundingBox) && typeof(TGeometry).SupportsBounds(includeSphere: true))
+        axisAligned: static _ => (typeof(TOut) == typeof(BoundingBox) && Dispatch.SupportsBounds(typeof(TGeometry), includeSphere: true))
             ? Analyze.Cast<TGeometry, TOut>(key: BoundsKey, query: Query<TGeometry, BoundingBox>.Build(
                 key: BoundsKey, state: BoundsKey,
                 evaluator: static (op, geometry) => geometry.Bounds(op: op).Bind(b => Analyze.One(key: op, value: b)).ToEff()))

@@ -35,7 +35,7 @@ public readonly record struct Shape {
             .ToFin(new GrasshopperFault.InputRequired(PortName: nameof(Shape), Hint: Accepted))
             .Bind(static raw => raw switch {
                 Shape shape => Fin.Succ(shape),
-                object candidate when candidate.GetType().AsKind().IsSome => Op.Create(value: nameof(Shape)).RequireValid(value: candidate).Map(static valid => new Shape(inner: valid)),
+                object candidate when KindLookup.For(candidate.GetType()).IsSome => Op.Create(value: nameof(Shape)).RequireValid(value: candidate).Map(static valid => new Shape(inner: valid)),
                 object candidate => Fin.Fail<Shape>(new GrasshopperFault.UnsupportedSource(PortName: nameof(Shape), SourceType: candidate.GetType(), Hint: Accepted)),
             });
 }

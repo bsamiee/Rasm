@@ -851,8 +851,8 @@ public sealed class AnalysisSpec {
 
     [Fact]
     public void KeepsReverseIntersectionPairsOnTypedRails() {
-        Assert.False(condition: Dispatch.IntersectTable.ContainsKey(key: (typeof(Plane), typeof(Line))));
-        Assert.True(condition: Dispatch.SupportsUnorderedPair(table: Dispatch.IntersectTable, left: typeof(Plane), right: typeof(Line)));
+        Assert.False(condition: Dispatch.Supports(CapTag.Intersect, typeof(Plane), typeof(Line)));
+        Assert.True(condition: Dispatch.Supports(CapTag.Intersect, typeof(Plane), typeof(Line), unordered: true));
         Assert.True(condition: Analyze.Intersect<Line, Curve, IntersectionHit>().Rejection.IsNone);
         Assert.True(condition: Analyze.Intersect<Plane, Brep, Curve>().Rejection.IsNone);
         Assert.True(condition: Analyze.Intersect<Surface, Brep, Curve>().Rejection.IsNone);
@@ -969,7 +969,7 @@ public sealed class AnalysisSpec {
 
     [Fact]
     public void RegistersBrepFaceBoundaryAsTrimAwareCurveCapability() {
-        Assert.True(condition: Dispatch.CurvesTable.ContainsKey(key: (typeof(BrepFace), CurveFeature.Boundary)));
+        Assert.True(condition: Dispatch.Supports(CapTag.Curves, typeof(BrepFace), variant: CurveFeature.Boundary));
         Assert.True(condition: Analyze.Boundaries<Surface, Curve>(aspect: Boundaries.All).Rejection.IsNone);
         Assert.True(condition: Analyze.Boundaries<BrepFace, Curve>(aspect: Boundaries.All).Rejection.IsNone);
     }

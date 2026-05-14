@@ -27,7 +27,7 @@ public partial record Boundaries : IAspect {
                                                     from result in Analyze.SelfIntersectionsValue(op: op, geometry: geometry, runtime: runtime).ToEff()
                                                     select result))
             : SelfIntersectionKey.Unsupported<TGeometry, TOut>(),
-        allCase: static _ => Dispatch.SupportsCurves(source: typeof(TGeometry)) && typeof(TOut) == typeof(Curve)
+        allCase: static _ => Dispatch.Supports(CapTag.Curves, typeof(TGeometry)) && typeof(TOut) == typeof(Curve)
             ? Analyze.Curves<TGeometry, TOut>(aspect: Curves.All)
             : Curves.Key.Unsupported<TGeometry, TOut>());
 }

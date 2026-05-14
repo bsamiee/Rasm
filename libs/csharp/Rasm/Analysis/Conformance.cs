@@ -23,7 +23,7 @@ public partial record Conformance {
     public sealed record Distance(int Count) : Conformance; public sealed record Rms(int Count) : Conformance; public sealed record WithinTolerance(int Count) : Conformance; public sealed record ProfileResidual(int Count) : Conformance; public sealed record Maximum(int Count) : Conformance;
     internal static readonly Op Key = Op.Of(name: nameof(Conformance));
     public Query<(TGeometry Geometry, TPrimitive Primitive), TOut> ToQuery<TGeometry, TPrimitive, TOut>() where TGeometry : notnull where TPrimitive : notnull =>
-        (this, Dispatch.ConformanceTable.SupportsPair(left: typeof(TGeometry), right: typeof(TPrimitive))) switch {
+        (this, Dispatch.Supports(CapTag.Conformance, typeof(TGeometry), typeof(TPrimitive))) switch {
             (Distance { Count: <= 0 } or Rms { Count: <= 0 } or WithinTolerance { Count: <= 0 } or ProfileResidual { Count: <= 0 } or Maximum { Count: <= 0 }, _) =>
                 Query<(TGeometry Geometry, TPrimitive Primitive), TOut>.Reject(key: Key, fault: Key.InvalidInput()),
             (_, true) => Analyze.ConformanceProject<TGeometry, TPrimitive, TOut>(aspect: this),
@@ -68,7 +68,7 @@ public static partial class Analyze {
                     Topology.Surface => Fin.Succ((A: Requirement.SurfaceEvaluation, B: Requirement.None)),
                     _ => Fin.Fail<(Requirement A, Requirement B)>(op.Unsupported(geometryType: kindG.Type, outputType: typeof(ResidualSample))),
                 }, cancel: runtime.Cancellation).ToEff()
-                from residuals in resolved.KindA.Conformance(kindP: resolved.KindB, geometry: resolved.A, primitive: resolved.B, count: state.Count, context: runtime.Context, op: state.Op).ToEff()
+                from residuals in Dispatch.Resolve<Seq<ResidualSample>, (int, Context, Op)>(CapTag.Conformance, resolved.A, resolved.B, (state.Count, runtime.Context, state.Op), state.Op).ToEff()
                 from result in state.Project(arg1: residuals, arg2: runtime.Context).ToEff()
                 select result);
     private static Fin<Seq<double>> ResidualDistances(Op key, Seq<ResidualSample> samples) =>

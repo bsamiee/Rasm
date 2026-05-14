@@ -23,28 +23,26 @@ public static partial class Analyze {
     public static Query<TGeometry, TOut> Measure<TGeometry, TOut>(Measure aspect) where TGeometry : notnull => Aspect<Measure, TGeometry, TOut>(aspect: aspect);
     public static Query<TGeometry, TOut> SpatialMidpoint<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
-        return (typeof(TOut) == typeof(Point3d) && typeof(TGeometry).SupportsBounds(includeSphere: false))
+        return (typeof(TOut) == typeof(Point3d) && Dispatch.SupportsBounds(typeof(TGeometry), includeSphere: false))
             ? Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, Point3d>.Build(
                 key: key, requiresContext: true, state: key,
                 evaluator: static (op, geometry) => from context in Env.Asks
-                                                    from kind in ((object)geometry).Kind(context: context).ToEff()
-                                                    from centroid in kind.Centroid(geometry: geometry, context: context, op: op).ToEff()
+                                                    from centroid in Dispatch.Resolve<Point3d, (Context, Op)>(CapTag.Centroid, geometry, (context, op), op).ToEff()
                                                     from result in One(key: op, value: centroid).ToEff()
                                                     select result))
             : key.Unsupported<TGeometry, TOut>();
     }
     internal static Query<TGeometry, TOut> Length<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
-        return (typeof(TOut) == typeof(double), typeof(TGeometry).AsKind().Case) switch {
+        return (typeof(TOut) == typeof(double), KindLookup.For(typeof(TGeometry)).Case) switch {
             (true, Kind { Topology: Topology.Curve } kind) => Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, double>.Build(
                 key: key,
-                requirement: kind.IsGeometryBaseDerived() ? Requirement.CurveLength : Requirement.None,
+                requirement: typeof(GeometryBase).IsAssignableFrom(kind.Type) ? Requirement.CurveLength : Requirement.None,
                 requiresContext: true,
                 state: key,
                 evaluator: static (op, geometry) =>
                     from context in Env.Asks
-                    from kindAt in ((object)geometry).Kind(context: context).ToEff()
-                    from length in kindAt.Length(geometry: geometry, context: context, op: op).ToEff()
+                    from length in Dispatch.Resolve<double, (Context, Op)>(CapTag.Length, geometry, (context, op), op).ToEff()
                     from result in One(key: op, value: length).ToEff()
                     select result)),
             _ => key.Unsupported<TGeometry, TOut>(),

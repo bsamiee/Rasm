@@ -10,7 +10,7 @@ public partial record Faces : IAspect {
     public static Faces At(int? index = null) => new AtCase(Value: index);
     internal static readonly Op Key = Op.Of(name: nameof(Faces));
     public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull =>
-        Dispatch.SupportsFaces(source: typeof(TGeometry)) switch {
+        Dispatch.Supports(CapTag.Faces, typeof(TGeometry)) switch {
             false => Key.Unsupported<TGeometry, TOut>(),
             true => typeof(TOut) switch {
                 Type t when t == typeof(Brep) => Analyze.FaceQuery<TGeometry, TOut, Brep>(key: Key, selector: this, requirement: Requirement.None, ownership: ProjectionOwnership.Transfer, project: static (chosen, _) => Analyze.Many(key: Key, values: chosen.Choose(static face => face.As<Brep>()))),
@@ -37,7 +37,7 @@ public static partial class Analyze {
         from result in ProjectOwned(all: faces, chosen: chosen, ownership: ProjectionOwnership.Transfer, project: static values => Fin.Succ(values)).ToEff()
         select result;
     internal static Fin<Seq<TopologyProjection>> DecomposeFaces<TGeometry>(Op key, Context context, TGeometry geometry) where TGeometry : notnull =>
-        ((object)geometry).Kind(context: context).Bind(kind => kind.Faces(geometry: geometry, context: context, op: key));
+        Dispatch.Resolve<Seq<TopologyProjection>, (Context, Op)>(CapTag.Faces, geometry, (context, key), key);
     internal static Fin<Seq<TopologyProjection>> SelectFaces(Op key, Seq<TopologyProjection> faces, Faces selector, Context runtime) => selector.Switch(
         state: (Key: key, Faces: faces, Runtime: runtime),
         allCase: static (s, _) => Fin.Succ(s.Faces),

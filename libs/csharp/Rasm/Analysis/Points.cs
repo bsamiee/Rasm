@@ -24,7 +24,7 @@ public partial record Points : IAspect {
                     }).ToEff()
                     select result))
             : QuadrantsKey.Unsupported<TGeometry, TOut>(),
-        edgeMidpoints: static _ => typeof(TOut) == typeof(Point3d) && (Analyze.Supports(geometry: typeof(TGeometry), native: [typeof(Line), typeof(Polyline), typeof(BoundingBox), typeof(Box)]) || Dispatch.SupportsCurves(source: typeof(TGeometry)))
+        edgeMidpoints: static _ => typeof(TOut) == typeof(Point3d) && (Analyze.Supports(geometry: typeof(TGeometry), native: [typeof(Line), typeof(Polyline), typeof(BoundingBox), typeof(Box)]) || Dispatch.Supports(CapTag.Curves, typeof(TGeometry)))
             ? Analyze.Cast<TGeometry, TOut>(key: EdgeMidpointsKey, query: Query<TGeometry, Point3d>.Build(
                 key: EdgeMidpointsKey, requiresContext: true, state: EdgeMidpointsKey,
                 evaluator: static (op, geometry) => geometry switch {
@@ -33,28 +33,24 @@ public partial record Points : IAspect {
                     BoundingBox box => Analyze.Many(key: op, values: box.GetEdges().Select(static edge => edge.PointAt(t: 0.5))).ToEff(),
                     Box box => Analyze.Many(key: op, values: box.BoundingBox.GetEdges().Select(static edge => edge.PointAt(t: 0.5))).ToEff(),
                     _ => from runtime in Env.EnvAsks
-                         from kind in ((object)geometry).Kind(context: runtime.Context).ToEff()
-                         from curves in kind.Curves(geometry: geometry, selector: new CurveSelector(Feature: CurveFeature.Edge), context: runtime.Context, op: op, cancel: runtime.Cancellation).ToEff()
+                         from curves in Dispatch.Resolve<Seq<TopologyProjection>, (CurveSelector, Context, Op, CancellationToken)>(CapTag.Curves, geometry, (new CurveSelector(Feature: CurveFeature.Edge), runtime.Context, op, runtime.Cancellation), op, variant: CurveFeature.Edge).ToEff()
                          from result in Analyze.Many(key: op, values: curves.Choose(static projection => projection.As<Curve>().Map(static c => Dispatch.Borrowed(c, static owned => owned.PointAtNormalizedLength(length: 0.5))))).ToEff()
                          select result,
                 }))
             : EdgeMidpointsKey.Unsupported<TGeometry, TOut>(),
-        vertices: static _ => typeof(TOut) == typeof(Point3d) && Dispatch.SupportsVertices(source: typeof(TGeometry))
+        vertices: static _ => typeof(TOut) == typeof(Point3d) && Dispatch.Supports(CapTag.Vertices, typeof(TGeometry))
             ? Analyze.Cast<TGeometry, TOut>(key: VerticesKey, query: Query<TGeometry, Point3d>.Build(
                 key: VerticesKey, requiresContext: true, state: VerticesKey,
                 evaluator: static (op, geometry) =>
                     from context in Env.Asks
-                    from kind in ((object)geometry).Kind(context: context).ToEff()
-                    from points in kind.Vertices(geometry: geometry, context: context, op: op).ToEff()
+                    from points in Dispatch.Resolve<Seq<Point3d>, (Context, Op)>(CapTag.Vertices, geometry, (context, op), op).ToEff()
                     from result in Analyze.Many(key: op, values: points).ToEff()
                     select result))
             : VerticesKey.Unsupported<TGeometry, TOut>(),
-        controlPoints: static _ => typeof(TOut) == typeof(Point3d) && Dispatch.SupportsControlPoints(source: typeof(TGeometry))
+        controlPoints: static _ => typeof(TOut) == typeof(Point3d) && Dispatch.Supports(CapTag.ControlPoints, typeof(TGeometry))
             ? Analyze.Cast<TGeometry, TOut>(key: ControlPointsKey, query: Query<TGeometry, Point3d>.Build(
                 key: ControlPointsKey, requiresContext: true, state: ControlPointsKey,
-                evaluator: static (op, geometry) => from context in Env.Asks
-                                                    from kind in ((object)geometry).Kind(context: context).ToEff()
-                                                    from points in kind.ControlPoints(geometry: geometry, op: op).ToEff()
+                evaluator: static (op, geometry) => from points in Dispatch.Resolve<Seq<Point3d>, Op>(CapTag.ControlPoints, geometry, op, op).ToEff()
                                                     from result in Analyze.Many(key: op, values: points).ToEff()
                                                     select result))
             : ControlPointsKey.Unsupported<TGeometry, TOut>());
