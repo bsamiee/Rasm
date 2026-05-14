@@ -1,6 +1,6 @@
 namespace Radyab.Components;
 
-[IoId("B88A1248-28B8-4F87-A178-6BCBD2458B33")]
+[IoId("D702F9C9-A371-4038-A311-1C477F5497E9")]
 [Nomen(
     name: "Extract Curves",
     info: "All, boundary, mid-domain U/V iso, and index-clamped curves from Rhino curve, surface, Brep, SubD, and mesh topology values.",
@@ -42,8 +42,7 @@ public sealed class ExtractCurves : Component {
         slots: [
             Output.Plain<CurveProjection, Curve>(port: Port.List<Curve>(name: "Indexed Curve", code: "IC", info: "Curve at Index input using GH native index modifiers. Empty when zero curves."), project: static value => value.Curve),
         ]);
-    private static readonly ComponentSpec Definition = new(
-        Inputs: Seq(new PortSpec(Port: Geometry), new PortSpec(Port: Index), new PortSpec(Port: Direction), new PortSpec(Port: DraftAngle)),
-        Outputs: Seq(new OutputSpec(Group: AllCurves), new OutputSpec(Group: Segments), new OutputSpec(Group: SubCurves), new OutputSpec(Group: Boundary), new OutputSpec(Group: NakedOuter), new OutputSpec(Group: NakedInner), new OutputSpec(Group: Interior), new OutputSpec(Group: NonManifold), new OutputSpec(Group: OuterLoops), new OutputSpec(Group: InnerLoops), new OutputSpec(Group: IsoU), new OutputSpec(Group: IsoV), new OutputSpec(Group: Silhouette), new OutputSpec(Group: Draft), new OutputSpec(Group: Indexed)));
-    public ExtractCurves() : base(self: typeof(ExtractCurves), spec: Definition) { }
+    public ExtractCurves() : base(self: typeof(ExtractCurves), spec: ComponentSpec.Of(
+        inputs: Seq<IPort>(Geometry, Index, Direction, DraftAngle),
+        outputs: Seq<IOutputGroup>(AllCurves, Segments, SubCurves, Boundary, NakedOuter, NakedInner, Interior, NonManifold, OuterLoops, InnerLoops, IsoU, IsoV, Silhouette, Draft, Indexed))) { }
 }

@@ -24,41 +24,26 @@ public abstract class Plugin : GhPlugin {
     }
     private static Seq<string> Validate(Type spec) {
         Component probe = (Component)Activator.CreateInstance(type: spec)!;
-        Seq<PortSpec> inputSpecs = probe.Spec.Inputs;
-        Seq<OutputSpec> outputSpecs = probe.Spec.Outputs;
-        Seq<IPort> inputs = toSeq(inputSpecs.AsIterable().Select(static pair => pair.Port).Where(static port => port is not null).Select(static port => port!));
-        Seq<IOutputGroup> outputGroups = toSeq(outputSpecs.AsIterable().Select(static pair => pair.Group).Where(static group => group is not null).Select(static group => group!));
-        Seq<IPort> outputs = outputGroups.Bind(static group => group.Ports);
-        Seq<string> structuralFaults = toSeq(Seq(
-            inputs.IsEmpty ? Some($"{spec.FullName}: Inputs is empty") : Option<string>.None,
-            outputs.IsEmpty ? Some($"{spec.FullName}: Outputs is empty") : Option<string>.None).Somes());
-        Seq<string> nullFaults = toSeq(inputSpecs
-                .AsIterable()
-                .Select((pair, index) => pair.Port is null ? $"{spec.FullName}: input {index} is null" : null)
-                .Where(static fault => fault is not null)
-                .Select(static fault => fault!))
-            .Concat(toSeq(outputSpecs
-                .AsIterable()
-                .Select((pair, index) => pair.Group is null ? $"{spec.FullName}: output {index} is null" : null)
-                .Where(static fault => fault is not null)
-                .Select(static fault => fault!)))
-            .ToSeq();
+        Seq<IPort> inputs = probe.Spec.Inputs.Choose(static pair => Optional(pair.Port));
+        Seq<IPort> outputs = probe.Spec.Outputs.Choose(static pair => Optional(pair.Group)).Bind(static group => group.Ports);
         Seq<(string Side, Seq<IPort> Ports)> sides = Seq((Side: "input", Ports: inputs), (Side: "output", Ports: outputs));
-        Seq<string> codeDuplicates = sides.Bind(side => toSeq(side.Ports
-            .GroupBy(keySelector: static port => port.Code, comparer: StringComparer.Ordinal)
-            .Where(static group => group.Skip(1).Any())
-            .Select(group => $"{spec.FullName}: duplicate {side.Side} port code '{group.Key}' on {string.Join(separator: ", ", values: group.Select(static port => port.Name))}")));
-        Seq<string> nameDuplicates = sides.Bind(side => toSeq(side.Ports
-            .GroupBy(keySelector: static port => port.Name, comparer: StringComparer.Ordinal)
-            .Where(static group => group.Skip(1).Any())
-            .Select(group => $"{spec.FullName}: duplicate {side.Side} port name '{group.Key}' on codes {string.Join(separator: ", ", values: group.Select(static port => port.Code))}")));
-        return structuralFaults.Concat(nullFaults).Concat(codeDuplicates).Concat(nameDuplicates).ToSeq();
+        Seq<string> structural = toSeq(Seq(
+            inputs.IsEmpty ? $"{spec.FullName}: Inputs is empty" : null,
+            outputs.IsEmpty ? $"{spec.FullName}: Outputs is empty" : null).Choose(Optional));
+        Seq<string> nullFaults = NullsAt(spec: spec, side: "input", count: probe.Spec.Inputs.Count, missing: i => probe.Spec.Inputs[i].Port is null)
+            .Concat(NullsAt(spec: spec, side: "output", count: probe.Spec.Outputs.Count, missing: i => probe.Spec.Outputs[i].Group is null));
+        Seq<string> duplicates = sides.Bind(side =>
+            Duplicates(spec: spec, side: side.Side, ports: side.Ports, key: "code", project: static port => port.Code, label: static port => port.Name)
+                .Concat(Duplicates(spec: spec, side: side.Side, ports: side.Ports, key: "name", project: static port => port.Name, label: static port => port.Code)));
+        return structural.Concat(nullFaults).Concat(duplicates).ToSeq();
     }
+    private static Seq<string> NullsAt(Type spec, string side, int count, Func<int, bool> missing) =>
+        toSeq(Enumerable.Range(start: 0, count: count).Where(predicate: missing.Invoke).Select(index => $"{spec.FullName}: {side} {index} is null"));
+    private static Seq<string> Duplicates(Type spec, string side, Seq<IPort> ports, string key, Func<IPort, string> project, Func<IPort, string> label) =>
+        toSeq(ports.GroupBy(keySelector: project, comparer: StringComparer.Ordinal)
+            .Where(static group => group.Skip(1).Any())
+            .Select(group => $"{spec.FullName}: duplicate {side} port {key} '{group.Key}' on {string.Join(separator: ", ", values: group.Select(label))}"));
     public override string Author => author;
     public override string Copyright => copyright;
-    public override IIcon Icon =>
-        GetType().GetCustomAttribute<IconAttribute>() switch {
-            IconAttribute attr => AbstractIcon.FromResource(name: attr.Name, type: GetType()),
-            _ => base.Icon,
-        };
+    public override IIcon Icon => IconAttribute.Resolve(owner: GetType(), fallback: base.Icon);
 }

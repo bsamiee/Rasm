@@ -1,6 +1,6 @@
 namespace Radyab.Components;
 
-[IoId("E37712C0-BA9B-4350-8B1E-ED90B5183B51")]
+[IoId("C61FD8BC-5E22-400A-9C4F-F3C1C57F0765")]
 [Nomen(
     name: "Extract Mesh",
     info: "Validity, topology stats, defect counts, naked-edge polylines, disjoint pieces, principal axes, per-face quality, and indexed face details for Rhino mesh values. Non-manifold edges are available as curves via Extract Curves with a mesh input.",
@@ -45,8 +45,7 @@ public sealed class ExtractMesh : Component {
             Output.One<MeshFaceProjection, Vector3d>(port: Port.List<Vector3d>(name: "Face Normal", code: "FN", info: "Unit normal of the selected face."), project: static (value, _) => value.Normal),
             Output.Plain<MeshFaceProjection, int>(port: Port.List<int>(name: "Source Face", code: "S", info: "Source mesh face index.", kind: PortKind.Integer, policy: PortPolicy.Index()), project: static value => value.Source.Index),
         ]);
-    private static readonly ComponentSpec Definition = new(
-        Inputs: Seq(new PortSpec(Port: Geometry), new PortSpec(Port: FaceIndex), new PortSpec(Port: Metric)),
-        Outputs: Seq(new OutputSpec(Group: Validity), new OutputSpec(Group: Stats), new OutputSpec(Group: Defects), new OutputSpec(Group: NakedEdges), new OutputSpec(Group: Pieces), new OutputSpec(Group: PrincipalAxes), new OutputSpec(Group: Quality), new OutputSpec(Group: IndexedFace)));
-    public ExtractMesh() : base(self: typeof(ExtractMesh), spec: Definition) { }
+    public ExtractMesh() : base(self: typeof(ExtractMesh), spec: ComponentSpec.Of(
+        inputs: Seq<IPort>(Geometry, FaceIndex, Metric),
+        outputs: Seq<IOutputGroup>(Validity, Stats, Defects, NakedEdges, Pieces, PrincipalAxes, Quality, IndexedFace))) { }
 }

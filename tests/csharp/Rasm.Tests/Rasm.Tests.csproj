@@ -16,11 +16,11 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="LanguageExt.Core" Version="$(LanguageExtCoreVersion)" PrivateAssets="all" />
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="$(MicrosoftNetTestSdkVersion)" PrivateAssets="all" />
-        <PackageReference Include="xunit.v3.mtp-off" Version="$(XunitV3Version)" PrivateAssets="all" />
-        <PackageReference Include="xunit.runner.visualstudio" Version="$(XunitRunnerVisualStudioVersion)" PrivateAssets="all" />
-        <PackageReference Include="FsCheck" Version="$(FsCheckVersion)" PrivateAssets="all" />
+        <PackageReference Include="LanguageExt.Core" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" PrivateAssets="all" />
+        <PackageReference Include="xunit.v3.mtp-off" PrivateAssets="all" />
+        <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+        <PackageReference Include="FsCheck" PrivateAssets="all" />
     </ItemGroup>
 
     <ItemGroup>

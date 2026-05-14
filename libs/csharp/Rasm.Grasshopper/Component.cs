@@ -8,6 +8,11 @@ namespace Rasm.Grasshopper;
 [AttributeUsage(validOn: AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
 public sealed class IconAttribute(string name) : Attribute {
     public string Name { get; } = name;
+    internal static IIcon Resolve(Type owner, IIcon fallback) =>
+        owner.GetCustomAttribute<IconAttribute>() switch {
+            IconAttribute attr => AbstractIcon.FromResource(name: attr.Name, type: owner),
+            _ => fallback,
+        };
 }
 
 // --- [MODELS] ---------------------------------------------------------------------------
@@ -17,6 +22,8 @@ public readonly record struct ComponentSpec(Seq<PortSpec> Inputs, Seq<OutputSpec
     public Seq<IPort> InputPorts => Inputs.Map(static spec => spec.Port);
     public Seq<IOutputGroup> OutputGroups => Outputs.Map(static spec => spec.Group);
     public Seq<IPort> OutputPorts => OutputGroups.Bind(static group => group.Ports);
+    public static ComponentSpec Of(Seq<IPort> inputs, Seq<IOutputGroup> outputs) =>
+        new(Inputs: inputs.Map(static port => new PortSpec(Port: port)), Outputs: outputs.Map(static group => new OutputSpec(Group: group)));
 }
 public readonly record struct GrasshopperRuntime(IDataAccess Access, Analyze.Scope Scope, Hints Hints, IProgress<double> Progress, CancellationToken Cancellation) {
     public static Fin<GrasshopperRuntime> Capture(IDataAccess access, Seq<IPort> inputs) {
@@ -42,11 +49,7 @@ public abstract class Component(Type self, ComponentSpec spec) : Grasshopper2.Co
     private Seq<IOutputGroup> cachedOutputs = Seq<IOutputGroup>();
     private Type Self { get; } = self;
     public ComponentSpec Spec => spec;
-    protected override IIcon IconInternal =>
-        Self.GetCustomAttribute<IconAttribute>() switch {
-            IconAttribute attr => AbstractIcon.FromResource(name: attr.Name, type: Self),
-            _ => base.IconInternal,
-        };
+    protected override IIcon IconInternal => IconAttribute.Resolve(owner: Self, fallback: base.IconInternal);
     protected override void AddInputs(ModularInputAdder inputs) {
         ArgumentNullException.ThrowIfNull(argument: inputs);
         cachedInputs = spec.InputPorts;

@@ -13,6 +13,7 @@
         <Using Include="Rhino.Geometry" />
         <Using Include="Rhino.Geometry.Intersect" />
         <Using Include="System.Globalization" />
+        <Using Include="System.Runtime.CompilerServices" />
         <Using Include="System.Runtime.InteropServices" />
         <Using Include="Thinktecture" />
     </ItemGroup>

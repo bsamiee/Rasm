@@ -10,15 +10,8 @@ public static class Analyze {
             input: input);
     public static Scope From(RhinoDoc? doc) => new(context: Context.FromDocument(doc: doc).ToFin());
     public static Scope In(UnitSystem units) => new(context: Context.CreateDefault(units: units).ToFin());
-    public static Scope In(
-        double absolute,
-        double relative,
-        double angle,
-        UnitSystem units) =>
-        new(
-            context: Context.FromKnownUnits(
-                    absolute: absolute, relative: relative, angle: angle, units: units)
-                .ToFin());
+    public static Scope In(double absolute, double relative, double angle, UnitSystem units) =>
+        new(context: Context.Create(absolute: absolute, relative: relative, angle: angle, units: units).ToFin());
     public static Scope In(Context context) => new(context: Optional(context).ToFin(Op.Of(name: nameof(Scope)).MissingContext()));
     public sealed record Scope {
         public Fin<Context> Context { get; }

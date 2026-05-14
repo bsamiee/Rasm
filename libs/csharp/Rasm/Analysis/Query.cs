@@ -479,14 +479,12 @@ public partial record Conformance {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Query {
-    public static Query<TGeometry, TOut> Aspect<TAspect, TGeometry, TOut>(TAspect? aspect, Op key)
+    public static Query<TGeometry, TOut> Aspect<TAspect, TGeometry, TOut>(TAspect? aspect, [CallerMemberName] string callerMember = "")
         where TAspect : class, IAspect
         where TGeometry : notnull =>
-        aspect?.ToQuery<TGeometry, TOut>() ?? Query<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput());
-    public static Query<TGeometry, TOut> Points<TGeometry, TOut>(PointSampling sampling) where TGeometry : notnull =>
-        Aspect<PointSampling, TGeometry, TOut>(aspect: sampling, key: Op.Of());
-    public static Query<TGeometry, TOut> Boundaries<TGeometry, TOut>(Boundaries aspect) where TGeometry : notnull =>
-        Aspect<Boundaries, TGeometry, TOut>(aspect: aspect, key: Op.Of());
+        aspect?.ToQuery<TGeometry, TOut>() ?? Query<TGeometry, TOut>.Reject(key: Op.Of(name: callerMember), fault: Op.Of(name: callerMember).InvalidInput());
+    public static Query<TGeometry, TOut> Points<TGeometry, TOut>(PointSampling sampling) where TGeometry : notnull => Aspect<PointSampling, TGeometry, TOut>(aspect: sampling);
+    public static Query<TGeometry, TOut> Boundaries<TGeometry, TOut>(Boundaries aspect) where TGeometry : notnull => Aspect<Boundaries, TGeometry, TOut>(aspect: aspect);
     internal static Query<TGeometry, TOut> Unsupported<TGeometry, TOut>(this Op key) where TGeometry : notnull =>
         Query<TGeometry, TOut>.Reject(key: key, fault: key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut)));
     internal static Query<TGeometry, TOut> Cast<TGeometry, TOut>(Op key, object query) where TGeometry : notnull => query switch {

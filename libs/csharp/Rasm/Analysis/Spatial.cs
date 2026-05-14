@@ -48,12 +48,16 @@ public sealed class Tree : IDisposable {
     public Eff<Env, Seq<Hit>> Search(BoundingBox box) =>
         from runtime in Env.EnvAsks
         from active in Ready().ToEff()
-        from result in (box.IsValid switch { true => Search(tree: active, shape: box, cancel: runtime.Cancellation), false => Fin.Fail<Seq<Hit>>(Key.InvalidInput()) }).ToEff()
+        from result in (box.IsValid
+            ? Search(tree: active, shape: box, run: static (index, bounds, callback) => index.Search(box: bounds, callback: callback), cancel: runtime.Cancellation)
+            : Fin.Fail<Seq<Hit>>(Key.InvalidInput())).ToEff()
         select result;
     public Eff<Env, Seq<Hit>> Search(Sphere sphere) =>
         from runtime in Env.EnvAsks
         from active in Ready().ToEff()
-        from result in (sphere.IsValid switch { true => Search(tree: active, shape: sphere, cancel: runtime.Cancellation), false => Fin.Fail<Seq<Hit>>(Key.InvalidInput()) }).ToEff()
+        from result in (sphere.IsValid
+            ? Search(tree: active, shape: sphere, run: static (index, ball, callback) => index.Search(sphere: ball, callback: callback), cancel: runtime.Cancellation)
+            : Fin.Fail<Seq<Hit>>(Key.InvalidInput())).ToEff()
         select result;
     public Eff<Env, Seq<Couple>> Overlaps(Tree other, double tolerance = 0.0) =>
         from runtime in Env.EnvAsks
@@ -110,20 +114,6 @@ public sealed class Tree : IDisposable {
                     : Fin.Fail<BoundingBox>(Key.InvalidInput())))
             .As()
             .Map(static boxes => boxes.ToArray());
-    private static Fin<Seq<Hit>> Search(RTree tree, BoundingBox shape, CancellationToken cancel) {
-        return Search(
-            tree: tree,
-            shape: shape,
-            run: static (index, bounds, callback) => index.Search(box: bounds, callback: callback),
-            cancel: cancel);
-    }
-    private static Fin<Seq<Hit>> Search(RTree tree, Sphere shape, CancellationToken cancel) {
-        return Search(
-            tree: tree,
-            shape: shape,
-            run: static (index, sphere, callback) => index.Search(sphere: sphere, callback: callback),
-            cancel: cancel);
-    }
     private static Fin<Seq<Hit>> Search<TShape>(RTree tree, TShape shape, Func<RTree, TShape, EventHandler<RTreeEventArgs>, bool> run, CancellationToken cancel) {
         // BOUNDARY ADAPTER — Rhino RTree.Search uses a mutating callback delegate, single-threaded per search.
         List<int> buffer = [];

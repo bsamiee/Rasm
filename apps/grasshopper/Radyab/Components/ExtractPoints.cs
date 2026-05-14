@@ -1,6 +1,6 @@
 namespace Radyab.Components;
 
-[IoId("0C58A2D3-4709-4D74-85B1-48BC85FA1F69")]
+[IoId("5341EE61-BBDC-4223-BBCA-A4A411CB146A")]
 [Nomen(
     name: "Extract Points",
     info: "Edge midpoints, spatial/mass center, bounds center, vertices, bounding corners, quadrants, and geometry kind for Rhino geometry.",
@@ -26,8 +26,7 @@ public sealed class ExtractPoints : Component {
             Output.Plain<Rasm.Domain.Kind, Topology>(port: Port.List<Topology>(name: "Topology", code: "T", info: "Detected topology family.", kind: PortKind.Enum(initial: Topology.Unknown)), project: static value => value.Topology),
             Output.Plain<Rasm.Domain.Kind, Primitive>(port: Port.List<Primitive>(name: "Primitive", code: "P", info: "Detected primitive family.", kind: PortKind.Enum(initial: Primitive.None)), project: static value => value.Primitive),
         ]);
-    private static readonly ComponentSpec Definition = new(
-        Inputs: Seq(new PortSpec(Port: Geometry)),
-        Outputs: Seq(new OutputSpec(Group: EdgeMidpointsOut), new OutputSpec(Group: SpatialCenter), new OutputSpec(Group: BoundsCenter), new OutputSpec(Group: VerticesOut), new OutputSpec(Group: ControlPointsOut), new OutputSpec(Group: BoundingCorners), new OutputSpec(Group: QuadrantsOut), new OutputSpec(Group: KindOut)));
-    public ExtractPoints() : base(self: typeof(ExtractPoints), spec: Definition) { }
+    public ExtractPoints() : base(self: typeof(ExtractPoints), spec: ComponentSpec.Of(
+        inputs: Seq<IPort>(Geometry),
+        outputs: Seq<IOutputGroup>(EdgeMidpointsOut, SpatialCenter, BoundsCenter, VerticesOut, ControlPointsOut, BoundingCorners, QuadrantsOut, KindOut))) { }
 }

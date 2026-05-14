@@ -70,10 +70,7 @@ public readonly record struct MeshFaceProjection : ITopologyProjection {
         _ => Fin.Fail<Point3d>(Key.InvalidResult()),
     });
     public Fin<Mesh> Isolated() => Create(mesh: Mesh, face: Face).Bind(projection => {
-        // BOUNDARY ADAPTER — CA2000 requires explicit ownership transfer when wrapping IDisposable in Fin.
-        Mesh? result = Rhino.Geometry.Mesh.CreateFromFilteredFaceList(
-            original: projection.Mesh,
-            inclusion: Enumerable.Range(start: 0, count: projection.Mesh.Faces.Count).Select(index => index == projection.Face));
+        Mesh? result = Rhino.Geometry.Mesh.CreateFromFilteredFaceList(original: projection.Mesh, inclusion: Enumerable.Range(start: 0, count: projection.Mesh.Faces.Count).Select(index => index == projection.Face));
         try {
             Fin<Mesh> output = (result is { IsValid: true }, result?.FaceNormals.ComputeFaceNormals(), result?.FaceNormals.UnitizeFaceNormals()) switch {
                 (true, true, true) => Fin.Succ(result),
@@ -81,9 +78,7 @@ public readonly record struct MeshFaceProjection : ITopologyProjection {
             };
             result = output.IsSucc ? null : result;
             return output;
-        } finally {
-            result?.Dispose();
-        }
+        } finally { result?.Dispose(); }
     });
 }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -197,16 +192,12 @@ internal static class Dispatch {
         [(typeof(Surface), typeof(Cylinder))] = static (g, a) => ((Surface)g).TryGetCylinder(cylinder: out Cylinder c, tolerance: a.Item1.Absolute.Value) ? Fin.Succ<object>(c) : Fin.Fail<object>(error: a.Item2.InvalidResult()), [(typeof(Surface), typeof(Cone))] = static (g, a) => ((Surface)g).TryGetCone(cone: out Cone c, tolerance: a.Item1.Absolute.Value) ? Fin.Succ<object>(c) : Fin.Fail<object>(error: a.Item2.InvalidResult()), [(typeof(Surface), typeof(Torus))] = static (g, a) => ((Surface)g).TryGetTorus(torus: out Torus t, tolerance: a.Item1.Absolute.Value) ? Fin.Succ<object>(t) : Fin.Fail<object>(error: a.Item2.InvalidResult()),
         [(typeof(Brep), typeof(Box))] = static (g, a) => ((Brep)g).IsBox(tolerance: a.Item1.Absolute.Value) && ((Brep)g).Faces[0].UnderlyingSurface().TryGetPlane(plane: out Plane plane, tolerance: a.Item1.Absolute.Value) && ((Brep)g).GetBoundingBox(plane: plane, worldBox: out Box box) is { IsValid: true } ? Fin.Succ<object>(box) : Fin.Fail<object>(error: a.Item2.InvalidResult()),
     }.ToFrozenDictionary();
-    internal static Fin<TTarget> Coerce<TTarget>(object source, Context ctx, Op op) => source switch {
-        null => Fin.Fail<TTarget>(error: op.InvalidInput()),
-        _ => (CoercionTable.GetValueOrDefault(key: (source.GetType(), typeof(TTarget))) ?? (KindLookup.InheritsBase(type: source.GetType()) is Type bt ? CoercionTable.GetValueOrDefault(key: (bt, typeof(TTarget))) : null)) switch {
-            Func<object, (Context, Op), Fin<object>> fn => fn(arg1: source, arg2: (ctx, op)).Map(static v => (TTarget)v),
-            _ => Fin.Fail<TTarget>(error: op.Unsupported(geometryType: source.GetType(), outputType: typeof(TTarget))),
-        },
-    };
-    internal static bool SupportsCoercion(Type source, Type target) =>
-        CoercionTable.ContainsKey(key: (source, target))
-        || (KindLookup.InheritsBase(type: source) is Type bt && CoercionTable.ContainsKey(key: (bt, target)));
+    internal static Fin<TTarget> Coerce<TTarget>(object? source, Context ctx, Op op) => Optional(source)
+        .Bind(s => LookupPair(table: CoercionTable, left: s.GetType(), right: typeof(TTarget)).Map(fn => (Source: s, Fn: fn)))
+        .Match(
+            Some: pair => pair.Fn(arg1: pair.Source, arg2: (ctx, op)).Map(static v => (TTarget)v),
+            None: () => Fin.Fail<TTarget>(error: source is null ? op.InvalidInput() : op.Unsupported(geometryType: source.GetType(), outputType: typeof(TTarget))));
+    internal static bool SupportsCoercion(Type source, Type target) => LookupPair(table: CoercionTable, left: source, right: target).IsSome;
     internal static readonly FrozenDictionary<Type, Func<object, Op, Fin<BoundingBox>>> BoundsTable = new Dictionary<Type, Func<object, Op, Fin<BoundingBox>>> {
         [typeof(BoundingBox)] = static (g, op) => ((BoundingBox)g).IsValid ? Fin.Succ((BoundingBox)g) : Fin.Fail<BoundingBox>(error: op.InvalidInput()), [typeof(Box)] = static (g, op) => ((Box)g).IsValid ? Fin.Succ(((Box)g).BoundingBox) : Fin.Fail<BoundingBox>(error: op.InvalidInput()), [typeof(Sphere)] = static (g, op) => ((Sphere)g).IsValid ? Fin.Succ(((Sphere)g).BoundingBox) : Fin.Fail<BoundingBox>(error: op.InvalidInput()),
         [typeof(Plane)] = static (_, op) => Fin.Fail<BoundingBox>(error: op.Unsupported(geometryType: typeof(Plane), outputType: typeof(BoundingBox))), [typeof(Line)] = static (g, op) => ((Line)g).IsValid ? Fin.Succ(((Line)g).BoundingBox) : Fin.Fail<BoundingBox>(error: op.InvalidInput()), [typeof(Polyline)] = static (g, _) => Fin.Succ(((Polyline)g).BoundingBox),
@@ -431,32 +422,44 @@ internal static class Dispatch {
                 .Map(fractions => Residuals(points: fractions.Map(f => u.ParameterAt(normalizedParameter: f)).Bind(pu => fractions.Map(f => v.ParameterAt(normalizedParameter: f)).Map(pv => surface.PointAt(u: pu, v: pv))), primitive: primitive, ctx: ctx, distance: distance)),
             _ => Fin.Fail<Seq<ResidualSample>>(error: op.InvalidInput()),
         };
-    internal static Fin<TOut> Resolve<TOut, TArgs>(FrozenDictionary<Type, Func<object, TArgs, Fin<TOut>>> table, object source, TArgs args, Op op) => (table.GetValueOrDefault(key: source.GetType()) ?? (KindLookup.InheritsBase(type: source.GetType()) is Type bt ? table.GetValueOrDefault(key: bt) : null) ?? (source is GeometryBase ? table.GetValueOrDefault(key: typeof(GeometryBase)) : null)) switch { Func<object, TArgs, Fin<TOut>> fn => fn(arg1: source, arg2: args), _ => Fin.Fail<TOut>(error: op.Unsupported(geometryType: source.GetType(), outputType: typeof(TOut))) };
-    internal static bool Supports<TValue>(FrozenDictionary<Type, TValue> table, Type source) =>
-        table.ContainsKey(key: source)
-        || (KindLookup.InheritsBase(type: source) is Type bt && table.ContainsKey(key: bt))
-        || (typeof(GeometryBase).IsAssignableFrom(c: source) && table.ContainsKey(key: typeof(GeometryBase)));
-    internal static Fin<TOut> ResolveTagged<TOut, TTag, TArgs>(FrozenDictionary<(Type, TTag), Func<object, TArgs, Fin<TOut>>> table, object source, TTag tag, TArgs args, Op op) where TTag : notnull => (table.GetValueOrDefault(key: (source.GetType(), tag)) ?? (KindLookup.InheritsBase(type: source.GetType()) is Type bt ? table.GetValueOrDefault(key: (bt, tag)) : null)) switch { Func<object, TArgs, Fin<TOut>> fn => fn(arg1: source, arg2: args), _ => Fin.Fail<TOut>(error: op.Unsupported(geometryType: source.GetType(), outputType: typeof(TOut))) };
-    private static Option<TValue> Pair<TValue>(FrozenDictionary<(Type, Type), TValue> table, Type left, Type right) =>
-        Optional(table.GetValueOrDefault(key: (left, right)))
-        | (KindLookup.InheritsBase(type: left) is Type lb ? Optional(table.GetValueOrDefault(key: (lb, right))) : Option<TValue>.None)
-        | (KindLookup.InheritsBase(type: right) is Type rb ? Optional(table.GetValueOrDefault(key: (left, rb))) : Option<TValue>.None)
-        | (KindLookup.InheritsBase(type: left) is Type lb2 && KindLookup.InheritsBase(type: right) is Type rb2 ? Optional(table.GetValueOrDefault(key: (lb2, rb2))) : Option<TValue>.None);
-    internal static Fin<TOut> ResolvePair<TOut, TArgs>(FrozenDictionary<(Type, Type), Func<object, object, TArgs, Fin<TOut>>> table, object left, object right, TArgs args, Op op) =>
-        Pair(table: table, left: left.GetType(), right: right.GetType()).Case switch {
-            Func<object, object, TArgs, Fin<TOut>> fn => fn(arg1: left, arg2: right, arg3: args),
-            _ => Fin.Fail<TOut>(error: op.Unsupported(geometryType: left.GetType(), outputType: right.GetType())),
-        };
-    internal static Fin<TOut> ResolveUnorderedPair<TOut, TArgs>(FrozenDictionary<(Type, Type), Func<object, object, TArgs, Fin<TOut>>> table, object left, object right, TArgs args, Op op) =>
-        Pair(table: table, left: left.GetType(), right: right.GetType()).Case switch {
-            Func<object, object, TArgs, Fin<TOut>> fn => fn(arg1: left, arg2: right, arg3: args),
-            _ => Pair(table: table, left: right.GetType(), right: left.GetType()).Case switch {
-                Func<object, object, TArgs, Fin<TOut>> fn => fn(arg1: right, arg2: left, arg3: args),
-                _ => Fin.Fail<TOut>(error: op.Unsupported(geometryType: left.GetType(), outputType: right.GetType())),
-            },
-        };
-    internal static bool SupportsPair<TValue>(FrozenDictionary<(Type, Type), TValue> table, Type left, Type right) =>
-        Pair(table: table, left: left, right: right).IsSome;
+    internal static Option<TVal> Lookup<TVal>(FrozenDictionary<Type, TVal> table, Type key) =>
+        Optional(table.GetValueOrDefault(key: key))
+        | (KindLookup.InheritsBase(type: key) is Type bt ? Optional(table.GetValueOrDefault(key: bt)) : Option<TVal>.None)
+        | (typeof(GeometryBase).IsAssignableFrom(c: key) ? Optional(table.GetValueOrDefault(key: typeof(GeometryBase))) : Option<TVal>.None);
+    internal static Option<TVal> LookupTagged<TTag, TVal>(FrozenDictionary<(Type, TTag), TVal> table, Type key, TTag tag) where TTag : notnull =>
+        Optional(table.GetValueOrDefault(key: (key, tag)))
+        | (KindLookup.InheritsBase(type: key) is Type bt ? Optional(table.GetValueOrDefault(key: (bt, tag))) : Option<TVal>.None);
+    internal static Option<TVal> LookupPair<TVal>(FrozenDictionary<(Type, Type), TVal> table, Type left, Type right) {
+        Option<Type> leftBase = Optional(KindLookup.InheritsBase(type: left));
+        Option<Type> rightBase = Optional(KindLookup.InheritsBase(type: right));
+        return Optional(table.GetValueOrDefault(key: (left, right)))
+            | leftBase.Bind(b => Optional(table.GetValueOrDefault(key: (b, right))))
+            | rightBase.Bind(b => Optional(table.GetValueOrDefault(key: (left, b))))
+            | leftBase.Bind(lb => rightBase.Bind(rb => Optional(table.GetValueOrDefault(key: (lb, rb)))));
+    }
+    internal static Fin<TOut> Resolve<TOut, TArgs>(FrozenDictionary<Type, Func<object, TArgs, Fin<TOut>>> table, object? source, TArgs args, Op op) =>
+        Optional(source).Bind(s => Lookup(table: table, key: s.GetType()).Map(fn => (Source: s, Fn: fn))).Match(
+            Some: hit => hit.Fn(arg1: hit.Source, arg2: args),
+            None: () => Fin.Fail<TOut>(error: source is null ? op.InvalidInput() : op.Unsupported(geometryType: source.GetType(), outputType: typeof(TOut))));
+    internal static bool Supports<TValue>(FrozenDictionary<Type, TValue> table, Type source) => Lookup(table: table, key: source).IsSome;
+    internal static Fin<TOut> ResolveTagged<TOut, TTag, TArgs>(FrozenDictionary<(Type, TTag), Func<object, TArgs, Fin<TOut>>> table, object? source, TTag tag, TArgs args, Op op) where TTag : notnull =>
+        Optional(source).Bind(s => LookupTagged(table: table, key: s.GetType(), tag: tag).Map(fn => (Source: s, Fn: fn))).Match(
+            Some: hit => hit.Fn(arg1: hit.Source, arg2: args),
+            None: () => Fin.Fail<TOut>(error: source is null ? op.InvalidInput() : op.Unsupported(geometryType: source.GetType(), outputType: typeof(TOut))));
+    internal static Fin<TOut> ResolvePair<TOut, TArgs>(FrozenDictionary<(Type, Type), Func<object, object, TArgs, Fin<TOut>>> table, object? left, object? right, TArgs args, Op op) =>
+        Optional(left).Bind(l => Optional(right).Map(r => (Left: l, Right: r))).Match(
+            Some: pair => LookupPair(table: table, left: pair.Left.GetType(), right: pair.Right.GetType()).Match(
+                Some: fn => fn(arg1: pair.Left, arg2: pair.Right, arg3: args),
+                None: () => Fin.Fail<TOut>(error: op.Unsupported(geometryType: pair.Left.GetType(), outputType: pair.Right.GetType()))),
+            None: () => Fin.Fail<TOut>(error: op.InvalidInput()));
+    internal static Fin<TOut> ResolveUnorderedPair<TOut, TArgs>(FrozenDictionary<(Type, Type), Func<object, object, TArgs, Fin<TOut>>> table, object? left, object? right, TArgs args, Op op) =>
+        Optional(left).Bind(l => Optional(right).Map(r => (Left: l, Right: r))).Match(
+            Some: pair => (LookupPair(table: table, left: pair.Left.GetType(), right: pair.Right.GetType()).Map(fn => (Source: (L: pair.Left, R: pair.Right), Fn: fn))
+                | LookupPair(table: table, left: pair.Right.GetType(), right: pair.Left.GetType()).Map(fn => (Source: (L: pair.Right, R: pair.Left), Fn: fn))).Match(
+                    Some: hit => hit.Fn(arg1: hit.Source.L, arg2: hit.Source.R, arg3: args),
+                    None: () => Fin.Fail<TOut>(error: op.Unsupported(geometryType: pair.Left.GetType(), outputType: pair.Right.GetType()))),
+            None: () => Fin.Fail<TOut>(error: op.InvalidInput()));
+    internal static bool SupportsPair<TValue>(FrozenDictionary<(Type, Type), TValue> table, Type left, Type right) => LookupPair(table: table, left: left, right: right).IsSome;
     internal static bool SupportsUnorderedPair<TValue>(FrozenDictionary<(Type, Type), TValue> table, Type left, Type right) =>
         SupportsPair(table: table, left: left, right: right) || SupportsPair(table: table, left: right, right: left);
     internal static readonly FrozenDictionary<Type, Func<object, bool>> ValidityTable = new Dictionary<Type, Func<object, bool>> {
@@ -479,7 +482,7 @@ internal static class Dispatch {
         [typeof(Rectangle3d)] = static r => ((Rectangle3d)r).IsValid, [typeof(Interval)] = static i => ((Interval)i).IsValid,
         [typeof(Line)] = static l => ((Line)l).IsValid, [typeof(Polyline)] = static p => ((Polyline)p).IsValid,
     }.ToFrozenDictionary();
-    internal static Option<bool> ValidityOf(object source) => (ValidityTable.GetValueOrDefault(key: source.GetType()) ?? (KindLookup.InheritsBase(type: source.GetType()) is Type bt ? ValidityTable.GetValueOrDefault(key: bt) : null) ?? (source is GeometryBase ? ValidityTable[typeof(GeometryBase)] : null)) switch { Func<object, bool> predicate => Some(predicate(arg: source)), _ => Option<bool>.None };
+    internal static Option<bool> ValidityOf(object source) => Lookup(table: ValidityTable, key: source.GetType()).Map(predicate => predicate(arg: source));
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -489,40 +492,40 @@ public static class KindRole {
     public static bool SupportsBounds(this Type type, bool includeSphere) => (Dispatch.Supports(table: Dispatch.BoundsTable, source: type) || type == typeof(object)) && (includeSphere || type != typeof(Sphere)) && type != typeof(Plane);
     public static bool InputCurve(this CurveFeature feature) => feature is CurveFeature.Input or CurveFeature.Segment or CurveFeature.SubCurve or CurveFeature.Boundary;
     public static bool InputBoundary(this CurveFeature feature) => feature is CurveFeature.Input or CurveFeature.Boundary;
-    public static Fin<Kind> Kind(this object value, Context ctx) {
-        ArgumentNullException.ThrowIfNull(argument: value);
-        ArgumentNullException.ThrowIfNull(argument: ctx);
-        return (Dispatch.KindPredicates.Choose(predicate => predicate(arg1: value, arg2: ctx)).Head | KindLookup.For(type: value.GetType()))
+    public static bool IsGeometryBaseDerived(this Kind kind) => typeof(GeometryBase).IsAssignableFrom(c: kind?.Type);
+    public static Fin<Kind> Kind(this object value, Context ctx) =>
+        (Dispatch.KindPredicates.Choose(predicate => predicate(arg1: value, arg2: ctx)).Head | KindLookup.For(type: value?.GetType() ?? typeof(object)))
             .ToFin(Fail: Op.Of(name: nameof(Kind)).InvalidInput());
-    }
-    public static bool IsGeometryBaseDerived(this Kind kind) { ArgumentNullException.ThrowIfNull(argument: kind); return typeof(GeometryBase).IsAssignableFrom(c: kind.Type); }
-    public static Fin<BoundingBox> Bounds(this object value, Op op) { ArgumentNullException.ThrowIfNull(argument: value); return Dispatch.Resolve(table: Dispatch.BoundsTable, source: value, args: op, op: op); }
-    public static Fin<Seq<Point3d>> Vertices(this Kind kind, object value, Context ctx, Op op) { ArgumentNullException.ThrowIfNull(argument: value); return Dispatch.Resolve(table: Dispatch.VerticesTable, source: value, args: (ctx, op), op: op); }
-    public static Fin<Point3d> Centroid(this Kind kind, object value, Context ctx, Op op) { ArgumentNullException.ThrowIfNull(argument: value); return Dispatch.Resolve(table: Dispatch.CentroidTable, source: value, args: (ctx, op), op: op); }
-    public static Fin<ClosestHit> Closest(this Kind kind, object value, Point3d target, Context ctx, Op op) { ArgumentNullException.ThrowIfNull(argument: value); return target.IsValid switch { false => Fin.Fail<ClosestHit>(error: op.InvalidInput()), true => Dispatch.Resolve(table: Dispatch.ClosestTable, source: value, args: (target, ctx, op), op: op) }; }
-    public static Fin<Seq<CurveProjection>> Curves(this Kind kind, object value, CurveSelector selector, Context ctx, Op op, CancellationToken cancel = default) { ArgumentNullException.ThrowIfNull(argument: value); return Dispatch.ResolveTagged(table: Dispatch.CurvesTable, source: value, tag: selector.Feature, args: (selector, ctx, op, cancel), op: op); }
-    public static Fin<Seq<GeometryBase>> Components(this Kind kind, object value, Context ctx, Op op) { ArgumentNullException.ThrowIfNull(argument: value); return Dispatch.Resolve(table: Dispatch.ComponentsTable, source: value, args: op, op: op); }
-    public static Fin<Seq<Interval>> Domains(this Kind kind, object value, Op op) { ArgumentNullException.ThrowIfNull(argument: value); return Dispatch.Resolve(table: Dispatch.DomainsTable, source: value, args: op, op: op); }
-    public static Fin<Seq<Curve>> IsoCurves(this Kind kind, object value, IsoStatus direction, double normalized, Op op) { ArgumentNullException.ThrowIfNull(argument: value); return Dispatch.Resolve(table: Dispatch.IsoCurvesTable, source: value, args: (direction, normalized, op), op: op); }
-    public static Fin<Seq<Point3d>> ControlPoints(this Kind kind, object value, Op op) { ArgumentNullException.ThrowIfNull(argument: value); return Dispatch.Resolve(table: Dispatch.ControlPointsTable, source: value, args: op, op: op); }
-    public static Closure ClosureOf(this Kind kind, object value, Context ctx) { ArgumentNullException.ThrowIfNull(argument: kind); return (kind.Topology, value) switch { (Topology.Curve, Curve c) => c.IsClosed ? Closure.Closed : Closure.Open, (Topology.Brep, Brep b) => b.IsSolid ? Closure.Closed : Closure.Open, (Topology.Mesh, Mesh m) => m.IsClosed ? Closure.Closed : Closure.Open, _ => kind.NominalClosure }; }
-    public static Solidity SolidityOf(this Kind kind, object value, Context ctx) { ArgumentNullException.ThrowIfNull(argument: kind); return (kind.Topology, value) switch { (Topology.Brep, Brep b) => b.IsSolid ? Solidity.Solid : Solidity.Open, (Topology.Mesh, Mesh m) => m.IsSolid ? Solidity.Solid : Solidity.Open, (Topology.Surface, Surface s) => s.IsSolid ? Solidity.Solid : Solidity.Open, _ => kind.NominalSolidity }; }
-    public static Fin<IntersectionResult> Intersect(this Kind a, Kind b, object valueA, object valueB, Context ctx, Op op, IProgress<double>? progress = null, CancellationToken cancel = default) { ArgumentNullException.ThrowIfNull(argument: valueA); ArgumentNullException.ThrowIfNull(argument: valueB); return Dispatch.ResolveUnorderedPair(table: Dispatch.IntersectTable, left: valueA, right: valueB, args: (ctx, op, cancel, progress), op: op); }
-    public static Fin<bool> Contains(this Kind kind, object value, Point3d target, Context ctx, Op op) { ArgumentNullException.ThrowIfNull(argument: value); ArgumentNullException.ThrowIfNull(argument: ctx); return target.IsValid ? Dispatch.Resolve(table: Dispatch.ContainsTable, source: value, args: (target, ctx, op), op: op) : Fin.Fail<bool>(error: op.InvalidInput()); }
+    public static Fin<BoundingBox> Bounds(this object value, Op op) => Dispatch.Resolve(table: Dispatch.BoundsTable, source: value, args: op, op: op);
+    public static Fin<Seq<Point3d>> Vertices(this Kind kind, object value, Context ctx, Op op) => Dispatch.Resolve(table: Dispatch.VerticesTable, source: value, args: (ctx, op), op: op);
+    public static Fin<Point3d> Centroid(this Kind kind, object value, Context ctx, Op op) => Dispatch.Resolve(table: Dispatch.CentroidTable, source: value, args: (ctx, op), op: op);
+    public static Fin<ClosestHit> Closest(this Kind kind, object value, Point3d target, Context ctx, Op op) =>
+        target.IsValid ? Dispatch.Resolve(table: Dispatch.ClosestTable, source: value, args: (target, ctx, op), op: op) : Fin.Fail<ClosestHit>(error: op.InvalidInput());
+    public static Fin<Seq<CurveProjection>> Curves(this Kind kind, object value, CurveSelector selector, Context ctx, Op op, CancellationToken cancel = default) =>
+        Dispatch.ResolveTagged(table: Dispatch.CurvesTable, source: value, tag: selector.Feature, args: (selector, ctx, op, cancel), op: op);
+    public static Fin<Seq<GeometryBase>> Components(this Kind kind, object value, Context ctx, Op op) => Dispatch.Resolve(table: Dispatch.ComponentsTable, source: value, args: op, op: op);
+    public static Fin<Seq<Interval>> Domains(this Kind kind, object value, Op op) => Dispatch.Resolve(table: Dispatch.DomainsTable, source: value, args: op, op: op);
+    public static Fin<Seq<Curve>> IsoCurves(this Kind kind, object value, IsoStatus direction, double normalized, Op op) => Dispatch.Resolve(table: Dispatch.IsoCurvesTable, source: value, args: (direction, normalized, op), op: op);
+    public static Fin<Seq<Point3d>> ControlPoints(this Kind kind, object value, Op op) => Dispatch.Resolve(table: Dispatch.ControlPointsTable, source: value, args: op, op: op);
+    public static Closure ClosureOf(this Kind kind, object value, Context ctx) => (kind?.Topology, value) switch { (Topology.Curve, Curve c) => c.IsClosed ? Closure.Closed : Closure.Open, (Topology.Brep, Brep b) => b.IsSolid ? Closure.Closed : Closure.Open, (Topology.Mesh, Mesh m) => m.IsClosed ? Closure.Closed : Closure.Open, _ => kind?.NominalClosure ?? Closure.Unknown };
+    public static Solidity SolidityOf(this Kind kind, object value, Context ctx) => (kind?.Topology, value) switch { (Topology.Brep, Brep b) => b.IsSolid ? Solidity.Solid : Solidity.Open, (Topology.Mesh, Mesh m) => m.IsSolid ? Solidity.Solid : Solidity.Open, (Topology.Surface, Surface s) => s.IsSolid ? Solidity.Solid : Solidity.Open, _ => kind?.NominalSolidity ?? Solidity.Unknown };
+    public static Fin<IntersectionResult> Intersect(this Kind a, Kind b, object valueA, object valueB, Context ctx, Op op, IProgress<double>? progress = null, CancellationToken cancel = default) =>
+        Dispatch.ResolveUnorderedPair(table: Dispatch.IntersectTable, left: valueA, right: valueB, args: (ctx, op, cancel, progress), op: op);
+    public static Fin<bool> Contains(this Kind kind, object value, Point3d target, Context ctx, Op op) =>
+        target.IsValid ? Dispatch.Resolve(table: Dispatch.ContainsTable, source: value, args: (target, ctx, op), op: op) : Fin.Fail<bool>(error: op.InvalidInput());
     public static Fin<TTarget> Coerce<TTarget>(this Kind kind, object value, Context ctx, Op op) => Dispatch.Coerce<TTarget>(source: value, ctx: ctx, op: op);
-    public static Fin<SolidOrientation> SolidOrientation(this Kind kind, object value, Op op) { ArgumentNullException.ThrowIfNull(argument: value); return Dispatch.Resolve(table: Dispatch.SolidOrientationTable, source: value, args: op, op: op); }
-    public static Fin<double> Length(this Kind kind, object value, Context ctx, Op op) { ArgumentNullException.ThrowIfNull(argument: value); ArgumentNullException.ThrowIfNull(argument: ctx); return Dispatch.Resolve(table: Dispatch.LengthTable, source: value, args: (ctx, op), op: op); }
-    public static Fin<Seq<FaceProjection>> Faces(this Kind kind, object value, Context ctx, Op op) { ArgumentNullException.ThrowIfNull(argument: value); return Dispatch.Resolve(table: Dispatch.FacesTable, source: value, args: (ctx, op), op: op); }
-    public static Fin<Seq<ResidualSample>> Conformance(this Kind kindG, Kind kindP, object geometry, object primitive, int count, Context ctx, Op op) { ArgumentNullException.ThrowIfNull(argument: geometry); ArgumentNullException.ThrowIfNull(argument: primitive); ArgumentNullException.ThrowIfNull(argument: ctx); return Dispatch.ResolvePair(table: Dispatch.ConformanceTable, left: geometry, right: primitive, args: (count, ctx, op), op: op); }
+    public static Fin<SolidOrientation> SolidOrientation(this Kind kind, object value, Op op) => Dispatch.Resolve(table: Dispatch.SolidOrientationTable, source: value, args: op, op: op);
+    public static Fin<double> Length(this Kind kind, object value, Context ctx, Op op) => Dispatch.Resolve(table: Dispatch.LengthTable, source: value, args: (ctx, op), op: op);
+    public static Fin<Seq<FaceProjection>> Faces(this Kind kind, object value, Context ctx, Op op) => Dispatch.Resolve(table: Dispatch.FacesTable, source: value, args: (ctx, op), op: op);
+    public static Fin<Seq<ResidualSample>> Conformance(this Kind kindG, Kind kindP, object geometry, object primitive, int count, Context ctx, Op op) =>
+        Dispatch.ResolvePair(table: Dispatch.ConformanceTable, left: geometry, right: primitive, args: (count, ctx, op), op: op);
 }
 [BoundaryAdapter]
 public static class MassKindRole {
-    public static Eff<Env, IDisposable> Compute(this MassKind mass, object value, Op op, bool firstMoments = false, bool secondMoments = false, bool productMoments = false) {
-        ArgumentNullException.ThrowIfNull(argument: value);
-        return from context in Env.Asks
-               from result in Dispatch.ResolveTagged(table: Dispatch.MassPropertiesTable, source: value, tag: mass, args: (context, firstMoments, secondMoments, productMoments), op: op).ToEff()
-               select result;
-    }
+    public static Eff<Env, IDisposable> Compute(this MassKind mass, object value, Op op, bool firstMoments = false, bool secondMoments = false, bool productMoments = false) =>
+        from context in Env.Asks
+        from result in Dispatch.ResolveTagged(table: Dispatch.MassPropertiesTable, source: value, tag: mass, args: (context, firstMoments, secondMoments, productMoments), op: op).ToEff()
+        select result;
 }
 
 // --- [COMPOSITION] ------------------------------------------------------------------------

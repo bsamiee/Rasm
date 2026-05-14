@@ -1,6 +1,6 @@
 namespace Radyab.Components;
 
-[IoId("F51A09A8-A5A5-467A-ADBA-C950511A0020")]
+[IoId("7EBA9774-99EA-4A47-95EA-8CAEA6F09323")]
 [Nomen(
     name: "Extract Surfaces",
     info: "Trimmed faces, direction-ranked top/bottom faces, indexed face details, and centroid UV frame for Brep, BrepFace, Surface, and SubD values.",
@@ -35,8 +35,7 @@ public sealed class ExtractSurfaces : Component {
             Output.Plain<FaceProjection, ComponentIndex>(port: Port.List<ComponentIndex>(name: "Source", code: "S", info: "Source Brep face component index selected by the GH native Index input."), project: static value => value.Source),
             Output.Many<FaceProjection, Interval>(port: Port.List<Interval>(name: "UV Domains", code: "UD", info: "Indexed face domains as two intervals: U first, then V."), project: static face => Rasm.Analysis.Query.FaceDomains(face: face)),
         ]);
-    private static readonly ComponentSpec Definition = new(
-        Inputs: Seq(new PortSpec(Port: Geometry), new PortSpec(Port: Index), new PortSpec(Port: Direction)),
-        Outputs: Seq(new OutputSpec(Group: AllSurfaces), new OutputSpec(Group: TopSurface), new OutputSpec(Group: BottomSurface), new OutputSpec(Group: IndexedFace)));
-    public ExtractSurfaces() : base(self: typeof(ExtractSurfaces), spec: Definition) { }
+    public ExtractSurfaces() : base(self: typeof(ExtractSurfaces), spec: ComponentSpec.Of(
+        inputs: Seq<IPort>(Geometry, Index, Direction),
+        outputs: Seq<IOutputGroup>(AllSurfaces, TopSurface, BottomSurface, IndexedFace))) { }
 }

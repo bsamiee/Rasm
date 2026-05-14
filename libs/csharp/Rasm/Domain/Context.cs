@@ -81,8 +81,6 @@ public sealed record Context {
                 relative: candidate.ModelRelativeTolerance,
                 angle: candidate.ModelAngleToleranceRadians,
                 units: candidate.ModelUnitSystem));
-    internal static Validation<Error, Context> FromKnownUnits(double absolute, double relative, double angle, UnitSystem units) =>
-        Create(absolute: absolute, relative: relative, angle: angle, units: units);
 }
 [BoundaryAdapter]
 public sealed record Env(Context Context, IProgress<double>? Progress, CancellationToken Cancellation) {

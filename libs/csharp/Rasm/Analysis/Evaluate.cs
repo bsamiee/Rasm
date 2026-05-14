@@ -39,8 +39,7 @@ public static partial class Query {
                 .Maxima(projection: p => (Vector3d)p * (state.Maximize switch { true => state.Direction, false => -state.Direction }), tolerance: 0.0)
                 .Head.ToFin(op.InvalidResult()))
             .As();
-    public static Query<TGeometry, TOut> Locate<TGeometry, TOut>(Location aspect) where TGeometry : notnull =>
-        Aspect<Location, TGeometry, TOut>(aspect: aspect, key: Op.Of());
+    public static Query<TGeometry, TOut> Locate<TGeometry, TOut>(Location aspect) where TGeometry : notnull => Aspect<Location, TGeometry, TOut>(aspect: aspect);
     internal static Query<TGeometry, TOut> Located<TGeometry, TOut, TNative, TValue>(Op key, Func<Query<TGeometry, TValue>> query) where TGeometry : notnull =>
         (typeof(TNative).IsAssignableFrom(c: typeof(TGeometry)) || typeof(TGeometry) == typeof(object) || typeof(GeometryBase).IsAssignableFrom(c: typeof(TGeometry))) && typeof(TOut) == typeof(TValue)
             ? Cast<TGeometry, TOut>(key: key, query: query())

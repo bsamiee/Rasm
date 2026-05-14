@@ -193,8 +193,7 @@ public static partial class Query {
                     .ToEff(),
             });
     }
-    public static Query<TGeometry, TOut> Meshes<TGeometry, TOut>(Meshes aspect) where TGeometry : notnull =>
-        Aspect<Meshes, TGeometry, TOut>(aspect: aspect, key: Op.Of());
+    public static Query<TGeometry, TOut> Meshes<TGeometry, TOut>(Meshes aspect) where TGeometry : notnull => Aspect<Meshes, TGeometry, TOut>(aspect: aspect);
     internal static Query<TGeometry, TOut> MeshLift<TGeometry, TOut, TValue>(Op key, Query<Mesh, TValue> source) where TGeometry : notnull =>
         Native<TGeometry, TOut, Mesh, TValue, Query<Mesh, TValue>>(key: key, state: source, project: static (q, mesh) => q.Apply(geometry: mesh));
     internal static Fin<Seq<Polyline>> SelfIntersectionsValue(Op op, Mesh geometry, Env runtime) {
@@ -217,8 +216,7 @@ public static partial class Query {
                 false => Fin.Fail<Seq<Polyline>>(op.InvalidResult()),
             };
     }
-    public static Query<TGeometry, TOut> Faces<TGeometry, TOut>(Faces aspect) where TGeometry : notnull =>
-        Aspect<Faces, TGeometry, TOut>(aspect: aspect, key: Rasm.Analysis.Faces.Key);
+    public static Query<TGeometry, TOut> Faces<TGeometry, TOut>(Faces aspect) where TGeometry : notnull => Aspect<Faces, TGeometry, TOut>(aspect: aspect);
     public static Eff<Env, Seq<FaceProjection>> FaceProjections(object geometry, Faces selector) =>
         FaceProjections(geometry: geometry, choose: _ => selector);
     public static Eff<Env, Seq<FaceProjection>> FaceProjections(object geometry, Func<int, Faces> choose) =>
@@ -281,8 +279,7 @@ public static partial class Query {
             _ => Fin.Fail<Seq<Interval>>(Rasm.Analysis.Faces.Key.InvalidResult()),
         };
     }
-    public static Query<TGeometry, TOut> Curves<TGeometry, TOut>(Curves aspect) where TGeometry : notnull =>
-        Aspect<Curves, TGeometry, TOut>(aspect: aspect, key: Rasm.Analysis.Curves.Key);
+    public static Query<TGeometry, TOut> Curves<TGeometry, TOut>(Curves aspect) where TGeometry : notnull => Aspect<Curves, TGeometry, TOut>(aspect: aspect);
     internal static Query<TGeometry, TOut> CurveProject<TGeometry, TOut, TValue>(Op key, Curves aspect, Func<CurveProjection, TValue> project) where TGeometry : notnull =>
         Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, TValue>.Build(
             key: key, state: (Key: key, Aspect: aspect, Project: project), requiresContext: true,
