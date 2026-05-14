@@ -1,16 +1,19 @@
 namespace Rasm.Analysis;
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
-public static partial class Query {
+// --- [TYPES] ------------------------------------------------------------------------------
+[StructLayout(LayoutKind.Auto)] public readonly record struct CurveDeviation(double MinimumDistance, Point3d MinimumA, Point3d MinimumB, double MaximumDistance, Point3d MaximumA, Point3d MaximumB, double Tolerance, bool WithinTolerance);
+
+// --- [OPERATIONS] -------------------------------------------------------------------------
+public static partial class Analyze {
     public static Query<(TA A, TB B), TOut> Intersect<TA, TB, TOut>() where TA : notnull where TB : notnull {
         Op key = Op.Of();
         return Dispatch.SupportsUnorderedPair(table: Dispatch.IntersectTable, left: typeof(TA), right: typeof(TB)) switch {
             true => Query<(TA A, TB B), TOut>.Build(
                 key: key, requiresContext: true, state: key,
                 evaluator: static (op, pair) => from runtime in Env.EnvAsks
-                                                from kA in ((object)pair.A).Kind(ctx: runtime.Context).ToEff()
-                                                from kB in ((object)pair.B).Kind(ctx: runtime.Context).ToEff()
-                                                from result in kA.Intersect(b: kB, valueA: pair.A, valueB: pair.B, ctx: runtime.Context, op: op, progress: runtime.Progress, cancel: runtime.Cancellation).ToEff()
+                                                from kA in ((object)pair.A).Kind(context: runtime.Context).ToEff()
+                                                from kB in ((object)pair.B).Kind(context: runtime.Context).ToEff()
+                                                from result in kA.Intersect(b: kB, geometryA: pair.A, geometryB: pair.B, context: runtime.Context, op: op, progress: runtime.Progress, cancel: runtime.Cancellation).ToEff()
                                                 from typed in IntersectionResultRole.Project<TOut>(result: result, key: op).ToEff()
                                                 select typed),
             false => key.Unsupported<(TA A, TB B), TOut>(),
@@ -23,15 +26,15 @@ public static partial class Query {
                 key: key, requiresContext: true, state: key,
                 evaluator: static (op, pair) => from runtime in Env.EnvAsks
                                                 from validated in runtime.Context.ValidatePair(a: pair.A, b: pair.B, requirementA: Requirement.CurveLength, requirementB: Requirement.CurveLength, cancel: runtime.Cancellation).ToEff()
-                                                from result in DeviationProject<TOut>(op: op, left: (Curve)(object)validated.A, right: (Curve)(object)validated.B, ctx: runtime.Context).ToEff()
+                                                from result in DeviationProject<TOut>(op: op, left: (Curve)(object)validated.A, right: (Curve)(object)validated.B, context: runtime.Context).ToEff()
                                                 select result)
             : key.Unsupported<(TA A, TB B), TOut>();
     }
     // BOUNDARY ADAPTER — Rhino emits 6 out parameters; collapse into one CurveDeviation value object.
-    private static Fin<Seq<TOut>> DeviationProject<TOut>(Op op, Curve left, Curve right, Context ctx) =>
-        Curve.GetDistancesBetweenCurves(curveA: left, curveB: right, tolerance: ctx.Absolute.Value, maxDistance: out double maxDist, maxDistanceParameterA: out double maxA, maxDistanceParameterB: out double maxB, minDistance: out double minDist, minDistanceParameterA: out double minA, minDistanceParameterB: out double minB) switch {
+    private static Fin<Seq<TOut>> DeviationProject<TOut>(Op op, Curve left, Curve right, Context context) =>
+        Curve.GetDistancesBetweenCurves(curveA: left, curveB: right, tolerance: context.Absolute.Value, maxDistance: out double maxDist, maxDistanceParameterA: out double maxA, maxDistanceParameterB: out double maxB, minDistance: out double minDist, minDistanceParameterA: out double minA, minDistanceParameterB: out double minB) switch {
             true => (op.RequireValid(value: minDist), op.RequireValid(value: maxDist), op.RequireValid(value: left.PointAt(t: minA)), op.RequireValid(value: right.PointAt(t: minB)), op.RequireValid(value: left.PointAt(t: maxA)), op.RequireValid(value: right.PointAt(t: maxB)))
-                .Apply((minD, maxD, mA, mB, xA, xB) => new CurveDeviation(MinimumDistance: minD, MinimumA: mA, MinimumB: mB, MaximumDistance: maxD, MaximumA: xA, MaximumB: xB, Tolerance: ctx.Absolute.Value, WithinTolerance: maxD <= ctx.Absolute.Value))
+                .Apply((minD, maxD, mA, mB, xA, xB) => new CurveDeviation(MinimumDistance: minD, MinimumA: mA, MinimumB: mB, MaximumDistance: maxD, MaximumA: xA, MaximumB: xB, Tolerance: context.Absolute.Value, WithinTolerance: maxD <= context.Absolute.Value))
                 .As()
                 .Bind(deviation => (deviation.MinimumDistance >= 0.0, deviation.MaximumDistance >= deviation.MinimumDistance) switch {
                     (true, true) => op.Results<CurveDeviation, TOut>(values: Seq(deviation)),
@@ -41,7 +44,7 @@ public static partial class Query {
         };
 }
 
-// --- [INTERSECTION_RESULT_ROLE] ----------------------------------------------------------
+// --- [COMPOSITION] ------------------------------------------------------------------------
 internal static class IntersectionResultRole {
     internal static Fin<Seq<TOut>> Project<TOut>(this IntersectionResult result, Op key) => result.Switch(
         state: key,
@@ -66,6 +69,6 @@ internal static class IntersectionResultRole {
     private static Fin<Seq<TOut>> ProjectUniform<TNative, TOut>(Op key, Type caseType, Seq<TNative> values, IntersectionKind tag) where TNative : notnull => typeof(TOut) switch {
         Type t when t == typeof(TNative) => key.Results<TNative, TOut>(values: values),
         Type t when t == typeof(IntersectionKind) => key.Results<IntersectionKind, TOut>(values: values.Map(_ => tag)),
-        _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: caseType, outputType: typeof(TOut))),
+        _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(IntersectionResult.Hits), outputType: typeof(TOut))),
     };
 }

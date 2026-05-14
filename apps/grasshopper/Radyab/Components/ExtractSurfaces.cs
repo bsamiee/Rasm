@@ -12,7 +12,7 @@ public sealed class ExtractSurfaces : Component {
     private static readonly Port<Vector3d> Direction = Port.Direction(info: "Ranking direction for Top and Bottom surfaces; missing Direction uses world Z.");
     private static readonly IOutputGroup Faces = Output.Details<FaceProjection>(
         input: Geometry,
-        aspect: static _ => Fin.Succ<Func<Shape, Eff<Env, Seq<FaceProjection>>>>(shape => Rasm.Analysis.Query.FaceProjections(geometry: shape.Inner, selector: Rasm.Analysis.Faces.All)),
+        aspect: static _ => Fin.Succ<Func<Shape, Eff<Env, Seq<FaceProjection>>>>(shape => Rasm.Analysis.Analyze.FaceProjections(geometry: shape.Inner, selector: Rasm.Analysis.Faces.All)),
         emptyUnsupported: true,
         aspectLabel: nameof(Rasm.Analysis.Faces),
         slots: [
@@ -27,14 +27,14 @@ public sealed class ExtractSurfaces : Component {
         aspect: runtime => runtime.Read(port: Direction).Map(axis => Rasm.Analysis.Faces.Bottom(axis: axis.ToNullable())));
     private static readonly IOutputGroup Frame = Output.Details<FaceProjection>(
         input: Geometry,
-        aspect: runtime => Fin.Succ<Func<Shape, Eff<Env, Seq<FaceProjection>>>>(shape => Rasm.Analysis.Query.FaceProjections(geometry: shape.Inner, choose: count => Rasm.Analysis.Faces.At(index: runtime.Index(port: Index, limit: count).ToNullable()))),
+        aspect: runtime => Fin.Succ<Func<Shape, Eff<Env, Seq<FaceProjection>>>>(shape => Rasm.Analysis.Analyze.FaceProjections(geometry: shape.Inner, choose: count => Rasm.Analysis.Faces.At(index: runtime.Index(port: Index, limit: count).ToNullable()))),
         emptyUnsupported: false,
         aspectLabel: nameof(Rasm.Analysis.Faces),
         slots: [
             Output.Plain<FaceProjection, Brep>(port: Port.Tree<Brep>(name: "Face", code: "FA", info: "Trimmed single-face Brep at Index; missing Index defaults to 0 and supplied values clamp to [0, count-1]."), project: static value => value.Brep),
-            Output.One<FaceProjection, Plane>(port: Port.Tree<Plane>(name: "UV Frame", code: "UV", info: "Native U/V frame at the indexed face centroid: X = surface U direction, Z = orientation-corrected normal, Y completes the basis."), project: static (face, context) => Rasm.Analysis.Query.FrameAtCentroid(face: face, runtime: context)),
-            Output.One<FaceProjection, Point3d>(port: Port.Tree<Point3d>(name: "Centroid", code: "FC", info: "Area centroid of the indexed trimmed face."), project: static (face, context) => Rasm.Analysis.Query.FaceCentroid(face: face, runtime: context)),
-            Output.One<FaceProjection, Vector3d>(port: Port.Tree<Vector3d>(name: "Normal", code: "FN", info: "Orientation-corrected indexed face normal at the face centroid."), project: static (face, context) => Rasm.Analysis.Query.FrameAtCentroid(face: face, runtime: context).Map(static frame => frame.ZAxis)),
+            Output.One<FaceProjection, Plane>(port: Port.Tree<Plane>(name: "UV Frame", code: "UV", info: "Native U/V frame at the indexed face centroid: X = surface U direction, Z = orientation-corrected normal, Y completes the basis."), project: static (face, context) => Rasm.Analysis.Analyze.FrameAtCentroid(face: face, runtime: context)),
+            Output.One<FaceProjection, Point3d>(port: Port.Tree<Point3d>(name: "Centroid", code: "FC", info: "Area centroid of the indexed trimmed face."), project: static (face, context) => Rasm.Analysis.Analyze.FaceCentroid(face: face, runtime: context)),
+            Output.One<FaceProjection, Vector3d>(port: Port.Tree<Vector3d>(name: "Normal", code: "FN", info: "Orientation-corrected indexed face normal at the face centroid."), project: static (face, context) => Rasm.Analysis.Analyze.FrameAtCentroid(face: face, runtime: context).Map(static frame => frame.ZAxis)),
         ]);
     public ExtractSurfaces() : base(self: typeof(ExtractSurfaces), spec: ComponentSpec.Of(
         inputs: Seq<IPort>(Geometry, Index, Direction),

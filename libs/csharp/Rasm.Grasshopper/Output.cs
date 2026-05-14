@@ -101,9 +101,6 @@ public static class Output {
     public static OutputSlot<TSource> One<TSource, TOut>(Port<TOut> port, Func<TSource, Context, Fin<TOut>> project) =>
         Slot<TSource, TOut>(port: port, project: (runtime, sources) => runtime.Scope.Context
             .Bind(context => sources.Traverse(src => project(arg1: src.Item, arg2: context).Map(src.Project)).As()));
-    public static OutputSlot<TSource> Many<TSource, TOut>(Port<TOut> port, Func<TSource, Fin<Seq<TOut>>> project) =>
-        Slot<TSource, TOut>(port: port, project: (_, sources) => sources.Traverse(src => project(arg: src.Item).Map(src.Project))
-            .Map(static nested => nested.Bind(static x => x)).As());
     public static Unit Write(IDataAccess access, GrasshopperRuntime runtime, Seq<IOutputGroup> groups, Hints outputs) =>
         groups.Iter(group => group.Run(access: access, outputs: outputs, runtime: runtime));
     public static Unit Empty(IDataAccess access, Seq<IOutputGroup> groups, Hints outputs) =>
@@ -111,7 +108,7 @@ public static class Output {
     public static IOutputGroup Single<TOut>(
         Port<Shape> input, Port<TOut> port,
         Func<GrasshopperRuntime, Fin<Query<object, TOut>>> query,
-        bool emptyUnsupported = true, string aspectLabel = "Query") where TOut : notnull =>
+        bool emptyUnsupported = true, string aspectLabel = "Analysis") where TOut : notnull =>
         Details<TOut>(
             input: input,
             aspect: runtime => query(arg: runtime).Map<Func<Shape, Eff<Env, Seq<TOut>>>>(selected => shape => selected.Apply(geometry: shape.Inner)),

@@ -29,7 +29,7 @@ public sealed class ExtractCurves : Component {
             .As());
     private static readonly IOutputGroup Topology = Output.Details<CurveProjection>(
         input: Geometry,
-        aspect: static _ => Fin.Succ<Func<Shape, Eff<Env, Seq<CurveProjection>>>>(shape => Rasm.Analysis.Query.CurveProjections(geometry: shape.Inner, aspect: Curves.All)),
+        aspect: static _ => Fin.Succ<Func<Shape, Eff<Env, Seq<CurveProjection>>>>(shape => Rasm.Analysis.Analyze.CurveProjections(geometry: shape.Inner, aspect: Curves.All)),
         emptyUnsupported: true,
         aspectLabel: nameof(Curves),
         slots: [

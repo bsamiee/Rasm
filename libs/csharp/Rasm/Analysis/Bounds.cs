@@ -1,76 +1,63 @@
 namespace Rasm.Analysis;
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
-public static partial class Query {
+// --- [MODELS] -----------------------------------------------------------------------------
+[Union]
+public partial record Bounds : IAspect {
+    public sealed record Box : Bounds; public sealed record Oriented(Plane Plane) : Bounds; public sealed record Transformed(Transform Transform) : Bounds; public sealed record Center : Bounds;
+    public sealed record Corners(bool Unique = false) : Bounds; public sealed record Edges : Bounds; public sealed record Area : Bounds; public sealed record Volume : Bounds;
+    private static readonly Op BoundsKey = Op.Of(name: nameof(Bounds));
+    private static readonly Op OrientedKey = Op.Of(name: "OrientedBounds");
+    private static readonly Op TransformedKey = Op.Of(name: "TransformedBounds");
+    private static readonly Op CenterKey = Op.Of(name: "BoundsCenter");
+    private static readonly Op CornersKey = Op.Of(name: "BoundsCorners");
+    private static readonly Op BoxEdgesKey = Op.Of(name: "BoxEdges");
+    private static readonly Op BoxAreaKey = Op.Of(name: "BoxArea");
+    private static readonly Op BoxVolumeKey = Op.Of(name: "BoxVolume");
+    public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull => Switch<Query<TGeometry, TOut>>(
+        box: static _ => (typeof(TOut) == typeof(BoundingBox) && typeof(TGeometry).SupportsBounds(includeSphere: true))
+            ? Analyze.Cast<TGeometry, TOut>(key: BoundsKey, query: Query<TGeometry, BoundingBox>.Build(
+                key: BoundsKey, state: BoundsKey,
+                evaluator: static (op, geometry) => geometry.Bounds(op: op).Bind(b => Analyze.One(key: op, value: b)).ToEff()))
+            : BoundsKey.Unsupported<TGeometry, TOut>(),
+        oriented: static o => (typeof(TOut) == typeof(Rhino.Geometry.Box) && typeof(GeometryBase).IsAssignableFrom(c: typeof(TGeometry)))
+            ? Analyze.Native<TGeometry, TOut, GeometryBase, Rhino.Geometry.Box, (Op Key, Plane Plane)>(
+                key: OrientedKey, state: (OrientedKey, o.Plane),
+                project: static (state, native) => new Rhino.Geometry.Box(basePlane: state.Plane, geometry: native) switch {
+                    { IsValid: true } valid => Analyze.One(key: state.Key, value: valid).ToEff(),
+                    _ => Fin.Fail<Seq<Rhino.Geometry.Box>>(state.Key.InvalidResult()).ToEff(),
+                })
+            : OrientedKey.Unsupported<TGeometry, TOut>(),
+        transformed: static t => (typeof(TOut) == typeof(BoundingBox) && typeof(GeometryBase).IsAssignableFrom(c: typeof(TGeometry)))
+            ? Analyze.Native<TGeometry, TOut, GeometryBase, BoundingBox, (Op Key, Transform Xform)>(
+                key: TransformedKey, state: (Key: TransformedKey, Xform: t.Transform),
+                project: static (state, native) => Analyze.One(key: state.Key, value: native.GetBoundingBox(xform: state.Xform)).ToEff())
+            : TransformedKey.Unsupported<TGeometry, TOut>(),
+        center: static _ => typeof(TOut) == typeof(Point3d)
+            ? Analyze.Cast<TGeometry, TOut>(key: CenterKey, query: Query<TGeometry, Point3d>.Build(
+                key: CenterKey, state: CenterKey,
+                evaluator: static (op, geometry) => geometry.Bounds(op: op).Bind(b => Analyze.One(key: op, value: b.Center)).ToEff()))
+            : CenterKey.Unsupported<TGeometry, TOut>(),
+        corners: static c => typeof(TOut) == typeof(Point3d)
+            ? Analyze.Cast<TGeometry, TOut>(key: CornersKey, query: Query<TGeometry, Point3d>.Build(
+                key: CornersKey, requiresContext: c.Unique, state: (Key: CornersKey, c.Unique),
+                evaluator: static (state, geometry) =>
+                    from runtime in Env.EnvAsks
+                    from bbox in geometry.Bounds(op: state.Key).ToEff()
+                    from result in Analyze.Many(key: state.Key, values: state.Unique ? Point3d.CullDuplicates(points: bbox.GetCorners(), tolerance: runtime.Context.Absolute.Value) : bbox.GetCorners()).ToEff()
+                    select result))
+            : CornersKey.Unsupported<TGeometry, TOut>(),
+        edges: static _ => (typeof(TGeometry) == typeof(BoundingBox) && typeof(TOut) == typeof(Line))
+            ? Analyze.Cast<TGeometry, TOut>(key: BoxEdgesKey, query: Query<BoundingBox, Line>.Build(
+                key: BoxEdgesKey, state: BoxEdgesKey,
+                evaluator: static (op, geometry) => Analyze.Many(key: op, values: geometry.GetEdges()).ToEff()))
+            : BoxEdgesKey.Unsupported<TGeometry, TOut>(),
+        area: static _ => Analyze.BoxMetric<TGeometry, TOut>(key: BoxAreaKey, boundingBox: static g => g.Area, box: static g => g.Area),
+        volume: static _ => Analyze.BoxMetric<TGeometry, TOut>(key: BoxVolumeKey, boundingBox: static g => g.Volume, box: static g => g.Volume));
+}
+
+// --- [OPERATIONS] -------------------------------------------------------------------------
+public static partial class Analyze {
     public static Query<TGeometry, TOut> Bounds<TGeometry, TOut>(Bounds aspect) where TGeometry : notnull => Aspect<Bounds, TGeometry, TOut>(aspect: aspect);
-    public static Query<TGeometry, TOut> Measure<TGeometry, TOut>(Measure aspect) where TGeometry : notnull => Aspect<Measure, TGeometry, TOut>(aspect: aspect);
-    public static Query<(TGeometry Geometry, TPrimitive Primitive), TOut> Conformance<TGeometry, TPrimitive, TOut>(Conformance aspect) where TGeometry : notnull where TPrimitive : notnull =>
-        aspect?.ToQuery<TGeometry, TPrimitive, TOut>() ?? Query<(TGeometry Geometry, TPrimitive Primitive), TOut>.Reject(key: Op.Of(), fault: Op.Of().InvalidInput());
-    public static Query<TGeometry, TOut> SpatialMidpoint<TGeometry, TOut>() where TGeometry : notnull {
-        Op key = Op.Of();
-        return (typeof(TOut) == typeof(Point3d) && typeof(TGeometry).SupportsBounds(includeSphere: false))
-            ? Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, Point3d>.Build(
-                key: key, requiresContext: true, state: key,
-                evaluator: static (op, geometry) => from context in Env.Asks
-                                                    from kind in ((object)geometry).Kind(ctx: context).ToEff()
-                                                    from centroid in kind.Centroid(value: geometry, ctx: context, op: op).ToEff()
-                                                    from result in One(key: op, value: centroid).ToEff()
-                                                    select result))
-            : key.Unsupported<TGeometry, TOut>();
-    }
-    internal static Query<TGeometry, TOut> MassMeasure<TGeometry, TOut>(MassKind mass, Measure aspect) where TGeometry : notnull {
-        Op key = Op.Of();
-        return (aspect, typeof(TOut)) switch {
-            (_, _) when mass.Equals(MassKind.None) => Query<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput()),
-            (Analysis.Measure.Area, Type output) when output == typeof(double) => MassCast<TGeometry, TOut, double>(mass: MassKind.Area, suffix: string.Empty, project: static (k, props) => props switch {
-                AreaMassProperties area => One(key: k, value: area.Area),
-                _ => Fin.Fail<Seq<double>>(k.InvalidResult()),
-            }),
-            (Analysis.Measure.Volume, Type output) when output == typeof(double) => MassCast<TGeometry, TOut, double>(mass: MassKind.Volume, suffix: string.Empty, project: static (k, props) => props switch {
-                VolumeMassProperties volume => One(key: k, value: volume.Volume),
-                _ => Fin.Fail<Seq<double>>(k.InvalidResult()),
-            }),
-            (Analysis.Measure.MassError, Type output) when output == typeof(double) => MassCast<TGeometry, TOut, double>(mass: mass, suffix: "Error", project: (k, props) => MassProject<double>(aspect: aspect, key: k, props: props), secondMoments: mass.Equals(MassKind.Length)),
-            (Analysis.Measure.Centroid, Type output) when output == typeof(Point3d) => MassCast<TGeometry, TOut, Point3d>(mass: mass, suffix: "Centroid", project: (k, props) => MassProject<Point3d>(aspect: aspect, key: k, props: props), firstMoments: true, secondMoments: mass.Equals(MassKind.Length)),
-            (Analysis.Measure.CentroidError, Type output) when output == typeof(Vector3d) => MassCast<TGeometry, TOut, Vector3d>(mass: mass, suffix: "CentroidError", project: (k, props) => MassProject<Vector3d>(aspect: aspect, key: k, props: props), firstMoments: true, secondMoments: mass.Equals(MassKind.Length)),
-            (Analysis.Measure.Radii, Type output) when output == typeof(Vector3d) => MassCast<TGeometry, TOut, Vector3d>(mass: mass, suffix: "Radii", project: (k, props) => MassProject<Vector3d>(aspect: aspect, key: k, props: props), firstMoments: true, secondMoments: true),
-            (Analysis.Measure.PrincipalAxes, Type output) when output == typeof(ValueTuple<double, Vector3d>) => MassCast<TGeometry, TOut, (double Moment, Vector3d Axis)>(mass: mass, suffix: "Principal", project: (k, props) => MassProject<(double Moment, Vector3d Axis)>(aspect: aspect, key: k, props: props), firstMoments: true, secondMoments: true, productMoments: true),
-            _ => key.Unsupported<TGeometry, TOut>(),
-        };
-    }
-    private static Query<TGeometry, TOut> MassCast<TGeometry, TOut, TValue>(MassKind mass, string suffix, Func<Op, IDisposable, Fin<Seq<TValue>>> project, bool firstMoments = false, bool secondMoments = false, bool productMoments = false) where TGeometry : notnull {
-        Op key = Op.Of(name: $"{mass.Label}{suffix}");
-        return Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, TValue>.Build(
-            key: key, requirement: mass.Requirement, requiresContext: true,
-            aggregate: Some<Func<Seq<TGeometry>, Eff<Env, Seq<TValue>>>>(
-                geometry => from context in Env.Asks
-                            from native in geometry.Traverse(item => item switch {
-                                GeometryBase gb => Fin.Succ(gb),
-                                _ => Fin.Fail<GeometryBase>(key.Unsupported(geometryType: item.GetType(), outputType: typeof(GeometryBase))),
-                            }).As().ToEff()
-                            from aggregate in mass.Aggregate(arg1: native.AsIterable(), arg2: context, arg3: firstMoments, arg4: secondMoments, arg5: productMoments, arg6: key).ToEff()
-                            from values in Bracket(factory: () => aggregate, body: disposable => project(arg1: key, arg2: disposable)).ToEff()
-                            select values),
-            evaluator: geometry => from computed in mass.Compute(value: geometry, op: key, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments)
-                                   from values in Bracket(factory: () => computed, body: disposable => project(arg1: key, arg2: disposable)).ToEff()
-                                   select values));
-    }
-    private static Fin<Seq<TValue>> MassProject<TValue>(Measure aspect, Op key, IDisposable props) =>
-        aspect switch {
-            Analysis.Measure.MassError => key.PickMass<double, TValue>(props: props, length: static l => l.LengthError, area: static a => a.AreaError, volume: static v => v.VolumeError),
-            Analysis.Measure.Centroid => key.PickMass<Point3d, TValue>(props: props, length: static l => l.Centroid, area: static a => a.Centroid, volume: static v => v.Centroid),
-            Analysis.Measure.CentroidError => key.PickMass<Vector3d, TValue>(props: props, length: static l => l.CentroidError, area: static a => a.CentroidError, volume: static v => v.CentroidError),
-            Analysis.Measure.Radii => key.PickMass<Vector3d, TValue>(props: props, length: static l => l.CentroidCoordinatesRadiiOfGyration, area: static a => a.CentroidCoordinatesRadiiOfGyration, volume: static v => v.CentroidCoordinatesRadiiOfGyration),
-            Analysis.Measure.PrincipalAxes => key.Principal(mass: props).Bind(values => key.Results<(double Moment, Vector3d Axis), TValue>(values: values)),
-            _ => Fin.Fail<Seq<TValue>>(key.InvalidResult()),
-        };
-    private static Fin<Seq<TValue>> PickMass<TProp, TValue>(this Op key, IDisposable props, Func<LengthMassProperties, TProp> length, Func<AreaMassProperties, TProp> area, Func<VolumeMassProperties, TProp> volume) =>
-        props switch {
-            LengthMassProperties l => key.Results<TProp, TValue>(values: Seq(length(arg: l))),
-            AreaMassProperties a => key.Results<TProp, TValue>(values: Seq(area(arg: a))),
-            VolumeMassProperties v => key.Results<TProp, TValue>(values: Seq(volume(arg: v))),
-            _ => Fin.Fail<Seq<TValue>>(key.InvalidResult()),
-        };
     internal static Query<TGeometry, TOut> BoxMetric<TGeometry, TOut>(Op key, Func<BoundingBox, double> boundingBox, Func<Box, double> box) where TGeometry : notnull =>
         (typeof(TOut) == typeof(double), typeof(TGeometry)) switch {
             (true, Type geometry) when geometry == typeof(BoundingBox) => Cast<TGeometry, TOut>(key: key, query: Query<BoundingBox, double>.Build(
@@ -81,66 +68,4 @@ public static partial class Query {
                 evaluator: static (state, geometry) => state.Key.RequireValid(value: geometry).Bind(validated => One(key: state.Key, value: state.Project(arg: validated))).ToEff())),
             _ => key.Unsupported<TGeometry, TOut>(),
         };
-    internal static Query<TGeometry, TOut> Length<TGeometry, TOut>() where TGeometry : notnull {
-        Op key = Op.Of();
-        return (typeof(TOut) == typeof(double), typeof(TGeometry).AsKind().Case) switch {
-            (true, Kind { Topology: Topology.Curve } kind) => Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, double>.Build(
-                key: key,
-                requirement: kind.IsGeometryBaseDerived() ? Requirement.CurveLength : Requirement.None,
-                requiresContext: true,
-                state: key,
-                evaluator: static (op, geometry) =>
-                    from context in Env.Asks
-                    from kindAt in ((object)geometry).Kind(ctx: context).ToEff()
-                    from length in kindAt.Length(value: geometry, ctx: context, op: op).ToEff()
-                    from result in One(key: op, value: length).ToEff()
-                    select result)),
-            _ => key.Unsupported<TGeometry, TOut>(),
-        };
-    }
-    internal static Query<(TGeometry Geometry, TPrimitive Primitive), TOut> ConformanceProject<TGeometry, TPrimitive, TOut>(Conformance aspect) where TGeometry : notnull where TPrimitive : notnull =>
-        (aspect, typeof(TOut)) switch {
-            (Conformance.Distance item, Type output) when output == typeof(double) => Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: Rasm.Analysis.Conformance.Key, query: ConformancePair<TGeometry, TPrimitive, double>(
-                count: item.Count, project: static (residuals, _) => ResidualDistances(key: Rasm.Analysis.Conformance.Key, samples: residuals).Bind(values => Many(key: Rasm.Analysis.Conformance.Key, values: values)))),
-            (Conformance.Rms item, Type output) when output == typeof(double) => Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: Rasm.Analysis.Conformance.Key, query: ConformancePair<TGeometry, TPrimitive, double>(
-                count: item.Count, project: static (residuals, _) => ResidualDistances(key: Rasm.Analysis.Conformance.Key, samples: residuals).Bind(values => Stats.From(values: values, key: Rasm.Analysis.Conformance.Key)).Bind(stats => One(key: Rasm.Analysis.Conformance.Key, value: stats.Rms)))),
-            (Conformance.WithinTolerance item, Type output) when output == typeof(bool) => Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: Rasm.Analysis.Conformance.Key, query: ConformancePair<TGeometry, TPrimitive, bool>(
-                count: item.Count, project: static (residuals, context) => ResidualDistances(key: Rasm.Analysis.Conformance.Key, samples: residuals).Bind(values => Stats.From(values: values, key: Rasm.Analysis.Conformance.Key)).Bind(stats => One(key: Rasm.Analysis.Conformance.Key, value: stats.Maximum <= context.Absolute.Value)))),
-            (Conformance.ProfileResidual item, Type output) when output == typeof(ResidualProfile) => Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: Rasm.Analysis.Conformance.Key, query: ConformancePair<TGeometry, TPrimitive, ResidualProfile>(
-                count: item.Count, project: static (residuals, context) => ResidualDistances(key: Rasm.Analysis.Conformance.Key, samples: residuals)
-                    .Bind(values => Stats.From(values: values, key: Rasm.Analysis.Conformance.Key))
-                    .Bind(stats => One(key: Rasm.Analysis.Conformance.Key, value: new ResidualProfile(Count: stats.Count, Minimum: stats.Minimum, Maximum: stats.Maximum, Mean: stats.Mean, Variance: stats.Variance, Rms: stats.Rms, Tolerance: context.Absolute.Value, WithinTolerance: stats.Maximum <= context.Absolute.Value))))),
-            (Conformance.Maximum item, Type output) when output == typeof(ResidualSample) => Cast<(TGeometry Geometry, TPrimitive Primitive), TOut>(key: Rasm.Analysis.Conformance.Key, query: ConformancePair<TGeometry, TPrimitive, ResidualSample>(
-                count: item.Count, project: static (residuals, _) => residuals
-                    .TraverseM(static sample => sample switch {
-                        { Distance: double d, Location.IsValid: true } when d >= 0.0 && RhinoMath.IsValidDouble(x: d) => Fin.Succ(sample),
-                        _ => Fin.Fail<ResidualSample>(Rasm.Analysis.Conformance.Key.InvalidResult()),
-                    })
-                    .As()
-                    .Bind(values => values.Maxima(projection: static sample => sample.Distance, tolerance: 0.0).Head.ToFin(Rasm.Analysis.Conformance.Key.InvalidResult()).Map(static best => Seq(best))))),
-            _ => Rasm.Analysis.Conformance.Key.Unsupported<(TGeometry Geometry, TPrimitive Primitive), TOut>(),
-        };
-    private static Query<(TGeometry Geometry, TPrimitive Primitive), TValue> ConformancePair<TGeometry, TPrimitive, TValue>(int count, Func<Seq<ResidualSample>, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull where TPrimitive : notnull =>
-        Query<(TGeometry Geometry, TPrimitive Primitive), TValue>.Build(
-            key: Rasm.Analysis.Conformance.Key, requiresContext: true,
-            state: (Op: Rasm.Analysis.Conformance.Key, Count: count, Project: project),
-            evaluator: static (state, pair) =>
-                from runtime in Env.EnvAsks
-                from candidate in runtime.Context.ValidatePair(a: pair.Geometry, b: pair.Primitive, requirementA: Requirement.None, requirementB: Requirement.None, cancel: runtime.Cancellation).ToEff()
-                from kindG in ((object)candidate.A).Kind(ctx: runtime.Context).ToEff()
-                from kindP in ((object)candidate.B).Kind(ctx: runtime.Context).ToEff()
-                from requirement in (kindG.Topology switch {
-                    Topology.Curve => Fin.Succ(Requirement.CurveLength),
-                    Topology.Surface => Fin.Succ(Requirement.SurfaceEvaluation),
-                    _ => Fin.Fail<Requirement>(state.Op.Unsupported(geometryType: kindG.Type, outputType: typeof(ResidualSample))),
-                }).ToEff()
-                from validated in runtime.Context.ValidatePair(a: candidate.A, b: candidate.B, requirementA: requirement, requirementB: Requirement.None, cancel: runtime.Cancellation).ToEff()
-                from residuals in kindG.Conformance(kindP: kindP, geometry: validated.A, primitive: validated.B, count: state.Count, ctx: runtime.Context, op: state.Op).ToEff()
-                from result in state.Project(arg1: residuals, arg2: runtime.Context).ToEff()
-                select result);
-    private static Fin<Seq<double>> ResidualDistances(Op key, Seq<ResidualSample> samples) =>
-        samples.TraverseM(sample => sample switch {
-            { Distance: double distance, Location.IsValid: true } when distance >= 0.0 && RhinoMath.IsValidDouble(x: distance) => Fin.Succ(distance),
-            _ => Fin.Fail<double>(key.InvalidResult()),
-        }).As();
 }

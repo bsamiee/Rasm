@@ -3,7 +3,6 @@ using FsCheck;
 using LanguageExt;
 using LanguageExt.Common;
 using Microsoft.FSharp.Core;
-using Rasm.Analysis;
 using Rasm.Domain;
 using Rhino;
 using Xunit;
