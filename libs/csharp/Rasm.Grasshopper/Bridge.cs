@@ -1,4 +1,5 @@
 using System.Collections.Frozen;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Extensions;
@@ -25,7 +26,7 @@ public readonly record struct Flow<T>(Pear<T> Pear, Option<Site> Site) {
     public T Item => Pear.Item;
     public MetaData Meta => Pear.Meta;
     public Flow<TOut> Project<TOut>(TOut item) => new(Pear: Pear<TOut>.Create(item: item, meta: Meta), Site: Site);
-    public Flow<TOut> Project<TOut>(TOut item, int index) => new(Pear: Pear<TOut>.Create(item: item, meta: Meta), Site: Site.Map(site => new Site(path: site.Path, item: index)));
+    public Flow<TOut> Project<TOut>(TOut item, int index) => new(Pear: Pear<TOut>.Create(item: item, meta: Meta), Site: Site.Map(site => new Site(path: site.Path.AppendElement(site.Item), item: index)));
 }
 
 // --- [SERVICES] -------------------------------------------------------------------------
@@ -51,15 +52,31 @@ public static class Bridge {
     internal static Fin<Seq<Flow<TVal>>> Read<TVal>(this IDataAccess access, int slot, IPort port) {
         ArgumentNullException.ThrowIfNull(argument: access);
         ArgumentNullException.ThrowIfNull(argument: port);
-        return AccessDispatch<TVal>.Readers.GetValueOrDefault(key: port.Access) switch {
-            Func<IDataAccess, int, IPort, Fin<Seq<Flow<TVal>>>> reader => reader(arg1: access, arg2: slot, arg3: port),
-            _ => Fin.Fail<Seq<Flow<TVal>>>(new Fault.UnsupportedAccess(AccessName: port.Access.ToString())),
+        return typeof(TVal).IsEnum switch {
+            true => Read<int>(access: access, slot: slot, port: port).Bind(static values => values.TraverseM(EnumFlow<TVal>).As()),
+            false => ReadNative<TVal>(access: access, slot: slot, port: port),
         };
     }
     internal static Unit Write<TOut>(this IDataAccess access, int slot, string name, Access targetAccess, Seq<Flow<TOut>> values) =>
+        typeof(TOut).IsEnum switch {
+            true => Write(access: access, slot: slot, name: name, targetAccess: targetAccess,
+                values: values.Map(static value => value.Project(item: Convert.ToInt32(value: value.Item, provider: CultureInfo.InvariantCulture)))),
+            false => WriteNative(access: access, slot: slot, name: name, targetAccess: targetAccess, values: values),
+        };
+    private static Fin<Seq<Flow<TVal>>> ReadNative<TVal>(IDataAccess access, int slot, IPort port) =>
+        AccessDispatch<TVal>.Readers.GetValueOrDefault(key: port.Access) switch {
+            Func<IDataAccess, int, IPort, Fin<Seq<Flow<TVal>>>> reader => reader(arg1: access, arg2: slot, arg3: port),
+            _ => Fin.Fail<Seq<Flow<TVal>>>(new Fault.UnsupportedAccess(AccessName: port.Access.ToString())),
+        };
+    private static Unit WriteNative<TOut>(IDataAccess access, int slot, string name, Access targetAccess, Seq<Flow<TOut>> values) =>
         AccessDispatch<TOut>.Writers.GetValueOrDefault(key: targetAccess) switch {
             Func<IDataAccess, int, Seq<Flow<TOut>>, Unit> writer => writer(arg1: access, arg2: slot, arg3: values),
             _ => Effect(action: () => access.AddError(text: name, details: $"Unsupported output access: {targetAccess}.")),
+        };
+    private static Fin<Flow<TVal>> EnumFlow<TVal>(Flow<int> value) =>
+        Enum.IsDefined(enumType: typeof(TVal), value: value.Item) switch {
+            true => Fin.Succ(value.Project(item: (TVal)Enum.ToObject(enumType: typeof(TVal), value: value.Item))),
+            false => Fin.Fail<Flow<TVal>>(Op.Of(name: typeof(TVal).Name).InvalidInput()),
         };
     private static Unit Effect(Action action) {
         action();

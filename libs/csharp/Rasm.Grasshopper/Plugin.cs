@@ -35,7 +35,8 @@ public abstract class Plugin : GhPlugin {
         Seq<string> duplicates = sides.Bind(side =>
             Duplicates(spec: spec, side: side.Side, ports: side.Ports, key: "code", project: static port => port.Code, label: static port => port.Name)
                 .Concat(Duplicates(spec: spec, side: side.Side, ports: side.Ports, key: "name", project: static port => port.Name, label: static port => port.Code)));
-        return structural.Concat(nullFaults).Concat(duplicates).ToSeq();
+        Seq<string> enumFaults = sides.Bind(side => EnumWireFaults(spec: spec, side: side.Side, ports: side.Ports));
+        return structural.Concat(nullFaults).Concat(duplicates).Concat(enumFaults).ToSeq();
     }
     private static Seq<string> NullsAt(Type spec, string side, int count, Func<int, bool> missing) =>
         toSeq(Enumerable.Range(start: 0, count: count).Where(predicate: missing.Invoke).Select(index => $"{spec.FullName}: {side} {index} is null"));
@@ -43,6 +44,12 @@ public abstract class Plugin : GhPlugin {
         toSeq(ports.GroupBy(keySelector: project, comparer: StringComparer.Ordinal)
             .Where(static group => group.Skip(1).Any())
             .Select(group => $"{spec.FullName}: duplicate {side} port {key} '{group.Key}' on {string.Join(separator: ", ", values: group.Select(label))}"));
+    private static Seq<string> EnumWireFaults(Type spec, string side, Seq<IPort> ports) =>
+        ports.Choose(port => (port.ValueType.IsEnum, port.Kind.Type == port.ValueType, port.Kind.WireType == typeof(int)) switch {
+            (true, false, _) => Some($"{spec.FullName}: {side} enum port '{port.Name}' uses logical type '{port.Kind.Type.Name}' instead of '{port.ValueType.Name}'"),
+            (true, _, false) => Some($"{spec.FullName}: {side} enum port '{port.Name}' uses GH2 wire type '{port.Kind.WireType.Name}' instead of 'Int32'"),
+            _ => Option<string>.None,
+        });
     public override string Author => author;
     public override string Copyright => copyright;
     public override IIcon Icon => IconAttribute.Resolve(owner: GetType(), fallback: base.Icon);

@@ -1,6 +1,7 @@
 namespace Rasm.Analysis;
 
 // --- [MODELS] ----------------------------------------------------------------------------
+internal enum ProjectionOwnership { Dispose, Transfer }
 internal static class FoldExtensions {
     internal static Seq<TItem> Maxima<TItem>(this Seq<TItem> items, Func<TItem, double> projection, double tolerance) => Extrema(items: items, projection: projection, tolerance: tolerance, direction: +1);
     internal static Seq<TItem> Minima<TItem>(this Seq<TItem> items, Func<TItem, double> projection, double tolerance) => Extrema(items: items, projection: projection, tolerance: tolerance, direction: -1);
@@ -225,7 +226,7 @@ public static partial class Query {
         from context in Env.Asks
         from faces in DecomposeFaces(key: Rasm.Analysis.Faces.Key, ctx: context, geometry: geometry).ToEff()
         from chosen in SelectFaces(key: Rasm.Analysis.Faces.Key, faces: faces, selector: choose(arg: faces.Count), runtime: context).ToEff()
-        from result in ProjectOwned(all: faces, chosen: chosen, transfer: true, project: static values => Fin.Succ(values)).ToEff()
+        from result in ProjectOwned(all: faces, chosen: chosen, ownership: ProjectionOwnership.Transfer, project: static values => Fin.Succ(values)).ToEff()
         select result;
     internal static Fin<Seq<FaceProjection>> DecomposeFaces<TGeometry>(Op key, Context ctx, TGeometry geometry) where TGeometry : notnull =>
         ((object)geometry).Kind(ctx: ctx).Bind(kind => kind.Faces(value: geometry, ctx: ctx, op: key));
@@ -249,14 +250,14 @@ public static partial class Query {
                     ? ranked.Maxima(projection: static item => item.Score, tolerance: state.Runtime.Absolute.Value * axis.Length).Map(static item => item.face)
                     : ranked.Minima(projection: static item => item.Score, tolerance: state.Runtime.Absolute.Value * axis.Length).Map(static item => item.face)),
         };
-    internal static Query<TGeometry, TOut> FaceQuery<TGeometry, TOut, TValue>(Op key, Faces selector, Requirement requirement, bool transfer, Func<Seq<FaceProjection>, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull =>
+    internal static Query<TGeometry, TOut> FaceQuery<TGeometry, TOut, TValue>(Op key, Faces selector, Requirement requirement, ProjectionOwnership ownership, Func<Seq<FaceProjection>, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull =>
         Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, TValue>.Build(
-            key: key, state: (Key: key, Selector: selector, Transfer: transfer, Project: project), requirement: requirement, requiresContext: true,
+            key: key, state: (Key: key, Selector: selector, Ownership: ownership, Project: project), requirement: requirement, requiresContext: true,
             evaluator: static (state, geometry) =>
                 from context in Env.Asks
                 from faces in DecomposeFaces(key: state.Key, ctx: context, geometry: geometry).ToEff()
                 from chosen in SelectFaces(key: state.Key, faces: faces, selector: state.Selector, runtime: context).ToEff()
-                from result in ProjectOwned(all: faces, chosen: chosen, transfer: state.Transfer, project: values => state.Project(arg1: values, arg2: context)).ToEff()
+                from result in ProjectOwned(all: faces, chosen: chosen, ownership: state.Ownership, project: values => state.Project(arg1: values, arg2: context)).ToEff()
                 select result));
     public static Fin<Plane> FrameAtCentroid(FaceProjection face, Context runtime) =>
         FaceCentroid(face: face, runtime: runtime)
@@ -295,14 +296,14 @@ public static partial class Query {
                 from kind in ((object)geometry).Kind(ctx: runtime.Context).ToEff()
                 from curves in kind.Curves(value: geometry, selector: state.Aspect.ToSelector(topology: kind.Topology), ctx: runtime.Context, op: state.Key, cancel: runtime.Cancellation).ToEff()
                 from chosen in state.Aspect.Select(curves: curves).ToEff()
-                from result in ProjectOwned(all: curves, chosen: chosen, transfer: typeof(TValue) == typeof(Curve), project: values => Many(key: state.Key, values: values.Map(state.Project))).ToEff()
+                from result in ProjectOwned(all: curves, chosen: chosen, ownership: typeof(TValue) == typeof(Curve) ? ProjectionOwnership.Transfer : ProjectionOwnership.Dispose, project: values => Many(key: state.Key, values: values.Map(state.Project))).ToEff()
                 select result));
     public static Eff<Env, Seq<CurveProjection>> CurveProjections(object geometry, Curves aspect) =>
         from runtime in Env.EnvAsks
         from kind in geometry.Kind(ctx: runtime.Context).ToEff()
         from curves in kind.Curves(value: geometry, selector: aspect.ToSelector(topology: kind.Topology), ctx: runtime.Context, op: Rasm.Analysis.Curves.Key, cancel: runtime.Cancellation).ToEff()
         from chosen in aspect.Select(curves: curves).ToEff()
-        from result in ProjectOwned(all: curves, chosen: chosen, transfer: true, project: static values => Fin.Succ(values)).ToEff()
+        from result in ProjectOwned(all: curves, chosen: chosen, ownership: ProjectionOwnership.Transfer, project: static values => Fin.Succ(values)).ToEff()
         select result;
     public static Eff<Env, Seq<CurveProjection>> CurveProjections(object geometry, Func<int, Curves> choose) =>
         from runtime in Env.EnvAsks
@@ -310,13 +311,13 @@ public static partial class Query {
         from curves in kind.Curves(value: geometry, selector: Rasm.Analysis.Curves.All.ToSelector(topology: kind.Topology), ctx: runtime.Context, op: Rasm.Analysis.Curves.Key, cancel: runtime.Cancellation).ToEff()
         from aspect in Fin.Succ(choose(arg: curves.Count)).ToEff()
         from chosen in aspect.Select(curves: curves).ToEff()
-        from result in ProjectOwned(all: curves, chosen: chosen, transfer: true, project: static values => Fin.Succ(values)).ToEff()
+        from result in ProjectOwned(all: curves, chosen: chosen, ownership: ProjectionOwnership.Transfer, project: static values => Fin.Succ(values)).ToEff()
         select result;
     internal static Fin<Seq<TValue>> ProjectOwned<TProjection, TValue>(
-        Seq<TProjection> all, Seq<TProjection> chosen, bool transfer,
+        Seq<TProjection> all, Seq<TProjection> chosen, ProjectionOwnership ownership,
         Func<Seq<TProjection>, Fin<Seq<TValue>>> project) where TProjection : ITopologyProjection {
         Fin<Seq<TValue>> result = project(arg: chosen);
-        bool keep = transfer && result.IsSucc;
+        bool keep = ownership == ProjectionOwnership.Transfer && result.IsSucc;
         _ = all.Filter(value => !keep || !chosen.Exists(c => c.SameAs(other: value))).Iter(static v => v.Dispose());
         return result;
     }

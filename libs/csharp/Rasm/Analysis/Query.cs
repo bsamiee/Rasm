@@ -1,3 +1,5 @@
+using System.Collections.Frozen;
+
 namespace Rasm.Analysis;
 
 // --- [SERVICES] ---------------------------------------------------------------------------
@@ -59,16 +61,20 @@ public sealed record Query<TGeometry, TOut>(
 public enum CurvatureScalar { None = 0, Magnitude = 1, Gaussian = 2, Mean = 3 }
 public enum MeshFaceMetric { None = 0, AspectRatio = 1, Area = 2, Perimeter = 3, Skewness = 4, DihedralAngle = 5 }
 public static class MeshFaceMetrics {
+    private static readonly FrozenDictionary<MeshFaceMetric, Func<MeshFaceProjection, Fin<double>>> Metrics =
+        new Dictionary<MeshFaceMetric, Func<MeshFaceProjection, Fin<double>>> {
+            [MeshFaceMetric.AspectRatio] = static projection => Fin.Succ(projection.Mesh.Faces.GetFaceAspectRatio(index: projection.Face)),
+            [MeshFaceMetric.Area] = FaceArea,
+            [MeshFaceMetric.Perimeter] = FacePerimeter,
+            [MeshFaceMetric.Skewness] = FaceSkewness,
+            [MeshFaceMetric.DihedralAngle] = FaceMaxDihedral,
+        }.ToFrozenDictionary();
     public static Fin<double> Sample(this MeshFaceMetric metric, Mesh mesh, int face) {
         ArgumentNullException.ThrowIfNull(argument: mesh);
-        return MeshFaceProjection.Create(mesh: mesh, face: face).Bind(projection => metric switch {
-            MeshFaceMetric.AspectRatio => Fin.Succ(mesh.Faces.GetFaceAspectRatio(index: face)),
-            MeshFaceMetric.Area => FaceArea(projection: projection),
-            MeshFaceMetric.Perimeter => FacePerimeter(projection: projection),
-            MeshFaceMetric.Skewness => FaceSkewness(projection: projection),
-            MeshFaceMetric.DihedralAngle => FaceMaxDihedral(projection: projection),
-            _ => Fin.Fail<double>(Op.Of(name: nameof(MeshFaceMetric)).InvalidInput()),
-        });
+        return MeshFaceProjection.Create(mesh: mesh, face: face)
+            .Bind(projection => Optional(Metrics.GetValueOrDefault(key: metric))
+                .ToFin(Op.Of(name: nameof(MeshFaceMetric)).InvalidInput())
+                .Bind(sample => sample(arg: projection)));
     }
     private static Fin<double> FaceArea(MeshFaceProjection projection) =>
         projection.Vertices.Map(vertices => vertices switch {
@@ -82,15 +88,17 @@ public static class MeshFaceMetrics {
             .Map(static state => state.Vertices.Map((vertex, i) => Vector3d.VectorAngle(a: state.Vertices[(i + state.Vertices.Count - 1) % state.Vertices.Count] - vertex, b: state.Vertices[(i + 1) % state.Vertices.Count] - vertex))
                 .Fold(initialState: 0.0, f: (acc, angle) => Math.Max(val1: acc, val2: Math.Max(val1: (angle - state.Ideal) / (Math.PI - state.Ideal), val2: (state.Ideal - angle) / state.Ideal))));
     private static Fin<double> FaceMaxDihedral(MeshFaceProjection projection) =>
-        projection.Normal.Map(normal => normal.IsValid switch {
-            false => 0.0,
+        projection.Normal.Bind(normal => normal.IsValid switch {
+            false => Fin.Succ(0.0),
             true => toSeq(projection.Mesh.TopologyEdges.GetEdgesForFace(faceIndex: projection.Face))
                 .Bind(edge => toSeq(projection.Mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: edge)).Filter(other => other != projection.Face))
-                .Fold(initialState: 0.0, f: (max, other) => MeshFaceProjection.Create(mesh: projection.Mesh, face: other)
+                .Fold(initialState: Fin.Succ((Max: 0.0, projection.Mesh, Normal: normal)), f: static (state, other) => state.Bind(s => MeshFaceProjection.Create(mesh: s.Mesh, face: other)
                     .Bind(static otherProjection => otherProjection.Normal)
-                    .Match(
-                        Succ: neighbour => neighbour.IsValid ? Math.Max(val1: max, val2: Vector3d.VectorAngle(a: normal, b: neighbour)) : max,
-                        Fail: _ => max)),
+                    .Map(neighbour => neighbour.IsValid switch {
+                        true => (Math.Max(val1: s.Max, val2: Vector3d.VectorAngle(a: s.Normal, b: neighbour)), s.Mesh, s.Normal),
+                        false => s,
+                    })))
+                .Map(static state => state.Max),
         });
 }
 [StructLayout(LayoutKind.Auto)] public readonly record struct CurvatureProfile(CurvatureScalar Scalar, int Count, double Minimum, double Maximum, double Mean, double Variance);
@@ -263,13 +271,13 @@ public partial record Faces : IAspect {
         Dispatch.SupportsFaces(source: typeof(TGeometry)) switch {
             false => Key.Unsupported<TGeometry, TOut>(),
             true => typeof(TOut) switch {
-                Type t when t == typeof(Brep) => Query.FaceQuery<TGeometry, TOut, Brep>(key: Key, selector: this, requirement: Requirement.None, transfer: true, project: static (chosen, _) => Query.Many(key: Key, values: chosen.Map(static face => face.Brep))),
-                Type t when t == typeof(Plane) => Query.FaceQuery<TGeometry, TOut, Plane>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation, transfer: false, project: static (chosen, runtime) => chosen.Traverse(face => Query.FrameAtCentroid(face: face, runtime: runtime)).As()),
-                Type t when t == typeof(Point3d) => Query.FaceQuery<TGeometry, TOut, Point3d>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation, transfer: false, project: static (chosen, runtime) => chosen.Traverse(face => Query.FaceCentroid(face: face, runtime: runtime)).As()),
-                Type t when t == typeof(Vector3d) => Query.FaceQuery<TGeometry, TOut, Vector3d>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation, transfer: false, project: static (chosen, runtime) => chosen.Traverse(face => Query.FrameAtCentroid(face: face, runtime: runtime).Map(static frame => frame.ZAxis)).As()),
-                Type t when t == typeof(int) => Query.FaceQuery<TGeometry, TOut, int>(key: Key, selector: this, requirement: Requirement.None, transfer: false, project: static (chosen, _) => Query.Many(key: Key, values: chosen.Map(static face => face.FaceIndex))),
-                Type t when t == typeof(ComponentIndex) => Query.FaceQuery<TGeometry, TOut, ComponentIndex>(key: Key, selector: this, requirement: Requirement.None, transfer: false, project: static (chosen, _) => Query.Many(key: Key, values: chosen.Map(static face => new ComponentIndex(type: ComponentIndexType.BrepFace, index: face.FaceIndex)))),
-                Type t when t == typeof(Interval) => Query.FaceQuery<TGeometry, TOut, Interval>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation, transfer: false, project: static (chosen, _) => chosen.Traverse(Query.FaceDomains).Map(static nested => nested.Bind(static domain => domain)).As()),
+                Type t when t == typeof(Brep) => Query.FaceQuery<TGeometry, TOut, Brep>(key: Key, selector: this, requirement: Requirement.None, ownership: ProjectionOwnership.Transfer, project: static (chosen, _) => Query.Many(key: Key, values: chosen.Map(static face => face.Brep))),
+                Type t when t == typeof(Plane) => Query.FaceQuery<TGeometry, TOut, Plane>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation, ownership: ProjectionOwnership.Dispose, project: static (chosen, runtime) => chosen.Traverse(face => Query.FrameAtCentroid(face: face, runtime: runtime)).As()),
+                Type t when t == typeof(Point3d) => Query.FaceQuery<TGeometry, TOut, Point3d>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation, ownership: ProjectionOwnership.Dispose, project: static (chosen, runtime) => chosen.Traverse(face => Query.FaceCentroid(face: face, runtime: runtime)).As()),
+                Type t when t == typeof(Vector3d) => Query.FaceQuery<TGeometry, TOut, Vector3d>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation, ownership: ProjectionOwnership.Dispose, project: static (chosen, runtime) => chosen.Traverse(face => Query.FrameAtCentroid(face: face, runtime: runtime).Map(static frame => frame.ZAxis)).As()),
+                Type t when t == typeof(int) => Query.FaceQuery<TGeometry, TOut, int>(key: Key, selector: this, requirement: Requirement.None, ownership: ProjectionOwnership.Dispose, project: static (chosen, _) => Query.Many(key: Key, values: chosen.Map(static face => face.FaceIndex))),
+                Type t when t == typeof(ComponentIndex) => Query.FaceQuery<TGeometry, TOut, ComponentIndex>(key: Key, selector: this, requirement: Requirement.None, ownership: ProjectionOwnership.Dispose, project: static (chosen, _) => Query.Many(key: Key, values: chosen.Map(static face => new ComponentIndex(type: ComponentIndexType.BrepFace, index: face.FaceIndex)))),
+                Type t when t == typeof(Interval) => Query.FaceQuery<TGeometry, TOut, Interval>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation, ownership: ProjectionOwnership.Dispose, project: static (chosen, _) => chosen.Traverse(Query.FaceDomains).Map(static nested => nested.Bind(static domain => domain)).As()),
                 _ => Key.Unsupported<TGeometry, TOut>(),
             },
         };

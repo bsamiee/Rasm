@@ -105,7 +105,10 @@ public static class Output {
             .Bind(context => sources.Traverse(src => project(arg1: src.Item, arg2: context).Map(src.Project)).As()));
     public static OutputSlot<TSource> Many<TSource, TOut>(Port<TOut> port, Func<TSource, Fin<Seq<TOut>>> project) =>
         Slot<TSource, TOut>(port: port, project: (_, sources) => sources.Traverse(src =>
-            project(arg: src.Item).Map(values => values.Map((value, index) => src.Project(item: value, index: index))))
+            project(arg: src.Item).Map(values => values.Count switch {
+                1 => values.Map(value => src.Project(item: value)),
+                _ => values.Map((value, index) => src.Project(item: value, index: index)),
+            }))
             .Map(static nested => nested.Bind(static x => x)).As());
     public static Unit Write(IDataAccess access, GrasshopperRuntime runtime, Seq<IOutputGroup> groups, Hints outputs) =>
         groups.Iter(group => group.Run(access: access, outputs: outputs, runtime: runtime));
@@ -164,7 +167,10 @@ public static class Output {
         from sourced in runtime.Shape(port: input)
         from context in runtime.Scope.Context
         from values in sourced.Traverse(src => project(arg: src.Item)
-            .Map(values => values.Map(value => src.Project(item: value)))
+            .Map(values => values.Count switch {
+                1 => values.Map(value => src.Project(item: value)),
+                _ => values.Map((value, index) => src.Project(item: value, index: index)),
+            })
             .Run(env: new Env(Context: context, Progress: runtime.Progress, Cancellation: runtime.Cancellation))).As()
         select values.Bind(static value => value);
 }

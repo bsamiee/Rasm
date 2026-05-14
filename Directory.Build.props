@@ -16,6 +16,7 @@
 
     <PropertyGroup Label="Language and Build">
         <TargetFramework>net10.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <GenerateDocumentationFile>false</GenerateDocumentationFile>
@@ -135,10 +136,13 @@
         </Reference>
     </ItemGroup>
 
+    <ItemGroup Label="Compiler Toolset">
+        <PackageReference Include="Microsoft.Net.Compilers.Toolset" PrivateAssets="all" />
+    </ItemGroup>
+
     <ItemGroup Label="Analyzer Packages" Condition="'$(IsLocalCSharpAnalyzerProject)' != 'true'">
         <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" PrivateAssets="all" />
         <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all" />
-        <PackageReference Include="Microsoft.Net.Compilers.Toolset" PrivateAssets="all" />
     </ItemGroup>
 
     <ItemGroup Label="Local Analyzer Projects" Condition="'$(SkipLocalCSharpAnalyzerReference)' != 'true' and Exists('$(LocalCSharpAnalyzerProject)')">

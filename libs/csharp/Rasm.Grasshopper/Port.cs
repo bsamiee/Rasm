@@ -17,6 +17,7 @@ public interface IPort {
     public Requirement Requirement { get; }
     public PortPolicy Policy { get; }
     public Option<object> FallbackValue { get; }
+    public Type ValueType { get; }
 }
 
 // --- [MODELS] ---------------------------------------------------------------------------
@@ -66,6 +67,7 @@ public readonly record struct Port<TVal>(
     PortPolicy Policy,
     Option<TVal> Fallback) : IPort {
     public Option<object> FallbackValue => Fallback.Map(static value => (object)value!);
+    public Type ValueType => typeof(TVal);
 }
 
 // --- [CONSTANTS] ------------------------------------------------------------------------
@@ -153,6 +155,7 @@ public sealed partial class PortKind {
         Output: static (adder, name, code, info, access) => adder.AddGeneric(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access),
         HiddenOutput: static (adder, name, code, info, access) => adder.AddHiddenGeneric(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access)));
     public Type Type { get; }
+    public Type WireType { get; }
     [UseDelegateFromConstructor] private partial IParameter AddInput(ModularInputAdder adder, string name, string code, string info, Access access, Requirement requirement, bool hidden);
     [UseDelegateFromConstructor] private partial IParameter AddOutput(ModularOutputAdder adder, string name, string code, string info, Access access, bool hidden);
     public static PortKind Enum<T>(T initial) where T : struct, Enum =>
@@ -168,7 +171,8 @@ public sealed partial class PortKind {
                     PortPolicy.Colour(color: Colors.Transparent),
                     hidden ? PortPolicy.Hidden : PortPolicy.Empty).Apply(parameter: parameter);
                 return parameter;
-            });
+            },
+            wireType: typeof(int));
     public static Option<PortKind> From(Type type) {
         ArgumentNullException.ThrowIfNull(argument: type);
         return type == typeof(Shape)
@@ -192,8 +196,9 @@ public sealed partial class PortKind {
     private static PortKind Of<T>(
         string key,
         Func<ModularInputAdder, string, string, string, Access, Requirement, bool, IParameter> input,
-        Func<ModularOutputAdder, string, string, string, Access, bool, IParameter> output) =>
-        new(key: key, type: typeof(T), addInput: input, addOutput: output);
+        Func<ModularOutputAdder, string, string, string, Access, bool, IParameter> output,
+        Type? wireType = null) =>
+        new(key: key, type: typeof(T), wireType: wireType ?? typeof(T), addInput: input, addOutput: output);
     private static PortKind Of<T>(string key, Descriptor descriptor) =>
         Of<T>(key: key, input: descriptor.AddInput, output: descriptor.AddOutput);
 }
@@ -210,6 +215,8 @@ public static class Port {
             fallback: fallback);
     public static Port<TVal> List<TVal>(string name, string code, string info, Requirement requirement = Requirement.MustExist, PortKind? kind = null, PortPolicy? policy = null) =>
         Of<TVal>(name: name, code: code, info: info, kind: kind, access: Access.Twig, requirement: requirement, policy: policy, fallback: Option<TVal>.None);
+    public static Port<TVal> Tree<TVal>(string name, string code, string info, Requirement requirement = Requirement.MustExist, PortKind? kind = null, PortPolicy? policy = null) =>
+        Of<TVal>(name: name, code: code, info: info, kind: kind, access: Access.Tree, requirement: requirement, policy: policy, fallback: Option<TVal>.None);
     public static Port<int> Index(
         string name = "Index",
         string code = "I",
