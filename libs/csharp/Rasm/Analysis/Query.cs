@@ -300,7 +300,7 @@ public partial class MeshCheckCount {
     public static readonly MeshCheckCount ZeroLengthNormals = new(key: 13, get: static p => p.ZeroLengthNormalCount);
     private readonly Func<MeshCheckParameters, int> get;
     public int Get(MeshCheckParameters parameters) => get(arg: parameters);
-    internal static IEnumerable<MeshCheckCount> Defects => Items.Where(static m => m != None);
+    internal static IEnumerable<MeshCheckCount> Defects => [DegenerateFaces, DuplicateFaces, NakedEdges, NonManifoldEdges, SelfIntersectingPairs];
 }
 [Union]
 public partial record Curves : IAspect {

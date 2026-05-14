@@ -36,7 +36,10 @@ public abstract class Plugin : GhPlugin {
             Duplicates(spec: spec, side: side.Side, ports: side.Ports, key: "code", project: static port => port.Code, label: static port => port.Name)
                 .Concat(Duplicates(spec: spec, side: side.Side, ports: side.Ports, key: "name", project: static port => port.Name, label: static port => port.Code)));
         Seq<string> enumFaults = sides.Bind(side => EnumWireFaults(spec: spec, side: side.Side, ports: side.Ports));
-        return structural.Concat(nullFaults).Concat(duplicates).Concat(enumFaults).ToSeq();
+        Seq<string> portCount = outputs.Count > 24 ? Seq($"{spec.FullName}: output port count {outputs.Count} exceeds 24") : Seq<string>();
+        Seq<string> codeLengths = sides.Bind(side => side.Ports.Choose(port =>
+            port.Code.Length is > 0 and <= 2 ? Option<string>.None : Some($"{spec.FullName}: {side.Side} port '{port.Name}' code '{port.Code}' must be 1-2 characters")));
+        return structural.Concat(nullFaults).Concat(duplicates).Concat(enumFaults).Concat(portCount).Concat(codeLengths).ToSeq();
     }
     private static Seq<string> NullsAt(Type spec, string side, int count, Func<int, bool> missing) =>
         toSeq(Enumerable.Range(start: 0, count: count).Where(predicate: missing.Invoke).Select(index => $"{spec.FullName}: {side} {index} is null"));

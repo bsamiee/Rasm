@@ -108,55 +108,36 @@ public static class Output {
         groups.Iter(group => group.Run(access: access, outputs: outputs, runtime: runtime));
     public static Unit Empty(IDataAccess access, Seq<IOutputGroup> groups, Hints outputs) =>
         groups.Iter(group => group.Empty(access: access, outputs: outputs));
-    public static IOutputGroup Query<TAspect, TOut>(Port<Shape> input, Port<TOut> port, TAspect aspect) where TAspect : IAspect where TOut : notnull =>
-        FromShapes(
+    public static IOutputGroup Single<TOut>(
+        Port<Shape> input, Port<TOut> port,
+        Func<GrasshopperRuntime, Fin<Query<object, TOut>>> query,
+        bool emptyUnsupported = true, string aspectLabel = "Query") where TOut : notnull =>
+        Details<TOut>(
             input: input,
-            project: _ => Fin.Succ<Func<Shape, Eff<Env, Seq<TOut>>>>(shape => aspect.ToQuery<object, TOut>().Apply(geometry: shape.Inner)),
-            emptyUnsupported: static _ => true,
-            aspectLabel: aspect.GetType().Name,
-            slots: [Slot<TOut, TOut>(port: port, project: static (_, values) => Fin.Succ(values))]);
-    public static IOutputGroup Query<TAspect, TOut>(Port<Shape> input, Port<TOut> port, Func<GrasshopperRuntime, Fin<TAspect>> aspect) where TAspect : IAspect where TOut : notnull =>
-        FromShapes(
-            input: input,
-            project: runtime => aspect(arg: runtime).Map<Func<Shape, Eff<Env, Seq<TOut>>>>(selected => shape => selected.ToQuery<object, TOut>().Apply(geometry: shape.Inner)),
-            emptyUnsupported: static _ => true,
-            aspectLabel: typeof(TAspect).Name,
-            slots: [Slot<TOut, TOut>(port: port, project: static (_, values) => Fin.Succ(values))]);
-    public static IOutputGroup Query<TOut>(Port<Shape> input, Port<TOut> port, Func<GrasshopperRuntime, Fin<Query<object, TOut>>> aspect, bool emptyUnsupported = false, string aspectLabel = "Query") where TOut : notnull =>
-        FromShapes(
-            input: input,
-            project: runtime => aspect(arg: runtime).Map<Func<Shape, Eff<Env, Seq<TOut>>>>(query => shape => query.Apply(geometry: shape.Inner)),
-            emptyUnsupported: _ => emptyUnsupported,
+            aspect: runtime => query(arg: runtime).Map<Func<Shape, Eff<Env, Seq<TOut>>>>(selected => shape => selected.Apply(geometry: shape.Inner)),
+            emptyUnsupported: emptyUnsupported,
             aspectLabel: aspectLabel,
-            slots: [Slot<TOut, TOut>(port: port, project: static (_, values) => Fin.Succ(values))]);
+            slots: Slot<TOut, TOut>(port: port, project: static (_, values) => Fin.Succ(values)));
+    public static IOutputGroup Single<TAspect, TOut>(Port<Shape> input, Port<TOut> port, TAspect aspect)
+        where TAspect : IAspect where TOut : notnull =>
+        Single<TOut>(input: input, port: port,
+            query: _ => Fin.Succ(aspect.ToQuery<object, TOut>()),
+            aspectLabel: aspect.GetType().Name);
+    public static IOutputGroup Single<TAspect, TOut>(Port<Shape> input, Port<TOut> port, Func<GrasshopperRuntime, Fin<TAspect>> aspect)
+        where TAspect : IAspect where TOut : notnull =>
+        Single<TOut>(input: input, port: port,
+            query: runtime => aspect(arg: runtime).Map(static selected => selected.ToQuery<object, TOut>()),
+            aspectLabel: typeof(TAspect).Name);
     public static IOutputGroup Details<TProjection>(
         Port<Shape> input,
         Func<GrasshopperRuntime, Fin<Func<Shape, Eff<Env, Seq<TProjection>>>>> aspect,
         bool emptyUnsupported,
         string aspectLabel,
-        params OutputSlot<TProjection>[] slots) where TProjection : notnull =>
-        FromShapes(
-            input: input,
-            project: aspect,
-            emptyUnsupported: _ => emptyUnsupported,
-            aspectLabel: aspectLabel,
-            slots: slots);
-    private static PreparedGroup<TSource> FromShapes<TSource>(
-        Port<Shape> input,
-        Func<GrasshopperRuntime, Fin<Func<Shape, Eff<Env, Seq<TSource>>>>> project,
-        Func<GrasshopperRuntime, bool> emptyUnsupported,
-        string aspectLabel,
-        params OutputSlot<TSource>[] slots) where TSource : notnull =>
-        Prepared(
-            source: runtime => project(arg: runtime).Bind(next => ShapeSource(input: input, runtime: runtime, project: next)),
-            emptyUnsupported: emptyUnsupported,
-            aspectLabel: aspectLabel,
-            slots: slots);
-    private static PreparedGroup<TSource> Prepared<TSource>(
-        Func<GrasshopperRuntime, Fin<Seq<Flow<TSource>>>> source,
-        Func<GrasshopperRuntime, bool> emptyUnsupported,
-        string aspectLabel,
-        params OutputSlot<TSource>[] slots) => new(Slots: toSeq(slots), Source: source, EmptyUnsupported: emptyUnsupported, AspectLabel: aspectLabel);
+        params OutputSlot<TProjection>[] slots) where TProjection : notnull => new PreparedGroup<TProjection>(
+            Slots: toSeq(slots),
+            Source: runtime => aspect(arg: runtime).Bind(next => ShapeSource(input: input, runtime: runtime, project: next)),
+            EmptyUnsupported: _ => emptyUnsupported,
+            AspectLabel: aspectLabel);
     internal static Fin<Seq<Flow<TSource>>> ShapeSource<TSource>(Port<Shape> input, GrasshopperRuntime runtime, Func<Shape, Eff<Env, Seq<TSource>>> project) =>
         from sourced in runtime.Shape(port: input)
         from context in runtime.Scope.Context

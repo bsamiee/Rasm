@@ -189,6 +189,11 @@ public static class Port {
         string code = "D",
         string info = "Direction vector; missing Direction uses world Z.") =>
         Optional<Vector3d>(name: name, code: code, info: info, fallback: Some(Vector3d.ZAxis));
+    public static Port<Angle> Angle(
+        string name = "Angle",
+        string code = "A",
+        string info = "Angle in radians; missing Angle defaults to 0.") =>
+        Optional<Angle>(name: name, code: code, info: info, fallback: Some(Grasshopper2.Types.Numeric.Angle.Zero));
     public static Port<Shape> Shape(
         string name = "Geometry",
         string code = "G",
