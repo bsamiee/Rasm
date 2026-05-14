@@ -87,16 +87,16 @@ public static class MeshFaceMetrics {
             .Fold(initialState: 0.0, f: (acc, angle) => Math.Max(val1: acc, val2: Math.Max(val1: (angle - ideal) / (Math.PI - ideal), val2: (ideal - angle) / ideal)));
     }
     private static double FaceMaxDihedral(MeshFaceProjection projection) {
-        Vector3d normal = projection.Normal;
-        return normal.IsValid switch {
-            false => 0.0,
-            true => toSeq(projection.Mesh.TopologyEdges.GetEdgesForFace(faceIndex: projection.Face))
-                .Bind(edge => toSeq(projection.Mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: edge)).Filter(other => other != projection.Face))
-                .Fold(initialState: 0.0, f: (max, other) => new MeshFaceProjection(Mesh: projection.Mesh, Face: other).Normal switch {
-                    { IsValid: true } neighbour => Math.Max(val1: max, val2: Vector3d.VectorAngle(a: normal, b: neighbour)),
-                    _ => max,
-                }),
-        };
+        return projection.Normal.Match(
+            Succ: normal => normal.IsValid switch {
+                false => 0.0,
+                true => toSeq(projection.Mesh.TopologyEdges.GetEdgesForFace(faceIndex: projection.Face))
+                    .Bind(edge => toSeq(projection.Mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: edge)).Filter(other => other != projection.Face))
+                    .Fold(initialState: 0.0, f: (max, other) => new MeshFaceProjection(Mesh: projection.Mesh, Face: other).Normal.Match(
+                        Succ: neighbour => neighbour.IsValid ? Math.Max(val1: max, val2: Vector3d.VectorAngle(a: normal, b: neighbour)) : max,
+                        Fail: _ => max)),
+            },
+            Fail: _ => 0.0);
     }
 }
 [StructLayout(LayoutKind.Auto)] public readonly record struct CurvatureProfile(CurvatureScalar Scalar, int Count, double Minimum, double Maximum, double Mean, double Variance);
@@ -174,13 +174,13 @@ public partial record Measure : IAspect {
     public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull => Switch<Query<TGeometry, TOut>>(
         spatialMidpoint: static _ => typeof(TOut) == typeof(Point3d) ? Query.SpatialMidpoint<TGeometry, TOut>() : Op.Of(name: "SpatialMidpoint").Unsupported<TGeometry, TOut>(),
         length: static _ => Query.Length<TGeometry, TOut>(),
-        area: static a => Query.MassMeasure<TGeometry, TOut>(mass: MassKind.Area, kind: a),
-        volume: static v => Query.MassMeasure<TGeometry, TOut>(mass: MassKind.Volume, kind: v),
-        massError: static e => Query.MassMeasure<TGeometry, TOut>(mass: e.Mass, kind: e),
-        centroid: static c => Query.MassMeasure<TGeometry, TOut>(mass: c.Mass, kind: c),
-        centroidError: static ce => Query.MassMeasure<TGeometry, TOut>(mass: ce.Mass, kind: ce),
-        radii: static r => Query.MassMeasure<TGeometry, TOut>(mass: r.Mass, kind: r),
-        principalAxes: static p => Query.MassMeasure<TGeometry, TOut>(mass: p.Mass, kind: p));
+        area: static a => Query.MassMeasure<TGeometry, TOut>(mass: MassKind.Area, aspect: a),
+        volume: static v => Query.MassMeasure<TGeometry, TOut>(mass: MassKind.Volume, aspect: v),
+        massError: static e => Query.MassMeasure<TGeometry, TOut>(mass: e.Mass, aspect: e),
+        centroid: static c => Query.MassMeasure<TGeometry, TOut>(mass: c.Mass, aspect: c),
+        centroidError: static ce => Query.MassMeasure<TGeometry, TOut>(mass: ce.Mass, aspect: ce),
+        radii: static r => Query.MassMeasure<TGeometry, TOut>(mass: r.Mass, aspect: r),
+        principalAxes: static p => Query.MassMeasure<TGeometry, TOut>(mass: p.Mass, aspect: p));
 }
 [Union]
 public partial record Location : IAspect {
@@ -334,7 +334,11 @@ public partial record Curves : IAspect {
             _ => Fin.Succ(curves),
         };
     internal CurveSelector ToSelector(Topology topology) => this switch {
-        AllCase => new(Feature: topology == Topology.Curve ? CurveFeature.Input : CurveFeature.Edge),
+        AllCase => new(Feature: topology switch {
+            Topology.Curve => CurveFeature.Input,
+            Topology.Surface => CurveFeature.Boundary,
+            _ => CurveFeature.Edge,
+        }),
         SegmentsCase => new(Feature: CurveFeature.Segment),
         BoundaryCase => new(Feature: CurveFeature.Boundary),
         NakedOuterCase => new(Feature: CurveFeature.NakedOuter),
@@ -347,7 +351,11 @@ public partial record Curves : IAspect {
         IsoCase iso => new(Feature: CurveFeature.Iso, Normalized: Some(iso.Normalized), Iso: Some(iso.Direction)),
         SilhouetteCase s => new(Feature: CurveFeature.Silhouette, Direction: Optional(s.Direction)),
         DraftCase d => new(Feature: CurveFeature.Draft, Direction: Optional(d.Direction), Angle: Optional(d.Angle)),
-        AtCase at => new(Feature: topology == Topology.Curve ? CurveFeature.Input : CurveFeature.Edge, Index: Optional(at.Value)),
+        AtCase at => new(Feature: topology switch {
+            Topology.Curve => CurveFeature.Input,
+            Topology.Surface => CurveFeature.Boundary,
+            _ => CurveFeature.Edge,
+        }, Index: Optional(at.Value)),
         _ => new(Feature: CurveFeature.Input),
     };
 }
@@ -439,7 +447,6 @@ public partial record Boundaries : IAspect {
     private static readonly Op NakedKey = Op.Of(name: "NakedEdges");
     private static readonly Op OutlineKey = Op.Of(name: "Outlines");
     private static readonly Op SelfIntersectionKey = Op.Of(name: "SelfIntersections");
-    private static readonly Op AllKey = Op.Of(name: "Edges");
     public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull => Switch<Query<TGeometry, TOut>>(
         nakedCase: static _ => (typeof(TGeometry), typeof(TOut)) switch {
             (Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(Curve) => Query.Curves<TGeometry, TOut>(aspect: Curves.Boundary),
@@ -458,9 +465,9 @@ public partial record Boundaries : IAspect {
                                                     from result in Query.SelfIntersectionsValue(op: op, geometry: geometry, runtime: runtime).ToEff()
                                                     select result))
             : SelfIntersectionKey.Unsupported<TGeometry, TOut>(),
-        allCase: static _ => (typeof(Brep).IsAssignableFrom(c: typeof(TGeometry)) && typeof(TOut) == typeof(Curve))
+        allCase: static _ => Query.Supports(geometry: typeof(TGeometry), native: [typeof(Line), typeof(Polyline), typeof(Circle), typeof(Arc)]) && typeof(TOut) == typeof(Curve)
             ? Query.Curves<TGeometry, TOut>(aspect: Curves.All)
-            : AllKey.Unsupported<TGeometry, TOut>());
+            : Curves.Key.Unsupported<TGeometry, TOut>());
 }
 [Union]
 public partial record Conformance {
@@ -528,13 +535,13 @@ public static partial class Query {
     internal static Fin<Seq<(double Moment, Vector3d Axis)>> Principal<TMass>(this Op key, TMass mass) where TMass : class =>
         mass switch {
             LengthMassProperties length => PrincipalFromMoments(key: key,
-                solved: length.WorldCoordinatesPrincipalMoments(x: out double x, xaxis: out Vector3d xAxis, y: out double y, yaxis: out Vector3d yAxis, z: out double z, zaxis: out Vector3d zAxis),
+                solved: length.WorldCoordinatesPrincipalMomentsOfInertia(x: out double x, xaxis: out Vector3d xAxis, y: out double y, yaxis: out Vector3d yAxis, z: out double z, zaxis: out Vector3d zAxis),
                 x: x, xAxis: xAxis, y: y, yAxis: yAxis, z: z, zAxis: zAxis),
             AreaMassProperties area => PrincipalFromMoments(key: key,
-                solved: area.WorldCoordinatesPrincipalMoments(x: out double x, xaxis: out Vector3d xAxis, y: out double y, yaxis: out Vector3d yAxis, z: out double z, zaxis: out Vector3d zAxis),
+                solved: area.WorldCoordinatesPrincipalMomentsOfInertia(x: out double x, xaxis: out Vector3d xAxis, y: out double y, yaxis: out Vector3d yAxis, z: out double z, zaxis: out Vector3d zAxis),
                 x: x, xAxis: xAxis, y: y, yAxis: yAxis, z: z, zAxis: zAxis),
             VolumeMassProperties volume => PrincipalFromMoments(key: key,
-                solved: volume.WorldCoordinatesPrincipalMoments(x: out double x, xaxis: out Vector3d xAxis, y: out double y, yaxis: out Vector3d yAxis, z: out double z, zaxis: out Vector3d zAxis),
+                solved: volume.WorldCoordinatesPrincipalMomentsOfInertia(x: out double x, xaxis: out Vector3d xAxis, y: out double y, yaxis: out Vector3d yAxis, z: out double z, zaxis: out Vector3d zAxis),
                 x: x, xAxis: xAxis, y: y, yAxis: yAxis, z: z, zAxis: zAxis),
             _ => Fin.Fail<Seq<(double Moment, Vector3d Axis)>>(key.InvalidResult()),
         };

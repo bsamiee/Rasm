@@ -167,7 +167,7 @@ public static partial class Query {
                 key: key, state: key,
                 evaluator: static (op, geometry) => Many(key: op, values: new[] {
                     geometry.Vertices.Count, geometry.Faces.Count, geometry.Faces.TriangleCount, geometry.Faces.QuadCount,
-                    geometry.TopologyEdges.Count, geometry.Vertices.Count - geometry.TopologyEdges.Count + geometry.Faces.Count,
+                    geometry.TopologyEdges.Count, geometry.TopologyVertices.Count - geometry.TopologyEdges.Count + geometry.Faces.Count,
                 }).ToEff());
         }
     }

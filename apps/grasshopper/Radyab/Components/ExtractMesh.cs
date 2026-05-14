@@ -31,10 +31,10 @@ public sealed class ExtractMesh : Component {
         emptyUnsupported: false,
         aspectLabel: nameof(Meshes),
         slots: [
-            Output.Plain<MeshFaceProjection, Mesh>(port: Port.List<Mesh>(name: "Indexed Face", code: "IF", info: "Mesh containing only the selected face."), project: static value => value.Isolated()),
+            Output.One<MeshFaceProjection, Mesh>(port: Port.List<Mesh>(name: "Indexed Face", code: "IF", info: "Mesh containing only the selected face."), project: static (value, _) => value.Isolated()),
             Output.Many<MeshFaceProjection, Point3d>(port: Port.List<Point3d>(name: "Face Vertices", code: "FV", info: "Vertex positions of the selected face."), project: static value => Fin.Succ(value.Vertices)),
             Output.Plain<MeshFaceProjection, Point3d>(port: Port.List<Point3d>(name: "Face Center", code: "FC", info: "Centroid of the selected face."), project: static value => value.Center),
-            Output.Plain<MeshFaceProjection, Vector3d>(port: Port.List<Vector3d>(name: "Face Normal", code: "FN", info: "Unit normal of the selected face."), project: static value => value.Normal),
+            Output.One<MeshFaceProjection, Vector3d>(port: Port.List<Vector3d>(name: "Face Normal", code: "FN", info: "Unit normal of the selected face."), project: static (value, _) => value.Normal),
             Output.Plain<MeshFaceProjection, ComponentIndex>(port: Port.List<ComponentIndex>(name: "Source", code: "S", info: "Component index identifying the selected face."), project: static value => value.Source),
         ]);
     private static readonly ComponentSpec Definition = new(

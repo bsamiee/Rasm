@@ -786,6 +786,50 @@ public sealed class AnalysisSpec {
     }
 
     [Fact]
+    public void ComputesMeshEulerFromTopologyVertices() {
+        using Mesh mesh = new();
+        _ = mesh.Vertices.Add(x: 0.0, y: 0.0, z: 0.0);
+        _ = mesh.Vertices.Add(x: 1.0, y: 0.0, z: 0.0);
+        _ = mesh.Vertices.Add(x: 0.0, y: 1.0, z: 0.0);
+        _ = mesh.Vertices.Add(x: 0.0, y: 0.0, z: 0.0);
+        _ = mesh.Vertices.Add(x: 1.0, y: 0.0, z: 0.0);
+        _ = mesh.Vertices.Add(x: 0.0, y: 1.0, z: 0.0);
+        _ = mesh.Faces.AddFace(vertex1: 0, vertex2: 1, vertex3: 2);
+        _ = mesh.Faces.AddFace(vertex1: 3, vertex2: 4, vertex3: 5);
+
+        int[] stats = Run(
+            query: Query.MeshStatsBundle,
+            input: mesh);
+
+        Assert.NotEqual(expected: mesh.Vertices.Count, actual: mesh.TopologyVertices.Count);
+        Assert.Equal(
+            expected: mesh.TopologyVertices.Count - mesh.TopologyEdges.Count + mesh.Faces.Count,
+            actual: stats[5]);
+    }
+
+    [Fact]
+    public void ProjectsMeshFaceThroughNativeFaceAccessors() {
+        using Mesh mesh = new();
+        _ = mesh.Vertices.Add(x: 0.0, y: 0.0, z: 0.0);
+        _ = mesh.Vertices.Add(x: 1.0, y: 0.0, z: 0.0);
+        _ = mesh.Vertices.Add(x: 1.0, y: 1.0, z: 0.0);
+        _ = mesh.Vertices.Add(x: 0.0, y: 1.0, z: 0.0);
+        _ = mesh.Faces.AddFace(vertex1: 0, vertex2: 1, vertex3: 2, vertex4: 3);
+        MeshFaceProjection projection = new(Mesh: mesh, Face: 0);
+
+        Assert.True(condition: projection.Isolated().Match(
+            Succ: static isolated => {
+                using Mesh owned = isolated;
+                return owned.Faces.Count == 1 && owned.Vertices.Count == 4;
+            },
+            Fail: static _ => false));
+        Assert.Equal(expected: 4, actual: projection.Vertices.Count);
+        Assert.True(condition: projection.Normal.Match(
+            Succ: static normal => normal.IsValid && Math.Abs(value: normal.Z - 1.0) < 1e-12,
+            Fail: static _ => false));
+    }
+
+    [Fact]
     public void RejectsSpatialInputsBeforeNativeRuntime() {
         Validation<Error, Tree> invalidPoint = Tree.Points(points: [Point3d.Unset]);
         Validation<Error, Tree> invalidBounds = Tree.Bounds<GeometryBase>(items: [null!]);
@@ -833,6 +877,8 @@ public sealed class AnalysisSpec {
 
     [Fact]
     public void KeepsReverseIntersectionPairsOnTypedRails() {
+        Assert.False(condition: Dispatch.IntersectTable.ContainsKey(key: (typeof(Plane), typeof(Line))));
+        Assert.True(condition: Dispatch.SupportsUnorderedPair(table: Dispatch.IntersectTable, left: typeof(Plane), right: typeof(Line)));
         Assert.True(condition: Query.Intersect<Line, Curve, IntersectionEvent>().Rejection.IsNone);
         Assert.True(condition: Query.Intersect<Plane, Brep, Curve>().Rejection.IsNone);
         Assert.True(condition: Query.Intersect<Surface, Brep, Curve>().Rejection.IsNone);
@@ -938,6 +984,13 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RoutesBrepBoundariesThroughCurveProjection() =>
         Assert.Equal(expected: Query.Curves<Brep, Curve>(aspect: Curves.All).Key, actual: Query.Boundaries<Brep, Curve>(aspect: Boundaries.All).Key);
+
+    [Fact]
+    public void RegistersBrepFaceBoundaryAsTrimAwareCurveCapability() {
+        Assert.True(condition: Dispatch.CurvesTable.ContainsKey(key: (typeof(BrepFace), CurveFeature.Boundary)));
+        Assert.True(condition: Query.Boundaries<Surface, Curve>(aspect: Boundaries.All).Rejection.IsNone);
+        Assert.True(condition: Query.Boundaries<BrepFace, Curve>(aspect: Boundaries.All).Rejection.IsNone);
+    }
 
     // Faces / FaceFrame queries operate on Brep, BrepFace, Surface, SubD — all of which
     // dispatch to native rhcommon_c during construction and analysis. The xUnit runner here

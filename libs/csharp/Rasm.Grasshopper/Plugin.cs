@@ -32,17 +32,20 @@ public abstract class Plugin : GhPlugin {
     }
     private static Seq<string> Validate(Type spec) {
         Component probe = (Component)Activator.CreateInstance(type: spec)!;
-        Seq<IPort> inputs = probe.Spec.InputPorts;
-        Seq<IPort> outputs = probe.Spec.OutputPorts;
+        Seq<PortSpec> inputSpecs = probe.Spec.Inputs;
+        Seq<OutputSpec> outputSpecs = probe.Spec.Outputs;
+        Seq<IPort> inputs = toSeq(inputSpecs.AsIterable().Select(static pair => pair.Port).Where(static port => port is not null).Select(static port => port!));
+        Seq<IOutputGroup> outputGroups = toSeq(outputSpecs.AsIterable().Select(static pair => pair.Group).Where(static group => group is not null).Select(static group => group!));
+        Seq<IPort> outputs = outputGroups.Bind(static group => group.Ports);
         Seq<string> structuralFaults = toSeq(Seq(
             inputs.IsEmpty ? Some($"{spec.FullName}: Inputs is empty") : Option<string>.None,
             outputs.IsEmpty ? Some($"{spec.FullName}: Outputs is empty") : Option<string>.None).Somes());
-        Seq<string> nullFaults = toSeq(probe.Spec.Inputs
+        Seq<string> nullFaults = toSeq(inputSpecs
                 .AsIterable()
                 .Select((pair, index) => pair.Port is null ? $"{spec.FullName}: input {index} is null" : null)
                 .Where(static fault => fault is not null)
                 .Select(static fault => fault!))
-            .Concat(toSeq(probe.Spec.Outputs
+            .Concat(toSeq(outputSpecs
                 .AsIterable()
                 .Select((pair, index) => pair.Group is null ? $"{spec.FullName}: output {index} is null" : null)
                 .Where(static fault => fault is not null)

@@ -41,22 +41,40 @@ public readonly record struct MeshFaceProjection(Mesh Mesh, int Face) : ITopolog
     public ComponentIndex Source => new(type: ComponentIndexType.MeshFace, index: Face);
     public Unit Dispose() => Unit.Default;
     public bool SameAs(ITopologyProjection other) => other is MeshFaceProjection m && ReferenceEquals(objA: Mesh, objB: m.Mesh) && Face == m.Face;
-    public Seq<Point3d> Vertices => Mesh.Faces[Face] switch {
-        MeshFace mf when mf.IsQuad => Seq((Point3d)Mesh.Vertices[mf.A], (Point3d)Mesh.Vertices[mf.B], (Point3d)Mesh.Vertices[mf.C], (Point3d)Mesh.Vertices[mf.D]),
-        MeshFace mf => Seq((Point3d)Mesh.Vertices[mf.A], (Point3d)Mesh.Vertices[mf.B], (Point3d)Mesh.Vertices[mf.C]),
-    };
-    public Vector3d Normal => Vector3d.CrossProduct(a: Vertices[1] - Vertices[0], b: Vertices[2] - Vertices[0]) switch {
-        { Length: > 0.0 } c => c / c.Length,
-        Vector3d v => v,
-    };
-    public Point3d Center => Mesh.Faces.GetFaceCenter(faceIndex: Face);
-    public Mesh Isolated() {
-        // BOUNDARY ADAPTER — Rhino Mesh builder is intrinsically mutable.
-        Mesh result = new();
-        _ = Vertices.Iter(v => result.Vertices.Add(vertex: v));
-        _ = Mesh.Faces[Face].IsQuad ? result.Faces.AddFace(vertex1: 0, vertex2: 1, vertex3: 2, vertex4: 3) : result.Faces.AddFace(vertex1: 0, vertex2: 1, vertex3: 2);
-        result.RebuildNormals();
+    public Seq<Point3d> Vertices {
+        get {
+            return Mesh.Faces.GetFaceVertices(faceIndex: Face, a: out Point3f a, b: out Point3f b, c: out Point3f c, d: out Point3f d) switch {
+                true when Mesh.Faces[Face].IsQuad => Seq((Point3d)a, (Point3d)b, (Point3d)c, (Point3d)d),
+                _ => Seq((Point3d)a, (Point3d)b, (Point3d)c),
+            };
+        }
+    }
+    public Fin<Vector3d> Normal => Isolated().Bind(static mesh => {
+        Fin<Vector3d> result = (mesh.FaceNormals.ComputeFaceNormals(), mesh.FaceNormals.UnitizeFaceNormals(), mesh.FaceNormals.Count) switch {
+            (true, true, > 0) => Fin.Succ((Vector3d)mesh.FaceNormals[0]),
+            _ => Fin.Fail<Vector3d>(Op.Of(name: nameof(MeshFaceProjection)).InvalidResult()),
+        };
+        mesh.Dispose();
         return result;
+    });
+    public Point3d Center => Mesh.Faces.GetFaceCenter(faceIndex: Face);
+    public Fin<Mesh> Isolated() {
+        // BOUNDARY ADAPTER — CA2000 requires explicit ownership transfer when wrapping IDisposable in Fin.
+        Mesh? result = new();
+        try {
+            _ = Vertices.Iter(v => result.Vertices.Add(vertex: v));
+            _ = Mesh.Faces[Face].IsQuad
+                ? result.Faces.AddFace(vertex1: 0, vertex2: 1, vertex3: 2, vertex4: 3)
+                : result.Faces.AddFace(vertex1: 0, vertex2: 1, vertex3: 2);
+            Fin<Mesh> output = (result.IsValid, result.FaceNormals.ComputeFaceNormals(), result.FaceNormals.UnitizeFaceNormals()) switch {
+                (true, true, true) => Fin.Succ(result),
+                _ => Fin.Fail<Mesh>(Op.Of(name: nameof(MeshFaceProjection)).InvalidResult()),
+            };
+            result = output.IsSucc ? null : result;
+            return output;
+        } finally {
+            result?.Dispose();
+        }
     }
 }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct ResidualSample(int Index, Point3d Location, double Distance, double Tolerance, bool WithinTolerance);
@@ -213,7 +231,7 @@ internal static class Dispatch {
     }.ToFrozenDictionary();
     private static Fin<Seq<Curve>> IsoSeq(Surface surface, IsoStatus iso, double normalized, Op op) => (iso, normalized is >= 0.0 and <= 1.0) switch {
         (IsoStatus.West or IsoStatus.South or IsoStatus.East or IsoStatus.North, _) => Optional(surface.IsoCurve(iso: iso)).ToFin(Fail: op.InvalidResult()).Map(static c => Seq(c)),
-        (IsoStatus.X or IsoStatus.Y, true) when surface.Domain(direction: iso == IsoStatus.X ? 0 : 1) is { IsValid: true } d => surface is BrepFace face ? Fin.Succ(toSeq(face.TrimAwareIsoCurve(direction: iso == IsoStatus.X ? 1 : 0, constantParameter: d.ParameterAt(normalizedParameter: normalized)))) : Optional(surface.IsoCurve(iso, d.ParameterAt(normalizedParameter: normalized))).ToFin(Fail: op.InvalidResult()).Map(static c => Seq(c)),
+        (IsoStatus.X or IsoStatus.Y, true) when surface.Domain(direction: iso == IsoStatus.X ? 0 : 1) is { IsValid: true } d => surface is BrepFace face ? Fin.Succ(toSeq(face.TrimAwareIsoCurve(direction: iso == IsoStatus.X ? 0 : 1, constantParameter: d.ParameterAt(normalizedParameter: normalized)))) : Optional(surface.IsoCurve(iso, d.ParameterAt(normalizedParameter: normalized))).ToFin(Fail: op.InvalidResult()).Map(static c => Seq(c)),
         _ => Fin.Fail<Seq<Curve>>(error: op.InvalidInput()),
     };
     internal static readonly FrozenDictionary<Type, Func<object, Op, Fin<Seq<Point3d>>>> ControlPointsTable = new Dictionary<Type, Func<object, Op, Fin<Seq<Point3d>>>> {
@@ -245,6 +263,18 @@ internal static class Dispatch {
             _ => Fin.Fail<Seq<CurveProjection>>(error: args.Item3.InvalidResult()),
         };
     private static readonly Func<object, (CurveSelector, Context, Op, CancellationToken), Fin<Seq<CurveProjection>>> BrepEdgeHandler = static (g, args) => Fin.Succ(toSeq(((Brep)g).Edges).Where(e => (args.Item1.Feature, e.Valence) switch { (CurveFeature.Edge, _) => true, (CurveFeature.Interior, EdgeAdjacency.Interior) => true, (CurveFeature.NonManifold, EdgeAdjacency.NonManifold) => true, (CurveFeature.NakedOuter, EdgeAdjacency.Naked) => toSeq(e.TrimIndices()).Exists(t => e.Brep.Trims[t].Loop.LoopType == BrepLoopType.Outer), (CurveFeature.NakedInner, EdgeAdjacency.Naked) => toSeq(e.TrimIndices()).Exists(t => e.Brep.Trims[t].Loop.LoopType == BrepLoopType.Inner), (CurveFeature.Boundary, EdgeAdjacency.Naked) => true, _ => false }).Bind(e => Optional(e.DuplicateCurve()).Map(c => new CurveProjection(curve: c, feature: args.Item1.Feature, type: ComponentIndexType.BrepEdge, index: e.EdgeIndex)).ToSeq()));
+    private static readonly Func<object, (CurveSelector, Context, Op, CancellationToken), Fin<Seq<CurveProjection>>> BrepFaceBoundaryHandler = static (g, args) =>
+        Optional(((BrepFace)g).DuplicateFace(duplicateMeshes: false))
+            .ToFin(Fail: args.Item3.InvalidResult())
+            .Bind(faceBrep => {
+                using Brep owned = faceBrep;
+                return Optional(owned.DuplicateNakedEdgeCurves(true, true))
+                    .ToFin(Fail: args.Item3.InvalidResult())
+                    .Map(curves => toSeq(curves.Select(curve => new CurveProjection(
+                        Curve: curve,
+                        Feature: CurveFeature.Boundary,
+                        Source: new ComponentIndex(type: ComponentIndexType.BrepFace, index: ((BrepFace)g).FaceIndex)))));
+            });
     private static readonly Func<object, (CurveSelector, Context, Op, CancellationToken), Fin<Seq<CurveProjection>>> MeshEdgeHandler = static (g, args) => Fin.Succ(toSeq(Enumerable.Range(start: 0, count: ((Mesh)g).TopologyEdges.Count)).Where(i => (args.Item1.Feature, ((Mesh)g).TopologyEdges.GetConnectedFaces(topologyEdgeIndex: i).Length) switch { (CurveFeature.Edge, _) => true, (CurveFeature.Boundary, 1) => true, (CurveFeature.Interior, 2) => true, (CurveFeature.NonManifold, > 2) => true, _ => false }).Map(i => new CurveProjection(curve: ((Mesh)g).TopologyEdges.EdgeLine(topologyEdgeIndex: i).ToNurbsCurve(), feature: args.Item1.Feature, type: ComponentIndexType.MeshTopologyEdge, index: i)));
     private static readonly Func<object, (CurveSelector, Context, Op, CancellationToken), Fin<Seq<CurveProjection>>> MeshNakedEdgeHandler = static (g, args) => Fin.Succ(toSeq(Optional(((Mesh)g).GetNakedEdges()).IfNone(static () => [])).Map((poly, i) => new CurveProjection(curve: poly.ToPolylineCurve(), feature: args.Item1.Feature, type: ComponentIndexType.NoType, index: i)));
     private static readonly Func<object, (CurveSelector, Context, Op, CancellationToken), Fin<Seq<CurveProjection>>> BrepLoopHandler = static (g, args) => Fin.Succ(toSeq(((Brep)g).Loops).Where(l => (args.Item1.Feature, l.LoopType) switch { (CurveFeature.OuterLoop, BrepLoopType.Outer) => true, (CurveFeature.InnerLoop, BrepLoopType.Inner) => true, _ => false }).Bind(l => Optional(l.To3dCurve()).Map(c => new CurveProjection(curve: c, feature: args.Item1.Feature, type: ComponentIndexType.BrepLoop, index: l.LoopIndex)).ToSeq()));
@@ -255,17 +285,20 @@ internal static class Dispatch {
     };
     private static readonly Func<object, (CurveSelector, Context, Op, CancellationToken), Fin<Seq<CurveProjection>>> SurfaceBoundaryHandler = static (g, args) => Seq(IsoStatus.South, IsoStatus.East, IsoStatus.North, IsoStatus.West).TraverseM(iso => Optional(((Surface)g).IsoCurve(iso: iso)).ToFin(Fail: args.Item3.InvalidResult())).As().Map(seq => seq.Map((c, i) => new CurveProjection(curve: c, feature: CurveFeature.Boundary, type: ComponentIndexType.NoType, index: i)));
     private static readonly Func<object, (CurveSelector, Context, Op, CancellationToken), Fin<Seq<CurveProjection>>> SubdEdgeHandler = static (g, args) => { _ = ((SubD)g).UpdateSurfaceMeshCache(lazyUpdate: true); return Fin.Succ(toSeq(((SubD)g).DuplicateEdgeCurves().Select((c, i) => new CurveProjection(curve: c, feature: args.Item1.Feature, type: ComponentIndexType.SubdEdge, index: i)))); };
-    internal static readonly FrozenDictionary<(Type Geometry, CurveFeature Feature), Func<object, (CurveSelector Sel, Context Ctx, Op Op, CancellationToken Cancel), Fin<Seq<CurveProjection>>>> CurvesTable = new Dictionary<(Type, CurveFeature), Func<object, (CurveSelector, Context, Op, CancellationToken), Fin<Seq<CurveProjection>>>> {
-        [(typeof(Curve), CurveFeature.Input)] = CurveOrPrimitiveInput, [(typeof(Curve), CurveFeature.Boundary)] = CurveOrPrimitiveInput, [(typeof(Curve), CurveFeature.Segment)] = CurveOrPrimitiveInput, [(typeof(Curve), CurveFeature.SubCurve)] = CurveOrPrimitiveInput,
-        [(typeof(Line), CurveFeature.Input)] = CurveOrPrimitiveInput, [(typeof(Polyline), CurveFeature.Input)] = CurveOrPrimitiveInput, [(typeof(Polyline), CurveFeature.Segment)] = CurveOrPrimitiveInput, [(typeof(Circle), CurveFeature.Input)] = CurveOrPrimitiveInput, [(typeof(Arc), CurveFeature.Input)] = CurveOrPrimitiveInput,
-        [(typeof(Brep), CurveFeature.Edge)] = BrepEdgeHandler, [(typeof(Brep), CurveFeature.Boundary)] = BrepEdgeHandler, [(typeof(Brep), CurveFeature.NakedOuter)] = BrepEdgeHandler, [(typeof(Brep), CurveFeature.NakedInner)] = BrepEdgeHandler, [(typeof(Brep), CurveFeature.Interior)] = BrepEdgeHandler, [(typeof(Brep), CurveFeature.NonManifold)] = BrepEdgeHandler,
-        [(typeof(Mesh), CurveFeature.Edge)] = MeshEdgeHandler, [(typeof(Mesh), CurveFeature.Boundary)] = MeshEdgeHandler, [(typeof(Mesh), CurveFeature.NakedOuter)] = MeshNakedEdgeHandler, [(typeof(Mesh), CurveFeature.Interior)] = MeshEdgeHandler, [(typeof(Mesh), CurveFeature.NonManifold)] = MeshEdgeHandler,
-        [(typeof(Brep), CurveFeature.OuterLoop)] = BrepLoopHandler, [(typeof(Brep), CurveFeature.InnerLoop)] = BrepLoopHandler, [(typeof(Brep), CurveFeature.Iso)] = IsoHandler, [(typeof(Surface), CurveFeature.Iso)] = IsoHandler,
-        [(typeof(Brep), CurveFeature.Silhouette)] = SilhouetteHandler, [(typeof(Mesh), CurveFeature.Silhouette)] = SilhouetteHandler, [(typeof(Surface), CurveFeature.Silhouette)] = SilhouetteHandler, [(typeof(SubD), CurveFeature.Silhouette)] = SilhouetteHandler, [(typeof(Brep), CurveFeature.Draft)] = SilhouetteHandler, [(typeof(Mesh), CurveFeature.Draft)] = SilhouetteHandler, [(typeof(Surface), CurveFeature.Draft)] = SilhouetteHandler, [(typeof(SubD), CurveFeature.Draft)] = SilhouetteHandler,
-        [(typeof(Surface), CurveFeature.Boundary)] = SurfaceBoundaryHandler, [(typeof(SubD), CurveFeature.Edge)] = SubdEdgeHandler, [(typeof(SubD), CurveFeature.Segment)] = SubdEdgeHandler,
-    }.ToFrozenDictionary();
+    private static readonly (Type Geometry, CurveFeature Feature, Func<object, (CurveSelector Sel, Context Ctx, Op Op, CancellationToken Cancel), Fin<Seq<CurveProjection>>> Handler)[] CurveCapabilities = [
+        (typeof(Curve), CurveFeature.Input, CurveOrPrimitiveInput), (typeof(Curve), CurveFeature.Boundary, CurveOrPrimitiveInput), (typeof(Curve), CurveFeature.Segment, CurveOrPrimitiveInput), (typeof(Curve), CurveFeature.SubCurve, CurveOrPrimitiveInput),
+        (typeof(Line), CurveFeature.Input, CurveOrPrimitiveInput), (typeof(Polyline), CurveFeature.Input, CurveOrPrimitiveInput), (typeof(Polyline), CurveFeature.Segment, CurveOrPrimitiveInput), (typeof(Circle), CurveFeature.Input, CurveOrPrimitiveInput), (typeof(Arc), CurveFeature.Input, CurveOrPrimitiveInput),
+        (typeof(Brep), CurveFeature.Edge, BrepEdgeHandler), (typeof(Brep), CurveFeature.Boundary, BrepEdgeHandler), (typeof(Brep), CurveFeature.NakedOuter, BrepEdgeHandler), (typeof(Brep), CurveFeature.NakedInner, BrepEdgeHandler), (typeof(Brep), CurveFeature.Interior, BrepEdgeHandler), (typeof(Brep), CurveFeature.NonManifold, BrepEdgeHandler),
+        (typeof(BrepFace), CurveFeature.Boundary, BrepFaceBoundaryHandler),
+        (typeof(Mesh), CurveFeature.Edge, MeshEdgeHandler), (typeof(Mesh), CurveFeature.Boundary, MeshEdgeHandler), (typeof(Mesh), CurveFeature.NakedOuter, MeshNakedEdgeHandler), (typeof(Mesh), CurveFeature.Interior, MeshEdgeHandler), (typeof(Mesh), CurveFeature.NonManifold, MeshEdgeHandler),
+        (typeof(Brep), CurveFeature.OuterLoop, BrepLoopHandler), (typeof(Brep), CurveFeature.InnerLoop, BrepLoopHandler), (typeof(Brep), CurveFeature.Iso, IsoHandler), (typeof(Surface), CurveFeature.Iso, IsoHandler),
+        (typeof(Brep), CurveFeature.Silhouette, SilhouetteHandler), (typeof(Mesh), CurveFeature.Silhouette, SilhouetteHandler), (typeof(Surface), CurveFeature.Silhouette, SilhouetteHandler), (typeof(SubD), CurveFeature.Silhouette, SilhouetteHandler), (typeof(Brep), CurveFeature.Draft, SilhouetteHandler), (typeof(Mesh), CurveFeature.Draft, SilhouetteHandler), (typeof(Surface), CurveFeature.Draft, SilhouetteHandler), (typeof(SubD), CurveFeature.Draft, SilhouetteHandler),
+        (typeof(Surface), CurveFeature.Boundary, SurfaceBoundaryHandler), (typeof(SubD), CurveFeature.Edge, SubdEdgeHandler), (typeof(SubD), CurveFeature.Segment, SubdEdgeHandler),
+    ];
+    internal static readonly FrozenDictionary<(Type Geometry, CurveFeature Feature), Func<object, (CurveSelector Sel, Context Ctx, Op Op, CancellationToken Cancel), Fin<Seq<CurveProjection>>>> CurvesTable =
+        CurveCapabilities.ToFrozenDictionary(keySelector: static row => (row.Geometry, row.Feature), elementSelector: static row => row.Handler);
     internal static readonly FrozenDictionary<(Type, Type), Func<object, object, (Context Ctx, Op Op, CancellationToken Cancel, IProgress<double>? Progress), Fin<IntersectionResult>>> IntersectTable = new Dictionary<(Type, Type), Func<object, object, (Context, Op, CancellationToken, IProgress<double>?), Fin<IntersectionResult>>> {
-        [(typeof(Line), typeof(Plane))] = static (a, b, _) => Fin.Succ((IntersectionResult)new IntersectionResult.Points(Values: Intersection.LinePlane(line: (Line)a, plane: (Plane)b, lineParameter: out double t) ? Seq(((Line)a).PointAt(t: t)) : Seq<Point3d>())), [(typeof(Plane), typeof(Line))] = static (a, b, _) => Fin.Succ((IntersectionResult)new IntersectionResult.Points(Values: Intersection.LinePlane(line: (Line)b, plane: (Plane)a, lineParameter: out double t) ? Seq(((Line)b).PointAt(t: t)) : Seq<Point3d>())), [(typeof(Plane), typeof(Plane))] = static (a, b, _) => Fin.Succ((IntersectionResult)new IntersectionResult.Lines(Values: Intersection.PlanePlane(planeA: (Plane)a, planeB: (Plane)b, intersectionLine: out Line line) ? Seq(line) : Seq<Line>())),
+        [(typeof(Line), typeof(Plane))] = static (a, b, _) => Fin.Succ((IntersectionResult)new IntersectionResult.Points(Values: Intersection.LinePlane(line: (Line)a, plane: (Plane)b, lineParameter: out double t) ? Seq(((Line)a).PointAt(t: t)) : Seq<Point3d>())), [(typeof(Plane), typeof(Plane))] = static (a, b, _) => Fin.Succ((IntersectionResult)new IntersectionResult.Lines(Values: Intersection.PlanePlane(planeA: (Plane)a, planeB: (Plane)b, intersectionLine: out Line line) ? Seq(line) : Seq<Line>())),
         [(typeof(Line), typeof(Circle))] = static (a, b, _) => Fin.Succ((IntersectionResult)new IntersectionResult.Points(Values: Intersection.LineCircle(line: (Line)a, circle: (Circle)b, t1: out double _, point1: out Point3d p1, t2: out double _, point2: out Point3d p2) switch { LineCircleIntersection.Single => Seq(p1), LineCircleIntersection.Multiple => Seq(p1, p2), _ => Seq<Point3d>() })), [(typeof(Line), typeof(Sphere))] = static (a, b, _) => Fin.Succ((IntersectionResult)new IntersectionResult.Points(Values: Intersection.LineSphere(line: (Line)a, sphere: (Sphere)b, intersectionPoint1: out Point3d p1, intersectionPoint2: out Point3d p2) switch { LineSphereIntersection.Single => Seq(p1), LineSphereIntersection.Multiple => Seq(p1, p2), _ => Seq<Point3d>() })),
         [(typeof(Line), typeof(BoundingBox))] = static (a, b, args) => Fin.Succ((IntersectionResult)new IntersectionResult.Intervals(Values: Intersection.LineBox(line: (Line)a, box: (BoundingBox)b, tolerance: args.Item1.Absolute.Value, lineParameters: out Interval iv) ? Seq(iv) : Seq<Interval>())), [(typeof(Line), typeof(Box))] = static (a, b, args) => Fin.Succ((IntersectionResult)new IntersectionResult.Intervals(Values: Intersection.LineBox(line: (Line)a, box: (Box)b, tolerance: args.Item1.Absolute.Value, lineParameters: out Interval iv) ? Seq(iv) : Seq<Interval>())),
         [(typeof(Curve), typeof(Curve))] = static (a, b, args) => args.Item3.IsCancellationRequested ? Fin.Fail<IntersectionResult>(error: new Fault.Cancelled()) : new Func<Fin<IntersectionResult>>(() => { using CurveIntersections? hits = Intersection.CurveCurve(curveA: (Curve)a, curveB: (Curve)b, tolerance: args.Item1.Absolute.Value, overlapTolerance: args.Item1.Absolute.Value); return args.Item3.IsCancellationRequested ? Fin.Fail<IntersectionResult>(error: new Fault.Cancelled()) : Fin.Succ((IntersectionResult)new IntersectionResult.Events(Values: toSeq(Optional(hits).ToSeq().Bind(static h => h)))); })(), [(typeof(Curve), typeof(Plane))] = static (a, b, args) => { using CurveIntersections? hits = Intersection.CurvePlane(curve: (Curve)a, plane: (Plane)b, tolerance: args.Item1.Absolute.Value); return Fin.Succ((IntersectionResult)new IntersectionResult.Events(Values: toSeq(Optional(hits).ToSeq().Bind(static h => h)))); },
@@ -363,29 +396,26 @@ internal static class Dispatch {
         };
     internal static Fin<TOut> Resolve<TOut, TArgs>(FrozenDictionary<Type, Func<object, TArgs, Fin<TOut>>> table, object source, TArgs args, Op op) => (table.GetValueOrDefault(key: source.GetType()) ?? (KindLookup.InheritsBase(type: source.GetType()) is Type bt ? table.GetValueOrDefault(key: bt) : null) ?? (source is GeometryBase ? table.GetValueOrDefault(key: typeof(GeometryBase)) : null)) switch { Func<object, TArgs, Fin<TOut>> fn => fn(arg1: source, arg2: args), _ => Fin.Fail<TOut>(error: op.Unsupported(geometryType: source.GetType(), outputType: typeof(TOut))) };
     internal static Fin<TOut> ResolveTagged<TOut, TTag, TArgs>(FrozenDictionary<(Type, TTag), Func<object, TArgs, Fin<TOut>>> table, object source, TTag tag, TArgs args, Op op) where TTag : notnull => (table.GetValueOrDefault(key: (source.GetType(), tag)) ?? (KindLookup.InheritsBase(type: source.GetType()) is Type bt ? table.GetValueOrDefault(key: (bt, tag)) : null)) switch { Func<object, TArgs, Fin<TOut>> fn => fn(arg1: source, arg2: args), _ => Fin.Fail<TOut>(error: op.Unsupported(geometryType: source.GetType(), outputType: typeof(TOut))) };
-    private static Func<object, object, TArgs, Fin<TOut>>? Pair<TOut, TArgs>(FrozenDictionary<(Type, Type), Func<object, object, TArgs, Fin<TOut>>> table, Type left, Type right) =>
-        table.GetValueOrDefault(key: (left, right))
-        ?? (KindLookup.InheritsBase(type: left) is Type lb ? table.GetValueOrDefault(key: (lb, right)) : null)
-        ?? (KindLookup.InheritsBase(type: right) is Type rb ? table.GetValueOrDefault(key: (left, rb)) : null)
-        ?? (KindLookup.InheritsBase(type: left) is Type lb2 && KindLookup.InheritsBase(type: right) is Type rb2 ? table.GetValueOrDefault(key: (lb2, rb2)) : null);
+    private static Option<TValue> Pair<TValue>(FrozenDictionary<(Type, Type), TValue> table, Type left, Type right) =>
+        Optional(table.GetValueOrDefault(key: (left, right)))
+        | (KindLookup.InheritsBase(type: left) is Type lb ? Optional(table.GetValueOrDefault(key: (lb, right))) : Option<TValue>.None)
+        | (KindLookup.InheritsBase(type: right) is Type rb ? Optional(table.GetValueOrDefault(key: (left, rb))) : Option<TValue>.None)
+        | (KindLookup.InheritsBase(type: left) is Type lb2 && KindLookup.InheritsBase(type: right) is Type rb2 ? Optional(table.GetValueOrDefault(key: (lb2, rb2))) : Option<TValue>.None);
     internal static Fin<TOut> ResolvePair<TOut, TArgs>(FrozenDictionary<(Type, Type), Func<object, object, TArgs, Fin<TOut>>> table, object left, object right, TArgs args, Op op) =>
-        Pair(table: table, left: left.GetType(), right: right.GetType()) switch {
+        Pair(table: table, left: left.GetType(), right: right.GetType()).Case switch {
             Func<object, object, TArgs, Fin<TOut>> fn => fn(arg1: left, arg2: right, arg3: args),
             _ => Fin.Fail<TOut>(error: op.Unsupported(geometryType: left.GetType(), outputType: right.GetType())),
         };
     internal static Fin<TOut> ResolveUnorderedPair<TOut, TArgs>(FrozenDictionary<(Type, Type), Func<object, object, TArgs, Fin<TOut>>> table, object left, object right, TArgs args, Op op) =>
-        Pair(table: table, left: left.GetType(), right: right.GetType()) switch {
+        Pair(table: table, left: left.GetType(), right: right.GetType()).Case switch {
             Func<object, object, TArgs, Fin<TOut>> fn => fn(arg1: left, arg2: right, arg3: args),
-            _ => Pair(table: table, left: right.GetType(), right: left.GetType()) switch {
+            _ => Pair(table: table, left: right.GetType(), right: left.GetType()).Case switch {
                 Func<object, object, TArgs, Fin<TOut>> fn => fn(arg1: right, arg2: left, arg3: args),
                 _ => Fin.Fail<TOut>(error: op.Unsupported(geometryType: left.GetType(), outputType: right.GetType())),
             },
         };
     internal static bool SupportsPair<TValue>(FrozenDictionary<(Type, Type), TValue> table, Type left, Type right) =>
-        table.ContainsKey(key: (left, right))
-        || (KindLookup.InheritsBase(type: left) is Type lb && table.ContainsKey(key: (lb, right)))
-        || (KindLookup.InheritsBase(type: right) is Type rb && table.ContainsKey(key: (left, rb)))
-        || (KindLookup.InheritsBase(type: left) is Type lb2 && KindLookup.InheritsBase(type: right) is Type rb2 && table.ContainsKey(key: (lb2, rb2)));
+        Pair(table: table, left: left, right: right).IsSome;
     internal static bool SupportsUnorderedPair<TValue>(FrozenDictionary<(Type, Type), TValue> table, Type left, Type right) =>
         SupportsPair(table: table, left: left, right: right) || SupportsPair(table: table, left: right, right: left);
     internal static readonly FrozenDictionary<Type, Func<object, bool>> ValidityTable = new Dictionary<Type, Func<object, bool>> {

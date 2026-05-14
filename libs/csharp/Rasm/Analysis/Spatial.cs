@@ -111,23 +111,26 @@ public sealed class Tree : IDisposable {
             .As()
             .Map(static boxes => boxes.ToArray());
     private static Fin<Seq<Hit>> Search(RTree tree, BoundingBox shape, CancellationToken cancel) {
-        // BOUNDARY ADAPTER — Rhino RTree.Search uses a mutating callback delegate, single-threaded per search.
-        List<int> buffer = [];
-        return tree.Search(
-            box: shape,
-            callback: (_, args) => { args.Cancel = cancel.IsCancellationRequested; buffer.Add(item: args.Id); }) switch {
-                true when cancel.IsCancellationRequested => Fin.Fail<Seq<Hit>>(new Fault.Cancelled()),
-                true => Fin.Succ(SortedHits(buffer: buffer)),
-                false when cancel.IsCancellationRequested => Fin.Fail<Seq<Hit>>(new Fault.Cancelled()),
-                false => Fin.Fail<Seq<Hit>>(Key.InvalidResult()),
-            };
+        return Search(
+            tree: tree,
+            shape: shape,
+            run: static (index, bounds, callback) => index.Search(box: bounds, callback: callback),
+            cancel: cancel);
     }
     private static Fin<Seq<Hit>> Search(RTree tree, Sphere shape, CancellationToken cancel) {
+        return Search(
+            tree: tree,
+            shape: shape,
+            run: static (index, sphere, callback) => index.Search(sphere: sphere, callback: callback),
+            cancel: cancel);
+    }
+    private static Fin<Seq<Hit>> Search<TShape>(RTree tree, TShape shape, Func<RTree, TShape, EventHandler<RTreeEventArgs>, bool> run, CancellationToken cancel) {
         // BOUNDARY ADAPTER — Rhino RTree.Search uses a mutating callback delegate, single-threaded per search.
         List<int> buffer = [];
-        return tree.Search(
-            sphere: shape,
-            callback: (_, args) => { args.Cancel = cancel.IsCancellationRequested; buffer.Add(item: args.Id); }) switch {
+        return run(
+            arg1: tree,
+            arg2: shape,
+            arg3: (_, args) => { args.Cancel = cancel.IsCancellationRequested; buffer.Add(item: args.Id); }) switch {
                 true when cancel.IsCancellationRequested => Fin.Fail<Seq<Hit>>(new Fault.Cancelled()),
                 true => Fin.Succ(SortedHits(buffer: buffer)),
                 false when cancel.IsCancellationRequested => Fin.Fail<Seq<Hit>>(new Fault.Cancelled()),
