@@ -12,7 +12,7 @@ public readonly record struct Shape {
     private Shape(object inner) => Inner = inner;
     public object Inner { get; }
     public const string Accepted = "Rhino/GH geometry convertible through native RhinoCommon or GH2 brokers";
-    public static Fin<Shape> Create(object? value) =>
+    internal static Fin<Shape> Create(object? value) =>
         Optional(value)
             .ToFin(new Fault.InputRequired(PortName: nameof(Shape), Hint: Accepted))
             .Bind(static raw => raw switch {
@@ -27,6 +27,13 @@ public readonly record struct Flow<T>(Pear<T> Pear, Option<Site> Site) {
     public MetaData Meta => Pear.Meta;
     public Flow<TOut> Project<TOut>(TOut item) => new(Pear: Pear<TOut>.Create(item: item, meta: Meta), Site: Site);
     public Flow<TOut> Project<TOut>(TOut item, int index) => new(Pear: Pear<TOut>.Create(item: item, meta: Meta), Site: Site.Map(site => new Site(path: site.Path.AppendElement(site.Item), item: index)));
+    public Seq<Flow<TOut>> Project<TOut>(Seq<TOut> items) {
+        Flow<T> source = this;
+        return items.Count switch {
+            1 => items.Map(value => source.Project(item: value)),
+            _ => items.Map((value, index) => source.Project(item: value, index: index)),
+        };
+    }
 }
 
 // --- [SERVICES] -------------------------------------------------------------------------
@@ -84,6 +91,8 @@ public static class Bridge {
     }
     private static int? TreePrefix(IDataAccess access, int slot) =>
         access.CoverageOut(index: slot) switch { { TwigIndex: >= 0 } coverage => coverage.TwigIndex, _ => null };
+    private static Grasshopper2.Data.Path TwigPath(IDataAccess access, int slot) =>
+        access.CoverageIn(index: slot) switch { { TwigIndex: >= 0 } coverage => new Grasshopper2.Data.Path(coverage.TwigIndex), _ => new Grasshopper2.Data.Path(0) };
     private static Fin<Analyze.Scope> Remark(IDataAccess access, Rhino.UnitSystem units) {
         access.AddRemark(text: "Tolerance", details: "Host did not supply reliable tolerance; using default tolerance with document units.");
         return Fin.Succ(Analyze.In(units: units == Rhino.UnitSystem.Unset ? Rhino.UnitSystem.Millimeters : units));
@@ -98,7 +107,6 @@ public static class Bridge {
     private static Seq<Leaf<T>> Leaves<T>(Seq<Flow<T>> values) =>
         values.Map((value, index) => new Leaf<T>(pear: value.Pear, site: value.Site.IfNone(new Site(path: new Grasshopper2.Data.Path(0), item: index))));
     private static readonly Seq<Func<object, Option<Shape>>> Brokers = Seq<Func<object, Option<Shape>>>(
-        static raw => AsShape(value: raw),
         static raw => CurveBroker.CastOrConvert(data: raw, p2: out Line line, p3: out Triangle triangle, p4: out Rectangle3d rectangle, pn: out Polyline polyline, a360: out Circle circle, ax: out Arc arc, c: out Curve curve) switch {
             CurveType.Line => AsShape(value: line),
             CurveType.Triangle => AsShape(value: triangle.ToPolyline()),
@@ -114,7 +122,8 @@ public static class Bridge {
             SurfaceLikeType.Brep => AsShape(value: brep),
             SurfaceLikeType.SubD => AsShape(value: subd),
             _ => Option<Shape>.None,
-        });
+        },
+        static raw => AsShape(value: raw));
     private static Option<Shape> NormalizeShape(object raw) => Brokers.Choose(b => b(arg: raw)).Head;
     private static Option<Shape> AsShape(object? value) => Optional(value).Bind(static candidate => Shape.Create(value: candidate).ToOption());
     internal sealed class Progress(IDataAccess access) : IProgress<double> {
@@ -132,7 +141,7 @@ public static class Bridge {
                 },
                 [Access.Twig] = static (access, slot, port) => access.GetPears<T>(index: slot, pears: out Pear<T>[] pears) switch {
                     true when pears.Length > 0 => toSeq(pears.Select((pear, index) => (Pear: pear, Index: index))).TraverseM(item => item.Pear is { Item: not null }
-                        ? Fin.Succ(new Flow<T>(Pear: item.Pear, Site: Some(new Site(path: new Grasshopper2.Data.Path(0), item: item.Index))))
+                        ? Fin.Succ(new Flow<T>(Pear: item.Pear, Site: Some(new Site(path: TwigPath(access: access, slot: slot), item: item.Index))))
                         : Fin.Fail<Flow<T>>(new Fault.InputRequired(PortName: port.Name, Hint: $"Null twig item at index {item.Index}."))).As(),
                     _ => MissingFlow<T>(port: port),
                 },
@@ -147,7 +156,7 @@ public static class Bridge {
             new Dictionary<Access, Func<IDataAccess, int, Seq<Flow<T>>, Unit>> {
                 [Access.Item] = static (access, slot, values) => values.Count switch {
                     > 0 => Effect(action: () => access.SetPear(index: slot, pear: values[0].Pear)),
-                    _ => Unit.Default,
+                    _ => Effect(action: () => access.SetPear(index: slot, pear: Pear<T>.Create(item: default!))),
                 },
                 [Access.Twig] = static (access, slot, values) => Effect(action: () => access.SetTwig(index: slot, twig: Garden.TwigFromPears(pears: values.Map(static value => value.Pear).AsIterable()))),
                 [Access.Tree] = static (access, slot, values) => Effect(action: () => {

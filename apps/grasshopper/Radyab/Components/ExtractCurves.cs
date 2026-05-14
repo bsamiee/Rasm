@@ -13,7 +13,7 @@ public sealed class ExtractCurves : Component {
     private static readonly Port<Angle> DraftAngle = Port.Optional<Angle>(name: "Draft Angle", code: "A", info: "Draft angle for draft-curve extraction. Missing Draft Angle uses 0 radians.", fallback: Some(Angle.Zero));
     private static readonly IOutputGroup AllCurves = Output.Details<CurveProjection>(
         input: Geometry,
-        aspect: static _ => shape => Rasm.Analysis.Query.CurveProjections(geometry: shape.Inner, aspect: Curves.All),
+        aspect: static _ => Fin.Succ<Func<Shape, Eff<Env, Seq<CurveProjection>>>>(shape => Rasm.Analysis.Query.CurveProjections(geometry: shape.Inner, aspect: Curves.All)),
         emptyUnsupported: true,
         aspectLabel: nameof(Curves),
         slots: [
@@ -32,11 +32,14 @@ public sealed class ExtractCurves : Component {
     private static readonly IOutputGroup InnerLoops = Output.Query(input: Geometry, port: Port.Tree<Curve>(name: "Inner Loops", code: "IL", info: "Brep inner loop curves."), aspect: Curves.InnerLoop);
     private static readonly IOutputGroup IsoU = Output.Query(input: Geometry, port: Port.Tree<Curve>(name: "U Iso Curves", code: "U", info: "Trim-aware mid-domain U-direction iso curves for Brep faces and surface values."), aspect: Curves.Iso(direction: IsoStatus.X, normalized: 0.5));
     private static readonly IOutputGroup IsoV = Output.Query(input: Geometry, port: Port.Tree<Curve>(name: "V Iso Curves", code: "V", info: "Trim-aware mid-domain V-direction iso curves for Brep faces and surface values."), aspect: Curves.Iso(direction: IsoStatus.Y, normalized: 0.5));
-    private static readonly IOutputGroup Silhouette = Output.Query<Curves, Curve>(input: Geometry, port: Port.Tree<Curve>(name: "Silhouette Curves", code: "SC", info: "Parallel-projection silhouette curves using Direction, defaulting to world Z."), aspect: runtime => Curves.Silhouette(direction: runtime.ReadOrInvalid(port: Direction, invalid: Vector3d.Unset).ToNullable()));
-    private static readonly IOutputGroup Draft = Output.Query<Curves, Curve>(input: Geometry, port: Port.Tree<Curve>(name: "Draft Curves", code: "DC", info: "Draft transition curves using Direction as pull direction and Draft Angle, defaulting to 0 radians."), aspect: runtime => Curves.Draft(direction: runtime.ReadOrInvalid(port: Direction, invalid: Vector3d.Unset).ToNullable(), angle: runtime.ReadOrInvalid(port: DraftAngle, invalid: default).ToNullable()?.Radians));
+    private static readonly IOutputGroup Silhouette = Output.Query<Curves, Curve>(input: Geometry, port: Port.Tree<Curve>(name: "Silhouette Curves", code: "SC", info: "Parallel-projection silhouette curves using Direction, defaulting to world Z."), aspect: runtime => runtime.Read(port: Direction).Map(direction => Curves.Silhouette(direction: direction.ToNullable())));
+    private static readonly IOutputGroup Draft = Output.Query<Curves, Curve>(input: Geometry, port: Port.Tree<Curve>(name: "Draft Curves", code: "DC", info: "Draft transition curves using Direction as pull direction and Draft Angle, defaulting to 0 radians."), aspect: runtime =>
+        (runtime.Read(port: Direction), runtime.Read(port: DraftAngle))
+        .Apply(static (direction, angle) => Curves.Draft(direction: direction.ToNullable(), angle: angle.ToNullable()?.Radians))
+        .As());
     private static readonly IOutputGroup Indexed = Output.Details<CurveProjection>(
         input: Geometry,
-        aspect: runtime => shape => Rasm.Analysis.Query.CurveProjections(geometry: shape.Inner, choose: count => Curves.At(index: runtime.Index(port: Index, limit: count).ToNullable())),
+        aspect: runtime => Fin.Succ<Func<Shape, Eff<Env, Seq<CurveProjection>>>>(shape => Rasm.Analysis.Query.CurveProjections(geometry: shape.Inner, choose: count => Curves.At(index: runtime.Index(port: Index, limit: count).ToNullable()))),
         emptyUnsupported: false,
         aspectLabel: nameof(Curves),
         slots: [

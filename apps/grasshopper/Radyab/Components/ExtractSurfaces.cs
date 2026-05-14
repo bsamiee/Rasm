@@ -12,18 +12,18 @@ public sealed class ExtractSurfaces : Component {
     private static readonly Port<Vector3d> Direction = Port.Direction(info: "Ranking direction for Top/Bottom surfaces; missing Direction uses world Z.");
     private static readonly IOutputGroup AllSurfaces = Output.Details<FaceProjection>(
         input: Geometry,
-        aspect: static _ => shape => Rasm.Analysis.Query.FaceProjections(geometry: shape.Inner, selector: Faces.All),
+        aspect: static _ => Fin.Succ<Func<Shape, Eff<Env, Seq<FaceProjection>>>>(shape => Rasm.Analysis.Query.FaceProjections(geometry: shape.Inner, selector: Faces.All)),
         emptyUnsupported: true,
         aspectLabel: nameof(Faces),
         slots: [
             Output.Plain<FaceProjection, Brep>(port: Port.Tree<Brep>(name: "All Surfaces", code: "AS", info: "Every face as a trimmed single-face Brep. Mesh input is intentionally rejected."), project: static value => value.Brep),
             Output.Plain<FaceProjection, int>(port: Port.Tree<int>(name: "All Index", code: "AIX", info: "Source Brep face index aligned with every extracted surface."), project: static value => value.FaceIndex),
         ]);
-    private static readonly IOutputGroup TopSurface = Output.Query(input: Geometry, port: Port.Tree<Brep>(name: "Top Surface", code: "TS", info: "Trimmed face(s) with maximum centroid projection along Direction; ties within tolerance."), aspect: runtime => Rasm.Analysis.Query.Faces<object, Brep>(aspect: Faces.Top(axis: runtime.ReadOrInvalid(port: Direction, invalid: Vector3d.Unset).ToNullable())));
-    private static readonly IOutputGroup BottomSurface = Output.Query(input: Geometry, port: Port.Tree<Brep>(name: "Bottom Surface", code: "BS", info: "Trimmed face(s) with minimum centroid projection along Direction; ties within tolerance."), aspect: runtime => Rasm.Analysis.Query.Faces<object, Brep>(aspect: Faces.Bottom(axis: runtime.ReadOrInvalid(port: Direction, invalid: Vector3d.Unset).ToNullable())));
+    private static readonly IOutputGroup TopSurface = Output.Query(input: Geometry, port: Port.Tree<Brep>(name: "Top Surface", code: "TS", info: "Trimmed face(s) with maximum centroid projection along Direction; ties within tolerance."), aspect: runtime => runtime.Read(port: Direction).Map(axis => Rasm.Analysis.Query.Faces<object, Brep>(aspect: Faces.Top(axis: axis.ToNullable()))));
+    private static readonly IOutputGroup BottomSurface = Output.Query(input: Geometry, port: Port.Tree<Brep>(name: "Bottom Surface", code: "BS", info: "Trimmed face(s) with minimum centroid projection along Direction; ties within tolerance."), aspect: runtime => runtime.Read(port: Direction).Map(axis => Rasm.Analysis.Query.Faces<object, Brep>(aspect: Faces.Bottom(axis: axis.ToNullable()))));
     private static readonly IOutputGroup IndexedFace = Output.Details<FaceProjection>(
         input: Geometry,
-        aspect: runtime => shape => Rasm.Analysis.Query.FaceProjections(geometry: shape.Inner, choose: count => Faces.At(index: runtime.Index(port: Index, limit: count).ToNullable())),
+        aspect: runtime => Fin.Succ<Func<Shape, Eff<Env, Seq<FaceProjection>>>>(shape => Rasm.Analysis.Query.FaceProjections(geometry: shape.Inner, choose: count => Faces.At(index: runtime.Index(port: Index, limit: count).ToNullable()))),
         emptyUnsupported: false,
         aspectLabel: nameof(Faces),
         slots: [

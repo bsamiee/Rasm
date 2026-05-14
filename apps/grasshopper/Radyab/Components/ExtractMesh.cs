@@ -14,10 +14,10 @@ public sealed class ExtractMesh : Component {
     private static readonly IOutputGroup Stats = Output.Query(input: Geometry, port: Port.Tree<int>(name: "Stats", code: "ST", info: "[VertexCount, FaceCount, TriangleCount, QuadCount, EdgeCount, EulerCharacteristic] as a six-item list per mesh."), aspect: Meshes.StatsBundle);
     private static readonly IOutputGroup Defects = Output.Query(input: Geometry, port: Port.Tree<int>(name: "Defect Counts", code: "D", info: "Thirteen-item list of MeshCheckParameters counts in MeshCheckCount enum order (DegenerateFaces, DisjointMeshes, DuplicateFaces, ExtremelyShortEdges, InvalidNgons, NakedEdges, NonManifoldEdges, NonUnitVectorNormals, RandomFaceNormals, SelfIntersectingPairs, UnusedVertices, VertexFaceNormalsDiffer, ZeroLengthNormals)."), aspect: Meshes.DefectsBundle);
     private static readonly IOutputGroup NakedEdges = Output.Query(input: Geometry, port: Port.Tree<Polyline>(kind: PortKind.Polyline, name: "Naked Edges", code: "NE", info: "Connected boundary polylines via Mesh.GetNakedEdges(); empty when the mesh is closed."), aspect: Rasm.Analysis.Boundaries.Naked);
-    private static readonly IOutputGroup Pieces = Output.Query(input: Geometry, port: Port.Tree<Mesh>(name: "Pieces", code: "P", info: "Disjoint mesh components via Mesh.SplitDisjointPieces(); a single-element list for a connected mesh."), aspect: static _ => Rasm.Analysis.Query.Components<object, Mesh>());
+    private static readonly IOutputGroup Pieces = Output.Query(input: Geometry, port: Port.Tree<Mesh>(name: "Pieces", code: "P", info: "Disjoint mesh components via Mesh.SplitDisjointPieces(); a single-element list for a connected mesh."), aspect: static _ => Fin.Succ(Rasm.Analysis.Query.Components<object, Mesh>()));
     private static readonly IOutputGroup PrincipalAxes = Output.Details<(double Moment, Vector3d Axis)>(
         input: Geometry,
-        aspect: static _ => shape => Rasm.Analysis.Query.Measure<object, (double Moment, Vector3d Axis)>(aspect: new Measure.PrincipalAxes(Mass: MassKind.Volume)).Apply(geometry: shape.Inner),
+        aspect: static _ => Fin.Succ<Func<Shape, Eff<Env, Seq<(double Moment, Vector3d Axis)>>>>(shape => Rasm.Analysis.Query.Measure<object, (double Moment, Vector3d Axis)>(aspect: new Measure.PrincipalAxes(Mass: MassKind.Volume)).Apply(geometry: shape.Inner)),
         emptyUnsupported: false,
         aspectLabel: nameof(Measure),
         slots: [
@@ -26,7 +26,7 @@ public sealed class ExtractMesh : Component {
         ]);
     private static readonly IOutputGroup Quality = Output.Details<MeshFaceSample>(
         input: Geometry,
-        aspect: runtime => shape => Rasm.Analysis.Query.Meshes<object, MeshFaceSample>(aspect: Meshes.FaceQuality(metric: runtime.ReadOrInvalid(port: Metric, invalid: MeshFaceMetric.AspectRatio).ToNullable())).Apply(geometry: shape.Inner),
+        aspect: runtime => runtime.Read(port: Metric).Map<Func<Shape, Eff<Env, Seq<MeshFaceSample>>>>(metric => shape => Rasm.Analysis.Query.Meshes<object, MeshFaceSample>(aspect: Meshes.FaceQuality(metric: metric.ToNullable())).Apply(geometry: shape.Inner)),
         emptyUnsupported: true,
         aspectLabel: nameof(Meshes),
         slots: [
@@ -35,7 +35,7 @@ public sealed class ExtractMesh : Component {
         ]);
     private static readonly IOutputGroup IndexedFace = Output.Details<MeshFaceProjection>(
         input: Geometry,
-        aspect: runtime => shape => Rasm.Analysis.Query.Meshes<object, MeshFaceProjection>(aspect: Meshes.AtFace(index: shape.Inner is Mesh mesh ? runtime.Index(port: FaceIndex, limit: mesh.Faces.Count).ToNullable() : runtime.ReadOrInvalid(port: FaceIndex, invalid: int.MinValue).ToNullable())).Apply(geometry: shape.Inner),
+        aspect: runtime => runtime.Read(port: FaceIndex).Map<Func<Shape, Eff<Env, Seq<MeshFaceProjection>>>>(fallback => shape => Rasm.Analysis.Query.Meshes<object, MeshFaceProjection>(aspect: Meshes.AtFace(index: shape.Inner is Mesh mesh ? runtime.Index(port: FaceIndex, limit: mesh.Faces.Count).ToNullable() : fallback.ToNullable())).Apply(geometry: shape.Inner)),
         emptyUnsupported: false,
         aspectLabel: nameof(Meshes),
         slots: [

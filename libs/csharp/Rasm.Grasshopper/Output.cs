@@ -29,8 +29,6 @@ public static class GrasshopperRuntimeExtensions {
             Some: slot => Bridge.Read<TVal>(access: runtime.Access, slot: slot, port: port)
                 .Map(values => values.Head.Map(static pear => pear.Item) | port.Fallback),
             None: () => Fin.Succ(port.Fallback));
-    public static Option<TVal> ReadOrInvalid<TVal>(this GrasshopperRuntime runtime, Port<TVal> port, TVal invalid) =>
-        runtime.Read(port: port).Match(Succ: static value => value, Fail: _ => Some(invalid));
     public static Option<int> Index(this GrasshopperRuntime runtime, Port<int> port, int limit) =>
         limit switch {
             <= 0 => Option<int>.None,
@@ -104,11 +102,7 @@ public static class Output {
         Slot<TSource, TOut>(port: port, project: (runtime, sources) => runtime.Scope.Context
             .Bind(context => sources.Traverse(src => project(arg1: src.Item, arg2: context).Map(src.Project)).As()));
     public static OutputSlot<TSource> Many<TSource, TOut>(Port<TOut> port, Func<TSource, Fin<Seq<TOut>>> project) =>
-        Slot<TSource, TOut>(port: port, project: (_, sources) => sources.Traverse(src =>
-            project(arg: src.Item).Map(values => values.Count switch {
-                1 => values.Map(value => src.Project(item: value)),
-                _ => values.Map((value, index) => src.Project(item: value, index: index)),
-            }))
+        Slot<TSource, TOut>(port: port, project: (_, sources) => sources.Traverse(src => project(arg: src.Item).Map(src.Project))
             .Map(static nested => nested.Bind(static x => x)).As());
     public static Unit Write(IDataAccess access, GrasshopperRuntime runtime, Seq<IOutputGroup> groups, Hints outputs) =>
         groups.Iter(group => group.Run(access: access, outputs: outputs, runtime: runtime));
@@ -117,27 +111,27 @@ public static class Output {
     public static IOutputGroup Query<TAspect, TOut>(Port<Shape> input, Port<TOut> port, TAspect aspect) where TAspect : IAspect where TOut : notnull =>
         FromShapes(
             input: input,
-            project: _ => shape => aspect.ToQuery<object, TOut>().Apply(geometry: shape.Inner),
+            project: _ => Fin.Succ<Func<Shape, Eff<Env, Seq<TOut>>>>(shape => aspect.ToQuery<object, TOut>().Apply(geometry: shape.Inner)),
             emptyUnsupported: static _ => true,
             aspectLabel: aspect.GetType().Name,
             slots: [Slot<TOut, TOut>(port: port, project: static (_, values) => Fin.Succ(values))]);
-    public static IOutputGroup Query<TAspect, TOut>(Port<Shape> input, Port<TOut> port, Func<GrasshopperRuntime, TAspect> aspect) where TAspect : IAspect where TOut : notnull =>
+    public static IOutputGroup Query<TAspect, TOut>(Port<Shape> input, Port<TOut> port, Func<GrasshopperRuntime, Fin<TAspect>> aspect) where TAspect : IAspect where TOut : notnull =>
         FromShapes(
             input: input,
-            project: runtime => shape => aspect(arg: runtime).ToQuery<object, TOut>().Apply(geometry: shape.Inner),
+            project: runtime => aspect(arg: runtime).Map<Func<Shape, Eff<Env, Seq<TOut>>>>(selected => shape => selected.ToQuery<object, TOut>().Apply(geometry: shape.Inner)),
             emptyUnsupported: static _ => true,
             aspectLabel: typeof(TAspect).Name,
             slots: [Slot<TOut, TOut>(port: port, project: static (_, values) => Fin.Succ(values))]);
-    public static IOutputGroup Query<TOut>(Port<Shape> input, Port<TOut> port, Func<GrasshopperRuntime, Query<object, TOut>> aspect, bool emptyUnsupported = false, string aspectLabel = "Query") where TOut : notnull =>
+    public static IOutputGroup Query<TOut>(Port<Shape> input, Port<TOut> port, Func<GrasshopperRuntime, Fin<Query<object, TOut>>> aspect, bool emptyUnsupported = false, string aspectLabel = "Query") where TOut : notnull =>
         FromShapes(
             input: input,
-            project: runtime => shape => aspect(arg: runtime).Apply(geometry: shape.Inner),
+            project: runtime => aspect(arg: runtime).Map<Func<Shape, Eff<Env, Seq<TOut>>>>(query => shape => query.Apply(geometry: shape.Inner)),
             emptyUnsupported: _ => emptyUnsupported,
             aspectLabel: aspectLabel,
             slots: [Slot<TOut, TOut>(port: port, project: static (_, values) => Fin.Succ(values))]);
     public static IOutputGroup Details<TProjection>(
         Port<Shape> input,
-        Func<GrasshopperRuntime, Func<Shape, Eff<Env, Seq<TProjection>>>> aspect,
+        Func<GrasshopperRuntime, Fin<Func<Shape, Eff<Env, Seq<TProjection>>>>> aspect,
         bool emptyUnsupported,
         string aspectLabel,
         params OutputSlot<TProjection>[] slots) where TProjection : notnull =>
@@ -149,12 +143,12 @@ public static class Output {
             slots: slots);
     private static PreparedGroup<TSource> FromShapes<TSource>(
         Port<Shape> input,
-        Func<GrasshopperRuntime, Func<Shape, Eff<Env, Seq<TSource>>>> project,
+        Func<GrasshopperRuntime, Fin<Func<Shape, Eff<Env, Seq<TSource>>>>> project,
         Func<GrasshopperRuntime, bool> emptyUnsupported,
         string aspectLabel,
         params OutputSlot<TSource>[] slots) where TSource : notnull =>
         Prepared(
-            source: runtime => ShapeSource(input: input, runtime: runtime, project: project(arg: runtime)),
+            source: runtime => project(arg: runtime).Bind(next => ShapeSource(input: input, runtime: runtime, project: next)),
             emptyUnsupported: emptyUnsupported,
             aspectLabel: aspectLabel,
             slots: slots);
@@ -167,10 +161,7 @@ public static class Output {
         from sourced in runtime.Shape(port: input)
         from context in runtime.Scope.Context
         from values in sourced.Traverse(src => project(arg: src.Item)
-            .Map(values => values.Count switch {
-                1 => values.Map(value => src.Project(item: value)),
-                _ => values.Map((value, index) => src.Project(item: value, index: index)),
-            })
+            .Map(src.Project)
             .Run(env: new Env(Context: context, Progress: runtime.Progress, Cancellation: runtime.Cancellation))).As()
         select values.Bind(static value => value);
 }

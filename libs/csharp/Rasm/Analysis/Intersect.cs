@@ -4,8 +4,8 @@ namespace Rasm.Analysis;
 public static partial class Query {
     public static Query<(TA A, TB B), TOut> Intersect<TA, TB, TOut>() where TA : notnull where TB : notnull {
         Op key = Op.Of();
-        return (typeof(TA).AsKind().IsSome && typeof(TB).AsKind().IsSome, Dispatch.SupportsUnorderedPair(table: Dispatch.IntersectTable, left: typeof(TA), right: typeof(TB))) switch {
-            (true, true) => Query<(TA A, TB B), TOut>.Build(
+        return Dispatch.SupportsUnorderedPair(table: Dispatch.IntersectTable, left: typeof(TA), right: typeof(TB)) switch {
+            true => Query<(TA A, TB B), TOut>.Build(
                 key: key, requiresContext: true, state: key,
                 evaluator: static (op, pair) => from runtime in Env.EnvAsks
                                                 from kA in ((object)pair.A).Kind(ctx: runtime.Context).ToEff()
@@ -13,7 +13,7 @@ public static partial class Query {
                                                 from result in kA.Intersect(b: kB, valueA: pair.A, valueB: pair.B, ctx: runtime.Context, op: op, progress: runtime.Progress, cancel: runtime.Cancellation).ToEff()
                                                 from typed in IntersectionResultRole.Project<TOut>(result: result, key: op).ToEff()
                                                 select typed),
-            _ => key.Unsupported<(TA A, TB B), TOut>(),
+            false => key.Unsupported<(TA A, TB B), TOut>(),
         };
     }
     public static Query<(TA A, TB B), TOut> Deviation<TA, TB, TOut>() where TA : notnull where TB : notnull {

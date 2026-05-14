@@ -1,5 +1,6 @@
 using System.Collections.Frozen;
 using Foundation.CSharp.Analyzers.Contracts;
+using Rasm.Analysis;
 
 namespace Rasm.Domain;
 
@@ -228,9 +229,24 @@ internal static class Dispatch {
         [typeof(Brep)] = static (g, args) => ((Brep)g).ClosestPoint(testPoint: args.Item1, closestPoint: out Point3d pt, ci: out ComponentIndex ci, s: out double _, t: out double _, maximumDistance: 0.0, normal: out Vector3d normal) ? Fin.Succ(new ClosestHit(Point: pt, Distance: Some(args.Item1.DistanceTo(other: pt)), Normal: Some(normal), Component: Some(ci), MeshPoint: None)) : Fin.Fail<ClosestHit>(error: args.Item3.InvalidResult()), [typeof(Mesh)] = static (g, args) => Optional(((Mesh)g).ClosestMeshPoint(testPoint: args.Item1, maximumDistance: 0.0)).ToFin(Fail: args.Item3.InvalidResult()).Map(mp => new ClosestHit(Point: mp.Point, Distance: Some(args.Item1.DistanceTo(other: mp.Point)), Normal: Some(((Mesh)g).NormalAt(meshPoint: mp)), Component: None, MeshPoint: Some(mp))),
     }.ToFrozenDictionary();
     internal static readonly FrozenDictionary<Type, Func<object, Op, Fin<Seq<GeometryBase>>>> ComponentsTable = new Dictionary<Type, Func<object, Op, Fin<Seq<GeometryBase>>>> {
-        [typeof(Brep)] = static (g, _) => Fin.Succ(toSeq((((Brep)g).GetConnectedComponents() switch { Brep[] arr when arr.Length > 0 => arr, _ => Brep.SplitDisjointPieces(brep: (Brep)g) }).Cast<GeometryBase>())),
+        [typeof(Brep)] = static (g, op) => BrepComponents(brep: (Brep)g, op: op),
         [typeof(Mesh)] = static (g, _) => Fin.Succ(toSeq(((Mesh)g).SplitDisjointPieces().Cast<GeometryBase>())),
+        [typeof(GeometryBase)] = static (g, op) => g switch {
+            Brep brep => BrepComponents(brep: brep, op: op),
+            GeometryBase { HasBrepForm: true } native => Optional(Brep.TryConvertBrep(geometry: native))
+                .ToFin(Fail: op.InvalidResult())
+                .Bind(converted => { using Brep owned = converted; return BrepComponents(brep: owned, op: op); }),
+            _ => Fin.Fail<Seq<GeometryBase>>(error: op.Unsupported(geometryType: g.GetType(), outputType: typeof(Seq<GeometryBase>))),
+        },
     }.ToFrozenDictionary();
+    private static Fin<Seq<GeometryBase>> BrepComponents(Brep brep, Op op) =>
+        brep.GetConnectedComponents() switch {
+            Brep[] connected when connected.Length > 0 => Fin.Succ(toSeq(connected.Cast<GeometryBase>())),
+            _ => Brep.SplitDisjointPieces(brep: brep) switch {
+                Brep[] pieces when pieces.Length > 0 => Fin.Succ(toSeq(pieces.Cast<GeometryBase>())),
+                _ => op.RequireValid(value: brep).Map(static valid => Seq((GeometryBase)valid.DuplicateBrep())),
+            },
+        };
     internal static readonly FrozenDictionary<Type, Func<object, Op, Fin<Seq<Interval>>>> DomainsTable = new Dictionary<Type, Func<object, Op, Fin<Seq<Interval>>>> {
         [typeof(Curve)] = static (g, _) => Fin.Succ(Seq(((Curve)g).Domain)),
         [typeof(Surface)] = static (g, _) => Fin.Succ(Seq(((Surface)g).Domain(direction: 0), ((Surface)g).Domain(direction: 1))),
@@ -449,9 +465,10 @@ internal static class Dispatch {
             | leftBase.Bind(lb => rightBase.Bind(rb => Optional(table.GetValueOrDefault(key: (lb, rb)))));
     }
     internal static Fin<TOut> Resolve<TOut, TArgs>(FrozenDictionary<Type, Func<object, TArgs, Fin<TOut>>> table, object? source, TArgs args, Op op) =>
-        Optional(source).Bind(s => Lookup(table: table, key: s.GetType()).Map(fn => (Source: s, Fn: fn))).Match(
-            Some: hit => hit.Fn(arg1: hit.Source, arg2: args),
-            None: () => Fin.Fail<TOut>(error: source is null ? op.InvalidInput() : op.Unsupported(geometryType: source.GetType(), outputType: typeof(TOut))));
+        from s in Optional(source).ToFin(op.InvalidInput())
+        from hit in Lookup(table: table, key: s.GetType()).Map(fn => (Source: s, Fn: fn)).ToFin(op.Unsupported(geometryType: s.GetType(), outputType: typeof(TOut)))
+        from result in hit.Fn(arg1: hit.Source, arg2: args)
+        select result;
     internal static bool Supports<TValue>(FrozenDictionary<Type, TValue> table, Type source) => Lookup(table: table, key: source).IsSome;
     internal static bool SupportsKind(Type source) => source == typeof(object) || source == typeof(GeometryBase) || KindLookup.For(type: source).IsSome;
     internal static bool SupportsVertices(Type source) => source == typeof(object) || Supports(table: VerticesTable, source: source);
@@ -459,29 +476,53 @@ internal static class Dispatch {
     internal static bool SupportsFaces(Type source) => source == typeof(object) || source == typeof(GeometryBase) || Supports(table: FacesTable, source: source);
     internal static bool SupportsCurves(Type source) => source == typeof(object) || source == typeof(GeometryBase) || CurveCapabilities.Any(row => row.Geometry.IsAssignableFrom(c: source));
     internal static Fin<TOut> ResolveTagged<TOut, TTag, TArgs>(FrozenDictionary<(Type, TTag), Func<object, TArgs, Fin<TOut>>> table, object? source, TTag tag, TArgs args, Op op) where TTag : notnull =>
-        Optional(source).Bind(s => LookupTagged(table: table, key: s.GetType(), tag: tag).Map(fn => (Source: s, Fn: fn))).Match(
-            Some: hit => hit.Fn(arg1: hit.Source, arg2: args),
-            None: () => Fin.Fail<TOut>(error: source is null ? op.InvalidInput() : op.Unsupported(geometryType: source.GetType(), outputType: typeof(TOut))));
+        from s in Optional(source).ToFin(op.InvalidInput())
+        from hit in LookupTagged(table: table, key: s.GetType(), tag: tag).Map(fn => (Source: s, Fn: fn)).ToFin(op.Unsupported(geometryType: s.GetType(), outputType: typeof(TOut)))
+        from result in hit.Fn(arg1: hit.Source, arg2: args)
+        select result;
     internal static Fin<TOut> ResolvePair<TOut, TArgs>(FrozenDictionary<(Type, Type), Func<object, object, TArgs, Fin<TOut>>> table, object? left, object? right, TArgs args, Op op) =>
-        Optional(left).Bind(l => Optional(right).Map(r => (Left: l, Right: r))).Match(
-            Some: pair => LookupPair(table: table, left: pair.Left.GetType(), right: pair.Right.GetType()).Match(
-                Some: fn => fn(arg1: pair.Left, arg2: pair.Right, arg3: args),
-                None: () => Fin.Fail<TOut>(error: op.Unsupported(geometryType: pair.Left.GetType(), outputType: pair.Right.GetType()))),
-            None: () => Fin.Fail<TOut>(error: op.InvalidInput()));
+        from l in Optional(left).ToFin(op.InvalidInput())
+        from r in Optional(right).ToFin(op.InvalidInput())
+        from fn in LookupPair(table: table, left: l.GetType(), right: r.GetType()).ToFin(op.Unsupported(geometryType: l.GetType(), outputType: r.GetType()))
+        from result in fn(arg1: l, arg2: r, arg3: args)
+        select result;
     internal static Fin<TOut> ResolveUnorderedPair<TOut, TArgs>(FrozenDictionary<(Type, Type), Func<object, object, TArgs, Fin<TOut>>> table, object? left, object? right, TArgs args, Op op) =>
-        Optional(left).Bind(l => Optional(right).Map(r => (Left: l, Right: r))).Match(
-            Some: pair => (LookupPair(table: table, left: pair.Left.GetType(), right: pair.Right.GetType()).Map(fn => (Source: (L: pair.Left, R: pair.Right), Fn: fn))
-                | LookupPair(table: table, left: pair.Right.GetType(), right: pair.Left.GetType()).Map(fn => (Source: (L: pair.Right, R: pair.Left), Fn: fn))).Match(
-                    Some: hit => hit.Fn(arg1: hit.Source.L, arg2: hit.Source.R, arg3: args),
-                    None: () => Fin.Fail<TOut>(error: op.Unsupported(geometryType: pair.Left.GetType(), outputType: pair.Right.GetType()))),
-            None: () => Fin.Fail<TOut>(error: op.InvalidInput()));
-    internal static bool SupportsPair<TValue>(FrozenDictionary<(Type, Type), TValue> table, Type left, Type right) => LookupPair(table: table, left: left, right: right).IsSome;
+        from l in Optional(left).ToFin(op.InvalidInput())
+        from r in Optional(right).ToFin(op.InvalidInput())
+        from hit in (LookupPair(table: table, left: l.GetType(), right: r.GetType()).Map(fn => (Source: (L: l, R: r), Fn: fn))
+            | LookupPair(table: table, left: r.GetType(), right: l.GetType()).Map(fn => (Source: (L: r, R: l), Fn: fn))).ToFin(op.Unsupported(geometryType: l.GetType(), outputType: r.GetType()))
+        from result in hit.Fn(arg1: hit.Source.L, arg2: hit.Source.R, arg3: args)
+        select result;
+    internal static bool SupportsPair<TValue>(FrozenDictionary<(Type, Type), TValue> table, Type left, Type right) =>
+        LookupPair(table: table, left: left, right: right).IsSome || SupportsLatePair(left: left, right: right);
     internal static bool SupportsUnorderedPair<TValue>(FrozenDictionary<(Type, Type), TValue> table, Type left, Type right) =>
         SupportsPair(table: table, left: left, right: right) || SupportsPair(table: table, left: right, right: left);
+    private static bool SupportsLatePair(Type left, Type right) =>
+        (left == typeof(object) || left == typeof(GeometryBase) || right == typeof(object) || right == typeof(GeometryBase))
+        && SupportsKind(source: left)
+        && SupportsKind(source: right);
     internal static readonly FrozenDictionary<Type, Func<object, bool>> ValidityTable = new Dictionary<Type, Func<object, bool>> {
         [typeof(GeometryBase)] = static g => ((GeometryBase)g).IsValid,
         [typeof(double)] = static d => RhinoMath.IsValidDouble(x: (double)d),
         [typeof(bool)] = static _ => true, [typeof(int)] = static _ => true, [typeof(SurfaceCurvature)] = static _ => true, [typeof(MeshCheckParameters)] = static _ => true, [typeof(Kind)] = static _ => true,
+        [typeof(ClosestHit)] = static h => (ClosestHit)h is ClosestHit hit && hit.Point.IsValid
+            && hit.Distance.Map(static d => RhinoMath.IsValidDouble(x: d) && d >= 0.0).IfNone(true)
+            && hit.Normal.Map(static n => n.IsValid && n.Length > RhinoMath.ZeroTolerance).IfNone(true)
+            && hit.Component.Map(static c => c is { ComponentIndexType: not ComponentIndexType.InvalidType } && c.Index >= 0).IfNone(true)
+            && hit.MeshPoint.Map(static m => m.Point.IsValid).IfNone(true),
+        [typeof(FaceProjection)] = static f => (FaceProjection)f is { Brep: { IsValid: true, Faces.Count: > 0 }, FaceIndex: >= 0 },
+        [typeof(MeshFaceProjection)] = static m => (MeshFaceProjection)m is { Mesh: { IsValid: true } mesh, Face: int face } && face >= 0 && face < mesh.Faces.Count,
+        [typeof(ResidualSample)] = static r => (ResidualSample)r is { Index: >= 0, Location.IsValid: true, Distance: double distance, Tolerance: double tolerance, WithinTolerance: bool within }
+            && RhinoMath.IsValidDouble(x: distance) && distance >= 0.0 && RhinoMath.IsValidDouble(x: tolerance) && tolerance >= 0.0 && within == (distance <= tolerance),
+        [typeof(CurvatureProfile)] = static c => (CurvatureProfile)c is { Count: > 0, Minimum: double min, Maximum: double max, Mean: double mean, Variance: double variance }
+            && RhinoMath.IsValidDouble(x: min) && RhinoMath.IsValidDouble(x: max) && RhinoMath.IsValidDouble(x: mean) && RhinoMath.IsValidDouble(x: variance) && min <= max && variance >= 0.0,
+        [typeof(ResidualProfile)] = static r => (ResidualProfile)r is { Count: > 0, Minimum: double min, Maximum: double max, Mean: double mean, Variance: double variance, Rms: double rms, Tolerance: double tolerance, WithinTolerance: bool within }
+            && RhinoMath.IsValidDouble(x: min) && min >= 0.0 && RhinoMath.IsValidDouble(x: max) && max >= min && RhinoMath.IsValidDouble(x: mean) && mean >= 0.0 && RhinoMath.IsValidDouble(x: variance) && variance >= 0.0 && RhinoMath.IsValidDouble(x: rms) && rms >= 0.0 && RhinoMath.IsValidDouble(x: tolerance) && tolerance >= 0.0 && within == (max <= tolerance),
+        [typeof(MeshFaceSample)] = static m => (MeshFaceSample)m is { Face: >= 0, Value: double value } && RhinoMath.IsValidDouble(x: value) && value >= 0.0,
+        [typeof(Hit)] = static h => (Hit)h is { Id: >= 0 },
+        [typeof(Couple)] = static c => (Couple)c is { A: >= 0, B: >= 0 },
+        [typeof(CurveDeviation)] = static c => (CurveDeviation)c is { MinimumDistance: double min, MaximumDistance: double max, MinimumA.IsValid: true, MinimumB.IsValid: true, MaximumA.IsValid: true, MaximumB.IsValid: true, Tolerance: double tolerance, WithinTolerance: bool within }
+            && RhinoMath.IsValidDouble(x: min) && min >= 0.0 && RhinoMath.IsValidDouble(x: max) && max >= min && RhinoMath.IsValidDouble(x: tolerance) && tolerance >= 0.0 && within == (max <= tolerance),
         [typeof(MeshPoint)] = static m => ((MeshPoint)m).Point.IsValid,
         [typeof(ComponentIndex)] = static c => (ComponentIndex)c is { ComponentIndexType: not ComponentIndexType.InvalidType } ci && ci.Index >= 0,
         [typeof(IntersectionHit)] = static h => (IntersectionHit)h is { Kind: not IntersectionKind.Unknown } hit

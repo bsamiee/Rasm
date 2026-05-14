@@ -99,8 +99,8 @@ public static partial class Query {
     }
     public static Query<TGeometry, TOut> Components<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
-        return ((typeof(Brep).IsAssignableFrom(c: typeof(TGeometry)) || typeof(TGeometry) == typeof(object)) && typeof(TOut) == typeof(Brep))
-            || ((typeof(Mesh).IsAssignableFrom(c: typeof(TGeometry)) || typeof(TGeometry) == typeof(object)) && typeof(TOut) == typeof(Mesh))
+        return ((typeof(Brep).IsAssignableFrom(c: typeof(TGeometry)) || typeof(TGeometry) == typeof(object) || typeof(TGeometry) == typeof(GeometryBase)) && typeof(TOut) == typeof(Brep))
+            || ((typeof(Mesh).IsAssignableFrom(c: typeof(TGeometry)) || typeof(TGeometry) == typeof(object) || typeof(TGeometry) == typeof(GeometryBase)) && typeof(TOut) == typeof(Mesh))
             ? Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, TOut>.Build(
                 key: key, requiresContext: true, state: key,
                 evaluator: static (op, geometry) =>
