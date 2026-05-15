@@ -892,6 +892,23 @@ public sealed class RuleBehaviorTests {
     }
 
     [Fact]
+    public async Task UnionCaseFactoryReturningContainingTypeDoesNotEmitExtensionProjectionDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Projection/UnionFactory.cs",
+            source: """
+                namespace Domain.Projection;
+
+                public sealed class ScalarMetric { }
+
+                public abstract record CurvatureMode {
+                    public sealed record ScalarCase(ScalarMetric Metric) : CurvatureMode;
+                    public static CurvatureMode Scalar(ScalarMetric metric) => new ScalarCase(Metric: metric);
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0506", collection: ids);
+    }
+    [Fact]
     public async Task InlineBoundedChannelOptionsWithFullModeDoesNotEmitChannelFullModeDiagnosticAsync() {
         ImmutableArray<string> ids = await AnalyzeIdsAsync(
             filePath: "/workspace/src/Domain/Services/BoundedChannel.cs",

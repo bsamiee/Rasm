@@ -226,8 +226,9 @@ internal static class ShapeRules {
             INamedTypeSymbol namedReceiver => !SymbolEqualityComparer.Default.Equals(namedReceiver, method.ContainingType),
             _ => true,
         };
-        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, staticOrdinaryMethod, validatedFactory, method.IsExtensionMethod, receiverDomainOrApplication, externalReceiver, method.Locations.Length) switch {
-            (true, true, false, false, true, true, > 0) => Diagnostic.Create(RuleCatalog.CSP0506, method.Locations[0], method.Name, receiverName),
+        bool returnsContainingType = SymbolEqualityComparer.Default.Equals(method.ReturnType, method.ContainingType);
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, staticOrdinaryMethod, validatedFactory, method.IsExtensionMethod, receiverDomainOrApplication, externalReceiver, returnsContainingType, method.Locations.Length) switch {
+            (true, true, false, false, true, true, false, > 0) => Diagnostic.Create(RuleCatalog.CSP0506, method.Locations[0], method.Name, receiverName),
             _ => null,
         });
     }
