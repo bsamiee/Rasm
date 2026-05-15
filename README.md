@@ -103,15 +103,16 @@ Automated Rhino/GH2 runtime tests stay out of this foundation until Rhino.Testin
 
 `libs/csharp/Rasm.Grasshopper` provides the reusable component boundary for GH2 plugins:
 
-- `Param` maps CLR types to native `Grasshopper2.Parameters.Standard` parameters.
+- `PortKind` maps CLR types to native `Grasshopper2.Parameters.Standard` parameters and owns input/output adder delegates.
 - `Port<T>` describes item, twig, and tree access plus requirement and parameter policy.
 - `PortPolicy` applies native GH2 behavior for vectors, angles, indices, curve domains, and surface acceptance.
-- `Bridge.Read<T>` uses `IDataAccess.GetPear<T>`, `GetTwig<T>`, and `GetTree<T>` to preserve metadata, null state, and topology.
-- `Bridge.Write<T>` uses `SetPear`, `SetTwig<T>`, and `SetTree` with `Garden.TreeFromList`.
+- `ComponentSpec.Of` and `Component` keep plugin components as thin port and output declarations.
+- `Bridge.Read<T>` uses `IDataAccess.GetPears<T>` and `GetTree<T>` to preserve metadata, null state, and topology.
+- `Bridge.Write<T>` uses `SetPear`, `SetTwig<T>`, and `SetTree` with `Garden.TwigFromPears`, `Garden.TreeFromLeaves`, and `Garden.TreeFromPears`.
 - `Output` keeps final GH2 side effects at the component boundary.
 
 The current API ledger is [`docs/rhino-gh2-api-ledger.md`](docs/rhino-gh2-api-ledger.md). It tracks RhinoCommon/GH2 APIs as used, underused, or intentionally unused against the installed RhinoWIP XML docs.
 
-To add a new parameter type, extend `Param` with a static case that returns the native `InputAdder.Add{X}` and `OutputAdder.Add{X}` parameter instances. Port factories automatically fall back to `Param.Generic` for unmapped CLR types, so new typed mappings should be added only when GH2 has a real native parameter.
+To add a new parameter type, extend `PortKind` with a static case that returns the native `InputAdder.Add{X}` and `OutputAdder.Add{X}` parameter instances. Port factories automatically fall back to `PortKind.Generic` for unmapped CLR types, so new typed mappings should be added only when GH2 has a real native parameter.
 
-To add a component, define an `IComponentSpec<TInput,TState>` with explicit `Inputs`, `Outputs`, `Read`, and `Prepare` members, then inherit `ShapeComponent<TSpec>` or `Component<TSpec,TInput,TState>`. Prefer adding `PortPolicy` at the port declaration over local validation or conversion code.
+To add a component, create static `Port<T>` and `OutputGroup` declarations, pass them to `ComponentSpec.Of`, and inherit `Component`. Prefer adding `PortPolicy` at the port declaration over local validation or conversion code.

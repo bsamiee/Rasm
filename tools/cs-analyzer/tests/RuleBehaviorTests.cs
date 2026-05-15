@@ -806,10 +806,10 @@ public sealed class RuleBehaviorTests {
     }
 
     [Fact]
-    public async Task AnalysisQuerySurfaceAppliesFunctionalRulesAsync() {
+    public async Task AnalysisOperationSurfaceAppliesFunctionalRulesAsync() {
         ImmutableArray<string> ids = await AnalyzeIdsAsync(
-            filePath: "/workspace/libs/csharp/Rasm/Analysis/Query.cs",
-            source: Source(ns: "Rasm.Analysis", type: "Query", members: """
+            filePath: "/workspace/libs/csharp/Rasm/Analysis/Analyze.cs",
+            source: Source(ns: "Rasm.Analysis", type: "Operation", members: """
                 public double Execute(double value) {
                     if (value > 0) {
                         return value;
@@ -823,14 +823,14 @@ public sealed class RuleBehaviorTests {
     }
 
     [Fact]
-    public async Task AnalysisQuerySurfaceExemptionIsRasmOnlyAsync() {
+    public async Task AnalysisOperationSurfaceExemptionIsRasmOnlyAsync() {
         ImmutableArray<string> ids = await AnalyzeIdsAsync(
-            filePath: "/workspace/src/Domain/Services/Query.cs",
+            filePath: "/workspace/src/Domain/Services/Operation.cs",
             source: BoundaryPrelude(source: """
                 namespace Other.Analysis;
 
                 [DomainScope]
-                public sealed class Query {
+                public sealed class Operation {
                     public double Execute(double value) => value;
                 }
                 """)).ConfigureAwait(true);

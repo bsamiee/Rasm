@@ -30,7 +30,7 @@ internal static class RuleCatalog {
     /// The Union-pair exemption lets a polymorphic Validate(Shape) entrypoint coexist with a non-Union helper without
     /// tripping the rule, supporting REF-0074-style polymorphic collapse during migration.
     /// </summary>
-    internal static readonly DiagnosticDescriptor CSP0005 = Err("CSP0005", "OverloadSpam", "Method family '{0}' has {1} overloads; collapse to params ReadOnlySpan<T> or query algebra", "SurfaceArea");
+    internal static readonly DiagnosticDescriptor CSP0005 = Err("CSP0005", "OverloadSpam", "Method family '{0}' has {1} overloads; collapse to params ReadOnlySpan<T> or operation algebra", "SurfaceArea");
     internal static readonly DiagnosticDescriptor CSP0006 = Err("CSP0006", "AsyncBlocking", "Blocking sync-over-async call '{0}' will deadlock in async contexts; use await", "AsyncDiscipline");
     internal static readonly DiagnosticDescriptor CSP0007 = Err("CSP0007", "WallClock", "Direct wall-clock access '{0}' is forbidden; inject NodaTime.IClock", "TimeDiscipline");
     internal static readonly DiagnosticDescriptor CSP0008 = Err("CSP0008", "HttpClientConstruction", "Direct 'new HttpClient()' is forbidden; use IHttpClientFactory", "ResourceManagement");
@@ -103,7 +103,7 @@ internal static class RuleCatalog {
     internal static readonly DiagnosticDescriptor CSP0705 = Err("CSP0705", "MatchBoundaryOnlyStrict", "'Match' must terminate at method boundary return; avoid mid-pipeline context collapse", "FunctionalDiscipline");
     internal static readonly DiagnosticDescriptor CSP0706 = Err("CSP0706", "EarlyReturnGuardChain", "Early-return guard chain detected; compose validation as Validation<Error,T> applicative pipeline", "FunctionalDiscipline");
     internal static readonly DiagnosticDescriptor CSP0707 = Err("CSP0707", "VariableReassignment", "Reassignment-driven pipeline on '{0}' is forbidden; use Map/Bind composition", "FunctionalDiscipline");
-    internal static readonly DiagnosticDescriptor CSP0708 = Err("CSP0708", "ApiSurfaceInflationByPrefix", "Method family prefix inflation detected on '{0}'; collapse Get/TryGet/GetOr variants into query algebra", "SurfaceArea");
+    internal static readonly DiagnosticDescriptor CSP0708 = Err("CSP0708", "ApiSurfaceInflationByPrefix", "Method family prefix inflation detected on '{0}'; collapse Get/TryGet/GetOr variants into operation algebra", "SurfaceArea");
     internal static readonly DiagnosticDescriptor CSP0709 = Err("CSP0709", "NullPatternSentinel", "Null sentinel pattern '{0}' in domain/application flow is forbidden; use Option<T>/Fin<T>", "FunctionalDiscipline");
     internal static readonly DiagnosticDescriptor CSP0710 = Err("CSP0710", "FilterMapChainOnSeq", ".Filter(...).Map(...) on Seq<T> allocates an intermediate collection; use Choose for single-pass filter+map", "FunctionalDiscipline");
     internal static readonly DiagnosticDescriptor CSP0711 = Err("CSP0711", "AsyncAwaitInEff", "await inside Eff<RT,T>-returning method '{0}' mixes paradigms; use .ToEff() or liftAsync for interop", "FunctionalDiscipline");

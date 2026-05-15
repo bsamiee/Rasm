@@ -115,23 +115,23 @@ public static class Output {
         groups.Iter(group => group.EmptyGroup(arg1: access, arg2: outputs));
     public static OutputGroup Single<TOut>(
         Port<Shape> input, Port<TOut> port,
-        Func<GrasshopperRuntime, Fin<Query<object, TOut>>> query,
+        Func<GrasshopperRuntime, Fin<Operation<object, TOut>>> operation,
         bool emptyUnsupported = true, string aspectLabel = "Analysis") where TOut : notnull =>
         Details<TOut>(
             input: input,
-            aspect: runtime => query(arg: runtime).Map<Func<Shape, Eff<Env, Seq<TOut>>>>(selected => shape => selected.Apply(geometry: shape.Inner)),
+            aspect: runtime => operation(arg: runtime).Map<Func<Shape, Eff<Env, Seq<TOut>>>>(selected => shape => selected.Apply(geometry: shape.Inner)),
             emptyUnsupported: emptyUnsupported,
             aspectLabel: aspectLabel,
             slots: Slot<TOut, TOut>(port: port, project: static (_, values) => Fin.Succ(values)));
     public static OutputGroup Single<TAspect, TOut>(Port<Shape> input, Port<TOut> port, TAspect aspect)
         where TAspect : IAspect where TOut : notnull =>
         Single<TOut>(input: input, port: port,
-            query: _ => Fin.Succ(aspect.ToQuery<object, TOut>()),
+            operation: _ => Fin.Succ(aspect.Operation<object, TOut>()),
             aspectLabel: aspect.GetType().Name);
     public static OutputGroup Single<TAspect, TOut>(Port<Shape> input, Port<TOut> port, Func<GrasshopperRuntime, Fin<TAspect>> aspect)
         where TAspect : IAspect where TOut : notnull =>
         Single<TOut>(input: input, port: port,
-            query: runtime => aspect(arg: runtime).Map(static selected => selected.ToQuery<object, TOut>()),
+            operation: runtime => aspect(arg: runtime).Map(static selected => selected.Operation<object, TOut>()),
             aspectLabel: typeof(TAspect).Name);
     public static OutputGroup Details<TProjection>(
         Port<Shape> input,

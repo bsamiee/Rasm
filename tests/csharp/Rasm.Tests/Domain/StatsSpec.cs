@@ -44,8 +44,8 @@ public sealed class StatsSpec {
     public void ProfileUsesStatsAndOptionalToleranceRail() {
         Op key = Op.Create(value: "profile-rail");
 
-        Assert.True(condition: StatProfile.Curvature(values: toSeq<double>([-1.0, 3.0]), scalar: CurvatureScalar.Gaussian, key: key).Bind(profile => key.One(value: profile)).IsSucc);
-        Assert.True(condition: StatProfile.Residual(values: toSeq<double>([1.0, 3.0]), tolerance: 3.0, key: key).Bind(profile => key.One(value: profile)).IsSucc);
+        Assert.True(condition: StatProfile.Curvature(values: toSeq<double>([-1.0, 3.0]), kind: StatKind.Gaussian, key: key).Bind(profile => key.Accept(value: profile)).IsSucc);
+        Assert.True(condition: StatProfile.Residual(values: toSeq<double>([1.0, 3.0]), tolerance: 3.0, key: key).Bind(profile => key.Accept(value: profile)).IsSucc);
         Assert.True(condition: StatProfile.Residual(values: toSeq<double>([1.0, 3.0]), tolerance: -1.0, key: key).IsFail);
         Assert.True(condition: StatProfile.Residual(values: toSeq<double>([1.0, 3.0]), tolerance: 3.0, key: key).Match(Succ: static profile => profile.WithinTolerance, Fail: static _ => false));
     }

@@ -37,10 +37,10 @@
 | **[8]** | `Brep.TryConvertBrep`, `GetConnectedComponents`, `SplitDisjointPieces` | Topology extraction uses native Brep conversion and component splitting. |
 | **[9]** | `RTree.CreateFromPointArray`, `CreatePointCloudTree`, `CreateMeshFaceTree` | Spatial analysis uses native bulk constructors for point, point-cloud, and mesh-face trees. |
 | **[10]** | `RTree.SearchOverlaps`, `Point3dKNeighbors`, `Point3dClosestPoints` | Spatial overlap and nearest-neighbor queries use RhinoCommon search APIs directly. |
-| **[11]** | `LengthMassProperties.WeightedSum`, `AreaMassProperties.WeightedSum`, `VolumeMassProperties.WeightedSum` | `Query<TGeometry,TOut>.Aggregate()` composes tolerance-aware itemwise mass properties through native mass-property summation. |
+| **[11]** | `LengthMassProperties.Compute(IEnumerable<Curve>)`, mass-property `Sum(...)` | `Operation<TGeometry,TOut>.Aggregate()` uses native enumerable length computation for pure curve batches and instance summation for mixed itemwise mass properties. |
 | **[12]** | `SubD.UpdateSurfaceMeshCache` | SubD topology extraction refreshes native surface mesh cache before mesh-based extraction. |
 | **[13]** | `IDataAccess.GetIndex` | Indexed extraction asks GH2 to apply the active `IndexModifier` after candidate count is known. |
-| **[14]** | `Mesh.CreateFromFilteredFaceList` | Mesh face extraction now builds single-face meshes through RhinoCommon instead of rebuilding vertices and faces by hand. |
+| **[14]** | `Mesh.Faces.GetFaceVertices`, `Mesh.FaceNormals.ComputeFaceNormals`, `Mesh.GetNakedEdges` | Mesh topology extraction reads face vertices, normals, and naked edges through native mesh APIs without constructing filtered meshes. |
 | **[15]** | `Box(Plane, GeometryBase)` | Oriented bounds now use the native box constructor and keep validity checks on the returned box. |
 | **[16]** | `IntersectionEvent.PointA2`, `OverlapA`, `OverlapB` | Curve overlap events now preserve endpoint and interval data on the single `IntersectionHit` model. |
 | **[17]** | Boolean Rhino intersection APIs | `CurveBrep`, `CurveBrepFace`, `SurfaceSurface`, `BrepPlane`, `BrepSurface`, and `BrepBrep` now treat `false` as `InvalidResult` unless cancellation applies. |
@@ -56,11 +56,10 @@
 | :-----: | ----- | ----- |
 | **[1]** | `AreaMassProperties.Compute(IEnumerable<GeometryBase>)` | Deferred for aggregate area because per-item Brep tolerance arguments must remain identical. |
 | **[2]** | `VolumeMassProperties.Compute(IEnumerable<GeometryBase>)` | Deferred for aggregate volume because per-item Brep tolerance arguments must remain identical. |
-| **[3]** | `LengthMassProperties.Compute(IEnumerable<Curve>)` | Current enumerable length aggregate is already used for pure curve batches; no extra refactor remains without benchmarking mixed-geometry behavior. |
-| **[4]** | `SubD.ToBrep(SubDToBrepOptions.Default)` | Stale as an underused finding; current code does not need SubD-to-Brep conversion beyond existing extraction paths. Promote only when a Brep output requires it. |
-| **[5]** | `CurveParameter.NormaliseDomains`, `FlipCurves` | Curve parameter policy is intentionally absent until curve normalization semantics are component-specific. |
-| **[6]** | `SurfaceParameter.AcceptMeshes`, `NormaliseDomains`, `FlipSurfaces` | Surface parameter policy is intentionally absent until mesh acceptance and orientation policy are component-specific. |
-| **[7]** | `IDataAccess.Verify*` and `Rectify*` methods | Parameter verification remains implicit in GH2; explicit policy-driven rectification belongs at GH UX boundaries, not domain rails. |
+| **[3]** | `SubD.ToBrep(SubDToBrepOptions.Default)` | Stale as an underused finding; current code does not need SubD-to-Brep conversion beyond existing extraction paths. Promote only when a Brep output requires it. |
+| **[4]** | `CurveParameter.NormaliseDomains`, `FlipCurves` | Curve parameter policy is intentionally absent until curve normalization semantics are component-specific. |
+| **[5]** | `SurfaceParameter.AcceptMeshes`, `NormaliseDomains`, `FlipSurfaces` | Surface parameter policy is intentionally absent until mesh acceptance and orientation policy are component-specific. |
+| **[6]** | `IDataAccess.Verify*` and `Rectify*` methods | Parameter verification remains implicit in GH2; explicit policy-driven rectification belongs at GH UX boundaries, not domain rails. |
 
 ---
 ## [4][INTENTIONALLY_UNUSED]
@@ -75,6 +74,7 @@
 | **[3]** | BenchmarkDotNet | No measured hot path is being optimized in this slice. |
 | **[4]** | GH1 `.gha` APIs | The workspace targets GH2 `.rhp` plugins on RhinoWIP only. |
 | **[5]** | RhinoCode publishing APIs | Runtime packaging is Yak-based and driven by `scripts/rhino.sh`. |
+| **[6]** | `Mesh.CreateFromFilteredFaceList` | Current mesh face handling projects from the source mesh and face index; filtered mesh construction would add ownership and topology-copying cost. |
 
 ---
 ## [5][IMPLEMENTATION_NOTES]
@@ -86,5 +86,5 @@
 - GH2 imperative calls remain quarantined in boundary adapters such as `Bridge`, `Port`, and component overrides.
 - `PortPolicy.Index()` is the single owner of index behavior; `PortKind.Index` was removed.
 - `Context` owns tolerances and model units only; unused custom meter-scale state was removed.
-- `Query<TGeometry,TOut>.Aggregate()` lets aggregate-capable queries consume the full input; unsupported aggregate requests fail instead of silently falling back.
+- `Operation<TGeometry,TOut>.Aggregate()` lets aggregate-capable queries consume the full input; unsupported aggregate requests fail instead of silently falling back.
 - Future query slices should prioritize GH2 tree topology transforms and measured Rhino mass collection overloads before adding local routing code.

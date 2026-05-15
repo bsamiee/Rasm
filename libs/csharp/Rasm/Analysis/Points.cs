@@ -8,9 +8,9 @@ public partial record Points : IAspect {
     private static readonly Op EdgeMidpointsKey = Op.Of(name: nameof(EdgeMidpoints));
     private static readonly Op VerticesKey = Op.Of(name: nameof(Vertices));
     private static readonly Op ControlPointsKey = Op.Of(name: nameof(ControlPoints));
-    public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull => Switch<Query<TGeometry, TOut>>(
+    public global::Rasm.Analysis.Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch<global::Rasm.Analysis.Operation<TGeometry, TOut>>(
         quadrants: static _ => typeof(TOut) == typeof(Point3d)
-            ? Analyze.Cast<TGeometry, TOut>(key: QuadrantsKey, query: Query<TGeometry, Point3d>.Build(
+            ? Analyze.Cast<TGeometry, TOut>(key: QuadrantsKey, operation: global::Rasm.Analysis.Operation<TGeometry, Point3d>.Build(
                 key: QuadrantsKey, requirement: Requirement.CurveLength, state: QuadrantsKey,
                 evaluator: static (op, geometry) =>
                     from context in Env.Asks
@@ -24,41 +24,75 @@ public partial record Points : IAspect {
                     }).ToEff()
                     select result))
             : QuadrantsKey.Unsupported<TGeometry, TOut>(),
-        edgeMidpoints: static _ => typeof(TOut) == typeof(Point3d) && (Analyze.Supports(geometry: typeof(TGeometry), native: [typeof(Line), typeof(Polyline), typeof(BoundingBox), typeof(Box)]) || Dispatch.Supports(CapTag.Curves, typeof(TGeometry)))
-            ? Analyze.Cast<TGeometry, TOut>(key: EdgeMidpointsKey, query: Query<TGeometry, Point3d>.Build(
+        edgeMidpoints: static _ => typeof(TOut) == typeof(Point3d) && (typeof(TGeometry) == typeof(object) || typeof(TGeometry) == typeof(GeometryBase) || typeof(TGeometry) == typeof(Line) || typeof(TGeometry) == typeof(Polyline) || typeof(TGeometry) == typeof(BoundingBox) || typeof(TGeometry) == typeof(Box) || Analyze.CanProjectCurves(type: typeof(TGeometry), feature: Some(CurveFeature.Edge)))
+            ? Analyze.Cast<TGeometry, TOut>(key: EdgeMidpointsKey, operation: global::Rasm.Analysis.Operation<TGeometry, Point3d>.Build(
                 key: EdgeMidpointsKey, requiresContext: true, state: EdgeMidpointsKey,
                 evaluator: static (op, geometry) => geometry switch {
-                    Line line => op.One(value: line.PointAt(t: 0.5)).ToEff(),
-                    Polyline polyline => op.Many(values: polyline.GetSegments().Select(static segment => segment.PointAt(t: 0.5))).ToEff(),
-                    BoundingBox box => op.Many(values: box.GetEdges().Select(static edge => edge.PointAt(t: 0.5))).ToEff(),
-                    Box box => op.Many(values: box.BoundingBox.GetEdges().Select(static edge => edge.PointAt(t: 0.5))).ToEff(),
+                    Line line => op.Accept(value: line.PointAt(t: 0.5)).ToEff(),
+                    Polyline polyline => op.Accept(values: polyline.GetSegments().Select(static segment => segment.PointAt(t: 0.5))).ToEff(),
+                    BoundingBox box => op.Accept(values: box.GetEdges().Select(static edge => edge.PointAt(t: 0.5))).ToEff(),
+                    Box box => op.Accept(values: box.BoundingBox.GetEdges().Select(static edge => edge.PointAt(t: 0.5))).ToEff(),
                     _ => from runtime in Env.EnvAsks
-                         from curves in Dispatch.Resolve<Seq<TopologyProjection>, (CurveSelector, Context, Op, CancellationToken)>(CapTag.Curves, geometry, (new CurveSelector(Feature: CurveFeature.Edge), runtime.Context, op, runtime.Cancellation), op, variant: CurveFeature.Edge).ToEff()
-                         from result in op.Many(values: curves.Choose(static projection => projection.As<Curve>().Map(static c => Dispatch.Borrowed(c, static owned => owned.PointAtNormalizedLength(length: 0.5))))).ToEff()
+                         from curves in Analyze.CurveProjections(geometry: geometry, selector: new CurveSelector(Feature: CurveFeature.Edge), context: runtime.Context, op: op, cancel: runtime.Cancellation).ToEff()
+                         from result in op.Accept(values: curves.Choose(static projection => projection.As<Curve>().Map(static c => GeometryKernel.Borrowed(c, static owned => owned.PointAtNormalizedLength(length: 0.5))))).ToEff()
                          select result,
                 }))
             : EdgeMidpointsKey.Unsupported<TGeometry, TOut>(),
-        vertices: static _ => typeof(TOut) == typeof(Point3d) && Dispatch.Supports(CapTag.Vertices, typeof(TGeometry))
-            ? Analyze.Cast<TGeometry, TOut>(key: VerticesKey, query: Query<TGeometry, Point3d>.Build(
+        vertices: static _ => typeof(TOut) == typeof(Point3d) && Analyze.CanReadVertices(type: typeof(TGeometry))
+            ? Analyze.Cast<TGeometry, TOut>(key: VerticesKey, operation: global::Rasm.Analysis.Operation<TGeometry, Point3d>.Build(
                 key: VerticesKey, requiresContext: true, state: VerticesKey,
                 evaluator: static (op, geometry) =>
                     from context in Env.Asks
-                    from points in Dispatch.Resolve<Seq<Point3d>, (Context, Op)>(CapTag.Vertices, geometry, (context, op), op).ToEff()
-                    from result in op.Many(values: points).ToEff()
+                    from points in Analyze.VerticesOf(geometry: geometry, context: context, op: op).ToEff()
+                    from result in op.Accept(values: points).ToEff()
                     select result))
             : VerticesKey.Unsupported<TGeometry, TOut>(),
-        controlPoints: static _ => typeof(TOut) == typeof(Point3d) && Dispatch.Supports(CapTag.ControlPoints, typeof(TGeometry))
-            ? Analyze.Cast<TGeometry, TOut>(key: ControlPointsKey, query: Query<TGeometry, Point3d>.Build(
+        controlPoints: static _ => typeof(TOut) == typeof(Point3d) && Analyze.CanReadControlPoints(type: typeof(TGeometry))
+            ? Analyze.Cast<TGeometry, TOut>(key: ControlPointsKey, operation: global::Rasm.Analysis.Operation<TGeometry, Point3d>.Build(
                 key: ControlPointsKey, requiresContext: true, state: ControlPointsKey,
-                evaluator: static (op, geometry) => from points in Dispatch.Resolve<Seq<Point3d>, Op>(CapTag.ControlPoints, geometry, op, op).ToEff()
-                                                    from result in op.Many(values: points).ToEff()
+                evaluator: static (op, geometry) => from points in Analyze.ControlPointsOf(geometry: geometry, op: op).ToEff()
+                                                    from result in op.Accept(values: points).ToEff()
                                                     select result))
             : ControlPointsKey.Unsupported<TGeometry, TOut>());
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
-    public static Query<TGeometry, TOut> Points<TGeometry, TOut>(Points sampling) where TGeometry : notnull => Aspect<Points, TGeometry, TOut>(aspect: sampling);
+    public static global::Rasm.Analysis.Operation<TGeometry, TOut> Points<TGeometry, TOut>(Points sampling) where TGeometry : notnull => Aspect<Points, TGeometry, TOut>(aspect: sampling);
+    internal static bool CanReadVertices(Type type) =>
+        type == typeof(object) || type == typeof(Point3d) || type == typeof(Line) || type == typeof(Polyline) || type == typeof(BoundingBox) || type == typeof(Box) || typeof(GeometryBase).IsAssignableFrom(type);
+    internal static bool CanReadControlPoints(Type type) =>
+        type == typeof(object) || typeof(Curve).IsAssignableFrom(type) || typeof(Surface).IsAssignableFrom(type) || typeof(Brep).IsAssignableFrom(type);
+    internal static Fin<Seq<Point3d>> VerticesOf<TGeometry>(TGeometry geometry, Context context, Op op) where TGeometry : notnull =>
+        Optional(geometry).ToFin(op.InvalidInput()).Bind(g => g switch {
+            Point3d point => Fin.Succ(Seq(point)),
+            Point point => Fin.Succ(Seq(point.Location)),
+            Line line => Fin.Succ(Seq(line.From, line.To)),
+            Polyline polyline => Fin.Succ(toSeq(polyline)),
+            BoundingBox box => Fin.Succ(toSeq(box.GetCorners())),
+            Box box => Fin.Succ(toSeq(box.GetCorners())),
+            Curve curve => Fin.Succ(curve.TryGetPolyline(polyline: out Polyline poly) ? toSeq(poly) : Seq(curve.PointAtStart, curve.PointAtEnd)),
+            Brep brep => Fin.Succ(toSeq(brep.DuplicateVertices())),
+            Mesh mesh => Fin.Succ(toSeq(mesh.Vertices.ToPoint3dArray())),
+            PointCloud cloud => Fin.Succ(toSeq(cloud.GetPoints())),
+            SubD subd => Fin.Succ(toSeq(LanguageExt.List.unfold((SubDVertex?)subd.Vertices.First, static v => v switch { SubDVertex sv => Some((sv.ControlNetPoint, (SubDVertex?)sv.Next)), _ => None }))),
+            Surface surface => (surface.Domain(direction: 0), surface.Domain(direction: 1)) switch {
+                (Interval u, Interval v) when u.IsValid && v.IsValid => Fin.Succ(Seq(surface.PointAt(u: u.T0, v: v.T0), surface.PointAt(u: u.T1, v: v.T0), surface.PointAt(u: u.T1, v: v.T1), surface.PointAt(u: u.T0, v: v.T1))),
+                _ => Fin.Fail<Seq<Point3d>>(op.InvalidResult()),
+            },
+            _ => Fin.Fail<Seq<Point3d>>(op.Unsupported(g.GetType(), typeof(Point3d))),
+        });
+    internal static Fin<Seq<Point3d>> ControlPointsOf<TGeometry>(TGeometry geometry, Op op) where TGeometry : notnull =>
+        Optional(geometry).ToFin(op.InvalidInput()).Bind(g => g switch {
+            Curve curve => curve is NurbsCurve nc
+                ? Fin.Succ(toSeq(Enumerable.Range(0, nc.Points.Count).Select(i => nc.Points[i].Location)))
+                : Optional(curve.ToNurbsCurve()).ToFin(op.InvalidResult()).Map(static c => GeometryKernel.Borrowed(c, static d => toSeq(Enumerable.Range(0, d.Points.Count).Select(i => d.Points[i].Location).ToArray()))),
+            Surface surface => surface is NurbsSurface ns
+                ? Fin.Succ(toSeq(Enumerable.Range(0, ns.Points.CountU).SelectMany(u => Enumerable.Range(0, ns.Points.CountV).Select(v => ns.Points.GetControlPoint(u, v).Location))))
+                : Optional(surface.ToNurbsSurface()).ToFin(op.InvalidResult()).Map(static s => GeometryKernel.Borrowed(s, static d => toSeq(Enumerable.Range(0, d.Points.CountU).SelectMany(u => Enumerable.Range(0, d.Points.CountV).Select(v => d.Points.GetControlPoint(u, v).Location)).ToArray()))),
+            Brep brep => toSeq(brep.Faces).TraverseM(f => Optional(f.ToNurbsSurface()).ToFin(op.InvalidResult()).Map(static s => GeometryKernel.Borrowed(s, static d => toSeq(Enumerable.Range(0, d.Points.CountU).SelectMany(u => Enumerable.Range(0, d.Points.CountV).Select(v => d.Points.GetControlPoint(u, v).Location)).ToArray())))).As().Map(static nested => nested.Bind(static points => points)),
+            _ => Fin.Fail<Seq<Point3d>>(op.Unsupported(g.GetType(), typeof(Point3d))),
+        });
     internal static Fin<Seq<Point3d>> ExtractCardinals(Op op, Curve curve, double tolerance) =>
         Seq((Direction: Vector3d.XAxis, Maximize: false), (Direction: Vector3d.XAxis, Maximize: true), (Direction: Vector3d.YAxis, Maximize: false), (Direction: Vector3d.YAxis, Maximize: true), (Direction: Vector3d.ZAxis, Maximize: false), (Direction: Vector3d.ZAxis, Maximize: true))
             .Take(curve.IsPlanar(tolerance: tolerance) switch { true => 4, false => 6 })

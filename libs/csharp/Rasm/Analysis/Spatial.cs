@@ -32,7 +32,7 @@ public sealed class Tree : IDisposable {
                     seed: Fin.Succ(new RTree()), func: static (current, item) => current.Bind(tree => tree.Insert(
                             box: item.Box, elementId: item.Index) switch {
                                 true => Fin.Succ(tree),
-                                false => Dispatch.Borrowed(tree, static _ => Fin.Fail<RTree>(Key.InvalidResult())),
+                                false => GeometryKernel.Borrowed(tree, static _ => Fin.Fail<RTree>(Key.InvalidResult())),
                             })))
             .Map(static tree => new Tree(tree: tree))
             .ToValidation();
@@ -88,7 +88,7 @@ public sealed class Tree : IDisposable {
     }
     public void Dispose() =>
         disposed = disposed switch {
-            false => Dispatch.Borrowed(tree, static _ => true),
+            false => GeometryKernel.Borrowed(tree, static _ => true),
             true => true,
         };
     private Fin<RTree> Ready() =>
@@ -150,12 +150,12 @@ public static class Spatial {
         ReadOnlySpan<Point3d> needles,
         Probe probe) =>
         (Tree.ValidatePoints(points: points), Tree.ValidatePoints(points: needles), ValidateProbe(probe: probe))
-            .Apply(static (hay, query, valid) => (Hay: hay, Query: query, Probe: valid))
+            .Apply(static (hay, operation, valid) => (Hay: hay, Operation: operation, Probe: valid))
             .As()
             .Bind(static state => Tree.PointPairs(values: Neighbors(state: state)));
-    private static IEnumerable<int[]> Neighbors((Point3d[] Hay, Point3d[] Query, Probe Probe) state) => state.Probe switch {
-        Probe.Nearest k => RTree.Point3dKNeighbors(hayPoints: state.Hay, needlePts: state.Query, amount: k.Count),
-        Probe.Within w => RTree.Point3dClosestPoints(hayPoints: state.Hay, needlePts: state.Query, limitDistance: w.Distance),
+    private static IEnumerable<int[]> Neighbors((Point3d[] Hay, Point3d[] Operation, Probe Probe) state) => state.Probe switch {
+        Probe.Nearest k => RTree.Point3dKNeighbors(hayPoints: state.Hay, needlePts: state.Operation, amount: k.Count),
+        Probe.Within w => RTree.Point3dClosestPoints(hayPoints: state.Hay, needlePts: state.Operation, limitDistance: w.Distance),
         _ => [],
     };
     private static Fin<Probe> ValidateProbe(Probe probe) => probe switch {

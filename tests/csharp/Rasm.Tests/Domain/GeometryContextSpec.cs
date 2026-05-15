@@ -133,58 +133,58 @@ public sealed class ContextSpec {
             from: Point3d.Origin,
             to: new Point3d(x: 0.0, y: 0.0, z: 1.0));
 
-        Assert.True(condition: key.One(value: Point3d.Unset).IsFail);
-        Assert.True(condition: key.One(value: Sphere.Unset).IsFail);
-        Assert.True(condition: key.One(value: new ComponentIndex()).IsFail);
-        Assert.True(condition: key.One(value: new object()).IsFail);
-        Assert.True(condition: key.One(value: MeshCheckParameters.Defaults()).IsSucc);
-        Assert.True(condition: key.Many(values: Seq(first, second, third))
+        Assert.True(condition: key.Accept(value: Point3d.Unset).IsFail);
+        Assert.True(condition: key.Accept(value: Sphere.Unset).IsFail);
+        Assert.True(condition: key.Accept(value: new ComponentIndex()).IsFail);
+        Assert.True(condition: key.Accept(value: new object()).IsFail);
+        Assert.True(condition: key.Accept(value: MeshCheckParameters.Defaults()).IsSucc);
+        Assert.True(condition: key.Accept(values: Seq(first, second, third))
             .Match(
                 Succ: lines => lines.ToArray().SequenceEqual(second: [first, second, third]),
                 Fail: static _ => false));
-        Assert.True(condition: key.Many(values: Seq(Line.Unset, Line.Unset))
+        Assert.True(condition: key.Accept(values: Seq(Line.Unset, Line.Unset))
             .Match(
                 Succ: static _ => false,
                 Fail: static error => error.Count == 2));
-        Assert.True(condition: key.Many<Point3d>(values: null!).IsFail);
+        Assert.True(condition: key.Accept<Point3d>(values: null!).IsFail);
     }
 
     [Fact]
     public void AdaptsSolvedResultRails() {
         Op key = Op.Create(value: "test");
 
-        Assert.True(condition: key.Solved(isSolved: true, value: Point3d.Origin).IsSucc);
-        Assert.True(condition: key.Solved(isSolved: false, value: Point3d.Origin).IsFail);
+        Assert.True(condition: key.AcceptSolved(isSolved: true, value: Point3d.Origin).IsSucc);
+        Assert.True(condition: key.AcceptSolved(isSolved: false, value: Point3d.Origin).IsFail);
     }
 
     [Fact]
     public void RegistersUniqueKindDescriptorsWithLineageFallback() {
         Assert.Equal(expected: Kind.Items.Count, actual: Kind.Items.Select(static kind => kind.Type).Distinct().Count());
-        Assert.True(condition: KindLookup.For(type: typeof(LineCurve)).Match(Some: static kind => kind == Kind.Curve, None: static () => false));
+        Assert.True(condition: KindLookup.Resolve(type: typeof(LineCurve)).Match(Some: static kind => kind == Kind.Curve, None: static () => false));
     }
 
     [Fact]
-    public void DispatchFractionsRejectsInvalidAndSpreadsCounts() {
+    public void FractionsRejectInvalidAndSpreadCounts() {
         Op key = Op.Create(value: "fractions");
 
-        double[] single = Dispatch.Fractions(count: 1, op: key).Match(
+        double[] single = GeometryKernel.Fractions(count: 1, op: key).Match(
             Succ: static values => values.ToArray(),
             Fail: static error => throw new Xunit.Sdk.XunitException(error.Message));
-        double[] multiple = Dispatch.Fractions(count: 3, op: key).Match(
+        double[] multiple = GeometryKernel.Fractions(count: 3, op: key).Match(
             Succ: static values => values.ToArray(),
             Fail: static error => throw new Xunit.Sdk.XunitException(error.Message));
 
-        Assert.True(condition: Dispatch.Fractions(count: 0, op: key).IsFail);
+        Assert.True(condition: GeometryKernel.Fractions(count: 0, op: key).IsFail);
         Assert.Equal(expected: [0.5], actual: single);
         Assert.Equal(expected: [0.0, 0.5, 1.0], actual: multiple);
     }
 
     [Fact]
-    public void SupportsVariantCapabilityFamiliesWithoutWeakeningExactVariants() {
-        Assert.True(condition: Dispatch.Supports(CapTag.Curves, typeof(Curve)));
-        Assert.True(condition: Dispatch.Supports(CapTag.Curves, typeof(BrepFace)));
-        Assert.True(condition: Dispatch.Supports(CapTag.Curves, typeof(BrepFace), variant: CurveFeature.Boundary));
-        Assert.False(condition: Dispatch.Supports(CapTag.Curves, typeof(BrepFace), variant: CurveFeature.Segment));
+    public void RejectsUnsupportedCurveProjectionFamiliesWithoutWeakeningExactVariants() {
+        Assert.True(condition: Rasm.Analysis.Analyze.Curves<Curve, Curve>(aspect: Rasm.Analysis.Curves.All).Rejection.IsNone);
+        Assert.True(condition: Rasm.Analysis.Analyze.Curves<BrepFace, Curve>(aspect: Rasm.Analysis.Curves.Boundary).Rejection.IsNone);
+        Assert.True(condition: Rasm.Analysis.Analyze.Curves<BrepFace, Curve>(aspect: Rasm.Analysis.Curves.Segments).Rejection.IsSome);
+        Assert.True(condition: Rasm.Analysis.Analyze.Curves<Mesh, Curve>(aspect: Rasm.Analysis.Curves.NakedInner).Rejection.IsSome);
     }
 
     private static Context ValidContext() =>

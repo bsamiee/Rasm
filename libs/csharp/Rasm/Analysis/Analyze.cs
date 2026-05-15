@@ -2,35 +2,35 @@ namespace Rasm.Analysis;
 
 // --- [TYPES] ------------------------------------------------------------------------------
 public interface IAspect {
-    public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull;
+    public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull;
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
-public sealed record Query<TGeometry, TOut>(
+public sealed record Operation<TGeometry, TOut>(
     Op Key,
     Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>> Evaluate,
     Requirement Requirement,
     bool RequiresContext,
     Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> AggregatePlan,
     Option<Error> Rejection) where TGeometry : notnull {
-    internal Query(Op key, Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>> effect, Requirement? requirement = null, bool requiresContext = false, Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> aggregate = default, Option<Error> rejection = default, Unit _ = default)
+    internal Operation(Op key, Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>> effect, Requirement? requirement = null, bool requiresContext = false, Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> aggregate = default, Option<Error> rejection = default, Unit _ = default)
         : this(Key: key, Evaluate: effect, Requirement: requirement ?? Requirement.None, RequiresContext: requiresContext, AggregatePlan: aggregate, Rejection: rejection) { }
     internal bool NeedsContext => RequiresContext || !Requirement.IsEmpty;
     public Eff<Env, Seq<TOut>> Apply(TGeometry geometry) => Evaluate(arg: Seq(geometry));
     public Eff<Env, Seq<TOut>> Apply(Seq<TGeometry> geometry) => Evaluate(arg: geometry);
-    internal Query<TIn, TOut> Contramap<TIn>(Func<TIn, TGeometry> map) where TIn : notnull => new(
+    internal Operation<TIn, TOut> Contramap<TIn>(Func<TIn, TGeometry> map) where TIn : notnull => new(
         Key: Key,
         Evaluate: input => Evaluate(arg: input.Map(value => map(arg: value))),
         Requirement: Requirement,
         RequiresContext: RequiresContext,
         AggregatePlan: AggregatePlan.Map<Func<Seq<TIn>, Eff<Env, Seq<TOut>>>>(project => input => project(arg: input.Map(value => map(arg: value)))),
         Rejection: Rejection);
-    public Query<TGeometry, TOut> Aggregate() => AggregatePlan.Match(
+    public Operation<TGeometry, TOut> Aggregate() => AggregatePlan.Match(
         Some: project => this with { Evaluate = project },
         None: () => Reject(key: Key, fault: Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))));
-    internal static Query<TGeometry, TOut> Build(Op key, Func<TGeometry, Eff<Env, Seq<TOut>>> evaluator, Requirement? requirement = null, bool requiresContext = false, Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> aggregate = default) =>
+    internal static Operation<TGeometry, TOut> Build(Op key, Func<TGeometry, Eff<Env, Seq<TOut>>> evaluator, Requirement? requirement = null, bool requiresContext = false, Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> aggregate = default) =>
         Build(key: key, state: Unit.Default, evaluator: (_, geometry) => evaluator(arg: geometry), requirement: requirement, requiresContext: requiresContext, aggregate: aggregate);
-    internal static Query<TGeometry, TOut> Build<TState>(Op key, TState state, Func<TState, TGeometry, Eff<Env, Seq<TOut>>> evaluator, Requirement? requirement = null, bool requiresContext = false, Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> aggregate = default) {
+    internal static Operation<TGeometry, TOut> Build<TState>(Op key, TState state, Func<TState, TGeometry, Eff<Env, Seq<TOut>>> evaluator, Requirement? requirement = null, bool requiresContext = false, Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> aggregate = default) {
         Requirement active = requirement ?? Requirement.None;
         return new(
             Key: key,
@@ -51,7 +51,7 @@ public sealed record Query<TGeometry, TOut>(
                                   .As().ToEff()
                                   select result);
     }
-    internal static Query<TGeometry, TOut> Reject(Op key, Error fault) =>
+    internal static Operation<TGeometry, TOut> Reject(Op key, Error fault) =>
         new(Key: key, Evaluate: _ => Fin.Fail<Seq<TOut>>(fault).ToEff(), Requirement: Requirement.None, RequiresContext: false, AggregatePlan: None, Rejection: Some(fault));
     private static Eff<Env, TGeometry> Prepare(TGeometry geometry, Requirement requirement) =>
         from runtime in Env.EnvAsks
@@ -60,7 +60,7 @@ public sealed record Query<TGeometry, TOut>(
             false => Optional(geometry).ToFin(new Fault.MissingGeometry()),
         }).ToEff()
         from validated in (requirement.IsEmpty, ready) switch {
-            (false, GeometryBase native) => from _ in runtime.Context.Apply(value: native, requirement: requirement, cancel: runtime.Cancellation).ToEff()
+            (false, GeometryBase native) => from _ in requirement.Apply(context: runtime.Context, value: native, cancel: runtime.Cancellation).ToEff()
                                             select ready,
             _ => Fin.Succ(ready).ToEff(),
         }
@@ -70,10 +70,10 @@ public sealed record Query<TGeometry, TOut>(
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
     public static Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(
-        Query<TGeometry, TOut>? query,
+        Operation<TGeometry, TOut>? operation,
         params ReadOnlySpan<TGeometry> input) where TGeometry : notnull =>
         Run(
-            query: query,
+            operation: operation,
             scope: Option<Scope>.None,
             input: input);
     public static Scope From(RhinoDoc? doc) => new(context: Context.FromDocument(doc: doc).ToFin());
@@ -89,14 +89,14 @@ public static partial class Analyze {
         public Scope With(IProgress<double> progress) => this with { Progress = progress };
         public Scope With(CancellationToken cancellation) => this with { Cancellation = cancellation };
         public Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(
-            Query<TGeometry, TOut>? query,
+            Operation<TGeometry, TOut>? operation,
             params ReadOnlySpan<TGeometry> input) where TGeometry : notnull => Analyze.Run(
-                query: query,
+                operation: operation,
                 scope: Some(this),
                 input: input);
     }
     private static Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(
-        Query<TGeometry, TOut>? query,
+        Operation<TGeometry, TOut>? operation,
         Option<Scope> scope,
         ReadOnlySpan<TGeometry> input) where TGeometry : notnull {
         TGeometry[] inputValues = input.ToArray();
@@ -105,46 +105,38 @@ public static partial class Analyze {
             _ => (null, CancellationToken.None),
         };
         return (
-            from active in Optional(query).ToFin(new Fault.MissingOperation())
+            from active in Optional(operation).ToFin(new Fault.MissingOperation())
             from accepted in active.Rejection.Match(
-                Some: Fin.Fail<Query<TGeometry, TOut>>,
+                Some: Fin.Fail<Operation<TGeometry, TOut>>,
                 None: () => Fin.Succ(active))
-            from context in ResolveContext(query: accepted, scope: scope.Map(static s => s.Context))
+            from context in scope.Map(static s => s.Context).Match(
+                Some: provided => provided,
+                None: () => accepted.NeedsContext switch {
+                    true => Fin.Fail<Context>(accepted.Key.MissingContext()),
+                    false => Context.CreateDefault(units: UnitSystem.Millimeters).ToFin(),
+                })
             from result in accepted.Apply(geometry: inputValues.AsIterable().ToSeq()).Run(env: new Env(Context: context, Progress: progress, Cancellation: cancellation))
             select result).ToValidation();
     }
-    private static Fin<Context> ResolveContext<TGeometry, TOut>(
-        Query<TGeometry, TOut> query,
-        Option<Fin<Context>> scope) where TGeometry : notnull =>
-        scope.Match(
-            Some: provided => provided,
-            None: () => query.NeedsContext switch {
-                true => Fin.Fail<Context>(query.Key.MissingContext()),
-                false => Context.CreateDefault(units: UnitSystem.Millimeters).ToFin(),
-            });
-    public static Query<TGeometry, TOut> Aspect<TAspect, TGeometry, TOut>(TAspect? aspect, [CallerMemberName] string callerMember = "")
+    public static Operation<TGeometry, TOut> Aspect<TAspect, TGeometry, TOut>(TAspect? aspect, [CallerMemberName] string callerMember = "")
         where TAspect : class, IAspect
         where TGeometry : notnull =>
-        aspect?.ToQuery<TGeometry, TOut>() ?? Query<TGeometry, TOut>.Reject(key: Op.Of(name: callerMember), fault: Op.Of(name: callerMember).InvalidInput());
-    internal static Query<TGeometry, TOut> Unsupported<TGeometry, TOut>(this Op key) where TGeometry : notnull =>
-        Query<TGeometry, TOut>.Reject(key: key, fault: key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut)));
-    internal static Query<TGeometry, TOut> Cast<TGeometry, TOut>(Op key, object query) where TGeometry : notnull => query switch {
-        Query<TGeometry, TOut> typed => typed,
-        _ => Query<TGeometry, TOut>.Reject(key: key, fault: key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))),
+        aspect?.Operation<TGeometry, TOut>() ?? Operation<TGeometry, TOut>.Reject(key: Op.Of(name: callerMember), fault: Op.Of(name: callerMember).InvalidInput());
+    internal static Operation<TGeometry, TOut> Unsupported<TGeometry, TOut>(this Op key) where TGeometry : notnull =>
+        Operation<TGeometry, TOut>.Reject(key: key, fault: key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut)));
+    internal static Operation<TGeometry, TOut> Cast<TGeometry, TOut>(Op key, object operation) where TGeometry : notnull => operation switch {
+        Operation<TGeometry, TOut> typed => typed,
+        _ => Operation<TGeometry, TOut>.Reject(key: key, fault: key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))),
     };
-    internal static Query<TGeometry, TOut> Native<TGeometry, TOut, TNative, TValue>(Op key, Func<TNative, Eff<Env, Seq<TValue>>> project) where TGeometry : notnull where TNative : notnull =>
+    internal static Operation<TGeometry, TOut> Native<TGeometry, TOut, TNative, TValue>(Op key, Func<TNative, Eff<Env, Seq<TValue>>> project) where TGeometry : notnull where TNative : notnull =>
         Native<TGeometry, TOut, TNative, TValue, Func<TNative, Eff<Env, Seq<TValue>>>>(key: key, state: project, project: static (nativeProject, native) => nativeProject(arg: native));
-    internal static Query<TGeometry, TOut> Native<TGeometry, TOut, TNative, TValue, TState>(Op key, TState state, Func<TState, TNative, Eff<Env, Seq<TValue>>> project, Requirement? requirement = null, bool requiresContext = false) where TGeometry : notnull where TNative : notnull =>
-        Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, TValue>.Build(
+    internal static Operation<TGeometry, TOut> Native<TGeometry, TOut, TNative, TValue, TState>(Op key, TState state, Func<TState, TNative, Eff<Env, Seq<TValue>>> project, Requirement? requirement = null, bool requiresContext = false) where TGeometry : notnull where TNative : notnull =>
+        Cast<TGeometry, TOut>(key: key, operation: Operation<TGeometry, TValue>.Build(
             key: key, requirement: requirement, requiresContext: requiresContext, state: (Key: key, State: state, Project: project),
             evaluator: static (state, geometry) => geometry switch {
                 TNative native => state.Project(arg1: state.State, arg2: native),
                 _ => Fin.Fail<Seq<TValue>>(state.Key.Unsupported(geometryType: geometry.GetType(), outputType: typeof(TValue))).ToEff(),
             }));
-    internal static bool Supports(Type geometry, Type output, Type target, params Type[] native) =>
-        output == target && Supports(geometry: geometry, native: native);
-    internal static bool Supports(Type geometry, params Type[] native) =>
-        geometry == typeof(object) || geometry == typeof(GeometryBase) || native.Any(predicate: candidate => candidate.IsAssignableFrom(c: geometry));
     internal static Fin<TOut> Bracket<TResource, TOut>(Func<TResource> factory, Func<TResource, Fin<TOut>> body) where TResource : class, IDisposable {
         using TResource resource = factory();
         return body(arg: resource);

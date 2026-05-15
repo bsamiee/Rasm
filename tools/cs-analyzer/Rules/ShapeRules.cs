@@ -38,7 +38,7 @@ internal static class ShapeRules {
 
     internal static void CheckSignatures(SymbolAnalysisContext context, ScopeInfo scope, ISymbol symbol) {
         IEnumerable<ITypeSymbol> signatureTypes = symbol switch {
-            ISymbol candidate when IsAnalysisQuerySurface(candidate) => [],
+            ISymbol candidate when IsAnalysisOperationSurface(candidate) => [],
             ISymbol candidate when IsUnionCasePayload(candidate) => [],
             IMethodSymbol method when IsValidatedPrimitiveValueAccessor(method) => [],
             IMethodSymbol method when IsValidatedPrimitiveFactory(method) => ExpandSignatureTypes(method.ReturnType),
@@ -322,7 +322,7 @@ internal static class ShapeRules {
             parameter.Type is INamedTypeSymbol named
                 && IsTypeParameterizedDiscriminator(named));
     // Only type-parameterized Unions count as polymorphic discriminators; non-generic [Union] types
-    // (e.g. GeometryRequirement) act as vocabularies, not dispatchers, and must not gate the relaxation.
+    // act as vocabularies, not dispatchers, and must not gate the relaxation.
     private static bool IsTypeParameterizedDiscriminator(INamedTypeSymbol type) =>
         type.TypeArguments.Length > 0
         && type.TypeArguments.Any(argument => argument.TypeKind == TypeKind.TypeParameter)
@@ -356,9 +356,9 @@ internal static class ShapeRules {
         type.TypeKind == TypeKind.Struct
         && SymbolFacts.HasCreateFactory(type)
         && type.GetMembers().OfType<IPropertySymbol>().Any(property => property.Name == "Value");
-    private static bool IsAnalysisQuerySurface(ISymbol symbol) =>
-        symbol.ContainingType is INamedTypeSymbol { Name: "Query", ContainingNamespace: { } queryNamespace }
-        && queryNamespace.ToDisplayString() == "Rasm.Analysis";
+    private static bool IsAnalysisOperationSurface(ISymbol symbol) =>
+        symbol.ContainingType is INamedTypeSymbol { Name: "Operation", ContainingNamespace: { } operationNamespace }
+        && operationNamespace.ToDisplayString() == "Rasm.Analysis";
     private static bool IsUnionCasePayload(ISymbol symbol) =>
         symbol.ContainingType is INamedTypeSymbol containingType
         && (SymbolFacts.HasAnyAttribute(containingType, "UnionAttribute", "Union")

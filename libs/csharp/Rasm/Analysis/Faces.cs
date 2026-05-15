@@ -9,17 +9,17 @@ public partial record Faces : IAspect {
     public static Faces Bottom(Vector3d? axis = null) => new BottomCase(Axis: axis ?? Vector3d.ZAxis);
     public static Faces At(int? index = null) => new AtCase(Value: index);
     internal static readonly Op Key = Op.Of(name: nameof(Faces));
-    public Query<TGeometry, TOut> ToQuery<TGeometry, TOut>() where TGeometry : notnull =>
-        Dispatch.Supports(CapTag.Faces, typeof(TGeometry)) switch {
+    public global::Rasm.Analysis.Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull =>
+        Analyze.CanDecomposeFaces(type: typeof(TGeometry)) switch {
             false => Key.Unsupported<TGeometry, TOut>(),
             true => typeof(TOut) switch {
-                Type t when t == typeof(Brep) => Analyze.FaceQuery<TGeometry, TOut, Brep>(key: Key, selector: this, requirement: Requirement.None, ownership: ProjectionOwnership.Transfer, project: static (chosen, _) => Key.Many(values: chosen.Choose(static face => face.As<Brep>()))),
-                Type t when t == typeof(Plane) => Analyze.FaceQuery<TGeometry, TOut, Plane>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation, ownership: ProjectionOwnership.Dispose, project: static (chosen, runtime) => chosen.Traverse(face => Analyze.FrameAtCentroid(face: face, runtime: runtime)).As()),
-                Type t when t == typeof(Point3d) => Analyze.FaceQuery<TGeometry, TOut, Point3d>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation, ownership: ProjectionOwnership.Dispose, project: static (chosen, runtime) => chosen.Traverse(face => Analyze.FaceCentroid(face: face, runtime: runtime)).As()),
-                Type t when t == typeof(Vector3d) => Analyze.FaceQuery<TGeometry, TOut, Vector3d>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation, ownership: ProjectionOwnership.Dispose, project: static (chosen, runtime) => chosen.Traverse(face => Analyze.FrameAtCentroid(face: face, runtime: runtime).Map(static frame => frame.ZAxis)).As()),
-                Type t when t == typeof(int) => Analyze.FaceQuery<TGeometry, TOut, int>(key: Key, selector: this, requirement: Requirement.None, ownership: ProjectionOwnership.Dispose, project: static (chosen, _) => Key.Many(values: chosen.Map(static face => face.FaceIndex))),
-                Type t when t == typeof(ComponentIndex) => Analyze.FaceQuery<TGeometry, TOut, ComponentIndex>(key: Key, selector: this, requirement: Requirement.None, ownership: ProjectionOwnership.Dispose, project: static (chosen, _) => Key.Many(values: chosen.Map(static face => new ComponentIndex(type: ComponentIndexType.BrepFace, index: face.FaceIndex)))),
-                Type t when t == typeof(Interval) => Analyze.FaceQuery<TGeometry, TOut, Interval>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation, ownership: ProjectionOwnership.Dispose, project: static (chosen, _) => chosen.Traverse(Analyze.FaceDomains).Map(static nested => nested.Bind(static domain => domain)).As()),
+                Type t when t == typeof(Brep) => Analyze.FaceOperation<TGeometry, TOut, Brep>(key: Key, selector: this, requirement: Requirement.None, ownership: ProjectionOwnership.Transfer, project: static (chosen, _) => Key.Accept(values: chosen.Choose(static face => face.As<Brep>()))),
+                Type t when t == typeof(Plane) => Analyze.FaceOperation<TGeometry, TOut, Plane>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation, ownership: ProjectionOwnership.Dispose, project: static (chosen, runtime) => chosen.Traverse(face => Analyze.FrameAtCentroid(face: face, runtime: runtime)).As()),
+                Type t when t == typeof(Point3d) => Analyze.FaceOperation<TGeometry, TOut, Point3d>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation, ownership: ProjectionOwnership.Dispose, project: static (chosen, runtime) => chosen.Traverse(face => Analyze.FaceCentroid(face: face, runtime: runtime)).As()),
+                Type t when t == typeof(Vector3d) => Analyze.FaceOperation<TGeometry, TOut, Vector3d>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation, ownership: ProjectionOwnership.Dispose, project: static (chosen, runtime) => chosen.Traverse(face => Analyze.FrameAtCentroid(face: face, runtime: runtime).Map(static frame => frame.ZAxis)).As()),
+                Type t when t == typeof(int) => Analyze.FaceOperation<TGeometry, TOut, int>(key: Key, selector: this, requirement: Requirement.None, ownership: ProjectionOwnership.Dispose, project: static (chosen, _) => Key.Accept(values: chosen.Map(static face => face.FaceIndex))),
+                Type t when t == typeof(ComponentIndex) => Analyze.FaceOperation<TGeometry, TOut, ComponentIndex>(key: Key, selector: this, requirement: Requirement.None, ownership: ProjectionOwnership.Dispose, project: static (chosen, _) => Key.Accept(values: chosen.Map(static face => new ComponentIndex(type: ComponentIndexType.BrepFace, index: face.FaceIndex)))),
+                Type t when t == typeof(Interval) => Analyze.FaceOperation<TGeometry, TOut, Interval>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation, ownership: ProjectionOwnership.Dispose, project: static (chosen, _) => chosen.Traverse(Analyze.FaceDomains).Map(static nested => nested.Bind(static domain => domain)).As()),
                 _ => Key.Unsupported<TGeometry, TOut>(),
             },
         };
@@ -27,7 +27,7 @@ public partial record Faces : IAspect {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
-    public static Query<TGeometry, TOut> Faces<TGeometry, TOut>(Faces aspect) where TGeometry : notnull => Aspect<Faces, TGeometry, TOut>(aspect: aspect);
+    public static global::Rasm.Analysis.Operation<TGeometry, TOut> Faces<TGeometry, TOut>(Faces aspect) where TGeometry : notnull => Aspect<Faces, TGeometry, TOut>(aspect: aspect);
     public static Eff<Env, Seq<TopologyProjection>> TopologyProjections(object geometry, Faces selector) =>
         TopologyProjections(geometry: geometry, choose: _ => selector);
     public static Eff<Env, Seq<TopologyProjection>> TopologyProjections(object geometry, Func<int, Faces> choose) =>
@@ -37,7 +37,17 @@ public static partial class Analyze {
         from result in TopologyProjection.Project(all: faces, chosen: chosen, ownership: ProjectionOwnership.Transfer, project: static values => Fin.Succ(values)).ToEff()
         select result;
     internal static Fin<Seq<TopologyProjection>> DecomposeFaces<TGeometry>(Op key, Context context, TGeometry geometry) where TGeometry : notnull =>
-        Dispatch.Resolve<Seq<TopologyProjection>, (Context, Op)>(CapTag.Faces, geometry, (context, key), key);
+        Optional(geometry).ToFin(key.InvalidInput()).Bind(g => g switch {
+            BrepFace face => Fin.Succ(Seq(TopologyProjection.FaceFrom(face))),
+            GeometryBase native => native switch {
+                Brep brep => Fin.Succ(toSeq(brep.Faces.Cast<BrepFace>().Select(static f => TopologyProjection.FaceFrom(f)).ToArray())),
+                { HasBrepForm: true } => Optional(Brep.TryConvertBrep(native)).ToFin(key.InvalidResult()).Bind(b => ReferenceEquals(native, b) ? Fin.Succ(toSeq(b.Faces.Cast<BrepFace>().Select(static f => TopologyProjection.FaceFrom(f)).ToArray())) : GeometryKernel.Borrowed(b, static (Brep d) => Fin.Succ(toSeq(d.Faces.Cast<BrepFace>().Select(static f => TopologyProjection.FaceFrom(f)).ToArray())))),
+                _ => Fin.Fail<Seq<TopologyProjection>>(key.Unsupported(native.GetType(), typeof(Seq<TopologyProjection>))),
+            },
+            _ => Fin.Fail<Seq<TopologyProjection>>(key.Unsupported(g.GetType(), typeof(Seq<TopologyProjection>))),
+        });
+    internal static bool CanDecomposeFaces(Type type) =>
+        type == typeof(object) || typeof(GeometryBase).IsAssignableFrom(type);
     internal static Fin<Seq<TopologyProjection>> SelectFaces(Op key, Seq<TopologyProjection> faces, Faces selector, Context runtime) => selector.Switch(
         state: (Key: key, Faces: faces, Runtime: runtime),
         allCase: static (s, _) => Fin.Succ(s.Faces),
@@ -58,8 +68,8 @@ public static partial class Analyze {
                     ? Stats.Maxima(items: ranked, projection: static item => item.Score, tolerance: state.Runtime.Absolute.Value * axis.Length).Map(static item => item.face)
                     : Stats.Minima(items: ranked, projection: static item => item.Score, tolerance: state.Runtime.Absolute.Value * axis.Length).Map(static item => item.face)),
         };
-    internal static Query<TGeometry, TOut> FaceQuery<TGeometry, TOut, TValue>(Op key, Faces selector, Requirement requirement, ProjectionOwnership ownership, Func<Seq<TopologyProjection>, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull =>
-        Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, TValue>.Build(
+    internal static global::Rasm.Analysis.Operation<TGeometry, TOut> FaceOperation<TGeometry, TOut, TValue>(Op key, Faces selector, Requirement requirement, ProjectionOwnership ownership, Func<Seq<TopologyProjection>, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull =>
+        Cast<TGeometry, TOut>(key: key, operation: global::Rasm.Analysis.Operation<TGeometry, TValue>.Build(
             key: key, state: (Key: key, Selector: selector, Ownership: ownership, Project: project), requirement: requirement, requiresContext: true,
             evaluator: static (state, geometry) =>
                 from context in Env.Asks
@@ -93,7 +103,7 @@ public static partial class Analyze {
         return face switch {
             { Value: Brep brep } => Optional(AreaMassProperties.Compute(brep: brep, area: true, firstMoments: true, secondMoments: false, productMoments: false, relativeTolerance: runtime.Fractional, absoluteTolerance: runtime.Absolute.Value))
                 .ToFin(Rasm.Analysis.Faces.Key.InvalidResult())
-                .Map(static mass => Dispatch.Borrowed(mass, static disposable => disposable.Centroid)),
+                .Map(static mass => GeometryKernel.Borrowed(mass, static disposable => disposable.Centroid)),
             _ => Fin.Fail<Point3d>(Rasm.Analysis.Faces.Key.InvalidInput()),
         };
     }

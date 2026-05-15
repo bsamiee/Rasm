@@ -1,13 +1,24 @@
 namespace Rasm.Domain;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-public enum CurvatureScalar { None = 0, Magnitude = 1, Gaussian = 2, Mean = 3 }
+[SmartEnum<int>]
+public sealed partial class StatKind {
+    public static readonly StatKind Curvature = new(key: 0);
+    public static readonly StatKind Magnitude = new(key: 1);
+    public static readonly StatKind Gaussian = new(key: 2);
+    public static readonly StatKind Mean = new(key: 3);
+    public static readonly StatKind Residual = new(key: 4);
+    internal static bool IsScalar(StatKind kind) =>
+        ReferenceEquals(objA: kind, objB: Magnitude)
+        || ReferenceEquals(objA: kind, objB: Gaussian)
+        || ReferenceEquals(objA: kind, objB: Mean);
+}
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct StatProfile {
-    private StatProfile(CurvatureScalar scalar, Stats stats, Option<double> limit = default) { Scalar = scalar; Stats = stats; Limit = limit; }
-    public CurvatureScalar Scalar { get; }
+    private StatProfile(StatKind kind, Stats stats, Option<double> limit = default) { Kind = kind; Stats = stats; Limit = limit; }
+    public StatKind Kind { get; }
     public Stats Stats { get; }
     internal Option<double> Limit { get; }
     internal int Count => Stats.Count;
@@ -18,19 +29,19 @@ public readonly record struct StatProfile {
     internal double Rms => Stats.Rms;
     internal double Tolerance => Limit.IfNone(0.0);
     internal bool WithinTolerance => Limit.Case switch { double tolerance => Stats.Maximum <= tolerance, _ => false };
-    internal static Fin<StatProfile> Curvature(Seq<double> values, CurvatureScalar scalar, Op key) =>
-        (Stats.From(values: values, key: key), Fin.Succ((Scalar: scalar, Key: key)))
-            .Apply(static (stats, state) => (Stats: stats, state.Scalar, state.Key)).As()
-            .Bind(static state => state.Scalar switch {
-                CurvatureScalar.None => Fin.Fail<StatProfile>(state.Key.InvalidInput()),
-                _ => state.Key.RequireValid(value: new StatProfile(scalar: state.Scalar, stats: state.Stats)),
+    internal static Fin<StatProfile> Curvature(Seq<double> values, StatKind kind, Op key) =>
+        (Stats.From(values: values, key: key), Fin.Succ((Kind: kind, Key: key)))
+            .Apply(static (stats, state) => (Stats: stats, state.Kind, state.Key)).As()
+            .Bind(static state => state.Kind switch {
+                StatKind active when StatKind.IsScalar(kind: active) => state.Key.AcceptValue(value: new StatProfile(kind: active, stats: state.Stats)),
+                _ => Fin.Fail<StatProfile>(state.Key.InvalidInput()),
             });
     internal static Fin<StatProfile> Residual(Seq<double> values, double tolerance, Op key) =>
         (Stats.From(values: values, key: key), Fin.Succ((Tolerance: tolerance, Key: key)))
             .Apply(static (stats, state) => (Stats: stats, state.Tolerance, state.Key)).As()
             .Bind(static state => Residual(tolerance: state.Tolerance, stats: state.Stats, key: state.Key));
     internal static Fin<StatProfile> Residual(double tolerance, Stats stats, Op key) =>
-        key.RequireValid(value: new StatProfile(scalar: CurvatureScalar.None, stats: stats, limit: Some(tolerance)));
+        key.AcceptValue(value: new StatProfile(kind: StatKind.Residual, stats: stats, limit: Some(tolerance)));
 }
 
 [StructLayout(LayoutKind.Auto)]
