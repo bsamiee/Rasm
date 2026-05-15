@@ -6,7 +6,7 @@ namespace Radyab.Components;
     info: "Trimmed faces, direction-ranked top and bottom faces, plus indexed face frame (centroid, normal, UV plane) for Brep, BrepFace, Surface, and SubD values.",
     category: Library.Name,
     section: Library.Extraction)]
-public sealed class ExtractSurfaces : Component {
+public sealed class ExtractSurfaces : Component<ExtractSurfaces> {
     private static readonly Port<Shape> Geometry = Port.Shape();
     private static readonly Port<int> Index = Port.Index(info: "Zero-based face selector for the Frame output; missing Index defaults to face 0 and GH index modifiers apply per source face count.");
     private static readonly Port<Vector3d> Direction = Port.Direction(info: "Ranking direction for Top and Bottom surfaces; missing Direction uses world Z.");
@@ -36,7 +36,7 @@ public sealed class ExtractSurfaces : Component {
             Output.One<TopologyProjection, Point3d>(port: Port.Tree<Point3d>(name: "Centroid", code: "FC", info: "Area centroid of the indexed trimmed face."), project: static (face, context) => face.Centroid(context: context)),
             Output.One<TopologyProjection, Vector3d>(port: Port.Tree<Vector3d>(name: "Normal", code: "FN", info: "Orientation-corrected indexed face normal at the face centroid."), project: static (face, context) => face.FrameAtCentroid(context: context).Map(static frame => frame.ZAxis)),
         ]);
-    public ExtractSurfaces() : base(self: typeof(ExtractSurfaces), spec: ComponentSpec.Of(
+    public ExtractSurfaces() : base(spec: ComponentSpec.Of(
         inputs: Seq<IPort>(Geometry, Index, Direction),
         outputs: Seq<OutputGroup>(Faces, Top, Bottom, Frame))) { }
 }

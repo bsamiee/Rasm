@@ -80,6 +80,7 @@ test-results/mutation/stryker-incremental.json
 diagnostics.sarif
 *.rsuser
 *.suo
+*.lscache
 
 # Grasshopper2.dll extracts embedded resources (icons, color dictionaries,
 # .3dm crystal models, .ghicon bitmaps, .ghdic) to the cwd of `dotnet build`

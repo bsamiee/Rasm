@@ -6,7 +6,7 @@ namespace Radyab.Components;
     info: "Vertices, control points, edge midpoints, quadrants, centroid, bbox center and corners, plus geometry kind label and topology.",
     category: Library.Name,
     section: Library.Extraction)]
-public sealed class ExtractPoints : Component {
+public sealed class ExtractPoints : Component<ExtractPoints> {
     private static readonly Port<Shape> Geometry = Port.Shape();
     private static readonly OutputGroup Vertices = Output.Single(input: Geometry, port: Port.Tree<Point3d>(name: "Vertices", code: "V", info: "Native vertices, point-cloud locations, polyline corners, curve endpoints, points, or bbox corners."), aspect: new Points.Vertices());
     private static readonly OutputGroup ControlPoints = Output.Single(input: Geometry, port: Port.Tree<Point3d>(name: "Control Points", code: "CP", info: "NURBS control polygon points for curves and surfaces, converting through RhinoCommon when required."), aspect: new Points.ControlPoints());
@@ -24,7 +24,7 @@ public sealed class ExtractPoints : Component {
             Output.Plain<Rasm.Domain.Kind, string>(port: Port.Tree<string>(name: "Kind", code: "K", info: "Detected geometry kind label."), project: static value => value.ToString(null, System.Globalization.CultureInfo.InvariantCulture)),
             Output.Plain<Rasm.Domain.Kind, Topology>(port: Port.Tree<Topology>(name: "Topology", code: "T", info: "Detected topology family.", kind: PortKind.Enum(initial: Topology.Unknown)), project: static value => value.Topology),
         ]);
-    public ExtractPoints() : base(self: typeof(ExtractPoints), spec: ComponentSpec.Of(
+    public ExtractPoints() : base(spec: ComponentSpec.Of(
         inputs: Seq<IPort>(Geometry),
         outputs: Seq<OutputGroup>(Vertices, ControlPoints, EdgeMidpoints, Quadrants, Centroid, BBoxCenter, BoundingCorners, Kind))) { }
 }

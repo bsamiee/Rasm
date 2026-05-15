@@ -112,11 +112,7 @@ public static partial class Analyze {
     private static Fin<Seq<TopologyProjection>> CurveInput(object source, CurveSelector selector, Op op) =>
         source switch {
             Curve curve => CurveInputNative(native: curve, selector: selector, op: op),
-            Line line => Bracket(factory: () => new LineCurve(line), body: native => CurveInputNative(native: native, selector: selector, op: op)),
-            Polyline polyline => Bracket(factory: polyline.ToPolylineCurve, body: native => CurveInputNative(native: native, selector: selector, op: op)),
-            Circle circle => Bracket(factory: () => new ArcCurve(circle), body: native => CurveInputNative(native: native, selector: selector, op: op)),
-            Arc arc => Bracket(factory: () => new ArcCurve(arc), body: native => CurveInputNative(native: native, selector: selector, op: op)),
-            _ => Fin.Fail<Seq<TopologyProjection>>(op.InvalidResult()),
+            _ => GeometryKernel.CurveForm(source: source, op: op).Bind(lease => lease.Use(native => CurveInputNative(native: native, selector: selector, op: op))),
         };
     private static Fin<Seq<TopologyProjection>> CurveInputNative(Curve native, CurveSelector selector, Op op) =>
         selector.Feature is CurveFeature.Segment or CurveFeature.SubCurve

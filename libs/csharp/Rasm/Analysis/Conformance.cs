@@ -69,7 +69,7 @@ public static partial class Analyze {
             _ => Fin.Fail<Seq<ResidualSample>>(op.Unsupported(typeof(TGeometry), typeof(ResidualSample))),
         };
     private static Fin<Seq<ResidualSample>> ExactCurveResidual<TPrimitive>(Curve curve, TPrimitive primitive, Context context, Op op, Func<TPrimitive, Curve> convert) where TPrimitive : notnull =>
-        Bracket(factory: () => convert(arg: primitive), body: native => CurveDeviationOf(left: curve, right: native, context: context, op: op)
+        new Lease<Curve>.Owned(Value: convert(arg: primitive)).Use(native => CurveDeviationOf(left: curve, right: native, context: context, op: op)
             .Map(static deviation => Seq(new ResidualSample(Index: 0, Location: deviation.MaximumA, Distance: deviation.MaximumDistance, Tolerance: deviation.Tolerance, WithinTolerance: deviation.WithinTolerance))));
     private static Seq<ResidualSample> Residuals<TP>(Seq<Point3d> points, TP primitive, Context context, Func<TP, Point3d, double> distance) where TP : notnull =>
         toSeq(points.AsIterable().Select((p, i) => distance(primitive, p) switch { double d => new ResidualSample(i, p, d, context.Absolute.Value, d <= context.Absolute.Value) }));

@@ -55,17 +55,25 @@ public sealed record PortPolicy {
         return Unit.Default;
     }
 }
-public readonly record struct Port<TVal>(
-    string Name,
-    string Code,
-    string Info,
-    PortKind Kind,
-    Access Access,
-    Requirement Requirement,
-    PortPolicy Policy,
-    Option<TVal> Fallback) : IPort {
+public sealed class Port<TVal>(
+    string name,
+    string code,
+    string info,
+    PortKind kind,
+    Access access,
+    Requirement requirement,
+    PortPolicy policy,
+    Option<TVal> fallback) : IPort {
+    public string Name { get; } = name;
+    public string Code { get; } = code;
+    public string Info { get; } = info;
+    public PortKind Kind { get; } = kind;
+    public Access Access { get; } = access;
+    public Requirement Requirement { get; } = requirement;
+    public PortPolicy Policy { get; } = policy;
     public Option<object> FallbackValue => Fallback.Map(static value => (object)value!);
     public Type ValueType => typeof(TVal);
+    public Option<TVal> Fallback { get; } = fallback;
 }
 
 // --- [CONSTANTS] ------------------------------------------------------------------------
@@ -161,7 +169,7 @@ public sealed partial class PortKind {
     [UseDelegateFromConstructor] private partial IParameter AddOutput(ModularOutputAdder adder, string name, string code, string info, Access access, bool hidden);
     public static PortKind Enum<T>(T initial) where T : struct, Enum =>
         Of<T>(
-            key: typeof(T).Name,
+            key: typeof(T).FullName ?? typeof(T).Name,
             regularInput: (adder, name, code, info, access, requirement) => adder.AddEnum<T>(name: name, code: code, info: info, initial: initial, access: access, requirement: requirement),
             modularInput: (adder, name, code, info, access, requirement, hidden) => hidden ? adder.AddHiddenEnum(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, initial: initial, access: access, requirement: requirement) : adder.AddEnum(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, initial: initial, access: access, requirement: requirement),
             regularOutput: static (adder, name, code, info, access) => adder.AddEnum<T>(name: name, code: code, info: info, access: access),
@@ -252,11 +260,11 @@ public static class Port {
         Access access = Access.Tree) =>
         Of<Shape>(name: name, code: code, info: info, kind: null, access: access, requirement: Requirement.MustExist, policy: null, fallback: Option<Shape>.None);
     private static Port<TVal> Of<TVal>(string name, string code, string info, PortKind? kind, Access access, Requirement requirement, PortPolicy? policy, Option<TVal> fallback) =>
-        new(Name: name, Code: code, Info: info,
-            Kind: kind ?? PortKind.From(type: typeof(TVal)).IfNone(PortKind.Generic),
-            Access: access, Requirement: requirement,
-            Policy: policy ?? DefaultPolicy(type: typeof(TVal)),
-            Fallback: fallback);
+        new(name: name, code: code, info: info,
+            kind: kind ?? PortKind.From(type: typeof(TVal)).IfNone(PortKind.Generic),
+            access: access, requirement: requirement,
+            policy: policy ?? DefaultPolicy(type: typeof(TVal)),
+            fallback: fallback);
     private static PortPolicy DefaultPolicy(Type type) => type switch {
         _ when type == typeof(Vector3d) => PortPolicy.Vector(unitise: true),
         _ when type == typeof(Angle) => PortPolicy.Angle(reduce: true),

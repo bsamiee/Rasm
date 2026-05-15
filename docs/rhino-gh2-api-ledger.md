@@ -34,7 +34,7 @@
 | **[5]** | `AngleParameter.EnforceKind`, `ReduceAngles` | `PortPolicy.Angle` exposes native angle kind and reduction behavior. |
 | **[6]** | `IntegerParameter.IsIndex`, `Indexing` | `Port.Index` configures native index semantics with `IndexModifier.Clip`. |
 | **[7]** | `GeometryBase.IsValid`, `GetBoundingBox`, transform-aware bounds | Core analysis uses common `GeometryBase` APIs before type-specific branches. |
-| **[8]** | `Brep.TryConvertBrep`, `GetConnectedComponents`, `SplitDisjointPieces` | Topology extraction uses native Brep conversion and component splitting. |
+| **[8]** | `Brep.TryConvertBrep`, `GetConnectedComponents` | Topology extraction converts native Brep forms, reads connected components first, and duplicates valid single-component Breps only when native components are absent. |
 | **[9]** | `RTree.CreateFromPointArray`, `CreatePointCloudTree`, `CreateMeshFaceTree` | Spatial analysis uses native bulk constructors for point, point-cloud, and mesh-face trees. |
 | **[10]** | `RTree.SearchOverlaps`, `Point3dKNeighbors`, `Point3dClosestPoints` | Spatial overlap and nearest-neighbor queries use RhinoCommon search APIs directly. |
 | **[11]** | `LengthMassProperties.Compute(IEnumerable<Curve>)`, mass-property `Sum(...)` | `Operation<TGeometry,TOut>.Aggregate()` uses native enumerable length computation for pure curve batches and instance summation for mixed itemwise mass properties. |

@@ -95,10 +95,10 @@ public static partial class Analyze {
         (Type geometry, Type output) when geometry == typeof(Line) && output == typeof(TValue) => Cast<TGeometry, TOut>(key: key, operation: global::Rasm.Analysis.Operation<Line, TValue>.Build(
                 key: key, state: (Key: key, Project: line), evaluator: static (state, geometry) => state.Key.AcceptValue(value: geometry).Bind(validated => state.Key.Accept(value: state.Project(arg: validated))).ToEff())),
         (Type geometry, Type output) when geometry == typeof(Polyline) && output == typeof(TValue) => Cast<TGeometry, TOut>(key: key, operation: global::Rasm.Analysis.Operation<Polyline, TValue>.Build(
-                key: key, state: (Key: key, Project: curve), evaluator: static (state, geometry) => Bracket(factory: geometry.ToPolylineCurve, body: polyCurve => polyCurve.NormalizedLengthParameter(s: 0.5, t: out double parameter) switch {
+                key: key, state: (Key: key, Project: curve), evaluator: static (state, geometry) => GeometryKernel.CurveForm(source: geometry, op: state.Key).Bind(lease => lease.Use(polyCurve => polyCurve.NormalizedLengthParameter(s: 0.5, t: out double parameter) switch {
                     true => state.Key.Accept(value: state.Project(arg1: polyCurve, arg2: parameter)),
                     false => Fin.Fail<Seq<TValue>>(state.Key.InvalidResult()),
-                }).ToEff())),
+                })).ToEff())),
         (Type geometry, Type output) when typeof(Curve).IsAssignableFrom(c: geometry) && output == typeof(TValue) => Cast<TGeometry, TOut>(key: key, operation: global::Rasm.Analysis.Operation<TGeometry, TValue>.Build(
                 key: key, requirement: Requirement.CurveLength, state: (Key: key, Project: curve), evaluator: static (state, geometry) => CurveAtNormalized<TGeometry, TValue>(geometry: geometry, key: state.Key, project: state.Project))),
         _ => key.Unsupported<TGeometry, TOut>(),

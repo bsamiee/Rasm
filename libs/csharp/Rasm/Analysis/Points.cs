@@ -16,11 +16,7 @@ public partial record Points : IAspect {
                     from context in Env.Asks
                     from result in (geometry switch {
                         Curve curve when curve.IsValid => Analyze.ExtractCardinals(op: op, curve: curve, tolerance: context.Absolute.Value),
-                        Polyline polyline when polyline.IsValid => Analyze.Bracket(factory: polyline.ToPolylineCurve, body: (Curve curve) => Analyze.ExtractCardinals(op: op, curve: curve, tolerance: context.Absolute.Value)),
-                        Line line when line.IsValid => Analyze.Bracket(factory: () => new LineCurve(line: line), body: (Curve curve) => Analyze.ExtractCardinals(op: op, curve: curve, tolerance: context.Absolute.Value)),
-                        Circle circle when circle.IsValid => Analyze.Bracket(factory: circle.ToNurbsCurve, body: (Curve curve) => Analyze.ExtractCardinals(op: op, curve: curve, tolerance: context.Absolute.Value)),
-                        Arc arc when arc.IsValid => Analyze.Bracket(factory: arc.ToNurbsCurve, body: (Curve curve) => Analyze.ExtractCardinals(op: op, curve: curve, tolerance: context.Absolute.Value)),
-                        _ => Fin.Fail<Seq<Point3d>>(op.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Point3d))),
+                        object value => GeometryKernel.CurveForm(source: value, op: op).Bind(lease => lease.Use(curve => Analyze.ExtractCardinals(op: op, curve: curve, tolerance: context.Absolute.Value))),
                     }).ToEff()
                     select result))
             : QuadrantsKey.Unsupported<TGeometry, TOut>(),

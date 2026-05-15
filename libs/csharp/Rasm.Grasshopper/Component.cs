@@ -20,6 +20,9 @@ public sealed class IconAttribute(string name) : Attribute {
 public readonly record struct PortSpec(IPort Port, bool Hidden = false);
 public readonly record struct OutputSpec(OutputGroup Group, bool Hidden = false);
 internal readonly record struct BoundPort(IPort Port, IParameter Parameter);
+internal interface IRasmComponent {
+    public ComponentSpec Spec { get; }
+}
 public readonly record struct ComponentSpec(Seq<PortSpec> Inputs, Seq<OutputSpec> Outputs) {
     public Seq<IPort> InputPorts => Inputs.Map(static spec => spec.Port);
     public Seq<OutputGroup> OutputGroups => Outputs.Map(static spec => spec.Group);
@@ -47,10 +50,10 @@ public readonly record struct GrasshopperRuntime(IDataAccess Access, Analyze.Sco
 }
 
 // --- [COMPOSITION] ----------------------------------------------------------------------
-public abstract class Component(Type self, ComponentSpec spec) : Grasshopper2.Components.ModularComponent(nomen: (self ?? throw new ArgumentNullException(paramName: nameof(self))).GetCustomAttribute<NomenAttribute>()?.Nomen ?? new Nomen(name: self.Name, info: string.Empty)) {
+public abstract class Component<TSelf>(ComponentSpec spec) : Grasshopper2.Components.ModularComponent(nomen: Self.GetCustomAttribute<NomenAttribute>()?.Nomen ?? new Nomen(name: Self.Name, info: string.Empty)), IRasmComponent where TSelf : Component<TSelf> {
     private Seq<BoundPort> cachedInputs = Seq<BoundPort>();
     private Seq<BoundPort> cachedOutputs = Seq<BoundPort>();
-    private Type Self { get; } = self;
+    private static Type Self => typeof(TSelf);
     public ComponentSpec Spec => spec;
     protected override IIcon IconInternal => IconAttribute.Resolve(owner: Self, fallback: base.IconInternal);
     protected override void AddInputs(ModularInputAdder inputs) {

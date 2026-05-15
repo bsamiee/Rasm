@@ -17,19 +17,24 @@ public abstract class Plugin : GhPlugin {
     public override void OnLoaded() {
         base.OnLoaded();
         Seq<string> faults = toSeq(GetType().Assembly.GetTypes())
-            .Filter(static type => typeof(Component).IsAssignableFrom(c: type) && !type.IsAbstract && !type.IsGenericTypeDefinition)
+            .Filter(static type => typeof(IRasmComponent).IsAssignableFrom(c: type) && !type.IsAbstract && !type.IsGenericTypeDefinition)
             .Distinct()
             .Bind(Validate);
         _ = faults.IsEmpty ? Unit.Default : throw new InvalidOperationException(message: string.Join(separator: "; ", values: faults));
     }
     private static Seq<string> Validate(Type spec) {
-        Component probe = (Component)Activator.CreateInstance(type: spec)!;
+        IRasmComponent probe = (IRasmComponent)Activator.CreateInstance(type: spec)!;
         Seq<IPort> inputs = probe.Spec.Inputs.Choose(static pair => Optional(pair.Port));
         Seq<IPort> outputs = probe.Spec.Outputs.Choose(static pair => Optional(pair.Group)).Bind(static group => group.Ports);
         Seq<(string Side, Seq<IPort> Ports)> sides = Seq((Side: "input", Ports: inputs), (Side: "output", Ports: outputs));
         Seq<string> structural = toSeq(Seq(
+            ClosedComponentSelf(type: spec) ? null : $"{spec.FullName}: Component<TSelf> does not match concrete component type",
             inputs.IsEmpty ? $"{spec.FullName}: Inputs is empty" : null,
             outputs.IsEmpty ? $"{spec.FullName}: Outputs is empty" : null).Choose(Optional));
+        Seq<string> sourceFaults = probe.Spec.Outputs.Choose(pair => Optional(pair.Group)
+            .Bind(group => inputs.Exists(input => ReferenceEquals(objA: input, objB: group.Input))
+                ? Option<string>.None
+                : Some($"{spec.FullName}: output group input '{group.Input.Name}' is not a declared input port instance")));
         Seq<string> nullFaults = NullsAt(spec: spec, side: "input", count: probe.Spec.Inputs.Count, missing: i => probe.Spec.Inputs[i].Port is null)
             .Concat(NullsAt(spec: spec, side: "output", count: probe.Spec.Outputs.Count, missing: i => probe.Spec.Outputs[i].Group is null));
         Seq<string> duplicates = sides.Bind(side =>
@@ -39,8 +44,14 @@ public abstract class Plugin : GhPlugin {
         Seq<string> portCount = outputs.Count > 24 ? Seq($"{spec.FullName}: output port count {outputs.Count} exceeds 24") : Seq<string>();
         Seq<string> codeLengths = sides.Bind(side => side.Ports.Choose(port =>
             port.Code.Length is > 0 and <= 2 ? Option<string>.None : Some($"{spec.FullName}: {side.Side} port '{port.Name}' code '{port.Code}' must be 1-2 characters")));
-        return structural.Concat(nullFaults).Concat(duplicates).Concat(enumFaults).Concat(portCount).Concat(codeLengths).ToSeq();
+        return structural.Concat(sourceFaults).Concat(nullFaults).Concat(duplicates).Concat(enumFaults).Concat(portCount).Concat(codeLengths).ToSeq();
     }
+    private static bool ClosedComponentSelf(Type type) =>
+        type.BaseType switch {
+            Type parent when parent.IsGenericType && parent.GetGenericTypeDefinition() == typeof(Component<>) => parent.GetGenericArguments()[0] == type,
+            Type parent => ClosedComponentSelf(type: parent),
+            _ => false,
+        };
     private static Seq<string> NullsAt(Type spec, string side, int count, Func<int, bool> missing) =>
         toSeq(Enumerable.Range(start: 0, count: count).Where(predicate: missing.Invoke).Select(index => $"{spec.FullName}: {side} {index} is null"));
     private static Seq<string> Duplicates(Type spec, string side, Seq<IPort> ports, string key, Func<IPort, string> project, Func<IPort, string> label) =>

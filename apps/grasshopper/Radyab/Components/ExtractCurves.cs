@@ -6,7 +6,7 @@ namespace Radyab.Components;
     info: "Polycurve segments, direction-aware iso curves, parallel silhouette and draft curves, plus classified curve topology from Rhino curve, surface, Brep, SubD, and mesh values.",
     category: Library.Name,
     section: Library.Extraction)]
-public sealed class ExtractCurves : Component {
+public sealed class ExtractCurves : Component<ExtractCurves> {
     private static readonly Port<Shape> Geometry = Port.Shape();
     private static readonly Port<Vector3d> Direction = Port.Direction(info: "Parallel projection or pull direction for silhouette, draft, and iso direction; missing Direction uses world Z (iso U).");
     private static readonly Port<Angle> Angle = Port.Angle(info: "Draft angle for draft-curve extraction; missing Angle defaults to 0 radians.");
@@ -37,7 +37,7 @@ public sealed class ExtractCurves : Component {
             Output.Plain<TopologyProjection, ComponentIndex>(port: Port.Tree<ComponentIndex>(name: "Source", code: "X", info: "Source component index aligned with each curve."), project: static value => value.Source),
             Output.Plain<TopologyProjection, CurveFeature>(port: Port.Tree<CurveFeature>(kind: PortKind.Enum(initial: CurveFeature.Input), name: "Feature", code: "F", info: "Feature classification aligned with each curve (boundary, naked, interior, loop, segment, iso, silhouette, draft)."), project: static value => value.Feature),
         ]);
-    public ExtractCurves() : base(self: typeof(ExtractCurves), spec: ComponentSpec.Of(
+    public ExtractCurves() : base(spec: ComponentSpec.Of(
         inputs: Seq<IPort>(Geometry, Direction, Angle),
         outputs: Seq<OutputGroup>(Segments, IsoCurves, Silhouette, Draft, Topology))) { }
 }

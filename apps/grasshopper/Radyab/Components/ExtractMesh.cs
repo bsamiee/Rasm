@@ -6,7 +6,7 @@ namespace Radyab.Components;
     info: "Validity panel, topology stats, critical defect counts, naked-edge polylines, and disjoint pieces for Rhino mesh values.",
     category: Library.Name,
     section: Library.Extraction)]
-public sealed class ExtractMesh : Component {
+public sealed class ExtractMesh : Component<ExtractMesh> {
     private static readonly Port<Shape> Geometry = Port.Shape();
     private static readonly OutputGroup Validity = Output.Single(input: Geometry, port: Port.Tree<MeshSample>(name: "Validity", code: "V", info: "Keyed validity samples per mesh."), aspect: Meshes.Validity);
     private static readonly OutputGroup Stats = Output.Single(input: Geometry, port: Port.Tree<MeshSample>(name: "Stats", code: "ST", info: "Keyed topology samples per mesh."), aspect: Meshes.Counts);
@@ -16,7 +16,7 @@ public sealed class ExtractMesh : Component {
         input: Geometry,
         port: Port.Tree<Mesh>(name: "Pieces", code: "P", info: "Disjoint mesh components via Mesh.SplitDisjointPieces(); a single-element list for a connected mesh."),
         operation: static _ => Fin.Succ(Rasm.Analysis.Analyze.Components<object, Mesh>()));
-    public ExtractMesh() : base(self: typeof(ExtractMesh), spec: ComponentSpec.Of(
+    public ExtractMesh() : base(spec: ComponentSpec.Of(
         inputs: Seq<IPort>(Geometry),
         outputs: Seq<OutputGroup>(Validity, Stats, Defects, NakedEdges, Pieces))) { }
 }

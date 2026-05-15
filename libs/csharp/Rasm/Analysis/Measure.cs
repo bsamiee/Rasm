@@ -34,9 +34,24 @@ public sealed partial class MassKind {
     internal Fin<IDisposable> Aggregate(IEnumerable<GeometryBase> geometry, Context context, bool firstMoments, bool secondMoments, bool productMoments, Op op) => aggregate(this, geometry, context, firstMoments, secondMoments, productMoments, op);
     public Eff<Env, IDisposable> Compute(object? geometry, Op op, bool firstMoments = false, bool secondMoments = false, bool productMoments = false) => Optional(geometry).ToFin(op.InvalidInput()).ToEff().Bind(g => Env.Asks.Bind(context => Compute(g, context, firstMoments, secondMoments, productMoments, op).ToEff()));
     private static Fin<IDisposable> Done<TMass>(TMass? mass) where TMass : class, IDisposable => Optional(mass).ToFin(new Fault.ComputationFailed(typeof(TMass).Name)).Map(static p => (IDisposable)p);
-    private static Fin<IDisposable> LengthOf(object geometry, Context _, bool fm, bool sm, bool pm, Op op) => geometry switch { Curve curve => Done(LengthMassProperties.Compute(curve, length: true, firstMoments: fm, secondMoments: sm, productMoments: pm)), _ => Fin.Fail<IDisposable>(op.Unsupported(geometry.GetType(), typeof(LengthMassProperties))) };
-    private static Fin<IDisposable> AreaOf(object geometry, Context context, bool fm, bool sm, bool pm, Op op) => geometry switch { Curve curve => Done(AreaMassProperties.Compute(curve, context.Absolute.Value)), Mesh mesh => Done(AreaMassProperties.Compute(mesh, area: true, firstMoments: fm, secondMoments: sm, productMoments: pm)), Brep brep => Done(AreaMassProperties.Compute(brep, area: true, firstMoments: fm, secondMoments: sm, productMoments: pm, relativeTolerance: context.Relative.Value, absoluteTolerance: context.Absolute.Value)), Surface surface => Done(AreaMassProperties.Compute(surface, area: true, firstMoments: fm, secondMoments: sm, productMoments: pm)), _ => Fin.Fail<IDisposable>(op.Unsupported(geometry.GetType(), typeof(AreaMassProperties))) };
-    private static Fin<IDisposable> VolumeOf(object geometry, Context context, bool fm, bool sm, bool pm, Op op) => geometry switch { Mesh mesh => Done(VolumeMassProperties.Compute(mesh, volume: true, firstMoments: fm, secondMoments: sm, productMoments: pm)), Brep brep => Done(VolumeMassProperties.Compute(brep, volume: true, firstMoments: fm, secondMoments: sm, productMoments: pm, relativeTolerance: context.Relative.Value, absoluteTolerance: context.Absolute.Value)), Surface surface => Done(VolumeMassProperties.Compute(surface, volume: true, firstMoments: fm, secondMoments: sm, productMoments: pm)), _ => Fin.Fail<IDisposable>(op.Unsupported(geometry.GetType(), typeof(VolumeMassProperties))) };
+    private static Fin<IDisposable> LengthOf(object geometry, Context _, bool fm, bool sm, bool pm, Op op) =>
+        GeometryKernel.CurveForm(source: geometry, op: op)
+            .Bind(lease => lease.Use(curve => Done(LengthMassProperties.Compute(curve, length: true, firstMoments: fm, secondMoments: sm, productMoments: pm))));
+    private static Fin<IDisposable> AreaOf(object geometry, Context context, bool fm, bool sm, bool pm, Op op) => geometry switch {
+        Curve curve => Done(AreaMassProperties.Compute(curve, context.Absolute.Value)),
+        Mesh mesh => Done(AreaMassProperties.Compute(mesh, area: true, firstMoments: fm, secondMoments: sm, productMoments: pm)),
+        Brep brep => Done(AreaMassProperties.Compute(brep, area: true, firstMoments: fm, secondMoments: sm, productMoments: pm, relativeTolerance: context.Fractional, absoluteTolerance: context.Absolute.Value)),
+        Surface surface => Done(AreaMassProperties.Compute(surface, area: true, firstMoments: fm, secondMoments: sm, productMoments: pm)),
+        Box or BoundingBox or Sphere or Cylinder or Cone or Torus => GeometryKernel.BrepForm(source: geometry, op: op).Bind(lease => lease.Use(brep => AreaOf(geometry: brep, context: context, fm: fm, sm: sm, pm: pm, op: op))),
+        _ => Fin.Fail<IDisposable>(op.Unsupported(geometry.GetType(), typeof(AreaMassProperties))),
+    };
+    private static Fin<IDisposable> VolumeOf(object geometry, Context context, bool fm, bool sm, bool pm, Op op) => geometry switch {
+        Mesh mesh => Done(VolumeMassProperties.Compute(mesh, volume: true, firstMoments: fm, secondMoments: sm, productMoments: pm)),
+        Brep brep => Done(VolumeMassProperties.Compute(brep, volume: true, firstMoments: fm, secondMoments: sm, productMoments: pm, relativeTolerance: context.Fractional, absoluteTolerance: context.Absolute.Value)),
+        Surface surface => Done(VolumeMassProperties.Compute(surface, volume: true, firstMoments: fm, secondMoments: sm, productMoments: pm)),
+        Box or BoundingBox or Sphere or Cylinder or Cone or Torus => GeometryKernel.BrepForm(source: geometry, op: op).Bind(lease => lease.Use(brep => VolumeOf(geometry: brep, context: context, fm: fm, sm: sm, pm: pm, op: op))),
+        _ => Fin.Fail<IDisposable>(op.Unsupported(geometry.GetType(), typeof(VolumeMassProperties))),
+    };
     private static Fin<IDisposable> LengthAggregate(MassKind self, IEnumerable<GeometryBase> geometry, Context context, bool fm, bool sm, bool pm, Op op) => toSeq(geometry) switch { Seq<GeometryBase> items when items.ForAll(static i => i is Curve) => Done(LengthMassProperties.Compute(curves: items.AsIterable().Cast<Curve>(), length: true, firstMoments: fm, secondMoments: sm, productMoments: pm)), Seq<GeometryBase> items => SumAggregate<LengthMassProperties>(items.AsIterable(), context, self, fm, sm, pm, op, static (t, s) => t.Sum(s, true)) };
     private static Fin<IDisposable> SumAggregate<TMass>(IEnumerable<GeometryBase> geometry, Context context, MassKind mass, bool fm, bool sm, bool pm, Op op, Func<TMass, IEnumerable<TMass>, bool> sum) where TMass : class, IDisposable =>
         toSeq(geometry).Fold(Fin.Succ(Seq<IDisposable>()), (state, item) => state.Bind(owned =>
@@ -122,10 +137,10 @@ public static partial class Analyze {
                                 _ => Fin.Fail<GeometryBase>(key.Unsupported(geometryType: item.GetType(), outputType: typeof(GeometryBase))),
                             }).As().ToEff()
                             from aggregate in mass.Aggregate(geometry: native.AsIterable(), context: context, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments, op: key).ToEff()
-                            from values in Bracket(factory: () => aggregate, body: disposable => project(arg1: key, arg2: disposable)).ToEff()
+                            from values in new Lease<IDisposable>.Owned(Value: aggregate).Use(disposable => project(arg1: key, arg2: disposable)).ToEff()
                             select values),
             evaluator: geometry => from computed in mass.Compute(geometry: geometry, op: key, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments)
-                                   from values in Bracket(factory: () => computed, body: disposable => project(arg1: key, arg2: disposable)).ToEff()
+                                   from values in new Lease<IDisposable>.Owned(Value: computed).Use(disposable => project(arg1: key, arg2: disposable)).ToEff()
                                    select values));
     }
     private static Fin<Seq<TValue>> MassProject<TValue>(Measure aspect, Op key, IDisposable props) =>

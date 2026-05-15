@@ -24,6 +24,7 @@ internal abstract partial record Lease<T> where T : class, IDisposable {
             state: project,
             owned: static (use, owned) => owned.Project(project: use),
             borrowed: static (use, borrowed) => use(arg: borrowed.Value));
+    internal T Resource => Switch(owned: static owned => owned.Value, borrowed: static borrowed => borrowed.Value);
 }
 [BoundaryAdapter]
 public sealed record TopologyProjection {
@@ -121,6 +122,10 @@ public abstract partial record IntersectionHit {
     public Seq<Curve> Curves => Switch(pointCase: static _ => Seq<Curve>(), curveCase: static c => Seq(c.Curve), overlapCase: static o => o.Curve.ToSeq());
     public Seq<Point3d> Points => Switch(pointCase: static p => Seq(p.Point), curveCase: static _ => Seq<Point3d>(), overlapCase: static o => Seq(o.Start, o.End));
     public Seq<Interval> Intervals => Switch(pointCase: static _ => Seq<Interval>(), curveCase: static _ => Seq<Interval>(), overlapCase: static o => Seq(o.OverlapA, o.OverlapB));
+    internal bool IsValid => Switch(
+        pointCase: static p => p.Point.IsValid,
+        curveCase: static c => c.CurveKind != IntersectionKind.Unknown && c.Curve.IsValid,
+        overlapCase: static o => o.Start.IsValid && o.End.IsValid && o.OverlapA.IsValid && o.OverlapB.IsValid && o.Curve.Map(static c => c.IsValid).IfNone(true));
     internal Unit Dispose() => Curves.Iter(static curve => curve.Dispose());
     public static IntersectionHit At(Point3d point) => new PointCase(point);
     public static IntersectionHit Along(Curve curve, IntersectionKind kind) => new CurveCase(curve, kind);
@@ -180,9 +185,10 @@ internal static class GeometryKernel {
     internal static bool CanCoerce(Type source, Type target) =>
         source == typeof(object) || source == typeof(GeometryBase) || target.IsAssignableFrom(source)
         || (target == typeof(Box) && typeof(Brep).IsAssignableFrom(source))
+        || (target == typeof(Curve) && (source == typeof(Line) || source == typeof(Polyline) || source == typeof(Circle) || source == typeof(Arc) || source == typeof(Ellipse)))
         || ((target == typeof(Line) || target == typeof(Circle) || target == typeof(Arc) || target == typeof(Ellipse) || target == typeof(Polyline)) && typeof(Curve).IsAssignableFrom(source))
         || ((target == typeof(Plane) || target == typeof(Sphere) || target == typeof(Cylinder) || target == typeof(Cone) || target == typeof(Torus)) && (typeof(Brep).IsAssignableFrom(source) || typeof(Surface).IsAssignableFrom(source)))
-        || (target == typeof(Brep) && typeof(Extrusion).IsAssignableFrom(source));
+        || (target == typeof(Brep) && (typeof(Extrusion).IsAssignableFrom(source) || source == typeof(Box) || source == typeof(BoundingBox) || source == typeof(Sphere) || source == typeof(Cylinder) || source == typeof(Cone) || source == typeof(Torus)));
     public static Fin<Kind> Kind(this object geometry, Context context) =>
         Optional(geometry).ToFin(Op.Of(name: nameof(Kind)).InvalidInput()).Bind(g =>
             (InferredKind(geometry: g, context: context) | KindLookup.Resolve(g.GetType()))
@@ -217,7 +223,7 @@ internal static class GeometryKernel {
     private static Option<Kind> InferredKind(object geometry, Context context) =>
         geometry switch {
             Brep brep => BoxOf(brep: brep, context: context).Map(static _ => global::Rasm.Domain.Kind.Box)
-                | PlaneFromBrep(brep: brep, context: context).Map(static _ => global::Rasm.Domain.Kind.Surface)
+                | PlaneFromBrep(brep: brep, context: context).Map(static _ => global::Rasm.Domain.Kind.Plane)
                 | PrimitiveSurfaceKind(surface: brep is { IsSurface: true } ? brep.Surfaces[0] : null, context: context),
             Curve curve => LineOf(curve: curve, context: context).Map(static _ => global::Rasm.Domain.Kind.Line)
                 | CircleOf(curve: curve, context: context).Map(static _ => global::Rasm.Domain.Kind.Circle)
@@ -237,6 +243,7 @@ internal static class GeometryKernel {
     private static Option<object> CoerceValue(object source, Type target, Context context) =>
         (source, target) switch {
             (Brep brep, Type t) when t == typeof(Box) => BoxOf(brep: brep, context: context).Map(static v => (object)v),
+            (object value, Type t) when t == typeof(Curve) => CurveForm(source: value, op: Op.Of(name: nameof(Coerce))).ToOption().Map(static lease => (object)lease.Resource),
             (Curve curve, Type t) when t == typeof(Line) => LineOf(curve: curve, context: context).Map(static v => (object)v),
             (Curve curve, Type t) when t == typeof(Circle) => CircleOf(curve: curve, context: context).Map(static v => (object)v),
             (Curve curve, Type t) when t == typeof(Arc) => ArcOf(curve: curve, context: context).Map(static v => (object)v),
@@ -252,7 +259,7 @@ internal static class GeometryKernel {
             (Surface surface, Type t) when t == typeof(Cone) => ConeOf(surface: surface, context: context).Map(static v => (object)v),
             (Brep brep, Type t) when t == typeof(Torus) => brep is { IsSurface: true } ? TorusOf(surface: brep.Surfaces[0], context: context).Map(static v => (object)v) : Option<object>.None,
             (Surface surface, Type t) when t == typeof(Torus) => TorusOf(surface: surface, context: context).Map(static v => (object)v),
-            (Extrusion extrusion, Type t) when t == typeof(Brep) => Optional(extrusion.ToBrep()).Map(static v => (object)v),
+            (object value, Type t) when t == typeof(Brep) => BrepForm(source: value, op: Op.Of(name: nameof(Coerce))).ToOption().Map(static lease => (object)lease.Resource),
             _ => Option<object>.None,
         };
     private static Option<Box> BoxOf(Brep brep, Context context) =>
@@ -268,5 +275,27 @@ internal static class GeometryKernel {
     private static Option<Cylinder> CylinderOf(Surface surface, Context context) => surface.TryGetCylinder(out Cylinder value, context.Absolute.Value) ? Some(value) : Option<Cylinder>.None;
     private static Option<Cone> ConeOf(Surface surface, Context context) => surface.TryGetCone(out Cone value, context.Absolute.Value) ? Some(value) : Option<Cone>.None;
     private static Option<Torus> TorusOf(Surface surface, Context context) => surface.TryGetTorus(out Torus value, context.Absolute.Value) ? Some(value) : Option<Torus>.None;
+    internal static Fin<Lease<Curve>> CurveForm(object? source, Op op) =>
+        Optional(source).ToFin(op.InvalidInput()).Bind(value => value switch {
+            Curve curve => Fin.Succ<Lease<Curve>>(new Lease<Curve>.Borrowed(Value: curve)),
+            Line line when line.IsValid => Fin.Succ<Lease<Curve>>(new Lease<Curve>.Owned(Value: new LineCurve(line))),
+            Polyline polyline when polyline.IsValid => Optional(polyline.ToPolylineCurve()).ToFin(op.InvalidResult()).Map(static curve => (Lease<Curve>)new Lease<Curve>.Owned(Value: curve)),
+            Circle circle when circle.IsValid => Fin.Succ<Lease<Curve>>(new Lease<Curve>.Owned(Value: new ArcCurve(circle))),
+            Arc arc when arc.IsValid => Fin.Succ<Lease<Curve>>(new Lease<Curve>.Owned(Value: new ArcCurve(arc))),
+            Ellipse ellipse when ellipse.IsValid => Optional(ellipse.ToNurbsCurve()).ToFin(op.InvalidResult()).Map(static curve => (Lease<Curve>)new Lease<Curve>.Owned(Value: curve)),
+            _ => Fin.Fail<Lease<Curve>>(op.Unsupported(value.GetType(), typeof(Curve))),
+        });
+    internal static Fin<Lease<Brep>> BrepForm(object? source, Op op) =>
+        Optional(source).ToFin(op.InvalidInput()).Bind(value => value switch {
+            Brep brep => Fin.Succ<Lease<Brep>>(new Lease<Brep>.Borrowed(Value: brep)),
+            Box box => Optional(box.ToBrep()).ToFin(op.InvalidResult()).Map(static brep => (Lease<Brep>)new Lease<Brep>.Owned(Value: brep)),
+            BoundingBox box => Optional(box.ToBrep()).ToFin(op.InvalidResult()).Map(static brep => (Lease<Brep>)new Lease<Brep>.Owned(Value: brep)),
+            Sphere sphere => Optional(sphere.ToBrep()).ToFin(op.InvalidResult()).Map(static brep => (Lease<Brep>)new Lease<Brep>.Owned(Value: brep)),
+            Cylinder cylinder => Optional(cylinder.ToBrep(capBottom: true, capTop: true)).ToFin(op.InvalidResult()).Map(static brep => (Lease<Brep>)new Lease<Brep>.Owned(Value: brep)),
+            Cone cone => Optional(cone.ToBrep(capBottom: true)).ToFin(op.InvalidResult()).Map(static brep => (Lease<Brep>)new Lease<Brep>.Owned(Value: brep)),
+            Torus torus => Optional(torus.ToBrep()).ToFin(op.InvalidResult()).Map(static brep => (Lease<Brep>)new Lease<Brep>.Owned(Value: brep)),
+            Extrusion extrusion => Optional(extrusion.ToBrep()).ToFin(op.InvalidResult()).Map(static brep => (Lease<Brep>)new Lease<Brep>.Owned(Value: brep)),
+            _ => Fin.Fail<Lease<Brep>>(op.Unsupported(value.GetType(), typeof(Brep))),
+        });
     public static Fin<Seq<double>> Fractions(int count, Op op) => count switch { 1 => Fin.Succ(Seq(0.5)), > 1 => Fin.Succ(toSeq(Enumerable.Range(0, count).Select(i => i / (count - 1.0)))), _ => Fin.Fail<Seq<double>>(op.InvalidInput()) };
 }

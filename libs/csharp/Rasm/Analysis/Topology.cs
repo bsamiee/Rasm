@@ -68,7 +68,7 @@ public static partial class Analyze {
                 key: key, requiresContext: true, state: key,
                 evaluator: static (op, geometry) =>
                     from components in ComponentsOf(geometry: geometry, op: op).ToEff()
-                    from result in components.TraverseM(component => component is TOut typed ? Fin.Succ(typed) : Fin.Fail<TOut>(op.Unsupported(geometryType: component.GetType(), outputType: typeof(TOut)))).As().ToEff()
+                    from result in ProjectComponents<TOut>(components: components, op: op).ToEff()
                     select result))
             : key.Unsupported<TGeometry, TOut>();
     }
@@ -103,9 +103,10 @@ public static partial class Analyze {
     private static Fin<Seq<GeometryBase>> BrepComponents(Brep brep, Op op) =>
         brep.GetConnectedComponents() switch {
             Brep[] cs when cs.Length > 0 => Fin.Succ(toSeq(cs.Cast<GeometryBase>())),
-            _ => Brep.SplitDisjointPieces(brep) switch {
-                Brep[] ps when ps.Length > 0 => Fin.Succ(toSeq(ps.Cast<GeometryBase>())),
-                _ => op.AcceptValue(brep).Map(static v => Seq((GeometryBase)v.DuplicateBrep())),
-            },
+            _ when brep.IsValid => op.AcceptValue(brep).Map(static v => Seq((GeometryBase)v.DuplicateBrep())),
+            _ => Fin.Fail<Seq<GeometryBase>>(op.InvalidResult()),
         };
+    private static Fin<Seq<TOut>> ProjectComponents<TOut>(Seq<GeometryBase> components, Op op) =>
+        components.TraverseM(component => component is TOut typed ? Fin.Succ(typed) : Fin.Fail<TOut>(op.Unsupported(geometryType: component.GetType(), outputType: typeof(TOut)))).As()
+            .Match(Succ: Fin.Succ, Fail: error => (components.Iter(static component => component.Dispose()), Fin.Fail<Seq<TOut>>(error)).Item2);
 }

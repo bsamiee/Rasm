@@ -15,7 +15,7 @@ public readonly record struct Hints(Seq<(IPort Port, int Slot)> Inputs) {
             _ => Option<(IPort Port, int Slot)>.None,
         }));
     public Option<int> Slot(IPort port) =>
-        Inputs.Find(predicate: input => input.Port.Equals(port)).Map(static input => input.Slot);
+        Inputs.Find(predicate: input => ReferenceEquals(objA: input.Port, objB: port)).Map(static input => input.Slot);
 }
 public readonly record struct OutputSlot<TSource>(
     IPort Port,
@@ -24,18 +24,22 @@ public readonly record struct OutputSlot<TSource>(
 
 // --- [SERVICES] -------------------------------------------------------------------------
 public static class GrasshopperRuntimeExtensions {
-    public static Fin<Option<TVal>> Read<TVal>(this GrasshopperRuntime runtime, Port<TVal> port) =>
-        runtime.Hints.Slot(port: port).Match(
+    public static Fin<Option<TVal>> Read<TVal>(this GrasshopperRuntime runtime, Port<TVal> port) {
+        ArgumentNullException.ThrowIfNull(argument: port);
+        return runtime.Hints.Slot(port: port).Match(
             Some: slot => Bridge.Read<TVal>(access: runtime.Access, slot: slot, port: port)
                 .Map(values => values.Head.Map(static pear => pear.Item) | port.Fallback),
             None: () => Fin.Succ(port.Fallback));
-    public static Option<int> Index(this GrasshopperRuntime runtime, Port<int> port, int limit) =>
-        limit switch {
+    }
+    public static Option<int> Index(this GrasshopperRuntime runtime, Port<int> port, int limit) {
+        ArgumentNullException.ThrowIfNull(argument: port);
+        return limit switch {
             <= 0 => Option<int>.None,
             _ => runtime.Hints.Slot(port: port)
                 .Bind(slot => runtime.Access.GetIndex(indexParameter: slot, limit: limit, index: out int index) ? Some(index) : Option<int>.None)
                 | port.Fallback,
         };
+    }
 }
 public static class Output {
     private static Unit RunDetails<TSource>(
@@ -114,7 +118,7 @@ public static class Output {
             .Bind(context => sources.Traverse(src => project(arg1: src.Item, arg2: context).Map(src.Project)).As()));
     public static Unit Write(IDataAccess access, GrasshopperRuntime runtime, Seq<OutputGroup> groups, Hints outputs) {
         Seq<OutputGroup> active = groups.Filter(group => group.Ports.Exists(port => outputs.Slot(port: port).IsSome));
-        Seq<(Port<Shape> Input, Fin<Seq<Flow<Shape>>> Source)> sources = active.Map(static group => group.Input).Distinct()
+        Seq<(Port<Shape> Input, Fin<Seq<Flow<Shape>>> Source)> sources = active.Fold(Seq<Port<Shape>>(), (found, group) => found.Exists(input => ReferenceEquals(objA: input, objB: group.Input)) ? found : found.Add(value: group.Input))
             .Map(input => (Input: input, Source: runtime.Shape(port: input)))
             .AsIterable()
             .ToSeq();
@@ -125,7 +129,7 @@ public static class Output {
                 outputs: outputs,
                 runtime: runtime,
                 group: group,
-                source: sources.Find(source => source.Input.Equals(group.Input)).Map(static source => source.Source).IfNone(Fin.Succ(Seq<Flow<Shape>>())))),
+                source: sources.Find(source => ReferenceEquals(objA: source.Input, objB: group.Input)).Map(static source => source.Source).IfNone(Fin.Succ(Seq<Flow<Shape>>())))),
         };
     }
     public static Unit Empty(IDataAccess access, Seq<OutputGroup> groups, Hints outputs) =>

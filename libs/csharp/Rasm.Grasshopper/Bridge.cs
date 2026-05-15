@@ -82,7 +82,11 @@ public static class Bridge {
         return Read<object>(access: access, slot: slot, port: port)
             .Bind(values => values.TraverseM(sourced => ((access.GetUnitScaling(unitSystemScaling: out double scale), scale) switch {
                 (true, double factor) when Rhino.RhinoMath.IsValidDouble(x: factor) && Math.Abs(value: factor - 1.0) > Rhino.RhinoMath.ZeroTolerance =>
-                    Optional(access.TryTransform(value: sourced.Pear, transformation: Transform.Scale(anchor: Point3d.Origin, scaleFactor: factor))).ToFin(new Fault.ComputationFailed(Label: "UnitScaling")),
+                    Optional(access.TryTransform(value: sourced.Pear, transformation: Transform.Scale(anchor: Point3d.Origin, scaleFactor: factor))).ToFin(new Fault.ComputationFailed(Label: "UnitScaling"))
+                        .Bind(transformed => ReferenceEquals(objA: transformed, objB: sourced.Pear) switch {
+                            true => Fin.Fail<IPear>(new Fault.ComputationUnsupported(Label: "UnitScaling", GeometryType: sourced.Item.GetType())),
+                            false => Fin.Succ<IPear>(transformed),
+                        }),
                 (_, double factor) when Rhino.RhinoMath.IsValidDouble(x: factor) => Fin.Succ<IPear>(sourced.Pear),
                 _ => Fin.Fail<IPear>(new Fault.ComputationFailed(Label: "UnitScaling")),
             })
@@ -125,8 +129,6 @@ public static class Bridge {
     }
     private static int? TreePrefix(IDataAccess access, int slot) =>
         access.CoverageOut(index: slot) switch { { TwigIndex: >= 0 } coverage => coverage.TwigIndex, _ => null };
-    private static Grasshopper2.Data.Path TwigPath(IDataAccess access, int slot) =>
-        access.CoverageIn(index: slot) switch { { TwigIndex: >= 0 } coverage => new Grasshopper2.Data.Path(coverage.TwigIndex), _ => new Grasshopper2.Data.Path(0) };
     private static Fin<Analyze.Scope> Remark(IDataAccess access, Rhino.UnitSystem units) {
         access.AddRemark(text: "Tolerance", details: "Host did not supply reliable tolerance; using default tolerance with document units.");
         return Fin.Succ(Analyze.In(units: units == Rhino.UnitSystem.CustomUnits ? Rhino.UnitSystem.Millimeters : units));
@@ -173,7 +175,7 @@ public static class Bridge {
         internal static readonly FrozenDictionary<Access, Func<IDataAccess, int, IPort, Fin<Seq<Flow<T>>>>> Readers =
             new Dictionary<Access, Func<IDataAccess, int, IPort, Fin<Seq<Flow<T>>>>> {
                 [Access.Item] = static (access, slot, port) => ReadPears(access: access, slot: slot, port: port, site: static (_, _, _) => Option<Site>.None),
-                [Access.Twig] = static (access, slot, port) => ReadPears(access: access, slot: slot, port: port, site: static (host, index, item) => Some(new Site(path: TwigPath(access: host, slot: index), item: item))),
+                [Access.Twig] = static (access, slot, port) => ReadPears(access: access, slot: slot, port: port, site: static (_, _, _) => Option<Site>.None),
                 [Access.Tree] = static (access, slot, port) => access.GetTree<T>(index: slot, tree: out Tree<T> tree) switch {
                     true => toSeq(tree.EnumerateLeaves().Select((leaf, index) => (Leaf: leaf, Index: index))).TraverseM(item => item.Leaf.Pear is { Item: not null }
                         ? Fin.Succ(new Flow<T>(Pear: item.Leaf.Pear, Site: Some(item.Leaf.Site)))

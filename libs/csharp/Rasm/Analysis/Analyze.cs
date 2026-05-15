@@ -155,10 +155,6 @@ public static partial class Analyze {
                 TNative native => state.Project(arg1: state.State, arg2: native),
                 _ => Fin.Fail<Seq<TValue>>(state.Key.Unsupported(geometryType: geometry.GetType(), outputType: typeof(TValue))).ToEff(),
             }));
-    internal static Fin<TOut> Bracket<TResource, TOut>(Func<TResource> factory, Func<TResource, Fin<TOut>> body) where TResource : class, IDisposable {
-        using TResource resource = factory();
-        return body(arg: resource);
-    }
 }
 
 internal static class ValidationLifts {
