@@ -28,7 +28,6 @@ public sealed record Operation<TGeometry, TOut> where TGeometry : notnull {
     internal bool IsSupported => Execution is not Body.Rejected;
     internal bool IsAggregate => Execution is Body.Aggregate;
     internal bool NeedsContext => RequiresContext || !Requirement.IsEmpty;
-    public Eff<Env, Seq<TOut>> Apply(TGeometry geometry) => Apply(geometry: Seq(geometry));
     public Eff<Env, Seq<TOut>> Apply(Seq<TGeometry> geometry) =>
         Execution switch {
             Body.PerItem item => geometry.TraverseM(item.Evaluate).As().Map(static chunks => chunks.Bind(static chunk => chunk)),
@@ -148,8 +147,6 @@ public static partial class Analyze {
         Operation<TGeometry, TOut> typed => typed,
         _ => Operation<TGeometry, TOut>.Reject(key: key, fault: key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))),
     };
-    internal static Operation<TGeometry, TOut> Native<TGeometry, TOut, TNative, TValue>(Op key, Func<TNative, Eff<Env, Seq<TValue>>> project) where TGeometry : notnull where TNative : notnull =>
-        Native<TGeometry, TOut, TNative, TValue, Func<TNative, Eff<Env, Seq<TValue>>>>(key: key, state: project, project: static (nativeProject, native) => nativeProject(arg: native));
     internal static Operation<TGeometry, TOut> Native<TGeometry, TOut, TNative, TValue, TState>(Op key, TState state, Func<TState, TNative, Eff<Env, Seq<TValue>>> project, Requirement? requirement = null, bool requiresContext = false) where TGeometry : notnull where TNative : notnull =>
         Cast<TGeometry, TOut>(key: key, operation: Operation<TGeometry, TValue>.Build(
             key: key, requirement: requirement, requiresContext: requiresContext, state: (Key: key, State: state, Project: project),

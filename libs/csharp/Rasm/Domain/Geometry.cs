@@ -229,6 +229,8 @@ internal static class GeometryKernel {
         type == typeof(object) || type == typeof(GeometryBase) || KindLookup.Resolve(type).Map(static kind => kind.CanReadVertices).IfNone(false);
     internal static bool CanReadControlPoints(Type type) =>
         type == typeof(object) || type == typeof(GeometryBase) || KindLookup.Resolve(type).Map(static kind => kind.CanReadControlPoints).IfNone(false);
+    internal static bool CanReadEdges(Type type) =>
+        type == typeof(object) || type == typeof(GeometryBase) || type == typeof(Line) || type == typeof(Polyline) || type == typeof(BoundingBox) || type == typeof(Box) || typeof(Brep).IsAssignableFrom(c: type) || typeof(Mesh).IsAssignableFrom(c: type) || typeof(SubD).IsAssignableFrom(c: type);
     internal static bool CanCoerce(Type source, Type target) =>
         source == typeof(object) || source == typeof(GeometryBase) || KindLookup.Resolve(source).Map(kind => kind.CanCoerceTo(target: target)).IfNone(target.IsAssignableFrom(source));
     public static Fin<Kind> Kind(this object geometry, Context context) =>

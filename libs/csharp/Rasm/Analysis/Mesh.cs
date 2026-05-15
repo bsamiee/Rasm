@@ -147,22 +147,13 @@ public static partial class Analyze {
         };
     }
     public static global::Rasm.Analysis.Operation<Mesh, MeshSample> MeshValidity {
-        get {
-            Op key = Op.Of();
-            return MeshSamples(key: key, kinds: MeshSampleKind.Validity, inspect: false);
-        }
+        get { Op key = Op.Of(); return MeshSamples(key: key, kinds: MeshSampleKind.Validity); }
     }
     public static global::Rasm.Analysis.Operation<Mesh, MeshSample> MeshCounts {
-        get {
-            Op key = Op.Of();
-            return MeshSamples(key: key, kinds: MeshSampleKind.Counts, inspect: false);
-        }
+        get { Op key = Op.Of(); return MeshSamples(key: key, kinds: MeshSampleKind.Counts); }
     }
     public static global::Rasm.Analysis.Operation<Mesh, MeshSample> MeshDefects {
-        get {
-            Op key = Op.Of();
-            return MeshSamples(key: key, kinds: MeshSampleKind.Defects, inspect: true);
-        }
+        get { Op key = Op.Of(); return MeshSamples(key: key, kinds: MeshSampleKind.Defects); }
     }
     public static global::Rasm.Analysis.Operation<Mesh, TopologyProjection> MeshAtFace(int? index = null) {
         Op key = Op.Of();
@@ -176,15 +167,15 @@ public static partial class Analyze {
             }).ToEff());
     }
     internal static global::Rasm.Analysis.Operation<TGeometry, TOut> MeshLift<TGeometry, TOut, TValue>(Op key, global::Rasm.Analysis.Operation<Mesh, TValue> source) where TGeometry : notnull =>
-        Native<TGeometry, TOut, Mesh, TValue, global::Rasm.Analysis.Operation<Mesh, TValue>>(key: key, state: source, project: static (q, mesh) => q.Apply(geometry: mesh));
+        Native<TGeometry, TOut, Mesh, TValue, global::Rasm.Analysis.Operation<Mesh, TValue>>(key: key, state: source, project: static (q, mesh) => q.Apply(geometry: Seq(mesh)));
     private static Fin<Seq<MeshNgon>> VisiblePolygons(Mesh mesh, Op key) =>
         Optional(mesh.GetNgonAndFacesEnumerable()).ToFin(key.InvalidResult())
             .Map(static polygons => toSeq(polygons));
-    private static global::Rasm.Analysis.Operation<Mesh, MeshSample> MeshSamples(Op key, Seq<MeshSampleKind> kinds, bool inspect) =>
+    private static global::Rasm.Analysis.Operation<Mesh, MeshSample> MeshSamples(Op key, Seq<MeshSampleKind> kinds) =>
         global::Rasm.Analysis.Operation<Mesh, MeshSample>.Build(
-            key: key, state: (Key: key, Kinds: kinds, Inspect: inspect),
+            key: key, state: (Key: key, Kinds: kinds, Inspect: kinds.Exists(static kind => kind.Category == MeshSampleCategory.Defect)),
             evaluator: static (state, geometry) => state.Inspect switch {
-                true => from parameters in MeshCheck.Apply(geometry: geometry)
+                true => from parameters in MeshCheck.Apply(geometry: Seq(geometry))
                         from head in parameters.Head.ToFin(state.Key.InvalidResult()).ToEff()
                         select state.Kinds.Map(kind => new MeshSample(Kind: kind, Value: kind.Sample(mesh: geometry, parameters: head))),
                 false => Fin.Succ(state.Kinds.Map(kind => new MeshSample(Kind: kind, Value: kind.Sample(mesh: geometry, parameters: default)))).ToEff(),
@@ -202,7 +193,7 @@ public static partial class Analyze {
             textLog: textLog,
             cancel: runtime.Cancellation,
             progress: runtime.Progress) switch {
-                true => (op.AcceptOptional(values: perforations), op.AcceptOptional(values: overlaps))
+                true => (Optional(perforations).Map(seq => op.Accept(values: seq)).IfNone(Fin.Succ(Seq<Polyline>())), Optional(overlaps).Map(seq => op.Accept(values: seq)).IfNone(Fin.Succ(Seq<Polyline>())))
                     .Apply((left, right) => left + right)
                     .As(),
                 false when runtime.Cancellation.IsCancellationRequested => Fin.Fail<Seq<Polyline>>(new Fault.Cancelled()),

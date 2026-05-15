@@ -2,13 +2,17 @@ namespace Rasm.Domain;
 
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
-public sealed partial class StatKind {
-    public static readonly StatKind Curvature = new(key: 0, scalar: false);
-    public static readonly StatKind Magnitude = new(key: 1, scalar: true);
-    public static readonly StatKind Gaussian = new(key: 2, scalar: true);
-    public static readonly StatKind Mean = new(key: 3, scalar: true);
-    public static readonly StatKind Residual = new(key: 4, scalar: false);
-    internal bool Scalar { get; }
+public sealed partial class ScalarMetric {
+    public static readonly ScalarMetric Magnitude = new(key: 0);
+    public static readonly ScalarMetric Gaussian = new(key: 1);
+    public static readonly ScalarMetric Mean = new(key: 2);
+}
+
+[Union]
+public partial record CurvatureMode {
+    public sealed record VectorCase : CurvatureMode;
+    public sealed record ScalarCase(ScalarMetric Metric) : CurvatureMode;
+    public static CurvatureMode Vector => new VectorCase();
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -47,8 +51,8 @@ public readonly record struct Stats {
 }
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Stat {
-    private Stat(StatKind kind, Stats stats, Option<double> limit = default) { Kind = kind; Stats = stats; Limit = limit; }
-    public StatKind Kind { get; }
+    private Stat(Option<ScalarMetric> metric, Stats stats, Option<double> limit = default) { Metric = metric; Stats = stats; Limit = limit; }
+    public Option<ScalarMetric> Metric { get; }
     public Stats Stats { get; }
     internal Option<double> Limit { get; }
     internal int Count => Stats.Count;
@@ -59,30 +63,28 @@ public readonly record struct Stat {
     internal double Rms => Stats.Rms;
     internal double Tolerance => Limit.IfNone(0.0);
     internal bool WithinTolerance => Limit.Case switch { double tolerance => Stats.Maximum <= tolerance, _ => false };
-    internal static Fin<Stat> Curvature(Seq<double> values, StatKind kind, Op key) =>
-        (Stats.From(values: values, key: key), Fin.Succ((Kind: kind, Key: key)))
-            .Apply(static (stats, state) => (Stats: stats, state.Kind, state.Key)).As()
-            .Bind(static state => state.Kind.Scalar
-                ? Fin.Succ(new Stat(kind: state.Kind, stats: state.Stats))
-                : Fin.Fail<Stat>(state.Key.InvalidInput()));
+    internal static Fin<Stat> Curvature(Seq<double> values, ScalarMetric metric, Op key) =>
+        (Stats.From(values: values, key: key), Fin.Succ(metric))
+            .Apply(static (stats, m) => new Stat(metric: Some(m), stats: stats))
+            .As();
     internal static Fin<Stat> Residual(Seq<double> values, double tolerance, Op key) =>
         (Stats.From(values: values, key: key), Fin.Succ((Tolerance: tolerance, Key: key)))
             .Apply(static (stats, state) => (Stats: stats, state.Tolerance, state.Key)).As()
             .Bind(static state => Residual(tolerance: state.Tolerance, stats: state.Stats, key: state.Key));
     internal static Fin<Stat> Residual(double tolerance, Stats stats, Op key) =>
         (RhinoMath.IsValidDouble(x: tolerance), tolerance >= 0.0, stats.Minimum >= 0.0, stats.Mean >= 0.0) switch {
-            (true, true, true, true) => Fin.Succ(new Stat(kind: StatKind.Residual, stats: stats, limit: Some(tolerance))),
+            (true, true, true, true) => Fin.Succ(new Stat(metric: Option<ScalarMetric>.None, stats: stats, limit: Some(tolerance))),
             _ => Fin.Fail<Stat>(key.InvalidResult()),
         };
     internal static Fin<Seq<double>> ResidualDistances(Seq<ResidualSample> samples, Op key) =>
         ResidualSamples(samples: samples, key: key).Map(static values => values.Map(static sample => sample.Distance));
     internal static Fin<Stats> FromResiduals(Seq<ResidualSample> samples, Op key) =>
         (ResidualDistances(samples: samples, key: key), Fin.Succ(key))
-            .Apply(static (values, state) => (Values: values, Key: state)).As()
+            .Apply(static (values, k) => (Values: values, Key: k)).As()
             .Bind(static state => Stats.From(values: state.Values, key: state.Key));
     internal static Fin<ResidualSample> MaximumResidual(Seq<ResidualSample> samples, Op key) =>
         (ResidualSamples(samples: samples, key: key), Fin.Succ(key))
-            .Apply(static (values, state) => (Values: values, Key: state)).As()
+            .Apply(static (values, k) => (Values: values, Key: k)).As()
             .Bind(static state => Stats.Maxima(items: state.Values, projection: static sample => sample.Distance, tolerance: 0.0).Head.ToFin(state.Key.InvalidResult()));
     private static Fin<Seq<ResidualSample>> ResidualSamples(Seq<ResidualSample> samples, Op key) =>
         samples.Fold(

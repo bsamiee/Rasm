@@ -40,7 +40,7 @@ internal partial record IntersectionResult {
 public static partial class Analyze {
     public static global::Rasm.Analysis.Operation<(TA A, TB B), TOut> Intersect<TA, TB, TOut>() where TA : notnull where TB : notnull {
         Op key = Op.Of();
-        return (CanIntersect(left: typeof(TA), right: typeof(TB), unordered: true), CanProjectIntersection(left: typeof(TA), right: typeof(TB), output: typeof(TOut), unordered: true)) switch {
+        return (Supports(left: typeof(TA), right: typeof(TB), unordered: true), Supports(left: typeof(TA), right: typeof(TB), output: typeof(TOut), unordered: true)) switch {
             (true, true) => global::Rasm.Analysis.Operation<(TA A, TB B), TOut>.Build(
                 key: key, requiresContext: true, state: key,
                 evaluator: static (op, pair) => from runtime in Env.EnvAsks
@@ -63,12 +63,15 @@ public static partial class Analyze {
                                                 select result)
             : key.Unsupported<(TA A, TB B), TOut>();
     }
-    internal static bool CanIntersect(Type left, Type right, bool unordered = false) =>
-        left == typeof(object) || right == typeof(object) || CanIntersectOrdered(left: left, right: right) || (unordered && CanIntersectOrdered(left: right, right: left));
+    internal static bool Supports(Type left, Type right, Type? output = null, bool unordered = false) =>
+        (left == typeof(object) || right == typeof(object), output) switch {
+            (true, null) => true,
+            (true, Type o) => AnyIntersectionOutput(output: o),
+            (false, null) => CanIntersectOrdered(left: left, right: right) || (unordered && CanIntersectOrdered(left: right, right: left)),
+            (false, Type o) => CanProjectIntersectionOrdered(left: left, right: right, output: o) || (unordered && CanProjectIntersectionOrdered(left: right, right: left, output: o)),
+        };
     internal static bool CanDeviation(Type left, Type right) =>
         typeof(Curve).IsAssignableFrom(left) && typeof(Curve).IsAssignableFrom(right);
-    private static bool CanProjectIntersection(Type left, Type right, Type output, bool unordered = false) =>
-        ((left == typeof(object) || right == typeof(object)) && AnyIntersectionOutput(output: output)) || CanProjectIntersectionOrdered(left: left, right: right, output: output) || (unordered && CanProjectIntersectionOrdered(left: right, right: left, output: output));
     private static bool CanProjectIntersectionOrdered(Type left, Type right, Type output) =>
         (left, right, output) switch {
             (Type l, Type r, Type o) when CanIntersectOrdered(left: l, right: r) && o == typeof(IntersectionKind) => true,
@@ -127,11 +130,11 @@ public static partial class Analyze {
             (Line a, Box b) => Fin.Succ((IntersectionResult)new IntersectionResult.Intervals(Intersection.LineBox(a, b, context.Absolute.Value, out Interval iv) ? SegmentInterval(iv) : Seq<Interval>())),
             (Curve a, Curve b) when cancel.IsCancellationRequested => Fin.Fail<IntersectionResult>(new Fault.Cancelled()),
             (Curve a, Curve b) => new Lease<CurveIntersections>.Owned(Value: Intersection.CurveCurve(a, b, context.Absolute.Value, context.Absolute.Value)).Use(hits => cancel.IsCancellationRequested ? Fin.Fail<IntersectionResult>(new Fault.Cancelled()) : EventHits(hits: hits, op: op, source: a)),
-            (Curve a, Plane b) => CurvePlane(a: a, b: b, context: context, op: op),
-            (Curve a, Line b) => CurveLine(a: a, b: b, context: context, op: op),
+            (Curve a, Plane b) => CurveAgainst<Plane>(a: a, b: b, context: context, op: op, intersect: static (c, p, t) => Intersection.CurvePlane(c, p, t)),
+            (Curve a, Line b) => CurveAgainst<Line>(a: a, b: b, context: context, op: op, intersect: static (c, l, t) => Intersection.CurveLine(c, l, t, t), finiteLine: Some(b)),
             (Curve a, BrepFace b) => SolvedHits(solved: Intersection.CurveBrepFace(a, b, context.Absolute.Value, out Curve[] cs, out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Overlap, op: op, cancel: cancel),
             (Curve a, Brep b) => SolvedHits(solved: Intersection.CurveBrep(a, b, context.Absolute.Value, out Curve[] cs, out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Overlap, op: op, cancel: cancel, partial: true),
-            (Curve a, Surface b) => CurveSurface(a: a, b: b, context: context, op: op),
+            (Curve a, Surface b) => CurveAgainst<Surface>(a: a, b: b, context: context, op: op, intersect: static (c, s, t) => Intersection.CurveSurface(c, s, t, t)),
             (Surface a, Surface b) => SolvedHits(solved: Intersection.SurfaceSurface(a, b, context.Absolute.Value, out Curve[] cs, out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Curve, op: op, cancel: cancel),
             (Brep a, Plane b) => SolvedHits(solved: Intersection.BrepPlane(a, b, context.Absolute.Value, out Curve[] cs, out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Curve, op: op, cancel: cancel),
             (Brep a, Surface b) => SolvedHits(solved: Intersection.BrepSurface(a, b, context.Absolute.Value, true, out Curve[] cs, out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Curve, op: op, cancel: cancel),
@@ -167,17 +170,9 @@ public static partial class Analyze {
                 _ => Fin.Fail<IntersectionResult>(op.InvalidResult()),
             },
         };
-    private static Fin<IntersectionResult> CurvePlane(Curve a, Plane b, Context context, Op op) {
-        using CurveIntersections? hits = Intersection.CurvePlane(a, b, context.Absolute.Value);
-        return EventHits(hits: hits, op: op, source: a);
-    }
-    private static Fin<IntersectionResult> CurveLine(Curve a, Line b, Context context, Op op) {
-        using CurveIntersections? hits = Intersection.CurveLine(a, b, context.Absolute.Value, context.Absolute.Value);
-        return EventHits(hits: hits, op: op, source: a, finiteLine: Some(b), tolerance: context.Absolute.Value);
-    }
-    private static Fin<IntersectionResult> CurveSurface(Curve a, Surface b, Context context, Op op) {
-        using CurveIntersections? hits = Intersection.CurveSurface(a, b, context.Absolute.Value, context.Absolute.Value);
-        return EventHits(hits: hits, op: op, source: a);
+    private static Fin<IntersectionResult> CurveAgainst<TRight>(Curve a, TRight b, Context context, Op op, Func<Curve, TRight, double, CurveIntersections?> intersect, Option<Line> finiteLine = default) {
+        using CurveIntersections? hits = intersect(arg1: a, arg2: b, arg3: context.Absolute.Value);
+        return EventHits(hits: hits, op: op, source: a, finiteLine: finiteLine, tolerance: finiteLine.IsSome ? context.Absolute.Value : 0.0);
     }
     private static Fin<IntersectionResult> MeshPlane(Mesh mesh, Plane plane, Context context) {
         using MeshIntersectionCache cache = new();

@@ -20,7 +20,7 @@ public partial record Points : IAspect {
                     }).ToEff()
                     select result))
             : QuadrantsKey.Unsupported<TGeometry, TOut>(),
-        edgeMidpoints: static _ => typeof(TOut) == typeof(Point3d) && (typeof(TGeometry) == typeof(object) || typeof(TGeometry) == typeof(GeometryBase) || typeof(TGeometry) == typeof(Line) || typeof(TGeometry) == typeof(Polyline) || typeof(TGeometry) == typeof(BoundingBox) || typeof(TGeometry) == typeof(Box) || typeof(Brep).IsAssignableFrom(c: typeof(TGeometry)) || typeof(Mesh).IsAssignableFrom(c: typeof(TGeometry)) || typeof(SubD).IsAssignableFrom(c: typeof(TGeometry)))
+        edgeMidpoints: static _ => typeof(TOut) == typeof(Point3d) && GeometryKernel.CanReadEdges(type: typeof(TGeometry))
             ? Analyze.Cast<TGeometry, TOut>(key: EdgeMidpointsKey, operation: global::Rasm.Analysis.Operation<TGeometry, Point3d>.Build(
                 key: EdgeMidpointsKey, requiresContext: true, state: EdgeMidpointsKey,
                 evaluator: static (op, geometry) => geometry switch {

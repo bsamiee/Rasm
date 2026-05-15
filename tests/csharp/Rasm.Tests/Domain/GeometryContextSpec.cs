@@ -153,8 +153,8 @@ public sealed class ContextSpec {
     public void AdaptsSolvedResultRails() {
         Op key = Op.Create(value: "test");
 
-        Assert.True(condition: key.AcceptSolved(isSolved: true, value: Point3d.Origin).IsSucc);
-        Assert.True(condition: key.AcceptSolved(isSolved: false, value: Point3d.Origin).IsFail);
+        Assert.True(condition: (true ? key.Accept(value: Point3d.Origin) : Fin.Fail<Seq<Point3d>>(key.InvalidResult())).IsSucc);
+        Assert.True(condition: (false ? key.Accept(value: Point3d.Origin) : Fin.Fail<Seq<Point3d>>(key.InvalidResult())).IsFail);
     }
 
     [Fact]

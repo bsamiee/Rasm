@@ -12,7 +12,7 @@ public partial record Boundaries : IAspect {
     public global::Rasm.Analysis.Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch<global::Rasm.Analysis.Operation<TGeometry, TOut>>(
         nakedCase: static _ => (typeof(TGeometry), typeof(TOut)) switch {
             (Type geometry, Type output) when typeof(Brep).IsAssignableFrom(c: geometry) && output == typeof(Curve) => Analyze.Curves<TGeometry, TOut>(aspect: Curves.Boundary),
-            (Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(Polyline) => Analyze.Native<TGeometry, TOut, Mesh, Polyline>(key: NakedKey, project: static mesh => NakedKey.AcceptOptional(values: mesh.GetNakedEdges()).ToEff()),
+            (Type geometry, Type output) when typeof(Mesh).IsAssignableFrom(c: geometry) && output == typeof(Polyline) => Analyze.Native<TGeometry, TOut, Mesh, Polyline, Op>(key: NakedKey, state: NakedKey, project: static (key, mesh) => Optional(mesh.GetNakedEdges()).Map(seq => key.Accept(values: seq)).IfNone(Fin.Succ(Seq<Polyline>())).ToEff()),
             _ => NakedKey.Unsupported<TGeometry, TOut>(),
         },
         outlineCase: static o => (typeof(TGeometry) == typeof(Mesh) && typeof(TOut) == typeof(Polyline) && o.Plane.IsValid)

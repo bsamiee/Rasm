@@ -57,15 +57,11 @@ public static partial class Analyze {
             (global::Rasm.Analysis.Conformance.WithinTolerance or global::Rasm.Analysis.Conformance.Maximum, Curve curve, Line line) => ExactCurveResidual(curve: curve, primitive: line, context: context, op: op, convert: static value => new LineCurve(value)),
             (global::Rasm.Analysis.Conformance.WithinTolerance or global::Rasm.Analysis.Conformance.Maximum, Curve curve, Circle circle) => ExactCurveResidual(curve: curve, primitive: circle, context: context, op: op, convert: static value => new ArcCurve(value)),
             (global::Rasm.Analysis.Conformance.WithinTolerance or global::Rasm.Analysis.Conformance.Maximum, Curve curve, Arc arc) => ExactCurveResidual(curve: curve, primitive: arc, context: context, op: op, convert: static value => new ArcCurve(value)),
-            _ => ConformanceSamples(geometry: geometry, target: target, count: count, context: context, op: op),
-        };
-    internal static Fin<Seq<ResidualSample>> ConformanceSamples<TGeometry, TTarget>(TGeometry geometry, TTarget target, int count, Context context, Op op) where TGeometry : notnull where TTarget : notnull =>
-        (geometry, target) switch {
-            (Curve curve, Line line) => SampleCurveAgainst(curve: curve, primitive: line, count: count, context: context, op: op, distance: static (l, pt) => pt.DistanceTo(l.ClosestPoint(testPoint: pt, limitToFiniteSegment: true))),
-            (Curve curve, Circle circle) => SampleCurveAgainst(curve: curve, primitive: circle, count: count, context: context, op: op, distance: static (c, pt) => pt.DistanceTo(other: c.ClosestPoint(testPoint: pt))),
-            (Curve curve, Arc arc) => SampleCurveAgainst(curve: curve, primitive: arc, count: count, context: context, op: op, distance: static (a, pt) => pt.DistanceTo(other: a.ClosestPoint(testPoint: pt))),
-            (Surface surface, Plane plane) => SampleSurfaceAgainst(surface: surface, primitive: plane, resolution: count, context: context, op: op, distance: static (p, pt) => Math.Abs(value: p.DistanceTo(testPoint: pt))),
-            (Surface surface, Sphere sphere) => SampleSurfaceAgainst(surface: surface, primitive: sphere, resolution: count, context: context, op: op, distance: static (s, pt) => pt.DistanceTo(other: s.ClosestPoint(testPoint: pt))),
+            (_, Curve curve, Line line) => SampleCurveAgainst(curve: curve, primitive: line, count: count, context: context, op: op, distance: static (l, pt) => pt.DistanceTo(l.ClosestPoint(testPoint: pt, limitToFiniteSegment: true))),
+            (_, Curve curve, Circle circle) => SampleCurveAgainst(curve: curve, primitive: circle, count: count, context: context, op: op, distance: static (c, pt) => pt.DistanceTo(other: c.ClosestPoint(testPoint: pt))),
+            (_, Curve curve, Arc arc) => SampleCurveAgainst(curve: curve, primitive: arc, count: count, context: context, op: op, distance: static (a, pt) => pt.DistanceTo(other: a.ClosestPoint(testPoint: pt))),
+            (_, Surface surface, Plane plane) => SampleSurfaceAgainst(surface: surface, primitive: plane, resolution: count, context: context, op: op, distance: static (p, pt) => Math.Abs(value: p.DistanceTo(testPoint: pt))),
+            (_, Surface surface, Sphere sphere) => SampleSurfaceAgainst(surface: surface, primitive: sphere, resolution: count, context: context, op: op, distance: static (s, pt) => pt.DistanceTo(other: s.ClosestPoint(testPoint: pt))),
             _ => Fin.Fail<Seq<ResidualSample>>(op.Unsupported(typeof(TGeometry), typeof(ResidualSample))),
         };
     private static Fin<Seq<ResidualSample>> ExactCurveResidual<TPrimitive>(Curve curve, TPrimitive primitive, Context context, Op op, Func<TPrimitive, Curve> convert) where TPrimitive : notnull =>

@@ -185,6 +185,18 @@ public abstract partial record Fault : Expected {
     public sealed record OutOfRange(string Label, double Scalar, string Requirement) : Fault { public override string Message => string.Create(provider: CultureInfo.InvariantCulture, $"Geometry value '{Label}' must be {Requirement}; actual={Scalar:R}."); public override string Category => "Tolerance"; }
     public sealed record InvalidUnitSystem(UnitSystem Units, string Requirement) : Fault { public override string Message => $"Model unit system must be {Requirement}; actual={Units}."; public override string Category => "Context"; }
     public sealed record MissingDocument : Fault { public override string Message => "Rhino document context is required."; public override string Category => "Context"; }
+    public sealed record MissingPortInput(string Port, string? Hint = null) : Fault {
+        public override string Message => Hint switch { string h => $"{Port} input is required. Connect: {h}.", _ => $"{Port} input is required." };
+        public override string Category => "Input";
+    }
+    public sealed record UnsupportedSource(string Port, Type SourceType, string? Hint = null) : Fault {
+        public override string Message => Hint switch { string h => $"{Port} input type '{SourceType.Name}' is not supported. Connect: {h}.", _ => $"{Port} input type '{SourceType.Name}' is not supported." };
+        public override string Category => "Input";
+    }
+    public sealed record UnsupportedAccess(string Access) : Fault {
+        public override string Message => $"Unsupported input access: {Access}.";
+        public override string Category => "Access";
+    }
 }
 
 [BoundaryAdapter]
@@ -214,13 +226,6 @@ internal static class OpAcceptance {
         key.AcceptValue(value: value).Map(static candidate => Seq(candidate));
     internal static Fin<Seq<TValue>> Accept<TValue>(this Op key, IEnumerable<TValue> values) =>
         Optional(values).ToFin(key.InvalidResult()).Bind(candidates => candidates.AsIterable().ToSeq().Traverse(value => key.AcceptValue(value: value)).As());
-    internal static Fin<Seq<TValue>> AcceptOptional<TValue>(this Op key, IEnumerable<TValue>? values) =>
-        Optional(values).Case switch {
-            IEnumerable<TValue> candidates => key.Accept(values: candidates),
-            _ => Fin.Succ(Seq<TValue>()),
-        };
-    internal static Fin<Seq<TValue>> AcceptSolved<TValue>(this Op key, bool isSolved, TValue value) =>
-        isSolved switch { true => key.Accept(value: value), false => Fin.Fail<Seq<TValue>>(key.InvalidResult()) };
     internal static Fin<Seq<TOut>> AcceptResults<TValue, TOut>(this Op key, IEnumerable<TValue> values) => typeof(TValue).Equals(typeof(TOut)) switch {
         true => key.Accept(values: values).Map(static candidates => candidates.Map(static candidate => (TOut)(object)candidate!)),
         false => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(TValue), outputType: typeof(TOut))),

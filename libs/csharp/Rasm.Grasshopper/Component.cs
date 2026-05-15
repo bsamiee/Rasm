@@ -43,7 +43,7 @@ public readonly record struct GrasshopperRuntime(IDataAccess Access, Analyze.Sco
     internal Fin<Seq<Flow<Shape>>> Shape(Port<Shape> port) {
         IDataAccess access = Access;
         return Hints.Slot(port: port)
-            .ToFin(new GrasshopperFault.InputRequired(PortName: port.Name))
+            .ToFin(new Fault.MissingPortInput(Port: port.Name))
             .Bind(slot => access.ReadShape(slot: slot, port: port));
     }
 }

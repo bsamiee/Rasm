@@ -1,5 +1,14 @@
 namespace Rasm.Analysis;
 
+// --- [TYPES] ------------------------------------------------------------------------------
+[Union]
+internal abstract partial record EdgeDescriptor {
+    private EdgeDescriptor() { }
+    public sealed record OfBrep(EdgeAdjacency Valence, Seq<BrepLoopType> Loops) : EdgeDescriptor;
+    public sealed record OfMesh(int ConnectedFaces) : EdgeDescriptor;
+    public sealed record OfLoop(BrepLoopType LoopType) : EdgeDescriptor;
+}
+
 // --- [MODELS] -----------------------------------------------------------------------------
 [Union]
 public partial record Curves : IAspect {
@@ -33,11 +42,7 @@ public partial record Curves : IAspect {
         };
     internal CurveFeature Feature(Topology topology) => Switch(
         state: topology,
-        allCase: static (topology, _) => topology switch {
-            Topology.Curve => CurveFeature.Input,
-            Topology.Surface => CurveFeature.Boundary,
-            _ => CurveFeature.Edge,
-        },
+        allCase: static (topology, _) => EdgeFeatureFor(topology: topology),
         segmentsCase: static (_, _) => CurveFeature.Segment,
         boundaryCase: static (_, _) => CurveFeature.Boundary,
         nakedOuterCase: static (_, _) => CurveFeature.NakedOuter,
@@ -50,59 +55,45 @@ public partial record Curves : IAspect {
         subCurvesCase: static (_, _) => CurveFeature.SubCurve,
         silhouetteCase: static (_, _) => CurveFeature.Silhouette,
         draftCase: static (_, _) => CurveFeature.Draft,
-        atCase: static (topology, _) => topology switch {
-            Topology.Curve => CurveFeature.Input,
-            Topology.Surface => CurveFeature.Boundary,
-            _ => CurveFeature.Edge,
-        });
+        atCase: static (topology, _) => EdgeFeatureFor(topology: topology));
+    internal bool Matches(EdgeDescriptor descriptor) =>
+        (this, descriptor) switch {
+            (AllCase or AtCase, EdgeDescriptor.OfBrep or EdgeDescriptor.OfMesh) => true,
+            (BoundaryCase, EdgeDescriptor.OfBrep { Valence: EdgeAdjacency.Naked }) => true,
+            (BoundaryCase, EdgeDescriptor.OfMesh { ConnectedFaces: 1 }) => true,
+            (NakedOuterCase, EdgeDescriptor.OfBrep { Valence: EdgeAdjacency.Naked, Loops: var loops }) => loops.Exists(static loop => loop == BrepLoopType.Outer),
+            (NakedInnerCase, EdgeDescriptor.OfBrep { Valence: EdgeAdjacency.Naked, Loops: var loops }) => loops.Exists(static loop => loop == BrepLoopType.Inner),
+            (InteriorCase, EdgeDescriptor.OfBrep { Valence: EdgeAdjacency.Interior }) => true,
+            (InteriorCase, EdgeDescriptor.OfMesh { ConnectedFaces: 2 }) => true,
+            (NonManifoldCase, EdgeDescriptor.OfBrep { Valence: EdgeAdjacency.NonManifold }) => true,
+            (NonManifoldCase, EdgeDescriptor.OfMesh { ConnectedFaces: > 2 }) => true,
+            (OuterLoopCase, EdgeDescriptor.OfLoop { LoopType: BrepLoopType.Outer }) => true,
+            (InnerLoopCase, EdgeDescriptor.OfLoop { LoopType: BrepLoopType.Inner }) => true,
+            _ => false,
+        };
     internal bool CanProject(Type type) =>
         type == typeof(object)
         || type == typeof(GeometryBase)
         || KindLookup.Resolve(type).Map(kind => CanProject(topology: kind.Topology, type: type)).IfNone(false);
-    internal bool MatchesBrepEdge(EdgeAdjacency valence, Seq<BrepLoopType> loops) =>
-        this switch {
-            AllCase or AtCase => true,
-            BoundaryCase => valence == EdgeAdjacency.Naked,
-            NakedOuterCase => valence == EdgeAdjacency.Naked && loops.Exists(static loop => loop == BrepLoopType.Outer),
-            NakedInnerCase => valence == EdgeAdjacency.Naked && loops.Exists(static loop => loop == BrepLoopType.Inner),
-            InteriorCase => valence == EdgeAdjacency.Interior,
-            NonManifoldCase => valence == EdgeAdjacency.NonManifold,
-            _ => false,
-        };
-    internal bool MatchesMeshEdge(int connectedFaces) =>
-        this switch {
-            AllCase or AtCase => true,
-            BoundaryCase => connectedFaces == 1,
-            InteriorCase => connectedFaces == 2,
-            NonManifoldCase => connectedFaces > 2,
-            _ => false,
-        };
-    internal bool MatchesBrepLoop(BrepLoopType loop) =>
-        this switch {
-            OuterLoopCase => loop == BrepLoopType.Outer,
-            InnerLoopCase => loop == BrepLoopType.Inner,
-            _ => false,
-        };
     private bool CanProject(Topology topology, Type type) => Switch(
         state: (Topology: topology, Type: type),
-        allCase: static (state, _) => state.Topology switch { Topology.Curve => IsCurve(type: state.Type), Topology.Surface => IsSurface(type: state.Type), Topology.Brep => typeof(Brep).IsAssignableFrom(c: state.Type), Topology.Mesh => typeof(Mesh).IsAssignableFrom(c: state.Type), Topology.SubD => typeof(SubD).IsAssignableFrom(c: state.Type), _ => false },
-        atCase: static (state, _) => state.Topology switch { Topology.Curve => IsCurve(type: state.Type), Topology.Surface => IsSurface(type: state.Type), Topology.Brep => typeof(Brep).IsAssignableFrom(c: state.Type), Topology.Mesh => typeof(Mesh).IsAssignableFrom(c: state.Type), Topology.SubD => typeof(SubD).IsAssignableFrom(c: state.Type), _ => false },
-        segmentsCase: static (state, _) => (state.Topology == Topology.Curve && IsCurve(type: state.Type)) || (state.Topology == Topology.SubD && typeof(SubD).IsAssignableFrom(c: state.Type)),
-        boundaryCase: static (state, _) => state.Topology switch { Topology.Curve => IsCurve(type: state.Type), Topology.Surface => IsSurface(type: state.Type) || typeof(Extrusion).IsAssignableFrom(c: state.Type), Topology.Brep => typeof(Brep).IsAssignableFrom(c: state.Type), Topology.Mesh => typeof(Mesh).IsAssignableFrom(c: state.Type), Topology.Extrusion => typeof(Extrusion).IsAssignableFrom(c: state.Type), _ => false },
-        nakedOuterCase: static (state, _) => state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(c: state.Type),
-        nakedInnerCase: static (state, _) => state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(c: state.Type),
-        interiorCase: static (state, _) => (state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(c: state.Type)) || (state.Topology == Topology.Mesh && typeof(Mesh).IsAssignableFrom(c: state.Type)),
-        nonManifoldCase: static (state, _) => (state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(c: state.Type)) || (state.Topology == Topology.Mesh && typeof(Mesh).IsAssignableFrom(c: state.Type)),
-        outerLoopCase: static (state, _) => state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(c: state.Type),
-        innerLoopCase: static (state, _) => state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(c: state.Type),
-        isoCase: static (state, _) => (state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(c: state.Type)) || (state.Topology == Topology.Surface && IsSurface(type: state.Type)),
-        subCurvesCase: static (state, _) => (state.Topology == Topology.Curve && IsCurve(type: state.Type)) || (state.Topology == Topology.SubD && typeof(SubD).IsAssignableFrom(c: state.Type)),
-        silhouetteCase: static (state, _) => state.Topology switch { Topology.Surface => IsSurface(type: state.Type) || typeof(Extrusion).IsAssignableFrom(c: state.Type), Topology.Brep => typeof(Brep).IsAssignableFrom(c: state.Type), Topology.Mesh => typeof(Mesh).IsAssignableFrom(c: state.Type), Topology.SubD => typeof(SubD).IsAssignableFrom(c: state.Type), Topology.Extrusion => typeof(Extrusion).IsAssignableFrom(c: state.Type), _ => false },
-        draftCase: static (state, _) => state.Topology switch { Topology.Surface => IsSurface(type: state.Type) || typeof(Extrusion).IsAssignableFrom(c: state.Type), Topology.Brep => typeof(Brep).IsAssignableFrom(c: state.Type), Topology.Mesh => typeof(Mesh).IsAssignableFrom(c: state.Type), Topology.SubD => typeof(SubD).IsAssignableFrom(c: state.Type), Topology.Extrusion => typeof(Extrusion).IsAssignableFrom(c: state.Type), _ => false });
-    private static bool IsCurve(Type type) =>
-        type == typeof(Line) || type == typeof(Polyline) || type == typeof(Circle) || type == typeof(Arc) || type == typeof(Ellipse) || typeof(Curve).IsAssignableFrom(c: type);
-    private static bool IsSurface(Type type) =>
-        typeof(Surface).IsAssignableFrom(c: type);
+        allCase: static (state, _) => state.Topology switch { Topology.Curve => IsCurveType(state.Type), Topology.Surface => IsSurfaceType(state.Type), Topology.Brep => typeof(Brep).IsAssignableFrom(state.Type), Topology.Mesh => typeof(Mesh).IsAssignableFrom(state.Type), Topology.SubD => typeof(SubD).IsAssignableFrom(state.Type), _ => false },
+        atCase: static (state, _) => state.Topology switch { Topology.Curve => IsCurveType(state.Type), Topology.Surface => IsSurfaceType(state.Type), Topology.Brep => typeof(Brep).IsAssignableFrom(state.Type), Topology.Mesh => typeof(Mesh).IsAssignableFrom(state.Type), Topology.SubD => typeof(SubD).IsAssignableFrom(state.Type), _ => false },
+        segmentsCase: static (state, _) => (state.Topology == Topology.Curve && IsCurveType(state.Type)) || (state.Topology == Topology.SubD && typeof(SubD).IsAssignableFrom(state.Type)),
+        boundaryCase: static (state, _) => state.Topology switch { Topology.Curve => IsCurveType(state.Type), Topology.Surface => IsSurfaceType(state.Type) || typeof(Extrusion).IsAssignableFrom(state.Type), Topology.Brep => typeof(Brep).IsAssignableFrom(state.Type), Topology.Mesh => typeof(Mesh).IsAssignableFrom(state.Type), Topology.Extrusion => typeof(Extrusion).IsAssignableFrom(state.Type), _ => false },
+        nakedOuterCase: static (state, _) => state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(state.Type),
+        nakedInnerCase: static (state, _) => state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(state.Type),
+        interiorCase: static (state, _) => (state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(state.Type)) || (state.Topology == Topology.Mesh && typeof(Mesh).IsAssignableFrom(state.Type)),
+        nonManifoldCase: static (state, _) => (state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(state.Type)) || (state.Topology == Topology.Mesh && typeof(Mesh).IsAssignableFrom(state.Type)),
+        outerLoopCase: static (state, _) => state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(state.Type),
+        innerLoopCase: static (state, _) => state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(state.Type),
+        isoCase: static (state, _) => (state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(state.Type)) || (state.Topology == Topology.Surface && IsSurfaceType(state.Type)),
+        subCurvesCase: static (state, _) => (state.Topology == Topology.Curve && IsCurveType(state.Type)) || (state.Topology == Topology.SubD && typeof(SubD).IsAssignableFrom(state.Type)),
+        silhouetteCase: static (state, _) => state.Topology switch { Topology.Surface => IsSurfaceType(state.Type) || typeof(Extrusion).IsAssignableFrom(state.Type), Topology.Brep => typeof(Brep).IsAssignableFrom(state.Type), Topology.Mesh => typeof(Mesh).IsAssignableFrom(state.Type), Topology.SubD => typeof(SubD).IsAssignableFrom(state.Type), Topology.Extrusion => typeof(Extrusion).IsAssignableFrom(state.Type), _ => false },
+        draftCase: static (state, _) => state.Topology switch { Topology.Surface => IsSurfaceType(state.Type) || typeof(Extrusion).IsAssignableFrom(state.Type), Topology.Brep => typeof(Brep).IsAssignableFrom(state.Type), Topology.Mesh => typeof(Mesh).IsAssignableFrom(state.Type), Topology.SubD => typeof(SubD).IsAssignableFrom(state.Type), Topology.Extrusion => typeof(Extrusion).IsAssignableFrom(state.Type), _ => false });
+    private static CurveFeature EdgeFeatureFor(Topology topology) => topology switch { Topology.Curve => CurveFeature.Input, Topology.Surface => CurveFeature.Boundary, _ => CurveFeature.Edge };
+    private static bool IsCurveType(Type type) => KindLookup.Resolve(type).Map(static kind => kind.Topology == Topology.Curve).IfNone(false);
+    private static bool IsSurfaceType(Type type) => KindLookup.Resolve(type).Map(static kind => kind.Topology == Topology.Surface).IfNone(false);
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -160,12 +151,20 @@ public static partial class Analyze {
             },
             _ => Optional(native.DuplicateCurve()).ToFin(op.InvalidResult()).Map(d => Seq(TopologyProjection.FromCurve(d, feature, ComponentIndexType.NoType, 0))),
         }));
+    private static Fin<Seq<TopologyProjection>> Collect<TPrimitive>(IEnumerable<TPrimitive> source, Curves selector, Func<TPrimitive, EdgeDescriptor> describe, Func<TPrimitive, Option<TopologyProjection>> project) =>
+        Fin.Succ(toSeq(source).Choose(item => selector.Matches(descriptor: describe(arg: item)) ? project(arg: item) : Option<TopologyProjection>.None));
     private static Fin<Seq<TopologyProjection>> BrepEdges(Brep brep, Curves aspect, CurveFeature feature) =>
-        Fin.Succ(toSeq(brep.Edges).Choose(e => aspect.MatchesBrepEdge(valence: e.Valence, loops: toSeq(e.TrimIndices()).Choose(t => Optional(e.Brep.Trims[t].Loop).Map(static loop => loop.LoopType))) ? Optional(e.DuplicateCurve()).Map(c => TopologyProjection.FromCurve(c, feature, ComponentIndexType.BrepEdge, e.EdgeIndex)) : Option<TopologyProjection>.None));
+        Collect(source: brep.Edges, selector: aspect,
+            describe: static edge => new EdgeDescriptor.OfBrep(Valence: edge.Valence, Loops: toSeq(edge.TrimIndices()).Choose(t => Optional(edge.Brep.Trims[t].Loop).Map(static loop => loop.LoopType))),
+            project: edge => Optional(edge.DuplicateCurve()).Map(c => TopologyProjection.FromCurve(c, feature, ComponentIndexType.BrepEdge, edge.EdgeIndex)));
     private static Fin<Seq<TopologyProjection>> MeshEdges(Mesh mesh, Curves aspect, CurveFeature feature) =>
-        Fin.Succ(toSeq(Enumerable.Range(0, mesh.TopologyEdges.Count)).Choose(i => aspect.MatchesMeshEdge(connectedFaces: mesh.TopologyEdges.GetConnectedFaces(i).Length) ? Some(TopologyProjection.FromCurve(mesh.TopologyEdges.EdgeLine(i).ToNurbsCurve(), feature, ComponentIndexType.MeshTopologyEdge, i)) : Option<TopologyProjection>.None));
+        Collect(source: Enumerable.Range(start: 0, count: mesh.TopologyEdges.Count), selector: aspect,
+            describe: i => new EdgeDescriptor.OfMesh(ConnectedFaces: mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: i).Length),
+            project: i => Some(TopologyProjection.FromCurve(curve: mesh.TopologyEdges.EdgeLine(topologyEdgeIndex: i).ToNurbsCurve(), feature: feature, type: ComponentIndexType.MeshTopologyEdge, index: i)));
     private static Fin<Seq<TopologyProjection>> BrepLoops(Brep brep, Curves aspect, CurveFeature feature) =>
-        Fin.Succ(toSeq(brep.Loops).Choose(l => aspect.MatchesBrepLoop(loop: l.LoopType) ? Optional(l.To3dCurve()).Map(c => TopologyProjection.FromCurve(c, feature, ComponentIndexType.BrepLoop, l.LoopIndex)) : Option<TopologyProjection>.None));
+        Collect(source: brep.Loops, selector: aspect,
+            describe: static loop => new EdgeDescriptor.OfLoop(LoopType: loop.LoopType),
+            project: loop => Optional(loop.To3dCurve()).Map(c => TopologyProjection.FromCurve(c, feature, ComponentIndexType.BrepLoop, loop.LoopIndex)));
     private static Fin<Seq<TopologyProjection>> NakedBrepEdges(Brep brep, CurveFeature feature, ComponentIndex source) =>
         Fin.Succ(toSeq(brep.Edges).Choose(edge => edge.Valence == EdgeAdjacency.Naked
             ? Optional(edge.DuplicateCurve()).Map(curve => TopologyProjection.FromCurve(curve: curve, feature: feature, source: source.ComponentIndexType == ComponentIndexType.NoType ? new ComponentIndex(ComponentIndexType.BrepEdge, edge.EdgeIndex) : source))
