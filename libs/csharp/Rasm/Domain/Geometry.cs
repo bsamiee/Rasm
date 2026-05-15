@@ -7,7 +7,76 @@ namespace Rasm.Domain;
 public enum Topology { Unknown, Point, Curve, Surface, Brep, Mesh, SubD, PointCloud, Hatch, Extrusion }
 public enum IntersectionKind { Unknown = 0, Point = 1, Overlap = 2, Curve = 3 }
 public enum SolidOrientation { Unknown = 0, Outward = 1, Inward = -1 }
-public enum CurveFeature { Input, Segment, Edge, Boundary, NakedOuter, NakedInner, Interior, NonManifold, OuterLoop, InnerLoop, Iso, Silhouette, SubCurve, Draft }
+[SmartEnum<int>]
+public sealed partial class CurveFeature {
+    public static readonly CurveFeature Input = new(key: 0, scope: CurveScope.Curve), Segment = new(key: 1, scope: CurveScope.Curve | CurveScope.SubD | CurveScope.Segment), SubCurve = new(key: 12, scope: CurveScope.Curve | CurveScope.SubD | CurveScope.Segment | CurveScope.SubCurve);
+    public static readonly CurveFeature Edge = new(key: 2, scope: CurveScope.Brep | CurveScope.Mesh | CurveScope.SubD | CurveScope.AnyEdge), Boundary = new(key: 3, scope: CurveScope.Curve | CurveScope.Brep | CurveScope.Mesh | CurveScope.Surface | CurveScope.Extrusion | CurveScope.BrepForm | CurveScope.Naked);
+    public static readonly CurveFeature NakedOuter = new(key: 4, scope: CurveScope.Brep | CurveScope.Naked | CurveScope.Outer), NakedInner = new(key: 5, scope: CurveScope.Brep | CurveScope.Naked | CurveScope.Inner);
+    public static readonly CurveFeature Interior = new(key: 6, scope: CurveScope.Brep | CurveScope.Mesh | CurveScope.Interior), NonManifold = new(key: 7, scope: CurveScope.Brep | CurveScope.Mesh | CurveScope.NonManifold);
+    public static readonly CurveFeature OuterLoop = new(key: 8, scope: CurveScope.Brep | CurveScope.Loop | CurveScope.Outer), InnerLoop = new(key: 9, scope: CurveScope.Brep | CurveScope.Loop | CurveScope.Inner);
+    public static readonly CurveFeature Iso = new(key: 10, scope: CurveScope.Brep | CurveScope.Surface | CurveScope.Iso), Silhouette = new(key: 11, scope: CurveScope.Brep | CurveScope.Mesh | CurveScope.Surface | CurveScope.SubD | CurveScope.Extrusion | CurveScope.Silhouette), Draft = new(key: 13, scope: CurveScope.Brep | CurveScope.Mesh | CurveScope.Surface | CurveScope.SubD | CurveScope.Extrusion | CurveScope.Silhouette | CurveScope.Draft);
+    private CurveScope Scope { get; }
+    internal bool IsCurveLike => Has(scope: CurveScope.Curve);
+    internal bool IsBrepEdge => Has(scope: CurveScope.AnyEdge) || Has(scope: CurveScope.Naked) || Has(scope: CurveScope.Interior) || Has(scope: CurveScope.NonManifold);
+    internal bool IsMeshEdge => Has(scope: CurveScope.Mesh) && (Has(scope: CurveScope.AnyEdge) || Has(scope: CurveScope.Naked) || Has(scope: CurveScope.Interior) || Has(scope: CurveScope.NonManifold));
+    internal bool IsBrepFormBoundary => Has(scope: CurveScope.BrepForm);
+    internal bool IsSilhouette => Has(scope: CurveScope.Silhouette);
+    internal bool IsSegmentLike => Has(scope: CurveScope.Segment);
+    internal bool IsSubCurve => Has(scope: CurveScope.SubCurve);
+    internal bool IsLoop => Has(scope: CurveScope.Loop);
+    internal bool IsIso => Has(scope: CurveScope.Iso);
+    internal bool IsDraft => Has(scope: CurveScope.Draft);
+    internal bool IsSubDTopology => Has(scope: CurveScope.SubD) && (Has(scope: CurveScope.AnyEdge) || IsSegmentLike);
+    internal bool CanProject(Type type) =>
+        type == typeof(object)
+        || type == typeof(GeometryBase)
+        || (Has(scope: CurveScope.Curve) && (type == typeof(Line) || type == typeof(Polyline) || type == typeof(Circle) || type == typeof(Arc) || type == typeof(Ellipse) || typeof(Curve).IsAssignableFrom(c: type)))
+        || (Has(scope: CurveScope.Brep) && typeof(Brep).IsAssignableFrom(c: type))
+        || (Has(scope: CurveScope.Mesh) && typeof(Mesh).IsAssignableFrom(c: type))
+        || (Has(scope: CurveScope.Surface) && typeof(Surface).IsAssignableFrom(c: type))
+        || (Has(scope: CurveScope.SubD) && typeof(SubD).IsAssignableFrom(c: type))
+        || (Has(scope: CurveScope.Extrusion) && typeof(Extrusion).IsAssignableFrom(c: type));
+    internal bool MatchesBrepEdge(EdgeAdjacency valence, Seq<BrepLoopType> loops) =>
+        Has(scope: CurveScope.AnyEdge)
+        || (Has(scope: CurveScope.Interior) && valence == EdgeAdjacency.Interior)
+        || (Has(scope: CurveScope.NonManifold) && valence == EdgeAdjacency.NonManifold)
+        || (Has(scope: CurveScope.Naked) && valence == EdgeAdjacency.Naked
+            && ((!Has(scope: CurveScope.Outer) && !Has(scope: CurveScope.Inner))
+                || (Has(scope: CurveScope.Outer) && loops.Exists(static loop => loop == BrepLoopType.Outer))
+                || (Has(scope: CurveScope.Inner) && loops.Exists(static loop => loop == BrepLoopType.Inner))));
+    internal bool MatchesMeshEdge(int connectedFaces) =>
+        Has(scope: CurveScope.AnyEdge)
+        || (Has(scope: CurveScope.Naked) && connectedFaces == 1)
+        || (Has(scope: CurveScope.Interior) && connectedFaces == 2)
+        || (Has(scope: CurveScope.NonManifold) && connectedFaces > 2);
+    internal bool MatchesBrepLoop(BrepLoopType loop) =>
+        Has(scope: CurveScope.Loop)
+        && ((Has(scope: CurveScope.Outer) && loop == BrepLoopType.Outer) || (Has(scope: CurveScope.Inner) && loop == BrepLoopType.Inner));
+    private bool Has(CurveScope scope) => (Scope & scope) != CurveScope.None;
+    [Flags]
+    private enum CurveScope {
+        None = 0,
+        Curve = 1 << 0,
+        Brep = 1 << 1,
+        Mesh = 1 << 2,
+        Surface = 1 << 3,
+        SubD = 1 << 4,
+        Extrusion = 1 << 5,
+        BrepForm = 1 << 6,
+        Segment = 1 << 7,
+        SubCurve = 1 << 8,
+        AnyEdge = 1 << 9,
+        Naked = 1 << 10,
+        Interior = 1 << 11,
+        NonManifold = 1 << 12,
+        Loop = 1 << 13,
+        Outer = 1 << 14,
+        Inner = 1 << 15,
+        Iso = 1 << 16,
+        Silhouette = 1 << 17,
+        Draft = 1 << 18,
+    }
+}
 [Union]
 internal abstract partial record Lease<T> where T : class, IDisposable {
     private Lease() { }
@@ -59,8 +128,10 @@ public sealed record TopologyProjection {
     }
     public TopologyProjection DetachFrom(GeometryBase source) {
         ArgumentNullException.ThrowIfNull(source);
-        return Value switch {
-            BrepFace face when ReferenceEquals(objA: face.Brep, objB: source) => FaceCopyFrom(face),
+        return (Value, source, Source) switch {
+            (BrepFace face, _, _) when ReferenceEquals(objA: face.Brep, objB: source) => FaceCopyFrom(face),
+            (Mesh mesh, Mesh owner, { ComponentIndexType: ComponentIndexType.MeshFace, Index: int face }) when ReferenceEquals(objA: mesh, objB: owner) && face >= 0 && face < mesh.Faces.Count =>
+                new(value: new Lease<GeometryBase>.Owned(Value: mesh.DuplicateMesh()), feature: Feature, source: Source, reversed: Reversed),
             _ => this,
         };
     }
@@ -155,6 +226,36 @@ public abstract partial record IntersectionHit {
 [Union]
 public partial record IntersectionResult {
     public sealed record Curves(Seq<Curve> Values) : IntersectionResult; public sealed record Lines(Seq<Line> Values) : IntersectionResult; public sealed record Circles(Seq<Circle> Values) : IntersectionResult; public sealed record Points(Seq<Point3d> Values) : IntersectionResult; public sealed record Intervals(Seq<Interval> Values) : IntersectionResult; public sealed record Polylines(Seq<(Polyline Curve, IntersectionKind Kind)> Values) : IntersectionResult; public sealed record Hits(Seq<IntersectionHit> Values) : IntersectionResult;
+    internal Fin<Seq<TOut>> Project<TOut>(Op key) => Switch(
+        state: key,
+        curves: static (k, c) => UniformAs<Curve, TOut>(values: c.Values, key: k, caseType: typeof(Curves), tag: IntersectionKind.Curve),
+        lines: static (k, l) => UniformAs<Line, TOut>(values: l.Values, key: k, caseType: typeof(Lines), tag: IntersectionKind.Curve),
+        circles: static (k, c) => UniformAs<Circle, TOut>(values: c.Values, key: k, caseType: typeof(Circles), tag: IntersectionKind.Curve),
+        points: static (k, p) => UniformAs<Point3d, TOut>(values: p.Values, key: k, caseType: typeof(Points), tag: IntersectionKind.Point),
+        intervals: static (k, i) => UniformAs<Interval, TOut>(values: i.Values, key: k, caseType: typeof(Intervals), tag: IntersectionKind.Overlap),
+        polylines: static (k, p) => typeof(TOut) switch {
+            Type t when t == typeof(Polyline) => k.AcceptResults<Polyline, TOut>(values: p.Values.Map(static x => x.Curve)),
+            Type t when t == typeof(IntersectionKind) => k.AcceptResults<IntersectionKind, TOut>(values: p.Values.Map(static x => x.Kind)),
+            _ => Fin.Fail<Seq<TOut>>(k.Unsupported(geometryType: typeof(Polylines), outputType: typeof(TOut))),
+        },
+        hits: static (k, h) => HitsAs<TOut>(hits: h.Values, key: k));
+    private static Fin<Seq<TOut>> HitsAs<TOut>(Seq<IntersectionHit> hits, Op key) => typeof(TOut) switch {
+        Type t when t == typeof(IntersectionHit) => key.AcceptResults<IntersectionHit, TOut>(values: hits),
+        Type t when t == typeof(Curve) => key.AcceptResults<Curve, TOut>(values: hits.Bind(static value => value.Curves)),
+        Type t when t == typeof(Point3d) => DropHitCurves(hits: hits, result: key.AcceptResults<Point3d, TOut>(values: hits.Bind(static value => value.Points))),
+        Type t when t == typeof(Interval) => DropHitCurves(hits: hits, result: key.AcceptResults<Interval, TOut>(values: hits.Bind(static value => value.Intervals))),
+        Type t when t == typeof(IntersectionKind) => DropHitCurves(hits: hits, result: key.AcceptResults<IntersectionKind, TOut>(values: hits.Map(static value => value.Kind))),
+        _ => DropHitCurves(hits: hits, result: Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(Hits), outputType: typeof(TOut)))),
+    };
+    private static Fin<Seq<TOut>> DropHitCurves<TOut>(Seq<IntersectionHit> hits, Fin<Seq<TOut>> result) {
+        _ = hits.Iter(static value => value.Dispose());
+        return result;
+    }
+    private static Fin<Seq<TOut>> UniformAs<TNative, TOut>(Seq<TNative> values, Op key, Type caseType, IntersectionKind tag) where TNative : notnull => typeof(TOut) switch {
+        Type t when t == typeof(TNative) => key.AcceptResults<TNative, TOut>(values: values),
+        Type t when t == typeof(IntersectionKind) => key.AcceptResults<IntersectionKind, TOut>(values: toSeq(Enumerable.Repeat(element: tag, count: values.Count))),
+        _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: caseType, outputType: typeof(TOut))),
+    };
 }
 // --- [MODELS] -----------------------------------------------------------------------------
 [SmartEnum<int>]
@@ -164,6 +265,20 @@ public sealed partial class Kind {
     public static readonly Kind Brep = new(13, typeof(Brep), Topology.Brep), Box = new(14, typeof(Box), Topology.Brep), BoundingBox = new(15, typeof(BoundingBox), Topology.Brep), Mesh = new(16, typeof(Mesh), Topology.Mesh), SubD = new(17, typeof(SubD), Topology.SubD), PointCloud = new(18, typeof(PointCloud), Topology.PointCloud), Extrusion = new(19, typeof(Extrusion), Topology.Extrusion), Hatch = new(20, typeof(Hatch), Topology.Hatch);
     public Type Type { get; }
     public Topology Topology { get; }
+    internal bool CanBound(bool includeSphere) => Type != typeof(Plane) && (includeSphere || Type != typeof(Sphere));
+    internal bool CanDecomposeFaces =>
+        Type == typeof(BrepFace) || Topology is Topology.Brep or Topology.Surface or Topology.SubD or Topology.Extrusion;
+    internal bool CanReadVertices =>
+        Type == typeof(Point3d) || Type == typeof(Line) || Type == typeof(Polyline) || Topology is Topology.Point or Topology.Curve or Topology.Brep or Topology.Mesh or Topology.PointCloud or Topology.SubD or Topology.Surface or Topology.Extrusion;
+    internal bool CanReadControlPoints => Topology is Topology.Curve or Topology.Surface or Topology.Brep;
+    internal bool CanCoerceTo(Type target) =>
+        target.IsAssignableFrom(Type)
+        || (target == typeof(Point3d) && Type == typeof(Point3d))
+        || (target == typeof(Box) && Type == typeof(Brep))
+        || (target == typeof(Curve) && Topology == Topology.Curve)
+        || ((target == typeof(Line) || target == typeof(Circle) || target == typeof(Arc) || target == typeof(Ellipse) || target == typeof(Polyline)) && Type == typeof(Curve))
+        || ((target == typeof(Plane) || target == typeof(Sphere) || target == typeof(Cylinder) || target == typeof(Cone) || target == typeof(Torus)) && (Type == typeof(Brep) || Type == typeof(Surface)))
+        || (target == typeof(Brep) && (Type == typeof(Brep) || Type == typeof(Surface) || Type == typeof(Box) || Type == typeof(BoundingBox) || Type == typeof(Sphere) || Type == typeof(Cylinder) || Type == typeof(Cone) || Type == typeof(Torus) || Type == typeof(Extrusion)));
 }
 
 // --- [CONSTANTS] --------------------------------------------------------------------------
@@ -178,38 +293,18 @@ internal static class KindLookup {
 [BoundaryAdapter]
 internal static class GeometryKernel {
     internal static bool CanBound(Type source, bool includeSphere) =>
-        source != typeof(Plane) && (includeSphere || source != typeof(Sphere)) && (source == typeof(object) || source == typeof(GeometryBase) || typeof(GeometryBase).IsAssignableFrom(source) || KindLookup.Resolve(source).IsSome);
+        source == typeof(object) || source == typeof(GeometryBase) || typeof(GeometryBase).IsAssignableFrom(source) || KindLookup.Resolve(source).Map(kind => kind.CanBound(includeSphere: includeSphere)).IfNone(false);
     internal static bool CanKind(Type source) => source == typeof(object) || source == typeof(GeometryBase) || KindLookup.Resolve(source).IsSome;
     internal static bool CanDecomposeFaces(Type type) =>
-        type == typeof(object) || type == typeof(GeometryBase) || typeof(BrepFace).IsAssignableFrom(type) || typeof(Brep).IsAssignableFrom(type) || typeof(Surface).IsAssignableFrom(type) || typeof(Extrusion).IsAssignableFrom(type) || typeof(SubD).IsAssignableFrom(type);
+        type == typeof(object) || type == typeof(GeometryBase) || KindLookup.Resolve(type).Map(static kind => kind.CanDecomposeFaces).IfNone(false);
     internal static bool CanReadVertices(Type type) =>
-        type == typeof(object) || type == typeof(GeometryBase) || type == typeof(Point3d) || type == typeof(Line) || type == typeof(Polyline) || type == typeof(BoundingBox) || type == typeof(Box) || typeof(Point).IsAssignableFrom(type) || typeof(Curve).IsAssignableFrom(type) || typeof(Brep).IsAssignableFrom(type) || typeof(Mesh).IsAssignableFrom(type) || typeof(PointCloud).IsAssignableFrom(type) || typeof(SubD).IsAssignableFrom(type) || typeof(Surface).IsAssignableFrom(type) || typeof(Extrusion).IsAssignableFrom(type);
+        type == typeof(object) || type == typeof(GeometryBase) || KindLookup.Resolve(type).Map(static kind => kind.CanReadVertices).IfNone(false);
     internal static bool CanReadControlPoints(Type type) =>
-        type == typeof(object) || typeof(Curve).IsAssignableFrom(type) || typeof(Surface).IsAssignableFrom(type) || typeof(Brep).IsAssignableFrom(type);
+        type == typeof(object) || type == typeof(GeometryBase) || KindLookup.Resolve(type).Map(static kind => kind.CanReadControlPoints).IfNone(false);
     internal static bool CanProjectCurves(Type type, Option<CurveFeature> feature = default) =>
-        type == typeof(object)
-        || (feature.Case switch {
-            CurveFeature f => (type, f) switch {
-                (Type t, CurveFeature.Input) when t == typeof(Line) || t == typeof(Circle) || t == typeof(Arc) || typeof(Curve).IsAssignableFrom(t) => true,
-                (Type t, CurveFeature.Segment or CurveFeature.SubCurve) when t == typeof(Line) || t == typeof(Polyline) || t == typeof(Circle) || t == typeof(Arc) || typeof(Curve).IsAssignableFrom(t) || typeof(SubD).IsAssignableFrom(t) => true,
-                (Type t, CurveFeature.Boundary) when t == typeof(Line) || t == typeof(Polyline) || t == typeof(Circle) || t == typeof(Arc) || typeof(Curve).IsAssignableFrom(t) || typeof(Brep).IsAssignableFrom(t) || typeof(BrepFace).IsAssignableFrom(t) || typeof(Mesh).IsAssignableFrom(t) || typeof(Surface).IsAssignableFrom(t) => true,
-                (Type t, CurveFeature.Edge or CurveFeature.Interior or CurveFeature.NonManifold or CurveFeature.NakedOuter) when typeof(Brep).IsAssignableFrom(t) || typeof(Mesh).IsAssignableFrom(t) => true,
-                (Type t, CurveFeature.NakedInner or CurveFeature.OuterLoop or CurveFeature.InnerLoop) when typeof(Brep).IsAssignableFrom(t) => true,
-                (Type t, CurveFeature.Iso) when typeof(Brep).IsAssignableFrom(t) || typeof(Surface).IsAssignableFrom(t) => true,
-                (Type t, CurveFeature.Silhouette or CurveFeature.Draft) when typeof(Brep).IsAssignableFrom(t) || typeof(Mesh).IsAssignableFrom(t) || typeof(Extrusion).IsAssignableFrom(t) || typeof(Surface).IsAssignableFrom(t) || typeof(SubD).IsAssignableFrom(t) => true,
-                (Type t, CurveFeature.Edge) when typeof(SubD).IsAssignableFrom(t) => true,
-                _ => false,
-            },
-            _ => typeof(Curve).IsAssignableFrom(type) || type == typeof(Line) || type == typeof(Polyline) || type == typeof(Circle) || type == typeof(Arc) || typeof(Brep).IsAssignableFrom(type) || typeof(BrepFace).IsAssignableFrom(type) || typeof(Mesh).IsAssignableFrom(type) || typeof(Surface).IsAssignableFrom(type) || typeof(Extrusion).IsAssignableFrom(type) || typeof(SubD).IsAssignableFrom(type),
-        });
+        feature.Map(f => f.CanProject(type: type)).IfNone(type == typeof(object) || type == typeof(GeometryBase) || KindLookup.Resolve(type).IsSome);
     internal static bool CanCoerce(Type source, Type target) =>
-        source == typeof(object) || source == typeof(GeometryBase) || target.IsAssignableFrom(source)
-        || (target == typeof(Point3d) && typeof(Point).IsAssignableFrom(source))
-        || (target == typeof(Box) && typeof(Brep).IsAssignableFrom(source))
-        || (target == typeof(Curve) && (source == typeof(Line) || source == typeof(Polyline) || source == typeof(Circle) || source == typeof(Arc) || source == typeof(Ellipse)))
-        || ((target == typeof(Line) || target == typeof(Circle) || target == typeof(Arc) || target == typeof(Ellipse) || target == typeof(Polyline)) && typeof(Curve).IsAssignableFrom(source))
-        || ((target == typeof(Plane) || target == typeof(Sphere) || target == typeof(Cylinder) || target == typeof(Cone) || target == typeof(Torus)) && (typeof(Brep).IsAssignableFrom(source) || typeof(Surface).IsAssignableFrom(source)))
-        || (target == typeof(Brep) && (typeof(Surface).IsAssignableFrom(source) || typeof(Extrusion).IsAssignableFrom(source) || typeof(SubD).IsAssignableFrom(source) || source == typeof(Box) || source == typeof(BoundingBox) || source == typeof(Sphere) || source == typeof(Cylinder) || source == typeof(Cone) || source == typeof(Torus)));
+        source == typeof(object) || source == typeof(GeometryBase) || KindLookup.Resolve(source).Map(kind => kind.CanCoerceTo(target: target)).IfNone(target.IsAssignableFrom(source));
     public static Fin<Kind> Kind(this object geometry, Context context) =>
         Optional(geometry).ToFin(Op.Of(name: nameof(Kind)).InvalidInput()).Bind(g =>
             (InferredKind(geometry: g, context: context) | NativeKind(geometry: g) | KindLookup.Resolve(g.GetType()))

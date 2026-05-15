@@ -171,8 +171,14 @@ public static class Bridge {
     private static class AccessDispatch<T> {
         internal static readonly FrozenDictionary<Access, Func<IDataAccess, int, IPort, Fin<Seq<Flow<T>>>>> Readers =
             new Dictionary<Access, Func<IDataAccess, int, IPort, Fin<Seq<Flow<T>>>>> {
-                [Access.Item] = static (access, slot, port) => ReadPears(access: access, slot: slot, port: port, site: static (_, _, _) => Option<Site>.None),
-                [Access.Twig] = static (access, slot, port) => ReadPears(access: access, slot: slot, port: port, site: static (_, _, _) => Option<Site>.None),
+                [Access.Item] = static (access, slot, port) => access.GetPears<T>(index: slot, pears: out Pear<T>[] pears) switch {
+                    true => FlowPears(port: port, pears: pears),
+                    _ => MissingFlow<T>(port: port),
+                },
+                [Access.Twig] = static (access, slot, port) => access.GetTwig<T>(index: slot, twig: out Twig<T> twig) switch {
+                    true => FlowPears(port: port, pears: twig.Pears),
+                    _ => MissingFlow<T>(port: port),
+                },
                 [Access.Tree] = static (access, slot, port) => access.GetTree<T>(index: slot, tree: out Tree<T> tree) switch {
                     true => toSeq(tree.EnumerateLeaves().Select((leaf, index) => (Leaf: leaf, Index: index))).TraverseM(item => item.Leaf.Pear is { Item: not null }
                         ? Fin.Succ(new Flow<T>(Pear: item.Leaf.Pear, Site: Some(item.Leaf.Site)))
@@ -196,10 +202,10 @@ public static class Bridge {
                     access.SetTree(index: slot, tree: TreePrefix(access: access, slot: slot) is int prefix ? tree.WithPathPrefix(element: prefix) : tree);
                 }),
             }.ToFrozenDictionary();
-        private static Fin<Seq<Flow<T>>> ReadPears(IDataAccess access, int slot, IPort port, Func<IDataAccess, int, int, Option<Site>> site) =>
-            access.GetPears<T>(index: slot, pears: out Pear<T>[] pears) switch {
-                true when pears.Length > 0 => toSeq(pears.Select((pear, index) => (Pear: pear, Index: index))).TraverseM(item => item.Pear is { Item: not null }
-                    ? Fin.Succ(new Flow<T>(Pear: item.Pear, Site: site(arg1: access, arg2: slot, arg3: item.Index)))
+        private static Fin<Seq<Flow<T>>> FlowPears(IPort port, IEnumerable<Pear<T>> pears) =>
+            toSeq(pears.Select((pear, index) => (Pear: pear, Index: index))) switch {
+                Seq<(Pear<T> Pear, int Index)> indexed when indexed.Count > 0 => indexed.TraverseM(item => item.Pear is { Item: not null }
+                    ? Fin.Succ(new Flow<T>(Pear: item.Pear, Site: Option<Site>.None))
                     : Fin.Fail<Flow<T>>(new GrasshopperFault.InputRequired(PortName: port.Name, Hint: $"Null item at index {item.Index}."))).As(),
                 _ => MissingFlow<T>(port: port),
             };

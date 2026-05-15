@@ -1,3 +1,4 @@
+using System.Reflection;
 using Eto.Drawing;
 using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Components;
@@ -16,7 +17,6 @@ public interface IPort {
     public Access Access { get; }
     public Requirement Requirement { get; }
     public PortPolicy Policy { get; }
-    public Option<object> FallbackValue { get; }
     public Type ValueType { get; }
 }
 
@@ -71,7 +71,6 @@ public sealed class Port<TVal>(
     public Access Access { get; } = access;
     public Requirement Requirement { get; } = requirement;
     public PortPolicy Policy { get; } = policy;
-    public Option<object> FallbackValue => Fallback.Map(static value => (object)value!);
     public Type ValueType => typeof(TVal);
     public Option<TVal> Fallback { get; } = fallback;
 }
@@ -165,6 +164,7 @@ public sealed partial class PortKind {
         modularOutput: static (adder, name, code, info, access, hidden) => hidden ? adder.AddHiddenGeneric(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access) : adder.AddGeneric(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access));
     public Type Type { get; }
     public Type WireType { get; }
+    internal bool Accepts(Type type) => Type == type || WireType == type || (type.IsEnum && Type == type && WireType == typeof(int));
     [UseDelegateFromConstructor] private partial IParameter AddInput(ModularInputAdder adder, string name, string code, string info, Access access, Requirement requirement, bool hidden);
     [UseDelegateFromConstructor] private partial IParameter AddOutput(ModularOutputAdder adder, string name, string code, string info, Access access, bool hidden);
     public static PortKind Enum<T>(T initial) where T : struct, Enum =>
@@ -183,6 +183,8 @@ public sealed partial class PortKind {
         ArgumentNullException.ThrowIfNull(argument: type);
         return type == typeof(Shape)
             ? Some(Generic)
+            : type.IsEnum && System.Enum.GetUnderlyingType(enumType: type) == typeof(int)
+                ? EnumKind(type: type)
             : toSeq(Items).Find(predicate: kind => kind.Type == type);
     }
     public IParameter Bind(ModularInputAdder adder, string name, string code, string info, Access access, Requirement requirement, PortPolicy policy, bool hidden) {
@@ -222,6 +224,13 @@ public sealed partial class PortKind {
         parameter.Indexing = IndexModifier.Clip;
         return parameter;
     }
+    private static PortKind EnumDefault<T>() where T : struct, Enum {
+        T[] values = System.Enum.GetValues<T>();
+        return Enum(initial: values.Length > 0 ? values[0] : default);
+    }
+    private static Option<PortKind> EnumKind(Type type) =>
+        Optional(typeof(PortKind).GetMethod(name: nameof(EnumDefault), bindingAttr: BindingFlags.NonPublic | BindingFlags.Static))
+            .Bind(method => Optional(method.MakeGenericMethod(typeArguments: [type]).Invoke(obj: null, parameters: null) as PortKind));
 }
 
 // --- [SERVICES] -------------------------------------------------------------------------
@@ -261,7 +270,7 @@ public static class Port {
         Of<Shape>(name: name, code: code, info: info, kind: null, access: access, requirement: Requirement.MustExist, policy: null, fallback: Option<Shape>.None);
     private static Port<TVal> Of<TVal>(string name, string code, string info, PortKind? kind, Access access, Requirement requirement, PortPolicy? policy, Option<TVal> fallback) =>
         new(name: name, code: code, info: info,
-            kind: kind ?? PortKind.From(type: typeof(TVal)).IfNone(PortKind.Generic),
+            kind: (LanguageExt.Prelude.Optional(kind).Filter(candidate => candidate.Accepts(type: typeof(TVal))) | PortKind.From(type: typeof(TVal))).IfNone(PortKind.Generic),
             access: access, requirement: requirement,
             policy: policy ?? DefaultPolicy(type: typeof(TVal)),
             fallback: fallback);

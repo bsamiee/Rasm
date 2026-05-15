@@ -32,11 +32,13 @@ public sealed partial record Requirement {
             _ => Fin.Fail<T>(error: new Fault.MissingGeometry()).ToValidation(),
         };
     private static Validation<Error, T> RunChecks<T>(Seq<Check> checks, Context context, GeometryBase geometry, T original, CancellationToken cancel) where T : notnull =>
-        checks.Fold(
-            initialState: (Acc: Fin.Succ(original).ToValidation(), Ctx: context, Geometry: geometry, Cancel: cancel),
-            f: static (folder, check) => folder with {
-                Acc = (folder.Acc, check.Apply(context: folder.Ctx, geometry: folder.Geometry, cancel: folder.Cancel).ToValidation()).Apply(static (kept, _) => kept).As(),
-            }).Acc;
+        checks
+            .Fold(
+                initialState: (Value: Fin.Succ(unit).ToValidation(), Context: context, Geometry: geometry, Original: original, Cancel: cancel),
+                f: static (rail, check) => rail with { Value = (rail.Value, check.Apply(context: rail.Context, geometry: rail.Geometry, cancel: rail.Cancel).ToValidation()).Apply(static (_, _) => unit).As() })
+            switch {
+                (Validation<Error, Unit> validation, _, _, T value, _) => (validation, Fin.Succ(value).ToValidation()).Apply(static (_, item) => item).As(),
+            };
     public static readonly Requirement None = new(checks: Seq<Check>());
     public static readonly Requirement Basic = new(checks: Seq(Check.Validity, Check.UsableBounds));
     public static readonly Requirement CurveLength = Basic.With(add: [Check.CurveLengthReadiness]);
@@ -144,11 +146,11 @@ public static class RequirementContext {
             .Bind(static resolved => (resolved.State.Context.Pair(a: resolved.State.A, b: resolved.State.B, requirementA: resolved.Required.A, requirementB: resolved.Required.B, cancel: resolved.State.Cancel), Fin.Succ(resolved.State).ToValidation())
                 .Apply(static (pair, state) => (pair.A, pair.B, state.KindA!, state.KindB!)).As());
     public static Validation<Error, Seq<T>> All<T>(this Context context, Seq<T> values, Requirement? requirement = null, CancellationToken cancel = default) where T : notnull =>
-        values.Fold(
-            initialState: (Acc: Fin.Succ(Seq<T>()).ToValidation(), Ctx: context, Req: requirement ?? Requirement.Strict, Cancel: cancel),
-            f: static (folder, item) => folder with {
-                Acc = (folder.Acc, folder.Req.Apply(context: folder.Ctx, value: item, cancel: folder.Cancel)).Apply(static (acc, v) => acc.Add(value: v)).As(),
-            }).Acc;
+        values
+            .Fold(
+                initialState: (Value: Fin.Succ(Seq<T>()).ToValidation(), Context: context, Requirement: requirement ?? Requirement.Strict, Cancel: cancel),
+                f: static (rail, value) => rail with { Value = (rail.Value, rail.Requirement.Apply(context: rail.Context, value: value, cancel: rail.Cancel)).Apply(static (items, item) => items.Add(item)).As() })
+            .Value;
     private readonly record struct PairRail<TA, TB>(
         Context Context,
         TA A,
@@ -261,6 +263,7 @@ internal static class OpAcceptance {
             double scalar => Some(RhinoMath.IsValidDouble(scalar)),
             bool or int or Enum or SurfaceCurvature or MeshCheckParameters => Some(true),
             global::Rasm.Domain.Kind => Some(true),
+            CurveFeature => Some(true),
             ClosestHit h => Some(h.Point.IsValid
                 && h.Distance.Map(static d => RhinoMath.IsValidDouble(d) && d >= 0.0).IfNone(true)
                 && h.Normal.Map(static n => n.IsValid && n.Length > RhinoMath.ZeroTolerance).IfNone(true)

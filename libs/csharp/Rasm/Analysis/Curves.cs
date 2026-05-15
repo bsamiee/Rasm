@@ -57,8 +57,7 @@ public partial record Curves : IAspect {
             _ => CurveFeature.Edge,
         }));
     internal bool CanProject(Type type) =>
-        type == typeof(object) || type == typeof(GeometryBase)
-        || KindLookup.Resolve(type).Map(kind => GeometryKernel.CanProjectCurves(type: type, feature: Some(ToSelector(topology: kind.Topology).Feature))).IfNone(false);
+        GeometryKernel.CanProjectCurves(type: type, feature: KindLookup.Resolve(type).Map(kind => ToSelector(topology: kind.Topology).Feature));
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -89,17 +88,16 @@ public static partial class Analyze {
                 select result));
     internal static Fin<Seq<TopologyProjection>> CurveProjections<TGeometry>(TGeometry geometry, Curves.Selector selector, Context context, Op op, CancellationToken cancel) where TGeometry : notnull =>
         Optional(geometry).ToFin(op.InvalidInput()).Bind(g => (g, selector.Feature) switch {
-            (Curve or Line or Polyline or Circle or Arc, CurveFeature.Input or CurveFeature.Boundary or CurveFeature.Segment or CurveFeature.SubCurve) => CurveInput(source: g, selector: selector, op: op),
-            (Brep brep, CurveFeature.Edge or CurveFeature.Boundary or CurveFeature.NakedOuter or CurveFeature.NakedInner or CurveFeature.Interior or CurveFeature.NonManifold) => BrepEdges(brep: brep, selector: selector),
-            (Brep brep, CurveFeature.OuterLoop or CurveFeature.InnerLoop) => BrepLoops(brep: brep, selector: selector),
-            (Brep brep, CurveFeature.Iso) => toSeq(brep.Faces).TraverseM(f => IsoSeq(surface: f, iso: selector.Iso.IfNone(static () => IsoStatus.X), normalized: selector.Normalized.IfNone(static () => 0.5), op: op).Map(s => s.Map(c => TopologyProjection.FromCurve(c, selector.Feature, new ComponentIndex(ComponentIndexType.BrepFace, f.FaceIndex))))).As().Map(static nested => nested.Bind(static seq => seq)),
-            (BrepFace face, CurveFeature.Boundary) => Optional(face.DuplicateFace(false)).ToFin(op.InvalidResult()).Bind(fb => new Lease<Brep>.Owned(Value: fb).Use(owned => Optional(owned.DuplicateNakedEdgeCurves(nakedOuter: true, nakedInner: true)).ToFin(op.InvalidResult()).Map(cs => toSeq(cs.Select(c => TopologyProjection.FromCurve(c, CurveFeature.Boundary, new ComponentIndex(ComponentIndexType.BrepFace, face.FaceIndex))).ToArray())))),
-            (Mesh mesh, CurveFeature.Edge or CurveFeature.Boundary or CurveFeature.Interior or CurveFeature.NonManifold) => MeshEdges(mesh: mesh, selector: selector),
-            (Mesh mesh, CurveFeature.NakedOuter) => Optional(mesh.GetNakedEdges()).ToFin(op.InvalidResult()).Map(ps => toSeq(ps).Map((p, i) => TopologyProjection.FromCurve(p.ToPolylineCurve(), selector.Feature, ComponentIndexType.NoType, i))),
-            (Surface surface, CurveFeature.Iso) => IsoSeq(surface: surface, iso: selector.Iso.IfNone(static () => IsoStatus.X), normalized: selector.Normalized.IfNone(static () => 0.5), op: op).Map(seq => seq.Map(c => TopologyProjection.FromCurve(c, selector.Feature, new ComponentIndex(ComponentIndexType.NoType, 0)))),
-            (Surface surface, CurveFeature.Boundary) => Seq(IsoStatus.South, IsoStatus.East, IsoStatus.North, IsoStatus.West).TraverseM(iso => Optional(surface.IsoCurve(iso)).ToFin(op.InvalidResult())).As().Map(seq => seq.Map((c, i) => TopologyProjection.FromCurve(c, CurveFeature.Boundary, ComponentIndexType.NoType, i))),
-            (SubD subd, CurveFeature.Edge or CurveFeature.Segment) => SubDEdges(subd: subd, selector: selector),
-            (GeometryBase native, CurveFeature.Silhouette or CurveFeature.Draft) => Silhouettes(geometry: native, selector: selector, context: context, op: op, cancel: cancel),
+            (Curve or Line or Polyline or Circle or Arc or Ellipse, CurveFeature feature) when feature.IsCurveLike => CurveInput(source: g, selector: selector, op: op),
+            (Brep brep, CurveFeature feature) when feature.IsBrepEdge => BrepEdges(brep: brep, selector: selector),
+            (Brep brep, CurveFeature feature) when feature.IsLoop => BrepLoops(brep: brep, selector: selector),
+            (Brep brep, CurveFeature feature) when feature.IsIso => toSeq(brep.Faces).TraverseM(f => IsoSeq(surface: f, iso: selector.Iso.IfNone(static () => IsoStatus.X), normalized: selector.Normalized.IfNone(static () => 0.5), op: op).Map(s => s.Map(c => TopologyProjection.FromCurve(c, selector.Feature, new ComponentIndex(ComponentIndexType.BrepFace, f.FaceIndex))))).As().Map(static nested => nested.Bind(static seq => seq)),
+            (BrepFace face, CurveFeature feature) when feature.IsBrepFormBoundary => Optional(face.DuplicateFace(duplicateMeshes: false)).ToFin(op.InvalidResult()).Bind(fb => new Lease<Brep>.Owned(Value: fb).Use(owned => NakedBrepEdges(brep: owned, feature: feature, source: new ComponentIndex(ComponentIndexType.BrepFace, face.FaceIndex), op: op))),
+            (Mesh mesh, CurveFeature feature) when feature.IsMeshEdge => MeshEdges(mesh: mesh, selector: selector),
+            (Surface surface, CurveFeature feature) when feature.IsIso => IsoSeq(surface: surface, iso: selector.Iso.IfNone(static () => IsoStatus.X), normalized: selector.Normalized.IfNone(static () => 0.5), op: op).Map(seq => seq.Map(c => TopologyProjection.FromCurve(c, selector.Feature, new ComponentIndex(ComponentIndexType.NoType, 0)))),
+            (GeometryBase { HasBrepForm: true } native, CurveFeature feature) when feature.IsBrepFormBoundary => GeometryKernel.BrepForm(source: native, op: op).Bind(lease => lease.Use(brep => NakedBrepEdges(brep: brep, feature: feature, source: new ComponentIndex(ComponentIndexType.NoType, 0), op: op))),
+            (SubD subd, CurveFeature feature) when feature.IsSubDTopology => SubDEdges(subd: subd, selector: selector),
+            (GeometryBase native, CurveFeature feature) when feature.IsSilhouette => Silhouettes(geometry: native, selector: selector, context: context, op: op, cancel: cancel),
             _ => Fin.Fail<Seq<TopologyProjection>>(op.Unsupported(g.GetType(), typeof(Curve))),
         });
     internal static Fin<Seq<Curve>> IsoSeq(Surface surface, IsoStatus iso, double normalized, Op op) => (iso, normalized is >= 0.0 and <= 1.0) switch {
@@ -115,18 +113,22 @@ public static partial class Analyze {
             _ => GeometryKernel.CurveForm(source: source, op: op).Bind(lease => lease.Use(native => CurveInputNative(native: native, selector: selector, op: op))),
         };
     private static Fin<Seq<TopologyProjection>> CurveInputNative(Curve native, Curves.Selector selector, Op op) =>
-        selector.Feature is CurveFeature.Segment or CurveFeature.SubCurve
-            ? Optional(selector.Feature == CurveFeature.SubCurve ? native.GetSubCurves() : native.DuplicateSegments()) switch {
+        selector.Feature.IsSegmentLike
+            ? Optional(selector.Feature.IsSubCurve ? native.GetSubCurves() : native.DuplicateSegments()) switch {
                 Option<Curve[]> opt when opt.Case is Curve[] arr && arr.Length > 0 => Fin.Succ(toSeq(arr.Select((cc, i) => TopologyProjection.FromCurve(cc, selector.Feature, ComponentIndexType.PolycurveSegment, i)))),
                 _ => Optional(native.DuplicateCurve()).ToFin(op.InvalidResult()).Map(d => Seq(TopologyProjection.FromCurve(d, selector.Feature, ComponentIndexType.PolycurveSegment, 0))),
             }
             : Optional(native.DuplicateCurve()).ToFin(op.InvalidResult()).Map(d => Seq(TopologyProjection.FromCurve(d, selector.Feature, ComponentIndexType.NoType, 0)));
     private static Fin<Seq<TopologyProjection>> BrepEdges(Brep brep, Curves.Selector selector) =>
-        Fin.Succ(toSeq(brep.Edges).Where(e => (selector.Feature, e.Valence) switch { (CurveFeature.Edge, _) => true, (CurveFeature.Interior, EdgeAdjacency.Interior) => true, (CurveFeature.NonManifold, EdgeAdjacency.NonManifold) => true, (CurveFeature.NakedOuter, EdgeAdjacency.Naked) => toSeq(e.TrimIndices()).Exists(t => e.Brep.Trims[t].Loop.LoopType == BrepLoopType.Outer), (CurveFeature.NakedInner, EdgeAdjacency.Naked) => toSeq(e.TrimIndices()).Exists(t => e.Brep.Trims[t].Loop.LoopType == BrepLoopType.Inner), (CurveFeature.Boundary, EdgeAdjacency.Naked) => true, _ => false }).Bind(e => Optional(e.DuplicateCurve()).Map(c => TopologyProjection.FromCurve(c, selector.Feature, ComponentIndexType.BrepEdge, e.EdgeIndex)).ToSeq()));
+        Fin.Succ(toSeq(brep.Edges).Where(e => selector.Feature.MatchesBrepEdge(valence: e.Valence, loops: toSeq(e.TrimIndices()).Choose(t => Optional(e.Brep.Trims[t].Loop).Map(static loop => loop.LoopType)))).Bind(e => Optional(e.DuplicateCurve()).Map(c => TopologyProjection.FromCurve(c, selector.Feature, ComponentIndexType.BrepEdge, e.EdgeIndex)).ToSeq()));
     private static Fin<Seq<TopologyProjection>> MeshEdges(Mesh mesh, Curves.Selector selector) =>
-        Fin.Succ(toSeq(Enumerable.Range(0, mesh.TopologyEdges.Count)).Where(i => (selector.Feature, mesh.TopologyEdges.GetConnectedFaces(i).Length) switch { (CurveFeature.Edge, _) => true, (CurveFeature.Boundary, 1) => true, (CurveFeature.Interior, 2) => true, (CurveFeature.NonManifold, > 2) => true, _ => false }).Map(i => TopologyProjection.FromCurve(mesh.TopologyEdges.EdgeLine(i).ToNurbsCurve(), selector.Feature, ComponentIndexType.MeshTopologyEdge, i)));
+        Fin.Succ(toSeq(Enumerable.Range(0, mesh.TopologyEdges.Count)).Where(i => selector.Feature.MatchesMeshEdge(connectedFaces: mesh.TopologyEdges.GetConnectedFaces(i).Length)).Map(i => TopologyProjection.FromCurve(mesh.TopologyEdges.EdgeLine(i).ToNurbsCurve(), selector.Feature, ComponentIndexType.MeshTopologyEdge, i)));
     private static Fin<Seq<TopologyProjection>> BrepLoops(Brep brep, Curves.Selector selector) =>
-        Fin.Succ(toSeq(brep.Loops).Where(l => (selector.Feature, l.LoopType) switch { (CurveFeature.OuterLoop, BrepLoopType.Outer) => true, (CurveFeature.InnerLoop, BrepLoopType.Inner) => true, _ => false }).Bind(l => Optional(l.To3dCurve()).Map(c => TopologyProjection.FromCurve(c, selector.Feature, ComponentIndexType.BrepLoop, l.LoopIndex)).ToSeq()));
+        Fin.Succ(toSeq(brep.Loops).Where(l => selector.Feature.MatchesBrepLoop(loop: l.LoopType)).Bind(l => Optional(l.To3dCurve()).Map(c => TopologyProjection.FromCurve(c, selector.Feature, ComponentIndexType.BrepLoop, l.LoopIndex)).ToSeq()));
+    private static Fin<Seq<TopologyProjection>> NakedBrepEdges(Brep brep, CurveFeature feature, ComponentIndex source, Op op) =>
+        Optional(brep.DuplicateNakedEdgeCurves(nakedOuter: true, nakedInner: true))
+            .ToFin(op.InvalidResult())
+            .Map(curves => toSeq(curves.Select((curve, index) => TopologyProjection.FromCurve(curve: curve, feature: feature, source: source.ComponentIndexType == ComponentIndexType.NoType ? new ComponentIndex(ComponentIndexType.BrepEdge, index) : source)).ToArray()));
     private static Fin<Seq<TopologyProjection>> SubDEdges(SubD subd, Curves.Selector selector) {
         _ = subd.UpdateSurfaceMeshCache(true);
         return Fin.Succ(toSeq(subd.DuplicateEdgeCurves().Select((c, i) => TopologyProjection.FromCurve(c, selector.Feature, ComponentIndexType.SubdEdge, i))));
@@ -142,7 +144,7 @@ public static partial class Analyze {
                         SubD subd => Optional(subd.ToBrep(SubDToBrepOptions.Default)).ToFin(op.InvalidResult()).Map(static b => (Geometry: (GeometryBase)b, Owned: Some((GeometryBase)b))),
                         _ => Fin.Fail<(GeometryBase Geometry, Option<GeometryBase> Owned)>(op.Unsupported(geometry.GetType(), typeof(Curve))),
                     }).Bind(shape => {
-                        Fin<Seq<TopologyProjection>> result = Optional((selector.Feature == CurveFeature.Draft ? Some(selector.Angle.IfNone(static () => 0.0)) : None).Case switch {
+                        Fin<Seq<TopologyProjection>> result = Optional((selector.Feature.IsDraft ? Some(selector.Angle.IfNone(static () => 0.0)) : None).Case switch {
                             double angle => Silhouette.ComputeDraftCurve(shape.Geometry, angle, dir, context.Absolute.Value, context.Angle.Value, cancel),
                             _ => Silhouette.Compute(shape.Geometry, SilhouetteType.Projecting | SilhouetteType.TangentProjects | SilhouetteType.Tangent | SilhouetteType.Crease | SilhouetteType.Boundary, dir, context.Absolute.Value, context.Angle.Value, [], cancel),
                         }).ToFin(cancel.IsCancellationRequested ? (Error)new Fault.Cancelled() : op.InvalidResult())

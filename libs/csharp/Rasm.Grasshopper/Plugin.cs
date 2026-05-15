@@ -40,11 +40,10 @@ public abstract class Plugin : GhPlugin {
         Seq<string> duplicates = sides.Bind(side =>
             Duplicates(spec: spec, side: side.Side, ports: side.Ports, key: "code", project: static port => port.Code, label: static port => port.Name)
                 .Concat(Duplicates(spec: spec, side: side.Side, ports: side.Ports, key: "name", project: static port => port.Name, label: static port => port.Code)));
-        Seq<string> enumFaults = sides.Bind(side => EnumWireFaults(spec: spec, side: side.Side, ports: side.Ports));
         Seq<string> portCount = outputs.Count > 24 ? Seq($"{spec.FullName}: output port count {outputs.Count} exceeds 24") : Seq<string>();
         Seq<string> codeLengths = sides.Bind(side => side.Ports.Choose(port =>
             port.Code.Length is > 0 and <= 2 ? Option<string>.None : Some($"{spec.FullName}: {side.Side} port '{port.Name}' code '{port.Code}' must be 1-2 characters")));
-        return structural.Concat(sourceFaults).Concat(nullFaults).Concat(duplicates).Concat(enumFaults).Concat(portCount).Concat(codeLengths).ToSeq();
+        return structural.Concat(sourceFaults).Concat(nullFaults).Concat(duplicates).Concat(portCount).Concat(codeLengths).ToSeq();
     }
     private static bool ClosedComponentSelf(Type type) =>
         type.BaseType switch {
@@ -58,13 +57,6 @@ public abstract class Plugin : GhPlugin {
         toSeq(ports.GroupBy(keySelector: project, comparer: StringComparer.Ordinal)
             .Where(static group => group.Skip(1).Any())
             .Select(group => $"{spec.FullName}: duplicate {side} port {key} '{group.Key}' on {string.Join(separator: ", ", values: group.Select(label))}"));
-    private static Seq<string> EnumWireFaults(Type spec, string side, Seq<IPort> ports) =>
-        ports.Choose(port => (port.ValueType.IsEnum, port.Kind.Type == port.ValueType, port.Kind.WireType == typeof(int), port.ValueType.IsEnum && Enum.GetUnderlyingType(enumType: port.ValueType) == typeof(int)) switch {
-            (true, false, _, _) => Some($"{spec.FullName}: {side} enum port '{port.Name}' uses logical type '{port.Kind.Type.Name}' instead of '{port.ValueType.Name}'"),
-            (true, _, false, _) => Some($"{spec.FullName}: {side} enum port '{port.Name}' uses GH2 wire type '{port.Kind.WireType.Name}' instead of 'Int32'"),
-            (true, _, _, false) => Some($"{spec.FullName}: {side} enum port '{port.Name}' uses enum underlying type '{Enum.GetUnderlyingType(enumType: port.ValueType).Name}' instead of 'Int32'"),
-            _ => Option<string>.None,
-        });
     public override string Author => author;
     public override string Copyright => copyright;
     public override IIcon Icon => IconAttribute.Resolve(owner: GetType(), fallback: base.Icon);
