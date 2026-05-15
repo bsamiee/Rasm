@@ -40,15 +40,17 @@ public sealed class AnalysisSpec {
 
     [Fact]
     public void ExecutesAggregateOperationAsSequenceEvaluator() {
-        Operation<int, int> operation = new(
+        Operation<int, int> operation = Operation<int, int>.Build(
             key: Op.Create(value: "SyntheticAggregate"),
-            effect: static input => Fin.Succ(input.Map(static value => value * 2)).ToEff(),
+            evaluator: static input => Fin.Succ(LanguageExt.Prelude.Seq(input * 2)).ToEff(),
             aggregate: LanguageExt.Prelude.Some<Func<Seq<int>, Eff<Env, Seq<int>>>>(
                 static input => input.Fold(initialState: 0, f: static (sum, value) => sum + value) switch {
                     int sum => Fin.Succ(LanguageExt.Prelude.toSeq([sum])).ToEff(),
                 }));
 
         Assert.Equal(expected: [2, 4, 6], actual: Run(operation: operation, input: [1, 2, 3]));
+        Assert.False(condition: operation.IsAggregate);
+        Assert.True(condition: operation.Aggregate().IsAggregate);
         Assert.Equal(expected: [6], actual: Run(operation: operation.Aggregate(), input: [1, 2, 3]));
     }
 
@@ -177,7 +179,7 @@ public sealed class AnalysisSpec {
         ];
 
         Assert.All(collection: operations, action: static operation => Assert.NotNull(@object: operation));
-        Assert.True(condition: MeshSampleKind.Validity.Count == 6 && MeshSampleKind.Counts.Count == 6 && MeshSampleKind.Defects.Count == 5);
+        Assert.True(condition: MeshSampleKind.Validity.Count == 6 && MeshSampleKind.Counts.Count == 6 && MeshSampleKind.Defects.Count == 13);
     }
 
     [Fact]
@@ -635,56 +637,17 @@ public sealed class AnalysisSpec {
     }
 
     [Fact]
-    public void PreservesExplicitIntersectionKindsForPolylineResults() {
-        Op key = Op.Create(value: "test");
-
-        IntersectionKind[] kinds = new IntersectionResult.Polylines(
-                Values: LanguageExt.Prelude.Seq((Curve: (Polyline)[], Kind: IntersectionKind.Curve), (Curve: (Polyline)[], Kind: IntersectionKind.Overlap)))
-            .Project<IntersectionKind>(key: key)
-            .Match(
-                Succ: static output => output.ToArray(),
-                Fail: static error => throw new Xunit.Sdk.XunitException(error.Message));
-
-        Assert.Equal(expected: [IntersectionKind.Curve, IntersectionKind.Overlap], actual: kinds);
+    public void KeepsIntersectionProjectionCarriersInternalToPublicRails() {
+        Assert.True(condition: Analyze.Intersect<Curve, Curve, IntersectionHit>().IsSupported);
+        Assert.True(condition: Analyze.Intersect<Curve, Curve, IntersectionKind>().IsSupported);
+        Assert.True(condition: Analyze.Intersect<Mesh, Plane, Polyline>().IsSupported);
+        Assert.True(condition: Analyze.Intersect<Mesh, Plane, IntersectionKind>().IsSupported);
+        Assert.True(condition: Analyze.Intersect<Line, Box, Interval>().IsSupported);
     }
 
     [Fact]
-    public void ProjectsSnapshotIntersectionHits() {
-        Op key = Op.Create(value: "test");
-
-        IntersectionKind[] kinds = new IntersectionResult.Hits(Values: LanguageExt.Prelude.Seq(IntersectionHit.At(point: Point3d.Origin)))
-            .Project<IntersectionKind>(key: key)
-            .Match(
-                Succ: static output => output.ToArray(),
-                Fail: static error => throw new Xunit.Sdk.XunitException(error.Message));
-
-        Assert.Equal(expected: [IntersectionKind.Point], actual: kinds);
-    }
-
-    [Fact]
-    public void ProjectsEveryIntersectionResultShape() {
-        Op key = Op.Create(value: "test");
-        Polyline polyline = new([
-            Point3d.Origin,
-            new Point3d(x: 1.0, y: 0.0, z: 0.0),
-        ]);
-
-        Assert.True(condition: LanguageExt.Prelude.Seq(
-            new IntersectionResult.Curves(Values: LanguageExt.Prelude.Seq<Curve>()).Project<Curve>(key: key).IsSucc,
-            new IntersectionResult.Lines(Values: LanguageExt.Prelude.Seq(ValidLine())).Project<Line>(key: key).IsSucc,
-            new IntersectionResult.Circles(Values: LanguageExt.Prelude.Seq(new Circle(plane: Plane.WorldXY, radius: 1.0))).Project<Circle>(key: key).IsSucc,
-            new IntersectionResult.Points(Values: LanguageExt.Prelude.Seq(Point3d.Origin)).Project<Point3d>(key: key).IsSucc,
-            new IntersectionResult.Intervals(Values: LanguageExt.Prelude.Seq(new Interval(t0: 0.0, t1: 1.0))).Project<Interval>(key: key).IsSucc,
-            new IntersectionResult.Polylines(Values: LanguageExt.Prelude.Seq((Curve: polyline, Kind: IntersectionKind.Curve))).Project<Polyline>(key: key).IsSucc,
-            new IntersectionResult.Hits(Values: LanguageExt.Prelude.Seq(IntersectionHit.At(point: Point3d.Origin))).Project<IntersectionHit>(key: key).IsSucc).ForAll(static passed => passed));
-    }
-
-    [Fact]
-    public void RejectsUnsupportedIntersectionResultProjectionWithCaseType() {
-        Op key = Op.Create(value: "test");
-
-        Assert.True(condition: new IntersectionResult.Points(Values: LanguageExt.Prelude.Seq(Point3d.Origin)).Project<Line>(key: key).IsFail);
-    }
+    public void RejectsUnsupportedIntersectionFamiliesBeforeRuntimeProjection() =>
+        Assert.True(condition: !Analyze.Intersect<Point3d, Point3d, IntersectionHit>().IsSupported && !Analyze.Intersect<Curve, Curve, bool>().IsSupported);
 
     [Fact]
     public void RejectsInvalidCurvatureCountBeforeInputExecution() {
@@ -823,10 +786,10 @@ public sealed class AnalysisSpec {
 
     [Fact]
     public void RejectsInvalidMeshMetricRails() {
-        Validation<Error, Seq<MeshFaceSample>> invalidMetric = Analyze.In(context: ValidContext()).Run(
+        Validation<Error, Seq<MeshMetricSample>> invalidMetric = Analyze.In(context: ValidContext()).Run(
             operation: Analyze.MeshMetric(metric: MeshMetric.None),
             input: [null!, null!]);
-        Validation<Error, Seq<MeshFaceSample>> nullMesh = Analyze.In(context: ValidContext()).Run(
+        Validation<Error, Seq<MeshMetricSample>> nullMesh = Analyze.In(context: ValidContext()).Run(
             operation: Analyze.MeshMetric(metric: MeshMetric.AspectRatio),
             input: [null!]);
 
@@ -894,11 +857,11 @@ public sealed class AnalysisSpec {
 
     [Fact]
     public void KeepsReverseIntersectionPairsOnTypedRails() {
-        Assert.True(condition: Analyze.Intersect<Plane, Line, Point3d>().Rejection.IsNone);
-        Assert.True(condition: Analyze.Intersect<Line, Curve, IntersectionHit>().Rejection.IsNone);
-        Assert.True(condition: Analyze.Intersect<Plane, Brep, Curve>().Rejection.IsNone);
-        Assert.True(condition: Analyze.Intersect<Surface, Brep, Curve>().Rejection.IsNone);
-        Assert.True(condition: Analyze.Intersect<Plane, Mesh, Polyline>().Rejection.IsNone);
+        Assert.True(condition: Analyze.Intersect<Plane, Line, Point3d>().IsSupported);
+        Assert.True(condition: Analyze.Intersect<Line, Curve, IntersectionHit>().IsSupported);
+        Assert.True(condition: Analyze.Intersect<Plane, Brep, Curve>().IsSupported);
+        Assert.True(condition: Analyze.Intersect<Surface, Brep, Curve>().IsSupported);
+        Assert.True(condition: Analyze.Intersect<Plane, Mesh, Polyline>().IsSupported);
     }
 
     [Fact]
@@ -991,28 +954,28 @@ public sealed class AnalysisSpec {
 
     [Fact]
     public void PreflightsGeometryBaseBoundsThroughKernel() =>
-        Assert.True(condition: Analyze.Bounds<GeometryBase, BoundingBox>(aspect: new Bounds.AxisAligned()).Rejection.IsNone);
+        Assert.True(condition: Analyze.Bounds<GeometryBase, BoundingBox>(aspect: new Bounds.AxisAligned()).IsSupported);
 
     [Fact]
     public void SupportsMeshComponentsFromObjectRail() =>
-        Assert.True(condition: Analyze.Components<object, Mesh>().Rejection.IsNone);
+        Assert.True(condition: Analyze.Components<object, Mesh>().IsSupported);
 
     [Fact]
     public void SupportsSegmentsThroughCurveTopologyProjection() {
-        Assert.True(condition: Analyze.Curves<Curve, Curve>(aspect: Curves.Segments).Rejection.IsNone);
-        Assert.True(condition: Analyze.Segments<Curve, Curve>().Rejection.IsNone);
+        Assert.True(condition: Analyze.Curves<Curve, Curve>(aspect: Curves.Segments).IsSupported);
+        Assert.True(condition: Analyze.Segments<Curve, Curve>().IsSupported);
     }
 
     [Fact]
     public void SupportsBrepBoundariesThroughCurveTopologyProjection() {
-        Assert.True(condition: Analyze.Boundaries<Brep, Curve>(aspect: Boundaries.All).Rejection.IsNone);
-        Assert.True(condition: Analyze.Boundaries<BrepFace, Curve>(aspect: Boundaries.All).Rejection.IsNone);
+        Assert.True(condition: Analyze.Boundaries<Brep, Curve>(aspect: Boundaries.All).IsSupported);
+        Assert.True(condition: Analyze.Boundaries<BrepFace, Curve>(aspect: Boundaries.All).IsSupported);
     }
 
     [Fact]
     public void RegistersBrepFaceBoundaryAsTrimAwareCurveProjection() {
-        Assert.True(condition: Analyze.Boundaries<Surface, Curve>(aspect: Boundaries.All).Rejection.IsNone);
-        Assert.True(condition: Analyze.Boundaries<BrepFace, Curve>(aspect: Boundaries.All).Rejection.IsNone);
+        Assert.True(condition: Analyze.Boundaries<Surface, Curve>(aspect: Boundaries.All).IsSupported);
+        Assert.True(condition: Analyze.Boundaries<BrepFace, Curve>(aspect: Boundaries.All).IsSupported);
     }
 
     [Fact]

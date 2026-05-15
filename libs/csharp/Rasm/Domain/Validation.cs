@@ -47,7 +47,6 @@ public sealed partial record Requirement {
     public static readonly Requirement SolidTopology = Basic.With(add: [Check.BrepIntegrity, Check.MeshManifoldReadiness, Check.BrepSolidReadiness, Check.MeshRhinoCheck]);
     public static readonly Requirement VolumeMass = SolidTopology.With(add: [Check.SurfaceSolidReadiness]);
     public static readonly Requirement SurfaceEvaluation = Basic.With(add: [Check.SurfaceDomainReadiness]);
-    public static readonly Requirement StrictStructure = SurfaceEvaluation.With(add: [Check.ContinuityReadiness, Check.PolycurveStructure]);
     public static readonly Requirement Strict = new(checks: toSeq(Check.Items));
     private static bool HasUsableDomain(Surface surface, Context context) =>
         (surface.Domain(direction: 0), surface.Domain(direction: 1)) is (Interval u, Interval v)
@@ -138,30 +137,15 @@ public static class RequirementContext {
         Op op,
         Func<Op, Kind, Kind, Fin<(Requirement A, Requirement B)>> requirements,
         CancellationToken cancel = default) where TA : notnull where TB : notnull =>
-        Fin.Succ(new PairRail<TA, TB>(Context: context, A: a, B: b, Op: op, Requirements: requirements, Cancel: cancel)).ToValidation()
-            .Bind(static rail => (rail.Context.Pair(a: rail.A, b: rail.B, requirementA: Requirement.None, requirementB: Requirement.None, cancel: rail.Cancel), Fin.Succ(rail).ToValidation())
-                .Apply(static (pair, state) => state with { A = pair.A, B = pair.B }).As())
-            .Bind(static rail => (((object)rail.A).Kind(context: rail.Context).ToValidation(), ((object)rail.B).Kind(context: rail.Context).ToValidation(), Fin.Succ(rail).ToValidation())
-                .Apply(static (kindA, kindB, state) => state with { KindA = kindA, KindB = kindB }).As())
-            .Bind(static rail => (rail.Requirements(arg1: rail.Op, arg2: rail.KindA!, arg3: rail.KindB!).ToValidation(), Fin.Succ(rail).ToValidation())
-                .Apply(static (required, state) => (Required: required, State: state)).As())
-            .Bind(static resolved => (resolved.State.Context.Pair(a: resolved.State.A, b: resolved.State.B, requirementA: resolved.Required.A, requirementB: resolved.Required.B, cancel: resolved.State.Cancel), Fin.Succ(resolved.State).ToValidation())
-                .Apply(static (pair, state) => (pair.A, pair.B, state.KindA!, state.KindB!)).As());
-    public static Validation<Error, Seq<T>> All<T>(this Context context, Seq<T> values, Requirement? requirement = null, CancellationToken cancel = default) where T : notnull =>
-        values
-            .Fold(
-                initialState: (Value: Fin.Succ(Seq<T>()).ToValidation(), Context: context, Requirement: requirement ?? Requirement.Strict, Cancel: cancel),
-                f: static (rail, value) => rail with { Value = (rail.Value, rail.Requirement.Apply(context: rail.Context, value: value, cancel: rail.Cancel)).Apply(static (items, item) => items.Add(item)).As() })
-            .Value;
-    private readonly record struct PairRail<TA, TB>(
-        Context Context,
-        TA A,
-        TB B,
-        Op Op,
-        Func<Op, Kind, Kind, Fin<(Requirement A, Requirement B)>> Requirements,
-        CancellationToken Cancel,
-        Kind? KindA = null,
-        Kind? KindB = null) where TA : notnull where TB : notnull;
+        Fin.Succ((Context: context, A: a, B: b, Op: op, Requirements: requirements, Cancel: cancel)).ToValidation()
+            .Bind(static state => (state.Context.Pair(a: state.A, b: state.B, requirementA: Requirement.None, requirementB: Requirement.None, cancel: state.Cancel), Fin.Succ(state).ToValidation())
+                .Apply(static (pair, state) => (state.Context, pair.A, pair.B, state.Op, state.Requirements, state.Cancel)).As())
+            .Bind(static state => (((object)state.A).Kind(context: state.Context).ToValidation(), ((object)state.B).Kind(context: state.Context).ToValidation(), Fin.Succ(state).ToValidation())
+                .Apply(static (kindA, kindB, state) => (state.Context, state.A, state.B, state.Op, state.Requirements, state.Cancel, KindA: kindA, KindB: kindB)).As())
+            .Bind(static state => (state.Requirements(arg1: state.Op, arg2: state.KindA, arg3: state.KindB).ToValidation(), Fin.Succ(state).ToValidation())
+                .Apply(static (required, state) => (state.Context, state.A, state.B, state.Cancel, state.KindA, state.KindB, RequiredA: required.A, RequiredB: required.B)).As())
+            .Bind(static state => (state.Context.Pair(a: state.A, b: state.B, requirementA: state.RequiredA, requirementB: state.RequiredB, cancel: state.Cancel), Fin.Succ(state).ToValidation())
+                .Apply(static (pair, state) => (pair.A, pair.B, state.KindA, state.KindB)).As());
 }
 
 // --- [ERRORS] -----------------------------------------------------------------------------
@@ -275,6 +259,7 @@ internal static class OpAcceptance {
                 { Value: BrepFace { IsValid: true } face, Source: { ComponentIndexType: ComponentIndexType.BrepFace, Index: int f } } => f >= 0 && f == face.FaceIndex,
                 { Value: Brep { IsValid: true, Faces.Count: > 0 }, Source: { ComponentIndexType: ComponentIndexType.BrepFace, Index: >= 0 } } => true,
                 { Value: Mesh { IsValid: true } m, Source: { ComponentIndexType: ComponentIndexType.MeshFace, Index: int f } } => f >= 0 && f < m.Faces.Count,
+                { Value: Mesh { IsValid: true } m, Source: { ComponentIndexType: ComponentIndexType.MeshNgon, Index: int n } } => n >= 0 && n < m.Ngons.Count,
                 _ => false,
             }),
             ResidualSample r => Some(r is { Index: >= 0, Location.IsValid: true, Distance: double d, Tolerance: double t, WithinTolerance: bool w } && RhinoMath.IsValidDouble(d) && d >= 0.0 && RhinoMath.IsValidDouble(t) && t >= 0.0 && w == (d <= t)),

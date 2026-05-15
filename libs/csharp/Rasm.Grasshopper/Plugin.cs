@@ -24,19 +24,19 @@ public abstract class Plugin : GhPlugin {
     }
     private static Seq<string> Validate(Type spec) {
         IRasmComponent probe = (IRasmComponent)Activator.CreateInstance(type: spec)!;
-        Seq<IPort> inputs = probe.Spec.Inputs.Choose(static pair => Optional(pair.Port));
-        Seq<IPort> outputs = probe.Spec.Outputs.Choose(static pair => Optional(pair.Group)).Bind(static group => group.Ports);
-        Seq<(string Side, Seq<IPort> Ports)> sides = Seq((Side: "input", Ports: inputs), (Side: "output", Ports: outputs));
+        Seq<Port> inputs = probe.Spec.Inputs.Choose(static pair => Optional(pair.Value));
+        Seq<Port> outputs = probe.Spec.Outputs.Choose(static pair => Optional(pair.Value)).Bind(static group => group.Ports);
+        Seq<(string Side, Seq<Port> Ports)> sides = Seq((Side: "input", Ports: inputs), (Side: "output", Ports: outputs));
         Seq<string> structural = toSeq(Seq(
             ClosedComponentSelf(type: spec) ? null : $"{spec.FullName}: Component<TSelf> does not match concrete component type",
             inputs.IsEmpty ? $"{spec.FullName}: Inputs is empty" : null,
             outputs.IsEmpty ? $"{spec.FullName}: Outputs is empty" : null).Choose(Optional));
-        Seq<string> sourceFaults = probe.Spec.Outputs.Choose(pair => Optional(pair.Group)
+        Seq<string> sourceFaults = probe.Spec.Outputs.Choose(pair => Optional(pair.Value)
             .Bind(group => inputs.Exists(input => ReferenceEquals(objA: input, objB: group.Input))
                 ? Option<string>.None
                 : Some($"{spec.FullName}: output group input '{group.Input.Name}' is not a declared input port instance")));
-        Seq<string> nullFaults = NullsAt(spec: spec, side: "input", count: probe.Spec.Inputs.Count, missing: i => probe.Spec.Inputs[i].Port is null)
-            .Concat(NullsAt(spec: spec, side: "output", count: probe.Spec.Outputs.Count, missing: i => probe.Spec.Outputs[i].Group is null));
+        Seq<string> nullFaults = NullsAt(spec: spec, side: "input", count: probe.Spec.Inputs.Count, missing: i => probe.Spec.Inputs[i].Value is null)
+            .Concat(NullsAt(spec: spec, side: "output", count: probe.Spec.Outputs.Count, missing: i => probe.Spec.Outputs[i].Value is null));
         Seq<string> duplicates = sides.Bind(side =>
             Duplicates(spec: spec, side: side.Side, ports: side.Ports, key: "code", project: static port => port.Code, label: static port => port.Name)
                 .Concat(Duplicates(spec: spec, side: side.Side, ports: side.Ports, key: "name", project: static port => port.Name, label: static port => port.Code)));
@@ -53,7 +53,7 @@ public abstract class Plugin : GhPlugin {
         };
     private static Seq<string> NullsAt(Type spec, string side, int count, Func<int, bool> missing) =>
         toSeq(Enumerable.Range(start: 0, count: count).Where(predicate: missing.Invoke).Select(index => $"{spec.FullName}: {side} {index} is null"));
-    private static Seq<string> Duplicates(Type spec, string side, Seq<IPort> ports, string key, Func<IPort, string> project, Func<IPort, string> label) =>
+    private static Seq<string> Duplicates(Type spec, string side, Seq<Port> ports, string key, Func<Port, string> project, Func<Port, string> label) =>
         toSeq(ports.GroupBy(keySelector: project, comparer: StringComparer.Ordinal)
             .Where(static group => group.Skip(1).Any())
             .Select(group => $"{spec.FullName}: duplicate {side} port {key} '{group.Key}' on {string.Join(separator: ", ", values: group.Select(label))}"));

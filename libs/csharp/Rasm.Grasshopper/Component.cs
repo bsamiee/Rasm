@@ -17,18 +17,17 @@ public sealed class IconAttribute(string name) : Attribute {
 }
 
 // --- [MODELS] ---------------------------------------------------------------------------
-public readonly record struct PortSpec(IPort Port, bool Hidden = false);
-public readonly record struct OutputSpec(OutputGroup Group, bool Hidden = false);
-internal readonly record struct BoundPort(IPort Port, IParameter Parameter);
+public readonly record struct ComponentItem<T>(T Value, bool Hidden = false);
+internal readonly record struct BoundPort(Port Port, IParameter Parameter);
 internal interface IRasmComponent {
     public ComponentSpec Spec { get; }
 }
-public readonly record struct ComponentSpec(Seq<PortSpec> Inputs, Seq<OutputSpec> Outputs) {
-    public Seq<IPort> InputPorts => Inputs.Map(static spec => spec.Port);
-    public Seq<OutputGroup> OutputGroups => Outputs.Map(static spec => spec.Group);
-    public Seq<IPort> OutputPorts => OutputGroups.Bind(static group => group.Ports);
-    public static ComponentSpec Of(Seq<IPort> inputs, Seq<OutputGroup> outputs) =>
-        new(Inputs: inputs.Map(static port => new PortSpec(Port: port)), Outputs: outputs.Map(static group => new OutputSpec(Group: group)));
+public readonly record struct ComponentSpec(Seq<ComponentItem<Port>> Inputs, Seq<ComponentItem<OutputGroup>> Outputs) {
+    public Seq<Port> InputPorts => Inputs.Map(static spec => spec.Value);
+    public Seq<OutputGroup> OutputGroups => Outputs.Map(static spec => spec.Value);
+    public Seq<Port> OutputPorts => OutputGroups.Bind(static group => group.Ports);
+    public static ComponentSpec Of(Seq<Port> inputs, Seq<OutputGroup> outputs) =>
+        new(Inputs: inputs.Map(static port => new ComponentItem<Port>(Value: port)), Outputs: outputs.Map(static group => new ComponentItem<OutputGroup>(Value: group)));
 }
 public readonly record struct GrasshopperRuntime(IDataAccess Access, Analyze.Scope Scope, Hints Hints, IProgress<double> Progress, CancellationToken Cancellation) {
     internal static Fin<GrasshopperRuntime> Capture(IDataAccess access, Seq<BoundPort> inputs, ComponentParameters parameters) {
@@ -59,21 +58,21 @@ public abstract class Component<TSelf>(ComponentSpec spec) : Grasshopper2.Compon
     protected override void AddInputs(ModularInputAdder inputs) {
         ArgumentNullException.ThrowIfNull(argument: inputs);
         cachedInputs = spec.Inputs.Map(pair => new BoundPort(
-            Port: pair.Port,
-            Parameter: pair.Port.Kind.Bind(adder: inputs, name: pair.Port.Name, code: pair.Port.Code, info: pair.Port.Info, access: pair.Port.Access, requirement: pair.Port.Requirement, policy: pair.Port.Policy, hidden: pair.Hidden)));
+            Port: pair.Value,
+            Parameter: pair.Value.Kind.Bind(adder: inputs, name: pair.Value.Name, code: pair.Value.Code, info: pair.Value.Info, access: pair.Value.Access, requirement: pair.Value.Requirement, policy: pair.Value.Policy, hidden: pair.Hidden)));
     }
     protected override void AddOutputs(ModularOutputAdder outputs) {
         ArgumentNullException.ThrowIfNull(argument: outputs);
-        cachedOutputs = spec.Outputs.Bind(pair => pair.Group.Ports.Map(port => new BoundPort(
+        cachedOutputs = spec.Outputs.Bind(pair => pair.Value.Ports.Map(port => new BoundPort(
             Port: port,
             Parameter: port.Kind.Bind(adder: outputs, name: port.Name, code: port.Code, info: port.Info, access: port.Access, policy: port.Policy, hidden: pair.Hidden))));
     }
     protected override void PreProcess(Solution solution) {
         base.PreProcess(solution: solution);
-        OnBeforeSolve(solution: solution);
+        OnPreProcess(solution: solution);
     }
     protected override void PostProcess(Solution solution, FleetingCustomData customData) {
-        OnAfterSolve(solution: solution);
+        OnPostProcess(solution: solution);
         base.PostProcess(solution: solution, customData: customData);
     }
     protected override void Process(IDataAccess access) {
@@ -87,6 +86,6 @@ public abstract class Component<TSelf>(ComponentSpec spec) : Grasshopper2.Compon
                     return Output.Empty(access: access, groups: spec.OutputGroups, outputs: outputs);
                 });
     }
-    protected virtual void OnBeforeSolve(Solution solution) { }
-    protected virtual void OnAfterSolve(Solution solution) { }
+    protected virtual void OnPreProcess(Solution solution) { }
+    protected virtual void OnPostProcess(Solution solution) { }
 }

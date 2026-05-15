@@ -15,38 +15,35 @@ public sealed record Env(Context Context, IProgress<double>? Progress, Cancellat
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 public sealed record Operation<TGeometry, TOut> where TGeometry : notnull {
-    internal Operation(Op key, Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>> effect, Requirement? requirement = null, bool requiresContext = false, Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> aggregate = default, Option<Error> rejection = default, bool aggregates = false, Unit _ = default)
-        : this(key: key, evaluate: effect, requirement: requirement ?? Requirement.None, requiresContext: requiresContext, aggregatePlan: aggregate, rejection: rejection, aggregates: aggregates) { }
-    internal Operation(Op key, Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>> evaluate, Requirement requirement, bool requiresContext, Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> aggregatePlan, Option<Error> rejection, bool aggregates) {
+    private Operation(Op key, Requirement requirement, bool requiresContext, Body body) {
         Key = key;
-        Evaluate = evaluate;
         Requirement = requirement;
         RequiresContext = requiresContext;
-        AggregatePlan = aggregatePlan;
-        Rejection = rejection;
-        Aggregates = aggregates;
+        Execution = body;
     }
     public Op Key { get; }
-    internal Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>> Evaluate { get; init; }
     internal Requirement Requirement { get; init; }
     internal bool RequiresContext { get; init; }
-    internal Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> AggregatePlan { get; init; }
-    internal Option<Error> Rejection { get; init; }
-    internal bool Aggregates { get; init; }
+    private Body Execution { get; init; }
+    internal bool IsSupported => Execution is not Body.Rejected;
+    internal bool IsAggregate => Execution is Body.Aggregate;
     internal bool NeedsContext => RequiresContext || !Requirement.IsEmpty;
-    public Eff<Env, Seq<TOut>> Apply(TGeometry geometry) => Evaluate(arg: Seq(geometry));
-    public Eff<Env, Seq<TOut>> Apply(Seq<TGeometry> geometry) => Evaluate(arg: geometry);
-    internal Operation<TIn, TOut> Contramap<TIn>(Func<TIn, TGeometry> map) where TIn : notnull => new(
-        key: Key,
-        evaluate: input => Evaluate(arg: input.Map(value => map(arg: value))),
-        requirement: Requirement,
-        requiresContext: RequiresContext,
-        aggregatePlan: AggregatePlan.Map<Func<Seq<TIn>, Eff<Env, Seq<TOut>>>>(project => input => project(arg: input.Map(value => map(arg: value)))),
-        rejection: Rejection,
-        aggregates: Aggregates);
-    public Operation<TGeometry, TOut> Aggregate() => AggregatePlan.Match(
-        Some: project => this with { Evaluate = project, Aggregates = true },
-        None: () => Reject(key: Key, fault: Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))));
+    public Eff<Env, Seq<TOut>> Apply(TGeometry geometry) => Apply(geometry: Seq(geometry));
+    public Eff<Env, Seq<TOut>> Apply(Seq<TGeometry> geometry) =>
+        Execution switch {
+            Body.PerItem item => geometry.TraverseM(item.Evaluate).As().Map(static chunks => chunks.Bind(static chunk => chunk)),
+            Body.Aggregate aggregate => aggregate.Evaluate(arg: geometry),
+            Body.Rejected rejected => Fin.Fail<Seq<TOut>>(rejected.Fault).ToEff(),
+            _ => Fin.Fail<Seq<TOut>>(Key.InvalidResult()).ToEff(),
+        };
+    public Operation<TGeometry, TOut> Aggregate() =>
+        Execution switch {
+            Body.PerItem item => item.Plan.Case switch {
+                Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>> project => this with { Execution = new Body.Aggregate(Evaluate: project) },
+                _ => Reject(key: Key, fault: Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))),
+            },
+            _ => this,
+        };
     internal static Operation<TGeometry, TOut> Build(Op key, Func<TGeometry, Eff<Env, Seq<TOut>>> evaluator, Requirement? requirement = null, bool requiresContext = false, Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> aggregate = default) =>
         Build(key: key, state: Unit.Default, evaluator: (_, geometry) => evaluator(arg: geometry), requirement: requirement, requiresContext: requiresContext, aggregate: aggregate);
     internal static Operation<TGeometry, TOut> Build<TState>(Op key, TState state, Func<TState, TGeometry, Eff<Env, Seq<TOut>>> evaluator, Requirement? requirement = null, bool requiresContext = false, Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> aggregate = default) {
@@ -55,22 +52,23 @@ public sealed record Operation<TGeometry, TOut> where TGeometry : notnull {
             key: key,
             requirement: active,
             requiresContext: requiresContext,
-            rejection: Option<Error>.None,
-            aggregates: false,
-            aggregatePlan: aggregate.Map<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>>(project => geometry =>
-                from resolved in geometry.TraverseM(item => Prepare(geometry: item, requirement: active)).As()
-                from result in project(arg: resolved)
-                select result),
-            evaluate: geometry => from result in geometry.TraverseM(item =>
-                                      from prepared in Prepare(geometry: item, requirement: active)
-                                      from value in evaluator(arg1: state, arg2: prepared)
-                                      select value)
-                                  .As()
-                                  .Map(static chunks => chunks.Bind(static chunk => chunk))
-                                  select result);
+            body: new Body.PerItem(
+                Evaluate: geometry =>
+                    from prepared in Prepare(geometry: geometry, requirement: active)
+                    from value in evaluator(arg1: state, arg2: prepared)
+                    select value,
+                Plan: aggregate.Map<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>>(project => geometry =>
+                    from resolved in geometry.TraverseM(item => Prepare(geometry: item, requirement: active)).As()
+                    from result in project(arg: resolved)
+                    select result)));
     }
     internal static Operation<TGeometry, TOut> Reject(Op key, Error fault) =>
-        new(key: key, evaluate: _ => Fin.Fail<Seq<TOut>>(fault).ToEff(), requirement: Requirement.None, requiresContext: false, aggregatePlan: None, rejection: Some(fault), aggregates: false);
+        new(key: key, requirement: Requirement.None, requiresContext: false, body: new Body.Rejected(Fault: fault));
+    internal Fin<Operation<TGeometry, TOut>> Supported() =>
+        Execution switch {
+            Body.Rejected rejected => Fin.Fail<Operation<TGeometry, TOut>>(rejected.Fault),
+            _ => Fin.Succ(this),
+        };
     private static Eff<Env, TGeometry> Prepare(TGeometry geometry, Requirement requirement) =>
         from runtime in Env.EnvAsks
         from ready in (runtime.Cancellation.IsCancellationRequested switch {
@@ -83,6 +81,12 @@ public sealed record Operation<TGeometry, TOut> where TGeometry : notnull {
             _ => Fin.Succ(ready).ToEff(),
         }
         select validated;
+    private abstract record Body {
+        private Body() { }
+        internal sealed record Rejected(Error Fault) : Body;
+        internal sealed record PerItem(Func<TGeometry, Eff<Env, Seq<TOut>>> Evaluate, Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> Plan) : Body;
+        internal sealed record Aggregate(Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>> Evaluate) : Body;
+    }
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -124,9 +128,7 @@ public static partial class Analyze {
         };
         return (
             from active in Optional(operation).ToFin(new Fault.MissingOperation())
-            from accepted in active.Rejection.Match(
-                Some: Fin.Fail<Operation<TGeometry, TOut>>,
-                None: () => Fin.Succ(active))
+            from accepted in active.Supported()
             from context in scope.Map(static s => s.Context).Match(
                 Some: provided => provided,
                 None: () => accepted.NeedsContext switch {

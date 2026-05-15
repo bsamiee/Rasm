@@ -3,22 +3,22 @@ namespace Rasm.Grasshopper;
 // --- [TYPES] ----------------------------------------------------------------------------
 public sealed record OutputGroup(
     Port<Shape> Input,
-    Seq<IPort> Ports,
+    Seq<Port> Ports,
     Func<IDataAccess, Hints, GrasshopperRuntime, Seq<Flow<Shape>>, Seq<object>> RunGroup,
     Func<IDataAccess, Hints, Unit> EmptyGroup);
 
 // --- [MODELS] ---------------------------------------------------------------------------
-public readonly record struct Hints(Seq<(IPort Port, int Slot)> Inputs) {
+public readonly record struct Hints(Seq<(Port Port, int Slot)> Inputs) {
     internal static Hints Capture(Seq<BoundPort> ports, Func<IParameter, int> index) =>
         new(Inputs: ports.Choose(bound => index(arg: bound.Parameter) switch {
             >= 0 and int slot => Some((bound.Port, slot)),
-            _ => Option<(IPort Port, int Slot)>.None,
+            _ => Option<(Port Port, int Slot)>.None,
         }));
-    public Option<int> Slot(IPort port) =>
+    public Option<int> Slot(Port port) =>
         Inputs.Find(predicate: input => ReferenceEquals(objA: input.Port, objB: port)).Map(static input => input.Slot);
 }
 public readonly record struct OutputSlot<TSource>(
-    IPort Port,
+    Port Port,
     Func<IDataAccess, int, GrasshopperRuntime, Seq<Flow<TSource>>, Seq<object>> Write,
     Func<IDataAccess, int, Unit> Empty);
 
@@ -197,7 +197,7 @@ public static class Output {
             aspectLabel: typeof(TAspect).Name,
             slots: slots);
     internal static Eff<Env, Seq<Flow<TSource>>> ShapeSource<TSource>(Seq<Flow<Shape>> sourced, Operation<object, TSource> operation) =>
-        operation.Aggregates switch {
+        operation.IsAggregate switch {
             true => from items in operation.Apply(geometry: sourced.Map(static src => src.Item.Inner))
                     let result = sourced.Fold(items.Map(item => new Flow<TSource>(
                         Pear: Pear<TSource>.Create(item: item, meta: MetaData.FindCommonData(sourced.Map(static src => src.Meta).AsIterable())),

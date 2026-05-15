@@ -52,6 +52,11 @@ public sealed record TopologyProjection {
     public static TopologyProjection FaceFrom(BrepFace face) { ArgumentNullException.ThrowIfNull(face); return new(value: new Lease<GeometryBase>.Borrowed(Value: face), feature: CurveFeature.Input, source: new ComponentIndex(ComponentIndexType.BrepFace, face.FaceIndex), reversed: face.OrientationIsReversed); }
     internal static TopologyProjection FaceCopyFrom(BrepFace face) { ArgumentNullException.ThrowIfNull(face); return new(value: new Lease<GeometryBase>.Owned(Value: face.DuplicateFace(duplicateMeshes: false)), feature: CurveFeature.Input, source: new ComponentIndex(ComponentIndexType.BrepFace, face.FaceIndex), reversed: face.OrientationIsReversed); }
     public static Fin<TopologyProjection> MeshFace(Mesh? mesh, int face) => Optional(mesh).ToFin(Key.InvalidInput()).Bind(native => (native.Faces.Count, face) switch { ( <= 0, _) => Fin.Fail<TopologyProjection>(Key.InvalidResult()), (int count, int index) when index >= 0 && index < count => Fin.Succ<TopologyProjection>(new(value: new Lease<GeometryBase>.Borrowed(Value: native), feature: CurveFeature.Input, source: new ComponentIndex(ComponentIndexType.MeshFace, index))), _ => Fin.Fail<TopologyProjection>(Key.InvalidInput()) });
+    public static Fin<TopologyProjection> MeshPolygon(Mesh? mesh, MeshNgon polygon) =>
+        Optional(mesh).ToFin(Key.InvalidInput()).Bind(native =>
+            Optional(polygon.BoundaryVertexIndexList()).Filter(static vertices => vertices.Length >= 3).ToFin(Key.InvalidResult())
+                .Bind(_ => MeshSource(mesh: native, polygon: polygon))
+                .Map(source => new TopologyProjection(value: new Lease<GeometryBase>.Borrowed(Value: native), feature: CurveFeature.Input, source: source)));
     public Unit Dispose() {
         _ = value.Dispose();
         return faceBrep.Iter(static owned => owned.Dispose());
@@ -61,6 +66,8 @@ public sealed record TopologyProjection {
         return (Value, source, Source) switch {
             (BrepFace face, _, _) when ReferenceEquals(objA: face.Brep, objB: source) => FaceCopyFrom(face),
             (Mesh mesh, Mesh owner, { ComponentIndexType: ComponentIndexType.MeshFace, Index: int face }) when ReferenceEquals(objA: mesh, objB: owner) && face >= 0 && face < mesh.Faces.Count =>
+                new(value: new Lease<GeometryBase>.Owned(Value: mesh.DuplicateMesh()), feature: Feature, source: Source, reversed: Reversed),
+            (Mesh mesh, Mesh owner, { ComponentIndexType: ComponentIndexType.MeshNgon, Index: int ngon }) when ReferenceEquals(objA: mesh, objB: owner) && ngon >= 0 && ngon < mesh.Ngons.Count =>
                 new(value: new Lease<GeometryBase>.Owned(Value: mesh.DuplicateMesh()), feature: Feature, source: Source, reversed: Reversed),
             _ => this,
         };
@@ -72,19 +79,43 @@ public sealed record TopologyProjection {
             || (Value is Curve curve && outputType.IsAssignableFrom(curve.GetType()))
             || (Value is Brep or BrepFace && outputType.IsAssignableFrom(typeof(Brep)));
     }
-    public Fin<Seq<Point3d>> Vertices => OnMeshFace<Seq<Point3d>>(static (mesh, face) => mesh.Faces.GetFaceVertices(face, out Point3f a, out Point3f b, out Point3f c, out Point3f d) switch { true when mesh.Faces[face].IsQuad => Fin.Succ(Seq((Point3d)a, (Point3d)b, (Point3d)c, (Point3d)d)), true => Fin.Succ(Seq((Point3d)a, (Point3d)b, (Point3d)c)), false => Fin.Fail<Seq<Point3d>>(Key.InvalidResult()) });
-    public Fin<Vector3d> Normal => OnMeshFace<Vector3d>(static (mesh, face) =>
-        FaceNormal(mesh.FaceNormals.Count > face ? Some(mesh.FaceNormals[face]) : Option<Vector3f>.None).Match(
-            Succ: Fin.Succ,
-            Fail: _ => (mesh.FaceNormals.ComputeFaceNormals() && mesh.FaceNormals.Count > face) switch {
-                true => FaceNormal(Some(mesh.FaceNormals[face])),
-                false => Fin.Fail<Vector3d>(Key.InvalidResult()),
-            }));
+    public Fin<Seq<Point3d>> Vertices => (Value, Source) switch {
+        (Mesh mesh, { ComponentIndexType: ComponentIndexType.MeshFace, Index: int face }) when face >= 0 && face < mesh.Faces.Count =>
+            mesh.Faces.GetFaceVertices(face, out Point3f a, out Point3f b, out Point3f c, out Point3f d) switch { true when mesh.Faces[face].IsQuad => Fin.Succ(Seq((Point3d)a, (Point3d)b, (Point3d)c, (Point3d)d)), true => Fin.Succ(Seq((Point3d)a, (Point3d)b, (Point3d)c)), false => Fin.Fail<Seq<Point3d>>(Key.InvalidResult()) },
+        (Mesh mesh, { ComponentIndexType: ComponentIndexType.MeshNgon, Index: int ngon }) when ngon >= 0 && ngon < mesh.Ngons.Count =>
+            Optional(mesh.Ngons[ngon].BoundaryVertexIndexList()).ToFin(Key.InvalidResult()).Bind(indices => toSeq<uint>(indices).TraverseM(i => i <= int.MaxValue && (int)i < mesh.Vertices.Count ? Fin.Succ((Point3d)mesh.Vertices[(int)i]) : Fin.Fail<Point3d>(Key.InvalidResult())).As()),
+        _ => Fin.Fail<Seq<Point3d>>(Key.InvalidInput()),
+    };
+    public Fin<Vector3d> Normal => (Value, Source) switch {
+        (Mesh mesh, { ComponentIndexType: ComponentIndexType.MeshFace, Index: int face }) when face >= 0 && face < mesh.Faces.Count =>
+            FaceNormal(mesh.FaceNormals.Count > face ? Some(mesh.FaceNormals[face]) : Option<Vector3f>.None)
+                .BindFail(_ => (mesh.FaceNormals.ComputeFaceNormals() && mesh.FaceNormals.Count > face) switch {
+                    true => FaceNormal(Some(mesh.FaceNormals[face])),
+                    false => Fin.Fail<Vector3d>(Key.InvalidResult()),
+                }),
+        (Mesh, { ComponentIndexType: ComponentIndexType.MeshNgon }) => Vertices.Bind(PolygonNormal),
+        _ => Fin.Fail<Vector3d>(Key.InvalidInput()),
+    };
     private static Fin<Vector3d> FaceNormal(Option<Vector3f> source) =>
         source.Case switch {
             Vector3f faceNormal when new Vector3d(faceNormal) is Vector3d normal && normal.IsValid && !normal.IsTiny() => Fin.Succ(normal),
             _ => Fin.Fail<Vector3d>(Key.InvalidResult()),
         };
+    private static Fin<Vector3d> PolygonNormal(Seq<Point3d> vertices) =>
+        vertices.Count switch {
+            >= 3 => vertices.Map((point, index) => Vector3d.CrossProduct(a: point - vertices[0], b: vertices[(index + 1) % vertices.Count] - vertices[0]))
+                .Fold(initialState: Vector3d.Zero, f: static (sum, vector) => sum + vector) switch {
+                    Vector3d normal when normal.IsValid && !normal.IsTiny() => Fin.Succ(normal / normal.Length),
+                    _ => Fin.Fail<Vector3d>(Key.InvalidResult()),
+                },
+            _ => Fin.Fail<Vector3d>(Key.InvalidResult()),
+        };
+    private static Fin<ComponentIndex> MeshSource(Mesh mesh, MeshNgon polygon) =>
+        Optional(polygon.FaceIndexList()).ToFin(Key.InvalidResult()).Bind(faces => faces switch {
+            uint[] values when values.Length == 1 && values[0] <= int.MaxValue && mesh.Ngons.NgonIndexFromFaceIndex((int)values[0]) < 0 => Fin.Succ(new ComponentIndex(ComponentIndexType.MeshFace, (int)values[0])),
+            uint[] values when values.Length > 0 && values[0] <= int.MaxValue && mesh.Ngons.NgonIndexFromFaceIndex((int)values[0]) is >= 0 and int ngon => Fin.Succ(new ComponentIndex(ComponentIndexType.MeshNgon, ngon)),
+            _ => Fin.Fail<ComponentIndex>(Key.InvalidInput()),
+        });
     internal static Fin<Seq<TValue>> Project<TValue>(
         Seq<TopologyProjection> all,
         Seq<TopologyProjection> chosen,
@@ -156,40 +187,6 @@ public abstract partial record IntersectionHit {
     public static IntersectionHit Overlap(Point3d start, Point3d end, Interval overlapA, Interval overlapB, Option<Curve> curve = default) => new OverlapCase(start, end, overlapA, overlapB, curve);
 }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct ResidualSample(int Index, Point3d Location, double Distance, double Tolerance, bool WithinTolerance);
-[Union]
-public partial record IntersectionResult {
-    public sealed record Curves(Seq<Curve> Values) : IntersectionResult; public sealed record Lines(Seq<Line> Values) : IntersectionResult; public sealed record Circles(Seq<Circle> Values) : IntersectionResult; public sealed record Points(Seq<Point3d> Values) : IntersectionResult; public sealed record Intervals(Seq<Interval> Values) : IntersectionResult; public sealed record Polylines(Seq<(Polyline Curve, IntersectionKind Kind)> Values) : IntersectionResult; public sealed record Hits(Seq<IntersectionHit> Values) : IntersectionResult;
-    internal Fin<Seq<TOut>> Project<TOut>(Op key) => Switch(
-        state: key,
-        curves: static (k, c) => UniformAs<Curve, TOut>(values: c.Values, key: k, caseType: typeof(Curves), tag: IntersectionKind.Curve),
-        lines: static (k, l) => UniformAs<Line, TOut>(values: l.Values, key: k, caseType: typeof(Lines), tag: IntersectionKind.Curve),
-        circles: static (k, c) => UniformAs<Circle, TOut>(values: c.Values, key: k, caseType: typeof(Circles), tag: IntersectionKind.Curve),
-        points: static (k, p) => UniformAs<Point3d, TOut>(values: p.Values, key: k, caseType: typeof(Points), tag: IntersectionKind.Point),
-        intervals: static (k, i) => UniformAs<Interval, TOut>(values: i.Values, key: k, caseType: typeof(Intervals), tag: IntersectionKind.Overlap),
-        polylines: static (k, p) => typeof(TOut) switch {
-            Type t when t == typeof(Polyline) => k.AcceptResults<Polyline, TOut>(values: p.Values.Map(static x => x.Curve)),
-            Type t when t == typeof(IntersectionKind) => k.AcceptResults<IntersectionKind, TOut>(values: p.Values.Map(static x => x.Kind)),
-            _ => Fin.Fail<Seq<TOut>>(k.Unsupported(geometryType: typeof(Polylines), outputType: typeof(TOut))),
-        },
-        hits: static (k, h) => HitsAs<TOut>(hits: h.Values, key: k));
-    private static Fin<Seq<TOut>> HitsAs<TOut>(Seq<IntersectionHit> hits, Op key) => typeof(TOut) switch {
-        Type t when t == typeof(IntersectionHit) => key.AcceptResults<IntersectionHit, TOut>(values: hits),
-        Type t when t == typeof(Curve) => key.AcceptResults<Curve, TOut>(values: hits.Bind(static value => value.Curves)),
-        Type t when t == typeof(Point3d) => DropHitCurves(hits: hits, result: key.AcceptResults<Point3d, TOut>(values: hits.Bind(static value => value.Points))),
-        Type t when t == typeof(Interval) => DropHitCurves(hits: hits, result: key.AcceptResults<Interval, TOut>(values: hits.Bind(static value => value.Intervals))),
-        Type t when t == typeof(IntersectionKind) => DropHitCurves(hits: hits, result: key.AcceptResults<IntersectionKind, TOut>(values: hits.Map(static value => value.Kind))),
-        _ => DropHitCurves(hits: hits, result: Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(Hits), outputType: typeof(TOut)))),
-    };
-    private static Fin<Seq<TOut>> DropHitCurves<TOut>(Seq<IntersectionHit> hits, Fin<Seq<TOut>> result) {
-        _ = hits.Iter(static value => value.Dispose());
-        return result;
-    }
-    private static Fin<Seq<TOut>> UniformAs<TNative, TOut>(Seq<TNative> values, Op key, Type caseType, IntersectionKind tag) where TNative : notnull => typeof(TOut) switch {
-        Type t when t == typeof(TNative) => key.AcceptResults<TNative, TOut>(values: values),
-        Type t when t == typeof(IntersectionKind) => key.AcceptResults<IntersectionKind, TOut>(values: toSeq(Enumerable.Repeat(element: tag, count: values.Count))),
-        _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: caseType, outputType: typeof(TOut))),
-    };
-}
 // --- [MODELS] -----------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class Kind {

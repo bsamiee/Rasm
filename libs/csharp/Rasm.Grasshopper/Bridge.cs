@@ -1,4 +1,3 @@
-using System.Collections.Frozen;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using Foundation.CSharp.Analyzers.Contracts;
@@ -93,7 +92,7 @@ public static class Bridge {
             },
             Fail: _ => Remark(access: access, units: system));
     }
-    internal static Fin<Seq<Flow<Shape>>> ReadShape(this IDataAccess access, int slot, IPort port) {
+    internal static Fin<Seq<Flow<Shape>>> ReadShape(this IDataAccess access, int slot, Port port) {
         ArgumentNullException.ThrowIfNull(argument: access);
         ArgumentNullException.ThrowIfNull(argument: port);
         return Read<object>(access: access, slot: slot, port: port)
@@ -111,7 +110,7 @@ public static class Bridge {
                 .ToFin(new GrasshopperFault.UnsupportedSource(PortName: port.Name, SourceType: sourced.Item.GetType(), Hint: Shape.Accepted))
                 .Map(shape => new Flow<Shape>(Pear: Pear<Shape>.Create(item: shape, meta: pear.Meta), Site: sourced.Site)))).As());
     }
-    internal static Fin<Seq<Flow<TVal>>> Read<TVal>(this IDataAccess access, int slot, IPort port) {
+    internal static Fin<Seq<Flow<TVal>>> Read<TVal>(this IDataAccess access, int slot, Port port) {
         ArgumentNullException.ThrowIfNull(argument: access);
         ArgumentNullException.ThrowIfNull(argument: port);
         return typeof(TVal).IsEnum switch {
@@ -125,14 +124,39 @@ public static class Bridge {
                 values: values.Map(static value => value.Project(item: Convert.ToInt32(value: value.Item, provider: CultureInfo.InvariantCulture)))),
             false => WriteNative(access: access, slot: slot, name: name, targetAccess: targetAccess, values: values),
         };
-    private static Fin<Seq<Flow<TVal>>> ReadNative<TVal>(IDataAccess access, int slot, IPort port) =>
-        AccessDispatch<TVal>.Readers.GetValueOrDefault(key: port.Access) switch {
-            Func<IDataAccess, int, IPort, Fin<Seq<Flow<TVal>>>> reader => reader(arg1: access, arg2: slot, arg3: port),
+    private static Fin<Seq<Flow<TVal>>> ReadNative<TVal>(IDataAccess access, int slot, Port port) =>
+        port.Access switch {
+            Access.Item => access.GetPears<TVal>(index: slot, pears: out Pear<TVal>[] pears) switch {
+                true => FlowPears(port: port, pears: pears),
+                _ => MissingFlow<TVal>(port: port),
+            },
+            Access.Twig => access.GetTwig<TVal>(index: slot, twig: out Twig<TVal> twig) switch {
+                true => FlowPears(port: port, pears: twig.Pears),
+                _ => MissingFlow<TVal>(port: port),
+            },
+            Access.Tree => access.GetTree<TVal>(index: slot, tree: out Tree<TVal> tree) switch {
+                true => toSeq(tree.EnumerateLeaves().Select((leaf, index) => (Leaf: leaf, Index: index))).TraverseM(item => item.Leaf.Pear is { Item: not null }
+                    ? Fin.Succ(new Flow<TVal>(Pear: item.Leaf.Pear, Site: Some(item.Leaf.Site)))
+                    : Fin.Fail<Flow<TVal>>(new GrasshopperFault.InputRequired(PortName: port.Name, Hint: $"Null tree item at index {item.Index}."))).As(),
+                _ => MissingFlow<TVal>(port: port),
+            },
             _ => Fin.Fail<Seq<Flow<TVal>>>(new GrasshopperFault.UnsupportedAccess(AccessName: port.Access.ToString())),
         };
     private static Unit WriteNative<TOut>(IDataAccess access, int slot, string name, Access targetAccess, Seq<Flow<TOut>> values) =>
-        AccessDispatch<TOut>.Writers.GetValueOrDefault(key: targetAccess) switch {
-            Func<IDataAccess, int, Seq<Flow<TOut>>, Unit> writer => writer(arg1: access, arg2: slot, arg3: values),
+        targetAccess switch {
+            Access.Item => values.Count switch {
+                > 0 => Effect(action: () => access.SetPear(index: slot, pear: values[0].Pear)),
+                _ => Effect(action: () => access.SetPear(index: slot, pear: null!)),
+            },
+            Access.Twig => Effect(action: () => access.SetTwig(index: slot, twig: Garden.TwigFromPears(pears: values.Map(static value => value.Pear).AsIterable()))),
+            Access.Tree => Effect(action: () => {
+                ITree tree = values.Count switch {
+                    0 => Garden.TreeEmpty<TOut>(),
+                    _ when values.Exists(static value => value.Site.IsSome) => Garden.TreeFromLeaves(leaves: Leaves(values: values).AsIterable()),
+                    _ => Garden.TreeFromPears(pears: values.Map(static value => value.Pear).AsIterable()),
+                };
+                access.SetTree(index: slot, tree: TreePrefix(access: access, slot: slot) is int prefix ? tree.WithPathPrefix(element: prefix) : tree);
+            }),
             _ => Effect(action: () => access.AddError(text: name, details: $"Unsupported output access: {targetAccess}.")),
         };
     private static Fin<Flow<TVal>> EnumFlow<TVal>(Flow<int> value) =>
@@ -150,12 +174,12 @@ public static class Bridge {
         access.AddRemark(text: "Tolerance", details: "Host did not supply reliable tolerance; using default tolerance with document units.");
         return Fin.Succ(Analyze.In(units: units == Rhino.UnitSystem.CustomUnits ? Rhino.UnitSystem.Millimeters : units));
     }
-    private static Fin<Seq<Pear<TVal>>> Missing<TVal>(IPort port) =>
+    private static Fin<Seq<Pear<TVal>>> Missing<TVal>(Port port) =>
         port.Requirement switch {
             Grasshopper2.Parameters.Requirement.MayBeMissing => Fin.Succ(Seq<Pear<TVal>>()),
             _ => Fin.Fail<Seq<Pear<TVal>>>(new GrasshopperFault.InputRequired(PortName: port.Name)),
         };
-    private static Fin<Seq<Flow<TVal>>> MissingFlow<TVal>(IPort port) =>
+    private static Fin<Seq<Flow<TVal>>> MissingFlow<TVal>(Port port) =>
         Missing<TVal>(port: port).Map(static pears => pears.Map(static pear => new Flow<TVal>(Pear: pear, Site: Option<Site>.None)));
     private static Seq<Leaf<T>> Leaves<T>(Seq<Flow<T>> values) =>
         values.Map((value, index) => new Leaf<T>(pear: value.Pear, site: value.Site.IfNone(new Site(path: new Grasshopper2.Data.Path(0), item: index))));
@@ -173,46 +197,11 @@ public static class Bridge {
             _ => value,
         }, 0.0, 100.0));
     }
-    private static class AccessDispatch<T> {
-        internal static readonly FrozenDictionary<Access, Func<IDataAccess, int, IPort, Fin<Seq<Flow<T>>>>> Readers =
-            new Dictionary<Access, Func<IDataAccess, int, IPort, Fin<Seq<Flow<T>>>>> {
-                [Access.Item] = static (access, slot, port) => access.GetPears<T>(index: slot, pears: out Pear<T>[] pears) switch {
-                    true => FlowPears(port: port, pears: pears),
-                    _ => MissingFlow<T>(port: port),
-                },
-                [Access.Twig] = static (access, slot, port) => access.GetTwig<T>(index: slot, twig: out Twig<T> twig) switch {
-                    true => FlowPears(port: port, pears: twig.Pears),
-                    _ => MissingFlow<T>(port: port),
-                },
-                [Access.Tree] = static (access, slot, port) => access.GetTree<T>(index: slot, tree: out Tree<T> tree) switch {
-                    true => toSeq(tree.EnumerateLeaves().Select((leaf, index) => (Leaf: leaf, Index: index))).TraverseM(item => item.Leaf.Pear is { Item: not null }
-                        ? Fin.Succ(new Flow<T>(Pear: item.Leaf.Pear, Site: Some(item.Leaf.Site)))
-                        : Fin.Fail<Flow<T>>(new GrasshopperFault.InputRequired(PortName: port.Name, Hint: $"Null tree item at index {item.Index}."))).As(),
-                    _ => MissingFlow<T>(port: port),
-                },
-            }.ToFrozenDictionary();
-        internal static readonly FrozenDictionary<Access, Func<IDataAccess, int, Seq<Flow<T>>, Unit>> Writers =
-            new Dictionary<Access, Func<IDataAccess, int, Seq<Flow<T>>, Unit>> {
-                [Access.Item] = static (access, slot, values) => values.Count switch {
-                    > 0 => Effect(action: () => access.SetPear(index: slot, pear: values[0].Pear)),
-                    _ => Effect(action: () => access.SetPear(index: slot, pear: null!)),
-                },
-                [Access.Twig] = static (access, slot, values) => Effect(action: () => access.SetTwig(index: slot, twig: Garden.TwigFromPears(pears: values.Map(static value => value.Pear).AsIterable()))),
-                [Access.Tree] = static (access, slot, values) => Effect(action: () => {
-                    ITree tree = values.Count switch {
-                        0 => Garden.TreeEmpty<T>(),
-                        _ when values.Exists(static value => value.Site.IsSome) => Garden.TreeFromLeaves(leaves: Leaves(values: values).AsIterable()),
-                        _ => Garden.TreeFromPears(pears: values.Map(static value => value.Pear).AsIterable()),
-                    };
-                    access.SetTree(index: slot, tree: TreePrefix(access: access, slot: slot) is int prefix ? tree.WithPathPrefix(element: prefix) : tree);
-                }),
-            }.ToFrozenDictionary();
-        private static Fin<Seq<Flow<T>>> FlowPears(IPort port, IEnumerable<Pear<T>> pears) =>
-            toSeq(pears.Select((pear, index) => (Pear: pear, Index: index))) switch {
-                Seq<(Pear<T> Pear, int Index)> indexed when indexed.Count > 0 => indexed.TraverseM(item => item.Pear is { Item: not null }
-                    ? Fin.Succ(new Flow<T>(Pear: item.Pear, Site: Option<Site>.None))
-                    : Fin.Fail<Flow<T>>(new GrasshopperFault.InputRequired(PortName: port.Name, Hint: $"Null item at index {item.Index}."))).As(),
-                _ => MissingFlow<T>(port: port),
-            };
-    }
+    private static Fin<Seq<Flow<T>>> FlowPears<T>(Port port, IEnumerable<Pear<T>> pears) =>
+        toSeq(pears.Select((pear, index) => (Pear: pear, Index: index))) switch {
+            Seq<(Pear<T> Pear, int Index)> indexed when indexed.Count > 0 => indexed.TraverseM(item => item.Pear is { Item: not null }
+                ? Fin.Succ(new Flow<T>(Pear: item.Pear, Site: Option<Site>.None))
+                : Fin.Fail<Flow<T>>(new GrasshopperFault.InputRequired(PortName: port.Name, Hint: $"Null item at index {item.Index}."))).As(),
+            _ => MissingFlow<T>(port: port),
+        };
 }

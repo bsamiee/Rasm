@@ -37,6 +37,6 @@ public sealed class ExtractCurves : Component<ExtractCurves> {
             Output.Plain<TopologyProjection, string>(port: Port.Tree<string>(name: "Feature", code: "F", info: "Feature classification aligned with each curve (boundary, naked, interior, loop, segment, iso, silhouette, draft)."), project: static value => value.Feature.ToString()),
         ]);
     public ExtractCurves() : base(spec: ComponentSpec.Of(
-        inputs: Seq<IPort>(Geometry, Direction, Angle),
+        inputs: Seq<Port>(Geometry, Direction, Angle),
         outputs: Seq<OutputGroup>(Segments, IsoCurves, Silhouette, Draft, Topology))) { }
 }

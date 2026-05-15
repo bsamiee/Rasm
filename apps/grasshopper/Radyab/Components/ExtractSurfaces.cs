@@ -35,6 +35,6 @@ public sealed class ExtractSurfaces : Component<ExtractSurfaces> {
             Output.One<TopologyProjection, Vector3d>(port: Port.Tree<Vector3d>(name: "Normal", code: "FN", info: "Orientation-corrected indexed face normal at the face centroid."), project: static (face, context) => face.FrameAtCentroid(context: context).Map(static frame => frame.ZAxis)),
         ]);
     public ExtractSurfaces() : base(spec: ComponentSpec.Of(
-        inputs: Seq<IPort>(Geometry, Index, Direction),
+        inputs: Seq<Port>(Geometry, Index, Direction),
         outputs: Seq<OutputGroup>(Faces, Top, Bottom, Frame))) { }
 }

@@ -181,10 +181,10 @@ public sealed class ContextSpec {
 
     [Fact]
     public void RejectsUnsupportedCurveProjectionFamiliesWithoutWeakeningExactVariants() {
-        Assert.True(condition: Rasm.Analysis.Analyze.Curves<Curve, Curve>(aspect: Rasm.Analysis.Curves.All).Rejection.IsNone);
-        Assert.True(condition: Rasm.Analysis.Analyze.Curves<BrepFace, Curve>(aspect: Rasm.Analysis.Curves.Boundary).Rejection.IsNone);
-        Assert.True(condition: Rasm.Analysis.Analyze.Curves<BrepFace, Curve>(aspect: Rasm.Analysis.Curves.Segments).Rejection.IsSome);
-        Assert.True(condition: Rasm.Analysis.Analyze.Curves<Mesh, Curve>(aspect: Rasm.Analysis.Curves.NakedInner).Rejection.IsSome);
+        Assert.True(condition: Rasm.Analysis.Analyze.Curves<Curve, Curve>(aspect: Rasm.Analysis.Curves.All).IsSupported);
+        Assert.True(condition: Rasm.Analysis.Analyze.Curves<BrepFace, Curve>(aspect: Rasm.Analysis.Curves.Boundary).IsSupported);
+        Assert.True(condition: !Rasm.Analysis.Analyze.Curves<BrepFace, Curve>(aspect: Rasm.Analysis.Curves.Segments).IsSupported);
+        Assert.True(condition: !Rasm.Analysis.Analyze.Curves<Mesh, Curve>(aspect: Rasm.Analysis.Curves.NakedInner).IsSupported);
     }
 
     private static Context ValidContext() =>

@@ -25,6 +25,6 @@ public sealed class ExtractPoints : Component<ExtractPoints> {
             Output.Plain<Rasm.Domain.Kind, Topology>(port: Port.Tree<Topology>(name: "Topology", code: "T", info: "Detected topology family."), project: static value => value.Topology),
         ]);
     public ExtractPoints() : base(spec: ComponentSpec.Of(
-        inputs: Seq<IPort>(Geometry),
+        inputs: Seq<Port>(Geometry),
         outputs: Seq<OutputGroup>(Vertices, ControlPoints, EdgeMidpoints, Quadrants, Centroid, BBoxCenter, BoundingCorners, Kind))) { }
 }

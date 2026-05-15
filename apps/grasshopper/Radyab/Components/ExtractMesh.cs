@@ -17,6 +17,6 @@ public sealed class ExtractMesh : Component<ExtractMesh> {
         port: Port.Tree<Mesh>(name: "Pieces", code: "P", info: "Disjoint mesh components via Mesh.SplitDisjointPieces(); a single-element list for a connected mesh."),
         operation: static _ => Fin.Succ(Rasm.Analysis.Analyze.Components<object, Mesh>()));
     public ExtractMesh() : base(spec: ComponentSpec.Of(
-        inputs: Seq<IPort>(Geometry),
+        inputs: Seq<Port>(Geometry),
         outputs: Seq<OutputGroup>(Validity, Stats, Defects, NakedEdges, Pieces))) { }
 }

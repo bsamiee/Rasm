@@ -1,18 +1,54 @@
 namespace Rasm.Analysis;
 
+// --- [MODELS] -----------------------------------------------------------------------------
+[Union]
+internal partial record IntersectionResult {
+    public sealed record Curves(Seq<Curve> Values) : IntersectionResult; public sealed record Lines(Seq<Line> Values) : IntersectionResult; public sealed record Circles(Seq<Circle> Values) : IntersectionResult; public sealed record Points(Seq<Point3d> Values) : IntersectionResult; public sealed record Intervals(Seq<Interval> Values) : IntersectionResult; public sealed record Polylines(Seq<(Polyline Curve, IntersectionKind Kind)> Values) : IntersectionResult; public sealed record Hits(Seq<IntersectionHit> Values) : IntersectionResult;
+    internal Fin<Seq<TOut>> Project<TOut>(Op key) => Switch(
+        state: key,
+        curves: static (k, c) => UniformAs<Curve, TOut>(values: c.Values, key: k, caseType: typeof(Curves), tag: IntersectionKind.Curve),
+        lines: static (k, l) => UniformAs<Line, TOut>(values: l.Values, key: k, caseType: typeof(Lines), tag: IntersectionKind.Curve),
+        circles: static (k, c) => UniformAs<Circle, TOut>(values: c.Values, key: k, caseType: typeof(Circles), tag: IntersectionKind.Curve),
+        points: static (k, p) => UniformAs<Point3d, TOut>(values: p.Values, key: k, caseType: typeof(Points), tag: IntersectionKind.Point),
+        intervals: static (k, i) => UniformAs<Interval, TOut>(values: i.Values, key: k, caseType: typeof(Intervals), tag: IntersectionKind.Overlap),
+        polylines: static (k, p) => typeof(TOut) switch {
+            Type t when t == typeof(Polyline) => k.AcceptResults<Polyline, TOut>(values: p.Values.Map(static x => x.Curve)),
+            Type t when t == typeof(IntersectionKind) => k.AcceptResults<IntersectionKind, TOut>(values: p.Values.Map(static x => x.Kind)),
+            _ => Fin.Fail<Seq<TOut>>(k.Unsupported(geometryType: typeof(Polylines), outputType: typeof(TOut))),
+        },
+        hits: static (k, h) => HitsAs<TOut>(hits: h.Values, key: k));
+    private static Fin<Seq<TOut>> HitsAs<TOut>(Seq<IntersectionHit> hits, Op key) => typeof(TOut) switch {
+        Type t when t == typeof(IntersectionHit) => key.AcceptResults<IntersectionHit, TOut>(values: hits),
+        Type t when t == typeof(Curve) => key.AcceptResults<Curve, TOut>(values: hits.Bind(static value => value.Curves)),
+        Type t when t == typeof(Point3d) => DropHitCurves(hits: hits, result: key.AcceptResults<Point3d, TOut>(values: hits.Bind(static value => value.Points))),
+        Type t when t == typeof(Interval) => DropHitCurves(hits: hits, result: key.AcceptResults<Interval, TOut>(values: hits.Bind(static value => value.Intervals))),
+        Type t when t == typeof(IntersectionKind) => DropHitCurves(hits: hits, result: key.AcceptResults<IntersectionKind, TOut>(values: hits.Map(static value => value.Kind))),
+        _ => DropHitCurves(hits: hits, result: Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(Hits), outputType: typeof(TOut)))),
+    };
+    private static Fin<Seq<TOut>> DropHitCurves<TOut>(Seq<IntersectionHit> hits, Fin<Seq<TOut>> result) {
+        _ = hits.Iter(static value => value.Dispose());
+        return result;
+    }
+    private static Fin<Seq<TOut>> UniformAs<TNative, TOut>(Seq<TNative> values, Op key, Type caseType, IntersectionKind tag) where TNative : notnull => typeof(TOut) switch {
+        Type t when t == typeof(TNative) => key.AcceptResults<TNative, TOut>(values: values),
+        Type t when t == typeof(IntersectionKind) => key.AcceptResults<IntersectionKind, TOut>(values: toSeq(Enumerable.Repeat(element: tag, count: values.Count))),
+        _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: caseType, outputType: typeof(TOut))),
+    };
+}
+
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
     public static global::Rasm.Analysis.Operation<(TA A, TB B), TOut> Intersect<TA, TB, TOut>() where TA : notnull where TB : notnull {
         Op key = Op.Of();
-        return CanIntersect(left: typeof(TA), right: typeof(TB), unordered: true) switch {
-            true => global::Rasm.Analysis.Operation<(TA A, TB B), TOut>.Build(
+        return (CanIntersect(left: typeof(TA), right: typeof(TB), unordered: true), CanProjectIntersection(left: typeof(TA), right: typeof(TB), output: typeof(TOut), unordered: true)) switch {
+            (true, true) => global::Rasm.Analysis.Operation<(TA A, TB B), TOut>.Build(
                 key: key, requiresContext: true, state: key,
                 evaluator: static (op, pair) => from runtime in Env.EnvAsks
                                                 from resolved in runtime.Context.Pair(a: pair.A, b: pair.B, op: op, requirements: static (_, _, _) => Fin.Succ((A: Requirement.Basic, B: Requirement.Basic)), cancel: runtime.Cancellation).ToEff()
                                                 from result in IntersectionOf(left: resolved.A, right: resolved.B, context: runtime.Context, op: op, progress: runtime.Progress, unordered: true, cancel: runtime.Cancellation).ToEff()
                                                 from typed in result.Project<TOut>(key: op).ToEff()
                                                 select typed),
-            false => key.Unsupported<(TA A, TB B), TOut>(),
+            _ => key.Unsupported<(TA A, TB B), TOut>(),
         };
     }
     public static global::Rasm.Analysis.Operation<(TA A, TB B), TOut> Deviation<TA, TB, TOut>() where TA : notnull where TB : notnull {
@@ -31,6 +67,25 @@ public static partial class Analyze {
         left == typeof(object) || right == typeof(object) || CanIntersectOrdered(left: left, right: right) || (unordered && CanIntersectOrdered(left: right, right: left));
     internal static bool CanDeviation(Type left, Type right) =>
         typeof(Curve).IsAssignableFrom(left) && typeof(Curve).IsAssignableFrom(right);
+    private static bool CanProjectIntersection(Type left, Type right, Type output, bool unordered = false) =>
+        ((left == typeof(object) || right == typeof(object)) && AnyIntersectionOutput(output: output)) || CanProjectIntersectionOrdered(left: left, right: right, output: output) || (unordered && CanProjectIntersectionOrdered(left: right, right: left, output: output));
+    private static bool CanProjectIntersectionOrdered(Type left, Type right, Type output) =>
+        (left, right, output) switch {
+            (Type l, Type r, Type o) when CanIntersectOrdered(left: l, right: r) && o == typeof(IntersectionKind) => true,
+            (Type l, Type r, Type o) when l == typeof(Line) && (r == typeof(Plane) || r == typeof(Circle) || r == typeof(Sphere)) => o == typeof(Point3d),
+            (Type l, Type r, Type o) when l == typeof(Mesh) && r == typeof(Line) => o == typeof(Point3d),
+            (Type l, Type r, Type o) when l == typeof(Plane) && r == typeof(Plane) => o == typeof(Line),
+            (Type l, Type r, Type o) when l == typeof(Line) && (r == typeof(BoundingBox) || r == typeof(Box)) => o == typeof(Interval),
+            (Type l, Type r, Type o) when l == typeof(Mesh) && (r == typeof(Plane) || typeof(Mesh).IsAssignableFrom(r)) => o == typeof(Polyline),
+            (Type l, Type r, Type o) when typeof(Curve).IsAssignableFrom(l) && (typeof(Curve).IsAssignableFrom(r) || r == typeof(Plane) || r == typeof(Line) || typeof(Surface).IsAssignableFrom(r) || typeof(Brep).IsAssignableFrom(r) || typeof(BrepFace).IsAssignableFrom(r)) => HitsOutput(output: o),
+            (Type l, Type r, Type o) when typeof(Surface).IsAssignableFrom(l) && typeof(Surface).IsAssignableFrom(r) => HitsOutput(output: o),
+            (Type l, Type r, Type o) when typeof(Brep).IsAssignableFrom(l) && (r == typeof(Plane) || typeof(Surface).IsAssignableFrom(r) || typeof(Brep).IsAssignableFrom(r)) => HitsOutput(output: o),
+            _ => false,
+        };
+    private static bool HitsOutput(Type output) =>
+        output == typeof(IntersectionHit) || output == typeof(Curve) || output == typeof(Point3d) || output == typeof(Interval);
+    private static bool AnyIntersectionOutput(Type output) =>
+        HitsOutput(output: output) || output == typeof(IntersectionKind) || output == typeof(Line) || output == typeof(Polyline);
     private static bool CanIntersectOrdered(Type left, Type right) =>
         (left, right) switch {
             (Type l, Type r) when l == typeof(Line) && r == typeof(Plane) => true,

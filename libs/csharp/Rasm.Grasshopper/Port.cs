@@ -9,7 +9,17 @@ using Requirement = Grasshopper2.Parameters.Requirement;
 namespace Rasm.Grasshopper;
 
 // --- [TYPES] ----------------------------------------------------------------------------
-public interface IPort {
+public abstract class Port {
+    private protected Port(string name, string code, string info, PortKind kind, Access access, Requirement requirement, PortPolicy policy, Type valueType) {
+        Name = name;
+        Code = code;
+        Info = info;
+        Kind = kind;
+        Access = access;
+        Requirement = requirement;
+        Policy = policy;
+        ValueType = valueType;
+    }
     public string Name { get; }
     public string Code { get; }
     public string Info { get; }
@@ -18,6 +28,50 @@ public interface IPort {
     public Requirement Requirement { get; }
     public PortPolicy Policy { get; }
     public Type ValueType { get; }
+    public static Port<TVal> Required<TVal>(string name, string code, string info, PortKind? kind = null, PortPolicy? policy = null) =>
+        Of<TVal>(name: name, code: code, info: info, kind: kind, access: Access.Item, requirement: Requirement.MustExist, policy: policy, fallback: Option<TVal>.None);
+    public static Port<TVal> Optional<TVal>(string name, string code, string info, PortKind? kind = null, PortPolicy? policy = null, string category = "Optional", Option<TVal> fallback = default) =>
+        Of<TVal>(
+            name: name, code: code, info: info, kind: kind,
+            access: Access.Item, requirement: Requirement.MayBeMissing,
+            policy: PortPolicy.Compose(policy ?? DefaultPolicy(type: typeof(TVal)), PortPolicy.Optional, PortPolicy.Category(name: category)),
+            fallback: fallback);
+    public static Port<TVal> List<TVal>(string name, string code, string info, Requirement requirement = Requirement.MustExist, PortKind? kind = null, PortPolicy? policy = null) =>
+        Of<TVal>(name: name, code: code, info: info, kind: kind, access: Access.Twig, requirement: requirement, policy: policy, fallback: Option<TVal>.None);
+    public static Port<TVal> Tree<TVal>(string name, string code, string info, Requirement requirement = Requirement.MustExist, PortKind? kind = null, PortPolicy? policy = null) =>
+        Of<TVal>(name: name, code: code, info: info, kind: kind, access: Access.Tree, requirement: requirement, policy: policy, fallback: Option<TVal>.None);
+    public static Port<int> Index(
+        string name = "Index",
+        string code = "I",
+        string info = "Zero-based selector; clamped to [0, count-1].") =>
+        Optional<int>(name: name, code: code, info: info, kind: PortKind.Index);
+    public static Port<Vector3d> Direction(
+        string name = "Direction",
+        string code = "D",
+        string info = "Direction vector; missing Direction uses world Z.") =>
+        Optional<Vector3d>(name: name, code: code, info: info, fallback: Some(Vector3d.ZAxis));
+    public static Port<Angle> Angle(
+        string name = "Angle",
+        string code = "A",
+        string info = "Angle in radians; missing Angle defaults to 0.") =>
+        Optional<Angle>(name: name, code: code, info: info, fallback: Some(Grasshopper2.Types.Numeric.Angle.Zero));
+    public static Port<Shape> Shape(
+        string name = "Geometry",
+        string code = "G",
+        string info = "Geometry to analyse.",
+        Access access = Access.Tree) =>
+        Of<Shape>(name: name, code: code, info: info, kind: null, access: access, requirement: Requirement.MustExist, policy: null, fallback: Option<Shape>.None);
+    private static Port<TVal> Of<TVal>(string name, string code, string info, PortKind? kind, Access access, Requirement requirement, PortPolicy? policy, Option<TVal> fallback) =>
+        new(name: name, code: code, info: info,
+            kind: (LanguageExt.Prelude.Optional(kind).Filter(candidate => candidate.Accepts(type: typeof(TVal))) | PortKind.From(type: typeof(TVal))).IfNone(PortKind.Generic),
+            access: access, requirement: requirement,
+            policy: policy ?? DefaultPolicy(type: typeof(TVal)),
+            fallback: fallback);
+    private static PortPolicy DefaultPolicy(Type type) => type switch {
+        _ when type == typeof(Vector3d) => PortPolicy.Vector(unitise: true),
+        _ when type == typeof(Angle) => PortPolicy.Angle(reduce: true),
+        _ => PortPolicy.Empty,
+    };
 }
 
 // --- [MODELS] ---------------------------------------------------------------------------
@@ -55,24 +109,18 @@ public sealed record PortPolicy {
         return Unit.Default;
     }
 }
-public sealed class Port<TVal>(
-    string name,
-    string code,
-    string info,
-    PortKind kind,
-    Access access,
-    Requirement requirement,
-    PortPolicy policy,
-    Option<TVal> fallback) : IPort {
-    public string Name { get; } = name;
-    public string Code { get; } = code;
-    public string Info { get; } = info;
-    public PortKind Kind { get; } = kind;
-    public Access Access { get; } = access;
-    public Requirement Requirement { get; } = requirement;
-    public PortPolicy Policy { get; } = policy;
-    public Type ValueType => typeof(TVal);
-    public Option<TVal> Fallback { get; } = fallback;
+public sealed class Port<TVal> : Port {
+    internal Port(
+        string name,
+        string code,
+        string info,
+        PortKind kind,
+        Access access,
+        Requirement requirement,
+        PortPolicy policy,
+        Option<TVal> fallback) : base(name: name, code: code, info: info, kind: kind, access: access, requirement: requirement, policy: policy, valueType: typeof(TVal)) =>
+        Fallback = fallback;
+    public Option<TVal> Fallback { get; }
 }
 
 // --- [CONSTANTS] ------------------------------------------------------------------------
@@ -197,52 +245,4 @@ public sealed partial class PortKind {
     private static Option<PortKind> EnumKind(Type type) =>
         Optional(typeof(PortKind).GetMethod(name: nameof(EnumDefault), bindingAttr: BindingFlags.NonPublic | BindingFlags.Static))
             .Bind(method => Optional(method.MakeGenericMethod(typeArguments: [type]).Invoke(obj: null, parameters: null) as PortKind));
-}
-
-// --- [SERVICES] -------------------------------------------------------------------------
-public static class Port {
-    public static Port<TVal> Required<TVal>(string name, string code, string info, PortKind? kind = null, PortPolicy? policy = null) =>
-        Of<TVal>(name: name, code: code, info: info, kind: kind, access: Access.Item, requirement: Requirement.MustExist, policy: policy, fallback: Option<TVal>.None);
-    public static Port<TVal> Optional<TVal>(string name, string code, string info, PortKind? kind = null, PortPolicy? policy = null, string category = "Optional", Option<TVal> fallback = default) =>
-        Of<TVal>(
-            name: name, code: code, info: info, kind: kind,
-            access: Access.Item, requirement: Requirement.MayBeMissing,
-            policy: PortPolicy.Compose(policy ?? DefaultPolicy(type: typeof(TVal)), PortPolicy.Category(name: category)),
-            fallback: fallback);
-    public static Port<TVal> List<TVal>(string name, string code, string info, Requirement requirement = Requirement.MustExist, PortKind? kind = null, PortPolicy? policy = null) =>
-        Of<TVal>(name: name, code: code, info: info, kind: kind, access: Access.Twig, requirement: requirement, policy: policy, fallback: Option<TVal>.None);
-    public static Port<TVal> Tree<TVal>(string name, string code, string info, Requirement requirement = Requirement.MustExist, PortKind? kind = null, PortPolicy? policy = null) =>
-        Of<TVal>(name: name, code: code, info: info, kind: kind, access: Access.Tree, requirement: requirement, policy: policy, fallback: Option<TVal>.None);
-    public static Port<int> Index(
-        string name = "Index",
-        string code = "I",
-        string info = "Zero-based selector; clamped to [0, count-1].") =>
-        Optional<int>(name: name, code: code, info: info, kind: PortKind.Index);
-    public static Port<Vector3d> Direction(
-        string name = "Direction",
-        string code = "D",
-        string info = "Direction vector; missing Direction uses world Z.") =>
-        Optional<Vector3d>(name: name, code: code, info: info, fallback: Some(Vector3d.ZAxis));
-    public static Port<Angle> Angle(
-        string name = "Angle",
-        string code = "A",
-        string info = "Angle in radians; missing Angle defaults to 0.") =>
-        Optional<Angle>(name: name, code: code, info: info, fallback: Some(Grasshopper2.Types.Numeric.Angle.Zero));
-    public static Port<Shape> Shape(
-        string name = "Geometry",
-        string code = "G",
-        string info = "Geometry to analyse.",
-        Access access = Access.Tree) =>
-        Of<Shape>(name: name, code: code, info: info, kind: null, access: access, requirement: Requirement.MustExist, policy: null, fallback: Option<Shape>.None);
-    private static Port<TVal> Of<TVal>(string name, string code, string info, PortKind? kind, Access access, Requirement requirement, PortPolicy? policy, Option<TVal> fallback) =>
-        new(name: name, code: code, info: info,
-            kind: (LanguageExt.Prelude.Optional(kind).Filter(candidate => candidate.Accepts(type: typeof(TVal))) | PortKind.From(type: typeof(TVal))).IfNone(PortKind.Generic),
-            access: access, requirement: requirement,
-            policy: policy ?? DefaultPolicy(type: typeof(TVal)),
-            fallback: fallback);
-    private static PortPolicy DefaultPolicy(Type type) => type switch {
-        _ when type == typeof(Vector3d) => PortPolicy.Vector(unitise: true),
-        _ when type == typeof(Angle) => PortPolicy.Angle(reduce: true),
-        _ => PortPolicy.Empty,
-    };
 }
