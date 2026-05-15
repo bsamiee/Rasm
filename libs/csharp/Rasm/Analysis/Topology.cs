@@ -38,9 +38,9 @@ public static partial class Analyze {
                     select result))
             : key.Unsupported<TGeometry, TOut>();
     }
-    public static global::Rasm.Analysis.Operation<TGeometry, Rasm.Domain.SolidOrientation> SolidOrientation<TGeometry>() where TGeometry : GeometryBase {
+    public static global::Rasm.Analysis.Operation<TGeometry, BrepSolidOrientation> SolidOrientation<TGeometry>() where TGeometry : GeometryBase {
         Op key = Op.Of();
-        return global::Rasm.Analysis.Operation<TGeometry, Rasm.Domain.SolidOrientation>.Build(
+        return global::Rasm.Analysis.Operation<TGeometry, BrepSolidOrientation>.Build(
             key: key, requiresContext: true, state: key,
             evaluator: static (op, geometry) =>
                 from orientation in SolidOrientationOf(geometry: geometry, op: op).ToEff()
@@ -78,21 +78,26 @@ public static partial class Analyze {
             Surface surface => Fin.Succ(Seq(surface.Domain(direction: 0), surface.Domain(direction: 1))),
             _ => Fin.Fail<Seq<Interval>>(op.Unsupported(g.GetType(), typeof(Interval))),
         });
-    internal static Fin<SolidOrientation> SolidOrientationOf<TGeometry>(TGeometry geometry, Op op) where TGeometry : GeometryBase =>
+    internal static Fin<BrepSolidOrientation> SolidOrientationOf<TGeometry>(TGeometry geometry, Op op) where TGeometry : GeometryBase =>
         Optional(geometry).ToFin(op.InvalidInput()).Bind(g => g switch {
-            Brep brep => Fin.Succ((SolidOrientation)(int)brep.SolidOrientation),
-            Mesh mesh => Fin.Succ((SolidOrientation)mesh.SolidOrientation()),
-            _ => Fin.Fail<SolidOrientation>(op.Unsupported(g.GetType(), typeof(SolidOrientation))),
+            Brep brep => Fin.Succ(brep.SolidOrientation),
+            Mesh mesh => mesh.SolidOrientation() switch {
+                1 => Fin.Succ(BrepSolidOrientation.Outward),
+                -1 => Fin.Succ(BrepSolidOrientation.Inward),
+                0 => Fin.Succ(BrepSolidOrientation.None),
+                _ => Fin.Fail<BrepSolidOrientation>(op.InvalidResult()),
+            },
+            _ => Fin.Fail<BrepSolidOrientation>(op.Unsupported(g.GetType(), typeof(BrepSolidOrientation))),
         });
     internal static Fin<bool> ContainsPoint<TGeometry>(TGeometry geometry, Point3d target, Context context, Op op) where TGeometry : GeometryBase =>
-        (Optional(geometry).ToFin(op.InvalidInput()), target.IsValid) switch {
-            (_, false) => Fin.Fail<bool>(op.InvalidInput()),
-            (Fin<TGeometry> source, true) => source.Bind(g => g switch {
-                Brep brep => Fin.Succ(brep.IsPointInside(target, context.Absolute.Value, false)),
-                Mesh mesh => Fin.Succ(mesh.IsPointInside(target, context.Absolute.Value, false)),
-                _ => Fin.Fail<bool>(op.Unsupported(g.GetType(), typeof(bool))),
-            }),
-        };
+        from _ in guard(target.IsValid, op.InvalidInput())
+        from g in Optional(geometry).ToFin(op.InvalidInput())
+        from contained in g switch {
+            Brep brep => Fin.Succ(brep.IsPointInside(target, context.Absolute.Value, false)),
+            Mesh mesh => Fin.Succ(mesh.IsPointInside(target, context.Absolute.Value, false)),
+            _ => Fin.Fail<bool>(op.Unsupported(g.GetType(), typeof(bool))),
+        }
+        select contained;
     internal static Fin<Seq<GeometryBase>> ComponentsOf<TGeometry>(TGeometry geometry, Op op) where TGeometry : notnull =>
         Optional(geometry).ToFin(op.InvalidInput()).Bind(g => g switch {
             Mesh mesh => Fin.Succ(toSeq(mesh.SplitDisjointPieces().Cast<GeometryBase>())),

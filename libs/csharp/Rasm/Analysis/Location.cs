@@ -144,38 +144,22 @@ public static partial class Analyze {
         return result;
     }
     private static Fin<Seq<Vector3d>> CurveCurvatures(Op key, Curve curve, int count, Context model) =>
-        CurveSamples(curve: curve, count: count, model: model, key: key)
+        GeometryKernel.CurveSampleParameters(curve: curve, count: count, context: model, key: key)
             .Bind(parameters => key.Accept(values: parameters.Map(parameter => curve.CurvatureAt(t: parameter))));
     private static Fin<Seq<double>> CurveMagnitudes(Op key, Curve curve, int count, Context model) =>
         CurveCurvatures(key: key, curve: curve, count: count, model: model).Map(static vectors => vectors.Map(static v => v.Length));
     private static Fin<Seq<SurfaceCurvature>> SurfaceCurvatures(Op key, Surface surface, int resolution, Context model) =>
-        (Samples(domain: surface.Domain(direction: 0), resolution: resolution, key: key),
-         Samples(domain: surface.Domain(direction: 1), resolution: resolution, key: key))
-        .Apply(static (u, v) => (U: u, V: v)).As()
-        .Bind(samples => samples.U
-            .Bind(u => samples.V.Map(v => new Point2d(x: u, y: v)))
-            .TraverseM(uv => Uv(surface: surface, uv: uv, context: model, key: key)
-                .Bind(parameter => Optional(surface.CurvatureAt(u: parameter.X, v: parameter.Y)).ToFin(key.InvalidResult())))
+        GeometryKernel.SurfaceSampleUv(surface: surface, resolution: resolution, context: model, key: key)
+            .Bind(samples => samples.TraverseM(uv => Optional(surface.CurvatureAt(u: uv.X, v: uv.Y)).ToFin(key.InvalidResult()))
             .As());
-    private static Fin<Seq<double>> CurveSamples(Curve curve, int count, Context model, Op key) =>
-        GeometryKernel.Fractions(count: count, op: key)
-                .Bind(fractions => Optional(curve.NormalizedLengthParameters(s: [.. fractions.AsIterable()], absoluteTolerance: model.Absolute.Value, fractionalTolerance: model.Fractional))
-                .ToFin(key.InvalidResult())
-                .Map(static parameters => toSeq(parameters)));
-    internal static Fin<Seq<double>> Samples(Interval domain, int resolution, Op key) =>
-        domain.IsValid switch {
-            true => GeometryKernel.Fractions(count: resolution, op: key).Map(fractions => fractions.Map(f => domain.ParameterAt(f))),
-            false => Fin.Fail<Seq<double>>(key.InvalidInput()),
-        };
     internal static global::Rasm.Analysis.Operation<TGeometry, TOut> Closest<TGeometry, TOut>(Point3d point) where TGeometry : notnull {
         Op key = Op.Of();
         return point.IsValid switch {
             false => global::Rasm.Analysis.Operation<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput()),
             true => global::Rasm.Analysis.Operation<TGeometry, TOut>.Build(
-                key: key, state: (Key: key, Target: point), requiresContext: true,
+                key: key, state: (Key: key, Target: point),
                 evaluator: static (state, geometry) =>
-                    from context in Env.Asks
-                    from hit in ClosestOf(geometry: geometry, target: state.Target, context: context, op: state.Key).ToEff()
+                    from hit in GeometryKernel.Closest(geometry: geometry, target: state.Target, key: state.Key).ToEff()
                     from result in (typeof(TOut) switch {
                         Type t when t == typeof(Point3d) => state.Key.AcceptResults<Point3d, TOut>(values: Seq(hit.Point)),
                         Type t when t == typeof(double) => state.Key.AcceptResults<double, TOut>(values: Seq(hit.Distance.IfNone(state.Target.DistanceTo(other: hit.Point)))),
@@ -187,19 +171,6 @@ public static partial class Analyze {
                     select result),
         };
     }
-    internal static Fin<ClosestHit> ClosestOf<TGeometry>(TGeometry geometry, Point3d target, Context context, Op op) where TGeometry : notnull =>
-        (Optional(geometry).ToFin(op.InvalidInput()), target.IsValid) switch {
-            (_, false) => Fin.Fail<ClosestHit>(op.InvalidInput()),
-            (Fin<TGeometry> source, true) => source.Bind(g => g switch {
-                Line line => Fin.Succ(new ClosestHit(Point: line.ClosestPoint(testPoint: target, limitToFiniteSegment: true), Distance: Some(target.DistanceTo(other: line.ClosestPoint(testPoint: target, limitToFiniteSegment: true))), Normal: None, Component: None, MeshPoint: None)),
-                Polyline polyline => Fin.Succ(new ClosestHit(Point: polyline.ClosestPoint(testPoint: target), Distance: Some(target.DistanceTo(other: polyline.ClosestPoint(testPoint: target))), Normal: None, Component: None, MeshPoint: None)),
-                Curve curve => curve.ClosestPoint(testPoint: target, t: out double parameter) ? Fin.Succ(new ClosestHit(Point: curve.PointAt(t: parameter), Distance: Some(target.DistanceTo(other: curve.PointAt(t: parameter))), Normal: None, Component: None, MeshPoint: None)) : Fin.Fail<ClosestHit>(op.InvalidInput()),
-                Surface surface => surface.ClosestPoint(testPoint: target, u: out double u, v: out double v) ? Fin.Succ(new ClosestHit(Point: surface.PointAt(u: u, v: v), Distance: Some(target.DistanceTo(other: surface.PointAt(u: u, v: v))), Normal: Some(surface.NormalAt(u: u, v: v)), Component: None, MeshPoint: None)) : Fin.Fail<ClosestHit>(op.InvalidInput()),
-                Brep brep => brep.ClosestPoint(target, out Point3d point, out ComponentIndex component, out double _, out double _, 0.0, out Vector3d normal) ? Fin.Succ(new ClosestHit(Point: point, Distance: Some(target.DistanceTo(other: point)), Normal: Some(normal), Component: Some(component), MeshPoint: None)) : Fin.Fail<ClosestHit>(op.InvalidInput()),
-                Mesh mesh => Optional(mesh.ClosestMeshPoint(testPoint: target, maximumDistance: 0.0)).ToFin(op.InvalidResult()).Map(meshPoint => new ClosestHit(Point: meshPoint.Point, Distance: Some(target.DistanceTo(other: meshPoint.Point)), Normal: Some(mesh.NormalAt(meshPoint: meshPoint)), Component: None, MeshPoint: Some(meshPoint))),
-                _ => Fin.Fail<ClosestHit>(op.Unsupported(g.GetType(), typeof(ClosestHit))),
-            }),
-        };
     internal static global::Rasm.Analysis.Operation<TGeometry, Plane> CurveFrame<TGeometry>(Op key, double parameter, bool perpendicular) where TGeometry : notnull =>
         CurveAt<TGeometry, Plane>(key: key, parameter: parameter, project: (curve, t) => perpendicular switch {
             true => key.AcceptSolved(isSolved: curve.PerpendicularFrameAt(t: t, plane: out Plane perpendicularFrame), value: perpendicularFrame),
@@ -228,8 +199,8 @@ public static partial class Analyze {
             state: (Key: key, Start: start, End: end),
             evaluator: static (state, geometry) => geometry switch {
                 Surface surface => from context in Env.Asks
-                                   from uvStart in Uv(surface: surface, uv: state.Start, context: context, key: state.Key).ToEff()
-                                   from uvEnd in Uv(surface: surface, uv: state.End, context: context, key: state.Key).ToEff()
+                                   from uvStart in GeometryKernel.SurfaceUv(surface: surface, uv: state.Start, context: context, key: state.Key).ToEff()
+                                   from uvEnd in GeometryKernel.SurfaceUv(surface: surface, uv: state.End, context: context, key: state.Key).ToEff()
                                    from path in Optional(surface.ShortPath(start: uvStart, end: uvEnd, tolerance: context.Absolute.Value))
                                        .ToFin(state.Key.InvalidResult())
                                        .ToEff()
@@ -241,14 +212,9 @@ public static partial class Analyze {
         Native<TGeometry, TOut, Surface, TOut, (Op Key, Point2d Uv, Func<Surface, Point2d, Fin<Seq<TOut>>> Project)>(
             key: key, requirement: Requirement.SurfaceEvaluation, state: (Key: key, Uv: uv, Project: project),
             project: static (state, surface) => from context in Env.Asks
-                                                from parameter in Uv(surface: surface, uv: state.Uv, context: context, key: state.Key).ToEff()
+                                                from parameter in GeometryKernel.SurfaceUv(surface: surface, uv: state.Uv, context: context, key: state.Key).ToEff()
                                                 from result in state.Project(arg1: surface, arg2: parameter).ToEff()
                                                 select result);
-    private static Fin<Point2d> Uv(Surface surface, Point2d uv, Context context, Op key) =>
-        (surface.Domain(direction: 0), surface.Domain(direction: 1)) switch {
-            (Interval u, Interval v) when u.IsValid && v.IsValid && u.IncludesParameter(t: uv.X) && v.IncludesParameter(t: uv.Y) && (surface is not BrepFace face || face.IsPointOnFace(u: uv.X, v: uv.Y, tolerance: context.Absolute.Value) != PointFaceRelation.Exterior) => Fin.Succ(uv),
-            _ => Fin.Fail<Point2d>(key.InvalidInput()),
-        };
     internal static Eff<Env, Seq<TOut>> CurveAtNormalized<TGeometry, TOut>(TGeometry geometry, Op key, Func<Curve, double, TOut> project) where TGeometry : notnull =>
         geometry switch {
             Curve curve => from runtime in Env.EnvAsks

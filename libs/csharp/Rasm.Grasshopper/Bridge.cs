@@ -32,7 +32,12 @@ public readonly record struct Shape {
     public object Inner { get; }
     public const string Accepted = "Rhino/GH geometry convertible through native RhinoCommon or GH2 brokers";
     internal Unit DisposeUnlessTransferred(Seq<object> outputs) =>
-        owned.Filter(disposable => !outputs.Exists(output => ReferenceEquals(objA: output, objB: disposable)))
+        owned.Filter(disposable => !outputs.Exists(output => ReferenceEquals(objA: output, objB: disposable) || output switch {
+            TopologyProjection { Value: BrepFace face } => ReferenceEquals(objA: face.Brep, objB: disposable),
+            TopologyProjection projection => ReferenceEquals(objA: projection.Value, objB: disposable),
+            BrepFace face => ReferenceEquals(objA: face.Brep, objB: disposable),
+            _ => false,
+        }))
             .Iter(static disposable => disposable.Dispose());
     internal Flow<TSource> Detach<TSource>(Flow<TSource> output) =>
         (Inner, output.Item) switch {

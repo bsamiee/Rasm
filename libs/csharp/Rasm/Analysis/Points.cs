@@ -20,7 +20,7 @@ public partial record Points : IAspect {
                     }).ToEff()
                     select result))
             : QuadrantsKey.Unsupported<TGeometry, TOut>(),
-        edgeMidpoints: static _ => typeof(TOut) == typeof(Point3d) && (typeof(TGeometry) == typeof(object) || typeof(TGeometry) == typeof(GeometryBase) || typeof(TGeometry) == typeof(Line) || typeof(TGeometry) == typeof(Polyline) || typeof(TGeometry) == typeof(BoundingBox) || typeof(TGeometry) == typeof(Box) || GeometryKernel.CanProjectCurves(type: typeof(TGeometry), feature: Some(CurveFeature.Edge)))
+        edgeMidpoints: static _ => typeof(TOut) == typeof(Point3d) && (typeof(TGeometry) == typeof(object) || typeof(TGeometry) == typeof(GeometryBase) || typeof(TGeometry) == typeof(Line) || typeof(TGeometry) == typeof(Polyline) || typeof(TGeometry) == typeof(BoundingBox) || typeof(TGeometry) == typeof(Box) || typeof(Brep).IsAssignableFrom(c: typeof(TGeometry)) || typeof(Mesh).IsAssignableFrom(c: typeof(TGeometry)) || typeof(SubD).IsAssignableFrom(c: typeof(TGeometry)))
             ? Analyze.Cast<TGeometry, TOut>(key: EdgeMidpointsKey, operation: global::Rasm.Analysis.Operation<TGeometry, Point3d>.Build(
                 key: EdgeMidpointsKey, requiresContext: true, state: EdgeMidpointsKey,
                 evaluator: static (op, geometry) => geometry switch {
@@ -29,7 +29,11 @@ public partial record Points : IAspect {
                     BoundingBox box => op.Accept(values: box.GetEdges().Select(static edge => edge.PointAt(t: 0.5))).ToEff(),
                     Box box => op.Accept(values: box.BoundingBox.GetEdges().Select(static edge => edge.PointAt(t: 0.5))).ToEff(),
                     _ => from runtime in Env.EnvAsks
-                         from curves in Analyze.CurveProjections(geometry: geometry, selector: new Curves.Selector(Feature: CurveFeature.Edge), context: runtime.Context, op: op, cancel: runtime.Cancellation).ToEff()
+                         from kind in ((object)geometry).Kind(context: runtime.Context).ToEff()
+                         from curves in (kind.Topology switch {
+                             Topology.Brep or Topology.Mesh or Topology.SubD => Analyze.CurveProjections(geometry: geometry, aspect: Rasm.Analysis.Curves.All, feature: CurveFeature.Edge, context: runtime.Context, op: op, cancel: runtime.Cancellation),
+                             _ => Fin.Fail<Seq<TopologyProjection>>(op.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Curve))),
+                         }).ToEff()
                          from result in TopologyProjection.Project(all: curves, chosen: curves, project: values => op.Accept(values: values.Choose(static projection => projection.As<Curve>().Map(static c => new Lease<Curve>.Borrowed(Value: c).Use(static owned => owned.PointAtNormalizedLength(length: 0.5)))))).ToEff()
                          select result,
                 }))

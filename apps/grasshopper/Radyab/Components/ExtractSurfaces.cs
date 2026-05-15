@@ -3,7 +3,7 @@ namespace Radyab.Components;
 [IoId("7EBA9774-99EA-4A47-95EA-8CAEA6F09323")]
 [Nomen(
     name: "Extract Surfaces",
-    info: "Trimmed faces, direction-ranked top and bottom faces, plus indexed face frame (centroid, normal, UV plane) for Brep, BrepFace, Surface, and SubD values.",
+    info: "Trimmed faces, direction-ranked top and bottom faces, plus indexed face frame (centroid, normal, UV plane) for Brep, BrepFace, and Surface values.",
     category: Library.Name,
     section: Library.Extraction)]
 public sealed class ExtractSurfaces : Component<ExtractSurfaces> {
@@ -14,7 +14,6 @@ public sealed class ExtractSurfaces : Component<ExtractSurfaces> {
         input: Geometry,
         aspect: Rasm.Analysis.Faces.All,
         emptyUnsupported: true,
-        aspectLabel: nameof(Rasm.Analysis.Faces),
         slots: [
             Output.Choose<TopologyProjection, Brep>(port: Port.Tree<Brep>(name: "Faces", code: "F", info: "Every face as a trimmed single-face Brep."), project: static value => value.As<Brep>()),
             Output.Plain<TopologyProjection, int>(port: Port.Tree<int>(name: "Face Index", code: "FX", info: "Source Brep face index aligned with each face."), project: static value => value.FaceIndex),
@@ -29,7 +28,6 @@ public sealed class ExtractSurfaces : Component<ExtractSurfaces> {
         input: Geometry,
         aspect: runtime => Fin.Succ(Rasm.Analysis.Faces.ByCount(choose: count => Rasm.Analysis.Faces.At(index: runtime.Index(port: Index, limit: count).ToNullable()))),
         emptyUnsupported: false,
-        aspectLabel: nameof(Rasm.Analysis.Faces),
         slots: [
             Output.Choose<TopologyProjection, Brep>(port: Port.Tree<Brep>(name: "Face", code: "FA", info: "Trimmed single-face Brep at Index; missing Index defaults to 0 and GH index modifiers apply per source face count."), project: static value => value.As<Brep>()),
             Output.One<TopologyProjection, Plane>(port: Port.Tree<Plane>(name: "UV Frame", code: "UV", info: "Native U/V frame at the indexed face centroid: X = surface U direction, Z = orientation-corrected normal, Y completes the basis."), project: static (face, context) => face.FrameAtCentroid(context: context)),

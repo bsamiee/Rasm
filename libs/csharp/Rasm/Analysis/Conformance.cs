@@ -74,10 +74,9 @@ public static partial class Analyze {
     private static Seq<ResidualSample> Residuals<TP>(Seq<Point3d> points, TP primitive, Context context, Func<TP, Point3d, double> distance) where TP : notnull =>
         toSeq(points.AsIterable().Select((p, i) => distance(primitive, p) switch { double d => new ResidualSample(i, p, d, context.Absolute.Value, d <= context.Absolute.Value) }));
     private static Fin<Seq<ResidualSample>> SampleCurveAgainst<TP>(Curve curve, TP primitive, int count, Context context, Op op, Func<TP, Point3d, double> distance) where TP : notnull =>
-        GeometryKernel.Fractions(count, op).Bind(fs => Optional(curve.NormalizedLengthParameters(s: [.. fs.AsIterable()], absoluteTolerance: context.Absolute.Value, fractionalTolerance: context.Fractional)).ToFin(op.InvalidResult()).Map(ps => Residuals(toSeq(ps).Map(curve.PointAt), primitive, context, distance)));
+        GeometryKernel.CurveSampleParameters(curve: curve, count: count, context: context, key: op)
+            .Map(parameters => Residuals(points: parameters.Map(curve.PointAt), primitive: primitive, context: context, distance: distance));
     private static Fin<Seq<ResidualSample>> SampleSurfaceAgainst<TP>(Surface surface, TP primitive, int resolution, Context context, Op op, Func<TP, Point3d, double> distance) where TP : notnull =>
-        (Analyze.Samples(domain: surface.Domain(direction: 0), resolution: resolution, key: op),
-         Analyze.Samples(domain: surface.Domain(direction: 1), resolution: resolution, key: op))
-        .Apply(static (u, v) => (U: u, V: v)).As()
-        .Map(samples => Residuals(samples.U.Bind(u => samples.V.Map(v => surface.PointAt(u: u, v: v))), primitive, context, distance));
+        GeometryKernel.SurfaceSamplePoints(surface: surface, resolution: resolution, context: context, key: op)
+            .Map(points => Residuals(points: points, primitive: primitive, context: context, distance: distance));
 }

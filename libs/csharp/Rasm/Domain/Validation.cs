@@ -93,6 +93,8 @@ public sealed partial record Requirement {
         }
     }
     [SmartEnum<string>]
+    [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+    [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
     private sealed partial class Check {
         public static readonly Check Validity = new(key: "rhino-validity", applies: static _ => true, run: static (check, _, g, _) => check.Demand(geometry: g, condition: g.IsValidWithLog(log: out string log), log: log));
         public static readonly Check UsableBounds = new(key: "usable-bounds", applies: static _ => true, run: static (check, ctx, g, _) => check.Demand(geometry: g, condition: g.GetBoundingBox(accurate: true) is { IsValid: true } box && box.IsDegenerate(tolerance: ctx.Absolute.Value) < 4, log: "Rhino could not compute a usable accurate bounding box."));
@@ -263,7 +265,6 @@ internal static class OpAcceptance {
             double scalar => Some(RhinoMath.IsValidDouble(scalar)),
             bool or int or Enum or SurfaceCurvature or MeshCheckParameters => Some(true),
             global::Rasm.Domain.Kind => Some(true),
-            CurveFeature => Some(true),
             ClosestHit h => Some(h.Point.IsValid
                 && h.Distance.Map(static d => RhinoMath.IsValidDouble(d) && d >= 0.0).IfNone(true)
                 && h.Normal.Map(static n => n.IsValid && n.Length > RhinoMath.ZeroTolerance).IfNone(true)

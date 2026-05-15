@@ -4,7 +4,7 @@ namespace Rasm.Grasshopper;
 public sealed record OutputGroup(
     Port<Shape> Input,
     Seq<IPort> Ports,
-    Func<IDataAccess, Hints, GrasshopperRuntime, Seq<Flow<Shape>>, Unit> RunGroup,
+    Func<IDataAccess, Hints, GrasshopperRuntime, Seq<Flow<Shape>>, Seq<object>> RunGroup,
     Func<IDataAccess, Hints, Unit> EmptyGroup);
 
 // --- [MODELS] ---------------------------------------------------------------------------
@@ -19,7 +19,7 @@ public readonly record struct Hints(Seq<(IPort Port, int Slot)> Inputs) {
 }
 public readonly record struct OutputSlot<TSource>(
     IPort Port,
-    Func<IDataAccess, int, GrasshopperRuntime, Seq<Flow<TSource>>, Unit> Write,
+    Func<IDataAccess, int, GrasshopperRuntime, Seq<Flow<TSource>>, Seq<object>> Write,
     Func<IDataAccess, int, Unit> Empty);
 
 // --- [SERVICES] -------------------------------------------------------------------------
@@ -42,7 +42,7 @@ public static class GrasshopperRuntimeExtensions {
     }
 }
 public static class Output {
-    private static Unit RunDetails<TSource>(
+    private static Seq<object> RunDetails<TSource>(
         Seq<OutputSlot<TSource>> slots,
         Func<GrasshopperRuntime, Eff<Env, Seq<Flow<TSource>>>> source,
         bool emptyUnsupported,
@@ -52,11 +52,11 @@ public static class Output {
         GrasshopperRuntime runtime) {
         ArgumentNullException.ThrowIfNull(argument: access);
         Seq<(OutputSlot<TSource> Output, int Slot)> active = slots.Choose(output => outputs.Slot(port: output.Port).Map(slot => (Output: output, Slot: slot)));
-        Fin<Unit> result = active.IsEmpty switch {
-            true => Fin.Succ(Unit.Default),
+        Fin<Seq<object>> result = active.IsEmpty switch {
+            true => Fin.Succ(Seq<object>()),
             false => from context in runtime.Scope.Context
                      from written in source(arg: runtime).Map(values => values.IsEmpty switch {
-                         true => RemarkEmpty(slots: slots, access: access, outputs: outputs),
+                         true => RemarkEmpty(slots: slots, access: access, outputs: outputs) switch { _ => Seq<object>() },
                          false => Drain(values),
                      }).Run(env: new Env(Context: context, Progress: runtime.Progress, Cancellation: runtime.Cancellation))
                      select written,
@@ -69,10 +69,10 @@ public static class Output {
                     _ => Warn(slots: slots, access: access, error: error),
                 };
                 _ = EmptyDetails(slots: slots, access: access, outputs: outputs);
-                return Unit.Default;
+                return Seq<object>();
             });
-        Unit Drain(Seq<Flow<TSource>> sourced) => active.Iter(pair => pair.Output.Write(arg1: access, arg2: pair.Slot, arg3: runtime, arg4: sourced)) switch {
-            _ => DisposeOwned(values: sourced, outputs: active.Map(static pair => pair.Output.Port.ValueType)),
+        Seq<object> Drain(Seq<Flow<TSource>> sourced) => active.Bind(pair => pair.Output.Write(arg1: access, arg2: pair.Slot, arg3: runtime, arg4: sourced)) switch {
+            Seq<object> transfers => DisposeOwned(values: sourced, outputs: transfers) switch { _ => transfers },
         };
     }
     private static Unit EmptyDetails<TSource>(Seq<OutputSlot<TSource>> slots, IDataAccess access, Hints outputs) {
@@ -92,19 +92,20 @@ public static class Output {
         access.AddRemark(text: slots.Head.Map(static slot => slot.Port.Name).IfNone("Output"), details: "No result for sourced input.");
         return EmptyDetails(slots: slots, access: access, outputs: outputs);
     }
-    private static Unit DisposeOwned<TSource>(Seq<Flow<TSource>> values, Seq<Type> outputs) =>
+    private static Unit DisposeOwned<TSource>(Seq<Flow<TSource>> values, Seq<object> outputs) =>
         values.Choose(static value => value.Item is TopologyProjection projection ? Some(projection) : Option<TopologyProjection>.None)
-            .Iter(projection => projection.DisposeUnlessTransferred(outputTypes: outputs));
+            .Iter(projection => _ = outputs.Exists(output => ReferenceEquals(objA: output, objB: projection) || projection.Transfers(outputType: output.GetType())) switch { true => unit, false => projection.Dispose() });
     internal static OutputSlot<TSource> Slot<TSource, TOut>(
         Port<TOut> port,
         Func<GrasshopperRuntime, Seq<Flow<TSource>>, Fin<Seq<Flow<TOut>>>> project) =>
         new(
             Port: port,
             Write: (access, slot, runtime, source) => project(arg1: runtime, arg2: source).Match(
-                Succ: values => access.Write<TOut>(slot: slot, name: port.Name, targetAccess: port.Access, values: values),
+                Succ: values => access.Write<TOut>(slot: slot, name: port.Name, targetAccess: port.Access, values: values) switch { _ => values.Map(static value => (object)value.Item!) },
                 Fail: error => {
                     access.AddWarning(text: port.Name, details: error.Message);
-                    return access.Write<TOut>(slot: slot, name: port.Name, targetAccess: port.Access, values: Seq<Flow<TOut>>());
+                    _ = access.Write<TOut>(slot: slot, name: port.Name, targetAccess: port.Access, values: Seq<Flow<TOut>>());
+                    return Seq<object>();
                 }),
             Empty: (access, slot) => access.Write<TOut>(slot: slot, name: port.Name, targetAccess: port.Access, values: Seq<Flow<TOut>>()));
     public static OutputSlot<TSource> Plain<TSource, TOut>(Port<TOut> port, Func<TSource, TOut> project) =>
@@ -115,21 +116,18 @@ public static class Output {
             Fin.Succ(sources.Choose(src => project(arg: src.Item).Map(src.Project))));
     public static OutputSlot<TSource> One<TSource, TOut>(Port<TOut> port, Func<TSource, Context, Fin<TOut>> project) =>
         Slot<TSource, TOut>(port: port, project: (runtime, sources) => runtime.Scope.Context
-            .Bind(context => sources.Traverse(src => project(arg1: src.Item, arg2: context).Map(src.Project)).As()));
+            .Bind(context => sources.TraverseM(src => project(arg1: src.Item, arg2: context).Map(src.Project)).As()));
     public static Unit Write(IDataAccess access, GrasshopperRuntime runtime, Seq<OutputGroup> groups, Hints outputs) {
         Seq<OutputGroup> active = groups.Filter(group => group.Ports.Exists(port => outputs.Slot(port: port).IsSome));
-        Seq<(Port<Shape> Input, Fin<Seq<Flow<Shape>>> Source)> sources = active.Fold(Seq<Port<Shape>>(), (found, group) => found.Exists(input => ReferenceEquals(objA: input, objB: group.Input)) ? found : found.Add(value: group.Input))
-            .Map(input => (Input: input, Source: runtime.Shape(port: input)))
-            .AsIterable()
-            .ToSeq();
+        Seq<Port<Shape>> inputs = active.Fold(Seq<Port<Shape>>(), (found, group) => found.Exists(input => ReferenceEquals(objA: input, objB: group.Input)) ? found : group.Input.Cons(found)).Rev();
         return active.IsEmpty switch {
             true => Unit.Default,
-            false => active.Iter(group => RunCached(
+            false => inputs.Iter(input => RunCached(
                 access: access,
                 outputs: outputs,
                 runtime: runtime,
-                group: group,
-                source: sources.Find(source => ReferenceEquals(objA: source.Input, objB: group.Input)).Map(static source => source.Source).IfNone(Fin.Succ(Seq<Flow<Shape>>())))),
+                groups: active.Filter(group => ReferenceEquals(objA: group.Input, objB: input)),
+                source: runtime.Shape(port: input))),
         };
     }
     public static Unit Empty(IDataAccess access, Seq<OutputGroup> groups, Hints outputs) =>
@@ -148,7 +146,7 @@ public static class Output {
         where TAspect : IAspect where TOut : notnull =>
         Single<TOut>(input: input, port: port,
             operation: _ => Fin.Succ(aspect.Operation<object, TOut>()),
-            aspectLabel: aspect.GetType().Name);
+            aspectLabel: typeof(TAspect).Name);
     public static OutputGroup Single<TAspect, TOut>(Port<Shape> input, Port<TOut> port, Func<GrasshopperRuntime, Fin<TAspect>> aspect)
         where TAspect : IAspect where TOut : notnull =>
         Single<TOut>(input: input, port: port,
@@ -180,28 +178,26 @@ public static class Output {
         Port<Shape> input,
         TAspect aspect,
         bool emptyUnsupported,
-        string aspectLabel,
         params OutputSlot<TProjection>[] slots) where TAspect : IAspect where TProjection : notnull =>
         Details<TProjection>(
             input: input,
             operation: _ => Fin.Succ(aspect.Operation<object, TProjection>()),
             emptyUnsupported: emptyUnsupported,
-            aspectLabel: aspectLabel,
+            aspectLabel: typeof(TAspect).Name,
             slots: slots);
     public static OutputGroup Details<TAspect, TProjection>(
         Port<Shape> input,
         Func<GrasshopperRuntime, Fin<TAspect>> aspect,
         bool emptyUnsupported,
-        string aspectLabel,
         params OutputSlot<TProjection>[] slots) where TAspect : IAspect where TProjection : notnull =>
         Details<TProjection>(
             input: input,
             operation: runtime => aspect(arg: runtime).Map(static selected => selected.Operation<object, TProjection>()),
             emptyUnsupported: emptyUnsupported,
-            aspectLabel: aspectLabel,
+            aspectLabel: typeof(TAspect).Name,
             slots: slots);
     internal static Eff<Env, Seq<Flow<TSource>>> ShapeSource<TSource>(Seq<Flow<Shape>> sourced, Operation<object, TSource> operation) =>
-        (operation.Aggregates switch {
+        operation.Aggregates switch {
             true => from items in operation.Apply(geometry: sourced.Map(static src => src.Item.Inner))
                     let result = sourced.Fold(items.Map(item => new Flow<TSource>(
                         Pear: Pear<TSource>.Create(item: item, meta: MetaData.FindCommonData(sourced.Map(static src => src.Meta).AsIterable())),
@@ -210,12 +206,14 @@ public static class Output {
             false => from values in sourced.TraverseM(src => operation.Apply(geometry: src.Item.Inner).Map(items => src.Project(items: items).Map(src.Item.Detach))).As()
                      let result = values.Bind(static value => value)
                      select result,
-        }).Map(result => sourced.Iter(source => source.Item.DisposeUnlessTransferred(outputs: result.Map(static output => (object)output.Item!))) switch { _ => result });
-    private static Unit RunCached(IDataAccess access, Hints outputs, GrasshopperRuntime runtime, OutputGroup group, Fin<Seq<Flow<Shape>>> source) =>
+        };
+    private static Unit RunCached(IDataAccess access, Hints outputs, GrasshopperRuntime runtime, Seq<OutputGroup> groups, Fin<Seq<Flow<Shape>>> source) =>
         source.Match(
-            Succ: sourced => group.RunGroup(arg1: access, arg2: outputs, arg3: runtime, arg4: sourced),
+            Succ: sourced => groups.Bind(group => group.RunGroup(arg1: access, arg2: outputs, arg3: runtime, arg4: sourced)) switch {
+                Seq<object> transfers => sourced.Iter(source => source.Item.DisposeUnlessTransferred(outputs: transfers)),
+            },
             Fail: error => {
                 access.AddWarning(text: error.Category(), details: error.Message);
-                return group.EmptyGroup(arg1: access, arg2: outputs);
+                return groups.Iter(group => group.EmptyGroup(arg1: access, arg2: outputs));
             });
 }
