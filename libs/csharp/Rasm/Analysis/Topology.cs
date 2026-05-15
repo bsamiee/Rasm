@@ -97,7 +97,7 @@ public static partial class Analyze {
         Optional(geometry).ToFin(op.InvalidInput()).Bind(g => g switch {
             Mesh mesh => Fin.Succ(toSeq(mesh.SplitDisjointPieces().Cast<GeometryBase>())),
             Brep brep => BrepComponents(brep: brep, op: op),
-            GeometryBase { HasBrepForm: true } native => Optional(Brep.TryConvertBrep(native)).ToFin(op.InvalidResult()).Bind(c => ReferenceEquals(native, c) ? BrepComponents(brep: c, op: op) : new Lease<Brep>.Owned(Value: c).Use(d => BrepComponents(brep: d, op: op))),
+            GeometryBase { HasBrepForm: true } native => GeometryKernel.BrepForm(source: native, op: op).Bind(lease => lease.Use(brep => BrepComponents(brep: brep, op: op))),
             _ => Fin.Fail<Seq<GeometryBase>>(op.Unsupported(g.GetType(), typeof(Seq<GeometryBase>))),
         });
     private static Fin<Seq<GeometryBase>> BrepComponents(Brep brep, Op op) =>
@@ -108,5 +108,5 @@ public static partial class Analyze {
         };
     private static Fin<Seq<TOut>> ProjectComponents<TOut>(Seq<GeometryBase> components, Op op) =>
         components.TraverseM(component => component is TOut typed ? Fin.Succ(typed) : Fin.Fail<TOut>(op.Unsupported(geometryType: component.GetType(), outputType: typeof(TOut)))).As()
-            .Match(Succ: Fin.Succ, Fail: error => (components.Iter(static component => component.Dispose()), Fin.Fail<Seq<TOut>>(error)).Item2);
+            .BindFail(error => components.Iter(static component => component.Dispose()) switch { _ => Fin.Fail<Seq<TOut>>(error) });
 }

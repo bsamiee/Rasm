@@ -29,8 +29,8 @@ public partial record Points : IAspect {
                     BoundingBox box => op.Accept(values: box.GetEdges().Select(static edge => edge.PointAt(t: 0.5))).ToEff(),
                     Box box => op.Accept(values: box.BoundingBox.GetEdges().Select(static edge => edge.PointAt(t: 0.5))).ToEff(),
                     _ => from runtime in Env.EnvAsks
-                         from curves in Analyze.CurveProjections(geometry: geometry, selector: new CurveSelector(Feature: CurveFeature.Edge), context: runtime.Context, op: op, cancel: runtime.Cancellation).ToEff()
-                         from result in op.Accept(values: curves.Choose(static projection => projection.As<Curve>().Map(static c => new Lease<Curve>.Borrowed(Value: c).Use(static owned => owned.PointAtNormalizedLength(length: 0.5))))).ToEff()
+                         from curves in Analyze.CurveProjections(geometry: geometry, selector: new Curves.Selector(Feature: CurveFeature.Edge), context: runtime.Context, op: op, cancel: runtime.Cancellation).ToEff()
+                         from result in TopologyProjection.Project(all: curves, chosen: curves, project: values => op.Accept(values: values.Choose(static projection => projection.As<Curve>().Map(static c => new Lease<Curve>.Borrowed(Value: c).Use(static owned => owned.PointAtNormalizedLength(length: 0.5)))))).ToEff()
                          select result,
                 }))
             : EdgeMidpointsKey.Unsupported<TGeometry, TOut>(),
@@ -68,7 +68,7 @@ public static partial class Analyze {
             Mesh mesh => Fin.Succ(toSeq(mesh.Vertices.ToPoint3dArray())),
             PointCloud cloud => Fin.Succ(toSeq(cloud.GetPoints())),
             SubD subd => Fin.Succ(toSeq(LanguageExt.List.unfold((SubDVertex?)subd.Vertices.First, static v => v switch { SubDVertex sv => Some((sv.ControlNetPoint, (SubDVertex?)sv.Next)), _ => None }))),
-            GeometryBase { HasBrepForm: true } native => Optional(Brep.TryConvertBrep(native)).ToFin(op.InvalidResult()).Bind(brep => ReferenceEquals(native, brep) ? VerticesOf(geometry: brep, context: context, op: op) : new Lease<Brep>.Owned(Value: brep).Use(owned => VerticesOf(geometry: owned, context: context, op: op))),
+            GeometryBase { HasBrepForm: true } native => GeometryKernel.BrepForm(source: native, op: op).Bind(lease => lease.Use(brep => VerticesOf(geometry: brep, context: context, op: op))),
             Surface surface => (surface.Domain(direction: 0), surface.Domain(direction: 1)) switch {
                 (Interval u, Interval v) when u.IsValid && v.IsValid => Fin.Succ(Seq(surface.PointAt(u: u.T0, v: v.T0), surface.PointAt(u: u.T1, v: v.T0), surface.PointAt(u: u.T1, v: v.T1), surface.PointAt(u: u.T0, v: v.T1))),
                 _ => Fin.Fail<Seq<Point3d>>(op.InvalidResult()),

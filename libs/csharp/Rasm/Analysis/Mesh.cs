@@ -124,25 +124,19 @@ public static partial class Analyze {
     public static global::Rasm.Analysis.Operation<Mesh, MeshSample> MeshValidity {
         get {
             Op key = Op.Of();
-            return global::Rasm.Analysis.Operation<Mesh, MeshSample>.Build(key: key, state: MeshSampleKind.Validity, evaluator: static (kinds, geometry) => Fin.Succ(kinds.Map(kind => new MeshSample(Kind: kind, Value: kind.Sample(mesh: geometry, parameters: default)))).ToEff());
+            return MeshSamples(key: key, kinds: MeshSampleKind.Validity, inspect: false);
         }
     }
     public static global::Rasm.Analysis.Operation<Mesh, MeshSample> MeshCounts {
         get {
             Op key = Op.Of();
-            return global::Rasm.Analysis.Operation<Mesh, MeshSample>.Build(
-                key: key, state: MeshSampleKind.Counts,
-                evaluator: static (kinds, geometry) => Fin.Succ(kinds.Map(kind => new MeshSample(Kind: kind, Value: kind.Sample(mesh: geometry, parameters: default)))).ToEff());
+            return MeshSamples(key: key, kinds: MeshSampleKind.Counts, inspect: false);
         }
     }
     public static global::Rasm.Analysis.Operation<Mesh, MeshSample> MeshDefects {
         get {
             Op key = Op.Of();
-            return global::Rasm.Analysis.Operation<Mesh, MeshSample>.Build(
-                key: key, state: (Key: key, Kinds: MeshSampleKind.Defects),
-                evaluator: static (state, geometry) => from parameters in MeshCheck.Apply(geometry: geometry)
-                                                       from head in parameters.Head.ToFin(state.Key.InvalidResult()).ToEff()
-                                                       select state.Kinds.Map(kind => new MeshSample(Kind: kind, Value: kind.Sample(mesh: geometry, parameters: head))));
+            return MeshSamples(key: key, kinds: MeshSampleKind.Defects, inspect: true);
         }
     }
     public static global::Rasm.Analysis.Operation<Mesh, TopologyProjection> MeshAtFace(int? index = null) {
@@ -159,6 +153,15 @@ public static partial class Analyze {
     }
     internal static global::Rasm.Analysis.Operation<TGeometry, TOut> MeshLift<TGeometry, TOut, TValue>(Op key, global::Rasm.Analysis.Operation<Mesh, TValue> source) where TGeometry : notnull =>
         Native<TGeometry, TOut, Mesh, TValue, global::Rasm.Analysis.Operation<Mesh, TValue>>(key: key, state: source, project: static (q, mesh) => q.Apply(geometry: mesh));
+    private static global::Rasm.Analysis.Operation<Mesh, MeshSample> MeshSamples(Op key, Seq<MeshSampleKind> kinds, bool inspect) =>
+        global::Rasm.Analysis.Operation<Mesh, MeshSample>.Build(
+            key: key, state: (Key: key, Kinds: kinds, Inspect: inspect),
+            evaluator: static (state, geometry) => state.Inspect switch {
+                true => from parameters in MeshCheck.Apply(geometry: geometry)
+                        from head in parameters.Head.ToFin(state.Key.InvalidResult()).ToEff()
+                        select state.Kinds.Map(kind => new MeshSample(Kind: kind, Value: kind.Sample(mesh: geometry, parameters: head))),
+                false => Fin.Succ(state.Kinds.Map(kind => new MeshSample(Kind: kind, Value: kind.Sample(mesh: geometry, parameters: default)))).ToEff(),
+            });
     internal static Fin<Seq<Polyline>> SelfIntersectionsValue(Op op, Mesh geometry, Env runtime) {
         // BOUNDARY ADAPTER — Rhino GetSelfIntersections takes IDisposable TextLog + multi-out.
         using TextLog textLog = new();

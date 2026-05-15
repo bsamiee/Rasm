@@ -27,17 +27,29 @@ internal abstract partial record GrasshopperFault : Rasm.Domain.Expected {
 // --- [MODELS] ---------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Shape {
-    private Shape(object inner) => Inner = inner;
+    private readonly Option<IDisposable> owned;
+    private Shape(object inner, Option<IDisposable> owned) { Inner = inner; this.owned = owned; }
     public object Inner { get; }
     public const string Accepted = "Rhino/GH geometry convertible through native RhinoCommon or GH2 brokers";
-    internal static Fin<Shape> Create(object? value) =>
+    internal Unit DisposeUnlessTransferred(Seq<object> outputs) =>
+        owned.Filter(disposable => !outputs.Exists(output => ReferenceEquals(objA: output, objB: disposable)))
+            .Iter(static disposable => disposable.Dispose());
+    internal Flow<TSource> Detach<TSource>(Flow<TSource> output) =>
+        (Inner, output.Item) switch {
+            (GeometryBase source, TopologyProjection projection) => output.Project(item: (TSource)(object)projection.DetachFrom(source: source)),
+            _ => output,
+        };
+    internal static Fin<Shape> Create(object? value) => Create(value: value, owned: Option<IDisposable>.None);
+    private static Fin<Shape> Create(object? value, Option<IDisposable> owned) =>
         Optional(value)
             .ToFin(new GrasshopperFault.InputRequired(PortName: nameof(Shape), Hint: Accepted))
-            .Bind(static raw => raw switch {
+            .Bind(raw => raw switch {
                 Shape shape => Fin.Succ(shape),
-                object candidate when KindLookup.Resolve(candidate.GetType()).IsSome => Op.Create(value: nameof(Shape)).AcceptValue(value: candidate).Map(static valid => new Shape(inner: valid)),
+                object candidate when KindLookup.Resolve(candidate.GetType()).IsSome => Op.Create(value: nameof(Shape)).AcceptValue(value: candidate).Map(valid => new Shape(inner: valid, owned: owned.Filter(owner => ReferenceEquals(objA: owner, objB: valid)))),
                 object candidate => Fin.Fail<Shape>(new GrasshopperFault.UnsupportedSource(PortName: nameof(Shape), SourceType: candidate.GetType(), Hint: Accepted)),
             });
+    internal static Option<Shape> Converted(object raw, GeometryBase? value) =>
+        Optional(value).Bind(converted => Create(value: converted, owned: ReferenceEquals(objA: raw, objB: converted) ? Option<IDisposable>.None : Some((IDisposable)converted)).ToOption());
 }
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Flow<T>(Pear<T> Pear, Option<Site> Site) {
@@ -143,25 +155,10 @@ public static class Bridge {
     private static Seq<Leaf<T>> Leaves<T>(Seq<Flow<T>> values) =>
         values.Map((value, index) => new Leaf<T>(pear: value.Pear, site: value.Site.IfNone(new Site(path: new Grasshopper2.Data.Path(0), item: index))));
     private readonly record struct Broker(int Priority, Func<object, Option<Shape>> Convert);
-    // Priority sorts at construction (descending); declaration order is irrelevant. CurveBroker and SurfaceBroker handle disjoint inputs and share priority 100; AsShape catches any registered geometry kind at 10.
     private static readonly Seq<Broker> Brokers = toSeq(new Broker[] {
-        new(Priority: 100, Convert: static raw => CurveBroker.CastOrConvert(data: raw, p2: out Line line, p3: out Triangle triangle, p4: out Rectangle3d rectangle, pn: out Polyline polyline, a360: out Circle circle, ax: out Arc arc, c: out Curve curve) switch {
-            CurveType.Line => AsShape(value: line),
-            CurveType.Triangle => AsShape(value: triangle.ToPolyline()),
-            CurveType.Rectangle => AsShape(value: rectangle.ToPolyline()),
-            CurveType.Polyline => AsShape(value: polyline),
-            CurveType.Circle => AsShape(value: circle),
-            CurveType.Arc => AsShape(value: arc),
-            CurveType.Curve => AsShape(value: curve),
-            _ => Option<Shape>.None,
-        }),
-        new(Priority: 100, Convert: static raw => SurfaceBroker.CastOrConvert(data: raw, p1: out Surface surface, p3: out Brep brep, p4: out SubD subd) switch {
-            SurfaceLikeType.Surf => AsShape(value: surface),
-            SurfaceLikeType.Brep => AsShape(value: brep),
-            SurfaceLikeType.SubD => AsShape(value: subd),
-            _ => Option<Shape>.None,
-        }),
-        new(Priority:  10, Convert: static raw => AsShape(value: raw)),
+        new(Priority: 100, Convert: static raw => AsShape(value: raw)),
+        new(Priority:  90, Convert: static raw => Shape.Converted(raw: raw, value: CurveBroker.ToRhinoCurve(raw))),
+        new(Priority:  90, Convert: static raw => Shape.Converted(raw: raw, value: SurfaceBroker.ToBrep(raw))),
     }.OrderByDescending(static b => b.Priority));
     private static Option<Shape> NormalizeShape(object raw) => Brokers.Choose(broker => broker.Convert(arg: raw)).Head;
     private static Option<Shape> AsShape(object? value) => Optional(value).Bind(static candidate => Shape.Create(value: candidate).ToOption());

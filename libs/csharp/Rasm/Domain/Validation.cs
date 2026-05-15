@@ -268,6 +268,7 @@ internal static class OpAcceptance {
                 && h.MeshPoint.Map(static m => m.Point.IsValid).IfNone(true)),
             TopologyProjection p => Some(p switch {
                 { Value: Curve { IsValid: true } } => true,
+                { Value: BrepFace { IsValid: true } face, Source: { ComponentIndexType: ComponentIndexType.BrepFace, Index: int f } } => f >= 0 && f == face.FaceIndex,
                 { Value: Brep { IsValid: true, Faces.Count: > 0 }, Source: { ComponentIndexType: ComponentIndexType.BrepFace, Index: >= 0 } } => true,
                 { Value: Mesh { IsValid: true } m, Source: { ComponentIndexType: ComponentIndexType.MeshFace, Index: int f } } => f >= 0 && f < m.Faces.Count,
                 _ => false,

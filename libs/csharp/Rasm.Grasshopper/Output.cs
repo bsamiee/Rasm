@@ -94,7 +94,7 @@ public static class Output {
     }
     private static Unit DisposeOwned<TSource>(Seq<Flow<TSource>> values, Seq<Type> outputs) =>
         values.Choose(static value => value.Item is TopologyProjection projection ? Some(projection) : Option<TopologyProjection>.None)
-            .Iter(projection => Optional(projection).Filter(p => !outputs.Exists(output => p.Transfers(outputType: output))).Iter(static p => p.Dispose()));
+            .Iter(projection => projection.DisposeUnlessTransferred(outputTypes: outputs));
     internal static OutputSlot<TSource> Slot<TSource, TOut>(
         Port<TOut> port,
         Func<GrasshopperRuntime, Seq<Flow<TSource>>, Fin<Seq<Flow<TOut>>>> project) =>
@@ -201,14 +201,16 @@ public static class Output {
             aspectLabel: aspectLabel,
             slots: slots);
     internal static Eff<Env, Seq<Flow<TSource>>> ShapeSource<TSource>(Seq<Flow<Shape>> sourced, Operation<object, TSource> operation) =>
-        operation.Aggregates switch {
-            true => operation.Apply(geometry: sourced.Map(static src => src.Item.Inner))
-                .Map(items => items.Map(item => new Flow<TSource>(
-                    Pear: Pear<TSource>.Create(item: item, meta: MetaData.FindCommonData(sourced.Map(static src => src.Meta).AsIterable())),
-                    Site: Option<Site>.None))),
-            false => from values in sourced.TraverseM(src => operation.Apply(geometry: src.Item.Inner).Map(src.Project)).As()
-                     select values.Bind(static value => value),
-        };
+        (operation.Aggregates switch {
+            true => from items in operation.Apply(geometry: sourced.Map(static src => src.Item.Inner))
+                    let result = sourced.Fold(items.Map(item => new Flow<TSource>(
+                        Pear: Pear<TSource>.Create(item: item, meta: MetaData.FindCommonData(sourced.Map(static src => src.Meta).AsIterable())),
+                        Site: Option<Site>.None)), static (acc, src) => acc.Map(src.Item.Detach))
+                    select result,
+            false => from values in sourced.TraverseM(src => operation.Apply(geometry: src.Item.Inner).Map(items => src.Project(items: items).Map(src.Item.Detach))).As()
+                     let result = values.Bind(static value => value)
+                     select result,
+        }).Map(result => sourced.Iter(source => source.Item.DisposeUnlessTransferred(outputs: result.Map(static output => (object)output.Item!))) switch { _ => result });
     private static Unit RunCached(IDataAccess access, Hints outputs, GrasshopperRuntime runtime, OutputGroup group, Fin<Seq<Flow<Shape>>> source) =>
         source.Match(
             Succ: sourced => group.RunGroup(arg1: access, arg2: outputs, arg3: runtime, arg4: sourced),
