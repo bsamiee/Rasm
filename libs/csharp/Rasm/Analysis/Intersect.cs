@@ -74,7 +74,7 @@ public static partial class Analyze {
             (Curve a, Plane b) => CurvePlane(a: a, b: b, context: context, op: op),
             (Curve a, Line b) => CurveLine(a: a, b: b, context: context, op: op),
             (Curve a, BrepFace b) => SolvedHits(solved: Intersection.CurveBrepFace(a, b, context.Absolute.Value, out Curve[] cs, out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Overlap, op: op, cancel: cancel),
-            (Curve a, Brep b) => SolvedHits(solved: Intersection.CurveBrep(a, b, context.Absolute.Value, out Curve[] cs, out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Overlap, op: op, cancel: cancel),
+            (Curve a, Brep b) => SolvedHits(solved: Intersection.CurveBrep(a, b, context.Absolute.Value, out Curve[] cs, out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Overlap, op: op, cancel: cancel, partial: true),
             (Curve a, Surface b) => CurveSurface(a: a, b: b, context: context, op: op),
             (Surface a, Surface b) => SolvedHits(solved: Intersection.SurfaceSurface(a, b, context.Absolute.Value, out Curve[] cs, out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Curve, op: op, cancel: cancel),
             (Brep a, Plane b) => SolvedHits(solved: Intersection.BrepPlane(a, b, context.Absolute.Value, out Curve[] cs, out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Curve, op: op, cancel: cancel),
@@ -103,9 +103,9 @@ public static partial class Analyze {
                 .IfNone(IntersectionHit.Overlap(h.PointA, h.PointA2, o.A, o.B))).ToSeq(),
             _ => Seq<IntersectionHit>(),
         }))));
-    private static Fin<IntersectionResult> SolvedHits(bool solved, Curve[]? curves, Point3d[]? points, IntersectionKind kind, Op op, CancellationToken cancel) =>
+    private static Fin<IntersectionResult> SolvedHits(bool solved, Curve[]? curves, Point3d[]? points, IntersectionKind kind, Op op, CancellationToken cancel, bool partial = false) =>
         (Curves: toSeq(curves ?? []), Points: toSeq(points ?? [])) switch {
-            (Seq<Curve> cs, Seq<Point3d> ps) => (solved || !cs.IsEmpty || !ps.IsEmpty, cancel.IsCancellationRequested) switch {
+            (Seq<Curve> cs, Seq<Point3d> ps) => (solved || (partial && (!cs.IsEmpty || !ps.IsEmpty)), cancel.IsCancellationRequested) switch {
                 (_, true) => Fin.Fail<IntersectionResult>(new Fault.Cancelled()),
                 (true, _) => Fin.Succ((IntersectionResult)new IntersectionResult.Hits(cs.Map(c => IntersectionHit.Along(c, kind)) + ps.Map(static p => IntersectionHit.At(p)))),
                 _ => Fin.Fail<IntersectionResult>(op.InvalidResult()),

@@ -28,7 +28,7 @@ public partial record Meshes : IAspect {
 }
 
 [SmartEnum<int>]
-public partial class MeshSampleKind {
+public sealed partial class MeshSampleKind {
     public static readonly MeshSampleKind None = new(key: 0, isValidity: false, isCount: false, isDefect: false, sample: static (_, _) => 0), Valid = new(key: 1, isValidity: true, isCount: false, isDefect: false, sample: static (m, _) => m.IsValid ? 1 : 0), Closed = new(key: 2, isValidity: true, isCount: false, isDefect: false, sample: static (m, _) => m.IsClosed ? 1 : 0);
     public static readonly MeshSampleKind Oriented = new(key: 3, isValidity: true, isCount: false, isDefect: false, sample: static (m, _) => (m.IsManifold(topologicalTest: true, isOriented: out bool oriented, hasBoundary: out bool _) && oriented) ? 1 : 0), Solid = new(key: 4, isValidity: true, isCount: false, isDefect: false, sample: static (m, _) => m.IsSolid ? 1 : 0);
     public static readonly MeshSampleKind Manifold = new(key: 5, isValidity: true, isCount: false, isDefect: false, sample: static (m, _) => m.IsManifold(topologicalTest: true, isOriented: out bool _, hasBoundary: out bool _) ? 1 : 0), BoundaryFree = new(key: 6, isValidity: true, isCount: false, isDefect: false, sample: static (m, _) => (m.IsManifold(topologicalTest: true, isOriented: out bool _, hasBoundary: out bool boundary) && !boundary) ? 1 : 0);

@@ -45,13 +45,18 @@ public sealed record TopologyProjection {
     public bool SameAs(TopologyProjection? other) => other switch { TopologyProjection p => ReferenceEquals(Value, p.Value) && Source.Equals(p.Source), _ => false };
     public bool Transfers(Type outputType) => Owns && ((Value is Curve && outputType == typeof(Curve)) || (Value is Brep && outputType == typeof(Brep)));
     public Fin<Seq<Point3d>> Vertices => OnMeshFace<Seq<Point3d>>(static (mesh, face) => mesh.Faces.GetFaceVertices(face, out Point3f a, out Point3f b, out Point3f c, out Point3f d) switch { true when mesh.Faces[face].IsQuad => Fin.Succ(Seq((Point3d)a, (Point3d)b, (Point3d)c, (Point3d)d)), true => Fin.Succ(Seq((Point3d)a, (Point3d)b, (Point3d)c)), false => Fin.Fail<Seq<Point3d>>(Key.InvalidResult()) });
-    public Fin<Vector3d> Normal => Vertices.Bind(static vertices => vertices.Count switch {
-        >= 3 => Vector3d.CrossProduct(a: vertices[1] - vertices[0], b: vertices[2] - vertices[0]) switch {
-            Vector3d normal when normal.Unitize() && normal.IsValid => Fin.Succ(normal),
+    public Fin<Vector3d> Normal => OnMeshFace<Vector3d>(static (mesh, face) =>
+        FaceNormal(mesh.FaceNormals.Count > face ? Some(mesh.FaceNormals[face]) : Option<Vector3f>.None).Match(
+            Succ: Fin.Succ,
+            Fail: _ => (mesh.FaceNormals.ComputeFaceNormals() && mesh.FaceNormals.Count > face) switch {
+                true => FaceNormal(Some(mesh.FaceNormals[face])),
+                false => Fin.Fail<Vector3d>(Key.InvalidResult()),
+            }));
+    private static Fin<Vector3d> FaceNormal(Option<Vector3f> source) =>
+        source.Case switch {
+            Vector3f faceNormal when new Vector3d(faceNormal) is Vector3d normal && normal.IsValid && !normal.IsTiny() => Fin.Succ(normal),
             _ => Fin.Fail<Vector3d>(Key.InvalidResult()),
-        },
-        _ => Fin.Fail<Vector3d>(Key.InvalidResult()),
-    });
+        };
     internal static Fin<Seq<TValue>> Project<TValue>(
         Seq<TopologyProjection> all,
         Seq<TopologyProjection> chosen,
@@ -112,10 +117,10 @@ public abstract partial record IntersectionHit {
     public sealed record PointCase(Point3d Point) : IntersectionHit;
     public sealed record CurveCase(Curve Curve, IntersectionKind CurveKind) : IntersectionHit;
     public sealed record OverlapCase(Point3d Start, Point3d End, Interval OverlapA, Interval OverlapB, Option<Curve> Curve) : IntersectionHit;
-    public IntersectionKind Kind => this switch { PointCase => IntersectionKind.Point, CurveCase c => c.CurveKind, OverlapCase => IntersectionKind.Overlap, _ => IntersectionKind.Unknown };
-    public Seq<Curve> Curves => this switch { CurveCase c => Seq(c.Curve), OverlapCase o => o.Curve.ToSeq(), _ => Seq<Curve>() };
-    public Seq<Point3d> Points => this switch { PointCase p => Seq(p.Point), OverlapCase o => Seq(o.Start, o.End), _ => Seq<Point3d>() };
-    public Seq<Interval> Intervals => this switch { OverlapCase o => Seq(o.OverlapA, o.OverlapB), _ => Seq<Interval>() };
+    public IntersectionKind Kind => Switch(pointCase: static _ => IntersectionKind.Point, curveCase: static c => c.CurveKind, overlapCase: static _ => IntersectionKind.Overlap);
+    public Seq<Curve> Curves => Switch(pointCase: static _ => Seq<Curve>(), curveCase: static c => Seq(c.Curve), overlapCase: static o => o.Curve.ToSeq());
+    public Seq<Point3d> Points => Switch(pointCase: static p => Seq(p.Point), curveCase: static _ => Seq<Point3d>(), overlapCase: static o => Seq(o.Start, o.End));
+    public Seq<Interval> Intervals => Switch(pointCase: static _ => Seq<Interval>(), curveCase: static _ => Seq<Interval>(), overlapCase: static o => Seq(o.OverlapA, o.OverlapB));
     internal Unit Dispose() => Curves.Iter(static curve => curve.Dispose());
     public static IntersectionHit At(Point3d point) => new PointCase(point);
     public static IntersectionHit Along(Curve curve, IntersectionKind kind) => new CurveCase(curve, kind);
@@ -150,6 +155,28 @@ internal static class GeometryKernel {
     internal static bool CanBound(Type source, bool includeSphere) =>
         source != typeof(Plane) && (includeSphere || source != typeof(Sphere)) && (source == typeof(object) || source == typeof(GeometryBase) || typeof(GeometryBase).IsAssignableFrom(source) || KindLookup.Resolve(source).IsSome);
     internal static bool CanKind(Type source) => source == typeof(object) || source == typeof(GeometryBase) || KindLookup.Resolve(source).IsSome;
+    internal static bool CanDecomposeFaces(Type type) =>
+        type == typeof(object) || type == typeof(GeometryBase) || typeof(BrepFace).IsAssignableFrom(type) || typeof(Brep).IsAssignableFrom(type) || typeof(Surface).IsAssignableFrom(type) || typeof(Extrusion).IsAssignableFrom(type) || typeof(SubD).IsAssignableFrom(type);
+    internal static bool CanReadVertices(Type type) =>
+        type == typeof(object) || type == typeof(GeometryBase) || type == typeof(Point3d) || type == typeof(Line) || type == typeof(Polyline) || type == typeof(BoundingBox) || type == typeof(Box) || typeof(Point).IsAssignableFrom(type) || typeof(Curve).IsAssignableFrom(type) || typeof(Brep).IsAssignableFrom(type) || typeof(Mesh).IsAssignableFrom(type) || typeof(PointCloud).IsAssignableFrom(type) || typeof(SubD).IsAssignableFrom(type) || typeof(Surface).IsAssignableFrom(type) || typeof(Extrusion).IsAssignableFrom(type);
+    internal static bool CanReadControlPoints(Type type) =>
+        type == typeof(object) || typeof(Curve).IsAssignableFrom(type) || typeof(Surface).IsAssignableFrom(type) || typeof(Brep).IsAssignableFrom(type);
+    internal static bool CanProjectCurves(Type type, Option<CurveFeature> feature = default) =>
+        type == typeof(object)
+        || (feature.Case switch {
+            CurveFeature f => (type, f) switch {
+                (Type t, CurveFeature.Input) when t == typeof(Line) || t == typeof(Circle) || t == typeof(Arc) || typeof(Curve).IsAssignableFrom(t) => true,
+                (Type t, CurveFeature.Segment or CurveFeature.SubCurve) when t == typeof(Line) || t == typeof(Polyline) || t == typeof(Circle) || t == typeof(Arc) || typeof(Curve).IsAssignableFrom(t) || typeof(SubD).IsAssignableFrom(t) => true,
+                (Type t, CurveFeature.Boundary) when t == typeof(Line) || t == typeof(Polyline) || t == typeof(Circle) || t == typeof(Arc) || typeof(Curve).IsAssignableFrom(t) || typeof(Brep).IsAssignableFrom(t) || typeof(BrepFace).IsAssignableFrom(t) || typeof(Mesh).IsAssignableFrom(t) || typeof(Surface).IsAssignableFrom(t) => true,
+                (Type t, CurveFeature.Edge or CurveFeature.Interior or CurveFeature.NonManifold or CurveFeature.NakedOuter) when typeof(Brep).IsAssignableFrom(t) || typeof(Mesh).IsAssignableFrom(t) => true,
+                (Type t, CurveFeature.NakedInner or CurveFeature.OuterLoop or CurveFeature.InnerLoop) when typeof(Brep).IsAssignableFrom(t) => true,
+                (Type t, CurveFeature.Iso) when typeof(Brep).IsAssignableFrom(t) || typeof(Surface).IsAssignableFrom(t) => true,
+                (Type t, CurveFeature.Silhouette or CurveFeature.Draft) when typeof(Brep).IsAssignableFrom(t) || typeof(Mesh).IsAssignableFrom(t) || typeof(Extrusion).IsAssignableFrom(t) || typeof(Surface).IsAssignableFrom(t) || typeof(SubD).IsAssignableFrom(t) => true,
+                (Type t, CurveFeature.Edge) when typeof(SubD).IsAssignableFrom(t) => true,
+                _ => false,
+            },
+            _ => typeof(Curve).IsAssignableFrom(type) || type == typeof(Line) || type == typeof(Polyline) || type == typeof(Circle) || type == typeof(Arc) || typeof(Brep).IsAssignableFrom(type) || typeof(BrepFace).IsAssignableFrom(type) || typeof(Mesh).IsAssignableFrom(type) || typeof(Surface).IsAssignableFrom(type) || typeof(Extrusion).IsAssignableFrom(type) || typeof(SubD).IsAssignableFrom(type),
+        });
     internal static bool CanCoerce(Type source, Type target) =>
         source == typeof(object) || source == typeof(GeometryBase) || target.IsAssignableFrom(source)
         || (target == typeof(Box) && typeof(Brep).IsAssignableFrom(source))
@@ -229,7 +256,7 @@ internal static class GeometryKernel {
             _ => Option<object>.None,
         };
     private static Option<Box> BoxOf(Brep brep, Context context) =>
-        brep.IsBox(context.Absolute.Value) && brep.Faces[0].UnderlyingSurface().TryGetPlane(out Plane plane, context.Absolute.Value) && brep.GetBoundingBox(plane, out Box box) is { IsValid: true } ? Some(box) : Option<Box>.None;
+        brep.IsBox(context.Absolute.Value) && brep.Faces[0].UnderlyingSurface().TryGetPlane(out Plane plane, context.Absolute.Value) && new Box(plane, brep) is { IsValid: true } box ? Some(box) : Option<Box>.None;
     private static Option<Line> LineOf(Curve curve, Context context) => curve.IsLinear(context.Absolute.Value) ? Some(new Line(curve.PointAtStart, curve.PointAtEnd)) : Option<Line>.None;
     private static Option<Circle> CircleOf(Curve curve, Context context) => curve.TryGetCircle(out Circle value, context.Absolute.Value) ? Some(value) : Option<Circle>.None;
     private static Option<Arc> ArcOf(Curve curve, Context context) => curve.TryGetArc(out Arc value, context.Absolute.Value) ? Some(value) : Option<Arc>.None;

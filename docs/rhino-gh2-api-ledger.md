@@ -84,7 +84,7 @@
 
 - `libs/csharp/Rasm.Grasshopper` models ports as item, twig, or tree data with metadata, null state, and tree path state.
 - GH2 imperative calls remain quarantined in boundary adapters such as `Bridge`, `Port`, and component overrides.
-- `PortPolicy.Index()` is the single owner of index behavior; `PortKind.Index` was removed.
+- `PortKind.Index` owns native `InputAdder.AddIndex` construction; runtime selection still uses `IDataAccess.GetIndex`.
 - `Context` owns tolerances and model units only; unused custom meter-scale state was removed.
 - `Operation<TGeometry,TOut>.Aggregate()` lets aggregate-capable queries consume the full input; unsupported aggregate requests fail instead of silently falling back.
 - Future query slices should prioritize GH2 tree topology transforms and measured Rhino mass collection overloads before adding local routing code.

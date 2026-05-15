@@ -58,7 +58,7 @@ public partial record Curves : IAspect {
     };
     internal bool CanProject(Type type) =>
         type == typeof(object) || type == typeof(GeometryBase)
-        || KindLookup.Resolve(type).Map(kind => Analyze.CanProjectCurves(type: type, feature: Some(ToSelector(topology: kind.Topology).Feature))).IfNone(false);
+        || KindLookup.Resolve(type).Map(kind => GeometryKernel.CanProjectCurves(type: type, feature: Some(ToSelector(topology: kind.Topology).Feature))).IfNone(false);
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -87,22 +87,6 @@ public static partial class Analyze {
                 from chosen in state.Aspect.Select(curves: curves).ToEff()
                 from result in TopologyProjection.Project(all: curves, chosen: chosen, ownership: typeof(TValue) == typeof(Curve) || typeof(TValue) == typeof(TopologyProjection) ? ProjectionOwnership.Transfer : ProjectionOwnership.Dispose, project: values => state.Key.Accept(values: values.Choose(state.Project))).ToEff()
                 select result));
-    internal static bool CanProjectCurves(Type type, Option<CurveFeature> feature = default) =>
-        type == typeof(object)
-        || (feature.Case switch {
-            CurveFeature f => (type, f) switch {
-                (Type t, CurveFeature.Input) when t == typeof(Line) || t == typeof(Circle) || t == typeof(Arc) || typeof(Curve).IsAssignableFrom(t) => true,
-                (Type t, CurveFeature.Segment or CurveFeature.SubCurve) when t == typeof(Line) || t == typeof(Polyline) || t == typeof(Circle) || t == typeof(Arc) || typeof(Curve).IsAssignableFrom(t) || typeof(SubD).IsAssignableFrom(t) => true,
-                (Type t, CurveFeature.Boundary) when t == typeof(Line) || t == typeof(Polyline) || t == typeof(Circle) || t == typeof(Arc) || typeof(Curve).IsAssignableFrom(t) || typeof(Brep).IsAssignableFrom(t) || typeof(BrepFace).IsAssignableFrom(t) || typeof(Mesh).IsAssignableFrom(t) || typeof(Surface).IsAssignableFrom(t) => true,
-                (Type t, CurveFeature.Edge or CurveFeature.Interior or CurveFeature.NonManifold or CurveFeature.NakedOuter) when typeof(Brep).IsAssignableFrom(t) || typeof(Mesh).IsAssignableFrom(t) => true,
-                (Type t, CurveFeature.NakedInner or CurveFeature.OuterLoop or CurveFeature.InnerLoop) when typeof(Brep).IsAssignableFrom(t) => true,
-                (Type t, CurveFeature.Iso) when typeof(Brep).IsAssignableFrom(t) || typeof(Surface).IsAssignableFrom(t) => true,
-                (Type t, CurveFeature.Silhouette or CurveFeature.Draft) when typeof(Brep).IsAssignableFrom(t) || typeof(Mesh).IsAssignableFrom(t) || typeof(Extrusion).IsAssignableFrom(t) || typeof(Surface).IsAssignableFrom(t) || typeof(SubD).IsAssignableFrom(t) => true,
-                (Type t, CurveFeature.Edge) when typeof(SubD).IsAssignableFrom(t) => true,
-                _ => false,
-            },
-            _ => typeof(Curve).IsAssignableFrom(type) || type == typeof(Line) || type == typeof(Polyline) || type == typeof(Circle) || type == typeof(Arc) || typeof(Brep).IsAssignableFrom(type) || typeof(BrepFace).IsAssignableFrom(type) || typeof(Mesh).IsAssignableFrom(type) || typeof(Surface).IsAssignableFrom(type) || typeof(Extrusion).IsAssignableFrom(type) || typeof(SubD).IsAssignableFrom(type),
-        });
     internal static Fin<Seq<TopologyProjection>> CurveProjections<TGeometry>(TGeometry geometry, CurveSelector selector, Context context, Op op, CancellationToken cancel) where TGeometry : notnull =>
         Optional(geometry).ToFin(op.InvalidInput()).Bind(g => (g, selector.Feature) switch {
             (Curve or Line or Polyline or Circle or Arc, CurveFeature.Input or CurveFeature.Boundary or CurveFeature.Segment or CurveFeature.SubCurve) => CurveInput(source: g, selector: selector, op: op),

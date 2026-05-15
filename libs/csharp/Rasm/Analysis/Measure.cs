@@ -73,10 +73,15 @@ public static partial class Analyze {
     }
     internal static global::Rasm.Analysis.Operation<TGeometry, TOut> Length<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
-        return (typeof(TOut) == typeof(double), KindLookup.Resolve(typeof(TGeometry)).Case) switch {
-            (true, Kind { Topology: Topology.Curve } kind) => Cast<TGeometry, TOut>(key: key, operation: global::Rasm.Analysis.Operation<TGeometry, double>.Build(
+        Option<Requirement> requirement = (typeof(TOut) == typeof(double), typeof(TGeometry), KindLookup.Resolve(typeof(TGeometry)).Case) switch {
+            (true, Type geometry, _) when geometry == typeof(object) || geometry == typeof(GeometryBase) => Some(Requirement.CurveLength),
+            (true, _, Kind { Topology: Topology.Curve } kind) => Some(typeof(GeometryBase).IsAssignableFrom(kind.Type) ? Requirement.CurveLength : Requirement.None),
+            _ => Option<Requirement>.None,
+        };
+        return requirement.Match(
+            Some: active => Cast<TGeometry, TOut>(key: key, operation: global::Rasm.Analysis.Operation<TGeometry, double>.Build(
                 key: key,
-                requirement: typeof(GeometryBase).IsAssignableFrom(kind.Type) ? Requirement.CurveLength : Requirement.None,
+                requirement: active,
                 requiresContext: true,
                 state: key,
                 evaluator: static (op, geometry) =>
@@ -84,8 +89,7 @@ public static partial class Analyze {
                     from length in LengthOf(geometry: geometry, context: context, op: op).ToEff()
                     from result in op.Accept(value: length).ToEff()
                     select result)),
-            _ => key.Unsupported<TGeometry, TOut>(),
-        };
+            None: () => key.Unsupported<TGeometry, TOut>());
     }
     internal static global::Rasm.Analysis.Operation<TGeometry, TOut> MassMeasure<TGeometry, TOut>(MassKind mass, Measure aspect) where TGeometry : notnull {
         Op key = Op.Of();
@@ -162,6 +166,9 @@ public static partial class Analyze {
         Optional(geometry).ToFin(op.InvalidInput()).Bind(g => g switch {
             Line line => Fin.Succ(line.Length),
             Polyline polyline => Fin.Succ(polyline.Length),
+            Circle circle => Fin.Succ(circle.Circumference),
+            Arc arc => Fin.Succ(arc.Length),
+            Ellipse ellipse => Optional(ellipse.ToNurbsCurve()).ToFin(op.InvalidResult()).Bind(curve => new Lease<Curve>.Owned(Value: curve).Use(native => LengthOf(geometry: native, context: context, op: op))),
             Curve curve => curve.GetLength(context.Fractional) switch { double length when RhinoMath.IsValidDouble(x: length) && length >= 0.0 => Fin.Succ(length), _ => Fin.Fail<double>(op.InvalidResult()) },
             _ => Fin.Fail<double>(op.Unsupported(g.GetType(), typeof(double))),
         });

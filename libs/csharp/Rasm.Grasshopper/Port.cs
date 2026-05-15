@@ -29,8 +29,6 @@ public sealed record PortPolicy {
         On<VectorParameter>(mutate: target => { target.UnitiseVectors = unitise; target.ReverseVectors = reverse; return Unit.Default; });
     public static PortPolicy Angle(int kind = 0, bool reduce = false) =>
         On<AngleParameter>(mutate: target => { target.EnforceKind = kind; target.ReduceAngles = reduce; return Unit.Default; });
-    public static PortPolicy Index(IndexModifier indexing = IndexModifier.Clip) =>
-        On<IntegerParameter>(mutate: target => { target.IsIndex = true; target.Indexing = indexing; return Unit.Default; });
     public static PortPolicy Category(string name) =>
         On<IParameter>(mutate: parameter => SetCustom(parameter: parameter, key: ModularComponent.__Category, set: (kv, k) => kv.Set(key: k, value: name)));
     public static PortPolicy Colour(Color color) =>
@@ -106,6 +104,15 @@ public sealed partial class PortKind {
     public static readonly PortKind Integer = Of<int>(key: nameof(Integer),
         regularInput: static (adder, name, code, info, access, requirement) => adder.AddInteger(name: name, code: code, info: info, access: access, requirement: requirement),
         modularInput: static (adder, name, code, info, access, requirement, hidden) => hidden ? adder.AddHiddenInteger(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement) : adder.AddInteger(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access, requirement: requirement),
+        regularOutput: static (adder, name, code, info, access) => adder.AddInteger(name: name, code: code, info: info, access: access),
+        modularOutput: static (adder, name, code, info, access, hidden) => hidden ? adder.AddHiddenInteger(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access) : adder.AddInteger(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access));
+    public static readonly PortKind Index = Of<int>(key: nameof(Index),
+        regularInput: static (adder, name, code, info, access, requirement) => adder.AddIndex(name: name, code: code, info: info, access: access, requirement: requirement) switch {
+            IntegerParameter parameter => ConfigureIndex(parameter: parameter),
+        },
+        modularInput: static (adder, name, code, info, access, requirement, hidden) => adder.RegularAdder.AddIndex(name: name, code: code, info: info, access: access, requirement: requirement) switch {
+            IntegerParameter parameter => (hidden switch { true => PortPolicy.Hidden, false => PortPolicy.Optional }).Apply(parameter: ConfigureIndex(parameter: parameter)) switch { _ => parameter },
+        },
         regularOutput: static (adder, name, code, info, access) => adder.AddInteger(name: name, code: code, info: info, access: access),
         modularOutput: static (adder, name, code, info, access, hidden) => hidden ? adder.AddHiddenInteger(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access) : adder.AddInteger(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access));
     public static readonly PortKind Interval = Of<Interval>(key: nameof(Interval),
@@ -203,6 +210,10 @@ public sealed partial class PortKind {
                 true => modularOutput(adder: adder, name: name, code: code, info: info, access: access, hidden: true),
                 false => regularOutput(adder: adder.RegularAdder, name: name, code: code, info: info, access: access),
             });
+    private static IntegerParameter ConfigureIndex(IntegerParameter parameter) {
+        parameter.Indexing = IndexModifier.Clip;
+        return parameter;
+    }
 }
 
 // --- [SERVICES] -------------------------------------------------------------------------
@@ -223,7 +234,7 @@ public static class Port {
         string name = "Index",
         string code = "I",
         string info = "Zero-based selector; clamped to [0, count-1].") =>
-        Optional<int>(name: name, code: code, info: info, kind: PortKind.Integer, policy: PortPolicy.Index());
+        Optional<int>(name: name, code: code, info: info, kind: PortKind.Index);
     public static Port<Vector3d> Direction(
         string name = "Direction",
         string code = "D",

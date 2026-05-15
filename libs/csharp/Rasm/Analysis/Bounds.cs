@@ -22,8 +22,8 @@ public partial record Bounds : IAspect {
         oriented: static o => (typeof(TOut) == typeof(Rhino.Geometry.Box) && typeof(GeometryBase).IsAssignableFrom(c: typeof(TGeometry)))
             ? Analyze.Native<TGeometry, TOut, GeometryBase, Rhino.Geometry.Box, (Op Key, Plane Plane)>(
                 key: OrientedKey, state: (OrientedKey, o.Plane),
-                project: static (state, native) => native.GetBoundingBox(plane: state.Plane, worldBox: out Rhino.Geometry.Box box) switch {
-                    { IsValid: true } when box.IsValid => state.Key.Accept(value: box).ToEff(),
+                project: static (state, native) => new Rhino.Geometry.Box(state.Plane, native) switch {
+                    { IsValid: true } box => state.Key.Accept(value: box).ToEff(),
                     _ => Fin.Fail<Seq<Rhino.Geometry.Box>>(state.Key.InvalidResult()).ToEff(),
                 })
             : OrientedKey.Unsupported<TGeometry, TOut>(),

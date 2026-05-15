@@ -11,7 +11,7 @@ public partial record Faces : IAspect {
     public static Faces ByCount(Func<int, Faces> choose) { ArgumentNullException.ThrowIfNull(choose); return new ByCountCase(Choose: choose); }
     internal static readonly Op Key = Op.Of(name: nameof(Faces));
     public global::Rasm.Analysis.Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull =>
-        Analyze.CanDecomposeFaces(type: typeof(TGeometry)) switch {
+        GeometryKernel.CanDecomposeFaces(type: typeof(TGeometry)) switch {
             false => Key.Unsupported<TGeometry, TOut>(),
             true => typeof(TOut) switch {
                 Type t when t == typeof(Brep) => Analyze.FaceOperation<TGeometry, TOut, Brep>(key: Key, selector: this, requirement: Requirement.None, ownership: ProjectionOwnership.Transfer, project: static (chosen, _) => Key.Accept(values: chosen.Choose(static face => face.As<Brep>()))),
@@ -40,8 +40,6 @@ public static partial class Analyze {
             },
             _ => Fin.Fail<Seq<TopologyProjection>>(key.Unsupported(g.GetType(), typeof(Seq<TopologyProjection>))),
         });
-    internal static bool CanDecomposeFaces(Type type) =>
-        type == typeof(object) || typeof(GeometryBase).IsAssignableFrom(type);
     internal static Fin<Seq<TopologyProjection>> SelectFaces(Op key, Seq<TopologyProjection> faces, Faces selector, Context runtime) => selector.Switch(
         state: (Key: key, Faces: faces, Runtime: runtime),
         allCase: static (s, _) => Fin.Succ(s.Faces),

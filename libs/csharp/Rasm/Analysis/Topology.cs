@@ -4,7 +4,7 @@ namespace Rasm.Analysis;
 public static partial class Analyze {
     public static global::Rasm.Analysis.Operation<TGeometry, TOut> Domains<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
-        return typeof(TOut) == typeof(Interval) && (typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) || typeof(Surface).IsAssignableFrom(c: typeof(TGeometry)))
+        return typeof(TOut) == typeof(Interval) && (typeof(TGeometry) == typeof(object) || typeof(TGeometry) == typeof(GeometryBase) || typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) || typeof(Surface).IsAssignableFrom(c: typeof(TGeometry)))
             ? Cast<TGeometry, TOut>(key: key, operation: global::Rasm.Analysis.Operation<TGeometry, Interval>.Build(
                 key: key, requiresContext: true, state: key,
                 evaluator: static (op, geometry) =>

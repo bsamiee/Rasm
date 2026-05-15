@@ -105,7 +105,7 @@ Automated Rhino/GH2 runtime tests stay out of this foundation until Rhino.Testin
 
 - `PortKind` maps CLR types to native `Grasshopper2.Parameters.Standard` parameters and owns input/output adder delegates.
 - `Port<T>` describes item, twig, and tree access plus requirement and parameter policy.
-- `PortPolicy` applies native GH2 behavior for vectors, angles, indices, curve domains, and surface acceptance.
+- `PortPolicy` applies native GH2 behavior for vectors and angles; `PortKind.Index` owns native index parameters.
 - `ComponentSpec.Of` and `Component` keep plugin components as thin port and output declarations.
 - `Bridge.Read<T>` uses `IDataAccess.GetPears<T>` and `GetTree<T>` to preserve metadata, null state, and topology.
 - `Bridge.Write<T>` uses `SetPear`, `SetTwig<T>`, and `SetTree` with `Garden.TwigFromPears`, `Garden.TreeFromLeaves`, and `Garden.TreeFromPears`.

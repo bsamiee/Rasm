@@ -43,9 +43,9 @@ public readonly record struct Shape {
 public readonly record struct Flow<T>(Pear<T> Pear, Option<Site> Site) {
     public T Item => Pear.Item;
     public MetaData Meta => Pear.Meta;
-    public Flow<TOut> Project<TOut>(TOut item) => new(Pear: Pear<TOut>.Create(item: item, meta: Meta), Site: Site);
-    public Flow<TOut> Project<TOut>(TOut item, int index) => new(Pear: Pear<TOut>.Create(item: item, meta: Meta), Site: Site.Map(site => new Site(path: site.Path.AppendElement(site.Item), item: index)));
-    public Seq<Flow<TOut>> Project<TOut>(Seq<TOut> items) {
+    internal Flow<TOut> Project<TOut>(TOut item) => new(Pear: Pear<TOut>.Create(item: item, meta: Meta), Site: Site);
+    internal Flow<TOut> Project<TOut>(TOut item, int index) => new(Pear: Pear<TOut>.Create(item: item, meta: Meta), Site: Site.Map(site => new Site(path: site.Path.AppendElement(site.Item), item: index)));
+    internal Seq<Flow<TOut>> Project<TOut>(Seq<TOut> items) {
         Flow<T> source = this;
         return items.Count switch {
             1 => items.Map(value => source.Project(item: value)),

@@ -24,7 +24,7 @@ public partial record Points : IAspect {
                     }).ToEff()
                     select result))
             : QuadrantsKey.Unsupported<TGeometry, TOut>(),
-        edgeMidpoints: static _ => typeof(TOut) == typeof(Point3d) && (typeof(TGeometry) == typeof(object) || typeof(TGeometry) == typeof(GeometryBase) || typeof(TGeometry) == typeof(Line) || typeof(TGeometry) == typeof(Polyline) || typeof(TGeometry) == typeof(BoundingBox) || typeof(TGeometry) == typeof(Box) || Analyze.CanProjectCurves(type: typeof(TGeometry), feature: Some(CurveFeature.Edge)))
+        edgeMidpoints: static _ => typeof(TOut) == typeof(Point3d) && (typeof(TGeometry) == typeof(object) || typeof(TGeometry) == typeof(GeometryBase) || typeof(TGeometry) == typeof(Line) || typeof(TGeometry) == typeof(Polyline) || typeof(TGeometry) == typeof(BoundingBox) || typeof(TGeometry) == typeof(Box) || GeometryKernel.CanProjectCurves(type: typeof(TGeometry), feature: Some(CurveFeature.Edge)))
             ? Analyze.Cast<TGeometry, TOut>(key: EdgeMidpointsKey, operation: global::Rasm.Analysis.Operation<TGeometry, Point3d>.Build(
                 key: EdgeMidpointsKey, requiresContext: true, state: EdgeMidpointsKey,
                 evaluator: static (op, geometry) => geometry switch {
@@ -38,7 +38,7 @@ public partial record Points : IAspect {
                          select result,
                 }))
             : EdgeMidpointsKey.Unsupported<TGeometry, TOut>(),
-        vertices: static _ => typeof(TOut) == typeof(Point3d) && Analyze.CanReadVertices(type: typeof(TGeometry))
+        vertices: static _ => typeof(TOut) == typeof(Point3d) && GeometryKernel.CanReadVertices(type: typeof(TGeometry))
             ? Analyze.Cast<TGeometry, TOut>(key: VerticesKey, operation: global::Rasm.Analysis.Operation<TGeometry, Point3d>.Build(
                 key: VerticesKey, requiresContext: true, state: VerticesKey,
                 evaluator: static (op, geometry) =>
@@ -47,7 +47,7 @@ public partial record Points : IAspect {
                     from result in op.Accept(values: points).ToEff()
                     select result))
             : VerticesKey.Unsupported<TGeometry, TOut>(),
-        controlPoints: static _ => typeof(TOut) == typeof(Point3d) && Analyze.CanReadControlPoints(type: typeof(TGeometry))
+        controlPoints: static _ => typeof(TOut) == typeof(Point3d) && GeometryKernel.CanReadControlPoints(type: typeof(TGeometry))
             ? Analyze.Cast<TGeometry, TOut>(key: ControlPointsKey, operation: global::Rasm.Analysis.Operation<TGeometry, Point3d>.Build(
                 key: ControlPointsKey, requiresContext: true, state: ControlPointsKey,
                 evaluator: static (op, geometry) => from points in Analyze.ControlPointsOf(geometry: geometry, op: op).ToEff()
@@ -59,10 +59,6 @@ public partial record Points : IAspect {
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
     public static global::Rasm.Analysis.Operation<TGeometry, TOut> Points<TGeometry, TOut>(Points sampling) where TGeometry : notnull => Aspect<Points, TGeometry, TOut>(aspect: sampling);
-    internal static bool CanReadVertices(Type type) =>
-        type == typeof(object) || type == typeof(Point3d) || type == typeof(Line) || type == typeof(Polyline) || type == typeof(BoundingBox) || type == typeof(Box) || typeof(GeometryBase).IsAssignableFrom(type);
-    internal static bool CanReadControlPoints(Type type) =>
-        type == typeof(object) || typeof(Curve).IsAssignableFrom(type) || typeof(Surface).IsAssignableFrom(type) || typeof(Brep).IsAssignableFrom(type);
     internal static Fin<Seq<Point3d>> VerticesOf<TGeometry>(TGeometry geometry, Context context, Op op) where TGeometry : notnull =>
         Optional(geometry).ToFin(op.InvalidInput()).Bind(g => g switch {
             Point3d point => Fin.Succ(Seq(point)),
@@ -76,6 +72,7 @@ public static partial class Analyze {
             Mesh mesh => Fin.Succ(toSeq(mesh.Vertices.ToPoint3dArray())),
             PointCloud cloud => Fin.Succ(toSeq(cloud.GetPoints())),
             SubD subd => Fin.Succ(toSeq(LanguageExt.List.unfold((SubDVertex?)subd.Vertices.First, static v => v switch { SubDVertex sv => Some((sv.ControlNetPoint, (SubDVertex?)sv.Next)), _ => None }))),
+            GeometryBase { HasBrepForm: true } native => Optional(Brep.TryConvertBrep(native)).ToFin(op.InvalidResult()).Bind(brep => ReferenceEquals(native, brep) ? VerticesOf(geometry: brep, context: context, op: op) : new Lease<Brep>.Owned(Value: brep).Use(owned => VerticesOf(geometry: owned, context: context, op: op))),
             Surface surface => (surface.Domain(direction: 0), surface.Domain(direction: 1)) switch {
                 (Interval u, Interval v) when u.IsValid && v.IsValid => Fin.Succ(Seq(surface.PointAt(u: u.T0, v: v.T0), surface.PointAt(u: u.T1, v: v.T0), surface.PointAt(u: u.T1, v: v.T1), surface.PointAt(u: u.T0, v: v.T1))),
                 _ => Fin.Fail<Seq<Point3d>>(op.InvalidResult()),
