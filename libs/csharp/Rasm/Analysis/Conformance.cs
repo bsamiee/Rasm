@@ -3,11 +3,22 @@ namespace Rasm.Analysis;
 // --- [MODELS] -----------------------------------------------------------------------------
 [Union]
 public partial record Conformance {
-    public sealed record Distance(int Count) : Conformance; public sealed record Rms(int Count) : Conformance; public sealed record WithinTolerance(int Count) : Conformance; public sealed record Summary(int Count) : Conformance; public sealed record Maximum(int Count) : Conformance;
+    public sealed record DistanceCase(int Count) : Conformance;
+    public sealed record RmsCase(int Count) : Conformance;
+    public sealed record WithinToleranceCase(int Count) : Conformance;
+    public sealed record SummaryCase(int Count) : Conformance;
+    public sealed record MaximumCase(int Count) : Conformance;
+    public sealed record SignedResidualCase(int Count) : Conformance;
+    public static Conformance Distance(int count) => new DistanceCase(Count: count);
+    public static Conformance Rms(int count) => new RmsCase(Count: count);
+    public static Conformance WithinTolerance(int count) => new WithinToleranceCase(Count: count);
+    public static Conformance Summary(int count) => new SummaryCase(Count: count);
+    public static Conformance Maximum(int count) => new MaximumCase(Count: count);
+    public static Conformance SignedResidual(int count) => new SignedResidualCase(Count: count);
     internal static readonly Op Key = Op.Of(name: nameof(Conformance));
     public global::Rasm.Analysis.Operation<(TGeometry Geometry, TTarget Target), TOut> Operation<TGeometry, TTarget, TOut>() where TGeometry : notnull where TTarget : notnull =>
         (this, Analyze.CanConform(geometry: typeof(TGeometry), target: typeof(TTarget))) switch {
-            (Distance { Count: <= 0 } or Rms { Count: <= 0 } or WithinTolerance { Count: <= 0 } or Summary { Count: <= 0 } or Maximum { Count: <= 0 }, _) =>
+            (DistanceCase { Count: <= 0 } or RmsCase { Count: <= 0 } or WithinToleranceCase { Count: <= 0 } or SummaryCase { Count: <= 0 } or MaximumCase { Count: <= 0 } or SignedResidualCase { Count: <= 0 }, _) =>
                 global::Rasm.Analysis.Operation<(TGeometry Geometry, TTarget Target), TOut>.Reject(key: Key, fault: Key.InvalidInput()),
             (_, true) => Analyze.ConformanceProject<TGeometry, TTarget, TOut>(aspect: this),
             _ => Key.Unsupported<(TGeometry Geometry, TTarget Target), TOut>(),
@@ -20,18 +31,20 @@ public static partial class Analyze {
         aspect?.Operation<TGeometry, TTarget, TOut>() ?? global::Rasm.Analysis.Operation<(TGeometry Geometry, TTarget Target), TOut>.Reject(key: Op.Of(), fault: Op.Of().InvalidInput());
     internal static global::Rasm.Analysis.Operation<(TGeometry Geometry, TTarget Target), TOut> ConformanceProject<TGeometry, TTarget, TOut>(Conformance aspect) where TGeometry : notnull where TTarget : notnull =>
         (aspect, typeof(TOut)) switch {
-            (Conformance.Distance item, Type output) when output == typeof(double) => Cast<(TGeometry Geometry, TTarget Target), TOut>(key: Rasm.Analysis.Conformance.Key, operation: ConformancePair<TGeometry, TTarget, double>(
+            (Conformance.DistanceCase item, Type output) when output == typeof(double) => Cast<(TGeometry Geometry, TTarget Target), TOut>(key: Rasm.Analysis.Conformance.Key, operation: ConformancePair<TGeometry, TTarget, double>(
                 aspect: aspect, count: item.Count, project: static (residuals, _) => Stat.ResidualDistances(samples: residuals, key: Rasm.Analysis.Conformance.Key).Bind(values => Rasm.Analysis.Conformance.Key.Accept(values: values)))),
-            (Conformance.Rms item, Type output) when output == typeof(double) => Cast<(TGeometry Geometry, TTarget Target), TOut>(key: Rasm.Analysis.Conformance.Key, operation: ConformancePair<TGeometry, TTarget, double>(
+            (Conformance.RmsCase item, Type output) when output == typeof(double) => Cast<(TGeometry Geometry, TTarget Target), TOut>(key: Rasm.Analysis.Conformance.Key, operation: ConformancePair<TGeometry, TTarget, double>(
                 aspect: aspect, count: item.Count, project: static (residuals, _) => Stat.FromResiduals(samples: residuals, key: Rasm.Analysis.Conformance.Key).Bind(stats => Rasm.Analysis.Conformance.Key.Accept(value: stats.Rms)))),
-            (Conformance.WithinTolerance item, Type output) when output == typeof(bool) => Cast<(TGeometry Geometry, TTarget Target), TOut>(key: Rasm.Analysis.Conformance.Key, operation: ConformancePair<TGeometry, TTarget, bool>(
+            (Conformance.WithinToleranceCase item, Type output) when output == typeof(bool) => Cast<(TGeometry Geometry, TTarget Target), TOut>(key: Rasm.Analysis.Conformance.Key, operation: ConformancePair<TGeometry, TTarget, bool>(
                 aspect: aspect, count: item.Count, project: static (residuals, context) => Stat.FromResiduals(samples: residuals, key: Rasm.Analysis.Conformance.Key).Bind(stats => Rasm.Analysis.Conformance.Key.Accept(value: stats.Maximum <= context.Absolute.Value)))),
-            (Conformance.Summary item, Type output) when output == typeof(Stat) => Cast<(TGeometry Geometry, TTarget Target), TOut>(key: Rasm.Analysis.Conformance.Key, operation: ConformancePair<TGeometry, TTarget, Stat>(
+            (Conformance.SummaryCase item, Type output) when output == typeof(Stat) => Cast<(TGeometry Geometry, TTarget Target), TOut>(key: Rasm.Analysis.Conformance.Key, operation: ConformancePair<TGeometry, TTarget, Stat>(
                 aspect: aspect, count: item.Count, project: static (residuals, context) => Stat.FromResiduals(samples: residuals, key: Rasm.Analysis.Conformance.Key)
                     .Bind(stats => Stat.Residual(tolerance: context.Absolute.Value, stats: stats, key: Rasm.Analysis.Conformance.Key))
                     .Map(stat => Seq(stat)))),
-            (Conformance.Maximum item, Type output) when output == typeof(ResidualSample) => Cast<(TGeometry Geometry, TTarget Target), TOut>(key: Rasm.Analysis.Conformance.Key, operation: ConformancePair<TGeometry, TTarget, ResidualSample>(
+            (Conformance.MaximumCase item, Type output) when output == typeof(ResidualSample) => Cast<(TGeometry Geometry, TTarget Target), TOut>(key: Rasm.Analysis.Conformance.Key, operation: ConformancePair<TGeometry, TTarget, ResidualSample>(
                 aspect: aspect, count: item.Count, project: static (residuals, _) => Stat.MaximumResidual(samples: residuals, key: Rasm.Analysis.Conformance.Key).Bind(sample => Rasm.Analysis.Conformance.Key.Accept(value: sample)))),
+            (Conformance.SignedResidualCase item, Type output) when output == typeof(ResidualSample) => Cast<(TGeometry Geometry, TTarget Target), TOut>(key: Rasm.Analysis.Conformance.Key, operation: ConformancePair<TGeometry, TTarget, ResidualSample>(
+                aspect: aspect, count: item.Count, project: static (residuals, _) => Rasm.Analysis.Conformance.Key.Accept(values: residuals))),
             _ => Rasm.Analysis.Conformance.Key.Unsupported<(TGeometry Geometry, TTarget Target), TOut>(),
         };
     private static global::Rasm.Analysis.Operation<(TGeometry Geometry, TTarget Target), TValue> ConformancePair<TGeometry, TTarget, TValue>(Conformance aspect, int count, Func<Seq<ResidualSample>, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull where TTarget : notnull =>
@@ -54,9 +67,11 @@ public static partial class Analyze {
         || (typeof(Surface).IsAssignableFrom(geometry) && (target == typeof(Plane) || target == typeof(Sphere)));
     internal static Fin<Seq<ResidualSample>> ConformanceSamples<TGeometry, TTarget>(Conformance aspect, TGeometry geometry, TTarget target, int count, Context context, Op op) where TGeometry : notnull where TTarget : notnull =>
         (aspect, geometry, target) switch {
-            (global::Rasm.Analysis.Conformance.WithinTolerance or global::Rasm.Analysis.Conformance.Maximum, Curve curve, Line line) => ExactCurveResidualOf(curve: curve, primitive: line, context: context, op: op, convert: static value => new LineCurve(value)),
-            (global::Rasm.Analysis.Conformance.WithinTolerance or global::Rasm.Analysis.Conformance.Maximum, Curve curve, Circle circle) => ExactCurveResidualOf(curve: curve, primitive: circle, context: context, op: op, convert: static value => new ArcCurve(value)),
-            (global::Rasm.Analysis.Conformance.WithinTolerance or global::Rasm.Analysis.Conformance.Maximum, Curve curve, Arc arc) => ExactCurveResidualOf(curve: curve, primitive: arc, context: context, op: op, convert: static value => new ArcCurve(value)),
+            (global::Rasm.Analysis.Conformance.WithinToleranceCase or global::Rasm.Analysis.Conformance.MaximumCase, Curve curve, Line line) => ExactCurveResidualOf(curve: curve, primitive: line, context: context, op: op, convert: static value => new LineCurve(value)),
+            (global::Rasm.Analysis.Conformance.WithinToleranceCase or global::Rasm.Analysis.Conformance.MaximumCase, Curve curve, Circle circle) => ExactCurveResidualOf(curve: curve, primitive: circle, context: context, op: op, convert: static value => new ArcCurve(value)),
+            (global::Rasm.Analysis.Conformance.WithinToleranceCase or global::Rasm.Analysis.Conformance.MaximumCase, Curve curve, Arc arc) => ExactCurveResidualOf(curve: curve, primitive: arc, context: context, op: op, convert: static value => new ArcCurve(value)),
+            (global::Rasm.Analysis.Conformance.SignedResidualCase, Surface surface, Plane plane) => SampleSurfaceAgainst(surface: surface, primitive: plane, resolution: count, context: context, op: op, distance: static (p, pt) => p.DistanceTo(testPoint: pt)),
+            (global::Rasm.Analysis.Conformance.SignedResidualCase, Surface surface, Sphere sphere) => SampleSurfaceAgainst(surface: surface, primitive: sphere, resolution: count, context: context, op: op, distance: static (s, pt) => pt.DistanceTo(s.Center) - s.Radius),
             (_, Curve curve, Line line) => SampleCurveAgainst(curve: curve, primitive: line, count: count, context: context, op: op, distance: static (l, pt) => pt.DistanceTo(l.ClosestPoint(testPoint: pt, limitToFiniteSegment: true))),
             (_, Curve curve, Circle circle) => SampleCurveAgainst(curve: curve, primitive: circle, count: count, context: context, op: op, distance: static (c, pt) => pt.DistanceTo(other: c.ClosestPoint(testPoint: pt))),
             (_, Curve curve, Arc arc) => SampleCurveAgainst(curve: curve, primitive: arc, count: count, context: context, op: op, distance: static (a, pt) => pt.DistanceTo(other: a.ClosestPoint(testPoint: pt))),

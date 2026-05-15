@@ -3,13 +3,17 @@ namespace Rasm.Analysis;
 // --- [MODELS] -----------------------------------------------------------------------------
 [Union]
 public partial record Points : IAspect {
-    public sealed record Quadrants : Points; public sealed record EdgeMidpoints : Points; public sealed record Vertices : Points; public sealed record ControlPoints : Points;
+    public sealed record QuadrantsCase : Points; public sealed record EdgeMidpointsCase : Points; public sealed record VerticesCase : Points; public sealed record ControlPointsCase : Points;
+    public static Points Quadrants => new QuadrantsCase();
+    public static Points EdgeMidpoints => new EdgeMidpointsCase();
+    public static Points Vertices => new VerticesCase();
+    public static Points ControlPoints => new ControlPointsCase();
     private static readonly Op QuadrantsKey = Op.Of(name: nameof(Quadrants));
     private static readonly Op EdgeMidpointsKey = Op.Of(name: nameof(EdgeMidpoints));
     private static readonly Op VerticesKey = Op.Of(name: nameof(Vertices));
     private static readonly Op ControlPointsKey = Op.Of(name: nameof(ControlPoints));
     public global::Rasm.Analysis.Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch<global::Rasm.Analysis.Operation<TGeometry, TOut>>(
-        quadrants: static _ => typeof(TOut) == typeof(Point3d)
+        quadrantsCase: static _ => typeof(TOut) == typeof(Point3d)
             ? Analyze.Cast<TGeometry, TOut>(key: QuadrantsKey, operation: global::Rasm.Analysis.Operation<TGeometry, Point3d>.Build(
                 key: QuadrantsKey, requirement: Requirement.CurveLength, state: QuadrantsKey,
                 evaluator: static (op, geometry) =>
@@ -20,7 +24,7 @@ public partial record Points : IAspect {
                     }).ToEff()
                     select result))
             : QuadrantsKey.Unsupported<TGeometry, TOut>(),
-        edgeMidpoints: static _ => typeof(TOut) == typeof(Point3d) && GeometryKernel.CanReadEdges(type: typeof(TGeometry))
+        edgeMidpointsCase: static _ => typeof(TOut) == typeof(Point3d) && GeometryKernel.CanReadEdges(type: typeof(TGeometry))
             ? Analyze.Cast<TGeometry, TOut>(key: EdgeMidpointsKey, operation: global::Rasm.Analysis.Operation<TGeometry, Point3d>.Build(
                 key: EdgeMidpointsKey, requiresContext: true, state: EdgeMidpointsKey,
                 evaluator: static (op, geometry) => geometry switch {
@@ -38,7 +42,7 @@ public partial record Points : IAspect {
                          select result,
                 }))
             : EdgeMidpointsKey.Unsupported<TGeometry, TOut>(),
-        vertices: static _ => typeof(TOut) == typeof(Point3d) && GeometryKernel.CanReadVertices(type: typeof(TGeometry))
+        verticesCase: static _ => typeof(TOut) == typeof(Point3d) && GeometryKernel.CanReadVertices(type: typeof(TGeometry))
             ? Analyze.Cast<TGeometry, TOut>(key: VerticesKey, operation: global::Rasm.Analysis.Operation<TGeometry, Point3d>.Build(
                 key: VerticesKey, requiresContext: true, state: VerticesKey,
                 evaluator: static (op, geometry) =>
@@ -47,7 +51,7 @@ public partial record Points : IAspect {
                     from result in op.Accept(values: points).ToEff()
                     select result))
             : VerticesKey.Unsupported<TGeometry, TOut>(),
-        controlPoints: static _ => typeof(TOut) == typeof(Point3d) && GeometryKernel.CanReadControlPoints(type: typeof(TGeometry))
+        controlPointsCase: static _ => typeof(TOut) == typeof(Point3d) && GeometryKernel.CanReadControlPoints(type: typeof(TGeometry))
             ? Analyze.Cast<TGeometry, TOut>(key: ControlPointsKey, operation: global::Rasm.Analysis.Operation<TGeometry, Point3d>.Build(
                 key: ControlPointsKey, requiresContext: true, state: ControlPointsKey,
                 evaluator: static (op, geometry) => from points in Analyze.ControlPointsOf(geometry: geometry, op: op).ToEff()

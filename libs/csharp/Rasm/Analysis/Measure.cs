@@ -5,19 +5,28 @@ namespace Rasm.Analysis;
 // --- [MODELS] -----------------------------------------------------------------------------
 [Union]
 public partial record Measure : IAspect {
-    public sealed record Length : Measure; public sealed record Area : Measure; public sealed record Volume : Measure; public sealed record SpatialMidpoint : Measure;
-    public sealed record Centroid(MassKind Mass) : Measure; public sealed record MassError(MassKind Mass) : Measure; public sealed record CentroidError(MassKind Mass) : Measure;
-    public sealed record Radii(MassKind Mass) : Measure; public sealed record PrincipalAxes(MassKind Mass) : Measure;
+    public sealed record LengthCase : Measure; public sealed record AreaCase : Measure; public sealed record VolumeCase : Measure; public sealed record SpatialMidpointCase : Measure;
+    public sealed record CentroidCase(MassKind Mass) : Measure; public sealed record MassErrorCase(MassKind Mass) : Measure; public sealed record CentroidErrorCase(MassKind Mass) : Measure;
+    public sealed record RadiiCase(MassKind Mass) : Measure; public sealed record PrincipalAxesCase(MassKind Mass) : Measure;
+    public static Measure Length => new LengthCase();
+    public static Measure Area => new AreaCase();
+    public static Measure Volume => new VolumeCase();
+    public static Measure SpatialMidpoint => new SpatialMidpointCase();
+    public static Measure Centroid(MassKind mass) => new CentroidCase(Mass: mass);
+    public static Measure MassError(MassKind mass) => new MassErrorCase(Mass: mass);
+    public static Measure CentroidError(MassKind mass) => new CentroidErrorCase(Mass: mass);
+    public static Measure Radii(MassKind mass) => new RadiiCase(Mass: mass);
+    public static Measure PrincipalAxes(MassKind mass) => new PrincipalAxesCase(Mass: mass);
     public global::Rasm.Analysis.Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch<global::Rasm.Analysis.Operation<TGeometry, TOut>>(
-        spatialMidpoint: static _ => typeof(TOut) == typeof(Point3d) ? Analyze.SpatialMidpoint<TGeometry, TOut>() : Op.Of(name: "SpatialMidpoint").Unsupported<TGeometry, TOut>(),
-        length: static _ => Analyze.Length<TGeometry, TOut>(),
-        area: static a => Analyze.MassMeasure<TGeometry, TOut>(mass: MassKind.Area, aspect: a),
-        volume: static v => Analyze.MassMeasure<TGeometry, TOut>(mass: MassKind.Volume, aspect: v),
-        massError: static e => Analyze.MassMeasure<TGeometry, TOut>(mass: e.Mass, aspect: e),
-        centroid: static c => Analyze.MassMeasure<TGeometry, TOut>(mass: c.Mass, aspect: c),
-        centroidError: static ce => Analyze.MassMeasure<TGeometry, TOut>(mass: ce.Mass, aspect: ce),
-        radii: static r => Analyze.MassMeasure<TGeometry, TOut>(mass: r.Mass, aspect: r),
-        principalAxes: static p => Analyze.MassMeasure<TGeometry, TOut>(mass: p.Mass, aspect: p));
+        spatialMidpointCase: static _ => typeof(TOut) == typeof(Point3d) ? Analyze.SpatialMidpoint<TGeometry, TOut>() : Op.Of(name: "SpatialMidpoint").Unsupported<TGeometry, TOut>(),
+        lengthCase: static _ => Analyze.Length<TGeometry, TOut>(),
+        areaCase: static a => Analyze.MassMeasure<TGeometry, TOut>(mass: MassKind.Area, aspect: a),
+        volumeCase: static v => Analyze.MassMeasure<TGeometry, TOut>(mass: MassKind.Volume, aspect: v),
+        massErrorCase: static e => Analyze.MassMeasure<TGeometry, TOut>(mass: e.Mass, aspect: e),
+        centroidCase: static c => Analyze.MassMeasure<TGeometry, TOut>(mass: c.Mass, aspect: c),
+        centroidErrorCase: static ce => Analyze.MassMeasure<TGeometry, TOut>(mass: ce.Mass, aspect: ce),
+        radiiCase: static r => Analyze.MassMeasure<TGeometry, TOut>(mass: r.Mass, aspect: r),
+        principalAxesCase: static p => Analyze.MassMeasure<TGeometry, TOut>(mass: p.Mass, aspect: p));
 }
 
 [BoundaryAdapter, SmartEnum<int>]
@@ -110,19 +119,19 @@ public static partial class Analyze {
         Op key = Op.Of();
         return (aspect, typeof(TOut)) switch {
             (_, _) when mass.Equals(MassKind.None) => global::Rasm.Analysis.Operation<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput()),
-            (Analysis.Measure.Area, Type output) when output == typeof(double) => MassOperation<TGeometry, TOut, double>(mass: MassKind.Area, suffix: string.Empty, project: static (k, props) => props switch {
+            (Analysis.Measure.AreaCase, Type output) when output == typeof(double) => MassOperation<TGeometry, TOut, double>(mass: MassKind.Area, suffix: string.Empty, project: static (k, props) => props switch {
                 AreaMassProperties area => k.Accept(value: area.Area),
                 _ => Fin.Fail<Seq<double>>(k.InvalidResult()),
             }),
-            (Analysis.Measure.Volume, Type output) when output == typeof(double) => MassOperation<TGeometry, TOut, double>(mass: MassKind.Volume, suffix: string.Empty, project: static (k, props) => props switch {
+            (Analysis.Measure.VolumeCase, Type output) when output == typeof(double) => MassOperation<TGeometry, TOut, double>(mass: MassKind.Volume, suffix: string.Empty, project: static (k, props) => props switch {
                 VolumeMassProperties volume => k.Accept(value: volume.Volume),
                 _ => Fin.Fail<Seq<double>>(k.InvalidResult()),
             }),
-            (Analysis.Measure.MassError, Type output) when output == typeof(double) => MassOperation<TGeometry, TOut, double>(mass: mass, suffix: "Error", project: (k, props) => MassValue<double>(aspect: aspect, key: k, props: props), secondMoments: mass.Equals(MassKind.Length)),
-            (Analysis.Measure.Centroid, Type output) when output == typeof(Point3d) => MassOperation<TGeometry, TOut, Point3d>(mass: mass, suffix: "Centroid", project: (k, props) => MassValue<Point3d>(aspect: aspect, key: k, props: props), firstMoments: true, secondMoments: mass.Equals(MassKind.Length)),
-            (Analysis.Measure.CentroidError, Type output) when output == typeof(Vector3d) => MassOperation<TGeometry, TOut, Vector3d>(mass: mass, suffix: "CentroidError", project: (k, props) => MassValue<Vector3d>(aspect: aspect, key: k, props: props), firstMoments: true, secondMoments: mass.Equals(MassKind.Length)),
-            (Analysis.Measure.Radii, Type output) when output == typeof(Vector3d) => MassOperation<TGeometry, TOut, Vector3d>(mass: mass, suffix: "Radii", project: (k, props) => MassValue<Vector3d>(aspect: aspect, key: k, props: props), firstMoments: true, secondMoments: true),
-            (Analysis.Measure.PrincipalAxes, Type output) when output == typeof(ValueTuple<double, Vector3d>) => MassOperation<TGeometry, TOut, (double Moment, Vector3d Axis)>(mass: mass, suffix: "Principal", project: (k, props) => MassValue<(double Moment, Vector3d Axis)>(aspect: aspect, key: k, props: props), firstMoments: true, secondMoments: true, productMoments: true),
+            (Analysis.Measure.MassErrorCase, Type output) when output == typeof(double) => MassOperation<TGeometry, TOut, double>(mass: mass, suffix: "Error", project: (k, props) => MassValue<double>(aspect: aspect, key: k, props: props), secondMoments: mass.Equals(MassKind.Length)),
+            (Analysis.Measure.CentroidCase, Type output) when output == typeof(Point3d) => MassOperation<TGeometry, TOut, Point3d>(mass: mass, suffix: "Centroid", project: (k, props) => MassValue<Point3d>(aspect: aspect, key: k, props: props), firstMoments: true, secondMoments: mass.Equals(MassKind.Length)),
+            (Analysis.Measure.CentroidErrorCase, Type output) when output == typeof(Vector3d) => MassOperation<TGeometry, TOut, Vector3d>(mass: mass, suffix: "CentroidError", project: (k, props) => MassValue<Vector3d>(aspect: aspect, key: k, props: props), firstMoments: true, secondMoments: mass.Equals(MassKind.Length)),
+            (Analysis.Measure.RadiiCase, Type output) when output == typeof(Vector3d) => MassOperation<TGeometry, TOut, Vector3d>(mass: mass, suffix: "Radii", project: (k, props) => MassValue<Vector3d>(aspect: aspect, key: k, props: props), firstMoments: true, secondMoments: true),
+            (Analysis.Measure.PrincipalAxesCase, Type output) when output == typeof(ValueTuple<double, Vector3d>) => MassOperation<TGeometry, TOut, (double Moment, Vector3d Axis)>(mass: mass, suffix: "Principal", project: (k, props) => MassValue<(double Moment, Vector3d Axis)>(aspect: aspect, key: k, props: props), firstMoments: true, secondMoments: true, productMoments: true),
             _ => key.Unsupported<TGeometry, TOut>(),
         };
     }
@@ -145,11 +154,11 @@ public static partial class Analyze {
     }
     private static Fin<Seq<TValue>> MassValue<TValue>(Measure aspect, Op key, IDisposable props) =>
         aspect switch {
-            Analysis.Measure.MassError => key.MassProperty<double, TValue>(props: props, length: static l => l.LengthError, area: static a => a.AreaError, volume: static v => v.VolumeError),
-            Analysis.Measure.Centroid => key.MassProperty<Point3d, TValue>(props: props, length: static l => l.Centroid, area: static a => a.Centroid, volume: static v => v.Centroid),
-            Analysis.Measure.CentroidError => key.MassProperty<Vector3d, TValue>(props: props, length: static l => l.CentroidError, area: static a => a.CentroidError, volume: static v => v.CentroidError),
-            Analysis.Measure.Radii => key.MassProperty<Vector3d, TValue>(props: props, length: static l => l.CentroidCoordinatesRadiiOfGyration, area: static a => a.CentroidCoordinatesRadiiOfGyration, volume: static v => v.CentroidCoordinatesRadiiOfGyration),
-            Analysis.Measure.PrincipalAxes => key.PrincipalAxesOf(mass: props).Bind(values => key.AcceptResults<(double Moment, Vector3d Axis), TValue>(values: values)),
+            Analysis.Measure.MassErrorCase => key.MassProperty<double, TValue>(props: props, length: static l => l.LengthError, area: static a => a.AreaError, volume: static v => v.VolumeError),
+            Analysis.Measure.CentroidCase => key.MassProperty<Point3d, TValue>(props: props, length: static l => l.Centroid, area: static a => a.Centroid, volume: static v => v.Centroid),
+            Analysis.Measure.CentroidErrorCase => key.MassProperty<Vector3d, TValue>(props: props, length: static l => l.CentroidError, area: static a => a.CentroidError, volume: static v => v.CentroidError),
+            Analysis.Measure.RadiiCase => key.MassProperty<Vector3d, TValue>(props: props, length: static l => l.CentroidCoordinatesRadiiOfGyration, area: static a => a.CentroidCoordinatesRadiiOfGyration, volume: static v => v.CentroidCoordinatesRadiiOfGyration),
+            Analysis.Measure.PrincipalAxesCase => key.PrincipalAxesOf(mass: props).Bind(values => key.AcceptResults<(double Moment, Vector3d Axis), TValue>(values: values)),
             _ => Fin.Fail<Seq<TValue>>(key.InvalidResult()),
         };
     private static Fin<Seq<TValue>> MassProperty<TProp, TValue>(this Op key, IDisposable props, Func<LengthMassProperties, TProp> length, Func<AreaMassProperties, TProp> area, Func<VolumeMassProperties, TProp> volume) =>

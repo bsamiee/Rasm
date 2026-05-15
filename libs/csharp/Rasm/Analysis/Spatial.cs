@@ -3,8 +3,10 @@ namespace Rasm.Analysis;
 // --- [MODELS] -----------------------------------------------------------------------------
 [Union]
 public partial record Probe {
-    public sealed record Nearest(int Count) : Probe;
-    public sealed record Within(double Distance) : Probe;
+    public sealed record NearestCase(int Count) : Probe;
+    public sealed record WithinCase(double Distance) : Probe;
+    public static Probe Nearest(int count) => new NearestCase(Count: count);
+    public static Probe Within(double distance) => new WithinCase(Distance: distance);
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
@@ -154,13 +156,13 @@ public static class Spatial {
             .As()
             .Bind(static state => Tree.PointPairs(values: Neighbors(state: state)));
     private static IEnumerable<int[]> Neighbors((Point3d[] Hay, Point3d[] Operation, Probe Probe) state) => state.Probe switch {
-        Probe.Nearest k => RTree.Point3dKNeighbors(hayPoints: state.Hay, needlePts: state.Operation, amount: k.Count),
-        Probe.Within w => RTree.Point3dClosestPoints(hayPoints: state.Hay, needlePts: state.Operation, limitDistance: w.Distance),
+        Probe.NearestCase k => RTree.Point3dKNeighbors(hayPoints: state.Hay, needlePts: state.Operation, amount: k.Count),
+        Probe.WithinCase w => RTree.Point3dClosestPoints(hayPoints: state.Hay, needlePts: state.Operation, limitDistance: w.Distance),
         _ => [],
     };
     private static Fin<Probe> ValidateProbe(Probe probe) => probe switch {
-        Probe.Nearest { Count: > 0 } => Fin.Succ(probe),
-        Probe.Within w when RhinoMath.IsValidDouble(x: w.Distance) && w.Distance > 0.0 => Fin.Succ(probe),
+        Probe.NearestCase { Count: > 0 } => Fin.Succ(probe),
+        Probe.WithinCase w when RhinoMath.IsValidDouble(x: w.Distance) && w.Distance > 0.0 => Fin.Succ(probe),
         _ => Fin.Fail<Probe>(Tree.Key.InvalidInput()),
     };
 }

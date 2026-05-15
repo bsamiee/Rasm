@@ -3,13 +3,48 @@ namespace Rasm.Analysis;
 // --- [MODELS] -----------------------------------------------------------------------------
 [Union]
 public partial record Location : IAspect {
-    public sealed record Midpoint : Location; public sealed record Tangent : Location; public sealed record Closest(Point3d Point) : Location;
-    public sealed record PointAtCurve(double Parameter) : Location; public sealed record PointAtSurface(Point2d Uv) : Location; public sealed record PointAtLength(double Length) : Location;
-    public sealed record FrameAtCurve(double Parameter) : Location; public sealed record FrameAtSurface(Point2d Uv) : Location; public sealed record PerpendicularFrameAt(double Parameter) : Location;
-    public sealed record NormalAt(Point2d Uv) : Location; public sealed record CurvatureAtCurve(double Parameter) : Location; public sealed record CurvatureAtSurface(Point2d Uv) : Location;
-    public sealed record Curvature(int Count, CurvatureMode Mode) : Location; public sealed record DerivativeAt(double Parameter, int Count) : Location;
-    public sealed record DivideByCount(int Count) : Location; public sealed record DivideByLength(double Length) : Location; public sealed record Orientation(Plane Plane) : Location;
-    public sealed record Contains(Point3d Point, Plane Plane) : Location; public sealed record ShortPath(Point2d Start, Point2d End) : Location;
+    public sealed record MidpointCase : Location;
+    public sealed record TangentCase : Location;
+    public sealed record ClosestCase(Point3d Point) : Location;
+    public sealed record PointAtCurveCase(double Parameter) : Location;
+    public sealed record PointAtSurfaceCase(Point2d Uv) : Location;
+    public sealed record PointAtLengthCase(double Length) : Location;
+    public sealed record FrameAtCurveCase(double Parameter) : Location;
+    public sealed record FrameAtSurfaceCase(Point2d Uv) : Location;
+    public sealed record PerpendicularFrameAtCase(double Parameter) : Location;
+    public sealed record NormalAtCase(Point2d Uv) : Location;
+    public sealed record CurvatureAtCurveCase(double Parameter) : Location;
+    public sealed record CurvatureAtSurfaceCase(Point2d Uv) : Location;
+    public sealed record CurvatureCase(int Count, CurvatureMode Mode) : Location;
+    public sealed record DerivativeAtCase(double Parameter, int Count) : Location;
+    public sealed record DivideByCountCase(int Count) : Location;
+    public sealed record DivideByLengthCase(double Length) : Location;
+    public sealed record OrientationCase(Plane Plane) : Location;
+    public sealed record ContainsCase(Point3d Point, Plane Plane) : Location;
+    public sealed record ShortPathCase(Point2d Start, Point2d End) : Location;
+    public sealed record ParameterAtCase(Point3d Probe) : Location;
+    public sealed record LengthAtCase(double Parameter) : Location;
+    public static Location Midpoint => new MidpointCase();
+    public static Location Tangent => new TangentCase();
+    public static Location Closest(Point3d point) => new ClosestCase(Point: point);
+    public static Location PointAtCurve(double parameter) => new PointAtCurveCase(Parameter: parameter);
+    public static Location PointAtSurface(Point2d uv) => new PointAtSurfaceCase(Uv: uv);
+    public static Location PointAtLength(double length) => new PointAtLengthCase(Length: length);
+    public static Location FrameAtCurve(double parameter) => new FrameAtCurveCase(Parameter: parameter);
+    public static Location FrameAtSurface(Point2d uv) => new FrameAtSurfaceCase(Uv: uv);
+    public static Location PerpendicularFrameAt(double parameter) => new PerpendicularFrameAtCase(Parameter: parameter);
+    public static Location NormalAt(Point2d uv) => new NormalAtCase(Uv: uv);
+    public static Location CurvatureAtCurve(double parameter) => new CurvatureAtCurveCase(Parameter: parameter);
+    public static Location CurvatureAtSurface(Point2d uv) => new CurvatureAtSurfaceCase(Uv: uv);
+    public static Location Curvature(int count, CurvatureMode mode) => new CurvatureCase(Count: count, Mode: mode);
+    public static Location DerivativeAt(double parameter, int count) => new DerivativeAtCase(Parameter: parameter, Count: count);
+    public static Location DivideByCount(int count) => new DivideByCountCase(Count: count);
+    public static Location DivideByLength(double length) => new DivideByLengthCase(Length: length);
+    public static Location Orientation(Plane plane) => new OrientationCase(Plane: plane);
+    public static Location Contains(Point3d point, Plane plane) => new ContainsCase(Point: point, Plane: plane);
+    public static Location ShortPath(Point2d start, Point2d end) => new ShortPathCase(Start: start, End: end);
+    public static Location ParameterAt(Point3d probe) => new ParameterAtCase(Probe: probe);
+    public static Location LengthAt(double parameter) => new LengthAtCase(Parameter: parameter);
     private static readonly Op PointAtKey = Op.Of(name: "PointAt");
     private static readonly Op PointAtLengthKey = Op.Of(name: "PointAtLength");
     private static readonly Op FrameAtKey = Op.Of(name: "FrameAt");
@@ -22,13 +57,15 @@ public partial record Location : IAspect {
     private static readonly Op ContainsKey = Op.Of(name: "Contains");
     private static readonly Op NormalAtKey = Op.Of(name: "NormalAt");
     private static readonly Op ShortPathKey = Op.Of(name: "ShortPath");
+    private static readonly Op ParameterAtKey = Op.Of(name: "ParameterAt");
+    private static readonly Op LengthAtKey = Op.Of(name: "LengthAt");
     public global::Rasm.Analysis.Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch<global::Rasm.Analysis.Operation<TGeometry, TOut>>(
-        midpoint: static _ => Analyze.MidpointAt<TGeometry, TOut>(),
-        tangent: static _ => Analyze.TangentAtMidpoint<TGeometry, TOut>(),
-        closest: static c => Analyze.ClosestPoint<TGeometry, TOut>(point: c.Point),
-        curvature: static cp => Analyze.Curvature<TGeometry, TOut>(count: cp.Count, mode: cp.Mode),
-        pointAtCurve: static pac => Analyze.Located<TGeometry, TOut, Curve, Point3d>(key: PointAtKey, operation: () => Analyze.CurveAt<TGeometry, Point3d>(key: PointAtKey, parameter: pac.Parameter, project: static (curve, p) => PointAtKey.Accept(value: curve.PointAt(t: p)))),
-        pointAtLength: static pal => Analyze.Located<TGeometry, TOut, Curve, Point3d>(
+        midpointCase: static _ => Analyze.MidpointAt<TGeometry, TOut>(),
+        tangentCase: static _ => Analyze.TangentAtMidpoint<TGeometry, TOut>(),
+        closestCase: static c => Analyze.ClosestPoint<TGeometry, TOut>(point: c.Point),
+        curvatureCase: static cp => Analyze.Curvature<TGeometry, TOut>(count: cp.Count, mode: cp.Mode),
+        pointAtCurveCase: static pac => Analyze.Located<TGeometry, TOut, Curve, Point3d>(key: PointAtKey, operation: () => Analyze.CurveAt<TGeometry, Point3d>(key: PointAtKey, parameter: pac.Parameter, project: static (curve, p) => PointAtKey.Accept(value: curve.PointAt(t: p)))),
+        pointAtLengthCase: static pal => Analyze.Located<TGeometry, TOut, Curve, Point3d>(
             key: PointAtLengthKey, operation: () => global::Rasm.Analysis.Operation<TGeometry, Point3d>.Build(
                 key: PointAtLengthKey, requirement: Requirement.CurveLength, state: (Key: PointAtLengthKey, Distance: pal.Length),
                 evaluator: static (state, geometry) => geometry switch {
@@ -40,21 +77,21 @@ public partial record Location : IAspect {
                                    select result,
                     _ => Fin.Fail<Seq<Point3d>>(state.Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Point3d))).ToEff(),
                 })),
-        frameAtCurve: static fac => Analyze.Located<TGeometry, TOut, Curve, Plane>(key: FrameAtKey, operation: () => Analyze.CurveFrame<TGeometry>(key: FrameAtKey, parameter: fac.Parameter, perpendicular: false)),
-        perpendicularFrameAt: static pfa => Analyze.Located<TGeometry, TOut, Curve, Plane>(key: PerpendicularFrameAtKey, operation: () => Analyze.CurveFrame<TGeometry>(key: PerpendicularFrameAtKey, parameter: pfa.Parameter, perpendicular: true)),
-        curvatureAtCurve: static cac => Analyze.Located<TGeometry, TOut, Curve, Vector3d>(key: CurvatureAtKey, operation: () => Analyze.CurveAt<TGeometry, Vector3d>(key: CurvatureAtKey, parameter: cac.Parameter, project: static (curve, p) => CurvatureAtKey.Accept(value: curve.CurvatureAt(t: p)))),
-        derivativeAt: static da => da.Count < 0
+        frameAtCurveCase: static fac => Analyze.Located<TGeometry, TOut, Curve, Plane>(key: FrameAtKey, operation: () => Analyze.CurveFrame<TGeometry>(key: FrameAtKey, parameter: fac.Parameter, perpendicular: false)),
+        perpendicularFrameAtCase: static pfa => Analyze.Located<TGeometry, TOut, Curve, Plane>(key: PerpendicularFrameAtKey, operation: () => Analyze.CurveFrame<TGeometry>(key: PerpendicularFrameAtKey, parameter: pfa.Parameter, perpendicular: true)),
+        curvatureAtCurveCase: static cac => Analyze.Located<TGeometry, TOut, Curve, Vector3d>(key: CurvatureAtKey, operation: () => Analyze.CurveAt<TGeometry, Vector3d>(key: CurvatureAtKey, parameter: cac.Parameter, project: static (curve, p) => CurvatureAtKey.Accept(value: curve.CurvatureAt(t: p)))),
+        derivativeAtCase: static da => da.Count < 0
             ? global::Rasm.Analysis.Operation<TGeometry, TOut>.Reject(key: DerivativeAtKey, fault: DerivativeAtKey.InvalidInput())
             : Analyze.Located<TGeometry, TOut, Curve, Vector3d>(key: DerivativeAtKey, operation: () => Analyze.CurveAt<TGeometry, Vector3d>(key: DerivativeAtKey, parameter: da.Parameter, project: (curve, p) => DerivativeAtKey.Accept(values: curve.DerivativeAt(t: p, derivativeCount: da.Count)))),
-        divideByCount: static dbc => Analyze.Located<TGeometry, TOut, Curve, Point3d>(key: DivideByCountKey, operation: () => Analyze.DividePoly<TGeometry>(key: DivideByCountKey, requirement: null, divide: curve => curve.DivideByCount(segmentCount: dbc.Count, includeEnds: true, points: out Point3d[] points) switch { double[] => Optional(points), _ => Option<Point3d[]>.None })),
-        divideByLength: static dbl => Analyze.Located<TGeometry, TOut, Curve, Point3d>(key: DivideByLengthKey, operation: () => Analyze.DividePoly<TGeometry>(key: DivideByLengthKey, requirement: Requirement.CurveLength, divide: curve => curve.DivideByLength(segmentLength: dbl.Length, includeEnds: true, points: out Point3d[] points) switch { double[] => Optional(points), _ => Option<Point3d[]>.None })),
-        orientation: static o => Analyze.Located<TGeometry, TOut, Curve, CurveOrientation>(key: OrientationKey, operation: () => global::Rasm.Analysis.Operation<TGeometry, CurveOrientation>.Build(
+        divideByCountCase: static dbc => Analyze.Located<TGeometry, TOut, Curve, Point3d>(key: DivideByCountKey, operation: () => Analyze.DividePoly<TGeometry>(key: DivideByCountKey, requirement: null, divide: curve => curve.DivideByCount(segmentCount: dbc.Count, includeEnds: true, points: out Point3d[] points) switch { double[] => Optional(points), _ => Option<Point3d[]>.None })),
+        divideByLengthCase: static dbl => Analyze.Located<TGeometry, TOut, Curve, Point3d>(key: DivideByLengthKey, operation: () => Analyze.DividePoly<TGeometry>(key: DivideByLengthKey, requirement: Requirement.CurveLength, divide: curve => curve.DivideByLength(segmentLength: dbl.Length, includeEnds: true, points: out Point3d[] points) switch { double[] => Optional(points), _ => Option<Point3d[]>.None })),
+        orientationCase: static o => Analyze.Located<TGeometry, TOut, Curve, CurveOrientation>(key: OrientationKey, operation: () => global::Rasm.Analysis.Operation<TGeometry, CurveOrientation>.Build(
             key: OrientationKey, state: (Key: OrientationKey, Frame: o.Plane),
             evaluator: static (state, geometry) => geometry switch {
                 Curve curve => state.Key.Accept(value: curve.ClosedCurveOrientation(plane: state.Frame)).ToEff(),
                 _ => Fin.Fail<Seq<CurveOrientation>>(state.Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(CurveOrientation))).ToEff(),
             })),
-        contains: static cnt => Analyze.Located<TGeometry, TOut, Curve, PointContainment>(key: ContainsKey, operation: () => global::Rasm.Analysis.Operation<TGeometry, PointContainment>.Build(
+        containsCase: static cnt => Analyze.Located<TGeometry, TOut, Curve, PointContainment>(key: ContainsKey, operation: () => global::Rasm.Analysis.Operation<TGeometry, PointContainment>.Build(
             key: ContainsKey, requiresContext: true, state: (Key: ContainsKey, Probe: cnt.Point, Frame: cnt.Plane),
             evaluator: static (state, geometry) => geometry switch {
                 Curve curve => from context in Env.Asks
@@ -65,19 +102,21 @@ public partial record Location : IAspect {
                                select result,
                 _ => Fin.Fail<Seq<PointContainment>>(state.Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(PointContainment))).ToEff(),
             })),
-        pointAtSurface: static pas => Analyze.Located<TGeometry, TOut, Surface, Point3d>(key: PointAtKey, operation: () => Analyze.SurfaceUv<TGeometry, Point3d>(key: PointAtKey, uv: pas.Uv, project: static (geometry, parameter) => PointAtKey.Accept(value: geometry.PointAt(u: parameter.X, v: parameter.Y)))),
-        frameAtSurface: static fas => Analyze.Located<TGeometry, TOut, Surface, Plane>(key: FrameAtKey, operation: () => Analyze.SurfaceUv<TGeometry, Plane>(
+        pointAtSurfaceCase: static pas => Analyze.Located<TGeometry, TOut, Surface, Point3d>(key: PointAtKey, operation: () => Analyze.SurfaceUv<TGeometry, Point3d>(key: PointAtKey, uv: pas.Uv, project: static (geometry, parameter) => PointAtKey.Accept(value: geometry.PointAt(u: parameter.X, v: parameter.Y)))),
+        frameAtSurfaceCase: static fas => Analyze.Located<TGeometry, TOut, Surface, Plane>(key: FrameAtKey, operation: () => Analyze.SurfaceUv<TGeometry, Plane>(
             key: FrameAtKey, uv: fas.Uv, project: static (geometry, parameter) => geometry.FrameAt(u: parameter.X, v: parameter.Y, frame: out Plane frame) switch {
                 true => FrameAtKey.Accept(value: frame),
                 false => Fin.Fail<Seq<Plane>>(FrameAtKey.InvalidResult()),
             })),
-        normalAt: static na => Analyze.Located<TGeometry, TOut, Surface, Vector3d>(key: NormalAtKey, operation: () => Analyze.SurfaceUv<TGeometry, Vector3d>(
+        normalAtCase: static na => Analyze.Located<TGeometry, TOut, Surface, Vector3d>(key: NormalAtKey, operation: () => Analyze.SurfaceUv<TGeometry, Vector3d>(
             key: NormalAtKey, uv: na.Uv, project: static (geometry, parameter) => geometry.NormalAt(u: parameter.X, v: parameter.Y) switch {
                 Vector3d normal when normal.IsValid && !normal.IsTiny() => NormalAtKey.Accept(value: normal),
                 _ => Fin.Fail<Seq<Vector3d>>(NormalAtKey.InvalidResult()),
             })),
-        curvatureAtSurface: static cas => Analyze.Located<TGeometry, TOut, Surface, SurfaceCurvature>(key: CurvatureAtKey, operation: () => Analyze.SurfaceUv<TGeometry, SurfaceCurvature>(key: CurvatureAtKey, uv: cas.Uv, project: static (geometry, parameter) => Optional(geometry.CurvatureAt(u: parameter.X, v: parameter.Y)).ToFin(CurvatureAtKey.InvalidResult()).Map(static curvature => Seq(curvature)))),
-        shortPath: static sp => Analyze.Located<TGeometry, TOut, Surface, Curve>(key: ShortPathKey, operation: () => Analyze.ShortPath<TGeometry>(start: sp.Start, end: sp.End)));
+        curvatureAtSurfaceCase: static cas => Analyze.Located<TGeometry, TOut, Surface, SurfaceCurvature>(key: CurvatureAtKey, operation: () => Analyze.SurfaceUv<TGeometry, SurfaceCurvature>(key: CurvatureAtKey, uv: cas.Uv, project: static (geometry, parameter) => Optional(geometry.CurvatureAt(u: parameter.X, v: parameter.Y)).ToFin(CurvatureAtKey.InvalidResult()).Map(static curvature => Seq(curvature)))),
+        shortPathCase: static sp => Analyze.Located<TGeometry, TOut, Surface, Curve>(key: ShortPathKey, operation: () => Analyze.ShortPath<TGeometry>(start: sp.Start, end: sp.End)),
+        parameterAtCase: static pat => Analyze.ParameterAt<TGeometry, TOut>(key: ParameterAtKey, probe: pat.Probe),
+        lengthAtCase: static lat => Analyze.Located<TGeometry, TOut, Curve, double>(key: LengthAtKey, operation: () => Analyze.CurveAt<TGeometry, double>(key: LengthAtKey, parameter: lat.Parameter, project: static (curve, t) => LengthAtKey.Accept(value: curve.GetLength(subdomain: new Interval(curve.Domain.T0, t))))));
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -152,6 +191,33 @@ public static partial class Analyze {
         GeometryKernel.SurfaceSampleUv(surface: surface, resolution: resolution, context: model, key: key)
             .Bind(samples => samples.TraverseM(uv => Optional(surface.CurvatureAt(u: uv.X, v: uv.Y)).ToFin(key.InvalidResult()))
             .As());
+    internal static global::Rasm.Analysis.Operation<TGeometry, TOut> ParameterAt<TGeometry, TOut>(Op key, Point3d probe) where TGeometry : notnull =>
+        probe.IsValid switch {
+            false => global::Rasm.Analysis.Operation<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput()),
+            true => (typeof(TGeometry), typeof(TOut)) switch {
+                (Type geometry, Type output) when (typeof(Curve).IsAssignableFrom(c: geometry) || geometry == typeof(object) || geometry == typeof(GeometryBase)) && output == typeof(double) =>
+                    Cast<TGeometry, TOut>(key: key, operation: global::Rasm.Analysis.Operation<TGeometry, double>.Build(
+                        key: key, state: (Key: key, Probe: probe),
+                        evaluator: static (state, geometry) => geometry switch {
+                            Curve curve => (curve.ClosestPoint(testPoint: state.Probe, t: out double parameter) switch {
+                                true => state.Key.Accept(value: parameter),
+                                false => Fin.Fail<Seq<double>>(state.Key.InvalidResult()),
+                            }).ToEff(),
+                            _ => Fin.Fail<Seq<double>>(state.Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(double))).ToEff(),
+                        })),
+                (Type geometry, Type output) when (typeof(Surface).IsAssignableFrom(c: geometry) || geometry == typeof(object) || geometry == typeof(GeometryBase)) && output == typeof(Point2d) =>
+                    Cast<TGeometry, TOut>(key: key, operation: global::Rasm.Analysis.Operation<TGeometry, Point2d>.Build(
+                        key: key, state: (Key: key, Probe: probe),
+                        evaluator: static (state, geometry) => geometry switch {
+                            Surface surface => (surface.ClosestPoint(testPoint: state.Probe, u: out double u, v: out double v) switch {
+                                true => state.Key.Accept(value: new Point2d(x: u, y: v)),
+                                false => Fin.Fail<Seq<Point2d>>(state.Key.InvalidResult()),
+                            }).ToEff(),
+                            _ => Fin.Fail<Seq<Point2d>>(state.Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Point2d))).ToEff(),
+                        })),
+                _ => key.Unsupported<TGeometry, TOut>(),
+            },
+        };
     internal static global::Rasm.Analysis.Operation<TGeometry, TOut> ClosestPoint<TGeometry, TOut>(Point3d point) where TGeometry : notnull {
         Op key = Op.Of();
         return point.IsValid switch {
