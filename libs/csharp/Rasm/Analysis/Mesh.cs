@@ -141,7 +141,7 @@ public static partial class Analyze {
         return Optional(metric).Filter(static candidate => !candidate.Equals(Rasm.Analysis.MeshMetric.None)).Case switch {
             Rasm.Analysis.MeshMetric active => global::Rasm.Analysis.Operation<Mesh, MeshMetricSample>.Build(
                 key: key, state: (Key: key, Metric: active), requirement: Requirement.MeshCheck,
-                evaluator: static (state, geometry) => VisiblePolygons(mesh: geometry, key: state.Key)
+                evaluator: static (state, geometry) => VisiblePolygonsOf(mesh: geometry, key: state.Key)
                     .Bind(polygons => polygons.TraverseM(polygon => state.Metric.Sample(mesh: geometry, polygon: polygon)).As()).ToEff()),
             _ => global::Rasm.Analysis.Operation<Mesh, MeshMetricSample>.Reject(key: key, fault: key.InvalidInput()),
         };
@@ -159,7 +159,7 @@ public static partial class Analyze {
         Op key = Op.Of();
         return global::Rasm.Analysis.Operation<Mesh, TopologyProjection>.Build(
             key: key, state: (Key: key, Selector: index),
-            evaluator: static (state, geometry) => VisiblePolygons(mesh: geometry, key: state.Key).Bind(polygons => polygons.Count switch {
+            evaluator: static (state, geometry) => VisiblePolygonsOf(mesh: geometry, key: state.Key).Bind(polygons => polygons.Count switch {
                 0 => Fin.Fail<Seq<TopologyProjection>>(state.Key.InvalidResult()),
                 int count when state.Selector is int selected && (selected < 0 || selected >= count) => Fin.Fail<Seq<TopologyProjection>>(state.Key.InvalidInput()),
                 _ => TopologyProjection.MeshPolygon(mesh: geometry, polygon: polygons[state.Selector ?? 0])
@@ -168,7 +168,7 @@ public static partial class Analyze {
     }
     internal static global::Rasm.Analysis.Operation<TGeometry, TOut> MeshLift<TGeometry, TOut, TValue>(Op key, global::Rasm.Analysis.Operation<Mesh, TValue> source) where TGeometry : notnull =>
         Native<TGeometry, TOut, Mesh, TValue, global::Rasm.Analysis.Operation<Mesh, TValue>>(key: key, state: source, project: static (q, mesh) => q.Apply(geometry: Seq(mesh)));
-    private static Fin<Seq<MeshNgon>> VisiblePolygons(Mesh mesh, Op key) =>
+    private static Fin<Seq<MeshNgon>> VisiblePolygonsOf(Mesh mesh, Op key) =>
         Optional(mesh.GetNgonAndFacesEnumerable()).ToFin(key.InvalidResult())
             .Map(static polygons => toSeq(polygons));
     private static global::Rasm.Analysis.Operation<Mesh, MeshSample> MeshSamples(Op key, Seq<MeshSampleKind> kinds) =>
@@ -180,7 +180,7 @@ public static partial class Analyze {
                         select state.Kinds.Map(kind => new MeshSample(Kind: kind, Value: kind.Sample(mesh: geometry, parameters: head))),
                 false => Fin.Succ(state.Kinds.Map(kind => new MeshSample(Kind: kind, Value: kind.Sample(mesh: geometry, parameters: default)))).ToEff(),
             });
-    internal static Fin<Seq<Polyline>> SelfIntersectionsValue(Op op, Mesh geometry, Env runtime) {
+    internal static Fin<Seq<Polyline>> SelfIntersectionsOf(Op op, Mesh geometry, Env runtime) {
         // BOUNDARY ADAPTER — Rhino GetSelfIntersections takes IDisposable TextLog + multi-out.
         using TextLog textLog = new();
         return geometry.GetSelfIntersections(

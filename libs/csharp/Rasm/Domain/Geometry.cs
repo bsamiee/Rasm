@@ -55,7 +55,7 @@ public sealed record TopologyProjection {
     public static Fin<TopologyProjection> MeshPolygon(Mesh? mesh, MeshNgon polygon) =>
         Optional(mesh).ToFin(Key.InvalidInput()).Bind(native =>
             Optional(polygon.BoundaryVertexIndexList()).Filter(static vertices => vertices.Length >= 3).ToFin(Key.InvalidResult())
-                .Bind(_ => MeshSource(mesh: native, polygon: polygon))
+                .Bind(_ => MeshComponentIndex(mesh: native, polygon: polygon))
                 .Map(source => new TopologyProjection(value: new Lease<GeometryBase>.Borrowed(Value: native), feature: CurveFeature.Input, source: source)));
     public Unit Dispose() {
         _ = value.Dispose();
@@ -110,7 +110,7 @@ public sealed record TopologyProjection {
                 },
             _ => Fin.Fail<Vector3d>(Key.InvalidResult()),
         };
-    private static Fin<ComponentIndex> MeshSource(Mesh mesh, MeshNgon polygon) =>
+    private static Fin<ComponentIndex> MeshComponentIndex(Mesh mesh, MeshNgon polygon) =>
         Optional(polygon.FaceIndexList()).ToFin(Key.InvalidResult()).Bind(faces => faces switch {
             uint[] values when values.Length == 1 && values[0] <= int.MaxValue && mesh.Ngons.NgonIndexFromFaceIndex((int)values[0]) < 0 => Fin.Succ(new ComponentIndex(ComponentIndexType.MeshFace, (int)values[0])),
             uint[] values when values.Length > 0 && values[0] <= int.MaxValue && mesh.Ngons.NgonIndexFromFaceIndex((int)values[0]) is >= 0 and int ngon => Fin.Succ(new ComponentIndex(ComponentIndexType.MeshNgon, ngon)),
@@ -233,11 +233,11 @@ internal static class GeometryKernel {
         type == typeof(object) || type == typeof(GeometryBase) || type == typeof(Line) || type == typeof(Polyline) || type == typeof(BoundingBox) || type == typeof(Box) || typeof(Brep).IsAssignableFrom(c: type) || typeof(Mesh).IsAssignableFrom(c: type) || typeof(SubD).IsAssignableFrom(c: type);
     internal static bool CanCoerce(Type source, Type target) =>
         source == typeof(object) || source == typeof(GeometryBase) || KindLookup.Resolve(source).Map(kind => kind.CanCoerceTo(target: target)).IfNone(target.IsAssignableFrom(source));
-    public static Fin<Kind> Kind(this object geometry, Context context) =>
+    public static Fin<Kind> KindOf(this object geometry, Context context) =>
         Optional(geometry).ToFin(Op.Of(name: nameof(Kind)).InvalidInput()).Bind(g =>
             (InferredKind(geometry: g, context: context) | NativeKind(geometry: g) | KindLookup.Resolve(g.GetType()))
             .ToFin(Op.Of(name: nameof(Kind)).InvalidInput()));
-    public static Fin<BoundingBox> Bounds(this object geometry, Op op) =>
+    public static Fin<BoundingBox> BoundsOf(this object geometry, Op op) =>
         Optional(geometry).ToFin(op.InvalidInput()).Bind(g => OpAcceptance.ValidityOf(source: g).Case switch {
             false => Fin.Fail<BoundingBox>(op.InvalidInput()),
             true => g switch {
@@ -259,7 +259,7 @@ internal static class GeometryKernel {
             },
             _ => Fin.Fail<BoundingBox>(op.InvalidInput()),
         });
-    public static Fin<TTarget> Coerce<TTarget>(object? source, Context context, Op op) where TTarget : notnull =>
+    public static Fin<TTarget> CoerceTo<TTarget>(object? source, Context context, Op op) where TTarget : notnull =>
         Optional(source).ToFin(op.InvalidInput()).Bind(s => s switch {
             TTarget target => op.AcceptValue(target),
             _ => CoerceValue(source: s, target: typeof(TTarget), context: context).ToFin(op.Unsupported(s.GetType(), typeof(TTarget))).Map(static v => (TTarget)v),
@@ -267,7 +267,7 @@ internal static class GeometryKernel {
     private static Option<Kind> InferredKind(object geometry, Context context) =>
         geometry switch {
             Brep brep => BoxOf(brep: brep, context: context).Map(static _ => global::Rasm.Domain.Kind.Box)
-                | PlaneFromBrep(brep: brep, context: context).Map(static _ => global::Rasm.Domain.Kind.Plane)
+                | PlaneOfBrep(brep: brep, context: context).Map(static _ => global::Rasm.Domain.Kind.Plane)
                 | PrimitiveSurfaceKind(surface: brep is { IsSurface: true } ? brep.Surfaces[0] : null, context: context),
             Curve curve => LineOf(curve: curve, context: context).Map(static _ => global::Rasm.Domain.Kind.Line)
                 | CircleOf(curve: curve, context: context).Map(static _ => global::Rasm.Domain.Kind.Circle)
@@ -305,13 +305,13 @@ internal static class GeometryKernel {
         (source, target) switch {
             (Point point, Type t) when t == typeof(Point3d) => Some((object)point.Location),
             (Brep brep, Type t) when t == typeof(Box) => BoxOf(brep: brep, context: context).Map(static v => (object)v),
-            (object value, Type t) when t == typeof(Curve) => CurveForm(source: value, op: Op.Of(name: nameof(Coerce))).ToOption().Map(static lease => (object)lease.Resource),
+            (object value, Type t) when t == typeof(Curve) => CurveForm(source: value, op: Op.Of(name: nameof(CoerceTo))).ToOption().Map(static lease => (object)lease.Resource),
             (Curve curve, Type t) when t == typeof(Line) => LineOf(curve: curve, context: context).Map(static v => (object)v),
             (Curve curve, Type t) when t == typeof(Circle) => CircleOf(curve: curve, context: context).Map(static v => (object)v),
             (Curve curve, Type t) when t == typeof(Arc) => ArcOf(curve: curve, context: context).Map(static v => (object)v),
             (Curve curve, Type t) when t == typeof(Ellipse) => EllipseOf(curve: curve, context: context).Map(static v => (object)v),
             (Curve curve, Type t) when t == typeof(Polyline) => PolylineOf(curve: curve).Map(static v => (object)v),
-            (Brep brep, Type t) when t == typeof(Plane) => PlaneFromBrep(brep: brep, context: context).Map(static v => (object)v),
+            (Brep brep, Type t) when t == typeof(Plane) => PlaneOfBrep(brep: brep, context: context).Map(static v => (object)v),
             (Surface surface, Type t) when t == typeof(Plane) => PlaneOf(surface: surface, context: context).Map(static v => (object)v),
             (Brep brep, Type t) when t == typeof(Sphere) => brep is { IsSurface: true } ? SphereOf(surface: brep.Surfaces[0], context: context).Map(static v => (object)v) : Option<object>.None,
             (Surface surface, Type t) when t == typeof(Sphere) => SphereOf(surface: surface, context: context).Map(static v => (object)v),
@@ -321,7 +321,7 @@ internal static class GeometryKernel {
             (Surface surface, Type t) when t == typeof(Cone) => ConeOf(surface: surface, context: context).Map(static v => (object)v),
             (Brep brep, Type t) when t == typeof(Torus) => brep is { IsSurface: true } ? TorusOf(surface: brep.Surfaces[0], context: context).Map(static v => (object)v) : Option<object>.None,
             (Surface surface, Type t) when t == typeof(Torus) => TorusOf(surface: surface, context: context).Map(static v => (object)v),
-            (object value, Type t) when t == typeof(Brep) => BrepForm(source: value, op: Op.Of(name: nameof(Coerce))).ToOption().Map(static lease => (object)lease.Resource),
+            (object value, Type t) when t == typeof(Brep) => BrepForm(source: value, op: Op.Of(name: nameof(CoerceTo))).ToOption().Map(static lease => (object)lease.Resource),
             _ => Option<object>.None,
         };
     private static Option<Box> BoxOf(Brep brep, Context context) =>
@@ -331,7 +331,7 @@ internal static class GeometryKernel {
     private static Option<Arc> ArcOf(Curve curve, Context context) => curve.TryGetArc(out Arc value, context.Absolute.Value) ? Some(value) : Option<Arc>.None;
     private static Option<Ellipse> EllipseOf(Curve curve, Context context) => curve.TryGetEllipse(out Ellipse value, context.Absolute.Value) ? Some(value) : Option<Ellipse>.None;
     private static Option<Polyline> PolylineOf(Curve curve) => curve.TryGetPolyline(out Polyline value) ? Some(value) : Option<Polyline>.None;
-    private static Option<Plane> PlaneFromBrep(Brep brep, Context context) => brep is { IsSurface: true } ? PlaneOf(surface: brep.Surfaces[0], context: context) : Option<Plane>.None;
+    private static Option<Plane> PlaneOfBrep(Brep brep, Context context) => brep is { IsSurface: true } ? PlaneOf(surface: brep.Surfaces[0], context: context) : Option<Plane>.None;
     private static Option<Plane> PlaneOf(Surface surface, Context context) => surface.TryGetPlane(out Plane value, context.Absolute.Value) ? Some(value) : Option<Plane>.None;
     private static Option<Sphere> SphereOf(Surface surface, Context context) => surface.TryGetSphere(out Sphere value, context.Absolute.Value) ? Some(value) : Option<Sphere>.None;
     private static Option<Cylinder> CylinderOf(Surface surface, Context context) => surface.TryGetCylinder(out Cylinder value, context.Absolute.Value) ? Some(value) : Option<Cylinder>.None;
@@ -398,7 +398,7 @@ internal static class GeometryKernel {
     internal static Fin<Seq<Point3d>> SurfaceSamplePoints(Surface surface, int resolution, Context context, Op key) =>
         SurfaceSampleUv(surface: surface, resolution: resolution, context: context, key: key)
             .Map(uvs => uvs.Map(uv => surface.PointAt(u: uv.X, v: uv.Y)));
-    internal static Fin<ClosestHit> Closest(object? geometry, Point3d target, Op key) =>
+    internal static Fin<ClosestHit> ClosestOf(object? geometry, Point3d target, Op key) =>
         from _ in guard(target.IsValid, key.InvalidInput())
         from g in Optional(geometry).ToFin(key.InvalidInput())
         from hit in g switch {

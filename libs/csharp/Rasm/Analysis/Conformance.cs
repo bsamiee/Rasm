@@ -54,9 +54,9 @@ public static partial class Analyze {
         || (typeof(Surface).IsAssignableFrom(geometry) && (target == typeof(Plane) || target == typeof(Sphere)));
     internal static Fin<Seq<ResidualSample>> ConformanceSamples<TGeometry, TTarget>(Conformance aspect, TGeometry geometry, TTarget target, int count, Context context, Op op) where TGeometry : notnull where TTarget : notnull =>
         (aspect, geometry, target) switch {
-            (global::Rasm.Analysis.Conformance.WithinTolerance or global::Rasm.Analysis.Conformance.Maximum, Curve curve, Line line) => ExactCurveResidual(curve: curve, primitive: line, context: context, op: op, convert: static value => new LineCurve(value)),
-            (global::Rasm.Analysis.Conformance.WithinTolerance or global::Rasm.Analysis.Conformance.Maximum, Curve curve, Circle circle) => ExactCurveResidual(curve: curve, primitive: circle, context: context, op: op, convert: static value => new ArcCurve(value)),
-            (global::Rasm.Analysis.Conformance.WithinTolerance or global::Rasm.Analysis.Conformance.Maximum, Curve curve, Arc arc) => ExactCurveResidual(curve: curve, primitive: arc, context: context, op: op, convert: static value => new ArcCurve(value)),
+            (global::Rasm.Analysis.Conformance.WithinTolerance or global::Rasm.Analysis.Conformance.Maximum, Curve curve, Line line) => ExactCurveResidualOf(curve: curve, primitive: line, context: context, op: op, convert: static value => new LineCurve(value)),
+            (global::Rasm.Analysis.Conformance.WithinTolerance or global::Rasm.Analysis.Conformance.Maximum, Curve curve, Circle circle) => ExactCurveResidualOf(curve: curve, primitive: circle, context: context, op: op, convert: static value => new ArcCurve(value)),
+            (global::Rasm.Analysis.Conformance.WithinTolerance or global::Rasm.Analysis.Conformance.Maximum, Curve curve, Arc arc) => ExactCurveResidualOf(curve: curve, primitive: arc, context: context, op: op, convert: static value => new ArcCurve(value)),
             (_, Curve curve, Line line) => SampleCurveAgainst(curve: curve, primitive: line, count: count, context: context, op: op, distance: static (l, pt) => pt.DistanceTo(l.ClosestPoint(testPoint: pt, limitToFiniteSegment: true))),
             (_, Curve curve, Circle circle) => SampleCurveAgainst(curve: curve, primitive: circle, count: count, context: context, op: op, distance: static (c, pt) => pt.DistanceTo(other: c.ClosestPoint(testPoint: pt))),
             (_, Curve curve, Arc arc) => SampleCurveAgainst(curve: curve, primitive: arc, count: count, context: context, op: op, distance: static (a, pt) => pt.DistanceTo(other: a.ClosestPoint(testPoint: pt))),
@@ -64,15 +64,15 @@ public static partial class Analyze {
             (_, Surface surface, Sphere sphere) => SampleSurfaceAgainst(surface: surface, primitive: sphere, resolution: count, context: context, op: op, distance: static (s, pt) => pt.DistanceTo(other: s.ClosestPoint(testPoint: pt))),
             _ => Fin.Fail<Seq<ResidualSample>>(op.Unsupported(typeof(TGeometry), typeof(ResidualSample))),
         };
-    private static Fin<Seq<ResidualSample>> ExactCurveResidual<TPrimitive>(Curve curve, TPrimitive primitive, Context context, Op op, Func<TPrimitive, Curve> convert) where TPrimitive : notnull =>
+    private static Fin<Seq<ResidualSample>> ExactCurveResidualOf<TPrimitive>(Curve curve, TPrimitive primitive, Context context, Op op, Func<TPrimitive, Curve> convert) where TPrimitive : notnull =>
         new Lease<Curve>.Owned(Value: convert(arg: primitive)).Use(native => CurveDeviationOf(left: curve, right: native, context: context, op: op)
             .Map(static deviation => Seq(new ResidualSample(Index: 0, Location: deviation.MaximumA, Distance: deviation.MaximumDistance, Tolerance: deviation.Tolerance, WithinTolerance: deviation.WithinTolerance))));
-    private static Seq<ResidualSample> Residuals<TP>(Seq<Point3d> points, TP primitive, Context context, Func<TP, Point3d, double> distance) where TP : notnull =>
+    private static Seq<ResidualSample> ResidualsOf<TP>(Seq<Point3d> points, TP primitive, Context context, Func<TP, Point3d, double> distance) where TP : notnull =>
         toSeq(points.AsIterable().Select((p, i) => distance(primitive, p) switch { double d => new ResidualSample(i, p, d, context.Absolute.Value, d <= context.Absolute.Value) }));
     private static Fin<Seq<ResidualSample>> SampleCurveAgainst<TP>(Curve curve, TP primitive, int count, Context context, Op op, Func<TP, Point3d, double> distance) where TP : notnull =>
         GeometryKernel.CurveSampleParameters(curve: curve, count: count, context: context, key: op)
-            .Map(parameters => Residuals(points: parameters.Map(curve.PointAt), primitive: primitive, context: context, distance: distance));
+            .Map(parameters => ResidualsOf(points: parameters.Map(curve.PointAt), primitive: primitive, context: context, distance: distance));
     private static Fin<Seq<ResidualSample>> SampleSurfaceAgainst<TP>(Surface surface, TP primitive, int resolution, Context context, Op op, Func<TP, Point3d, double> distance) where TP : notnull =>
         GeometryKernel.SurfaceSamplePoints(surface: surface, resolution: resolution, context: context, key: op)
-            .Map(points => Residuals(points: points, primitive: primitive, context: context, distance: distance));
+            .Map(points => ResidualsOf(points: points, primitive: primitive, context: context, distance: distance));
 }

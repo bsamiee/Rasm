@@ -15,8 +15,8 @@ public partial record Points : IAspect {
                 evaluator: static (op, geometry) =>
                     from context in Env.Asks
                     from result in (geometry switch {
-                        Curve curve when curve.IsValid => Analyze.ExtractCardinals(op: op, curve: curve, tolerance: context.Absolute.Value),
-                        object value => GeometryKernel.CurveForm(source: value, op: op).Bind(lease => lease.Use(curve => Analyze.ExtractCardinals(op: op, curve: curve, tolerance: context.Absolute.Value))),
+                        Curve curve when curve.IsValid => Analyze.CardinalsOf(op: op, curve: curve, tolerance: context.Absolute.Value),
+                        object value => GeometryKernel.CurveForm(source: value, op: op).Bind(lease => lease.Use(curve => Analyze.CardinalsOf(op: op, curve: curve, tolerance: context.Absolute.Value))),
                     }).ToEff()
                     select result))
             : QuadrantsKey.Unsupported<TGeometry, TOut>(),
@@ -29,7 +29,7 @@ public partial record Points : IAspect {
                     BoundingBox box => op.Accept(values: box.GetEdges().Select(static edge => edge.PointAt(t: 0.5))).ToEff(),
                     Box box => op.Accept(values: box.BoundingBox.GetEdges().Select(static edge => edge.PointAt(t: 0.5))).ToEff(),
                     _ => from runtime in Env.EnvAsks
-                         from kind in ((object)geometry).Kind(context: runtime.Context).ToEff()
+                         from kind in ((object)geometry).KindOf(context: runtime.Context).ToEff()
                          from curves in (kind.Topology switch {
                              Topology.Brep or Topology.Mesh or Topology.SubD => Analyze.CurveProjections(geometry: geometry, aspect: Rasm.Analysis.Curves.All, feature: CurveFeature.Edge, context: runtime.Context, op: op, cancel: runtime.Cancellation),
                              _ => Fin.Fail<Seq<TopologyProjection>>(op.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Curve))),
@@ -90,7 +90,7 @@ public static partial class Analyze {
             Brep brep => toSeq(brep.Faces).TraverseM(f => Optional(f.ToNurbsSurface()).ToFin(op.InvalidResult()).Map(static s => new Lease<NurbsSurface>.Owned(Value: s).Use(static d => toSeq(Enumerable.Range(0, d.Points.CountU).SelectMany(u => Enumerable.Range(0, d.Points.CountV).Select(v => d.Points.GetControlPoint(u, v).Location)).ToArray())))).As().Map(static nested => nested.Bind(static points => points)),
             _ => Fin.Fail<Seq<Point3d>>(op.Unsupported(g.GetType(), typeof(Point3d))),
         });
-    internal static Fin<Seq<Point3d>> ExtractCardinals(Op op, Curve curve, double tolerance) =>
+    internal static Fin<Seq<Point3d>> CardinalsOf(Op op, Curve curve, double tolerance) =>
         Seq((Direction: Vector3d.XAxis, Maximize: false), (Direction: Vector3d.XAxis, Maximize: true), (Direction: Vector3d.YAxis, Maximize: false), (Direction: Vector3d.YAxis, Maximize: true), (Direction: Vector3d.ZAxis, Maximize: false), (Direction: Vector3d.ZAxis, Maximize: true))
             .Take(curve.IsPlanar(tolerance: tolerance) switch { true => 4, false => 6 })
             .TraverseM(state => Stats.Maxima(

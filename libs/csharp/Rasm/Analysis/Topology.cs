@@ -20,7 +20,7 @@ public static partial class Analyze {
                 key: key, requirement: Requirement.Basic, requiresContext: true, state: key,
                 evaluator: static (op, geometry) =>
                     from context in Env.Asks
-                    from coerced in GeometryKernel.Coerce<TOut>(geometry, context, op).ToEff()
+                    from coerced in GeometryKernel.CoerceTo<TOut>(geometry, context, op).ToEff()
                     from result in op.Accept(value: coerced).ToEff()
                     select result),
             _ => key.Unsupported<TGeometry, TOut>(),
@@ -33,7 +33,7 @@ public static partial class Analyze {
                 key: key, requiresContext: true, state: key,
                 evaluator: static (op, geometry) =>
                     from context in Env.Asks
-                    from kind in ((object)geometry).Kind(context: context).ToEff()
+                    from kind in ((object)geometry).KindOf(context: context).ToEff()
                     from result in op.Accept(value: kind).ToEff()
                     select result))
             : key.Unsupported<TGeometry, TOut>();
@@ -101,11 +101,11 @@ public static partial class Analyze {
     internal static Fin<Seq<GeometryBase>> ComponentsOf<TGeometry>(TGeometry geometry, Op op) where TGeometry : notnull =>
         Optional(geometry).ToFin(op.InvalidInput()).Bind(g => g switch {
             Mesh mesh => Fin.Succ(toSeq(mesh.SplitDisjointPieces().Cast<GeometryBase>())),
-            Brep brep => BrepComponents(brep: brep, op: op),
-            GeometryBase { HasBrepForm: true } native => GeometryKernel.BrepForm(source: native, op: op).Bind(lease => lease.Use(brep => BrepComponents(brep: brep, op: op))),
+            Brep brep => BrepComponentsOf(brep: brep, op: op),
+            GeometryBase { HasBrepForm: true } native => GeometryKernel.BrepForm(source: native, op: op).Bind(lease => lease.Use(brep => BrepComponentsOf(brep: brep, op: op))),
             _ => Fin.Fail<Seq<GeometryBase>>(op.Unsupported(g.GetType(), typeof(Seq<GeometryBase>))),
         });
-    private static Fin<Seq<GeometryBase>> BrepComponents(Brep brep, Op op) =>
+    private static Fin<Seq<GeometryBase>> BrepComponentsOf(Brep brep, Op op) =>
         brep.GetConnectedComponents() switch {
             Brep[] cs when cs.Length > 0 => Fin.Succ(toSeq(cs.Cast<GeometryBase>())),
             _ when brep.IsValid => op.AcceptValue(brep).Map(static v => Seq((GeometryBase)v.DuplicateBrep())),

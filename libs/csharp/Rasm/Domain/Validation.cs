@@ -140,7 +140,7 @@ public static class RequirementContext {
         Fin.Succ((Context: context, A: a, B: b, Op: op, Requirements: requirements, Cancel: cancel)).ToValidation()
             .Bind(static state => (state.Context.Pair(a: state.A, b: state.B, requirementA: Requirement.None, requirementB: Requirement.None, cancel: state.Cancel), Fin.Succ(state).ToValidation())
                 .Apply(static (pair, state) => (state.Context, pair.A, pair.B, state.Op, state.Requirements, state.Cancel)).As())
-            .Bind(static state => (((object)state.A).Kind(context: state.Context).ToValidation(), ((object)state.B).Kind(context: state.Context).ToValidation(), Fin.Succ(state).ToValidation())
+            .Bind(static state => (((object)state.A).KindOf(context: state.Context).ToValidation(), ((object)state.B).KindOf(context: state.Context).ToValidation(), Fin.Succ(state).ToValidation())
                 .Apply(static (kindA, kindB, state) => (state.Context, state.A, state.B, state.Op, state.Requirements, state.Cancel, KindA: kindA, KindB: kindB)).As())
             .Bind(static state => (state.Requirements(arg1: state.Op, arg2: state.KindA, arg3: state.KindB).ToValidation(), Fin.Succ(state).ToValidation())
                 .Apply(static (required, state) => (state.Context, state.A, state.B, state.Cancel, state.KindA, state.KindB, RequiredA: required.A, RequiredB: required.B)).As())

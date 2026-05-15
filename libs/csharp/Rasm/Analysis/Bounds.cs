@@ -17,7 +17,7 @@ public partial record Bounds : IAspect {
         axisAligned: static _ => (typeof(TOut) == typeof(BoundingBox) && GeometryKernel.CanBound(typeof(TGeometry), includeSphere: true))
             ? Analyze.Cast<TGeometry, TOut>(key: BoundsKey, operation: global::Rasm.Analysis.Operation<TGeometry, BoundingBox>.Build(
                 key: BoundsKey, state: BoundsKey,
-                evaluator: static (op, geometry) => geometry.Bounds(op: op).Bind(b => op.Accept(value: b)).ToEff()))
+                evaluator: static (op, geometry) => geometry.BoundsOf(op: op).Bind(b => op.Accept(value: b)).ToEff()))
             : BoundsKey.Unsupported<TGeometry, TOut>(),
         oriented: static o => (typeof(TOut) == typeof(Rhino.Geometry.Box) && typeof(GeometryBase).IsAssignableFrom(c: typeof(TGeometry)))
             ? Analyze.Native<TGeometry, TOut, GeometryBase, Rhino.Geometry.Box, (Op Key, Plane Plane)>(
@@ -35,14 +35,14 @@ public partial record Bounds : IAspect {
         center: static _ => typeof(TOut) == typeof(Point3d)
             ? Analyze.Cast<TGeometry, TOut>(key: CenterKey, operation: global::Rasm.Analysis.Operation<TGeometry, Point3d>.Build(
                 key: CenterKey, state: CenterKey,
-                evaluator: static (op, geometry) => geometry.Bounds(op: op).Bind(b => op.Accept(value: b.Center)).ToEff()))
+                evaluator: static (op, geometry) => geometry.BoundsOf(op: op).Bind(b => op.Accept(value: b.Center)).ToEff()))
             : CenterKey.Unsupported<TGeometry, TOut>(),
         corners: static c => typeof(TOut) == typeof(Point3d)
             ? Analyze.Cast<TGeometry, TOut>(key: CornersKey, operation: global::Rasm.Analysis.Operation<TGeometry, Point3d>.Build(
                 key: CornersKey, requiresContext: c.Unique, state: (Key: CornersKey, c.Unique),
                 evaluator: static (state, geometry) =>
                     from runtime in Env.EnvAsks
-                    from bbox in geometry.Bounds(op: state.Key).ToEff()
+                    from bbox in geometry.BoundsOf(op: state.Key).ToEff()
                     from result in state.Key.Accept(values: state.Unique ? Point3d.CullDuplicates(points: bbox.GetCorners(), tolerance: runtime.Context.Absolute.Value) : bbox.GetCorners()).ToEff()
                     select result))
             : CornersKey.Unsupported<TGeometry, TOut>(),

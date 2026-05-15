@@ -24,7 +24,7 @@ public partial record Boundaries : IAspect {
             ? Analyze.Cast<TGeometry, TOut>(key: SelfIntersectionKey, operation: global::Rasm.Analysis.Operation<Mesh, Polyline>.Build(
                 key: SelfIntersectionKey, requirement: Requirement.Basic, state: SelfIntersectionKey,
                 evaluator: static (op, geometry) => from runtime in Env.EnvAsks
-                                                    from result in Analyze.SelfIntersectionsValue(op: op, geometry: geometry, runtime: runtime).ToEff()
+                                                    from result in Analyze.SelfIntersectionsOf(op: op, geometry: geometry, runtime: runtime).ToEff()
                                                     select result))
             : SelfIntersectionKey.Unsupported<TGeometry, TOut>(),
         allCase: static _ => typeof(TOut) == typeof(Curve)

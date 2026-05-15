@@ -23,9 +23,9 @@ public partial record Location : IAspect {
     private static readonly Op NormalAtKey = Op.Of(name: "NormalAt");
     private static readonly Op ShortPathKey = Op.Of(name: "ShortPath");
     public global::Rasm.Analysis.Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch<global::Rasm.Analysis.Operation<TGeometry, TOut>>(
-        midpoint: static _ => Analyze.Mid<TGeometry, TOut>(),
-        tangent: static _ => Analyze.TangentAtMiddle<TGeometry, TOut>(),
-        closest: static c => Analyze.Closest<TGeometry, TOut>(point: c.Point),
+        midpoint: static _ => Analyze.MidpointAt<TGeometry, TOut>(),
+        tangent: static _ => Analyze.TangentAtMidpoint<TGeometry, TOut>(),
+        closest: static c => Analyze.ClosestPoint<TGeometry, TOut>(point: c.Point),
         curvature: static cp => Analyze.Curvature<TGeometry, TOut>(count: cp.Count, mode: cp.Mode),
         pointAtCurve: static pac => Analyze.Located<TGeometry, TOut, Curve, Point3d>(key: PointAtKey, operation: () => Analyze.CurveAt<TGeometry, Point3d>(key: PointAtKey, parameter: pac.Parameter, project: static (curve, p) => PointAtKey.Accept(value: curve.PointAt(t: p)))),
         pointAtLength: static pal => Analyze.Located<TGeometry, TOut, Curve, Point3d>(
@@ -87,11 +87,11 @@ public static partial class Analyze {
         (typeof(TNative).IsAssignableFrom(c: typeof(TGeometry)) || typeof(TGeometry) == typeof(object) || typeof(TGeometry) == typeof(GeometryBase)) && typeof(TOut) == typeof(TValue)
             ? Cast<TGeometry, TOut>(key: key, operation: operation())
             : key.Unsupported<TGeometry, TOut>();
-    internal static global::Rasm.Analysis.Operation<TGeometry, TOut> Mid<TGeometry, TOut>() where TGeometry : notnull =>
-        Middle<TGeometry, TOut, Point3d>(key: Op.Of(name: "Midpoint"), line: static line => line.PointAt(t: 0.5), curve: static (curve, parameter) => curve.PointAt(t: parameter));
-    internal static global::Rasm.Analysis.Operation<TGeometry, TOut> TangentAtMiddle<TGeometry, TOut>() where TGeometry : notnull =>
-        Middle<TGeometry, TOut, Vector3d>(key: Op.Of(name: "Tangent"), line: static line => line.UnitTangent, curve: static (curve, parameter) => curve.TangentAt(t: parameter));
-    internal static global::Rasm.Analysis.Operation<TGeometry, TOut> Middle<TGeometry, TOut, TValue>(Op key, Func<Line, TValue> line, Func<Curve, double, TValue> curve) where TGeometry : notnull => (typeof(TGeometry), typeof(TOut)) switch {
+    internal static global::Rasm.Analysis.Operation<TGeometry, TOut> MidpointAt<TGeometry, TOut>() where TGeometry : notnull =>
+        AtMidpoint<TGeometry, TOut, Point3d>(key: Op.Of(name: "Midpoint"), line: static line => line.PointAt(t: 0.5), curve: static (curve, parameter) => curve.PointAt(t: parameter));
+    internal static global::Rasm.Analysis.Operation<TGeometry, TOut> TangentAtMidpoint<TGeometry, TOut>() where TGeometry : notnull =>
+        AtMidpoint<TGeometry, TOut, Vector3d>(key: Op.Of(name: "Tangent"), line: static line => line.UnitTangent, curve: static (curve, parameter) => curve.TangentAt(t: parameter));
+    internal static global::Rasm.Analysis.Operation<TGeometry, TOut> AtMidpoint<TGeometry, TOut, TValue>(Op key, Func<Line, TValue> line, Func<Curve, double, TValue> curve) where TGeometry : notnull => (typeof(TGeometry), typeof(TOut)) switch {
         (Type geometry, Type output) when geometry == typeof(Line) && output == typeof(TValue) => Cast<TGeometry, TOut>(key: key, operation: global::Rasm.Analysis.Operation<Line, TValue>.Build(
                 key: key, state: (Key: key, Project: line), evaluator: static (state, geometry) => state.Key.AcceptValue(value: geometry).Bind(validated => state.Key.Accept(value: state.Project(arg: validated))).ToEff())),
         (Type geometry, Type output) when geometry == typeof(Polyline) && output == typeof(TValue) => Cast<TGeometry, TOut>(key: key, operation: global::Rasm.Analysis.Operation<Polyline, TValue>.Build(
@@ -152,14 +152,14 @@ public static partial class Analyze {
         GeometryKernel.SurfaceSampleUv(surface: surface, resolution: resolution, context: model, key: key)
             .Bind(samples => samples.TraverseM(uv => Optional(surface.CurvatureAt(u: uv.X, v: uv.Y)).ToFin(key.InvalidResult()))
             .As());
-    internal static global::Rasm.Analysis.Operation<TGeometry, TOut> Closest<TGeometry, TOut>(Point3d point) where TGeometry : notnull {
+    internal static global::Rasm.Analysis.Operation<TGeometry, TOut> ClosestPoint<TGeometry, TOut>(Point3d point) where TGeometry : notnull {
         Op key = Op.Of();
         return point.IsValid switch {
             false => global::Rasm.Analysis.Operation<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput()),
             true => global::Rasm.Analysis.Operation<TGeometry, TOut>.Build(
                 key: key, state: (Key: key, Target: point),
                 evaluator: static (state, geometry) =>
-                    from hit in GeometryKernel.Closest(geometry: geometry, target: state.Target, key: state.Key).ToEff()
+                    from hit in GeometryKernel.ClosestOf(geometry: geometry, target: state.Target, key: state.Key).ToEff()
                     from result in (typeof(TOut) switch {
                         Type t when t == typeof(Point3d) => state.Key.AcceptResults<Point3d, TOut>(values: Seq(hit.Point)),
                         Type t when t == typeof(double) => state.Key.AcceptResults<double, TOut>(values: Seq(hit.Distance.IfNone(state.Target.DistanceTo(other: hit.Point)))),

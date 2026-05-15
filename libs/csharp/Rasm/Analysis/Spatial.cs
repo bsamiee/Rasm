@@ -23,7 +23,7 @@ public sealed class Tree : IDisposable {
         FromValid(input: cloud, isValid: static c => c.IsValid, create: static c => RTree.CreatePointCloudTree(cloud: c));
     public static Validation<Error, Tree> MeshFaces(Mesh mesh) =>
         FromValid(input: mesh, isValid: static m => m.IsValid, create: static m => RTree.CreateMeshFaceTree(mesh: m));
-    public static Validation<Error, Tree> Bounds<TGeometry>(
+    public static Validation<Error, Tree> FromBounds<TGeometry>(
         params ReadOnlySpan<TGeometry> items) where TGeometry : GeometryBase =>
         ValidateBounds(items: items)
             .Bind(static boxes => boxes
@@ -110,7 +110,7 @@ public sealed class Tree : IDisposable {
             .TraverseM(static geometry => Optional(geometry)
                 .ToFin(new Fault.MissingGeometry())
                 .Bind(static candidate => candidate.IsValid
-                    ? candidate.Bounds(op: Key).Bind(static box => box.IsValid ? Fin.Succ(box) : Fin.Fail<BoundingBox>(Key.InvalidInput()))
+                    ? candidate.BoundsOf(op: Key).Bind(static box => box.IsValid ? Fin.Succ(box) : Fin.Fail<BoundingBox>(Key.InvalidInput()))
                     : Fin.Fail<BoundingBox>(Key.InvalidInput())))
             .As()
             .Map(static boxes => boxes.ToArray());
