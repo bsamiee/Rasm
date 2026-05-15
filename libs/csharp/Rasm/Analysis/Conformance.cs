@@ -8,6 +8,7 @@ public partial record Conformance {
     public sealed record WithinToleranceCase(int Count) : Conformance;
     public sealed record SummaryCase(int Count) : Conformance;
     public sealed record MaximumCase(int Count) : Conformance;
+    // Signed surface conformance: positive outside / opposite-normal side, negative inside. Surface targets only (Plane, Sphere).
     public sealed record SignedResidualCase(int Count) : Conformance;
     public static Conformance Distance(int count) => new DistanceCase(Count: count);
     public static Conformance Rms(int count) => new RmsCase(Count: count);
