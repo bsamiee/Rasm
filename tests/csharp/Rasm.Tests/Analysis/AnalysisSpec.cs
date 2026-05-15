@@ -161,7 +161,7 @@ public sealed class AnalysisSpec {
         object[] factories = [
             Analyze.Boundaries<Brep, Curve>(aspect: Boundaries.All), Analyze.IsManifold, Analyze.NakedPointStatus, Analyze.Boundaries<Mesh, Polyline>(aspect: Boundaries.SelfIntersection), Analyze.MeshMetric(metric: MeshMetric.AspectRatio),
             Analyze.Boundaries<Mesh, Polyline>(aspect: Boundaries.Naked), Analyze.Points<GeometryBase, Point3d>(sampling: new Points.EdgeMidpointsCase()), Analyze.Curves<Mesh, ComponentIndex>(aspect: Curves.All), Analyze.Curves<Mesh, ComponentIndex>(aspect: Curves.NonManifold),
-            Analyze.Measure<GeometryBase, Point3d>(aspect: new Measure.SpatialMidpointCase()), Analyze.Location<Curve, double>(aspect: new Location.CurvatureCase(Count: 3, Mode: new CurvatureMode.ScalarCase(Metric: ScalarMetric.Magnitude))), Analyze.Location<Surface, double>(aspect: new Location.CurvatureCase(Count: 3, Mode: new CurvatureMode.ScalarCase(Metric: ScalarMetric.Gaussian))), Analyze.Location<Surface, double>(aspect: new Location.CurvatureCase(Count: 3, Mode: new CurvatureMode.ScalarCase(Metric: ScalarMetric.Mean))),
+            Analyze.Measure<GeometryBase, Point3d>(aspect: new Measure.SpatialMidpointCase()), Analyze.Location<Curve, double>(aspect: new Location.CurvatureCase(Count: 3, Mode: CurvatureMode.Scalar(ScalarMetric.Magnitude))), Analyze.Location<Surface, double>(aspect: new Location.CurvatureCase(Count: 3, Mode: CurvatureMode.Scalar(ScalarMetric.Gaussian))), Analyze.Location<Surface, double>(aspect: new Location.CurvatureCase(Count: 3, Mode: CurvatureMode.Scalar(ScalarMetric.Mean))),
             Analyze.Conformance<Curve, Line, double>(aspect: new Conformance.DistanceCase(Count: 3)), Analyze.Conformance<Surface, Plane, bool>(aspect: new Conformance.WithinToleranceCase(Count: 2)), Analyze.Conformance<Curve, Line, Stat>(aspect: new Conformance.SummaryCase(Count: 3)), Analyze.Conformance<Curve, Circle, double>(aspect: new Conformance.DistanceCase(Count: 3)), Analyze.Conformance<Curve, Arc, bool>(aspect: new Conformance.WithinToleranceCase(Count: 3)), Analyze.Conformance<Surface, Sphere, ResidualSample>(aspect: new Conformance.MaximumCase(Count: 2)),
             Analyze.Deviation<Curve, Curve, CurveDeviation>(), Analyze.Points<GeometryBase, Point3d>(sampling: new Points.EdgeMidpointsCase()), Analyze.Points<GeometryBase, Point3d>(sampling: new Points.VerticesCase()),
             Analyze.Faces<GeometryBase, int>(aspect: Faces.All), Analyze.Faces<GeometryBase, Brep>(aspect: Faces.At()), Analyze.Faces<GeometryBase, Plane>(aspect: Faces.At()), Analyze.Faces<GeometryBase, Point3d>(aspect: Faces.At()), Analyze.Faces<GeometryBase, Vector3d>(aspect: Faces.At()), Analyze.Faces<GeometryBase, int>(aspect: Faces.At()), Analyze.Faces<GeometryBase, ComponentIndex>(aspect: Faces.At()), Analyze.Faces<GeometryBase, Interval>(aspect: Faces.At()),
@@ -652,7 +652,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RejectsInvalidCurvatureCountBeforeInputExecution() {
         Validation<Error, Seq<Vector3d>> result = Analyze.In(context: ValidContext()).Run(
-            operation: Analyze.Location<Curve, Vector3d>(aspect: new Location.CurvatureCase(Count: 0, Mode: new CurvatureMode.VectorCase())),
+            operation: Analyze.Location<Curve, Vector3d>(aspect: new Location.CurvatureCase(Count: 0, Mode: CurvatureMode.Vector)),
             input: [null!, null!]);
 
         Assert.True(condition: result.ToFin().Match(
@@ -663,7 +663,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RejectsInvalidExplicitStatKindCountBeforeInputExecution() {
         Validation<Error, Seq<double>> result = Analyze.In(context: ValidContext()).Run(
-            operation: Analyze.Location<Curve, double>(aspect: new Location.CurvatureCase(Count: 0, Mode: new CurvatureMode.ScalarCase(Metric: ScalarMetric.Magnitude))),
+            operation: Analyze.Location<Curve, double>(aspect: new Location.CurvatureCase(Count: 0, Mode: CurvatureMode.Scalar(ScalarMetric.Magnitude))),
             input: [null!, null!]);
 
         Assert.True(condition: result.ToFin().Match(
@@ -674,7 +674,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RejectsUnsupportedCurvatureSummaryBeforeInputExecution() {
         Validation<Error, Seq<Stat>> result = Analyze.In(context: ValidContext()).Run(
-            operation: Analyze.Location<Line, Stat>(aspect: new Location.CurvatureCase(Count: 3, Mode: new CurvatureMode.VectorCase())),
+            operation: Analyze.Location<Line, Stat>(aspect: new Location.CurvatureCase(Count: 3, Mode: CurvatureMode.Vector)),
             input: [ValidLine()]);
 
         Assert.True(condition: result.ToFin().Match(
@@ -685,7 +685,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RejectsDefaultStatKindOutputBeforeInputExecution() {
         Validation<Error, Seq<double>> result = Analyze.In(context: ValidContext()).Run(
-            operation: Analyze.Location<Curve, double>(aspect: new Location.CurvatureCase(Count: 3, Mode: new CurvatureMode.VectorCase())),
+            operation: Analyze.Location<Curve, double>(aspect: new Location.CurvatureCase(Count: 3, Mode: CurvatureMode.Vector)),
             input: [null!]);
 
         Assert.True(condition: result.ToFin().Match(
@@ -696,13 +696,13 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RejectsUnsupportedExplicitStatKindBeforeInputExecution() {
         Validation<Error, Seq<double>> curveMean = Analyze.In(context: ValidContext()).Run(
-            operation: Analyze.Location<Curve, double>(aspect: new Location.CurvatureCase(Count: 3, Mode: new CurvatureMode.ScalarCase(Metric: ScalarMetric.Mean))),
+            operation: Analyze.Location<Curve, double>(aspect: new Location.CurvatureCase(Count: 3, Mode: CurvatureMode.Scalar(ScalarMetric.Mean))),
             input: [null!]);
         Validation<Error, Seq<double>> curveGaussian = Analyze.In(context: ValidContext()).Run(
-            operation: Analyze.Location<Curve, double>(aspect: new Location.CurvatureCase(Count: 3, Mode: new CurvatureMode.ScalarCase(Metric: ScalarMetric.Gaussian))),
+            operation: Analyze.Location<Curve, double>(aspect: new Location.CurvatureCase(Count: 3, Mode: CurvatureMode.Scalar(ScalarMetric.Gaussian))),
             input: [null!]);
         Validation<Error, Seq<double>> surfaceMagnitude = Analyze.In(context: ValidContext()).Run(
-            operation: Analyze.Location<Surface, double>(aspect: new Location.CurvatureCase(Count: 3, Mode: new CurvatureMode.ScalarCase(Metric: ScalarMetric.Magnitude))),
+            operation: Analyze.Location<Surface, double>(aspect: new Location.CurvatureCase(Count: 3, Mode: CurvatureMode.Scalar(ScalarMetric.Magnitude))),
             input: [null!]);
 
         Assert.True(condition: (curveMean, curveGaussian, surfaceMagnitude).Apply(static (_, _, _) => false).As().ToFin().Match(
@@ -713,13 +713,13 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RejectsCurvaturePreflightMatrixBeforeInputExecution() {
         Validation<Error, Seq<Stat>> invalidSurfaceMagnitude = Analyze.In(context: ValidContext()).Run(
-            operation: Analyze.Location<Surface, Stat>(aspect: new Location.CurvatureCase(Count: 3, Mode: new CurvatureMode.ScalarCase(Metric: ScalarMetric.Magnitude))),
+            operation: Analyze.Location<Surface, Stat>(aspect: new Location.CurvatureCase(Count: 3, Mode: CurvatureMode.Scalar(ScalarMetric.Magnitude))),
             input: [null!]);
         Validation<Error, Seq<double>> invalidCurveNone = Analyze.In(context: ValidContext()).Run(
-            operation: Analyze.Location<Curve, double>(aspect: new Location.CurvatureCase(Count: 3, Mode: new CurvatureMode.VectorCase())),
+            operation: Analyze.Location<Curve, double>(aspect: new Location.CurvatureCase(Count: 3, Mode: CurvatureMode.Vector)),
             input: [null!]);
         Validation<Error, Seq<SurfaceCurvature>> invalidSurfaceCount = Analyze.In(context: ValidContext()).Run(
-            operation: Analyze.Location<Surface, SurfaceCurvature>(aspect: new Location.CurvatureCase(Count: 0, Mode: new CurvatureMode.VectorCase())),
+            operation: Analyze.Location<Surface, SurfaceCurvature>(aspect: new Location.CurvatureCase(Count: 0, Mode: CurvatureMode.Vector)),
             input: [null!]);
 
         Assert.True(condition: (invalidSurfaceMagnitude, invalidCurveNone, invalidSurfaceCount).Apply(static (_, _, _) => false).As().ToFin().Match(

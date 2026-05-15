@@ -13,6 +13,7 @@ public partial record CurvatureMode {
     public sealed record VectorCase : CurvatureMode;
     public sealed record ScalarCase(ScalarMetric Metric) : CurvatureMode;
     public static CurvatureMode Vector => new VectorCase();
+    public static CurvatureMode Scalar(ScalarMetric metric) => new ScalarCase(Metric: metric);
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
