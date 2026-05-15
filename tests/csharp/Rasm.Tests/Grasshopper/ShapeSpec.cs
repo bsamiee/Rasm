@@ -26,7 +26,7 @@ public sealed class ShapeSpec {
         Assert.True(condition: Shape.Create(value: Rasm.Domain.Kind.Mesh).IsFail);
         Assert.True(condition: Shape.Create(value: MeshCheckParameters.Defaults()).IsFail);
         Assert.True(condition: Shape.Create(value: MeshMetric.Area).IsFail);
-        Assert.True(condition: Shape.Create(value: default(StatProfile)).IsFail);
+        Assert.True(condition: Shape.Create(value: default(Stat)).IsFail);
     }
 
 }

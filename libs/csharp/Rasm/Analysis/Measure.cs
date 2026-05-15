@@ -177,14 +177,14 @@ public static partial class Analyze {
             Mesh mesh => MassCentroid(geometry: mesh, isSolid: mesh.IsSolid, context: context, op: op),
             Surface surface => MassCentroid(geometry: surface, isSolid: surface.IsSolid, context: context, op: op),
             Curve curve => (curve.IsClosed, curve.TryGetPlane(plane: out Plane _, tolerance: context.Absolute.Value)) switch {
-                (false, _) => Optional(LengthMassProperties.Compute(curve)).ToFin(op.InvalidResult()).Map(static m => GeometryKernel.Borrowed(m, static d => d.Centroid)),
-                (true, true) => Optional(AreaMassProperties.Compute(curve, context.Absolute.Value)).ToFin(op.InvalidResult()).Map(static m => GeometryKernel.Borrowed(m, static d => d.Centroid)),
+                (false, _) => Optional(LengthMassProperties.Compute(curve)).ToFin(op.InvalidResult()).Map(static m => new Lease<LengthMassProperties>.Owned(Value: m).Use(static d => d.Centroid)),
+                (true, true) => Optional(AreaMassProperties.Compute(curve, context.Absolute.Value)).ToFin(op.InvalidResult()).Map(static m => new Lease<AreaMassProperties>.Owned(Value: m).Use(static d => d.Centroid)),
                 _ => Fin.Fail<Point3d>(op.InvalidResult()),
             },
-            SubD subd => Optional(subd.ToBrep(SubDToBrepOptions.Default)).ToFin(op.InvalidResult()).Bind(brep => GeometryKernel.Borrowed(brep, d => MassCentroid(geometry: d, isSolid: d.IsSolid, context: context, op: op))),
+            SubD subd => Optional(subd.ToBrep(SubDToBrepOptions.Default)).ToFin(op.InvalidResult()).Bind(brep => new Lease<Brep>.Owned(Value: brep).Use(d => MassCentroid(geometry: d, isSolid: d.IsSolid, context: context, op: op))),
             _ => Fin.Fail<Point3d>(op.Unsupported(g.GetType(), typeof(Point3d))),
         });
     private static Fin<Point3d> MassCentroid(object geometry, bool isSolid, Context context, Op op) =>
         (isSolid ? MassKind.Volume : MassKind.Area).Compute(geometry, context, true, false, false, op)
-            .Bind(d => GeometryKernel.Borrowed(d, owned => owned switch { LengthMassProperties l => Fin.Succ(l.Centroid), AreaMassProperties a => Fin.Succ(a.Centroid), VolumeMassProperties v => Fin.Succ(v.Centroid), _ => Fin.Fail<Point3d>(op.InvalidResult()) }));
+            .Bind(d => new Lease<IDisposable>.Owned(Value: d).Use(owned => owned switch { LengthMassProperties l => Fin.Succ(l.Centroid), AreaMassProperties a => Fin.Succ(a.Centroid), VolumeMassProperties v => Fin.Succ(v.Centroid), _ => Fin.Fail<Point3d>(op.InvalidResult()) }));
 }

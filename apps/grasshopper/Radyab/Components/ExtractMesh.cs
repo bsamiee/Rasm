@@ -8,9 +8,9 @@ namespace Radyab.Components;
     section: Library.Extraction)]
 public sealed class ExtractMesh : Component {
     private static readonly Port<Shape> Geometry = Port.Shape();
-    private static readonly OutputGroup Validity = Output.Single(input: Geometry, port: Port.Tree<bool>(name: "Validity", code: "V", info: "[IsValid, IsClosed, IsOriented, IsSolid, IsManifold, IsBoundaryFree] per mesh; six flags derived from one Mesh.IsManifold pass plus native validity properties."), aspect: Meshes.Validity);
-    private static readonly OutputGroup Stats = Output.Single(input: Geometry, port: Port.Tree<int>(name: "Stats", code: "ST", info: "[VertexCount, FaceCount, TriangleCount, QuadCount, EdgeCount, EulerCharacteristic] per mesh."), aspect: Meshes.Counts);
-    private static readonly OutputGroup Defects = Output.Single(input: Geometry, port: Port.Tree<int>(name: "Defects", code: "D", info: "[DegenerateFaces, DuplicateFaces, NakedEdges, NonManifoldEdges, SelfIntersectingPairs] critical defect counts per mesh."), aspect: Meshes.Defects);
+    private static readonly OutputGroup Validity = Output.Single(input: Geometry, port: Port.Tree<MeshSample>(name: "Validity", code: "V", info: "Keyed validity samples per mesh."), aspect: Meshes.Validity);
+    private static readonly OutputGroup Stats = Output.Single(input: Geometry, port: Port.Tree<MeshSample>(name: "Stats", code: "ST", info: "Keyed topology samples per mesh."), aspect: Meshes.Counts);
+    private static readonly OutputGroup Defects = Output.Single(input: Geometry, port: Port.Tree<MeshSample>(name: "Defects", code: "D", info: "Keyed defect samples per mesh."), aspect: Meshes.Defects);
     private static readonly OutputGroup NakedEdges = Output.Single(input: Geometry, port: Port.Tree<Polyline>(kind: PortKind.Polyline, name: "Naked Edges", code: "NE", info: "Connected boundary polylines via Mesh.GetNakedEdges(); empty when the mesh is closed."), aspect: Rasm.Analysis.Boundaries.Naked);
     private static readonly OutputGroup Pieces = Output.Single<Mesh>(
         input: Geometry,

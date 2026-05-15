@@ -282,10 +282,6 @@ internal static class OpAcceptance {
             }),
             ResidualSample r => Some(r is { Index: >= 0, Location.IsValid: true, Distance: double d, Tolerance: double t, WithinTolerance: bool w } && RhinoMath.IsValidDouble(d) && d >= 0.0 && RhinoMath.IsValidDouble(t) && t >= 0.0 && w == (d <= t)),
             Stats s => Some(s is { Count: > 0, Minimum: double mn, Maximum: double mx, Mean: double me, Variance: double va, Rms: double rm } && RhinoMath.IsValidDouble(mn) && RhinoMath.IsValidDouble(mx) && RhinoMath.IsValidDouble(me) && RhinoMath.IsValidDouble(va) && RhinoMath.IsValidDouble(rm) && mn <= mx && va >= 0.0 && rm >= 0.0),
-            StatProfile p => Some(p switch {
-                { Stats: Stats s, Limit.Case: double t } => ValidityOf(source: s).IfNone(false) && s.Minimum >= 0.0 && s.Mean >= 0.0 && RhinoMath.IsValidDouble(t) && t >= 0.0 && p.WithinTolerance == (s.Maximum <= t),
-                { Stats: Stats s } => ValidityOf(source: s).IfNone(false),
-            }),
             Hit h => Some(h is { Id: >= 0 }),
             Couple c => Some(c is { A: >= 0, B: >= 0 }),
             CurveDeviation c => Some(c is { MinimumDistance: double mn, MaximumDistance: double mx, MinimumA.IsValid: true, MinimumB.IsValid: true, MaximumA.IsValid: true, MaximumB.IsValid: true, Tolerance: double t, WithinTolerance: bool w } && RhinoMath.IsValidDouble(mn) && mn >= 0.0 && RhinoMath.IsValidDouble(mx) && mx >= mn && RhinoMath.IsValidDouble(t) && t >= 0.0 && w == (mx <= t)),

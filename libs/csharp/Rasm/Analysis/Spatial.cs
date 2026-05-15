@@ -32,7 +32,7 @@ public sealed class Tree : IDisposable {
                     seed: Fin.Succ(new RTree()), func: static (current, item) => current.Bind(tree => tree.Insert(
                             box: item.Box, elementId: item.Index) switch {
                                 true => Fin.Succ(tree),
-                                false => GeometryKernel.Borrowed(tree, static _ => Fin.Fail<RTree>(Key.InvalidResult())),
+                                false => new Lease<RTree>.Owned(Value: tree).Use(static _ => Fin.Fail<RTree>(Key.InvalidResult())),
                             })))
             .Map(static tree => new Tree(tree: tree))
             .ToValidation();
@@ -88,7 +88,7 @@ public sealed class Tree : IDisposable {
     }
     public void Dispose() =>
         disposed = disposed switch {
-            false => GeometryKernel.Borrowed(tree, static _ => true),
+            false => new Lease<RTree>.Owned(Value: tree).Use(static _ => true),
             true => true,
         };
     private Fin<RTree> Ready() =>

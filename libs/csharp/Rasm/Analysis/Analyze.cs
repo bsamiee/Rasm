@@ -1,3 +1,5 @@
+using Foundation.CSharp.Analyzers.Contracts;
+
 namespace Rasm.Analysis;
 
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -5,26 +7,40 @@ public interface IAspect {
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull;
 }
 
+[BoundaryAdapter]
+public sealed record Env(Context Context, IProgress<double>? Progress, CancellationToken Cancellation) {
+    public static readonly Eff<Env, Context> Asks = Eff.runtime<Env>().Map(static env => env.Context).As();
+    public static readonly Eff<Env, Env> EnvAsks = Eff.runtime<Env>().As();
+}
+
 // --- [SERVICES] ---------------------------------------------------------------------------
-public sealed record Operation<TGeometry, TOut>(
-    Op Key,
-    Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>> Evaluate,
-    Requirement Requirement,
-    bool RequiresContext,
-    Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> AggregatePlan,
-    Option<Error> Rejection) where TGeometry : notnull {
+public sealed record Operation<TGeometry, TOut> where TGeometry : notnull {
     internal Operation(Op key, Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>> effect, Requirement? requirement = null, bool requiresContext = false, Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> aggregate = default, Option<Error> rejection = default, Unit _ = default)
-        : this(Key: key, Evaluate: effect, Requirement: requirement ?? Requirement.None, RequiresContext: requiresContext, AggregatePlan: aggregate, Rejection: rejection) { }
+        : this(key: key, evaluate: effect, requirement: requirement ?? Requirement.None, requiresContext: requiresContext, aggregatePlan: aggregate, rejection: rejection) { }
+    internal Operation(Op key, Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>> evaluate, Requirement requirement, bool requiresContext, Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> aggregatePlan, Option<Error> rejection) {
+        Key = key;
+        Evaluate = evaluate;
+        Requirement = requirement;
+        RequiresContext = requiresContext;
+        AggregatePlan = aggregatePlan;
+        Rejection = rejection;
+    }
+    public Op Key { get; }
+    internal Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>> Evaluate { get; init; }
+    internal Requirement Requirement { get; init; }
+    internal bool RequiresContext { get; init; }
+    internal Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> AggregatePlan { get; init; }
+    internal Option<Error> Rejection { get; init; }
     internal bool NeedsContext => RequiresContext || !Requirement.IsEmpty;
     public Eff<Env, Seq<TOut>> Apply(TGeometry geometry) => Evaluate(arg: Seq(geometry));
     public Eff<Env, Seq<TOut>> Apply(Seq<TGeometry> geometry) => Evaluate(arg: geometry);
     internal Operation<TIn, TOut> Contramap<TIn>(Func<TIn, TGeometry> map) where TIn : notnull => new(
-        Key: Key,
-        Evaluate: input => Evaluate(arg: input.Map(value => map(arg: value))),
-        Requirement: Requirement,
-        RequiresContext: RequiresContext,
-        AggregatePlan: AggregatePlan.Map<Func<Seq<TIn>, Eff<Env, Seq<TOut>>>>(project => input => project(arg: input.Map(value => map(arg: value)))),
-        Rejection: Rejection);
+        key: Key,
+        evaluate: input => Evaluate(arg: input.Map(value => map(arg: value))),
+        requirement: Requirement,
+        requiresContext: RequiresContext,
+        aggregatePlan: AggregatePlan.Map<Func<Seq<TIn>, Eff<Env, Seq<TOut>>>>(project => input => project(arg: input.Map(value => map(arg: value)))),
+        rejection: Rejection);
     public Operation<TGeometry, TOut> Aggregate() => AggregatePlan.Match(
         Some: project => this with { Evaluate = project },
         None: () => Reject(key: Key, fault: Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))));
@@ -33,16 +49,16 @@ public sealed record Operation<TGeometry, TOut>(
     internal static Operation<TGeometry, TOut> Build<TState>(Op key, TState state, Func<TState, TGeometry, Eff<Env, Seq<TOut>>> evaluator, Requirement? requirement = null, bool requiresContext = false, Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> aggregate = default) {
         Requirement active = requirement ?? Requirement.None;
         return new(
-            Key: key,
-            Requirement: active,
-            RequiresContext: requiresContext,
-            Rejection: Option<Error>.None,
-            AggregatePlan: aggregate.Map<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>>(project => geometry =>
+            key: key,
+            requirement: active,
+            requiresContext: requiresContext,
+            rejection: Option<Error>.None,
+            aggregatePlan: aggregate.Map<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>>(project => geometry =>
                 from runtime in Env.EnvAsks
                 from resolved in geometry.Traverse(item => Prepare(geometry: item, requirement: active).Run(env: runtime)).As().ToEff()
                 from result in project(arg: resolved)
                 select result),
-            Evaluate: geometry => from runtime in Env.EnvAsks
+            evaluate: geometry => from runtime in Env.EnvAsks
                                   from result in geometry.Traverse(item => (
                                       from prepared in Prepare(geometry: item, requirement: active)
                                       from value in evaluator(arg1: state, arg2: prepared)
@@ -52,7 +68,7 @@ public sealed record Operation<TGeometry, TOut>(
                                   select result);
     }
     internal static Operation<TGeometry, TOut> Reject(Op key, Error fault) =>
-        new(Key: key, Evaluate: _ => Fin.Fail<Seq<TOut>>(fault).ToEff(), Requirement: Requirement.None, RequiresContext: false, AggregatePlan: None, Rejection: Some(fault));
+        new(key: key, evaluate: _ => Fin.Fail<Seq<TOut>>(fault).ToEff(), requirement: Requirement.None, requiresContext: false, aggregatePlan: None, rejection: Some(fault));
     private static Eff<Env, TGeometry> Prepare(TGeometry geometry, Requirement requirement) =>
         from runtime in Env.EnvAsks
         from ready in (runtime.Cancellation.IsCancellationRequested switch {

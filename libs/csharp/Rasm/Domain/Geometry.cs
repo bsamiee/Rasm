@@ -9,6 +9,22 @@ public enum IntersectionKind { Unknown = 0, Point = 1, Overlap = 2, Curve = 3 }
 public enum SolidOrientation { Unknown = 0, Outward = 1, Inward = -1 }
 public enum CurveFeature { Input, Segment, Edge, Boundary, NakedOuter, NakedInner, Interior, NonManifold, OuterLoop, InnerLoop, Iso, Silhouette, SubCurve, Draft }
 internal enum ProjectionOwnership { Dispose, Transfer }
+[Union]
+internal abstract partial record Lease<T> where T : class, IDisposable {
+    private Lease() { }
+    public sealed record Owned(T Value) : Lease<T> {
+        internal TResult Project<TResult>(Func<T, TResult> project) {
+            using T owned = Value;
+            return project(arg: owned);
+        }
+    }
+    public sealed record Borrowed(T Value) : Lease<T>;
+    internal TResult Use<TResult>(Func<T, TResult> project) =>
+        Switch(
+            state: project,
+            owned: static (use, owned) => owned.Project(project: use),
+            borrowed: static (use, borrowed) => use(arg: borrowed.Value));
+}
 [BoundaryAdapter]
 public sealed record TopologyProjection {
     private static readonly Op Key = Op.Of(name: nameof(TopologyProjection));
@@ -46,6 +62,43 @@ public sealed record TopologyProjection {
         _ = all.Filter(value => !keep || !chosen.Exists(c => c.SameAs(other: value))).Iter(static v => v.Dispose());
         return result;
     }
+    public Fin<Point3d> Centroid(Context? context) => Optional(context).ToFin(Key.MissingContext()).Bind(ctx => Centroid(context: ctx, key: Key));
+    public Fin<Plane> FrameAtCentroid(Context? context) => Optional(context).ToFin(Key.MissingContext()).Bind(ctx => FrameAtCentroid(context: ctx, key: Key));
+    internal Fin<Point3d> Centroid(Context context, Op key) =>
+        this switch {
+            { Value: Brep brep } => Optional(AreaMassProperties.Compute(brep: brep, area: true, firstMoments: true, secondMoments: false, productMoments: false, relativeTolerance: context.Fractional, absoluteTolerance: context.Absolute.Value))
+                .ToFin(key.InvalidResult())
+                .Map(static mass => new Lease<AreaMassProperties>.Owned(Value: mass).Use(static disposable => disposable.Centroid)),
+            _ => Fin.Fail<Point3d>(key.InvalidInput()),
+        };
+    internal Fin<Plane> FrameAtCentroid(Context context, Op key) =>
+        this switch {
+            { Value: Brep brep, Reversed: bool reversed } => Centroid(context: context, key: key)
+                .Bind(centroid => {
+                    BrepFace brepFace = brep.Faces[0];
+                    return brepFace.ClosestPointOnFace(testPoint: centroid, u: out double u, v: out double v, maximumDistance: 0.0) switch {
+                        true => (brepFace.FrameAt(u: u, v: v, frame: out Plane frame), brepFace.NormalAt(u: u, v: v)) switch {
+                            (true, Vector3d normal) when frame.IsValid && normal.IsValid && !normal.IsTiny() => Fin.Succ((frame.ZAxis * (reversed ? -normal : normal)) switch {
+                                >= 0.0 => frame,
+                                _ => new Plane(frame.Origin, frame.XAxis, -frame.YAxis),
+                            }),
+                            _ => Fin.Fail<Plane>(key.InvalidResult()),
+                        },
+                        false => Fin.Fail<Plane>(key.InvalidResult()),
+                    };
+                }),
+            _ => Fin.Fail<Plane>(key.InvalidInput()),
+        };
+    internal Fin<Seq<Interval>> Domains(Op key) =>
+        this switch {
+            { Value: Brep brep } => brep.Faces[0] switch {
+                BrepFace brepFace => (brepFace.Domain(direction: 0), brepFace.Domain(direction: 1)) switch {
+                    (Interval u, Interval v) when u.IsValid && v.IsValid => Fin.Succ(Seq(u, v)),
+                    _ => Fin.Fail<Seq<Interval>>(key.InvalidResult()),
+                },
+            },
+            _ => Fin.Fail<Seq<Interval>>(key.InvalidInput()),
+        };
 }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct ClosestHit(Point3d Point, Option<double> Distance, Option<Vector3d> Normal, Option<ComponentIndex> Component, Option<MeshPoint> MeshPoint);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct CurveSelector(CurveFeature Feature, Option<Vector3d> Direction = default, Option<double> Angle = default, Option<int> Index = default, Option<double> Normalized = default, Option<IsoStatus> Iso = default);
@@ -53,11 +106,12 @@ public sealed record TopologyProjection {
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct Couple(int A, int B);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct CurveDeviation(double MinimumDistance, Point3d MinimumA, Point3d MinimumB, double MaximumDistance, Point3d MaximumA, Point3d MaximumB, double Tolerance, bool WithinTolerance);
 [BoundaryAdapter]
+[Union]
 public abstract partial record IntersectionHit {
     private IntersectionHit() { }
-    internal sealed record PointCase(Point3d Point) : IntersectionHit;
-    internal sealed record CurveCase(Curve Curve, IntersectionKind CurveKind) : IntersectionHit;
-    internal sealed record OverlapCase(Point3d Start, Point3d End, Interval OverlapA, Interval OverlapB, Option<Curve> Curve) : IntersectionHit;
+    public sealed record PointCase(Point3d Point) : IntersectionHit;
+    public sealed record CurveCase(Curve Curve, IntersectionKind CurveKind) : IntersectionHit;
+    public sealed record OverlapCase(Point3d Start, Point3d End, Interval OverlapA, Interval OverlapB, Option<Curve> Curve) : IntersectionHit;
     public IntersectionKind Kind => this switch { PointCase => IntersectionKind.Point, CurveCase c => c.CurveKind, OverlapCase => IntersectionKind.Overlap, _ => IntersectionKind.Unknown };
     public Seq<Curve> Curves => this switch { CurveCase c => Seq(c.Curve), OverlapCase o => o.Curve.ToSeq(), _ => Seq<Curve>() };
     public Seq<Point3d> Points => this switch { PointCase p => Seq(p.Point), OverlapCase o => Seq(o.Start, o.End), _ => Seq<Point3d>() };
@@ -119,10 +173,10 @@ internal static class GeometryKernel {
                 Arc arc => Fin.Succ(arc.BoundingBox()),
                 Point3d point => Fin.Succ(new BoundingBox(point, point)),
                 Plane => Fin.Fail<BoundingBox>(op.Unsupported(typeof(Plane), typeof(BoundingBox))),
-                Ellipse ellipse => Optional(ellipse.ToNurbsCurve()).ToFin(op.InvalidResult()).Map(static c => Borrowed(c, static d => d.GetBoundingBox(accurate: true))),
-                Cylinder cylinder => Optional(cylinder.ToBrep(capBottom: true, capTop: true)).ToFin(op.InvalidResult()).Map(static b => Borrowed(b, static d => d.GetBoundingBox(accurate: true))),
-                Cone cone => Optional(cone.ToBrep(capBottom: true)).ToFin(op.InvalidResult()).Map(static b => Borrowed(b, static d => d.GetBoundingBox(accurate: true))),
-                Torus torus => Optional(torus.ToBrep()).ToFin(op.InvalidResult()).Map(static b => Borrowed(b, static d => d.GetBoundingBox(accurate: true))),
+                Ellipse ellipse => Optional(ellipse.ToNurbsCurve()).ToFin(op.InvalidResult()).Map(static c => new Lease<Curve>.Owned(Value: c).Use(static d => d.GetBoundingBox(accurate: true))),
+                Cylinder cylinder => Optional(cylinder.ToBrep(capBottom: true, capTop: true)).ToFin(op.InvalidResult()).Map(static b => new Lease<Brep>.Owned(Value: b).Use(static d => d.GetBoundingBox(accurate: true))),
+                Cone cone => Optional(cone.ToBrep(capBottom: true)).ToFin(op.InvalidResult()).Map(static b => new Lease<Brep>.Owned(Value: b).Use(static d => d.GetBoundingBox(accurate: true))),
+                Torus torus => Optional(torus.ToBrep()).ToFin(op.InvalidResult()).Map(static b => new Lease<Brep>.Owned(Value: b).Use(static d => d.GetBoundingBox(accurate: true))),
                 GeometryBase native => native.IsValid ? Fin.Succ(native.GetBoundingBox(accurate: true)) : Fin.Fail<BoundingBox>(op.InvalidInput()),
                 _ => Fin.Fail<BoundingBox>(op.Unsupported(g.GetType(), typeof(BoundingBox))),
             },
@@ -187,6 +241,5 @@ internal static class GeometryKernel {
     private static Option<Cylinder> CylinderOf(Surface surface, Context context) => surface.TryGetCylinder(out Cylinder value, context.Absolute.Value) ? Some(value) : Option<Cylinder>.None;
     private static Option<Cone> ConeOf(Surface surface, Context context) => surface.TryGetCone(out Cone value, context.Absolute.Value) ? Some(value) : Option<Cone>.None;
     private static Option<Torus> TorusOf(Surface surface, Context context) => surface.TryGetTorus(out Torus value, context.Absolute.Value) ? Some(value) : Option<Torus>.None;
-    public static TR Borrowed<T, TR>(T owned, Func<T, TR> use) where T : IDisposable { ArgumentNullException.ThrowIfNull(use); using T d = owned; return use(d); }
     public static Fin<Seq<double>> Fractions(int count, Op op) => count switch { 1 => Fin.Succ(Seq(0.5)), > 1 => Fin.Succ(toSeq(Enumerable.Range(0, count).Select(i => i / (count - 1.0)))), _ => Fin.Fail<Seq<double>>(op.InvalidInput()) };
 }

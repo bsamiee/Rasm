@@ -97,7 +97,7 @@ public static partial class Analyze {
         Optional(geometry).ToFin(op.InvalidInput()).Bind(g => g switch {
             Mesh mesh => Fin.Succ(toSeq(mesh.SplitDisjointPieces().Cast<GeometryBase>())),
             Brep brep => BrepComponents(brep: brep, op: op),
-            GeometryBase { HasBrepForm: true } native => Optional(Brep.TryConvertBrep(native)).ToFin(op.InvalidResult()).Bind(c => ReferenceEquals(native, c) ? BrepComponents(brep: c, op: op) : GeometryKernel.Borrowed(c, d => BrepComponents(brep: d, op: op))),
+            GeometryBase { HasBrepForm: true } native => Optional(Brep.TryConvertBrep(native)).ToFin(op.InvalidResult()).Bind(c => ReferenceEquals(native, c) ? BrepComponents(brep: c, op: op) : new Lease<Brep>.Owned(Value: c).Use(d => BrepComponents(brep: d, op: op))),
             _ => Fin.Fail<Seq<GeometryBase>>(op.Unsupported(g.GetType(), typeof(Seq<GeometryBase>))),
         });
     private static Fin<Seq<GeometryBase>> BrepComponents(Brep brep, Op op) =>

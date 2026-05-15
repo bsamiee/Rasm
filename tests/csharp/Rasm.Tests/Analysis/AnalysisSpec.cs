@@ -157,17 +157,27 @@ public sealed class AnalysisSpec {
     [Fact]
     public void KeepsParameterlessFactoriesAsProperties() {
         object[] factories = [
-            Analyze.Boundaries<Brep, Curve>(aspect: Boundaries.All), Analyze.IsManifold, Analyze.NakedPointStatus, Analyze.Boundaries<Mesh, Polyline>(aspect: Boundaries.SelfIntersection),
-            Analyze.MeshDefect(defect: MeshDefect.NakedEdges), Analyze.MeshMetric(metric: MeshMetric.AspectRatio),
+            Analyze.Boundaries<Brep, Curve>(aspect: Boundaries.All), Analyze.IsManifold, Analyze.NakedPointStatus, Analyze.Boundaries<Mesh, Polyline>(aspect: Boundaries.SelfIntersection), Analyze.MeshMetric(metric: MeshMetric.AspectRatio),
             Analyze.Boundaries<Mesh, Polyline>(aspect: Boundaries.Naked), Analyze.Points<GeometryBase, Point3d>(sampling: new Points.EdgeMidpoints()), Analyze.Curves<Mesh, ComponentIndex>(aspect: Curves.All), Analyze.Curves<Mesh, ComponentIndex>(aspect: Curves.NonManifold),
             Analyze.Measure<GeometryBase, Point3d>(aspect: new Measure.SpatialMidpoint()), Analyze.Location<Curve, double>(aspect: new Location.Curvature(Count: 3, Kind: StatKind.Magnitude)), Analyze.Location<Surface, double>(aspect: new Location.Curvature(Count: 3, Kind: StatKind.Gaussian)), Analyze.Location<Surface, double>(aspect: new Location.Curvature(Count: 3, Kind: StatKind.Mean)),
-            Analyze.Conformance<Curve, Line, double>(aspect: new Conformance.Distance(Count: 3)), Analyze.Conformance<Surface, Plane, bool>(aspect: new Conformance.WithinTolerance(Count: 2)), Analyze.Conformance<Curve, Line, StatProfile>(aspect: new Conformance.Summary(Count: 3)), Analyze.Conformance<Curve, Circle, double>(aspect: new Conformance.Distance(Count: 3)), Analyze.Conformance<Curve, Arc, bool>(aspect: new Conformance.WithinTolerance(Count: 3)), Analyze.Conformance<Surface, Sphere, ResidualSample>(aspect: new Conformance.Maximum(Count: 2)),
+            Analyze.Conformance<Curve, Line, double>(aspect: new Conformance.Distance(Count: 3)), Analyze.Conformance<Surface, Plane, bool>(aspect: new Conformance.WithinTolerance(Count: 2)), Analyze.Conformance<Curve, Line, Stat>(aspect: new Conformance.Summary(Count: 3)), Analyze.Conformance<Curve, Circle, double>(aspect: new Conformance.Distance(Count: 3)), Analyze.Conformance<Curve, Arc, bool>(aspect: new Conformance.WithinTolerance(Count: 3)), Analyze.Conformance<Surface, Sphere, ResidualSample>(aspect: new Conformance.Maximum(Count: 2)),
             Analyze.Deviation<Curve, Curve, CurveDeviation>(), Analyze.Points<GeometryBase, Point3d>(sampling: new Points.EdgeMidpoints()), Analyze.Points<GeometryBase, Point3d>(sampling: new Points.Vertices()),
             Analyze.Faces<GeometryBase, int>(aspect: Faces.All), Analyze.Faces<GeometryBase, Brep>(aspect: Faces.At()), Analyze.Faces<GeometryBase, Plane>(aspect: Faces.At()), Analyze.Faces<GeometryBase, Point3d>(aspect: Faces.At()), Analyze.Faces<GeometryBase, Vector3d>(aspect: Faces.At()), Analyze.Faces<GeometryBase, int>(aspect: Faces.At()), Analyze.Faces<GeometryBase, ComponentIndex>(aspect: Faces.At()), Analyze.Faces<GeometryBase, Interval>(aspect: Faces.At()),
             Analyze.Curves<GeometryBase, Curve>(aspect: Curves.Segments), Analyze.Curves<GeometryBase, Curve>(aspect: Curves.SubCurves), Analyze.Curves<GeometryBase, CurveFeature>(aspect: Curves.All), Analyze.Curves<GeometryBase, ComponentIndex>(aspect: Curves.All), Analyze.Curves<GeometryBase, Curve>(aspect: Curves.Silhouette()), Analyze.Curves<GeometryBase, Curve>(aspect: Curves.Draft()), Analyze.Points<Curve, Point3d>(sampling: new Points.ControlPoints()),
         ];
 
         Assert.All(collection: factories, action: static factory => Assert.NotNull(@object: factory));
+    }
+
+    [Fact]
+    public void AspectOperationsExposeCanonicalTopologyAndMeshSamples() {
+        object[] operations = [
+            Meshes.Validity.Operation<object, MeshSample>(), Meshes.Counts.Operation<object, MeshSample>(), Meshes.Defects.Operation<object, MeshSample>(),
+            Curves.All.Operation<object, TopologyProjection>(), Faces.All.Operation<object, TopologyProjection>(), Faces.ByCount(static _ => Faces.At()).Operation<object, TopologyProjection>(),
+        ];
+
+        Assert.All(collection: operations, action: static operation => Assert.NotNull(@object: operation));
+        Assert.True(condition: MeshSampleKind.Validity.Count == 6 && MeshSampleKind.Counts.Count == 6 && MeshSampleKind.Defects.Count == 5);
     }
 
     [Fact]
@@ -574,28 +584,6 @@ public sealed class AnalysisSpec {
     }
 
     [Fact]
-    public void RejectsInvalidMeshDefectBeforeInputExecution() {
-        Validation<Error, Seq<int>> result = Analyze.In(context: ValidContext()).Run(
-            operation: Analyze.MeshDefect(defect: MeshDefect.None),
-            input: [null!, null!]);
-
-        Assert.True(condition: result.ToFin().Match(
-            Succ: static _ => false,
-            Fail: static error => error.Count == 1 && error.Message.Contains(value: "MeshDefect", comparisonType: StringComparison.Ordinal)));
-    }
-
-    [Fact]
-    public void RejectsNullGeometryInsideMeshDefectRail() {
-        Validation<Error, Seq<int>> result = Analyze.In(context: ValidContext()).Run(
-            operation: Analyze.MeshDefect(defect: MeshDefect.NakedEdges),
-            input: [null!]);
-
-        Assert.True(condition: result.ToFin().Match(
-            Succ: static _ => false,
-            Fail: static error => error.Count == 1));
-    }
-
-    [Fact]
     public void RejectsMissingContextOnceBeforeInputExecution() {
         Validation<Error, Seq<Point3d>> result = Analyze.Run(
             operation: Analyze.Measure<Curve, Point3d>(aspect: new Measure.Centroid(Mass: MassKind.Length)),
@@ -722,8 +710,8 @@ public sealed class AnalysisSpec {
 
     [Fact]
     public void RejectsUnsupportedCurvatureSummaryBeforeInputExecution() {
-        Validation<Error, Seq<StatProfile>> result = Analyze.In(context: ValidContext()).Run(
-            operation: Analyze.Location<Line, StatProfile>(aspect: new Location.Curvature(Count: 3, Kind: StatKind.Curvature)),
+        Validation<Error, Seq<Stat>> result = Analyze.In(context: ValidContext()).Run(
+            operation: Analyze.Location<Line, Stat>(aspect: new Location.Curvature(Count: 3, Kind: StatKind.Curvature)),
             input: [ValidLine()]);
 
         Assert.True(condition: result.ToFin().Match(
@@ -761,8 +749,8 @@ public sealed class AnalysisSpec {
 
     [Fact]
     public void RejectsCurvaturePreflightMatrixBeforeInputExecution() {
-        Validation<Error, Seq<StatProfile>> invalidSurfaceMagnitude = Analyze.In(context: ValidContext()).Run(
-            operation: Analyze.Location<Surface, StatProfile>(aspect: new Location.Curvature(Count: 3, Kind: StatKind.Magnitude)),
+        Validation<Error, Seq<Stat>> invalidSurfaceMagnitude = Analyze.In(context: ValidContext()).Run(
+            operation: Analyze.Location<Surface, Stat>(aspect: new Location.Curvature(Count: 3, Kind: StatKind.Magnitude)),
             input: [null!]);
         Validation<Error, Seq<double>> invalidCurveNone = Analyze.In(context: ValidContext()).Run(
             operation: Analyze.Location<Curve, double>(aspect: new Location.Curvature(Count: 3, Kind: StatKind.Curvature)),
@@ -777,12 +765,15 @@ public sealed class AnalysisSpec {
     }
 
     [Fact]
-    public void ProfilesUseStatsAsCanonicalSummary() {
-        Fin<StatProfile> curvature = StatProfile.Curvature(values: LanguageExt.Prelude.toSeq<double>([1.0, 3.0]), kind: StatKind.Magnitude, key: Op.Create(value: "curvature-profile"));
-        Fin<StatProfile> residual = StatProfile.Residual(values: LanguageExt.Prelude.toSeq<double>([1.0, 3.0]), tolerance: 3.0, key: Op.Create(value: "residual-profile"));
+    public void StatsUseDomainAggregationAndToleranceRail() {
+        Op key = Op.Create(value: "stat-rail");
+        Fin<Stat> curvature = Stat.Curvature(values: LanguageExt.Prelude.toSeq<double>([1.0, 3.0]), kind: StatKind.Magnitude, key: Op.Create(value: "curvature-stat"));
+        Fin<Stat> residual = Stat.Residual(values: LanguageExt.Prelude.toSeq<double>([1.0, 3.0]), tolerance: 3.0, key: Op.Create(value: "residual-stat"));
 
-        Assert.True(condition: curvature.Match(Succ: static profile => profile.Mean == profile.Stats.Mean, Fail: static _ => false));
-        Assert.True(condition: residual.Match(Succ: static profile => profile.Rms == profile.Stats.Rms && profile.WithinTolerance, Fail: static _ => false));
+        Assert.True(condition: Stat.Curvature(values: LanguageExt.Prelude.toSeq<double>([-1.0, 3.0]), kind: StatKind.Gaussian, key: key).IsSucc);
+        Assert.True(condition: Stat.Residual(values: LanguageExt.Prelude.toSeq<double>([1.0, 3.0]), tolerance: -1.0, key: key).IsFail);
+        Assert.True(condition: curvature.Match(Succ: static stat => stat.Mean == stat.Stats.Mean, Fail: static _ => false));
+        Assert.True(condition: residual.Match(Succ: static stat => stat.Rms == stat.Stats.Rms && stat.WithinTolerance, Fail: static _ => false));
     }
 
     [Fact]
@@ -793,11 +784,11 @@ public sealed class AnalysisSpec {
         Validation<Error, Seq<double>> invalidResidual = Analyze.In(context: ValidContext()).Run(
             operation: Analyze.Conformance<Curve, Line, double>(aspect: null!),
             input: [(null!, Line.Unset), (null!, Line.Unset)]);
-        Validation<Error, Seq<StatProfile>> invalidProfileCount = Analyze.In(context: ValidContext()).Run(
-            operation: Analyze.Conformance<Curve, Line, StatProfile>(aspect: new Conformance.Summary(Count: 0)),
+        Validation<Error, Seq<Stat>> invalidStatCount = Analyze.In(context: ValidContext()).Run(
+            operation: Analyze.Conformance<Curve, Line, Stat>(aspect: new Conformance.Summary(Count: 0)),
             input: [(null!, Line.Unset), (null!, Line.Unset)]);
 
-        Assert.True(condition: (invalidCount, invalidResidual, invalidProfileCount).Apply(static (_, _, _) => false).As().ToFin().Match(
+        Assert.True(condition: (invalidCount, invalidResidual, invalidStatCount).Apply(static (_, _, _) => false).As().ToFin().Match(
             Succ: static valid => valid,
             Fail: static error => error.Count == 3 && error.Message.Contains(value: "Conformance", comparisonType: StringComparison.Ordinal)));
     }
@@ -821,11 +812,11 @@ public sealed class AnalysisSpec {
         Validation<Error, Seq<Point3d>> result = Analyze.In(context: ValidContext()).Run(
             operation: Analyze.Conformance<Curve, Line, Point3d>(aspect: new Conformance.Distance(Count: 3)),
             input: [(null!, Line.Unset)]);
-        Validation<Error, Seq<Point3d>> profile = Analyze.In(context: ValidContext()).Run(
+        Validation<Error, Seq<Point3d>> stat = Analyze.In(context: ValidContext()).Run(
             operation: Analyze.Conformance<Curve, Line, Point3d>(aspect: new Conformance.Summary(Count: 3)),
             input: [(null!, Line.Unset)]);
 
-        Assert.True(condition: (result, profile).Apply(static (_, _) => false).As().ToFin().Match(
+        Assert.True(condition: (result, stat).Apply(static (_, _) => false).As().ToFin().Match(
             Succ: static valid => valid,
             Fail: static error => error.Count == 2 && error.Message.Contains(value: "Conformance", comparisonType: StringComparison.Ordinal)));
     }
@@ -869,12 +860,12 @@ public sealed class AnalysisSpec {
             .Run(
                 operation: Analyze.Conformance<Curve, Line, double>(aspect: new Conformance.Distance(Count: 3)),
                 input: [(null!, ValidLine())]);
-        Validation<Error, Seq<StatProfile>> profile = Analyze.In(context: context)
+        Validation<Error, Seq<Stat>> stat = Analyze.In(context: context)
             .Run(
-                operation: Analyze.Conformance<Curve, Line, StatProfile>(aspect: new Conformance.Summary(Count: 3)),
+                operation: Analyze.Conformance<Curve, Line, Stat>(aspect: new Conformance.Summary(Count: 3)),
                 input: [(null!, ValidLine())]);
 
-        Assert.True(condition: (result, profile).Apply(static (_, _) => false).As().ToFin().Match(
+        Assert.True(condition: (result, stat).Apply(static (_, _) => false).As().ToFin().Match(
             Succ: static valid => valid,
             Fail: static error => error.Count == 2));
     }

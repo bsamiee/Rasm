@@ -27,9 +27,9 @@ public sealed class ExtractCurves : Component {
         aspect: runtime => (runtime.Read(port: Direction), runtime.Read(port: Angle))
             .Apply(static (direction, angle) => Curves.Draft(direction: direction.ToNullable(), angle: angle.ToNullable()?.Radians))
             .As());
-    private static readonly OutputGroup Topology = Output.Details<TopologyProjection>(
+    private static readonly OutputGroup Topology = Output.Details<Curves, TopologyProjection>(
         input: Geometry,
-        aspect: static _ => Fin.Succ<Func<Shape, Eff<Env, Seq<TopologyProjection>>>>(shape => Rasm.Analysis.Analyze.TopologyProjections(geometry: shape.Inner, aspect: Curves.All)),
+        aspect: Curves.All,
         emptyUnsupported: true,
         aspectLabel: nameof(Curves),
         slots: [

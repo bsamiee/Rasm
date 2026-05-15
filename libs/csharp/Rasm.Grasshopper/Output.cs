@@ -119,7 +119,7 @@ public static class Output {
         bool emptyUnsupported = true, string aspectLabel = "Analysis") where TOut : notnull =>
         Details<TOut>(
             input: input,
-            aspect: runtime => operation(arg: runtime).Map<Func<Shape, Eff<Env, Seq<TOut>>>>(selected => shape => selected.Apply(geometry: shape.Inner)),
+            operation: operation,
             emptyUnsupported: emptyUnsupported,
             aspectLabel: aspectLabel,
             slots: Slot<TOut, TOut>(port: port, project: static (_, values) => Fin.Succ(values)));
@@ -135,7 +135,7 @@ public static class Output {
             aspectLabel: typeof(TAspect).Name);
     public static OutputGroup Details<TProjection>(
         Port<Shape> input,
-        Func<GrasshopperRuntime, Fin<Func<Shape, Eff<Env, Seq<TProjection>>>>> aspect,
+        Func<GrasshopperRuntime, Fin<Operation<object, TProjection>>> operation,
         bool emptyUnsupported,
         string aspectLabel,
         params OutputSlot<TProjection>[] slots) where TProjection : notnull {
@@ -144,7 +144,7 @@ public static class Output {
             Ports: prepared.Map(static slot => slot.Port),
             RunGroup: (access, outputs, runtime) => RunDetails(
                 slots: prepared,
-                source: runtime => aspect(arg: runtime).Bind(next => ShapeSource(input: input, runtime: runtime, project: next)),
+                source: runtime => operation(arg: runtime).Bind(selected => ShapeSource(input: input, runtime: runtime, operation: selected)),
                 emptyUnsupported: emptyUnsupported,
                 aspectLabel: aspectLabel,
                 access: access,
@@ -152,10 +152,34 @@ public static class Output {
                 runtime: runtime),
             EmptyGroup: (access, outputs) => EmptyDetails(slots: prepared, access: access, outputs: outputs));
     }
-    internal static Fin<Seq<Flow<TSource>>> ShapeSource<TSource>(Port<Shape> input, GrasshopperRuntime runtime, Func<Shape, Eff<Env, Seq<TSource>>> project) =>
+    public static OutputGroup Details<TAspect, TProjection>(
+        Port<Shape> input,
+        TAspect aspect,
+        bool emptyUnsupported,
+        string aspectLabel,
+        params OutputSlot<TProjection>[] slots) where TAspect : IAspect where TProjection : notnull =>
+        Details<TProjection>(
+            input: input,
+            operation: _ => Fin.Succ(aspect.Operation<object, TProjection>()),
+            emptyUnsupported: emptyUnsupported,
+            aspectLabel: aspectLabel,
+            slots: slots);
+    public static OutputGroup Details<TAspect, TProjection>(
+        Port<Shape> input,
+        Func<GrasshopperRuntime, Fin<TAspect>> aspect,
+        bool emptyUnsupported,
+        string aspectLabel,
+        params OutputSlot<TProjection>[] slots) where TAspect : IAspect where TProjection : notnull =>
+        Details<TProjection>(
+            input: input,
+            operation: runtime => aspect(arg: runtime).Map(static selected => selected.Operation<object, TProjection>()),
+            emptyUnsupported: emptyUnsupported,
+            aspectLabel: aspectLabel,
+            slots: slots);
+    internal static Fin<Seq<Flow<TSource>>> ShapeSource<TSource>(Port<Shape> input, GrasshopperRuntime runtime, Operation<object, TSource> operation) =>
         from sourced in runtime.Shape(port: input)
         from context in runtime.Scope.Context
-        from values in sourced.Traverse(src => project(arg: src.Item)
+        from values in sourced.Traverse(src => operation.Apply(geometry: src.Item.Inner)
             .Map(src.Project)
             .Run(env: new Env(Context: context, Progress: runtime.Progress, Cancellation: runtime.Cancellation))).As()
         select values.Bind(static value => value);

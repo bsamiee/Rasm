@@ -17,7 +17,7 @@ public sealed class ExtractPoints : Component {
     private static readonly OutputGroup BoundingCorners = Output.Single(input: Geometry, port: Port.Tree<Point3d>(name: "Bounding Corners", code: "BX", info: "Unique axis-aligned bounding-box corners: 8 for full 3D, 4 for planar, 2 for linear, 1 for point."), aspect: new Bounds.Corners(Unique: true));
     private static readonly OutputGroup Kind = Output.Details<Rasm.Domain.Kind>(
         input: Geometry,
-        aspect: static _ => Fin.Succ<Func<Shape, Eff<Env, Seq<Rasm.Domain.Kind>>>>(shape => Rasm.Analysis.Analyze.Kind<object, Rasm.Domain.Kind>().Apply(geometry: shape.Inner)),
+        operation: static _ => Fin.Succ(Rasm.Analysis.Analyze.Kind<object, Rasm.Domain.Kind>()),
         emptyUnsupported: true,
         aspectLabel: nameof(Rasm.Domain.Kind),
         slots: [

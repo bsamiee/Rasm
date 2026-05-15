@@ -21,17 +21,17 @@ public static partial class Analyze {
     internal static global::Rasm.Analysis.Operation<(TGeometry Geometry, TTarget Target), TOut> ConformanceProject<TGeometry, TTarget, TOut>(Conformance aspect) where TGeometry : notnull where TTarget : notnull =>
         (aspect, typeof(TOut)) switch {
             (Conformance.Distance item, Type output) when output == typeof(double) => Cast<(TGeometry Geometry, TTarget Target), TOut>(key: Rasm.Analysis.Conformance.Key, operation: ConformancePair<TGeometry, TTarget, double>(
-                count: item.Count, project: static (residuals, _) => Stats.ResidualDistances(samples: residuals, key: Rasm.Analysis.Conformance.Key).Bind(values => Rasm.Analysis.Conformance.Key.Accept(values: values)))),
+                count: item.Count, project: static (residuals, _) => Stat.ResidualDistances(samples: residuals, key: Rasm.Analysis.Conformance.Key).Bind(values => Rasm.Analysis.Conformance.Key.Accept(values: values)))),
             (Conformance.Rms item, Type output) when output == typeof(double) => Cast<(TGeometry Geometry, TTarget Target), TOut>(key: Rasm.Analysis.Conformance.Key, operation: ConformancePair<TGeometry, TTarget, double>(
-                count: item.Count, project: static (residuals, _) => Stats.FromResiduals(samples: residuals, key: Rasm.Analysis.Conformance.Key).Bind(stats => Rasm.Analysis.Conformance.Key.Accept(value: stats.Rms)))),
+                count: item.Count, project: static (residuals, _) => Stat.FromResiduals(samples: residuals, key: Rasm.Analysis.Conformance.Key).Bind(stats => Rasm.Analysis.Conformance.Key.Accept(value: stats.Rms)))),
             (Conformance.WithinTolerance item, Type output) when output == typeof(bool) => Cast<(TGeometry Geometry, TTarget Target), TOut>(key: Rasm.Analysis.Conformance.Key, operation: ConformancePair<TGeometry, TTarget, bool>(
-                count: item.Count, project: static (residuals, context) => Stats.FromResiduals(samples: residuals, key: Rasm.Analysis.Conformance.Key).Bind(stats => Rasm.Analysis.Conformance.Key.Accept(value: stats.Maximum <= context.Absolute.Value)))),
-            (Conformance.Summary item, Type output) when output == typeof(StatProfile) => Cast<(TGeometry Geometry, TTarget Target), TOut>(key: Rasm.Analysis.Conformance.Key, operation: ConformancePair<TGeometry, TTarget, StatProfile>(
-                count: item.Count, project: static (residuals, context) => Stats.FromResiduals(samples: residuals, key: Rasm.Analysis.Conformance.Key)
-                    .Bind(stats => StatProfile.Residual(tolerance: context.Absolute.Value, stats: stats, key: Rasm.Analysis.Conformance.Key))
-                    .Bind(profile => Rasm.Analysis.Conformance.Key.Accept(value: profile)))),
+                count: item.Count, project: static (residuals, context) => Stat.FromResiduals(samples: residuals, key: Rasm.Analysis.Conformance.Key).Bind(stats => Rasm.Analysis.Conformance.Key.Accept(value: stats.Maximum <= context.Absolute.Value)))),
+            (Conformance.Summary item, Type output) when output == typeof(Stat) => Cast<(TGeometry Geometry, TTarget Target), TOut>(key: Rasm.Analysis.Conformance.Key, operation: ConformancePair<TGeometry, TTarget, Stat>(
+                count: item.Count, project: static (residuals, context) => Stat.FromResiduals(samples: residuals, key: Rasm.Analysis.Conformance.Key)
+                    .Bind(stats => Stat.Residual(tolerance: context.Absolute.Value, stats: stats, key: Rasm.Analysis.Conformance.Key))
+                    .Map(stat => Seq(stat)))),
             (Conformance.Maximum item, Type output) when output == typeof(ResidualSample) => Cast<(TGeometry Geometry, TTarget Target), TOut>(key: Rasm.Analysis.Conformance.Key, operation: ConformancePair<TGeometry, TTarget, ResidualSample>(
-                count: item.Count, project: static (residuals, _) => Stats.MaximumResidual(samples: residuals, key: Rasm.Analysis.Conformance.Key).Bind(sample => Rasm.Analysis.Conformance.Key.Accept(value: sample)))),
+                count: item.Count, project: static (residuals, _) => Stat.MaximumResidual(samples: residuals, key: Rasm.Analysis.Conformance.Key).Bind(sample => Rasm.Analysis.Conformance.Key.Accept(value: sample)))),
             _ => Rasm.Analysis.Conformance.Key.Unsupported<(TGeometry Geometry, TTarget Target), TOut>(),
         };
     private static global::Rasm.Analysis.Operation<(TGeometry Geometry, TTarget Target), TValue> ConformancePair<TGeometry, TTarget, TValue>(int count, Func<Seq<ResidualSample>, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull where TTarget : notnull =>

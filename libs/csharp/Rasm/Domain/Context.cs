@@ -80,8 +80,3 @@ public sealed record Context {
                 angle: candidate.ModelAngleToleranceRadians,
                 units: candidate.ModelUnitSystem));
 }
-[BoundaryAdapter]
-public sealed record Env(Context Context, IProgress<double>? Progress, CancellationToken Cancellation) {
-    public static readonly Eff<Env, Context> Asks = Eff.runtime<Env>().Map(static env => env.Context).As();
-    public static readonly Eff<Env, Env> EnvAsks = Eff.runtime<Env>().As();
-}

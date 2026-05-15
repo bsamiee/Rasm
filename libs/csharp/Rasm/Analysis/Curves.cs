@@ -17,6 +17,7 @@ public partial record Curves : IAspect {
             false => Key.Unsupported<TGeometry, TOut>(),
             true => typeof(TOut) switch {
                 Type t when t == typeof(Curve) => Analyze.CurveProject<TGeometry, TOut, Curve>(key: Key, aspect: this, project: static p => p.As<Curve>()),
+                Type t when t == typeof(TopologyProjection) => Analyze.CurveProject<TGeometry, TOut, TopologyProjection>(key: Key, aspect: this, project: static p => Some(p)),
                 Type t when t == typeof(CurveFeature) => Analyze.CurveProject<TGeometry, TOut, CurveFeature>(key: Key, aspect: this, project: static p => Some(p.Feature)),
                 Type t when t == typeof(ComponentIndex) => Analyze.CurveProject<TGeometry, TOut, ComponentIndex>(key: Key, aspect: this, project: static p => Some(p.Source)),
                 _ => Key.Unsupported<TGeometry, TOut>(),
@@ -84,25 +85,8 @@ public static partial class Analyze {
                 let selector = state.Aspect.ToSelector(topology: kind.Topology)
                 from curves in CurveProjections(geometry: geometry, selector: selector, context: runtime.Context, op: state.Key, cancel: runtime.Cancellation).ToEff()
                 from chosen in state.Aspect.Select(curves: curves).ToEff()
-                from result in TopologyProjection.Project(all: curves, chosen: chosen, ownership: typeof(TValue) == typeof(Curve) ? ProjectionOwnership.Transfer : ProjectionOwnership.Dispose, project: values => state.Key.Accept(values: values.Choose(state.Project))).ToEff()
+                from result in TopologyProjection.Project(all: curves, chosen: chosen, ownership: typeof(TValue) == typeof(Curve) || typeof(TValue) == typeof(TopologyProjection) ? ProjectionOwnership.Transfer : ProjectionOwnership.Dispose, project: values => state.Key.Accept(values: values.Choose(state.Project))).ToEff()
                 select result));
-    public static Eff<Env, Seq<TopologyProjection>> TopologyProjections(object geometry, Curves aspect) =>
-        from runtime in Env.EnvAsks
-        from kind in geometry.Kind(context: runtime.Context).ToEff()
-        let selector = aspect.ToSelector(topology: kind.Topology)
-        from curves in CurveProjections(geometry: geometry, selector: selector, context: runtime.Context, op: Rasm.Analysis.Curves.Key, cancel: runtime.Cancellation).ToEff()
-        from chosen in aspect.Select(curves: curves).ToEff()
-        from result in TopologyProjection.Project(all: curves, chosen: chosen, ownership: ProjectionOwnership.Transfer, project: static values => Fin.Succ(values)).ToEff()
-        select result;
-    public static Eff<Env, Seq<TopologyProjection>> TopologyProjections(object geometry, Func<int, Curves> choose) =>
-        from runtime in Env.EnvAsks
-        from kind in geometry.Kind(context: runtime.Context).ToEff()
-        let allSelector = Rasm.Analysis.Curves.All.ToSelector(topology: kind.Topology)
-        from curves in CurveProjections(geometry: geometry, selector: allSelector, context: runtime.Context, op: Rasm.Analysis.Curves.Key, cancel: runtime.Cancellation).ToEff()
-        from aspect in Fin.Succ(choose(arg: curves.Count)).ToEff()
-        from chosen in aspect.Select(curves: curves).ToEff()
-        from result in TopologyProjection.Project(all: curves, chosen: chosen, ownership: ProjectionOwnership.Transfer, project: static values => Fin.Succ(values)).ToEff()
-        select result;
     internal static bool CanProjectCurves(Type type, Option<CurveFeature> feature = default) =>
         type == typeof(object)
         || (feature.Case switch {
@@ -125,7 +109,7 @@ public static partial class Analyze {
             (Brep brep, CurveFeature.Edge or CurveFeature.Boundary or CurveFeature.NakedOuter or CurveFeature.NakedInner or CurveFeature.Interior or CurveFeature.NonManifold) => BrepEdges(brep: brep, selector: selector),
             (Brep brep, CurveFeature.OuterLoop or CurveFeature.InnerLoop) => BrepLoops(brep: brep, selector: selector),
             (Brep brep, CurveFeature.Iso) => toSeq(brep.Faces).TraverseM(f => IsoSeq(surface: f, iso: selector.Iso.IfNone(static () => IsoStatus.X), normalized: selector.Normalized.IfNone(static () => 0.5), op: op).Map(s => s.Map(c => TopologyProjection.FromCurve(c, selector.Feature, new ComponentIndex(ComponentIndexType.BrepFace, f.FaceIndex))))).As().Map(static nested => nested.Bind(static seq => seq)),
-            (BrepFace face, CurveFeature.Boundary) => Optional(face.DuplicateFace(false)).ToFin(op.InvalidResult()).Bind(fb => GeometryKernel.Borrowed(fb, owned => Optional(owned.DuplicateNakedEdgeCurves(true, true)).ToFin(op.InvalidResult()).Map(cs => toSeq(cs.Select(c => TopologyProjection.FromCurve(c, CurveFeature.Boundary, new ComponentIndex(ComponentIndexType.BrepFace, face.FaceIndex))).ToArray())))),
+            (BrepFace face, CurveFeature.Boundary) => Optional(face.DuplicateFace(false)).ToFin(op.InvalidResult()).Bind(fb => new Lease<Brep>.Owned(Value: fb).Use(owned => Optional(owned.DuplicateNakedEdgeCurves(nakedOuter: true, nakedInner: true)).ToFin(op.InvalidResult()).Map(cs => toSeq(cs.Select(c => TopologyProjection.FromCurve(c, CurveFeature.Boundary, new ComponentIndex(ComponentIndexType.BrepFace, face.FaceIndex))).ToArray())))),
             (Mesh mesh, CurveFeature.Edge or CurveFeature.Boundary or CurveFeature.Interior or CurveFeature.NonManifold) => MeshEdges(mesh: mesh, selector: selector),
             (Mesh mesh, CurveFeature.NakedOuter) => Optional(mesh.GetNakedEdges()).ToFin(op.InvalidResult()).Map(ps => toSeq(ps).Map((p, i) => TopologyProjection.FromCurve(p.ToPolylineCurve(), selector.Feature, ComponentIndexType.NoType, i))),
             (Surface surface, CurveFeature.Iso) => IsoSeq(surface: surface, iso: selector.Iso.IfNone(static () => IsoStatus.X), normalized: selector.Normalized.IfNone(static () => 0.5), op: op).Map(seq => seq.Map(c => TopologyProjection.FromCurve(c, selector.Feature, new ComponentIndex(ComponentIndexType.NoType, 0)))),

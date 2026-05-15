@@ -70,7 +70,7 @@ public static partial class Analyze {
             (Line a, BoundingBox b) => Fin.Succ((IntersectionResult)new IntersectionResult.Intervals(Intersection.LineBox(a, b, context.Absolute.Value, out Interval iv) ? SegmentInterval(iv) : Seq<Interval>())),
             (Line a, Box b) => Fin.Succ((IntersectionResult)new IntersectionResult.Intervals(Intersection.LineBox(a, b, context.Absolute.Value, out Interval iv) ? SegmentInterval(iv) : Seq<Interval>())),
             (Curve a, Curve b) when cancel.IsCancellationRequested => Fin.Fail<IntersectionResult>(new Fault.Cancelled()),
-            (Curve a, Curve b) => GeometryKernel.Borrowed(Intersection.CurveCurve(a, b, context.Absolute.Value, context.Absolute.Value), hits => cancel.IsCancellationRequested ? Fin.Fail<IntersectionResult>(new Fault.Cancelled()) : EventHits(hits: hits, op: op, source: a)),
+            (Curve a, Curve b) => new Lease<CurveIntersections>.Owned(Value: Intersection.CurveCurve(a, b, context.Absolute.Value, context.Absolute.Value)).Use(hits => cancel.IsCancellationRequested ? Fin.Fail<IntersectionResult>(new Fault.Cancelled()) : EventHits(hits: hits, op: op, source: a)),
             (Curve a, Plane b) => CurvePlane(a: a, b: b, context: context, op: op),
             (Curve a, Line b) => CurveLine(a: a, b: b, context: context, op: op),
             (Curve a, BrepFace b) => SolvedHits(solved: Intersection.CurveBrepFace(a, b, context.Absolute.Value, out Curve[] cs, out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Overlap, op: op, cancel: cancel),
