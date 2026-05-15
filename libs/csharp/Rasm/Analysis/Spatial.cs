@@ -1,9 +1,5 @@
 namespace Rasm.Analysis;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-[StructLayout(LayoutKind.Auto)] public readonly record struct Hit(int Id);
-[StructLayout(LayoutKind.Auto)] public readonly record struct Couple(int A, int B);
-
 // --- [MODELS] -----------------------------------------------------------------------------
 [Union]
 public partial record Probe {

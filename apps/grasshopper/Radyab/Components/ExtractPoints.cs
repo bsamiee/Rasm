@@ -3,7 +3,7 @@ namespace Radyab.Components;
 [IoId("5341EE61-BBDC-4223-BBCA-A4A411CB146A")]
 [Nomen(
     name: "Extract Points",
-    info: "Vertices, control points, edge midpoints, quadrants, centroid, bbox center and corners, plus geometry kind label, topology, and primitive classification.",
+    info: "Vertices, control points, edge midpoints, quadrants, centroid, bbox center and corners, plus geometry kind label and topology.",
     category: Library.Name,
     section: Library.Extraction)]
 public sealed class ExtractPoints : Component {
@@ -23,7 +23,6 @@ public sealed class ExtractPoints : Component {
         slots: [
             Output.Plain<Rasm.Domain.Kind, string>(port: Port.Tree<string>(name: "Kind", code: "K", info: "Detected geometry kind label."), project: static value => value.ToString(null, System.Globalization.CultureInfo.InvariantCulture)),
             Output.Plain<Rasm.Domain.Kind, Topology>(port: Port.Tree<Topology>(name: "Topology", code: "T", info: "Detected topology family.", kind: PortKind.Enum(initial: Topology.Unknown)), project: static value => value.Topology),
-            Output.Plain<Rasm.Domain.Kind, Primitive>(port: Port.Tree<Primitive>(name: "Primitive", code: "P", info: "Detected primitive family.", kind: PortKind.Enum(initial: Primitive.None)), project: static value => value.Primitive),
         ]);
     public ExtractPoints() : base(self: typeof(ExtractPoints), spec: ComponentSpec.Of(
         inputs: Seq<IPort>(Geometry),

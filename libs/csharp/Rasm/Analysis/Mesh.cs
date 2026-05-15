@@ -1,7 +1,9 @@
+using Foundation.CSharp.Analyzers.Contracts;
+
 namespace Rasm.Analysis;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-[StructLayout(LayoutKind.Auto)] public readonly record struct MeshFaceSample(int Face, double Value);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshFaceSample(int Face, double Value);
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [Union]
@@ -26,41 +28,31 @@ public partial record Meshes : IAspect {
 
 [SmartEnum<int>]
 public partial class MeshCheckCount {
-    public static readonly MeshCheckCount None = new(key: 0, get: static _ => 0);
-    public static readonly MeshCheckCount DegenerateFaces = new(key: 1, get: static p => p.DegenerateFaceCount);
-    public static readonly MeshCheckCount DisjointMeshes = new(key: 2, get: static p => p.DisjointMeshCount);
-    public static readonly MeshCheckCount DuplicateFaces = new(key: 3, get: static p => p.DuplicateFaceCount);
-    public static readonly MeshCheckCount ExtremelyShortEdges = new(key: 4, get: static p => p.ExtremelyShortEdgeCount);
-    public static readonly MeshCheckCount InvalidNgons = new(key: 5, get: static p => p.InvalidNgonCount);
-    public static readonly MeshCheckCount NakedEdges = new(key: 6, get: static p => p.NakedEdgeCount);
-    public static readonly MeshCheckCount NonManifoldEdges = new(key: 7, get: static p => p.NonManifoldEdgeCount);
-    public static readonly MeshCheckCount NonUnitVectorNormals = new(key: 8, get: static p => p.NonUnitVectorNormalCount);
-    public static readonly MeshCheckCount RandomFaceNormals = new(key: 9, get: static p => p.RandomFaceNormalCount);
-    public static readonly MeshCheckCount SelfIntersectingPairs = new(key: 10, get: static p => p.SelfIntersectingPairsCount);
-    public static readonly MeshCheckCount UnusedVertices = new(key: 11, get: static p => p.UnusedVertexCount);
-    public static readonly MeshCheckCount VertexFaceNormalsDiffer = new(key: 12, get: static p => p.VertexFaceNormalsDifferCount);
-    public static readonly MeshCheckCount ZeroLengthNormals = new(key: 13, get: static p => p.ZeroLengthNormalCount);
+    public static readonly MeshCheckCount None = new(key: 0, get: static _ => 0), DegenerateFaces = new(key: 1, get: static p => p.DegenerateFaceCount), DisjointMeshes = new(key: 2, get: static p => p.DisjointMeshCount), DuplicateFaces = new(key: 3, get: static p => p.DuplicateFaceCount);
+    public static readonly MeshCheckCount ExtremelyShortEdges = new(key: 4, get: static p => p.ExtremelyShortEdgeCount), InvalidNgons = new(key: 5, get: static p => p.InvalidNgonCount), NakedEdges = new(key: 6, get: static p => p.NakedEdgeCount), NonManifoldEdges = new(key: 7, get: static p => p.NonManifoldEdgeCount);
+    public static readonly MeshCheckCount NonUnitVectorNormals = new(key: 8, get: static p => p.NonUnitVectorNormalCount), RandomFaceNormals = new(key: 9, get: static p => p.RandomFaceNormalCount), SelfIntersectingPairs = new(key: 10, get: static p => p.SelfIntersectingPairsCount), UnusedVertices = new(key: 11, get: static p => p.UnusedVertexCount);
+    public static readonly MeshCheckCount VertexFaceNormalsDiffer = new(key: 12, get: static p => p.VertexFaceNormalsDifferCount), ZeroLengthNormals = new(key: 13, get: static p => p.ZeroLengthNormalCount);
     private readonly Func<MeshCheckParameters, int> get;
-    public int Get(MeshCheckParameters parameters) => get(arg: parameters);
+    internal int Get(MeshCheckParameters parameters) => get(arg: parameters);
     internal static IEnumerable<MeshCheckCount> Defects => [DegenerateFaces, DuplicateFaces, NakedEdges, NonManifoldEdges, SelfIntersectingPairs];
 }
 
-[SmartEnum<int>]
+[BoundaryAdapter, SmartEnum<int>]
 public sealed partial class MeshFaceMetric {
     private static readonly Op MetricKey = Op.Of(name: nameof(MeshFaceMetric));
-    public static readonly MeshFaceMetric None = new(key: 0, sample: static _ => Fin.Fail<double>(MetricKey.InvalidInput()));
-    public static readonly MeshFaceMetric AspectRatio = new(key: 1, sample: static projection =>
-        projection.OnMeshFace<double>(static (mesh, face) => Fin.Succ(mesh.Faces.GetFaceAspectRatio(index: face))));
-    public static readonly MeshFaceMetric Area = new(key: 2, sample: FaceArea);
-    public static readonly MeshFaceMetric Perimeter = new(key: 3, sample: FacePerimeter);
-    public static readonly MeshFaceMetric Skewness = new(key: 4, sample: FaceSkewness);
-    public static readonly MeshFaceMetric DihedralAngle = new(key: 5, sample: FaceMaxDihedral);
+    public static readonly MeshFaceMetric None = new(key: 0, sample: static _ => Fin.Fail<double>(MetricKey.InvalidInput())), AspectRatio = new(key: 1, sample: static projection => projection.OnMeshFace<double>(static (mesh, face) => Fin.Succ(mesh.Faces.GetFaceAspectRatio(index: face))));
+    public static readonly MeshFaceMetric Area = new(key: 2, sample: FaceArea), Perimeter = new(key: 3, sample: FacePerimeter), Skewness = new(key: 4, sample: FaceSkewness), DihedralAngle = new(key: 5, sample: FaceMaxDihedral);
     private readonly Func<TopologyProjection, Fin<double>> sample;
-    public Fin<double> Sample(Mesh mesh, int face) {
-        ArgumentNullException.ThrowIfNull(argument: mesh);
-        return TopologyProjection.MeshFace(mesh: mesh, face: face)
-            .Bind(projection => sample(arg: projection));
-    }
+    internal Fin<MeshFaceSample> Sample(Mesh? mesh, int face) =>
+        Fin.Succ((Mesh: mesh, Face: face, Sample: sample))
+            .Bind(static state => TopologyProjection.MeshFace(mesh: state.Mesh, face: state.Face)
+                .Map(projection => (state.Face, state.Sample, Projection: projection)))
+            .Bind(static state => state.Sample(arg: state.Projection)
+                .Map(value => (state.Face, Value: value)))
+            .Bind(static state => state switch {
+                (Face: >= 0, Value: double value) when RhinoMath.IsValidDouble(x: value) && value >= 0.0 => Fin.Succ(new MeshFaceSample(Face: state.Face, Value: value)),
+                _ => Fin.Fail<MeshFaceSample>(MetricKey.InvalidResult()),
+            });
     private static Fin<double> FaceArea(TopologyProjection projection) =>
         projection.Vertices.Bind(static v => v.Count >= 3
             ? Fin.Succ(0.5 * Enumerable.Range(start: 1, count: v.Count - 2).Sum(i => Vector3d.CrossProduct(a: v[i] - v[0], b: v[i + 1] - v[0]).Length))
@@ -79,8 +71,7 @@ public sealed partial class MeshFaceMetric {
     private static Fin<double> FaceMaxDihedral(TopologyProjection projection) =>
         projection.Normal.Bind(normal => normal.IsValid switch {
             false => Fin.Succ(0.0),
-            true => projection.OnMeshFace<double>((mesh, face) => toSeq(mesh.TopologyEdges.GetEdgesForFace(faceIndex: face))
-                .Bind(edge => toSeq(mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: edge)).Filter(other => other != face))
+            true => projection.OnMeshFace<double>((mesh, face) => toSeq(mesh.Faces.AdjacentFaces(faceIndex: face))
                 .Fold(initialState: Fin.Succ((Max: 0.0, Mesh: mesh, Normal: normal)), f: static (state, other) => state.Bind(s => TopologyProjection.MeshFace(mesh: s.Mesh, face: other)
                     .Bind(static otherProjection => otherProjection.Normal)
                     .Map(neighbour => neighbour.IsValid switch {
@@ -95,10 +86,10 @@ public sealed partial class MeshFaceMetric {
 public static partial class Analyze {
     public static Query<TGeometry, TOut> Meshes<TGeometry, TOut>(Meshes aspect) where TGeometry : notnull => Aspect<Meshes, TGeometry, TOut>(aspect: aspect);
     public static Query<Mesh, bool> IsManifold {
-        get { Op key = Op.Of(); return Query<Mesh, bool>.Build(key: key, state: key, evaluator: static (op, geometry) => One(key: op, value: geometry.IsManifold()).ToEff()); }
+        get { Op key = Op.Of(); return Query<Mesh, bool>.Build(key: key, state: key, evaluator: static (op, geometry) => op.One(value: geometry.IsManifold()).ToEff()); }
     }
     public static Query<Mesh, bool> NakedPointStatus {
-        get { Op key = Op.Of(); return Query<Mesh, bool>.Build(key: key, state: key, evaluator: static (op, geometry) => Many(key: op, values: geometry.GetNakedEdgePointStatus()).ToEff()); }
+        get { Op key = Op.Of(); return Query<Mesh, bool>.Build(key: key, state: key, evaluator: static (op, geometry) => op.Many(values: geometry.GetNakedEdgePointStatus()).ToEff()); }
     }
     public static Query<Mesh, MeshCheckParameters> MeshCheck {
         get {
@@ -110,29 +101,27 @@ public static partial class Analyze {
         // BOUNDARY ADAPTER — Rhino Check takes ref parameter and IDisposable TextLog.
         using TextLog textLog = new();
         MeshCheckParameters parameters = MeshCheckParameters.Defaults();
-        return geometry.Check(textLog: textLog, parameters: ref parameters) ? One(key: op, value: parameters) : Fin.Fail<Seq<MeshCheckParameters>>(op.InvalidResult());
+        return geometry.Check(textLog: textLog, parameters: ref parameters) ? op.One(value: parameters) : Fin.Fail<Seq<MeshCheckParameters>>(op.InvalidResult());
     }
-    public static Query<Mesh, int> MeshCheckCount(MeshCheckCount count) {
+    public static Query<Mesh, int> MeshCheckCount(Rasm.Analysis.MeshCheckCount count) {
         Op key = Op.Of();
-        return count == Rasm.Analysis.MeshCheckCount.None
-            ? Query<Mesh, int>.Reject(key: key, fault: key.InvalidInput())
-            : Query<Mesh, int>.Build(
-                key: key, state: (Key: key, Count: count),
+        return Optional(count).Filter(static candidate => !candidate.Equals(Rasm.Analysis.MeshCheckCount.None)).Case switch {
+            Rasm.Analysis.MeshCheckCount active => Query<Mesh, int>.Build(
+                key: key, state: (Key: key, Count: active),
                 evaluator: static (state, geometry) => from parameters in MeshCheck.Apply(geometry: geometry)
                                                        from head in parameters.Head.ToFin(state.Key.InvalidResult()).ToEff()
-                                                       from result in One(key: state.Key, value: state.Count.Get(parameters: head)).ToEff()
-                                                       select result);
+                                                       from result in state.Key.One(value: state.Count.Get(parameters: head)).ToEff()
+                                                       select result),
+            _ => Query<Mesh, int>.Reject(key: key, fault: key.InvalidInput()),
+        };
     }
-    public static Query<Mesh, MeshFaceSample> MeshFaceMetric(MeshFaceMetric? metric) {
+    public static Query<Mesh, MeshFaceSample> MeshFaceMetric(Rasm.Analysis.MeshFaceMetric? metric) {
         Op key = Op.Of();
         return Optional(metric).Filter(static candidate => !candidate.Equals(Rasm.Analysis.MeshFaceMetric.None)).Case switch {
-            MeshFaceMetric active => Query<Mesh, MeshFaceSample>.Build(
+            Rasm.Analysis.MeshFaceMetric active => Query<Mesh, MeshFaceSample>.Build(
                 key: key, state: (Key: key, Metric: active), requirement: Requirement.MeshCheck,
                 evaluator: static (state, geometry) => toSeq(Enumerable.Range(start: 0, count: geometry.Faces.Count))
-                    .TraverseM(face => state.Metric.Sample(mesh: geometry, face: face)
-                        .Bind(v => RhinoMath.IsValidDouble(x: v) && v >= 0.0
-                            ? Fin.Succ(new MeshFaceSample(Face: face, Value: v))
-                            : Fin.Fail<MeshFaceSample>(state.Key.InvalidResult()))).As().ToEff()),
+                    .TraverseM(face => state.Metric.Sample(mesh: geometry, face: face)).As().ToEff()),
             _ => Query<Mesh, MeshFaceSample>.Reject(key: key, fault: key.InvalidInput()),
         };
     }
@@ -141,7 +130,7 @@ public static partial class Analyze {
             Op key = Op.Of();
             return Query<Mesh, bool>.Build(key: key, state: key, evaluator: static (op, geometry) => {
                 bool manifold = geometry.IsManifold(topologicalTest: true, isOriented: out bool oriented, hasBoundary: out bool boundary);
-                return Many(key: op, values: new[] { geometry.IsValid, geometry.IsClosed, oriented, geometry.IsSolid, manifold, !boundary }).ToEff();
+                return op.Many(values: new[] { geometry.IsValid, geometry.IsClosed, oriented, geometry.IsSolid, manifold, !boundary }).ToEff();
             });
         }
     }
@@ -150,7 +139,7 @@ public static partial class Analyze {
             Op key = Op.Of();
             return Query<Mesh, int>.Build(
                 key: key, state: key,
-                evaluator: static (op, geometry) => Many(key: op, values: new[] {
+                evaluator: static (op, geometry) => op.Many(values: new[] {
                     geometry.Vertices.Count, geometry.Faces.Count, geometry.Faces.TriangleCount, geometry.Faces.QuadCount,
                     geometry.TopologyEdges.Count, geometry.TopologyVertices.Count - geometry.TopologyEdges.Count + geometry.Faces.Count,
                 }).ToEff());
@@ -163,7 +152,7 @@ public static partial class Analyze {
                 key: key, state: key,
                 evaluator: static (op, geometry) => from parameters in MeshCheck.Apply(geometry: geometry)
                                                     from head in parameters.Head.ToFin(op.InvalidResult()).ToEff()
-                                                    from result in Many(key: op, values: Rasm.Analysis.MeshCheckCount.Defects.Select(m => m.Get(parameters: head))).ToEff()
+                                                    from result in op.Many(values: Rasm.Analysis.MeshCheckCount.Defects.Select(m => m.Get(parameters: head))).ToEff()
                                                     select result);
         }
     }
@@ -175,7 +164,7 @@ public static partial class Analyze {
                 0 => Fin.Fail<Seq<TopologyProjection>>(state.Key.InvalidResult()).ToEff(),
                 int count when state.Selector is int selected && (selected < 0 || selected >= count) => Fin.Fail<Seq<TopologyProjection>>(state.Key.InvalidInput()).ToEff(),
                 _ => TopologyProjection.MeshFace(mesh: geometry, face: state.Selector ?? 0)
-                    .Bind(projection => One(key: state.Key, value: projection))
+                    .Bind(projection => state.Key.One(value: projection))
                     .ToEff(),
             });
     }
@@ -194,7 +183,7 @@ public static partial class Analyze {
             textLog: textLog,
             cancel: runtime.Cancellation,
             progress: runtime.Progress) switch {
-                true => (ManyOrEmpty(key: op, values: perforations), ManyOrEmpty(key: op, values: overlaps))
+                true => (op.ManyOrEmpty(values: perforations), op.ManyOrEmpty(values: overlaps))
                     .Apply((left, right) => left + right)
                     .As(),
                 false when runtime.Cancellation.IsCancellationRequested => Fin.Fail<Seq<Polyline>>(new Fault.Cancelled()),

@@ -1,3 +1,5 @@
+using System.Collections.Frozen;
+using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
 using Foundation.CSharp.Analyzers.Contracts;
 
@@ -20,17 +22,16 @@ public interface ICategorized {
 // --- [MODELS] -----------------------------------------------------------------------------
 public sealed record Requirement(Seq<Rule> Checks) {
     internal bool IsEmpty => Checks.IsEmpty;
-    public Requirement With(Rule single) => new(Checks: Checks.Add(value: single).Distinct().ToSeq());
-    public Requirement With(Seq<Rule> more) => new(Checks: Checks.Concat(more).Distinct().ToSeq());
+    public Requirement With(params ReadOnlySpan<Rule> rules) => new(Checks: Checks.Concat(toSeq(rules.ToArray())).Distinct().ToSeq());
     public static readonly Requirement None = new(Checks: Seq<Rule>());
     public static readonly Requirement Basic = new(Checks: Seq(Rule.Validity, Rule.UsableBounds));
-    public static readonly Requirement CurveLength = Basic.With(single: Rule.CurveLengthReadiness);
-    public static readonly Requirement AreaMass = Basic.With(more: Seq(Rule.CurveAreaReadiness, Rule.CurveSelfIntersection));
-    public static readonly Requirement MeshCheck = Basic.With(single: Rule.MeshRhinoCheck);
-    public static readonly Requirement SolidTopology = Basic.With(more: Seq(Rule.BrepIntegrity, Rule.MeshManifoldReadiness, Rule.BrepSolidReadiness, Rule.MeshRhinoCheck));
-    public static readonly Requirement VolumeMass = SolidTopology.With(single: Rule.SurfaceSolidReadiness);
-    public static readonly Requirement SurfaceEvaluation = Basic.With(single: Rule.SurfaceDomainReadiness);
-    public static readonly Requirement StrictStructure = SurfaceEvaluation.With(more: Seq(Rule.ContinuityReadiness, Rule.PolycurveStructure));
+    public static readonly Requirement CurveLength = Basic.With(rules: [Rule.CurveLengthReadiness]);
+    public static readonly Requirement AreaMass = Basic.With(rules: [Rule.CurveAreaReadiness, Rule.CurveSelfIntersection]);
+    public static readonly Requirement MeshCheck = Basic.With(rules: [Rule.MeshRhinoCheck]);
+    public static readonly Requirement SolidTopology = Basic.With(rules: [Rule.BrepIntegrity, Rule.MeshManifoldReadiness, Rule.BrepSolidReadiness, Rule.MeshRhinoCheck]);
+    public static readonly Requirement VolumeMass = SolidTopology.With(rules: [Rule.SurfaceSolidReadiness]);
+    public static readonly Requirement SurfaceEvaluation = Basic.With(rules: [Rule.SurfaceDomainReadiness]);
+    public static readonly Requirement StrictStructure = SurfaceEvaluation.With(rules: [Rule.ContinuityReadiness, Rule.PolycurveStructure]);
     public static readonly Requirement Strict = new(Checks: toSeq(Rule.Items));
 }
 
@@ -160,7 +161,33 @@ public static class FaultExtensions {
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
+[BoundaryAdapter]
+internal static class OpResultRole {
+    internal static Fin<Seq<TValue>> One<TValue>(this Op key, TValue value) =>
+        key.RequireValid(value: value).Map(static candidate => Seq(candidate));
+    internal static Fin<Seq<TValue>> Many<TValue>(this Op key, IEnumerable<TValue> values) =>
+        Optional(values).ToFin(key.InvalidResult()).Bind(candidates => candidates.AsIterable().ToSeq().Traverse(value => key.RequireValid(value: value)).As());
+    internal static Fin<Seq<TValue>> ManyOrEmpty<TValue>(this Op key, IEnumerable<TValue>? values) =>
+        Optional(values).Case switch {
+            IEnumerable<TValue> candidates => key.Many(values: candidates),
+            _ => Fin.Succ(Seq<TValue>()),
+        };
+    internal static Fin<Seq<TValue>> Solved<TValue>(this Op key, bool isSolved, TValue value) =>
+        isSolved switch { true => key.One(value: value), false => Fin.Fail<Seq<TValue>>(key.InvalidResult()) };
+    internal static Fin<Seq<TOut>> Results<TValue, TOut>(this Op key, IEnumerable<TValue> values) => typeof(TValue).Equals(typeof(TOut)) switch {
+        true => key.Many(values: values).Map(static candidates => candidates.Map(static candidate => (TOut)(object)candidate!)),
+        false => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(TValue), outputType: typeof(TOut))),
+    };
+}
+
 public static class Verify {
+    private static readonly FrozenDictionary<Type, Func<object, bool>> ValueValidity = new Type[] {
+        typeof(Point2d), typeof(Point3d), typeof(Vector3d), typeof(Plane), typeof(BoundingBox), typeof(Box), typeof(Sphere),
+        typeof(Cylinder), typeof(Cone), typeof(Torus), typeof(Arc), typeof(Circle), typeof(Ellipse), typeof(Rectangle3d), typeof(Interval), typeof(Line), typeof(Polyline),
+    }.ToFrozenDictionary(static t => t, static t => {
+        ParameterExpression p = Expression.Parameter(typeof(object));
+        return Expression.Lambda<Func<object, bool>>(Expression.Property(Expression.Convert(p, t), "IsValid"), p).Compile();
+    });
     public static Validation<Error, T> Apply<T>(this Context context, T? value, Requirement? requirement = null, CancellationToken cancel = default) where T : notnull =>
         (value, context, requirement ?? Requirement.Strict) switch {
             (T candidate, Context ctx, Requirement req) when candidate is GeometryBase g => RunChecks(checks: req.Checks, context: ctx, geometry: g, original: candidate, cancel: cancel),
@@ -211,10 +238,48 @@ public static class Verify {
         value switch {
             null => Fin.Fail<T>(error: new Fault.InvalidResult(Key: key)),
             Enum => Fin.Succ(value),
-            _ => Dispatch.ValidityOf(source: value!).Case switch {
+            _ => ValidityOf(source: value!).Case switch {
                 bool ok => key.Demand(condition: ok, value: value),
                 _ => Fin.Fail<T>(error: new Fault.InvalidResult(Key: key)),
             },
+        };
+    internal static Option<bool> ValidityOf(object? source) =>
+        source switch {
+            null => Option<bool>.None,
+            GeometryBase geometry => Some(geometry.IsValid),
+            double scalar => Some(RhinoMath.IsValidDouble(scalar)),
+            bool or int or Enum or SurfaceCurvature or MeshCheckParameters => Some(true),
+            global::Rasm.Domain.Kind => Some(true),
+            ClosestHit h => Some(h.Point.IsValid
+                && h.Distance.Map(static d => RhinoMath.IsValidDouble(d) && d >= 0.0).IfNone(true)
+                && h.Normal.Map(static n => n.IsValid && n.Length > RhinoMath.ZeroTolerance).IfNone(true)
+                && h.Component.Map(static c => c is { ComponentIndexType: not ComponentIndexType.InvalidType } && c.Index >= 0).IfNone(true)
+                && h.MeshPoint.Map(static m => m.Point.IsValid).IfNone(true)),
+            TopologyProjection p => Some(p switch {
+                { Value: Curve { IsValid: true } } => true,
+                { Value: Brep { IsValid: true, Faces.Count: > 0 }, Source: { ComponentIndexType: ComponentIndexType.BrepFace, Index: >= 0 } } => true,
+                { Value: Mesh { IsValid: true } m, Source: { ComponentIndexType: ComponentIndexType.MeshFace, Index: int f } } => f >= 0 && f < m.Faces.Count,
+                _ => false,
+            }),
+            ResidualSample r => Some(r is { Index: >= 0, Location.IsValid: true, Distance: double d, Tolerance: double t, WithinTolerance: bool w } && RhinoMath.IsValidDouble(d) && d >= 0.0 && RhinoMath.IsValidDouble(t) && t >= 0.0 && w == (d <= t)),
+            Stats s => Some(s is { Count: > 0, Minimum: double mn, Maximum: double mx, Mean: double me, Variance: double va, Rms: double rm } && RhinoMath.IsValidDouble(mn) && RhinoMath.IsValidDouble(mx) && RhinoMath.IsValidDouble(me) && RhinoMath.IsValidDouble(va) && RhinoMath.IsValidDouble(rm) && mn <= mx && va >= 0.0 && rm >= 0.0),
+            StatProfile p => Some(p switch {
+                { Stats: Stats s, Limit.Case: double t } => ValidityOf(source: s).IfNone(false) && s.Minimum >= 0.0 && s.Mean >= 0.0 && RhinoMath.IsValidDouble(t) && t >= 0.0 && p.WithinTolerance == (s.Maximum <= t),
+                { Stats: Stats s } => ValidityOf(source: s).IfNone(false),
+            }),
+            Hit h => Some(h is { Id: >= 0 }),
+            Couple c => Some(c is { A: >= 0, B: >= 0 }),
+            CurveDeviation c => Some(c is { MinimumDistance: double mn, MaximumDistance: double mx, MinimumA.IsValid: true, MinimumB.IsValid: true, MaximumA.IsValid: true, MaximumB.IsValid: true, Tolerance: double t, WithinTolerance: bool w } && RhinoMath.IsValidDouble(mn) && mn >= 0.0 && RhinoMath.IsValidDouble(mx) && mx >= mn && RhinoMath.IsValidDouble(t) && t >= 0.0 && w == (mx <= t)),
+            MeshPoint m => Some(m.Point.IsValid),
+            ComponentIndex c => Some(c is { ComponentIndexType: not ComponentIndexType.InvalidType } ci && ci.Index >= 0),
+            IntersectionHit h => Some(h switch {
+                IntersectionHit.PointCase p => p.Point.IsValid,
+                IntersectionHit.CurveCase c => c.CurveKind != IntersectionKind.Unknown && c.Curve.IsValid,
+                IntersectionHit.OverlapCase o => o.Start.IsValid && o.End.IsValid && o.OverlapA.IsValid && o.OverlapB.IsValid && o.Curve.Map(static c => c.IsValid).IfNone(true),
+                _ => false,
+            }),
+            ValueTuple<double, Vector3d> t => Some(t is (double m, Vector3d a) && RhinoMath.IsValidDouble(m) && a.IsValid),
+            _ => ValueValidity.GetValueOrDefault(source.GetType()) is Func<object, bool> fn ? Some(fn(source)) : Option<bool>.None,
         };
     private static Fin<T> Demand<T>(this Op key, bool condition, T value) =>
         condition ? Fin.Succ(value) : Fin.Fail<T>(error: new Fault.InvalidResult(Key: key));

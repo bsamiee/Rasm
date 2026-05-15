@@ -41,6 +41,24 @@ public sealed class StatsSpec {
         Assert.True(condition: Stats.From(values: toSeq<double>([1.0, 2.0, double.NaN]), key: Op.Create(value: "stats-non-finite")).IsFail);
 
     [Fact]
+    public void ProfileUsesStatsAndOptionalToleranceRail() {
+        Op key = Op.Create(value: "profile-rail");
+
+        Assert.True(condition: StatProfile.Curvature(values: toSeq<double>([-1.0, 3.0]), scalar: CurvatureScalar.Gaussian, key: key).Bind(profile => key.One(value: profile)).IsSucc);
+        Assert.True(condition: StatProfile.Residual(values: toSeq<double>([1.0, 3.0]), tolerance: 3.0, key: key).Bind(profile => key.One(value: profile)).IsSucc);
+        Assert.True(condition: StatProfile.Residual(values: toSeq<double>([1.0, 3.0]), tolerance: -1.0, key: key).IsFail);
+        Assert.True(condition: StatProfile.Residual(values: toSeq<double>([1.0, 3.0]), tolerance: 3.0, key: key).Match(Succ: static profile => profile.WithinTolerance, Fail: static _ => false));
+    }
+
+    [Fact]
+    public void ExtremaFoldPreservesToleranceTiesInInputOrder() {
+        Seq<(string Name, double Score)> values = Seq(("low", 1.0), ("first", 10.0), ("tie", 9.95), ("drop", 8.0));
+
+        Assert.Equal(expected: ["first", "tie"], actual: Stats.Maxima(items: values, projection: static value => value.Score, tolerance: 0.1).Map(static value => value.Name).ToArray());
+        Assert.Equal(expected: ["low"], actual: Stats.Minima(items: values, projection: static value => value.Score, tolerance: 0.1).Map(static value => value.Name).ToArray());
+    }
+
+    [Fact]
     public void StatsFromPreservesPropertyInvariants() {
         static bool Property(double[] values) =>
             toSeq(values.Where(static value => RhinoMath.IsValidDouble(x: value) && RhinoMath.IsValidDouble(x: value * value)).Take(count: 64))

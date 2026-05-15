@@ -69,7 +69,7 @@ public static partial class Analyze {
             evaluator: static (state, geometry) =>
                 from context in Env.Asks
                 from curves in Dispatch.Resolve<Seq<Curve>, (IsoStatus, double, Op)>(CapTag.IsoCurves, geometry, (state.Iso, state.Normalized, state.Key), state.Key).ToEff()
-                from result in Many(key: state.Key, values: curves).ToEff()
+                from result in state.Key.Many(values: curves).ToEff()
                 select result);
     }
     internal static Query<TGeometry, TOut> CurveProject<TGeometry, TOut, TValue>(Op key, Curves aspect, Func<TopologyProjection, Option<TValue>> project) where TGeometry : notnull =>
@@ -81,7 +81,7 @@ public static partial class Analyze {
                 let selector = state.Aspect.ToSelector(topology: kind.Topology)
                 from curves in Dispatch.Resolve<Seq<TopologyProjection>, (CurveSelector, Context, Op, CancellationToken)>(CapTag.Curves, geometry, (selector, runtime.Context, state.Key, runtime.Cancellation), state.Key, variant: selector.Feature).ToEff()
                 from chosen in state.Aspect.Select(curves: curves).ToEff()
-                from result in ProjectOwned(all: curves, chosen: chosen, ownership: typeof(TValue) == typeof(Curve) ? ProjectionOwnership.Transfer : ProjectionOwnership.Dispose, project: values => Many(key: state.Key, values: values.Choose(state.Project))).ToEff()
+                from result in TopologyProjection.Project(all: curves, chosen: chosen, ownership: typeof(TValue) == typeof(Curve) ? ProjectionOwnership.Transfer : ProjectionOwnership.Dispose, project: values => state.Key.Many(values: values.Choose(state.Project))).ToEff()
                 select result));
     public static Eff<Env, Seq<TopologyProjection>> TopologyProjections(object geometry, Curves aspect) =>
         from runtime in Env.EnvAsks
@@ -89,7 +89,7 @@ public static partial class Analyze {
         let selector = aspect.ToSelector(topology: kind.Topology)
         from curves in Dispatch.Resolve<Seq<TopologyProjection>, (CurveSelector, Context, Op, CancellationToken)>(CapTag.Curves, geometry, (selector, runtime.Context, Rasm.Analysis.Curves.Key, runtime.Cancellation), Rasm.Analysis.Curves.Key, variant: selector.Feature).ToEff()
         from chosen in aspect.Select(curves: curves).ToEff()
-        from result in ProjectOwned(all: curves, chosen: chosen, ownership: ProjectionOwnership.Transfer, project: static values => Fin.Succ(values)).ToEff()
+        from result in TopologyProjection.Project(all: curves, chosen: chosen, ownership: ProjectionOwnership.Transfer, project: static values => Fin.Succ(values)).ToEff()
         select result;
     public static Eff<Env, Seq<TopologyProjection>> TopologyProjections(object geometry, Func<int, Curves> choose) =>
         from runtime in Env.EnvAsks
@@ -98,6 +98,6 @@ public static partial class Analyze {
         from curves in Dispatch.Resolve<Seq<TopologyProjection>, (CurveSelector, Context, Op, CancellationToken)>(CapTag.Curves, geometry, (allSelector, runtime.Context, Rasm.Analysis.Curves.Key, runtime.Cancellation), Rasm.Analysis.Curves.Key, variant: allSelector.Feature).ToEff()
         from aspect in Fin.Succ(choose(arg: curves.Count)).ToEff()
         from chosen in aspect.Select(curves: curves).ToEff()
-        from result in ProjectOwned(all: curves, chosen: chosen, ownership: ProjectionOwnership.Transfer, project: static values => Fin.Succ(values)).ToEff()
+        from result in TopologyProjection.Project(all: curves, chosen: chosen, ownership: ProjectionOwnership.Transfer, project: static values => Fin.Succ(values)).ToEff()
         select result;
 }

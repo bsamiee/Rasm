@@ -1,7 +1,6 @@
 using System.Threading;
 using LanguageExt;
 using LanguageExt.Common;
-using Rasm.Analysis;
 using Rasm.Domain;
 using Rhino;
 using Rhino.Geometry;
@@ -74,7 +73,7 @@ public sealed class ContextSpec {
     public void AccumulatesMissingGeometryPairsInContext() {
         Context context = ValidContext();
 
-        Validation<Error, (LineCurve A, LineCurve B)> result = context.ValidatePair<LineCurve, LineCurve>(a: null!,
+        Validation<Error, (LineCurve A, LineCurve B)> result = context.Pair<LineCurve, LineCurve>(a: null!,
             b: null!,
             requirementA: Requirement.CurveLength,
             requirementB: Requirement.CurveLength,
@@ -89,7 +88,7 @@ public sealed class ContextSpec {
     public void ValidatesOnlyFirstTupleGeometryWhenSecondIsPlainValue() {
         Context context = ValidContext();
 
-        Validation<Error, (LineCurve A, int B)> result = context.ValidatePair<LineCurve, int>(a: null!,
+        Validation<Error, (LineCurve A, int B)> result = context.Pair<LineCurve, int>(a: null!,
             b: 1,
             requirementA: Requirement.CurveLength,
             requirementB: Requirement.None,
@@ -104,7 +103,7 @@ public sealed class ContextSpec {
     public void RejectsInvalidPlainPairOperands() {
         Context context = ValidContext();
 
-        Validation<Error, (Point3d A, Line B)> result = context.ValidatePair(a: Point3d.Unset,
+        Validation<Error, (Point3d A, Line B)> result = context.Pair(a: Point3d.Unset,
             b: Line.Unset,
             requirementA: Requirement.None,
             requirementB: Requirement.None,
@@ -181,48 +180,11 @@ public sealed class ContextSpec {
     }
 
     [Fact]
-    public void PreservesExplicitIntersectionKindsForPolylineResults() {
-        Op key = Op.Create(value: "test");
-
-        IntersectionKind[] kinds = new IntersectionResult.Polylines(
-                Values: Seq((Curve: (Polyline)[], Kind: IntersectionKind.Curve), (Curve: (Polyline)[], Kind: IntersectionKind.Overlap)))
-            .Project<IntersectionKind>(key: key)
-            .Match(
-                Succ: static output => output.ToArray(),
-                Fail: static error => throw new Xunit.Sdk.XunitException(error.Message));
-
-        Assert.Equal(expected: [IntersectionKind.Curve, IntersectionKind.Overlap], actual: kinds);
-    }
-
-    [Fact]
-    public void ProjectsSnapshotIntersectionHits() {
-        Op key = Op.Create(value: "test");
-
-        IntersectionKind[] kinds = new IntersectionResult.Hits(Values: Seq(IntersectionHit.At(point: Point3d.Origin)))
-            .Project<IntersectionKind>(key: key)
-            .Match(
-                Succ: static output => output.ToArray(),
-                Fail: static error => throw new Xunit.Sdk.XunitException(error.Message));
-
-        Assert.Equal(expected: [IntersectionKind.Point], actual: kinds);
-    }
-
-    [Fact]
-    public void ProjectsEveryIntersectionResultShape() {
-        Op key = Op.Create(value: "test");
-        Polyline polyline = new([
-            Point3d.Origin,
-            new Point3d(x: 1.0, y: 0.0, z: 0.0),
-        ]);
-
-        Assert.True(condition: Seq(
-            new IntersectionResult.Curves(Values: Seq<Curve>()).Project<Curve>(key: key).IsSucc,
-            new IntersectionResult.Lines(Values: Seq(ValidLine())).Project<Line>(key: key).IsSucc,
-            new IntersectionResult.Circles(Values: Seq(new Circle(plane: Plane.WorldXY, radius: 1.0))).Project<Circle>(key: key).IsSucc,
-            new IntersectionResult.Points(Values: Seq(Point3d.Origin)).Project<Point3d>(key: key).IsSucc,
-            new IntersectionResult.Intervals(Values: Seq(new Interval(t0: 0.0, t1: 1.0))).Project<Interval>(key: key).IsSucc,
-            new IntersectionResult.Polylines(Values: Seq((Curve: polyline, Kind: IntersectionKind.Curve))).Project<Polyline>(key: key).IsSucc,
-            new IntersectionResult.Hits(Values: Seq(IntersectionHit.At(point: Point3d.Origin))).Project<IntersectionHit>(key: key).IsSucc).ForAll(static passed => passed));
+    public void SupportsVariantCapabilityFamiliesWithoutWeakeningExactVariants() {
+        Assert.True(condition: Dispatch.Supports(CapTag.Curves, typeof(Curve)));
+        Assert.True(condition: Dispatch.Supports(CapTag.Curves, typeof(BrepFace)));
+        Assert.True(condition: Dispatch.Supports(CapTag.Curves, typeof(BrepFace), variant: CurveFeature.Boundary));
+        Assert.False(condition: Dispatch.Supports(CapTag.Curves, typeof(BrepFace), variant: CurveFeature.Segment));
     }
 
     private static Context ValidContext() =>

@@ -13,12 +13,12 @@ public partial record Faces : IAspect {
         Dispatch.Supports(CapTag.Faces, typeof(TGeometry)) switch {
             false => Key.Unsupported<TGeometry, TOut>(),
             true => typeof(TOut) switch {
-                Type t when t == typeof(Brep) => Analyze.FaceQuery<TGeometry, TOut, Brep>(key: Key, selector: this, requirement: Requirement.None, ownership: ProjectionOwnership.Transfer, project: static (chosen, _) => Analyze.Many(key: Key, values: chosen.Choose(static face => face.As<Brep>()))),
+                Type t when t == typeof(Brep) => Analyze.FaceQuery<TGeometry, TOut, Brep>(key: Key, selector: this, requirement: Requirement.None, ownership: ProjectionOwnership.Transfer, project: static (chosen, _) => Key.Many(values: chosen.Choose(static face => face.As<Brep>()))),
                 Type t when t == typeof(Plane) => Analyze.FaceQuery<TGeometry, TOut, Plane>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation, ownership: ProjectionOwnership.Dispose, project: static (chosen, runtime) => chosen.Traverse(face => Analyze.FrameAtCentroid(face: face, runtime: runtime)).As()),
                 Type t when t == typeof(Point3d) => Analyze.FaceQuery<TGeometry, TOut, Point3d>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation, ownership: ProjectionOwnership.Dispose, project: static (chosen, runtime) => chosen.Traverse(face => Analyze.FaceCentroid(face: face, runtime: runtime)).As()),
                 Type t when t == typeof(Vector3d) => Analyze.FaceQuery<TGeometry, TOut, Vector3d>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation, ownership: ProjectionOwnership.Dispose, project: static (chosen, runtime) => chosen.Traverse(face => Analyze.FrameAtCentroid(face: face, runtime: runtime).Map(static frame => frame.ZAxis)).As()),
-                Type t when t == typeof(int) => Analyze.FaceQuery<TGeometry, TOut, int>(key: Key, selector: this, requirement: Requirement.None, ownership: ProjectionOwnership.Dispose, project: static (chosen, _) => Analyze.Many(key: Key, values: chosen.Map(static face => face.FaceIndex))),
-                Type t when t == typeof(ComponentIndex) => Analyze.FaceQuery<TGeometry, TOut, ComponentIndex>(key: Key, selector: this, requirement: Requirement.None, ownership: ProjectionOwnership.Dispose, project: static (chosen, _) => Analyze.Many(key: Key, values: chosen.Map(static face => new ComponentIndex(type: ComponentIndexType.BrepFace, index: face.FaceIndex)))),
+                Type t when t == typeof(int) => Analyze.FaceQuery<TGeometry, TOut, int>(key: Key, selector: this, requirement: Requirement.None, ownership: ProjectionOwnership.Dispose, project: static (chosen, _) => Key.Many(values: chosen.Map(static face => face.FaceIndex))),
+                Type t when t == typeof(ComponentIndex) => Analyze.FaceQuery<TGeometry, TOut, ComponentIndex>(key: Key, selector: this, requirement: Requirement.None, ownership: ProjectionOwnership.Dispose, project: static (chosen, _) => Key.Many(values: chosen.Map(static face => new ComponentIndex(type: ComponentIndexType.BrepFace, index: face.FaceIndex)))),
                 Type t when t == typeof(Interval) => Analyze.FaceQuery<TGeometry, TOut, Interval>(key: Key, selector: this, requirement: Requirement.SurfaceEvaluation, ownership: ProjectionOwnership.Dispose, project: static (chosen, _) => chosen.Traverse(Analyze.FaceDomains).Map(static nested => nested.Bind(static domain => domain)).As()),
                 _ => Key.Unsupported<TGeometry, TOut>(),
             },
@@ -34,7 +34,7 @@ public static partial class Analyze {
         from context in Env.Asks
         from faces in DecomposeFaces(key: Rasm.Analysis.Faces.Key, context: context, geometry: geometry).ToEff()
         from chosen in SelectFaces(key: Rasm.Analysis.Faces.Key, faces: faces, selector: choose(arg: faces.Count), runtime: context).ToEff()
-        from result in ProjectOwned(all: faces, chosen: chosen, ownership: ProjectionOwnership.Transfer, project: static values => Fin.Succ(values)).ToEff()
+        from result in TopologyProjection.Project(all: faces, chosen: chosen, ownership: ProjectionOwnership.Transfer, project: static values => Fin.Succ(values)).ToEff()
         select result;
     internal static Fin<Seq<TopologyProjection>> DecomposeFaces<TGeometry>(Op key, Context context, TGeometry geometry) where TGeometry : notnull =>
         Dispatch.Resolve<Seq<TopologyProjection>, (Context, Op)>(CapTag.Faces, geometry, (context, key), key);
@@ -55,8 +55,8 @@ public static partial class Analyze {
             (false, false) => Fin.Fail<Seq<TopologyProjection>>(state.Key.InvalidInput()),
             _ => state.Faces.Traverse(face => FaceCentroid(face: face, runtime: state.Runtime).Map(point => (face, Score: new Vector3d(x: point.X, y: point.Y, z: point.Z) * axis))).As()
                 .Map(ranked => descending
-                    ? ranked.Maxima(projection: static item => item.Score, tolerance: state.Runtime.Absolute.Value * axis.Length).Map(static item => item.face)
-                    : ranked.Minima(projection: static item => item.Score, tolerance: state.Runtime.Absolute.Value * axis.Length).Map(static item => item.face)),
+                    ? Stats.Maxima(items: ranked, projection: static item => item.Score, tolerance: state.Runtime.Absolute.Value * axis.Length).Map(static item => item.face)
+                    : Stats.Minima(items: ranked, projection: static item => item.Score, tolerance: state.Runtime.Absolute.Value * axis.Length).Map(static item => item.face)),
         };
     internal static Query<TGeometry, TOut> FaceQuery<TGeometry, TOut, TValue>(Op key, Faces selector, Requirement requirement, ProjectionOwnership ownership, Func<Seq<TopologyProjection>, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull =>
         Cast<TGeometry, TOut>(key: key, query: Query<TGeometry, TValue>.Build(
@@ -65,7 +65,7 @@ public static partial class Analyze {
                 from context in Env.Asks
                 from faces in DecomposeFaces(key: state.Key, context: context, geometry: geometry).ToEff()
                 from chosen in SelectFaces(key: state.Key, faces: faces, selector: state.Selector, runtime: context).ToEff()
-                from result in ProjectOwned(all: faces, chosen: chosen, ownership: state.Ownership, project: values => state.Project(arg1: values, arg2: context)).ToEff()
+                from result in TopologyProjection.Project(all: faces, chosen: chosen, ownership: state.Ownership, project: values => state.Project(arg1: values, arg2: context)).ToEff()
                 select result));
     public static Fin<Plane> FrameAtCentroid(TopologyProjection face, Context runtime) {
         ArgumentNullException.ThrowIfNull(argument: face);

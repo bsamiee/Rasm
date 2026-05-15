@@ -28,13 +28,13 @@ public partial record Points : IAspect {
             ? Analyze.Cast<TGeometry, TOut>(key: EdgeMidpointsKey, query: Query<TGeometry, Point3d>.Build(
                 key: EdgeMidpointsKey, requiresContext: true, state: EdgeMidpointsKey,
                 evaluator: static (op, geometry) => geometry switch {
-                    Line line => Analyze.One(key: op, value: line.PointAt(t: 0.5)).ToEff(),
-                    Polyline polyline => Analyze.Many(key: op, values: polyline.GetSegments().Select(static segment => segment.PointAt(t: 0.5))).ToEff(),
-                    BoundingBox box => Analyze.Many(key: op, values: box.GetEdges().Select(static edge => edge.PointAt(t: 0.5))).ToEff(),
-                    Box box => Analyze.Many(key: op, values: box.BoundingBox.GetEdges().Select(static edge => edge.PointAt(t: 0.5))).ToEff(),
+                    Line line => op.One(value: line.PointAt(t: 0.5)).ToEff(),
+                    Polyline polyline => op.Many(values: polyline.GetSegments().Select(static segment => segment.PointAt(t: 0.5))).ToEff(),
+                    BoundingBox box => op.Many(values: box.GetEdges().Select(static edge => edge.PointAt(t: 0.5))).ToEff(),
+                    Box box => op.Many(values: box.BoundingBox.GetEdges().Select(static edge => edge.PointAt(t: 0.5))).ToEff(),
                     _ => from runtime in Env.EnvAsks
                          from curves in Dispatch.Resolve<Seq<TopologyProjection>, (CurveSelector, Context, Op, CancellationToken)>(CapTag.Curves, geometry, (new CurveSelector(Feature: CurveFeature.Edge), runtime.Context, op, runtime.Cancellation), op, variant: CurveFeature.Edge).ToEff()
-                         from result in Analyze.Many(key: op, values: curves.Choose(static projection => projection.As<Curve>().Map(static c => Dispatch.Borrowed(c, static owned => owned.PointAtNormalizedLength(length: 0.5))))).ToEff()
+                         from result in op.Many(values: curves.Choose(static projection => projection.As<Curve>().Map(static c => Dispatch.Borrowed(c, static owned => owned.PointAtNormalizedLength(length: 0.5))))).ToEff()
                          select result,
                 }))
             : EdgeMidpointsKey.Unsupported<TGeometry, TOut>(),
@@ -44,14 +44,14 @@ public partial record Points : IAspect {
                 evaluator: static (op, geometry) =>
                     from context in Env.Asks
                     from points in Dispatch.Resolve<Seq<Point3d>, (Context, Op)>(CapTag.Vertices, geometry, (context, op), op).ToEff()
-                    from result in Analyze.Many(key: op, values: points).ToEff()
+                    from result in op.Many(values: points).ToEff()
                     select result))
             : VerticesKey.Unsupported<TGeometry, TOut>(),
         controlPoints: static _ => typeof(TOut) == typeof(Point3d) && Dispatch.Supports(CapTag.ControlPoints, typeof(TGeometry))
             ? Analyze.Cast<TGeometry, TOut>(key: ControlPointsKey, query: Query<TGeometry, Point3d>.Build(
                 key: ControlPointsKey, requiresContext: true, state: ControlPointsKey,
                 evaluator: static (op, geometry) => from points in Dispatch.Resolve<Seq<Point3d>, Op>(CapTag.ControlPoints, geometry, op, op).ToEff()
-                                                    from result in Analyze.Many(key: op, values: points).ToEff()
+                                                    from result in op.Many(values: points).ToEff()
                                                     select result))
             : ControlPointsKey.Unsupported<TGeometry, TOut>());
 }
@@ -62,8 +62,10 @@ public static partial class Analyze {
     internal static Fin<Seq<Point3d>> ExtractCardinals(Op op, Curve curve, double tolerance) =>
         Seq((Direction: Vector3d.XAxis, Maximize: false), (Direction: Vector3d.XAxis, Maximize: true), (Direction: Vector3d.YAxis, Maximize: false), (Direction: Vector3d.YAxis, Maximize: true), (Direction: Vector3d.ZAxis, Maximize: false), (Direction: Vector3d.ZAxis, Maximize: true))
             .Take(curve.IsPlanar(tolerance: tolerance) switch { true => 4, false => 6 })
-            .TraverseM(state => toSeq(curve.ExtremeParameters(direction: state.Direction)).Map(curve.PointAt)
-                .Maxima(projection: p => (Vector3d)p * (state.Maximize switch { true => state.Direction, false => -state.Direction }), tolerance: 0.0)
+            .TraverseM(state => Stats.Maxima(
+                    items: toSeq(curve.ExtremeParameters(direction: state.Direction)).Map(curve.PointAt),
+                    projection: p => (Vector3d)p * (state.Maximize switch { true => state.Direction, false => -state.Direction }),
+                    tolerance: 0.0)
                 .Head.ToFin(op.InvalidResult()))
             .As();
 }

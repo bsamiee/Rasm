@@ -1,17 +1,15 @@
 using System.Collections.Frozen;
-using System.Linq.Expressions;
 using Foundation.CSharp.Analyzers.Contracts;
-using Rasm.Analysis;
 
 namespace Rasm.Domain;
 
 // --- [TYPES] ------------------------------------------------------------------------------
 public enum Topology { Unknown, Point, Curve, Surface, Brep, Mesh, SubD, PointCloud, Hatch, Extrusion }
-public enum Primitive { None, Line, Polyline, Circle, Arc, Ellipse, Plane, Sphere, Cylinder, Cone, Torus, Box, BoundingBox }
 public enum IntersectionKind { Unknown = 0, Point = 1, Overlap = 2, Curve = 3 }
 public enum SolidOrientation { Unknown = 0, Outward = 1, Inward = -1 }
 public enum CurveFeature { Input, Segment, Edge, Boundary, NakedOuter, NakedInner, Interior, NonManifold, OuterLoop, InnerLoop, Iso, Silhouette, SubCurve, Draft }
-internal enum CapTag { Bounds, Vertices, Centroid, Closest, Components, Domains, IsoCurves, ControlPoints, Curves, Intersect, Length, Contains, SolidOrientation, Faces, Conformance, Validity, Coerce }
+internal enum ProjectionOwnership { Dispose, Transfer }
+internal enum CapTag { Bounds, Vertices, Centroid, Closest, Components, Domains, IsoCurves, ControlPoints, Curves, Intersect, Deviation, Length, Contains, SolidOrientation, Faces, Conformance, Coerce }
 [BoundaryAdapter]
 public sealed record TopologyProjection {
     private static readonly Op Key = Op.Of(name: nameof(TopologyProjection));
@@ -32,12 +30,23 @@ public sealed record TopologyProjection {
     public bool SameAs(TopologyProjection? other) => other switch { TopologyProjection p => ReferenceEquals(Value, p.Value) && Source.Equals(p.Source), _ => false };
     public bool Transfers(Type outputType) => Owns && ((Value is Curve && outputType == typeof(Curve)) || (Value is Brep && outputType == typeof(Brep)));
     public Fin<Seq<Point3d>> Vertices => OnMeshFace<Seq<Point3d>>(static (mesh, face) => mesh.Faces.GetFaceVertices(face, out Point3f a, out Point3f b, out Point3f c, out Point3f d) switch { true when mesh.Faces[face].IsQuad => Fin.Succ(Seq((Point3d)a, (Point3d)b, (Point3d)c, (Point3d)d)), true => Fin.Succ(Seq((Point3d)a, (Point3d)b, (Point3d)c)), false => Fin.Fail<Seq<Point3d>>(Key.InvalidResult()) });
-    public Fin<Vector3d> Normal => Isolated().Bind(static mesh => { Fin<Vector3d> result = (mesh.FaceNormals.ComputeFaceNormals(), mesh.FaceNormals.UnitizeFaceNormals(), mesh.FaceNormals.Count) switch { (true, true, > 0) => Fin.Succ((Vector3d)mesh.FaceNormals[0]), _ => Fin.Fail<Vector3d>(Key.InvalidResult()) }; mesh.Dispose(); return result; });
-    public Fin<Point3d> Center => OnMeshFace<Point3d>(static (mesh, face) => mesh.Faces.GetFaceCenter(face) switch { Point3d p when p.IsValid => Fin.Succ(p), _ => Fin.Fail<Point3d>(Key.InvalidResult()) });
-    public Fin<Mesh> Isolated() => OnMeshFace<Mesh>(static (mesh, face) => Optional(Rhino.Geometry.Mesh.CreateFromFilteredFaceList(mesh, Enumerable.Range(0, mesh.Faces.Count).Select(i => i == face))).ToFin(Key.InvalidResult()).Bind(static iso => (iso.IsValid, iso.FaceNormals.ComputeFaceNormals(), iso.FaceNormals.UnitizeFaceNormals()) switch { (true, true, true) => Fin.Succ(iso), _ => Dispatch.Borrowed(iso, static (Mesh _) => Fin.Fail<Mesh>(Key.InvalidResult())) }));
+    public Fin<Vector3d> Normal => OnMeshFace<Vector3d>(static (mesh, face) => (mesh.FaceNormals.Count == mesh.Faces.Count || mesh.FaceNormals.ComputeFaceNormals()) && mesh.FaceNormals.UnitizeFaceNormals() && mesh.FaceNormals[face] is Vector3f n && ((Vector3d)n) is { IsValid: true } normal ? Fin.Succ(normal) : Fin.Fail<Vector3d>(Key.InvalidResult()));
+    internal static Fin<Seq<TValue>> Project<TValue>(
+        Seq<TopologyProjection> all,
+        Seq<TopologyProjection> chosen,
+        ProjectionOwnership ownership,
+        Func<Seq<TopologyProjection>, Fin<Seq<TValue>>> project) {
+        Fin<Seq<TValue>> result = project(arg: chosen);
+        bool keep = ownership == ProjectionOwnership.Transfer && result.IsSucc;
+        _ = all.Filter(value => !keep || !chosen.Exists(c => c.SameAs(other: value))).Iter(static v => v.Dispose());
+        return result;
+    }
 }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct ClosestHit(Point3d Point, Option<double> Distance, Option<Vector3d> Normal, Option<ComponentIndex> Component, Option<MeshPoint> MeshPoint);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct CurveSelector(CurveFeature Feature, Option<Vector3d> Direction = default, Option<double> Angle = default, Option<int> Index = default, Option<double> Normalized = default, Option<IsoStatus> Iso = default);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct Hit(int Id);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct Couple(int A, int B);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct CurveDeviation(double MinimumDistance, Point3d MinimumA, Point3d MinimumB, double MaximumDistance, Point3d MaximumA, Point3d MaximumB, double Tolerance, bool WithinTolerance);
 [BoundaryAdapter]
 public abstract partial record IntersectionHit {
     private IntersectionHit() { }
@@ -61,12 +70,11 @@ public partial record IntersectionResult {
 // --- [MODELS] -----------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class Kind {
-    public static readonly Kind Point = new(0, typeof(Point3d), Topology.Point, Primitive.None), Line = new(1, typeof(Line), Topology.Curve, Primitive.Line), Polyline = new(2, typeof(Polyline), Topology.Curve, Primitive.Polyline), Circle = new(3, typeof(Circle), Topology.Curve, Primitive.Circle), Arc = new(4, typeof(Arc), Topology.Curve, Primitive.Arc), Ellipse = new(5, typeof(Ellipse), Topology.Curve, Primitive.Ellipse);
-    public static readonly Kind Curve = new(6, typeof(Curve), Topology.Curve, Primitive.None), Surface = new(7, typeof(Surface), Topology.Surface, Primitive.None), Plane = new(8, typeof(Plane), Topology.Surface, Primitive.Plane), Sphere = new(9, typeof(Sphere), Topology.Surface, Primitive.Sphere), Cylinder = new(10, typeof(Cylinder), Topology.Surface, Primitive.Cylinder), Cone = new(11, typeof(Cone), Topology.Surface, Primitive.Cone), Torus = new(12, typeof(Torus), Topology.Surface, Primitive.Torus);
-    public static readonly Kind Brep = new(13, typeof(Brep), Topology.Brep, Primitive.None), Box = new(14, typeof(Box), Topology.Brep, Primitive.Box), BoundingBox = new(15, typeof(BoundingBox), Topology.Brep, Primitive.BoundingBox), Mesh = new(16, typeof(Mesh), Topology.Mesh, Primitive.None), SubD = new(17, typeof(SubD), Topology.SubD, Primitive.None), PointCloud = new(18, typeof(PointCloud), Topology.PointCloud, Primitive.None), Extrusion = new(19, typeof(Extrusion), Topology.Extrusion, Primitive.None), Hatch = new(20, typeof(Hatch), Topology.Hatch, Primitive.None);
+    public static readonly Kind Point = new(0, typeof(Point3d), Topology.Point), Line = new(1, typeof(Line), Topology.Curve), Polyline = new(2, typeof(Polyline), Topology.Curve), Circle = new(3, typeof(Circle), Topology.Curve), Arc = new(4, typeof(Arc), Topology.Curve), Ellipse = new(5, typeof(Ellipse), Topology.Curve);
+    public static readonly Kind Curve = new(6, typeof(Curve), Topology.Curve), Surface = new(7, typeof(Surface), Topology.Surface), Plane = new(8, typeof(Plane), Topology.Surface), Sphere = new(9, typeof(Sphere), Topology.Surface), Cylinder = new(10, typeof(Cylinder), Topology.Surface), Cone = new(11, typeof(Cone), Topology.Surface), Torus = new(12, typeof(Torus), Topology.Surface);
+    public static readonly Kind Brep = new(13, typeof(Brep), Topology.Brep), Box = new(14, typeof(Box), Topology.Brep), BoundingBox = new(15, typeof(BoundingBox), Topology.Brep), Mesh = new(16, typeof(Mesh), Topology.Mesh), SubD = new(17, typeof(SubD), Topology.SubD), PointCloud = new(18, typeof(PointCloud), Topology.PointCloud), Extrusion = new(19, typeof(Extrusion), Topology.Extrusion), Hatch = new(20, typeof(Hatch), Topology.Hatch);
     public Type Type { get; }
     public Topology Topology { get; }
-    public Primitive Primitive { get; }
 }
 [BoundaryAdapter, SmartEnum<int>]
 public sealed partial class MassKind {
@@ -122,8 +130,12 @@ public static class Dispatch {
     internal static IEnumerable<Cap> SymProbe<TT>(int priority, Kind inferred, Func<Surface, Context, Option<TT>> probe) where TT : notnull => [Probe<Brep, TT>(priority, inferred, (g, c) => g is { IsSurface: true } b ? probe(b.Surfaces[0], c) : Option<TT>.None), Probe<Surface, TT>(priority, inferred, probe)];
     private static Seq<Type> Lineage(Type type) => Seq(type) + Optional(KindLookup.InheritsBase(type)).ToSeq() + (typeof(GeometryBase).IsAssignableFrom(type) ? Seq(typeof(GeometryBase)) : Seq<Type>());
     private static Option<Cap> Lookup(CapTag tag, Type left, Type? right = null, object? variant = null) => right is Type r ? Lineage(left).Bind(l => Lineage(r).Map(rr => (L: l, R: rr))).Choose(p => Optional(Index.GetValueOrDefault((tag, p.L, (Type?)p.R, variant)))).Head : Lineage(left).Choose(t => Optional(Index.GetValueOrDefault((tag, t, (Type?)null, variant)))).Head;
+    private static bool Registered(CapTag tag, Type left, Type? right = null) => right is Type r ? Lineage(left).Bind(l => Lineage(r).Map(rr => (L: l, R: (Type?)rr))).Exists(p => SupportIndex.Contains((tag, p.L, p.R))) : Lineage(left).Exists(t => SupportIndex.Contains((tag, t, (Type?)null)));
     private static Fin<TOut> Invoke<TOut, TArgs>(Cap cap, object src, TArgs args, Op op) =>
-        ValueValidity.GetValueOrDefault(src.GetType()) is Func<object, bool> gate && !gate(src) ? Fin.Fail<TOut>(op.InvalidInput()) : ((Func<object, TArgs, Fin<TOut>>)cap.Run)(src, args);
+        Verify.ValidityOf(source: src).Case switch {
+            false => Fin.Fail<TOut>(op.InvalidInput()),
+            _ => ((Func<object, TArgs, Fin<TOut>>)cap.Run)(src, args),
+        };
 
     internal static Fin<TOut> Resolve<TOut, TArgs>(CapTag tag, object? source, TArgs args, Op op, object? variant = null) => Optional(source).ToFin(op.InvalidInput()).Bind(s => Lookup(tag, s.GetType(), variant: variant).ToFin(op.Unsupported(s.GetType(), typeof(TOut))).Bind(cap => Invoke<TOut, TArgs>(cap, s, args, op)));
     internal static Fin<TOut> Resolve<TOut, TArgs>(CapTag tag, object? left, object? right, TArgs args, Op op, bool unordered = false) =>
@@ -134,7 +146,7 @@ public static class Dispatch {
         from result in ((Func<object, object, TArgs, Fin<TOut>>)hit.Cap.Run)(hit.L, hit.R, args)
         select result;
 
-    internal static bool Supports(CapTag tag, Type source, Type? right = null, object? variant = null, bool unordered = false) => source == typeof(object) || (right is null ? Lookup(tag, source, variant: variant).IsSome : Lookup(tag, source, right, variant).IsSome || (unordered && Lookup(tag, right, source, variant).IsSome));
+    internal static bool Supports(CapTag tag, Type source, Type? right = null, object? variant = null, bool unordered = false) => source == typeof(object) || (right is null ? (variant is null ? Registered(tag, source) : Lookup(tag, source, variant: variant).IsSome) : (variant is null ? Registered(tag, source, right) || (unordered && Registered(tag, right, source)) : Lookup(tag, source, right, variant).IsSome || (unordered && Lookup(tag, right, source, variant).IsSome)));
     internal static bool SupportsBounds(Type source, bool includeSphere) => Supports(CapTag.Bounds, source) && (includeSphere || source != typeof(Sphere)) && source != typeof(Plane);
     internal static bool SupportsKind(Type source) => source == typeof(object) || source == typeof(GeometryBase) || KindLookup.For(source).IsSome;
     internal static bool SupportsCoercion(Type source, Type target) => target.IsAssignableFrom(source) || Lookup(CapTag.Coerce, source, target).IsSome;
@@ -142,8 +154,6 @@ public static class Dispatch {
     public static Fin<Kind> Kind(this object geometry, Context context) => (CoerceProbes.Choose(p => p.Left.IsInstanceOfType(geometry) ? ((Func<object, Context, Option<object>>)p.Run)(geometry, context).Map(_ => (Kind)p.Variant!) : Option<Kind>.None).Head | KindLookup.For(geometry?.GetType() ?? typeof(object))).ToFin(Op.Of(name: nameof(Kind)).InvalidInput());
     public static Fin<BoundingBox> Bounds(this object geometry, Op op) => Resolve<BoundingBox, Op>(CapTag.Bounds, geometry, op, op);
     public static Fin<TTarget> Coerce<TTarget>(object? source, Context context, Op op) where TTarget : notnull => Optional(source).ToFin(op.InvalidInput()).Bind(s => s switch { TTarget t => op.RequireValid(t), _ => Lookup(CapTag.Coerce, s.GetType(), typeof(TTarget)).ToFin(op.Unsupported(s.GetType(), typeof(TTarget))).Bind(p => ((Func<object, Context, Option<object>>)p.Run)(s, context).ToFin(op.InvalidResult()).Map(static v => (TTarget)v)) });
-    public static Option<bool> ValidityOf(object? source) =>
-        source switch { null => Option<bool>.None, GeometryBase geometry => Some(geometry.IsValid), double scalar => Some(RhinoMath.IsValidDouble(scalar)), bool or int or Enum or SurfaceCurvature or MeshCheckParameters => Some(true), global::Rasm.Domain.Kind => Some(true), _ => Lookup(CapTag.Validity, source.GetType()).Map(c => ((Func<object, Unit, Fin<bool>>)c.Run)(source, default).Match(Succ: static x => x, Fail: static _ => false)) | Optional(ValueValidity.GetValueOrDefault(source.GetType())).Map(fn => fn(source)) };
 
     public static TR Borrowed<T, TR>(T owned, Func<T, TR> use) where T : IDisposable { ArgumentNullException.ThrowIfNull(use); using T d = owned; return use(d); }
     public static Fin<Seq<double>> Fractions(int count, Op op) => count switch { 1 => Fin.Succ(Seq(0.5)), > 1 => Fin.Succ(toSeq(Enumerable.Range(0, count).Select(i => i / (count - 1.0)))), _ => Fin.Fail<Seq<double>>(op.InvalidInput()) };
@@ -151,11 +161,8 @@ public static class Dispatch {
     // --- [REGISTRY] ---------------------------------------------------------------------------
     private static readonly Cap[] Capabilities = [.. BuildCapabilities()];
     private static readonly FrozenDictionary<(CapTag Tag, Type Left, Type? Right, object? Variant), Cap> Index = Capabilities.ToFrozenDictionary(static c => (c.Tag, c.Left, c.Right, c.Variant));
+    private static readonly FrozenSet<(CapTag Tag, Type Left, Type? Right)> SupportIndex = Capabilities.Select(static c => (c.Tag, c.Left, c.Right)).ToFrozenSet();
     private static readonly Seq<Cap> CoerceProbes = toSeq(Capabilities.Where(static c => c.Tag == CapTag.Coerce).OrderByDescending(static c => c.Priority));
-    private static readonly FrozenDictionary<Type, Func<object, bool>> ValueValidity = new Type[] {
-        typeof(Point2d), typeof(Point3d), typeof(Vector3d), typeof(Plane), typeof(BoundingBox), typeof(Box), typeof(Sphere),
-        typeof(Cylinder), typeof(Cone), typeof(Torus), typeof(Arc), typeof(Circle), typeof(Ellipse), typeof(Rectangle3d), typeof(Interval), typeof(Line), typeof(Polyline),
-    }.ToFrozenDictionary(static t => t, static t => { ParameterExpression p = Expression.Parameter(typeof(object)); return Expression.Lambda<Func<object, bool>>(Expression.Property(Expression.Convert(p, t), "IsValid"), p).Compile(); });
 
     // --- [OPERATIONS] -------------------------------------------------------------------------
     private static Fin<Point3d> MassCentroid(object geometry, bool isSolid, Context context, Op op) =>
@@ -200,6 +207,18 @@ public static class Dispatch {
             (false, true) => Fin.Fail<IntersectionResult>(new Fault.Cancelled()),
             _ => Fin.Fail<IntersectionResult>(args.Op.InvalidResult()),
         };
+    [BoundaryAdapter]
+    private static Fin<CurveDeviation> CurveDeviationOf(Curve left, Curve right, Context context, Op op) =>
+        Curve.GetDistancesBetweenCurves(curveA: left, curveB: right, tolerance: context.Absolute.Value, maxDistance: out double maxDist, maxDistanceParameterA: out double maxA, maxDistanceParameterB: out double maxB, minDistance: out double minDist, minDistanceParameterA: out double minA, minDistanceParameterB: out double minB) switch {
+            true => (op.RequireValid(value: minDist), op.RequireValid(value: maxDist), op.RequireValid(value: left.PointAt(t: minA)), op.RequireValid(value: right.PointAt(t: minB)), op.RequireValid(value: left.PointAt(t: maxA)), op.RequireValid(value: right.PointAt(t: maxB)))
+                .Apply((minD, maxD, mA, mB, xA, xB) => new CurveDeviation(MinimumDistance: minD, MinimumA: mA, MinimumB: mB, MaximumDistance: maxD, MaximumA: xA, MaximumB: xB, Tolerance: context.Absolute.Value, WithinTolerance: maxD <= context.Absolute.Value))
+                .As()
+                .Bind(deviation => (deviation.MinimumDistance >= 0.0, deviation.MaximumDistance >= deviation.MinimumDistance) switch {
+                    (true, true) => Fin.Succ(deviation),
+                    _ => Fin.Fail<CurveDeviation>(op.InvalidResult()),
+                }),
+            false => Fin.Fail<CurveDeviation>(op.InvalidResult()),
+        };
     private static Seq<ResidualSample> Residuals<TP>(Seq<Point3d> points, TP primitive, Context context, Func<TP, Point3d, double> distance) where TP : notnull =>
         toSeq(points.AsIterable().Select((p, i) => distance(primitive, p) switch { double d => new ResidualSample(i, p, d, context.Absolute.Value, d <= context.Absolute.Value) }));
     private static Fin<Seq<ResidualSample>> SampleCurveAgainst<TP>(Curve curve, TP primitive, int count, Context context, Op op, Func<TP, Point3d, double> distance) where TP : notnull =>
@@ -211,7 +230,7 @@ public static class Dispatch {
             _ => Fin.Fail<Seq<ResidualSample>>(op.InvalidInput()),
         };
 
-    private static readonly Func<object, (CurveSelector, Context, Op, CancellationToken), Fin<Seq<TopologyProjection>>> CurveOrPrimitive = static (g, args) =>
+    private static readonly Func<object, (CurveSelector, Context, Op, CancellationToken), Fin<Seq<TopologyProjection>>> CurveInput = static (g, args) =>
         (g is Curve c ? c : g switch { Line l => (Curve?)new LineCurve(l), Polyline p => p.ToPolylineCurve(), Circle ci => new ArcCurve(ci), Arc a => new ArcCurve(a), _ => null }) switch {
             Curve native => ((args.Item1.Feature is CurveFeature.Segment or CurveFeature.SubCurve)
                 ? Optional(args.Item1.Feature == CurveFeature.SubCurve ? native.GetSubCurves() : native.DuplicateSegments()) switch {
@@ -307,9 +326,9 @@ public static class Dispatch {
             ? Fin.Succ(toSeq(Enumerable.Range(0, ns.Points.CountU).SelectMany(u => Enumerable.Range(0, ns.Points.CountV).Select(v => ns.Points.GetControlPoint(u, v).Location))))
             : Optional(g.ToNurbsSurface()).ToFin(op.InvalidResult()).Map(static s => Borrowed(s, static d => toSeq(Enumerable.Range(0, d.Points.CountU).SelectMany(u => Enumerable.Range(0, d.Points.CountV).Select(v => d.Points.GetControlPoint(u, v).Location)).ToArray())))),
         For(CapTag.ControlPoints, static (Brep g, Op op) => toSeq(g.Faces).TraverseM(f => Optional(f.ToNurbsSurface()).ToFin(op.InvalidResult()).Map(static s => Borrowed(s, static d => toSeq(Enumerable.Range(0, d.Points.CountU).SelectMany(u => Enumerable.Range(0, d.Points.CountV).Select(v => d.Points.GetControlPoint(u, v).Location)).ToArray())))).As().Map(static n => n.Bind(static p => p))),
-        .. Curves<Curve>(CurveOrPrimitive, CurveFeature.Input, CurveFeature.Boundary, CurveFeature.Segment, CurveFeature.SubCurve),
-        .. Curves<Line>(CurveOrPrimitive, CurveFeature.Input), .. Curves<Polyline>(CurveOrPrimitive, CurveFeature.Input, CurveFeature.Segment),
-        .. Curves<Circle>(CurveOrPrimitive, CurveFeature.Input), .. Curves<Arc>(CurveOrPrimitive, CurveFeature.Input),
+        .. Curves<Curve>(CurveInput, CurveFeature.Input, CurveFeature.Boundary, CurveFeature.Segment, CurveFeature.SubCurve),
+        .. Curves<Line>(CurveInput, CurveFeature.Input), .. Curves<Polyline>(CurveInput, CurveFeature.Input, CurveFeature.Segment),
+        .. Curves<Circle>(CurveInput, CurveFeature.Input), .. Curves<Arc>(CurveInput, CurveFeature.Input),
         .. Curves<Brep>(BrepEdges, CurveFeature.Edge, CurveFeature.Boundary, CurveFeature.NakedOuter, CurveFeature.NakedInner, CurveFeature.Interior, CurveFeature.NonManifold),
         .. Curves<BrepFace>(static (g, args) => Optional(((BrepFace)g).DuplicateFace(false)).ToFin(args.Item3.InvalidResult())
             .Bind(fb => Borrowed(fb, owned => Optional(owned.DuplicateNakedEdgeCurves(true, true)).ToFin(args.Item3.InvalidResult())
@@ -360,6 +379,7 @@ public static class Dispatch {
                 false => Fin.Fail<IntersectionResult>(args.op.InvalidResult()),
             };
         }),
+        ForPair(CapTag.Deviation, static (Curve a, Curve b, (Context ctx, Op op) args) => CurveDeviationOf(left: a, right: b, context: args.ctx, op: args.op)),
         For(CapTag.Length, static (Line g, (Context, Op) _) => Fin.Succ(g.Length)), For(CapTag.Length, static (Polyline g, (Context, Op) _) => Fin.Succ(g.Length)),
         For(CapTag.Length, static (Curve g, (Context ctx, Op op) a) => g.GetLength(a.ctx.Fractional) switch { double l when RhinoMath.IsValidDouble(l) && l >= 0.0 => Fin.Succ(l), _ => Fin.Fail<double>(a.op.InvalidResult()) }),
         For(CapTag.Contains, static (Brep g, (Point3d t, Context ctx, Op op) a) => a.t.IsValid ? Fin.Succ(g.IsPointInside(a.t, a.ctx.Absolute.Value, false)) : Fin.Fail<bool>(a.op.InvalidInput())),
@@ -372,27 +392,6 @@ public static class Dispatch {
         ForPair(CapTag.Conformance, static (Curve g, Arc p, (int n, Context ctx, Op op) a) => SampleCurveAgainst(g, p, a.n, a.ctx, a.op, static (ar, pt) => pt.DistanceTo(ar.ClosestPoint(pt)))),
         ForPair(CapTag.Conformance, static (Surface g, Plane p, (int n, Context ctx, Op op) a) => SampleSurfaceAgainst(g, p, a.n, a.ctx, a.op, static (pl, pt) => Math.Abs(pl.DistanceTo(pt)))),
         ForPair(CapTag.Conformance, static (Surface g, Sphere p, (int n, Context ctx, Op op) a) => SampleSurfaceAgainst(g, p, a.n, a.ctx, a.op, static (sp, pt) => pt.DistanceTo(sp.ClosestPoint(pt)))),
-        For(CapTag.Validity, static (ClosestHit h, Unit _) => Fin.Succ(h.Point.IsValid
-            && h.Distance.Map(static d => RhinoMath.IsValidDouble(d) && d >= 0.0).IfNone(true)
-            && h.Normal.Map(static n => n.IsValid && n.Length > RhinoMath.ZeroTolerance).IfNone(true)
-            && h.Component.Map(static c => c is { ComponentIndexType: not ComponentIndexType.InvalidType } && c.Index >= 0).IfNone(true)
-            && h.MeshPoint.Map(static m => m.Point.IsValid).IfNone(true))),
-        For(CapTag.Validity, static (TopologyProjection p, Unit _) => Fin.Succ(p switch {
-            { Value: Curve { IsValid: true } } => true,
-            { Value: Brep { IsValid: true, Faces.Count: > 0 }, Source: { ComponentIndexType: ComponentIndexType.BrepFace, Index: >= 0 } } => true,
-            { Value: Mesh { IsValid: true } m, Source: { ComponentIndexType: ComponentIndexType.MeshFace, Index: int f } } => f >= 0 && f < m.Faces.Count,
-            _ => false,
-        })),
-        For(CapTag.Validity, static (ResidualSample r, Unit _) => Fin.Succ(r is { Index: >= 0, Location.IsValid: true, Distance: double d, Tolerance: double t, WithinTolerance: bool w } && RhinoMath.IsValidDouble(d) && d >= 0.0 && RhinoMath.IsValidDouble(t) && t >= 0.0 && w == (d <= t))),
-        For(CapTag.Validity, static (Stats s, Unit _) => Fin.Succ(s is { Count: > 0, Minimum: double mn, Maximum: double mx, Mean: double me, Variance: double va, Rms: double rm } && RhinoMath.IsValidDouble(mn) && RhinoMath.IsValidDouble(mx) && RhinoMath.IsValidDouble(me) && RhinoMath.IsValidDouble(va) && RhinoMath.IsValidDouble(rm) && mn <= mx && va >= 0.0 && rm >= 0.0)),
-        For(CapTag.Validity, static (CurvatureProfile c, Unit _) => Fin.Succ(c is { Stats: Stats s } && ValidityOf(s).IfNone(false))),
-        For(CapTag.Validity, static (ResidualProfile r, Unit _) => Fin.Succ(r is { Stats: Stats s, Tolerance: double t, WithinTolerance: bool w } && s.Minimum >= 0.0 && s.Mean >= 0.0 && RhinoMath.IsValidDouble(t) && t >= 0.0 && w == (s.Maximum <= t) && ValidityOf(s).IfNone(false))),
-        For(CapTag.Validity, static (MeshFaceSample m, Unit _) => Fin.Succ(m is { Face: >= 0, Value: double v } && RhinoMath.IsValidDouble(v) && v >= 0.0)),
-        For(CapTag.Validity, static (Hit h, Unit _) => Fin.Succ(h is { Id: >= 0 })), For(CapTag.Validity, static (Couple c, Unit _) => Fin.Succ(c is { A: >= 0, B: >= 0 })),
-        For(CapTag.Validity, static (CurveDeviation c, Unit _) => Fin.Succ(c is { MinimumDistance: double mn, MaximumDistance: double mx, MinimumA.IsValid: true, MinimumB.IsValid: true, MaximumA.IsValid: true, MaximumB.IsValid: true, Tolerance: double t, WithinTolerance: bool w } && RhinoMath.IsValidDouble(mn) && mn >= 0.0 && RhinoMath.IsValidDouble(mx) && mx >= mn && RhinoMath.IsValidDouble(t) && t >= 0.0 && w == (mx <= t))),
-        For(CapTag.Validity, static (MeshPoint m, Unit _) => Fin.Succ(m.Point.IsValid)), For(CapTag.Validity, static (ComponentIndex c, Unit _) => Fin.Succ(c is { ComponentIndexType: not ComponentIndexType.InvalidType } ci && ci.Index >= 0)),
-        For(CapTag.Validity, static (IntersectionHit h, Unit _) => Fin.Succ(h switch { IntersectionHit.PointCase p => p.Point.IsValid, IntersectionHit.CurveCase c => c.CurveKind != IntersectionKind.Unknown && c.Curve.IsValid, IntersectionHit.OverlapCase o => o.Start.IsValid && o.End.IsValid && o.OverlapA.IsValid && o.OverlapB.IsValid && o.Curve.Map(static c => c.IsValid).IfNone(true), _ => false })),
-        For(CapTag.Validity, static (ValueTuple<double, Vector3d> t, Unit _) => Fin.Succ(t is (double m, Vector3d a) && RhinoMath.IsValidDouble(m) && a.IsValid)),
         Probe<Brep, Box>(100, global::Rasm.Domain.Kind.Box, static (g, c) => g.IsBox(c.Absolute.Value) && g.Faces[0].UnderlyingSurface().TryGetPlane(out Plane pl, c.Absolute.Value) && g.GetBoundingBox(pl, out Box bx) is { IsValid: true } ? Some(bx) : Option<Box>.None),
         Probe<Curve, Line>(95, global::Rasm.Domain.Kind.Line, static (g, c) => g.IsLinear(c.Absolute.Value) ? Some(new Line(g.PointAtStart, g.PointAtEnd)) : Option<Line>.None),
         Probe<Curve, Circle>(94, global::Rasm.Domain.Kind.Circle, static (g, c) => g.TryGetCircle(out Circle x, c.Absolute.Value) ? Some(x) : Option<Circle>.None),

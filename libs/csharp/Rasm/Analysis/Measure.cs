@@ -28,7 +28,7 @@ public static partial class Analyze {
                 key: key, requiresContext: true, state: key,
                 evaluator: static (op, geometry) => from context in Env.Asks
                                                     from centroid in Dispatch.Resolve<Point3d, (Context, Op)>(CapTag.Centroid, geometry, (context, op), op).ToEff()
-                                                    from result in One(key: op, value: centroid).ToEff()
+                                                    from result in op.One(value: centroid).ToEff()
                                                     select result))
             : key.Unsupported<TGeometry, TOut>();
     }
@@ -43,7 +43,7 @@ public static partial class Analyze {
                 evaluator: static (op, geometry) =>
                     from context in Env.Asks
                     from length in Dispatch.Resolve<double, (Context, Op)>(CapTag.Length, geometry, (context, op), op).ToEff()
-                    from result in One(key: op, value: length).ToEff()
+                    from result in op.One(value: length).ToEff()
                     select result)),
             _ => key.Unsupported<TGeometry, TOut>(),
         };
@@ -53,11 +53,11 @@ public static partial class Analyze {
         return (aspect, typeof(TOut)) switch {
             (_, _) when mass.Equals(MassKind.None) => Query<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput()),
             (Analysis.Measure.Area, Type output) when output == typeof(double) => MassCast<TGeometry, TOut, double>(mass: MassKind.Area, suffix: string.Empty, project: static (k, props) => props switch {
-                AreaMassProperties area => One(key: k, value: area.Area),
+                AreaMassProperties area => k.One(value: area.Area),
                 _ => Fin.Fail<Seq<double>>(k.InvalidResult()),
             }),
             (Analysis.Measure.Volume, Type output) when output == typeof(double) => MassCast<TGeometry, TOut, double>(mass: MassKind.Volume, suffix: string.Empty, project: static (k, props) => props switch {
-                VolumeMassProperties volume => One(key: k, value: volume.Volume),
+                VolumeMassProperties volume => k.One(value: volume.Volume),
                 _ => Fin.Fail<Seq<double>>(k.InvalidResult()),
             }),
             (Analysis.Measure.MassError, Type output) when output == typeof(double) => MassCast<TGeometry, TOut, double>(mass: mass, suffix: "Error", project: (k, props) => MassProject<double>(aspect: aspect, key: k, props: props), secondMoments: mass.Equals(MassKind.Length)),

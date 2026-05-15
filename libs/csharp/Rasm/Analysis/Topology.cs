@@ -9,11 +9,11 @@ public static partial class Analyze {
                 key: key, requiresContext: true, state: key,
                 evaluator: static (op, geometry) =>
                     from domains in Dispatch.Resolve<Seq<Interval>, Op>(CapTag.Domains, geometry, op, op).ToEff()
-                    from result in Many(key: op, values: domains).ToEff()
+                    from result in op.Many(values: domains).ToEff()
                     select result))
             : key.Unsupported<TGeometry, TOut>();
     }
-    public static Query<TGeometry, TOut> Primitive<TGeometry, TOut>() where TGeometry : notnull where TOut : notnull {
+    public static Query<TGeometry, TOut> Coerce<TGeometry, TOut>() where TGeometry : notnull where TOut : notnull {
         Op key = Op.Of();
         return (KindLookup.For(typeof(TOut)), Dispatch.SupportsCoercion(typeof(TGeometry), typeof(TOut))) switch {
             (Option<Kind> someKind, true) when someKind.IsSome => Query<TGeometry, TOut>.Build(
@@ -34,7 +34,7 @@ public static partial class Analyze {
                 evaluator: static (op, geometry) =>
                     from context in Env.Asks
                     from kind in ((object)geometry).Kind(context: context).ToEff()
-                    from result in One(key: op, value: kind).ToEff()
+                    from result in op.One(value: kind).ToEff()
                     select result))
             : key.Unsupported<TGeometry, TOut>();
     }
@@ -44,7 +44,7 @@ public static partial class Analyze {
             key: key, requiresContext: true, state: key,
             evaluator: static (op, geometry) =>
                 from orientation in Dispatch.Resolve<SolidOrientation, Op>(CapTag.SolidOrientation, geometry, op, op).ToEff()
-                from result in One(key: op, value: orientation).ToEff()
+                from result in op.One(value: orientation).ToEff()
                 select result);
     }
     public static Query<TGeometry, bool> IsPointInside<TGeometry>(Point3d point) where TGeometry : GeometryBase {
@@ -56,7 +56,7 @@ public static partial class Analyze {
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
                     from contained in Dispatch.Resolve<bool, (Point3d, Context, Op)>(CapTag.Contains, geometry, (state.Target, context, state.Key), state.Key).ToEff()
-                    from result in One(key: state.Key, value: contained).ToEff()
+                    from result in state.Key.One(value: contained).ToEff()
                     select result)),
         };
     }

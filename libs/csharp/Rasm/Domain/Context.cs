@@ -49,17 +49,6 @@ public sealed record Context {
     public UnitSystem Units { get; }
     internal double Fractional => Relative.Value > 0.0 ? Relative.Value : DefaultFractionalTolerance;
     internal double MeshIntersectionTolerance => Absolute.Value * Intersection.MeshIntersectionsTolerancesCoefficient;
-    internal Validation<Error, T> Validate<T>(T? geometry, Requirement? requirement = null, CancellationToken cancel = default) where T : GeometryBase =>
-        Verify.Apply(context: this, value: geometry, requirement: requirement, cancel: cancel);
-    internal Validation<Error, (TA A, TB B)> ValidatePair<TA, TB>(TA a, TB b, Requirement requirementA, Requirement requirementB, CancellationToken cancel = default) where TA : notnull where TB : notnull =>
-        Verify.Pair(context: this, a: a, b: b, requirementA: requirementA, requirementB: requirementB, cancel: cancel);
-    internal Validation<Error, (TA A, TB B, Kind KindA, Kind KindB)> ValidatePair<TA, TB>(
-        TA a,
-        TB b,
-        Op op,
-        Func<Op, Kind, Kind, Fin<(Requirement A, Requirement B)>> requirements,
-        CancellationToken cancel = default) where TA : notnull where TB : notnull =>
-        Verify.Pair(context: this, a: a, b: b, op: op, requirements: requirements, cancel: cancel);
     internal static Validation<Error, Context> Create(double absolute, double relative, double angle, UnitSystem units) =>
         (absolute.TryCreateValidated<AbsoluteTolerance>(),
          relative.TryCreateValidated<RelativeTolerance>(),
