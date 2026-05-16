@@ -5,25 +5,24 @@ namespace Rasm.Analysis;
 // --- [TYPES] ------------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshMetricSample(ComponentIndex Source, double Value);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshSample(MeshSampleKind Kind, int Value);
-internal enum MeshSampleCategory { None, Validity, Count, Defect }
+public enum MeshSampleCategory { None, Validity, Count, Defect }
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [Union]
 public partial record Meshes : IAspect {
-    public sealed record ValidityCase : Meshes; public sealed record CountsCase : Meshes; public sealed record DefectsCase : Meshes;
-    public sealed record FaceQualityCase(MeshMetric Metric) : Meshes; public sealed record AtFaceCase(int? Value) : Meshes;
-    public static Meshes Validity => new ValidityCase(); public static Meshes Counts => new CountsCase(); public static Meshes Defects => new DefectsCase();
+    public sealed record SamplesCase(MeshSampleCategory Category) : Meshes;
+    public sealed record FaceQualityCase(MeshMetric Metric) : Meshes;
+    public sealed record AtFaceCase(int? Value) : Meshes;
+    public static Meshes Validity => new SamplesCase(Category: MeshSampleCategory.Validity);
+    public static Meshes Counts => new SamplesCase(Category: MeshSampleCategory.Count);
+    public static Meshes Defects => new SamplesCase(Category: MeshSampleCategory.Defect);
     public static Meshes FaceQuality(MeshMetric? metric = null) => new FaceQualityCase(Metric: metric ?? MeshMetric.AspectRatio);
     public static Meshes AtFace(int? index = null) => new AtFaceCase(Value: index);
-    private static readonly Op ValidityKey = Op.Of(name: "MeshValidity");
-    private static readonly Op CountsKey = Op.Of(name: "MeshCounts");
-    private static readonly Op DefectsKey = Op.Of(name: "MeshDefects");
+    private static readonly Op SamplesKey = Op.Of(name: "MeshSamples");
     private static readonly Op FaceMetricKey = Op.Of(name: nameof(MeshMetric));
     private static readonly Op AtFaceKey = Op.Of(name: "MeshAtFace");
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
-        validityCase: static _ => Analyze.MeshLift<TGeometry, TOut, MeshSample>(key: ValidityKey, source: Analyze.MeshValidity),
-        countsCase: static _ => Analyze.MeshLift<TGeometry, TOut, MeshSample>(key: CountsKey, source: Analyze.MeshCounts),
-        defectsCase: static _ => Analyze.MeshLift<TGeometry, TOut, MeshSample>(key: DefectsKey, source: Analyze.MeshDefects),
+        samplesCase: static s => Analyze.MeshLift<TGeometry, TOut, MeshSample>(key: SamplesKey, source: Analyze.MeshSamples(category: s.Category)),
         faceQualityCase: static fq => Analyze.MeshLift<TGeometry, TOut, MeshMetricSample>(key: FaceMetricKey, source: Analyze.MeshMetric(metric: fq.Metric)),
         atFaceCase: static at => Analyze.MeshLift<TGeometry, TOut, TopologyProjection>(key: AtFaceKey, source: Analyze.MeshAtFace(index: at.Value)));
 }
@@ -149,14 +148,22 @@ public static partial class Analyze {
             _ => Operation<Mesh, MeshMetricSample>.Reject(key: key, fault: key.InvalidInput()),
         };
     }
-    public static Operation<Mesh, MeshSample> MeshValidity {
-        get { Op key = Op.Of(); return MeshSamples(key: key, kinds: MeshSampleKind.Validity); }
-    }
-    public static Operation<Mesh, MeshSample> MeshCounts {
-        get { Op key = Op.Of(); return MeshSamples(key: key, kinds: MeshSampleKind.Counts); }
-    }
-    public static Operation<Mesh, MeshSample> MeshDefects {
-        get { Op key = Op.Of(); return MeshSamples(key: key, kinds: MeshSampleKind.Defects); }
+    public static Operation<Mesh, MeshSample> MeshSamples(MeshSampleCategory category) {
+        Op key = Op.Of(name: $"Mesh{category}");
+        Seq<MeshSampleKind> kinds = category switch {
+            MeshSampleCategory.Validity => MeshSampleKind.Validity,
+            MeshSampleCategory.Count => MeshSampleKind.Counts,
+            MeshSampleCategory.Defect => MeshSampleKind.Defects,
+            _ => Seq<MeshSampleKind>(),
+        };
+        return Operation<Mesh, MeshSample>.Build(
+            key: key, state: (Key: key, Kinds: kinds, Inspect: category == MeshSampleCategory.Defect),
+            evaluator: static (state, geometry) => state.Inspect switch {
+                true => from parameters in MeshCheck.Apply(geometry: Seq(geometry))
+                        from head in parameters.Head.ToFin(state.Key.InvalidResult()).ToEff()
+                        select state.Kinds.Map(kind => new MeshSample(Kind: kind, Value: kind.Sample(mesh: geometry, parameters: head))),
+                false => Fin.Succ(state.Kinds.Map(kind => new MeshSample(Kind: kind, Value: kind.Sample(mesh: geometry, parameters: default)))).ToEff(),
+            });
     }
     public static Operation<Mesh, TopologyProjection> MeshAtFace(int? index = null) {
         Op key = Op.Of();
@@ -174,15 +181,6 @@ public static partial class Analyze {
     private static Fin<Seq<MeshNgon>> VisiblePolygonsOf(Mesh mesh, Op key) =>
         Optional(mesh.GetNgonAndFacesEnumerable()).ToFin(key.InvalidResult())
             .Map(static polygons => toSeq(polygons));
-    private static Operation<Mesh, MeshSample> MeshSamples(Op key, Seq<MeshSampleKind> kinds) =>
-        Operation<Mesh, MeshSample>.Build(
-            key: key, state: (Key: key, Kinds: kinds, Inspect: kinds.Exists(static kind => kind.Category == MeshSampleCategory.Defect)),
-            evaluator: static (state, geometry) => state.Inspect switch {
-                true => from parameters in MeshCheck.Apply(geometry: Seq(geometry))
-                        from head in parameters.Head.ToFin(state.Key.InvalidResult()).ToEff()
-                        select state.Kinds.Map(kind => new MeshSample(Kind: kind, Value: kind.Sample(mesh: geometry, parameters: head))),
-                false => Fin.Succ(state.Kinds.Map(kind => new MeshSample(Kind: kind, Value: kind.Sample(mesh: geometry, parameters: default)))).ToEff(),
-            });
     internal static Fin<Seq<Polyline>> SelfIntersectionsOf(Op op, Mesh geometry, Env runtime) {
         // BOUNDARY ADAPTER — Rhino GetSelfIntersections takes IDisposable TextLog + multi-out.
         using TextLog textLog = new();
