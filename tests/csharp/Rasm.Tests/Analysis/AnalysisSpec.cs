@@ -175,7 +175,7 @@ public sealed class AnalysisSpec {
     public void AspectOperationsExposeCanonicalTopologyAndMeshSamples() {
         object[] operations = [
             Meshes.Validity.Operation<object, MeshSample>(), Meshes.Counts.Operation<object, MeshSample>(), Meshes.Defects.Operation<object, MeshSample>(),
-            Curves.All.Operation<object, TopologyProjection>(), Faces.All.Operation<object, TopologyProjection>(), Faces.ByCount(static _ => Faces.At()).Operation<object, TopologyProjection>(),
+            Curves.All.Operation<object, TopologyProjection>(), Faces.All.Operation<object, TopologyProjection>(), Faces.At().Operation<object, TopologyProjection>(),
         ];
 
         Assert.All(collection: operations, action: static operation => Assert.NotNull(@object: operation));

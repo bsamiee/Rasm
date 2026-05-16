@@ -199,6 +199,10 @@ public sealed partial class Kind {
     internal bool CanReadVertices =>
         Type == typeof(Point3d) || Type == typeof(Line) || Type == typeof(Polyline) || Topology is Topology.Point or Topology.Curve or Topology.Brep or Topology.Mesh or Topology.PointCloud or Topology.SubD or Topology.Surface or Topology.Extrusion;
     internal bool CanReadControlPoints => Topology is Topology.Curve or Topology.Surface or Topology.Brep;
+    internal bool CanDecomposeFaces => Topology is Topology.Brep or Topology.Surface or Topology.Extrusion;
+    internal bool CanReadEdges =>
+        Type == typeof(Line) || Type == typeof(Polyline) || Type == typeof(BoundingBox) || Type == typeof(Box) || Topology is Topology.Brep or Topology.Mesh or Topology.SubD;
+    internal bool CanPrincipal => Topology is Topology.Curve or Topology.Brep or Topology.Mesh or Topology.Surface or Topology.Extrusion;
     internal bool CanCoerceTo(Type target) =>
         target.IsAssignableFrom(Type)
         || (target == typeof(Point3d) && Type == typeof(Point3d))
@@ -224,13 +228,17 @@ internal static class GeometryKernel {
         source == typeof(object) || source == typeof(GeometryBase) || typeof(GeometryBase).IsAssignableFrom(source) || KindLookup.Resolve(source).Map(kind => kind.CanBound(includeSphere: includeSphere)).IfNone(false);
     internal static bool CanKind(Type source) => source == typeof(object) || source == typeof(GeometryBase) || KindLookup.Resolve(source).IsSome;
     internal static bool CanDecomposeFaces(Type type) =>
-        type == typeof(object) || type == typeof(GeometryBase) || typeof(BrepFace).IsAssignableFrom(c: type) || typeof(Brep).IsAssignableFrom(c: type) || typeof(Surface).IsAssignableFrom(c: type) || typeof(Extrusion).IsAssignableFrom(c: type);
+        type == typeof(object) || type == typeof(GeometryBase) || typeof(BrepFace).IsAssignableFrom(c: type) || KindLookup.Resolve(type).Map(static kind => kind.CanDecomposeFaces).IfNone(false);
     internal static bool CanReadVertices(Type type) =>
         type == typeof(object) || type == typeof(GeometryBase) || KindLookup.Resolve(type).Map(static kind => kind.CanReadVertices).IfNone(false);
     internal static bool CanReadControlPoints(Type type) =>
         type == typeof(object) || type == typeof(GeometryBase) || KindLookup.Resolve(type).Map(static kind => kind.CanReadControlPoints).IfNone(false);
     internal static bool CanReadEdges(Type type) =>
-        type == typeof(object) || type == typeof(GeometryBase) || type == typeof(Line) || type == typeof(Polyline) || type == typeof(BoundingBox) || type == typeof(Box) || typeof(Brep).IsAssignableFrom(c: type) || typeof(Mesh).IsAssignableFrom(c: type) || typeof(SubD).IsAssignableFrom(c: type);
+        type == typeof(object) || type == typeof(GeometryBase) || KindLookup.Resolve(type).Map(static kind => kind.CanReadEdges).IfNone(false);
+    internal static bool CanPrincipal(Type type) =>
+        type == typeof(object) || type == typeof(GeometryBase) || KindLookup.Resolve(type).Map(static kind => kind.CanPrincipal).IfNone(false);
+    internal static bool CanCurveForm(Type type) =>
+        type == typeof(object) || type == typeof(GeometryBase) || typeof(Curve).IsAssignableFrom(c: type) || KindLookup.Resolve(type).Map(static kind => kind.Topology == Topology.Curve).IfNone(false);
     internal static bool CanCoerce(Type source, Type target) =>
         source == typeof(object) || source == typeof(GeometryBase) || KindLookup.Resolve(source).Map(kind => kind.CanCoerceTo(target: target)).IfNone(target.IsAssignableFrom(source));
     public static Fin<Kind> KindOf(this object geometry, Context context) =>

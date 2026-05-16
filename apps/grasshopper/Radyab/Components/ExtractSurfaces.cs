@@ -26,7 +26,7 @@ public sealed class ExtractSurfaces : Component<ExtractSurfaces> {
         aspect: runtime => runtime.Read(port: Direction).Map(axis => Rasm.Analysis.Faces.Bottom(axis: axis.ToNullable())));
     private static readonly OutputGroup Frame = Output.Details<Rasm.Analysis.Faces, TopologyProjection>(
         input: Geometry,
-        aspect: runtime => Fin.Succ(Rasm.Analysis.Faces.ByCount(choose: count => Rasm.Analysis.Faces.At(index: runtime.Index(port: Index, limit: count).ToNullable()))),
+        aspect: runtime => Fin.Succ(Rasm.Analysis.Faces.At(index: runtime.Index(port: Index, limit: int.MaxValue).ToNullable())),
         emptyUnsupported: false,
         slots: [
             Output.Choose<TopologyProjection, Brep>(port: Port.Tree<Brep>(name: "Face", code: "FA", info: "Trimmed single-face Brep at Index; missing Index defaults to 0 and GH index modifiers apply per source face count."), project: static value => value.As<Brep>()),

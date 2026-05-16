@@ -15,14 +15,22 @@ public partial record Points : IAspect {
     public global::Rasm.Analysis.Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch<global::Rasm.Analysis.Operation<TGeometry, TOut>>(
         quadrantsCase: static _ => typeof(TOut) == typeof(Point3d)
             ? Analyze.Cast<TGeometry, TOut>(key: QuadrantsKey, operation: global::Rasm.Analysis.Operation<TGeometry, Point3d>.Build(
-                key: QuadrantsKey, requirement: Requirement.CurveLength, state: QuadrantsKey,
+                key: QuadrantsKey, requirement: Requirement.CurveLength, requiresContext: true, state: QuadrantsKey,
                 evaluator: static (op, geometry) =>
                     from context in Env.Asks
-                    from result in (geometry switch {
-                        Curve curve when curve.IsValid => Analyze.CardinalsOf(op: op, curve: curve, tolerance: context.Absolute.Value),
-                        object value => GeometryKernel.CurveForm(source: value, op: op).Bind(lease => lease.Use(curve => Analyze.CardinalsOf(op: op, curve: curve, tolerance: context.Absolute.Value))),
+                    from lease in GeometryKernel.CurveForm(source: geometry, op: op).ToEff()
+                    from points in lease.Use(curve => curve.IsValid switch {
+                        false => Fin.Fail<Seq<Point3d>>(op.InvalidInput()),
+                        true => Seq((Direction: Vector3d.XAxis, Maximize: false), (Direction: Vector3d.XAxis, Maximize: true), (Direction: Vector3d.YAxis, Maximize: false), (Direction: Vector3d.YAxis, Maximize: true), (Direction: Vector3d.ZAxis, Maximize: false), (Direction: Vector3d.ZAxis, Maximize: true))
+                            .Take(curve.IsPlanar(tolerance: context.Absolute.Value) switch { true => 4, false => 6 })
+                            .TraverseM(state => Stats.Maxima(
+                                    items: toSeq(curve.ExtremeParameters(direction: state.Direction)).Map(curve.PointAt),
+                                    projection: p => (Vector3d)p * (state.Maximize switch { true => state.Direction, false => -state.Direction }),
+                                    tolerance: 0.0)
+                                .Head.ToFin(op.InvalidResult()))
+                            .As(),
                     }).ToEff()
-                    select result))
+                    select points))
             : QuadrantsKey.Unsupported<TGeometry, TOut>(),
         edgeMidpointsCase: static _ => typeof(TOut) == typeof(Point3d) && GeometryKernel.CanReadEdges(type: typeof(TGeometry))
             ? Analyze.Cast<TGeometry, TOut>(key: EdgeMidpointsKey, operation: global::Rasm.Analysis.Operation<TGeometry, Point3d>.Build(
@@ -53,7 +61,7 @@ public partial record Points : IAspect {
             : VerticesKey.Unsupported<TGeometry, TOut>(),
         controlPointsCase: static _ => typeof(TOut) == typeof(Point3d) && GeometryKernel.CanReadControlPoints(type: typeof(TGeometry))
             ? Analyze.Cast<TGeometry, TOut>(key: ControlPointsKey, operation: global::Rasm.Analysis.Operation<TGeometry, Point3d>.Build(
-                key: ControlPointsKey, requiresContext: true, state: ControlPointsKey,
+                key: ControlPointsKey, state: ControlPointsKey,
                 evaluator: static (op, geometry) => from points in Analyze.ControlPointsOf(geometry: geometry, op: op).ToEff()
                                                     from result in op.Accept(values: points).ToEff()
                                                     select result))
@@ -94,13 +102,4 @@ public static partial class Analyze {
             Brep brep => toSeq(brep.Faces).TraverseM(f => Optional(f.ToNurbsSurface()).ToFin(op.InvalidResult()).Map(static s => new Lease<NurbsSurface>.Owned(Value: s).Use(static d => toSeq(Enumerable.Range(0, d.Points.CountU).SelectMany(u => Enumerable.Range(0, d.Points.CountV).Select(v => d.Points.GetControlPoint(u, v).Location)).ToArray())))).As().Map(static nested => nested.Bind(static points => points)),
             _ => Fin.Fail<Seq<Point3d>>(op.Unsupported(g.GetType(), typeof(Point3d))),
         });
-    internal static Fin<Seq<Point3d>> CardinalsOf(Op op, Curve curve, double tolerance) =>
-        Seq((Direction: Vector3d.XAxis, Maximize: false), (Direction: Vector3d.XAxis, Maximize: true), (Direction: Vector3d.YAxis, Maximize: false), (Direction: Vector3d.YAxis, Maximize: true), (Direction: Vector3d.ZAxis, Maximize: false), (Direction: Vector3d.ZAxis, Maximize: true))
-            .Take(curve.IsPlanar(tolerance: tolerance) switch { true => 4, false => 6 })
-            .TraverseM(state => Stats.Maxima(
-                    items: toSeq(curve.ExtremeParameters(direction: state.Direction)).Map(curve.PointAt),
-                    projection: p => (Vector3d)p * (state.Maximize switch { true => state.Direction, false => -state.Direction }),
-                    tolerance: 0.0)
-                .Head.ToFin(op.InvalidResult()))
-            .As();
 }

@@ -3,12 +3,11 @@ namespace Rasm.Analysis;
 // --- [MODELS] -----------------------------------------------------------------------------
 [Union]
 public partial record Faces : IAspect {
-    public sealed record AllCase : Faces; public sealed record TopCase(Vector3d Axis) : Faces; public sealed record BottomCase(Vector3d Axis) : Faces; public sealed record AtCase(int? Value) : Faces; public sealed record ByCountCase(Func<int, Faces> Choose) : Faces;
+    public sealed record AllCase : Faces; public sealed record TopCase(Vector3d Axis) : Faces; public sealed record BottomCase(Vector3d Axis) : Faces; public sealed record AtCase(int? Value) : Faces;
     public static Faces All => new AllCase();
     public static Faces Top(Vector3d? axis = null) => new TopCase(Axis: axis ?? Vector3d.ZAxis);
     public static Faces Bottom(Vector3d? axis = null) => new BottomCase(Axis: axis ?? Vector3d.ZAxis);
     public static Faces At(int? index = null) => new AtCase(Value: index);
-    public static Faces ByCount(Func<int, Faces> choose) { ArgumentNullException.ThrowIfNull(choose); return new ByCountCase(Choose: choose); }
     internal static readonly Op Key = Op.Of(name: nameof(Faces));
     public global::Rasm.Analysis.Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull =>
         GeometryKernel.CanDecomposeFaces(type: typeof(TGeometry)) switch {
@@ -47,11 +46,9 @@ public static partial class Analyze {
         allCase: static (s, _) => Fin.Succ(s.Faces),
         topCase: static (s, top) => RankFaces(state: s, axis: top.Axis, descending: true),
         bottomCase: static (s, bottom) => RankFaces(state: s, axis: bottom.Axis, descending: false),
-        byCountCase: static (s, by) => SelectFaces(key: s.Key, faces: s.Faces, selector: by.Choose(arg: s.Faces.Count), runtime: s.Runtime),
         atCase: static (s, at) => (s.Faces.Count, at.Value) switch {
             (0, _) => Fin.Succ(Seq<TopologyProjection>()),
-            (int n, int index) when index >= 0 && index < n => Fin.Succ(Seq(s.Faces[index])),
-            (_, int) => Fin.Fail<Seq<TopologyProjection>>(s.Key.InvalidInput()),
+            (int n, int index) => Fin.Succ(Seq(s.Faces[Math.Clamp(value: index, min: 0, max: n - 1)])),
             _ => Fin.Succ(Seq(s.Faces[0])),
         });
     private static Fin<Seq<TopologyProjection>> RankFaces((Op Key, Seq<TopologyProjection> Faces, Context Runtime) state, Vector3d axis, bool descending) =>
