@@ -76,20 +76,6 @@ public sealed record TopologyProjection {
         _ = all.Filter(v => !result.IsSucc || !chosen.Exists(c => c.SameAs(v) && c.Transfers(typeof(TValue)))).Iter(static v => v.Dispose());
         return result;
     }
-    internal Fin<Point3d> Centroid(Context context, Op key) =>
-        As<Brep>().ToFin(key.InvalidResult()).Bind(brep => Optional(AreaMassProperties.Compute(brep, true, true, false, false, context.Fractional, context.Absolute.Value)).ToFin(key.InvalidResult()).Map(static mass => new Lease<AreaMassProperties>.Owned(mass).Use(static d => d.Centroid)));
-    internal Fin<Plane> FrameAtCentroid(Context context, Op key) =>
-        As<BrepFace>().ToFin(key.InvalidInput()).Bind(brepFace => Centroid(context, key).Bind(centroid =>
-            (brepFace.ClosestPointOnFace(centroid, out double u, out double v, 0.0), brepFace.FrameAt(u, v, out Plane frame), brepFace.NormalAt(u, v)) switch {
-                (true, true, Vector3d normal) when frame.IsValid && normal.IsValid && !normal.IsTiny() =>
-                    Fin.Succ((frame.ZAxis * (Reversed ? -normal : normal)) >= 0.0 ? frame : new Plane(frame.Origin, frame.XAxis, -frame.YAxis)),
-                _ => Fin.Fail<Plane>(key.InvalidResult()),
-            }));
-    internal Fin<Seq<Interval>> Domains(Op key) =>
-        As<BrepFace>().ToFin(key.InvalidInput()).Bind(brepFace => (brepFace.Domain(direction: 0), brepFace.Domain(direction: 1)) switch {
-            (Interval u, Interval v) when u.IsValid && v.IsValid => Fin.Succ(Seq(u, v)),
-            _ => Fin.Fail<Seq<Interval>>(key.InvalidResult()),
-        });
 }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct ClosestHit(Point3d Point, Option<double> Distance, Option<double> Parameter, Option<Point2d> Uv, Option<Vector3d> Normal, Option<ComponentIndex> Component, Option<MeshPoint> MeshPoint) {
