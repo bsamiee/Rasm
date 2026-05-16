@@ -16,6 +16,12 @@ public partial record CurvatureMode {
     public static CurvatureMode Scalar(ScalarMetric metric) => new ScalarCase(Metric: metric);
 }
 
+[SmartEnum<int>]
+internal sealed partial class ExtremumDirection {
+    public static readonly ExtremumDirection Maximum = new(key: +1);
+    public static readonly ExtremumDirection Minimum = new(key: -1);
+}
+
 // --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Stats {
@@ -27,9 +33,9 @@ public readonly record struct Stats {
     internal double Variance { get; }
     internal double Rms => Math.Sqrt(d: (Mean * Mean) + Variance);
     internal static Seq<TItem> Maxima<TItem>(Seq<TItem> items, Func<TItem, double> projection, double tolerance) =>
-        Extrema(items: items, projection: projection, tolerance: tolerance, direction: +1);
+        Extrema(items: items, projection: projection, tolerance: tolerance, direction: ExtremumDirection.Maximum);
     internal static Seq<TItem> Minima<TItem>(Seq<TItem> items, Func<TItem, double> projection, double tolerance) =>
-        Extrema(items: items, projection: projection, tolerance: tolerance, direction: -1);
+        Extrema(items: items, projection: projection, tolerance: tolerance, direction: ExtremumDirection.Minimum);
     internal static Fin<Stats> From(Seq<double> values, Op key) =>
         values.Fold(
             initialState: (Count: 0, Mean: 0.0, M2: 0.0, Minimum: double.PositiveInfinity, Maximum: double.NegativeInfinity, AllFinite: true),
@@ -42,8 +48,8 @@ public readonly record struct Stats {
                 (int count, double mean, double m2, double minimum, double maximum, _) => Fin.Succ(new Stats(
                     count: count, minimum: minimum, maximum: maximum, mean: mean, variance: Math.Max(val1: 0.0, val2: m2 / count))),
             };
-    private static Seq<TItem> Extrema<TItem>(Seq<TItem> items, Func<TItem, double> projection, double tolerance, int direction) => items.Fold(
-        initialState: (Best: direction > 0 ? double.NegativeInfinity : double.PositiveInfinity, Hits: Seq<TItem>(), Tolerance: tolerance, Projection: projection, Direction: (double)direction),
+    private static Seq<TItem> Extrema<TItem>(Seq<TItem> items, Func<TItem, double> projection, double tolerance, ExtremumDirection direction) => items.Fold(
+        initialState: (Best: direction.Key > 0 ? double.NegativeInfinity : double.PositiveInfinity, Hits: Seq<TItem>(), Tolerance: tolerance, Projection: projection, Direction: (double)direction.Key),
         f: static (state, item) => state.Projection(arg: item) switch {
             double score when state.Direction * score > (state.Direction * state.Best) + state.Tolerance => state with { Best = score, Hits = Seq(item) },
             double score when state.Direction * score >= (state.Direction * state.Best) - state.Tolerance => state with { Best = state.Direction * score > state.Direction * state.Best ? score : state.Best, Hits = item.Cons(state.Hits) },
