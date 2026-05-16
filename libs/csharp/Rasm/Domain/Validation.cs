@@ -11,7 +11,7 @@ namespace Rasm.Domain;
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public readonly partial struct Op {
     [BoundaryAdapter]
-    public static Op Of([CallerMemberName] string name = "") => Op.Create(value: name);
+    public static Op Of([CallerMemberName] string name = "") => Create(value: name);
 }
 
 [BoundaryAdapter]
@@ -62,8 +62,15 @@ public sealed partial record Requirement {
                         : check.Demand(geometry: surface, condition: !surface.GetNextDiscontinuity(direction: 1, continuityType: Continuity.C1_continuous, t0: surface.Domain(direction: 1).T0, t1: surface.Domain(direction: 1).T1, t: out double _), log: "Surface is valid Rhino geometry but contains a C1 discontinuity.")),
                 ("continuity-readiness", Curve curve) => check.Demand(geometry: curve, condition: !curve.GetNextDiscontinuity(continuityType: Continuity.C1_continuous, t0: curve.Domain.T0, t1: curve.Domain.T1, t: out double _), log: "Curve is valid Rhino geometry but contains a C1 discontinuity."),
                 ("mesh-rhino-check", Mesh mesh) => MeshReport(mesh: mesh, check: check.Key).Map(static _ => unit),
-                ("curve-self-intersection", Curve curve) => SelfIntersect(check: check, curve: curve, tolerance: context.Absolute.Value),
-                _ => check.Pass(),
+                ("curve-self-intersection", Curve curve) =>
+                    Intersection.CurveSelf(curve: curve, tolerance: context.Absolute.Value) switch {
+                        CurveIntersections hits => new Lease<CurveIntersections>.Owned(Value: hits).Use(found => found switch {
+                            { Count: 0 } => check.Demand(geometry: curve, condition: true, log: string.Empty),
+                            CurveIntersections intersections => check.Demand(geometry: curve, condition: false, log: string.Create(provider: CultureInfo.InvariantCulture, $"Rhino found {intersections.Count} curve self-intersection event(s).")),
+                        }),
+                        _ => check.Demand(geometry: curve, condition: false, log: "Rhino curve self-intersection computation failed."),
+                    },
+                _ => check.Demand(geometry: geometry, condition: true, log: string.Empty),
             },
         };
     [BoundaryAdapter]
@@ -74,45 +81,35 @@ public sealed partial record Requirement {
             ? Fin.Succ(parameters)
             : Fin.Fail<MeshCheckParameters>(error: new Fault.InvalidGeometry(Geometry: mesh, Check: check, Log: textLog.ToString()));
     }
-    [BoundaryAdapter]
-    private static Fin<Unit> SelfIntersect(Check check, Curve curve, double tolerance) {
-        using CurveIntersections? hits = Intersection.CurveSelf(curve: curve, tolerance: tolerance);
-        return hits switch {
-            { Count: 0 } => check.Pass(),
-            CurveIntersections found => check.Reject(geometry: curve, log: string.Create(provider: CultureInfo.InvariantCulture, $"Rhino found {found.Count} curve self-intersection event(s).")),
-            null => check.Reject(geometry: curve, log: "Rhino curve self-intersection computation failed."),
-        };
-    }
     [SmartEnum<string>]
     [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
     [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
     private sealed partial class Check {
         public static readonly Check Validity = new(key: "rhino-validity", applies: static _ => true, run: static (check, _, g, _) => check.Demand(geometry: g, condition: g.IsValidWithLog(log: out string log), log: log));
         public static readonly Check UsableBounds = new(key: "usable-bounds", applies: static _ => true, run: static (check, ctx, g, _) => check.Demand(geometry: g, condition: g.GetBoundingBox(accurate: true) is { IsValid: true } box && box.IsDegenerate(tolerance: ctx.Absolute.Value) < 4, log: "Rhino could not compute a usable accurate bounding box."));
-        public static readonly Check BrepIntegrity = new(key: "brep-integrity", applies: static g => g is Brep, run: static (check, _, g, _) => g is Brep b ? (b.IsValidTopology(log: out string tLog), b.IsValidGeometry(log: out string gLog), b.IsValidTolerancesAndFlags(log: out string toLog)) switch { (false, _, _) => check.Reject(geometry: b, log: $"Brep topology: {tLog}"), (_, false, _) => check.Reject(geometry: b, log: $"Brep geometry: {gLog}"), (_, _, false) => check.Reject(geometry: b, log: $"Brep tolerances and flags: {toLog}"), _ => check.Pass() } : check.Pass());
+        public static readonly Check BrepIntegrity = new(key: "brep-integrity", applies: static g => g is Brep, run: static (check, _, g, _) => g is Brep b ? (b.IsValidTopology(log: out string tLog), b.IsValidGeometry(log: out string gLog), b.IsValidTolerancesAndFlags(log: out string toLog)) switch { (false, _, _) => check.Demand(geometry: b, condition: false, log: $"Brep topology: {tLog}"), (_, false, _) => check.Demand(geometry: b, condition: false, log: $"Brep geometry: {gLog}"), (_, _, false) => check.Demand(geometry: b, condition: false, log: $"Brep tolerances and flags: {toLog}"), _ => check.Demand(geometry: b, condition: true, log: string.Empty) } : check.Demand(geometry: g, condition: true, log: string.Empty));
         public static readonly Check MeshRhinoCheck = new(key: "mesh-rhino-check", applies: static g => g is Mesh, run: RunCheck);
         public static readonly Check MeshManifoldReadiness = new(key: "mesh-manifold-readiness", applies: static g => g is Mesh, run: static (check, _, g, _) => check.Demand(geometry: g, condition: ((Mesh)g).IsSolid, log: "Mesh is valid Rhino geometry but is not closed and solid enough for volume operations."));
         public static readonly Check BrepSolidReadiness = new(key: "brep-solid-readiness", applies: static g => g is Brep, run: static (check, _, g, _) => check.Demand(geometry: g, condition: ((Brep)g).IsSolid, log: "Brep is valid Rhino geometry but is not solid enough for volume operations."));
         public static readonly Check SurfaceSolidReadiness = new(key: "surface-solid-readiness", applies: static g => g is Surface, run: static (check, _, g, _) => check.Demand(geometry: g, condition: ((Surface)g).IsSolid, log: "Surface is valid Rhino geometry but is not solid enough for volume operations."));
-        public static readonly Check CurveLengthReadiness = new(key: "curve-length-readiness", applies: static g => g is Curve, run: static (check, ctx, g, _) => g is Curve c && !c.IsShort(tolerance: ctx.Absolute.Value) && c.GetLength(fractionalTolerance: ctx.Fractional) > ctx.Absolute.Value ? check.Pass() : check.Reject(geometry: g, log: "Curve is valid Rhino geometry but is below model-length tolerance."));
-        public static readonly Check CurveAreaReadiness = new(key: "curve-area-readiness", applies: static g => g is Curve, run: static (check, ctx, g, _) => g is Curve c && c.IsClosed && c.TryGetPlane(plane: out Plane _, tolerance: ctx.Absolute.Value) ? check.Pass() : check.Reject(geometry: g, log: "Curve is valid Rhino geometry but is not closed and planar enough for area operations."));
+        public static readonly Check CurveLengthReadiness = new(key: "curve-length-readiness", applies: static g => g is Curve, run: static (check, ctx, g, _) => check.Demand(geometry: g, condition: g is Curve c && !c.IsShort(tolerance: ctx.Absolute.Value) && c.GetLength(fractionalTolerance: ctx.Fractional) > ctx.Absolute.Value, log: "Curve is valid Rhino geometry but is below model-length tolerance."));
+        public static readonly Check CurveAreaReadiness = new(key: "curve-area-readiness", applies: static g => g is Curve, run: static (check, ctx, g, _) => check.Demand(geometry: g, condition: g is Curve c && c.IsClosed && c.TryGetPlane(plane: out Plane _, tolerance: ctx.Absolute.Value), log: "Curve is valid Rhino geometry but is not closed and planar enough for area operations."));
         public static readonly Check SurfaceDomainReadiness = new(key: "surface-domain-readiness", applies: static g => g is Surface, run: static (check, ctx, g, _) => check.Demand(geometry: g, condition: HasUsableDomain(surface: (Surface)g, context: ctx), log: "Surface is valid Rhino geometry but has an unusable UV domain."));
         public static readonly Check ContinuityReadiness = new(key: "continuity-readiness", applies: static g => g is Curve or Surface, run: RunCheck);
-        public static readonly Check PolycurveStructure = new(key: "polycurve-structure", applies: static g => g is PolyCurve, run: static (check, _, g, _) => g is PolyCurve p ? check.Demand(geometry: p, condition: !p.HasGap, log: "PolyCurve has gaps between segments.") : check.Pass());
+        public static readonly Check PolycurveStructure = new(key: "polycurve-structure", applies: static g => g is PolyCurve, run: static (check, _, g, _) => g is PolyCurve p ? check.Demand(geometry: p, condition: !p.HasGap, log: "PolyCurve has gaps between segments.") : check.Demand(geometry: g, condition: true, log: string.Empty));
         public static readonly Check CurveSelfIntersection = new(key: "curve-self-intersection", applies: static g => g is Curve, run: RunCheck);
         private readonly Func<GeometryBase, bool> applies;
         private readonly Func<Check, Context, GeometryBase, CancellationToken, Fin<Unit>> run;
-        internal Fin<Unit> Pass() => Key switch { _ => Fin.Succ(unit) };
-        [BoundaryAdapter]
-        internal Fin<Unit> Reject(GeometryBase geometry, string log) =>
-            Fin.Fail<Unit>(error: new Fault.InvalidGeometry(Geometry: geometry, Check: Key, Log: log));
         [BoundaryAdapter]
         internal Fin<Unit> Demand(GeometryBase geometry, bool condition, string log) =>
-            condition ? Pass() : Reject(geometry: geometry, log: log);
+            condition switch {
+                true => Fin.Succ(unit),
+                false => Fin.Fail<Unit>(error: new Fault.InvalidGeometry(Geometry: geometry, Check: Key, Log: log)),
+            };
         internal Fin<Unit> Apply(Context context, GeometryBase geometry, CancellationToken cancel) =>
             cancel.IsCancellationRequested switch {
                 true => Fin.Fail<Unit>(error: new Fault.Cancelled()),
-                false => applies(arg: geometry) ? run(arg1: this, arg2: context, arg3: geometry, arg4: cancel) : Pass(),
+                false => applies(arg: geometry) ? run(arg1: this, arg2: context, arg3: geometry, arg4: cancel) : Demand(geometry: geometry, condition: true, log: string.Empty),
             };
     }
 }
@@ -245,7 +242,7 @@ internal static class OpAcceptance {
             GeometryBase geometry => Some(geometry.IsValid),
             double scalar => Some(RhinoMath.IsValidDouble(scalar)),
             bool or int or Enum or SurfaceCurvature or MeshCheckParameters => Some(true),
-            global::Rasm.Domain.Kind => Some(true),
+            Kind => Some(true),
             ClosestHit h => Some(h.Point.IsValid
                 && h.Distance.Map(static d => RhinoMath.IsValidDouble(d) && d >= 0.0).IfNone(true)
                 && h.Normal.Map(static n => n.IsValid && n.Length > RhinoMath.ZeroTolerance).IfNone(true)

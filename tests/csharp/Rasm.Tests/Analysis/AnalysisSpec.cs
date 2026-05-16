@@ -731,10 +731,11 @@ public sealed class AnalysisSpec {
     public void StatsUseDomainAggregationAndToleranceRail() {
         Op key = Op.Create(value: "stat-rail");
         Fin<Stat> curvature = Stat.Curvature(values: LanguageExt.Prelude.toSeq<double>([1.0, 3.0]), metric: ScalarMetric.Magnitude, key: Op.Create(value: "curvature-stat"));
-        Fin<Stat> residual = Stat.Residual(values: LanguageExt.Prelude.toSeq<double>([1.0, 3.0]), tolerance: 3.0, key: Op.Create(value: "residual-stat"));
+        Fin<Stat> residual = Stats.From(values: LanguageExt.Prelude.toSeq<double>([1.0, 3.0]), key: Op.Create(value: "residual-stat"))
+            .Bind(static stats => Stat.Residual(tolerance: 3.0, stats: stats, key: Op.Create(value: "residual-stat")));
 
         Assert.True(condition: Stat.Curvature(values: LanguageExt.Prelude.toSeq<double>([-1.0, 3.0]), metric: ScalarMetric.Gaussian, key: key).IsSucc);
-        Assert.True(condition: Stat.Residual(values: LanguageExt.Prelude.toSeq<double>([1.0, 3.0]), tolerance: -1.0, key: key).IsFail);
+        Assert.True(condition: Stats.From(values: LanguageExt.Prelude.toSeq<double>([1.0, 3.0]), key: key).Bind(stats => Stat.Residual(tolerance: -1.0, stats: stats, key: key)).IsFail);
         Assert.True(condition: curvature.Match(Succ: static stat => stat.Mean == stat.Stats.Mean, Fail: static _ => false));
         Assert.True(condition: residual.Match(Succ: static stat => stat.Rms == stat.Stats.Rms && stat.WithinTolerance, Fail: static _ => false));
     }

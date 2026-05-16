@@ -76,7 +76,7 @@ public sealed record TopologyProjection {
     public bool Transfers(Type outputType) {
         ArgumentNullException.ThrowIfNull(outputType);
         return outputType.IsAssignableFrom(typeof(TopologyProjection))
-            || (Value is Curve curve && outputType.IsAssignableFrom(curve.GetType()))
+            || (Value is Curve curve && outputType.IsInstanceOfType(curve))
             || (Value is Brep or BrepFace && outputType.IsAssignableFrom(typeof(Brep)));
     }
     public Fin<Seq<Point3d>> Vertices => (Value, Source) switch {
@@ -88,26 +88,28 @@ public sealed record TopologyProjection {
     };
     public Fin<Vector3d> Normal => (Value, Source) switch {
         (Mesh mesh, { ComponentIndexType: ComponentIndexType.MeshFace, Index: int face }) when face >= 0 && face < mesh.Faces.Count =>
-            FaceNormal(mesh.FaceNormals.Count > face ? Some(mesh.FaceNormals[face]) : Option<Vector3f>.None)
+            ((mesh.FaceNormals.Count > face ? Some(mesh.FaceNormals[face]) : Option<Vector3f>.None).Case switch {
+                Vector3f normal => NormalOf(candidate: new Vector3d(normal)),
+                _ => Fin.Fail<Vector3d>(Key.InvalidResult()),
+            })
                 .BindFail(_ => (mesh.FaceNormals.ComputeFaceNormals() && mesh.FaceNormals.Count > face) switch {
-                    true => FaceNormal(Some(mesh.FaceNormals[face])),
+                    true => NormalOf(candidate: new Vector3d(mesh.FaceNormals[face])),
                     false => Fin.Fail<Vector3d>(Key.InvalidResult()),
                 }),
-        (Mesh, { ComponentIndexType: ComponentIndexType.MeshNgon }) => Vertices.Bind(PolygonNormal),
+        (Mesh, { ComponentIndexType: ComponentIndexType.MeshNgon }) => Vertices.Bind(vertices =>
+            vertices.Count switch {
+                >= 3 => NormalOf(candidate: vertices.Map((point, index) => Vector3d.CrossProduct(a: point - vertices[0], b: vertices[(index + 1) % vertices.Count] - vertices[0]))
+                    .Fold(initialState: Vector3d.Zero, f: static (sum, vector) => sum + vector) switch {
+                        Vector3d normal when normal.IsValid && !normal.IsTiny() => normal / normal.Length,
+                        Vector3d normal => normal,
+                    }),
+                _ => Fin.Fail<Vector3d>(Key.InvalidResult()),
+            }),
         _ => Fin.Fail<Vector3d>(Key.InvalidInput()),
     };
-    private static Fin<Vector3d> FaceNormal(Option<Vector3f> source) =>
-        source.Case switch {
-            Vector3f faceNormal when new Vector3d(faceNormal) is Vector3d normal && normal.IsValid && !normal.IsTiny() => Fin.Succ(normal),
-            _ => Fin.Fail<Vector3d>(Key.InvalidResult()),
-        };
-    private static Fin<Vector3d> PolygonNormal(Seq<Point3d> vertices) =>
-        vertices.Count switch {
-            >= 3 => vertices.Map((point, index) => Vector3d.CrossProduct(a: point - vertices[0], b: vertices[(index + 1) % vertices.Count] - vertices[0]))
-                .Fold(initialState: Vector3d.Zero, f: static (sum, vector) => sum + vector) switch {
-                    Vector3d normal when normal.IsValid && !normal.IsTiny() => Fin.Succ(normal / normal.Length),
-                    _ => Fin.Fail<Vector3d>(Key.InvalidResult()),
-                },
+    private static Fin<Vector3d> NormalOf(Vector3d candidate) =>
+        candidate switch {
+            Vector3d normal when normal.IsValid && !normal.IsTiny() => Fin.Succ(normal),
             _ => Fin.Fail<Vector3d>(Key.InvalidResult()),
         };
     private static Fin<ComponentIndex> MeshComponentIndex(Mesh mesh, MeshNgon polygon) =>
@@ -266,78 +268,55 @@ internal static class GeometryKernel {
             _ => CoerceValue(source: s, target: typeof(TTarget), context: context).ToFin(op.Unsupported(s.GetType(), typeof(TTarget))).Map(static v => (TTarget)v),
         });
     private static Option<Kind> InferredKind(object geometry, Context context) =>
-        geometry switch {
-            Brep brep => BoxOf(brep: brep, context: context).Map(static _ => global::Rasm.Domain.Kind.Box)
-                | PlaneOfBrep(brep: brep, context: context).Map(static _ => global::Rasm.Domain.Kind.Plane)
-                | PrimitiveSurfaceKind(surface: brep is { IsSurface: true } ? brep.Surfaces[0] : null, context: context),
-            Curve curve => LineOf(curve: curve, context: context).Map(static _ => global::Rasm.Domain.Kind.Line)
-                | CircleOf(curve: curve, context: context).Map(static _ => global::Rasm.Domain.Kind.Circle)
-                | ArcOf(curve: curve, context: context).Map(static _ => global::Rasm.Domain.Kind.Arc)
-                | EllipseOf(curve: curve, context: context).Map(static _ => global::Rasm.Domain.Kind.Ellipse)
-                | PolylineOf(curve: curve).Map(static _ => global::Rasm.Domain.Kind.Polyline),
-            Surface surface => PrimitiveSurfaceKind(surface: surface, context: context),
-            _ => Option<Kind>.None,
-        };
+        (geometry switch {
+            Brep => Seq(Kind.Box, Kind.Plane, Kind.Sphere, Kind.Cylinder, Kind.Cone, Kind.Torus),
+            Curve => Seq(Kind.Line, Kind.Circle, Kind.Arc, Kind.Ellipse, Kind.Polyline),
+            Surface => Seq(Kind.Plane, Kind.Sphere, Kind.Cylinder, Kind.Cone, Kind.Torus),
+            _ => Seq<Kind>(),
+        }).Choose(kind => PrimitiveOf(kind: kind, source: geometry, context: context, op: Op.Of(name: nameof(Kind))).Map(_ => kind)).Head;
     private static Option<Kind> NativeKind(object geometry) =>
         geometry switch {
             GeometryBase native => native.ObjectType switch {
-                Rhino.DocObjects.ObjectType.Point => Some(global::Rasm.Domain.Kind.Point),
-                Rhino.DocObjects.ObjectType.Curve => Some(global::Rasm.Domain.Kind.Curve),
-                Rhino.DocObjects.ObjectType.Surface => Some(global::Rasm.Domain.Kind.Surface),
-                Rhino.DocObjects.ObjectType.Brep => Some(global::Rasm.Domain.Kind.Brep),
-                Rhino.DocObjects.ObjectType.Mesh => Some(global::Rasm.Domain.Kind.Mesh),
-                Rhino.DocObjects.ObjectType.SubD => Some(global::Rasm.Domain.Kind.SubD),
-                Rhino.DocObjects.ObjectType.PointSet => Some(global::Rasm.Domain.Kind.PointCloud),
-                Rhino.DocObjects.ObjectType.Hatch => Some(global::Rasm.Domain.Kind.Hatch),
-                Rhino.DocObjects.ObjectType.Extrusion => Some(global::Rasm.Domain.Kind.Extrusion),
-                _ when native.HasBrepForm => Some(global::Rasm.Domain.Kind.Brep),
+                Rhino.DocObjects.ObjectType.Point => Some(Kind.Point),
+                Rhino.DocObjects.ObjectType.Curve => Some(Kind.Curve),
+                Rhino.DocObjects.ObjectType.Surface => Some(Kind.Surface),
+                Rhino.DocObjects.ObjectType.Brep => Some(Kind.Brep),
+                Rhino.DocObjects.ObjectType.Mesh => Some(Kind.Mesh),
+                Rhino.DocObjects.ObjectType.SubD => Some(Kind.SubD),
+                Rhino.DocObjects.ObjectType.PointSet => Some(Kind.PointCloud),
+                Rhino.DocObjects.ObjectType.Hatch => Some(Kind.Hatch),
+                Rhino.DocObjects.ObjectType.Extrusion => Some(Kind.Extrusion),
+                _ when native.HasBrepForm => Some(Kind.Brep),
                 _ => Option<Kind>.None,
             },
             _ => Option<Kind>.None,
         };
-    private static Option<Kind> PrimitiveSurfaceKind(Surface? surface, Context context) =>
-        Optional(surface).Bind(s =>
-            PlaneOf(surface: s, context: context).Map(static _ => global::Rasm.Domain.Kind.Plane)
-            | SphereOf(surface: s, context: context).Map(static _ => global::Rasm.Domain.Kind.Sphere)
-            | CylinderOf(surface: s, context: context).Map(static _ => global::Rasm.Domain.Kind.Cylinder)
-            | ConeOf(surface: s, context: context).Map(static _ => global::Rasm.Domain.Kind.Cone)
-            | TorusOf(surface: s, context: context).Map(static _ => global::Rasm.Domain.Kind.Torus));
     private static Option<object> CoerceValue(object source, Type target, Context context) =>
-        (source, target) switch {
-            (Point point, Type t) when t == typeof(Point3d) => Some((object)point.Location),
-            (Brep brep, Type t) when t == typeof(Box) => BoxOf(brep: brep, context: context).Map(static v => (object)v),
-            (object value, Type t) when t == typeof(Curve) => CurveForm(source: value, op: Op.Of(name: nameof(CoerceTo))).ToOption().Map(static lease => (object)lease.Resource),
-            (Curve curve, Type t) when t == typeof(Line) => LineOf(curve: curve, context: context).Map(static v => (object)v),
-            (Curve curve, Type t) when t == typeof(Circle) => CircleOf(curve: curve, context: context).Map(static v => (object)v),
-            (Curve curve, Type t) when t == typeof(Arc) => ArcOf(curve: curve, context: context).Map(static v => (object)v),
-            (Curve curve, Type t) when t == typeof(Ellipse) => EllipseOf(curve: curve, context: context).Map(static v => (object)v),
-            (Curve curve, Type t) when t == typeof(Polyline) => PolylineOf(curve: curve).Map(static v => (object)v),
-            (Brep brep, Type t) when t == typeof(Plane) => PlaneOfBrep(brep: brep, context: context).Map(static v => (object)v),
-            (Surface surface, Type t) when t == typeof(Plane) => PlaneOf(surface: surface, context: context).Map(static v => (object)v),
-            (Brep brep, Type t) when t == typeof(Sphere) => brep is { IsSurface: true } ? SphereOf(surface: brep.Surfaces[0], context: context).Map(static v => (object)v) : Option<object>.None,
-            (Surface surface, Type t) when t == typeof(Sphere) => SphereOf(surface: surface, context: context).Map(static v => (object)v),
-            (Brep brep, Type t) when t == typeof(Cylinder) => brep is { IsSurface: true } ? CylinderOf(surface: brep.Surfaces[0], context: context).Map(static v => (object)v) : Option<object>.None,
-            (Surface surface, Type t) when t == typeof(Cylinder) => CylinderOf(surface: surface, context: context).Map(static v => (object)v),
-            (Brep brep, Type t) when t == typeof(Cone) => brep is { IsSurface: true } ? ConeOf(surface: brep.Surfaces[0], context: context).Map(static v => (object)v) : Option<object>.None,
-            (Surface surface, Type t) when t == typeof(Cone) => ConeOf(surface: surface, context: context).Map(static v => (object)v),
-            (Brep brep, Type t) when t == typeof(Torus) => brep is { IsSurface: true } ? TorusOf(surface: brep.Surfaces[0], context: context).Map(static v => (object)v) : Option<object>.None,
-            (Surface surface, Type t) when t == typeof(Torus) => TorusOf(surface: surface, context: context).Map(static v => (object)v),
-            (object value, Type t) when t == typeof(Brep) => BrepForm(source: value, op: Op.Of(name: nameof(CoerceTo))).ToOption().Map(static lease => (object)lease.Resource),
+        KindLookup.Resolve(target).Bind(kind => PrimitiveOf(kind: kind, source: source, context: context, op: Op.Of(name: nameof(CoerceTo))));
+    private static Option<object> PrimitiveOf(Kind kind, object source, Context context, Op op) =>
+        (kind.Type, source) switch {
+            (Type t, Point point) when t == typeof(Point3d) => Some((object)point.Location),
+            (Type t, Brep brep) when t == typeof(Box) =>
+                brep.IsBox(context.Absolute.Value) && brep.Faces[0].UnderlyingSurface().TryGetPlane(out Plane plane, context.Absolute.Value) && new Box(plane, brep) is { IsValid: true } box ? Some((object)box) : Option<object>.None,
+            (Type t, object value) when t == typeof(Curve) =>
+                CurveForm(source: value, op: op).ToOption().Map(static lease => (object)lease.Resource),
+            (Type t, Curve curve) when t == typeof(Line) && curve.IsLinear(context.Absolute.Value) =>
+                Some((object)new Line(curve.PointAtStart, curve.PointAtEnd)),
+            (Type t, Curve curve) when t == typeof(Circle) && curve.TryGetCircle(out Circle value, context.Absolute.Value) => Some((object)value),
+            (Type t, Curve curve) when t == typeof(Arc) && curve.TryGetArc(out Arc value, context.Absolute.Value) => Some((object)value),
+            (Type t, Curve curve) when t == typeof(Ellipse) && curve.TryGetEllipse(out Ellipse value, context.Absolute.Value) => Some((object)value),
+            (Type t, Curve curve) when t == typeof(Polyline) && curve.TryGetPolyline(out Polyline value) => Some((object)value),
+            (Type t, Brep { IsSurface: true } brep) when t == typeof(Plane) || t == typeof(Sphere) || t == typeof(Cylinder) || t == typeof(Cone) || t == typeof(Torus) =>
+                PrimitiveOf(kind: kind, source: brep.Surfaces[0], context: context, op: op),
+            (Type t, Surface surface) when t == typeof(Plane) && surface.TryGetPlane(out Plane value, context.Absolute.Value) => Some((object)value),
+            (Type t, Surface surface) when t == typeof(Sphere) && surface.TryGetSphere(out Sphere value, context.Absolute.Value) => Some((object)value),
+            (Type t, Surface surface) when t == typeof(Cylinder) && surface.TryGetCylinder(out Cylinder value, context.Absolute.Value) => Some((object)value),
+            (Type t, Surface surface) when t == typeof(Cone) && surface.TryGetCone(out Cone value, context.Absolute.Value) => Some((object)value),
+            (Type t, Surface surface) when t == typeof(Torus) && surface.TryGetTorus(out Torus value, context.Absolute.Value) => Some((object)value),
+            (Type t, object value) when t == typeof(Brep) =>
+                BrepForm(source: value, op: op).ToOption().Map(static lease => (object)lease.Resource),
             _ => Option<object>.None,
         };
-    private static Option<Box> BoxOf(Brep brep, Context context) =>
-        brep.IsBox(context.Absolute.Value) && brep.Faces[0].UnderlyingSurface().TryGetPlane(out Plane plane, context.Absolute.Value) && new Box(plane, brep) is { IsValid: true } box ? Some(box) : Option<Box>.None;
-    private static Option<Line> LineOf(Curve curve, Context context) => curve.IsLinear(context.Absolute.Value) ? Some(new Line(curve.PointAtStart, curve.PointAtEnd)) : Option<Line>.None;
-    private static Option<Circle> CircleOf(Curve curve, Context context) => curve.TryGetCircle(out Circle value, context.Absolute.Value) ? Some(value) : Option<Circle>.None;
-    private static Option<Arc> ArcOf(Curve curve, Context context) => curve.TryGetArc(out Arc value, context.Absolute.Value) ? Some(value) : Option<Arc>.None;
-    private static Option<Ellipse> EllipseOf(Curve curve, Context context) => curve.TryGetEllipse(out Ellipse value, context.Absolute.Value) ? Some(value) : Option<Ellipse>.None;
-    private static Option<Polyline> PolylineOf(Curve curve) => curve.TryGetPolyline(out Polyline value) ? Some(value) : Option<Polyline>.None;
-    private static Option<Plane> PlaneOfBrep(Brep brep, Context context) => brep is { IsSurface: true } ? PlaneOf(surface: brep.Surfaces[0], context: context) : Option<Plane>.None;
-    private static Option<Plane> PlaneOf(Surface surface, Context context) => surface.TryGetPlane(out Plane value, context.Absolute.Value) ? Some(value) : Option<Plane>.None;
-    private static Option<Sphere> SphereOf(Surface surface, Context context) => surface.TryGetSphere(out Sphere value, context.Absolute.Value) ? Some(value) : Option<Sphere>.None;
-    private static Option<Cylinder> CylinderOf(Surface surface, Context context) => surface.TryGetCylinder(out Cylinder value, context.Absolute.Value) ? Some(value) : Option<Cylinder>.None;
-    private static Option<Cone> ConeOf(Surface surface, Context context) => surface.TryGetCone(out Cone value, context.Absolute.Value) ? Some(value) : Option<Cone>.None;
-    private static Option<Torus> TorusOf(Surface surface, Context context) => surface.TryGetTorus(out Torus value, context.Absolute.Value) ? Some(value) : Option<Torus>.None;
     internal static Fin<Lease<Curve>> CurveForm(object? source, Op op) =>
         Optional(source).ToFin(op.InvalidInput()).Bind(value => value switch {
             Curve curve => Fin.Succ<Lease<Curve>>(new Lease<Curve>.Borrowed(Value: curve)),

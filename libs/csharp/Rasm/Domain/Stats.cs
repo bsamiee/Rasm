@@ -74,10 +74,6 @@ public readonly record struct Stat {
         (Stats.From(values: values, key: key), Fin.Succ(metric))
             .Apply(static (stats, m) => new Stat(metric: Some(m), stats: stats))
             .As();
-    internal static Fin<Stat> Residual(Seq<double> values, double tolerance, Op key) =>
-        (Stats.From(values: values, key: key), Fin.Succ((Tolerance: tolerance, Key: key)))
-            .Apply(static (stats, state) => (Stats: stats, state.Tolerance, state.Key)).As()
-            .Bind(static state => Residual(tolerance: state.Tolerance, stats: state.Stats, key: state.Key));
     internal static Fin<Stat> Residual(double tolerance, Stats stats, Op key) =>
         (RhinoMath.IsValidDouble(x: tolerance), tolerance >= 0.0, stats.Minimum >= 0.0, stats.Mean >= 0.0) switch {
             (true, true, true, true) => Fin.Succ(new Stat(metric: Option<ScalarMetric>.None, stats: stats, limit: Some(tolerance))),
