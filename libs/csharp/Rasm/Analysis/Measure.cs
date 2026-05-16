@@ -119,12 +119,12 @@ public static partial class Analyze {
         return (typeof(TOut), typeof(TGeometry)) switch {
             (Type output, Type geometry) when output == typeof(Point3d)
                 && (geometry == typeof(object) || geometry == typeof(GeometryBase) || geometry == typeof(Point3d) || geometry == typeof(Point) || geometry == typeof(Line) || geometry == typeof(Polyline) || geometry == typeof(BoundingBox) || geometry == typeof(Box) || typeof(Curve).IsAssignableFrom(geometry) || typeof(Brep).IsAssignableFrom(geometry) || typeof(Mesh).IsAssignableFrom(geometry) || typeof(Surface).IsAssignableFrom(geometry) || typeof(SubD).IsAssignableFrom(geometry)) =>
-                Cast<TGeometry, TOut>(key: key, operation: Operation<TGeometry, Point3d>.Build(
+                Operation<TGeometry, Point3d>.Build(
                 key: key, requiresContext: true, state: key,
                 evaluator: static (op, geometry) => from context in Env.Asks
                                                     from centroid in CentroidOf(geometry: geometry, context: context, op: op).ToEff()
                                                     from result in op.Accept(value: centroid).ToEff()
-                                                    select result)),
+                                                    select result).As<TGeometry, TOut>(key: key),
             _ => key.Unsupported<TGeometry, TOut>(),
         };
     }
@@ -136,7 +136,7 @@ public static partial class Analyze {
             _ => Option<Requirement>.None,
         };
         return requirement.Match(
-            Some: active => Cast<TGeometry, TOut>(key: key, operation: Operation<TGeometry, double>.Build(
+            Some: active => Operation<TGeometry, double>.Build(
                 key: key,
                 requirement: active,
                 requiresContext: true,
@@ -145,7 +145,7 @@ public static partial class Analyze {
                     from context in Env.Asks
                     from length in LengthOf(geometry: geometry, context: context, op: op).ToEff()
                     from result in op.Accept(value: length).ToEff()
-                    select result)),
+                    select result).As<TGeometry, TOut>(key: key),
             None: () => key.Unsupported<TGeometry, TOut>());
     }
     internal static Operation<TGeometry, TOut> MassPropertyMeasure<TGeometry, TOut>(MassKind mass, MassProperty property) where TGeometry : notnull {
@@ -163,7 +163,7 @@ public static partial class Analyze {
     }
     private static Operation<TGeometry, TOut> MassOperation<TGeometry, TOut, TValue>(MassKind mass, string suffix, Func<Op, IDisposable, Fin<Seq<TValue>>> project, bool firstMoments = false, bool secondMoments = false, bool productMoments = false) where TGeometry : notnull {
         Op key = Op.Of(name: $"{mass.Label}{suffix}");
-        return Cast<TGeometry, TOut>(key: key, operation: Operation<TGeometry, TValue>.Build(
+        return Operation<TGeometry, TValue>.Build(
             key: key, requirement: mass.Requirement, requiresContext: true,
             aggregate: Some<Func<Seq<TGeometry>, Eff<Env, Seq<TValue>>>>(
                 geometry => from context in Env.Asks
@@ -176,7 +176,7 @@ public static partial class Analyze {
                             select values),
             evaluator: geometry => from computed in mass.Compute(geometry: geometry, op: key, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments)
                                    from values in new Lease<IDisposable>.Owned(Value: computed).Use(disposable => project(arg1: key, arg2: disposable)).ToEff()
-                                   select values));
+                                   select values).As<TGeometry, TOut>(key: key);
     }
     private static Fin<Seq<TValue>> MassPropertyExtract<TProp, TValue>(this Op key, IDisposable props, Func<LengthMassProperties, TProp> length, Func<AreaMassProperties, TProp> area, Func<VolumeMassProperties, TProp> volume) =>
         props switch {

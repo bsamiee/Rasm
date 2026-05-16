@@ -23,17 +23,17 @@ public partial record Conformance {
                 Operation<(TGeometry Geometry, TTarget Target), TOut>.Reject(key: Key, fault: Key.InvalidInput()),
             (_, false, _) => Key.Unsupported<(TGeometry Geometry, TTarget Target), TOut>(),
             (DistanceCase d, _, Type o) when o == typeof(double) =>
-                Analyze.Cast<(TGeometry Geometry, TTarget Target), TOut>(Key, ConformanceDispatch.Pair<TGeometry, TTarget, double>(this, d.Count, static (r, _) => Stat.ResidualDistances(samples: r, key: Key).Bind(values => Key.Accept(values: values)))),
+                ConformanceDispatch.Pair<TGeometry, TTarget, double>(this, d.Count, static (r, _) => Stat.ResidualDistances(samples: r, key: Key).Bind(values => Key.Accept(values: values))).As<(TGeometry Geometry, TTarget Target), TOut>(key: Key),
             (RmsCase r, _, Type o) when o == typeof(double) =>
-                Analyze.Cast<(TGeometry Geometry, TTarget Target), TOut>(Key, ConformanceDispatch.Pair<TGeometry, TTarget, double>(this, r.Count, static (rs, _) => Stat.FromResiduals(samples: rs, key: Key).Bind(s => Key.Accept(value: s.Rms)))),
+                ConformanceDispatch.Pair<TGeometry, TTarget, double>(this, r.Count, static (rs, _) => Stat.FromResiduals(samples: rs, key: Key).Bind(s => Key.Accept(value: s.Rms))).As<(TGeometry Geometry, TTarget Target), TOut>(key: Key),
             (WithinToleranceCase w, _, Type o) when o == typeof(bool) =>
-                Analyze.Cast<(TGeometry Geometry, TTarget Target), TOut>(Key, ConformanceDispatch.Pair<TGeometry, TTarget, bool>(this, w.Count, static (rs, c) => Stat.FromResiduals(samples: rs, key: Key).Bind(s => Key.Accept(value: s.Maximum <= c.Absolute.Value)))),
+                ConformanceDispatch.Pair<TGeometry, TTarget, bool>(this, w.Count, static (rs, c) => Stat.FromResiduals(samples: rs, key: Key).Bind(s => Key.Accept(value: s.Maximum <= c.Absolute.Value))).As<(TGeometry Geometry, TTarget Target), TOut>(key: Key),
             (SummaryCase s, _, Type o) when o == typeof(ConformanceSummary) =>
-                Analyze.Cast<(TGeometry Geometry, TTarget Target), TOut>(Key, ConformanceDispatch.Pair<TGeometry, TTarget, ConformanceSummary>(this, s.Count, static (rs, c) => Stat.FromResiduals(samples: rs, key: Key).Bind(stats => Key.Accept(value: new ConformanceSummary(Distribution: stats, Tolerance: c.Absolute.Value, WithinTolerance: stats.Maximum <= c.Absolute.Value))))),
+                ConformanceDispatch.Pair<TGeometry, TTarget, ConformanceSummary>(this, s.Count, static (rs, c) => Stat.FromResiduals(samples: rs, key: Key).Bind(stats => Key.Accept(value: new ConformanceSummary(Distribution: stats, Tolerance: c.Absolute.Value, WithinTolerance: stats.Maximum <= c.Absolute.Value)))).As<(TGeometry Geometry, TTarget Target), TOut>(key: Key),
             (MaximumCase m, _, Type o) when o == typeof(ResidualSample) =>
-                Analyze.Cast<(TGeometry Geometry, TTarget Target), TOut>(Key, ConformanceDispatch.Pair<TGeometry, TTarget, ResidualSample>(this, m.Count, static (rs, _) => Stat.MaximumResidual(samples: rs, key: Key).Bind(sample => Key.Accept(value: sample)))),
+                ConformanceDispatch.Pair<TGeometry, TTarget, ResidualSample>(this, m.Count, static (rs, _) => Stat.MaximumResidual(samples: rs, key: Key).Bind(sample => Key.Accept(value: sample))).As<(TGeometry Geometry, TTarget Target), TOut>(key: Key),
             (SignedResidualCase sr, _, Type o) when o == typeof(ResidualSample) =>
-                Analyze.Cast<(TGeometry Geometry, TTarget Target), TOut>(Key, ConformanceDispatch.Pair<TGeometry, TTarget, ResidualSample>(this, sr.Count, static (rs, _) => Key.Accept(values: rs))),
+                ConformanceDispatch.Pair<TGeometry, TTarget, ResidualSample>(this, sr.Count, static (rs, _) => Key.Accept(values: rs)).As<(TGeometry Geometry, TTarget Target), TOut>(key: Key),
             _ => Key.Unsupported<(TGeometry Geometry, TTarget Target), TOut>(),
         };
 }

@@ -42,12 +42,12 @@ public sealed partial record Requirement {
             };
     public static readonly Requirement None = new(checks: Seq<Check>());
     public static readonly Requirement Basic = new(checks: Seq(Check.Validity, Check.UsableBounds));
-    public static readonly Requirement CurveLength = Add(left: Basic, right: Single(check: Check.CurveLengthReadiness));
-    public static readonly Requirement AreaMass = Add(left: Add(left: Basic, right: Single(check: Check.CurveAreaReadiness)), right: Single(check: Check.CurveSelfIntersection));
-    public static readonly Requirement MeshCheck = Add(left: Basic, right: Single(check: Check.MeshRhinoCheck));
-    public static readonly Requirement SolidTopology = Add(left: Add(left: Add(left: Add(left: Basic, right: Single(check: Check.BrepIntegrity)), right: Single(check: Check.MeshManifoldReadiness)), right: Single(check: Check.BrepSolidReadiness)), right: Single(check: Check.MeshRhinoCheck));
-    public static readonly Requirement VolumeMass = Add(left: SolidTopology, right: Single(check: Check.SurfaceSolidReadiness));
-    public static readonly Requirement SurfaceEvaluation = Add(left: Basic, right: Single(check: Check.SurfaceDomainReadiness));
+    public static readonly Requirement CurveLength = Basic + Single(check: Check.CurveLengthReadiness);
+    public static readonly Requirement AreaMass = Basic + Single(check: Check.CurveAreaReadiness) + Single(check: Check.CurveSelfIntersection);
+    public static readonly Requirement MeshCheck = Basic + Single(check: Check.MeshRhinoCheck);
+    public static readonly Requirement SolidTopology = Basic + Single(check: Check.BrepIntegrity) + Single(check: Check.MeshManifoldReadiness) + Single(check: Check.BrepSolidReadiness) + Single(check: Check.MeshRhinoCheck);
+    public static readonly Requirement VolumeMass = SolidTopology + Single(check: Check.SurfaceSolidReadiness);
+    public static readonly Requirement SurfaceEvaluation = Basic + Single(check: Check.SurfaceDomainReadiness);
     public static readonly Requirement Strict = new(checks: toSeq(Check.Items));
     private static bool HasUsableDomain(Surface surface, Context context) =>
         (surface.Domain(direction: 0), surface.Domain(direction: 1)) is (Interval u, Interval v)

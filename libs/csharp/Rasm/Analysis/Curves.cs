@@ -123,7 +123,7 @@ public static partial class Analyze {
                 select result);
     }
     internal static Operation<TGeometry, TOut> CurveProject<TGeometry, TOut, TValue>(Op key, Curves aspect, Func<TopologyProjection, Option<TValue>> project) where TGeometry : notnull =>
-        Cast<TGeometry, TOut>(key: key, operation: Operation<TGeometry, TValue>.Build(
+        Operation<TGeometry, TValue>.Build(
             key: key, state: (Key: key, Aspect: aspect, Project: project), requiresContext: true,
             evaluator: static (state, geometry) =>
                 from runtime in Env.EnvAsks
@@ -132,7 +132,7 @@ public static partial class Analyze {
                 from curves in CurveProjections(geometry: geometry, aspect: state.Aspect, feature: feature, context: runtime.Context, op: state.Key, cancel: runtime.Cancellation).ToEff()
                 from chosen in state.Aspect.Select(curves: curves).ToEff()
                 from result in TopologyProjection.Project(all: curves, chosen: chosen, project: values => state.Key.Accept(values: values.Choose(state.Project))).ToEff()
-                select result));
+                select result).As<TGeometry, TOut>(key: key);
     internal static Fin<Seq<TopologyProjection>> CurveProjections<TGeometry>(TGeometry geometry, Curves aspect, CurveFeature feature, Context context, Op op, CancellationToken cancel) where TGeometry : notnull =>
         Optional(geometry).ToFin(op.InvalidInput()).Bind(g => (g, aspect) switch {
             (Curve or Line or Polyline or Circle or Arc or Ellipse, Analysis.Curves.EdgesCase { Selector: EdgeSelector.AllOf or EdgeSelector.Boundary } or Analysis.Curves.AtCase or Analysis.Curves.SegmentsCase) => CurveInput(source: g, aspect: aspect, feature: feature, op: op),

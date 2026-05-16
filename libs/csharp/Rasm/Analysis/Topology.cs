@@ -5,7 +5,7 @@ public static partial class Analyze {
     public static Operation<TGeometry, TOut> Domains<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
         return typeof(TOut) == typeof(Interval) && (typeof(TGeometry) == typeof(object) || typeof(TGeometry) == typeof(GeometryBase) || typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) || typeof(Surface).IsAssignableFrom(c: typeof(TGeometry)))
-            ? Cast<TGeometry, TOut>(key: key, operation: KernelLift<TGeometry, Interval, Op>(key: key, state: key, extract: static (op, g, _) => DomainsOf(geometry: g, op: op).Bind(domains => op.Accept(values: domains))))
+            ? KernelLift<TGeometry, Interval, Op>(key: key, state: key, extract: static (op, g, _) => DomainsOf(geometry: g, op: op).Bind(domains => op.Accept(values: domains))).As<TGeometry, TOut>(key: key)
             : key.Unsupported<TGeometry, TOut>();
     }
     public static Operation<TGeometry, TOut> Coerce<TGeometry, TOut>() where TGeometry : notnull where TOut : notnull {
@@ -18,7 +18,7 @@ public static partial class Analyze {
     public static Operation<TGeometry, TOut> Kind<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
         return typeof(TOut) == typeof(Kind) && GeometryKernel.CanKind(typeof(TGeometry))
-            ? Cast<TGeometry, TOut>(key: key, operation: KernelLift<TGeometry, Kind, Op>(key: key, state: key, extract: static (op, g, ctx) => ((object)g).KindOf(context: ctx).Bind(k => op.Accept(value: k))))
+            ? KernelLift<TGeometry, Kind, Op>(key: key, state: key, extract: static (op, g, ctx) => ((object)g).KindOf(context: ctx).Bind(k => op.Accept(value: k))).As<TGeometry, TOut>(key: key)
             : key.Unsupported<TGeometry, TOut>();
     }
     public static Operation<TGeometry, BrepSolidOrientation> SolidOrientation<TGeometry>() where TGeometry : GeometryBase {
@@ -29,14 +29,14 @@ public static partial class Analyze {
         Op key = Op.Of();
         return point.IsValid switch {
             false => Operation<TGeometry, bool>.Reject(key: key, fault: key.InvalidInput()),
-            true => Cast<TGeometry, bool>(key: key, operation: KernelLift<TGeometry, bool, (Op Key, Point3d Target)>(key: key, state: (Key: key, Target: point), requirement: Requirement.SolidTopology, extract: static (s, g, ctx) => ContainsPoint(geometry: g, target: s.Target, context: ctx, op: s.Key).Bind(c => s.Key.Accept(value: c)))),
+            true => KernelLift<TGeometry, bool, (Op Key, Point3d Target)>(key: key, state: (Key: key, Target: point), requirement: Requirement.SolidTopology, extract: static (s, g, ctx) => ContainsPoint(geometry: g, target: s.Target, context: ctx, op: s.Key).Bind(c => s.Key.Accept(value: c))).As<TGeometry, bool>(key: key),
         };
     }
     public static Operation<TGeometry, TOut> Components<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
         return ((typeof(Brep).IsAssignableFrom(c: typeof(TGeometry)) || typeof(TGeometry) == typeof(object) || typeof(TGeometry) == typeof(GeometryBase)) && typeof(TOut) == typeof(Brep))
             || ((typeof(Mesh).IsAssignableFrom(c: typeof(TGeometry)) || typeof(TGeometry) == typeof(object) || typeof(TGeometry) == typeof(GeometryBase)) && typeof(TOut) == typeof(Mesh))
-            ? Cast<TGeometry, TOut>(key: key, operation: KernelLift<TGeometry, TOut, Op>(key: key, state: key, extract: static (op, g, _) => ComponentsOf(geometry: g, op: op).Bind(c => ProjectComponents<TOut>(components: c, op: op))))
+            ? KernelLift<TGeometry, TOut, Op>(key: key, state: key, extract: static (op, g, _) => ComponentsOf(geometry: g, op: op).Bind(c => ProjectComponents<TOut>(components: c, op: op))).As<TGeometry, TOut>(key: key)
             : key.Unsupported<TGeometry, TOut>();
     }
     private static Operation<TGeometry, TValue> KernelLift<TGeometry, TValue, TState>(Op key, TState state, Func<TState, TGeometry, Context, Fin<Seq<TValue>>> extract, Requirement? requirement = null, bool requiresContext = true) where TGeometry : notnull =>

@@ -35,7 +35,7 @@ public sealed record Operation<TGeometry, TOut> where TGeometry : notnull {
             Body.Rejected rejected => Fin.Fail<Seq<TOut>>(rejected.Fault).ToEff(),
             _ => Fin.Fail<Seq<TOut>>(Key.InvalidResult()).ToEff(),
         };
-    public Operation<TGeometry, TOut> Aggregate() =>
+    public Operation<TGeometry, TOut> AsAggregate() =>
         Execution switch {
             Body.PerItem item => item.Plan.Case switch {
                 Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>> project => this with { Execution = new Body.Aggregate(Evaluate: project) },
@@ -143,17 +143,17 @@ public static partial class Analyze {
         aspect?.Operation<TGeometry, TOut>() ?? Operation<TGeometry, TOut>.Reject(key: Op.Of(name: callerMember), fault: Op.Of(name: callerMember).InvalidInput());
     internal static Operation<TGeometry, TOut> Unsupported<TGeometry, TOut>(this Op key) where TGeometry : notnull =>
         Operation<TGeometry, TOut>.Reject(key: key, fault: key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut)));
-    internal static Operation<TGeometry, TOut> Cast<TGeometry, TOut>(Op key, object operation) where TGeometry : notnull => operation switch {
+    internal static Operation<TGeometry, TOut> As<TGeometry, TOut>(this object operation, Op key) where TGeometry : notnull => operation switch {
         Operation<TGeometry, TOut> typed => typed,
         _ => Operation<TGeometry, TOut>.Reject(key: key, fault: key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))),
     };
     internal static Operation<TGeometry, TOut> Native<TGeometry, TOut, TNative, TValue, TState>(Op key, TState state, Func<TState, TNative, Eff<Env, Seq<TValue>>> project, Requirement? requirement = null, bool requiresContext = false) where TGeometry : notnull where TNative : notnull =>
-        Cast<TGeometry, TOut>(key: key, operation: Operation<TGeometry, TValue>.Build(
+        Operation<TGeometry, TValue>.Build(
             key: key, requirement: requirement, requiresContext: requiresContext, state: (Key: key, State: state, Project: project),
             evaluator: static (state, geometry) => geometry switch {
                 TNative native => state.Project(arg1: state.State, arg2: native),
                 _ => Fin.Fail<Seq<TValue>>(state.Key.Unsupported(geometryType: geometry.GetType(), outputType: typeof(TValue))).ToEff(),
-            }));
+            }).As<TGeometry, TOut>(key: key);
 }
 
 internal static class ValidationLifts {

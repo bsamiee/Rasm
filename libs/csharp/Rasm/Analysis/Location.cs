@@ -107,7 +107,7 @@ public static partial class Analyze {
     public static Operation<TGeometry, TOut> Location<TGeometry, TOut>(Location aspect) where TGeometry : notnull => Aspect<Location, TGeometry, TOut>(aspect: aspect);
     internal static Operation<TGeometry, TOut> Located<TGeometry, TOut, TNative, TValue>(Op key, Func<Operation<TGeometry, TValue>> operation) where TGeometry : notnull =>
         ((typeof(TNative) == typeof(Curve) && GeometryKernel.CanCurveForm(type: typeof(TGeometry))) || typeof(TNative).IsAssignableFrom(c: typeof(TGeometry)) || typeof(TGeometry) == typeof(object) || typeof(TGeometry) == typeof(GeometryBase)) && typeof(TOut) == typeof(TValue)
-            ? Cast<TGeometry, TOut>(key: key, operation: operation())
+            ? operation().As<TGeometry, TOut>(key: key)
             : key.Unsupported<TGeometry, TOut>();
     internal static Operation<TGeometry, TOut> AtMidpointOp<TGeometry, TOut>(Op key, Func<Curve, double, TOut> project) where TGeometry : notnull =>
         Operation<TGeometry, TOut>.Build(
@@ -196,15 +196,15 @@ public static partial class Analyze {
             false => Operation<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput()),
             true => (typeof(TGeometry), typeof(TOut)) switch {
                 (Type geometry, Type output) when GeometryKernel.CanCurveForm(type: geometry) && output == typeof(double) =>
-                    Cast<TGeometry, TOut>(key: key, operation: Operation<TGeometry, double>.Build(
+                    Operation<TGeometry, double>.Build(
                         key: key, state: (Key: key, Probe: probe),
                         evaluator: static (state, geometry) => GeometryKernel.CurveForm(source: geometry, op: state.Key)
                             .Bind(lease => lease.Use(curve => curve.ClosestPoint(testPoint: state.Probe, t: out double parameter) switch {
                                 true => state.Key.Accept(value: parameter),
                                 false => Fin.Fail<Seq<double>>(state.Key.InvalidResult()),
-                            })).ToEff())),
+                            })).ToEff()).As<TGeometry, TOut>(key: key),
                 (Type geometry, Type output) when (typeof(Surface).IsAssignableFrom(c: geometry) || geometry == typeof(object) || geometry == typeof(GeometryBase)) && output == typeof(Point2d) =>
-                    Cast<TGeometry, TOut>(key: key, operation: Operation<TGeometry, Point2d>.Build(
+                    Operation<TGeometry, Point2d>.Build(
                         key: key, state: (Key: key, Probe: probe),
                         evaluator: static (state, geometry) => geometry switch {
                             Surface surface => (surface.ClosestPoint(testPoint: state.Probe, u: out double u, v: out double v) switch {
@@ -212,7 +212,7 @@ public static partial class Analyze {
                                 false => Fin.Fail<Seq<Point2d>>(state.Key.InvalidResult()),
                             }).ToEff(),
                             _ => Fin.Fail<Seq<Point2d>>(state.Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Point2d))).ToEff(),
-                        })),
+                        }).As<TGeometry, TOut>(key: key),
                 _ => key.Unsupported<TGeometry, TOut>(),
             },
         };
@@ -245,12 +245,12 @@ public static partial class Analyze {
         };
     }
     private static Operation<TGeometry, TOut> CurveCurvatureSamplesOp<TGeometry, TOut, TValue>(Op key, int count, Func<Op, Curve, int, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull =>
-        Cast<TGeometry, TOut>(key: key, operation: Operation<TGeometry, TValue>.Build(
+        Operation<TGeometry, TValue>.Build(
             key: key, requirement: Requirement.CurveLength, requiresContext: true, state: (Key: key, Count: count, Project: project),
             evaluator: static (state, geometry) => from context in Env.Asks
                                                    from result in GeometryKernel.CurveForm(source: geometry, op: state.Key)
                                                        .Bind(lease => lease.Use(curve => state.Project(arg1: state.Key, arg2: curve, arg3: state.Count, arg4: context))).ToEff()
-                                                   select result));
+                                                   select result).As<TGeometry, TOut>(key: key);
     private static Operation<TGeometry, TOut> SurfaceCurvatureSamplesOp<TGeometry, TOut, TValue>(Op key, int count, Func<Op, Surface, int, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull =>
         Native<TGeometry, TOut, Surface, TValue, (Op Key, int Count, Func<Op, Surface, int, Context, Fin<Seq<TValue>>> Project)>(
             key: key, state: (Key: key, Count: count, Project: project), requirement: Requirement.SurfaceEvaluation, requiresContext: true,

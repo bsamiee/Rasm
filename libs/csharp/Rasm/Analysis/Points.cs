@@ -14,7 +14,7 @@ public partial record Points : IAspect {
     private static readonly Op ControlPointsKey = Op.Of(name: nameof(ControlPoints));
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         quadrantsCase: static _ => typeof(TOut) == typeof(Point3d)
-            ? Analyze.Cast<TGeometry, TOut>(key: QuadrantsKey, operation: Analysis.Operation<TGeometry, Point3d>.Build(
+            ? Analysis.Operation<TGeometry, Point3d>.Build(
                 key: QuadrantsKey, requirement: Requirement.CurveLength, requiresContext: true, state: QuadrantsKey,
                 evaluator: static (op, geometry) =>
                     from context in Env.Asks
@@ -30,10 +30,10 @@ public partial record Points : IAspect {
                                 .Head.ToFin(op.InvalidResult()))
                             .As(),
                     }).ToEff()
-                    select points))
+                    select points).As<TGeometry, TOut>(key: QuadrantsKey)
             : QuadrantsKey.Unsupported<TGeometry, TOut>(),
         edgeMidpointsCase: static _ => typeof(TOut) == typeof(Point3d) && GeometryKernel.CanReadEdges(type: typeof(TGeometry))
-            ? Analyze.Cast<TGeometry, TOut>(key: EdgeMidpointsKey, operation: Analysis.Operation<TGeometry, Point3d>.Build(
+            ? Analysis.Operation<TGeometry, Point3d>.Build(
                 key: EdgeMidpointsKey, requiresContext: true, state: EdgeMidpointsKey,
                 evaluator: static (op, geometry) => geometry switch {
                     Line line => op.Accept(value: line.PointAt(t: 0.5)).ToEff(),
@@ -48,23 +48,23 @@ public partial record Points : IAspect {
                          }).ToEff()
                          from result in TopologyProjection.Project(all: curves, chosen: curves, project: values => op.Accept(values: values.Choose(static projection => projection.As<Curve>().Map(static c => new Lease<Curve>.Borrowed(Value: c).Use(static owned => owned.PointAtNormalizedLength(length: 0.5)))))).ToEff()
                          select result,
-                }))
+                }).As<TGeometry, TOut>(key: EdgeMidpointsKey)
             : EdgeMidpointsKey.Unsupported<TGeometry, TOut>(),
         verticesCase: static _ => typeof(TOut) == typeof(Point3d) && GeometryKernel.CanReadVertices(type: typeof(TGeometry))
-            ? Analyze.Cast<TGeometry, TOut>(key: VerticesKey, operation: Analysis.Operation<TGeometry, Point3d>.Build(
+            ? Analysis.Operation<TGeometry, Point3d>.Build(
                 key: VerticesKey, requiresContext: true, state: VerticesKey,
                 evaluator: static (op, geometry) =>
                     from context in Env.Asks
                     from points in Analyze.VerticesOf(geometry: geometry, context: context, op: op).ToEff()
                     from result in op.Accept(values: points).ToEff()
-                    select result))
+                    select result).As<TGeometry, TOut>(key: VerticesKey)
             : VerticesKey.Unsupported<TGeometry, TOut>(),
         controlPointsCase: static _ => typeof(TOut) == typeof(Point3d) && GeometryKernel.CanReadControlPoints(type: typeof(TGeometry))
-            ? Analyze.Cast<TGeometry, TOut>(key: ControlPointsKey, operation: Analysis.Operation<TGeometry, Point3d>.Build(
+            ? Analysis.Operation<TGeometry, Point3d>.Build(
                 key: ControlPointsKey, state: ControlPointsKey,
                 evaluator: static (op, geometry) => from points in Analyze.ControlPointsOf(geometry: geometry, op: op).ToEff()
                                                     from result in op.Accept(values: points).ToEff()
-                                                    select result))
+                                                    select result).As<TGeometry, TOut>(key: ControlPointsKey)
             : ControlPointsKey.Unsupported<TGeometry, TOut>());
 }
 

@@ -13,18 +13,30 @@ public partial record Meshes : IAspect {
     public sealed record SamplesCase(MeshSampleCategory Category) : Meshes;
     public sealed record FaceQualityCase(MeshMetric Metric) : Meshes;
     public sealed record AtFaceCase(int? Value) : Meshes;
+    public sealed record NakedEdgesCase : Meshes;
+    public sealed record OutlineCase(Plane Plane) : Meshes;
+    public sealed record SelfIntersectionsCase : Meshes;
     public static Meshes Validity => new SamplesCase(Category: MeshSampleCategory.Validity);
     public static Meshes Counts => new SamplesCase(Category: MeshSampleCategory.Count);
     public static Meshes Defects => new SamplesCase(Category: MeshSampleCategory.Defect);
     public static Meshes FaceQuality(MeshMetric? metric = null) => new FaceQualityCase(Metric: metric ?? MeshMetric.AspectRatio);
     public static Meshes AtFace(int? index = null) => new AtFaceCase(Value: index);
+    public static Meshes NakedEdges => new NakedEdgesCase();
+    public static Meshes Outline(Plane plane) => new OutlineCase(Plane: plane);
+    public static Meshes SelfIntersections => new SelfIntersectionsCase();
     private static readonly Op SamplesKey = Op.Of(name: "MeshSamples");
     private static readonly Op FaceMetricKey = Op.Of(name: nameof(MeshMetric));
     private static readonly Op AtFaceKey = Op.Of(name: "MeshAtFace");
+    private static readonly Op NakedEdgesKey = Op.Of(name: "MeshNakedEdges");
+    private static readonly Op OutlineKey = Op.Of(name: "MeshOutline");
+    private static readonly Op SelfIntersectionsKey = Op.Of(name: "MeshSelfIntersections");
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         samplesCase: static s => Analyze.MeshLift<TGeometry, TOut, MeshSample>(key: SamplesKey, source: Analyze.MeshSamples(category: s.Category)),
         faceQualityCase: static fq => Analyze.MeshLift<TGeometry, TOut, MeshMetricSample>(key: FaceMetricKey, source: Analyze.MeshMetric(metric: fq.Metric)),
-        atFaceCase: static at => Analyze.MeshLift<TGeometry, TOut, TopologyProjection>(key: AtFaceKey, source: Analyze.MeshAtFace(index: at.Value)));
+        atFaceCase: static at => Analyze.MeshLift<TGeometry, TOut, TopologyProjection>(key: AtFaceKey, source: Analyze.MeshAtFace(index: at.Value)),
+        nakedEdgesCase: static _ => Analyze.MeshLift<TGeometry, TOut, Polyline>(key: NakedEdgesKey, source: Analyze.MeshNakedEdges),
+        outlineCase: static o => Analyze.MeshLift<TGeometry, TOut, Polyline>(key: OutlineKey, source: Analyze.MeshOutline(plane: o.Plane)),
+        selfIntersectionsCase: static _ => Analyze.MeshLift<TGeometry, TOut, Polyline>(key: SelfIntersectionsKey, source: Analyze.MeshSelfIntersections));
 }
 
 [SmartEnum<int>]
@@ -164,6 +176,33 @@ public static partial class Analyze {
                         select state.Kinds.Map(kind => new MeshSample(Kind: kind, Value: kind.Sample(mesh: geometry, parameters: head))),
                 false => Fin.Succ(state.Kinds.Map(kind => new MeshSample(Kind: kind, Value: kind.Sample(mesh: geometry, parameters: default)))).ToEff(),
             });
+    }
+    public static Operation<Mesh, Polyline> MeshNakedEdges {
+        get {
+            Op key = Op.Of(name: "MeshNakedEdges");
+            return Operation<Mesh, Polyline>.Build(
+                key: key, state: key,
+                evaluator: static (op, mesh) => Optional(mesh.GetNakedEdges()).Map(seq => op.Accept(values: seq)).IfNone(Fin.Succ(Seq<Polyline>())).ToEff());
+        }
+    }
+    public static Operation<Mesh, Polyline> MeshOutline(Plane plane) {
+        Op key = Op.Of(name: "MeshOutline");
+        return plane.IsValid switch {
+            true => Operation<Mesh, Polyline>.Build(
+                key: key, state: (Key: key, Plane: plane),
+                evaluator: static (state, mesh) => state.Key.Accept(values: mesh.GetOutlines(plane: state.Plane)).ToEff()),
+            false => Operation<Mesh, Polyline>.Reject(key: key, fault: key.InvalidInput()),
+        };
+    }
+    public static Operation<Mesh, Polyline> MeshSelfIntersections {
+        get {
+            Op key = Op.Of(name: "MeshSelfIntersections");
+            return Operation<Mesh, Polyline>.Build(
+                key: key, requirement: Requirement.Basic, state: key,
+                evaluator: static (op, geometry) => from runtime in Env.EnvAsks
+                                                    from result in SelfIntersectionsOf(op: op, geometry: geometry, runtime: runtime).ToEff()
+                                                    select result);
+        }
     }
     public static Operation<Mesh, TopologyProjection> MeshAtFace(int? index = null) {
         Op key = Op.Of();

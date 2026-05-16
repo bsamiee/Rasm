@@ -44,9 +44,9 @@ public partial record Bounds : IAspect {
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         boxCase: static b => b.Shape.Switch(
             axisAligned: static _ => (typeof(TOut) == typeof(BoundingBox) && GeometryKernel.CanBound(typeof(TGeometry), includeSphere: true))
-                ? Analyze.Cast<TGeometry, TOut>(key: BoundsKey, operation: Analysis.Operation<TGeometry, BoundingBox>.Build(
+                ? Analysis.Operation<TGeometry, BoundingBox>.Build(
                     key: BoundsKey, state: BoundsKey,
-                    evaluator: static (op, geometry) => geometry.BoundsOf(op: op).Bind(b => op.Accept(value: b)).ToEff()))
+                    evaluator: static (op, geometry) => geometry.BoundsOf(op: op).Bind(b => op.Accept(value: b)).ToEff()).As<TGeometry, TOut>(key: BoundsKey)
                 : BoundsKey.Unsupported<TGeometry, TOut>(),
             inPlane: static p => (typeof(TOut) == typeof(Box) && typeof(GeometryBase).IsAssignableFrom(c: typeof(TGeometry)))
                 ? Analyze.Native<TGeometry, TOut, GeometryBase, Box, (Op Key, Plane Plane)>(
@@ -76,23 +76,23 @@ public partial record Bounds : IAspect {
                 : PrincipalKey.Unsupported<TGeometry, TOut>()),
         derivedCase: static d => d.Derivation.Switch(
             center: static _ => typeof(TOut) == typeof(Point3d)
-                ? Analyze.Cast<TGeometry, TOut>(key: CenterKey, operation: Analysis.Operation<TGeometry, Point3d>.Build(
+                ? Analysis.Operation<TGeometry, Point3d>.Build(
                     key: CenterKey, state: CenterKey,
-                    evaluator: static (op, geometry) => geometry.BoundsOf(op: op).Bind(b => op.Accept(value: b.Center)).ToEff()))
+                    evaluator: static (op, geometry) => geometry.BoundsOf(op: op).Bind(b => op.Accept(value: b.Center)).ToEff()).As<TGeometry, TOut>(key: CenterKey)
                 : CenterKey.Unsupported<TGeometry, TOut>(),
             corners: static c => typeof(TOut) == typeof(Point3d)
-                ? Analyze.Cast<TGeometry, TOut>(key: CornersKey, operation: Analysis.Operation<TGeometry, Point3d>.Build(
+                ? Analysis.Operation<TGeometry, Point3d>.Build(
                     key: CornersKey, requiresContext: c.Unique, state: (Key: CornersKey, c.Unique),
                     evaluator: static (state, geometry) =>
                         from runtime in Env.EnvAsks
                         from bbox in geometry.BoundsOf(op: state.Key).ToEff()
                         from result in state.Key.Accept(values: state.Unique ? Point3d.CullDuplicates(points: bbox.GetCorners(), tolerance: runtime.Context.Absolute.Value) : bbox.GetCorners()).ToEff()
-                        select result))
+                        select result).As<TGeometry, TOut>(key: CornersKey)
                 : CornersKey.Unsupported<TGeometry, TOut>(),
             edges: static _ => (typeof(TGeometry) == typeof(BoundingBox) && typeof(TOut) == typeof(Line))
-                ? Analyze.Cast<TGeometry, TOut>(key: BoxEdgesKey, operation: Analysis.Operation<BoundingBox, Line>.Build(
+                ? Analysis.Operation<BoundingBox, Line>.Build(
                     key: BoxEdgesKey, state: BoxEdgesKey,
-                    evaluator: static (op, geometry) => op.Accept(values: geometry.GetEdges()).ToEff()))
+                    evaluator: static (op, geometry) => op.Accept(values: geometry.GetEdges()).ToEff()).As<TGeometry, TOut>(key: BoxEdgesKey)
                 : BoxEdgesKey.Unsupported<TGeometry, TOut>(),
             area: static _ => Analyze.BoxMetric<TGeometry, TOut>(key: BoxAreaKey, boundingBox: static g => g.Area, box: static g => g.Area),
             volume: static _ => Analyze.BoxMetric<TGeometry, TOut>(key: BoxVolumeKey, boundingBox: static g => g.Volume, box: static g => g.Volume)));
@@ -103,12 +103,12 @@ public static partial class Analyze {
     public static Operation<TGeometry, TOut> Bounds<TGeometry, TOut>(Bounds aspect) where TGeometry : notnull => Aspect<Bounds, TGeometry, TOut>(aspect: aspect);
     internal static Operation<TGeometry, TOut> BoxMetric<TGeometry, TOut>(Op key, Func<BoundingBox, double> boundingBox, Func<Box, double> box) where TGeometry : notnull =>
         (typeof(TOut) == typeof(double), typeof(TGeometry)) switch {
-            (true, Type geometry) when geometry == typeof(BoundingBox) => Cast<TGeometry, TOut>(key: key, operation: Operation<BoundingBox, double>.Build(
+            (true, Type geometry) when geometry == typeof(BoundingBox) => Operation<BoundingBox, double>.Build(
                 key: key, state: (Key: key, Project: boundingBox),
-                evaluator: static (state, geometry) => state.Key.AcceptValue(value: geometry).Bind(validated => state.Key.Accept(value: state.Project(arg: validated))).ToEff())),
-            (true, Type geometry) when geometry == typeof(Box) => Cast<TGeometry, TOut>(key: key, operation: Operation<Box, double>.Build(
+                evaluator: static (state, geometry) => state.Key.AcceptValue(value: geometry).Bind(validated => state.Key.Accept(value: state.Project(arg: validated))).ToEff()).As<TGeometry, TOut>(key: key),
+            (true, Type geometry) when geometry == typeof(Box) => Operation<Box, double>.Build(
                 key: key, state: (Key: key, Project: box),
-                evaluator: static (state, geometry) => state.Key.AcceptValue(value: geometry).Bind(validated => state.Key.Accept(value: state.Project(arg: validated))).ToEff())),
+                evaluator: static (state, geometry) => state.Key.AcceptValue(value: geometry).Bind(validated => state.Key.Accept(value: state.Project(arg: validated))).ToEff()).As<TGeometry, TOut>(key: key),
             _ => key.Unsupported<TGeometry, TOut>(),
         };
 }

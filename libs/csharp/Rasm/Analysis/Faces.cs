@@ -61,12 +61,12 @@ public static partial class Analyze {
                     : Stats.Minima(items: ranked, projection: static item => item.Score, tolerance: state.Runtime.Absolute.Value * axis.Length).Map(static item => item.face)),
         };
     internal static Operation<TGeometry, TOut> FaceOperation<TGeometry, TOut, TValue>(Op key, Faces selector, Requirement requirement, Func<Seq<TopologyProjection>, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull =>
-        Cast<TGeometry, TOut>(key: key, operation: Operation<TGeometry, TValue>.Build(
+        Operation<TGeometry, TValue>.Build(
             key: key, state: (Key: key, Selector: selector, Project: project), requirement: requirement, requiresContext: true,
             evaluator: static (state, geometry) =>
                 from context in Env.Asks
                 from faces in DecomposeFaces(key: state.Key, context: context, geometry: geometry).ToEff()
                 from chosen in SelectFaces(key: state.Key, faces: faces, selector: state.Selector, runtime: context).ToEff()
                 from result in TopologyProjection.Project(all: faces, chosen: chosen, project: values => state.Project(arg1: values, arg2: context)).ToEff()
-                select result));
+                select result).As<TGeometry, TOut>(key: key);
 }
