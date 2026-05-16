@@ -20,7 +20,7 @@ internal partial record IntersectionResult {
         points: static (o, _) => UniformCanProjectTo<Point3d>(output: o),
         intervals: static (o, _) => UniformCanProjectTo<Interval>(output: o),
         polylines: static (o, _) => o == typeof(Polyline) || o == typeof(IntersectionKind),
-        hits: static (o, _) => o == typeof(IntersectionHit) || o == typeof(Curve) || o == typeof(Point3d) || o == typeof(Interval) || o == typeof(IntersectionKind));
+        hits: static (o, _) => IntersectionHit.CanProjectTo(output: o));
     internal Fin<Seq<TOut>> Project<TOut>(Op key) => Switch(
         state: key,
         lines: static (k, l) => UniformAs<Line, TOut>(values: l.Values, key: k, caseType: typeof(Lines), tag: IntersectionKind.Curve),
@@ -31,19 +31,7 @@ internal partial record IntersectionResult {
             Type t when t == typeof(IntersectionKind) => k.AcceptResults<IntersectionKind, TOut>(values: p.Values.Map(static x => x.Kind)),
             _ => Fin.Fail<Seq<TOut>>(k.Unsupported(geometryType: typeof(Polylines), outputType: typeof(TOut))),
         },
-        hits: static (k, h) => HitsAs<TOut>(hits: h.Values, key: k));
-    private static Fin<Seq<TOut>> HitsAs<TOut>(Seq<IntersectionHit> hits, Op key) => typeof(TOut) switch {
-        Type t when t == typeof(IntersectionHit) => key.AcceptResults<IntersectionHit, TOut>(values: hits),
-        Type t when t == typeof(Curve) => key.AcceptResults<Curve, TOut>(values: hits.Bind(static value => value.Curves)),
-        Type t when t == typeof(Point3d) => DropHitCurves(hits: hits, result: key.AcceptResults<Point3d, TOut>(values: hits.Bind(static value => value.Points))),
-        Type t when t == typeof(Interval) => DropHitCurves(hits: hits, result: key.AcceptResults<Interval, TOut>(values: hits.Bind(static value => value.Intervals))),
-        Type t when t == typeof(IntersectionKind) => DropHitCurves(hits: hits, result: key.AcceptResults<IntersectionKind, TOut>(values: hits.Map(static value => value.Kind))),
-        _ => DropHitCurves(hits: hits, result: Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(Hits), outputType: typeof(TOut)))),
-    };
-    private static Fin<Seq<TOut>> DropHitCurves<TOut>(Seq<IntersectionHit> hits, Fin<Seq<TOut>> result) {
-        _ = hits.Iter(static value => value.Dispose());
-        return result;
-    }
+        hits: static (k, h) => IntersectionHit.Project<TOut>(hits: h.Values, key: k));
     private static Fin<Seq<TOut>> UniformAs<TNative, TOut>(Seq<TNative> values, Op key, Type caseType, IntersectionKind tag) where TNative : notnull => typeof(TOut) switch {
         Type t when t == typeof(TNative) => key.AcceptResults<TNative, TOut>(values: values),
         Type t when t == typeof(IntersectionKind) => key.AcceptResults<IntersectionKind, TOut>(values: toSeq(Enumerable.Repeat(element: tag, count: values.Count))),

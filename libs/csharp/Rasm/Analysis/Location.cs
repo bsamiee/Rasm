@@ -53,7 +53,16 @@ public partial record Location : IAspect {
             curveParameter: static cp => Analyze.Located<TGeometry, TOut, Curve, Point3d>(key: PointAtKey, operation: () => Analyze.CurveAtOp<TGeometry, Point3d>(key: PointAtKey, parameter: cp.T, project: static (curve, t) => PointAtKey.Accept(value: curve.PointAt(t: t)))),
             surfaceParameter: static sp => Analyze.Located<TGeometry, TOut, Surface, Point3d>(key: PointAtKey, operation: () => Analyze.SurfaceUvOp<TGeometry, Point3d>(key: PointAtKey, uv: sp.Uv, project: static (surface, p) => PointAtKey.Accept(value: surface.PointAt(u: p.X, v: p.Y)))),
             arcLength: static al => Analyze.Located<TGeometry, TOut, Curve, Point3d>(key: PointAtLengthKey, operation: () => Analyze.PointAtLengthOp<TGeometry>(key: PointAtLengthKey, distance: al.Distance)),
-            closestTo: static ct => Analyze.ClosestPointOp<TGeometry, TOut>(point: ct.Probe),
+            closestTo: static ct => (ct.Probe.IsValid, ClosestHit.CanProjectTo(output: typeof(TOut))) switch {
+                (false, _) => Analysis.Operation<TGeometry, TOut>.Reject(key: PointAtKey, fault: PointAtKey.InvalidInput()),
+                (true, true) => Analysis.Operation<TGeometry, TOut>.Build(
+                    key: PointAtKey, state: (Key: PointAtKey, Target: ct.Probe),
+                    evaluator: static (state, geometry) =>
+                        from hit in GeometryKernel.ClosestOf(geometry: geometry, target: state.Target, key: state.Key).ToEff()
+                        from result in hit.Project<TOut>(key: state.Key).ToEff()
+                        select result),
+                _ => PointAtKey.Unsupported<TGeometry, TOut>(),
+            },
             normalizedMid: static _ => Analyze.Located<TGeometry, TOut, Curve, Point3d>(key: MidpointKey, operation: () => Analyze.AtMidpointOp<TGeometry, Point3d>(key: MidpointKey, project: static (curve, parameter) => curve.PointAt(t: parameter))),
             perpendicularSet: static _ => PointAtKey.Unsupported<TGeometry, TOut>()),
         frameAtCase: static f => f.At.Switch<Operation<TGeometry, TOut>>(
@@ -170,19 +179,6 @@ public static partial class Analyze {
                                    select Seq(path),
                 _ => Fin.Fail<Seq<Curve>>(state.Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Curve))).ToEff(),
             });
-    internal static Operation<TGeometry, TOut> ClosestPointOp<TGeometry, TOut>(Point3d point) where TGeometry : notnull {
-        Op key = Op.Of();
-        return (point.IsValid, ClosestHit.CanProjectTo(output: typeof(TOut))) switch {
-            (false, _) => Operation<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput()),
-            (true, true) => Operation<TGeometry, TOut>.Build(
-                key: key, state: (Key: key, Target: point),
-                evaluator: static (state, geometry) =>
-                    from hit in GeometryKernel.ClosestOf(geometry: geometry, target: state.Target, key: state.Key).ToEff()
-                    from result in hit.Project<TOut>(key: state.Key).ToEff()
-                    select result),
-            _ => key.Unsupported<TGeometry, TOut>(),
-        };
-    }
     internal static Operation<TGeometry, TOut> CurvatureSamplesOp<TGeometry, TOut>(int count, CurvatureMode mode) where TGeometry : notnull {
         Op key = Op.Of(name: "CurvatureAt");
         return (count, mode, typeof(TGeometry), typeof(TOut)) switch {

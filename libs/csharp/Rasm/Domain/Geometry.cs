@@ -173,6 +173,20 @@ public abstract partial record IntersectionHit {
         curveCase: static c => c.CurveKind != IntersectionKind.Unknown && c.Curve.IsValid,
         overlapCase: static o => o.Start.IsValid && o.End.IsValid && o.OverlapA.IsValid && o.OverlapB.IsValid && o.Curve.Map(static c => c.IsValid).IfNone(true));
     internal Unit Dispose() => Curves.Iter(static curve => curve.Dispose());
+    internal static bool CanProjectTo(Type output) =>
+        output == typeof(IntersectionHit) || output == typeof(Curve) || output == typeof(Point3d) || output == typeof(Interval) || output == typeof(IntersectionKind);
+    internal static Fin<Seq<TOut>> Project<TOut>(Seq<IntersectionHit> hits, Op key) => typeof(TOut) switch {
+        Type t when t == typeof(IntersectionHit) => key.AcceptResults<IntersectionHit, TOut>(values: hits),
+        Type t when t == typeof(Curve) => key.AcceptResults<Curve, TOut>(values: hits.Bind(static value => value.Curves)),
+        Type t when t == typeof(Point3d) => DropCurves(hits: hits, result: key.AcceptResults<Point3d, TOut>(values: hits.Bind(static value => value.Points))),
+        Type t when t == typeof(Interval) => DropCurves(hits: hits, result: key.AcceptResults<Interval, TOut>(values: hits.Bind(static value => value.Intervals))),
+        Type t when t == typeof(IntersectionKind) => DropCurves(hits: hits, result: key.AcceptResults<IntersectionKind, TOut>(values: hits.Map(static value => value.Kind))),
+        _ => DropCurves(hits: hits, result: Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(IntersectionHit), outputType: typeof(TOut)))),
+    };
+    private static Fin<Seq<TOut>> DropCurves<TOut>(Seq<IntersectionHit> hits, Fin<Seq<TOut>> result) {
+        _ = hits.Iter(static value => value.Dispose());
+        return result;
+    }
     public static IntersectionHit At(Point3d point) => new PointCase(point);
     public static IntersectionHit Along(Curve curve, IntersectionKind kind) => new CurveCase(curve, kind);
     public static IntersectionHit Overlap(Point3d start, Point3d end, Interval overlapA, Interval overlapB, Option<Curve> curve = default) => new OverlapCase(start, end, overlapA, overlapB, curve);

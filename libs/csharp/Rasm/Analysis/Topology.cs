@@ -10,32 +10,35 @@ public partial record Topologies : IAspect {
     public sealed record SolidOrientationCase : Topologies;
     public sealed record ComponentsCase : Topologies;
     public sealed record ContainsPointCase(Point3d Point) : Topologies;
-    public sealed record ManifoldCase : Topologies;
-    public sealed record EulerCharacteristicCase : Topologies;
-    public sealed record BoundaryLoopsCase : Topologies;
-    public sealed record GenusCase : Topologies;
-    public sealed record HoleCountCase : Topologies;
+    public sealed record ScalarCase(TopologyScalar Scalar) : Topologies;
     public static Topologies Kind => new KindCase();
     public static Topologies Domains => new DomainsCase();
     public static Topologies SolidOrientation => new SolidOrientationCase();
     public static Topologies Components => new ComponentsCase();
     public static Topologies ContainsPoint(Point3d point) => new ContainsPointCase(Point: point);
-    public static Topologies Manifold => new ManifoldCase();
-    public static Topologies Euler => new EulerCharacteristicCase();
-    public static Topologies BoundaryLoops => new BoundaryLoopsCase();
-    public static Topologies Genus => new GenusCase();
-    public static Topologies HoleCount => new HoleCountCase();
+    public static Topologies Manifold => new ScalarCase(Scalar: TopologyScalar.Manifold);
+    public static Topologies Euler => new ScalarCase(Scalar: TopologyScalar.Euler);
+    public static Topologies BoundaryLoops => new ScalarCase(Scalar: TopologyScalar.BoundaryLoops);
+    public static Topologies Genus => new ScalarCase(Scalar: TopologyScalar.Genus);
+    public static Topologies HoleCount => new ScalarCase(Scalar: TopologyScalar.HoleCount);
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         kindCase: static _ => Analyze.Kind<TGeometry, TOut>(),
         domainsCase: static _ => Analyze.TopologyDomains<TGeometry, TOut>(),
         solidOrientationCase: static _ => Analyze.TopologySolidOrientation<TGeometry, TOut>(),
         componentsCase: static _ => Analyze.TopologyComponents<TGeometry, TOut>(),
         containsPointCase: static cp => Analyze.TopologyContains<TGeometry, TOut>(point: cp.Point),
-        manifoldCase: static _ => Analyze.TopologyManifold<TGeometry, TOut>(),
-        eulerCharacteristicCase: static _ => Analyze.TopologyEuler<TGeometry, TOut>(),
-        boundaryLoopsCase: static _ => Analyze.TopologyBoundaryLoops<TGeometry, TOut>(),
-        genusCase: static _ => Analyze.TopologyGenus<TGeometry, TOut>(),
-        holeCountCase: static _ => Analyze.TopologyHoleCount<TGeometry, TOut>());
+        scalarCase: static scalar => Analyze.TopologyScalar<TGeometry, TOut>(scalar: scalar.Scalar));
+}
+
+[BoundaryAdapter, SmartEnum<int>]
+public sealed partial class TopologyScalar {
+    public static readonly TopologyScalar Manifold = new(key: 0, output: typeof(bool), extract: static (g, op) => Analyze.ManifoldOf(geometry: g, op: op).Map(static value => (object)value));
+    public static readonly TopologyScalar Euler = new(key: 1, output: typeof(int), extract: static (g, op) => Analyze.EulerOf(geometry: g, op: op).Map(static value => (object)value));
+    public static readonly TopologyScalar BoundaryLoops = new(key: 2, output: typeof(int), extract: static (g, op) => Analyze.BoundaryLoopsOf(geometry: g, op: op).Map(static value => (object)value));
+    public static readonly TopologyScalar Genus = new(key: 3, output: typeof(int), extract: static (g, op) => Analyze.GenusOf(geometry: g, op: op).Map(static value => (object)value));
+    public static readonly TopologyScalar HoleCount = new(key: 4, output: typeof(int), extract: static (g, op) => Analyze.HoleCountOf(geometry: g, op: op).Map(static value => (object)value));
+    public Type Output { get; }
+    [UseDelegateFromConstructor] internal partial Fin<object> Extract(GeometryBase geometry, Op op);
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -79,15 +82,15 @@ public static partial class Analyze {
             ? KernelLift<TGeometry, bool, (Op Key, Point3d Target)>(key: key, state: (Key: key, Target: point), requirement: Requirement.SolidTopology, extract: static (s, g, ctx) => ContainsPoint(geometry: g, target: s.Target, context: ctx, op: s.Key).Bind(c => s.Key.Accept(value: c))).As<TGeometry, TOut>(key: key)
             : key.Unsupported<TGeometry, TOut>();
     }
-    internal static Operation<TG, TO> TopologyManifold<TG, TO>() where TG : notnull => TopologyScalarOp<TG, TO, bool>(key: Op.Of(), extract: static (g, op) => ManifoldOf(geometry: g, op: op));
-    internal static Operation<TG, TO> TopologyEuler<TG, TO>() where TG : notnull => TopologyScalarOp<TG, TO, int>(key: Op.Of(), extract: static (g, op) => EulerOf(geometry: g, op: op));
-    internal static Operation<TG, TO> TopologyBoundaryLoops<TG, TO>() where TG : notnull => TopologyScalarOp<TG, TO, int>(key: Op.Of(), extract: static (g, op) => BoundaryLoopsOf(geometry: g, op: op));
-    internal static Operation<TG, TO> TopologyGenus<TG, TO>() where TG : notnull => TopologyScalarOp<TG, TO, int>(key: Op.Of(), extract: static (g, op) => GenusOf(geometry: g, op: op));
-    internal static Operation<TG, TO> TopologyHoleCount<TG, TO>() where TG : notnull => TopologyScalarOp<TG, TO, int>(key: Op.Of(), extract: static (g, op) => HoleCountOf(geometry: g, op: op));
-    private static Operation<TGeometry, TOut> TopologyScalarOp<TGeometry, TOut, TValue>(Op key, Func<TGeometry, Op, Fin<TValue>> extract) where TGeometry : notnull =>
-        typeof(TOut) == typeof(TValue) && (typeof(TGeometry) == typeof(object) || typeof(GeometryBase).IsAssignableFrom(typeof(TGeometry)))
-            ? KernelLift<TGeometry, TValue, (Op Key, Func<TGeometry, Op, Fin<TValue>> Extract)>(key: key, state: (Key: key, Extract: extract), extract: static (s, g, _) => s.Extract(arg1: g, arg2: s.Key).Bind(v => s.Key.Accept(value: v))).As<TGeometry, TOut>(key: key)
+    internal static Operation<TGeometry, TOut> TopologyScalar<TGeometry, TOut>(TopologyScalar scalar) where TGeometry : notnull {
+        Op key = Op.Of();
+        return typeof(TOut) == scalar.Output && (typeof(TGeometry) == typeof(object) || typeof(GeometryBase).IsAssignableFrom(typeof(TGeometry)))
+            ? KernelLift<TGeometry, TOut, (Op Key, TopologyScalar Scalar)>(key: key, state: (Key: key, Scalar: scalar), extract: static (s, g, _) => g switch {
+                GeometryBase native => s.Scalar.Extract(geometry: native, op: s.Key).Bind(value => value is TOut typed ? s.Key.Accept(value: typed) : Fin.Fail<Seq<TOut>>(s.Key.Unsupported(geometryType: value.GetType(), outputType: typeof(TOut)))),
+                _ => Fin.Fail<Seq<TOut>>(s.Key.Unsupported(geometryType: g.GetType(), outputType: s.Scalar.Output)),
+            })
             : key.Unsupported<TGeometry, TOut>();
+    }
     private static Operation<TGeometry, TValue> KernelLift<TGeometry, TValue, TState>(Op key, TState state, Func<TState, TGeometry, Context, Fin<Seq<TValue>>> extract, Requirement? requirement = null, bool requiresContext = true) where TGeometry : notnull =>
         Operation<TGeometry, TValue>.Build(
             key: key, requirement: requirement, requiresContext: requiresContext, state: (State: state, Extract: extract),
