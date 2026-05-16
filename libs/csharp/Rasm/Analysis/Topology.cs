@@ -160,10 +160,10 @@ public static partial class Analyze {
     internal static Fin<int> GenusOf<TG>(TG geometry, Op op) where TG : notnull =>
         OnGeometry<TG, int>(geometry: geometry, op: op,
             onMesh: m => m.IsManifold(topologicalTest: true, isOriented: out bool oriented, hasBoundary: out bool _) && oriented
-                ? Fin.Succ((2 - (m.TopologyVertices.Count - m.TopologyEdges.Count + m.Faces.Count) - Optional(m.GetNakedEdges()).Map(static p => p.Length).IfNone(0)) / 2)
+                ? (EulerOf(geometry: m, op: op), BoundaryLoopsOf(geometry: m, op: op)).Apply(static (euler, boundaries) => (2 - euler - boundaries) / 2).As()
                 : Fin.Fail<int>(op.Unsupported(typeof(Mesh), typeof(int))),
             onBrep: b => b.IsManifold && b.SolidOrientation != BrepSolidOrientation.None
-                ? Fin.Succ((2 - (b.Vertices.Count - b.Edges.Count + b.Faces.Count) - BrepLoopCount(brep: b, predicate: static l => l.LoopType is BrepLoopType.Outer or BrepLoopType.Inner or BrepLoopType.Slit)) / 2)
+                ? EulerOf(geometry: b, op: op).Map(static euler => (2 - euler) / 2)
                 : Fin.Fail<int>(op.Unsupported(typeof(Brep), typeof(int))));
     internal static Fin<int> HoleCountOf<TG>(TG geometry, Op op) where TG : notnull =>
         OnGeometry<TG, int>(geometry: geometry, op: op,

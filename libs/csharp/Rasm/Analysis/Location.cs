@@ -172,23 +172,15 @@ public static partial class Analyze {
             });
     internal static Operation<TGeometry, TOut> ClosestPointOp<TGeometry, TOut>(Point3d point) where TGeometry : notnull {
         Op key = Op.Of();
-        return point.IsValid switch {
-            false => Operation<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput()),
-            true => Operation<TGeometry, TOut>.Build(
+        return (point.IsValid, ClosestHit.CanProjectTo(output: typeof(TOut))) switch {
+            (false, _) => Operation<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput()),
+            (true, true) => Operation<TGeometry, TOut>.Build(
                 key: key, state: (Key: key, Target: point),
                 evaluator: static (state, geometry) =>
                     from hit in GeometryKernel.ClosestOf(geometry: geometry, target: state.Target, key: state.Key).ToEff()
-                    from result in (typeof(TOut) switch {
-                        Type t when t == typeof(Point3d) => state.Key.AcceptResults<Point3d, TOut>(values: Seq(hit.Point)),
-                        Type t when t == typeof(ClosestHit) => state.Key.AcceptResults<ClosestHit, TOut>(values: Seq(hit)),
-                        Type t when t == typeof(double) => state.Key.AcceptResults<double, TOut>(values: Seq((hit.Parameter | hit.Distance).IfNone(state.Target.DistanceTo(other: hit.Point)))),
-                        Type t when t == typeof(Point2d) => hit.Uv.ToFin(Fail: state.Key.InvalidResult()).Bind(uv => state.Key.AcceptResults<Point2d, TOut>(values: Seq(uv))),
-                        Type t when t == typeof(Vector3d) => hit.Normal.ToFin(Fail: state.Key.InvalidResult()).Bind(n => state.Key.AcceptResults<Vector3d, TOut>(values: Seq(n))),
-                        Type t when t == typeof(ComponentIndex) => hit.Component.ToFin(Fail: state.Key.InvalidResult()).Bind(c => state.Key.AcceptResults<ComponentIndex, TOut>(values: Seq(c))),
-                        Type t when t == typeof(MeshPoint) => hit.MeshPoint.ToFin(Fail: state.Key.InvalidResult()).Bind(mp => state.Key.AcceptResults<MeshPoint, TOut>(values: Seq(mp))),
-                        _ => Fin.Fail<Seq<TOut>>(error: state.Key.Unsupported(geometryType: typeof(ClosestHit), outputType: typeof(TOut))),
-                    }).ToEff()
+                    from result in hit.Project<TOut>(key: state.Key).ToEff()
                     select result),
+            _ => key.Unsupported<TGeometry, TOut>(),
         };
     }
     internal static Operation<TGeometry, TOut> CurvatureSamplesOp<TGeometry, TOut>(int count, CurvatureMode mode) where TGeometry : notnull {

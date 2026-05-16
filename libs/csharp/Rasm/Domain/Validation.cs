@@ -228,13 +228,7 @@ internal static class OpAcceptance {
             double scalar => Some(RhinoMath.IsValidDouble(scalar)),
             bool or int or Enum or SurfaceCurvature or MeshCheckParameters => Some(true),
             Kind => Some(true),
-            ClosestHit h => Some(h.Point.IsValid
-                && h.Distance.Map(static d => RhinoMath.IsValidDouble(d) && d >= 0.0).IfNone(true)
-                && h.Parameter.Map(static t => RhinoMath.IsValidDouble(t)).IfNone(true)
-                && h.Uv.Map(static uv => uv.IsValid).IfNone(true)
-                && h.Normal.Map(static n => n.IsValid && n.Length > RhinoMath.ZeroTolerance).IfNone(true)
-                && h.Component.Map(static c => c is { ComponentIndexType: not ComponentIndexType.InvalidType } && c.Index >= 0).IfNone(true)
-                && h.MeshPoint.Map(static m => m.Point.IsValid).IfNone(true)),
+            ClosestHit h => Some(h.IsValid),
             TopologyProjection p => Some(p switch {
                 { Value: Curve { IsValid: true } } => true,
                 { Value: BrepFace { IsValid: true } face, Source: { ComponentIndexType: ComponentIndexType.BrepFace, Index: int f } } => f >= 0 && f == face.FaceIndex,
@@ -243,7 +237,7 @@ internal static class OpAcceptance {
                 { Value: Mesh { IsValid: true } m, Source: { ComponentIndexType: ComponentIndexType.MeshNgon, Index: int n } } => n >= 0 && n < m.Ngons.Count,
                 _ => false,
             }),
-            ResidualSample r => Some(r is { Index: >= 0, Location.IsValid: true, Distance: double d, Tolerance: double t, WithinTolerance: bool w } && RhinoMath.IsValidDouble(d) && d >= 0.0 && RhinoMath.IsValidDouble(t) && t >= 0.0 && w == (d <= t)),
+            ResidualSample r => Some(r is { Index: >= 0, Location.IsValid: true, Distance: double d, Tolerance: double t, WithinTolerance: bool w } && RhinoMath.IsValidDouble(d) && RhinoMath.IsValidDouble(t) && t >= 0.0 && w == (Math.Abs(d) <= t)),
             Stats s => Some(s is { Count: > 0, Minimum: double mn, Maximum: double mx, Mean: double me, Variance: double va, Rms: double rm } && RhinoMath.IsValidDouble(mn) && RhinoMath.IsValidDouble(mx) && RhinoMath.IsValidDouble(me) && RhinoMath.IsValidDouble(va) && RhinoMath.IsValidDouble(rm) && mn <= mx && va >= 0.0 && rm >= 0.0),
             ConformanceSummary cs => Some(ValidityOf(source: cs.Distribution).IfNone(false) && RhinoMath.IsValidDouble(cs.Tolerance) && cs.Tolerance >= 0.0 && cs.WithinTolerance == (cs.Distribution.Maximum <= cs.Tolerance)),
             Hit h => Some(h is { Id: >= 0 }),

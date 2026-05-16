@@ -8,7 +8,6 @@ public partial record Conformance {
     public sealed record WithinToleranceCase(int Count) : Conformance;
     public sealed record SummaryCase(int Count) : Conformance;
     public sealed record MaximumCase(int Count) : Conformance;
-    // Signed surface conformance: positive outside / opposite-normal side, negative inside. Surface targets only (Plane, Sphere).
     public sealed record SignedResidualCase(int Count) : Conformance;
     public static Conformance Distance(int count) => new DistanceCase(Count: count);
     public static Conformance Rms(int count) => new RmsCase(Count: count);
@@ -17,33 +16,51 @@ public partial record Conformance {
     public static Conformance Maximum(int count) => new MaximumCase(Count: count);
     public static Conformance SignedResidual(int count) => new SignedResidualCase(Count: count);
     internal static readonly Op Key = Op.Of(name: nameof(Conformance));
+    internal Type OutputType => Switch(
+        distanceCase: static _ => typeof(double),
+        rmsCase: static _ => typeof(double),
+        withinToleranceCase: static _ => typeof(bool),
+        summaryCase: static _ => typeof(ConformanceSummary),
+        maximumCase: static _ => typeof(ResidualSample),
+        signedResidualCase: static _ => typeof(ResidualSample));
+    internal int SampleCount => Switch(
+        distanceCase: static d => d.Count,
+        rmsCase: static r => r.Count,
+        withinToleranceCase: static w => w.Count,
+        summaryCase: static s => s.Count,
+        maximumCase: static m => m.Count,
+        signedResidualCase: static sr => sr.Count);
     public Operation<(TGeometry Geometry, TTarget Target), TOut> Operation<TGeometry, TTarget, TOut>() where TGeometry : notnull where TTarget : notnull =>
-        (this, CanConform(typeof(TGeometry), typeof(TTarget)), typeof(TOut)) switch {
-            (DistanceCase { Count: <= 0 } or RmsCase { Count: <= 0 } or WithinToleranceCase { Count: <= 0 } or SummaryCase { Count: <= 0 } or MaximumCase { Count: <= 0 } or SignedResidualCase { Count: <= 0 }, _, _) =>
-                Operation<(TGeometry Geometry, TTarget Target), TOut>.Reject(key: Key, fault: Key.InvalidInput()),
-            (_, false, _) => Key.Unsupported<(TGeometry Geometry, TTarget Target), TOut>(),
-            (DistanceCase d, _, Type o) when o == typeof(double) =>
-                Pair<TGeometry, TTarget, double>(this, d.Count, static (r, _) => Stat.ResidualDistances(samples: r, key: Key).Bind(values => Key.Accept(values: values))).As<(TGeometry Geometry, TTarget Target), TOut>(key: Key),
-            (RmsCase r, _, Type o) when o == typeof(double) =>
-                Pair<TGeometry, TTarget, double>(this, r.Count, static (rs, _) => Stat.FromResiduals(samples: rs, key: Key).Bind(s => Key.Accept(value: s.Rms))).As<(TGeometry Geometry, TTarget Target), TOut>(key: Key),
-            (WithinToleranceCase w, _, Type o) when o == typeof(bool) =>
-                Pair<TGeometry, TTarget, bool>(this, w.Count, static (rs, c) => Stat.FromResiduals(samples: rs, key: Key).Bind(s => Key.Accept(value: s.Maximum <= c.Absolute.Value))).As<(TGeometry Geometry, TTarget Target), TOut>(key: Key),
-            (SummaryCase s, _, Type o) when o == typeof(ConformanceSummary) =>
-                Pair<TGeometry, TTarget, ConformanceSummary>(this, s.Count, static (rs, c) => Stat.FromResiduals(samples: rs, key: Key).Bind(stats => Key.Accept(value: new ConformanceSummary(Distribution: stats, Tolerance: c.Absolute.Value, WithinTolerance: stats.Maximum <= c.Absolute.Value)))).As<(TGeometry Geometry, TTarget Target), TOut>(key: Key),
-            (MaximumCase m, _, Type o) when o == typeof(ResidualSample) =>
-                Pair<TGeometry, TTarget, ResidualSample>(this, m.Count, static (rs, _) => Stat.MaximumResidual(samples: rs, key: Key).Bind(sample => Key.Accept(value: sample))).As<(TGeometry Geometry, TTarget Target), TOut>(key: Key),
-            (SignedResidualCase sr, _, Type o) when o == typeof(ResidualSample) =>
-                Pair<TGeometry, TTarget, ResidualSample>(this, sr.Count, static (rs, _) => Key.Accept(values: rs)).As<(TGeometry Geometry, TTarget Target), TOut>(key: Key),
+        (SampleCount, CanConform(typeof(TGeometry), typeof(TTarget)), typeof(TOut) == OutputType) switch {
+            ( <= 0, _, _) => Operation<(TGeometry Geometry, TTarget Target), TOut>.Reject(key: Key, fault: Key.InvalidInput()),
+            (_, true, true) => Pair<TGeometry, TTarget, TOut>(this, SampleCount),
             _ => Key.Unsupported<(TGeometry Geometry, TTarget Target), TOut>(),
+        };
+    internal Fin<Seq<TOut>> Project<TOut>(Seq<ResidualSample> residuals, Context context) =>
+        this switch {
+            DistanceCase =>
+                Stat.ResidualDistances(samples: residuals, key: Key).Bind(values => Key.AcceptResults<double, TOut>(values: values)),
+            RmsCase =>
+                Stat.FromResiduals(samples: residuals, key: Key).Bind(stats => Key.AcceptResults<double, TOut>(values: Seq(stats.Rms))),
+            WithinToleranceCase =>
+                Stat.FromResiduals(samples: residuals, key: Key).Bind(stats => Key.AcceptResults<bool, TOut>(values: Seq(stats.Maximum <= context.Absolute.Value))),
+            SummaryCase =>
+                Stat.FromResiduals(samples: residuals, key: Key)
+                    .Bind(stats => Key.AcceptResults<ConformanceSummary, TOut>(values: Seq(new ConformanceSummary(Distribution: stats, Tolerance: context.Absolute.Value, WithinTolerance: stats.Maximum <= context.Absolute.Value)))),
+            MaximumCase =>
+                Stat.MaximumResidual(samples: residuals, key: Key).Bind(sample => Key.AcceptResults<ResidualSample, TOut>(values: Seq(sample))),
+            SignedResidualCase =>
+                Key.AcceptResults<ResidualSample, TOut>(values: residuals),
+            _ => Fin.Fail<Seq<TOut>>(Key.Unsupported(geometryType: typeof(ResidualSample), outputType: typeof(TOut))),
         };
     private static bool CanConform(Type geometry, Type target) =>
         geometry == typeof(object) || target == typeof(object)
         || (GeometryKernel.CanCurveForm(type: geometry) && (target == typeof(Line) || target == typeof(Circle) || target == typeof(Arc)))
         || (typeof(Surface).IsAssignableFrom(geometry) && (target == typeof(Plane) || target == typeof(Sphere)));
-    private static Operation<(TGeometry Geometry, TTarget Target), TValue> Pair<TGeometry, TTarget, TValue>(Conformance aspect, int count, Func<Seq<ResidualSample>, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull where TTarget : notnull =>
+    private static Operation<(TGeometry Geometry, TTarget Target), TValue> Pair<TGeometry, TTarget, TValue>(Conformance aspect, int count) where TGeometry : notnull where TTarget : notnull =>
         Operation<(TGeometry Geometry, TTarget Target), TValue>.Build(
             key: Conformance.Key, requiresContext: true,
-            state: (Aspect: aspect, Count: count, Project: project),
+            state: (Aspect: aspect, Count: count),
             evaluator: static (state, pair) =>
                 from runtime in Env.EnvAsks
                 from resolved in runtime.Context.Pair(a: pair.Geometry, b: pair.Target, op: Conformance.Key, requirements: static (op, kindG, _) => kindG.Topology switch {
@@ -52,7 +69,7 @@ public partial record Conformance {
                     _ => Fin.Fail<(Requirement A, Requirement B)>(op.Unsupported(geometryType: kindG.Type, outputType: typeof(ResidualSample))),
                 }, cancel: runtime.Cancellation).ToEff()
                 from residuals in Samples(aspect: state.Aspect, geometry: resolved.A, target: resolved.B, count: state.Count, context: runtime.Context).ToEff()
-                from result in state.Project(arg1: residuals, arg2: runtime.Context).ToEff()
+                from result in state.Aspect.Project<TValue>(residuals: residuals, context: runtime.Context).ToEff()
                 select result);
     private static Fin<Seq<ResidualSample>> Samples<TGeometry, TTarget>(Conformance aspect, TGeometry geometry, TTarget target, int count, Context context) where TGeometry : notnull where TTarget : notnull =>
         (aspect, geometry, target) switch {
@@ -75,7 +92,7 @@ public partial record Conformance {
             }));
     private static Fin<Seq<ResidualSample>> SampleResiduals<TGeometry, TPrimitive>(TGeometry geometry, TPrimitive primitive, int count, Context context, Func<TGeometry, int, Context, Op, Fin<Seq<Point3d>>> sampler, Func<TPrimitive, Point3d, double> distance) where TGeometry : notnull where TPrimitive : notnull =>
         sampler(arg1: geometry, arg2: count, arg3: context, arg4: Conformance.Key)
-            .Map(points => points.Map((p, i) => distance(primitive, p) switch { double d => new ResidualSample(i, p, d, context.Absolute.Value, d <= context.Absolute.Value) }));
+            .Map(points => points.Map((p, i) => distance(primitive, p) switch { double d => new ResidualSample(i, p, d, context.Absolute.Value, Math.Abs(d) <= context.Absolute.Value) }));
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------

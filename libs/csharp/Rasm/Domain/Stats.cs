@@ -90,7 +90,7 @@ public readonly record struct Stat {
         samples.Fold(
             initialState: (Value: Fin.Succ(Seq<ResidualSample>()), Key: key),
             f: static (state, sample) => sample switch {
-                { Distance: double distance, Location.IsValid: true } when distance >= 0.0 && RhinoMath.IsValidDouble(x: distance) =>
+                ResidualSample value when OpAcceptance.ValidityOf(source: value).IfNone(false) =>
                     state with { Value = (state.Value, Fin.Succ(sample)).Apply(static (values, valid) => values.Add(value: valid)).As() },
                 _ => state with { Value = Fin.Fail<Seq<ResidualSample>>(state.Key.InvalidResult()) },
             }).Value;

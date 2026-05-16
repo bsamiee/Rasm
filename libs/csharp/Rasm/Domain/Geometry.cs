@@ -133,6 +133,26 @@ public sealed record TopologyProjection {
 public readonly record struct ClosestHit(Point3d Point, Option<double> Distance, Option<double> Parameter, Option<Point2d> Uv, Option<Vector3d> Normal, Option<ComponentIndex> Component, Option<MeshPoint> MeshPoint) {
     internal static ClosestHit At(Point3d target, Point3d point, Option<double> parameter = default, Option<Point2d> uv = default, Option<Vector3d> normal = default, Option<ComponentIndex> component = default, Option<MeshPoint> meshPoint = default) =>
         new(Point: point, Distance: Some(target.DistanceTo(other: point)), Parameter: parameter, Uv: uv, Normal: normal, Component: component, MeshPoint: meshPoint);
+    internal bool IsValid => Point.IsValid
+        && Distance.IsSome
+        && Distance.Map(static d => RhinoMath.IsValidDouble(d) && d >= 0.0).IfNone(true)
+        && Parameter.Map(static t => RhinoMath.IsValidDouble(t)).IfNone(true)
+        && Uv.Map(static uv => uv.IsValid).IfNone(true)
+        && Normal.Map(static n => n.IsValid && n.Length > RhinoMath.ZeroTolerance).IfNone(true)
+        && Component.Map(static c => c is { ComponentIndexType: not ComponentIndexType.InvalidType } && c.Index >= 0).IfNone(true)
+        && MeshPoint.Map(static m => m.Point.IsValid).IfNone(true);
+    internal static bool CanProjectTo(Type output) =>
+        output == typeof(Point3d) || output == typeof(ClosestHit) || output == typeof(double) || output == typeof(Point2d) || output == typeof(Vector3d) || output == typeof(ComponentIndex) || output == typeof(MeshPoint);
+    internal Fin<Seq<TOut>> Project<TOut>(Op key) => typeof(TOut) switch {
+        Type t when t == typeof(Point3d) => key.AcceptResults<Point3d, TOut>(values: Seq(Point)),
+        Type t when t == typeof(ClosestHit) => key.AcceptResults<ClosestHit, TOut>(values: Seq(this)),
+        Type t when t == typeof(double) => Distance.ToFin(Fail: key.InvalidResult()).Bind(distance => key.AcceptResults<double, TOut>(values: Seq(distance))),
+        Type t when t == typeof(Point2d) => Uv.ToFin(Fail: key.InvalidResult()).Bind(uv => key.AcceptResults<Point2d, TOut>(values: Seq(uv))),
+        Type t when t == typeof(Vector3d) => Normal.ToFin(Fail: key.InvalidResult()).Bind(normal => key.AcceptResults<Vector3d, TOut>(values: Seq(normal))),
+        Type t when t == typeof(ComponentIndex) => Component.ToFin(Fail: key.InvalidResult()).Bind(component => key.AcceptResults<ComponentIndex, TOut>(values: Seq(component))),
+        Type t when t == typeof(MeshPoint) => MeshPoint.ToFin(Fail: key.InvalidResult()).Bind(meshPoint => key.AcceptResults<MeshPoint, TOut>(values: Seq(meshPoint))),
+        _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(ClosestHit), outputType: typeof(TOut))),
+    };
 }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct Hit(int Id);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct Couple(int A, int B);
@@ -334,9 +354,15 @@ internal static class GeometryKernel {
             Surface surface when surface.ClosestPoint(testPoint: target, u: out double u, v: out double v) =>
                 Fin.Succ(ClosestHit.At(target: target, point: surface.PointAt(u: u, v: v), uv: Some(new Point2d(x: u, y: v)), normal: Some(surface.NormalAt(u: u, v: v)))),
             Brep brep when brep.ClosestPoint(target, out Point3d point, out ComponentIndex component, out double u, out double v, 0.0, out Vector3d normal) =>
-                Fin.Succ(ClosestHit.At(target: target, point: point, uv: Some(new Point2d(x: u, y: v)), normal: Some(normal), component: Some(component))),
+                Fin.Succ(ClosestHit.At(
+                    target: target,
+                    point: point,
+                    parameter: component.ComponentIndexType == ComponentIndexType.BrepEdge ? Some(u) : Option<double>.None,
+                    uv: component.ComponentIndexType == ComponentIndexType.BrepFace ? Some(new Point2d(x: u, y: v)) : Option<Point2d>.None,
+                    normal: component.ComponentIndexType == ComponentIndexType.BrepFace ? Some(normal) : Option<Vector3d>.None,
+                    component: Some(component))),
             Mesh mesh => Optional(mesh.ClosestMeshPoint(testPoint: target, maximumDistance: 0.0)).ToFin(key.InvalidResult())
-                .Map(meshPoint => ClosestHit.At(target: target, point: meshPoint.Point, normal: Some(mesh.NormalAt(meshPoint: meshPoint)), meshPoint: Some(meshPoint))),
+                .Map(meshPoint => ClosestHit.At(target: target, point: meshPoint.Point, normal: Some(mesh.NormalAt(meshPoint: meshPoint)), component: Some(meshPoint.ComponentIndex), meshPoint: Some(meshPoint))),
             Curve or BrepFace or Surface or Brep => Fin.Fail<ClosestHit>(key.InvalidInput()),
             _ => Fin.Fail<ClosestHit>(key.Unsupported(g.GetType(), typeof(ClosestHit))),
         }
