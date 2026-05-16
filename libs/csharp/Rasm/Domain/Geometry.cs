@@ -28,9 +28,16 @@ public sealed record TopologyProjection {
     public ComponentIndex Source { get; }
     public bool Reversed { get; }
     private TopologyProjection(Lease<GeometryBase> value, CurveFeature feature, ComponentIndex source, bool reversed = false) { this.value = value; Feature = feature; Source = source; Reversed = reversed; }
-    public int FaceIndex => Source.Index;
+    internal bool HasValidSource => (Value, Source) switch {
+        (Curve { IsValid: true }, _) or (Brep { IsValid: true, Faces.Count: > 0 }, { ComponentIndexType: ComponentIndexType.BrepFace, Index: >= 0 }) => true,
+        (BrepFace { IsValid: true } face, { ComponentIndexType: ComponentIndexType.BrepFace, Index: int f }) => f >= 0 && f == face.FaceIndex,
+        (Mesh { IsValid: true } mesh, { ComponentIndexType: ComponentIndexType.MeshFace, Index: int f }) => f >= 0 && f < mesh.Faces.Count,
+        (Mesh { IsValid: true } mesh, { ComponentIndexType: ComponentIndexType.MeshNgon, Index: int n }) => n >= 0 && n < mesh.Ngons.Count,
+        _ => false,
+    };
     public Option<T> As<T>() where T : class =>
         Value is T match ? Some(match)
+        : typeof(T) == typeof(BrepFace) && Value is Brep { Faces.Count: > 0 } brep ? Some((T)(object)brep.Faces[0])
         : typeof(T) == typeof(Brep) && Value is BrepFace face
             ? faceBrep.Case switch {
                 Lease<Brep> lease => Some((T)(object)lease.Resource),
@@ -43,18 +50,7 @@ public sealed record TopologyProjection {
         return new(value: copy ? new Lease<GeometryBase>.Owned(face.DuplicateFace(false)) : (Lease<GeometryBase>)new Lease<GeometryBase>.Borrowed(face), feature: CurveFeature.Input, source: new ComponentIndex(ComponentIndexType.BrepFace, face.FaceIndex), reversed: face.OrientationIsReversed);
     }
     public static Fin<TopologyProjection> OfMesh(Mesh? mesh, ComponentIndex source) =>
-        Optional(mesh).ToFin(Key.InvalidInput()).Bind(native => source switch {
-            { ComponentIndexType: ComponentIndexType.MeshFace, Index: int face } when face >= 0 && face < native.Faces.Count =>
-                Fin.Succ<TopologyProjection>(new(value: new Lease<GeometryBase>.Borrowed(Value: native), feature: CurveFeature.Input, source: source)),
-            { ComponentIndexType: ComponentIndexType.MeshNgon, Index: int ngon } when ngon >= 0 && ngon < native.Ngons.Count =>
-                Fin.Succ<TopologyProjection>(new(value: new Lease<GeometryBase>.Borrowed(Value: native), feature: CurveFeature.Input, source: source)),
-            _ => Fin.Fail<TopologyProjection>(Key.InvalidInput()),
-        });
-    public static Fin<TopologyProjection> OfMesh(Mesh? mesh, MeshNgon polygon) =>
-        Optional(mesh).ToFin(Key.InvalidInput()).Bind(native =>
-            Optional(polygon.BoundaryVertexIndexList()).Filter(static vertices => vertices.Length >= 3).ToFin(Key.InvalidResult())
-                .Bind(_ => MeshComponentIndex(mesh: native, polygon: polygon))
-                .Bind(component => OfMesh(mesh: native, source: component)));
+        Optional(mesh).ToFin(Key.InvalidInput()).Bind(native => new TopologyProjection(value: new Lease<GeometryBase>.Borrowed(Value: native), feature: CurveFeature.Input, source: source) switch { { HasValidSource: true } projection => Fin.Succ(projection), _ => Fin.Fail<TopologyProjection>(Key.InvalidInput()) });
     public Unit Dispose() {
         _ = value.Dispose();
         return faceBrep.Iter(static owned => owned.Dispose());
@@ -63,7 +59,7 @@ public sealed record TopologyProjection {
         ArgumentNullException.ThrowIfNull(source);
         return (Value, source) switch {
             (BrepFace face, _) when ReferenceEquals(face.Brep, source) => Of(face, copy: true),
-            (Mesh mesh, Mesh owner) when ReferenceEquals(mesh, owner) && (Source switch { { ComponentIndexType: ComponentIndexType.MeshFace, Index: int i } => i >= 0 && i < mesh.Faces.Count, { ComponentIndexType: ComponentIndexType.MeshNgon, Index: int i } => i >= 0 && i < mesh.Ngons.Count, _ => false }) =>
+            (Mesh mesh, Mesh owner) when ReferenceEquals(mesh, owner) && HasValidSource =>
                 new(value: new Lease<GeometryBase>.Owned(Value: mesh.DuplicateMesh()), feature: Feature, source: Source, reversed: Reversed),
             _ => this,
         };
@@ -75,59 +71,25 @@ public sealed record TopologyProjection {
             || (Value is Curve curve && outputType.IsInstanceOfType(curve))
             || (Value is Brep or BrepFace && outputType.IsAssignableFrom(typeof(Brep)));
     }
-    public Fin<Seq<Point3d>> Vertices => (Value, Source) switch {
-        (Mesh mesh, { ComponentIndexType: ComponentIndexType.MeshFace, Index: int face }) when face >= 0 && face < mesh.Faces.Count =>
-            mesh.Faces.GetFaceVertices(face, out Point3f a, out Point3f b, out Point3f c, out Point3f d) switch { true when mesh.Faces[face].IsQuad => Fin.Succ(Seq((Point3d)a, (Point3d)b, (Point3d)c, (Point3d)d)), true => Fin.Succ(Seq((Point3d)a, (Point3d)b, (Point3d)c)), false => Fin.Fail<Seq<Point3d>>(Key.InvalidResult()) },
-        (Mesh mesh, { ComponentIndexType: ComponentIndexType.MeshNgon, Index: int ngon }) when ngon >= 0 && ngon < mesh.Ngons.Count =>
-            Optional(mesh.Ngons[ngon].BoundaryVertexIndexList()).ToFin(Key.InvalidResult()).Bind(indices => toSeq(indices).TraverseM(i => i <= int.MaxValue && (int)i < mesh.Vertices.Count ? Fin.Succ((Point3d)mesh.Vertices[(int)i]) : Fin.Fail<Point3d>(Key.InvalidResult())).As()),
-        _ => Fin.Fail<Seq<Point3d>>(Key.InvalidInput()),
-    };
-    public Fin<Vector3d> Normal => (Value, Source) switch {
-        (Mesh mesh, { ComponentIndexType: ComponentIndexType.MeshFace, Index: int face }) when face >= 0 && face < mesh.Faces.Count =>
-            (mesh.FaceNormals.Count > face || mesh.FaceNormals.ComputeFaceNormals()) && mesh.FaceNormals.Count > face
-                ? NormalOf(new Vector3d(mesh.FaceNormals[face]))
-                : Fin.Fail<Vector3d>(Key.InvalidResult()),
-        (Mesh, { ComponentIndexType: ComponentIndexType.MeshNgon }) => Vertices.Bind(vertices => vertices.Count switch {
-            >= 3 => NormalOf(vertices.Map((point, index) => Vector3d.CrossProduct(point - vertices[0], vertices[(index + 1) % vertices.Count] - vertices[0])).Fold(Vector3d.Zero, static (sum, v) => sum + v)),
-            _ => Fin.Fail<Vector3d>(Key.InvalidResult()),
-        }),
-        _ => Fin.Fail<Vector3d>(Key.InvalidInput()),
-    };
-    private static Fin<Vector3d> NormalOf(Vector3d candidate) =>
-        candidate.IsValid && !candidate.IsTiny() ? Fin.Succ(candidate / candidate.Length) : Fin.Fail<Vector3d>(Key.InvalidResult());
-    private static Fin<ComponentIndex> MeshComponentIndex(Mesh mesh, MeshNgon polygon) =>
-        Optional(polygon.FaceIndexList()).ToFin(Key.InvalidResult()).Bind(faces => faces switch {
-            uint[] values when values.Length == 1 && values[0] <= int.MaxValue && mesh.Ngons.NgonIndexFromFaceIndex((int)values[0]) < 0 => Fin.Succ(new ComponentIndex(ComponentIndexType.MeshFace, (int)values[0])),
-            uint[] values when values.Length > 0 && values[0] <= int.MaxValue && mesh.Ngons.NgonIndexFromFaceIndex((int)values[0]) is >= 0 and int ngon => Fin.Succ(new ComponentIndex(ComponentIndexType.MeshNgon, ngon)),
-            _ => Fin.Fail<ComponentIndex>(Key.InvalidInput()),
-        });
     internal static Fin<Seq<TValue>> Project<TValue>(Seq<TopologyProjection> all, Seq<TopologyProjection> chosen, Func<Seq<TopologyProjection>, Fin<Seq<TValue>>> project) {
         Fin<Seq<TValue>> result = project(chosen);
         _ = all.Filter(v => !result.IsSucc || !chosen.Exists(c => c.SameAs(v) && c.Transfers(typeof(TValue)))).Iter(static v => v.Dispose());
         return result;
     }
-    public Fin<Point3d> Centroid(Context? context) => Optional(context).ToFin(Key.MissingContext()).Bind(ctx => Centroid(context: ctx, key: Key));
-    public Fin<Plane> FrameAtCentroid(Context? context) => Optional(context).ToFin(Key.MissingContext()).Bind(ctx => FrameAtCentroid(context: ctx, key: Key));
     internal Fin<Point3d> Centroid(Context context, Op key) =>
         As<Brep>().ToFin(key.InvalidResult()).Bind(brep => Optional(AreaMassProperties.Compute(brep, true, true, false, false, context.Fractional, context.Absolute.Value)).ToFin(key.InvalidResult()).Map(static mass => new Lease<AreaMassProperties>.Owned(mass).Use(static d => d.Centroid)));
     internal Fin<Plane> FrameAtCentroid(Context context, Op key) =>
-        Face(key).Bind(brepFace => Centroid(context, key).Bind(centroid =>
+        As<BrepFace>().ToFin(key.InvalidInput()).Bind(brepFace => Centroid(context, key).Bind(centroid =>
             (brepFace.ClosestPointOnFace(centroid, out double u, out double v, 0.0), brepFace.FrameAt(u, v, out Plane frame), brepFace.NormalAt(u, v)) switch {
                 (true, true, Vector3d normal) when frame.IsValid && normal.IsValid && !normal.IsTiny() =>
                     Fin.Succ((frame.ZAxis * (Reversed ? -normal : normal)) >= 0.0 ? frame : new Plane(frame.Origin, frame.XAxis, -frame.YAxis)),
                 _ => Fin.Fail<Plane>(key.InvalidResult()),
             }));
     internal Fin<Seq<Interval>> Domains(Op key) =>
-        Face(key: key).Bind(brepFace => (brepFace.Domain(direction: 0), brepFace.Domain(direction: 1)) switch {
+        As<BrepFace>().ToFin(key.InvalidInput()).Bind(brepFace => (brepFace.Domain(direction: 0), brepFace.Domain(direction: 1)) switch {
             (Interval u, Interval v) when u.IsValid && v.IsValid => Fin.Succ(Seq(u, v)),
             _ => Fin.Fail<Seq<Interval>>(key.InvalidResult()),
         });
-    private Fin<BrepFace> Face(Op key) =>
-        Value switch {
-            BrepFace face => Fin.Succ(face),
-            Brep { Faces.Count: > 0 } brep => Fin.Succ(brep.Faces[0]),
-            _ => Fin.Fail<BrepFace>(key.InvalidInput()),
-        };
 }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct ClosestHit(Point3d Point, Option<double> Distance, Option<double> Parameter, Option<Point2d> Uv, Option<Vector3d> Normal, Option<ComponentIndex> Component, Option<MeshPoint> MeshPoint) {
