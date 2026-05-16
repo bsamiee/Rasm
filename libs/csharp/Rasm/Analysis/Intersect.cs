@@ -70,6 +70,38 @@ public static partial class Analyze {
                                                 select result)
             : key.Unsupported<(TA A, TB B), TOut>();
     }
+    public static Operation<TGeometry, TOut> SelfIntersect<TGeometry, TOut>() where TGeometry : notnull {
+        Op key = Op.Of();
+        return (CanSelfIntersect(geometry: typeof(TGeometry)) && HitsOutput(output: typeof(TOut)))
+            ? Operation<TGeometry, TOut>.Build(
+                key: key, requirement: Requirement.Basic, requiresContext: true, state: key,
+                evaluator: static (op, geometry) => from runtime in Env.EnvAsks
+                                                    from result in SelfIntersectionOf(geometry: geometry, context: runtime.Context, op: op, cancel: runtime.Cancellation, progress: runtime.Progress).ToEff()
+                                                    from typed in result.Project<TOut>(key: op).ToEff()
+                                                    select typed)
+            : key.Unsupported<TGeometry, TOut>();
+    }
+    internal static bool CanSelfIntersect(Type geometry) =>
+        geometry == typeof(object) || typeof(Curve).IsAssignableFrom(c: geometry) || typeof(Mesh).IsAssignableFrom(c: geometry);
+    internal static Fin<IntersectionResult> SelfIntersectionOf<TGeometry>(TGeometry geometry, Context context, Op op, CancellationToken cancel, IProgress<double>? progress) where TGeometry : notnull =>
+        Optional(geometry).ToFin(op.InvalidInput()).Bind(g => (cancel.IsCancellationRequested, g) switch {
+            (true, _) => Fin.Fail<IntersectionResult>(new Fault.Cancelled()),
+            (_, Curve curve) => new Lease<CurveIntersections>.Owned(Value: Intersection.CurveSelf(curve: curve, tolerance: context.Absolute.Value)).Use(hits => HitsFromEvents(hits: hits, op: op, source: curve)),
+            (_, Mesh mesh) => MeshSelfIntersectionsOf(mesh: mesh, context: context, op: op, cancel: cancel, progress: progress),
+            _ => Fin.Fail<IntersectionResult>(op.Unsupported(g.GetType(), typeof(IntersectionResult))),
+        });
+    private static Fin<IntersectionResult> MeshSelfIntersectionsOf(Mesh mesh, Context context, Op op, CancellationToken cancel, IProgress<double>? progress) {
+        using TextLog textLog = new();
+        return mesh.GetSelfIntersections(tolerance: context.MeshIntersectionTolerance, perforations: out Polyline[] perforations, overlapsPolylines: true, overlapsPolylinesResult: out Polyline[] overlaps, overlapsMesh: false, overlapsMeshResult: out Mesh _, textLog: textLog, cancel: cancel, progress: progress) switch {
+            true => Fin.Succ((IntersectionResult)new IntersectionResult.Hits(
+                toSeq(Optional(perforations).ToSeq().Bind(static p => p)).Map(PerforationHit)
+                + toSeq(Optional(overlaps).ToSeq().Bind(static p => p)).Map(OverlapHit))),
+            false when cancel.IsCancellationRequested => Fin.Fail<IntersectionResult>(new Fault.Cancelled()),
+            false => Fin.Fail<IntersectionResult>(op.InvalidResult()),
+        };
+    }
+    private static IntersectionHit PerforationHit(Polyline polyline) => IntersectionHit.Along(curve: polyline.ToNurbsCurve(), kind: IntersectionKind.Curve);
+    private static IntersectionHit OverlapHit(Polyline polyline) => IntersectionHit.Along(curve: polyline.ToNurbsCurve(), kind: IntersectionKind.Overlap);
     internal static bool Supports(Type left, Type right, Type? output = null, bool unordered = false) =>
         (left == typeof(object) || right == typeof(object), output) switch {
             (true, null) => true,

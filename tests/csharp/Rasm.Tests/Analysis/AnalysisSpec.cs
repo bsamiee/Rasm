@@ -159,7 +159,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void KeepsParameterlessFactoriesAsProperties() {
         object[] factories = [
-            Analyze.Curves<Brep, Curve>(aspect: Curves.All), Analyze.IsManifold, Analyze.NakedPointStatus, Analyze.Meshes<Mesh, Polyline>(aspect: Meshes.SelfIntersections), Analyze.MeshMetric(metric: MeshMetric.AspectRatio),
+            Analyze.Curves<Brep, Curve>(aspect: Curves.All), Analyze.IsManifold, Analyze.NakedPointStatus, Analyze.SelfIntersect<Mesh, IntersectionHit>(), Analyze.MeshMetric(metric: MeshMetric.AspectRatio),
             Analyze.Meshes<Mesh, Polyline>(aspect: Meshes.NakedEdges), Analyze.Points<GeometryBase, Point3d>(sampling: new Points.EdgeMidpointsCase()), Analyze.Curves<Mesh, ComponentIndex>(aspect: Curves.All), Analyze.Curves<Mesh, ComponentIndex>(aspect: Curves.NonManifold),
             Analyze.Measure<GeometryBase, Point3d>(aspect: new Measure.SpatialMidpointCase()), Analyze.Location<Curve, double>(aspect: new Location.CurvatureSamplesCase(Count: 3, Mode: CurvatureMode.Scalar(ScalarMetric.Magnitude))), Analyze.Location<Surface, double>(aspect: new Location.CurvatureSamplesCase(Count: 3, Mode: CurvatureMode.Scalar(ScalarMetric.Gaussian))), Analyze.Location<Surface, double>(aspect: new Location.CurvatureSamplesCase(Count: 3, Mode: CurvatureMode.Scalar(ScalarMetric.Mean))),
             Analyze.Conformance<Curve, Line, double>(aspect: new Conformance.DistanceCase(Count: 3)), Analyze.Conformance<Surface, Plane, bool>(aspect: new Conformance.WithinToleranceCase(Count: 2)), Analyze.Conformance<Curve, Line, Stat>(aspect: new Conformance.SummaryCase(Count: 3)), Analyze.Conformance<Curve, Circle, double>(aspect: new Conformance.DistanceCase(Count: 3)), Analyze.Conformance<Curve, Arc, bool>(aspect: new Conformance.WithinToleranceCase(Count: 3)), Analyze.Conformance<Surface, Sphere, ResidualSample>(aspect: new Conformance.MaximumCase(Count: 2)),
@@ -959,7 +959,7 @@ public sealed class AnalysisSpec {
 
     [Fact]
     public void SupportsMeshComponentsFromObjectRail() =>
-        Assert.True(condition: Analyze.Components<object, Mesh>().IsSupported);
+        Assert.True(condition: Analyze.Topologies<object, Mesh>(aspect: Topologies.Components).IsSupported);
 
     [Fact]
     public void SupportsSegmentsThroughCurveTopologyProjection() {

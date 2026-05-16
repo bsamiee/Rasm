@@ -5,7 +5,7 @@ namespace Rasm.Analysis;
 // --- [TYPES] ------------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshMetricSample(ComponentIndex Source, double Value);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshSample(MeshSampleKind Kind, int Value);
-public enum MeshSampleCategory { None, Validity, Count, Defect }
+public enum MeshSampleCategory { None, Validity, Count, Defect, Quality }
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [Union]
@@ -15,28 +15,25 @@ public partial record Meshes : IAspect {
     public sealed record AtFaceCase(int? Value) : Meshes;
     public sealed record NakedEdgesCase : Meshes;
     public sealed record OutlineCase(Plane Plane) : Meshes;
-    public sealed record SelfIntersectionsCase : Meshes;
     public static Meshes Validity => new SamplesCase(Category: MeshSampleCategory.Validity);
     public static Meshes Counts => new SamplesCase(Category: MeshSampleCategory.Count);
     public static Meshes Defects => new SamplesCase(Category: MeshSampleCategory.Defect);
+    public static Meshes Quality => new SamplesCase(Category: MeshSampleCategory.Quality);
     public static Meshes FaceQuality(MeshMetric? metric = null) => new FaceQualityCase(Metric: metric ?? MeshMetric.AspectRatio);
     public static Meshes AtFace(int? index = null) => new AtFaceCase(Value: index);
     public static Meshes NakedEdges => new NakedEdgesCase();
     public static Meshes Outline(Plane plane) => new OutlineCase(Plane: plane);
-    public static Meshes SelfIntersections => new SelfIntersectionsCase();
     private static readonly Op SamplesKey = Op.Of(name: "MeshSamples");
     private static readonly Op FaceMetricKey = Op.Of(name: nameof(MeshMetric));
     private static readonly Op AtFaceKey = Op.Of(name: "MeshAtFace");
     private static readonly Op NakedEdgesKey = Op.Of(name: "MeshNakedEdges");
     private static readonly Op OutlineKey = Op.Of(name: "MeshOutline");
-    private static readonly Op SelfIntersectionsKey = Op.Of(name: "MeshSelfIntersections");
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         samplesCase: static s => Analyze.MeshLift<TGeometry, TOut, MeshSample>(key: SamplesKey, source: Analyze.MeshSamples(category: s.Category)),
         faceQualityCase: static fq => Analyze.MeshLift<TGeometry, TOut, MeshMetricSample>(key: FaceMetricKey, source: Analyze.MeshMetric(metric: fq.Metric)),
         atFaceCase: static at => Analyze.MeshLift<TGeometry, TOut, TopologyProjection>(key: AtFaceKey, source: Analyze.MeshAtFace(index: at.Value)),
         nakedEdgesCase: static _ => Analyze.MeshLift<TGeometry, TOut, Polyline>(key: NakedEdgesKey, source: Analyze.MeshNakedEdges),
-        outlineCase: static o => Analyze.MeshLift<TGeometry, TOut, Polyline>(key: OutlineKey, source: Analyze.MeshOutline(plane: o.Plane)),
-        selfIntersectionsCase: static _ => Analyze.MeshLift<TGeometry, TOut, Polyline>(key: SelfIntersectionsKey, source: Analyze.MeshSelfIntersections));
+        outlineCase: static o => Analyze.MeshLift<TGeometry, TOut, Polyline>(key: OutlineKey, source: Analyze.MeshOutline(plane: o.Plane)));
 }
 
 [SmartEnum<int>]
@@ -50,11 +47,18 @@ public sealed partial class MeshSampleKind {
     public static readonly MeshSampleKind ExtremelyShortEdges = new(key: 23, category: MeshSampleCategory.Defect, sample: static (_, p) => p.ExtremelyShortEdgeCount), InvalidNgons = new(key: 24, category: MeshSampleCategory.Defect, sample: static (_, p) => p.InvalidNgonCount), NakedEdges = new(key: 25, category: MeshSampleCategory.Defect, sample: static (_, p) => p.NakedEdgeCount), NonManifoldEdges = new(key: 26, category: MeshSampleCategory.Defect, sample: static (_, p) => p.NonManifoldEdgeCount);
     public static readonly MeshSampleKind NonUnitVectorNormals = new(key: 27, category: MeshSampleCategory.Defect, sample: static (_, p) => p.NonUnitVectorNormalCount), RandomFaceNormals = new(key: 28, category: MeshSampleCategory.Defect, sample: static (_, p) => p.RandomFaceNormalCount), SelfIntersectingPairs = new(key: 29, category: MeshSampleCategory.Defect, sample: static (_, p) => p.SelfIntersectingPairsCount), UnusedVertices = new(key: 30, category: MeshSampleCategory.Defect, sample: static (_, p) => p.UnusedVertexCount);
     public static readonly MeshSampleKind VertexFaceNormalsDiffer = new(key: 31, category: MeshSampleCategory.Defect, sample: static (_, p) => p.VertexFaceNormalsDifferCount), ZeroLengthNormals = new(key: 32, category: MeshSampleCategory.Defect, sample: static (_, p) => p.ZeroLengthNormalCount);
+    public static readonly MeshSampleKind MaximumValence = new(key: 40, category: MeshSampleCategory.Quality, sample: static (m, _) => Valences(mesh: m).Fold(0, Math.Max)), MinimumValence = new(key: 41, category: MeshSampleCategory.Quality, sample: static (m, _) => Valences(mesh: m) switch { Seq<int> v when !v.IsEmpty => v.Fold(v.Head.IfNone(0), Math.Min), _ => 0 });
+    public static readonly MeshSampleKind BoundaryLoopCount = new(key: 42, category: MeshSampleCategory.Quality, sample: static (m, _) => Analyze.BoundaryLoopsOf(geometry: m, op: BoundaryLoopsKey).IfFail(0)), Genus = new(key: 43, category: MeshSampleCategory.Quality, sample: static (m, _) => Analyze.GenusOf(geometry: m, op: GenusKey).IfFail(0));
+    private static readonly Op BoundaryLoopsKey = Op.Of(name: "MeshBoundaryLoops");
+    private static readonly Op GenusKey = Op.Of(name: "MeshGenus");
+    private static Seq<int> Valences(Mesh mesh) =>
+        toSeq(Enumerable.Range(0, mesh.TopologyVertices.Count).Select(mesh.TopologyVertices.ConnectedEdgesCount));
     internal MeshSampleCategory Category { get; }
     [UseDelegateFromConstructor] internal partial int Sample(Mesh mesh, MeshCheckParameters parameters);
     internal static Seq<MeshSampleKind> Validity => toSeq(Items).Filter(static kind => kind.Category == MeshSampleCategory.Validity);
     internal static Seq<MeshSampleKind> Counts => toSeq(Items).Filter(static kind => kind.Category == MeshSampleCategory.Count);
     internal static Seq<MeshSampleKind> Defects => toSeq(Items).Filter(static kind => kind.Category == MeshSampleCategory.Defect);
+    internal static Seq<MeshSampleKind> Quality => toSeq(Items).Filter(static kind => kind.Category == MeshSampleCategory.Quality);
 }
 
 [BoundaryAdapter, SmartEnum<int>]
@@ -166,6 +170,7 @@ public static partial class Analyze {
             MeshSampleCategory.Validity => MeshSampleKind.Validity,
             MeshSampleCategory.Count => MeshSampleKind.Counts,
             MeshSampleCategory.Defect => MeshSampleKind.Defects,
+            MeshSampleCategory.Quality => MeshSampleKind.Quality,
             _ => Seq<MeshSampleKind>(),
         };
         return Operation<Mesh, MeshSample>.Build(
@@ -194,16 +199,6 @@ public static partial class Analyze {
             false => Operation<Mesh, Polyline>.Reject(key: key, fault: key.InvalidInput()),
         };
     }
-    public static Operation<Mesh, Polyline> MeshSelfIntersections {
-        get {
-            Op key = Op.Of(name: "MeshSelfIntersections");
-            return Operation<Mesh, Polyline>.Build(
-                key: key, requirement: Requirement.Basic, state: key,
-                evaluator: static (op, geometry) => from runtime in Env.EnvAsks
-                                                    from result in SelfIntersectionsOf(op: op, geometry: geometry, runtime: runtime).ToEff()
-                                                    select result);
-        }
-    }
     public static Operation<Mesh, TopologyProjection> MeshAtFace(int? index = null) {
         Op key = Op.Of();
         return Operation<Mesh, TopologyProjection>.Build(
@@ -220,24 +215,4 @@ public static partial class Analyze {
     private static Fin<Seq<MeshNgon>> VisiblePolygonsOf(Mesh mesh, Op key) =>
         Optional(mesh.GetNgonAndFacesEnumerable()).ToFin(key.InvalidResult())
             .Map(static polygons => toSeq(polygons));
-    internal static Fin<Seq<Polyline>> SelfIntersectionsOf(Op op, Mesh geometry, Env runtime) {
-        // BOUNDARY ADAPTER — Rhino GetSelfIntersections takes IDisposable TextLog + multi-out.
-        using TextLog textLog = new();
-        return geometry.GetSelfIntersections(
-            tolerance: runtime.Context.MeshIntersectionTolerance,
-            perforations: out Polyline[] perforations,
-            overlapsPolylines: true,
-            overlapsPolylinesResult: out Polyline[] overlaps,
-            overlapsMesh: false,
-            overlapsMeshResult: out Mesh _,
-            textLog: textLog,
-            cancel: runtime.Cancellation,
-            progress: runtime.Progress) switch {
-                true => (Optional(perforations).Map(seq => op.Accept(values: seq)).IfNone(Fin.Succ(Seq<Polyline>())), Optional(overlaps).Map(seq => op.Accept(values: seq)).IfNone(Fin.Succ(Seq<Polyline>())))
-                    .Apply((left, right) => left + right)
-                    .As(),
-                false when runtime.Cancellation.IsCancellationRequested => Fin.Fail<Seq<Polyline>>(new Fault.Cancelled()),
-                false => Fin.Fail<Seq<Polyline>>(op.InvalidResult()),
-            };
-    }
 }

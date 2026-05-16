@@ -16,6 +16,8 @@ public partial record BoxDerivation {
     public sealed record Edges : BoxDerivation;
     public sealed record Area : BoxDerivation;
     public sealed record Volume : BoxDerivation;
+    public sealed record Diagonal : BoxDerivation;
+    public sealed record AspectRatio : BoxDerivation;
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -32,6 +34,8 @@ public partial record Bounds : IAspect {
     public static Bounds Edges => new DerivedCase(Derivation: new BoxDerivation.Edges());
     public static Bounds Area => new DerivedCase(Derivation: new BoxDerivation.Area());
     public static Bounds Volume => new DerivedCase(Derivation: new BoxDerivation.Volume());
+    public static Bounds Diagonal => new DerivedCase(Derivation: new BoxDerivation.Diagonal());
+    public static Bounds AspectRatio => new DerivedCase(Derivation: new BoxDerivation.AspectRatio());
     internal static readonly Op BoundsKey = Op.Of(name: nameof(Bounds));
     internal static readonly Op OrientedKey = Op.Of(name: "OrientedBounds");
     internal static readonly Op TransformedKey = Op.Of(name: "TransformedBounds");
@@ -41,6 +45,8 @@ public partial record Bounds : IAspect {
     internal static readonly Op BoxEdgesKey = Op.Of(name: "BoxEdges");
     internal static readonly Op BoxAreaKey = Op.Of(name: "BoxArea");
     internal static readonly Op BoxVolumeKey = Op.Of(name: "BoxVolume");
+    internal static readonly Op BoxDiagonalKey = Op.Of(name: "BoxDiagonal");
+    internal static readonly Op BoxAspectRatioKey = Op.Of(name: "BoxAspectRatio");
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         boxCase: static b => b.Shape.Switch(
             axisAligned: static _ => (typeof(TOut) == typeof(BoundingBox) && GeometryKernel.CanBound(typeof(TGeometry), includeSphere: true))
@@ -95,7 +101,13 @@ public partial record Bounds : IAspect {
                     evaluator: static (op, geometry) => op.Accept(values: geometry.GetEdges()).ToEff()).As<TGeometry, TOut>(key: BoxEdgesKey)
                 : BoxEdgesKey.Unsupported<TGeometry, TOut>(),
             area: static _ => Analyze.BoxMetric<TGeometry, TOut>(key: BoxAreaKey, boundingBox: static g => g.Area, box: static g => g.Area),
-            volume: static _ => Analyze.BoxMetric<TGeometry, TOut>(key: BoxVolumeKey, boundingBox: static g => g.Volume, box: static g => g.Volume)));
+            volume: static _ => Analyze.BoxMetric<TGeometry, TOut>(key: BoxVolumeKey, boundingBox: static g => g.Volume, box: static g => g.Volume),
+            diagonal: static _ => Analyze.BoxMetric<TGeometry, TOut>(key: BoxDiagonalKey, boundingBox: static g => g.Diagonal.Length, box: static g => g.BoundingBox.Diagonal.Length),
+            aspectRatio: static _ => Analyze.BoxMetric<TGeometry, TOut>(key: BoxAspectRatioKey, boundingBox: static g => AspectOf(g.Diagonal), box: static g => AspectOf(new Vector3d(g.X.Length, g.Y.Length, g.Z.Length)))));
+    private static double AspectOf(Vector3d extents) {
+        double ax = Math.Abs(extents.X), ay = Math.Abs(extents.Y), az = Math.Abs(extents.Z);
+        return Math.Max(Math.Max(ax, ay), az) / Math.Max(Math.Min(Math.Min(ax, ay), az), RhinoMath.ZeroTolerance);
+    }
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------

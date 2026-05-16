@@ -17,6 +17,8 @@ public partial record Measure : IAspect {
     public static Measure CentroidError(MassKind mass) => new MassPropertyCase(Mass: mass, Property: MassProperty.CentroidError);
     public static Measure Radii(MassKind mass) => new MassPropertyCase(Mass: mass, Property: MassProperty.Radii);
     public static Measure PrincipalAxes(MassKind mass) => new MassPropertyCase(Mass: mass, Property: MassProperty.PrincipalAxes);
+    public static Measure Inertia(MassKind mass) => new MassPropertyCase(Mass: mass, Property: MassProperty.Inertia);
+    public static Measure InertiaProducts(MassKind mass) => new MassPropertyCase(Mass: mass, Property: MassProperty.InertiaProducts);
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         lengthCase: static _ => Analyze.Length<TGeometry, TOut>(),
         spatialMidpointCase: static _ => typeof(TOut) == typeof(Point3d) ? Analyze.SpatialMidpoint<TGeometry, TOut>() : Op.Of(name: "SpatialMidpoint").Unsupported<TGeometry, TOut>(),
@@ -31,6 +33,8 @@ public sealed partial class MassProperty {
     public static readonly MassProperty CentroidError = new(key: 3, suffix: nameof(CentroidError));
     public static readonly MassProperty Radii = new(key: 4, suffix: nameof(Radii));
     public static readonly MassProperty PrincipalAxes = new(key: 5, suffix: "Principal");
+    public static readonly MassProperty Inertia = new(key: 6, suffix: nameof(Inertia));
+    public static readonly MassProperty InertiaProducts = new(key: 7, suffix: "Products");
     public string Suffix { get; }
 }
 
@@ -158,6 +162,8 @@ public static partial class Analyze {
             (MassProperty p, Type t) when p.Equals(MassProperty.CentroidError) && t == typeof(Vector3d) => MassOperation<TGeometry, TOut, Vector3d>(mass: mass, suffix: property.Suffix, project: static (k, props) => k.MassPropertyExtract<Vector3d, Vector3d>(props: props, length: static l => l.CentroidError, area: static a => a.CentroidError, volume: static v => v.CentroidError), firstMoments: true, secondMoments: mass.Equals(MassKind.Length)),
             (MassProperty p, Type t) when p.Equals(MassProperty.Radii) && t == typeof(Vector3d) => MassOperation<TGeometry, TOut, Vector3d>(mass: mass, suffix: property.Suffix, project: static (k, props) => k.MassPropertyExtract<Vector3d, Vector3d>(props: props, length: static l => l.CentroidCoordinatesRadiiOfGyration, area: static a => a.CentroidCoordinatesRadiiOfGyration, volume: static v => v.CentroidCoordinatesRadiiOfGyration), firstMoments: true, secondMoments: true),
             (MassProperty p, Type t) when p.Equals(MassProperty.PrincipalAxes) && t == typeof(ValueTuple<double, Vector3d>) => MassOperation<TGeometry, TOut, (double Moment, Vector3d Axis)>(mass: mass, suffix: property.Suffix, project: static (k, props) => k.PrincipalAxesOf(mass: props).Bind(values => k.AcceptResults<(double Moment, Vector3d Axis), (double Moment, Vector3d Axis)>(values: values)), firstMoments: true, secondMoments: true, productMoments: true),
+            (MassProperty p, Type t) when p.Equals(MassProperty.Inertia) && t == typeof(Vector3d) => MassOperation<TGeometry, TOut, Vector3d>(mass: mass, suffix: property.Suffix, project: static (k, props) => k.MassPropertyExtract<Vector3d, Vector3d>(props: props, length: static l => l.WorldCoordinatesMomentsOfInertia, area: static a => a.WorldCoordinatesMomentsOfInertia, volume: static v => v.WorldCoordinatesMomentsOfInertia), firstMoments: true, secondMoments: true, productMoments: true),
+            (MassProperty p, Type t) when p.Equals(MassProperty.InertiaProducts) && t == typeof(Vector3d) => MassOperation<TGeometry, TOut, Vector3d>(mass: mass, suffix: property.Suffix, project: static (k, props) => k.MassPropertyExtract<Vector3d, Vector3d>(props: props, length: static l => l.WorldCoordinatesProductMoments, area: static a => a.WorldCoordinatesProductMoments, volume: static v => v.WorldCoordinatesProductMoments), firstMoments: true, secondMoments: true, productMoments: true),
             _ => key.Unsupported<TGeometry, TOut>(),
         };
     }

@@ -11,17 +11,10 @@ public enum CurveFeature { Input = 0, Segment = 1, Edge = 2, Boundary = 3, Naked
 internal abstract partial record Lease<T> where T : class, IDisposable {
     private Lease() { }
     public sealed record Owned(T Value) : Lease<T> {
-        internal TResult Project<TResult>(Func<T, TResult> project) {
-            using T owned = Value;
-            return project(arg: owned);
-        }
+        internal TResult Project<TResult>(Func<T, TResult> project) { using T owned = Value; return project(arg: owned); }
     }
     public sealed record Borrowed(T Value) : Lease<T>;
-    internal TResult Use<TResult>(Func<T, TResult> project) =>
-        Switch(
-            state: project,
-            owned: static (use, owned) => owned.Project(project: use),
-            borrowed: static (use, borrowed) => use(arg: borrowed.Value));
+    internal TResult Use<TResult>(Func<T, TResult> project) => Switch(state: project, owned: static (use, owned) => owned.Project(project: use), borrowed: static (use, borrowed) => use(arg: borrowed.Value));
     internal T Resource => Switch(owned: static owned => owned.Value, borrowed: static borrowed => borrowed.Value);
     internal Unit Dispose() => Switch(owned: static owned => { owned.Value.Dispose(); return unit; }, borrowed: static _ => unit);
 }
@@ -38,22 +31,16 @@ public sealed record TopologyProjection {
     public int FaceIndex => Source.Index;
     public Option<T> As<T>() where T : class =>
         Value is T match ? Some(match)
-        : (typeof(T), Value, faceBrep.Case) switch {
-            (Type t, BrepFace, Lease<Brep> lease) when t == typeof(Brep) => Some((T)(object)lease.Resource),
-            (Type t, BrepFace face, _) when t == typeof(Brep) => Optional(face.DuplicateFace(duplicateMeshes: false)).Map(brep => {
-                faceBrep = new Lease<Brep>.Owned(Value: brep);
-                return (T)(object)brep;
-            }),
-            _ => Option<T>.None,
-        };
+        : typeof(T) == typeof(Brep) && Value is BrepFace face
+            ? faceBrep.Case switch {
+                Lease<Brep> lease => Some((T)(object)lease.Resource),
+                _ => Optional(face.DuplicateFace(duplicateMeshes: false)).Map(brep => { faceBrep = new Lease<Brep>.Owned(Value: brep); return (T)(object)brep; }),
+            }
+            : Option<T>.None;
     public static TopologyProjection Of(Curve curve, CurveFeature feature, ComponentIndex source) { ArgumentNullException.ThrowIfNull(curve); return new(value: new Lease<GeometryBase>.Owned(Value: curve), feature: feature, source: source); }
     public static TopologyProjection Of(BrepFace face, bool copy = false) {
         ArgumentNullException.ThrowIfNull(face);
-        Lease<GeometryBase> lease = copy switch {
-            true => new Lease<GeometryBase>.Owned(Value: face.DuplicateFace(duplicateMeshes: false)),
-            false => new Lease<GeometryBase>.Borrowed(Value: face),
-        };
-        return new(value: lease, feature: CurveFeature.Input, source: new ComponentIndex(ComponentIndexType.BrepFace, face.FaceIndex), reversed: face.OrientationIsReversed);
+        return new(value: copy ? new Lease<GeometryBase>.Owned(face.DuplicateFace(false)) : (Lease<GeometryBase>)new Lease<GeometryBase>.Borrowed(face), feature: CurveFeature.Input, source: new ComponentIndex(ComponentIndexType.BrepFace, face.FaceIndex), reversed: face.OrientationIsReversed);
     }
     public static Fin<TopologyProjection> OfMesh(Mesh? mesh, ComponentIndex source) =>
         Optional(mesh).ToFin(Key.InvalidInput()).Bind(native => source switch {
@@ -74,11 +61,9 @@ public sealed record TopologyProjection {
     }
     public TopologyProjection DetachFrom(GeometryBase source) {
         ArgumentNullException.ThrowIfNull(source);
-        return (Value, source, Source) switch {
-            (BrepFace face, _, _) when ReferenceEquals(objA: face.Brep, objB: source) => Of(face, copy: true),
-            (Mesh mesh, Mesh owner, { ComponentIndexType: ComponentIndexType.MeshFace, Index: int face }) when ReferenceEquals(objA: mesh, objB: owner) && face >= 0 && face < mesh.Faces.Count =>
-                new(value: new Lease<GeometryBase>.Owned(Value: mesh.DuplicateMesh()), feature: Feature, source: Source, reversed: Reversed),
-            (Mesh mesh, Mesh owner, { ComponentIndexType: ComponentIndexType.MeshNgon, Index: int ngon }) when ReferenceEquals(objA: mesh, objB: owner) && ngon >= 0 && ngon < mesh.Ngons.Count =>
+        return (Value, source) switch {
+            (BrepFace face, _) when ReferenceEquals(face.Brep, source) => Of(face, copy: true),
+            (Mesh mesh, Mesh owner) when ReferenceEquals(mesh, owner) && (Source switch { { ComponentIndexType: ComponentIndexType.MeshFace, Index: int i } => i >= 0 && i < mesh.Faces.Count, { ComponentIndexType: ComponentIndexType.MeshNgon, Index: int i } => i >= 0 && i < mesh.Ngons.Count, _ => false }) =>
                 new(value: new Lease<GeometryBase>.Owned(Value: mesh.DuplicateMesh()), feature: Feature, source: Source, reversed: Reversed),
             _ => this,
         };
@@ -99,66 +84,39 @@ public sealed record TopologyProjection {
     };
     public Fin<Vector3d> Normal => (Value, Source) switch {
         (Mesh mesh, { ComponentIndexType: ComponentIndexType.MeshFace, Index: int face }) when face >= 0 && face < mesh.Faces.Count =>
-            ((mesh.FaceNormals.Count > face ? Some(mesh.FaceNormals[face]) : Option<Vector3f>.None).Case switch {
-                Vector3f normal => NormalOf(candidate: new Vector3d(normal)),
-                _ => Fin.Fail<Vector3d>(Key.InvalidResult()),
-            })
-                .BindFail(_ => (mesh.FaceNormals.ComputeFaceNormals() && mesh.FaceNormals.Count > face) switch {
-                    true => NormalOf(candidate: new Vector3d(mesh.FaceNormals[face])),
-                    false => Fin.Fail<Vector3d>(Key.InvalidResult()),
-                }),
-        (Mesh, { ComponentIndexType: ComponentIndexType.MeshNgon }) => Vertices.Bind(vertices =>
-            vertices.Count switch {
-                >= 3 => NormalOf(candidate: vertices.Map((point, index) => Vector3d.CrossProduct(a: point - vertices[0], b: vertices[(index + 1) % vertices.Count] - vertices[0]))
-                    .Fold(initialState: Vector3d.Zero, f: static (sum, vector) => sum + vector) switch {
-                        Vector3d normal when normal.IsValid && !normal.IsTiny() => normal / normal.Length,
-                        Vector3d normal => normal,
-                    }),
-                _ => Fin.Fail<Vector3d>(Key.InvalidResult()),
-            }),
+            (mesh.FaceNormals.Count > face || mesh.FaceNormals.ComputeFaceNormals()) && mesh.FaceNormals.Count > face
+                ? NormalOf(new Vector3d(mesh.FaceNormals[face]))
+                : Fin.Fail<Vector3d>(Key.InvalidResult()),
+        (Mesh, { ComponentIndexType: ComponentIndexType.MeshNgon }) => Vertices.Bind(vertices => vertices.Count switch {
+            >= 3 => NormalOf(vertices.Map((point, index) => Vector3d.CrossProduct(point - vertices[0], vertices[(index + 1) % vertices.Count] - vertices[0])).Fold(Vector3d.Zero, static (sum, v) => sum + v)),
+            _ => Fin.Fail<Vector3d>(Key.InvalidResult()),
+        }),
         _ => Fin.Fail<Vector3d>(Key.InvalidInput()),
     };
     private static Fin<Vector3d> NormalOf(Vector3d candidate) =>
-        candidate switch {
-            Vector3d normal when normal.IsValid && !normal.IsTiny() => Fin.Succ(normal),
-            _ => Fin.Fail<Vector3d>(Key.InvalidResult()),
-        };
+        candidate.IsValid && !candidate.IsTiny() ? Fin.Succ(candidate / candidate.Length) : Fin.Fail<Vector3d>(Key.InvalidResult());
     private static Fin<ComponentIndex> MeshComponentIndex(Mesh mesh, MeshNgon polygon) =>
         Optional(polygon.FaceIndexList()).ToFin(Key.InvalidResult()).Bind(faces => faces switch {
             uint[] values when values.Length == 1 && values[0] <= int.MaxValue && mesh.Ngons.NgonIndexFromFaceIndex((int)values[0]) < 0 => Fin.Succ(new ComponentIndex(ComponentIndexType.MeshFace, (int)values[0])),
             uint[] values when values.Length > 0 && values[0] <= int.MaxValue && mesh.Ngons.NgonIndexFromFaceIndex((int)values[0]) is >= 0 and int ngon => Fin.Succ(new ComponentIndex(ComponentIndexType.MeshNgon, ngon)),
             _ => Fin.Fail<ComponentIndex>(Key.InvalidInput()),
         });
-    internal static Fin<Seq<TValue>> Project<TValue>(
-        Seq<TopologyProjection> all,
-        Seq<TopologyProjection> chosen,
-        Func<Seq<TopologyProjection>, Fin<Seq<TValue>>> project) {
-        Fin<Seq<TValue>> result = project(arg: chosen);
-        Type outputType = typeof(TValue);
-        _ = all.Filter(value => !result.IsSucc || !chosen.Exists(c => c.SameAs(other: value) && c.Transfers(outputType: outputType))).Iter(static v => v.Dispose());
+    internal static Fin<Seq<TValue>> Project<TValue>(Seq<TopologyProjection> all, Seq<TopologyProjection> chosen, Func<Seq<TopologyProjection>, Fin<Seq<TValue>>> project) {
+        Fin<Seq<TValue>> result = project(chosen);
+        _ = all.Filter(v => !result.IsSucc || !chosen.Exists(c => c.SameAs(v) && c.Transfers(typeof(TValue)))).Iter(static v => v.Dispose());
         return result;
     }
     public Fin<Point3d> Centroid(Context? context) => Optional(context).ToFin(Key.MissingContext()).Bind(ctx => Centroid(context: ctx, key: Key));
     public Fin<Plane> FrameAtCentroid(Context? context) => Optional(context).ToFin(Key.MissingContext()).Bind(ctx => FrameAtCentroid(context: ctx, key: Key));
     internal Fin<Point3d> Centroid(Context context, Op key) =>
-        As<Brep>().ToFin(key.InvalidResult()).Bind(brep =>
-            Optional(AreaMassProperties.Compute(brep: brep, area: true, firstMoments: true, secondMoments: false, productMoments: false, relativeTolerance: context.Fractional, absoluteTolerance: context.Absolute.Value))
-                .ToFin(key.InvalidResult())
-                .Map(static mass => new Lease<AreaMassProperties>.Owned(Value: mass).Use(static disposable => disposable.Centroid)));
+        As<Brep>().ToFin(key.InvalidResult()).Bind(brep => Optional(AreaMassProperties.Compute(brep, true, true, false, false, context.Fractional, context.Absolute.Value)).ToFin(key.InvalidResult()).Map(static mass => new Lease<AreaMassProperties>.Owned(mass).Use(static d => d.Centroid)));
     internal Fin<Plane> FrameAtCentroid(Context context, Op key) =>
-        Face(key: key).Bind(brepFace =>
-            Centroid(context: context, key: key)
-                .Bind(centroid =>
-                    brepFace.ClosestPointOnFace(testPoint: centroid, u: out double u, v: out double v, maximumDistance: 0.0) switch {
-                        true => (brepFace.FrameAt(u: u, v: v, frame: out Plane frame), brepFace.NormalAt(u: u, v: v)) switch {
-                            (true, Vector3d normal) when frame.IsValid && normal.IsValid && !normal.IsTiny() => Fin.Succ((frame.ZAxis * (Reversed ? -normal : normal)) switch {
-                                >= 0.0 => frame,
-                                _ => new Plane(frame.Origin, frame.XAxis, -frame.YAxis),
-                            }),
-                            _ => Fin.Fail<Plane>(key.InvalidResult()),
-                        },
-                        false => Fin.Fail<Plane>(key.InvalidResult()),
-                    }));
+        Face(key).Bind(brepFace => Centroid(context, key).Bind(centroid =>
+            (brepFace.ClosestPointOnFace(centroid, out double u, out double v, 0.0), brepFace.FrameAt(u, v, out Plane frame), brepFace.NormalAt(u, v)) switch {
+                (true, true, Vector3d normal) when frame.IsValid && normal.IsValid && !normal.IsTiny() =>
+                    Fin.Succ((frame.ZAxis * (Reversed ? -normal : normal)) >= 0.0 ? frame : new Plane(frame.Origin, frame.XAxis, -frame.YAxis)),
+                _ => Fin.Fail<Plane>(key.InvalidResult()),
+            }));
     internal Fin<Seq<Interval>> Domains(Op key) =>
         Face(key: key).Bind(brepFace => (brepFace.Domain(direction: 0), brepFace.Domain(direction: 1)) switch {
             (Interval u, Interval v) when u.IsValid && v.IsValid => Fin.Succ(Seq(u, v)),
@@ -218,18 +176,21 @@ public sealed partial class Kind {
     internal bool CanPrincipal => Topology is Topology.Curve or Topology.Brep or Topology.Mesh or Topology.Surface or Topology.Extrusion;
     internal bool CanCoerceTo(Type target) =>
         target.IsAssignableFrom(Type)
-        || (target == typeof(Point3d) && Type == typeof(Point3d))
         || (target == typeof(Box) && Type == typeof(Brep))
         || (target == typeof(Curve) && Topology == Topology.Curve)
-        || ((target == typeof(Line) || target == typeof(Circle) || target == typeof(Arc) || target == typeof(Ellipse) || target == typeof(Polyline)) && Type == typeof(Curve))
-        || ((target == typeof(Plane) || target == typeof(Sphere) || target == typeof(Cylinder) || target == typeof(Cone) || target == typeof(Torus)) && (Type == typeof(Brep) || Type == typeof(Surface)))
-        || (target == typeof(Brep) && (Type == typeof(Brep) || Type == typeof(Surface) || Type == typeof(Box) || Type == typeof(BoundingBox) || Type == typeof(Sphere) || Type == typeof(Cylinder) || Type == typeof(Cone) || Type == typeof(Torus) || Type == typeof(Extrusion)));
+        || (CurvePrimitives.Contains(target) && Type == typeof(Curve))
+        || (SurfacePrimitives.Contains(target) && (Type == typeof(Brep) || Type == typeof(Surface)))
+        || (target == typeof(Brep) && BrepSources.Contains(Type));
+    private static readonly FrozenSet<Type> CurvePrimitives = new[] { typeof(Line), typeof(Circle), typeof(Arc), typeof(Ellipse), typeof(Polyline) }.ToFrozenSet();
+    private static readonly FrozenSet<Type> SurfacePrimitives = new[] { typeof(Plane), typeof(Sphere), typeof(Cylinder), typeof(Cone), typeof(Torus) }.ToFrozenSet();
+    private static readonly FrozenSet<Type> BrepSources = new[] { typeof(Brep), typeof(Surface), typeof(Box), typeof(BoundingBox), typeof(Sphere), typeof(Cylinder), typeof(Cone), typeof(Torus), typeof(Extrusion) }.ToFrozenSet();
 }
 
 // --- [CONSTANTS] --------------------------------------------------------------------------
 [BoundaryAdapter]
 internal static class KindLookup {
     private static readonly FrozenDictionary<Type, Kind> ByType = Kind.Items.ToFrozenDictionary(static k => k.Type);
+    internal static readonly FrozenDictionary<Rhino.DocObjects.ObjectType, Kind> ByObjectType = new Dictionary<Rhino.DocObjects.ObjectType, Kind> { [Rhino.DocObjects.ObjectType.Point] = Kind.Point, [Rhino.DocObjects.ObjectType.Curve] = Kind.Curve, [Rhino.DocObjects.ObjectType.Surface] = Kind.Surface, [Rhino.DocObjects.ObjectType.Brep] = Kind.Brep, [Rhino.DocObjects.ObjectType.Mesh] = Kind.Mesh, [Rhino.DocObjects.ObjectType.SubD] = Kind.SubD, [Rhino.DocObjects.ObjectType.PointSet] = Kind.PointCloud, [Rhino.DocObjects.ObjectType.Hatch] = Kind.Hatch, [Rhino.DocObjects.ObjectType.Extrusion] = Kind.Extrusion }.ToFrozenDictionary();
     internal static Option<Kind> Resolve(Type type) => type == typeof(Point) ? Some(Kind.Point) : Optional(ByType.GetValueOrDefault(type)) | (InheritsBase(type) is Type bt ? Optional(ByType.GetValueOrDefault(bt)) : Option<Kind>.None);
     internal static Type? InheritsBase(Type type) => type.BaseType is Type b ? (ByType.ContainsKey(b) ? b : InheritsBase(b)) : null;
 }
@@ -247,10 +208,12 @@ internal static class GeometryKernel {
     internal static bool CanPrincipal(Type type) => Universal(type) || KindLookup.Resolve(type).Map(static kind => kind.CanPrincipal).IfNone(false);
     internal static bool CanCurveForm(Type type) => Universal(type) || typeof(Curve).IsAssignableFrom(c: type) || KindLookup.Resolve(type).Map(static kind => kind.Topology == Topology.Curve).IfNone(false);
     internal static bool CanCoerce(Type source, Type target) => Universal(source) || KindLookup.Resolve(source).Map(kind => kind.CanCoerceTo(target: target)).IfNone(target.IsAssignableFrom(source));
-    public static Fin<Kind> KindOf(this object geometry, Context context) =>
-        Optional(geometry).ToFin(Op.Of(name: nameof(Kind)).InvalidInput()).Bind(g =>
-            (InferredKind(geometry: g, context: context) | NativeKind(geometry: g) | KindLookup.Resolve(g.GetType()))
-            .ToFin(Op.Of(name: nameof(Kind)).InvalidInput()));
+    public static Fin<Kind> KindOf(this object geometry, Context context) {
+        Op key = Op.Of(name: nameof(Kind));
+        return Optional(geometry).ToFin(key.InvalidInput()).Bind(g =>
+            (InferredKind(geometry: g, context: context, key: key) | NativeKind(geometry: g) | KindLookup.Resolve(g.GetType()))
+            .ToFin(key.InvalidInput()));
+    }
     public static Fin<BoundingBox> BoundsOf(this object geometry, Op op) =>
         Optional(geometry).ToFin(op.InvalidInput()).Bind(g => OpAcceptance.ValidityOf(source: g).Case switch {
             false => Fin.Fail<BoundingBox>(op.InvalidInput()),
@@ -264,10 +227,8 @@ internal static class GeometryKernel {
                 Arc arc => Fin.Succ(arc.BoundingBox()),
                 Point3d point => Fin.Succ(new BoundingBox(point, point)),
                 Plane => Fin.Fail<BoundingBox>(op.Unsupported(typeof(Plane), typeof(BoundingBox))),
-                Ellipse ellipse => Optional(ellipse.ToNurbsCurve()).ToFin(op.InvalidResult()).Map(static c => new Lease<Curve>.Owned(Value: c).Use(static d => d.GetBoundingBox(accurate: true))),
-                Cylinder cylinder => Optional(cylinder.ToBrep(capBottom: true, capTop: true)).ToFin(op.InvalidResult()).Map(static b => new Lease<Brep>.Owned(Value: b).Use(static d => d.GetBoundingBox(accurate: true))),
-                Cone cone => Optional(cone.ToBrep(capBottom: true)).ToFin(op.InvalidResult()).Map(static b => new Lease<Brep>.Owned(Value: b).Use(static d => d.GetBoundingBox(accurate: true))),
-                Torus torus => Optional(torus.ToBrep()).ToFin(op.InvalidResult()).Map(static b => new Lease<Brep>.Owned(Value: b).Use(static d => d.GetBoundingBox(accurate: true))),
+                Ellipse => CurveForm(source: g, op: op).Map(static lease => lease.Use(static d => d.GetBoundingBox(accurate: true))),
+                Cylinder or Cone or Torus => BrepForm(source: g, op: op).Map(static lease => lease.Use(static d => d.GetBoundingBox(accurate: true))),
                 GeometryBase native => native.IsValid ? Fin.Succ(native.GetBoundingBox(accurate: true)) : Fin.Fail<BoundingBox>(op.InvalidInput()),
                 _ => Fin.Fail<BoundingBox>(op.Unsupported(g.GetType(), typeof(BoundingBox))),
             },
@@ -276,56 +237,36 @@ internal static class GeometryKernel {
     public static Fin<TTarget> CoerceTo<TTarget>(object? source, Context context, Op op) where TTarget : notnull =>
         Optional(source).ToFin(op.InvalidInput()).Bind(s => s switch {
             TTarget target => op.AcceptValue(target),
-            _ => CoerceValue(source: s, target: typeof(TTarget), context: context).ToFin(op.Unsupported(s.GetType(), typeof(TTarget))).Map(static v => (TTarget)v),
+            _ => KindLookup.Resolve(typeof(TTarget)).Bind(kind => PrimitiveOf(kind, s, context, Op.Of(name: nameof(CoerceTo)))).ToFin(op.Unsupported(s.GetType(), typeof(TTarget))).Map(static v => (TTarget)v),
         });
-    private static Option<Kind> InferredKind(object geometry, Context context) =>
+    private static Option<Kind> InferredKind(object geometry, Context context, Op key) =>
         (geometry switch {
             Brep => Seq(Kind.Box, Kind.Plane, Kind.Sphere, Kind.Cylinder, Kind.Cone, Kind.Torus),
             Curve => Seq(Kind.Line, Kind.Circle, Kind.Arc, Kind.Ellipse, Kind.Polyline),
             Surface => Seq(Kind.Plane, Kind.Sphere, Kind.Cylinder, Kind.Cone, Kind.Torus),
             _ => Seq<Kind>(),
-        }).Choose(kind => PrimitiveOf(kind: kind, source: geometry, context: context, op: Op.Of(name: nameof(Kind))).Map(_ => kind)).Head;
+        }).Choose(kind => PrimitiveOf(kind, geometry, context, key).Map(_ => kind)).Head;
     private static Option<Kind> NativeKind(object geometry) =>
-        geometry switch {
-            GeometryBase native => native.ObjectType switch {
-                Rhino.DocObjects.ObjectType.Point => Some(Kind.Point),
-                Rhino.DocObjects.ObjectType.Curve => Some(Kind.Curve),
-                Rhino.DocObjects.ObjectType.Surface => Some(Kind.Surface),
-                Rhino.DocObjects.ObjectType.Brep => Some(Kind.Brep),
-                Rhino.DocObjects.ObjectType.Mesh => Some(Kind.Mesh),
-                Rhino.DocObjects.ObjectType.SubD => Some(Kind.SubD),
-                Rhino.DocObjects.ObjectType.PointSet => Some(Kind.PointCloud),
-                Rhino.DocObjects.ObjectType.Hatch => Some(Kind.Hatch),
-                Rhino.DocObjects.ObjectType.Extrusion => Some(Kind.Extrusion),
-                _ when native.HasBrepForm => Some(Kind.Brep),
-                _ => Option<Kind>.None,
-            },
-            _ => Option<Kind>.None,
-        };
-    private static Option<object> CoerceValue(object source, Type target, Context context) =>
-        KindLookup.Resolve(target).Bind(kind => PrimitiveOf(kind: kind, source: source, context: context, op: Op.Of(name: nameof(CoerceTo))));
+        geometry is GeometryBase native
+            ? Optional(KindLookup.ByObjectType.GetValueOrDefault(native.ObjectType)) | (native.HasBrepForm ? Some(Kind.Brep) : Option<Kind>.None)
+            : Option<Kind>.None;
     private static Option<object> PrimitiveOf(Kind kind, object source, Context context, Op op) =>
         (kind.Type, source) switch {
             (Type t, Point point) when t == typeof(Point3d) => Some((object)point.Location),
-            (Type t, Brep brep) when t == typeof(Box) =>
-                brep.IsBox(context.Absolute.Value) && brep.Faces[0].UnderlyingSurface().TryGetPlane(out Plane plane, context.Absolute.Value) && new Box(plane, brep) is { IsValid: true } box ? Some((object)box) : Option<object>.None,
-            (Type t, object value) when t == typeof(Curve) =>
-                CurveForm(source: value, op: op).ToOption().Map(static lease => (object)lease.Resource),
-            (Type t, Curve curve) when t == typeof(Line) && curve.IsLinear(context.Absolute.Value) =>
-                Some((object)new Line(curve.PointAtStart, curve.PointAtEnd)),
+            (Type t, Brep brep) when t == typeof(Box) => brep.IsBox(context.Absolute.Value) && brep.Faces[0].UnderlyingSurface().TryGetPlane(out Plane plane, context.Absolute.Value) && new Box(plane, brep) is { IsValid: true } box ? Some((object)box) : Option<object>.None,
+            (Type t, object value) when t == typeof(Curve) => CurveForm(source: value, op: op).ToOption().Map(static lease => (object)lease.Resource),
+            (Type t, Curve curve) when t == typeof(Line) && curve.IsLinear(context.Absolute.Value) => Some((object)new Line(curve.PointAtStart, curve.PointAtEnd)),
             (Type t, Curve curve) when t == typeof(Circle) && curve.TryGetCircle(out Circle value, context.Absolute.Value) => Some((object)value),
             (Type t, Curve curve) when t == typeof(Arc) && curve.TryGetArc(out Arc value, context.Absolute.Value) => Some((object)value),
             (Type t, Curve curve) when t == typeof(Ellipse) && curve.TryGetEllipse(out Ellipse value, context.Absolute.Value) => Some((object)value),
             (Type t, Curve curve) when t == typeof(Polyline) && curve.TryGetPolyline(out Polyline value) => Some((object)value),
-            (Type t, Brep { IsSurface: true } brep) when t == typeof(Plane) || t == typeof(Sphere) || t == typeof(Cylinder) || t == typeof(Cone) || t == typeof(Torus) =>
-                PrimitiveOf(kind: kind, source: brep.Surfaces[0], context: context, op: op),
+            (Type t, Brep { IsSurface: true } brep) when t == typeof(Plane) || t == typeof(Sphere) || t == typeof(Cylinder) || t == typeof(Cone) || t == typeof(Torus) => PrimitiveOf(kind, brep.Surfaces[0], context, op),
             (Type t, Surface surface) when t == typeof(Plane) && surface.TryGetPlane(out Plane value, context.Absolute.Value) => Some((object)value),
             (Type t, Surface surface) when t == typeof(Sphere) && surface.TryGetSphere(out Sphere value, context.Absolute.Value) => Some((object)value),
             (Type t, Surface surface) when t == typeof(Cylinder) && surface.TryGetCylinder(out Cylinder value, context.Absolute.Value) => Some((object)value),
             (Type t, Surface surface) when t == typeof(Cone) && surface.TryGetCone(out Cone value, context.Absolute.Value) => Some((object)value),
             (Type t, Surface surface) when t == typeof(Torus) && surface.TryGetTorus(out Torus value, context.Absolute.Value) => Some((object)value),
-            (Type t, object value) when t == typeof(Brep) =>
-                BrepForm(source: value, op: op).ToOption().Map(static lease => (object)lease.Resource),
+            (Type t, object value) when t == typeof(Brep) => BrepForm(source: value, op: op).ToOption().Map(static lease => (object)lease.Resource),
             _ => Option<object>.None,
         };
     internal static Fin<Lease<Curve>> CurveForm(object? source, Op op) =>
@@ -353,39 +294,29 @@ internal static class GeometryKernel {
         });
     public static Fin<Seq<double>> Fractions(int count, Op op) => count switch { 1 => Fin.Succ(Seq(0.5)), > 1 => Fin.Succ(toSeq(Enumerable.Range(0, count).Select(i => i / (count - 1.0)))), _ => Fin.Fail<Seq<double>>(op.InvalidInput()) };
     internal static Fin<Seq<double>> CurveSampleParameters(Curve curve, int count, Context context, Op key) =>
-        Optional(context).ToFin(key.MissingContext()).Bind(model =>
-            Optional(curve).ToFin(key.InvalidInput()).Bind(native =>
-                Fractions(count: count, op: key)
-                    .Bind(fractions => Optional(native.NormalizedLengthParameters(s: [.. fractions.AsIterable()], absoluteTolerance: model.Absolute.Value, fractionalTolerance: model.Fractional))
-                        .ToFin(key.InvalidResult())
-                        .Map(static parameters => toSeq(parameters)))));
+        Fractions(count: count, op: key).Bind(fractions =>
+            Optional(curve.NormalizedLengthParameters([.. fractions.AsIterable()], context.Absolute.Value, context.Fractional)).ToFin(key.InvalidResult()).Map(static p => toSeq(p)));
     internal static Fin<Point2d> SurfaceUv(Surface surface, Point2d uv, Context context, Op key) =>
-        Optional(context).ToFin(key.MissingContext()).Bind(model =>
-            Optional(surface).ToFin(key.InvalidInput()).Bind(native =>
-                (uv.IsValid, native.Domain(direction: 0), native.Domain(direction: 1)) switch {
-                    (true, Interval u, Interval v) when u.IsValid && v.IsValid && u.IncludesParameter(t: uv.X) && v.IncludesParameter(t: uv.Y)
-                        && (native is not BrepFace face || face.IsPointOnFace(u: uv.X, v: uv.Y, tolerance: model.Absolute.Value) != PointFaceRelation.Exterior) => Fin.Succ(uv),
-                    _ => Fin.Fail<Point2d>(key.InvalidInput()),
-                }));
+        (uv.IsValid, surface.Domain(0), surface.Domain(1)) switch {
+            (true, Interval u, Interval v) when u.IsValid && v.IsValid && u.IncludesParameter(uv.X) && v.IncludesParameter(uv.Y)
+                && (surface is not BrepFace face || face.IsPointOnFace(uv.X, uv.Y, context.Absolute.Value) != PointFaceRelation.Exterior) => Fin.Succ(uv),
+            _ => Fin.Fail<Point2d>(key.InvalidInput()),
+        };
     internal static Fin<Seq<Point2d>> SurfaceSampleUv(Surface surface, int resolution, Context context, Op key) =>
         Optional(context).ToFin(key.MissingContext()).Bind(model =>
-            Optional(surface).ToFin(key.InvalidInput()).Bind(native =>
-                (native.Domain(direction: 0), native.Domain(direction: 1)) switch {
-                    (Interval u, Interval v) when u.IsValid && v.IsValid =>
-                        Fractions(count: resolution, op: key)
-                            .Map(fractions => fractions.Bind(uf => fractions.Map(vf => new Point2d(x: u.ParameterAt(uf), y: v.ParameterAt(vf)))))
-                            .Bind(samples => native switch {
-                                BrepFace face => samples.Filter(uv => face.IsPointOnFace(u: uv.X, v: uv.Y, tolerance: model.Absolute.Value) != PointFaceRelation.Exterior) switch {
-                                    Seq<Point2d> valid when !valid.IsEmpty => Fin.Succ(valid),
-                                    _ => samples.Choose(uv => face.ClosestPointOnFace(testPoint: face.PointAt(u: uv.X, v: uv.Y), u: out double fu, v: out double fv, maximumDistance: 0.0) && face.IsPointOnFace(u: fu, v: fv, tolerance: model.Absolute.Value) != PointFaceRelation.Exterior ? Some(new Point2d(fu, fv)) : Option<Point2d>.None) switch {
-                                        Seq<Point2d> valid when !valid.IsEmpty => Fin.Succ(valid),
-                                        _ => Fin.Fail<Seq<Point2d>>(key.InvalidResult()),
-                                    },
-                                },
-                                _ => Fin.Succ(samples),
-                            }),
-                    _ => Fin.Fail<Seq<Point2d>>(key.InvalidInput()),
-                }));
+        Optional(surface).ToFin(key.InvalidInput()).Bind(native => (native.Domain(0), native.Domain(1)) switch {
+            (Interval u, Interval v) when u.IsValid && v.IsValid =>
+                Fractions(count: resolution, op: key)
+                    .Map(fractions => fractions.Bind(uf => fractions.Map(vf => new Point2d(u.ParameterAt(uf), v.ParameterAt(vf)))))
+                    .Bind(samples => native is BrepFace face
+                        ? OnFaceUv(face, samples, model.Absolute.Value) switch { Seq<Point2d> valid when !valid.IsEmpty => Fin.Succ(valid), _ => Fin.Fail<Seq<Point2d>>(key.InvalidResult()) }
+                        : Fin.Succ(samples)),
+            _ => Fin.Fail<Seq<Point2d>>(key.InvalidInput()),
+        }));
+    private static Seq<Point2d> OnFaceUv(BrepFace face, Seq<Point2d> samples, double tolerance) =>
+        samples.Choose(uv => face.IsPointOnFace(u: uv.X, v: uv.Y, tolerance: tolerance) != PointFaceRelation.Exterior ? Some(uv)
+            : face.ClosestPointOnFace(testPoint: face.PointAt(u: uv.X, v: uv.Y), u: out double fu, v: out double fv, maximumDistance: 0.0)
+                && face.IsPointOnFace(u: fu, v: fv, tolerance: tolerance) != PointFaceRelation.Exterior ? Some(new Point2d(fu, fv)) : Option<Point2d>.None);
     internal static Fin<Seq<Point3d>> SurfaceSamplePoints(Surface surface, int resolution, Context context, Op key) =>
         SurfaceSampleUv(surface: surface, resolution: resolution, context: context, key: key)
             .Map(uvs => uvs.Map(uv => surface.PointAt(u: uv.X, v: uv.Y)));
@@ -393,35 +324,20 @@ internal static class GeometryKernel {
         from _ in guard(target.IsValid, key.InvalidInput())
         from g in Optional(geometry).ToFin(key.InvalidInput())
         from hit in g switch {
-            Line line => line.ClosestPoint(testPoint: target, limitToFiniteSegment: true) switch {
-                Point3d point => Fin.Succ(ClosestHit.At(target: target, point: point)),
-            },
-            Polyline polyline => polyline.ClosestPoint(testPoint: target) switch {
-                Point3d point => Fin.Succ(ClosestHit.At(target: target, point: point)),
-            },
-            Curve curve => curve.ClosestPoint(testPoint: target, t: out double parameter) switch {
-                true => curve.PointAt(t: parameter) switch {
-                    Point3d point => Fin.Succ(ClosestHit.At(target: target, point: point)),
-                },
-                false => Fin.Fail<ClosestHit>(key.InvalidInput()),
-            },
-            BrepFace face => face.ClosestPointOnFace(testPoint: target, u: out double u, v: out double v, maximumDistance: 0.0) switch {
-                true => face.PointAt(u: u, v: v) switch {
-                    Point3d point => Fin.Succ(ClosestHit.At(target: target, point: point, normal: Some(face.NormalAt(u: u, v: v)), component: face.FaceIndex switch { >= 0 => Some(new ComponentIndex(ComponentIndexType.BrepFace, face.FaceIndex)), _ => Option<ComponentIndex>.None })),
-                },
-                false => Fin.Fail<ClosestHit>(key.InvalidInput()),
-            },
-            Surface surface => surface.ClosestPoint(testPoint: target, u: out double u, v: out double v) switch {
-                true => surface.PointAt(u: u, v: v) switch {
-                    Point3d point => Fin.Succ(ClosestHit.At(target: target, point: point, normal: Some(surface.NormalAt(u: u, v: v)))),
-                },
-                false => Fin.Fail<ClosestHit>(key.InvalidInput()),
-            },
-            Brep brep => brep.ClosestPoint(target, out Point3d point, out ComponentIndex component, out double _, out double _, 0.0, out Vector3d normal) switch {
-                true => Fin.Succ(ClosestHit.At(target: target, point: point, normal: Some(normal), component: Some(component))),
-                false => Fin.Fail<ClosestHit>(key.InvalidInput()),
-            },
-            Mesh mesh => Optional(mesh.ClosestMeshPoint(testPoint: target, maximumDistance: 0.0)).ToFin(key.InvalidResult()).Map(meshPoint => ClosestHit.At(target: target, point: meshPoint.Point, normal: Some(mesh.NormalAt(meshPoint: meshPoint)), meshPoint: Some(meshPoint))),
+            Line line => Fin.Succ(ClosestHit.At(target: target, point: line.ClosestPoint(testPoint: target, limitToFiniteSegment: true))),
+            Polyline polyline => Fin.Succ(ClosestHit.At(target: target, point: polyline.ClosestPoint(testPoint: target))),
+            Curve curve when curve.ClosestPoint(testPoint: target, t: out double parameter) =>
+                Fin.Succ(ClosestHit.At(target: target, point: curve.PointAt(t: parameter))),
+            BrepFace face when face.ClosestPointOnFace(testPoint: target, u: out double u, v: out double v, maximumDistance: 0.0) =>
+                Fin.Succ(ClosestHit.At(target: target, point: face.PointAt(u: u, v: v), normal: Some(face.NormalAt(u: u, v: v)),
+                    component: face.FaceIndex >= 0 ? Some(new ComponentIndex(ComponentIndexType.BrepFace, face.FaceIndex)) : Option<ComponentIndex>.None)),
+            Surface surface when surface.ClosestPoint(testPoint: target, u: out double u, v: out double v) =>
+                Fin.Succ(ClosestHit.At(target: target, point: surface.PointAt(u: u, v: v), normal: Some(surface.NormalAt(u: u, v: v)))),
+            Brep brep when brep.ClosestPoint(target, out Point3d point, out ComponentIndex component, out double _, out double _, 0.0, out Vector3d normal) =>
+                Fin.Succ(ClosestHit.At(target: target, point: point, normal: Some(normal), component: Some(component))),
+            Mesh mesh => Optional(mesh.ClosestMeshPoint(testPoint: target, maximumDistance: 0.0)).ToFin(key.InvalidResult())
+                .Map(meshPoint => ClosestHit.At(target: target, point: meshPoint.Point, normal: Some(mesh.NormalAt(meshPoint: meshPoint)), meshPoint: Some(meshPoint))),
+            Curve or BrepFace or Surface or Brep => Fin.Fail<ClosestHit>(key.InvalidInput()),
             _ => Fin.Fail<ClosestHit>(key.Unsupported(g.GetType(), typeof(ClosestHit))),
         }
         select hit;
