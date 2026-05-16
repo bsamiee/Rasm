@@ -49,7 +49,7 @@ public sealed record TopologyProjection {
         ArgumentNullException.ThrowIfNull(face);
         return new(value: copy ? new Lease<GeometryBase>.Owned(face.DuplicateFace(false)) : (Lease<GeometryBase>)new Lease<GeometryBase>.Borrowed(face), feature: CurveFeature.Input, source: new ComponentIndex(ComponentIndexType.BrepFace, face.FaceIndex), reversed: face.OrientationIsReversed);
     }
-    public static Fin<TopologyProjection> OfMesh(Mesh? mesh, ComponentIndex source) =>
+    public static Fin<TopologyProjection> FromMesh(Mesh? mesh, ComponentIndex source) =>
         Optional(mesh).ToFin(Key.InvalidInput()).Bind(native => new TopologyProjection(value: new Lease<GeometryBase>.Borrowed(Value: native), feature: CurveFeature.Input, source: source) switch { { HasValidSource: true } projection => Fin.Succ(projection), _ => Fin.Fail<TopologyProjection>(Key.InvalidInput()) });
     public Unit Dispose() {
         _ = value.Dispose();
@@ -290,11 +290,11 @@ internal static class GeometryKernel {
                 && (surface is not BrepFace face || face.IsPointOnFace(uv.X, uv.Y, context.Absolute.Value) != PointFaceRelation.Exterior) => Fin.Succ(uv),
             _ => Fin.Fail<Point2d>(key.InvalidInput()),
         };
-    internal static Fin<Seq<Point2d>> SurfaceSampleUv(Surface surface, int resolution, Context context, Op key) =>
+    internal static Fin<Seq<Point2d>> SurfaceSampleUv(Surface surface, int count, Context context, Op key) =>
         Optional(context).ToFin(key.MissingContext()).Bind(model =>
         Optional(surface).ToFin(key.InvalidInput()).Bind(native => (native.Domain(0), native.Domain(1)) switch {
             (Interval u, Interval v) when u.IsValid && v.IsValid =>
-                Fractions(count: resolution, op: key)
+                Fractions(count: count, op: key)
                     .Map(fractions => fractions.Bind(uf => fractions.Map(vf => new Point2d(u.ParameterAt(uf), v.ParameterAt(vf)))))
                     .Bind(samples => native is BrepFace face
                         ? OnFaceUv(face, samples, model.Absolute.Value) switch { Seq<Point2d> valid when !valid.IsEmpty => Fin.Succ(valid), _ => Fin.Fail<Seq<Point2d>>(key.InvalidResult()) }
@@ -305,8 +305,8 @@ internal static class GeometryKernel {
         samples.Choose(uv => face.IsPointOnFace(u: uv.X, v: uv.Y, tolerance: tolerance) != PointFaceRelation.Exterior ? Some(uv)
             : face.ClosestPointOnFace(testPoint: face.PointAt(u: uv.X, v: uv.Y), u: out double fu, v: out double fv, maximumDistance: 0.0)
                 && face.IsPointOnFace(u: fu, v: fv, tolerance: tolerance) != PointFaceRelation.Exterior ? Some(new Point2d(fu, fv)) : Option<Point2d>.None);
-    internal static Fin<Seq<Point3d>> SurfaceSamplePoints(Surface surface, int resolution, Context context, Op key) =>
-        SurfaceSampleUv(surface: surface, resolution: resolution, context: context, key: key)
+    internal static Fin<Seq<Point3d>> SurfaceSamplePoints(Surface surface, int count, Context context, Op key) =>
+        SurfaceSampleUv(surface: surface, count: count, context: context, key: key)
             .Map(uvs => uvs.Map(uv => surface.PointAt(u: uv.X, v: uv.Y)));
     internal static Fin<ClosestHit> ClosestOf(object? geometry, Point3d target, Op key) =>
         from _ in guard(target.IsValid, key.InvalidInput())

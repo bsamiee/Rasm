@@ -21,6 +21,9 @@ public partial record Topologies : IAspect {
     public static Topologies BoundaryLoops => new ScalarCase(Scalar: TopologyScalar.BoundaryLoops);
     public static Topologies Genus => new ScalarCase(Scalar: TopologyScalar.Genus);
     public static Topologies HoleCount => new ScalarCase(Scalar: TopologyScalar.HoleCount);
+    public static Topologies FaceCount => new ScalarCase(Scalar: TopologyScalar.FaceCount);
+    public static Topologies EdgeCount => new ScalarCase(Scalar: TopologyScalar.EdgeCount);
+    public static Topologies VertexCount => new ScalarCase(Scalar: TopologyScalar.VertexCount);
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         kindCase: static _ => Analyze.Kind<TGeometry, TOut>(),
         domainsCase: static _ => Analyze.TopologyDomains<TGeometry, TOut>(),
@@ -37,6 +40,9 @@ public sealed partial class TopologyScalar {
     public static readonly TopologyScalar BoundaryLoops = new(key: 2, output: typeof(int), extract: static (g, op) => Analyze.BoundaryLoopsOf(geometry: g, op: op).Map(static value => (object)value));
     public static readonly TopologyScalar Genus = new(key: 3, output: typeof(int), extract: static (g, op) => Analyze.GenusOf(geometry: g, op: op).Map(static value => (object)value));
     public static readonly TopologyScalar HoleCount = new(key: 4, output: typeof(int), extract: static (g, op) => Analyze.HoleCountOf(geometry: g, op: op).Map(static value => (object)value));
+    public static readonly TopologyScalar FaceCount = new(key: 5, output: typeof(int), extract: static (g, op) => Analyze.ElementCountOf<GeometryBase>(geometry: g, op: op, meshCount: static m => m.Faces.Count, brepCount: static b => b.Faces.Count).Map(static value => (object)value));
+    public static readonly TopologyScalar EdgeCount = new(key: 6, output: typeof(int), extract: static (g, op) => Analyze.ElementCountOf<GeometryBase>(geometry: g, op: op, meshCount: static m => m.TopologyEdges.Count, brepCount: static b => b.Edges.Count).Map(static value => (object)value));
+    public static readonly TopologyScalar VertexCount = new(key: 7, output: typeof(int), extract: static (g, op) => Analyze.ElementCountOf<GeometryBase>(geometry: g, op: op, meshCount: static m => m.Vertices.Count, brepCount: static b => b.Vertices.Count).Map(static value => (object)value));
     public Type Output { get; }
     [UseDelegateFromConstructor] internal partial Fin<object> Extract(GeometryBase geometry, Op op);
 }
@@ -114,12 +120,11 @@ public static partial class Analyze {
     internal static Fin<BrepSolidOrientation> SolidOrientationOf<TGeometry>(TGeometry geometry, Op op) where TGeometry : notnull =>
         Optional(geometry).ToFin(op.InvalidInput()).Bind(g => g switch {
             Brep brep => Fin.Succ(brep.SolidOrientation),
-            Mesh mesh => mesh.SolidOrientation() switch {
-                1 => Fin.Succ(BrepSolidOrientation.Outward),
-                -1 => Fin.Succ(BrepSolidOrientation.Inward),
-                0 => Fin.Succ(BrepSolidOrientation.None),
-                _ => Fin.Fail<BrepSolidOrientation>(op.InvalidResult()),
-            },
+            Mesh mesh => Fin.Succ(mesh.SolidOrientation() switch {
+                1 => BrepSolidOrientation.Outward,
+                -1 => BrepSolidOrientation.Inward,
+                _ => BrepSolidOrientation.None,
+            }),
             _ => Fin.Fail<BrepSolidOrientation>(op.Unsupported(g.GetType(), typeof(BrepSolidOrientation))),
         });
     internal static Fin<bool> ContainsPoint<TGeometry>(TGeometry geometry, Point3d target, Context context, Op op) where TGeometry : notnull =>
@@ -172,4 +177,6 @@ public static partial class Analyze {
         OnGeometry<TG, int>(geometry: geometry, op: op,
             onMesh: static m => Fin.Succ(Math.Max(0, Optional(m.GetNakedEdges()).Map(static p => p.Length).IfNone(0) - 1)),
             onBrep: static b => Fin.Succ(BrepLoopCount(brep: b, predicate: static l => l.LoopType == BrepLoopType.Inner)));
+    internal static Fin<int> ElementCountOf<TG>(TG geometry, Op op, Func<Mesh, int> meshCount, Func<Brep, int> brepCount) where TG : notnull =>
+        OnGeometry<TG, int>(geometry: geometry, op: op, onMesh: m => Fin.Succ(meshCount(arg: m)), onBrep: b => Fin.Succ(brepCount(arg: b)));
 }

@@ -18,6 +18,13 @@ public partial record BoxDerivation {
     public sealed record Volume : BoxDerivation;
     public sealed record Diagonal : BoxDerivation;
     public sealed record AspectRatio : BoxDerivation;
+    public sealed record Tightness : BoxDerivation;
+}
+
+[Union]
+public partial record EnclosingShape {
+    public sealed record SphereCase : EnclosingShape;
+    public sealed record CircleCase(Plane Plane) : EnclosingShape;
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -25,6 +32,7 @@ public partial record BoxDerivation {
 public partial record Bounds : IAspect {
     public sealed record BoxCase(BoundsShape Shape) : Bounds;
     public sealed record DerivedCase(BoxDerivation Derivation) : Bounds;
+    public sealed record EnclosingCase(EnclosingShape Shape) : Bounds;
     public static Bounds AxisAligned => new BoxCase(Shape: new BoundsShape.AxisAligned());
     public static Bounds Oriented(Plane plane) => new BoxCase(Shape: new BoundsShape.InPlane(Plane: plane));
     public static Bounds Transformed(Transform transform) => new BoxCase(Shape: new BoundsShape.Transformed(Xform: transform));
@@ -36,6 +44,8 @@ public partial record Bounds : IAspect {
     public static Bounds Volume => new DerivedCase(Derivation: new BoxDerivation.Volume());
     public static Bounds Diagonal => new DerivedCase(Derivation: new BoxDerivation.Diagonal());
     public static Bounds AspectRatio => new DerivedCase(Derivation: new BoxDerivation.AspectRatio());
+    public static Bounds Tightness => new DerivedCase(Derivation: new BoxDerivation.Tightness());
+    public static Bounds Enclosing(EnclosingShape shape) => new EnclosingCase(Shape: shape);
     internal static readonly Op BoundsKey = Op.Of(name: nameof(Bounds));
     internal static readonly Op OrientedKey = Op.Of(name: "OrientedBounds");
     internal static readonly Op TransformedKey = Op.Of(name: "TransformedBounds");
@@ -47,6 +57,9 @@ public partial record Bounds : IAspect {
     internal static readonly Op BoxVolumeKey = Op.Of(name: "BoxVolume");
     internal static readonly Op BoxDiagonalKey = Op.Of(name: "BoxDiagonal");
     internal static readonly Op BoxAspectRatioKey = Op.Of(name: "BoxAspectRatio");
+    internal static readonly Op BoxTightnessKey = Op.Of(name: "BoxTightness");
+    internal static readonly Op EnclosingSphereKey = Op.Of(name: "EnclosingSphere");
+    internal static readonly Op EnclosingCircleKey = Op.Of(name: "EnclosingCircle");
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         boxCase: static b => b.Shape.Switch(
             axisAligned: static _ => (typeof(TOut) == typeof(BoundingBox) && GeometryKernel.CanBound(typeof(TGeometry), includeSphere: true))
@@ -103,7 +116,48 @@ public partial record Bounds : IAspect {
             area: static _ => Analyze.BoxMetric<TGeometry, TOut>(key: BoxAreaKey, boundingBox: static g => g.Area, box: static g => g.Area),
             volume: static _ => Analyze.BoxMetric<TGeometry, TOut>(key: BoxVolumeKey, boundingBox: static g => g.Volume, box: static g => g.Volume),
             diagonal: static _ => Analyze.BoxMetric<TGeometry, TOut>(key: BoxDiagonalKey, boundingBox: static g => g.Diagonal.Length, box: static g => g.BoundingBox.Diagonal.Length),
-            aspectRatio: static _ => Analyze.BoxMetric<TGeometry, TOut>(key: BoxAspectRatioKey, boundingBox: static g => AspectOf(g.Diagonal), box: static g => AspectOf(new Vector3d(g.X.Length, g.Y.Length, g.Z.Length)))));
+            aspectRatio: static _ => Analyze.BoxMetric<TGeometry, TOut>(key: BoxAspectRatioKey, boundingBox: static g => AspectOf(g.Diagonal), box: static g => AspectOf(new Vector3d(g.X.Length, g.Y.Length, g.Z.Length))),
+            tightness: static _ => (typeof(TOut) == typeof(double) && typeof(GeometryBase).IsAssignableFrom(c: typeof(TGeometry)) && GeometryKernel.CanPrincipal(type: typeof(TGeometry)))
+                ? Analyze.Native<TGeometry, TOut, GeometryBase, double, Op>(
+                    key: BoxTightnessKey, state: BoxTightnessKey, requirement: Requirement.Basic, requiresContext: true,
+                    project: static (state, native) =>
+                        from context in Env.Asks
+                        from frame in MassKind.PrincipalFrameOf(geometry: native, context: context, key: state).ToEff()
+                        from obb in (new Box(frame, native) switch { { IsValid: true } b => Fin.Succ(b), _ => Fin.Fail<Box>(state.InvalidResult()) }).ToEff()
+                        from aabb in ((object)native).BoundsOf(op: state).ToEff()
+                        from result in state.Accept(value: aabb.Volume / Math.Max(val1: obb.Volume, val2: RhinoMath.ZeroTolerance)).ToEff()
+                        select result)
+                : BoxTightnessKey.Unsupported<TGeometry, TOut>()),
+        enclosingCase: static e => e.Shape.Switch(
+            sphereCase: static _ => (typeof(TOut) == typeof(Sphere) && GeometryKernel.CanBound(typeof(TGeometry), includeSphere: true))
+                ? Analysis.Operation<TGeometry, Sphere>.Build(
+                    key: EnclosingSphereKey, state: EnclosingSphereKey,
+                    evaluator: static (op, geometry) =>
+                        from bbox in ((object)geometry).BoundsOf(op: op).ToEff()
+                        from sphere in (new Sphere(center: bbox.Center, radius: bbox.Diagonal.Length * 0.5) switch {
+                            { IsValid: true } s => Fin.Succ(s),
+                            _ => Fin.Fail<Sphere>(op.InvalidResult()),
+                        }).ToEff()
+                        from result in op.Accept(value: sphere).ToEff()
+                        select result).As<TGeometry, TOut>(key: EnclosingSphereKey)
+                : EnclosingSphereKey.Unsupported<TGeometry, TOut>(),
+            circleCase: static c => (typeof(TOut) == typeof(Circle) && GeometryKernel.CanReadVertices(type: typeof(TGeometry)))
+                ? Analysis.Operation<TGeometry, Circle>.Build(
+                    key: EnclosingCircleKey, requiresContext: true, state: (Key: EnclosingCircleKey, c.Plane),
+                    evaluator: static (state, geometry) =>
+                        from context in Env.Asks
+                        from vertices in Analyze.VerticesOf(geometry: geometry, context: context, op: state.Key).ToEff()
+                        from projected in Fin.Succ(toSeq(vertices.AsIterable().Select(point => state.Plane.ClosestPoint(testPoint: point)).ToArray())).ToEff()
+                        from center in (projected.IsEmpty
+                            ? Fin.Fail<Point3d>(state.Key.InvalidResult())
+                            : Fin.Succ((Point3d)(projected.AsIterable().Aggregate(Vector3d.Zero, static (sum, point) => sum + (Vector3d)point) / projected.Count))).ToEff()
+                        from circle in (new Circle(plane: new Plane(origin: center, normal: state.Plane.Normal), radius: projected.AsIterable().Max(point => point.DistanceTo(other: center))) switch {
+                            { IsValid: true } fit => Fin.Succ(fit),
+                            _ => Fin.Fail<Circle>(state.Key.InvalidResult()),
+                        }).ToEff()
+                        from result in state.Key.Accept(value: circle).ToEff()
+                        select result).As<TGeometry, TOut>(key: EnclosingCircleKey)
+                : EnclosingCircleKey.Unsupported<TGeometry, TOut>()));
     private static double AspectOf(Vector3d extents) {
         double ax = Math.Abs(extents.X), ay = Math.Abs(extents.Y), az = Math.Abs(extents.Z);
         return Math.Max(Math.Max(ax, ay), az) / Math.Max(Math.Min(Math.Min(ax, ay), az), RhinoMath.ZeroTolerance);

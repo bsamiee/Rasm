@@ -48,7 +48,8 @@ public static partial class Analyze {
         bottomCase: static (s, bottom) => RankFaces(state: s, axis: bottom.Axis, descending: false),
         atCase: static (s, at) => (s.Faces.Count, at.Value) switch {
             (0, _) => Fin.Succ(Seq<TopologyProjection>()),
-            (int n, int index) => Fin.Succ(Seq(s.Faces[Math.Clamp(value: index, min: 0, max: n - 1)])),
+            (int n, int index) when index < 0 || index >= n => Fin.Fail<Seq<TopologyProjection>>(s.Key.InvalidInput()),
+            (_, int index) => Fin.Succ(Seq(s.Faces[index])),
             _ => Fin.Succ(Seq(s.Faces[0])),
         });
     private static Fin<Seq<TopologyProjection>> RankFaces((Op Key, Seq<TopologyProjection> Faces, Context Runtime) state, Vector3d axis, bool descending) =>
@@ -57,8 +58,8 @@ public static partial class Analyze {
             (false, false) => Fin.Fail<Seq<TopologyProjection>>(state.Key.InvalidInput()),
             _ => state.Faces.Traverse(face => face.As<BrepFace>().ToFin(state.Key.InvalidInput()).Bind(bf => Analyze.CentroidOf(geometry: bf, context: state.Runtime, op: state.Key)).Map(point => (face, Score: new Vector3d(x: point.X, y: point.Y, z: point.Z) * axis))).As()
                 .Map(ranked => descending
-                    ? Stats.Maxima(items: ranked, projection: static item => item.Score, tolerance: state.Runtime.Absolute.Value * axis.Length).Map(static item => item.face)
-                    : Stats.Minima(items: ranked, projection: static item => item.Score, tolerance: state.Runtime.Absolute.Value * axis.Length).Map(static item => item.face)),
+                    ? Stat.Extrema(items: ranked, projection: static item => item.Score, tolerance: state.Runtime.Absolute.Value * axis.Length, direction: ExtremumDirection.Maximum).Map(static item => item.face)
+                    : Stat.Extrema(items: ranked, projection: static item => item.Score, tolerance: state.Runtime.Absolute.Value * axis.Length, direction: ExtremumDirection.Minimum).Map(static item => item.face)),
         };
     internal static Operation<TGeometry, TOut> FaceOperation<TGeometry, TOut, TValue>(Op key, Faces selector, Requirement requirement, Func<Seq<TopologyProjection>, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull =>
         Operation<TGeometry, TValue>.Build(

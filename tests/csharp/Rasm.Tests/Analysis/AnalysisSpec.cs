@@ -159,7 +159,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void KeepsParameterlessFactoriesAsProperties() {
         object[] factories = [
-            Analyze.Curves<Brep, Curve>(aspect: Curves.All), Meshes.Validity.Operation<Mesh, MeshSample>(), Meshes.Defects.Operation<Mesh, MeshSample>(), Analyze.SelfIntersect<Mesh, IntersectionHit>(), Meshes.FaceQuality(MeshMetric.AspectRatio).Operation<Mesh, MeshMetricSample>(),
+            Analyze.Curves<Brep, Curve>(aspect: Curves.All), Meshes.Validity.Operation<Mesh, MeshSample>(), Meshes.Defects.Operation<Mesh, MeshSample>(), Analyze.SelfIntersect<Mesh, IntersectionHit>(), Meshes.FaceQuality(MeshMetric.EdgeAspect).Operation<Mesh, MeshMetricSample>(),
             Analyze.Meshes<Mesh, Polyline>(aspect: Meshes.NakedEdges), Analyze.Points<GeometryBase, Point3d>(sampling: new Points.EdgeMidpointsCase()), Analyze.Curves<Mesh, ComponentIndex>(aspect: Curves.All), Analyze.Curves<Mesh, ComponentIndex>(aspect: Curves.NonManifold),
             Measure.SpatialMidpoint.Operation<GeometryBase, Point3d>(), Analyze.Location<Curve, double>(aspect: new Location.CurvatureSamplesCase(Count: 3, Mode: CurvatureMode.Scalar(ScalarMetric.Magnitude))), Analyze.Location<Surface, double>(aspect: new Location.CurvatureSamplesCase(Count: 3, Mode: CurvatureMode.Scalar(ScalarMetric.Gaussian))), Analyze.Location<Surface, double>(aspect: new Location.CurvatureSamplesCase(Count: 3, Mode: CurvatureMode.Scalar(ScalarMetric.Mean))),
             Analyze.Conformance<Curve, Line, double>(aspect: new Conformance.DistanceCase(Count: 3)), Analyze.Conformance<Surface, Plane, bool>(aspect: new Conformance.WithinToleranceCase(Count: 2)), Analyze.Conformance<Curve, Line, Stat>(aspect: new Conformance.SummaryCase(Count: 3)), Analyze.Conformance<Curve, Circle, double>(aspect: new Conformance.DistanceCase(Count: 3)), Analyze.Conformance<Curve, Arc, bool>(aspect: new Conformance.WithinToleranceCase(Count: 3)), Analyze.Conformance<Surface, Sphere, ResidualSample>(aspect: new Conformance.MaximumCase(Count: 2)),
@@ -741,13 +741,13 @@ public sealed class AnalysisSpec {
     public void StatsUseDomainAggregationAndToleranceRail() {
         Op key = Op.Create(value: "stat-rail");
         Fin<Stat> curvature = Stat.Curvature(values: LanguageExt.Prelude.toSeq<double>([1.0, 3.0]), metric: ScalarMetric.Magnitude, key: Op.Create(value: "curvature-stat"));
-        Fin<ConformanceSummary> residual = Stats.From(values: LanguageExt.Prelude.toSeq<double>([1.0, 3.0]), key: Op.Create(value: "residual-stat"))
-            .Map(static stats => new ConformanceSummary(Distribution: stats, Tolerance: 3.0, WithinTolerance: stats.Maximum <= 3.0));
+        Fin<Stat> residual = Stat.Of(values: LanguageExt.Prelude.toSeq<double>([1.0, 3.0]), key: Op.Create(value: "residual-stat"))
+            .Map(static stat => stat with { Context = StatContext.Tolerance(tolerance: 3.0, maximum: stat.Maximum) });
 
         Assert.True(condition: Stat.Curvature(values: LanguageExt.Prelude.toSeq<double>([-1.0, 3.0]), metric: ScalarMetric.Gaussian, key: key).IsSucc);
-        Assert.True(condition: Stats.From(values: LanguageExt.Prelude.toSeq<double>([1.0, 3.0]), key: key).Map(stats => new ConformanceSummary(Distribution: stats, Tolerance: -1.0, WithinTolerance: stats.Maximum <= -1.0)).Map(static s => s.WithinTolerance).Match(Succ: static valid => !valid, Fail: static _ => false));
-        Assert.True(condition: curvature.Match(Succ: static stat => stat.Mean == stat.Stats.Mean, Fail: static _ => false));
-        Assert.True(condition: residual.Match(Succ: static summary => summary.Distribution.Maximum <= summary.Tolerance && summary.WithinTolerance, Fail: static _ => false));
+        Assert.True(condition: Stat.Of(values: LanguageExt.Prelude.toSeq<double>([1.0, 3.0]), key: key).Map(stat => stat with { Context = StatContext.Tolerance(tolerance: -1.0, maximum: stat.Maximum) }).Map(static s => s.WithinTolerance).Match(Succ: static valid => !valid, Fail: static _ => false));
+        Assert.True(condition: curvature.Match(Succ: static stat => RhinoMath.IsValidDouble(x: stat.Mean), Fail: static _ => false));
+        Assert.True(condition: residual.Match(Succ: static summary => summary.Maximum <= summary.Tolerance.IfNone(double.NegativeInfinity) && summary.WithinTolerance, Fail: static _ => false));
     }
 
     [Fact]
@@ -801,7 +801,7 @@ public sealed class AnalysisSpec {
             operation: Meshes.FaceQuality(MeshMetric.None).Operation<Mesh, MeshMetricSample>(),
             input: [null!, null!]);
         Validation<Error, Seq<MeshMetricSample>> nullMesh = Analyze.In(context: ValidContext()).Run(
-            operation: Meshes.FaceQuality(MeshMetric.AspectRatio).Operation<Mesh, MeshMetricSample>(),
+            operation: Meshes.FaceQuality(MeshMetric.EdgeAspect).Operation<Mesh, MeshMetricSample>(),
             input: [null!]);
 
         Assert.True(condition: (invalidMetric, nullMesh).Apply(static (_, _) => false).As().ToFin().Match(
@@ -991,7 +991,7 @@ public sealed class AnalysisSpec {
     public void TopologyProjectionFactoriesAreOnlyPublicConstructionSurface() {
         Assert.Empty(collection: typeof(TopologyProjection).GetConstructors(bindingAttr: BindingFlags.Public | BindingFlags.Instance));
         Assert.DoesNotContain(collection: typeof(TopologyProjection).GetNestedTypes(bindingAttr: BindingFlags.Public), filter: static type => type.Name is "CurveCase" or "FaceCase" or "MeshFaceCase");
-        Assert.True(condition: TopologyProjection.OfMesh(mesh: null, source: new ComponentIndex(ComponentIndexType.MeshFace, 0)).IsFail);
+        Assert.True(condition: TopologyProjection.FromMesh(mesh: null, source: new ComponentIndex(ComponentIndexType.MeshFace, 0)).IsFail);
     }
 
     // Faces / FaceFrame operations run on Brep, BrepFace, Surface, SubD, all of which

@@ -19,7 +19,7 @@ public partial record Meshes : IAspect {
     public static Meshes Counts => new SamplesCase(Category: MeshSampleCategory.Count);
     public static Meshes Defects => new SamplesCase(Category: MeshSampleCategory.Defect);
     public static Meshes Quality => new SamplesCase(Category: MeshSampleCategory.Quality);
-    public static Meshes FaceQuality(MeshMetric? metric = null) => new FaceQualityCase(Metric: metric ?? MeshMetric.AspectRatio);
+    public static Meshes FaceQuality(MeshMetric? metric = null) => new FaceQualityCase(Metric: metric ?? MeshMetric.EdgeAspect);
     public static Meshes AtFace(int? index = null) => new AtFaceCase(Value: index);
     public static Meshes NakedEdges => new NakedEdgesCase();
     public static Meshes Outline(Plane plane) => new OutlineCase(Plane: plane);
@@ -49,6 +49,7 @@ public sealed partial class MeshSampleKind {
     public static readonly MeshSampleKind VertexFaceNormalsDiffer = new(key: 31, category: MeshSampleCategory.Defect, sample: static (_, p) => Fin.Succ(p.VertexFaceNormalsDifferCount)), ZeroLengthNormals = new(key: 32, category: MeshSampleCategory.Defect, sample: static (_, p) => Fin.Succ(p.ZeroLengthNormalCount));
     public static readonly MeshSampleKind MaximumValence = new(key: 40, category: MeshSampleCategory.Quality, sample: static (m, _) => Fin.Succ(Valences(mesh: m).Fold(0, Math.Max))), MinimumValence = new(key: 41, category: MeshSampleCategory.Quality, sample: static (m, _) => Valences(mesh: m) switch { Seq<int> v when !v.IsEmpty => Fin.Succ(v.Fold(v.Head.IfNone(0), Math.Min)), _ => Fin.Succ(0) });
     public static readonly MeshSampleKind BoundaryLoopCount = new(key: 42, category: MeshSampleCategory.Quality, sample: static (m, _) => Analyze.BoundaryLoopsOf(geometry: m, op: BoundaryLoopsKey)), Genus = new(key: 43, category: MeshSampleCategory.Quality, sample: static (m, _) => Analyze.GenusOf(geometry: m, op: GenusKey));
+    public static readonly MeshSampleKind AverageValence = new(key: 44, category: MeshSampleCategory.Quality, sample: static (m, _) => Valences(mesh: m) switch { Seq<int> v when !v.IsEmpty => Fin.Succ((int)Math.Round(v.Fold(0, static (acc, n) => acc + n) / (double)v.Count)), _ => Fin.Succ(0) });
     private static readonly Op ManifoldKey = Op.Of(name: "MeshManifold");
     private static readonly Op EulerKey = Op.Of(name: "MeshEuler");
     private static readonly Op BoundaryLoopsKey = Op.Of(name: "MeshBoundaryLoops");
@@ -66,7 +67,7 @@ public sealed partial class MeshSampleKind {
 [BoundaryAdapter, SmartEnum<int>]
 public sealed partial class MeshMetric {
     private static readonly Op MetricKey = Op.Of(name: nameof(MeshMetric));
-    public static readonly MeshMetric None = new(key: 0, sample: static (_, _, _) => Fin.Fail<double>(MetricKey.InvalidInput())), AspectRatio = new(key: 1, sample: FaceAspectRatio);
+    public static readonly MeshMetric None = new(key: 0, sample: static (_, _, _) => Fin.Fail<double>(MetricKey.InvalidInput())), EdgeAspect = new(key: 1, sample: FaceEdgeAspect);
     public static readonly MeshMetric Area = new(key: 2, sample: FaceArea), Perimeter = new(key: 3, sample: FacePerimeter), Skewness = new(key: 4, sample: FaceSkewness), DihedralAngle = new(key: 5, sample: FaceMaxDihedral);
     private readonly Func<Mesh, ComponentIndex, Seq<Point3d>, Fin<double>> sample;
     internal Fin<MeshMetricSample> Sample(Mesh? mesh, MeshNgon polygon) =>
@@ -108,7 +109,7 @@ public sealed partial class MeshMetric {
         VerticesOf(mesh: mesh, source: source, key: key).Bind(vertices => NormalOf(mesh: mesh, source: source, vertices: vertices, key: key));
     private static Fin<Vector3d> UnitNormal(Vector3d candidate, Op key) =>
         candidate.IsValid && !candidate.IsTiny() ? Fin.Succ(candidate / candidate.Length) : Fin.Fail<Vector3d>(key.InvalidResult());
-    private static Fin<double> FaceAspectRatio(Mesh mesh, ComponentIndex source, Seq<Point3d> vertices) =>
+    private static Fin<double> FaceEdgeAspect(Mesh mesh, ComponentIndex source, Seq<Point3d> vertices) =>
         (source switch {
             { ComponentIndexType: ComponentIndexType.MeshFace, Index: int index } when index >= 0 && index < mesh.Faces.Count => Fin.Succ(mesh.Faces.GetFaceAspectRatio(index: index)),
             _ => Fin.Fail<double>(MetricKey.InvalidInput()),
@@ -143,7 +144,7 @@ public sealed partial class MeshMetric {
             true => source switch {
                 { ComponentIndexType: ComponentIndexType.MeshFace, Index: int face } when face >= 0 && face < mesh.Faces.Count =>
                     toSeq(mesh.Faces.AdjacentFaces(faceIndex: face))
-                        .Fold(initialState: Fin.Succ((Max: 0.0, Mesh: mesh, Normal: normal)), f: static (state, other) => state.Bind(s => TopologyProjection.OfMesh(mesh: s.Mesh, source: new ComponentIndex(ComponentIndexType.MeshFace, other))
+                        .Fold(initialState: Fin.Succ((Max: 0.0, Mesh: mesh, Normal: normal)), f: static (state, other) => state.Bind(s => TopologyProjection.FromMesh(mesh: s.Mesh, source: new ComponentIndex(ComponentIndexType.MeshFace, other))
                             .Bind(otherProjection => NormalOf(mesh: s.Mesh, source: otherProjection.Source, key: MetricKey))
                             .Map(neighbour => neighbour.IsValid switch {
                                 true => (Math.Max(val1: s.Max, val2: Vector3d.VectorAngle(a: s.Normal, b: neighbour)), s.Mesh, s.Normal),
@@ -154,7 +155,7 @@ public sealed partial class MeshMetric {
                     Optional(mesh.Ngons[ngon].FaceIndexList()).ToFin(MetricKey.InvalidResult())
                         .Bind(faces => toSeq(faces).TraverseM(face => face <= int.MaxValue && (int)face < mesh.Faces.Count ? Fin.Succ((int)face) : Fin.Fail<int>(MetricKey.InvalidResult())).As())
                         .Bind(parts => parts.Bind(face => toSeq(mesh.Faces.AdjacentFaces(faceIndex: face))).Filter(other => !parts.Exists(face => face == other)).Distinct()
-                            .Fold(initialState: Fin.Succ((Max: 0.0, Mesh: mesh, Normal: normal)), f: static (state, other) => state.Bind(s => TopologyProjection.OfMesh(mesh: s.Mesh, source: new ComponentIndex(ComponentIndexType.MeshFace, other))
+                            .Fold(initialState: Fin.Succ((Max: 0.0, Mesh: mesh, Normal: normal)), f: static (state, other) => state.Bind(s => TopologyProjection.FromMesh(mesh: s.Mesh, source: new ComponentIndex(ComponentIndexType.MeshFace, other))
                                 .Bind(otherProjection => NormalOf(mesh: s.Mesh, source: otherProjection.Source, key: MetricKey))
                                 .Map(neighbour => neighbour.IsValid switch {
                                     true => (Math.Max(val1: s.Max, val2: Vector3d.VectorAngle(a: s.Normal, b: neighbour)), s.Mesh, s.Normal),
@@ -233,7 +234,7 @@ public static partial class Analyze {
                 0 => Fin.Fail<Seq<TopologyProjection>>(state.Key.InvalidResult()),
                 int count when state.Selector is int selected && (selected < 0 || selected >= count) => Fin.Fail<Seq<TopologyProjection>>(state.Key.InvalidInput()),
                 _ => Analysis.MeshMetric.SourceOf(mesh: geometry, polygon: polygons[state.Selector ?? 0], key: state.Key)
-                    .Bind(source => TopologyProjection.OfMesh(mesh: geometry, source: source))
+                    .Bind(source => TopologyProjection.FromMesh(mesh: geometry, source: source))
                     .Bind(projection => state.Key.Accept(value: projection))
             }).ToEff());
     }
