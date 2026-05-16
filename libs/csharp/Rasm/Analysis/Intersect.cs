@@ -4,7 +4,9 @@ namespace Rasm.Analysis;
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct RayQuery(Ray3d Ray, int MaxReflections = 1);
+public readonly record struct RayQuery(Ray3d Ray, int MaxReflections = 1) {
+    public static RayQuery Of(Ray3d ray, int maxReflections = 1) => new(Ray: ray, MaxReflections: maxReflections);
+}
 
 [Union]
 internal partial record IntersectionResult {

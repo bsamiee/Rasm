@@ -86,7 +86,7 @@ public partial record Location : IAspect {
                 key: PerpendicularFrameAtKey, requirement: Requirement.CurveLength, state: (Key: PerpendicularFrameAtKey, pfa.Parameters),
                 evaluator: static (state, geometry) =>
                     GeometryKernel.CurveForm(source: geometry, op: state.Key)
-                        .Bind(lease => lease.Use(curve => Optional(curve.GetPerpendicularFrames(toSeq(state.Parameters.AsIterable().OrderBy(t => t)).AsIterable()))
+                        .Bind(lease => lease.Use(curve => Optional(curve.GetPerpendicularFrames(toSeq(state.Parameters.AsIterable().OrderBy(t => t).Distinct()).AsIterable()))
                             .ToFin(state.Key.InvalidResult())
                             .Bind(planes => state.Key.Accept(values: planes))))
                         .ToEff())),
