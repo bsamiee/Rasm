@@ -31,7 +31,8 @@ public partial record StatContext {
     public sealed record ToleranceCase(double Value, bool WithinTolerance) : StatContext;
     public static StatContext None => new NoneCase();
     public static StatContext Metric(ScalarMetric metric) => new MetricCase(Value: metric);
-    public static StatContext Tolerance(double tolerance, double maximum) => new ToleranceCase(Value: tolerance, WithinTolerance: maximum <= tolerance);
+    public static StatContext Tolerance(double tolerance, double minimum, double maximum) =>
+        new ToleranceCase(Value: tolerance, WithinTolerance: Math.Max(val1: Math.Abs(value: minimum), val2: Math.Abs(value: maximum)) <= tolerance);
 }
 
 [Union]
@@ -75,7 +76,7 @@ public readonly record struct Stat(int Count, double Minimum, double Maximum, do
         ValidResiduals(samples: samples, key: key).Bind(validated => (aggregate, typeof(TOut)) switch {
             (ResidualAggregate.DistancesCase, Type t) when t == typeof(Seq<double>) => Fin.Succ((TOut)(object)validated.Map(static sample => sample.Distance)),
             (ResidualAggregate.SummaryCase summary, Type t) when t == typeof(Stat) => Of(values: validated.Map(static sample => sample.Distance), key: key)
-                .Map(stat => (TOut)(object)(stat with { Context = StatContext.Tolerance(tolerance: summary.Tolerance, maximum: stat.Maximum) })),
+                .Map(stat => (TOut)(object)(stat with { Context = StatContext.Tolerance(tolerance: summary.Tolerance, minimum: stat.Minimum, maximum: stat.Maximum) })),
             (ResidualAggregate.MaximumCase, Type t) when t == typeof(ResidualSample) => Extrema(items: validated, projection: static sample => sample.Distance, tolerance: 0.0, direction: ExtremumDirection.Maximum).Head.ToFin(key.InvalidResult()).Map(static sample => (TOut)(object)sample),
             _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(ResidualSample), outputType: typeof(TOut))),
         });

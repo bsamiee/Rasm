@@ -23,8 +23,8 @@ public partial record BoxDerivation {
 
 [Union]
 public partial record EnclosingShape {
-    public sealed record SphereCase : EnclosingShape;
-    public sealed record CircleCase(Plane Plane) : EnclosingShape;
+    public sealed record SphereCase(int Count = 64) : EnclosingShape;
+    public sealed record CircleCase(Plane Plane, int Count = 64) : EnclosingShape;
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -129,35 +129,60 @@ public partial record Bounds : IAspect {
                         select result)
                 : BoxTightnessKey.Unsupported<TGeometry, TOut>()),
         enclosingCase: static e => e.Shape.Switch(
-            sphereCase: static _ => (typeof(TOut) == typeof(Sphere) && GeometryKernel.CanBound(typeof(TGeometry), includeSphere: true))
+            sphereCase: static s => (typeof(TOut) == typeof(Sphere) && GeometryKernel.CanBound(typeof(TGeometry), includeSphere: true))
                 ? Analysis.Operation<TGeometry, Sphere>.Build(
-                    key: EnclosingSphereKey, state: EnclosingSphereKey,
-                    evaluator: static (op, geometry) =>
-                        from bbox in ((object)geometry).BoundsOf(op: op).ToEff()
-                        from sphere in (new Sphere(center: bbox.Center, radius: bbox.Diagonal.Length * 0.5) switch {
-                            { IsValid: true } s => Fin.Succ(s),
-                            _ => Fin.Fail<Sphere>(op.InvalidResult()),
-                        }).ToEff()
-                        from result in op.Accept(value: sphere).ToEff()
-                        select result).As<TGeometry, TOut>(key: EnclosingSphereKey)
+                    key: EnclosingSphereKey, requiresContext: true, state: (Key: EnclosingSphereKey, s.Count),
+                    evaluator: static (state, geometry) =>
+                        from context in Env.Asks
+                        from samples in EnclosingSamples(geometry: geometry, context: context, key: state.Key, count: state.Count).ToEff()
+                        from result in RitterFit(samples: samples, key: state.Key, construct: static (c, r) => new Sphere(center: c, radius: r), isValid: static s => s.IsValid).ToEff()
+                        from accepted in state.Key.Accept(value: result).ToEff()
+                        select accepted).As<TGeometry, TOut>(key: EnclosingSphereKey)
                 : EnclosingSphereKey.Unsupported<TGeometry, TOut>(),
             circleCase: static c => (typeof(TOut) == typeof(Circle) && GeometryKernel.CanReadVertices(type: typeof(TGeometry)))
                 ? Analysis.Operation<TGeometry, Circle>.Build(
-                    key: EnclosingCircleKey, requiresContext: true, state: (Key: EnclosingCircleKey, c.Plane),
+                    key: EnclosingCircleKey, requiresContext: true, state: (Key: EnclosingCircleKey, c.Plane, c.Count),
                     evaluator: static (state, geometry) =>
                         from context in Env.Asks
-                        from vertices in Analyze.VerticesOf(geometry: geometry, context: context, op: state.Key).ToEff()
-                        from projected in Fin.Succ(toSeq(vertices.AsIterable().Select(point => state.Plane.ClosestPoint(testPoint: point)).ToArray())).ToEff()
-                        from center in (projected.IsEmpty
-                            ? Fin.Fail<Point3d>(state.Key.InvalidResult())
-                            : Fin.Succ((Point3d)(projected.AsIterable().Aggregate(Vector3d.Zero, static (sum, point) => sum + (Vector3d)point) / projected.Count))).ToEff()
-                        from circle in (new Circle(plane: new Plane(origin: center, normal: state.Plane.Normal), radius: projected.AsIterable().Max(point => point.DistanceTo(other: center))) switch {
-                            { IsValid: true } fit => Fin.Succ(fit),
-                            _ => Fin.Fail<Circle>(state.Key.InvalidResult()),
-                        }).ToEff()
-                        from result in state.Key.Accept(value: circle).ToEff()
-                        select result).As<TGeometry, TOut>(key: EnclosingCircleKey)
+                        from samples in EnclosingSamples(geometry: geometry, context: context, key: state.Key, count: state.Count).ToEff()
+                        from projected in Fin.Succ(samples.Map(p => state.Plane.ClosestPoint(testPoint: p))).ToEff()
+                        from result in RitterFit(samples: projected, key: state.Key, construct: (c, r) => new Circle(plane: new Plane(origin: c, normal: state.Plane.Normal), radius: r), isValid: static c => c.IsValid).ToEff()
+                        from accepted in state.Key.Accept(value: result).ToEff()
+                        select accepted).As<TGeometry, TOut>(key: EnclosingCircleKey)
                 : EnclosingCircleKey.Unsupported<TGeometry, TOut>()));
+    private static Fin<Seq<Point3d>> EnclosingSamples<TGeometry>(TGeometry geometry, Context context, Op key, int count) where TGeometry : notnull =>
+        geometry switch {
+            Curve curve => GeometryKernel.CurveSampleParameters(curve: curve, count: count, context: context, key: key).Map(parameters => parameters.Map(curve.PointAt)),
+            Surface surface => GeometryKernel.SurfaceSamplePoints(surface: surface, count: count, context: context, key: key),
+            _ => Analyze.VerticesOf(geometry: geometry, context: context, op: key),
+        };
+    private static Fin<T> RitterFit<T>(Seq<Point3d> samples, Op key, Func<Point3d, double, T> construct, Func<T, bool> isValid) =>
+        (samples.Count switch {
+            0 => Fin.Fail<(Point3d Center, double Radius)>(key.InvalidResult()),
+            1 => Fin.Succ((Center: samples[0], Radius: 0.0)),
+            _ => Fin.Succ(FarthestFrom(samples: samples, anchor: samples[0]) switch {
+                Point3d p1 => FarthestFrom(samples: samples, anchor: p1) switch {
+                    Point3d p2 => samples.Fold(
+                        initialState: (Center: Midpoint(a: p1, b: p2), Radius: p1.DistanceTo(other: p2) * 0.5),
+                        f: static (state, p) => p.DistanceTo(other: state.Center) switch {
+                            double d when d <= state.Radius => state,
+                            double d => (Center: state.Center + ((p - state.Center) * ((d - state.Radius) * 0.5 / d)), Radius: (state.Radius + d) * 0.5),
+                        }),
+                },
+            }),
+        }).Bind(result => construct(arg1: result.Center, arg2: result.Radius) switch {
+            T fit when isValid(arg: fit) => Fin.Succ(fit),
+            _ => Fin.Fail<T>(key.InvalidResult()),
+        });
+    private static Point3d Midpoint(Point3d a, Point3d b) =>
+        new(x: (a.X + b.X) * 0.5, y: (a.Y + b.Y) * 0.5, z: (a.Z + b.Z) * 0.5);
+    private static Point3d FarthestFrom(Seq<Point3d> samples, Point3d anchor) =>
+        samples.Fold(
+            initialState: (Best: anchor, Anchor: anchor, SqDist: 0.0),
+            f: static (state, p) => ((p - state.Anchor) * (p - state.Anchor)) switch {
+                double sq when sq > state.SqDist => state with { Best = p, SqDist = sq },
+                _ => state,
+            }).Best;
     private static double AspectOf(Vector3d extents) {
         double ax = Math.Abs(extents.X), ay = Math.Abs(extents.Y), az = Math.Abs(extents.Z);
         return Math.Max(Math.Max(ax, ay), az) / Math.Max(Math.Min(Math.Min(ax, ay), az), RhinoMath.ZeroTolerance);

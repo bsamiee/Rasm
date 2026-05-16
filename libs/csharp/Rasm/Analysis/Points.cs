@@ -6,41 +6,43 @@ public enum SpreadAspect { Frame, PrincipalFrame, Distribution, Collinear, Copla
 // --- [MODELS] -----------------------------------------------------------------------------
 [Union]
 public partial record Points : IAspect {
-    public sealed record QuadrantsCase : Points; public sealed record EdgeMidpointsCase : Points; public sealed record VerticesCase : Points; public sealed record ControlPointsCase : Points;
+    public sealed record ExtremaCase(Option<Seq<Vector3d>> Directions) : Points; public sealed record EdgeMidpointsCase : Points; public sealed record VerticesCase : Points; public sealed record ControlPointsCase : Points;
     public sealed record SpreadCase(SpreadAspect Aspect) : Points;
-    public static Points Quadrants => new QuadrantsCase();
+    public static Points Quadrants => new ExtremaCase(Directions: Option<Seq<Vector3d>>.None);
+    public static Points Extrema(Seq<Vector3d> directions) => new ExtremaCase(Directions: Some(value: directions));
     public static Points EdgeMidpoints => new EdgeMidpointsCase();
     public static Points Vertices => new VerticesCase();
     public static Points ControlPoints => new ControlPointsCase();
     public static Points Spread(SpreadAspect aspect) => new SpreadCase(Aspect: aspect);
-    private static readonly Op QuadrantsKey = Op.Of(name: nameof(Quadrants));
+    private static readonly Op ExtremaKey = Op.Of(name: nameof(Extrema));
     private static readonly Op EdgeMidpointsKey = Op.Of(name: nameof(EdgeMidpoints));
     private static readonly Op VerticesKey = Op.Of(name: nameof(Vertices));
     private static readonly Op ControlPointsKey = Op.Of(name: nameof(ControlPoints));
     private static readonly Op SpreadKey = Op.Of(name: nameof(Spread));
-    private static readonly Seq<(Vector3d Direction, bool Maximize)> QuadrantProbes = Seq(
-        (Vector3d.XAxis, false), (Vector3d.XAxis, true), (Vector3d.YAxis, false), (Vector3d.YAxis, true), (Vector3d.ZAxis, false), (Vector3d.ZAxis, true));
+    private static readonly Seq<Vector3d> CardinalDirections = Seq(
+        -Vector3d.XAxis, Vector3d.XAxis,
+        -Vector3d.YAxis, Vector3d.YAxis,
+        -Vector3d.ZAxis, Vector3d.ZAxis);
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
-        quadrantsCase: static _ => typeof(TOut) == typeof(Point3d)
+        extremaCase: static c => typeof(TOut) == typeof(Point3d)
             ? Analysis.Operation<TGeometry, Point3d>.Build(
-                key: QuadrantsKey, requirement: Requirement.Basic, requiresContext: true, state: QuadrantsKey,
-                evaluator: static (op, geometry) =>
+                key: ExtremaKey, requirement: Requirement.Basic, requiresContext: true, state: (Key: ExtremaKey, c.Directions),
+                evaluator: static (state, geometry) =>
                     from context in Env.Asks
-                    from lease in GeometryKernel.CurveForm(source: geometry, op: op).ToEff()
+                    from lease in GeometryKernel.CurveForm(source: geometry, op: state.Key).ToEff()
                     from points in lease.Use(curve => curve.IsValid switch {
-                        false => Fin.Fail<Seq<Point3d>>(op.InvalidInput()),
-                        true => QuadrantProbes
-                            .Take(curve.IsPlanar(tolerance: context.Absolute.Value) switch { true => 4, false => 6 })
-                            .TraverseM(state => Stat.Extrema(
-                                    items: toSeq(curve.ExtremeParameters(direction: state.Direction)).Map(curve.PointAt),
-                                    projection: p => (Vector3d)p * (state.Maximize switch { true => state.Direction, false => -state.Direction }),
+                        false => Fin.Fail<Seq<Point3d>>(state.Key.InvalidInput()),
+                        true => DirectionsFor(custom: state.Directions, planar: curve.IsPlanar(tolerance: context.Absolute.Value))
+                            .TraverseM(direction => Stat.Extrema(
+                                    items: toSeq(curve.ExtremeParameters(direction: direction)).Map(curve.PointAt),
+                                    projection: p => (Vector3d)p * direction,
                                     tolerance: 0.0,
                                     direction: ExtremumDirection.Maximum)
-                                .Head.ToFin(op.InvalidResult()))
+                                .Head.ToFin(state.Key.InvalidResult()))
                             .As(),
                     }).ToEff()
-                    select points).As<TGeometry, TOut>(key: QuadrantsKey)
-            : QuadrantsKey.Unsupported<TGeometry, TOut>(),
+                    select points).As<TGeometry, TOut>(key: ExtremaKey)
+            : ExtremaKey.Unsupported<TGeometry, TOut>(),
         edgeMidpointsCase: static _ => typeof(TOut) == typeof(Point3d) && GeometryKernel.CanReadEdges(type: typeof(TGeometry))
             ? Analysis.Operation<TGeometry, Point3d>.Build(
                 key: EdgeMidpointsKey, requiresContext: true, state: EdgeMidpointsKey,
@@ -87,6 +89,8 @@ public partial record Points : IAspect {
                     from result in Analyze.SpreadProject<TOut>(aspect: state.Aspect, points: points, geometry: geometry, context: context, op: state.Key).ToEff()
                     select result)
             : SpreadKey.Unsupported<TGeometry, TOut>());
+    private static Seq<Vector3d> DirectionsFor(Option<Seq<Vector3d>> custom, bool planar) =>
+        custom.Match(Some: ds => ds, None: () => planar ? CardinalDirections.Take(4) : CardinalDirections);
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------

@@ -742,10 +742,10 @@ public sealed class AnalysisSpec {
         Op key = Op.Create(value: "stat-rail");
         Fin<Stat> curvature = Stat.Curvature(values: LanguageExt.Prelude.toSeq<double>([1.0, 3.0]), metric: ScalarMetric.Magnitude, key: Op.Create(value: "curvature-stat"));
         Fin<Stat> residual = Stat.Of(values: LanguageExt.Prelude.toSeq<double>([1.0, 3.0]), key: Op.Create(value: "residual-stat"))
-            .Map(static stat => stat with { Context = StatContext.Tolerance(tolerance: 3.0, maximum: stat.Maximum) });
+            .Map(static stat => stat with { Context = StatContext.Tolerance(tolerance: 3.0, minimum: stat.Minimum, maximum: stat.Maximum) });
 
         Assert.True(condition: Stat.Curvature(values: LanguageExt.Prelude.toSeq<double>([-1.0, 3.0]), metric: ScalarMetric.Gaussian, key: key).IsSucc);
-        Assert.True(condition: Stat.Of(values: LanguageExt.Prelude.toSeq<double>([1.0, 3.0]), key: key).Map(stat => stat with { Context = StatContext.Tolerance(tolerance: -1.0, maximum: stat.Maximum) }).Map(static s => s.WithinTolerance).Match(Succ: static valid => !valid, Fail: static _ => false));
+        Assert.True(condition: Stat.Of(values: LanguageExt.Prelude.toSeq<double>([1.0, 3.0]), key: key).Map(stat => stat with { Context = StatContext.Tolerance(tolerance: -1.0, minimum: stat.Minimum, maximum: stat.Maximum) }).Map(static s => s.WithinTolerance).Match(Succ: static valid => !valid, Fail: static _ => false));
         Assert.True(condition: curvature.Match(Succ: static stat => RhinoMath.IsValidDouble(x: stat.Mean), Fail: static _ => false));
         Assert.True(condition: residual.Match(Succ: static summary => summary.Maximum <= summary.Tolerance.IfNone(double.NegativeInfinity) && summary.WithinTolerance, Fail: static _ => false));
     }

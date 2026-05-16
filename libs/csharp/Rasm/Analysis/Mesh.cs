@@ -12,6 +12,7 @@ public enum MeshSampleCategory { None, Validity, Count, Defect, Quality }
 public partial record Meshes : IAspect {
     public sealed record SamplesCase(MeshSampleCategory Category) : Meshes;
     public sealed record FaceQualityCase(MeshMetric Metric) : Meshes;
+    public sealed record FaceQualitySummaryCase(MeshMetric Metric) : Meshes;
     public sealed record AtFaceCase(int? Value) : Meshes;
     public sealed record NakedEdgesCase : Meshes;
     public sealed record OutlineCase(Plane Plane) : Meshes;
@@ -20,17 +21,20 @@ public partial record Meshes : IAspect {
     public static Meshes Defects => new SamplesCase(Category: MeshSampleCategory.Defect);
     public static Meshes Quality => new SamplesCase(Category: MeshSampleCategory.Quality);
     public static Meshes FaceQuality(MeshMetric? metric = null) => new FaceQualityCase(Metric: metric ?? MeshMetric.EdgeAspect);
+    public static Meshes FaceQualitySummary(MeshMetric? metric = null) => new FaceQualitySummaryCase(Metric: metric ?? MeshMetric.EdgeAspect);
     public static Meshes AtFace(int? index = null) => new AtFaceCase(Value: index);
     public static Meshes NakedEdges => new NakedEdgesCase();
     public static Meshes Outline(Plane plane) => new OutlineCase(Plane: plane);
     private static readonly Op SamplesKey = Op.Of(name: "MeshSamples");
     private static readonly Op FaceMetricKey = Op.Of(name: nameof(MeshMetric));
+    private static readonly Op FaceMetricSummaryKey = Op.Of(name: "MeshMetricSummary");
     private static readonly Op AtFaceKey = Op.Of(name: "MeshAtFace");
     private static readonly Op NakedEdgesKey = Op.Of(name: "MeshNakedEdges");
     private static readonly Op OutlineKey = Op.Of(name: "MeshOutline");
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         samplesCase: static s => Analyze.MeshLift<TGeometry, TOut, MeshSample>(key: SamplesKey, source: Analyze.MeshSamples(category: s.Category)),
         faceQualityCase: static fq => Analyze.MeshLift<TGeometry, TOut, MeshMetricSample>(key: FaceMetricKey, source: Analyze.MeshMetric(metric: fq.Metric)),
+        faceQualitySummaryCase: static fqs => Analyze.MeshLift<TGeometry, TOut, Stat>(key: FaceMetricSummaryKey, source: Analyze.MeshMetricSummary(metric: fqs.Metric)),
         atFaceCase: static at => Analyze.MeshLift<TGeometry, TOut, TopologyProjection>(key: AtFaceKey, source: Analyze.MeshAtFace(index: at.Value)),
         nakedEdgesCase: static _ => Analyze.MeshLift<TGeometry, TOut, Polyline>(key: NakedEdgesKey, source: Analyze.MeshNakedEdges),
         outlineCase: static o => Analyze.MeshLift<TGeometry, TOut, Polyline>(key: OutlineKey, source: Analyze.MeshOutline(plane: o.Plane)));
@@ -188,6 +192,20 @@ public static partial class Analyze {
                 evaluator: static (state, geometry) => VisiblePolygonsOf(mesh: geometry, key: state.Key)
                     .Bind(polygons => polygons.TraverseM(polygon => state.Metric.Sample(mesh: geometry, polygon: polygon)).As()).ToEff()),
             _ => Operation<Mesh, MeshMetricSample>.Reject(key: key, fault: key.InvalidInput()),
+        };
+    }
+    internal static Operation<Mesh, Stat> MeshMetricSummary(MeshMetric? metric) {
+        Op key = Op.Of(name: "MeshMetricSummary");
+        return Optional(metric).Filter(static candidate => !candidate.Equals(Analysis.MeshMetric.None)).Case switch {
+            MeshMetric active => Operation<Mesh, Stat>.Build(
+                key: key, state: (Key: key, Metric: active), requirement: Requirement.MeshCheck,
+                evaluator: static (state, geometry) =>
+                    from polygons in VisiblePolygonsOf(mesh: geometry, key: state.Key).ToEff()
+                    from samples in polygons.TraverseM(polygon => state.Metric.Sample(mesh: geometry, polygon: polygon)).As().ToEff()
+                    from stat in Stat.Of(values: samples.Map(static s => s.Value), key: state.Key).ToEff()
+                    from result in state.Key.Accept(value: stat).ToEff()
+                    select result),
+            _ => Operation<Mesh, Stat>.Reject(key: key, fault: key.InvalidInput()),
         };
     }
     internal static Operation<Mesh, MeshSample> MeshSamples(MeshSampleCategory category) {
