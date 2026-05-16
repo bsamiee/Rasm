@@ -127,11 +127,11 @@ public static partial class Analyze {
                 VolumeMassProperties volume => k.Accept(value: volume.Volume),
                 _ => Fin.Fail<Seq<double>>(k.InvalidResult()),
             }),
-            (Analysis.Measure.MassErrorCase, Type output) when output == typeof(double) => MassOperation<TGeometry, TOut, double>(mass: mass, suffix: "Error", project: (k, props) => MassValue<double>(aspect: aspect, key: k, props: props), secondMoments: mass.Equals(MassKind.Length)),
-            (Analysis.Measure.CentroidCase, Type output) when output == typeof(Point3d) => MassOperation<TGeometry, TOut, Point3d>(mass: mass, suffix: "Centroid", project: (k, props) => MassValue<Point3d>(aspect: aspect, key: k, props: props), firstMoments: true, secondMoments: mass.Equals(MassKind.Length)),
-            (Analysis.Measure.CentroidErrorCase, Type output) when output == typeof(Vector3d) => MassOperation<TGeometry, TOut, Vector3d>(mass: mass, suffix: "CentroidError", project: (k, props) => MassValue<Vector3d>(aspect: aspect, key: k, props: props), firstMoments: true, secondMoments: mass.Equals(MassKind.Length)),
-            (Analysis.Measure.RadiiCase, Type output) when output == typeof(Vector3d) => MassOperation<TGeometry, TOut, Vector3d>(mass: mass, suffix: "Radii", project: (k, props) => MassValue<Vector3d>(aspect: aspect, key: k, props: props), firstMoments: true, secondMoments: true),
-            (Analysis.Measure.PrincipalAxesCase, Type output) when output == typeof(ValueTuple<double, Vector3d>) => MassOperation<TGeometry, TOut, (double Moment, Vector3d Axis)>(mass: mass, suffix: "Principal", project: (k, props) => MassValue<(double Moment, Vector3d Axis)>(aspect: aspect, key: k, props: props), firstMoments: true, secondMoments: true, productMoments: true),
+            (Analysis.Measure.MassErrorCase, Type output) when output == typeof(double) => MassOperation<TGeometry, TOut, double>(mass: mass, suffix: "Error", project: static (k, props) => k.MassProperty<double, double>(props: props, length: static l => l.LengthError, area: static a => a.AreaError, volume: static v => v.VolumeError), secondMoments: mass.Equals(MassKind.Length)),
+            (Analysis.Measure.CentroidCase, Type output) when output == typeof(Point3d) => MassOperation<TGeometry, TOut, Point3d>(mass: mass, suffix: "Centroid", project: static (k, props) => k.MassProperty<Point3d, Point3d>(props: props, length: static l => l.Centroid, area: static a => a.Centroid, volume: static v => v.Centroid), firstMoments: true, secondMoments: mass.Equals(MassKind.Length)),
+            (Analysis.Measure.CentroidErrorCase, Type output) when output == typeof(Vector3d) => MassOperation<TGeometry, TOut, Vector3d>(mass: mass, suffix: "CentroidError", project: static (k, props) => k.MassProperty<Vector3d, Vector3d>(props: props, length: static l => l.CentroidError, area: static a => a.CentroidError, volume: static v => v.CentroidError), firstMoments: true, secondMoments: mass.Equals(MassKind.Length)),
+            (Analysis.Measure.RadiiCase, Type output) when output == typeof(Vector3d) => MassOperation<TGeometry, TOut, Vector3d>(mass: mass, suffix: "Radii", project: static (k, props) => k.MassProperty<Vector3d, Vector3d>(props: props, length: static l => l.CentroidCoordinatesRadiiOfGyration, area: static a => a.CentroidCoordinatesRadiiOfGyration, volume: static v => v.CentroidCoordinatesRadiiOfGyration), firstMoments: true, secondMoments: true),
+            (Analysis.Measure.PrincipalAxesCase, Type output) when output == typeof(ValueTuple<double, Vector3d>) => MassOperation<TGeometry, TOut, (double Moment, Vector3d Axis)>(mass: mass, suffix: "Principal", project: static (k, props) => k.PrincipalAxesOf(mass: props).Bind(values => k.AcceptResults<(double Moment, Vector3d Axis), (double Moment, Vector3d Axis)>(values: values)), firstMoments: true, secondMoments: true, productMoments: true),
             _ => key.Unsupported<TGeometry, TOut>(),
         };
     }
@@ -152,15 +152,6 @@ public static partial class Analyze {
                                    from values in new Lease<IDisposable>.Owned(Value: computed).Use(disposable => project(arg1: key, arg2: disposable)).ToEff()
                                    select values));
     }
-    private static Fin<Seq<TValue>> MassValue<TValue>(Measure aspect, Op key, IDisposable props) =>
-        aspect switch {
-            Analysis.Measure.MassErrorCase => key.MassProperty<double, TValue>(props: props, length: static l => l.LengthError, area: static a => a.AreaError, volume: static v => v.VolumeError),
-            Analysis.Measure.CentroidCase => key.MassProperty<Point3d, TValue>(props: props, length: static l => l.Centroid, area: static a => a.Centroid, volume: static v => v.Centroid),
-            Analysis.Measure.CentroidErrorCase => key.MassProperty<Vector3d, TValue>(props: props, length: static l => l.CentroidError, area: static a => a.CentroidError, volume: static v => v.CentroidError),
-            Analysis.Measure.RadiiCase => key.MassProperty<Vector3d, TValue>(props: props, length: static l => l.CentroidCoordinatesRadiiOfGyration, area: static a => a.CentroidCoordinatesRadiiOfGyration, volume: static v => v.CentroidCoordinatesRadiiOfGyration),
-            Analysis.Measure.PrincipalAxesCase => key.PrincipalAxesOf(mass: props).Bind(values => key.AcceptResults<(double Moment, Vector3d Axis), TValue>(values: values)),
-            _ => Fin.Fail<Seq<TValue>>(key.InvalidResult()),
-        };
     private static Fin<Seq<TValue>> MassProperty<TProp, TValue>(this Op key, IDisposable props, Func<LengthMassProperties, TProp> length, Func<AreaMassProperties, TProp> area, Func<VolumeMassProperties, TProp> volume) =>
         props switch {
             LengthMassProperties l => key.AcceptResults<TProp, TValue>(values: Seq(length(arg: l))),

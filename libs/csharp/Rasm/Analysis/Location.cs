@@ -162,17 +162,13 @@ file static class LocationDispatch {
             ( <= 0, _, _, _) => Operation<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput()),
             (_, CurvatureMode.VectorCase, Type geometry, Type output) when GeometryKernel.CanCurveForm(type: geometry) && output == typeof(Vector3d) =>
                 CurveCurvatureSamples<TGeometry, TOut, Vector3d>(key: key, count: count, project: CurveCurvatures),
-            (_, CurvatureMode.VectorCase, Type geometry, Type output) when GeometryKernel.CanCurveForm(type: geometry) && output == typeof(Stat) =>
+            (_, CurvatureMode m, Type geometry, Type output) when (m is CurvatureMode.VectorCase || (m is CurvatureMode.ScalarCase sc && sc.Metric.Equals(ScalarMetric.Magnitude))) && GeometryKernel.CanCurveForm(type: geometry) && output == typeof(Stat) =>
                 CurveCurvatureSamples<TGeometry, TOut, Stat>(key: key, count: count, project: static (op, curve, n, ctx) =>
                     CurveMagnitudes(key: op, curve: curve, count: n, model: ctx).Bind(values =>
                         Stat.Curvature(values: values, metric: ScalarMetric.Magnitude, key: op).Map(static stat => Seq(stat)))),
             (_, CurvatureMode.ScalarCase { Metric: var metric }, Type geometry, Type output) when metric.Equals(ScalarMetric.Magnitude) && GeometryKernel.CanCurveForm(type: geometry) && output == typeof(double) =>
                 CurveCurvatureSamples<TGeometry, TOut, double>(key: key, count: count, project: static (op, curve, n, ctx) =>
                     CurveMagnitudes(key: op, curve: curve, count: n, model: ctx).Bind(values => op.Accept(values: values))),
-            (_, CurvatureMode.ScalarCase { Metric: var metric }, Type geometry, Type output) when metric.Equals(ScalarMetric.Magnitude) && GeometryKernel.CanCurveForm(type: geometry) && output == typeof(Stat) =>
-                CurveCurvatureSamples<TGeometry, TOut, Stat>(key: key, count: count, project: (op, curve, n, ctx) =>
-                    CurveMagnitudes(key: op, curve: curve, count: n, model: ctx).Bind(values =>
-                        Stat.Curvature(values: values, metric: metric, key: op).Map(stat => Seq(stat)))),
             (_, CurvatureMode.VectorCase, Type geometry, Type output) when typeof(Surface).IsAssignableFrom(c: geometry) && output == typeof(SurfaceCurvature) =>
                 SurfaceCurvatureSamples<TGeometry, TOut, SurfaceCurvature>(key: key, count: count, project: SurfaceCurvatures),
             (_, CurvatureMode.VectorCase, Type geometry, Type output) when typeof(Surface).IsAssignableFrom(c: geometry) && output == typeof(Stat) =>

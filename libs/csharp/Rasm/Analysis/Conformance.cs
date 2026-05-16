@@ -69,10 +69,10 @@ file static class ConformanceDispatch {
             (_, object curveLike, Line line) when GeometryKernel.CanCurveForm(type: curveLike.GetType()) => CurveSamples(aspect, curveLike, line, count, context, convert: static l => new LineCurve(l), distance: static (l, pt) => pt.DistanceTo(l.ClosestPoint(testPoint: pt, limitToFiniteSegment: true))),
             (_, object curveLike, Circle circle) when GeometryKernel.CanCurveForm(type: curveLike.GetType()) => CurveSamples(aspect, curveLike, circle, count, context, convert: static c => new ArcCurve(c), distance: static (c, pt) => pt.DistanceTo(other: c.ClosestPoint(testPoint: pt))),
             (_, object curveLike, Arc arc) when GeometryKernel.CanCurveForm(type: curveLike.GetType()) => CurveSamples(aspect, curveLike, arc, count, context, convert: static a => new ArcCurve(a), distance: static (a, pt) => pt.DistanceTo(other: a.ClosestPoint(testPoint: pt))),
-            (Conformance.SignedResidualCase, Surface surface, Plane plane) => SurfaceSamples(surface, plane, count, context, distance: static (p, pt) => p.DistanceTo(testPoint: pt)),
-            (Conformance.SignedResidualCase, Surface surface, Sphere sphere) => SurfaceSamples(surface, sphere, count, context, distance: static (s, pt) => pt.DistanceTo(s.Center) - s.Radius),
-            (_, Surface surface, Plane plane) => SurfaceSamples(surface, plane, count, context, distance: static (p, pt) => Math.Abs(value: p.DistanceTo(testPoint: pt))),
-            (_, Surface surface, Sphere sphere) => SurfaceSamples(surface, sphere, count, context, distance: static (s, pt) => pt.DistanceTo(other: s.ClosestPoint(testPoint: pt))),
+            (Conformance.SignedResidualCase, Surface surface, Plane plane) => SampleResiduals(surface, plane, count, context, GeometryKernel.SurfaceSamplePoints, distance: static (p, pt) => p.DistanceTo(testPoint: pt)),
+            (Conformance.SignedResidualCase, Surface surface, Sphere sphere) => SampleResiduals(surface, sphere, count, context, GeometryKernel.SurfaceSamplePoints, distance: static (s, pt) => pt.DistanceTo(s.Center) - s.Radius),
+            (_, Surface surface, Plane plane) => SampleResiduals(surface, plane, count, context, GeometryKernel.SurfaceSamplePoints, distance: static (p, pt) => Math.Abs(value: p.DistanceTo(testPoint: pt))),
+            (_, Surface surface, Sphere sphere) => SampleResiduals(surface, sphere, count, context, GeometryKernel.SurfaceSamplePoints, distance: static (s, pt) => pt.DistanceTo(other: s.ClosestPoint(testPoint: pt))),
             _ => Fin.Fail<Seq<ResidualSample>>(Conformance.Key.Unsupported(typeof(TGeometry), typeof(ResidualSample))),
         };
     private static Fin<Seq<ResidualSample>> CurveSamples<TPrimitive>(Conformance aspect, object curveLike, TPrimitive primitive, int count, Context context, Func<TPrimitive, Curve> convert, Func<TPrimitive, Point3d, double> distance) where TPrimitive : notnull =>
@@ -81,12 +81,9 @@ file static class ConformanceDispatch {
                 Conformance.WithinToleranceCase or Conformance.MaximumCase =>
                     new Lease<Curve>.Owned(Value: convert(arg: primitive)).Use(native => Analyze.CurveDeviationOf(left: curve, right: native, context: context, op: Conformance.Key)
                         .Map(static d => Seq(new ResidualSample(Index: 0, Location: d.MaximumA, Distance: d.MaximumDistance, Tolerance: d.Tolerance, WithinTolerance: d.WithinTolerance)))),
-                _ => GeometryKernel.CurveSampleParameters(curve: curve, count: count, context: context, key: Conformance.Key)
-                    .Map(parameters => Residuals(parameters.Map(curve.PointAt), primitive, context, distance)),
+                _ => SampleResiduals(curve, primitive, count, context, sampler: static (c, n, ctx, key) => GeometryKernel.CurveSampleParameters(curve: c, count: n, context: ctx, key: key).Map(parameters => parameters.Map(c.PointAt)), distance: distance),
             }));
-    private static Fin<Seq<ResidualSample>> SurfaceSamples<TP>(Surface surface, TP primitive, int resolution, Context context, Func<TP, Point3d, double> distance) where TP : notnull =>
-        GeometryKernel.SurfaceSamplePoints(surface: surface, resolution: resolution, context: context, key: Conformance.Key)
-            .Map(points => Residuals(points, primitive, context, distance));
-    private static Seq<ResidualSample> Residuals<TP>(Seq<Point3d> points, TP primitive, Context context, Func<TP, Point3d, double> distance) where TP : notnull =>
-        points.Map((p, i) => new ResidualSample(i, p, distance(primitive, p), context.Absolute.Value, distance(primitive, p) <= context.Absolute.Value));
+    private static Fin<Seq<ResidualSample>> SampleResiduals<TGeometry, TPrimitive>(TGeometry geometry, TPrimitive primitive, int count, Context context, Func<TGeometry, int, Context, Op, Fin<Seq<Point3d>>> sampler, Func<TPrimitive, Point3d, double> distance) where TGeometry : notnull where TPrimitive : notnull =>
+        sampler(arg1: geometry, arg2: count, arg3: context, arg4: Conformance.Key)
+            .Map(points => points.Map((p, i) => distance(primitive, p) switch { double d => new ResidualSample(i, p, d, context.Absolute.Value, d <= context.Absolute.Value) }));
 }
