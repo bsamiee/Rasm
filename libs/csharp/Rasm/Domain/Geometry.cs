@@ -105,12 +105,18 @@ public readonly record struct ClosestHit(Point3d Point, Option<double> Distance,
         && MeshPoint.Map(static m => m.Point.IsValid).IfNone(true);
     internal static bool CanProjectTo(Type output) =>
         output == typeof(Point3d) || output == typeof(ClosestHit) || output == typeof(double) || output == typeof(Point2d) || output == typeof(Vector3d) || output == typeof(ComponentIndex) || output == typeof(MeshPoint);
-    internal Fin<Seq<TOut>> Project<TOut>(Op key) => typeof(TOut) switch {
+    internal static bool CanProjectParameterTo(Type output) =>
+        CanProjectTo(output: output) && output != typeof(Point3d) && output != typeof(Vector3d);
+    internal Fin<Seq<TOut>> Project<TOut>(Op key) =>
+        Project<TOut>(key: key, scalar: Distance, normal: Normal);
+    internal Fin<Seq<TOut>> ProjectParameter<TOut>(Op key) =>
+        Project<TOut>(key: key, scalar: Parameter, normal: Option<Vector3d>.None);
+    private Fin<Seq<TOut>> Project<TOut>(Op key, Option<double> scalar, Option<Vector3d> normal) => typeof(TOut) switch {
         Type t when t == typeof(Point3d) => key.AcceptResults<Point3d, TOut>(values: Seq(Point)),
         Type t when t == typeof(ClosestHit) => key.AcceptResults<ClosestHit, TOut>(values: Seq(this)),
-        Type t when t == typeof(double) => Distance.ToFin(Fail: key.InvalidResult()).Bind(distance => key.AcceptResults<double, TOut>(values: Seq(distance))),
+        Type t when t == typeof(double) => scalar.ToFin(Fail: key.InvalidResult()).Bind(value => key.AcceptResults<double, TOut>(values: Seq(value))),
         Type t when t == typeof(Point2d) => Uv.ToFin(Fail: key.InvalidResult()).Bind(uv => key.AcceptResults<Point2d, TOut>(values: Seq(uv))),
-        Type t when t == typeof(Vector3d) => Normal.ToFin(Fail: key.InvalidResult()).Bind(normal => key.AcceptResults<Vector3d, TOut>(values: Seq(normal))),
+        Type t when t == typeof(Vector3d) => normal.ToFin(Fail: key.InvalidResult()).Bind(value => key.AcceptResults<Vector3d, TOut>(values: Seq(value))),
         Type t when t == typeof(ComponentIndex) => Component.ToFin(Fail: key.InvalidResult()).Bind(component => key.AcceptResults<ComponentIndex, TOut>(values: Seq(component))),
         Type t when t == typeof(MeshPoint) => MeshPoint.ToFin(Fail: key.InvalidResult()).Bind(meshPoint => key.AcceptResults<MeshPoint, TOut>(values: Seq(meshPoint))),
         _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(ClosestHit), outputType: typeof(TOut))),
@@ -320,8 +326,8 @@ internal static class GeometryKernel {
         from _ in guard(target.IsValid, key.InvalidInput())
         from g in Optional(geometry).ToFin(key.InvalidInput())
         from hit in g switch {
-            Line line => Fin.Succ(ClosestHit.At(target: target, point: line.ClosestPoint(testPoint: target, limitToFiniteSegment: true))),
-            Polyline polyline => Fin.Succ(ClosestHit.At(target: target, point: polyline.ClosestPoint(testPoint: target))),
+            Line line => Fin.Succ(ClosestHit.At(target: target, point: line.ClosestPoint(testPoint: target, limitToFiniteSegment: true), parameter: Some(Math.Clamp(line.ClosestParameter(testPoint: target), 0.0, 1.0)))),
+            Polyline polyline => Fin.Succ(ClosestHit.At(target: target, point: polyline.ClosestPoint(testPoint: target), parameter: Some(polyline.ClosestParameter(testPoint: target)))),
             Curve curve when curve.ClosestPoint(testPoint: target, t: out double parameter) =>
                 Fin.Succ(ClosestHit.At(target: target, point: curve.PointAt(t: parameter), parameter: Some(parameter))),
             BrepFace face when face.ClosestPointOnFace(testPoint: target, u: out double u, v: out double v, maximumDistance: 0.0) =>

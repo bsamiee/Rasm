@@ -14,6 +14,12 @@ internal partial record IntersectionResult {
     internal static bool CanProjectAny(Type output) =>
         Seq<IntersectionResult>(new Lines(Seq<Line>()), new Points(Seq<Point3d>()), new Intervals(Seq<Interval>()), new Polylines(Seq<(Polyline Curve, IntersectionKind Kind)>()), new Hits(Seq<IntersectionHit>()))
             .Exists(result => result.CanProject(output: output));
+    internal static bool Supports(Type left, Type right, Type output, bool unordered = false) =>
+        (left == typeof(object) || right == typeof(object))
+            ? CanProjectAny(output: output)
+            : ShapeOf(left: left, right: right).Map(result => result.CanProject(output: output)).IfNone(false)
+              || (unordered && ShapeOf(left: right, right: left).Map(result => result.CanProject(output: output)).IfNone(false));
+    internal static IntersectionResult HitsShape => new Hits(Seq<IntersectionHit>());
     internal bool CanProject(Type output) => Switch(
         state: output,
         lines: static (o, _) => UniformCanProjectTo<Line>(output: o),
@@ -38,13 +44,27 @@ internal partial record IntersectionResult {
         _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: caseType, outputType: typeof(TOut))),
     };
     private static bool UniformCanProjectTo<TNative>(Type output) => output == typeof(TNative) || output == typeof(IntersectionKind);
+    private static Option<IntersectionResult> ShapeOf(Type left, Type right) =>
+        (left, right) switch {
+            (Type l, Type r) when l == typeof(Line) && (r == typeof(Line) || r == typeof(Plane) || r == typeof(Circle) || r == typeof(Sphere)) => Some<IntersectionResult>(new Points(Seq<Point3d>())),
+            (Type l, Type r) when typeof(Mesh).IsAssignableFrom(l) && r == typeof(Line) => Some<IntersectionResult>(new Points(Seq<Point3d>())),
+            (Type l, Type r) when l == typeof(Plane) && r == typeof(Plane) => Some<IntersectionResult>(new Lines(Seq<Line>())),
+            (Type l, Type r) when l == typeof(Line) && (r == typeof(BoundingBox) || r == typeof(Box)) => Some<IntersectionResult>(new Intervals(Seq<Interval>())),
+            (Type l, Type r) when typeof(Mesh).IsAssignableFrom(l) && (r == typeof(Plane) || typeof(Mesh).IsAssignableFrom(r)) => Some<IntersectionResult>(new Polylines(Seq<(Polyline Curve, IntersectionKind Kind)>())),
+            (Type l, Type r) when l == typeof(RayQuery) && typeof(Mesh).IsAssignableFrom(r) => Some<IntersectionResult>(new Points(Seq<Point3d>())),
+            (Type l, Type r) when l == typeof(RayQuery) && typeof(GeometryBase).IsAssignableFrom(r) => Some<IntersectionResult>(new Hits(Seq<IntersectionHit>())),
+            (Type l, Type r) when GeometryKernel.CanCurveForm(type: l) && (GeometryKernel.CanCurveForm(type: r) || r == typeof(Plane) || r == typeof(Line) || typeof(Surface).IsAssignableFrom(r) || typeof(Brep).IsAssignableFrom(r) || typeof(BrepFace).IsAssignableFrom(r)) => Some<IntersectionResult>(new Hits(Seq<IntersectionHit>())),
+            (Type l, Type r) when typeof(Surface).IsAssignableFrom(l) && typeof(Surface).IsAssignableFrom(r) => Some<IntersectionResult>(new Hits(Seq<IntersectionHit>())),
+            (Type l, Type r) when typeof(Brep).IsAssignableFrom(l) && (r == typeof(Plane) || typeof(Surface).IsAssignableFrom(r) || typeof(Brep).IsAssignableFrom(r)) => Some<IntersectionResult>(new Hits(Seq<IntersectionHit>())),
+            _ => Option<IntersectionResult>.None,
+        };
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
     public static Operation<(TA A, TB B), TOut> Intersect<TA, TB, TOut>() where TA : notnull where TB : notnull {
         Op key = Op.Of();
-        return Supports(left: typeof(TA), right: typeof(TB), output: typeof(TOut), unordered: true) switch {
+        return IntersectionResult.Supports(left: typeof(TA), right: typeof(TB), output: typeof(TOut), unordered: true) switch {
             true => Operation<(TA A, TB B), TOut>.Build(
                 key: key, requiresContext: true, state: key,
                 evaluator: static (op, pair) => from runtime in Env.EnvAsks
@@ -69,7 +89,7 @@ public static partial class Analyze {
     }
     public static Operation<TGeometry, TOut> SelfIntersect<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
-        return (CanSelfIntersect(geometry: typeof(TGeometry)) && new IntersectionResult.Hits(Seq<IntersectionHit>()).CanProject(output: typeof(TOut)))
+        return (CanSelfIntersect(geometry: typeof(TGeometry)) && IntersectionResult.HitsShape.CanProject(output: typeof(TOut)))
             ? Operation<TGeometry, TOut>.Build(
                 key: key, requirement: Requirement.Basic, requiresContext: true, state: key,
                 evaluator: static (op, geometry) => from runtime in Env.EnvAsks
@@ -99,27 +119,8 @@ public static partial class Analyze {
     }
     private static IntersectionHit PerforationHit(Polyline polyline) => IntersectionHit.Along(curve: polyline.ToNurbsCurve(), kind: IntersectionKind.Curve);
     private static IntersectionHit OverlapHit(Polyline polyline) => IntersectionHit.Along(curve: polyline.ToNurbsCurve(), kind: IntersectionKind.Overlap);
-    internal static bool Supports(Type left, Type right, Type output, bool unordered = false) =>
-        (left == typeof(object) || right == typeof(object))
-            ? IntersectionResult.CanProjectAny(output: output)
-            : ResultOf(left: left, right: right).Map(result => result.CanProject(output: output)).IfNone(false)
-              || (unordered && ResultOf(left: right, right: left).Map(result => result.CanProject(output: output)).IfNone(false));
     internal static bool CanDeviation(Type left, Type right) =>
         GeometryKernel.CanCurveForm(type: left) && GeometryKernel.CanCurveForm(type: right);
-    private static Option<IntersectionResult> ResultOf(Type left, Type right) =>
-        (left, right) switch {
-            (Type l, Type r) when l == typeof(Line) && (r == typeof(Line) || r == typeof(Plane) || r == typeof(Circle) || r == typeof(Sphere)) => Some<IntersectionResult>(new IntersectionResult.Points(Seq<Point3d>())),
-            (Type l, Type r) when typeof(Mesh).IsAssignableFrom(l) && r == typeof(Line) => Some<IntersectionResult>(new IntersectionResult.Points(Seq<Point3d>())),
-            (Type l, Type r) when l == typeof(Plane) && r == typeof(Plane) => Some<IntersectionResult>(new IntersectionResult.Lines(Seq<Line>())),
-            (Type l, Type r) when l == typeof(Line) && (r == typeof(BoundingBox) || r == typeof(Box)) => Some<IntersectionResult>(new IntersectionResult.Intervals(Seq<Interval>())),
-            (Type l, Type r) when typeof(Mesh).IsAssignableFrom(l) && (r == typeof(Plane) || typeof(Mesh).IsAssignableFrom(r)) => Some<IntersectionResult>(new IntersectionResult.Polylines(Seq<(Polyline Curve, IntersectionKind Kind)>())),
-            (Type l, Type r) when l == typeof(RayQuery) && typeof(Mesh).IsAssignableFrom(r) => Some<IntersectionResult>(new IntersectionResult.Points(Seq<Point3d>())),
-            (Type l, Type r) when l == typeof(RayQuery) && typeof(GeometryBase).IsAssignableFrom(r) => Some<IntersectionResult>(new IntersectionResult.Hits(Seq<IntersectionHit>())),
-            (Type l, Type r) when GeometryKernel.CanCurveForm(type: l) && (GeometryKernel.CanCurveForm(type: r) || r == typeof(Plane) || r == typeof(Line) || typeof(Surface).IsAssignableFrom(r) || typeof(Brep).IsAssignableFrom(r) || typeof(BrepFace).IsAssignableFrom(r)) => Some<IntersectionResult>(new IntersectionResult.Hits(Seq<IntersectionHit>())),
-            (Type l, Type r) when typeof(Surface).IsAssignableFrom(l) && typeof(Surface).IsAssignableFrom(r) => Some<IntersectionResult>(new IntersectionResult.Hits(Seq<IntersectionHit>())),
-            (Type l, Type r) when typeof(Brep).IsAssignableFrom(l) && (r == typeof(Plane) || typeof(Surface).IsAssignableFrom(r) || typeof(Brep).IsAssignableFrom(r)) => Some<IntersectionResult>(new IntersectionResult.Hits(Seq<IntersectionHit>())),
-            _ => Option<IntersectionResult>.None,
-        };
     internal static Fin<IntersectionResult> IntersectionOf<TL, TR>(TL left, TR right, Context context, Op op, IProgress<double>? progress, bool unordered, CancellationToken cancel) where TL : notnull where TR : notnull =>
         (Optional(left).ToFin(op.InvalidInput()), Optional(right).ToFin(op.InvalidInput())).Apply((l, r) => (L: (object)l, R: (object)r)).As()
             .Bind(pair => IntersectOrdered(left: pair.L, right: pair.R, context: context, op: op, cancel: cancel, progress: progress)

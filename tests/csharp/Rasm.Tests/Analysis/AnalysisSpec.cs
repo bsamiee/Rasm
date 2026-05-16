@@ -646,6 +646,16 @@ public sealed class AnalysisSpec {
     }
 
     [Fact]
+    public void KeepsClosestParameterSeparateFromClosestDistanceProjection() {
+        Point3d probe = Point3d.Origin;
+
+        Assert.True(condition: Analyze.Location<Curve, double>(aspect: Location.Closest(point: probe)).IsSupported);
+        Assert.True(condition: Analyze.Location<Curve, double>(aspect: Location.ParameterAt(point: probe)).IsSupported);
+        Assert.True(condition: Analyze.Location<Surface, Point2d>(aspect: Location.ParameterAt(point: probe)).IsSupported);
+        Assert.True(condition: !Analyze.Location<Curve, Point3d>(aspect: Location.ParameterAt(point: probe)).IsSupported);
+    }
+
+    [Fact]
     public void RejectsUnsupportedIntersectionFamiliesBeforeRuntimeProjection() =>
         Assert.True(condition: !Analyze.Intersect<Point3d, Point3d, IntersectionHit>().IsSupported && !Analyze.Intersect<Curve, Curve, bool>().IsSupported);
 

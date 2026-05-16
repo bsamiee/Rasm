@@ -23,10 +23,12 @@ public partial record RegionQuery {
 public partial record Location : IAspect {
     public sealed record PointAtCase(Locator At) : Location; public sealed record FrameAtCase(Locator At) : Location; public sealed record CurvatureAtCase(Locator At) : Location;
     public sealed record CurvatureSamplesCase(int Count, CurvatureMode Mode) : Location; public sealed record DerivativeAtCase(Locator At, int Order) : Location;
+    public sealed record ParameterAtCase(Point3d Probe) : Location;
     public sealed record DivideCase(Division By) : Location; public sealed record OrientationCase(Plane Plane) : Location; public sealed record RegionQueryCase(RegionQuery Query) : Location;
     public static Location Midpoint => new PointAtCase(At: new Locator.NormalizedMid());
     public static Location Tangent => new FrameAtCase(At: new Locator.NormalizedMid());
     public static Location Closest(Point3d point) => new PointAtCase(At: new Locator.ClosestTo(Probe: point));
+    public static Location ParameterAt(Point3d point) => new ParameterAtCase(Probe: point);
     public static Location PointAtCurve(double parameter) => new PointAtCase(At: new Locator.CurveParameter(T: parameter));
     public static Location PointAtSurface(Point2d uv) => new PointAtCase(At: new Locator.SurfaceParameter(Uv: uv));
     public static Location PointAtLength(double length) => new PointAtCase(At: new Locator.ArcLength(Distance: length));
@@ -45,6 +47,7 @@ public partial record Location : IAspect {
     public static Location ShortPath(Point2d start, Point2d end) => new RegionQueryCase(Query: new RegionQuery.ShortPath(Start: start, End: end));
     public static Location LengthAt(double parameter) => new RegionQueryCase(Query: new RegionQuery.LengthAt(Parameter: parameter));
     internal static readonly Op MidpointKey = Op.Of(name: "Midpoint"); internal static readonly Op TangentKey = Op.Of(name: "Tangent"); internal static readonly Op PointAtKey = Op.Of(name: "PointAt"); internal static readonly Op PointAtLengthKey = Op.Of(name: "PointAtLength");
+    internal static readonly Op ClosestKey = Op.Of(name: "Closest"); internal static readonly Op ParameterAtKey = Op.Of(name: "ParameterAt");
     internal static readonly Op FrameAtKey = Op.Of(name: "FrameAt"); internal static readonly Op PerpendicularFrameAtKey = Op.Of(name: "PerpendicularFrameAt"); internal static readonly Op CurvatureAtKey = Op.Of(name: "CurvatureAt"); internal static readonly Op DerivativeAtKey = Op.Of(name: "DerivativeAt");
     internal static readonly Op DivideByCountKey = Op.Of(name: "DivideByCount"); internal static readonly Op DivideByLengthKey = Op.Of(name: "DivideByLength"); internal static readonly Op OrientationKey = Op.Of(name: "Orientation"); internal static readonly Op ContainsKey = Op.Of(name: "Contains");
     internal static readonly Op NormalAtKey = Op.Of(name: "NormalAt"); internal static readonly Op ShortPathKey = Op.Of(name: "ShortPath"); internal static readonly Op LengthAtKey = Op.Of(name: "LengthAt");
@@ -53,16 +56,7 @@ public partial record Location : IAspect {
             curveParameter: static cp => Analyze.Located<TGeometry, TOut, Curve, Point3d>(key: PointAtKey, operation: () => Analyze.CurveAtOp<TGeometry, Point3d>(key: PointAtKey, parameter: cp.T, project: static (curve, t) => PointAtKey.Accept(value: curve.PointAt(t: t)))),
             surfaceParameter: static sp => Analyze.Located<TGeometry, TOut, Surface, Point3d>(key: PointAtKey, operation: () => Analyze.SurfaceUvOp<TGeometry, Point3d>(key: PointAtKey, uv: sp.Uv, project: static (surface, p) => PointAtKey.Accept(value: surface.PointAt(u: p.X, v: p.Y)))),
             arcLength: static al => Analyze.Located<TGeometry, TOut, Curve, Point3d>(key: PointAtLengthKey, operation: () => Analyze.PointAtLengthOp<TGeometry>(key: PointAtLengthKey, distance: al.Distance)),
-            closestTo: static ct => (ct.Probe.IsValid, ClosestHit.CanProjectTo(output: typeof(TOut))) switch {
-                (false, _) => Analysis.Operation<TGeometry, TOut>.Reject(key: PointAtKey, fault: PointAtKey.InvalidInput()),
-                (true, true) => Analysis.Operation<TGeometry, TOut>.Build(
-                    key: PointAtKey, state: (Key: PointAtKey, Target: ct.Probe),
-                    evaluator: static (state, geometry) =>
-                        from hit in GeometryKernel.ClosestOf(geometry: geometry, target: state.Target, key: state.Key).ToEff()
-                        from result in hit.Project<TOut>(key: state.Key).ToEff()
-                        select result),
-                _ => PointAtKey.Unsupported<TGeometry, TOut>(),
-            },
+            closestTo: static ct => Analyze.ClosestOp<TGeometry, TOut>(key: ClosestKey, target: ct.Probe, canProject: ClosestHit.CanProjectTo, project: static (hit, key) => hit.Project<TOut>(key: key)),
             normalizedMid: static _ => Analyze.Located<TGeometry, TOut, Curve, Point3d>(key: MidpointKey, operation: () => Analyze.AtMidpointOp<TGeometry, Point3d>(key: MidpointKey, project: static (curve, parameter) => curve.PointAt(t: parameter))),
             perpendicularSet: static _ => PointAtKey.Unsupported<TGeometry, TOut>()),
         frameAtCase: static f => f.At.Switch<Operation<TGeometry, TOut>>(
@@ -85,6 +79,7 @@ public partial record Location : IAspect {
         derivativeAtCase: static d => (d.Order >= 0 && d.At is Locator.CurveParameter cp)
             ? Analyze.Located<TGeometry, TOut, Curve, Vector3d>(key: DerivativeAtKey, operation: () => Analyze.CurveAtOp<TGeometry, Vector3d>(key: DerivativeAtKey, parameter: cp.T, project: (curve, p) => DerivativeAtKey.Accept(values: curve.DerivativeAt(t: p, derivativeCount: d.Order))))
             : Analysis.Operation<TGeometry, TOut>.Reject(key: DerivativeAtKey, fault: DerivativeAtKey.InvalidInput()),
+        parameterAtCase: static p => Analyze.ClosestOp<TGeometry, TOut>(key: ParameterAtKey, target: p.Probe, canProject: ClosestHit.CanProjectParameterTo, project: static (hit, key) => hit.ProjectParameter<TOut>(key: key)),
         divideCase: static d => d.By.Switch<Operation<TGeometry, TOut>>(
             byCount: static bc => Analyze.Located<TGeometry, TOut, Curve, Point3d>(key: DivideByCountKey, operation: () => Analyze.DividePolyOp<TGeometry>(key: DivideByCountKey, requirement: null, divide: curve => curve.DivideByCount(segmentCount: bc.Count, includeEnds: true, points: out Point3d[] points) switch { double[] => Optional(points), _ => Option<Point3d[]>.None })),
             byLength: static bl => Analyze.Located<TGeometry, TOut, Curve, Point3d>(key: DivideByLengthKey, operation: () => Analyze.DividePolyOp<TGeometry>(key: DivideByLengthKey, requirement: Requirement.CurveLength, divide: curve => curve.DivideByLength(segmentLength: bl.Length, includeEnds: true, points: out Point3d[] points) switch { double[] => Optional(points), _ => Option<Point3d[]>.None }))),
@@ -112,6 +107,17 @@ public partial record Location : IAspect {
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
     public static Operation<TGeometry, TOut> Location<TGeometry, TOut>(Location aspect) where TGeometry : notnull => Aspect<Location, TGeometry, TOut>(aspect: aspect);
+    internal static Operation<TGeometry, TOut> ClosestOp<TGeometry, TOut>(Op key, Point3d target, Func<Type, bool> canProject, Func<ClosestHit, Op, Fin<Seq<TOut>>> project) where TGeometry : notnull =>
+        (target.IsValid, canProject(arg: typeof(TOut))) switch {
+            (false, _) => Operation<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput()),
+            (true, true) => Operation<TGeometry, TOut>.Build(
+                key: key, state: (Key: key, Target: target, Project: project),
+                evaluator: static (state, geometry) =>
+                    from hit in GeometryKernel.ClosestOf(geometry: geometry, target: state.Target, key: state.Key).ToEff()
+                    from result in state.Project(arg1: hit, arg2: state.Key).ToEff()
+                    select result),
+            _ => key.Unsupported<TGeometry, TOut>(),
+        };
     internal static Operation<TGeometry, TOut> Located<TGeometry, TOut, TNative, TValue>(Op key, Func<Operation<TGeometry, TValue>> operation) where TGeometry : notnull =>
         ((typeof(TNative) == typeof(Curve) && GeometryKernel.CanCurveForm(type: typeof(TGeometry))) || typeof(TNative).IsAssignableFrom(c: typeof(TGeometry)) || typeof(TGeometry) == typeof(object) || typeof(TGeometry) == typeof(GeometryBase)) && typeof(TOut) == typeof(TValue)
             ? operation().As<TGeometry, TOut>(key: key)
