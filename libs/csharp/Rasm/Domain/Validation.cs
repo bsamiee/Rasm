@@ -230,6 +230,8 @@ internal static class OpAcceptance {
             Kind => Some(true),
             ClosestHit h => Some(h.Point.IsValid
                 && h.Distance.Map(static d => RhinoMath.IsValidDouble(d) && d >= 0.0).IfNone(true)
+                && h.Parameter.Map(static t => RhinoMath.IsValidDouble(t)).IfNone(true)
+                && h.Uv.Map(static uv => uv.IsValid).IfNone(true)
                 && h.Normal.Map(static n => n.IsValid && n.Length > RhinoMath.ZeroTolerance).IfNone(true)
                 && h.Component.Map(static c => c is { ComponentIndexType: not ComponentIndexType.InvalidType } && c.Index >= 0).IfNone(true)
                 && h.MeshPoint.Map(static m => m.Point.IsValid).IfNone(true)),

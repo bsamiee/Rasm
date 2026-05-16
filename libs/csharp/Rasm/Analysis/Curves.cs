@@ -110,7 +110,7 @@ public partial record Curves : IAspect {
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
     public static Operation<TGeometry, TOut> Curves<TGeometry, TOut>(Curves aspect) where TGeometry : notnull => Aspect<Curves, TGeometry, TOut>(aspect: aspect);
-    public static Operation<TGeometry, TOut> Segments<TGeometry, TOut>() where TGeometry : notnull =>
+    internal static Operation<TGeometry, TOut> Segments<TGeometry, TOut>() where TGeometry : notnull =>
         Curves<TGeometry, TOut>(aspect: Analysis.Curves.Segments);
     public static Operation<Surface, Curve> Iso(IsoStatus iso, double normalized = 0.5) {
         Op key = Op.Of();

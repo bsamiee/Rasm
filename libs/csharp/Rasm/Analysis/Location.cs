@@ -15,7 +15,7 @@ public partial record Division {
 [Union]
 public partial record RegionQuery {
     public sealed record Contains(Point3d Probe, Plane Frame) : RegionQuery; public sealed record ShortPath(Point2d Start, Point2d End) : RegionQuery;
-    public sealed record ParameterOf(Point3d Probe) : RegionQuery; public sealed record LengthAt(double Parameter) : RegionQuery;
+    public sealed record LengthAt(double Parameter) : RegionQuery;
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -43,12 +43,11 @@ public partial record Location : IAspect {
     public static Location Orientation(Plane plane) => new OrientationCase(Plane: plane);
     public static Location Contains(Point3d point, Plane plane) => new RegionQueryCase(Query: new RegionQuery.Contains(Probe: point, Frame: plane));
     public static Location ShortPath(Point2d start, Point2d end) => new RegionQueryCase(Query: new RegionQuery.ShortPath(Start: start, End: end));
-    public static Location ParameterAt(Point3d probe) => new RegionQueryCase(Query: new RegionQuery.ParameterOf(Probe: probe));
     public static Location LengthAt(double parameter) => new RegionQueryCase(Query: new RegionQuery.LengthAt(Parameter: parameter));
     internal static readonly Op MidpointKey = Op.Of(name: "Midpoint"); internal static readonly Op TangentKey = Op.Of(name: "Tangent"); internal static readonly Op PointAtKey = Op.Of(name: "PointAt"); internal static readonly Op PointAtLengthKey = Op.Of(name: "PointAtLength");
     internal static readonly Op FrameAtKey = Op.Of(name: "FrameAt"); internal static readonly Op PerpendicularFrameAtKey = Op.Of(name: "PerpendicularFrameAt"); internal static readonly Op CurvatureAtKey = Op.Of(name: "CurvatureAt"); internal static readonly Op DerivativeAtKey = Op.Of(name: "DerivativeAt");
     internal static readonly Op DivideByCountKey = Op.Of(name: "DivideByCount"); internal static readonly Op DivideByLengthKey = Op.Of(name: "DivideByLength"); internal static readonly Op OrientationKey = Op.Of(name: "Orientation"); internal static readonly Op ContainsKey = Op.Of(name: "Contains");
-    internal static readonly Op NormalAtKey = Op.Of(name: "NormalAt"); internal static readonly Op ShortPathKey = Op.Of(name: "ShortPath"); internal static readonly Op ParameterAtKey = Op.Of(name: "ParameterAt"); internal static readonly Op LengthAtKey = Op.Of(name: "LengthAt");
+    internal static readonly Op NormalAtKey = Op.Of(name: "NormalAt"); internal static readonly Op ShortPathKey = Op.Of(name: "ShortPath"); internal static readonly Op LengthAtKey = Op.Of(name: "LengthAt");
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         pointAtCase: static p => p.At.Switch<Operation<TGeometry, TOut>>(
             curveParameter: static cp => Analyze.Located<TGeometry, TOut, Curve, Point3d>(key: PointAtKey, operation: () => Analyze.CurveAtOp<TGeometry, Point3d>(key: PointAtKey, parameter: cp.T, project: static (curve, t) => PointAtKey.Accept(value: curve.PointAt(t: t)))),
@@ -95,7 +94,6 @@ public partial record Location : IAspect {
                         })).ToEff()
                     select result)),
             shortPath: static sp => Analyze.Located<TGeometry, TOut, Surface, Curve>(key: ShortPathKey, operation: () => Analyze.ShortPathOp<TGeometry>(key: ShortPathKey, start: sp.Start, end: sp.End)),
-            parameterOf: static po => Analyze.ParameterAtOp<TGeometry, TOut>(key: ParameterAtKey, probe: po.Probe),
             lengthAt: static la => Analyze.Located<TGeometry, TOut, Curve, double>(key: LengthAtKey, operation: () => Analyze.CurveAtOp<TGeometry, double>(key: LengthAtKey, parameter: la.Parameter, project: static (curve, t) => curve.GetLength(subdomain: new Interval(curve.Domain.T0, t)) switch {
                 double length when RhinoMath.IsValidDouble(x: length) && length >= 0.0 => LengthAtKey.Accept(value: length),
                 _ => Fin.Fail<Seq<double>>(LengthAtKey.InvalidResult()),
@@ -182,7 +180,9 @@ public static partial class Analyze {
                     from hit in GeometryKernel.ClosestOf(geometry: geometry, target: state.Target, key: state.Key).ToEff()
                     from result in (typeof(TOut) switch {
                         Type t when t == typeof(Point3d) => state.Key.AcceptResults<Point3d, TOut>(values: Seq(hit.Point)),
-                        Type t when t == typeof(double) => state.Key.AcceptResults<double, TOut>(values: Seq(hit.Distance.IfNone(state.Target.DistanceTo(other: hit.Point)))),
+                        Type t when t == typeof(ClosestHit) => state.Key.AcceptResults<ClosestHit, TOut>(values: Seq(hit)),
+                        Type t when t == typeof(double) => state.Key.AcceptResults<double, TOut>(values: Seq((hit.Parameter | hit.Distance).IfNone(state.Target.DistanceTo(other: hit.Point)))),
+                        Type t when t == typeof(Point2d) => hit.Uv.ToFin(Fail: state.Key.InvalidResult()).Bind(uv => state.Key.AcceptResults<Point2d, TOut>(values: Seq(uv))),
                         Type t when t == typeof(Vector3d) => hit.Normal.ToFin(Fail: state.Key.InvalidResult()).Bind(n => state.Key.AcceptResults<Vector3d, TOut>(values: Seq(n))),
                         Type t when t == typeof(ComponentIndex) => hit.Component.ToFin(Fail: state.Key.InvalidResult()).Bind(c => state.Key.AcceptResults<ComponentIndex, TOut>(values: Seq(c))),
                         Type t when t == typeof(MeshPoint) => hit.MeshPoint.ToFin(Fail: state.Key.InvalidResult()).Bind(mp => state.Key.AcceptResults<MeshPoint, TOut>(values: Seq(mp))),
@@ -191,31 +191,6 @@ public static partial class Analyze {
                     select result),
         };
     }
-    internal static Operation<TGeometry, TOut> ParameterAtOp<TGeometry, TOut>(Op key, Point3d probe) where TGeometry : notnull =>
-        probe.IsValid switch {
-            false => Operation<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput()),
-            true => (typeof(TGeometry), typeof(TOut)) switch {
-                (Type geometry, Type output) when GeometryKernel.CanCurveForm(type: geometry) && output == typeof(double) =>
-                    Operation<TGeometry, double>.Build(
-                        key: key, state: (Key: key, Probe: probe),
-                        evaluator: static (state, geometry) => GeometryKernel.CurveForm(source: geometry, op: state.Key)
-                            .Bind(lease => lease.Use(curve => curve.ClosestPoint(testPoint: state.Probe, t: out double parameter) switch {
-                                true => state.Key.Accept(value: parameter),
-                                false => Fin.Fail<Seq<double>>(state.Key.InvalidResult()),
-                            })).ToEff()).As<TGeometry, TOut>(key: key),
-                (Type geometry, Type output) when (typeof(Surface).IsAssignableFrom(c: geometry) || geometry == typeof(object) || geometry == typeof(GeometryBase)) && output == typeof(Point2d) =>
-                    Operation<TGeometry, Point2d>.Build(
-                        key: key, state: (Key: key, Probe: probe),
-                        evaluator: static (state, geometry) => geometry switch {
-                            Surface surface => (surface.ClosestPoint(testPoint: state.Probe, u: out double u, v: out double v) switch {
-                                true => state.Key.Accept(value: new Point2d(x: u, y: v)),
-                                false => Fin.Fail<Seq<Point2d>>(state.Key.InvalidResult()),
-                            }).ToEff(),
-                            _ => Fin.Fail<Seq<Point2d>>(state.Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(Point2d))).ToEff(),
-                        }).As<TGeometry, TOut>(key: key),
-                _ => key.Unsupported<TGeometry, TOut>(),
-            },
-        };
     internal static Operation<TGeometry, TOut> CurvatureSamplesOp<TGeometry, TOut>(int count, CurvatureMode mode) where TGeometry : notnull {
         Op key = Op.Of(name: "CurvatureAt");
         return (count, mode, typeof(TGeometry), typeof(TOut)) switch {

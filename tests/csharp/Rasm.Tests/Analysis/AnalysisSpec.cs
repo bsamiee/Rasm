@@ -159,9 +159,9 @@ public sealed class AnalysisSpec {
     [Fact]
     public void KeepsParameterlessFactoriesAsProperties() {
         object[] factories = [
-            Analyze.Curves<Brep, Curve>(aspect: Curves.All), Analyze.IsManifold, Analyze.NakedPointStatus, Analyze.SelfIntersect<Mesh, IntersectionHit>(), Analyze.MeshMetric(metric: MeshMetric.AspectRatio),
+            Analyze.Curves<Brep, Curve>(aspect: Curves.All), Meshes.Validity.Operation<Mesh, MeshSample>(), Meshes.Defects.Operation<Mesh, MeshSample>(), Analyze.SelfIntersect<Mesh, IntersectionHit>(), Meshes.FaceQuality(MeshMetric.AspectRatio).Operation<Mesh, MeshMetricSample>(),
             Analyze.Meshes<Mesh, Polyline>(aspect: Meshes.NakedEdges), Analyze.Points<GeometryBase, Point3d>(sampling: new Points.EdgeMidpointsCase()), Analyze.Curves<Mesh, ComponentIndex>(aspect: Curves.All), Analyze.Curves<Mesh, ComponentIndex>(aspect: Curves.NonManifold),
-            Analyze.Measure<GeometryBase, Point3d>(aspect: new Measure.SpatialMidpointCase()), Analyze.Location<Curve, double>(aspect: new Location.CurvatureSamplesCase(Count: 3, Mode: CurvatureMode.Scalar(ScalarMetric.Magnitude))), Analyze.Location<Surface, double>(aspect: new Location.CurvatureSamplesCase(Count: 3, Mode: CurvatureMode.Scalar(ScalarMetric.Gaussian))), Analyze.Location<Surface, double>(aspect: new Location.CurvatureSamplesCase(Count: 3, Mode: CurvatureMode.Scalar(ScalarMetric.Mean))),
+            Measure.SpatialMidpoint.Operation<GeometryBase, Point3d>(), Analyze.Location<Curve, double>(aspect: new Location.CurvatureSamplesCase(Count: 3, Mode: CurvatureMode.Scalar(ScalarMetric.Magnitude))), Analyze.Location<Surface, double>(aspect: new Location.CurvatureSamplesCase(Count: 3, Mode: CurvatureMode.Scalar(ScalarMetric.Gaussian))), Analyze.Location<Surface, double>(aspect: new Location.CurvatureSamplesCase(Count: 3, Mode: CurvatureMode.Scalar(ScalarMetric.Mean))),
             Analyze.Conformance<Curve, Line, double>(aspect: new Conformance.DistanceCase(Count: 3)), Analyze.Conformance<Surface, Plane, bool>(aspect: new Conformance.WithinToleranceCase(Count: 2)), Analyze.Conformance<Curve, Line, Stat>(aspect: new Conformance.SummaryCase(Count: 3)), Analyze.Conformance<Curve, Circle, double>(aspect: new Conformance.DistanceCase(Count: 3)), Analyze.Conformance<Curve, Arc, bool>(aspect: new Conformance.WithinToleranceCase(Count: 3)), Analyze.Conformance<Surface, Sphere, ResidualSample>(aspect: new Conformance.MaximumCase(Count: 2)),
             Analyze.Deviation<Curve, Curve, CurveDeviation>(), Analyze.Points<GeometryBase, Point3d>(sampling: new Points.EdgeMidpointsCase()), Analyze.Points<GeometryBase, Point3d>(sampling: new Points.VerticesCase()),
             Analyze.Faces<GeometryBase, int>(aspect: Faces.All), Analyze.Faces<GeometryBase, Brep>(aspect: Faces.At()), Analyze.Faces<GeometryBase, Plane>(aspect: Faces.At()), Analyze.Faces<GeometryBase, Point3d>(aspect: Faces.At()), Analyze.Faces<GeometryBase, Vector3d>(aspect: Faces.At()), Analyze.Faces<GeometryBase, int>(aspect: Faces.At()), Analyze.Faces<GeometryBase, ComponentIndex>(aspect: Faces.At()), Analyze.Faces<GeometryBase, Interval>(aspect: Faces.At()),
@@ -788,10 +788,10 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RejectsInvalidMeshMetricRails() {
         Validation<Error, Seq<MeshMetricSample>> invalidMetric = Analyze.In(context: ValidContext()).Run(
-            operation: Analyze.MeshMetric(metric: MeshMetric.None),
+            operation: Meshes.FaceQuality(MeshMetric.None).Operation<Mesh, MeshMetricSample>(),
             input: [null!, null!]);
         Validation<Error, Seq<MeshMetricSample>> nullMesh = Analyze.In(context: ValidContext()).Run(
-            operation: Analyze.MeshMetric(metric: MeshMetric.AspectRatio),
+            operation: Meshes.FaceQuality(MeshMetric.AspectRatio).Operation<Mesh, MeshMetricSample>(),
             input: [null!]);
 
         Assert.True(condition: (invalidMetric, nullMesh).Apply(static (_, _) => false).As().ToFin().Match(
@@ -895,7 +895,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RejectsKindForUnsupportedOutputType() {
         Validation<Error, Seq<int>> result = Analyze.In(context: ValidContext()).Run(
-            operation: Analyze.Kind<BoundingBox, int>(),
+            operation: Topologies.Kind.Operation<BoundingBox, int>(),
             input: [new BoundingBox(min: Point3d.Origin, max: new Point3d(x: 1.0, y: 1.0, z: 1.0))]);
 
         Assert.True(condition: result.ToFin().Match(
@@ -906,7 +906,7 @@ public sealed class AnalysisSpec {
     [Fact]
     public void RejectsKindForUnsupportedGeometryType() {
         Validation<Error, Seq<Kind>> result = Analyze.In(context: ValidContext()).Run(
-            operation: Analyze.Kind<int, Kind>(),
+            operation: Topologies.Kind.Operation<int, Kind>(),
             input: [42]);
 
         Assert.True(condition: result.ToFin().Match(
@@ -924,7 +924,7 @@ public sealed class AnalysisSpec {
         ];
 
         Kind[] kind = Run(
-            operation: Analyze.Kind<object, Kind>(),
+            operation: Topologies.Kind.Operation<object, Kind>(),
             input: input);
 
         Assert.Equal(
@@ -939,7 +939,7 @@ public sealed class AnalysisSpec {
         object[] input = [first, second];
 
         Point3d[] centers = Run(
-            operation: Analyze.SpatialMidpoint<object, Point3d>(),
+            operation: Measure.SpatialMidpoint.Operation<object, Point3d>(),
             input: input);
         Point3d[] vertices = Run(
             operation: Analyze.Points<object, Point3d>(sampling: new Points.VerticesCase()),
@@ -959,13 +959,11 @@ public sealed class AnalysisSpec {
 
     [Fact]
     public void SupportsMeshComponentsFromObjectRail() =>
-        Assert.True(condition: Analyze.Topologies<object, Mesh>(aspect: Topologies.Components).IsSupported);
+        Assert.True(condition: Topologies.Components.Operation<object, Mesh>().IsSupported);
 
     [Fact]
-    public void SupportsSegmentsThroughCurveTopologyProjection() {
+    public void SupportsSegmentsThroughCurveTopologyProjection() =>
         Assert.True(condition: Analyze.Curves<Curve, Curve>(aspect: Curves.Segments).IsSupported);
-        Assert.True(condition: Analyze.Segments<Curve, Curve>().IsSupported);
-    }
 
     [Fact]
     public void SupportsBrepBoundariesThroughCurveTopologyProjection() {

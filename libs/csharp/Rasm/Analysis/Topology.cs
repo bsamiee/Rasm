@@ -5,6 +5,7 @@ namespace Rasm.Analysis;
 // --- [MODELS] -----------------------------------------------------------------------------
 [Union]
 public partial record Topologies : IAspect {
+    public sealed record KindCase : Topologies;
     public sealed record DomainsCase : Topologies;
     public sealed record SolidOrientationCase : Topologies;
     public sealed record ComponentsCase : Topologies;
@@ -14,6 +15,7 @@ public partial record Topologies : IAspect {
     public sealed record BoundaryLoopsCase : Topologies;
     public sealed record GenusCase : Topologies;
     public sealed record HoleCountCase : Topologies;
+    public static Topologies Kind => new KindCase();
     public static Topologies Domains => new DomainsCase();
     public static Topologies SolidOrientation => new SolidOrientationCase();
     public static Topologies Components => new ComponentsCase();
@@ -24,6 +26,7 @@ public partial record Topologies : IAspect {
     public static Topologies Genus => new GenusCase();
     public static Topologies HoleCount => new HoleCountCase();
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
+        kindCase: static _ => Analyze.Kind<TGeometry, TOut>(),
         domainsCase: static _ => Analyze.TopologyDomains<TGeometry, TOut>(),
         solidOrientationCase: static _ => Analyze.TopologySolidOrientation<TGeometry, TOut>(),
         componentsCase: static _ => Analyze.TopologyComponents<TGeometry, TOut>(),
@@ -45,7 +48,7 @@ public static partial class Analyze {
             _ => key.Unsupported<TGeometry, TOut>(),
         };
     }
-    public static Operation<TGeometry, TOut> Kind<TGeometry, TOut>() where TGeometry : notnull {
+    internal static Operation<TGeometry, TOut> Kind<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
         return typeof(TOut) == typeof(Kind) && GeometryKernel.CanKind(typeof(TGeometry))
             ? KernelLift<TGeometry, Kind, Op>(key: key, state: key, extract: static (op, g, ctx) => ((object)g).KindOf(context: ctx).Bind(k => op.Accept(value: k))).As<TGeometry, TOut>(key: key)

@@ -27,14 +27,14 @@ public sealed class ExtractCurves : Component<ExtractCurves> {
         aspect: runtime => (runtime.Read(port: Direction), runtime.Read(port: Angle))
             .Apply(static (direction, angle) => Curves.Draft(direction: direction.ToNullable(), angle: angle.ToNullable()?.Radians))
             .As());
-    private static readonly OutputGroup Topology = Output.Details<Curves, TopologyProjection>(
+    private static readonly OutputGroup Topology = Output.Details(
         input: Geometry,
         aspect: Curves.All,
         emptyUnsupported: true,
         slots: [
-            Output.Choose<TopologyProjection, Curve>(port: Port.Tree<Curve>(name: "Curves", code: "C", info: "Every curve piece: structural segments, Brep/SubD edges, surface boundary iso curves, mesh topology edge curves, and loop curves."), project: static value => value.As<Curve>()),
-            Output.Plain<TopologyProjection, ComponentIndex>(port: Port.Tree<ComponentIndex>(name: "Source", code: "X", info: "Source component index aligned with each curve."), project: static value => value.Source),
-            Output.Plain<TopologyProjection, string>(port: Port.Tree<string>(name: "Feature", code: "F", info: "Feature classification aligned with each curve (boundary, naked, interior, loop, segment, iso, silhouette, draft)."), project: static value => value.Feature.ToString()),
+            Output.Aspect<Curves, Curve>(port: Port.Tree<Curve>(name: "Curves", code: "C", info: "Every curve piece: structural segments, Brep/SubD edges, surface boundary iso curves, mesh topology edge curves, and loop curves.")),
+            Output.Aspect<Curves, ComponentIndex>(port: Port.Tree<ComponentIndex>(name: "Source", code: "X", info: "Source component index aligned with each curve.")),
+            Output.Aspect<Curves, CurveFeature>(port: Port.Tree<CurveFeature>(name: "Feature", code: "F", info: "Feature classification aligned with each curve (boundary, naked, interior, loop, segment, iso, silhouette, draft).")),
         ]);
     public ExtractCurves() : base(spec: ComponentSpec.Of(
         inputs: Seq<Port>(Geometry, Direction, Angle),

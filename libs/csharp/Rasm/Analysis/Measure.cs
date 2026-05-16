@@ -118,7 +118,7 @@ public sealed partial class MassKind {
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
     public static Operation<TGeometry, TOut> Measure<TGeometry, TOut>(Measure aspect) where TGeometry : notnull => Aspect<Measure, TGeometry, TOut>(aspect: aspect);
-    public static Operation<TGeometry, TOut> SpatialMidpoint<TGeometry, TOut>() where TGeometry : notnull {
+    internal static Operation<TGeometry, TOut> SpatialMidpoint<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
         return (typeof(TOut), typeof(TGeometry)) switch {
             (Type output, Type geometry) when output == typeof(Point3d)

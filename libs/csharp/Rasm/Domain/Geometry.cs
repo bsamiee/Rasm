@@ -130,9 +130,9 @@ public sealed record TopologyProjection {
         };
 }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct ClosestHit(Point3d Point, Option<double> Distance, Option<Vector3d> Normal, Option<ComponentIndex> Component, Option<MeshPoint> MeshPoint) {
-    internal static ClosestHit At(Point3d target, Point3d point, Option<Vector3d> normal = default, Option<ComponentIndex> component = default, Option<MeshPoint> meshPoint = default) =>
-        new(Point: point, Distance: Some(target.DistanceTo(other: point)), Normal: normal, Component: component, MeshPoint: meshPoint);
+public readonly record struct ClosestHit(Point3d Point, Option<double> Distance, Option<double> Parameter, Option<Point2d> Uv, Option<Vector3d> Normal, Option<ComponentIndex> Component, Option<MeshPoint> MeshPoint) {
+    internal static ClosestHit At(Point3d target, Point3d point, Option<double> parameter = default, Option<Point2d> uv = default, Option<Vector3d> normal = default, Option<ComponentIndex> component = default, Option<MeshPoint> meshPoint = default) =>
+        new(Point: point, Distance: Some(target.DistanceTo(other: point)), Parameter: parameter, Uv: uv, Normal: normal, Component: component, MeshPoint: meshPoint);
 }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct Hit(int Id);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct Couple(int A, int B);
@@ -327,14 +327,14 @@ internal static class GeometryKernel {
             Line line => Fin.Succ(ClosestHit.At(target: target, point: line.ClosestPoint(testPoint: target, limitToFiniteSegment: true))),
             Polyline polyline => Fin.Succ(ClosestHit.At(target: target, point: polyline.ClosestPoint(testPoint: target))),
             Curve curve when curve.ClosestPoint(testPoint: target, t: out double parameter) =>
-                Fin.Succ(ClosestHit.At(target: target, point: curve.PointAt(t: parameter))),
+                Fin.Succ(ClosestHit.At(target: target, point: curve.PointAt(t: parameter), parameter: Some(parameter))),
             BrepFace face when face.ClosestPointOnFace(testPoint: target, u: out double u, v: out double v, maximumDistance: 0.0) =>
-                Fin.Succ(ClosestHit.At(target: target, point: face.PointAt(u: u, v: v), normal: Some(face.NormalAt(u: u, v: v)),
+                Fin.Succ(ClosestHit.At(target: target, point: face.PointAt(u: u, v: v), uv: Some(new Point2d(x: u, y: v)), normal: Some(face.NormalAt(u: u, v: v)),
                     component: face.FaceIndex >= 0 ? Some(new ComponentIndex(ComponentIndexType.BrepFace, face.FaceIndex)) : Option<ComponentIndex>.None)),
             Surface surface when surface.ClosestPoint(testPoint: target, u: out double u, v: out double v) =>
-                Fin.Succ(ClosestHit.At(target: target, point: surface.PointAt(u: u, v: v), normal: Some(surface.NormalAt(u: u, v: v)))),
-            Brep brep when brep.ClosestPoint(target, out Point3d point, out ComponentIndex component, out double _, out double _, 0.0, out Vector3d normal) =>
-                Fin.Succ(ClosestHit.At(target: target, point: point, normal: Some(normal), component: Some(component))),
+                Fin.Succ(ClosestHit.At(target: target, point: surface.PointAt(u: u, v: v), uv: Some(new Point2d(x: u, y: v)), normal: Some(surface.NormalAt(u: u, v: v)))),
+            Brep brep when brep.ClosestPoint(target, out Point3d point, out ComponentIndex component, out double u, out double v, 0.0, out Vector3d normal) =>
+                Fin.Succ(ClosestHit.At(target: target, point: point, uv: Some(new Point2d(x: u, y: v)), normal: Some(normal), component: Some(component))),
             Mesh mesh => Optional(mesh.ClosestMeshPoint(testPoint: target, maximumDistance: 0.0)).ToFin(key.InvalidResult())
                 .Map(meshPoint => ClosestHit.At(target: target, point: meshPoint.Point, normal: Some(mesh.NormalAt(meshPoint: meshPoint)), meshPoint: Some(meshPoint))),
             Curve or BrepFace or Surface or Brep => Fin.Fail<ClosestHit>(key.InvalidInput()),

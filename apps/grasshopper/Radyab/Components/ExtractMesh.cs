@@ -12,10 +12,10 @@ public sealed class ExtractMesh : Component<ExtractMesh> {
     private static readonly OutputGroup Stats = Output.Single(input: Geometry, port: Port.Tree<MeshSample>(name: "Stats", code: "ST", info: "Keyed topology samples per mesh."), aspect: Meshes.Counts);
     private static readonly OutputGroup Defects = Output.Single(input: Geometry, port: Port.Tree<MeshSample>(name: "Defects", code: "D", info: "Keyed defect samples per mesh."), aspect: Meshes.Defects);
     private static readonly OutputGroup NakedEdges = Output.Single(input: Geometry, port: Port.Tree<Polyline>(kind: PortKind.Polyline, name: "Naked Edges", code: "NE", info: "Connected boundary polylines via Mesh.GetNakedEdges(); empty when the mesh is closed."), aspect: Meshes.NakedEdges);
-    private static readonly OutputGroup Pieces = Output.Single<Mesh>(
+    private static readonly OutputGroup Pieces = Output.Single<Topologies, Mesh>(
         input: Geometry,
         port: Port.Tree<Mesh>(name: "Pieces", code: "P", info: "Disjoint mesh components via Mesh.SplitDisjointPieces(); a single-element list for a connected mesh."),
-        operation: static _ => Fin.Succ(Rasm.Analysis.Analyze.Topologies<object, Mesh>(aspect: Rasm.Analysis.Topologies.Components)));
+        aspect: Rasm.Analysis.Topologies.Components);
     public ExtractMesh() : base(spec: ComponentSpec.Of(
         inputs: Seq<Port>(Geometry),
         outputs: Seq<OutputGroup>(Validity, Stats, Defects, NakedEdges, Pieces))) { }

@@ -138,13 +138,13 @@ public sealed partial class MeshMetric {
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
     public static Operation<TGeometry, TOut> Meshes<TGeometry, TOut>(Meshes aspect) where TGeometry : notnull => Aspect<Meshes, TGeometry, TOut>(aspect: aspect);
-    public static Operation<Mesh, bool> IsManifold {
+    internal static Operation<Mesh, bool> IsManifold {
         get { Op key = Op.Of(); return Operation<Mesh, bool>.Build(key: key, state: key, evaluator: static (op, geometry) => op.Accept(value: geometry.IsManifold()).ToEff()); }
     }
-    public static Operation<Mesh, bool> NakedPointStatus {
+    internal static Operation<Mesh, bool> NakedPointStatus {
         get { Op key = Op.Of(); return Operation<Mesh, bool>.Build(key: key, state: key, evaluator: static (op, geometry) => op.Accept(values: geometry.GetNakedEdgePointStatus()).ToEff()); }
     }
-    public static Operation<Mesh, MeshCheckParameters> MeshCheck {
+    internal static Operation<Mesh, MeshCheckParameters> MeshCheck {
         get {
             Op key = Op.Of();
             return Operation<Mesh, MeshCheckParameters>.Build(
@@ -154,7 +154,7 @@ public static partial class Analyze {
                                                     select result);
         }
     }
-    public static Operation<Mesh, MeshMetricSample> MeshMetric(MeshMetric? metric) {
+    internal static Operation<Mesh, MeshMetricSample> MeshMetric(MeshMetric? metric) {
         Op key = Op.Of();
         return Optional(metric).Filter(static candidate => !candidate.Equals(Analysis.MeshMetric.None)).Case switch {
             MeshMetric active => Operation<Mesh, MeshMetricSample>.Build(
@@ -164,7 +164,7 @@ public static partial class Analyze {
             _ => Operation<Mesh, MeshMetricSample>.Reject(key: key, fault: key.InvalidInput()),
         };
     }
-    public static Operation<Mesh, MeshSample> MeshSamples(MeshSampleCategory category) {
+    internal static Operation<Mesh, MeshSample> MeshSamples(MeshSampleCategory category) {
         Op key = Op.Of(name: $"Mesh{category}");
         Seq<MeshSampleKind> kinds = category switch {
             MeshSampleCategory.Validity => MeshSampleKind.Validity,
@@ -182,7 +182,7 @@ public static partial class Analyze {
                 false => Fin.Succ(state.Kinds.Map(kind => new MeshSample(Kind: kind, Value: kind.Sample(mesh: geometry, parameters: default)))).ToEff(),
             });
     }
-    public static Operation<Mesh, Polyline> MeshNakedEdges {
+    internal static Operation<Mesh, Polyline> MeshNakedEdges {
         get {
             Op key = Op.Of(name: "MeshNakedEdges");
             return Operation<Mesh, Polyline>.Build(
@@ -190,7 +190,7 @@ public static partial class Analyze {
                 evaluator: static (op, mesh) => Optional(mesh.GetNakedEdges()).Map(seq => op.Accept(values: seq)).IfNone(Fin.Succ(Seq<Polyline>())).ToEff());
         }
     }
-    public static Operation<Mesh, Polyline> MeshOutline(Plane plane) {
+    internal static Operation<Mesh, Polyline> MeshOutline(Plane plane) {
         Op key = Op.Of(name: "MeshOutline");
         return plane.IsValid switch {
             true => Operation<Mesh, Polyline>.Build(
@@ -199,7 +199,7 @@ public static partial class Analyze {
             false => Operation<Mesh, Polyline>.Reject(key: key, fault: key.InvalidInput()),
         };
     }
-    public static Operation<Mesh, TopologyProjection> MeshAtFace(int? index = null) {
+    internal static Operation<Mesh, TopologyProjection> MeshAtFace(int? index = null) {
         Op key = Op.Of();
         return Operation<Mesh, TopologyProjection>.Build(
             key: key, state: (Key: key, Selector: index),

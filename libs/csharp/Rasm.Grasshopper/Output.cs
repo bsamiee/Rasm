@@ -21,6 +21,10 @@ public readonly record struct OutputSlot<TSource>(
     Port Port,
     Func<IDataAccess, int, GrasshopperRuntime, Seq<Flow<TSource>>, Seq<object>> Write,
     Func<IDataAccess, int, Unit> Empty);
+public readonly record struct OutputAspectSlot<TAspect>(
+    Port Port,
+    Func<IDataAccess, int, GrasshopperRuntime, Seq<Flow<Shape>>, TAspect, Seq<object>> Write,
+    Func<IDataAccess, int, Unit> Empty) where TAspect : IAspect;
 
 // --- [SERVICES] -------------------------------------------------------------------------
 public static class GrasshopperRuntimeExtensions {
@@ -88,9 +92,45 @@ public static class Output {
         access.AddWarning(text: slots.Head.Map(static slot => slot.Port.Name).IfNone("Output"), details: error.Message);
         return Unit.Default;
     }
+    private static Unit RemarkUnsupported<TAspect>(Seq<OutputAspectSlot<TAspect>> slots, IDataAccess access, Fault.Unsupported fault) where TAspect : IAspect {
+        access.AddRemark(text: slots.Head.Map(static slot => slot.Port.Name).IfNone("Output"), details: $"Unsupported source type '{fault.GeometryType.Name}' for aspect '{typeof(TAspect).Name}'.");
+        return Unit.Default;
+    }
+    private static Unit Warn<TAspect>(Seq<OutputAspectSlot<TAspect>> slots, IDataAccess access, Error error) where TAspect : IAspect {
+        access.AddWarning(text: slots.Head.Map(static slot => slot.Port.Name).IfNone("Output"), details: error.Message);
+        return Unit.Default;
+    }
     private static Unit RemarkEmpty<TSource>(Seq<OutputSlot<TSource>> slots, IDataAccess access, Hints outputs) {
         access.AddRemark(text: slots.Head.Map(static slot => slot.Port.Name).IfNone("Output"), details: "No result for sourced input.");
         return EmptyDetails(slots: slots, access: access, outputs: outputs);
+    }
+    private static Seq<object> RunAspectDetails<TAspect>(
+        Seq<OutputAspectSlot<TAspect>> slots,
+        Func<GrasshopperRuntime, Fin<TAspect>> aspect,
+        bool emptyUnsupported,
+        IDataAccess access,
+        Hints outputs,
+        GrasshopperRuntime runtime,
+        Seq<Flow<Shape>> source) where TAspect : IAspect {
+        ArgumentNullException.ThrowIfNull(argument: access);
+        Seq<(OutputAspectSlot<TAspect> Output, int Slot)> active = slots.Choose(output => outputs.Slot(port: output.Port).Map(slot => (Output: output, Slot: slot)));
+        Fin<Seq<object>> result = active.IsEmpty switch {
+            true => Fin.Succ(Seq<object>()),
+            false => aspect(arg: runtime)
+                .Bind(selected => active
+                    .Fold(Fin.Succ(Seq<object>()), (state, pair) => state.Map(transfers => transfers + pair.Output.Write(arg1: access, arg2: pair.Slot, arg3: runtime, arg4: source, arg5: selected)))),
+        };
+        return result.Match(
+            Succ: static value => value,
+            Fail: error => {
+                _ = (emptyUnsupported, error) switch {
+                    (true, Fault.Unsupported u) => RemarkUnsupported(slots: slots, access: access, fault: u),
+                    _ => Warn(slots: slots, access: access, error: error),
+                };
+                _ = slots.Choose(output => outputs.Slot(port: output.Port).Map(slot => (output, slot)))
+                    .Iter(pair => pair.output.Empty(arg1: access, arg2: pair.slot));
+                return Seq<object>();
+            });
     }
     private static Unit DisposeOwned<TSource>(Seq<Flow<TSource>> values, Seq<object> outputs) =>
         values.Choose(static value => value.Item is TopologyProjection projection ? Some(projection) : Option<TopologyProjection>.None)
@@ -117,6 +157,23 @@ public static class Output {
     public static OutputSlot<TSource> One<TSource, TOut>(Port<TOut> port, Func<TSource, Context, Fin<TOut>> project) =>
         Slot<TSource, TOut>(port: port, project: (runtime, sources) => runtime.Scope.Context
             .Bind(context => sources.TraverseM(src => project(arg1: src.Item, arg2: context).Map(src.Project)).As()));
+    public static OutputAspectSlot<TAspect> Aspect<TAspect, TOut>(Port<TOut> port)
+        where TAspect : IAspect where TOut : notnull =>
+        new(
+            Port: port,
+            Write: (access, slot, runtime, source, aspect) =>
+                (from context in runtime.Scope.Context
+                 from values in ShapeSource(sourced: source, operation: aspect.Operation<object, TOut>())
+                    .Run(env: new Env(Context: context, Progress: runtime.Progress, Cancellation: runtime.Cancellation))
+                 select access.Write<TOut>(slot: slot, name: port.Name, targetAccess: port.Access, values: values) switch { _ => values.Map(static value => (object)value.Item!) })
+                .Match(
+                    Succ: static values => values,
+                    Fail: error => {
+                        access.AddWarning(text: port.Name, details: error.Message);
+                        _ = access.Write<TOut>(slot: slot, name: port.Name, targetAccess: port.Access, values: Seq<Flow<TOut>>());
+                        return Seq<object>();
+                    }),
+            Empty: (access, slot) => access.Write<TOut>(slot: slot, name: port.Name, targetAccess: port.Access, values: Seq<Flow<TOut>>()));
     public static Unit Write(IDataAccess access, GrasshopperRuntime runtime, Seq<OutputGroup> groups, Hints outputs) {
         Seq<OutputGroup> active = groups.Filter(group => group.Ports.Exists(port => outputs.Slot(port: port).IsSome));
         Seq<Port<Shape>> inputs = active.Fold(Seq<Port<Shape>>(), (found, group) => found.Exists(input => ReferenceEquals(objA: input, objB: group.Input)) ? found : group.Input.Cons(found)).Rev();
@@ -196,6 +253,36 @@ public static class Output {
             emptyUnsupported: emptyUnsupported,
             aspectLabel: typeof(TAspect).Name,
             slots: slots);
+    public static OutputGroup Details<TAspect>(
+        Port<Shape> input,
+        TAspect aspect,
+        bool emptyUnsupported,
+        params OutputAspectSlot<TAspect>[] slots) where TAspect : IAspect =>
+        Details(
+            input: input,
+            aspect: _ => Fin.Succ(aspect),
+            emptyUnsupported: emptyUnsupported,
+            slots: slots);
+    public static OutputGroup Details<TAspect>(
+        Port<Shape> input,
+        Func<GrasshopperRuntime, Fin<TAspect>> aspect,
+        bool emptyUnsupported,
+        params OutputAspectSlot<TAspect>[] slots) where TAspect : IAspect {
+        Seq<OutputAspectSlot<TAspect>> prepared = toSeq(slots);
+        return new OutputGroup(
+            Input: input,
+            Ports: prepared.Map(static slot => slot.Port),
+            RunGroup: (access, outputs, runtime, source) => RunAspectDetails(
+                slots: prepared,
+                aspect: aspect,
+                emptyUnsupported: emptyUnsupported,
+                access: access,
+                outputs: outputs,
+                runtime: runtime,
+                source: source),
+            EmptyGroup: (access, outputs) => prepared.Choose(output => outputs.Slot(port: output.Port).Map(slot => (output, slot)))
+                .Iter(pair => pair.output.Empty(arg1: access, arg2: pair.slot)));
+    }
     internal static Eff<Env, Seq<Flow<TSource>>> ShapeSource<TSource>(Seq<Flow<Shape>> sourced, Operation<object, TSource> operation) =>
         operation.IsAggregate switch {
             true => from items in operation.Apply(geometry: sourced.Map(static src => src.Item.Inner))
