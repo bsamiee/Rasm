@@ -98,6 +98,52 @@ public static partial class Analyze {
                                                     select typed)
             : key.Unsupported<TGeometry, TOut>();
     }
+    public static Operation<(TA A, TB B), TOut> Classify<TA, TB, TOut>() where TA : notnull where TB : notnull {
+        Op key = Op.Of();
+        return (IntersectionResult.Supports(left: typeof(TA), right: typeof(TB), output: typeof(TOut), unordered: true)
+                && (typeof(TOut) == typeof(IntersectionHit) || typeof(TOut) == typeof(IntersectionTangency)))
+            ? Operation<(TA A, TB B), TOut>.Build(
+                key: key, requiresContext: true, state: key,
+                evaluator: static (op, pair) =>
+                    from runtime in Env.EnvAsks
+                    from resolved in runtime.Context.Pair(a: pair.A, b: pair.B, op: op,
+                        requirements: static (_, _, _) => Fin.Succ((A: Requirement.Basic, B: Requirement.Basic)),
+                        cancel: runtime.Cancellation).ToEff()
+                    from result in ClassifiedIntersectionOf(left: resolved.A, right: resolved.B,
+                        context: runtime.Context, op: op, progress: runtime.Progress,
+                        cancel: runtime.Cancellation).ToEff()
+                    from typed in result.Project<TOut>(key: op).ToEff()
+                    select typed)
+            : key.Unsupported<(TA A, TB B), TOut>();
+    }
+    internal static Fin<IntersectionResult> ClassifiedIntersectionOf<TL, TR>(TL left, TR right, Context context, Op op, IProgress<double>? progress, CancellationToken cancel) where TL : notnull where TR : notnull =>
+        IntersectionOf(left: left, right: right, context: context, op: op, progress: progress, unordered: true, cancel: cancel)
+            .Bind(result => (result, GeometryKernel.CanCurveForm(type: typeof(TL)) && GeometryKernel.CanCurveForm(type: typeof(TR))) switch {
+                (IntersectionResult.Hits hits, true) => EnrichTangency(hits: hits.Values, left: left, right: right, context: context, op: op)
+                    .Map(static enriched => (IntersectionResult)new IntersectionResult.Hits(enriched)),
+                _ => Fin.Succ(result),
+            });
+    private static Fin<Seq<IntersectionHit>> EnrichTangency<TL, TR>(Seq<IntersectionHit> hits, TL left, TR right, Context context, Op op) where TL : notnull where TR : notnull =>
+        GeometryKernel.CurveForm(source: left, op: op).Bind(leftLease =>
+            GeometryKernel.CurveForm(source: right, op: op).Bind(rightLease =>
+                leftLease.Use(lc => rightLease.Use(rc =>
+                    Fin.Succ(hits.Map(hit => hit switch {
+                        IntersectionHit.PointCase pc when pc.Tangency == IntersectionTangency.Unknown =>
+                            IntersectionHit.At(point: pc.Point, tangency: TangencyAt(left: lc, right: rc, point: pc.Point, tolerance: context.Angle.Value)),
+                        _ => hit,
+                    }))))));
+    private static IntersectionTangency TangencyAt(Curve left, Curve right, Point3d point, double tolerance) =>
+        (left.ClosestPoint(testPoint: point, t: out double tl), right.ClosestPoint(testPoint: point, t: out double tr)) switch {
+            (true, true) => (left.TangentAt(t: tl), right.TangentAt(t: tr)) switch {
+                (Vector3d a, Vector3d b) when a.IsValid && b.IsValid && !a.IsTiny() && !b.IsTiny() =>
+                    Vector3d.VectorAngle(a: a, b: b) switch {
+                        double angle when angle <= tolerance || (Math.PI - angle) <= tolerance => IntersectionTangency.Tangent,
+                        _ => IntersectionTangency.Transversal,
+                    },
+                _ => IntersectionTangency.Unknown,
+            },
+            _ => IntersectionTangency.Unknown,
+        };
     internal static bool CanSelfIntersect(Type geometry) =>
         geometry == typeof(object) || typeof(Curve).IsAssignableFrom(c: geometry) || typeof(Mesh).IsAssignableFrom(c: geometry);
     internal static Fin<IntersectionResult> SelfIntersectionOf<TGeometry>(TGeometry geometry, Context context, Op op, CancellationToken cancel, IProgress<double>? progress) where TGeometry : notnull =>

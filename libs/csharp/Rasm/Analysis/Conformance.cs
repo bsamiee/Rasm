@@ -10,6 +10,7 @@ public partial record Conformance {
     public sealed record MaximumCase(int Count) : Conformance;
     public sealed record SignedResidualCase(int Count) : Conformance;
     public sealed record ContainmentCase(int Count) : Conformance;
+    public sealed record DistributionCase(int Count, Seq<double> Percentiles) : Conformance;
     public static Conformance Distance(int count) => new DistanceCase(Count: count);
     public static Conformance Rms(int count) => new RmsCase(Count: count);
     public static Conformance WithinTolerance(int count) => new WithinToleranceCase(Count: count);
@@ -17,6 +18,7 @@ public partial record Conformance {
     public static Conformance Maximum(int count) => new MaximumCase(Count: count);
     public static Conformance SignedResidual(int count) => new SignedResidualCase(Count: count);
     public static Conformance Containment(int count) => new ContainmentCase(Count: count);
+    public static Conformance Distribution(int count, params double[] percentiles) => new DistributionCase(Count: count, Percentiles: toSeq(percentiles));
     internal static readonly Op Key = Op.Of(name: nameof(Conformance));
     internal Type OutputType => Map(
         distanceCase: typeof(double),
@@ -25,7 +27,8 @@ public partial record Conformance {
         summaryCase: typeof(Stat),
         maximumCase: typeof(ResidualSample),
         signedResidualCase: typeof(ResidualSample),
-        containmentCase: typeof(ResidualSample));
+        containmentCase: typeof(ResidualSample),
+        distributionCase: typeof(Distribution));
     internal int SampleCount => Switch(
         distanceCase: static d => d.Count,
         rmsCase: static r => r.Count,
@@ -33,7 +36,8 @@ public partial record Conformance {
         summaryCase: static s => s.Count,
         maximumCase: static m => m.Count,
         signedResidualCase: static sr => sr.Count,
-        containmentCase: static c => c.Count);
+        containmentCase: static c => c.Count,
+        distributionCase: static d => d.Count);
     public Operation<(TGeometry Geometry, TTarget Target), TOut> Operation<TGeometry, TTarget, TOut>() where TGeometry : notnull where TTarget : notnull =>
         (SampleCount, CanConform(aspect: this, geometry: typeof(TGeometry), target: typeof(TTarget)), typeof(TOut) == OutputType) switch {
             ( <= 0, _, _) => Operation<(TGeometry Geometry, TTarget Target), TOut>.Reject(key: Key, fault: Key.InvalidInput()),
@@ -54,6 +58,8 @@ public partial record Conformance {
                 Stat.Residuals<ResidualSample>(samples: residuals, key: Key, aggregate: ResidualAggregate.Maximum).Bind(sample => Key.AcceptResults<ResidualSample, TOut>(values: Seq(sample))),
             SignedResidualCase or ContainmentCase =>
                 Key.AcceptResults<ResidualSample, TOut>(values: residuals),
+            DistributionCase distribution =>
+                Stat.Residuals<Distribution>(samples: residuals, key: Key, aggregate: new ResidualAggregate.DistributionCase(Percentiles: distribution.Percentiles)).Bind(d => Key.AcceptResults<Distribution, TOut>(values: Seq(d))),
             _ => Fin.Fail<Seq<TOut>>(Key.Unsupported(geometryType: typeof(ResidualSample), outputType: typeof(TOut))),
         };
     private static bool CanConform(Conformance aspect, Type geometry, Type target) =>

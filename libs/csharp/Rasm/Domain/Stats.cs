@@ -40,9 +40,11 @@ public partial record ResidualAggregate {
     public sealed record DistancesCase : ResidualAggregate;
     public sealed record SummaryCase(double Tolerance) : ResidualAggregate;
     public sealed record MaximumCase : ResidualAggregate;
+    public sealed record DistributionCase(Seq<double> Percentiles) : ResidualAggregate;
     public static ResidualAggregate Distances => new DistancesCase();
     public static ResidualAggregate Summary(double tolerance) => new SummaryCase(Tolerance: tolerance);
     public static ResidualAggregate Maximum => new MaximumCase();
+    public static ResidualAggregate Distribution(params double[] percentiles) => new DistributionCase(Percentiles: toSeq(percentiles));
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -78,6 +80,7 @@ public readonly record struct Stat(int Count, double Minimum, double Maximum, do
             (ResidualAggregate.SummaryCase summary, Type t) when t == typeof(Stat) => Of(values: validated.Map(static sample => sample.Distance), key: key)
                 .Map(stat => (TOut)(object)(stat with { Context = StatContext.Tolerance(tolerance: summary.Tolerance, minimum: stat.Minimum, maximum: stat.Maximum) })),
             (ResidualAggregate.MaximumCase, Type t) when t == typeof(ResidualSample) => Extrema(items: validated, projection: static sample => sample.Distance, tolerance: 0.0, direction: ExtremumDirection.Maximum).Head.ToFin(key.InvalidResult()).Map(static sample => (TOut)(object)sample),
+            (ResidualAggregate.DistributionCase dist, Type t) when t == typeof(Distribution) => Distribution.Of(values: validated.Map(static sample => sample.Distance), percentiles: dist.Percentiles, key: key).Map(d => (TOut)(object)d),
             _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(ResidualSample), outputType: typeof(TOut))),
         });
     private static Fin<Seq<ResidualSample>> ValidResiduals(Seq<ResidualSample> samples, Op key) =>
@@ -87,4 +90,22 @@ public readonly record struct Stat(int Count, double Minimum, double Maximum, do
                 ResidualSample valid when OpAcceptance.ValidityOf(source: valid).IfNone(false) => state with { Value = (state.Value, Fin.Succ(sample)).Apply(static (values, accepted) => values.Add(value: accepted)).As() },
                 _ => state with { Value = Fin.Fail<Seq<ResidualSample>>(state.Key.InvalidResult()) },
             }).Value;
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct Distribution(Stat Summary, double Median, double Iqr, Seq<(double Percentile, double Value)> Percentiles) {
+    internal static Fin<Distribution> Of(Seq<double> values, Seq<double> percentiles, Op key, StatContext? context = null) =>
+        Stat.Of(values: values, key: key, context: context).Map(stat =>
+            values.OrderBy(static v => v).AsIterable().ToSeq() switch {
+                Seq<double> sorted => new Distribution(
+                    Summary: stat,
+                    Median: Quantile(sorted: sorted, fraction: 0.5),
+                    Iqr: Quantile(sorted: sorted, fraction: 0.75) - Quantile(sorted: sorted, fraction: 0.25),
+                    Percentiles: percentiles.Map(p => (Percentile: p, Value: Quantile(sorted: sorted, fraction: p / 100.0)))),
+            });
+    private static double Quantile(Seq<double> sorted, double fraction) =>
+        (sorted.Count - 1) * Math.Clamp(value: fraction, min: 0.0, max: 1.0) switch {
+            double idx when idx == Math.Floor(d: idx) => sorted[(int)idx],
+            double idx => sorted[(int)Math.Floor(d: idx)] + ((sorted[(int)Math.Ceiling(a: idx)] - sorted[(int)Math.Floor(d: idx)]) * (idx - Math.Floor(d: idx))),
+        };
 }

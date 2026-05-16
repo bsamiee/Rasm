@@ -25,6 +25,7 @@ public partial record BoxDerivation {
 public partial record EnclosingShape {
     public sealed record SphereCase(int Count = 64) : EnclosingShape;
     public sealed record CircleCase(Plane Plane, int Count = 64) : EnclosingShape;
+    public sealed record CylinderCase(Vector3d Axis, int Count = 64) : EnclosingShape;
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -46,6 +47,7 @@ public partial record Bounds : IAspect {
     public static Bounds AspectRatio => new DerivedCase(Derivation: new BoxDerivation.AspectRatio());
     public static Bounds Tightness => new DerivedCase(Derivation: new BoxDerivation.Tightness());
     public static Bounds Enclosing(EnclosingShape shape) => new EnclosingCase(Shape: shape);
+    public static Bounds EnclosingCylinder(Vector3d axis, int count = 64) => new EnclosingCase(Shape: new EnclosingShape.CylinderCase(Axis: axis, Count: count));
     internal static readonly Op BoundsKey = Op.Of(name: nameof(Bounds));
     internal static readonly Op OrientedKey = Op.Of(name: "OrientedBounds");
     internal static readonly Op TransformedKey = Op.Of(name: "TransformedBounds");
@@ -60,6 +62,7 @@ public partial record Bounds : IAspect {
     internal static readonly Op BoxTightnessKey = Op.Of(name: "BoxTightness");
     internal static readonly Op EnclosingSphereKey = Op.Of(name: "EnclosingSphere");
     internal static readonly Op EnclosingCircleKey = Op.Of(name: "EnclosingCircle");
+    internal static readonly Op EnclosingCylinderKey = Op.Of(name: "EnclosingCylinder");
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         boxCase: static b => b.Shape.Switch(
             axisAligned: static _ => (typeof(TOut) == typeof(BoundingBox) && GeometryKernel.CanBound(typeof(TGeometry), includeSphere: true))
@@ -149,7 +152,24 @@ public partial record Bounds : IAspect {
                         from result in RitterFit(samples: projected, key: state.Key, construct: (c, r) => new Circle(plane: new Plane(origin: c, normal: state.Plane.Normal), radius: r), isValid: static c => c.IsValid).ToEff()
                         from accepted in state.Key.Accept(value: result).ToEff()
                         select accepted).As<TGeometry, TOut>(key: EnclosingCircleKey)
-                : EnclosingCircleKey.Unsupported<TGeometry, TOut>()));
+                : EnclosingCircleKey.Unsupported<TGeometry, TOut>(),
+            cylinderCase: static cy => (typeof(TOut) == typeof(Cylinder) && GeometryKernel.CanBound(typeof(TGeometry), includeSphere: true))
+                ? Analysis.Operation<TGeometry, Cylinder>.Build(
+                    key: EnclosingCylinderKey, requiresContext: true, state: (Key: EnclosingCylinderKey, cy.Axis, cy.Count),
+                    evaluator: static (state, geometry) =>
+                        from context in Env.Asks
+                        from axis in (state.Axis is { IsValid: true } a && !a.IsTiny() ? Fin.Succ(a) : Fin.Fail<Vector3d>(state.Key.InvalidInput())).ToEff()
+                        from samples in EnclosingSamples(geometry: geometry, context: context, key: state.Key, count: state.Count).ToEff()
+                        let plane = new Plane(origin: Point3d.Origin, normal: axis)
+                        from projected in Fin.Succ(samples.Map(plane.ClosestPoint)).ToEff()
+                        from disc in RitterFit(samples: projected, key: state.Key, construct: static (c, r) => (Center: c, Radius: r), isValid: static d => d.Radius >= 0.0).ToEff()
+                        let extent = samples.Fold(initialState: (Min: double.PositiveInfinity, Max: double.NegativeInfinity), f: (s, p) => ((p - Point3d.Origin) * axis) switch { double d => (Min: Math.Min(val1: s.Min, val2: d), Max: Math.Max(val1: s.Max, val2: d)) })
+                        from result in (new Cylinder(baseCircle: new Circle(plane: new Plane(origin: disc.Center + (axis * extent.Min), normal: axis), radius: disc.Radius), height: extent.Max - extent.Min) switch {
+                            { IsValid: true } cyl => state.Key.Accept(value: cyl),
+                            _ => Fin.Fail<Seq<Cylinder>>(state.Key.InvalidResult()),
+                        }).ToEff()
+                        select result).As<TGeometry, TOut>(key: EnclosingCylinderKey)
+                : EnclosingCylinderKey.Unsupported<TGeometry, TOut>()));
     private static Fin<Seq<Point3d>> EnclosingSamples<TGeometry>(TGeometry geometry, Context context, Op key, int count) where TGeometry : notnull =>
         geometry switch {
             Curve curve => GeometryKernel.CurveSampleParameters(curve: curve, count: count, context: context, key: key).Map(parameters => parameters.Map(curve.PointAt)),

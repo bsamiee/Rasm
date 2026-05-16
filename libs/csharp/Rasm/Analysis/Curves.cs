@@ -22,10 +22,27 @@ internal abstract partial record EdgeDescriptor {
     public sealed record OfLoop(BrepLoopType LoopType) : EdgeDescriptor;
 }
 
+[Union]
+public partial record CurveForm {
+    public sealed record LineCase(Line Value) : CurveForm;
+    public sealed record CircleCase(Circle Value) : CurveForm;
+    public sealed record ArcCase(Arc Value) : CurveForm;
+    public sealed record EllipseCase(Ellipse Value) : CurveForm;
+    public sealed record PolylineCase(Polyline Value, bool IsClosed) : CurveForm;
+    public sealed record NurbsCase(int Degree, bool IsClosed, bool IsPlanar, bool IsPeriodic, int SpanCount, int Dimension) : CurveForm;
+    public static CurveForm Line(Line value) => new LineCase(Value: value);
+    public static CurveForm Circle(Circle value) => new CircleCase(Value: value);
+    public static CurveForm Arc(Arc value) => new ArcCase(Value: value);
+    public static CurveForm Ellipse(Ellipse value) => new EllipseCase(Value: value);
+    public static CurveForm Polyline(Polyline value, bool isClosed) => new PolylineCase(Value: value, IsClosed: isClosed);
+    public static CurveForm Nurbs(int degree, bool isClosed, bool isPlanar, bool isPeriodic, int spans, int dimension) =>
+        new NurbsCase(Degree: degree, IsClosed: isClosed, IsPlanar: isPlanar, IsPeriodic: isPeriodic, SpanCount: spans, Dimension: dimension);
+}
+
 // --- [MODELS] -----------------------------------------------------------------------------
 [Union]
 public partial record Curves : IAspect {
-    public sealed record EdgesCase(EdgeSelector Selector) : Curves; public sealed record SegmentsCase(bool Smooth) : Curves; public sealed record IsoCase(IsoStatus Direction, double Normalized) : Curves; public sealed record SilhouetteCase(SilhouetteQuery Query) : Curves; public sealed record AtCase(int? Value) : Curves;
+    public sealed record EdgesCase(EdgeSelector Selector) : Curves; public sealed record SegmentsCase(bool Smooth) : Curves; public sealed record IsoCase(IsoStatus Direction, double Normalized) : Curves; public sealed record SilhouetteCase(SilhouetteQuery Query) : Curves; public sealed record AtCase(int? Value) : Curves; public sealed record FormCase(int? Index = null) : Curves;
     public static Curves All => new EdgesCase(Selector: new EdgeSelector.AllOf()); public static Curves Boundary => new EdgesCase(Selector: new EdgeSelector.Boundary());
     public static Curves NakedOuter => new EdgesCase(Selector: new EdgeSelector.NakedFiltered(Kind: NakedKind.Outer)); public static Curves NakedInner => new EdgesCase(Selector: new EdgeSelector.NakedFiltered(Kind: NakedKind.Inner));
     public static Curves Interior => new EdgesCase(Selector: new EdgeSelector.Interior()); public static Curves NonManifold => new EdgesCase(Selector: new EdgeSelector.NonManifold());
@@ -35,6 +52,8 @@ public partial record Curves : IAspect {
     public static Curves Silhouette(Vector3d? direction = null) => new SilhouetteCase(Query: new SilhouetteQuery.Projecting(Direction: direction));
     public static Curves Draft(Vector3d? direction = null, double? angle = null) => new SilhouetteCase(Query: new SilhouetteQuery.Draft(Direction: direction, Angle: Optional(angle)));
     public static Curves At(int? index = null) => new AtCase(Value: index);
+    public static Curves Form => new FormCase(Index: null);
+    public static Curves FormAt(int index) => new FormCase(Index: index);
     internal static readonly Op Key = Op.Of(name: nameof(Curves));
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull =>
         CanProject(type: typeof(TGeometry)) switch {
@@ -44,6 +63,7 @@ public partial record Curves : IAspect {
                 Type t when t == typeof(TopologyProjection) => Analyze.CurveProject<TGeometry, TOut, TopologyProjection>(key: Key, aspect: this, project: static p => Some(p)),
                 Type t when t == typeof(CurveFeature) => Analyze.CurveProject<TGeometry, TOut, CurveFeature>(key: Key, aspect: this, project: static p => Some(p.Feature)),
                 Type t when t == typeof(ComponentIndex) => Analyze.CurveProject<TGeometry, TOut, ComponentIndex>(key: Key, aspect: this, project: static p => Some(p.Source)),
+                Type t when t == typeof(CurveForm) && this is FormCase => Analyze.CurveFormProject<TGeometry, TOut>(key: Key, aspect: this),
                 _ => Key.Unsupported<TGeometry, TOut>(),
             },
         };
@@ -51,7 +71,9 @@ public partial record Curves : IAspect {
         (this, curves.Count) switch {
             (_, 0) => Fin.Succ(Seq<TopologyProjection>()),
             (AtCase { Value: int index }, int count) when index < 0 || index >= count => Fin.Fail<Seq<TopologyProjection>>(Key.InvalidInput()),
+            (FormCase { Index: int index }, int count) when index < 0 || index >= count => Fin.Fail<Seq<TopologyProjection>>(Key.InvalidInput()),
             (AtCase { Value: int index }, _) => Fin.Succ(Seq(curves[index])),
+            (FormCase { Index: int index }, _) => Fin.Succ(Seq(curves[index])),
             (AtCase, _) => Fin.Succ(Seq(curves[0])),
             _ => Fin.Succ(curves),
         };
@@ -70,10 +92,11 @@ public partial record Curves : IAspect {
         segmentsCase: static (_, s) => s.Smooth ? CurveFeature.SubCurve : CurveFeature.Segment,
         isoCase: static (_, _) => CurveFeature.Iso,
         silhouetteCase: static (_, s) => s.Query is SilhouetteQuery.Draft ? CurveFeature.Draft : CurveFeature.Silhouette,
-        atCase: static (t, _) => EdgeFeatureFor(topology: t));
+        atCase: static (t, _) => EdgeFeatureFor(topology: t),
+        formCase: static (t, _) => EdgeFeatureFor(topology: t));
     internal bool Matches(EdgeDescriptor descriptor) =>
         (this, descriptor) switch {
-            (EdgesCase { Selector: EdgeSelector.AllOf } or AtCase, EdgeDescriptor.OfBrep or EdgeDescriptor.OfMesh) => true,
+            (EdgesCase { Selector: EdgeSelector.AllOf } or AtCase or FormCase, EdgeDescriptor.OfBrep or EdgeDescriptor.OfMesh) => true,
             (EdgesCase { Selector: EdgeSelector.Boundary }, EdgeDescriptor.OfBrep { Valence: EdgeAdjacency.Naked }) => true,
             (EdgesCase { Selector: EdgeSelector.Boundary }, EdgeDescriptor.OfMesh { ConnectedFaces: 1 }) => true,
             (EdgesCase { Selector: EdgeSelector.NakedFiltered { Kind: NakedKind.Outer } }, EdgeDescriptor.OfBrep { Valence: EdgeAdjacency.Naked, Loops: var loops }) => loops.Exists(static loop => loop == BrepLoopType.Outer),
@@ -101,7 +124,14 @@ public partial record Curves : IAspect {
         atCase: static (state, _) => state.Topology switch { Topology.Curve => IsCurveType(state.Type), Topology.Surface => IsSurfaceType(state.Type), Topology.Brep => typeof(Brep).IsAssignableFrom(state.Type), Topology.Mesh => typeof(Mesh).IsAssignableFrom(state.Type), Topology.SubD => typeof(SubD).IsAssignableFrom(state.Type), _ => false },
         segmentsCase: static (state, _) => (state.Topology == Topology.Curve && IsCurveType(state.Type)) || (state.Topology == Topology.SubD && typeof(SubD).IsAssignableFrom(state.Type)),
         isoCase: static (state, _) => (state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(state.Type)) || (state.Topology == Topology.Surface && IsSurfaceType(state.Type)),
-        silhouetteCase: static (state, _) => state.Topology switch { Topology.Surface => IsSurfaceType(state.Type) || typeof(Extrusion).IsAssignableFrom(state.Type), Topology.Brep => typeof(Brep).IsAssignableFrom(state.Type), Topology.Mesh => typeof(Mesh).IsAssignableFrom(state.Type), Topology.SubD => typeof(SubD).IsAssignableFrom(state.Type), Topology.Extrusion => typeof(Extrusion).IsAssignableFrom(state.Type), _ => false });
+        silhouetteCase: static (state, _) => state.Topology switch { Topology.Surface => IsSurfaceType(state.Type) || typeof(Extrusion).IsAssignableFrom(state.Type), Topology.Brep => typeof(Brep).IsAssignableFrom(state.Type), Topology.Mesh => typeof(Mesh).IsAssignableFrom(state.Type), Topology.SubD => typeof(SubD).IsAssignableFrom(state.Type), Topology.Extrusion => typeof(Extrusion).IsAssignableFrom(state.Type), _ => false },
+        formCase: static (state, _) => state.Topology switch {
+            Topology.Curve => IsCurveType(state.Type),
+            Topology.Brep => typeof(Brep).IsAssignableFrom(state.Type),
+            Topology.Mesh => typeof(Mesh).IsAssignableFrom(state.Type),
+            Topology.SubD => typeof(SubD).IsAssignableFrom(state.Type),
+            _ => false,
+        });
     private static CurveFeature EdgeFeatureFor(Topology topology) => topology switch { Topology.Curve => CurveFeature.Input, Topology.Surface => CurveFeature.Boundary, _ => CurveFeature.Edge };
     private static bool IsCurveType(Type type) => KindLookup.Resolve(type).Map(static kind => kind.Topology == Topology.Curve).IfNone(false);
     private static bool IsSurfaceType(Type type) => KindLookup.Resolve(type).Map(static kind => kind.Topology == Topology.Surface).IfNone(false);
@@ -135,8 +165,8 @@ public static partial class Analyze {
                 select result).As<TGeometry, TOut>(key: key);
     internal static Fin<Seq<TopologyProjection>> CurveProjections<TGeometry>(TGeometry geometry, Curves aspect, CurveFeature feature, Context context, Op op, CancellationToken cancel) where TGeometry : notnull =>
         Optional(geometry).ToFin(op.InvalidInput()).Bind(g => (g, aspect) switch {
-            (Curve or Line or Polyline or Circle or Arc or Ellipse, Analysis.Curves.EdgesCase { Selector: EdgeSelector.AllOf or EdgeSelector.Boundary } or Analysis.Curves.AtCase or Analysis.Curves.SegmentsCase) => CurveInput(source: g, aspect: aspect, feature: feature, op: op),
-            (Brep brep, Analysis.Curves.EdgesCase { Selector: EdgeSelector.AllOf or EdgeSelector.Boundary or EdgeSelector.NakedFiltered or EdgeSelector.Interior or EdgeSelector.NonManifold } or Analysis.Curves.AtCase) =>
+            (Curve or Line or Polyline or Circle or Arc or Ellipse, Analysis.Curves.EdgesCase { Selector: EdgeSelector.AllOf or EdgeSelector.Boundary } or Analysis.Curves.AtCase or Analysis.Curves.SegmentsCase or Analysis.Curves.FormCase) => CurveInput(source: g, aspect: aspect, feature: feature, op: op),
+            (Brep brep, Analysis.Curves.EdgesCase { Selector: EdgeSelector.AllOf or EdgeSelector.Boundary or EdgeSelector.NakedFiltered or EdgeSelector.Interior or EdgeSelector.NonManifold } or Analysis.Curves.AtCase or Analysis.Curves.FormCase) =>
                 SelectTopologyFeatures(source: brep.Edges, selector: aspect,
                     describe: static edge => new EdgeDescriptor.OfBrep(Valence: edge.Valence, Loops: toSeq(edge.TrimIndices()).Choose(t => Optional(edge.Brep.Trims[t].Loop).Map(static loop => loop.LoopType))),
                     project: edge => Optional(edge.DuplicateCurve()).Map(c => TopologyProjection.Of(c, feature, new ComponentIndex(ComponentIndexType.BrepEdge, edge.EdgeIndex)))),
@@ -145,14 +175,14 @@ public static partial class Analyze {
                     describe: static loop => new EdgeDescriptor.OfLoop(LoopType: loop.LoopType),
                     project: loop => Optional(loop.To3dCurve()).Map(c => TopologyProjection.Of(c, feature, new ComponentIndex(ComponentIndexType.BrepLoop, loop.LoopIndex)))),
             (Brep brep, Analysis.Curves.IsoCase iso) => toSeq(brep.Faces).TraverseM(f => IsoSeq(surface: f, iso: iso.Direction, normalized: iso.Normalized, op: op).Map(s => s.Map(c => TopologyProjection.Of(c, feature, new ComponentIndex(ComponentIndexType.BrepFace, f.FaceIndex))))).As().Map(static nested => nested.Bind(static seq => seq)),
-            (BrepFace face, Analysis.Curves.EdgesCase { Selector: EdgeSelector.AllOf or EdgeSelector.Boundary } or Analysis.Curves.AtCase) => Optional(face.DuplicateFace(duplicateMeshes: false)).ToFin(op.InvalidResult()).Bind(fb => new Lease<Brep>.Owned(Value: fb).Use(owned => NakedBrepEdgesOf(brep: owned, feature: feature, source: new ComponentIndex(ComponentIndexType.BrepFace, face.FaceIndex)))),
-            (Mesh mesh, Analysis.Curves.EdgesCase { Selector: EdgeSelector.AllOf or EdgeSelector.Boundary or EdgeSelector.Interior or EdgeSelector.NonManifold } or Analysis.Curves.AtCase) =>
+            (BrepFace face, Analysis.Curves.EdgesCase { Selector: EdgeSelector.AllOf or EdgeSelector.Boundary } or Analysis.Curves.AtCase or Analysis.Curves.FormCase) => Optional(face.DuplicateFace(duplicateMeshes: false)).ToFin(op.InvalidResult()).Bind(fb => new Lease<Brep>.Owned(Value: fb).Use(owned => NakedBrepEdgesOf(brep: owned, feature: feature, source: new ComponentIndex(ComponentIndexType.BrepFace, face.FaceIndex)))),
+            (Mesh mesh, Analysis.Curves.EdgesCase { Selector: EdgeSelector.AllOf or EdgeSelector.Boundary or EdgeSelector.Interior or EdgeSelector.NonManifold } or Analysis.Curves.AtCase or Analysis.Curves.FormCase) =>
                 SelectTopologyFeatures(source: Enumerable.Range(start: 0, count: mesh.TopologyEdges.Count), selector: aspect,
                     describe: i => new EdgeDescriptor.OfMesh(ConnectedFaces: mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: i).Length),
                     project: i => Some(TopologyProjection.Of(curve: mesh.TopologyEdges.EdgeLine(topologyEdgeIndex: i).ToNurbsCurve(), feature: feature, source: new ComponentIndex(ComponentIndexType.MeshTopologyEdge, i)))),
             (Surface surface, Analysis.Curves.IsoCase iso) => IsoSeq(surface: surface, iso: iso.Direction, normalized: iso.Normalized, op: op).Map(seq => seq.Map(c => TopologyProjection.Of(c, feature, new ComponentIndex(ComponentIndexType.NoType, 0)))),
-            (GeometryBase { HasBrepForm: true } native, Analysis.Curves.EdgesCase { Selector: EdgeSelector.AllOf or EdgeSelector.Boundary } or Analysis.Curves.AtCase) when feature == CurveFeature.Boundary => GeometryKernel.BrepForm(source: native, op: op).Bind(lease => lease.Use(brep => NakedBrepEdgesOf(brep: brep, feature: feature, source: new ComponentIndex(ComponentIndexType.NoType, 0)))),
-            (SubD subd, Analysis.Curves.EdgesCase { Selector: EdgeSelector.AllOf } or Analysis.Curves.AtCase or Analysis.Curves.SegmentsCase) => SubDEdges(subd: subd, feature: feature),
+            (GeometryBase { HasBrepForm: true } native, Analysis.Curves.EdgesCase { Selector: EdgeSelector.AllOf or EdgeSelector.Boundary } or Analysis.Curves.AtCase or Analysis.Curves.FormCase) when feature == CurveFeature.Boundary => GeometryKernel.BrepForm(source: native, op: op).Bind(lease => lease.Use(brep => NakedBrepEdgesOf(brep: brep, feature: feature, source: new ComponentIndex(ComponentIndexType.NoType, 0)))),
+            (SubD subd, Analysis.Curves.EdgesCase { Selector: EdgeSelector.AllOf } or Analysis.Curves.AtCase or Analysis.Curves.SegmentsCase or Analysis.Curves.FormCase) => SubDEdges(subd: subd, feature: feature),
             (GeometryBase native, Analysis.Curves.SilhouetteCase) => SilhouettesOf(geometry: native, aspect: aspect, feature: feature, context: context, op: op, cancel: cancel),
             _ => Fin.Fail<Seq<TopologyProjection>>(op.Unsupported(g.GetType(), typeof(Curve))),
         });
@@ -181,6 +211,36 @@ public static partial class Analyze {
         _ = subd.UpdateSurfaceMeshCache(true);
         return Fin.Succ(toSeq(subd.DuplicateEdgeCurves().Select((c, i) => TopologyProjection.Of(c, feature, new ComponentIndex(ComponentIndexType.SubdEdge, i)))));
     }
+    internal static Operation<TGeometry, TOut> CurveFormProject<TGeometry, TOut>(Op key, Curves aspect) where TGeometry : notnull =>
+        Operation<TGeometry, CurveForm>.Build(
+            key: key, state: (Key: key, Aspect: aspect), requiresContext: true,
+            evaluator: static (state, geometry) =>
+                from runtime in Env.EnvAsks
+                from kind in ((object)geometry).KindOf(context: runtime.Context).ToEff()
+                let feature = state.Aspect.Feature(topology: kind.Topology)
+                from projections in CurveProjections(geometry: geometry, aspect: state.Aspect, feature: feature, context: runtime.Context, op: state.Key, cancel: runtime.Cancellation).ToEff()
+                from chosen in state.Aspect.Select(curves: projections).ToEff()
+                from result in TopologyProjection.Project<CurveForm>(all: projections, chosen: chosen, project: values =>
+                    values.TraverseM(p => p.As<Curve>().Match(
+                        Some: c => ClassifyCurveForm(curve: c, tolerance: runtime.Context.Absolute.Value),
+                        None: () => Fin.Fail<CurveForm>(state.Key.InvalidResult())
+                    )).As().Bind(forms => state.Key.Accept(values: forms))).ToEff()
+                select result).As<TGeometry, TOut>(key: key);
+    private static Fin<CurveForm> ClassifyCurveForm(Curve curve, double tolerance) =>
+        Fin.Succ(curve switch {
+            _ when curve.IsLinear(tolerance: tolerance) => CurveForm.Line(value: new Line(from: curve.PointAtStart, to: curve.PointAtEnd)),
+            _ when curve.TryGetCircle(circle: out Circle c, tolerance: tolerance) => CurveForm.Circle(value: c),
+            _ when curve.TryGetArc(arc: out Arc a, tolerance: tolerance) => CurveForm.Arc(value: a),
+            _ when curve.TryGetEllipse(ellipse: out Ellipse e, tolerance: tolerance) => CurveForm.Ellipse(value: e),
+            _ when curve.TryGetPolyline(polyline: out Polyline p) => CurveForm.Polyline(value: p, isClosed: curve.IsClosed),
+            _ => CurveForm.Nurbs(
+                degree: curve.Degree,
+                isClosed: curve.IsClosed,
+                isPlanar: curve.IsPlanar(tolerance: tolerance),
+                isPeriodic: curve.IsPeriodic,
+                spans: curve.SpanCount,
+                dimension: curve.Dimension),
+        });
     private static Fin<Seq<TopologyProjection>> SilhouettesOf(GeometryBase geometry, Curves aspect, CurveFeature feature, Context context, Op op, CancellationToken cancel) =>
         cancel.IsCancellationRequested
             ? Fin.Fail<Seq<TopologyProjection>>(new Fault.Cancelled())

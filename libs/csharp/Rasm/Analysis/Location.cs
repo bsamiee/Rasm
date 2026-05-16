@@ -22,7 +22,7 @@ public partial record RegionQuery {
 [Union]
 public partial record Location : IAspect {
     public sealed record PointAtCase(Locator At) : Location; public sealed record FrameAtCase(Locator At) : Location; public sealed record CurvatureAtCase(Locator At) : Location;
-    public sealed record CurvatureSamplesCase(int Count, CurvatureMode Mode) : Location; public sealed record DerivativeAtCase(Locator At, int Order) : Location;
+    public sealed record CurvatureSamplesCase(int Count, CurvatureMode Mode) : Location; public sealed record CurvatureExtremaCase(int Count, CurvatureMode Mode, ExtremumDirection Direction) : Location; public sealed record DerivativeAtCase(Locator At, int Order) : Location;
     public sealed record ParameterAtCase(Point3d Probe) : Location;
     public sealed record DivideCase(Division By) : Location; public sealed record OrientationCase(Plane Plane) : Location; public sealed record RegionQueryCase(RegionQuery Query) : Location;
     public static Location Midpoint => new PointAtCase(At: new Locator.NormalizedMid());
@@ -39,6 +39,7 @@ public partial record Location : IAspect {
     public static Location CurvatureAtCurve(double parameter) => new CurvatureAtCase(At: new Locator.CurveParameter(T: parameter));
     public static Location CurvatureAtSurface(Point2d uv) => new CurvatureAtCase(At: new Locator.SurfaceParameter(Uv: uv));
     public static Location Curvature(int count, CurvatureMode mode) => new CurvatureSamplesCase(Count: count, Mode: mode);
+    public static Location CurvatureExtrema(int count, CurvatureMode mode, ExtremumDirection direction) => new CurvatureExtremaCase(Count: count, Mode: mode, Direction: direction);
     public static Location DerivativeAt(double parameter, int count) => new DerivativeAtCase(At: new Locator.CurveParameter(T: parameter), Order: count);
     public static Location DivideByCount(int count) => new DivideCase(By: new Division.ByCount(Count: count));
     public static Location DivideByLength(double length) => new DivideCase(By: new Division.ByLength(Length: length));
@@ -76,6 +77,7 @@ public partial record Location : IAspect {
             normalizedMid: static _ => CurvatureAtKey.Unsupported<TGeometry, TOut>(),
             perpendicularParameters: static _ => CurvatureAtKey.Unsupported<TGeometry, TOut>()),
         curvatureSamplesCase: static cs => Analyze.CurvatureSamplesOp<TGeometry, TOut>(count: cs.Count, mode: cs.Mode),
+        curvatureExtremaCase: static ce => Analyze.CurvatureExtremaOp<TGeometry, TOut>(count: ce.Count, mode: ce.Mode, direction: ce.Direction),
         derivativeAtCase: static d => (d.Order >= 0 && d.At is Locator.CurveParameter cp)
             ? Analyze.Located<TGeometry, TOut, Curve, Vector3d>(key: DerivativeAtKey, operation: () => Analyze.CurveAtOp<TGeometry, Vector3d>(key: DerivativeAtKey, parameter: cp.T, project: (curve, p) => DerivativeAtKey.Accept(values: curve.DerivativeAt(t: p, derivativeCount: d.Order))))
             : Analysis.Operation<TGeometry, TOut>.Reject(key: DerivativeAtKey, fault: DerivativeAtKey.InvalidInput()),
@@ -257,4 +259,44 @@ public static partial class Analyze {
     private static Fin<Seq<SurfaceCurvature>> SurfaceCurvaturesOf(Op key, Surface surface, int count, Context model) =>
         GeometryKernel.SurfaceSampleUv(surface: surface, count: count, context: model, key: key)
             .Bind(samples => samples.TraverseM(uv => Optional(surface.CurvatureAt(u: uv.X, v: uv.Y)).ToFin(key.InvalidResult())).As());
+    internal static Operation<TGeometry, TOut> CurvatureExtremaOp<TGeometry, TOut>(int count, CurvatureMode mode, ExtremumDirection direction) where TGeometry : notnull {
+        Op key = Op.Of(name: "CurvatureExtrema");
+        return (count, mode, typeof(TGeometry), typeof(TOut)) switch {
+            ( <= 0, _, _, _) => Operation<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput()),
+            (_, CurvatureMode m, Type geometry, Type output)
+                when (m is CurvatureMode.VectorCase || (m is CurvatureMode.ScalarCase sc && sc.Metric.Equals(ScalarMetric.Magnitude)))
+                && GeometryKernel.CanCurveForm(type: geometry) && output == typeof(Point3d) =>
+                CurveCurvatureSamplesOp<TGeometry, TOut, Point3d>(key: key, count: count,
+                    project: (op, curve, n, ctx) =>
+                        CurveCurvatureSamples(op: op, curve: curve, count: n, ctx: ctx)
+                            .Bind(samples => op.Accept(values: Stat.Extrema(items: samples, projection: static s => s.Curvature, tolerance: 0.0, direction: direction).Map(static h => h.Point)))),
+            (_, CurvatureMode m, Type geometry, Type output)
+                when (m is CurvatureMode.VectorCase || (m is CurvatureMode.ScalarCase sc && sc.Metric.Equals(ScalarMetric.Magnitude)))
+                && GeometryKernel.CanCurveForm(type: geometry) && output == typeof(double) =>
+                CurveCurvatureSamplesOp<TGeometry, TOut, double>(key: key, count: count,
+                    project: (op, curve, n, ctx) =>
+                        CurveCurvatureSamples(op: op, curve: curve, count: n, ctx: ctx)
+                            .Bind(samples => op.Accept(values: Stat.Extrema(items: samples, projection: static s => s.Curvature, tolerance: 0.0, direction: direction).Map(static h => h.Curvature)))),
+            (_, CurvatureMode.ScalarCase { Metric: var metric }, Type geometry, Type output)
+                when (metric.Equals(ScalarMetric.Gaussian) || metric.Equals(ScalarMetric.Mean))
+                && typeof(Surface).IsAssignableFrom(c: geometry) && output == typeof(Point3d) =>
+                SurfaceCurvatureSamplesOp<TGeometry, TOut, Point3d>(key: key, count: count,
+                    project: (op, surface, n, ctx) =>
+                        SurfaceCurvatureSamples(op: op, surface: surface, count: n, ctx: ctx, metric: metric)
+                            .Bind(samples => op.Accept(values: Stat.Extrema(items: samples, projection: static s => s.Curvature, tolerance: 0.0, direction: direction).Map(static h => h.Point)))),
+            _ => key.Unsupported<TGeometry, TOut>(),
+        };
+    }
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct CurvatureSample(double Parameter, Point3d Point, double Curvature);
+    private static Fin<Seq<CurvatureSample>> CurveCurvatureSamples(Op op, Curve curve, int count, Context ctx) =>
+        GeometryKernel.CurveSampleParameters(curve: curve, count: count, context: ctx, key: op)
+            .Map(parameters => parameters.Map(t => new CurvatureSample(Parameter: t, Point: curve.PointAt(t: t), Curvature: curve.CurvatureAt(t: t).Length)));
+    private static Fin<Seq<CurvatureSample>> SurfaceCurvatureSamples(Op op, Surface surface, int count, Context ctx, ScalarMetric metric) =>
+        GeometryKernel.SurfaceSampleUv(surface: surface, count: count, context: ctx, key: op)
+            .Map(uvs => uvs.Map(uv => new Lease<SurfaceCurvature>.Owned(Value: surface.CurvatureAt(u: uv.X, v: uv.Y))
+                .Use(c => new CurvatureSample(
+                    Parameter: uv.X,
+                    Point: surface.PointAt(u: uv.X, v: uv.Y),
+                    Curvature: metric.Equals(ScalarMetric.Gaussian) ? c.Gaussian : c.Mean))));
 }
