@@ -59,7 +59,7 @@ public static partial class Analyze {
     }
     internal static Operation<TGeometry, TOut> Kind<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
-        return typeof(TOut) == typeof(Kind) && GeometryKernel.CanKind(typeof(TGeometry))
+        return typeof(TOut) == typeof(Kind) && GeometryKernel.Can(type: typeof(TGeometry), predicate: static _ => true)
             ? KernelLift<TGeometry, Kind, Op>(key: key, state: key, extract: static (op, g, ctx) => ((object)g).KindOf(context: ctx).Bind(k => op.Accept(value: k))).As<TGeometry, TOut>(key: key)
             : key.Unsupported<TGeometry, TOut>();
     }

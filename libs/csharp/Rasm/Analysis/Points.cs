@@ -26,7 +26,7 @@ public partial record Points : IAspect {
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         extremaCase: static c => typeof(TOut) == typeof(Point3d)
             ? Analysis.Operation<TGeometry, Point3d>.Build(
-                key: ExtremaKey, requirement: Requirement.Basic, requiresContext: true, state: (Key: ExtremaKey, c.Directions),
+                key: ExtremaKey, requirement: Requirement.Basic, state: (Key: ExtremaKey, c.Directions),
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
                     from lease in GeometryKernel.CurveForm(source: geometry, op: state.Key).ToEff()
@@ -43,7 +43,7 @@ public partial record Points : IAspect {
                     }).ToEff()
                     select points).As<TGeometry, TOut>(key: ExtremaKey)
             : ExtremaKey.Unsupported<TGeometry, TOut>(),
-        edgeMidpointsCase: static _ => typeof(TOut) == typeof(Point3d) && GeometryKernel.CanReadEdges(type: typeof(TGeometry))
+        edgeMidpointsCase: static _ => typeof(TOut) == typeof(Point3d) && GeometryKernel.Can(type: typeof(TGeometry), predicate: static k => k.CanReadEdges)
             ? Analysis.Operation<TGeometry, Point3d>.Build(
                 key: EdgeMidpointsKey, requiresContext: true, state: EdgeMidpointsKey,
                 evaluator: static (op, geometry) => geometry switch {
@@ -53,15 +53,15 @@ public partial record Points : IAspect {
                     Box box => op.Accept(values: box.BoundingBox.GetEdges().Select(static edge => edge.PointAt(t: 0.5))).ToEff(),
                     _ => from runtime in Env.EnvAsks
                          from kind in ((object)geometry).KindOf(context: runtime.Context).ToEff()
-                         from curves in (kind.Topology switch {
-                             Topology.Brep or Topology.Mesh or Topology.SubD => Analyze.CurveProjections(geometry: geometry, aspect: Curves.All, feature: CurveFeature.Edge, context: runtime.Context, op: op, cancel: runtime.Cancellation),
-                             _ => Fin.Fail<Seq<TopologyProjection>>(op.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Curve))),
-                         }).ToEff()
+                         from curves in (
+                             kind.Topology == Topology.Brep || kind.Topology == Topology.Mesh || kind.Topology == Topology.SubD
+                                 ? Analyze.CurveProjections(geometry: geometry, aspect: Curves.All, feature: CurveFeature.Edge, context: runtime.Context, op: op, cancel: runtime.Cancellation)
+                                 : Fin.Fail<Seq<TopologyProjection>>(op.Unsupported(geometryType: geometry.GetType(), outputType: typeof(Curve)))).ToEff()
                          from result in TopologyProjection.Project(all: curves, chosen: curves, project: values => op.Accept(values: values.Choose(static projection => projection.As<Curve>().Map(static c => new Lease<Curve>.Borrowed(Value: c).Use(static owned => owned.PointAtNormalizedLength(length: 0.5)))))).ToEff()
                          select result,
                 }).As<TGeometry, TOut>(key: EdgeMidpointsKey)
             : EdgeMidpointsKey.Unsupported<TGeometry, TOut>(),
-        verticesCase: static _ => typeof(TOut) == typeof(Point3d) && GeometryKernel.CanReadVertices(type: typeof(TGeometry))
+        verticesCase: static _ => typeof(TOut) == typeof(Point3d) && GeometryKernel.Can(type: typeof(TGeometry), predicate: static k => k.CanReadVertices)
             ? Analysis.Operation<TGeometry, Point3d>.Build(
                 key: VerticesKey, requiresContext: true, state: VerticesKey,
                 evaluator: static (op, geometry) =>
@@ -70,7 +70,7 @@ public partial record Points : IAspect {
                     from result in op.Accept(values: points).ToEff()
                     select result).As<TGeometry, TOut>(key: VerticesKey)
             : VerticesKey.Unsupported<TGeometry, TOut>(),
-        controlPointsCase: static _ => typeof(TOut) == typeof(Point3d) && GeometryKernel.CanReadControlPoints(type: typeof(TGeometry))
+        controlPointsCase: static _ => typeof(TOut) == typeof(Point3d) && GeometryKernel.Can(type: typeof(TGeometry), predicate: static k => k.CanReadControlPoints)
             ? Analysis.Operation<TGeometry, Point3d>.Build(
                 key: ControlPointsKey, state: ControlPointsKey,
                 evaluator: static (op, geometry) => from points in Analyze.ControlPointsOf(geometry: geometry, op: op).ToEff()
@@ -80,7 +80,7 @@ public partial record Points : IAspect {
         spreadCase: static s => ((s.Aspect is SpreadAspect.Frame or SpreadAspect.PrincipalFrame && typeof(TOut) == typeof(Plane))
                 || (s.Aspect == SpreadAspect.Distribution && typeof(TOut) == typeof(Stat))
                 || (s.Aspect is SpreadAspect.Collinear or SpreadAspect.Coplanar && typeof(TOut) == typeof(bool)))
-            && GeometryKernel.CanReadVertices(type: typeof(TGeometry))
+            && GeometryKernel.Can(type: typeof(TGeometry), predicate: static k => k.CanReadVertices)
             ? Analysis.Operation<TGeometry, TOut>.Build(
                 key: SpreadKey, requiresContext: true, state: (Key: SpreadKey, s.Aspect),
                 evaluator: static (state, geometry) =>

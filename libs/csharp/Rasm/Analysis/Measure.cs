@@ -136,7 +136,7 @@ public static partial class Analyze {
         Op key = Op.Of();
         Option<Requirement> requirement = (typeof(TOut) == typeof(double), typeof(TGeometry), KindLookup.Resolve(typeof(TGeometry)).Case) switch {
             (true, Type geometry, _) when geometry == typeof(object) || geometry == typeof(GeometryBase) => Some(Requirement.CurveLength),
-            (true, _, Kind { Topology: Topology.Curve } kind) => Some(typeof(GeometryBase).IsAssignableFrom(kind.Type) ? Requirement.CurveLength : Requirement.None),
+            (true, _, Kind kind) when kind.Topology == Topology.Curve => Some(typeof(GeometryBase).IsAssignableFrom(kind.Type) ? Requirement.CurveLength : Requirement.None),
             _ => Option<Requirement>.None,
         };
         return requirement.Match(

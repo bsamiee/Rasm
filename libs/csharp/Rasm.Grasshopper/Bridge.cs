@@ -48,7 +48,7 @@ public readonly record struct Shape {
             .ToFin(new MissingPortInput(Port: nameof(Shape), Hint: Accepted))
             .Bind(raw => raw switch {
                 Shape shape => Fin.Succ(shape),
-                object candidate when KindLookup.Resolve(candidate.GetType()).IsSome => Op.Create(value: nameof(Shape)).AcceptValue(value: candidate).Map(valid => new Shape(inner: valid, owned: owned.Filter(owner => ReferenceEquals(objA: owner, objB: valid)))),
+                object candidate when Rasm.Domain.Kind.Of(type: candidate.GetType()).IsSome => Op.Create(value: nameof(Shape)).AcceptValue(value: candidate).Map(valid => new Shape(inner: valid, owned: owned.Filter(owner => ReferenceEquals(objA: owner, objB: valid)))),
                 object candidate => Fin.Fail<Shape>(new UnsupportedSource(Port: nameof(Shape), SourceType: candidate.GetType(), Hint: Accepted)),
             });
     internal static Option<Shape> Converted(object raw, GeometryBase? value) =>

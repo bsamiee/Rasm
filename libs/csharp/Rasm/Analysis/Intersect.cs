@@ -91,7 +91,7 @@ public static partial class Analyze {
         Op key = Op.Of();
         return (CanSelfIntersect(geometry: typeof(TGeometry)) && IntersectionResult.HitsShape.CanProject(output: typeof(TOut)))
             ? Operation<TGeometry, TOut>.Build(
-                key: key, requirement: Requirement.Basic, requiresContext: true, state: key,
+                key: key, requirement: Requirement.Basic, state: key,
                 evaluator: static (op, geometry) => from runtime in Env.EnvAsks
                                                     from result in SelfIntersectionOf(geometry: geometry, context: runtime.Context, op: op, cancel: runtime.Cancellation, progress: runtime.Progress).ToEff()
                                                     from typed in result.Project<TOut>(key: op).ToEff()

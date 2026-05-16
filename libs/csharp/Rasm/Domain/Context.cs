@@ -49,7 +49,7 @@ public sealed record Context {
     public UnitSystem Units { get; }
     internal double Fractional => Relative.Value > 0.0 ? Relative.Value : DefaultFractionalTolerance;
     internal double MeshIntersectionTolerance => Absolute.Value * Intersection.MeshIntersectionsTolerancesCoefficient;
-    internal static Validation<Error, Context> Create(double absolute, double relative, double angle, UnitSystem units) =>
+    internal static Validation<Error, Context> Of(double absolute, double relative, double angle, UnitSystem units) =>
         (absolute.TryCreateValidated<AbsoluteTolerance>(),
          relative.TryCreateValidated<RelativeTolerance>(),
          angle.TryCreateValidated<AngleTolerance>(),
@@ -59,11 +59,11 @@ public sealed record Context {
          }).ToValidation())
             .Apply(static (a, r, n, u) => new Context(absolute: a, relative: r, angle: n, units: u))
             .As();
-    public static Validation<Error, Context> CreateDefault(UnitSystem units) => units switch {
+    public static Validation<Error, Context> Of(UnitSystem units) => units switch {
         UnitSystem.CustomUnits => Fin.Fail<Context>(error: new Fault.InvalidUnitSystem(Units: units, Requirement: "must be explicit when custom")).ToValidation(),
         UnitSystem.Unset or UnitSystem.None => Fin.Fail<Context>(error: new Fault.InvalidUnitSystem(Units: units, Requirement: "must be a Rhino model unit system")).ToValidation(),
         _ => RhinoMath.UnitScale(from: UnitSystem.Millimeters, to: units) switch {
-            double scale when RhinoMath.IsValidDouble(x: scale) && scale > RhinoMath.ZeroTolerance => Create(
+            double scale when RhinoMath.IsValidDouble(x: scale) && scale > RhinoMath.ZeroTolerance => Of(
                 absolute: RhinoMath.DefaultDistanceToleranceMillimeters * scale,
                 relative: DefaultFractionalTolerance,
                 angle: RhinoMath.DefaultAngleTolerance,
@@ -72,9 +72,9 @@ public sealed record Context {
         },
     };
     [BoundaryAdapter]
-    public static Validation<Error, Context> FromDocument(RhinoDoc? doc) =>
-        Optional(doc).ToValidation<Error>(Fail: new Fault.MissingContext(Key: Op.Of(name: nameof(FromDocument))))
-            .Bind(static candidate => Create(
+    public static Validation<Error, Context> Of(RhinoDoc? doc) =>
+        Optional(doc).ToValidation<Error>(Fail: new Fault.MissingContext(Key: Op.Of(name: nameof(Of))))
+            .Bind(static candidate => Of(
                 absolute: candidate.ModelAbsoluteTolerance,
                 relative: candidate.ModelRelativeTolerance,
                 angle: candidate.ModelAngleToleranceRadians,

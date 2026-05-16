@@ -17,20 +17,20 @@ public sealed class ContextSpec {
     [InlineData(UnitSystem.CustomUnits)]
     public void RejectsUnsupported(UnitSystem units) =>
         Assert.True(
-            condition: Context.CreateDefault(units: units)
+            condition: Context.Of(units: units)
                 .ToFin()
                 .IsFail);
 
     [Fact]
     public void RejectsMissingDocument() =>
         Assert.True(
-            condition: Context.FromDocument(doc: null)
+            condition: Context.Of(doc: null)
                 .ToFin()
                 .IsFail);
 
     [Fact]
     public void AccumulatesInvalidContextConstruction() {
-        Validation<Error, Context> result = Context.Create(
+        Validation<Error, Context> result = Context.Of(
             absolute: double.NaN,
             relative: -1.0,
             angle: 0.0,
@@ -45,7 +45,7 @@ public sealed class ContextSpec {
     public void PreservesAngleTolerance() {
         double angle = Math.PI / 90.0;
 
-        Validation<Error, Context> result = Context.Create(
+        Validation<Error, Context> result = Context.Of(
             absolute: 0.01,
             relative: 0.001,
             angle: angle,
@@ -58,7 +58,7 @@ public sealed class ContextSpec {
 
     [Fact]
     public void PreservesExplicitCustomUnitSystem() {
-        Validation<Error, Context> result = Context.Create(
+        Validation<Error, Context> result = Context.Of(
             absolute: 0.01,
             relative: 0.001,
             angle: Math.PI / 180.0,
@@ -188,7 +188,7 @@ public sealed class ContextSpec {
     }
 
     private static Context ValidContext() =>
-        Context.Create(
+        Context.Of(
                 absolute: 0.01,
                 relative: 0.001,
                 angle: Math.PI / 180.0,

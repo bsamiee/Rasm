@@ -302,9 +302,26 @@ internal static class ShapeRules {
     private static bool ShouldReportOverloadCollapse(ImmutableArray<IMethodSymbol> overloads) {
         bool hasReadOnlySpanCollapse = overloads.Any(IsParamsReadOnlySpanOverload);
         bool unionPolymorphicPair = IsUnionDispatchingPair(overloads);
+        bool inputShapePolymorphism = HasDisjointParameterTypeAtSomeIndex(overloads);
         bool arityLadder = overloads.Select(overload => overload.Parameters.Length).Distinct().Count() > 1;
         bool overloadPressure = overloads.Length > 2 || (overloads.Length > 1 && arityLadder);
-        return overloadPressure && !hasReadOnlySpanCollapse && !unionPolymorphicPair;
+        return overloadPressure && !hasReadOnlySpanCollapse && !unionPolymorphicPair && !inputShapePolymorphism;
+    }
+    // Overloads qualify as input-shape polymorphism when there exists some shared parameter index where each overload presents a
+    // distinct type. This is the C# type system's native discriminator and the canonical alternative to `params ReadOnlySpan<T>`
+    // or Union dispatch when domain factories must accept fundamentally different input modalities (e.g., explicit values vs
+    // boundary adapter sources). Zero-parameter overloads disqualify the relaxation because they cannot participate in type
+    // discrimination.
+    private static bool HasDisjointParameterTypeAtSomeIndex(ImmutableArray<IMethodSymbol> overloads) {
+        int minArity = overloads.Length switch {
+            < 2 => 0,
+            _ => overloads.Min(method => method.Parameters.Length),
+        };
+        return minArity switch {
+            0 => false,
+            _ => Enumerable.Range(0, minArity).Any(index =>
+                overloads.Select(method => method.Parameters[index].Type.ToDisplayString()).Distinct(StringComparer.Ordinal).Count() == overloads.Length),
+        };
     }
     private static bool IsUnionDispatchingPair(ImmutableArray<IMethodSymbol> overloads) {
         ImmutableArray<IMethodSymbol> ordered = overloads.Length switch {

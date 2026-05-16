@@ -65,8 +65,6 @@ public readonly record struct Stat(int Count, double Minimum, double Maximum, do
                 (int count, double mean, double m2, double minimum, double maximum, _) => Fin.Succ(new Stat(
                     Count: count, Minimum: minimum, Maximum: maximum, Mean: mean, Variance: Math.Max(val1: 0.0, val2: m2 / count), Context: context ?? StatContext.None)),
             };
-    internal static Fin<Stat> Curvature(Seq<double> values, ScalarMetric metric, Op key) =>
-        Of(values: values, key: key, context: StatContext.Metric(metric: metric));
     internal static Seq<TItem> Extrema<TItem>(Seq<TItem> items, Func<TItem, double> projection, double tolerance, ExtremumDirection direction) => items.Fold(
         initialState: (Best: direction.Key > 0 ? double.NegativeInfinity : double.PositiveInfinity, Hits: Seq<TItem>(), Tolerance: tolerance, Projection: projection, Direction: (double)direction.Key),
         f: static (state, item) => state.Projection(arg: item) switch {

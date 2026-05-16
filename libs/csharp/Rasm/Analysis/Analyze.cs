@@ -14,7 +14,7 @@ public sealed record Env(Context Context, IProgress<double>? Progress, Cancellat
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
-public sealed record Operation<TGeometry, TOut> where TGeometry : notnull {
+public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnull {
     private Operation(Op key, Requirement requirement, bool requiresContext, Body body) {
         Key = key;
         Requirement = requirement;
@@ -29,20 +29,18 @@ public sealed record Operation<TGeometry, TOut> where TGeometry : notnull {
     internal bool IsAggregate => Execution is Body.Aggregate;
     internal bool NeedsContext => RequiresContext || !Requirement.IsEmpty;
     public Eff<Env, Seq<TOut>> Apply(Seq<TGeometry> geometry) =>
-        Execution switch {
-            Body.PerItem item => geometry.TraverseM(item.Evaluate).As().Map(static chunks => chunks.Bind(static chunk => chunk)),
-            Body.Aggregate aggregate => aggregate.Evaluate(arg: geometry),
-            Body.Rejected rejected => Fin.Fail<Seq<TOut>>(rejected.Fault).ToEff(),
-            _ => Fin.Fail<Seq<TOut>>(Key.InvalidResult()).ToEff(),
-        };
+        Execution.Switch(
+            rejected: r => Fin.Fail<Seq<TOut>>(r.Fault).ToEff(),
+            perItem: i => geometry.TraverseM(i.Evaluate).As().Map(static chunks => chunks.Bind(static chunk => chunk)),
+            aggregate: a => a.Evaluate(arg: geometry));
     public Operation<TGeometry, TOut> AsAggregate() =>
-        Execution switch {
-            Body.PerItem item => item.Plan.Case switch {
+        Execution.Switch(
+            rejected: _ => this,
+            perItem: item => item.Plan.Case switch {
                 Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>> project => this with { Execution = new Body.Aggregate(Evaluate: project) },
                 _ => Reject(key: Key, fault: Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))),
             },
-            _ => this,
-        };
+            aggregate: _ => this);
     internal static Operation<TGeometry, TOut> Build(Op key, Func<TGeometry, Eff<Env, Seq<TOut>>> evaluator, Requirement? requirement = null, bool requiresContext = false, Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> aggregate = default) =>
         Build(key: key, state: Unit.Default, evaluator: (_, geometry) => evaluator(arg: geometry), requirement: requirement, requiresContext: requiresContext, aggregate: aggregate);
     internal static Operation<TGeometry, TOut> Build<TState>(Op key, TState state, Func<TState, TGeometry, Eff<Env, Seq<TOut>>> evaluator, Requirement? requirement = null, bool requiresContext = false, Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> aggregate = default) {
@@ -80,7 +78,8 @@ public sealed record Operation<TGeometry, TOut> where TGeometry : notnull {
             _ => Fin.Succ(ready).ToEff(),
         }
         select validated;
-    private abstract record Body {
+    [Union]
+    private abstract partial record Body {
         private Body() { }
         internal sealed record Rejected(Error Fault) : Body;
         internal sealed record PerItem(Func<TGeometry, Eff<Env, Seq<TOut>>> Evaluate, Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> Plan) : Body;
@@ -97,10 +96,10 @@ public static partial class Analyze {
             operation: operation,
             scope: Option<Scope>.None,
             input: input);
-    public static Scope From(RhinoDoc? doc) => new(context: Context.FromDocument(doc: doc).ToFin());
-    public static Scope In(UnitSystem units) => new(context: Context.CreateDefault(units: units).ToFin());
+    public static Scope From(RhinoDoc? doc) => new(context: Context.Of(doc: doc).ToFin());
+    public static Scope In(UnitSystem units) => new(context: Context.Of(units: units).ToFin());
     public static Scope In(double absolute, double relative, double angle, UnitSystem units) =>
-        new(context: Context.Create(absolute: absolute, relative: relative, angle: angle, units: units).ToFin());
+        new(context: Context.Of(absolute: absolute, relative: relative, angle: angle, units: units).ToFin());
     public static Scope In(Context context) => new(context: Optional(context).ToFin(Op.Of(name: nameof(Scope)).MissingContext()));
     public sealed record Scope {
         public Fin<Context> Context { get; }
@@ -132,7 +131,7 @@ public static partial class Analyze {
                 Some: provided => provided,
                 None: () => accepted.NeedsContext switch {
                     true => Fin.Fail<Context>(accepted.Key.MissingContext()),
-                    false => Context.CreateDefault(units: UnitSystem.Millimeters).ToFin(),
+                    false => Context.Of(units: UnitSystem.Millimeters).ToFin(),
                 })
             from result in accepted.Apply(geometry: inputValues.AsIterable().ToSeq()).Run(env: new Env(Context: context, Progress: progress, Cancellation: cancellation))
             select result).ToValidation();

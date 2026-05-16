@@ -568,6 +568,30 @@ public sealed class RuleBehaviorTests {
         Assert.DoesNotContain(expected: "CSP0724", collection: ids);
     }
     [Fact]
+    public async Task InputShapePolymorphicOverloadsDoNotEmitOverloadSpamDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/InputShapePolymorphism.cs",
+            source: Domain(type: "InputShapePolymorphism", members: """
+                public int Of(double absolute, double relative, double angle, int units) => 0;
+                public int Of(int units) => 0;
+                public int Of(string document) => 0;
+                """)).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0005", collection: ids);
+    }
+    [Fact]
+    public async Task ArityLadderStillEmitsOverloadSpamDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/ArityLadderSpam.cs",
+            source: Domain(type: "ArityLadderSpam", members: """
+                public int Compute(int first) => first;
+                public int Compute(int first, int second) => first + second;
+                public int Compute(int first, int second, int third) => first + second + third;
+                """)).ConfigureAwait(true);
+
+        Assert.Contains(expected: "CSP0005", collection: ids);
+    }
+    [Fact]
     public async Task UnionDispatchingMethodPairDoesNotEmitOverloadSpamDiagnosticAsync() {
         ImmutableArray<string> ids = await AnalyzeIdsAsync(
             filePath: "/workspace/src/Domain/Services/UnionDispatchingPair.cs",

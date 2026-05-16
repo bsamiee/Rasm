@@ -57,7 +57,7 @@ public partial record Location : IAspect {
             curveParameter: static cp => Analyze.Located<TGeometry, TOut, Curve, Point3d>(key: PointAtKey, operation: () => Analyze.CurveAtOp<TGeometry, Point3d>(key: PointAtKey, parameter: cp.T, project: static (curve, t) => PointAtKey.Accept(value: curve.PointAt(t: t)))),
             surfaceParameter: static sp => Analyze.Located<TGeometry, TOut, Surface, Point3d>(key: PointAtKey, operation: () => Analyze.SurfaceUvOp<TGeometry, Point3d>(key: PointAtKey, uv: sp.Uv, project: static (surface, p) => PointAtKey.Accept(value: surface.PointAt(u: p.X, v: p.Y)))),
             arcLength: static al => Analyze.Located<TGeometry, TOut, Curve, Point3d>(key: PointAtLengthKey, operation: () => Analyze.PointAtLengthOp<TGeometry>(key: PointAtLengthKey, distance: al.Distance)),
-            closestTo: static ct => Analyze.ClosestOp<TGeometry, TOut>(key: ClosestKey, target: ct.Probe, canProject: ClosestHit.CanProjectTo, project: static (hit, key) => hit.Project<TOut>(key: key)),
+            closestTo: static ct => Analyze.ClosestOp<TGeometry, TOut>(key: ClosestKey, target: ct.Probe, canProject: static t => ClosestHit.CanProjectTo(output: t), project: static (hit, key) => hit.Project<TOut>(key: key)),
             normalizedMid: static _ => Analyze.Located<TGeometry, TOut, Curve, Point3d>(key: MidpointKey, operation: () => Analyze.AtMidpointOp<TGeometry, Point3d>(key: MidpointKey, project: static (curve, parameter) => curve.PointAt(t: parameter))),
             perpendicularParameters: static _ => PointAtKey.Unsupported<TGeometry, TOut>()),
         frameAtCase: static f => f.At.Switch<Operation<TGeometry, TOut>>(
@@ -81,7 +81,7 @@ public partial record Location : IAspect {
         derivativeAtCase: static d => (d.Order >= 0 && d.At is Locator.CurveParameter cp)
             ? Analyze.Located<TGeometry, TOut, Curve, Vector3d>(key: DerivativeAtKey, operation: () => Analyze.CurveAtOp<TGeometry, Vector3d>(key: DerivativeAtKey, parameter: cp.T, project: (curve, p) => DerivativeAtKey.Accept(values: curve.DerivativeAt(t: p, derivativeCount: d.Order))))
             : Analysis.Operation<TGeometry, TOut>.Reject(key: DerivativeAtKey, fault: DerivativeAtKey.InvalidInput()),
-        parameterAtCase: static p => Analyze.ClosestOp<TGeometry, TOut>(key: ParameterAtKey, target: p.Probe, canProject: ClosestHit.CanProjectParameterTo, project: static (hit, key) => hit.ProjectParameter<TOut>(key: key)),
+        parameterAtCase: static p => Analyze.ClosestOp<TGeometry, TOut>(key: ParameterAtKey, target: p.Probe, canProject: static t => ClosestHit.CanProjectTo(output: t, parameterMode: true), project: static (hit, key) => hit.Project<TOut>(key: key, parameterMode: true)),
         divideCase: static d => d.By.Switch<Operation<TGeometry, TOut>>(
             byCount: static bc => Analyze.Located<TGeometry, TOut, Curve, Point3d>(key: DivideByCountKey, operation: () => Analyze.DividePolyOp<TGeometry>(key: DivideByCountKey, requirement: null, divide: curve => curve.DivideByCount(segmentCount: bc.Count, includeEnds: true, points: out Point3d[] points) switch { double[] => Optional(points), _ => Option<Point3d[]>.None })),
             byLength: static bl => Analyze.Located<TGeometry, TOut, Curve, Point3d>(key: DivideByLengthKey, operation: () => Analyze.DividePolyOp<TGeometry>(key: DivideByLengthKey, requirement: Requirement.CurveLength, divide: curve => curve.DivideByLength(segmentLength: bl.Length, includeEnds: true, points: out Point3d[] points) switch { double[] => Optional(points), _ => Option<Point3d[]>.None }))),
@@ -133,7 +133,7 @@ public static partial class Analyze {
             : key.Unsupported<TGeometry, TOut>();
     internal static Operation<TGeometry, TOut> AtMidpointOp<TGeometry, TOut>(Op key, Func<Curve, double, TOut> project) where TGeometry : notnull =>
         Operation<TGeometry, TOut>.Build(
-            key: key, requirement: Requirement.CurveLength, requiresContext: true, state: (Key: key, Project: project),
+            key: key, requirement: Requirement.CurveLength, state: (Key: key, Project: project),
             evaluator: static (state, geometry) =>
                 from runtime in Env.EnvAsks
                 from curve in GeometryKernel.CurveForm(source: geometry, op: state.Key).ToEff()
@@ -202,7 +202,7 @@ public static partial class Analyze {
                 CurveCurvatureSamplesOp<TGeometry, TOut, Vector3d>(key: key, count: count, project: CurveCurvaturesOf),
             (_, CurvatureMode m, Type geometry, Type output) when (m is CurvatureMode.VectorCase || (m is CurvatureMode.ScalarCase sc && sc.Metric.Equals(ScalarMetric.Magnitude))) && GeometryKernel.CanCurveForm(type: geometry) && output == typeof(Stat) =>
                 CurveCurvatureSamplesOp<TGeometry, TOut, Stat>(key: key, count: count, project: static (op, curve, n, ctx) =>
-                    CurveMagnitudesOf(key: op, curve: curve, count: n, model: ctx).Bind(values => Stat.Curvature(values: values, metric: ScalarMetric.Magnitude, key: op).Map(static stat => Seq(stat)))),
+                    CurveMagnitudesOf(key: op, curve: curve, count: n, model: ctx).Bind(values => Stat.Of(values: values, key: op, context: StatContext.Metric(metric: ScalarMetric.Magnitude)).Map(static stat => Seq(stat)))),
             (_, CurvatureMode.ScalarCase { Metric: var metric }, Type geometry, Type output) when metric.Equals(ScalarMetric.Magnitude) && GeometryKernel.CanCurveForm(type: geometry) && output == typeof(double) =>
                 CurveCurvatureSamplesOp<TGeometry, TOut, double>(key: key, count: count, project: static (op, curve, n, ctx) =>
                     CurveMagnitudesOf(key: op, curve: curve, count: n, model: ctx).Bind(values => op.Accept(values: values))),
@@ -218,20 +218,20 @@ public static partial class Analyze {
             (_, CurvatureMode.ScalarCase { Metric: var metric }, Type geometry, Type output) when (metric.Equals(ScalarMetric.Gaussian) || metric.Equals(ScalarMetric.Mean)) && typeof(Surface).IsAssignableFrom(c: geometry) && output == typeof(Stat) =>
                 SurfaceCurvatureSamplesOp<TGeometry, TOut, Stat>(key: key, count: count, project: (op, surface, n, ctx) =>
                     SurfaceCurvaturesOf(key: op, surface: surface, count: n, model: ctx).Bind(curvatures =>
-                        BorrowCurvaturesOf(curvatures: curvatures, project: owned => SurfaceScalarsOf(key: op, curvatures: owned, metric: metric).Bind(values => Stat.Curvature(values: values, metric: metric, key: op).Map(stat => Seq(stat)))))),
+                        BorrowCurvaturesOf(curvatures: curvatures, project: owned => SurfaceScalarsOf(key: op, curvatures: owned, metric: metric).Bind(values => Stat.Of(values: values, key: op, context: StatContext.Metric(metric: metric)).Map(stat => Seq(stat)))))),
             _ => key.Unsupported<TGeometry, TOut>(),
         };
     }
     private static Operation<TGeometry, TOut> CurveCurvatureSamplesOp<TGeometry, TOut, TValue>(Op key, int count, Func<Op, Curve, int, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull =>
         Operation<TGeometry, TValue>.Build(
-            key: key, requirement: Requirement.CurveLength, requiresContext: true, state: (Key: key, Count: count, Project: project),
+            key: key, requirement: Requirement.CurveLength, state: (Key: key, Count: count, Project: project),
             evaluator: static (state, geometry) => from context in Env.Asks
                                                    from result in GeometryKernel.CurveForm(source: geometry, op: state.Key)
                                                        .Bind(lease => lease.Use(curve => state.Project(arg1: state.Key, arg2: curve, arg3: state.Count, arg4: context))).ToEff()
                                                    select result).As<TGeometry, TOut>(key: key);
     private static Operation<TGeometry, TOut> SurfaceCurvatureSamplesOp<TGeometry, TOut, TValue>(Op key, int count, Func<Op, Surface, int, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull =>
         Native<TGeometry, TOut, Surface, TValue, (Op Key, int Count, Func<Op, Surface, int, Context, Fin<Seq<TValue>>> Project)>(
-            key: key, state: (Key: key, Count: count, Project: project), requirement: Requirement.SurfaceEvaluation, requiresContext: true,
+            key: key, state: (Key: key, Count: count, Project: project), requirement: Requirement.SurfaceEvaluation,
             project: static (state, native) => from context in Env.Asks
                                                from result in state.Project(arg1: state.Key, arg2: native, arg3: state.Count, arg4: context).ToEff()
                                                select result);
@@ -243,8 +243,8 @@ public static partial class Analyze {
         };
     private static Fin<Seq<Stat>> SurfaceStatsOf(Op key, Seq<SurfaceCurvature> curvatures) =>
         BorrowCurvaturesOf(curvatures: curvatures, project: owned =>
-            (SurfaceScalarsOf(key: key, curvatures: owned, metric: ScalarMetric.Gaussian).Bind(values => Stat.Curvature(values: values, metric: ScalarMetric.Gaussian, key: key)),
-             SurfaceScalarsOf(key: key, curvatures: owned, metric: ScalarMetric.Mean).Bind(values => Stat.Curvature(values: values, metric: ScalarMetric.Mean, key: key)))
+            (SurfaceScalarsOf(key: key, curvatures: owned, metric: ScalarMetric.Gaussian).Bind(values => Stat.Of(values: values, key: key, context: StatContext.Metric(metric: ScalarMetric.Gaussian))),
+             SurfaceScalarsOf(key: key, curvatures: owned, metric: ScalarMetric.Mean).Bind(values => Stat.Of(values: values, key: key, context: StatContext.Metric(metric: ScalarMetric.Mean))))
             .Apply(static (gaussian, mean) => Seq(gaussian, mean)).As());
     private static Fin<T> BorrowCurvaturesOf<T>(Seq<SurfaceCurvature> curvatures, Func<Seq<SurfaceCurvature>, Fin<T>> project) {
         Fin<T> result = project(arg: curvatures);

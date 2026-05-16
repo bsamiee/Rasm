@@ -83,9 +83,9 @@ public partial record Bounds : IAspect {
                     key: TransformedKey, state: (Key: TransformedKey, t.Xform),
                     project: static (state, native) => state.Key.Accept(value: native.GetBoundingBox(xform: state.Xform)).ToEff())
                 : TransformedKey.Unsupported<TGeometry, TOut>(),
-            principalFrame: static _ => (typeof(TOut) == typeof(Box) && GeometryKernel.CanPrincipal(type: typeof(TGeometry)))
+            principalFrame: static _ => (typeof(TOut) == typeof(Box) && GeometryKernel.Can(type: typeof(TGeometry), predicate: static k => k.CanPrincipal))
                 ? Analyze.Native<TGeometry, TOut, GeometryBase, Box, Op>(
-                    key: PrincipalKey, state: PrincipalKey, requirement: Requirement.Basic, requiresContext: true,
+                    key: PrincipalKey, state: PrincipalKey, requirement: Requirement.Basic,
                     project: static (state, native) =>
                         from context in Env.Asks
                         from frame in MassKind.PrincipalFrameOf(geometry: native, context: context, key: state).ToEff()
@@ -120,9 +120,9 @@ public partial record Bounds : IAspect {
             volume: static _ => Analyze.BoxMetric<TGeometry, TOut>(key: BoxVolumeKey, boundingBox: static g => g.Volume, box: static g => g.Volume),
             diagonal: static _ => Analyze.BoxMetric<TGeometry, TOut>(key: BoxDiagonalKey, boundingBox: static g => g.Diagonal.Length, box: static g => g.BoundingBox.Diagonal.Length),
             aspectRatio: static _ => Analyze.BoxMetric<TGeometry, TOut>(key: BoxAspectRatioKey, boundingBox: static g => AspectOf(g.Diagonal), box: static g => AspectOf(new Vector3d(g.X.Length, g.Y.Length, g.Z.Length))),
-            tightness: static _ => (typeof(TOut) == typeof(double) && typeof(GeometryBase).IsAssignableFrom(c: typeof(TGeometry)) && GeometryKernel.CanPrincipal(type: typeof(TGeometry)))
+            tightness: static _ => (typeof(TOut) == typeof(double) && typeof(GeometryBase).IsAssignableFrom(c: typeof(TGeometry)) && GeometryKernel.Can(type: typeof(TGeometry), predicate: static k => k.CanPrincipal))
                 ? Analyze.Native<TGeometry, TOut, GeometryBase, double, Op>(
-                    key: BoxTightnessKey, state: BoxTightnessKey, requirement: Requirement.Basic, requiresContext: true,
+                    key: BoxTightnessKey, state: BoxTightnessKey, requirement: Requirement.Basic,
                     project: static (state, native) =>
                         from context in Env.Asks
                         from frame in MassKind.PrincipalFrameOf(geometry: native, context: context, key: state).ToEff()
@@ -142,7 +142,7 @@ public partial record Bounds : IAspect {
                         from accepted in state.Key.Accept(value: result).ToEff()
                         select accepted).As<TGeometry, TOut>(key: EnclosingSphereKey)
                 : EnclosingSphereKey.Unsupported<TGeometry, TOut>(),
-            circleCase: static c => (typeof(TOut) == typeof(Circle) && GeometryKernel.CanReadVertices(type: typeof(TGeometry)))
+            circleCase: static c => (typeof(TOut) == typeof(Circle) && GeometryKernel.Can(type: typeof(TGeometry), predicate: static k => k.CanReadVertices))
                 ? Analysis.Operation<TGeometry, Circle>.Build(
                     key: EnclosingCircleKey, requiresContext: true, state: (Key: EnclosingCircleKey, c.Plane, c.Count),
                     evaluator: static (state, geometry) =>

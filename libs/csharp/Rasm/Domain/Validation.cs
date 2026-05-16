@@ -10,8 +10,11 @@ namespace Rasm.Domain;
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public readonly partial struct Op {
-    [BoundaryAdapter]
-    public static Op Of([CallerMemberName] string name = "") => Create(value: name);
+    [BoundaryAdapter] public static Op Of([CallerMemberName] string name = "") => Create(value: name);
+    [BoundaryAdapter] public Error MissingContext() => new Fault.MissingContext(Key: this);
+    [BoundaryAdapter] public Error InvalidInput() => new Fault.InvalidInput(Key: this);
+    [BoundaryAdapter] public Error InvalidResult() => new Fault.InvalidResult(Key: this);
+    [BoundaryAdapter] public Error Unsupported(Type geometryType, Type outputType) => new Fault.Unsupported(Key: this, GeometryType: geometryType, OutputType: outputType);
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -49,6 +52,15 @@ public sealed partial record Requirement {
     public static readonly Requirement VolumeMass = SolidTopology + Single(check: Check.SurfaceSolidReadiness);
     public static readonly Requirement SurfaceEvaluation = Basic + Single(check: Check.SurfaceDomainReadiness);
     public static readonly Requirement Strict = new(checks: toSeq(Check.Items));
+    public static Requirement ForKind(Kind kind) {
+        ArgumentNullException.ThrowIfNull(argument: kind);
+        return kind.Topology == Topology.Curve ? CurveLength
+            : kind.Topology == Topology.Surface ? SurfaceEvaluation
+            : kind.Topology == Topology.Brep || kind.Topology == Topology.Extrusion ? SolidTopology
+            : kind.Topology == Topology.Mesh || kind.Topology == Topology.SubD ? MeshCheck
+            : kind.Topology == Topology.Point || kind.Topology == Topology.PointCloud || kind.Topology == Topology.Hatch ? None
+            : Basic;
+    }
     private static bool HasUsableDomain(Surface surface, Context context) =>
         (surface.Domain(direction: 0), surface.Domain(direction: 1)) is (Interval u, Interval v)
         && u.IsValid && v.IsValid && u.Length > context.Absolute.Value && v.Length > context.Absolute.Value;
@@ -173,17 +185,12 @@ public abstract partial record Fault : Expected {
     public sealed record InvalidUnitSystem(UnitSystem Units, string Requirement) : Fault { public override string Message => $"Model unit system must be {Requirement}; actual={Units}."; public override string Category => "Context"; }
 }
 
-[BoundaryAdapter]
-public static class FaultExtensions {
+public static partial class FaultExtensions {
     [BoundaryAdapter]
     public static string Category(this Error error) => error switch {
         Expected expected => expected.Category,
         _ => "Fault",
     };
-    [BoundaryAdapter] public static Error MissingContext(this Op key) => new Fault.MissingContext(Key: key);
-    [BoundaryAdapter] public static Error InvalidInput(this Op key) => new Fault.InvalidInput(Key: key);
-    [BoundaryAdapter] public static Error InvalidResult(this Op key) => new Fault.InvalidResult(Key: key);
-    [BoundaryAdapter] public static Error Unsupported(this Op key, Type geometryType, Type outputType) => new Fault.Unsupported(Key: key, GeometryType: geometryType, OutputType: outputType);
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------

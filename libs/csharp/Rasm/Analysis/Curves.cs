@@ -115,24 +115,24 @@ public partial record Curves : IAspect {
     private bool CanProject(Topology topology, Type type) => Switch(
         state: (Topology: topology, Type: type),
         edgesCase: static (state, e) => e.Selector switch {
-            EdgeSelector.AllOf => state.Topology switch { Topology.Curve => IsCurveType(state.Type), Topology.Surface => IsSurfaceType(state.Type), Topology.Brep => typeof(Brep).IsAssignableFrom(state.Type), Topology.Mesh => typeof(Mesh).IsAssignableFrom(state.Type), Topology.SubD => typeof(SubD).IsAssignableFrom(state.Type), _ => false },
-            EdgeSelector.Boundary => state.Topology switch { Topology.Curve => IsCurveType(state.Type), Topology.Surface => IsSurfaceType(state.Type) || typeof(Extrusion).IsAssignableFrom(state.Type), Topology.Brep => typeof(Brep).IsAssignableFrom(state.Type), Topology.Mesh => typeof(Mesh).IsAssignableFrom(state.Type), Topology.Extrusion => typeof(Extrusion).IsAssignableFrom(state.Type), _ => false },
+            EdgeSelector.AllOf =>
+                (state.Topology == Topology.Curve && IsCurveType(state.Type)) || (state.Topology == Topology.Surface && IsSurfaceType(state.Type)) || (state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(state.Type)) || (state.Topology == Topology.Mesh && typeof(Mesh).IsAssignableFrom(state.Type)) || (state.Topology == Topology.SubD && typeof(SubD).IsAssignableFrom(state.Type)),
+            EdgeSelector.Boundary =>
+                (state.Topology == Topology.Curve && IsCurveType(state.Type)) || (state.Topology == Topology.Surface && (IsSurfaceType(state.Type) || typeof(Extrusion).IsAssignableFrom(state.Type))) || (state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(state.Type)) || (state.Topology == Topology.Mesh && typeof(Mesh).IsAssignableFrom(state.Type)) || (state.Topology == Topology.Extrusion && typeof(Extrusion).IsAssignableFrom(state.Type)),
             EdgeSelector.NakedFiltered or EdgeSelector.LoopFiltered => state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(state.Type),
             EdgeSelector.Interior or EdgeSelector.NonManifold => (state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(state.Type)) || (state.Topology == Topology.Mesh && typeof(Mesh).IsAssignableFrom(state.Type)),
             _ => false,
         },
-        atCase: static (state, _) => state.Topology switch { Topology.Curve => IsCurveType(state.Type), Topology.Surface => IsSurfaceType(state.Type), Topology.Brep => typeof(Brep).IsAssignableFrom(state.Type), Topology.Mesh => typeof(Mesh).IsAssignableFrom(state.Type), Topology.SubD => typeof(SubD).IsAssignableFrom(state.Type), _ => false },
+        atCase: static (state, _) =>
+            (state.Topology == Topology.Curve && IsCurveType(state.Type)) || (state.Topology == Topology.Surface && IsSurfaceType(state.Type)) || (state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(state.Type)) || (state.Topology == Topology.Mesh && typeof(Mesh).IsAssignableFrom(state.Type)) || (state.Topology == Topology.SubD && typeof(SubD).IsAssignableFrom(state.Type)),
         segmentsCase: static (state, _) => (state.Topology == Topology.Curve && IsCurveType(state.Type)) || (state.Topology == Topology.SubD && typeof(SubD).IsAssignableFrom(state.Type)),
         isoCase: static (state, _) => (state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(state.Type)) || (state.Topology == Topology.Surface && IsSurfaceType(state.Type)),
-        silhouetteCase: static (state, _) => state.Topology switch { Topology.Surface => IsSurfaceType(state.Type) || typeof(Extrusion).IsAssignableFrom(state.Type), Topology.Brep => typeof(Brep).IsAssignableFrom(state.Type), Topology.Mesh => typeof(Mesh).IsAssignableFrom(state.Type), Topology.SubD => typeof(SubD).IsAssignableFrom(state.Type), Topology.Extrusion => typeof(Extrusion).IsAssignableFrom(state.Type), _ => false },
-        formCase: static (state, _) => state.Topology switch {
-            Topology.Curve => IsCurveType(state.Type),
-            Topology.Brep => typeof(Brep).IsAssignableFrom(state.Type),
-            Topology.Mesh => typeof(Mesh).IsAssignableFrom(state.Type),
-            Topology.SubD => typeof(SubD).IsAssignableFrom(state.Type),
-            _ => false,
-        });
-    private static CurveFeature EdgeFeatureFor(Topology topology) => topology switch { Topology.Curve => CurveFeature.Input, Topology.Surface => CurveFeature.Boundary, _ => CurveFeature.Edge };
+        silhouetteCase: static (state, _) =>
+            (state.Topology == Topology.Surface && (IsSurfaceType(state.Type) || typeof(Extrusion).IsAssignableFrom(state.Type))) || (state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(state.Type)) || (state.Topology == Topology.Mesh && typeof(Mesh).IsAssignableFrom(state.Type)) || (state.Topology == Topology.SubD && typeof(SubD).IsAssignableFrom(state.Type)) || (state.Topology == Topology.Extrusion && typeof(Extrusion).IsAssignableFrom(state.Type)),
+        formCase: static (state, _) =>
+            (state.Topology == Topology.Curve && IsCurveType(state.Type)) || (state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(state.Type)) || (state.Topology == Topology.Mesh && typeof(Mesh).IsAssignableFrom(state.Type)) || (state.Topology == Topology.SubD && typeof(SubD).IsAssignableFrom(state.Type)));
+    private static CurveFeature EdgeFeatureFor(Topology topology) =>
+        topology == Topology.Curve ? CurveFeature.Input : topology == Topology.Surface ? CurveFeature.Boundary : CurveFeature.Edge;
     private static bool IsCurveType(Type type) => KindLookup.Resolve(type).Map(static kind => kind.Topology == Topology.Curve).IfNone(false);
     private static bool IsSurfaceType(Type type) => KindLookup.Resolve(type).Map(static kind => kind.Topology == Topology.Surface).IfNone(false);
 }
@@ -145,7 +145,7 @@ public static partial class Analyze {
     public static Operation<Surface, Curve> Iso(IsoStatus iso, double normalized = 0.5) {
         Op key = Op.Of();
         return Operation<Surface, Curve>.Build(
-            key: key, requirement: Requirement.SurfaceEvaluation, state: (Key: key, Iso: iso, Normalized: normalized), requiresContext: true,
+            key: key, requirement: Requirement.SurfaceEvaluation, state: (Key: key, Iso: iso, Normalized: normalized),
             evaluator: static (state, geometry) =>
                 from context in Env.Asks
                 from curves in IsoSeq(surface: geometry, iso: state.Iso, normalized: state.Normalized, op: state.Key).ToEff()

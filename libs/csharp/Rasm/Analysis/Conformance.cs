@@ -77,11 +77,10 @@ public partial record Conformance {
             state: (Aspect: aspect, Count: count),
             evaluator: static (state, pair) =>
                 from runtime in Env.EnvAsks
-                from resolved in runtime.Context.Pair(a: pair.Geometry, b: pair.Target, op: Key, requirements: static (op, kindG, _) => kindG.Topology switch {
-                    Topology.Curve => Fin.Succ((A: Requirement.CurveLength, B: Requirement.None)),
-                    Topology.Surface => Fin.Succ((A: Requirement.SurfaceEvaluation, B: Requirement.None)),
-                    _ => Fin.Fail<(Requirement A, Requirement B)>(op.Unsupported(geometryType: kindG.Type, outputType: typeof(ResidualSample))),
-                }, cancel: runtime.Cancellation).ToEff()
+                from resolved in runtime.Context.Pair(a: pair.Geometry, b: pair.Target, op: Key, requirements: static (op, kindG, _) =>
+                    (kindG.Topology == Topology.Curve || kindG.Topology == Topology.Surface)
+                        ? Fin.Succ((A: Requirement.ForKind(kind: kindG), B: Requirement.None))
+                        : Fin.Fail<(Requirement A, Requirement B)>(op.Unsupported(geometryType: kindG.Type, outputType: typeof(ResidualSample))), cancel: runtime.Cancellation).ToEff()
                 from residuals in Samples(aspect: state.Aspect, geometry: resolved.A, target: resolved.B, count: state.Count, context: runtime.Context).ToEff()
                 from result in state.Aspect.Project<TValue>(residuals: residuals, context: runtime.Context).ToEff()
                 select result);

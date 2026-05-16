@@ -10,7 +10,7 @@ public partial record Faces : IAspect {
     public static Faces At(int? index = null) => new AtCase(Value: index);
     internal static readonly Op Key = Op.Of(name: nameof(Faces));
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull =>
-        GeometryKernel.CanDecomposeFaces(type: typeof(TGeometry)) switch {
+        (typeof(BrepFace).IsAssignableFrom(c: typeof(TGeometry)) || GeometryKernel.Can(type: typeof(TGeometry), predicate: static k => k.CanDecomposeFaces)) switch {
             false => Key.Unsupported<TGeometry, TOut>(),
             true => typeof(TOut) switch {
                 Type t when t == typeof(Brep) => Analyze.FaceOperation<TGeometry, TOut, Brep>(key: Key, selector: this, requirement: Requirement.None, project: static (chosen, _) => Key.Accept(values: chosen.Choose(static face => face.As<Brep>()))),

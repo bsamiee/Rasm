@@ -740,11 +740,11 @@ public sealed class AnalysisSpec {
     [Fact]
     public void StatsUseDomainAggregationAndToleranceRail() {
         Op key = Op.Create(value: "stat-rail");
-        Fin<Stat> curvature = Stat.Curvature(values: LanguageExt.Prelude.toSeq<double>([1.0, 3.0]), metric: ScalarMetric.Magnitude, key: Op.Create(value: "curvature-stat"));
+        Fin<Stat> curvature = Stat.Of(values: LanguageExt.Prelude.toSeq<double>([1.0, 3.0]), key: Op.Create(value: "curvature-stat"), context: StatContext.Metric(metric: ScalarMetric.Magnitude));
         Fin<Stat> residual = Stat.Of(values: LanguageExt.Prelude.toSeq<double>([1.0, 3.0]), key: Op.Create(value: "residual-stat"))
             .Map(static stat => stat with { Context = StatContext.Tolerance(tolerance: 3.0, minimum: stat.Minimum, maximum: stat.Maximum) });
 
-        Assert.True(condition: Stat.Curvature(values: LanguageExt.Prelude.toSeq<double>([-1.0, 3.0]), metric: ScalarMetric.Gaussian, key: key).IsSucc);
+        Assert.True(condition: Stat.Of(values: LanguageExt.Prelude.toSeq<double>([-1.0, 3.0]), key: key, context: StatContext.Metric(metric: ScalarMetric.Gaussian)).IsSucc);
         Assert.True(condition: Stat.Of(values: LanguageExt.Prelude.toSeq<double>([1.0, 3.0]), key: key).Map(stat => stat with { Context = StatContext.Tolerance(tolerance: -1.0, minimum: stat.Minimum, maximum: stat.Maximum) }).Map(static s => s.WithinTolerance).Match(Succ: static valid => !valid, Fail: static _ => false));
         Assert.True(condition: curvature.Match(Succ: static stat => RhinoMath.IsValidDouble(x: stat.Mean), Fail: static _ => false));
         Assert.True(condition: residual.Match(Succ: static summary => summary.Maximum <= summary.Tolerance.IfNone(double.NegativeInfinity) && summary.WithinTolerance, Fail: static _ => false));
@@ -1006,7 +1006,7 @@ public sealed class AnalysisSpec {
             from: Point3d.Origin,
             to: new Point3d(x: 2.0, y: 0.0, z: 0.0));
     private static Context ValidContext() =>
-        Context.Create(
+        Context.Of(
                 absolute: 0.01,
                 relative: 0.001,
                 angle: Math.PI / 180.0,

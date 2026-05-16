@@ -4,8 +4,14 @@ using Foundation.CSharp.Analyzers.Contracts;
 namespace Rasm.Domain;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-public enum Topology { Unknown, Point, Curve, Surface, Brep, Mesh, SubD, PointCloud, Hatch, Extrusion }
-public enum IntersectionKind { Unknown = 0, Point = 1, Overlap = 2, Curve = 3 }
+[SmartEnum<int>]
+public sealed partial class Topology {
+    public static readonly Topology Unknown = new(0), Point = new(1), Curve = new(2), Surface = new(3), Brep = new(4), Mesh = new(5), SubD = new(6), PointCloud = new(7), Hatch = new(8), Extrusion = new(9);
+}
+[SmartEnum<int>]
+public sealed partial class IntersectionKind {
+    public static readonly IntersectionKind Unknown = new(0), Point = new(1), Overlap = new(2), Curve = new(3);
+}
 public enum IntersectionTangency { Unknown = 0, Transversal = 1, Tangent = 2 }
 public enum CurveFeature { Input = 0, Segment = 1, Edge = 2, Boundary = 3, NakedOuter = 4, NakedInner = 5, Interior = 6, NonManifold = 7, OuterLoop = 8, InnerLoop = 9, Iso = 10, Silhouette = 11, SubCurve = 12, Draft = 13 }
 [Union]
@@ -90,20 +96,15 @@ public readonly record struct ClosestHit(Point3d Point, Option<double> Distance,
         && Normal.Map(static n => n.IsValid && n.Length > RhinoMath.ZeroTolerance).IfNone(true)
         && Component.Map(static c => c is { ComponentIndexType: not ComponentIndexType.InvalidType } && c.Index >= 0).IfNone(true)
         && MeshPoint.Map(static m => m.Point.IsValid).IfNone(true);
-    internal static bool CanProjectTo(Type output) =>
-        output == typeof(Point3d) || output == typeof(ClosestHit) || output == typeof(double) || output == typeof(Point2d) || output == typeof(Vector3d) || output == typeof(ComponentIndex) || output == typeof(MeshPoint);
-    internal static bool CanProjectParameterTo(Type output) =>
-        CanProjectTo(output: output) && output != typeof(Point3d) && output != typeof(Vector3d);
-    internal Fin<Seq<TOut>> Project<TOut>(Op key) =>
-        Project<TOut>(key: key, scalar: Distance, normal: Normal);
-    internal Fin<Seq<TOut>> ProjectParameter<TOut>(Op key) =>
-        Project<TOut>(key: key, scalar: Parameter, normal: Option<Vector3d>.None);
-    private Fin<Seq<TOut>> Project<TOut>(Op key, Option<double> scalar, Option<Vector3d> normal) => typeof(TOut) switch {
-        Type t when t == typeof(Point3d) => key.AcceptResults<Point3d, TOut>(values: Seq(Point)),
+    internal static bool CanProjectTo(Type output, bool parameterMode = false) =>
+        output == typeof(ClosestHit) || output == typeof(double) || output == typeof(Point2d) || output == typeof(ComponentIndex) || output == typeof(MeshPoint)
+        || (!parameterMode && (output == typeof(Point3d) || output == typeof(Vector3d)));
+    internal Fin<Seq<TOut>> Project<TOut>(Op key, bool parameterMode = false) => typeof(TOut) switch {
+        Type t when t == typeof(Point3d) && !parameterMode => key.AcceptResults<Point3d, TOut>(values: Seq(Point)),
         Type t when t == typeof(ClosestHit) => key.AcceptResults<ClosestHit, TOut>(values: Seq(this)),
-        Type t when t == typeof(double) => scalar.ToFin(Fail: key.InvalidResult()).Bind(value => key.AcceptResults<double, TOut>(values: Seq(value))),
+        Type t when t == typeof(double) => (parameterMode ? Parameter : Distance).ToFin(Fail: key.InvalidResult()).Bind(value => key.AcceptResults<double, TOut>(values: Seq(value))),
         Type t when t == typeof(Point2d) => Uv.ToFin(Fail: key.InvalidResult()).Bind(uv => key.AcceptResults<Point2d, TOut>(values: Seq(uv))),
-        Type t when t == typeof(Vector3d) => normal.ToFin(Fail: key.InvalidResult()).Bind(value => key.AcceptResults<Vector3d, TOut>(values: Seq(value))),
+        Type t when t == typeof(Vector3d) && !parameterMode => Normal.ToFin(Fail: key.InvalidResult()).Bind(value => key.AcceptResults<Vector3d, TOut>(values: Seq(value))),
         Type t when t == typeof(ComponentIndex) => Component.ToFin(Fail: key.InvalidResult()).Bind(component => key.AcceptResults<ComponentIndex, TOut>(values: Seq(component))),
         Type t when t == typeof(MeshPoint) => MeshPoint.ToFin(Fail: key.InvalidResult()).Bind(meshPoint => key.AcceptResults<MeshPoint, TOut>(values: Seq(meshPoint))),
         _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(ClosestHit), outputType: typeof(TOut))),
@@ -159,12 +160,12 @@ public sealed partial class Kind {
     public Topology Topology { get; }
     internal bool CanBound(bool includeSphere) => Type != typeof(Plane) && (includeSphere || Type != typeof(Sphere));
     internal bool CanReadVertices =>
-        Type == typeof(Point3d) || Type == typeof(Line) || Type == typeof(Polyline) || Topology is Topology.Point or Topology.Curve or Topology.Brep or Topology.Mesh or Topology.PointCloud or Topology.SubD or Topology.Surface or Topology.Extrusion;
-    internal bool CanReadControlPoints => Topology is Topology.Curve or Topology.Surface or Topology.Brep;
-    internal bool CanDecomposeFaces => Topology is Topology.Brep or Topology.Surface or Topology.Extrusion;
+        Type == typeof(Point3d) || Type == typeof(Line) || Type == typeof(Polyline) || TopologyVertexReadable.Contains(Topology);
+    internal bool CanReadControlPoints => TopologyControlReadable.Contains(Topology);
+    internal bool CanDecomposeFaces => TopologyFaceDecomposable.Contains(Topology);
     internal bool CanReadEdges =>
-        Type == typeof(Line) || Type == typeof(Polyline) || Type == typeof(BoundingBox) || Type == typeof(Box) || Topology is Topology.Brep or Topology.Mesh or Topology.SubD;
-    internal bool CanPrincipal => Topology is Topology.Curve or Topology.Brep or Topology.Mesh or Topology.Surface or Topology.Extrusion;
+        Type == typeof(Line) || Type == typeof(Polyline) || Type == typeof(BoundingBox) || Type == typeof(Box) || TopologyEdgeReadable.Contains(Topology);
+    internal bool CanPrincipal => TopologyPrincipal.Contains(Topology);
     internal bool CanCoerceTo(Type target) =>
         target.IsAssignableFrom(Type)
         || (target == typeof(Box) && Type == typeof(Brep))
@@ -175,6 +176,17 @@ public sealed partial class Kind {
     private static readonly FrozenSet<Type> CurvePrimitives = new[] { typeof(Line), typeof(Circle), typeof(Arc), typeof(Ellipse), typeof(Polyline) }.ToFrozenSet();
     private static readonly FrozenSet<Type> SurfacePrimitives = new[] { typeof(Plane), typeof(Sphere), typeof(Cylinder), typeof(Cone), typeof(Torus) }.ToFrozenSet();
     private static readonly FrozenSet<Type> BrepSources = new[] { typeof(Brep), typeof(Surface), typeof(Box), typeof(BoundingBox), typeof(Sphere), typeof(Cylinder), typeof(Cone), typeof(Torus), typeof(Extrusion) }.ToFrozenSet();
+    private static readonly FrozenSet<Topology> TopologyVertexReadable = new[] { Topology.Point, Topology.Curve, Topology.Brep, Topology.Mesh, Topology.PointCloud, Topology.SubD, Topology.Surface, Topology.Extrusion }.ToFrozenSet();
+    private static readonly FrozenSet<Topology> TopologyControlReadable = new[] { Topology.Curve, Topology.Surface, Topology.Brep }.ToFrozenSet();
+    private static readonly FrozenSet<Topology> TopologyFaceDecomposable = new[] { Topology.Brep, Topology.Surface, Topology.Extrusion }.ToFrozenSet();
+    private static readonly FrozenSet<Topology> TopologyEdgeReadable = new[] { Topology.Brep, Topology.Mesh, Topology.SubD }.ToFrozenSet();
+    private static readonly FrozenSet<Topology> TopologyPrincipal = new[] { Topology.Curve, Topology.Brep, Topology.Mesh, Topology.Surface, Topology.Extrusion }.ToFrozenSet();
+    public static Option<Kind> Of(Type type) => KindLookup.Resolve(type: type);
+    public static Fin<Kind> Of(object source, Context context) {
+        ArgumentNullException.ThrowIfNull(argument: source);
+        ArgumentNullException.ThrowIfNull(argument: context);
+        return source.KindOf(context: context);
+    }
 }
 
 // --- [CONSTANTS] --------------------------------------------------------------------------
@@ -190,13 +202,12 @@ internal static class KindLookup {
 [BoundaryAdapter]
 internal static class GeometryKernel {
     private static bool Universal(Type type) => type == typeof(object) || type == typeof(GeometryBase);
+    internal static bool Can(Type type, Func<Kind, bool> predicate) {
+        ArgumentNullException.ThrowIfNull(argument: type);
+        ArgumentNullException.ThrowIfNull(argument: predicate);
+        return Universal(type) || KindLookup.Resolve(type).Map(predicate).IfNone(false);
+    }
     internal static bool CanBound(Type source, bool includeSphere) => Universal(source) || typeof(GeometryBase).IsAssignableFrom(source) || KindLookup.Resolve(source).Map(kind => kind.CanBound(includeSphere: includeSphere)).IfNone(false);
-    internal static bool CanKind(Type source) => Universal(source) || KindLookup.Resolve(source).IsSome;
-    internal static bool CanDecomposeFaces(Type type) => Universal(type) || typeof(BrepFace).IsAssignableFrom(c: type) || KindLookup.Resolve(type).Map(static kind => kind.CanDecomposeFaces).IfNone(false);
-    internal static bool CanReadVertices(Type type) => Universal(type) || KindLookup.Resolve(type).Map(static kind => kind.CanReadVertices).IfNone(false);
-    internal static bool CanReadControlPoints(Type type) => Universal(type) || KindLookup.Resolve(type).Map(static kind => kind.CanReadControlPoints).IfNone(false);
-    internal static bool CanReadEdges(Type type) => Universal(type) || KindLookup.Resolve(type).Map(static kind => kind.CanReadEdges).IfNone(false);
-    internal static bool CanPrincipal(Type type) => Universal(type) || KindLookup.Resolve(type).Map(static kind => kind.CanPrincipal).IfNone(false);
     internal static bool CanCurveForm(Type type) => Universal(type) || typeof(Curve).IsAssignableFrom(c: type) || KindLookup.Resolve(type).Map(static kind => kind.Topology == Topology.Curve).IfNone(false);
     internal static bool CanCoerce(Type source, Type target) => Universal(source) || KindLookup.Resolve(source).Map(kind => kind.CanCoerceTo(target: target)).IfNone(target.IsAssignableFrom(source));
     public static Fin<Kind> KindOf(this object geometry, Context context) {
