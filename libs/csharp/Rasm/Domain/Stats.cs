@@ -1,3 +1,5 @@
+using Foundation.CSharp.Analyzers.Contracts;
+
 namespace Rasm.Domain;
 
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -56,29 +58,24 @@ public readonly record struct Stats {
             _ => state,
         }).Hits.Rev();
 }
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct ConformanceSummary(Stats Distribution, double Tolerance, bool WithinTolerance);
+
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Stat {
-    private Stat(Option<ScalarMetric> metric, Stats stats, Option<double> limit = default) { Metric = metric; Stats = stats; Limit = limit; }
+    private Stat(Option<ScalarMetric> metric, Stats stats) { Metric = metric; Stats = stats; }
     public Option<ScalarMetric> Metric { get; }
     public Stats Stats { get; }
-    internal Option<double> Limit { get; }
     internal int Count => Stats.Count;
     internal double Minimum => Stats.Minimum;
     internal double Maximum => Stats.Maximum;
     internal double Mean => Stats.Mean;
     internal double Variance => Stats.Variance;
     internal double Rms => Stats.Rms;
-    internal double Tolerance => Limit.IfNone(0.0);
-    internal bool WithinTolerance => Limit.Case switch { double tolerance => Stats.Maximum <= tolerance, _ => false };
     internal static Fin<Stat> Curvature(Seq<double> values, ScalarMetric metric, Op key) =>
         (Stats.From(values: values, key: key), Fin.Succ(metric))
             .Apply(static (stats, m) => new Stat(metric: Some(m), stats: stats))
             .As();
-    internal static Fin<Stat> Residual(double tolerance, Stats stats, Op key) =>
-        (RhinoMath.IsValidDouble(x: tolerance), tolerance >= 0.0, stats.Minimum >= 0.0, stats.Mean >= 0.0) switch {
-            (true, true, true, true) => Fin.Succ(new Stat(metric: Option<ScalarMetric>.None, stats: stats, limit: Some(tolerance))),
-            _ => Fin.Fail<Stat>(key.InvalidResult()),
-        };
     internal static Fin<Seq<double>> ResidualDistances(Seq<ResidualSample> samples, Op key) =>
         ResidualSamples(samples: samples, key: key).Map(static values => values.Map(static sample => sample.Distance));
     internal static Fin<Stats> FromResiduals(Seq<ResidualSample> samples, Op key) =>

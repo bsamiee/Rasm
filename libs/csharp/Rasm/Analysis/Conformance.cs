@@ -17,10 +17,10 @@ public partial record Conformance {
     public static Conformance Maximum(int count) => new MaximumCase(Count: count);
     public static Conformance SignedResidual(int count) => new SignedResidualCase(Count: count);
     internal static readonly Op Key = Op.Of(name: nameof(Conformance));
-    public global::Rasm.Analysis.Operation<(TGeometry Geometry, TTarget Target), TOut> Operation<TGeometry, TTarget, TOut>() where TGeometry : notnull where TTarget : notnull =>
+    public Operation<(TGeometry Geometry, TTarget Target), TOut> Operation<TGeometry, TTarget, TOut>() where TGeometry : notnull where TTarget : notnull =>
         (this, ConformanceDispatch.CanConform(typeof(TGeometry), typeof(TTarget)), typeof(TOut)) switch {
             (DistanceCase { Count: <= 0 } or RmsCase { Count: <= 0 } or WithinToleranceCase { Count: <= 0 } or SummaryCase { Count: <= 0 } or MaximumCase { Count: <= 0 } or SignedResidualCase { Count: <= 0 }, _, _) =>
-                global::Rasm.Analysis.Operation<(TGeometry Geometry, TTarget Target), TOut>.Reject(key: Key, fault: Key.InvalidInput()),
+                Operation<(TGeometry Geometry, TTarget Target), TOut>.Reject(key: Key, fault: Key.InvalidInput()),
             (_, false, _) => Key.Unsupported<(TGeometry Geometry, TTarget Target), TOut>(),
             (DistanceCase d, _, Type o) when o == typeof(double) =>
                 Analyze.Cast<(TGeometry Geometry, TTarget Target), TOut>(Key, ConformanceDispatch.Pair<TGeometry, TTarget, double>(this, d.Count, static (r, _) => Stat.ResidualDistances(samples: r, key: Key).Bind(values => Key.Accept(values: values)))),
@@ -28,8 +28,8 @@ public partial record Conformance {
                 Analyze.Cast<(TGeometry Geometry, TTarget Target), TOut>(Key, ConformanceDispatch.Pair<TGeometry, TTarget, double>(this, r.Count, static (rs, _) => Stat.FromResiduals(samples: rs, key: Key).Bind(s => Key.Accept(value: s.Rms)))),
             (WithinToleranceCase w, _, Type o) when o == typeof(bool) =>
                 Analyze.Cast<(TGeometry Geometry, TTarget Target), TOut>(Key, ConformanceDispatch.Pair<TGeometry, TTarget, bool>(this, w.Count, static (rs, c) => Stat.FromResiduals(samples: rs, key: Key).Bind(s => Key.Accept(value: s.Maximum <= c.Absolute.Value)))),
-            (SummaryCase s, _, Type o) when o == typeof(Stat) =>
-                Analyze.Cast<(TGeometry Geometry, TTarget Target), TOut>(Key, ConformanceDispatch.Pair<TGeometry, TTarget, Stat>(this, s.Count, static (rs, c) => Stat.FromResiduals(samples: rs, key: Key).Bind(stats => Stat.Residual(tolerance: c.Absolute.Value, stats: stats, key: Key)).Map(stat => Seq(stat)))),
+            (SummaryCase s, _, Type o) when o == typeof(ConformanceSummary) =>
+                Analyze.Cast<(TGeometry Geometry, TTarget Target), TOut>(Key, ConformanceDispatch.Pair<TGeometry, TTarget, ConformanceSummary>(this, s.Count, static (rs, c) => Stat.FromResiduals(samples: rs, key: Key).Bind(stats => Key.Accept(value: new ConformanceSummary(Distribution: stats, Tolerance: c.Absolute.Value, WithinTolerance: stats.Maximum <= c.Absolute.Value))))),
             (MaximumCase m, _, Type o) when o == typeof(ResidualSample) =>
                 Analyze.Cast<(TGeometry Geometry, TTarget Target), TOut>(Key, ConformanceDispatch.Pair<TGeometry, TTarget, ResidualSample>(this, m.Count, static (rs, _) => Stat.MaximumResidual(samples: rs, key: Key).Bind(sample => Key.Accept(value: sample)))),
             (SignedResidualCase sr, _, Type o) when o == typeof(ResidualSample) =>
@@ -40,8 +40,8 @@ public partial record Conformance {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
-    public static global::Rasm.Analysis.Operation<(TGeometry Geometry, TTarget Target), TOut> Conformance<TGeometry, TTarget, TOut>(Conformance aspect) where TGeometry : notnull where TTarget : notnull =>
-        aspect?.Operation<TGeometry, TTarget, TOut>() ?? global::Rasm.Analysis.Operation<(TGeometry Geometry, TTarget Target), TOut>.Reject(key: Op.Of(), fault: Op.Of().InvalidInput());
+    public static Operation<(TGeometry Geometry, TTarget Target), TOut> Conformance<TGeometry, TTarget, TOut>(Conformance aspect) where TGeometry : notnull where TTarget : notnull =>
+        aspect?.Operation<TGeometry, TTarget, TOut>() ?? Operation<(TGeometry Geometry, TTarget Target), TOut>.Reject(key: Op.Of(), fault: Op.Of().InvalidInput());
 }
 
 // --- [COMPOSITION] ------------------------------------------------------------------------

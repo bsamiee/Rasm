@@ -20,7 +20,7 @@ public partial record Meshes : IAspect {
     private static readonly Op DefectsKey = Op.Of(name: "MeshDefects");
     private static readonly Op FaceMetricKey = Op.Of(name: nameof(MeshMetric));
     private static readonly Op AtFaceKey = Op.Of(name: "MeshAtFace");
-    public global::Rasm.Analysis.Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch<global::Rasm.Analysis.Operation<TGeometry, TOut>>(
+    public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         validityCase: static _ => Analyze.MeshLift<TGeometry, TOut, MeshSample>(key: ValidityKey, source: Analyze.MeshValidity),
         countsCase: static _ => Analyze.MeshLift<TGeometry, TOut, MeshSample>(key: CountsKey, source: Analyze.MeshCounts),
         defectsCase: static _ => Analyze.MeshLift<TGeometry, TOut, MeshSample>(key: DefectsKey, source: Analyze.MeshDefects),
@@ -54,7 +54,7 @@ public sealed partial class MeshMetric {
     private readonly Func<TopologyProjection, Fin<double>> sample;
     internal Fin<MeshMetricSample> Sample(Mesh? mesh, MeshNgon polygon) =>
         Fin.Succ((Mesh: mesh, Polygon: polygon, Sample: sample))
-            .Bind(static state => TopologyProjection.MeshPolygon(mesh: state.Mesh, polygon: state.Polygon)
+            .Bind(static state => TopologyProjection.OfMesh(mesh: state.Mesh, polygon: state.Polygon)
                 .Map(projection => (state.Sample, Projection: projection)))
             .Bind(static state => state.Sample(arg: state.Projection)
                 .Map(value => (state.Projection.Source, Value: value)))
@@ -63,7 +63,10 @@ public sealed partial class MeshMetric {
                 _ => Fin.Fail<MeshMetricSample>(MetricKey.InvalidResult()),
             });
     private static Fin<double> FaceAspectRatio(TopologyProjection projection) =>
-        projection.OnMeshFace<double>(static (mesh, face) => Fin.Succ(mesh.Faces.GetFaceAspectRatio(index: face)))
+        ((projection.Value, projection.Source) switch {
+            (Mesh mesh, { ComponentIndexType: ComponentIndexType.MeshFace, Index: int index }) when index >= 0 && index < mesh.Faces.Count => Fin.Succ(mesh.Faces.GetFaceAspectRatio(index: index)),
+            _ => Fin.Fail<double>(MetricKey.InvalidInput()),
+        })
             .BindFail(_ => projection.Vertices.Bind(static v => v.Count >= 3
             ? v.Map((p, i) => p.DistanceTo(other: v[(i + 1) % v.Count])).Filter(static length => length > RhinoMath.ZeroTolerance) switch {
                 Seq<double> lengths when !lengths.IsEmpty => lengths.Fold(initialState: (Min: double.PositiveInfinity, Max: 0.0), f: static (range, length) => (Math.Min(val1: range.Min, val2: length), Math.Max(val1: range.Max, val2: length))) switch {
@@ -94,7 +97,7 @@ public sealed partial class MeshMetric {
             true => (projection.Value, projection.Source) switch {
                 (Mesh mesh, { ComponentIndexType: ComponentIndexType.MeshFace, Index: int face }) when face >= 0 && face < mesh.Faces.Count =>
                     toSeq(mesh.Faces.AdjacentFaces(faceIndex: face))
-                        .Fold(initialState: Fin.Succ((Max: 0.0, Mesh: mesh, Normal: normal)), f: static (state, other) => state.Bind(s => TopologyProjection.MeshFace(mesh: s.Mesh, face: other)
+                        .Fold(initialState: Fin.Succ((Max: 0.0, Mesh: mesh, Normal: normal)), f: static (state, other) => state.Bind(s => TopologyProjection.OfMesh(mesh: s.Mesh, source: new ComponentIndex(ComponentIndexType.MeshFace, other))
                             .Bind(static otherProjection => otherProjection.Normal)
                             .Map(neighbour => neighbour.IsValid switch {
                                 true => (Math.Max(val1: s.Max, val2: Vector3d.VectorAngle(a: s.Normal, b: neighbour)), s.Mesh, s.Normal),
@@ -103,9 +106,9 @@ public sealed partial class MeshMetric {
                         .Map(static state => state.Max),
                 (Mesh mesh, { ComponentIndexType: ComponentIndexType.MeshNgon, Index: int ngon }) when ngon >= 0 && ngon < mesh.Ngons.Count =>
                     Optional(mesh.Ngons[ngon].FaceIndexList()).ToFin(MetricKey.InvalidResult())
-                        .Bind(faces => toSeq<uint>(faces).TraverseM(face => face <= int.MaxValue && (int)face < mesh.Faces.Count ? Fin.Succ((int)face) : Fin.Fail<int>(MetricKey.InvalidResult())).As())
+                        .Bind(faces => toSeq(faces).TraverseM(face => face <= int.MaxValue && (int)face < mesh.Faces.Count ? Fin.Succ((int)face) : Fin.Fail<int>(MetricKey.InvalidResult())).As())
                         .Bind(parts => parts.Bind(face => toSeq(mesh.Faces.AdjacentFaces(faceIndex: face))).Filter(other => !parts.Exists(face => face == other)).Distinct()
-                            .Fold(initialState: Fin.Succ((Max: 0.0, Mesh: mesh, Normal: normal)), f: static (state, other) => state.Bind(s => TopologyProjection.MeshFace(mesh: s.Mesh, face: other)
+                            .Fold(initialState: Fin.Succ((Max: 0.0, Mesh: mesh, Normal: normal)), f: static (state, other) => state.Bind(s => TopologyProjection.OfMesh(mesh: s.Mesh, source: new ComponentIndex(ComponentIndexType.MeshFace, other))
                                 .Bind(static otherProjection => otherProjection.Normal)
                                 .Map(neighbour => neighbour.IsValid switch {
                                     true => (Math.Max(val1: s.Max, val2: Vector3d.VectorAngle(a: s.Normal, b: neighbour)), s.Mesh, s.Normal),
@@ -119,60 +122,60 @@ public sealed partial class MeshMetric {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
-    public static global::Rasm.Analysis.Operation<TGeometry, TOut> Meshes<TGeometry, TOut>(Meshes aspect) where TGeometry : notnull => Aspect<Meshes, TGeometry, TOut>(aspect: aspect);
-    public static global::Rasm.Analysis.Operation<Mesh, bool> IsManifold {
-        get { Op key = Op.Of(); return global::Rasm.Analysis.Operation<Mesh, bool>.Build(key: key, state: key, evaluator: static (op, geometry) => op.Accept(value: geometry.IsManifold()).ToEff()); }
+    public static Operation<TGeometry, TOut> Meshes<TGeometry, TOut>(Meshes aspect) where TGeometry : notnull => Aspect<Meshes, TGeometry, TOut>(aspect: aspect);
+    public static Operation<Mesh, bool> IsManifold {
+        get { Op key = Op.Of(); return Operation<Mesh, bool>.Build(key: key, state: key, evaluator: static (op, geometry) => op.Accept(value: geometry.IsManifold()).ToEff()); }
     }
-    public static global::Rasm.Analysis.Operation<Mesh, bool> NakedPointStatus {
-        get { Op key = Op.Of(); return global::Rasm.Analysis.Operation<Mesh, bool>.Build(key: key, state: key, evaluator: static (op, geometry) => op.Accept(values: geometry.GetNakedEdgePointStatus()).ToEff()); }
+    public static Operation<Mesh, bool> NakedPointStatus {
+        get { Op key = Op.Of(); return Operation<Mesh, bool>.Build(key: key, state: key, evaluator: static (op, geometry) => op.Accept(values: geometry.GetNakedEdgePointStatus()).ToEff()); }
     }
-    public static global::Rasm.Analysis.Operation<Mesh, MeshCheckParameters> MeshCheck {
+    public static Operation<Mesh, MeshCheckParameters> MeshCheck {
         get {
             Op key = Op.Of();
-            return global::Rasm.Analysis.Operation<Mesh, MeshCheckParameters>.Build(
+            return Operation<Mesh, MeshCheckParameters>.Build(
                 key: key, state: key,
                 evaluator: static (op, geometry) => from parameters in Requirement.MeshReport(mesh: geometry, check: op.ToString()).ToEff()
                                                     from result in op.Accept(value: parameters).ToEff()
                                                     select result);
         }
     }
-    public static global::Rasm.Analysis.Operation<Mesh, MeshMetricSample> MeshMetric(Rasm.Analysis.MeshMetric? metric) {
+    public static Operation<Mesh, MeshMetricSample> MeshMetric(MeshMetric? metric) {
         Op key = Op.Of();
-        return Optional(metric).Filter(static candidate => !candidate.Equals(Rasm.Analysis.MeshMetric.None)).Case switch {
-            Rasm.Analysis.MeshMetric active => global::Rasm.Analysis.Operation<Mesh, MeshMetricSample>.Build(
+        return Optional(metric).Filter(static candidate => !candidate.Equals(Analysis.MeshMetric.None)).Case switch {
+            MeshMetric active => Operation<Mesh, MeshMetricSample>.Build(
                 key: key, state: (Key: key, Metric: active), requirement: Requirement.MeshCheck,
                 evaluator: static (state, geometry) => VisiblePolygonsOf(mesh: geometry, key: state.Key)
                     .Bind(polygons => polygons.TraverseM(polygon => state.Metric.Sample(mesh: geometry, polygon: polygon)).As()).ToEff()),
-            _ => global::Rasm.Analysis.Operation<Mesh, MeshMetricSample>.Reject(key: key, fault: key.InvalidInput()),
+            _ => Operation<Mesh, MeshMetricSample>.Reject(key: key, fault: key.InvalidInput()),
         };
     }
-    public static global::Rasm.Analysis.Operation<Mesh, MeshSample> MeshValidity {
+    public static Operation<Mesh, MeshSample> MeshValidity {
         get { Op key = Op.Of(); return MeshSamples(key: key, kinds: MeshSampleKind.Validity); }
     }
-    public static global::Rasm.Analysis.Operation<Mesh, MeshSample> MeshCounts {
+    public static Operation<Mesh, MeshSample> MeshCounts {
         get { Op key = Op.Of(); return MeshSamples(key: key, kinds: MeshSampleKind.Counts); }
     }
-    public static global::Rasm.Analysis.Operation<Mesh, MeshSample> MeshDefects {
+    public static Operation<Mesh, MeshSample> MeshDefects {
         get { Op key = Op.Of(); return MeshSamples(key: key, kinds: MeshSampleKind.Defects); }
     }
-    public static global::Rasm.Analysis.Operation<Mesh, TopologyProjection> MeshAtFace(int? index = null) {
+    public static Operation<Mesh, TopologyProjection> MeshAtFace(int? index = null) {
         Op key = Op.Of();
-        return global::Rasm.Analysis.Operation<Mesh, TopologyProjection>.Build(
+        return Operation<Mesh, TopologyProjection>.Build(
             key: key, state: (Key: key, Selector: index),
             evaluator: static (state, geometry) => VisiblePolygonsOf(mesh: geometry, key: state.Key).Bind(polygons => polygons.Count switch {
                 0 => Fin.Fail<Seq<TopologyProjection>>(state.Key.InvalidResult()),
                 int count when state.Selector is int selected && (selected < 0 || selected >= count) => Fin.Fail<Seq<TopologyProjection>>(state.Key.InvalidInput()),
-                _ => TopologyProjection.MeshPolygon(mesh: geometry, polygon: polygons[state.Selector ?? 0])
+                _ => TopologyProjection.OfMesh(mesh: geometry, polygon: polygons[state.Selector ?? 0])
                     .Bind(projection => state.Key.Accept(value: projection))
             }).ToEff());
     }
-    internal static global::Rasm.Analysis.Operation<TGeometry, TOut> MeshLift<TGeometry, TOut, TValue>(Op key, global::Rasm.Analysis.Operation<Mesh, TValue> source) where TGeometry : notnull =>
-        Native<TGeometry, TOut, Mesh, TValue, global::Rasm.Analysis.Operation<Mesh, TValue>>(key: key, state: source, project: static (q, mesh) => q.Apply(geometry: Seq(mesh)));
+    internal static Operation<TGeometry, TOut> MeshLift<TGeometry, TOut, TValue>(Op key, Operation<Mesh, TValue> source) where TGeometry : notnull =>
+        Native<TGeometry, TOut, Mesh, TValue, Operation<Mesh, TValue>>(key: key, state: source, project: static (q, mesh) => q.Apply(geometry: Seq(mesh)));
     private static Fin<Seq<MeshNgon>> VisiblePolygonsOf(Mesh mesh, Op key) =>
         Optional(mesh.GetNgonAndFacesEnumerable()).ToFin(key.InvalidResult())
             .Map(static polygons => toSeq(polygons));
-    private static global::Rasm.Analysis.Operation<Mesh, MeshSample> MeshSamples(Op key, Seq<MeshSampleKind> kinds) =>
-        global::Rasm.Analysis.Operation<Mesh, MeshSample>.Build(
+    private static Operation<Mesh, MeshSample> MeshSamples(Op key, Seq<MeshSampleKind> kinds) =>
+        Operation<Mesh, MeshSample>.Build(
             key: key, state: (Key: key, Kinds: kinds, Inspect: kinds.Exists(static kind => kind.Category == MeshSampleCategory.Defect)),
             evaluator: static (state, geometry) => state.Inspect switch {
                 true => from parameters in MeshCheck.Apply(geometry: Seq(geometry))

@@ -2,45 +2,45 @@ namespace Rasm.Analysis;
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
-    public static global::Rasm.Analysis.Operation<TGeometry, TOut> Domains<TGeometry, TOut>() where TGeometry : notnull {
+    public static Operation<TGeometry, TOut> Domains<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
         return typeof(TOut) == typeof(Interval) && (typeof(TGeometry) == typeof(object) || typeof(TGeometry) == typeof(GeometryBase) || typeof(Curve).IsAssignableFrom(c: typeof(TGeometry)) || typeof(Surface).IsAssignableFrom(c: typeof(TGeometry)))
             ? Cast<TGeometry, TOut>(key: key, operation: KernelLift<TGeometry, Interval, Op>(key: key, state: key, extract: static (op, g, _) => DomainsOf(geometry: g, op: op).Bind(domains => op.Accept(values: domains))))
             : key.Unsupported<TGeometry, TOut>();
     }
-    public static global::Rasm.Analysis.Operation<TGeometry, TOut> Coerce<TGeometry, TOut>() where TGeometry : notnull where TOut : notnull {
+    public static Operation<TGeometry, TOut> Coerce<TGeometry, TOut>() where TGeometry : notnull where TOut : notnull {
         Op key = Op.Of();
         return (KindLookup.Resolve(typeof(TOut)), GeometryKernel.CanCoerce(typeof(TGeometry), typeof(TOut))) switch {
             (Option<Kind> someKind, true) when someKind.IsSome => KernelLift<TGeometry, TOut, Op>(key: key, state: key, requirement: Requirement.Basic, extract: static (op, g, ctx) => GeometryKernel.CoerceTo<TOut>(g, ctx, op).Bind(coerced => op.Accept(value: coerced))),
             _ => key.Unsupported<TGeometry, TOut>(),
         };
     }
-    public static global::Rasm.Analysis.Operation<TGeometry, TOut> Kind<TGeometry, TOut>() where TGeometry : notnull {
+    public static Operation<TGeometry, TOut> Kind<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
-        return typeof(TOut) == typeof(Rasm.Domain.Kind) && GeometryKernel.CanKind(typeof(TGeometry))
-            ? Cast<TGeometry, TOut>(key: key, operation: KernelLift<TGeometry, Rasm.Domain.Kind, Op>(key: key, state: key, extract: static (op, g, ctx) => ((object)g).KindOf(context: ctx).Bind(k => op.Accept(value: k))))
+        return typeof(TOut) == typeof(Kind) && GeometryKernel.CanKind(typeof(TGeometry))
+            ? Cast<TGeometry, TOut>(key: key, operation: KernelLift<TGeometry, Kind, Op>(key: key, state: key, extract: static (op, g, ctx) => ((object)g).KindOf(context: ctx).Bind(k => op.Accept(value: k))))
             : key.Unsupported<TGeometry, TOut>();
     }
-    public static global::Rasm.Analysis.Operation<TGeometry, BrepSolidOrientation> SolidOrientation<TGeometry>() where TGeometry : GeometryBase {
+    public static Operation<TGeometry, BrepSolidOrientation> SolidOrientation<TGeometry>() where TGeometry : GeometryBase {
         Op key = Op.Of();
         return KernelLift<TGeometry, BrepSolidOrientation, Op>(key: key, state: key, extract: static (op, g, _) => SolidOrientationOf(geometry: g, op: op).Bind(o => op.Accept(value: o)));
     }
-    public static global::Rasm.Analysis.Operation<TGeometry, bool> IsPointInside<TGeometry>(Point3d point) where TGeometry : GeometryBase {
+    public static Operation<TGeometry, bool> IsPointInside<TGeometry>(Point3d point) where TGeometry : GeometryBase {
         Op key = Op.Of();
         return point.IsValid switch {
-            false => global::Rasm.Analysis.Operation<TGeometry, bool>.Reject(key: key, fault: key.InvalidInput()),
+            false => Operation<TGeometry, bool>.Reject(key: key, fault: key.InvalidInput()),
             true => Cast<TGeometry, bool>(key: key, operation: KernelLift<TGeometry, bool, (Op Key, Point3d Target)>(key: key, state: (Key: key, Target: point), requirement: Requirement.SolidTopology, extract: static (s, g, ctx) => ContainsPoint(geometry: g, target: s.Target, context: ctx, op: s.Key).Bind(c => s.Key.Accept(value: c)))),
         };
     }
-    public static global::Rasm.Analysis.Operation<TGeometry, TOut> Components<TGeometry, TOut>() where TGeometry : notnull {
+    public static Operation<TGeometry, TOut> Components<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
         return ((typeof(Brep).IsAssignableFrom(c: typeof(TGeometry)) || typeof(TGeometry) == typeof(object) || typeof(TGeometry) == typeof(GeometryBase)) && typeof(TOut) == typeof(Brep))
             || ((typeof(Mesh).IsAssignableFrom(c: typeof(TGeometry)) || typeof(TGeometry) == typeof(object) || typeof(TGeometry) == typeof(GeometryBase)) && typeof(TOut) == typeof(Mesh))
             ? Cast<TGeometry, TOut>(key: key, operation: KernelLift<TGeometry, TOut, Op>(key: key, state: key, extract: static (op, g, _) => ComponentsOf(geometry: g, op: op).Bind(c => ProjectComponents<TOut>(components: c, op: op))))
             : key.Unsupported<TGeometry, TOut>();
     }
-    private static global::Rasm.Analysis.Operation<TGeometry, TValue> KernelLift<TGeometry, TValue, TState>(Op key, TState state, Func<TState, TGeometry, Context, Fin<Seq<TValue>>> extract, Requirement? requirement = null, bool requiresContext = true) where TGeometry : notnull =>
-        global::Rasm.Analysis.Operation<TGeometry, TValue>.Build(
+    private static Operation<TGeometry, TValue> KernelLift<TGeometry, TValue, TState>(Op key, TState state, Func<TState, TGeometry, Context, Fin<Seq<TValue>>> extract, Requirement? requirement = null, bool requiresContext = true) where TGeometry : notnull =>
+        Operation<TGeometry, TValue>.Build(
             key: key, requirement: requirement, requiresContext: requiresContext, state: (State: state, Extract: extract),
             evaluator: static (s, geometry) =>
                 from context in Env.Asks

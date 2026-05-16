@@ -9,7 +9,7 @@ public partial record Faces : IAspect {
     public static Faces Bottom(Vector3d? axis = null) => new BottomCase(Axis: axis ?? Vector3d.ZAxis);
     public static Faces At(int? index = null) => new AtCase(Value: index);
     internal static readonly Op Key = Op.Of(name: nameof(Faces));
-    public global::Rasm.Analysis.Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull =>
+    public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull =>
         GeometryKernel.CanDecomposeFaces(type: typeof(TGeometry)) switch {
             false => Key.Unsupported<TGeometry, TOut>(),
             true => typeof(TOut) switch {
@@ -28,15 +28,15 @@ public partial record Faces : IAspect {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
-    public static global::Rasm.Analysis.Operation<TGeometry, TOut> Faces<TGeometry, TOut>(Faces aspect) where TGeometry : notnull => Aspect<Faces, TGeometry, TOut>(aspect: aspect);
+    public static Operation<TGeometry, TOut> Faces<TGeometry, TOut>(Faces aspect) where TGeometry : notnull => Aspect<Faces, TGeometry, TOut>(aspect: aspect);
     internal static Fin<Seq<TopologyProjection>> DecomposeFaces<TGeometry>(Op key, Context context, TGeometry geometry) where TGeometry : notnull =>
         Optional(geometry).ToFin(key.InvalidInput()).Bind(g => g switch {
-            BrepFace face => Fin.Succ(Seq(TopologyProjection.FaceFrom(face))),
+            BrepFace face => Fin.Succ(Seq(TopologyProjection.Of(face))),
             GeometryBase native => native switch {
-                Brep brep => Fin.Succ(toSeq(brep.Faces.Cast<BrepFace>().Select(static f => TopologyProjection.FaceFrom(f)).ToArray())),
+                Brep brep => Fin.Succ(toSeq(brep.Faces.Cast<BrepFace>().Select(static f => TopologyProjection.Of(f)).ToArray())),
                 { HasBrepForm: true } => GeometryKernel.BrepForm(source: native, op: key).Bind(lease => lease.Switch(
-                    borrowed: static borrowed => Fin.Succ(toSeq(borrowed.Value.Faces.Cast<BrepFace>().Select(static f => TopologyProjection.FaceFrom(f)).ToArray())),
-                    owned: static owned => owned.Project(static brep => Fin.Succ(toSeq(brep.Faces.Cast<BrepFace>().Select(static f => TopologyProjection.FaceCopyFrom(f)).ToArray()))))),
+                    borrowed: static borrowed => Fin.Succ(toSeq(borrowed.Value.Faces.Cast<BrepFace>().Select(static f => TopologyProjection.Of(f)).ToArray())),
+                    owned: static owned => owned.Project(static brep => Fin.Succ(toSeq(brep.Faces.Cast<BrepFace>().Select(static f => TopologyProjection.Of(f, copy: true)).ToArray()))))),
                 _ => Fin.Fail<Seq<TopologyProjection>>(key.Unsupported(native.GetType(), typeof(Seq<TopologyProjection>))),
             },
             _ => Fin.Fail<Seq<TopologyProjection>>(key.Unsupported(g.GetType(), typeof(Seq<TopologyProjection>))),
@@ -60,8 +60,8 @@ public static partial class Analyze {
                     ? Stats.Maxima(items: ranked, projection: static item => item.Score, tolerance: state.Runtime.Absolute.Value * axis.Length).Map(static item => item.face)
                     : Stats.Minima(items: ranked, projection: static item => item.Score, tolerance: state.Runtime.Absolute.Value * axis.Length).Map(static item => item.face)),
         };
-    internal static global::Rasm.Analysis.Operation<TGeometry, TOut> FaceOperation<TGeometry, TOut, TValue>(Op key, Faces selector, Requirement requirement, Func<Seq<TopologyProjection>, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull =>
-        Cast<TGeometry, TOut>(key: key, operation: global::Rasm.Analysis.Operation<TGeometry, TValue>.Build(
+    internal static Operation<TGeometry, TOut> FaceOperation<TGeometry, TOut, TValue>(Op key, Faces selector, Requirement requirement, Func<Seq<TopologyProjection>, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull =>
+        Cast<TGeometry, TOut>(key: key, operation: Operation<TGeometry, TValue>.Build(
             key: key, state: (Key: key, Selector: selector, Project: project), requirement: requirement, requiresContext: true,
             evaluator: static (state, geometry) =>
                 from context in Env.Asks

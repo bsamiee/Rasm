@@ -5,6 +5,23 @@ using Grasshopper2.Extensions;
 
 namespace Rasm.Grasshopper;
 
+// --- [ERRORS] ---------------------------------------------------------------------------
+[BoundaryAdapter]
+public sealed record MissingPortInput(string Port, string? Hint = null) : Rasm.Domain.Expected {
+    public override string Message => Hint switch { string h => $"{Port} input is required. Connect: {h}.", _ => $"{Port} input is required." };
+    public override string Category => "Input";
+}
+[BoundaryAdapter]
+public sealed record UnsupportedSource(string Port, Type SourceType, string? Hint = null) : Rasm.Domain.Expected {
+    public override string Message => Hint switch { string h => $"{Port} input type '{SourceType.Name}' is not supported. Connect: {h}.", _ => $"{Port} input type '{SourceType.Name}' is not supported." };
+    public override string Category => "Input";
+}
+[BoundaryAdapter]
+public sealed record UnsupportedAccess(string Access) : Rasm.Domain.Expected {
+    public override string Message => $"Unsupported input access: {Access}.";
+    public override string Category => "Access";
+}
+
 // --- [MODELS] ---------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Shape {
@@ -28,11 +45,11 @@ public readonly record struct Shape {
     internal static Fin<Shape> Create(object? value) => Create(value: value, owned: Option<IDisposable>.None);
     private static Fin<Shape> Create(object? value, Option<IDisposable> owned) =>
         Optional(value)
-            .ToFin(new Fault.MissingPortInput(Port: nameof(Shape), Hint: Accepted))
+            .ToFin(new MissingPortInput(Port: nameof(Shape), Hint: Accepted))
             .Bind(raw => raw switch {
                 Shape shape => Fin.Succ(shape),
                 object candidate when KindLookup.Resolve(candidate.GetType()).IsSome => Op.Create(value: nameof(Shape)).AcceptValue(value: candidate).Map(valid => new Shape(inner: valid, owned: owned.Filter(owner => ReferenceEquals(objA: owner, objB: valid)))),
-                object candidate => Fin.Fail<Shape>(new Fault.UnsupportedSource(Port: nameof(Shape), SourceType: candidate.GetType(), Hint: Accepted)),
+                object candidate => Fin.Fail<Shape>(new UnsupportedSource(Port: nameof(Shape), SourceType: candidate.GetType(), Hint: Accepted)),
             });
     internal static Option<Shape> Converted(object raw, GeometryBase? value) =>
         Optional(value).Bind(converted => Create(value: converted, owned: ReferenceEquals(objA: raw, objB: converted) ? Option<IDisposable>.None : Some((IDisposable)converted)).ToOption());
@@ -82,14 +99,14 @@ public static class Bridge {
                 (true, double factor) when Rhino.RhinoMath.IsValidDouble(x: factor) && Math.Abs(value: factor - 1.0) > Rhino.RhinoMath.ZeroTolerance =>
                     Optional(access.TryTransform(value: sourced.Pear, transformation: Transform.Scale(anchor: Point3d.Origin, scaleFactor: factor))).ToFin(new Fault.ComputationFailed(Label: "UnitScaling"))
                         .Bind(transformed => ReferenceEquals(objA: transformed, objB: sourced.Pear) switch {
-                            true => Fin.Fail<IPear>(new Fault.ComputationUnsupported(Label: "UnitScaling", GeometryType: sourced.Item.GetType())),
+                            true => Fin.Fail<IPear>(new Fault.ComputationFailed(Label: "UnitScaling")),
                             false => Fin.Succ<IPear>(transformed),
                         }),
                 (_, double factor) when Rhino.RhinoMath.IsValidDouble(x: factor) => Fin.Succ<IPear>(sourced.Pear),
                 _ => Fin.Fail<IPear>(new Fault.ComputationFailed(Label: "UnitScaling")),
             })
                 .Bind(pear => NormalizeShape(raw: pear.Item)
-                .ToFin(new Fault.UnsupportedSource(Port: port.Name, SourceType: sourced.Item.GetType(), Hint: Shape.Accepted))
+                .ToFin(new UnsupportedSource(Port: port.Name, SourceType: sourced.Item.GetType(), Hint: Shape.Accepted))
                 .Map(shape => new Flow<Shape>(Pear: Pear<Shape>.Create(item: shape, meta: pear.Meta), Site: sourced.Site)))).As());
     }
     internal static Fin<Seq<Flow<TVal>>> Read<TVal>(this IDataAccess access, int slot, Port port) {
@@ -119,10 +136,10 @@ public static class Bridge {
             Access.Tree => access.GetTree<TVal>(index: slot, tree: out Tree<TVal> tree) switch {
                 true => toSeq(tree.EnumerateLeaves().Select((leaf, index) => (Leaf: leaf, Index: index))).TraverseM(item => item.Leaf.Pear is { Item: not null }
                     ? Fin.Succ(new Flow<TVal>(Pear: item.Leaf.Pear, Site: Some(item.Leaf.Site)))
-                    : Fin.Fail<Flow<TVal>>(new Fault.MissingPortInput(Port: port.Name, Hint: $"Null tree item at index {item.Index}."))).As(),
+                    : Fin.Fail<Flow<TVal>>(new MissingPortInput(Port: port.Name, Hint: $"Null tree item at index {item.Index}."))).As(),
                 _ => MissingFlow<TVal>(port: port),
             },
-            _ => Fin.Fail<Seq<Flow<TVal>>>(new Fault.UnsupportedAccess(Access: port.Access.ToString())),
+            _ => Fin.Fail<Seq<Flow<TVal>>>(new UnsupportedAccess(Access: port.Access.ToString())),
         };
     private static Unit WriteNative<TOut>(IDataAccess access, int slot, string name, Access targetAccess, Seq<Flow<TOut>> values) =>
         targetAccess switch {
@@ -159,7 +176,7 @@ public static class Bridge {
     private static Fin<Seq<Pear<TVal>>> Missing<TVal>(Port port) =>
         port.Requirement switch {
             Grasshopper2.Parameters.Requirement.MayBeMissing => Fin.Succ(Seq<Pear<TVal>>()),
-            _ => Fin.Fail<Seq<Pear<TVal>>>(new Fault.MissingPortInput(Port: port.Name)),
+            _ => Fin.Fail<Seq<Pear<TVal>>>(new MissingPortInput(Port: port.Name)),
         };
     private static Fin<Seq<Flow<TVal>>> MissingFlow<TVal>(Port port) =>
         Missing<TVal>(port: port).Map(static pears => pears.Map(static pear => new Flow<TVal>(Pear: pear, Site: Option<Site>.None)));
@@ -183,7 +200,7 @@ public static class Bridge {
         toSeq(pears.Select((pear, index) => (Pear: pear, Index: index))) switch {
             Seq<(Pear<T> Pear, int Index)> indexed when indexed.Count > 0 => indexed.TraverseM(item => item.Pear is { Item: not null }
                 ? Fin.Succ(new Flow<T>(Pear: item.Pear, Site: Option<Site>.None))
-                : Fin.Fail<Flow<T>>(new Fault.MissingPortInput(Port: port.Name, Hint: $"Null item at index {item.Index}."))).As(),
+                : Fin.Fail<Flow<T>>(new MissingPortInput(Port: port.Name, Hint: $"Null item at index {item.Index}."))).As(),
             _ => MissingFlow<T>(port: port),
         };
 }

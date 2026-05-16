@@ -73,7 +73,7 @@ public sealed record Context {
     };
     [BoundaryAdapter]
     public static Validation<Error, Context> FromDocument(RhinoDoc? doc) =>
-        Optional(doc).ToValidation<Error>(Fail: new Fault.MissingDocument())
+        Optional(doc).ToValidation<Error>(Fail: new Fault.MissingContext(Key: Op.Of(name: nameof(FromDocument))))
             .Bind(static candidate => Create(
                 absolute: candidate.ModelAbsoluteTolerance,
                 relative: candidate.ModelRelativeTolerance,

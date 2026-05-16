@@ -17,7 +17,7 @@ public partial record Measure : IAspect {
     public static Measure CentroidError(MassKind mass) => new CentroidErrorCase(Mass: mass);
     public static Measure Radii(MassKind mass) => new RadiiCase(Mass: mass);
     public static Measure PrincipalAxes(MassKind mass) => new PrincipalAxesCase(Mass: mass);
-    public global::Rasm.Analysis.Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch<global::Rasm.Analysis.Operation<TGeometry, TOut>>(
+    public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         spatialMidpointCase: static _ => typeof(TOut) == typeof(Point3d) ? Analyze.SpatialMidpoint<TGeometry, TOut>() : Op.Of(name: "SpatialMidpoint").Unsupported<TGeometry, TOut>(),
         lengthCase: static _ => Analyze.Length<TGeometry, TOut>(),
         areaCase: static a => Analyze.MassMeasure<TGeometry, TOut>(mass: MassKind.Area, aspect: a),
@@ -80,13 +80,13 @@ public sealed partial class MassKind {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
-    public static global::Rasm.Analysis.Operation<TGeometry, TOut> Measure<TGeometry, TOut>(Measure aspect) where TGeometry : notnull => Aspect<Measure, TGeometry, TOut>(aspect: aspect);
-    public static global::Rasm.Analysis.Operation<TGeometry, TOut> SpatialMidpoint<TGeometry, TOut>() where TGeometry : notnull {
+    public static Operation<TGeometry, TOut> Measure<TGeometry, TOut>(Measure aspect) where TGeometry : notnull => Aspect<Measure, TGeometry, TOut>(aspect: aspect);
+    public static Operation<TGeometry, TOut> SpatialMidpoint<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
         return (typeof(TOut), typeof(TGeometry)) switch {
             (Type output, Type geometry) when output == typeof(Point3d)
                 && (geometry == typeof(object) || geometry == typeof(GeometryBase) || geometry == typeof(Point3d) || geometry == typeof(Point) || geometry == typeof(Line) || geometry == typeof(Polyline) || geometry == typeof(BoundingBox) || geometry == typeof(Box) || typeof(Curve).IsAssignableFrom(geometry) || typeof(Brep).IsAssignableFrom(geometry) || typeof(Mesh).IsAssignableFrom(geometry) || typeof(Surface).IsAssignableFrom(geometry) || typeof(SubD).IsAssignableFrom(geometry)) =>
-                Cast<TGeometry, TOut>(key: key, operation: global::Rasm.Analysis.Operation<TGeometry, Point3d>.Build(
+                Cast<TGeometry, TOut>(key: key, operation: Operation<TGeometry, Point3d>.Build(
                 key: key, requiresContext: true, state: key,
                 evaluator: static (op, geometry) => from context in Env.Asks
                                                     from centroid in CentroidOf(geometry: geometry, context: context, op: op).ToEff()
@@ -95,7 +95,7 @@ public static partial class Analyze {
             _ => key.Unsupported<TGeometry, TOut>(),
         };
     }
-    internal static global::Rasm.Analysis.Operation<TGeometry, TOut> Length<TGeometry, TOut>() where TGeometry : notnull {
+    internal static Operation<TGeometry, TOut> Length<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
         Option<Requirement> requirement = (typeof(TOut) == typeof(double), typeof(TGeometry), KindLookup.Resolve(typeof(TGeometry)).Case) switch {
             (true, Type geometry, _) when geometry == typeof(object) || geometry == typeof(GeometryBase) => Some(Requirement.CurveLength),
@@ -103,7 +103,7 @@ public static partial class Analyze {
             _ => Option<Requirement>.None,
         };
         return requirement.Match(
-            Some: active => Cast<TGeometry, TOut>(key: key, operation: global::Rasm.Analysis.Operation<TGeometry, double>.Build(
+            Some: active => Cast<TGeometry, TOut>(key: key, operation: Operation<TGeometry, double>.Build(
                 key: key,
                 requirement: active,
                 requiresContext: true,
@@ -115,10 +115,10 @@ public static partial class Analyze {
                     select result)),
             None: () => key.Unsupported<TGeometry, TOut>());
     }
-    internal static global::Rasm.Analysis.Operation<TGeometry, TOut> MassMeasure<TGeometry, TOut>(MassKind mass, Measure aspect) where TGeometry : notnull {
+    internal static Operation<TGeometry, TOut> MassMeasure<TGeometry, TOut>(MassKind mass, Measure aspect) where TGeometry : notnull {
         Op key = Op.Of();
         return (aspect, typeof(TOut)) switch {
-            (_, _) when mass.Equals(MassKind.None) => global::Rasm.Analysis.Operation<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput()),
+            (_, _) when mass.Equals(MassKind.None) => Operation<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput()),
             (Analysis.Measure.AreaCase, Type output) when output == typeof(double) => MassOperation<TGeometry, TOut, double>(mass: MassKind.Area, suffix: string.Empty, project: static (k, props) => props switch {
                 AreaMassProperties area => k.Accept(value: area.Area),
                 _ => Fin.Fail<Seq<double>>(k.InvalidResult()),
@@ -135,9 +135,9 @@ public static partial class Analyze {
             _ => key.Unsupported<TGeometry, TOut>(),
         };
     }
-    private static global::Rasm.Analysis.Operation<TGeometry, TOut> MassOperation<TGeometry, TOut, TValue>(MassKind mass, string suffix, Func<Op, IDisposable, Fin<Seq<TValue>>> project, bool firstMoments = false, bool secondMoments = false, bool productMoments = false) where TGeometry : notnull {
+    private static Operation<TGeometry, TOut> MassOperation<TGeometry, TOut, TValue>(MassKind mass, string suffix, Func<Op, IDisposable, Fin<Seq<TValue>>> project, bool firstMoments = false, bool secondMoments = false, bool productMoments = false) where TGeometry : notnull {
         Op key = Op.Of(name: $"{mass.Label}{suffix}");
-        return Cast<TGeometry, TOut>(key: key, operation: global::Rasm.Analysis.Operation<TGeometry, TValue>.Build(
+        return Cast<TGeometry, TOut>(key: key, operation: Operation<TGeometry, TValue>.Build(
             key: key, requirement: mass.Requirement, requiresContext: true,
             aggregate: Some<Func<Seq<TGeometry>, Eff<Env, Seq<TValue>>>>(
                 geometry => from context in Env.Asks

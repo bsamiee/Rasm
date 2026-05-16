@@ -24,18 +24,18 @@ public partial record Bounds : IAspect {
     internal static readonly Op BoxAreaKey = Op.Of(name: "BoxArea");
     internal static readonly Op BoxVolumeKey = Op.Of(name: "BoxVolume");
     internal static readonly Op PrincipalKey = Op.Of(name: "PrincipalBounds");
-    public global::Rasm.Analysis.Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch<global::Rasm.Analysis.Operation<TGeometry, TOut>>(
+    public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         axisAlignedCase: static _ => (typeof(TOut) == typeof(BoundingBox) && GeometryKernel.CanBound(typeof(TGeometry), includeSphere: true))
-            ? Analyze.Cast<TGeometry, TOut>(key: BoundsKey, operation: global::Rasm.Analysis.Operation<TGeometry, BoundingBox>.Build(
+            ? Analyze.Cast<TGeometry, TOut>(key: BoundsKey, operation: Analysis.Operation<TGeometry, BoundingBox>.Build(
                 key: BoundsKey, state: BoundsKey,
                 evaluator: static (op, geometry) => geometry.BoundsOf(op: op).Bind(b => op.Accept(value: b)).ToEff()))
             : BoundsKey.Unsupported<TGeometry, TOut>(),
-        orientedCase: static o => (typeof(TOut) == typeof(Rhino.Geometry.Box) && typeof(GeometryBase).IsAssignableFrom(c: typeof(TGeometry)))
-            ? Analyze.Native<TGeometry, TOut, GeometryBase, Rhino.Geometry.Box, (Op Key, Plane Plane)>(
+        orientedCase: static o => (typeof(TOut) == typeof(Box) && typeof(GeometryBase).IsAssignableFrom(c: typeof(TGeometry)))
+            ? Analyze.Native<TGeometry, TOut, GeometryBase, Box, (Op Key, Plane Plane)>(
                 key: OrientedKey, state: (OrientedKey, o.Plane),
-                project: static (state, native) => new Rhino.Geometry.Box(state.Plane, native) switch {
+                project: static (state, native) => new Box(state.Plane, native) switch {
                     { IsValid: true } box => state.Key.Accept(value: box).ToEff(),
-                    _ => Fin.Fail<Seq<Rhino.Geometry.Box>>(state.Key.InvalidResult()).ToEff(),
+                    _ => Fin.Fail<Seq<Box>>(state.Key.InvalidResult()).ToEff(),
                 })
             : OrientedKey.Unsupported<TGeometry, TOut>(),
         transformedCase: static t => (typeof(TOut) == typeof(BoundingBox) && typeof(GeometryBase).IsAssignableFrom(c: typeof(TGeometry)))
@@ -44,12 +44,12 @@ public partial record Bounds : IAspect {
                 project: static (state, native) => state.Key.Accept(value: native.GetBoundingBox(xform: state.Xform)).ToEff())
             : TransformedKey.Unsupported<TGeometry, TOut>(),
         centerCase: static _ => typeof(TOut) == typeof(Point3d)
-            ? Analyze.Cast<TGeometry, TOut>(key: CenterKey, operation: global::Rasm.Analysis.Operation<TGeometry, Point3d>.Build(
+            ? Analyze.Cast<TGeometry, TOut>(key: CenterKey, operation: Analysis.Operation<TGeometry, Point3d>.Build(
                 key: CenterKey, state: CenterKey,
                 evaluator: static (op, geometry) => geometry.BoundsOf(op: op).Bind(b => op.Accept(value: b.Center)).ToEff()))
             : CenterKey.Unsupported<TGeometry, TOut>(),
         cornersCase: static c => typeof(TOut) == typeof(Point3d)
-            ? Analyze.Cast<TGeometry, TOut>(key: CornersKey, operation: global::Rasm.Analysis.Operation<TGeometry, Point3d>.Build(
+            ? Analyze.Cast<TGeometry, TOut>(key: CornersKey, operation: Analysis.Operation<TGeometry, Point3d>.Build(
                 key: CornersKey, requiresContext: c.Unique, state: (Key: CornersKey, c.Unique),
                 evaluator: static (state, geometry) =>
                     from runtime in Env.EnvAsks
@@ -58,14 +58,14 @@ public partial record Bounds : IAspect {
                     select result))
             : CornersKey.Unsupported<TGeometry, TOut>(),
         edgesCase: static _ => (typeof(TGeometry) == typeof(BoundingBox) && typeof(TOut) == typeof(Line))
-            ? Analyze.Cast<TGeometry, TOut>(key: BoxEdgesKey, operation: global::Rasm.Analysis.Operation<BoundingBox, Line>.Build(
+            ? Analyze.Cast<TGeometry, TOut>(key: BoxEdgesKey, operation: Analysis.Operation<BoundingBox, Line>.Build(
                 key: BoxEdgesKey, state: BoxEdgesKey,
                 evaluator: static (op, geometry) => op.Accept(values: geometry.GetEdges()).ToEff()))
             : BoxEdgesKey.Unsupported<TGeometry, TOut>(),
         areaCase: static _ => Analyze.BoxMetric<TGeometry, TOut>(key: BoxAreaKey, boundingBox: static g => g.Area, box: static g => g.Area),
         volumeCase: static _ => Analyze.BoxMetric<TGeometry, TOut>(key: BoxVolumeKey, boundingBox: static g => g.Volume, box: static g => g.Volume),
-        principalCase: static _ => (typeof(TOut) == typeof(Rhino.Geometry.Box) && GeometryKernel.CanPrincipal(type: typeof(TGeometry)))
-            ? Analyze.Native<TGeometry, TOut, GeometryBase, Rhino.Geometry.Box, Op>(
+        principalCase: static _ => (typeof(TOut) == typeof(Box) && GeometryKernel.CanPrincipal(type: typeof(TGeometry)))
+            ? Analyze.Native<TGeometry, TOut, GeometryBase, Box, Op>(
                 key: PrincipalKey, state: PrincipalKey, requirement: Requirement.Basic, requiresContext: true,
                 project: static (state, native) =>
                     from context in Env.Asks
@@ -77,13 +77,13 @@ public partial record Bounds : IAspect {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
-    public static global::Rasm.Analysis.Operation<TGeometry, TOut> Bounds<TGeometry, TOut>(Bounds aspect) where TGeometry : notnull => Aspect<Bounds, TGeometry, TOut>(aspect: aspect);
-    internal static global::Rasm.Analysis.Operation<TGeometry, TOut> BoxMetric<TGeometry, TOut>(Op key, Func<BoundingBox, double> boundingBox, Func<Box, double> box) where TGeometry : notnull =>
+    public static Operation<TGeometry, TOut> Bounds<TGeometry, TOut>(Bounds aspect) where TGeometry : notnull => Aspect<Bounds, TGeometry, TOut>(aspect: aspect);
+    internal static Operation<TGeometry, TOut> BoxMetric<TGeometry, TOut>(Op key, Func<BoundingBox, double> boundingBox, Func<Box, double> box) where TGeometry : notnull =>
         (typeof(TOut) == typeof(double), typeof(TGeometry)) switch {
-            (true, Type geometry) when geometry == typeof(BoundingBox) => Cast<TGeometry, TOut>(key: key, operation: global::Rasm.Analysis.Operation<BoundingBox, double>.Build(
+            (true, Type geometry) when geometry == typeof(BoundingBox) => Cast<TGeometry, TOut>(key: key, operation: Operation<BoundingBox, double>.Build(
                 key: key, state: (Key: key, Project: boundingBox),
                 evaluator: static (state, geometry) => state.Key.AcceptValue(value: geometry).Bind(validated => state.Key.Accept(value: state.Project(arg: validated))).ToEff())),
-            (true, Type geometry) when geometry == typeof(Box) => Cast<TGeometry, TOut>(key: key, operation: global::Rasm.Analysis.Operation<Box, double>.Build(
+            (true, Type geometry) when geometry == typeof(Box) => Cast<TGeometry, TOut>(key: key, operation: Operation<Box, double>.Build(
                 key: key, state: (Key: key, Project: box),
                 evaluator: static (state, geometry) => state.Key.AcceptValue(value: geometry).Bind(validated => state.Key.Accept(value: state.Project(arg: validated))).ToEff())),
             _ => key.Unsupported<TGeometry, TOut>(),

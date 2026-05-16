@@ -61,14 +61,14 @@ public partial record Location : IAspect {
     internal static readonly Op ShortPathKey = Op.Of(name: "ShortPath");
     internal static readonly Op ParameterAtKey = Op.Of(name: "ParameterAt");
     internal static readonly Op LengthAtKey = Op.Of(name: "LengthAt");
-    public global::Rasm.Analysis.Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch<global::Rasm.Analysis.Operation<TGeometry, TOut>>(
+    public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         midpointCase: static _ => LocationDispatch.AtMidpoint<TGeometry, TOut, Point3d>(key: MidpointKey, project: static (curve, parameter) => curve.PointAt(t: parameter)),
         tangentCase: static _ => LocationDispatch.AtMidpoint<TGeometry, TOut, Vector3d>(key: TangentKey, project: static (curve, parameter) => curve.TangentAt(t: parameter)),
         closestCase: static c => LocationDispatch.ClosestPoint<TGeometry, TOut>(point: c.Point),
         curvatureCase: static cp => LocationDispatch.Curvature<TGeometry, TOut>(count: cp.Count, mode: cp.Mode),
         pointAtCurveCase: static pac => LocationDispatch.Located<TGeometry, TOut, Curve, Point3d>(key: PointAtKey, operation: () => LocationDispatch.CurveAt<TGeometry, Point3d>(key: PointAtKey, parameter: pac.Parameter, project: static (curve, p) => PointAtKey.Accept(value: curve.PointAt(t: p)))),
         pointAtLengthCase: static pal => LocationDispatch.Located<TGeometry, TOut, Curve, Point3d>(
-            key: PointAtLengthKey, operation: () => global::Rasm.Analysis.Operation<TGeometry, Point3d>.Build(
+            key: PointAtLengthKey, operation: () => Analysis.Operation<TGeometry, Point3d>.Build(
                 key: PointAtLengthKey, requirement: Requirement.CurveLength, state: (Key: PointAtLengthKey, Distance: pal.Length),
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
@@ -82,7 +82,7 @@ public partial record Location : IAspect {
             LocationDispatch.CurveAt<TGeometry, Plane>(key: FrameAtKey, parameter: fac.Parameter, project: static (curve, t) =>
                 curve.FrameAt(t: t, plane: out Plane frame) ? FrameAtKey.Accept(value: frame) : Fin.Fail<Seq<Plane>>(FrameAtKey.InvalidResult()))),
         perpendicularFrameAtCase: static pfa => LocationDispatch.Located<TGeometry, TOut, Curve, Plane>(key: PerpendicularFrameAtKey, operation: () =>
-            global::Rasm.Analysis.Operation<TGeometry, Plane>.Build(
+            Analysis.Operation<TGeometry, Plane>.Build(
                 key: PerpendicularFrameAtKey, requirement: Requirement.CurveLength, state: (Key: PerpendicularFrameAtKey, pfa.Parameters),
                 evaluator: static (state, geometry) =>
                     GeometryKernel.CurveForm(source: geometry, op: state.Key)
@@ -92,17 +92,17 @@ public partial record Location : IAspect {
                         .ToEff())),
         curvatureAtCurveCase: static cac => LocationDispatch.Located<TGeometry, TOut, Curve, Vector3d>(key: CurvatureAtKey, operation: () => LocationDispatch.CurveAt<TGeometry, Vector3d>(key: CurvatureAtKey, parameter: cac.Parameter, project: static (curve, p) => CurvatureAtKey.Accept(value: curve.CurvatureAt(t: p)))),
         derivativeAtCase: static da => da.Count < 0
-            ? global::Rasm.Analysis.Operation<TGeometry, TOut>.Reject(key: DerivativeAtKey, fault: DerivativeAtKey.InvalidInput())
+            ? Analysis.Operation<TGeometry, TOut>.Reject(key: DerivativeAtKey, fault: DerivativeAtKey.InvalidInput())
             : LocationDispatch.Located<TGeometry, TOut, Curve, Vector3d>(key: DerivativeAtKey, operation: () => LocationDispatch.CurveAt<TGeometry, Vector3d>(key: DerivativeAtKey, parameter: da.Parameter, project: (curve, p) => DerivativeAtKey.Accept(values: curve.DerivativeAt(t: p, derivativeCount: da.Count)))),
         divideByCountCase: static dbc => LocationDispatch.Located<TGeometry, TOut, Curve, Point3d>(key: DivideByCountKey, operation: () => LocationDispatch.DividePoly<TGeometry>(key: DivideByCountKey, requirement: null, divide: curve => curve.DivideByCount(segmentCount: dbc.Count, includeEnds: true, points: out Point3d[] points) switch { double[] => Optional(points), _ => Option<Point3d[]>.None })),
         divideByLengthCase: static dbl => LocationDispatch.Located<TGeometry, TOut, Curve, Point3d>(key: DivideByLengthKey, operation: () => LocationDispatch.DividePoly<TGeometry>(key: DivideByLengthKey, requirement: Requirement.CurveLength, divide: curve => curve.DivideByLength(segmentLength: dbl.Length, includeEnds: true, points: out Point3d[] points) switch { double[] => Optional(points), _ => Option<Point3d[]>.None })),
-        orientationCase: static o => LocationDispatch.Located<TGeometry, TOut, Curve, CurveOrientation>(key: OrientationKey, operation: () => global::Rasm.Analysis.Operation<TGeometry, CurveOrientation>.Build(
+        orientationCase: static o => LocationDispatch.Located<TGeometry, TOut, Curve, CurveOrientation>(key: OrientationKey, operation: () => Analysis.Operation<TGeometry, CurveOrientation>.Build(
             key: OrientationKey, state: (Key: OrientationKey, Frame: o.Plane),
             evaluator: static (state, geometry) =>
                 GeometryKernel.CurveForm(source: geometry, op: state.Key)
                     .Bind(lease => lease.Use(curve => state.Key.Accept(value: curve.ClosedCurveOrientation(plane: state.Frame))))
                     .ToEff())),
-        containsCase: static cnt => LocationDispatch.Located<TGeometry, TOut, Curve, PointContainment>(key: ContainsKey, operation: () => global::Rasm.Analysis.Operation<TGeometry, PointContainment>.Build(
+        containsCase: static cnt => LocationDispatch.Located<TGeometry, TOut, Curve, PointContainment>(key: ContainsKey, operation: () => Analysis.Operation<TGeometry, PointContainment>.Build(
             key: ContainsKey, requiresContext: true, state: (Key: ContainsKey, Probe: cnt.Point, Frame: cnt.Plane),
             evaluator: static (state, geometry) =>
                 from context in Env.Asks
@@ -134,7 +134,7 @@ public partial record Location : IAspect {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
-    public static global::Rasm.Analysis.Operation<TGeometry, TOut> Location<TGeometry, TOut>(Location aspect) where TGeometry : notnull => Aspect<Location, TGeometry, TOut>(aspect: aspect);
+    public static Operation<TGeometry, TOut> Location<TGeometry, TOut>(Location aspect) where TGeometry : notnull => Aspect<Location, TGeometry, TOut>(aspect: aspect);
 }
 
 // --- [COMPOSITION] ------------------------------------------------------------------------
