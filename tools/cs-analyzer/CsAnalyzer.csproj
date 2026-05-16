@@ -2,13 +2,10 @@
     <PropertyGroup>
         <TargetFramework>netstandard2.0</TargetFramework>
         <LangVersion>latest</LangVersion>
-        <Nullable>enable</Nullable>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <AssemblyName>Foundation.CsAnalyzer</AssemblyName>
+        <AssemblyName>Foundation.CSharp.Analyzers</AssemblyName>
         <RootNamespace>Foundation.CSharp.Analyzers</RootNamespace>
         <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
-        <IsPackable>false</IsPackable>
     </PropertyGroup>
 
     <ItemGroup>

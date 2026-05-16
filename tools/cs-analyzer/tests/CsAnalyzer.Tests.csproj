@@ -1,12 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <AssemblyName>Foundation.CsAnalyzer.Tests</AssemblyName>
+        <AssemblyName>Foundation.CSharp.Analyzers.Tests</AssemblyName>
         <RootNamespace>Foundation.CSharp.Analyzers.Tests</RootNamespace>
-        <IsPackable>false</IsPackable>
-        <IsTestProject>true</IsTestProject>
-        <UseWorkspaceLibraries>false</UseWorkspaceLibraries>
-        <SkipLocalCSharpAnalyzerReference>true</SkipLocalCSharpAnalyzerReference>
-        <SkipBoundaryExemptionContracts>true</SkipBoundaryExemptionContracts>
     </PropertyGroup>
 
     <ItemGroup>
@@ -15,11 +10,5 @@
 
     <ItemGroup>
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
-        <PackageReference Include="Microsoft.NET.Test.Sdk" />
-        <PackageReference Include="xunit.v3.mtp-off" />
-        <PackageReference Include="xunit.runner.visualstudio">
-            <PrivateAssets>all</PrivateAssets>
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-        </PackageReference>
     </ItemGroup>
 </Project>

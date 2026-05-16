@@ -3,27 +3,26 @@
         <GrasshopperAppsRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'apps', 'grasshopper'))</GrasshopperAppsRoot>
         <RhinoAppsRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'apps', 'rhino'))</RhinoAppsRoot>
         <NormalizedProjectDirectory>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)'))</NormalizedProjectDirectory>
+        <IsTestProject Condition="'$(IsTestProject)' == '' and $([System.String]::Copy('$(MSBuildProjectName)').EndsWith('.Tests'))">true</IsTestProject>
+        <IsTestProject Condition="'$(IsTestProject)' == ''">false</IsTestProject>
         <IsRhinoPluginProject Condition="'$(IsRhinoPluginProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoAppsRoot)'))">true</IsRhinoPluginProject>
         <IsGrasshopperPluginProject Condition="'$(IsGrasshopperPluginProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(GrasshopperAppsRoot)'))">true</IsGrasshopperPluginProject>
         <IsRhinoPluginProject Condition="'$(IsRhinoPluginProject)' == ''">false</IsRhinoPluginProject>
         <IsGrasshopperPluginProject Condition="'$(IsGrasshopperPluginProject)' == ''">false</IsGrasshopperPluginProject>
+        <IsGrasshopperAwareProject Condition="'$(IsGrasshopperAwareProject)' == '' and '$(MSBuildProjectName)' == 'Rasm.Grasshopper'">true</IsGrasshopperAwareProject>
+        <IsGrasshopperAwareProject Condition="'$(IsGrasshopperAwareProject)' == '' and '$(MSBuildProjectName)' == 'Rasm.Tests'">true</IsGrasshopperAwareProject>
         <IsGrasshopperAwareProject Condition="'$(IsGrasshopperAwareProject)' == ''">false</IsGrasshopperAwareProject>
-        <IsSharedCSharpLibrary Condition="'$(MSBuildProjectName)' == 'Rasm' or '$(MSBuildProjectName)' == 'Rasm.Grasshopper'">true</IsSharedCSharpLibrary>
         <IsRhinoCommonAwareProject Condition="'$(MSBuildProjectName)' == 'Rasm' or '$(MSBuildProjectName)' == 'Rasm.Grasshopper'">true</IsRhinoCommonAwareProject>
-        <IsSharedCSharpLibrary Condition="'$(IsSharedCSharpLibrary)' == ''">false</IsSharedCSharpLibrary>
         <IsRhinoCommonAwareProject Condition="'$(IsRhinoCommonAwareProject)' == ''">false</IsRhinoCommonAwareProject>
     </PropertyGroup>
 
     <PropertyGroup Label="Language and Build">
         <TargetFramework>net10.0</TargetFramework>
-        <LangVersion>latest</LangVersion>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
-        <GenerateDocumentationFile>false</GenerateDocumentationFile>
-        <Deterministic>true</Deterministic>
         <Optimize>true</Optimize>
         <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
-        <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+        <IsPackable Condition="'$(IsPackable)' == ''">false</IsPackable>
     </PropertyGroup>
 
     <PropertyGroup Label="Analysis">
@@ -36,12 +35,17 @@
         <LocalCSharpAnalyzerRoot>tools/cs-analyzer</LocalCSharpAnalyzerRoot>
         <LocalCSharpAnalyzerProject>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '$(LocalCSharpAnalyzerRoot)', 'CsAnalyzer.csproj'))</LocalCSharpAnalyzerProject>
         <BoundaryExemptionContractsPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '$(LocalCSharpAnalyzerRoot)', 'Contracts', 'BoundaryContracts.cs'))</BoundaryExemptionContractsPath>
-        <NormalizedProjectFullPath>$([MSBuild]::NormalizePath('$(MSBuildProjectFullPath)'))</NormalizedProjectFullPath>
-        <IsLocalCSharpAnalyzerProject Condition="'$(NormalizedProjectFullPath)' == '$(LocalCSharpAnalyzerProject)'">true</IsLocalCSharpAnalyzerProject>
+        <IsLocalCSharpAnalyzerProject Condition="$([MSBuild]::NormalizePath('$(MSBuildProjectFullPath)')) == '$(LocalCSharpAnalyzerProject)'">true</IsLocalCSharpAnalyzerProject>
         <IsLocalCSharpAnalyzerProject Condition="'$(IsLocalCSharpAnalyzerProject)' == ''">false</IsLocalCSharpAnalyzerProject>
         <SkipLocalCSharpAnalyzerReference Condition="'$(IsLocalCSharpAnalyzerProject)' == 'true'">true</SkipLocalCSharpAnalyzerReference>
+        <SkipLocalCSharpAnalyzerReference Condition="'$(MSBuildProjectName)' == 'CsAnalyzer.Tests'">true</SkipLocalCSharpAnalyzerReference>
         <SkipLocalCSharpAnalyzerReference Condition="'$(SkipLocalCSharpAnalyzerReference)' == ''">false</SkipLocalCSharpAnalyzerReference>
+        <SkipBoundaryExemptionContracts Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true'">true</SkipBoundaryExemptionContracts>
+        <SkipBoundaryExemptionContracts Condition="'$(IsGrasshopperAwareProject)' == 'true'">true</SkipBoundaryExemptionContracts>
+        <SkipBoundaryExemptionContracts Condition="'$(IsTestProject)' == 'true'">true</SkipBoundaryExemptionContracts>
         <SkipBoundaryExemptionContracts Condition="'$(SkipBoundaryExemptionContracts)' == ''">false</SkipBoundaryExemptionContracts>
+        <UseWorkspaceLibraries Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true'">false</UseWorkspaceLibraries>
+        <UseWorkspaceLibraries Condition="'$(IsTestProject)' == 'true'">false</UseWorkspaceLibraries>
         <UseWorkspaceLibraries Condition="'$(UseWorkspaceLibraries)' == ''">true</UseWorkspaceLibraries>
     </PropertyGroup>
 
@@ -49,34 +53,9 @@
         <RestorePackagesPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '.cache', 'nuget', 'packages'))</RestorePackagesPath>
         <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
         <RestoreLockedMode Condition="'$(CI)' == 'true'">true</RestoreLockedMode>
-        <NuGetAudit>true</NuGetAudit>
         <NuGetAuditLevel>high</NuGetAuditLevel>
         <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
     </PropertyGroup>
-
-    <PropertyGroup Label="Workspace Integrity">
-        <WorkspaceSolutionPath Condition="'$(WorkspaceSolutionPath)' == ''">$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', 'Workspace.slnx'))</WorkspaceSolutionPath>
-        <SkipWorkspaceIntegrityCheck Condition="'$(SkipWorkspaceIntegrityCheck)' == ''">false</SkipWorkspaceIntegrityCheck>
-    </PropertyGroup>
-
-    <Target Name="ValidateWorkspaceSolution"
-            BeforeTargets="CollectPackageReferences;Restore;_GenerateRestoreProjectPathItems"
-            Condition="'$(SkipWorkspaceIntegrityCheck)' != 'true' and Exists('$(WorkspaceSolutionPath)')">
-        <XmlPeek XmlInputPath="$(WorkspaceSolutionPath)"
-                 Query="/Solution/Folder/Project/@Path | /Solution/Project/@Path">
-            <Output TaskParameter="Result" ItemName="_WorkspaceProjectPath" />
-        </XmlPeek>
-        <ItemGroup>
-            <_WorkspaceProjectAbsolute Include="@(_WorkspaceProjectPath)">
-                <Absolute>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '%(Identity)'))</Absolute>
-            </_WorkspaceProjectAbsolute>
-            <_WorkspaceMissingProject Include="@(_WorkspaceProjectAbsolute)"
-                                      Condition="!Exists('%(Absolute)')" />
-        </ItemGroup>
-        <Error Condition="'@(_WorkspaceMissingProject->Count())' != '0'"
-               Code="RASM0001"
-               Text="Workspace.slnx references project path(s) that do not exist on disk: @(_WorkspaceMissingProject->'%(Identity)', ', '). Run 'dotnet sln Workspace.slnx remove %3CmissingPath%3E' or restore the file before retrying restore." />
-    </Target>
 
     <PropertyGroup Label="RhinoWIP Paths">
         <RhinoWipAppPath>/Applications/RhinoWIP.app</RhinoWipAppPath>
@@ -90,18 +69,19 @@
         <EnableDynamicLoading>true</EnableDynamicLoading>
         <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
         <TargetExt>.rhp</TargetExt>
-        <IsPackable>false</IsPackable>
-        <UseWorkspaceLibraries>false</UseWorkspaceLibraries>
-        <SkipBoundaryExemptionContracts>true</SkipBoundaryExemptionContracts>
-    </PropertyGroup>
-
-    <PropertyGroup Label="Shared CSharp Libraries" Condition="'$(IsSharedCSharpLibrary)' == 'true'">
-        <IsPackable>false</IsPackable>
     </PropertyGroup>
 
     <ItemGroup Label="Global Libraries" Condition="'$(IsLocalCSharpAnalyzerProject)' != 'true' and '$(UseWorkspaceLibraries)' == 'true'">
         <PackageReference Include="LanguageExt.Core" />
         <PackageReference Include="Thinktecture.Runtime.Extensions" />
+    </ItemGroup>
+
+    <ItemGroup Label="Test Libraries" Condition="'$(IsTestProject)' == 'true'">
+        <PackageReference Include="Microsoft.NET.Test.Sdk" PrivateAssets="all" />
+        <PackageReference Include="xunit.v3.mtp-off" PrivateAssets="all" />
+        <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
     </ItemGroup>
 
     <ItemGroup Label="Global LanguageExt Usings" Condition="'$(IsLocalCSharpAnalyzerProject)' != 'true' and '$(UseWorkspaceLibraries)' == 'true'">
@@ -112,6 +92,39 @@
         <Using Include="LanguageExt.Pretty" />
         <Using Include="LanguageExt.Traits.Domain" />
         <Using Include="LanguageExt.Prelude" Static="true" />
+    </ItemGroup>
+
+    <ItemGroup Label="Grasshopper-Aware Usings" Condition="'$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">
+        <Using Include="Grasshopper2.Types.Numeric" />
+        <Using Include="Grasshopper2.UI" />
+        <Using Include="Rasm.Analysis" />
+        <Using Include="Rasm.Domain" />
+        <Using Include="Rhino.Geometry" />
+    </ItemGroup>
+
+    <ItemGroup Label="Friend Assemblies" Condition="'$(MSBuildProjectName)' == 'Rasm'">
+        <InternalsVisibleTo Include="Rasm.Tests" />
+        <InternalsVisibleTo Include="Rasm.Grasshopper" />
+    </ItemGroup>
+
+    <ItemGroup Label="Friend Assemblies" Condition="'$(MSBuildProjectName)' == 'Rasm.Grasshopper'">
+        <InternalsVisibleTo Include="Rasm.Tests" />
+    </ItemGroup>
+
+    <ItemGroup Label="RhinoWIP Assembly Metadata" Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true'">
+        <AssemblyAttribute Include="Rhino.PlugIns.PlugInDescriptionAttribute" Condition="'$(Company)' != ''">
+            <_Parameter1>Rhino.PlugIns.DescriptionType.Organization</_Parameter1>
+            <_Parameter1_IsLiteral>true</_Parameter1_IsLiteral>
+            <_Parameter2>$(Company)</_Parameter2>
+        </AssemblyAttribute>
+        <AssemblyAttribute Include="Rhino.PlugIns.PlugInDescriptionAttribute" Condition="'$(RhinoPluginIconResource)' != ''">
+            <_Parameter1>Rhino.PlugIns.DescriptionType.Icon</_Parameter1>
+            <_Parameter1_IsLiteral>true</_Parameter1_IsLiteral>
+            <_Parameter2>$(RhinoPluginIconResource)</_Parameter2>
+        </AssemblyAttribute>
+        <AssemblyAttribute Include="System.Runtime.InteropServices.GuidAttribute" Condition="'$(RhinoPluginAssemblyGuid)' != ''">
+            <_Parameter1>$(RhinoPluginAssemblyGuid)</_Parameter1>
+        </AssemblyAttribute>
     </ItemGroup>
 
     <ItemGroup Label="RhinoWIP Libraries" Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true' or '$(IsRhinoCommonAwareProject)' == 'true'">

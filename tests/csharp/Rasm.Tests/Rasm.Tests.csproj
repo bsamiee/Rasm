@@ -1,15 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
-        <AssemblyName>Rasm.Tests</AssemblyName>
-        <RootNamespace>Rasm.Tests</RootNamespace>
-        <IsPackable>false</IsPackable>
-        <IsTestProject>true</IsTestProject>
-        <IsRhinoCommonAwareProject>true</IsRhinoCommonAwareProject>
-        <IsGrasshopperAwareProject>true</IsGrasshopperAwareProject>
-        <UseWorkspaceLibraries>false</UseWorkspaceLibraries>
-        <SkipBoundaryExemptionContracts>true</SkipBoundaryExemptionContracts>
-    </PropertyGroup>
-
     <ItemGroup>
         <ProjectReference Include="../../../libs/csharp/Rasm/Rasm.csproj" />
         <ProjectReference Include="../../../libs/csharp/Rasm.Grasshopper/Rasm.Grasshopper.csproj" />
@@ -17,9 +6,6 @@
 
     <ItemGroup>
         <PackageReference Include="LanguageExt.Core" PrivateAssets="all" />
-        <PackageReference Include="Microsoft.NET.Test.Sdk" PrivateAssets="all" />
-        <PackageReference Include="xunit.v3.mtp-off" PrivateAssets="all" />
-        <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
         <PackageReference Include="FsCheck" PrivateAssets="all" />
     </ItemGroup>
 

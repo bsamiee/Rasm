@@ -64,7 +64,7 @@ internal static class AnalyzerTestHarness {
         byte[] hashInput = Encoding.UTF8.GetBytes($"{filePath}\n{source}");
         byte[] hash = SHA256.HashData(hashInput);
         string suffix = Convert.ToHexString(hash.AsSpan(start: 0, length: 8));
-        return $"Foundation.CsAnalyzer.Tests.{suffix}";
+        return $"Foundation.CSharp.Analyzers.Tests.{suffix}";
     }
     private static ImmutableArray<MetadataReference> LoadFrameworkReferences() {
         string trustedPlatformAssemblies = AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") as string

@@ -36,7 +36,7 @@ RhinoWIP macOS workspace for first-party Rhino and Grasshopper products. Each ap
 | `IsGrasshopperPluginProject` | Enables `.rhp` output plus local Grasshopper2 and GrasshopperIO references. |
 | `IsGrasshopperAwareProject` | Enables Grasshopper2 and GrasshopperIO references without plugin output. |
 | `IsRhinoCommonAwareProject` | Enables local RhinoCommon references. |
-| `IsSharedCSharpLibrary` | Marks shared C# libraries for the normal foundation package set. |
+| `UseWorkspaceLibraries` | Enables the shared LanguageExt and Thinktecture package surface. |
 
 Plugin projects set plugin classification explicitly in their `.csproj`; build behavior does not depend on product names.
 

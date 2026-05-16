@@ -301,3 +301,12 @@ dotnet_diagnostic.MA0158.severity = error                                     # 
 dotnet_diagnostic.MA0166.severity = error                                     # Forward TimeProvider when overloads support it.
 MA0032.allowOverloadsWithOptionalParameters = false                           # Require token-aware overload usage even when optional params exist.
 dotnet_code_quality_unused_parameters = all                                   # Enforce unused-parameter analysis for all member visibilities.
+
+[tests/**/*.cs]
+dotnet_diagnostic.CA1515.severity = none
+
+[tools/cs-analyzer/tests/*.cs]
+dotnet_diagnostic.CA1515.severity = none
+
+[tools/cs-analyzer/tests/**/*.cs]
+dotnet_diagnostic.CA1515.severity = none

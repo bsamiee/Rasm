@@ -1,11 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <AssemblyName>Rasm.Grasshopper</AssemblyName>
-        <RootNamespace>Rasm.Grasshopper</RootNamespace>
-        <Title>Rasm.Grasshopper</Title>
         <Description>GH2 component infrastructure for Rasm: Component&lt;TSpec&gt; contract, Output pipeline, polymorphic Port descriptors, PortKind InputAdder/OutputAdder binding, Bridge IDataAccess extensions, Plugin manifest base.</Description>
-        <IsGrasshopperAwareProject>true</IsGrasshopperAwareProject>
-        <SkipBoundaryExemptionContracts>true</SkipBoundaryExemptionContracts>
     </PropertyGroup>
 
     <ItemGroup>
@@ -18,12 +13,7 @@
         <Using Include="Grasshopper2.Data.Meta" />
         <Using Include="Grasshopper2.Parameters" />
         <Using Include="Grasshopper2.Parameters.Standard" />
-        <Using Include="Grasshopper2.Types.Numeric" />
         <Using Include="Grasshopper2.Types.Shapes" />
-        <Using Include="Grasshopper2.UI" />
-        <Using Include="Rasm.Analysis" />
-        <Using Include="Rasm.Domain" />
-        <Using Include="Rhino.Geometry" />
         <Using Include="Thinktecture" />
     </ItemGroup>
 </Project>
