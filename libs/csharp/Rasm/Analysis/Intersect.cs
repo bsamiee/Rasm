@@ -2,24 +2,20 @@ using Foundation.CSharp.Analyzers.Contracts;
 
 namespace Rasm.Analysis;
 
-// --- [MODELS] -----------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct RayQuery(Ray3d Ray, int MaxReflections = 1) {
-    public static RayQuery Of(Ray3d ray, int maxReflections = 1) => new(Ray: ray, MaxReflections: maxReflections);
-}
-
 [Union]
 internal partial record IntersectionResult {
     public sealed record Lines(Seq<Line> Values) : IntersectionResult; public sealed record Points(Seq<Point3d> Values) : IntersectionResult; public sealed record Intervals(Seq<Interval> Values) : IntersectionResult; public sealed record Polylines(Seq<(Polyline Curve, IntersectionKind Kind)> Values) : IntersectionResult; public sealed record Hits(Seq<IntersectionHit> Values) : IntersectionResult;
+    internal static readonly IntersectionResult LinesShape = new Lines(Seq<Line>());
+    internal static readonly IntersectionResult PointsShape = new Points(Seq<Point3d>());
+    internal static readonly IntersectionResult IntervalsShape = new Intervals(Seq<Interval>());
+    internal static readonly IntersectionResult PolylinesShape = new Polylines(Seq<(Polyline Curve, IntersectionKind Kind)>());
+    internal static readonly IntersectionResult HitsShape = new Hits(Seq<IntersectionHit>());
     internal static bool CanProjectAny(Type output) =>
-        Seq<IntersectionResult>(new Lines(Seq<Line>()), new Points(Seq<Point3d>()), new Intervals(Seq<Interval>()), new Polylines(Seq<(Polyline Curve, IntersectionKind Kind)>()), new Hits(Seq<IntersectionHit>()))
-            .Exists(result => result.CanProject(output: output));
+        Seq(LinesShape, PointsShape, IntervalsShape, PolylinesShape, HitsShape).Exists(result => result.CanProject(output: output));
     internal static bool Supports(Type left, Type right, Type output, bool unordered = false) =>
         (left == typeof(object) || right == typeof(object))
             ? CanProjectAny(output: output)
-            : ShapeOf(left: left, right: right).Map(result => result.CanProject(output: output)).IfNone(false)
-              || (unordered && ShapeOf(left: right, right: left).Map(result => result.CanProject(output: output)).IfNone(false));
-    internal static IntersectionResult HitsShape => new Hits(Seq<IntersectionHit>());
+            : Analyze.IntersectionShape(left: left, right: right, output: output, unordered: unordered).IsSome;
     internal bool CanProject(Type output) => Switch(
         state: output,
         lines: static (o, _) => UniformCanProjectTo<Line>(output: o),
@@ -44,20 +40,6 @@ internal partial record IntersectionResult {
         _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: caseType, outputType: typeof(TOut))),
     };
     private static bool UniformCanProjectTo<TNative>(Type output) => output == typeof(TNative) || output == typeof(IntersectionKind);
-    private static Option<IntersectionResult> ShapeOf(Type left, Type right) =>
-        (left, right) switch {
-            (Type l, Type r) when l == typeof(Line) && (r == typeof(Line) || r == typeof(Plane) || r == typeof(Circle) || r == typeof(Sphere)) => Some<IntersectionResult>(new Points(Seq<Point3d>())),
-            (Type l, Type r) when typeof(Mesh).IsAssignableFrom(l) && r == typeof(Line) => Some<IntersectionResult>(new Points(Seq<Point3d>())),
-            (Type l, Type r) when l == typeof(Plane) && r == typeof(Plane) => Some<IntersectionResult>(new Lines(Seq<Line>())),
-            (Type l, Type r) when l == typeof(Line) && (r == typeof(BoundingBox) || r == typeof(Box)) => Some<IntersectionResult>(new Intervals(Seq<Interval>())),
-            (Type l, Type r) when typeof(Mesh).IsAssignableFrom(l) && (r == typeof(Plane) || typeof(Mesh).IsAssignableFrom(r)) => Some<IntersectionResult>(new Polylines(Seq<(Polyline Curve, IntersectionKind Kind)>())),
-            (Type l, Type r) when l == typeof(RayQuery) && typeof(Mesh).IsAssignableFrom(r) => Some<IntersectionResult>(new Points(Seq<Point3d>())),
-            (Type l, Type r) when l == typeof(RayQuery) && typeof(GeometryBase).IsAssignableFrom(r) => Some<IntersectionResult>(new Hits(Seq<IntersectionHit>())),
-            (Type l, Type r) when GeometryKernel.CanCurveForm(type: l) && (GeometryKernel.CanCurveForm(type: r) || r == typeof(Plane) || r == typeof(Line) || typeof(Surface).IsAssignableFrom(r) || typeof(Brep).IsAssignableFrom(r) || typeof(BrepFace).IsAssignableFrom(r)) => Some<IntersectionResult>(new Hits(Seq<IntersectionHit>())),
-            (Type l, Type r) when typeof(Surface).IsAssignableFrom(l) && typeof(Surface).IsAssignableFrom(r) => Some<IntersectionResult>(new Hits(Seq<IntersectionHit>())),
-            (Type l, Type r) when typeof(Brep).IsAssignableFrom(l) && (r == typeof(Plane) || typeof(Surface).IsAssignableFrom(r) || typeof(Brep).IsAssignableFrom(r)) => Some<IntersectionResult>(new Hits(Seq<IntersectionHit>())),
-            _ => Option<IntersectionResult>.None,
-        };
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -101,13 +83,220 @@ public static partial class Analyze {
                 key: key, requiresContext: true, state: (Key: key, Compute: compute),
                 evaluator: static (state, pair) =>
                     from runtime in Env.EnvAsks
-                    from resolved in runtime.Context.Pair(a: pair.A, b: pair.B, op: state.Key, requirements: static (_, _, _) => Fin.Succ((A: Requirement.Basic, B: Requirement.Basic)), cancel: runtime.Cancellation).ToEff()
+                    from resolved in PrepareIntersectionPair(a: pair.A, b: pair.B, context: runtime.Context, op: state.Key, cancel: runtime.Cancellation).ToEff()
                     from result in state.Compute(resolved.A, resolved.B, runtime.Context, state.Key, runtime.Progress, runtime.Cancellation).ToEff()
                     from typed in result.Project<TOut>(key: state.Key).ToEff()
                     select typed),
             false => key.Unsupported<(TA A, TB B), TOut>(),
         };
     }
+    private static Fin<(TA A, TB B)> PrepareIntersectionPair<TA, TB>(TA a, TB b, Context context, Op op, CancellationToken cancel) where TA : notnull where TB : notnull =>
+        (a, b) switch {
+            (RayQuery ray, GeometryBase geometry) =>
+                (op.AcceptValue(value: ray), Requirement.Basic.Apply(context: context, value: geometry, cancel: cancel).ToFin())
+                    .Apply(static (query, target) => (A: (TA)(object)query, B: (TB)(object)target)).As(),
+            (GeometryBase geometry, RayQuery ray) =>
+                (Requirement.Basic.Apply(context: context, value: geometry, cancel: cancel).ToFin(), op.AcceptValue(value: ray))
+                    .Apply(static (target, query) => (A: (TA)(object)target, B: (TB)(object)query)).As(),
+            _ => context.Pair(a: a, b: b, op: op, requirements: static (_, _, _) => Fin.Succ((A: Requirement.Basic, B: Requirement.Basic)), cancel: cancel)
+                .ToFin()
+                .Map(static pair => (pair.A, pair.B)),
+        };
+    private readonly record struct IntersectionCase(
+        Func<Type, Type, bool> Supports,
+        IntersectionResult Shape,
+        Func<object, object, Context, Op, CancellationToken, IProgress<double>?, Option<Fin<IntersectionResult>>> Compute) {
+        internal bool CanProject(Type left, Type right, Type output) => Supports(arg1: left, arg2: right) && Shape.CanProject(output: output);
+        internal Option<Fin<IntersectionResult>> TryCompute(object left, object right, Context context, Op op, CancellationToken cancel, IProgress<double>? progress) =>
+            Supports(arg1: left.GetType(), arg2: right.GetType()) ? Compute(arg1: left, arg2: right, arg3: context, arg4: op, arg5: cancel, arg6: progress) : Option<Fin<IntersectionResult>>.None;
+    }
+    internal static Option<IntersectionResult> IntersectionShape(Type left, Type right, Type output, bool unordered) =>
+        IntersectionShapeOrdered(left: left, right: right, output: output) | (unordered ? IntersectionShapeOrdered(left: right, right: left, output: output) : Option<IntersectionResult>.None);
+    private static Option<IntersectionResult> IntersectionShapeOrdered(Type left, Type right, Type output) =>
+        IntersectionCases.Find(predicate: c => c.CanProject(left: left, right: right, output: output)).Map(static c => c.Shape);
+    private static readonly Seq<IntersectionCase> IntersectionCases = Seq(
+        new IntersectionCase(
+            Supports: static (l, r) => l == typeof(Line) && r == typeof(Line),
+            Shape: new IntersectionResult.Points(Seq<Point3d>()),
+            Compute: static (left, right, context, _, _, _) => (left, right) switch {
+                (Line a, Line b) => Some(Fin.Succ((IntersectionResult)new IntersectionResult.Points(Intersection.LineLine(a, b, out double ta, out double _, context.Absolute.Value, true) ? Seq(a.PointAt(ta)) : Seq<Point3d>()))),
+                _ => Option<Fin<IntersectionResult>>.None,
+            }),
+        new IntersectionCase(
+            Supports: static (l, r) => l == typeof(Line) && r == typeof(Plane),
+            Shape: new IntersectionResult.Points(Seq<Point3d>()),
+            Compute: static (left, right, _, _, _, _) => (left, right) switch {
+                (Line a, Plane b) => Some(Fin.Succ((IntersectionResult)new IntersectionResult.Points(Intersection.LinePlane(a, b, out double t) && t is >= 0.0 and <= 1.0 ? Seq(a.PointAt(t)) : Seq<Point3d>()))),
+                _ => Option<Fin<IntersectionResult>>.None,
+            }),
+        new IntersectionCase(
+            Supports: static (l, r) => l == typeof(Plane) && r == typeof(Plane),
+            Shape: new IntersectionResult.Lines(Seq<Line>()),
+            Compute: static (left, right, _, _, _, _) => (left, right) switch {
+                (Plane a, Plane b) => Some(Fin.Succ((IntersectionResult)new IntersectionResult.Lines(Intersection.PlanePlane(a, b, out Line line) ? Seq(line) : Seq<Line>()))),
+                _ => Option<Fin<IntersectionResult>>.None,
+            }),
+        new IntersectionCase(
+            Supports: static (l, r) => l == typeof(Line) && r == typeof(Circle),
+            Shape: new IntersectionResult.Points(Seq<Point3d>()),
+            Compute: static (left, right, _, _, _, _) => (left, right) switch {
+                (Line a, Circle b) => Some(Fin.Succ((IntersectionResult)new IntersectionResult.Points(Intersection.LineCircle(a, b, out double t1, out Point3d p1, out double t2, out Point3d p2) switch {
+                    LineCircleIntersection.Single when t1 is >= 0.0 and <= 1.0 => Seq(p1),
+                    LineCircleIntersection.Multiple => Seq((T: t1, Point: p1), (T: t2, Point: p2)).Where(static p => p.T is >= 0.0 and <= 1.0).Map(static p => p.Point),
+                    _ => Seq<Point3d>(),
+                }))),
+                _ => Option<Fin<IntersectionResult>>.None,
+            }),
+        new IntersectionCase(
+            Supports: static (l, r) => l == typeof(Line) && r == typeof(Sphere),
+            Shape: new IntersectionResult.Points(Seq<Point3d>()),
+            Compute: static (left, right, context, _, _, _) => (left, right) switch {
+                (Line a, Sphere b) => Some(Fin.Succ((IntersectionResult)new IntersectionResult.Points(Intersection.LineSphere(a, b, out Point3d p1, out Point3d p2) switch {
+                    LineSphereIntersection.Single when OnFiniteLine(line: a, point: p1, tolerance: context.Absolute.Value) => Seq(p1),
+                    LineSphereIntersection.Multiple => Seq(p1, p2).Where(p => OnFiniteLine(line: a, point: p, tolerance: context.Absolute.Value)),
+                    _ => Seq<Point3d>(),
+                }))),
+                _ => Option<Fin<IntersectionResult>>.None,
+            }),
+        new IntersectionCase(
+            Supports: static (l, r) => l == typeof(Line) && (r == typeof(BoundingBox) || r == typeof(Box)),
+            Shape: new IntersectionResult.Intervals(Seq<Interval>()),
+            Compute: static (left, right, context, _, _, _) => (left, right) switch {
+                (Line a, BoundingBox b) => Some(Fin.Succ((IntersectionResult)new IntersectionResult.Intervals(Intersection.LineBox(a, b, context.Absolute.Value, out Interval iv) ? SegmentInterval(iv) : Seq<Interval>()))),
+                (Line a, Box b) => Some(Fin.Succ((IntersectionResult)new IntersectionResult.Intervals(Intersection.LineBox(a, b, context.Absolute.Value, out Interval iv) ? SegmentInterval(iv) : Seq<Interval>()))),
+                _ => Option<Fin<IntersectionResult>>.None,
+            }),
+        new IntersectionCase(
+            Supports: static (l, r) => l == typeof(Line) && typeof(Curve).IsAssignableFrom(r),
+            Shape: IntersectionResult.HitsShape,
+            Compute: static (left, right, context, op, _, _) => (left, right) switch {
+                (Line a, Curve b) => Some(CurveAgainst(a: b, b: a, context: context, op: op, intersect: static (c, l, t) => Intersection.CurveLine(c, l, t, t), finiteLine: Some(a))),
+                _ => Option<Fin<IntersectionResult>>.None,
+            }),
+        new IntersectionCase(
+            Supports: static (l, r) => typeof(Curve).IsAssignableFrom(l) && typeof(Curve).IsAssignableFrom(r),
+            Shape: IntersectionResult.HitsShape,
+            Compute: static (left, right, context, op, cancel, _) => (left, right) switch {
+                (Curve a, Curve b) => Some(new Lease<CurveIntersections>.Owned(Value: Intersection.CurveCurve(a, b, context.Absolute.Value, context.Absolute.Value)).Use(hits => cancel.IsCancellationRequested ? Fin.Fail<IntersectionResult>(new Fault.Cancelled()) : HitsFromEvents(hits: hits, op: op, source: a))),
+                _ => Option<Fin<IntersectionResult>>.None,
+            }),
+        new IntersectionCase(
+            Supports: static (l, r) => typeof(Curve).IsAssignableFrom(l) && r == typeof(Plane),
+            Shape: IntersectionResult.HitsShape,
+            Compute: static (left, right, context, op, _, _) => (left, right) switch {
+                (Curve a, Plane b) => Some(CurveAgainst(a: a, b: b, context: context, op: op, intersect: static (c, p, t) => Intersection.CurvePlane(c, p, t))),
+                _ => Option<Fin<IntersectionResult>>.None,
+            }),
+        new IntersectionCase(
+            Supports: static (l, r) => typeof(Curve).IsAssignableFrom(l) && r == typeof(Line),
+            Shape: IntersectionResult.HitsShape,
+            Compute: static (left, right, context, op, _, _) => (left, right) switch {
+                (Curve a, Line b) => Some(CurveAgainst(a: a, b: b, context: context, op: op, intersect: static (c, l, t) => Intersection.CurveLine(c, l, t, t), finiteLine: Some(b))),
+                _ => Option<Fin<IntersectionResult>>.None,
+            }),
+        new IntersectionCase(
+            Supports: static (l, r) => typeof(Curve).IsAssignableFrom(l) && typeof(BrepFace).IsAssignableFrom(r),
+            Shape: IntersectionResult.HitsShape,
+            Compute: static (left, right, context, op, cancel, _) => (left, right) switch {
+                (Curve a, BrepFace b) => Some(HitsFromSolved(solved: Intersection.CurveBrepFace(a, b, context.Absolute.Value, out Curve[] cs, out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Overlap, op: op, cancel: cancel)),
+                _ => Option<Fin<IntersectionResult>>.None,
+            }),
+        new IntersectionCase(
+            Supports: static (l, r) => typeof(Curve).IsAssignableFrom(l) && typeof(Brep).IsAssignableFrom(r),
+            Shape: IntersectionResult.HitsShape,
+            Compute: static (left, right, context, op, cancel, _) => (left, right) switch {
+                (Curve a, Brep b) => Some(HitsFromSolved(solved: Intersection.CurveBrep(a, b, context.Absolute.Value, out Curve[] cs, out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Overlap, op: op, cancel: cancel, partial: true)),
+                _ => Option<Fin<IntersectionResult>>.None,
+            }),
+        new IntersectionCase(
+            Supports: static (l, r) => typeof(Curve).IsAssignableFrom(l) && typeof(Surface).IsAssignableFrom(r),
+            Shape: IntersectionResult.HitsShape,
+            Compute: static (left, right, context, op, _, _) => (left, right) switch {
+                (Curve a, Surface b) => Some(CurveAgainst(a: a, b: b, context: context, op: op, intersect: static (c, s, t) => Intersection.CurveSurface(c, s, t, t))),
+                _ => Option<Fin<IntersectionResult>>.None,
+            }),
+        new IntersectionCase(
+            Supports: static (l, r) => typeof(Surface).IsAssignableFrom(l) && typeof(Surface).IsAssignableFrom(r),
+            Shape: IntersectionResult.HitsShape,
+            Compute: static (left, right, context, op, cancel, _) => (left, right) switch {
+                (Surface a, Surface b) => Some(HitsFromSolved(solved: Intersection.SurfaceSurface(a, b, context.Absolute.Value, out Curve[] cs, out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Curve, op: op, cancel: cancel)),
+                _ => Option<Fin<IntersectionResult>>.None,
+            }),
+        new IntersectionCase(
+            Supports: static (l, r) => typeof(Brep).IsAssignableFrom(l) && r == typeof(Plane),
+            Shape: IntersectionResult.HitsShape,
+            Compute: static (left, right, context, op, cancel, _) => (left, right) switch {
+                (Brep a, Plane b) => Some(HitsFromSolved(solved: Intersection.BrepPlane(a, b, context.Absolute.Value, out Curve[] cs, out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Curve, op: op, cancel: cancel)),
+                _ => Option<Fin<IntersectionResult>>.None,
+            }),
+        new IntersectionCase(
+            Supports: static (l, r) => typeof(Brep).IsAssignableFrom(l) && typeof(Surface).IsAssignableFrom(r),
+            Shape: IntersectionResult.HitsShape,
+            Compute: static (left, right, context, op, cancel, _) => (left, right) switch {
+                (Brep a, Surface b) => Some(HitsFromSolved(solved: Intersection.BrepSurface(a, b, context.Absolute.Value, true, out Curve[] cs, out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Curve, op: op, cancel: cancel)),
+                _ => Option<Fin<IntersectionResult>>.None,
+            }),
+        new IntersectionCase(
+            Supports: static (l, r) => typeof(Brep).IsAssignableFrom(l) && typeof(Brep).IsAssignableFrom(r),
+            Shape: IntersectionResult.HitsShape,
+            Compute: static (left, right, context, op, cancel, _) => (left, right) switch {
+                (Brep a, Brep b) => Some(HitsFromSolved(solved: Intersection.BrepBrep(a, b, context.Absolute.Value, true, out Curve[] cs, out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Curve, op: op, cancel: cancel)),
+                _ => Option<Fin<IntersectionResult>>.None,
+            }),
+        new IntersectionCase(
+            Supports: static (l, r) => typeof(Mesh).IsAssignableFrom(l) && r == typeof(Line),
+            Shape: new IntersectionResult.Points(Seq<Point3d>()),
+            Compute: static (left, right, _, _, _, _) => (left, right) switch {
+                (Mesh a, Line b) => Some(Fin.Succ((IntersectionResult)new IntersectionResult.Points(toSeq(Intersection.MeshLineSorted(a, b, out int[] _) ?? [])))),
+                _ => Option<Fin<IntersectionResult>>.None,
+            }),
+        new IntersectionCase(
+            Supports: static (l, r) => typeof(Mesh).IsAssignableFrom(l) && r == typeof(Plane),
+            Shape: new IntersectionResult.Polylines(Seq<(Polyline Curve, IntersectionKind Kind)>()),
+            Compute: static (left, right, context, _, _, _) => (left, right) switch {
+                (Mesh a, Plane b) => Some(MeshPlane(mesh: a, plane: b, context: context)),
+                _ => Option<Fin<IntersectionResult>>.None,
+            }),
+        new IntersectionCase(
+            Supports: static (l, r) => typeof(Mesh).IsAssignableFrom(l) && typeof(Mesh).IsAssignableFrom(r),
+            Shape: new IntersectionResult.Polylines(Seq<(Polyline Curve, IntersectionKind Kind)>()),
+            Compute: static (left, right, context, op, cancel, progress) => (left, right) switch {
+                (Mesh a, Mesh b) => Some(MeshMesh(left: a, right: b, context: context, op: op, cancel: cancel, progress: progress)),
+                _ => Option<Fin<IntersectionResult>>.None,
+            }),
+        new IntersectionCase(
+            Supports: static (l, r) => l == typeof(RayQuery) && typeof(Mesh).IsAssignableFrom(r),
+            Shape: new IntersectionResult.Points(Seq<Point3d>()),
+            Compute: static (left, right, _, op, _, _) => (left, right) switch {
+                (RayQuery a, Mesh b) when a.IsValid => Some(Fin.Succ((IntersectionResult)new IntersectionResult.Points(Intersection.MeshRay(b, a.Ray) switch {
+                    double t when double.IsFinite(t) && t >= 0.0 => Seq(a.Ray.PointAt(t: t)),
+                    _ => Seq<Point3d>(),
+                }))),
+                (RayQuery, Mesh) => Some(Fin.Fail<IntersectionResult>(op.InvalidInput())),
+                _ => Option<Fin<IntersectionResult>>.None,
+            }),
+        new IntersectionCase(
+            Supports: static (l, r) => l == typeof(RayQuery) && (typeof(Surface).IsAssignableFrom(r) || typeof(Brep).IsAssignableFrom(r) || GeometryKernel.CanCoerce(source: r, target: typeof(Brep))),
+            Shape: IntersectionResult.HitsShape,
+            Compute: static (left, right, _, op, _, _) => (left, right) switch {
+                (RayQuery a, Surface b) => Some(RayShoot(query: a, geometry: b, op: op)),
+                (RayQuery a, Brep b) => Some(RayShoot(query: a, geometry: b, op: op)),
+                (RayQuery a, GeometryBase { HasBrepForm: true } b) => Some(a.IsValid ? GeometryKernel.BrepForm(source: b, op: op).Bind(lease => lease.Use(brep => RayShoot(query: a, geometry: brep, op: op))) : Fin.Fail<IntersectionResult>(op.InvalidInput())),
+                (RayQuery, GeometryBase) => Some(Fin.Fail<IntersectionResult>(op.Unsupported(geometryType: right.GetType(), outputType: typeof(IntersectionResult)))),
+                _ => Option<Fin<IntersectionResult>>.None,
+            }),
+        new IntersectionCase(
+            Supports: static (l, r) => GeometryKernel.CanCurveForm(type: l) && (GeometryKernel.CanCurveForm(type: r) || r == typeof(Plane) || r == typeof(Line) || typeof(Surface).IsAssignableFrom(r) || typeof(Brep).IsAssignableFrom(r) || typeof(BrepFace).IsAssignableFrom(r)),
+            Shape: IntersectionResult.HitsShape,
+            Compute: static (left, right, context, op, cancel, progress) => left is not Curve && GeometryKernel.CanCurveForm(type: left.GetType())
+                ? Some(GeometryKernel.CurveForm(source: left, op: op).Bind(lease => lease.Use(curve => IntersectOrdered(left: curve, right: right, context: context, op: op, cancel: cancel, progress: progress))))
+                : Option<Fin<IntersectionResult>>.None),
+        new IntersectionCase(
+            Supports: static (l, r) => (GeometryKernel.CanCurveForm(type: l) || l == typeof(Plane) || l == typeof(Line) || typeof(Surface).IsAssignableFrom(l) || typeof(Brep).IsAssignableFrom(l) || typeof(BrepFace).IsAssignableFrom(l)) && GeometryKernel.CanCurveForm(type: r),
+            Shape: IntersectionResult.HitsShape,
+            Compute: static (left, right, context, op, cancel, progress) => right is not Curve && GeometryKernel.CanCurveForm(type: right.GetType())
+                ? Some(GeometryKernel.CurveForm(source: right, op: op).Bind(lease => lease.Use(curve => IntersectOrdered(left: left, right: curve, context: context, op: op, cancel: cancel, progress: progress))))
+                : Option<Fin<IntersectionResult>>.None));
     internal static Fin<IntersectionResult> ClassifiedIntersectionOf<TL, TR>(TL left, TR right, Context context, Op op, IProgress<double>? progress, CancellationToken cancel) where TL : notnull where TR : notnull =>
         IntersectionOf(left: left, right: right, context: context, op: op, progress: progress, unordered: true, cancel: cancel)
             .Bind(result => (result, GeometryKernel.CanCurveForm(type: typeof(TL)) && GeometryKernel.CanCurveForm(type: typeof(TR))) switch {
@@ -171,47 +360,14 @@ public static partial class Analyze {
             .Bind(leftLease => leftLease.Use(leftCurve => GeometryKernel.CurveForm(source: right, op: op)
                 .Bind(rightLease => rightLease.Use(rightCurve => CurveDeviationOf(left: leftCurve, right: rightCurve, context: context, op: op)))));
     private static Fin<IntersectionResult> IntersectOrdered(object left, object right, Context context, Op op, CancellationToken cancel, IProgress<double>? progress) =>
-        (left, right) switch {
-            _ when cancel.IsCancellationRequested => Fin.Fail<IntersectionResult>(new Fault.Cancelled()),
-            (Line a, Line b) => Fin.Succ((IntersectionResult)new IntersectionResult.Points(Intersection.LineLine(a, b, out double ta, out double _, context.Absolute.Value, true) ? Seq(a.PointAt(ta)) : Seq<Point3d>())),
-            (Line a, Plane b) => Fin.Succ((IntersectionResult)new IntersectionResult.Points(Intersection.LinePlane(a, b, out double t) && t is >= 0.0 and <= 1.0 ? Seq(a.PointAt(t)) : Seq<Point3d>())),
-            (Plane a, Plane b) => Fin.Succ((IntersectionResult)new IntersectionResult.Lines(Intersection.PlanePlane(a, b, out Line line) ? Seq(line) : Seq<Line>())),
-            (Line a, Circle b) => Fin.Succ((IntersectionResult)new IntersectionResult.Points(Intersection.LineCircle(a, b, out double t1, out Point3d p1, out double t2, out Point3d p2) switch {
-                LineCircleIntersection.Single when t1 is >= 0.0 and <= 1.0 => Seq(p1),
-                LineCircleIntersection.Multiple => Seq((T: t1, Point: p1), (T: t2, Point: p2)).Where(static p => p.T is >= 0.0 and <= 1.0).Map(static p => p.Point),
-                _ => Seq<Point3d>(),
-            })),
-            (Line a, Sphere b) => Fin.Succ((IntersectionResult)new IntersectionResult.Points(Intersection.LineSphere(a, b, out Point3d p1, out Point3d p2) switch {
-                LineSphereIntersection.Single when OnFiniteLine(line: a, point: p1, tolerance: context.Absolute.Value) => Seq(p1),
-                LineSphereIntersection.Multiple => Seq(p1, p2).Where(p => OnFiniteLine(line: a, point: p, tolerance: context.Absolute.Value)),
-                _ => Seq<Point3d>(),
-            })),
-            (Line a, BoundingBox b) => Fin.Succ((IntersectionResult)new IntersectionResult.Intervals(Intersection.LineBox(a, b, context.Absolute.Value, out Interval iv) ? SegmentInterval(iv) : Seq<Interval>())),
-            (Line a, Box b) => Fin.Succ((IntersectionResult)new IntersectionResult.Intervals(Intersection.LineBox(a, b, context.Absolute.Value, out Interval iv) ? SegmentInterval(iv) : Seq<Interval>())),
-            (Line a, Curve b) => CurveAgainst(a: b, b: a, context: context, op: op, intersect: static (c, l, t) => Intersection.CurveLine(c, l, t, t), finiteLine: Some(a)),
-            (Curve a, Curve b) => new Lease<CurveIntersections>.Owned(Value: Intersection.CurveCurve(a, b, context.Absolute.Value, context.Absolute.Value)).Use(hits => cancel.IsCancellationRequested ? Fin.Fail<IntersectionResult>(new Fault.Cancelled()) : HitsFromEvents(hits: hits, op: op, source: a)),
-            (Curve a, Plane b) => CurveAgainst(a: a, b: b, context: context, op: op, intersect: static (c, p, t) => Intersection.CurvePlane(c, p, t)),
-            (Curve a, Line b) => CurveAgainst(a: a, b: b, context: context, op: op, intersect: static (c, l, t) => Intersection.CurveLine(c, l, t, t), finiteLine: Some(b)),
-            (Curve a, BrepFace b) => HitsFromSolved(solved: Intersection.CurveBrepFace(a, b, context.Absolute.Value, out Curve[] cs, out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Overlap, op: op, cancel: cancel),
-            (Curve a, Brep b) => HitsFromSolved(solved: Intersection.CurveBrep(a, b, context.Absolute.Value, out Curve[] cs, out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Overlap, op: op, cancel: cancel, partial: true),
-            (Curve a, Surface b) => CurveAgainst(a: a, b: b, context: context, op: op, intersect: static (c, s, t) => Intersection.CurveSurface(c, s, t, t)),
-            (Surface a, Surface b) => HitsFromSolved(solved: Intersection.SurfaceSurface(a, b, context.Absolute.Value, out Curve[] cs, out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Curve, op: op, cancel: cancel),
-            (Brep a, Plane b) => HitsFromSolved(solved: Intersection.BrepPlane(a, b, context.Absolute.Value, out Curve[] cs, out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Curve, op: op, cancel: cancel),
-            (Brep a, Surface b) => HitsFromSolved(solved: Intersection.BrepSurface(a, b, context.Absolute.Value, true, out Curve[] cs, out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Curve, op: op, cancel: cancel),
-            (Brep a, Brep b) => HitsFromSolved(solved: Intersection.BrepBrep(a, b, context.Absolute.Value, true, out Curve[] cs, out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Curve, op: op, cancel: cancel),
-            (Mesh a, Line b) => Fin.Succ((IntersectionResult)new IntersectionResult.Points(toSeq(Intersection.MeshLineSorted(a, b, out int[] _) ?? []))),
-            (Mesh a, Plane b) => MeshPlane(mesh: a, plane: b, context: context),
-            (Mesh a, Mesh b) => MeshMesh(left: a, right: b, context: context, op: op, cancel: cancel, progress: progress),
-            (RayQuery a, Mesh b) => Fin.Succ((IntersectionResult)new IntersectionResult.Points(Intersection.MeshRay(b, a.Ray) switch {
-                double t when double.IsFinite(t) && t >= 0.0 => Seq(a.Ray.PointAt(t: t)),
-                _ => Seq<Point3d>(),
-            })),
-            (RayQuery a, GeometryBase b) => Fin.Succ((IntersectionResult)new IntersectionResult.Hits(toSeq(Intersection.RayShoot(Seq(b).AsIterable(), a.Ray, a.MaxReflections) ?? []).Map(static e => IntersectionHit.At(e.Point)))),
-            (object a, object b) when a is not Curve && GeometryKernel.CanCurveForm(type: a.GetType()) =>
-                GeometryKernel.CurveForm(source: a, op: op).Bind(lease => lease.Use(curve => IntersectOrdered(left: curve, right: b, context: context, op: op, cancel: cancel, progress: progress))),
-            (object a, object b) when b is not Curve && GeometryKernel.CanCurveForm(type: b.GetType()) =>
-                GeometryKernel.CurveForm(source: b, op: op).Bind(lease => lease.Use(curve => IntersectOrdered(left: a, right: curve, context: context, op: op, cancel: cancel, progress: progress))),
-            _ => Fin.Fail<IntersectionResult>(op.Unsupported(left.GetType(), right.GetType())),
+        cancel.IsCancellationRequested switch {
+            true => Fin.Fail<IntersectionResult>(new Fault.Cancelled()),
+            false => IntersectionCases.Choose(c => c.TryCompute(left: left, right: right, context: context, op: op, cancel: cancel, progress: progress)).Head.ToFin(op.Unsupported(left.GetType(), right.GetType())).Bind(static result => result),
+        };
+    private static Fin<IntersectionResult> RayShoot(RayQuery query, GeometryBase geometry, Op op) =>
+        query.IsValid switch {
+            true => Fin.Succ((IntersectionResult)new IntersectionResult.Hits(toSeq(Intersection.RayShoot(Seq(geometry).AsIterable(), query.Ray, query.MaxReflections) ?? []).Map(static e => IntersectionHit.At(e.Point)))),
+            false => Fin.Fail<IntersectionResult>(op.InvalidInput()),
         };
     private static bool OnFiniteLine(Line line, Point3d point, double tolerance) => point.IsValid && point.DistanceTo(other: line.ClosestPoint(testPoint: point, limitToFiniteSegment: true)) <= tolerance;
     private static Seq<Interval> SegmentInterval(Interval interval) =>

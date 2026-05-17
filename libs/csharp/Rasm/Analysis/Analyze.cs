@@ -37,19 +37,23 @@ public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnul
         Build(key: key, state: Unit.Default, evaluator: (_, geometry) => evaluator(arg: geometry), requirement: requirement, requiresContext: requiresContext, aggregate: aggregate);
     internal static Operation<TGeometry, TOut> Build<TState>(Op key, TState state, Func<TState, TGeometry, Eff<Env, Seq<TOut>>> evaluator, Requirement? requirement = null, bool requiresContext = false, Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> aggregate = default) {
         Requirement active = requirement ?? Requirement.None;
-        return new(
-            key: key,
-            requirement: active,
-            requiresContext: requiresContext,
-            body: new Body.PerItem(
-                Evaluate: geometry =>
-                    from prepared in Prepare(geometry: geometry, requirement: active)
-                    from value in evaluator(arg1: state, arg2: prepared)
-                    select value,
-                Plan: aggregate.Map<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>>(project => geometry =>
+        return aggregate.Match(
+            Some: project => new Operation<TGeometry, TOut>(
+                key: key,
+                requirement: active,
+                requiresContext: requiresContext,
+                body: new Body.Aggregate(Evaluate: geometry =>
                     from resolved in geometry.TraverseM(item => Prepare(geometry: item, requirement: active)).As()
                     from result in project(arg: resolved)
-                    select result)));
+                    select result)),
+            None: () => new Operation<TGeometry, TOut>(
+                key: key,
+                requirement: active,
+                requiresContext: requiresContext,
+                body: new Body.PerItem(Evaluate: geometry =>
+                    from prepared in Prepare(geometry: geometry, requirement: active)
+                    from value in evaluator(arg1: state, arg2: prepared)
+                    select value)));
     }
     internal static Operation<TGeometry, TOut> Reject(Op key, Error fault) =>
         new(key: key, requirement: Requirement.None, requiresContext: false, body: new Body.Rejected(Fault: fault));
@@ -74,7 +78,7 @@ public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnul
     private abstract partial record Body {
         private Body() { }
         internal sealed record Rejected(Error Fault) : Body;
-        internal sealed record PerItem(Func<TGeometry, Eff<Env, Seq<TOut>>> Evaluate, Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> Plan) : Body;
+        internal sealed record PerItem(Func<TGeometry, Eff<Env, Seq<TOut>>> Evaluate) : Body;
         internal sealed record Aggregate(Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>> Evaluate) : Body;
     }
 }

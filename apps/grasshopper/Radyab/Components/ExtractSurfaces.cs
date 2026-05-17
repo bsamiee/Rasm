@@ -26,7 +26,12 @@ public sealed class ExtractSurfaces : Component<ExtractSurfaces> {
         aspect: runtime => runtime.Read(port: Direction).Map(axis => Rasm.Analysis.Faces.Bottom(axis: axis.ToNullable())));
     private static readonly OutputGroup Frame = Output.Details(
         input: Geometry,
-        aspect: runtime => Fin.Succ(Rasm.Analysis.Faces.At(index: runtime.Index(port: Index, limit: int.MaxValue).ToNullable())),
+        aspect: static (runtime, source) =>
+            from context in runtime.Scope.Context
+            from faces in Rasm.Analysis.Faces.All.Operation<object, int>()
+                .Apply(geometry: Seq(source.Item.Inner))
+                .Run(env: new Env(Context: context, Progress: runtime.Progress, Cancellation: runtime.Cancellation))
+            select Rasm.Analysis.Faces.At(index: runtime.Index(port: Index, limit: faces.Count).ToNullable()),
         emptyUnsupported: false,
         slots: [
             Output.Aspect<Rasm.Analysis.Faces, Brep>(port: Port.Tree<Brep>(name: "Face", code: "FA", info: "Trimmed single-face Brep at Index; missing Index defaults to 0 and GH index modifiers apply per source face count.")),

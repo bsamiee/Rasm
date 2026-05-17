@@ -59,18 +59,18 @@ public partial record Conformance {
             SignedResidualCase or ContainmentCase =>
                 Key.AcceptResults<ResidualSample, TOut>(values: residuals),
             DistributionCase distribution =>
-                Stat.Residuals<Distribution>(samples: residuals, key: Key, aggregate: new ResidualAggregate.DistributionCase(Percentiles: distribution.Percentiles)).Bind(d => Key.AcceptResults<Distribution, TOut>(values: Seq(d))),
+                Stat.Residuals<Distribution>(samples: residuals, key: Key, aggregate: ResidualAggregate.Distribution(percentiles: distribution.Percentiles)).Bind(d => Key.AcceptResults<Distribution, TOut>(values: Seq(d))),
             _ => Fin.Fail<Seq<TOut>>(Key.Unsupported(geometryType: typeof(ResidualSample), outputType: typeof(TOut))),
         };
     private static bool CanConform(Conformance aspect, Type geometry, Type target) =>
         geometry == typeof(object) || target == typeof(object)
         || (GeometryKernel.CanCurveForm(type: geometry) && AcceptedTarget(aspect: aspect, target: target, curveSource: true))
-        || (typeof(Surface).IsAssignableFrom(geometry) && AcceptedTarget(aspect: aspect, target: target, curveSource: false));
+        || (GeometryKernel.CanSurfaceForm(type: geometry) && AcceptedTarget(aspect: aspect, target: target, curveSource: false));
     private static bool AcceptedTarget(Conformance aspect, Type target, bool curveSource) =>
         target == typeof(Plane) || target == typeof(Sphere) || target == typeof(Box) || target == typeof(BoundingBox)
         || (aspect is ContainmentCase && (target == typeof(Brep) || target == typeof(Mesh)))
         || (curveSource && (target == typeof(Line) || target == typeof(Circle) || target == typeof(Arc) || target == typeof(Polyline) || GeometryKernel.CanCurveForm(type: target)))
-        || typeof(Surface).IsAssignableFrom(target);
+        || GeometryKernel.CanSurfaceForm(type: target);
     private static Operation<(TGeometry Geometry, TTarget Target), TValue> Pair<TGeometry, TTarget, TValue>(Conformance aspect, int count) where TGeometry : notnull where TTarget : notnull =>
         Operation<(TGeometry Geometry, TTarget Target), TValue>.Build(
             key: Key, requiresContext: true,
@@ -93,9 +93,9 @@ public partial record Conformance {
             (object curveLike, object targetCurveLike) when GeometryKernel.CanCurveForm(type: curveLike.GetType()) && GeometryKernel.CanCurveForm(type: targetCurveLike.GetType()) => CurveCurveSamples(aspect, curveLike, targetCurveLike, count, context),
             (object curveLike, _) when GeometryKernel.CanCurveForm(type: curveLike.GetType()) =>
                 GeometryKernel.CurveForm(source: curveLike, op: Key).Bind(lease => lease.Use(curve =>
-                    SampleResiduals(curve, target, count, context, sampler: SampleCurve, distance: (t, pt) => DistanceFor(aspect, t, pt)))),
+                    SampleResiduals(curve, target, count, context, sampler: SampleCurve, distance: (t, pt) => DistanceFor(aspect: aspect, target: t, point: pt, tolerance: context.Absolute.Value)))),
             (Surface surface, _) =>
-                SampleResiduals(surface, target, count, context, GeometryKernel.SurfaceSamplePoints, distance: (t, pt) => DistanceFor(aspect, t, pt)),
+                SampleResiduals(surface, target, count, context, GeometryKernel.SurfaceSamplePoints, distance: (t, pt) => DistanceFor(aspect: aspect, target: t, point: pt, tolerance: context.Absolute.Value)),
             _ => Fin.Fail<Seq<ResidualSample>>(Key.Unsupported(typeof(TGeometry), typeof(ResidualSample))),
         };
     private static Fin<Seq<ResidualSample>> CurveCurveSamples(Conformance aspect, object curveLike, object targetCurveLike, int count, Context context) =>
@@ -122,18 +122,19 @@ public partial record Conformance {
         GeometryKernel.CurveSampleParameters(curve: curve, count: count, context: context, key: key)
             .Map(parameters => parameters.Map(curve.PointAt));
     // Sign convention: positive=outside, negative=inside via Rhino's outward-normal axis. NaN propagates failure through Stat.Of.AllFinite.
-    private static double DistanceFor(Conformance aspect, object target, Point3d point) =>
+    private static double DistanceFor(Conformance aspect, object target, Point3d point, double tolerance) =>
         (aspect, target) switch {
             (SignedResidualCase or ContainmentCase, Plane plane) => plane.DistanceTo(testPoint: point),
             (SignedResidualCase or ContainmentCase, Sphere sphere) => point.DistanceTo(sphere.Center) - sphere.Radius,
             (SignedResidualCase or ContainmentCase, Box box) => (box.Contains(point, false) ? -1.0 : 1.0) * point.DistanceTo(box.ClosestPoint(point, false)),
             (SignedResidualCase or ContainmentCase, BoundingBox bbox) => (bbox.Contains(point) ? -1.0 : 1.0) * point.DistanceTo(bbox.ClosestPoint(point, false)),
-            (ContainmentCase, Brep brep) => brep.ClosestPoint(point, out Point3d brepClosest, out _, out _, out _, 0.0, out Vector3d brepNormal) ? (point - brepClosest) * brepNormal : double.NaN,
-            (ContainmentCase, Mesh mesh) => mesh.ClosestPoint(point, out Point3d meshClosest, out Vector3d meshNormal, 0.0) >= 0 ? (point - meshClosest) * meshNormal : double.NaN,
+            (ContainmentCase, Brep brep) => brep.ClosestPoint(point, out Point3d brepClosest, out _, out _, out _, 0.0, out Vector3d brepNormal) ? brep.IsSolid switch { true => (brep.IsPointInside(point, tolerance, false) ? -1.0 : 1.0) * point.DistanceTo(brepClosest), false => (point - brepClosest) * brepNormal } : double.NaN,
+            (ContainmentCase, Mesh mesh) => mesh.ClosestPoint(point, out Point3d meshClosest, out Vector3d meshNormal, 0.0) >= 0 ? mesh.IsSolid switch { true => (mesh.IsPointInside(point, tolerance, false) ? -1.0 : 1.0) * point.DistanceTo(meshClosest), false => (point - meshClosest) * meshNormal } : double.NaN,
             (_, Plane plane) => Math.Abs(plane.DistanceTo(testPoint: point)),
             (_, Sphere sphere) => point.DistanceTo(sphere.ClosestPoint(testPoint: point)),
             (_, Box box) => point.DistanceTo(box.ClosestPoint(point, false)),
             (_, BoundingBox bbox) => point.DistanceTo(bbox.ClosestPoint(point, false)),
+            (_, BrepFace face) => face.ClosestPointOnFace(testPoint: point, u: out double fu, v: out double fv, maximumDistance: 0.0) ? point.DistanceTo(face.PointAt(u: fu, v: fv)) : double.NaN,
             (_, Surface surface) => surface.ClosestPoint(testPoint: point, u: out double u, v: out double v) ? point.DistanceTo(surface.PointAt(u: u, v: v)) : double.NaN,
             _ => double.NaN,
         };

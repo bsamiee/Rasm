@@ -44,6 +44,7 @@ internal partial record ResidualAggregate {
     public static ResidualAggregate Distances => new DistancesCase();
     public static ResidualAggregate Summary(double tolerance) => new SummaryCase(Tolerance: tolerance);
     public static ResidualAggregate Maximum => new MaximumCase();
+    public static ResidualAggregate Distribution(Seq<double> percentiles) => new DistributionCase(Percentiles: percentiles);
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -88,14 +89,15 @@ public readonly record struct Stat(int Count, double Minimum, double Maximum, do
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct Distribution(Stat Summary, double Median, double Iqr, Seq<(double Percentile, double Value)> Percentiles) {
     internal static Fin<Distribution> Of(Seq<double> values, Seq<double> percentiles, Op key, StatContext? context = null) =>
-        Stat.Of(values: values, key: key, context: context).Map(stat =>
-            values.OrderBy(static v => v).AsIterable().ToSeq() switch {
-                Seq<double> sorted => new Distribution(
-                    Summary: stat,
-                    Median: Quantile(sorted: sorted, fraction: 0.5),
-                    Iqr: Quantile(sorted: sorted, fraction: 0.75) - Quantile(sorted: sorted, fraction: 0.25),
-                    Percentiles: percentiles.Map(p => (Percentile: p, Value: Quantile(sorted: sorted, fraction: p / 100.0)))),
-            });
+        percentiles.TraverseM(p => RhinoMath.IsValidDouble(x: p) && p is >= 0.0 and <= 100.0 ? Fin.Succ(p) : Fin.Fail<double>(key.InvalidInput())).As()
+            .Bind(valid => Stat.Of(values: values, key: key, context: context).Map(stat =>
+                values.OrderBy(static v => v).AsIterable().ToSeq() switch {
+                    Seq<double> sorted => new Distribution(
+                        Summary: stat,
+                        Median: Quantile(sorted: sorted, fraction: 0.5),
+                        Iqr: Quantile(sorted: sorted, fraction: 0.75) - Quantile(sorted: sorted, fraction: 0.25),
+                        Percentiles: valid.Map(p => (Percentile: p, Value: Quantile(sorted: sorted, fraction: p / 100.0)))),
+                }));
     private static double Quantile(Seq<double> sorted, double fraction) =>
         (sorted.Count - 1) * Math.Clamp(value: fraction, min: 0.0, max: 1.0) switch {
             double idx when idx == Math.Floor(d: idx) => sorted[(int)idx],

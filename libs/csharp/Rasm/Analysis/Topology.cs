@@ -70,7 +70,7 @@ public static partial class Analyze {
     }
     internal static Operation<TGeometry, TOut> TopologyDomains<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
-        return typeof(TOut) == typeof(Interval) && (typeof(TGeometry) == typeof(object) || typeof(TGeometry) == typeof(GeometryBase) || typeof(Curve).IsAssignableFrom(typeof(TGeometry)) || typeof(Surface).IsAssignableFrom(typeof(TGeometry)))
+        return typeof(TOut) == typeof(Interval) && (GeometryKernel.CanCurveForm(type: typeof(TGeometry)) || GeometryKernel.CanSurfaceForm(type: typeof(TGeometry)))
             ? KernelLift<TGeometry, Interval, Op>(key: key, state: key, extract: static (op, g, _) => DomainsOf(geometry: g, op: op).Bind(domains => op.Accept(values: domains))).As<TGeometry, TOut>(key: key)
             : key.Unsupported<TGeometry, TOut>();
     }

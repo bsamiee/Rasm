@@ -271,15 +271,12 @@ public static partial class Analyze {
         GeometryKernel.SurfaceSampleUv(surface: surface, count: count, context: model, key: key)
             .Bind(samples => samples.TraverseM(uv => Optional(surface.CurvatureAt(u: uv.X, v: uv.Y)).ToFin(key.InvalidResult())).As());
     [StructLayout(LayoutKind.Auto)]
-    private readonly record struct CurvatureSample(double Parameter, Point3d Point, double Curvature);
+    private readonly record struct CurvatureSample(Point3d Point, double Curvature);
     private static Fin<Seq<CurvatureSample>> CurveCurvatureSamples(Op op, Curve curve, int count, Context ctx) =>
         GeometryKernel.CurveSampleParameters(curve: curve, count: count, context: ctx, key: op)
-            .Map(parameters => parameters.Map(t => new CurvatureSample(Parameter: t, Point: curve.PointAt(t: t), Curvature: curve.CurvatureAt(t: t).Length)));
+            .Map(parameters => parameters.Map(t => new CurvatureSample(Point: curve.PointAt(t: t), Curvature: curve.CurvatureAt(t: t).Length)));
     private static Fin<Seq<CurvatureSample>> SurfaceCurvatureSamples(Op op, Surface surface, int count, Context ctx, ScalarMetric metric) =>
         GeometryKernel.SurfaceSampleUv(surface: surface, count: count, context: ctx, key: op)
             .Map(uvs => uvs.Map(uv => new Lease<SurfaceCurvature>.Owned(Value: surface.CurvatureAt(u: uv.X, v: uv.Y))
-                .Use(c => new CurvatureSample(
-                    Parameter: uv.X,
-                    Point: surface.PointAt(u: uv.X, v: uv.Y),
-                    Curvature: metric.Equals(ScalarMetric.Gaussian) ? c.Gaussian : c.Mean))));
+                .Use(c => new CurvatureSample(Point: surface.PointAt(u: uv.X, v: uv.Y), Curvature: metric.Equals(ScalarMetric.Gaussian) ? c.Gaussian : c.Mean))));
 }

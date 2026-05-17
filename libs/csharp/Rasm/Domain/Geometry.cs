@@ -14,6 +14,11 @@ public sealed partial class IntersectionKind {
 }
 public enum IntersectionTangency { Unknown = 0, Transversal = 1, Tangent = 2 }
 public enum CurveFeature { Input = 0, Segment = 1, Edge = 2, Boundary = 3, NakedOuter = 4, NakedInner = 5, Interior = 6, NonManifold = 7, OuterLoop = 8, InnerLoop = 9, Iso = 10, Silhouette = 11, SubCurve = 12, Draft = 13 }
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct RayQuery(Ray3d Ray, int MaxReflections = 1) {
+    public static RayQuery Of(Ray3d ray, int maxReflections = 1) => new(Ray: ray, MaxReflections: maxReflections);
+    internal bool IsValid => Ray.Position.IsValid && Ray.Direction.IsValid && !Ray.Direction.IsTiny() && MaxReflections is >= 1 and <= 1000;
+}
 [Union]
 internal abstract partial record Lease<T> where T : class, IDisposable {
     private Lease() { }
@@ -29,14 +34,16 @@ internal abstract partial record Lease<T> where T : class, IDisposable {
 public sealed record TopologyProjection {
     private static readonly Op Key = Op.Of(name: nameof(TopologyProjection));
     private readonly Lease<GeometryBase> value;
+    private readonly bool detachedSingleFace;
     private Option<Lease<Brep>> faceBrep;
     public GeometryBase Value => value.Resource;
     public CurveFeature Feature { get; }
     public ComponentIndex Source { get; }
     public bool Reversed { get; }
-    private TopologyProjection(Lease<GeometryBase> value, CurveFeature feature, ComponentIndex source, bool reversed = false) { this.value = value; Feature = feature; Source = source; Reversed = reversed; }
+    private TopologyProjection(Lease<GeometryBase> value, CurveFeature feature, ComponentIndex source, bool reversed = false, bool detachedSingleFace = false) { this.value = value; this.detachedSingleFace = detachedSingleFace; Feature = feature; Source = source; Reversed = reversed; }
     internal bool HasValidSource => (Value, Source) switch {
-        (Curve { IsValid: true }, _) or (Brep { IsValid: true, Faces.Count: > 0 }, { ComponentIndexType: ComponentIndexType.BrepFace, Index: >= 0 }) => true,
+        (Curve { IsValid: true }, _) => true,
+        (Brep { IsValid: true, Faces.Count: int count }, { ComponentIndexType: ComponentIndexType.BrepFace, Index: int f }) => f >= 0 && (f < count || (detachedSingleFace && count == 1)),
         (BrepFace { IsValid: true } face, { ComponentIndexType: ComponentIndexType.BrepFace, Index: int f }) => f >= 0 && f == face.FaceIndex,
         (Mesh { IsValid: true } mesh, { ComponentIndexType: ComponentIndexType.MeshFace, Index: int f }) => f >= 0 && f < mesh.Faces.Count,
         (Mesh { IsValid: true } mesh, { ComponentIndexType: ComponentIndexType.MeshNgon, Index: int n }) => n >= 0 && n < mesh.Ngons.Count,
@@ -44,7 +51,11 @@ public sealed record TopologyProjection {
     };
     public Option<T> As<T>() where T : class =>
         Value is T match ? Some(match)
-        : typeof(T) == typeof(BrepFace) && Value is Brep { Faces.Count: > 0 } brep ? Some((T)(object)brep.Faces[0])
+        : typeof(T) == typeof(BrepFace) && Value is Brep { Faces.Count: > 0 } brep && Source is { ComponentIndexType: ComponentIndexType.BrepFace, Index: int faceIndex } ? faceIndex switch {
+            >= 0 when faceIndex < brep.Faces.Count => Some((T)(object)brep.Faces[faceIndex]),
+            >= 0 when detachedSingleFace && brep.Faces.Count == 1 => Some((T)(object)brep.Faces[0]),
+            _ => Option<T>.None,
+        }
         : typeof(T) == typeof(Brep) && Value is BrepFace face
             ? faceBrep.Case switch {
                 Lease<Brep> lease => Some((T)(object)lease.Resource),
@@ -54,7 +65,7 @@ public sealed record TopologyProjection {
     public static TopologyProjection Of(Curve curve, CurveFeature feature, ComponentIndex source) { ArgumentNullException.ThrowIfNull(curve); return new(value: new Lease<GeometryBase>.Owned(Value: curve), feature: feature, source: source); }
     public static TopologyProjection Of(BrepFace face, bool copy = false) {
         ArgumentNullException.ThrowIfNull(face);
-        return new(value: copy ? new Lease<GeometryBase>.Owned(face.DuplicateFace(false)) : (Lease<GeometryBase>)new Lease<GeometryBase>.Borrowed(face), feature: CurveFeature.Input, source: new ComponentIndex(ComponentIndexType.BrepFace, face.FaceIndex), reversed: face.OrientationIsReversed);
+        return new(value: copy ? new Lease<GeometryBase>.Owned(face.DuplicateFace(false)) : (Lease<GeometryBase>)new Lease<GeometryBase>.Borrowed(face), feature: CurveFeature.Input, source: new ComponentIndex(ComponentIndexType.BrepFace, face.FaceIndex), reversed: face.OrientationIsReversed, detachedSingleFace: copy);
     }
     public static Fin<TopologyProjection> FromMesh(Mesh? mesh, ComponentIndex source) =>
         Optional(mesh).ToFin(Key.InvalidInput()).Bind(native => new TopologyProjection(value: new Lease<GeometryBase>.Borrowed(Value: native), feature: CurveFeature.Input, source: source) switch { { HasValidSource: true } projection => Fin.Succ(projection), _ => Fin.Fail<TopologyProjection>(Key.InvalidInput()) });
@@ -199,7 +210,8 @@ internal static class GeometryKernel {
         return Universal(type) || Kind.Of(type).Map(predicate).IfNone(false);
     }
     internal static bool CanBound(Type source, bool includeSphere) => Universal(source) || typeof(GeometryBase).IsAssignableFrom(source) || Kind.Of(source).Map(kind => kind.CanBound(includeSphere: includeSphere)).IfNone(false);
-    internal static bool CanCurveForm(Type type) => Universal(type) || typeof(Curve).IsAssignableFrom(c: type) || Kind.Of(type).Map(static kind => kind.Topology == Topology.Curve).IfNone(false);
+    internal static bool CanCurveForm(Type type) => typeof(Curve).IsAssignableFrom(c: type) || Can(type: type, predicate: static kind => kind.Topology == Topology.Curve);
+    internal static bool CanSurfaceForm(Type type) => type == typeof(object) || type == typeof(GeometryBase) || typeof(Surface).IsAssignableFrom(c: type);
     internal static bool CanCoerce(Type source, Type target) => Universal(source) || Kind.Of(source).Map(kind => kind.CanCoerceTo(target: target)).IfNone(target.IsAssignableFrom(source));
     public static Fin<Kind> KindOf(this object geometry, Context context) {
         Op key = Op.Of(name: nameof(Kind));
