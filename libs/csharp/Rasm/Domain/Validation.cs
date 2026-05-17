@@ -138,15 +138,12 @@ internal static class RequirementContext {
         Op op,
         Func<Op, Kind, Kind, Fin<(Requirement A, Requirement B)>> requirements,
         CancellationToken cancel = default) where TA : notnull where TB : notnull =>
-        Fin.Succ((Context: context, A: a, B: b, Op: op, Requirements: requirements, Cancel: cancel)).ToValidation()
-            .Bind(static state => (state.Context.Validate(a: state.A, b: state.B, requirementA: Requirement.None, requirementB: Requirement.None, cancel: state.Cancel), Fin.Succ(state).ToValidation())
-                .Apply(static (pair, state) => (state.Context, pair.A, pair.B, state.Op, state.Requirements, state.Cancel)).As())
-            .Bind(static state => (((object)state.A).KindOf(context: state.Context).ToValidation(), ((object)state.B).KindOf(context: state.Context).ToValidation(), Fin.Succ(state).ToValidation())
-                .Apply(static (kindA, kindB, state) => (state.Context, state.A, state.B, state.Op, state.Requirements, state.Cancel, KindA: kindA, KindB: kindB)).As())
-            .Bind(static state => (state.Requirements(arg1: state.Op, arg2: state.KindA, arg3: state.KindB).ToValidation(), Fin.Succ(state).ToValidation())
-                .Apply(static (required, state) => (state.Context, state.A, state.B, state.Cancel, state.KindA, state.KindB, RequiredA: required.A, RequiredB: required.B)).As())
-            .Bind(static state => (state.Context.Validate(a: state.A, b: state.B, requirementA: state.RequiredA, requirementB: state.RequiredB, cancel: state.Cancel), Fin.Succ(state).ToValidation())
-                .Apply(static (pair, state) => (pair.A, pair.B, state.KindA, state.KindB)).As());
+        (from pair in context.Validate(a: a, b: b, requirementA: Requirement.None, requirementB: Requirement.None, cancel: cancel)
+         from kindA in ((object)a).KindOf(context: context).ToValidation()
+         from kindB in ((object)b).KindOf(context: context).ToValidation()
+         from required in requirements(arg1: op, arg2: kindA, arg3: kindB).ToValidation()
+         from validated in context.Validate(a: a, b: b, requirementA: required.A, requirementB: required.B, cancel: cancel)
+         select (validated.A, validated.B, KindA: kindA, KindB: kindB)).As();
 }
 
 // --- [ERRORS] -----------------------------------------------------------------------------

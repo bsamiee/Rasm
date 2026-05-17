@@ -151,5 +151,5 @@ public static partial class Analyze {
     private static double PrincipalAngle(Seq<Point3d> points, Plane fit) =>
         points.Fold(initialState: (Sxx: 0.0, Sxy: 0.0, Syy: 0.0), f: (state, point) => ((point - fit.Origin) * fit.XAxis, (point - fit.Origin) * fit.YAxis) switch {
             (double x, double y) => (state.Sxx + (x * x), state.Sxy + (x * y), state.Syy + (y * y)),
-        }) switch { var c => 0.5 * Math.Atan2(y: 2.0 * c.Sxy, x: c.Sxx - c.Syy) };
+        }) switch { (double sxx, double sxy, double syy) => 0.5 * Math.Atan2(y: 2.0 * sxy, x: sxx - syy) };
 }

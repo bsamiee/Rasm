@@ -183,7 +183,7 @@ public partial record Bounds : IAspect {
             _ => Fin.Succ(FarthestFrom(samples: samples, anchor: samples[0]) switch {
                 Point3d p1 => FarthestFrom(samples: samples, anchor: p1) switch {
                     Point3d p2 => samples.Fold(
-                        initialState: (Center: Midpoint(a: p1, b: p2), Radius: p1.DistanceTo(other: p2) * 0.5),
+                        initialState: (Center: new Point3d(x: (p1.X + p2.X) * 0.5, y: (p1.Y + p2.Y) * 0.5, z: (p1.Z + p2.Z) * 0.5), Radius: p1.DistanceTo(other: p2) * 0.5),
                         f: static (state, p) => p.DistanceTo(other: state.Center) switch {
                             double d when d <= state.Radius => state,
                             double d => (Center: state.Center + ((p - state.Center) * ((d - state.Radius) * 0.5 / d)), Radius: (state.Radius + d) * 0.5),
@@ -194,8 +194,6 @@ public partial record Bounds : IAspect {
             T fit when isValid(arg: fit) => Fin.Succ(fit),
             _ => Fin.Fail<T>(key.InvalidResult()),
         });
-    private static Point3d Midpoint(Point3d a, Point3d b) =>
-        new(x: (a.X + b.X) * 0.5, y: (a.Y + b.Y) * 0.5, z: (a.Z + b.Z) * 0.5);
     private static Point3d FarthestFrom(Seq<Point3d> samples, Point3d anchor) =>
         samples.Fold(
             initialState: (Best: anchor, Anchor: anchor, SqDist: 0.0),

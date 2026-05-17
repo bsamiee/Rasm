@@ -71,12 +71,8 @@ public readonly record struct Stat(int Count, double Minimum, double Maximum, do
             _ => state,
         }).Hits.Rev();
     internal static Fin<TOut> Residuals<TOut>(Seq<ResidualSample> samples, Op key, ResidualAggregate aggregate) =>
-        samples.Fold(
-            initialState: (Value: Fin.Succ(Seq<ResidualSample>()), Key: key),
-            f: static (state, sample) => sample switch {
-                ResidualSample valid when OpAcceptance.ValidityOf(source: valid).IfNone(false) => state with { Value = (state.Value, Fin.Succ(sample)).Apply(static (values, accepted) => values.Add(value: accepted)).As() },
-                _ => state with { Value = Fin.Fail<Seq<ResidualSample>>(state.Key.InvalidResult()) },
-            }).Value.Bind(validated => (aggregate, typeof(TOut)) switch {
+        samples.TraverseM(sample => OpAcceptance.ValidityOf(source: sample).IfNone(false) ? Fin.Succ(sample) : Fin.Fail<ResidualSample>(key.InvalidResult())).As()
+            .Bind(validated => (aggregate, typeof(TOut)) switch {
                 (ResidualAggregate.DistancesCase, Type t) when t == typeof(Seq<double>) => Fin.Succ((TOut)(object)validated.Map(static sample => sample.Distance)),
                 (ResidualAggregate.SummaryCase summary, Type t) when t == typeof(Stat) => Of(values: validated.Map(static sample => sample.Distance), key: key)
                     .Map(stat => (TOut)(object)(stat with { Context = StatContext.Tolerance(tolerance: summary.Tolerance, minimum: stat.Minimum, maximum: stat.Maximum) })),

@@ -23,8 +23,8 @@ internal static class RuntimeRules {
 
     internal static void CheckClosureCapture(OperationAnalysisContext context, ScopeInfo scope, IAnonymousFunctionOperation anonymousFunction) {
         ImmutableArray<string> capturedSymbols = CapturedOuterSymbols(anonymousFunction);
-        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, IsStaticLambda(anonymousFunction), capturedSymbols.Length > 0) switch {
-            (true, false, true) => Diagnostic.Create(RuleCatalog.CSP0013, context.Operation.Syntax.GetLocation()),
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsDomainOrApplication, IsStaticLambda(anonymousFunction), IsQueryExpressionLambda(anonymousFunction), capturedSymbols.Length > 0) switch {
+            (true, false, false, true) => Diagnostic.Create(RuleCatalog.CSP0013, context.Operation.Syntax.GetLocation()),
             _ => null,
         });
     }
@@ -266,6 +266,8 @@ internal static class RuntimeRules {
             LambdaExpressionSyntax { Modifiers: { } modifiers } => modifiers.Any(modifier => modifier.IsKind(SyntaxKind.StaticKeyword)),
             _ => false,
         };
+    private static bool IsQueryExpressionLambda(IAnonymousFunctionOperation lambda) =>
+        lambda.Syntax.Ancestors().OfType<QueryExpressionSyntax>().Any();
     private static ImmutableArray<string> CapturedOuterSymbols(IAnonymousFunctionOperation anonymousFunction) {
         IMethodSymbol lambdaSymbol = anonymousFunction.Symbol;
         IEnumerable<string> captured = anonymousFunction.Body.DescendantsAndSelf().SelectMany(operation =>

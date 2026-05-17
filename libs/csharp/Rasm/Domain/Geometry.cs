@@ -313,15 +313,18 @@ internal static class GeometryKernel {
             (Interval u, Interval v) when u.IsValid && v.IsValid =>
                 Fractions(count: count, op: key)
                     .Map(fractions => fractions.Bind(uf => fractions.Map(vf => new Point2d(u.ParameterAt(uf), v.ParameterAt(vf)))))
-                    .Bind(samples => native is BrepFace face
-                        ? OnFaceUv(face, samples, model.Absolute.Value) switch { Seq<Point2d> valid when !valid.IsEmpty => Fin.Succ(valid), _ => Fin.Fail<Seq<Point2d>>(key.InvalidResult()) }
-                        : Fin.Succ(samples)),
+                    .Bind(samples => (native, model.Absolute.Value) switch {
+                        (BrepFace face, double tolerance) => samples.Choose(uv =>
+                            face.IsPointOnFace(u: uv.X, v: uv.Y, tolerance: tolerance) != PointFaceRelation.Exterior ? Some(uv)
+                            : face.ClosestPointOnFace(testPoint: face.PointAt(u: uv.X, v: uv.Y), u: out double fu, v: out double fv, maximumDistance: 0.0)
+                                && face.IsPointOnFace(u: fu, v: fv, tolerance: tolerance) != PointFaceRelation.Exterior ? Some(new Point2d(fu, fv)) : Option<Point2d>.None) switch {
+                                    Seq<Point2d> valid when !valid.IsEmpty => Fin.Succ(valid),
+                                    _ => Fin.Fail<Seq<Point2d>>(key.InvalidResult()),
+                                },
+                        _ => Fin.Succ(samples),
+                    }),
             _ => Fin.Fail<Seq<Point2d>>(key.InvalidInput()),
         }));
-    private static Seq<Point2d> OnFaceUv(BrepFace face, Seq<Point2d> samples, double tolerance) =>
-        samples.Choose(uv => face.IsPointOnFace(u: uv.X, v: uv.Y, tolerance: tolerance) != PointFaceRelation.Exterior ? Some(uv)
-            : face.ClosestPointOnFace(testPoint: face.PointAt(u: uv.X, v: uv.Y), u: out double fu, v: out double fv, maximumDistance: 0.0)
-                && face.IsPointOnFace(u: fu, v: fv, tolerance: tolerance) != PointFaceRelation.Exterior ? Some(new Point2d(fu, fv)) : Option<Point2d>.None);
     internal static Fin<Seq<Point3d>> SurfaceSamplePoints(Surface surface, int count, Context context, Op key) =>
         SurfaceSampleUv(surface: surface, count: count, context: context, key: key)
             .Map(uvs => uvs.Map(uv => surface.PointAt(u: uv.X, v: uv.Y)));
