@@ -2,7 +2,6 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO.Pipes;
-using System.Runtime.ExceptionServices;
 using System.Text;
 using System.Text.Json;
 using Rasm.RhinoBridge.Protocol;
@@ -26,6 +25,7 @@ internal static class Program {
                 "run" when rest is [string sessionId, .. string[] options] => await RunProbeAsync(sessionId: sessionId, options: CliOptions.Parse(options)).ConfigureAwait(false),
                 "unload" when rest is [string sessionId] => await SendAndPrintAsync(request: BridgeWire.Request(command: BridgeWire.Unload, payload: BridgeWire.UnloadRequest(sessionId: sessionId))).ConfigureAwait(false),
                 "check" when rest is [string projectPath, .. string[] options] => await CheckAsync(projectPath: projectPath, options: CliOptions.Parse(options)).ConfigureAwait(false),
+                "quit" when rest.Length == 0 => await QuitAsync().ConfigureAwait(false),
                 _ => Usage(),
             };
         } catch (Exception error) when (error is IOException or JsonException or InvalidOperationException or OperationCanceledException or ArgumentException or TimeoutException) {
@@ -33,14 +33,14 @@ internal static class Program {
         }
     }
     private static int Usage() {
-        Console.Error.WriteLine("Usage: rhino-bridge-client doctor | launch | load <assembly> [--worktree <path>] [--timeout-ms <ms>] | run <session> [--probe <id>] [--args <json>] [--timeout-ms <ms>] | unload <session> | check <project.csproj> [--probe <id>] [--args <json>] [--configuration <name>] [--worktree <path>] [--timeout-ms <ms>]");
+        Console.Error.WriteLine("Usage: rhino-bridge-client doctor | launch | load <assembly> [--worktree <path>] [--timeout-ms <ms>] | run <session> [--probe <id>] [--args <json>] [--timeout-ms <ms>] | unload <session> | check <project.csproj> [--probe <id>] [--args <json>] [--configuration <name>] [--worktree <path>] [--timeout-ms <ms>] | quit");
         Console.Error.WriteLine("Launch env: RHINO_WIP_APP_PATH=/Applications/RhinoWIP.app or RHINO_WIP_BUNDLE_ID=com.mcneel.rhinoceros.9");
         return 2;
     }
     private static async Task<int> LaunchAsync() {
         string? appPath = Environment.GetEnvironmentVariable("RHINO_WIP_APP_PATH");
         string bundleId = Environment.GetEnvironmentVariable("RHINO_WIP_BUNDLE_ID") ?? DefaultRhinoWipBundleId;
-        ProcessResult opened = await ProcessResult.RunAsync(fileName: "open", arguments: string.IsNullOrWhiteSpace(appPath) ? ["-b", bundleId] : [appPath], timeout: TimeSpan.FromSeconds(30.0)).ConfigureAwait(false);
+        ProcessResult opened = await ProcessResult.RunAsync(fileName: "open", arguments: string.IsNullOrWhiteSpace(appPath) ? ["-b", bundleId, "--args", "-nosplash"] : [appPath, "--args", "-nosplash"], timeout: TimeSpan.FromSeconds(30.0)).ConfigureAwait(false);
         if (opened.ExitCode != 0) {
             return Fail(message: $"Failed to open RhinoWIP.{Environment.NewLine}{opened.Output}");
         }
@@ -74,65 +74,96 @@ internal static class Program {
     private static async Task<int> CheckAsync(string projectPath, CliOptions options) {
         string project = ExistingFile(path: projectPath, label: "project");
         string worktree = await WorkspaceRootAsync(path: project, options: options).ConfigureAwait(false);
-        string assembly = await BuildTargetAsync(project: project, configuration: options.Configuration).ConfigureAwait(false);
-        BridgeReply loaded = await SendAsync(
-            request: BridgeWire.Request(command: BridgeWire.Load, payload: BridgeWire.LoadRequest(assemblyPath: assembly, workspaceRoot: worktree), timeoutMs: options.TimeoutMs),
-            timeout: TransportTimeout(timeoutMs: options.TimeoutMs)).ConfigureAwait(false);
-        Print(reply: loaded);
-        return loaded switch {
-            { Status: BridgeWire.Ok, Load.SessionId: string sessionId } => await RunCheckAsync(sessionId: sessionId, options: options).ConfigureAwait(false),
-            { Status: BridgeWire.Ok } => Fail(message: "Bridge load returned ok without a session id."),
-            _ => ExitCode(reply: loaded),
-        };
+        return await CheckProjectAsync(project: project, worktree: worktree, options: options).ConfigureAwait(false);
     }
-    private static async Task<int> RunCheckAsync(string sessionId, CliOptions options) {
-        BridgeReply? run = null;
-        ExceptionDispatchInfo? failure = null;
-        try {
-            run = await SendAsync(
-                request: BridgeWire.Request(
-                    command: BridgeWire.Run,
-                    payload: BridgeWire.RunRequest(sessionId: sessionId, probe: options.Probe, arguments: options.Arguments),
-                    timeoutMs: options.TimeoutMs),
+    private static async Task<int> CheckProjectAsync(string project, string worktree, CliOptions options) {
+        BridgeReply reply = await CheckProjectReplyAsync(project: project, worktree: worktree, options: options).ConfigureAwait(false);
+        Print(reply: reply);
+        return ExitCode(reply: reply);
+    }
+    private static async Task<BridgeReply> CheckProjectReplyAsync(string project, string worktree, CliOptions options) {
+        BridgeBuildReport build = await BuildReportAsync(project: project, configuration: options.Configuration).ConfigureAwait(false);
+        BridgeLoadReport? load = null;
+        BridgeRunReport? run = null;
+        BridgeUnloadReport? unload = null;
+        BridgeFault? fault = build.Fault;
+        string status = build.Status;
+        if (build is { Status: BridgeWire.Ok, TargetPath: string assembly }) {
+            BridgeReply loaded = await SendAsync(
+                request: BridgeWire.Request(command: BridgeWire.Load, payload: BridgeWire.LoadRequest(assemblyPath: assembly, workspaceRoot: worktree), timeoutMs: options.TimeoutMs),
                 timeout: TransportTimeout(timeoutMs: options.TimeoutMs)).ConfigureAwait(false);
-            Print(reply: run);
-        } catch (Exception error) when (error is IOException or JsonException or InvalidOperationException or OperationCanceledException or ArgumentException) {
-            failure = ExceptionDispatchInfo.Capture(error);
+            load = loaded.Load;
+            fault = loaded.Fault;
+            status = loaded.Status;
+            if (loaded is { Status: BridgeWire.Ok, Load.SessionId: string sessionId }) {
+                BridgeReply ran = await SendAsync(
+                    request: BridgeWire.Request(command: BridgeWire.Run, payload: BridgeWire.RunRequest(sessionId: sessionId, probe: options.Probe, arguments: options.Arguments), timeoutMs: options.TimeoutMs),
+                    timeout: TransportTimeout(timeoutMs: options.TimeoutMs)).ConfigureAwait(false);
+                run = ran.Run;
+                fault = ran.Fault;
+                status = ran.Status;
+                unload = await UnloadCleanupAsync(sessionId: sessionId).ConfigureAwait(false);
+            }
+            if (loaded is { Status: BridgeWire.Ok, Load.SessionId: null }) {
+                fault = BridgeFault.MessageOnly(category: "load", message: "Bridge load returned ok without a session id.");
+                status = BridgeWire.Failed;
+            }
         }
-        BridgeReply unloaded = await UnloadCleanupAsync(sessionId: sessionId).ConfigureAwait(false);
-        failure?.Throw();
-        int runExit = run is null ? 1 : ExitCode(reply: run);
-        int unloadExit = ExitCode(reply: unloaded);
-        return runExit == 0 ? unloadExit : runExit;
+        BridgeCheckReport check = new(Status: status, ProjectPath: project, WorkspaceRoot: worktree, Build: build, Load: load, Run: run, Unload: unload, Fault: fault);
+        return BridgeReply.CheckOk(check: check);
     }
-    private static async Task<BridgeReply> UnloadCleanupAsync(string sessionId) {
+    private static async Task<BridgeUnloadReport> UnloadCleanupAsync(string sessionId) {
         try {
             BridgeReply unloaded = await SendAsync(
                 request: BridgeWire.Request(command: BridgeWire.Unload, payload: BridgeWire.UnloadRequest(sessionId: sessionId)),
                 timeout: TransportTimeout(timeoutMs: 15000)).ConfigureAwait(false);
-            if (ExitCode(reply: unloaded) != 0) {
-                Print(reply: unloaded);
-            }
-            return unloaded;
+            return unloaded.Unload ?? new(Status: BridgeWire.Failed, SessionId: sessionId, UnloadRequested: true, Unloaded: false, Fault: BridgeFault.MessageOnly(category: "unload", message: "Bridge unload returned no unload report."));
         } catch (Exception error) when (error is IOException or JsonException or InvalidOperationException or OperationCanceledException or ArgumentException) {
-            BridgeReply failed = BridgeReply.Rejected(command: BridgeWire.Unload, status: BridgeWire.Failed, fault: BridgeFault.FromException(category: "cleanup", error: error));
-            Print(reply: failed);
-            return failed;
+            return new(Status: BridgeWire.Failed, SessionId: sessionId, UnloadRequested: true, Unloaded: false, Fault: BridgeFault.FromException(category: "unload", error: error));
         }
     }
-    private static async Task<string> BuildTargetAsync(string project, string configuration) {
-        ProcessResult build = await ProcessResult.RunAsync(fileName: "dotnet", arguments: ["build", project, "--configuration", configuration], timeout: ProcessTimeout).ConfigureAwait(false);
+    private static async Task<int> QuitAsync() {
+        BridgeEndpoint endpoint = ReadEndpoint();
+        BridgeReply reply = await SendAsync(request: BridgeWire.Request(command: BridgeWire.Quit), timeout: TransportTimeout(timeoutMs: 15000)).ConfigureAwait(false);
+        Print(reply: reply);
+        if (string.Equals(a: reply.Status, b: BridgeWire.Ok, comparisonType: StringComparison.Ordinal)) {
+            await WaitForExitAsync(pid: endpoint.RhinoPid, timeout: TimeSpan.FromSeconds(30.0)).ConfigureAwait(false);
+        }
+        return ExitCode(reply: reply);
+    }
+    private static async Task WaitForExitAsync(int pid, TimeSpan timeout) {
+        try {
+            using Process process = Process.GetProcessById(pid);
+            using CancellationTokenSource cancellation = new(timeout);
+            await process.WaitForExitAsync(cancellation.Token).ConfigureAwait(false);
+        } catch (Exception error) when (error is ArgumentException or InvalidOperationException or OperationCanceledException) {
+        }
+    }
+    private static async Task<BridgeBuildReport> BuildReportAsync(string project, string configuration) {
+        Stopwatch timer = Stopwatch.StartNew();
+        ProcessResult restore = await ProcessResult.RunAsync(fileName: "dotnet", arguments: ["restore", project, "--locked-mode"], timeout: ProcessTimeout).ConfigureAwait(false);
+        if (restore.ExitCode != 0) {
+            return BuildFailure(project: project, configuration: configuration, timer: timer, category: "build", message: "dotnet restore failed.", output: restore.Output);
+        }
+        ProcessResult build = await ProcessResult.RunAsync(fileName: "dotnet", arguments: ["build", project, "--configuration", configuration, "--no-restore"], timeout: ProcessTimeout).ConfigureAwait(false);
         if (build.ExitCode != 0) {
-            throw new InvalidOperationException($"dotnet build failed for {project}{Environment.NewLine}{build.Output}");
+            return BuildFailure(project: project, configuration: configuration, timer: timer, category: "build", message: "dotnet build failed.", output: build.Output);
         }
-        ProcessResult target = await ProcessResult.RunAsync(fileName: "dotnet", arguments: ["msbuild", project, "-getProperty:TargetPath", $"-p:Configuration={configuration}"], timeout: ProcessTimeout).ConfigureAwait(false);
+        ProcessResult target = await ProcessResult.RunAsync(fileName: "dotnet", arguments: ["msbuild", project, "-getProperty:TargetPath", "-getProperty:TargetFramework", "-getProperty:AssemblyName", $"-p:Configuration={configuration}", "-nologo"], timeout: ProcessTimeout).ConfigureAwait(false);
         if (target.ExitCode != 0) {
-            throw new InvalidOperationException($"dotnet msbuild TargetPath failed for {project}{Environment.NewLine}{target.Output}");
+            return BuildFailure(project: project, configuration: configuration, timer: timer, category: "build", message: "dotnet msbuild target evaluation failed.", output: target.Output);
         }
-        string path = target.Output.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).LastOrDefault()
-            ?? throw new InvalidOperationException($"MSBuild did not return TargetPath for {project}.");
-        return ExistingFile(path: path, label: "MSBuild TargetPath");
+        ProjectProperties properties = ProjectProperties.Parse(json: target.Output);
+        string targetPath = ExistingFile(path: properties.TargetPath, label: "MSBuild TargetPath");
+        timer.Stop();
+        return new(Status: BridgeWire.Ok, ProjectPath: project, Configuration: configuration, TargetFramework: properties.TargetFramework, AssemblyName: properties.AssemblyName, TargetPath: targetPath, DurationMs: (int)timer.ElapsedMilliseconds, Outputs: [BuildOutput(text: string.Concat(restore.Output, build.Output, target.Output))], Fault: null);
     }
+    private static BridgeBuildReport BuildFailure(string project, string configuration, Stopwatch timer, string category, string message, string output) {
+        timer.Stop();
+        return new(Status: BridgeWire.Failed, ProjectPath: project, Configuration: configuration, TargetFramework: null, AssemblyName: null, TargetPath: null, DurationMs: (int)timer.ElapsedMilliseconds, Outputs: [BuildOutput(text: output)], Fault: BridgeFault.MessageOnly(category: category, message: message));
+    }
+    private static BridgeOutput BuildOutput(string text) =>
+        new(Source: BridgeWire.OutputConsoleOut, Text: text, Truncated: false);
     private static string ExistingFile(string path, string label) {
         string fullPath = Path.GetFullPath(path);
         return File.Exists(fullPath) ? fullPath : throw new InvalidOperationException($"{label} does not exist: {fullPath}");
@@ -238,6 +269,19 @@ internal sealed record CliOptions(string? Probe, string? Worktree, string Config
         int.TryParse(value, CultureInfo.InvariantCulture, out int parsed) && parsed > 0
             ? parsed
             : throw new InvalidOperationException($"Invalid --timeout-ms value: {value}");
+}
+
+internal sealed record ProjectProperties(string TargetPath, string? TargetFramework, string? AssemblyName) {
+    internal static ProjectProperties Parse(string json) {
+        using JsonDocument document = JsonDocument.Parse(json: json);
+        JsonElement properties = document.RootElement.GetProperty(propertyName: "Properties");
+        return new(
+            TargetPath: Text(properties: properties, name: "TargetPath") ?? throw new InvalidOperationException("MSBuild did not return TargetPath."),
+            TargetFramework: Text(properties: properties, name: "TargetFramework"),
+            AssemblyName: Text(properties: properties, name: "AssemblyName"));
+    }
+    private static string? Text(JsonElement properties, string name) =>
+        properties.TryGetProperty(propertyName: name, value: out JsonElement value) ? value.GetString() : null;
 }
 
 internal sealed record ProcessResult(int ExitCode, string Output) {

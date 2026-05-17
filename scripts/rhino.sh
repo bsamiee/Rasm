@@ -30,8 +30,9 @@ declare -Ar ROUTES=(
     [bridge:run]='_bridge_client|1|999|bridge run <session-id> [client options]|run|soft'
     [bridge:check]='_bridge_client|1|999|bridge check <project.csproj> [client options]|check|soft'
     [bridge:unload]='_bridge_client|1|1|bridge unload <session-id>|unload|soft'
+    [bridge:quit]='_bridge_client|0|0|bridge quit|quit|soft'
 )
-readonly -a ROUTE_ORDER=(--self-test build bridge:build bridge:package bridge:install bridge:launch bridge:doctor bridge:load bridge:run bridge:check bridge:unload package push-test push)
+readonly -a ROUTE_ORDER=(--self-test build bridge:build bridge:package bridge:install bridge:launch bridge:doctor bridge:load bridge:run bridge:check bridge:unload bridge:quit package push-test push)
 readonly -a BRIDGE_PROJECTS=("${BRIDGE_CONTRACTS_PROJECT}" "${BRIDGE_PROTOCOL_PROJECT}" "${BRIDGE_PLUGIN_PROJECT}" "${BRIDGE_CLIENT_PROJECT}")
 declare -Ar PACKAGE_PROJECTS=([radyab]="${ROOT_DIR}/apps/grasshopper/Radyab/Radyab.csproj" [rasm-bridge]="${BRIDGE_PLUGIN_PROJECT}")
 _trap_err() {
@@ -97,6 +98,8 @@ _self_test() {
     done
     _route_meta bridge:package handler min max line preset mode
     [[ "${handler}|${preset}|${min}|${max}" == '_cmd_package|rasm-bridge|1|1' ]] || _die "bridge package preset invalid"
+    _route_meta bridge:quit handler min max line preset mode
+    [[ "${handler}|${preset}|${min}|${max}|${mode}" == '_bridge_client|quit|0|0|soft' ]] || _die "bridge quit route invalid"
     _route_meta push handler min max line preset mode
     [[ "${handler}|${preset}|${min}|${max}" == '_push_package|-|2|2' ]] || _die "push preset invalid"
     _route_meta push-test handler min max line preset mode

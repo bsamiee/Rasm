@@ -124,6 +124,7 @@ internal sealed class BridgeServer : IDisposable {
                 ? BridgeReply.Rejected(command: BridgeWire.Hello, status: BridgeWire.Failed, fault: BridgeFault.MessageOnly(category: "protocol", message: "Bridge clients must send a hello or command request."))
                 : ParseRequest(json: line);
             await WriteAsync(pipe: pipe, reply: reply, token: token).ConfigureAwait(false);
+            ScheduleQuit(reply: reply);
         } catch (OperationCanceledException) when (!token.IsCancellationRequested) {
             await WriteAsync(pipe: pipe, reply: BridgeReply.Rejected(command: BridgeWire.Hello, status: BridgeWire.Timeout, fault: BridgeFault.MessageOnly(category: "protocol", message: "Bridge client did not send a request before the handshake deadline.")), token: CancellationToken.None).ConfigureAwait(false);
         } finally {
@@ -147,6 +148,7 @@ internal sealed class BridgeServer : IDisposable {
                 BridgeWire.Load => WithPayload<BridgeLoadRequest>(request: request, work: payload => BridgeReply.LoadOk(load: sessions.Load(request: payload))),
                 BridgeWire.Run => WithPayload<BridgeRunRequest>(request: request, work: payload => BridgeReply.RunOk(run: sessions.Run(request: payload, document: document, timeoutMs: request.TimeoutMs))),
                 BridgeWire.Unload => WithPayload<BridgeUnloadRequest>(request: request, work: payload => BridgeReply.UnloadOk(unload: sessions.Unload(request: payload))),
+                BridgeWire.Quit => BridgeReply.QuitOk(quit: Quit(document: document)),
                 string command => BridgeReply.Rejected(command: command, status: BridgeWire.Unsupported, fault: BridgeFault.MessageOnly(category: "protocol", message: $"Unsupported command '{command}'.")),
             }),
         };
@@ -169,6 +171,17 @@ internal sealed class BridgeServer : IDisposable {
             BridgeUnloadRequest { SessionId.Length: > 0 } => true,
             _ => false,
         };
+    private static BridgeQuitReport Quit(RhinoDoc? document) =>
+        document switch {
+            _ when RhinoDoc.OpenDocuments().Any(static open => open.Modified) => new(Status: BridgeWire.Failed, RhinoPid: Environment.ProcessId, ActiveDocument: document is not null, Modified: true, Fault: BridgeFault.MessageOnly(category: "quit", message: "At least one Rhino document has unsaved changes; refusing automated quit.")),
+            { } => new(Status: BridgeWire.Ok, RhinoPid: Environment.ProcessId, ActiveDocument: true, Modified: false, Fault: null),
+            _ => new(Status: BridgeWire.Ok, RhinoPid: Environment.ProcessId, ActiveDocument: false, Modified: false, Fault: null),
+        };
+    private static void ScheduleQuit(BridgeReply reply) {
+        if (reply is { Command: BridgeWire.Quit, Status: BridgeWire.Ok }) {
+            RhinoApp.InvokeOnUiThread((Action)(() => RhinoApp.Exit(false)));
+        }
+    }
     private static BridgeReply InvokeOnRhinoThread(string command, Func<RhinoDoc?, BridgeReply> work) {
         ArgumentNullException.ThrowIfNull(work);
         if (RhinoApp.IsClosing || RhinoApp.IsExiting) {
