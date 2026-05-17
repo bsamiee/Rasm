@@ -5,6 +5,8 @@
 
 Canonical standards for test authoring. Root `tests/` owns universal JS, TS, Python, browser, C#, Rhino, analyzer, and cross-workspace tests. Language-native project files may live under `tests/` when the runner requires a project boundary.
 
+RhinoWIP bridge analyzer output is operational runtime evidence, not a test-framework root; do not model it as fake Rhino/GH tests, probes, or canned component reports.
+
 [REFERENCE] Patterns: [->patterns.md](patterns.md) | Laws: [->laws.md](laws.md) | Guardrails: [->guardrails.md](guardrails.md)
 
 ---

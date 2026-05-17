@@ -31,6 +31,7 @@ public sealed partial record Requirement {
     private static Requirement Single(Check check) => new(checks: Seq(check));
     public Validation<Error, T> Apply<T>(Context context, T? value, CancellationToken cancel = default) where T : notnull =>
         (value, context, this) switch {
+            (T candidate, _, Requirement { IsEmpty: true }) when candidate is GeometryBase => Op.Of(name: "Operand").AcceptValue(value: candidate).ToValidation(),
             (T candidate, Context ctx, Requirement req) when candidate is GeometryBase g => RunChecks(checks: req.checks, context: ctx, geometry: g, original: candidate, cancel: cancel),
             (T candidate, _, _) => Op.Of(name: "Operand").AcceptValue(value: candidate).ToValidation(),
             _ => Fin.Fail<T>(error: new Fault.MissingGeometry()).ToValidation(),

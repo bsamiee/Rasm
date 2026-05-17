@@ -129,7 +129,8 @@ public static class Bridge {
     private static Unit WriteNative<TOut>(IDataAccess access, int slot, string name, Access targetAccess, Seq<Flow<TOut>> values) =>
         targetAccess switch {
             Access.Item => values.Count switch {
-                > 0 => Effect(action: () => access.SetPear(index: slot, pear: values[0].Pear)),
+                1 => Effect(action: () => access.SetPear(index: slot, pear: values[0].Pear)),
+                > 1 => Effect(action: () => access.AddError(text: name, details: $"Item output received {values.Count} values; use twig or tree access.")),
                 _ => Effect(action: () => access.SetPear(index: slot, pear: null!)),
             },
             Access.Twig => Effect(action: () => access.SetTwig(index: slot, twig: Garden.TwigFromPears(pears: values.Map(static value => value.Pear).AsIterable()))),
@@ -206,7 +207,7 @@ public static class Bridge {
     }
     private static Fin<double> UnitScale(IDataAccess access) =>
         (access.GetUnitScaling(unitSystemScaling: out double scale), scale) switch {
-            (true, double factor) when Rhino.RhinoMath.IsValidDouble(x: factor) => Fin.Succ(factor),
+            (true, double factor) when Rhino.RhinoMath.IsValidDouble(x: factor) && factor > Rhino.RhinoMath.ZeroTolerance => Fin.Succ(factor),
             (false, _) => Fin.Succ(1.0),
             _ => Fin.Fail<double>(new Fault.ComputationFailed(Label: "UnitScaling")),
         };
@@ -219,10 +220,12 @@ public static class Bridge {
     private static Fin<Seq<Flow<T>>> FlowPears<T>(Port port, IEnumerable<(Pear<T> Pear, Option<Site> Site)> pears) {
         Seq<(Pear<T> Pear, Option<Site> Site, int Index)> indexed = toSeq(pears.Select((pear, index) => (pear.Pear, pear.Site, Index: index)));
         Pear<T>[] raw = [.. indexed.Map(static item => item.Pear).AsIterable()];
-        bool[] nulls = ArrayEx.ToNullArray(raw);
         return (indexed.Count, ArrayEx.AnyNull(raw)) switch {
             ( > 0, false) => Fin.Succ(indexed.Map(static item => new Flow<T>(Pear: item.Pear, Site: item.Site))),
-            ( > 0, true) => Fin.Fail<Seq<Flow<T>>>(new MissingPortInput(Port: port.Name, Hint: $"Null item at index {System.Array.FindIndex(array: nulls, match: static value => value)}.")),
+            ( > 0, true) => indexed.Filter(static item => item.Pear is not null) switch {
+                Seq<(Pear<T> Pear, Option<Site> Site, int Index)> found when !found.IsEmpty => Fin.Succ(found.Map(static item => new Flow<T>(Pear: item.Pear, Site: item.Site))),
+                _ => MissingFlow<T>(port: port),
+            },
             _ => MissingFlow<T>(port: port),
         };
     }

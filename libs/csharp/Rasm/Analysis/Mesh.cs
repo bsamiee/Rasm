@@ -130,9 +130,16 @@ public sealed partial class MeshMetric {
             }
             : Fin.Fail<double>(key.InvalidResult()));
     private static Fin<double> FaceArea(Mesh mesh, ComponentIndex source, Seq<Point3d> vertices, Op key) =>
-        vertices.Count >= 3
-            ? Fin.Succ(0.5 * Enumerable.Range(start: 1, count: vertices.Count - 2).Sum(i => Vector3d.CrossProduct(a: vertices[i] - vertices[0], b: vertices[i + 1] - vertices[0]).Length))
-            : Fin.Fail<double>(key.InvalidResult());
+        source switch {
+            { ComponentIndexType: ComponentIndexType.MeshNgon, Index: int ngon } when ngon >= 0 && ngon < mesh.Ngons.Count =>
+                Optional(mesh.Ngons[ngon].FaceIndexList()).ToFin(key.InvalidResult())
+                    .Bind(faces => toSeq(faces).TraverseM(face => face <= int.MaxValue ? FaceArea(mesh: mesh, source: new ComponentIndex(ComponentIndexType.MeshFace, (int)face), vertices: Seq<Point3d>(), key: key) : Fin.Fail<double>(key.InvalidResult())).As())
+                    .Map(static areas => areas.Fold(initialState: 0.0, f: static (total, area) => total + area)),
+            _ => (vertices.IsEmpty ? VerticesOf(mesh: mesh, source: source, key: key) : Fin.Succ(vertices))
+                .Bind(points => points.Count >= 3
+                    ? Fin.Succ(0.5 * Enumerable.Range(start: 1, count: points.Count - 2).Sum(i => Vector3d.CrossProduct(a: points[i] - points[0], b: points[i + 1] - points[0]).Length))
+                    : Fin.Fail<double>(key.InvalidResult())),
+        };
     private static Fin<double> FacePerimeter(Mesh mesh, ComponentIndex source, Seq<Point3d> vertices, Op key) =>
         vertices.Map((p, i) => p.DistanceTo(other: vertices[(i + 1) % vertices.Count])).Fold(initialState: 0.0, f: static (acc, d) => acc + d);
     private static Fin<double> FaceSkewness(Mesh mesh, ComponentIndex source, Seq<Point3d> vertices, Op key) =>

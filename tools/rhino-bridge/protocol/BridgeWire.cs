@@ -82,7 +82,9 @@ public sealed record BridgeEndpoint(
     int RhinoPid,
     DateTimeOffset RhinoStartedAt,
     DateTimeOffset StartedAt,
+    string BridgeAssemblyName,
     string BridgeAssemblyVersion,
+    string BridgeAssemblyInformationalVersion,
     string RhinoVersion);
 
 public sealed record BridgeRequest(string Schema, string Command, int TimeoutMs, JsonElement? Payload);
@@ -105,13 +107,13 @@ public sealed record BridgeDoctor(
     IReadOnlyList<BridgeAssemblyReport> Assemblies,
     IReadOnlyList<BridgeSessionReport> Sessions);
 
-public sealed record BridgeAssemblyReport(string Name, string Status, bool Required, string? Version, string? Location, BridgeFault? Fault);
+public sealed record BridgeAssemblyReport(string Name, string Status, bool Required, string? Version, string? InformationalVersion, string? Location, BridgeFault? Fault);
 public sealed record BridgeSessionReport(string SessionId, string AssemblyName, string Location, string Status);
 public sealed record BridgeLoadRequest(string AssemblyPath, string WorkspaceRoot);
 public sealed record BridgeExecuteRequest(string Script, string? ScriptPath, IReadOnlyList<string> References);
 public sealed record BridgeUnloadRequest(string SessionId);
 public sealed record BridgeLoadReport(string Status, string? SessionId, string? AssemblyName, string? Location, string? PdbPath, IReadOnlyList<BridgeAssemblyReport> Assemblies, BridgeFault? Fault);
-public sealed record BridgeExecuteReport(string Status, int DurationMs, string RhinoVersion, bool ActiveDocument, double? ModelAbsoluteTolerance, string? ActiveDocumentName, IReadOnlyList<string> References, BridgeFault? Fault);
+public sealed record BridgeExecuteReport(string Status, int DurationMs, string BridgeAssemblyName, string BridgeAssemblyVersion, string BridgeAssemblyInformationalVersion, string RhinoVersion, bool ActiveDocument, double? ModelAbsoluteTolerance, string? ActiveDocumentName, IReadOnlyList<string> References, BridgeFault? Fault);
 public sealed record BridgeUnloadReport(string Status, string SessionId, bool UnloadRequested, bool Unloaded, BridgeFault? Fault);
 public sealed record BridgeQuitReport(string Status, int RhinoPid, bool ActiveDocument, bool Modified, BridgeFault? Fault);
 public sealed record BridgeOutput(string Source, string Text, bool Truncated);

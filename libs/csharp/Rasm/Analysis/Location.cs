@@ -194,16 +194,16 @@ public static partial class Analyze {
             (_, CurvatureMode.ScalarCase { Metric: var metric }, CurvatureAggregation.SamplesCase, Type g, Type o) when metric.Equals(ScalarMetric.Magnitude) && GeometryKernel.CanCurveForm(type: g) && o == typeof(double) =>
                 CurveCurvatureSamplesOp<TGeometry, TOut, double>(key: key, count: count, project: static (op, curve, n, ctx) =>
                     CurveMagnitudesOf(key: op, curve: curve, count: n, model: ctx).Bind(values => op.Accept(values: values))),
-            (_, CurvatureMode.VectorCase, CurvatureAggregation.SamplesCase, Type g, Type o) when typeof(Surface).IsAssignableFrom(c: g) && o == typeof(SurfaceCurvature) =>
+            (_, CurvatureMode.VectorCase, CurvatureAggregation.SamplesCase, Type g, Type o) when GeometryKernel.CanSurfaceForm(type: g) && o == typeof(SurfaceCurvature) =>
                 SurfaceCurvatureSamplesOp<TGeometry, TOut, SurfaceCurvature>(key: key, count: count, project: SurfaceCurvaturesOf),
-            (_, CurvatureMode.VectorCase, CurvatureAggregation.SamplesCase, Type g, Type o) when typeof(Surface).IsAssignableFrom(c: g) && o == typeof(Stat) =>
+            (_, CurvatureMode.VectorCase, CurvatureAggregation.SamplesCase, Type g, Type o) when GeometryKernel.CanSurfaceForm(type: g) && o == typeof(Stat) =>
                 SurfaceCurvatureSamplesOp<TGeometry, TOut, Stat>(key: key, count: count, project: static (op, surface, n, ctx) =>
                     SurfaceCurvaturesOf(key: op, surface: surface, count: n, model: ctx).Bind(curvatures => SurfaceStatsOf(key: op, curvatures: curvatures))),
-            (_, CurvatureMode.ScalarCase { Metric: var metric }, CurvatureAggregation.SamplesCase, Type g, Type o) when (metric.Equals(ScalarMetric.Gaussian) || metric.Equals(ScalarMetric.Mean)) && typeof(Surface).IsAssignableFrom(c: g) && o == typeof(double) =>
+            (_, CurvatureMode.ScalarCase { Metric: var metric }, CurvatureAggregation.SamplesCase, Type g, Type o) when (metric.Equals(ScalarMetric.Gaussian) || metric.Equals(ScalarMetric.Mean)) && GeometryKernel.CanSurfaceForm(type: g) && o == typeof(double) =>
                 SurfaceCurvatureSamplesOp<TGeometry, TOut, double>(key: key, count: count, project: (op, surface, n, ctx) =>
                     SurfaceCurvaturesOf(key: op, surface: surface, count: n, model: ctx).Bind(curvatures =>
                         BorrowCurvaturesOf(curvatures: curvatures, project: owned => SurfaceScalarsOf(key: op, curvatures: owned, metric: metric).Bind(values => op.Accept(values: values))))),
-            (_, CurvatureMode.ScalarCase { Metric: var metric }, CurvatureAggregation.SamplesCase, Type g, Type o) when (metric.Equals(ScalarMetric.Gaussian) || metric.Equals(ScalarMetric.Mean)) && typeof(Surface).IsAssignableFrom(c: g) && o == typeof(Stat) =>
+            (_, CurvatureMode.ScalarCase { Metric: var metric }, CurvatureAggregation.SamplesCase, Type g, Type o) when (metric.Equals(ScalarMetric.Gaussian) || metric.Equals(ScalarMetric.Mean)) && GeometryKernel.CanSurfaceForm(type: g) && o == typeof(Stat) =>
                 SurfaceCurvatureSamplesOp<TGeometry, TOut, Stat>(key: key, count: count, project: (op, surface, n, ctx) =>
                     SurfaceCurvaturesOf(key: op, surface: surface, count: n, model: ctx).Bind(curvatures =>
                         BorrowCurvaturesOf(curvatures: curvatures, project: owned => SurfaceScalarsOf(key: op, curvatures: owned, metric: metric).Bind(values => Stat.Of(values: values, key: op, context: StatContext.Metric(metric: metric)).Map(stat => Seq(stat)))))),
@@ -213,10 +213,10 @@ public static partial class Analyze {
             (_, CurvatureMode m, CurvatureAggregation.ExtremaCase ex, Type g, Type o) when (m is CurvatureMode.VectorCase || (m is CurvatureMode.ScalarCase sc && sc.Metric.Equals(ScalarMetric.Magnitude))) && GeometryKernel.CanCurveForm(type: g) && o == typeof(double) =>
                 CurveCurvatureSamplesOp<TGeometry, TOut, double>(key: key, count: count, project: (op, curve, n, ctx) =>
                     CurveCurvatureSamples(op: op, curve: curve, count: n, ctx: ctx).Bind(samples => op.Accept(values: Stat.Extrema(items: samples, projection: static s => s.Curvature, tolerance: 0.0, direction: ex.Direction).Map(static h => h.Curvature)))),
-            (_, CurvatureMode.ScalarCase { Metric: var metric }, CurvatureAggregation.ExtremaCase ex, Type g, Type o) when (metric.Equals(ScalarMetric.Gaussian) || metric.Equals(ScalarMetric.Mean)) && typeof(Surface).IsAssignableFrom(c: g) && o == typeof(Point3d) =>
+            (_, CurvatureMode.ScalarCase { Metric: var metric }, CurvatureAggregation.ExtremaCase ex, Type g, Type o) when (metric.Equals(ScalarMetric.Gaussian) || metric.Equals(ScalarMetric.Mean)) && GeometryKernel.CanSurfaceForm(type: g) && o == typeof(Point3d) =>
                 SurfaceCurvatureSamplesOp<TGeometry, TOut, Point3d>(key: key, count: count, project: (op, surface, n, ctx) =>
                     SurfaceCurvatureSamples(op: op, surface: surface, count: n, ctx: ctx, metric: metric).Bind(samples => op.Accept(values: Stat.Extrema(items: samples, projection: static s => s.Curvature, tolerance: 0.0, direction: ex.Direction).Map(static h => h.Point)))),
-            (_, CurvatureMode.ScalarCase { Metric: var metric }, CurvatureAggregation.ExtremaCase ex, Type g, Type o) when (metric.Equals(ScalarMetric.Gaussian) || metric.Equals(ScalarMetric.Mean)) && typeof(Surface).IsAssignableFrom(c: g) && o == typeof(double) =>
+            (_, CurvatureMode.ScalarCase { Metric: var metric }, CurvatureAggregation.ExtremaCase ex, Type g, Type o) when (metric.Equals(ScalarMetric.Gaussian) || metric.Equals(ScalarMetric.Mean)) && GeometryKernel.CanSurfaceForm(type: g) && o == typeof(double) =>
                 SurfaceCurvatureSamplesOp<TGeometry, TOut, double>(key: key, count: count, project: (op, surface, n, ctx) =>
                     SurfaceCurvatureSamples(op: op, surface: surface, count: n, ctx: ctx, metric: metric).Bind(samples => op.Accept(values: Stat.Extrema(items: samples, projection: static s => s.Curvature, tolerance: 0.0, direction: ex.Direction).Map(static h => h.Curvature)))),
             _ => key.Unsupported<TGeometry, TOut>(),
@@ -267,6 +267,7 @@ public static partial class Analyze {
             .Map(parameters => parameters.Map(t => new CurvatureSample(Point: curve.PointAt(t: t), Curvature: curve.CurvatureAt(t: t).Length)));
     private static Fin<Seq<CurvatureSample>> SurfaceCurvatureSamples(Op op, Surface surface, int count, Context ctx, ScalarMetric metric) =>
         GeometryKernel.SurfaceSampleUv(surface: surface, count: count, context: ctx, key: op)
-            .Map(uvs => uvs.Map(uv => new Lease<SurfaceCurvature>.Owned(Value: surface.CurvatureAt(u: uv.X, v: uv.Y))
-                .Use(c => new CurvatureSample(Point: surface.PointAt(u: uv.X, v: uv.Y), Curvature: metric.Equals(ScalarMetric.Gaussian) ? c.Gaussian : c.Mean))));
+            .Bind(uvs => uvs.TraverseM(uv => Optional(surface.CurvatureAt(u: uv.X, v: uv.Y)).ToFin(op.InvalidResult())
+                .Map(curvature => new Lease<SurfaceCurvature>.Owned(Value: curvature)
+                    .Use(c => new CurvatureSample(Point: surface.PointAt(u: uv.X, v: uv.Y), Curvature: metric.Equals(ScalarMetric.Gaussian) ? c.Gaussian : c.Mean)))).As());
 }

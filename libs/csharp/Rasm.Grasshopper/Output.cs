@@ -131,7 +131,9 @@ public static class Output {
                         Pear: Pear<TSource>.Create(item: item, meta: MetaData.FindCommonData(sourced.Map(static src => src.Meta).AsIterable())),
                         Site: Option<Site>.None)), static (acc, src) => acc.Map(src.Item.Detach))
                     select result,
-            false => from values in sourced.TraverseM(src => operation.Apply(geometry: Seq(src.Item.Inner)).Map(items => src.Project(items: items).Map(src.Item.Detach))).As()
+            false => from values in sourced.TraverseM(src => operation.Apply(geometry: Seq(src.Item.Inner))
+                         .IfFailEff(error => error is Fault.Unsupported ? Fin.Succ(Seq<TSource>()).ToEff() : Fin.Fail<Seq<TSource>>(error).ToEff())
+                         .Map(items => src.Project(items: items).Map(src.Item.Detach))).As()
                      let result = values.Bind(static value => value)
                      select result,
         };

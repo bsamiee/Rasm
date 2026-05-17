@@ -57,7 +57,7 @@ internal sealed class BridgeSessions : IDisposable {
             .Select(static assembly => Loaded(assembly: assembly, required: true))];
     }
     internal static BridgeAssemblyReport Loaded(Assembly assembly, bool required) =>
-        new(Name: assembly.GetName().Name ?? "unknown", Status: BridgeWire.Ok, Required: required, Version: assembly.GetName().Version?.ToString(), Location: assembly.Location, Fault: null);
+        new(Name: assembly.GetName().Name ?? "unknown", Status: BridgeWire.Ok, Required: required, Version: assembly.GetName().Version?.ToString(), InformationalVersion: assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion, Location: assembly.Location, Fault: null);
     private static BridgeFault LoadFault(Exception error) {
         ReflectionTypeLoadException? loader = error switch {
             ReflectionTypeLoadException current => current,
@@ -75,6 +75,7 @@ internal sealed class BridgeAssemblySession {
     private BridgeLoadContext? context;
     private Assembly? assembly;
     private BridgeAssemblyReport[] closure;
+    private bool unloadRequested;
     private BridgeAssemblySession(string sessionId, string location, BridgeLoadContext context, Assembly assembly, BridgeAssemblyReport[] closure) {
         SessionId = sessionId;
         this.location = location;
@@ -85,11 +86,12 @@ internal sealed class BridgeAssemblySession {
     internal string SessionId { get; }
     internal bool IsLoaded => context is not null && assembly is not null;
     internal static BridgeAssemblySession Load(string sessionId, string assemblyPath, string workspaceRoot) {
-        BridgeLoadContext loadContext = new(assemblyPath: assemblyPath);
+        BridgeLoadContext loadContext = new(assemblyPath: assemblyPath, workspaceRoot: workspaceRoot);
         try {
             Assembly loadedAssembly = loadContext.LoadFromAssemblyPath(assemblyPath);
-            Assembly[] loadedClosure = loadContext.LoadClosure(root: loadedAssembly, workspaceRoot: workspaceRoot);
-            BridgeAssemblyReport[] reports = [.. loadedClosure.Select(static item => BridgeSessions.Loaded(assembly: item, required: false))];
+            Assembly[] loadedClosure = loadContext.LoadClosure(root: loadedAssembly);
+            string rootName = loadedAssembly.GetName().Name ?? string.Empty;
+            BridgeAssemblyReport[] reports = [.. loadedClosure.Select(item => BridgeSessions.Loaded(assembly: item, required: string.Equals(a: item.GetName().Name, b: rootName, comparisonType: StringComparison.Ordinal)))];
             return new(sessionId: sessionId, location: assemblyPath, context: loadContext, assembly: loadedAssembly, closure: reports);
         } catch {
             loadContext.Unload();
@@ -108,8 +110,17 @@ internal sealed class BridgeAssemblySession {
             Assemblies: closure,
             Fault: null);
     internal BridgeUnloadReport Unload() {
+        if (unloadRequested) {
+            return new(
+                Status: BridgeWire.Failed,
+                SessionId: SessionId,
+                UnloadRequested: true,
+                Unloaded: false,
+                Fault: BridgeFault.MessageOnly(category: "unload", message: $"Session '{SessionId}' already requested unload, but loaded code still has live references."));
+        }
         WeakReference? reference = Release();
-        bool unloaded = reference is null || Collect(reference: reference);
+        unloadRequested = true;
+        bool unloaded = reference is not null && Collect(reference: reference);
         return new(
             Status: unloaded ? BridgeWire.Ok : BridgeWire.Failed,
             SessionId: SessionId,
@@ -139,19 +150,21 @@ internal sealed class BridgeAssemblySession {
 internal sealed class BridgeLoadContext : AssemblyLoadContext {
     private readonly AssemblyDependencyResolver resolver;
     private readonly Dictionary<string, Assembly> shared;
-    internal BridgeLoadContext(string assemblyPath) : base(isCollectible: true) {
+    private readonly Dictionary<string, string> packageAssets;
+    internal BridgeLoadContext(string assemblyPath, string workspaceRoot) : base(isCollectible: true) {
         resolver = new AssemblyDependencyResolver(assemblyPath);
         shared = SharedAssemblies();
+        packageAssets = PackageAssets(assemblyPath: assemblyPath, workspaceRoot: workspaceRoot);
     }
     internal static string HostRoot => Path.GetDirectoryName(typeof(RhinoApp).Assembly.Location) ?? string.Empty;
-    internal Assembly[] LoadClosure(Assembly root, string workspaceRoot) {
+    internal Assembly[] LoadClosure(Assembly root) {
         Dictionary<string, Assembly> loaded = new(StringComparer.Ordinal);
         Queue<Assembly> pending = new();
         AddClosureAssembly(assembly: root, loaded: loaded, pending: pending);
         while (pending.TryDequeue(result: out Assembly? current)) {
             foreach (AssemblyName reference in current.GetReferencedAssemblies()) {
                 Assembly? resolved = Load(assemblyName: reference);
-                if (resolved is not null && IsClosureAssembly(assembly: resolved, workspaceRoot: workspaceRoot)) {
+                if (resolved is not null && IsClosureAssembly(assembly: resolved)) {
                     AddClosureAssembly(assembly: resolved, loaded: loaded, pending: pending);
                 }
             }
@@ -161,6 +174,7 @@ internal sealed class BridgeLoadContext : AssemblyLoadContext {
     protected override Assembly? Load(AssemblyName assemblyName) =>
         assemblyName.Name switch {
             string name when shared.TryGetValue(key: name, value: out Assembly? assembly) => assembly,
+            string name when packageAssets.TryGetValue(key: name, value: out string? path) => LoadFromAssemblyPath(path),
             _ when resolver.ResolveAssemblyToPath(assemblyName) is string path => LoadFromAssemblyPath(path),
             _ => null,
         };
@@ -172,8 +186,8 @@ internal sealed class BridgeLoadContext : AssemblyLoadContext {
             pending.Enqueue(item: assembly);
         }
     }
-    private bool IsClosureAssembly(Assembly assembly, string workspaceRoot) =>
-        AssemblyLoadContext.GetLoadContext(assembly: assembly) == this && IsUnder(path: assembly.Location, root: workspaceRoot);
+    private bool IsClosureAssembly(Assembly assembly) =>
+        AssemblyLoadContext.GetLoadContext(assembly: assembly) == this;
     private static Dictionary<string, Assembly> SharedAssemblies() =>
         AppDomain.CurrentDomain.GetAssemblies()
             .Where(static assembly => IsUnder(path: assembly.Location, root: HostRoot))
@@ -181,6 +195,34 @@ internal sealed class BridgeLoadContext : AssemblyLoadContext {
             .Where(static assembly => !string.IsNullOrWhiteSpace(assembly.GetName().Name))
             .GroupBy(static assembly => assembly.GetName().Name!, StringComparer.Ordinal)
             .ToDictionary(static group => group.Key, static group => group.First(), StringComparer.Ordinal);
+    private static Dictionary<string, string> PackageAssets(string assemblyPath, string workspaceRoot) {
+        string deps = Path.ChangeExtension(path: assemblyPath, extension: ".deps.json");
+        string packages = Path.Combine(path1: workspaceRoot, path2: ".cache/nuget/packages");
+        if (!File.Exists(path: deps) || !Directory.Exists(path: packages)) {
+            return new(StringComparer.Ordinal);
+        }
+        try {
+            using System.Text.Json.JsonDocument document = System.Text.Json.JsonDocument.Parse(json: File.ReadAllText(path: deps, encoding: Encoding.UTF8));
+            return document.RootElement.GetProperty(propertyName: "targets").EnumerateObject()
+                .SelectMany(target => target.Value.EnumerateObject())
+                .SelectMany(library => PackageRuntimeAssets(library: library, packages: packages))
+                .GroupBy(static item => item.Name, StringComparer.Ordinal)
+                .ToDictionary(static group => group.Key, static group => group.First().Path, StringComparer.Ordinal);
+        } catch (Exception error) when (error is IOException or System.Text.Json.JsonException or InvalidOperationException or ArgumentException) {
+            return new(StringComparer.Ordinal);
+        }
+    }
+    private static IEnumerable<(string Name, string Path)> PackageRuntimeAssets(System.Text.Json.JsonProperty library, string packages) {
+        string[] package = library.Name.Split(separator: '/', count: 2);
+        return package is [string id, string version]
+            && library.Value.TryGetProperty(propertyName: "runtime", value: out System.Text.Json.JsonElement runtime)
+            && Directory.EnumerateDirectories(path: packages).FirstOrDefault(path => string.Equals(a: Path.GetFileName(path: path), b: id, comparisonType: StringComparison.OrdinalIgnoreCase)) is string packageRoot
+            ? runtime.EnumerateObject()
+                .Select(asset => Path.Combine(path1: packageRoot, path2: version, path3: asset.Name))
+                .Where(File.Exists)
+                .Select(static path => (Name: Path.GetFileNameWithoutExtension(path: path), Path: path))
+            : [];
+    }
     private static bool IsUnder(string path, string root) =>
         !string.IsNullOrWhiteSpace(value: path)
         && !string.IsNullOrWhiteSpace(value: root)

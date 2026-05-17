@@ -22,7 +22,7 @@ declare -Ar ROUTES=(
     [push]='_push_package|2|2|push <package> <version>|-'
     [bridge:build]='_bridge_build|0|0|bridge build|'
     [bridge:package]='_cmd_package|1|1|bridge package <version>|rasm-bridge'
-    [bridge:install]='_yak_install|1|1|bridge install <local-yak-path>|'
+    [bridge:install]='_bridge_install|1|1|bridge install <local-yak-path>|'
     [bridge:launch]='_bridge_client|0|0|bridge launch|launch'
     [bridge:restart]='_bridge_client|0|0|bridge restart|restart'
     [bridge:doctor]='_bridge_client|0|0|bridge doctor|doctor'
@@ -96,8 +96,38 @@ _self_test() {
         [[ "${min}" =~ ^[0-9]+$ && "${max}" =~ ^[0-9]+$ && -n "${line}" ]] || _die "Route metadata invalid: ${route}"
         ((min <= max)) || _die "Route arity invalid: ${route}"
     done
+    declare -A ordered_routes=()
+    for route in "${ROUTE_ORDER[@]}"; do
+        ordered_routes["${route}"]=1
+    done
+    for route in "${!ROUTES[@]}"; do
+        [[ -v ordered_routes["${route}"] ]] || _die "Route missing from order: ${route}"
+    done
+    declare -Ar bridge_presets=(
+        [bridge:launch]=launch
+        [bridge:restart]=restart
+        [bridge:doctor]=doctor
+        [bridge:script]=script
+        [bridge:load]=load
+        [bridge:load-smoke]=load-smoke
+        [bridge:check]=check
+        [bridge:check-source]=check-source
+        [bridge:unload]=unload
+        [bridge:quit]=quit
+    )
+    for route in "${!bridge_presets[@]}"; do
+        _route_meta "${route}" handler min max line preset
+        [[ "${handler}" == "_bridge_client" && "${preset}" == "${bridge_presets[${route}]}" ]] || _die "Bridge route preset invalid: ${route}"
+    done
+    for route in "${ROUTE_ORDER[@]}"; do
+        _route_meta "${route}" handler min max line preset
+        [[ "${handler}" == "_bridge_client" ]] || continue
+        [[ -v bridge_presets["${route}"] && "${preset}" == "${bridge_presets[${route}]}" ]] || _die "Bridge client route missing from allowlist: ${route}"
+    done
     _route_meta bridge:package handler min max line preset
     [[ "${handler}|${preset}|${min}|${max}" == '_cmd_package|rasm-bridge|1|1' ]] || _die "bridge package preset invalid"
+    _route_meta bridge:install handler min max line preset
+    [[ "${handler}|${preset}|${min}|${max}" == '_bridge_install||1|1' ]] || _die "bridge install route invalid"
     _route_meta bridge:quit handler min max line preset
     [[ "${handler}|${preset}|${min}|${max}" == '_bridge_client|quit|0|0' ]] || _die "bridge quit route invalid"
     _route_meta push handler min max line preset
@@ -128,6 +158,40 @@ _bridge_build() {
 }
 _bridge_client() {
     dotnet run --project "${BRIDGE_CLIENT_PROJECT}" --configuration "${CONFIGURATION}" -- "$@" || exit "$?"
+}
+_bridge_install() {
+    local -r package_path="$1"
+    local expected_version
+    _bridge_package_version "${package_path}" expected_version
+    readonly expected_version
+    _yak_install "${package_path}"
+    local lifecycle_json
+    local -r endpoint_path="${HOME}/.rasm/rhino-bridge.json"
+    local -r lifecycle_command="$([[ -f "${endpoint_path}" ]] && printf 'restart' || printf 'launch')"
+    lifecycle_json="$(dotnet run --project "${BRIDGE_CLIENT_PROJECT}" --configuration "${CONFIGURATION}" -- "${lifecycle_command}")" || {
+        printf '%s\n' "${lifecycle_json}"
+        _die "Bridge ${lifecycle_command} failed after install"
+    }
+    readonly lifecycle_json
+    printf '%s\n' "${lifecycle_json}"
+    local doctor_json
+    doctor_json="$(dotnet run --project "${BRIDGE_CLIENT_PROJECT}" --configuration "${CONFIGURATION}" -- doctor)" || {
+        printf '%s\n' "${doctor_json}"
+        _die "Bridge doctor failed after install"
+    }
+    readonly doctor_json
+    printf '%s\n' "${doctor_json}"
+    local live_version
+    live_version="$(jq -er '.phases[] | select(.phase == "doctor") | .data.assemblies[] | select(.name == "Rasm.RhinoBridge.Plugin") | .informationalVersion // .version' <<< "${doctor_json}")"
+    readonly live_version
+    [[ "${live_version}" == "${expected_version}" ]] || _die "Installed bridge version mismatch: expected ${expected_version}, live ${live_version}"
+}
+_bridge_package_version() {
+    local -r package_path="$1"
+    local -n __version="$2"
+    local -r package_name="${package_path##*/}"
+    [[ "${package_name}" =~ ^rasm-bridge-(.+)-rh[0-9_]+-mac[.]yak$ ]] || _die "Could not read bridge package version from ${package_name}"
+    __version="${BASH_REMATCH[1]}"
 }
 _package_meta() {
     local -r package_slug="$1"

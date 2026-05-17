@@ -192,10 +192,10 @@ public static partial class Analyze {
         new IntersectionCase(
             Supports: static (l, r) => l == typeof(RayQuery) && (typeof(Surface).IsAssignableFrom(r) || typeof(Brep).IsAssignableFrom(r) || GeometryKernel.CanCoerce(source: r, target: typeof(Brep))),
             Shape: IntersectionResult.HitsShape,
-            Compute: static (left, right, context, op, _, _) => (left, right) switch {
+            Compute: static (left, right, context, op, cancel, _) => (left, right) switch {
                 (RayQuery a, Surface b) => Some(RayShoot(query: a, geometry: b, op: op)),
-                (RayQuery a, Brep b) => Some(a.MaxReflections == 1 ? RayBrep(query: a, brep: b, context: context, op: op) : Fin.Fail<IntersectionResult>(a.IsValid ? op.Unsupported(typeof(Brep), typeof(IntersectionResult)) : op.InvalidInput())),
-                (RayQuery a, GeometryBase { HasBrepForm: true } b) => Some(a.IsValid ? GeometryKernel.BrepForm(source: b, op: op).Bind(lease => lease.Use(brep => a.MaxReflections == 1 ? RayBrep(query: a, brep: brep, context: context, op: op) : Fin.Fail<IntersectionResult>(op.Unsupported(typeof(Brep), typeof(IntersectionResult))))) : Fin.Fail<IntersectionResult>(op.InvalidInput())),
+                (RayQuery a, Brep b) => Some(a.MaxReflections == 1 ? RayBrep(query: a, brep: b, context: context, op: op, cancel: cancel) : Fin.Fail<IntersectionResult>(a.IsValid ? op.Unsupported(typeof(Brep), typeof(IntersectionResult)) : op.InvalidInput())),
+                (RayQuery a, GeometryBase { HasBrepForm: true } b) => Some(a.IsValid ? GeometryKernel.BrepForm(source: b, op: op).Bind(lease => lease.Use(brep => a.MaxReflections == 1 ? RayBrep(query: a, brep: brep, context: context, op: op, cancel: cancel) : Fin.Fail<IntersectionResult>(op.Unsupported(typeof(Brep), typeof(IntersectionResult))))) : Fin.Fail<IntersectionResult>(op.InvalidInput())),
                 (RayQuery, GeometryBase) => Some(Fin.Fail<IntersectionResult>(op.Unsupported(geometryType: right.GetType(), outputType: typeof(IntersectionResult)))),
                 _ => Option<Fin<IntersectionResult>>.None,
             }),
@@ -278,7 +278,7 @@ public static partial class Analyze {
             true => Fin.Succ((IntersectionResult)new IntersectionResult.Hits(toSeq(Intersection.RayShoot(Seq(geometry).AsIterable(), query.Ray, query.MaxReflections) ?? []).Map(static e => IntersectionHit.At(e.Point)))),
             false => Fin.Fail<IntersectionResult>(op.InvalidInput()),
         };
-    private static Fin<IntersectionResult> RayBrep(RayQuery query, Brep brep, Context context, Op op) {
+    private static Fin<IntersectionResult> RayBrep(RayQuery query, Brep brep, Context context, Op op, CancellationToken cancel) {
         BoundingBox box = brep.GetBoundingBox(accurate: true);
         using LineCurve ray = new(line: new Line(
             start: query.Ray.Position,
@@ -291,7 +291,7 @@ public static partial class Analyze {
                 points: [.. ps.Where(p => (p - query.Ray.Position) * query.Ray.Direction >= 0.0)],
                 kind: IntersectionKind.Overlap,
                 op: op,
-                cancel: default,
+                cancel: cancel,
                 partial: true),
             (true, _) => Fin.Fail<IntersectionResult>(op.InvalidResult()),
             _ => Fin.Fail<IntersectionResult>(op.InvalidInput()),

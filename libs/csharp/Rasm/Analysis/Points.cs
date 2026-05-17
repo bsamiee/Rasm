@@ -101,11 +101,6 @@ public static partial class Analyze {
             PointCloud cloud => Fin.Succ(toSeq(cloud.GetPoints())),
             SubD subd => Fin.Succ(toSeq(LanguageExt.List.unfold((SubDVertex?)subd.Vertices.First, static v => v switch { SubDVertex sv => Some((sv.ControlNetPoint, (SubDVertex?)sv.Next)), _ => None }))),
             GeometryBase { HasBrepForm: true } native => GeometryKernel.BrepForm(source: native, op: op).Bind(lease => lease.Use(brep => VerticesOf(geometry: brep, context: context, op: op))),
-            Surface surface => (surface.Domain(direction: 0), surface.Domain(direction: 1)) switch {
-                (Interval u, Interval v) when u.IsValid && v.IsValid => Fin.Succ(Seq(surface.PointAt(u: u.T0, v: v.T0), surface.PointAt(u: u.T1, v: v.T0), surface.PointAt(u: u.T1, v: v.T1), surface.PointAt(u: u.T0, v: v.T1))),
-                _ => Fin.Fail<Seq<Point3d>>(op.InvalidResult()),
-            },
-            object surfaceLike when GeometryKernel.CanSurfaceForm(type: surfaceLike.GetType()) => GeometryKernel.SurfaceForm(source: surfaceLike, op: op).Bind(lease => lease.Use(surface => VerticesOf(geometry: surface, context: context, op: op))),
             _ => Fin.Fail<Seq<Point3d>>(op.Unsupported(g.GetType(), typeof(Point3d))),
         });
     internal static Fin<Seq<Point3d>> ControlPointsOf<TGeometry>(TGeometry geometry, Op op) where TGeometry : notnull =>
@@ -131,7 +126,6 @@ public static partial class Analyze {
                     SpreadAspect.Collinear => op.AcceptResults<bool, TOut>(values: Seq(MinorSpread(fit: fit, points: points) <= context.Absolute.Value)),
                     _ => Fin.Fail<Seq<TOut>>(op.Unsupported(geometryType: typeof(SpreadAspect), outputType: typeof(TOut))),
                 },
-                (PlaneFitResult.Inconclusive, _) when aspect is SpreadAspect.Coplanar or SpreadAspect.Collinear => op.AcceptResults<bool, TOut>(values: Seq(true)),
                 _ when aspect is SpreadAspect.Coplanar or SpreadAspect.Collinear && points.Count <= 2 => op.AcceptResults<bool, TOut>(values: Seq(true)),
                 _ => Fin.Fail<Seq<TOut>>(op.InvalidResult()),
             };

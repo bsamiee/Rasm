@@ -20,7 +20,7 @@ RhinoWIP macOS workspace for first-party Rhino and Grasshopper products. Each ap
 | `tests/csharp` | Managed C# contract tests for shared libraries. |
 | `tools/cs-analyzer` | Local Roslyn analyzer project used by C# builds. |
 | `tools/yak/<package>` | Tracked Yak metadata for one package. |
-| `scripts/rhino.sh` | Build, stage, package, and push Rhino artifacts. |
+| `scripts/rhino.sh` | Build, package, publish, and run RhinoWIP bridge analyzer flows. |
 
 ## Build Policy
 
@@ -74,6 +74,25 @@ Push to the public Yak feed:
 scripts/rhino.sh push radyab 0.1.0-wip
 ```
 
+Build and install the runtime analyzer bridge:
+
+```bash
+VERSION=0.1.0-wip
+scripts/rhino.sh bridge build
+scripts/rhino.sh bridge package "$VERSION"
+PACKAGE="$(fd -H -g "rasm-bridge-${VERSION}-*-mac.yak" .artifacts/rhino/rasm-bridge/package --max-depth 1)"
+scripts/rhino.sh bridge install "$PACKAGE"
+```
+
+Collect live RhinoWIP runtime evidence:
+
+```bash
+scripts/rhino.sh bridge doctor
+scripts/rhino.sh bridge script path/to/script.csx
+scripts/rhino.sh bridge check path/to/project.csproj
+scripts/rhino.sh bridge check-source path/to/source.cs
+```
+
 ## Artifact Flow
 
 `scripts/rhino.sh package <package> <version>` performs one path:
@@ -97,7 +116,7 @@ Grasshopper uses GH2 component APIs directly: `Grasshopper2.Components.Component
 
 GH2 can run component work in parallel. Component code must keep execution state local to `Process`; reusable geometry logic belongs in `Rasm.Analysis` and `Rasm.Domain`.
 
-Automated Rhino/GH2 unit-test frameworks stay out of this foundation until Rhino.Testing exposes a current `net10.0` path. Live RhinoWIP runtime evidence flows through `scripts/rhino.sh bridge check <project.csproj>` and explicit `bridge script <script.csx|.cs>` executions; RhinoCode publishing remains out of scope.
+Automated Rhino/GH2 unit-test frameworks stay out of this foundation until Rhino.Testing exposes a current `net10.0` path. Live RhinoWIP runtime analyzer evidence flows through the installed bridge plugin, which registers RhinoCode C# scripting, runs transient scripts in-process, and returns factual build, diagnostic, stdout, stderr, exception, Rhino, document, tolerance, and bridge identity data. `rhinocode list --json` and ScriptServer state are discovery evidence; RhinoCode publishing remains out of scope. `bridge check-source <source.cs>` resolves and builds the owning project, then returns `unsupported` unless an executable `--script` target is supplied.
 
 ## GH2 Foundation
 

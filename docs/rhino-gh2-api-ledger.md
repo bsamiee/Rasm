@@ -73,7 +73,7 @@
 | **[2]** | FluentValidation | Domain validation already uses typed `Fin`/`Validation` rails and RhinoCommon validity APIs. |
 | **[3]** | BenchmarkDotNet | No measured hot path is being optimized in this slice. |
 | **[4]** | GH1 `.gha` APIs | The workspace targets GH2 `.rhp` plugins on RhinoWIP only. |
-| **[5]** | RhinoCode publishing APIs | Runtime packaging is Yak-based and driven by `scripts/rhino.sh`. |
+| **[5]** | RhinoCode publishing APIs | Runtime packaging is Yak-based; bridge analyzer execution uses in-process RhinoCode scripts without publishing. |
 | **[6]** | `Mesh.CreateFromFilteredFaceList` | Current mesh face handling projects from the source mesh and face index; filtered mesh construction would add ownership and topology-copying cost. |
 
 ---

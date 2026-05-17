@@ -59,6 +59,8 @@ internal sealed class BridgeServer : IDisposable {
         _ = Directory.CreateDirectory(path: BridgeWire.EndpointDirectory);
         RestrictDirectory(path: BridgeWire.EndpointDirectory);
         using Process process = Process.GetCurrentProcess();
+        Assembly bridgeAssembly = typeof(BridgeServer).Assembly;
+        AssemblyName bridgeName = bridgeAssembly.GetName();
         string pipeSuffix = Guid.NewGuid().ToString(format: "N")[..8];
         BridgeEndpoint metadata = new(
             Schema: BridgeWire.Schema,
@@ -66,13 +68,21 @@ internal sealed class BridgeServer : IDisposable {
             RhinoPid: Environment.ProcessId,
             RhinoStartedAt: new DateTimeOffset(dateTime: process.StartTime.ToUniversalTime()),
             StartedAt: DateTimeOffset.UtcNow,
-            BridgeAssemblyVersion: typeof(BridgeServer).Assembly.GetName().Version?.ToString() ?? "unknown",
+            BridgeAssemblyName: bridgeName.Name ?? "unknown",
+            BridgeAssemblyVersion: bridgeName.Version?.ToString() ?? "unknown",
+            BridgeAssemblyInformationalVersion: bridgeAssembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? bridgeName.Version?.ToString() ?? "unknown",
             RhinoVersion: RhinoApp.Version.ToString());
         BridgeServer server = new(endpoint: metadata);
-        WriteEndpoint(endpoint: metadata);
-        return server;
+        try {
+            WriteEndpoint(endpoint: metadata);
+            return server;
+        } catch {
+            server.Dispose();
+            throw;
+        }
     }
-    internal BridgeRuntimeState State() => IsRunning ? new(Endpoint: endpoint, Fault: null) : new(Endpoint: null, Fault: fault);
+    internal BridgeRuntimeState State() =>
+        IsRunning ? EndpointState() : new(Endpoint: null, Fault: fault);
     public void Dispose() {
         bool alreadyDisposed = disposed;
         disposed = true;
@@ -100,6 +110,39 @@ internal sealed class BridgeServer : IDisposable {
             }
         }
     }
+    private BridgeRuntimeState EndpointState() {
+        try {
+            EnsureEndpoint();
+            return new(Endpoint: endpoint, Fault: null);
+        } catch (Exception error) when (error is IOException or JsonException or UnauthorizedAccessException or InvalidOperationException) {
+            return new(Endpoint: null, Fault: BridgeFault.FromException(category: "transport", error: error));
+        }
+    }
+    private void EnsureEndpoint() {
+        BridgeEndpoint? current = ReadEndpointMetadata();
+        if (current is not { } active || !EndpointMatches(active: active)) {
+            WriteEndpoint(endpoint: endpoint);
+        }
+    }
+    private static BridgeEndpoint? ReadEndpointMetadata() {
+        try {
+            return File.Exists(path: BridgeWire.EndpointPath)
+                ? JsonSerializer.Deserialize<BridgeEndpoint>(json: File.ReadAllText(path: BridgeWire.EndpointPath, encoding: Encoding.UTF8), options: BridgeWire.CompactJson)
+                : null;
+        } catch (JsonException) {
+            return null;
+        }
+    }
+    private bool EndpointMatches(BridgeEndpoint active) =>
+        active.RhinoPid == endpoint.RhinoPid
+        && active.RhinoStartedAt == endpoint.RhinoStartedAt
+        && active.StartedAt == endpoint.StartedAt
+        && string.Equals(a: active.Schema, b: endpoint.Schema, comparisonType: StringComparison.Ordinal)
+        && string.Equals(a: active.PipeName, b: endpoint.PipeName, comparisonType: StringComparison.Ordinal)
+        && string.Equals(a: active.BridgeAssemblyName, b: endpoint.BridgeAssemblyName, comparisonType: StringComparison.Ordinal)
+        && string.Equals(a: active.BridgeAssemblyVersion, b: endpoint.BridgeAssemblyVersion, comparisonType: StringComparison.Ordinal)
+        && string.Equals(a: active.BridgeAssemblyInformationalVersion, b: endpoint.BridgeAssemblyInformationalVersion, comparisonType: StringComparison.Ordinal)
+        && string.Equals(a: active.RhinoVersion, b: endpoint.RhinoVersion, comparisonType: StringComparison.Ordinal);
     private async Task HandlePipeAsync(Stream pipe, CancellationToken token) {
         bool acquired = await clientGate.WaitAsync(timeout: TimeSpan.Zero, cancellationToken: token).ConfigureAwait(false);
         if (!acquired) {
@@ -135,7 +178,7 @@ internal sealed class BridgeServer : IDisposable {
             { Command: null or "" } => BridgeWire.Reply(command: BridgeWire.Hello, status: BridgeWire.Failed, fault: BridgeFault.MessageOnly(category: "protocol", message: "Request command was missing.")),
             { } current when !BridgeWire.IsCurrent(schema: current.Schema) => BridgeWire.Reply(command: request.Command, status: BridgeWire.Failed, fault: BridgeFault.MessageOnly(category: "protocol", message: $"Unsupported schema '{request.Schema}'.")),
             _ => InvokeOnRhinoThread(command: request.Command, work: document => request.Command switch {
-                BridgeWire.Hello => BridgeWire.Reply(command: BridgeWire.Hello, status: BridgeWire.Ok, data: endpoint),
+                BridgeWire.Hello => Hello(),
                 BridgeWire.Doctor => BridgeWire.Reply(command: BridgeWire.Doctor, status: BridgeWire.Ok, data: sessions.Doctor(document: document)),
                 BridgeWire.Load => WithPayload<BridgeLoadRequest>(request: request, work: payload => Project(command: BridgeWire.Load, report: sessions.Load(request: payload))),
                 BridgeWire.Execute => WithPayload<BridgeExecuteRequest>(request: request, work: payload => Execute(request: payload, document: document)),
@@ -144,6 +187,10 @@ internal sealed class BridgeServer : IDisposable {
                 string command => BridgeWire.Reply(command: command, status: BridgeWire.Unsupported, fault: BridgeFault.MessageOnly(category: "protocol", message: $"Unsupported command '{command}'.")),
             }),
         };
+    private BridgeReply Hello() {
+        EnsureEndpoint();
+        return BridgeWire.Reply(command: BridgeWire.Hello, status: BridgeWire.Ok, data: endpoint);
+    }
     private static BridgeReply Project(string command, BridgeLoadReport report) =>
         BridgeWire.Reply(command: command, status: report.Status, data: report, fault: report.Fault);
     private static BridgeReply Project(string command, BridgeUnloadReport report) =>
@@ -209,6 +256,9 @@ internal sealed class BridgeServer : IDisposable {
         new(
             Status: status,
             DurationMs: (int)timer.ElapsedMilliseconds,
+            BridgeAssemblyName: typeof(BridgeServer).Assembly.GetName().Name ?? "unknown",
+            BridgeAssemblyVersion: typeof(BridgeServer).Assembly.GetName().Version?.ToString() ?? "unknown",
+            BridgeAssemblyInformationalVersion: typeof(BridgeServer).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? typeof(BridgeServer).Assembly.GetName().Version?.ToString() ?? "unknown",
             RhinoVersion: RhinoApp.Version.ToString(),
             ActiveDocument: document is not null,
             ModelAbsoluteTolerance: document?.ModelAbsoluteTolerance,
@@ -234,7 +284,7 @@ internal sealed class BridgeServer : IDisposable {
             Column: diagnostic.Reference.Position.ColumnNumber,
             Category: "rhinocode");
     private static void EnsureCSharpScripting() =>
-        global::RhinoCodePlatform.Rhino3D.Registrar.StartScriptingLanguages(
+        RhinoCodePlatform.Rhino3D.Registrar.StartScriptingLanguages(
             spec: global::Rhino.Runtime.Code.Languages.LanguageSpec.CSharp,
             startServer: true);
     private static BridgeQuitReport Quit(RhinoDoc? document) =>
@@ -282,6 +332,8 @@ internal sealed class BridgeServer : IDisposable {
         }
     }
     private static void WriteEndpoint(BridgeEndpoint endpoint) {
+        _ = Directory.CreateDirectory(path: BridgeWire.EndpointDirectory);
+        RestrictDirectory(path: BridgeWire.EndpointDirectory);
         string temp = string.Create(provider: CultureInfo.InvariantCulture, $"{BridgeWire.EndpointPath}.{Environment.ProcessId}.tmp");
         File.WriteAllText(path: temp, contents: JsonSerializer.Serialize(value: endpoint, options: BridgeWire.CompactJson), encoding: Encoding.UTF8);
         Restrict(path: temp);

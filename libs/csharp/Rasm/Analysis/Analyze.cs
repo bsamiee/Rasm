@@ -68,9 +68,9 @@ public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnul
             true => Fin.Fail<TGeometry>(new Fault.Cancelled()),
             false => Optional(geometry).ToFin(new Fault.MissingGeometry()),
         }).ToEff()
-        from validated in (requirement.IsEmpty, ready) switch {
-            (false, GeometryBase native) => from _ in requirement.Apply(context: runtime.Context, value: native, cancel: runtime.Cancellation).ToEff()
-                                            select ready,
+        from validated in ready switch {
+            GeometryBase native => from _ in requirement.Apply(context: runtime.Context, value: native, cancel: runtime.Cancellation).ToEff()
+                                   select ready,
             _ => Fin.Succ(ready).ToEff(),
         }
         select validated;
