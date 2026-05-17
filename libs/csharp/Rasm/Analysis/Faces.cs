@@ -10,7 +10,7 @@ public partial record Faces : IAspect {
     public static Faces At(int? index = null) => new AtCase(Value: index);
     internal static readonly Op Key = Op.Of(name: nameof(Faces));
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull =>
-        (typeof(BrepFace).IsAssignableFrom(c: typeof(TGeometry)) || GeometryKernel.CanCoerce(source: typeof(TGeometry), target: typeof(Brep))) switch {
+        GeometryKernel.CanDecomposeFaces(type: typeof(TGeometry)) switch {
             false => Key.Unsupported<TGeometry, TOut>(),
             true => typeof(TOut) switch {
                 Type t when t == typeof(Brep) => Analyze.FaceOperation<TGeometry, TOut, Brep>(key: Key, selector: this, requirement: Requirement.None, project: static (chosen, _) => Key.Accept(values: chosen.Choose(static face => face.As<Brep>()))),
@@ -43,8 +43,7 @@ public static partial class Analyze {
         rankedCase: static (s, ranked) => RankFaces(state: s, axis: ranked.Axis, direction: ranked.Direction),
         atCase: static (s, at) => (s.Faces.Count, at.Value) switch {
             (0, _) => Fin.Succ(Seq<TopologyProjection>()),
-            (int n, int index) when index >= 0 && index < n => Fin.Succ(Seq(s.Faces[index])),
-            (_, int) => Fin.Fail<Seq<TopologyProjection>>(s.Key.InvalidInput()),
+            (int n, int index) => Fin.Succ(Seq(s.Faces[Math.Clamp(value: index, min: 0, max: n - 1)])),
             _ => Fin.Succ(Seq(s.Faces[0])),
         });
     private static Fin<Seq<TopologyProjection>> RankFaces((Op Key, Seq<TopologyProjection> Faces, Context Runtime) state, Vector3d axis, ExtremumDirection direction) =>

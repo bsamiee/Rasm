@@ -45,6 +45,7 @@ public sealed partial class TopologyScalar {
     public static readonly TopologyScalar VertexCount = new(key: 7, output: typeof(int), extract: static (g, op) => Analyze.ElementCountOf<GeometryBase>(geometry: g, op: op, meshCount: static m => m.Vertices.Count, brepCount: static b => b.Vertices.Count).Map(static value => (object)value));
     public Type Output { get; }
     [UseDelegateFromConstructor] internal partial Fin<object> Extract(GeometryBase geometry, Op op);
+    internal Fin<int> IntegerOf(GeometryBase geometry, Op op) => Extract(geometry: geometry, op: op).Bind(value => value is int count ? Fin.Succ(count) : Fin.Fail<int>(op.InvalidResult()));
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -76,7 +77,7 @@ public static partial class Analyze {
     }
     internal static Operation<TGeometry, TOut> TopologySolidOrientation<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
-        return typeof(TOut) == typeof(BrepSolidOrientation) && CanEvaluateTopology(type: typeof(TGeometry))
+        return typeof(TOut) == typeof(BrepSolidOrientation) && GeometryKernel.CanEvaluateTopology(type: typeof(TGeometry))
             ? KernelLift<TGeometry, BrepSolidOrientation, Op>(key: key, state: key, extract: static (op, g, _) => SolidOrientationOf(geometry: g, op: op).Bind(o => op.Accept(value: o))).As<TGeometry, TOut>(key: key)
             : key.Unsupported<TGeometry, TOut>();
     }
@@ -89,20 +90,18 @@ public static partial class Analyze {
     }
     internal static Operation<TGeometry, TOut> TopologyContains<TGeometry, TOut>(Point3d point) where TGeometry : notnull {
         Op key = Op.Of();
-        return point.IsValid && typeof(TOut) == typeof(bool) && CanEvaluateTopology(type: typeof(TGeometry))
+        return point.IsValid && typeof(TOut) == typeof(bool) && GeometryKernel.CanEvaluateSolidTopology(type: typeof(TGeometry))
             ? KernelLift<TGeometry, bool, (Op Key, Point3d Target)>(key: key, state: (Key: key, Target: point), requirement: Requirement.SolidTopology, extract: static (s, g, ctx) => ContainsPoint(geometry: g, target: s.Target, context: ctx, op: s.Key).Bind(c => s.Key.Accept(value: c))).As<TGeometry, TOut>(key: key)
             : key.Unsupported<TGeometry, TOut>();
     }
     internal static Operation<TGeometry, TOut> TopologyScalar<TGeometry, TOut>(TopologyScalar scalar) where TGeometry : notnull {
         Op key = Op.Of();
-        return typeof(TOut) == scalar.Output && CanEvaluateTopology(type: typeof(TGeometry))
+        return typeof(TOut) == scalar.Output && GeometryKernel.CanEvaluateTopology(type: typeof(TGeometry))
             ? KernelLift<TGeometry, TOut, (Op Key, TopologyScalar Scalar)>(key: key, state: (Key: key, Scalar: scalar), extract: static (s, g, _) =>
                 ExtractTopologyScalar(geometry: g, scalar: s.Scalar, op: s.Key)
                     .Bind(value => value is TOut typed ? s.Key.Accept(value: typed) : Fin.Fail<Seq<TOut>>(s.Key.Unsupported(geometryType: value.GetType(), outputType: typeof(TOut)))))
             : key.Unsupported<TGeometry, TOut>();
     }
-    private static bool CanEvaluateTopology(Type type) =>
-        type == typeof(object) || type == typeof(GeometryBase) || typeof(Mesh).IsAssignableFrom(c: type) || typeof(Brep).IsAssignableFrom(c: type) || GeometryKernel.CanCoerce(source: type, target: typeof(Brep));
     private static Operation<TGeometry, TValue> KernelLift<TGeometry, TValue, TState>(Op key, TState state, Func<TState, TGeometry, Context, Fin<Seq<TValue>>> extract, Requirement? requirement = null, bool requiresContext = true) where TGeometry : notnull =>
         Operation<TGeometry, TValue>.Build(
             key: key, requirement: requirement, requiresContext: requiresContext, state: (State: state, Extract: extract),

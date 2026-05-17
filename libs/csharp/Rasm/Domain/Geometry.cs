@@ -199,7 +199,6 @@ public sealed partial class Kind {
     internal bool CanReadVertices =>
         Type == typeof(Point3d) || Type == typeof(Line) || Type == typeof(Polyline) || TopologyVertexReadable.Contains(Topology);
     internal bool CanReadControlPoints => TopologyControlReadable.Contains(Topology);
-    internal bool CanDecomposeFaces => TopologyFaceDecomposable.Contains(Topology);
     internal bool CanReadEdges =>
         Type == typeof(Line) || Type == typeof(Polyline) || Type == typeof(BoundingBox) || Type == typeof(Box) || TopologyEdgeReadable.Contains(Topology);
     internal bool CanPrincipal => TopologyPrincipal.Contains(Topology);
@@ -215,7 +214,6 @@ public sealed partial class Kind {
     private static readonly FrozenSet<Type> BrepSources = new[] { typeof(Brep), typeof(Surface), typeof(Box), typeof(BoundingBox), typeof(Sphere), typeof(Cylinder), typeof(Cone), typeof(Torus), typeof(Extrusion), typeof(SubD) }.ToFrozenSet();
     private static readonly FrozenSet<Topology> TopologyVertexReadable = new[] { Topology.Point, Topology.Curve, Topology.Brep, Topology.Mesh, Topology.PointCloud, Topology.SubD, Topology.Extrusion }.ToFrozenSet();
     private static readonly FrozenSet<Topology> TopologyControlReadable = new[] { Topology.Curve, Topology.Surface, Topology.Brep }.ToFrozenSet();
-    private static readonly FrozenSet<Topology> TopologyFaceDecomposable = new[] { Topology.Brep, Topology.Surface, Topology.Extrusion }.ToFrozenSet();
     private static readonly FrozenSet<Topology> TopologyEdgeReadable = new[] { Topology.Brep, Topology.Mesh, Topology.SubD }.ToFrozenSet();
     private static readonly FrozenSet<Topology> TopologyPrincipal = new[] { Topology.Curve, Topology.Brep, Topology.Mesh, Topology.Surface, Topology.Extrusion }.ToFrozenSet();
     private static readonly FrozenDictionary<Type, Kind> ByType = Items.ToFrozenDictionary(static k => k.Type);
@@ -240,7 +238,11 @@ internal static class GeometryKernel {
     internal static bool CanCurveForm(Type type) => typeof(Curve).IsAssignableFrom(c: type) || Can(type: type, predicate: static kind => kind.Topology == Topology.Curve);
     internal static bool CanSurfaceForm(Type type) => Universal(type: type) || typeof(Surface).IsAssignableFrom(c: type) || Can(type: type, predicate: static kind => kind.Topology == Topology.Surface);
     internal static bool CanCoerce(Type source, Type target) => Universal(source) || Kind.Of(source).Map(kind => kind.CanCoerceTo(target: target)).IfNone(target.IsAssignableFrom(source));
+    internal static bool CanDecomposeFaces(Type type) => typeof(BrepFace).IsAssignableFrom(c: type) || Can(type: type, predicate: static kind => kind.CanCoerceTo(target: typeof(Brep)));
+    internal static bool CanEvaluateTopology(Type type) => typeof(Mesh).IsAssignableFrom(c: type) || typeof(Brep).IsAssignableFrom(c: type) || Can(type: type, predicate: static kind => kind.Topology == Topology.Mesh || kind.Topology == Topology.Brep || kind.CanCoerceTo(target: typeof(Brep)));
+    internal static bool CanEvaluateSolidTopology(Type type) => typeof(Mesh).IsAssignableFrom(c: type) || typeof(Brep).IsAssignableFrom(c: type) || Can(type: type, predicate: static kind => kind.Topology == Topology.Mesh || kind.Topology == Topology.Brep || kind.Type == typeof(Box) || kind.Type == typeof(BoundingBox) || kind.Topology == Topology.Extrusion || kind.Topology == Topology.SubD);
     internal static bool CanClosest(Type type) => Universal(type: type) || typeof(Brep).IsAssignableFrom(type) || typeof(Mesh).IsAssignableFrom(type) || type == typeof(Box) || type == typeof(BoundingBox) || CanCurveForm(type: type) || CanSurfaceForm(type: type);
+    internal static bool CanClosestNormal(Type type) => Universal(type: type) || type == typeof(Plane) || typeof(Surface).IsAssignableFrom(c: type) || typeof(BrepFace).IsAssignableFrom(c: type) || typeof(Brep).IsAssignableFrom(c: type) || typeof(Mesh).IsAssignableFrom(c: type);
     internal static bool CanSamplePoints(Type type) => CanCurveForm(type: type) || CanSurfaceForm(type: type) || Can(type: type, predicate: static kind => kind.CanReadVertices);
     public static Fin<Kind> KindOf(this object geometry, Context context) {
         Op key = Op.Of(name: nameof(Kind));
