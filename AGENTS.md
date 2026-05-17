@@ -37,3 +37,11 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - Route README, ADR, changelog, architecture, code documentation, and standards changes through `docgen`.
 - Route Markdown structure, headers, lists, tables, diagrams, separators, and voice changes through `style-standards`.
 - Keep documentation rooted in existing paths, commands, and configured tooling; remove invented or stale paths.
+
+## [6][LIVE_RHINO_BRIDGE]
+- Source lives under `tools/rhino-bridge`: `plugin/` is the RhinoCommon `.rhp`, `client/` is the local CLI, and `jobs/` contains closed-vocabulary check jobs.
+- Use `scripts/rhino.sh bridge build` to build the bridge plugin and CLI.
+- Use `scripts/rhino.sh bridge launch` to open RhinoWIP and poll `~/.rasm/rhino-bridge.json`; it does not register or load the `.rhp`.
+- Use `scripts/rhino.sh bridge doctor` against a running RhinoWIP session with the bridge loaded.
+- Use `scripts/rhino.sh bridge check tools/rhino-bridge/jobs/radyab-smoke.json` with a model open when checks need active document tolerances.
+- Do not automate Rhino settings or template creation from this repo. Persistent startup is owned by the plugin `LoadTime.AtStartup`; `_RasmBridgeStart` may be entered manually in Rhino settings if an operator wants a command-list fallback.

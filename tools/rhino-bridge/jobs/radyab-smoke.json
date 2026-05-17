@@ -1,0 +1,13 @@
+{
+    "schema": "rasm.rhino-bridge.job.v1",
+    "name": "radyab-smoke",
+    "timeoutMs": 30000,
+    "checks": [
+        "analysis-core",
+        "faces",
+        "curves",
+        "meshes",
+        "intersections",
+        "radyab-assembly"
+    ]
+}

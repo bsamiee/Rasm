@@ -12,13 +12,20 @@ readonly YAK_ROOT="${ROOT_DIR}/tools/yak"
 readonly YAK_PATH="${RHINO_YAK_PATH:-/Applications/RhinoWIP.app/Contents/Resources/bin/yak}"
 readonly CONFIGURATION="${CONFIGURATION:-Release}"
 readonly FRAMEWORK="${FRAMEWORK:-net10.0}"
+readonly BRIDGE_CLIENT_PROJECT="${ROOT_DIR}/tools/rhino-bridge/client/Rasm.RhinoBridge.Client.csproj"
+readonly BRIDGE_PLUGIN_PROJECT="${ROOT_DIR}/tools/rhino-bridge/plugin/Rasm.RhinoBridge.Plugin.csproj"
 
-declare -Ar COMMANDS=([build]=_build [package]=_cmd_package [push-test]=_cmd_push_test [push]=_cmd_push)
+declare -Ar COMMANDS=([build]=_build [bridge]=_cmd_bridge [package]=_cmd_package [push-test]=_cmd_push_test [push]=_cmd_push)
+declare -Ar BRIDGE_COMMANDS=([build]=_bridge_build [doctor]=_bridge_doctor [check]=_bridge_check [launch]=_bridge_launch)
 declare -Ar PACKAGE_PLUGIN_ROOTS=([radyab]="apps/grasshopper/Radyab")
 
 _usage() {
     printf 'Usage:\n'
     printf '  scripts/rhino.sh build [version]\n'
+    printf '  scripts/rhino.sh bridge build\n'
+    printf '  scripts/rhino.sh bridge doctor\n'
+    printf '  scripts/rhino.sh bridge check <job.json>\n'
+    printf '  scripts/rhino.sh bridge launch\n'
     printf '  scripts/rhino.sh package <package> <version>\n'
     printf '  scripts/rhino.sh push-test <package> <version>\n'
     printf '  scripts/rhino.sh push <package> <version>\n'
@@ -35,6 +42,44 @@ _build() {
     [[ -n "${version}" ]] && build_args+=("/p:Version=${version}" "/p:InformationalVersion=${version}")
     dotnet restore "${SOLUTION_PATH}"
     dotnet build "${SOLUTION_PATH}" "${build_args[@]}"
+}
+
+_bridge_usage() {
+    printf 'Usage:\n'
+    printf '  scripts/rhino.sh bridge build\n'
+    printf '  scripts/rhino.sh bridge doctor\n'
+    printf '  scripts/rhino.sh bridge check <job.json>\n'
+    printf '  scripts/rhino.sh bridge launch\n'
+}
+
+_bridge_build() {
+    dotnet restore "${SOLUTION_PATH}"
+    dotnet build "${BRIDGE_PLUGIN_PROJECT}" --configuration "${CONFIGURATION}" --no-restore
+    dotnet build "${BRIDGE_CLIENT_PROJECT}" --configuration "${CONFIGURATION}" --no-restore
+}
+
+_bridge_client() {
+    dotnet run --project "${BRIDGE_CLIENT_PROJECT}" --configuration "${CONFIGURATION}" -- "$@"
+}
+
+_bridge_doctor() {
+    _bridge_client doctor
+}
+
+_bridge_check() {
+    local -r job_path="${1:?job.json required}"
+    _bridge_client check "${job_path}"
+}
+
+_bridge_launch() {
+    _bridge_client launch
+}
+
+_cmd_bridge() {
+    local -r command="${1:-}"
+    [[ -n "${command}" && -v BRIDGE_COMMANDS["${command}"] ]] || { _bridge_usage >&2; exit 2; }
+    shift
+    "${BRIDGE_COMMANDS[${command}]}" "$@"
 }
 
 _package_plugin_roots() {

@@ -59,8 +59,13 @@ public static partial class Analyze {
     }
     internal static Operation<TGeometry, TOut> Kind<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
-        return typeof(TOut) == typeof(Kind) && GeometryKernel.Can(type: typeof(TGeometry), predicate: static _ => true)
-            ? KernelLift<TGeometry, Kind, Op>(key: key, state: key, extract: static (op, g, ctx) => ((object)g).KindOf(context: ctx).Bind(k => op.Accept(value: k))).As<TGeometry, TOut>(key: key)
+        return GeometryKernel.Can(type: typeof(TGeometry), predicate: static _ => true)
+            ? typeof(TOut) switch {
+                Type t when t == typeof(Kind) => KernelLift<TGeometry, Kind, Op>(key: key, state: key, extract: static (op, g, ctx) => ((object)g).KindOf(context: ctx).Bind(k => op.Accept(value: k))).As<TGeometry, TOut>(key: key),
+                Type t when t == typeof(string) => KernelLift<TGeometry, string, Op>(key: key, state: key, extract: static (op, g, ctx) => ((object)g).KindOf(context: ctx).Bind(k => op.Accept(value: k.ToString(null, System.Globalization.CultureInfo.InvariantCulture)))).As<TGeometry, TOut>(key: key),
+                Type t when t == typeof(Topology) => KernelLift<TGeometry, Topology, Op>(key: key, state: key, extract: static (op, g, ctx) => ((object)g).KindOf(context: ctx).Bind(k => op.Accept(value: k.Topology))).As<TGeometry, TOut>(key: key),
+                _ => key.Unsupported<TGeometry, TOut>(),
+            }
             : key.Unsupported<TGeometry, TOut>();
     }
     internal static Operation<TGeometry, TOut> TopologyDomains<TGeometry, TOut>() where TGeometry : notnull {

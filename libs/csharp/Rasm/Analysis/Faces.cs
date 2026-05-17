@@ -3,10 +3,10 @@ namespace Rasm.Analysis;
 // --- [MODELS] -----------------------------------------------------------------------------
 [Union]
 public partial record Faces : IAspect {
-    public sealed record AllCase : Faces; public sealed record TopCase(Vector3d Axis) : Faces; public sealed record BottomCase(Vector3d Axis) : Faces; public sealed record AtCase(int? Value) : Faces;
+    public sealed record AllCase : Faces; public sealed record RankedCase(Vector3d Axis, ExtremumDirection Direction) : Faces; public sealed record AtCase(int? Value) : Faces;
     public static Faces All => new AllCase();
-    public static Faces Top(Vector3d? axis = null) => new TopCase(Axis: axis ?? Vector3d.ZAxis);
-    public static Faces Bottom(Vector3d? axis = null) => new BottomCase(Axis: axis ?? Vector3d.ZAxis);
+    public static Faces Top(Vector3d? axis = null) => new RankedCase(Axis: axis ?? Vector3d.ZAxis, Direction: ExtremumDirection.Maximum);
+    public static Faces Bottom(Vector3d? axis = null) => new RankedCase(Axis: axis ?? Vector3d.ZAxis, Direction: ExtremumDirection.Minimum);
     public static Faces At(int? index = null) => new AtCase(Value: index);
     internal static readonly Op Key = Op.Of(name: nameof(Faces));
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull =>
@@ -44,23 +44,27 @@ public static partial class Analyze {
     internal static Fin<Seq<TopologyProjection>> SelectFaces(Op key, Seq<TopologyProjection> faces, Faces selector, Context runtime) => selector.Switch(
         state: (Key: key, Faces: faces, Runtime: runtime),
         allCase: static (s, _) => Fin.Succ(s.Faces),
-        topCase: static (s, top) => RankFaces(state: s, axis: top.Axis, descending: true),
-        bottomCase: static (s, bottom) => RankFaces(state: s, axis: bottom.Axis, descending: false),
+        rankedCase: static (s, ranked) => RankFaces(state: s, axis: ranked.Axis, direction: ranked.Direction),
         atCase: static (s, at) => (s.Faces.Count, at.Value) switch {
             (0, _) => Fin.Succ(Seq<TopologyProjection>()),
             (int n, int index) when index < 0 || index >= n => Fin.Fail<Seq<TopologyProjection>>(s.Key.InvalidInput()),
             (_, int index) => Fin.Succ(Seq(s.Faces[index])),
             _ => Fin.Succ(Seq(s.Faces[0])),
         });
-    private static Fin<Seq<TopologyProjection>> RankFaces((Op Key, Seq<TopologyProjection> Faces, Context Runtime) state, Vector3d axis, bool descending) =>
+    private static Fin<Seq<TopologyProjection>> RankFaces((Op Key, Seq<TopologyProjection> Faces, Context Runtime) state, Vector3d axis, ExtremumDirection direction) =>
         (state.Faces.IsEmpty, axis.IsValid && !axis.IsTiny()) switch {
             (true, _) => Fin.Succ(Seq<TopologyProjection>()),
             (false, false) => Fin.Fail<Seq<TopologyProjection>>(state.Key.InvalidInput()),
             _ => state.Faces.Traverse(face => face.As<BrepFace>().ToFin(state.Key.InvalidInput()).Bind(bf => Analyze.CentroidOf(geometry: bf, context: state.Runtime, op: state.Key)).Map(point => (face, Score: new Vector3d(x: point.X, y: point.Y, z: point.Z) * axis))).As()
-                .Map(ranked => descending
-                    ? Stat.Extrema(items: ranked, projection: static item => item.Score, tolerance: state.Runtime.Absolute.Value * axis.Length, direction: ExtremumDirection.Maximum).Map(static item => item.face)
-                    : Stat.Extrema(items: ranked, projection: static item => item.Score, tolerance: state.Runtime.Absolute.Value * axis.Length, direction: ExtremumDirection.Minimum).Map(static item => item.face)),
+                .Map(ranked => Stat.Extrema(items: ranked, projection: static item => item.Score, tolerance: state.Runtime.Absolute.Value * axis.Length, direction: direction).Map(static item => item.face)),
         };
+    internal static Fin<Plane> FrameAtFaceCentroid(BrepFace face, Context context, Op op) =>
+        CentroidOf(geometry: face, context: context, op: op).Bind(centroid =>
+            (face.ClosestPointOnFace(testPoint: centroid, u: out double u, v: out double v, maximumDistance: 0.0), face.FrameAt(u: u, v: v, frame: out Plane frame), face.NormalAt(u: u, v: v)) switch {
+                (true, true, Vector3d normal) when frame.IsValid && normal.IsValid && !normal.IsTiny() =>
+                    Fin.Succ((frame.ZAxis * (face.OrientationIsReversed ? -normal : normal)) >= 0.0 ? frame : new Plane(origin: frame.Origin, xDirection: frame.XAxis, yDirection: -frame.YAxis)),
+                _ => Fin.Fail<Plane>(op.InvalidResult()),
+            });
     internal static Operation<TGeometry, TOut> FaceOperation<TGeometry, TOut, TValue>(Op key, Faces selector, Requirement requirement, Func<Seq<TopologyProjection>, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull =>
         Operation<TGeometry, TValue>.Build(
             key: key, state: (Key: key, Selector: selector, Project: project), requirement: requirement, requiresContext: true,

@@ -40,23 +40,22 @@ public partial record Curves : IAspect {
     public static Curves NakedOuter => new EdgesCase(Selector: new EdgeSelector.NakedFiltered(Kind: NakedKind.Outer)); public static Curves NakedInner => new EdgesCase(Selector: new EdgeSelector.NakedFiltered(Kind: NakedKind.Inner));
     public static Curves Interior => new EdgesCase(Selector: new EdgeSelector.Interior()); public static Curves NonManifold => new EdgesCase(Selector: new EdgeSelector.NonManifold());
     public static Curves OuterLoop => new EdgesCase(Selector: new EdgeSelector.LoopFiltered(Type: BrepLoopType.Outer)); public static Curves InnerLoop => new EdgesCase(Selector: new EdgeSelector.LoopFiltered(Type: BrepLoopType.Inner));
-    public static Curves Segments => new SegmentsCase(Smooth: false); public static Curves SubCurves => new SegmentsCase(Smooth: true);
+    public static Curves Segments(bool smooth = false) => new SegmentsCase(Smooth: smooth);
     public static Curves Iso(IsoStatus direction, double normalized = 0.5) => new IsoCase(Direction: direction, Normalized: normalized);
     public static Curves Silhouette(Vector3d? direction = null) => new SilhouetteCase(Query: new SilhouetteQuery.Projecting(Direction: direction));
     public static Curves Draft(Vector3d? direction = null, double? angle = null) => new SilhouetteCase(Query: new SilhouetteQuery.Draft(Direction: direction, Angle: Optional(angle)));
     public static Curves At(int? index = null) => new AtCase(Value: index);
-    public static Curves Form => new FormCase(Index: null);
-    public static Curves FormAt(int index) => new FormCase(Index: index);
+    public static Curves Form(int? index = null) => new FormCase(Index: index);
     internal static readonly Op Key = Op.Of(name: nameof(Curves));
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull =>
         CanProject(type: typeof(TGeometry)) switch {
             false => Key.Unsupported<TGeometry, TOut>(),
             true => typeof(TOut) switch {
-                Type t when t == typeof(Curve) => Analyze.CurveProject<TGeometry, TOut, Curve>(key: Key, aspect: this, project: static p => p.As<Curve>()),
-                Type t when t == typeof(TopologyProjection) => Analyze.CurveProject<TGeometry, TOut, TopologyProjection>(key: Key, aspect: this, project: static p => Some(p)),
-                Type t when t == typeof(CurveFeature) => Analyze.CurveProject<TGeometry, TOut, CurveFeature>(key: Key, aspect: this, project: static p => Some(p.Feature)),
-                Type t when t == typeof(ComponentIndex) => Analyze.CurveProject<TGeometry, TOut, ComponentIndex>(key: Key, aspect: this, project: static p => Some(p.Source)),
-                Type t when t == typeof(CurveForm) && this is FormCase => Analyze.CurveFormProject<TGeometry, TOut>(key: Key, aspect: this),
+                Type t when t == typeof(Curve) => Analyze.CurveProject<TGeometry, TOut, Curve>(key: Key, aspect: this, project: static (p, _, _) => Fin.Succ(p.As<Curve>())),
+                Type t when t == typeof(TopologyProjection) => Analyze.CurveProject<TGeometry, TOut, TopologyProjection>(key: Key, aspect: this, project: static (p, _, _) => Fin.Succ(Some(p))),
+                Type t when t == typeof(CurveFeature) => Analyze.CurveProject<TGeometry, TOut, CurveFeature>(key: Key, aspect: this, project: static (p, _, _) => Fin.Succ(Some(p.Feature))),
+                Type t when t == typeof(ComponentIndex) => Analyze.CurveProject<TGeometry, TOut, ComponentIndex>(key: Key, aspect: this, project: static (p, _, _) => Fin.Succ(Some(p.Source))),
+                Type t when t == typeof(CurveForm) && this is FormCase => Analyze.CurveProject<TGeometry, TOut, CurveForm>(key: Key, aspect: this, project: static (p, context, op) => Analyze.ClassifyCurveForm(projection: p, context: context, op: op)),
                 _ => Key.Unsupported<TGeometry, TOut>(),
             },
         };
@@ -134,7 +133,7 @@ public partial record Curves : IAspect {
 public static partial class Analyze {
     public static Operation<TGeometry, TOut> Curves<TGeometry, TOut>(Curves aspect) where TGeometry : notnull => Aspect<Curves, TGeometry, TOut>(aspect: aspect);
     internal static Operation<TGeometry, TOut> Segments<TGeometry, TOut>() where TGeometry : notnull =>
-        Curves<TGeometry, TOut>(aspect: Analysis.Curves.Segments);
+        Curves<TGeometry, TOut>(aspect: Analysis.Curves.Segments());
     public static Operation<Surface, Curve> Iso(IsoStatus iso, double normalized = 0.5) {
         Op key = Op.Of();
         return Operation<Surface, Curve>.Build(
@@ -145,7 +144,7 @@ public static partial class Analyze {
                 from result in state.Key.Accept(values: curves).ToEff()
                 select result);
     }
-    internal static Operation<TGeometry, TOut> CurveProject<TGeometry, TOut, TValue>(Op key, Curves aspect, Func<TopologyProjection, Option<TValue>> project) where TGeometry : notnull =>
+    internal static Operation<TGeometry, TOut> CurveProject<TGeometry, TOut, TValue>(Op key, Curves aspect, Func<TopologyProjection, Context, Op, Fin<Option<TValue>>> project) where TGeometry : notnull =>
         Operation<TGeometry, TValue>.Build(
             key: key, state: (Key: key, Aspect: aspect, Project: project), requiresContext: true,
             evaluator: static (state, geometry) =>
@@ -154,7 +153,7 @@ public static partial class Analyze {
                 let feature = state.Aspect.Feature(topology: kind.Topology)
                 from curves in CurveProjections(geometry: geometry, aspect: state.Aspect, feature: feature, context: runtime.Context, op: state.Key, cancel: runtime.Cancellation).ToEff()
                 from chosen in state.Aspect.Select(curves: curves).ToEff()
-                from result in TopologyProjection.Project(all: curves, chosen: chosen, project: values => state.Key.Accept(values: values.Choose(state.Project))).ToEff()
+                from result in TopologyProjection.Project(all: curves, chosen: chosen, project: values => values.TraverseM(projection => state.Project(arg1: projection, arg2: runtime.Context, arg3: state.Key)).As().Bind(projected => state.Key.Accept(values: projected.Choose(static value => value)))).ToEff()
                 select result).As<TGeometry, TOut>(key: key);
     internal static Fin<Seq<TopologyProjection>> CurveProjections<TGeometry>(TGeometry geometry, Curves aspect, CurveFeature feature, Context context, Op op, CancellationToken cancel) where TGeometry : notnull =>
         Optional(geometry).ToFin(op.InvalidInput()).Bind(g => (g, aspect) switch {
@@ -204,21 +203,10 @@ public static partial class Analyze {
         _ = subd.UpdateSurfaceMeshCache(true);
         return Fin.Succ(toSeq(subd.DuplicateEdgeCurves().Select((c, i) => TopologyProjection.Of(c, feature, new ComponentIndex(ComponentIndexType.SubdEdge, i)))));
     }
-    internal static Operation<TGeometry, TOut> CurveFormProject<TGeometry, TOut>(Op key, Curves aspect) where TGeometry : notnull =>
-        Operation<TGeometry, CurveForm>.Build(
-            key: key, state: (Key: key, Aspect: aspect), requiresContext: true,
-            evaluator: static (state, geometry) =>
-                from runtime in Env.EnvAsks
-                from kind in ((object)geometry).KindOf(context: runtime.Context).ToEff()
-                let feature = state.Aspect.Feature(topology: kind.Topology)
-                from projections in CurveProjections(geometry: geometry, aspect: state.Aspect, feature: feature, context: runtime.Context, op: state.Key, cancel: runtime.Cancellation).ToEff()
-                from chosen in state.Aspect.Select(curves: projections).ToEff()
-                from result in TopologyProjection.Project<CurveForm>(all: projections, chosen: chosen, project: values =>
-                    values.TraverseM(p => p.As<Curve>().Match(
-                        Some: c => ClassifyCurveForm(curve: c, tolerance: runtime.Context.Absolute.Value),
-                        None: () => Fin.Fail<CurveForm>(state.Key.InvalidResult())
-                    )).As().Bind(forms => state.Key.Accept(values: forms))).ToEff()
-                select result).As<TGeometry, TOut>(key: key);
+    internal static Fin<Option<CurveForm>> ClassifyCurveForm(TopologyProjection projection, Context context, Op op) =>
+        projection.As<Curve>().Match(
+            Some: curve => ClassifyCurveForm(curve: curve, tolerance: context.Absolute.Value).Map(static form => Some(form)),
+            None: () => Fin.Fail<Option<CurveForm>>(op.InvalidResult()));
     private static Fin<CurveForm> ClassifyCurveForm(Curve curve, double tolerance) =>
         Fin.Succ<CurveForm>(curve switch {
             _ when curve.IsLinear(tolerance: tolerance) => new CurveForm.LineCase(Value: new Line(from: curve.PointAtStart, to: curve.PointAtEnd)),

@@ -126,13 +126,6 @@ public static partial class Analyze {
                     select result),
             _ => key.Unsupported<TGeometry, TOut>(),
         };
-    internal static Fin<Plane> FrameAtFaceCentroid(BrepFace face, Context context, Op op) =>
-        CentroidOf(geometry: face, context: context, op: op).Bind(centroid =>
-            (face.ClosestPointOnFace(testPoint: centroid, u: out double u, v: out double v, maximumDistance: 0.0), face.FrameAt(u: u, v: v, frame: out Plane frame), face.NormalAt(u: u, v: v)) switch {
-                (true, true, Vector3d normal) when frame.IsValid && normal.IsValid && !normal.IsTiny() =>
-                    Fin.Succ((frame.ZAxis * (face.OrientationIsReversed ? -normal : normal)) >= 0.0 ? frame : new Plane(origin: frame.Origin, xDirection: frame.XAxis, yDirection: -frame.YAxis)),
-                _ => Fin.Fail<Plane>(op.InvalidResult()),
-            });
     internal static Operation<TGeometry, TOut> Located<TGeometry, TOut, TNative, TValue>(Op key, Func<Operation<TGeometry, TValue>> operation) where TGeometry : notnull =>
         ((typeof(TNative) == typeof(Curve) && GeometryKernel.CanCurveForm(type: typeof(TGeometry))) || typeof(TNative).IsAssignableFrom(c: typeof(TGeometry)) || typeof(TGeometry) == typeof(object) || typeof(TGeometry) == typeof(GeometryBase)) && typeof(TOut) == typeof(TValue)
             ? operation().As<TGeometry, TOut>(key: key)

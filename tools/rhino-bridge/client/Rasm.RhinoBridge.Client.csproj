@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Local CLI client for the RhinoWIP live bridge.</Description>
+        <OutputType>Exe</OutputType>
+        <RootNamespace>Rasm.RhinoBridge.Client</RootNamespace>
+    </PropertyGroup>
+</Project>

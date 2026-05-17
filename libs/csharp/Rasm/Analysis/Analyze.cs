@@ -33,14 +33,6 @@ public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnul
             rejected: r => Fin.Fail<Seq<TOut>>(r.Fault).ToEff(),
             perItem: i => geometry.TraverseM(i.Evaluate).As().Map(static chunks => chunks.Bind(static chunk => chunk)),
             aggregate: a => a.Evaluate(arg: geometry));
-    public Operation<TGeometry, TOut> AsAggregate() =>
-        Execution.Switch(
-            rejected: _ => this,
-            perItem: item => item.Plan.Case switch {
-                Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>> project => this with { Execution = new Body.Aggregate(Evaluate: project) },
-                _ => Reject(key: Key, fault: Key.Unsupported(geometryType: typeof(TGeometry), outputType: typeof(TOut))),
-            },
-            aggregate: _ => this);
     internal static Operation<TGeometry, TOut> Build(Op key, Func<TGeometry, Eff<Env, Seq<TOut>>> evaluator, Requirement? requirement = null, bool requiresContext = false, Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> aggregate = default) =>
         Build(key: key, state: Unit.Default, evaluator: (_, geometry) => evaluator(arg: geometry), requirement: requirement, requiresContext: requiresContext, aggregate: aggregate);
     internal static Operation<TGeometry, TOut> Build<TState>(Op key, TState state, Func<TState, TGeometry, Eff<Env, Seq<TOut>>> evaluator, Requirement? requirement = null, bool requiresContext = false, Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>> aggregate = default) {

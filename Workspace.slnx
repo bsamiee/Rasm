@@ -19,4 +19,11 @@
   <Folder Name="/tools/cs-analyzer/tests/">
     <Project Path="tools/cs-analyzer/tests/CsAnalyzer.Tests.csproj" />
   </Folder>
+  <Folder Name="/tools/rhino-bridge/" />
+  <Folder Name="/tools/rhino-bridge/client/">
+    <Project Path="tools/rhino-bridge/client/Rasm.RhinoBridge.Client.csproj" />
+  </Folder>
+  <Folder Name="/tools/rhino-bridge/plugin/">
+    <Project Path="tools/rhino-bridge/plugin/Rasm.RhinoBridge.Plugin.csproj" />
+  </Folder>
 </Solution>

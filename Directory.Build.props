@@ -2,14 +2,17 @@
     <PropertyGroup Label="Project Classification">
         <GrasshopperAppsRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'apps', 'grasshopper'))</GrasshopperAppsRoot>
         <RhinoAppsRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'apps', 'rhino'))</RhinoAppsRoot>
+        <RhinoBridgePluginRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'tools', 'rhino-bridge', 'plugin'))</RhinoBridgePluginRoot>
         <NormalizedProjectDirectory>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)'))</NormalizedProjectDirectory>
         <IsTestProject Condition="'$(IsTestProject)' == '' and $([System.String]::Copy('$(MSBuildProjectName)').EndsWith('.Tests'))">true</IsTestProject>
         <IsTestProject Condition="'$(IsTestProject)' == ''">false</IsTestProject>
         <IsRhinoPluginProject Condition="'$(IsRhinoPluginProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoAppsRoot)'))">true</IsRhinoPluginProject>
+        <IsRhinoPluginProject Condition="'$(IsRhinoPluginProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoBridgePluginRoot)'))">true</IsRhinoPluginProject>
         <IsGrasshopperPluginProject Condition="'$(IsGrasshopperPluginProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(GrasshopperAppsRoot)'))">true</IsGrasshopperPluginProject>
         <IsRhinoPluginProject Condition="'$(IsRhinoPluginProject)' == ''">false</IsRhinoPluginProject>
         <IsGrasshopperPluginProject Condition="'$(IsGrasshopperPluginProject)' == ''">false</IsGrasshopperPluginProject>
         <IsGrasshopperAwareProject Condition="'$(IsGrasshopperAwareProject)' == '' and '$(MSBuildProjectName)' == 'Rasm.Grasshopper'">true</IsGrasshopperAwareProject>
+        <IsGrasshopperAwareProject Condition="'$(IsGrasshopperAwareProject)' == '' and '$(MSBuildProjectName)' == 'Rasm.RhinoBridge.Plugin'">true</IsGrasshopperAwareProject>
         <IsGrasshopperAwareProject Condition="'$(IsGrasshopperAwareProject)' == ''">false</IsGrasshopperAwareProject>
         <IsRhinoCommonAwareProject Condition="'$(MSBuildProjectName)' == 'Rasm' or '$(MSBuildProjectName)' == 'Rasm.Grasshopper'">true</IsRhinoCommonAwareProject>
         <IsRhinoCommonAwareProject Condition="'$(IsRhinoCommonAwareProject)' == ''">false</IsRhinoCommonAwareProject>
@@ -42,9 +45,11 @@
         <SkipBoundaryExemptionContracts Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true'">true</SkipBoundaryExemptionContracts>
         <SkipBoundaryExemptionContracts Condition="'$(IsGrasshopperAwareProject)' == 'true'">true</SkipBoundaryExemptionContracts>
         <SkipBoundaryExemptionContracts Condition="'$(IsTestProject)' == 'true'">true</SkipBoundaryExemptionContracts>
+        <SkipBoundaryExemptionContracts Condition="'$(MSBuildProjectName)' == 'Rasm.RhinoBridge.Client'">true</SkipBoundaryExemptionContracts>
         <SkipBoundaryExemptionContracts Condition="'$(SkipBoundaryExemptionContracts)' == ''">false</SkipBoundaryExemptionContracts>
         <UseWorkspaceLibraries Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true'">false</UseWorkspaceLibraries>
         <UseWorkspaceLibraries Condition="'$(IsTestProject)' == 'true'">false</UseWorkspaceLibraries>
+        <UseWorkspaceLibraries Condition="'$(MSBuildProjectName)' == 'Rasm.RhinoBridge.Client'">false</UseWorkspaceLibraries>
         <UseWorkspaceLibraries Condition="'$(UseWorkspaceLibraries)' == ''">true</UseWorkspaceLibraries>
     </PropertyGroup>
 

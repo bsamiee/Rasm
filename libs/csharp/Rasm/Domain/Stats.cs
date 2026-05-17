@@ -36,7 +36,7 @@ public partial record StatContext {
 }
 
 [Union]
-public partial record ResidualAggregate {
+internal partial record ResidualAggregate {
     public sealed record DistancesCase : ResidualAggregate;
     public sealed record SummaryCase(double Tolerance) : ResidualAggregate;
     public sealed record MaximumCase : ResidualAggregate;
@@ -44,15 +44,12 @@ public partial record ResidualAggregate {
     public static ResidualAggregate Distances => new DistancesCase();
     public static ResidualAggregate Summary(double tolerance) => new SummaryCase(Tolerance: tolerance);
     public static ResidualAggregate Maximum => new MaximumCase();
-    public static ResidualAggregate Distribution(params double[] percentiles) => new DistributionCase(Percentiles: toSeq(percentiles));
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct Stat(int Count, double Minimum, double Maximum, double Mean, double Variance, StatContext Context) {
     internal double Rms => Math.Sqrt(d: (Mean * Mean) + Variance);
-    internal Option<ScalarMetric> Metric => Context is StatContext.MetricCase m ? Some(value: m.Value) : Option<ScalarMetric>.None;
-    internal Option<double> Tolerance => Context is StatContext.ToleranceCase t ? Some(value: t.Value) : Option<double>.None;
     internal bool WithinTolerance => Context is StatContext.ToleranceCase t && t.WithinTolerance;
     internal static Fin<Stat> Of(Seq<double> values, Op key, StatContext? context = null) =>
         values.Fold(

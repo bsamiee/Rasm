@@ -126,12 +126,12 @@ public sealed partial record Requirement {
     }
 }
 
-public static class RequirementContext {
-    public static Validation<Error, (TA A, TB B)> Pair<TA, TB>(this Context context, TA a, TB b, Requirement? requirementA = null, Requirement? requirementB = null, CancellationToken cancel = default) where TA : notnull where TB : notnull =>
+internal static class RequirementContext {
+    private static Validation<Error, (TA A, TB B)> Validate<TA, TB>(this Context context, TA a, TB b, Requirement? requirementA = null, Requirement? requirementB = null, CancellationToken cancel = default) where TA : notnull where TB : notnull =>
         ((requirementA ?? Requirement.Strict).Apply(context: context, value: a, cancel: cancel),
          (requirementB ?? Requirement.Strict).Apply(context: context, value: b, cancel: cancel))
             .Apply(static (left, right) => (A: left, B: right)).As();
-    public static Validation<Error, (TA A, TB B, Kind KindA, Kind KindB)> Pair<TA, TB>(
+    internal static Validation<Error, (TA A, TB B, Kind KindA, Kind KindB)> Pair<TA, TB>(
         this Context context,
         TA a,
         TB b,
@@ -139,13 +139,13 @@ public static class RequirementContext {
         Func<Op, Kind, Kind, Fin<(Requirement A, Requirement B)>> requirements,
         CancellationToken cancel = default) where TA : notnull where TB : notnull =>
         Fin.Succ((Context: context, A: a, B: b, Op: op, Requirements: requirements, Cancel: cancel)).ToValidation()
-            .Bind(static state => (state.Context.Pair(a: state.A, b: state.B, requirementA: Requirement.None, requirementB: Requirement.None, cancel: state.Cancel), Fin.Succ(state).ToValidation())
+            .Bind(static state => (state.Context.Validate(a: state.A, b: state.B, requirementA: Requirement.None, requirementB: Requirement.None, cancel: state.Cancel), Fin.Succ(state).ToValidation())
                 .Apply(static (pair, state) => (state.Context, pair.A, pair.B, state.Op, state.Requirements, state.Cancel)).As())
             .Bind(static state => (((object)state.A).KindOf(context: state.Context).ToValidation(), ((object)state.B).KindOf(context: state.Context).ToValidation(), Fin.Succ(state).ToValidation())
                 .Apply(static (kindA, kindB, state) => (state.Context, state.A, state.B, state.Op, state.Requirements, state.Cancel, KindA: kindA, KindB: kindB)).As())
             .Bind(static state => (state.Requirements(arg1: state.Op, arg2: state.KindA, arg3: state.KindB).ToValidation(), Fin.Succ(state).ToValidation())
                 .Apply(static (required, state) => (state.Context, state.A, state.B, state.Cancel, state.KindA, state.KindB, RequiredA: required.A, RequiredB: required.B)).As())
-            .Bind(static state => (state.Context.Pair(a: state.A, b: state.B, requirementA: state.RequiredA, requirementB: state.RequiredB, cancel: state.Cancel), Fin.Succ(state).ToValidation())
+            .Bind(static state => (state.Context.Validate(a: state.A, b: state.B, requirementA: state.RequiredA, requirementB: state.RequiredB, cancel: state.Cancel), Fin.Succ(state).ToValidation())
                 .Apply(static (pair, state) => (pair.A, pair.B, state.KindA, state.KindB)).As());
 }
 

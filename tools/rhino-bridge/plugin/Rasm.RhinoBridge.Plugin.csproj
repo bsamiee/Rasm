@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>RhinoWIP live-process validation bridge for Rasm assemblies.</Description>
+        <RootNamespace>Rasm.RhinoBridge</RootNamespace>
+        <RhinoPluginAssemblyGuid>c6a6b65c-4c58-485e-bd50-f805d14abe42</RhinoPluginAssemblyGuid>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../../../libs/csharp/Rasm/Rasm.csproj" />
+        <ProjectReference Include="../../../libs/csharp/Rasm.Grasshopper/Rasm.Grasshopper.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="Grasshopper2.Components" />
+        <Using Include="GrasshopperIO" />
+        <Using Include="LanguageExt" />
+        <Using Include="LanguageExt.Common" />
+        <Using Include="Rasm.Analysis" />
+        <Using Include="Rasm.Domain" />
+        <Using Include="Rhino" />
+        <Using Include="Rhino.Commands" />
+        <Using Include="Rhino.Geometry" />
+        <Using Include="Rhino.PlugIns" />
+        <Using Include="System.Globalization" />
+        <Using Include="System.Reflection" />
+    </ItemGroup>
+</Project>

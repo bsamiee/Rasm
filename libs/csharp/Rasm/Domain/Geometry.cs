@@ -71,7 +71,7 @@ public sealed record TopologyProjection {
             _ => this,
         };
     }
-    public bool SameAs(TopologyProjection? other) => other switch { TopologyProjection p => ReferenceEquals(Value, p.Value) && Source.Equals(p.Source), _ => false };
+    private bool SameAs(TopologyProjection? other) => other switch { TopologyProjection p => ReferenceEquals(Value, p.Value) && Source.Equals(p.Source), _ => false };
     public bool Transfers(Type outputType) {
         ArgumentNullException.ThrowIfNull(outputType);
         return outputType.IsAssignableFrom(typeof(TopologyProjection))
@@ -144,8 +144,7 @@ public abstract partial record IntersectionHit {
         _ = hits.Iter(static value => value.Dispose());
         return result;
     }
-    public static IntersectionHit At(Point3d point) => new PointCase(point);
-    public static IntersectionHit At(Point3d point, IntersectionTangency tangency) => new PointCase(point, tangency);
+    public static IntersectionHit At(Point3d point, IntersectionTangency tangency = IntersectionTangency.Unknown) => new PointCase(point, tangency);
     public static IntersectionHit Along(Curve curve, IntersectionKind kind) => new CurveCase(curve, kind);
     public static IntersectionHit Overlap(Point3d start, Point3d end, Interval overlapA, Interval overlapB, Option<Curve> curve = default) => new OverlapCase(start, end, overlapA, overlapB, curve);
 }
@@ -187,11 +186,6 @@ public sealed partial class Kind {
     public static Option<Kind> Of(Type type) {
         ArgumentNullException.ThrowIfNull(argument: type);
         return type == typeof(Rhino.Geometry.Point) ? Some(Point) : Optional(ByType.GetValueOrDefault(key: type)) | (InheritsBase(type: type) is Type bt ? Optional(ByType.GetValueOrDefault(key: bt)) : Option<Kind>.None);
-    }
-    public static Fin<Kind> Of(object source, Context context) {
-        ArgumentNullException.ThrowIfNull(argument: source);
-        ArgumentNullException.ThrowIfNull(argument: context);
-        return source.KindOf(context: context);
     }
 }
 
@@ -291,7 +285,7 @@ internal static class GeometryKernel {
             Extrusion extrusion => Optional(extrusion.ToBrep()).ToFin(op.InvalidResult()).Map(static brep => (Lease<Brep>)new Lease<Brep>.Owned(Value: brep)),
             _ => Fin.Fail<Lease<Brep>>(op.Unsupported(value.GetType(), typeof(Brep))),
         });
-    public static Fin<Seq<double>> Fractions(int count, Op op) => count switch { 1 => Fin.Succ(Seq(0.5)), > 1 => Fin.Succ(toSeq(Enumerable.Range(0, count).Select(i => i / (count - 1.0)))), _ => Fin.Fail<Seq<double>>(op.InvalidInput()) };
+    private static Fin<Seq<double>> Fractions(int count, Op op) => count switch { 1 => Fin.Succ(Seq(0.5)), > 1 => Fin.Succ(toSeq(Enumerable.Range(0, count).Select(i => i / (count - 1.0)))), _ => Fin.Fail<Seq<double>>(op.InvalidInput()) };
     internal static Fin<Seq<double>> CurveSampleParameters(Curve curve, int count, Context context, Op key) =>
         Fractions(count: count, op: key).Bind(fractions =>
             Optional(curve.NormalizedLengthParameters([.. fractions.AsIterable()], context.Absolute.Value, context.Fractional)).ToFin(key.InvalidResult()).Map(static p => toSeq(p)));

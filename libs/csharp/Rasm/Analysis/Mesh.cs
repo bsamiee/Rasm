@@ -5,21 +5,20 @@ namespace Rasm.Analysis;
 // --- [TYPES] ------------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshMetricSample(ComponentIndex Source, double Value);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshSample(MeshSampleKind Kind, int Value);
-public enum MeshSampleCategory { None, Validity, Count, Defect, Quality }
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [Union]
 public partial record Meshes : IAspect {
-    public sealed record SamplesCase(MeshSampleCategory Category) : Meshes;
+    public sealed record SamplesCase(MeshSampleGroup Group) : Meshes;
     public sealed record FaceQualityCase(MeshMetric Metric) : Meshes;
     public sealed record FaceQualitySummaryCase(MeshMetric Metric) : Meshes;
     public sealed record AtFaceCase(int? Value) : Meshes;
     public sealed record NakedEdgesCase : Meshes;
     public sealed record OutlineCase(Plane Plane) : Meshes;
-    public static Meshes Validity => new SamplesCase(Category: MeshSampleCategory.Validity);
-    public static Meshes Counts => new SamplesCase(Category: MeshSampleCategory.Count);
-    public static Meshes Defects => new SamplesCase(Category: MeshSampleCategory.Defect);
-    public static Meshes Quality => new SamplesCase(Category: MeshSampleCategory.Quality);
+    public static Meshes Validity => new SamplesCase(Group: MeshSampleGroup.Validity);
+    public static Meshes Counts => new SamplesCase(Group: MeshSampleGroup.Count);
+    public static Meshes Defects => new SamplesCase(Group: MeshSampleGroup.Defect);
+    public static Meshes Quality => new SamplesCase(Group: MeshSampleGroup.Quality);
     public static Meshes FaceQuality(MeshMetric? metric = null) => new FaceQualityCase(Metric: metric ?? MeshMetric.EdgeAspect);
     public static Meshes FaceQualitySummary(MeshMetric? metric = null) => new FaceQualitySummaryCase(Metric: metric ?? MeshMetric.EdgeAspect);
     public static Meshes AtFace(int? index = null) => new AtFaceCase(Value: index);
@@ -32,7 +31,7 @@ public partial record Meshes : IAspect {
     private static readonly Op NakedEdgesKey = Op.Of(name: "MeshNakedEdges");
     private static readonly Op OutlineKey = Op.Of(name: "MeshOutline");
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
-        samplesCase: static s => Analyze.MeshLift<TGeometry, TOut, MeshSample>(key: SamplesKey, source: Analyze.MeshSamples(category: s.Category)),
+        samplesCase: static s => Analyze.MeshLift<TGeometry, TOut, MeshSample>(key: SamplesKey, source: Analyze.MeshSamples(group: s.Group)),
         faceQualityCase: static fq => Analyze.MeshLift<TGeometry, TOut, MeshMetricSample>(key: FaceMetricKey, source: Analyze.MeshMetric(metric: fq.Metric)),
         faceQualitySummaryCase: static fqs => Analyze.MeshLift<TGeometry, TOut, Stat>(key: FaceMetricSummaryKey, source: Analyze.MeshMetricSummary(metric: fqs.Metric)),
         atFaceCase: static at => Analyze.MeshLift<TGeometry, TOut, TopologyProjection>(key: AtFaceKey, source: Analyze.MeshAtFace(index: at.Value)),
@@ -40,32 +39,36 @@ public partial record Meshes : IAspect {
         outlineCase: static o => Analyze.MeshLift<TGeometry, TOut, Polyline>(key: OutlineKey, source: Analyze.MeshOutline(plane: o.Plane)));
 }
 
+[BoundaryAdapter, SmartEnum<int>]
+public sealed partial class MeshSampleGroup {
+    public static readonly MeshSampleGroup None = new(key: 0, label: nameof(None), inspect: false), Validity = new(key: 1, label: nameof(Validity), inspect: false), Count = new(key: 2, label: nameof(Count), inspect: false), Defect = new(key: 3, label: nameof(Defect), inspect: true), Quality = new(key: 4, label: nameof(Quality), inspect: false);
+    public string Label { get; }
+    internal bool Inspect { get; }
+    internal Seq<MeshSampleKind> Kinds => toSeq(MeshSampleKind.Items).Filter(kind => kind.Group.Equals(this));
+}
+
 [SmartEnum<int>]
 public sealed partial class MeshSampleKind {
-    public static readonly MeshSampleKind None = new(key: 0, category: MeshSampleCategory.None, sample: static (_, _) => Fin.Succ(0)), Valid = new(key: 1, category: MeshSampleCategory.Validity, sample: static (m, _) => Fin.Succ(m.IsValid ? 1 : 0)), Closed = new(key: 2, category: MeshSampleCategory.Validity, sample: static (m, _) => Fin.Succ(m.IsClosed ? 1 : 0));
-    public static readonly MeshSampleKind Oriented = new(key: 3, category: MeshSampleCategory.Validity, sample: static (m, _) => Fin.Succ((m.IsManifold(topologicalTest: true, isOriented: out bool oriented, hasBoundary: out bool _) && oriented) ? 1 : 0)), Solid = new(key: 4, category: MeshSampleCategory.Validity, sample: static (m, _) => Fin.Succ(m.IsSolid ? 1 : 0));
-    public static readonly MeshSampleKind Manifold = new(key: 5, category: MeshSampleCategory.Validity, sample: static (m, _) => Analyze.ManifoldOf(geometry: m, op: ManifoldKey).Map(static value => value ? 1 : 0)), BoundaryFree = new(key: 6, category: MeshSampleCategory.Validity, sample: static (m, _) => Fin.Succ((m.IsManifold(topologicalTest: true, isOriented: out bool _, hasBoundary: out bool boundary) && !boundary) ? 1 : 0));
-    public static readonly MeshSampleKind Vertices = new(key: 10, category: MeshSampleCategory.Count, sample: static (m, _) => Fin.Succ(m.Vertices.Count)), Faces = new(key: 11, category: MeshSampleCategory.Count, sample: static (m, _) => Fin.Succ(m.Faces.Count)), Triangles = new(key: 12, category: MeshSampleCategory.Count, sample: static (m, _) => Fin.Succ(m.Faces.TriangleCount)), Quads = new(key: 13, category: MeshSampleCategory.Count, sample: static (m, _) => Fin.Succ(m.Faces.QuadCount));
-    public static readonly MeshSampleKind Edges = new(key: 14, category: MeshSampleCategory.Count, sample: static (m, _) => Fin.Succ(m.TopologyEdges.Count)), Euler = new(key: 15, category: MeshSampleCategory.Count, sample: static (m, _) => Analyze.EulerOf(geometry: m, op: EulerKey));
-    public static readonly MeshSampleKind DegenerateFaces = new(key: 20, category: MeshSampleCategory.Defect, sample: static (_, p) => Fin.Succ(p.DegenerateFaceCount)), DisjointMeshes = new(key: 21, category: MeshSampleCategory.Defect, sample: static (_, p) => Fin.Succ(p.DisjointMeshCount)), DuplicateFaces = new(key: 22, category: MeshSampleCategory.Defect, sample: static (_, p) => Fin.Succ(p.DuplicateFaceCount));
-    public static readonly MeshSampleKind ExtremelyShortEdges = new(key: 23, category: MeshSampleCategory.Defect, sample: static (_, p) => Fin.Succ(p.ExtremelyShortEdgeCount)), InvalidNgons = new(key: 24, category: MeshSampleCategory.Defect, sample: static (_, p) => Fin.Succ(p.InvalidNgonCount)), NakedEdges = new(key: 25, category: MeshSampleCategory.Defect, sample: static (_, p) => Fin.Succ(p.NakedEdgeCount)), NonManifoldEdges = new(key: 26, category: MeshSampleCategory.Defect, sample: static (_, p) => Fin.Succ(p.NonManifoldEdgeCount));
-    public static readonly MeshSampleKind NonUnitVectorNormals = new(key: 27, category: MeshSampleCategory.Defect, sample: static (_, p) => Fin.Succ(p.NonUnitVectorNormalCount)), RandomFaceNormals = new(key: 28, category: MeshSampleCategory.Defect, sample: static (_, p) => Fin.Succ(p.RandomFaceNormalCount)), SelfIntersectingPairs = new(key: 29, category: MeshSampleCategory.Defect, sample: static (_, p) => Fin.Succ(p.SelfIntersectingPairsCount)), UnusedVertices = new(key: 30, category: MeshSampleCategory.Defect, sample: static (_, p) => Fin.Succ(p.UnusedVertexCount));
-    public static readonly MeshSampleKind VertexFaceNormalsDiffer = new(key: 31, category: MeshSampleCategory.Defect, sample: static (_, p) => Fin.Succ(p.VertexFaceNormalsDifferCount)), ZeroLengthNormals = new(key: 32, category: MeshSampleCategory.Defect, sample: static (_, p) => Fin.Succ(p.ZeroLengthNormalCount));
-    public static readonly MeshSampleKind MaximumValence = new(key: 40, category: MeshSampleCategory.Quality, sample: static (m, _) => Fin.Succ(Valences(mesh: m).Fold(0, Math.Max))), MinimumValence = new(key: 41, category: MeshSampleCategory.Quality, sample: static (m, _) => Valences(mesh: m) switch { Seq<int> v when !v.IsEmpty => Fin.Succ(v.Fold(v.Head.IfNone(0), Math.Min)), _ => Fin.Succ(0) });
-    public static readonly MeshSampleKind BoundaryLoopCount = new(key: 42, category: MeshSampleCategory.Quality, sample: static (m, _) => Analyze.BoundaryLoopsOf(geometry: m, op: BoundaryLoopsKey)), Genus = new(key: 43, category: MeshSampleCategory.Quality, sample: static (m, _) => Analyze.GenusOf(geometry: m, op: GenusKey));
-    public static readonly MeshSampleKind AverageValence = new(key: 44, category: MeshSampleCategory.Quality, sample: static (m, _) => Valences(mesh: m) switch { Seq<int> v when !v.IsEmpty => Fin.Succ((int)Math.Round(v.Fold(0, static (acc, n) => acc + n) / (double)v.Count)), _ => Fin.Succ(0) });
+    public static readonly MeshSampleKind None = new(key: 0, group: MeshSampleGroup.None, sample: static (_, _) => Fin.Succ(0)), Valid = new(key: 1, group: MeshSampleGroup.Validity, sample: static (m, _) => Fin.Succ(m.IsValid ? 1 : 0)), Closed = new(key: 2, group: MeshSampleGroup.Validity, sample: static (m, _) => Fin.Succ(m.IsClosed ? 1 : 0));
+    public static readonly MeshSampleKind Oriented = new(key: 3, group: MeshSampleGroup.Validity, sample: static (m, _) => Fin.Succ((m.IsManifold(topologicalTest: true, isOriented: out bool oriented, hasBoundary: out bool _) && oriented) ? 1 : 0)), Solid = new(key: 4, group: MeshSampleGroup.Validity, sample: static (m, _) => Fin.Succ(m.IsSolid ? 1 : 0));
+    public static readonly MeshSampleKind Manifold = new(key: 5, group: MeshSampleGroup.Validity, sample: static (m, _) => Analyze.ManifoldOf(geometry: m, op: ManifoldKey).Map(static value => value ? 1 : 0)), BoundaryFree = new(key: 6, group: MeshSampleGroup.Validity, sample: static (m, _) => Fin.Succ((m.IsManifold(topologicalTest: true, isOriented: out bool _, hasBoundary: out bool boundary) && !boundary) ? 1 : 0));
+    public static readonly MeshSampleKind Vertices = new(key: 10, group: MeshSampleGroup.Count, sample: static (m, _) => Fin.Succ(m.Vertices.Count)), Faces = new(key: 11, group: MeshSampleGroup.Count, sample: static (m, _) => Fin.Succ(m.Faces.Count)), Triangles = new(key: 12, group: MeshSampleGroup.Count, sample: static (m, _) => Fin.Succ(m.Faces.TriangleCount)), Quads = new(key: 13, group: MeshSampleGroup.Count, sample: static (m, _) => Fin.Succ(m.Faces.QuadCount));
+    public static readonly MeshSampleKind Edges = new(key: 14, group: MeshSampleGroup.Count, sample: static (m, _) => Fin.Succ(m.TopologyEdges.Count)), Euler = new(key: 15, group: MeshSampleGroup.Count, sample: static (m, _) => Analyze.EulerOf(geometry: m, op: EulerKey));
+    public static readonly MeshSampleKind DegenerateFaces = new(key: 20, group: MeshSampleGroup.Defect, sample: static (_, p) => Fin.Succ(p.DegenerateFaceCount)), DisjointMeshes = new(key: 21, group: MeshSampleGroup.Defect, sample: static (_, p) => Fin.Succ(p.DisjointMeshCount)), DuplicateFaces = new(key: 22, group: MeshSampleGroup.Defect, sample: static (_, p) => Fin.Succ(p.DuplicateFaceCount));
+    public static readonly MeshSampleKind ExtremelyShortEdges = new(key: 23, group: MeshSampleGroup.Defect, sample: static (_, p) => Fin.Succ(p.ExtremelyShortEdgeCount)), InvalidNgons = new(key: 24, group: MeshSampleGroup.Defect, sample: static (_, p) => Fin.Succ(p.InvalidNgonCount)), NakedEdges = new(key: 25, group: MeshSampleGroup.Defect, sample: static (_, p) => Fin.Succ(p.NakedEdgeCount)), NonManifoldEdges = new(key: 26, group: MeshSampleGroup.Defect, sample: static (_, p) => Fin.Succ(p.NonManifoldEdgeCount));
+    public static readonly MeshSampleKind NonUnitVectorNormals = new(key: 27, group: MeshSampleGroup.Defect, sample: static (_, p) => Fin.Succ(p.NonUnitVectorNormalCount)), RandomFaceNormals = new(key: 28, group: MeshSampleGroup.Defect, sample: static (_, p) => Fin.Succ(p.RandomFaceNormalCount)), SelfIntersectingPairs = new(key: 29, group: MeshSampleGroup.Defect, sample: static (_, p) => Fin.Succ(p.SelfIntersectingPairsCount)), UnusedVertices = new(key: 30, group: MeshSampleGroup.Defect, sample: static (_, p) => Fin.Succ(p.UnusedVertexCount));
+    public static readonly MeshSampleKind VertexFaceNormalsDiffer = new(key: 31, group: MeshSampleGroup.Defect, sample: static (_, p) => Fin.Succ(p.VertexFaceNormalsDifferCount)), ZeroLengthNormals = new(key: 32, group: MeshSampleGroup.Defect, sample: static (_, p) => Fin.Succ(p.ZeroLengthNormalCount));
+    public static readonly MeshSampleKind MaximumValence = new(key: 40, group: MeshSampleGroup.Quality, sample: static (m, _) => Fin.Succ(Valences(mesh: m).Fold(0, Math.Max))), MinimumValence = new(key: 41, group: MeshSampleGroup.Quality, sample: static (m, _) => Valences(mesh: m) switch { Seq<int> v when !v.IsEmpty => Fin.Succ(v.Fold(v.Head.IfNone(0), Math.Min)), _ => Fin.Succ(0) });
+    public static readonly MeshSampleKind BoundaryLoopCount = new(key: 42, group: MeshSampleGroup.Quality, sample: static (m, _) => Analyze.BoundaryLoopsOf(geometry: m, op: BoundaryLoopsKey)), Genus = new(key: 43, group: MeshSampleGroup.Quality, sample: static (m, _) => Analyze.GenusOf(geometry: m, op: GenusKey));
+    public static readonly MeshSampleKind AverageValence = new(key: 44, group: MeshSampleGroup.Quality, sample: static (m, _) => Valences(mesh: m) switch { Seq<int> v when !v.IsEmpty => Fin.Succ((int)Math.Round(v.Fold(0, static (acc, n) => acc + n) / (double)v.Count)), _ => Fin.Succ(0) });
     private static readonly Op ManifoldKey = Op.Of(name: "MeshManifold");
     private static readonly Op EulerKey = Op.Of(name: "MeshEuler");
     private static readonly Op BoundaryLoopsKey = Op.Of(name: "MeshBoundaryLoops");
     private static readonly Op GenusKey = Op.Of(name: "MeshGenus");
     private static Seq<int> Valences(Mesh mesh) =>
         toSeq(Enumerable.Range(0, mesh.TopologyVertices.Count).Select(mesh.TopologyVertices.ConnectedEdgesCount));
-    internal MeshSampleCategory Category { get; }
+    internal MeshSampleGroup Group { get; }
     [UseDelegateFromConstructor] internal partial Fin<int> Sample(Mesh mesh, MeshCheckParameters parameters);
-    internal static Seq<MeshSampleKind> Validity => toSeq(Items).Filter(static kind => kind.Category == MeshSampleCategory.Validity);
-    internal static Seq<MeshSampleKind> Counts => toSeq(Items).Filter(static kind => kind.Category == MeshSampleCategory.Count);
-    internal static Seq<MeshSampleKind> Defects => toSeq(Items).Filter(static kind => kind.Category == MeshSampleCategory.Defect);
-    internal static Seq<MeshSampleKind> Quality => toSeq(Items).Filter(static kind => kind.Category == MeshSampleCategory.Quality);
 }
 
 [BoundaryAdapter, SmartEnum<int>]
@@ -145,29 +148,21 @@ public sealed partial class MeshMetric {
     private static Fin<double> FaceMaxDihedral(Mesh mesh, ComponentIndex source, Seq<Point3d> vertices) =>
         NormalOf(mesh: mesh, source: source, vertices: vertices, key: MetricKey).Bind(normal => normal.IsValid switch {
             false => Fin.Succ(0.0),
-            true => source switch {
+            true => (source switch {
                 { ComponentIndexType: ComponentIndexType.MeshFace, Index: int face } when face >= 0 && face < mesh.Faces.Count =>
-                    toSeq(mesh.Faces.AdjacentFaces(faceIndex: face))
-                        .Fold(initialState: Fin.Succ((Max: 0.0, Mesh: mesh, Normal: normal)), f: static (state, other) => state.Bind(s => TopologyProjection.FromMesh(mesh: s.Mesh, source: new ComponentIndex(ComponentIndexType.MeshFace, other))
-                            .Bind(otherProjection => NormalOf(mesh: s.Mesh, source: otherProjection.Source, key: MetricKey))
-                            .Map(neighbour => neighbour.IsValid switch {
-                                true => (Math.Max(val1: s.Max, val2: Vector3d.VectorAngle(a: s.Normal, b: neighbour)), s.Mesh, s.Normal),
-                                false => s,
-                            })))
-                        .Map(static state => state.Max),
+                    Fin.Succ(toSeq(mesh.Faces.AdjacentFaces(faceIndex: face))),
                 { ComponentIndexType: ComponentIndexType.MeshNgon, Index: int ngon } when ngon >= 0 && ngon < mesh.Ngons.Count =>
                     Optional(mesh.Ngons[ngon].FaceIndexList()).ToFin(MetricKey.InvalidResult())
                         .Bind(faces => toSeq(faces).TraverseM(face => face <= int.MaxValue && (int)face < mesh.Faces.Count ? Fin.Succ((int)face) : Fin.Fail<int>(MetricKey.InvalidResult())).As())
-                        .Bind(parts => parts.Bind(face => toSeq(mesh.Faces.AdjacentFaces(faceIndex: face))).Filter(other => !parts.Exists(face => face == other)).Distinct()
-                            .Fold(initialState: Fin.Succ((Max: 0.0, Mesh: mesh, Normal: normal)), f: static (state, other) => state.Bind(s => TopologyProjection.FromMesh(mesh: s.Mesh, source: new ComponentIndex(ComponentIndexType.MeshFace, other))
-                                .Bind(otherProjection => NormalOf(mesh: s.Mesh, source: otherProjection.Source, key: MetricKey))
-                                .Map(neighbour => neighbour.IsValid switch {
-                                    true => (Math.Max(val1: s.Max, val2: Vector3d.VectorAngle(a: s.Normal, b: neighbour)), s.Mesh, s.Normal),
-                                    false => s,
-                                })))
-                            .Map(static state => state.Max)),
-                _ => Fin.Fail<double>(MetricKey.InvalidInput()),
-            },
+                        .Map(parts => parts.Bind(face => toSeq(mesh.Faces.AdjacentFaces(faceIndex: face))).Filter(other => !parts.Exists(face => face == other)).Distinct()),
+                _ => Fin.Fail<Seq<int>>(MetricKey.InvalidInput()),
+            }).Bind(neighbours => neighbours
+                .Fold(initialState: Fin.Succ((Max: 0.0, Mesh: mesh, Normal: normal)), f: static (state, other) => state.Bind(s => NormalOf(mesh: s.Mesh, source: new ComponentIndex(ComponentIndexType.MeshFace, other), key: MetricKey)
+                    .Map(neighbour => neighbour.IsValid switch {
+                        true => (Math.Max(val1: s.Max, val2: Vector3d.VectorAngle(a: s.Normal, b: neighbour)), s.Mesh, s.Normal),
+                        false => s,
+                    })))
+                .Map(static state => state.Max)),
         });
 }
 
@@ -189,8 +184,7 @@ public static partial class Analyze {
         return Optional(metric).Filter(static candidate => !candidate.Equals(Analysis.MeshMetric.None)).Case switch {
             MeshMetric active => Operation<Mesh, MeshMetricSample>.Build(
                 key: key, state: (Key: key, Metric: active), requirement: Requirement.MeshCheck,
-                evaluator: static (state, geometry) => VisiblePolygonsOf(mesh: geometry, key: state.Key)
-                    .Bind(polygons => polygons.TraverseM(polygon => state.Metric.Sample(mesh: geometry, polygon: polygon)).As()).ToEff()),
+                evaluator: static (state, geometry) => MeshMetricSamples(mesh: geometry, metric: state.Metric, key: state.Key).ToEff()),
             _ => Operation<Mesh, MeshMetricSample>.Reject(key: key, fault: key.InvalidInput()),
         };
     }
@@ -200,25 +194,17 @@ public static partial class Analyze {
             MeshMetric active => Operation<Mesh, Stat>.Build(
                 key: key, state: (Key: key, Metric: active), requirement: Requirement.MeshCheck,
                 evaluator: static (state, geometry) =>
-                    from polygons in VisiblePolygonsOf(mesh: geometry, key: state.Key).ToEff()
-                    from samples in polygons.TraverseM(polygon => state.Metric.Sample(mesh: geometry, polygon: polygon)).As().ToEff()
+                    from samples in MeshMetricSamples(mesh: geometry, metric: state.Metric, key: state.Key).ToEff()
                     from stat in Stat.Of(values: samples.Map(static s => s.Value), key: state.Key).ToEff()
                     from result in state.Key.Accept(value: stat).ToEff()
                     select result),
             _ => Operation<Mesh, Stat>.Reject(key: key, fault: key.InvalidInput()),
         };
     }
-    internal static Operation<Mesh, MeshSample> MeshSamples(MeshSampleCategory category) {
-        Op key = Op.Of(name: $"Mesh{category}");
-        Seq<MeshSampleKind> kinds = category switch {
-            MeshSampleCategory.Validity => MeshSampleKind.Validity,
-            MeshSampleCategory.Count => MeshSampleKind.Counts,
-            MeshSampleCategory.Defect => MeshSampleKind.Defects,
-            MeshSampleCategory.Quality => MeshSampleKind.Quality,
-            _ => Seq<MeshSampleKind>(),
-        };
+    internal static Operation<Mesh, MeshSample> MeshSamples(MeshSampleGroup group) {
+        Op key = Op.Of(name: $"Mesh{group.Label}");
         return Operation<Mesh, MeshSample>.Build(
-            key: key, state: (Key: key, Kinds: kinds, Inspect: category == MeshSampleCategory.Defect),
+            key: key, state: (Key: key, group.Kinds, group.Inspect),
             evaluator: static (state, geometry) => state.Inspect switch {
                 true => from parameters in MeshCheck.Apply(geometry: Seq(geometry))
                         from head in parameters.Head.ToFin(state.Key.InvalidResult()).ToEff()
@@ -258,6 +244,8 @@ public static partial class Analyze {
     }
     internal static Operation<TGeometry, TOut> MeshLift<TGeometry, TOut, TValue>(Op key, Operation<Mesh, TValue> source) where TGeometry : notnull =>
         Native<TGeometry, TOut, Mesh, TValue, Operation<Mesh, TValue>>(key: key, state: source, project: static (q, mesh) => q.Apply(geometry: Seq(mesh)));
+    private static Fin<Seq<MeshMetricSample>> MeshMetricSamples(Mesh mesh, MeshMetric metric, Op key) =>
+        VisiblePolygonsOf(mesh: mesh, key: key).Bind(polygons => polygons.TraverseM(polygon => metric.Sample(mesh: mesh, polygon: polygon)).As());
     private static Fin<Seq<MeshNgon>> VisiblePolygonsOf(Mesh mesh, Op key) =>
         Optional(mesh.GetNgonAndFacesEnumerable()).ToFin(key.InvalidResult())
             .Map(static polygons => toSeq(polygons));

@@ -10,7 +10,7 @@ public sealed class ExtractCurves : Component<ExtractCurves> {
     private static readonly Port<Shape> Geometry = Port.Shape();
     private static readonly Port<Vector3d> Direction = Port.Direction(info: "Parallel projection or pull direction for silhouette, draft, and iso direction; missing Direction uses world Z (iso U).");
     private static readonly Port<Angle> Angle = Port.Angle(info: "Draft angle for draft-curve extraction; missing Angle defaults to 0 radians.");
-    private static readonly OutputGroup Segments = Output.Single(input: Geometry, port: Port.Tree<Curve>(name: "Segments", code: "S", info: "Structural segments from the curve data model, Brep/SubD edges, or mesh topology edge lines."), aspect: Curves.Segments);
+    private static readonly OutputGroup Segments = Output.Single(input: Geometry, port: Port.Tree<Curve>(name: "Segments", code: "S", info: "Structural segments from the curve data model, Brep/SubD edges, or mesh topology edge lines."), aspect: Curves.Segments());
     private static readonly OutputGroup IsoCurves = Output.Single<Curves, Curve>(
         input: Geometry,
         port: Port.Tree<Curve>(name: "Iso Curves", code: "I", info: "Trim-aware mid-domain iso curves for Brep faces and surfaces; |Direction.Y| > |Direction.X| picks V-iso, otherwise U-iso."),
