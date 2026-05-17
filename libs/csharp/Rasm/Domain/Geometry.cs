@@ -334,6 +334,10 @@ internal static class GeometryKernel {
         from hit in g switch {
             Line line => Fin.Succ(ClosestHit.At(target: target, point: line.ClosestPoint(testPoint: target, limitToFiniteSegment: true), parameter: Some(Math.Clamp(line.ClosestParameter(testPoint: target), 0.0, 1.0)))),
             Polyline polyline => Fin.Succ(ClosestHit.At(target: target, point: polyline.ClosestPoint(testPoint: target), parameter: Some(polyline.ClosestParameter(testPoint: target)))),
+            Plane plane => Fin.Succ(ClosestHit.At(target: target, point: plane.ClosestPoint(testPoint: target), normal: Some(plane.Normal))),
+            Sphere sphere => Fin.Succ(ClosestHit.At(target: target, point: sphere.ClosestPoint(testPoint: target))),
+            Box box => Fin.Succ(ClosestHit.At(target: target, point: box.ClosestPoint(target, false))),
+            BoundingBox box => Fin.Succ(ClosestHit.At(target: target, point: box.ClosestPoint(target, false))),
             Curve curve when curve.ClosestPoint(testPoint: target, t: out double parameter) =>
                 Fin.Succ(ClosestHit.At(target: target, point: curve.PointAt(t: parameter), parameter: Some(parameter))),
             BrepFace face when face.ClosestPointOnFace(testPoint: target, u: out double u, v: out double v, maximumDistance: 0.0) =>

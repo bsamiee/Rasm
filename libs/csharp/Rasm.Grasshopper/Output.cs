@@ -19,14 +19,17 @@ public readonly record struct Hints(Seq<(Port Port, int Slot)> Inputs) {
 }
 // --- [SERVICES] -------------------------------------------------------------------------
 public static class GrasshopperRuntimeExtensions {
-    public static Fin<Option<TVal>> Read<TVal>(this GrasshopperRuntime runtime, Port<TVal> port) {
+    internal static Fin<Option<TVal>> ReadScalar<TVal>(this GrasshopperRuntime runtime, Port<TVal> port) {
         ArgumentNullException.ThrowIfNull(argument: port);
-        return runtime.Hints.Slot(port: port).Match(
-            Some: slot => Bridge.Read<TVal>(access: runtime.Access, slot: slot, port: port)
-                .Map(values => values.Head.Map(static value => value.Item) | port.Fallback),
-            None: () => Fin.Succ(port.Fallback));
+        return port.Access switch {
+            Access.Item => runtime.Hints.Slot(port: port)
+                .Map(slot => Bridge.Read<TVal>(access: runtime.Access, slot: slot, port: port)
+                    .Map(values => values.Head.Map(static value => value.Item) | port.Fallback))
+                .IfNone(Fin.Succ(port.Fallback)),
+            _ => Fin.Fail<Option<TVal>>(new UnsupportedAccess(Access: port.Access.ToString())),
+        };
     }
-    public static Option<int> Index(this GrasshopperRuntime runtime, Port<int> port, int limit) {
+    internal static Option<int> Index(this GrasshopperRuntime runtime, Port<int> port, int limit) {
         ArgumentNullException.ThrowIfNull(argument: port);
         return limit switch {
             <= 0 => Option<int>.None,

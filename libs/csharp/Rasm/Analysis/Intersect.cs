@@ -180,19 +180,22 @@ public static partial class Analyze {
                     false => Fin.Fail<IntersectionResult>(op.InvalidResult()),
                 })),
         IntersectionCase.Pair<RayQuery, Mesh>(IntersectionResult.PointsShape, static (a, b, _, op, _, _) =>
-            a.IsValid
-                ? Fin.Succ((IntersectionResult)new IntersectionResult.Points(Intersection.MeshRay(b, a.Ray) switch {
-                    double t when double.IsFinite(t) && t >= 0.0 => Seq(a.Ray.PointAt(t: t)),
-                    _ => Seq<Point3d>(),
-                }))
-                : Fin.Fail<IntersectionResult>(op.InvalidInput())),
+            (a.IsValid, a.MaxReflections) switch {
+                (true, 1) =>
+                    Fin.Succ((IntersectionResult)new IntersectionResult.Points(Intersection.MeshRay(b, a.Ray) switch {
+                        double t when double.IsFinite(t) && t >= 0.0 => Seq(a.Ray.PointAt(t: t)),
+                        _ => Seq<Point3d>(),
+                    })),
+                (true, _) => Fin.Fail<IntersectionResult>(op.Unsupported(typeof(Mesh), typeof(IntersectionResult))),
+                _ => Fin.Fail<IntersectionResult>(op.InvalidInput()),
+            }),
         new IntersectionCase(
             Supports: static (l, r) => l == typeof(RayQuery) && (typeof(Surface).IsAssignableFrom(r) || typeof(Brep).IsAssignableFrom(r) || GeometryKernel.CanCoerce(source: r, target: typeof(Brep))),
             Shape: IntersectionResult.HitsShape,
-            Compute: static (left, right, _, op, _, _) => (left, right) switch {
+            Compute: static (left, right, context, op, _, _) => (left, right) switch {
                 (RayQuery a, Surface b) => Some(RayShoot(query: a, geometry: b, op: op)),
-                (RayQuery a, Brep b) => Some(RayShoot(query: a, geometry: b, op: op)),
-                (RayQuery a, GeometryBase { HasBrepForm: true } b) => Some(a.IsValid ? GeometryKernel.BrepForm(source: b, op: op).Bind(lease => lease.Use(brep => RayShoot(query: a, geometry: brep, op: op))) : Fin.Fail<IntersectionResult>(op.InvalidInput())),
+                (RayQuery a, Brep b) => Some(a.MaxReflections == 1 ? RayBrep(query: a, brep: b, context: context, op: op) : Fin.Fail<IntersectionResult>(a.IsValid ? op.Unsupported(typeof(Brep), typeof(IntersectionResult)) : op.InvalidInput())),
+                (RayQuery a, GeometryBase { HasBrepForm: true } b) => Some(a.IsValid ? GeometryKernel.BrepForm(source: b, op: op).Bind(lease => lease.Use(brep => a.MaxReflections == 1 ? RayBrep(query: a, brep: brep, context: context, op: op) : Fin.Fail<IntersectionResult>(op.Unsupported(typeof(Brep), typeof(IntersectionResult))))) : Fin.Fail<IntersectionResult>(op.InvalidInput())),
                 (RayQuery, GeometryBase) => Some(Fin.Fail<IntersectionResult>(op.Unsupported(geometryType: right.GetType(), outputType: typeof(IntersectionResult)))),
                 _ => Option<Fin<IntersectionResult>>.None,
             }),
@@ -275,6 +278,25 @@ public static partial class Analyze {
             true => Fin.Succ((IntersectionResult)new IntersectionResult.Hits(toSeq(Intersection.RayShoot(Seq(geometry).AsIterable(), query.Ray, query.MaxReflections) ?? []).Map(static e => IntersectionHit.At(e.Point)))),
             false => Fin.Fail<IntersectionResult>(op.InvalidInput()),
         };
+    private static Fin<IntersectionResult> RayBrep(RayQuery query, Brep brep, Context context, Op op) {
+        BoundingBox box = brep.GetBoundingBox(accurate: true);
+        using LineCurve ray = new(line: new Line(
+            start: query.Ray.Position,
+            direction: query.Ray.Direction,
+            length: query.Ray.Position.DistanceTo(other: box.Center) + box.Diagonal.Length));
+        return (query.IsValid, box) switch {
+            (true, { IsValid: true }) => HitsFromSolved(
+                solved: Intersection.CurveBrep(ray, brep, context.Absolute.Value, out Curve[] cs, out Point3d[] ps),
+                curves: cs,
+                points: [.. ps.Where(p => (p - query.Ray.Position) * query.Ray.Direction >= 0.0)],
+                kind: IntersectionKind.Overlap,
+                op: op,
+                cancel: default,
+                partial: true),
+            (true, _) => Fin.Fail<IntersectionResult>(op.InvalidResult()),
+            _ => Fin.Fail<IntersectionResult>(op.InvalidInput()),
+        };
+    }
     private static bool OnFiniteLine(Line line, Point3d point, double tolerance) => point.IsValid && point.DistanceTo(other: line.ClosestPoint(testPoint: point, limitToFiniteSegment: true)) <= tolerance;
     private static Seq<Interval> SegmentInterval(Interval interval) =>
         (Math.Min(interval.T0, interval.T1), Math.Max(interval.T0, interval.T1)) switch {

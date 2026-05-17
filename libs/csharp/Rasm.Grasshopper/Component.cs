@@ -3,6 +3,7 @@ using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Doc;
 using Grasshopper2.Parameters;
 using Grasshopper2.UI.Icon;
+using GrasshopperIO;
 using GhPlugin = Grasshopper2.Framework.Plugin;
 
 namespace Rasm.Grasshopper;
@@ -65,11 +66,35 @@ public abstract class Plugin : GhPlugin {
     public override IIcon Icon => IconAttribute.Resolve(owner: GetType(), fallback: base.Icon);
     public override void OnLoaded() {
         base.OnLoaded();
-        Seq<string> faults = toSeq(GetType().Assembly.GetTypes())
+        Seq<Type> types = toSeq(GetType().Assembly.GetTypes());
+        Seq<Type> plugins = types.Filter(static type => typeof(Plugin).IsAssignableFrom(c: type) && !type.IsAbstract && !type.IsGenericTypeDefinition).Distinct();
+        Seq<Type> components = types
             .Filter(static type => typeof(IRasmComponent).IsAssignableFrom(c: type) && !type.IsAbstract && !type.IsGenericTypeDefinition)
-            .Distinct()
-            .Bind(Validate);
+            .Distinct();
+        Seq<string> faults = ValidateCatalog(active: this, plugins: plugins, components: components)
+            .Concat(components.Bind(Validate));
         _ = faults.IsEmpty ? Unit.Default : throw new InvalidOperationException(message: string.Join(separator: "; ", values: faults));
+    }
+    private static Seq<string> ValidateCatalog(Plugin active, Seq<Type> plugins, Seq<Type> components) {
+        Type activeType = active.GetType();
+        Option<Guid> IoIdOf(Type type) => Optional(type.GetCustomAttribute<IoIdAttribute>(inherit: false)).Map(static attr => attr.Id);
+        Option<Nomen> NomenOf(Type type) => Optional(type.GetCustomAttribute<NomenAttribute>(inherit: false)).Map(static attr => attr.Nomen);
+        Seq<string> DuplicateTypes(Seq<Type> candidates, string key, Func<Type, string> project) =>
+            toSeq(candidates.Map(type => (Type: type, Key: project(arg: type))).Filter(static item => !string.IsNullOrWhiteSpace(value: item.Key))
+                .GroupBy(keySelector: static item => item.Key, comparer: StringComparer.Ordinal)
+                .Where(static group => group.Skip(1).Any())
+                .Select(group => $"duplicate {key} '{group.Key}' on {string.Join(separator: ", ", values: group.Select(static item => item.Type.FullName))}"));
+        Seq<Type> owners = plugins.Concat(components).ToSeq();
+        return Seq<Option<string>>(
+                plugins.Count == 1 ? Option<string>.None : Some($"{activeType.Assembly.GetName().Name}: expected one plugin type, found {plugins.Count}"),
+                plugins.Exists(type => type == activeType) ? Option<string>.None : Some($"{activeType.FullName}: active plugin is not the assembly plugin type"),
+                IoIdOf(type: activeType).Filter(id => id == active.Id).IsSome ? Option<string>.None : Some($"{activeType.FullName}: plugin Id does not match IoId"))
+            .Choose(identity)
+            .Concat(owners.Choose(type => IoIdOf(type: type).IsSome ? Option<string>.None : Some($"{type.FullName}: missing IoId")))
+            .Concat(DuplicateTypes(candidates: owners, key: "IoId", project: type => IoIdOf(type: type).Map(static id => id.ToString()).IfNone(string.Empty)))
+            .Concat(components.Choose(type => NomenOf(type: type).IsSome ? Option<string>.None : Some($"{type.FullName}: missing Nomen")))
+            .Concat(DuplicateTypes(candidates: components, key: "Nomen", project: type => NomenOf(type: type).Map(static n => $"{n.Chapter}/{n.Section}/{n.Name}").IfNone(string.Empty)))
+            .Concat(DuplicateTypes(candidates: components, key: "category/name", project: type => NomenOf(type: type).Map(static n => $"{n.Chapter}/{n.Name}").IfNone(string.Empty)));
     }
     private static Seq<string> Validate(Type spec) {
         IRasmComponent probe = (IRasmComponent)Activator.CreateInstance(type: spec)!;

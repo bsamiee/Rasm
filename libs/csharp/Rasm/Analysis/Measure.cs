@@ -27,15 +27,27 @@ public partial record Measure : IAspect {
 
 [BoundaryAdapter, SmartEnum<int>]
 public sealed partial class MassProperty {
-    public static readonly MassProperty Magnitude = new(key: 0, suffix: string.Empty);
-    public static readonly MassProperty MagnitudeError = new(key: 1, suffix: "Error");
-    public static readonly MassProperty Centroid = new(key: 2, suffix: nameof(Centroid));
-    public static readonly MassProperty CentroidError = new(key: 3, suffix: nameof(CentroidError));
-    public static readonly MassProperty Radii = new(key: 4, suffix: nameof(Radii));
-    public static readonly MassProperty PrincipalAxes = new(key: 5, suffix: "Principal");
-    public static readonly MassProperty Inertia = new(key: 6, suffix: nameof(Inertia));
-    public static readonly MassProperty InertiaProducts = new(key: 7, suffix: "Products");
+    public static readonly MassProperty Magnitude = new(key: 0, suffix: string.Empty, output: typeof(double), first: static _ => false, second: static _ => false, product: static _ => false, extract: static (k, p) => k.MassPropertyExtract(props: p, length: static l => l.Length, area: static a => a.Area, volume: static v => v.Volume));
+    public static readonly MassProperty MagnitudeError = new(key: 1, suffix: "Error", output: typeof(double), first: static _ => false, second: static m => m.Equals(MassKind.Length), product: static _ => false, extract: static (k, p) => k.MassPropertyExtract(props: p, length: static l => l.LengthError, area: static a => a.AreaError, volume: static v => v.VolumeError));
+    public static readonly MassProperty Centroid = new(key: 2, suffix: nameof(Centroid), output: typeof(Point3d), first: static _ => true, second: static m => m.Equals(MassKind.Length), product: static _ => false, extract: static (k, p) => k.MassPropertyExtract(props: p, length: static l => l.Centroid, area: static a => a.Centroid, volume: static v => v.Centroid));
+    public static readonly MassProperty CentroidError = new(key: 3, suffix: nameof(CentroidError), output: typeof(Vector3d), first: static _ => true, second: static m => m.Equals(MassKind.Length), product: static _ => false, extract: static (k, p) => k.MassPropertyExtract(props: p, length: static l => l.CentroidError, area: static a => a.CentroidError, volume: static v => v.CentroidError));
+    public static readonly MassProperty Radii = new(key: 4, suffix: nameof(Radii), output: typeof(Vector3d), first: static _ => true, second: static _ => true, product: static _ => false, extract: static (k, p) => k.MassPropertyExtract(props: p, length: static l => l.CentroidCoordinatesRadiiOfGyration, area: static a => a.CentroidCoordinatesRadiiOfGyration, volume: static v => v.CentroidCoordinatesRadiiOfGyration));
+    public static readonly MassProperty PrincipalAxes = new(key: 5, suffix: "Principal", output: typeof(ValueTuple<double, Vector3d>), first: static _ => true, second: static _ => true, product: static _ => true, extract: static (k, p) => k.PrincipalAxesOf(mass: p).Map(static axes => axes.Map(static axis => (object)axis)));
+    public static readonly MassProperty Inertia = new(key: 6, suffix: nameof(Inertia), output: typeof(Vector3d), first: static _ => true, second: static _ => true, product: static _ => true, extract: static (k, p) => k.MassPropertyExtract(props: p, length: static l => l.WorldCoordinatesMomentsOfInertia, area: static a => a.WorldCoordinatesMomentsOfInertia, volume: static v => v.WorldCoordinatesMomentsOfInertia));
+    public static readonly MassProperty InertiaProducts = new(key: 7, suffix: "Products", output: typeof(Vector3d), first: static _ => true, second: static _ => true, product: static _ => true, extract: static (k, p) => k.MassPropertyExtract(props: p, length: static l => l.WorldCoordinatesProductMoments, area: static a => a.WorldCoordinatesProductMoments, volume: static v => v.WorldCoordinatesProductMoments));
+    private readonly Func<MassKind, bool> first;
+    private readonly Func<MassKind, bool> second;
+    private readonly Func<MassKind, bool> product;
+    private readonly Func<Op, IDisposable, Fin<Seq<object>>> extract;
     public string Suffix { get; }
+    public Type Output { get; }
+    internal bool FirstMoments(MassKind mass) => first(arg: mass);
+    internal bool SecondMoments(MassKind mass) => second(arg: mass);
+    internal bool ProductMoments(MassKind mass) => product(arg: mass);
+    internal Fin<Seq<TValue>> Extract<TValue>(Op key, IDisposable mass) =>
+        typeof(TValue) == Output
+            ? extract(arg1: key, arg2: mass).Bind(values => values.TraverseM(value => value is TValue typed ? key.AcceptValue(value: typed) : Fin.Fail<TValue>(key.Unsupported(geometryType: value.GetType(), outputType: typeof(TValue)))).As())
+            : Fin.Fail<Seq<TValue>>(key.Unsupported(geometryType: typeof(IDisposable), outputType: typeof(TValue)));
 }
 
 [BoundaryAdapter, SmartEnum<int>]
@@ -84,18 +96,19 @@ public sealed partial class MassKind {
         GeometryKernel.CurveForm(source: geometry, op: op)
             .Bind(lease => lease.Use(curve => Done(LengthMassProperties.Compute(curve, length: true, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments))));
     private static Fin<IDisposable> AreaOf(object geometry, Context context, bool firstMoments, bool secondMoments, bool productMoments, Op op) => geometry switch {
-        Curve curve => Done(AreaMassProperties.Compute(curve, context.Absolute.Value)),
         Mesh mesh => Done(AreaMassProperties.Compute(mesh, area: true, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments)),
+        Curve curve => Done(AreaMassProperties.Compute(curve, context.Absolute.Value)),
+        object curveLike when GeometryKernel.CanCurveForm(type: curveLike.GetType()) => GeometryKernel.CurveForm(source: curveLike, op: op).Bind(lease => lease.Use(curve => AreaOf(geometry: curve, context: context, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments, op: op))),
         Brep brep => Done(AreaMassProperties.Compute(brep, area: true, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments, relativeTolerance: context.Fractional, absoluteTolerance: context.Absolute.Value)),
         Surface surface => Done(AreaMassProperties.Compute(surface, area: true, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments)),
-        Box or BoundingBox or Sphere or Cylinder or Cone or Torus => GeometryKernel.BrepForm(source: geometry, op: op).Bind(lease => lease.Use(brep => AreaOf(geometry: brep, context: context, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments, op: op))),
+        GeometryBase { HasBrepForm: true } or Box or BoundingBox or Sphere or Cylinder or Cone or Torus => GeometryKernel.BrepForm(source: geometry, op: op).Bind(lease => lease.Use(brep => AreaOf(geometry: brep, context: context, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments, op: op))),
         _ => Fin.Fail<IDisposable>(op.Unsupported(geometry.GetType(), typeof(AreaMassProperties))),
     };
     private static Fin<IDisposable> VolumeOf(object geometry, Context context, bool firstMoments, bool secondMoments, bool productMoments, Op op) => geometry switch {
         Mesh mesh => Done(VolumeMassProperties.Compute(mesh, volume: true, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments)),
         Brep brep => Done(VolumeMassProperties.Compute(brep, volume: true, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments, relativeTolerance: context.Fractional, absoluteTolerance: context.Absolute.Value)),
         Surface surface => Done(VolumeMassProperties.Compute(surface, volume: true, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments)),
-        Box or BoundingBox or Sphere or Cylinder or Cone or Torus => GeometryKernel.BrepForm(source: geometry, op: op).Bind(lease => lease.Use(brep => VolumeOf(geometry: brep, context: context, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments, op: op))),
+        GeometryBase { HasBrepForm: true } or Box or BoundingBox or Sphere or Cylinder or Cone or Torus => GeometryKernel.BrepForm(source: geometry, op: op).Bind(lease => lease.Use(brep => VolumeOf(geometry: brep, context: context, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments, op: op))),
         _ => Fin.Fail<IDisposable>(op.Unsupported(geometry.GetType(), typeof(VolumeMassProperties))),
     };
     private static Fin<IDisposable> LengthAggregate(MassKind self, IEnumerable<object> geometry, Context context, bool firstMoments, bool secondMoments, bool productMoments, Op op) =>
@@ -158,38 +171,31 @@ public static partial class Analyze {
     }
     internal static Operation<TGeometry, TOut> MassPropertyMeasure<TGeometry, TOut>(MassKind mass, MassProperty property) where TGeometry : notnull {
         Op key = Op.Of(name: $"{mass.Label}{property.Suffix}");
-        return (property, typeof(TOut)) switch {
-            _ when mass.Equals(MassKind.None) => Operation<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput()),
-            (MassProperty p, Type t) when p.Equals(MassProperty.Magnitude) && t == typeof(double) => MassOperation<TGeometry, TOut, double>(mass: mass, suffix: property.Suffix, project: static (k, props) => k.MassPropertyExtract<double, double>(props: props, length: static l => l.Length, area: static a => a.Area, volume: static v => v.Volume)),
-            (MassProperty p, Type t) when p.Equals(MassProperty.MagnitudeError) && t == typeof(double) => MassOperation<TGeometry, TOut, double>(mass: mass, suffix: property.Suffix, project: static (k, props) => k.MassPropertyExtract<double, double>(props: props, length: static l => l.LengthError, area: static a => a.AreaError, volume: static v => v.VolumeError), secondMoments: mass.Equals(MassKind.Length)),
-            (MassProperty p, Type t) when p.Equals(MassProperty.Centroid) && t == typeof(Point3d) => MassOperation<TGeometry, TOut, Point3d>(mass: mass, suffix: property.Suffix, project: static (k, props) => k.MassPropertyExtract<Point3d, Point3d>(props: props, length: static l => l.Centroid, area: static a => a.Centroid, volume: static v => v.Centroid), firstMoments: true, secondMoments: mass.Equals(MassKind.Length)),
-            (MassProperty p, Type t) when p.Equals(MassProperty.CentroidError) && t == typeof(Vector3d) => MassOperation<TGeometry, TOut, Vector3d>(mass: mass, suffix: property.Suffix, project: static (k, props) => k.MassPropertyExtract<Vector3d, Vector3d>(props: props, length: static l => l.CentroidError, area: static a => a.CentroidError, volume: static v => v.CentroidError), firstMoments: true, secondMoments: mass.Equals(MassKind.Length)),
-            (MassProperty p, Type t) when p.Equals(MassProperty.Radii) && t == typeof(Vector3d) => MassOperation<TGeometry, TOut, Vector3d>(mass: mass, suffix: property.Suffix, project: static (k, props) => k.MassPropertyExtract<Vector3d, Vector3d>(props: props, length: static l => l.CentroidCoordinatesRadiiOfGyration, area: static a => a.CentroidCoordinatesRadiiOfGyration, volume: static v => v.CentroidCoordinatesRadiiOfGyration), firstMoments: true, secondMoments: true),
-            (MassProperty p, Type t) when p.Equals(MassProperty.PrincipalAxes) && t == typeof(ValueTuple<double, Vector3d>) => MassOperation<TGeometry, TOut, (double Moment, Vector3d Axis)>(mass: mass, suffix: property.Suffix, project: static (k, props) => k.PrincipalAxesOf(mass: props).Bind(values => k.AcceptResults<(double Moment, Vector3d Axis), (double Moment, Vector3d Axis)>(values: values)), firstMoments: true, secondMoments: true, productMoments: true),
-            (MassProperty p, Type t) when p.Equals(MassProperty.Inertia) && t == typeof(Vector3d) => MassOperation<TGeometry, TOut, Vector3d>(mass: mass, suffix: property.Suffix, project: static (k, props) => k.MassPropertyExtract<Vector3d, Vector3d>(props: props, length: static l => l.WorldCoordinatesMomentsOfInertia, area: static a => a.WorldCoordinatesMomentsOfInertia, volume: static v => v.WorldCoordinatesMomentsOfInertia), firstMoments: true, secondMoments: true, productMoments: true),
-            (MassProperty p, Type t) when p.Equals(MassProperty.InertiaProducts) && t == typeof(Vector3d) => MassOperation<TGeometry, TOut, Vector3d>(mass: mass, suffix: property.Suffix, project: static (k, props) => k.MassPropertyExtract<Vector3d, Vector3d>(props: props, length: static l => l.WorldCoordinatesProductMoments, area: static a => a.WorldCoordinatesProductMoments, volume: static v => v.WorldCoordinatesProductMoments), firstMoments: true, secondMoments: true, productMoments: true),
+        return (mass.Equals(MassKind.None), typeof(TOut) == property.Output) switch {
+            (true, _) => Operation<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput()),
+            (false, true) => MassOperation<TGeometry, TOut>(mass: mass, property: property),
             _ => key.Unsupported<TGeometry, TOut>(),
         };
     }
-    private static Operation<TGeometry, TOut> MassOperation<TGeometry, TOut, TValue>(MassKind mass, string suffix, Func<Op, IDisposable, Fin<Seq<TValue>>> project, bool firstMoments = false, bool secondMoments = false, bool productMoments = false) where TGeometry : notnull {
-        Op key = Op.Of(name: $"{mass.Label}{suffix}");
-        return Operation<TGeometry, TValue>.Build(
+    private static Operation<TGeometry, TOut> MassOperation<TGeometry, TOut>(MassKind mass, MassProperty property) where TGeometry : notnull {
+        Op key = Op.Of(name: $"{mass.Label}{property.Suffix}");
+        return Operation<TGeometry, TOut>.Build(
             key: key, requirement: mass.Requirement, requiresContext: true,
-            aggregate: Some<Func<Seq<TGeometry>, Eff<Env, Seq<TValue>>>>(
+            aggregate: Some<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>>(
                 geometry => from context in Env.Asks
-                            from aggregate in mass.Aggregate(geometry: geometry.Map(static item => (object)item).AsIterable(), context: context, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments, op: key).ToEff()
-                            from values in new Lease<IDisposable>.Owned(Value: aggregate).Use(disposable => project(arg1: key, arg2: disposable)).ToEff()
+                            from aggregate in mass.Aggregate(geometry: geometry.Map(static item => (object)item).AsIterable(), context: context, firstMoments: property.FirstMoments(mass: mass), secondMoments: property.SecondMoments(mass: mass), productMoments: property.ProductMoments(mass: mass), op: key).ToEff()
+                            from values in new Lease<IDisposable>.Owned(Value: aggregate).Use(disposable => property.Extract<TOut>(key: key, mass: disposable)).ToEff()
                             select values),
-            evaluator: geometry => from computed in mass.Compute(geometry: geometry, op: key, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments)
-                                   from values in new Lease<IDisposable>.Owned(Value: computed).Use(disposable => project(arg1: key, arg2: disposable)).ToEff()
+            evaluator: geometry => from computed in mass.Compute(geometry: geometry, op: key, firstMoments: property.FirstMoments(mass: mass), secondMoments: property.SecondMoments(mass: mass), productMoments: property.ProductMoments(mass: mass))
+                                   from values in new Lease<IDisposable>.Owned(Value: computed).Use(disposable => property.Extract<TOut>(key: key, mass: disposable)).ToEff()
                                    select values).As<TGeometry, TOut>(key: key);
     }
-    private static Fin<Seq<TValue>> MassPropertyExtract<TProp, TValue>(this Op key, IDisposable props, Func<LengthMassProperties, TProp> length, Func<AreaMassProperties, TProp> area, Func<VolumeMassProperties, TProp> volume) =>
+    internal static Fin<Seq<object>> MassPropertyExtract<TProp>(this Op key, IDisposable props, Func<LengthMassProperties, TProp> length, Func<AreaMassProperties, TProp> area, Func<VolumeMassProperties, TProp> volume) =>
         props switch {
-            LengthMassProperties l => key.AcceptResults<TProp, TValue>(values: Seq(length(arg: l))),
-            AreaMassProperties a => key.AcceptResults<TProp, TValue>(values: Seq(area(arg: a))),
-            VolumeMassProperties v => key.AcceptResults<TProp, TValue>(values: Seq(volume(arg: v))),
-            _ => Fin.Fail<Seq<TValue>>(key.InvalidResult()),
+            LengthMassProperties l => key.Accept(value: length(arg: l)).Map(static values => values.Map(static value => (object)value!)),
+            AreaMassProperties a => key.Accept(value: area(arg: a)).Map(static values => values.Map(static value => (object)value!)),
+            VolumeMassProperties v => key.Accept(value: volume(arg: v)).Map(static values => values.Map(static value => (object)value!)),
+            _ => Fin.Fail<Seq<object>>(key.InvalidResult()),
         };
     internal static Fin<Seq<(double Moment, Vector3d Axis)>> PrincipalAxesOf<TMass>(this Op key, TMass mass) where TMass : class =>
         mass switch {

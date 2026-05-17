@@ -170,8 +170,13 @@ public sealed partial class PortKind {
             modularInput: (adder, name, code, info, access, requirement, hidden) => hidden ? adder.AddHiddenEnum(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, initial: initial, access: access, requirement: requirement) : adder.AddEnum(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, initial: initial, access: access, requirement: requirement),
             regularOutput: static (adder, name, code, info, access) => adder.AddEnum<T>(name: name, code: code, info: info, access: access),
             modularOutput: static (adder, name, code, info, access, hidden) => {
-                IntegerParameter parameter = adder.RegularAdder.AddEnum<T>(name: name, code: code, info: info, access: access);
-                _ = PortPolicy.Hidden.Apply(parameter: parameter);
+                IntegerParameter parameter = new(nomen: new Nomen(name: name, info: info), access: access) { UserName = code };
+                _ = parameter.Presets.AddEnum<T>();
+                Action<IParameter, string, Color> add = hidden switch {
+                    true => adder.AddHidden,
+                    false => adder.Add,
+                };
+                add(arg1: parameter, arg2: Category, arg3: Colors.Transparent);
                 return parameter;
             },
             wireType: typeof(int));

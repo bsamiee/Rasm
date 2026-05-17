@@ -168,20 +168,24 @@ public static partial class Analyze {
     internal static Fin<int> BoundaryLoopsOf<TG>(TG geometry, Op op) where TG : notnull =>
         OnGeometry<TG, int>(geometry: geometry, op: op,
             onMesh: static m => Fin.Succ(Optional(m.GetNakedEdges()).Map(static p => p.Length).IfNone(0)),
-            onBrep: static b => Fin.Succ(BrepLoopCount(brep: b, predicate: static l => l.LoopType is BrepLoopType.Outer or BrepLoopType.Inner or BrepLoopType.Slit)));
-    private static int BrepLoopCount(Brep brep, Func<BrepLoop, bool> predicate) => toSeq(brep.Loops).Filter(predicate).Count;
+            onBrep: static b => Fin.Succ(BrepBoundaryCount(brep: b, predicate: static l => l.LoopType is BrepLoopType.Outer or BrepLoopType.Inner)));
     internal static Fin<int> GenusOf<TG>(TG geometry, Op op) where TG : notnull =>
         OnGeometry<TG, int>(geometry: geometry, op: op,
             onMesh: m => m.IsManifold(topologicalTest: true, isOriented: out bool oriented, hasBoundary: out bool _) && oriented
-                ? (EulerOf(geometry: m, op: op), BoundaryLoopsOf(geometry: m, op: op)).Apply(static (euler, boundaries) => (2 - euler - boundaries) / 2).As()
+                ? (EulerOf(geometry: m, op: op), BoundaryLoopsOf(geometry: m, op: op), ComponentCountOf(geometry: m, op: op)).Apply(static (euler, boundaries, components) => ((2 * components) - euler - boundaries) / 2).As()
                 : Fin.Fail<int>(op.Unsupported(typeof(Mesh), typeof(int))),
-            onBrep: b => b.IsManifold && b.SolidOrientation != BrepSolidOrientation.None
-                ? EulerOf(geometry: b, op: op).Map(static euler => (2 - euler) / 2)
+            onBrep: b => b.IsManifold
+                ? (EulerOf(geometry: b, op: op), BoundaryLoopsOf(geometry: b, op: op), ComponentCountOf(geometry: b, op: op)).Apply(static (euler, boundaries, components) => ((2 * components) - euler - boundaries) / 2).As()
                 : Fin.Fail<int>(op.Unsupported(typeof(Brep), typeof(int))));
     internal static Fin<int> HoleCountOf<TG>(TG geometry, Op op) where TG : notnull =>
         OnGeometry<TG, int>(geometry: geometry, op: op,
-            onMesh: static m => Fin.Succ(Math.Max(0, Optional(m.GetNakedEdges()).Map(static p => p.Length).IfNone(0) - 1)),
-            onBrep: static b => Fin.Succ(BrepLoopCount(brep: b, predicate: static l => l.LoopType == BrepLoopType.Inner)));
+            onMesh: m => (BoundaryLoopsOf(geometry: m, op: op), ComponentCountOf(geometry: m, op: op)).Apply(static (boundaries, components) => Math.Max(val1: 0, val2: boundaries - components)).As(),
+            onBrep: b => (BoundaryLoopsOf(geometry: b, op: op), ComponentCountOf(geometry: b, op: op)).Apply(static (boundaries, components) => Math.Max(val1: 0, val2: boundaries - components)).As());
     internal static Fin<int> ElementCountOf<TG>(TG geometry, Op op, Func<Mesh, int> meshCount, Func<Brep, int> brepCount) where TG : notnull =>
         OnGeometry<TG, int>(geometry: geometry, op: op, onMesh: m => Fin.Succ(meshCount(arg: m)), onBrep: b => Fin.Succ(brepCount(arg: b)));
+    private static int BrepBoundaryCount(Brep brep, Func<BrepLoop, bool> predicate) =>
+        toSeq(brep.Loops).Filter(loop => predicate(arg: loop) && toSeq(loop.Trims).Exists(static trim => trim.Edge is { Valence: EdgeAdjacency.Naked })).Count;
+    private static Fin<int> ComponentCountOf<TGeometry>(TGeometry geometry, Op op) where TGeometry : notnull =>
+        ComponentsOf(geometry: geometry, op: op)
+            .Map(static components => components.Iter(static component => component.Dispose()) switch { _ => Math.Max(val1: 1, val2: components.Count) });
 }

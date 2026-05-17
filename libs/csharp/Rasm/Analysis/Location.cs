@@ -106,10 +106,7 @@ public partial record Location : IAspect {
                         })).ToEff()
                     select result)),
             shortPath: static sp => Analyze.Located<TGeometry, TOut, Surface, Curve>(key: ShortPathKey, operation: () => Analyze.ShortPathOp<TGeometry>(key: ShortPathKey, start: sp.Start, end: sp.End)),
-            lengthAt: static la => Analyze.Located<TGeometry, TOut, Curve, double>(key: LengthAtKey, operation: () => Analyze.CurveAtOp<TGeometry, double>(key: LengthAtKey, parameter: la.Parameter, project: static (curve, t) => curve.GetLength(subdomain: new Interval(curve.Domain.T0, t)) switch {
-                double length when RhinoMath.IsValidDouble(x: length) && length >= 0.0 => LengthAtKey.Accept(value: length),
-                _ => Fin.Fail<Seq<double>>(LengthAtKey.InvalidResult()),
-            }))));
+            lengthAt: static la => Analyze.Located<TGeometry, TOut, Curve, double>(key: LengthAtKey, operation: () => Analyze.LengthAtOp<TGeometry>(key: LengthAtKey, parameter: la.Parameter))));
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -149,6 +146,20 @@ public static partial class Analyze {
                     true => state.Project(arg1: curve, arg2: state.Parameter),
                     false => Fin.Fail<Seq<TOut>>(state.Key.InvalidInput()),
                 })).ToEff());
+    internal static Operation<TGeometry, double> LengthAtOp<TGeometry>(Op key, double parameter) where TGeometry : notnull =>
+        Operation<TGeometry, double>.Build(
+            key: key, requirement: Requirement.CurveLength, state: (Key: key, Parameter: parameter),
+            evaluator: static (state, geometry) =>
+                from context in Env.Asks
+                from result in GeometryKernel.CurveForm(source: geometry, op: state.Key)
+                    .Bind(lease => lease.Use(curve => curve.Domain.IncludesParameter(t: state.Parameter) switch {
+                        true => curve.GetLength(fractionalTolerance: context.Fractional, subdomain: new Interval(t0: curve.Domain.T0, t1: state.Parameter)) switch {
+                            double length when RhinoMath.IsValidDouble(x: length) && length >= 0.0 => state.Key.Accept(value: length),
+                            _ => Fin.Fail<Seq<double>>(state.Key.InvalidResult()),
+                        },
+                        false => Fin.Fail<Seq<double>>(state.Key.InvalidInput()),
+                    })).ToEff()
+                select result);
     internal static Operation<TGeometry, TOut> SurfaceUvOp<TGeometry, TOut>(Op key, Point2d uv, Func<Surface, Point2d, Fin<Seq<TOut>>> project) where TGeometry : notnull =>
         Native<TGeometry, TOut, Surface, TOut, (Op Key, Point2d Uv, Func<Surface, Point2d, Fin<Seq<TOut>>> Project)>(
             key: key, requirement: Requirement.SurfaceEvaluation, state: (Key: key, Uv: uv, Project: project),

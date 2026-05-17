@@ -20,15 +20,15 @@ public partial record Conformance {
     public static Conformance Containment(int count) => new ContainmentCase(Count: count);
     public static Conformance Distribution(int count, params double[] percentiles) => new DistributionCase(Count: count, Percentiles: toSeq(percentiles));
     internal static readonly Op Key = Op.Of(name: nameof(Conformance));
-    internal Type OutputType => Map(
-        distanceCase: typeof(double),
-        rmsCase: typeof(double),
-        withinToleranceCase: typeof(bool),
-        summaryCase: typeof(Stat),
-        maximumCase: typeof(ResidualSample),
-        signedResidualCase: typeof(ResidualSample),
-        containmentCase: typeof(ResidualSample),
-        distributionCase: typeof(Distribution));
+    internal Type OutputType => Switch(
+        distanceCase: static _ => typeof(double),
+        rmsCase: static _ => typeof(double),
+        withinToleranceCase: static _ => typeof(bool),
+        summaryCase: static _ => typeof(Stat),
+        maximumCase: static _ => typeof(ResidualSample),
+        signedResidualCase: static _ => typeof(ResidualSample),
+        containmentCase: static _ => typeof(ResidualSample),
+        distributionCase: static _ => typeof(Distribution));
     internal int SampleCount => Switch(
         distanceCase: static d => d.Count,
         rmsCase: static r => r.Count,
@@ -45,23 +45,16 @@ public partial record Conformance {
             _ => Key.Unsupported<(TGeometry Geometry, TTarget Target), TOut>(),
         };
     internal Fin<Seq<TOut>> Project<TOut>(Seq<ResidualSample> residuals, Context context) =>
-        this switch {
-            DistanceCase =>
-                Stat.Residuals<Seq<double>>(samples: residuals, key: Key, aggregate: ResidualAggregate.Distances).Bind(values => Key.AcceptResults<double, TOut>(values: values)),
-            RmsCase =>
-                Stat.Residuals<Stat>(samples: residuals, key: Key, aggregate: ResidualAggregate.Summary(tolerance: context.Absolute.Value)).Bind(stat => Key.AcceptResults<double, TOut>(values: Seq(stat.Rms))),
-            WithinToleranceCase =>
-                Stat.Residuals<Stat>(samples: residuals, key: Key, aggregate: ResidualAggregate.Summary(tolerance: context.Absolute.Value)).Bind(stat => Key.AcceptResults<bool, TOut>(values: Seq(stat.WithinTolerance))),
-            SummaryCase =>
-                Stat.Residuals<Stat>(samples: residuals, key: Key, aggregate: ResidualAggregate.Summary(tolerance: context.Absolute.Value)).Bind(stat => Key.AcceptResults<Stat, TOut>(values: Seq(stat))),
-            MaximumCase =>
-                Stat.Residuals<ResidualSample>(samples: residuals, key: Key, aggregate: ResidualAggregate.Maximum).Bind(sample => Key.AcceptResults<ResidualSample, TOut>(values: Seq(sample))),
-            SignedResidualCase or ContainmentCase =>
-                Key.AcceptResults<ResidualSample, TOut>(values: residuals),
-            DistributionCase distribution =>
-                Stat.Residuals<Distribution>(samples: residuals, key: Key, aggregate: ResidualAggregate.Distribution(percentiles: distribution.Percentiles)).Bind(d => Key.AcceptResults<Distribution, TOut>(values: Seq(d))),
-            _ => Fin.Fail<Seq<TOut>>(Key.Unsupported(geometryType: typeof(ResidualSample), outputType: typeof(TOut))),
-        };
+        Switch(
+            state: (Residuals: residuals, Context: context),
+            distanceCase: static (state, _) => Stat.Residuals<Seq<double>>(samples: state.Residuals, key: Key, aggregate: ResidualAggregate.Distances).Bind(values => Key.AcceptResults<double, TOut>(values: values)),
+            rmsCase: static (state, _) => Stat.Residuals<Stat>(samples: state.Residuals, key: Key, aggregate: ResidualAggregate.Summary(tolerance: state.Context.Absolute.Value)).Bind(stat => Key.AcceptResults<double, TOut>(values: Seq(stat.Rms))),
+            withinToleranceCase: static (state, _) => Stat.Residuals<Stat>(samples: state.Residuals, key: Key, aggregate: ResidualAggregate.Summary(tolerance: state.Context.Absolute.Value)).Bind(stat => Key.AcceptResults<bool, TOut>(values: Seq(stat.WithinTolerance))),
+            summaryCase: static (state, _) => Stat.Residuals<Stat>(samples: state.Residuals, key: Key, aggregate: ResidualAggregate.Summary(tolerance: state.Context.Absolute.Value)).Bind(stat => Key.AcceptResults<Stat, TOut>(values: Seq(stat))),
+            maximumCase: static (state, _) => Stat.Residuals<ResidualSample>(samples: state.Residuals, key: Key, aggregate: ResidualAggregate.Maximum).Bind(sample => Key.AcceptResults<ResidualSample, TOut>(values: Seq(sample))),
+            signedResidualCase: static (state, _) => Key.AcceptResults<ResidualSample, TOut>(values: state.Residuals),
+            containmentCase: static (state, _) => Key.AcceptResults<ResidualSample, TOut>(values: state.Residuals),
+            distributionCase: static (state, distribution) => Stat.Residuals<Distribution>(samples: state.Residuals, key: Key, aggregate: ResidualAggregate.Distribution(percentiles: distribution.Percentiles)).Bind(result => Key.AcceptResults<Distribution, TOut>(values: Seq(result))));
     private static bool CanConform(Conformance aspect, Type geometry, Type target) =>
         geometry == typeof(object) || target == typeof(object)
         || (GeometryKernel.CanCurveForm(type: geometry) && AcceptedTarget(aspect: aspect, target: target, curveSource: true))
@@ -105,7 +98,7 @@ public partial record Conformance {
                     WithinToleranceCase or MaximumCase =>
                         Analyze.CurveDeviationOf(left: left, right: right, context: context, op: Key)
                             .Map(static d => Seq(new ResidualSample(Index: 0, Location: d.MaximumA, Distance: d.MaximumDistance, Tolerance: d.Tolerance, WithinTolerance: d.WithinTolerance))),
-                    _ => SampleResiduals(left, right, count, context, sampler: SampleCurve, distance: static (c, pt) => c.ClosestPoint(testPoint: pt, t: out double t) ? pt.DistanceTo(c.PointAt(t: t)) : double.NaN),
+                    _ => SampleResiduals(left, right, count, context, sampler: SampleCurve, distance: static (c, pt) => c.ClosestPoint(testPoint: pt, t: out double t) ? Fin.Succ(pt.DistanceTo(c.PointAt(t: t))) : Fin.Fail<double>(Key.InvalidResult())),
                 }))));
     private static Fin<Seq<ResidualSample>> CurveSamples<TPrimitive>(Conformance aspect, object curveLike, TPrimitive primitive, int count, Context context, Func<TPrimitive, Curve> convert, Func<TPrimitive, Point3d, double> distance) where TPrimitive : notnull =>
         GeometryKernel.CurveForm(source: curveLike, op: Key)
@@ -113,30 +106,24 @@ public partial record Conformance {
                 WithinToleranceCase or MaximumCase =>
                     new Lease<Curve>.Owned(Value: convert(arg: primitive)).Use(native => Analyze.CurveDeviationOf(left: curve, right: native, context: context, op: Key)
                         .Map(static d => Seq(new ResidualSample(Index: 0, Location: d.MaximumA, Distance: d.MaximumDistance, Tolerance: d.Tolerance, WithinTolerance: d.WithinTolerance)))),
-                _ => SampleResiduals(curve, primitive, count, context, sampler: SampleCurve, distance: distance),
+                _ => SampleResiduals(curve, primitive, count, context, sampler: SampleCurve, distance: (p, pt) => Fin.Succ(distance(arg1: p, arg2: pt))),
             }));
-    private static Fin<Seq<ResidualSample>> SampleResiduals<TGeometry, TPrimitive>(TGeometry geometry, TPrimitive primitive, int count, Context context, Func<TGeometry, int, Context, Op, Fin<Seq<Point3d>>> sampler, Func<TPrimitive, Point3d, double> distance) where TGeometry : notnull where TPrimitive : notnull =>
+    private static Fin<Seq<ResidualSample>> SampleResiduals<TGeometry, TPrimitive>(TGeometry geometry, TPrimitive primitive, int count, Context context, Func<TGeometry, int, Context, Op, Fin<Seq<Point3d>>> sampler, Func<TPrimitive, Point3d, Fin<double>> distance) where TGeometry : notnull where TPrimitive : notnull =>
         sampler(arg1: geometry, arg2: count, arg3: context, arg4: Key)
-            .Map(points => points.Map((p, i) => distance(primitive, p) switch { double d => new ResidualSample(i, p, d, context.Absolute.Value, Math.Abs(d) <= context.Absolute.Value) }));
+            .Bind(points => points.Map((p, i) => distance(arg1: primitive, arg2: p).Map(d => new ResidualSample(i, p, d, context.Absolute.Value, Math.Abs(d) <= context.Absolute.Value))).TraverseM(identity).As());
     private static Fin<Seq<Point3d>> SampleCurve(Curve curve, int count, Context context, Op key) =>
         GeometryKernel.CurveSampleParameters(curve: curve, count: count, context: context, key: key)
             .Map(parameters => parameters.Map(curve.PointAt));
     // Sign convention: positive=outside, negative=inside via Rhino's outward-normal axis. NaN propagates failure through Stat.Of.AllFinite.
-    private static double DistanceFor(Conformance aspect, object target, Point3d point, double tolerance) =>
+    private static Fin<double> DistanceFor(Conformance aspect, object target, Point3d point, double tolerance) =>
         (aspect, target) switch {
-            (SignedResidualCase or ContainmentCase, Plane plane) => plane.DistanceTo(testPoint: point),
-            (SignedResidualCase or ContainmentCase, Sphere sphere) => point.DistanceTo(sphere.Center) - sphere.Radius,
-            (SignedResidualCase or ContainmentCase, Box box) => (box.Contains(point, false) ? -1.0 : 1.0) * point.DistanceTo(box.ClosestPoint(point, false)),
-            (SignedResidualCase or ContainmentCase, BoundingBox bbox) => (bbox.Contains(point) ? -1.0 : 1.0) * point.DistanceTo(bbox.ClosestPoint(point, false)),
-            (ContainmentCase, Brep brep) => brep.ClosestPoint(point, out Point3d brepClosest, out _, out _, out _, 0.0, out Vector3d brepNormal) ? brep.IsSolid switch { true => (brep.IsPointInside(point, tolerance, false) ? -1.0 : 1.0) * point.DistanceTo(brepClosest), false => (point - brepClosest) * brepNormal } : double.NaN,
-            (ContainmentCase, Mesh mesh) => mesh.ClosestPoint(point, out Point3d meshClosest, out Vector3d meshNormal, 0.0) >= 0 ? mesh.IsSolid switch { true => (mesh.IsPointInside(point, tolerance, false) ? -1.0 : 1.0) * point.DistanceTo(meshClosest), false => (point - meshClosest) * meshNormal } : double.NaN,
-            (_, Plane plane) => Math.Abs(plane.DistanceTo(testPoint: point)),
-            (_, Sphere sphere) => point.DistanceTo(sphere.ClosestPoint(testPoint: point)),
-            (_, Box box) => point.DistanceTo(box.ClosestPoint(point, false)),
-            (_, BoundingBox bbox) => point.DistanceTo(bbox.ClosestPoint(point, false)),
-            (_, BrepFace face) => face.ClosestPointOnFace(testPoint: point, u: out double fu, v: out double fv, maximumDistance: 0.0) ? point.DistanceTo(face.PointAt(u: fu, v: fv)) : double.NaN,
-            (_, Surface surface) => surface.ClosestPoint(testPoint: point, u: out double u, v: out double v) ? point.DistanceTo(surface.PointAt(u: u, v: v)) : double.NaN,
-            _ => double.NaN,
+            (SignedResidualCase or ContainmentCase, Plane plane) => Fin.Succ(plane.DistanceTo(testPoint: point)),
+            (SignedResidualCase or ContainmentCase, Sphere sphere) => Fin.Succ(point.DistanceTo(sphere.Center) - sphere.Radius),
+            (SignedResidualCase or ContainmentCase, Box box) => Fin.Succ((box.Contains(point, false) ? -1.0 : 1.0) * point.DistanceTo(box.ClosestPoint(point, false))),
+            (SignedResidualCase or ContainmentCase, BoundingBox bbox) => Fin.Succ((bbox.Contains(point) ? -1.0 : 1.0) * point.DistanceTo(bbox.ClosestPoint(point, false))),
+            (ContainmentCase, Brep brep) => brep.ClosestPoint(point, out Point3d brepClosest, out _, out _, out _, 0.0, out Vector3d brepNormal) ? Fin.Succ(brep.IsSolid switch { true => (brep.IsPointInside(point, tolerance, false) ? -1.0 : 1.0) * point.DistanceTo(brepClosest), false => (point - brepClosest) * brepNormal }) : Fin.Fail<double>(Key.InvalidResult()),
+            (ContainmentCase, Mesh mesh) => mesh.ClosestPoint(point, out Point3d meshClosest, out Vector3d meshNormal, 0.0) >= 0 ? Fin.Succ(mesh.IsSolid switch { true => (mesh.IsPointInside(point, tolerance, false) ? -1.0 : 1.0) * point.DistanceTo(meshClosest), false => (point - meshClosest) * meshNormal }) : Fin.Fail<double>(Key.InvalidResult()),
+            _ => GeometryKernel.ClosestOf(geometry: target, target: point, key: Key).Bind(hit => hit.Distance.ToFin(Fail: Key.InvalidResult())),
         };
 }
 
