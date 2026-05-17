@@ -62,6 +62,7 @@ public partial record Conformance {
     private static bool AcceptedTarget(Conformance aspect, Type target, bool curveSource) =>
         target == typeof(Plane) || target == typeof(Sphere) || target == typeof(Box) || target == typeof(BoundingBox)
         || (aspect is ContainmentCase && (target == typeof(Brep) || target == typeof(Mesh)))
+        || (aspect is SignedResidualCase && typeof(Brep).IsAssignableFrom(target))
         || (curveSource && (target == typeof(Line) || target == typeof(Circle) || target == typeof(Arc) || target == typeof(Polyline) || GeometryKernel.CanCurveForm(type: target)))
         || GeometryKernel.CanSurfaceForm(type: target);
     private static Operation<(TGeometry Geometry, TTarget Target), TValue> Pair<TGeometry, TTarget, TValue>(Conformance aspect, int count) where TGeometry : notnull where TTarget : notnull =>
@@ -100,15 +101,19 @@ public partial record Conformance {
     private static Fin<Seq<ResidualSample>> SampleResiduals<TGeometry, TPrimitive>(TGeometry geometry, TPrimitive primitive, int count, Context context, Func<TGeometry, int, Context, Op, Fin<Seq<Point3d>>> sampler, Func<TPrimitive, Point3d, Fin<double>> distance) where TGeometry : notnull where TPrimitive : notnull =>
         sampler(arg1: geometry, arg2: count, arg3: context, arg4: Key)
             .Bind(points => points.Map((p, i) => distance(arg1: primitive, arg2: p).Map(d => new ResidualSample(i, p, d, context.Absolute.Value, Math.Abs(d) <= context.Absolute.Value))).TraverseM(identity).As());
-    // Sign convention: positive=outside, negative=inside via Rhino's outward-normal axis. NaN propagates failure through Stat.Of.AllFinite.
     private static Fin<double> DistanceFor(Conformance aspect, object target, Point3d point, double tolerance) =>
         (aspect, target) switch {
             (SignedResidualCase or ContainmentCase, Plane plane) => Fin.Succ(plane.DistanceTo(testPoint: point)),
             (SignedResidualCase or ContainmentCase, Sphere sphere) => Fin.Succ(point.DistanceTo(sphere.Center) - sphere.Radius),
             (SignedResidualCase or ContainmentCase, Box box) => Fin.Succ((box.Contains(point, false) ? -1.0 : 1.0) * point.DistanceTo(box.ClosestPoint(point, false))),
             (SignedResidualCase or ContainmentCase, BoundingBox bbox) => Fin.Succ((bbox.Contains(point) ? -1.0 : 1.0) * point.DistanceTo(bbox.ClosestPoint(point, false))),
-            (ContainmentCase, Brep brep) => brep.ClosestPoint(point, out Point3d brepClosest, out _, out _, out _, 0.0, out Vector3d brepNormal) ? Fin.Succ(brep.IsSolid switch { true => (brep.IsPointInside(point, tolerance, false) ? -1.0 : 1.0) * point.DistanceTo(brepClosest), false => (point - brepClosest) * brepNormal }) : Fin.Fail<double>(Key.InvalidResult()),
+            (ContainmentCase, Brep { IsSolid: true } brep) => GeometryKernel.ClosestOf(geometry: brep, target: point, key: Key)
+                .Bind(hit => hit.Distance.ToFin(Fail: Key.InvalidResult()))
+                .Map(distance => (brep.IsPointInside(point, tolerance, false) ? -1.0 : 1.0) * distance),
+            (SignedResidualCase or ContainmentCase, Brep brep) => GeometryKernel.ClosestOf(geometry: brep, target: point, key: Key).Bind(hit => hit.SignedDistanceFrom(sample: point, key: Key)),
             (ContainmentCase, Mesh mesh) => mesh.ClosestPoint(point, out Point3d meshClosest, out Vector3d meshNormal, 0.0) >= 0 ? Fin.Succ(mesh.IsSolid switch { true => (mesh.IsPointInside(point, tolerance, false) ? -1.0 : 1.0) * point.DistanceTo(meshClosest), false => (point - meshClosest) * meshNormal }) : Fin.Fail<double>(Key.InvalidResult()),
+            (SignedResidualCase or ContainmentCase, object surfaceLike) when GeometryKernel.CanSurfaceForm(type: surfaceLike.GetType()) =>
+                GeometryKernel.SurfaceForm(source: surfaceLike, op: Key).Bind(lease => lease.Use(surface => GeometryKernel.ClosestOf(geometry: surface, target: point, key: Key).Bind(hit => hit.SignedDistanceFrom(sample: point, key: Key)))),
             (_, object surfaceLike) when GeometryKernel.CanSurfaceForm(type: surfaceLike.GetType()) => GeometryKernel.SurfaceForm(source: surfaceLike, op: Key).Bind(lease => lease.Use(surface => GeometryKernel.ClosestOf(geometry: surface, target: point, key: Key).Bind(hit => hit.Distance.ToFin(Fail: Key.InvalidResult())))),
             _ => GeometryKernel.ClosestOf(geometry: target, target: point, key: Key).Bind(hit => hit.Distance.ToFin(Fail: Key.InvalidResult())),
         };

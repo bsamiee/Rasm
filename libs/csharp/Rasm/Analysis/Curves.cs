@@ -137,7 +137,8 @@ public static partial class Analyze {
                     describe: static loop => new EdgeDescriptor.OfLoop(LoopType: loop.LoopType),
                     project: loop => Optional(loop.To3dCurve()).Map(c => TopologyProjection.Of(c, feature, new ComponentIndex(ComponentIndexType.BrepLoop, loop.LoopIndex)))),
             (Brep brep, Analysis.Curves.IsoCase iso) => toSeq(brep.Faces).TraverseM(f => IsoSeq(surface: f, iso: iso.Direction, normalized: iso.Normalized, op: op).Map(s => s.Map(c => TopologyProjection.Of(c, feature, new ComponentIndex(ComponentIndexType.BrepFace, f.FaceIndex))))).As().Map(static nested => nested.Bind(static seq => seq)),
-            (BrepFace face, Analysis.Curves.EdgesCase { Kind.Case: null or CurveFeature.Boundary } or Analysis.Curves.AtCase or Analysis.Curves.FormCase) => Optional(face.DuplicateFace(duplicateMeshes: false)).ToFin(op.InvalidResult()).Bind(fb => new Lease<Brep>.Owned(Value: fb).Use(owned => NakedBrepEdgesOf(brep: owned, feature: feature, source: new ComponentIndex(ComponentIndexType.BrepFace, face.FaceIndex)))),
+            (BrepFace face, Analysis.Curves.EdgesCase { Kind.Case: null or CurveFeature.Boundary } or Analysis.Curves.AtCase or Analysis.Curves.FormCase) =>
+                FaceBoundaryEdgesOf(face: face, selector: aspect, feature: feature),
             (Mesh mesh, Analysis.Curves.EdgesCase { Kind.Case: null or CurveFeature.Boundary or CurveFeature.Interior or CurveFeature.NonManifold } or Analysis.Curves.AtCase or Analysis.Curves.FormCase) =>
                 SelectTopologyFeatures(source: Enumerable.Range(start: 0, count: mesh.TopologyEdges.Count), selector: aspect,
                     describe: i => new EdgeDescriptor.OfMesh(ConnectedFaces: mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: i).Length),
@@ -176,10 +177,12 @@ public static partial class Analyze {
         }));
     private static Fin<Seq<TopologyProjection>> SelectTopologyFeatures<TPrimitive>(IEnumerable<TPrimitive> source, Curves selector, Func<TPrimitive, EdgeDescriptor> describe, Func<TPrimitive, Option<TopologyProjection>> project) =>
         Fin.Succ(toSeq(source).Choose(item => selector.Matches(descriptor: describe(arg: item)) ? project(arg: item) : Option<TopologyProjection>.None));
-    private static Fin<Seq<TopologyProjection>> NakedBrepEdgesOf(Brep brep, CurveFeature feature, ComponentIndex source) =>
-        Fin.Succ(toSeq(brep.Edges).Choose(edge => edge.Valence == EdgeAdjacency.Naked
-            ? Optional(edge.DuplicateCurve()).Map(curve => TopologyProjection.Of(curve: curve, feature: feature, source: source.ComponentIndexType == ComponentIndexType.NoType ? new ComponentIndex(ComponentIndexType.BrepEdge, edge.EdgeIndex) : source))
-            : Option<TopologyProjection>.None));
+    private static Fin<Seq<TopologyProjection>> FaceBoundaryEdgesOf(BrepFace face, Curves selector, CurveFeature feature) =>
+        Fin.Succ(toSeq(face.Loops).Bind(loop => toSeq(loop.Trims).Choose(trim => (selector, trim.Edge) switch {
+            (Analysis.Curves.EdgesCase { Kind.Case: null or CurveFeature.Boundary } or Analysis.Curves.AtCase or Analysis.Curves.FormCase, BrepEdge edge) =>
+                Optional(edge.DuplicateCurve()).Map(curve => TopologyProjection.Of(curve: curve, feature: feature, source: new ComponentIndex(ComponentIndexType.BrepEdge, edge.EdgeIndex))),
+            _ => Option<TopologyProjection>.None,
+        })));
     private static Fin<Seq<TopologyProjection>> SubDEdges(SubD subd, CurveFeature feature) {
         _ = subd.UpdateSurfaceMeshCache(true);
         return Fin.Succ(toSeq(subd.DuplicateEdgeCurves().Select((c, i) => TopologyProjection.Of(c, feature, new ComponentIndex(ComponentIndexType.SubdEdge, i)))));

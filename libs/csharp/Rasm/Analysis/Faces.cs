@@ -56,11 +56,9 @@ public static partial class Analyze {
         };
     internal static Fin<Plane> FrameAtFaceCentroid(BrepFace face, Context context, Op op) =>
         CentroidOf(geometry: face, context: context, op: op).Bind(centroid =>
-            (face.ClosestPointOnFace(testPoint: centroid, u: out double u, v: out double v, maximumDistance: 0.0), face.FrameAt(u: u, v: v, frame: out Plane frame), face.NormalAt(u: u, v: v)) switch {
-                (true, true, Vector3d normal) when frame.IsValid && normal.IsValid && !normal.IsTiny() =>
-                    Fin.Succ((frame.ZAxis * (face.OrientationIsReversed ? -normal : normal)) >= 0.0 ? frame : new Plane(origin: frame.Origin, xDirection: frame.XAxis, yDirection: -frame.YAxis)),
-                _ => Fin.Fail<Plane>(op.InvalidResult()),
-            });
+            face.ClosestPointOnFace(testPoint: centroid, u: out double u, v: out double v, maximumDistance: 0.0)
+                ? GeometryKernel.FrameAt(surface: face, uv: new Point2d(x: u, y: v), key: op)
+                : Fin.Fail<Plane>(op.InvalidResult()));
     internal static Operation<TGeometry, TOut> FaceOperation<TGeometry, TOut, TValue>(Op key, Faces selector, Requirement requirement, Func<Seq<TopologyProjection>, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull =>
         Operation<TGeometry, TValue>.Build(
             key: key, state: (Key: key, Selector: selector, Project: project), requirement: requirement, requiresContext: true,

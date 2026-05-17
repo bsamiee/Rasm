@@ -43,7 +43,7 @@
 | **[14]** | `Mesh.Faces.GetFaceVertices`, `Mesh.FaceNormals.ComputeFaceNormals`, `Mesh.GetNakedEdges` | Mesh topology extraction reads face vertices, normals, and naked edges through native mesh APIs without constructing filtered meshes. |
 | **[15]** | `Box(Plane, GeometryBase)` | Oriented bounds now use the native box constructor and keep validity checks on the returned box. |
 | **[16]** | `IntersectionEvent.PointA2`, `OverlapA`, `OverlapB` | Curve overlap events now preserve endpoint and interval data on the single `IntersectionHit` model. |
-| **[17]** | Boolean Rhino intersection APIs | `CurveBrep`, `CurveBrepFace`, `SurfaceSurface`, `BrepPlane`, `BrepSurface`, and `BrepBrep` now treat `false` as `InvalidResult` unless cancellation applies. |
+| **[17]** | Boolean Rhino intersection APIs | `CurveBrep` preserves documented partial overlap output when `false` still returns curves or points; `CurveBrepFace`, `SurfaceSurface`, `BrepPlane`, `BrepSurface`, and `BrepBrep` treat `false` as `InvalidResult` unless cancellation applies. |
 | **[18]** | `OutputAdder.AddEnum<T>` | Enum outputs route through GH2 native enum output creation via the modular adder's `RegularAdder`; manual preset mutation was removed. |
 
 ---

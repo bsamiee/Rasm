@@ -69,8 +69,8 @@ public partial record Location : IAspect {
         frameAtCase: static f => f.At.Switch<Operation<TGeometry, TOut>>(
             curveParameter: static cp => Analyze.Located<TGeometry, TOut, Curve, Plane>(key: FrameAtKey, operation: () => Analyze.CurveLocatedOp<TGeometry, Plane>(key: FrameAtKey, locator: cp, project: static (curve, t, _) => curve.FrameAt(t: t, plane: out Plane frame) ? FrameAtKey.Accept(value: frame) : Fin.Fail<Seq<Plane>>(FrameAtKey.InvalidResult()))),
             surfaceParameter: static sp => typeof(TOut) == typeof(Vector3d)
-                ? Analyze.Located<TGeometry, TOut, Surface, Vector3d>(key: NormalAtKey, operation: () => Analyze.SurfaceUvOp<TGeometry, Vector3d>(key: NormalAtKey, uv: sp.Uv, project: static (surface, p) => surface.NormalAt(u: p.X, v: p.Y) switch { Vector3d normal when normal.IsValid && !normal.IsTiny() => NormalAtKey.Accept(value: normal), _ => Fin.Fail<Seq<Vector3d>>(NormalAtKey.InvalidResult()) }))
-                : Analyze.Located<TGeometry, TOut, Surface, Plane>(key: FrameAtKey, operation: () => Analyze.SurfaceUvOp<TGeometry, Plane>(key: FrameAtKey, uv: sp.Uv, project: static (surface, p) => surface.FrameAt(u: p.X, v: p.Y, frame: out Plane frame) ? FrameAtKey.Accept(value: frame) : Fin.Fail<Seq<Plane>>(FrameAtKey.InvalidResult()))),
+                ? Analyze.Located<TGeometry, TOut, Surface, Vector3d>(key: NormalAtKey, operation: () => Analyze.SurfaceUvOp<TGeometry, Vector3d>(key: NormalAtKey, uv: sp.Uv, project: static (surface, p) => GeometryKernel.NormalAt(surface: surface, uv: p, key: NormalAtKey).Bind(normal => NormalAtKey.Accept(value: normal))))
+                : Analyze.Located<TGeometry, TOut, Surface, Plane>(key: FrameAtKey, operation: () => Analyze.SurfaceUvOp<TGeometry, Plane>(key: FrameAtKey, uv: sp.Uv, project: static (surface, p) => GeometryKernel.FrameAt(surface: surface, uv: p, key: FrameAtKey).Bind(frame => FrameAtKey.Accept(value: frame)))),
             arcLength: static _ => FrameAtKey.Unsupported<TGeometry, TOut>(),
             closestTo: static _ => FrameAtKey.Unsupported<TGeometry, TOut>(),
             normalizedMid: static mid => Analyze.Located<TGeometry, TOut, Curve, Vector3d>(key: TangentKey, operation: () => Analyze.CurveLocatedOp<TGeometry, Vector3d>(key: TangentKey, locator: mid, project: static (curve, parameter, _) => TangentKey.Accept(value: curve.TangentAt(t: parameter)), requirement: Requirement.CurveLength)),
@@ -116,9 +116,9 @@ public partial record Location : IAspect {
 public static partial class Analyze {
     public static Operation<TGeometry, TOut> Location<TGeometry, TOut>(Location aspect) where TGeometry : notnull => Aspect<Location, TGeometry, TOut>(aspect: aspect);
     internal static Operation<TGeometry, TOut> ClosestOp<TGeometry, TOut>(Op key, Point3d target, Func<Type, bool> canProject, Func<ClosestHit, Op, Fin<Seq<TOut>>> project) where TGeometry : notnull =>
-        (target.IsValid, canProject(arg: typeof(TOut))) switch {
-            (false, _) => Operation<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput()),
-            (true, true) => Operation<TGeometry, TOut>.Build(
+        (target.IsValid, canProject(arg: typeof(TOut)), GeometryKernel.CanClosest(type: typeof(TGeometry))) switch {
+            (false, _, _) => Operation<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput()),
+            (true, true, true) => Operation<TGeometry, TOut>.Build(
                 key: key, state: (Key: key, Target: target, Project: project),
                 evaluator: static (state, geometry) =>
                     from hit in GeometryKernel.ClosestOf(geometry: geometry, target: state.Target, key: state.Key).ToEff()

@@ -141,6 +141,10 @@ public readonly record struct ClosestHit(Point3d Point, Option<double> Distance,
         Type t when t == typeof(MeshPoint) => MeshPoint.ToFin(Fail: key.InvalidResult()).Bind(meshPoint => key.AcceptResults<MeshPoint, TOut>(values: Seq(meshPoint))),
         _ => Fin.Fail<Seq<TOut>>(key.Unsupported(geometryType: typeof(ClosestHit), outputType: typeof(TOut))),
     };
+    internal Fin<double> SignedDistanceFrom(Point3d sample, Op key) {
+        ClosestHit hit = this;
+        return hit.Distance.ToFin(Fail: key.InvalidResult()).Bind(distance => hit.Normal.ToFin(Fail: key.InvalidResult()).Map(normal => ((sample - hit.Point) * normal) >= 0.0 ? distance : -distance));
+    }
 }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct Hit(int Id);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct Couple(int A, int B);
@@ -232,9 +236,10 @@ internal static class GeometryKernel {
     }
     internal static bool CanBound(Type source, bool includeSphere) => Universal(source) || typeof(GeometryBase).IsAssignableFrom(source) || Kind.Of(source).Map(kind => kind.CanBound(includeSphere: includeSphere)).IfNone(false);
     internal static bool CanCurveForm(Type type) => typeof(Curve).IsAssignableFrom(c: type) || Can(type: type, predicate: static kind => kind.Topology == Topology.Curve);
-    internal static bool CanSurfaceForm(Type type) =>
-        Universal(type: type) || typeof(Surface).IsAssignableFrom(c: type) || typeof(Brep).IsAssignableFrom(c: type) || Can(type: type, predicate: static kind => kind.Topology == Topology.Surface);
+    internal static bool CanSurfaceForm(Type type) => Universal(type: type) || typeof(Surface).IsAssignableFrom(c: type) || Can(type: type, predicate: static kind => kind.Topology == Topology.Surface);
     internal static bool CanCoerce(Type source, Type target) => Universal(source) || Kind.Of(source).Map(kind => kind.CanCoerceTo(target: target)).IfNone(target.IsAssignableFrom(source));
+    internal static bool CanClosest(Type type) => Universal(type: type) || typeof(Brep).IsAssignableFrom(type) || typeof(Mesh).IsAssignableFrom(type) || type == typeof(Box) || type == typeof(BoundingBox) || CanCurveForm(type: type) || CanSurfaceForm(type: type);
+    internal static bool CanSamplePoints(Type type) => CanCurveForm(type: type) || CanSurfaceForm(type: type) || Can(type: type, predicate: static kind => kind.CanReadVertices);
     public static Fin<Kind> KindOf(this object geometry, Context context) {
         Op key = Op.Of(name: nameof(Kind));
         return Optional(geometry).ToFin(key.InvalidInput()).Bind(g =>
@@ -382,6 +387,17 @@ internal static class GeometryKernel {
     internal static Fin<Seq<Point3d>> SurfaceSamplePoints(Surface surface, int count, Context context, Op key) =>
         SurfaceSampleUv(surface: surface, count: count, context: context, key: key)
             .Map(uvs => uvs.Map(uv => surface.PointAt(u: uv.X, v: uv.Y)));
+    internal static Fin<Vector3d> NormalAt(Surface surface, Point2d uv, Op key) =>
+        surface.NormalAt(u: uv.X, v: uv.Y) switch {
+            Vector3d normal when normal.IsValid && !normal.IsTiny() => Fin.Succ(surface is BrepFace { OrientationIsReversed: true } ? -normal : normal),
+            _ => Fin.Fail<Vector3d>(key.InvalidResult()),
+        };
+    internal static Fin<Plane> FrameAt(Surface surface, Point2d uv, Op key) =>
+        (surface.FrameAt(u: uv.X, v: uv.Y, frame: out Plane frame), frame) switch {
+            (true, { IsValid: true } native) => NormalAt(surface: surface, uv: uv, key: key).Bind(normal =>
+                Fin.Succ((native.ZAxis * normal) >= 0.0 ? native : new Plane(origin: native.Origin, xDirection: native.XAxis, yDirection: -native.YAxis))),
+            _ => Fin.Fail<Plane>(key.InvalidResult()),
+        };
     internal static Fin<ClosestHit> ClosestOf(object? geometry, Point3d target, Op key) =>
         from _ in guard(target.IsValid, key.InvalidInput())
         from g in Optional(geometry).ToFin(key.InvalidInput())
@@ -395,20 +411,27 @@ internal static class GeometryKernel {
             Curve curve when curve.ClosestPoint(testPoint: target, t: out double parameter) =>
                 Fin.Succ(ClosestHit.At(target: target, point: curve.PointAt(t: parameter), parameter: Some(parameter))),
             BrepFace face when face.ClosestPointOnFace(testPoint: target, u: out double u, v: out double v, maximumDistance: 0.0) =>
-                Fin.Succ(ClosestHit.At(target: target, point: face.PointAt(u: u, v: v), uv: Some(new Point2d(x: u, y: v)), normal: Some(face.NormalAt(u: u, v: v)),
-                    component: face.FaceIndex >= 0 ? Some(new ComponentIndex(ComponentIndexType.BrepFace, face.FaceIndex)) : Option<ComponentIndex>.None)),
+                NormalAt(surface: face, uv: new Point2d(x: u, y: v), key: key).Map(normal =>
+                    ClosestHit.At(target: target, point: face.PointAt(u: u, v: v), uv: Some(new Point2d(x: u, y: v)), normal: Some(normal),
+                        component: face.FaceIndex >= 0 ? Some(new ComponentIndex(ComponentIndexType.BrepFace, face.FaceIndex)) : Option<ComponentIndex>.None)),
             Surface surface when surface.ClosestPoint(testPoint: target, u: out double u, v: out double v) =>
-                Fin.Succ(ClosestHit.At(target: target, point: surface.PointAt(u: u, v: v), uv: Some(new Point2d(x: u, y: v)), normal: Some(surface.NormalAt(u: u, v: v)))),
-            Brep brep when brep.ClosestPoint(target, out Point3d point, out ComponentIndex component, out double u, out double v, 0.0, out Vector3d normal) =>
-                Fin.Succ(ClosestHit.At(
-                    target: target,
-                    point: point,
-                    parameter: component.ComponentIndexType == ComponentIndexType.BrepEdge ? Some(u) : Option<double>.None,
-                    uv: component.ComponentIndexType == ComponentIndexType.BrepFace ? Some(new Point2d(x: u, y: v)) : Option<Point2d>.None,
-                    normal: component.ComponentIndexType == ComponentIndexType.BrepFace ? Some(normal) : Option<Vector3d>.None,
-                    component: Some(component))),
+                NormalAt(surface: surface, uv: new Point2d(x: u, y: v), key: key).Map(normal =>
+                    ClosestHit.At(target: target, point: surface.PointAt(u: u, v: v), uv: Some(new Point2d(x: u, y: v)), normal: Some(normal))),
+            Brep brep when brep.ClosestPoint(target, out Point3d point, out ComponentIndex component, out double u, out double v, 0.0, out Vector3d _) =>
+                component switch {
+                    { ComponentIndexType: ComponentIndexType.BrepFace, Index: int faceIndex } when faceIndex >= 0 && faceIndex < brep.Faces.Count =>
+                        NormalAt(surface: brep.Faces[faceIndex], uv: new Point2d(x: u, y: v), key: key).Map(oriented =>
+                            ClosestHit.At(target: target, point: point, uv: Some(new Point2d(x: u, y: v)), normal: Some(oriented), component: Some(component))),
+                    { ComponentIndexType: ComponentIndexType.BrepEdge } =>
+                        Fin.Succ(ClosestHit.At(target: target, point: point, parameter: Some(u), component: Some(component))),
+                    _ => Fin.Succ(ClosestHit.At(target: target, point: point, component: Some(component))),
+                },
             Mesh mesh => Optional(mesh.ClosestMeshPoint(testPoint: target, maximumDistance: 0.0)).ToFin(key.InvalidResult())
                 .Map(meshPoint => ClosestHit.At(target: target, point: meshPoint.Point, normal: Some(mesh.NormalAt(meshPoint: meshPoint)), component: Some(meshPoint.ComponentIndex), meshPoint: Some(meshPoint))),
+            object curveLike when CanCurveForm(type: curveLike.GetType()) =>
+                CurveForm(source: curveLike, op: key).Bind(lease => lease.Use(curve => ClosestOf(geometry: curve, target: target, key: key))),
+            object surfaceLike when CanSurfaceForm(type: surfaceLike.GetType()) =>
+                SurfaceForm(source: surfaceLike, op: key).Bind(lease => lease.Use(surface => ClosestOf(geometry: surface, target: target, key: key))),
             Curve or BrepFace or Surface or Brep => Fin.Fail<ClosestHit>(key.InvalidInput()),
             _ => Fin.Fail<ClosestHit>(key.Unsupported(g.GetType(), typeof(ClosestHit))),
         }

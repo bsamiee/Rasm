@@ -142,7 +142,7 @@ public partial record Bounds : IAspect {
                         from accepted in state.Key.Accept(value: result).ToEff()
                         select accepted).As<TGeometry, TOut>(key: EnclosingSphereKey)
                 : EnclosingSphereKey.Unsupported<TGeometry, TOut>(),
-            circleCase: static c => (typeof(TOut) == typeof(Circle) && GeometryKernel.Can(type: typeof(TGeometry), predicate: static k => k.CanReadVertices))
+            circleCase: static c => (typeof(TOut) == typeof(Circle) && GeometryKernel.CanSamplePoints(type: typeof(TGeometry)))
                 ? Analysis.Operation<TGeometry, Circle>.Build(
                     key: EnclosingCircleKey, requiresContext: true, state: (Key: EnclosingCircleKey, c.Plane, c.Count),
                     evaluator: static (state, geometry) =>

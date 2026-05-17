@@ -24,7 +24,7 @@ public partial record Points : IAspect {
         -Vector3d.YAxis, Vector3d.YAxis,
         -Vector3d.ZAxis, Vector3d.ZAxis);
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
-        extremaCase: static c => typeof(TOut) == typeof(Point3d)
+        extremaCase: static c => typeof(TOut) == typeof(Point3d) && GeometryKernel.CanCurveForm(type: typeof(TGeometry))
             ? Analysis.Operation<TGeometry, Point3d>.Build(
                 key: ExtremaKey, requirement: Requirement.Basic, state: (Key: ExtremaKey, c.Directions),
                 evaluator: static (state, geometry) =>
