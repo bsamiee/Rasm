@@ -46,17 +46,11 @@ public partial record Points : IAspect {
         edgeMidpointsCase: static _ => typeof(TOut) == typeof(Point3d) && GeometryKernel.Can(type: typeof(TGeometry), predicate: static k => k.CanReadEdges)
             ? Analysis.Operation<TGeometry, Point3d>.Build(
                 key: EdgeMidpointsKey, requiresContext: true, state: EdgeMidpointsKey,
-                evaluator: static (op, geometry) => geometry switch {
-                    Line line => op.Accept(value: line.PointAt(t: 0.5)).ToEff(),
-                    Polyline polyline => op.Accept(values: polyline.GetSegments().Select(static segment => segment.PointAt(t: 0.5))).ToEff(),
-                    BoundingBox box => op.Accept(values: box.GetEdges().Select(static edge => edge.PointAt(t: 0.5))).ToEff(),
-                    Box box => op.Accept(values: box.BoundingBox.GetEdges().Select(static edge => edge.PointAt(t: 0.5))).ToEff(),
-                    _ => Analyze.CurveProject<TGeometry, Point3d, Point3d>(
-                        key: op,
-                        aspect: Curves.All,
-                        project: static (projection, _, _) => Fin.Succ(projection.As<Curve>().Map(static curve => new Lease<Curve>.Borrowed(Value: curve).Use(static owned => owned.PointAtNormalizedLength(length: 0.5)))))
-                        .Apply(geometry: Seq(geometry)),
-                }).As<TGeometry, TOut>(key: EdgeMidpointsKey)
+                evaluator: static (op, geometry) => Analyze.CurveProject<TGeometry, Point3d, Point3d>(
+                    key: op,
+                    aspect: Curves.All,
+                    project: static (projection, _, _) => Fin.Succ(projection.As<Curve>().Map(static curve => new Lease<Curve>.Borrowed(Value: curve).Use(static owned => owned.PointAtNormalizedLength(length: 0.5)))))
+                    .Apply(geometry: Seq(geometry))).As<TGeometry, TOut>(key: EdgeMidpointsKey)
             : EdgeMidpointsKey.Unsupported<TGeometry, TOut>(),
         verticesCase: static _ => typeof(TOut) == typeof(Point3d) && GeometryKernel.Can(type: typeof(TGeometry), predicate: static k => k.CanReadVertices)
             ? Analysis.Operation<TGeometry, Point3d>.Build(
@@ -111,6 +105,7 @@ public static partial class Analyze {
                 (Interval u, Interval v) when u.IsValid && v.IsValid => Fin.Succ(Seq(surface.PointAt(u: u.T0, v: v.T0), surface.PointAt(u: u.T1, v: v.T0), surface.PointAt(u: u.T1, v: v.T1), surface.PointAt(u: u.T0, v: v.T1))),
                 _ => Fin.Fail<Seq<Point3d>>(op.InvalidResult()),
             },
+            object surfaceLike when GeometryKernel.CanSurfaceForm(type: surfaceLike.GetType()) => GeometryKernel.SurfaceForm(source: surfaceLike, op: op).Bind(lease => lease.Use(surface => VerticesOf(geometry: surface, context: context, op: op))),
             _ => Fin.Fail<Seq<Point3d>>(op.Unsupported(g.GetType(), typeof(Point3d))),
         });
     internal static Fin<Seq<Point3d>> ControlPointsOf<TGeometry>(TGeometry geometry, Op op) where TGeometry : notnull =>
@@ -122,6 +117,7 @@ public static partial class Analyze {
                 ? Fin.Succ(toSeq(Enumerable.Range(0, ns.Points.CountU).SelectMany(u => Enumerable.Range(0, ns.Points.CountV).Select(v => ns.Points.GetControlPoint(u, v).Location))))
                 : Optional(surface.ToNurbsSurface()).ToFin(op.InvalidResult()).Map(static s => new Lease<NurbsSurface>.Owned(Value: s).Use(static d => toSeq(Enumerable.Range(0, d.Points.CountU).SelectMany(u => Enumerable.Range(0, d.Points.CountV).Select(v => d.Points.GetControlPoint(u, v).Location)).ToArray()))),
             Brep brep => toSeq(brep.Faces).TraverseM(f => Optional(f.ToNurbsSurface()).ToFin(op.InvalidResult()).Map(static s => new Lease<NurbsSurface>.Owned(Value: s).Use(static d => toSeq(Enumerable.Range(0, d.Points.CountU).SelectMany(u => Enumerable.Range(0, d.Points.CountV).Select(v => d.Points.GetControlPoint(u, v).Location)).ToArray())))).As().Map(static nested => nested.Bind(static points => points)),
+            object surfaceLike when GeometryKernel.CanSurfaceForm(type: surfaceLike.GetType()) => GeometryKernel.SurfaceForm(source: surfaceLike, op: op).Bind(lease => lease.Use(surface => ControlPointsOf(geometry: surface, op: op))),
             _ => Fin.Fail<Seq<Point3d>>(op.Unsupported(g.GetType(), typeof(Point3d))),
         });
     internal static Fin<Seq<TOut>> SpreadProject<TOut>(SpreadAspect aspect, Seq<Point3d> points, object geometry, Context context, Op op) =>

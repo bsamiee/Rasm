@@ -10,7 +10,7 @@ public partial record Faces : IAspect {
     public static Faces At(int? index = null) => new AtCase(Value: index);
     internal static readonly Op Key = Op.Of(name: nameof(Faces));
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull =>
-        (typeof(BrepFace).IsAssignableFrom(c: typeof(TGeometry)) || GeometryKernel.Can(type: typeof(TGeometry), predicate: static k => k.CanDecomposeFaces)) switch {
+        (typeof(BrepFace).IsAssignableFrom(c: typeof(TGeometry)) || GeometryKernel.CanCoerce(source: typeof(TGeometry), target: typeof(Brep))) switch {
             false => Key.Unsupported<TGeometry, TOut>(),
             true => typeof(TOut) switch {
                 Type t when t == typeof(Brep) => Analyze.FaceOperation<TGeometry, TOut, Brep>(key: Key, selector: this, requirement: Requirement.None, project: static (chosen, _) => Key.Accept(values: chosen.Choose(static face => face.As<Brep>()))),
@@ -29,16 +29,12 @@ public partial record Faces : IAspect {
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
     public static Operation<TGeometry, TOut> Faces<TGeometry, TOut>(Faces aspect) where TGeometry : notnull => Aspect<Faces, TGeometry, TOut>(aspect: aspect);
-    internal static Fin<Seq<TopologyProjection>> DecomposeFaces<TGeometry>(Op key, Context context, TGeometry geometry) where TGeometry : notnull =>
+    internal static Fin<Seq<TopologyProjection>> DecomposeFaces<TGeometry>(Op key, TGeometry geometry) where TGeometry : notnull =>
         Optional(geometry).ToFin(key.InvalidInput()).Bind(g => g switch {
             BrepFace face => Fin.Succ(Seq(TopologyProjection.Of(face))),
-            GeometryBase native => native switch {
-                Brep brep => Fin.Succ(toSeq(brep.Faces.Cast<BrepFace>().Select(static f => TopologyProjection.Of(f)).ToArray())),
-                { HasBrepForm: true } => GeometryKernel.BrepForm(source: native, op: key).Bind(lease => lease.Switch(
-                    borrowed: static borrowed => Fin.Succ(toSeq(borrowed.Value.Faces.Cast<BrepFace>().Select(static f => TopologyProjection.Of(f)).ToArray())),
-                    owned: static owned => owned.Project(static brep => Fin.Succ(toSeq(brep.Faces.Cast<BrepFace>().Select(static f => TopologyProjection.Of(f, copy: true)).ToArray()))))),
-                _ => Fin.Fail<Seq<TopologyProjection>>(key.Unsupported(native.GetType(), typeof(Seq<TopologyProjection>))),
-            },
+            object brepLike when GeometryKernel.CanCoerce(source: brepLike.GetType(), target: typeof(Brep)) => GeometryKernel.BrepForm(source: brepLike, op: key).Bind(lease => lease.Switch(
+                borrowed: static borrowed => Fin.Succ(toSeq(borrowed.Value.Faces.Cast<BrepFace>().Select(static f => TopologyProjection.Of(f)).ToArray())),
+                owned: static owned => owned.Project(static brep => Fin.Succ(toSeq(brep.Faces.Cast<BrepFace>().Select(static f => TopologyProjection.Of(f, copy: true)).ToArray()))))),
             _ => Fin.Fail<Seq<TopologyProjection>>(key.Unsupported(g.GetType(), typeof(Seq<TopologyProjection>))),
         });
     internal static Fin<Seq<TopologyProjection>> SelectFaces(Op key, Seq<TopologyProjection> faces, Faces selector, Context runtime) => selector.Switch(
@@ -47,8 +43,7 @@ public static partial class Analyze {
         rankedCase: static (s, ranked) => RankFaces(state: s, axis: ranked.Axis, direction: ranked.Direction),
         atCase: static (s, at) => (s.Faces.Count, at.Value) switch {
             (0, _) => Fin.Succ(Seq<TopologyProjection>()),
-            (int n, int index) when index < 0 || index >= n => Fin.Fail<Seq<TopologyProjection>>(s.Key.InvalidInput()),
-            (_, int index) => Fin.Succ(Seq(s.Faces[index])),
+            (int n, int index) => Fin.Succ(Seq(s.Faces[Math.Clamp(value: index, min: 0, max: n - 1)])),
             _ => Fin.Succ(Seq(s.Faces[0])),
         });
     private static Fin<Seq<TopologyProjection>> RankFaces((Op Key, Seq<TopologyProjection> Faces, Context Runtime) state, Vector3d axis, ExtremumDirection direction) =>
@@ -70,7 +65,7 @@ public static partial class Analyze {
             key: key, state: (Key: key, Selector: selector, Project: project), requirement: requirement, requiresContext: true,
             evaluator: static (state, geometry) =>
                 from context in Env.Asks
-                from faces in DecomposeFaces(key: state.Key, context: context, geometry: geometry).ToEff()
+                from faces in DecomposeFaces(key: state.Key, geometry: geometry).ToEff()
                 from chosen in SelectFaces(key: state.Key, faces: faces, selector: state.Selector, runtime: context).ToEff()
                 from result in TopologyProjection.Project(all: faces, chosen: chosen, project: values => state.Project(arg1: values, arg2: context)).ToEff()
                 select result).As<TGeometry, TOut>(key: key);

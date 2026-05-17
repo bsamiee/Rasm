@@ -148,8 +148,11 @@ public partial record Bounds : IAspect {
                     evaluator: static (state, geometry) =>
                         from context in Env.Asks
                         from samples in EnclosingSamples(geometry: geometry, context: context, key: state.Key, count: state.Count).ToEff()
-                        from projected in Fin.Succ(samples.Map(p => state.Plane.ClosestPoint(testPoint: p))).ToEff()
-                        from result in RitterFit(samples: projected, key: state.Key, construct: (c, r) => new Circle(plane: new Plane(origin: c, normal: state.Plane.Normal), radius: r), isValid: static c => c.IsValid).ToEff()
+                        from projected in Fin.Succ(samples.Choose(p => state.Plane.ClosestParameter(testPoint: p, s: out double s, t: out double t) ? Some(new Point2d(x: s, y: t)) : Option<Point2d>.None)).ToEff()
+                        from result in ((projected.Count, Circle.TrySmallestEnclosingCircle(points: projected.AsIterable(), tolerance: context.Absolute.Value, circle: out Circle circle, indicesOnCircle: out int[] _), circle) switch {
+                            ( > 0, true, { IsValid: true } c) => Fin.Succ(new Circle(plane: new Plane(origin: state.Plane.PointAt(u: c.Center.X, v: c.Center.Y), xDirection: state.Plane.XAxis, yDirection: state.Plane.YAxis), radius: c.Radius)),
+                            _ => Fin.Fail<Circle>(state.Key.InvalidResult()),
+                        }).ToEff()
                         from accepted in state.Key.Accept(value: result).ToEff()
                         select accepted).As<TGeometry, TOut>(key: EnclosingCircleKey)
                 : EnclosingCircleKey.Unsupported<TGeometry, TOut>(),
@@ -171,11 +174,9 @@ public partial record Bounds : IAspect {
                         select result).As<TGeometry, TOut>(key: EnclosingCylinderKey)
                 : EnclosingCylinderKey.Unsupported<TGeometry, TOut>()));
     private static Fin<Seq<Point3d>> EnclosingSamples<TGeometry>(TGeometry geometry, Context context, Op key, int count) where TGeometry : notnull =>
-        geometry switch {
-            Curve curve => GeometryKernel.CurveSampleParameters(curve: curve, count: count, context: context, key: key).Map(parameters => parameters.Map(curve.PointAt)),
-            Surface surface => GeometryKernel.SurfaceSamplePoints(surface: surface, count: count, context: context, key: key),
-            _ => Analyze.VerticesOf(geometry: geometry, context: context, op: key),
-        };
+        GeometryKernel.SamplePoints(source: geometry, count: count, context: context, key: key).Match(
+            Succ: Fin.Succ,
+            Fail: error => error is Fault.Unsupported ? Analyze.VerticesOf(geometry: geometry, context: context, op: key) : Fin.Fail<Seq<Point3d>>(error));
     private static Fin<T> RitterFit<T>(Seq<Point3d> samples, Op key, Func<Point3d, double, T> construct, Func<T, bool> isValid) =>
         (samples.Count switch {
             0 => Fin.Fail<(Point3d Center, double Radius)>(key.InvalidResult()),

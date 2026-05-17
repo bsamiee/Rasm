@@ -79,16 +79,13 @@ public partial record Conformance {
                 select result);
     private static Fin<Seq<ResidualSample>> Samples<TGeometry, TTarget>(Conformance aspect, TGeometry geometry, TTarget target, int count, Context context) where TGeometry : notnull where TTarget : notnull =>
         (geometry, target) switch {
-            (object curveLike, Line line) when GeometryKernel.CanCurveForm(type: curveLike.GetType()) => CurveSamples(aspect, curveLike, line, count, context, convert: static l => new LineCurve(l), distance: static (l, pt) => pt.DistanceTo(l.ClosestPoint(testPoint: pt, limitToFiniteSegment: true))),
-            (object curveLike, Circle circle) when GeometryKernel.CanCurveForm(type: curveLike.GetType()) => CurveSamples(aspect, curveLike, circle, count, context, convert: static c => new ArcCurve(c), distance: static (c, pt) => pt.DistanceTo(c.ClosestPoint(testPoint: pt))),
-            (object curveLike, Arc arc) when GeometryKernel.CanCurveForm(type: curveLike.GetType()) => CurveSamples(aspect, curveLike, arc, count, context, convert: static a => new ArcCurve(a), distance: static (a, pt) => pt.DistanceTo(a.ClosestPoint(testPoint: pt))),
-            (object curveLike, Polyline polyline) when GeometryKernel.CanCurveForm(type: curveLike.GetType()) => CurveSamples(aspect, curveLike, polyline, count, context, convert: static p => p.ToPolylineCurve(), distance: static (p, pt) => pt.DistanceTo(p.ClosestPoint(testPoint: pt))),
             (object curveLike, object targetCurveLike) when GeometryKernel.CanCurveForm(type: curveLike.GetType()) && GeometryKernel.CanCurveForm(type: targetCurveLike.GetType()) => CurveCurveSamples(aspect, curveLike, targetCurveLike, count, context),
             (object curveLike, _) when GeometryKernel.CanCurveForm(type: curveLike.GetType()) =>
                 GeometryKernel.CurveForm(source: curveLike, op: Key).Bind(lease => lease.Use(curve =>
-                    SampleResiduals(curve, target, count, context, sampler: SampleCurve, distance: (t, pt) => DistanceFor(aspect: aspect, target: t, point: pt, tolerance: context.Absolute.Value)))),
-            (Surface surface, _) =>
-                SampleResiduals(surface, target, count, context, GeometryKernel.SurfaceSamplePoints, distance: (t, pt) => DistanceFor(aspect: aspect, target: t, point: pt, tolerance: context.Absolute.Value)),
+                    SampleResiduals(curve, target, count, context, sampler: GeometryKernel.SamplePoints, distance: (t, pt) => DistanceFor(aspect: aspect, target: t, point: pt, tolerance: context.Absolute.Value)))),
+            (object surfaceLike, _) when GeometryKernel.CanSurfaceForm(type: surfaceLike.GetType()) =>
+                GeometryKernel.SurfaceForm(source: surfaceLike, op: Key).Bind(lease => lease.Use(surface =>
+                    SampleResiduals(surface, target, count, context, GeometryKernel.SamplePoints, distance: (t, pt) => DistanceFor(aspect: aspect, target: t, point: pt, tolerance: context.Absolute.Value)))),
             _ => Fin.Fail<Seq<ResidualSample>>(Key.Unsupported(typeof(TGeometry), typeof(ResidualSample))),
         };
     private static Fin<Seq<ResidualSample>> CurveCurveSamples(Conformance aspect, object curveLike, object targetCurveLike, int count, Context context) =>
@@ -98,22 +95,11 @@ public partial record Conformance {
                     WithinToleranceCase or MaximumCase =>
                         Analyze.CurveDeviationOf(left: left, right: right, context: context, op: Key)
                             .Map(static d => Seq(new ResidualSample(Index: 0, Location: d.MaximumA, Distance: d.MaximumDistance, Tolerance: d.Tolerance, WithinTolerance: d.WithinTolerance))),
-                    _ => SampleResiduals(left, right, count, context, sampler: SampleCurve, distance: static (c, pt) => c.ClosestPoint(testPoint: pt, t: out double t) ? Fin.Succ(pt.DistanceTo(c.PointAt(t: t))) : Fin.Fail<double>(Key.InvalidResult())),
+                    _ => SampleResiduals(left, right, count, context, sampler: GeometryKernel.SamplePoints, distance: static (c, pt) => c.ClosestPoint(testPoint: pt, t: out double t) ? Fin.Succ(pt.DistanceTo(c.PointAt(t: t))) : Fin.Fail<double>(Key.InvalidResult())),
                 }))));
-    private static Fin<Seq<ResidualSample>> CurveSamples<TPrimitive>(Conformance aspect, object curveLike, TPrimitive primitive, int count, Context context, Func<TPrimitive, Curve> convert, Func<TPrimitive, Point3d, double> distance) where TPrimitive : notnull =>
-        GeometryKernel.CurveForm(source: curveLike, op: Key)
-            .Bind(lease => lease.Use(curve => aspect switch {
-                WithinToleranceCase or MaximumCase =>
-                    new Lease<Curve>.Owned(Value: convert(arg: primitive)).Use(native => Analyze.CurveDeviationOf(left: curve, right: native, context: context, op: Key)
-                        .Map(static d => Seq(new ResidualSample(Index: 0, Location: d.MaximumA, Distance: d.MaximumDistance, Tolerance: d.Tolerance, WithinTolerance: d.WithinTolerance)))),
-                _ => SampleResiduals(curve, primitive, count, context, sampler: SampleCurve, distance: (p, pt) => Fin.Succ(distance(arg1: p, arg2: pt))),
-            }));
     private static Fin<Seq<ResidualSample>> SampleResiduals<TGeometry, TPrimitive>(TGeometry geometry, TPrimitive primitive, int count, Context context, Func<TGeometry, int, Context, Op, Fin<Seq<Point3d>>> sampler, Func<TPrimitive, Point3d, Fin<double>> distance) where TGeometry : notnull where TPrimitive : notnull =>
         sampler(arg1: geometry, arg2: count, arg3: context, arg4: Key)
             .Bind(points => points.Map((p, i) => distance(arg1: primitive, arg2: p).Map(d => new ResidualSample(i, p, d, context.Absolute.Value, Math.Abs(d) <= context.Absolute.Value))).TraverseM(identity).As());
-    private static Fin<Seq<Point3d>> SampleCurve(Curve curve, int count, Context context, Op key) =>
-        GeometryKernel.CurveSampleParameters(curve: curve, count: count, context: context, key: key)
-            .Map(parameters => parameters.Map(curve.PointAt));
     // Sign convention: positive=outside, negative=inside via Rhino's outward-normal axis. NaN propagates failure through Stat.Of.AllFinite.
     private static Fin<double> DistanceFor(Conformance aspect, object target, Point3d point, double tolerance) =>
         (aspect, target) switch {
@@ -123,6 +109,7 @@ public partial record Conformance {
             (SignedResidualCase or ContainmentCase, BoundingBox bbox) => Fin.Succ((bbox.Contains(point) ? -1.0 : 1.0) * point.DistanceTo(bbox.ClosestPoint(point, false))),
             (ContainmentCase, Brep brep) => brep.ClosestPoint(point, out Point3d brepClosest, out _, out _, out _, 0.0, out Vector3d brepNormal) ? Fin.Succ(brep.IsSolid switch { true => (brep.IsPointInside(point, tolerance, false) ? -1.0 : 1.0) * point.DistanceTo(brepClosest), false => (point - brepClosest) * brepNormal }) : Fin.Fail<double>(Key.InvalidResult()),
             (ContainmentCase, Mesh mesh) => mesh.ClosestPoint(point, out Point3d meshClosest, out Vector3d meshNormal, 0.0) >= 0 ? Fin.Succ(mesh.IsSolid switch { true => (mesh.IsPointInside(point, tolerance, false) ? -1.0 : 1.0) * point.DistanceTo(meshClosest), false => (point - meshClosest) * meshNormal }) : Fin.Fail<double>(Key.InvalidResult()),
+            (object surfaceLike, _) when GeometryKernel.CanSurfaceForm(type: surfaceLike.GetType()) => GeometryKernel.SurfaceForm(source: surfaceLike, op: Key).Bind(lease => lease.Use(surface => GeometryKernel.ClosestOf(geometry: surface, target: point, key: Key).Bind(hit => hit.Distance.ToFin(Fail: Key.InvalidResult())))),
             _ => GeometryKernel.ClosestOf(geometry: target, target: point, key: Key).Bind(hit => hit.Distance.ToFin(Fail: Key.InvalidResult())),
         };
 }

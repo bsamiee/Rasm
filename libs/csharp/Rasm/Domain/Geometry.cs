@@ -14,6 +14,15 @@ public sealed partial class IntersectionKind {
 }
 public enum IntersectionTangency { Unknown = 0, Transversal = 1, Tangent = 2 }
 public enum CurveFeature { Input = 0, Segment = 1, Edge = 2, Boundary = 3, NakedOuter = 4, NakedInner = 5, Interior = 6, NonManifold = 7, OuterLoop = 8, InnerLoop = 9, Iso = 10, Silhouette = 11, SubCurve = 12, Draft = 13 }
+[Union]
+public partial record CurveForm {
+    public sealed record LineCase(Line Value) : CurveForm;
+    public sealed record CircleCase(Circle Value) : CurveForm;
+    public sealed record ArcCase(Arc Value) : CurveForm;
+    public sealed record EllipseCase(Ellipse Value) : CurveForm;
+    public sealed record PolylineCase(Polyline Value, bool IsClosed) : CurveForm;
+    public sealed record NurbsCase(int Degree, bool IsClosed, bool IsPlanar, bool IsPeriodic, int SpanCount, int Dimension) : CurveForm;
+}
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct RayQuery(Ray3d Ray, int MaxReflections = 1) {
     public static RayQuery Of(Ray3d ray, int maxReflections = 1) => new(Ray: ray, MaxReflections: maxReflections);
@@ -89,6 +98,18 @@ public sealed record TopologyProjection {
             || (Value is Curve curve && outputType.IsInstanceOfType(curve))
             || (Value is Brep or BrepFace && outputType.IsAssignableFrom(typeof(Brep)));
     }
+    public bool Transfers(object? output) =>
+        output switch {
+            null => false,
+            TopologyProjection projection => SameAs(other: projection),
+            GeometryBase geometry => ReferenceEquals(objA: Value, objB: geometry) || (Value, geometry) switch {
+                (Brep brep, BrepFace face) => ReferenceEquals(objA: brep, objB: face.Brep),
+                (BrepFace face, Brep brep) => ReferenceEquals(objA: face.Brep, objB: brep),
+                (BrepFace source, BrepFace face) => ReferenceEquals(objA: source.Brep, objB: face.Brep),
+                _ => false,
+            },
+            _ => false,
+        };
     internal static Fin<Seq<TValue>> Project<TValue>(Seq<TopologyProjection> all, Seq<TopologyProjection> chosen, Func<Seq<TopologyProjection>, Fin<Seq<TValue>>> project) {
         Fin<Seq<TValue>> result = project(chosen);
         _ = all.Filter(v => !result.IsSucc || !chosen.Exists(c => c.SameAs(v) && c.Transfers(typeof(TValue)))).Iter(static v => v.Dispose());
@@ -211,7 +232,7 @@ internal static class GeometryKernel {
     }
     internal static bool CanBound(Type source, bool includeSphere) => Universal(source) || typeof(GeometryBase).IsAssignableFrom(source) || Kind.Of(source).Map(kind => kind.CanBound(includeSphere: includeSphere)).IfNone(false);
     internal static bool CanCurveForm(Type type) => typeof(Curve).IsAssignableFrom(c: type) || Can(type: type, predicate: static kind => kind.Topology == Topology.Curve);
-    internal static bool CanSurfaceForm(Type type) => type == typeof(object) || type == typeof(GeometryBase) || typeof(Surface).IsAssignableFrom(c: type);
+    internal static bool CanSurfaceForm(Type type) => Universal(type: type) || typeof(Surface).IsAssignableFrom(c: type) || Can(type: type, predicate: static kind => kind.Topology == Topology.Surface);
     internal static bool CanCoerce(Type source, Type target) => Universal(source) || Kind.Of(source).Map(kind => kind.CanCoerceTo(target: target)).IfNone(target.IsAssignableFrom(source));
     public static Fin<Kind> KindOf(this object geometry, Context context) {
         Op key = Op.Of(name: nameof(Kind));
@@ -260,12 +281,15 @@ internal static class GeometryKernel {
             (Type t, Point point) when t == typeof(Point3d) => Some((object)point.Location),
             (Type t, Brep brep) when t == typeof(Box) => brep.IsBox(context.Absolute.Value) && brep.Faces[0].UnderlyingSurface().TryGetPlane(out Plane plane, context.Absolute.Value) && new Box(plane, brep) is { IsValid: true } box ? Some((object)box) : Option<object>.None,
             (Type t, object value) when t == typeof(Curve) => CurveForm(source: value, op: op).ToOption().Map(static lease => (object)lease.Resource),
-            (Type t, Curve curve) when t == typeof(Line) && curve.IsLinear(context.Absolute.Value) => Some((object)new Line(curve.PointAtStart, curve.PointAtEnd)),
-            (Type t, Curve curve) when t == typeof(Circle) && curve.TryGetCircle(out Circle value, context.Absolute.Value) => Some((object)value),
-            (Type t, Curve curve) when t == typeof(Arc) && curve.TryGetArc(out Arc value, context.Absolute.Value) => Some((object)value),
-            (Type t, Curve curve) when t == typeof(Ellipse) && curve.TryGetEllipse(out Ellipse value, context.Absolute.Value) => Some((object)value),
-            (Type t, Curve curve) when t == typeof(Polyline) && curve.TryGetPolyline(out Polyline value) => Some((object)value),
-            (Type t, Brep { IsSurface: true } brep) when t == typeof(Plane) || t == typeof(Sphere) || t == typeof(Cylinder) || t == typeof(Cone) || t == typeof(Torus) => PrimitiveOf(kind, brep.Surfaces[0], context, op),
+            (Type t, Curve curve) when t == typeof(Line) || t == typeof(Circle) || t == typeof(Arc) || t == typeof(Ellipse) || t == typeof(Polyline) => CurveFormOf(curve: curve, context: context, op: op).ToOption().Bind(form => (t, form) switch {
+                (Type output, CurveForm.LineCase line) when output == typeof(Line) => Some((object)line.Value),
+                (Type output, CurveForm.CircleCase circle) when output == typeof(Circle) => Some((object)circle.Value),
+                (Type output, CurveForm.ArcCase arc) when output == typeof(Arc) => Some((object)arc.Value),
+                (Type output, CurveForm.EllipseCase ellipse) when output == typeof(Ellipse) => Some((object)ellipse.Value),
+                (Type output, CurveForm.PolylineCase polyline) when output == typeof(Polyline) => Some((object)polyline.Value),
+                _ => Option<object>.None,
+            }),
+            (Type t, Brep { IsSurface: true, Faces.Count: > 0 } brep) when t == typeof(Plane) || t == typeof(Sphere) || t == typeof(Cylinder) || t == typeof(Cone) || t == typeof(Torus) => PrimitiveOf(kind, brep.Faces[0], context, op),
             (Type t, Surface surface) when t == typeof(Plane) && surface.TryGetPlane(out Plane value, context.Absolute.Value) => Some((object)value),
             (Type t, Surface surface) when t == typeof(Sphere) && surface.TryGetSphere(out Sphere value, context.Absolute.Value) => Some((object)value),
             (Type t, Surface surface) when t == typeof(Cylinder) && surface.TryGetCylinder(out Cylinder value, context.Absolute.Value) => Some((object)value),
@@ -284,6 +308,17 @@ internal static class GeometryKernel {
             Ellipse ellipse when ellipse.IsValid => Optional(ellipse.ToNurbsCurve()).ToFin(op.InvalidResult()).Map(static curve => (Lease<Curve>)new Lease<Curve>.Owned(Value: curve)),
             _ => Fin.Fail<Lease<Curve>>(op.Unsupported(value.GetType(), typeof(Curve))),
         });
+    internal static Fin<Lease<Surface>> SurfaceForm(object? source, Op op) =>
+        Optional(source).ToFin(op.InvalidInput()).Bind(value => value switch {
+            Surface surface => Fin.Succ<Lease<Surface>>(new Lease<Surface>.Borrowed(Value: surface)),
+            Plane plane when plane.IsValid => Fin.Succ<Lease<Surface>>(new Lease<Surface>.Owned(Value: new PlaneSurface(plane))),
+            Sphere sphere when sphere.IsValid => Optional(sphere.ToNurbsSurface()).ToFin(op.InvalidResult()).Map(static surface => (Lease<Surface>)new Lease<Surface>.Owned(Value: surface)),
+            Cylinder cylinder when cylinder.IsValid => Optional(cylinder.ToNurbsSurface()).ToFin(op.InvalidResult()).Map(static surface => (Lease<Surface>)new Lease<Surface>.Owned(Value: surface)),
+            Cone cone when cone.IsValid => Optional(cone.ToNurbsSurface()).ToFin(op.InvalidResult()).Map(static surface => (Lease<Surface>)new Lease<Surface>.Owned(Value: surface)),
+            Torus torus when torus.IsValid => Optional(torus.ToNurbsSurface()).ToFin(op.InvalidResult()).Map(static surface => (Lease<Surface>)new Lease<Surface>.Owned(Value: surface)),
+            Brep { IsSurface: true, Faces.Count: > 0 } brep => Fin.Succ<Lease<Surface>>(new Lease<Surface>.Borrowed(Value: brep.Faces[0])),
+            _ => Fin.Fail<Lease<Surface>>(op.Unsupported(value.GetType(), typeof(Surface))),
+        });
     internal static Fin<Lease<Brep>> BrepForm(object? source, Op op) =>
         Optional(source).ToFin(op.InvalidInput()).Bind(value => value switch {
             Brep brep => Fin.Succ<Lease<Brep>>(new Lease<Brep>.Borrowed(Value: brep)),
@@ -301,6 +336,23 @@ internal static class GeometryKernel {
     internal static Fin<Seq<double>> CurveSampleParameters(Curve curve, int count, Context context, Op key) =>
         Fractions(count: count, op: key).Bind(fractions =>
             Optional(curve.NormalizedLengthParameters([.. fractions.AsIterable()], context.Absolute.Value, context.Fractional)).ToFin(key.InvalidResult()).Map(static p => toSeq(p)));
+    internal static Fin<CurveForm> CurveFormOf(Curve curve, Context context, Op op) =>
+        Fin.Succ<CurveForm>(curve switch {
+            _ when curve.IsLinear(tolerance: context.Absolute.Value) => new CurveForm.LineCase(Value: new Line(from: curve.PointAtStart, to: curve.PointAtEnd)),
+            _ when curve.TryGetCircle(circle: out Circle c, tolerance: context.Absolute.Value) => new CurveForm.CircleCase(Value: c),
+            _ when curve.TryGetArc(arc: out Arc a, tolerance: context.Absolute.Value) => new CurveForm.ArcCase(Value: a),
+            _ when curve.TryGetEllipse(ellipse: out Ellipse e, tolerance: context.Absolute.Value) => new CurveForm.EllipseCase(Value: e),
+            _ when curve.TryGetPolyline(polyline: out Polyline p) => new CurveForm.PolylineCase(Value: p, IsClosed: curve.IsClosed),
+            _ => new CurveForm.NurbsCase(Degree: curve.Degree, IsClosed: curve.IsClosed, IsPlanar: curve.IsPlanar(tolerance: context.Absolute.Value), IsPeriodic: curve.IsPeriodic, SpanCount: curve.SpanCount, Dimension: curve.Dimension),
+        });
+    internal static Fin<Seq<Point3d>> SamplePoints(object? source, int count, Context context, Op key) =>
+        Optional(source).ToFin(key.InvalidInput()).Bind(value => value switch {
+            Curve curve => CurveSampleParameters(curve: curve, count: count, context: context, key: key).Map(parameters => parameters.Map(curve.PointAt)),
+            object curveLike when CanCurveForm(type: curveLike.GetType()) => CurveForm(source: curveLike, op: key).Bind(lease => lease.Use(curve => SamplePoints(source: curve, count: count, context: context, key: key))),
+            Surface surface => SurfaceSamplePoints(surface: surface, count: count, context: context, key: key),
+            object surfaceLike when CanSurfaceForm(type: surfaceLike.GetType()) => SurfaceForm(source: surfaceLike, op: key).Bind(lease => lease.Use(surface => SurfaceSamplePoints(surface: surface, count: count, context: context, key: key))),
+            _ => Fin.Fail<Seq<Point3d>>(key.Unsupported(value.GetType(), typeof(Point3d))),
+        });
     internal static Fin<Point2d> SurfaceUv(Surface surface, Point2d uv, Context context, Op key) =>
         (uv.IsValid, surface.Domain(0), surface.Domain(1)) switch {
             (true, Interval u, Interval v) when u.IsValid && v.IsValid && u.IncludesParameter(uv.X) && v.IncludesParameter(uv.Y)
@@ -334,7 +386,7 @@ internal static class GeometryKernel {
         from hit in g switch {
             Line line => Fin.Succ(ClosestHit.At(target: target, point: line.ClosestPoint(testPoint: target, limitToFiniteSegment: true), parameter: Some(Math.Clamp(line.ClosestParameter(testPoint: target), 0.0, 1.0)))),
             Polyline polyline => Fin.Succ(ClosestHit.At(target: target, point: polyline.ClosestPoint(testPoint: target), parameter: Some(polyline.ClosestParameter(testPoint: target)))),
-            Plane plane => Fin.Succ(ClosestHit.At(target: target, point: plane.ClosestPoint(testPoint: target), normal: Some(plane.Normal))),
+            Plane plane when plane.ClosestParameter(testPoint: target, s: out double s, t: out double t) => Fin.Succ(ClosestHit.At(target: target, point: plane.PointAt(u: s, v: t), uv: Some(new Point2d(x: s, y: t)), normal: Some(plane.Normal))),
             Sphere sphere => Fin.Succ(ClosestHit.At(target: target, point: sphere.ClosestPoint(testPoint: target))),
             Box box => Fin.Succ(ClosestHit.At(target: target, point: box.ClosestPoint(target, false))),
             BoundingBox box => Fin.Succ(ClosestHit.At(target: target, point: box.ClosestPoint(target, false))),

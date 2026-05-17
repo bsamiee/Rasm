@@ -120,6 +120,7 @@ public static partial class Analyze {
         Optional(geometry).ToFin(op.InvalidInput()).Bind(g => g switch {
             Curve curve => Fin.Succ(Seq(curve.Domain)),
             Surface surface => Fin.Succ(Seq(surface.Domain(direction: 0), surface.Domain(direction: 1))),
+            object surfaceLike when GeometryKernel.CanSurfaceForm(type: surfaceLike.GetType()) => GeometryKernel.SurfaceForm(source: surfaceLike, op: op).Bind(lease => lease.Use(surface => DomainsOf(geometry: surface, op: op))),
             _ => Fin.Fail<Seq<Interval>>(op.Unsupported(g.GetType(), typeof(Interval))),
         });
     internal static Fin<BrepSolidOrientation> SolidOrientationOf<TGeometry>(TGeometry geometry, Op op) where TGeometry : notnull =>

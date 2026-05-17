@@ -105,7 +105,7 @@ public static class Output {
     private static Seq<object> Drain<TOut>(Port<TOut> port, int slot, Seq<Flow<TOut>> values, IDataAccess access) {
         Seq<object> transfers = access.Write<TOut>(slot: slot, name: port.Name, targetAccess: port.Access, values: values) switch { _ => values.Map(static value => (object)value.Item!) };
         _ = values.Choose(static value => value.Item is TopologyProjection projection ? Some(projection) : Option<TopologyProjection>.None)
-            .Iter(projection => _ = transfers.Exists(output => ReferenceEquals(objA: output, objB: projection) || projection.Transfers(outputType: output.GetType())) switch { true => unit, false => projection.Dispose() });
+            .Iter(projection => _ = transfers.Exists(output => ReferenceEquals(objA: output, objB: projection) || projection.Transfers(output: output)) switch { true => unit, false => projection.Dispose() });
         return transfers;
     }
     private static Unit Empty<TOut>(Port<TOut> port, IDataAccess access, int slot) {

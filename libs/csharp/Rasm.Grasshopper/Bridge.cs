@@ -31,8 +31,7 @@ public readonly record struct Shape {
     public const string Accepted = "Rhino/GH geometry convertible through native RhinoCommon or GH2 brokers";
     internal Unit DisposeUnlessTransferred(Seq<object> outputs) =>
         owned.Filter(disposable => !outputs.Exists(output => ReferenceEquals(objA: output, objB: disposable) || output switch {
-            TopologyProjection { Value: BrepFace face } => ReferenceEquals(objA: face.Brep, objB: disposable),
-            TopologyProjection projection => ReferenceEquals(objA: projection.Value, objB: disposable),
+            TopologyProjection projection => projection.Transfers(output: disposable),
             BrepFace face => ReferenceEquals(objA: face.Brep, objB: disposable),
             _ => false,
         }))
@@ -172,10 +171,18 @@ public static class Bridge {
     private static readonly Seq<Broker> Brokers = toSeq(new Broker[] {
         new(Priority: 100, Convert: static raw => AsShape(value: raw)),
         new(Priority:  90, Convert: static raw => Shape.Converted(raw: raw, value: CurveBroker.ToRhinoCurve(raw))),
-        new(Priority:  90, Convert: static raw => Shape.Converted(raw: raw, value: SurfaceBroker.ToBrep(raw))),
+        new(Priority:  90, Convert: static raw => SurfaceShape(raw: raw)),
     }.OrderByDescending(static b => b.Priority));
     private static Option<Shape> NormalizeShape(object raw) => Brokers.Choose(broker => broker.Convert(arg: raw)).Head;
     private static Option<Shape> AsShape(object? value) => Optional(value).Bind(static candidate => Shape.Create(value: candidate).ToOption());
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Reliability", "CA2000", Justification = "Shape owns converted Rhino geometry and disposes it after output transfer.")]
+    private static Option<Shape> SurfaceShape(object raw) =>
+        SurfaceBroker.CastOrConvert(data: raw, p1: out Surface surface, p3: out Brep brep, p4: out SubD subd) switch {
+            SurfaceLikeType.Surf => Shape.Converted(raw: raw, value: surface),
+            SurfaceLikeType.Brep => Shape.Converted(raw: raw, value: brep),
+            SurfaceLikeType.SubD => Shape.Converted(raw: raw, value: subd),
+            _ => Option<Shape>.None,
+        };
     private static Fin<Flow<Shape>> NormalizeFlow(IDataAccess access, Flow<object> source, Port port) =>
         from scale in UnitScale(access: access)
         from shape in NormalizeShape(raw: source.Item).ToFin(new UnsupportedSource(Port: port.Name, SourceType: source.Item.GetType(), Hint: Shape.Accepted))
