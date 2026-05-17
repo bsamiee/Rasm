@@ -20,12 +20,6 @@
         "resolved": "17.14.15",
         "contentHash": "mXQPJsbuUD2ydq4/ffd8h8tSOFCXec+2xJOVNCvXjuMOq/+5EKHq3D2m2MC2+nUaXeFMSt66VS/J4HdKBixgcw=="
       },
-      "rasm.rhinobridge.contracts": {
-        "type": "Project",
-        "dependencies": {
-          "Rasm.RhinoBridge.Protocol": "[1.0.0, )"
-        }
-      },
       "rasm.rhinobridge.protocol": {
         "type": "Project"
       }

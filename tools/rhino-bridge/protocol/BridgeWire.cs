@@ -8,9 +8,8 @@ public static class BridgeWire {
     public const string Schema = "rasm.rhino-bridge.v1";
     public const string Hello = "hello";
     public const string Doctor = "doctor";
-    public const string Check = "check";
+    public const string Execute = "execute";
     public const string Load = "load";
-    public const string Run = "run";
     public const string Unload = "unload";
     public const string Quit = "quit";
     public const string Ok = "ok";
@@ -19,23 +18,57 @@ public static class BridgeWire {
     public const string Busy = "busy";
     public const string Timeout = "timeout";
     public const string Skipped = "skipped";
-    public const string OutputConsoleOut = "console.out";
+    public const string OutputStdout = "stdout";
+    public const string OutputStderr = "stderr";
+    public const string OutputCommandStdout = "process.stdout";
+    public const string OutputCommandStderr = "process.stderr";
     public static JsonSerializerOptions CompactJson { get; } = Options(writeIndented: false);
     public static JsonSerializerOptions PrettyJson { get; } = Options(writeIndented: true);
     public static string EndpointDirectory => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".rasm");
     public static string EndpointPath => Path.Combine(EndpointDirectory, "rhino-bridge.json");
     public static bool IsCurrent(string? schema) =>
         string.Equals(schema, Schema, StringComparison.Ordinal);
+    public static bool IsStatus(string? status) =>
+        status is Ok or Failed or Unsupported or Busy or Timeout or Skipped;
     public static BridgeLoadRequest LoadRequest(string assemblyPath, string workspaceRoot) =>
         new(AssemblyPath: assemblyPath, WorkspaceRoot: workspaceRoot);
-    public static BridgeRunRequest RunRequest(string sessionId, string? probe, JsonElement arguments) =>
-        new(SessionId: sessionId, Probe: probe, Arguments: arguments);
+    public static BridgeExecuteRequest ExecuteRequest(string script, string? scriptPath, IReadOnlyList<string> references) =>
+        new(Script: script, ScriptPath: scriptPath, References: references);
     public static BridgeUnloadRequest UnloadRequest(string sessionId) =>
         new(SessionId: sessionId);
     public static BridgeRequest Request<TPayload>(string command, TPayload payload, int timeoutMs = 15000) =>
-        new(Schema: Schema, Command: command, TimeoutMs: timeoutMs, Payload: JsonSerializer.SerializeToElement(payload, CompactJson));
+        new(Schema: Schema, Command: command, TimeoutMs: timeoutMs, Payload: JsonSerializer.SerializeToElement(value: payload, options: CompactJson));
     public static BridgeRequest Request(string command, int timeoutMs = 15000) =>
         new(Schema: Schema, Command: command, TimeoutMs: timeoutMs, Payload: null);
+    public static BridgeReply Reply<TData>(
+        string command,
+        string status,
+        TData data,
+        IReadOnlyList<BridgeOutput>? outputs = null,
+        IReadOnlyList<BridgeDiagnostic>? diagnostics = null,
+        BridgeFault? fault = null) =>
+        new(
+            Schema: Schema,
+            Command: command,
+            Status: IsStatus(status) ? status : Failed,
+            Data: JsonSerializer.SerializeToElement(value: data, options: CompactJson),
+            Outputs: outputs ?? [],
+            Diagnostics: diagnostics ?? [],
+            Fault: fault);
+    public static BridgeReply Reply(
+        string command,
+        string status,
+        IReadOnlyList<BridgeOutput>? outputs = null,
+        IReadOnlyList<BridgeDiagnostic>? diagnostics = null,
+        BridgeFault? fault = null) =>
+        new(
+            Schema: Schema,
+            Command: command,
+            Status: IsStatus(status) ? status : Failed,
+            Data: null,
+            Outputs: outputs ?? [],
+            Diagnostics: diagnostics ?? [],
+            Fault: fault);
     private static JsonSerializerOptions Options(bool writeIndented) => new(JsonSerializerDefaults.Web) {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
         WriteIndented = writeIndented,
@@ -58,67 +91,28 @@ public sealed record BridgeReply(
     string Schema,
     string Command,
     string Status,
-    BridgeEndpoint? Endpoint = null,
-    BridgeDoctor? Doctor = null,
-    BridgeBuildReport? Build = null,
-    BridgeLoadReport? Load = null,
-    BridgeRunReport? Run = null,
-    BridgeUnloadReport? Unload = null,
-    BridgeCheckReport? Check = null,
-    BridgeQuitReport? Quit = null,
-    BridgeFault? Fault = null) {
-    public static BridgeReply HelloOk(BridgeEndpoint endpoint) {
-        ArgumentNullException.ThrowIfNull(endpoint);
-        return new(Schema: BridgeWire.Schema, Command: BridgeWire.Hello, Status: BridgeWire.Ok, Endpoint: endpoint);
-    }
-    public static BridgeReply DoctorOk(BridgeDoctor doctor) {
-        ArgumentNullException.ThrowIfNull(doctor);
-        return new(Schema: BridgeWire.Schema, Command: BridgeWire.Doctor, Status: BridgeWire.Ok, Doctor: doctor);
-    }
-    public static BridgeReply LoadOk(BridgeLoadReport load) {
-        ArgumentNullException.ThrowIfNull(load);
-        return new(Schema: BridgeWire.Schema, Command: BridgeWire.Load, Status: load.Status, Load: load, Fault: load.Fault);
-    }
-    public static BridgeReply RunOk(BridgeRunReport run) {
-        ArgumentNullException.ThrowIfNull(run);
-        return new(Schema: BridgeWire.Schema, Command: BridgeWire.Run, Status: run.Status, Run: run, Fault: run.Fault);
-    }
-    public static BridgeReply UnloadOk(BridgeUnloadReport unload) {
-        ArgumentNullException.ThrowIfNull(unload);
-        return new(Schema: BridgeWire.Schema, Command: BridgeWire.Unload, Status: unload.Status, Unload: unload, Fault: unload.Fault);
-    }
-    public static BridgeReply CheckOk(BridgeCheckReport check) {
-        ArgumentNullException.ThrowIfNull(check);
-        return new(Schema: BridgeWire.Schema, Command: BridgeWire.Check, Status: check.Status, Build: check.Build, Load: check.Load, Run: check.Run, Unload: check.Unload, Check: check, Fault: check.Fault);
-    }
-    public static BridgeReply QuitOk(BridgeQuitReport quit) {
-        ArgumentNullException.ThrowIfNull(quit);
-        return new(Schema: BridgeWire.Schema, Command: BridgeWire.Quit, Status: quit.Status, Quit: quit, Fault: quit.Fault);
-    }
-    public static BridgeReply Rejected(string command, string status, BridgeFault fault) =>
-        new(Schema: BridgeWire.Schema, Command: command, Status: status, Fault: fault);
-}
+    JsonElement? Data,
+    IReadOnlyList<BridgeOutput> Outputs,
+    IReadOnlyList<BridgeDiagnostic> Diagnostics,
+    BridgeFault? Fault);
 
 public sealed record BridgeDoctor(
     string RhinoName,
     string RhinoVersion,
     int RhinoPid,
     bool ActiveDocument,
+    double? ModelAbsoluteTolerance,
     IReadOnlyList<BridgeAssemblyReport> Assemblies,
     IReadOnlyList<BridgeSessionReport> Sessions);
 
 public sealed record BridgeAssemblyReport(string Name, string Status, bool Required, string? Version, string? Location, BridgeFault? Fault);
-public sealed record BridgeSessionReport(string SessionId, string AssemblyName, string Location, IReadOnlyList<BridgeProbeDescriptor> Probes);
+public sealed record BridgeSessionReport(string SessionId, string AssemblyName, string Location, string Status);
 public sealed record BridgeLoadRequest(string AssemblyPath, string WorkspaceRoot);
-public sealed record BridgeRunRequest(string SessionId, string? Probe, JsonElement Arguments);
+public sealed record BridgeExecuteRequest(string Script, string? ScriptPath, IReadOnlyList<string> References);
 public sealed record BridgeUnloadRequest(string SessionId);
-public sealed record BridgeBuildReport(string Status, string ProjectPath, string Configuration, string? TargetFramework, string? AssemblyName, string? TargetPath, int DurationMs, IReadOnlyList<BridgeOutput> Outputs, BridgeFault? Fault);
-public sealed record BridgeLoadReport(string Status, string? SessionId, string? AssemblyName, string? Location, string? PdbPath, IReadOnlyList<BridgeProbeDescriptor> Probes, BridgeFault? Fault);
-public sealed record BridgeProbeDescriptor(string Id, string TypeName, string AssemblyName);
-public sealed record BridgeRunReport(string Status, string SessionId, int DurationMs, IReadOnlyList<BridgeProbeReport> Probes, BridgeFault? Fault);
-public sealed record BridgeProbeReport(string Id, string TypeName, string Status, int DurationMs, IReadOnlyList<BridgeDiagnostic> Diagnostics, string Output, bool OutputTruncated, JsonElement? Summary, BridgeFault? Fault);
+public sealed record BridgeLoadReport(string Status, string? SessionId, string? AssemblyName, string? Location, string? PdbPath, IReadOnlyList<BridgeAssemblyReport> Assemblies, BridgeFault? Fault);
+public sealed record BridgeExecuteReport(string Status, int DurationMs, string RhinoVersion, bool ActiveDocument, double? ModelAbsoluteTolerance, string? ActiveDocumentName, IReadOnlyList<string> References, BridgeFault? Fault);
 public sealed record BridgeUnloadReport(string Status, string SessionId, bool UnloadRequested, bool Unloaded, BridgeFault? Fault);
-public sealed record BridgeCheckReport(string Status, string ProjectPath, string WorkspaceRoot, BridgeBuildReport Build, BridgeLoadReport? Load, BridgeRunReport? Run, BridgeUnloadReport? Unload, BridgeFault? Fault);
 public sealed record BridgeQuitReport(string Status, int RhinoPid, bool ActiveDocument, bool Modified, BridgeFault? Fault);
 public sealed record BridgeOutput(string Source, string Text, bool Truncated);
 public sealed record BridgeDiagnostic(string Severity, string Message, string? Source = null, string? Code = null, string? File = null, int? Line = null, int? Column = null, string? Category = null);

@@ -12,8 +12,8 @@ public sealed class Host : PlugIn {
     }
     private static void StartOnIdle(object? sender, EventArgs args) {
         RhinoApp.Idle -= StartOnIdle;
-        BridgeRuntimeStatus status = BridgeRuntime.Start();
-        if (!status.Running) {
+        BridgeRuntimeState status = BridgeRuntime.Start();
+        if (status.Endpoint is null) {
             RhinoApp.WriteLine($"[RasmBridge] startup failed: {status.Fault?.Message ?? "unknown bridge startup failure"}");
         }
     }
@@ -23,11 +23,11 @@ public sealed class Host : PlugIn {
 public sealed class RasmBridgeStart : Command {
     public override string EnglishName => nameof(RasmBridgeStart);
     protected override Result RunCommand(RhinoDoc doc, RunMode mode) {
-        BridgeRuntimeStatus status = BridgeRuntime.Start();
+        BridgeRuntimeState status = BridgeRuntime.Start();
         WriteStatus(command: EnglishName, status: status);
-        return status.Running ? Result.Success : Result.Failure;
+        return status.Endpoint is not null ? Result.Success : Result.Failure;
     }
-    private static void WriteStatus(string command, BridgeRuntimeStatus status) =>
+    private static void WriteStatus(string command, BridgeRuntimeState status) =>
         RhinoApp.WriteLine(status.Endpoint is BridgeEndpoint endpoint
             ? $"[{command}] {BridgeWire.Ok}: pipe={endpoint.PipeName}, pid={endpoint.RhinoPid}"
             : $"[{command}] {BridgeWire.Failed}: {status.Fault?.Message ?? "Bridge did not start."}");
@@ -47,7 +47,7 @@ public sealed class RasmBridgeStop : Command {
 public sealed class RasmBridgeStatus : Command {
     public override string EnglishName => nameof(RasmBridgeStatus);
     protected override Result RunCommand(RhinoDoc doc, RunMode mode) {
-        BridgeRuntimeStatus status = BridgeRuntime.Status();
+        BridgeRuntimeState status = BridgeRuntime.Status();
         RhinoApp.WriteLine(status.Endpoint is BridgeEndpoint endpoint
             ? $"[RasmBridgeStatus] ok: pipe={endpoint.PipeName}, rhino={endpoint.RhinoVersion}, doc={(doc is null ? "none" : "active")}"
             : $"[RasmBridgeStatus] stopped: {status.Fault?.Message ?? "No active bridge listener."}");

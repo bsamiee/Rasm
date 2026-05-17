@@ -97,7 +97,7 @@ Grasshopper uses GH2 component APIs directly: `Grasshopper2.Components.Component
 
 GH2 can run component work in parallel. Component code must keep execution state local to `Process`; reusable geometry logic belongs in `Rasm.Analysis` and `Rasm.Domain`.
 
-Automated Rhino/GH2 runtime tests stay out of this foundation until Rhino.Testing exposes a current `net10.0` path. Python and RhinoCode publishing stay out until the local runtime path is proven compatible.
+Automated Rhino/GH2 unit-test frameworks stay out of this foundation until Rhino.Testing exposes a current `net10.0` path. Live RhinoWIP runtime evidence flows through `scripts/rhino.sh bridge check <project.csproj>` and explicit `bridge script <script.csx|.cs>` executions; RhinoCode publishing remains out of scope.
 
 ## GH2 Foundation
 

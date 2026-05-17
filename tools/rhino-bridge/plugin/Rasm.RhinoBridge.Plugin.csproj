@@ -8,12 +8,10 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="../contracts/Rasm.RhinoBridge.Contracts.csproj" />
         <ProjectReference Include="../protocol/Rasm.RhinoBridge.Protocol.csproj" />
     </ItemGroup>
 
     <ItemGroup>
-        <Using Include="Rasm.RhinoBridge.Contracts" />
         <Using Include="Rasm.RhinoBridge.Protocol" />
         <Using Include="Rhino" />
         <Using Include="Rhino.Commands" />
@@ -28,4 +26,15 @@
         <Using Include="System.Text" />
         <Using Include="System.Text.Json" />
     </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Rhino.Runtime.Code">
+      <HintPath>$(RhinoWipResourcesPath)/Rhino.Runtime.Code.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="RhinoCodePlatform.Rhino3D">
+      <HintPath>$(RhinoWipResourcesPath)/RhinoCodePlatform.Rhino3D.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
 </Project>
