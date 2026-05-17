@@ -3,6 +3,8 @@
         <Description>RhinoWIP live-process validation bridge for Rasm assemblies.</Description>
         <RootNamespace>Rasm.RhinoBridge</RootNamespace>
         <RhinoPluginAssemblyGuid>c6a6b65c-4c58-485e-bd50-f805d14abe42</RhinoPluginAssemblyGuid>
+        <YakManifestDirectory>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '..', '..', '..', 'tools', 'yak', 'rasm-bridge'))</YakManifestDirectory>
+        <YakPackageSlug>rasm-bridge</YakPackageSlug>
     </PropertyGroup>
 
     <ItemGroup>

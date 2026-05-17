@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Probe contract for code executed inside the RhinoWIP live bridge.</Description>
+        <IsRhinoCommonAwareProject>true</IsRhinoCommonAwareProject>
         <RootNamespace>Rasm.RhinoBridge.Contracts</RootNamespace>
     </PropertyGroup>
     <ItemGroup>

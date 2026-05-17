@@ -105,6 +105,6 @@
 | **[5]** | `MeshMetric` | `int` | Defines mesh measurement vocabulary. |
 | **[6]** | `PortKind` | `string` | Maps GH2 parameter types and generated constructor delegates. |
 
-[IMPORTANT] `KindLookup.Resolve` and `PortKind.From` use generated `Items` as the registry base. Keep derived lookups tied to `Items` so new enum items become visible in one place.
+[IMPORTANT] `Kind.Of`, `GeometryKernel.KindOf`, and `PortKind.From` use generated `Items` as the registry base. Keep derived lookups tied to `Items` so new enum items become visible in one place.
 
 [CRITICAL] Promote validation catalogs to smart enums when checks have stable keys, applicability predicates, and execution delegates. Generated `Items` then owns check discovery and grouping.

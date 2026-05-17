@@ -95,19 +95,7 @@ public static class Bridge {
         ArgumentNullException.ThrowIfNull(argument: access);
         ArgumentNullException.ThrowIfNull(argument: port);
         return Read<object>(access: access, slot: slot, port: port)
-            .Bind(values => values.TraverseM(sourced => ((access.GetUnitScaling(unitSystemScaling: out double scale), scale) switch {
-                (true, double factor) when Rhino.RhinoMath.IsValidDouble(x: factor) && Math.Abs(value: factor - 1.0) > Rhino.RhinoMath.ZeroTolerance =>
-                    Optional(access.TryTransform(value: sourced.Pear, transformation: Transform.Scale(anchor: Point3d.Origin, scaleFactor: factor))).ToFin(new Fault.ComputationFailed(Label: "UnitScaling"))
-                        .Bind(transformed => ReferenceEquals(objA: transformed, objB: sourced.Pear) switch {
-                            true => Fin.Fail<IPear>(new Fault.ComputationFailed(Label: "UnitScaling")),
-                            false => Fin.Succ<IPear>(transformed),
-                        }),
-                (_, double factor) when Rhino.RhinoMath.IsValidDouble(x: factor) => Fin.Succ<IPear>(sourced.Pear),
-                _ => Fin.Fail<IPear>(new Fault.ComputationFailed(Label: "UnitScaling")),
-            })
-                .Bind(pear => NormalizeShape(raw: pear.Item)
-                .ToFin(new UnsupportedSource(Port: port.Name, SourceType: sourced.Item.GetType(), Hint: Shape.Accepted))
-                .Map(shape => new Flow<Shape>(Pear: Pear<Shape>.Create(item: shape, meta: pear.Meta), Site: sourced.Site)))).As());
+            .Bind(values => values.TraverseM(sourced => NormalizeFlow(access: access, source: sourced, port: port)).As());
     }
     internal static Fin<Seq<Flow<TVal>>> Read<TVal>(this IDataAccess access, int slot, Port port) {
         ArgumentNullException.ThrowIfNull(argument: access);
@@ -126,17 +114,15 @@ public static class Bridge {
     private static Fin<Seq<Flow<TVal>>> ReadNative<TVal>(IDataAccess access, int slot, Port port) =>
         port.Access switch {
             Access.Item => access.GetPears<TVal>(index: slot, pears: out Pear<TVal>[] pears) switch {
-                true => FlowPears(port: port, pears: pears),
+                true => FlowPears(port: port, pears: pears.Select(static pear => (Pear: pear, Site: Option<Site>.None))),
                 _ => MissingFlow<TVal>(port: port),
             },
             Access.Twig => access.GetTwig<TVal>(index: slot, twig: out Twig<TVal> twig) switch {
-                true => FlowPears(port: port, pears: twig.Pears),
+                true => FlowPears(port: port, pears: twig.Pears.Select(static pear => (Pear: pear, Site: Option<Site>.None))),
                 _ => MissingFlow<TVal>(port: port),
             },
             Access.Tree => access.GetTree<TVal>(index: slot, tree: out Tree<TVal> tree) switch {
-                true => toSeq(tree.EnumerateLeaves().Select((leaf, index) => (Leaf: leaf, Index: index))).TraverseM(item => item.Leaf.Pear is { Item: not null }
-                    ? Fin.Succ(new Flow<TVal>(Pear: item.Leaf.Pear, Site: Some(item.Leaf.Site)))
-                    : Fin.Fail<Flow<TVal>>(new MissingPortInput(Port: port.Name, Hint: $"Null tree item at index {item.Index}."))).As(),
+                true => FlowPears(port: port, pears: tree.EnumerateLeaves().Select(static leaf => (leaf.Pear, Site: Some(leaf.Site)))),
                 _ => MissingFlow<TVal>(port: port),
             },
             _ => Fin.Fail<Seq<Flow<TVal>>>(new UnsupportedAccess(Access: port.Access.ToString())),
@@ -190,17 +176,47 @@ public static class Bridge {
     }.OrderByDescending(static b => b.Priority));
     private static Option<Shape> NormalizeShape(object raw) => Brokers.Choose(broker => broker.Convert(arg: raw)).Head;
     private static Option<Shape> AsShape(object? value) => Optional(value).Bind(static candidate => Shape.Create(value: candidate).ToOption());
+    private static Fin<Flow<Shape>> NormalizeFlow(IDataAccess access, Flow<object> source, Port port) =>
+        from scale in UnitScale(access: access)
+        from shape in NormalizeShape(raw: source.Item).ToFin(new UnsupportedSource(Port: port.Name, SourceType: source.Item.GetType(), Hint: Shape.Accepted))
+        from result in scale switch {
+            double factor when Math.Abs(value: factor - 1.0) <= Rhino.RhinoMath.ZeroTolerance => Fin.Succ(source.Project(item: shape)),
+            double factor => ScaleShape(access: access, source: source, shape: shape, port: port, factor: factor),
+        }
+        select result;
+    private static Fin<Flow<Shape>> ScaleShape(IDataAccess access, Flow<object> source, Shape shape, Port port, double factor) {
+        Pear<object> pear = Pear<object>.Create(item: shape.Inner, meta: source.Meta);
+        return Optional(access.TryTransform(value: pear, transformation: Transform.Scale(anchor: Point3d.Origin, scaleFactor: factor))).ToFin(new Fault.ComputationFailed(Label: "UnitScaling"))
+            .Bind(transformed => ReferenceEquals(objA: transformed, objB: pear) switch {
+                true => Fin.Fail<IPear>(new Fault.ComputationFailed(Label: "UnitScaling")),
+                false => Fin.Succ(transformed),
+            })
+            .Bind(transformed => shape.DisposeUnlessTransferred(outputs: Seq(transformed.Item)) switch {
+                _ => NormalizeShape(raw: transformed.Item)
+                .ToFin(new UnsupportedSource(Port: port.Name, SourceType: transformed.Item.GetType(), Hint: Shape.Accepted))
+                .Map(scaled => new Flow<Shape>(Pear: Pear<Shape>.Create(item: scaled, meta: transformed.Meta), Site: source.Site)),
+            });
+    }
+    private static Fin<double> UnitScale(IDataAccess access) =>
+        (access.GetUnitScaling(unitSystemScaling: out double scale), scale) switch {
+            (true, double factor) when Rhino.RhinoMath.IsValidDouble(x: factor) => Fin.Succ(factor),
+            (false, _) => Fin.Succ(1.0),
+            _ => Fin.Fail<double>(new Fault.ComputationFailed(Label: "UnitScaling")),
+        };
     internal sealed class Progress(IDataAccess access) : IProgress<double> {
         public void Report(double value) => access.SetProgress(percentage: (int)Rhino.RhinoMath.Clamp(value: value switch {
             >= 0.0 and <= 1.0 => value * 100.0,
             _ => value,
         }, 0.0, 100.0));
     }
-    private static Fin<Seq<Flow<T>>> FlowPears<T>(Port port, IEnumerable<Pear<T>> pears) =>
-        toSeq(pears.Select((pear, index) => (Pear: pear, Index: index))) switch {
-            Seq<(Pear<T> Pear, int Index)> indexed when indexed.Count > 0 => indexed.TraverseM(item => item.Pear is { Item: not null }
-                ? Fin.Succ(new Flow<T>(Pear: item.Pear, Site: Option<Site>.None))
-                : Fin.Fail<Flow<T>>(new MissingPortInput(Port: port.Name, Hint: $"Null item at index {item.Index}."))).As(),
+    private static Fin<Seq<Flow<T>>> FlowPears<T>(Port port, IEnumerable<(Pear<T> Pear, Option<Site> Site)> pears) {
+        Seq<(Pear<T> Pear, Option<Site> Site, int Index)> indexed = toSeq(pears.Select((pear, index) => (pear.Pear, pear.Site, Index: index)));
+        Pear<T>[] raw = [.. indexed.Map(static item => item.Pear).AsIterable()];
+        bool[] nulls = ArrayEx.ToNullArray(raw);
+        return (indexed.Count, ArrayEx.AnyNull(raw)) switch {
+            ( > 0, false) => Fin.Succ(indexed.Map(static item => new Flow<T>(Pear: item.Pear, Site: item.Site))),
+            ( > 0, true) => Fin.Fail<Seq<Flow<T>>>(new MissingPortInput(Port: port.Name, Hint: $"Null item at index {System.Array.FindIndex(array: nulls, match: static value => value)}.")),
             _ => MissingFlow<T>(port: port),
         };
+    }
 }

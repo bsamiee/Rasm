@@ -704,10 +704,10 @@ public sealed class RuleBehaviorTests {
     }
 
     [Fact]
-    public async Task RadyabComponentNamespaceClassifiesAsBoundaryScopeAsync() {
+    public async Task GrasshopperAppPathClassifiesAsBoundaryScopeAsync() {
         ImmutableArray<string> ids = await AnalyzeIdsAsync(
-            filePath: "/workspace/apps/grasshopper/Radyab/Components/ExtractPoints.cs",
-            source: Source(ns: "Radyab.Components", type: "ExtractPoints", members: """
+            filePath: "/workspace/apps/grasshopper/Example/Components/ExtractPoints.cs",
+            source: Source(ns: "Example.Components", type: "ExtractPoints", members: """
                 public int Run(int value) {
                     if (value > 0) {
                         return value;

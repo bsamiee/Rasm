@@ -10,7 +10,7 @@ namespace Rasm.Grasshopper;
 
 // --- [TYPES] ----------------------------------------------------------------------------
 public abstract class Port {
-    private protected Port(string name, string code, string info, PortKind kind, Access access, Requirement requirement, PortPolicy policy, Type valueType) {
+    private protected Port(string name, string code, string info, PortKind kind, Access access, Requirement requirement, PortPolicy policy) {
         Name = name;
         Code = code;
         Info = info;
@@ -18,7 +18,6 @@ public abstract class Port {
         Access = access;
         Requirement = requirement;
         Policy = policy;
-        ValueType = valueType;
     }
     public string Name { get; }
     public string Code { get; }
@@ -27,7 +26,6 @@ public abstract class Port {
     public Access Access { get; }
     public Requirement Requirement { get; }
     public PortPolicy Policy { get; }
-    public Type ValueType { get; }
     public static Port<TVal> Required<TVal>(string name, string code, string info, PortKind? kind = null, PortPolicy? policy = null) =>
         Of<TVal>(name: name, code: code, info: info, kind: kind, access: Access.Item, requirement: Requirement.MustExist, policy: policy, fallback: Option<TVal>.None);
     public static Port<TVal> Optional<TVal>(string name, string code, string info, PortKind? kind = null, PortPolicy? policy = null, string category = "Optional", Option<TVal> fallback = default) =>
@@ -118,7 +116,7 @@ public sealed class Port<TVal> : Port {
         Access access,
         Requirement requirement,
         PortPolicy policy,
-        Option<TVal> fallback) : base(name: name, code: code, info: info, kind: kind, access: access, requirement: requirement, policy: policy, valueType: typeof(TVal)) =>
+        Option<TVal> fallback) : base(name: name, code: code, info: info, kind: kind, access: access, requirement: requirement, policy: policy) =>
         Fallback = fallback;
     public Option<TVal> Fallback { get; }
 }

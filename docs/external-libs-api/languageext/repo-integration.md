@@ -57,10 +57,10 @@
 | [INDEX] | [SYMBOL] | [LANGUAGEEXT_SURFACE] | [ROLE] |
 | :-----: | -------- | --------------------- | ------ |
 | **[1]** | `GeometryKernel.Run` | `Option<T>.ToFin(...).Bind(...)` | Converts capability lookup absence to typed unsupported failure. |
-| **[2]** | `KindLookup.Resolve` | `Option<Kind>` | Absence-only type inference. |
+| **[2]** | `Kind.Of`, `GeometryKernel.KindOf` | `Option<Kind>` / `Fin<Kind>` | Absence-only lookup promoted to typed inference failure. |
 | **[3]** | `TopologyProjection.Project` | `Fin<Seq<TValue>>` | Owns resource cleanup after fallible projection. |
 | **[4]** | `MassKind.Compute` | `Fin<IDisposable>` internally; public overload returns `Eff<Env, IDisposable>` | Lifts native mass properties into analysis runtime. |
-| **[5]** | `AccessDispatch<T>` | Port-access reader and writer maps | Keeps GH2 item, twig, and tree handling data-driven. |
+| **[5]** | `Bridge.ReadNative`, `Bridge.WriteNative` | `Fin<Seq<Flow<T>>>` / `Unit` | Keeps GH item, twig, and tree handling on one boundary rail. |
 
 ---
 ## [5][GRASSHOPPER_BOUNDARY]
@@ -74,10 +74,10 @@
 | **[2]** | `Bridge.ReadShape` | `Fin<Seq<Flow<Shape>>>` | Normalizes GH2 and Rhino geometry into `Shape`. |
 | **[3]** | `Bridge.Scope` | `Fin<Analyze.Scope>` | Converts GH2 unit and tolerance metadata into analysis context. |
 | **[4]** | `GrasshopperRuntime.Read` | `Fin<Option<TVal>>` | Reads optional component parameters. |
-| **[5]** | `Output.Details` | `Fin<Func<Shape, Eff<Env, Seq<T>>>>` | Composes component output groups without helper components. |
-| **[6]** | `Output.ShapeSource` | `Fin<Seq<Flow<T>>>` | Runs shape projections under `Env` and flattens successful results. |
+| **[5]** | `Output.Of` | `Eff<Env, Seq<Flow<T>>>` collapsed to GH2 writes | Binds one domain aspect to one GH output port. |
+| **[6]** | `Flow<T>` | `Option<Site>` plus `Pear<T>` | Carries GH2 metadata and tree location through projection. |
 | **[7]** | `Bridge.Write<T>` | `Unit` | Terminal adapter writing GH2 output. |
-| **[8]** | `InternalsVisibleTo("Rasm.Grasshopper")` | Internal domain access | Lets the GH2 adapter use internal `KindLookup.Resolve` without widening domain APIs. |
+| **[8]** | `InternalsVisibleTo("Rasm.Grasshopper")` | Internal domain access | Lets the GH adapter use internal kernel rails without widening domain APIs. |
 
 ---
 ## [6][COMPONENTS]
@@ -87,7 +87,7 @@
 
 Radyab components should:
 - Declare `Port<Shape>` and optional `Port<T>` values.
-- Use `Output.Single` and `Output.Details`.
+- Use `Output.Of`.
 - Select existing `IAspect` values or `Analyze.*` operations.
 - Read optional inputs through `GrasshopperRuntime.Read`.
 - Avoid direct `IDataAccess`, Rhino tolerance, or output tree plumbing.

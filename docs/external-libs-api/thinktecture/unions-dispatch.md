@@ -111,7 +111,7 @@
 | **[2]** | `Faces` | Dispatches face selectors with state-threaded `Switch`. |
 | **[3]** | `IntersectionResult` | Projects native intersection outcomes into typed output rails. |
 | **[4]** | `Fault` | Encodes expected domain failures as exhaustive error cases. |
-| **[5]** | `GrasshopperFault` | Extends expected failure categories at the GH2 adapter boundary. |
+| **[5]** | GH adapter errors | Use boundary records for host-facing failures without adding closed dispatch. |
 | **[6]** | `Boundaries`, `Bounds`, `Curves`, `Location`, `Meshes`, `Points`, `Spatial` | Aspect unions that select geometry operations. |
 
 [IMPORTANT] Current Rasm code uses generated `Switch` for operation dispatch. Generated `Map` is available for pure projections when it reduces case-handling code without mixing effects.

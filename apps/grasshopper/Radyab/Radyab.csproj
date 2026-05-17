@@ -4,6 +4,8 @@
         <IsGrasshopperPluginProject>true</IsGrasshopperPluginProject>
         <RhinoPluginAssemblyGuid>694d39bb-086a-400d-9a31-ef71e0d7b8fe</RhinoPluginAssemblyGuid>
         <RhinoPluginIconResource>Radyab.Icons.plugin.ico</RhinoPluginIconResource>
+        <YakManifestDirectory>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '..', '..', '..', 'tools', 'yak', 'radyab'))</YakManifestDirectory>
+        <YakPackageSlug>radyab</YakPackageSlug>
     </PropertyGroup>
 
     <ItemGroup>

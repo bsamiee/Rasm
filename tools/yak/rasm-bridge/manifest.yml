@@ -1,7 +1,7 @@
-name: Rasm.RhinoBridge.Plugin
+name: rasm-bridge
 version: $version
 authors:
-- Radyab
+- Rasm
 description: RhinoWIP macOS package for the Rasm live build/load/run bridge.
 keywords:
 - rhino-wip

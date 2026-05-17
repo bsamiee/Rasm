@@ -67,7 +67,7 @@
 | **[3]** | `IntersectionResult` | `[Union]` and state-threaded `Switch` | Projects native intersection cases into requested outputs. |
 | **[4]** | `Boundaries`, `Bounds`, `Curves`, `Location`, `Meshes`, `Points`, `Spatial` | `[Union]` | Model analysis aspects with exhaustive operation selection. |
 | **[5]** | `Fault` | `[Union]` | Expected domain failure vocabulary over `LanguageExt.Common.Error`. |
-| **[6]** | `GrasshopperFault` | `[Union]` | GH2 adapter failure vocabulary over `Expected`. |
+| **[6]** | GH adapter errors | `[BoundaryAdapter]` records | Host-facing expected failures without decorative closed dispatch. |
 
 [IMPORTANT] Use generated union `Switch` for operation selection and output projection. Use LanguageExt `Fin<T>`, `Validation<Error,T>`, and `Eff<Env,T>` for failure, accumulation, and execution after dispatch chooses the operation.
 
@@ -85,7 +85,7 @@
 | **[2]** | Rhino geometry type inference | `Kind.Items` seeds type lookup. | `Option<Kind>` models absence without failure. |
 | **[3]** | Analysis operation selection | Aspect unions and smart enums select operation behavior. | `Eff<Env,Seq<T>>` defers native execution. |
 | **[4]** | GH2 port binding | `PortKind` stores generated binder delegates. | `Fin<Seq<Flow<T>>>` carries read failures. |
-| **[5]** | GH2 output handling | Generated union faults remain categorized. | Adapter `Match` collapses rails into host messages. |
+| **[5]** | GH output handling | Boundary records keep host failures categorized. | Adapter `Match` collapses rails into host messages. |
 
 ---
 ## [6][ANALYZER_ALIGNMENT]

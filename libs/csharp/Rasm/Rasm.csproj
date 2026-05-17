@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>RhinoCommon-aware geometry foundation and analysis algebra.</Description>
+        <IsRhinoCommonAwareProject>true</IsRhinoCommonAwareProject>
     </PropertyGroup>
 
     <ItemGroup>
