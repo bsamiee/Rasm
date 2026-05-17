@@ -197,7 +197,7 @@ public sealed partial class Kind {
     public Topology Topology { get; }
     internal bool CanBound(bool includeSphere) => Type != typeof(Plane) && (includeSphere || Type != typeof(Sphere));
     internal bool CanReadVertices =>
-        Type == typeof(Point3d) || Type == typeof(Line) || Type == typeof(Polyline) || TopologyVertexReadable.Contains(Topology);
+        Type == typeof(Point3d) || Type == typeof(Curve) || Type == typeof(Line) || Type == typeof(Polyline) || Type == typeof(Arc) || TopologyVertexReadable.Contains(Topology);
     internal bool CanReadControlPoints => TopologyControlReadable.Contains(Topology);
     internal bool CanReadEdges =>
         Type == typeof(Line) || Type == typeof(Polyline) || Type == typeof(BoundingBox) || Type == typeof(Box) || TopologyEdgeReadable.Contains(Topology);
@@ -212,7 +212,7 @@ public sealed partial class Kind {
     private static readonly FrozenSet<Type> CurvePrimitives = new[] { typeof(Line), typeof(Circle), typeof(Arc), typeof(Ellipse), typeof(Polyline) }.ToFrozenSet();
     private static readonly FrozenSet<Type> SurfacePrimitives = new[] { typeof(Plane), typeof(Sphere), typeof(Cylinder), typeof(Cone), typeof(Torus) }.ToFrozenSet();
     private static readonly FrozenSet<Type> BrepSources = new[] { typeof(Brep), typeof(Surface), typeof(Box), typeof(BoundingBox), typeof(Sphere), typeof(Cylinder), typeof(Cone), typeof(Torus), typeof(Extrusion), typeof(SubD) }.ToFrozenSet();
-    private static readonly FrozenSet<Topology> TopologyVertexReadable = new[] { Topology.Point, Topology.Curve, Topology.Brep, Topology.Mesh, Topology.PointCloud, Topology.SubD, Topology.Extrusion }.ToFrozenSet();
+    private static readonly FrozenSet<Topology> TopologyVertexReadable = new[] { Topology.Point, Topology.Brep, Topology.Mesh, Topology.PointCloud, Topology.SubD, Topology.Extrusion }.ToFrozenSet();
     private static readonly FrozenSet<Topology> TopologyControlReadable = new[] { Topology.Curve, Topology.Surface, Topology.Brep }.ToFrozenSet();
     private static readonly FrozenSet<Topology> TopologyEdgeReadable = new[] { Topology.Brep, Topology.Mesh, Topology.SubD }.ToFrozenSet();
     private static readonly FrozenSet<Topology> TopologyPrincipal = new[] { Topology.Curve, Topology.Brep, Topology.Mesh, Topology.Surface, Topology.Extrusion }.ToFrozenSet();
@@ -243,7 +243,8 @@ internal static class GeometryKernel {
     internal static bool CanEvaluateSolidTopology(Type type) => typeof(Mesh).IsAssignableFrom(c: type) || typeof(Brep).IsAssignableFrom(c: type) || Can(type: type, predicate: static kind => kind.Topology == Topology.Mesh || kind.Topology == Topology.Brep || kind.Type == typeof(Box) || kind.Type == typeof(BoundingBox) || kind.Topology == Topology.Extrusion || kind.Topology == Topology.SubD);
     internal static bool CanClosest(Type type) => Universal(type: type) || typeof(Brep).IsAssignableFrom(type) || typeof(Mesh).IsAssignableFrom(type) || type == typeof(Box) || type == typeof(BoundingBox) || CanCurveForm(type: type) || CanSurfaceForm(type: type);
     internal static bool CanClosestNormal(Type type) => Universal(type: type) || type == typeof(Plane) || typeof(Surface).IsAssignableFrom(c: type) || typeof(BrepFace).IsAssignableFrom(c: type) || typeof(Brep).IsAssignableFrom(c: type) || typeof(Mesh).IsAssignableFrom(c: type);
-    internal static bool CanSamplePoints(Type type) => CanCurveForm(type: type) || CanSurfaceForm(type: type) || Can(type: type, predicate: static kind => kind.CanReadVertices);
+    internal static bool CanReadVertices(Type type) => Can(type: type, predicate: static kind => kind.CanReadVertices);
+    internal static bool CanSamplePoints(Type type) => CanCurveForm(type: type) || CanSurfaceForm(type: type) || CanReadVertices(type: type);
     public static Fin<Kind> KindOf(this object geometry, Context context) {
         Op key = Op.Of(name: nameof(Kind));
         return Optional(geometry).ToFin(key.InvalidInput()).Bind(g =>
@@ -356,14 +357,33 @@ internal static class GeometryKernel {
             _ when curve.TryGetPolyline(polyline: out Polyline p) => new CurveForm.PolylineCase(Value: p, IsClosed: curve.IsClosed),
             _ => new CurveForm.NurbsCase(Degree: curve.Degree, IsClosed: curve.IsClosed, IsPlanar: curve.IsPlanar(tolerance: context.Absolute.Value), IsPeriodic: curve.IsPeriodic, SpanCount: curve.SpanCount, Dimension: curve.Dimension),
         });
-    internal static Fin<Seq<Point3d>> SamplePoints(object? source, int count, Context context, Op key) =>
+    internal static Fin<Seq<Point3d>> VerticesOf(object? source, Op key) =>
         Optional(source).ToFin(key.InvalidInput()).Bind(value => value switch {
+            Point3d point => Fin.Succ(Seq(point)),
+            Point point => Fin.Succ(Seq(point.Location)),
+            Line line => Fin.Succ(Seq(line.From, line.To)),
+            Arc arc => Fin.Succ(Seq(arc.StartPoint, arc.EndPoint)),
+            Polyline polyline => Fin.Succ(toSeq(polyline)),
+            BoundingBox box => Fin.Succ(toSeq(box.GetCorners())),
+            Box box => Fin.Succ(toSeq(box.GetCorners())),
+            Curve curve when curve.TryGetPolyline(polyline: out Polyline poly) => Fin.Succ(toSeq(poly)),
+            object curveLike when CanCurveForm(type: curveLike.GetType()) => CurveForm(source: curveLike, op: key).Bind(lease => lease.Use(curve => VerticesOf(source: curve, key: key))),
+            Brep brep => Fin.Succ(toSeq(brep.DuplicateVertices())),
+            Mesh mesh => Fin.Succ(toSeq(mesh.Vertices.ToPoint3dArray())),
+            PointCloud cloud => Fin.Succ(toSeq(cloud.GetPoints())),
+            SubD subd => Fin.Succ(toSeq(LanguageExt.List.unfold((SubDVertex?)subd.Vertices.First, static vertex => vertex switch { SubDVertex current => Some((current.ControlNetPoint, (SubDVertex?)current.Next)), _ => None }))),
+            GeometryBase { HasBrepForm: true } native => BrepForm(source: native, op: key).Bind(lease => lease.Use(brep => VerticesOf(source: brep, key: key))),
+            _ => Fin.Fail<Seq<Point3d>>(key.Unsupported(value.GetType(), typeof(Point3d))),
+        });
+    internal static Fin<Seq<Point3d>> SamplePoints(object? source, int count, Context context, Op key) =>
+        guard(count > 0, key.InvalidInput()).Bind(_ => Optional(source).ToFin(key.InvalidInput()).Bind(value => value switch {
             Curve curve => CurveSampleParameters(curve: curve, count: count, context: context, key: key).Map(parameters => parameters.Map(curve.PointAt)),
             object curveLike when CanCurveForm(type: curveLike.GetType()) => CurveForm(source: curveLike, op: key).Bind(lease => lease.Use(curve => SamplePoints(source: curve, count: count, context: context, key: key))),
             Surface surface => SurfaceSamplePoints(surface: surface, count: count, context: context, key: key),
             object surfaceLike when CanSurfaceForm(type: surfaceLike.GetType()) => SurfaceForm(source: surfaceLike, op: key).Bind(lease => lease.Use(surface => SurfaceSamplePoints(surface: surface, count: count, context: context, key: key))),
+            object vertexLike when CanReadVertices(type: vertexLike.GetType()) => VerticesOf(source: vertexLike, key: key),
             _ => Fin.Fail<Seq<Point3d>>(key.Unsupported(value.GetType(), typeof(Point3d))),
-        });
+        }));
     internal static Fin<Point2d> SurfaceUv(Surface surface, Point2d uv, Context context, Op key) =>
         (uv.IsValid, surface.Domain(0), surface.Domain(1)) switch {
             (true, Interval u, Interval v) when u.IsValid && v.IsValid && u.IncludesParameter(uv.X) && v.IncludesParameter(uv.Y)

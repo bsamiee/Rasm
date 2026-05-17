@@ -11,8 +11,7 @@ namespace Rasm.Analysis;
 public partial record Meshes : IAspect {
     public sealed record SamplesCase(MeshSampleGroup Group) : Meshes;
     public sealed record FaceQualityCase(MeshMetric Metric) : Meshes;
-    public sealed record FaceQualitySummaryCase(MeshMetric Metric) : Meshes;
-    public sealed record AtVisiblePolygonCase(int? Value) : Meshes;
+    public sealed record AtVisiblePolygonCase(Option<int> Value) : Meshes;
     public sealed record VisiblePolygonCountCase : Meshes;
     public sealed record NakedEdgesCase : Meshes;
     public sealed record OutlineCase(Plane Plane) : Meshes;
@@ -21,22 +20,25 @@ public partial record Meshes : IAspect {
     public static Meshes Defects => new SamplesCase(Group: MeshSampleGroup.Defect);
     public static Meshes Quality => new SamplesCase(Group: MeshSampleGroup.Quality);
     public static Meshes FaceQuality(MeshMetric? metric = null) => new FaceQualityCase(Metric: metric ?? MeshMetric.EdgeAspect);
-    public static Meshes FaceQualitySummary(MeshMetric? metric = null) => new FaceQualitySummaryCase(Metric: metric ?? MeshMetric.EdgeAspect);
-    public static Meshes AtVisiblePolygon(int? index = null) => new AtVisiblePolygonCase(Value: index);
+    public static Meshes AtVisiblePolygon(int? index = null) => new AtVisiblePolygonCase(Value: Optional(index));
     public static Meshes VisiblePolygonCount => new VisiblePolygonCountCase();
     public static Meshes NakedEdges => new NakedEdgesCase();
     public static Meshes Outline(Plane plane) => new OutlineCase(Plane: plane);
     private static readonly Op SamplesKey = Op.Of(name: "MeshSamples");
     private static readonly Op FaceQualityKey = Op.Of(name: "MeshFaceQuality");
-    private static readonly Op FaceQualitySummaryKey = Op.Of(name: "MeshFaceQualitySummary");
     private static readonly Op AtVisiblePolygonKey = Op.Of(name: "MeshAtVisiblePolygon");
     private static readonly Op VisiblePolygonCountKey = Op.Of(name: "MeshVisiblePolygonCount");
     private static readonly Op NakedEdgesKey = Op.Of(name: "MeshNakedEdges");
     private static readonly Op OutlineKey = Op.Of(name: "MeshOutline");
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         samplesCase: static s => Analyze.MeshLift<TGeometry, TOut, MeshSample>(key: SamplesKey, source: Analyze.MeshSamples(group: s.Group)),
-        faceQualityCase: static fq => Analyze.MeshLift<TGeometry, TOut, MeshMetricSample>(key: FaceQualityKey, source: Analyze.MeshMetric(metric: fq.Metric)),
-        faceQualitySummaryCase: static fqs => Analyze.MeshLift<TGeometry, TOut, Stat>(key: FaceQualitySummaryKey, source: Analyze.MeshMetricSummary(metric: fqs.Metric)),
+        faceQualityCase: static fq => fq.Metric.Equals(Analysis.MeshMetric.None)
+            ? Analysis.Operation<TGeometry, TOut>.Reject(key: FaceQualityKey, fault: FaceQualityKey.InvalidInput())
+            : typeof(TOut) switch {
+                Type output when output == typeof(MeshMetricSample) => Analyze.MeshLift<TGeometry, TOut, MeshMetricSample>(key: FaceQualityKey, source: Analyze.MeshMetricSamplesOp(metric: fq.Metric, key: FaceQualityKey)),
+                Type output when output == typeof(Stat) => Analyze.MeshLift<TGeometry, TOut, Stat>(key: FaceQualityKey, source: Analyze.MeshMetricStatOp(metric: fq.Metric, key: FaceQualityKey)),
+                _ => FaceQualityKey.Unsupported<TGeometry, TOut>(),
+            },
         atVisiblePolygonCase: static at => Analyze.MeshLift<TGeometry, TOut, TopologyProjection>(key: AtVisiblePolygonKey, source: Analyze.MeshAtVisiblePolygon(index: at.Value)),
         visiblePolygonCountCase: static _ => Analyze.MeshLift<TGeometry, TOut, int>(key: VisiblePolygonCountKey, source: Analyze.MeshVisiblePolygonCount),
         nakedEdgesCase: static _ => Analyze.MeshLift<TGeometry, TOut, Polyline>(key: NakedEdgesKey, source: Analyze.MeshNakedEdges),
@@ -186,28 +188,16 @@ public static partial class Analyze {
                                                     select result);
         }
     }
-    internal static Operation<Mesh, MeshMetricSample> MeshMetric(MeshMetric? metric) {
-        Op key = Op.Of();
-        return Optional(metric).Filter(static candidate => !candidate.Equals(Analysis.MeshMetric.None)).Case switch {
-            MeshMetric active => Operation<Mesh, MeshMetricSample>.Build(
-                key: key, state: (Key: key, Metric: active), requirement: Requirement.MeshCheck,
-                evaluator: static (state, geometry) => MeshMetricSamples(mesh: geometry, metric: state.Metric, key: state.Key).ToEff()),
-            _ => Operation<Mesh, MeshMetricSample>.Reject(key: key, fault: key.InvalidInput()),
-        };
-    }
-    internal static Operation<Mesh, Stat> MeshMetricSummary(MeshMetric? metric) {
-        Op key = Op.Of(name: "MeshMetricSummary");
-        return Optional(metric).Filter(static candidate => !candidate.Equals(Analysis.MeshMetric.None)).Case switch {
-            MeshMetric active => Operation<Mesh, Stat>.Build(
-                key: key, state: (Key: key, Metric: active), requirement: Requirement.MeshCheck,
-                evaluator: static (state, geometry) =>
-                    from samples in MeshMetricSamples(mesh: geometry, metric: state.Metric, key: state.Key).ToEff()
-                    from stat in Stat.Of(values: samples.Map(static s => s.Value), key: state.Key).ToEff()
-                    from result in state.Key.Accept(value: stat).ToEff()
-                    select result),
-            _ => Operation<Mesh, Stat>.Reject(key: key, fault: key.InvalidInput()),
-        };
-    }
+    internal static Operation<Mesh, MeshMetricSample> MeshMetricSamplesOp(MeshMetric metric, Op key) =>
+        Operation<Mesh, MeshMetricSample>.Build(
+            key: key, state: (Key: key, Metric: metric), requirement: Requirement.MeshCheck,
+            evaluator: static (state, geometry) => MeshMetricSamples(mesh: geometry, metric: state.Metric, key: state.Key).Bind(samples => state.Key.Accept(values: samples)).ToEff());
+    internal static Operation<Mesh, Stat> MeshMetricStatOp(MeshMetric metric, Op key) =>
+        Operation<Mesh, Stat>.Build(
+            key: key, state: (Key: key, Metric: metric), requirement: Requirement.MeshCheck,
+            evaluator: static (state, geometry) => MeshMetricSamples(mesh: geometry, metric: state.Metric, key: state.Key)
+                .Bind(samples => Stat.Of(values: samples.Map(static sample => sample.Value), key: state.Key))
+                .Bind(stat => state.Key.Accept(value: stat)).ToEff());
     internal static Operation<Mesh, MeshSample> MeshSamples(MeshSampleGroup group) {
         Op key = Op.Of(name: $"Mesh{group.Label}");
         return Operation<Mesh, MeshSample>.Build(
@@ -237,16 +227,16 @@ public static partial class Analyze {
             false => Operation<Mesh, Polyline>.Reject(key: key, fault: key.InvalidInput()),
         };
     }
-    internal static Operation<Mesh, TopologyProjection> MeshAtVisiblePolygon(int? index = null) {
+    internal static Operation<Mesh, TopologyProjection> MeshAtVisiblePolygon(Option<int> index = default) {
         Op key = Op.Of();
         return Operation<Mesh, TopologyProjection>.Build(
             key: key, state: (Key: key, Selector: index),
-            evaluator: static (state, geometry) => VisiblePolygonsOf(mesh: geometry, key: state.Key).Bind(polygons => polygons.Count switch {
-                0 => Fin.Fail<Seq<TopologyProjection>>(state.Key.InvalidResult()),
-                int count when state.Selector is int selected && (selected < 0 || selected >= count) => Fin.Fail<Seq<TopologyProjection>>(state.Key.InvalidInput()),
-                _ => VisiblePolygonSourceOf(mesh: geometry, polygon: polygons[state.Selector ?? 0], key: state.Key)
-                    .Bind(source => TopologyProjection.FromMesh(mesh: geometry, source: source))
-                    .Bind(projection => state.Key.Accept(value: projection))
+            evaluator: static (state, geometry) => VisiblePolygonsOf(mesh: geometry, key: state.Key).Bind(polygons => (Source: polygons, Index: state.Selector.IfNone(0)) switch {
+                (Seq<MeshNgon> source, _) when source.Count == 0 => Fin.Fail<Seq<TopologyProjection>>(state.Key.InvalidResult()),
+                (Seq<MeshNgon> source, int selected) when selected < 0 || selected >= source.Count => Fin.Fail<Seq<TopologyProjection>>(state.Key.InvalidInput()),
+                (Seq<MeshNgon> source, int selected) => VisiblePolygonSourceOf(mesh: geometry, polygon: source[selected], key: state.Key)
+                    .Bind(component => TopologyProjection.FromMesh(mesh: geometry, source: component))
+                    .Bind(projection => state.Key.Accept(value: projection)),
             }).ToEff());
     }
     internal static Operation<Mesh, int> MeshVisiblePolygonCount {

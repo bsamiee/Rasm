@@ -195,69 +195,62 @@ public static partial class Analyze {
                 select result);
     internal static Operation<TGeometry, TOut> CurvatureOp<TGeometry, TOut>(int count, CurvatureMode mode, CurvatureAggregation agg) where TGeometry : notnull {
         Op key = Op.Of(name: agg is CurvatureAggregation.ExtremaCase ? "CurvatureExtrema" : "CurvatureAt");
-        return (count, mode, agg, typeof(TGeometry), typeof(TOut)) switch {
-            ( <= 0, _, _, _, _) => Operation<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput()),
-            (_, CurvatureMode.VectorCase, CurvatureAggregation.SamplesCase, Type g, Type o) when GeometryKernel.CanCurveForm(type: g) && o == typeof(Vector3d) =>
-                CurveCurvatureSamplesOp<TGeometry, TOut, Vector3d>(key: key, count: count, project: CurveCurvaturesOf),
-            (_, CurvatureMode m, CurvatureAggregation.SamplesCase, Type g, Type o) when (m is CurvatureMode.VectorCase || (m is CurvatureMode.ScalarCase sc && sc.Metric.Equals(ScalarMetric.Magnitude))) && GeometryKernel.CanCurveForm(type: g) && o == typeof(Stat) =>
-                CurveCurvatureSamplesOp<TGeometry, TOut, Stat>(key: key, count: count, project: static (op, curve, n, ctx) =>
-                    CurveMagnitudesOf(key: op, curve: curve, count: n, model: ctx).Bind(values => Stat.Of(values: values, key: op, context: StatContext.Metric(metric: ScalarMetric.Magnitude)).Map(static stat => Seq(stat)))),
-            (_, CurvatureMode.ScalarCase { Metric: var metric }, CurvatureAggregation.SamplesCase, Type g, Type o) when metric.Equals(ScalarMetric.Magnitude) && GeometryKernel.CanCurveForm(type: g) && o == typeof(double) =>
-                CurveCurvatureSamplesOp<TGeometry, TOut, double>(key: key, count: count, project: static (op, curve, n, ctx) =>
-                    CurveMagnitudesOf(key: op, curve: curve, count: n, model: ctx).Bind(values => op.Accept(values: values))),
-            (_, CurvatureMode.VectorCase, CurvatureAggregation.SamplesCase, Type g, Type o) when GeometryKernel.CanSurfaceForm(type: g) && o == typeof(SurfaceCurvature) =>
-                SurfaceCurvatureSamplesOp<TGeometry, TOut, SurfaceCurvature>(key: key, count: count, project: SurfaceCurvaturesOf),
-            (_, CurvatureMode.VectorCase, CurvatureAggregation.SamplesCase, Type g, Type o) when GeometryKernel.CanSurfaceForm(type: g) && o == typeof(Stat) =>
-                SurfaceCurvatureSamplesOp<TGeometry, TOut, Stat>(key: key, count: count, project: static (op, surface, n, ctx) =>
-                    SurfaceCurvaturesOf(key: op, surface: surface, count: n, model: ctx).Bind(curvatures => SurfaceStatsOf(key: op, curvatures: curvatures))),
-            (_, CurvatureMode.ScalarCase { Metric: var metric }, CurvatureAggregation.SamplesCase, Type g, Type o) when (metric.Equals(ScalarMetric.Gaussian) || metric.Equals(ScalarMetric.Mean)) && GeometryKernel.CanSurfaceForm(type: g) && o == typeof(double) =>
-                SurfaceCurvatureSamplesOp<TGeometry, TOut, double>(key: key, count: count, project: (op, surface, n, ctx) =>
-                    SurfaceCurvaturesOf(key: op, surface: surface, count: n, model: ctx).Bind(curvatures =>
-                        BorrowCurvaturesOf(curvatures: curvatures, project: owned => SurfaceScalarsOf(key: op, curvatures: owned, metric: metric).Bind(values => op.Accept(values: values))))),
-            (_, CurvatureMode.ScalarCase { Metric: var metric }, CurvatureAggregation.SamplesCase, Type g, Type o) when (metric.Equals(ScalarMetric.Gaussian) || metric.Equals(ScalarMetric.Mean)) && GeometryKernel.CanSurfaceForm(type: g) && o == typeof(Stat) =>
-                SurfaceCurvatureSamplesOp<TGeometry, TOut, Stat>(key: key, count: count, project: (op, surface, n, ctx) =>
-                    SurfaceCurvaturesOf(key: op, surface: surface, count: n, model: ctx).Bind(curvatures =>
-                        BorrowCurvaturesOf(curvatures: curvatures, project: owned => SurfaceScalarsOf(key: op, curvatures: owned, metric: metric).Bind(values => Stat.Of(values: values, key: op, context: StatContext.Metric(metric: metric)).Map(stat => Seq(stat)))))),
-            (_, CurvatureMode m, CurvatureAggregation.ExtremaCase ex, Type g, Type o) when (m is CurvatureMode.VectorCase || (m is CurvatureMode.ScalarCase sc && sc.Metric.Equals(ScalarMetric.Magnitude))) && GeometryKernel.CanCurveForm(type: g) && o == typeof(Point3d) =>
-                CurveCurvatureSamplesOp<TGeometry, TOut, Point3d>(key: key, count: count, project: (op, curve, n, ctx) =>
-                    CurveCurvatureSamples(op: op, curve: curve, count: n, ctx: ctx).Bind(samples => op.Accept(values: Stat.Extrema(items: samples, projection: static s => s.Curvature, tolerance: 0.0, direction: ex.Direction).Map(static h => h.Point)))),
-            (_, CurvatureMode m, CurvatureAggregation.ExtremaCase ex, Type g, Type o) when (m is CurvatureMode.VectorCase || (m is CurvatureMode.ScalarCase sc && sc.Metric.Equals(ScalarMetric.Magnitude))) && GeometryKernel.CanCurveForm(type: g) && o == typeof(double) =>
-                CurveCurvatureSamplesOp<TGeometry, TOut, double>(key: key, count: count, project: (op, curve, n, ctx) =>
-                    CurveCurvatureSamples(op: op, curve: curve, count: n, ctx: ctx).Bind(samples => op.Accept(values: Stat.Extrema(items: samples, projection: static s => s.Curvature, tolerance: 0.0, direction: ex.Direction).Map(static h => h.Curvature)))),
-            (_, CurvatureMode.ScalarCase { Metric: var metric }, CurvatureAggregation.ExtremaCase ex, Type g, Type o) when (metric.Equals(ScalarMetric.Gaussian) || metric.Equals(ScalarMetric.Mean)) && GeometryKernel.CanSurfaceForm(type: g) && o == typeof(Point3d) =>
-                SurfaceCurvatureSamplesOp<TGeometry, TOut, Point3d>(key: key, count: count, project: (op, surface, n, ctx) =>
-                    SurfaceCurvatureSamples(op: op, surface: surface, count: n, ctx: ctx, metric: metric).Bind(samples => op.Accept(values: Stat.Extrema(items: samples, projection: static s => s.Curvature, tolerance: 0.0, direction: ex.Direction).Map(static h => h.Point)))),
-            (_, CurvatureMode.ScalarCase { Metric: var metric }, CurvatureAggregation.ExtremaCase ex, Type g, Type o) when (metric.Equals(ScalarMetric.Gaussian) || metric.Equals(ScalarMetric.Mean)) && GeometryKernel.CanSurfaceForm(type: g) && o == typeof(double) =>
-                SurfaceCurvatureSamplesOp<TGeometry, TOut, double>(key: key, count: count, project: (op, surface, n, ctx) =>
-                    SurfaceCurvatureSamples(op: op, surface: surface, count: n, ctx: ctx, metric: metric).Bind(samples => op.Accept(values: Stat.Extrema(items: samples, projection: static s => s.Curvature, tolerance: 0.0, direction: ex.Direction).Map(static h => h.Curvature)))),
-            _ => key.Unsupported<TGeometry, TOut>(),
+        return count switch {
+            <= 0 => Operation<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput()),
+            _ => (typeof(TGeometry), typeof(TOut), mode, agg) switch {
+                (Type geometry, Type output, CurvatureMode.VectorCase, CurvatureAggregation.SamplesCase) when GeometryKernel.CanCurveForm(type: geometry) && output == typeof(Vector3d) =>
+                    CurvatureNativeOp<TGeometry, TOut, Curve>(key: key, count: count, requirement: Requirement.CurveLength, native: GeometryKernel.CurveForm, project: static (op, curve, sampleCount, context) => CurveCurvaturesOf(key: op, curve: curve, count: sampleCount, model: context).Bind(values => op.AcceptResults<Vector3d, TOut>(values: values))),
+                (Type geometry, Type output, CurvatureMode curveMode, CurvatureAggregation.SamplesCase) when GeometryKernel.CanCurveForm(type: geometry) && curveMode.IsCurveMagnitude && output == typeof(double) =>
+                    CurvatureNativeOp<TGeometry, TOut, Curve>(key: key, count: count, requirement: Requirement.CurveLength, native: GeometryKernel.CurveForm, project: static (op, curve, sampleCount, context) => CurveMagnitudesOf(key: op, curve: curve, count: sampleCount, model: context).Bind(values => op.AcceptResults<double, TOut>(values: values))),
+                (Type geometry, Type output, CurvatureMode curveMode, CurvatureAggregation.SamplesCase) when GeometryKernel.CanCurveForm(type: geometry) && curveMode.IsCurveMagnitude && output == typeof(Stat) =>
+                    CurvatureNativeOp<TGeometry, TOut, Curve>(key: key, count: count, requirement: Requirement.CurveLength, native: GeometryKernel.CurveForm, project: static (op, curve, sampleCount, context) => CurveMagnitudesOf(key: op, curve: curve, count: sampleCount, model: context)
+                        .Bind(values => Stat.Of(values: values, key: op, context: StatContext.Metric(metric: ScalarMetric.Magnitude)))
+                        .Bind(stat => op.AcceptResults<Stat, TOut>(values: Seq(stat)))),
+                (Type geometry, Type output, CurvatureMode curveMode, CurvatureAggregation.ExtremaCase extrema) when GeometryKernel.CanCurveForm(type: geometry) && curveMode.IsCurveMagnitude && output == typeof(Point3d) =>
+                    CurvatureNativeOp<TGeometry, TOut, Curve>(key: key, count: count, requirement: Requirement.CurveLength, native: GeometryKernel.CurveForm, project: (op, curve, sampleCount, context) => CurveCurvatureSamples(op: op, curve: curve, count: sampleCount, ctx: context)
+                        .Bind(samples => op.AcceptResults<Point3d, TOut>(values: Stat.Extrema(items: samples, projection: static sample => sample.Curvature, tolerance: 0.0, direction: extrema.Direction).Map(static hit => hit.Point)))),
+                (Type geometry, Type output, CurvatureMode curveMode, CurvatureAggregation.ExtremaCase extrema) when GeometryKernel.CanCurveForm(type: geometry) && curveMode.IsCurveMagnitude && output == typeof(double) =>
+                    CurvatureNativeOp<TGeometry, TOut, Curve>(key: key, count: count, requirement: Requirement.CurveLength, native: GeometryKernel.CurveForm, project: (op, curve, sampleCount, context) => CurveCurvatureSamples(op: op, curve: curve, count: sampleCount, ctx: context)
+                        .Bind(samples => op.AcceptResults<double, TOut>(values: Stat.Extrema(items: samples, projection: static sample => sample.Curvature, tolerance: 0.0, direction: extrema.Direction).Map(static hit => hit.Curvature)))),
+                (Type geometry, Type output, CurvatureMode.VectorCase, CurvatureAggregation.SamplesCase) when GeometryKernel.CanSurfaceForm(type: geometry) && output == typeof(SurfaceCurvature) =>
+                    CurvatureNativeOp<TGeometry, TOut, Surface>(key: key, count: count, requirement: Requirement.SurfaceEvaluation, native: GeometryKernel.SurfaceForm, project: static (op, surface, sampleCount, context) => SurfaceCurvaturesOf(key: op, surface: surface, count: sampleCount, model: context).Bind(values => op.AcceptResults<SurfaceCurvature, TOut>(values: values))),
+                (Type geometry, Type output, CurvatureMode surfaceMode, CurvatureAggregation.SamplesCase) when GeometryKernel.CanSurfaceForm(type: geometry) && !surfaceMode.SurfaceMetrics.IsEmpty && output == typeof(Stat) =>
+                    CurvatureNativeOp<TGeometry, TOut, Surface>(key: key, count: count, requirement: Requirement.SurfaceEvaluation, native: GeometryKernel.SurfaceForm, project: (op, surface, sampleCount, context) => SurfaceCurvaturesOf(key: op, surface: surface, count: sampleCount, model: context)
+                        .Bind(curvatures => BorrowCurvaturesOf(curvatures: curvatures, project: owned => SurfaceStatsOf(key: op, curvatures: owned, mode: surfaceMode).Bind(stats => op.AcceptResults<Stat, TOut>(values: stats))))),
+                (Type geometry, Type output, CurvatureMode.ScalarCase { Metric: ScalarMetric metric }, CurvatureAggregation.SamplesCase) when GeometryKernel.CanSurfaceForm(type: geometry) && metric.IsSurface && output == typeof(double) =>
+                    CurvatureNativeOp<TGeometry, TOut, Surface>(key: key, count: count, requirement: Requirement.SurfaceEvaluation, native: GeometryKernel.SurfaceForm, project: (op, surface, sampleCount, context) => SurfaceCurvaturesOf(key: op, surface: surface, count: sampleCount, model: context)
+                        .Bind(curvatures => BorrowCurvaturesOf(curvatures: curvatures, project: owned => SurfaceScalarsOf(key: op, curvatures: owned, metric: metric).Bind(values => op.AcceptResults<double, TOut>(values: values))))),
+                (Type geometry, Type output, CurvatureMode.ScalarCase { Metric: ScalarMetric metric }, CurvatureAggregation.ExtremaCase extrema) when GeometryKernel.CanSurfaceForm(type: geometry) && metric.IsSurface && output == typeof(Point3d) =>
+                    CurvatureNativeOp<TGeometry, TOut, Surface>(key: key, count: count, requirement: Requirement.SurfaceEvaluation, native: GeometryKernel.SurfaceForm, project: (op, surface, sampleCount, context) => SurfaceCurvatureSamples(op: op, surface: surface, count: sampleCount, ctx: context, metric: metric)
+                        .Bind(samples => op.AcceptResults<Point3d, TOut>(values: Stat.Extrema(items: samples, projection: static sample => sample.Curvature, tolerance: 0.0, direction: extrema.Direction).Map(static hit => hit.Point)))),
+                (Type geometry, Type output, CurvatureMode.ScalarCase { Metric: ScalarMetric metric }, CurvatureAggregation.ExtremaCase extrema) when GeometryKernel.CanSurfaceForm(type: geometry) && metric.IsSurface && output == typeof(double) =>
+                    CurvatureNativeOp<TGeometry, TOut, Surface>(key: key, count: count, requirement: Requirement.SurfaceEvaluation, native: GeometryKernel.SurfaceForm, project: (op, surface, sampleCount, context) => SurfaceCurvatureSamples(op: op, surface: surface, count: sampleCount, ctx: context, metric: metric)
+                        .Bind(samples => op.AcceptResults<double, TOut>(values: Stat.Extrema(items: samples, projection: static sample => sample.Curvature, tolerance: 0.0, direction: extrema.Direction).Map(static hit => hit.Curvature)))),
+                _ => key.Unsupported<TGeometry, TOut>(),
+            },
         };
     }
-    private static Operation<TGeometry, TOut> CurveCurvatureSamplesOp<TGeometry, TOut, TValue>(Op key, int count, Func<Op, Curve, int, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull =>
-        Operation<TGeometry, TValue>.Build(
-            key: key, requirement: Requirement.CurveLength, state: (Key: key, Count: count, Project: project),
-            evaluator: static (state, geometry) => from context in Env.Asks
-                                                   from result in GeometryKernel.CurveForm(source: geometry, op: state.Key)
-                                                       .Bind(lease => lease.Use(curve => state.Project(arg1: state.Key, arg2: curve, arg3: state.Count, arg4: context))).ToEff()
-                                                   select result).As<TGeometry, TOut>(key: key);
-    private static Operation<TGeometry, TOut> SurfaceCurvatureSamplesOp<TGeometry, TOut, TValue>(Op key, int count, Func<Op, Surface, int, Context, Fin<Seq<TValue>>> project) where TGeometry : notnull =>
-        Operation<TGeometry, TValue>.Build(
-            key: key, state: (Key: key, Count: count, Project: project), requirement: Requirement.SurfaceEvaluation,
-            evaluator: static (state, geometry) => from context in Env.Asks
-                                                   from result in GeometryKernel.SurfaceForm(source: geometry, op: state.Key)
-                                                       .Bind(lease => lease.Use(surface => state.Project(arg1: state.Key, arg2: surface, arg3: state.Count, arg4: context))).ToEff()
-                                                   select result).As<TGeometry, TOut>(key: key);
+    private static Operation<TGeometry, TOut> CurvatureNativeOp<TGeometry, TOut, TNative>(
+        Op key,
+        int count,
+        Requirement requirement,
+        Func<object?, Op, Fin<Lease<TNative>>> native,
+        Func<Op, TNative, int, Context, Fin<Seq<TOut>>> project)
+        where TGeometry : notnull
+        where TNative : class, IDisposable =>
+        Operation<TGeometry, TOut>.Build(
+            key: key, requirement: requirement, state: (Key: key, Count: count, Native: native, Project: project),
+            evaluator: static (state, geometry) =>
+                from context in Env.Asks
+                from result in state.Native(arg1: geometry, arg2: state.Key)
+                    .Bind(lease => lease.Use((State: state, Context: context), static (s, native) => s.State.Project(arg1: s.State.Key, arg2: native, arg3: s.State.Count, arg4: s.Context))).ToEff()
+                select result);
     private static Fin<Seq<double>> SurfaceScalarsOf(Op key, Seq<SurfaceCurvature> curvatures, ScalarMetric metric) =>
-        metric switch {
-            ScalarMetric active when active.Equals(ScalarMetric.Gaussian) => Fin.Succ(curvatures.Map(static c => c.Gaussian)),
-            ScalarMetric active when active.Equals(ScalarMetric.Mean) => Fin.Succ(curvatures.Map(static c => c.Mean)),
-            _ => Fin.Fail<Seq<double>>(key.Unsupported(geometryType: typeof(Surface), outputType: typeof(double))),
-        };
-    private static Fin<Seq<Stat>> SurfaceStatsOf(Op key, Seq<SurfaceCurvature> curvatures) =>
-        BorrowCurvaturesOf(curvatures: curvatures, project: owned =>
-            (SurfaceScalarsOf(key: key, curvatures: owned, metric: ScalarMetric.Gaussian).Bind(values => Stat.Of(values: values, key: key, context: StatContext.Metric(metric: ScalarMetric.Gaussian))),
-             SurfaceScalarsOf(key: key, curvatures: owned, metric: ScalarMetric.Mean).Bind(values => Stat.Of(values: values, key: key, context: StatContext.Metric(metric: ScalarMetric.Mean))))
-            .Apply(static (gaussian, mean) => Seq(gaussian, mean)).As());
+        curvatures.TraverseM(curvature => metric.Of(value: curvature, key: key)).As();
+    private static Fin<Seq<Stat>> SurfaceStatsOf(Op key, Seq<SurfaceCurvature> curvatures, CurvatureMode mode) =>
+        mode.SurfaceMetrics.TraverseM(metric =>
+            SurfaceScalarsOf(key: key, curvatures: curvatures, metric: metric)
+                .Bind(values => Stat.Of(values: values, key: key, context: StatContext.Metric(metric: metric)))).As();
     private static Fin<T> BorrowCurvaturesOf<T>(Seq<SurfaceCurvature> curvatures, Func<Seq<SurfaceCurvature>, Fin<T>> project) {
         Fin<T> result = project(arg: curvatures);
         _ = curvatures.Iter(static curvature => curvature.Dispose());
@@ -267,7 +260,7 @@ public static partial class Analyze {
         GeometryKernel.CurveSampleParameters(curve: curve, count: count, context: model, key: key)
             .Bind(parameters => key.Accept(values: parameters.Map(parameter => curve.CurvatureAt(t: parameter))));
     private static Fin<Seq<double>> CurveMagnitudesOf(Op key, Curve curve, int count, Context model) =>
-        CurveCurvaturesOf(key: key, curve: curve, count: count, model: model).Map(static vectors => vectors.Map(static v => v.Length));
+        CurveCurvaturesOf(key: key, curve: curve, count: count, model: model).Bind(vectors => vectors.TraverseM(vector => ScalarMetric.Magnitude.Of(value: vector, key: key)).As());
     private static Fin<Seq<SurfaceCurvature>> SurfaceCurvaturesOf(Op key, Surface surface, int count, Context model) =>
         GeometryKernel.SurfaceSampleUv(surface: surface, count: count, context: model, key: key)
             .Bind(samples => samples.TraverseM(uv => Optional(surface.CurvatureAt(u: uv.X, v: uv.Y)).ToFin(key.InvalidResult())).As());
@@ -279,6 +272,6 @@ public static partial class Analyze {
     private static Fin<Seq<CurvatureSample>> SurfaceCurvatureSamples(Op op, Surface surface, int count, Context ctx, ScalarMetric metric) =>
         GeometryKernel.SurfaceSampleUv(surface: surface, count: count, context: ctx, key: op)
             .Bind(uvs => uvs.TraverseM(uv => Optional(surface.CurvatureAt(u: uv.X, v: uv.Y)).ToFin(op.InvalidResult())
-                .Map(curvature => new Lease<SurfaceCurvature>.Owned(Value: curvature)
-                    .Use(c => new CurvatureSample(Point: surface.PointAt(u: uv.X, v: uv.Y), Curvature: metric.Equals(ScalarMetric.Gaussian) ? c.Gaussian : c.Mean)))).As());
+                .Bind(curvature => new Lease<SurfaceCurvature>.Owned(Value: curvature)
+                    .Use(c => metric.Of(value: c, key: op).Map(value => new CurvatureSample(Point: c.Point, Curvature: value))))).As());
 }

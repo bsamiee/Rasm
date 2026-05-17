@@ -2,11 +2,6 @@ namespace Rasm.Analysis;
 
 // --- [TYPES] ------------------------------------------------------------------------------
 [Union]
-public partial record SilhouetteQuery {
-    public sealed record Projecting(Vector3d? Direction) : SilhouetteQuery; public sealed record Draft(Vector3d? Direction, Option<double> Angle) : SilhouetteQuery;
-}
-
-[Union]
 internal abstract partial record EdgeDescriptor {
     private EdgeDescriptor() { }
     public sealed record OfBrep(EdgeAdjacency Valence, Seq<BrepLoopType> Loops) : EdgeDescriptor;
@@ -17,15 +12,15 @@ internal abstract partial record EdgeDescriptor {
 // --- [MODELS] -----------------------------------------------------------------------------
 [Union]
 public partial record Curves : IAspect {
-    public sealed record EdgesCase(Option<CurveFeature> Kind) : Curves; public sealed record SegmentsCase(bool Smooth) : Curves; public sealed record IsoCase(IsoStatus Direction, double Normalized) : Curves; public sealed record SilhouetteCase(SilhouetteQuery Query) : Curves; public sealed record AtCase(int? Value) : Curves; public sealed record FormCase(int? Index = null) : Curves;
+    public sealed record EdgesCase(Option<CurveFeature> Kind) : Curves; public sealed record SegmentsCase(bool Smooth) : Curves; public sealed record IsoCase(IsoStatus Direction, double Normalized) : Curves; public sealed record SilhouetteCase(Vector3d? Direction, Option<double> DraftAngle) : Curves; public sealed record AtCase(int? Value) : Curves; public sealed record FormCase(int? Index = null) : Curves;
     public static Curves All => new EdgesCase(Kind: Option<CurveFeature>.None); public static Curves Boundary => new EdgesCase(Kind: Some(CurveFeature.Boundary));
     public static Curves NakedOuter => new EdgesCase(Kind: Some(CurveFeature.NakedOuter)); public static Curves NakedInner => new EdgesCase(Kind: Some(CurveFeature.NakedInner));
     public static Curves Interior => new EdgesCase(Kind: Some(CurveFeature.Interior)); public static Curves NonManifold => new EdgesCase(Kind: Some(CurveFeature.NonManifold));
     public static Curves OuterLoop => new EdgesCase(Kind: Some(CurveFeature.OuterLoop)); public static Curves InnerLoop => new EdgesCase(Kind: Some(CurveFeature.InnerLoop));
     public static Curves Segments(bool smooth = false) => new SegmentsCase(Smooth: smooth);
     public static Curves Iso(IsoStatus direction, double normalized = 0.5) => new IsoCase(Direction: direction, Normalized: normalized);
-    public static Curves Silhouette(Vector3d? direction = null) => new SilhouetteCase(Query: new SilhouetteQuery.Projecting(Direction: direction));
-    public static Curves Draft(Vector3d? direction = null, double? angle = null) => new SilhouetteCase(Query: new SilhouetteQuery.Draft(Direction: direction, Angle: Optional(angle)));
+    public static Curves Silhouette(Vector3d? direction = null) => new SilhouetteCase(Direction: direction, DraftAngle: Option<double>.None);
+    public static Curves Draft(Vector3d? direction = null, double? angle = null) => new SilhouetteCase(Direction: direction, DraftAngle: Some(Optional(angle).IfNone(0.0)));
     public static Curves At(int? index = null) => new AtCase(Value: index);
     public static Curves Form(int? index = null) => new FormCase(Index: index);
     internal static readonly Op Key = Op.Of(name: nameof(Curves));
@@ -56,7 +51,7 @@ public partial record Curves : IAspect {
         edgesCase: static (t, e) => e.Kind.IfNone(EdgeFeatureFor(topology: t)),
         segmentsCase: static (_, s) => s.Smooth ? CurveFeature.SubCurve : CurveFeature.Segment,
         isoCase: static (_, _) => CurveFeature.Iso,
-        silhouetteCase: static (_, s) => s.Query is SilhouetteQuery.Draft ? CurveFeature.Draft : CurveFeature.Silhouette,
+        silhouetteCase: static (_, s) => s.DraftAngle.IsSome switch { true => CurveFeature.Draft, false => CurveFeature.Silhouette },
         atCase: static (t, _) => EdgeFeatureFor(topology: t),
         formCase: static (t, _) => EdgeFeatureFor(topology: t));
     internal bool Matches(EdgeDescriptor descriptor) =>
@@ -64,8 +59,8 @@ public partial record Curves : IAspect {
             (EdgesCase { Kind.IsNone: true } or AtCase or FormCase, EdgeDescriptor.OfBrep or EdgeDescriptor.OfMesh) => true,
             (EdgesCase { Kind.Case: CurveFeature.Boundary }, EdgeDescriptor.OfBrep { Valence: EdgeAdjacency.Naked }) => true,
             (EdgesCase { Kind.Case: CurveFeature.Boundary }, EdgeDescriptor.OfMesh { ConnectedFaces: 1 }) => true,
-            (EdgesCase { Kind.Case: CurveFeature.NakedOuter }, EdgeDescriptor.OfBrep { Valence: EdgeAdjacency.Naked, Loops: var loops }) => loops.Exists(static loop => loop == BrepLoopType.Outer),
-            (EdgesCase { Kind.Case: CurveFeature.NakedInner }, EdgeDescriptor.OfBrep { Valence: EdgeAdjacency.Naked, Loops: var loops }) => loops.Exists(static loop => loop == BrepLoopType.Inner),
+            (EdgesCase { Kind.Case: CurveFeature.NakedOuter }, EdgeDescriptor.OfBrep { Valence: EdgeAdjacency.Naked, Loops: Seq<BrepLoopType> loops }) => loops.Exists(static loop => loop == BrepLoopType.Outer),
+            (EdgesCase { Kind.Case: CurveFeature.NakedInner }, EdgeDescriptor.OfBrep { Valence: EdgeAdjacency.Naked, Loops: Seq<BrepLoopType> loops }) => loops.Exists(static loop => loop == BrepLoopType.Inner),
             (EdgesCase { Kind.Case: CurveFeature.Interior }, EdgeDescriptor.OfBrep { Valence: EdgeAdjacency.Interior }) => true,
             (EdgesCase { Kind.Case: CurveFeature.Interior }, EdgeDescriptor.OfMesh { ConnectedFaces: 2 }) => true,
             (EdgesCase { Kind.Case: CurveFeature.NonManifold }, EdgeDescriptor.OfBrep { Valence: EdgeAdjacency.NonManifold }) => true,
@@ -151,7 +146,7 @@ public static partial class Analyze {
                     describe: static edge => new EdgeDescriptor.OfBrep(Valence: edge.Valence, Loops: toSeq(edge.TrimIndices()).Choose(t => Optional(edge.Brep.Trims[t].Loop).Map(static loop => loop.LoopType))),
                     project: edge => Optional(edge.DuplicateCurve()).Map(c => TopologyProjection.Of(c, feature, new ComponentIndex(ComponentIndexType.BrepEdge, edge.EdgeIndex)))))),
             (SubD subd, Analysis.Curves.EdgesCase { Kind.Case: null } or Analysis.Curves.AtCase or Analysis.Curves.SegmentsCase or Analysis.Curves.FormCase) => SubDEdges(subd: subd, feature: feature),
-            (GeometryBase native, Analysis.Curves.SilhouetteCase) => SilhouettesOf(geometry: native, aspect: aspect, feature: feature, context: context, op: op, cancel: cancel),
+            (GeometryBase native, Analysis.Curves.SilhouetteCase silhouette) => SilhouettesOf(geometry: native, silhouette: silhouette, feature: feature, context: context, op: op, cancel: cancel),
             _ => Fin.Fail<Seq<TopologyProjection>>(op.Unsupported(g.GetType(), typeof(Curve))),
         });
     internal static Fin<Seq<Curve>> IsoSeq(Surface surface, IsoStatus iso, double normalized, Op op) => (iso, normalized is >= 0.0 and <= 1.0) switch {
@@ -191,15 +186,11 @@ public static partial class Analyze {
         projection.As<Curve>().Match(
             Some: curve => GeometryKernel.CurveFormOf(curve: curve, context: context, op: op).Map(static form => Some(form)),
             None: () => Fin.Fail<Option<CurveForm>>(op.InvalidResult()));
-    private static Fin<Seq<TopologyProjection>> SilhouettesOf(GeometryBase geometry, Curves aspect, CurveFeature feature, Context context, Op op, CancellationToken cancel) =>
+    private static Fin<Seq<TopologyProjection>> SilhouettesOf(GeometryBase geometry, Curves.SilhouetteCase silhouette, CurveFeature feature, Context context, Op op, CancellationToken cancel) =>
         cancel.IsCancellationRequested
             ? Fin.Fail<Seq<TopologyProjection>>(new Fault.Cancelled())
-            : aspect switch {
-                Curves.SilhouetteCase { Query: SilhouetteQuery.Projecting projecting } => (Direction: Optional(projecting.Direction).IfNone(Vector3d.ZAxis), Angle: Option<double>.None),
-                Curves.SilhouetteCase { Query: SilhouetteQuery.Draft draft } => (Direction: Optional(draft.Direction).IfNone(Vector3d.ZAxis), Angle: Some(draft.Angle.IfNone(0.0))),
-                _ => (Direction: Vector3d.ZAxis, Angle: Option<double>.None),
-            } switch {
-                var (dir, angle) when dir.IsValid && !dir.IsTiny() =>
+            : (Direction: Optional(silhouette.Direction).IfNone(Vector3d.ZAxis), Angle: silhouette.DraftAngle) switch {
+                (Vector3d dir, Option<double> angle) when dir.IsValid && !dir.IsTiny() =>
                     (geometry switch {
                         Brep or BrepFace or Mesh or Extrusion => Fin.Succ((Geometry: geometry, Owned: Option<GeometryBase>.None)),
                         Surface surface => Optional(surface.ToBrep()).ToFin(op.InvalidResult()).Map(static b => (Geometry: (GeometryBase)b, Owned: Some((GeometryBase)b))),

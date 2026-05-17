@@ -2,7 +2,7 @@ using Grasshopper2;
 
 namespace Radyab;
 
-[Author(Library.Name)]
+[Author(Name)]
 [Icon("RadyabPlugin")]
 [IoId(PluginId)]
 public sealed class Library : Plugin {

@@ -8,6 +8,16 @@ public sealed partial class ScalarMetric {
     public static readonly ScalarMetric Magnitude = new(key: 0);
     public static readonly ScalarMetric Gaussian = new(key: 1);
     public static readonly ScalarMetric Mean = new(key: 2);
+    internal bool IsMagnitude => Key == Magnitude.Key;
+    internal bool IsSurface => Key == Gaussian.Key || Key == Mean.Key;
+    internal Fin<double> Of(Vector3d value, Op key) =>
+        IsMagnitude ? key.AcceptValue(value: value).Map(static vector => vector.Length) : Fin.Fail<double>(error: key.Unsupported(geometryType: typeof(Vector3d), outputType: typeof(double)));
+    internal Fin<double> Of(SurfaceCurvature value, Op key) =>
+        this switch {
+            ScalarMetric metric when metric.Key == Gaussian.Key => Fin.Succ(value: value.Gaussian),
+            ScalarMetric metric when metric.Key == Mean.Key => Fin.Succ(value: value.Mean),
+            _ => Fin.Fail<double>(error: key.Unsupported(geometryType: typeof(SurfaceCurvature), outputType: typeof(double))),
+        };
 }
 
 [SmartEnum<int>]
@@ -22,6 +32,8 @@ public partial record CurvatureMode {
     public sealed record ScalarCase(ScalarMetric Metric) : CurvatureMode;
     public static CurvatureMode Vector => new VectorCase();
     public static CurvatureMode Scalar(ScalarMetric metric) => new ScalarCase(Metric: metric);
+    internal bool IsCurveMagnitude => this switch { VectorCase => true, ScalarCase { Metric: ScalarMetric metric } => metric.IsMagnitude, _ => false };
+    internal Seq<ScalarMetric> SurfaceMetrics => this switch { VectorCase => Seq(ScalarMetric.Gaussian, ScalarMetric.Mean), ScalarCase { Metric: ScalarMetric metric } when metric.IsSurface => Seq(metric), _ => Seq<ScalarMetric>() };
 }
 
 [Union]

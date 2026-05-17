@@ -52,12 +52,11 @@ public partial record Points : IAspect {
                     project: static (projection, _, _) => Fin.Succ(projection.As<Curve>().Map(static curve => new Lease<Curve>.Borrowed(Value: curve).Use(static owned => owned.PointAtNormalizedLength(length: 0.5)))))
                     .Apply(geometry: Seq(geometry))).As<TGeometry, TOut>(key: EdgeMidpointsKey)
             : EdgeMidpointsKey.Unsupported<TGeometry, TOut>(),
-        verticesCase: static _ => typeof(TOut) == typeof(Point3d) && GeometryKernel.Can(type: typeof(TGeometry), predicate: static k => k.CanReadVertices)
+        verticesCase: static _ => typeof(TOut) == typeof(Point3d) && GeometryKernel.CanReadVertices(type: typeof(TGeometry))
             ? Analysis.Operation<TGeometry, Point3d>.Build(
-                key: VerticesKey, requiresContext: true, state: VerticesKey,
+                key: VerticesKey, state: VerticesKey,
                 evaluator: static (op, geometry) =>
-                    from context in Env.Asks
-                    from points in Analyze.VerticesOf(geometry: geometry, context: context, op: op).ToEff()
+                    from points in GeometryKernel.VerticesOf(source: geometry, key: op).ToEff()
                     from result in op.Accept(values: points).ToEff()
                     select result).As<TGeometry, TOut>(key: VerticesKey)
             : VerticesKey.Unsupported<TGeometry, TOut>(),
@@ -71,12 +70,12 @@ public partial record Points : IAspect {
         spreadCase: static s => ((s.Aspect is SpreadAspect.Frame or SpreadAspect.PrincipalFrame && typeof(TOut) == typeof(Plane))
                 || (s.Aspect == SpreadAspect.Distribution && typeof(TOut) == typeof(Stat))
                 || (s.Aspect is SpreadAspect.Collinear or SpreadAspect.Coplanar && typeof(TOut) == typeof(bool)))
-            && GeometryKernel.Can(type: typeof(TGeometry), predicate: static k => k.CanReadVertices)
+            && GeometryKernel.CanReadVertices(type: typeof(TGeometry))
             ? Analysis.Operation<TGeometry, TOut>.Build(
                 key: SpreadKey, requiresContext: true, state: (Key: SpreadKey, s.Aspect),
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
-                    from points in Analyze.VerticesOf(geometry: geometry, context: context, op: state.Key).ToEff()
+                    from points in GeometryKernel.VerticesOf(source: geometry, key: state.Key).ToEff()
                     from result in Analyze.SpreadProject<TOut>(aspect: state.Aspect, points: points, geometry: geometry, context: context, op: state.Key).ToEff()
                     select result)
             : SpreadKey.Unsupported<TGeometry, TOut>());
@@ -87,22 +86,6 @@ public partial record Points : IAspect {
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
     public static Operation<TGeometry, TOut> Points<TGeometry, TOut>(Points sampling) where TGeometry : notnull => Aspect<Points, TGeometry, TOut>(aspect: sampling);
-    internal static Fin<Seq<Point3d>> VerticesOf<TGeometry>(TGeometry geometry, Context context, Op op) where TGeometry : notnull =>
-        Optional(geometry).ToFin(op.InvalidInput()).Bind(g => g switch {
-            Point3d point => Fin.Succ(Seq(point)),
-            Point point => Fin.Succ(Seq(point.Location)),
-            Line line => Fin.Succ(Seq(line.From, line.To)),
-            Polyline polyline => Fin.Succ(toSeq(polyline)),
-            BoundingBox box => Fin.Succ(toSeq(box.GetCorners())),
-            Box box => Fin.Succ(toSeq(box.GetCorners())),
-            Curve curve => Fin.Succ(curve.TryGetPolyline(polyline: out Polyline poly) ? toSeq(poly) : Seq(curve.PointAtStart, curve.PointAtEnd)),
-            Brep brep => Fin.Succ(toSeq(brep.DuplicateVertices())),
-            Mesh mesh => Fin.Succ(toSeq(mesh.Vertices.ToPoint3dArray())),
-            PointCloud cloud => Fin.Succ(toSeq(cloud.GetPoints())),
-            SubD subd => Fin.Succ(toSeq(LanguageExt.List.unfold((SubDVertex?)subd.Vertices.First, static v => v switch { SubDVertex sv => Some((sv.ControlNetPoint, (SubDVertex?)sv.Next)), _ => None }))),
-            GeometryBase { HasBrepForm: true } native => GeometryKernel.BrepForm(source: native, op: op).Bind(lease => lease.Use(brep => VerticesOf(geometry: brep, context: context, op: op))),
-            _ => Fin.Fail<Seq<Point3d>>(op.Unsupported(g.GetType(), typeof(Point3d))),
-        });
     internal static Fin<Seq<Point3d>> ControlPointsOf<TGeometry>(TGeometry geometry, Op op) where TGeometry : notnull =>
         Optional(geometry).ToFin(op.InvalidInput()).Bind(g => g switch {
             Curve curve => curve is NurbsCurve nc
