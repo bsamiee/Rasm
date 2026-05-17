@@ -62,19 +62,10 @@ internal partial record IntersectionResult {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class Analyze {
-    public static Operation<(TA A, TB B), TOut> Intersect<TA, TB, TOut>() where TA : notnull where TB : notnull {
-        Op key = Op.Of();
-        return IntersectionResult.Supports(left: typeof(TA), right: typeof(TB), output: typeof(TOut), unordered: true) switch {
-            true => Operation<(TA A, TB B), TOut>.Build(
-                key: key, requiresContext: true, state: key,
-                evaluator: static (op, pair) => from runtime in Env.EnvAsks
-                                                from resolved in runtime.Context.Pair(a: pair.A, b: pair.B, op: op, requirements: static (_, _, _) => Fin.Succ((A: Requirement.Basic, B: Requirement.Basic)), cancel: runtime.Cancellation).ToEff()
-                                                from result in IntersectionOf(left: resolved.A, right: resolved.B, context: runtime.Context, op: op, progress: runtime.Progress, unordered: true, cancel: runtime.Cancellation).ToEff()
-                                                from typed in result.Project<TOut>(key: op).ToEff()
-                                                select typed),
-            _ => key.Unsupported<(TA A, TB B), TOut>(),
-        };
-    }
+    public static Operation<(TA A, TB B), TOut> Intersect<TA, TB, TOut>() where TA : notnull where TB : notnull =>
+        PairOp<TA, TB, TOut>(
+            supported: IntersectionResult.Supports(left: typeof(TA), right: typeof(TB), output: typeof(TOut), unordered: true),
+            compute: static (a, b, ctx, op, p, ct) => IntersectionOf(left: a, right: b, context: ctx, op: op, progress: p, unordered: true, cancel: ct));
     public static Operation<(TA A, TB B), TOut> Deviation<TA, TB, TOut>() where TA : notnull where TB : notnull {
         Op key = Op.Of();
         return (CanDeviation(left: typeof(TA), right: typeof(TB)) && typeof(TOut) == typeof(CurveDeviation))
@@ -98,23 +89,24 @@ public static partial class Analyze {
                                                     select typed)
             : key.Unsupported<TGeometry, TOut>();
     }
-    public static Operation<(TA A, TB B), TOut> Classify<TA, TB, TOut>() where TA : notnull where TB : notnull {
+    public static Operation<(TA A, TB B), TOut> Classify<TA, TB, TOut>() where TA : notnull where TB : notnull =>
+        PairOp<TA, TB, TOut>(
+            supported: IntersectionResult.Supports(left: typeof(TA), right: typeof(TB), output: typeof(TOut), unordered: true)
+                       && (typeof(TOut) == typeof(IntersectionHit) || typeof(TOut) == typeof(IntersectionTangency)),
+            compute: static (a, b, ctx, op, p, ct) => ClassifiedIntersectionOf(left: a, right: b, context: ctx, op: op, progress: p, cancel: ct));
+    private static Operation<(TA A, TB B), TOut> PairOp<TA, TB, TOut>(bool supported, Func<TA, TB, Context, Op, IProgress<double>?, CancellationToken, Fin<IntersectionResult>> compute) where TA : notnull where TB : notnull {
         Op key = Op.Of();
-        return (IntersectionResult.Supports(left: typeof(TA), right: typeof(TB), output: typeof(TOut), unordered: true)
-                && (typeof(TOut) == typeof(IntersectionHit) || typeof(TOut) == typeof(IntersectionTangency)))
-            ? Operation<(TA A, TB B), TOut>.Build(
-                key: key, requiresContext: true, state: key,
-                evaluator: static (op, pair) =>
+        return supported switch {
+            true => Operation<(TA A, TB B), TOut>.Build(
+                key: key, requiresContext: true, state: (Key: key, Compute: compute),
+                evaluator: static (state, pair) =>
                     from runtime in Env.EnvAsks
-                    from resolved in runtime.Context.Pair(a: pair.A, b: pair.B, op: op,
-                        requirements: static (_, _, _) => Fin.Succ((A: Requirement.Basic, B: Requirement.Basic)),
-                        cancel: runtime.Cancellation).ToEff()
-                    from result in ClassifiedIntersectionOf(left: resolved.A, right: resolved.B,
-                        context: runtime.Context, op: op, progress: runtime.Progress,
-                        cancel: runtime.Cancellation).ToEff()
-                    from typed in result.Project<TOut>(key: op).ToEff()
-                    select typed)
-            : key.Unsupported<(TA A, TB B), TOut>();
+                    from resolved in runtime.Context.Pair(a: pair.A, b: pair.B, op: state.Key, requirements: static (_, _, _) => Fin.Succ((A: Requirement.Basic, B: Requirement.Basic)), cancel: runtime.Cancellation).ToEff()
+                    from result in state.Compute(resolved.A, resolved.B, runtime.Context, state.Key, runtime.Progress, runtime.Cancellation).ToEff()
+                    from typed in result.Project<TOut>(key: state.Key).ToEff()
+                    select typed),
+            false => key.Unsupported<(TA A, TB B), TOut>(),
+        };
     }
     internal static Fin<IntersectionResult> ClassifiedIntersectionOf<TL, TR>(TL left, TR right, Context context, Op op, IProgress<double>? progress, CancellationToken cancel) where TL : notnull where TR : notnull =>
         IntersectionOf(left: left, right: right, context: context, op: op, progress: progress, unordered: true, cancel: cancel)

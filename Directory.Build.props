@@ -10,7 +10,6 @@
         <IsRhinoPluginProject Condition="'$(IsRhinoPluginProject)' == ''">false</IsRhinoPluginProject>
         <IsGrasshopperPluginProject Condition="'$(IsGrasshopperPluginProject)' == ''">false</IsGrasshopperPluginProject>
         <IsGrasshopperAwareProject Condition="'$(IsGrasshopperAwareProject)' == '' and '$(MSBuildProjectName)' == 'Rasm.Grasshopper'">true</IsGrasshopperAwareProject>
-        <IsGrasshopperAwareProject Condition="'$(IsGrasshopperAwareProject)' == '' and '$(MSBuildProjectName)' == 'Rasm.Tests'">true</IsGrasshopperAwareProject>
         <IsGrasshopperAwareProject Condition="'$(IsGrasshopperAwareProject)' == ''">false</IsGrasshopperAwareProject>
         <IsRhinoCommonAwareProject Condition="'$(MSBuildProjectName)' == 'Rasm' or '$(MSBuildProjectName)' == 'Rasm.Grasshopper'">true</IsRhinoCommonAwareProject>
         <IsRhinoCommonAwareProject Condition="'$(IsRhinoCommonAwareProject)' == ''">false</IsRhinoCommonAwareProject>
@@ -103,12 +102,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Friend Assemblies" Condition="'$(MSBuildProjectName)' == 'Rasm'">
-        <InternalsVisibleTo Include="Rasm.Tests" />
         <InternalsVisibleTo Include="Rasm.Grasshopper" />
-    </ItemGroup>
-
-    <ItemGroup Label="Friend Assemblies" Condition="'$(MSBuildProjectName)' == 'Rasm.Grasshopper'">
-        <InternalsVisibleTo Include="Rasm.Tests" />
     </ItemGroup>
 
     <ItemGroup Label="RhinoWIP Assembly Metadata" Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true'">

@@ -52,7 +52,7 @@ public static partial class Analyze {
     public static Operation<TGeometry, TOut> Topologies<TGeometry, TOut>(Topologies aspect) where TGeometry : notnull => Aspect<Topologies, TGeometry, TOut>(aspect: aspect);
     public static Operation<TGeometry, TOut> Coerce<TGeometry, TOut>() where TGeometry : notnull where TOut : notnull {
         Op key = Op.Of();
-        return (KindLookup.Resolve(typeof(TOut)), GeometryKernel.CanCoerce(typeof(TGeometry), typeof(TOut))) switch {
+        return (Rasm.Domain.Kind.Of(typeof(TOut)), GeometryKernel.CanCoerce(typeof(TGeometry), typeof(TOut))) switch {
             (Option<Kind> someKind, true) when someKind.IsSome => KernelLift<TGeometry, TOut, Op>(key: key, state: key, requirement: Requirement.Basic, extract: static (op, g, ctx) => GeometryKernel.CoerceTo<TOut>(g, ctx, op).Bind(coerced => op.Accept(value: coerced))),
             _ => key.Unsupported<TGeometry, TOut>(),
         };

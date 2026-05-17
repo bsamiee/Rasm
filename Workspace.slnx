@@ -12,11 +12,6 @@
   <Folder Name="/libs/csharp/Rasm.Grasshopper/">
     <Project Path="libs/csharp/Rasm.Grasshopper/Rasm.Grasshopper.csproj" />
   </Folder>
-  <Folder Name="/tests/" />
-  <Folder Name="/tests/csharp/" />
-  <Folder Name="/tests/csharp/Rasm.Tests/">
-    <Project Path="tests/csharp/Rasm.Tests/Rasm.Tests.csproj" />
-  </Folder>
   <Folder Name="/tools/" />
   <Folder Name="/tools/cs-analyzer/">
     <Project Path="tools/cs-analyzer/CsAnalyzer.csproj" />

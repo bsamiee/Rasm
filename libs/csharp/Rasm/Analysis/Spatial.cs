@@ -48,17 +48,14 @@ public sealed class Tree : IDisposable {
             .Map(static tree => new Tree(tree: tree))
             .ToValidation();
     public Eff<Env, Seq<Hit>> Search(BoundingBox box) =>
-        from runtime in Env.EnvAsks
-        from active in Ready().ToEff()
-        from result in (box.IsValid
-            ? Search(tree: active, shape: box, run: static (index, bounds, callback) => index.Search(box: bounds, callback: callback), cancel: runtime.Cancellation)
-            : Fin.Fail<Seq<Hit>>(Key.InvalidInput())).ToEff()
-        select result;
+        RunSearch(shape: box, run: static (index, bounds, callback) => index.Search(box: bounds, callback: callback), isValid: static b => b.IsValid);
     public Eff<Env, Seq<Hit>> Search(Sphere sphere) =>
+        RunSearch(shape: sphere, run: static (index, ball, callback) => index.Search(sphere: ball, callback: callback), isValid: static s => s.IsValid);
+    private Eff<Env, Seq<Hit>> RunSearch<TShape>(TShape shape, Func<RTree, TShape, EventHandler<RTreeEventArgs>, bool> run, Func<TShape, bool> isValid) =>
         from runtime in Env.EnvAsks
         from active in Ready().ToEff()
-        from result in (sphere.IsValid
-            ? Search(tree: active, shape: sphere, run: static (index, ball, callback) => index.Search(sphere: ball, callback: callback), cancel: runtime.Cancellation)
+        from result in (isValid(arg: shape)
+            ? Search(tree: active, shape: shape, run: run, cancel: runtime.Cancellation)
             : Fin.Fail<Seq<Hit>>(Key.InvalidInput())).ToEff()
         select result;
     public Eff<Env, Seq<Couple>> Overlaps(Tree other, double tolerance = 0.0) =>
@@ -74,19 +71,21 @@ public sealed class Tree : IDisposable {
         ).Apply(static (left, right, modelTolerance) => (Left: left, Right: right, Tolerance: modelTolerance)).As().ToEff()
         from pairs in OverlapPairs(state: state, cancel: runtime.Cancellation).ToEff()
         select pairs;
-    private static Fin<Seq<Couple>> OverlapPairs((RTree Left, RTree Right, double Tolerance) state, CancellationToken cancel) {
+    private static Fin<Seq<Couple>> OverlapPairs((RTree Left, RTree Right, double Tolerance) state, CancellationToken cancel) =>
         // BOUNDARY ADAPTER — Rhino RTree.SearchOverlaps uses a mutating callback delegate, single-threaded per search.
-        List<Couple> buffer = [];
-        return RTree.SearchOverlaps(
-            treeA: state.Left,
-            treeB: state.Right,
-            tolerance: state.Tolerance,
-            callback: (_, args) => { args.Cancel = cancel.IsCancellationRequested; buffer.Add(item: new Couple(A: args.Id, B: args.IdB)); }) switch {
-                true when cancel.IsCancellationRequested => Fin.Fail<Seq<Couple>>(new Fault.Cancelled()),
-                true => Fin.Succ(SortedCouples(buffer: buffer)),
-                false when cancel.IsCancellationRequested => Fin.Fail<Seq<Couple>>(new Fault.Cancelled()),
-                false => Fin.Fail<Seq<Couple>>(Key.InvalidResult()),
-            };
+        BoundaryRTreeSearch<Couple>(
+            run: buffer => RTree.SearchOverlaps(treeA: state.Left, treeB: state.Right, tolerance: state.Tolerance,
+                callback: (_, args) => { args.Cancel = cancel.IsCancellationRequested; buffer.Add(item: new Couple(A: args.Id, B: args.IdB)); }),
+            sort: SortedCouples,
+            cancel: cancel);
+    private static Fin<Seq<TItem>> BoundaryRTreeSearch<TItem>(Func<List<TItem>, bool> run, Func<List<TItem>, Seq<TItem>> sort, CancellationToken cancel) {
+        List<TItem> buffer = [];
+        return run(arg: buffer) switch {
+            true when cancel.IsCancellationRequested => Fin.Fail<Seq<TItem>>(new Fault.Cancelled()),
+            true => Fin.Succ(sort(arg: buffer)),
+            false when cancel.IsCancellationRequested => Fin.Fail<Seq<TItem>>(new Fault.Cancelled()),
+            false => Fin.Fail<Seq<TItem>>(Key.InvalidResult()),
+        };
     }
     public void Dispose() =>
         disposed = disposed switch {
@@ -116,22 +115,16 @@ public sealed class Tree : IDisposable {
                     : Fin.Fail<BoundingBox>(Key.InvalidInput())))
             .As()
             .Map(static boxes => boxes.ToArray());
-    private static Fin<Seq<Hit>> Search<TShape>(RTree tree, TShape shape, Func<RTree, TShape, EventHandler<RTreeEventArgs>, bool> run, CancellationToken cancel) {
+    private static Fin<Seq<Hit>> Search<TShape>(RTree tree, TShape shape, Func<RTree, TShape, EventHandler<RTreeEventArgs>, bool> run, CancellationToken cancel) =>
         // BOUNDARY ADAPTER — Rhino RTree.Search uses a mutating callback delegate, single-threaded per search.
-        List<int> buffer = [];
-        return run(
-            arg1: tree,
-            arg2: shape,
-            arg3: (_, args) => { args.Cancel = cancel.IsCancellationRequested; buffer.Add(item: args.Id); }) switch {
-                true when cancel.IsCancellationRequested => Fin.Fail<Seq<Hit>>(new Fault.Cancelled()),
-                true => Fin.Succ(SortedHits(buffer: buffer)),
-                false when cancel.IsCancellationRequested => Fin.Fail<Seq<Hit>>(new Fault.Cancelled()),
-                false => Fin.Fail<Seq<Hit>>(Key.InvalidResult()),
-            };
-    }
-    private static Seq<Hit> SortedHits(List<int> buffer) {
+        BoundaryRTreeSearch<int>(
+            run: buffer => run(arg1: tree, arg2: shape, arg3: (_, args) => { args.Cancel = cancel.IsCancellationRequested; buffer.Add(item: args.Id); }),
+            sort: SortedHits,
+            cancel: cancel)
+        .Map(static ids => ids.Map(static id => new Hit(Id: id)));
+    private static Seq<int> SortedHits(List<int> buffer) {
         buffer.Sort();
-        return toSeq(buffer.Select(static id => new Hit(Id: id)));
+        return toSeq(buffer);
     }
     private static Seq<Couple> SortedCouples(List<Couple> buffer) {
         buffer.Sort(comparison: static (left, right) => (left.A, right.A) switch {

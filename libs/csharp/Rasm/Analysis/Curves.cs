@@ -30,13 +30,6 @@ public partial record CurveForm {
     public sealed record EllipseCase(Ellipse Value) : CurveForm;
     public sealed record PolylineCase(Polyline Value, bool IsClosed) : CurveForm;
     public sealed record NurbsCase(int Degree, bool IsClosed, bool IsPlanar, bool IsPeriodic, int SpanCount, int Dimension) : CurveForm;
-    public static CurveForm Line(Line value) => new LineCase(Value: value);
-    public static CurveForm Circle(Circle value) => new CircleCase(Value: value);
-    public static CurveForm Arc(Arc value) => new ArcCase(Value: value);
-    public static CurveForm Ellipse(Ellipse value) => new EllipseCase(Value: value);
-    public static CurveForm Polyline(Polyline value, bool isClosed) => new PolylineCase(Value: value, IsClosed: isClosed);
-    public static CurveForm Nurbs(int degree, bool isClosed, bool isPlanar, bool isPeriodic, int spans, int dimension) =>
-        new NurbsCase(Degree: degree, IsClosed: isClosed, IsPlanar: isPlanar, IsPeriodic: isPeriodic, SpanCount: spans, Dimension: dimension);
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -111,7 +104,7 @@ public partial record Curves : IAspect {
     internal bool CanProject(Type type) =>
         type == typeof(object)
         || type == typeof(GeometryBase)
-        || KindLookup.Resolve(type).Map(kind => CanProject(topology: kind.Topology, type: type)).IfNone(false);
+        || Kind.Of(type).Map(kind => CanProject(topology: kind.Topology, type: type)).IfNone(false);
     private bool CanProject(Topology topology, Type type) => Switch(
         state: (Topology: topology, Type: type),
         edgesCase: static (state, e) => e.Selector switch {
@@ -133,8 +126,8 @@ public partial record Curves : IAspect {
             (state.Topology == Topology.Curve && IsCurveType(state.Type)) || (state.Topology == Topology.Brep && typeof(Brep).IsAssignableFrom(state.Type)) || (state.Topology == Topology.Mesh && typeof(Mesh).IsAssignableFrom(state.Type)) || (state.Topology == Topology.SubD && typeof(SubD).IsAssignableFrom(state.Type)));
     private static CurveFeature EdgeFeatureFor(Topology topology) =>
         topology == Topology.Curve ? CurveFeature.Input : topology == Topology.Surface ? CurveFeature.Boundary : CurveFeature.Edge;
-    private static bool IsCurveType(Type type) => KindLookup.Resolve(type).Map(static kind => kind.Topology == Topology.Curve).IfNone(false);
-    private static bool IsSurfaceType(Type type) => KindLookup.Resolve(type).Map(static kind => kind.Topology == Topology.Surface).IfNone(false);
+    private static bool IsCurveType(Type type) => Kind.Of(type).Map(static kind => kind.Topology == Topology.Curve).IfNone(false);
+    private static bool IsSurfaceType(Type type) => Kind.Of(type).Map(static kind => kind.Topology == Topology.Surface).IfNone(false);
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -227,40 +220,31 @@ public static partial class Analyze {
                     )).As().Bind(forms => state.Key.Accept(values: forms))).ToEff()
                 select result).As<TGeometry, TOut>(key: key);
     private static Fin<CurveForm> ClassifyCurveForm(Curve curve, double tolerance) =>
-        Fin.Succ(curve switch {
-            _ when curve.IsLinear(tolerance: tolerance) => CurveForm.Line(value: new Line(from: curve.PointAtStart, to: curve.PointAtEnd)),
-            _ when curve.TryGetCircle(circle: out Circle c, tolerance: tolerance) => CurveForm.Circle(value: c),
-            _ when curve.TryGetArc(arc: out Arc a, tolerance: tolerance) => CurveForm.Arc(value: a),
-            _ when curve.TryGetEllipse(ellipse: out Ellipse e, tolerance: tolerance) => CurveForm.Ellipse(value: e),
-            _ when curve.TryGetPolyline(polyline: out Polyline p) => CurveForm.Polyline(value: p, isClosed: curve.IsClosed),
-            _ => CurveForm.Nurbs(
-                degree: curve.Degree,
-                isClosed: curve.IsClosed,
-                isPlanar: curve.IsPlanar(tolerance: tolerance),
-                isPeriodic: curve.IsPeriodic,
-                spans: curve.SpanCount,
-                dimension: curve.Dimension),
+        Fin.Succ<CurveForm>(curve switch {
+            _ when curve.IsLinear(tolerance: tolerance) => new CurveForm.LineCase(Value: new Line(from: curve.PointAtStart, to: curve.PointAtEnd)),
+            _ when curve.TryGetCircle(circle: out Circle c, tolerance: tolerance) => new CurveForm.CircleCase(Value: c),
+            _ when curve.TryGetArc(arc: out Arc a, tolerance: tolerance) => new CurveForm.ArcCase(Value: a),
+            _ when curve.TryGetEllipse(ellipse: out Ellipse e, tolerance: tolerance) => new CurveForm.EllipseCase(Value: e),
+            _ when curve.TryGetPolyline(polyline: out Polyline p) => new CurveForm.PolylineCase(Value: p, IsClosed: curve.IsClosed),
+            _ => new CurveForm.NurbsCase(Degree: curve.Degree, IsClosed: curve.IsClosed, IsPlanar: curve.IsPlanar(tolerance: tolerance), IsPeriodic: curve.IsPeriodic, SpanCount: curve.SpanCount, Dimension: curve.Dimension),
         });
     private static Fin<Seq<TopologyProjection>> SilhouettesOf(GeometryBase geometry, Curves aspect, CurveFeature feature, Context context, Op op, CancellationToken cancel) =>
         cancel.IsCancellationRequested
             ? Fin.Fail<Seq<TopologyProjection>>(new Fault.Cancelled())
-            : (aspect switch {
-                Curves.SilhouetteCase { Query: SilhouetteQuery.Projecting projecting } => Optional(projecting.Direction),
-                Curves.SilhouetteCase { Query: SilhouetteQuery.Draft draft } => Optional(draft.Direction),
-                _ => Option<Vector3d>.None,
-            }).IfNone(static () => Vector3d.ZAxis) switch {
-                Vector3d dir when dir.IsValid && !dir.IsTiny() =>
+            : aspect switch {
+                Curves.SilhouetteCase { Query: SilhouetteQuery.Projecting projecting } => (Direction: Optional(projecting.Direction).IfNone(Vector3d.ZAxis), Angle: Option<double>.None),
+                Curves.SilhouetteCase { Query: SilhouetteQuery.Draft draft } => (Direction: Optional(draft.Direction).IfNone(Vector3d.ZAxis), Angle: Some(draft.Angle.IfNone(0.0))),
+                _ => (Direction: Vector3d.ZAxis, Angle: Option<double>.None),
+            } switch {
+                var (dir, angle) when dir.IsValid && !dir.IsTiny() =>
                     (geometry switch {
                         Brep or BrepFace or Mesh or Extrusion => Fin.Succ((Geometry: geometry, Owned: Option<GeometryBase>.None)),
                         Surface surface => Optional(surface.ToBrep()).ToFin(op.InvalidResult()).Map(static b => (Geometry: (GeometryBase)b, Owned: Some((GeometryBase)b))),
                         SubD subd => Optional(subd.ToBrep(SubDToBrepOptions.Default)).ToFin(op.InvalidResult()).Map(static b => (Geometry: (GeometryBase)b, Owned: Some((GeometryBase)b))),
                         _ => Fin.Fail<(GeometryBase Geometry, Option<GeometryBase> Owned)>(op.Unsupported(geometry.GetType(), typeof(Curve))),
                     }).Bind(shape => {
-                        Fin<Seq<TopologyProjection>> result = Optional((aspect switch {
-                            Curves.SilhouetteCase { Query: SilhouetteQuery.Draft draft } => Some(draft.Angle.IfNone(0.0)),
-                            _ => Option<double>.None,
-                        }).Case switch {
-                            double angle => Silhouette.ComputeDraftCurve(shape.Geometry, angle, dir, context.Absolute.Value, context.Angle.Value, cancel),
+                        Fin<Seq<TopologyProjection>> result = Optional(angle.Case switch {
+                            double a => Silhouette.ComputeDraftCurve(shape.Geometry, a, dir, context.Absolute.Value, context.Angle.Value, cancel),
                             _ => Silhouette.Compute(shape.Geometry, SilhouetteType.Projecting | SilhouetteType.TangentProjects | SilhouetteType.Tangent | SilhouetteType.Crease | SilhouetteType.Boundary, dir, context.Absolute.Value, context.Angle.Value, [], cancel),
                         }).ToFin(cancel.IsCancellationRequested ? (Error)new Fault.Cancelled() : op.InvalidResult())
                             .Map(arr => toSeq(arr).Map(sil => TopologyProjection.Of(sil.Curve, feature, sil.GeometryComponentIndex)));

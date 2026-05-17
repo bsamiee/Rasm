@@ -181,21 +181,18 @@ public sealed partial class Kind {
     private static readonly FrozenSet<Topology> TopologyFaceDecomposable = new[] { Topology.Brep, Topology.Surface, Topology.Extrusion }.ToFrozenSet();
     private static readonly FrozenSet<Topology> TopologyEdgeReadable = new[] { Topology.Brep, Topology.Mesh, Topology.SubD }.ToFrozenSet();
     private static readonly FrozenSet<Topology> TopologyPrincipal = new[] { Topology.Curve, Topology.Brep, Topology.Mesh, Topology.Surface, Topology.Extrusion }.ToFrozenSet();
-    public static Option<Kind> Of(Type type) => KindLookup.Resolve(type: type);
+    private static readonly FrozenDictionary<Type, Kind> ByType = Items.ToFrozenDictionary(static k => k.Type);
+    internal static readonly FrozenDictionary<Rhino.DocObjects.ObjectType, Kind> ByObjectType = new (Rhino.DocObjects.ObjectType Key, Kind Value)[] { (Rhino.DocObjects.ObjectType.Point, Point), (Rhino.DocObjects.ObjectType.Curve, Curve), (Rhino.DocObjects.ObjectType.Surface, Surface), (Rhino.DocObjects.ObjectType.Brep, Brep), (Rhino.DocObjects.ObjectType.Mesh, Mesh), (Rhino.DocObjects.ObjectType.SubD, SubD), (Rhino.DocObjects.ObjectType.PointSet, PointCloud), (Rhino.DocObjects.ObjectType.Hatch, Hatch), (Rhino.DocObjects.ObjectType.Extrusion, Extrusion) }.ToFrozenDictionary(keySelector: static p => p.Key, elementSelector: static p => p.Value);
+    private static Type? InheritsBase(Type type) => type.BaseType is Type b ? (ByType.ContainsKey(key: b) ? b : InheritsBase(type: b)) : null;
+    public static Option<Kind> Of(Type type) {
+        ArgumentNullException.ThrowIfNull(argument: type);
+        return type == typeof(Rhino.Geometry.Point) ? Some(Point) : Optional(ByType.GetValueOrDefault(key: type)) | (InheritsBase(type: type) is Type bt ? Optional(ByType.GetValueOrDefault(key: bt)) : Option<Kind>.None);
+    }
     public static Fin<Kind> Of(object source, Context context) {
         ArgumentNullException.ThrowIfNull(argument: source);
         ArgumentNullException.ThrowIfNull(argument: context);
         return source.KindOf(context: context);
     }
-}
-
-// --- [CONSTANTS] --------------------------------------------------------------------------
-[BoundaryAdapter]
-internal static class KindLookup {
-    private static readonly FrozenDictionary<Type, Kind> ByType = Kind.Items.ToFrozenDictionary(static k => k.Type);
-    internal static readonly FrozenDictionary<Rhino.DocObjects.ObjectType, Kind> ByObjectType = new Dictionary<Rhino.DocObjects.ObjectType, Kind> { [Rhino.DocObjects.ObjectType.Point] = Kind.Point, [Rhino.DocObjects.ObjectType.Curve] = Kind.Curve, [Rhino.DocObjects.ObjectType.Surface] = Kind.Surface, [Rhino.DocObjects.ObjectType.Brep] = Kind.Brep, [Rhino.DocObjects.ObjectType.Mesh] = Kind.Mesh, [Rhino.DocObjects.ObjectType.SubD] = Kind.SubD, [Rhino.DocObjects.ObjectType.PointSet] = Kind.PointCloud, [Rhino.DocObjects.ObjectType.Hatch] = Kind.Hatch, [Rhino.DocObjects.ObjectType.Extrusion] = Kind.Extrusion }.ToFrozenDictionary();
-    internal static Option<Kind> Resolve(Type type) => type == typeof(Point) ? Some(Kind.Point) : Optional(ByType.GetValueOrDefault(type)) | (InheritsBase(type) is Type bt ? Optional(ByType.GetValueOrDefault(bt)) : Option<Kind>.None);
-    internal static Type? InheritsBase(Type type) => type.BaseType is Type b ? (ByType.ContainsKey(b) ? b : InheritsBase(b)) : null;
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
@@ -205,15 +202,15 @@ internal static class GeometryKernel {
     internal static bool Can(Type type, Func<Kind, bool> predicate) {
         ArgumentNullException.ThrowIfNull(argument: type);
         ArgumentNullException.ThrowIfNull(argument: predicate);
-        return Universal(type) || KindLookup.Resolve(type).Map(predicate).IfNone(false);
+        return Universal(type) || Kind.Of(type).Map(predicate).IfNone(false);
     }
-    internal static bool CanBound(Type source, bool includeSphere) => Universal(source) || typeof(GeometryBase).IsAssignableFrom(source) || KindLookup.Resolve(source).Map(kind => kind.CanBound(includeSphere: includeSphere)).IfNone(false);
-    internal static bool CanCurveForm(Type type) => Universal(type) || typeof(Curve).IsAssignableFrom(c: type) || KindLookup.Resolve(type).Map(static kind => kind.Topology == Topology.Curve).IfNone(false);
-    internal static bool CanCoerce(Type source, Type target) => Universal(source) || KindLookup.Resolve(source).Map(kind => kind.CanCoerceTo(target: target)).IfNone(target.IsAssignableFrom(source));
+    internal static bool CanBound(Type source, bool includeSphere) => Universal(source) || typeof(GeometryBase).IsAssignableFrom(source) || Kind.Of(source).Map(kind => kind.CanBound(includeSphere: includeSphere)).IfNone(false);
+    internal static bool CanCurveForm(Type type) => Universal(type) || typeof(Curve).IsAssignableFrom(c: type) || Kind.Of(type).Map(static kind => kind.Topology == Topology.Curve).IfNone(false);
+    internal static bool CanCoerce(Type source, Type target) => Universal(source) || Kind.Of(source).Map(kind => kind.CanCoerceTo(target: target)).IfNone(target.IsAssignableFrom(source));
     public static Fin<Kind> KindOf(this object geometry, Context context) {
         Op key = Op.Of(name: nameof(Kind));
         return Optional(geometry).ToFin(key.InvalidInput()).Bind(g =>
-            (InferredKind(geometry: g, context: context, key: key) | NativeKind(geometry: g) | KindLookup.Resolve(g.GetType()))
+            (InferredKind(geometry: g, context: context, key: key) | NativeKind(geometry: g) | Kind.Of(g.GetType()))
             .ToFin(key.InvalidInput()));
     }
     public static Fin<BoundingBox> BoundsOf(this object geometry, Op op) =>
@@ -239,7 +236,7 @@ internal static class GeometryKernel {
     public static Fin<TTarget> CoerceTo<TTarget>(object? source, Context context, Op op) where TTarget : notnull =>
         Optional(source).ToFin(op.InvalidInput()).Bind(s => s switch {
             TTarget target => op.AcceptValue(target),
-            _ => KindLookup.Resolve(typeof(TTarget)).Bind(kind => PrimitiveOf(kind, s, context, Op.Of(name: nameof(CoerceTo)))).ToFin(op.Unsupported(s.GetType(), typeof(TTarget))).Map(static v => (TTarget)v),
+            _ => Kind.Of(typeof(TTarget)).Bind(kind => PrimitiveOf(kind, s, context, Op.Of(name: nameof(CoerceTo)))).ToFin(op.Unsupported(s.GetType(), typeof(TTarget))).Map(static v => (TTarget)v),
         });
     private static Option<Kind> InferredKind(object geometry, Context context, Op key) =>
         (geometry switch {
@@ -250,7 +247,7 @@ internal static class GeometryKernel {
         }).Choose(kind => PrimitiveOf(kind, geometry, context, key).Map(_ => kind)).Head;
     private static Option<Kind> NativeKind(object geometry) =>
         geometry is GeometryBase native
-            ? Optional(KindLookup.ByObjectType.GetValueOrDefault(native.ObjectType)) | (native.HasBrepForm ? Some(Kind.Brep) : Option<Kind>.None)
+            ? Optional(Kind.ByObjectType.GetValueOrDefault(native.ObjectType)) | (native.HasBrepForm ? Some(Kind.Brep) : Option<Kind>.None)
             : Option<Kind>.None;
     private static Option<object> PrimitiveOf(Kind kind, object source, Context context, Op op) =>
         (kind.Type, source) switch {

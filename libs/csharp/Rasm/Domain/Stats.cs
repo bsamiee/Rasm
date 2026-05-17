@@ -73,21 +73,19 @@ public readonly record struct Stat(int Count, double Minimum, double Maximum, do
             _ => state,
         }).Hits.Rev();
     internal static Fin<TOut> Residuals<TOut>(Seq<ResidualSample> samples, Op key, ResidualAggregate aggregate) =>
-        ValidResiduals(samples: samples, key: key).Bind(validated => (aggregate, typeof(TOut)) switch {
-            (ResidualAggregate.DistancesCase, Type t) when t == typeof(Seq<double>) => Fin.Succ((TOut)(object)validated.Map(static sample => sample.Distance)),
-            (ResidualAggregate.SummaryCase summary, Type t) when t == typeof(Stat) => Of(values: validated.Map(static sample => sample.Distance), key: key)
-                .Map(stat => (TOut)(object)(stat with { Context = StatContext.Tolerance(tolerance: summary.Tolerance, minimum: stat.Minimum, maximum: stat.Maximum) })),
-            (ResidualAggregate.MaximumCase, Type t) when t == typeof(ResidualSample) => Extrema(items: validated, projection: static sample => sample.Distance, tolerance: 0.0, direction: ExtremumDirection.Maximum).Head.ToFin(key.InvalidResult()).Map(static sample => (TOut)(object)sample),
-            (ResidualAggregate.DistributionCase dist, Type t) when t == typeof(Distribution) => Distribution.Of(values: validated.Map(static sample => sample.Distance), percentiles: dist.Percentiles, key: key).Map(d => (TOut)(object)d),
-            _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(ResidualSample), outputType: typeof(TOut))),
-        });
-    private static Fin<Seq<ResidualSample>> ValidResiduals(Seq<ResidualSample> samples, Op key) =>
         samples.Fold(
             initialState: (Value: Fin.Succ(Seq<ResidualSample>()), Key: key),
             f: static (state, sample) => sample switch {
                 ResidualSample valid when OpAcceptance.ValidityOf(source: valid).IfNone(false) => state with { Value = (state.Value, Fin.Succ(sample)).Apply(static (values, accepted) => values.Add(value: accepted)).As() },
                 _ => state with { Value = Fin.Fail<Seq<ResidualSample>>(state.Key.InvalidResult()) },
-            }).Value;
+            }).Value.Bind(validated => (aggregate, typeof(TOut)) switch {
+                (ResidualAggregate.DistancesCase, Type t) when t == typeof(Seq<double>) => Fin.Succ((TOut)(object)validated.Map(static sample => sample.Distance)),
+                (ResidualAggregate.SummaryCase summary, Type t) when t == typeof(Stat) => Of(values: validated.Map(static sample => sample.Distance), key: key)
+                    .Map(stat => (TOut)(object)(stat with { Context = StatContext.Tolerance(tolerance: summary.Tolerance, minimum: stat.Minimum, maximum: stat.Maximum) })),
+                (ResidualAggregate.MaximumCase, Type t) when t == typeof(ResidualSample) => Extrema(items: validated, projection: static sample => sample.Distance, tolerance: 0.0, direction: ExtremumDirection.Maximum).Head.ToFin(key.InvalidResult()).Map(static sample => (TOut)(object)sample),
+                (ResidualAggregate.DistributionCase dist, Type t) when t == typeof(Distribution) => Distribution.Of(values: validated.Map(static sample => sample.Distance), percentiles: dist.Percentiles, key: key).Map(d => (TOut)(object)d),
+                _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(ResidualSample), outputType: typeof(TOut))),
+            });
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
