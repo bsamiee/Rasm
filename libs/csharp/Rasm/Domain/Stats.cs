@@ -49,6 +49,9 @@ internal partial record ResidualAggregate {
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct ResidualSample(int Index, Point3d Location, double Distance, double Tolerance, bool WithinTolerance);
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct Stat(int Count, double Minimum, double Maximum, double Mean, double Variance, StatContext Context) {
     internal double Rms => Math.Sqrt(d: (Mean * Mean) + Variance);
     internal bool WithinTolerance => Context is StatContext.ToleranceCase t && t.WithinTolerance;

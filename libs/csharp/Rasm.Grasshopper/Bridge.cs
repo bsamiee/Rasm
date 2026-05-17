@@ -104,7 +104,7 @@ public static class Bridge {
             false => ReadNative<TVal>(access: access, slot: slot, port: port),
         };
     }
-    internal static Unit Write<TOut>(this IDataAccess access, int slot, string name, Access targetAccess, Seq<Flow<TOut>> values) =>
+    internal static Seq<object> Write<TOut>(this IDataAccess access, int slot, string name, Access targetAccess, Seq<Flow<TOut>> values) =>
         typeof(TOut).IsEnum switch {
             true => Write(access: access, slot: slot, name: name, targetAccess: targetAccess,
                 values: values.Map(static value => value.Project(item: Convert.ToInt32(value: value.Item, provider: CultureInfo.InvariantCulture)))),
@@ -126,14 +126,15 @@ public static class Bridge {
             },
             _ => Fin.Fail<Seq<Flow<TVal>>>(new UnsupportedAccess(Access: port.Access.ToString())),
         };
-    private static Unit WriteNative<TOut>(IDataAccess access, int slot, string name, Access targetAccess, Seq<Flow<TOut>> values) =>
-        targetAccess switch {
+    private static Seq<object> WriteNative<TOut>(IDataAccess access, int slot, string name, Access targetAccess, Seq<Flow<TOut>> values) {
+        Seq<object> transferred = values.Map(static value => (object)value.Item!);
+        return targetAccess switch {
             Access.Item => values.Count switch {
-                1 => Effect(action: () => access.SetPear(index: slot, pear: values[0].Pear)),
-                > 1 => Effect(action: () => access.AddError(text: name, details: $"Item output received {values.Count} values; use twig or tree access.")),
-                _ => Effect(action: () => access.SetPear(index: slot, pear: null!)),
+                1 => Effect(action: () => access.SetPear(index: slot, pear: values[0].Pear)) switch { _ => transferred },
+                > 1 => Effect(action: () => access.AddError(text: name, details: $"Item output received {values.Count} values; use twig or tree access.")) switch { _ => Seq<object>() },
+                _ => Effect(action: () => access.SetPear(index: slot, pear: null!)) switch { _ => transferred },
             },
-            Access.Twig => Effect(action: () => access.SetTwig(index: slot, twig: Garden.TwigFromPears(pears: values.Map(static value => value.Pear).AsIterable()))),
+            Access.Twig => Effect(action: () => access.SetTwig(index: slot, twig: Garden.TwigFromPears(pears: values.Map(static value => value.Pear).AsIterable()))) switch { _ => transferred },
             Access.Tree => Effect(action: () => {
                 ITree tree = values.Count switch {
                     0 => Garden.TreeEmpty<TOut>(),
@@ -141,9 +142,10 @@ public static class Bridge {
                     _ => Garden.TreeFromPears(pears: values.Map(static value => value.Pear).AsIterable()),
                 };
                 access.SetTree(index: slot, tree: TreePrefix(access: access, slot: slot) is int prefix ? tree.WithPathPrefix(element: prefix) : tree);
-            }),
-            _ => Effect(action: () => access.AddError(text: name, details: $"Unsupported output access: {targetAccess}.")),
+            }) switch { _ => transferred },
+            _ => Effect(action: () => access.AddError(text: name, details: $"Unsupported output access: {targetAccess}.")) switch { _ => Seq<object>() },
         };
+    }
     private static Fin<Flow<TVal>> EnumFlow<TVal>(Flow<int> value) =>
         Enum.IsDefined(enumType: typeof(TVal), value: value.Item) switch {
             true => Fin.Succ(value.Project(item: (TVal)Enum.ToObject(enumType: typeof(TVal), value: value.Item))),

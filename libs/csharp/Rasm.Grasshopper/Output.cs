@@ -52,7 +52,6 @@ public static class Output {
             Run: (access, outputs, runtime, source) => Run(
                 port: port,
                 operation: operation,
-                label: typeof(TAspect).Name,
                 access: access,
                 outputs: outputs,
                 runtime: runtime,
@@ -77,7 +76,6 @@ public static class Output {
     private static Seq<object> Run<TOut>(
         Port<TOut> port,
         Operation<object, TOut> operation,
-        string label,
         IDataAccess access,
         Hints outputs,
         GrasshopperRuntime runtime,
@@ -85,17 +83,18 @@ public static class Output {
         ArgumentNullException.ThrowIfNull(argument: access);
         return outputs.Slot(port: port)
             .Map(slot => from context in runtime.Scope.Context
-                         from values in ShapeSource(sourced: source, operation: operation).Run(env: new Env(Context: context, Progress: runtime.Progress, Cancellation: runtime.Cancellation))
-                         select values.IsEmpty switch {
-                             true => RemarkEmpty(port: port, access: access, slot: slot) switch { _ => Seq<object>() },
-                             false => Drain(port: port, slot: slot, values: values, access: access),
+                         from projection in ShapeSource(sourced: source, operation: operation).Run(env: new Env(Context: context, Progress: runtime.Progress, Cancellation: runtime.Cancellation))
+                         select projection.Values.IsEmpty switch {
+                             true when projection.Unsupported.IsEmpty => RemarkEmpty(port: port, access: access, slot: slot) switch { _ => Seq<object>() },
+                             true => RemarkUnsupported(port: port, access: access, faults: projection.Unsupported) switch { _ => Empty(port: port, access: access, slot: slot) switch { _ => Seq<object>() } },
+                             false => RemarkUnsupported(port: port, access: access, faults: projection.Unsupported) switch { _ => Drain(port: port, slot: slot, values: projection.Values, access: access) },
                          })
             .IfNone(Fin.Succ(Seq<object>()))
             .Match(
             Succ: static values => values,
             Fail: error => {
                 _ = error switch {
-                    Fault.Unsupported unsupported => RemarkUnsupported(port: port, access: access, label: label, fault: unsupported),
+                    Fault.Unsupported unsupported => RemarkUnsupported(port: port, access: access, faults: Seq(unsupported)),
                     _ => Warn(port: port, access: access, error: error),
                 };
                 _ = outputs.Slot(port: port).Iter(slot => Empty(port: port, access: access, slot: slot));
@@ -103,17 +102,25 @@ public static class Output {
             });
     }
     private static Seq<object> Drain<TOut>(Port<TOut> port, int slot, Seq<Flow<TOut>> values, IDataAccess access) {
-        Seq<object> transfers = access.Write<TOut>(slot: slot, name: port.Name, targetAccess: port.Access, values: values) switch { _ => values.Map(static value => (object)value.Item!) };
+        Seq<object> transfers = access.Write<TOut>(slot: slot, name: port.Name, targetAccess: port.Access, values: values);
         _ = values.Choose(static value => value.Item is TopologyProjection projection ? Some(projection) : Option<TopologyProjection>.None)
             .Iter(projection => _ = transfers.Exists(output => ReferenceEquals(objA: output, objB: projection) || projection.Transfers(output: output)) switch { true => unit, false => projection.Dispose() });
         return transfers;
     }
     private static Unit Empty<TOut>(Port<TOut> port, IDataAccess access, int slot) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        return access.Write<TOut>(slot: slot, name: port.Name, targetAccess: port.Access, values: Seq<Flow<TOut>>());
+        return access.Write<TOut>(slot: slot, name: port.Name, targetAccess: port.Access, values: Seq<Flow<TOut>>()) switch { _ => Unit.Default };
     }
-    private static Unit RemarkUnsupported(Port port, IDataAccess access, string label, Fault.Unsupported fault) {
-        access.AddRemark(text: port.Name, details: $"Unsupported source type '{fault.GeometryType.Name}' for aspect '{label}'.");
+    private static Unit RemarkUnsupported(Port port, IDataAccess access, Seq<Fault.Unsupported> faults) {
+        Seq<Fault.Unsupported> found = faults.Distinct().ToSeq();
+        Option<string> details = found.IsEmpty switch {
+            true => Option<string>.None,
+            false => Some(found.Count switch {
+                1 => found.Head.Map(static fault => fault.Message).IfNone("Unsupported source."),
+                int count => string.Join(separator: Environment.NewLine, values: $"Unsupported source/output combinations: {count}".Cons(found.Map(static fault => fault.Message)).AsIterable()),
+            }),
+        };
+        _ = details.Iter(details => access.AddRemark(text: port.Name, details: details));
         return Unit.Default;
     }
     private static Unit Warn(Port port, IDataAccess access, Error error) {
@@ -124,18 +131,23 @@ public static class Output {
         access.AddRemark(text: port.Name, details: "No result for sourced input.");
         return Empty(port: port, access: access, slot: slot);
     }
-    private static Eff<Env, Seq<Flow<TSource>>> ShapeSource<TSource>(Seq<Flow<Shape>> sourced, Operation<object, TSource> operation) =>
+    private readonly record struct Projection<T>(Seq<Flow<T>> Values, Seq<Fault.Unsupported> Unsupported);
+    private static Eff<Env, Projection<TSource>> ShapeSource<TSource>(Seq<Flow<Shape>> sourced, Operation<object, TSource> operation) =>
         operation.IsAggregate switch {
             true => from items in operation.Apply(geometry: sourced.Map(static src => src.Item.Inner))
                     let result = sourced.Fold(items.Map(item => new Flow<TSource>(
                         Pear: Pear<TSource>.Create(item: item, meta: MetaData.FindCommonData(sourced.Map(static src => src.Meta).AsIterable())),
                         Site: Option<Site>.None)), static (acc, src) => acc.Map(src.Item.Detach))
-                    select result,
+                    select new Projection<TSource>(Values: result, Unsupported: Seq<Fault.Unsupported>()),
             false => from values in sourced.TraverseM(src => operation.Apply(geometry: Seq(src.Item.Inner))
-                         .IfFailEff(error => error is Fault.Unsupported ? Fin.Succ(Seq<TSource>()).ToEff() : Fin.Fail<Seq<TSource>>(error).ToEff())
-                         .Map(items => src.Project(items: items).Map(src.Item.Detach))).As()
-                     let result = values.Bind(static value => value)
-                     select result,
+                         .Map(items => new Projection<TSource>(Values: src.Project(items: items).Map(src.Item.Detach), Unsupported: Seq<Fault.Unsupported>()))
+                         .IfFailEff(error => error switch {
+                             Fault.Unsupported unsupported => Fin.Succ(new Projection<TSource>(Values: Seq<Flow<TSource>>(), Unsupported: Seq(unsupported))).ToEff(),
+                             _ => Fin.Fail<Projection<TSource>>(error).ToEff(),
+                         })).As()
+                     select new Projection<TSource>(
+                         Values: values.Bind(static value => value.Values),
+                         Unsupported: values.Bind(static value => value.Unsupported)),
         };
     private static Unit RunCached(IDataAccess access, Hints outputs, GrasshopperRuntime runtime, Seq<OutputBinding> bindings, Fin<Seq<Flow<Shape>>> source) =>
         source.Match(

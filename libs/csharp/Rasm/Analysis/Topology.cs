@@ -76,7 +76,7 @@ public static partial class Analyze {
     }
     internal static Operation<TGeometry, TOut> TopologySolidOrientation<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
-        return typeof(TOut) == typeof(BrepSolidOrientation) && (typeof(TGeometry) == typeof(object) || typeof(GeometryBase).IsAssignableFrom(typeof(TGeometry)))
+        return typeof(TOut) == typeof(BrepSolidOrientation) && CanEvaluateTopology(type: typeof(TGeometry))
             ? KernelLift<TGeometry, BrepSolidOrientation, Op>(key: key, state: key, extract: static (op, g, _) => SolidOrientationOf(geometry: g, op: op).Bind(o => op.Accept(value: o))).As<TGeometry, TOut>(key: key)
             : key.Unsupported<TGeometry, TOut>();
     }
@@ -89,19 +89,20 @@ public static partial class Analyze {
     }
     internal static Operation<TGeometry, TOut> TopologyContains<TGeometry, TOut>(Point3d point) where TGeometry : notnull {
         Op key = Op.Of();
-        return point.IsValid && typeof(TOut) == typeof(bool) && (typeof(TGeometry) == typeof(object) || typeof(GeometryBase).IsAssignableFrom(typeof(TGeometry)))
+        return point.IsValid && typeof(TOut) == typeof(bool) && CanEvaluateTopology(type: typeof(TGeometry))
             ? KernelLift<TGeometry, bool, (Op Key, Point3d Target)>(key: key, state: (Key: key, Target: point), requirement: Requirement.SolidTopology, extract: static (s, g, ctx) => ContainsPoint(geometry: g, target: s.Target, context: ctx, op: s.Key).Bind(c => s.Key.Accept(value: c))).As<TGeometry, TOut>(key: key)
             : key.Unsupported<TGeometry, TOut>();
     }
     internal static Operation<TGeometry, TOut> TopologyScalar<TGeometry, TOut>(TopologyScalar scalar) where TGeometry : notnull {
         Op key = Op.Of();
-        return typeof(TOut) == scalar.Output && (typeof(TGeometry) == typeof(object) || typeof(GeometryBase).IsAssignableFrom(typeof(TGeometry)))
-            ? KernelLift<TGeometry, TOut, (Op Key, TopologyScalar Scalar)>(key: key, state: (Key: key, Scalar: scalar), extract: static (s, g, _) => g switch {
-                GeometryBase native => s.Scalar.Extract(geometry: native, op: s.Key).Bind(value => value is TOut typed ? s.Key.Accept(value: typed) : Fin.Fail<Seq<TOut>>(s.Key.Unsupported(geometryType: value.GetType(), outputType: typeof(TOut)))),
-                _ => Fin.Fail<Seq<TOut>>(s.Key.Unsupported(geometryType: g.GetType(), outputType: s.Scalar.Output)),
-            })
+        return typeof(TOut) == scalar.Output && CanEvaluateTopology(type: typeof(TGeometry))
+            ? KernelLift<TGeometry, TOut, (Op Key, TopologyScalar Scalar)>(key: key, state: (Key: key, Scalar: scalar), extract: static (s, g, _) =>
+                ExtractTopologyScalar(geometry: g, scalar: s.Scalar, op: s.Key)
+                    .Bind(value => value is TOut typed ? s.Key.Accept(value: typed) : Fin.Fail<Seq<TOut>>(s.Key.Unsupported(geometryType: value.GetType(), outputType: typeof(TOut)))))
             : key.Unsupported<TGeometry, TOut>();
     }
+    private static bool CanEvaluateTopology(Type type) =>
+        type == typeof(object) || type == typeof(GeometryBase) || typeof(Mesh).IsAssignableFrom(c: type) || typeof(Brep).IsAssignableFrom(c: type) || GeometryKernel.CanCoerce(source: type, target: typeof(Brep));
     private static Operation<TGeometry, TValue> KernelLift<TGeometry, TValue, TState>(Op key, TState state, Func<TState, TGeometry, Context, Fin<Seq<TValue>>> extract, Requirement? requirement = null, bool requiresContext = true) where TGeometry : notnull =>
         Operation<TGeometry, TValue>.Build(
             key: key, requirement: requirement, requiresContext: requiresContext, state: (State: state, Extract: extract),
@@ -114,8 +115,15 @@ public static partial class Analyze {
             Mesh mesh => onMesh(arg: mesh),
             Brep brep => onBrep(arg: brep),
             GeometryBase { HasBrepForm: true } native => GeometryKernel.BrepForm(source: native, op: op).Bind(lease => lease.Use(project: onBrep)),
+            object brepLike when GeometryKernel.CanCoerce(source: brepLike.GetType(), target: typeof(Brep)) => GeometryKernel.BrepForm(source: brepLike, op: op).Bind(lease => lease.Use(project: onBrep)),
             _ => Fin.Fail<TResult>(op.Unsupported(g.GetType(), typeof(TResult))),
         });
+    private static Fin<object> ExtractTopologyScalar<TGeometry>(TGeometry geometry, TopologyScalar scalar, Op op) where TGeometry : notnull =>
+        OnGeometry<TGeometry, object>(
+            geometry: geometry,
+            op: op,
+            onMesh: mesh => scalar.Extract(geometry: mesh, op: op),
+            onBrep: brep => scalar.Extract(geometry: brep, op: op));
     internal static Fin<Seq<Interval>> DomainsOf<TGeometry>(TGeometry geometry, Op op) where TGeometry : notnull =>
         Optional(geometry).ToFin(op.InvalidInput()).Bind(g => g switch {
             Curve curve => Fin.Succ(Seq(curve.Domain)),
@@ -124,23 +132,20 @@ public static partial class Analyze {
             _ => Fin.Fail<Seq<Interval>>(op.Unsupported(g.GetType(), typeof(Interval))),
         });
     internal static Fin<BrepSolidOrientation> SolidOrientationOf<TGeometry>(TGeometry geometry, Op op) where TGeometry : notnull =>
-        Optional(geometry).ToFin(op.InvalidInput()).Bind(g => g switch {
-            Brep brep => Fin.Succ(brep.SolidOrientation),
-            Mesh mesh => Fin.Succ(mesh.SolidOrientation() switch {
+        OnGeometry<TGeometry, BrepSolidOrientation>(geometry: geometry, op: op,
+            onMesh: mesh => Fin.Succ(mesh.SolidOrientation() switch {
                 1 => BrepSolidOrientation.Outward,
                 -1 => BrepSolidOrientation.Inward,
                 _ => BrepSolidOrientation.None,
             }),
-            _ => Fin.Fail<BrepSolidOrientation>(op.Unsupported(g.GetType(), typeof(BrepSolidOrientation))),
-        });
+            onBrep: brep => Fin.Succ(brep.SolidOrientation));
     internal static Fin<bool> ContainsPoint<TGeometry>(TGeometry geometry, Point3d target, Context context, Op op) where TGeometry : notnull =>
         from _ in guard(target.IsValid, op.InvalidInput())
-        from g in Optional(geometry).ToFin(op.InvalidInput())
-        from contained in g switch {
-            Brep brep => Fin.Succ(brep.IsPointInside(target, context.Absolute.Value, false)),
-            Mesh mesh => Fin.Succ(mesh.IsPointInside(target, context.Absolute.Value, false)),
-            _ => Fin.Fail<bool>(op.Unsupported(g.GetType(), typeof(bool))),
-        }
+        from contained in OnGeometry<TGeometry, bool>(
+            geometry: geometry,
+            op: op,
+            onMesh: mesh => Fin.Succ(mesh.IsPointInside(target, context.Absolute.Value, false)),
+            onBrep: brep => Fin.Succ(brep.IsPointInside(target, context.Absolute.Value, false)))
         select contained;
     internal static Fin<Seq<GeometryBase>> ComponentsOf<TGeometry>(TGeometry geometry, Op op) where TGeometry : notnull =>
         Optional(geometry).ToFin(op.InvalidInput()).Bind(g => g switch {

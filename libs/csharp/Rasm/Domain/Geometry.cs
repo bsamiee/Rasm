@@ -33,9 +33,12 @@ internal abstract partial record Lease<T> where T : class, IDisposable {
     private Lease() { }
     public sealed record Owned(T Value) : Lease<T> {
         internal TResult Project<TResult>(Func<T, TResult> project) { using T owned = Value; return project(arg: owned); }
+        internal TResult Project<TState, TResult>(TState state, Func<TState, T, TResult> project) { using T owned = Value; return project(arg1: state, arg2: owned); }
     }
     public sealed record Borrowed(T Value) : Lease<T>;
     internal TResult Use<TResult>(Func<T, TResult> project) => Switch(state: project, owned: static (use, owned) => owned.Project(project: use), borrowed: static (use, borrowed) => use(arg: borrowed.Value));
+    internal TResult Use<TState, TResult>(TState state, Func<TState, T, TResult> project) =>
+        Switch(state: (State: state, Project: project), owned: static (use, owned) => owned.Project(state: use.State, project: use.Project), borrowed: static (use, borrowed) => use.Project(arg1: use.State, arg2: borrowed.Value));
     internal T Resource => Switch(owned: static owned => owned.Value, borrowed: static borrowed => borrowed.Value);
     internal Unit Dispose() => Switch(owned: static owned => { owned.Value.Dispose(); return unit; }, borrowed: static _ => unit);
 }
@@ -184,7 +187,6 @@ public abstract partial record IntersectionHit {
     public static IntersectionHit Along(Curve curve, IntersectionKind kind) => new CurveCase(curve, kind);
     public static IntersectionHit Overlap(Point3d start, Point3d end, Interval overlapA, Interval overlapB, Option<Curve> curve = default) => new OverlapCase(start, end, overlapA, overlapB, curve);
 }
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct ResidualSample(int Index, Point3d Location, double Distance, double Tolerance, bool WithinTolerance);
 // --- [MODELS] -----------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class Kind {

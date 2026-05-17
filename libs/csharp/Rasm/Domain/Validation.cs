@@ -31,11 +31,28 @@ public sealed partial record Requirement {
     private static Requirement Single(Check check) => new(checks: Seq(check));
     public Validation<Error, T> Apply<T>(Context context, T? value, CancellationToken cancel = default) where T : notnull =>
         (value, context, this) switch {
-            (T candidate, _, Requirement { IsEmpty: true }) when candidate is GeometryBase => Op.Of(name: "Operand").AcceptValue(value: candidate).ToValidation(),
-            (T candidate, Context ctx, Requirement req) when candidate is GeometryBase g => RunChecks(checks: req.checks, context: ctx, geometry: g, original: candidate, cancel: cancel),
-            (T candidate, _, _) => Op.Of(name: "Operand").AcceptValue(value: candidate).ToValidation(),
+            (T candidate, _, Requirement { IsEmpty: true }) => Op.Of(name: "Operand").AcceptValue(value: candidate).ToValidation(),
+            (T candidate, Context ctx, Requirement req) => RunChecks(checks: req.checks, context: ctx, original: candidate, cancel: cancel),
             _ => Fin.Fail<T>(error: new Fault.MissingGeometry()).ToValidation(),
         };
+    private static Validation<Error, T> RunChecks<T>(Seq<Check> checks, Context context, T original, CancellationToken cancel) where T : notnull =>
+        original switch {
+            GeometryBase geometry => RunChecks(checks: checks, context: context, geometry: geometry, original: original, cancel: cancel),
+            object curveLike when GeometryKernel.CanCurveForm(type: curveLike.GetType()) => RunLeaseChecks(lease: GeometryKernel.CurveForm(source: curveLike, op: Op.Of(name: "Operand")), checks: checks, context: context, original: original, cancel: cancel),
+            object surfaceLike when GeometryKernel.CanSurfaceForm(type: surfaceLike.GetType()) => RunLeaseChecks(lease: GeometryKernel.SurfaceForm(source: surfaceLike, op: Op.Of(name: "Operand")), checks: checks, context: context, original: original, cancel: cancel),
+            object brepLike when GeometryKernel.CanCoerce(source: brepLike.GetType(), target: typeof(Brep)) => RunLeaseChecks(lease: GeometryKernel.BrepForm(source: brepLike, op: Op.Of(name: "Operand")), checks: checks, context: context, original: original, cancel: cancel),
+            _ => Op.Of(name: "Operand").AcceptValue(value: original).ToValidation(),
+        };
+    private static Validation<Error, T> RunLeaseChecks<T, TGeometry>(Fin<Lease<TGeometry>> lease, Seq<Check> checks, Context context, T original, CancellationToken cancel)
+        where T : notnull
+        where TGeometry : GeometryBase =>
+        (Fin.Succ((Checks: checks, Context: context, Original: original, Cancel: cancel)).ToValidation(),
+         lease.ToValidation())
+            .Apply(static (state, native) => native.Use(
+                state: state,
+                project: static (state, geometry) => RunChecks(checks: state.Checks, context: state.Context, geometry: geometry, original: state.Original, cancel: state.Cancel)))
+            .Bind(static validation => validation)
+            .As();
     private static Validation<Error, T> RunChecks<T>(Seq<Check> checks, Context context, GeometryBase geometry, T original, CancellationToken cancel) where T : notnull =>
         checks
             .Fold(
@@ -128,9 +145,9 @@ public sealed partial record Requirement {
 }
 
 internal static class RequirementContext {
-    private static Validation<Error, (TA A, TB B)> Validate<TA, TB>(this Context context, TA a, TB b, Requirement? requirementA = null, Requirement? requirementB = null, CancellationToken cancel = default) where TA : notnull where TB : notnull =>
-        ((requirementA ?? Requirement.Strict).Apply(context: context, value: a, cancel: cancel),
-         (requirementB ?? Requirement.Strict).Apply(context: context, value: b, cancel: cancel))
+    private static Validation<Error, (TA A, TB B)> Validate<TA, TB>(this Context context, TA a, TB b, Requirement requirementA, Requirement requirementB, CancellationToken cancel = default) where TA : notnull where TB : notnull =>
+        (requirementA.Apply(context: context, value: a, cancel: cancel),
+         requirementB.Apply(context: context, value: b, cancel: cancel))
             .Apply(static (left, right) => (A: left, B: right)).As();
     internal static Validation<Error, (TA A, TB B, Kind KindA, Kind KindB)> Pair<TA, TB>(
         this Context context,

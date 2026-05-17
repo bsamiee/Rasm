@@ -153,7 +153,7 @@ public static partial class Analyze {
         Op key = Op.Of();
         Option<Requirement> requirement = (typeof(TOut) == typeof(double), typeof(TGeometry), Rasm.Domain.Kind.Of(typeof(TGeometry)).Case) switch {
             (true, Type geometry, _) when geometry == typeof(object) || geometry == typeof(GeometryBase) => Some(Requirement.CurveLength),
-            (true, _, Kind kind) when kind.Topology == Topology.Curve => Some(typeof(GeometryBase).IsAssignableFrom(kind.Type) ? Requirement.CurveLength : Requirement.None),
+            (true, _, Kind kind) when kind.Topology == Topology.Curve => Some(Requirement.CurveLength),
             _ => Option<Requirement>.None,
         };
         return requirement.Match(
