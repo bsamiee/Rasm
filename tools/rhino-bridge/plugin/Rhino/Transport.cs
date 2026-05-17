@@ -1,5 +1,11 @@
 namespace Rasm.RhinoBridge.Rhino;
 
+// --- [MODELS] ---------------------------------------------------------------------------
+internal sealed record BridgeRuntimeStatus(bool Running, BridgeEndpoint? Endpoint, BridgeFault? Fault) {
+    internal static BridgeRuntimeStatus Stopped(BridgeFault? fault = null) => new(Running: false, Endpoint: null, Fault: fault);
+    internal static BridgeRuntimeStatus Started(BridgeEndpoint endpoint) => new(Running: true, Endpoint: endpoint, Fault: null);
+}
+
 // --- [SERVICES] -------------------------------------------------------------------------
 internal static class BridgeRuntime {
     private static readonly Lock Sync = new();
@@ -37,19 +43,20 @@ internal static class BridgeRuntime {
 
 internal sealed class BridgeServer : IDisposable {
     private static readonly TimeSpan HandshakeTimeout = TimeSpan.FromSeconds(2.0);
+    private const int PipeInstances = 4;
     private const PipeOptions PipePolicy = PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly;
     private readonly CancellationTokenSource cancellation = new();
     private readonly SemaphoreSlim clientGate = new(initialCount: 1, maxCount: 1);
     private readonly BridgeEndpoint endpoint;
     private readonly BridgeSessions sessions = new();
-    private readonly Task acceptLoop;
+    private readonly Task[] acceptLoops;
     private BridgeFault? fault;
     private bool disposed;
-    private BridgeServer(BridgeEndpoint endpoint, NamedPipeServerStream initialPipe) {
+    private BridgeServer(BridgeEndpoint endpoint) {
         this.endpoint = endpoint;
-        acceptLoop = AcceptLoopAsync(initialPipe: initialPipe, token: cancellation.Token);
+        acceptLoops = [.. Enumerable.Range(start: 0, count: PipeInstances).Select(_ => AcceptLoopAsync(token: cancellation.Token))];
     }
-    internal bool IsRunning => !disposed && !acceptLoop.IsCompleted;
+    internal bool IsRunning => !disposed && acceptLoops.Any(static loop => !loop.IsCompleted);
     internal static BridgeServer Start() {
         _ = Directory.CreateDirectory(BridgeWire.EndpointDirectory);
         RestrictDirectory(path: BridgeWire.EndpointDirectory);
@@ -63,15 +70,9 @@ internal sealed class BridgeServer : IDisposable {
             StartedAt: DateTimeOffset.UtcNow,
             BridgeAssemblyVersion: typeof(BridgeServer).Assembly.GetName().Version?.ToString() ?? "unknown",
             RhinoVersion: RhinoApp.Version.ToString());
-        NamedPipeServerStream? initialPipe = new(metadata.PipeName, PipeDirection.InOut, maxNumberOfServerInstances: 1, PipeTransmissionMode.Byte, PipePolicy);
-        try {
-            BridgeServer server = new(endpoint: metadata, initialPipe: initialPipe);
-            initialPipe = null;
-            WriteEndpoint(endpoint: metadata);
-            return server;
-        } finally {
-            initialPipe?.Dispose();
-        }
+        BridgeServer server = new(endpoint: metadata);
+        WriteEndpoint(endpoint: metadata);
+        return server;
     }
     internal BridgeRuntimeStatus Status() => IsRunning ? BridgeRuntimeStatus.Started(endpoint: endpoint) : BridgeRuntimeStatus.Stopped(fault: fault);
     public void Dispose() {
@@ -92,30 +93,20 @@ internal sealed class BridgeServer : IDisposable {
         cancellation.Dispose();
         DeleteEndpoint();
     }
-    private async Task AcceptLoopAsync(NamedPipeServerStream initialPipe, CancellationToken token) {
-        NamedPipeServerStream? nextPipe = initialPipe;
+    private async Task AcceptLoopAsync(CancellationToken token) {
         while (!token.IsCancellationRequested) {
-            if (nextPipe is NamedPipeServerStream firstPipe) {
-                nextPipe = null;
-                await using (firstPipe.ConfigureAwait(false)) {
-                    await AcceptOneAsync(pipe: firstPipe, token: token).ConfigureAwait(false);
-                }
-            } else {
-                NamedPipeServerStream pipe = new(endpoint.PipeName, PipeDirection.InOut, maxNumberOfServerInstances: 1, PipeTransmissionMode.Byte, PipePolicy);
+            try {
+                NamedPipeServerStream pipe = CreatePipe(pipeName: endpoint.PipeName);
                 await using (pipe.ConfigureAwait(false)) {
-                    await AcceptOneAsync(pipe: pipe, token: token).ConfigureAwait(false);
+                    await pipe.WaitForConnectionAsync(token).ConfigureAwait(false);
+                    await HandlePipeAsync(pipe: pipe, token: token).ConfigureAwait(false);
                 }
+            } catch (OperationCanceledException) when (token.IsCancellationRequested) {
+            } catch (Exception error) when (!token.IsCancellationRequested && error is IOException or InvalidOperationException or UnauthorizedAccessException or ObjectDisposedException or ArgumentOutOfRangeException) {
+                fault = BridgeFault.FromException(category: "transport", error: error);
+                WriteRhinoLine(message: $"[RasmBridge] accept failed: {error.GetType().Name}: {error.Message}");
+                await Task.Delay(millisecondsDelay: 100, cancellationToken: token).ConfigureAwait(false);
             }
-        }
-    }
-    private async Task AcceptOneAsync(NamedPipeServerStream pipe, CancellationToken token) {
-        try {
-            await pipe.WaitForConnectionAsync(token).ConfigureAwait(false);
-            await HandlePipeAsync(pipe: pipe, token: token).ConfigureAwait(false);
-        } catch (OperationCanceledException) when (token.IsCancellationRequested) {
-        } catch (Exception error) when (!token.IsCancellationRequested && error is IOException or JsonException or InvalidOperationException or ArgumentOutOfRangeException) {
-            fault = BridgeFault.FromException(category: "transport", error: error);
-            WriteRhinoLine(message: $"[RasmBridge] {error.GetType().Name}: {error.Message}");
         }
     }
     private async Task HandlePipeAsync(Stream pipe, CancellationToken token) {
@@ -131,38 +122,58 @@ internal sealed class BridgeServer : IDisposable {
             string? line = await reader.ReadLineAsync(handshake.Token).ConfigureAwait(false);
             BridgeReply reply = string.IsNullOrWhiteSpace(line)
                 ? BridgeReply.Rejected(command: BridgeWire.Hello, status: BridgeWire.Failed, fault: BridgeFault.MessageOnly(category: "protocol", message: "Bridge clients must send a hello or command request."))
-                : HandleRequest(JsonSerializer.Deserialize<BridgeRequest>(json: line, options: BridgeWire.CompactJson));
+                : ParseRequest(json: line);
             await WriteAsync(pipe: pipe, reply: reply, token: token).ConfigureAwait(false);
         } catch (OperationCanceledException) when (!token.IsCancellationRequested) {
             await WriteAsync(pipe: pipe, reply: BridgeReply.Rejected(command: BridgeWire.Hello, status: BridgeWire.Timeout, fault: BridgeFault.MessageOnly(category: "protocol", message: "Bridge client did not send a request before the handshake deadline.")), token: CancellationToken.None).ConfigureAwait(false);
         } finally {
-            try {
-                _ = clientGate.Release();
-            } catch (ObjectDisposedException) {
-            }
+            ReleaseGate();
+        }
+    }
+    private BridgeReply ParseRequest(string json) {
+        try {
+            return HandleRequest(JsonSerializer.Deserialize<BridgeRequest>(json: json, options: BridgeWire.CompactJson));
+        } catch (JsonException error) {
+            return BridgeReply.Rejected(command: BridgeWire.Hello, status: BridgeWire.Failed, fault: BridgeFault.FromException(category: "protocol", error: error));
         }
     }
     private BridgeReply HandleRequest(BridgeRequest? request) =>
         request switch {
             null => BridgeReply.Rejected(command: BridgeWire.Hello, status: BridgeWire.Failed, fault: BridgeFault.MessageOnly(category: "protocol", message: "Request payload was empty or invalid.")),
-            { Schema: string schema } when !string.Equals(schema, BridgeWire.Schema, StringComparison.Ordinal) =>
-                BridgeReply.Rejected(command: request.Command, status: BridgeWire.Failed, fault: BridgeFault.MessageOnly(category: "protocol", message: $"Unsupported schema '{request.Schema}'.")),
-            _ => InvokeOnRhinoThread(command: request.Command, work: () => request.Command switch {
+            { } current when !BridgeWire.IsCurrent(schema: current.Schema) => BridgeReply.Rejected(command: request.Command, status: BridgeWire.Failed, fault: BridgeFault.MessageOnly(category: "protocol", message: $"Unsupported schema '{request.Schema}'.")),
+            _ => InvokeOnRhinoThread(command: request.Command, work: document => request.Command switch {
                 BridgeWire.Hello => BridgeReply.HelloOk(endpoint: endpoint),
-                BridgeWire.Doctor => BridgeReply.DoctorOk(doctor: sessions.Doctor()),
-                BridgeWire.Load => BridgeReply.LoadOk(load: sessions.Load(ReadPayload<BridgeLoadRequest>(request: request))),
-                BridgeWire.Run => BridgeReply.RunOk(run: sessions.Run(request: ReadPayload<BridgeRunRequest>(request: request), timeoutMs: request.TimeoutMs)),
-                BridgeWire.Unload => BridgeReply.UnloadOk(unload: sessions.Unload(ReadPayload<BridgeUnloadRequest>(request: request))),
+                BridgeWire.Doctor => BridgeReply.DoctorOk(doctor: sessions.Doctor(document: document)),
+                BridgeWire.Load => WithPayload<BridgeLoadRequest>(request: request, work: payload => BridgeReply.LoadOk(load: sessions.Load(request: payload))),
+                BridgeWire.Run => WithPayload<BridgeRunRequest>(request: request, work: payload => BridgeReply.RunOk(run: sessions.Run(request: payload, document: document, timeoutMs: request.TimeoutMs))),
+                BridgeWire.Unload => WithPayload<BridgeUnloadRequest>(request: request, work: payload => BridgeReply.UnloadOk(unload: sessions.Unload(request: payload))),
                 string command => BridgeReply.Rejected(command: command, status: BridgeWire.Unsupported, fault: BridgeFault.MessageOnly(category: "protocol", message: $"Unsupported command '{command}'.")),
             }),
         };
-    private static TPayload ReadPayload<TPayload>(BridgeRequest request) =>
-        request.Payload switch {
-            JsonElement json => json.Deserialize<TPayload>(BridgeWire.CompactJson) ?? throw new InvalidOperationException($"Bridge request '{request.Command}' had an invalid payload."),
-            _ => throw new InvalidOperationException($"Bridge request '{request.Command}' requires a payload."),
-        };
-    private static BridgeReply InvokeOnRhinoThread(string command, Func<BridgeReply> work) {
+    private static BridgeReply WithPayload<TPayload>(BridgeRequest request, Func<TPayload, BridgeReply> work) {
         ArgumentNullException.ThrowIfNull(work);
+        try {
+            return request.Payload switch {
+                JsonElement json when json.Deserialize<TPayload>(BridgeWire.CompactJson) is TPayload payload && ValidPayload(payload: payload) => work(payload),
+                JsonElement => BridgeReply.Rejected(command: request.Command, status: BridgeWire.Failed, fault: BridgeFault.MessageOnly(category: "protocol", message: $"Bridge request '{request.Command}' had an invalid payload.")),
+                _ => BridgeReply.Rejected(command: request.Command, status: BridgeWire.Failed, fault: BridgeFault.MessageOnly(category: "protocol", message: $"Bridge request '{request.Command}' requires a payload.")),
+            };
+        } catch (JsonException error) {
+            return BridgeReply.Rejected(command: request.Command, status: BridgeWire.Failed, fault: BridgeFault.FromException(category: "protocol", error: error));
+        }
+    }
+    private static bool ValidPayload<TPayload>(TPayload payload) =>
+        payload switch {
+            BridgeLoadRequest { AssemblyPath.Length: > 0, WorkspaceRoot.Length: > 0 } => true,
+            BridgeRunRequest { SessionId.Length: > 0 } => true,
+            BridgeUnloadRequest { SessionId.Length: > 0 } => true,
+            _ => false,
+        };
+    private static BridgeReply InvokeOnRhinoThread(string command, Func<RhinoDoc?, BridgeReply> work) {
+        ArgumentNullException.ThrowIfNull(work);
+        if (RhinoApp.IsClosing || RhinoApp.IsExiting) {
+            return BridgeReply.Rejected(command: command, status: BridgeWire.Failed, fault: BridgeFault.MessageOnly(category: "rhino", message: "Rhino is closing; bridge command rejected."));
+        }
         if (!RhinoApp.InvokeRequired) {
             return Safe(work: work, command: command);
         }
@@ -170,9 +181,9 @@ internal sealed class BridgeServer : IDisposable {
         RhinoApp.InvokeAndWait(() => reply = Safe(work: work, command: command));
         return reply ?? BridgeReply.Rejected(command: command, status: BridgeWire.Failed, fault: BridgeFault.MessageOnly(category: "rhino", message: "Rhino UI thread returned no bridge reply."));
     }
-    private static BridgeReply Safe(Func<BridgeReply> work, string command) {
+    private static BridgeReply Safe(Func<RhinoDoc?, BridgeReply> work, string command) {
         try {
-            return work();
+            return work(RhinoDoc.ActiveDoc);
         } catch (Exception error) when (error is InvalidOperationException or IOException or JsonException or ArgumentException or ReflectionTypeLoadException) {
             return BridgeReply.Rejected(command: command, status: BridgeWire.Failed, fault: BridgeFault.FromException(category: "runtime", error: error));
         }
@@ -191,6 +202,17 @@ internal sealed class BridgeServer : IDisposable {
         Restrict(path: temp);
         File.Move(sourceFileName: temp, destFileName: BridgeWire.EndpointPath, overwrite: true);
         Restrict(path: BridgeWire.EndpointPath);
+    }
+    private static NamedPipeServerStream CreatePipe(string pipeName) =>
+        new(pipeName, PipeDirection.InOut, maxNumberOfServerInstances: PipeInstances, PipeTransmissionMode.Byte, PipePolicy);
+    private static void Observe(Task task) =>
+        _ = task.ContinueWith(static completed => _ = completed.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+    private void ReleaseGate() {
+        try {
+            _ = clientGate.Release();
+        } catch (ObjectDisposedException) {
+        } catch (SemaphoreFullException) {
+        }
     }
     private static void Restrict(string path) {
         if (!OperatingSystem.IsWindows()) {

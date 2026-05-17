@@ -20,47 +20,14 @@
         "resolved": "17.14.15",
         "contentHash": "mXQPJsbuUD2ydq4/ffd8h8tSOFCXec+2xJOVNCvXjuMOq/+5EKHq3D2m2MC2+nUaXeFMSt66VS/J4HdKBixgcw=="
       },
-      "Thinktecture.Runtime.Extensions.Analyzers": {
-        "type": "Transitive",
-        "resolved": "10.2.0",
-        "contentHash": "hS5YZR6+bn9YewLV8ywkUXlvZmRLwhQ6Z7is+rvQQJuDpv+SuLEfEkzuTWi9pkKftBbJMorkpKEh/hoGS6Iqyg=="
-      },
-      "Thinktecture.Runtime.Extensions.Refactorings": {
-        "type": "Transitive",
-        "resolved": "10.2.0",
-        "contentHash": "DCuufIBk40w1n8UOPoVE4KOofYtOKnjYQ0aOE759f1GqqpAuqOaapOF7rr3/DQRrRZuaFy2Mggw/UIVOLqaJaA=="
-      },
-      "Thinktecture.Runtime.Extensions.SourceGenerator": {
-        "type": "Transitive",
-        "resolved": "10.2.0",
-        "contentHash": "dakjsj9+k/faX/Ff0Ez+jcV6bqdJ+6fem4sXkNZDL3qZwtyp4SGfZgRHDiOEWrkgq/WBoZWiE+MOaBoXiXObbw=="
-      },
       "rasm.rhinobridge.contracts": {
-        "type": "Project"
-      },
-      "rasm.rhinobridge.protocol": {
         "type": "Project",
         "dependencies": {
-          "LanguageExt.Core": "[5.0.0-beta-77, )",
-          "Thinktecture.Runtime.Extensions": "[10.2.0, )"
+          "Rasm.RhinoBridge.Protocol": "[1.0.0, )"
         }
       },
-      "LanguageExt.Core": {
-        "type": "CentralTransitive",
-        "requested": "[5.0.0-beta-77, )",
-        "resolved": "5.0.0-beta-77",
-        "contentHash": "zVBqn2alHIDTOSjgWDUo31irEg59ZfM6T8e24UcUn6o/F+5Qr0jRjGPp2LzME7PHyKh+crK+boBmdCAFguwqjw=="
-      },
-      "Thinktecture.Runtime.Extensions": {
-        "type": "CentralTransitive",
-        "requested": "[10.2.0, )",
-        "resolved": "10.2.0",
-        "contentHash": "BRiSpmpFsbbpHO7gnUK0s0uQwB9TmOkoVD8n1b9GrDBqvdnFDmWGGH81YQZKtTyB12aybXDB4EcVv4STQQVwVA==",
-        "dependencies": {
-          "Thinktecture.Runtime.Extensions.Analyzers": "10.2.0",
-          "Thinktecture.Runtime.Extensions.Refactorings": "10.2.0",
-          "Thinktecture.Runtime.Extensions.SourceGenerator": "10.2.0"
-        }
+      "rasm.rhinobridge.protocol": {
+        "type": "Project"
       }
     }
   }

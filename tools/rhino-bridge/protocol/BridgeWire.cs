@@ -17,11 +17,12 @@ public static class BridgeWire {
     public const string Busy = "busy";
     public const string Timeout = "timeout";
     public const string Skipped = "skipped";
-    public const string NotLoaded = "not-loaded";
     public static JsonSerializerOptions CompactJson { get; } = Options(writeIndented: false);
     public static JsonSerializerOptions PrettyJson { get; } = Options(writeIndented: true);
     public static string EndpointDirectory => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".rasm");
     public static string EndpointPath => Path.Combine(EndpointDirectory, "rhino-bridge.json");
+    public static bool IsCurrent(string? schema) =>
+        string.Equals(schema, Schema, StringComparison.Ordinal);
     public static BridgeLoadRequest LoadRequest(string assemblyPath, string workspaceRoot) =>
         new(AssemblyPath: assemblyPath, WorkspaceRoot: workspaceRoot);
     public static BridgeRunRequest RunRequest(string sessionId, string? probe, JsonElement arguments) =>
@@ -82,11 +83,6 @@ public sealed record BridgeReply(
     }
     public static BridgeReply Rejected(string command, string status, BridgeFault fault) =>
         new(Schema: BridgeWire.Schema, Command: command, Status: status, Fault: fault);
-}
-
-public sealed record BridgeRuntimeStatus(bool Running, BridgeEndpoint? Endpoint, BridgeFault? Fault) {
-    public static BridgeRuntimeStatus Stopped(BridgeFault? fault = null) => new(Running: false, Endpoint: null, Fault: fault);
-    public static BridgeRuntimeStatus Started(BridgeEndpoint endpoint) => new(Running: true, Endpoint: endpoint, Fault: null);
 }
 
 public sealed record BridgeDoctor(
