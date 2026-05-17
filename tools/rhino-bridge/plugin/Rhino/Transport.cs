@@ -180,10 +180,10 @@ internal sealed class BridgeServer : IDisposable {
             _ => InvokeOnRhinoThread(command: request.Command, work: document => request.Command switch {
                 BridgeWire.Hello => Hello(),
                 BridgeWire.Doctor => BridgeWire.Reply(command: BridgeWire.Doctor, status: BridgeWire.Ok, data: sessions.Doctor(document: document)),
-                BridgeWire.Load => WithPayload<BridgeLoadRequest>(request: request, work: payload => Project(command: BridgeWire.Load, report: sessions.Load(request: payload))),
+                BridgeWire.Load => WithPayload<BridgeLoadRequest>(request: request, work: payload => sessions.Load(request: payload) is BridgeLoadReport report ? BridgeWire.Reply(command: BridgeWire.Load, status: report.Status, data: report, fault: report.Fault) : throw new UnreachableException()),
                 BridgeWire.Execute => WithPayload<BridgeExecuteRequest>(request: request, work: payload => Execute(request: payload, document: document)),
-                BridgeWire.Unload => WithPayload<BridgeUnloadRequest>(request: request, work: payload => Project(command: BridgeWire.Unload, report: sessions.Unload(request: payload))),
-                BridgeWire.Quit => Project(command: BridgeWire.Quit, report: Quit(document: document)),
+                BridgeWire.Unload => WithPayload<BridgeUnloadRequest>(request: request, work: payload => sessions.Unload(request: payload) is BridgeUnloadReport report ? BridgeWire.Reply(command: BridgeWire.Unload, status: report.Status, data: report, fault: report.Fault) : throw new UnreachableException()),
+                BridgeWire.Quit => Quit(document: document) is BridgeQuitReport report ? BridgeWire.Reply(command: BridgeWire.Quit, status: report.Status, data: report, fault: report.Fault) : throw new UnreachableException(),
                 string command => BridgeWire.Reply(command: command, status: BridgeWire.Unsupported, fault: BridgeFault.MessageOnly(category: "protocol", message: $"Unsupported command '{command}'.")),
             }),
         };
@@ -191,12 +191,6 @@ internal sealed class BridgeServer : IDisposable {
         EnsureEndpoint();
         return BridgeWire.Reply(command: BridgeWire.Hello, status: BridgeWire.Ok, data: endpoint);
     }
-    private static BridgeReply Project(string command, BridgeLoadReport report) =>
-        BridgeWire.Reply(command: command, status: report.Status, data: report, fault: report.Fault);
-    private static BridgeReply Project(string command, BridgeUnloadReport report) =>
-        BridgeWire.Reply(command: command, status: report.Status, data: report, fault: report.Fault);
-    private static BridgeReply Project(string command, BridgeQuitReport report) =>
-        BridgeWire.Reply(command: command, status: report.Status, data: report, fault: report.Fault);
     private static BridgeReply WithPayload<TPayload>(BridgeRequest request, Func<TPayload, BridgeReply> work) {
         ArgumentNullException.ThrowIfNull(work);
         try {
@@ -235,27 +229,20 @@ internal sealed class BridgeServer : IDisposable {
             timer.Stop();
             BridgeExecuteReport report = ExecuteReport(status: BridgeWire.Ok, timer: timer, document: document, references: request.References, fault: null);
             return BridgeWire.Reply(command: BridgeWire.Execute, status: report.Status, data: report, outputs: Output(stdout: stdout, stderr: stderr), diagnostics: Diagnostics(code: code), fault: null);
-        } catch (global::Rhino.Runtime.Code.Execution.CompileException error) {
+        } catch (Exception error) when (error is global::Rhino.Runtime.Code.Execution.CompileException or global::Rhino.Runtime.Code.Execution.ExecuteException || NonFatal(error: error)) {
             timer.Stop();
-            BridgeFault executeFault = BridgeFault.FromException(category: "diagnostics", error: error);
+            BridgeDiagnostic[] diagnostics = Diagnostics(error: error, code: code);
+            string category = diagnostics.Length > 0 ? "diagnostics" : "execute";
+            BridgeFault executeFault = BridgeFault.FromException(category: category, error: error);
             BridgeExecuteReport report = ExecuteReport(status: BridgeWire.Failed, timer: timer, document: document, references: request.References, fault: executeFault);
-            return BridgeWire.Reply(command: BridgeWire.Execute, status: report.Status, data: report, outputs: Output(stdout: stdout, stderr: stderr), diagnostics: [.. error.Diagnosis.Select(Diagnostic)], fault: executeFault);
-        } catch (global::Rhino.Runtime.Code.Execution.ExecuteException error) {
-            timer.Stop();
-            BridgeFault executeFault = BridgeFault.FromException(category: "execute", error: error);
-            BridgeExecuteReport report = ExecuteReport(status: BridgeWire.Failed, timer: timer, document: document, references: request.References, fault: executeFault);
-            return BridgeWire.Reply(command: BridgeWire.Execute, status: report.Status, data: report, outputs: Output(stdout: stdout, stderr: stderr), diagnostics: Diagnostics(code: code), fault: executeFault);
-        } catch (Exception error) when (NonFatal(error: error)) {
-            timer.Stop();
-            BridgeFault executeFault = BridgeFault.FromException(category: "execute", error: error);
-            BridgeExecuteReport report = ExecuteReport(status: BridgeWire.Failed, timer: timer, document: document, references: request.References, fault: executeFault);
-            return BridgeWire.Reply(command: BridgeWire.Execute, status: report.Status, data: report, outputs: Output(stdout: stdout, stderr: stderr), diagnostics: Diagnostics(code: code), fault: executeFault);
+            return BridgeWire.Reply(command: BridgeWire.Execute, status: report.Status, data: report, outputs: Output(stdout: stdout, stderr: stderr), diagnostics: diagnostics, fault: executeFault);
         }
     }
     private static BridgeExecuteReport ExecuteReport(string status, Stopwatch timer, RhinoDoc? document, IReadOnlyList<string> references, BridgeFault? fault) =>
         new(
             Status: status,
             DurationMs: (int)timer.ElapsedMilliseconds,
+            ServerExecutionCancelable: false,
             BridgeAssemblyName: typeof(BridgeServer).Assembly.GetName().Name ?? "unknown",
             BridgeAssemblyVersion: typeof(BridgeServer).Assembly.GetName().Version?.ToString() ?? "unknown",
             BridgeAssemblyInformationalVersion: typeof(BridgeServer).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? typeof(BridgeServer).Assembly.GetName().Version?.ToString() ?? "unknown",
@@ -269,10 +256,21 @@ internal sealed class BridgeServer : IDisposable {
         [Capture(source: BridgeWire.OutputStdout, text: stdout.GetContents()), Capture(source: BridgeWire.OutputStderr, text: stderr.GetContents())];
     private static BridgeOutput Capture(string source, string text) =>
         text.Length <= OutputLimit
-            ? new(Source: source, Text: text, Truncated: false)
-            : new(Source: source, Text: text[..OutputLimit], Truncated: true);
+            ? new(Source: source, Text: text, Truncated: false, Length: text.Length, Limit: OutputLimit)
+            : new(Source: source, Text: text[..OutputLimit], Truncated: true, Length: text.Length, Limit: OutputLimit);
     private static BridgeDiagnostic[] Diagnostics(global::Rhino.Runtime.Code.Code? code) =>
         code?.Diagnostics.Select(Diagnostic).ToArray() ?? [];
+    private static BridgeDiagnostic[] Diagnostics(Exception error, global::Rhino.Runtime.Code.Code? code) =>
+        CompileFailure(error: error) is global::Rhino.Runtime.Code.Execution.CompileException compile
+            ? [.. compile.Diagnosis.Select(Diagnostic)]
+            : Diagnostics(code: code);
+    private static global::Rhino.Runtime.Code.Execution.CompileException? CompileFailure(Exception error) =>
+        error switch {
+            global::Rhino.Runtime.Code.Execution.CompileException compile => compile,
+            global::Rhino.Runtime.Code.Execution.ExecuteException execute when execute.TryGetCompileException(out global::Rhino.Runtime.Code.Execution.CompileException compile) => compile,
+            { InnerException: Exception inner } => CompileFailure(error: inner),
+            _ => null,
+        };
     private static BridgeDiagnostic Diagnostic(global::Rhino.Runtime.Code.Diagnostics.Diagnostic diagnostic) =>
         new(
             Severity: diagnostic.Severity.ToString(),

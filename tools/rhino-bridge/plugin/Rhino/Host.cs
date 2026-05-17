@@ -24,13 +24,11 @@ public sealed class RasmBridgeStart : Command {
     public override string EnglishName => nameof(RasmBridgeStart);
     protected override Result RunCommand(RhinoDoc doc, RunMode mode) {
         BridgeRuntimeState status = BridgeRuntime.Start();
-        WriteStatus(command: EnglishName, status: status);
+        RhinoApp.WriteLine(status.Endpoint is BridgeEndpoint endpoint
+            ? $"[{EnglishName}] {BridgeWire.Ok}: pipe={endpoint.PipeName}, pid={endpoint.RhinoPid}"
+            : $"[{EnglishName}] {BridgeWire.Failed}: {status.Fault?.Message ?? "Bridge did not start."}");
         return status.Endpoint is not null ? Result.Success : Result.Failure;
     }
-    private static void WriteStatus(string command, BridgeRuntimeState status) =>
-        RhinoApp.WriteLine(status.Endpoint is BridgeEndpoint endpoint
-            ? $"[{command}] {BridgeWire.Ok}: pipe={endpoint.PipeName}, pid={endpoint.RhinoPid}"
-            : $"[{command}] {BridgeWire.Failed}: {status.Fault?.Message ?? "Bridge did not start."}");
 }
 
 [System.Runtime.InteropServices.Guid("834EEDA0-F2BD-462C-B29C-FB75B76EAD77")]

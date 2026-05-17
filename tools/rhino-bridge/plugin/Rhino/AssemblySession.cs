@@ -15,9 +15,10 @@ internal sealed class BridgeSessions : IDisposable {
     internal BridgeLoadReport Load(BridgeLoadRequest request) {
         ArgumentNullException.ThrowIfNull(request);
         string path = Path.GetFullPath(request.AssemblyPath);
+        string packageCacheRoot = BridgeLoadContext.PackageCacheRoot(workspaceRoot: request.WorkspaceRoot, packageCacheRoot: request.PackageCacheRoot);
         return File.Exists(path) switch {
-            false => new(Status: BridgeWire.Failed, SessionId: null, AssemblyName: null, Location: path, PdbPath: null, Assemblies: [], Fault: BridgeFault.MessageOnly(category: "load", message: $"Assembly does not exist: {path}")),
-            true => LoadExisting(path: path, workspaceRoot: request.WorkspaceRoot),
+            false => new(Status: BridgeWire.Failed, SessionId: null, AssemblyName: null, Location: path, PdbPath: null, WorkspaceRoot: request.WorkspaceRoot, PackageCacheRoot: packageCacheRoot, Assemblies: [], Fault: BridgeFault.MessageOnly(category: "load", message: $"Assembly does not exist: {path}")),
+            true => LoadExisting(path: path, workspaceRoot: request.WorkspaceRoot, packageCacheRoot: packageCacheRoot),
         };
     }
     internal BridgeUnloadReport Unload(BridgeUnloadRequest request) {
@@ -37,14 +38,14 @@ internal sealed class BridgeSessions : IDisposable {
         }
         sessions.Clear();
     }
-    private BridgeLoadReport LoadExisting(string path, string workspaceRoot) {
+    private BridgeLoadReport LoadExisting(string path, string workspaceRoot, string packageCacheRoot) {
         string sessionId = Guid.NewGuid().ToString(format: "N");
         try {
-            BridgeAssemblySession session = BridgeAssemblySession.Load(sessionId: sessionId, assemblyPath: path, workspaceRoot: workspaceRoot);
+            BridgeAssemblySession session = BridgeAssemblySession.Load(sessionId: sessionId, assemblyPath: path, workspaceRoot: workspaceRoot, packageCacheRoot: packageCacheRoot);
             sessions.Add(key: session.SessionId, value: session);
             return session.LoadReport();
         } catch (Exception error) when (error is BadImageFormatException or FileLoadException or FileNotFoundException or InvalidOperationException or ReflectionTypeLoadException) {
-            return new(Status: BridgeWire.Failed, SessionId: sessionId, AssemblyName: null, Location: path, PdbPath: null, Assemblies: [], Fault: LoadFault(error: error));
+            return new(Status: BridgeWire.Failed, SessionId: sessionId, AssemblyName: null, Location: path, PdbPath: null, WorkspaceRoot: workspaceRoot, PackageCacheRoot: packageCacheRoot, Assemblies: [], Fault: LoadFault(error: error));
         }
     }
     private static BridgeAssemblyReport[] Assemblies() {
@@ -72,27 +73,31 @@ internal sealed class BridgeSessions : IDisposable {
 
 internal sealed class BridgeAssemblySession {
     private readonly string location;
+    private readonly string workspaceRoot;
+    private readonly string packageCacheRoot;
     private BridgeLoadContext? context;
     private Assembly? assembly;
     private BridgeAssemblyReport[] closure;
     private bool unloadRequested;
-    private BridgeAssemblySession(string sessionId, string location, BridgeLoadContext context, Assembly assembly, BridgeAssemblyReport[] closure) {
+    private BridgeAssemblySession(string sessionId, string location, string workspaceRoot, string packageCacheRoot, BridgeLoadContext context, Assembly assembly, BridgeAssemblyReport[] closure) {
         SessionId = sessionId;
         this.location = location;
+        this.workspaceRoot = workspaceRoot;
+        this.packageCacheRoot = packageCacheRoot;
         this.context = context;
         this.assembly = assembly;
         this.closure = closure;
     }
     internal string SessionId { get; }
     internal bool IsLoaded => context is not null && assembly is not null;
-    internal static BridgeAssemblySession Load(string sessionId, string assemblyPath, string workspaceRoot) {
-        BridgeLoadContext loadContext = new(assemblyPath: assemblyPath, workspaceRoot: workspaceRoot);
+    internal static BridgeAssemblySession Load(string sessionId, string assemblyPath, string workspaceRoot, string packageCacheRoot) {
+        BridgeLoadContext loadContext = new(assemblyPath: assemblyPath, packageCacheRoot: packageCacheRoot);
         try {
             Assembly loadedAssembly = loadContext.LoadFromAssemblyPath(assemblyPath);
             Assembly[] loadedClosure = loadContext.LoadClosure(root: loadedAssembly);
             string rootName = loadedAssembly.GetName().Name ?? string.Empty;
             BridgeAssemblyReport[] reports = [.. loadedClosure.Select(item => BridgeSessions.Loaded(assembly: item, required: string.Equals(a: item.GetName().Name, b: rootName, comparisonType: StringComparison.Ordinal)))];
-            return new(sessionId: sessionId, location: assemblyPath, context: loadContext, assembly: loadedAssembly, closure: reports);
+            return new(sessionId: sessionId, location: assemblyPath, workspaceRoot: workspaceRoot, packageCacheRoot: packageCacheRoot, context: loadContext, assembly: loadedAssembly, closure: reports);
         } catch {
             loadContext.Unload();
             throw;
@@ -107,6 +112,8 @@ internal sealed class BridgeAssemblySession {
             AssemblyName: assembly?.GetName().FullName,
             Location: location,
             PdbPath: Path.ChangeExtension(path: location, extension: ".pdb") is string pdb && File.Exists(pdb) ? pdb : null,
+            WorkspaceRoot: workspaceRoot,
+            PackageCacheRoot: packageCacheRoot,
             Assemblies: closure,
             Fault: null);
     internal BridgeUnloadReport Unload() {
@@ -151,12 +158,14 @@ internal sealed class BridgeLoadContext : AssemblyLoadContext {
     private readonly AssemblyDependencyResolver resolver;
     private readonly Dictionary<string, Assembly> shared;
     private readonly Dictionary<string, string> packageAssets;
-    internal BridgeLoadContext(string assemblyPath, string workspaceRoot) : base(isCollectible: true) {
+    internal BridgeLoadContext(string assemblyPath, string packageCacheRoot) : base(isCollectible: true) {
         resolver = new AssemblyDependencyResolver(assemblyPath);
         shared = SharedAssemblies();
-        packageAssets = PackageAssets(assemblyPath: assemblyPath, workspaceRoot: workspaceRoot);
+        packageAssets = PackageAssets(assemblyPath: assemblyPath, packageCacheRoot: packageCacheRoot);
     }
     internal static string HostRoot => Path.GetDirectoryName(typeof(RhinoApp).Assembly.Location) ?? string.Empty;
+    internal static string PackageCacheRoot(string workspaceRoot, string? packageCacheRoot) =>
+        string.IsNullOrWhiteSpace(value: packageCacheRoot) ? Path.Combine(path1: workspaceRoot, path2: ".cache/nuget/packages") : Path.GetFullPath(path: packageCacheRoot);
     internal Assembly[] LoadClosure(Assembly root) {
         Dictionary<string, Assembly> loaded = new(StringComparer.Ordinal);
         Queue<Assembly> pending = new();
@@ -195,9 +204,9 @@ internal sealed class BridgeLoadContext : AssemblyLoadContext {
             .Where(static assembly => !string.IsNullOrWhiteSpace(assembly.GetName().Name))
             .GroupBy(static assembly => assembly.GetName().Name!, StringComparer.Ordinal)
             .ToDictionary(static group => group.Key, static group => group.First(), StringComparer.Ordinal);
-    private static Dictionary<string, string> PackageAssets(string assemblyPath, string workspaceRoot) {
+    private static Dictionary<string, string> PackageAssets(string assemblyPath, string packageCacheRoot) {
         string deps = Path.ChangeExtension(path: assemblyPath, extension: ".deps.json");
-        string packages = Path.Combine(path1: workspaceRoot, path2: ".cache/nuget/packages");
+        string packages = Path.GetFullPath(path: packageCacheRoot);
         if (!File.Exists(path: deps) || !Directory.Exists(path: packages)) {
             return new(StringComparer.Ordinal);
         }

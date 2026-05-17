@@ -30,8 +30,26 @@ public static class BridgeWire {
         string.Equals(schema, Schema, StringComparison.Ordinal);
     public static bool IsStatus(string? status) =>
         status is Ok or Failed or Unsupported or Busy or Timeout or Skipped;
-    public static BridgeLoadRequest LoadRequest(string assemblyPath, string workspaceRoot) =>
-        new(AssemblyPath: assemblyPath, WorkspaceRoot: workspaceRoot);
+    public static bool IsOk(string? status) =>
+        string.Equals(status, Ok, StringComparison.Ordinal);
+    public static int Rank(string status) =>
+        status switch {
+            Failed or Timeout or Busy => 3,
+            Unsupported => 2,
+            Ok or Skipped => 1,
+            _ => 3,
+        };
+    public static string Worst(string current, string next) =>
+        Rank(status: next) > Rank(status: current) ? next : current;
+    public static int ExitCode(string status) =>
+        status switch {
+            Ok => 0,
+            Unsupported => 3,
+            Busy or Timeout => 5,
+            _ => 1,
+        };
+    public static BridgeLoadRequest LoadRequest(string assemblyPath, string workspaceRoot, string? packageCacheRoot = null) =>
+        new(AssemblyPath: assemblyPath, WorkspaceRoot: workspaceRoot, PackageCacheRoot: packageCacheRoot);
     public static BridgeExecuteRequest ExecuteRequest(string script, string? scriptPath, IReadOnlyList<string> references) =>
         new(Script: script, ScriptPath: scriptPath, References: references);
     public static BridgeUnloadRequest UnloadRequest(string sessionId) =>
@@ -109,14 +127,14 @@ public sealed record BridgeDoctor(
 
 public sealed record BridgeAssemblyReport(string Name, string Status, bool Required, string? Version, string? InformationalVersion, string? Location, BridgeFault? Fault);
 public sealed record BridgeSessionReport(string SessionId, string AssemblyName, string Location, string Status);
-public sealed record BridgeLoadRequest(string AssemblyPath, string WorkspaceRoot);
+public sealed record BridgeLoadRequest(string AssemblyPath, string WorkspaceRoot, string? PackageCacheRoot);
 public sealed record BridgeExecuteRequest(string Script, string? ScriptPath, IReadOnlyList<string> References);
 public sealed record BridgeUnloadRequest(string SessionId);
-public sealed record BridgeLoadReport(string Status, string? SessionId, string? AssemblyName, string? Location, string? PdbPath, IReadOnlyList<BridgeAssemblyReport> Assemblies, BridgeFault? Fault);
-public sealed record BridgeExecuteReport(string Status, int DurationMs, string BridgeAssemblyName, string BridgeAssemblyVersion, string BridgeAssemblyInformationalVersion, string RhinoVersion, bool ActiveDocument, double? ModelAbsoluteTolerance, string? ActiveDocumentName, IReadOnlyList<string> References, BridgeFault? Fault);
+public sealed record BridgeLoadReport(string Status, string? SessionId, string? AssemblyName, string? Location, string? PdbPath, string? WorkspaceRoot, string? PackageCacheRoot, IReadOnlyList<BridgeAssemblyReport> Assemblies, BridgeFault? Fault);
+public sealed record BridgeExecuteReport(string Status, int DurationMs, bool ServerExecutionCancelable, string BridgeAssemblyName, string BridgeAssemblyVersion, string BridgeAssemblyInformationalVersion, string RhinoVersion, bool ActiveDocument, double? ModelAbsoluteTolerance, string? ActiveDocumentName, IReadOnlyList<string> References, BridgeFault? Fault);
 public sealed record BridgeUnloadReport(string Status, string SessionId, bool UnloadRequested, bool Unloaded, BridgeFault? Fault);
 public sealed record BridgeQuitReport(string Status, int RhinoPid, bool ActiveDocument, bool Modified, BridgeFault? Fault);
-public sealed record BridgeOutput(string Source, string Text, bool Truncated);
+public sealed record BridgeOutput(string Source, string Text, bool Truncated, int Length, int Limit);
 public sealed record BridgeDiagnostic(string Severity, string Message, string? Source = null, string? Code = null, string? File = null, int? Line = null, int? Column = null, string? Category = null);
 public sealed record BridgeFault(string Category, string Message, string? Type = null, string? StackTrace = null, IReadOnlyList<BridgeFault>? Causes = null) {
     public static BridgeFault MessageOnly(string category, string message) => new(Category: category, Message: message);
