@@ -23,7 +23,13 @@
   <Folder Name="/tools/rhino-bridge/client/">
     <Project Path="tools/rhino-bridge/client/Rasm.RhinoBridge.Client.csproj" />
   </Folder>
-  <Folder Name="/tools/rhino-bridge/plugin/">
-    <Project Path="tools/rhino-bridge/plugin/Rasm.RhinoBridge.Plugin.csproj" />
+  <Folder Name="/tools/rhino-bridge/contracts/">
+    <Project Path="tools/rhino-bridge/contracts/Rasm.RhinoBridge.Contracts.csproj" />
   </Folder>
+<Folder Name="/tools/rhino-bridge/plugin/">
+<Project Path="tools/rhino-bridge/plugin/Rasm.RhinoBridge.Plugin.csproj" />
+</Folder>
+<Folder Name="/tools/rhino-bridge/protocol/">
+<Project Path="tools/rhino-bridge/protocol/Rasm.RhinoBridge.Protocol.csproj" />
+</Folder>
 </Solution>

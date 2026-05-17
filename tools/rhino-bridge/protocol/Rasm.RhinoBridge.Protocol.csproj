@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>RhinoWIP bridge wire protocol shared by the local client and Rhino plugin.</Description>
+        <RootNamespace>Rasm.RhinoBridge.Protocol</RootNamespace>
+    </PropertyGroup>
+</Project>

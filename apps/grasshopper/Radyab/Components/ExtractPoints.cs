@@ -15,13 +15,13 @@ public sealed class ExtractPoints : Component<ExtractPoints> {
     private static readonly OutputGroup Centroid = Output.Single(input: Geometry, port: Port.Tree<Point3d>(name: "Centroid", code: "C", info: "Mass-weighted center where native mass exists; bbox center for bounded primitives and point clouds."), aspect: Measure.SpatialMidpoint);
     private static readonly OutputGroup BBoxCenter = Output.Single(input: Geometry, port: Port.Tree<Point3d>(name: "BBox Center", code: "B", info: "Axis-aligned bounding box center for bounded geometry and primitives."), aspect: Bounds.Center);
     private static readonly OutputGroup BoundingCorners = Output.Single(input: Geometry, port: Port.Tree<Point3d>(name: "Bounding Corners", code: "BX", info: "Unique axis-aligned bounding-box corners: 8 for full 3D, 4 for planar, 2 for linear, 1 for point."), aspect: Bounds.Corners(unique: true));
-    private static readonly OutputGroup Kind = Output.Details(
+    private static readonly OutputGroup Kind = Output.Details<Topologies, Rasm.Domain.Kind>(
         input: Geometry,
         aspect: Topologies.Kind,
         emptyUnsupported: true,
         slots: [
-            Output.Aspect<Topologies, string>(port: Port.Tree<string>(name: "Kind", code: "K", info: "Detected geometry kind label.")),
-            Output.Aspect<Topologies, Topology>(port: Port.Tree<Topology>(name: "Topology", code: "T", info: "Detected topology family.")),
+            Output.Plain<Rasm.Domain.Kind, string>(port: Port.Tree<string>(name: "Kind", code: "K", info: "Detected geometry kind label."), project: static kind => kind.ToString(null, System.Globalization.CultureInfo.InvariantCulture)),
+            Output.Plain<Rasm.Domain.Kind, Topology>(port: Port.Tree<Topology>(name: "Topology", code: "T", info: "Detected topology family."), project: static kind => kind.Topology),
         ]);
     public ExtractPoints() : base(spec: ComponentSpec.Of(
         inputs: Seq<Port>(Geometry),

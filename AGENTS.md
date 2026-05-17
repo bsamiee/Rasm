@@ -39,9 +39,10 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - Keep documentation rooted in existing paths, commands, and configured tooling; remove invented or stale paths.
 
 ## [6][LIVE_RHINO_BRIDGE]
-- Source lives under `tools/rhino-bridge`: `plugin/` is the RhinoCommon `.rhp`, `client/` is the local CLI, and `jobs/` contains closed-vocabulary check jobs.
-- Use `scripts/rhino.sh bridge build` to build the bridge plugin and CLI.
-- Use `scripts/rhino.sh bridge launch` to open RhinoWIP and poll `~/.rasm/rhino-bridge.json`; it does not register or load the `.rhp`.
+- Source lives under `tools/rhino-bridge`: `contracts/` exposes only the Rhino-facing `IRhinoBridgeProbe` API, `protocol/` is the Rhino-free wire protocol shared by client/plugin, `plugin/` is the RhinoCommon `.rhp`, and `client/` is the local CLI.
+- Use `scripts/rhino.sh bridge build` to build the bridge contracts, protocol, plugin, and CLI.
+- Use `scripts/rhino.sh bridge package <version>` and `scripts/rhino.sh bridge install <local-yak-path>` for repeatable bridge plugin install.
+- Use `scripts/rhino.sh bridge launch` to open RhinoWIP and verify a `hello` round trip against `~/.rasm/rhino-bridge.json`.
 - Use `scripts/rhino.sh bridge doctor` against a running RhinoWIP session with the bridge loaded.
-- Use `scripts/rhino.sh bridge check tools/rhino-bridge/jobs/radyab-smoke.json` with a model open when checks need active document tolerances.
+- Use `scripts/rhino.sh bridge load <assembly.dll>`, `scripts/rhino.sh bridge run <session-id> [--probe <id>]`, `scripts/rhino.sh bridge unload <session-id>`, or `scripts/rhino.sh bridge check <project.csproj> [--probe <id>]` to build/load/run target assemblies inside RhinoWIP.
 - Do not automate Rhino settings or template creation from this repo. Persistent startup is owned by the plugin `LoadTime.AtStartup`; `_RasmBridgeStart` may be entered manually in Rhino settings if an operator wants a command-list fallback.

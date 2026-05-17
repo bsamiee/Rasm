@@ -6,22 +6,23 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="../../../libs/csharp/Rasm/Rasm.csproj" />
-        <ProjectReference Include="../../../libs/csharp/Rasm.Grasshopper/Rasm.Grasshopper.csproj" />
+        <ProjectReference Include="../contracts/Rasm.RhinoBridge.Contracts.csproj" />
+        <ProjectReference Include="../protocol/Rasm.RhinoBridge.Protocol.csproj" />
     </ItemGroup>
 
     <ItemGroup>
-        <Using Include="Grasshopper2.Components" />
-        <Using Include="GrasshopperIO" />
-        <Using Include="LanguageExt" />
-        <Using Include="LanguageExt.Common" />
-        <Using Include="Rasm.Analysis" />
-        <Using Include="Rasm.Domain" />
+        <Using Include="Rasm.RhinoBridge.Contracts" />
+        <Using Include="Rasm.RhinoBridge.Protocol" />
         <Using Include="Rhino" />
         <Using Include="Rhino.Commands" />
-        <Using Include="Rhino.Geometry" />
         <Using Include="Rhino.PlugIns" />
+        <Using Include="System.Diagnostics" />
         <Using Include="System.Globalization" />
+        <Using Include="System.IO.Pipes" />
         <Using Include="System.Reflection" />
+        <Using Include="System.Runtime.Loader" />
+        <Using Include="System.Runtime.Versioning" />
+        <Using Include="System.Text" />
+        <Using Include="System.Text.Json" />
     </ItemGroup>
 </Project>
