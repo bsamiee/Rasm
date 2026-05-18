@@ -57,6 +57,27 @@ public readonly record struct Shape {
                 Succ: Some,
                 Fail: _ => lease.Iter(static disposable => disposable.Dispose()) switch { _ => Option<Shape>.None });
         });
+    internal static Option<Shape> From(object raw) => Brokers.Choose(convert => convert(arg: raw)).Head;
+    private static readonly Seq<Func<object, Option<Shape>>> Brokers = toSeq(new Func<object, Option<Shape>>[] {
+        static raw => AsShape(value: raw),
+        static raw => Converted(raw: raw, value: CurveBroker.ToRhinoCurve(raw)),
+        static raw => SurfaceShape(raw: raw),
+        static raw => ConversionShape(raw: raw),
+    });
+    private static Option<Shape> AsShape(object? value) => Optional(value).Bind(static candidate => Create(value: candidate).ToOption());
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Reliability", "CA2000", Justification = "Shape owns converted Rhino geometry and disposes it after output transfer.")]
+    private static Option<Shape> SurfaceShape(object raw) =>
+        SurfaceBroker.CastOrConvert(data: raw, p1: out Surface surface, p3: out Brep brep, p4: out SubD subd) switch {
+            SurfaceLikeType.Surf => Converted(raw: raw, value: surface),
+            SurfaceLikeType.Brep => Converted(raw: raw, value: brep),
+            SurfaceLikeType.SubD => Converted(raw: raw, value: subd),
+            _ => Option<Shape>.None,
+        };
+    private static Option<Shape> ConversionShape(object raw) =>
+        ConversionServer.Convert(source: raw, targetType: typeof(GeometryBase), target: out object converted) switch {
+            true when converted is GeometryBase geometry => Converted(raw: raw, value: geometry),
+            _ => Option<Shape>.None,
+        };
 }
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct Flow<T>(Pear<T> Pear, Option<Site> Site) {
@@ -95,8 +116,10 @@ internal static class Bridge {
     internal static Fin<Seq<Flow<Shape>>> ReadShape(this IDataAccess access, int slot, Port port) {
         ArgumentNullException.ThrowIfNull(argument: access);
         ArgumentNullException.ThrowIfNull(argument: port);
-        return Read<object>(access: access, slot: slot, port: port)
-            .Bind(values => values.TraverseM(sourced => NormalizeFlow(access: access, source: sourced, port: port)).As());
+        return from factor in UnitScale(access: access)
+               from values in Read<object>(access: access, slot: slot, port: port)
+               from normalized in values.TraverseM(sourced => NormalizeFlow(access: access, source: sourced, port: port, factor: factor)).As()
+               select normalized;
     }
     internal static Fin<Seq<Flow<TVal>>> Read<TVal>(this IDataAccess access, int slot, Port port) {
         ArgumentNullException.ThrowIfNull(argument: access);
@@ -166,33 +189,11 @@ internal static class Bridge {
         Missing<TVal>(port: port).Map(static pears => pears.Map(static pear => new Flow<TVal>(Pear: pear, Site: Option<Site>.None)));
     private static Seq<Leaf<T>> Leaves<T>(Seq<Flow<T>> values) =>
         values.Map((value, index) => new Leaf<T>(pear: value.Pear, site: value.Site.IfNone(new Site(path: new Grasshopper2.Data.Path(0), item: index))));
-    private static readonly Seq<Func<object, Option<Shape>>> Brokers = toSeq(new Func<object, Option<Shape>>[] {
-        static raw => AsShape(value: raw),
-        static raw => Shape.Converted(raw: raw, value: CurveBroker.ToRhinoCurve(raw)),
-        static raw => SurfaceShape(raw: raw),
-        static raw => ConversionShape(raw: raw),
-    });
-    private static Option<Shape> NormalizeShape(object raw) => Brokers.Choose(convert => convert(arg: raw)).Head;
-    private static Option<Shape> AsShape(object? value) => Optional(value).Bind(static candidate => Shape.Create(value: candidate).ToOption());
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Reliability", "CA2000", Justification = "Shape owns converted Rhino geometry and disposes it after output transfer.")]
-    private static Option<Shape> SurfaceShape(object raw) =>
-        SurfaceBroker.CastOrConvert(data: raw, p1: out Surface surface, p3: out Brep brep, p4: out SubD subd) switch {
-            SurfaceLikeType.Surf => Shape.Converted(raw: raw, value: surface),
-            SurfaceLikeType.Brep => Shape.Converted(raw: raw, value: brep),
-            SurfaceLikeType.SubD => Shape.Converted(raw: raw, value: subd),
-            _ => Option<Shape>.None,
-        };
-    private static Option<Shape> ConversionShape(object raw) =>
-        ConversionServer.Convert(source: raw, targetType: typeof(GeometryBase), target: out object converted) switch {
-            true when converted is GeometryBase geometry => Shape.Converted(raw: raw, value: geometry),
-            _ => Option<Shape>.None,
-        };
-    private static Fin<Flow<Shape>> NormalizeFlow(IDataAccess access, Flow<object> source, Port port) =>
-        from scale in UnitScale(access: access)
-        from shape in NormalizeShape(raw: source.Item).ToFin(new UnsupportedSource(Port: port.Name, SourceType: source.Item.GetType(), Hint: Shape.Accepted))
-        from result in scale switch {
+    private static Fin<Flow<Shape>> NormalizeFlow(IDataAccess access, Flow<object> source, Port port, double factor) =>
+        from shape in Shape.From(raw: source.Item).ToFin(new UnsupportedSource(Port: port.Name, SourceType: source.Item.GetType(), Hint: Shape.Accepted))
+        from result in factor switch {
             double factor when Math.Abs(value: factor - 1.0) <= Rhino.RhinoMath.ZeroTolerance => Fin.Succ(source.Project(item: shape)),
-            double factor => ScaleShape(access: access, source: source, shape: shape, port: port, factor: factor),
+            _ => ScaleShape(access: access, source: source, shape: shape, port: port, factor: factor),
         }
         select result;
     private static Fin<Flow<Shape>> ScaleShape(IDataAccess access, Flow<object> source, Shape shape, Port port, double factor) {
@@ -203,7 +204,7 @@ internal static class Bridge {
                 false => Fin.Succ(transformed),
             })
             .Bind(transformed => shape.DisposeUnlessTransferred(outputs: Seq(transformed.Item)) switch {
-                _ => NormalizeShape(raw: transformed.Item)
+                _ => Shape.From(raw: transformed.Item)
                 .ToFin(new UnsupportedSource(Port: port.Name, SourceType: transformed.Item.GetType(), Hint: Shape.Accepted))
                 .Map(scaled => new Flow<Shape>(Pear: Pear<Shape>.Create(item: scaled, meta: transformed.Meta), Site: source.Site)),
             });

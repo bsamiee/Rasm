@@ -21,6 +21,9 @@ public sealed class IconAttribute(string name) : Attribute {
 
 // --- [MODELS] ---------------------------------------------------------------------------
 public readonly record struct ComponentItem<T>(T Value, bool Hidden = false);
+public interface IComponentDefinition<TSelf> where TSelf : IComponentDefinition<TSelf> {
+    public static abstract ComponentSpec Definition { get; }
+}
 internal interface IRasmComponent {
     public ComponentSpec Spec { get; }
 }
@@ -117,21 +120,25 @@ public abstract class Plugin : GhPlugin {
             .Concat(DuplicateTypes(candidates: components, key: "Nomen", project: type => NomenOf(type: type).Map(static n => $"{n.Chapter}/{n.Section}/{n.Name}").IfNone(string.Empty)))
             .Concat(DuplicateTypes(candidates: components, key: "category/name", project: type => NomenOf(type: type).Map(static n => $"{n.Chapter}/{n.Name}").IfNone(string.Empty)));
     }
-    private static Seq<string> Validate(Type spec) {
-        IRasmComponent probe = (IRasmComponent)Activator.CreateInstance(type: spec)!;
-        Seq<Port> inputs = probe.Spec.Inputs.Choose(static pair => Optional(pair.Value));
-        Seq<Port> outputs = probe.Spec.Outputs.Choose(static pair => Optional(pair.Value)).Map(static binding => binding.Port);
+    private static Seq<string> Validate(Type spec) =>
+        spec.GetProperty(name: "Definition", bindingAttr: BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy)?.GetValue(obj: null) switch {
+            ComponentSpec probe => Validate(spec: spec, probe: probe),
+            _ => Seq($"{spec.FullName}: missing static ComponentSpec Definition"),
+        };
+    private static Seq<string> Validate(Type spec, ComponentSpec probe) {
+        Seq<Port> inputs = probe.Inputs.Choose(static pair => Optional(pair.Value));
+        Seq<Port> outputs = probe.Outputs.Choose(static pair => Optional(pair.Value)).Map(static binding => binding.Port);
         Seq<(string Side, Seq<Port> Ports)> sides = Seq((Side: "input", Ports: inputs), (Side: "output", Ports: outputs));
         Seq<string> structural = toSeq(Seq(
             ClosedComponentSelf(type: spec) ? null : $"{spec.FullName}: Component<TSelf> does not match concrete component type",
             inputs.IsEmpty ? $"{spec.FullName}: Inputs is empty" : null,
             outputs.IsEmpty ? $"{spec.FullName}: Outputs is empty" : null).Choose(Optional));
-        Seq<string> sourceFaults = probe.Spec.Outputs.Choose(pair => Optional(pair.Value)
+        Seq<string> sourceFaults = probe.Outputs.Choose(pair => Optional(pair.Value)
             .Bind(binding => inputs.Exists(input => ReferenceEquals(objA: input, objB: binding.Input))
                 ? Option<string>.None
                 : Some($"{spec.FullName}: output input '{binding.Input.Name}' is not a declared input port instance")));
-        Seq<string> nullFaults = NullsAt(spec: spec, side: "input", count: probe.Spec.Inputs.Count, missing: i => probe.Spec.Inputs[i].Value is null)
-            .Concat(NullsAt(spec: spec, side: "output", count: probe.Spec.Outputs.Count, missing: i => probe.Spec.Outputs[i].Value is null));
+        Seq<string> nullFaults = NullsAt(spec: spec, side: "input", count: probe.Inputs.Count, missing: i => probe.Inputs[i].Value is null)
+            .Concat(NullsAt(spec: spec, side: "output", count: probe.Outputs.Count, missing: i => probe.Outputs[i].Value is null));
         Seq<string> duplicates = sides.Bind(side =>
             Duplicates(spec: spec, side: side.Side, ports: side.Ports, key: "code", project: static port => port.Code, label: static port => port.Name)
                 .Concat(Duplicates(spec: spec, side: side.Side, ports: side.Ports, key: "name", project: static port => port.Name, label: static port => port.Code)));
@@ -165,16 +172,16 @@ public abstract class Plugin<TSelf> : Plugin where TSelf : Plugin<TSelf> {
                 name: Self.Assembly.GetName().Name ?? Self.Name,
                 info: Self.Assembly.GetCustomAttribute<AssemblyDescriptionAttribute>()?.Description ?? string.Empty));
 }
-public abstract class Component<TSelf> : Grasshopper2.Components.ModularComponent, IRasmComponent where TSelf : Component<TSelf> {
-    private Seq<(Port Port, IParameter Parameter)> cachedInputs = Seq<(Port Port, IParameter Parameter)>();
-    private Seq<(Port Port, IParameter Parameter)> cachedOutputs = Seq<(Port Port, IParameter Parameter)>();
-    protected Component(ComponentSpec spec) : base(nomen: Self.GetCustomAttribute<NomenAttribute>()?.Nomen ?? new Nomen(name: Self.Name, info: string.Empty)) {
-        Spec = spec;
+public abstract class Component<TSelf> : Grasshopper2.Components.ModularComponent, IRasmComponent where TSelf : Component<TSelf>, IComponentDefinition<TSelf> {
+    private Seq<(Port Port, IParameter Parameter)> cachedInputs;
+    private Seq<(Port Port, IParameter Parameter)> cachedOutputs;
+    protected Component() : base(nomen: Self.GetCustomAttribute<NomenAttribute>()?.Nomen ?? new Nomen(name: Self.Name, info: string.Empty)) {
+        ComponentSpec spec = Spec;
         IconMode = spec.IconMode;
         Threading = spec.Threading;
     }
     private static Type Self => typeof(TSelf);
-    public ComponentSpec Spec { get; }
+    public ComponentSpec Spec => TSelf.Definition;
     protected override IIcon IconInternal => IconAttribute.Resolve(owner: Self, fallback: base.IconInternal);
     protected override void AddInputs(ModularInputAdder inputs) {
         ArgumentNullException.ThrowIfNull(argument: inputs);
