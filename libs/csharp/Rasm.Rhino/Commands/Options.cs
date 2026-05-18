@@ -109,9 +109,9 @@ public abstract record CommandOption {
             Varies: varies);
     private static ListCase List(string name, Seq<string> values, int current = 0, bool varies = false) => new(Name: name, Values: values, Current: current, Varies: varies);
     private static EnumCase<TEnum> EnumList<TEnum>(string name, TEnum initial, Seq<TEnum> values = default, bool varies = false) where TEnum : struct, Enum =>
-        new(Name: name, Initial: Some(initial), Values: values, Current: 0, Selection: false, Varies: varies);
+        new(Name: name, Initial: Some(initial), Values: values, SelectionCurrent: Option<int>.None, Varies: varies);
     private static EnumCase<TEnum> EnumSelection<TEnum>(string name, Seq<TEnum> values, int current = 0, bool varies = false) where TEnum : struct, Enum =>
-        new(Name: name, Initial: Option<TEnum>.None, Values: values, Current: current, Selection: true, Varies: varies);
+        new(Name: name, Initial: Option<TEnum>.None, Values: values, SelectionCurrent: Some(current), Varies: varies);
 
     internal abstract Fin<Bound> Add(GetBaseClass getter);
 
@@ -196,16 +196,10 @@ public abstract record CommandOption {
             false => Fin.Succ(value: values),
         };
 
-    private static Fin<int> ValidInputIndex(int index, int count) =>
+    private static Fin<int> ValidIndex(int index, int count, Error error) =>
         index switch {
             >= 0 when index < count => Fin.Succ(value: index),
-            _ => Fin.Fail<int>(error: Op.Of(name: nameof(CommandOption)).InvalidInput()),
-        };
-
-    private static Fin<int> ValidResultIndex(int index, int count) =>
-        index switch {
-            >= 0 when index < count => Fin.Succ(value: index),
-            _ => Fin.Fail<int>(error: Op.Of(name: nameof(CommandOption)).InvalidResult()),
+            _ => Fin.Fail<int>(error: error),
         };
 
     private static Option<int> EnumIndex<TEnum>(Seq<TEnum> values, TEnum value) where TEnum : struct, Enum =>
@@ -274,7 +268,7 @@ public abstract record CommandOption {
             from name in Valid(name: Name)
             from values in Values.TraverseM(ValidValue).As()
             from nonEmpty in NonEmpty(values: values)
-            from current in ValidInputIndex(index: Current, count: nonEmpty.Count)
+            from current in ValidIndex(index: Current, count: nonEmpty.Count, error: Op.Of(name: nameof(CommandOption)).InvalidInput())
             from bound in Added(
                 getter: getter,
                 index: getter.AddOptionList(name, nonEmpty.AsIterable(), current),
@@ -284,35 +278,38 @@ public abstract record CommandOption {
             select bound;
 
         private static Fin<CommandOptionValue> SnapshotAt(string name, GetBaseClass getter, Seq<string> values) =>
-            from index in ValidResultIndex(index: getter.Option().CurrentListOptionIndex, count: values.Count)
+            from index in ValidIndex(index: getter.Option().CurrentListOptionIndex, count: values.Count, error: Op.Of(name: nameof(CommandOption)).InvalidResult())
             select Snapshot(name: name, getter: getter, value: Some((object)values[index]), listIndex: Some(index));
     }
 
-    private sealed record EnumCase<TEnum>(string Name, Option<TEnum> Initial, Seq<TEnum> Values, int Current, bool Selection, bool Varies) : CommandOption(name: Name) where TEnum : struct, Enum {
+    private sealed record EnumCase<TEnum>(string Name, Option<TEnum> Initial, Seq<TEnum> Values, Option<int> SelectionCurrent, bool Varies) : CommandOption(name: Name) where TEnum : struct, Enum {
         internal override Fin<Bound> Add(GetBaseClass getter) =>
             from name in Valid(name: Name)
-            from values in Selection switch {
-                false => Fin.Succ(value: Values.IsEmpty switch { true => toSeq(global::System.Enum.GetValues<TEnum>()), false => Values }),
-                true => NonEmpty(values: Values),
+            from values in SelectionCurrent.Case switch {
+                int => NonEmpty(values: Values),
+                _ => Fin.Succ(value: Values.IsEmpty switch { true => toSeq(global::System.Enum.GetValues<TEnum>()), false => Values }),
             }
-            from current in Selection switch { false => Fin.Succ(value: Current), true => ValidInputIndex(index: Current, count: values.Count) }
+            from current in SelectionCurrent.Case switch {
+                int index => ValidIndex(index: index, count: values.Count, error: Op.Of(name: nameof(CommandOption)).InvalidInput()),
+                _ => Fin.Succ(value: 0),
+            }
             from initial in Initial.Case switch {
                 TEnum value => from _ in EnumIndex(values: values, value: value).ToFin(Fail: Op.Of(name: nameof(CommandOption)).InvalidInput())
                                select value,
                 _ => Fin.Succ(value: values[0]),
             }
-            from bound in Selection switch {
-                false => Added(
-                    getter: getter,
-                    index: Values.IsEmpty ? getter.AddOptionEnumList(name, initial) : getter.AddOptionEnumList(name, initial, [.. values]),
-                    native: null,
-                    snapshot: g => SnapshotAt(name: name, getter: g, values: values, selection: Selection),
-                    varies: Varies),
-                true => Added(
+            from bound in SelectionCurrent.Case switch {
+                int => Added(
                     getter: getter,
                     index: getter.AddOptionEnumSelectionList(name, values.AsIterable(), current),
                     native: null,
-                    snapshot: g => SnapshotAt(name: name, getter: g, values: values, selection: Selection),
+                    snapshot: g => SnapshotAt(name: name, getter: g, values: values, selection: true),
+                    varies: Varies),
+                _ => Added(
+                    getter: getter,
+                    index: Values.IsEmpty ? getter.AddOptionEnumList(name, initial) : getter.AddOptionEnumList(name, initial, [.. values]),
+                    native: null,
+                    snapshot: g => SnapshotAt(name: name, getter: g, values: values, selection: false),
                     varies: Varies),
             }
             select bound;

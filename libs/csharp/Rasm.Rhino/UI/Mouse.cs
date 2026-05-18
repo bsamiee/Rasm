@@ -1,21 +1,5 @@
 namespace Rasm.Rhino.UI;
 
-public sealed record ViewportUi<T> {
-    private readonly Func<RhinoDoc, Fin<T>> run;
-
-    internal ViewportUi(Func<RhinoDoc, Fin<T>> run) => this.run = run;
-
-    internal Fin<T> Run(RhinoDoc document) =>
-        Optional(run)
-            .ToFin(Fail: Op.Of(name: nameof(ViewportUi<T>)).InvalidInput())
-            .Bind(valid => valid(arg: document));
-}
-
-public static class ViewportUi {
-    public static ViewportUi<T> Of<T>(Func<RhinoDoc, Fin<T>> run) =>
-        new(run: run);
-}
-
 public enum MousePhase { Move, MoveEnd, Down, DownEnd, Up, UpEnd }
 
 public readonly record struct MouseContext<TState>(MousePhase Phase, TState State, global::Rhino.UI.MouseCallbackEventArgs Args);
@@ -73,11 +57,4 @@ public abstract class RasmMouseCallback<TState>(TState initial) : global::Rhino.
                 };
                 return unit;
             });
-}
-
-public sealed partial record RhinoUi {
-    public Fin<T> Viewport<T>(ViewportUi<T> operation) =>
-        Optional(operation)
-            .ToFin(Fail: Op.Of(name: nameof(Viewport)).InvalidInput())
-            .Bind(valid => OnUiThread(run: () => valid.Run(document: document)));
 }
