@@ -12,6 +12,9 @@ readonly PACKAGE_STAGE_ROOT="${ROOT_DIR}/.artifacts/rhino"
 readonly YAK_ROOT="${ROOT_DIR}/tools/yak"
 readonly YAK_PATH="${RHINO_YAK_PATH:-/Applications/RhinoWIP.app/Contents/Resources/bin/yak}"
 readonly CONFIGURATION="${CONFIGURATION:-Release}"
+readonly API_RHINO_WIP_APP_PATH="${RHINO_WIP_APP_PATH:-/Applications/RhinoWIP.app}"
+readonly API_RHINO_WIP_RESOURCES="${API_RHINO_WIP_APP_PATH}/Contents/Frameworks/RhCore.framework/Versions/A/Resources"
+readonly API_RHINO_CODE="${API_RHINO_WIP_APP_PATH}/Contents/Resources/bin/rhinocode"
 readonly BRIDGE_PROTOCOL_PROJECT="${ROOT_DIR}/tools/rhino-bridge/protocol/Rasm.RhinoBridge.Protocol.csproj"
 readonly BRIDGE_CLIENT_PROJECT="${ROOT_DIR}/tools/rhino-bridge/client/Rasm.RhinoBridge.Client.csproj"
 readonly BRIDGE_PLUGIN_PROJECT="${ROOT_DIR}/tools/rhino-bridge/plugin/Rasm.RhinoBridge.Plugin.csproj"
@@ -20,6 +23,14 @@ declare -Ar PACKAGE_PROJECTS=(
     [radyab]="${ROOT_DIR}/apps/grasshopper/Radyab/Radyab.csproj"
     [rasm-bridge]="${BRIDGE_PLUGIN_PROJECT}"
 )
+declare -Ar API_REFERENCES=(
+    [rhino-common]="${API_RHINO_WIP_RESOURCES}/RhinoCommon.dll|${API_RHINO_WIP_RESOURCES}/RhinoCommon.xml|${ROOT_DIR}/.cache/nuget/packages/rhinocommon/*/lib/net8.0/RhinoCommon.xml"
+    [rhino-ui]="${API_RHINO_WIP_RESOURCES}/Rhino.UI.dll|${API_RHINO_WIP_RESOURCES}/Rhino.UI.xml|"
+    [eto]="${API_RHINO_WIP_RESOURCES}/Eto.dll|${API_RHINO_WIP_RESOURCES}/Eto.xml|${ROOT_DIR}/.cache/nuget/packages/rhinocommon/*/lib/net8.0/Eto.xml"
+    [gh2]="${API_RHINO_WIP_RESOURCES}/ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.dll|${API_RHINO_WIP_RESOURCES}/ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.xml|${ROOT_DIR}/.cache/nuget/packages/grasshopper2/*/ref/net7.0/Grasshopper2.xml"
+    [gh2-io]="${API_RHINO_WIP_RESOURCES}/ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.dll|${API_RHINO_WIP_RESOURCES}/ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.xml|${ROOT_DIR}/.cache/nuget/packages/grasshopper2/*/ref/net7.0/GrasshopperIO.xml"
+)
+readonly -a API_REFERENCE_ORDER=(rhino-common rhino-ui eto gh2 gh2-io)
 declare -a CLEANUP_PATHS=()
 declare -a CLEANUP_LOCKS=()
 declare -a CLEANUP_ROLLBACKS=()
@@ -43,8 +54,13 @@ declare -Ar ROUTES=(
     [bridge:check-source]='_bridge_client|1|999|bridge check-source <source.cs> [client options]|check-source'
     [bridge:unload]='_bridge_client|1|1|bridge unload <session-id>|unload'
     [bridge:quit]='_bridge_client|0|0|bridge quit|quit'
+    [api:doctor]='_api_doctor|0|0|api doctor|'
+    [api:path]='_api_path|1|2|api path <api-key> [assembly/xml]|'
+    [api:xml]='_api_xml|2|2|api xml <api-key> <pattern>|'
+    [api:types]='_api_types|1|2|api types <api-key> [pattern]|'
+    [api:decompile]='_api_decompile|2|2|api decompile <api-key> <type>|'
 )
-readonly -a ROUTE_ORDER=(--self-test build bridge:build bridge:package bridge:install bridge:launch bridge:restart bridge:doctor bridge:script bridge:load bridge:load-smoke bridge:check bridge:check-source bridge:unload bridge:quit package push-test push)
+readonly -a ROUTE_ORDER=(--self-test build bridge:build bridge:package bridge:install bridge:launch bridge:restart bridge:doctor bridge:script bridge:load bridge:load-smoke bridge:check bridge:check-source bridge:unload bridge:quit api:doctor api:path api:xml api:types api:decompile package push-test push)
 readonly -a BRIDGE_PROJECTS=("${BRIDGE_PROTOCOL_PROJECT}" "${BRIDGE_PLUGIN_PROJECT}" "${BRIDGE_CLIENT_PROJECT}")
 _trap_err() {
     local -r exit_code="$?"
@@ -101,6 +117,7 @@ _usage() {
     local route handler min max line preset
     for route in "${ROUTE_ORDER[@]}"; do
         [[ "${scope}" == bridge && "${route}" != bridge:* ]] && continue
+        [[ "${scope}" == api && "${route}" != api:* ]] && continue
         _route_meta "${route}" handler min max line preset
         printf '  scripts/rhino.sh %s\n' "${line}"
     done
@@ -119,7 +136,7 @@ _dispatch() {
 }
 _self_test() {
     local command
-    for command in dotnet fd jq shellcheck; do
+    for command in dotnet fd ilspycmd jq plutil rg shellcheck; do
         command -v "${command}" >/dev/null 2>&1 || _die "${command} is required"
     done
     bash -n "${BASH_SOURCE[0]}"
@@ -233,6 +250,144 @@ _bridge_client_built() {
     }
     rm -f -- "${build_log}"
     dotnet run --no-build --project "${BRIDGE_CLIENT_PROJECT}" --configuration "${CONFIGURATION}" -- "$@" || exit "$?"
+}
+_api_meta() {
+    local -r key="$1"
+    local -n __assembly="$2" __xml="$3" __fallback="$4"
+    [[ -v API_REFERENCES["${key}"] ]] || _die "Unknown API key: ${key}"
+    IFS='|' read -r __assembly __xml __fallback <<< "${API_REFERENCES[${key}]}"
+}
+_api_fallback_xml() {
+    local -r pattern="$1"
+    [[ -n "${pattern}" ]] || return 1
+    local -a matches=()
+    mapfile -t matches < <({ compgen -G "${pattern}" || true; } | LC_ALL=C sort)
+    ((${#matches[@]} > 0)) || return 1
+    printf '%s\n' "${matches[${#matches[@]} - 1]}"
+}
+_api_xml_path() {
+    local -r key="$1"
+    local -n __path="$2" __status="$3"
+    local meta_assembly meta_xml meta_fallback
+    _api_meta "${key}" meta_assembly meta_xml meta_fallback
+    : "${meta_assembly}"
+    if [[ -f "${meta_xml}" ]]; then
+        __path="${meta_xml}"
+        __status="primary"
+        return 0
+    fi
+    if __path="$(_api_fallback_xml "${meta_fallback}")"; then
+        __status="fallback"
+        return 0
+    fi
+    __path=""
+    __status="missing"
+    return 1
+}
+_dotnet_root_valid() {
+    local -r root="$1"
+    [[ -n "${root}" && -d "${root}/host/fxr" && -d "${root}/shared/Microsoft.NETCore.App" ]]
+}
+_dotnet_root_resolve() {
+    local -a candidates=()
+    [[ -n "${DOTNET_ROOT:-}" ]] && candidates=("${DOTNET_ROOT}" "${DOTNET_ROOT}/share/dotnet")
+    candidates+=("/usr/local/share/dotnet")
+    local root
+    for root in "${candidates[@]}"; do
+        _dotnet_root_valid "${root}" && { printf '%s\n' "${root}"; return 0; }
+    done
+    return 1
+}
+_with_dotnet_apphost() {
+    local dotnet_root
+    if dotnet_root="$(_dotnet_root_resolve)"; then
+        DOTNET_ROOT="${dotnet_root}" DOTNET_MULTILEVEL_LOOKUP=0 "$@"
+        return
+    fi
+    env -u DOTNET_ROOT -u DOTNET_MULTILEVEL_LOOKUP "$@"
+}
+_api_path() {
+    local -r key="$1"
+    local -r kind="${2:-assembly}"
+    local assembly xml fallback resolved status
+    _api_meta "${key}" assembly xml fallback
+    case "${kind}" in
+        assembly)
+            [[ -f "${assembly}" ]] || _die "Missing API assembly for ${key}: ${assembly}"
+            printf '%s\n' "${assembly}"
+            ;;
+        xml)
+            _api_xml_path "${key}" resolved status || _die "Missing API XML for ${key}: ${xml}"
+            printf '%s\n' "${resolved}"
+            ;;
+        *) _die "Unknown API path kind: ${kind}" ;;
+    esac
+}
+_api_xml() {
+    local -r key="$1"
+    local -r pattern="$2"
+    local xml status
+    _api_xml_path "${key}" xml status || _die "Missing API XML for ${key}"
+    rg -n -C 2 -- "${pattern}" "${xml}"
+}
+_api_types() {
+    local -r key="$1"
+    local -r pattern="${2:-}"
+    local assembly xml fallback
+    _api_meta "${key}" assembly xml fallback
+    [[ -f "${assembly}" ]] || _die "Missing API assembly for ${key}: ${assembly}"
+    [[ -n "${pattern}" ]] && { _with_dotnet_apphost ilspycmd -l c "${assembly}" | rg -n -- "${pattern}"; return; }
+    _with_dotnet_apphost ilspycmd -l c "${assembly}"
+}
+_api_decompile() {
+    local -r key="$1"
+    local -r type_name="$2"
+    local assembly xml fallback
+    _api_meta "${key}" assembly xml fallback
+    [[ -f "${assembly}" ]] || _die "Missing API assembly for ${key}: ${assembly}"
+    _with_dotnet_apphost ilspycmd -t "${type_name}" "${assembly}"
+}
+_api_rhino_version() {
+    local -r plist="${API_RHINO_WIP_APP_PATH}/Contents/Info.plist"
+    [[ -f "${plist}" ]] || { printf 'missing'; return; }
+    plutil -extract CFBundleVersion raw -o - "${plist}" 2>/dev/null || printf 'unknown'
+}
+_api_ilspy_report() {
+    local dotnet_root status version
+    dotnet_root="$(_dotnet_root_resolve || true)"
+    status="failed"
+    version=""
+    local output
+    mkdir -p -- "${PACKAGE_STAGE_ROOT}"
+    output="$(mktemp "${PACKAGE_STAGE_ROOT}/ilspy.XXXXXXXXXX")"
+    CLEANUP_PATHS+=("${output}")
+    _with_dotnet_apphost ilspycmd --version >"${output}" 2>&1 && status="ok"
+    IFS= read -r version < "${output}" || true
+    printf 'api.ilspy.status\t%s\napi.ilspy.dotnet_root\t%s\napi.ilspy.version\t%s\n' "${status}" "${dotnet_root:-hostfxr-probe}" "${version:-unavailable}"
+}
+_api_rhinocode_report() {
+    local direct roll
+    [[ -x "${API_RHINO_CODE}" ]] || { printf 'api.rhinocode.path\t%s\napi.rhinocode.direct\tmissing\napi.rhinocode.roll_forward\tmissing\n' "${API_RHINO_CODE}"; return; }
+    direct=0
+    roll=0
+    "${API_RHINO_CODE}" list --json >/dev/null 2>&1 || direct="$?"
+    DOTNET_ROLL_FORWARD=Major "${API_RHINO_CODE}" list --json >/dev/null 2>&1 || roll="$?"
+    printf 'api.rhinocode.path\t%s\napi.rhinocode.direct\t%s\napi.rhinocode.roll_forward\t%s\n' "${API_RHINO_CODE}" "${direct}" "${roll}"
+}
+_api_doctor() {
+    printf 'api.rhino.app\t%s\napi.rhino.version\t%s\n' "${API_RHINO_WIP_APP_PATH}" "$(_api_rhino_version)"
+    _api_ilspy_report
+    _api_rhinocode_report
+    local key assembly xml fallback resolved status assembly_status
+    for key in "${API_REFERENCE_ORDER[@]}"; do
+        _api_meta "${key}" assembly xml fallback
+        : "${fallback}"
+        assembly_status="missing"
+        [[ -f "${assembly}" ]] && assembly_status="present"
+        _api_xml_path "${key}" resolved status || true
+        printf 'api.ref.%s.assembly\t%s\t%s\n' "${key}" "${assembly_status}" "${assembly}"
+        printf 'api.ref.%s.xml\t%s\t%s\n' "${key}" "${status}" "${resolved:-${xml}}"
+    done
 }
 _bridge_install() {
     local -r package_path="$1"
@@ -366,6 +521,12 @@ _main() {
         local -r bridge_command="${1:-}"
         [[ -n "${bridge_command}" ]] || _die_usage bridge
         route="bridge:${bridge_command}"
+        shift
+    fi
+    if [[ "${route}" == api ]]; then
+        local -r api_command="${1:-}"
+        [[ -n "${api_command}" ]] || _die_usage api
+        route="api:${api_command}"
         shift
     fi
     _dispatch "${route}" "$@"

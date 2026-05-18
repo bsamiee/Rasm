@@ -80,6 +80,11 @@ Run commands from repository root.
 | **12** | `scripts/rhino.sh bridge quit` | Ask Rhino to exit only when open documents have no unsaved changes. |
 | **13** | `scripts/rhino.sh bridge package <version>` | Build bridge `.rhp`, run Yak in staged directory, and create a local package. |
 | **14** | `scripts/rhino.sh bridge install <package.yak>` | Install bridge package, restart or launch RhinoWIP, then verify live version. |
+| **15** | `scripts/rhino.sh api doctor` | Report local RhinoWIP API XML, ILSpy, and RhinoCode metadata availability. |
+| **16** | `scripts/rhino.sh api path <key> [assembly\|xml]` | Print the resolved assembly or XML path for an API reference key. |
+| **17** | `scripts/rhino.sh api xml <key> <pattern>` | Search the resolved XML documentation with `rg`. |
+| **18** | `scripts/rhino.sh api types <key> [pattern]` | List assembly types through ILSpy, optionally filtered by pattern. |
+| **19** | `scripts/rhino.sh api decompile <key> <type>` | Decompile a type through ILSpy for assemblies without XML. |
 
 ### [3.1][PRIMARY_USAGE]
 
@@ -106,6 +111,30 @@ scripts/rhino.sh bridge check-source <real-source.cs> --script <real-diagnostic-
 ```
 
 Expected result: `"status": "ok"` when the script compiles against generated `#r` directives from `HostFilteredRuntimeReferences` and exercises real Rhino behavior. Do not create throwaway proof scripts except when changing bridge reference projection itself.
+
+Verify local API metadata:
+
+```bash
+scripts/rhino.sh api doctor
+```
+
+Expected result: tab-separated evidence for RhinoWIP app version, ILSpy host status, RhinoCode direct and roll-forward status, and each API key's assembly/XML state.
+
+Search Grasshopper2 XML:
+
+```bash
+scripts/rhino.sh api xml gh2 IDataAccess
+```
+
+Expected result: `rg` matches from the resolved `Grasshopper2.xml` path.
+
+Inspect Rhino UI metadata when XML is absent:
+
+```bash
+scripts/rhino.sh api decompile rhino-ui Rhino.UI.DataSerializer
+```
+
+Expected result: decompiled C# from `Rhino.UI.dll` through ILSpy using a normalized .NET apphost environment.
 
 ### [3.2][OPTIONS]
 
@@ -185,6 +214,12 @@ Output blocks include `source`, `text`, `truncated`, `length`, and `limit`. Trea
 
 The client emits runtime reference projections from one evaluated project build. Generated RhinoCode scripts apply references by prepending `#r` directives before submission. `BridgeExecuteRequest.References` is reported metadata today; the plugin does not independently apply that field during execution.
 
+API metadata lookup uses local sources in this order:
+1. RhinoWIP app-bundle XML for `RhinoCommon`, `Grasshopper2`, and `GrasshopperIO`.
+2. Repo NuGet cache XML only when app-bundle XML is missing, especially `Eto.xml`.
+3. ILSpy metadata/decompilation for assemblies without XML, especially `Rhino.UI.dll`.
+4. RhinoCode CLI only as supplemental environment evidence; in-process bridge execution remains runtime authority.
+
 | [INDEX] | [REFERENCE_SET] | [USE] |
 | :-----: | --------------- | ----- |
 | **1** | `RuntimeReferences` | Runtime assets excluding target assembly; smoke scripts load target directly from `targetLocation`. |
@@ -209,6 +244,7 @@ The client emits runtime reference projections from one evaluated project build.
 | **6** | already-loaded mismatch | Rhino has simple-name assembly loaded from different path or assembly version. | Restart Rhino or change target identity; do not accept stale success. |
 | **7** | `loadedLocation=none` | Target assembly loaded without a path-backed location. | Treat as missing post-load identity evidence; normal fresh loads report `targetAssembly.Location`. |
 | **8** | `unsupported` source check | Source build is valid, but no runtime script was supplied. | Add `--script` only when runtime behavior needs Rhino evidence. |
+| **9** | `ilspycmd` apphost failure | Effective `DOTNET_ROOT` does not point at a hostfxr/runtime root. | Use `api doctor`; fix apphost environment, not `Directory.Build.props` or Rhino references. |
 
 ---
 ## [7][UPDATE_RULES]
@@ -244,6 +280,11 @@ bash -n scripts/rhino.sh
 shellcheck scripts/rhino.sh
 scripts/rhino.sh --self-test
 git diff --check -- scripts/rhino.sh tools/rhino-bridge
+scripts/rhino.sh api doctor
+scripts/rhino.sh api path rhino-common xml
+scripts/rhino.sh api xml gh2 IDataAccess
+scripts/rhino.sh api types rhino-ui Panels
+scripts/rhino.sh api decompile rhino-ui Rhino.UI.DataSerializer
 scripts/rhino.sh bridge build
 pnpm check:cs
 scripts/rhino.sh bridge doctor
