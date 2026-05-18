@@ -104,7 +104,6 @@ public static partial class Analyze {
         return Operation<Surface, Curve>.Build(
             key: key, requirement: Requirement.SurfaceEvaluation, state: (Key: key, Iso: iso, Normalized: normalized),
             evaluator: static (state, geometry) =>
-                from context in Env.Asks
                 from curves in IsoSeq(surface: geometry, iso: state.Iso, normalized: state.Normalized, op: state.Key).ToEff()
                 from result in state.Key.Accept(values: curves).ToEff()
                 select result);

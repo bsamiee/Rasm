@@ -43,6 +43,14 @@ public sealed partial record Requirement {
             object brepLike when GeometryKernel.CanCoerce(source: brepLike.GetType(), target: typeof(Brep)) => RunLeaseChecks(lease: GeometryKernel.BrepForm(source: brepLike, op: Op.Of(name: "Operand")), checks: checks, context: context, original: original, cancel: cancel),
             _ => Op.Of(name: "Operand").AcceptValue(value: original).ToValidation(),
         };
+    private static Validation<Error, T> RunChecks<T>(Seq<Check> checks, Context context, GeometryBase geometry, T original, CancellationToken cancel) where T : notnull =>
+        checks
+            .Fold(
+                initialState: (Value: Fin.Succ(unit).ToValidation(), Context: context, Geometry: geometry, Original: original, Cancel: cancel),
+                f: static (rail, check) => rail with { Value = (rail.Value, check.Apply(context: rail.Context, geometry: rail.Geometry, cancel: rail.Cancel).ToValidation()).Apply(static (_, _) => unit).As() })
+            switch {
+                (Validation<Error, Unit> validation, _, _, T value, _) => (validation, Fin.Succ(value).ToValidation()).Apply(static (_, item) => item).As(),
+            };
     private static Validation<Error, T> RunLeaseChecks<T, TGeometry>(Fin<Lease<TGeometry>> lease, Seq<Check> checks, Context context, T original, CancellationToken cancel)
         where T : notnull
         where TGeometry : GeometryBase =>
@@ -53,14 +61,6 @@ public sealed partial record Requirement {
                 project: static (state, geometry) => RunChecks(checks: state.Checks, context: state.Context, geometry: geometry, original: state.Original, cancel: state.Cancel)))
             .Bind(static validation => validation)
             .As();
-    private static Validation<Error, T> RunChecks<T>(Seq<Check> checks, Context context, GeometryBase geometry, T original, CancellationToken cancel) where T : notnull =>
-        checks
-            .Fold(
-                initialState: (Value: Fin.Succ(unit).ToValidation(), Context: context, Geometry: geometry, Original: original, Cancel: cancel),
-                f: static (rail, check) => rail with { Value = (rail.Value, check.Apply(context: rail.Context, geometry: rail.Geometry, cancel: rail.Cancel).ToValidation()).Apply(static (_, _) => unit).As() })
-            switch {
-                (Validation<Error, Unit> validation, _, _, T value, _) => (validation, Fin.Succ(value).ToValidation()).Apply(static (_, item) => item).As(),
-            };
     public static readonly Requirement None = new(checks: Seq<Check>());
     public static readonly Requirement Basic = new(checks: Seq(Check.Validity, Check.UsableBounds));
     public static readonly Requirement CurveLength = Basic + Single(check: Check.CurveLengthReadiness);
@@ -157,10 +157,10 @@ internal static class RequirementContext {
         Func<Op, Kind, Kind, Fin<(Requirement A, Requirement B)>> requirements,
         CancellationToken cancel = default) where TA : notnull where TB : notnull =>
         (from pair in context.Validate(a: a, b: b, requirementA: Requirement.None, requirementB: Requirement.None, cancel: cancel)
-         from kindA in ((object)a).KindOf(context: context).ToValidation()
-         from kindB in ((object)b).KindOf(context: context).ToValidation()
+         from kindA in ((object)pair.A).KindOf(context: context).ToValidation()
+         from kindB in ((object)pair.B).KindOf(context: context).ToValidation()
          from required in requirements(arg1: op, arg2: kindA, arg3: kindB).ToValidation()
-         from validated in context.Validate(a: a, b: b, requirementA: required.A, requirementB: required.B, cancel: cancel)
+         from validated in context.Validate(a: pair.A, b: pair.B, requirementA: required.A, requirementB: required.B, cancel: cancel)
          select (validated.A, validated.B, KindA: kindA, KindB: kindB)).As();
 }
 

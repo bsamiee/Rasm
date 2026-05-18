@@ -214,7 +214,7 @@ public sealed record CommandInput {
         Func<TGetter, GetResult> receive,
         Func<CommandInput, TGetter, GetResult, Option<TValue>> value,
         Func<TGetter, Fin<Unit>>? configure = null,
-        Func<TGetter, GetResult, ReadState, ReadStep>? transition = null) where TGetter : GetBaseClass, IDisposable =>
+        Func<TGetter, GetResult, Option<CommandOptionValue>, (bool Continue, Option<CommandOptionValue> Selected)>? transition = null) where TGetter : GetBaseClass, IDisposable =>
         CommandRequest<TValue>.Of(read: input => {
             using TGetter getter = create();
             return from _ in SameDocument(expected: document, actual: input.Document)
@@ -225,7 +225,7 @@ public sealed record CommandInput {
                        options: CommandPolicy<TGetter>.OptionSet(policies: policies),
                        receive: () => receive(arg: getter),
                        value: (g, raw) => value(arg1: input, arg2: g, arg3: raw),
-                       transition: transition ?? Stay)
+                       transition: transition ?? (static (_, _, selected) => (Continue: false, Selected: selected)))
                    select result;
         });
 
@@ -240,7 +240,7 @@ public sealed record CommandInput {
         Seq<CommandOption> options,
         Func<GetResult> receive,
         Func<TGetter, GetResult, Option<TValue>> value,
-        Func<TGetter, GetResult, ReadState, ReadStep> transition) where TGetter : GetBaseClass =>
+        Func<TGetter, GetResult, Option<CommandOptionValue>, (bool Continue, Option<CommandOptionValue> Selected)> transition) where TGetter : GetBaseClass =>
         Optional(getter)
             .ToFin(Fail: Op.Of(name: nameof(ReadWith)).InvalidInput())
             .Bind(g => CommandOption.Bind(options: options, getter: g).Bind(scope => {
@@ -250,7 +250,7 @@ public sealed record CommandInput {
                     scope: active,
                     receive: receive,
                     value: value,
-                    state: new ReadState(Selected: Option<CommandOptionValue>.None),
+                    selected: Option<CommandOptionValue>.None,
                     transition: transition);
             }));
 
@@ -259,19 +259,17 @@ public sealed record CommandInput {
         CommandOption.Scope scope,
         Func<GetResult> receive,
         Func<TGetter, GetResult, Option<TValue>> value,
-        ReadState state,
-        Func<TGetter, GetResult, ReadState, ReadStep> transition) where TGetter : GetBaseClass =>
+        Option<CommandOptionValue> selected,
+        Func<TGetter, GetResult, Option<CommandOptionValue>, (bool Continue, Option<CommandOptionValue> Selected)> transition) where TGetter : GetBaseClass =>
         receive() switch {
             GetResult.Cancel => Fin.Fail<CommandGet<TValue>>(error: new Fault.Cancelled()),
-            GetResult.Option => scope.Snapshot(getter: getter).Bind(option => transition(getter, GetResult.Option, state with { Selected = Some(option) }) switch {
-                ReadStep.Continue next => ReadLoop(getter: getter, scope: scope, receive: receive, value: value, state: next.State, transition: transition),
-                ReadStep.Complete next => Fin.Succ(value: CommandGet<TValue>.Of(getter: getter, raw: GetResult.Option, value: Project(value: value(getter, GetResult.Option), option: next.State.Selected), option: next.State.Selected)),
-                _ => Fin.Fail<CommandGet<TValue>>(error: Op.Of(name: nameof(ReadLoop)).InvalidResult()),
+            GetResult.Option => scope.Snapshot(getter: getter).Bind(option => transition(getter, GetResult.Option, Some(option)) switch {
+                (true, Option<CommandOptionValue> next) => ReadLoop(getter: getter, scope: scope, receive: receive, value: value, selected: next, transition: transition),
+                (false, Option<CommandOptionValue> next) => Fin.Succ(value: CommandGet<TValue>.Of(getter: getter, raw: GetResult.Option, value: Project(value: value(getter, GetResult.Option), option: next), option: next)),
             }),
-            GetResult raw => transition(getter, raw, state) switch {
-                ReadStep.Continue next => ReadLoop(getter: getter, scope: scope, receive: receive, value: value, state: next.State, transition: transition),
-                ReadStep.Complete next => Fin.Succ(value: CommandGet<TValue>.Of(getter: getter, raw: raw, value: Project(value: value(getter, raw), option: next.State.Selected), option: next.State.Selected)),
-                _ => Fin.Fail<CommandGet<TValue>>(error: Op.Of(name: nameof(ReadLoop)).InvalidResult()),
+            GetResult raw => transition(getter, raw, selected) switch {
+                (true, Option<CommandOptionValue> next) => ReadLoop(getter: getter, scope: scope, receive: receive, value: value, selected: next, transition: transition),
+                (false, Option<CommandOptionValue> next) => Fin.Succ(value: CommandGet<TValue>.Of(getter: getter, raw: raw, value: Project(value: value(getter, raw), option: next), option: next)),
             },
         };
 
@@ -298,19 +296,16 @@ public sealed record CommandInput {
         return reference.ObjectId;
     }
 
-    private static ReadStep ObjectTransition(GetObject getter, GetResult raw, ReadState state) =>
+    private static (bool Continue, Option<CommandOptionValue> Selected) ObjectTransition(GetObject getter, GetResult raw, Option<CommandOptionValue> selected) =>
         raw switch {
-            GetResult.Option => DisablePreSelect(getter: getter, state: state),
-            _ => new ReadStep.Complete(State: state),
+            GetResult.Option => DisablePreSelect(getter: getter, selected: selected),
+            _ => (Continue: false, Selected: selected),
         };
 
-    private static ReadStep.Continue DisablePreSelect(GetObject getter, ReadState state) {
+    private static (bool Continue, Option<CommandOptionValue> Selected) DisablePreSelect(GetObject getter, Option<CommandOptionValue> selected) {
         getter.EnablePreSelect(false, true);
-        return new(State: state);
+        return (Continue: true, Selected: selected);
     }
-
-    private static ReadStep.Complete Stay<TGetter>(TGetter getter, GetResult raw, ReadState state) where TGetter : GetBaseClass =>
-        new(State: state);
 
     private static Fin<Unit> Limits(GetNumber getter, Option<double> lower, Option<double> upper, bool strictlyLower, bool strictlyUpper) {
         _ = lower.Iter(value => getter.SetLowerLimit(value, strictlyLower));
@@ -322,12 +317,5 @@ public sealed record CommandInput {
         _ = lower.Iter(value => getter.SetLowerLimit(value, strictlyLower));
         _ = upper.Iter(value => getter.SetUpperLimit(value, strictlyUpper));
         return Fin.Succ(value: unit);
-    }
-
-    private readonly record struct ReadState(Option<CommandOptionValue> Selected);
-    private abstract record ReadStep {
-        private protected ReadStep() { }
-        internal sealed record Continue(ReadState State) : ReadStep;
-        internal sealed record Complete(ReadState State) : ReadStep;
     }
 }

@@ -145,20 +145,20 @@ public static partial class Analyze {
             Fin.Succ((IntersectionResult)new IntersectionResult.Intervals(Intersection.LineBox(a, b, context.Absolute.Value, out Interval iv) ? SegmentInterval(iv) : Seq<Interval>()))),
         IntersectionCase.Pair<Line, Box>(IntersectionResult.IntervalsShape, static (a, b, context, _, _, _) =>
             Fin.Succ((IntersectionResult)new IntersectionResult.Intervals(Intersection.LineBox(a, b, context.Absolute.Value, out Interval iv) ? SegmentInterval(iv) : Seq<Interval>()))),
-        IntersectionCase.Pair<Line, Curve>(IntersectionResult.HitsShape, static (a, b, context, op, _, _) =>
-            CurveAgainst(a: b, b: a, context: context, op: op, intersect: static (c, l, t) => Intersection.CurveLine(c, l, t, t), finiteLine: Some(a))),
-        IntersectionCase.Pair<Curve, Curve>(IntersectionResult.HitsShape, static (a, b, context, op, cancel, _) =>
-            new Lease<CurveIntersections>.Owned(Value: Intersection.CurveCurve(a, b, context.Absolute.Value, context.Absolute.Value)).Use(hits => cancel.IsCancellationRequested ? Fin.Fail<IntersectionResult>(new Fault.Cancelled()) : HitsFromEvents(hits: hits, op: op, source: a))),
-        IntersectionCase.Pair<Curve, Plane>(IntersectionResult.HitsShape, static (a, b, context, op, _, _) =>
-            CurveAgainst(a: a, b: b, context: context, op: op, intersect: static (c, p, t) => Intersection.CurvePlane(c, p, t))),
-        IntersectionCase.Pair<Curve, Line>(IntersectionResult.HitsShape, static (a, b, context, op, _, _) =>
-            CurveAgainst(a: a, b: b, context: context, op: op, intersect: static (c, l, t) => Intersection.CurveLine(c, l, t, t), finiteLine: Some(b))),
+        IntersectionCase.Pair<Line, Curve>(IntersectionResult.HitsShape, static (a, b, context, _, _, _) =>
+            CurveAgainst(a: b, b: a, context: context, intersect: static (c, l, t) => Intersection.CurveLine(c, l, t, t), finiteLine: Some(a))),
+        IntersectionCase.Pair<Curve, Curve>(IntersectionResult.HitsShape, static (a, b, context, _, cancel, _) =>
+            new Lease<CurveIntersections>.Owned(Value: Intersection.CurveCurve(a, b, context.Absolute.Value, context.Absolute.Value)).Use(hits => cancel.IsCancellationRequested ? Fin.Fail<IntersectionResult>(new Fault.Cancelled()) : HitsFromEvents(hits: hits, source: a))),
+        IntersectionCase.Pair<Curve, Plane>(IntersectionResult.HitsShape, static (a, b, context, _, _, _) =>
+            CurveAgainst(a: a, b: b, context: context, intersect: static (c, p, t) => Intersection.CurvePlane(c, p, t))),
+        IntersectionCase.Pair<Curve, Line>(IntersectionResult.HitsShape, static (a, b, context, _, _, _) =>
+            CurveAgainst(a: a, b: b, context: context, intersect: static (c, l, t) => Intersection.CurveLine(c, l, t, t), finiteLine: Some(b))),
         IntersectionCase.Pair<Curve, BrepFace>(IntersectionResult.HitsShape, static (a, b, context, op, cancel, _) =>
             HitsFromSolved(solved: Intersection.CurveBrepFace(a, b, context.Absolute.Value, out Curve[] cs, out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Overlap, op: op, cancel: cancel)),
         IntersectionCase.Pair<Curve, Brep>(IntersectionResult.HitsShape, static (a, b, context, op, cancel, _) =>
             HitsFromSolved(solved: Intersection.CurveBrep(a, b, context.Absolute.Value, out Curve[] cs, out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Overlap, op: op, cancel: cancel, partial: true)),
-        IntersectionCase.Pair<Curve, Surface>(IntersectionResult.HitsShape, static (a, b, context, op, _, _) =>
-            CurveAgainst(a: a, b: b, context: context, op: op, intersect: static (c, s, t) => Intersection.CurveSurface(c, s, t, t))),
+        IntersectionCase.Pair<Curve, Surface>(IntersectionResult.HitsShape, static (a, b, context, _, _, _) =>
+            CurveAgainst(a: a, b: b, context: context, intersect: static (c, s, t) => Intersection.CurveSurface(c, s, t, t))),
         IntersectionCase.Pair<Surface, Surface>(IntersectionResult.HitsShape, static (a, b, context, op, cancel, _) =>
             HitsFromSolved(solved: Intersection.SurfaceSurface(a, b, context.Absolute.Value, out Curve[] cs, out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Curve, op: op, cancel: cancel)),
         IntersectionCase.Pair<Brep, Plane>(IntersectionResult.HitsShape, static (a, b, context, op, cancel, _) =>
@@ -244,7 +244,7 @@ public static partial class Analyze {
     internal static Fin<IntersectionResult> SelfIntersectionOf<TGeometry>(TGeometry geometry, Context context, Op op, CancellationToken cancel, IProgress<double>? progress) where TGeometry : notnull =>
         Optional(geometry).ToFin(op.InvalidInput()).Bind(g => (cancel.IsCancellationRequested, g) switch {
             (true, _) => Fin.Fail<IntersectionResult>(new Fault.Cancelled()),
-            (_, Curve curve) => new Lease<CurveIntersections>.Owned(Value: Intersection.CurveSelf(curve: curve, tolerance: context.Absolute.Value)).Use(hits => HitsFromEvents(hits: hits, op: op, source: curve)),
+            (_, Curve curve) => new Lease<CurveIntersections>.Owned(Value: Intersection.CurveSelf(curve: curve, tolerance: context.Absolute.Value)).Use(hits => HitsFromEvents(hits: hits, source: curve)),
             (_, Mesh mesh) => new Lease<TextLog>.Owned(Value: new TextLog()).Use(log =>
                 mesh.GetSelfIntersections(tolerance: context.MeshIntersectionTolerance, perforations: out Polyline[] perforations, overlapsPolylines: true, overlapsPolylinesResult: out Polyline[] overlaps, overlapsMesh: false, overlapsMeshResult: out Mesh _, textLog: log, cancel: cancel, progress: progress) switch {
                     true => Fin.Succ((IntersectionResult)new IntersectionResult.Hits(
@@ -305,7 +305,7 @@ public static partial class Analyze {
                 interval.T0 <= interval.T1 ? Math.Min(max, 1.0) : Math.Max(min, 0.0))),
             _ => Seq<Interval>(),
         };
-    private static Fin<IntersectionResult> HitsFromEvents(CurveIntersections? hits, Op op, Curve? source = null, Option<Line> finiteLine = default, double tolerance = 0.0) =>
+    private static Fin<IntersectionResult> HitsFromEvents(CurveIntersections? hits, Curve? source = null, Option<Line> finiteLine = default, double tolerance = 0.0) =>
         hits switch {
             CurveIntersections native => Fin.Succ((IntersectionResult)new IntersectionResult.Hits(toSeq(native.AsIterable().SelectMany(h => h switch {
                 { IsPoint: true } when finiteLine.Map(l => OnFiniteLine(line: l, point: h.PointB, tolerance: tolerance)).IfNone(true) => Seq(IntersectionHit.At(h.PointA)),
@@ -326,9 +326,9 @@ public static partial class Analyze {
                 _ => Fin.Fail<IntersectionResult>(op.InvalidResult()),
             },
         };
-    private static Fin<IntersectionResult> CurveAgainst<TRight>(Curve a, TRight b, Context context, Op op, Func<Curve, TRight, double, CurveIntersections?> intersect, Option<Line> finiteLine = default) {
+    private static Fin<IntersectionResult> CurveAgainst<TRight>(Curve a, TRight b, Context context, Func<Curve, TRight, double, CurveIntersections?> intersect, Option<Line> finiteLine = default) {
         using CurveIntersections? hits = intersect(arg1: a, arg2: b, arg3: context.Absolute.Value);
-        return HitsFromEvents(hits: hits, op: op, source: a, finiteLine: finiteLine, tolerance: finiteLine.IsSome ? context.Absolute.Value : 0.0);
+        return HitsFromEvents(hits: hits, source: a, finiteLine: finiteLine, tolerance: finiteLine.IsSome ? context.Absolute.Value : 0.0);
     }
     internal static Fin<CurveDeviation> CurveDeviationOf(Curve left, Curve right, Context context, Op op) =>
         Curve.GetDistancesBetweenCurves(curveA: left, curveB: right, tolerance: context.Absolute.Value, maxDistance: out double maxDist, maxDistanceParameterA: out double maxA, maxDistanceParameterB: out double maxB, minDistance: out double minDist, minDistanceParameterA: out double minA, minDistanceParameterB: out double minB) switch {

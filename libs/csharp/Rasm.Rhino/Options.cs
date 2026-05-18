@@ -15,6 +15,7 @@ public abstract record CommandOption {
     private delegate int RefOptionBinder<TNative>(GetBaseClass getter, string name, ref TNative native, Option<string> prompt) where TNative : IDisposable;
     private delegate int RefOptionPlainBinder<TNative>(GetBaseClass getter, string name, ref TNative native) where TNative : IDisposable;
     private delegate int RefOptionPromptBinder<TNative>(GetBaseClass getter, string name, ref TNative native, string prompt) where TNative : IDisposable;
+    private enum EnumOptionMode { List, Selection }
 
     public string Name { get; }
 
@@ -29,7 +30,7 @@ public abstract record CommandOption {
     public static CommandOption Number(string name, double initial, Option<double> lower = default, Option<double> upper = default, string? prompt = null) =>
         new RefOptionCase<OptionDouble, double>(
             Name: name,
-            CreateNative: () => Fin.Succ(value: NumberOption(initial: initial, lower: lower, upper: upper)),
+            CreateNative: () => Fin.Succ(value: BoundedOption(initial: initial, lower: lower, upper: upper, unconstrained: static (double value) => new OptionDouble(value), single: static (double value, bool isLower, double bound) => new OptionDouble(value, isLower, bound), bounded: static (double value, double lo, double hi) => new OptionDouble(value, lo, hi))),
             Prompt: Optional(prompt),
             BindNative: Prompted(
                 plain: static (GetBaseClass getter, string name, ref OptionDouble native) => getter.AddOptionDouble(name, ref native),
@@ -38,7 +39,7 @@ public abstract record CommandOption {
     public static CommandOption Integer(string name, int initial, Option<int> lower = default, Option<int> upper = default, string? prompt = null) =>
         new RefOptionCase<OptionInteger, int>(
             Name: name,
-            CreateNative: () => Fin.Succ(value: IntegerOption(initial: initial, lower: lower, upper: upper)),
+            CreateNative: () => Fin.Succ(value: BoundedOption(initial: initial, lower: lower, upper: upper, unconstrained: static (int value) => new OptionInteger(value), single: static (int value, bool isLower, int bound) => new OptionInteger(value, isLower, bound), bounded: static (int value, int lo, int hi) => new OptionInteger(value, lo, hi))),
             Prompt: Optional(prompt),
             BindNative: Prompted(
                 plain: static (GetBaseClass getter, string name, ref OptionInteger native) => getter.AddOptionInteger(name, ref native),
@@ -63,8 +64,10 @@ public abstract record CommandOption {
                 prompted: static (GetBaseClass getter, string name, ref OptionColor native, string label) => getter.AddOptionColor(name, ref native, label)),
             Current: static native => native.CurrentValue);
     public static CommandOption List(string name, Seq<string> values, int current = 0) => new ListCase(Name: name, Values: values, Current: current);
-    public static CommandOption EnumList<TEnum>(string name, TEnum initial, Seq<TEnum> values = default) where TEnum : struct, Enum => new EnumListCase<TEnum>(Name: name, Initial: initial, Values: values);
-    public static CommandOption EnumSelection<TEnum>(string name, Seq<TEnum> values, int current = 0) where TEnum : struct, Enum => new EnumSelectionCase<TEnum>(Name: name, Values: values, Current: current);
+    public static CommandOption EnumList<TEnum>(string name, TEnum initial, Seq<TEnum> values = default) where TEnum : struct, Enum =>
+        new EnumCase<TEnum>(Name: name, Initial: Some(initial), Values: values, Current: 0, Mode: EnumOptionMode.List);
+    public static CommandOption EnumSelection<TEnum>(string name, Seq<TEnum> values, int current = 0) where TEnum : struct, Enum =>
+        new EnumCase<TEnum>(Name: name, Initial: Option<TEnum>.None, Values: values, Current: current, Mode: EnumOptionMode.Selection);
 
     internal abstract Fin<Bound> Add(GetBaseClass getter);
 
@@ -81,20 +84,18 @@ public abstract record CommandOption {
             .Bind(g => options.TraverseM(option => option.Add(getter: g)).As())
             .Map(static bounds => new Scope(bounds: bounds));
 
-    private static OptionDouble NumberOption(double initial, Option<double> lower, Option<double> upper) =>
+    private static TNative BoundedOption<TValue, TNative>(
+        TValue initial,
+        Option<TValue> lower,
+        Option<TValue> upper,
+        Func<TValue, TNative> unconstrained,
+        Func<TValue, bool, TValue, TNative> single,
+        Func<TValue, TValue, TValue, TNative> bounded) =>
         (lower, upper) switch {
-            ( { IsSome: true } lo, { IsSome: true } hi) => new OptionDouble(initial, lo.IfNone(initial), hi.IfNone(initial)),
-            ( { IsSome: true } lo, _) => new OptionDouble(initial, true, lo.IfNone(initial)),
-            (_, { IsSome: true } hi) => new OptionDouble(initial, false, hi.IfNone(initial)),
-            _ => new OptionDouble(initial),
-        };
-
-    private static OptionInteger IntegerOption(int initial, Option<int> lower, Option<int> upper) =>
-        (lower, upper) switch {
-            ( { IsSome: true } lo, { IsSome: true } hi) => new OptionInteger(initial, lo.IfNone(initial), hi.IfNone(initial)),
-            ( { IsSome: true } lo, _) => new OptionInteger(initial, true, lo.IfNone(initial)),
-            (_, { IsSome: true } hi) => new OptionInteger(initial, false, hi.IfNone(initial)),
-            _ => new OptionInteger(initial),
+            ( { IsSome: true } lo, { IsSome: true } hi) => bounded(arg1: initial, arg2: lo.IfNone(initial), arg3: hi.IfNone(initial)),
+            ( { IsSome: true } lo, _) => single(arg1: initial, arg2: true, arg3: lo.IfNone(initial)),
+            (_, { IsSome: true } hi) => single(arg1: initial, arg2: false, arg3: hi.IfNone(initial)),
+            _ => unconstrained(arg: initial),
         };
 
     private static RefOptionBinder<TNative> Plain<TNative>(RefOptionPlainBinder<TNative> bind) where TNative : IDisposable =>
@@ -214,44 +215,30 @@ public abstract record CommandOption {
             select Snapshot(name: name, getter: getter, value: Some((object)values[index]), listIndex: Some(index));
     }
 
-    private sealed record EnumListCase<TEnum>(string Name, TEnum Initial, Seq<TEnum> Values) : CommandOption(name: Name) where TEnum : struct, Enum {
+    private sealed record EnumCase<TEnum>(string Name, Option<TEnum> Initial, Seq<TEnum> Values, int Current, EnumOptionMode Mode) : CommandOption(name: Name) where TEnum : struct, Enum {
         internal override Fin<Bound> Add(GetBaseClass getter) =>
             from name in Valid(name: Name)
-            from values in EnumValues(values: Values)
-            from initial in EnumMember(value: Initial, values: values)
-            from bound in Added(
-                index: Values.IsEmpty
-                    ? getter.AddOptionEnumList(name, initial)
-                    : getter.AddOptionEnumList(name, initial, [.. values]),
-                native: null,
-                snapshot: g => SnapshotAt(name: name, getter: g, values: values))
+            from values in Mode switch { EnumOptionMode.List => EnumValues(values: Values), _ => NonEmpty(values: Values) }
+            from current in Mode switch { EnumOptionMode.List => Fin.Succ(value: Current), _ => ValidIndex(index: Current, count: values.Count) }
+            from initial in Initial.Case switch { TEnum value => EnumMember(value: value, values: values), _ => Fin.Succ(value: values[0]) }
+            from bound in Mode switch {
+                EnumOptionMode.List => Added(
+                    index: Values.IsEmpty ? getter.AddOptionEnumList(name, initial) : getter.AddOptionEnumList(name, initial, [.. values]),
+                    native: null,
+                    snapshot: g => SnapshotAt(name: name, getter: g, values: values, mode: Mode)),
+                _ => Added(
+                    index: getter.AddOptionEnumSelectionList(name, values.AsIterable(), current),
+                    native: null,
+                    snapshot: g => SnapshotAt(name: name, getter: g, values: values, mode: Mode)),
+            }
             select bound;
 
-        private static Fin<CommandOptionValue> SnapshotAt(string name, GetBaseClass getter, Seq<TEnum> values) =>
-            Try.lift<TEnum>(f: getter.GetSelectedEnumValue<TEnum>)
-                .Run()
-                .MapFail(static _ => Op.Of(name: nameof(CommandOption)).InvalidResult())
-                .Map(selected => Snapshot(
-                    name: name,
-                    getter: getter,
-                    value: Some((object)selected),
-                    listIndex: EnumIndex(values: values, value: selected)));
-    }
-
-    private sealed record EnumSelectionCase<TEnum>(string Name, Seq<TEnum> Values, int Current) : CommandOption(name: Name) where TEnum : struct, Enum {
-        internal override Fin<Bound> Add(GetBaseClass getter) =>
-            from name in Valid(name: Name)
-            from values in NonEmpty(values: Values)
-            from current in ValidIndex(index: Current, count: values.Count)
-            from bound in Added(
-                index: getter.AddOptionEnumSelectionList(name, values.AsIterable(), current),
-                native: null,
-                snapshot: g => SnapshotAt(name: name, getter: g, values: values))
-            select bound;
-
-        private static Fin<CommandOptionValue> SnapshotAt(string name, GetBaseClass getter, Seq<TEnum> values) =>
-            Try.lift<TEnum>(f: () => getter.GetSelectedEnumValueFromSelectionList(values.AsIterable()))
-                .Run()
+        private static Fin<CommandOptionValue> SnapshotAt(string name, GetBaseClass getter, Seq<TEnum> values, EnumOptionMode mode) =>
+            (mode switch {
+                EnumOptionMode.List => Try.lift<TEnum>(f: getter.GetSelectedEnumValue<TEnum>).Run(),
+                EnumOptionMode.Selection => Try.lift<TEnum>(f: () => getter.GetSelectedEnumValueFromSelectionList(values.AsIterable())).Run(),
+                _ => Fin.Fail<TEnum>(error: Op.Of(name: nameof(CommandOption)).InvalidResult()),
+            })
                 .MapFail(static _ => Op.Of(name: nameof(CommandOption)).InvalidResult())
                 .Map(selected => Snapshot(
                     name: name,

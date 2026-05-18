@@ -88,10 +88,7 @@ public sealed class Tree : IDisposable {
         };
     }
     public void Dispose() =>
-        disposed = disposed switch {
-            false => new Lease<RTree>.Owned(Value: tree).Use(static _ => true),
-            true => true,
-        };
+        disposed = disposed || new Lease<RTree>.Owned(Value: tree).Use(static _ => true);
     private Fin<RTree> Ready() =>
         disposed switch {
             true => Fin.Fail<RTree>(Key.InvalidInput()),
