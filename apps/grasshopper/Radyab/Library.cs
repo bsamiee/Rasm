@@ -14,3 +14,4 @@ public sealed class Library : Plugin {
         nomen: new Nomen(name: Name, info: "GH2 plugin boundary for Radyab on RhinoWIP."),
         version: typeof(Library).Assembly.GetName().Version) { }
 }
+public sealed class Host : PlugIn { }

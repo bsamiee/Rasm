@@ -15,9 +15,6 @@
 | :-----: | --------- | :------: | ---------- |
 | **[1]** | `LanguageExt` | Active | Functional rails, effects, immutable collections, traits. |
 | **[2]** | `Thinktecture` | Active | Value objects, smart enums, unions, generated dispatch. |
-| **[3]** | `RhinoWIP` and `Grasshopper2` | External | Governed by `docs/rhino-gh2-api-ledger.md`. |
-
-[CRITICAL] RhinoCommon and GH2 API decisions stay in `docs/rhino-gh2-api-ledger.md`. Do not duplicate those ledgers here.
 
 ---
 ## [2][EVIDENCE]

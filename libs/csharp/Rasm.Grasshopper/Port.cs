@@ -33,8 +33,7 @@ public abstract class Port {
         Access access = Access.Item,
         Requirement requirement = Requirement.MustExist,
         PortKind? kind = null,
-        PortPolicy? policy = null,
-        Option<TVal> fallback = default) {
+        PortPolicy? policy = null) {
         ArgumentNullException.ThrowIfNull(argument: name);
         ArgumentNullException.ThrowIfNull(argument: code);
         ArgumentNullException.ThrowIfNull(argument: info);
@@ -49,8 +48,7 @@ public abstract class Port {
             policy: requirement switch {
                 Requirement.MayBeMissing => PortPolicy.Compose(resolved, PortPolicy.Optional, PortPolicy.Category(name: "Optional")),
                 _ => resolved,
-            },
-            fallback: fallback);
+            });
     }
     public static Port<Shape> Shape(
         string name = "Geometry",
@@ -74,10 +72,13 @@ public sealed record PortPolicy {
         On<VectorParameter>(mutate: target => { target.UnitiseVectors = unitise; target.ReverseVectors = reverse; return Unit.Default; });
     public static PortPolicy Angle(int kind = 0, bool reduce = false) =>
         On<AngleParameter>(mutate: target => { target.EnforceKind = kind; target.ReduceAngles = reduce; return Unit.Default; });
-    public static PortPolicy Category(string name) =>
-        On<IParameter>(mutate: parameter => SetCustom(parameter: parameter, key: ModularComponent.__Category, set: (kv, k) => kv.Set(key: k, value: name)));
-    public static PortPolicy Colour(Color color) =>
-        On<IParameter>(mutate: parameter => SetCustom(parameter: parameter, key: ModularComponent.__Colour, set: (kv, k) => kv.Set(key: k, value: color)));
+    public static PortPolicy Category(string name, Color? colour = null) =>
+        Compose(
+            On<IParameter>(mutate: parameter => SetCustom(parameter: parameter, key: ModularComponent.__Category, set: (kv, k) => kv.Set(key: k, value: name))),
+            colour switch {
+                Color value => On<IParameter>(mutate: parameter => SetCustom(parameter: parameter, key: ModularComponent.__Colour, set: (kv, k) => kv.Set(key: k, value: value))),
+                _ => Empty,
+            });
     public static PortPolicy Optional { get; } =
         On<IParameter>(mutate: parameter => SetCustom(parameter: parameter, key: ModularComponent.__Optional, set: (kv, k) => kv.Set(key: k, value: true)));
     public static PortPolicy Hidden { get; } = Compose(Optional,
@@ -90,7 +91,7 @@ public sealed record PortPolicy {
         ArgumentNullException.ThrowIfNull(argument: parameter);
         return apply(arg: parameter);
     }
-    public static PortPolicy On<TParam>(Func<TParam, Unit> mutate) where TParam : class =>
+    private static PortPolicy On<TParam>(Func<TParam, Unit> mutate) where TParam : class =>
         new(apply: parameter => parameter switch {
             TParam target => mutate(arg: target),
             _ => Unit.Default,
@@ -108,10 +109,7 @@ public sealed class Port<TVal> : Port {
         PortKind kind,
         Access access,
         Requirement requirement,
-        PortPolicy policy,
-        Option<TVal> fallback) : base(name: name, code: code, info: info, kind: kind, access: access, requirement: requirement, policy: policy) =>
-        Fallback = fallback;
-    public Option<TVal> Fallback { get; }
+        PortPolicy policy) : base(name: name, code: code, info: info, kind: kind, access: access, requirement: requirement, policy: policy) { }
 }
 
 // --- [CONSTANTS] ------------------------------------------------------------------------

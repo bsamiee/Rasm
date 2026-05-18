@@ -26,9 +26,6 @@ internal interface IRasmComponent {
     public ComponentSpec Spec { get; }
 }
 public readonly record struct ComponentSpec(Seq<ComponentItem<Port>> Inputs, Seq<ComponentItem<OutputBinding>> Outputs) {
-    public Seq<Port> InputPorts => Inputs.Map(static spec => spec.Value);
-    public Seq<OutputBinding> OutputBindings => Outputs.Map(static spec => spec.Value);
-    public Seq<Port> OutputPorts => OutputBindings.Map(static binding => binding.Port);
     public static ComponentSpec Of(Seq<Port> inputs, Seq<OutputBinding> outputs) =>
         new(Inputs: inputs.Map(static port => new ComponentItem<Port>(Value: port)), Outputs: outputs.Map(static binding => new ComponentItem<OutputBinding>(Value: binding)));
 }
@@ -161,12 +158,13 @@ public abstract class Component<TSelf>(ComponentSpec spec) : Grasshopper2.Compon
     protected override void Process(IDataAccess access) {
         ArgumentNullException.ThrowIfNull(argument: access);
         Hints outputs = Hints.Capture(ports: cachedOutputs, index: Parameters.IndexOfOutput);
+        Seq<OutputBinding> bindings = spec.Outputs.Map(static output => output.Value);
         _ = GrasshopperRuntime.Capture(access: access, inputs: cachedInputs, parameters: Parameters)
             .Match(
-                Succ: runtime => Output.Write(access: access, runtime: runtime, bindings: spec.OutputBindings, outputs: outputs),
+                Succ: runtime => Output.Write(access: access, runtime: runtime, bindings: bindings, outputs: outputs),
                 Fail: error => {
                     access.AddWarning(text: error.Category(), details: error.Message);
-                    return Output.Empty(access: access, bindings: spec.OutputBindings, outputs: outputs);
+                    return Output.Empty(access: access, bindings: bindings, outputs: outputs);
                 });
     }
     protected virtual void OnPreProcess(Solution solution) { }

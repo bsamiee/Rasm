@@ -130,8 +130,6 @@ Automated Rhino/GH2 unit-test frameworks stay out of this foundation until Rhino
 - `Bridge.Write<T>` uses `SetPear`, `SetTwig<T>`, and `SetTree` with `Garden.TwigFromPears`, `Garden.TreeFromLeaves`, and `Garden.TreeFromPears`.
 - `Output` keeps final GH2 side effects at the component boundary.
 
-The current API ledger is [`docs/rhino-gh2-api-ledger.md`](docs/rhino-gh2-api-ledger.md). It tracks RhinoCommon/GH2 APIs as used, underused, or intentionally unused against the installed RhinoWIP XML docs.
-
 To add a new parameter type, extend `PortKind` with a static case that returns the native `InputAdder.Add{X}` and `OutputAdder.Add{X}` parameter instances. Port factories automatically fall back to `PortKind.Generic` for unmapped CLR types, so new typed mappings should be added only when GH2 has a real native parameter.
 
-To add a component, create static `Port<T>` and `OutputGroup` declarations, pass them to `ComponentSpec.Of`, and inherit `Component`. Prefer adding `PortPolicy` at the port declaration over local validation or conversion code.
+To add a component, create static `Port<T>` and `OutputBinding` declarations, pass them to `ComponentSpec.Of`, and inherit `Component`. Prefer adding `PortPolicy` at the port declaration over local validation or conversion code.
