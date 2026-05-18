@@ -57,7 +57,18 @@ public sealed record DocumentEdit {
     public Fin<int> Select(CommandSelection selection, bool selected = true) =>
         Optional(selection)
             .ToFin(Fail: Op.Of(name: nameof(Select)).InvalidInput())
-            .Bind(s => s.Use(project: refs => CountResult(count: Document.Objects.Select(refs.AsIterable(), selected), op: Op.Of(name: nameof(Select)))));
+            .Bind(s => ReferenceEquals(objA: s.Document, objB: Document) switch {
+                true => s.Items
+                    .TraverseM(reference => reference.UseObjRef(
+                        document: Document,
+                        project: objRef => Fin.Succ(value: Document.Objects.Select(objref: objRef, select: selected) switch {
+                            true => 1,
+                            false => 0,
+                        })))
+                    .As()
+                    .Map(static counts => counts.Fold(0, static (total, count) => total + count)),
+                false => Fin.Fail<int>(error: Op.Of(name: nameof(Select)).InvalidInput()),
+            });
 
     public Fin<int> Select(IEnumerable<Guid> ids, bool selected = true) =>
         Optional(ids)
@@ -72,7 +83,7 @@ public sealed record DocumentEdit {
         return Fin.Succ(value: unit);
     }
 
-    public Fin<Unit> Redraw(RhinoView view) =>
+    public static Fin<Unit> Redraw(RhinoView view) =>
         Optional(view)
             .ToFin(Fail: Op.Of(name: nameof(Redraw)).InvalidInput())
             .Map(v => {

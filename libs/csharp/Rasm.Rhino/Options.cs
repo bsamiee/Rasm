@@ -68,7 +68,12 @@ public abstract record CommandOption {
 
     internal abstract Fin<Bound> Add(GetBaseClass getter);
 
-    internal sealed record Bound(int Index, IDisposable? Native, Func<GetBaseClass, Fin<CommandOptionValue>> Snapshot);
+    internal sealed record Bound(int Index, IDisposable? Native, Func<GetBaseClass, Fin<CommandOptionValue>> Snapshot) {
+        internal Unit Dispose() {
+            Native?.Dispose();
+            return unit;
+        }
+    }
 
     internal static Fin<Scope> Bind(Seq<CommandOption> options, GetBaseClass getter) =>
         Optional(getter)
@@ -109,18 +114,14 @@ public abstract record CommandOption {
         guard(CommandLineOption.IsValidOptionValueName(optionValue: value), Op.Of(name: nameof(CommandOption)).InvalidInput())
             .Bind(_ => Fin.Succ(value: value));
 
-    private static Fin<Bound> Added(int index, IDisposable? native, Func<GetBaseClass, Fin<CommandOptionValue>> snapshot) =>
-        index switch {
-            > 0 => Fin.Succ(value: new Bound(Index: index, Native: native, Snapshot: snapshot)),
-            _ => native switch {
-                IDisposable disposable => FailAfterDispose(disposable: disposable),
+    private static Fin<Bound> Added(int index, IDisposable? native, Func<GetBaseClass, Fin<CommandOptionValue>> snapshot) {
+        Bound bound = new(Index: index, Native: native, Snapshot: snapshot);
+        return index switch {
+            > 0 => Fin.Succ(value: bound),
+            _ => bound.Dispose() switch {
                 _ => Fin.Fail<Bound>(error: Op.Of(name: nameof(CommandOption)).InvalidResult()),
             },
         };
-
-    private static Fin<Bound> FailAfterDispose(IDisposable disposable) {
-        disposable.Dispose();
-        return Fin.Fail<Bound>(error: Op.Of(name: nameof(CommandOption)).InvalidResult());
     }
 
     private static CommandOptionValue Snapshot(string name, GetBaseClass getter, Option<object> value, Option<int> listIndex) =>
@@ -148,10 +149,12 @@ public abstract record CommandOption {
         };
 
     private static Fin<TEnum> EnumMember<TEnum>(TEnum value, Seq<TEnum> values) where TEnum : struct, Enum =>
-        values.Exists(item => EqualityComparer<TEnum>.Default.Equals(x: item, y: value)) switch {
-            true => Fin.Succ(value: value),
-            false => Fin.Fail<TEnum>(error: Op.Of(name: nameof(CommandOption)).InvalidInput()),
-        };
+        from _ in EnumIndex(values: values, value: value).ToFin(Fail: Op.Of(name: nameof(CommandOption)).InvalidInput())
+        select value;
+
+    private static Option<int> EnumIndex<TEnum>(Seq<TEnum> values, TEnum value) where TEnum : struct, Enum =>
+        toSeq(Enumerable.Range(start: 0, count: values.Count))
+            .Find(index => EqualityComparer<TEnum>.Default.Equals(x: values[index], y: value));
 
     private sealed record RefOptionCase<TNative, TValue>(
         string Name,
@@ -225,8 +228,14 @@ public abstract record CommandOption {
             select bound;
 
         private static Fin<CommandOptionValue> SnapshotAt(string name, GetBaseClass getter, Seq<TEnum> values) =>
-            from index in ValidIndex(index: getter.Option().CurrentListOptionIndex, count: values.Count)
-            select Snapshot(name: name, getter: getter, value: Some((object)values[index]), listIndex: Some(index));
+            Try.lift<TEnum>(f: getter.GetSelectedEnumValue<TEnum>)
+                .Run()
+                .MapFail(static _ => Op.Of(name: nameof(CommandOption)).InvalidResult())
+                .Map(selected => Snapshot(
+                    name: name,
+                    getter: getter,
+                    value: Some((object)selected),
+                    listIndex: EnumIndex(values: values, value: selected)));
     }
 
     private sealed record EnumSelectionCase<TEnum>(string Name, Seq<TEnum> Values, int Current) : CommandOption(name: Name) where TEnum : struct, Enum {
@@ -261,21 +270,10 @@ public abstract record CommandOption {
         public void Dispose() {
             _ = disposed switch {
                 true => unit,
-                false => Bounds.Iter(static bound => Dispose(native: bound.Native)),
+                false => Bounds.Iter(static bound => bound.Dispose()),
             };
             disposed = true;
             GC.SuppressFinalize(obj: this);
-        }
-
-        private static Unit Dispose(IDisposable? native) =>
-            native switch {
-                IDisposable disposable => Effect(action: disposable.Dispose),
-                _ => unit,
-            };
-
-        private static Unit Effect(Action action) {
-            action();
-            return unit;
         }
     }
 }
