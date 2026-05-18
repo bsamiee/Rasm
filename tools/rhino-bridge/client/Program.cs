@@ -162,7 +162,7 @@ internal static class Program {
             worktree: worktree,
             options: options,
             loadMessage: "Source checks use RhinoCode #r scripts without a separate bridge load session.",
-            noRuntimeMessage: options.Script is null ? "Source build validated; no runtime script supplied." : "Build failed before source script execution.",
+            noRuntimeMessage: BridgeWire.IsOk(status: buildPhase.Status) && options.Script is null ? "Source build validated; no runtime script supplied." : "Source ownership or build failed before source script execution.",
             script: projectBuild => SourceScriptAsync(project: projectBuild, scriptPath: options.Script)).ConfigureAwait(false);
     }
     private static async Task<int> QuitAsync() {
@@ -238,7 +238,7 @@ internal static class Program {
                 ? direct
                 : await ProcessResult.RunAsync(fileName: rhinoCodePath, arguments: ["list", "--json"], timeout: TimeSpan.FromSeconds(value: 10.0), environment: new Dictionary<string, string>(StringComparer.Ordinal) { ["DOTNET_ROLL_FORWARD"] = "Major" }).ConfigureAwait(false);
             timer.Stop();
-            BridgeOutput[] outputs = rolled.ExitCode == 0 && !ReferenceEquals(objA: rolled, objB: direct) ? [.. rolled.Outputs] : [.. direct.Outputs.Concat(ReferenceEquals(objA: rolled, objB: direct) ? [] : rolled.Outputs)];
+            BridgeOutput[] outputs = [.. direct.Outputs.Concat(ReferenceEquals(objA: rolled, objB: direct) ? [] : rolled.Outputs)];
             object data = new { path = rhinoCodePath, directExitCode = direct.ExitCode, rollForwardExitCode = rolled.ExitCode, rollForward = !ReferenceEquals(objA: rolled, objB: direct) };
             return rolled.ExitCode == 0
                 ? BridgePhase.Ok(phase: PhaseRhinoCodeCli, timer: timer, data: data, outputs: outputs)
@@ -318,13 +318,22 @@ internal static class Program {
             return (BridgePhase.Failed(phase: PhaseResolve, timer: timer, message: "git ls-files failed during project discovery.", outputs: tracked.Outputs), null);
         }
         string[] projects = [.. tracked.Stdout.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(path => Path.GetFullPath(path: Path.Combine(path1: worktree, path2: path)))];
-        SourceOwner[] owners = [.. (await Task.WhenAll(projects.Select(project => SourceOwner.ResolveAsync(project: project, source: source, configuration: configuration))).ConfigureAwait(false)).OfType<SourceOwner>()];
+        SourceOwnerEvaluation[] evaluations = await Task.WhenAll(projects.Select(project => SourceOwnerEvaluation.ResolveAsync(project: project, source: source, configuration: configuration))).ConfigureAwait(false);
+        SourceOwnerEvaluation[] failures = [.. evaluations.Where(static evaluation => evaluation.Failed)];
+        SourceOwner[] owners = [.. evaluations.Select(static evaluation => evaluation.Owner).OfType<SourceOwner>()];
         timer.Stop();
-        return owners.Length switch {
-            1 => (BridgePhase.Ok(phase: PhaseResolve, timer: timer, data: new { sourcePath = source, projectPath = owners[0].ProjectPath, link = owners[0].Link }), owners[0].ProjectPath),
-            0 => (BridgePhase.Failed<object>(phase: PhaseResolve, timer: timer, category: "source", message: $"No tracked SDK project owns source file: {source}", data: null, outputs: tracked.Outputs), null),
-            _ => (BridgePhase.Failed(phase: PhaseResolve, timer: timer, category: "ambiguous", message: $"Multiple projects own source file: {source}", data: new { sourcePath = source, candidates = owners }, outputs: tracked.Outputs), null),
-        };
+        return failures.Length > 0 ? (BridgePhase.Failed(
+                phase: PhaseResolve,
+                timer: timer,
+                category: PhaseResolve,
+                message: $"MSBuild source-owner evaluation failed for {failures.Length.ToString(provider: CultureInfo.InvariantCulture)} tracked project(s).",
+                data: new { sourcePath = source, configuration, failures },
+                outputs: [.. failures.SelectMany(static failure => failure.Outputs)]), null)
+            : owners.Length switch {
+                1 => (BridgePhase.Ok(phase: PhaseResolve, timer: timer, data: new { sourcePath = source, projectPath = owners[0].ProjectPath, link = owners[0].Link }), owners[0].ProjectPath),
+                0 => (BridgePhase.Failed<object>(phase: PhaseResolve, timer: timer, category: "source", message: $"No tracked SDK project owns source file: {source}", data: null, outputs: tracked.Outputs), null),
+                _ => (BridgePhase.Failed(phase: PhaseResolve, timer: timer, category: "ambiguous", message: $"Multiple projects own source file: {source}", data: new { sourcePath = source, candidates = owners }, outputs: tracked.Outputs), null),
+            };
     }
     private static async Task<int> CheckRuntimeAsync(string command, BridgePhase resolve, BridgePhase build, ProjectBuild? project, string worktree, CliOptions options, string loadMessage, string noRuntimeMessage, Func<ProjectBuild, Task<(string Script, IReadOnlyList<string> References)?>> script) {
         (string Script, IReadOnlyList<string> References)? checkScript = project is { } projectBuild && BridgeWire.IsOk(status: build.Status)
@@ -377,17 +386,19 @@ $"string targetLocation = Path.GetFullPath(\"{target}\");",
 "AssemblyName targetName = AssemblyName.GetAssemblyName(targetLocation);",
 $"Assembly? loadedAssembly = Array.Find(AppDomain.CurrentDomain.GetAssemblies(), assembly => string.Equals(assembly.GetName().Name, \"{assemblyName}\", StringComparison.Ordinal));",
 "Version? loadedVersion = loadedAssembly?.GetName().Version;",
-            "string? loadedLocation = loadedAssembly?.Location;",
+            "string? preLoadLocation = loadedAssembly?.Location;",
             "bool alreadyLoaded = loadedAssembly is not null;",
-            "bool staleLocation = alreadyLoaded && !string.Equals(Path.GetFullPath(loadedLocation ?? string.Empty), targetLocation, OperatingSystem.IsMacOS() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);",
+            "bool staleLocation = alreadyLoaded && !string.Equals(Path.GetFullPath(preLoadLocation ?? string.Empty), targetLocation, OperatingSystem.IsMacOS() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);",
             "bool staleIdentity = alreadyLoaded && !Equals(loadedVersion, targetName.Version);",
             "bool staleLoaded = staleLocation || staleIdentity;",
-            "if (staleLoaded) throw new InvalidOperationException($\"Already-loaded assembly does not match built target. loaded={loadedLocation}; target={targetLocation}; loadedVersion={loadedVersion}; targetVersion={targetName.Version}\");",
+            "if (staleLoaded) throw new InvalidOperationException($\"Already-loaded assembly does not match built target. loaded={preLoadLocation}; target={targetLocation}; loadedVersion={loadedVersion}; targetVersion={targetName.Version}\");",
             "Assembly targetAssembly = loadedAssembly ?? Assembly.LoadFrom(targetLocation);",
+            "string postLoadLocation = targetAssembly.Location;",
 $"Console.WriteLine(\"rasm.rhino-bridge.nonce={nonce}\");",
             "Console.WriteLine(\"loadedAssembly=\" + targetAssembly.FullName);",
             "Console.WriteLine(\"targetLocation=\" + targetLocation);",
-            "Console.WriteLine(\"loadedLocation=\" + (loadedLocation ?? \"none\"));",
+            "Console.WriteLine(\"loadedLocation=\" + (string.IsNullOrWhiteSpace(postLoadLocation) ? \"none\" : postLoadLocation));",
+            "Console.WriteLine(\"preLoadLocation=\" + (preLoadLocation ?? \"none\"));",
             "Console.WriteLine(\"alreadyLoaded=\" + alreadyLoaded);",
             "Console.WriteLine(\"assemblyVersion=\" + targetAssembly.GetName().Version);",
             "Console.WriteLine(\"targetAssemblyVersion=\" + targetName.Version);",
@@ -523,7 +534,11 @@ internal sealed record CliOptions(string? Worktree, string Configuration, int Ti
 internal sealed record BridgeResult(string Schema, string Command, string Status, IReadOnlyList<BridgePhase> Phases, BridgeFault? Fault) {
     internal static BridgeResult From(string command, IReadOnlyList<BridgePhase> phases) {
         bool executeSucceeded = phases.Any(static phase => string.Equals(a: phase.Phase, b: Program.PhaseExecute, comparisonType: StringComparison.Ordinal) && BridgeWire.IsOk(status: phase.Status));
-        BridgePhase[] decisive = [.. phases.Where(phase => !executeSucceeded || !string.Equals(a: phase.Phase, b: Program.PhaseRhinoCodeCli, comparisonType: StringComparison.Ordinal))];
+        BridgePhase[] decisive = [.. phases.Where(phase => phase.Phase switch {
+            Program.PhaseRhinoCodeCli => !executeSucceeded && !BridgeWire.IsOk(status: phase.Status) && !string.Equals(a: phase.Status, b: BridgeWire.Skipped, comparisonType: StringComparison.Ordinal),
+            Program.PhaseLoad or Program.PhaseUnload or Program.PhaseLifecycle => !string.Equals(a: phase.Status, b: BridgeWire.Skipped, comparisonType: StringComparison.Ordinal),
+            _ => true,
+        })];
         BridgePhase? execute = phases.FirstOrDefault(static phase => string.Equals(a: phase.Phase, b: Program.PhaseExecute, comparisonType: StringComparison.Ordinal));
         return new(
             Schema: BridgeWire.Schema,
@@ -628,10 +643,20 @@ internal sealed record ProjectBuild(string ProjectPath, string Configuration, st
     }
 }
 
-internal sealed record SourceOwner(string ProjectPath, string? Link) {
-    internal static async Task<SourceOwner?> ResolveAsync(string project, string source, string configuration) {
-        ProcessResult result = await ProcessResult.RunAsync(fileName: "dotnet", arguments: ["msbuild", project, "-getProperty:TargetPath", "-getItem:Compile", $"-p:Configuration={configuration}", "-nologo"], timeout: TimeSpan.FromSeconds(value: 45.0)).ConfigureAwait(false);
-        return result.ExitCode == 0 ? From(project: project, source: RealPath(path: source), json: result.Stdout) : null;
+internal sealed record SourceOwner(string ProjectPath, string? Link);
+
+internal sealed record SourceOwnerEvaluation(string ProjectPath, IReadOnlyList<string> Command, int ExitCode, IReadOnlyList<BridgeOutput> Outputs, SourceOwner? Owner, BridgeFault? Fault) {
+    internal bool Failed => ExitCode != 0 || Fault is not null;
+    internal static async Task<SourceOwnerEvaluation> ResolveAsync(string project, string source, string configuration) {
+        string[] arguments = ["msbuild", project, "-getProperty:TargetPath", "-getItem:Compile", $"-p:Configuration={configuration}", "-nologo"];
+        ProcessResult result = await ProcessResult.RunAsync(fileName: "dotnet", arguments: arguments, timeout: TimeSpan.FromSeconds(value: 45.0)).ConfigureAwait(false);
+        BridgeFault? exitFault = result.ExitCode == 0 ? null : BridgeFault.MessageOnly(category: Program.PhaseResolve, message: $"MSBuild source-owner evaluation failed for project: {project}");
+        try {
+            SourceOwner? owner = result.ExitCode == 0 ? From(project: project, source: RealPath(path: source), json: result.Stdout) : null;
+            return new(ProjectPath: project, Command: ["dotnet", .. arguments], ExitCode: result.ExitCode, Outputs: result.Outputs, Owner: owner, Fault: exitFault);
+        } catch (Exception error) when (error is JsonException or InvalidOperationException or ArgumentException) {
+            return new(ProjectPath: project, Command: ["dotnet", .. arguments], ExitCode: result.ExitCode, Outputs: result.Outputs, Owner: null, Fault: BridgeFault.FromException(category: Program.PhaseResolve, error: error));
+        }
     }
     private static SourceOwner? From(string project, string source, string json) {
         using JsonDocument document = JsonDocument.Parse(json: json);

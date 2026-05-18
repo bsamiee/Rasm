@@ -135,7 +135,7 @@ Environment overrides:
 Top-level fields:
 - `schema`: wire contract. Current value: `rasm.rhino-bridge.v1`.
 - `command`: client command.
-- `status`: worst meaningful phase status.
+- `status`: worst decisive phase status.
 - `phases`: ordered phase evidence.
 - `fault`: top-level failure when authoritative phases fail, time out, are busy, or are unsupported.
 
@@ -145,6 +145,12 @@ Read order:
 3. Inspect failed or unsupported `phases[]`.
 4. Inspect `diagnostics`, `outputs[].text`, `outputs[].truncated`, `outputs[].length`, and `outputs[].limit`.
 5. Treat `rhinoCodeCli` failure as non-authoritative when in-process `execute` succeeds.
+
+Decisive phase policy:
+- Required failures from `resolve`, `build`, `connect`, and applicable `execute` phases drive top-level `status`.
+- Supplemental `rhinoCodeCli` evidence remains visible but does not override successful in-process `execute`.
+- Skipped `load`, `unload`, and `lifecycle` phases document non-applicable work and do not weaken top-level status.
+- `check-source <source.cs>` without `--script` remains top-level `unsupported` after successful ownership and build evidence.
 
 Status policy:
 
@@ -158,7 +164,7 @@ Status policy:
 | **6** | `skipped` | phase-only | Phase intentionally did not run because prior state made it irrelevant. |
 
 Phase expectations:
-- `resolve`: file/project ownership, workspace root, command path validity.
+- `resolve`: file/project ownership, workspace root, command path validity, MSBuild owner-evaluation evidence.
 - `build`: real `dotnet restore`, `dotnet build`, MSBuild projection, target and references.
 - `launch`: existing bridge reuse or RhinoWIP launch evidence.
 - `connect`: named-pipe handshake with endpoint metadata.
@@ -183,7 +189,7 @@ The client emits runtime reference projections from one evaluated project build.
 | :-----: | --------------- | ----- |
 | **1** | `RuntimeReferences` | Runtime assets excluding target assembly; smoke scripts load target directly from `targetLocation`. |
 | **2** | `HostFilteredRuntimeReferences` | Project smoke and source scripts; excludes Rhino, Grasshopper, and bridge host assemblies already present in Rhino. |
-| **3** | `BridgeExecuteRequest.References` | Wire/report metadata; not a plugin-applied reference mechanism. |
+| **3** | `BridgeExecuteRequest.References` | Execution provenance/report metadata; not a plugin-applied reference mechanism. |
 
 [CRITICAL] Do not document `check-source --script` as compile-reference based until the client owns a real compile-reference projection and the plugin applies it authoritatively.
 
@@ -196,11 +202,13 @@ The client emits runtime reference projections from one evaluated project build.
 | [INDEX] | [SIGNAL] | [READ_AS] | [NEXT_ACTION] |
 | :-----: | -------- | --------- | ------------- |
 | **1** | `build` failed | Managed compile/analyzer/MSBuild failure. | Fix C# or project configuration before Rhino work. |
-| **2** | `connect` failed | RhinoWIP bridge unavailable or stale endpoint. | Run `bridge launch` or `bridge doctor`; inspect `~/.rasm/rhino-bridge.json`. |
-| **3** | `rhinoCodeCli` failed | Supplemental RhinoCode CLI probe unavailable or roll-forward failure. | Inspect the phase, but trust successful in-process `execute` as authoritative. |
-| **4** | `execute` diagnostics | RhinoCode compile/runtime failure inside Rhino. | Use `diagnostics` and `fault.stackTrace`; fix real code. |
-| **5** | already-loaded mismatch | Rhino has simple-name assembly loaded from different path or assembly version. | Restart Rhino or change target identity; do not accept stale success. |
-| **6** | `unsupported` source check | Source build is valid, but no runtime script was supplied. | Add `--script` only when runtime behavior needs Rhino evidence. |
+| **2** | `resolve` owner-evaluation failure | A tracked project could not produce MSBuild ownership data. | Inspect `failures[].projectPath`, `failures[].command`, `exitCode`, `outputs`, and `fault`; fix evaluation before trusting ownership. |
+| **3** | `connect` failed | RhinoWIP bridge unavailable or stale endpoint. | Run `bridge launch` or `bridge doctor`; inspect `~/.rasm/rhino-bridge.json`. |
+| **4** | `rhinoCodeCli` failed | Supplemental RhinoCode CLI probe unavailable or roll-forward failure. | Inspect the phase, but trust successful in-process `execute` as authoritative. |
+| **5** | `execute` diagnostics | RhinoCode compile/runtime failure inside Rhino. | Use `diagnostics` and `fault.stackTrace`; fix real code. |
+| **6** | already-loaded mismatch | Rhino has simple-name assembly loaded from different path or assembly version. | Restart Rhino or change target identity; do not accept stale success. |
+| **7** | `loadedLocation=none` | Target assembly loaded without a path-backed location. | Treat as missing post-load identity evidence; normal fresh loads report `targetAssembly.Location`. |
+| **8** | `unsupported` source check | Source build is valid, but no runtime script was supplied. | Add `--script` only when runtime behavior needs Rhino evidence. |
 
 ---
 ## [7][UPDATE_RULES]

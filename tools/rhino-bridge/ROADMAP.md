@@ -26,13 +26,13 @@
 
 <br>
 
-| [INDEX] | [WORK] | [ACCEPTANCE] |
-| :-----: | ------ | ------------ |
-| **1** | Surface MSBuild/source-owner evaluation failures instead of collapsing them into `No tracked SDK project owns source file`. | Broken project evaluation returns a failed `resolve` phase with command, project, and stderr evidence. |
-| **2** | Add required-vs-optional phase semantics. | Optional `rhinoCodeCli` or `load` skips cannot make required runtime work appear successful. |
-| **3** | Fix smoke output identity after `Assembly.LoadFrom`. | Smoke stdout reports post-load assembly identity and path, not pre-load `none`. |
-| **4** | Preserve source ownership/build vs runtime execution distinction. | `check-source` without `--script` remains `unsupported`; runtime docs and examples never imply execution. |
-| **5** | Make reference provenance honest. | Either plugin applies `BridgeExecuteRequest.References`, or wire field is renamed/removed as report-only metadata. |
+| [INDEX] | [STATUS] | [WORK] | [ACCEPTANCE] |
+| :-----: | :------: | ------ | ------------ |
+| **1** | Complete | Surface MSBuild/source-owner evaluation failures instead of collapsing them into `No tracked SDK project owns source file`. | Broken project evaluation returns a failed `resolve` phase with command, project, exit code, stdout/stderr, and fault evidence. |
+| **2** | Complete | Add required-vs-optional phase semantics. | Command-aware decisive phases keep supplemental `rhinoCodeCli` and skipped `load`/`unload`/`lifecycle` from masking required `resolve`, `build`, `connect`, or `execute` failures. |
+| **3** | Complete | Fix smoke output identity after `Assembly.LoadFrom`. | Smoke stdout reports post-load assembly identity and path, not pre-load `none`. |
+| **4** | Complete | Preserve source ownership/build vs runtime execution distinction. | `check-source` without `--script` remains `unsupported`; runtime docs and examples never imply execution. |
+| **5** | Complete | Make reference provenance honest. | README documents `BridgeExecuteRequest.References` as execution provenance/report metadata; generated `#r` directives remain the applied reference mechanism. |
 
 ---
 ## [3][ARCHITECTURE]
