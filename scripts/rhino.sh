@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-((BASH_VERSINFO[0] > 5 || (BASH_VERSINFO[0] == 5 && BASH_VERSINFO[1] >= 2))) || { printf 'rhino: Bash 5.2+ is required\n' >&2; exit 1; }
+((BASH_VERSINFO[0] > 5 || (BASH_VERSINFO[0] == 5 && BASH_VERSINFO[1] >= 3))) || { printf 'rhino: Bash 5.3+ is required\n' >&2; exit 1; }
 shopt -s inherit_errexit nullglob
+shopt -s array_expand_once 2>/dev/null || true
 IFS=$'\n\t'
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
@@ -47,23 +48,14 @@ readonly -a ROUTE_ORDER=(--self-test build bridge:build bridge:package bridge:in
 readonly -a BRIDGE_PROJECTS=("${BRIDGE_PROTOCOL_PROJECT}" "${BRIDGE_PLUGIN_PROJECT}" "${BRIDGE_CLIENT_PROJECT}")
 _trap_err() {
     local -r exit_code="$?"
+    local index
     printf 'rhino: error at %s:%s: %s\n' "${BASH_SOURCE[1]}" "${BASH_LINENO[0]}" "${BASH_COMMAND}" >&2
+    for ((index = 1; index < ${#FUNCNAME[@]}; index++)); do
+        printf 'rhino: stack[%d] %s at %s:%s\n' "${index}" "${FUNCNAME[index]}" "${BASH_SOURCE[index]}" "${BASH_LINENO[index - 1]:-0}" >&2
+    done
     exit "${exit_code}"
 }
 trap _trap_err ERR
-_cleanup_path() {
-    local -r path="$1"
-    CLEANUP_PATHS+=("${path}")
-}
-_cleanup_lock() {
-    local -r lock_dir="$1"
-    CLEANUP_LOCKS+=("${lock_dir}")
-}
-_cleanup_rollback() {
-    local -r stage_dir="$1"
-    local -r previous_dir="$2"
-    CLEANUP_ROLLBACKS+=("${stage_dir}|${previous_dir}")
-}
 _cleanup_exit() {
     local -r exit_code="$?"
     local entry index lock_dir path previous_dir stage_dir
@@ -132,26 +124,22 @@ _self_test() {
     shellcheck "${BASH_SOURCE[0]}"
     local -a required=("${SOLUTION_PATH}" "${BRIDGE_PROJECTS[@]}" "${PACKAGE_PROJECTS[@]}")
     local path route handler min max line preset package_slug project manifest_dir target_dir target_framework assembly_name target_ext project_dir
+    declare -A ordered_routes=()
     for path in "${required[@]}"; do
         [[ -e "${path}" ]] || _die "Missing required path: ${path}"
     done
     for route in "${ROUTE_ORDER[@]}"; do
+        [[ ! -v ordered_routes["${route}"] ]] || _die "Route listed more than once: ${route}"
+        ordered_routes["${route}"]=1
         [[ -v ROUTES["${route}"] ]] || _die "Route missing metadata: ${route}"
         _route_meta "${route}" handler min max line preset
         declare -F "${handler}" >/dev/null || _die "Route handler missing: ${route} -> ${handler}"
         [[ "${min}" =~ ^[0-9]+$ && "${max}" =~ ^[0-9]+$ && -n "${line}" ]] || _die "Route metadata invalid: ${route}"
         ((min <= max)) || _die "Route arity invalid: ${route}"
-    done
-    declare -A ordered_routes=()
-    for route in "${ROUTE_ORDER[@]}"; do
-        ordered_routes["${route}"]=1
+        [[ "${handler}" != "_bridge_client" ]] || [[ "${route}" == bridge:* && "${preset}" == "${route#bridge:}" ]] || _die "Bridge client preset invalid: ${route}"
     done
     for route in "${!ROUTES[@]}"; do
         [[ -v ordered_routes["${route}"] ]] || _die "Route missing from order: ${route}"
-    done
-    for route in "${ROUTE_ORDER[@]}"; do
-        _route_meta "${route}" handler min max line preset
-        [[ "${handler}" != "_bridge_client" ]] || [[ "${route}" == bridge:* && "${preset}" == "${route#bridge:}" ]] || _die "Bridge client preset invalid: ${route}"
     done
     declare -Ar route_contracts=(
         [bridge:package]='_cmd_package|rasm-bridge|1|1'
@@ -168,6 +156,7 @@ _self_test() {
         _package_meta "${package_slug}" project manifest_dir target_dir target_framework assembly_name target_ext project_dir
         [[ -f "${manifest_dir}/manifest.yml" ]] || _die "Missing Yak manifest for ${package_slug}: ${manifest_dir}/manifest.yml"
         [[ -d "${project_dir}" && -f "${YAK_ROOT}/${package_slug}/manifest.yml" ]] || _die "Package wiring invalid for ${package_slug}"
+        [[ -n "${target_dir}" && "${target_dir}" == "${ROOT_DIR}/"* && "${target_dir}" == "${project_dir}/bin/${CONFIGURATION}/${target_framework}/" ]] || _die "Package target directory unsafe for ${package_slug}: ${target_dir}"
     done
 }
 _build() {
@@ -187,8 +176,12 @@ _bridge_build() {
 _lock_stale() {
     local -r lock_dir="$1"
     local -r meta="${lock_dir}/owner"
-    local owner_pid owner_started
-    [[ -f "${meta}" ]] || return 0
+    local created owner_pid owner_started
+    if [[ ! -f "${meta}" ]]; then
+        created="$(stat -f %m "${lock_dir}" 2>/dev/null || stat -c %Y "${lock_dir}" 2>/dev/null || printf '%s' "${EPOCHSECONDS}")"
+        ((EPOCHSECONDS - created > 5)) && return 0
+        return 1
+    fi
     IFS='|' read -r owner_pid owner_started < "${meta}" || return 0
     [[ "${owner_pid}" =~ ^[0-9]+$ ]] || return 0
     kill -0 "${owner_pid}" 2>/dev/null || return 0
@@ -204,18 +197,20 @@ _with_lock() {
     local -r lock_root="${PACKAGE_STAGE_ROOT}/locks"
     local -r lock_key="${name//[^[:alnum:]_.:-]/_}"
     local -r lock_dir="${lock_root}/${lock_key}.lock"
-    local -r lock_meta="${lock_dir}/owner"
     mkdir -p -- "${lock_root}"
-    local attempts=0
+    local -r deadline=$((BASH_MONOSECONDS + 30))
     until mkdir -- "${lock_dir}" 2>/dev/null; do
         _lock_stale "${lock_dir}" && rm -rf -- "${lock_dir}"
-        ((attempts++ < 300)) || _die "Timed out waiting for bridge client build lock: ${lock_dir}"
+        ((BASH_MONOSECONDS < deadline)) || _die "Timed out waiting for ${name} lock: ${lock_dir}"
         sleep 0.1
     done
-    _cleanup_lock "${lock_dir}"
-    printf '%s|%s|%s\n' "$$" "$(ps -o lstart= -p "$$" 2>/dev/null || true)" "${name}" > "${lock_meta}"
+    CLEANUP_LOCKS+=("${lock_dir}")
+    local lock_tmp
+    lock_tmp="$(mktemp "${lock_dir}/owner.XXXXXXXXXX")"
+    printf '%s|%s|%s\n' "$$" "$(ps -o lstart= -p "$$" 2>/dev/null || true)" "${name}" >"${lock_tmp}"
+    mv -- "${lock_tmp}" "${lock_dir}/owner"
     "${handler}" "$@"
-    rm -f -- "${lock_meta}" 2>/dev/null || true
+    rm -f -- "${lock_dir}/owner" 2>/dev/null || true
     rmdir -- "${lock_dir}" 2>/dev/null || true
 }
 _bridge_client() {
@@ -225,7 +220,7 @@ _bridge_client_built() {
     local -r lock_root="${PACKAGE_STAGE_ROOT}/locks"
     local build_log
     build_log="$(mktemp "${lock_root}/bridge-client-build.XXXXXXXXXX")"
-    _cleanup_path "${build_log}"
+    CLEANUP_PATHS+=("${build_log}")
     dotnet restore "${BRIDGE_CLIENT_PROJECT}" --locked-mode --disable-parallel >"${build_log}" 2>&1 || {
         cat "${build_log}" >&2
         _die "Bridge client restore failed"
@@ -239,10 +234,10 @@ _bridge_client_built() {
 }
 _bridge_install() {
     local -r package_path="$1"
-    local expected_version
-    _bridge_package_version "${package_path}" expected_version
-    readonly expected_version
-    _require_yak
+    local -r package_name="${package_path##*/}"
+    [[ "${package_name}" =~ ^rasm-bridge-(.+)-rh[0-9_]+-mac[.]yak$ ]] || _die "Could not read bridge package version from ${package_name}"
+    local -r expected_version="${BASH_REMATCH[1]}"
+    [[ -x "${YAK_PATH}" ]] || _die "Yak not executable at ${YAK_PATH}"
     [[ -f "${package_path}" ]] || _die "Missing Yak package: ${package_path}"
     "${YAK_PATH}" install "${package_path}"
     local lifecycle_json
@@ -269,13 +264,6 @@ _bridge_install() {
     live_version="$(jq -er 'first(.phases[] | select(.phase == "doctor") | .data.assemblies[] | select(.name == "Rasm.RhinoBridge.Plugin") | (.informationalVersion // .version)) // empty' <<< "${doctor_json}")" || _die "Bridge doctor did not report Rasm.RhinoBridge.Plugin"
     readonly live_version
     [[ "${live_version}" == "${expected_version}" ]] || _die "Installed bridge version mismatch: expected ${expected_version}, live ${live_version}"
-}
-_bridge_package_version() {
-    local -r package_path="$1"
-    local -n __version="$2"
-    local -r package_name="${package_path##*/}"
-    [[ "${package_name}" =~ ^rasm-bridge-(.+)-rh[0-9_]+-mac[.]yak$ ]] || _die "Could not read bridge package version from ${package_name}"
-    __version="${BASH_REMATCH[1]}"
 }
 _package_meta() {
     local -r package_slug="$1"
@@ -310,14 +298,6 @@ _package_meta() {
     [[ -n "${__target_framework}" && -n "${__assembly_name}" ]] || _die "Package project metadata is incomplete for ${package_slug}: ${__project}"
     [[ "${__target_ext}" == ".rhp" ]] || _die "Package project must emit .rhp for ${package_slug}: ${__project}"
 }
-_clean_target_dir() {
-    local -r target_dir="$1"
-    local -r project_dir="$2"
-    local -r target_framework="$3"
-    [[ -n "${target_dir}" && "${target_dir}" == "${ROOT_DIR}/"* && "${target_dir}" == "${project_dir}/bin/${CONFIGURATION}/${target_framework}/" ]] || _die "Refusing to clean unexpected output directory: ${target_dir}"
-    rm -rf -- "${target_dir:?}"
-}
-_require_yak() { [[ -x "${YAK_PATH}" ]] || _die "Yak not executable at ${YAK_PATH}"; }
 _cmd_package() {
     local -r package_slug="$1"
     local -r version="$2"
@@ -326,10 +306,11 @@ _cmd_package() {
 _package_transaction() {
     local -r package_slug="$1"
     local -r version="$2"
-    _require_yak
+    [[ -x "${YAK_PATH}" ]] || _die "Yak not executable at ${YAK_PATH}"
     local project manifest_dir target_dir target_framework assembly_name target_ext project_dir
     _package_meta "${package_slug}" project manifest_dir target_dir target_framework assembly_name target_ext project_dir
-    _clean_target_dir "${target_dir}" "${project_dir}" "${target_framework}"
+    [[ -n "${target_dir}" && "${target_dir}" == "${ROOT_DIR}/"* && "${target_dir}" == "${project_dir}/bin/${CONFIGURATION}/${target_framework}/" ]] || _die "Refusing to clean unexpected output directory: ${target_dir}"
+    rm -rf -- "${target_dir:?}"
     local -a build_args=(--configuration "${CONFIGURATION}" --no-restore "/p:Version=${version}" "/p:InformationalVersion=${version}")
     dotnet restore "${project}" --locked-mode --disable-parallel
     dotnet build "${project}" "${build_args[@]}" "${DOTNET_SERIAL_BUILD_ARGS[@]}"
@@ -340,9 +321,8 @@ _package_transaction() {
     mkdir -p -- "${stage_root}"
     local stage_tmp
     stage_tmp="$(mktemp -d "${stage_root}/package.XXXXXX")"
-    _cleanup_path "${stage_tmp}"
-    _cleanup_path "${previous_dir}"
-    _cleanup_rollback "${stage_dir}" "${previous_dir}"
+    CLEANUP_PATHS+=("${stage_tmp}" "${previous_dir}")
+    CLEANUP_ROLLBACKS+=("${stage_dir}|${previous_dir}")
     [[ -f "${manifest_dir}/manifest.yml" ]] || _die "Missing Yak manifest: ${manifest_dir}/manifest.yml"
     [[ -d "${target_dir}" ]] || _die "Missing build output: ${target_dir}"
     [[ -f "${primary_artifact}" ]] || _die "Missing primary package artifact: ${primary_artifact}"
@@ -363,16 +343,6 @@ _package_transaction() {
     stage_tmp=""
     rm -rf -- "${previous_dir}"
 }
-_package_path() {
-    local -r package_slug="$1"
-    local -r version="$2"
-    local -n __package_path="$3"
-    local -r stage_dir="${PACKAGE_STAGE_ROOT}/${package_slug}/package"
-    local -a package_files=()
-    mapfile -t package_files < <(fd -H -g "*-${version}-*-mac.yak" . "${stage_dir}" --max-depth 1)
-    ((${#package_files[@]} == 1)) || _die "Expected one Yak package for ${package_slug} ${version}, found ${#package_files[@]}"
-    __package_path="${package_files[0]}"
-}
 _push_package() {
     local -r source="$1"
     local -r package_slug="$2"
@@ -380,10 +350,11 @@ _push_package() {
     local -a source_args=()
     [[ -n "${source}" ]] && source_args=(--source "${source}")
     _cmd_package "${package_slug}" "${version}"
-    local package_path
-    _package_path "${package_slug}" "${version}" package_path
-    readonly package_path
-    "${YAK_PATH}" push "${source_args[@]}" "${package_path}"
+    local -r stage_dir="${PACKAGE_STAGE_ROOT}/${package_slug}/package"
+    local -a package_files=()
+    mapfile -t package_files < <(fd -H -g "*-${version}-*-mac.yak" . "${stage_dir}" --max-depth 1)
+    ((${#package_files[@]} == 1)) || _die "Expected one Yak package for ${package_slug} ${version}, found ${#package_files[@]}"
+    "${YAK_PATH}" push "${source_args[@]}" "${package_files[0]}"
 }
 _main() {
     local route="${1:-}"
