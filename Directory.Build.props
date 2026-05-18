@@ -5,6 +5,7 @@
         <CSharpLibsRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'libs', 'csharp'))</CSharpLibsRoot>
         <RasmCoreRoot>$([MSBuild]::NormalizeDirectory('$(CSharpLibsRoot)', 'Rasm'))</RasmCoreRoot>
         <RasmGrasshopperRoot>$([MSBuild]::NormalizeDirectory('$(CSharpLibsRoot)', 'Rasm.Grasshopper'))</RasmGrasshopperRoot>
+        <RasmRhinoRoot>$([MSBuild]::NormalizeDirectory('$(CSharpLibsRoot)', 'Rasm.Rhino'))</RasmRhinoRoot>
         <RhinoBridgeRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'tools', 'rhino-bridge'))</RhinoBridgeRoot>
         <RhinoBridgePluginRoot>$([MSBuild]::NormalizeDirectory('$(RhinoBridgeRoot)', 'plugin'))</RhinoBridgePluginRoot>
         <NormalizedProjectDirectory>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)'))</NormalizedProjectDirectory>
@@ -19,8 +20,10 @@
         <IsGrasshopperPluginProject Condition="'$(IsGrasshopperPluginProject)' == ''">false</IsGrasshopperPluginProject>
         <IsGrasshopperAwareProject Condition="'$(IsGrasshopperAwareProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmGrasshopperRoot)'))">true</IsGrasshopperAwareProject>
         <IsGrasshopperAwareProject Condition="'$(IsGrasshopperAwareProject)' == ''">false</IsGrasshopperAwareProject>
-        <IsRhinoCommonAwareProject Condition="'$(IsRhinoCommonAwareProject)' == '' and ($([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmCoreRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmGrasshopperRoot)')))">true</IsRhinoCommonAwareProject>
+        <IsRhinoCommonAwareProject Condition="'$(IsRhinoCommonAwareProject)' == '' and ($([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmCoreRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmGrasshopperRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmRhinoRoot)')))">true</IsRhinoCommonAwareProject>
         <IsRhinoCommonAwareProject Condition="'$(IsRhinoCommonAwareProject)' == ''">false</IsRhinoCommonAwareProject>
+        <IsRhinoUiAwareProject Condition="'$(IsRhinoUiAwareProject)' == '' and ($([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmRhinoRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoAppsRoot)')))">true</IsRhinoUiAwareProject>
+        <IsRhinoUiAwareProject Condition="'$(IsRhinoUiAwareProject)' == ''">false</IsRhinoUiAwareProject>
     </PropertyGroup>
 
     <PropertyGroup Label="Language and Build">
@@ -70,6 +73,8 @@
         <RhinoWipAppPath>/Applications/RhinoWIP.app</RhinoWipAppPath>
         <RhinoWipResourcesPath>$(RhinoWipAppPath)/Contents/Frameworks/RhCore.framework/Versions/A/Resources</RhinoWipResourcesPath>
         <RhinoCommonReferencePath>$(RhinoWipResourcesPath)/RhinoCommon.dll</RhinoCommonReferencePath>
+        <RhinoUiReferencePath>$(RhinoWipResourcesPath)/Rhino.UI.dll</RhinoUiReferencePath>
+        <EtoReferencePath>$(RhinoWipResourcesPath)/Eto.dll</EtoReferencePath>
         <Grasshopper2ReferencePath>$(RhinoWipResourcesPath)/ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.dll</Grasshopper2ReferencePath>
         <GrasshopperIoReferencePath>$(RhinoWipResourcesPath)/ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.dll</GrasshopperIoReferencePath>
     </PropertyGroup>
@@ -138,6 +143,17 @@
         </Reference>
     </ItemGroup>
 
+    <ItemGroup Label="Rhino UI Libraries" Condition="'$(IsRhinoUiAwareProject)' == 'true'">
+        <Reference Include="Rhino.UI">
+            <HintPath>$(RhinoUiReferencePath)</HintPath>
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="Eto">
+            <HintPath>$(EtoReferencePath)</HintPath>
+            <Private>false</Private>
+        </Reference>
+    </ItemGroup>
+
     <ItemGroup Label="Grasshopper Libraries" Condition="'$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">
         <Reference Include="Grasshopper2">
             <HintPath>$(Grasshopper2ReferencePath)</HintPath>
@@ -148,7 +164,7 @@
             <Private>false</Private>
         </Reference>
         <Reference Include="Eto">
-            <HintPath>$(RhinoWipResourcesPath)/Eto.dll</HintPath>
+            <HintPath>$(EtoReferencePath)</HintPath>
             <Private>false</Private>
         </Reference>
     </ItemGroup>

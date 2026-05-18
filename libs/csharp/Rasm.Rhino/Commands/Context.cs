@@ -1,4 +1,4 @@
-namespace Rasm.Rhino;
+namespace Rasm.Rhino.Commands;
 
 // --- [MODELS] ---------------------------------------------------------------------------
 public sealed class RhinoCommandContext {
@@ -9,6 +9,7 @@ public sealed class RhinoCommandContext {
         Scope = Analyze.From(doc: document);
         Input = new(document: document);
         Edit = new(document: document);
+        Ui = new(document: document);
     }
 
     public RhinoDoc Document { get; }
@@ -17,6 +18,7 @@ public sealed class RhinoCommandContext {
     public Analyze.Scope Scope { get; }
     public CommandInput Input { get; }
     public DocumentEdit Edit { get; }
+    public Rasm.Rhino.UI.RhinoUi Ui { get; }
 
     public static RhinoCommandContext Of(RhinoDoc doc, RunMode mode) {
         ArgumentNullException.ThrowIfNull(argument: doc);

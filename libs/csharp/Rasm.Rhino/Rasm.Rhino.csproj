@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>RhinoCommon command and document interop boundary for Rasm.</Description>
-        <IsRhinoCommonAwareProject>true</IsRhinoCommonAwareProject>
         <SkipBoundaryExemptionContracts>true</SkipBoundaryExemptionContracts>
     </PropertyGroup>
 

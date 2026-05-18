@@ -1,4 +1,4 @@
-namespace Rasm.Rhino;
+namespace Rasm.Rhino.Commands;
 
 // --- [SERVICES] -------------------------------------------------------------------------
 public sealed record DocumentEdit {

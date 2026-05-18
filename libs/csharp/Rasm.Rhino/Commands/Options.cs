@@ -1,6 +1,6 @@
 using Color = System.Drawing.Color;
 
-namespace Rasm.Rhino;
+namespace Rasm.Rhino.Commands;
 
 // --- [MODELS] ---------------------------------------------------------------------------
 public readonly record struct CommandOptionValue(

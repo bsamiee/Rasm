@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>GH2 component infrastructure for Rasm: Component&lt;TSpec&gt; contract, Output pipeline, polymorphic Port descriptors, PortKind InputAdder/OutputAdder binding, Bridge IDataAccess extensions, Plugin manifest base.</Description>
-        <IsGrasshopperAwareProject>true</IsGrasshopperAwareProject>
     </PropertyGroup>
 
     <ItemGroup>

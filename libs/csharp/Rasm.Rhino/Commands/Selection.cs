@@ -1,4 +1,4 @@
-namespace Rasm.Rhino;
+namespace Rasm.Rhino.Commands;
 
 // --- [MODELS] ---------------------------------------------------------------------------
 public sealed record CommandSelection {

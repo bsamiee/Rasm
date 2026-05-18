@@ -3,7 +3,7 @@ using DrawingPoint = System.Drawing.Point;
 using DrawingRectangle = System.Drawing.Rectangle;
 using Result = Rhino.Commands.Result;
 
-namespace Rasm.Rhino;
+namespace Rasm.Rhino.Commands;
 
 public readonly record struct CommandPoint(
     Option<Point3d> Point,

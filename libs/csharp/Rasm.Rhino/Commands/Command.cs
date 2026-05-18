@@ -1,6 +1,6 @@
 using Result = Rhino.Commands.Result;
 
-namespace Rasm.Rhino;
+namespace Rasm.Rhino.Commands;
 
 // --- [SERVICES] -------------------------------------------------------------------------
 public abstract class RasmCommand<TSelf> : Command where TSelf : RasmCommand<TSelf> {
