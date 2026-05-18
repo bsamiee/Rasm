@@ -6,7 +6,8 @@ public abstract partial record DocumentTarget {
 
     public static DocumentTarget Selection(CommandSelection selection) => new SelectionCase(Value: selection);
     public static DocumentTarget Reference(ObjRef reference) => new ReferenceCase(Value: reference);
-    public static DocumentTarget Objects(IEnumerable<Guid> objectIds) => new ObjectsCase(Value: objectIds);
+    public static DocumentTarget Objects(IEnumerable<Guid> objectIds) =>
+        new ObjectsCase(Value: Optional(objectIds).Map(static ids => toSeq(ids.Where(static id => id != Guid.Empty).Distinct())).IfNone(Seq<Guid>()));
 
     internal abstract Fin<int> Select(RhinoDoc document, bool selected, Op op);
     internal abstract Fin<Unit> Delete(RhinoDoc document, bool quiet, bool ignoreModes, Op op);
@@ -23,7 +24,10 @@ public abstract partial record DocumentTarget {
         internal override Fin<Unit> Delete(RhinoDoc document, bool quiet, bool ignoreModes, Op op) =>
             Optional(Value)
                 .ToFin(Fail: op.InvalidInput())
-                .Bind(selection => ObjectIds(document: document, ids: selection.ObjectIds, quiet: quiet, op: op));
+                .Bind(selection => ReferenceEquals(objA: selection.Document, objB: document) switch {
+                    true => ObjectIds(document: document, ids: selection.ObjectIds, quiet: quiet, ignoreModes: ignoreModes, op: op),
+                    false => Fin.Fail<Unit>(error: op.InvalidInput()),
+                });
     }
 
     private sealed record ReferenceCase(ObjRef Value) : DocumentTarget {
@@ -44,7 +48,7 @@ public abstract partial record DocumentTarget {
                 });
     }
 
-    private sealed record ObjectsCase(IEnumerable<Guid> Value) : DocumentTarget {
+    private sealed record ObjectsCase(Seq<Guid> Value) : DocumentTarget {
         internal override Fin<int> Select(RhinoDoc document, bool selected, Op op) =>
             Optional(Value)
                 .ToFin(Fail: op.InvalidInput())
@@ -54,15 +58,30 @@ public abstract partial record DocumentTarget {
                 });
 
         internal override Fin<Unit> Delete(RhinoDoc document, bool quiet, bool ignoreModes, Op op) =>
-            ObjectIds(document: document, ids: Value, quiet: quiet, op: op);
+            ObjectIds(document: document, ids: Value, quiet: quiet, ignoreModes: ignoreModes, op: op);
     }
 
-    private static Fin<Unit> ObjectIds(RhinoDoc document, IEnumerable<Guid> ids, bool quiet, Op op) =>
+    private static Fin<Unit> ObjectIds(RhinoDoc document, IEnumerable<Guid> ids, bool quiet, bool ignoreModes, Op op) =>
         Optional(ids)
             .ToFin(Fail: op.InvalidInput())
-            .Bind(values => document.Objects.Delete(values, quiet) switch {
-                > 0 => Fin.Succ(value: unit),
-                _ => Fin.Fail<Unit>(error: op.InvalidResult()),
+            .Bind(values => {
+                Seq<Guid> target = toSeq(values.Where(static id => id != Guid.Empty).Distinct());
+                Seq<RhinoObject> found = toSeq(target.AsIterable()
+                    .Select(id => document.Objects.FindId(id))
+                    .Where(static item => item is { IsDeleted: false }));
+                return target.IsEmpty switch {
+                    true => Fin.Fail<Unit>(error: op.InvalidInput()),
+                    false => ignoreModes switch {
+                        false => document.Objects.Delete(target.AsIterable(), quiet) switch {
+                            int count when count == target.Count => Fin.Succ(value: unit),
+                            _ => Fin.Fail<Unit>(error: op.InvalidResult()),
+                        },
+                        true => (found.Count == target.Count && System.Linq.Enumerable.All(found.AsIterable(), item => document.Objects.Delete(item, quiet, true))) switch {
+                            true => Fin.Succ(value: unit),
+                            false => Fin.Fail<Unit>(error: op.InvalidResult()),
+                        },
+                    },
+                };
             });
 }
 

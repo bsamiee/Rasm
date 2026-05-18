@@ -9,15 +9,14 @@ public abstract class RasmPanel : Panel, global::Rhino.UI.IPanel {
     public static Fin<Unit> Register<TPanel>(
         global::Rhino.PlugIns.PlugIn plugin,
         string caption,
-        System.Reflection.Assembly iconAssembly,
+        System.Reflection.Assembly? iconAssembly,
         string iconResourceId,
         global::Rhino.UI.PanelType panelType = global::Rhino.UI.PanelType.PerDoc) where TPanel : RasmPanel =>
         (Optional(plugin).ToFin(Fail: Op.Of(name: nameof(Register)).InvalidInput()),
          Optional(caption).ToFin(Fail: Op.Of(name: nameof(Register)).InvalidInput()),
-         Optional(iconAssembly).ToFin(Fail: Op.Of(name: nameof(Register)).InvalidInput()),
          Optional(iconResourceId).ToFin(Fail: Op.Of(name: nameof(Register)).InvalidInput()))
-            .Apply((validPlugin, validCaption, validAssembly, validResource) => {
-                global::Rhino.UI.Panels.RegisterPanel(validPlugin, typeof(TPanel), validCaption, validAssembly, validResource, panelType);
+            .Apply((validPlugin, validCaption, validResource) => {
+                global::Rhino.UI.Panels.RegisterPanel(validPlugin, typeof(TPanel), validCaption, iconAssembly, validResource, panelType);
                 return unit;
             })
             .As();

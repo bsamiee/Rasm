@@ -37,10 +37,16 @@ public abstract class RasmOverlay<TState>(TState initial) : DisplayConduit {
                 return unit;
             });
 
-    public Fin<Unit> ForSelection(bool selectable, bool selected) {
-        SetSelectionFilter(selectable, selected);
+    public Fin<Unit> ForSelection(bool on, bool checkSubObjects = false) {
+        SetSelectionFilter(on, checkSubObjects);
         return Fin.Succ(value: unit);
     }
+
+    protected virtual Fin<Unit> Cull(TState state, CullObjectEventArgs args) =>
+        Fin.Succ(value: unit);
+
+    protected virtual Fin<Unit> PreDraw(TState state, DrawObjectEventArgs args) =>
+        Fin.Succ(value: unit);
 
     protected virtual Fin<Unit> Foreground(TState state, DrawEventArgs args) =>
         Fin.Succ(value: unit);
@@ -59,6 +65,12 @@ public abstract class RasmOverlay<TState>(TState initial) : DisplayConduit {
 
     protected sealed override void OnEnable(bool enable) =>
         _ = EnabledChanged(enabled: enable);
+
+    protected sealed override void ObjectCulling(CullObjectEventArgs e) =>
+        _ = Cull(state: State, args: e);
+
+    protected sealed override void PreDrawObject(DrawObjectEventArgs e) =>
+        _ = PreDraw(state: State, args: e);
 
     protected sealed override void DrawForeground(DrawEventArgs e) =>
         _ = Foreground(state: State, args: e);

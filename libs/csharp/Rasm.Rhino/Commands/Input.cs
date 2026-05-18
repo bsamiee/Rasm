@@ -32,7 +32,13 @@ public readonly record struct CommandPoint(
     private static Option<CommandSelection.Reference> PointObject(GetPoint getter) =>
         Optional(getter.PointOnObject()).Map(reference => {
             using ObjRef owned = reference;
-            return CommandSelection.Reference.Of(reference: owned, preselected: false);
+            CommandSelection.Reference snapshot = CommandSelection.Reference.Of(reference: owned, preselected: false);
+            return snapshot with {
+                Location = PickLocation.Of(getter: getter).Case switch {
+                    PickLocation location => Some(location),
+                    _ => snapshot.Location,
+                },
+            };
         });
 
     private static Option<double> NumberPreviewOf(GetPoint getter) =>
@@ -310,15 +316,15 @@ public static class CommandQuery {
                 document: document,
                 references: toSeq(Enumerable.Range(start: 0, count: getter.ObjectCount).Select(index => getter.Object(index))),
                 preselected: getter.ObjectsWerePreselected switch {
-                    true => toSeq(Enumerable.Range(start: 0, count: getter.ObjectCount).Select(index => ObjectIdAt(getter: getter, index: index))),
-                    false => Seq<Guid>(),
+                    true => toSeq(Enumerable.Range(start: 0, count: getter.ObjectCount).Select(index => ObjectKeyAt(getter: getter, index: index))),
+                    false => Seq<(Guid ObjectId, ComponentIndex ComponentIndex)>(),
                 })),
             _ => Option<CommandSelection>.None,
         };
 
-    private static Guid ObjectIdAt(GetObject getter, int index) {
+    private static (Guid ObjectId, ComponentIndex ComponentIndex) ObjectKeyAt(GetObject getter, int index) {
         using ObjRef reference = getter.Object(index);
-        return reference.ObjectId;
+        return (reference.ObjectId, reference.GeometryComponentIndex);
     }
 
     private static (bool Continue, Option<CommandOptionValue> Selected) ObjectTransition(GetObject getter, GetResult raw, Option<CommandOptionValue> selected) =>

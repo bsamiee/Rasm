@@ -7,7 +7,14 @@ public readonly record struct CommandOptionValue(
     int Index,
     string Name,
     Option<object> Value,
-    Option<int> ListIndex);
+    Option<int> ListIndex,
+    CommandLineOptionType OptionType,
+    Option<string> EnglishName,
+    Option<string> LocalName,
+    Option<string> StringValue,
+    int CurrentListIndex,
+    Option<bool> CurrentToggleValue,
+    double CurrentNumericValue);
 
 public abstract record CommandOption {
     private CommandOption(string name) => Name = name;
@@ -19,15 +26,16 @@ public abstract record CommandOption {
 
     public string Name { get; }
 
-    public static CommandOption Named(string name, string? value = null, bool hidden = false) => new NamedCase(Name: name, Value: value, Hidden: hidden);
-    public static CommandOption Toggle(string name, bool initial, string off = "No", string on = "Yes") =>
+    public static CommandOption Named(string name, string? value = null, bool hidden = false, bool varies = false) => new NamedCase(Name: name, Value: value, Hidden: hidden, Varies: varies);
+    public static CommandOption Toggle(string name, bool initial, string off = "No", string on = "Yes", bool varies = false) =>
         new RefOptionCase<OptionToggle, bool>(
             Name: name,
             CreateNative: () => (ValidValue(value: off), ValidValue(value: on)).Apply((disabled, enabled) => new OptionToggle(initial, disabled, enabled)).As(),
             Prompt: Option<string>.None,
             BindNative: Plain(bind: static (GetBaseClass getter, string name, ref OptionToggle native) => getter.AddOptionToggle(name, ref native)),
-            Current: static native => native.CurrentValue);
-    public static CommandOption Number(string name, double initial, Option<double> lower = default, Option<double> upper = default, string? prompt = null) =>
+            Current: static native => native.CurrentValue,
+            Varies: varies);
+    public static CommandOption Number(string name, double initial, Option<double> lower = default, Option<double> upper = default, string? prompt = null, bool varies = false) =>
         new RefOptionCase<OptionDouble, double>(
             Name: name,
             CreateNative: () => Fin.Succ(value: BoundedOption(initial: initial, lower: lower, upper: upper, unconstrained: static (double value) => new OptionDouble(value), single: static (double value, bool isLower, double bound) => new OptionDouble(value, isLower, bound), bounded: static (double value, double lo, double hi) => new OptionDouble(value, lo, hi))),
@@ -35,8 +43,9 @@ public abstract record CommandOption {
             BindNative: Prompted(
                 plain: static (GetBaseClass getter, string name, ref OptionDouble native) => getter.AddOptionDouble(name, ref native),
                 prompted: static (GetBaseClass getter, string name, ref OptionDouble native, string label) => getter.AddOptionDouble(name, ref native, label)),
-            Current: static native => native.CurrentValue);
-    public static CommandOption Integer(string name, int initial, Option<int> lower = default, Option<int> upper = default, string? prompt = null) =>
+            Current: static native => native.CurrentValue,
+            Varies: varies);
+    public static CommandOption Integer(string name, int initial, Option<int> lower = default, Option<int> upper = default, string? prompt = null, bool varies = false) =>
         new RefOptionCase<OptionInteger, int>(
             Name: name,
             CreateNative: () => Fin.Succ(value: BoundedOption(initial: initial, lower: lower, upper: upper, unconstrained: static (int value) => new OptionInteger(value), single: static (int value, bool isLower, int bound) => new OptionInteger(value, isLower, bound), bounded: static (int value, int lo, int hi) => new OptionInteger(value, lo, hi))),
@@ -44,8 +53,9 @@ public abstract record CommandOption {
             BindNative: Prompted(
                 plain: static (GetBaseClass getter, string name, ref OptionInteger native) => getter.AddOptionInteger(name, ref native),
                 prompted: static (GetBaseClass getter, string name, ref OptionInteger native, string label) => getter.AddOptionInteger(name, ref native, label)),
-            Current: static native => native.CurrentValue);
-    public static CommandOption Text(string name, string initial = "", bool allowEmpty = false, string? prompt = null) =>
+            Current: static native => native.CurrentValue,
+            Varies: varies);
+    public static CommandOption Text(string name, string initial = "", bool allowEmpty = false, string? prompt = null, bool varies = false) =>
         new RefOptionCase<OptionString, string>(
             Name: name,
             CreateNative: () => Fin.Succ(value: new OptionString(initial, allowEmpty)),
@@ -53,8 +63,9 @@ public abstract record CommandOption {
             BindNative: Prompted(
                 plain: static (GetBaseClass getter, string name, ref OptionString native) => getter.AddOptionString(name, ref native),
                 prompted: static (GetBaseClass getter, string name, ref OptionString native, string label) => getter.AddOptionString(name, ref native, label)),
-            Current: static native => native.CurrentValue);
-    public static CommandOption Color(string name, Color initial, string? prompt = null) =>
+            Current: static native => native.CurrentValue,
+            Varies: varies);
+    public static CommandOption Color(string name, Color initial, string? prompt = null, bool varies = false) =>
         new RefOptionCase<OptionColor, Color>(
             Name: name,
             CreateNative: () => Fin.Succ(value: new OptionColor(initial)),
@@ -62,12 +73,13 @@ public abstract record CommandOption {
             BindNative: Prompted(
                 plain: static (GetBaseClass getter, string name, ref OptionColor native) => getter.AddOptionColor(name, ref native),
                 prompted: static (GetBaseClass getter, string name, ref OptionColor native, string label) => getter.AddOptionColor(name, ref native, label)),
-            Current: static native => native.CurrentValue);
-    public static CommandOption List(string name, Seq<string> values, int current = 0) => new ListCase(Name: name, Values: values, Current: current);
-    public static CommandOption EnumList<TEnum>(string name, TEnum initial, Seq<TEnum> values = default) where TEnum : struct, Enum =>
-        new EnumCase<TEnum>(Name: name, Initial: Some(initial), Values: values, Current: 0, Mode: EnumOptionMode.List);
-    public static CommandOption EnumSelection<TEnum>(string name, Seq<TEnum> values, int current = 0) where TEnum : struct, Enum =>
-        new EnumCase<TEnum>(Name: name, Initial: Option<TEnum>.None, Values: values, Current: current, Mode: EnumOptionMode.Selection);
+            Current: static native => native.CurrentValue,
+            Varies: varies);
+    public static CommandOption List(string name, Seq<string> values, int current = 0, bool varies = false) => new ListCase(Name: name, Values: values, Current: current, Varies: varies);
+    public static CommandOption EnumList<TEnum>(string name, TEnum initial, Seq<TEnum> values = default, bool varies = false) where TEnum : struct, Enum =>
+        new EnumCase<TEnum>(Name: name, Initial: Some(initial), Values: values, Current: 0, Mode: EnumOptionMode.List, Varies: varies);
+    public static CommandOption EnumSelection<TEnum>(string name, Seq<TEnum> values, int current = 0, bool varies = false) where TEnum : struct, Enum =>
+        new EnumCase<TEnum>(Name: name, Initial: Option<TEnum>.None, Values: values, Current: current, Mode: EnumOptionMode.Selection, Varies: varies);
 
     internal abstract Fin<Bound> Add(GetBaseClass getter);
 
@@ -115,18 +127,36 @@ public abstract record CommandOption {
         guard(CommandLineOption.IsValidOptionValueName(optionValue: value), Op.Of(name: nameof(CommandOption)).InvalidInput())
             .Bind(_ => Fin.Succ(value: value));
 
-    private static Fin<Bound> Added(int index, IDisposable? native, Func<GetBaseClass, Fin<CommandOptionValue>> snapshot) {
+    private static Fin<Bound> Added(GetBaseClass getter, int index, IDisposable? native, Func<GetBaseClass, Fin<CommandOptionValue>> snapshot, bool varies = false) {
         Bound bound = new(Index: index, Native: native, Snapshot: snapshot);
         return index switch {
-            > 0 => Fin.Succ(value: bound),
+            > 0 => Optional(getter)
+                .ToFin(Fail: Op.Of(name: nameof(CommandOption)).InvalidInput())
+                .Map(valid => {
+                    valid.SetOptionVaries(optionIndex: index, varies: varies);
+                    return bound;
+                }),
             _ => bound.Dispose() switch {
                 _ => Fin.Fail<Bound>(error: Op.Of(name: nameof(CommandOption)).InvalidResult()),
             },
         };
     }
 
-    private static CommandOptionValue Snapshot(string name, GetBaseClass getter, Option<object> value, Option<int> listIndex) =>
-        new(Index: getter.OptionIndex(), Name: name, Value: value, ListIndex: listIndex);
+    private static CommandOptionValue Snapshot(string name, GetBaseClass getter, Option<object> value, Option<int> listIndex) {
+        CommandLineOption option = getter.Option();
+        return new(
+            Index: getter.OptionIndex(),
+            Name: name,
+            Value: value,
+            ListIndex: listIndex,
+            OptionType: option.OptionType,
+            EnglishName: Optional(option.EnglishName),
+            LocalName: Optional(option.LocalName),
+            StringValue: Optional(option.StringOptionValue),
+            CurrentListIndex: option.CurrentListOptionIndex,
+            CurrentToggleValue: Optional(option.CurrentToggleValue),
+            CurrentNumericValue: option.CurrentNumericValue);
+    }
 
     private static Fin<CommandOptionValue> SnapshotFin(string name, GetBaseClass getter, Option<object> value, Option<int> listIndex) =>
         Fin.Succ(value: Snapshot(name: name, getter: getter, value: value, listIndex: listIndex));
@@ -152,7 +182,8 @@ public abstract record CommandOption {
         Func<Fin<TNative>> CreateNative,
         Option<string> Prompt,
         RefOptionBinder<TNative> BindNative,
-        Func<TNative, TValue> Current) : CommandOption(name: Name) where TNative : IDisposable {
+        Func<TNative, TValue> Current,
+        bool Varies) : CommandOption(name: Name) where TNative : IDisposable {
         internal override Fin<Bound> Add(GetBaseClass getter) =>
             from name in Valid(name: Name)
             from bound in AddNative(getter: getter, name: name)
@@ -166,38 +197,46 @@ public abstract record CommandOption {
         private Fin<Bound> AddNative(GetBaseClass getter, string name, TNative native) {
             int index = BindNative(getter, name, ref native, Prompt);
             return Added(
+                getter: getter,
                 index: index,
                 native: native,
-                snapshot: g => SnapshotFin(name: name, getter: g, value: Some((object)Current(native)!), listIndex: Option<int>.None));
+                snapshot: g => SnapshotFin(name: name, getter: g, value: Some((object)Current(native)!), listIndex: Option<int>.None),
+                varies: Varies);
         }
     }
 
-    private sealed record NamedCase(string Name, string? Value, bool Hidden) : CommandOption(name: Name) {
+    private sealed record NamedCase(string Name, string? Value, bool Hidden, bool Varies) : CommandOption(name: Name) {
         internal override Fin<Bound> Add(GetBaseClass getter) =>
             from name in Valid(name: Name)
             from bound in Value switch {
                 string value => ValidValue(value: value).Bind(valid => Added(
+                    getter: getter,
                     index: getter.AddOption(name, valid, Hidden),
                     native: null,
-                    snapshot: g => SnapshotFin(name: name, getter: g, value: Some((object)valid), listIndex: Option<int>.None))),
+                    snapshot: g => SnapshotFin(name: name, getter: g, value: Some((object)valid), listIndex: Option<int>.None),
+                    varies: Varies)),
                 _ => Added(
+                    getter: getter,
                     index: getter.AddOption(name),
                     native: null,
-                    snapshot: g => SnapshotFin(name: name, getter: g, value: Option<object>.None, listIndex: Option<int>.None)),
+                    snapshot: g => SnapshotFin(name: name, getter: g, value: Option<object>.None, listIndex: Option<int>.None),
+                    varies: Varies),
             }
             select bound;
     }
 
-    private sealed record ListCase(string Name, Seq<string> Values, int Current) : CommandOption(name: Name) {
+    private sealed record ListCase(string Name, Seq<string> Values, int Current, bool Varies) : CommandOption(name: Name) {
         internal override Fin<Bound> Add(GetBaseClass getter) =>
             from name in Valid(name: Name)
             from values in Values.TraverseM(ValidValue).As()
             from nonEmpty in NonEmpty(values: values)
             from current in ValidIndex(index: Current, count: nonEmpty.Count)
             from bound in Added(
+                getter: getter,
                 index: getter.AddOptionList(name, nonEmpty.AsIterable(), current),
                 native: null,
-                snapshot: g => SnapshotAt(name: name, getter: g, values: nonEmpty))
+                snapshot: g => SnapshotAt(name: name, getter: g, values: nonEmpty),
+                varies: Varies)
             select bound;
 
         private static Fin<CommandOptionValue> SnapshotAt(string name, GetBaseClass getter, Seq<string> values) =>
@@ -205,7 +244,7 @@ public abstract record CommandOption {
             select Snapshot(name: name, getter: getter, value: Some((object)values[index]), listIndex: Some(index));
     }
 
-    private sealed record EnumCase<TEnum>(string Name, Option<TEnum> Initial, Seq<TEnum> Values, int Current, EnumOptionMode Mode) : CommandOption(name: Name) where TEnum : struct, Enum {
+    private sealed record EnumCase<TEnum>(string Name, Option<TEnum> Initial, Seq<TEnum> Values, int Current, EnumOptionMode Mode, bool Varies) : CommandOption(name: Name) where TEnum : struct, Enum {
         internal override Fin<Bound> Add(GetBaseClass getter) =>
             from name in Valid(name: Name)
             from values in Mode switch {
@@ -220,13 +259,17 @@ public abstract record CommandOption {
             }
             from bound in Mode switch {
                 EnumOptionMode.List => Added(
+                    getter: getter,
                     index: Values.IsEmpty ? getter.AddOptionEnumList(name, initial) : getter.AddOptionEnumList(name, initial, [.. values]),
                     native: null,
-                    snapshot: g => SnapshotAt(name: name, getter: g, values: values, mode: Mode)),
+                    snapshot: g => SnapshotAt(name: name, getter: g, values: values, mode: Mode),
+                    varies: Varies),
                 _ => Added(
+                    getter: getter,
                     index: getter.AddOptionEnumSelectionList(name, values.AsIterable(), current),
                     native: null,
-                    snapshot: g => SnapshotAt(name: name, getter: g, values: values, mode: Mode)),
+                    snapshot: g => SnapshotAt(name: name, getter: g, values: values, mode: Mode),
+                    varies: Varies),
             }
             select bound;
 

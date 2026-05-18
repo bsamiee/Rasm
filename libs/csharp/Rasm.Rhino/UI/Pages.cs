@@ -47,19 +47,22 @@ public abstract class RasmPropertiesPage : global::Rhino.UI.ObjectPropertiesPage
     private readonly Control control;
     private readonly string englishTitle;
     private readonly bool allObjectsMustBeSupported;
+    private readonly bool supportsSubObjects;
     private readonly ObjectType supportedTypes;
 
     protected RasmPropertiesPage(
         string englishTitle,
         Control control,
         ObjectType supportedTypes = ObjectType.AnyObject,
-        bool allObjectsMustBeSupported = false) {
+        bool allObjectsMustBeSupported = false,
+        bool supportsSubObjects = false) {
         ArgumentException.ThrowIfNullOrWhiteSpace(argument: englishTitle);
         ArgumentNullException.ThrowIfNull(argument: control);
         this.englishTitle = englishTitle;
         this.control = control;
         this.supportedTypes = supportedTypes;
         this.allObjectsMustBeSupported = allObjectsMustBeSupported;
+        this.supportsSubObjects = supportsSubObjects;
         global::Rhino.UI.EtoExtensions.UseRhinoStyle(control);
     }
 
@@ -71,7 +74,7 @@ public abstract class RasmPropertiesPage : global::Rhino.UI.ObjectPropertiesPage
 
     public sealed override bool AllObjectsMustBeSupported => allObjectsMustBeSupported;
 
-    public sealed override bool SupportsSubObjects => true;
+    public sealed override bool SupportsSubObjects => supportsSubObjects;
 
     public sealed override bool ShouldDisplay(global::Rhino.UI.ObjectPropertiesPageEventArgs e) =>
         Display(args: e).Match(Succ: static value => value, Fail: static _ => false);
