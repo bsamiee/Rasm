@@ -153,5 +153,21 @@ public sealed record CommandSelection {
                 _ => new ObjRef(doc: document, id: ObjectId),
             };
         }
+
+        internal Fin<T> Use<T>(RhinoDoc document, Op op, Func<ObjRef, Fin<T>> use) {
+            Reference snapshot = this;
+            return Optional(document)
+                .ToFin(Fail: op.InvalidInput())
+                .Bind(valid => snapshot.DocumentRuntimeSerialNumber switch {
+                    0 => snapshot.WithNative(document: valid, use: use),
+                    uint serial when serial == valid.RuntimeSerialNumber => snapshot.WithNative(document: valid, use: use),
+                    _ => Fin.Fail<T>(error: op.InvalidInput()),
+                });
+        }
+
+        private Fin<T> WithNative<T>(RhinoDoc document, Func<ObjRef, Fin<T>> use) {
+            using ObjRef reference = ObjRef(document: document);
+            return use(arg: reference);
+        }
     }
 }

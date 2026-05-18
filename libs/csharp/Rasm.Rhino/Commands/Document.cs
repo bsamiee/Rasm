@@ -5,6 +5,8 @@ public abstract partial record DocumentTarget {
     private DocumentTarget() { }
 
     public static DocumentTarget Selection(CommandSelection selection) => new SelectionCase(Value: selection);
+    public static DocumentTarget Reference(CommandSelection.Reference reference) =>
+        new ReferenceCase(Value: Optional(reference).Filter(static value => value.ObjectId != Guid.Empty));
     public static DocumentTarget Reference(ObjRef reference) =>
         new ReferenceCase(Value: Optional(reference)
             .Map(static value => CommandSelection.Reference.Of(reference: value, preselected: false))
@@ -37,26 +39,12 @@ public abstract partial record DocumentTarget {
         internal override Fin<int> Select(RhinoDoc document, bool selected, Op op) =>
             Value
                 .ToFin(Fail: op.InvalidInput())
-                .Bind(value => WithReference(value: value, document: document, op: op, use: reference => CountResult(count: document.Objects.Select(Seq(reference).AsIterable(), selected), op: op)));
+                .Bind(value => value.Use(document: document, op: op, use: reference => CountResult(count: document.Objects.Select(Seq(reference).AsIterable(), selected), op: op)));
 
         internal override Fin<Unit> Delete(RhinoDoc document, bool quiet, bool ignoreModes, Op op) =>
             Value
                 .ToFin(Fail: op.InvalidInput())
-                .Bind(value => WithReference(value: value, document: document, op: op, use: reference => UnitResult(success: document.Objects.Delete(reference, quiet, ignoreModes), op: op)));
-
-        private static Fin<T> WithReference<T>(CommandSelection.Reference value, RhinoDoc document, Op op, Func<ObjRef, Fin<T>> use) {
-            Fin<Unit> owner = value.DocumentRuntimeSerialNumber switch {
-                0 => Fin.Succ(value: unit),
-                uint serial when serial == document.RuntimeSerialNumber => Fin.Succ(value: unit),
-                _ => Fin.Fail<Unit>(error: op.InvalidInput()),
-            };
-            return owner.Bind(_ => UseReference(value: value, document: document, use: use));
-        }
-
-        private static Fin<T> UseReference<T>(CommandSelection.Reference value, RhinoDoc document, Func<ObjRef, Fin<T>> use) {
-            using ObjRef reference = value.ObjRef(document: document);
-            return use(arg: reference);
-        }
+                .Bind(value => value.Use(document: document, op: op, use: reference => UnitResult(success: document.Objects.Delete(reference, quiet, ignoreModes), op: op)));
     }
 
     private sealed record ObjectsCase(Seq<Guid> Value) : DocumentTarget {
@@ -142,15 +130,19 @@ public sealed record DocumentEdit {
         }
         select ids;
 
-    public Fin<Unit> Replace(ObjRef reference, GeometryBase geometry, bool ignoreModes = false) =>
+    public Fin<Unit> Replace(CommandSelection.Reference reference, GeometryBase geometry, bool ignoreModes = false) =>
         from document in Available(op: Op.Of(name: nameof(Replace)))
-        from r in Optional(reference).ToFin(Fail: Op.Of(name: nameof(Replace)).InvalidInput())
         from g in Optional(geometry).ToFin(Fail: Op.Of(name: nameof(Replace)).InvalidInput())
-        from result in document.Objects.Replace(r, g, ignoreModes) switch {
+        from result in reference.Use(document: document, op: Op.Of(name: nameof(Replace)), use: native => document.Objects.Replace(native, g, ignoreModes) switch {
             true => Fin.Succ(value: unit),
             false => Fin.Fail<Unit>(error: Op.Of(name: nameof(Replace)).InvalidResult()),
-        }
+        })
         select result;
+
+    public Fin<Unit> Replace(ObjRef reference, GeometryBase geometry, bool ignoreModes = false) =>
+        Optional(reference)
+            .ToFin(Fail: Op.Of(name: nameof(Replace)).InvalidInput())
+            .Bind(native => Replace(reference: CommandSelection.Reference.Of(reference: native, preselected: false), geometry: geometry, ignoreModes: ignoreModes));
 
     public Fin<Unit> Delete(DocumentTarget target, bool quiet = true, bool ignoreModes = false) =>
         from document in Available(op: Op.Of(name: nameof(Delete)))

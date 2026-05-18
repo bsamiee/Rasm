@@ -41,20 +41,20 @@ public abstract record CommandOption {
     public string Name { get; }
 
     public static CommandOption Of<T>(string name, T value, CommandOptionPolicy policy = default) =>
-        typeof(T).IsEnum switch {
-            true => EnumFromObject(name: name, value: value!, policy: policy),
-            false => value switch {
-                bool toggle => Toggle(name: name, initial: toggle, off: policy.Off, on: policy.On, varies: policy.Varies),
-                double number => Number(name: name, initial: number, lower: policy.Lower, upper: policy.Upper, prompt: policy.Prompt, varies: policy.Varies),
-                int integer => Integer(name: name, initial: integer, lower: policy.Lower.Map(static bound => (int)bound), upper: policy.Upper.Map(static bound => (int)bound), prompt: policy.Prompt, varies: policy.Varies),
-                string text => Text(name: name, initial: text, allowEmpty: policy.AllowEmpty, prompt: policy.Prompt, varies: policy.Varies),
-                Color color => Color(name: name, initial: color, prompt: policy.Prompt, varies: policy.Varies),
-                IEnumerable<string> values => List(name: name, values: toSeq(values), current: policy.Current, varies: policy.Varies),
-                _ => Named(name: name, value: policy.ValueName, hidden: policy.Hidden, varies: policy.Varies, localName: Optional(policy.LocalName), localValue: Optional(policy.LocalValueName)),
-            },
+        value switch {
+            bool toggle => Toggle(name: name, initial: toggle, off: policy.Off, on: policy.On, varies: policy.Varies),
+            double number => Number(name: name, initial: number, lower: policy.Lower, upper: policy.Upper, prompt: policy.Prompt, varies: policy.Varies),
+            int integer => Integer(name: name, initial: integer, lower: policy.Lower.Map(static bound => (int)bound), upper: policy.Upper.Map(static bound => (int)bound), prompt: policy.Prompt, varies: policy.Varies),
+            string text => Text(name: name, initial: text, allowEmpty: policy.AllowEmpty, prompt: policy.Prompt, varies: policy.Varies),
+            Color color => Color(name: name, initial: color, prompt: policy.Prompt, varies: policy.Varies),
+            IEnumerable<string> values => List(name: name, values: toSeq(values), current: policy.Current, varies: policy.Varies),
+            _ => Named(name: name, value: policy.ValueName, hidden: policy.Hidden, varies: policy.Varies, localName: Optional(policy.LocalName), localValue: Optional(policy.LocalValueName)),
         };
 
-    public static CommandOption Of<TEnum>(string name, IEnumerable<TEnum> values, CommandOptionPolicy policy = default) where TEnum : struct, Enum =>
+    public static CommandOption Enum<TEnum>(string name, TEnum value, CommandOptionPolicy policy = default) where TEnum : struct, Enum =>
+        EnumList(name: name, initial: value, values: Seq<TEnum>(), varies: policy.Varies);
+
+    public static CommandOption EnumSelection<TEnum>(string name, IEnumerable<TEnum> values, CommandOptionPolicy policy = default) where TEnum : struct, Enum =>
         EnumSelection(name: name, values: toSeq(values), current: policy.Current, varies: policy.Varies);
 
     private static NamedCase Named(string name, string? value = null, bool hidden = false, bool varies = false, Option<string> localName = default, Option<string> localValue = default) =>
@@ -65,7 +65,7 @@ public abstract record CommandOption {
             Name: name,
             CreateNative: () => (ValidValue(value: off), ValidValue(value: on)).Apply((disabled, enabled) => new OptionToggle(initial, disabled, enabled)).As(),
             Prompt: Option<string>.None,
-            BindNative: Plain(bind: static (GetBaseClass getter, string name, ref OptionToggle native) => getter.AddOptionToggle(name, ref native)),
+            BindNative: static (GetBaseClass getter, string name, ref OptionToggle native, Option<string> _) => getter.AddOptionToggle(name, ref native),
             Current: static native => native.CurrentValue,
             Varies: varies);
     private static RefOptionCase<OptionDouble, double> Number(string name, double initial, Option<double> lower = default, Option<double> upper = default, string? prompt = null, bool varies = false) =>
@@ -142,9 +142,6 @@ public abstract record CommandOption {
             (_, { IsSome: true } hi) => single(arg1: initial, arg2: false, arg3: hi.IfNone(initial)),
             _ => unconstrained(arg: initial),
         };
-
-    private static RefOptionBinder<TNative> Plain<TNative>(RefOptionPlainBinder<TNative> bind) where TNative : IDisposable =>
-        (GetBaseClass getter, string name, ref TNative native, Option<string> _) => bind(getter, name, ref native);
 
     private static RefOptionBinder<TNative> Prompted<TNative>(RefOptionPlainBinder<TNative> plain, RefOptionPromptBinder<TNative> prompted) where TNative : IDisposable =>
         (GetBaseClass getter, string name, ref TNative native, Option<string> prompt) => prompt.Case switch {
@@ -244,16 +241,6 @@ public abstract record CommandOption {
         }
     }
 
-    private static CommandOption EnumFromObject<T>(string name, T value, CommandOptionPolicy policy) {
-        System.Reflection.MethodInfo method = typeof(CommandOption)
-            .GetMethod(name: nameof(EnumTyped), bindingAttr: System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!
-            .MakeGenericMethod(typeArguments: [typeof(T)]);
-        return (CommandOption)method.Invoke(obj: null, parameters: [name, value!, policy])!;
-    }
-
-    private static EnumCase<TEnum> EnumTyped<TEnum>(string name, TEnum value, CommandOptionPolicy policy) where TEnum : struct, Enum =>
-        EnumList(name: name, initial: value, values: Seq<TEnum>(), varies: policy.Varies);
-
     private sealed record NamedCase(string Name, string? Value, bool Hidden, bool Varies, Option<string> LocalName, Option<string> LocalValue) : CommandOption(name: Name) {
         internal override Fin<Bound> Add(GetBaseClass getter) =>
             from name in Valid(name: Name)
@@ -306,7 +293,7 @@ public abstract record CommandOption {
         internal override Fin<Bound> Add(GetBaseClass getter) =>
             from name in Valid(name: Name)
             from values in Mode switch {
-                EnumOptionMode.List => Fin.Succ(value: Values.IsEmpty switch { true => toSeq(Enum.GetValues<TEnum>()), false => Values }),
+                EnumOptionMode.List => Fin.Succ(value: Values.IsEmpty switch { true => toSeq(global::System.Enum.GetValues<TEnum>()), false => Values }),
                 _ => NonEmpty(values: Values),
             }
             from current in Mode switch { EnumOptionMode.List => Fin.Succ(value: Current), _ => ValidInputIndex(index: Current, count: values.Count) }

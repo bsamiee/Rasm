@@ -11,7 +11,10 @@ public abstract class RasmOverlay<TState>(TState initial) : DisplayConduit {
             .ToFin(Fail: Op.Of(name: nameof(Transition)).InvalidInput())
             .Map(apply => {
                 _ = state.Swap(f: apply);
-                _ = Redraw(document: document);
+                _ = Optional(document).Map(doc => {
+                    doc.Views.Redraw();
+                    return unit;
+                });
                 return unit;
             });
 
@@ -73,22 +76,22 @@ public abstract class RasmOverlay<TState>(TState initial) : DisplayConduit {
         _ = RhinoUi.Protect(valid: () => EnabledChanged(enabled: enable));
 
     protected sealed override void ObjectCulling(CullObjectEventArgs e) =>
-        _ = RhinoUi.Protect(valid: () => Cull(state: State, args: e));
+        _ = Apply(args: e, change: Cull);
 
     protected sealed override void PreDrawObjects(DrawEventArgs e) =>
-        _ = RhinoUi.Protect(valid: () => PreDrawObjects(state: State, args: e));
+        _ = Apply(args: e, change: PreDrawObjects);
 
     protected sealed override void PreDrawObject(DrawObjectEventArgs e) =>
-        _ = RhinoUi.Protect(valid: () => PreDrawObject(state: State, args: e));
+        _ = Apply(args: e, change: PreDrawObject);
 
     protected sealed override void DrawForeground(DrawEventArgs e) =>
-        _ = RhinoUi.Protect(valid: () => Foreground(state: State, args: e));
+        _ = Apply(args: e, change: Foreground);
 
     protected sealed override void DrawOverlay(DrawEventArgs e) =>
-        _ = RhinoUi.Protect(valid: () => Overlay(state: State, args: e));
+        _ = Apply(args: e, change: Overlay);
 
     protected sealed override void PostDrawObjects(DrawEventArgs e) =>
-        _ = RhinoUi.Protect(valid: () => PostDraw(state: State, args: e));
+        _ = Apply(args: e, change: PostDraw);
 
     protected sealed override void CalculateBoundingBox(CalculateBoundingBoxEventArgs e) =>
         _ = RhinoUi.Protect(valid: () => Include(bounds: Bounds(state: State, args: e), args: e));
@@ -102,9 +105,6 @@ public abstract class RasmOverlay<TState>(TState initial) : DisplayConduit {
             return unit;
         });
 
-    private static Unit Redraw(RhinoDoc? document) =>
-        Optional(document).Map(doc => {
-            doc.Views.Redraw();
-            return unit;
-        }).IfNone(unit);
+    private Fin<Unit> Apply<TArgs>(TArgs args, Func<TState, TArgs, Fin<Unit>> change) =>
+        RhinoUi.Protect(valid: () => change(arg1: State, arg2: args));
 }

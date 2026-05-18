@@ -14,7 +14,7 @@ public sealed partial record RhinoUi {
         this.mode = mode;
     }
 
-    public Fin<T> Show<T>(UiDialog<T> dialog) =>
+    public Fin<T> Show<T>(UiDialogIntent<T> dialog) =>
         mode switch {
             RunMode.Scripted => Fin.Fail<T>(error: Op.Of(name: nameof(Show)).InvalidInput()),
             _ => Optional(dialog)
@@ -23,7 +23,19 @@ public sealed partial record RhinoUi {
         };
 
     public Fin<Unit> Show(Form form) =>
-        Show(dialog: UiDialog.Ask(intent: UiDialogIntent.Modeless(form: form)));
+        Show(dialog: UiDialogIntent.Modeless(form: form));
+
+    public Fin<T> Wait<T>(Func<Fin<T>> run) =>
+        mode switch {
+            RunMode.Scripted => Fin.Fail<T>(error: Op.Of(name: nameof(Wait)).InvalidInput()),
+            _ => Optional(run)
+                .ToFin(Fail: Op.Of(name: nameof(Wait)).InvalidInput())
+                .Bind(valid => OnUiThread(run: () => {
+                    using global::Rhino.UI.WaitCursor cursor = new();
+                    cursor.Set();
+                    return Protect(valid: valid);
+                })),
+        };
 
     public Seq<T> Windows<T>() where T : Form =>
         toSeq(global::Rhino.UI.EtoExtensions.WindowsFromDocument<T>(document));

@@ -215,21 +215,3 @@ public static class UiDialogIntent {
         }
     }
 }
-
-public static class UiDialog {
-    public static UiDialog<T> Ask<T>(UiDialogIntent<T> intent) =>
-        new IntentCase<T>(Intent: intent);
-
-    private sealed record IntentCase<T>(UiDialogIntent<T> Intent) : UiDialog<T> {
-        internal override Fin<T> Show(RhinoDoc document) =>
-            Optional(Intent)
-                .ToFin(Fail: Op.Of(name: nameof(Ask)).InvalidInput())
-                .Bind(intent => intent.Show(document: document));
-    }
-}
-
-public abstract partial record UiDialog<T> {
-    private protected UiDialog() { }
-
-    internal abstract Fin<T> Show(RhinoDoc document);
-}
