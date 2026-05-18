@@ -253,11 +253,10 @@ internal sealed class BridgeServer : IDisposable {
             References: references,
             Fault: fault);
     private static BridgeOutput[] Output(global::Rhino.Runtime.Code.Execution.RunContextStream stdout, global::Rhino.Runtime.Code.Execution.RunContextStream stderr) =>
-        [Capture(source: BridgeWire.OutputStdout, text: stdout.GetContents()), Capture(source: BridgeWire.OutputStderr, text: stderr.GetContents())];
-    private static BridgeOutput Capture(string source, string text) =>
-        text.Length <= OutputLimit
-            ? new(Source: source, Text: text, Truncated: false, Length: text.Length, Limit: OutputLimit)
-            : new(Source: source, Text: text[..OutputLimit], Truncated: true, Length: text.Length, Limit: OutputLimit);
+        [
+            BridgeWire.Capture(source: BridgeWire.OutputStdout, text: stdout.GetContents(), limit: OutputLimit),
+            BridgeWire.Capture(source: BridgeWire.OutputStderr, text: stderr.GetContents(), limit: OutputLimit),
+        ];
     private static BridgeDiagnostic[] Diagnostics(global::Rhino.Runtime.Code.Code? code) =>
         code?.Diagnostics.Select(Diagnostic).ToArray() ?? [];
     private static BridgeDiagnostic[] Diagnostics(Exception error, global::Rhino.Runtime.Code.Code? code) =>
@@ -324,7 +323,7 @@ internal sealed class BridgeServer : IDisposable {
     private static async Task WriteAsync(Stream pipe, BridgeReply reply, CancellationToken token) {
         StreamWriter writer = new(stream: pipe, encoding: Encoding.UTF8, bufferSize: 4096, leaveOpen: true);
         await using (writer.ConfigureAwait(false)) {
-            string payload = JsonSerializer.Serialize(value: reply, options: BridgeWire.CompactJson);
+            string payload = BridgeWire.Serialize(reply: reply);
             await writer.WriteLineAsync(buffer: payload.AsMemory(), cancellationToken: token).ConfigureAwait(false);
             await writer.FlushAsync(cancellationToken: token).ConfigureAwait(false);
         }
@@ -333,7 +332,7 @@ internal sealed class BridgeServer : IDisposable {
         _ = Directory.CreateDirectory(path: BridgeWire.EndpointDirectory);
         RestrictDirectory(path: BridgeWire.EndpointDirectory);
         string temp = string.Create(provider: CultureInfo.InvariantCulture, $"{BridgeWire.EndpointPath}.{Environment.ProcessId}.tmp");
-        File.WriteAllText(path: temp, contents: JsonSerializer.Serialize(value: endpoint, options: BridgeWire.CompactJson), encoding: Encoding.UTF8);
+        File.WriteAllText(path: temp, contents: BridgeWire.Serialize(endpoint: endpoint), encoding: Encoding.UTF8);
         Restrict(path: temp);
         File.Move(sourceFileName: temp, destFileName: BridgeWire.EndpointPath, overwrite: true);
         Restrict(path: BridgeWire.EndpointPath);

@@ -35,7 +35,7 @@ declare -Ar ROUTES=(
     [bridge:install]='_bridge_install|1|1|bridge install <local-yak-path>|'
     [bridge:launch]='_bridge_client|0|0|bridge launch|launch'
     [bridge:restart]='_bridge_client|0|0|bridge restart|restart'
-    [bridge:doctor]='_bridge_client|0|0|bridge doctor|doctor'
+    [bridge:doctor]='_bridge_client|0|999|bridge doctor [client options]|doctor'
     [bridge:script]='_bridge_client|1|999|bridge script <script> [client options]|script'
     [bridge:load]='_bridge_client|1|999|bridge load <assembly.dll> [client options]|load'
     [bridge:load-smoke]='_bridge_client|1|999|bridge load-smoke <assembly.dll> [client options]|load-smoke'
@@ -48,8 +48,10 @@ readonly -a ROUTE_ORDER=(--self-test build bridge:build bridge:package bridge:in
 readonly -a BRIDGE_PROJECTS=("${BRIDGE_PROTOCOL_PROJECT}" "${BRIDGE_PLUGIN_PROJECT}" "${BRIDGE_CLIENT_PROJECT}")
 _trap_err() {
     local -r exit_code="$?"
+    local -r source="${BASH_SOURCE[1]:-${BASH_SOURCE[0]}}"
+    local -r line="${BASH_LINENO[0]:-0}"
     local index
-    printf 'rhino: error at %s:%s: %s\n' "${BASH_SOURCE[1]}" "${BASH_LINENO[0]}" "${BASH_COMMAND}" >&2
+    printf 'rhino: error at %s:%s: %s\n' "${source}" "${line}" "${BASH_COMMAND}" >&2
     for ((index = 1; index < ${#FUNCNAME[@]}; index++)); do
         printf 'rhino: stack[%d] %s at %s:%s\n' "${index}" "${FUNCNAME[index]}" "${BASH_SOURCE[index]}" "${BASH_LINENO[index - 1]:-0}" >&2
     done

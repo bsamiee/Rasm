@@ -158,6 +158,15 @@ internal sealed class BridgeLoadContext : AssemblyLoadContext {
     private readonly AssemblyDependencyResolver resolver;
     private readonly Dictionary<string, Assembly> shared;
     private readonly Dictionary<string, string> packageAssets;
+    private static readonly HashSet<string> HostAssemblies = new(StringComparer.Ordinal) {
+        "RhinoCommon",
+        "Rhino.UI",
+        "Grasshopper",
+        "Grasshopper2",
+        "GrasshopperIO",
+        "Rasm.RhinoBridge.Protocol",
+        "Rasm.RhinoBridge.Plugin",
+    };
     internal BridgeLoadContext(string assemblyPath, string packageCacheRoot) : base(isCollectible: true) {
         resolver = new AssemblyDependencyResolver(assemblyPath);
         shared = SharedAssemblies();
@@ -182,7 +191,7 @@ internal sealed class BridgeLoadContext : AssemblyLoadContext {
     }
     protected override Assembly? Load(AssemblyName assemblyName) =>
         assemblyName.Name switch {
-            string name when shared.TryGetValue(key: name, value: out Assembly? assembly) => assembly,
+            string name when HostAssemblies.Contains(item: name) && shared.TryGetValue(key: name, value: out Assembly? assembly) => assembly,
             string name when packageAssets.TryGetValue(key: name, value: out string? path) => LoadFromAssemblyPath(path),
             _ when resolver.ResolveAssemblyToPath(assemblyName) is string path => LoadFromAssemblyPath(path),
             _ => null,

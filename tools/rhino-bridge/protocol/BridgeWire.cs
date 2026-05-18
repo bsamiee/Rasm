@@ -58,6 +58,24 @@ public static class BridgeWire {
         new(Schema: Schema, Command: command, TimeoutMs: timeoutMs, Payload: JsonSerializer.SerializeToElement(value: payload, options: CompactJson));
     public static BridgeRequest Request(string command, int timeoutMs = 15000) =>
         new(Schema: Schema, Command: command, TimeoutMs: timeoutMs, Payload: null);
+    public static string Serialize(BridgeRequest request) =>
+        JsonSerializer.Serialize(value: request, options: CompactJson);
+    public static string Serialize(BridgeReply reply) =>
+        JsonSerializer.Serialize(value: reply, options: CompactJson);
+    public static string Serialize(BridgeEndpoint endpoint) =>
+        JsonSerializer.Serialize(value: endpoint, options: CompactJson);
+    public static BridgeReply? DeserializeReply(string json) =>
+        JsonSerializer.Deserialize<BridgeReply>(json: json, options: CompactJson);
+    public static BridgeEndpoint? DeserializeEndpoint(string json) =>
+        JsonSerializer.Deserialize<BridgeEndpoint>(json: json, options: CompactJson);
+    public static BridgeOutput Capture(string source, string text, int limit) {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentOutOfRangeException.ThrowIfNegative(limit);
+        return text.Length <= limit
+            ? new(Source: source, Text: text, Truncated: false, Length: text.Length, Limit: limit)
+            : new(Source: source, Text: text[..limit], Truncated: true, Length: text.Length, Limit: limit);
+    }
     public static BridgeReply Reply<TData>(
         string command,
         string status,
