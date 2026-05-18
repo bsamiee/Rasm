@@ -167,7 +167,13 @@ public abstract record CommandOption {
             false => Fin.Succ(value: values),
         };
 
-    private static Fin<int> ValidIndex(int index, int count) =>
+    private static Fin<int> ValidInputIndex(int index, int count) =>
+        index switch {
+            >= 0 when index < count => Fin.Succ(value: index),
+            _ => Fin.Fail<int>(error: Op.Of(name: nameof(CommandOption)).InvalidInput()),
+        };
+
+    private static Fin<int> ValidResultIndex(int index, int count) =>
         index switch {
             >= 0 when index < count => Fin.Succ(value: index),
             _ => Fin.Fail<int>(error: Op.Of(name: nameof(CommandOption)).InvalidResult()),
@@ -230,7 +236,7 @@ public abstract record CommandOption {
             from name in Valid(name: Name)
             from values in Values.TraverseM(ValidValue).As()
             from nonEmpty in NonEmpty(values: values)
-            from current in ValidIndex(index: Current, count: nonEmpty.Count)
+            from current in ValidInputIndex(index: Current, count: nonEmpty.Count)
             from bound in Added(
                 getter: getter,
                 index: getter.AddOptionList(name, nonEmpty.AsIterable(), current),
@@ -240,7 +246,7 @@ public abstract record CommandOption {
             select bound;
 
         private static Fin<CommandOptionValue> SnapshotAt(string name, GetBaseClass getter, Seq<string> values) =>
-            from index in ValidIndex(index: getter.Option().CurrentListOptionIndex, count: values.Count)
+            from index in ValidResultIndex(index: getter.Option().CurrentListOptionIndex, count: values.Count)
             select Snapshot(name: name, getter: getter, value: Some((object)values[index]), listIndex: Some(index));
     }
 
@@ -251,7 +257,7 @@ public abstract record CommandOption {
                 EnumOptionMode.List => Fin.Succ(value: Values.IsEmpty switch { true => toSeq(Enum.GetValues<TEnum>()), false => Values }),
                 _ => NonEmpty(values: Values),
             }
-            from current in Mode switch { EnumOptionMode.List => Fin.Succ(value: Current), _ => ValidIndex(index: Current, count: values.Count) }
+            from current in Mode switch { EnumOptionMode.List => Fin.Succ(value: Current), _ => ValidInputIndex(index: Current, count: values.Count) }
             from initial in Initial.Case switch {
                 TEnum value => from _ in EnumIndex(values: values, value: value).ToFin(Fail: Op.Of(name: nameof(CommandOption)).InvalidInput())
                                select value,

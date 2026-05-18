@@ -45,7 +45,10 @@ public abstract class RasmOverlay<TState>(TState initial) : DisplayConduit {
     protected virtual Fin<Unit> Cull(TState state, CullObjectEventArgs args) =>
         Fin.Succ(value: unit);
 
-    protected virtual Fin<Unit> PreDraw(TState state, DrawObjectEventArgs args) =>
+    protected virtual Fin<Unit> PreDrawObjects(TState state, DrawEventArgs args) =>
+        Fin.Succ(value: unit);
+
+    protected virtual Fin<Unit> PreDrawObject(TState state, DrawObjectEventArgs args) =>
         Fin.Succ(value: unit);
 
     protected virtual Fin<Unit> Foreground(TState state, DrawEventArgs args) =>
@@ -60,36 +63,42 @@ public abstract class RasmOverlay<TState>(TState initial) : DisplayConduit {
     protected virtual Fin<BoundingBox> Bounds(TState state, CalculateBoundingBoxEventArgs args) =>
         Fin.Fail<BoundingBox>(error: Op.Of(name: nameof(Bounds)).InvalidResult());
 
+    protected virtual Fin<BoundingBox> ZoomBounds(TState state, CalculateBoundingBoxEventArgs args) =>
+        Bounds(state: state, args: args);
+
     protected virtual Fin<Unit> EnabledChanged(bool enabled) =>
         Fin.Succ(value: unit);
 
     protected sealed override void OnEnable(bool enable) =>
-        _ = EnabledChanged(enabled: enable);
+        _ = RhinoUi.Protect(valid: () => EnabledChanged(enabled: enable));
 
     protected sealed override void ObjectCulling(CullObjectEventArgs e) =>
-        _ = Cull(state: State, args: e);
+        _ = RhinoUi.Protect(valid: () => Cull(state: State, args: e));
+
+    protected sealed override void PreDrawObjects(DrawEventArgs e) =>
+        _ = RhinoUi.Protect(valid: () => PreDrawObjects(state: State, args: e));
 
     protected sealed override void PreDrawObject(DrawObjectEventArgs e) =>
-        _ = PreDraw(state: State, args: e);
+        _ = RhinoUi.Protect(valid: () => PreDrawObject(state: State, args: e));
 
     protected sealed override void DrawForeground(DrawEventArgs e) =>
-        _ = Foreground(state: State, args: e);
+        _ = RhinoUi.Protect(valid: () => Foreground(state: State, args: e));
 
     protected sealed override void DrawOverlay(DrawEventArgs e) =>
-        _ = Overlay(state: State, args: e);
+        _ = RhinoUi.Protect(valid: () => Overlay(state: State, args: e));
 
     protected sealed override void PostDrawObjects(DrawEventArgs e) =>
-        _ = PostDraw(state: State, args: e);
+        _ = RhinoUi.Protect(valid: () => PostDraw(state: State, args: e));
 
     protected sealed override void CalculateBoundingBox(CalculateBoundingBoxEventArgs e) =>
-        _ = Bounds(state: State, args: e).Map(bounds => {
-            e.IncludeBoundingBox(bounds);
-            return unit;
-        });
+        _ = RhinoUi.Protect(valid: () => Include(bounds: Bounds(state: State, args: e), args: e));
 
     protected sealed override void CalculateBoundingBoxZoomExtents(CalculateBoundingBoxEventArgs e) =>
-        _ = Bounds(state: State, args: e).Map(bounds => {
-            e.IncludeBoundingBox(bounds);
+        _ = RhinoUi.Protect(valid: () => Include(bounds: ZoomBounds(state: State, args: e), args: e));
+
+    private static Fin<Unit> Include(Fin<BoundingBox> bounds, CalculateBoundingBoxEventArgs args) =>
+        bounds.Map(box => {
+            args.IncludeBoundingBox(box);
             return unit;
         });
 

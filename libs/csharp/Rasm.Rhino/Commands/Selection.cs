@@ -21,10 +21,7 @@ public readonly record struct PickLocation(Option<double> CurveParameter, Option
             },
             _ => Option<Point2d>.None,
         };
-        return (curve.IsSome || surface.IsSome) switch {
-            true => Some(new PickLocation(CurveParameter: curve, SurfaceParameter: surface)),
-            false => Option<PickLocation>.None,
-        };
+        return Of(curve: curve, surface: surface);
     }
 
     internal static Option<PickLocation> Of(GetPoint getter) {
@@ -43,11 +40,14 @@ public readonly record struct PickLocation(Option<double> CurveParameter, Option
             Point2d point when point.IsValid => Some(point),
             _ => Option<Point2d>.None,
         };
-        return (curve.IsSome || surface.IsSome) switch {
+        return Of(curve: curve, surface: surface);
+    }
+
+    private static Option<PickLocation> Of(Option<double> curve, Option<Point2d> surface) =>
+        (curve.IsSome || surface.IsSome) switch {
             true => Some(new PickLocation(CurveParameter: curve, SurfaceParameter: surface)),
             false => Option<PickLocation>.None,
         };
-    }
 }
 
 public sealed record CommandSelection {
@@ -64,22 +64,36 @@ public sealed record CommandSelection {
     internal static CommandSelection From(RhinoDoc document, Seq<ObjRef> references, Seq<(Guid ObjectId, ComponentIndex ComponentIndex)> preselected) {
         ArgumentNullException.ThrowIfNull(argument: document);
         ObjRef[] source = [.. references];
-        Reference[] snapshots = [.. toSeq(source).Map(reference => Reference.Of(
-            reference: reference,
-            preselected: preselected.Exists(item => item.ObjectId == reference.ObjectId && item.ComponentIndex == reference.GeometryComponentIndex)))];
-        _ = toSeq(source).Iter(static reference => reference.Dispose());
-        return new(document: document, items: toSeq(snapshots));
+        // BOUNDARY ADAPTER — ObjRef is native disposable state; snapshots must release it even when Rhino accessors throw.
+        try {
+            Reference[] snapshots = [.. toSeq(source).Map(reference => Reference.Of(
+                reference: reference,
+                preselected: preselected.Exists(item => item.ObjectId == reference.ObjectId && item.ComponentIndex == reference.GeometryComponentIndex)))];
+            return new(document: document, items: toSeq(snapshots));
+        } finally {
+            _ = toSeq(source).Iter(static reference => reference.Dispose());
+        }
     }
 
-    internal Fin<int> SelectInto(RhinoDoc document, bool selected, Op op) {
+    internal Fin<int> SelectInto(RhinoDoc document, bool selected, Op op) =>
+        Try.lift<Fin<int>>(f: () => SelectNative(document: document, selected: selected, op: op))
+            .Run()
+            .MapFail(_ => op.InvalidResult())
+            .Bind(static value => value);
+
+    private Fin<int> SelectNative(RhinoDoc document, bool selected, Op op) {
         ArgumentNullException.ThrowIfNull(argument: document);
-        ObjRef[] references = [.. Items.Map(reference => reference.ObjRef(document: document))];
-        Fin<int> result = document.Objects.Select(references, selected) switch {
-            int count and >= 0 => Fin.Succ(value: count),
-            _ => Fin.Fail<int>(error: op.InvalidResult()),
-        };
-        _ = toSeq(references).Iter(static reference => reference.Dispose());
-        return result;
+        Seq<ObjRef> references = Seq<ObjRef>();
+        // BOUNDARY ADAPTER — reconstructed ObjRefs are native disposable state around the selection call.
+        try {
+            references = Items.Map(reference => reference.ObjRef(document: document));
+            return document.Objects.Select(references.AsIterable(), selected) switch {
+                int count and >= 0 => Fin.Succ(value: count),
+                _ => Fin.Fail<int>(error: op.InvalidResult()),
+            };
+        } finally {
+            _ = references.Iter(static reference => reference.Dispose());
+        }
     }
 
     public readonly record struct Reference(
@@ -113,6 +127,19 @@ public sealed record CommandSelection {
                 SelectionViewDetailSerialNumber: reference.SelectionViewDetailSerialNumber(),
                 Location: PickLocation.Of(reference: reference, selectionMethod: selectionMethod));
         }
+
+        internal static Option<Reference> Of(GetPoint getter) =>
+            Optional(getter.PointOnObject())
+                .Map(reference => {
+                    using ObjRef owned = reference;
+                    Reference snapshot = Of(reference: owned, preselected: false);
+                    return snapshot with {
+                        Location = PickLocation.Of(getter: getter).Case switch {
+                            PickLocation location => Some(location),
+                            _ => snapshot.Location,
+                        },
+                    };
+                });
 
         internal ObjRef ObjRef(RhinoDoc document) {
             ArgumentNullException.ThrowIfNull(argument: document);

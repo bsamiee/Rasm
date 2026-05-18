@@ -30,16 +30,7 @@ public readonly record struct CommandPoint(
             ConstructionPoints: toSeq(getter.GetConstructionPoints()));
 
     private static Option<CommandSelection.Reference> PointObject(GetPoint getter) =>
-        Optional(getter.PointOnObject()).Map(reference => {
-            using ObjRef owned = reference;
-            CommandSelection.Reference snapshot = CommandSelection.Reference.Of(reference: owned, preselected: false);
-            return snapshot with {
-                Location = PickLocation.Of(getter: getter).Case switch {
-                    PickLocation location => Some(location),
-                    _ => snapshot.Location,
-                },
-            };
-        });
+        CommandSelection.Reference.Of(getter: getter);
 
     private static Option<double> NumberPreviewOf(GetPoint getter) =>
         getter.NumberPreview(number: out double number) switch { true => Some(number), false => Option<double>.None };
@@ -150,13 +141,22 @@ public abstract partial record CommandQuery<TValue> {
             GetResult.Cancel => Fin.Fail<CommandGet<T>>(error: new Fault.Cancelled()),
             GetResult.Option => scope.Snapshot(getter: getter).Bind(option => transition(getter, GetResult.Option, Some(option)) switch {
                 (true, Option<CommandOptionValue> next) => ReadLoop(getter: getter, scope: scope, receive: receive, value: value, selected: next, transition: transition),
-                (false, Option<CommandOptionValue> next) => Fin.Succ(value: CommandGet<T>.Of(getter: getter, raw: GetResult.Option, value: Project(value: value(getter, GetResult.Option), option: next), option: next)),
+                (false, Option<CommandOptionValue> next) => Snapshot(getter: getter, raw: GetResult.Option, value: value(getter, GetResult.Option), option: next),
             }),
             GetResult raw => transition(getter, raw, selected) switch {
                 (true, Option<CommandOptionValue> next) => ReadLoop(getter: getter, scope: scope, receive: receive, value: value, selected: next, transition: transition),
-                (false, Option<CommandOptionValue> next) => Fin.Succ(value: CommandGet<T>.Of(getter: getter, raw: raw, value: Project(value: value(getter, raw), option: next), option: next)),
+                (false, Option<CommandOptionValue> next) => Snapshot(getter: getter, raw: raw, value: value(getter, raw), option: next),
             },
         };
+
+    private static Fin<CommandGet<T>> Snapshot<TGetter, T>(TGetter getter, GetResult raw, Option<T> value, Option<CommandOptionValue> option) where TGetter : GetBaseClass {
+        Option<T> projected = Project(value: value, option: option);
+        CommandGet<T> snapshot = CommandGet<T>.Of(getter: getter, raw: raw, value: projected, option: option);
+        return raw switch {
+            GetResult.Circle or GetResult.Plane or GetResult.Cylinder or GetResult.Sphere or GetResult.Angle or GetResult.Distance or GetResult.Direction or GetResult.Frame => Fin.Fail<CommandGet<T>>(error: Op.Of(name: nameof(CommandQuery<T>)).InvalidResult()),
+            _ => Fin.Succ(value: snapshot),
+        };
+    }
 
     private static Option<T> Project<T>(Option<T> value, Option<CommandOptionValue> option) =>
         value.Case switch {
@@ -231,7 +231,10 @@ public static class CommandQuery {
         internal override Fin<CommandGet<CommandSelection>> Run(CommandInput input) =>
             Read(
                 input: input,
-                policies: ObjectDefaults + (Maximum switch {
+                policies: ObjectDefaults + (Minimum switch {
+                    0 => Seq(Native<GetObject>(static getter => getter.AcceptNothing(enable: true))),
+                    _ => Seq<GetterPolicy<GetObject>>(),
+                }) + (Maximum switch {
                     0 => Seq(Native<GetObject>(static getter => getter.AcceptEnterWhenDone(enable: true))),
                     _ => Seq<GetterPolicy<GetObject>>(),
                 }) + Policies,

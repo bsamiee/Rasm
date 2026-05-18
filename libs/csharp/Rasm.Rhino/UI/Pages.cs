@@ -7,7 +7,7 @@ public abstract class RasmOptionsPage : global::Rhino.UI.OptionsDialogPage {
     private readonly Control control;
     private readonly bool showApplyButton;
 
-    protected RasmOptionsPage(string englishTitle, Control control, bool showApplyButton = true) : base(englishTitle) {
+    protected RasmOptionsPage(string englishTitle, Control control, bool showApplyButton = true) : base(Title(englishTitle: englishTitle)) {
         ArgumentNullException.ThrowIfNull(argument: control);
         this.control = control;
         this.showApplyButton = showApplyButton;
@@ -19,16 +19,16 @@ public abstract class RasmOptionsPage : global::Rhino.UI.OptionsDialogPage {
     public sealed override bool ShowApplyButton => showApplyButton;
 
     public sealed override bool OnApply() =>
-        Apply().Match(Succ: static _ => true, Fail: static _ => false);
+        RhinoUi.Protect(valid: Apply).Match(Succ: static _ => true, Fail: static _ => false);
 
     public sealed override void OnCancel() =>
-        _ = Cancel();
+        _ = RhinoUi.Protect(valid: Cancel);
 
     public sealed override bool OnActivate(bool active) =>
-        Activate(active: active).Match(Succ: static _ => true, Fail: static _ => false);
+        RhinoUi.Protect(valid: () => Activate(active: active)).Match(Succ: static _ => true, Fail: static _ => false);
 
     public sealed override Result RunScript(RhinoDoc doc, RunMode mode) =>
-        Script(document: doc, mode: mode).Match(Succ: static result => result, Fail: static _ => Result.Failure);
+        RhinoUi.Protect(valid: () => Script(document: doc, mode: mode)).Match(Succ: static result => result, Fail: static _ => Result.Failure);
 
     protected virtual Fin<Unit> Apply() =>
         Fin.Succ(value: unit);
@@ -41,6 +41,11 @@ public abstract class RasmOptionsPage : global::Rhino.UI.OptionsDialogPage {
 
     protected virtual Fin<Result> Script(RhinoDoc document, RunMode mode) =>
         Fin.Succ(value: Result.Success);
+
+    private static string Title(string englishTitle) {
+        ArgumentException.ThrowIfNullOrWhiteSpace(argument: englishTitle);
+        return englishTitle;
+    }
 }
 
 public abstract class RasmPropertiesPage : global::Rhino.UI.ObjectPropertiesPage {
@@ -77,24 +82,25 @@ public abstract class RasmPropertiesPage : global::Rhino.UI.ObjectPropertiesPage
     public sealed override bool SupportsSubObjects => supportsSubObjects;
 
     public sealed override bool ShouldDisplay(global::Rhino.UI.ObjectPropertiesPageEventArgs e) =>
-        Display(args: e).Match(Succ: static value => value, Fail: static _ => false);
+        RhinoUi.Protect(valid: () => Display(args: e)).Match(Succ: static value => value, Fail: static _ => false);
 
     public sealed override void UpdatePage(global::Rhino.UI.ObjectPropertiesPageEventArgs e) =>
-        _ = Update(args: e);
+        _ = RhinoUi.Protect(valid: () => Update(args: e));
 
     public sealed override bool OnActivate(bool active) =>
-        Activate(active: active).Match(Succ: static _ => true, Fail: static _ => false);
+        RhinoUi.Protect(valid: () => Activate(active: active)).Match(Succ: static _ => true, Fail: static _ => false);
 
     public sealed override Result RunScript(global::Rhino.UI.ObjectPropertiesPageEventArgs e) =>
-        Script(args: e).Match(Succ: static result => result, Fail: static _ => Result.Failure);
+        RhinoUi.Protect(valid: () => Script(args: e)).Match(Succ: static result => result, Fail: static _ => Result.Failure);
 
-    public Fin<Unit> Modify(Action<global::Rhino.UI.ObjectPropertiesPageEventArgs> change) =>
+    protected Fin<Unit> Modify(Func<global::Rhino.UI.ObjectPropertiesPageEventArgs, Fin<Unit>> change) =>
         Optional(change)
             .ToFin(Fail: Op.Of(name: nameof(Modify)).InvalidInput())
-            .Map(valid => {
-                ModifyPage(valid);
-                return unit;
-            });
+            .Bind(valid => RhinoUi.Protect(valid: () => {
+                Fin<Unit> result = Fin.Fail<Unit>(error: Op.Of(name: nameof(Modify)).InvalidResult());
+                ModifyPage(callbackAction: args => result = valid(arg: args));
+                return result;
+            }));
 
     protected virtual Fin<bool> Display(global::Rhino.UI.ObjectPropertiesPageEventArgs args) =>
         Optional(args)

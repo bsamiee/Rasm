@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Eto.Forms;
 
 namespace Rasm.Rhino.UI;
@@ -5,16 +6,21 @@ namespace Rasm.Rhino.UI;
 // --- [SERVICES] -------------------------------------------------------------------------
 public sealed record RhinoUi {
     private readonly RhinoDoc document;
+    private readonly RunMode mode;
 
-    internal RhinoUi(RhinoDoc document) {
+    internal RhinoUi(RhinoDoc document, RunMode mode) {
         ArgumentNullException.ThrowIfNull(argument: document);
         this.document = document;
+        this.mode = mode;
     }
 
     public Fin<T> Show<T>(UiDialog<T> dialog) =>
-        Optional(dialog)
-            .ToFin(Fail: Op.Of(name: nameof(Show)).InvalidInput())
-            .Bind(valid => OnUiThread(run: () => valid.Show(document: document)));
+        mode switch {
+            RunMode.Scripted => Fin.Fail<T>(error: Op.Of(name: nameof(Show)).InvalidInput()),
+            _ => Optional(dialog)
+                .ToFin(Fail: Op.Of(name: nameof(Show)).InvalidInput())
+                .Bind(valid => OnUiThread(run: () => valid.Show(document: document))),
+        };
 
     public Fin<Unit> Show(Form form) =>
         Show(dialog: UiDialog.Modeless(form: form));
@@ -43,9 +49,9 @@ public sealed record RhinoUi {
             .MapFail(static _ => Op.Of(name: nameof(Invoke)).InvalidResult())
             .Bind(static result => result);
 
-    private static Fin<T> Protect<T>(Func<Fin<T>> valid) =>
+    internal static Fin<T> Protect<T>(Func<Fin<T>> valid, [CallerMemberName] string name = "") =>
         Try.lift<Fin<T>>(f: valid)
             .Run()
-            .MapFail(static _ => Op.Of(name: nameof(Protect)).InvalidResult())
+            .MapFail(_ => Op.Of(name: name).InvalidResult())
             .Bind(static result => result);
 }

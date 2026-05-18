@@ -9,7 +9,7 @@ public sealed class RhinoCommandContext {
         Scope = Analyze.From(doc: document);
         Input = new(document: document);
         Edit = new(document: document);
-        Ui = new(document: document);
+        Ui = new(document: document, mode: mode);
     }
 
     public RhinoDoc Document { get; }

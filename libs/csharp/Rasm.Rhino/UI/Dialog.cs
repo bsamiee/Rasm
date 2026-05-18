@@ -7,8 +7,6 @@ namespace Rasm.Rhino.UI;
 
 // --- [MODELS] ---------------------------------------------------------------------------
 public static class UiDialog {
-    private enum FileDialogMode { OpenOne, OpenMany, Save }
-
     public static UiDialog<T> Eto<T>(Dialog<T> dialog, bool semiModal = false) =>
         new EtoCase<T>(Dialog: dialog, SemiModal: semiModal);
 
@@ -47,13 +45,13 @@ public static class UiDialog {
         new Color4fCase(Initial: initial, AllowAlpha: allowAlpha, Colors: Optional(colors), Changed: Optional(changed));
 
     public static UiDialog<string> OpenFile(string title = "", string filter = "", string directory = "", string extension = "") =>
-        new FileCase<string>(Mode: FileDialogMode.OpenOne, Spec: new FileDialogSpec(Title: title, Filter: filter, Directory: directory, Extension: extension));
+        new OpenFileCase(Spec: new FileDialogSpec(Title: title, Filter: filter, Directory: directory, Extension: extension));
 
     public static UiDialog<Seq<string>> OpenFiles(string title = "", string filter = "", string directory = "", string extension = "") =>
-        new FileCase<Seq<string>>(Mode: FileDialogMode.OpenMany, Spec: new FileDialogSpec(Title: title, Filter: filter, Directory: directory, Extension: extension));
+        new OpenFilesCase(Spec: new FileDialogSpec(Title: title, Filter: filter, Directory: directory, Extension: extension));
 
     public static UiDialog<string> SaveFile(string title = "", string filter = "", string directory = "", string extension = "") =>
-        new FileCase<string>(Mode: FileDialogMode.Save, Spec: new FileDialogSpec(Title: title, Filter: filter, Directory: directory, Extension: extension));
+        new SaveFileCase(Spec: new FileDialogSpec(Title: title, Filter: filter, Directory: directory, Extension: extension));
 
     private sealed record EtoCase<T>(Dialog<T> Dialog, bool SemiModal) : UiDialog<T> {
         internal override Fin<T> Show(RhinoDoc document) =>
@@ -103,14 +101,7 @@ public static class UiDialog {
         Option<global::Rhino.UI.NamedColorList> Colors) : UiDialog<DrawingColor> {
         internal override Fin<DrawingColor> Show(RhinoDoc document) {
             DrawingColor selected = Initial;
-            return Pick(selected: ref selected) switch {
-                true => Fin.Succ(value: selected),
-                false => Fin.Fail<DrawingColor>(error: new Fault.Cancelled()),
-            };
-        }
-
-        private bool Pick(ref DrawingColor selected) =>
-            Colors.Case switch {
+            bool picked = Colors.Case switch {
                 global::Rhino.UI.NamedColorList colors => UiDialogs.ShowColorDialog(
                     color: ref selected,
                     includeButtonColors: IncludeButtonColors,
@@ -118,6 +109,11 @@ public static class UiDialog {
                     namedColorList: colors),
                 _ => UiDialogs.ShowColorDialog(color: ref selected, includeButtonColors: IncludeButtonColors, dialogTitle: Title),
             };
+            return picked switch {
+                true => Fin.Succ(value: selected),
+                false => Fin.Fail<DrawingColor>(error: new Fault.Cancelled()),
+            };
+        }
     }
 
     private sealed record Color4fCase(
@@ -127,14 +123,7 @@ public static class UiDialog {
         Option<ColorChangedEvent> Changed) : UiDialog<Color4f> {
         internal override Fin<Color4f> Show(RhinoDoc document) {
             Color4f selected = Initial;
-            return Pick(document: document, selected: ref selected) switch {
-                true => Fin.Succ(value: selected),
-                false => Fin.Fail<Color4f>(error: new Fault.Cancelled()),
-            };
-        }
-
-        private bool Pick(RhinoDoc document, ref Color4f selected) =>
-            (Colors.Case, Changed.Case) switch {
+            bool picked = (Colors.Case, Changed.Case) switch {
                 (global::Rhino.UI.NamedColorList colors, ColorChangedEvent changed) => UiDialogs.ShowColorDialog(
                     parent: RhinoUi.Parent(document: document),
                     color: ref selected,
@@ -158,6 +147,11 @@ public static class UiDialog {
                     allowAlpha: AllowAlpha,
                     colorCallback: null),
             };
+            return picked switch {
+                true => Fin.Succ(value: selected),
+                false => Fin.Fail<Color4f>(error: new Fault.Cancelled()),
+            };
+        }
     }
 
     private readonly record struct FileDialogSpec(string Title, string Filter, string Directory, string Extension) {
@@ -170,7 +164,7 @@ public static class UiDialog {
                 MultiSelect = multiSelect,
             };
             return dialog.ShowOpenDialog() switch {
-                true => toSeq(dialog.FileNames) switch {
+                true => toSeq(dialog.FileNames).Filter(static name => !string.IsNullOrWhiteSpace(value: name)) switch {
                     Seq<string> names when !names.IsEmpty => Fin.Succ(value: names),
                     _ => Fin.Fail<Seq<string>>(error: Op.Of(name: nameof(Open)).InvalidResult()),
                 },
@@ -186,28 +180,29 @@ public static class UiDialog {
                 DefaultExt = Extension,
             };
             return dialog.ShowSaveDialog() switch {
-                true => Optional(dialog.FileName).ToFin(Fail: Op.Of(name: nameof(Save)).InvalidResult()),
+                true => dialog.FileName switch {
+                    string name when !string.IsNullOrWhiteSpace(value: name) => Fin.Succ(value: name),
+                    _ => Fin.Fail<string>(error: Op.Of(name: nameof(Save)).InvalidResult()),
+                },
                 false => Fin.Fail<string>(error: new Fault.Cancelled()),
             };
         }
     }
 
-    private sealed record FileCase<T>(FileDialogMode Mode, FileDialogSpec Spec) : UiDialog<T> {
-        internal override Fin<T> Show(RhinoDoc document) =>
-            Mode switch {
-                FileDialogMode.OpenOne => Spec.Open(multiSelect: false)
-                    .Bind(names => names.Head.ToFin(Fail: Op.Of(name: nameof(OpenFile)).InvalidResult()))
-                    .Bind(Accept<string>),
-                FileDialogMode.OpenMany => Spec.Open(multiSelect: true).Bind(Accept<Seq<string>>),
-                FileDialogMode.Save => Spec.Save().Bind(Accept<string>),
-                _ => Fin.Fail<T>(error: Op.Of(name: nameof(FileCase<T>)).InvalidInput()),
-            };
+    private sealed record OpenFileCase(FileDialogSpec Spec) : UiDialog<string> {
+        internal override Fin<string> Show(RhinoDoc document) =>
+            Spec.Open(multiSelect: false)
+                .Bind(names => names.Head.ToFin(Fail: Op.Of(name: nameof(OpenFile)).InvalidResult()));
+    }
 
-        private static Fin<T> Accept<TSource>(TSource value) =>
-            value switch {
-                T typed => Fin.Succ(value: typed),
-                _ => Fin.Fail<T>(error: Op.Of(name: nameof(FileCase<T>)).InvalidResult()),
-            };
+    private sealed record OpenFilesCase(FileDialogSpec Spec) : UiDialog<Seq<string>> {
+        internal override Fin<Seq<string>> Show(RhinoDoc document) =>
+            Spec.Open(multiSelect: true);
+    }
+
+    private sealed record SaveFileCase(FileDialogSpec Spec) : UiDialog<string> {
+        internal override Fin<string> Show(RhinoDoc document) =>
+            Spec.Save();
     }
 }
 
