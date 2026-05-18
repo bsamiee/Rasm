@@ -21,7 +21,6 @@ public sealed class IconAttribute(string name) : Attribute {
 
 // --- [MODELS] ---------------------------------------------------------------------------
 public readonly record struct ComponentItem<T>(T Value, bool Hidden = false);
-internal readonly record struct BoundPort(Port Port, IParameter Parameter);
 internal interface IRasmComponent {
     public ComponentSpec Spec { get; }
 }
@@ -42,7 +41,7 @@ public readonly record struct ComponentSpec(Seq<ComponentItem<Port>> Inputs, Seq
     }
 }
 internal readonly record struct GrasshopperRuntime(IDataAccess Access, Analyze.Scope Scope, Hints Hints, IProgress<double> Progress, CancellationToken Cancellation) {
-    internal static Fin<GrasshopperRuntime> Capture(IDataAccess access, Seq<BoundPort> inputs, ComponentParameters parameters) {
+    internal static Fin<GrasshopperRuntime> Capture(IDataAccess access, Seq<(Port Port, IParameter Parameter)> inputs, ComponentParameters parameters) {
         ArgumentNullException.ThrowIfNull(argument: access);
         ArgumentNullException.ThrowIfNull(argument: parameters);
         return access.Scope().Map(scope => new GrasshopperRuntime(
@@ -167,8 +166,8 @@ public abstract class Plugin<TSelf> : Plugin where TSelf : Plugin<TSelf> {
                 info: Self.Assembly.GetCustomAttribute<AssemblyDescriptionAttribute>()?.Description ?? string.Empty));
 }
 public abstract class Component<TSelf> : Grasshopper2.Components.ModularComponent, IRasmComponent where TSelf : Component<TSelf> {
-    private Seq<BoundPort> cachedInputs = Seq<BoundPort>();
-    private Seq<BoundPort> cachedOutputs = Seq<BoundPort>();
+    private Seq<(Port Port, IParameter Parameter)> cachedInputs = Seq<(Port Port, IParameter Parameter)>();
+    private Seq<(Port Port, IParameter Parameter)> cachedOutputs = Seq<(Port Port, IParameter Parameter)>();
     protected Component(ComponentSpec spec) : base(nomen: Self.GetCustomAttribute<NomenAttribute>()?.Nomen ?? new Nomen(name: Self.Name, info: string.Empty)) {
         Spec = spec;
         IconMode = spec.IconMode;
@@ -179,14 +178,14 @@ public abstract class Component<TSelf> : Grasshopper2.Components.ModularComponen
     protected override IIcon IconInternal => IconAttribute.Resolve(owner: Self, fallback: base.IconInternal);
     protected override void AddInputs(ModularInputAdder inputs) {
         ArgumentNullException.ThrowIfNull(argument: inputs);
-        cachedInputs = Spec.Inputs.Map(pair => new BoundPort(
+        cachedInputs = Spec.Inputs.Map(pair => (
             Port: pair.Value,
             Parameter: pair.Value.Kind.Bind(adder: inputs, name: pair.Value.Name, code: pair.Value.Code, info: pair.Value.Info, access: pair.Value.Access, requirement: pair.Value.Requirement, policy: pair.Value.Policy, hidden: pair.Hidden)));
     }
     protected override void AddOutputs(ModularOutputAdder outputs) {
         ArgumentNullException.ThrowIfNull(argument: outputs);
-        cachedOutputs = Spec.Outputs.Map(pair => new BoundPort(
-            Port: pair.Value.Port,
+        cachedOutputs = Spec.Outputs.Map(pair => (
+            pair.Value.Port,
             Parameter: pair.Value.Port.Kind.Bind(adder: outputs, name: pair.Value.Port.Name, code: pair.Value.Port.Code, info: pair.Value.Port.Info, access: pair.Value.Port.Access, policy: pair.Value.Port.Policy, hidden: pair.Hidden)));
     }
     protected override void BeforeProcess(Solution solution) {

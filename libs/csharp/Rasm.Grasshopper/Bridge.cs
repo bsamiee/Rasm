@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Runtime.InteropServices;
 using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Extensions;
@@ -8,17 +7,17 @@ namespace Rasm.Grasshopper;
 
 // --- [ERRORS] ---------------------------------------------------------------------------
 [BoundaryAdapter]
-public sealed record MissingPortInput(string Port, string? Hint = null) : Rasm.Domain.Expected {
+internal sealed record MissingPortInput(string Port, string? Hint = null) : Rasm.Domain.Expected {
     public override string Message => Hint switch { string h => $"{Port} input is required. Connect: {h}.", _ => $"{Port} input is required." };
     public override string Category => "Input";
 }
 [BoundaryAdapter]
-public sealed record UnsupportedSource(string Port, Type SourceType, string? Hint = null) : Rasm.Domain.Expected {
+internal sealed record UnsupportedSource(string Port, Type SourceType, string? Hint = null) : Rasm.Domain.Expected {
     public override string Message => Hint switch { string h => $"{Port} input type '{SourceType.Name}' is not supported. Connect: {h}.", _ => $"{Port} input type '{SourceType.Name}' is not supported." };
     public override string Category => "Input";
 }
 [BoundaryAdapter]
-public sealed record UnsupportedAccess(string Access) : Rasm.Domain.Expected {
+internal sealed record UnsupportedAccess(string Access) : Rasm.Domain.Expected {
     public override string Message => $"Unsupported input access: {Access}.";
     public override string Category => "Access";
 }
@@ -102,16 +101,15 @@ internal static class Bridge {
     internal static Fin<Seq<Flow<TVal>>> Read<TVal>(this IDataAccess access, int slot, Port port) {
         ArgumentNullException.ThrowIfNull(argument: access);
         ArgumentNullException.ThrowIfNull(argument: port);
-        return typeof(TVal).IsEnum switch {
-            true => Read<int>(access: access, slot: slot, port: port).Bind(static values => values.TraverseM(EnumFlow<TVal>).As()),
+        return port.Kind.RequiresWire<TVal>() switch {
+            true => ReadNative<int>(access: access, slot: slot, port: port).Bind(values => values.TraverseM(port.Kind.Decode<TVal>).As()),
             false => ReadNative<TVal>(access: access, slot: slot, port: port),
         };
     }
-    internal static Seq<object> Write<TOut>(this IDataAccess access, int slot, string name, Access targetAccess, Seq<Flow<TOut>> values) =>
-        typeof(TOut).IsEnum switch {
-            true => Write(access: access, slot: slot, name: name, targetAccess: targetAccess,
-                values: values.Map(static value => value.Project(item: Convert.ToInt32(value: value.Item, provider: CultureInfo.InvariantCulture)))),
-            false => WriteNative(access: access, slot: slot, name: name, targetAccess: targetAccess, values: values),
+    internal static Seq<object> Write<TOut>(this IDataAccess access, int slot, Port<TOut> port, Seq<Flow<TOut>> values) =>
+        port.Kind.RequiresWire<TOut>() switch {
+            true => WriteNative(access: access, slot: slot, name: port.Name, targetAccess: port.Access, values: values.Map(static value => PortKind.Encode(value))),
+            false => WriteNative(access: access, slot: slot, name: port.Name, targetAccess: port.Access, values: values),
         };
     private static Fin<Seq<Flow<TVal>>> ReadNative<TVal>(IDataAccess access, int slot, Port port) =>
         port.Access switch {
@@ -149,11 +147,6 @@ internal static class Bridge {
             _ => Effect(action: () => access.AddError(text: name, details: $"Unsupported output access: {targetAccess}.")) switch { _ => Seq<object>() },
         };
     }
-    private static Fin<Flow<TVal>> EnumFlow<TVal>(Flow<int> value) =>
-        Enum.IsDefined(enumType: typeof(TVal), value: value.Item) switch {
-            true => Fin.Succ(value.Project(item: (TVal)Enum.ToObject(enumType: typeof(TVal), value: value.Item))),
-            false => Fin.Fail<Flow<TVal>>(Op.Of(name: typeof(TVal).Name).InvalidInput()),
-        };
     private static Unit Effect(Action action) {
         action();
         return Unit.Default;

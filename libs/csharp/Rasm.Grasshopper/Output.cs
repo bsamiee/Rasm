@@ -28,7 +28,7 @@ public sealed class OutputBinding {
 
 // --- [MODELS] ---------------------------------------------------------------------------
 internal readonly record struct Hints(Seq<(Port Port, int Slot)> Inputs) {
-    internal static Hints Capture(Seq<BoundPort> ports, Func<IParameter, int> index) =>
+    internal static Hints Capture(Seq<(Port Port, IParameter Parameter)> ports, Func<IParameter, int> index) =>
         new(Inputs: ports.Choose(bound => index(arg: bound.Parameter) switch {
             >= 0 and int slot => Some((bound.Port, slot)),
             _ => Option<(Port Port, int Slot)>.None,
@@ -38,12 +38,26 @@ internal readonly record struct Hints(Seq<(Port Port, int Slot)> Inputs) {
 }
 // --- [SERVICES] -------------------------------------------------------------------------
 public static class Output {
-    public static OutputBinding Of<TAspect, TOut>(Port<Shape> input, Port<TOut> port, TAspect aspect)
-        where TAspect : IAspect where TOut : notnull {
+    public static OutputBinding Of<TOut>(
+        Port<Shape> input,
+        IAspect aspect,
+        string name,
+        string code,
+        string info,
+        Access access = Access.Item,
+        PortKind? kind = null,
+        PortPolicy? policy = null) where TOut : notnull {
+        ArgumentNullException.ThrowIfNull(argument: aspect);
+        return Of(
+            input: input,
+            port: Port.Of<TOut>(name: name, code: code, info: info, access: access, kind: kind, policy: policy),
+            operation: _ => Fin.Succ(aspect.Operation<object, TOut>()));
+    }
+    private static OutputBinding Of<TOut>(Port<Shape> input, Port<TOut> port, Func<GrasshopperRuntime, Fin<Operation<object, TOut>>> operation)
+        where TOut : notnull {
         ArgumentNullException.ThrowIfNull(argument: input);
         ArgumentNullException.ThrowIfNull(argument: port);
-        ArgumentNullException.ThrowIfNull(argument: aspect);
-        Operation<object, TOut> operation = aspect.Operation<object, TOut>();
+        ArgumentNullException.ThrowIfNull(argument: operation);
         return new OutputBinding(
             input: input,
             port: port,
@@ -73,7 +87,7 @@ public static class Output {
         bindings.Iter(binding => binding.Empty(access: access, outputs: outputs));
     private static Seq<object> Run<TOut>(
         Port<TOut> port,
-        Operation<object, TOut> operation,
+        Func<GrasshopperRuntime, Fin<Operation<object, TOut>>> operation,
         IDataAccess access,
         Hints outputs,
         GrasshopperRuntime runtime,
@@ -81,7 +95,8 @@ public static class Output {
         ArgumentNullException.ThrowIfNull(argument: access);
         return outputs.Slot(port: port)
             .Map(slot => from context in runtime.Scope.Context
-                         from projection in ShapeSource(sourced: source, operation: operation).Run(env: new Env(Context: context, Progress: runtime.Progress, Cancellation: runtime.Cancellation))
+                         from resolved in operation(arg: runtime)
+                         from projection in ShapeSource(sourced: source, operation: resolved).Run(env: new Env(Context: context, Progress: runtime.Progress, Cancellation: runtime.Cancellation))
                          select projection.Values.IsEmpty switch {
                              true when projection.Unsupported.IsEmpty => RemarkEmpty(port: port, access: access, slot: slot) switch { _ => Seq<object>() },
                              true => RemarkUnsupported(port: port, access: access, faults: projection.Unsupported) switch { _ => Empty(port: port, access: access, slot: slot) switch { _ => Seq<object>() } },
@@ -100,14 +115,14 @@ public static class Output {
             });
     }
     private static Seq<object> Drain<TOut>(Port<TOut> port, int slot, Seq<Flow<TOut>> values, IDataAccess access) {
-        Seq<object> transfers = access.Write<TOut>(slot: slot, name: port.Name, targetAccess: port.Access, values: values);
+        Seq<object> transfers = access.Write<TOut>(slot: slot, port: port, values: values);
         _ = values.Choose(static value => value.Item is TopologyProjection projection ? Some(projection) : Option<TopologyProjection>.None)
             .Iter(projection => _ = transfers.Exists(output => ReferenceEquals(objA: output, objB: projection) || projection.Transfers(output: output)) switch { true => unit, false => projection.Dispose() });
         return transfers;
     }
     private static Unit Empty<TOut>(Port<TOut> port, IDataAccess access, int slot) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        return access.Write<TOut>(slot: slot, name: port.Name, targetAccess: port.Access, values: Seq<Flow<TOut>>()) switch { _ => Unit.Default };
+        return access.Write<TOut>(slot: slot, port: port, values: Seq<Flow<TOut>>()) switch { _ => Unit.Default };
     }
     private static Unit RemarkUnsupported(Port port, IDataAccess access, Seq<Fault.Unsupported> faults) {
         Seq<Fault.Unsupported> found = faults.Distinct().ToSeq();

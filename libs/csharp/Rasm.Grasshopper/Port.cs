@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Reflection;
 using Eto.Drawing;
 using Foundation.CSharp.Analyzers.Contracts;
@@ -37,12 +38,13 @@ public abstract class Port {
         ArgumentNullException.ThrowIfNull(argument: name);
         ArgumentNullException.ThrowIfNull(argument: code);
         ArgumentNullException.ThrowIfNull(argument: info);
-        PortPolicy resolved = policy ?? DefaultPolicy(type: typeof(TVal));
+        PortKind resolvedKind = (LanguageExt.Prelude.Optional(kind).Filter(candidate => candidate.Accepts(type: typeof(TVal))) | PortKind.From(type: typeof(TVal))).IfNone(PortKind.Generic);
+        PortPolicy resolved = policy ?? resolvedKind.DefaultPolicy;
         return new(
             name: name,
             code: code,
             info: info,
-            kind: (LanguageExt.Prelude.Optional(kind).Filter(candidate => candidate.Accepts(type: typeof(TVal))) | PortKind.From(type: typeof(TVal))).IfNone(PortKind.Generic),
+            kind: resolvedKind,
             access: access,
             requirement: requirement,
             policy: requirement switch {
@@ -56,11 +58,6 @@ public abstract class Port {
         string info = "Geometry to analyse.",
         Access access = Access.Tree) =>
         Of<Shape>(name: name, code: code, info: info, access: access);
-    private static PortPolicy DefaultPolicy(Type type) => type switch {
-        _ when type == typeof(Vector3d) => PortPolicy.Vector(unitise: true),
-        _ when type == typeof(Angle) => PortPolicy.Angle(reduce: true),
-        _ => PortPolicy.Empty,
-    };
 }
 
 // --- [MODELS] ---------------------------------------------------------------------------
@@ -134,7 +131,7 @@ public sealed partial class PortKind {
     public static readonly PortKind Site = Standard<Grasshopper2.Data.Site>(key: nameof(Site), regularInput: static (a, n, c, i, x, r) => a.AddSite(name: n, code: c, info: i, access: x, requirement: r), modularInput: static (a, n, c, i, x, r, _) => a.AddSite(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x, requirement: r), hiddenInput: static (a, n, c, i, x, r, _) => a.AddHiddenSite(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x, requirement: r), regularOutput: static (a, n, c, i, x) => a.AddSite(name: n, code: c, info: i, access: x), modularOutput: static (a, n, c, i, x, _) => a.AddSite(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x), hiddenOutput: static (a, n, c, i, x, _) => a.AddHiddenSite(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x));
     public static readonly PortKind Colour = Standard<Grasshopper2.Types.Colour.Colour>(key: nameof(Colour), regularInput: static (a, n, c, i, x, r) => a.AddColour(name: n, code: c, info: i, access: x, requirement: r), modularInput: static (a, n, c, i, x, r, _) => a.AddColour(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x, requirement: r), hiddenInput: static (a, n, c, i, x, r, _) => a.AddHiddenColour(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x, requirement: r), regularOutput: static (a, n, c, i, x) => a.AddColour(name: n, code: c, info: i, access: x), modularOutput: static (a, n, c, i, x, _) => a.AddColour(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x), hiddenOutput: static (a, n, c, i, x, _) => a.AddHiddenColour(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x));
     public static readonly PortKind Point = Standard<Point3d>(key: nameof(Point), regularInput: static (a, n, c, i, x, r) => a.AddPoint(name: n, code: c, info: i, access: x, requirement: r), modularInput: static (a, n, c, i, x, r, _) => a.AddPoint(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x, requirement: r), hiddenInput: static (a, n, c, i, x, r, _) => a.AddHiddenPoint(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x, requirement: r), regularOutput: static (a, n, c, i, x) => a.AddPoint(name: n, code: c, info: i, access: x), modularOutput: static (a, n, c, i, x, _) => a.AddPoint(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x), hiddenOutput: static (a, n, c, i, x, _) => a.AddHiddenPoint(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x));
-    public static readonly PortKind Vector = Standard<Vector3d>(key: nameof(Vector), regularInput: static (a, n, c, i, x, r) => a.AddVector(name: n, code: c, info: i, access: x, requirement: r), modularInput: static (a, n, c, i, x, r, _) => a.AddVector(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x, requirement: r), hiddenInput: static (a, n, c, i, x, r, _) => a.AddHiddenVector(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x, requirement: r), regularOutput: static (a, n, c, i, x) => a.AddVector(name: n, code: c, info: i, access: x), modularOutput: static (a, n, c, i, x, _) => a.AddVector(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x), hiddenOutput: static (a, n, c, i, x, _) => a.AddHiddenVector(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x));
+    public static readonly PortKind Vector = Standard<Vector3d>(key: nameof(Vector), regularInput: static (a, n, c, i, x, r) => a.AddVector(name: n, code: c, info: i, access: x, requirement: r), modularInput: static (a, n, c, i, x, r, _) => a.AddVector(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x, requirement: r), hiddenInput: static (a, n, c, i, x, r, _) => a.AddHiddenVector(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x, requirement: r), regularOutput: static (a, n, c, i, x) => a.AddVector(name: n, code: c, info: i, access: x), modularOutput: static (a, n, c, i, x, _) => a.AddVector(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x), hiddenOutput: static (a, n, c, i, x, _) => a.AddHiddenVector(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x), defaultPolicy: PortPolicy.Vector(unitise: true));
     public static readonly PortKind Line = Standard<Line>(key: nameof(Line), regularInput: static (a, n, c, i, x, r) => a.AddLine(name: n, code: c, info: i, access: x, requirement: r), modularInput: static (a, n, c, i, x, r, _) => a.AddLine(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x, requirement: r), hiddenInput: static (a, n, c, i, x, r, _) => a.AddHiddenLine(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x, requirement: r), regularOutput: static (a, n, c, i, x) => a.AddLine(name: n, code: c, info: i, access: x), modularOutput: static (a, n, c, i, x, _) => a.AddLine(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x), hiddenOutput: static (a, n, c, i, x, _) => a.AddHiddenLine(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x));
     public static readonly PortKind Arc = Standard<Arc>(key: nameof(Arc), regularInput: static (a, n, c, i, x, r) => a.AddArc(name: n, code: c, info: i, access: x, requirement: r), modularInput: static (a, n, c, i, x, r, _) => a.AddArc(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x, requirement: r), hiddenInput: static (a, n, c, i, x, r, _) => a.AddHiddenArc(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x, requirement: r), regularOutput: static (a, n, c, i, x) => a.AddArc(name: n, code: c, info: i, access: x), modularOutput: static (a, n, c, i, x, _) => a.AddArc(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x), hiddenOutput: static (a, n, c, i, x, _) => a.AddHiddenArc(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x));
     public static readonly PortKind Circle = Standard<Circle>(key: nameof(Circle), regularInput: static (a, n, c, i, x, r) => a.AddCircle(name: n, code: c, info: i, access: x, requirement: r), modularInput: static (a, n, c, i, x, r, _) => a.AddCircle(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x, requirement: r), hiddenInput: static (a, n, c, i, x, r, _) => a.AddHiddenCircle(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x, requirement: r), regularOutput: static (a, n, c, i, x) => a.AddCircle(name: n, code: c, info: i, access: x), modularOutput: static (a, n, c, i, x, _) => a.AddCircle(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x), hiddenOutput: static (a, n, c, i, x, _) => a.AddHiddenCircle(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x));
@@ -157,7 +154,7 @@ public sealed partial class PortKind {
         regularOutput: static (adder, name, code, info, access) => adder.AddInteger(name: name, code: code, info: info, access: access),
         modularOutput: static (adder, name, code, info, access, hidden) => hidden ? adder.AddHiddenInteger(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access) : adder.AddInteger(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access));
     public static readonly PortKind Interval = Standard<Interval>(key: nameof(Interval), regularInput: static (a, n, c, i, x, r) => a.AddInterval(name: n, code: c, info: i, access: x, requirement: r), modularInput: static (a, n, c, i, x, r, _) => a.AddInterval(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x, requirement: r), hiddenInput: static (a, n, c, i, x, r, _) => a.AddHiddenInterval(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x, requirement: r), regularOutput: static (a, n, c, i, x) => a.AddInterval(name: n, code: c, info: i, access: x), modularOutput: static (a, n, c, i, x, _) => a.AddInterval(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x), hiddenOutput: static (a, n, c, i, x, _) => a.AddHiddenInterval(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x));
-    public static readonly PortKind Angle = Standard<Angle>(key: nameof(Angle), regularInput: static (a, n, c, i, x, r) => a.AddAngle(name: n, code: c, info: i, access: x, requirement: r), modularInput: static (a, n, c, i, x, r, _) => a.AddAngle(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x, requirement: r), hiddenInput: static (a, n, c, i, x, r, _) => a.AddHiddenAngle(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x, requirement: r), regularOutput: static (a, n, c, i, x) => a.AddAngle(name: n, code: c, info: i, access: x), modularOutput: static (a, n, c, i, x, _) => a.AddAngle(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x), hiddenOutput: static (a, n, c, i, x, _) => a.AddHiddenAngle(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x));
+    public static readonly PortKind Angle = Standard<Angle>(key: nameof(Angle), regularInput: static (a, n, c, i, x, r) => a.AddAngle(name: n, code: c, info: i, access: x, requirement: r), modularInput: static (a, n, c, i, x, r, _) => a.AddAngle(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x, requirement: r), hiddenInput: static (a, n, c, i, x, r, _) => a.AddHiddenAngle(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x, requirement: r), regularOutput: static (a, n, c, i, x) => a.AddAngle(name: n, code: c, info: i, access: x), modularOutput: static (a, n, c, i, x, _) => a.AddAngle(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x), hiddenOutput: static (a, n, c, i, x, _) => a.AddHiddenAngle(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x), defaultPolicy: PortPolicy.Angle(reduce: true));
     public static readonly PortKind Number = Standard<double>(key: nameof(Number), regularInput: static (a, n, c, i, x, r) => a.AddNumber(name: n, code: c, info: i, access: x, requirement: r), modularInput: static (a, n, c, i, x, r, _) => a.AddNumber(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x, requirement: r), hiddenInput: static (a, n, c, i, x, r, _) => a.AddHiddenNumber(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x, requirement: r), regularOutput: static (a, n, c, i, x) => a.AddNumber(name: n, code: c, info: i, access: x), modularOutput: static (a, n, c, i, x, _) => a.AddNumber(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x), hiddenOutput: static (a, n, c, i, x, _) => a.AddHiddenNumber(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x));
     public static readonly PortKind Boolean = Standard<bool>(key: nameof(Boolean), regularInput: static (a, n, c, i, x, r) => a.AddBoolean(name: n, code: c, info: i, access: x, requirement: r), modularInput: static (a, n, c, i, x, r, _) => a.AddBoolean(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x, requirement: r), hiddenInput: static (a, n, c, i, x, r, _) => a.AddHiddenBoolean(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x, requirement: r), regularOutput: static (a, n, c, i, x) => a.AddBoolean(name: n, code: c, info: i, access: x), modularOutput: static (a, n, c, i, x, _) => a.AddBoolean(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x), hiddenOutput: static (a, n, c, i, x, _) => a.AddHiddenBoolean(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x));
     public static readonly PortKind Text = Standard<string>(key: nameof(Text), regularInput: static (a, n, c, i, x, r) => a.AddText(name: n, code: c, info: i, access: x, requirement: r), modularInput: static (a, n, c, i, x, r, _) => a.AddText(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x, requirement: r), hiddenInput: static (a, n, c, i, x, r, _) => a.AddHiddenText(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x, requirement: r), regularOutput: static (a, n, c, i, x) => a.AddText(name: n, code: c, info: i, access: x), modularOutput: static (a, n, c, i, x, _) => a.AddText(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x), hiddenOutput: static (a, n, c, i, x, _) => a.AddHiddenText(name: n, code: c, info: i, category: Category, colour: Colors.Transparent, access: x));
@@ -170,11 +167,23 @@ public sealed partial class PortKind {
         modularOutput: static (adder, name, code, info, access, hidden) => hidden ? adder.AddHiddenGeneric(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access) : adder.AddGeneric(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, access: access));
     public Type Type { get; }
     public Type WireType { get; }
-    internal bool Accepts(Type type) => Type == type || WireType == type || (type.IsEnum && Type == type && WireType == typeof(int));
+    internal PortPolicy DefaultPolicy { get; }
+    internal bool Accepts(Type type) => Type == type;
+    internal bool RequiresWire<T>() => Type == typeof(T) && WireType != typeof(T);
+    internal Fin<Flow<T>> Decode<T>(Flow<int> value) =>
+        System.Enum.IsDefined(enumType: Type, value: value.Item) switch {
+            true => Fin.Succ(value.Project(item: (T)System.Enum.ToObject(enumType: Type, value: value.Item))),
+            false => Fin.Fail<Flow<T>>(Op.Of(name: Type.Name).InvalidInput()),
+        };
+    internal static Flow<int> Encode<T>(Flow<T> value) =>
+        value.Project(item: Convert.ToInt32(value: value.Item, provider: CultureInfo.InvariantCulture));
     [UseDelegateFromConstructor] private partial IParameter AddInput(ModularInputAdder adder, string name, string code, string info, Access access, Requirement requirement, bool hidden);
     [UseDelegateFromConstructor] private partial IParameter AddOutput(ModularOutputAdder adder, string name, string code, string info, Access access, bool hidden);
     public static PortKind Enum<T>(T initial) where T : struct, Enum =>
-        Of<T>(
+        (System.Enum.GetUnderlyingType(enumType: typeof(T)), typeof(T).IsDefined(attributeType: typeof(FlagsAttribute), inherit: false)) switch {
+            (Type backing, _) when backing != typeof(int) => throw new ArgumentException(message: "Grasshopper enum ports require System.Int32-backed enums.", paramName: nameof(initial)),
+            (_, true) => throw new ArgumentException(message: "Grasshopper enum ports do not support flags enums.", paramName: nameof(initial)),
+            _ => Of<T>(
             key: typeof(T).FullName ?? typeof(T).Name,
             regularInput: (adder, name, code, info, access, requirement) => adder.AddEnum<T>(name: name, code: code, info: info, initial: initial, access: access, requirement: requirement),
             modularInput: (adder, name, code, info, access, requirement, hidden) => hidden ? adder.AddHiddenEnum(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, initial: initial, access: access, requirement: requirement) : adder.AddEnum(name: name, code: code, info: info, category: Category, colour: Colors.Transparent, initial: initial, access: access, requirement: requirement),
@@ -189,7 +198,8 @@ public sealed partial class PortKind {
                 add(arg1: parameter, arg2: Category, arg3: Colors.Transparent);
                 return parameter;
             },
-            wireType: typeof(int));
+            wireType: typeof(int)),
+        };
     public static Option<PortKind> From(Type type) {
         ArgumentNullException.ThrowIfNull(argument: type);
         return type == typeof(Shape)
@@ -220,25 +230,29 @@ public sealed partial class PortKind {
         RegularOutput regularOutput,
         Output modularOutput,
         Output hiddenOutput,
-        Type? wireType = null) =>
+        Type? wireType = null,
+        PortPolicy? defaultPolicy = null) =>
         Of<T>(
             key: key,
             regularInput: regularInput,
             modularInput: (adder, name, code, info, access, requirement, hidden) => (hidden ? hiddenInput : modularInput)(adder, name, code, info, access, requirement, hidden),
             regularOutput: regularOutput,
             modularOutput: (adder, name, code, info, access, hidden) => (hidden ? hiddenOutput : modularOutput)(adder, name, code, info, access, hidden),
-            wireType: wireType);
+            wireType: wireType,
+            defaultPolicy: defaultPolicy);
     private static PortKind Of<T>(
         string key,
         RegularInput regularInput,
         Input modularInput,
         RegularOutput regularOutput,
         Output modularOutput,
-        Type? wireType = null) =>
+        Type? wireType = null,
+        PortPolicy? defaultPolicy = null) =>
         new(
             key: key,
             type: typeof(T),
             wireType: wireType ?? typeof(T),
+            defaultPolicy: defaultPolicy ?? PortPolicy.Empty,
             addInput: (adder, name, code, info, access, requirement, hidden) => (hidden || requirement == Requirement.MayBeMissing) switch {
                 true => modularInput(adder: adder, name: name, code: code, info: info, access: access, requirement: requirement, hidden: hidden),
                 false => regularInput(adder: adder.RegularAdder, name: name, code: code, info: info, access: access, requirement: requirement),

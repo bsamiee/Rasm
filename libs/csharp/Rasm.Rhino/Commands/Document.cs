@@ -33,19 +33,22 @@ public abstract partial record DocumentTarget {
 
     private sealed record ReferenceCase(CommandSelection.Reference Value) : DocumentTarget {
         internal override Fin<int> Select(RhinoDoc document, bool selected, Op op) {
-            using ObjRef reference = Value.ObjRef(document: document);
             return Value.ObjectId switch {
-                Guid id when id != Guid.Empty => CountResult(count: document.Objects.Select(Seq(reference).AsIterable(), selected), op: op),
+                Guid id when id != Guid.Empty => WithReference(document: document, use: reference => CountResult(count: document.Objects.Select(Seq(reference).AsIterable(), selected), op: op)),
                 _ => Fin.Fail<int>(error: op.InvalidInput()),
             };
         }
 
         internal override Fin<Unit> Delete(RhinoDoc document, bool quiet, bool ignoreModes, Op op) {
-            using ObjRef reference = Value.ObjRef(document: document);
             return Value.ObjectId switch {
-                Guid id when id != Guid.Empty => UnitResult(success: document.Objects.Delete(reference, quiet, ignoreModes), op: op),
+                Guid id when id != Guid.Empty => WithReference(document: document, use: reference => UnitResult(success: document.Objects.Delete(reference, quiet, ignoreModes), op: op)),
                 _ => Fin.Fail<Unit>(error: op.InvalidInput()),
             };
+        }
+
+        private Fin<T> WithReference<T>(RhinoDoc document, Func<ObjRef, Fin<T>> use) {
+            using ObjRef reference = Value.ObjRef(document: document);
+            return use(arg: reference);
         }
     }
 
