@@ -90,7 +90,7 @@ Collect live RhinoWIP runtime evidence:
 scripts/rhino.sh bridge doctor
 scripts/rhino.sh bridge script path/to/script.csx
 scripts/rhino.sh bridge check path/to/project.csproj
-scripts/rhino.sh bridge check-source path/to/source.cs
+scripts/rhino.sh bridge check-source path/to/source.cs --script path/to/diagnostic.csx
 ```
 
 ## Artifact Flow

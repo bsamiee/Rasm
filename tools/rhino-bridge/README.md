@@ -72,13 +72,13 @@ Run commands from repository root.
 | **4** | `scripts/rhino.sh bridge restart` | Quit safe Rhino session, relaunch RhinoWIP, and reconnect. |
 | **5** | `scripts/rhino.sh bridge check <project.csproj>` | Build project and execute RhinoCode smoke in Rhino. |
 | **6** | `scripts/rhino.sh bridge check-source <source.cs>` | Resolve owning project and validate source build. |
-| **7** | `scripts/rhino.sh bridge check-source <source.cs> --script <script.csx>` | Build owner and execute supplied RhinoCode script with compile references. |
+| **7** | `scripts/rhino.sh bridge check-source <source.cs> --script <script.csx>` | Build owner and execute supplied RhinoCode script with host-filtered runtime references. |
 | **8** | `scripts/rhino.sh bridge script <script.csx>` | Execute explicit RhinoCode script in Rhino. |
 | **9** | `scripts/rhino.sh bridge load <assembly.dll>` | Load assembly into Rhino bridge session for explicit session diagnostics. |
 | **10** | `scripts/rhino.sh bridge load-smoke <assembly.dll>` | Load assembly in collectible session and unload it. |
 | **11** | `scripts/rhino.sh bridge unload <session-id>` | Unload explicit bridge load session. |
 | **12** | `scripts/rhino.sh bridge quit` | Ask Rhino to exit only when open documents have no unsaved changes. |
-| **13** | `scripts/rhino.sh bridge package <version>` | Build bridge `.rhp`, run Yak in staged directory, publish complete package. |
+| **13** | `scripts/rhino.sh bridge package <version>` | Build bridge `.rhp`, run Yak in staged directory, and create a local package. |
 | **14** | `scripts/rhino.sh bridge install <package.yak>` | Install bridge package, restart or launch RhinoWIP, then verify live version. |
 
 ### [3.1][PRIMARY_USAGE]
@@ -105,7 +105,26 @@ Validate source with an existing task-relevant RhinoCode script:
 scripts/rhino.sh bridge check-source <real-source.cs> --script <real-diagnostic-script.csx>
 ```
 
-Expected result: `"status": "ok"` when the script compiles against `CompileReferences` and exercises real Rhino behavior. Do not create throwaway proof scripts except when changing bridge reference projection itself.
+Expected result: `"status": "ok"` when the script compiles against generated `#r` directives from `HostFilteredRuntimeReferences` and exercises real Rhino behavior. Do not create throwaway proof scripts except when changing bridge reference projection itself.
+
+### [3.2][OPTIONS]
+
+Common client options:
+
+| [INDEX] | [OPTION] | [USE] |
+| :-----: | -------- | ----- |
+| **1** | `--configuration <name>` | Build configuration used by project checks. |
+| **2** | `--worktree <path>` | Repository root for project/source resolution. |
+| **3** | `--timeout-ms <ms>` | Client transport timeout; Rhino UI-thread execution is not server-cancelable. |
+| **4** | `--result <path>` | Write structured JSON result atomically. |
+| **5** | `--script <path>` | Runtime script for `check-source`; without it, source checks stop after build evidence. |
+
+Environment overrides:
+
+| [INDEX] | [VARIABLE] | [USE] |
+| :-----: | ---------- | ----- |
+| **1** | `RHINO_WIP_APP_PATH` | Launch a specific RhinoWIP app bundle. |
+| **2** | `RHINO_WIP_BUNDLE_ID` | Launch RhinoWIP by bundle identifier. |
 
 ---
 ## [4][OUTPUT_CONTRACT]
@@ -158,15 +177,15 @@ Output blocks include `source`, `text`, `truncated`, `length`, and `limit`. Trea
 
 <br>
 
-The client emits three reference projections from one evaluated project build:
+The client emits runtime reference projections from one evaluated project build. Generated RhinoCode scripts apply references by prepending `#r` directives before submission. `BridgeExecuteRequest.References` is reported metadata today; the plugin does not independently apply that field during execution.
 
 | [INDEX] | [REFERENCE_SET] | [USE] |
 | :-----: | --------------- | ----- |
-| **1** | `CompileReferences` | Source scripts that need full compile closure, including bridge/protocol assemblies. |
-| **2** | `RuntimeReferences` | Runtime assets excluding target assembly; smoke scripts load target directly from `targetLocation`. |
-| **3** | `HostFilteredRuntimeReferences` | Project smoke scripts; excludes Rhino, Grasshopper, and bridge host assemblies already present in Rhino. |
+| **1** | `RuntimeReferences` | Runtime assets excluding target assembly; smoke scripts load target directly from `targetLocation`. |
+| **2** | `HostFilteredRuntimeReferences` | Project smoke and source scripts; excludes Rhino, Grasshopper, and bridge host assemblies already present in Rhino. |
+| **3** | `BridgeExecuteRequest.References` | Wire/report metadata; not a plugin-applied reference mechanism. |
 
-[CRITICAL] Use `CompileReferences` for `check-source --script`. Filtering bridge/protocol references breaks scripts that intentionally compile against bridge DTOs.
+[CRITICAL] Do not document `check-source --script` as compile-reference based until the client owns a real compile-reference projection and the plugin applies it authoritatively.
 
 ---
 ## [6][FAILURE_READING]
@@ -178,7 +197,7 @@ The client emits three reference projections from one evaluated project build:
 | :-----: | -------- | --------- | ------------- |
 | **1** | `build` failed | Managed compile/analyzer/MSBuild failure. | Fix C# or project configuration before Rhino work. |
 | **2** | `connect` failed | RhinoWIP bridge unavailable or stale endpoint. | Run `bridge launch` or `bridge doctor`; inspect `~/.rasm/rhino-bridge.json`. |
-| **3** | `rhinoCodeCli` failed | External RhinoCode CLI unavailable or roll-forward failure. | Verify RhinoWIP app path and local RhinoWIP install. |
+| **3** | `rhinoCodeCli` failed | Supplemental RhinoCode CLI probe unavailable or roll-forward failure. | Inspect the phase, but trust successful in-process `execute` as authoritative. |
 | **4** | `execute` diagnostics | RhinoCode compile/runtime failure inside Rhino. | Use `diagnostics` and `fault.stackTrace`; fix real code. |
 | **5** | already-loaded mismatch | Rhino has simple-name assembly loaded from different path or assembly version. | Restart Rhino or change target identity; do not accept stale success. |
 | **6** | `unsupported` source check | Source build is valid, but no runtime script was supplied. | Add `--script` only when runtime behavior needs Rhino evidence. |
@@ -198,7 +217,8 @@ The client emits three reference projections from one evaluated project build:
 
 [CRITICAL]:
 - Never hardcode project discovery for packages. Extend `PACKAGE_PROJECTS` deliberately.
-- Never filter compile references used by `check-source --script`.
+- Never imply `check-source <source.cs>` executes runtime behavior without an explicit `--script`.
+- Never treat reported `BridgeExecuteRequest.References` as plugin-applied execution state.
 - Never silently pass an already-loaded assembly whose simple name matches but location or assembly version differs.
 - Never add temp-only scripts, generated tests, or fake probes as bridge purpose.
 - Never automate Rhino settings or templates from this repository.

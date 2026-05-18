@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>RhinoCommon command and document interop boundary for Rasm.</Description>
+        <IsRhinoCommonAwareProject>true</IsRhinoCommonAwareProject>
+        <SkipBoundaryExemptionContracts>true</SkipBoundaryExemptionContracts>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../Rasm/Rasm.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="Rasm.Analysis" />
+        <Using Include="Rasm.Domain" />
+        <Using Include="Rhino" />
+        <Using Include="Rhino.Commands" />
+        <Using Include="Rhino.Display" />
+        <Using Include="Rhino.DocObjects" />
+        <Using Include="Rhino.DocObjects.Tables" />
+        <Using Include="Rhino.Geometry" />
+        <Using Include="Rhino.Input" />
+        <Using Include="Rhino.Input.Custom" />
+        <Using Include="Thinktecture" />
+    </ItemGroup>
+</Project>
