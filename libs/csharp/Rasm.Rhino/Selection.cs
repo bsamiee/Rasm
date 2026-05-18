@@ -22,6 +22,15 @@ public sealed record CommandSelection {
         return new(document: document, items: toSeq(snapshots));
     }
 
+    internal Fin<TResult> UseObjRefs<TResult>(RhinoDoc document, Func<Seq<ObjRef>, Fin<TResult>> project) {
+        ArgumentNullException.ThrowIfNull(argument: document);
+        ArgumentNullException.ThrowIfNull(argument: project);
+        ObjRef[] references = [.. Items.Map(reference => reference.ObjRef(document: document))];
+        Fin<TResult> result = project(arg: toSeq(references));
+        _ = toSeq(references).Iter(static reference => reference.Dispose());
+        return result;
+    }
+
     public readonly record struct Reference(
         Guid ObjectId,
         uint RuntimeSerialNumber,
@@ -79,17 +88,15 @@ public sealed record CommandSelection {
                 });
         }
 
-        public Fin<TResult> UseObjRef<TResult>(RhinoDoc document, Func<ObjRef, Fin<TResult>> project) {
+        internal ObjRef ObjRef(RhinoDoc document) {
             ArgumentNullException.ThrowIfNull(argument: document);
-            ArgumentNullException.ThrowIfNull(argument: project);
             RhinoObject? found = document.Objects.Find(runtimeSerialNumber: RuntimeSerialNumber);
-            using ObjRef reference = (found, ComponentIndex.IsSet) switch {
+            return (found, ComponentIndex.IsSet) switch {
                 (RhinoObject { IsDeleted: false } native, true) => new ObjRef(doc: document, id: native.Id, ci: ComponentIndex),
                 (RhinoObject { IsDeleted: false } native, false) => new ObjRef(rhinoObject: native),
                 (_, true) => new ObjRef(doc: document, id: ObjectId, ci: ComponentIndex),
                 _ => new ObjRef(doc: document, id: ObjectId),
             };
-            return project(arg: reference);
         }
     }
 }

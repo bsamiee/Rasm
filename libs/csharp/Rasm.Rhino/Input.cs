@@ -16,11 +16,11 @@ public readonly record struct CommandPoint(
     Option<(RhinoViewport Viewport, Plane Plane)> PlanarConstraint,
     Seq<Point3d> SnapPoints,
     Seq<Point3d> ConstructionPoints) {
-    internal static CommandPoint Of(GetPoint getter, CommandInputMeta meta) =>
+    internal static CommandPoint Of(GetPoint getter, GetResult raw) =>
         new(
-            Point: meta.Point,
-            WindowPoint: meta.WindowPoint,
-            View: meta.View,
+            Point: raw switch { GetResult.Point => Some(getter.Point()), _ => Option<Point3d>.None },
+            WindowPoint: raw switch { GetResult.Point or GetResult.Point2d => Some<DrawingPoint>(getter.Point2d()), _ => Option<DrawingPoint>.None },
+            View: Optional(getter.View()),
             Reference: PointObject(getter: getter),
             NumberPreview: NumberPreviewOf(getter: getter),
             Osnap: getter.OsnapEventType,
@@ -48,7 +48,11 @@ public readonly record struct CommandPoint(
         };
 }
 
-public readonly record struct CommandInputMeta(
+public readonly record struct CommandGet<T>(
+    GetResult Raw,
+    Result CommandResult,
+    Option<T> Value,
+    Option<CommandOptionValue> Option,
     bool GotDefault,
     Option<RhinoView> View,
     Option<DrawingPoint> WindowPoint,
@@ -61,8 +65,13 @@ public readonly record struct CommandInputMeta(
     Option<DrawingRectangle> PickRectangle,
     Option<DrawingRectangle> Rectangle2d,
     Seq<DrawingPoint> Line2d) {
-    internal static CommandInputMeta Of(GetBaseClass getter, GetResult raw) =>
+
+    internal static CommandGet<T> Of(GetBaseClass getter, GetResult raw, Option<T> value, Option<CommandOptionValue> option) =>
         new(
+            Raw: raw,
+            CommandResult: getter.CommandResult(),
+            Value: value,
+            Option: option,
             GotDefault: getter.GotDefault(),
             View: Optional(getter.View()),
             WindowPoint: raw switch { GetResult.Point or GetResult.Point2d => Some<DrawingPoint>(getter.Point2d()), _ => Option<DrawingPoint>.None },
@@ -77,29 +86,10 @@ public readonly record struct CommandInputMeta(
             Line2d: raw switch { GetResult.Line2d => toSeq(getter.Line2d()), _ => Seq<DrawingPoint>() });
 }
 
-public readonly record struct CommandGet<T>(
-    GetResult Raw,
-    Result CommandResult,
-    Option<T> Value,
-    Option<CommandOptionValue> Option,
-    CommandInputMeta Meta) {
-    public bool GotDefault => Meta.GotDefault;
-    public Option<RhinoView> View => Meta.View;
-    public Option<DrawingPoint> WindowPoint => Meta.WindowPoint;
-
-    internal static CommandGet<T> Of(GetBaseClass getter, GetResult raw, Option<T> value, Option<CommandOptionValue> option) =>
-        new(
-            Raw: raw,
-            CommandResult: getter.CommandResult(),
-            Value: value,
-            Option: option,
-            Meta: CommandInputMeta.Of(getter: getter, raw: raw));
-}
-
-public sealed class CommandRequest<TGetter, TValue> where TGetter : GetBaseClass, IDisposable {
+public sealed class CommandRequest<TValue> {
     private readonly Func<CommandInput, Fin<CommandGet<TValue>>> read;
     private CommandRequest(Func<CommandInput, Fin<CommandGet<TValue>>> read) => this.read = read;
-    internal static CommandRequest<TGetter, TValue> Of(Func<CommandInput, Fin<CommandGet<TValue>>> read) => new(read: read);
+    internal static CommandRequest<TValue> Of(Func<CommandInput, Fin<CommandGet<TValue>>> read) => new(read: read);
     internal Fin<CommandGet<TValue>> Read(CommandInput input) => read(arg: input);
 }
 
@@ -136,34 +126,37 @@ public static class CommandPolicy {
 
 // --- [SERVICES] -------------------------------------------------------------------------
 public sealed record CommandInput {
-    public CommandInput(RhinoDoc document) {
+    internal CommandInput(RhinoDoc document) {
         ArgumentNullException.ThrowIfNull(argument: document);
         Document = document;
     }
 
     public RhinoDoc Document { get; }
 
-    public CommandRequest<GetObject, CommandSelection> Objects(int minimum = 1, int maximum = 1, params CommandPolicy<GetObject>[] policies) =>
+    public CommandRequest<CommandSelection> Objects(int minimum = 1, int maximum = 1, params CommandPolicy<GetObject>[] policies) =>
         Request(
             document: Document,
-            policies: ObjectDefaults + toSeq(policies),
+            policies: ObjectDefaults + (maximum switch {
+                0 => Seq(CommandPolicy.Native<GetObject>(static getter => getter.AcceptEnterWhenDone(enable: true))),
+                _ => Seq<CommandPolicy<GetObject>>(),
+            }) + toSeq(policies),
             create: static () => new GetObject(),
             receive: getter => getter.GetMultiple(minimumNumber: minimum, maximumNumber: maximum),
             value: static (input, getter, raw) => SelectionOf(document: input.Document, getter: getter, raw: raw),
             transition: ObjectTransition);
 
-    public CommandRequest<GetPoint, CommandPoint> Point(bool onMouseUp = false, bool twoDimensional = false, params CommandPolicy<GetPoint>[] policies) =>
+    public CommandRequest<CommandPoint> Point(bool onMouseUp = false, bool twoDimensional = false, params CommandPolicy<GetPoint>[] policies) =>
         Request(
             document: Document,
             policies: toSeq(policies),
             create: static () => new GetPoint(),
             receive: getter => getter.Get(onMouseUp: onMouseUp, get2DPoint: twoDimensional),
             value: static (_, getter, raw) => raw switch {
-                GetResult.Point or GetResult.Point2d => Some(CommandPoint.Of(getter: getter, meta: CommandInputMeta.Of(getter: getter, raw: raw))),
+                GetResult.Point or GetResult.Point2d => Some(CommandPoint.Of(getter: getter, raw: raw)),
                 _ => Option<CommandPoint>.None,
             });
 
-    public CommandRequest<GetString, string> Text(bool literal = false, params CommandPolicy<GetString>[] policies) =>
+    public CommandRequest<string> Text(bool literal = false, params CommandPolicy<GetString>[] policies) =>
         Request(
             document: Document,
             policies: toSeq(policies),
@@ -171,7 +164,7 @@ public sealed record CommandInput {
             receive: getter => literal ? getter.GetLiteralString() : getter.Get(),
             value: static (_, getter, raw) => raw switch { GetResult.String => Optional(getter.StringResult()), _ => Option<string>.None });
 
-    public CommandRequest<GetNumber, double> Number(Option<double> lower = default, Option<double> upper = default, bool strictlyLower = false, bool strictlyUpper = false, params CommandPolicy<GetNumber>[] policies) =>
+    public CommandRequest<double> Number(Option<double> lower = default, Option<double> upper = default, bool strictlyLower = false, bool strictlyUpper = false, params CommandPolicy<GetNumber>[] policies) =>
         Request(
             document: Document,
             policies: toSeq(policies),
@@ -180,7 +173,7 @@ public sealed record CommandInput {
             receive: static getter => getter.Get(),
             value: static (_, getter, raw) => raw switch { GetResult.Number => Some(getter.Number()), _ => Option<double>.None });
 
-    public CommandRequest<GetInteger, int> Integer(Option<int> lower = default, Option<int> upper = default, bool strictlyLower = false, bool strictlyUpper = false, params CommandPolicy<GetInteger>[] policies) =>
+    public CommandRequest<int> Integer(Option<int> lower = default, Option<int> upper = default, bool strictlyLower = false, bool strictlyUpper = false, params CommandPolicy<GetInteger>[] policies) =>
         Request(
             document: Document,
             policies: toSeq(policies),
@@ -189,7 +182,7 @@ public sealed record CommandInput {
             receive: static getter => getter.Get(),
             value: static (_, getter, raw) => raw switch { GetResult.Number => Some(getter.Number()), _ => Option<int>.None });
 
-    public CommandRequest<GetOption, CommandOptionValue> Options(params CommandOption[] options) =>
+    public CommandRequest<CommandOptionValue> Options(params CommandOption[] options) =>
         Request(
             document: Document,
             policies: Seq(CommandPolicy.Options<GetOption>(options)),
@@ -197,7 +190,7 @@ public sealed record CommandInput {
             receive: static getter => getter.Get(),
             value: static (_, _, _) => Option<CommandOptionValue>.None);
 
-    public Fin<CommandGet<TValue>> Read<TGetter, TValue>(CommandRequest<TGetter, TValue> request) where TGetter : GetBaseClass, IDisposable =>
+    public Fin<CommandGet<TValue>> Read<TValue>(CommandRequest<TValue> request) =>
         Optional(request)
             .ToFin(Fail: Op.Of(name: nameof(Read)).InvalidInput())
             .Bind(input => input.Read(input: this));
@@ -214,7 +207,7 @@ public sealed record CommandInput {
             CommandPolicy.Native<GetObject>(static getter => getter.EnableSelPrevious(enable: true)),
             CommandPolicy.Native<GetObject>(static getter => getter.EnableHighlight(enable: true)));
 
-    private static CommandRequest<TGetter, TValue> Request<TGetter, TValue>(
+    private static CommandRequest<TValue> Request<TGetter, TValue>(
         RhinoDoc document,
         Seq<CommandPolicy<TGetter>> policies,
         Func<TGetter> create,
@@ -222,7 +215,7 @@ public sealed record CommandInput {
         Func<CommandInput, TGetter, GetResult, Option<TValue>> value,
         Func<TGetter, Fin<Unit>>? configure = null,
         Func<TGetter, GetResult, ReadState, ReadStep>? transition = null) where TGetter : GetBaseClass, IDisposable =>
-        CommandRequest<TGetter, TValue>.Of(read: input => {
+        CommandRequest<TValue>.Of(read: input => {
             using TGetter getter = create();
             return from _ in SameDocument(expected: document, actual: input.Document)
                    from configured in configure switch { Func<TGetter, Fin<Unit>> apply => apply(arg: getter), _ => Fin.Succ(value: unit) }

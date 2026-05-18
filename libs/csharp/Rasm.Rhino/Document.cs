@@ -2,7 +2,7 @@ namespace Rasm.Rhino;
 
 // --- [SERVICES] -------------------------------------------------------------------------
 public sealed record DocumentEdit {
-    public DocumentEdit(RhinoDoc document) {
+    internal DocumentEdit(RhinoDoc document) {
         ArgumentNullException.ThrowIfNull(argument: document);
         Document = document;
     }
@@ -58,15 +58,11 @@ public sealed record DocumentEdit {
         Optional(selection)
             .ToFin(Fail: Op.Of(name: nameof(Select)).InvalidInput())
             .Bind(s => ReferenceEquals(objA: s.Document, objB: Document) switch {
-                true => s.Items
-                    .TraverseM(reference => reference.UseObjRef(
-                        document: Document,
-                        project: objRef => Fin.Succ(value: Document.Objects.Select(objref: objRef, select: selected) switch {
-                            true => 1,
-                            false => 0,
-                        })))
-                    .As()
-                    .Map(static counts => counts.Fold(0, static (total, count) => total + count)),
+                true => s.UseObjRefs(
+                    document: Document,
+                    project: refs => CountResult(
+                        count: Document.Objects.Select(refs.AsIterable(), selected),
+                        op: Op.Of(name: nameof(Select)))),
                 false => Fin.Fail<int>(error: Op.Of(name: nameof(Select)).InvalidInput()),
             });
 

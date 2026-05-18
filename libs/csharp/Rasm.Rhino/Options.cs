@@ -250,8 +250,14 @@ public abstract record CommandOption {
             select bound;
 
         private static Fin<CommandOptionValue> SnapshotAt(string name, GetBaseClass getter, Seq<TEnum> values) =>
-            from index in ValidIndex(index: getter.Option().CurrentListOptionIndex, count: values.Count)
-            select Snapshot(name: name, getter: getter, value: Some((object)values[index]), listIndex: Some(index));
+            Try.lift<TEnum>(f: () => getter.GetSelectedEnumValueFromSelectionList(values.AsIterable()))
+                .Run()
+                .MapFail(static _ => Op.Of(name: nameof(CommandOption)).InvalidResult())
+                .Map(selected => Snapshot(
+                    name: name,
+                    getter: getter,
+                    value: Some((object)selected),
+                    listIndex: EnumIndex(values: values, value: selected)));
     }
 
     internal sealed class Scope : IDisposable {
