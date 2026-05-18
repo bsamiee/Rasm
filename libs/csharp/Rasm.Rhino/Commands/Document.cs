@@ -6,7 +6,9 @@ public abstract partial record DocumentTarget {
 
     public static DocumentTarget Selection(CommandSelection selection) => new SelectionCase(Value: selection);
     public static DocumentTarget Reference(ObjRef reference) =>
-        new ReferenceCase(Value: Optional(reference).Map(static value => CommandSelection.Reference.Of(reference: value, preselected: false)).IfNone(default(CommandSelection.Reference)));
+        new ReferenceCase(Value: Optional(reference)
+            .Map(static value => CommandSelection.Reference.Of(reference: value, preselected: false))
+            .Filter(static value => value.ObjectId != Guid.Empty));
     public static DocumentTarget Objects(IEnumerable<Guid> objectIds) =>
         new ObjectsCase(Value: Optional(objectIds).Map(static ids => toSeq(ids)).IfNone(Seq<Guid>()));
 
@@ -31,23 +33,28 @@ public abstract partial record DocumentTarget {
                 });
     }
 
-    private sealed record ReferenceCase(CommandSelection.Reference Value) : DocumentTarget {
-        internal override Fin<int> Select(RhinoDoc document, bool selected, Op op) {
-            return Value.ObjectId switch {
-                Guid id when id != Guid.Empty => WithReference(document: document, use: reference => CountResult(count: document.Objects.Select(Seq(reference).AsIterable(), selected), op: op)),
-                _ => Fin.Fail<int>(error: op.InvalidInput()),
-            };
-        }
+    private sealed record ReferenceCase(Option<CommandSelection.Reference> Value) : DocumentTarget {
+        internal override Fin<int> Select(RhinoDoc document, bool selected, Op op) =>
+            Value
+                .ToFin(Fail: op.InvalidInput())
+                .Bind(value => WithReference(value: value, document: document, op: op, use: reference => CountResult(count: document.Objects.Select(Seq(reference).AsIterable(), selected), op: op)));
 
-        internal override Fin<Unit> Delete(RhinoDoc document, bool quiet, bool ignoreModes, Op op) {
-            return Value.ObjectId switch {
-                Guid id when id != Guid.Empty => WithReference(document: document, use: reference => UnitResult(success: document.Objects.Delete(reference, quiet, ignoreModes), op: op)),
+        internal override Fin<Unit> Delete(RhinoDoc document, bool quiet, bool ignoreModes, Op op) =>
+            Value
+                .ToFin(Fail: op.InvalidInput())
+                .Bind(value => WithReference(value: value, document: document, op: op, use: reference => UnitResult(success: document.Objects.Delete(reference, quiet, ignoreModes), op: op)));
+
+        private static Fin<T> WithReference<T>(CommandSelection.Reference value, RhinoDoc document, Op op, Func<ObjRef, Fin<T>> use) {
+            Fin<Unit> owner = value.DocumentRuntimeSerialNumber switch {
+                0 => Fin.Succ(value: unit),
+                uint serial when serial == document.RuntimeSerialNumber => Fin.Succ(value: unit),
                 _ => Fin.Fail<Unit>(error: op.InvalidInput()),
             };
+            return owner.Bind(_ => UseReference(value: value, document: document, use: use));
         }
 
-        private Fin<T> WithReference<T>(RhinoDoc document, Func<ObjRef, Fin<T>> use) {
-            using ObjRef reference = Value.ObjRef(document: document);
+        private static Fin<T> UseReference<T>(CommandSelection.Reference value, RhinoDoc document, Func<ObjRef, Fin<T>> use) {
+            using ObjRef reference = value.ObjRef(document: document);
             return use(arg: reference);
         }
     }

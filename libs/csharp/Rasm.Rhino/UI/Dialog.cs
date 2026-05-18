@@ -1,19 +1,42 @@
 using Eto.Forms;
 using ColorChangedEvent = Rhino.UI.Dialogs.OnColorChangedEvent;
 using DrawingColor = System.Drawing.Color;
+using DrawingPoint = System.Drawing.Point;
 using UiDialogs = Rhino.UI.Dialogs;
 
 namespace Rasm.Rhino.UI;
 
 // --- [MODELS] ---------------------------------------------------------------------------
-public static class UiDialog {
-    public static UiDialog<T> Eto<T>(Dialog<T> dialog, bool semiModal = false) =>
-        new EtoCase<T>(Dialog: dialog, SemiModal: semiModal);
+public sealed record UiDialogIntent<T> {
+    private readonly Func<RhinoDoc, Fin<T>> show;
 
-    public static UiDialog<Unit> Modeless(Form form) =>
-        new ModelessCase(Form: form);
+    internal UiDialogIntent(Func<RhinoDoc, Fin<T>> show) => this.show = show;
 
-    public static UiDialog<global::Rhino.UI.ShowMessageResult> Message(
+    internal Fin<T> Show(RhinoDoc document) =>
+        Optional(show)
+            .ToFin(Fail: Op.Of(name: nameof(UiDialogIntent<T>)).InvalidInput())
+            .Bind(run => run(arg: document));
+}
+
+public static class UiDialogIntent {
+    public static UiDialogIntent<T> Eto<T>(Dialog<T> dialog, bool semiModal = false) =>
+        Of(document => Optional(dialog)
+            .ToFin(Fail: Op.Of(name: nameof(Eto)).InvalidInput())
+            .Map(valid => semiModal switch {
+                true => global::Rhino.UI.EtoExtensions.ShowSemiModal(valid, document, parent: RhinoUi.Parent(document: document)),
+                false => valid.ShowModal(owner: RhinoUi.Parent(document: document)),
+            }));
+
+    public static UiDialogIntent<Unit> Modeless(Form form) =>
+        Of(document => Optional(form)
+            .ToFin(Fail: Op.Of(name: nameof(Modeless)).InvalidInput())
+            .Map(valid => {
+                global::Rhino.UI.EtoExtensions.UseRhinoStyle(valid);
+                global::Rhino.UI.EtoExtensions.Show(valid, document);
+                return unit;
+            }));
+
+    public static UiDialogIntent<global::Rhino.UI.ShowMessageResult> Message(
         string message,
         string title,
         global::Rhino.UI.ShowMessageButton buttons = global::Rhino.UI.ShowMessageButton.OK,
@@ -21,138 +44,141 @@ public static class UiDialog {
         global::Rhino.UI.ShowMessageDefaultButton defaultButton = global::Rhino.UI.ShowMessageDefaultButton.Button1,
         global::Rhino.UI.ShowMessageOptions options = global::Rhino.UI.ShowMessageOptions.None,
         global::Rhino.UI.ShowMessageMode mode = global::Rhino.UI.ShowMessageMode.ApplicationModal) =>
-        new MessageCase(
-            Text: message,
-            Title: title,
-            Buttons: buttons,
-            Icon: icon,
-            DefaultButton: defaultButton,
-            Options: options,
-            Mode: mode);
+        Of(document => Fin.Succ(value: UiDialogs.ShowMessage(
+            parent: RhinoUi.Parent(document: document),
+            message: message,
+            title: title,
+            buttons: buttons,
+            icon: icon,
+            defaultButton: defaultButton,
+            options: options,
+            mode: mode)));
 
-    public static UiDialog<DrawingColor> Color(
+    public static UiDialogIntent<DrawingColor> Color(
         DrawingColor initial,
         bool includeButtonColors = false,
         string title = "",
         global::Rhino.UI.NamedColorList? colors = null) =>
-        new ColorCase(Initial: initial, IncludeButtonColors: includeButtonColors, Title: title, Colors: Optional(colors));
-
-    public static UiDialog<Color4f> Color(
-        Color4f initial,
-        bool allowAlpha = false,
-        global::Rhino.UI.NamedColorList? colors = null,
-        ColorChangedEvent? changed = null) =>
-        new Color4fCase(Initial: initial, AllowAlpha: allowAlpha, Colors: Optional(colors), Changed: Optional(changed));
-
-    public static UiDialog<string> OpenFile(string title = "", string filter = "", string directory = "", string extension = "") =>
-        new OpenFileCase(Spec: new FileDialogSpec(Title: title, Filter: filter, Directory: directory, Extension: extension));
-
-    public static UiDialog<Seq<string>> OpenFiles(string title = "", string filter = "", string directory = "", string extension = "") =>
-        new OpenFilesCase(Spec: new FileDialogSpec(Title: title, Filter: filter, Directory: directory, Extension: extension));
-
-    public static UiDialog<string> SaveFile(string title = "", string filter = "", string directory = "", string extension = "") =>
-        new SaveFileCase(Spec: new FileDialogSpec(Title: title, Filter: filter, Directory: directory, Extension: extension));
-
-    private sealed record EtoCase<T>(Dialog<T> Dialog, bool SemiModal) : UiDialog<T> {
-        internal override Fin<T> Show(RhinoDoc document) =>
-            Optional(Dialog)
-                .ToFin(Fail: Op.Of(name: nameof(Eto)).InvalidInput())
-                .Map(dialog => SemiModal switch {
-                    true => global::Rhino.UI.EtoExtensions.ShowSemiModal(dialog, document, parent: RhinoUi.Parent(document: document)),
-                    false => dialog.ShowModal(owner: RhinoUi.Parent(document: document)),
-                });
-    }
-
-    private sealed record ModelessCase(Form Form) : UiDialog<Unit> {
-        internal override Fin<Unit> Show(RhinoDoc document) =>
-            Optional(Form)
-                .ToFin(Fail: Op.Of(name: nameof(Modeless)).InvalidInput())
-                .Map(form => {
-                    global::Rhino.UI.EtoExtensions.UseRhinoStyle(form);
-                    global::Rhino.UI.EtoExtensions.Show(form, document);
-                    return unit;
-                });
-    }
-
-    private sealed record MessageCase(
-        string Text,
-        string Title,
-        global::Rhino.UI.ShowMessageButton Buttons,
-        global::Rhino.UI.ShowMessageIcon Icon,
-        global::Rhino.UI.ShowMessageDefaultButton DefaultButton,
-        global::Rhino.UI.ShowMessageOptions Options,
-        global::Rhino.UI.ShowMessageMode Mode) : UiDialog<global::Rhino.UI.ShowMessageResult> {
-        internal override Fin<global::Rhino.UI.ShowMessageResult> Show(RhinoDoc document) =>
-            Fin.Succ(value: UiDialogs.ShowMessage(
-                parent: RhinoUi.Parent(document: document),
-                message: Text,
-                title: Title,
-                buttons: Buttons,
-                icon: Icon,
-                defaultButton: DefaultButton,
-                options: Options,
-                mode: Mode));
-    }
-
-    private sealed record ColorCase(
-        DrawingColor Initial,
-        bool IncludeButtonColors,
-        string Title,
-        Option<global::Rhino.UI.NamedColorList> Colors) : UiDialog<DrawingColor> {
-        internal override Fin<DrawingColor> Show(RhinoDoc document) {
-            DrawingColor selected = Initial;
-            bool picked = Colors.Case switch {
-                global::Rhino.UI.NamedColorList colors => UiDialogs.ShowColorDialog(
-                    color: ref selected,
-                    includeButtonColors: IncludeButtonColors,
-                    dialogTitle: Title,
-                    namedColorList: colors),
-                _ => UiDialogs.ShowColorDialog(color: ref selected, includeButtonColors: IncludeButtonColors, dialogTitle: Title),
+        Of(_ => {
+            DrawingColor selected = initial;
+            bool picked = Optional(colors).Case switch {
+                global::Rhino.UI.NamedColorList list => UiDialogs.ShowColorDialog(color: ref selected, includeButtonColors: includeButtonColors, dialogTitle: title, namedColorList: list),
+                _ => UiDialogs.ShowColorDialog(color: ref selected, includeButtonColors: includeButtonColors, dialogTitle: title),
             };
             return picked switch {
                 true => Fin.Succ(value: selected),
                 false => Fin.Fail<DrawingColor>(error: new Fault.Cancelled()),
             };
-        }
-    }
+        });
 
-    private sealed record Color4fCase(
-        Color4f Initial,
-        bool AllowAlpha,
-        Option<global::Rhino.UI.NamedColorList> Colors,
-        Option<ColorChangedEvent> Changed) : UiDialog<Color4f> {
-        internal override Fin<Color4f> Show(RhinoDoc document) {
-            Color4f selected = Initial;
-            bool picked = (Colors.Case, Changed.Case) switch {
-                (global::Rhino.UI.NamedColorList colors, ColorChangedEvent changed) => UiDialogs.ShowColorDialog(
-                    parent: RhinoUi.Parent(document: document),
-                    color: ref selected,
-                    allowAlpha: AllowAlpha,
-                    namedColorList: colors,
-                    colorCallback: changed),
-                (global::Rhino.UI.NamedColorList colors, _) => UiDialogs.ShowColorDialog(
-                    parent: RhinoUi.Parent(document: document),
-                    color: ref selected,
-                    allowAlpha: AllowAlpha,
-                    namedColorList: colors,
-                    colorCallback: null),
-                (_, ColorChangedEvent changed) => UiDialogs.ShowColorDialog(
-                    parent: RhinoUi.Parent(document: document),
-                    color: ref selected,
-                    allowAlpha: AllowAlpha,
-                    colorCallback: changed),
-                _ => UiDialogs.ShowColorDialog(
-                    parent: RhinoUi.Parent(document: document),
-                    color: ref selected,
-                    allowAlpha: AllowAlpha,
-                    colorCallback: null),
+    public static UiDialogIntent<Color4f> Color(
+        Color4f initial,
+        bool allowAlpha = false,
+        global::Rhino.UI.NamedColorList? colors = null,
+        ColorChangedEvent? changed = null) =>
+        Of(document => {
+            Color4f selected = initial;
+            bool picked = (Optional(colors).Case, Optional(changed).Case) switch {
+                (global::Rhino.UI.NamedColorList list, ColorChangedEvent callback) => UiDialogs.ShowColorDialog(parent: RhinoUi.Parent(document: document), color: ref selected, allowAlpha: allowAlpha, namedColorList: list, colorCallback: callback),
+                (global::Rhino.UI.NamedColorList list, _) => UiDialogs.ShowColorDialog(parent: RhinoUi.Parent(document: document), color: ref selected, allowAlpha: allowAlpha, namedColorList: list, colorCallback: null),
+                (_, ColorChangedEvent callback) => UiDialogs.ShowColorDialog(parent: RhinoUi.Parent(document: document), color: ref selected, allowAlpha: allowAlpha, colorCallback: callback),
+                _ => UiDialogs.ShowColorDialog(parent: RhinoUi.Parent(document: document), color: ref selected, allowAlpha: allowAlpha, colorCallback: null),
             };
             return picked switch {
                 true => Fin.Succ(value: selected),
                 false => Fin.Fail<Color4f>(error: new Fault.Cancelled()),
             };
-        }
-    }
+        });
+
+    public static UiDialogIntent<string> OpenFile(string title = "", string filter = "", string directory = "", string extension = "") =>
+        Of(_ => new FileDialogSpec(Title: title, Filter: filter, Directory: directory, Extension: extension)
+            .Open(multiSelect: false)
+            .Bind(names => names.Head.ToFin(Fail: Op.Of(name: nameof(OpenFile)).InvalidResult())));
+
+    public static UiDialogIntent<Seq<string>> OpenFiles(string title = "", string filter = "", string directory = "", string extension = "") =>
+        Of(_ => new FileDialogSpec(Title: title, Filter: filter, Directory: directory, Extension: extension).Open(multiSelect: true));
+
+    public static UiDialogIntent<string> SaveFile(string title = "", string filter = "", string directory = "", string extension = "") =>
+        Of(_ => new FileDialogSpec(Title: title, Filter: filter, Directory: directory, Extension: extension).Save());
+
+    public static UiDialogIntent<string> Choice(string title, string message, IEnumerable<string> items, bool combo = false) =>
+        Of(_ => combo switch {
+            true => UiDialogs.ShowComboListBox(title: title, message: message, items: Items(items).ToArray()),
+            false => UiDialogs.ShowListBox(title: title, message: message, items: Items(items).ToArray()),
+        } switch {
+            string value => Fin.Succ(value: value),
+            object value => Fin.Succ(value: value.ToString() ?? string.Empty),
+            _ => Fin.Fail<string>(error: new Fault.Cancelled()),
+        });
+
+    public static UiDialogIntent<Seq<bool>> CheckList(string title, string message, IEnumerable<string> items, IEnumerable<bool> checks) =>
+        Of(_ => Optional(UiDialogs.ShowCheckListBox(title: title, message: message, items: Items(items).ToArray(), checkState: Bools(checks).ToArray()))
+            .ToFin(Fail: new Fault.Cancelled())
+            .Map(static values => toSeq(values)));
+
+    public static UiDialogIntent<string> Edit(string title, string message, string text = "", bool multiline = false) =>
+        Of(_ => UiDialogs.ShowEditBox(title: title, message: message, defaultText: text, multiline: multiline, text: out string value) switch {
+            true => Fin.Succ(value: value),
+            false => Fin.Fail<string>(error: new Fault.Cancelled()),
+        });
+
+    public static UiDialogIntent<double> Number(string title, string message, double value = 0, Option<double> lower = default, Option<double> upper = default) =>
+        Of(_ => {
+            double number = value;
+            bool picked = (lower.Case, upper.Case) switch {
+                (double lo, double hi) => UiDialogs.ShowNumberBox(title: title, message: message, number: ref number, minimum: lo, maximum: hi),
+                _ => UiDialogs.ShowNumberBox(title: title, message: message, number: ref number),
+            };
+            return picked switch {
+                true => Fin.Succ(value: number),
+                false => Fin.Fail<double>(error: new Fault.Cancelled()),
+            };
+        });
+
+    public static UiDialogIntent<int> Layer(string title, int index = 0, bool showNew = false) =>
+        Of(_ => {
+            int layerIndex = index;
+            bool current = false;
+            return UiDialogs.ShowSelectLayerDialog(layerIndex: ref layerIndex, dialogTitle: title, showNewLayerButton: showNew, showSetCurrentButton: false, initialSetCurrentState: ref current) switch {
+                true => Fin.Succ(value: layerIndex),
+                false => Fin.Fail<int>(error: new Fault.Cancelled()),
+            };
+        });
+
+    public static UiDialogIntent<Guid> LineType(string title, string message, Option<Guid> selected = default) =>
+        Of(document => selected.Case switch {
+            Guid id => UiDialogs.ShowLineTypes(title: title, message: message, doc: document, selectedLineTypeId: id),
+            _ => UiDialogs.ShowLineTypes(title: title, message: message, doc: document),
+        } switch {
+            Guid id when id != Guid.Empty => Fin.Succ(value: id),
+            _ => Fin.Fail<Guid>(error: new Fault.Cancelled()),
+        });
+
+    public static UiDialogIntent<double> PrintWidth(string title, string message, Option<double> selected = default) =>
+        Of(_ => selected.Case switch {
+            double width => Fin.Succ(value: UiDialogs.ShowPrintWidths(title: title, message: message, selectedWidth: width)),
+            _ => Fin.Succ(value: UiDialogs.ShowPrintWidths(title: title, message: message)),
+        });
+
+    public static UiDialogIntent<Seq<string>> PropertyList(string title, string message, IEnumerable<string> names, IEnumerable<string> values) =>
+        Of(_ => Optional(UiDialogs.ShowPropertyListBox(title: title, message: message, items: Items(names).ToArray(), values: Items(values).ToArray()))
+            .ToFin(Fail: new Fault.Cancelled())
+            .Map(static result => toSeq(result)));
+
+    public static UiDialogIntent<int> ContextMenu(IEnumerable<string> items, DrawingPoint screenPoint, IEnumerable<int>? modes = null) =>
+        Of(_ => UiDialogs.ShowContextMenu(items: Items(items).AsIterable(), screenPoint: screenPoint, modes: Optional(modes).Map(static values => toSeq(values)).IfNone(Seq<int>()).AsIterable()) switch {
+            int index and >= 0 => Fin.Succ(value: index),
+            _ => Fin.Fail<int>(error: new Fault.Cancelled()),
+        });
+
+    private static UiDialogIntent<T> Of<T>(Func<RhinoDoc, Fin<T>> show) =>
+        new(show: show);
+
+    private static Seq<string> Items(IEnumerable<string>? values) =>
+        Optional(values).Map(static items => toSeq(items)).IfNone(Seq<string>());
+
+    private static Seq<bool> Bools(IEnumerable<bool>? values) =>
+        Optional(values).Map(static items => toSeq(items)).IfNone(Seq<bool>());
 
     private readonly record struct FileDialogSpec(string Title, string Filter, string Directory, string Extension) {
         internal Fin<Seq<string>> Open(bool multiSelect) {
@@ -188,21 +214,17 @@ public static class UiDialog {
             };
         }
     }
+}
 
-    private sealed record OpenFileCase(FileDialogSpec Spec) : UiDialog<string> {
-        internal override Fin<string> Show(RhinoDoc document) =>
-            Spec.Open(multiSelect: false)
-                .Bind(names => names.Head.ToFin(Fail: Op.Of(name: nameof(OpenFile)).InvalidResult()));
-    }
+public static class UiDialog {
+    public static UiDialog<T> Ask<T>(UiDialogIntent<T> intent) =>
+        new IntentCase<T>(Intent: intent);
 
-    private sealed record OpenFilesCase(FileDialogSpec Spec) : UiDialog<Seq<string>> {
-        internal override Fin<Seq<string>> Show(RhinoDoc document) =>
-            Spec.Open(multiSelect: true);
-    }
-
-    private sealed record SaveFileCase(FileDialogSpec Spec) : UiDialog<string> {
-        internal override Fin<string> Show(RhinoDoc document) =>
-            Spec.Save();
+    private sealed record IntentCase<T>(UiDialogIntent<T> Intent) : UiDialog<T> {
+        internal override Fin<T> Show(RhinoDoc document) =>
+            Optional(Intent)
+                .ToFin(Fail: Op.Of(name: nameof(Ask)).InvalidInput())
+                .Bind(intent => intent.Show(document: document));
     }
 }
 

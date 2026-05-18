@@ -4,7 +4,7 @@ using Eto.Forms;
 namespace Rasm.Rhino.UI;
 
 // --- [SERVICES] -------------------------------------------------------------------------
-public sealed record RhinoUi {
+public sealed partial record RhinoUi {
     private readonly RhinoDoc document;
     private readonly RunMode mode;
 
@@ -23,10 +23,103 @@ public sealed record RhinoUi {
         };
 
     public Fin<Unit> Show(Form form) =>
-        Show(dialog: UiDialog.Modeless(form: form));
+        Show(dialog: UiDialog.Ask(intent: UiDialogIntent.Modeless(form: form)));
 
     public Seq<T> Windows<T>() where T : Form =>
         toSeq(global::Rhino.UI.EtoExtensions.WindowsFromDocument<T>(document));
+
+    public Fin<Unit> Status(string message) =>
+        mode switch {
+            RunMode.Scripted => Fin.Fail<Unit>(error: Op.Of(name: nameof(Status)).InvalidInput()),
+            _ => OnUiThread(run: () => {
+                global::Rhino.UI.StatusBar.SetMessagePane(message);
+                return Fin.Succ(value: unit);
+            }),
+        };
+
+    public Fin<Unit> Status(double number, bool distance = false) =>
+        mode switch {
+            RunMode.Scripted => Fin.Fail<Unit>(error: Op.Of(name: nameof(Status)).InvalidInput()),
+            _ => OnUiThread(run: () => {
+                Action<double> set = distance switch {
+                    true => global::Rhino.UI.StatusBar.SetDistancePane,
+                    false => global::Rhino.UI.StatusBar.SetNumberPane,
+                };
+                set(obj: number);
+                return Fin.Succ(value: unit);
+            }),
+        };
+
+    public Fin<Unit> Status(Point3d point) =>
+        mode switch {
+            RunMode.Scripted => Fin.Fail<Unit>(error: Op.Of(name: nameof(Status)).InvalidInput()),
+            _ => OnUiThread(run: () => {
+                global::Rhino.UI.StatusBar.SetPointPane(point);
+                return Fin.Succ(value: unit);
+            }),
+        };
+
+    public Fin<Unit> Progress(int lower, int upper, string label, bool embedLabel = true, bool showPercentComplete = true) =>
+        OnUiThread(run: () => global::Rhino.UI.StatusBar.ShowProgressMeter(
+            docSerialNumber: document.RuntimeSerialNumber,
+            lowerLimit: lower,
+            upperLimit: upper,
+            label: label,
+            embedLabel: embedLabel,
+            showPercentComplete: showPercentComplete) switch {
+                1 => Fin.Succ(value: unit),
+                _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(Progress)).InvalidResult()),
+            });
+
+    public Fin<int> Progress(int position, bool absolute = true) =>
+        OnUiThread(run: () => global::Rhino.UI.StatusBar.UpdateProgressMeter(
+            docSerialNumber: document.RuntimeSerialNumber,
+            position: position,
+            absolute: absolute) switch {
+                int previous and >= 0 => Fin.Succ(value: previous),
+                _ => Fin.Fail<int>(error: Op.Of(name: nameof(Progress)).InvalidResult()),
+            });
+
+    public Fin<int> Progress(string label, int position, bool absolute = true) =>
+        OnUiThread(run: () => global::Rhino.UI.StatusBar.UpdateProgressMeter(
+            docSerialNumber: document.RuntimeSerialNumber,
+            label: label,
+            position: position,
+            absolute: absolute) switch {
+                int previous and >= 0 => Fin.Succ(value: previous),
+                _ => Fin.Fail<int>(error: Op.Of(name: nameof(Progress)).InvalidResult()),
+            });
+
+    public Fin<Unit> HideProgress() =>
+        OnUiThread(run: () => {
+            global::Rhino.UI.StatusBar.HideProgressMeter(docSerialNumber: document.RuntimeSerialNumber);
+            return Fin.Succ(value: unit);
+        });
+
+    public Fin<Unit> OpenPanel<TPanel>(bool makeSelected = true) where TPanel : RasmPanel =>
+        mode switch {
+            RunMode.Scripted => Fin.Fail<Unit>(error: Op.Of(name: nameof(OpenPanel)).InvalidInput()),
+            _ => OnUiThread(run: () =>
+                RasmPanel.PanelType<TPanel>().Map(type => {
+                    global::Rhino.UI.Panels.OpenPanel(panelType: type, makeSelectedPanel: makeSelected);
+                    return unit;
+                })),
+        };
+
+    public Fin<Unit> ClosePanel<TPanel>() where TPanel : RasmPanel =>
+        OnUiThread(run: () => RasmPanel.PanelType<TPanel>().Map(type => {
+            global::Rhino.UI.Panels.ClosePanel(panelId: type.GUID, doc: document);
+            return unit;
+        }));
+
+    public Fin<bool> PanelVisible<TPanel>() where TPanel : RasmPanel =>
+        mode switch {
+            RunMode.Scripted => Fin.Fail<bool>(error: Op.Of(name: nameof(PanelVisible)).InvalidInput()),
+            _ => OnUiThread(run: () => RasmPanel.PanelType<TPanel>().Map(static type => global::Rhino.UI.Panels.IsPanelVisible(panelType: type))),
+        };
+
+    public Option<TPanel> Panel<TPanel>() where TPanel : RasmPanel =>
+        Optional(global::Rhino.UI.Panels.GetPanel<TPanel>(document));
 
     internal static Window? Parent(RhinoDoc document) =>
         global::Rhino.UI.RhinoEtoApp.MainWindowForDocument(document);

@@ -98,6 +98,7 @@ public sealed record CommandSelection {
 
     public readonly record struct Reference(
         Guid ObjectId,
+        uint DocumentRuntimeSerialNumber,
         uint RuntimeSerialNumber,
         ComponentIndex ComponentIndex,
         bool Preselected,
@@ -114,6 +115,7 @@ public sealed record CommandSelection {
             RhinoView? selectionView = reference.SelectionView();
             return new(
                 ObjectId: reference.ObjectId,
+                DocumentRuntimeSerialNumber: Optional(reference.Document).Map(static document => document.RuntimeSerialNumber).IfNone(0u),
                 RuntimeSerialNumber: reference.RuntimeSerialNumber,
                 ComponentIndex: reference.GeometryComponentIndex,
                 Preselected: preselected,
