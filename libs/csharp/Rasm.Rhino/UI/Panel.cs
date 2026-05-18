@@ -1,7 +1,5 @@
 using Eto.Forms;
-
 namespace Rasm.Rhino.UI;
-
 // --- [SERVICES] -------------------------------------------------------------------------
 public abstract class RasmPanel : Panel, global::Rhino.UI.IPanel {
     protected enum PanelOperation { Shown, Hidden, Closing }
@@ -28,17 +26,17 @@ public abstract class RasmPanel : Panel, global::Rhino.UI.IPanel {
             .MapFail(_ => Op.Of(name: nameof(Register)).InvalidResult())
         select registered;
 
-    public void PanelShown(uint documentSerialNumber, global::Rhino.UI.ShowPanelReason reason) =>
-        _ = RhinoUi.Protect(valid: () => Change(context: new PanelContext(Operation: PanelOperation.Shown, DocumentSerialNumber: documentSerialNumber, Reason: reason)));
-
-    public void PanelHidden(uint documentSerialNumber, global::Rhino.UI.ShowPanelReason reason) =>
-        _ = RhinoUi.Protect(valid: () => Change(context: new PanelContext(Operation: PanelOperation.Hidden, DocumentSerialNumber: documentSerialNumber, Reason: reason)));
-
-    public void PanelClosing(uint documentSerialNumber, bool onCloseDocument) =>
-        _ = RhinoUi.Protect(valid: () => Change(context: new PanelContext(Operation: PanelOperation.Closing, DocumentSerialNumber: documentSerialNumber, OnCloseDocument: onCloseDocument)));
+    public void PanelShown(uint documentSerialNumber, global::Rhino.UI.ShowPanelReason reason) => Apply(operation: PanelOperation.Shown, documentSerialNumber: documentSerialNumber, reason: reason);
+    public void PanelHidden(uint documentSerialNumber, global::Rhino.UI.ShowPanelReason reason) => Apply(operation: PanelOperation.Hidden, documentSerialNumber: documentSerialNumber, reason: reason);
+    public void PanelClosing(uint documentSerialNumber, bool onCloseDocument) => Apply(operation: PanelOperation.Closing, documentSerialNumber: documentSerialNumber, onCloseDocument: onCloseDocument);
 
     protected virtual Fin<Unit> Change(PanelContext context) =>
         Fin.Succ(value: unit);
+
+    private Unit Apply(PanelOperation operation, uint documentSerialNumber, global::Rhino.UI.ShowPanelReason reason = default, bool onCloseDocument = false) {
+        _ = RhinoUi.Protect(valid: () => Change(context: new PanelContext(Operation: operation, DocumentSerialNumber: documentSerialNumber, Reason: reason, OnCloseDocument: onCloseDocument)));
+        return unit;
+    }
 
     internal static Fin<Type> PanelType<TPanel>() where TPanel : RasmPanel {
         Type type = typeof(TPanel);

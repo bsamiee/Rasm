@@ -18,31 +18,22 @@ public readonly record struct CommandPoint(
     Seq<Point3d> ConstructionPoints) {
     internal static CommandPoint Of(GetPoint getter, GetResult raw) =>
         new(
-            Point: raw switch { GetResult.Point => Some(getter.Point()), _ => Option<Point3d>.None },
-            WindowPoint: raw switch { GetResult.Point or GetResult.Point2d => Some<DrawingPoint>(getter.Point2d()), _ => Option<DrawingPoint>.None },
+            Point: raw is GetResult.Point ? Some(getter.Point()) : Option<Point3d>.None,
+            WindowPoint: raw is GetResult.Point or GetResult.Point2d ? Some<DrawingPoint>(getter.Point2d()) : Option<DrawingPoint>.None,
             View: Optional(getter.View()),
             Reference: CommandSelection.Reference.Of(getter: getter),
-            NumberPreview: getter.NumberPreview(number: out double number) switch { true => Some(number), false => Option<double>.None },
+            NumberPreview: getter.NumberPreview(number: out double number) ? Some(number) : Option<double>.None,
             Osnap: getter.OsnapEventType,
-            BasePoint: getter.TryGetBasePoint(out Point3d basePoint) switch { true => Some(basePoint), false => Option<Point3d>.None },
-            PlanarConstraint: PlanarConstraintOf(getter: getter),
+            BasePoint: getter.TryGetBasePoint(out Point3d basePoint) ? Some(basePoint) : Option<Point3d>.None,
+            PlanarConstraint: default(RhinoViewport) switch {
+                RhinoViewport viewport when getter.GetPlanarConstraint(vp: ref viewport, plane: out Plane plane) => Some((Viewport: viewport, Plane: plane)),
+                _ => Option<(RhinoViewport Viewport, Plane Plane)>.None,
+            },
             SnapPoints: toSeq(getter.GetSnapPoints()),
             ConstructionPoints: toSeq(getter.GetConstructionPoints()));
-
-    private static Option<(RhinoViewport Viewport, Plane Plane)> PlanarConstraintOf(GetPoint getter) =>
-        default(RhinoViewport) switch {
-            RhinoViewport viewport when getter.GetPlanarConstraint(vp: ref viewport, plane: out Plane plane) => Some((Viewport: viewport, Plane: plane)),
-            _ => Option<(RhinoViewport Viewport, Plane Plane)>.None,
-        };
 }
 
-public readonly record struct CommandGet<T>(
-    Option<GetResult> Raw,
-    Result CommandResult,
-    CommandOutcome Outcome,
-    Option<T> Value,
-    Option<CommandOptionValue> Option,
-    bool GotDefault,
+public readonly record struct CommandSnapshot(
     Option<RhinoView> View,
     Option<DrawingPoint> WindowPoint,
     Option<double> Number,
@@ -54,215 +45,283 @@ public readonly record struct CommandGet<T>(
     Option<DrawingRectangle> PickRectangle,
     Option<DrawingRectangle> Rectangle2d,
     Seq<DrawingPoint> Line2d) {
+    internal static CommandSnapshot Empty { get; } = new(default, default, default, default, default, default, default, default, default, default, Seq<DrawingPoint>());
 
-    internal static CommandGet<T> Of(GetBaseClass getter, GetResult raw, Option<T> value, Option<CommandOptionValue> option) =>
+    internal static CommandSnapshot Native<T>(Option<T> value) =>
+        Empty with {
+            Number = value.Case is double number ? Some(number) : Option<double>.None,
+            Text = value.Case is string text ? Some(text) : Option<string>.None,
+            Point = value.Case is Point3d point ? Some(point) : Option<Point3d>.None,
+            Vector = value.Case is Vector3d vector ? Some(vector) : Option<Vector3d>.None,
+            Color = value.Case is Color color ? Some(color) : Option<Color>.None,
+        };
+
+    internal static CommandSnapshot Of(GetBaseClass getter, GetResult raw) =>
         new(
-            Raw: Some(raw),
-            CommandResult: getter.CommandResult(),
-            Outcome: OutcomeOf(raw: raw, result: getter.CommandResult()),
-            Value: value,
-            Option: option,
-            GotDefault: getter.GotDefault(),
             View: Optional(getter.View()),
-            WindowPoint: raw switch { GetResult.Point or GetResult.Point2d => Some<DrawingPoint>(getter.Point2d()), _ => Option<DrawingPoint>.None },
-            Number: raw switch { GetResult.Number => Some(getter.Number()), _ => Option<double>.None },
-            Text: raw switch { GetResult.String => Optional(getter.StringResult()), _ => Option<string>.None },
-            CustomMessage: raw switch { GetResult.CustomMessage => Optional(getter.CustomMessage()), _ => Option<object>.None },
-            Point: raw switch { GetResult.Point => Some(getter.Point()), _ => Option<Point3d>.None },
-            Vector: raw switch { GetResult.Point => Some(getter.Vector()), _ => Option<Vector3d>.None },
-            Color: raw switch { GetResult.Color => Some(getter.Color()), _ => Option<Color>.None },
-            PickRectangle: raw switch { GetResult.Object => Some(getter.PickRectangle()), _ => Option<DrawingRectangle>.None },
-            Rectangle2d: raw switch { GetResult.Rectangle2d => Some(getter.Rectangle2d()), _ => Option<DrawingRectangle>.None },
-            Line2d: raw switch { GetResult.Line2d => toSeq(getter.Line2d()), _ => Seq<DrawingPoint>() });
+            WindowPoint: raw is GetResult.Point or GetResult.Point2d ? Some<DrawingPoint>(getter.Point2d()) : Option<DrawingPoint>.None,
+            Number: raw is GetResult.Number ? Some(getter.Number()) : Option<double>.None,
+            Text: raw is GetResult.String ? Optional(getter.StringResult()) : Option<string>.None,
+            CustomMessage: raw is GetResult.CustomMessage ? Optional(getter.CustomMessage()) : Option<object>.None,
+            Point: raw is GetResult.Point ? Some(getter.Point()) : Option<Point3d>.None,
+            Vector: raw is GetResult.Point ? Some(getter.Vector()) : Option<Vector3d>.None,
+            Color: raw is GetResult.Color ? Some(getter.Color()) : Option<Color>.None,
+            PickRectangle: raw is GetResult.Object ? Some(getter.PickRectangle()) : Option<DrawingRectangle>.None,
+            Rectangle2d: raw is GetResult.Rectangle2d ? Some(getter.Rectangle2d()) : Option<DrawingRectangle>.None,
+            Line2d: raw is GetResult.Line2d ? toSeq(getter.Line2d()) : Seq<DrawingPoint>());
+
+    public Option<T> As<T>() =>
+        typeof(T) switch {
+            Type t when t == typeof(DrawingPoint) => WindowPoint.Bind(static value => Cast<T>(value)),
+            Type t when t == typeof(double) => Number.Bind(static value => Cast<T>(value)),
+            Type t when t == typeof(string) => Text.Bind(static value => Cast<T>(value)),
+            Type t when t == typeof(object) => CustomMessage.Bind(static value => Cast<T>(value)),
+            Type t when t == typeof(Point3d) => Point.Bind(static value => Cast<T>(value)),
+            Type t when t == typeof(Vector3d) => Vector.Bind(static value => Cast<T>(value)),
+            Type t when t == typeof(Color) => Color.Bind(static value => Cast<T>(value)),
+            Type t when t == typeof(DrawingRectangle) => PickRectangle.Bind(static value => Cast<T>(value)) | Rectangle2d.Bind(static value => Cast<T>(value)),
+            Type t when t == typeof(Seq<DrawingPoint>) => Cast<T>(Line2d),
+            _ => Option<T>.None,
+        };
+
+    private static Option<T> Cast<T>(object value) =>
+        value is T typed ? Some(typed) : Option<T>.None;
+}
+
+public readonly record struct CommandGet<T>(
+    Option<GetResult> Raw,
+    Result CommandResult,
+    Option<T> Value,
+    Option<CommandOptionValue> Option,
+    bool GotDefault,
+    CommandSnapshot Snapshot) {
+    internal static CommandGet<T> Of(GetBaseClass getter, GetResult raw, Option<T> value, Option<CommandOptionValue> option) =>
+        new(Raw: Some(raw), CommandResult: getter.CommandResult(), Value: value, Option: option, GotDefault: getter.GotDefault(), Snapshot: CommandSnapshot.Of(getter: getter, raw: raw));
 
     internal static CommandGet<T> Native(Result result, Option<T> value) =>
-        new(
-            Raw: Option<GetResult>.None,
-            CommandResult: result,
-            Outcome: OutcomeOf(result: result),
-            Value: value,
-            Option: Option<CommandOptionValue>.None,
-            GotDefault: false,
-            View: Option<RhinoView>.None,
-            WindowPoint: Option<DrawingPoint>.None,
-            Number: value.Case is double number ? Some(number) : Option<double>.None,
-            Text: value.Case is string text ? Some(text) : Option<string>.None,
-            CustomMessage: Option<object>.None,
-            Point: value.Case is Point3d point ? Some(point) : Option<Point3d>.None,
-            Vector: value.Case is Vector3d vector ? Some(vector) : Option<Vector3d>.None,
-            Color: value.Case is Color color ? Some(color) : Option<Color>.None,
-            PickRectangle: Option<DrawingRectangle>.None,
-            Rectangle2d: Option<DrawingRectangle>.None,
-            Line2d: Seq<DrawingPoint>());
+        new(Raw: Option<GetResult>.None, CommandResult: result, Value: value, Option: Option<CommandOptionValue>.None, GotDefault: false, Snapshot: CommandSnapshot.Native(value: value));
 
-    private static CommandOutcome OutcomeOf(GetResult raw, Result result) =>
-        raw switch {
-            GetResult.Cancel => CommandOutcome.Cancelled,
-            GetResult.Nothing => CommandOutcome.Nothing,
-            GetResult.Undo => CommandOutcome.Undo,
-            GetResult.Miss => CommandOutcome.Miss,
-            GetResult.Timeout => CommandOutcome.Timeout,
-            GetResult.ExitRhino => CommandOutcome.ExitRhino,
-            GetResult.CustomMessage => CommandOutcome.Custom,
-            GetResult.Option => CommandOutcome.Option,
-            GetResult.User1 or GetResult.User2 or GetResult.User3 or GetResult.User4 or GetResult.User5 => CommandOutcome.User,
-            _ => OutcomeOf(result: result),
-        };
-
-    private static CommandOutcome OutcomeOf(Result result) =>
-        result switch {
-            Result.Cancel or Result.CancelModelessDialog => CommandOutcome.Cancelled,
-            Result.Nothing => CommandOutcome.Nothing,
-            Result.ExitRhino => CommandOutcome.ExitRhino,
-            Result.Failure or Result.UnknownCommand => CommandOutcome.Failure,
-            _ => CommandOutcome.Value,
-        };
+    public Option<TOut> As<TOut>() =>
+        Value.Bind(static value => value is TOut typed ? Some(typed) : Option<TOut>.None) | Snapshot.As<TOut>();
 }
 
-public enum CommandOutcome { Value, Cancelled, Nothing, Undo, Miss, Timeout, ExitRhino, Custom, Option, User, Failure }
+public sealed record CommandInputRequest<T> {
+    private readonly Func<CommandInput, Fin<CommandGet<T>>> run;
 
-public sealed record CommandObjectSelectionPolicy(
-    ObjectType GeometryFilter = ObjectType.AnyObject,
-    GeometryAttributeFilter GeometryAttributeFilter = default,
-    Option<GetObjectGeometryFilter> Geometry = default,
-    bool PreSelect = true,
-    bool IgnoreUnacceptablePreselectedObjects = true,
-    bool PostSelect = true,
-    bool DeselectAllBeforePostSelect = false,
-    bool OneByOnePostSelect = false,
-    bool SubObjectSelect = true,
-    bool ChooseOneQuestion = false,
-    bool BottomObjectPreference = false,
-    bool GroupSelect = false,
-    bool ReferenceObjectSelect = true,
-    bool LockedObjectSelect = false,
-    bool AlreadySelectedObjectSelect = false,
-    bool ProxyBrepFromSubD = false,
-    bool InactiveDetailPickEnabled = false,
-    bool SelPrevious = true,
-    bool Highlight = true,
-    bool IgnoreGrips = true,
-    bool ClearObjectsOnEntry = true,
-    bool UnselectObjectsOnExit = true,
-    bool PressEnterWhenDonePrompt = true,
-    string? PressEnterWhenDoneText = null) {
-    internal static CommandObjectSelectionPolicy Default { get; } = new();
+    internal CommandInputRequest(Func<CommandInput, Fin<CommandGet<T>>> run) => this.run = run;
 
-    internal Fin<Unit> Apply(GetObject getter) =>
-        Optional(getter)
-            .ToFin(Fail: Op.Of(name: nameof(CommandObjectSelectionPolicy)).InvalidInput())
-            .Map(valid => {
-                valid.GeometryFilter = GeometryFilter;
-                valid.GeometryAttributeFilter = GeometryAttributeFilter;
-                _ = Geometry.Iter(valid.SetCustomGeometryFilter);
-                valid.EnablePreSelect(enable: PreSelect, ignoreUnacceptablePreselectedObjects: IgnoreUnacceptablePreselectedObjects);
-                valid.EnablePostSelect(enable: PostSelect);
-                valid.DeselectAllBeforePostSelect = DeselectAllBeforePostSelect;
-                valid.OneByOnePostSelect = OneByOnePostSelect;
-                valid.SubObjectSelect = SubObjectSelect;
-                valid.ChooseOneQuestion = ChooseOneQuestion;
-                valid.BottomObjectPreference = BottomObjectPreference;
-                valid.GroupSelect = GroupSelect;
-                valid.ReferenceObjectSelect = ReferenceObjectSelect;
-                valid.LockedObjectSelect = LockedObjectSelect;
-                valid.AlreadySelectedObjectSelect = AlreadySelectedObjectSelect;
-                valid.ProxyBrepFromSubD = ProxyBrepFromSubD;
-                valid.InactiveDetailPickEnabled = InactiveDetailPickEnabled;
-                valid.EnableSelPrevious(enable: SelPrevious);
-                valid.EnableHighlight(enable: Highlight);
-                valid.EnableIgnoreGrips(enable: IgnoreGrips);
-                valid.EnableClearObjectsOnEntry(enable: ClearObjectsOnEntry);
-                valid.EnableUnselectObjectsOnExit(enable: UnselectObjectsOnExit);
-                valid.EnablePressEnterWhenDonePrompt(enable: PressEnterWhenDonePrompt);
-                _ = Optional(PressEnterWhenDoneText).Iter(valid.SetPressEnterWhenDonePrompt);
-                return unit;
-            });
+    internal Fin<CommandGet<T>> Run(CommandInput input) =>
+        Optional(run).ToFin(Fail: Op.Of(name: nameof(CommandInputRequest<T>)).InvalidInput()).Bind(valid => valid(arg: input));
 }
 
-public readonly record struct CommandPolicy(
-    string? Prompt = null,
-    string? PromptDefault = null,
-    object? DefaultValue = null,
-    int? WaitMilliseconds = null,
-    bool AcceptNothing = false,
-    bool AcceptUndo = false,
-    bool AcceptNumber = false,
-    bool AcceptPoint = false,
-    bool AcceptColor = false,
-    bool AcceptString = false,
-    bool AcceptCustomMessage = false,
-    bool AcceptEnterWhenDone = false,
-    IEnumerable<CommandOption>? Options = null) {
-    internal static Fin<Unit> Apply<TGetter>(Seq<CommandPolicy> policies, TGetter getter) where TGetter : GetBaseClass =>
-        Optional(getter)
-            .ToFin(Fail: Op.Of(name: nameof(CommandPolicy)).InvalidInput())
-            .Bind(valid => policies.TraverseM(policy => policy.ApplyTo(getter: valid)).Map(static _ => unit));
+public sealed record CommandPolicy {
+    private CommandPolicy(
+        Seq<Action<GetBaseClass>> baseActions = default,
+        Seq<Action<GetObject>> objectActions = default,
+        Seq<CommandOption> options = default,
+        Option<(int Min, int Max)> objects = default,
+        Option<(bool OnMouseUp, bool TwoDimensional)> point = default,
+        Option<Scalar> scalar = default,
+        Option<Bounds> bounds = default,
+        Option<BoxSpec> box = default,
+        Option<string> prompt = default) {
+        BaseActions = baseActions;
+        ObjectActions = objectActions;
+        Options = options;
+        Objects = objects;
+        Point = point;
+        ScalarMode = scalar;
+        BoundsMode = bounds;
+        Box = box;
+        PromptText = prompt;
+    }
 
-    internal static Seq<CommandOption> OptionSet(Seq<CommandPolicy> policies) =>
-        policies.Bind(static policy => Optional(policy.Options).Map(static values => toSeq(values)).IfNone(Seq<CommandOption>()));
+    private Seq<Action<GetBaseClass>> BaseActions { get; }
+    private Seq<Action<GetObject>> ObjectActions { get; }
+    internal Seq<CommandOption> Options { get; }
+    internal Option<(int Min, int Max)> Objects { get; }
+    internal Option<(bool OnMouseUp, bool TwoDimensional)> Point { get; }
+    internal Option<Scalar> ScalarMode { get; }
+    internal Option<Bounds> BoundsMode { get; }
+    internal Option<BoxSpec> Box { get; }
+    internal Option<string> PromptText { get; }
+    internal bool AcceptsNothing => BaseActions.Exists(static action => ReferenceEquals(objA: action, objB: AcceptNothingAction));
+    internal static CommandPolicy Empty { get; } = new();
 
-    private Fin<Unit> ApplyTo<TGetter>(TGetter getter) where TGetter : GetBaseClass {
-        _ = Optional(Prompt).Iter(getter.SetCommandPrompt);
-        _ = Optional(PromptDefault).Iter(getter.SetCommandPromptDefault);
-        _ = Optional(WaitMilliseconds).Iter(getter.SetWaitDuration);
-        Seq<(bool Enabled, Action<TGetter> Apply)> actions = Seq<(bool Enabled, Action<TGetter> Apply)>(
-            (AcceptNothing, static g => g.AcceptNothing(enable: true)),
-            (AcceptUndo, static g => g.AcceptUndo(enable: true)),
-            (AcceptNumber, static g => g.AcceptNumber(enable: true, acceptZero: true)),
-            (AcceptPoint, static g => g.AcceptPoint(enable: true)),
-            (AcceptColor, static g => g.AcceptColor(enable: true)),
-            (AcceptString, static g => g.AcceptString(enable: true)),
-            (AcceptCustomMessage, static g => g.AcceptCustomMessage(enable: true)),
-            (AcceptEnterWhenDone, static g => g.AcceptEnterWhenDone(enable: true)));
-        _ = actions.Filter(static action => action.Enabled).Iter(action => action.Apply(obj: getter));
-        return Optional(DefaultValue).Case switch {
+    public static CommandPolicy Configure(Action<GetBaseClass> apply) => new(baseActions: Seq(apply));
+    public static CommandPolicy ConfigureObject(Action<GetObject> apply) => new(objectActions: Seq(apply));
+    public static CommandPolicy Prompt(string value) => new(baseActions: Seq<Action<GetBaseClass>>(getter => getter.SetCommandPrompt(value)), prompt: Optional(value));
+    public static CommandPolicy PromptDefault(string value) => Configure(apply: getter => getter.SetCommandPromptDefault(value));
+    public static CommandPolicy Default(object value) => Configure(apply: getter => ApplyDefault(getter: getter, value: value));
+    public static CommandPolicy Wait(int milliseconds) => milliseconds >= 0 ? Configure(apply: getter => getter.SetWaitDuration(milliseconds)) : Empty;
+    public static CommandPolicy AcceptNothing() => Configure(apply: AcceptNothingAction);
+    public static CommandPolicy AcceptUndo() => Configure(apply: static getter => getter.AcceptUndo(enable: true));
+    public static CommandPolicy AcceptNumber() => Configure(apply: static getter => getter.AcceptNumber(enable: true, acceptZero: true));
+    public static CommandPolicy AcceptPoint() => Configure(apply: static getter => getter.AcceptPoint(enable: true));
+    public static CommandPolicy AcceptColor() => Configure(apply: static getter => getter.AcceptColor(enable: true));
+    public static CommandPolicy AcceptString() => Configure(apply: static getter => getter.AcceptString(enable: true));
+    public static CommandPolicy AcceptCustomMessage() => Configure(apply: static getter => getter.AcceptCustomMessage(enable: true));
+    public static CommandPolicy EnterWhenDone() => Configure(apply: static getter => getter.AcceptEnterWhenDone(enable: true));
+    public static CommandPolicy OptionsOf(params CommandOption[] values) => new(options: toSeq(values));
+    public static CommandPolicy ObjectsOf(int minimum = 1, int maximum = 1) => new(objects: Some((Min: minimum, Max: maximum)));
+    public static CommandPolicy PointOf(bool onMouseUp = false, bool twoDimensional = false) => new(point: Some((OnMouseUp: onMouseUp, TwoDimensional: twoDimensional)));
+    public static CommandPolicy BoundsOf<T>(Option<T> lower = default, Option<T> upper = default, bool strictlyLower = false, bool strictlyUpper = false) where T : IComparable<T> =>
+        new(bounds: Some(new Bounds(Lower: lower.Map(static value => (object)value), Upper: upper.Map(static value => (object)value), StrictlyLower: strictlyLower, StrictlyUpper: strictlyUpper)));
+    public static CommandPolicy Length(Option<UnitSystem> units = default) => new(scalar: Some(new Scalar(Kind: ScalarKind.Length, LengthUnits: units, AngleUnits: Option<AngleUnitSystem>.None)));
+    public static CommandPolicy Angle(AngleUnitSystem units) => new(scalar: Some(new Scalar(Kind: ScalarKind.Angle, LengthUnits: Option<UnitSystem>.None, AngleUnits: Some(units))));
+    public static CommandPolicy BoxOf(GetBoxMode mode = GetBoxMode.All, Point3d? basePoint = null, string? prompt1 = null, string? prompt2 = null, string? prompt3 = null) =>
+        new(box: Some(new BoxSpec(Mode: mode, BasePoint: basePoint, Prompt1: prompt1, Prompt2: prompt2, Prompt3: prompt3)));
+
+    public static CommandPolicy operator +(CommandPolicy left, CommandPolicy right) => Add(left: left, right: right);
+
+    public static CommandPolicy Add(CommandPolicy left, CommandPolicy right) {
+        ArgumentNullException.ThrowIfNull(argument: left);
+        ArgumentNullException.ThrowIfNull(argument: right);
+        return new(
+            baseActions: left.BaseActions + right.BaseActions,
+            objectActions: left.ObjectActions + right.ObjectActions,
+            options: left.Options + right.Options,
+            objects: Pick(left.Objects, right.Objects),
+            point: Pick(left.Point, right.Point),
+            scalar: Pick(left.ScalarMode, right.ScalarMode),
+            bounds: Pick(left.BoundsMode, right.BoundsMode),
+            box: Pick(left.Box, right.Box),
+            prompt: Pick(left.PromptText, right.PromptText));
+    }
+
+    internal static CommandPolicy Merge(Seq<CommandPolicy> policies) =>
+        policies.Fold(Empty, static (state, policy) => state + policy);
+
+    internal Fin<Unit> Apply<TGetter>(TGetter getter) where TGetter : GetBaseClass =>
+        Optional(getter).ToFin(Fail: Op.Of(name: nameof(CommandPolicy)).InvalidInput()).Map(valid => {
+            _ = BaseActions.Iter(action => action(obj: valid));
+            _ = valid is GetObject objects ? DefaultObjectActions.Concat(ObjectActions).Iter(action => action(obj: objects)) : unit;
+            return unit;
+        });
+
+    private static Seq<Action<GetObject>> DefaultObjectActions { get; } = Seq<Action<GetObject>>(
+        static getter => getter.EnablePreSelect(enable: true, ignoreUnacceptablePreselectedObjects: true),
+        static getter => getter.EnablePostSelect(enable: true),
+        static getter => getter.SubObjectSelect = true,
+        static getter => getter.ReferenceObjectSelect = true,
+        static getter => getter.EnableSelPrevious(enable: true),
+        static getter => getter.EnableHighlight(enable: true),
+        static getter => getter.EnableIgnoreGrips(enable: true),
+        static getter => getter.EnableClearObjectsOnEntry(enable: true),
+        static getter => getter.EnableUnselectObjectsOnExit(enable: true),
+        static getter => getter.EnablePressEnterWhenDonePrompt(enable: true));
+
+    private static Action<GetBaseClass> AcceptNothingAction { get; } = static getter => getter.AcceptNothing(enable: true);
+    private static Option<T> Pick<T>(Option<T> left, Option<T> right) => right.IsSome ? right : left;
+    private static Unit ApplyDefault(GetBaseClass getter, object value) {
+        _ = value switch {
             Point3d point => Applied(apply: () => getter.SetDefaultPoint(point: point)),
             double number => Applied(apply: () => getter.SetDefaultNumber(number)),
             int integer => Applied(apply: () => getter.SetDefaultInteger(integer)),
             string text => Applied(apply: () => getter.SetDefaultString(text)),
             Color color => Applied(apply: () => getter.SetDefaultColor(color)),
-            null => Fin.Succ(value: unit),
-            _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(CommandPolicy)).InvalidInput()),
+            _ => unit,
         };
-
-        static Fin<Unit> Applied(Action apply) {
-            apply();
-            return Fin.Succ(value: unit);
-        }
+        return unit;
     }
+    private static Unit Applied(Action apply) {
+        apply();
+        return unit;
+    }
+
+    internal enum ScalarKind { Number, Length, Angle }
+    internal sealed record Scalar(ScalarKind Kind, Option<UnitSystem> LengthUnits, Option<AngleUnitSystem> AngleUnits);
+    internal sealed record Bounds(Option<object> Lower, Option<object> Upper, bool StrictlyLower, bool StrictlyUpper);
+    internal sealed record BoxSpec(GetBoxMode Mode, Point3d? BasePoint, string? Prompt1, string? Prompt2, string? Prompt3);
 }
 
-public abstract partial record CommandInputRequest<TValue> {
-    private protected CommandInputRequest() { }
+public static class CommandInputs {
+    public static CommandInputRequest<T> Get<T>(params CommandPolicy[] policies) {
+        Seq<CommandPolicy> active = toSeq(policies);
+        CommandPolicy policy = CommandPolicy.Merge(policies: active);
+        return typeof(T) switch {
+            Type t when t == typeof(CommandSelection) => Objects<T>(policy: policy, policies: active),
+            Type t when t == typeof(CommandOptionValue) => Getter<GetOption, T>(policies: active, create: static () => new GetOption(), receive: static getter => getter.Get(), value: static (_, _, _) => Option<T>.None),
+            Type t when t == typeof(CommandPoint) || t == typeof(Point3d) || t == typeof(DrawingPoint) => Point<T>(policy: policy, policies: active),
+            Type t when t == typeof(string) || t == typeof(double) => Text<T>(policy: policy, policies: active),
+            Type t when t == typeof(int) => Number<GetInteger, int, T>(policies: active, policy: policy, create: static () => new GetInteger(), receive: static getter => getter.Get(), current: static getter => getter.Number(), setLower: static (getter, value, strict) => getter.SetLowerLimit(value, strict), setUpper: static (getter, value, strict) => getter.SetUpperLimit(value, strict)),
+            Type t when t == typeof(Line) => Native<T>(run: static () => GetNative<T, Line>(static (out Line value) => RhinoGet.GetLine(line: out value))),
+            Type t when t == typeof(Polyline) => Native<T>(run: static () => GetNative<T, Polyline>(static (out Polyline value) => RhinoGet.GetPolyline(polyline: out value))),
+            Type t when t == typeof(Circle) => Native<T>(run: static () => GetNative<T, Circle>(static (out Circle value) => RhinoGet.GetCircle(circle: out value))),
+            Type t when t == typeof(Arc) => Native<T>(run: static () => GetNative<T, Arc>(static (out Arc value) => RhinoGet.GetArc(arc: out value))),
+            Type t when t == typeof(Plane) => Native<T>(run: static () => GetNative<T, Plane>(static (out Plane value) => RhinoGet.GetPlane(plane: out value))),
+            Type t when t == typeof(Seq<Point3d>) => Native<T>(run: () => Rectangle<T>(prompt: policy.PromptText.IfNone(string.Empty))),
+            Type t when t == typeof(Box) => Native<T>(run: () => Box<T>(spec: policy.Box.IfNone(new CommandPolicy.BoxSpec(Mode: GetBoxMode.All, BasePoint: null, Prompt1: null, Prompt2: null, Prompt3: null)))),
+            Type t when t == typeof(Color) => Native<T>(run: () => Color<T>(prompt: policy.PromptText.IfNone(string.Empty), acceptNothing: policy.AcceptsNothing)),
+            _ => Invalid<T>(name: nameof(Get)),
+        };
+    }
 
-    internal abstract Fin<CommandGet<TValue>> Run(CommandInput input);
+    private delegate Result NativeGetter<TNative>(out TNative value);
 
-    private protected static Fin<CommandGet<T>> Read<TGetter, T>(
-        CommandInput input,
+    private static CommandInputRequest<T> Objects<T>(CommandPolicy policy, Seq<CommandPolicy> policies) =>
+        policy.Objects.IfNone((Min: 1, Max: 1)) switch {
+            ( < 0, _) or (_, < -1) => Invalid<T>(name: nameof(Get)),
+            (int lo, int hi) when hi > 0 && hi < lo => Invalid<T>(name: nameof(Get)),
+            (int lo, int hi) => Getter<GetObject, T>(
+                policies: Seq(lo == 0 ? CommandPolicy.AcceptNothing() : CommandPolicy.Empty, hi == 0 ? CommandPolicy.EnterWhenDone() : CommandPolicy.Empty) + policies,
+                create: static () => new GetObject(),
+                receive: getter => getter.GetMultiple(minimumNumber: lo, maximumNumber: hi),
+                value: static (source, getter, raw) => SelectionOf(document: source.Document, getter: getter, raw: raw).Bind(Cast<T>),
+                transition: static (getter, raw, selected) => raw is GetResult.Option ? ForcePostSelect(getter: getter, selected: selected) : (Continue: false, Selected: selected)),
+        };
+
+    private static CommandInputRequest<T> Point<T>(CommandPolicy policy, Seq<CommandPolicy> policies) {
+        (bool onMouseUp, bool configuredTwoDimensional) = policy.Point.IfNone((OnMouseUp: false, TwoDimensional: false));
+        bool twoDimensional = configuredTwoDimensional || typeof(T) == typeof(DrawingPoint);
+        return Getter<GetPoint, T>(
+            policies: policies,
+            create: static () => new GetPoint(),
+            receive: getter => getter.Get(onMouseUp: onMouseUp, get2DPoint: twoDimensional),
+            value: static (_, getter, raw) => raw is GetResult.Point or GetResult.Point2d ? PointValue<T>(getter: getter, raw: raw) : Option<T>.None);
+    }
+
+    private static CommandInputRequest<T> Text<T>(CommandPolicy policy, Seq<CommandPolicy> policies) =>
+        policy.BoundsMode.IsSome && typeof(T) == typeof(double)
+            ? Number<GetNumber, double, T>(policies: policies, policy: policy, create: static () => new GetNumber(), receive: static getter => getter.Get(), current: static getter => getter.Number(), setLower: static (getter, value, strict) => getter.SetLowerLimit(value, strict), setUpper: static (getter, value, strict) => getter.SetUpperLimit(value, strict))
+            : Getter<GetString, T>(
+                policies: policies,
+                create: static () => new GetString(),
+                receive: static getter => getter.Get(),
+                value: (source, getter, raw) => raw is GetResult.String ? Parse<T>(input: source, text: getter.StringResult(), scalar: policy.ScalarMode).Bind(Cast<T>) : Option<T>.None);
+
+    private static CommandInputRequest<TOut> Number<TGetter, TValue, TOut>(
+        Seq<CommandPolicy> policies,
+        CommandPolicy policy,
+        Func<TGetter> create,
+        Func<TGetter, GetResult> receive,
+        Func<TGetter, TValue> current,
+        Action<TGetter, TValue, bool> setLower,
+        Action<TGetter, TValue, bool> setUpper) where TGetter : GetBaseClass, IDisposable where TValue : IComparable<TValue> =>
+        Getter(
+            policies: policies,
+            create: create,
+            receive: receive,
+            configure: getter => Limits(getter: getter, bounds: policy.BoundsMode, setLower: setLower, setUpper: setUpper),
+            value: (_, getter, raw) => raw is GetResult.Number ? Cast<TOut>(current(arg: getter)!) : Option<TOut>.None);
+
+    private static CommandInputRequest<T> Getter<TGetter, T>(
         Seq<CommandPolicy> policies,
         Func<TGetter> create,
         Func<TGetter, GetResult> receive,
         Func<CommandInput, TGetter, GetResult, Option<T>> value,
         Func<TGetter, Fin<Unit>>? configure = null,
         Func<TGetter, GetResult, Option<CommandOptionValue>, (bool Continue, Option<CommandOptionValue> Selected)>? transition = null) where TGetter : GetBaseClass, IDisposable =>
-        Optional(input)
-            .ToFin(Fail: Op.Of(name: nameof(CommandInputRequest<TValue>)).InvalidInput())
-            .Bind(valid => {
-                using TGetter getter = create();
-                return from configured in configure switch { Func<TGetter, Fin<Unit>> apply => apply(arg: getter), _ => Fin.Succ(value: unit) }
-                       from applied in CommandPolicy.Apply(policies: policies, getter: getter)
-                       from result in CommandOption.Bind(options: CommandPolicy.OptionSet(policies: policies), getter: getter).Bind(scope => {
-                           using CommandOption.Scope active = scope;
-                           return ReadLoop(
-                               getter: getter,
-                               scope: active,
-                               receive: () => receive(arg: getter),
-                               value: (g, raw) => value(arg1: valid, arg2: g, arg3: raw),
-                               selected: Option<CommandOptionValue>.None,
-                               transition: transition ?? (static (_, _, selected) => (Continue: false, Selected: selected)));
-                       })
-                       select result;
-            });
+        new(run: input => Optional(input).ToFin(Fail: Op.Of(name: nameof(Get)).InvalidInput()).Bind(valid => {
+            using TGetter getter = create();
+            return from configured in configure is Func<TGetter, Fin<Unit>> apply ? apply(arg: getter) : Fin.Succ(value: unit)
+                   from applied in CommandPolicy.Merge(policies: policies).Apply(getter: getter)
+                   from result in CommandOption.Bind(options: CommandPolicy.Merge(policies: policies).Options, getter: getter).Bind(scope => {
+                       using CommandOption.Scope active = scope;
+                       return ReadLoop(getter: getter, scope: active, receive: () => receive(arg: getter), value: (g, raw) => value(arg1: valid, arg2: g, arg3: raw), selected: Option<CommandOptionValue>.None, transition: transition ?? (static (_, _, selected) => (Continue: false, Selected: selected)));
+                   })
+                   select result;
+        }));
 
     private static Fin<CommandGet<T>> ReadLoop<TGetter, T>(
         TGetter getter,
@@ -273,346 +332,139 @@ public abstract partial record CommandInputRequest<TValue> {
         Func<TGetter, GetResult, Option<CommandOptionValue>, (bool Continue, Option<CommandOptionValue> Selected)> transition) where TGetter : GetBaseClass =>
         receive() switch {
             GetResult.Cancel => Fin.Fail<CommandGet<T>>(error: new Fault.Cancelled()),
-            GetResult.Option => scope.Snapshot(getter: getter).Bind(option => transition(getter, GetResult.Option, Some(option)) switch {
-                (true, Option<CommandOptionValue> next) => ReadLoop(getter: getter, scope: scope, receive: receive, value: value, selected: next, transition: transition),
-                (false, Option<CommandOptionValue> next) => Snapshot(getter: getter, raw: GetResult.Option, value: value(getter, GetResult.Option), option: next),
-            }),
-            GetResult raw => transition(getter, raw, selected) switch {
-                (true, Option<CommandOptionValue> next) => ReadLoop(getter: getter, scope: scope, receive: receive, value: value, selected: next, transition: transition),
-                (false, Option<CommandOptionValue> next) => Snapshot(getter: getter, raw: raw, value: value(getter, raw), option: next),
-            },
+            GetResult.Option => scope.Snapshot(getter: getter).Bind(option => Next(getter: getter, raw: GetResult.Option, value: value, selected: Some(option), transition: transition, scope: scope, receive: receive)),
+            GetResult raw => Next(getter: getter, raw: raw, value: value, selected: selected, transition: transition, scope: scope, receive: receive),
+        };
+
+    private static Fin<CommandGet<T>> Next<TGetter, T>(TGetter getter, GetResult raw, Func<TGetter, GetResult, Option<T>> value, Option<CommandOptionValue> selected, Func<TGetter, GetResult, Option<CommandOptionValue>, (bool Continue, Option<CommandOptionValue> Selected)> transition, CommandOption.Scope scope, Func<GetResult> receive) where TGetter : GetBaseClass =>
+        transition(getter, raw, selected) switch {
+            (true, Option<CommandOptionValue> next) => ReadLoop(getter: getter, scope: scope, receive: receive, value: value, selected: next, transition: transition),
+            (false, Option<CommandOptionValue> next) => Snapshot(getter: getter, raw: raw, value: value(getter, raw), option: next),
         };
 
     private static Fin<CommandGet<T>> Snapshot<TGetter, T>(TGetter getter, GetResult raw, Option<T> value, Option<CommandOptionValue> option) where TGetter : GetBaseClass {
-        Option<T> projected = value.Case switch {
-            T typed => Some(typed),
-            _ => option.Bind(static selected => selected is T selectedValue ? Some(selectedValue) : Option<T>.None),
-        };
+        Option<T> projected = value | option.Bind(static selected => selected is T selectedValue ? Some(selectedValue) : Option<T>.None);
         CommandGet<T> snapshot = CommandGet<T>.Of(getter: getter, raw: raw, value: projected, option: option);
         return (raw, projected.IsSome || (raw == GetResult.Option && option.IsSome)) switch {
-            (GetResult.Object or GetResult.Point or GetResult.Point2d or GetResult.Number or GetResult.String or GetResult.Color or GetResult.Rectangle2d or GetResult.Line2d, false) =>
-                Fin.Fail<CommandGet<T>>(error: Op.Of(name: nameof(Snapshot)).InvalidResult()),
+            (GetResult.Object or GetResult.Point or GetResult.Point2d or GetResult.Number or GetResult.String or GetResult.Color or GetResult.Rectangle2d or GetResult.Line2d, false) => Fin.Fail<CommandGet<T>>(error: Op.Of(name: nameof(Snapshot)).InvalidResult()),
             _ => Fin.Succ(value: snapshot),
         };
     }
-}
 
-public static class CommandInputs {
-    public static CommandInputRequest<CommandSelection> Objects(
-        int minimum = 1,
-        int maximum = 1,
-        CommandObjectSelectionPolicy? selection = null,
-        params CommandPolicy[] policies) =>
-        (minimum, maximum, Optional(selection).IfNone(CommandObjectSelectionPolicy.Default), toSeq(policies)) switch {
-            ( < 0, _, _, _) or (_, < -1, _, _) => Invalid<CommandSelection>(name: nameof(Objects)),
-            (int lo, int hi, _, _) when hi > 0 && hi < lo => Invalid<CommandSelection>(name: nameof(Objects)),
-            (int lo, int hi, CommandObjectSelectionPolicy policy, Seq<CommandPolicy> active) => Getter(
-                policies: Seq(new CommandPolicy(AcceptNothing: lo == 0, AcceptEnterWhenDone: hi == 0)) + active,
-                create: static () => new GetObject(),
-                receive: getter => getter.GetMultiple(minimumNumber: lo, maximumNumber: hi),
-                value: static (source, getter, raw) => SelectionOf(document: source.Document, getter: getter, raw: raw),
-                configure: policy.Apply,
-                transition: static (getter, raw, selected) => raw switch {
-                    GetResult.Option => ForcePostSelect(getter: getter, selected: selected),
-                    _ => (Continue: false, Selected: selected),
-                }),
-        };
+    private static CommandInputRequest<T> Native<T>(Func<(Result Result, Option<T> Value)> run) =>
+        new(input => Optional(input).ToFin(Fail: Op.Of(name: nameof(Native)).InvalidInput()).Bind(_ => run() switch {
+            (Result.Success, Option<T> value) => Fin.Succ(value: CommandGet<T>.Native(result: Result.Success, value: value)),
+            (Result.Cancel or Result.CancelModelessDialog, _) => Fin.Fail<CommandGet<T>>(error: new Fault.Cancelled()),
+            (Result.Failure or Result.UnknownCommand, _) => Fin.Fail<CommandGet<T>>(error: Op.Of(name: nameof(Native)).InvalidResult()),
+            (Result result, _) => Fin.Succ(value: CommandGet<T>.Native(result: result, value: Option<T>.None)),
+        }));
 
-    public static CommandInputRequest<CommandPoint> Point(bool onMouseUp = false, bool twoDimensional = false, params CommandPolicy[] policies) =>
-        PointOf<CommandPoint>(onMouseUp: onMouseUp, twoDimensional: twoDimensional, policies: toSeq(policies));
-
-    public static CommandInputRequest<Point3d> Point3d(bool onMouseUp = false, params CommandPolicy[] policies) =>
-        PointOf<Point3d>(onMouseUp: onMouseUp, twoDimensional: false, policies: toSeq(policies));
-
-    public static CommandInputRequest<DrawingPoint> WindowPoint(bool onMouseUp = false, params CommandPolicy[] policies) =>
-        PointOf<DrawingPoint>(onMouseUp: onMouseUp, twoDimensional: true, policies: toSeq(policies));
-
-    public static CommandInputRequest<string> Text(bool literal = false, params CommandPolicy[] policies) =>
-        TextOf<string>(literal: literal, policies: toSeq(policies), project: static (_, text) => Optional(text).Map(static value => (object)value));
-
-    public static CommandInputRequest<double> TextNumber(bool literal = false, params CommandPolicy[] policies) =>
-        TextOf<double>(literal: literal, policies: toSeq(policies), project: static (_, text) => ParseNumber(text: text).Map(static value => (object)value));
-
-    public static CommandInputRequest<double> Length(bool literal = false, params CommandPolicy[] policies) =>
-        TextOf<double>(literal: literal, policies: toSeq(policies), project: static (input, text) => ParseLength(text: text, units: input.Document.ModelUnitSystem).Map(static value => (object)value));
-
-    public static CommandInputRequest<double> AngleDegrees(bool literal = false, params CommandPolicy[] policies) =>
-        TextOf<double>(literal: literal, policies: toSeq(policies), project: static (_, text) => ParseAngle(text: text, units: AngleUnitSystem.Degrees).Map(static value => (object)value));
-
-    public static CommandInputRequest<double> AngleRadians(bool literal = false, params CommandPolicy[] policies) =>
-        TextOf<double>(literal: literal, policies: toSeq(policies), project: static (_, text) => ParseAngle(text: text, units: AngleUnitSystem.Radians).Map(static value => (object)value));
-
-    public static CommandInputRequest<double> Number(Option<double> lower = default, Option<double> upper = default, bool strictlyLower = false, bool strictlyUpper = false, params CommandPolicy[] policies) =>
-        Numeric<GetNumber, double>(
-            policies: toSeq(policies),
-            lower: lower,
-            upper: upper,
-            strictlyLower: strictlyLower,
-            strictlyUpper: strictlyUpper,
-            create: static () => new GetNumber(),
-            receive: static getter => getter.Get(),
-            current: static getter => getter.Number(),
-            setLower: static (getter, value, strict) => getter.SetLowerLimit(value, strict),
-            setUpper: static (getter, value, strict) => getter.SetUpperLimit(value, strict));
-
-    public static CommandInputRequest<int> Integer(Option<int> lower = default, Option<int> upper = default, bool strictlyLower = false, bool strictlyUpper = false, params CommandPolicy[] policies) =>
-        Numeric<GetInteger, int>(
-            policies: toSeq(policies),
-            lower: lower,
-            upper: upper,
-            strictlyLower: strictlyLower,
-            strictlyUpper: strictlyUpper,
-            create: static () => new GetInteger(),
-            receive: static getter => getter.Get(),
-            current: static getter => getter.Number(),
-            setLower: static (getter, value, strict) => getter.SetLowerLimit(value, strict),
-            setUpper: static (getter, value, strict) => getter.SetUpperLimit(value, strict));
-
-    public static CommandInputRequest<CommandOptionValue> Options(params CommandPolicy[] policies) =>
-        Getter(
-            policies: toSeq(policies),
-            create: static () => new GetOption(),
-            receive: static getter => getter.Get(),
-            value: static (_, _, _) => Option<CommandOptionValue>.None);
-
-    public static CommandInputRequest<Line> Line() =>
-        Native(static (out Line value) => RhinoGet.GetLine(line: out value));
-
-    public static CommandInputRequest<Polyline> Polyline() =>
-        Native(static (out Polyline value) => RhinoGet.GetPolyline(polyline: out value));
-
-    public static CommandInputRequest<Circle> Circle() =>
-        Native(static (out Circle value) => RhinoGet.GetCircle(circle: out value));
-
-    public static CommandInputRequest<Arc> Arc() =>
-        Native(static (out Arc value) => RhinoGet.GetArc(arc: out value));
-
-    public static CommandInputRequest<Plane> Plane() =>
-        Native(static (out Plane value) => RhinoGet.GetPlane(plane: out value));
-
-    public static CommandInputRequest<Seq<Point3d>> Rectangle(string prompt = "") =>
-        Native(run: () => {
-            Point3d[] corners;
-            Result result = string.IsNullOrWhiteSpace(value: prompt) switch {
-                true => RhinoGet.GetRectangle(corners: out corners),
-                false => RhinoGet.GetRectangle(firstPrompt: prompt, corners: out corners),
-            };
-            return (Result: result, Value: toSeq(corners));
-        });
-
-    public static CommandInputRequest<Box> Box(
-        GetBoxMode mode = GetBoxMode.All,
-        Point3d? basePoint = null,
-        string? prompt1 = null,
-        string? prompt2 = null,
-        string? prompt3 = null) =>
-        Native(run: () => {
-            Box value;
-            Result result = (mode, basePoint, prompt1, prompt2, prompt3) switch {
-                (GetBoxMode.All, null, null, null, null) => RhinoGet.GetBox(box: out value),
-                _ => RhinoGet.GetBox(box: out value, mode: mode, basePoint: basePoint ?? global::Rhino.Geometry.Point3d.Unset, prompt1: prompt1, prompt2: prompt2, prompt3: prompt3),
-            };
-            return (Result: result, Value: value);
-        });
-
-    public static CommandInputRequest<Color> Color(string prompt = "", bool acceptNothing = false) =>
-        Native(run: () => {
-            Color color = global::System.Drawing.Color.Empty;
-            Result result = RhinoGet.GetColor(prompt: prompt, acceptNothing: acceptNothing, color: ref color);
-            return (Result: result, Value: color);
-        });
-
-    private delegate Result GetNative<TNative>(out TNative value);
-
-    private static CommandInputRequest<TNative> Native<TNative>(GetNative<TNative> get) =>
-        Native(run: () => {
-            Result result = get(value: out TNative value);
-            return (Result: result, Value: value);
-        });
-
-    private static CommandInputRequest<TNative> Native<TNative>(Func<(Result Result, TNative Value)> run) =>
-        new NativeCase<TNative>(NativeRun: run);
-
-    private sealed record GetterCase<TGetter, T>(
-        Seq<CommandPolicy> Policies,
-        Func<TGetter> Create,
-        Func<TGetter, GetResult> Receive,
-        Func<CommandInput, TGetter, GetResult, Option<T>> Value,
-        Func<TGetter, Fin<Unit>>? Configure = null,
-        Func<TGetter, GetResult, Option<CommandOptionValue>, (bool Continue, Option<CommandOptionValue> Selected)>? Transition = null) : CommandInputRequest<T> where TGetter : GetBaseClass, IDisposable {
-        internal override Fin<CommandGet<T>> Run(CommandInput input) =>
-            Read(
-                input: input,
-                policies: Policies,
-                create: Create,
-                receive: Receive,
-                value: Value,
-                configure: Configure,
-                transition: Transition);
+    private static (Result Result, Option<T> Value) GetNative<T, TNative>(NativeGetter<TNative> get) {
+        Result result = get(value: out TNative value);
+        return (Result: result, Value: result == Result.Success ? Cast<T>(value!) : Option<T>.None);
     }
 
-    private static CommandInputRequest<T> Getter<TGetter, T>(
-        Seq<CommandPolicy> policies,
-        Func<TGetter> create,
-        Func<TGetter, GetResult> receive,
-        Func<CommandInput, TGetter, GetResult, Option<T>> value,
-        Func<TGetter, Fin<Unit>>? configure = null,
-        Func<TGetter, GetResult, Option<CommandOptionValue>, (bool Continue, Option<CommandOptionValue> Selected)>? transition = null) where TGetter : GetBaseClass, IDisposable =>
-        new GetterCase<TGetter, T>(Policies: policies, Create: create, Receive: receive, Value: value, Configure: configure, Transition: transition);
+    private static (Result Result, Option<T> Value) Rectangle<T>(string prompt) {
+        Result result = string.IsNullOrWhiteSpace(value: prompt) ? RhinoGet.GetRectangle(corners: out Point3d[] corners) : RhinoGet.GetRectangle(firstPrompt: prompt, corners: out corners);
+        return (Result: result, Value: result == Result.Success ? Cast<T>(toSeq(corners)) : Option<T>.None);
+    }
+
+    private static (Result Result, Option<T> Value) Box<T>(CommandPolicy.BoxSpec spec) {
+        Result result = spec is { Mode: GetBoxMode.All, BasePoint: null, Prompt1: null, Prompt2: null, Prompt3: null }
+            ? RhinoGet.GetBox(box: out Box value)
+            : RhinoGet.GetBox(box: out value, mode: spec.Mode, basePoint: spec.BasePoint ?? Point3d.Unset, prompt1: spec.Prompt1, prompt2: spec.Prompt2, prompt3: spec.Prompt3);
+        return (Result: result, Value: result == Result.Success ? Cast<T>(value) : Option<T>.None);
+    }
+
+    private static (Result Result, Option<T> Value) Color<T>(string prompt, bool acceptNothing) {
+        Color color = global::System.Drawing.Color.Empty;
+        Result result = RhinoGet.GetColor(prompt: prompt, acceptNothing: acceptNothing, color: ref color);
+        return (Result: result, Value: result == Result.Success ? Cast<T>(color) : Option<T>.None);
+    }
 
     private static CommandInputRequest<T> Invalid<T>(string name) =>
-        new InvalidCase<T>(Reason: Op.Of(name: name).InvalidInput());
-
-    private static CommandInputRequest<T> PointOf<T>(bool onMouseUp, bool twoDimensional, Seq<CommandPolicy> policies) =>
-        Getter(
-            policies: policies,
-            create: static () => new GetPoint(),
-            receive: getter => getter.Get(onMouseUp: onMouseUp, get2DPoint: twoDimensional),
-            value: static (_, getter, raw) => raw switch { GetResult.Point or GetResult.Point2d => PointValue<T>(getter: getter, raw: raw), _ => Option<T>.None });
-
-    private static CommandInputRequest<T> TextOf<T>(bool literal, Seq<CommandPolicy> policies, Func<CommandInput, string, Option<object>> project) =>
-        Getter(
-            policies: policies,
-            create: static () => new GetString(),
-            receive: getter => literal switch { true => getter.GetLiteralString(), false => getter.Get() },
-            value: (source, getter, raw) => raw switch { GetResult.String => project(arg1: source, arg2: getter.StringResult()).Bind(Cast<T>), _ => Option<T>.None });
-
-    private static CommandInputRequest<TValue> Numeric<TGetter, TValue>(
-        Seq<CommandPolicy> policies,
-        Option<TValue> lower,
-        Option<TValue> upper,
-        bool strictlyLower,
-        bool strictlyUpper,
-        Func<TGetter> create,
-        Func<TGetter, GetResult> receive,
-        Func<TGetter, TValue> current,
-        Action<TGetter, TValue, bool> setLower,
-        Action<TGetter, TValue, bool> setUpper) where TGetter : GetBaseClass, IDisposable where TValue : IComparable<TValue> =>
-        Getter(
-            policies: policies,
-            create: create,
-            receive: receive,
-            configure: getter => Limits(getter: getter, lower: lower, upper: upper, strictlyLower: strictlyLower, strictlyUpper: strictlyUpper, setLower: setLower, setUpper: setUpper),
-            value: (_, getter, raw) => raw switch { GetResult.Number => Some(current(arg: getter)), _ => Option<TValue>.None });
-
-    private sealed record NativeCase<T>(Func<(Result Result, T Value)> NativeRun) : CommandInputRequest<T> {
-        internal override Fin<CommandGet<T>> Run(CommandInput input) =>
-            Optional(input)
-                .ToFin(Fail: Op.Of(name: nameof(Native)).InvalidInput())
-                .Bind(_ => RunNative());
-
-        private Fin<CommandGet<T>> RunNative() {
-            (Result Result, T Value) pair = NativeRun();
-            return pair.Result switch {
-                Result.Success => CommandGet<T>.Native(result: pair.Result, value: Some(pair.Value)),
-                Result.Cancel or Result.CancelModelessDialog => Fin.Fail<CommandGet<T>>(error: new Fault.Cancelled()),
-                Result.Failure or Result.UnknownCommand => Fin.Fail<CommandGet<T>>(error: Op.Of(name: nameof(Native)).InvalidResult()),
-                _ => Fin.Succ(value: CommandGet<T>.Native(result: pair.Result, value: Option<T>.None)),
-            };
-        }
-    }
-
-    private sealed record InvalidCase<T>(Error Reason) : CommandInputRequest<T> {
-        internal override Fin<CommandGet<T>> Run(CommandInput input) =>
-            Fin.Fail<CommandGet<T>>(error: Reason);
-    }
+        new(run: _ => Fin.Fail<CommandGet<T>>(error: Op.Of(name: name).InvalidInput()));
 
     private static Option<CommandSelection> SelectionOf(RhinoDoc document, GetObject getter, GetResult raw) =>
-        raw switch {
-            GetResult.Object => getter.Objects() switch {
-                ObjRef[] references => Optional(CommandSelection.From(document: document, references: toSeq(references), preselected: PreselectedReferences(getter: getter, references: references))),
-                _ => Option<CommandSelection>.None,
-            },
-            _ => Option<CommandSelection>.None,
-        };
-
-    private static Seq<(Guid ObjectId, ComponentIndex ComponentIndex)> PreselectedReferences(GetObject getter, ObjRef[] references) =>
-        getter.ObjectsWerePreselected switch {
-            true => toSeq(references)
-                .Filter(static reference => Optional(reference.Object()).Map(static item => item.IsSelected(checkSubObjects: true) > 0).IfNone(false))
-                .Map(static reference => (reference.ObjectId, reference.GeometryComponentIndex)),
-            false => Seq<(Guid ObjectId, ComponentIndex ComponentIndex)>(),
-        };
+        raw is GetResult.Object && getter.Objects() is ObjRef[] references
+            ? Optional(CommandSelection.From(
+                document: document,
+                references: toSeq(references),
+                preselected: getter.ObjectsWerePreselected
+                    ? toSeq(references).Filter(static reference => Optional(reference.Object()).Map(static item => item.IsSelected(checkSubObjects: true) > 0).IfNone(false)).Map(static reference => (reference.ObjectId, reference.GeometryComponentIndex))
+                    : Seq<(Guid ObjectId, ComponentIndex ComponentIndex)>()))
+            : Option<CommandSelection>.None;
 
     private static (bool Continue, Option<CommandOptionValue> Selected) ForcePostSelect(GetObject getter, Option<CommandOptionValue> selected) {
         getter.EnablePreSelect(enable: false, ignoreUnacceptablePreselectedObjects: true);
         return (Continue: true, Selected: selected);
     }
 
-    private static Option<TOut> PointValue<TOut>(GetPoint getter, GetResult raw) =>
-        (raw, typeof(TOut)) switch {
-            (GetResult.Point, Type t) when t == typeof(Point3d) => Cast<TOut>(getter.Point()),
-            (GetResult.Point or GetResult.Point2d, Type t) when t == typeof(DrawingPoint) => Cast<TOut>(getter.Point2d()),
-            (GetResult.Point or GetResult.Point2d, _) => Cast<TOut>(CommandPoint.Of(getter: getter, raw: raw)),
-            _ => Option<TOut>.None,
+    private static Option<T> PointValue<T>(GetPoint getter, GetResult raw) =>
+        (raw, typeof(T)) switch {
+            (GetResult.Point, Type t) when t == typeof(Point3d) => Cast<T>(getter.Point()),
+            (GetResult.Point or GetResult.Point2d, Type t) when t == typeof(DrawingPoint) => Cast<T>(getter.Point2d()),
+            (GetResult.Point or GetResult.Point2d, _) => Cast<T>(CommandPoint.Of(getter: getter, raw: raw)),
+            _ => Option<T>.None,
         };
 
-    private static Option<TOut> Cast<TOut>(object? value) =>
-        value switch {
-            TOut typed => Some(typed),
-            _ => Option<TOut>.None,
+    private static Option<object> Parse<T>(CommandInput input, string text, Option<CommandPolicy.Scalar> scalar) =>
+        typeof(T) switch {
+            Type t when t == typeof(string) => Optional(text).Map(static value => (object)value),
+            Type t when t == typeof(double) => scalar.IfNone(new CommandPolicy.Scalar(Kind: default, LengthUnits: Option<UnitSystem>.None, AngleUnits: Option<AngleUnitSystem>.None)) switch {
+                { LengthUnits.IsSome: true, AngleUnits.IsSome: true } => Option<object>.None,
+                { Kind: CommandPolicy.ScalarKind.Length } => ParseLength(text: text, units: scalar.Bind(static value => value.LengthUnits).IfNone(input.Document.ModelUnitSystem)).Map(static value => (object)value),
+                { Kind: CommandPolicy.ScalarKind.Angle } => scalar.Bind(static value => value.AngleUnits).Bind(units => ParseAngle(text: text, units: units)).Map(static value => (object)value),
+                _ => ParseNumber(text: text).Map(static value => (object)value),
+            },
+            _ => Option<object>.None,
         };
 
-    internal static Option<double> ParseNumber(string text) {
+    private static Option<TOut> Cast<TOut>(object value) => value is TOut typed ? Some(typed) : Option<TOut>.None;
+
+    private static Option<double> ParseNumber(string text) {
         StringParserSettings results = new();
-        StringParserSettings settings = StringParserSettings.DefaultParseSettings;
         try {
-            return StringParser.ParseNumber(expression: text, max_count: text.Length, settings_in: settings, settings_out: ref results, answer: out double value) switch {
-                int count when count == text.Length => Some(value),
-                _ => Option<double>.None,
-            };
+            return StringParser.ParseNumber(expression: text, max_count: text.Length, settings_in: StringParserSettings.DefaultParseSettings, settings_out: ref results, answer: out double value) == text.Length ? Some(value) : Option<double>.None;
         } finally {
             results.Dispose();
         }
     }
 
-    internal static Option<double> ParseLength(string text, UnitSystem units) {
+    private static Option<double> ParseLength(string text, UnitSystem units) {
         LengthValue value = LengthValue.Create(s: text, ps: StringParserSettings.DefaultParseSettings, parsedAll: out bool parsedAll);
         try {
-            return (value, parsedAll) switch {
-                (LengthValue length, true) when !length.IsUnset() => Some(length.Length(units: units)),
-                _ => Option<double>.None,
-            };
+            return parsedAll && !value.IsUnset() ? Some(value.Length(units: units)) : Option<double>.None;
         } finally {
             value.Dispose();
         }
     }
 
-    internal static Option<double> ParseAngle(string text, AngleUnitSystem units) {
+    private static Option<double> ParseAngle(string text, AngleUnitSystem units) {
         StringParserSettings results = new();
         AngleUnitSystem parsed = AngleUnitSystem.None;
         try {
-            return StringParser.ParseAngleExpession(text, 0, text.Length, StringParserSettings.DefaultParseSettings, units, out double value, ref results, ref parsed) switch {
-                int count when count == text.Length => Some(value),
-                _ => Option<double>.None,
-            };
+            return StringParser.ParseAngleExpession(text, 0, text.Length, StringParserSettings.DefaultParseSettings, units, out double value, ref results, ref parsed) == text.Length ? Some(value) : Option<double>.None;
         } finally {
             results.Dispose();
         }
     }
 
-    private static Fin<Unit> Limits<TGetter, TValue>(
-        TGetter getter,
-        Option<TValue> lower,
-        Option<TValue> upper,
-        bool strictlyLower,
-        bool strictlyUpper,
-        Action<TGetter, TValue, bool> setLower,
-        Action<TGetter, TValue, bool> setUpper) where TGetter : GetBaseClass where TValue : IComparable<TValue> =>
-        (lower.Case, upper.Case) switch {
-            (TValue left, TValue right) when left.CompareTo(other: right) > 0 => Fin.Fail<Unit>(error: Op.Of(name: nameof(Limits)).InvalidInput()),
-            (TValue left, TValue right) when left.CompareTo(other: right) == 0 && (strictlyLower || strictlyUpper) => Fin.Fail<Unit>(error: Op.Of(name: nameof(Limits)).InvalidInput()),
-            _ => Optional(getter)
-                .ToFin(Fail: Op.Of(name: nameof(Limits)).InvalidInput())
-                .Map(valid => {
-                    _ = lower.Iter(value => setLower(arg1: valid, arg2: value, arg3: strictlyLower));
-                    _ = upper.Iter(value => setUpper(arg1: valid, arg2: value, arg3: strictlyUpper));
+    private static Fin<Unit> Limits<TGetter, TValue>(TGetter getter, Option<CommandPolicy.Bounds> bounds, Action<TGetter, TValue, bool> setLower, Action<TGetter, TValue, bool> setUpper) where TGetter : GetBaseClass where TValue : IComparable<TValue> =>
+        bounds.Case switch {
+            CommandPolicy.Bounds b => (b.Lower.Bind(Cast<TValue>), b.Upper.Bind(Cast<TValue>)) switch {
+                (Option<TValue> lower, Option<TValue> upper) when lower.Case is TValue left && upper.Case is TValue right && left.CompareTo(other: right) > 0 => Fin.Fail<Unit>(error: Op.Of(name: nameof(Limits)).InvalidInput()),
+                (Option<TValue> lower, Option<TValue> upper) when lower.Case is TValue left && upper.Case is TValue right && left.CompareTo(other: right) == 0 && (b.StrictlyLower || b.StrictlyUpper) => Fin.Fail<Unit>(error: Op.Of(name: nameof(Limits)).InvalidInput()),
+                (Option<TValue> lower, Option<TValue> upper) => Optional(getter).ToFin(Fail: Op.Of(name: nameof(Limits)).InvalidInput()).Map(valid => {
+                    _ = lower.Iter(value => setLower(arg1: valid, arg2: value, arg3: b.StrictlyLower));
+                    _ = upper.Iter(value => setUpper(arg1: valid, arg2: value, arg3: b.StrictlyUpper));
                     return unit;
                 }),
+            },
+            _ => Fin.Succ(value: unit),
         };
 }
 
-// --- [SERVICES] -------------------------------------------------------------------------
 public sealed record CommandInput {
     internal CommandInput(RhinoDoc document) {
         ArgumentNullException.ThrowIfNull(argument: document);
@@ -622,7 +474,5 @@ public sealed record CommandInput {
     public RhinoDoc Document { get; }
 
     public Fin<CommandGet<TValue>> Get<TValue>(CommandInputRequest<TValue> request) =>
-        Optional(request)
-            .ToFin(Fail: Op.Of(name: nameof(Get)).InvalidInput())
-            .Bind(valid => valid.Run(input: this));
+        Optional(request).ToFin(Fail: Op.Of(name: nameof(Get)).InvalidInput()).Bind(valid => valid.Run(input: this));
 }

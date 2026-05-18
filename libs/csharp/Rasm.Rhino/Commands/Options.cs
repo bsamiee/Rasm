@@ -36,7 +36,6 @@ public abstract record CommandOption {
     private delegate int RefOptionBinder<TNative>(GetBaseClass getter, string name, ref TNative native, Option<string> prompt) where TNative : IDisposable;
     private delegate int RefOptionPlainBinder<TNative>(GetBaseClass getter, string name, ref TNative native) where TNative : IDisposable;
     private delegate int RefOptionPromptBinder<TNative>(GetBaseClass getter, string name, ref TNative native, string prompt) where TNative : IDisposable;
-    private enum EnumOptionMode { List, Selection }
 
     public string Name { get; }
 
@@ -110,9 +109,9 @@ public abstract record CommandOption {
             Varies: varies);
     private static ListCase List(string name, Seq<string> values, int current = 0, bool varies = false) => new(Name: name, Values: values, Current: current, Varies: varies);
     private static EnumCase<TEnum> EnumList<TEnum>(string name, TEnum initial, Seq<TEnum> values = default, bool varies = false) where TEnum : struct, Enum =>
-        new(Name: name, Initial: Some(initial), Values: values, Current: 0, Mode: EnumOptionMode.List, Varies: varies);
+        new(Name: name, Initial: Some(initial), Values: values, Current: 0, Selection: false, Varies: varies);
     private static EnumCase<TEnum> EnumSelection<TEnum>(string name, Seq<TEnum> values, int current = 0, bool varies = false) where TEnum : struct, Enum =>
-        new(Name: name, Initial: Option<TEnum>.None, Values: values, Current: current, Mode: EnumOptionMode.Selection, Varies: varies);
+        new(Name: name, Initial: Option<TEnum>.None, Values: values, Current: current, Selection: true, Varies: varies);
 
     internal abstract Fin<Bound> Add(GetBaseClass getter);
 
@@ -289,40 +288,39 @@ public abstract record CommandOption {
             select Snapshot(name: name, getter: getter, value: Some((object)values[index]), listIndex: Some(index));
     }
 
-    private sealed record EnumCase<TEnum>(string Name, Option<TEnum> Initial, Seq<TEnum> Values, int Current, EnumOptionMode Mode, bool Varies) : CommandOption(name: Name) where TEnum : struct, Enum {
+    private sealed record EnumCase<TEnum>(string Name, Option<TEnum> Initial, Seq<TEnum> Values, int Current, bool Selection, bool Varies) : CommandOption(name: Name) where TEnum : struct, Enum {
         internal override Fin<Bound> Add(GetBaseClass getter) =>
             from name in Valid(name: Name)
-            from values in Mode switch {
-                EnumOptionMode.List => Fin.Succ(value: Values.IsEmpty switch { true => toSeq(global::System.Enum.GetValues<TEnum>()), false => Values }),
-                _ => NonEmpty(values: Values),
+            from values in Selection switch {
+                false => Fin.Succ(value: Values.IsEmpty switch { true => toSeq(global::System.Enum.GetValues<TEnum>()), false => Values }),
+                true => NonEmpty(values: Values),
             }
-            from current in Mode switch { EnumOptionMode.List => Fin.Succ(value: Current), _ => ValidInputIndex(index: Current, count: values.Count) }
+            from current in Selection switch { false => Fin.Succ(value: Current), true => ValidInputIndex(index: Current, count: values.Count) }
             from initial in Initial.Case switch {
                 TEnum value => from _ in EnumIndex(values: values, value: value).ToFin(Fail: Op.Of(name: nameof(CommandOption)).InvalidInput())
                                select value,
                 _ => Fin.Succ(value: values[0]),
             }
-            from bound in Mode switch {
-                EnumOptionMode.List => Added(
+            from bound in Selection switch {
+                false => Added(
                     getter: getter,
                     index: Values.IsEmpty ? getter.AddOptionEnumList(name, initial) : getter.AddOptionEnumList(name, initial, [.. values]),
                     native: null,
-                    snapshot: g => SnapshotAt(name: name, getter: g, values: values, mode: Mode),
+                    snapshot: g => SnapshotAt(name: name, getter: g, values: values, selection: Selection),
                     varies: Varies),
-                _ => Added(
+                true => Added(
                     getter: getter,
                     index: getter.AddOptionEnumSelectionList(name, values.AsIterable(), current),
                     native: null,
-                    snapshot: g => SnapshotAt(name: name, getter: g, values: values, mode: Mode),
+                    snapshot: g => SnapshotAt(name: name, getter: g, values: values, selection: Selection),
                     varies: Varies),
             }
             select bound;
 
-        private static Fin<CommandOptionValue> SnapshotAt(string name, GetBaseClass getter, Seq<TEnum> values, EnumOptionMode mode) =>
-            (mode switch {
-                EnumOptionMode.List => Try.lift<TEnum>(f: getter.GetSelectedEnumValue<TEnum>).Run(),
-                EnumOptionMode.Selection => Try.lift<TEnum>(f: () => getter.GetSelectedEnumValueFromSelectionList(values.AsIterable())).Run(),
-                _ => Fin.Fail<TEnum>(error: Op.Of(name: nameof(CommandOption)).InvalidResult()),
+        private static Fin<CommandOptionValue> SnapshotAt(string name, GetBaseClass getter, Seq<TEnum> values, bool selection) =>
+            (selection switch {
+                false => Try.lift<TEnum>(f: getter.GetSelectedEnumValue<TEnum>).Run(),
+                true => Try.lift<TEnum>(f: () => getter.GetSelectedEnumValueFromSelectionList(values.AsIterable())).Run(),
             })
                 .MapFail(static _ => Op.Of(name: nameof(CommandOption)).InvalidResult())
                 .Map(selected => Snapshot(

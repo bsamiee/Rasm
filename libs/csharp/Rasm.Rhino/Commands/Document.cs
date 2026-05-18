@@ -1,60 +1,47 @@
 namespace Rasm.Rhino.Commands;
 
-// --- [MODELS] ---------------------------------------------------------------------------
-public abstract partial record DocumentTarget {
-    private DocumentTarget() { }
+public sealed record DocumentTarget {
+    private DocumentTarget(Option<CommandSelection> selection = default, Option<CommandSelection.Reference> reference = default, Seq<Guid> objects = default) {
+        SelectionValue = selection;
+        ReferenceValue = reference;
+        ObjectIds = objects;
+    }
 
-    public static DocumentTarget Selection(CommandSelection selection) => new SelectionCase(Value: selection);
+    private Option<CommandSelection> SelectionValue { get; }
+    private Option<CommandSelection.Reference> ReferenceValue { get; }
+    private Seq<Guid> ObjectIds { get; }
+
+    public static DocumentTarget Selection(CommandSelection selection) => new(selection: Optional(selection));
     public static DocumentTarget Reference(CommandSelection.Reference reference) =>
-        new ReferenceCase(Value: Optional(reference).Filter(static value => value.ObjectId != Guid.Empty));
+        new(reference: Optional(reference).Filter(static value => value.ObjectId != Guid.Empty));
     public static DocumentTarget Reference(ObjRef reference) =>
-        new ReferenceCase(Value: Optional(reference)
+        new(reference: Optional(reference)
             .Map(static value => CommandSelection.Reference.Of(reference: value, preselected: false))
             .Filter(static value => value.ObjectId != Guid.Empty));
     public static DocumentTarget Objects(IEnumerable<Guid> objectIds) =>
-        new ObjectsCase(Value: Optional(objectIds).Map(static ids => toSeq(ids)).IfNone(Seq<Guid>()));
+        new(objects: Optional(objectIds).Map(static ids => toSeq(ids)).IfNone(Seq<Guid>()));
 
-    internal abstract Fin<int> Select(RhinoDoc document, bool selected, Op op);
-    internal abstract Fin<Unit> Delete(RhinoDoc document, bool quiet, bool ignoreModes, Op op);
+    internal Fin<int> Select(RhinoDoc document, bool selected, Op op) =>
+        Use(document: document, op: op,
+            selection: value => value.SelectInto(document: document, selected: selected, op: op),
+            reference: value => value.Use(document: document, op: op, use: native => CountResult(count: document.Objects.Select(Seq(native).AsIterable(), selected), op: op)),
+            objects: ids => CountResult(count: document.Objects.Select(ids, selected), op: op));
 
-    private sealed record SelectionCase(CommandSelection Value) : DocumentTarget {
-        internal override Fin<int> Select(RhinoDoc document, bool selected, Op op) =>
-            Optional(Value)
-                .ToFin(Fail: op.InvalidInput())
-                .Bind(selection => ReferenceEquals(objA: selection.Document, objB: document) switch {
-                    true => selection.SelectInto(document: document, selected: selected, op: op),
-                    false => Fin.Fail<int>(error: op.InvalidInput()),
-                });
+    internal Fin<Unit> Delete(RhinoDoc document, bool quiet, bool ignoreModes, Op op) =>
+        Use(document: document, op: op,
+            selection: value => DeleteIds(document: document, ids: value.ObjectIds, quiet: quiet, ignoreModes: ignoreModes, op: op),
+            reference: value => value.Use(document: document, op: op, use: native => UnitResult(success: document.Objects.Delete(native, quiet, ignoreModes), op: op)),
+            objects: ids => DeleteIds(document: document, ids: ids, quiet: quiet, ignoreModes: ignoreModes, op: op));
 
-        internal override Fin<Unit> Delete(RhinoDoc document, bool quiet, bool ignoreModes, Op op) =>
-            Optional(Value)
-                .ToFin(Fail: op.InvalidInput())
-                .Bind(selection => ReferenceEquals(objA: selection.Document, objB: document) switch {
-                    true => DeleteIds(document: document, ids: selection.ObjectIds, quiet: quiet, ignoreModes: ignoreModes, op: op),
-                    false => Fin.Fail<Unit>(error: op.InvalidInput()),
-                });
-    }
-
-    private sealed record ReferenceCase(Option<CommandSelection.Reference> Value) : DocumentTarget {
-        internal override Fin<int> Select(RhinoDoc document, bool selected, Op op) =>
-            Value
-                .ToFin(Fail: op.InvalidInput())
-                .Bind(value => value.Use(document: document, op: op, use: reference => CountResult(count: document.Objects.Select(Seq(reference).AsIterable(), selected), op: op)));
-
-        internal override Fin<Unit> Delete(RhinoDoc document, bool quiet, bool ignoreModes, Op op) =>
-            Value
-                .ToFin(Fail: op.InvalidInput())
-                .Bind(value => value.Use(document: document, op: op, use: reference => UnitResult(success: document.Objects.Delete(reference, quiet, ignoreModes), op: op)));
-    }
-
-    private sealed record ObjectsCase(Seq<Guid> Value) : DocumentTarget {
-        internal override Fin<int> Select(RhinoDoc document, bool selected, Op op) =>
-            TargetIds(ids: Value, op: op)
-                .Bind(ids => CountResult(count: document.Objects.Select(ids, selected), op: op));
-
-        internal override Fin<Unit> Delete(RhinoDoc document, bool quiet, bool ignoreModes, Op op) =>
-            DeleteIds(document: document, ids: Value, quiet: quiet, ignoreModes: ignoreModes, op: op);
-    }
+    private Fin<T> Use<T>(RhinoDoc document, Op op, Func<CommandSelection, Fin<T>> selection, Func<CommandSelection.Reference, Fin<T>> reference, Func<Seq<Guid>, Fin<T>> objects) =>
+        SelectionValue.Case switch {
+            CommandSelection value when ReferenceEquals(objA: value.Document, objB: document) => selection(arg: value),
+            CommandSelection => Fin.Fail<T>(error: op.InvalidInput()),
+            _ => ReferenceValue.Case switch {
+                CommandSelection.Reference value => reference(arg: value),
+                _ => TargetIds(ids: ObjectIds, op: op).Bind(objects),
+            },
+        };
 
     private static Fin<Seq<Guid>> TargetIds(IEnumerable<Guid> ids, Op op) =>
         Optional(ids)
@@ -94,7 +81,6 @@ public abstract partial record DocumentTarget {
         };
 }
 
-// --- [SERVICES] -------------------------------------------------------------------------
 public sealed record DocumentEdit {
     internal DocumentEdit(RhinoDoc document) {
         ArgumentNullException.ThrowIfNull(argument: document);
