@@ -1,5 +1,71 @@
 namespace Rasm.Rhino.Commands;
 
+// --- [MODELS] ---------------------------------------------------------------------------
+public abstract partial record DocumentTarget {
+    private DocumentTarget() { }
+
+    public static DocumentTarget Selection(CommandSelection selection) => new SelectionCase(Value: selection);
+    public static DocumentTarget Reference(ObjRef reference) => new ReferenceCase(Value: reference);
+    public static DocumentTarget Objects(IEnumerable<Guid> objectIds) => new ObjectsCase(Value: objectIds);
+
+    internal abstract Fin<int> Select(RhinoDoc document, bool selected, Op op);
+    internal abstract Fin<Unit> Delete(RhinoDoc document, bool quiet, bool ignoreModes, Op op);
+
+    private sealed record SelectionCase(CommandSelection Value) : DocumentTarget {
+        internal override Fin<int> Select(RhinoDoc document, bool selected, Op op) =>
+            Optional(Value)
+                .ToFin(Fail: op.InvalidInput())
+                .Bind(selection => ReferenceEquals(objA: selection.Document, objB: document) switch {
+                    true => selection.SelectInto(document: document, selected: selected, op: op),
+                    false => Fin.Fail<int>(error: op.InvalidInput()),
+                });
+
+        internal override Fin<Unit> Delete(RhinoDoc document, bool quiet, bool ignoreModes, Op op) =>
+            Optional(Value)
+                .ToFin(Fail: op.InvalidInput())
+                .Bind(selection => ObjectIds(document: document, ids: selection.ObjectIds, quiet: quiet, op: op));
+    }
+
+    private sealed record ReferenceCase(ObjRef Value) : DocumentTarget {
+        internal override Fin<int> Select(RhinoDoc document, bool selected, Op op) =>
+            Optional(Value)
+                .ToFin(Fail: op.InvalidInput())
+                .Bind(reference => document.Objects.Select(Seq(reference).AsIterable(), selected) switch {
+                    int count and >= 0 => Fin.Succ(value: count),
+                    _ => Fin.Fail<int>(error: op.InvalidResult()),
+                });
+
+        internal override Fin<Unit> Delete(RhinoDoc document, bool quiet, bool ignoreModes, Op op) =>
+            Optional(Value)
+                .ToFin(Fail: op.InvalidInput())
+                .Bind(reference => document.Objects.Delete(reference, quiet, ignoreModes) switch {
+                    true => Fin.Succ(value: unit),
+                    false => Fin.Fail<Unit>(error: op.InvalidResult()),
+                });
+    }
+
+    private sealed record ObjectsCase(IEnumerable<Guid> Value) : DocumentTarget {
+        internal override Fin<int> Select(RhinoDoc document, bool selected, Op op) =>
+            Optional(Value)
+                .ToFin(Fail: op.InvalidInput())
+                .Bind(ids => document.Objects.Select(ids, selected) switch {
+                    int count and >= 0 => Fin.Succ(value: count),
+                    _ => Fin.Fail<int>(error: op.InvalidResult()),
+                });
+
+        internal override Fin<Unit> Delete(RhinoDoc document, bool quiet, bool ignoreModes, Op op) =>
+            ObjectIds(document: document, ids: Value, quiet: quiet, op: op);
+    }
+
+    private static Fin<Unit> ObjectIds(RhinoDoc document, IEnumerable<Guid> ids, bool quiet, Op op) =>
+        Optional(ids)
+            .ToFin(Fail: op.InvalidInput())
+            .Bind(values => document.Objects.Delete(values, quiet) switch {
+                > 0 => Fin.Succ(value: unit),
+                _ => Fin.Fail<Unit>(error: op.InvalidResult()),
+            });
+}
+
 // --- [SERVICES] -------------------------------------------------------------------------
 public sealed record DocumentEdit {
     internal DocumentEdit(RhinoDoc document) {
@@ -41,35 +107,15 @@ public sealed record DocumentEdit {
             .As()
             .Bind(static result => result);
 
-    public Fin<Unit> Delete(ObjRef reference, bool quiet = true, bool ignoreModes = false) =>
-        Optional(reference)
+    public Fin<Unit> Delete(DocumentTarget target, bool quiet = true, bool ignoreModes = false) =>
+        Optional(target)
             .ToFin(Fail: Op.Of(name: nameof(Delete)).InvalidInput())
-            .Bind(r => UnitResult(success: Document.Objects.Delete(r, quiet, ignoreModes), op: Op.Of(name: nameof(Delete))));
+            .Bind(valid => valid.Delete(document: Document, quiet: quiet, ignoreModes: ignoreModes, op: Op.Of(name: nameof(Delete))));
 
-    public Fin<Unit> Delete(IEnumerable<Guid> ids, bool quiet = true) =>
-        Optional(ids)
-            .ToFin(Fail: Op.Of(name: nameof(Delete)).InvalidInput())
-            .Bind(values => Document.Objects.Delete(values.AsIterable(), quiet) switch {
-                > 0 => Fin.Succ(value: unit),
-                _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(Delete)).InvalidResult()),
-            });
-
-    public Fin<int> Select(CommandSelection selection, bool selected = true) =>
-        Optional(selection)
+    public Fin<int> Select(DocumentTarget target, bool selected = true) =>
+        Optional(target)
             .ToFin(Fail: Op.Of(name: nameof(Select)).InvalidInput())
-            .Bind(s => ReferenceEquals(objA: s.Document, objB: Document) switch {
-                true => s.UseObjRefs(
-                    document: Document,
-                    project: refs => CountResult(
-                        count: Document.Objects.Select(refs.AsIterable(), selected),
-                        op: Op.Of(name: nameof(Select)))),
-                false => Fin.Fail<int>(error: Op.Of(name: nameof(Select)).InvalidInput()),
-            });
-
-    public Fin<int> Select(IEnumerable<Guid> ids, bool selected = true) =>
-        Optional(ids)
-            .ToFin(Fail: Op.Of(name: nameof(Select)).InvalidInput())
-            .Bind(values => CountResult(count: Document.Objects.Select(values.AsIterable(), selected), op: Op.Of(name: nameof(Select))));
+            .Bind(valid => valid.Select(document: Document, selected: selected, op: Op.Of(name: nameof(Select))));
 
     public Fin<int> UnselectAll(bool ignorePersistentSelections = false) =>
         CountResult(count: Document.Objects.UnselectAll(ignorePersistentSelections: ignorePersistentSelections), op: Op.Of(name: nameof(UnselectAll)));
@@ -78,14 +124,6 @@ public sealed record DocumentEdit {
         Document.Views.Redraw();
         return Fin.Succ(value: unit);
     }
-
-    public static Fin<Unit> Redraw(RhinoView view) =>
-        Optional(view)
-            .ToFin(Fail: Op.Of(name: nameof(Redraw)).InvalidInput())
-            .Map(v => {
-                v.Redraw();
-                return unit;
-            });
 
     private static Fin<int> CountResult(int count, Op op) =>
         count switch {

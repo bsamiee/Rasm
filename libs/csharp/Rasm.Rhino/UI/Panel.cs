@@ -6,6 +6,22 @@ namespace Rasm.Rhino.UI;
 public abstract class RasmPanel : Panel, global::Rhino.UI.IPanel {
     protected RasmPanel() => global::Rhino.UI.EtoExtensions.UseRhinoStyle(this);
 
+    public static Fin<Unit> Register<TPanel>(
+        global::Rhino.PlugIns.PlugIn plugin,
+        string caption,
+        System.Reflection.Assembly iconAssembly,
+        string iconResourceId,
+        global::Rhino.UI.PanelType panelType = global::Rhino.UI.PanelType.PerDoc) where TPanel : RasmPanel =>
+        (Optional(plugin).ToFin(Fail: Op.Of(name: nameof(Register)).InvalidInput()),
+         Optional(caption).ToFin(Fail: Op.Of(name: nameof(Register)).InvalidInput()),
+         Optional(iconAssembly).ToFin(Fail: Op.Of(name: nameof(Register)).InvalidInput()),
+         Optional(iconResourceId).ToFin(Fail: Op.Of(name: nameof(Register)).InvalidInput()))
+            .Apply((validPlugin, validCaption, validAssembly, validResource) => {
+                global::Rhino.UI.Panels.RegisterPanel(validPlugin, typeof(TPanel), validCaption, validAssembly, validResource, panelType);
+                return unit;
+            })
+            .As();
+
     public void PanelShown(uint documentSerialNumber, global::Rhino.UI.ShowPanelReason reason) =>
         _ = OnPanelShown(documentSerialNumber: documentSerialNumber, reason: reason);
 

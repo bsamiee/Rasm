@@ -113,4 +113,4 @@
 - Add operation selectors and expected failure families as regular unions.
 - Use generated `Items`, `Get`, `TryGet`, `Switch`, and `Map` before creating local maps or visitors.
 - Bridge generated `ValidationError` into `Fault` once, then continue through `Fin<T>`, `Validation<Error,T>`, or `Eff<Env,T>`.
-- Keep RhinoCommon and GH2 protocol details in their existing boundary modules and ledger.
+- Keep RhinoCommon and GH2 protocol details in existing boundary modules and local RhinoWIP XML evidence.

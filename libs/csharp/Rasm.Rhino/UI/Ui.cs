@@ -16,6 +16,12 @@ public sealed record RhinoUi {
             .ToFin(Fail: Op.Of(name: nameof(Show)).InvalidInput())
             .Bind(valid => OnUiThread(run: () => valid.Show(document: document)));
 
+    public Fin<Unit> Show(Form form) =>
+        Show(dialog: UiDialog.Modeless(form: form));
+
+    public Seq<T> Windows<T>() where T : Form =>
+        toSeq(global::Rhino.UI.EtoExtensions.WindowsFromDocument<T>(document));
+
     internal static Window? Parent(RhinoDoc document) =>
         global::Rhino.UI.RhinoEtoApp.MainWindowForDocument(document);
 

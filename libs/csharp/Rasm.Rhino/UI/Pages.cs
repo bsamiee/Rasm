@@ -27,6 +27,9 @@ public abstract class RasmOptionsPage : global::Rhino.UI.OptionsDialogPage {
     public sealed override bool OnActivate(bool active) =>
         Activate(active: active).Match(Succ: static _ => true, Fail: static _ => false);
 
+    public sealed override Result RunScript(RhinoDoc doc, RunMode mode) =>
+        Script(document: doc, mode: mode).Match(Succ: static result => result, Fail: static _ => Result.Failure);
+
     protected virtual Fin<Unit> Apply() =>
         Fin.Succ(value: unit);
 
@@ -35,6 +38,9 @@ public abstract class RasmOptionsPage : global::Rhino.UI.OptionsDialogPage {
 
     protected virtual Fin<Unit> Activate(bool active) =>
         Fin.Succ(value: unit);
+
+    protected virtual Fin<Result> Script(RhinoDoc document, RunMode mode) =>
+        Fin.Succ(value: Result.Success);
 }
 
 public abstract class RasmPropertiesPage : global::Rhino.UI.ObjectPropertiesPage {
@@ -65,6 +71,8 @@ public abstract class RasmPropertiesPage : global::Rhino.UI.ObjectPropertiesPage
 
     public sealed override bool AllObjectsMustBeSupported => allObjectsMustBeSupported;
 
+    public sealed override bool SupportsSubObjects => true;
+
     public sealed override bool ShouldDisplay(global::Rhino.UI.ObjectPropertiesPageEventArgs e) =>
         Display(args: e).Match(Succ: static value => value, Fail: static _ => false);
 
@@ -73,6 +81,17 @@ public abstract class RasmPropertiesPage : global::Rhino.UI.ObjectPropertiesPage
 
     public sealed override bool OnActivate(bool active) =>
         Activate(active: active).Match(Succ: static _ => true, Fail: static _ => false);
+
+    public sealed override Result RunScript(global::Rhino.UI.ObjectPropertiesPageEventArgs e) =>
+        Script(args: e).Match(Succ: static result => result, Fail: static _ => Result.Failure);
+
+    public Fin<Unit> Modify(Action<global::Rhino.UI.ObjectPropertiesPageEventArgs> change) =>
+        Optional(change)
+            .ToFin(Fail: Op.Of(name: nameof(Modify)).InvalidInput())
+            .Map(valid => {
+                ModifyPage(valid);
+                return unit;
+            });
 
     protected virtual Fin<bool> Display(global::Rhino.UI.ObjectPropertiesPageEventArgs args) =>
         Optional(args)
@@ -84,4 +103,7 @@ public abstract class RasmPropertiesPage : global::Rhino.UI.ObjectPropertiesPage
 
     protected virtual Fin<Unit> Activate(bool active) =>
         Fin.Succ(value: unit);
+
+    protected virtual Fin<Result> Script(global::Rhino.UI.ObjectPropertiesPageEventArgs args) =>
+        Fin.Succ(value: Result.Success);
 }

@@ -1,6 +1,34 @@
 namespace Rasm.Rhino.Commands;
 
 // --- [MODELS] ---------------------------------------------------------------------------
+public abstract partial record PickLocation {
+    private PickLocation() { }
+
+    public sealed record CurveCase(double Parameter) : PickLocation;
+    public sealed record SurfaceCase(Point2d Parameter) : PickLocation;
+
+    internal static Option<PickLocation> Of(ObjRef reference, SelectionMethod selectionMethod) {
+        ArgumentNullException.ThrowIfNull(argument: reference);
+        double curveParameter = 0.0;
+        double surfaceU = 0.0;
+        double surfaceV = 0.0;
+        Curve? curve = selectionMethod switch {
+            SelectionMethod.MousePick => reference.CurveParameter(parameter: out curveParameter),
+            _ => null,
+        };
+        Surface? surface = selectionMethod switch {
+            SelectionMethod.MousePick => reference.SurfaceParameter(u: out surfaceU, v: out surfaceV),
+            _ => null,
+        };
+        Point2d surfaceParameter = new(x: surfaceU, y: surfaceV);
+        return (curve, surface) switch {
+            (Curve, _) when RhinoMath.IsValidDouble(x: curveParameter) => Some<PickLocation>(new CurveCase(Parameter: curveParameter)),
+            (_, Surface) when surfaceParameter.IsValid => Some<PickLocation>(new SurfaceCase(Parameter: surfaceParameter)),
+            _ => Option<PickLocation>.None,
+        };
+    }
+}
+
 public sealed record CommandSelection {
     private CommandSelection(RhinoDoc document, Seq<Reference> items) {
         ArgumentNullException.ThrowIfNull(argument: document);
@@ -22,11 +50,13 @@ public sealed record CommandSelection {
         return new(document: document, items: toSeq(snapshots));
     }
 
-    internal Fin<TResult> UseObjRefs<TResult>(RhinoDoc document, Func<Seq<ObjRef>, Fin<TResult>> project) {
+    internal Fin<int> SelectInto(RhinoDoc document, bool selected, Op op) {
         ArgumentNullException.ThrowIfNull(argument: document);
-        ArgumentNullException.ThrowIfNull(argument: project);
         ObjRef[] references = [.. Items.Map(reference => reference.ObjRef(document: document))];
-        Fin<TResult> result = project(arg: toSeq(references));
+        Fin<int> result = document.Objects.Select(references, selected) switch {
+            int count and >= 0 => Fin.Succ(value: count),
+            _ => Fin.Fail<int>(error: op.InvalidResult()),
+        };
         _ = toSeq(references).Iter(static reference => reference.Dispose());
         return result;
     }
@@ -41,26 +71,12 @@ public sealed record CommandSelection {
         Option<uint> SelectionViewRuntimeSerialNumber,
         Option<Guid> SelectionViewportId,
         uint SelectionViewDetailSerialNumber,
-        Option<double> CurveParameter,
-        Option<Point2d> SurfaceParameter,
-        Option<Point2d> BrepParameter) {
+        Option<PickLocation> Location) {
         internal static Reference Of(ObjRef reference, bool preselected) {
             ArgumentNullException.ThrowIfNull(argument: reference);
             SelectionMethod selectionMethod = reference.SelectionMethod();
             Point3d selectionPoint = reference.SelectionPoint();
             RhinoView? selectionView = reference.SelectionView();
-            double curveParameter = 0.0;
-            double surfaceU = 0.0;
-            double surfaceV = 0.0;
-            Curve? curve = selectionMethod switch {
-                SelectionMethod.MousePick => reference.CurveParameter(parameter: out curveParameter),
-                _ => null,
-            };
-            Surface? surface = selectionMethod switch {
-                SelectionMethod.MousePick => reference.SurfaceParameter(u: out surfaceU, v: out surfaceV),
-                _ => null,
-            };
-            Point2d surfaceParameter = new(x: surfaceU, y: surfaceV);
             return new(
                 ObjectId: reference.ObjectId,
                 RuntimeSerialNumber: reference.RuntimeSerialNumber,
@@ -74,18 +90,7 @@ public sealed record CommandSelection {
                 SelectionViewRuntimeSerialNumber: Optional(selectionView).Map(static view => view.RuntimeSerialNumber),
                 SelectionViewportId: Optional(selectionView).Map(static view => view.ActiveViewportID),
                 SelectionViewDetailSerialNumber: reference.SelectionViewDetailSerialNumber(),
-                CurveParameter: curve switch {
-                    Curve when RhinoMath.IsValidDouble(x: curveParameter) => Some(curveParameter),
-                    _ => Option<double>.None,
-                },
-                SurfaceParameter: surface switch {
-                    Surface when surfaceParameter.IsValid => Some(surfaceParameter),
-                    _ => Option<Point2d>.None,
-                },
-                BrepParameter: surface switch {
-                    BrepFace when surfaceParameter.IsValid => Some(surfaceParameter),
-                    _ => Option<Point2d>.None,
-                });
+                Location: PickLocation.Of(reference: reference, selectionMethod: selectionMethod));
         }
 
         internal ObjRef ObjRef(RhinoDoc document) {

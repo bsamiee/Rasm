@@ -1,63 +1,21 @@
 using Eto.Forms;
-using ColorChangedEvent = global::Rhino.UI.Dialogs.OnColorChangedEvent;
+using ColorChangedEvent = Rhino.UI.Dialogs.OnColorChangedEvent;
 using DrawingColor = System.Drawing.Color;
-using UiDialogs = global::Rhino.UI.Dialogs;
+using UiDialogs = Rhino.UI.Dialogs;
 
 namespace Rasm.Rhino.UI;
 
 // --- [MODELS] ---------------------------------------------------------------------------
 public static class UiDialog {
+    private enum FileDialogMode { OpenOne, OpenMany, Save }
+
     public static UiDialog<T> Eto<T>(Dialog<T> dialog, bool semiModal = false) =>
-        UiDialog<T>.Eto(dialog: dialog, semiModal: semiModal);
+        new EtoCase<T>(Dialog: dialog, SemiModal: semiModal);
+
+    public static UiDialog<Unit> Modeless(Form form) =>
+        new ModelessCase(Form: form);
 
     public static UiDialog<global::Rhino.UI.ShowMessageResult> Message(
-        string message,
-        string title,
-        global::Rhino.UI.ShowMessageButton buttons = global::Rhino.UI.ShowMessageButton.OK,
-        global::Rhino.UI.ShowMessageIcon icon = global::Rhino.UI.ShowMessageIcon.Information,
-        global::Rhino.UI.ShowMessageDefaultButton defaultButton = global::Rhino.UI.ShowMessageDefaultButton.Button1,
-        global::Rhino.UI.ShowMessageOptions options = global::Rhino.UI.ShowMessageOptions.None,
-        global::Rhino.UI.ShowMessageMode mode = global::Rhino.UI.ShowMessageMode.ApplicationModal) =>
-        UiDialog<global::Rhino.UI.ShowMessageResult>.Message(
-            message: message,
-            title: title,
-            buttons: buttons,
-            icon: icon,
-            defaultButton: defaultButton,
-            options: options,
-            mode: mode);
-
-    public static UiDialog<DrawingColor> Color(
-        DrawingColor initial,
-        bool includeButtonColors = false,
-        string title = "",
-        global::Rhino.UI.NamedColorList? colors = null) =>
-        UiDialog<DrawingColor>.Color(initial: initial, includeButtonColors: includeButtonColors, title: title, colors: colors);
-
-    public static UiDialog<Color4f> Color(
-        Color4f initial,
-        bool allowAlpha = false,
-        global::Rhino.UI.NamedColorList? colors = null,
-        ColorChangedEvent? changed = null) =>
-        UiDialog<Color4f>.Color(initial: initial, allowAlpha: allowAlpha, colors: colors, changed: changed);
-
-    public static UiDialog<string> OpenFile(string title = "", string filter = "", string directory = "", string extension = "") =>
-        UiDialog<string>.OpenFile(title: title, filter: filter, directory: directory, extension: extension);
-
-    public static UiDialog<Seq<string>> OpenFiles(string title = "", string filter = "", string directory = "", string extension = "") =>
-        UiDialog<Seq<string>>.OpenFiles(title: title, filter: filter, directory: directory, extension: extension);
-
-    public static UiDialog<string> SaveFile(string title = "", string filter = "", string directory = "", string extension = "") =>
-        UiDialog<string>.SaveFile(title: title, filter: filter, directory: directory, extension: extension);
-}
-
-public abstract partial record UiDialog<T> {
-    private UiDialog() { }
-
-    internal static UiDialog<T> Eto(Dialog<T> dialog, bool semiModal = false) =>
-        new EtoCase(Dialog: dialog, SemiModal: semiModal);
-
-    internal static UiDialog<global::Rhino.UI.ShowMessageResult> Message(
         string message,
         string title,
         global::Rhino.UI.ShowMessageButton buttons = global::Rhino.UI.ShowMessageButton.OK,
@@ -74,38 +32,47 @@ public abstract partial record UiDialog<T> {
             Options: options,
             Mode: mode);
 
-    internal static UiDialog<DrawingColor> Color(
+    public static UiDialog<DrawingColor> Color(
         DrawingColor initial,
-        bool includeButtonColors,
-        string title,
-        global::Rhino.UI.NamedColorList? colors) =>
+        bool includeButtonColors = false,
+        string title = "",
+        global::Rhino.UI.NamedColorList? colors = null) =>
         new ColorCase(Initial: initial, IncludeButtonColors: includeButtonColors, Title: title, Colors: Optional(colors));
 
-    internal static UiDialog<Color4f> Color(
+    public static UiDialog<Color4f> Color(
         Color4f initial,
-        bool allowAlpha,
-        global::Rhino.UI.NamedColorList? colors,
-        ColorChangedEvent? changed) =>
+        bool allowAlpha = false,
+        global::Rhino.UI.NamedColorList? colors = null,
+        ColorChangedEvent? changed = null) =>
         new Color4fCase(Initial: initial, AllowAlpha: allowAlpha, Colors: Optional(colors), Changed: Optional(changed));
 
-    internal static UiDialog<string> OpenFile(string title = "", string filter = "", string directory = "", string extension = "") =>
-        new OpenFileCase(Title: title, Filter: filter, Directory: directory, Extension: extension);
+    public static UiDialog<string> OpenFile(string title = "", string filter = "", string directory = "", string extension = "") =>
+        new FileCase<string>(Mode: FileDialogMode.OpenOne, Spec: new FileDialogSpec(Title: title, Filter: filter, Directory: directory, Extension: extension));
 
-    internal static UiDialog<Seq<string>> OpenFiles(string title = "", string filter = "", string directory = "", string extension = "") =>
-        new OpenFilesCase(Title: title, Filter: filter, Directory: directory, Extension: extension);
+    public static UiDialog<Seq<string>> OpenFiles(string title = "", string filter = "", string directory = "", string extension = "") =>
+        new FileCase<Seq<string>>(Mode: FileDialogMode.OpenMany, Spec: new FileDialogSpec(Title: title, Filter: filter, Directory: directory, Extension: extension));
 
-    internal static UiDialog<string> SaveFile(string title = "", string filter = "", string directory = "", string extension = "") =>
-        new SaveFileCase(Title: title, Filter: filter, Directory: directory, Extension: extension);
+    public static UiDialog<string> SaveFile(string title = "", string filter = "", string directory = "", string extension = "") =>
+        new FileCase<string>(Mode: FileDialogMode.Save, Spec: new FileDialogSpec(Title: title, Filter: filter, Directory: directory, Extension: extension));
 
-    internal abstract Fin<T> Show(RhinoDoc document);
-
-    private sealed record EtoCase(Dialog<T> Dialog, bool SemiModal) : UiDialog<T> {
+    private sealed record EtoCase<T>(Dialog<T> Dialog, bool SemiModal) : UiDialog<T> {
         internal override Fin<T> Show(RhinoDoc document) =>
             Optional(Dialog)
                 .ToFin(Fail: Op.Of(name: nameof(Eto)).InvalidInput())
                 .Map(dialog => SemiModal switch {
                     true => global::Rhino.UI.EtoExtensions.ShowSemiModal(dialog, document, parent: RhinoUi.Parent(document: document)),
                     false => dialog.ShowModal(owner: RhinoUi.Parent(document: document)),
+                });
+    }
+
+    private sealed record ModelessCase(Form Form) : UiDialog<Unit> {
+        internal override Fin<Unit> Show(RhinoDoc document) =>
+            Optional(Form)
+                .ToFin(Fail: Op.Of(name: nameof(Modeless)).InvalidInput())
+                .Map(form => {
+                    global::Rhino.UI.EtoExtensions.UseRhinoStyle(form);
+                    global::Rhino.UI.EtoExtensions.Show(form, document);
+                    return unit;
                 });
     }
 
@@ -225,20 +192,27 @@ public abstract partial record UiDialog<T> {
         }
     }
 
-    private sealed record OpenFileCase(string Title, string Filter, string Directory, string Extension) : UiDialog<string> {
-        internal override Fin<string> Show(RhinoDoc document) =>
-            new FileDialogSpec(Title: Title, Filter: Filter, Directory: Directory, Extension: Extension)
-                .Open(multiSelect: false)
-                .Bind(names => names.Head.ToFin(Fail: Op.Of(name: nameof(OpenFile)).InvalidResult()));
-    }
+    private sealed record FileCase<T>(FileDialogMode Mode, FileDialogSpec Spec) : UiDialog<T> {
+        internal override Fin<T> Show(RhinoDoc document) =>
+            Mode switch {
+                FileDialogMode.OpenOne => Spec.Open(multiSelect: false)
+                    .Bind(names => names.Head.ToFin(Fail: Op.Of(name: nameof(OpenFile)).InvalidResult()))
+                    .Bind(Accept<string>),
+                FileDialogMode.OpenMany => Spec.Open(multiSelect: true).Bind(Accept<Seq<string>>),
+                FileDialogMode.Save => Spec.Save().Bind(Accept<string>),
+                _ => Fin.Fail<T>(error: Op.Of(name: nameof(FileCase<T>)).InvalidInput()),
+            };
 
-    private sealed record OpenFilesCase(string Title, string Filter, string Directory, string Extension) : UiDialog<Seq<string>> {
-        internal override Fin<Seq<string>> Show(RhinoDoc document) =>
-            new FileDialogSpec(Title: Title, Filter: Filter, Directory: Directory, Extension: Extension).Open(multiSelect: true);
+        private static Fin<T> Accept<TSource>(TSource value) =>
+            value switch {
+                T typed => Fin.Succ(value: typed),
+                _ => Fin.Fail<T>(error: Op.Of(name: nameof(FileCase<T>)).InvalidResult()),
+            };
     }
+}
 
-    private sealed record SaveFileCase(string Title, string Filter, string Directory, string Extension) : UiDialog<string> {
-        internal override Fin<string> Show(RhinoDoc document) =>
-            new FileDialogSpec(Title: Title, Filter: Filter, Directory: Directory, Extension: Extension).Save();
-    }
+public abstract partial record UiDialog<T> {
+    private protected UiDialog() { }
+
+    internal abstract Fin<T> Show(RhinoDoc document);
 }

@@ -25,9 +25,13 @@ internal readonly record struct BoundPort(Port Port, IParameter Parameter);
 internal interface IRasmComponent {
     public ComponentSpec Spec { get; }
 }
-public readonly record struct ComponentSpec(Seq<ComponentItem<Port>> Inputs, Seq<ComponentItem<OutputBinding>> Outputs) {
-    public static ComponentSpec Of(Seq<Port> inputs, Seq<OutputBinding> outputs) =>
-        new(Inputs: inputs.Map(static port => new ComponentItem<Port>(Value: port)), Outputs: outputs.Map(static binding => new ComponentItem<OutputBinding>(Value: binding)));
+public readonly record struct ComponentSpec(Seq<ComponentItem<Port>> Inputs, Seq<ComponentItem<OutputBinding>> Outputs, NameIconMode IconMode = NameIconMode.Application, ThreadingState Threading = ThreadingState.MultiThreaded) {
+    public static ComponentSpec Of(Seq<Port> inputs, Seq<OutputBinding> outputs, NameIconMode iconMode = NameIconMode.Application, ThreadingState threading = ThreadingState.MultiThreaded) =>
+        new(
+            Inputs: inputs.Map(static port => new ComponentItem<Port>(Value: port)),
+            Outputs: outputs.Map(static binding => new ComponentItem<OutputBinding>(Value: binding)),
+            IconMode: iconMode,
+            Threading: threading);
 }
 internal readonly record struct GrasshopperRuntime(IDataAccess Access, Analyze.Scope Scope, Hints Hints, IProgress<double> Progress, CancellationToken Cancellation) {
     internal static Fin<GrasshopperRuntime> Capture(IDataAccess access, Seq<BoundPort> inputs, ComponentParameters parameters) {
@@ -59,20 +63,27 @@ public abstract class Plugin : GhPlugin {
         copyright = self.Assembly.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright ?? string.Empty;
     }
     public override string Author => author;
+    public override string Contact => string.Empty;
     public override string Copyright => copyright;
+    public override string Website => string.Empty;
+    public override string LicenceDescription => string.Empty;
+    public override string LicenceAgreement => string.Empty;
     public override IIcon Icon => IconAttribute.Resolve(owner: GetType(), fallback: base.Icon);
+    protected override Assembly[] SatelliteAssemblies => [];
     public override void OnLoaded() {
         base.OnLoaded();
-        Seq<Type> types = toSeq(GetType().Assembly.GetTypes());
+        Assembly[] satellites = SatelliteAssemblies;
+        Seq<Assembly> declaredSatellites = toSeq(satellites).Choose(static assembly => Optional(assembly));
+        Seq<Type> types = declaredSatellites.IsEmpty ? toSeq(GetType().Assembly.GetTypes()) : toSeq(ExportedTypes);
         Seq<Type> plugins = types.Filter(static type => typeof(Plugin).IsAssignableFrom(c: type) && !type.IsAbstract && !type.IsGenericTypeDefinition).Distinct();
         Seq<Type> components = types
             .Filter(static type => typeof(IRasmComponent).IsAssignableFrom(c: type) && !type.IsAbstract && !type.IsGenericTypeDefinition)
             .Distinct();
-        Seq<string> faults = ValidateCatalog(active: this, plugins: plugins, components: components)
+        Seq<string> faults = ValidateCatalog(active: this, plugins: plugins, components: components, satellites: satellites, declaredSatellites: declaredSatellites)
             .Concat(components.Bind(Validate));
         _ = faults.IsEmpty ? Unit.Default : throw new InvalidOperationException(message: string.Join(separator: "; ", values: faults));
     }
-    private static Seq<string> ValidateCatalog(Plugin active, Seq<Type> plugins, Seq<Type> components) {
+    private static Seq<string> ValidateCatalog(Plugin active, Seq<Type> plugins, Seq<Type> components, Assembly[] satellites, Seq<Assembly> declaredSatellites) {
         Type activeType = active.GetType();
         Option<Guid> IoIdOf(Type type) => Optional(type.GetCustomAttribute<IoIdAttribute>(inherit: false)).Map(static attr => attr.Id);
         Option<Nomen> NomenOf(Type type) => Optional(type.GetCustomAttribute<NomenAttribute>(inherit: false)).Map(static attr => attr.Nomen);
@@ -82,10 +93,16 @@ public abstract class Plugin : GhPlugin {
                 .Where(static group => group.Skip(1).Any())
                 .Select(group => $"duplicate {key} '{group.Key}' on {string.Join(separator: ", ", values: group.Select(static item => item.Type.FullName))}"));
         Seq<Type> owners = plugins.Concat(components).ToSeq();
+        bool declaredDocumentation = activeType.GetProperty(name: nameof(DocumentationFolder), bindingAttr: BindingFlags.Public | BindingFlags.Instance)?.DeclaringType switch {
+            Type owner => owner != typeof(GhPlugin),
+            _ => false,
+        };
         return Seq<Option<string>>(
                 plugins.Count == 1 ? Option<string>.None : Some($"{activeType.Assembly.GetName().Name}: expected one plugin type, found {plugins.Count}"),
                 plugins.Exists(type => type == activeType) ? Option<string>.None : Some($"{activeType.FullName}: active plugin is not the assembly plugin type"),
-                IoIdOf(type: activeType).Filter(id => id == active.Id).IsSome ? Option<string>.None : Some($"{activeType.FullName}: plugin Id does not match IoId"))
+                IoIdOf(type: activeType).Filter(id => id == active.Id).IsSome ? Option<string>.None : Some($"{activeType.FullName}: plugin Id does not match IoId"),
+                declaredSatellites.Count == satellites.Length ? Option<string>.None : Some($"{activeType.FullName}: SatelliteAssemblies contains null entries"),
+                declaredDocumentation && !string.IsNullOrWhiteSpace(value: active.DocumentationFolder) && !Directory.Exists(path: active.DocumentationFolder) ? Some($"{activeType.FullName}: DocumentationFolder does not exist: {active.DocumentationFolder}") : Option<string>.None)
             .Choose(identity)
             .Concat(owners.Choose(type => IoIdOf(type: type).IsSome ? Option<string>.None : Some($"{type.FullName}: missing IoId")))
             .Concat(DuplicateTypes(candidates: owners, key: "IoId", project: type => IoIdOf(type: type).Map(static id => id.ToString()).IfNone(string.Empty)))
@@ -129,23 +146,32 @@ public abstract class Plugin : GhPlugin {
             .Where(static group => group.Skip(1).Any())
             .Select(group => $"{spec.FullName}: duplicate {side} port {key} '{group.Key}' on {string.Join(separator: ", ", values: group.Select(label))}"));
 }
-public abstract class Component<TSelf>(ComponentSpec spec) : Grasshopper2.Components.ModularComponent(nomen: Self.GetCustomAttribute<NomenAttribute>()?.Nomen ?? new Nomen(name: Self.Name, info: string.Empty)), IRasmComponent where TSelf : Component<TSelf> {
+public abstract class Component<TSelf> : Grasshopper2.Components.ModularComponent, IRasmComponent where TSelf : Component<TSelf> {
     private Seq<BoundPort> cachedInputs = Seq<BoundPort>();
     private Seq<BoundPort> cachedOutputs = Seq<BoundPort>();
+    protected Component(ComponentSpec spec) : base(nomen: Self.GetCustomAttribute<NomenAttribute>()?.Nomen ?? new Nomen(name: Self.Name, info: string.Empty)) {
+        Spec = spec;
+        IconMode = spec.IconMode;
+        Threading = spec.Threading;
+    }
     private static Type Self => typeof(TSelf);
-    public ComponentSpec Spec => spec;
+    public ComponentSpec Spec { get; }
     protected override IIcon IconInternal => IconAttribute.Resolve(owner: Self, fallback: base.IconInternal);
     protected override void AddInputs(ModularInputAdder inputs) {
         ArgumentNullException.ThrowIfNull(argument: inputs);
-        cachedInputs = spec.Inputs.Map(pair => new BoundPort(
+        cachedInputs = Spec.Inputs.Map(pair => new BoundPort(
             Port: pair.Value,
             Parameter: pair.Value.Kind.Bind(adder: inputs, name: pair.Value.Name, code: pair.Value.Code, info: pair.Value.Info, access: pair.Value.Access, requirement: pair.Value.Requirement, policy: pair.Value.Policy, hidden: pair.Hidden)));
     }
     protected override void AddOutputs(ModularOutputAdder outputs) {
         ArgumentNullException.ThrowIfNull(argument: outputs);
-        cachedOutputs = spec.Outputs.Map(pair => new BoundPort(
+        cachedOutputs = Spec.Outputs.Map(pair => new BoundPort(
             Port: pair.Value.Port,
             Parameter: pair.Value.Port.Kind.Bind(adder: outputs, name: pair.Value.Port.Name, code: pair.Value.Port.Code, info: pair.Value.Port.Info, access: pair.Value.Port.Access, policy: pair.Value.Port.Policy, hidden: pair.Hidden)));
+    }
+    protected override void BeforeProcess(Solution solution) {
+        base.BeforeProcess(solution: solution);
+        OnBeforeProcess(solution: solution);
     }
     protected override void PreProcess(Solution solution) {
         base.PreProcess(solution: solution);
@@ -155,10 +181,12 @@ public abstract class Component<TSelf>(ComponentSpec spec) : Grasshopper2.Compon
         OnPostProcess(solution: solution);
         base.PostProcess(solution: solution, customData: customData);
     }
+    protected override ITree PostProcessTree(ITree tree, int index, Solution solution) =>
+        OnPostProcessTree(tree: base.PostProcessTree(tree: tree, index: index, solution: solution), index: index, solution: solution);
     protected override void Process(IDataAccess access) {
         ArgumentNullException.ThrowIfNull(argument: access);
         Hints outputs = Hints.Capture(ports: cachedOutputs, index: Parameters.IndexOfOutput);
-        Seq<OutputBinding> bindings = spec.Outputs.Map(static output => output.Value);
+        Seq<OutputBinding> bindings = Spec.Outputs.Map(static output => output.Value);
         _ = GrasshopperRuntime.Capture(access: access, inputs: cachedInputs, parameters: Parameters)
             .Match(
                 Succ: runtime => Output.Write(access: access, runtime: runtime, bindings: bindings, outputs: outputs),
@@ -167,6 +195,8 @@ public abstract class Component<TSelf>(ComponentSpec spec) : Grasshopper2.Compon
                     return Output.Empty(access: access, bindings: bindings, outputs: outputs);
                 });
     }
+    protected virtual void OnBeforeProcess(Solution solution) { }
     protected virtual void OnPreProcess(Solution solution) { }
     protected virtual void OnPostProcess(Solution solution) { }
+    protected virtual ITree OnPostProcessTree(ITree tree, int index, Solution solution) => tree;
 }
