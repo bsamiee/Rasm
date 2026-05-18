@@ -26,12 +26,20 @@ internal interface IRasmComponent {
     public ComponentSpec Spec { get; }
 }
 public readonly record struct ComponentSpec(Seq<ComponentItem<Port>> Inputs, Seq<ComponentItem<OutputBinding>> Outputs, NameIconMode IconMode = NameIconMode.Application, ThreadingState Threading = ThreadingState.MultiThreaded) {
-    public static ComponentSpec Of(Seq<Port> inputs, Seq<OutputBinding> outputs, NameIconMode iconMode = NameIconMode.Application, ThreadingState threading = ThreadingState.MultiThreaded) =>
-        new(
-            Inputs: inputs.Map(static port => new ComponentItem<Port>(Value: port)),
+    public static ComponentSpec Of(Seq<OutputBinding> outputs, Seq<ComponentItem<Port>> inputs = default, NameIconMode iconMode = NameIconMode.Application, ThreadingState threading = ThreadingState.MultiThreaded) {
+        Seq<ComponentItem<Port>> declared = inputs
+            .Concat(outputs.Choose(static binding => Optional(binding).Map(static found => new ComponentItem<Port>(Value: found.Input))))
+            .Fold(Seq<ComponentItem<Port>>(), static (found, item) => found.Exists(input => ReferenceEquals(objA: input.Value, objB: item.Value)) switch {
+                true => found,
+                false => item.Cons(found),
+            })
+            .Rev();
+        return new(
+            Inputs: declared,
             Outputs: outputs.Map(static binding => new ComponentItem<OutputBinding>(Value: binding)),
             IconMode: iconMode,
             Threading: threading);
+    }
 }
 internal readonly record struct GrasshopperRuntime(IDataAccess Access, Analyze.Scope Scope, Hints Hints, IProgress<double> Progress, CancellationToken Cancellation) {
     internal static Fin<GrasshopperRuntime> Capture(IDataAccess access, Seq<BoundPort> inputs, ComponentParameters parameters) {
@@ -145,6 +153,18 @@ public abstract class Plugin : GhPlugin {
         toSeq(ports.GroupBy(keySelector: project, comparer: StringComparer.Ordinal)
             .Where(static group => group.Skip(1).Any())
             .Select(group => $"{spec.FullName}: duplicate {side} port {key} '{group.Key}' on {string.Join(separator: ", ", values: group.Select(label))}"));
+}
+public abstract class Plugin<TSelf> : Plugin where TSelf : Plugin<TSelf> {
+    protected Plugin() : base(id: IdOf(), nomen: NomenOf(), version: Self.Assembly.GetName().Version) { }
+    private static Type Self => typeof(TSelf);
+    private static Guid IdOf() =>
+        Optional(Self.GetCustomAttribute<IoIdAttribute>(inherit: false)).Map(static attr => attr.Id).IfNone(Guid.Empty);
+    private static Nomen NomenOf() =>
+        Optional(Self.GetCustomAttribute<NomenAttribute>(inherit: false))
+            .Map(static attr => attr.Nomen)
+            .IfNone(() => new Nomen(
+                name: Self.Assembly.GetName().Name ?? Self.Name,
+                info: Self.Assembly.GetCustomAttribute<AssemblyDescriptionAttribute>()?.Description ?? string.Empty));
 }
 public abstract class Component<TSelf> : Grasshopper2.Components.ModularComponent, IRasmComponent where TSelf : Component<TSelf> {
     private Seq<BoundPort> cachedInputs = Seq<BoundPort>();

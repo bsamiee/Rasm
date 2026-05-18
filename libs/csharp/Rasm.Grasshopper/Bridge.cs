@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Extensions;
+using Grasshopper2.Types.Conversion;
 
 namespace Rasm.Grasshopper;
 
@@ -51,7 +52,12 @@ public readonly record struct Shape {
                 object candidate => Fin.Fail<Shape>(new UnsupportedSource(Port: nameof(Shape), SourceType: candidate.GetType(), Hint: Accepted)),
             });
     internal static Option<Shape> Converted(object raw, GeometryBase? value) =>
-        Optional(value).Bind(converted => Create(value: converted, owned: ReferenceEquals(objA: raw, objB: converted) ? Option<IDisposable>.None : Some((IDisposable)converted)).ToOption());
+        Optional(value).Bind(converted => {
+            Option<IDisposable> lease = ReferenceEquals(objA: raw, objB: converted) ? Option<IDisposable>.None : Some((IDisposable)converted);
+            return Create(value: converted, owned: lease).Match(
+                Succ: Some,
+                Fail: _ => lease.Iter(static disposable => disposable.Dispose()) switch { _ => Option<Shape>.None });
+        });
 }
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct Flow<T>(Pear<T> Pear, Option<Site> Site) {
@@ -171,6 +177,7 @@ internal static class Bridge {
         static raw => AsShape(value: raw),
         static raw => Shape.Converted(raw: raw, value: CurveBroker.ToRhinoCurve(raw)),
         static raw => SurfaceShape(raw: raw),
+        static raw => ConversionShape(raw: raw),
     });
     private static Option<Shape> NormalizeShape(object raw) => Brokers.Choose(convert => convert(arg: raw)).Head;
     private static Option<Shape> AsShape(object? value) => Optional(value).Bind(static candidate => Shape.Create(value: candidate).ToOption());
@@ -180,6 +187,11 @@ internal static class Bridge {
             SurfaceLikeType.Surf => Shape.Converted(raw: raw, value: surface),
             SurfaceLikeType.Brep => Shape.Converted(raw: raw, value: brep),
             SurfaceLikeType.SubD => Shape.Converted(raw: raw, value: subd),
+            _ => Option<Shape>.None,
+        };
+    private static Option<Shape> ConversionShape(object raw) =>
+        ConversionServer.Convert(source: raw, targetType: typeof(GeometryBase), target: out object converted) switch {
+            true when converted is GeometryBase geometry => Shape.Converted(raw: raw, value: geometry),
             _ => Option<Shape>.None,
         };
     private static Fin<Flow<Shape>> NormalizeFlow(IDataAccess access, Flow<object> source, Port port) =>

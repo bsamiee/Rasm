@@ -58,7 +58,7 @@ public static class Output {
     }
     internal static Unit Write(IDataAccess access, GrasshopperRuntime runtime, Seq<OutputBinding> bindings, Hints outputs) {
         Seq<OutputBinding> active = bindings.Filter(binding => outputs.Slot(port: binding.Port).IsSome);
-        Seq<Port<Shape>> inputs = active.Fold(Seq<Port<Shape>>(), (found, binding) => found.Exists(input => ReferenceEquals(objA: input, objB: binding.Input)) ? found : binding.Input.Cons(found)).Rev();
+        Seq<Port<Shape>> inputs = active.Map(static binding => binding.Input).Distinct().ToSeq();
         return active.IsEmpty switch {
             true => Unit.Default,
             false => inputs.Iter(input => RunCached(

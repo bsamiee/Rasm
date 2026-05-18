@@ -46,7 +46,7 @@ public abstract class Port {
             access: access,
             requirement: requirement,
             policy: requirement switch {
-                Requirement.MayBeMissing => PortPolicy.Compose(resolved, PortPolicy.Optional, PortPolicy.Category(name: "Optional")),
+                Requirement.MayBeMissing => resolved + PortPolicy.Optional + PortPolicy.Category(name: "Optional"),
                 _ => resolved,
             });
     }
@@ -93,6 +93,8 @@ public sealed record PortPolicy {
         ArgumentNullException.ThrowIfNull(argument: policies);
         return new PortPolicy(apply: parameter => toSeq(policies).Iter(policy => policy.Apply(parameter: parameter)));
     }
+    public static PortPolicy Add(PortPolicy left, PortPolicy right) => Compose(left, right);
+    public static PortPolicy operator +(PortPolicy left, PortPolicy right) => Add(left: left, right: right);
     public Unit Apply(object parameter) {
         ArgumentNullException.ThrowIfNull(argument: parameter);
         return apply(arg: parameter);

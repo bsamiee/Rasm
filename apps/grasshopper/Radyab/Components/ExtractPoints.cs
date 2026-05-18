@@ -18,6 +18,5 @@ public sealed class ExtractPoints : Component<ExtractPoints> {
     private static readonly OutputBinding BBoxCenter = Output.Of(input: Geometry, port: Port.Of<Point3d>(name: "BBox Center", code: "B", info: "Axis-aligned bounding box center for bounded geometry and primitives.", access: Access.Tree), aspect: Bounds.Center);
     private static readonly OutputBinding BoundingCorners = Output.Of(input: Geometry, port: Port.Of<Point3d>(name: "Bounding Corners", code: "BX", info: "Unique axis-aligned bounding-box corners: 8 for full 3D, 4 for planar, 2 for linear, 1 for point.", access: Access.Tree), aspect: Bounds.Corners(unique: true));
     public ExtractPoints() : base(spec: ComponentSpec.Of(
-        inputs: Seq<Port>(Geometry),
         outputs: Seq(Vertices, ControlPoints, EdgeMidpoints, Quadrants, Centroid, BBoxCenter, BoundingCorners))) { }
 }
