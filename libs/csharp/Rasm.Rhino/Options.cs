@@ -143,16 +143,6 @@ public abstract record CommandOption {
             _ => Fin.Fail<int>(error: Op.Of(name: nameof(CommandOption)).InvalidResult()),
         };
 
-    private static Fin<Seq<TEnum>> EnumValues<TEnum>(Seq<TEnum> values) where TEnum : struct, Enum =>
-        values.IsEmpty switch {
-            true => Fin.Succ(value: toSeq(Enum.GetValues<TEnum>())),
-            false => Fin.Succ(value: values),
-        };
-
-    private static Fin<TEnum> EnumMember<TEnum>(TEnum value, Seq<TEnum> values) where TEnum : struct, Enum =>
-        from _ in EnumIndex(values: values, value: value).ToFin(Fail: Op.Of(name: nameof(CommandOption)).InvalidInput())
-        select value;
-
     private static Option<int> EnumIndex<TEnum>(Seq<TEnum> values, TEnum value) where TEnum : struct, Enum =>
         toSeq(Enumerable.Range(start: 0, count: values.Count))
             .Find(index => EqualityComparer<TEnum>.Default.Equals(x: values[index], y: value));
@@ -218,9 +208,16 @@ public abstract record CommandOption {
     private sealed record EnumCase<TEnum>(string Name, Option<TEnum> Initial, Seq<TEnum> Values, int Current, EnumOptionMode Mode) : CommandOption(name: Name) where TEnum : struct, Enum {
         internal override Fin<Bound> Add(GetBaseClass getter) =>
             from name in Valid(name: Name)
-            from values in Mode switch { EnumOptionMode.List => EnumValues(values: Values), _ => NonEmpty(values: Values) }
+            from values in Mode switch {
+                EnumOptionMode.List => Fin.Succ(value: Values.IsEmpty switch { true => toSeq(Enum.GetValues<TEnum>()), false => Values }),
+                _ => NonEmpty(values: Values),
+            }
             from current in Mode switch { EnumOptionMode.List => Fin.Succ(value: Current), _ => ValidIndex(index: Current, count: values.Count) }
-            from initial in Initial.Case switch { TEnum value => EnumMember(value: value, values: values), _ => Fin.Succ(value: values[0]) }
+            from initial in Initial.Case switch {
+                TEnum value => from _ in EnumIndex(values: values, value: value).ToFin(Fail: Op.Of(name: nameof(CommandOption)).InvalidInput())
+                               select value,
+                _ => Fin.Succ(value: values[0]),
+            }
             from bound in Mode switch {
                 EnumOptionMode.List => Added(
                     index: Values.IsEmpty ? getter.AddOptionEnumList(name, initial) : getter.AddOptionEnumList(name, initial, [.. values]),

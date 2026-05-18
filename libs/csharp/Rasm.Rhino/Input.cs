@@ -220,7 +220,7 @@ public sealed record CommandInput {
             return from _ in SameDocument(expected: document, actual: input.Document)
                    from configured in configure switch { Func<TGetter, Fin<Unit>> apply => apply(arg: getter), _ => Fin.Succ(value: unit) }
                    from applied in CommandPolicy<TGetter>.Apply(policies: policies, getter: getter)
-                   from result in input.ReadWith(
+                   from result in ReadWith(
                        getter: getter,
                        options: CommandPolicy<TGetter>.OptionSet(policies: policies),
                        receive: () => receive(arg: getter),
@@ -235,7 +235,7 @@ public sealed record CommandInput {
             false => Fin.Fail<Unit>(error: Op.Of(name: nameof(CommandInput)).InvalidInput()),
         };
 
-    private Fin<CommandGet<TValue>> ReadWith<TGetter, TValue>(
+    private static Fin<CommandGet<TValue>> ReadWith<TGetter, TValue>(
         TGetter getter,
         Seq<CommandOption> options,
         Func<GetResult> receive,
