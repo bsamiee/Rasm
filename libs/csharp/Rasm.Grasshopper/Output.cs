@@ -1,14 +1,33 @@
 namespace Rasm.Grasshopper;
 
 // --- [TYPES] ----------------------------------------------------------------------------
-public sealed record OutputBinding(
-    Port<Shape> Input,
-    Port Port,
-    Func<IDataAccess, Hints, GrasshopperRuntime, Seq<Flow<Shape>>, Seq<object>> Run,
-    Func<IDataAccess, Hints, Unit> Empty);
+public sealed class OutputBinding {
+    private readonly Func<IDataAccess, Hints, GrasshopperRuntime, Seq<Flow<Shape>>, Seq<object>> run;
+    private readonly Func<IDataAccess, Hints, Unit> empty;
+    internal OutputBinding(
+        Port<Shape> input,
+        Port port,
+        Func<IDataAccess, Hints, GrasshopperRuntime, Seq<Flow<Shape>>, Seq<object>> run,
+        Func<IDataAccess, Hints, Unit> empty) {
+        ArgumentNullException.ThrowIfNull(argument: input);
+        ArgumentNullException.ThrowIfNull(argument: port);
+        ArgumentNullException.ThrowIfNull(argument: run);
+        ArgumentNullException.ThrowIfNull(argument: empty);
+        Input = input;
+        Port = port;
+        this.run = run;
+        this.empty = empty;
+    }
+    internal Port<Shape> Input { get; }
+    internal Port Port { get; }
+    internal Seq<object> Run(IDataAccess access, Hints outputs, GrasshopperRuntime runtime, Seq<Flow<Shape>> source) =>
+        run(arg1: access, arg2: outputs, arg3: runtime, arg4: source);
+    internal Unit Empty(IDataAccess access, Hints outputs) =>
+        empty(arg1: access, arg2: outputs);
+}
 
 // --- [MODELS] ---------------------------------------------------------------------------
-public readonly record struct Hints(Seq<(Port Port, int Slot)> Inputs) {
+internal readonly record struct Hints(Seq<(Port Port, int Slot)> Inputs) {
     internal static Hints Capture(Seq<BoundPort> ports, Func<IParameter, int> index) =>
         new(Inputs: ports.Choose(bound => index(arg: bound.Parameter) switch {
             >= 0 and int slot => Some((bound.Port, slot)),
@@ -18,27 +37,6 @@ public readonly record struct Hints(Seq<(Port Port, int Slot)> Inputs) {
         Inputs.Find(predicate: input => ReferenceEquals(objA: input.Port, objB: port)).Map(static input => input.Slot);
 }
 // --- [SERVICES] -------------------------------------------------------------------------
-public static class GrasshopperRuntimeExtensions {
-    internal static Fin<Option<TVal>> ReadScalar<TVal>(this GrasshopperRuntime runtime, Port<TVal> port) {
-        ArgumentNullException.ThrowIfNull(argument: port);
-        return port.Access switch {
-            Access.Item => runtime.Hints.Slot(port: port)
-                .Map(slot => Bridge.Read<TVal>(access: runtime.Access, slot: slot, port: port)
-                    .Map(values => values.Head.Map(static value => value.Item) | port.Fallback))
-                .IfNone(Fin.Succ(port.Fallback)),
-            _ => Fin.Fail<Option<TVal>>(new UnsupportedAccess(Access: port.Access.ToString())),
-        };
-    }
-    internal static Option<int> Index(this GrasshopperRuntime runtime, Port<int> port, int limit) {
-        ArgumentNullException.ThrowIfNull(argument: port);
-        return limit switch {
-            <= 0 => Option<int>.None,
-            _ => runtime.Hints.Slot(port: port)
-                .Bind(slot => runtime.Access.GetIndex(indexParameter: slot, limit: limit, index: out int index) ? Some(index) : Option<int>.None)
-                | port.Fallback,
-        };
-    }
-}
 public static class Output {
     public static OutputBinding Of<TAspect, TOut>(Port<Shape> input, Port<TOut> port, TAspect aspect)
         where TAspect : IAspect where TOut : notnull {
@@ -47,18 +45,18 @@ public static class Output {
         ArgumentNullException.ThrowIfNull(argument: aspect);
         Operation<object, TOut> operation = aspect.Operation<object, TOut>();
         return new OutputBinding(
-            Input: input,
-            Port: port,
-            Run: (access, outputs, runtime, source) => Run(
+            input: input,
+            port: port,
+            run: (access, outputs, runtime, source) => Run(
                 port: port,
                 operation: operation,
                 access: access,
                 outputs: outputs,
                 runtime: runtime,
                 source: source),
-            Empty: (access, outputs) => outputs.Slot(port: port).Iter(slot => Empty(port: port, access: access, slot: slot)));
+            empty: (access, outputs) => outputs.Slot(port: port).Iter(slot => Empty(port: port, access: access, slot: slot)));
     }
-    public static Unit Write(IDataAccess access, GrasshopperRuntime runtime, Seq<OutputBinding> bindings, Hints outputs) {
+    internal static Unit Write(IDataAccess access, GrasshopperRuntime runtime, Seq<OutputBinding> bindings, Hints outputs) {
         Seq<OutputBinding> active = bindings.Filter(binding => outputs.Slot(port: binding.Port).IsSome);
         Seq<Port<Shape>> inputs = active.Fold(Seq<Port<Shape>>(), (found, binding) => found.Exists(input => ReferenceEquals(objA: input, objB: binding.Input)) ? found : binding.Input.Cons(found)).Rev();
         return active.IsEmpty switch {
@@ -71,8 +69,8 @@ public static class Output {
                 source: runtime.Shape(port: input))),
         };
     }
-    public static Unit Empty(IDataAccess access, Seq<OutputBinding> bindings, Hints outputs) =>
-        bindings.Iter(binding => binding.Empty(arg1: access, arg2: outputs));
+    internal static Unit Empty(IDataAccess access, Seq<OutputBinding> bindings, Hints outputs) =>
+        bindings.Iter(binding => binding.Empty(access: access, outputs: outputs));
     private static Seq<object> Run<TOut>(
         Port<TOut> port,
         Operation<object, TOut> operation,
@@ -151,11 +149,11 @@ public static class Output {
         };
     private static Unit RunCached(IDataAccess access, Hints outputs, GrasshopperRuntime runtime, Seq<OutputBinding> bindings, Fin<Seq<Flow<Shape>>> source) =>
         source.Match(
-            Succ: sourced => bindings.Bind(binding => binding.Run(arg1: access, arg2: outputs, arg3: runtime, arg4: sourced)) switch {
+            Succ: sourced => bindings.Bind(binding => binding.Run(access: access, outputs: outputs, runtime: runtime, source: sourced)) switch {
                 Seq<object> transfers => sourced.Iter(source => source.Item.DisposeUnlessTransferred(outputs: transfers)),
             },
             Fail: error => {
                 access.AddWarning(text: error.Category(), details: error.Message);
-                return bindings.Iter(binding => binding.Empty(arg1: access, arg2: outputs));
+                return bindings.Iter(binding => binding.Empty(access: access, outputs: outputs));
             });
 }

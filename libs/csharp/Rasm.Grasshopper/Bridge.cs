@@ -54,24 +54,21 @@ public readonly record struct Shape {
         Optional(value).Bind(converted => Create(value: converted, owned: ReferenceEquals(objA: raw, objB: converted) ? Option<IDisposable>.None : Some((IDisposable)converted)).ToOption());
 }
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct Flow<T>(Pear<T> Pear, Option<Site> Site) {
+internal readonly record struct Flow<T>(Pear<T> Pear, Option<Site> Site) {
     public T Item => Pear.Item;
     public MetaData Meta => Pear.Meta;
     internal Flow<TOut> Project<TOut>(TOut item) => new(Pear: Pear<TOut>.Create(item: item, meta: Meta), Site: Site);
     internal Flow<TOut> Project<TOut>(TOut item, int index) => new(Pear: Pear<TOut>.Create(item: item, meta: Meta), Site: Site.Map(site => new Site(path: site.Path.AppendElement(site.Item), item: index)));
     internal Seq<Flow<TOut>> Project<TOut>(Seq<TOut> items) {
         Flow<T> source = this;
-        return items.Count switch {
-            1 => items.Map(value => source.Project(item: value)),
-            _ => items.Map((value, index) => source.Project(item: value, index: index)),
-        };
+        return items.Map((value, index) => source.Project(item: value, index: index));
     }
 }
 
 // --- [SERVICES] -------------------------------------------------------------------------
 [BoundaryAdapter]
-public static class Bridge {
-    public static Fin<Analyze.Scope> Scope(this IDataAccess access) {
+internal static class Bridge {
+    internal static Fin<Analyze.Scope> Scope(this IDataAccess access) {
         ArgumentNullException.ThrowIfNull(argument: access);
         _ = access.GetUnitSystem(unitSystem: out UnitSystem units);
         Rhino.UnitSystem system = units.System switch {
@@ -170,13 +167,12 @@ public static class Bridge {
         Missing<TVal>(port: port).Map(static pears => pears.Map(static pear => new Flow<TVal>(Pear: pear, Site: Option<Site>.None)));
     private static Seq<Leaf<T>> Leaves<T>(Seq<Flow<T>> values) =>
         values.Map((value, index) => new Leaf<T>(pear: value.Pear, site: value.Site.IfNone(new Site(path: new Grasshopper2.Data.Path(0), item: index))));
-    private readonly record struct Broker(int Priority, Func<object, Option<Shape>> Convert);
-    private static readonly Seq<Broker> Brokers = toSeq(new Broker[] {
-        new(Priority: 100, Convert: static raw => AsShape(value: raw)),
-        new(Priority:  90, Convert: static raw => Shape.Converted(raw: raw, value: CurveBroker.ToRhinoCurve(raw))),
-        new(Priority:  90, Convert: static raw => SurfaceShape(raw: raw)),
-    }.OrderByDescending(static b => b.Priority));
-    private static Option<Shape> NormalizeShape(object raw) => Brokers.Choose(broker => broker.Convert(arg: raw)).Head;
+    private static readonly Seq<Func<object, Option<Shape>>> Brokers = toSeq(new Func<object, Option<Shape>>[] {
+        static raw => AsShape(value: raw),
+        static raw => Shape.Converted(raw: raw, value: CurveBroker.ToRhinoCurve(raw)),
+        static raw => SurfaceShape(raw: raw),
+    });
+    private static Option<Shape> NormalizeShape(object raw) => Brokers.Choose(convert => convert(arg: raw)).Head;
     private static Option<Shape> AsShape(object? value) => Optional(value).Bind(static candidate => Shape.Create(value: candidate).ToOption());
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Reliability", "CA2000", Justification = "Shape owns converted Rhino geometry and disposes it after output transfer.")]
     private static Option<Shape> SurfaceShape(object raw) =>

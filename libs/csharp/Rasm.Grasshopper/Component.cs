@@ -32,7 +32,7 @@ public readonly record struct ComponentSpec(Seq<ComponentItem<Port>> Inputs, Seq
     public static ComponentSpec Of(Seq<Port> inputs, Seq<OutputBinding> outputs) =>
         new(Inputs: inputs.Map(static port => new ComponentItem<Port>(Value: port)), Outputs: outputs.Map(static binding => new ComponentItem<OutputBinding>(Value: binding)));
 }
-public readonly record struct GrasshopperRuntime(IDataAccess Access, Analyze.Scope Scope, Hints Hints, IProgress<double> Progress, CancellationToken Cancellation) {
+internal readonly record struct GrasshopperRuntime(IDataAccess Access, Analyze.Scope Scope, Hints Hints, IProgress<double> Progress, CancellationToken Cancellation) {
     internal static Fin<GrasshopperRuntime> Capture(IDataAccess access, Seq<BoundPort> inputs, ComponentParameters parameters) {
         ArgumentNullException.ThrowIfNull(argument: access);
         ArgumentNullException.ThrowIfNull(argument: parameters);
