@@ -5,18 +5,146 @@ using Result = Rhino.Commands.Result;
 namespace Rasm.Rhino;
 
 // --- [MODELS] ---------------------------------------------------------------------------
+public readonly record struct CommandPointMode(bool OnMouseUp = false, bool TwoDimensional = false);
+
+public readonly record struct CommandPoint(
+    Option<Point3d> Point,
+    Option<DrawingPoint> WindowPoint,
+    Option<RhinoView> View,
+    Option<CommandSelection.Reference> Object,
+    Option<double> CurveParameter,
+    Option<Point2d> SurfaceParameter,
+    Option<Point2d> BrepParameter,
+    Option<double> NumberPreview,
+    global::Rhino.ApplicationSettings.OsnapModes Osnap) {
+    internal static CommandPoint Of(GetPoint getter, GetResult raw) =>
+        new(
+            Point: raw switch { GetResult.Point => Some(getter.Point()), _ => Option<Point3d>.None },
+            WindowPoint: raw switch { GetResult.Point or GetResult.Point2d => Some<DrawingPoint>(getter.Point2d()), _ => Option<DrawingPoint>.None },
+            View: Optional(getter.View()),
+            Object: PointObject(getter: getter),
+            CurveParameter: CurveParameterOf(getter: getter),
+            SurfaceParameter: SurfaceParameterOf(getter: getter),
+            BrepParameter: BrepParameterOf(getter: getter),
+            NumberPreview: NumberPreviewOf(getter: getter),
+            Osnap: getter.OsnapEventType);
+
+    private static Option<CommandSelection.Reference> PointObject(GetPoint getter) =>
+        Optional(getter.PointOnObject()).Map(reference => {
+            using ObjRef owned = reference;
+            return CommandSelection.Reference.Of(reference: owned, preselected: false);
+        });
+
+    private static Option<double> CurveParameterOf(GetPoint getter) =>
+        getter.PointOnCurve(t: out double parameter) switch { Curve => Some(parameter), _ => Option<double>.None };
+
+    private static Option<Point2d> SurfaceParameterOf(GetPoint getter) =>
+        getter.PointOnSurface(u: out double u, v: out double v) switch { Surface => Some(new Point2d(u, v)), _ => Option<Point2d>.None };
+
+    private static Option<Point2d> BrepParameterOf(GetPoint getter) =>
+        getter.PointOnBrep(u: out double u, v: out double v) switch { BrepFace => Some(new Point2d(u, v)), _ => Option<Point2d>.None };
+
+    private static Option<double> NumberPreviewOf(GetPoint getter) =>
+        getter.NumberPreview(number: out double number) switch { true => Some(number), false => Option<double>.None };
+}
+
+public readonly record struct CommandObjectSelection(bool PreSelect = true, bool IgnoreUnacceptablePreselectedObjects = true, bool PostSelect = true, bool DeselectAllBeforePostSelect = false, bool OneByOnePostSelect = false, bool SubObjectSelect = false, bool ChooseOneQuestion = false, bool BottomObjectPreference = false, bool GroupSelect = false, bool ProxyBrepFromSubD = false, bool InactiveDetailPick = false, bool ReferenceObjectSelect = false, bool LockedObjectSelect = false, bool IgnoreGrips = true, bool SelPrevious = true, bool Highlight = true, bool AlreadySelectedObjectSelect = false, bool ClearObjectsOnEntry = false, bool UnselectObjectsOnExit = false) {
+    public static CommandObjectSelection Default => new(
+        PreSelect: true,
+        IgnoreUnacceptablePreselectedObjects: true,
+        PostSelect: true,
+        IgnoreGrips: true,
+        SelPrevious: true,
+        Highlight: true);
+}
+
+public readonly record struct CommandPointConstraintMode(bool AllowPickingPointOffObject = false, bool AllowElevator = true, int WireDensity = 0, int FaceIndex = -1);
+
+public readonly record struct CommandPointSetup(
+    Option<(Point3d Value, bool ShowDistance)> BasePoint = default,
+    Option<double> DistanceFromBase = default,
+    Option<(Point3d Value, bool ShowDistance)> DrawLineFrom = default,
+    Option<Color> DynamicDrawColor = default,
+    Option<global::Rhino.UI.CursorStyle> Cursor = default,
+    Option<bool> ObjectSnapCursors = default,
+    Option<bool> DrawLine = default,
+    Option<bool> NoRedrawOnExit = default,
+    Option<bool> OrthoSnap = default,
+    Option<bool> FromOption = default,
+    Option<bool> ConstraintOptions = default,
+    Option<bool> TabMode = default,
+    Option<int> ElevatorMode = default,
+    Option<bool> ObjectSnap = default,
+    Seq<Point3d> SnapPoints = default,
+    Seq<Point3d> ConstructionPoints = default,
+    bool ClearSnapPoints = false,
+    bool ClearConstructionPoints = false,
+    Option<(bool Draw, bool Endpoints)> TangentBar = default,
+    Option<(bool Draw, bool Endpoints)> PerpBar = default,
+    Option<(bool Draw, bool Reverse)> Arrow = default,
+    Option<bool> SnapToCurves = default,
+    EventHandler<GetPointDrawEventArgs>? DynamicDraw = null,
+    EventHandler<GetPointMouseEventArgs>? MouseMove = null,
+    EventHandler<GetPointMouseEventArgs>? MouseDown = null,
+    EventHandler<DrawEventArgs>? PostDrawObjects = null,
+    Option<bool> FullFrameRedrawDuringGet = default) {
+    internal Fin<Unit> Apply(GetPoint getter) {
+        _ = BasePoint.Iter(value => getter.SetBasePoint(basePoint: value.Value, showDistanceInStatusBar: value.ShowDistance));
+        _ = DistanceFromBase.Iter(getter.ConstrainDistanceFromBasePoint);
+        _ = DrawLineFrom.Iter(value => getter.DrawLineFromPoint(startPoint: value.Value, showDistanceInStatusBar: value.ShowDistance));
+        _ = DynamicDrawColor.Iter(color => getter.DynamicDrawColor = color);
+        _ = Cursor.Iter(getter.SetCursor);
+        _ = ObjectSnapCursors.Iter(getter.EnableObjectSnapCursors);
+        _ = DrawLine.Iter(getter.EnableDrawLineFromPoint);
+        _ = NoRedrawOnExit.Iter(getter.EnableNoRedrawOnExit);
+        _ = OrthoSnap.Iter(getter.PermitOrthoSnap);
+        _ = FromOption.Iter(getter.PermitFromOption);
+        _ = ConstraintOptions.Iter(getter.PermitConstraintOptions);
+        _ = TabMode.Iter(getter.PermitTabMode);
+        _ = ElevatorMode.Iter(getter.PermitElevatorMode);
+        _ = ObjectSnap.Iter(getter.PermitObjectSnap);
+        _ = ClearSnapPoints switch { true => Effect(action: getter.ClearSnapPoints), false => unit };
+        _ = ClearConstructionPoints switch { true => Effect(action: getter.ClearConstructionPoints), false => unit };
+        Fin<Unit> snaps = CountResult(count: SnapPoints.IsEmpty ? 0 : getter.AddSnapPoints(points: [.. SnapPoints]));
+        Fin<Unit> construction = CountResult(count: ConstructionPoints.IsEmpty ? 0 : getter.AddConstructionPoints(points: [.. ConstructionPoints]));
+        _ = TangentBar.Iter(value => getter.EnableCurveSnapTangentBar(drawTangentBarAtSnapPoint: value.Draw, drawEndPoints: value.Endpoints));
+        _ = PerpBar.Iter(value => getter.EnableCurveSnapPerpBar(drawPerpBarAtSnapPoint: value.Draw, drawEndPoints: value.Endpoints));
+        _ = Arrow.Iter(value => getter.EnableCurveSnapArrow(drawDirectionArrowAtSnapPoint: value.Draw, reverseArrow: value.Reverse));
+        _ = SnapToCurves.Iter(getter.EnableSnapToCurves);
+        _ = Optional(DynamicDraw).Iter(handler => getter.DynamicDraw += handler);
+        _ = Optional(MouseMove).Iter(handler => getter.MouseMove += handler);
+        _ = Optional(MouseDown).Iter(handler => getter.MouseDown += handler);
+        _ = Optional(PostDrawObjects).Iter(handler => getter.PostDrawObjects += handler);
+        _ = FullFrameRedrawDuringGet.Iter(enabled => getter.FullFrameRedrawDuringGet = enabled);
+        return snaps.Bind(_ => construction);
+    }
+
+    private static Fin<Unit> CountResult(int count) =>
+        count switch {
+            >= 0 => Fin.Succ(value: unit),
+            _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(CommandPointSetup)).InvalidResult()),
+        };
+
+    private static Unit Effect(Action action) {
+        action();
+        return unit;
+    }
+}
+
 public abstract record CommandInputPolicy {
     private protected CommandInputPolicy() { }
 
-    public static CommandInputPolicy Prompt(string value) => new ConfigureCase(Run: getter => Effect(action: () => getter.SetCommandPrompt(value)));
-    public static CommandInputPolicy PromptDefault(string value) => new ConfigureCase(Run: getter => Effect(action: () => getter.SetCommandPromptDefault(value)));
-    public static CommandInputPolicy Default(Point3d value) => new ConfigureCase(Run: getter => Effect(action: () => getter.SetDefaultPoint(value)));
-    public static CommandInputPolicy Default(double value) => new ConfigureCase(Run: getter => Effect(action: () => getter.SetDefaultNumber(value)));
-    public static CommandInputPolicy Default(int value) => new ConfigureCase(Run: getter => Effect(action: () => getter.SetDefaultInteger(value)));
-    public static CommandInputPolicy Default(string value) => new ConfigureCase(Run: getter => Effect(action: () => getter.SetDefaultString(value)));
-    public static CommandInputPolicy Default(Color value) => new ConfigureCase(Run: getter => Effect(action: () => getter.SetDefaultColor(value)));
-    public static CommandInputPolicy Timeout(int milliseconds) => new ConfigureCase(Run: getter => Effect(action: () => getter.SetWaitDuration(milliseconds)));
-    public static CommandInputPolicy Accept(GetResult result, bool acceptZero = true) => new ConfigureCase(Run: getter => result switch {
+    public static CommandInputPolicy Use<TGetter>(Func<TGetter, Fin<Unit>> apply) where TGetter : GetBaseClass =>
+        new ConfigureCase<TGetter>(Run: apply);
+    public static CommandInputPolicy Prompt(string value) => Use<GetBaseClass>(getter => Effect(action: () => getter.SetCommandPrompt(value)));
+    public static CommandInputPolicy PromptDefault(string value) => Use<GetBaseClass>(getter => Effect(action: () => getter.SetCommandPromptDefault(value)));
+    public static CommandInputPolicy Default(Point3d value) => Use<GetBaseClass>(getter => Effect(action: () => getter.SetDefaultPoint(value)));
+    public static CommandInputPolicy Default(double value) => Use<GetBaseClass>(getter => Effect(action: () => getter.SetDefaultNumber(value)));
+    public static CommandInputPolicy Default(int value) => Use<GetBaseClass>(getter => Effect(action: () => getter.SetDefaultInteger(value)));
+    public static CommandInputPolicy Default(string value) => Use<GetBaseClass>(getter => Effect(action: () => getter.SetDefaultString(value)));
+    public static CommandInputPolicy Default(Color value) => Use<GetBaseClass>(getter => Effect(action: () => getter.SetDefaultColor(value)));
+    public static CommandInputPolicy Timeout(int milliseconds) => Use<GetBaseClass>(getter => Effect(action: () => getter.SetWaitDuration(milliseconds)));
+    public static CommandInputPolicy Accept(GetResult result, bool acceptZero = true) => Use<GetBaseClass>(getter => result switch {
         GetResult.Nothing => Effect(action: () => getter.AcceptNothing(enable: true)),
         GetResult.Undo => Effect(action: () => getter.AcceptUndo(enable: true)),
         GetResult.Number => Effect(action: () => getter.AcceptNumber(enable: true, acceptZero: acceptZero)),
@@ -26,42 +154,33 @@ public abstract record CommandInputPolicy {
         GetResult.CustomMessage => Effect(action: () => getter.AcceptCustomMessage(enable: true)),
         _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(Accept)).InvalidInput()),
     });
-    public static CommandInputPolicy EnterWhenDone => new ConfigureCase(Run: static getter => Effect(action: () => getter.AcceptEnterWhenDone(enable: true)));
-    public static CommandInputPolicy TransparentCommands(bool enabled = true) => new ConfigureCase(Run: getter => Effect(action: () => getter.EnableTransparentCommands(enable: enabled)));
-    public static CommandInputPolicy Object(
-        ObjectType filter = ObjectType.AnyObject,
-        GeometryAttributeFilter attributeFilter = default,
-        bool preSelect = true,
-        bool ignoreUnacceptablePreselectedObjects = true,
-        bool postSelect = true,
-        bool deselectAllBeforePostSelect = false,
-        bool oneByOnePostSelect = false,
-        bool subObjectSelect = false,
-        bool groupSelect = false,
-        bool referenceObjectSelect = false,
-        bool lockedObjectSelect = false,
-        bool alreadySelectedObjectSelect = false,
-        bool selPrevious = true,
-        bool highlight = true,
-        bool clearObjectsOnEntry = false,
-        bool unselectObjectsOnExit = false) =>
-        new ObjectCase(Run: getter => Effect(action: () => {
-            getter.GeometryFilter = filter;
-            getter.GeometryAttributeFilter = attributeFilter;
-            getter.EnablePreSelect(preSelect, ignoreUnacceptablePreselectedObjects);
-            getter.EnablePostSelect(enable: postSelect);
-            getter.DeselectAllBeforePostSelect = deselectAllBeforePostSelect;
-            getter.OneByOnePostSelect = oneByOnePostSelect;
-            getter.SubObjectSelect = subObjectSelect;
-            getter.GroupSelect = groupSelect;
-            getter.ReferenceObjectSelect = referenceObjectSelect;
-            getter.LockedObjectSelect = lockedObjectSelect;
-            getter.AlreadySelectedObjectSelect = alreadySelectedObjectSelect;
-            getter.EnableSelPrevious(enable: selPrevious);
-            getter.EnableHighlight(enable: highlight);
-            getter.EnableClearObjectsOnEntry(enable: clearObjectsOnEntry);
-            getter.EnableUnselectObjectsOnExit(enable: unselectObjectsOnExit);
-        }));
+    public static CommandInputPolicy EnterWhenDone => Use<GetBaseClass>(static getter => Effect(action: () => getter.AcceptEnterWhenDone(enable: true)));
+    public static CommandInputPolicy TransparentCommands(bool enabled = true) => Use<GetBaseClass>(getter => Effect(action: () => getter.EnableTransparentCommands(enable: enabled)));
+    public static CommandInputPolicy Object(ObjectType filter = ObjectType.AnyObject, GeometryAttributeFilter attributeFilter = default, CommandObjectSelection? selection = null) =>
+        Use<GetObject>(getter => ApplyObject(getter: getter, filter: filter, attributeFilter: attributeFilter, selection: selection ?? CommandObjectSelection.Default));
+    public static CommandInputPolicy Object(GetObjectGeometryFilter filter) =>
+        Use<GetObject>(getter => Optional(filter).ToFin(Fail: Op.Of(name: nameof(Object)).InvalidInput()).Bind(valid => Effect(action: () => getter.SetCustomGeometryFilter(valid))));
+    public static CommandInputPolicy ObjectPressEnterWhenDone(bool enabled = true, string? prompt = null) => Use<GetObject>(getter => Effect(action: () => {
+        getter.EnablePressEnterWhenDonePrompt(enable: enabled);
+        _ = Optional(prompt).Iter(value => getter.SetPressEnterWhenDonePrompt(prompt: value));
+    }));
+    public static CommandInputPolicy ObjectPickList(RhinoDoc document, params CommandSelection.Reference[] references) =>
+        Use<GetObject>(getter => Optional(document)
+            .ToFin(Fail: Op.Of(name: nameof(ObjectPickList)).InvalidInput())
+            .Bind(doc => toSeq(references).TraverseM(reference => Fin.Succ(reference.UseObjRef(document: doc, project: objRef => {
+                getter.AppendToPickList(objref: objRef);
+                return unit;
+            }))).As())
+            .Map(static _ => unit));
+    public static CommandInputPolicy ClearObjectPickList => Use<GetObject>(static getter => Effect(action: getter.ClearObjects));
+    public static CommandInputPolicy Point(CommandPointSetup setup) => Use<GetPoint>(setup.Apply);
+    public static CommandInputPolicy PointTag(object? value) => Use<GetPoint>(getter => Effect(action: () => getter.Tag = value));
+    public static CommandInputPolicy Constrain(Point3d from, Point3d to) => Use<GetPoint>(getter => Applied(success: getter.Constrain(from: from, to: to)));
+    public static CommandInputPolicy Constrain<TConstraint>(TConstraint constraint, CommandPointConstraintMode mode = default) => Use<GetPoint>(getter => Constrain(getter: getter, constraint: constraint, mode: mode));
+    public static CommandInputPolicy ConstrainToConstructionPlane(bool throughBasePoint = false) => Use<GetPoint>(getter => Applied(success: getter.ConstrainToConstructionPlane(throughBasePoint: throughBasePoint)));
+    public static CommandInputPolicy ConstrainToTargetPlane => Use<GetPoint>(static getter => Effect(action: getter.ConstrainToTargetPlane));
+    public static CommandInputPolicy ConstrainToVirtualCPlaneIntersection(Plane plane) => Use<GetPoint>(getter => Applied(success: getter.ConstrainToVirtualCPlaneIntersection(plane: plane)));
+    public static CommandInputPolicy ClearPointConstraints => Use<GetPoint>(static getter => Effect(action: getter.ClearConstraints));
     public static CommandInputPolicy Options(params CommandOption[] options) => new OptionsCase(Values: toSeq(options));
 
     internal static Fin<Seq<CommandOption>> Apply(Seq<CommandInputPolicy> policies, GetBaseClass getter) =>
@@ -71,15 +190,58 @@ public abstract record CommandInputPolicy {
             .Map(static values => values.Bind(static options => options));
 
     internal static Fin<Unit> ApplyObjectDefaults(GetObject getter) =>
-        Object().Apply(getter: getter).Map(static _ => unit);
+        ApplyObject(getter: getter, filter: ObjectType.AnyObject, attributeFilter: default, selection: CommandObjectSelection.Default);
 
     private Fin<Seq<CommandOption>> Apply(GetBaseClass getter) =>
         this switch {
-            ConfigureCase configure => configure.Run(arg: getter).Map(static _ => Seq<CommandOption>()),
-            ObjectCase objects when getter is GetObject getObject => objects.Run(arg: getObject).Map(static _ => Seq<CommandOption>()),
-            ObjectCase => Fin.Fail<Seq<CommandOption>>(error: Op.Of(name: nameof(Object)).InvalidInput()),
+            ConfigureCase configure => configure.RunOn(getter: getter).Map(static _ => Seq<CommandOption>()),
             OptionsCase options => Fin.Succ(value: options.Values),
             _ => Fin.Fail<Seq<CommandOption>>(error: Op.Of(name: nameof(CommandInputPolicy)).InvalidInput()),
+        };
+
+    private static Fin<Unit> ApplyObject(GetObject getter, ObjectType filter, GeometryAttributeFilter attributeFilter, CommandObjectSelection selection) {
+        getter.GeometryFilter = filter;
+        getter.GeometryAttributeFilter = attributeFilter;
+        getter.EnablePreSelect(selection.PreSelect, selection.IgnoreUnacceptablePreselectedObjects);
+        getter.EnablePostSelect(enable: selection.PostSelect);
+        getter.DeselectAllBeforePostSelect = selection.DeselectAllBeforePostSelect;
+        getter.OneByOnePostSelect = selection.OneByOnePostSelect;
+        getter.SubObjectSelect = selection.SubObjectSelect;
+        getter.ChooseOneQuestion = selection.ChooseOneQuestion;
+        getter.BottomObjectPreference = selection.BottomObjectPreference;
+        getter.GroupSelect = selection.GroupSelect;
+        getter.ProxyBrepFromSubD = selection.ProxyBrepFromSubD;
+        getter.InactiveDetailPickEnabled = selection.InactiveDetailPick;
+        getter.ReferenceObjectSelect = selection.ReferenceObjectSelect;
+        getter.LockedObjectSelect = selection.LockedObjectSelect;
+        getter.EnableIgnoreGrips(enable: selection.IgnoreGrips);
+        getter.EnableSelPrevious(enable: selection.SelPrevious);
+        getter.EnableHighlight(enable: selection.Highlight);
+        getter.AlreadySelectedObjectSelect = selection.AlreadySelectedObjectSelect;
+        getter.EnableClearObjectsOnEntry(enable: selection.ClearObjectsOnEntry);
+        getter.EnableUnselectObjectsOnExit(enable: selection.UnselectObjectsOnExit);
+        return Fin.Succ(value: unit);
+    }
+
+    private static Fin<Unit> Constrain<TConstraint>(GetPoint getter, TConstraint constraint, CommandPointConstraintMode mode) =>
+        constraint switch {
+            Line value => Applied(success: getter.Constrain(line: value)),
+            Arc value => Applied(success: getter.Constrain(arc: value)),
+            Circle value => Applied(success: getter.Constrain(circle: value)),
+            Sphere value => Applied(success: getter.Constrain(sphere: value)),
+            Cylinder value => Applied(success: getter.Constrain(cylinder: value)),
+            Plane value => Applied(success: getter.Constrain(plane: value, allowElevator: mode.AllowElevator)),
+            Curve value => Applied(success: getter.Constrain(curve: value, allowPickingPointOffObject: mode.AllowPickingPointOffObject)),
+            Surface value => Applied(success: getter.Constrain(surface: value, allowPickingPointOffObject: mode.AllowPickingPointOffObject)),
+            Brep value => Applied(success: getter.Constrain(brep: value, wireDensity: mode.WireDensity, faceIndex: mode.FaceIndex, allowPickingPointOffObject: mode.AllowPickingPointOffObject)),
+            Mesh value => Applied(success: getter.Constrain(mesh: value, allowPickingPointOffObject: mode.AllowPickingPointOffObject)),
+            _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(Constrain)).InvalidInput()),
+        };
+
+    private static Fin<Unit> Applied(bool success) =>
+        success switch {
+            true => Fin.Succ(value: unit),
+            false => Fin.Fail<Unit>(error: Op.Of(name: nameof(CommandInputPolicy)).InvalidResult()),
         };
 
     private static Fin<Unit> Effect(Action action) {
@@ -87,68 +249,61 @@ public abstract record CommandInputPolicy {
         return Fin.Succ(value: unit);
     }
 
-    private sealed record ConfigureCase(Func<GetBaseClass, Fin<Unit>> Run) : CommandInputPolicy;
+    private abstract record ConfigureCase : CommandInputPolicy {
+        internal abstract Fin<Unit> RunOn(GetBaseClass getter);
+    }
+
+    private sealed record ConfigureCase<TGetter>(Func<TGetter, Fin<Unit>> Run) : ConfigureCase where TGetter : GetBaseClass {
+        internal override Fin<Unit> RunOn(GetBaseClass getter) =>
+            getter switch {
+                TGetter typed => Run(arg: typed),
+                _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(CommandInputPolicy)).InvalidInput()),
+            };
+    }
+
     private sealed record OptionsCase(Seq<CommandOption> Values) : CommandInputPolicy;
-    private sealed record ObjectCase(Func<GetObject, Fin<Unit>> Run) : CommandInputPolicy;
 }
 
 public readonly record struct CommandGet<T>(
     GetResult Raw,
     Result CommandResult,
-    CommandGet<T>.Terminal Input,
+    Option<T> Value,
+    Option<object> AcceptedValue,
+    Option<CommandOptionValue> Option,
     bool GotDefault,
     Option<RhinoView> View,
     Option<DrawingPoint> WindowPoint) {
-    public Option<T> Value => Input switch {
-        Terminal.Primary primary => Some(primary.Value),
-        Terminal.SelectedOption { Value: T typed } => Some(typed),
-        _ => Option<T>.None,
-    };
-    public Option<CommandOptionValue> Option => Input switch {
-        Terminal.SelectedOption option => Some(option.Value),
-        _ => Option<CommandOptionValue>.None,
-    };
+    public Option<TValue> Accepted<TValue>() =>
+        AcceptedValue.Bind(As<TValue>).Case switch {
+            TValue accepted => Some(accepted),
+            _ => Option.Bind(static option => option.Value.Bind(As<TValue>)),
+        };
 
     internal static CommandGet<T> Of(GetBaseClass getter, GetResult raw, Option<T> value, Option<CommandOptionValue> option) =>
         new(
             Raw: raw,
             CommandResult: getter.CommandResult(),
-            Input: TerminalOf(getter: getter, raw: raw, value: value, option: option),
+            Value: value,
+            AcceptedValue: value.Case switch { T primary => Some((object)primary!), _ => RawValue(getter: getter, raw: raw) },
+            Option: option,
             GotDefault: getter.GotDefault(),
             View: Optional(getter.View()),
             WindowPoint: raw switch { GetResult.Point or GetResult.Point2d => Some<DrawingPoint>(getter.Point2d()), _ => Option<DrawingPoint>.None });
 
-    private static Terminal TerminalOf(GetBaseClass getter, GetResult raw, Option<T> value, Option<CommandOptionValue> option) =>
-        option.Match(
-            Some: static selected => (Terminal)new Terminal.SelectedOption(Value: selected),
-            None: () => value.Match(
-                Some: static primary => (Terminal)new Terminal.Primary(Value: primary),
-                None: () => raw switch {
-                    GetResult.Nothing => new Terminal.NoInput(),
-                    GetResult.Number => new Terminal.Number(Value: getter.Number()),
-                    GetResult.Color => new Terminal.ColorValue(Value: getter.Color()),
-                    GetResult.Undo => new Terminal.Undo(),
-                    GetResult.Point => new Terminal.Point(Value: getter.Point()),
-                    GetResult.String => new Terminal.TextValue(Value: getter.StringResult()),
-                    GetResult.CustomMessage => new Terminal.CustomMessage(Value: getter.CustomMessage()),
-                    GetResult.Timeout => new Terminal.Timeout(),
-                    _ => new Terminal.Other(Raw: raw),
-                }));
+    private static Option<TValue> As<TValue>(object value) =>
+        value switch { TValue typed => Some(typed), _ => Option<TValue>.None };
 
-    public abstract record Terminal {
-        private protected Terminal() { }
-        public sealed record Primary(T Value) : Terminal;
-        public sealed record SelectedOption(CommandOptionValue Value) : Terminal;
-        public sealed record NoInput : Terminal;
-        public sealed record Number(double Value) : Terminal;
-        public sealed record Point(Point3d Value) : Terminal;
-        public sealed record ColorValue(Color Value) : Terminal;
-        public sealed record TextValue(string Value) : Terminal;
-        public sealed record Undo : Terminal;
-        public sealed record Timeout : Terminal;
-        public sealed record CustomMessage(object? Value) : Terminal;
-        public sealed record Other(GetResult Raw) : Terminal;
-    }
+    private static Option<object> RawValue(GetBaseClass getter, GetResult raw) =>
+        raw switch {
+            GetResult.Nothing or GetResult.Undo or GetResult.Timeout => Some((object)raw),
+            GetResult.Number => Some((object)getter.Number()),
+            GetResult.Color => Some((object)getter.Color()),
+            GetResult.Point => Some((object)getter.Point()),
+            GetResult.Point2d => Some((object)getter.Point2d()),
+            GetResult.String => Optional(getter.StringResult()).Map(static value => (object)value),
+            GetResult.CustomMessage => Optional(getter.CustomMessage()).Map(static value => value),
+            _ => Some((object)raw),
+        };
 }
 
 public sealed class CommandInputRequest<T> {
@@ -172,12 +327,12 @@ public static class CommandInputs {
             value: static (input, getter, raw, preselected) => SelectionOf(document: input.Document, getter: getter, raw: raw, preselected: preselected),
             transition: ObjectTransition);
 
-    public static CommandInputRequest<Point3d> Point(params CommandInputPolicy[] policies) =>
+    public static CommandInputRequest<CommandPoint> Point(CommandPointMode mode = default, params CommandInputPolicy[] policies) =>
         Request(
             policies: toSeq(policies),
             create: static () => new GetPoint(),
-            receive: static getter => getter.Get(),
-            value: static (_, getter, raw, _) => raw switch { GetResult.Point => Some(getter.Point()), _ => Option<Point3d>.None });
+            receive: getter => getter.Get(onMouseUp: mode.OnMouseUp, get2DPoint: mode.TwoDimensional),
+            value: static (_, getter, raw, _) => raw switch { GetResult.Point or GetResult.Point2d => Some(CommandPoint.Of(getter: getter, raw: raw)), _ => Option<CommandPoint>.None });
 
     public static CommandInputRequest<string> Text(bool literal = false, params CommandInputPolicy[] policies) =>
         Request(
@@ -232,7 +387,7 @@ public static class CommandInputs {
                    select result;
         });
 
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Reliability", "CA2000", Justification = "CommandGet transfers CommandSelection ownership to the command caller.")]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Reliability", "CA2000", Justification = "Returned CommandSelection is the accepted command value; command caller owns disposal.")]
     private static Option<CommandSelection> SelectionOf(RhinoDoc document, GetObject getter, GetResult raw, Seq<Guid> preselected) =>
         raw switch {
             GetResult.Object => Optional(CommandSelection.From(
@@ -247,10 +402,15 @@ public static class CommandInputs {
             (GetObject objects, GetResult.Option) => DisablePreSelect(getter: objects, state: state, repeat: true),
             (GetObject objects, GetResult.Object) when objects.ObjectsWerePreselected => DisablePreSelect(
                 getter: objects,
-                state: state with { Preselected = state.Preselected + toSeq(Enumerable.Range(start: 0, count: objects.ObjectCount).Select(index => objects.Object(index).ObjectId)) },
+                state: state with { Preselected = state.Preselected + toSeq(Enumerable.Range(start: 0, count: objects.ObjectCount).Select(index => ObjectIdAt(getter: objects, index: index))) },
                 repeat: true),
             _ => new CommandInputRequest<T>.ReadTransition(State: state, Repeat: false),
         };
+
+    private static Guid ObjectIdAt(GetObject getter, int index) {
+        using ObjRef reference = getter.Object(index);
+        return reference.ObjectId;
+    }
 
     private static CommandInputRequest<T>.ReadTransition DisablePreSelect<T>(GetObject getter, CommandInputRequest<T>.ReadState state, bool repeat) {
         getter.EnablePreSelect(false, true);
@@ -293,7 +453,7 @@ public sealed record CommandInput {
         Optional(getter)
             .ToFin(Fail: Op.Of(name: nameof(ReadWith)).InvalidInput())
             .Bind(g => CommandOption.Bind(options: options, getter: g).Bind(scope => {
-                using CommandOptionScope active = scope;
+                using CommandOption.Scope active = scope;
                 return ReadLoop(
                     getter: g,
                     scope: active,
@@ -306,7 +466,7 @@ public sealed record CommandInput {
 
     private static Fin<CommandGet<T>> ReadLoop<T>(
         GetBaseClass getter,
-        CommandOptionScope scope,
+        CommandOption.Scope scope,
         Func<GetResult> receive,
         Func<GetBaseClass, GetResult, Seq<Guid>, Option<T>> value,
         CommandInputRequest<T>.ReadState state,

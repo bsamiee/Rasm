@@ -23,7 +23,9 @@ public sealed class CommandSelection : IDisposable {
 
     internal static CommandSelection From(RhinoDoc document, Seq<ObjRef> references, Seq<Guid> preselected) {
         ArgumentNullException.ThrowIfNull(argument: document);
-        return new(document: document, references: references.Map(static reference => new ObjRef(reference)), preselected: preselected);
+        Seq<ObjRef> owned = references.Map(static reference => new ObjRef(reference));
+        _ = references.Iter(static reference => reference.Dispose());
+        return new(document: document, references: owned, preselected: preselected);
     }
 
     public void Dispose() {
@@ -43,15 +45,17 @@ public sealed class CommandSelection : IDisposable {
                 Component: reference.GeometryComponentIndex,
                 Preselected: preselected);
 
-        public ObjRef ToObjRef(RhinoDoc document) {
+        public TResult UseObjRef<TResult>(RhinoDoc document, Func<ObjRef, TResult> project) {
             ArgumentNullException.ThrowIfNull(argument: document);
+            ArgumentNullException.ThrowIfNull(argument: project);
             RhinoObject? found = document.Objects.Find(runtimeSerialNumber: RuntimeSerialNumber);
-            return (found, Component.IsSet) switch {
-                (RhinoObject native, true) => new ObjRef(doc: document, id: native.Id, ci: Component),
-                (RhinoObject native, false) => new ObjRef(rhinoObject: native),
+            using ObjRef reference = (found, Component.IsSet) switch {
+                (RhinoObject { IsDeleted: false } native, true) => new ObjRef(doc: document, id: native.Id, ci: Component),
+                (RhinoObject { IsDeleted: false } native, false) => new ObjRef(rhinoObject: native),
                 (_, true) => new ObjRef(doc: document, id: ObjectId, ci: Component),
                 _ => new ObjRef(doc: document, id: ObjectId),
             };
+            return project(arg: reference);
         }
     }
 }
