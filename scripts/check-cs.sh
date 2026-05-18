@@ -69,16 +69,12 @@ _run_check() {
     IFS=' ' read -r -a configurations <<< "${CONFIGURATIONS_RAW}"
     [[ "${mode}" == "test" && " ${CONFIGURATIONS_RAW} " != *" ${TEST_CONFIGURATION} "* ]] && configurations+=("${TEST_CONFIGURATION}")
     readonly -a configurations
-    local configuration project
+    local configuration
     for configuration in "${configurations[@]}"; do
         dotnet build "${SOLUTION_PATH}" --configuration "${configuration}" --no-restore "${DOTNET_SERIAL_BUILD_ARGS[@]}"
     done
-    for project in "${solution_projects[@]}"; do
-        dotnet format "${ROOT_DIR}/${project}" --verify-no-changes --severity "${FORMAT_SEVERITY}" --no-restore
-    done
-    for project in "${solution_projects[@]}"; do
-        dotnet format "${ROOT_DIR}/${project}" --verify-no-changes --severity info --diagnostics "${UNUSED_CODE_DIAGNOSTICS}" --no-restore
-    done
+    dotnet format "${SOLUTION_PATH}" --verify-no-changes --severity "${FORMAT_SEVERITY}" --no-restore
+    dotnet format "${SOLUTION_PATH}" --verify-no-changes --severity info --diagnostics "${UNUSED_CODE_DIAGNOSTICS}" --no-restore
     [[ "${mode}" == "test" ]] || return 0
     local -a test_projects=()
     mapfile -t test_projects < <(printf '%s\n' "${solution_projects[@]}" | rg --no-line-number '(^|/)[^/]*Tests\.csproj$' || true)
