@@ -62,7 +62,7 @@ public sealed record CommandInputRequest<T> {
 
     internal CommandInputRequest(Func<CommandInput, Fin<CommandGet<T>>> run) => this.run = run;
 
-    internal Fin<CommandGet<T>> Run(CommandInput input) => Optional(run).ToFin(Fail: Op.Of(name: nameof(CommandInputRequest<T>)).InvalidInput()).Bind(valid => valid(arg: input));
+    internal Fin<CommandGet<T>> Run(CommandInput input) => run(arg: input);
 }
 
 public sealed record CommandInputPolicy {

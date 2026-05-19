@@ -14,7 +14,10 @@ public readonly record struct CommandOptionValue(
     Option<string> StringValue,
     int CurrentListIndex,
     Option<bool> CurrentToggleValue,
-    double CurrentNumericValue);
+    double CurrentNumericValue) {
+    public Option<T> As<T>() => Value.Bind(static value => value is T typed ? Some(typed) : Option<T>.None);
+    public Fin<T> Require<T>() => As<T>().ToFin(Fail: Op.Of(name: nameof(CommandOptionValue)).InvalidResult());
+}
 
 public readonly record struct CommandOptionPolicy(
     string? ValueName = null,

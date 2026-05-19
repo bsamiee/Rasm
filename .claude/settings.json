@@ -1,7 +1,6 @@
 {
     "disabledMcpjsonServers": ["React Aria", "tailwindcss-server"],
     "enabledMcpjsonServers": ["playwright-test"],
-    "outputStyle": "functional-purist",
     "permissions": {
         "allow": [
             "Read",
@@ -41,18 +40,6 @@
                     {
                         "type": "command",
                         "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/setup-env.sh"
-                    }
-                ]
-            }
-        ],
-        "PostToolUse": [
-            {
-                "matcher": "Edit|Write",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/validate-spec.sh",
-                        "timeout": 10
                     }
                 ]
             }

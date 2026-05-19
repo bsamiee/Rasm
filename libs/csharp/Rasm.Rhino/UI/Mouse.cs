@@ -7,6 +7,8 @@ public readonly record struct MouseContext<TState>(MousePhase Phase, TState Stat
 public readonly record struct MouseDecision(bool Cancel) {
     public static MouseDecision Pass => new(Cancel: false);
     public static MouseDecision Stop => new(Cancel: true);
+    public static MouseDecision operator |(MouseDecision left, MouseDecision right) => BitwiseOr(left: left, right: right);
+    public static MouseDecision BitwiseOr(MouseDecision left, MouseDecision right) => new(Cancel: left.Cancel || right.Cancel);
 }
 
 public abstract class RasmMouseCallback<TState>(TState initial) : global::Rhino.UI.MouseCallback, IDisposable {

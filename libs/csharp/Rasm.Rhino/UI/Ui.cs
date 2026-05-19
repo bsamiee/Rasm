@@ -15,37 +15,16 @@ public sealed partial record RhinoUi {
 
     internal readonly record struct Scope(RhinoDoc Document, RunMode Mode);
 
-    public Fin<T> Run<T>(Func<RhinoDoc, Fin<T>> operation, bool interactive = false) =>
-        (interactive && mode == RunMode.Scripted) switch {
-            true => Fin.Fail<T>(error: Op.Of(name: nameof(Run)).InvalidInput()),
-            false => Optional(operation)
-                .ToFin(Fail: Op.Of(name: nameof(Run)).InvalidInput())
-                .Bind(valid => OnUiThread(run: () => valid(arg: document))),
-        };
-
-    public Fin<T> Show<T>(UiIntent<T> intent) =>
+    public Fin<T> Use<T>(UiIntent<T> intent) =>
         Optional(intent)
-            .ToFin(Fail: Op.Of(name: nameof(Show)).InvalidInput())
-            .Bind(valid => Run(operation: doc => valid.Run(scope: new Scope(Document: doc, Mode: mode)), interactive: valid.Interactive));
-
-    public Fin<T> Wait<T>(Func<Fin<T>> run) =>
-        Run(
-            operation: _ => Optional(run)
-                .ToFin(Fail: Op.Of(name: nameof(Wait)).InvalidInput())
-                .Bind(valid => {
-                    using global::Rhino.UI.WaitCursor cursor = new();
-                    cursor.Set();
-                    return Protect(valid: valid);
-                }),
-            interactive: true);
+            .ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput())
+            .Bind(valid => (valid.Interactive && mode == RunMode.Scripted) switch {
+                true => Fin.Fail<T>(error: Op.Of(name: nameof(Use)).InvalidInput()),
+                false => OnUiThread(run: () => valid.Run(scope: new Scope(Document: document, Mode: mode))),
+            });
 
     public Seq<T> Windows<T>() where T : Form =>
         toSeq(global::Rhino.UI.EtoExtensions.WindowsFromDocument<T>(document));
-
-    public Fin<T> Panel<TPanel, T>(PanelOp<TPanel, T> operation) where TPanel : RasmPanel =>
-        Optional(operation)
-            .ToFin(Fail: Op.Of(name: nameof(Panel)).InvalidInput())
-            .Bind(valid => Run(operation: doc => valid.Run(document: doc), interactive: valid.Interactive));
 
     internal static Window? Parent(RhinoDoc document) =>
         global::Rhino.UI.RhinoEtoApp.MainWindowForDocument(document);
@@ -83,15 +62,19 @@ public readonly record struct UiStatus(
     Option<double> Number = default,
     Option<Point3d> Point = default,
     bool ClearMessage = false) {
+    public static UiStatus operator +(UiStatus left, UiStatus right) => Add(left: left, right: right);
+    public static UiStatus Add(UiStatus left, UiStatus right) =>
+        new(Prompt: right.Prompt.IsSome ? right.Prompt : left.Prompt, PromptDefault: right.PromptDefault.IsSome ? right.PromptDefault : left.PromptDefault, Message: right.Message.IsSome ? right.Message : left.Message, Distance: right.Distance.IsSome ? right.Distance : left.Distance, Number: right.Number.IsSome ? right.Number : left.Number, Point: right.Point.IsSome ? right.Point : left.Point, ClearMessage: left.ClearMessage || right.ClearMessage);
+
     internal Fin<Unit> Apply() {
         UiStatus status = this;
         return RhinoUi.Protect(valid: () => {
             _ = (status.Prompt.Case, status.PromptDefault.Case) switch {
-                (string prompt, string fallback) => SetPrompt(prompt: prompt, promptDefault: fallback),
-                (string prompt, _) => SetPrompt(prompt: prompt),
+                (string prompt, string fallback) => ((Func<Unit>)(() => { RhinoApp.SetCommandPrompt(prompt: prompt, promptDefault: fallback); return unit; }))(),
+                (string prompt, _) => ((Func<Unit>)(() => { RhinoApp.SetCommandPrompt(prompt: prompt); return unit; }))(),
                 _ => unit,
             };
-            _ = status.ClearMessage ? Do(action: global::Rhino.UI.StatusBar.ClearMessagePane) : unit;
+            _ = status.ClearMessage ? ((Func<Unit>)(() => { global::Rhino.UI.StatusBar.ClearMessagePane(); return unit; }))() : unit;
             _ = status.Message.Iter(static value => global::Rhino.UI.StatusBar.SetMessagePane(message: value));
             _ = status.Distance.Iter(static value => global::Rhino.UI.StatusBar.SetDistancePane(distance: value));
             _ = status.Number.Iter(static value => global::Rhino.UI.StatusBar.SetNumberPane(number: value));
@@ -100,20 +83,6 @@ public readonly record struct UiStatus(
         });
     }
 
-    private static Unit SetPrompt(string prompt) {
-        RhinoApp.SetCommandPrompt(prompt: prompt);
-        return unit;
-    }
-
-    private static Unit SetPrompt(string prompt, string promptDefault) {
-        RhinoApp.SetCommandPrompt(prompt: prompt, promptDefault: promptDefault);
-        return unit;
-    }
-
-    private static Unit Do(Action action) => Optional(action).Map(valid => {
-        valid();
-        return unit;
-    }).IfNone(unit);
 }
 
 public readonly record struct UiProgressSpec(

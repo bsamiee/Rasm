@@ -4,6 +4,44 @@ public enum OverlayPhase { Enabled, Cull, PreDrawObjects, PreDrawObject, Foregro
 
 public readonly record struct OverlayContext<TState>(OverlayPhase Phase, TState State, object? Args = null, bool Enabled = false);
 
+public readonly record struct OverlayDecision(Option<BoundingBox> Bounds = default) {
+    public static OverlayDecision Ignore => new();
+    public static Fin<OverlayDecision> Include(BoundingBox bounds) => bounds.IsValid switch { true => Fin.Succ(value: new OverlayDecision(Bounds: Some(bounds))), false => Fin.Fail<OverlayDecision>(error: Op.Of(name: nameof(OverlayDecision)).InvalidResult()) };
+    public static OverlayDecision operator +(OverlayDecision left, OverlayDecision right) => Add(left: left, right: right);
+    public static OverlayDecision Add(OverlayDecision left, OverlayDecision right) => new(Bounds: (left.Bounds.Case, right.Bounds.Case) switch { (BoundingBox a, BoundingBox b) => Some(BoundingBox.Union(a, b)), (_, BoundingBox b) => Some(b), (BoundingBox a, _) => Some(a), _ => Option<BoundingBox>.None });
+}
+
+public readonly record struct OverlayFilter(Option<ObjectType> Geometry = default, Option<ActiveSpace> Space = default, Seq<Guid> ObjectIds = default, Option<(bool On, bool CheckSubObjects)> Selection = default, Option<(RhinoViewport Viewport, bool Exclusive)> Viewport = default, bool Unbind = false) {
+    internal Fin<Unit> Apply(DisplayConduit conduit) {
+        Option<ObjectType> geometry = Geometry; Option<ActiveSpace> space = Space; Seq<Guid> objectIds = ObjectIds; Option<(bool On, bool CheckSubObjects)> selection = Selection; Option<(RhinoViewport Viewport, bool Exclusive)> viewport = Viewport;
+        bool unbind = Unbind;
+        return Optional(conduit)
+            .ToFin(Fail: Op.Of(name: nameof(OverlayFilter)).InvalidInput())
+            .Map(valid => {
+                _ = geometry.Iter(value => valid.GeometryFilter = value);
+                _ = space.Iter(value => valid.SpaceFilter = value);
+                _ = selection.Iter(value => valid.SetSelectionFilter(on: value.On, checkSubObjects: value.CheckSubObjects));
+                _ = objectIds.IsEmpty switch {
+                    false => Do(action: () => valid.SetObjectIdFilter(ids: objectIds.AsIterable())),
+                    true => unit,
+                };
+                _ = unbind switch {
+                    true => Do(action: valid.UnbindAll),
+                    false => viewport.Map(value => {
+                        _ = value.Exclusive switch {
+                            true => Do(action: () => valid.ExclusiveBind(viewport: value.Viewport)),
+                            false => Do(action: () => valid.Bind(viewport: value.Viewport)),
+                        };
+                        return unit;
+                    }).IfNone(unit),
+                };
+                return unit;
+            });
+    }
+
+    private static Unit Do(Action action) { action(); return unit; }
+}
+
 public abstract class RasmOverlay<TState>(TState initial) : DisplayConduit, IDisposable {
     private readonly Atom<TState> state = Atom(initial);
     private bool disposed;
@@ -28,6 +66,12 @@ public abstract class RasmOverlay<TState>(TState initial) : DisplayConduit, IDis
         return Fin.Succ(value: unit);
     }
 
+    public Fin<Unit> Filter(OverlayFilter filter, RhinoDoc? document = null) =>
+        filter.Apply(conduit: this).Map(_ => {
+            _ = Optional(document).Iter(static doc => doc.Views.Redraw());
+            return unit;
+        });
+
     public void Dispose() {
         Dispose(disposing: true);
         GC.SuppressFinalize(obj: this);
@@ -47,14 +91,11 @@ public abstract class RasmOverlay<TState>(TState initial) : DisplayConduit, IDis
         return unit;
     }
 
-    protected virtual Fin<Unit> Change(OverlayContext<TState> context) =>
-        Fin.Succ(value: unit);
-
-    protected virtual Fin<BoundingBox> Bounds(OverlayContext<TState> context) =>
-        Fin.Fail<BoundingBox>(error: Op.Of(name: nameof(Bounds)).InvalidResult());
+    protected virtual Fin<OverlayDecision> Change(OverlayContext<TState> context) =>
+        Fin.Succ(value: OverlayDecision.Ignore);
 
     protected sealed override void OnEnable(bool enable) =>
-        _ = RhinoUi.Protect(valid: () => Change(context: new OverlayContext<TState>(Phase: OverlayPhase.Enabled, State: State, Enabled: enable)));
+        _ = Apply(phase: OverlayPhase.Enabled, args: null, enabled: enable);
 
     protected sealed override void ObjectCulling(CullObjectEventArgs e) =>
         _ = Apply(phase: OverlayPhase.Cull, args: e);
@@ -75,20 +116,16 @@ public abstract class RasmOverlay<TState>(TState initial) : DisplayConduit, IDis
         _ = Apply(phase: OverlayPhase.PostDraw, args: e);
 
     protected sealed override void CalculateBoundingBox(CalculateBoundingBoxEventArgs e) =>
-        _ = Include(phase: OverlayPhase.Bounds, args: e);
+        _ = Apply(phase: OverlayPhase.Bounds, args: e);
 
     protected sealed override void CalculateBoundingBoxZoomExtents(CalculateBoundingBoxEventArgs e) =>
-        _ = Include(phase: OverlayPhase.ZoomBounds, args: e);
+        _ = Apply(phase: OverlayPhase.ZoomBounds, args: e);
 
-    private Fin<Unit> Apply(OverlayPhase phase, object args) =>
-        RhinoUi.Protect(valid: () => Change(context: new OverlayContext<TState>(Phase: phase, State: State, Args: args)));
-
-    private Fin<Unit> Include(OverlayPhase phase, CalculateBoundingBoxEventArgs args) =>
-        RhinoUi.Protect(valid: () => Bounds(context: new OverlayContext<TState>(Phase: phase, State: State, Args: args)))
-            .Map(box => {
-                args.IncludeBoundingBox(box);
-                return unit;
-            });
+    private Fin<Unit> Apply(OverlayPhase phase, object? args, bool enabled = false) =>
+        RhinoUi.Protect(valid: () => Change(context: new OverlayContext<TState>(Phase: phase, State: State, Args: args, Enabled: enabled))).Map(decision => {
+            _ = Optional(args as CalculateBoundingBoxEventArgs).Iter(target => decision.Bounds.Iter(box => target.IncludeBoundingBox(box)));
+            return unit;
+        });
 }
 
 public readonly record struct UiGumballSnapshot(

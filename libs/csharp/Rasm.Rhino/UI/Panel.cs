@@ -23,12 +23,10 @@ public abstract class RasmPanel : Panel, global::Rhino.UI.IPanel {
     internal static Fin<Type> PanelType<TPanel>() where TPanel : RasmPanel {
         Type type = typeof(TPanel);
         return (type.GetCustomAttributes(attributeType: typeof(System.Runtime.InteropServices.GuidAttribute), inherit: false).Length,
-                type.GetConstructor(types: Type.EmptyTypes),
                 type.GetConstructor(types: [typeof(uint)]),
-                type.GetConstructor(types: [typeof(RhinoDoc)])) switch {
-                    ( > 0, not null, _, _) => Fin.Succ(value: type),
-                    ( > 0, _, not null, _) => Fin.Succ(value: type),
-                    ( > 0, _, _, not null) => Fin.Succ(value: type),
+                type.GetConstructor(types: Type.EmptyTypes)) switch {
+                    ( > 0, not null, _) => Fin.Succ(value: type),
+                    ( > 0, _, not null) => Fin.Succ(value: type),
                     _ => Fin.Fail<Type>(error: Op.Of(name: nameof(PanelType)).InvalidInput()),
                 };
     }
@@ -44,10 +42,7 @@ public sealed record PanelOp<TPanel, T> where TPanel : RasmPanel {
 
     internal bool Interactive { get; }
 
-    internal Fin<T> Run(RhinoDoc? document) =>
-        Optional(run)
-            .ToFin(Fail: Op.Of(name: nameof(PanelOp<TPanel, T>)).InvalidInput())
-            .Bind(valid => valid(arg: document));
+    internal Fin<T> Run(RhinoDoc? document) => run(arg: document);
 }
 
 public static class PanelOp {
@@ -95,43 +90,21 @@ public static class PanelOp {
         new(run: document =>
             RasmPanel.PanelType<TPanel>().Map(panel => {
                 _ = document switch {
-                    RhinoDoc doc => ClosePanel(panelId: PanelId(panelType: panel), document: doc),
-                    _ => Do(action: () => global::Rhino.UI.Panels.ClosePanel(panelType: panel)),
+                    RhinoDoc doc => ((Func<Unit>)(() => { global::Rhino.UI.Panels.ClosePanel(panelId: PanelId(panelType: panel), doc: doc); return unit; }))(),
+                    _ => ((Func<Unit>)(() => { global::Rhino.UI.Panels.ClosePanel(panelType: panel); return unit; }))(),
                 };
                 return unit;
             }),
             interactive: true);
 
-    public static PanelOp<TPanel, bool> Visible<TPanel>(bool selectedTabOnWindows = false) where TPanel : RasmPanel =>
-        new(run: _ => RasmPanel.PanelType<TPanel>().Map(panel => global::Rhino.UI.Panels.IsPanelVisible(panelType: panel, isSelectedTab: selectedTabOnWindows)), interactive: false);
-
-    public static PanelOp<TPanel, Option<TPanel>> One<TPanel>() where TPanel : RasmPanel =>
-        new(run: document => Optional(document)
-            .ToFin(Fail: Op.Of(name: nameof(One)).InvalidInput())
-            .Map(doc => Optional(global::Rhino.UI.Panels.GetPanel<TPanel>(doc))),
-            interactive: false);
-
-    public static PanelOp<TPanel, Seq<TPanel>> Many<TPanel>() where TPanel : RasmPanel =>
-        new(run: document => Optional(document)
-            .ToFin(Fail: Op.Of(name: nameof(Many)).InvalidInput())
-            .Map(doc => toSeq(global::Rhino.UI.Panels.GetPanels<TPanel>(doc))),
-            interactive: false);
+    public static PanelOp<TPanel, (Guid PanelId, bool Visible, Seq<TPanel> Instances, Seq<Guid> OpenPanelIds)> Snapshot<TPanel>(bool selectedTabOnWindows = false) where TPanel : RasmPanel =>
+        new(run: document => from panel in RasmPanel.PanelType<TPanel>() from doc in Optional(document).ToFin(Fail: Op.Of(name: nameof(Snapshot)).InvalidInput()) let id = PanelId(panelType: panel) select (PanelId: id, Visible: global::Rhino.UI.Panels.IsPanelVisible(panelType: panel, isSelectedTab: selectedTabOnWindows), Instances: toSeq(global::Rhino.UI.Panels.GetPanels<TPanel>(doc)), OpenPanelIds: toSeq(global::Rhino.UI.Panels.GetOpenPanelIds())), interactive: false);
 
     private static Fin<string> NonBlank(string value) =>
         string.IsNullOrWhiteSpace(value: value) switch {
             false => Fin.Succ(value: value),
             true => Fin.Fail<string>(error: Op.Of(name: nameof(PanelOp)).InvalidInput()),
         };
-
-    private static Unit ClosePanel(Guid panelId, RhinoDoc document) {
-        global::Rhino.UI.Panels.ClosePanel(panelId: panelId, doc: document);
-        return unit;
-    }
-
-    private static Unit Do(Action action) => Optional(action).Map(valid => {
-        valid();
-        return unit;
-    }).IfNone(unit);
 
     private static Guid PanelId(Type panelType) =>
         ((System.Runtime.InteropServices.GuidAttribute)panelType.GetCustomAttributes(attributeType: typeof(System.Runtime.InteropServices.GuidAttribute), inherit: false)[0]).Value switch {

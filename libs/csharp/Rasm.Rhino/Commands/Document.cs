@@ -1,21 +1,15 @@
 namespace Rasm.Rhino.Commands;
 
-public sealed record DocumentTarget {
-    private DocumentTarget(TargetKind kind, object value) => (Kind, Value) = (kind, value);
+public abstract record DocumentTarget {
+    private DocumentTarget() { }
 
-    private TargetKind Kind { get; }
-    private object Value { get; }
+    public static Fin<DocumentTarget> Selection(CommandSelection selection) => Optional(selection).ToFin(Fail: Op.Of(name: nameof(DocumentTarget)).InvalidInput()).Map(value => (DocumentTarget)new SelectionTarget(value));
 
-    public static DocumentTarget Selection(CommandSelection selection) => new(kind: TargetKind.Selection, value: selection);
-    public static DocumentTarget Reference(CommandSelection.Reference reference) =>
-        new(kind: TargetKind.Reference, value: reference);
-    public static DocumentTarget Reference(ObjRef reference) =>
-        new(kind: TargetKind.Reference, value: Optional(reference)
-            .Map(static value => CommandSelection.Reference.Of(reference: value, preselected: false))
-            .Filter(static value => value.ObjectId != Guid.Empty)
-            .IfNone(default(CommandSelection.Reference)));
-    public static DocumentTarget Objects(IEnumerable<Guid> objectIds) =>
-        new(kind: TargetKind.Objects, value: Optional(objectIds).Map(static ids => toSeq(ids)).IfNone(Seq<Guid>()));
+    public static Fin<DocumentTarget> Reference(CommandSelection.Reference reference) => reference.ObjectId switch { Guid id when id != Guid.Empty => Fin.Succ<DocumentTarget>(value: new ReferenceTarget(reference)), _ => Fin.Fail<DocumentTarget>(error: Op.Of(name: nameof(DocumentTarget)).InvalidInput()) };
+
+    public static Fin<DocumentTarget> Reference(ObjRef reference) => Optional(reference).ToFin(Fail: Op.Of(name: nameof(DocumentTarget)).InvalidInput()).Map(static value => CommandSelection.Reference.Of(reference: value, preselected: false)).Bind(Reference);
+
+    public static Fin<DocumentTarget> Objects(IEnumerable<Guid> objectIds) => TargetIds(ids: objectIds, op: Op.Of(name: nameof(DocumentTarget))).Map(ids => (DocumentTarget)new ObjectsTarget(ids));
 
     internal Fin<int> Select(RhinoDoc document, bool selected, Op op) =>
         Use(document: document, op: op,
@@ -29,21 +23,30 @@ public sealed record DocumentTarget {
             reference: value => value.Use(document: document, op: op, use: native => UnitResult(success: document.Objects.Delete(native, quiet, ignoreModes), op: op)),
             objects: ids => DeleteIds(document: document, ids: ids, quiet: quiet, ignoreModes: ignoreModes, op: op));
 
-    private Fin<T> Use<T>(RhinoDoc document, Op op, Func<CommandSelection, Fin<T>> selection, Func<CommandSelection.Reference, Fin<T>> reference, Func<Seq<Guid>, Fin<T>> objects) =>
-        (Kind, Value) switch {
-            (TargetKind.Selection, CommandSelection value) when ReferenceEquals(objA: value.Document, objB: document) => selection(arg: value),
-            (TargetKind.Selection, CommandSelection) => Fin.Fail<T>(error: op.InvalidInput()),
-            (TargetKind.Reference, CommandSelection.Reference value) when value.ObjectId != Guid.Empty => reference(arg: value),
-            (TargetKind.Objects, Seq<Guid> ids) => TargetIds(ids: ids, op: op).Bind(objects),
-            _ => Fin.Fail<T>(error: op.InvalidInput()),
-        };
+    internal Fin<Unit> Replace(RhinoDoc document, GeometryBase geometry, bool ignoreModes, Op op) =>
+        Use(document: document, op: op,
+            selection: value => ReplaceIds(document: document, ids: value.ObjectIds, geometry: geometry, ignoreModes: ignoreModes, op: op),
+            reference: value => value.Use(document: document, op: op, use: native => UnitResult(success: document.Objects.Replace(native, geometry, ignoreModes), op: op)),
+            objects: ids => ReplaceIds(document: document, ids: ids, geometry: geometry, ignoreModes: ignoreModes, op: op));
 
-    private enum TargetKind { Selection, Reference, Objects }
+    internal abstract Fin<T> Use<T>(RhinoDoc document, Op op, Func<CommandSelection, Fin<T>> selection, Func<CommandSelection.Reference, Fin<T>> reference, Func<Seq<Guid>, Fin<T>> objects);
+
+    private sealed record SelectionTarget(CommandSelection Value) : DocumentTarget {
+        internal override Fin<T> Use<T>(RhinoDoc document, Op op, Func<CommandSelection, Fin<T>> selection, Func<CommandSelection.Reference, Fin<T>> reference, Func<Seq<Guid>, Fin<T>> objects) => (Value, ReferenceEquals(objA: Value?.Document, objB: document)) switch { (CommandSelection value, true) => selection(arg: value), _ => Fin.Fail<T>(error: op.InvalidInput()) };
+    }
+
+    private sealed record ReferenceTarget(CommandSelection.Reference Value) : DocumentTarget {
+        internal override Fin<T> Use<T>(RhinoDoc document, Op op, Func<CommandSelection, Fin<T>> selection, Func<CommandSelection.Reference, Fin<T>> reference, Func<Seq<Guid>, Fin<T>> objects) => reference(arg: Value);
+    }
+
+    private sealed record ObjectsTarget(Seq<Guid> Values) : DocumentTarget {
+        internal override Fin<T> Use<T>(RhinoDoc document, Op op, Func<CommandSelection, Fin<T>> selection, Func<CommandSelection.Reference, Fin<T>> reference, Func<Seq<Guid>, Fin<T>> objects) => objects(arg: Values);
+    }
 
     private static Fin<Seq<Guid>> TargetIds(IEnumerable<Guid> ids, Op op) =>
         Optional(ids)
             .ToFin(Fail: op.InvalidInput())
-            .Bind(values => toSeq(values.Where(static id => id != Guid.Empty).Distinct()) switch {
+            .Bind(values => toSeq(values).Filter(static id => id != Guid.Empty).Distinct() switch {
                 Seq<Guid> target when !target.IsEmpty => Fin.Succ(value: target),
                 _ => Fin.Fail<Seq<Guid>>(error: op.InvalidInput()),
             });
@@ -64,6 +67,9 @@ public sealed record DocumentTarget {
                         _ => Fin.Fail<Unit>(error: op.InvalidResult()),
                     },
             });
+
+    private static Fin<Unit> ReplaceIds(RhinoDoc document, IEnumerable<Guid> ids, GeometryBase geometry, bool ignoreModes, Op op) =>
+        TargetIds(ids: ids, op: op).Bind(target => target.Count switch { 1 => UnitResult(success: document.Objects.Replace(objectId: target[0], geometry: geometry, ignoreModes: ignoreModes), op: op), _ => Fin.Fail<Unit>(error: op.InvalidInput()) });
 
     private static Fin<int> CountResult(int count, Op op) =>
         count switch {
@@ -113,13 +119,11 @@ public sealed record DocumentEdit {
         }
         select ids;
 
-    public Fin<Unit> Replace(CommandSelection.Reference reference, GeometryBase geometry, bool ignoreModes = false) =>
+    public Fin<Unit> Replace(DocumentTarget target, GeometryBase geometry, bool ignoreModes = false) =>
         from document in Available(op: Op.Of(name: nameof(Replace)))
         from g in Optional(geometry).ToFin(Fail: Op.Of(name: nameof(Replace)).InvalidInput())
-        from result in reference.Use(document: document, op: Op.Of(name: nameof(Replace)), use: native => document.Objects.Replace(native, g, ignoreModes) switch {
-            true => Fin.Succ(value: unit),
-            false => Fin.Fail<Unit>(error: Op.Of(name: nameof(Replace)).InvalidResult()),
-        })
+        from valid in Optional(target).ToFin(Fail: Op.Of(name: nameof(Replace)).InvalidInput())
+        from result in valid.Replace(document: document, geometry: g, ignoreModes: ignoreModes, op: Op.Of(name: nameof(Replace)))
         select result;
 
     public Fin<Unit> Delete(DocumentTarget target, bool quiet = true, bool ignoreModes = false) =>
@@ -133,6 +137,8 @@ public sealed record DocumentEdit {
         from valid in Optional(target).ToFin(Fail: Op.Of(name: nameof(Select)).InvalidInput())
         from result in valid.Select(document: document, selected: selected, op: Op.Of(name: nameof(Select)))
         select result;
+
+    public Fin<int> Reveal(DocumentTarget target) => from count in Select(target: target, selected: true) from _ in Redraw() select count;
 
     public Fin<int> UnselectAll(bool ignorePersistentSelections = false) =>
         from document in Available(op: Op.Of(name: nameof(UnselectAll)))
@@ -154,4 +160,5 @@ public sealed record DocumentEdit {
             { IsAvailable: true, IsClosing: false } document => Fin.Succ(value: document),
             _ => Fin.Fail<RhinoDoc>(error: op.InvalidInput()),
         };
+
 }

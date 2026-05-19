@@ -61,6 +61,8 @@ public sealed record CommandSelection {
     public Seq<Reference> Items { get; }
     public Seq<Guid> ObjectIds => Items.Map(static item => item.ObjectId);
 
+    public Fin<Seq<T>> Project<T>(Func<Reference, Fin<T>> project) => Optional(project).ToFin(Fail: Op.Of(name: nameof(Project)).InvalidInput()).Bind(valid => Items.TraverseM(reference => valid(arg: reference)).As());
+
     internal static CommandSelection From(RhinoDoc document, Seq<ObjRef> references, Seq<(Guid ObjectId, ComponentIndex ComponentIndex)> preselected) {
         ArgumentNullException.ThrowIfNull(argument: document);
         ObjRef[] source = [.. references];
