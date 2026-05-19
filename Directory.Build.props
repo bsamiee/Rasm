@@ -22,7 +22,7 @@
         <IsGrasshopperAwareProject Condition="'$(IsGrasshopperAwareProject)' == ''">false</IsGrasshopperAwareProject>
         <IsRhinoCommonAwareProject Condition="'$(IsRhinoCommonAwareProject)' == '' and ($([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmCoreRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmGrasshopperRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmRhinoRoot)')))">true</IsRhinoCommonAwareProject>
         <IsRhinoCommonAwareProject Condition="'$(IsRhinoCommonAwareProject)' == ''">false</IsRhinoCommonAwareProject>
-        <IsRhinoUiAwareProject Condition="'$(IsRhinoUiAwareProject)' == '' and ($([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmRhinoRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoAppsRoot)')))">true</IsRhinoUiAwareProject>
+        <IsRhinoUiAwareProject Condition="'$(IsRhinoUiAwareProject)' == '' and ($([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmGrasshopperRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmRhinoRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoAppsRoot)')))">true</IsRhinoUiAwareProject>
         <IsRhinoUiAwareProject Condition="'$(IsRhinoUiAwareProject)' == ''">false</IsRhinoUiAwareProject>
     </PropertyGroup>
 
@@ -137,7 +137,7 @@
         </AssemblyAttribute>
     </ItemGroup>
 
-    <ItemGroup Label="Rhino UI Host Platform Metadata" Condition="'$(IsRhinoUiAwareProject)' == 'true'">
+    <ItemGroup Label="Rhino UI Host Platform Metadata" Condition="'$(IsRhinoUiAwareProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true'">
         <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute">
             <_Parameter1>macos15.0</_Parameter1>
         </AssemblyAttribute>

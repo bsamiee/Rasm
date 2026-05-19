@@ -28,9 +28,15 @@ internal interface IRasmComponent {
     public ComponentSpec Spec { get; }
 }
 public readonly record struct ComponentSpec(Seq<ComponentItem<Port>> Inputs, Seq<ComponentItem<OutputBinding>> Outputs, NameIconMode IconMode = NameIconMode.Application, ThreadingState Threading = ThreadingState.MultiThreaded) {
-    public static ComponentSpec Of(Seq<OutputBinding> outputs, Seq<ComponentItem<Port>> inputs = default, NameIconMode iconMode = NameIconMode.Application, ThreadingState threading = ThreadingState.MultiThreaded) {
+    public static ComponentSpec Of(Seq<OutputBinding> outputs, Seq<ComponentItem<Port>> inputs = default, NameIconMode iconMode = NameIconMode.Application, ThreadingState threading = ThreadingState.MultiThreaded) =>
+        Of(
+            outputs: outputs.Map(static binding => new ComponentItem<OutputBinding>(Value: binding)),
+            inputs: inputs,
+            iconMode: iconMode,
+            threading: threading);
+    public static ComponentSpec Of(Seq<ComponentItem<OutputBinding>> outputs, Seq<ComponentItem<Port>> inputs = default, NameIconMode iconMode = NameIconMode.Application, ThreadingState threading = ThreadingState.MultiThreaded) {
         Seq<ComponentItem<Port>> declared = inputs
-            .Concat(outputs.Choose(static binding => Optional(binding).Map(static found => new ComponentItem<Port>(Value: found.Input))))
+            .Concat(outputs.Choose(static output => Optional(output.Value).Map(static found => new ComponentItem<Port>(Value: found.Input))))
             .Fold(Seq<ComponentItem<Port>>(), static (found, item) => found.Exists(input => ReferenceEquals(objA: input.Value, objB: item.Value)) switch {
                 true => found,
                 false => item.Cons(found),
@@ -38,7 +44,7 @@ public readonly record struct ComponentSpec(Seq<ComponentItem<Port>> Inputs, Seq
             .Rev();
         return new(
             Inputs: declared,
-            Outputs: outputs.Map(static binding => new ComponentItem<OutputBinding>(Value: binding)),
+            Outputs: outputs,
             IconMode: iconMode,
             Threading: threading);
     }
