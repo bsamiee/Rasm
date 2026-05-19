@@ -3,7 +3,9 @@ using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Doc;
 using Grasshopper2.Parameters;
 using Grasshopper2.UI.Icon;
+using Grasshopper2.UI.InputPanel;
 using GrasshopperIO;
+using Rasm.Grasshopper.UI;
 using GhPlugin = Grasshopper2.Framework.Plugin;
 
 namespace Rasm.Grasshopper;
@@ -27,14 +29,15 @@ public interface IComponentDefinition<TSelf> where TSelf : IComponentDefinition<
 internal interface IRasmComponent {
     public ComponentSpec Spec { get; }
 }
-public readonly record struct ComponentSpec(Seq<ComponentItem<Port>> Inputs, Seq<ComponentItem<OutputBinding>> Outputs, NameIconMode IconMode = NameIconMode.Application, ThreadingState Threading = ThreadingState.MultiThreaded) {
-    public static ComponentSpec Of(Seq<OutputBinding> outputs, Seq<ComponentItem<Port>> inputs = default, NameIconMode iconMode = NameIconMode.Application, ThreadingState threading = ThreadingState.MultiThreaded) =>
+public readonly record struct ComponentSpec(Seq<ComponentItem<Port>> Inputs, Seq<ComponentItem<OutputBinding>> Outputs, NameIconMode IconMode = NameIconMode.Application, ThreadingState Threading = ThreadingState.MultiThreaded, ComponentUi Ui = default) {
+    public static ComponentSpec Of(Seq<OutputBinding> outputs, Seq<ComponentItem<Port>> inputs = default, NameIconMode iconMode = NameIconMode.Application, ThreadingState threading = ThreadingState.MultiThreaded, ComponentUi ui = default) =>
         Of(
             outputs: outputs.Map(static binding => new ComponentItem<OutputBinding>(Value: binding)),
             inputs: inputs,
             iconMode: iconMode,
-            threading: threading);
-    public static ComponentSpec Of(Seq<ComponentItem<OutputBinding>> outputs, Seq<ComponentItem<Port>> inputs = default, NameIconMode iconMode = NameIconMode.Application, ThreadingState threading = ThreadingState.MultiThreaded) {
+            threading: threading,
+            ui: ui);
+    public static ComponentSpec Of(Seq<ComponentItem<OutputBinding>> outputs, Seq<ComponentItem<Port>> inputs = default, NameIconMode iconMode = NameIconMode.Application, ThreadingState threading = ThreadingState.MultiThreaded, ComponentUi ui = default) {
         Seq<ComponentItem<Port>> declared = inputs
             .Concat(outputs.Choose(static output => Optional(output.Value).Map(static found => new ComponentItem<Port>(Value: found.Input))))
             .Fold(Seq<ComponentItem<Port>>(), static (found, item) => found.Exists(input => ReferenceEquals(objA: input.Value, objB: item.Value)) switch {
@@ -46,7 +49,8 @@ public readonly record struct ComponentSpec(Seq<ComponentItem<Port>> Inputs, Seq
             Inputs: declared,
             Outputs: outputs,
             IconMode: iconMode,
-            Threading: threading);
+            Threading: threading,
+            Ui: ui);
     }
 }
 internal readonly record struct GrasshopperRuntime(IDataAccess Access, Analyze.Scope Scope, Hints Hints, IProgress<double> Progress, CancellationToken Cancellation) {
@@ -197,6 +201,13 @@ public abstract class Component<TSelf> : Grasshopper2.Components.ModularComponen
     private static Type Self => typeof(TSelf);
     public ComponentSpec Spec => TSelf.Definition;
     protected override IIcon IconInternal => IconAttribute.Resolve(owner: Self, fallback: base.IconInternal);
+    // BOUNDARY ADAPTER -- GH2 asks for canvas attributes; Rasm installs the component UI rail when specified.
+    protected override IAttributes CreateAttributes() => Spec.Ui.Attributes(owner: this);
+    public override void AppendToInputPanel(InputPanel panel) {
+        base.AppendToInputPanel(panel: panel);
+        // BOUNDARY ADAPTER -- GH2 owns the input panel; Rasm appends through the same component UI rail.
+        _ = Spec.Ui.Append(owner: this, panel: panel);
+    }
     protected override void AddInputs(ModularInputAdder inputs) {
         ArgumentNullException.ThrowIfNull(argument: inputs);
         cachedInputs = Spec.Inputs.Map(pair => (
