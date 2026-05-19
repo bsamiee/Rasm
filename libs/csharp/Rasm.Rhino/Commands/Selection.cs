@@ -60,6 +60,12 @@ public sealed record CommandSelection {
     public RhinoDoc Document { get; }
     public Seq<Reference> Items { get; }
     public Seq<Guid> ObjectIds => Items.Map(static item => item.ObjectId);
+    internal Seq<Reference> TransformTargets {
+        get {
+            System.Collections.Generic.HashSet<(Guid, uint, ComponentIndex)> seen = [];
+            return Items.Filter(item => seen.Add(item: (item.ObjectId, item.RuntimeSerialNumber, item.ComponentIndex)));
+        }
+    }
 
     public Fin<Seq<T>> Project<T>(Func<Reference, Fin<T>> project) => Optional(project).ToFin(Fail: Op.Of(name: nameof(Project)).InvalidInput()).Bind(valid => Items.TraverseM(reference => valid(arg: reference)).As());
 
@@ -90,22 +96,22 @@ public sealed record CommandSelection {
         }
     }
 
-    internal Fin<int> SelectInto(RhinoDoc document, bool selected, Op op) =>
-        Try.lift<Fin<int>>(f: () => SelectNative(document: document, selected: selected, op: op))
+    internal Fin<int> SelectInto(RhinoDoc document, bool selected, DocumentSelectionPolicy policy, Op op) =>
+        Try.lift<Fin<int>>(f: () => SelectNative(document: document, selected: selected, policy: policy, op: op))
             .Run()
             .MapFail(_ => op.InvalidResult())
             .Bind(static value => value);
 
-    private Fin<int> SelectNative(RhinoDoc document, bool selected, Op op) {
+    private Fin<int> SelectNative(RhinoDoc document, bool selected, DocumentSelectionPolicy policy, Op op) {
         ArgumentNullException.ThrowIfNull(argument: document);
         Seq<ObjRef> references = Seq<ObjRef>();
         // BOUNDARY ADAPTER — reconstructed ObjRefs are native disposable state around the selection call.
         try {
             references = Items.Map(reference => reference.ObjRef(document: document));
-            return document.Objects.Select(references.AsIterable(), selected) switch {
-                int count and >= 0 => Fin.Succ(value: count),
-                _ => Fin.Fail<int>(error: op.InvalidResult()),
-            };
+            return references.TraverseM(reference => document.Objects.Select(reference, selected, policy.Highlight, policy.Persistent, policy.IgnoreGrips, policy.IgnoreLayerLocking, policy.IgnoreLayerVisibility) switch {
+                true => Fin.Succ(value: 1),
+                false => Fin.Fail<int>(error: op.InvalidResult()),
+            }).As().Map(static values => values.Fold(initialState: 0, f: static (state, value) => state + value));
         } finally {
             _ = references.Iter(static reference => reference.Dispose());
         }
@@ -128,6 +134,7 @@ public sealed record CommandSelection {
             SelectionMethod selectionMethod = reference.SelectionMethod();
             Point3d selectionPoint = reference.SelectionPoint();
             RhinoView? selectionView = reference.SelectionView();
+            uint detailSerial = reference.SelectionViewDetailSerialNumber();
             return new(
                 ObjectId: reference.ObjectId,
                 DocumentRuntimeSerialNumber: Optional(reference.Document).Map(static document => document.RuntimeSerialNumber).IfNone(0u),
@@ -140,8 +147,11 @@ public sealed record CommandSelection {
                     _ => Option<Point3d>.None,
                 },
                 SelectionViewRuntimeSerialNumber: Optional(selectionView).Map(static view => view.RuntimeSerialNumber),
-                SelectionViewportId: Optional(selectionView).Map(static view => view.ActiveViewportID),
-                SelectionViewDetailSerialNumber: reference.SelectionViewDetailSerialNumber(),
+                SelectionViewportId: detailSerial switch {
+                    > 0 => Optional(RhinoObject.FromRuntimeSerialNumber(detailSerial)).Bind(static native => native is DetailViewObject detail ? Some(detail.Viewport.Id) : Option<Guid>.None) | Optional(selectionView).Map(static view => view.ActiveViewportID),
+                    _ => Optional(selectionView).Map(static view => view.ActiveViewportID),
+                },
+                SelectionViewDetailSerialNumber: detailSerial,
                 Location: PickLocation.Of(reference: reference, selectionMethod: selectionMethod));
         }
 

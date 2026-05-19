@@ -15,7 +15,7 @@ public readonly record struct OverlayContext<TState>(OverlayPhase Phase, TState 
         Optional(Args as TArgs).ToFin(Fail: Op.Of(name: nameof(Require)).InvalidInput());
 }
 
-public readonly record struct OverlayDecision(Option<BoundingBox> Bounds = default, Option<bool> Cull = default, Option<Func<DisplayPipeline, Fin<Unit>>> Draw = default) {
+public readonly record struct OverlayDecision(Option<BoundingBox> Bounds = default, Option<bool> Cull = default, Option<Func<DisplayPipeline, Fin<Unit>>> Draw = default, Option<Func<DrawObjectEventArgs, Fin<Unit>>> DrawObject = default) {
     public static OverlayDecision Ignore => new();
     public static Fin<OverlayDecision> Include(BoundingBox bounds) => bounds.IsValid switch { true => Fin.Succ(value: new OverlayDecision(Bounds: Some(bounds))), false => Fin.Fail<OverlayDecision>(error: Op.Of(name: nameof(OverlayDecision)).InvalidResult()) };
     public static Fin<OverlayDecision> Include(GeometryBase geometry) =>
@@ -30,6 +30,10 @@ public readonly record struct OverlayDecision(Option<BoundingBox> Bounds = defau
         Optional(draw)
             .ToFin(Fail: Op.Of(name: nameof(Paint)).InvalidInput())
             .Map(static value => new OverlayDecision(Draw: Some(value)));
+    public static Fin<OverlayDecision> PaintObject(Func<DrawObjectEventArgs, Fin<Unit>> draw) =>
+        Optional(draw)
+            .ToFin(Fail: Op.Of(name: nameof(PaintObject)).InvalidInput())
+            .Map(static value => new OverlayDecision(DrawObject: Some(value)));
     public static OverlayDecision operator +(OverlayDecision left, OverlayDecision right) => Add(left: left, right: right);
     public static OverlayDecision Add(OverlayDecision left, OverlayDecision right) => new(
         Bounds: (left.Bounds.Case, right.Bounds.Case) switch { (BoundingBox a, BoundingBox b) => Some(BoundingBox.Union(a, b)), (_, BoundingBox b) => Some(b), (BoundingBox a, _) => Some(a), _ => Option<BoundingBox>.None },
@@ -39,16 +43,34 @@ public readonly record struct OverlayDecision(Option<BoundingBox> Bounds = defau
             (_, Func<DisplayPipeline, Fin<Unit>> b) => Some(b),
             (Func<DisplayPipeline, Fin<Unit>> a, _) => Some(a),
             _ => Option<Func<DisplayPipeline, Fin<Unit>>>.None,
+        },
+        DrawObject: (left.DrawObject.Case, right.DrawObject.Case) switch {
+            (Func<DrawObjectEventArgs, Fin<Unit>> a, Func<DrawObjectEventArgs, Fin<Unit>> b) => Some<Func<DrawObjectEventArgs, Fin<Unit>>>(args => a(arg: args).Bind(_ => b(arg: args))),
+            (_, Func<DrawObjectEventArgs, Fin<Unit>> b) => Some(b),
+            (Func<DrawObjectEventArgs, Fin<Unit>> a, _) => Some(a),
+            _ => Option<Func<DrawObjectEventArgs, Fin<Unit>>>.None,
         });
 }
 
 public readonly record struct OverlayFilter(Option<ObjectType> Geometry = default, Option<ActiveSpace> Space = default, Seq<Guid> ObjectIds = default, Option<(bool On, bool CheckSubObjects)> Selection = default, Option<(RhinoViewport Viewport, bool Exclusive)> Viewport = default, bool Unbind = false) {
+    public static OverlayFilter Reset => new(Unbind: true);
+
     internal Fin<Unit> Apply(DisplayConduit conduit) {
         Option<ObjectType> geometry = Geometry; Option<ActiveSpace> space = Space; Seq<Guid> objectIds = ObjectIds.Filter(static id => id != Guid.Empty).Distinct(); Option<(bool On, bool CheckSubObjects)> selection = Selection; Option<(RhinoViewport Viewport, bool Exclusive)> viewport = Viewport;
         bool unbind = Unbind;
         return Optional(conduit)
             .ToFin(Fail: Op.Of(name: nameof(OverlayFilter)).InvalidInput())
             .Map(valid => {
+                _ = unbind switch {
+                    true => Do(action: () => {
+                        valid.GeometryFilter = ObjectType.AnyObject;
+                        valid.SpaceFilter = ActiveSpace.None;
+                        valid.SetSelectionFilter(on: false, checkSubObjects: false);
+                        valid.SetObjectIdFilter(ids: Seq<Guid>().AsIterable());
+                        valid.UnbindAll();
+                    }),
+                    false => unit,
+                };
                 _ = geometry.Iter(value => valid.GeometryFilter = value);
                 _ = space.Iter(value => valid.SpaceFilter = value);
                 _ = selection.Iter(value => valid.SetSelectionFilter(on: value.On, checkSubObjects: value.CheckSubObjects));
@@ -57,7 +79,7 @@ public readonly record struct OverlayFilter(Option<ObjectType> Geometry = defaul
                     true => unit,
                 };
                 _ = unbind switch {
-                    true => Do(action: valid.UnbindAll),
+                    true => unit,
                     false => viewport.Map(value => {
                         _ = Do(action: valid.UnbindAll);
                         _ = value.Exclusive switch {
@@ -162,8 +184,9 @@ public abstract class RasmOverlay<TState>(TState initial) : DisplayConduit, IDis
         _ = Apply(phase: OverlayPhase.ZoomBounds, args: e);
 
     private Fin<Unit> Apply(OverlayPhase phase, object? args, bool enabled = false) =>
-        RhinoUi.Protect(valid: () => Change(context: new OverlayContext<TState>(Phase: phase, State: State, Args: args, Enabled: enabled))).Bind(decision => ((Optional(args as DrawEventArgs).Case, decision.Draw.Case) switch {
-            (DrawEventArgs target, Func<DisplayPipeline, Fin<Unit>> paint) => paint(arg: target.Display),
+        RhinoUi.Protect(valid: () => Change(context: new OverlayContext<TState>(Phase: phase, State: State, Args: args, Enabled: enabled))).Bind(decision => ((Optional(args as DrawEventArgs).Case, Optional(args as DrawObjectEventArgs).Case, decision.Draw.Case, decision.DrawObject.Case) switch {
+            (_, DrawObjectEventArgs target, _, Func<DrawObjectEventArgs, Fin<Unit>> paint) => paint(arg: target),
+            (DrawEventArgs target, _, Func<DisplayPipeline, Fin<Unit>> paint, _) => paint(arg: target.Display),
             _ => Fin.Succ(value: unit),
         }).Map(_ => {
             _ = Optional(args as CalculateBoundingBoxEventArgs).Iter(target => decision.Bounds.Iter(box => target.IncludeBoundingBox(box)));

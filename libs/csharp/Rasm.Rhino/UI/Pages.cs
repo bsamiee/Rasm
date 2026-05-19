@@ -2,9 +2,9 @@ using Eto.Forms;
 
 namespace Rasm.Rhino.UI;
 
-public enum PagePhase { Apply, Cancel, Activate, Script, Display, Update }
+public enum PagePhase { Apply, Cancel, Activate, Script, Display, Update, Defaults, Help, CreateParent, SizeParent }
 
-public readonly record struct PageContext(PagePhase Phase, bool Active = false, RhinoDoc? Document = null, RunMode Mode = RunMode.Interactive, global::Rhino.UI.ObjectPropertiesPageEventArgs? Args = null) {
+public readonly record struct PageContext(PagePhase Phase, bool Active = false, RhinoDoc? Document = null, RunMode Mode = RunMode.Interactive, global::Rhino.UI.ObjectPropertiesPageEventArgs? Args = null, IntPtr ParentHandle = default, int Width = 0, int Height = 0) {
     public Option<uint> EventSerialNumber => Optional(Args).Map(static args => args.EventRuntimeSerialNumber);
     public Option<uint> DocumentSerialNumber => Optional(Args).Map(static args => args.DocRuntimeSerialNumber);
     public Option<RhinoView> View => Optional(Args).Bind(static args => Optional(args.View));
@@ -27,21 +27,28 @@ public readonly record struct PageContext(PagePhase Phase, bool Active = false, 
 public abstract class RasmOptionsPage : global::Rhino.UI.OptionsDialogPage {
     private readonly Control control;
     private readonly bool showApplyButton;
+    private readonly bool showDefaultsButton;
 
-    protected RasmOptionsPage(string englishTitle, Control control, bool showApplyButton = true) : base(englishTitle) {
+    protected RasmOptionsPage(string englishTitle, Control control, bool showApplyButton = true, bool showDefaultsButton = false) : base(englishTitle) {
         ArgumentException.ThrowIfNullOrWhiteSpace(argument: englishTitle);
         ArgumentNullException.ThrowIfNull(argument: control);
         this.control = control;
         this.showApplyButton = showApplyButton;
+        this.showDefaultsButton = showDefaultsButton;
         global::Rhino.UI.EtoExtensions.UseRhinoStyle(control);
     }
 
     public sealed override object PageControl => control;
     public sealed override bool ShowApplyButton => showApplyButton;
+    public sealed override bool ShowDefaultsButton => showDefaultsButton;
     public sealed override bool OnApply() => Apply(phase: PagePhase.Apply);
-    public sealed override void OnCancel() => _ = Change(context: new PageContext(Phase: PagePhase.Cancel));
+    public sealed override void OnCancel() => _ = ResultOf(context: new PageContext(Phase: PagePhase.Cancel));
     public sealed override bool OnActivate(bool active) => Apply(phase: PagePhase.Activate, active: active);
     public sealed override Result RunScript(RhinoDoc doc, RunMode mode) => ResultOf(context: new PageContext(Phase: PagePhase.Script, Document: doc, Mode: mode));
+    public sealed override void OnDefaults() => _ = ResultOf(context: new PageContext(Phase: PagePhase.Defaults));
+    public sealed override void OnHelp() => _ = ResultOf(context: new PageContext(Phase: PagePhase.Help));
+    public sealed override void OnCreateParent(IntPtr hwndParent) => _ = ResultOf(context: new PageContext(Phase: PagePhase.CreateParent, ParentHandle: hwndParent));
+    public sealed override void OnSizeParent(int width, int height) => _ = ResultOf(context: new PageContext(Phase: PagePhase.SizeParent, Width: width, Height: height));
 
     protected virtual Fin<Result> Change(PageContext context) => Fin.Succ(value: Result.Success);
 
@@ -76,6 +83,9 @@ public abstract class RasmPropertiesPage : global::Rhino.UI.ObjectPropertiesPage
     public sealed override void UpdatePage(global::Rhino.UI.ObjectPropertiesPageEventArgs e) => _ = ResultOf(context: new PageContext(Phase: PagePhase.Update, Args: e));
     public sealed override bool OnActivate(bool active) => ResultOf(context: new PageContext(Phase: PagePhase.Activate, Active: active)) == Result.Success;
     public sealed override Result RunScript(global::Rhino.UI.ObjectPropertiesPageEventArgs e) => ResultOf(context: new PageContext(Phase: PagePhase.Script, Args: e));
+    public sealed override void OnHelp() => _ = ResultOf(context: new PageContext(Phase: PagePhase.Help));
+    public sealed override void OnCreateParent(IntPtr hwndParent) => _ = ResultOf(context: new PageContext(Phase: PagePhase.CreateParent, ParentHandle: hwndParent));
+    public sealed override void OnSizeParent(int width, int height) => _ = ResultOf(context: new PageContext(Phase: PagePhase.SizeParent, Width: width, Height: height));
 
     protected Fin<Unit> Modify(Func<global::Rhino.UI.ObjectPropertiesPageEventArgs, Fin<Unit>> change) =>
         Optional(change).ToFin(Fail: Op.Of(name: nameof(Modify)).InvalidInput()).Bind(valid => RhinoUi.Protect(valid: () => {

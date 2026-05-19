@@ -106,6 +106,83 @@ public static class UiIntent {
             (Seq<string> values, Seq<string> defaults) => Optional(global::Rhino.UI.Dialogs.ShowMultiListBox(title: title, message: message, items: [.. values], defaults: [.. defaults])).ToFin(Fail: new Fault.Cancelled()).Map(static result => toSeq(result)),
         }));
 
+    public static UiIntent<Seq<bool>> Checklist(string title, string message, IEnumerable<string> items, IEnumerable<bool> states) =>
+        Request(name: nameof(Checklist), run: _ => (Optional(items).ToFin(Fail: Op.Of(name: nameof(Checklist)).InvalidInput()).Map(static source => toSeq(source)), Optional(states).ToFin(Fail: Op.Of(name: nameof(Checklist)).InvalidInput()).Map(static source => toSeq(source))).Apply(static (values, checks) => (Values: values, Checks: checks)).As().Bind(values => values switch {
+            (Seq<string> choices, Seq<bool> checks) when !choices.IsEmpty && choices.Count == checks.Count => Optional(global::Rhino.UI.Dialogs.ShowCheckListBox(title: title, message: message, items: (System.Collections.IList)(string[])[.. choices], checkState: (bool[])[.. checks])).ToFin(Fail: new Fault.Cancelled()).Map(static result => toSeq(result).Map(static item => item)),
+            _ => Fin.Fail<Seq<bool>>(error: Op.Of(name: nameof(Checklist)).InvalidInput()),
+        }));
+
+    public static UiIntent<Seq<(string Name, string Value)>> Properties(string title, string message, IEnumerable<(string Name, string Value)> values) =>
+        Request(name: nameof(Properties), run: _ => Optional(values).ToFin(Fail: Op.Of(name: nameof(Properties)).InvalidInput()).Bind(source => toSeq(source) switch {
+            Seq<(string Name, string Value)> items when !items.IsEmpty => Optional(global::Rhino.UI.Dialogs.ShowPropertyListBox(title: title, message: message, items: [.. items.Map(static item => new KeyValuePair<string, string>(key: item.Name, value: item.Value))]))
+                .ToFin(Fail: new Fault.Cancelled())
+                .Bind(result => toSeq(result) switch {
+                    Seq<string> updated when updated.Count == items.Count => Fin.Succ(value: toSeq(Enumerable.Range(start: 0, count: items.Count)).Map(index => (items[index].Name, updated[index]))),
+                    _ => Fin.Fail<Seq<(string Name, string Value)>>(error: Op.Of(name: nameof(Properties)).InvalidResult()),
+                }),
+            _ => Fin.Fail<Seq<(string Name, string Value)>>(error: Op.Of(name: nameof(Properties)).InvalidInput()),
+        }));
+
+    public static UiIntent<(int Index, bool SetCurrent)> Layer(string title, int selectedIndex = -1, bool showNewLayer = true, bool showSetCurrent = true, bool initialSetCurrent = false) =>
+        Request(name: nameof(Layer), run: _ => {
+            bool setCurrent = initialSetCurrent;
+            int index = selectedIndex;
+            return global::Rhino.UI.Dialogs.ShowSelectLayerDialog(layerIndex: ref index, dialogTitle: title, showNewLayerButton: showNewLayer, showSetCurrentButton: showSetCurrent, initialSetCurrentState: ref setCurrent) switch {
+                true => Fin.Succ(value: (Index: index, SetCurrent: setCurrent)),
+                false => Fin.Fail<(int Index, bool SetCurrent)>(error: new Fault.Cancelled()),
+            };
+        });
+
+    public static UiIntent<Guid> Linetype(string title, string message, Option<Guid> selected = default) =>
+        Request(name: nameof(Linetype), run: scope =>
+            selected.Case switch {
+                Guid id => global::Rhino.UI.Dialogs.ShowLineTypes(title: title, message: message, doc: scope.Document, selectedLineTypeId: id) switch {
+                    Guid value when value != Guid.Empty => Fin.Succ(value: value),
+                    _ => Fin.Fail<Guid>(error: new Fault.Cancelled()),
+                },
+                _ => Optional(global::Rhino.UI.Dialogs.ShowLineTypes(title: title, message: message, doc: scope.Document))
+                    .ToFin(Fail: new Fault.Cancelled())
+                    .Bind(static result => result switch {
+                        Guid value when value != Guid.Empty => Fin.Succ(value: value),
+                        _ => Fin.Fail<Guid>(error: Op.Of(name: nameof(Linetype)).InvalidResult()),
+                    }),
+            });
+
+    public static UiIntent<int> LinetypeIndex(int selectedIndex = -1, bool displayByLayer = false) =>
+        Request(name: nameof(LinetypeIndex), run: _ => {
+            int index = selectedIndex;
+            return global::Rhino.UI.Dialogs.ShowSelectLinetypeDialog(linetypeIndex: ref index, displayByLayer: displayByLayer) switch {
+                true => Fin.Succ(value: index),
+                false => Fin.Fail<int>(error: new Fault.Cancelled()),
+            };
+        });
+
+    public static UiIntent<int> ContextMenu(IEnumerable<string> items, System.Drawing.Point screenPoint, IEnumerable<int>? modes = null) =>
+        Request(name: nameof(ContextMenu), run: _ => Optional(items).ToFin(Fail: Op.Of(name: nameof(ContextMenu)).InvalidInput()).Bind(source => toSeq(source) switch {
+            Seq<string> values when !values.IsEmpty => global::Rhino.UI.Dialogs.ShowContextMenu(items: values.AsIterable(), screenPoint: screenPoint, modes: Optional(modes).Map(static source => toSeq(source)).IfNone(toSeq(Enumerable.Repeat(element: 1, count: values.Count))).AsIterable()) switch {
+                int index when index >= 0 => Fin.Succ(value: index),
+                _ => Fin.Fail<int>(error: new Fault.Cancelled()),
+            },
+            _ => Fin.Fail<int>(error: Op.Of(name: nameof(ContextMenu)).InvalidInput()),
+        }));
+
+    public static UiIntent<Seq<string>> File(string title, string filter, string? fileName = null, string? initialDirectory = null, string? defaultExtension = null, bool save = false, bool multi = false) =>
+        Request(name: nameof(File), run: _ => (save, multi) switch {
+            (true, true) => Fin.Fail<Seq<string>>(error: Op.Of(name: nameof(File)).InvalidInput()),
+            (true, false) => new global::Rhino.UI.SaveFileDialog { Title = title, Filter = filter, FileName = fileName ?? string.Empty, InitialDirectory = initialDirectory ?? string.Empty, DefaultExt = defaultExtension ?? string.Empty } switch {
+                global::Rhino.UI.SaveFileDialog dialog => dialog.ShowSaveDialog() switch {
+                    true => Fin.Succ(value: Seq(dialog.FileName)),
+                    false => Fin.Fail<Seq<string>>(error: new Fault.Cancelled()),
+                },
+            },
+            (false, _) => new global::Rhino.UI.OpenFileDialog { Title = title, Filter = filter, FileName = fileName ?? string.Empty, InitialDirectory = initialDirectory ?? string.Empty, DefaultExt = defaultExtension ?? string.Empty, MultiSelect = multi } switch {
+                global::Rhino.UI.OpenFileDialog dialog => dialog.ShowOpenDialog() switch {
+                    true => Fin.Succ(value: multi ? toSeq(dialog.FileNames) : Seq(dialog.FileName)),
+                    false => Fin.Fail<Seq<string>>(error: new Fault.Cancelled()),
+                },
+            },
+        });
+
     public static UiIntent<string> Edit(string title, string message, string value = "", bool multiline = false) =>
         Request(name: nameof(Edit), run: _ => global::Rhino.UI.Dialogs.ShowEditBox(title: title, message: message, defaultText: value, multiline: multiline, text: out string result) switch {
             true => Fin.Succ(value: result),
@@ -114,11 +191,15 @@ public static class UiIntent {
 
     public static UiIntent<double> Number(string title, string message, double value = 0.0, Option<(double Lower, double Upper)> bounds = default) =>
         Request(name: nameof(Number), run: _ => bounds.Case switch {
-            (double lower, double upper) => global::Rhino.UI.Dialogs.ShowNumberBox(title: title, message: message, number: ref value, minimum: lower, maximum: upper),
-            _ => global::Rhino.UI.Dialogs.ShowNumberBox(title: title, message: message, number: ref value),
-        } switch {
-            true => Fin.Succ(value: value),
-            false => Fin.Fail<double>(error: new Fault.Cancelled()),
+            (double lower, double upper) when lower <= upper && value >= lower && value <= upper => global::Rhino.UI.Dialogs.ShowNumberBox(title: title, message: message, number: ref value, minimum: lower, maximum: upper) switch {
+                true => value >= lower && value <= upper ? Fin.Succ(value: value) : Fin.Fail<double>(error: Op.Of(name: nameof(Number)).InvalidResult()),
+                false => Fin.Fail<double>(error: new Fault.Cancelled()),
+            },
+            (double, double) => Fin.Fail<double>(error: Op.Of(name: nameof(Number)).InvalidInput()),
+            _ => global::Rhino.UI.Dialogs.ShowNumberBox(title: title, message: message, number: ref value) switch {
+                true => Fin.Succ(value: value),
+                false => Fin.Fail<double>(error: new Fault.Cancelled()),
+            },
         });
 
     private static UiIntent<T> Request<T>(string name, Func<RhinoUi.Scope, Fin<T>> run, bool interactive = true) =>
@@ -127,6 +208,7 @@ public static class UiIntent {
                 .ToFin(Fail: Op.Of(name: name).InvalidInput())
                 .Bind(valid => valid(arg: scope)),
             interactive: interactive);
+
 }
 
 public sealed record UiPreview<T> {

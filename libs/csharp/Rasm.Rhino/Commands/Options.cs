@@ -46,7 +46,10 @@ public abstract record CommandOption {
         value switch {
             bool toggle => Toggle(name: name, initial: toggle, off: policy.Off, on: policy.On, varies: policy.Varies),
             double number => Number(name: name, initial: number, lower: policy.Lower, upper: policy.Upper, prompt: policy.Prompt, varies: policy.Varies),
-            int integer => Integer(name: name, initial: integer, lower: policy.Lower.Map(static bound => (int)bound), upper: policy.Upper.Map(static bound => (int)bound), prompt: policy.Prompt, varies: policy.Varies),
+            int integer => IntegerBounds(lower: policy.Lower, upper: policy.Upper).Case switch {
+                (Option<int> lo, Option<int> hi) => Integer(name: name, initial: integer, lower: lo, upper: hi, prompt: policy.Prompt, varies: policy.Varies),
+                _ => Invalid(name: name),
+            },
             string text => Text(name: name, initial: text, allowEmpty: policy.AllowEmpty, prompt: policy.Prompt, varies: policy.Varies),
             Color color => Color(name: name, initial: color, prompt: policy.Prompt, varies: policy.Varies),
             IEnumerable<string> values => List(name: name, values: toSeq(values), current: policy.Current, varies: policy.Varies),
@@ -103,9 +106,9 @@ public abstract record CommandOption {
     private static Case Toggle(string name, bool initial, string off = "No", string on = "Yes", bool varies = false) =>
         Ref(name: name, create: () => (ValidValue(value: off), ValidValue(value: on)).Apply((disabled, enabled) => new OptionToggle(initial, disabled, enabled)).As(), prompt: Option<string>.None, bind: static (GetBaseClass getter, string name, ref OptionToggle native, Option<string> _) => getter.AddOptionToggle(name, ref native), current: static native => native.CurrentValue, varies: varies);
     private static Case Number(string name, double initial, Option<double> lower = default, Option<double> upper = default, string? prompt = null, bool varies = false) =>
-        Ref(name: name, create: () => Fin.Succ(value: BoundedOption(initial: initial, lower: lower, upper: upper, unconstrained: static (double value) => new OptionDouble(value), single: static (double value, bool isLower, double bound) => new OptionDouble(value, isLower, bound), bounded: static (double value, double lo, double hi) => new OptionDouble(value, lo, hi))), prompt: Optional(prompt), bind: Prompted(plain: static (GetBaseClass getter, string name, ref OptionDouble native) => getter.AddOptionDouble(name, ref native), prompted: static (GetBaseClass getter, string name, ref OptionDouble native, string label) => getter.AddOptionDouble(name, ref native, label)), current: static native => native.CurrentValue, varies: varies);
+        Ref(name: name, create: () => BoundedOption(initial: initial, lower: lower, upper: upper, unconstrained: static (double value) => new OptionDouble(value), single: static (double value, bool isLower, double bound) => new OptionDouble(value, isLower, bound), bounded: static (double value, double lo, double hi) => new OptionDouble(value, lo, hi)), prompt: Optional(prompt), bind: Prompted(plain: static (GetBaseClass getter, string name, ref OptionDouble native) => getter.AddOptionDouble(name, ref native), prompted: static (GetBaseClass getter, string name, ref OptionDouble native, string label) => getter.AddOptionDouble(name, ref native, label)), current: static native => native.CurrentValue, varies: varies);
     private static Case Integer(string name, int initial, Option<int> lower = default, Option<int> upper = default, string? prompt = null, bool varies = false) =>
-        Ref(name: name, create: () => Fin.Succ(value: BoundedOption(initial: initial, lower: lower, upper: upper, unconstrained: static (int value) => new OptionInteger(value), single: static (int value, bool isLower, int bound) => new OptionInteger(value, isLower, bound), bounded: static (int value, int lo, int hi) => new OptionInteger(value, lo, hi))), prompt: Optional(prompt), bind: Prompted(plain: static (GetBaseClass getter, string name, ref OptionInteger native) => getter.AddOptionInteger(name, ref native), prompted: static (GetBaseClass getter, string name, ref OptionInteger native, string label) => getter.AddOptionInteger(name, ref native, label)), current: static native => native.CurrentValue, varies: varies);
+        Ref(name: name, create: () => BoundedOption(initial: initial, lower: lower, upper: upper, unconstrained: static (int value) => new OptionInteger(value), single: static (int value, bool isLower, int bound) => new OptionInteger(value, isLower, bound), bounded: static (int value, int lo, int hi) => new OptionInteger(value, lo, hi)), prompt: Optional(prompt), bind: Prompted(plain: static (GetBaseClass getter, string name, ref OptionInteger native) => getter.AddOptionInteger(name, ref native), prompted: static (GetBaseClass getter, string name, ref OptionInteger native, string label) => getter.AddOptionInteger(name, ref native, label)), current: static native => native.CurrentValue, varies: varies);
     private static Case Text(string name, string initial = "", bool allowEmpty = false, string? prompt = null, bool varies = false) =>
         Ref(name: name, create: () => Fin.Succ(value: new OptionString(initial, allowEmpty)), prompt: Optional(prompt), bind: Prompted(plain: static (GetBaseClass getter, string name, ref OptionString native) => getter.AddOptionString(name, ref native), prompted: static (GetBaseClass getter, string name, ref OptionString native, string label) => getter.AddOptionString(name, ref native, label)), current: static native => native.CurrentValue, varies: varies);
     private static Case Color(string name, Color initial, string? prompt = null, bool varies = false) =>
@@ -180,18 +183,39 @@ public abstract record CommandOption {
             .Bind(g => options.TraverseM(option => option.Add(getter: g)).As())
             .Map(static bounds => new Scope(bounds: bounds));
 
-    private static TNative BoundedOption<TValue, TNative>(
+    private static Fin<TNative> BoundedOption<TValue, TNative>(
         TValue initial,
         Option<TValue> lower,
         Option<TValue> upper,
         Func<TValue, TNative> unconstrained,
         Func<TValue, bool, TValue, TNative> single,
-        Func<TValue, TValue, TValue, TNative> bounded) =>
-        (lower, upper) switch {
+        Func<TValue, TValue, TValue, TNative> bounded) where TValue : IComparable<TValue> =>
+        from valid in ValidateBounds(initial: initial, lower: lower, upper: upper)
+        select (valid.Lower, valid.Upper) switch {
             ( { IsSome: true } lo, { IsSome: true } hi) => bounded(arg1: initial, arg2: lo.IfNone(initial), arg3: hi.IfNone(initial)),
             ( { IsSome: true } lo, _) => single(arg1: initial, arg2: true, arg3: lo.IfNone(initial)),
             (_, { IsSome: true } hi) => single(arg1: initial, arg2: false, arg3: hi.IfNone(initial)),
             _ => unconstrained(arg: initial),
+        };
+
+    private static Option<(Option<int> Lower, Option<int> Upper)> IntegerBounds(Option<double> lower, Option<double> upper) =>
+        (IntegerBound(value: lower), IntegerBound(value: upper)) switch {
+            (Option<int> lo, Option<int> hi) when lower.IsSome == lo.IsSome && upper.IsSome == hi.IsSome => Some((Lower: lo, Upper: hi)),
+            _ => Option<(Option<int> Lower, Option<int> Upper)>.None,
+        };
+
+    private static Option<int> IntegerBound(Option<double> value) =>
+        value.Case switch {
+            double bound when bound >= int.MinValue && bound <= int.MaxValue && Math.Truncate(d: bound) == bound => Some((int)bound),
+            _ => Option<int>.None,
+        };
+
+    private static Fin<(Option<TValue> Lower, Option<TValue> Upper)> ValidateBounds<TValue>(TValue initial, Option<TValue> lower, Option<TValue> upper) where TValue : IComparable<TValue> =>
+        (lower, upper) switch {
+            (Option<TValue> lo, Option<TValue> hi) when lo.Case is TValue left && hi.Case is TValue right && left.CompareTo(other: right) > 0 => Fin.Fail<(Option<TValue> Lower, Option<TValue> Upper)>(error: Op.Of(name: nameof(CommandOption)).InvalidInput()),
+            (Option<TValue> lo, _) when lo.Case is TValue left && initial.CompareTo(other: left) < 0 => Fin.Fail<(Option<TValue> Lower, Option<TValue> Upper)>(error: Op.Of(name: nameof(CommandOption)).InvalidInput()),
+            (_, Option<TValue> hi) when hi.Case is TValue right && initial.CompareTo(other: right) > 0 => Fin.Fail<(Option<TValue> Lower, Option<TValue> Upper)>(error: Op.Of(name: nameof(CommandOption)).InvalidInput()),
+            _ => Fin.Succ(value: (Lower: lower, Upper: upper)),
         };
 
     private static RefOptionBinder<TNative> Prompted<TNative>(RefOptionPlainBinder<TNative> plain, RefOptionPromptBinder<TNative> prompted) where TNative : IDisposable =>

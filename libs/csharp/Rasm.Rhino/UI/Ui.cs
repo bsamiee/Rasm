@@ -111,15 +111,24 @@ public readonly record struct UiProgressStep(
 
 public sealed class UiProgress : IDisposable {
     private readonly uint documentSerialNumber;
+    private readonly int lower;
+    private readonly int upper;
+    private int current;
     private bool disposed;
 
-    private UiProgress(uint documentSerialNumber) => this.documentSerialNumber = documentSerialNumber;
+    private UiProgress(uint documentSerialNumber, int lower, int upper) {
+        this.documentSerialNumber = documentSerialNumber;
+        this.lower = lower;
+        this.upper = upper;
+        current = lower;
+    }
 
     public Fin<int> Update(UiProgressStep step) =>
-        (step.Position.Case, step.Label.Case) switch {
-            (int position, string label) => Previous(value: global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, label: label, position: position, absolute: step.Absolute)),
+        (Next(step: step).Case, step.Label.Case) switch {
+            (int position, _) when position < lower || position > upper => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidInput()),
+            (int position, string label) => Previous(value: global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, label: label, position: position, absolute: true)).Map(previous => { current = position; return previous; }),
             (_, string label) => Previous(value: global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, label: label, position: RhinoMath.UnsetIntIndex, absolute: true)),
-            (int position, _) => Previous(value: global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, position: position, absolute: step.Absolute)),
+            (int position, _) => Previous(value: global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, position: position, absolute: true)).Map(previous => { current = position; return previous; }),
             _ => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidInput()),
         };
 
@@ -151,8 +160,8 @@ public sealed class UiProgress : IDisposable {
             label: label,
             embedLabel: spec.EmbedLabel,
             showPercentComplete: spec.ShowPercentComplete) switch {
-                1 => Fin.Succ(value: new UiProgress(documentSerialNumber: validDocument.RuntimeSerialNumber)),
-                -1 => Fin.Fail<UiProgress>(error: Op.Of(name: nameof(UiProgress)).InvalidInput()),
+                1 => Fin.Succ(value: new UiProgress(documentSerialNumber: validDocument.RuntimeSerialNumber, lower: spec.Lower, upper: spec.Upper)),
+                -1 => Fin.Fail<UiProgress>(error: Op.Of(name: nameof(UiProgress)).InvalidResult()),
                 _ => Fin.Fail<UiProgress>(error: Op.Of(name: nameof(UiProgress)).InvalidResult()),
             }
         select created;
@@ -162,6 +171,12 @@ public sealed class UiProgress : IDisposable {
             RhinoMath.UnsetIntIndex => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidResult()),
             _ => Fin.Succ(value: value),
         };
+
+    private Option<int> Next(UiProgressStep step) =>
+        step.Position.Map(position => step.Absolute switch {
+            true => position,
+            false => current + position,
+        });
 
     private Unit Hide() {
         global::Rhino.UI.StatusBar.HideProgressMeter(docSerialNumber: documentSerialNumber);

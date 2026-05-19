@@ -1,4 +1,6 @@
 using Eto.Forms;
+using DrawingIcon = System.Drawing.Icon;
+
 namespace Rasm.Rhino.UI;
 
 // --- [SERVICES] -------------------------------------------------------------------------
@@ -73,20 +75,12 @@ public static class PanelOp {
 
     public static PanelOp<TPanel, Unit> Open<TPanel>(bool selected = true, Option<Guid> dock = default, Option<Guid> sibling = default) where TPanel : RasmPanel =>
         new(run: _ =>
-            RasmPanel.PanelIdentityOf<TPanel>().Bind(panel => (dock.Case, sibling.Case) switch {
-                (Guid dockBar, _) => global::Rhino.UI.Panels.OpenPanel(dockBarId: dockBar, panelType: panel.Type, makeSelectedPanel: selected) switch {
-                    Guid id when id != Guid.Empty => Fin.Succ(value: unit),
-                    _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(Open)).InvalidResult()),
-                },
-                (_, Guid siblingPanel) => global::Rhino.UI.Panels.OpenPanelAsSibling(panelId: panel.Id, siblingPanelId: siblingPanel, makeSelectedPanel: selected) switch {
-                    true => Fin.Succ(value: unit),
-                    false => Fin.Fail<Unit>(error: Op.Of(name: nameof(Open)).InvalidResult()),
-                },
-                _ => RhinoUi.Protect(valid: () => {
-                    global::Rhino.UI.Panels.OpenPanel(panelType: panel.Type, makeSelectedPanel: selected);
-                    return Fin.Succ(value: unit);
-                }),
-            }),
+            RasmPanel.PanelIdentityOf<TPanel>().Bind(panel => RhinoUi.Protect(valid: () => (dock.Case, sibling.Case) switch {
+                (Guid, Guid) => Fin.Fail<Unit>(error: Op.Of(name: nameof(Open)).InvalidInput()),
+                (Guid dockBar, _) => global::Rhino.UI.Panels.OpenPanel(dockBarId: dockBar, panelType: panel.Type, makeSelectedPanel: selected) switch { Guid id when id != Guid.Empty => Fin.Succ(value: unit), _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(Open)).InvalidResult()) },
+                (_, Guid siblingPanel) => global::Rhino.UI.Panels.OpenPanelAsSibling(panelId: panel.Id, siblingPanelId: siblingPanel, makeSelectedPanel: selected) switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(Open)).InvalidResult()) },
+                _ => ((Func<Fin<Unit>>)(() => { global::Rhino.UI.Panels.OpenPanel(panelType: panel.Type, makeSelectedPanel: selected); return Fin.Succ(value: unit); }))(),
+            })),
             interactive: true);
 
     public static PanelOp<TPanel, PanelSnapshot<TPanel>> Show<TPanel>(bool selected = true) where TPanel : RasmPanel =>
@@ -99,6 +93,27 @@ public static class PanelOp {
 
     public static PanelOp<TPanel, bool> Float<TPanel>(global::Rhino.UI.Panels.FloatPanelMode mode = global::Rhino.UI.Panels.FloatPanelMode.Show) where TPanel : RasmPanel =>
         new(run: _ => RasmPanel.PanelIdentityOf<TPanel>().Bind(panel => RhinoUi.Protect(valid: () => Fin.Succ(value: global::Rhino.UI.Panels.FloatPanel(panelType: panel.Type, mode: mode)))), interactive: true);
+
+    public static PanelOp<TPanel, bool> DockBarInUse<TPanel>(Guid dockBarId) where TPanel : RasmPanel =>
+        new(run: _ => dockBarId switch {
+            Guid id when id != Guid.Empty => RhinoUi.Protect(valid: () => Fin.Succ(value: global::Rhino.UI.Panels.DockBarIdInUse(dockBarId: id))),
+            _ => Fin.Fail<bool>(error: Op.Of(name: nameof(DockBarInUse)).InvalidInput()),
+        }, interactive: false);
+
+    public static PanelOp<TPanel, Unit> Icon<TPanel>(object icon) where TPanel : RasmPanel =>
+        new(run: _ =>
+            from panel in RasmPanel.PanelIdentityOf<TPanel>()
+            from value in Optional(icon).ToFin(Fail: Op.Of(name: nameof(Icon)).InvalidInput())
+            from changed in RhinoUi.Protect(valid: () => value switch {
+                string resource => NonBlank(value: resource).Map(validResource => {
+                    global::Rhino.UI.Panels.ChangePanelIcon(panel.Type, validResource);
+                    return unit;
+                }),
+                DrawingIcon native => ((Func<Fin<Unit>>)(() => { global::Rhino.UI.Panels.ChangePanelIcon(panel.Type, native); return Fin.Succ(value: unit); }))(),
+                _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(Icon)).InvalidInput()),
+            })
+            select changed,
+            interactive: false);
 
     public static PanelOp<TPanel, Unit> Close<TPanel>() where TPanel : RasmPanel =>
         new(run: document =>

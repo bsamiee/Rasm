@@ -1,3 +1,4 @@
+using System.Globalization;
 using Color = System.Drawing.Color;
 using DrawingPoint = System.Drawing.Point;
 using DrawingRectangle = System.Drawing.Rectangle;
@@ -73,6 +74,20 @@ public sealed record CommandInputRequest<T> {
     internal Fin<CommandGet<T>> Run(CommandInput input) => run(arg: input);
 }
 
+[Flags]
+public enum CommandInputAccept {
+    None = 0,
+    Nothing = 1,
+    Undo = 2,
+    EnterWhenDone = 4,
+    Number = 8,
+    Point = 16,
+    Color = 32,
+    Text = 64,
+    CustomMessage = 128,
+    TransparentCommands = 256
+}
+
 public sealed record CommandInputPolicy {
     private CommandInputPolicy(
         Seq<Action<GetBaseClass>> baseActions = default,
@@ -86,8 +101,9 @@ public sealed record CommandInputPolicy {
         Option<BoxSpec> box = default,
         Option<ObjectType> objectTypes = default,
         Option<string> prompt = default,
-        bool literalText = false) {
-        BaseActions = baseActions; ObjectActions = objectActions; PointActions = pointActions; OptionList = options; ObjectRange = objects; PointMode = point; ScalarMode = scalar; LimitsMode = bounds; BoxMode = box; ObjectTypes = objectTypes; PromptText = prompt; IsLiteralText = literalText;
+        bool literalText = false,
+        CommandInputAccept accept = CommandInputAccept.None) {
+        BaseActions = baseActions; ObjectActions = objectActions; PointActions = pointActions; OptionList = options; ObjectRange = objects; PointMode = point; ScalarMode = scalar; LimitsMode = bounds; BoxMode = box; ObjectTypes = objectTypes; PromptText = prompt; IsLiteralText = literalText; AcceptModes = accept;
     }
 
     private Seq<Action<GetBaseClass>> BaseActions { get; }
@@ -102,8 +118,9 @@ public sealed record CommandInputPolicy {
     internal Option<ObjectType> ObjectTypes { get; }
     internal Option<string> PromptText { get; }
     internal bool IsLiteralText { get; }
-    internal bool AcceptsNothing => BaseActions.Exists(static action => ReferenceEquals(objA: action, objB: AcceptNothingAction));
-    internal bool AcceptsUndo => BaseActions.Exists(static action => ReferenceEquals(objA: action, objB: AcceptUndoAction));
+    internal CommandInputAccept AcceptModes { get; }
+    internal bool AcceptsNothing => Accepts(mode: CommandInputAccept.Nothing);
+    internal bool AcceptsUndo => Accepts(mode: CommandInputAccept.Undo);
     internal static CommandInputPolicy Empty { get; } = new();
 
     public static CommandInputPolicy Configure(Action<GetBaseClass> apply) => new(baseActions: Seq(apply));
@@ -119,8 +136,22 @@ public sealed record CommandInputPolicy {
             Color color => Configure(apply: getter => getter.SetDefaultColor(color)),
             _ => Empty,
         };
-    public static CommandInputPolicy AcceptNothing() => Configure(apply: AcceptNothingAction);
-    public static CommandInputPolicy AcceptUndo() => Configure(apply: AcceptUndoAction);
+    public static CommandInputPolicy Accept(CommandInputAccept modes, bool acceptZero = true) =>
+        new(
+            baseActions: toSeq(new (CommandInputAccept Mode, Action<GetBaseClass> Apply)[] {
+                (CommandInputAccept.Nothing, static getter => getter.AcceptNothing(enable: true)),
+                (CommandInputAccept.Undo, static getter => getter.AcceptUndo(enable: true)),
+                (CommandInputAccept.EnterWhenDone, static getter => getter.AcceptEnterWhenDone(enable: true)),
+                (CommandInputAccept.Point, static getter => getter.AcceptPoint(enable: true)),
+                (CommandInputAccept.Color, static getter => getter.AcceptColor(enable: true)),
+                (CommandInputAccept.Text, static getter => getter.AcceptString(enable: true)),
+                (CommandInputAccept.CustomMessage, static getter => getter.AcceptCustomMessage(enable: true)),
+                (CommandInputAccept.TransparentCommands, static getter => getter.EnableTransparentCommands(enable: true)),
+                (CommandInputAccept.Number, getter => getter.AcceptNumber(enable: true, acceptZero: acceptZero)),
+            }).Filter(row => (modes & row.Mode) == row.Mode).Map(static row => row.Apply),
+            accept: modes);
+    public static CommandInputPolicy AcceptNothing() => Accept(modes: CommandInputAccept.Nothing);
+    public static CommandInputPolicy AcceptUndo() => Accept(modes: CommandInputAccept.Undo);
     public static CommandInputPolicy Options(params CommandOption[] values) => new(options: toSeq(values));
     public static CommandInputPolicy Objects(int minimum = 1, int maximum = 1, ObjectType types = ObjectType.AnyObject) =>
         new(objects: Some((Min: minimum, Max: maximum)), objectTypes: types switch {
@@ -150,7 +181,7 @@ public sealed record CommandInputPolicy {
     public static CommandInputPolicy Add(CommandInputPolicy left, CommandInputPolicy right) {
         ArgumentNullException.ThrowIfNull(argument: left);
         ArgumentNullException.ThrowIfNull(argument: right);
-        return new(baseActions: left.BaseActions + right.BaseActions, objectActions: left.ObjectActions + right.ObjectActions, pointActions: left.PointActions + right.PointActions, options: left.OptionList + right.OptionList, objects: Pick(left.ObjectRange, right.ObjectRange), point: Pick(left.PointMode, right.PointMode), scalar: Pick(left.ScalarMode, right.ScalarMode), bounds: Pick(left.LimitsMode, right.LimitsMode), box: Pick(left.BoxMode, right.BoxMode), objectTypes: Pick(left.ObjectTypes, right.ObjectTypes), prompt: Pick(left.PromptText, right.PromptText), literalText: left.IsLiteralText || right.IsLiteralText);
+        return new(baseActions: left.BaseActions + right.BaseActions, objectActions: left.ObjectActions + right.ObjectActions, pointActions: left.PointActions + right.PointActions, options: left.OptionList + right.OptionList, objects: Pick(left.ObjectRange, right.ObjectRange), point: Pick(left.PointMode, right.PointMode), scalar: Pick(left.ScalarMode, right.ScalarMode), bounds: Pick(left.LimitsMode, right.LimitsMode), box: Pick(left.BoxMode, right.BoxMode), objectTypes: Pick(left.ObjectTypes, right.ObjectTypes), prompt: Pick(left.PromptText, right.PromptText), literalText: left.IsLiteralText || right.IsLiteralText, accept: left.AcceptModes | right.AcceptModes);
     }
 
     internal static CommandInputPolicy Merge(Seq<CommandInputPolicy> policies) =>
@@ -176,8 +207,7 @@ public sealed record CommandInputPolicy {
         static getter => getter.EnableUnselectObjectsOnExit(enable: true),
         static getter => getter.EnablePressEnterWhenDonePrompt(enable: true));
 
-    private static Action<GetBaseClass> AcceptNothingAction { get; } = static getter => getter.AcceptNothing(enable: true);
-    private static Action<GetBaseClass> AcceptUndoAction { get; } = static getter => getter.AcceptUndo(enable: true);
+    private bool Accepts(CommandInputAccept mode) => (AcceptModes & mode) == mode;
     private static Option<T> Pick<T>(Option<T> left, Option<T> right) => right | left;
     internal enum ScalarKind { Number, Length, Angle }
     internal sealed record PointSpec(bool OnMouseUp, bool TwoDimensional, Option<global::Rhino.UI.CursorStyle> Cursor, Option<bool> ObjectSnapCursors, Option<Point3d> BasePoint, bool DrawLineFromBasePoint, bool SnapToCurves, bool PermitConstraintOptions);
@@ -240,7 +270,7 @@ public static class CommandInputs {
             ( < 0, _) or (_, < -1) => Invalid<T>(name: nameof(Get)),
             (int lo, int hi) when hi > 0 && hi < lo => Invalid<T>(name: nameof(Get)),
             (int lo, int hi) => Getter<GetObject, T>(
-                policy: CommandInputPolicy.Merge(policies: Seq(lo == 0 ? CommandInputPolicy.AcceptNothing() : CommandInputPolicy.Empty, hi == 0 ? CommandInputPolicy.Configure(static getter => getter.AcceptEnterWhenDone(enable: true)) : CommandInputPolicy.Empty) + policies),
+                policy: CommandInputPolicy.Merge(policies: Seq(lo == 0 ? CommandInputPolicy.AcceptNothing() : CommandInputPolicy.Empty, hi == 0 ? CommandInputPolicy.Accept(modes: CommandInputAccept.EnterWhenDone) : CommandInputPolicy.Empty) + policies),
                 create: static () => new GetObject(),
                 receive: getter => getter.GetMultiple(minimumNumber: lo, maximumNumber: hi),
                 value: static (source, getter, raw) => SelectionOf(document: source.Document, getter: getter, raw: raw).Bind(Cast<T>),
@@ -257,13 +287,13 @@ public static class CommandInputs {
     }
 
     private static CommandInputRequest<T> Text<T>(CommandInputPolicy policy) =>
-        (policy.LimitsMode.IsSome || policy.ScalarMode.Map(static scalar => scalar.Kind == CommandInputPolicy.ScalarKind.Number).IfNone(false)) && typeof(T) == typeof(double)
+        policy.ScalarMode.Map(static scalar => scalar.Kind == CommandInputPolicy.ScalarKind.Number).IfNone(policy.LimitsMode.IsSome) && typeof(T) == typeof(double)
             ? Number<GetNumber, double, T>(policy: policy, create: static () => new GetNumber(), receive: static getter => getter.Get(), current: static getter => getter.Number(), setLower: static (getter, value, strict) => getter.SetLowerLimit(value, strict), setUpper: static (getter, value, strict) => getter.SetUpperLimit(value, strict))
             : Getter<GetString, T>(
                 policy: policy,
                 create: static () => new GetString(),
                 receive: policy.IsLiteralText ? static getter => getter.GetLiteralString() : static getter => getter.Get(),
-                value: (source, getter, raw) => raw is GetResult.String ? Parse<T>(input: source, text: getter.StringResult(), scalar: policy.ScalarMode).Bind(Cast<T>) : Option<T>.None);
+                value: (source, getter, raw) => raw is GetResult.String ? Parse<T>(input: source, text: getter.StringResult(), scalar: policy.ScalarMode, bounds: policy.LimitsMode).Bind(Cast<T>) : Option<T>.None);
 
     private static CommandInputRequest<TOut> Number<TGetter, TValue, TOut>(
         CommandInputPolicy policy,
@@ -373,14 +403,14 @@ public static class CommandInputs {
             _ => Option<T>.None,
         };
 
-    private static Option<object> Parse<T>(CommandInput input, string text, Option<CommandInputPolicy.Scalar> scalar) =>
+    private static Option<object> Parse<T>(CommandInput input, string text, Option<CommandInputPolicy.Scalar> scalar, Option<CommandInputPolicy.LimitSpec> bounds) =>
         typeof(T) switch {
             Type t when t == typeof(string) => Optional(text).Map(static value => (object)value),
             Type t when t == typeof(double) => scalar.IfNone(new CommandInputPolicy.Scalar(Kind: default, LengthUnits: Option<UnitSystem>.None, AngleUnits: Option<AngleUnitSystem>.None)) switch {
                 { LengthUnits.IsSome: true, AngleUnits.IsSome: true } => Option<object>.None,
-                { Kind: CommandInputPolicy.ScalarKind.Length } => ParseLength(text: text, units: scalar.Bind(static value => value.LengthUnits).IfNone(Rasm.Domain.Context.Of(doc: input.Document).ToFin().ToOption().Map(static context => context.Units).IfNone(input.Document.ModelUnitSystem))).Map(static value => (object)value),
-                { Kind: CommandInputPolicy.ScalarKind.Angle } => scalar.Bind(static value => value.AngleUnits).Bind(units => ParseAngle(text: text, units: units)).Map(static value => (object)value),
-                _ => ParseNumber(text: text).Map(static value => (object)value),
+                { Kind: CommandInputPolicy.ScalarKind.Length } => ParseLength(text: text, units: scalar.Bind(static value => value.LengthUnits).IfNone(input.Domain.Units)).Bind(value => Within(value: value, bounds: bounds)).Map(static value => (object)value),
+                { Kind: CommandInputPolicy.ScalarKind.Angle } => scalar.Bind(static value => value.AngleUnits).Bind(units => ParseAngle(text: text, units: units)).Bind(value => Within(value: value, bounds: bounds)).Map(static value => (object)value),
+                _ => ParseNumber(text: text).Bind(value => Within(value: value, bounds: bounds)).Map(static value => (object)value),
             },
             _ => Option<object>.None,
         };
@@ -393,9 +423,25 @@ public static class CommandInputs {
 
     private static Option<double> ParseAngle(string text, AngleUnitSystem units) { StringParserSettings results = new(); AngleUnitSystem parsed = AngleUnitSystem.None; try { return StringParser.ParseAngleExpession(text, 0, text.Length, StringParserSettings.DefaultParseSettings, units, out double value, ref results, ref parsed) == text.Length ? Some(value) : Option<double>.None; } finally { results.Dispose(); } }
 
+    private static Option<double> Within(double value, Option<CommandInputPolicy.LimitSpec> bounds) =>
+        bounds.Case switch {
+            CommandInputPolicy.LimitSpec spec => (Lower: spec.Lower.Bind(ScalarBound<double>), Upper: spec.Upper.Bind(ScalarBound<double>)) switch {
+                (Option<double> lower, _) when spec.Lower.IsSome && !lower.IsSome => Option<double>.None,
+                (_, Option<double> upper) when spec.Upper.IsSome && !upper.IsSome => Option<double>.None,
+                (Option<double> lower, _) when lower.Case is double lo && (spec.StrictlyLower ? value <= lo : value < lo) => Option<double>.None,
+                (_, Option<double> upper) when upper.Case is double hi && (spec.StrictlyUpper ? value >= hi : value > hi) => Option<double>.None,
+                (Option<double> lower, Option<double> upper) when lower.Case is double lo && upper.Case is double hi && lo.CompareTo(value: hi) > 0 => Option<double>.None,
+                (Option<double> lower, Option<double> upper) when lower.Case is double lo && upper.Case is double hi && lo.CompareTo(value: hi) == 0 && (spec.StrictlyLower || spec.StrictlyUpper) => Option<double>.None,
+                _ => Some(value),
+            },
+            _ => Some(value),
+        };
+
     private static Fin<Unit> Limits<TGetter, TValue>(TGetter getter, Option<CommandInputPolicy.LimitSpec> bounds, Action<TGetter, TValue, bool> setLower, Action<TGetter, TValue, bool> setUpper) where TGetter : GetBaseClass where TValue : IComparable<TValue> =>
         bounds.Case switch {
-            CommandInputPolicy.LimitSpec b => (b.Lower.Bind(Cast<TValue>), b.Upper.Bind(Cast<TValue>)) switch {
+            CommandInputPolicy.LimitSpec b => (Lower: b.Lower.Bind(ScalarBound<TValue>), Upper: b.Upper.Bind(ScalarBound<TValue>)) switch {
+                (Option<TValue> lower, _) when b.Lower.IsSome && !lower.IsSome => Fin.Fail<Unit>(error: Op.Of(name: nameof(Limits)).InvalidInput()),
+                (_, Option<TValue> upper) when b.Upper.IsSome && !upper.IsSome => Fin.Fail<Unit>(error: Op.Of(name: nameof(Limits)).InvalidInput()),
                 (Option<TValue> lower, Option<TValue> upper) when lower.Case is TValue left && upper.Case is TValue right && left.CompareTo(other: right) > 0 => Fin.Fail<Unit>(error: Op.Of(name: nameof(Limits)).InvalidInput()),
                 (Option<TValue> lower, Option<TValue> upper) when lower.Case is TValue left && upper.Case is TValue right && left.CompareTo(other: right) == 0 && (b.StrictlyLower || b.StrictlyUpper) => Fin.Fail<Unit>(error: Op.Of(name: nameof(Limits)).InvalidInput()),
                 (Option<TValue> lower, Option<TValue> upper) => Optional(getter).ToFin(Fail: Op.Of(name: nameof(Limits)).InvalidInput()).Map(valid => {
@@ -406,15 +452,41 @@ public static class CommandInputs {
             },
             _ => Fin.Succ(value: unit),
         };
+
+    private static Option<TValue> ScalarBound<TValue>(object value) where TValue : IComparable<TValue> {
+        try {
+            return value switch {
+                TValue typed => Some(typed),
+                IConvertible convertible when typeof(TValue) == typeof(double) => Convert.ToDouble(value: convertible, provider: CultureInfo.InvariantCulture) switch {
+                    double number when double.IsFinite(d: number) => Cast<TValue>(value: number),
+                    _ => Option<TValue>.None,
+                },
+                IConvertible convertible when typeof(TValue) == typeof(int) => Convert.ToDouble(value: convertible, provider: CultureInfo.InvariantCulture) switch {
+                    double number when double.IsFinite(d: number) && Math.Truncate(d: number) == number && number >= int.MinValue && number <= int.MaxValue => Cast<TValue>(value: (int)number),
+                    _ => Option<TValue>.None,
+                },
+                _ => Option<TValue>.None,
+            };
+        } catch (FormatException) {
+            return Option<TValue>.None;
+        } catch (InvalidCastException) {
+            return Option<TValue>.None;
+        } catch (OverflowException) {
+            return Option<TValue>.None;
+        }
+    }
 }
 
 public sealed record CommandInput {
-    internal CommandInput(RhinoDoc document) {
+    internal CommandInput(RhinoDoc document, Rasm.Domain.Context domain) {
         ArgumentNullException.ThrowIfNull(argument: document);
+        ArgumentNullException.ThrowIfNull(argument: domain);
         Document = document;
+        Domain = domain;
     }
 
     public RhinoDoc Document { get; }
+    public Rasm.Domain.Context Domain { get; }
 
     public Fin<CommandGet<TValue>> Get<TValue>(CommandInputRequest<TValue> request) =>
         Optional(request).ToFin(Fail: Op.Of(name: nameof(Get)).InvalidInput()).Bind(valid => valid.Run(input: this));
