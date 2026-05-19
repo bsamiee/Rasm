@@ -18,34 +18,50 @@ namespace Rasm.Grasshopper.UI;
 
 // --- [MODELS] ---------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct ComponentUi(Seq<ComponentUiOp> Ops) {
+public readonly record struct ComponentUi {
+    private readonly Seq<ComponentUiOp> ops;
+
+    private ComponentUi(Seq<ComponentUiOp> ops) => this.ops = ops;
+
     public static ComponentUi Empty => default;
 
     public static ComponentUi operator +(ComponentUi left, ComponentUi right) =>
         Add(left: left, right: right);
 
     public static ComponentUi Add(ComponentUi left, ComponentUi right) =>
-        new(Ops: left.Ops + right.Ops);
+        new(ops: left.ops + right.ops);
 
     public static ComponentUi Of(Func<ComponentUiContext, Fin<ComponentUiDecision>> run) =>
-        new(Ops: Seq(new ComponentUiOp(Run: run)));
+        new(ops: Seq(new ComponentUiOp(Run: run)));
 
     public static ComponentUi When(ComponentUiPhase phase, Func<ComponentUiContext, Fin<ComponentUiDecision>> run) =>
-        Of(run: context => context.Phase == phase ? run(arg: context) : Fin.Succ(value: ComponentUiDecision.Pass));
+        Of(run: context => (context.Phase == phase) switch {
+            true => run(arg: context),
+            false => Fin.Succ(value: ComponentUiDecision.Pass),
+        });
 
     internal IAttributes Attributes(GhComponent owner) =>
-        Ops.IsEmpty ? new ComponentAttributes(owner: owner) : new RasmComponentAttributes(owner: owner, ui: this);
+        ops.IsEmpty ? new ComponentAttributes(owner: owner) : new RasmComponentAttributes(owner: owner, ui: this);
 
     internal Fin<Unit> Append(GhComponent owner, InputPanelControl panel) =>
         Run(context: ComponentUiContext.ForPanel(owner: owner, panel: panel)).Map(static _ => unit);
 
-    internal Fin<ComponentUiDecision> Run(ComponentUiContext context) =>
-        Ops.Fold(Fin.Succ(value: ComponentUiDecision.Pass), (Fin<ComponentUiDecision> state, ComponentUiOp op) =>
-            state.Bind(decision => decision.IsTerminal ? Fin.Succ(value: decision) : op.Run(arg: context).Map(next => decision + next)));
+    internal Fin<ComponentUiDecision> Run(ComponentUiContext context) {
+        Seq<ComponentUiOp> current = ops;
+        // BOUNDARY ADAPTER -- GH2 component UI callbacks enter the Rasm rail synchronously and surface exceptions as Fin failures.
+        return Try.lift<Fin<ComponentUiDecision>>(f: () => current.Fold(Fin.Succ(value: ComponentUiDecision.Pass), (Fin<ComponentUiDecision> state, ComponentUiOp op) =>
+                state.Bind(decision => decision.IsTerminal switch {
+                    true => Fin.Succ(value: decision),
+                    false => op.Run(arg: context).Map(next => decision + next),
+                })))
+            .Run()
+            .MapFail(_ => Op.Of(name: nameof(Run)).InvalidResult())
+            .Bind(static result => result);
+    }
 }
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct ComponentUiOp(Func<ComponentUiContext, Fin<ComponentUiDecision>> Run);
+internal readonly record struct ComponentUiOp(Func<ComponentUiContext, Fin<ComponentUiDecision>> Run);
 
 public enum ComponentUiPhase {
     Layout,
@@ -70,30 +86,33 @@ public readonly record struct ComponentUiContext(
     Option<InputPanelControl> Panel,
     Option<ContextMenu> Menu,
     Option<UiContext> Context,
+    Option<Skin> Skin,
+    Option<Capsule> Capsule,
+    Option<Shade> Shade,
     Option<MouseEventArgs> Mouse,
     Option<KeyEventArgs> Key,
     Option<PointF> Point,
     Option<UiShape> Shape) {
     public static ComponentUiContext Layout(GhComponent owner, UiShape shape) =>
-        new(Phase: ComponentUiPhase.Layout, Owner: owner, Panel: None, Menu: None, Context: None, Mouse: None, Key: None, Point: None, Shape: Optional(shape));
+        new(Phase: ComponentUiPhase.Layout, Owner: owner, Panel: None, Menu: None, Context: None, Skin: None, Capsule: None, Shade: None, Mouse: None, Key: None, Point: None, Shape: Optional(shape));
 
-    public static ComponentUiContext Draw(GhComponent owner, UiContext context) =>
-        new(Phase: ComponentUiPhase.DrawForeground, Owner: owner, Panel: None, Menu: None, Context: Optional(context), Mouse: None, Key: None, Point: None, Shape: None);
+    public static ComponentUiContext Draw(GhComponent owner, UiContext context, Skin skin, Capsule capsule, Shade shade) =>
+        new(Phase: ComponentUiPhase.DrawForeground, Owner: owner, Panel: None, Menu: None, Context: Optional(context), Skin: Optional(skin), Capsule: Optional(capsule), Shade: Optional(shade), Mouse: None, Key: None, Point: None, Shape: None);
 
     public static ComponentUiContext ForPanel(GhComponent owner, InputPanelControl panel) =>
-        new(Phase: ComponentUiPhase.InputPanel, Owner: owner, Panel: Optional(panel), Menu: None, Context: None, Mouse: None, Key: None, Point: None, Shape: None);
+        new(Phase: ComponentUiPhase.InputPanel, Owner: owner, Panel: Optional(panel), Menu: None, Context: None, Skin: None, Capsule: None, Shade: None, Mouse: None, Key: None, Point: None, Shape: None);
 
     public static ComponentUiContext ForMenu(GhComponent owner, ContextMenu menu) =>
-        new(Phase: ComponentUiPhase.ContextMenu, Owner: owner, Panel: None, Menu: Optional(menu), Context: None, Mouse: None, Key: None, Point: None, Shape: None);
+        new(Phase: ComponentUiPhase.ContextMenu, Owner: owner, Panel: None, Menu: Optional(menu), Context: None, Skin: None, Capsule: None, Shade: None, Mouse: None, Key: None, Point: None, Shape: None);
 
     public static ComponentUiContext Pointer(ComponentUiPhase phase, GhComponent owner, PointF point) =>
-        new(Phase: phase, Owner: owner, Panel: None, Menu: None, Context: None, Mouse: None, Key: None, Point: Optional(point), Shape: None);
+        new(Phase: phase, Owner: owner, Panel: None, Menu: None, Context: None, Skin: None, Capsule: None, Shade: None, Mouse: None, Key: None, Point: Optional(point), Shape: None);
 
     public static ComponentUiContext MouseEvent(ComponentUiPhase phase, GhComponent owner, MouseEventArgs mouse) =>
-        new(Phase: phase, Owner: owner, Panel: None, Menu: None, Context: None, Mouse: Optional(mouse), Key: None, Point: Optional(mouse).Map(static value => value.Location), Shape: None);
+        new(Phase: phase, Owner: owner, Panel: None, Menu: None, Context: None, Skin: None, Capsule: None, Shade: None, Mouse: Optional(mouse), Key: None, Point: Optional(mouse).Map(static value => value.Location), Shape: None);
 
     public static ComponentUiContext KeyEvent(ComponentUiPhase phase, GhComponent owner, KeyEventArgs key) =>
-        new(Phase: phase, Owner: owner, Panel: None, Menu: None, Context: None, Mouse: None, Key: Optional(key), Point: None, Shape: None);
+        new(Phase: phase, Owner: owner, Panel: None, Menu: None, Context: None, Skin: None, Capsule: None, Shade: None, Mouse: None, Key: Optional(key), Point: None, Shape: None);
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -137,7 +156,7 @@ internal sealed class RasmComponentAttributes :
 
     protected override void LayoutBounds(UiShape shape) {
         base.LayoutBounds(shape: shape);
-        _ = Run(context: ComponentUiContext.Layout(owner: Owner, shape: shape)).Map(decision => {
+        _ = ui.Run(context: ComponentUiContext.Layout(owner: Owner, shape: shape)).Map(decision => {
             Bounds = decision.Bounds.IfNone(Bounds);
             return unit;
         });
@@ -145,19 +164,19 @@ internal sealed class RasmComponentAttributes :
 
     protected override void DrawForeground(UiContext context, Skin skin, Capsule capsule, Shade shade) {
         base.DrawForeground(context: context, skin: skin, capsule: capsule, shade: shade);
-        _ = Run(context: ComponentUiContext.Draw(owner: Owner, context: context));
+        _ = ui.Run(context: ComponentUiContext.Draw(owner: Owner, context: context, skin: skin, capsule: capsule, shade: shade));
     }
 
     void IContextMenuAware.AppendToMenu(ContextMenu menu) =>
-        _ = Run(context: ComponentUiContext.ForMenu(owner: Owner, menu: menu));
+        _ = ui.Run(context: ComponentUiContext.ForMenu(owner: Owner, menu: menu));
 
     Cursor ICursorAwareAttributes.CursorAt(PointF point) =>
-        Run(context: ComponentUiContext.Pointer(phase: ComponentUiPhase.Cursor, owner: Owner, point: point))
+        ui.Run(context: ComponentUiContext.Pointer(phase: ComponentUiPhase.Cursor, owner: Owner, point: point))
             .Map(decision => decision.Cursor.IfNone(Cursors.Default))
             .IfFail(_ => Cursors.Default);
 
     bool IMouseHoverAttributes.RespondToMouseHover(PointF controlPoint, PointF contentPoint) =>
-        Run(context: ComponentUiContext.Pointer(phase: ComponentUiPhase.Hover, owner: Owner, point: contentPoint))
+        ui.Run(context: ComponentUiContext.Pointer(phase: ComponentUiPhase.Hover, owner: Owner, point: contentPoint))
             .Map(decision => decision.Hover.IfNone(false))
             .IfFail(_ => false);
 
@@ -170,19 +189,12 @@ internal sealed class RasmComponentAttributes :
     protected override UiResponse HandleKeyUp(KeyEventArgs e) => Respond(phase: ComponentUiPhase.KeyUp, key: e);
 
     private UiResponse Respond(ComponentUiPhase phase, MouseEventArgs mouse) =>
-        Run(context: ComponentUiContext.MouseEvent(phase: phase, owner: Owner, mouse: mouse))
+        ui.Run(context: ComponentUiContext.MouseEvent(phase: phase, owner: Owner, mouse: mouse))
             .Map(decision => decision.Response.IfNone(UiResponse.Ignored))
             .IfFail(_ => UiResponse.Ignored);
 
     private UiResponse Respond(ComponentUiPhase phase, KeyEventArgs key) =>
-        Run(context: ComponentUiContext.KeyEvent(phase: phase, owner: Owner, key: key))
+        ui.Run(context: ComponentUiContext.KeyEvent(phase: phase, owner: Owner, key: key))
             .Map(decision => decision.Response.IfNone(UiResponse.Ignored))
             .IfFail(_ => UiResponse.Ignored);
-
-    private Fin<ComponentUiDecision> Run(ComponentUiContext context) =>
-        // BOUNDARY ADAPTER -- GH2 canvas callbacks enter the Rasm UI rail synchronously and surface exceptions as Fin failures.
-        Try.lift<Fin<ComponentUiDecision>>(f: () => ui.Run(context: context))
-            .Run()
-            .MapFail(_ => Op.Of(name: nameof(Run)).InvalidResult())
-            .Bind(static result => result);
 }

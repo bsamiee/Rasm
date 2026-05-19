@@ -1,9 +1,11 @@
+using System.IO;
 using System.Runtime.InteropServices;
 using Eto.Drawing;
 using Eto.Forms;
 using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Doc;
 using Grasshopper2.UI;
+using Rhino;
 using GhCanvas = Grasshopper2.UI.Canvas.Canvas;
 using GhEditor = Grasshopper2.UI.Editor;
 
@@ -13,7 +15,12 @@ namespace Rasm.Grasshopper.UI;
 public sealed record CanvasUiRequest<T> {
     private readonly Func<CanvasUi.Scope, Fin<T>> run;
 
-    internal CanvasUiRequest(Func<CanvasUi.Scope, Fin<T>> run) => this.run = run;
+    internal CanvasUiRequest(Func<CanvasUi.Scope, Fin<T>> run, bool openEditor) {
+        this.run = run;
+        OpenEditor = openEditor;
+    }
+
+    internal bool OpenEditor { get; }
 
     internal Fin<T> Run(CanvasUi.Scope scope) => run(arg: scope);
 }
@@ -44,10 +51,10 @@ public readonly record struct CanvasPickSnapshot(
     int DeselectedCount,
     int DeselectedWireCount,
     int DeselectedObjectCount,
-    CanvasWireSnapshot WireUnderPick,
-    Guid ObjectUnderPick,
-    Guid InletUnderPick,
-    Guid OutletUnderPick) {
+    Option<CanvasWireSnapshot> WireUnderPick,
+    Option<Guid> ObjectUnderPick,
+    Option<Guid> InletUnderPick,
+    Option<Guid> OutletUnderPick) {
     internal static CanvasPickSnapshot Of(SelectionResult result) =>
         new(
             Kind: result.Kind,
@@ -61,30 +68,51 @@ public readonly record struct CanvasPickSnapshot(
             DeselectedCount: result.DeselectedCount,
             DeselectedWireCount: result.DeselectedWireCount,
             DeselectedObjectCount: result.DeselectedObjectCount,
-            WireUnderPick: new CanvasWireSnapshot(Source: result.WireUnderPick.Source, Target: result.WireUnderPick.Target),
-            ObjectUnderPick: result.ObjectUnderPick,
-            InletUnderPick: result.InletUnderPick,
-            OutletUnderPick: result.OutletUnderPick);
+            WireUnderPick: Optional(new CanvasWireSnapshot(Source: result.WireUnderPick.Source, Target: result.WireUnderPick.Target))
+                .Filter(static wire => wire.Source != Guid.Empty || wire.Target != Guid.Empty),
+            ObjectUnderPick: Optional(result.ObjectUnderPick).Filter(static id => id != Guid.Empty),
+            InletUnderPick: Optional(result.InletUnderPick).Filter(static id => id != Guid.Empty),
+            OutletUnderPick: Optional(result.OutletUnderPick).Filter(static id => id != Guid.Empty));
 }
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct CanvasBitmapSnapshot(int Width, int Height);
+public readonly record struct CanvasBitmapSnapshot(int Width, int Height, ReadOnlyMemory<byte> Png);
 
 // --- [SERVICES] -------------------------------------------------------------------------
 [BoundaryAdapter]
 public sealed record CanvasUi {
     [StructLayout(LayoutKind.Auto)]
     internal readonly record struct Scope(Option<GhEditor> Editor, Option<GhCanvas> Canvas) {
-        public static Scope Active() {
-            GhEditor? editor = GhEditor.Instance ?? GhEditor.ShowEditor(createVisible: true);
+        public static Scope Active(bool openEditor) {
+            GhEditor? editor = (GhEditor.Instance, openEditor) switch {
+                (GhEditor current, _) => current,
+                (_, true) => GhEditor.ShowEditor(createVisible: true),
+                _ => null,
+            };
             return new(Editor: Optional(editor), Canvas: Optional(editor?.Canvas));
         }
     }
 
     public Fin<T> Use<T>(CanvasUiRequest<T> request) =>
         from valid in Optional(request).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput())
-        from result in Protect(valid: () => valid.Run(scope: Scope.Active()))
+        from result in OnUiThread(run: () => valid.Run(scope: Scope.Active(openEditor: valid.OpenEditor)))
         select result;
+
+    internal static Fin<T> OnUiThread<T>(Func<Fin<T>> run) =>
+        Optional(run)
+            .ToFin(Fail: Op.Of(name: nameof(OnUiThread)).InvalidInput())
+            .Bind(valid => RhinoApp.IsOnMainThread switch {
+                true => Protect(valid: valid),
+                false => Try.lift<Fin<T>>(f: () => {
+                    // BOUNDARY ADAPTER -- Rhino owns the UI thread and InvokeAndWait exposes no return channel.
+                    Fin<T> result = Fin.Fail<T>(error: Op.Of(name: nameof(OnUiThread)).InvalidResult());
+                    RhinoApp.InvokeAndWait(action: () => result = Protect(valid: valid));
+                    return result;
+                })
+                    .Run()
+                    .MapFail(_ => Op.Of(name: nameof(OnUiThread)).InvalidResult())
+                    .Bind(static result => result),
+            });
 
     internal static Fin<T> Protect<T>(Func<Fin<T>> valid) =>
         Optional(valid)
@@ -96,8 +124,8 @@ public sealed record CanvasUi {
 }
 
 public static class CanvasUiRequest {
-    public static CanvasUiRequest<CanvasSnapshot> Snapshot() =>
-        new(run: scope => Fin.Succ(value: new CanvasSnapshot(HasEditor: scope.Editor.IsSome, HasCanvas: scope.Canvas.IsSome)));
+    public static CanvasUiRequest<CanvasSnapshot> Snapshot(bool openEditor = false) =>
+        new(run: scope => Fin.Succ(value: new CanvasSnapshot(HasEditor: scope.Editor.IsSome, HasCanvas: scope.Canvas.IsSome)), openEditor: openEditor);
 
     public static CanvasUiRequest<Unit> Invalidate() =>
         new(run: scope => scope.Canvas
@@ -106,25 +134,18 @@ public static class CanvasUiRequest {
                 // BOUNDARY ADAPTER -- GH2 owns canvas invalidation; Rasm exposes only the completed request.
                 canvas.Invalidate();
                 return unit;
-            }));
+            }), openEditor: false);
 
     public static CanvasUiRequest<CanvasPickSnapshot> Pick(PointF point, CanvasPickPolicy policy) =>
-        new(run: scope => scope.Canvas
+        new(run: scope => Optional(point)
+            .Filter(static value => float.IsFinite(value.X) && float.IsFinite(value.Y))
             .ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
+            .Bind(validPoint => scope.Canvas.ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
             .Map(canvas => {
                 // BOUNDARY ADAPTER -- GH2 SelectionResult is snapshotted; Document/native references stay inside the boundary.
-                SelectionResult result = canvas.ResolvePick(point: point, includeGrips: policy.IncludeGrips, includeForeground: policy.IncludeForeground, includeBackground: policy.IncludeBackground, includeWires: policy.IncludeWires, recursive: policy.Recursive);
+                SelectionResult result = canvas.ResolvePick(point: validPoint, includeGrips: policy.IncludeGrips, includeForeground: policy.IncludeForeground, includeBackground: policy.IncludeBackground, includeWires: policy.IncludeWires, recursive: policy.Recursive);
                 return CanvasPickSnapshot.Of(result: result);
-            }));
-
-    public static CanvasUiRequest<Unit> Search() =>
-        new(run: scope => scope.Canvas
-            .ToFin(Fail: Op.Of(name: nameof(Search)).InvalidInput())
-            .Map(canvas => {
-                // BOUNDARY ADAPTER -- GH2 owns search popup placement; Rasm exposes only completion.
-                canvas.ShowSearchPopup();
-                return unit;
-            }));
+            })), openEditor: false);
 
     public static CanvasUiRequest<Unit> Instantiate(bool mouseCentred, string? initialText = null) =>
         new(run: scope => scope.Canvas
@@ -133,16 +154,20 @@ public static class CanvasUiRequest {
                 // BOUNDARY ADAPTER -- GH2 owns instantiation popup placement; Rasm exposes only completion.
                 canvas.ShowInstantiationPopup(mouseCentred: mouseCentred, initialText: initialText);
                 return unit;
-            }));
+            }), openEditor: true);
 
     public static CanvasUiRequest<CanvasBitmapSnapshot> Bitmap(int width, int height, bool drawBackground, bool drawWires, bool drawMessages) =>
-        new(run: scope => scope.Canvas
+        new(run: scope => Optional((Width: width, Height: height))
+            .Filter(static size => size.Width > 0 && size.Height > 0)
             .ToFin(Fail: Op.Of(name: nameof(Bitmap)).InvalidInput())
+            .Bind(size => scope.Canvas.ToFin(Fail: Op.Of(name: nameof(Bitmap)).InvalidInput())
             .Bind(canvas => {
-                // BOUNDARY ADAPTER -- Eto Bitmap is disposable; only dimensions cross back into FP space.
-                using Bitmap bitmap = canvas.DrawToBitmap(width: width, height: height, drawBackground: drawBackground, drawWires: drawWires, drawMessages: drawMessages);
+                // BOUNDARY ADAPTER -- Eto Bitmap is disposable; only encoded PNG bytes cross back into FP space.
+                using Bitmap bitmap = canvas.DrawToBitmap(width: size.Width, height: size.Height, drawBackground: drawBackground, drawWires: drawWires, drawMessages: drawMessages);
+                using MemoryStream stream = new();
+                bitmap.Save(stream: stream, format: ImageFormat.Png);
                 return Optional(bitmap)
-                    .Map(valid => new CanvasBitmapSnapshot(Width: valid.Width, Height: valid.Height))
+                    .Map(valid => new CanvasBitmapSnapshot(Width: valid.Width, Height: valid.Height, Png: stream.ToArray()))
                     .ToFin(Fail: Op.Of(name: nameof(Bitmap)).InvalidResult());
-            }));
+            })), openEditor: false);
 }
