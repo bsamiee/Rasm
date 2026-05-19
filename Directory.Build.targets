@@ -1,4 +1,8 @@
 <Project>
+    <PropertyGroup Label="Yak Packaging">
+        <YakManifestDirectory Condition="'$(YakManifestDirectory)' == '' and '$(YakPackageSlug)' != ''">$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', 'tools', 'yak', '$(YakPackageSlug)'))</YakManifestDirectory>
+    </PropertyGroup>
+
     <!--
         Grasshopper2.dll embeds resources (icons, color dictionaries, .3dm crystal models,
         .ghicon bitmaps, .ghdic) and extracts them on demand to the current working directory

@@ -3,7 +3,6 @@
         <Description>RhinoWIP runtime analyzer bridge for built .NET assemblies.</Description>
         <RootNamespace>Rasm.RhinoBridge</RootNamespace>
         <RhinoPluginAssemblyGuid>c6a6b65c-4c58-485e-bd50-f805d14abe42</RhinoPluginAssemblyGuid>
-        <YakManifestDirectory>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '..', '..', '..', 'tools', 'yak', 'rasm-bridge'))</YakManifestDirectory>
         <YakPackageSlug>rasm-bridge</YakPackageSlug>
     </PropertyGroup>
 
@@ -26,15 +25,4 @@
         <Using Include="System.Text" />
         <Using Include="System.Text.Json" />
     </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="Rhino.Runtime.Code">
-      <HintPath>$(RhinoWipResourcesPath)/Rhino.Runtime.Code.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="RhinoCodePlatform.Rhino3D">
-      <HintPath>$(RhinoWipResourcesPath)/RhinoCodePlatform.Rhino3D.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-  </ItemGroup>
 </Project>

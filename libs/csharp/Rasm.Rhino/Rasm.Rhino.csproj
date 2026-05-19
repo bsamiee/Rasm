@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>RhinoCommon command and document interop boundary for Rasm.</Description>
-        <SkipBoundaryExemptionContracts>true</SkipBoundaryExemptionContracts>
     </PropertyGroup>
 
     <ItemGroup>
@@ -19,6 +18,5 @@
         <Using Include="Rhino.Geometry" />
         <Using Include="Rhino.Input" />
         <Using Include="Rhino.Input.Custom" />
-        <Using Include="Thinktecture" />
     </ItemGroup>
 </Project>

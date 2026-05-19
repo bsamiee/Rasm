@@ -28,6 +28,7 @@
 
     <PropertyGroup Label="Language and Build">
         <TargetFramework>net10.0</TargetFramework>
+        <LangVersion>14.0</LangVersion>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <Optimize>true</Optimize>
@@ -52,6 +53,7 @@
         <SkipLocalCSharpAnalyzerReference Condition="'$(SkipLocalCSharpAnalyzerReference)' == ''">false</SkipLocalCSharpAnalyzerReference>
         <SkipBoundaryExemptionContracts Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true'">true</SkipBoundaryExemptionContracts>
         <SkipBoundaryExemptionContracts Condition="'$(IsGrasshopperAwareProject)' == 'true'">true</SkipBoundaryExemptionContracts>
+        <SkipBoundaryExemptionContracts Condition="'$(IsRhinoUiAwareProject)' == 'true'">true</SkipBoundaryExemptionContracts>
         <SkipBoundaryExemptionContracts Condition="'$(IsTestProject)' == 'true'">true</SkipBoundaryExemptionContracts>
         <SkipBoundaryExemptionContracts Condition="'$(IsRhinoBridgeProject)' == 'true'">true</SkipBoundaryExemptionContracts>
         <SkipBoundaryExemptionContracts Condition="'$(SkipBoundaryExemptionContracts)' == ''">false</SkipBoundaryExemptionContracts>
@@ -70,7 +72,8 @@
     </PropertyGroup>
 
     <PropertyGroup Label="RhinoWIP Paths">
-        <RhinoWipAppPath>/Applications/RhinoWIP.app</RhinoWipAppPath>
+        <RhinoWipAppPath Condition="'$(RhinoWipAppPath)' == '' and '$(RHINO_WIP_APP_PATH)' != ''">$(RHINO_WIP_APP_PATH)</RhinoWipAppPath>
+        <RhinoWipAppPath Condition="'$(RhinoWipAppPath)' == ''">/Applications/RhinoWIP.app</RhinoWipAppPath>
         <RhinoWipResourcesPath>$(RhinoWipAppPath)/Contents/Frameworks/RhCore.framework/Versions/A/Resources</RhinoWipResourcesPath>
         <RhinoCommonReferencePath>$(RhinoWipResourcesPath)/RhinoCommon.dll</RhinoCommonReferencePath>
         <RhinoUiReferencePath>$(RhinoWipResourcesPath)/Rhino.UI.dll</RhinoUiReferencePath>
@@ -78,6 +81,8 @@
         <EtoReferencePath>$(RhinoWipResourcesPath)/Eto.dll</EtoReferencePath>
         <Grasshopper2ReferencePath>$(RhinoWipResourcesPath)/ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.dll</Grasshopper2ReferencePath>
         <GrasshopperIoReferencePath>$(RhinoWipResourcesPath)/ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.dll</GrasshopperIoReferencePath>
+        <RhinoRuntimeCodeReferencePath>$(RhinoWipResourcesPath)/Rhino.Runtime.Code.dll</RhinoRuntimeCodeReferencePath>
+        <RhinoCodePlatformReferencePath>$(RhinoWipResourcesPath)/RhinoCodePlatform.Rhino3D.dll</RhinoCodePlatformReferencePath>
     </PropertyGroup>
 
     <PropertyGroup Label="RhinoWIP Boundaries" Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true'">
@@ -99,7 +104,7 @@
         </PackageReference>
     </ItemGroup>
 
-    <ItemGroup Label="Global LanguageExt Usings" Condition="'$(IsLocalCSharpAnalyzerProject)' != 'true' and '$(UseWorkspaceLibraries)' == 'true'">
+    <ItemGroup Label="Global Workspace Usings" Condition="'$(IsLocalCSharpAnalyzerProject)' != 'true' and '$(UseWorkspaceLibraries)' == 'true'">
         <Using Include="LanguageExt" />
         <Using Include="LanguageExt.Common" />
         <Using Include="LanguageExt.Traits" />
@@ -107,6 +112,7 @@
         <Using Include="LanguageExt.Pretty" />
         <Using Include="LanguageExt.Traits.Domain" />
         <Using Include="LanguageExt.Prelude" Static="true" />
+        <Using Include="Thinktecture" />
     </ItemGroup>
 
     <ItemGroup Label="Grasshopper-Aware Usings" Condition="'$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">
@@ -141,9 +147,6 @@
         <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute">
             <_Parameter1>macos15.0</_Parameter1>
         </AssemblyAttribute>
-        <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute">
-            <_Parameter1>windows</_Parameter1>
-        </AssemblyAttribute>
     </ItemGroup>
 
     <ItemGroup Label="Grasshopper UI Platform Metadata" Condition="'$(IsGrasshopperAwareProject)' == 'true' and '$(IsRhinoUiAwareProject)' != 'true'">
@@ -168,10 +171,6 @@
             <HintPath>$(SystemDrawingCommonReferencePath)</HintPath>
             <Private>false</Private>
         </Reference>
-        <Reference Include="Eto">
-            <HintPath>$(EtoReferencePath)</HintPath>
-            <Private>false</Private>
-        </Reference>
     </ItemGroup>
 
     <ItemGroup Label="Grasshopper Libraries" Condition="'$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">
@@ -183,8 +182,22 @@
             <HintPath>$(GrasshopperIoReferencePath)</HintPath>
             <Private>false</Private>
         </Reference>
+    </ItemGroup>
+
+    <ItemGroup Label="Eto UI Libraries" Condition="'$(IsRhinoUiAwareProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">
         <Reference Include="Eto">
             <HintPath>$(EtoReferencePath)</HintPath>
+            <Private>false</Private>
+        </Reference>
+    </ItemGroup>
+
+    <ItemGroup Label="RhinoCode Bridge Libraries" Condition="'$(IsRhinoBridgeProject)' == 'true' and '$(IsRhinoPluginProject)' == 'true'">
+        <Reference Include="Rhino.Runtime.Code">
+            <HintPath>$(RhinoRuntimeCodeReferencePath)</HintPath>
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="RhinoCodePlatform.Rhino3D">
+            <HintPath>$(RhinoCodePlatformReferencePath)</HintPath>
             <Private>false</Private>
         </Reference>
     </ItemGroup>
