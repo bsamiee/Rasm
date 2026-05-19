@@ -45,7 +45,9 @@ public readonly record struct OverlayDecision(Option<BoundingBox> Bounds = defau
             (Func<DrawObjectEventArgs, Fin<Unit>> a, _) => Some(a),
             _ => Option<Func<DrawObjectEventArgs, Fin<Unit>>>.None,
         });
-    internal static Fin<BoundingBox> BoundsOf(object source, Op op) => Optional(source).ToFin(Fail: op.InvalidInput()).Bind(value => value switch { BoundingBox box when box.IsValid => Fin.Succ(value: box), Box box when box.IsValid => Fin.Succ(value: box.BoundingBox), Sphere sphere when sphere.IsValid => Fin.Succ(value: sphere.BoundingBox), Line line when line.IsValid => Fin.Succ(value: line.BoundingBox), Polyline polyline when polyline.IsValid => Fin.Succ(value: polyline.BoundingBox), Circle circle when circle.IsValid => Fin.Succ(value: circle.BoundingBox), Arc arc when arc.IsValid => Fin.Succ(value: arc.BoundingBox()), Point3d point when point.IsValid => Fin.Succ(value: new BoundingBox(point, point)), GeometryBase geometry when geometry.IsValid && geometry.GetBoundingBox(accurate: true) is BoundingBox box && box.IsValid => Fin.Succ(value: box), _ => Fin.Fail<BoundingBox>(error: op.InvalidInput()) });
+    internal static Fin<BoundingBox> BoundsOf(object source, Op op) => Optional(source).ToFin(Fail: op.InvalidInput()).Bind(value => value switch { BoundingBox box when box.IsValid => Fin.Succ(value: box), Box box when box.IsValid => Fin.Succ(value: box.BoundingBox), Sphere sphere when sphere.IsValid => Fin.Succ(value: sphere.BoundingBox), Line line when line.IsValid => Fin.Succ(value: line.BoundingBox), Polyline polyline when polyline.IsValid => Fin.Succ(value: polyline.BoundingBox), Circle circle when circle.IsValid => Fin.Succ(value: circle.BoundingBox), Arc arc when arc.IsValid => Fin.Succ(value: arc.BoundingBox()), Ellipse ellipse when ellipse.IsValid => CurveBounds(curve: ellipse.ToNurbsCurve(), op: op), Point3d point when point.IsValid => Fin.Succ(value: new BoundingBox(point, point)), GeometryBase geometry when geometry.IsValid && geometry.GetBoundingBox(accurate: true) is BoundingBox box && box.IsValid => Fin.Succ(value: box), _ => Fin.Fail<BoundingBox>(error: op.InvalidInput()) });
+
+    private static Fin<BoundingBox> CurveBounds(Curve curve, Op op) => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => { try { return Optional(curve).ToFin(Fail: op.InvalidInput()).Bind(static value => value.GetBoundingBox(accurate: true) switch { BoundingBox box when box.IsValid => Fin.Succ(value: box), _ => Fin.Fail<BoundingBox>(error: Op.Of(name: nameof(CurveBounds)).InvalidResult()) }); } finally { curve?.Dispose(); } });
 }
 
 public readonly record struct OverlayFilter(Option<ObjectType> Geometry = default, Option<ActiveSpace> Space = default, Option<Seq<Guid>> ObjectIds = default, Option<(bool On, bool CheckSubObjects)> Selection = default, Option<(RhinoViewport Viewport, bool Exclusive)> Viewport = default, bool Unbind = false) {
@@ -175,49 +177,55 @@ public abstract class RasmOverlay<TState>(TState initial) : DisplayConduit, IDis
 
 public readonly record struct UiPreviewStyle(
     Option<DrawingColor> Stroke = default,
+    Option<DrawingColor> Text = default,
+    Option<OverlayPhase> Phase = default,
     Option<DisplayMaterial> Material = default,
     int Thickness = 2,
     int WireDensity = 0,
     float PointRadius = 4f,
     PointStyle PointStyle = PointStyle.Simple,
     double Transparency = 0.55) {
-    internal DrawingColor StrokeOrDefault => Stroke.IfNone(DrawingColor.FromArgb(alpha: 220, red: 32, green: 156, blue: 238));
-    internal DisplayMaterial MaterialOrDefault {
-        get {
-            Option<DisplayMaterial> material = Material;
-            DrawingColor stroke = StrokeOrDefault;
-            double transparency = Transparency;
-            return material.IfNone(() => new DisplayMaterial(diffuse: stroke, transparency: transparency));
-        }
-    }
+    internal OverlayPhase PhaseOrDefault => Phase.IfNone(OverlayPhase.PostDraw);
 
-    internal Unit Draw(DisplayPipeline display, object geometry) {
-        DrawingColor stroke = StrokeOrDefault;
-        DisplayMaterial material = MaterialOrDefault;
+    internal Fin<Unit> Draw(UiPreviewContext context, object geometry) {
+        Option<DrawingColor> strokeOption = Stroke;
+        Option<DrawingColor> textOption = Text;
+        Option<DisplayMaterial> materialOption = Material;
         int thickness = Thickness;
         int wireDensity = WireDensity;
         float pointRadius = PointRadius;
         PointStyle pointStyle = PointStyle;
-        return geometry switch {
-            Mesh mesh => Effect(action: () => { display.DrawMeshShaded(mesh: mesh, material: material); display.DrawMeshWires(mesh: mesh, color: stroke, thickness: thickness); }),
-            Brep brep => Effect(action: () => { display.DrawBrepShaded(brep: brep, material: material); display.DrawBrepWires(brep: brep, color: stroke, wireDensity: wireDensity); }),
-            Curve curve => Effect(action: () => display.DrawCurve(curve: curve, color: stroke, thickness: thickness)),
-            Extrusion extrusion => Effect(action: () => display.DrawExtrusionWires(extrusion: extrusion, color: stroke, wireDensity: wireDensity)),
-            Surface surface => Effect(action: () => display.DrawSurface(surface: surface, wireColor: stroke, wireDensity: wireDensity)),
-            Point point => Effect(action: () => display.DrawPoint(point: point.Location, style: pointStyle, radius: pointRadius, color: stroke)),
-            Point3d point => Effect(action: () => display.DrawPoint(point: point, style: pointStyle, radius: pointRadius, color: stroke)),
-            Line line => Effect(action: () => display.DrawLine(line: line, color: stroke, thickness: thickness)),
-            Polyline polyline => Effect(action: () => display.DrawPolyline(polyline: polyline, color: stroke, thickness: thickness)),
-            Arc arc => Effect(action: () => display.DrawArc(arc: arc, color: stroke, thickness: thickness)),
-            Circle circle => Effect(action: () => display.DrawCircle(circle: circle, color: stroke, thickness: thickness)),
-            PointCloud cloud => Effect(action: () => display.DrawPointCloud(cloud: cloud, size: pointRadius, color: stroke)),
-            SubD subd => Effect(action: () => { display.DrawSubDShaded(subd: subd, material: material); display.DrawSubDWires(subd: subd, color: stroke, thickness: thickness); }),
-            Hatch hatch => Effect(action: () => display.DrawHatch(hatch: hatch, hatchColor: stroke, boundaryColor: stroke)),
-            TextDot dot => Effect(action: () => display.DrawDot(dot: dot, fillColor: stroke, textColor: DrawingColor.White, borderColor: stroke)),
-            TextEntity text => Effect(action: () => display.DrawText(text: text, color: stroke)),
-            AnnotationBase annotation => Effect(action: () => display.DrawAnnotation(annotation: annotation, color: stroke)),
-            Light light => Effect(action: () => display.DrawLight(light: light, wireframeColor: stroke)),
-            _ => unit,
+        double transparency = Transparency;
+        DrawingColor stroke = strokeOption.IfNone(() => context.Document.CreateDefaultAttributes().DrawColor(context.Document));
+        DrawingColor text = textOption.IfNone(DrawingColor.White);
+        DisplayMaterial material = materialOption.IfNone(() => new DisplayMaterial(diffuse: stroke, transparency: transparency));
+        return (Optional(context.Display), Optional(geometry)) switch {
+            (Option<DisplayPipeline> display, Option<object> target) when display.Case is DisplayPipeline pipeline && target.Case is object value => value switch {
+                Mesh mesh => Fin.Succ(value: Effect(action: () => { pipeline.DrawMeshShaded(mesh: mesh, material: material); pipeline.DrawMeshWires(mesh: mesh, color: stroke, thickness: thickness); })),
+                Brep brep => Fin.Succ(value: Effect(action: () => { pipeline.DrawBrepShaded(brep: brep, material: material); pipeline.DrawBrepWires(brep: brep, color: stroke, wireDensity: wireDensity); })),
+                Curve curve => Fin.Succ(value: Effect(action: () => pipeline.DrawCurve(curve: curve, color: stroke, thickness: thickness))),
+                Extrusion extrusion => Fin.Succ(value: Effect(action: () => pipeline.DrawExtrusionWires(extrusion: extrusion, color: stroke, wireDensity: wireDensity))),
+                Surface surface => Fin.Succ(value: Effect(action: () => pipeline.DrawSurface(surface: surface, wireColor: stroke, wireDensity: wireDensity))),
+                Point point => Fin.Succ(value: Effect(action: () => pipeline.DrawPoint(point: point.Location, style: pointStyle, radius: pointRadius, color: stroke))),
+                Point3d point => Fin.Succ(value: Effect(action: () => pipeline.DrawPoint(point: point, style: pointStyle, radius: pointRadius, color: stroke))),
+                Line line => Fin.Succ(value: Effect(action: () => pipeline.DrawLine(line: line, color: stroke, thickness: thickness))),
+                Polyline polyline => Fin.Succ(value: Effect(action: () => pipeline.DrawPolyline(polyline: polyline, color: stroke, thickness: thickness))),
+                Arc arc => Fin.Succ(value: Effect(action: () => pipeline.DrawArc(arc: arc, color: stroke, thickness: thickness))),
+                Circle circle => Fin.Succ(value: Effect(action: () => pipeline.DrawCircle(circle: circle, color: stroke, thickness: thickness))),
+                Box box => Fin.Succ(value: Effect(action: () => pipeline.DrawBox(box: box, color: stroke, thickness: thickness))),
+                BoundingBox box => Fin.Succ(value: Effect(action: () => pipeline.DrawBox(box, stroke, thickness))),
+                Sphere sphere => Fin.Succ(value: Effect(action: () => pipeline.DrawSphere(sphere: sphere, color: stroke, thickness: thickness))),
+                Ellipse ellipse => Fin.Succ(value: Effect(action: () => { using Curve curve = ellipse.ToNurbsCurve(); pipeline.DrawCurve(curve: curve, color: stroke, thickness: thickness); })),
+                PointCloud cloud => Fin.Succ(value: Effect(action: () => pipeline.DrawPointCloud(cloud: cloud, size: pointRadius, color: stroke))),
+                SubD subd => Fin.Succ(value: Effect(action: () => { pipeline.DrawSubDShaded(subd: subd, material: material); pipeline.DrawSubDWires(subd: subd, color: stroke, thickness: thickness); })),
+                Hatch hatch => Fin.Succ(value: Effect(action: () => pipeline.DrawHatch(hatch: hatch, hatchColor: stroke, boundaryColor: stroke))),
+                TextDot dot => Fin.Succ(value: Effect(action: () => pipeline.DrawDot(dot: dot, fillColor: stroke, textColor: text, borderColor: stroke))),
+                TextEntity entity => Fin.Succ(value: Effect(action: () => pipeline.DrawText(text: entity, color: text))),
+                AnnotationBase annotation => Fin.Succ(value: Effect(action: () => pipeline.DrawAnnotation(annotation: annotation, color: text))),
+                Light light => Fin.Succ(value: Effect(action: () => pipeline.DrawLight(light: light, wireframeColor: stroke))),
+                _ => Fin.Succ(value: unit),
+            },
+            _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(Draw)).InvalidInput()),
         };
     }
 
@@ -253,6 +261,8 @@ public readonly record struct UiPreviewScope(
         from _ in active.CheckKeys()
         from changed in active.Update(point: point, line: line)
         select changed;
+
+    public Fin<bool> PickGumball(global::Rhino.Input.Custom.PickContext pick, GetPoint point) => from active in Gumball.ToFin(Fail: Op.Of(name: nameof(PickGumball)).InvalidInput()) from validPick in Optional(pick).ToFin(Fail: Op.Of(name: nameof(PickGumball)).InvalidInput()) from validPoint in Optional(point).ToFin(Fail: Op.Of(name: nameof(PickGumball)).InvalidInput()) from picked in active.Pick(pick: validPick, point: validPoint) select picked;
 }
 
 public sealed record UiViewportPreview {
@@ -275,7 +285,7 @@ public sealed record UiViewportPreview {
             .Bind(static source => toSeq(source).Map(static item => (object)item).TraverseM(item => Optional(item)
                 .ToFin(Fail: Op.Of(name: nameof(UiViewportPreview)).InvalidInput())
                 .Bind(static value => value switch {
-                    Mesh or Brep or Curve or Extrusion or Surface or Point or Point3d or Line or Polyline or Arc or Circle or PointCloud or SubD or Hatch or TextDot or AnnotationBase or Light => Fin.Succ(value: value),
+                    Mesh or Brep or Curve or Extrusion or Surface or Point or Point3d or Line or Polyline or Arc or Circle or Box or BoundingBox or Sphere or Ellipse or PointCloud or SubD or Hatch or TextDot or AnnotationBase or Light => Fin.Succ(value: value),
                     _ => Fin.Fail<object>(error: Op.Of(name: nameof(UiViewportPreview)).InvalidInput()),
                 })).As())
             .Bind(static values => values.IsEmpty switch {
@@ -283,10 +293,10 @@ public sealed record UiViewportPreview {
                 true => Fin.Fail<Seq<object>>(error: Op.Of(name: nameof(UiViewportPreview)).InvalidInput()),
             });
         return new(
-            draw: context => context.Phase switch {
-                OverlayPhase.PostDraw => from active in items
-                                         from display in Optional(context.Display).ToFin(Fail: Op.Of(name: nameof(UiViewportPreview)).InvalidInput())
-                                         select active.Iter(item => style.Draw(display: display, geometry: item)),
+            draw: context => (context.Phase == style.PhaseOrDefault) switch {
+                true => from active in items
+                        from _ in active.TraverseM(item => style.Draw(context: context, geometry: item)).As()
+                        select unit,
                 _ => Fin.Succ(value: unit),
             },
             bounds: () => from active in items
@@ -436,7 +446,7 @@ public sealed class UiGumball : IDisposable {
             Mode: conduit.PickResult.Mode,
             InRelocate: conduit.InRelocate);
 
-    public Fin<bool> Pick(global::Rhino.Input.Custom.PickContext pick, GetPoint? point = null) => from _ in guard(!disposed, Op.Of(name: nameof(Pick)).InvalidInput()) from validPick in Optional(pick).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput()) select conduit.PickGumball(pickContext: validPick, getPoint: point);
+    public Fin<bool> Pick(global::Rhino.Input.Custom.PickContext pick, GetPoint point) => from _ in guard(!disposed, Op.Of(name: nameof(Pick)).InvalidInput()) from validPick in Optional(pick).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput()) from validPoint in Optional(point).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput()) select conduit.PickGumball(pickContext: validPick, getPoint: validPoint);
 
     public Fin<bool> Update(Point3d point, Line line) =>
         from _ in guard(!disposed && point.IsValid && line.IsValid, Op.Of(name: nameof(Update)).InvalidInput()) from changed in Redraw(value: conduit.UpdateGumball(point: point, worldLine: line)) select changed;

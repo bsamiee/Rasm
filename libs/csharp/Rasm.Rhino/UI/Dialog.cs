@@ -123,15 +123,8 @@ public static class UiIntent {
             _ => Fin.Fail<Seq<(string Name, string Value)>>(error: Op.Of(name: nameof(Properties)).InvalidInput()),
         }));
 
-    public static UiIntent<(int Index, bool SetCurrent)> Layer(string title, int selectedIndex = -1, bool showNewLayer = true, bool showSetCurrent = true, bool initialSetCurrent = false) =>
-        Request(name: nameof(Layer), run: _ => {
-            bool setCurrent = initialSetCurrent;
-            int index = selectedIndex;
-            return global::Rhino.UI.Dialogs.ShowSelectLayerDialog(layerIndex: ref index, dialogTitle: title, showNewLayerButton: showNewLayer, showSetCurrentButton: showSetCurrent, initialSetCurrentState: ref setCurrent) switch {
-                true => Fin.Succ(value: (Index: index, SetCurrent: setCurrent)),
-                false => Fin.Fail<(int Index, bool SetCurrent)>(error: new Fault.Cancelled()),
-            };
-        });
+    public static UiIntent<(int Index, bool SetCurrent)> Layer(UiLayerSpec spec) =>
+        Request(name: nameof(Layer), run: _ => { bool setCurrent = spec.InitialSetCurrent; int index = spec.SelectedIndex; return global::Rhino.UI.Dialogs.ShowSelectLayerDialog(layerIndex: ref index, dialogTitle: spec.Title, showNewLayerButton: spec.ShowNewLayer, showSetCurrentButton: spec.ShowSetCurrent, initialSetCurrentState: ref setCurrent) switch { true => Fin.Succ(value: (Index: index, SetCurrent: setCurrent)), false => Fin.Fail<(int Index, bool SetCurrent)>(error: new Fault.Cancelled()) }; });
 
     public static UiIntent<Guid> Linetype(string title, string message, Option<Guid> selected = default) =>
         Request(name: nameof(Linetype), run: scope =>
@@ -167,25 +160,25 @@ public static class UiIntent {
             },
         }));
 
-    public static UiIntent<Seq<string>> File(string title, string filter, string? fileName = null, string? initialDirectory = null, string? defaultExtension = null, bool save = false, bool multi = false) =>
-        Request(name: nameof(File), run: _ => (save, multi) switch {
-            (true, true) => Fin.Fail<Seq<string>>(error: Op.Of(name: nameof(File)).InvalidInput()),
-            (true, false) => new global::Rhino.UI.SaveFileDialog { Title = title, Filter = filter, FileName = fileName ?? string.Empty, InitialDirectory = initialDirectory ?? string.Empty, DefaultExt = defaultExtension ?? string.Empty } switch {
+    public static UiIntent<Seq<string>> File(UiFileSpec spec) =>
+        Request(name: nameof(File), run: _ => spec.Mode switch {
+            UiFileMode.Save => new global::Rhino.UI.SaveFileDialog { Title = spec.Title, Filter = spec.Filter, FileName = spec.FileName.IfNone(string.Empty), InitialDirectory = spec.InitialDirectory.IfNone(string.Empty), DefaultExt = spec.DefaultExtension.IfNone(string.Empty) } switch {
                 global::Rhino.UI.SaveFileDialog dialog => dialog.ShowSaveDialog() switch {
                     true => Fin.Succ(value: Seq(dialog.FileName)),
                     false => Fin.Fail<Seq<string>>(error: new Fault.Cancelled()),
                 },
             },
-            (false, _) => new global::Rhino.UI.OpenFileDialog { Title = title, Filter = filter, FileName = fileName ?? string.Empty, InitialDirectory = initialDirectory ?? string.Empty, DefaultExt = defaultExtension ?? string.Empty, MultiSelect = multi } switch {
+            UiFileMode.OpenOne or UiFileMode.OpenMany => new global::Rhino.UI.OpenFileDialog { Title = spec.Title, Filter = spec.Filter, FileName = spec.FileName.IfNone(string.Empty), InitialDirectory = spec.InitialDirectory.IfNone(string.Empty), DefaultExt = spec.DefaultExtension.IfNone(string.Empty), MultiSelect = spec.Mode == UiFileMode.OpenMany } switch {
                 global::Rhino.UI.OpenFileDialog dialog => dialog.ShowOpenDialog() switch {
-                    true => Fin.Succ(value: multi ? toSeq(dialog.FileNames) : Seq(dialog.FileName)),
+                    true => Fin.Succ(value: spec.Mode == UiFileMode.OpenMany ? toSeq(dialog.FileNames) : Seq(dialog.FileName)),
                     false => Fin.Fail<Seq<string>>(error: new Fault.Cancelled()),
                 },
             },
+            _ => Fin.Fail<Seq<string>>(error: Op.Of(name: nameof(File)).InvalidInput()),
         });
 
-    public static UiIntent<string> Edit(string title, string message, string value = "", bool multiline = false) =>
-        Request(name: nameof(Edit), run: _ => global::Rhino.UI.Dialogs.ShowEditBox(title: title, message: message, defaultText: value, multiline: multiline, text: out string result) switch {
+    public static UiIntent<string> Edit(string title, string message, string value = "", bool expanded = false) =>
+        Request(name: nameof(Edit), run: _ => global::Rhino.UI.Dialogs.ShowEditBox(title: title, message: message, defaultText: value, multiline: expanded, text: out string result) switch {
             true => Fin.Succ(value: result),
             false => Fin.Fail<string>(error: new Fault.Cancelled()),
         });
@@ -335,16 +328,9 @@ public static class UiPreview {
             interactive: true);
 }
 
-public readonly record struct UiMessageSpec(
-    string Message,
-    string Title = "Rasm",
-    global::Rhino.UI.ShowMessageButton Buttons = default,
-    global::Rhino.UI.ShowMessageIcon Icon = default,
-    global::Rhino.UI.ShowMessageDefaultButton DefaultButton = default,
-    global::Rhino.UI.ShowMessageOptions Options = default,
-    global::Rhino.UI.ShowMessageMode Mode = default);
+public enum UiFileMode { OpenOne, OpenMany, Save }
 
-public readonly record struct UiColorSpec(
-    Color4f Initial,
-    Option<global::Rhino.UI.NamedColorList> Named = default,
-    global::Rhino.UI.Dialogs.OnColorChangedEvent? Changed = null);
+public readonly record struct UiFileSpec(string Title, string Filter, UiFileMode Mode = UiFileMode.OpenOne, Option<string> FileName = default, Option<string> InitialDirectory = default, Option<string> DefaultExtension = default);
+public readonly record struct UiLayerSpec(string Title, int SelectedIndex = -1, bool ShowNewLayer = true, bool ShowSetCurrent = true, bool InitialSetCurrent = false);
+public readonly record struct UiMessageSpec(string Message, string Title, global::Rhino.UI.ShowMessageButton Buttons = default, global::Rhino.UI.ShowMessageIcon Icon = default, global::Rhino.UI.ShowMessageDefaultButton DefaultButton = default, global::Rhino.UI.ShowMessageOptions Options = default, global::Rhino.UI.ShowMessageMode Mode = default);
+public readonly record struct UiColorSpec(Color4f Initial, Option<global::Rhino.UI.NamedColorList> Named = default, global::Rhino.UI.Dialogs.OnColorChangedEvent? Changed = null);

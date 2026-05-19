@@ -4,6 +4,27 @@ public readonly record struct DocumentSelectionPolicy(bool Highlight, bool Ignor
     public static DocumentSelectionPolicy Default { get; } = new(Highlight: true, IgnoreGrips: true, Persistent: true, IgnoreLayerLocking: false, IgnoreLayerVisibility: false);
 }
 
+file abstract record DocumentGeometry {
+    private DocumentGeometry() { }
+    internal abstract Fin<T> Use<T>(Op op, Func<GeometryBase, Fin<T>> use);
+    internal static Fin<DocumentGeometry> Of(object source) =>
+        Optional(source).ToFin(Fail: Op.Of(name: nameof(DocumentGeometry)).InvalidInput()).Bind(static value => value switch {
+            GeometryBase geometry => Fin.Succ<DocumentGeometry>(value: new Borrowed(geometry)),
+            Point3d point when point.IsValid => Fin.Succ<DocumentGeometry>(value: new Owned(new Point(location: point))),
+            Line line when line.IsValid => Fin.Succ<DocumentGeometry>(value: new Owned(new LineCurve(line: line))),
+            Circle circle when circle.IsValid => Fin.Succ<DocumentGeometry>(value: new Owned(new ArcCurve(circle: circle))),
+            Arc arc when arc.IsValid => Fin.Succ<DocumentGeometry>(value: new Owned(new ArcCurve(arc: arc))),
+            Polyline polyline when polyline.IsValid => Fin.Succ<DocumentGeometry>(value: new Owned(new PolylineCurve(polyline))),
+            _ => Fin.Fail<DocumentGeometry>(error: Op.Of(name: nameof(DocumentGeometry)).InvalidInput()),
+        });
+    private sealed record Borrowed(GeometryBase Geometry) : DocumentGeometry {
+        internal override Fin<T> Use<T>(Op op, Func<GeometryBase, Fin<T>> use) => from geometry in Optional(Geometry).ToFin(Fail: op.InvalidInput()) from valid in Optional(use).ToFin(Fail: op.InvalidInput()) from result in valid(arg: geometry) select result;
+    }
+    private sealed record Owned(GeometryBase Geometry) : DocumentGeometry {
+        internal override Fin<T> Use<T>(Op op, Func<GeometryBase, Fin<T>> use) => Optional(use).ToFin(Fail: op.InvalidInput()).Bind(valid => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => { try { return valid(arg: Geometry); } finally { Geometry.Dispose(); } }));
+    }
+}
+
 public abstract record DocumentTarget {
     private DocumentTarget() { }
 
@@ -19,7 +40,7 @@ public abstract record DocumentTarget {
         Use(document: document, op: op,
             selection: value => value.SelectInto(document: document, selected: selected, policy: policy, op: op),
             reference: value => value.Use(document: document, op: op, use: native => UnitResult(success: document.Objects.Select(native, selected, policy.Highlight, policy.Persistent, policy.IgnoreGrips, policy.IgnoreLayerLocking, policy.IgnoreLayerVisibility), op: op).Map(static _ => 1)),
-            objects: ids => CountResult(count: document.Objects.Select(ids.AsIterable(), selected, policy.Highlight, policy.Persistent, policy.IgnoreGrips, policy.IgnoreLayerLocking, policy.IgnoreLayerVisibility), op: op));
+            objects: ids => CountResult(count: document.Objects.Select(ids.AsIterable(), selected, policy.Highlight, policy.Persistent, policy.IgnoreGrips, policy.IgnoreLayerLocking, policy.IgnoreLayerVisibility), expected: ids.Count, op: op));
 
     internal Fin<Unit> Delete(RhinoDoc document, bool quiet, bool ignoreModes, Op op) =>
         Use(document: document, op: op,
@@ -105,34 +126,14 @@ public abstract record DocumentTarget {
         ReplaceGeometry(replacement: replacement, op: op, use: geometry => document.Objects.Replace(objref: reference, geometry: geometry, ignoreModes: ignoreModes));
 
     private static Fin<Unit> ReplaceGeometry(object replacement, Op op, Func<GeometryBase, bool> use) =>
-        Optional(use).ToFin(Fail: op.InvalidInput()).Bind(valid => ToGeometry(replacement: replacement) switch {
-            (GeometryBase geometry, bool owned) => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => {
-                try {
-                    return UnitResult(success: valid(arg: geometry), op: op);
-                } finally {
-                    _ = owned switch {
-                        true => ((Func<Unit>)(() => { geometry.Dispose(); return unit; }))(),
-                        false => unit,
-                    };
-                }
-            }),
-            _ => Fin.Fail<Unit>(error: op.InvalidInput()),
-        });
+        from valid in Optional(use).ToFin(Fail: op.InvalidInput())
+        from geometry in DocumentGeometry.Of(source: replacement)
+        from result in geometry.Use(op: op, use: native => UnitResult(success: valid(arg: native), op: op))
+        select result;
 
-    private static (GeometryBase Geometry, bool Owned)? ToGeometry(object replacement) =>
-        replacement switch {
-            GeometryBase geometry => (Geometry: geometry, Owned: false),
-            Point3d point => (Geometry: new Point(location: point), Owned: true),
-            Line line => (Geometry: new LineCurve(line: line), Owned: true),
-            Circle circle => (Geometry: new ArcCurve(circle: circle), Owned: true),
-            Arc arc => (Geometry: new ArcCurve(arc: arc), Owned: true),
-            Polyline polyline => (Geometry: new PolylineCurve(polyline), Owned: true),
-            _ => null,
-        };
-
-    private static Fin<int> CountResult(int count, Op op) =>
+    private static Fin<int> CountResult(int count, int expected, Op op) =>
         count switch {
-            >= 0 => Fin.Succ(value: count),
+            int value when value == expected => Fin.Succ(value: value),
             _ => Fin.Fail<int>(error: op.InvalidResult()),
         };
 
@@ -161,6 +162,11 @@ public sealed record DocumentEdit {
             1 => Fin.Succ(value: ids[0]),
             _ => Fin.Fail<Guid>(error: Op.Of(name: nameof(Add)).InvalidResult()),
         }
+        select id;
+
+    public Fin<Guid> Add(object source, ObjectAttributes? attributes = null) =>
+        from geometry in DocumentGeometry.Of(source: source)
+        from id in geometry.Use(op: Op.Of(name: nameof(Add)), use: native => Add(geometry: native, attributes: attributes))
         select id;
 
     public Fin<Seq<Guid>> Add(IEnumerable<GeometryBase> geometries, ObjectAttributes? attributes = null) =>
@@ -219,7 +225,7 @@ public sealed record DocumentEdit {
         from chosen in ids.Distinct() switch { Seq<Guid> values when !values.IsEmpty => Fin.Succ(value: values), _ => Fin.Fail<Seq<Guid>>(error: Op.Of(name: nameof(SetSelection)).InvalidInput()) }
         let active = policy ?? DocumentSelectionPolicy.Default
         from count in document.Objects.SetSelectedObjects(objectIds: chosen.AsIterable(), syncHighlight: active.Highlight, persistentSelect: active.Persistent, ignoreGripsState: active.IgnoreGrips, ignoreLayerLocking: active.IgnoreLayerLocking, ignoreLayerVisibility: active.IgnoreLayerVisibility) switch {
-            int value when value >= 0 => Fin.Succ(value: value),
+            int value when value == chosen.Count => Fin.Succ(value: value),
             _ => Fin.Fail<int>(error: Op.Of(name: nameof(SetSelection)).InvalidResult()),
         }
         select count;

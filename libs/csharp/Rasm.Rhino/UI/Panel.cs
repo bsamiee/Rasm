@@ -68,6 +68,23 @@ public readonly record struct PanelMenuState(
     internal Unit Apply(global::Rhino.UI.RuiUpdateUi ui) { ui.Enabled = Enabled; ui.Checked = Checked; ui.RadioChecked = RadioChecked; _ = Text.Iter(value => ui.Text = value); return unit; }
 }
 
+public abstract record PanelPlacement {
+    private PanelPlacement() { }
+    public static PanelPlacement Default { get; } = new DefaultPlacement();
+    public static Fin<PanelPlacement> Dock(Guid dockBarId) => dockBarId switch { Guid id when id != Guid.Empty => Fin.Succ<PanelPlacement>(value: new DockPlacement(id)), _ => Fin.Fail<PanelPlacement>(error: Op.Of(name: nameof(Dock)).InvalidInput()) };
+    public static Fin<PanelPlacement> Sibling(Guid panelId) => panelId switch { Guid id when id != Guid.Empty => Fin.Succ<PanelPlacement>(value: new SiblingPlacement(id)), _ => Fin.Fail<PanelPlacement>(error: Op.Of(name: nameof(Sibling)).InvalidInput()) };
+    internal abstract Fin<Unit> Open(Type panelType, Guid panelId, bool selected);
+    private sealed record DefaultPlacement : PanelPlacement {
+        internal override Fin<Unit> Open(Type panelType, Guid panelId, bool selected) => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.OpenPanel(panelType: panelType, makeSelectedPanel: selected); return Fin.Succ(value: unit); });
+    }
+    private sealed record DockPlacement(Guid DockBarId) : PanelPlacement {
+        internal override Fin<Unit> Open(Type panelType, Guid panelId, bool selected) => RhinoUi.Protect(valid: () => global::Rhino.UI.Panels.OpenPanel(dockBarId: DockBarId, panelType: panelType, makeSelectedPanel: selected) switch { Guid id when id != Guid.Empty => Fin.Succ(value: unit), _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(Open)).InvalidResult()) });
+    }
+    private sealed record SiblingPlacement(Guid PanelId) : PanelPlacement {
+        internal override Fin<Unit> Open(Type panelType, Guid panelId, bool selected) => RhinoUi.Protect(valid: () => global::Rhino.UI.Panels.OpenPanelAsSibling(panelId: panelId, siblingPanelId: PanelId, makeSelectedPanel: selected) switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(Open)).InvalidResult()) });
+    }
+}
+
 public static class PanelOp {
     public static PanelOp<TPanel, Unit> Register<TPanel>(
         global::Rhino.PlugIns.PlugIn plugin,
@@ -85,16 +102,11 @@ public static class PanelOp {
                 select registered,
             interactive: false);
 
-    public static PanelOp<TPanel, Unit> Open<TPanel>(bool selected = true, Option<Guid> dock = default, Option<Guid> sibling = default) where TPanel : RasmPanel =>
+    public static PanelOp<TPanel, Unit> Open<TPanel>(PanelPlacement? placement = null, bool selected = true) where TPanel : RasmPanel =>
         new(run: _ =>
-            RasmPanel.PanelIdentityOf<TPanel>().Bind(panel => RhinoUi.Protect(valid: () => (dock.Case, sibling.Case) switch {
-                (Guid dockBar, _) when dockBar == Guid.Empty => Fin.Fail<Unit>(error: Op.Of(name: nameof(Open)).InvalidInput()),
-                (_, Guid siblingPanel) when siblingPanel == Guid.Empty => Fin.Fail<Unit>(error: Op.Of(name: nameof(Open)).InvalidInput()),
-                (Guid, Guid) => Fin.Fail<Unit>(error: Op.Of(name: nameof(Open)).InvalidInput()),
-                (Guid dockBar, _) => global::Rhino.UI.Panels.OpenPanel(dockBarId: dockBar, panelType: panel.Type, makeSelectedPanel: selected) switch { Guid id when id != Guid.Empty => Fin.Succ(value: unit), _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(Open)).InvalidResult()) },
-                (_, Guid siblingPanel) => global::Rhino.UI.Panels.OpenPanelAsSibling(panelId: panel.Id, siblingPanelId: siblingPanel, makeSelectedPanel: selected) switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(Open)).InvalidResult()) },
-                _ => ((Func<Fin<Unit>>)(() => { global::Rhino.UI.Panels.OpenPanel(panelType: panel.Type, makeSelectedPanel: selected); return Fin.Succ(value: unit); }))(),
-            })),
+            from panel in RasmPanel.PanelIdentityOf<TPanel>()
+            from opened in (placement ?? PanelPlacement.Default).Open(panelType: panel.Type, panelId: panel.Id, selected: selected)
+            select opened,
             interactive: true);
 
     public static PanelOp<TPanel, PanelSnapshot<TPanel>> Show<TPanel>(bool selected = true) where TPanel : RasmPanel =>

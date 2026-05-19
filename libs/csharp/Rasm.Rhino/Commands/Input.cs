@@ -123,17 +123,21 @@ public sealed record CommandInputPolicy {
     internal bool AcceptsUndo => Accepts(mode: CommandInputAccept.Undo);
     internal static CommandInputPolicy Empty { get; } = new();
 
-    public static CommandInputPolicy Configure(Action<GetBaseClass> apply) => new(baseActions: Seq(apply));
-    public static CommandInputPolicy ConfigureObject(Action<GetObject> apply) => new(objectActions: Seq(apply));
-    public static CommandInputPolicy ConfigurePoint(Action<GetPoint> apply) => new(pointActions: Seq(apply));
+    public static CommandInputPolicy Configure<TGetter>(Action<TGetter> apply) where TGetter : GetBaseClass =>
+        (typeof(TGetter), Optional(apply).Case) switch {
+            (Type type, Action<TGetter> action) when type == typeof(GetObject) => new(objectActions: Seq<Action<GetObject>>(getter => action((TGetter)(GetBaseClass)getter))),
+            (Type type, Action<TGetter> action) when type == typeof(GetPoint) => new(pointActions: Seq<Action<GetPoint>>(getter => action((TGetter)(GetBaseClass)getter))),
+            (_, Action<TGetter> action) => new(baseActions: Seq<Action<GetBaseClass>>(getter => _ = getter is TGetter typed ? ((Func<Unit>)(() => { action(typed); return unit; }))() : unit)),
+            _ => Empty,
+        };
     public static CommandInputPolicy Prompt(string value) => new(baseActions: Seq<Action<GetBaseClass>>(getter => getter.SetCommandPrompt(value)), prompt: Optional(value));
     public static CommandInputPolicy Default(object value) =>
         value switch {
-            Point3d point => Configure(apply: getter => getter.SetDefaultPoint(point: point)),
-            double number => Configure(apply: getter => getter.SetDefaultNumber(number)),
-            int integer => Configure(apply: getter => getter.SetDefaultInteger(integer)),
-            string text => Configure(apply: getter => getter.SetDefaultString(text)),
-            Color color => Configure(apply: getter => getter.SetDefaultColor(color)),
+            Point3d point => Configure<GetBaseClass>(apply: getter => getter.SetDefaultPoint(point: point)),
+            double number => Configure<GetBaseClass>(apply: getter => getter.SetDefaultNumber(number)),
+            int integer => Configure<GetBaseClass>(apply: getter => getter.SetDefaultInteger(integer)),
+            string text => Configure<GetBaseClass>(apply: getter => getter.SetDefaultString(text)),
+            Color color => Configure<GetBaseClass>(apply: getter => getter.SetDefaultColor(color)),
             _ => Empty,
         };
     public static CommandInputPolicy Accept(CommandInputAccept modes, bool acceptZero = true) =>
@@ -150,9 +154,7 @@ public sealed record CommandInputPolicy {
                 (CommandInputAccept.Number, getter => getter.AcceptNumber(enable: true, acceptZero: acceptZero)),
             }).Filter(row => (modes & row.Mode) == row.Mode).Map(static row => row.Apply),
             accept: modes);
-    public static CommandInputPolicy AcceptNothing() => Accept(modes: CommandInputAccept.Nothing);
-    public static CommandInputPolicy AcceptUndo() => Accept(modes: CommandInputAccept.Undo);
-    public static CommandInputPolicy TransparentCommands(bool enabled = true) => Configure(apply: getter => getter.EnableTransparentCommands(enable: enabled));
+    public static CommandInputPolicy TransparentCommands(bool enabled = true) => Configure<GetBaseClass>(apply: getter => getter.EnableTransparentCommands(enable: enabled));
     public static CommandInputPolicy Options(params CommandOption[] values) => new(options: toSeq(values));
     public static CommandInputPolicy Objects(int minimum = 1, int maximum = 1, ObjectType types = ObjectType.AnyObject, bool locked = false) =>
         new(
@@ -217,7 +219,17 @@ public sealed record CommandInputPolicy {
     internal sealed record PointSpec(bool OnMouseUp, bool TwoDimensional, Option<global::Rhino.UI.CursorStyle> Cursor, Option<bool> ObjectSnapCursors, Option<Point3d> BasePoint, bool DrawLineFromBasePoint, bool SnapToCurves, bool PermitConstraintOptions);
     internal static PointSpec DefaultPointSpec { get; } = new(OnMouseUp: false, TwoDimensional: false, Cursor: Option<global::Rhino.UI.CursorStyle>.None, ObjectSnapCursors: Option<bool>.None, BasePoint: Option<Point3d>.None, DrawLineFromBasePoint: false, SnapToCurves: false, PermitConstraintOptions: true);
     internal sealed record Scalar(ScalarKind Kind, Option<UnitSystem> LengthUnits, Option<AngleUnitSystem> AngleUnits);
-    internal sealed record LimitSpec(Option<object> Lower, Option<object> Upper, bool StrictlyLower, bool StrictlyUpper);
+    internal sealed record LimitSpec(Option<object> Lower, Option<object> Upper, bool StrictlyLower, bool StrictlyUpper) {
+        internal Fin<(Option<TValue> Lower, Option<TValue> Upper)> Project<TValue>(Op op) where TValue : IComparable<TValue> => (Lower.Bind(ScalarBound<TValue>), Upper.Bind(ScalarBound<TValue>)) switch { (Option<TValue> lower, _) when Lower.IsSome && !lower.IsSome => Fin.Fail<(Option<TValue> Lower, Option<TValue> Upper)>(error: op.InvalidInput()), (_, Option<TValue> upper) when Upper.IsSome && !upper.IsSome => Fin.Fail<(Option<TValue> Lower, Option<TValue> Upper)>(error: op.InvalidInput()), (Option<TValue> lower, Option<TValue> upper) when lower.Case is TValue left && upper.Case is TValue right && left.CompareTo(other: right) > 0 => Fin.Fail<(Option<TValue> Lower, Option<TValue> Upper)>(error: op.InvalidInput()), (Option<TValue> lower, Option<TValue> upper) when lower.Case is TValue left && upper.Case is TValue right && left.CompareTo(other: right) == 0 && (StrictlyLower || StrictlyUpper) => Fin.Fail<(Option<TValue> Lower, Option<TValue> Upper)>(error: op.InvalidInput()), (Option<TValue> lower, Option<TValue> upper) => Fin.Succ(value: (Lower: lower, Upper: upper)) };
+        internal Option<TValue> Accept<TValue>(TValue value) where TValue : IComparable<TValue> =>
+            Project<TValue>(op: Op.Of(name: nameof(LimitSpec))).ToOption().Bind(bounds => bounds switch {
+                (Option<TValue> lower, _) when lower.Case is TValue lo && (StrictlyLower ? value.CompareTo(other: lo) <= 0 : value.CompareTo(other: lo) < 0) => Option<TValue>.None,
+                (_, Option<TValue> upper) when upper.Case is TValue hi && (StrictlyUpper ? value.CompareTo(other: hi) >= 0 : value.CompareTo(other: hi) > 0) => Option<TValue>.None,
+                _ => Some(value),
+            });
+
+        private static Option<TValue> ScalarBound<TValue>(object value) where TValue : IComparable<TValue> { try { return value switch { TValue typed => Some(typed), IConvertible convertible when typeof(TValue) == typeof(double) => Convert.ToDouble(value: convertible, provider: CultureInfo.InvariantCulture) switch { double number when double.IsFinite(d: number) => Some((TValue)(object)number), _ => Option<TValue>.None }, IConvertible convertible when typeof(TValue) == typeof(int) => Convert.ToDouble(value: convertible, provider: CultureInfo.InvariantCulture) switch { double number when double.IsFinite(d: number) && Math.Truncate(d: number) == number && number >= int.MinValue && number <= int.MaxValue => Some((TValue)(object)(int)number), _ => Option<TValue>.None }, _ => Option<TValue>.None }; } catch (Exception e) when (e is FormatException or InvalidCastException or OverflowException) { return Option<TValue>.None; } }
+    }
     internal sealed record BoxSpec(GetBoxMode Mode, Point3d? BasePoint, string? Prompt1, string? Prompt2, string? Prompt3);
 
     private Unit ApplyPoint(GetPoint getter) {
@@ -274,7 +286,7 @@ public static class CommandInputs {
             ( < 0, _) or (_, < -1) => Invalid<T>(name: nameof(Get)),
             (int lo, int hi) when hi > 0 && hi < lo => Invalid<T>(name: nameof(Get)),
             (int lo, int hi) => Getter<GetObject, T>(
-                policy: CommandInputPolicy.Merge(policies: Seq(lo == 0 ? CommandInputPolicy.AcceptNothing() : CommandInputPolicy.Empty, hi == 0 ? CommandInputPolicy.Accept(modes: CommandInputAccept.EnterWhenDone) : CommandInputPolicy.Empty) + policies),
+                policy: CommandInputPolicy.Merge(policies: Seq(lo == 0 ? CommandInputPolicy.Accept(modes: CommandInputAccept.Nothing) : CommandInputPolicy.Empty, hi == 0 ? CommandInputPolicy.Accept(modes: CommandInputAccept.EnterWhenDone) : CommandInputPolicy.Empty) + policies),
                 create: static () => new GetObject(),
                 receive: getter => getter.GetMultiple(minimumNumber: lo, maximumNumber: hi),
                 value: static (source, getter, raw) => SelectionOf(document: source.Document, getter: getter, raw: raw).Bind(Cast<T>),
@@ -431,56 +443,22 @@ public static class CommandInputs {
 
     private static Option<double> Within(double value, Option<CommandInputPolicy.LimitSpec> bounds) =>
         bounds.Case switch {
-            CommandInputPolicy.LimitSpec spec => (Lower: spec.Lower.Bind(ScalarBound<double>), Upper: spec.Upper.Bind(ScalarBound<double>)) switch {
-                (Option<double> lower, _) when spec.Lower.IsSome && !lower.IsSome => Option<double>.None,
-                (_, Option<double> upper) when spec.Upper.IsSome && !upper.IsSome => Option<double>.None,
-                (Option<double> lower, _) when lower.Case is double lo && (spec.StrictlyLower ? value <= lo : value < lo) => Option<double>.None,
-                (_, Option<double> upper) when upper.Case is double hi && (spec.StrictlyUpper ? value >= hi : value > hi) => Option<double>.None,
-                (Option<double> lower, Option<double> upper) when lower.Case is double lo && upper.Case is double hi && lo.CompareTo(value: hi) > 0 => Option<double>.None,
-                (Option<double> lower, Option<double> upper) when lower.Case is double lo && upper.Case is double hi && lo.CompareTo(value: hi) == 0 && (spec.StrictlyLower || spec.StrictlyUpper) => Option<double>.None,
-                _ => Some(value),
-            },
+            CommandInputPolicy.LimitSpec spec => spec.Accept(value: value),
             _ => Some(value),
         };
 
     private static Fin<Unit> Limits<TGetter, TValue>(TGetter getter, Option<CommandInputPolicy.LimitSpec> bounds, Action<TGetter, TValue, bool> setLower, Action<TGetter, TValue, bool> setUpper) where TGetter : GetBaseClass where TValue : IComparable<TValue> =>
         bounds.Case switch {
-            CommandInputPolicy.LimitSpec b => (Lower: b.Lower.Bind(ScalarBound<TValue>), Upper: b.Upper.Bind(ScalarBound<TValue>)) switch {
-                (Option<TValue> lower, _) when b.Lower.IsSome && !lower.IsSome => Fin.Fail<Unit>(error: Op.Of(name: nameof(Limits)).InvalidInput()),
-                (_, Option<TValue> upper) when b.Upper.IsSome && !upper.IsSome => Fin.Fail<Unit>(error: Op.Of(name: nameof(Limits)).InvalidInput()),
-                (Option<TValue> lower, Option<TValue> upper) when lower.Case is TValue left && upper.Case is TValue right && left.CompareTo(other: right) > 0 => Fin.Fail<Unit>(error: Op.Of(name: nameof(Limits)).InvalidInput()),
-                (Option<TValue> lower, Option<TValue> upper) when lower.Case is TValue left && upper.Case is TValue right && left.CompareTo(other: right) == 0 && (b.StrictlyLower || b.StrictlyUpper) => Fin.Fail<Unit>(error: Op.Of(name: nameof(Limits)).InvalidInput()),
-                (Option<TValue> lower, Option<TValue> upper) => Optional(getter).ToFin(Fail: Op.Of(name: nameof(Limits)).InvalidInput()).Map(valid => {
-                    _ = lower.Iter(value => setLower(arg1: valid, arg2: value, arg3: b.StrictlyLower));
-                    _ = upper.Iter(value => setUpper(arg1: valid, arg2: value, arg3: b.StrictlyUpper));
+            CommandInputPolicy.LimitSpec b =>
+                from projected in b.Project<TValue>(op: Op.Of(name: nameof(Limits)))
+                from valid in Optional(getter).ToFin(Fail: Op.Of(name: nameof(Limits)).InvalidInput())
+                select ((Func<Unit>)(() => {
+                    _ = projected.Lower.Iter(value => setLower(arg1: valid, arg2: value, arg3: b.StrictlyLower));
+                    _ = projected.Upper.Iter(value => setUpper(arg1: valid, arg2: value, arg3: b.StrictlyUpper));
                     return unit;
-                }),
-            },
+                }))(),
             _ => Fin.Succ(value: unit),
         };
-
-    private static Option<TValue> ScalarBound<TValue>(object value) where TValue : IComparable<TValue> {
-        try {
-            return value switch {
-                TValue typed => Some(typed),
-                IConvertible convertible when typeof(TValue) == typeof(double) => Convert.ToDouble(value: convertible, provider: CultureInfo.InvariantCulture) switch {
-                    double number when double.IsFinite(d: number) => Cast<TValue>(value: number),
-                    _ => Option<TValue>.None,
-                },
-                IConvertible convertible when typeof(TValue) == typeof(int) => Convert.ToDouble(value: convertible, provider: CultureInfo.InvariantCulture) switch {
-                    double number when double.IsFinite(d: number) && Math.Truncate(d: number) == number && number >= int.MinValue && number <= int.MaxValue => Cast<TValue>(value: (int)number),
-                    _ => Option<TValue>.None,
-                },
-                _ => Option<TValue>.None,
-            };
-        } catch (FormatException) {
-            return Option<TValue>.None;
-        } catch (InvalidCastException) {
-            return Option<TValue>.None;
-        } catch (OverflowException) {
-            return Option<TValue>.None;
-        }
-    }
 }
 
 public sealed record CommandInput {
