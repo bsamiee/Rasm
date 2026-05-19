@@ -94,7 +94,15 @@ public sealed record CommandInputPolicy {
     public static CommandInputPolicy Configure(Action<GetBaseClass> apply) => new(baseActions: Seq(apply));
     public static CommandInputPolicy ConfigureObject(Action<GetObject> apply) => new(objectActions: Seq(apply));
     public static CommandInputPolicy Prompt(string value) => new(baseActions: Seq<Action<GetBaseClass>>(getter => getter.SetCommandPrompt(value)), prompt: Optional(value));
-    public static CommandInputPolicy Default(object value) => Configure(apply: getter => ApplyDefault(getter: getter, value: value));
+    public static CommandInputPolicy Default(object value) =>
+        value switch {
+            Point3d point => Configure(apply: getter => getter.SetDefaultPoint(point: point)),
+            double number => Configure(apply: getter => getter.SetDefaultNumber(number)),
+            int integer => Configure(apply: getter => getter.SetDefaultInteger(integer)),
+            string text => Configure(apply: getter => getter.SetDefaultString(text)),
+            Color color => Configure(apply: getter => getter.SetDefaultColor(color)),
+            _ => Empty,
+        };
     public static CommandInputPolicy AcceptNothing() => Configure(apply: AcceptNothingAction);
     public static CommandInputPolicy Options(params CommandOption[] values) => new(options: toSeq(values));
     public static CommandInputPolicy Objects(int minimum = 1, int maximum = 1) => new(objects: Some((Min: minimum, Max: maximum)));
@@ -139,22 +147,6 @@ public sealed record CommandInputPolicy {
 
     private static Action<GetBaseClass> AcceptNothingAction { get; } = static getter => getter.AcceptNothing(enable: true);
     private static Option<T> Pick<T>(Option<T> left, Option<T> right) => right.IsSome ? right : left;
-    private static Unit ApplyDefault(GetBaseClass getter, object value) {
-        _ = value switch {
-            Point3d point => Applied(apply: () => getter.SetDefaultPoint(point: point)),
-            double number => Applied(apply: () => getter.SetDefaultNumber(number)),
-            int integer => Applied(apply: () => getter.SetDefaultInteger(integer)),
-            string text => Applied(apply: () => getter.SetDefaultString(text)),
-            Color color => Applied(apply: () => getter.SetDefaultColor(color)),
-            _ => unit,
-        };
-        return unit;
-    }
-    private static Unit Applied(Action apply) {
-        apply();
-        return unit;
-    }
-
     internal enum ScalarKind { Number, Length, Angle }
     internal sealed record Scalar(ScalarKind Kind, Option<UnitSystem> LengthUnits, Option<AngleUnitSystem> AngleUnits);
     internal sealed record LimitSpec(Option<object> Lower, Option<object> Upper, bool StrictlyLower, bool StrictlyUpper);
@@ -167,15 +159,15 @@ public static class CommandInputs {
         CommandInputPolicy policy = CommandInputPolicy.Merge(policies: active);
         return typeof(T) switch {
             Type t when t == typeof(CommandSelection) => Objects<T>(policy: policy, policies: active),
-            Type t when t == typeof(CommandOptionValue) => Getter<GetOption, T>(policies: active, create: static () => new GetOption(), receive: static getter => getter.Get(), value: static (_, _, _) => Option<T>.None),
-            Type t when t == typeof(CommandPoint) || t == typeof(Point3d) || t == typeof(DrawingPoint) => Point<T>(policy: policy, policies: active),
-            Type t when t == typeof(string) || t == typeof(double) => Text<T>(policy: policy, policies: active),
-            Type t when t == typeof(int) => Number<GetInteger, int, T>(policies: active, policy: policy, create: static () => new GetInteger(), receive: static getter => getter.Get(), current: static getter => getter.Number(), setLower: static (getter, value, strict) => getter.SetLowerLimit(value, strict), setUpper: static (getter, value, strict) => getter.SetUpperLimit(value, strict)),
-            Type t when t == typeof(Line) => Native<T>(run: static () => GetNative<T, Line>(static (out Line value) => RhinoGet.GetLine(line: out value))),
-            Type t when t == typeof(Polyline) => Native<T>(run: static () => GetNative<T, Polyline>(static (out Polyline value) => RhinoGet.GetPolyline(polyline: out value))),
-            Type t when t == typeof(Circle) => Native<T>(run: static () => GetNative<T, Circle>(static (out Circle value) => RhinoGet.GetCircle(circle: out value))),
-            Type t when t == typeof(Arc) => Native<T>(run: static () => GetNative<T, Arc>(static (out Arc value) => RhinoGet.GetArc(arc: out value))),
-            Type t when t == typeof(Plane) => Native<T>(run: static () => GetNative<T, Plane>(static (out Plane value) => RhinoGet.GetPlane(plane: out value))),
+            Type t when t == typeof(CommandOptionValue) => Getter<GetOption, T>(policy: policy, create: static () => new GetOption(), receive: static getter => getter.Get(), value: static (_, _, _) => Option<T>.None),
+            Type t when t == typeof(CommandPoint) || t == typeof(Point3d) || t == typeof(DrawingPoint) => Point<T>(policy: policy),
+            Type t when t == typeof(string) || t == typeof(double) => Text<T>(policy: policy),
+            Type t when t == typeof(int) => Number<GetInteger, int, T>(policy: policy, create: static () => new GetInteger(), receive: static getter => getter.Get(), current: static getter => getter.Number(), setLower: static (getter, value, strict) => getter.SetLowerLimit(value, strict), setUpper: static (getter, value, strict) => getter.SetUpperLimit(value, strict)),
+            Type t when t == typeof(Line) => Native<T>(run: static () => GetNative<T, Line>(static (out value) => RhinoGet.GetLine(line: out value))),
+            Type t when t == typeof(Polyline) => Native<T>(run: static () => GetNative<T, Polyline>(static (out value) => RhinoGet.GetPolyline(polyline: out value))),
+            Type t when t == typeof(Circle) => Native<T>(run: static () => GetNative<T, Circle>(static (out value) => RhinoGet.GetCircle(circle: out value))),
+            Type t when t == typeof(Arc) => Native<T>(run: static () => GetNative<T, Arc>(static (out value) => RhinoGet.GetArc(arc: out value))),
+            Type t when t == typeof(Plane) => Native<T>(run: static () => GetNative<T, Plane>(static (out value) => RhinoGet.GetPlane(plane: out value))),
             Type t when t == typeof(Seq<Point3d>) => Native<T>(run: () => Rectangle<T>(prompt: policy.PromptText.IfNone(string.Empty))),
             Type t when t == typeof(Box) => Native<T>(run: () => Box<T>(spec: policy.BoxMode.IfNone(new CommandInputPolicy.BoxSpec(Mode: GetBoxMode.All, BasePoint: null, Prompt1: null, Prompt2: null, Prompt3: null)))),
             Type t when t == typeof(Color) => Native<T>(run: () => Color<T>(prompt: policy.PromptText.IfNone(string.Empty), acceptNothing: policy.AcceptsNothing)),
@@ -190,34 +182,33 @@ public static class CommandInputs {
             ( < 0, _) or (_, < -1) => Invalid<T>(name: nameof(Get)),
             (int lo, int hi) when hi > 0 && hi < lo => Invalid<T>(name: nameof(Get)),
             (int lo, int hi) => Getter<GetObject, T>(
-                policies: Seq(lo == 0 ? CommandInputPolicy.AcceptNothing() : CommandInputPolicy.Empty, hi == 0 ? CommandInputPolicy.Configure(static getter => getter.AcceptEnterWhenDone(enable: true)) : CommandInputPolicy.Empty) + policies,
+                policy: CommandInputPolicy.Merge(policies: Seq(lo == 0 ? CommandInputPolicy.AcceptNothing() : CommandInputPolicy.Empty, hi == 0 ? CommandInputPolicy.Configure(static getter => getter.AcceptEnterWhenDone(enable: true)) : CommandInputPolicy.Empty) + policies),
                 create: static () => new GetObject(),
                 receive: getter => getter.GetMultiple(minimumNumber: lo, maximumNumber: hi),
                 value: static (source, getter, raw) => SelectionOf(document: source.Document, getter: getter, raw: raw).Bind(Cast<T>),
                 transition: static (getter, raw, selected) => raw is GetResult.Option ? ForcePostSelect(getter: getter, selected: selected) : (Continue: false, Selected: selected)),
         };
 
-    private static CommandInputRequest<T> Point<T>(CommandInputPolicy policy, Seq<CommandInputPolicy> policies) {
+    private static CommandInputRequest<T> Point<T>(CommandInputPolicy policy) {
         (bool onMouseUp, bool configuredTwoDimensional) = policy.PointMode.IfNone((OnMouseUp: false, TwoDimensional: false));
         bool twoDimensional = configuredTwoDimensional || typeof(T) == typeof(DrawingPoint);
         return Getter<GetPoint, T>(
-            policies: policies,
+            policy: policy,
             create: static () => new GetPoint(),
             receive: getter => getter.Get(onMouseUp: onMouseUp, get2DPoint: twoDimensional),
             value: static (_, getter, raw) => raw is GetResult.Point or GetResult.Point2d ? PointValue<T>(getter: getter, raw: raw) : Option<T>.None);
     }
 
-    private static CommandInputRequest<T> Text<T>(CommandInputPolicy policy, Seq<CommandInputPolicy> policies) =>
+    private static CommandInputRequest<T> Text<T>(CommandInputPolicy policy) =>
         (policy.LimitsMode.IsSome || policy.ScalarMode.Map(static scalar => scalar.Kind == CommandInputPolicy.ScalarKind.Number).IfNone(false)) && typeof(T) == typeof(double)
-            ? Number<GetNumber, double, T>(policies: policies, policy: policy, create: static () => new GetNumber(), receive: static getter => getter.Get(), current: static getter => getter.Number(), setLower: static (getter, value, strict) => getter.SetLowerLimit(value, strict), setUpper: static (getter, value, strict) => getter.SetUpperLimit(value, strict))
+            ? Number<GetNumber, double, T>(policy: policy, create: static () => new GetNumber(), receive: static getter => getter.Get(), current: static getter => getter.Number(), setLower: static (getter, value, strict) => getter.SetLowerLimit(value, strict), setUpper: static (getter, value, strict) => getter.SetUpperLimit(value, strict))
             : Getter<GetString, T>(
-                policies: policies,
+                policy: policy,
                 create: static () => new GetString(),
                 receive: policy.IsLiteralText ? static getter => getter.GetLiteralString() : static getter => getter.Get(),
                 value: (source, getter, raw) => raw is GetResult.String ? Parse<T>(input: source, text: getter.StringResult(), scalar: policy.ScalarMode).Bind(Cast<T>) : Option<T>.None);
 
     private static CommandInputRequest<TOut> Number<TGetter, TValue, TOut>(
-        Seq<CommandInputPolicy> policies,
         CommandInputPolicy policy,
         Func<TGetter> create,
         Func<TGetter, GetResult> receive,
@@ -225,14 +216,14 @@ public static class CommandInputs {
         Action<TGetter, TValue, bool> setLower,
         Action<TGetter, TValue, bool> setUpper) where TGetter : GetBaseClass, IDisposable where TValue : IComparable<TValue> =>
         Getter(
-            policies: policies,
+            policy: policy,
             create: create,
             receive: receive,
             configure: getter => Limits(getter: getter, bounds: policy.LimitsMode, setLower: setLower, setUpper: setUpper),
             value: (_, getter, raw) => raw is GetResult.Number ? Cast<TOut>(current(arg: getter)!) : Option<TOut>.None);
 
     private static CommandInputRequest<T> Getter<TGetter, T>(
-        Seq<CommandInputPolicy> policies,
+        CommandInputPolicy policy,
         Func<TGetter> create,
         Func<TGetter, GetResult> receive,
         Func<CommandInput, TGetter, GetResult, Option<T>> value,
@@ -241,8 +232,8 @@ public static class CommandInputs {
         new(run: input => Optional(input).ToFin(Fail: Op.Of(name: nameof(Get)).InvalidInput()).Bind(valid => {
             using TGetter getter = create();
             return from configured in configure is Func<TGetter, Fin<Unit>> apply ? apply(arg: getter) : Fin.Succ(value: unit)
-                   from applied in CommandInputPolicy.Merge(policies: policies).Apply(getter: getter)
-                   from result in CommandOption.Bind(options: CommandInputPolicy.Merge(policies: policies).OptionList, getter: getter).Bind(scope => {
+                   from applied in policy.Apply(getter: getter)
+                   from result in CommandOption.Bind(options: policy.OptionList, getter: getter).Bind(scope => {
                        using CommandOption.Scope active = scope;
                        return ReadLoop(getter: getter, scope: active, receive: () => receive(arg: getter), value: (g, raw) => value(arg1: valid, arg2: g, arg3: raw), selected: Option<CommandOptionValue>.None, transition: transition ?? (static (_, _, selected) => (Continue: false, Selected: selected)));
                    })
@@ -258,7 +249,7 @@ public static class CommandInputs {
         Func<TGetter, GetResult, Option<CommandOptionValue>, (bool Continue, Option<CommandOptionValue> Selected)> transition) where TGetter : GetBaseClass =>
         receive() switch {
             GetResult.Cancel => Fin.Fail<CommandGet<T>>(error: new Fault.Cancelled()),
-            GetResult.Option => scope.Snapshot(getter: getter).Bind(option => transition(getter, GetResult.Option, Some(option)) switch {
+            GetResult.Option => scope.Selected(getter: getter).Bind(option => transition(getter, GetResult.Option, Some(option)) switch {
                 (true, Option<CommandOptionValue> next) => ReadLoop(getter: getter, scope: scope, receive: receive, value: value, selected: next, transition: transition),
                 (false, Option<CommandOptionValue> next) => Read(getter: getter, raw: GetResult.Option, value: value(getter, GetResult.Option), option: next),
             }),
