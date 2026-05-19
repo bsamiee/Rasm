@@ -93,16 +93,30 @@ public sealed record DocumentEdit {
     public RhinoDoc Document { get; }
 
     public Fin<Guid> Add(GeometryBase geometry, ObjectAttributes? attributes = null) =>
-        from document in Available(op: Op.Of(name: nameof(Add)))
         from g in Optional(geometry).ToFin(Fail: Op.Of(name: nameof(Add)).InvalidInput())
-        from id in Mutate(document: document, name: nameof(Add), run: () => attributes switch {
-            ObjectAttributes attrs => document.Objects.Add(g, attrs),
-            _ => document.Objects.Add(g),
-        } switch {
-            Guid value when value != Guid.Empty => Fin.Succ(value: value),
+        from ids in Add(geometries: Seq(g), attributes: attributes)
+        from id in ids.Count switch {
+            1 => Fin.Succ(value: ids[0]),
             _ => Fin.Fail<Guid>(error: Op.Of(name: nameof(Add)).InvalidResult()),
-        })
+        }
         select id;
+
+    public Fin<Seq<Guid>> Add(IEnumerable<GeometryBase> geometries, ObjectAttributes? attributes = null) =>
+        from document in Available(op: Op.Of(name: nameof(Add)))
+        from context in Rasm.Domain.Context.Of(doc: document).ToFin()
+        from source in Optional(geometries).ToFin(Fail: Op.Of(name: nameof(Add)).InvalidInput())
+        from values in toSeq(source) switch {
+            Seq<GeometryBase> items when !items.IsEmpty && items.ForAll(static geometry => geometry is not null) => items
+                .TraverseM(geometry => Requirement.Basic.Apply(context: context, value: geometry, cancel: CancellationToken.None).ToFin())
+                .As(),
+            _ => Fin.Fail<Seq<GeometryBase>>(error: Op.Of(name: nameof(Add)).InvalidInput()),
+        }
+        from ids in Mutate(document: document, name: nameof(Add), run: () =>
+            values.TraverseM(geometry => attributes switch {
+                ObjectAttributes attrs => IdResult(id: document.Objects.Add(geometry, attrs), op: Op.Of(name: nameof(Add))),
+                _ => IdResult(id: document.Objects.Add(geometry), op: Op.Of(name: nameof(Add))),
+            }).As())
+        select ids;
 
     public Fin<Seq<Guid>> AddPoints(IEnumerable<Point3d> points, ObjectAttributes? attributes = null) =>
         from document in Available(op: Op.Of(name: nameof(AddPoints)))

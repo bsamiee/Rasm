@@ -5,6 +5,13 @@ namespace Rasm.Rhino.UI;
 public enum PagePhase { Apply, Cancel, Activate, Script, Display, Update }
 
 public readonly record struct PageContext(PagePhase Phase, bool Active = false, RhinoDoc? Document = null, RunMode Mode = RunMode.Interactive, global::Rhino.UI.ObjectPropertiesPageEventArgs? Args = null) {
+    public Fin<RhinoDoc> RequireDocument() =>
+        (Document, Args) switch {
+            (RhinoDoc document, _) => Fin.Succ(value: document),
+            (_, { Document: RhinoDoc document }) => Fin.Succ(value: document),
+            _ => Fin.Fail<RhinoDoc>(error: Op.Of(name: nameof(RequireDocument)).InvalidInput()),
+        };
+
     public Fin<Seq<TObject>> Objects<TObject>() where TObject : RhinoObject => Optional(Args).ToFin(Fail: Op.Of(name: nameof(Objects)).InvalidInput()).Map(static args => toSeq(args.GetObjects<TObject>()));
     public Fin<Seq<Guid>> ObjectIds() => Objects<RhinoObject>().Map(static objects => objects.Map(static value => value.Id));
 }

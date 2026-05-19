@@ -63,6 +63,12 @@ public sealed record CommandSelection {
 
     public Fin<Seq<T>> Project<T>(Func<Reference, Fin<T>> project) => Optional(project).ToFin(Fail: Op.Of(name: nameof(Project)).InvalidInput()).Bind(valid => Items.TraverseM(reference => valid(arg: reference)).As());
 
+    public Fin<Reference> Single() =>
+        Items.Count switch {
+            1 => Fin.Succ(value: Items[0]),
+            _ => Fin.Fail<Reference>(error: Op.Of(name: nameof(Single)).InvalidInput()),
+        };
+
     public static Fin<CommandSelection> Pick(RhinoDoc document, global::Rhino.Input.Custom.PickContext context) =>
         from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput()) from validContext in Optional(context).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
         from selection in Rasm.Rhino.UI.RhinoUi.Protect(valid: () => Optional(validDocument.Objects.PickObjects(pickContext: validContext)).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidResult()).Bind(references => references switch { { Length: > 0 } values => Fin.Succ(value: From(document: validDocument, references: toSeq(values), preselected: Seq<(Guid ObjectId, ComponentIndex ComponentIndex)>())), _ => Fin.Fail<CommandSelection>(error: Op.Of(name: nameof(Pick)).InvalidResult()) })) select selection;
@@ -177,5 +183,10 @@ public sealed record CommandSelection {
 
         public Fin<T> Use<T>(RhinoDoc document, Func<ObjRef, Fin<T>> use) =>
             Use(document: document, op: Op.Of(name: nameof(Use)), use: use);
+
+        public Fin<RhinoView> View() =>
+            SelectionViewRuntimeSerialNumber
+                .Bind(static serial => Optional(RhinoView.FromRuntimeSerialNumber(serialNumber: serial)))
+                .ToFin(Fail: Op.Of(name: nameof(View)).MissingContext());
     }
 }

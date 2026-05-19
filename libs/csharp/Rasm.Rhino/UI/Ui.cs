@@ -65,7 +65,10 @@ public readonly record struct UiStatus(
     public static UiStatus operator +(UiStatus left, UiStatus right) => Add(left: left, right: right);
     public static UiStatus Add(UiStatus left, UiStatus right) =>
         new(Prompt: right.Prompt | left.Prompt, PromptDefault: right.PromptDefault | left.PromptDefault, Message: right.Message | left.Message, Distance: right.Distance | left.Distance, Number: right.Number | left.Number, Point: right.Point | left.Point, ClearMessage: left.ClearMessage || right.ClearMessage);
-    public static UiStatus Add(params UiStatus[] statuses) => Optional(statuses).Map(static values => values.Aggregate(seed: new UiStatus(), func: static (state, value) => state + value)).IfNone(new UiStatus());
+    public static UiStatus Add(params UiStatus[] statuses) =>
+        Optional(statuses)
+            .Map(static values => toSeq(values).Fold(initialState: new UiStatus(), f: static (state, value) => state + value))
+            .IfNone(new UiStatus());
 
     internal Fin<Unit> Apply() {
         UiStatus status = this;
@@ -96,7 +99,10 @@ public readonly record struct UiProgressSpec(
 public readonly record struct UiProgressStep(
     Option<int> Position = default,
     Option<string> Label = default,
-    bool Absolute = true);
+    bool Absolute = true) {
+    public static UiProgressStep Relative(int delta = 1, string? label = null) =>
+        new(Position: Some(delta), Label: Optional(label), Absolute: false);
+}
 
 public sealed class UiProgress : IDisposable {
     private readonly uint documentSerialNumber;

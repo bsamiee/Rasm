@@ -81,6 +81,14 @@ public static class PanelOp {
             }),
             interactive: true);
 
+    public static PanelOp<TPanel, (Guid PanelId, bool Visible, Seq<TPanel> Instances, Seq<Guid> OpenPanelIds)> Show<TPanel>(bool selected = true) where TPanel : RasmPanel =>
+        new(
+            run: document =>
+                from _ in Open<TPanel>(selected: selected).Run(document: document)
+                from snapshot in Snapshot<TPanel>().Run(document: document)
+                select snapshot,
+            interactive: true);
+
     public static PanelOp<TPanel, bool> Float<TPanel>(global::Rhino.UI.Panels.FloatPanelMode mode = global::Rhino.UI.Panels.FloatPanelMode.Show) where TPanel : RasmPanel =>
         new(run: _ => RasmPanel.PanelIdentityOf<TPanel>().Bind(panel => RhinoUi.Protect(valid: () => Fin.Succ(value: global::Rhino.UI.Panels.FloatPanel(panelType: panel.Type, mode: mode)))), interactive: true);
 
@@ -95,8 +103,15 @@ public static class PanelOp {
             })),
             interactive: true);
 
-    public static PanelOp<TPanel, (Guid PanelId, bool Visible, Seq<TPanel> Instances, Seq<Guid> OpenPanelIds)> Snapshot<TPanel>(bool selectedTabOnWindows = false) where TPanel : RasmPanel =>
-        new(run: document => from panel in RasmPanel.PanelIdentityOf<TPanel>() from doc in Optional(document).ToFin(Fail: Op.Of(name: nameof(Snapshot)).InvalidInput()) from snapshot in RhinoUi.Protect(valid: () => Fin.Succ(value: (PanelId: panel.Id, Visible: global::Rhino.UI.Panels.IsPanelVisible(panelType: panel.Type, isSelectedTab: selectedTabOnWindows), Instances: toSeq(global::Rhino.UI.Panels.GetPanels<TPanel>(doc)), OpenPanelIds: toSeq(global::Rhino.UI.Panels.GetOpenPanelIds())))) select snapshot, interactive: false);
+    public static PanelOp<TPanel, (Guid PanelId, bool Visible, Seq<TPanel> Instances, Seq<Guid> OpenPanelIds)> Snapshot<TPanel>() where TPanel : RasmPanel =>
+        new(run: document =>
+            from panel in RasmPanel.PanelIdentityOf<TPanel>()
+            from doc in Optional(document).ToFin(Fail: Op.Of(name: nameof(Snapshot)).InvalidInput())
+            from snapshot in RhinoUi.Protect(valid: () => toSeq(global::Rhino.UI.Panels.GetPanels<TPanel>(doc)) switch {
+                Seq<TPanel> instances => Fin.Succ(value: (PanelId: panel.Id, Visible: instances.Exists(static instance => instance.Visible), Instances: instances, OpenPanelIds: toSeq(global::Rhino.UI.Panels.GetOpenPanelIds()))),
+            })
+            select snapshot,
+            interactive: false);
 
     public static PanelOp<TPanel, Unit> MenuState<TPanel>(Guid fileId, Guid menuId, Guid itemId, Func<global::Rhino.UI.RuiUpdateUi, Fin<Unit>> update) where TPanel : RasmPanel =>
         new(run: _ => from validUpdate in Optional(update).ToFin(Fail: Op.Of(name: nameof(MenuState)).InvalidInput()) from validIds in guard(fileId != Guid.Empty && menuId != Guid.Empty && itemId != Guid.Empty, Op.Of(name: nameof(MenuState)).InvalidInput()) from registered in RhinoUi.Protect(valid: () => global::Rhino.UI.RuiUpdateUi.RegisterMenuItem(fileId, menuId, itemId, (_, ui) => _ = RhinoUi.Protect(valid: () => validUpdate(arg: ui))) switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(MenuState)).InvalidResult()) }) select registered, interactive: false);

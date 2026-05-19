@@ -2,7 +2,14 @@ namespace Rasm.Rhino.UI;
 
 public enum MousePhase { Move, MoveEnd, Down, DownEnd, Up, UpEnd, DoubleClick, Enter, Hover, Leave }
 
-public readonly record struct MouseContext<TState>(MousePhase Phase, TState State, global::Rhino.UI.MouseCallbackEventArgs Args);
+public readonly record struct MouseContext<TState>(MousePhase Phase, TState State, global::Rhino.UI.MouseCallbackEventArgs Args) {
+    public global::Rhino.UI.Gumball.GumballMode GumballMode => Args.IsOverGumball();
+    public Option<System.Drawing.Point> ViewportPoint =>
+        Args.ViewportPoint switch {
+            { IsEmpty: false } point => Some(point),
+            _ => Option<System.Drawing.Point>.None,
+        };
+}
 
 public readonly record struct MouseDecision(bool Cancel) {
     public static MouseDecision Pass => new(Cancel: false);

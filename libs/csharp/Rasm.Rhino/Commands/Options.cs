@@ -65,6 +65,16 @@ public abstract record CommandOption {
     public static CommandOption EnumSelection<TEnum>(string name, IEnumerable<TEnum> values, CommandOptionPolicy policy = default) where TEnum : struct, Enum =>
         EnumSelection(name: name, values: toSeq(values), current: policy.Current, varies: policy.Varies);
 
+    public static CommandOption List(string name, IEnumerable<string> values, string selected, CommandOptionPolicy policy = default) {
+        Seq<string> source = Optional(values).Map(static items => toSeq(items)).IfNone(Seq<string>());
+        Option<int> index = toSeq(Enumerable.Range(start: 0, count: source.Count))
+            .Find(i => StringComparer.Ordinal.Equals(x: source[i], y: selected));
+        return index.Case switch {
+            int current => List(name: name, values: source, current: current, varies: policy.Varies),
+            _ => Invalid(name: name),
+        };
+    }
+
     private static Case NamedOption(string name, string? value = null, bool hidden = false, bool varies = false, Option<string> localName = default, Option<string> localValue = default) =>
         new(Name: name, AddToGetter: (getter, validName) => value switch {
             string v => ValidValue(value: v).Bind(valid => Added(getter: getter, index: (localName.Case, localValue.Case) switch {

@@ -7,6 +7,13 @@ public readonly record struct OverlayContext<TState>(OverlayPhase Phase, TState 
 public readonly record struct OverlayDecision(Option<BoundingBox> Bounds = default, Option<bool> Cull = default) {
     public static OverlayDecision Ignore => new();
     public static Fin<OverlayDecision> Include(BoundingBox bounds) => bounds.IsValid switch { true => Fin.Succ(value: new OverlayDecision(Bounds: Some(bounds))), false => Fin.Fail<OverlayDecision>(error: Op.Of(name: nameof(OverlayDecision)).InvalidResult()) };
+    public static Fin<OverlayDecision> Include(GeometryBase geometry) =>
+        Optional(geometry)
+            .ToFin(Fail: Op.Of(name: nameof(OverlayDecision)).InvalidInput())
+            .Bind(static value => value.GetBoundingBox(accurate: true) switch {
+                BoundingBox box when box.IsValid => Include(bounds: box),
+                _ => Fin.Fail<OverlayDecision>(error: Op.Of(name: nameof(OverlayDecision)).InvalidResult()),
+            });
     public static OverlayDecision CullObject(bool cull = true) => new(Cull: Some(cull));
     public static OverlayDecision operator +(OverlayDecision left, OverlayDecision right) => Add(left: left, right: right);
     public static OverlayDecision Add(OverlayDecision left, OverlayDecision right) => new(Bounds: (left.Bounds.Case, right.Bounds.Case) switch { (BoundingBox a, BoundingBox b) => Some(BoundingBox.Union(a, b)), (_, BoundingBox b) => Some(b), (BoundingBox a, _) => Some(a), _ => Option<BoundingBox>.None }, Cull: right.Cull | left.Cull);
@@ -22,13 +29,11 @@ public readonly record struct OverlayFilter(Option<ObjectType> Geometry = defaul
                 _ = geometry.Iter(value => valid.GeometryFilter = value);
                 _ = space.Iter(value => valid.SpaceFilter = value);
                 _ = selection.Iter(value => valid.SetSelectionFilter(on: value.On, checkSubObjects: value.CheckSubObjects));
-                _ = objectIds.IsEmpty switch {
-                    false => Do(action: () => valid.SetObjectIdFilter(ids: objectIds.AsIterable())),
-                    true => unit,
-                };
+                _ = Do(action: () => valid.SetObjectIdFilter(ids: objectIds.AsIterable()));
                 _ = unbind switch {
                     true => Do(action: valid.UnbindAll),
                     false => viewport.Map(value => {
+                        _ = Do(action: valid.UnbindAll);
                         _ = value.Exclusive switch {
                             true => Do(action: () => valid.ExclusiveBind(viewport: value.Viewport)),
                             false => Do(action: () => valid.Bind(viewport: value.Viewport)),
@@ -219,9 +224,15 @@ public sealed class UiGumball : IDisposable {
 
     public Fin<bool> Pick(global::Rhino.Input.Custom.PickContext pick, GetPoint point) => (Optional(pick).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput()), Optional(point).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())).Apply(static (validPick, validPoint) => (Pick: validPick, Point: validPoint)).As().Map(valid => conduit.PickGumball(pickContext: valid.Pick, getPoint: valid.Point));
 
-    public Fin<bool> Update(Point3d point, Line line) => Fin.Succ(value: conduit.UpdateGumball(point: point, worldLine: line));
+    public Fin<bool> Update(Point3d point, Line line) =>
+        conduit.UpdateGumball(point: point, worldLine: line) switch {
+            bool changed => Redraw(value: changed),
+        };
 
-    public Fin<bool> Update(Plane frame) => Fin.Succ(value: conduit.UpdateGumball(frame: frame));
+    public Fin<bool> Update(Plane frame) =>
+        conduit.UpdateGumball(frame: frame) switch {
+            bool changed => Redraw(value: changed),
+        };
 
     public Fin<Unit> CheckKeys() {
         conduit.CheckShiftAndControlKeys();
@@ -281,5 +292,10 @@ public sealed class UiGumball : IDisposable {
             conduit.Dispose();
         }
         return unit;
+    }
+
+    private Fin<bool> Redraw(bool value) {
+        document.Views.Redraw();
+        return Fin.Succ(value: value);
     }
 }
