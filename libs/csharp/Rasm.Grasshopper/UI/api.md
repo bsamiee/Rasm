@@ -29,7 +29,7 @@ Core usable namespaces:
 
 - `Grasshopper2.UI`, `Grasshopper2.UI.Canvas`, `Grasshopper2.UI.Flex`.
 - `Grasshopper2.UI.InputPanel`, `Grasshopper2.UI.Toolbar`, `Grasshopper2.UI.Primitives`.
-- `Grasshopper2.UI.Skinning`, `Grasshopper2.UI.Icon`, `Grasshopper2.UI.Snap`.
+- `Grasshopper2.UI.Skinning`, `Grasshopper2.UI.Icon`.
 - `Grasshopper2.Doc`, `Grasshopper2.Doc.Attributes`, `Grasshopper2.Parameters`.
 - `Grasshopper2.Extensions` for keyboard and selection-mode helpers.
 - `Eto.Drawing`, `Eto.Forms`.
@@ -45,7 +45,7 @@ Core usable namespaces:
 | :-----: | ----- | ------------ |
 | **[1]** | `Editor.Instance` | Current editor singleton, nullable before creation. |
 | **[2]** | `Editor.ShowEditor(bool, string)` | Create or return editor. |
-| **[3]** | `Editor.EnsureVisible()` | Repair hidden or off-screen editor visibility. |
+| **[3]** | `Editor.EnsureVisible()` | XML-listed, but decompile shows it is not a usable public rail in current WIP. Do not call. |
 | **[4]** | `Editor.ThisOrRhino` | Editor window or Rhino main window fallback. |
 | **[5]** | `Editor.Canvas` | Active canvas control. |
 | **[6]** | `Editor.Documents` | Loaded document collection. |
@@ -69,7 +69,7 @@ Core usable namespaces:
 | **[7]** | `Before/AfterPaintGroups` | Group paint hooks. |
 | **[8]** | `Before/AfterPaintWires` | Wire paint hooks. |
 | **[9]** | `Before/AfterPaintObjects` | Object paint hooks. |
-| **[10]** | `DrawToBitmap()` / overload | Canvas bitmap render. |
+| **[10]** | `DrawToBitmap()` / overload | Canvas bitmap render. Decompile catches paint exceptions and can return `null`; rail treats null as failure. |
 | **[11]** | `DrawPickMap()` | Pick-index map render. |
 | **[12]** | `ResolvePick(...)` | Object, grip, background, and wire picking. |
 | **[13]** | `DeleteSelection()` | Delete selected objects in current document. |
@@ -111,16 +111,16 @@ Internal or avoided: `Document.References`, private constructors, and lifecycle 
 
 Public mutation capabilities:
 
-- Object add/migrate: `DropObject`, `MigrateObjects`, `AddDependency`.
+- Object add/dependency: `DropObject`, `AddDependency`.
 - Wire insertion: `SplitWire`.
 - Delete/data: `DeleteSelection`, `DeleteObjects`, `DeleteSelectionData`, `DeleteObjectData`.
 - Clipboard: `CopySelection`, `CutSelection`, `PasteFromClipboard`, `PasteGrasshopper1XmlFromClipboard`.
 - Grouping: `GroupSelection`, `GroupObjects`, `ChainSelection`, `ChainObjects`, `ClusterSelection`, `ClusterObjects`.
-- Selection: `SelectAll`, `DeselectAll`, `InvertSelection`, `ShiftSelection`, `GrowSelection`.
+- Selection: `SelectAll`, `DeselectAll`, `InvertSelection`.
 - State: `EnableSelected/Objects`, `DisableSelected/Objects`, `ShowSelected/Objects`, `HideSelected/Objects`, `ToggleDisplaySelected/Objects`.
 - Style/visibility: `SetColourOverrideSelected/Objects`, `ShowSelectedInputs/Outputs`, `HideSelectedInputs/Outputs`.
 
-Public but weak until live-proven: `MoveSelection(int, int)` decompiles as no useful movement in current WIP.
+Excluded until deliberately modeled or API changes: `MoveSelection`, `ShiftSelection`, and `GrowSelection` decompile to no useful behavior in current WIP. `MigrateObjects` is implemented but remains out until identity-map, cross-document, and undo policy are modeled.
 
 ---
 ## [8][OBJECT_LIST]
@@ -134,14 +134,14 @@ Public query capabilities:
 - Counts: `Count`, `PinCount`, `ExpiredCount`, `SelectedCount`, `SelectedWireCount`.
 - Enumerations: `Pins`, `Forwards`, `Backwards`, `PrimaryAndSecondary`, `Groups`, `ActiveObjects`, `ExpiredObjects`, `Attributes`, `AllAttributes`.
 - Bounds: `AttributeBounds`, `PivotBounds`.
-- State sets: `SelectedObjects`, `UnselectedObjects`, `EnabledObjects`, `DisabledObjects`.
+- State sets: `SelectedObjects`, `UnselectedObjects`, `DisabledObjects`.
 - Wires: `AllWires`, `SelectedWires`, `IsWireSelected`, `SelectWire`, `DeselectWire`, `DeselectAllWires`.
 - Picking: `ResolvePick`, `ResolveGripPick`, `WindowSelect`.
 - Lookup: `Find`, `FindParameter`, `FindComponent`, `FindGroup`, `FindByInlet`, `FindByOutlet`, `FindByInletOrOutlet`, `FindNear`.
 - Graph: `Connectivity`, `SearchUpstream`, `SearchDownstream`, `ShootRay`.
 - Maintenance: `ChangeAllIds`, `ApplyIdMap`, `ExpireAll`, `ClearDisplayCaches`, `DisplayableObjects`.
 
-Avoid: constructor, caches, backing lists, `WireRepository`, low-level clear/rebuild internals.
+Avoid: constructor, caches, backing lists, `WireRepository`, low-level clear/rebuild internals, `FindBySearch`, `EnabledObjects`, and `PickSelect`. Decompile currently shows `FindBySearch` returning an empty array; `EnabledObjects` contradicts its XML/name and yields disabled objects, so use `ActiveObjects` or `DisabledObjects` explicitly.
 
 ---
 ## [9][PICKING_SELECTION]
@@ -152,6 +152,8 @@ Avoid: constructor, caches, backing lists, `WireRepository`, low-level clear/reb
 Use `Canvas.ResolvePick` when wires matter. Use `ObjectList.ResolvePick` when only objects, grips, foreground, background, and recursive subobjects matter.
 
 Snapshot fields from `SelectionResult`: `Kind`, `Point`, selected/deselected counts, selected wire/object counts, `WireUnderPick`, `ObjectUnderPick`, `InletUnderPick`, `OutletUnderPick`.
+
+Keep `SelectionResult` snapshot-only in this rail. Its public `SetPicked*` methods and internal selection mutators are GH2 pick-construction mechanics, not downstream mutation surface.
 
 Use `KeyboardExtensionMethods.SelectionMode(...)` for Eto control, mouse event, and window-selection event mapping.
 
@@ -164,7 +166,6 @@ Use `KeyboardExtensionMethods.SelectionMode(...)` for Eto control, mouse event, 
 Public wire surfaces:
 
 - `IParameter.Inputs` and `IParameter.Outputs`.
-- `Connections.Connect`, `Disconnect`, and related parameter connection operations.
 - `WireEnds.Source`, `WireEnds.Target`.
 - `WireData` where exposed by object-list/document APIs.
 - `ObjectList.AllWires`, `SelectedWires`, wire select/deselect methods.
@@ -173,6 +174,8 @@ Public wire surfaces:
 - `WireShape` for public drawing geometry where caller owns shape creation.
 
 Avoid `WireRepository` and `Canvas.WireDrawCache`; both are internal implementation/display cache surfaces.
+
+Keep raw `Connections.Connect` / `Disconnect` out of the public rail until exact mutation and undo semantics are verified.
 
 ---
 ## [11][LAYOUT_SNAPPING]
@@ -260,7 +263,19 @@ Public Flex surface:
 Implement custom behavior through `AbstractResponsive` and `AbstractInteraction`, not direct raw interface implementations.
 
 ---
-## [15][PAINT_SKINNING]
+## [15][IMPLEMENTATION_NOTES]
+>**Dictum:** *Ledger corrections stay factual and narrow.*
+
+<br>
+
+- `FlexControl.Projection` is a `Projection` object with `Origin` and `Zoom`, while `Document.Projection` remains the document `(centre, zoom)` tuple.
+- `CanvasPaintEventArgs.Graphics` is `Grasshopper2.UI.Flex.ControlGraphics`, not raw `Eto.Drawing.Context`; keep it inside paint callback lifetimes.
+- `DocumentMethods.DropObject(Guid, PointF, ActionList)` returns `bool`; use a mutation snapshot rather than assuming a dropped object id.
+- `Canvas.DrawToBitmap(...)` and `DrawPickMap()` are nullable by decompile evidence despite XML shape; snapshot only after a non-null bitmap is encoded.
+- `SnappingConstraints.SnapObject(...)` composes rectangle snapping with wire-straightening through `SnapWires`; prefer it when moving real document objects.
+
+---
+## [16][PAINT_SKINNING]
 >**Dictum:** *Drawing stays native Eto plus GH2 skin primitives.*
 
 <br>
@@ -275,7 +290,7 @@ Use:
 Dispose caller-created Eto pens, brushes, and bitmaps. Do not dispose cached brushes/pens owned by GH2 `Shade` or skin descriptors.
 
 ---
-## [16][KEYBOARD_MAC]
+## [17][KEYBOARD_MAC]
 >**Dictum:** *GH2 owns platform modifier translation.*
 
 <br>
@@ -293,7 +308,7 @@ Use `KeyboardExtensionMethods`:
 Avoid local macOS modifier tables.
 
 ---
-## [17][ETO]
+## [18][ETO]
 >**Dictum:** *Eto is the cross-platform UI substrate for this rail.*
 
 <br>
@@ -301,7 +316,7 @@ Avoid local macOS modifier tables.
 Use Eto for forms, controls, context menus, mouse/key/text input events, drawing resources, bitmap capture, point/rectangle geometry, colors, pens, brushes, and fonts. Keep Eto resources inside boundary lifetimes unless encoded or snapshotted.
 
 ---
-## [18][RHINO_HOST]
+## [19][RHINO_HOST]
 >**Dictum:** *Rhino host APIs feed GH workflows only when explicitly required.*
 
 <br>
@@ -309,7 +324,7 @@ Use Eto for forms, controls, context menus, mouse/key/text input events, drawing
 Default GH2 rail uses `Rhino.RhinoApp` for UI-thread dispatch only. Host dialogs, Rhino status bar, Rhino panels, Rhino options pages, viewport overlays, mouse callbacks, and gumballs belong to `Rasm.Rhino.UI` or a later explicitly Rhino-UI-aware lane.
 
 ---
-## [19][NON_SURFACES]
+## [20][NON_SURFACES]
 >**Dictum:** *Avoid APIs that look public only through XML noise or implementation shape.*
 
 <br>
