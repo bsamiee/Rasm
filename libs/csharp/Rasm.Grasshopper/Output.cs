@@ -50,7 +50,7 @@ public static class Output {
         ArgumentNullException.ThrowIfNull(argument: aspect);
         return Of(
             input: input,
-            port: Port.Of<TOut>(name: name, code: code, info: info, access: access, kind: kind, policy: policy),
+            port: Port.Of<TOut>(name: name, code: code, info: info, access: access, requirement: Grasshopper2.Parameters.Requirement.MustExist, kind: kind, policy: policy, side: Side.Output),
             operation: _ => Fin.Succ(aspect.Operation<object, TOut>()));
     }
     private static OutputBinding Of<TOut>(Port<Shape> input, Port<TOut> port, Func<GrasshopperRuntime, Fin<Operation<object, TOut>>> operation)

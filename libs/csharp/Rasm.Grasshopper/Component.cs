@@ -60,6 +60,12 @@ internal readonly record struct GrasshopperRuntime(IDataAccess Access, Analyze.S
             .ToFin(new MissingPortInput(Port: port.Name))
             .Bind(slot => access.ReadShape(slot: slot, port: port));
     }
+    internal Fin<Seq<Flow<TVal>>> Read<TVal>(Port<TVal> port) {
+        IDataAccess access = Access;
+        return Hints.Slot(port: port)
+            .ToFin(new MissingPortInput(Port: port.Name))
+            .Bind(slot => access.Read<TVal>(slot: slot, port: port));
+    }
 }
 
 // --- [COMPOSITION] ----------------------------------------------------------------------
@@ -128,7 +134,7 @@ public abstract class Plugin : GhPlugin {
     private static Seq<string> Validate(Type spec, ComponentSpec probe) {
         Seq<Port> inputs = probe.Inputs.Choose(static pair => Optional(pair.Value));
         Seq<Port> outputs = probe.Outputs.Choose(static pair => Optional(pair.Value)).Map(static binding => binding.Port);
-        Seq<(string Side, Seq<Port> Ports)> sides = Seq((Side: "input", Ports: inputs), (Side: "output", Ports: outputs));
+        Seq<(string Label, Side Side, Seq<Port> Ports)> sides = Seq((Label: "input", Side: Side.Input, Ports: inputs), (Label: "output", Side: Side.Output, Ports: outputs));
         Seq<string> structural = toSeq(Seq(
             ClosedComponentSelf(type: spec) ? null : $"{spec.FullName}: Component<TSelf> does not match concrete component type",
             inputs.IsEmpty ? $"{spec.FullName}: Inputs is empty" : null,
@@ -140,12 +146,14 @@ public abstract class Plugin : GhPlugin {
         Seq<string> nullFaults = NullsAt(spec: spec, side: "input", count: probe.Inputs.Count, missing: i => probe.Inputs[i].Value is null)
             .Concat(NullsAt(spec: spec, side: "output", count: probe.Outputs.Count, missing: i => probe.Outputs[i].Value is null));
         Seq<string> duplicates = sides.Bind(side =>
-            Duplicates(spec: spec, side: side.Side, ports: side.Ports, key: "code", project: static port => port.Code, label: static port => port.Name)
-                .Concat(Duplicates(spec: spec, side: side.Side, ports: side.Ports, key: "name", project: static port => port.Name, label: static port => port.Code)));
+            Duplicates(spec: spec, side: side.Label, ports: side.Ports, key: "code", project: static port => port.Code, label: static port => port.Name)
+                .Concat(Duplicates(spec: spec, side: side.Label, ports: side.Ports, key: "name", project: static port => port.Name, label: static port => port.Code)));
+        Seq<string> sideSupport = sides.Bind(side => side.Ports.Choose(port =>
+            port.Kind.Supports(side: side.Side) ? Option<string>.None : Some($"{spec.FullName}: {side.Label} port '{port.Name}' kind '{port.Kind}' cannot register on {side.Side}")));
         Seq<string> portCount = outputs.Count > 24 ? Seq($"{spec.FullName}: output port count {outputs.Count} exceeds 24") : Seq<string>();
         Seq<string> codeLengths = sides.Bind(side => side.Ports.Choose(port =>
-            port.Code.Length is > 0 and <= 2 ? Option<string>.None : Some($"{spec.FullName}: {side.Side} port '{port.Name}' code '{port.Code}' must be 1-2 characters")));
-        return structural.Concat(sourceFaults).Concat(nullFaults).Concat(duplicates).Concat(portCount).Concat(codeLengths).ToSeq();
+            port.Code.Length is > 0 and <= 2 ? Option<string>.None : Some($"{spec.FullName}: {side.Label} port '{port.Name}' code '{port.Code}' must be 1-2 characters")));
+        return structural.Concat(sourceFaults).Concat(nullFaults).Concat(duplicates).Concat(sideSupport).Concat(portCount).Concat(codeLengths).ToSeq();
     }
     private static bool ClosedComponentSelf(Type type) =>
         type.BaseType switch {
