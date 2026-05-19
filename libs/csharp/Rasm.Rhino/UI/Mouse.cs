@@ -30,6 +30,10 @@ public abstract class RasmMouseCallback<TState>(TState initial) : global::Rhino.
         return Fin.Succ(value: unit);
     }
 
+    public Fin<T> Use<T>(Func<RasmMouseCallback<TState>, Fin<T>> run) =>
+        from valid in Optional(run).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput()) from active in guard(!disposed, Op.Of(name: nameof(Use)).InvalidInput())
+        from result in RhinoUi.Protect(valid: () => { Enabled = true; try { return valid(arg: this); } finally { Dispose(); } }) select result;
+
     public void Dispose() {
         Dispose(disposing: true);
         GC.SuppressFinalize(obj: this);

@@ -4,11 +4,12 @@ public enum OverlayPhase { Enabled, Cull, PreDrawObjects, PreDrawObject, Foregro
 
 public readonly record struct OverlayContext<TState>(OverlayPhase Phase, TState State, object? Args = null, bool Enabled = false);
 
-public readonly record struct OverlayDecision(Option<BoundingBox> Bounds = default) {
+public readonly record struct OverlayDecision(Option<BoundingBox> Bounds = default, Option<bool> Cull = default) {
     public static OverlayDecision Ignore => new();
     public static Fin<OverlayDecision> Include(BoundingBox bounds) => bounds.IsValid switch { true => Fin.Succ(value: new OverlayDecision(Bounds: Some(bounds))), false => Fin.Fail<OverlayDecision>(error: Op.Of(name: nameof(OverlayDecision)).InvalidResult()) };
+    public static OverlayDecision CullObject(bool cull = true) => new(Cull: Some(cull));
     public static OverlayDecision operator +(OverlayDecision left, OverlayDecision right) => Add(left: left, right: right);
-    public static OverlayDecision Add(OverlayDecision left, OverlayDecision right) => new(Bounds: (left.Bounds.Case, right.Bounds.Case) switch { (BoundingBox a, BoundingBox b) => Some(BoundingBox.Union(a, b)), (_, BoundingBox b) => Some(b), (BoundingBox a, _) => Some(a), _ => Option<BoundingBox>.None });
+    public static OverlayDecision Add(OverlayDecision left, OverlayDecision right) => new(Bounds: (left.Bounds.Case, right.Bounds.Case) switch { (BoundingBox a, BoundingBox b) => Some(BoundingBox.Union(a, b)), (_, BoundingBox b) => Some(b), (BoundingBox a, _) => Some(a), _ => Option<BoundingBox>.None }, Cull: right.Cull | left.Cull);
 }
 
 public readonly record struct OverlayFilter(Option<ObjectType> Geometry = default, Option<ActiveSpace> Space = default, Seq<Guid> ObjectIds = default, Option<(bool On, bool CheckSubObjects)> Selection = default, Option<(RhinoViewport Viewport, bool Exclusive)> Viewport = default, bool Unbind = false) {
@@ -72,6 +73,14 @@ public abstract class RasmOverlay<TState>(TState initial) : DisplayConduit, IDis
             return unit;
         });
 
+    public Fin<T> Use<T>(RhinoDoc document, Func<RasmOverlay<TState>, Fin<T>> run) =>
+        from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput()) from validRun in Optional(run).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput()) from active in guard(!disposed, Op.Of(name: nameof(Use)).InvalidInput()) from result in RhinoUi.Protect(valid: () => {
+            Enabled = true;
+            validDocument.Views.Redraw();
+            // BOUNDARY ADAPTER - display conduit lifetime must be closed after the caller rail exits.
+            try { return validRun(arg: this); } finally { Dispose(); validDocument.Views.Redraw(); }
+        }) select result;
+
     public void Dispose() {
         Dispose(disposing: true);
         GC.SuppressFinalize(obj: this);
@@ -124,6 +133,7 @@ public abstract class RasmOverlay<TState>(TState initial) : DisplayConduit, IDis
     private Fin<Unit> Apply(OverlayPhase phase, object? args, bool enabled = false) =>
         RhinoUi.Protect(valid: () => Change(context: new OverlayContext<TState>(Phase: phase, State: State, Args: args, Enabled: enabled))).Map(decision => {
             _ = Optional(args as CalculateBoundingBoxEventArgs).Iter(target => decision.Bounds.Iter(box => target.IncludeBoundingBox(box)));
+            _ = Optional(args as CullObjectEventArgs).Iter(target => decision.Cull.Iter(value => target.CullObject = value));
             return unit;
         });
 }
@@ -178,39 +188,15 @@ public sealed record UiGumballSpec {
             _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(UiGumballSpec)).InvalidInput()),
         };
 
-    private static Fin<BoundingBox> Bounds(GeometryBase geometry) =>
-        Optional(geometry)
-            .ToFin(Fail: Op.Of(name: nameof(UiGumballSpec)).InvalidInput())
-            .Bind(static value => value.GetBoundingBox(accurate: true) switch {
-                BoundingBox box when box.IsValid => Fin.Succ(value: box),
-                _ => Fin.Fail<BoundingBox>(error: Op.Of(name: nameof(UiGumballSpec)).InvalidResult()),
-            });
+    private static Fin<BoundingBox> Bounds(GeometryBase geometry) => Optional(geometry).ToFin(Fail: Op.Of(name: nameof(UiGumballSpec)).InvalidInput()).Bind(static value => value.GetBoundingBox(accurate: true) switch { BoundingBox box when box.IsValid => Fin.Succ(value: box), _ => Fin.Fail<BoundingBox>(error: Op.Of(name: nameof(UiGumballSpec)).InvalidResult()) });
 
-    private static Fin<Unit> Valid(bool value) =>
-        value switch {
-            true => Fin.Succ(value: unit),
-            false => Fin.Fail<Unit>(error: Op.Of(name: nameof(UiGumballSpec)).InvalidResult()),
-        };
+    private static Fin<Unit> Valid(bool value) => value switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(UiGumballSpec)).InvalidResult()) };
 
-    private static Fin<BoundingBox> Bounds(GeometryBase geometry, Plane frame) =>
-        Optional(geometry)
-            .ToFin(Fail: Op.Of(name: nameof(UiGumballSpec)).InvalidInput())
-            .Bind(value => value.GetBoundingBox(plane: frame) switch {
-                BoundingBox box when box.IsValid => Fin.Succ(value: box),
-                _ => Fin.Fail<BoundingBox>(error: Op.Of(name: nameof(UiGumballSpec)).InvalidResult()),
-            });
+    private static Fin<BoundingBox> Bounds(GeometryBase geometry, Plane frame) => Optional(geometry).ToFin(Fail: Op.Of(name: nameof(UiGumballSpec)).InvalidInput()).Bind(value => value.GetBoundingBox(plane: frame) switch { BoundingBox box when box.IsValid => Fin.Succ(value: box), _ => Fin.Fail<BoundingBox>(error: Op.Of(name: nameof(UiGumballSpec)).InvalidResult()) });
 
-    private static global::Rhino.UI.Gumball.GumballAppearanceSettings? Settings(global::Rhino.UI.Gumball.GumballAppearanceSettings? seed, Seq<Action<global::Rhino.UI.Gumball.GumballAppearanceSettings>> actions) =>
-        (seed, actions.IsEmpty) switch {
-            (global::Rhino.UI.Gumball.GumballAppearanceSettings settings, false) => Apply(settings: settings, actions: actions),
-            (_, false) => Apply(settings: new global::Rhino.UI.Gumball.GumballAppearanceSettings(), actions: actions),
-            _ => seed,
-        };
+    private static global::Rhino.UI.Gumball.GumballAppearanceSettings? Settings(global::Rhino.UI.Gumball.GumballAppearanceSettings? seed, Seq<Action<global::Rhino.UI.Gumball.GumballAppearanceSettings>> actions) => (seed, actions.IsEmpty) switch { (global::Rhino.UI.Gumball.GumballAppearanceSettings settings, false) => Apply(settings: settings, actions: actions), (_, false) => Apply(settings: new global::Rhino.UI.Gumball.GumballAppearanceSettings(), actions: actions), _ => seed };
 
-    private static global::Rhino.UI.Gumball.GumballAppearanceSettings Apply(global::Rhino.UI.Gumball.GumballAppearanceSettings settings, Seq<Action<global::Rhino.UI.Gumball.GumballAppearanceSettings>> actions) {
-        _ = actions.Iter(action => action(obj: settings));
-        return settings;
-    }
+    private static global::Rhino.UI.Gumball.GumballAppearanceSettings Apply(global::Rhino.UI.Gumball.GumballAppearanceSettings settings, Seq<Action<global::Rhino.UI.Gumball.GumballAppearanceSettings>> actions) { _ = actions.Iter(action => action(obj: settings)); return settings; }
 }
 
 public sealed class UiGumball : IDisposable {
@@ -231,16 +217,11 @@ public sealed class UiGumball : IDisposable {
             Mode: conduit.PickResult.Mode,
             InRelocate: conduit.InRelocate);
 
-    public Fin<bool> Pick(global::Rhino.Input.Custom.PickContext pick, GetPoint point) =>
-        (Optional(pick).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput()), Optional(point).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput()))
-            .Apply(static (validPick, validPoint) => (Pick: validPick, Point: validPoint)).As()
-            .Map(valid => conduit.PickGumball(pickContext: valid.Pick, getPoint: valid.Point));
+    public Fin<bool> Pick(global::Rhino.Input.Custom.PickContext pick, GetPoint point) => (Optional(pick).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput()), Optional(point).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())).Apply(static (validPick, validPoint) => (Pick: validPick, Point: validPoint)).As().Map(valid => conduit.PickGumball(pickContext: valid.Pick, getPoint: valid.Point));
 
-    public Fin<bool> Update(Point3d point, Line line) =>
-        Fin.Succ(value: conduit.UpdateGumball(point: point, worldLine: line));
+    public Fin<bool> Update(Point3d point, Line line) => Fin.Succ(value: conduit.UpdateGumball(point: point, worldLine: line));
 
-    public Fin<bool> Update(Plane frame) =>
-        Fin.Succ(value: conduit.UpdateGumball(frame: frame));
+    public Fin<bool> Update(Plane frame) => Fin.Succ(value: conduit.UpdateGumball(frame: frame));
 
     public Fin<Unit> CheckKeys() {
         conduit.CheckShiftAndControlKeys();
@@ -274,8 +255,7 @@ public sealed class UiGumball : IDisposable {
         global::Rhino.UI.Gumball.GumballObject? nativeSource = new();
         // BOUNDARY ADAPTER - native gumball ownership transfers only after conduit creation succeeds.
         try {
-            return spec.Configure(gumball: nativeSource).Match(
-            Succ: _ => {
+            return spec.Configure(gumball: nativeSource).Bind(_ => RhinoUi.Protect(valid: () => {
                 global::Rhino.UI.Gumball.GumballDisplayConduit? nativeConduit = new(document.ActiveSpace);
                 try {
                     nativeConduit.SetBaseGumball(gumball: nativeSource, appearanceSettings: spec.Appearance);
@@ -287,8 +267,7 @@ public sealed class UiGumball : IDisposable {
                 } finally {
                     nativeConduit?.Dispose();
                 }
-            },
-            Fail: Fin.Fail<UiGumball>);
+            }));
         } finally {
             nativeSource?.Dispose();
         }

@@ -1,5 +1,6 @@
 using Eto.Forms;
 namespace Rasm.Rhino.UI;
+
 // --- [SERVICES] -------------------------------------------------------------------------
 public abstract class RasmPanel : Panel, global::Rhino.UI.IPanel {
     protected enum PanelPhase { Shown, Hidden, Closing }
@@ -20,15 +21,12 @@ public abstract class RasmPanel : Panel, global::Rhino.UI.IPanel {
         return unit;
     }
 
-    internal static Fin<Type> PanelType<TPanel>() where TPanel : RasmPanel {
+    internal readonly record struct PanelIdentity(Type Type, Guid Id);
+
+    internal static Fin<PanelIdentity> PanelIdentityOf<TPanel>() where TPanel : RasmPanel {
         Type type = typeof(TPanel);
-        return (type.GetCustomAttributes(attributeType: typeof(System.Runtime.InteropServices.GuidAttribute), inherit: false).Length,
-                type.GetConstructor(types: [typeof(uint)]),
-                type.GetConstructor(types: Type.EmptyTypes)) switch {
-                    ( > 0, not null, _) => Fin.Succ(value: type),
-                    ( > 0, _, not null) => Fin.Succ(value: type),
-                    _ => Fin.Fail<Type>(error: Op.Of(name: nameof(PanelType)).InvalidInput()),
-                };
+        bool constructible = type.GetConstructor(types: [typeof(RhinoDoc)]) is not null || type.GetConstructor(types: [typeof(uint)]) is not null || type.GetConstructor(types: Type.EmptyTypes) is not null;
+        return type.GetCustomAttributes(attributeType: typeof(System.Runtime.InteropServices.GuidAttribute), inherit: false).FirstOrDefault() switch { System.Runtime.InteropServices.GuidAttribute attribute when constructible && Guid.TryParse(input: attribute.Value, result: out Guid id) && id != Guid.Empty => Fin.Succ(value: new PanelIdentity(Type: type, Id: id)), _ => Fin.Fail<PanelIdentity>(error: Op.Of(name: nameof(PanelIdentityOf)).InvalidInput()) };
     }
 }
 
@@ -57,9 +55,9 @@ public static class PanelOp {
                 from validPlugin in Optional(plugin).ToFin(Fail: Op.Of(name: nameof(Register)).InvalidInput())
                 from validCaption in NonBlank(value: caption)
                 from validResource in NonBlank(value: iconResourceId)
-                from panel in RasmPanel.PanelType<TPanel>()
+                from panel in RasmPanel.PanelIdentityOf<TPanel>()
                 from registered in RhinoUi.Protect(valid: () => {
-                    global::Rhino.UI.Panels.RegisterPanel(validPlugin, panel, validCaption, iconAssembly, validResource, panelType);
+                    global::Rhino.UI.Panels.RegisterPanel(validPlugin, panel.Type, validCaption, iconAssembly, validResource, panelType);
                     return Fin.Succ(value: unit);
                 })
                 select registered,
@@ -67,38 +65,41 @@ public static class PanelOp {
 
     public static PanelOp<TPanel, Unit> Open<TPanel>(bool selected = true, Option<Guid> dock = default, Option<Guid> sibling = default) where TPanel : RasmPanel =>
         new(run: _ =>
-            RasmPanel.PanelType<TPanel>().Bind(panelType => (dock.Case, sibling.Case) switch {
-                (Guid dockBar, _) => global::Rhino.UI.Panels.OpenPanel(dockBarId: dockBar, panelType: panelType, makeSelectedPanel: selected) switch {
+            RasmPanel.PanelIdentityOf<TPanel>().Bind(panel => (dock.Case, sibling.Case) switch {
+                (Guid dockBar, _) => global::Rhino.UI.Panels.OpenPanel(dockBarId: dockBar, panelType: panel.Type, makeSelectedPanel: selected) switch {
                     Guid id when id != Guid.Empty => Fin.Succ(value: unit),
                     _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(Open)).InvalidResult()),
                 },
-                (_, Guid siblingPanel) => global::Rhino.UI.Panels.OpenPanelAsSibling(panelId: PanelId(panelType: panelType), siblingPanelId: siblingPanel, makeSelectedPanel: selected) switch {
+                (_, Guid siblingPanel) => global::Rhino.UI.Panels.OpenPanelAsSibling(panelId: panel.Id, siblingPanelId: siblingPanel, makeSelectedPanel: selected) switch {
                     true => Fin.Succ(value: unit),
                     false => Fin.Fail<Unit>(error: Op.Of(name: nameof(Open)).InvalidResult()),
                 },
                 _ => RhinoUi.Protect(valid: () => {
-                    global::Rhino.UI.Panels.OpenPanel(panelType: panelType, makeSelectedPanel: selected);
+                    global::Rhino.UI.Panels.OpenPanel(panelType: panel.Type, makeSelectedPanel: selected);
                     return Fin.Succ(value: unit);
                 }),
             }),
             interactive: true);
 
     public static PanelOp<TPanel, bool> Float<TPanel>(global::Rhino.UI.Panels.FloatPanelMode mode = global::Rhino.UI.Panels.FloatPanelMode.Show) where TPanel : RasmPanel =>
-        new(run: _ => RasmPanel.PanelType<TPanel>().Map(panel => global::Rhino.UI.Panels.FloatPanel(panelType: panel, mode: mode)), interactive: true);
+        new(run: _ => RasmPanel.PanelIdentityOf<TPanel>().Bind(panel => RhinoUi.Protect(valid: () => Fin.Succ(value: global::Rhino.UI.Panels.FloatPanel(panelType: panel.Type, mode: mode)))), interactive: true);
 
     public static PanelOp<TPanel, Unit> Close<TPanel>() where TPanel : RasmPanel =>
         new(run: document =>
-            RasmPanel.PanelType<TPanel>().Map(panel => {
+            RasmPanel.PanelIdentityOf<TPanel>().Bind(panel => RhinoUi.Protect(valid: () => {
                 _ = document switch {
-                    RhinoDoc doc => ((Func<Unit>)(() => { global::Rhino.UI.Panels.ClosePanel(panelId: PanelId(panelType: panel), doc: doc); return unit; }))(),
-                    _ => ((Func<Unit>)(() => { global::Rhino.UI.Panels.ClosePanel(panelType: panel); return unit; }))(),
+                    RhinoDoc doc => ((Func<Unit>)(() => { global::Rhino.UI.Panels.ClosePanel(panelId: panel.Id, doc: doc); return unit; }))(),
+                    _ => ((Func<Unit>)(() => { global::Rhino.UI.Panels.ClosePanel(panelType: panel.Type); return unit; }))(),
                 };
-                return unit;
-            }),
+                return Fin.Succ(value: unit);
+            })),
             interactive: true);
 
     public static PanelOp<TPanel, (Guid PanelId, bool Visible, Seq<TPanel> Instances, Seq<Guid> OpenPanelIds)> Snapshot<TPanel>(bool selectedTabOnWindows = false) where TPanel : RasmPanel =>
-        new(run: document => from panel in RasmPanel.PanelType<TPanel>() from doc in Optional(document).ToFin(Fail: Op.Of(name: nameof(Snapshot)).InvalidInput()) let id = PanelId(panelType: panel) select (PanelId: id, Visible: global::Rhino.UI.Panels.IsPanelVisible(panelType: panel, isSelectedTab: selectedTabOnWindows), Instances: toSeq(global::Rhino.UI.Panels.GetPanels<TPanel>(doc)), OpenPanelIds: toSeq(global::Rhino.UI.Panels.GetOpenPanelIds())), interactive: false);
+        new(run: document => from panel in RasmPanel.PanelIdentityOf<TPanel>() from doc in Optional(document).ToFin(Fail: Op.Of(name: nameof(Snapshot)).InvalidInput()) from snapshot in RhinoUi.Protect(valid: () => Fin.Succ(value: (PanelId: panel.Id, Visible: global::Rhino.UI.Panels.IsPanelVisible(panelType: panel.Type, isSelectedTab: selectedTabOnWindows), Instances: toSeq(global::Rhino.UI.Panels.GetPanels<TPanel>(doc)), OpenPanelIds: toSeq(global::Rhino.UI.Panels.GetOpenPanelIds())))) select snapshot, interactive: false);
+
+    public static PanelOp<TPanel, Unit> MenuState<TPanel>(Guid fileId, Guid menuId, Guid itemId, Func<global::Rhino.UI.RuiUpdateUi, Fin<Unit>> update) where TPanel : RasmPanel =>
+        new(run: _ => from validUpdate in Optional(update).ToFin(Fail: Op.Of(name: nameof(MenuState)).InvalidInput()) from validIds in guard(fileId != Guid.Empty && menuId != Guid.Empty && itemId != Guid.Empty, Op.Of(name: nameof(MenuState)).InvalidInput()) from registered in RhinoUi.Protect(valid: () => global::Rhino.UI.RuiUpdateUi.RegisterMenuItem(fileId, menuId, itemId, (_, ui) => _ = RhinoUi.Protect(valid: () => validUpdate(arg: ui))) switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(MenuState)).InvalidResult()) }) select registered, interactive: false);
 
     private static Fin<string> NonBlank(string value) =>
         string.IsNullOrWhiteSpace(value: value) switch {
@@ -106,9 +107,4 @@ public static class PanelOp {
             true => Fin.Fail<string>(error: Op.Of(name: nameof(PanelOp)).InvalidInput()),
         };
 
-    private static Guid PanelId(Type panelType) =>
-        ((System.Runtime.InteropServices.GuidAttribute)panelType.GetCustomAttributes(attributeType: typeof(System.Runtime.InteropServices.GuidAttribute), inherit: false)[0]).Value switch {
-            string value => Guid.Parse(input: value),
-            _ => Guid.Empty,
-        };
 }

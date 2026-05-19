@@ -6,6 +6,7 @@ public enum PagePhase { Apply, Cancel, Activate, Script, Display, Update }
 
 public readonly record struct PageContext(PagePhase Phase, bool Active = false, RhinoDoc? Document = null, RunMode Mode = RunMode.Interactive, global::Rhino.UI.ObjectPropertiesPageEventArgs? Args = null) {
     public Fin<Seq<TObject>> Objects<TObject>() where TObject : RhinoObject => Optional(Args).ToFin(Fail: Op.Of(name: nameof(Objects)).InvalidInput()).Map(static args => toSeq(args.GetObjects<TObject>()));
+    public Fin<Seq<Guid>> ObjectIds() => Objects<RhinoObject>().Map(static objects => objects.Map(static value => value.Id));
 }
 
 public abstract class RasmOptionsPage : global::Rhino.UI.OptionsDialogPage {

@@ -127,6 +127,9 @@ public static class UiIntent {
     public static UiIntent<Seq<Point2f[]>> CurvePreview(Curve curve, Linetype linetype, Size size) =>
         OfScope(_ => Optional(global::Rhino.UI.DrawingUtilities.CreateCurvePreviewGeometry(curve: curve, linetype: linetype, width: size.Width, height: size.Height)).ToFin(Fail: Op.Of(name: nameof(CurvePreview)).InvalidResult()).Map(static result => toSeq(result)));
 
+    public static UiIntent<Bitmap> IconPreview(string resourceName, Size size, System.Reflection.Assembly assembly) =>
+        OfScope(_ => (string.IsNullOrWhiteSpace(value: resourceName), Optional(assembly).Case) switch { (false, System.Reflection.Assembly validAssembly) => Optional(global::Rhino.UI.DrawingUtilities.BitmapFromIconResource(resourceName, size, validAssembly)).ToFin(Fail: Op.Of(name: nameof(IconPreview)).InvalidResult()), _ => Fin.Fail<Bitmap>(error: Op.Of(name: nameof(IconPreview)).InvalidInput()) });
+
     public static UiIntent<Seq<global::Rhino.UI.NamedColor>> NamedColors(global::Rhino.UI.NamedColorList? source = null) =>
         OfScope(_ => Fin.Succ(value: toSeq(Optional(source).IfNone(global::Rhino.UI.NamedColorList.Default))));
 }

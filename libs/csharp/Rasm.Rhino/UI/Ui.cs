@@ -64,7 +64,8 @@ public readonly record struct UiStatus(
     bool ClearMessage = false) {
     public static UiStatus operator +(UiStatus left, UiStatus right) => Add(left: left, right: right);
     public static UiStatus Add(UiStatus left, UiStatus right) =>
-        new(Prompt: right.Prompt.IsSome ? right.Prompt : left.Prompt, PromptDefault: right.PromptDefault.IsSome ? right.PromptDefault : left.PromptDefault, Message: right.Message.IsSome ? right.Message : left.Message, Distance: right.Distance.IsSome ? right.Distance : left.Distance, Number: right.Number.IsSome ? right.Number : left.Number, Point: right.Point.IsSome ? right.Point : left.Point, ClearMessage: left.ClearMessage || right.ClearMessage);
+        new(Prompt: right.Prompt | left.Prompt, PromptDefault: right.PromptDefault | left.PromptDefault, Message: right.Message | left.Message, Distance: right.Distance | left.Distance, Number: right.Number | left.Number, Point: right.Point | left.Point, ClearMessage: left.ClearMessage || right.ClearMessage);
+    public static UiStatus Add(params UiStatus[] statuses) => Optional(statuses).Map(static values => values.Aggregate(seed: new UiStatus(), func: static (state, value) => state + value)).IfNone(new UiStatus());
 
     internal Fin<Unit> Apply() {
         UiStatus status = this;

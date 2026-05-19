@@ -1,6 +1,5 @@
 namespace Rasm.Rhino.Commands;
 
-// --- [MODELS] ---------------------------------------------------------------------------
 public sealed class RhinoCommandContext {
     private RhinoCommandContext(RhinoDoc document, RunMode mode) {
         Document = document;
@@ -19,6 +18,8 @@ public sealed class RhinoCommandContext {
     public Rasm.Rhino.UI.RhinoUi Ui { get; }
 
     public static Fin<RhinoCommandContext> Of(RhinoDoc doc, RunMode mode) => Optional(doc).ToFin(Fail: Op.Of(name: nameof(RhinoCommandContext)).MissingContext()).Map(document => new RhinoCommandContext(document: document, mode: mode));
+
+    public Fin<CommandGet<TValue>> Get<TValue>(params CommandInputPolicy[] policies) => Input.Get(request: CommandInputs.Get<TValue>(policies: policies));
 
     public Fin<RhinoView> View() => Optional(Document.Views.ActiveView).ToFin(Fail: Op.Of(name: nameof(View)).MissingContext());
 }

@@ -16,8 +16,14 @@ public readonly record struct CommandPoint(
     Option<(RhinoViewport Viewport, Plane Plane)> PlanarConstraint,
     Seq<Point3d> SnapPoints,
     Seq<Point3d> ConstructionPoints) {
-    internal static CommandPoint Of(GetPoint getter, GetResult raw) =>
-        new(Point: raw is GetResult.Point ? Some(getter.Point()) : Option<Point3d>.None, WindowPoint: raw is GetResult.Point or GetResult.Point2d ? Some<DrawingPoint>(getter.Point2d()) : Option<DrawingPoint>.None, View: Optional(getter.View()), Reference: CommandSelection.Reference.Of(getter: getter), NumberPreview: getter.NumberPreview(number: out double number) ? Some(number) : Option<double>.None, Osnap: getter.OsnapEventType, BasePoint: getter.TryGetBasePoint(out Point3d basePoint) ? Some(basePoint) : Option<Point3d>.None, PlanarConstraint: default(RhinoViewport) switch { RhinoViewport viewport when getter.GetPlanarConstraint(vp: ref viewport, plane: out Plane plane) => Some((Viewport: viewport, Plane: plane)), _ => Option<(RhinoViewport Viewport, Plane Plane)>.None }, SnapPoints: toSeq(getter.GetSnapPoints()), ConstructionPoints: toSeq(getter.GetConstructionPoints()));
+    internal static CommandPoint Of(GetPoint getter, GetResult raw) {
+        RhinoViewport? viewport = getter.View()?.ActiveViewport;
+        Option<(RhinoViewport Viewport, Plane Plane)> constraint = viewport switch {
+            RhinoViewport value when getter.GetPlanarConstraint(vp: ref value, plane: out Plane plane) => Some((Viewport: value, Plane: plane)),
+            _ => Option<(RhinoViewport Viewport, Plane Plane)>.None,
+        };
+        return new(Point: raw is GetResult.Point ? Some(getter.Point()) : Option<Point3d>.None, WindowPoint: raw is GetResult.Point or GetResult.Point2d ? Some<DrawingPoint>(getter.Point2d()) : Option<DrawingPoint>.None, View: Optional(getter.View()), Reference: CommandSelection.Reference.Of(getter: getter), NumberPreview: getter.NumberPreview(number: out double number) ? Some(number) : Option<double>.None, Osnap: getter.OsnapEventType, BasePoint: getter.TryGetBasePoint(out Point3d basePoint) ? Some(basePoint) : Option<Point3d>.None, PlanarConstraint: constraint, SnapPoints: toSeq(getter.GetSnapPoints()), ConstructionPoints: toSeq(getter.GetConstructionPoints()));
+    }
 }
 
 public readonly record struct CommandSnapshot(
@@ -111,8 +117,16 @@ public sealed record CommandInputPolicy {
     public static CommandInputPolicy AcceptNothing() => Configure(apply: AcceptNothingAction);
     public static CommandInputPolicy Options(params CommandOption[] values) => new(options: toSeq(values));
     public static CommandInputPolicy Objects(int minimum = 1, int maximum = 1) => new(objects: Some((Min: minimum, Max: maximum)));
-    public static CommandInputPolicy Point(bool onMouseUp = false, bool twoDimensional = false, Option<global::Rhino.UI.CursorStyle> cursor = default, Option<bool> objectSnapCursors = default) =>
-        new(point: Some(new PointSpec(OnMouseUp: onMouseUp, TwoDimensional: twoDimensional, Cursor: cursor, ObjectSnapCursors: objectSnapCursors)));
+    public static CommandInputPolicy Point(
+        bool onMouseUp = false,
+        bool twoDimensional = false,
+        Option<global::Rhino.UI.CursorStyle> cursor = default,
+        Option<bool> objectSnapCursors = default,
+        Option<Point3d> basePoint = default,
+        bool drawLineFromBasePoint = false,
+        bool snapToCurves = false,
+        bool permitConstraintOptions = true) =>
+        new(point: Some(DefaultPointSpec with { OnMouseUp = onMouseUp, TwoDimensional = twoDimensional, Cursor = cursor, ObjectSnapCursors = objectSnapCursors, BasePoint = basePoint, DrawLineFromBasePoint = drawLineFromBasePoint, SnapToCurves = snapToCurves, PermitConstraintOptions = permitConstraintOptions }));
     public static CommandInputPolicy Bounds<T>(Option<T> lower = default, Option<T> upper = default, bool strictlyLower = false, bool strictlyUpper = false) where T : IComparable<T> => new(bounds: Some(new LimitSpec(Lower: lower.Map(static value => (object)value), Upper: upper.Map(static value => (object)value), StrictlyLower: strictlyLower, StrictlyUpper: strictlyUpper)));
     public static CommandInputPolicy Number() => new(scalar: Some(new Scalar(Kind: ScalarKind.Number, LengthUnits: Option<UnitSystem>.None, AngleUnits: Option<AngleUnitSystem>.None)));
     public static CommandInputPolicy Number<T>(Option<T> lower = default, Option<T> upper = default, bool strictlyLower = false, bool strictlyUpper = false) where T : IComparable<T> => Bounds(lower: lower, upper: upper, strictlyLower: strictlyLower, strictlyUpper: strictlyUpper) + Number();
@@ -153,9 +167,10 @@ public sealed record CommandInputPolicy {
         static getter => getter.EnablePressEnterWhenDonePrompt(enable: true));
 
     private static Action<GetBaseClass> AcceptNothingAction { get; } = static getter => getter.AcceptNothing(enable: true);
-    private static Option<T> Pick<T>(Option<T> left, Option<T> right) => right.IsSome ? right : left;
+    private static Option<T> Pick<T>(Option<T> left, Option<T> right) => right | left;
     internal enum ScalarKind { Number, Length, Angle }
-    internal sealed record PointSpec(bool OnMouseUp, bool TwoDimensional, Option<global::Rhino.UI.CursorStyle> Cursor, Option<bool> ObjectSnapCursors);
+    internal sealed record PointSpec(bool OnMouseUp, bool TwoDimensional, Option<global::Rhino.UI.CursorStyle> Cursor, Option<bool> ObjectSnapCursors, Option<Point3d> BasePoint, bool DrawLineFromBasePoint, bool SnapToCurves, bool PermitConstraintOptions);
+    internal static PointSpec DefaultPointSpec { get; } = new(OnMouseUp: false, TwoDimensional: false, Cursor: Option<global::Rhino.UI.CursorStyle>.None, ObjectSnapCursors: Option<bool>.None, BasePoint: Option<Point3d>.None, DrawLineFromBasePoint: false, SnapToCurves: false, PermitConstraintOptions: true);
     internal sealed record Scalar(ScalarKind Kind, Option<UnitSystem> LengthUnits, Option<AngleUnitSystem> AngleUnits);
     internal sealed record LimitSpec(Option<object> Lower, Option<object> Upper, bool StrictlyLower, bool StrictlyUpper);
     internal sealed record BoxSpec(GetBoxMode Mode, Point3d? BasePoint, string? Prompt1, string? Prompt2, string? Prompt3);
@@ -165,6 +180,15 @@ public sealed record CommandInputPolicy {
         _ = PointMode.Iter(spec => {
             _ = spec.Cursor.Iter(cursor => getter.SetCursor(cursor));
             _ = spec.ObjectSnapCursors.Iter(enabled => getter.EnableObjectSnapCursors(enable: enabled));
+            getter.PermitConstraintOptions(spec.PermitConstraintOptions);
+            getter.EnableSnapToCurves(enable: spec.SnapToCurves);
+            _ = spec.BasePoint.Iter(point => {
+                getter.SetBasePoint(point, true);
+                _ = spec.DrawLineFromBasePoint switch {
+                    true => ((Func<Unit>)(() => { getter.DrawLineFromPoint(point, true); return unit; }))(),
+                    false => unit,
+                };
+            });
         });
         return unit;
     }
@@ -207,8 +231,7 @@ public static class CommandInputs {
         };
 
     private static CommandInputRequest<T> Point<T>(CommandInputPolicy policy) {
-        CommandInputPolicy.PointSpec spec = policy.PointMode.IfNone(new CommandInputPolicy.PointSpec(OnMouseUp: false, TwoDimensional: false, Cursor: Option<global::Rhino.UI.CursorStyle>.None, ObjectSnapCursors: Option<bool>.None));
-        bool twoDimensional = spec.TwoDimensional || typeof(T) == typeof(DrawingPoint);
+        CommandInputPolicy.PointSpec spec = policy.PointMode.IfNone(CommandInputPolicy.DefaultPointSpec); bool twoDimensional = spec.TwoDimensional || typeof(T) == typeof(DrawingPoint);
         return Getter<GetPoint, T>(
             policy: policy,
             create: static () => new GetPoint(),
@@ -246,7 +269,7 @@ public static class CommandInputs {
         Func<CommandInput, TGetter, GetResult, Option<T>> value,
         Func<TGetter, Fin<Unit>>? configure = null,
         Func<TGetter, GetResult, Option<CommandOptionValue>, (bool Continue, Option<CommandOptionValue> Selected)>? transition = null) where TGetter : GetBaseClass, IDisposable =>
-        new(run: input => Optional(input).ToFin(Fail: Op.Of(name: nameof(Get)).InvalidInput()).Bind(valid => {
+        new(run: input => Optional(input).ToFin(Fail: Op.Of(name: nameof(Get)).InvalidInput()).Bind(valid => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => {
             using TGetter getter = create();
             return from configured in configure is Func<TGetter, Fin<Unit>> apply ? apply(arg: getter) : Fin.Succ(value: unit)
                    from applied in policy.Apply(getter: getter)
@@ -255,7 +278,7 @@ public static class CommandInputs {
                        return ReadLoop(getter: getter, scope: active, receive: () => receive(arg: getter), value: (g, raw) => value(arg1: valid, arg2: g, arg3: raw), selected: Option<CommandOptionValue>.None, transition: transition ?? (static (_, _, selected) => (Continue: false, Selected: selected)));
                    })
                    select result;
-        }));
+        })));
 
     private static Fin<CommandGet<T>> ReadLoop<TGetter, T>(
         TGetter getter,
@@ -287,35 +310,23 @@ public static class CommandInputs {
     }
 
     private static CommandInputRequest<T> Native<T>(Func<(Result Result, Option<T> Value)> run) =>
-        new(input => Optional(input).ToFin(Fail: Op.Of(name: nameof(Native)).InvalidInput()).Bind(_ => run() switch {
+        new(input => Optional(input).ToFin(Fail: Op.Of(name: nameof(Native)).InvalidInput()).Bind(_ => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => run() switch {
             (Result.Success, Option<T> value) => Fin.Succ(value: CommandGet<T>.Native(result: Result.Success, value: value)),
             (Result.Cancel or Result.CancelModelessDialog, _) => Fin.Fail<CommandGet<T>>(error: new Fault.Cancelled()),
             (Result.Failure or Result.UnknownCommand, _) => Fin.Fail<CommandGet<T>>(error: Op.Of(name: nameof(Native)).InvalidResult()),
             (Result result, _) => Fin.Succ(value: CommandGet<T>.Native(result: result, value: Option<T>.None)),
-        }));
+        })));
 
     private static (Result Result, Option<T> Value) GetNative<T, TNative>(NativeGetter<TNative> get) {
         Result result = get(value: out TNative value);
         return (Result: result, Value: result == Result.Success ? Cast<T>(value!) : Option<T>.None);
     }
 
-    private static (Result Result, Option<T> Value) Rectangle<T>(string prompt) {
-        Result result = string.IsNullOrWhiteSpace(value: prompt) ? RhinoGet.GetRectangle(corners: out Point3d[] corners) : RhinoGet.GetRectangle(firstPrompt: prompt, corners: out corners);
-        return (Result: result, Value: result == Result.Success ? Cast<T>(toSeq(corners)) : Option<T>.None);
-    }
+    private static (Result Result, Option<T> Value) Rectangle<T>(string prompt) { Result result = string.IsNullOrWhiteSpace(value: prompt) ? RhinoGet.GetRectangle(corners: out Point3d[] corners) : RhinoGet.GetRectangle(firstPrompt: prompt, corners: out corners); return (Result: result, Value: result == Result.Success ? Cast<T>(toSeq(corners)) : Option<T>.None); }
 
-    private static (Result Result, Option<T> Value) Box<T>(CommandInputPolicy.BoxSpec spec) {
-        Result result = spec is { Mode: GetBoxMode.All, BasePoint: null, Prompt1: null, Prompt2: null, Prompt3: null }
-            ? RhinoGet.GetBox(box: out Box value)
-            : RhinoGet.GetBox(box: out value, mode: spec.Mode, basePoint: spec.BasePoint ?? Point3d.Unset, prompt1: spec.Prompt1, prompt2: spec.Prompt2, prompt3: spec.Prompt3);
-        return (Result: result, Value: result == Result.Success ? Cast<T>(value) : Option<T>.None);
-    }
+    private static (Result Result, Option<T> Value) Box<T>(CommandInputPolicy.BoxSpec spec) { Result result = spec is { Mode: GetBoxMode.All, BasePoint: null, Prompt1: null, Prompt2: null, Prompt3: null } ? RhinoGet.GetBox(box: out Box value) : RhinoGet.GetBox(box: out value, mode: spec.Mode, basePoint: spec.BasePoint ?? Point3d.Unset, prompt1: spec.Prompt1, prompt2: spec.Prompt2, prompt3: spec.Prompt3); return (Result: result, Value: result == Result.Success ? Cast<T>(value) : Option<T>.None); }
 
-    private static (Result Result, Option<T> Value) Color<T>(string prompt, bool acceptNothing) {
-        Color color = global::System.Drawing.Color.Empty;
-        Result result = RhinoGet.GetColor(prompt: prompt, acceptNothing: acceptNothing, color: ref color);
-        return (Result: result, Value: result == Result.Success ? Cast<T>(color) : Option<T>.None);
-    }
+    private static (Result Result, Option<T> Value) Color<T>(string prompt, bool acceptNothing) { Color color = global::System.Drawing.Color.Empty; Result result = RhinoGet.GetColor(prompt: prompt, acceptNothing: acceptNothing, color: ref color); return (Result: result, Value: result == Result.Success ? Cast<T>(color) : Option<T>.None); }
 
     private static CommandInputRequest<T> Invalid<T>(string name) => new(run: _ => Fin.Fail<CommandGet<T>>(error: Op.Of(name: name).InvalidInput()));
 
@@ -356,33 +367,11 @@ public static class CommandInputs {
 
     private static Option<TOut> Cast<TOut>(object value) => value is TOut typed ? Some(typed) : Option<TOut>.None;
 
-    private static Option<double> ParseNumber(string text) {
-        StringParserSettings results = new();
-        try {
-            return StringParser.ParseNumber(expression: text, max_count: text.Length, settings_in: StringParserSettings.DefaultParseSettings, settings_out: ref results, answer: out double value) == text.Length ? Some(value) : Option<double>.None;
-        } finally {
-            results.Dispose();
-        }
-    }
+    private static Option<double> ParseNumber(string text) { StringParserSettings results = new(); try { return StringParser.ParseNumber(expression: text, max_count: text.Length, settings_in: StringParserSettings.DefaultParseSettings, settings_out: ref results, answer: out double value) == text.Length ? Some(value) : Option<double>.None; } finally { results.Dispose(); } }
 
-    private static Option<double> ParseLength(string text, UnitSystem units) {
-        LengthValue value = LengthValue.Create(s: text, ps: StringParserSettings.DefaultParseSettings, parsedAll: out bool parsedAll);
-        try {
-            return parsedAll && !value.IsUnset() ? Some(value.Length(units: units)) : Option<double>.None;
-        } finally {
-            value.Dispose();
-        }
-    }
+    private static Option<double> ParseLength(string text, UnitSystem units) { LengthValue value = LengthValue.Create(s: text, ps: StringParserSettings.DefaultParseSettings, parsedAll: out bool parsedAll); try { return parsedAll && !value.IsUnset() ? Some(value.Length(units: units)) : Option<double>.None; } finally { value.Dispose(); } }
 
-    private static Option<double> ParseAngle(string text, AngleUnitSystem units) {
-        StringParserSettings results = new();
-        AngleUnitSystem parsed = AngleUnitSystem.None;
-        try {
-            return StringParser.ParseAngleExpession(text, 0, text.Length, StringParserSettings.DefaultParseSettings, units, out double value, ref results, ref parsed) == text.Length ? Some(value) : Option<double>.None;
-        } finally {
-            results.Dispose();
-        }
-    }
+    private static Option<double> ParseAngle(string text, AngleUnitSystem units) { StringParserSettings results = new(); AngleUnitSystem parsed = AngleUnitSystem.None; try { return StringParser.ParseAngleExpession(text, 0, text.Length, StringParserSettings.DefaultParseSettings, units, out double value, ref results, ref parsed) == text.Length ? Some(value) : Option<double>.None; } finally { results.Dispose(); } }
 
     private static Fin<Unit> Limits<TGetter, TValue>(TGetter getter, Option<CommandInputPolicy.LimitSpec> bounds, Action<TGetter, TValue, bool> setLower, Action<TGetter, TValue, bool> setUpper) where TGetter : GetBaseClass where TValue : IComparable<TValue> =>
         bounds.Case switch {

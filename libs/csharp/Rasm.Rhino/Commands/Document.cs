@@ -95,26 +95,20 @@ public sealed record DocumentEdit {
     public Fin<Guid> Add(GeometryBase geometry, ObjectAttributes? attributes = null) =>
         from document in Available(op: Op.Of(name: nameof(Add)))
         from g in Optional(geometry).ToFin(Fail: Op.Of(name: nameof(Add)).InvalidInput())
-        from id in attributes switch {
+        from id in Mutate(document: document, name: nameof(Add), run: () => attributes switch {
             ObjectAttributes attrs => document.Objects.Add(g, attrs),
             _ => document.Objects.Add(g),
         } switch {
             Guid value when value != Guid.Empty => Fin.Succ(value: value),
             _ => Fin.Fail<Guid>(error: Op.Of(name: nameof(Add)).InvalidResult()),
-        }
+        })
         select id;
 
     public Fin<Seq<Guid>> AddPoints(IEnumerable<Point3d> points, ObjectAttributes? attributes = null) =>
         from document in Available(op: Op.Of(name: nameof(AddPoints)))
         from values in Optional(points).ToFin(Fail: Op.Of(name: nameof(AddPoints)).InvalidInput())
         from ids in (Point3d[])[.. values.AsIterable()] switch {
-            { Length: > 0 } native => toSeq(attributes switch {
-                ObjectAttributes attrs => document.Objects.AddPoints(native, attrs),
-                _ => document.Objects.AddPoints(native),
-            }) switch {
-                Seq<Guid> result when result.Count == native.Length && result.ForAll(static id => id != Guid.Empty) => Fin.Succ(value: result),
-                _ => Fin.Fail<Seq<Guid>>(error: Op.Of(name: nameof(AddPoints)).InvalidResult()),
-            },
+            { Length: > 0 } native => Mutate(document: document, name: nameof(AddPoints), run: () => toSeq(attributes switch { ObjectAttributes attrs => document.Objects.AddPoints(native, attrs), _ => document.Objects.AddPoints(native) }) switch { Seq<Guid> result when result.Count == native.Length && result.ForAll(static id => id != Guid.Empty) => Fin.Succ(value: result), _ => Fin.Fail<Seq<Guid>>(error: Op.Of(name: nameof(AddPoints)).InvalidResult()) }),
             _ => Fin.Fail<Seq<Guid>>(error: Op.Of(name: nameof(AddPoints)).InvalidInput()),
         }
         select ids;
@@ -123,14 +117,21 @@ public sealed record DocumentEdit {
         from document in Available(op: Op.Of(name: nameof(Replace)))
         from g in Optional(geometry).ToFin(Fail: Op.Of(name: nameof(Replace)).InvalidInput())
         from valid in Optional(target).ToFin(Fail: Op.Of(name: nameof(Replace)).InvalidInput())
-        from result in valid.Replace(document: document, geometry: g, ignoreModes: ignoreModes, op: Op.Of(name: nameof(Replace)))
+        from result in Mutate(document: document, name: nameof(Replace), run: () => valid.Replace(document: document, geometry: g, ignoreModes: ignoreModes, op: Op.Of(name: nameof(Replace))))
         select result;
 
     public Fin<Unit> Delete(DocumentTarget target, bool quiet = true, bool ignoreModes = false) =>
         from document in Available(op: Op.Of(name: nameof(Delete)))
         from valid in Optional(target).ToFin(Fail: Op.Of(name: nameof(Delete)).InvalidInput())
-        from result in valid.Delete(document: document, quiet: quiet, ignoreModes: ignoreModes, op: Op.Of(name: nameof(Delete)))
+        from result in Mutate(document: document, name: nameof(Delete), run: () => valid.Delete(document: document, quiet: quiet, ignoreModes: ignoreModes, op: Op.Of(name: nameof(Delete))))
         select result;
+
+    public Fin<Seq<Guid>> Transform(DocumentTarget target, Transform transform, bool deleteOriginal = true) =>
+        from document in Available(op: Op.Of(name: nameof(Transform)))
+        from _ in guard(transform.IsValid, Op.Of(name: nameof(Transform)).InvalidInput())
+        from valid in Optional(target).ToFin(Fail: Op.Of(name: nameof(Transform)).InvalidInput())
+        from ids in Mutate(document: document, name: nameof(Transform), run: () => valid.Use(document: document, op: Op.Of(name: nameof(Transform)), selection: selection => selection.Project(reference => reference.Use(document: document, op: Op.Of(name: nameof(Transform)), use: native => IdResult(id: document.Objects.Transform(objref: native, xform: transform, deleteOriginal: deleteOriginal), op: Op.Of(name: nameof(Transform))))), reference: reference => reference.Use(document: document, op: Op.Of(name: nameof(Transform)), use: native => IdResult(id: document.Objects.Transform(objref: native, xform: transform, deleteOriginal: deleteOriginal), op: Op.Of(name: nameof(Transform))).Map(static id => Seq(id))), objects: ids => ids.TraverseM(id => IdResult(id: document.Objects.Transform(objectId: id, xform: transform, deleteOriginal: deleteOriginal), op: Op.Of(name: nameof(Transform)))).As()))
+        select ids;
 
     public Fin<int> Select(DocumentTarget target, bool selected = true) =>
         from document in Available(op: Op.Of(name: nameof(Select)))
@@ -160,5 +161,9 @@ public sealed record DocumentEdit {
             { IsAvailable: true, IsClosing: false } document => Fin.Succ(value: document),
             _ => Fin.Fail<RhinoDoc>(error: op.InvalidInput()),
         };
+
+    private static Fin<T> Mutate<T>(RhinoDoc document, string name, Func<Fin<T>> run) => Optional(run).ToFin(Fail: Op.Of(name: name).InvalidInput()).Bind(valid => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => { uint undo = document.UndoRecordingIsActive switch { true => 0u, false => document.BeginUndoRecord(description: name) }; try { return valid(); } finally { _ = undo > 0u && document.EndUndoRecord(undoRecordSerialNumber: undo); } }));
+
+    private static Fin<Guid> IdResult(Guid id, Op op) => id switch { Guid value when value != Guid.Empty => Fin.Succ(value: value), _ => Fin.Fail<Guid>(error: op.InvalidResult()) };
 
 }

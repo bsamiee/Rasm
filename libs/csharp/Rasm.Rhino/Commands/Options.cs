@@ -50,16 +50,22 @@ public abstract record CommandOption {
             string text => Text(name: name, initial: text, allowEmpty: policy.AllowEmpty, prompt: policy.Prompt, varies: policy.Varies),
             Color color => Color(name: name, initial: color, prompt: policy.Prompt, varies: policy.Varies),
             IEnumerable<string> values => List(name: name, values: toSeq(values), current: policy.Current, varies: policy.Varies),
-            _ => Named(name: name, value: policy.ValueName, hidden: policy.Hidden, varies: policy.Varies, localName: Optional(policy.LocalName), localValue: Optional(policy.LocalValueName)),
+            _ => Invalid(name: name),
         };
+
+    public static CommandOption Named(string name, CommandOptionPolicy policy = default) =>
+        NamedOption(name: name, value: policy.ValueName, hidden: policy.Hidden, varies: policy.Varies, localName: Optional(policy.LocalName), localValue: Optional(policy.LocalValueName));
 
     public static CommandOption Enum<TEnum>(string name, TEnum value, CommandOptionPolicy policy = default) where TEnum : struct, Enum =>
         EnumList(name: name, initial: value, values: Seq<TEnum>(), varies: policy.Varies);
 
+    public static CommandOption Enum<TEnum>(string name, IEnumerable<TEnum> values, TEnum selected, CommandOptionPolicy policy = default) where TEnum : struct, Enum =>
+        EnumOption(name: name, values: toSeq(values), initial: Some(selected), current: Option<int>.None, varies: policy.Varies);
+
     public static CommandOption EnumSelection<TEnum>(string name, IEnumerable<TEnum> values, CommandOptionPolicy policy = default) where TEnum : struct, Enum =>
         EnumSelection(name: name, values: toSeq(values), current: policy.Current, varies: policy.Varies);
 
-    private static Case Named(string name, string? value = null, bool hidden = false, bool varies = false, Option<string> localName = default, Option<string> localValue = default) =>
+    private static Case NamedOption(string name, string? value = null, bool hidden = false, bool varies = false, Option<string> localName = default, Option<string> localValue = default) =>
         new(Name: name, AddToGetter: (getter, validName) => value switch {
             string v => ValidValue(value: v).Bind(valid => Added(getter: getter, index: (localName.Case, localValue.Case) switch {
                 (string ln, string lv) => getter.AddOption(new global::Rhino.UI.LocalizeStringPair(english: validName, local: ln), new global::Rhino.UI.LocalizeStringPair(english: valid, local: lv), hidden),
@@ -70,6 +76,9 @@ public abstract record CommandOption {
                 _ => getter.AddOption(validName),
             }, native: null, snapshot: g => Fin.Succ(value: Snapshot(name: validName, getter: g, value: Option<object>.None, listIndex: Option<int>.None)), varies: varies),
         });
+
+    private static Case Invalid(string name) =>
+        new(Name: name, AddToGetter: static (_, _) => Fin.Fail<Bound>(error: Op.Of(name: nameof(CommandOption)).InvalidInput()));
 
     private static Case Toggle(string name, bool initial, string off = "No", string on = "Yes", bool varies = false) =>
         Ref(name: name, create: () => (ValidValue(value: off), ValidValue(value: on)).Apply((disabled, enabled) => new OptionToggle(initial, disabled, enabled)).As(), prompt: Option<string>.None, bind: static (GetBaseClass getter, string name, ref OptionToggle native, Option<string> _) => getter.AddOptionToggle(name, ref native), current: static native => native.CurrentValue, varies: varies);
