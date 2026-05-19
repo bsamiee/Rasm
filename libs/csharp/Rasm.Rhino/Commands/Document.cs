@@ -155,6 +155,74 @@ public abstract record DocumentTarget {
         };
 }
 
+public readonly record struct DocumentRedraw(bool Enabled) {
+    public static DocumentRedraw AfterCommit { get; } = new(Enabled: true); public static DocumentRedraw None { get; } = new(Enabled: false);
+}
+
+public sealed record DocumentTransaction(string Name, Seq<DocumentOp> Operations, DocumentRedraw Redraw);
+public readonly record struct DocumentReceipt(Seq<Guid> Created, Seq<Guid> Replaced, Seq<Guid> Deleted, Seq<Guid> Transformed, Seq<Guid> Selected, Seq<Guid> Hidden, Seq<Guid> Locked, Seq<Guid> AttributeChanged, Seq<Guid> LifecycleChanged, Seq<string> TableChanged) {
+    public static DocumentReceipt Empty { get; } = new(Created: Seq<Guid>(), Replaced: Seq<Guid>(), Deleted: Seq<Guid>(), Transformed: Seq<Guid>(), Selected: Seq<Guid>(), Hidden: Seq<Guid>(), Locked: Seq<Guid>(), AttributeChanged: Seq<Guid>(), LifecycleChanged: Seq<Guid>(), TableChanged: Seq<string>());
+    public static DocumentReceipt Combine(DocumentReceipt left, DocumentReceipt right) =>
+        new(Created: left.Created + right.Created, Replaced: left.Replaced + right.Replaced, Deleted: left.Deleted + right.Deleted, Transformed: left.Transformed + right.Transformed, Selected: left.Selected + right.Selected, Hidden: left.Hidden + right.Hidden, Locked: left.Locked + right.Locked, AttributeChanged: left.AttributeChanged + right.AttributeChanged, LifecycleChanged: left.LifecycleChanged + right.LifecycleChanged, TableChanged: left.TableChanged + right.TableChanged);
+}
+
+public abstract record DocumentOp {
+    private DocumentOp() { }
+    internal abstract Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op);
+    public sealed record Create(IEnumerable<object> Sources, ObjectAttributes? Attributes = null) : DocumentOp {
+        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) => from edit in Optional(document).ToFin(Fail: op.InvalidInput()) from ids in DocumentEdit.AddRaw(document: edit, domain: domain, sources: Sources, attributes: Attributes, op: op) select DocumentReceipt.Empty with { Created = ids };
+    }
+
+    public sealed record Replace(DocumentTarget Target, object Replacement, bool IgnoreModes = false) : DocumentOp {
+        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) => from target in Optional(Target).ToFin(Fail: op.InvalidInput()) from value in Optional(Replacement).ToFin(Fail: op.InvalidInput()) from ids in target.Ids(document: document, op: op) from _ in target.Replace(document: document, replacement: value, ignoreModes: IgnoreModes, op: op) select DocumentReceipt.Empty with { Replaced = ids };
+    }
+
+    public sealed record Delete(DocumentTarget Target, bool Quiet = true, bool IgnoreModes = false) : DocumentOp {
+        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) => from target in Optional(Target).ToFin(Fail: op.InvalidInput()) from ids in target.Ids(document: document, op: op) from _ in target.Delete(document: document, quiet: Quiet, ignoreModes: IgnoreModes, op: op) select DocumentReceipt.Empty with { Deleted = ids, LifecycleChanged = ids };
+    }
+
+    public sealed record Transform(DocumentTarget Target, global::Rhino.Geometry.Transform Xform, bool DeleteOriginal = true) : DocumentOp {
+        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) => from target in Optional(Target).ToFin(Fail: op.InvalidInput()) from _ in guard(Xform.IsValid, op.InvalidInput()) from ids in target.Transform(document: document, transform: Xform, deleteOriginal: DeleteOriginal, op: op) select DocumentReceipt.Empty with { Transformed = ids };
+    }
+
+    public sealed record AttributeChange(DocumentTarget Target, Func<ObjectAttributes, Fin<ObjectAttributes>> Change, bool Quiet = true) : DocumentOp {
+        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) =>
+            from target in Optional(Target).ToFin(Fail: op.InvalidInput())
+            from change in Optional(Change).ToFin(Fail: op.InvalidInput())
+            from ids in target.Ids(document: document, op: op)
+            from changed in ids.TraverseM(id => from native in Optional(document.Objects.FindId(id)).ToFin(Fail: op.InvalidResult()) from attributes in Optional(native.Attributes?.Duplicate()).ToFin(Fail: op.InvalidResult()) from next in change(arg: attributes) from _ in document.Objects.ModifyAttributes(objectId: id, newAttributes: next, quiet: Quiet) switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: op.InvalidResult()) } select id).As()
+            select DocumentReceipt.Empty with { AttributeChanged = changed };
+    }
+
+    public sealed record Selection(DocumentTarget Target, bool Selected = true, DocumentSelectionPolicy? Policy = null) : DocumentOp {
+        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) => from target in Optional(Target).ToFin(Fail: op.InvalidInput()) from ids in target.Ids(document: document, op: op) from _ in target.Select(document: document, selected: Selected, policy: Policy ?? DocumentSelectionPolicy.Default, op: op) select DocumentReceipt.Empty with { Selected = ids };
+    }
+
+    public sealed record SetSelection(DocumentTarget Target, DocumentSelectionPolicy Policy) : DocumentOp {
+        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) =>
+            from target in Optional(Target).ToFin(Fail: op.InvalidInput())
+            from ids in target.Ids(document: document, op: op)
+            from chosen in ids.Distinct() switch { Seq<Guid> values when !values.IsEmpty => Fin.Succ(value: values), _ => Fin.Fail<Seq<Guid>>(error: op.InvalidInput()) }
+            from count in document.Objects.SetSelectedObjects(objectIds: chosen.AsIterable(), syncHighlight: Policy.Highlight, persistentSelect: Policy.Persistent, ignoreGripsState: Policy.IgnoreGrips, ignoreLayerLocking: Policy.IgnoreLayerLocking, ignoreLayerVisibility: Policy.IgnoreLayerVisibility) switch { int value when value == chosen.Count => Fin.Succ(value: value), _ => Fin.Fail<int>(error: op.InvalidResult()) }
+            select DocumentReceipt.Empty with { Selected = chosen };
+    }
+
+    public sealed record UnselectAll(bool IgnorePersistentSelections = false) : DocumentOp {
+        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) =>
+            from selected in Optional(document.Objects.GetSelectedObjects(includeLights: true, includeGrips: true)).ToFin(Fail: op.InvalidInput()).Map(static values => toSeq(values).Map(static native => native.Id).Distinct())
+            from count in document.Objects.UnselectAll(ignorePersistentSelections: IgnorePersistentSelections) switch { int value and >= 0 => Fin.Succ(value: value), _ => Fin.Fail<int>(error: op.InvalidResult()) }
+            select DocumentReceipt.Empty with { Selected = selected.Take(count) };
+    }
+
+    public sealed record Hide(DocumentTarget Target, bool Hidden = true) : DocumentOp {
+        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) => from target in Optional(Target).ToFin(Fail: op.InvalidInput()) from ids in target.Ids(document: document, op: op) from changed in DocumentEdit.ApplyState(ids: ids, document: document, op: op, ready: native => !Hidden || !native.IsLocked, done: native => native.IsHidden == Hidden, apply: id => Hidden switch { true => document.Objects.Hide(objectId: id, ignoreLayerMode: true), false => document.Objects.Show(objectId: id, ignoreLayerMode: true) }) select DocumentReceipt.Empty with { Hidden = changed, LifecycleChanged = changed };
+    }
+
+    public sealed record Lock(DocumentTarget Target, bool Locked = true) : DocumentOp {
+        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) => from target in Optional(Target).ToFin(Fail: op.InvalidInput()) from ids in target.Ids(document: document, op: op) from changed in DocumentEdit.ApplyState(ids: ids, document: document, op: op, ready: native => !Locked || !native.IsHidden, done: native => native.IsLocked == Locked, apply: id => Locked switch { true => document.Objects.Lock(objectId: id, ignoreLayerMode: true), false => document.Objects.Unlock(objectId: id, ignoreLayerMode: true) }) select DocumentReceipt.Empty with { Locked = changed, LifecycleChanged = changed };
+    }
+}
+
 public sealed record DocumentEdit {
     internal DocumentEdit(RhinoDoc document, Rasm.Domain.Context domain) {
         ArgumentNullException.ThrowIfNull(argument: document);
@@ -170,15 +238,21 @@ public sealed record DocumentEdit {
         from document in Available(op: Op.Of(name: nameof(Commit)))
         from plan in Optional(transaction).ToFin(Fail: Op.Of(name: nameof(Commit)).InvalidInput())
         from receipt in plan.Operations switch {
-            Seq<DocumentOp> operations when !operations.IsEmpty => Mutate(document: document, name: plan.Name, run: () => operations.TraverseM(operation => operation.Apply(document: document, domain: Domain, op: Op.Of(name: plan.Name))).As().Map(static receipts => receipts.Fold(DocumentReceipt.Empty, static (state, receipt) => state + receipt))),
+            Seq<DocumentOp> operations when !operations.IsEmpty => Mutate(document: document, name: plan.Name, run: () => operations.TraverseM(operation => operation.Apply(document: document, domain: Domain, op: Op.Of(name: plan.Name))).As().Map(static receipts => receipts.Fold(DocumentReceipt.Empty, DocumentReceipt.Combine))),
             _ => Fin.Fail<DocumentReceipt>(error: Op.Of(name: nameof(Commit)).InvalidInput()),
         }
-        from _ in plan.Redraw.Apply(edit: this)
+        from _ in plan.Redraw.Enabled switch {
+            true => Redraw(),
+            false => Fin.Succ(value: unit),
+        }
         select receipt;
+
+    private Fin<DocumentReceipt> Commit(string name, DocumentOp operation, DocumentRedraw? redraw = null) =>
+        Commit(transaction: new DocumentTransaction(Name: name, Operations: Seq(operation), Redraw: redraw ?? DocumentRedraw.AfterCommit));
 
     public Fin<Guid> Add(GeometryBase geometry, ObjectAttributes? attributes = null) =>
         from g in Optional(geometry).ToFin(Fail: Op.Of(name: nameof(Add)).InvalidInput())
-        from ids in Commit(transaction: DocumentTransaction.One(name: nameof(Add), operation: new DocumentOp.Create(Sources: Seq<object>(g), Attributes: attributes), redraw: DocumentRedraw.None)).Map(static receipt => receipt.Created)
+        from ids in Commit(name: nameof(Add), operation: new DocumentOp.Create(Sources: Seq<object>(g), Attributes: attributes), redraw: DocumentRedraw.None).Map(static receipt => receipt.Created)
         from id in ids.Count switch {
             1 => Fin.Succ(value: ids[0]),
             _ => Fin.Fail<Guid>(error: Op.Of(name: nameof(Add)).InvalidResult()),
@@ -192,58 +266,42 @@ public sealed record DocumentEdit {
 
     public Fin<Seq<Guid>> Add(IEnumerable<GeometryBase> geometries, ObjectAttributes? attributes = null) =>
         from source in Optional(geometries).ToFin(Fail: Op.Of(name: nameof(Add)).InvalidInput())
-        from ids in Commit(transaction: DocumentTransaction.One(name: nameof(Add), operation: new DocumentOp.Create(Sources: toSeq(source).Map(static geometry => (object)geometry), Attributes: attributes), redraw: DocumentRedraw.None)).Map(static receipt => receipt.Created)
+        from ids in Commit(name: nameof(Add), operation: new DocumentOp.Create(Sources: toSeq(source).Map(static geometry => (object)geometry), Attributes: attributes), redraw: DocumentRedraw.None).Map(static receipt => receipt.Created)
         select ids;
 
     public Fin<Seq<Guid>> AddPoints(IEnumerable<Point3d> points, ObjectAttributes? attributes = null) =>
-        from document in Available(op: Op.Of(name: nameof(AddPoints)))
-        from values in Optional(points).ToFin(Fail: Op.Of(name: nameof(AddPoints)).InvalidInput())
-        from ids in (Point3d[])[.. values.AsIterable()] switch {
-            { Length: > 0 } native when toSeq(native).ForAll(static point => point.IsValid) => Mutate(document: document, name: nameof(AddPoints), run: () => toSeq(attributes switch { ObjectAttributes attrs => document.Objects.AddPoints(native, attrs), _ => document.Objects.AddPoints(native) }) switch { Seq<Guid> result when result.Count == native.Length && result.ForAll(static id => id != Guid.Empty) => Fin.Succ(value: result), _ => Fin.Fail<Seq<Guid>>(error: Op.Of(name: nameof(AddPoints)).InvalidResult()) }),
-            _ => Fin.Fail<Seq<Guid>>(error: Op.Of(name: nameof(AddPoints)).InvalidInput()),
-        }
+        from source in Optional(points).ToFin(Fail: Op.Of(name: nameof(AddPoints)).InvalidInput())
+        from ids in Commit(name: nameof(AddPoints), operation: new DocumentOp.Create(Sources: toSeq(source).Map(static point => (object)point), Attributes: attributes), redraw: DocumentRedraw.None).Map(static receipt => receipt.Created)
         select ids;
 
     public Fin<Unit> Replace(DocumentTarget target, object replacement, bool ignoreModes = false) =>
-        Commit(transaction: DocumentTransaction.One(name: nameof(Replace), operation: new DocumentOp.Replace(Target: target, Replacement: replacement, IgnoreModes: ignoreModes), redraw: DocumentRedraw.None)).Map(static _ => unit);
+        Commit(name: nameof(Replace), operation: new DocumentOp.Replace(Target: target, Replacement: replacement, IgnoreModes: ignoreModes), redraw: DocumentRedraw.None).Map(static _ => unit);
 
     public Fin<Unit> Delete(DocumentTarget target, bool quiet = true, bool ignoreModes = false) =>
-        Commit(transaction: DocumentTransaction.One(name: nameof(Delete), operation: new DocumentOp.Lifecycle(Target: target, Action: DocumentLifecycle.Delete(quiet: quiet, ignoreModes: ignoreModes)), redraw: DocumentRedraw.None)).Map(static _ => unit);
+        Commit(name: nameof(Delete), operation: new DocumentOp.Delete(Target: target, Quiet: quiet, IgnoreModes: ignoreModes), redraw: DocumentRedraw.None).Map(static _ => unit);
 
     public Fin<Seq<Guid>> Transform(DocumentTarget target, Transform transform, bool deleteOriginal = true) =>
-        Commit(transaction: DocumentTransaction.One(name: nameof(Transform), operation: new DocumentOp.Transform(Target: target, Xform: transform, DeleteOriginal: deleteOriginal), redraw: DocumentRedraw.None)).Map(static receipt => receipt.Transformed);
+        Commit(name: nameof(Transform), operation: new DocumentOp.Transform(Target: target, Xform: transform, DeleteOriginal: deleteOriginal), redraw: DocumentRedraw.None).Map(static receipt => receipt.Transformed);
 
     public Fin<int> Attributes(DocumentTarget target, Func<ObjectAttributes, Fin<ObjectAttributes>> change, bool quiet = true) =>
-        Commit(transaction: DocumentTransaction.One(name: nameof(Attributes), operation: new DocumentOp.AttributeChange(Target: target, Change: change, Quiet: quiet), redraw: DocumentRedraw.None)).Map(static receipt => receipt.AttributeChanged.Count);
+        Commit(name: nameof(Attributes), operation: new DocumentOp.AttributeChange(Target: target, Change: change, Quiet: quiet), redraw: DocumentRedraw.None).Map(static receipt => receipt.AttributeChanged.Count);
 
     public Fin<int> Select(DocumentTarget target, bool selected = true, DocumentSelectionPolicy? policy = null) =>
-        Commit(transaction: DocumentTransaction.One(name: nameof(Select), operation: new DocumentOp.Lifecycle(Target: target, Action: DocumentLifecycle.Select(selected: selected, policy: policy ?? DocumentSelectionPolicy.Default)), redraw: DocumentRedraw.None)).Map(static receipt => receipt.Selected.Count);
+        Commit(name: nameof(Select), operation: new DocumentOp.Selection(Target: target, Selected: selected, Policy: policy ?? DocumentSelectionPolicy.Default), redraw: DocumentRedraw.None).Map(static receipt => receipt.Selected.Count);
 
     public Fin<int> SetSelection(DocumentTarget target, DocumentSelectionPolicy? policy = null) =>
-        from document in Available(op: Op.Of(name: nameof(SetSelection))) from valid in Optional(target).ToFin(Fail: Op.Of(name: nameof(SetSelection)).InvalidInput()) from ids in valid.Ids(document: document, op: Op.Of(name: nameof(SetSelection)))
-        from chosen in ids.Distinct() switch { Seq<Guid> values when !values.IsEmpty => Fin.Succ(value: values), _ => Fin.Fail<Seq<Guid>>(error: Op.Of(name: nameof(SetSelection)).InvalidInput()) }
-        let active = policy ?? DocumentSelectionPolicy.Default
-        from count in document.Objects.SetSelectedObjects(objectIds: chosen.AsIterable(), syncHighlight: active.Highlight, persistentSelect: active.Persistent, ignoreGripsState: active.IgnoreGrips, ignoreLayerLocking: active.IgnoreLayerLocking, ignoreLayerVisibility: active.IgnoreLayerVisibility) switch {
-            int value when value == chosen.Count => Fin.Succ(value: value),
-            _ => Fin.Fail<int>(error: Op.Of(name: nameof(SetSelection)).InvalidResult()),
-        }
-        select count;
+        Commit(name: nameof(SetSelection), operation: new DocumentOp.SetSelection(Target: target, Policy: policy ?? DocumentSelectionPolicy.Default), redraw: DocumentRedraw.None).Map(static receipt => receipt.Selected.Count);
 
     public Fin<int> Hide(DocumentTarget target, bool hidden = true) =>
-        Commit(transaction: DocumentTransaction.One(name: nameof(Hide), operation: new DocumentOp.Lifecycle(Target: target, Action: DocumentLifecycle.Hide(hidden: hidden)), redraw: DocumentRedraw.None)).Map(static receipt => receipt.Hidden.Count);
+        Commit(name: nameof(Hide), operation: new DocumentOp.Hide(Target: target, Hidden: hidden), redraw: DocumentRedraw.None).Map(static receipt => receipt.Hidden.Count);
 
     public Fin<int> Lock(DocumentTarget target, bool locked = true) =>
-        Commit(transaction: DocumentTransaction.One(name: nameof(Lock), operation: new DocumentOp.Lifecycle(Target: target, Action: DocumentLifecycle.Lock(locked: locked)), redraw: DocumentRedraw.None)).Map(static receipt => receipt.Locked.Count);
+        Commit(name: nameof(Lock), operation: new DocumentOp.Lock(Target: target, Locked: locked), redraw: DocumentRedraw.None).Map(static receipt => receipt.Locked.Count);
 
     public Fin<int> Reveal(DocumentTarget target) => from count in Select(target: target, selected: true) from _ in Redraw() select count;
 
     public Fin<int> UnselectAll(bool ignorePersistentSelections = false) =>
-        from document in Available(op: Op.Of(name: nameof(UnselectAll)))
-        from count in document.Objects.UnselectAll(ignorePersistentSelections: ignorePersistentSelections) switch {
-            int value and >= 0 => Fin.Succ(value: value),
-            _ => Fin.Fail<int>(error: Op.Of(name: nameof(UnselectAll)).InvalidResult()),
-        }
-        select count;
+        Commit(name: nameof(UnselectAll), operation: new DocumentOp.UnselectAll(IgnorePersistentSelections: ignorePersistentSelections), redraw: DocumentRedraw.None).Map(static receipt => receipt.Selected.Count);
 
     public Fin<Unit> Redraw() =>
         Available(op: Op.Of(name: nameof(Redraw)))

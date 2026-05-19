@@ -1,4 +1,6 @@
 using Result = Rhino.Commands.Result;
+using UiGumballSnapshot = Rasm.Rhino.UI.UiGumballSnapshot;
+using UiViewportPreview = Rasm.Rhino.UI.UiViewportPreview;
 
 namespace Rasm.Rhino.Commands;
 
@@ -66,24 +68,37 @@ public sealed record PromptStage<TState, TValue>(
     Func<TState, CommandInputRequest<TValue>> Input,
     Func<TState, Seq<CommandInputPolicy>> Policies,
     Func<CommandStageContext<TState>, CommandGet<TValue>, Fin<PromptTransition<TState>>> Receive,
-    Func<PromptPreviewContext<TState>, Option<Rasm.Rhino.UI.UiViewportPreview>>? Preview = null) : CommandStage<TState>(Name) {
+    Func<PromptPreviewContext<TState>, Option<UiViewportPreview>>? Preview = null,
+    Func<PromptGumballContext<TState>, Fin<Option<PromptTransition<TState>>>>? Gumball = null) : CommandStage<TState>(Name) {
     internal override Fin<PromptTransition<TState>> Run(CommandStageContext<TState> context) =>
         from input in Optional(Input).ToFin(Fail: Op.Of(name: Name).InvalidInput())
         from policies in Optional(Policies).ToFin(Fail: Op.Of(name: Name).InvalidInput())
         from receive in Optional(Receive).ToFin(Fail: Op.Of(name: Name).InvalidInput())
         from request in Optional(input(arg: context.State)).ToFin(Fail: Op.Of(name: Name).InvalidInput())
         from activePolicies in Optional(policies(arg: context.State)).ToFin(Fail: Op.Of(name: Name).InvalidInput())
-        let stagePolicies = activePolicies + PreviewPolicy(context: context)
+        let transition = Atom(Option<PromptTransition<TState>>.None)
+        let stagePolicies = activePolicies + PreviewPolicy(context: context) + GumballPolicy(context: context, transition: transition)
         from got in context.Context.Input.Get(request: request.With(policies: stagePolicies))
-        from transition in receive(arg1: context, arg2: got)
-        select transition;
+        from next in transition.Value.Case switch {
+            PromptTransition<TState> value => Fin.Succ(value: value),
+            _ => receive(arg1: context, arg2: got),
+        }
+        select next;
 
     private Seq<CommandInputPolicy> PreviewPolicy(CommandStageContext<TState> context) =>
         Optional(Preview)
             .Map(preview => Seq(CommandInputPolicy.PointEvents(pointEvent => preview(arg: new PromptPreviewContext<TState>(Stage: context, Event: pointEvent)).Case switch {
-                Rasm.Rhino.UI.UiViewportPreview active => pointEvent.Preview(preview: active),
+                UiViewportPreview active => pointEvent.Preview(preview: active),
                 _ => Fin.Succ(value: unit),
             })))
+            .IfNone(Seq<CommandInputPolicy>());
+
+    private Seq<CommandInputPolicy> GumballPolicy(CommandStageContext<TState> context, Atom<Option<PromptTransition<TState>>> transition) =>
+        Optional(Gumball)
+            .Map(project => Seq(CommandInputPolicy.PointEvents(pointEvent => project(arg: new PromptGumballContext<TState>(Stage: context, Event: pointEvent)).Map(next => next.Iter(value => {
+                _ = transition.Swap(_ => Some(value));
+                _ = pointEvent.Getter.InterruptMouseMove();
+            })))))
             .IfNone(Seq<CommandInputPolicy>());
 }
 
@@ -135,6 +150,10 @@ public readonly record struct PromptPreviewContext<TState>(CommandStageContext<T
         GetPoint getter => CommandSelection.Reference.Of(getter: getter),
         _ => Option<CommandSelection.Reference>.None,
     };
+}
+
+public readonly record struct PromptGumballContext<TState>(CommandStageContext<TState> Stage, CommandPointEvent Event) {
+    public TState State => Stage.State; public RhinoCommandContext Context => Stage.Context; public Option<UiGumballSnapshot> Snapshot => Event.GumballSnapshot;
 }
 
 public readonly record struct CommandGraphEvents<TState>(

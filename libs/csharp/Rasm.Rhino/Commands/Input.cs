@@ -104,9 +104,11 @@ public sealed record CommandInputPolicy {
         Seq<Action<GetObject>> objectActions = default,
         Seq<Action<GetPoint>> pointActions = default,
         Option<Func<CommandPointEvent, Fin<Unit>>> pointEvents = default,
+        Option<UiGumball> gumball = default,
         Seq<CommandOption> options = default,
         Option<(int Min, int Max)> objects = default,
         Option<PointSpec> point = default,
+        Option<Func<RhinoViewport, Point3d, global::Rhino.Geometry.Transform>> transform = default,
         Option<Scalar> scalar = default,
         Option<LimitSpec> bounds = default,
         Option<BoxSpec> box = default,
@@ -114,16 +116,18 @@ public sealed record CommandInputPolicy {
         Option<string> prompt = default,
         bool literalText = false,
         CommandInputAccept accept = CommandInputAccept.None) {
-        BaseActions = baseActions; ObjectActions = objectActions; PointActions = pointActions; PointEvent = pointEvents; OptionList = options; ObjectRange = objects; PointMode = point; ScalarMode = scalar; LimitsMode = bounds; BoxMode = box; ObjectTypes = objectTypes; PromptText = prompt; IsLiteralText = literalText; AcceptModes = accept;
+        BaseActions = baseActions; ObjectActions = objectActions; PointActions = pointActions; PointEvent = pointEvents; Gumball = gumball; OptionList = options; ObjectRange = objects; PointMode = point; TransformMode = transform; ScalarMode = scalar; LimitsMode = bounds; BoxMode = box; ObjectTypes = objectTypes; PromptText = prompt; IsLiteralText = literalText; AcceptModes = accept;
     }
 
     private Seq<Action<GetBaseClass>> BaseActions { get; }
     private Seq<Action<GetObject>> ObjectActions { get; }
     private Seq<Action<GetPoint>> PointActions { get; }
     internal Option<Func<CommandPointEvent, Fin<Unit>>> PointEvent { get; }
+    internal Option<UiGumball> Gumball { get; }
     internal Seq<CommandOption> OptionList { get; }
     internal Option<(int Min, int Max)> ObjectRange { get; }
     internal Option<PointSpec> PointMode { get; }
+    internal Option<Func<RhinoViewport, Point3d, global::Rhino.Geometry.Transform>> TransformMode { get; }
     internal Option<Scalar> ScalarMode { get; }
     internal Option<LimitSpec> LimitsMode { get; }
     internal Option<BoxSpec> BoxMode { get; }
@@ -170,6 +174,10 @@ public sealed record CommandInputPolicy {
     public static CommandInputPolicy Options(params CommandOption[] values) => new(options: toSeq(values));
     public static CommandInputPolicy PointEvents(Func<CommandPointEvent, Fin<Unit>> change) =>
         Optional(change).Map(apply => new CommandInputPolicy(pointEvents: Some(apply))).IfNone(Empty);
+    public static CommandInputPolicy PointGumball(UiGumball gumball) =>
+        Optional(gumball).Map(active => new CommandInputPolicy(gumball: Some(active))).IfNone(Empty);
+    public static CommandInputPolicy Transform(Func<RhinoViewport, Point3d, global::Rhino.Geometry.Transform> calculate) =>
+        Optional(calculate).Map(project => new CommandInputPolicy(transform: Some(project))).IfNone(Empty);
     public static CommandInputPolicy Objects(int minimum = 1, int maximum = 1, ObjectType types = ObjectType.AnyObject, bool locked = false) =>
         new(
             objectActions: locked switch { true => Seq<Action<GetObject>>(static getter => getter.LockedObjectSelect = true), false => Seq<Action<GetObject>>() },
@@ -201,7 +209,7 @@ public sealed record CommandInputPolicy {
     public static CommandInputPolicy Add(CommandInputPolicy left, CommandInputPolicy right) {
         ArgumentNullException.ThrowIfNull(argument: left);
         ArgumentNullException.ThrowIfNull(argument: right);
-        return new(baseActions: left.BaseActions + right.BaseActions, objectActions: left.ObjectActions + right.ObjectActions, pointActions: left.PointActions + right.PointActions, pointEvents: Compose(left.PointEvent, right.PointEvent), options: left.OptionList + right.OptionList, objects: Pick(left.ObjectRange, right.ObjectRange), point: Pick(left.PointMode, right.PointMode), scalar: Pick(left.ScalarMode, right.ScalarMode), bounds: Pick(left.LimitsMode, right.LimitsMode), box: Pick(left.BoxMode, right.BoxMode), objectTypes: Pick(left.ObjectTypes, right.ObjectTypes), prompt: Pick(left.PromptText, right.PromptText), literalText: left.IsLiteralText || right.IsLiteralText, accept: left.AcceptModes | right.AcceptModes);
+        return new(baseActions: left.BaseActions + right.BaseActions, objectActions: left.ObjectActions + right.ObjectActions, pointActions: left.PointActions + right.PointActions, pointEvents: Compose(left.PointEvent, right.PointEvent), gumball: Pick(left.Gumball, right.Gumball), options: left.OptionList + right.OptionList, objects: Pick(left.ObjectRange, right.ObjectRange), point: Pick(left.PointMode, right.PointMode), transform: Pick(left.TransformMode, right.TransformMode), scalar: Pick(left.ScalarMode, right.ScalarMode), bounds: Pick(left.LimitsMode, right.LimitsMode), box: Pick(left.BoxMode, right.BoxMode), objectTypes: Pick(left.ObjectTypes, right.ObjectTypes), prompt: Pick(left.PromptText, right.PromptText), literalText: left.IsLiteralText || right.IsLiteralText, accept: left.AcceptModes | right.AcceptModes);
     }
 
     internal static CommandInputPolicy Merge(Seq<CommandInputPolicy> policies) =>
@@ -318,6 +326,7 @@ public static class CommandInputs {
             Type t when t == typeof(CommandSelection) => Objects<T>(policy: policy, policies: active),
             Type t when t == typeof(CommandOptionValue) => Getter<GetOption, T>(policy: policy, create: static () => new GetOption(), receive: static getter => getter.Get(), value: static (_, _, _) => Option<T>.None),
             Type t when t == typeof(CommandPoint) || t == typeof(Point3d) || t == typeof(DrawingPoint) => Point<T>(policy: policy),
+            Type t when t == typeof(Transform) => Transform<T>(policy: policy),
             Type t when t == typeof(string) || t == typeof(double) => Text<T>(policy: policy),
             Type t when t == typeof(int) => Number<GetInteger, int, T>(policy: policy, create: static () => new GetInteger(), receive: static getter => getter.Get(), current: static getter => getter.Number(), setLower: static (getter, value, strict) => getter.SetLowerLimit(value, strict), setUpper: static (getter, value, strict) => getter.SetUpperLimit(value, strict)),
             Type t when t == typeof(Line) => Native<T, Line>(get: static (out value) => RhinoGet.GetLine(line: out value)),
@@ -331,6 +340,10 @@ public static class CommandInputs {
             _ => Invalid<T>(name: nameof(Get)),
         };
         return request.BindPolicy(rebind: static values => Get<T>(policies: [.. values]));
+    }
+
+    private sealed class CommandTransformGetter(Func<RhinoViewport, Point3d, global::Rhino.Geometry.Transform> calculate) : GetTransform {
+        public override global::Rhino.Geometry.Transform CalculateTransform(RhinoViewport viewport, Point3d point) => Optional(calculate).Map(project => project(arg1: viewport, arg2: point)).IfNone(global::Rhino.Geometry.Transform.Identity);
     }
 
     private delegate Result NativeGetter<TNative>(out TNative value);
@@ -355,6 +368,9 @@ public static class CommandInputs {
             receive: getter => getter.Get(onMouseUp: spec.OnMouseUp, get2DPoint: twoDimensional),
             value: static (_, getter, raw) => raw is GetResult.Point or GetResult.Point2d ? PointValue<T>(getter: getter, raw: raw) : Option<T>.None);
     }
+
+    private static CommandInputRequest<T> Transform<T>(CommandInputPolicy policy) =>
+        Getter<CommandTransformGetter, T>(policy: policy, create: () => new CommandTransformGetter(calculate: policy.TransformMode.IfNone(static (_, _) => global::Rhino.Geometry.Transform.Identity)), receive: static getter => getter.GetXform(), value: static (_, getter, _) => getter.HaveTransform && getter.Transform.IsValid ? Cast<T>(getter.Transform) : Option<T>.None);
 
     private static CommandInputRequest<T> Text<T>(CommandInputPolicy policy) =>
         policy.ScalarMode.Map(static scalar => scalar.Kind == CommandInputPolicy.ScalarKind.Number).IfNone(policy.LimitsMode.IsSome) && typeof(T) == typeof(double)
@@ -391,7 +407,7 @@ public static class CommandInputs {
             Atom<Option<Error>> eventFault = Atom(Option<Error>.None);
             return from configured in configure is Func<TGetter, Fin<Unit>> apply ? apply(arg: getter) : Fin.Succ(value: unit)
                    from applied in policy.Apply(getter: getter)
-                   from events in getter is GetPoint point ? BindPointEvents(document: valid.Document, getter: point, events: policy.PointEvent, fault: eventFault) : Fin.Succ(value: unit)
+                   from events in getter is GetPoint point ? BindPointEvents(document: valid.Document, getter: point, events: policy.PointEvent, gumball: policy.Gumball, fault: eventFault) : Fin.Succ(value: unit)
                    from result in CommandOption.Bind(options: policy.OptionList, getter: getter).Bind(scope => {
                        using CommandOption.Scope active = scope;
                        return ReadLoop(getter: getter, scope: active, receive: () => receive(arg: getter), value: (g, raw) => value(arg1: valid, arg2: g, arg3: raw), selected: Option<CommandOptionValue>.None, acceptUndo: policy.AcceptsUndo, transition: transition ?? (static (_, _, selected) => (Continue: false, Selected: selected)));
@@ -403,17 +419,17 @@ public static class CommandInputs {
                    select checkedResult;
         })));
 
-    private static Fin<Unit> BindPointEvents(RhinoDoc document, GetPoint getter, Option<Func<CommandPointEvent, Fin<Unit>>> events, Atom<Option<Error>> fault) =>
+    private static Fin<Unit> BindPointEvents(RhinoDoc document, GetPoint getter, Option<Func<CommandPointEvent, Fin<Unit>>> events, Option<UiGumball> gumball, Atom<Option<Error>> fault) =>
         events.Map(change => {
             Unit Apply(CommandPointEvent pointEvent) =>
                 Rasm.Rhino.UI.RhinoUi.Protect(valid: () => change(arg: pointEvent)).Match(Succ: static _ => unit, Fail: error => {
                     _ = fault.Swap(_ => Some(error));
                     return unit;
                 });
-            getter.MouseMove += (_, args) => _ = Apply(pointEvent: new CommandPointEvent(Phase: CommandPointEventPhase.MouseMove, Document: document, Getter: getter, Mouse: Some(args), Draw: Option<GetPointDrawEventArgs>.None, PostDraw: Option<DrawEventArgs>.None, Gumball: Option<UiGumball>.None));
-            getter.MouseDown += (_, args) => _ = Apply(pointEvent: new CommandPointEvent(Phase: CommandPointEventPhase.MouseDown, Document: document, Getter: getter, Mouse: Some(args), Draw: Option<GetPointDrawEventArgs>.None, PostDraw: Option<DrawEventArgs>.None, Gumball: Option<UiGumball>.None));
-            getter.DynamicDraw += (_, args) => _ = Apply(pointEvent: new CommandPointEvent(Phase: CommandPointEventPhase.DynamicDraw, Document: document, Getter: getter, Mouse: Option<GetPointMouseEventArgs>.None, Draw: Some(args), PostDraw: Option<DrawEventArgs>.None, Gumball: Option<UiGumball>.None));
-            getter.PostDrawObjects += (_, args) => _ = Apply(pointEvent: new CommandPointEvent(Phase: CommandPointEventPhase.PostDrawObjects, Document: document, Getter: getter, Mouse: Option<GetPointMouseEventArgs>.None, Draw: Option<GetPointDrawEventArgs>.None, PostDraw: Some(args), Gumball: Option<UiGumball>.None));
+            getter.MouseMove += (_, args) => _ = Apply(pointEvent: new CommandPointEvent(Phase: CommandPointEventPhase.MouseMove, Document: document, Getter: getter, Mouse: Some(args), Draw: Option<GetPointDrawEventArgs>.None, PostDraw: Option<DrawEventArgs>.None, Gumball: gumball));
+            getter.MouseDown += (_, args) => _ = Apply(pointEvent: new CommandPointEvent(Phase: CommandPointEventPhase.MouseDown, Document: document, Getter: getter, Mouse: Some(args), Draw: Option<GetPointDrawEventArgs>.None, PostDraw: Option<DrawEventArgs>.None, Gumball: gumball));
+            getter.DynamicDraw += (_, args) => _ = Apply(pointEvent: new CommandPointEvent(Phase: CommandPointEventPhase.DynamicDraw, Document: document, Getter: getter, Mouse: Option<GetPointMouseEventArgs>.None, Draw: Some(args), PostDraw: Option<DrawEventArgs>.None, Gumball: gumball));
+            getter.PostDrawObjects += (_, args) => _ = Apply(pointEvent: new CommandPointEvent(Phase: CommandPointEventPhase.PostDrawObjects, Document: document, Getter: getter, Mouse: Option<GetPointMouseEventArgs>.None, Draw: Option<GetPointDrawEventArgs>.None, PostDraw: Some(args), Gumball: gumball));
             getter.FullFrameRedrawDuringGet = true;
             return unit;
         }).Map(Fin.Succ).IfNone(Fin.Succ(value: unit));
