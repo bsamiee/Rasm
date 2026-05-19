@@ -1,6 +1,8 @@
-using System.Drawing;
+using System.Reflection;
 using Eto.Forms;
+using DrawingBitmap = System.Drawing.Bitmap;
 using DrawingColor = System.Drawing.Color;
+using DrawingSize = System.Drawing.Size;
 
 namespace Rasm.Rhino.UI;
 
@@ -66,24 +68,20 @@ public static class UiIntent {
     public static UiIntent<T> Gumball<T>(UiGumballSpec spec, Func<UiGumball, Fin<T>> run) =>
         OfScope(scope => Optional(run).ToFin(Fail: Op.Of(name: nameof(Gumball)).InvalidInput()).Bind(valid => UiGumball.Use(document: scope.Document, spec: spec, run: valid)), interactive: true);
 
-    public static UiIntent<global::Rhino.UI.ShowMessageResult> Message(string message, string title = "Rasm") =>
+    public static UiIntent<T> Preview<T>(UiPreview<T> preview) =>
+        OfScope(
+            run: scope => Optional(preview)
+                .ToFin(Fail: Op.Of(name: nameof(Preview)).InvalidInput())
+                .Bind(valid => valid.Run(scope: scope)),
+            interactive: Optional(preview).Map(static value => value.Interactive).IfNone(false));
+
+    public static UiIntent<global::Rhino.UI.ShowMessageResult> Message(UiMessageSpec spec) =>
         Request(
             name: nameof(Message),
-            run: _ => string.IsNullOrWhiteSpace(value: message) switch {
-                false => Fin.Succ(value: global::Rhino.UI.Dialogs.ShowMessage(message, title)),
+            run: scope => string.IsNullOrWhiteSpace(value: spec.Message) switch {
+                false => Fin.Succ(value: global::Rhino.UI.Dialogs.ShowMessage(parent: RhinoUi.Parent(document: scope.Document), message: spec.Message, title: spec.Title, buttons: spec.Buttons, icon: spec.Icon, defaultButton: spec.DefaultButton, options: spec.Options, mode: spec.Mode)),
                 true => Fin.Fail<global::Rhino.UI.ShowMessageResult>(error: Op.Of(name: nameof(Message)).InvalidInput()),
             });
-
-    public static UiIntent<Color4f> Color(UiColorSpec spec, bool allowAlpha = false) =>
-        Request(name: nameof(Color), run: scope => {
-            Color4f color = spec.Initial;
-            global::Rhino.UI.NamedColorList? named = spec.Named.Case is global::Rhino.UI.NamedColorList list ? list : null;
-            object? parent = RhinoUi.Parent(document: scope.Document);
-            return global::Rhino.UI.Dialogs.ShowColorDialog(parent: parent, color: ref color, allowAlpha: allowAlpha, namedColorList: named, colorCallback: null) switch {
-                true => Fin.Succ(value: color),
-                false => Fin.Fail<Color4f>(error: new Fault.Cancelled()),
-            };
-        });
 
     public static UiIntent<T> Choice<T>(string title, string message, IEnumerable<T> items, Option<T> selected = default, bool combo = false) =>
         Request(name: nameof(Choice), run: _ => {
@@ -129,20 +127,141 @@ public static class UiIntent {
                 .ToFin(Fail: Op.Of(name: name).InvalidInput())
                 .Bind(valid => valid(arg: scope)),
             interactive: interactive);
-
-    public static UiIntent<Bitmap> MeshPreview(IEnumerable<Mesh> meshes, IEnumerable<DrawingColor> colors, Size size) =>
-        OfScope(scope => (Optional(meshes).ToFin(Fail: Op.Of(name: nameof(MeshPreview)).InvalidInput()), Optional(colors).ToFin(Fail: Op.Of(name: nameof(MeshPreview)).InvalidInput()))
-            .Apply(static (geometry, swatches) => (Meshes: geometry, Colors: swatches)).As()
-            .Bind(values => Optional(global::Rhino.UI.DrawingUtilities.CreateMeshPreviewImage(doc: scope.Document, meshes: values.Meshes, colors: values.Colors, size: size)).ToFin(Fail: Op.Of(name: nameof(MeshPreview)).InvalidResult())));
-
-    public static UiIntent<Seq<Point2f[]>> CurvePreview(Curve curve, Linetype linetype, Size size) =>
-        OfScope(_ => Optional(global::Rhino.UI.DrawingUtilities.CreateCurvePreviewGeometry(curve: curve, linetype: linetype, width: size.Width, height: size.Height)).ToFin(Fail: Op.Of(name: nameof(CurvePreview)).InvalidResult()).Map(static result => toSeq(result)));
-
-    public static UiIntent<Bitmap> IconPreview(string resourceName, Size size, System.Reflection.Assembly assembly) =>
-        OfScope(_ => (string.IsNullOrWhiteSpace(value: resourceName), Optional(assembly).Case) switch { (false, System.Reflection.Assembly validAssembly) => Optional(global::Rhino.UI.DrawingUtilities.BitmapFromIconResource(resourceName, size, validAssembly)).ToFin(Fail: Op.Of(name: nameof(IconPreview)).InvalidResult()), _ => Fin.Fail<Bitmap>(error: Op.Of(name: nameof(IconPreview)).InvalidInput()) });
-
-    public static UiIntent<Seq<global::Rhino.UI.NamedColor>> NamedColors(global::Rhino.UI.NamedColorList? source = null) =>
-        OfScope(_ => Fin.Succ(value: toSeq(Optional(source).IfNone(global::Rhino.UI.NamedColorList.Default))));
 }
 
-public readonly record struct UiColorSpec(Color4f Initial, Option<global::Rhino.UI.NamedColorList> Named = default);
+public sealed record UiPreview<T> {
+    private readonly string name;
+    private readonly Func<RhinoUi.Scope, Fin<T>> run;
+
+    internal UiPreview(string name, Func<RhinoUi.Scope, Fin<T>> run, bool interactive) =>
+        (this.name, this.run, Interactive) = (name, run, interactive);
+
+    internal bool Interactive { get; }
+
+    internal Fin<T> Run(RhinoUi.Scope scope) =>
+        Optional(run)
+            .ToFin(Fail: Op.Of(name: name).InvalidInput())
+            .Bind(valid => valid(arg: scope));
+}
+
+public static class UiPreview {
+    public static UiPreview<T> Of<T>(string name, Func<RhinoDoc, RunMode, Fin<T>> run, bool interactive = false) {
+        string operation = string.IsNullOrWhiteSpace(value: name) switch {
+            false => name,
+            true => nameof(UiPreview),
+        };
+        return new(
+            name: operation,
+            run: scope => Optional(run)
+                .ToFin(Fail: Op.Of(name: operation).InvalidInput())
+                .Bind(valid => valid(arg1: scope.Document, arg2: scope.Mode)),
+            interactive: interactive);
+    }
+
+    public static UiPreview<DrawingBitmap> Mesh(IEnumerable<Mesh> meshes, DrawingSize size, IEnumerable<DrawingColor>? colors = null) =>
+        Of(
+            name: nameof(Mesh),
+            run: (document, _) =>
+                (Optional(meshes).ToFin(Fail: Op.Of(name: nameof(Mesh)).InvalidInput()).Bind(static source => toSeq(source).TraverseM(mesh => Optional(mesh).ToFin(Fail: Op.Of(name: nameof(Mesh)).InvalidInput())).As()),
+                 Optional(colors).Map(static source => toSeq(source)).IfNone(Seq<DrawingColor>()).TraverseM(static color => color.IsEmpty switch {
+                     false => Fin.Succ(value: color),
+                     true => Fin.Fail<DrawingColor>(error: Op.Of(name: nameof(Mesh)).InvalidInput()),
+                 }).As())
+                .Apply(static (geometry, swatches) => (Meshes: geometry, Colors: swatches))
+                .As()
+                .Bind(values =>
+                    from _ in guard(!values.Meshes.IsEmpty && size.Width > 0 && size.Height > 0, Op.Of(name: nameof(Mesh)).InvalidInput())
+                    from colors in values.Colors.Count switch {
+                        0 => Fin.Succ(value: values.Meshes.Map(_ => document.CreateDefaultAttributes().DrawColor(document))),
+                        1 => Fin.Succ(value: values.Meshes.Map(_ => values.Colors[0])),
+                        int count when count == values.Meshes.Count => Fin.Succ(value: values.Colors),
+                        _ => Fin.Fail<Seq<DrawingColor>>(error: Op.Of(name: nameof(Mesh)).InvalidInput()),
+                    }
+                    from bitmap in Optional(global::Rhino.UI.DrawingUtilities.CreateMeshPreviewImage(doc: document, meshes: values.Meshes, colors: colors, size: size))
+                        .ToFin(Fail: Op.Of(name: nameof(Mesh)).InvalidResult())
+                    select bitmap));
+
+    public static UiPreview<Seq<Point2f[]>> Curve(Curve curve, Linetype linetype, DrawingSize size) =>
+        Of(
+            name: nameof(Curve),
+            run: (_, _) =>
+                (Optional(curve).ToFin(Fail: Op.Of(name: nameof(Curve)).InvalidInput()),
+                 Optional(linetype).ToFin(Fail: Op.Of(name: nameof(Curve)).InvalidInput()))
+                .Apply(static (validCurve, validLinetype) => (Curve: validCurve, Linetype: validLinetype))
+                .As()
+                .Bind(values =>
+                    from _ in guard(size.Width > 0 && size.Height > 0, Op.Of(name: nameof(Curve)).InvalidInput())
+                    from preview in Optional(global::Rhino.UI.DrawingUtilities.CreateCurvePreviewGeometry(curve: values.Curve, linetype: values.Linetype, width: size.Width, height: size.Height))
+                        .ToFin(Fail: Op.Of(name: nameof(Curve)).InvalidResult())
+                    select toSeq(preview)));
+
+    public static UiPreview<DrawingBitmap> Icon(string resourceName, DrawingSize size, Assembly assembly) =>
+        Of(
+            name: nameof(Icon),
+            run: (_, _) =>
+                from name in Optional(resourceName).ToFin(Fail: Op.Of(name: nameof(Icon)).InvalidInput())
+                    .Bind(static value => string.IsNullOrWhiteSpace(value: value) switch {
+                        false => Fin.Succ(value: value),
+                        true => Fin.Fail<string>(error: Op.Of(name: nameof(Icon)).InvalidInput()),
+                    })
+                from validAssembly in Optional(assembly).ToFin(Fail: Op.Of(name: nameof(Icon)).InvalidInput())
+                from _ in guard(size.Width > 0 && size.Height > 0, Op.Of(name: nameof(Icon)).InvalidInput())
+                from bitmap in Optional(global::Rhino.UI.DrawingUtilities.BitmapFromIconResource(name, size, validAssembly))
+                    .ToFin(Fail: Op.Of(name: nameof(Icon)).InvalidResult())
+                select bitmap);
+
+    public static UiPreview<DrawingBitmap> Svg(string svg, int width, int height) =>
+        Of(
+            name: nameof(Svg),
+            run: (_, _) =>
+                from source in Optional(svg).ToFin(Fail: Op.Of(name: nameof(Svg)).InvalidInput())
+                    .Bind(static value => string.IsNullOrWhiteSpace(value: value) switch {
+                        false => Fin.Succ(value: value),
+                        true => Fin.Fail<string>(error: Op.Of(name: nameof(Svg)).InvalidInput()),
+                    })
+                from _ in guard(width > 0 && height > 0, Op.Of(name: nameof(Svg)).InvalidInput())
+                from bitmap in Optional(global::Rhino.UI.DrawingUtilities.BitmapFromSvg(svg: source, width: width, height: height, adjustForDarkMode: global::Rhino.Runtime.HostUtils.RunningInDarkMode))
+                    .ToFin(Fail: Op.Of(name: nameof(Svg)).InvalidResult())
+                select bitmap);
+
+    public static UiPreview<Seq<global::Rhino.UI.NamedColor>> NamedColors(Option<global::Rhino.UI.NamedColorList> source = default) =>
+        Of(
+            name: nameof(NamedColors),
+            run: (_, _) => Fin.Succ(value: toSeq(source.IfNone(global::Rhino.UI.NamedColorList.Default))));
+
+    public static UiPreview<Color4f> Color(UiColorSpec spec, bool allowAlpha = false) =>
+        Of(
+            name: nameof(Color),
+            run: (document, _) => {
+                Color4f color = spec.Initial;
+                global::Rhino.UI.NamedColorList? named = spec.Named.Case switch {
+                    global::Rhino.UI.NamedColorList value => value,
+                    _ => null,
+                };
+                return global::Rhino.UI.Dialogs.ShowColorDialog(parent: RhinoUi.Parent(document: document), color: ref color, allowAlpha: allowAlpha, namedColorList: named, colorCallback: spec.Changed) switch {
+                    true => Fin.Succ(value: color),
+                    false => Fin.Fail<Color4f>(error: new Fault.Cancelled()),
+                };
+            },
+            interactive: true);
+
+    public static UiPreview<T> Viewport<T>(UiViewportPreview preview, Func<UiPreviewScope, Fin<T>> run, Option<UiGumballSpec> gumball = default) =>
+        Of(
+            name: nameof(Viewport),
+            run: (document, _) => UiViewportPreview.Use(document: document, preview: preview, gumball: gumball, run: run),
+            interactive: true);
+}
+
+public readonly record struct UiMessageSpec(
+    string Message,
+    string Title = "Rasm",
+    global::Rhino.UI.ShowMessageButton Buttons = default,
+    global::Rhino.UI.ShowMessageIcon Icon = default,
+    global::Rhino.UI.ShowMessageDefaultButton DefaultButton = default,
+    global::Rhino.UI.ShowMessageOptions Options = default,
+    global::Rhino.UI.ShowMessageMode Mode = default);
+
+public readonly record struct UiColorSpec(
+    Color4f Initial,
+    Option<global::Rhino.UI.NamedColorList> Named = default,
+    global::Rhino.UI.Dialogs.OnColorChangedEvent? Changed = null);

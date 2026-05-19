@@ -5,6 +5,13 @@ namespace Rasm.Rhino.UI;
 public enum PagePhase { Apply, Cancel, Activate, Script, Display, Update }
 
 public readonly record struct PageContext(PagePhase Phase, bool Active = false, RhinoDoc? Document = null, RunMode Mode = RunMode.Interactive, global::Rhino.UI.ObjectPropertiesPageEventArgs? Args = null) {
+    public Option<uint> EventSerialNumber => Optional(Args).Map(static args => args.EventRuntimeSerialNumber);
+    public Option<uint> DocumentSerialNumber => Optional(Args).Map(static args => args.DocRuntimeSerialNumber);
+    public Option<RhinoView> View => Optional(Args).Bind(static args => Optional(args.View));
+    public Option<RhinoViewport> Viewport => Optional(Args).Bind(static args => Optional(args.Viewport));
+    public int ObjectCount => Optional(Args).Map(static args => args.ObjectCount).IfNone(0);
+    public ObjectType ObjectTypes => Optional(Args).Map(static args => (ObjectType)args.ObjectTypes).IfNone(ObjectType.None);
+
     public Fin<RhinoDoc> RequireDocument() =>
         (Document, Args) switch {
             (RhinoDoc document, _) => Fin.Succ(value: document),
@@ -13,6 +20,7 @@ public readonly record struct PageContext(PagePhase Phase, bool Active = false, 
         };
 
     public Fin<Seq<TObject>> Objects<TObject>() where TObject : RhinoObject => Optional(Args).ToFin(Fail: Op.Of(name: nameof(Objects)).InvalidInput()).Map(static args => toSeq(args.GetObjects<TObject>()));
+    public Fin<Seq<RhinoObject>> Objects(ObjectType filter) => Optional(Args).ToFin(Fail: Op.Of(name: nameof(Objects)).InvalidInput()).Map(args => toSeq(args.GetObjects(filter: filter)));
     public Fin<Seq<Guid>> ObjectIds() => Objects<RhinoObject>().Map(static objects => objects.Map(static value => value.Id));
 }
 
@@ -77,9 +85,15 @@ public abstract class RasmPropertiesPage : global::Rhino.UI.ObjectPropertiesPage
         }));
 
     protected virtual Fin<Result> Change(PageContext context) =>
-        context.Phase == PagePhase.Display
-            ? Optional(context.Args).ToFin(Fail: Op.Of(name: nameof(Change)).InvalidInput()).Map(valid => valid.IncludesObjectsType(objectTypes: SupportedTypes, allMustMatch: AllObjectsMustBeSupported) ? Result.Success : Result.Cancel)
-            : Fin.Succ(value: Result.Success);
+        context.Phase switch {
+            PagePhase.Display => Optional(context.Args)
+                .ToFin(Fail: Op.Of(name: nameof(Change)).InvalidInput())
+                .Map(valid => valid.IncludesObjectsType(objectTypes: SupportedTypes, allMustMatch: AllObjectsMustBeSupported) switch {
+                    true => Result.Success,
+                    false => Result.Cancel,
+                }),
+            _ => Fin.Succ(value: Result.Success),
+        };
 
     private Result ResultOf(PageContext context) => RhinoUi.Protect(valid: () => Change(context: context)).Match(Succ: static result => result, Fail: static _ => Result.Failure);
 }

@@ -63,6 +63,9 @@ public sealed record CommandSelection {
 
     public Fin<Seq<T>> Project<T>(Func<Reference, Fin<T>> project) => Optional(project).ToFin(Fail: Op.Of(name: nameof(Project)).InvalidInput()).Bind(valid => Items.TraverseM(reference => valid(arg: reference)).As());
 
+    public Fin<Seq<TGeometry>> Geometry<TGeometry>() where TGeometry : GeometryBase =>
+        Project(project: reference => reference.Geometry<TGeometry>(document: Document));
+
     public Fin<Reference> Single() =>
         Items.Count switch {
             1 => Fin.Succ(value: Items[0]),
@@ -188,5 +191,14 @@ public sealed record CommandSelection {
             SelectionViewRuntimeSerialNumber
                 .Bind(static serial => Optional(RhinoView.FromRuntimeSerialNumber(serialNumber: serial)))
                 .ToFin(Fail: Op.Of(name: nameof(View)).MissingContext());
+
+        public Fin<TGeometry> Geometry<TGeometry>(RhinoDoc document) where TGeometry : GeometryBase =>
+            Use(document: document, op: Op.Of(name: nameof(Geometry)), use: reference =>
+                Optional(reference.Geometry())
+                    .ToFin(Fail: Op.Of(name: nameof(Geometry)).InvalidResult())
+                    .Bind(static geometry => geometry switch {
+                        TGeometry typed => Fin.Succ(value: typed),
+                        _ => Fin.Fail<TGeometry>(error: Op.Of(name: nameof(Geometry)).InvalidResult()),
+                    }));
     }
 }

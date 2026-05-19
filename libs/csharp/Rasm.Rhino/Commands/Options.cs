@@ -75,6 +75,16 @@ public abstract record CommandOption {
         };
     }
 
+    public static CommandOption List<T>(string name, IEnumerable<T> values, Func<T, string> label, T selected, CommandOptionPolicy policy = default) {
+        Seq<T> source = Optional(values).Map(static items => toSeq(items)).IfNone(Seq<T>());
+        Option<int> index = toSeq(Enumerable.Range(start: 0, count: source.Count))
+            .Find(i => EqualityComparer<T>.Default.Equals(x: source[i], y: selected));
+        return (Optional(label).Case, index.Case) switch {
+            (Func<T, string> project, int current) => List(name: name, values: source, label: project, current: current, varies: policy.Varies),
+            _ => Invalid(name: name),
+        };
+    }
+
     private static Case NamedOption(string name, string? value = null, bool hidden = false, bool varies = false, Option<string> localName = default, Option<string> localValue = default) =>
         new(Name: name, AddToGetter: (getter, validName) => value switch {
             string v => ValidValue(value: v).Bind(valid => Added(getter: getter, index: (localName.Case, localValue.Case) switch {
@@ -106,6 +116,14 @@ public abstract record CommandOption {
             from nonEmpty in NonEmpty(values: valid)
             from index in ValidIndex(index: current, count: nonEmpty.Count, error: Op.Of(name: nameof(CommandOption)).InvalidInput())
             from bound in Added(getter: getter, index: getter.AddOptionList(validName, nonEmpty.AsIterable(), index), native: null, snapshot: g => SnapshotAt(name: validName, getter: g, values: nonEmpty), varies: varies)
+            select bound);
+    private static Case List<T>(string name, Seq<T> values, Func<T, string> label, int current = 0, bool varies = false) =>
+        new(Name: name, AddToGetter: (getter, validName) =>
+            from items in values.TraverseM(value => Optional(value).ToFin(Fail: Op.Of(name: nameof(CommandOption)).InvalidInput())).As()
+            from labels in items.TraverseM(value => Optional(label(arg: value)).ToFin(Fail: Op.Of(name: nameof(CommandOption)).InvalidInput()).Bind(ValidValue)).As()
+            from nonEmpty in NonEmpty(values: items)
+            from index in ValidIndex(index: current, count: items.Count, error: Op.Of(name: nameof(CommandOption)).InvalidInput())
+            from bound in Added(getter: getter, index: getter.AddOptionList(validName, labels.AsIterable(), index), native: null, snapshot: g => SnapshotAt(name: validName, getter: g, values: nonEmpty), varies: varies)
             select bound);
     private static Case EnumList<TEnum>(string name, TEnum initial, Seq<TEnum> values = default, bool varies = false) where TEnum : struct, Enum =>
         EnumOption(name: name, values: values, initial: Some(initial), current: Option<int>.None, varies: varies);
@@ -220,6 +238,10 @@ public abstract record CommandOption {
     private static Fin<CommandOptionValue> SnapshotAt(string name, GetBaseClass getter, Seq<string> values) =>
         from index in ValidIndex(index: getter.Option().CurrentListOptionIndex, count: values.Count, error: Op.Of(name: nameof(CommandOption)).InvalidResult())
         select Snapshot(name: name, getter: getter, value: Some((object)values[index]), listIndex: Some(index));
+
+    private static Fin<CommandOptionValue> SnapshotAt<T>(string name, GetBaseClass getter, Seq<T> values) =>
+        from index in ValidIndex(index: getter.Option().CurrentListOptionIndex, count: values.Count, error: Op.Of(name: nameof(CommandOption)).InvalidResult())
+        select Snapshot(name: name, getter: getter, value: Some((object)values[index]!), listIndex: Some(index));
 
     private static Fin<CommandOptionValue> SnapshotAt<TEnum>(string name, GetBaseClass getter, Seq<TEnum> values, bool selection) where TEnum : struct, Enum =>
         (selection switch {

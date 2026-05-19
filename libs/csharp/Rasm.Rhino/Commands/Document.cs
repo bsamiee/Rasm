@@ -29,6 +29,15 @@ public abstract record DocumentTarget {
             reference: value => value.Use(document: document, op: op, use: native => UnitResult(success: document.Objects.Replace(native, geometry, ignoreModes), op: op)),
             objects: ids => ReplaceIds(document: document, ids: ids, geometry: geometry, ignoreModes: ignoreModes, op: op));
 
+    internal Fin<Seq<Guid>> Ids(RhinoDoc document, Op op) =>
+        Use(document: document, op: op,
+            selection: static value => Fin.Succ(value: value.ObjectIds),
+            reference: value => value.Use(document: document, op: op, use: native => native.ObjectId switch {
+                Guid id when id != Guid.Empty => Fin.Succ(value: Seq(id)),
+                _ => Fin.Fail<Seq<Guid>>(error: op.InvalidResult()),
+            }),
+            objects: static ids => Fin.Succ(value: ids));
+
     internal abstract Fin<T> Use<T>(RhinoDoc document, Op op, Func<CommandSelection, Fin<T>> selection, Func<CommandSelection.Reference, Fin<T>> reference, Func<Seq<Guid>, Fin<T>> objects);
 
     private sealed record SelectionTarget(CommandSelection Value) : DocumentTarget {
@@ -46,7 +55,13 @@ public abstract record DocumentTarget {
     private static Fin<Seq<Guid>> TargetIds(IEnumerable<Guid> ids, Op op) =>
         Optional(ids)
             .ToFin(Fail: op.InvalidInput())
-            .Bind(values => toSeq(values).Filter(static id => id != Guid.Empty).Distinct() switch {
+            .Bind(values => toSeq(values)
+                .TraverseM(id => id switch {
+                    Guid value when value != Guid.Empty => Fin.Succ(value: value),
+                    _ => Fin.Fail<Guid>(error: op.InvalidInput()),
+                })
+                .As())
+            .Bind(values => values.Distinct() switch {
                 Seq<Guid> target when !target.IsEmpty => Fin.Succ(value: target),
                 _ => Fin.Fail<Seq<Guid>>(error: op.InvalidInput()),
             });
@@ -153,6 +168,26 @@ public sealed record DocumentEdit {
         from result in valid.Select(document: document, selected: selected, op: Op.Of(name: nameof(Select)))
         select result;
 
+    public Fin<int> Hide(DocumentTarget target, bool hidden = true) =>
+        from document in Available(op: Op.Of(name: nameof(Hide)))
+        from valid in Optional(target).ToFin(Fail: Op.Of(name: nameof(Hide)).InvalidInput())
+        from ids in valid.Ids(document: document, op: Op.Of(name: nameof(Hide)))
+        from count in Mutate(document: document, name: nameof(Hide), run: () => ApplyState(ids: ids, document: document, op: Op.Of(name: nameof(Hide)), done: native => native.IsHidden == hidden, apply: id => hidden switch {
+            true => document.Objects.Hide(objectId: id, ignoreLayerMode: true),
+            false => document.Objects.Show(objectId: id, ignoreLayerMode: true),
+        }))
+        select count;
+
+    public Fin<int> Lock(DocumentTarget target, bool locked = true) =>
+        from document in Available(op: Op.Of(name: nameof(Lock)))
+        from valid in Optional(target).ToFin(Fail: Op.Of(name: nameof(Lock)).InvalidInput())
+        from ids in valid.Ids(document: document, op: Op.Of(name: nameof(Lock)))
+        from count in Mutate(document: document, name: nameof(Lock), run: () => ApplyState(ids: ids, document: document, op: Op.Of(name: nameof(Lock)), done: native => native.IsLocked == locked, apply: id => locked switch {
+            true => document.Objects.Lock(objectId: id, ignoreLayerMode: true),
+            false => document.Objects.Unlock(objectId: id, ignoreLayerMode: true),
+        }))
+        select count;
+
     public Fin<int> Reveal(DocumentTarget target) => from count in Select(target: target, selected: true) from _ in Redraw() select count;
 
     public Fin<int> UnselectAll(bool ignorePersistentSelections = false) =>
@@ -179,5 +214,16 @@ public sealed record DocumentEdit {
     private static Fin<T> Mutate<T>(RhinoDoc document, string name, Func<Fin<T>> run) => Optional(run).ToFin(Fail: Op.Of(name: name).InvalidInput()).Bind(valid => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => { uint undo = document.UndoRecordingIsActive switch { true => 0u, false => document.BeginUndoRecord(description: name) }; try { return valid(); } finally { _ = undo > 0u && document.EndUndoRecord(undoRecordSerialNumber: undo); } }));
 
     private static Fin<Guid> IdResult(Guid id, Op op) => id switch { Guid value when value != Guid.Empty => Fin.Succ(value: value), _ => Fin.Fail<Guid>(error: op.InvalidResult()) };
+
+    private static Fin<int> ApplyState(Seq<Guid> ids, RhinoDoc document, Op op, Func<RhinoObject, bool> done, Func<Guid, bool> apply) =>
+        ids.TraverseM(id => Optional(document.Objects.FindId(id))
+            .ToFin(Fail: op.InvalidResult())
+            .Bind(native => done(arg: native) switch {
+                true => Fin.Succ(value: false),
+                false => apply(arg: id) switch {
+                    true => Fin.Succ(value: true),
+                    false => Fin.Fail<bool>(error: op.InvalidResult()),
+                },
+            })).As().Map(static result => result.Filter(static changed => changed).Count);
 
 }

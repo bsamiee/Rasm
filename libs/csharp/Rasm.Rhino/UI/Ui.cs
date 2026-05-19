@@ -57,6 +57,7 @@ public sealed partial record RhinoUi {
 public readonly record struct UiStatus(
     Option<string> Prompt = default,
     Option<string> PromptDefault = default,
+    Option<string> CommandMessage = default,
     Option<string> Message = default,
     Option<double> Distance = default,
     Option<double> Number = default,
@@ -64,7 +65,7 @@ public readonly record struct UiStatus(
     bool ClearMessage = false) {
     public static UiStatus operator +(UiStatus left, UiStatus right) => Add(left: left, right: right);
     public static UiStatus Add(UiStatus left, UiStatus right) =>
-        new(Prompt: right.Prompt | left.Prompt, PromptDefault: right.PromptDefault | left.PromptDefault, Message: right.Message | left.Message, Distance: right.Distance | left.Distance, Number: right.Number | left.Number, Point: right.Point | left.Point, ClearMessage: left.ClearMessage || right.ClearMessage);
+        new(Prompt: right.Prompt | left.Prompt, PromptDefault: right.PromptDefault | left.PromptDefault, CommandMessage: right.CommandMessage | left.CommandMessage, Message: right.Message | left.Message, Distance: right.Distance | left.Distance, Number: right.Number | left.Number, Point: right.Point | left.Point, ClearMessage: left.ClearMessage || right.ClearMessage);
     public static UiStatus Add(params UiStatus[] statuses) =>
         Optional(statuses)
             .Map(static values => toSeq(values).Fold(initialState: new UiStatus(), f: static (state, value) => state + value))
@@ -78,7 +79,11 @@ public readonly record struct UiStatus(
                 (string prompt, _) => ((Func<Unit>)(() => { RhinoApp.SetCommandPrompt(prompt: prompt); return unit; }))(),
                 _ => unit,
             };
-            _ = status.ClearMessage ? ((Func<Unit>)(() => { global::Rhino.UI.StatusBar.ClearMessagePane(); return unit; }))() : unit;
+            _ = status.CommandMessage.Iter(static value => RhinoApp.SetCommandPromptMessage(prompt: value));
+            _ = status.ClearMessage switch {
+                true => ((Func<Unit>)(static () => { global::Rhino.UI.StatusBar.ClearMessagePane(); return unit; }))(),
+                false => unit,
+            };
             _ = status.Message.Iter(static value => global::Rhino.UI.StatusBar.SetMessagePane(message: value));
             _ = status.Distance.Iter(static value => global::Rhino.UI.StatusBar.SetDistancePane(distance: value));
             _ = status.Number.Iter(static value => global::Rhino.UI.StatusBar.SetNumberPane(number: value));

@@ -22,4 +22,10 @@ public sealed class RhinoCommandContext {
     public Fin<CommandGet<TValue>> Get<TValue>(params CommandInputPolicy[] policies) => Input.Get(request: CommandInputs.Get<TValue>(policies: policies));
 
     public Fin<RhinoView> View() => Optional(Document.Views.ActiveView).ToFin(Fail: Op.Of(name: nameof(View)).MissingContext());
+
+    public Fin<RhinoView> View(Guid mainViewportId) =>
+        mainViewportId switch {
+            Guid id when id != Guid.Empty => Optional(Document.Views.Find(mainViewportId: id)).ToFin(Fail: Op.Of(name: nameof(View)).MissingContext()),
+            _ => Fin.Fail<RhinoView>(error: Op.Of(name: nameof(View)).InvalidInput()),
+        };
 }

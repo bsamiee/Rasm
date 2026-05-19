@@ -1,10 +1,21 @@
+using DrawingColor = System.Drawing.Color;
+
 namespace Rasm.Rhino.UI;
 
 public enum OverlayPhase { Enabled, Cull, PreDrawObjects, PreDrawObject, Foreground, Overlay, PostDraw, Bounds, ZoomBounds }
 
-public readonly record struct OverlayContext<TState>(OverlayPhase Phase, TState State, object? Args = null, bool Enabled = false);
+public readonly record struct OverlayContext<TState>(OverlayPhase Phase, TState State, object? Args = null, bool Enabled = false) {
+    public Option<DrawEventArgs> Draw => Optional(Args as DrawEventArgs);
+    public Option<DrawForegroundEventArgs> Foreground => Optional(Args as DrawForegroundEventArgs);
+    public Option<DrawObjectEventArgs> DrawObject => Optional(Args as DrawObjectEventArgs);
+    public Option<CullObjectEventArgs> Cull => Optional(Args as CullObjectEventArgs);
+    public Option<CalculateBoundingBoxEventArgs> Bounds => Optional(Args as CalculateBoundingBoxEventArgs);
 
-public readonly record struct OverlayDecision(Option<BoundingBox> Bounds = default, Option<bool> Cull = default) {
+    public Fin<TArgs> Require<TArgs>() where TArgs : class =>
+        Optional(Args as TArgs).ToFin(Fail: Op.Of(name: nameof(Require)).InvalidInput());
+}
+
+public readonly record struct OverlayDecision(Option<BoundingBox> Bounds = default, Option<bool> Cull = default, Option<Func<DisplayPipeline, Fin<Unit>>> Draw = default) {
     public static OverlayDecision Ignore => new();
     public static Fin<OverlayDecision> Include(BoundingBox bounds) => bounds.IsValid switch { true => Fin.Succ(value: new OverlayDecision(Bounds: Some(bounds))), false => Fin.Fail<OverlayDecision>(error: Op.Of(name: nameof(OverlayDecision)).InvalidResult()) };
     public static Fin<OverlayDecision> Include(GeometryBase geometry) =>
@@ -15,13 +26,25 @@ public readonly record struct OverlayDecision(Option<BoundingBox> Bounds = defau
                 _ => Fin.Fail<OverlayDecision>(error: Op.Of(name: nameof(OverlayDecision)).InvalidResult()),
             });
     public static OverlayDecision CullObject(bool cull = true) => new(Cull: Some(cull));
+    public static Fin<OverlayDecision> Paint(Func<DisplayPipeline, Fin<Unit>> draw) =>
+        Optional(draw)
+            .ToFin(Fail: Op.Of(name: nameof(Paint)).InvalidInput())
+            .Map(static value => new OverlayDecision(Draw: Some(value)));
     public static OverlayDecision operator +(OverlayDecision left, OverlayDecision right) => Add(left: left, right: right);
-    public static OverlayDecision Add(OverlayDecision left, OverlayDecision right) => new(Bounds: (left.Bounds.Case, right.Bounds.Case) switch { (BoundingBox a, BoundingBox b) => Some(BoundingBox.Union(a, b)), (_, BoundingBox b) => Some(b), (BoundingBox a, _) => Some(a), _ => Option<BoundingBox>.None }, Cull: right.Cull | left.Cull);
+    public static OverlayDecision Add(OverlayDecision left, OverlayDecision right) => new(
+        Bounds: (left.Bounds.Case, right.Bounds.Case) switch { (BoundingBox a, BoundingBox b) => Some(BoundingBox.Union(a, b)), (_, BoundingBox b) => Some(b), (BoundingBox a, _) => Some(a), _ => Option<BoundingBox>.None },
+        Cull: right.Cull | left.Cull,
+        Draw: (left.Draw.Case, right.Draw.Case) switch {
+            (Func<DisplayPipeline, Fin<Unit>> a, Func<DisplayPipeline, Fin<Unit>> b) => Some<Func<DisplayPipeline, Fin<Unit>>>(pipeline => a(arg: pipeline).Bind(_ => b(arg: pipeline))),
+            (_, Func<DisplayPipeline, Fin<Unit>> b) => Some(b),
+            (Func<DisplayPipeline, Fin<Unit>> a, _) => Some(a),
+            _ => Option<Func<DisplayPipeline, Fin<Unit>>>.None,
+        });
 }
 
 public readonly record struct OverlayFilter(Option<ObjectType> Geometry = default, Option<ActiveSpace> Space = default, Seq<Guid> ObjectIds = default, Option<(bool On, bool CheckSubObjects)> Selection = default, Option<(RhinoViewport Viewport, bool Exclusive)> Viewport = default, bool Unbind = false) {
     internal Fin<Unit> Apply(DisplayConduit conduit) {
-        Option<ObjectType> geometry = Geometry; Option<ActiveSpace> space = Space; Seq<Guid> objectIds = ObjectIds; Option<(bool On, bool CheckSubObjects)> selection = Selection; Option<(RhinoViewport Viewport, bool Exclusive)> viewport = Viewport;
+        Option<ObjectType> geometry = Geometry; Option<ActiveSpace> space = Space; Seq<Guid> objectIds = ObjectIds.Filter(static id => id != Guid.Empty).Distinct(); Option<(bool On, bool CheckSubObjects)> selection = Selection; Option<(RhinoViewport Viewport, bool Exclusive)> viewport = Viewport;
         bool unbind = Unbind;
         return Optional(conduit)
             .ToFin(Fail: Op.Of(name: nameof(OverlayFilter)).InvalidInput())
@@ -29,7 +52,10 @@ public readonly record struct OverlayFilter(Option<ObjectType> Geometry = defaul
                 _ = geometry.Iter(value => valid.GeometryFilter = value);
                 _ = space.Iter(value => valid.SpaceFilter = value);
                 _ = selection.Iter(value => valid.SetSelectionFilter(on: value.On, checkSubObjects: value.CheckSubObjects));
-                _ = Do(action: () => valid.SetObjectIdFilter(ids: objectIds.AsIterable()));
+                _ = objectIds.IsEmpty switch {
+                    false => Do(action: () => valid.SetObjectIdFilter(ids: objectIds.AsIterable())),
+                    true => unit,
+                };
                 _ = unbind switch {
                     true => Do(action: valid.UnbindAll),
                     false => viewport.Map(value => {
@@ -136,11 +162,180 @@ public abstract class RasmOverlay<TState>(TState initial) : DisplayConduit, IDis
         _ = Apply(phase: OverlayPhase.ZoomBounds, args: e);
 
     private Fin<Unit> Apply(OverlayPhase phase, object? args, bool enabled = false) =>
-        RhinoUi.Protect(valid: () => Change(context: new OverlayContext<TState>(Phase: phase, State: State, Args: args, Enabled: enabled))).Map(decision => {
+        RhinoUi.Protect(valid: () => Change(context: new OverlayContext<TState>(Phase: phase, State: State, Args: args, Enabled: enabled))).Bind(decision => ((Optional(args as DrawEventArgs).Case, decision.Draw.Case) switch {
+            (DrawEventArgs target, Func<DisplayPipeline, Fin<Unit>> paint) => paint(arg: target.Display),
+            _ => Fin.Succ(value: unit),
+        }).Map(_ => {
             _ = Optional(args as CalculateBoundingBoxEventArgs).Iter(target => decision.Bounds.Iter(box => target.IncludeBoundingBox(box)));
             _ = Optional(args as CullObjectEventArgs).Iter(target => decision.Cull.Iter(value => target.CullObject = value));
             return unit;
-        });
+        }));
+}
+
+public readonly record struct UiPreviewStyle(
+    Option<DrawingColor> Stroke = default,
+    Option<DisplayMaterial> Material = default,
+    int Thickness = 2,
+    int WireDensity = 0,
+    float PointRadius = 4f,
+    PointStyle PointStyle = PointStyle.Simple,
+    double Transparency = 0.55) {
+    internal DrawingColor StrokeOrDefault => Stroke.IfNone(DrawingColor.FromArgb(alpha: 220, red: 32, green: 156, blue: 238));
+    internal DisplayMaterial MaterialOrDefault {
+        get {
+            Option<DisplayMaterial> material = Material;
+            DrawingColor stroke = StrokeOrDefault;
+            double transparency = Transparency;
+            return material.IfNone(() => new DisplayMaterial(diffuse: stroke, transparency: transparency));
+        }
+    }
+
+    internal Unit Draw(DisplayPipeline display, GeometryBase geometry) {
+        DrawingColor stroke = StrokeOrDefault;
+        DisplayMaterial material = MaterialOrDefault;
+        int thickness = Thickness;
+        int wireDensity = WireDensity;
+        float pointRadius = PointRadius;
+        PointStyle pointStyle = PointStyle;
+        return geometry switch {
+            Mesh mesh => Effect(action: () => { display.DrawMeshShaded(mesh: mesh, material: material); display.DrawMeshWires(mesh: mesh, color: stroke, thickness: thickness); }),
+            Brep brep => Effect(action: () => { display.DrawBrepShaded(brep: brep, material: material); display.DrawBrepWires(brep: brep, color: stroke, wireDensity: wireDensity); }),
+            Curve curve => Effect(action: () => display.DrawCurve(curve: curve, color: stroke, thickness: thickness)),
+            Extrusion extrusion => Effect(action: () => display.DrawExtrusionWires(extrusion: extrusion, color: stroke, wireDensity: wireDensity)),
+            Surface surface => Effect(action: () => display.DrawSurface(surface: surface, wireColor: stroke, wireDensity: wireDensity)),
+            Point point => Effect(action: () => display.DrawPoint(point: point.Location, style: pointStyle, radius: pointRadius, color: stroke)),
+            PointCloud cloud => Effect(action: () => display.DrawPointCloud(cloud: cloud, size: pointRadius, color: stroke)),
+            SubD subd => Effect(action: () => { display.DrawSubDShaded(subd: subd, material: material); display.DrawSubDWires(subd: subd, color: stroke, thickness: thickness); }),
+            _ => unit,
+        };
+    }
+
+    private static Unit Effect(Action action) {
+        action();
+        return unit;
+    }
+}
+
+public readonly record struct UiPreviewContext(
+    RhinoDoc Document,
+    OverlayPhase Phase,
+    RhinoViewport Viewport,
+    DisplayPipeline Display,
+    Option<UiGumballSnapshot> Gumball);
+
+public readonly record struct UiPreviewScope(
+    RhinoDoc Document,
+    RasmOverlay<UiViewportPreview> Overlay,
+    Option<UiGumball> Gumball) {
+    public Fin<Unit> Set(UiViewportPreview preview) {
+        RasmOverlay<UiViewportPreview> overlay = Overlay;
+        RhinoDoc document = Document;
+        return Optional(preview)
+            .ToFin(Fail: Op.Of(name: nameof(Set)).InvalidInput())
+            .Bind(valid => valid.Validate().Map(_ => valid))
+            .Bind(valid => overlay.Transition(transition: _ => valid, document: document));
+    }
+}
+
+public sealed record UiViewportPreview {
+    private readonly Func<UiPreviewContext, Fin<Unit>> draw;
+    private readonly Func<Fin<OverlayDecision>> bounds;
+    private readonly Func<Fin<Unit>> validate;
+
+    private UiViewportPreview(Func<UiPreviewContext, Fin<Unit>> draw, Func<Fin<OverlayDecision>> bounds, Func<Fin<Unit>> validate) {
+        this.draw = draw;
+        this.bounds = bounds;
+        this.validate = validate;
+    }
+
+    public static UiViewportPreview Empty { get; } =
+        new(draw: _ => Fin.Succ(value: unit), bounds: static () => Fin.Succ(value: OverlayDecision.Ignore), validate: static () => Fin.Succ(value: unit));
+
+    public static UiViewportPreview Of(IEnumerable<GeometryBase> geometry, UiPreviewStyle style = default) {
+        Fin<Seq<GeometryBase>> items = Optional(geometry)
+            .ToFin(Fail: Op.Of(name: nameof(UiViewportPreview)).InvalidInput())
+            .Bind(static source => toSeq(source).TraverseM(item => Optional(item)
+                .ToFin(Fail: Op.Of(name: nameof(UiViewportPreview)).InvalidInput())
+                .Bind(static value => value switch {
+                    Mesh or Brep or Curve or Extrusion or Surface or Point or PointCloud or SubD => Fin.Succ(value: value),
+                    _ => Fin.Fail<GeometryBase>(error: Op.Of(name: nameof(UiViewportPreview)).InvalidInput()),
+                })).As())
+            .Bind(static values => values.IsEmpty switch {
+                false => Fin.Succ(value: values),
+                true => Fin.Fail<Seq<GeometryBase>>(error: Op.Of(name: nameof(UiViewportPreview)).InvalidInput()),
+            });
+        return new(
+            draw: context => context.Phase switch {
+                OverlayPhase.PostDraw => from active in items
+                                         from display in Optional(context.Display).ToFin(Fail: Op.Of(name: nameof(UiViewportPreview)).InvalidInput())
+                                         select active.Iter(item => style.Draw(display: display, geometry: item)),
+                _ => Fin.Succ(value: unit),
+            },
+            bounds: () => from active in items
+                          from decision in active
+                .TraverseM(static item => OverlayDecision.Include(geometry: item))
+                .As()
+                .Map(static decisions => decisions.Fold(OverlayDecision.Ignore, static (state, decision) => state + decision))
+                          select decision,
+            validate: () => items.Map(static _ => unit));
+    }
+
+    public static UiViewportPreview Draw(Func<UiPreviewContext, Fin<Unit>> draw, Func<Fin<OverlayDecision>> bounds) =>
+        new(
+            draw: context => Optional(draw).ToFin(Fail: Op.Of(name: nameof(Draw)).InvalidInput()).Bind(valid => valid(arg: context)),
+            bounds: () => Optional(bounds).ToFin(Fail: Op.Of(name: nameof(Draw)).InvalidInput()).Bind(valid => valid()),
+            validate: () => Optional(draw)
+                .ToFin(Fail: Op.Of(name: nameof(Draw)).InvalidInput())
+                .Bind(_ => Optional(bounds).ToFin(Fail: Op.Of(name: nameof(Draw)).InvalidInput()))
+                .Map(static _ => unit));
+
+    public static UiViewportPreview Add(UiViewportPreview left, UiViewportPreview right) =>
+        (Optional(left).IfNone(Empty), Optional(right).IfNone(Empty)) switch {
+            (UiViewportPreview a, UiViewportPreview b) => new(
+                draw: context => a.Draw(context: context).Bind(_ => b.Draw(context: context)),
+                bounds: () => from first in a.Bounds() from second in b.Bounds() select first + second,
+                validate: () => a.Validate().Bind(_ => b.Validate())),
+        };
+
+    public static UiViewportPreview operator +(UiViewportPreview left, UiViewportPreview right) =>
+        Add(left: left, right: right);
+
+    internal Fin<Unit> Draw(UiPreviewContext context) => draw(arg: context);
+    internal Fin<OverlayDecision> Bounds() => bounds();
+    internal Fin<Unit> Validate() => validate();
+
+    internal static Fin<T> Use<T>(RhinoDoc document, UiViewportPreview preview, Option<UiGumballSpec> gumball, Func<UiPreviewScope, Fin<T>> run) =>
+        from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput())
+        from validPreview in Optional(preview).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput()).Bind(valid => valid.Validate().Map(_ => valid))
+        from validRun in Optional(run).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput())
+        from result in gumball.Case switch {
+            UiGumballSpec spec => UiGumball.Use(
+                document: validDocument,
+                spec: spec,
+                run: active => new Conduit(document: validDocument, initial: validPreview, gumball: () => Some(active.Snapshot)).Use(
+                    document: validDocument,
+                    run: overlay => validRun(arg: new UiPreviewScope(Document: validDocument, Overlay: overlay, Gumball: Some(active))))),
+            _ => new Conduit(document: validDocument, initial: validPreview, gumball: static () => Option<UiGumballSnapshot>.None).Use(
+                document: validDocument,
+                run: overlay => validRun(arg: new UiPreviewScope(Document: validDocument, Overlay: overlay, Gumball: Option<UiGumball>.None))),
+        }
+        select result;
+
+    private sealed class Conduit(RhinoDoc document, UiViewportPreview initial, Func<Option<UiGumballSnapshot>> gumball) : RasmOverlay<UiViewportPreview>(initial) {
+        protected override Fin<OverlayDecision> Change(OverlayContext<UiViewportPreview> context) =>
+            context.Phase switch {
+                OverlayPhase.Bounds or OverlayPhase.ZoomBounds => context.State.Bounds(),
+                OverlayPhase.PostDraw or OverlayPhase.Foreground or OverlayPhase.Overlay =>
+                    context.Require<DrawEventArgs>()
+                        .Bind(args => OverlayDecision.Paint(draw: display => context.State.Draw(context: new UiPreviewContext(
+                            Document: document,
+                            Phase: context.Phase,
+                            Viewport: args.Viewport,
+                            Display: display,
+                            Gumball: gumball())))),
+                _ => Fin.Succ(value: OverlayDecision.Ignore),
+            };
+    }
 }
 
 public readonly record struct UiGumballSnapshot(

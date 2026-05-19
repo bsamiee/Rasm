@@ -43,6 +43,14 @@ public sealed record PanelOp<TPanel, T> where TPanel : RasmPanel {
     internal Fin<T> Run(RhinoDoc? document) => run(arg: document);
 }
 
+public readonly record struct PanelSnapshot<TPanel>(
+    Guid PanelId,
+    bool Visible,
+    bool Selected,
+    Seq<TPanel> Instances,
+    Seq<Guid> OpenPanelIds,
+    Seq<Guid> DockBarIds) where TPanel : RasmPanel;
+
 public static class PanelOp {
     public static PanelOp<TPanel, Unit> Register<TPanel>(
         global::Rhino.PlugIns.PlugIn plugin,
@@ -81,7 +89,7 @@ public static class PanelOp {
             }),
             interactive: true);
 
-    public static PanelOp<TPanel, (Guid PanelId, bool Visible, Seq<TPanel> Instances, Seq<Guid> OpenPanelIds)> Show<TPanel>(bool selected = true) where TPanel : RasmPanel =>
+    public static PanelOp<TPanel, PanelSnapshot<TPanel>> Show<TPanel>(bool selected = true) where TPanel : RasmPanel =>
         new(
             run: document =>
                 from _ in Open<TPanel>(selected: selected).Run(document: document)
@@ -103,13 +111,17 @@ public static class PanelOp {
             })),
             interactive: true);
 
-    public static PanelOp<TPanel, (Guid PanelId, bool Visible, Seq<TPanel> Instances, Seq<Guid> OpenPanelIds)> Snapshot<TPanel>() where TPanel : RasmPanel =>
+    public static PanelOp<TPanel, PanelSnapshot<TPanel>> Snapshot<TPanel>() where TPanel : RasmPanel =>
         new(run: document =>
             from panel in RasmPanel.PanelIdentityOf<TPanel>()
             from doc in Optional(document).ToFin(Fail: Op.Of(name: nameof(Snapshot)).InvalidInput())
-            from snapshot in RhinoUi.Protect(valid: () => toSeq(global::Rhino.UI.Panels.GetPanels<TPanel>(doc)) switch {
-                Seq<TPanel> instances => Fin.Succ(value: (PanelId: panel.Id, Visible: instances.Exists(static instance => instance.Visible), Instances: instances, OpenPanelIds: toSeq(global::Rhino.UI.Panels.GetOpenPanelIds()))),
-            })
+            from snapshot in RhinoUi.Protect(valid: () => Fin.Succ(value: new PanelSnapshot<TPanel>(
+                PanelId: panel.Id,
+                Visible: global::Rhino.UI.Panels.IsPanelVisible(panelType: panel.Type),
+                Selected: global::Rhino.UI.Panels.IsPanelVisible(panelType: panel.Type, isSelectedTab: true),
+                Instances: toSeq(global::Rhino.UI.Panels.GetPanels<TPanel>(doc)),
+                OpenPanelIds: toSeq(global::Rhino.UI.Panels.GetOpenPanelIds()),
+                DockBarIds: toSeq(global::Rhino.UI.Panels.PanelDockBars(panelId: panel.Id)))))
             select snapshot,
             interactive: false);
 

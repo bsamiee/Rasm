@@ -84,9 +84,10 @@ public sealed record CommandInputPolicy {
         Option<Scalar> scalar = default,
         Option<LimitSpec> bounds = default,
         Option<BoxSpec> box = default,
+        Option<ObjectType> objectTypes = default,
         Option<string> prompt = default,
         bool literalText = false) {
-        BaseActions = baseActions; ObjectActions = objectActions; PointActions = pointActions; OptionList = options; ObjectRange = objects; PointMode = point; ScalarMode = scalar; LimitsMode = bounds; BoxMode = box; PromptText = prompt; IsLiteralText = literalText;
+        BaseActions = baseActions; ObjectActions = objectActions; PointActions = pointActions; OptionList = options; ObjectRange = objects; PointMode = point; ScalarMode = scalar; LimitsMode = bounds; BoxMode = box; ObjectTypes = objectTypes; PromptText = prompt; IsLiteralText = literalText;
     }
 
     private Seq<Action<GetBaseClass>> BaseActions { get; }
@@ -98,6 +99,7 @@ public sealed record CommandInputPolicy {
     internal Option<Scalar> ScalarMode { get; }
     internal Option<LimitSpec> LimitsMode { get; }
     internal Option<BoxSpec> BoxMode { get; }
+    internal Option<ObjectType> ObjectTypes { get; }
     internal Option<string> PromptText { get; }
     internal bool IsLiteralText { get; }
     internal bool AcceptsNothing => BaseActions.Exists(static action => ReferenceEquals(objA: action, objB: AcceptNothingAction));
@@ -120,7 +122,11 @@ public sealed record CommandInputPolicy {
     public static CommandInputPolicy AcceptNothing() => Configure(apply: AcceptNothingAction);
     public static CommandInputPolicy AcceptUndo() => Configure(apply: AcceptUndoAction);
     public static CommandInputPolicy Options(params CommandOption[] values) => new(options: toSeq(values));
-    public static CommandInputPolicy Objects(int minimum = 1, int maximum = 1) => new(objects: Some((Min: minimum, Max: maximum)));
+    public static CommandInputPolicy Objects(int minimum = 1, int maximum = 1, ObjectType types = ObjectType.AnyObject) =>
+        new(objects: Some((Min: minimum, Max: maximum)), objectTypes: types switch {
+            ObjectType.AnyObject => Option<ObjectType>.None,
+            _ => Some(types),
+        });
     public static CommandInputPolicy Point(
         bool onMouseUp = false,
         bool twoDimensional = false,
@@ -144,7 +150,7 @@ public sealed record CommandInputPolicy {
     public static CommandInputPolicy Add(CommandInputPolicy left, CommandInputPolicy right) {
         ArgumentNullException.ThrowIfNull(argument: left);
         ArgumentNullException.ThrowIfNull(argument: right);
-        return new(baseActions: left.BaseActions + right.BaseActions, objectActions: left.ObjectActions + right.ObjectActions, pointActions: left.PointActions + right.PointActions, options: left.OptionList + right.OptionList, objects: Pick(left.ObjectRange, right.ObjectRange), point: Pick(left.PointMode, right.PointMode), scalar: Pick(left.ScalarMode, right.ScalarMode), bounds: Pick(left.LimitsMode, right.LimitsMode), box: Pick(left.BoxMode, right.BoxMode), prompt: Pick(left.PromptText, right.PromptText), literalText: left.IsLiteralText || right.IsLiteralText);
+        return new(baseActions: left.BaseActions + right.BaseActions, objectActions: left.ObjectActions + right.ObjectActions, pointActions: left.PointActions + right.PointActions, options: left.OptionList + right.OptionList, objects: Pick(left.ObjectRange, right.ObjectRange), point: Pick(left.PointMode, right.PointMode), scalar: Pick(left.ScalarMode, right.ScalarMode), bounds: Pick(left.LimitsMode, right.LimitsMode), box: Pick(left.BoxMode, right.BoxMode), objectTypes: Pick(left.ObjectTypes, right.ObjectTypes), prompt: Pick(left.PromptText, right.PromptText), literalText: left.IsLiteralText || right.IsLiteralText);
     }
 
     internal static CommandInputPolicy Merge(Seq<CommandInputPolicy> policies) =>
@@ -153,7 +159,7 @@ public sealed record CommandInputPolicy {
     internal Fin<Unit> Apply<TGetter>(TGetter getter) where TGetter : GetBaseClass =>
         Optional(getter).ToFin(Fail: Op.Of(name: nameof(CommandInputPolicy)).InvalidInput()).Map(valid => {
             _ = BaseActions.Iter(action => action(obj: valid));
-            _ = valid is GetObject objects ? DefaultObjectActions.Concat(ObjectActions).Iter(action => action(obj: objects)) : unit;
+            _ = valid is GetObject objects ? ApplyObject(getter: objects) : unit;
             _ = valid is GetPoint point ? ApplyPoint(getter: point) : unit;
             return unit;
         });
@@ -195,6 +201,12 @@ public sealed record CommandInputPolicy {
                 };
             });
         });
+        return unit;
+    }
+
+    private Unit ApplyObject(GetObject getter) {
+        _ = ObjectTypes.Iter(types => getter.GeometryFilter = types);
+        _ = DefaultObjectActions.Concat(ObjectActions).Iter(action => action(obj: getter));
         return unit;
     }
 }

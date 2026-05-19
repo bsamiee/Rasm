@@ -4,10 +4,18 @@ public enum MousePhase { Move, MoveEnd, Down, DownEnd, Up, UpEnd, DoubleClick, E
 
 public readonly record struct MouseContext<TState>(MousePhase Phase, TState State, global::Rhino.UI.MouseCallbackEventArgs Args) {
     public global::Rhino.UI.Gumball.GumballMode GumballMode => Args.IsOverGumball();
+    public bool Shift => Args.ShiftKeyDown;
+    public bool Control => Args.CtrlKeyDown;
+    public Option<RhinoView> View => Optional(Args.View);
     public Option<System.Drawing.Point> ViewportPoint =>
         Args.ViewportPoint switch {
             { IsEmpty: false } point => Some(point),
             _ => Option<System.Drawing.Point>.None,
+        };
+    public Option<Line> WorldLine =>
+        (View.Case, ViewportPoint.Case) switch {
+            (RhinoView view, System.Drawing.Point point) => Some(view.ActiveViewport.ClientToWorld(point)),
+            _ => Option<Line>.None,
         };
 }
 
