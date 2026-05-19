@@ -125,6 +125,7 @@ public sealed record CommandSelection {
         ComponentIndex ComponentIndex,
         bool Preselected,
         SelectionMethod SelectionMethod,
+        Option<(Guid OwnerId, Guid GripId, int Index, bool Selected)> Grip,
         Option<Point3d> SelectionPoint,
         Option<uint> SelectionViewRuntimeSerialNumber,
         Option<Guid> SelectionViewportId,
@@ -143,6 +144,7 @@ public sealed record CommandSelection {
                 ComponentIndex: reference.GeometryComponentIndex,
                 Preselected: preselected,
                 SelectionMethod: selectionMethod,
+                Grip: Optional(reference.Object() as GripObject).Map(static grip => (grip.OwnerId, grip.Id, grip.Index, grip.IsSelected(checkSubObjects: true) > 0)),
                 SelectionPoint: selectionPoint switch {
                     Point3d point when point.IsValid => Some(point),
                     _ => Option<Point3d>.None,

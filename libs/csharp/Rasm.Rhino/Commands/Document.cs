@@ -36,6 +36,9 @@ public abstract record DocumentTarget {
 
     public static Fin<DocumentTarget> Objects(IEnumerable<Guid> objectIds) => TargetIds(ids: objectIds, op: Op.Of(name: nameof(DocumentTarget))).Map(ids => (DocumentTarget)new ObjectsTarget(ids));
 
+    public static Fin<DocumentTarget> Filter(ObjectEnumeratorSettings settings) =>
+        Optional(settings).ToFin(Fail: Op.Of(name: nameof(DocumentTarget)).InvalidInput()).Map(value => (DocumentTarget)new FilterTarget(value));
+
     internal Fin<int> Select(RhinoDoc document, bool selected, DocumentSelectionPolicy policy, Op op) =>
         Use(document: document, op: op,
             selection: value => value.SelectInto(document: document, selected: selected, policy: policy, op: op),
@@ -81,6 +84,14 @@ public abstract record DocumentTarget {
 
     private sealed record ObjectsTarget(Seq<Guid> Values) : DocumentTarget {
         internal override Fin<T> Use<T>(RhinoDoc document, Op op, Func<CommandSelection, Fin<T>> selection, Func<CommandSelection.Reference, Fin<T>> reference, Func<Seq<Guid>, Fin<T>> objects) => objects(arg: Values);
+    }
+
+    private sealed record FilterTarget(ObjectEnumeratorSettings Settings) : DocumentTarget {
+        internal override Fin<T> Use<T>(RhinoDoc document, Op op, Func<CommandSelection, Fin<T>> selection, Func<CommandSelection.Reference, Fin<T>> reference, Func<Seq<Guid>, Fin<T>> objects) =>
+            Optional(document).ToFin(Fail: op.InvalidInput()).Bind(valid => toSeq(valid.Objects.GetObjectIdList(settings: Settings)).Distinct() switch {
+                Seq<Guid> ids when !ids.IsEmpty => objects(arg: ids),
+                _ => Fin.Fail<T>(error: op.InvalidResult()),
+            });
     }
 
     private static Fin<Seq<Guid>> TargetIds(IEnumerable<Guid> ids, Op op) =>
@@ -155,9 +166,19 @@ public sealed record DocumentEdit {
     public RhinoDoc Document { get; }
     public Rasm.Domain.Context Domain { get; }
 
+    public Fin<DocumentReceipt> Commit(DocumentTransaction transaction) =>
+        from document in Available(op: Op.Of(name: nameof(Commit)))
+        from plan in Optional(transaction).ToFin(Fail: Op.Of(name: nameof(Commit)).InvalidInput())
+        from receipt in plan.Operations switch {
+            Seq<DocumentOp> operations when !operations.IsEmpty => Mutate(document: document, name: plan.Name, run: () => operations.TraverseM(operation => operation.Apply(document: document, domain: Domain, op: Op.Of(name: plan.Name))).As().Map(static receipts => receipts.Fold(DocumentReceipt.Empty, static (state, receipt) => state + receipt))),
+            _ => Fin.Fail<DocumentReceipt>(error: Op.Of(name: nameof(Commit)).InvalidInput()),
+        }
+        from _ in plan.Redraw.Apply(edit: this)
+        select receipt;
+
     public Fin<Guid> Add(GeometryBase geometry, ObjectAttributes? attributes = null) =>
         from g in Optional(geometry).ToFin(Fail: Op.Of(name: nameof(Add)).InvalidInput())
-        from ids in Add(geometries: Seq(g), attributes: attributes)
+        from ids in Commit(transaction: DocumentTransaction.One(name: nameof(Add), operation: new DocumentOp.Create(Sources: Seq<object>(g), Attributes: attributes), redraw: DocumentRedraw.None)).Map(static receipt => receipt.Created)
         from id in ids.Count switch {
             1 => Fin.Succ(value: ids[0]),
             _ => Fin.Fail<Guid>(error: Op.Of(name: nameof(Add)).InvalidResult()),
@@ -170,19 +191,8 @@ public sealed record DocumentEdit {
         select id;
 
     public Fin<Seq<Guid>> Add(IEnumerable<GeometryBase> geometries, ObjectAttributes? attributes = null) =>
-        from document in Available(op: Op.Of(name: nameof(Add)))
         from source in Optional(geometries).ToFin(Fail: Op.Of(name: nameof(Add)).InvalidInput())
-        from values in toSeq(source) switch {
-            Seq<GeometryBase> items when !items.IsEmpty && items.ForAll(static geometry => geometry is not null) => items
-                .TraverseM(geometry => Requirement.Basic.Apply(context: Domain, value: geometry, cancel: CancellationToken.None).ToFin())
-                .As(),
-            _ => Fin.Fail<Seq<GeometryBase>>(error: Op.Of(name: nameof(Add)).InvalidInput()),
-        }
-        from ids in Mutate(document: document, name: nameof(Add), run: () =>
-            values.TraverseM(geometry => attributes switch {
-                ObjectAttributes attrs => DocumentTarget.IdResult(id: document.Objects.Add(geometry, attrs), op: Op.Of(name: nameof(Add))),
-                _ => DocumentTarget.IdResult(id: document.Objects.Add(geometry), op: Op.Of(name: nameof(Add))),
-            }).As())
+        from ids in Commit(transaction: DocumentTransaction.One(name: nameof(Add), operation: new DocumentOp.Create(Sources: toSeq(source).Map(static geometry => (object)geometry), Attributes: attributes), redraw: DocumentRedraw.None)).Map(static receipt => receipt.Created)
         select ids;
 
     public Fin<Seq<Guid>> AddPoints(IEnumerable<Point3d> points, ObjectAttributes? attributes = null) =>
@@ -195,30 +205,19 @@ public sealed record DocumentEdit {
         select ids;
 
     public Fin<Unit> Replace(DocumentTarget target, object replacement, bool ignoreModes = false) =>
-        from document in Available(op: Op.Of(name: nameof(Replace)))
-        from value in Optional(replacement).ToFin(Fail: Op.Of(name: nameof(Replace)).InvalidInput())
-        from valid in Optional(target).ToFin(Fail: Op.Of(name: nameof(Replace)).InvalidInput())
-        from result in Mutate(document: document, name: nameof(Replace), run: () => valid.Replace(document: document, replacement: value, ignoreModes: ignoreModes, op: Op.Of(name: nameof(Replace))))
-        select result;
+        Commit(transaction: DocumentTransaction.One(name: nameof(Replace), operation: new DocumentOp.Replace(Target: target, Replacement: replacement, IgnoreModes: ignoreModes), redraw: DocumentRedraw.None)).Map(static _ => unit);
 
     public Fin<Unit> Delete(DocumentTarget target, bool quiet = true, bool ignoreModes = false) =>
-        from document in Available(op: Op.Of(name: nameof(Delete)))
-        from valid in Optional(target).ToFin(Fail: Op.Of(name: nameof(Delete)).InvalidInput())
-        from result in Mutate(document: document, name: nameof(Delete), run: () => valid.Delete(document: document, quiet: quiet, ignoreModes: ignoreModes, op: Op.Of(name: nameof(Delete))))
-        select result;
+        Commit(transaction: DocumentTransaction.One(name: nameof(Delete), operation: new DocumentOp.Lifecycle(Target: target, Action: DocumentLifecycle.Delete(quiet: quiet, ignoreModes: ignoreModes)), redraw: DocumentRedraw.None)).Map(static _ => unit);
 
     public Fin<Seq<Guid>> Transform(DocumentTarget target, Transform transform, bool deleteOriginal = true) =>
-        from document in Available(op: Op.Of(name: nameof(Transform)))
-        from _ in guard(transform.IsValid, Op.Of(name: nameof(Transform)).InvalidInput())
-        from valid in Optional(target).ToFin(Fail: Op.Of(name: nameof(Transform)).InvalidInput())
-        from ids in Mutate(document: document, name: nameof(Transform), run: () => valid.Transform(document: document, transform: transform, deleteOriginal: deleteOriginal, op: Op.Of(name: nameof(Transform))))
-        select ids;
+        Commit(transaction: DocumentTransaction.One(name: nameof(Transform), operation: new DocumentOp.Transform(Target: target, Xform: transform, DeleteOriginal: deleteOriginal), redraw: DocumentRedraw.None)).Map(static receipt => receipt.Transformed);
+
+    public Fin<int> Attributes(DocumentTarget target, Func<ObjectAttributes, Fin<ObjectAttributes>> change, bool quiet = true) =>
+        Commit(transaction: DocumentTransaction.One(name: nameof(Attributes), operation: new DocumentOp.AttributeChange(Target: target, Change: change, Quiet: quiet), redraw: DocumentRedraw.None)).Map(static receipt => receipt.AttributeChanged.Count);
 
     public Fin<int> Select(DocumentTarget target, bool selected = true, DocumentSelectionPolicy? policy = null) =>
-        from document in Available(op: Op.Of(name: nameof(Select)))
-        from valid in Optional(target).ToFin(Fail: Op.Of(name: nameof(Select)).InvalidInput())
-        from result in valid.Select(document: document, selected: selected, policy: policy ?? DocumentSelectionPolicy.Default, op: Op.Of(name: nameof(Select)))
-        select result;
+        Commit(transaction: DocumentTransaction.One(name: nameof(Select), operation: new DocumentOp.Lifecycle(Target: target, Action: DocumentLifecycle.Select(selected: selected, policy: policy ?? DocumentSelectionPolicy.Default)), redraw: DocumentRedraw.None)).Map(static receipt => receipt.Selected.Count);
 
     public Fin<int> SetSelection(DocumentTarget target, DocumentSelectionPolicy? policy = null) =>
         from document in Available(op: Op.Of(name: nameof(SetSelection))) from valid in Optional(target).ToFin(Fail: Op.Of(name: nameof(SetSelection)).InvalidInput()) from ids in valid.Ids(document: document, op: Op.Of(name: nameof(SetSelection)))
@@ -231,24 +230,10 @@ public sealed record DocumentEdit {
         select count;
 
     public Fin<int> Hide(DocumentTarget target, bool hidden = true) =>
-        from document in Available(op: Op.Of(name: nameof(Hide)))
-        from valid in Optional(target).ToFin(Fail: Op.Of(name: nameof(Hide)).InvalidInput())
-        from ids in valid.Ids(document: document, op: Op.Of(name: nameof(Hide)))
-        from count in Mutate(document: document, name: nameof(Hide), run: () => ApplyState(ids: ids, document: document, op: Op.Of(name: nameof(Hide)), ready: native => !hidden || !native.IsLocked, done: native => native.IsHidden == hidden, apply: id => hidden switch {
-            true => document.Objects.Hide(objectId: id, ignoreLayerMode: true),
-            false => document.Objects.Show(objectId: id, ignoreLayerMode: true),
-        }))
-        select count;
+        Commit(transaction: DocumentTransaction.One(name: nameof(Hide), operation: new DocumentOp.Lifecycle(Target: target, Action: DocumentLifecycle.Hide(hidden: hidden)), redraw: DocumentRedraw.None)).Map(static receipt => receipt.Hidden.Count);
 
     public Fin<int> Lock(DocumentTarget target, bool locked = true) =>
-        from document in Available(op: Op.Of(name: nameof(Lock)))
-        from valid in Optional(target).ToFin(Fail: Op.Of(name: nameof(Lock)).InvalidInput())
-        from ids in valid.Ids(document: document, op: Op.Of(name: nameof(Lock)))
-        from count in Mutate(document: document, name: nameof(Lock), run: () => ApplyState(ids: ids, document: document, op: Op.Of(name: nameof(Lock)), ready: native => !locked || !native.IsHidden, done: native => native.IsLocked == locked, apply: id => locked switch {
-            true => document.Objects.Lock(objectId: id, ignoreLayerMode: true),
-            false => document.Objects.Unlock(objectId: id, ignoreLayerMode: true),
-        }))
-        select count;
+        Commit(transaction: DocumentTransaction.One(name: nameof(Lock), operation: new DocumentOp.Lifecycle(Target: target, Action: DocumentLifecycle.Lock(locked: locked)), redraw: DocumentRedraw.None)).Map(static receipt => receipt.Locked.Count);
 
     public Fin<int> Reveal(DocumentTarget target) => from count in Select(target: target, selected: true) from _ in Redraw() select count;
 
@@ -275,16 +260,33 @@ public sealed record DocumentEdit {
 
     private static Fin<T> Mutate<T>(RhinoDoc document, string name, Func<Fin<T>> run) => Optional(run).ToFin(Fail: Op.Of(name: name).InvalidInput()).Bind(valid => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => { uint undo = document.UndoRecordingIsActive switch { true => 0u, false => document.BeginUndoRecord(description: name) }; try { return valid(); } finally { _ = undo > 0u && document.EndUndoRecord(undoRecordSerialNumber: undo); } }));
 
-    private static Fin<int> ApplyState(Seq<Guid> ids, RhinoDoc document, Op op, Func<RhinoObject, bool> ready, Func<RhinoObject, bool> done, Func<Guid, bool> apply) =>
+    internal static Fin<Seq<Guid>> ApplyState(Seq<Guid> ids, RhinoDoc document, Op op, Func<RhinoObject, bool> ready, Func<RhinoObject, bool> done, Func<Guid, bool> apply) =>
         ids.TraverseM(id => Optional(document.Objects.FindId(id))
             .ToFin(Fail: op.InvalidResult())
             .Bind(native => (ready(arg: native), done(arg: native)) switch {
-                (false, _) => Fin.Fail<bool>(error: op.InvalidInput()),
-                (_, true) => Fin.Succ(value: false),
+                (false, _) => Fin.Fail<Option<Guid>>(error: op.InvalidInput()),
+                (_, true) => Fin.Succ(value: Option<Guid>.None),
                 _ => apply(arg: id) switch {
-                    true => Fin.Succ(value: true),
-                    false => Fin.Fail<bool>(error: op.InvalidResult()),
+                    true => Fin.Succ(value: Some(id)),
+                    false => Fin.Fail<Option<Guid>>(error: op.InvalidResult()),
                 },
-            })).As().Map(static result => result.Filter(static changed => changed).Count);
+            })).As().Map(static result => result.Somes());
+
+    internal static Fin<Seq<Guid>> AddRaw(RhinoDoc document, Rasm.Domain.Context domain, IEnumerable<object> sources, ObjectAttributes? attributes, Op op) =>
+        from validDocument in Optional(document).ToFin(Fail: op.InvalidInput())
+        from validDomain in Optional(domain).ToFin(Fail: op.InvalidInput())
+        from source in Optional(sources).ToFin(Fail: op.InvalidInput())
+        from values in toSeq(source) switch {
+            Seq<object> items when !items.IsEmpty => Fin.Succ(value: items),
+            _ => Fin.Fail<Seq<object>>(error: op.InvalidInput()),
+        }
+        from ids in values.TraverseM(value =>
+            from geometry in DocumentGeometry.Of(source: value)
+            from id in geometry.Use(op: op, use: native =>
+                from _ in Requirement.Basic.Apply(context: validDomain, value: native, cancel: CancellationToken.None).ToFin()
+                from created in DocumentTarget.IdResult(id: attributes switch { ObjectAttributes attrs => validDocument.Objects.Add(native, attrs), _ => validDocument.Objects.Add(native) }, op: op)
+                select created)
+            select id).As()
+        select ids;
 
 }

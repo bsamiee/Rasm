@@ -49,8 +49,11 @@ public sealed record PanelOp<TPanel, T> where TPanel : RasmPanel {
 public readonly record struct PanelSnapshot<TPanel>(
     Guid PanelId,
     bool Visible,
+    bool Selected,
     Seq<TPanel> Instances,
-    Seq<Guid> OpenPanelIds) where TPanel : RasmPanel;
+    Seq<Guid> OpenPanelIds,
+    Option<Guid> DockBarId,
+    Seq<Guid> DockBarIds) where TPanel : RasmPanel;
 
 public readonly record struct PanelMenuState(
     bool Enabled = true,
@@ -149,7 +152,19 @@ public static class PanelOp {
         new(run: document =>
             from panel in RasmPanel.PanelIdentityOf<TPanel>()
             from doc in Optional(document).ToFin(Fail: Op.Of(name: nameof(Snapshot)).InvalidInput())
-            from snapshot in RhinoUi.Protect(valid: () => { Seq<TPanel> instances = toSeq(global::Rhino.UI.Panels.GetPanels<TPanel>(doc)); Seq<Guid> open = toSeq(global::Rhino.UI.Panels.GetOpenPanelIds()).Distinct(); return Fin.Succ(value: new PanelSnapshot<TPanel>(PanelId: panel.Id, Visible: !instances.IsEmpty && open.Exists(id => id == panel.Id), Instances: instances, OpenPanelIds: open)); })
+            from snapshot in RhinoUi.Protect(valid: () => {
+                Seq<TPanel> instances = toSeq(global::Rhino.UI.Panels.GetPanels<TPanel>(doc));
+                Seq<Guid> open = toSeq(global::Rhino.UI.Panels.GetOpenPanelIds()).Distinct();
+                Guid dock = global::Rhino.UI.Panels.PanelDockBar(panelId: panel.Id);
+                return Fin.Succ(value: new PanelSnapshot<TPanel>(
+                    PanelId: panel.Id,
+                    Visible: global::Rhino.UI.Panels.IsPanelVisible(panelId: panel.Id, isSelectedTab: false),
+                    Selected: global::Rhino.UI.Panels.IsPanelVisible(panelId: panel.Id, isSelectedTab: true),
+                    Instances: instances,
+                    OpenPanelIds: open,
+                    DockBarId: dock == Guid.Empty ? Option<Guid>.None : Some(dock),
+                    DockBarIds: toSeq(global::Rhino.UI.Panels.PanelDockBars(panelId: panel.Id)).Filter(static id => id != Guid.Empty).Distinct()));
+            })
             select snapshot,
             interactive: false);
 

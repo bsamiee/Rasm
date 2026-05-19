@@ -16,6 +16,12 @@ public abstract class RasmCommand<TSelf> : Command where TSelf : RasmCommand<TSe
 
     protected abstract Fin<Result> Run(RhinoCommandContext context);
 
+    protected Fin<Result> Run<TState>(RhinoCommandContext context, CommandGraph<TState> graph) =>
+        from active in Optional(context).ToFin(Fail: Op.Of(name: nameof(Run)).InvalidInput())
+        from valid in Optional(graph).ToFin(Fail: Op.Of(name: nameof(Run)).InvalidInput())
+        from result in valid.Run(context: active)
+        select result;
+
     protected virtual Fin<Unit> Ready(RhinoCommandContext context) =>
         from active in Optional(context).ToFin(Fail: Op.Of(name: nameof(Ready)).InvalidInput())
         from _ in active.Scope.Context.Map(static _ => unit)
@@ -32,4 +38,123 @@ public abstract class RasmCommand<TSelf> : Command where TSelf : RasmCommand<TSe
             Fault.Cancelled => Result.Cancel,
             Error error => ((Func<Result>)(() => { RhinoApp.WriteLine($"{EnglishName}: {error.Message}"); return Result.Failure; }))(),
         };
+}
+
+public sealed record CommandGraph<TState>(
+    TState Initial,
+    Seq<CommandStage<TState>> Stages,
+    Func<CommandCommitContext<TState>, Fin<Result>> Commit,
+    CommandGraphEvents<TState> Events = default) {
+    internal Fin<Result> Run(RhinoCommandContext context) =>
+        from active in Optional(context).ToFin(Fail: Op.Of(name: nameof(CommandGraph<TState>)).InvalidInput())
+        from commit in Optional(Commit).ToFin(Fail: Op.Of(name: nameof(CommandGraph<TState>)).InvalidInput())
+        from stages in Stages switch {
+            Seq<CommandStage<TState>> values when !values.IsEmpty => Fin.Succ(value: values),
+            _ => Fin.Fail<Seq<CommandStage<TState>>>(error: Op.Of(name: nameof(CommandGraph<TState>)).InvalidInput()),
+        }
+        from final in CommandStageContext.Start(context: active, state: Initial, stages: stages, events: Events).Run()
+        from result in commit(arg: new CommandCommitContext<TState>(Context: active, State: final.State, History: final.History))
+        select result;
+}
+
+public abstract record CommandStage<TState>(string Name) {
+    internal abstract Fin<PromptTransition<TState>> Run(CommandStageContext<TState> context);
+}
+
+public sealed record PromptStage<TState, TValue>(
+    string Name,
+    Func<TState, CommandInputRequest<TValue>> Input,
+    Func<TState, Seq<CommandInputPolicy>> Policies,
+    Func<CommandStageContext<TState>, CommandGet<TValue>, Fin<PromptTransition<TState>>> Receive,
+    Func<PromptPreviewContext<TState>, Option<Rasm.Rhino.UI.UiViewportPreview>>? Preview = null) : CommandStage<TState>(Name) {
+    internal override Fin<PromptTransition<TState>> Run(CommandStageContext<TState> context) =>
+        from input in Optional(Input).ToFin(Fail: Op.Of(name: Name).InvalidInput())
+        from policies in Optional(Policies).ToFin(Fail: Op.Of(name: Name).InvalidInput())
+        from receive in Optional(Receive).ToFin(Fail: Op.Of(name: Name).InvalidInput())
+        from request in Optional(input(arg: context.State)).ToFin(Fail: Op.Of(name: Name).InvalidInput())
+        from activePolicies in Optional(policies(arg: context.State)).ToFin(Fail: Op.Of(name: Name).InvalidInput())
+        let stagePolicies = activePolicies + PreviewPolicy(context: context)
+        from got in context.Context.Input.Get(request: request.With(policies: stagePolicies))
+        from transition in receive(arg1: context, arg2: got)
+        select transition;
+
+    private Seq<CommandInputPolicy> PreviewPolicy(CommandStageContext<TState> context) =>
+        Optional(Preview)
+            .Map(preview => Seq(CommandInputPolicy.PointEvents(pointEvent => preview(arg: new PromptPreviewContext<TState>(Stage: context, Event: pointEvent)).Case switch {
+                Rasm.Rhino.UI.UiViewportPreview active => pointEvent.Preview(preview: active),
+                _ => Fin.Succ(value: unit),
+            })))
+            .IfNone(Seq<CommandInputPolicy>());
+}
+
+public sealed record CommandStageContext<TState>(
+    RhinoCommandContext Context,
+    TState State,
+    Seq<CommandStage<TState>> Stages,
+    int Index,
+    Seq<TState> History,
+    CommandGraphEvents<TState> Events) {
+    internal Fin<CommandStageContext<TState>> Run() =>
+        (Index >= Stages.Count) switch {
+            true => Fin.Succ(value: this),
+            false => Stages[Index].Run(context: this).Bind(Apply),
+        };
+
+    private Fin<CommandStageContext<TState>> Apply(PromptTransition<TState> transition) =>
+        Optional(transition).ToFin(Fail: Op.Of(name: nameof(Apply)).InvalidInput()).Bind(valid => valid switch {
+            PromptTransition<TState>.Stay stay => (this with { State = stay.State }).Run(),
+            PromptTransition<TState>.Forward next => (this with { State = next.State, Index = Index + 1, History = Seq(State) + History }).Run(),
+            PromptTransition<TState>.Back back => History.IsEmpty switch {
+                false => (this with { State = History[0], Index = Math.Max(0, Index - 1), History = History.Tail }).Run(),
+                _ => (this with { State = back.State }).Run(),
+            },
+            PromptTransition<TState>.Commit commit => Fin.Succ(value: this with { State = commit.State, Index = Stages.Count }),
+            PromptTransition<TState>.Cancel => Fin.Fail<CommandStageContext<TState>>(error: new Fault.Cancelled()),
+            _ => Fin.Fail<CommandStageContext<TState>>(error: Op.Of(name: nameof(Apply)).InvalidInput()),
+        });
+}
+
+public static class CommandStageContext {
+    public static CommandStageContext<TState> Start<TState>(RhinoCommandContext context, TState state, Seq<CommandStage<TState>> stages, CommandGraphEvents<TState> events) =>
+        new(Context: context, State: state, Stages: stages, Index: 0, History: Seq<TState>(), Events: events);
+}
+
+public readonly record struct CommandCommitContext<TState>(RhinoCommandContext Context, TState State, Seq<TState> History) {
+    public RhinoDoc Document => Context.Document;
+    public DocumentEdit Edit => Context.Edit;
+    public Rasm.Rhino.UI.RhinoUi Ui => Context.Ui;
+}
+
+public readonly record struct PromptPreviewContext<TState>(CommandStageContext<TState> Stage, CommandPointEvent Event) {
+    public TState State => Stage.State;
+    public RhinoCommandContext Context => Stage.Context;
+    public Option<Point3d> Point => Event.Point;
+    public Option<RhinoViewport> Viewport => Event.Viewport;
+    public Option<DisplayPipeline> Display => Event.Display;
+    public Option<CommandSelection.Reference> Reference => Event.Getter switch {
+        GetPoint getter => CommandSelection.Reference.Of(getter: getter),
+        _ => Option<CommandSelection.Reference>.None,
+    };
+}
+
+public readonly record struct CommandGraphEvents<TState>(
+    Func<CommandStageContext<TState>, Option<string>>? ScriptedToken = null,
+    Func<CommandStageContext<TState>, Rasm.Rhino.UI.UiIntent<Seq<string>>, Fin<Seq<string>>>? ScriptedFiles = null) {
+    public Option<string> Token(CommandStageContext<TState> context) =>
+        Optional(ScriptedToken).Bind(project => project(arg: context));
+
+    public Fin<Seq<string>> Files(CommandStageContext<TState> context, Rasm.Rhino.UI.UiIntent<Seq<string>> intent) =>
+        Optional(ScriptedFiles)
+            .ToFin(Fail: Op.Of(name: nameof(Files)).InvalidInput())
+            .Bind(project => project(arg1: context, arg2: intent));
+}
+
+public abstract record PromptTransition<TState> {
+    private PromptTransition() { }
+
+    public sealed record Stay(TState State) : PromptTransition<TState>;
+    public sealed record Forward(TState State) : PromptTransition<TState>;
+    public sealed record Back(TState State) : PromptTransition<TState>;
+    public sealed record Commit(TState State) : PromptTransition<TState>;
+    public sealed record Cancel : PromptTransition<TState>;
 }

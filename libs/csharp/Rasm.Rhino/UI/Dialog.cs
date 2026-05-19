@@ -123,8 +123,16 @@ public static class UiIntent {
             _ => Fin.Fail<Seq<(string Name, string Value)>>(error: Op.Of(name: nameof(Properties)).InvalidInput()),
         }));
 
-    public static UiIntent<(int Index, bool SetCurrent)> Layer(UiLayerSpec spec) =>
-        Request(name: nameof(Layer), run: _ => { bool setCurrent = spec.InitialSetCurrent; int index = spec.SelectedIndex; return global::Rhino.UI.Dialogs.ShowSelectLayerDialog(layerIndex: ref index, dialogTitle: spec.Title, showNewLayerButton: spec.ShowNewLayer, showSetCurrentButton: spec.ShowSetCurrent, initialSetCurrentState: ref setCurrent) switch { true => Fin.Succ(value: (Index: index, SetCurrent: setCurrent)), false => Fin.Fail<(int Index, bool SetCurrent)>(error: new Fault.Cancelled()) }; });
+    public static UiIntent<UiLayerResult> Layer(UiLayerSpec spec) =>
+        Request(name: nameof(Layer), run: scope => spec.Mode switch {
+            UiLayerMode.Single => SingleLayer(spec: spec),
+            UiLayerMode.Multiple => MultipleLayers(spec: spec).Map(static indices => new UiLayerResult(Indices: indices, SetCurrent: false, MaterialChanged: false)),
+            UiLayerMode.Material => MultipleLayers(spec: spec).Bind(indices => global::Rhino.UI.Dialogs.ShowLayerMaterialDialog(doc: scope.Document, layerIndices: indices.AsIterable()) switch {
+                true => Fin.Succ(value: new UiLayerResult(Indices: indices, SetCurrent: false, MaterialChanged: true)),
+                false => Fin.Fail<UiLayerResult>(error: new Fault.Cancelled()),
+            }),
+            _ => Fin.Fail<UiLayerResult>(error: Op.Of(name: nameof(Layer)).InvalidInput()),
+        });
 
     public static UiIntent<Guid> Linetype(string title, string message, Option<Guid> selected = default) =>
         Request(name: nameof(Linetype), run: scope =>
@@ -203,6 +211,27 @@ public static class UiIntent {
                 .Bind(valid => valid(arg: scope)),
             interactive: interactive);
 
+    private static Fin<UiLayerResult> SingleLayer(UiLayerSpec spec) {
+        bool setCurrent = spec.InitialSetCurrent;
+        Seq<int> selected = spec.Selected.IfNone(Seq<int>());
+        int index = selected.IsEmpty ? -1 : selected[0];
+        return global::Rhino.UI.Dialogs.ShowSelectLayerDialog(layerIndex: ref index, dialogTitle: spec.Title, showNewLayerButton: spec.ShowNewLayer, showSetCurrentButton: spec.ShowSetCurrent, initialSetCurrentState: ref setCurrent) switch {
+            true => LayerIndices(values: Seq(index)).Map(indices => new UiLayerResult(Indices: indices, SetCurrent: setCurrent, MaterialChanged: false)),
+            false => Fin.Fail<UiLayerResult>(error: new Fault.Cancelled()),
+        };
+    }
+
+    private static Fin<Seq<int>> MultipleLayers(UiLayerSpec spec) =>
+        global::Rhino.UI.Dialogs.ShowSelectMultipleLayersDialog(defaultLayerIndices: spec.Selected.IfNone(Seq<int>()).AsIterable(), dialogTitle: spec.Title, showNewLayerButton: spec.ShowNewLayer, layerIndices: out int[] indices) switch {
+            true => LayerIndices(values: toSeq(indices)),
+            false => Fin.Fail<Seq<int>>(error: new Fault.Cancelled()),
+        };
+
+    private static Fin<Seq<int>> LayerIndices(Seq<int> values) =>
+        values.Filter(static index => index >= 0).Distinct() switch {
+            Seq<int> indices when !indices.IsEmpty => Fin.Succ(value: indices),
+            _ => Fin.Fail<Seq<int>>(error: Op.Of(name: nameof(Layer)).InvalidResult()),
+        };
 }
 
 public sealed record UiPreview<T> {
@@ -329,8 +358,12 @@ public static class UiPreview {
 }
 
 public enum UiFileMode { OpenOne, OpenMany, Save }
+public enum UiLayerMode { Single, Multiple, Material }
 
 public readonly record struct UiFileSpec(string Title, string Filter, UiFileMode Mode = UiFileMode.OpenOne, Option<string> FileName = default, Option<string> InitialDirectory = default, Option<string> DefaultExtension = default);
-public readonly record struct UiLayerSpec(string Title, int SelectedIndex = -1, bool ShowNewLayer = true, bool ShowSetCurrent = true, bool InitialSetCurrent = false);
+public readonly record struct UiLayerSpec(string Title, UiLayerMode Mode = UiLayerMode.Single, Option<Seq<int>> Selected = default, bool ShowNewLayer = true, bool ShowSetCurrent = true, bool InitialSetCurrent = false);
+public readonly record struct UiLayerResult(Seq<int> Indices, bool SetCurrent, bool MaterialChanged) {
+    public Option<int> Single => Indices.Find(static index => index >= 0);
+}
 public readonly record struct UiMessageSpec(string Message, string Title, global::Rhino.UI.ShowMessageButton Buttons = default, global::Rhino.UI.ShowMessageIcon Icon = default, global::Rhino.UI.ShowMessageDefaultButton DefaultButton = default, global::Rhino.UI.ShowMessageOptions Options = default, global::Rhino.UI.ShowMessageMode Mode = default);
 public readonly record struct UiColorSpec(Color4f Initial, Option<global::Rhino.UI.NamedColorList> Named = default, global::Rhino.UI.Dialogs.OnColorChangedEvent? Changed = null);

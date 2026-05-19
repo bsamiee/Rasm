@@ -3,6 +3,9 @@ using Color = System.Drawing.Color;
 using DrawingPoint = System.Drawing.Point;
 using DrawingRectangle = System.Drawing.Rectangle;
 using Result = Rhino.Commands.Result;
+using UiGumball = Rasm.Rhino.UI.UiGumball;
+using UiGumballSnapshot = Rasm.Rhino.UI.UiGumballSnapshot;
+using UiViewportPreview = Rasm.Rhino.UI.UiViewportPreview;
 
 namespace Rasm.Rhino.Commands;
 
@@ -68,10 +71,17 @@ public readonly record struct CommandGet<T>(
 
 public sealed record CommandInputRequest<T> {
     private readonly Func<CommandInput, Fin<CommandGet<T>>> run;
+    private readonly Func<Seq<CommandInputPolicy>, CommandInputRequest<T>> rebind;
 
-    internal CommandInputRequest(Func<CommandInput, Fin<CommandGet<T>>> run) => this.run = run;
+    internal CommandInputRequest(Func<CommandInput, Fin<CommandGet<T>>> run, Func<Seq<CommandInputPolicy>, CommandInputRequest<T>>? rebind = null) {
+        this.run = run;
+        this.rebind = rebind ?? (_ => this);
+    }
 
     internal Fin<CommandGet<T>> Run(CommandInput input) => run(arg: input);
+
+    internal CommandInputRequest<T> With(Seq<CommandInputPolicy> policies) =>
+        rebind(arg: policies);
 }
 
 [Flags]
@@ -93,6 +103,7 @@ public sealed record CommandInputPolicy {
         Seq<Action<GetBaseClass>> baseActions = default,
         Seq<Action<GetObject>> objectActions = default,
         Seq<Action<GetPoint>> pointActions = default,
+        Option<Func<CommandPointEvent, Fin<Unit>>> pointEvents = default,
         Seq<CommandOption> options = default,
         Option<(int Min, int Max)> objects = default,
         Option<PointSpec> point = default,
@@ -103,12 +114,13 @@ public sealed record CommandInputPolicy {
         Option<string> prompt = default,
         bool literalText = false,
         CommandInputAccept accept = CommandInputAccept.None) {
-        BaseActions = baseActions; ObjectActions = objectActions; PointActions = pointActions; OptionList = options; ObjectRange = objects; PointMode = point; ScalarMode = scalar; LimitsMode = bounds; BoxMode = box; ObjectTypes = objectTypes; PromptText = prompt; IsLiteralText = literalText; AcceptModes = accept;
+        BaseActions = baseActions; ObjectActions = objectActions; PointActions = pointActions; PointEvent = pointEvents; OptionList = options; ObjectRange = objects; PointMode = point; ScalarMode = scalar; LimitsMode = bounds; BoxMode = box; ObjectTypes = objectTypes; PromptText = prompt; IsLiteralText = literalText; AcceptModes = accept;
     }
 
     private Seq<Action<GetBaseClass>> BaseActions { get; }
     private Seq<Action<GetObject>> ObjectActions { get; }
     private Seq<Action<GetPoint>> PointActions { get; }
+    internal Option<Func<CommandPointEvent, Fin<Unit>>> PointEvent { get; }
     internal Seq<CommandOption> OptionList { get; }
     internal Option<(int Min, int Max)> ObjectRange { get; }
     internal Option<PointSpec> PointMode { get; }
@@ -156,6 +168,8 @@ public sealed record CommandInputPolicy {
             accept: modes);
     public static CommandInputPolicy TransparentCommands(bool enabled = true) => Configure<GetBaseClass>(apply: getter => getter.EnableTransparentCommands(enable: enabled));
     public static CommandInputPolicy Options(params CommandOption[] values) => new(options: toSeq(values));
+    public static CommandInputPolicy PointEvents(Func<CommandPointEvent, Fin<Unit>> change) =>
+        Optional(change).Map(apply => new CommandInputPolicy(pointEvents: Some(apply))).IfNone(Empty);
     public static CommandInputPolicy Objects(int minimum = 1, int maximum = 1, ObjectType types = ObjectType.AnyObject, bool locked = false) =>
         new(
             objectActions: locked switch { true => Seq<Action<GetObject>>(static getter => getter.LockedObjectSelect = true), false => Seq<Action<GetObject>>() },
@@ -187,7 +201,7 @@ public sealed record CommandInputPolicy {
     public static CommandInputPolicy Add(CommandInputPolicy left, CommandInputPolicy right) {
         ArgumentNullException.ThrowIfNull(argument: left);
         ArgumentNullException.ThrowIfNull(argument: right);
-        return new(baseActions: left.BaseActions + right.BaseActions, objectActions: left.ObjectActions + right.ObjectActions, pointActions: left.PointActions + right.PointActions, options: left.OptionList + right.OptionList, objects: Pick(left.ObjectRange, right.ObjectRange), point: Pick(left.PointMode, right.PointMode), scalar: Pick(left.ScalarMode, right.ScalarMode), bounds: Pick(left.LimitsMode, right.LimitsMode), box: Pick(left.BoxMode, right.BoxMode), objectTypes: Pick(left.ObjectTypes, right.ObjectTypes), prompt: Pick(left.PromptText, right.PromptText), literalText: left.IsLiteralText || right.IsLiteralText, accept: left.AcceptModes | right.AcceptModes);
+        return new(baseActions: left.BaseActions + right.BaseActions, objectActions: left.ObjectActions + right.ObjectActions, pointActions: left.PointActions + right.PointActions, pointEvents: Compose(left.PointEvent, right.PointEvent), options: left.OptionList + right.OptionList, objects: Pick(left.ObjectRange, right.ObjectRange), point: Pick(left.PointMode, right.PointMode), scalar: Pick(left.ScalarMode, right.ScalarMode), bounds: Pick(left.LimitsMode, right.LimitsMode), box: Pick(left.BoxMode, right.BoxMode), objectTypes: Pick(left.ObjectTypes, right.ObjectTypes), prompt: Pick(left.PromptText, right.PromptText), literalText: left.IsLiteralText || right.IsLiteralText, accept: left.AcceptModes | right.AcceptModes);
     }
 
     internal static CommandInputPolicy Merge(Seq<CommandInputPolicy> policies) =>
@@ -215,6 +229,13 @@ public sealed record CommandInputPolicy {
 
     private bool Accepts(CommandInputAccept mode) => (AcceptModes & mode) == mode;
     private static Option<T> Pick<T>(Option<T> left, Option<T> right) => right | left;
+    private static Option<Func<CommandPointEvent, Fin<Unit>>> Compose(Option<Func<CommandPointEvent, Fin<Unit>>> left, Option<Func<CommandPointEvent, Fin<Unit>>> right) =>
+        (left.Case, right.Case) switch {
+            (Func<CommandPointEvent, Fin<Unit>> a, Func<CommandPointEvent, Fin<Unit>> b) => Some<Func<CommandPointEvent, Fin<Unit>>>(pointEvent => a(arg: pointEvent).Bind(_ => b(arg: pointEvent))),
+            (_, Func<CommandPointEvent, Fin<Unit>> b) => Some(b),
+            (Func<CommandPointEvent, Fin<Unit>> a, _) => Some(a),
+            _ => Option<Func<CommandPointEvent, Fin<Unit>>>.None,
+        };
     internal enum ScalarKind { Number, Length, Angle }
     internal sealed record PointSpec(bool OnMouseUp, bool TwoDimensional, Option<global::Rhino.UI.CursorStyle> Cursor, Option<bool> ObjectSnapCursors, Option<Point3d> BasePoint, bool DrawLineFromBasePoint, bool SnapToCurves, bool PermitConstraintOptions);
     internal static PointSpec DefaultPointSpec { get; } = new(OnMouseUp: false, TwoDimensional: false, Cursor: Option<global::Rhino.UI.CursorStyle>.None, ObjectSnapCursors: Option<bool>.None, BasePoint: Option<Point3d>.None, DrawLineFromBasePoint: false, SnapToCurves: false, PermitConstraintOptions: true);
@@ -257,11 +278,43 @@ public sealed record CommandInputPolicy {
     }
 }
 
+public enum CommandPointEventPhase { MouseMove, MouseDown, DynamicDraw, PostDrawObjects }
+
+public readonly record struct CommandPointEvent(
+    CommandPointEventPhase Phase,
+    RhinoDoc Document,
+    GetPoint Getter,
+    Option<GetPointMouseEventArgs> Mouse,
+    Option<GetPointDrawEventArgs> Draw,
+    Option<DrawEventArgs> PostDraw,
+    Option<UiGumball> Gumball) {
+    public Option<Point3d> Point =>
+        Mouse.Map(static args => args.Point) | Draw.Map(static args => args.CurrentPoint);
+
+    public Option<RhinoViewport> Viewport =>
+        Mouse.Map(static args => args.Viewport) | Draw.Map(static args => args.Viewport) | PostDraw.Map(static args => args.Viewport);
+
+    public Option<DisplayPipeline> Display =>
+        Draw.Map(static args => args.Display) | PostDraw.Map(static args => args.Display);
+
+    public Option<UiGumballSnapshot> GumballSnapshot =>
+        Gumball.Map(static value => value.Snapshot);
+
+    public Fin<Unit> Preview(UiViewportPreview preview) {
+        CommandPointEvent current = this;
+        return from validPreview in Optional(preview).ToFin(Fail: Op.Of(name: nameof(Preview)).InvalidInput())
+               from viewport in current.Viewport.ToFin(Fail: Op.Of(name: nameof(Preview)).InvalidInput())
+               from display in current.Display.ToFin(Fail: Op.Of(name: nameof(Preview)).InvalidInput())
+               from _ in validPreview.Draw(context: new Rasm.Rhino.UI.UiPreviewContext(Document: current.Document, Phase: current.Phase is CommandPointEventPhase.DynamicDraw ? Rasm.Rhino.UI.OverlayPhase.Overlay : Rasm.Rhino.UI.OverlayPhase.PostDraw, Viewport: viewport, Display: display, Gumball: current.GumballSnapshot))
+               select unit;
+    }
+}
+
 public static class CommandInputs {
     public static CommandInputRequest<T> Get<T>(params CommandInputPolicy[] policies) {
         Seq<CommandInputPolicy> active = toSeq(policies);
         CommandInputPolicy policy = CommandInputPolicy.Merge(policies: active);
-        return typeof(T) switch {
+        CommandInputRequest<T> request = typeof(T) switch {
             Type t when t == typeof(CommandSelection) => Objects<T>(policy: policy, policies: active),
             Type t when t == typeof(CommandOptionValue) => Getter<GetOption, T>(policy: policy, create: static () => new GetOption(), receive: static getter => getter.Get(), value: static (_, _, _) => Option<T>.None),
             Type t when t == typeof(CommandPoint) || t == typeof(Point3d) || t == typeof(DrawingPoint) => Point<T>(policy: policy),
@@ -277,6 +330,7 @@ public static class CommandInputs {
             Type t when t == typeof(Color) => Native<T>(run: () => Color<T>(prompt: policy.PromptText.IfNone(string.Empty), acceptNothing: policy.AcceptsNothing)),
             _ => Invalid<T>(name: nameof(Get)),
         };
+        return request.BindPolicy(rebind: static values => Get<T>(policies: [.. values]));
     }
 
     private delegate Result NativeGetter<TNative>(out TNative value);
@@ -290,7 +344,7 @@ public static class CommandInputs {
                 create: static () => new GetObject(),
                 receive: getter => getter.GetMultiple(minimumNumber: lo, maximumNumber: hi),
                 value: static (source, getter, raw) => SelectionOf(document: source.Document, getter: getter, raw: raw).Bind(Cast<T>),
-                transition: static (getter, raw, selected) => raw is GetResult.Option ? ForcePostSelect(getter: getter, selected: selected) : (Continue: false, Selected: selected)),
+                transition: static (getter, raw, selected) => raw is GetResult.Option ? ((Func<(bool Continue, Option<CommandOptionValue> Selected)>)(() => { getter.EnablePreSelect(enable: false, ignoreUnacceptablePreselectedObjects: true); return (Continue: true, Selected: selected); }))() : (Continue: false, Selected: selected)),
         };
 
     private static CommandInputRequest<T> Point<T>(CommandInputPolicy policy) {
@@ -334,14 +388,35 @@ public static class CommandInputs {
         Func<TGetter, GetResult, Option<CommandOptionValue>, (bool Continue, Option<CommandOptionValue> Selected)>? transition = null) where TGetter : GetBaseClass, IDisposable =>
         new(run: input => Optional(input).ToFin(Fail: Op.Of(name: nameof(Get)).InvalidInput()).Bind(valid => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => {
             using TGetter getter = create();
+            Atom<Option<Error>> eventFault = Atom(Option<Error>.None);
             return from configured in configure is Func<TGetter, Fin<Unit>> apply ? apply(arg: getter) : Fin.Succ(value: unit)
                    from applied in policy.Apply(getter: getter)
+                   from events in getter is GetPoint point ? BindPointEvents(document: valid.Document, getter: point, events: policy.PointEvent, fault: eventFault) : Fin.Succ(value: unit)
                    from result in CommandOption.Bind(options: policy.OptionList, getter: getter).Bind(scope => {
                        using CommandOption.Scope active = scope;
                        return ReadLoop(getter: getter, scope: active, receive: () => receive(arg: getter), value: (g, raw) => value(arg1: valid, arg2: g, arg3: raw), selected: Option<CommandOptionValue>.None, acceptUndo: policy.AcceptsUndo, transition: transition ?? (static (_, _, selected) => (Continue: false, Selected: selected)));
                    })
-                   select result;
+                   from checkedResult in eventFault.Value.Case switch {
+                       Error error => Fin.Fail<CommandGet<T>>(error: error),
+                       _ => Fin.Succ(value: result),
+                   }
+                   select checkedResult;
         })));
+
+    private static Fin<Unit> BindPointEvents(RhinoDoc document, GetPoint getter, Option<Func<CommandPointEvent, Fin<Unit>>> events, Atom<Option<Error>> fault) =>
+        events.Map(change => {
+            Unit Apply(CommandPointEvent pointEvent) =>
+                Rasm.Rhino.UI.RhinoUi.Protect(valid: () => change(arg: pointEvent)).Match(Succ: static _ => unit, Fail: error => {
+                    _ = fault.Swap(_ => Some(error));
+                    return unit;
+                });
+            getter.MouseMove += (_, args) => _ = Apply(pointEvent: new CommandPointEvent(Phase: CommandPointEventPhase.MouseMove, Document: document, Getter: getter, Mouse: Some(args), Draw: Option<GetPointDrawEventArgs>.None, PostDraw: Option<DrawEventArgs>.None, Gumball: Option<UiGumball>.None));
+            getter.MouseDown += (_, args) => _ = Apply(pointEvent: new CommandPointEvent(Phase: CommandPointEventPhase.MouseDown, Document: document, Getter: getter, Mouse: Some(args), Draw: Option<GetPointDrawEventArgs>.None, PostDraw: Option<DrawEventArgs>.None, Gumball: Option<UiGumball>.None));
+            getter.DynamicDraw += (_, args) => _ = Apply(pointEvent: new CommandPointEvent(Phase: CommandPointEventPhase.DynamicDraw, Document: document, Getter: getter, Mouse: Option<GetPointMouseEventArgs>.None, Draw: Some(args), PostDraw: Option<DrawEventArgs>.None, Gumball: Option<UiGumball>.None));
+            getter.PostDrawObjects += (_, args) => _ = Apply(pointEvent: new CommandPointEvent(Phase: CommandPointEventPhase.PostDrawObjects, Document: document, Getter: getter, Mouse: Option<GetPointMouseEventArgs>.None, Draw: Option<GetPointDrawEventArgs>.None, PostDraw: Some(args), Gumball: Option<UiGumball>.None));
+            getter.FullFrameRedrawDuringGet = true;
+            return unit;
+        }).Map(Fin.Succ).IfNone(Fin.Succ(value: unit));
 
     private static Fin<CommandGet<T>> ReadLoop<TGetter, T>(
         TGetter getter,
@@ -353,7 +428,7 @@ public static class CommandInputs {
         Func<TGetter, GetResult, Option<CommandOptionValue>, (bool Continue, Option<CommandOptionValue> Selected)> transition) where TGetter : GetBaseClass =>
         receive() switch {
             GetResult.Cancel => Fin.Fail<CommandGet<T>>(error: new Fault.Cancelled()),
-            GetResult.ExitRhino => Read(getter: getter, raw: GetResult.ExitRhino, value: Option<T>.None, option: selected),
+            GetResult.ExitRhino => Fin.Fail<CommandGet<T>>(error: new Fault.Cancelled()),
             GetResult.Option => scope.Selected(getter: getter).Bind(option => transition(getter, GetResult.Option, Some(option)) switch {
                 (true, Option<CommandOptionValue> next) => ReadLoop(getter: getter, scope: scope, receive: receive, value: value, selected: next, acceptUndo: acceptUndo, transition: transition),
                 (false, Option<CommandOptionValue> next) => Read(getter: getter, raw: GetResult.Option, value: value(getter, GetResult.Option), option: next),
@@ -408,11 +483,6 @@ public static class CommandInputs {
                     : Seq<(Guid ObjectId, ComponentIndex ComponentIndex)>()))
             : Option<CommandSelection>.None;
 
-    private static (bool Continue, Option<CommandOptionValue> Selected) ForcePostSelect(GetObject getter, Option<CommandOptionValue> selected) {
-        getter.EnablePreSelect(enable: false, ignoreUnacceptablePreselectedObjects: true);
-        return (Continue: true, Selected: selected);
-    }
-
     private static Option<T> PointValue<T>(GetPoint getter, GetResult raw) =>
         (raw, typeof(T)) switch {
             (GetResult.Point, Type t) when t == typeof(Point3d) => Cast<T>(getter.Point()),
@@ -459,6 +529,9 @@ public static class CommandInputs {
                 }))(),
             _ => Fin.Succ(value: unit),
         };
+
+    private static CommandInputRequest<T> BindPolicy<T>(this CommandInputRequest<T> request, Func<Seq<CommandInputPolicy>, CommandInputRequest<T>> rebind) =>
+        new(run: request.Run, rebind: rebind);
 }
 
 public sealed record CommandInput {

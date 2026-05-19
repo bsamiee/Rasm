@@ -26,6 +26,20 @@ public readonly record struct PageContext(PagePhase Phase, bool Active = false, 
     public Fin<RhinoUi> Ui() { RunMode mode = Mode; return RequireDocument().Map(document => new RhinoUi(document: document, mode: mode)); }
 }
 
+public readonly record struct PageRegistration<TPage>(TPage Page) where TPage : class {
+    public Fin<Unit> Add(ICollection<TPage> pages) =>
+        Optional(Page).ToFin(Fail: Op.Of(name: nameof(Add)).InvalidInput()).Bind(page =>
+            Optional(pages).ToFin(Fail: Op.Of(name: nameof(Add)).InvalidInput()).Map(validPages => ((Func<Unit>)(() => { validPages.Add(page); return unit; }))()));
+}
+
+public static class PageRegistration {
+    public static PageRegistration<global::Rhino.UI.OptionsDialogPage> Options(global::Rhino.UI.OptionsDialogPage page) =>
+        new(Page: page);
+
+    public static PageRegistration<global::Rhino.UI.ObjectPropertiesPage> Properties(global::Rhino.UI.ObjectPropertiesPage page) =>
+        new(Page: page);
+}
+
 public abstract class RasmOptionsPage : global::Rhino.UI.OptionsDialogPage {
     private readonly Control control;
     private readonly bool showApplyButton;
