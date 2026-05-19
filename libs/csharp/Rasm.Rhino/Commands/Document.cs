@@ -1,25 +1,21 @@
 namespace Rasm.Rhino.Commands;
 
 public sealed record DocumentTarget {
-    private DocumentTarget(Option<CommandSelection> selection = default, Option<CommandSelection.Reference> reference = default, Seq<Guid> objects = default) {
-        SelectionValue = selection;
-        ReferenceValue = reference;
-        ObjectIds = objects;
-    }
+    private DocumentTarget(TargetKind kind, object value) => (Kind, Value) = (kind, value);
 
-    private Option<CommandSelection> SelectionValue { get; }
-    private Option<CommandSelection.Reference> ReferenceValue { get; }
-    private Seq<Guid> ObjectIds { get; }
+    private TargetKind Kind { get; }
+    private object Value { get; }
 
-    public static DocumentTarget Selection(CommandSelection selection) => new(selection: Optional(selection));
+    public static DocumentTarget Selection(CommandSelection selection) => new(kind: TargetKind.Selection, value: selection);
     public static DocumentTarget Reference(CommandSelection.Reference reference) =>
-        new(reference: Optional(reference).Filter(static value => value.ObjectId != Guid.Empty));
+        new(kind: TargetKind.Reference, value: reference);
     public static DocumentTarget Reference(ObjRef reference) =>
-        new(reference: Optional(reference)
+        new(kind: TargetKind.Reference, value: Optional(reference)
             .Map(static value => CommandSelection.Reference.Of(reference: value, preselected: false))
-            .Filter(static value => value.ObjectId != Guid.Empty));
+            .Filter(static value => value.ObjectId != Guid.Empty)
+            .IfNone(default(CommandSelection.Reference)));
     public static DocumentTarget Objects(IEnumerable<Guid> objectIds) =>
-        new(objects: Optional(objectIds).Map(static ids => toSeq(ids)).IfNone(Seq<Guid>()));
+        new(kind: TargetKind.Objects, value: Optional(objectIds).Map(static ids => toSeq(ids)).IfNone(Seq<Guid>()));
 
     internal Fin<int> Select(RhinoDoc document, bool selected, Op op) =>
         Use(document: document, op: op,
@@ -34,14 +30,15 @@ public sealed record DocumentTarget {
             objects: ids => DeleteIds(document: document, ids: ids, quiet: quiet, ignoreModes: ignoreModes, op: op));
 
     private Fin<T> Use<T>(RhinoDoc document, Op op, Func<CommandSelection, Fin<T>> selection, Func<CommandSelection.Reference, Fin<T>> reference, Func<Seq<Guid>, Fin<T>> objects) =>
-        SelectionValue.Case switch {
-            CommandSelection value when ReferenceEquals(objA: value.Document, objB: document) => selection(arg: value),
-            CommandSelection => Fin.Fail<T>(error: op.InvalidInput()),
-            _ => ReferenceValue.Case switch {
-                CommandSelection.Reference value => reference(arg: value),
-                _ => TargetIds(ids: ObjectIds, op: op).Bind(objects),
-            },
+        (Kind, Value) switch {
+            (TargetKind.Selection, CommandSelection value) when ReferenceEquals(objA: value.Document, objB: document) => selection(arg: value),
+            (TargetKind.Selection, CommandSelection) => Fin.Fail<T>(error: op.InvalidInput()),
+            (TargetKind.Reference, CommandSelection.Reference value) when value.ObjectId != Guid.Empty => reference(arg: value),
+            (TargetKind.Objects, Seq<Guid> ids) => TargetIds(ids: ids, op: op).Bind(objects),
+            _ => Fin.Fail<T>(error: op.InvalidInput()),
         };
+
+    private enum TargetKind { Selection, Reference, Objects }
 
     private static Fin<Seq<Guid>> TargetIds(IEnumerable<Guid> ids, Op op) =>
         Optional(ids)
@@ -124,11 +121,6 @@ public sealed record DocumentEdit {
             false => Fin.Fail<Unit>(error: Op.Of(name: nameof(Replace)).InvalidResult()),
         })
         select result;
-
-    public Fin<Unit> Replace(ObjRef reference, GeometryBase geometry, bool ignoreModes = false) =>
-        Optional(reference)
-            .ToFin(Fail: Op.Of(name: nameof(Replace)).InvalidInput())
-            .Bind(native => Replace(reference: CommandSelection.Reference.Of(reference: native, preselected: false), geometry: geometry, ignoreModes: ignoreModes));
 
     public Fin<Unit> Delete(DocumentTarget target, bool quiet = true, bool ignoreModes = false) =>
         from document in Available(op: Op.Of(name: nameof(Delete)))

@@ -159,15 +159,14 @@ public sealed record CommandSelection {
             return Optional(document)
                 .ToFin(Fail: op.InvalidInput())
                 .Bind(valid => snapshot.DocumentRuntimeSerialNumber switch {
-                    0 => snapshot.WithNative(document: valid, use: use),
-                    uint serial when serial == valid.RuntimeSerialNumber => snapshot.WithNative(document: valid, use: use),
-                    _ => Fin.Fail<T>(error: op.InvalidInput()),
+                    0 => Fin.Succ(value: valid),
+                    uint serial when serial == valid.RuntimeSerialNumber => Fin.Succ(value: valid),
+                    _ => Fin.Fail<RhinoDoc>(error: op.InvalidInput()),
+                })
+                .Bind(valid => {
+                    using ObjRef reference = snapshot.ObjRef(document: valid);
+                    return use(arg: reference);
                 });
-        }
-
-        private Fin<T> WithNative<T>(RhinoDoc document, Func<ObjRef, Fin<T>> use) {
-            using ObjRef reference = ObjRef(document: document);
-            return use(arg: reference);
         }
     }
 }

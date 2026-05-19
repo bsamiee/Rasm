@@ -21,13 +21,10 @@ public sealed partial record RhinoUi {
                 .Bind(valid => OnUiThread(run: () => valid(arg: document))),
         };
 
-    public Fin<T> Show<T>(UiDialogIntent<T> dialog) =>
+    public Fin<T> Show<T>(UiIntent<T> dialog) =>
         Optional(dialog)
             .ToFin(Fail: Op.Of(name: nameof(Show)).InvalidInput())
             .Bind(valid => Run(operation: valid.Show, interactive: true));
-
-    public Fin<Unit> Show(Form form) =>
-        Show(dialog: UiDialogIntent.Modeless(form: form));
 
     public Fin<T> Wait<T>(Func<Fin<T>> run) =>
         Run(

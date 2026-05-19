@@ -36,6 +36,8 @@ public readonly record struct CommandSnapshot(
 
     internal static CommandSnapshot Of(GetBaseClass getter, GetResult raw) =>
         new(View: Optional(getter.View()), WindowPoint: raw is GetResult.Point or GetResult.Point2d ? Some<DrawingPoint>(getter.Point2d()) : Option<DrawingPoint>.None, Number: raw is GetResult.Number ? Some(getter.Number()) : Option<double>.None, Text: raw is GetResult.String ? Optional(getter.StringResult()) : Option<string>.None, CustomMessage: raw is GetResult.CustomMessage ? Optional(getter.CustomMessage()) : Option<object>.None, Point: raw is GetResult.Point ? Some(getter.Point()) : Option<Point3d>.None, Vector: raw is GetResult.Point ? Some(getter.Vector()) : Option<Vector3d>.None, Color: raw is GetResult.Color ? Some(getter.Color()) : Option<Color>.None, PickRectangle: raw is GetResult.Object ? Some(getter.PickRectangle()) : Option<DrawingRectangle>.None, Rectangle2d: raw is GetResult.Rectangle2d ? Some(getter.Rectangle2d()) : Option<DrawingRectangle>.None, Line2d: raw is GetResult.Line2d ? toSeq(getter.Line2d()) : Seq<DrawingPoint>());
+
+    internal bool Has(GetResult raw) => raw switch { GetResult.Number => Number.IsSome, GetResult.String => Text.IsSome, GetResult.CustomMessage => CustomMessage.IsSome, GetResult.Point => Point.IsSome || WindowPoint.IsSome || Vector.IsSome, GetResult.Point2d => WindowPoint.IsSome, GetResult.Color => Color.IsSome, GetResult.Object => PickRectangle.IsSome, GetResult.Rectangle2d => Rectangle2d.IsSome, GetResult.Line2d => !Line2d.IsEmpty, _ => false };
 }
 
 public readonly record struct CommandGet<T>(
@@ -67,6 +69,7 @@ public sealed record CommandInputPolicy {
     private CommandInputPolicy(
         Seq<Action<GetBaseClass>> baseActions = default,
         Seq<Action<GetObject>> objectActions = default,
+        Seq<Action<GetPoint>> pointActions = default,
         Seq<CommandOption> options = default,
         Option<(int Min, int Max)> objects = default,
         Option<(bool OnMouseUp, bool TwoDimensional)> point = default,
@@ -75,11 +78,12 @@ public sealed record CommandInputPolicy {
         Option<BoxSpec> box = default,
         Option<string> prompt = default,
         bool literalText = false) {
-        BaseActions = baseActions; ObjectActions = objectActions; OptionList = options; ObjectRange = objects; PointMode = point; ScalarMode = scalar; LimitsMode = bounds; BoxMode = box; PromptText = prompt; IsLiteralText = literalText;
+        BaseActions = baseActions; ObjectActions = objectActions; PointActions = pointActions; OptionList = options; ObjectRange = objects; PointMode = point; ScalarMode = scalar; LimitsMode = bounds; BoxMode = box; PromptText = prompt; IsLiteralText = literalText;
     }
 
     private Seq<Action<GetBaseClass>> BaseActions { get; }
     private Seq<Action<GetObject>> ObjectActions { get; }
+    private Seq<Action<GetPoint>> PointActions { get; }
     internal Seq<CommandOption> OptionList { get; }
     internal Option<(int Min, int Max)> ObjectRange { get; }
     internal Option<(bool OnMouseUp, bool TwoDimensional)> PointMode { get; }
@@ -93,6 +97,7 @@ public sealed record CommandInputPolicy {
 
     public static CommandInputPolicy Configure(Action<GetBaseClass> apply) => new(baseActions: Seq(apply));
     public static CommandInputPolicy ConfigureObject(Action<GetObject> apply) => new(objectActions: Seq(apply));
+    public static CommandInputPolicy ConfigurePoint(Action<GetPoint> apply) => new(pointActions: Seq(apply));
     public static CommandInputPolicy Prompt(string value) => new(baseActions: Seq<Action<GetBaseClass>>(getter => getter.SetCommandPrompt(value)), prompt: Optional(value));
     public static CommandInputPolicy Default(object value) =>
         value switch {
@@ -120,7 +125,7 @@ public sealed record CommandInputPolicy {
     public static CommandInputPolicy Add(CommandInputPolicy left, CommandInputPolicy right) {
         ArgumentNullException.ThrowIfNull(argument: left);
         ArgumentNullException.ThrowIfNull(argument: right);
-        return new(baseActions: left.BaseActions + right.BaseActions, objectActions: left.ObjectActions + right.ObjectActions, options: left.OptionList + right.OptionList, objects: Pick(left.ObjectRange, right.ObjectRange), point: Pick(left.PointMode, right.PointMode), scalar: Pick(left.ScalarMode, right.ScalarMode), bounds: Pick(left.LimitsMode, right.LimitsMode), box: Pick(left.BoxMode, right.BoxMode), prompt: Pick(left.PromptText, right.PromptText), literalText: left.IsLiteralText || right.IsLiteralText);
+        return new(baseActions: left.BaseActions + right.BaseActions, objectActions: left.ObjectActions + right.ObjectActions, pointActions: left.PointActions + right.PointActions, options: left.OptionList + right.OptionList, objects: Pick(left.ObjectRange, right.ObjectRange), point: Pick(left.PointMode, right.PointMode), scalar: Pick(left.ScalarMode, right.ScalarMode), bounds: Pick(left.LimitsMode, right.LimitsMode), box: Pick(left.BoxMode, right.BoxMode), prompt: Pick(left.PromptText, right.PromptText), literalText: left.IsLiteralText || right.IsLiteralText);
     }
 
     internal static CommandInputPolicy Merge(Seq<CommandInputPolicy> policies) =>
@@ -130,6 +135,7 @@ public sealed record CommandInputPolicy {
         Optional(getter).ToFin(Fail: Op.Of(name: nameof(CommandInputPolicy)).InvalidInput()).Map(valid => {
             _ = BaseActions.Iter(action => action(obj: valid));
             _ = valid is GetObject objects ? DefaultObjectActions.Concat(ObjectActions).Iter(action => action(obj: objects)) : unit;
+            _ = valid is GetPoint point ? PointActions.Iter(action => action(obj: point)) : unit;
             return unit;
         });
 
@@ -248,11 +254,12 @@ public static class CommandInputs {
         Option<CommandOptionValue> selected,
         Func<TGetter, GetResult, Option<CommandOptionValue>, (bool Continue, Option<CommandOptionValue> Selected)> transition) where TGetter : GetBaseClass =>
         receive() switch {
-            GetResult.Cancel => Fin.Fail<CommandGet<T>>(error: new Fault.Cancelled()),
+            GetResult.Cancel or GetResult.ExitRhino => Fin.Fail<CommandGet<T>>(error: new Fault.Cancelled()),
             GetResult.Option => scope.Selected(getter: getter).Bind(option => transition(getter, GetResult.Option, Some(option)) switch {
                 (true, Option<CommandOptionValue> next) => ReadLoop(getter: getter, scope: scope, receive: receive, value: value, selected: next, transition: transition),
                 (false, Option<CommandOptionValue> next) => Read(getter: getter, raw: GetResult.Option, value: value(getter, GetResult.Option), option: next),
             }),
+            GetResult raw and (GetResult.NoResult or GetResult.Nothing or GetResult.Undo or GetResult.Miss or GetResult.Timeout) => Read(getter: getter, raw: raw, value: Option<T>.None, option: selected),
             GetResult raw => transition(getter, raw, selected) switch {
                 (true, Option<CommandOptionValue> next) => ReadLoop(getter: getter, scope: scope, receive: receive, value: value, selected: next, transition: transition),
                 (false, Option<CommandOptionValue> next) => Read(getter: getter, raw: raw, value: value(getter, raw), option: next),
@@ -262,7 +269,7 @@ public static class CommandInputs {
     private static Fin<CommandGet<T>> Read<TGetter, T>(TGetter getter, GetResult raw, Option<T> value, Option<CommandOptionValue> option) where TGetter : GetBaseClass {
         Option<T> projected = value | option.Bind(static selected => selected is T selectedValue ? Some(selectedValue) : Option<T>.None);
         CommandGet<T> snapshot = CommandGet<T>.Of(getter: getter, raw: raw, value: projected, option: option);
-        return (raw, projected.IsSome || (raw == GetResult.Option && option.IsSome)) switch {
+        return (raw, projected.IsSome || (raw == GetResult.Option && option.IsSome) || snapshot.Snapshot.Has(raw: raw)) switch {
             (GetResult.Object or GetResult.Point or GetResult.Point2d or GetResult.Number or GetResult.String or GetResult.Color or GetResult.Rectangle2d or GetResult.Line2d, false) => Fin.Fail<CommandGet<T>>(error: Op.Of(name: nameof(Read)).InvalidResult()),
             _ => Fin.Succ(value: snapshot),
         };
