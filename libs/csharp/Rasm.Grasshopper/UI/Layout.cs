@@ -41,10 +41,19 @@ public static class LayoutIntent {
         new(
             run: scope =>
                 from objects in scope.Objects.ToFin(Fail: Op.Of(name: nameof(Align)).InvalidInput())
+                from document in scope.Document.ToFin(Fail: Op.Of(name: nameof(Align)).InvalidInput())
                 from a in Optional(objects.Find(instanceId: left)).ToFin(Fail: Op.Of(name: nameof(Align)).InvalidInput())
                 from b in Optional(objects.Find(instanceId: right)).ToFin(Fail: Op.Of(name: nameof(Align)).InvalidInput())
-                select Align(a: a, b: b, fix: fix),
+                from aligned in Align(document: document, a: a, b: b, fix: fix)
+                select aligned,
             policy: GrasshopperUiPolicy.Document(repaint: true));
+
+    public static GrasshopperUiIntent<Seq<LayoutSnapshot>> Selection() =>
+        new(
+            run: scope => scope.Objects
+                .ToFin(Fail: Op.Of(name: nameof(Selection)).InvalidInput())
+                .Map(objects => toSeq(objects.SelectedObjects).Map(static obj => SnapshotOf(attributes: obj.Attributes))),
+            policy: GrasshopperUiPolicy.Document());
 
     private static Fin<IDocumentObject> ObjectOf(GrasshopperUi.Scope scope, Guid id, string name) =>
         from valid in Optional(id).Filter(static value => value != Guid.Empty).ToFin(Fail: Op.Of(name: name).InvalidInput())
@@ -66,52 +75,55 @@ public static class LayoutIntent {
         IAttributes attributes = obj.Attributes;
         LayoutSnapshot before = SnapshotOf(attributes: attributes);
         Option<SnappingSnapshot> action = snap switch {
-            true => Snap(document: document, obj: obj, dx: dx, dy: dy)
-                .Map(found => {
-                    dx += found.Dx;
-                    dy += found.Dy;
-                    return found;
-                }),
+            true => Snap(document: document, obj: obj, dx: dx, dy: dy),
             false => None,
         };
+        (float deltaDx, float deltaDy) = action.Map(static found => (found.Dx, found.Dy)).IfNone((0f, 0f));
+        float movedDx = dx + deltaDx;
+        float movedDy = dy + deltaDy;
         Grasshopper2.Undo.ActionList actions = new([new PivotAction(obj: obj)]);
-        attributes.Move(dx: dx, dy: dy);
+        attributes.Move(dx: movedDx, dy: movedDy);
         attributes.Invalidate();
         document.Undo.Do(name: ("Move", "Object"), actions: actions);
-        return new(ObjectId: before.ObjectId, Dx: dx, Dy: dy, Layout: SnapshotOf(attributes: attributes), Snap: action);
+        return new(ObjectId: before.ObjectId, Dx: movedDx, Dy: movedDy, Layout: SnapshotOf(attributes: attributes), Snap: action);
     }
 
     private static Option<SnappingSnapshot> Snap(Document document, IDocumentObject obj, float dx, float dy) {
         IAttributes attributes = obj.Attributes;
-        attributes.Move(dx: dx, dy: dy);
         attributes.Layout(shape: UiShape.Default);
+        RectangleF bounds = attributes.AggregateBounds;
+        RectangleF target = new(x: bounds.X + dx, y: bounds.Y + dy, width: bounds.Width, height: bounds.Height);
         SnappingConstraints constraints = SnappingConstraints.CreateFromDocument(document, obj.InstanceId);
-        constraints.SnapObject(target: obj, settings: SnappingSettings.Current, visibleLimit: document.Objects.AttributeBounds, snapX: out SnappingAction x, snapY: out SnappingAction y);
-        attributes.Move(dx: -dx, dy: -dy);
-        attributes.Layout(shape: UiShape.Default);
-        return (Optional(x), Optional(y)) switch {
-            (Option<SnappingAction> { IsSome: true } sx, Option<SnappingAction> { IsSome: true } sy) => Some(new SnappingSnapshot(Dx: sx.Map(static action => action.ΔX).IfNone(0), Dy: sy.Map(static action => action.ΔY).IfNone(0), XLabel: sx.Map(static action => action.LabelText).IfNone(string.Empty), YLabel: sy.Map(static action => action.LabelText).IfNone(string.Empty))),
-            (Option<SnappingAction> { IsSome: true } sx, _) => Some(new SnappingSnapshot(Dx: sx.Map(static action => action.ΔX).IfNone(0), Dy: 0, XLabel: sx.Map(static action => action.LabelText).IfNone(string.Empty), YLabel: string.Empty)),
-            (_, Option<SnappingAction> { IsSome: true } sy) => Some(new SnappingSnapshot(Dx: 0, Dy: sy.Map(static action => action.ΔY).IfNone(0), XLabel: string.Empty, YLabel: sy.Map(static action => action.LabelText).IfNone(string.Empty))),
-            _ => None,
+        constraints.SnapRectangle(target: target, settings: SnappingSettings.Current, visibleLimit: document.Objects.AttributeBounds, snapX: out SnappingAction x, snapY: out SnappingAction y);
+        Option<SnappingAction> snapX = Optional(x);
+        Option<SnappingAction> snapY = Optional(y);
+        return (snapX.IsSome || snapY.IsSome) switch {
+            true => Some(new SnappingSnapshot(
+                Dx: snapX.Map(static action => action.ΔX).IfNone(0),
+                Dy: snapY.Map(static action => action.ΔY).IfNone(0),
+                XLabel: snapX.Map(static action => action.LabelText).IfNone(string.Empty),
+                YLabel: snapY.Map(static action => action.LabelText).IfNone(string.Empty))),
+            false => None,
         };
     }
 
-    private static Unit Align(IDocumentObject a, IDocumentObject b, OCD.Fixed fix) =>
+    private static Fin<Unit> Align(Document document, IDocumentObject a, IDocumentObject b, OCD.Fixed fix) =>
         (a, b) switch {
-            (Component left, Component right) => Aligned(left: left, right: right, fix: fix, align: static (x, y, f) => OCD.AlignObjects(x, y, f)),
-            (IParameter left, Component right) => Aligned(left: left, right: right, fix: fix, align: static (x, y, f) => OCD.AlignObjects(x, y, f)),
-            (Component left, IParameter right) => Aligned(left: left, right: right, fix: fix, align: static (x, y, f) => OCD.AlignObjects(x, y, f)),
-            (IParameter left, IParameter right) => Aligned(left: left, right: right, fix: fix, align: static (x, y, f) => OCD.AlignObjects(x, y, f)),
-            _ => unit,
+            (Component left, Component right) => Aligned(document: document, left: left, right: right, fix: fix, align: static (x, y, f) => OCD.AlignObjects(x, y, f)),
+            (IParameter left, Component right) => Aligned(document: document, left: left, right: right, fix: fix, align: static (x, y, f) => OCD.AlignObjects(x, y, f)),
+            (Component left, IParameter right) => Aligned(document: document, left: left, right: right, fix: fix, align: static (x, y, f) => OCD.AlignObjects(x, y, f)),
+            (IParameter left, IParameter right) => Aligned(document: document, left: left, right: right, fix: fix, align: static (x, y, f) => OCD.AlignObjects(x, y, f)),
+            _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(Align)).InvalidInput()),
         };
 
-    private static Unit Aligned<TLeft, TRight>(TLeft left, TRight right, OCD.Fixed fix, System.Action<TLeft, TRight, OCD.Fixed> align)
+    private static Fin<Unit> Aligned<TLeft, TRight>(Document document, TLeft left, TRight right, OCD.Fixed fix, System.Action<TLeft, TRight, OCD.Fixed> align)
         where TLeft : IDocumentObject
         where TRight : IDocumentObject {
+        Grasshopper2.Undo.ActionList actions = new([new PivotAction(obj: left.FoundingObject), new PivotAction(obj: right.FoundingObject)]);
         align(arg1: left, arg2: right, arg3: fix);
         left.Attributes.Invalidate();
         right.Attributes.Invalidate();
-        return unit;
+        document.Undo.Do(name: ("Align", "Objects"), actions: actions);
+        return Fin.Succ(value: unit);
     }
 }

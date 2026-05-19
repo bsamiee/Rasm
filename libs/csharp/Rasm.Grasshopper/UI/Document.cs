@@ -4,6 +4,7 @@ using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Doc;
 using Grasshopper2.Parameters;
 using Grasshopper2.Parameters.Special;
+using GhColour = Grasshopper2.Types.Colour.Colour;
 
 namespace Rasm.Grasshopper.UI;
 
@@ -100,61 +101,67 @@ public static class DocumentIntent {
             policy: GrasshopperUiPolicy.Document());
 
     public static GrasshopperUiIntent<DocumentMutationSnapshot> DeleteSelection() =>
-        Mutate(name: nameof(DeleteSelection), run: static methods => methods.DeleteSelection(actions: null));
+        Mutate(name: nameof(DeleteSelection), run: static methods => Fin.Succ(value: methods.DeleteSelection(actions: null)));
 
     public static GrasshopperUiIntent<DocumentMutationSnapshot> DeleteSelectionData() =>
-        Mutate(name: nameof(DeleteSelectionData), run: static methods => methods.DeleteSelectionData(actions: null));
+        Mutate(name: nameof(DeleteSelectionData), run: static methods => Fin.Succ(value: methods.DeleteSelectionData(actions: null)));
 
     public static GrasshopperUiIntent<DocumentMutationSnapshot> SelectAll() =>
-        Mutate(name: nameof(SelectAll), run: static methods => methods.SelectAll());
+        Mutate(name: nameof(SelectAll), run: static methods => Fin.Succ(value: methods.SelectAll()));
 
     public static GrasshopperUiIntent<DocumentMutationSnapshot> DeselectAll() =>
-        Mutate(name: nameof(DeselectAll), run: static methods => methods.DeselectAll());
+        Mutate(name: nameof(DeselectAll), run: static methods => Fin.Succ(value: methods.DeselectAll()));
 
     public static GrasshopperUiIntent<DocumentMutationSnapshot> InvertSelection() =>
-        Mutate(name: nameof(InvertSelection), run: static methods => methods.InvertSelection());
+        Mutate(name: nameof(InvertSelection), run: static methods => Fin.Succ(value: methods.InvertSelection()));
 
     public static GrasshopperUiIntent<DocumentMutationSnapshot> ShowSelected() =>
-        Mutate(name: nameof(ShowSelected), run: static methods => methods.ShowSelected(actions: null));
+        Mutate(name: nameof(ShowSelected), run: static methods => Fin.Succ(value: methods.ShowSelected(actions: null)));
 
     public static GrasshopperUiIntent<DocumentMutationSnapshot> HideSelected() =>
-        Mutate(name: nameof(HideSelected), run: static methods => methods.HideSelected(actions: null));
+        Mutate(name: nameof(HideSelected), run: static methods => Fin.Succ(value: methods.HideSelected(actions: null)));
 
     public static GrasshopperUiIntent<DocumentMutationSnapshot> ToggleDisplaySelected() =>
-        Mutate(name: nameof(ToggleDisplaySelected), run: static methods => methods.ToggleDisplaySelected(actions: null));
+        Mutate(name: nameof(ToggleDisplaySelected), run: static methods => Fin.Succ(value: methods.ToggleDisplaySelected(actions: null)));
 
     public static GrasshopperUiIntent<DocumentMutationSnapshot> EnableSelected() =>
-        Mutate(name: nameof(EnableSelected), run: static methods => methods.EnableSelected(actions: null));
+        Mutate(name: nameof(EnableSelected), run: static methods => Fin.Succ(value: methods.EnableSelected(actions: null)));
+
+    public static GrasshopperUiIntent<DocumentMutationSnapshot> SetSelectedColourOverride(GhColour? colour = null) =>
+        Mutate(name: nameof(SetSelectedColourOverride), run: methods => Fin.Succ(value: methods.SetColourOverrideSelected(colour: colour, actions: null)));
 
     public static GrasshopperUiIntent<DocumentMutationSnapshot> ShowSelectedInputs() =>
-        Mutate(name: nameof(ShowSelectedInputs), run: static methods => methods.ShowSelectedInputs(actions: null));
+        Mutate(name: nameof(ShowSelectedInputs), run: static methods => Fin.Succ(value: methods.ShowSelectedInputs(actions: null)));
 
     public static GrasshopperUiIntent<DocumentMutationSnapshot> ShowSelectedOutputs() =>
-        Mutate(name: nameof(ShowSelectedOutputs), run: static methods => methods.ShowSelectedOutputs(actions: null));
+        Mutate(name: nameof(ShowSelectedOutputs), run: static methods => Fin.Succ(value: methods.ShowSelectedOutputs(actions: null)));
 
     public static GrasshopperUiIntent<DocumentMutationSnapshot> HideSelectedInputs() =>
-        Mutate(name: nameof(HideSelectedInputs), run: static methods => methods.HideSelectedInputs(actions: null));
+        Mutate(name: nameof(HideSelectedInputs), run: static methods => Fin.Succ(value: methods.HideSelectedInputs(actions: null)));
 
     public static GrasshopperUiIntent<DocumentMutationSnapshot> HideSelectedOutputs() =>
-        Mutate(name: nameof(HideSelectedOutputs), run: static methods => methods.HideSelectedOutputs(actions: null));
+        Mutate(name: nameof(HideSelectedOutputs), run: static methods => Fin.Succ(value: methods.HideSelectedOutputs(actions: null)));
 
     public static GrasshopperUiIntent<DocumentMutationSnapshot> CopySelection(ClipboardKind clipboard = ClipboardKind.Global) =>
-        Mutate(name: nameof(CopySelection), clipboard: clipboard, run: static (methods, valid) => methods.CopySelection(clipboard: valid));
+        Mutate(name: nameof(CopySelection), run: methods => ValidClipboard(name: nameof(CopySelection), clipboard: clipboard).Map(valid => methods.CopySelection(clipboard: valid) ? 1 : 0));
 
     public static GrasshopperUiIntent<DocumentMutationSnapshot> CutSelection(ClipboardKind clipboard = ClipboardKind.Global) =>
-        Mutate(name: nameof(CutSelection), clipboard: clipboard, run: static (methods, valid) => methods.CutSelection(clipboard: valid, actions: null));
+        Mutate(name: nameof(CutSelection), run: methods => ValidClipboard(name: nameof(CutSelection), clipboard: clipboard).Map(valid => methods.CutSelection(clipboard: valid, actions: null) ? 1 : 0));
 
     public static GrasshopperUiIntent<DocumentMutationSnapshot> Paste(ClipboardKind clipboard = ClipboardKind.Global, PasteBehaviour behaviour = PasteBehaviour.Centre | PasteBehaviour.DeselectOldObjects | PasteBehaviour.SelectNewObjects) =>
-        Mutate(name: nameof(Paste), clipboard: clipboard, run: (methods, valid) => methods.PasteFromClipboard(clipboard: valid, behaviour: behaviour, actions: null));
+        Mutate(name: nameof(Paste), run: methods => ValidClipboard(name: nameof(Paste), clipboard: clipboard).Map(valid => methods.PasteFromClipboard(clipboard: valid, behaviour: behaviour, actions: null) ? 1 : 0));
 
     public static GrasshopperUiIntent<DocumentMutationSnapshot> PasteGrasshopper1Xml() =>
-        Mutate(name: nameof(PasteGrasshopper1Xml), run: static methods => methods.PasteGrasshopper1XmlFromClipboard(actions: null) ? 1 : 0);
+        Mutate(name: nameof(PasteGrasshopper1Xml), run: static methods => Fin.Succ(value: methods.PasteGrasshopper1XmlFromClipboard(actions: null) ? 1 : 0));
 
     public static GrasshopperUiIntent<Option<Guid>> GroupSelection(string name) =>
         new(
-            run: scope => scope.Methods
-                .ToFin(Fail: Op.Of(name: nameof(GroupSelection)).InvalidInput())
-                .Map(methods => Optional(methods.GroupSelection(name: name, colour: null, actions: null)).Map(static group => group.InstanceId)),
+            run: scope =>
+                from validName in Optional(name)
+                    .Filter(static value => !string.IsNullOrWhiteSpace(value))
+                    .ToFin(Fail: Op.Of(name: nameof(GroupSelection)).InvalidInput())
+                from methods in scope.Methods.ToFin(Fail: Op.Of(name: nameof(GroupSelection)).InvalidInput())
+                select Optional(methods.GroupSelection(name: validName, colour: null, actions: null)).Map(static item => item.InstanceId),
             policy: GrasshopperUiPolicy.Document(repaint: true));
 
     public static GrasshopperUiIntent<Option<Guid>> ChainSelection() =>
@@ -186,48 +193,43 @@ public static class DocumentIntent {
     public static GrasshopperUiIntent<DocumentMutationSnapshot> AddDependency(PointF pivot, Listen dependency) =>
         new(
             run: scope => Optional((Pivot: pivot, Dependency: dependency))
-                .Filter(static item => float.IsFinite(item.Pivot.X) && float.IsFinite(item.Pivot.Y))
+                .Filter(static item => float.IsFinite(item.Pivot.X) && float.IsFinite(item.Pivot.Y) && item.Dependency is not null)
                 .ToFin(Fail: Op.Of(name: nameof(AddDependency)).InvalidInput())
                 .Bind(valid =>
                     from methods in scope.Methods.ToFin(Fail: Op.Of(name: nameof(AddDependency)).InvalidInput())
                     from document in scope.Document.ToFin(Fail: Op.Of(name: nameof(AddDependency)).InvalidInput())
                     from objects in scope.Objects.ToFin(Fail: Op.Of(name: nameof(AddDependency)).InvalidInput())
-                    select AddedDependency(methods: methods, location: valid.Pivot, dependency: valid.Dependency, document: document, objects: objects)),
+                    select (Methods: methods, Document: document, Objects: objects, Input: valid))
+                .Map(state => {
+                    state.Methods.AddDependency(location: state.Input.Pivot, listen: state.Input.Dependency, actions: null);
+                    return new DocumentMutationSnapshot(Changed: 1, Document: SnapshotOf(document: state.Document, objects: state.Objects));
+                }),
             policy: GrasshopperUiPolicy.Document(repaint: true));
 
-    private static GrasshopperUiIntent<DocumentMutationSnapshot> Mutate(string name, Func<DocumentMethods, int> run) =>
+    private static GrasshopperUiIntent<DocumentMutationSnapshot> Mutate(string name, Func<DocumentMethods, Fin<int>> run) =>
         new(
             run: scope =>
+                from validRun in Optional(run).ToFin(Fail: Op.Of(name: name).InvalidInput())
                 from methods in scope.Methods.ToFin(Fail: Op.Of(name: name).InvalidInput())
                 from document in scope.Document.ToFin(Fail: Op.Of(name: name).InvalidInput())
                 from objects in scope.Objects.ToFin(Fail: Op.Of(name: name).InvalidInput())
-                from changed in Changed(name: name, count: run(arg: methods))
+                from changed in validRun(arg: methods).Bind(count => count switch {
+                    >= 0 => Fin.Succ(value: count),
+                    _ => Fin.Fail<int>(error: Op.Of(name: name).InvalidResult()),
+                })
                 select new DocumentMutationSnapshot(Changed: changed, Document: SnapshotOf(document: document, objects: objects)),
             policy: GrasshopperUiPolicy.Document(repaint: true));
 
-    private static GrasshopperUiIntent<DocumentMutationSnapshot> Mutate(string name, ClipboardKind clipboard, Func<DocumentMethods, ClipboardKind, bool> run) =>
-        new(
-            run: scope => Optional(clipboard)
-                .Filter(static value => value != ClipboardKind.Instance)
-                .ToFin(Fail: Op.Of(name: name).InvalidInput())
-                .Bind(valid =>
-                    from methods in scope.Methods.ToFin(Fail: Op.Of(name: name).InvalidInput())
-                    from document in scope.Document.ToFin(Fail: Op.Of(name: name).InvalidInput())
-                    from objects in scope.Objects.ToFin(Fail: Op.Of(name: name).InvalidInput())
-                    select new DocumentMutationSnapshot(Changed: run(arg1: methods, arg2: valid) ? 1 : 0, Document: SnapshotOf(document: document, objects: objects))),
-            policy: GrasshopperUiPolicy.Document(repaint: true));
-
-    private static Fin<int> Changed(string name, int count) =>
-        count switch {
-            >= 0 => Fin.Succ(value: count),
-            _ => Fin.Fail<int>(error: Op.Of(name: name).InvalidResult()),
-        };
+    private static Fin<ClipboardKind> ValidClipboard(string name, ClipboardKind clipboard) =>
+        Optional(clipboard)
+            .Filter(static value => value != ClipboardKind.Instance)
+            .ToFin(Fail: Op.Of(name: name).InvalidInput());
 
     private static DocumentSnapshot SnapshotOf(Document document, ObjectList objects) {
         Seq<WireEnds> allWires = toSeq(objects.AllWires);
         Seq<WireEnds> selectedWires = toSeq(objects.SelectedWires);
-        int wireCount = allWires.Count(IsResolvedWire(objects: objects));
-        int selectedWireCount = selectedWires.Count(IsResolvedWire(objects: objects));
+        int wireCount = allWires.Count(wire => WireSnapshot.IsConnected(objects: objects, wire: wire));
+        int selectedWireCount = selectedWires.Count(wire => WireSnapshot.IsConnected(objects: objects, wire: wire));
         return new(
             Hash: document.Hash,
             Modified: document.Modified,
@@ -246,9 +248,6 @@ public static class DocumentIntent {
             ProjectionZoom: document.Projection.zoom);
     }
 
-    private static Func<WireEnds, bool> IsResolvedWire(ObjectList objects) =>
-        wire => objects.FindParameter(instanceId: wire.Source) is not null && objects.FindParameter(instanceId: wire.Target) is { } target && target.Inputs.IndexOf(wire.Source) >= 0;
-
     private static Option<DocumentGripSnapshot> GripOf(ObjectList objects, PointF point, DocumentGripKind kind) =>
         kind switch {
             DocumentGripKind.Inlet => Optional(objects.FindByInlet(point: point)).Map(static parameter => new DocumentGripSnapshot(Parameter: parameter.InstanceId, InletWithinRange: true, OutletWithinRange: false)),
@@ -256,11 +255,6 @@ public static class DocumentIntent {
             DocumentGripKind.InletOrOutlet => Optional(objects.FindByInletOrOutlet(point: point)).Filter(static found => found.parameter is not null).Map(static found => new DocumentGripSnapshot(Parameter: found.parameter.InstanceId, InletWithinRange: found.inletWithinRange, OutletWithinRange: found.outletWithinRange)),
             _ => None,
         };
-
-    private static DocumentMutationSnapshot AddedDependency(DocumentMethods methods, PointF location, Listen dependency, Document document, ObjectList objects) {
-        methods.AddDependency(location: location, listen: dependency, actions: null);
-        return new(Changed: 1, Document: SnapshotOf(document: document, objects: objects));
-    }
 
     private static DocumentObjectSnapshot SnapshotObject(IDocumentObject obj) {
         obj.Attributes.Layout(Grasshopper2.UI.Skinning.Shape.Default);

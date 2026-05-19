@@ -34,9 +34,6 @@ public readonly record struct CanvasPickPolicy(
 }
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct CanvasWireSnapshot(Guid Source, Guid Target);
-
-[StructLayout(LayoutKind.Auto)]
 public readonly record struct CanvasPickSnapshot(
     Pick Kind,
     Option<PointF> Point,
@@ -46,7 +43,7 @@ public readonly record struct CanvasPickSnapshot(
     int DeselectedCount,
     int DeselectedWireCount,
     int DeselectedObjectCount,
-    Option<CanvasWireSnapshot> WireUnderPick,
+    Option<WireEnds> WireUnderPick,
     Option<Guid> ObjectUnderPick,
     Option<Guid> InletUnderPick,
     Option<Guid> OutletUnderPick) {
@@ -63,7 +60,7 @@ public readonly record struct CanvasPickSnapshot(
             DeselectedCount: result.DeselectedCount,
             DeselectedWireCount: result.DeselectedWireCount,
             DeselectedObjectCount: result.DeselectedObjectCount,
-            WireUnderPick: Optional(new CanvasWireSnapshot(Source: result.WireUnderPick.Source, Target: result.WireUnderPick.Target))
+            WireUnderPick: Optional(new WireEnds(source: result.WireUnderPick.Source, target: result.WireUnderPick.Target))
                 .Filter(static wire => wire.Source != Guid.Empty && wire.Target != Guid.Empty),
             ObjectUnderPick: Optional(result.ObjectUnderPick).Filter(static id => id != Guid.Empty),
             InletUnderPick: Optional(result.InletUnderPick).Filter(static id => id != Guid.Empty),
@@ -99,34 +96,39 @@ public static class CanvasIntent {
         new(
             run: scope => scope.Canvas
                 .ToFin(Fail: Op.Of(name: nameof(Invalidate)).InvalidInput())
-                .Map(canvas => {
-                    _ = scheduled ? Redraw(canvas: canvas) : Invalidated(canvas: canvas);
+                .Map((GhCanvas canvas) => {
+                    Action<GhCanvas> invalidate = scheduled switch {
+                        true => static target => target.ScheduleRedraw(),
+                        false => static target => target.Invalidate(),
+                    };
+                    invalidate(obj: canvas);
                     return unit;
                 }),
             policy: GrasshopperUiPolicy.Canvas());
 
     public static GrasshopperUiIntent<CanvasPickSnapshot> Pick(PointF point, CanvasPickPolicy policy) =>
+        Pick(point: point, source: CoordinateSystem.Content, policy: policy);
+
+    public static GrasshopperUiIntent<CanvasPickSnapshot> Pick(PointF point, CoordinateSystem source, CanvasPickPolicy policy) =>
         new(
             run: scope => Optional(point)
                 .Filter(static value => float.IsFinite(value.X) && float.IsFinite(value.Y))
                 .ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
                 .Bind(validPoint => scope.Canvas
                     .ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
-                    .Map(canvas => CanvasPickSnapshot.Of(result: canvas.ResolvePick(
-                        point: validPoint,
+                    .Map(canvas => {
+                        PointF mapped = source switch {
+                            CoordinateSystem.Content => validPoint,
+                            _ => canvas.Map(point: validPoint, from: source, to: CoordinateSystem.Content),
+                        };
+                        return CanvasPickSnapshot.Of(result: canvas.ResolvePick(
+                        point: mapped,
                         includeGrips: policy.IncludeGrips,
                         includeForeground: policy.IncludeForeground,
                         includeBackground: policy.IncludeBackground,
                         includeWires: policy.IncludeWires,
-                        recursive: policy.Recursive)))),
-            policy: GrasshopperUiPolicy.Canvas());
-
-    public static GrasshopperUiIntent<CanvasPickSnapshot> Pick(PointF point, CoordinateSystem source, CanvasPickPolicy policy) =>
-        new(
-            run: scope =>
-                from mapped in Map(point: point, source: source, target: CoordinateSystem.Content).Run(scope: scope)
-                from picked in Pick(point: mapped.Target, policy: policy).Run(scope: scope)
-                select picked,
+                        recursive: policy.Recursive));
+                    })),
             policy: GrasshopperUiPolicy.Canvas());
 
     public static GrasshopperUiIntent<CanvasMappedPoint> Map(PointF point, CoordinateSystem source, CoordinateSystem target) =>
@@ -199,6 +201,16 @@ public static class CanvasIntent {
                 select snapshot,
             policy: GrasshopperUiPolicy.Document(repaint: true));
 
+    public static GrasshopperUiIntent<bool> ViewportDragging(bool enabled) =>
+        new(
+            run: scope => scope.Canvas
+                .ToFin(Fail: Op.Of(name: nameof(ViewportDragging)).InvalidInput())
+                .Map(canvas => {
+                    canvas.ViewportDragging = enabled;
+                    return canvas.ViewportDragging;
+                }),
+            policy: GrasshopperUiPolicy.Canvas(repaint: true));
+
     private static CanvasSnapshot SnapshotOf(GrasshopperUi.Scope scope, GhCanvas canvas) =>
         new(
             HasEditor: scope.Editor.IsSome,
@@ -212,28 +224,20 @@ public static class CanvasIntent {
             WindowSelectWires: canvas.WindowSelectWires,
             WindowSelectGroups: canvas.WindowSelectGroups);
 
-    private static Unit Redraw(GhCanvas canvas) {
-        canvas.ScheduleRedraw();
-        return unit;
-    }
-
-    private static Unit Invalidated(GhCanvas canvas) {
-        canvas.Invalidate();
-        return unit;
-    }
-
     private static Fin<RectangleF> FrameOf(IEnumerable<IDocumentObject> objects, float padding, string name) =>
         Optional(objects)
             .ToFin(Fail: Op.Of(name: name).InvalidInput())
-            .Bind(valid => toSeq(valid)
-                .Map(static obj => {
-                    obj.Attributes.Layout(UiShape.Default);
+            .Bind((IEnumerable<IDocumentObject> valid) => toSeq(valid)
+                .Map(static (IDocumentObject obj) => {
+                    obj.Attributes.Layout(shape: UiShape.Default);
                     return obj.Attributes.AggregateBounds;
                 })
-                .Fold(Option<RectangleF>.None, static (bounds, next) => bounds.Match(
-                    Some: current => Some(RectangleF.Union(current, next)),
-                    None: () => Some(next)))
-                .Map(bounds => {
+                .Fold(
+                    Option<RectangleF>.None,
+                    static (Option<RectangleF> state, RectangleF next) => state.Match(
+                        Some: current => Some(RectangleF.Union(current, next)),
+                        None: () => Some(next)))
+                .Map((RectangleF bounds) => {
                     bounds.Inflate(width: Math.Max(0, padding), height: Math.Max(0, padding));
                     return bounds;
                 })

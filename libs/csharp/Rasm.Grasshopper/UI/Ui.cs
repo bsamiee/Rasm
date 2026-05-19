@@ -49,15 +49,26 @@ public sealed record GrasshopperUiIntent<T> {
 }
 
 public static class GrasshopperUiIntent {
-    public static GrasshopperUiIntent<T> Of<T>(Func<GrasshopperUi.Scope, Fin<T>> run, GrasshopperUiPolicy policy = default) =>
+    internal static GrasshopperUiIntent<T> Of<T>(Func<GrasshopperUi.Scope, Fin<T>> run, GrasshopperUiPolicy policy = default) =>
         new(run: run, policy: policy);
+
+    public static GrasshopperUiIntent<Unit> BeginRhinoGetter(RhinoDoc? document = null) =>
+        new(
+            run: _ =>
+                from active in Optional(document ?? RhinoDoc.ActiveDoc).ToFin(Fail: Op.Of(name: nameof(BeginRhinoGetter)).InvalidInput())
+                from started in GhEditor.BeginRhinoGetter(doc: active) switch {
+                    true => Fin.Succ(value: unit),
+                    false => Fin.Fail<Unit>(error: Op.Of(name: nameof(BeginRhinoGetter)).InvalidResult()),
+                }
+                select started,
+            policy: GrasshopperUiPolicy.Read);
 }
 
 // --- [SERVICES] -------------------------------------------------------------------------
 [BoundaryAdapter]
 public sealed partial record GrasshopperUi {
     [StructLayout(LayoutKind.Auto)]
-    public readonly record struct Scope(
+    internal readonly record struct Scope(
         Option<GhEditor> Editor,
         Option<GhCanvas> Canvas,
         Option<Document> Document,

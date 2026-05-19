@@ -8,7 +8,24 @@ using Grasshopper2.Parameters.Special;
 namespace Rasm.Grasshopper.UI;
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct WireSnapshot(Guid Source, Guid Target, bool SourceResolved, bool TargetResolved, bool Selected);
+public readonly record struct WireSnapshot(Guid Source, Guid Target, bool SourceResolved, bool TargetResolved, bool Connected, bool Selected) {
+    internal static bool IsConnected(ObjectList objects, WireEnds wire) =>
+        objects.FindParameter(instanceId: wire.Source) is not null &&
+        objects.FindParameter(instanceId: wire.Target) is { } target &&
+        target.Inputs.IndexOf(wire.Source) >= 0;
+
+    internal static WireSnapshot Of(ObjectList objects, WireEnds wire) {
+        IParameter? source = objects.FindParameter(instanceId: wire.Source);
+        IParameter? target = objects.FindParameter(instanceId: wire.Target);
+        return new(
+            Source: wire.Source,
+            Target: wire.Target,
+            SourceResolved: source is not null,
+            TargetResolved: target is not null,
+            Connected: source is not null && target is not null && target.Inputs.IndexOf(wire.Source) >= 0,
+            Selected: objects.IsWireSelected(wire: wire));
+    }
+}
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct WireSplitSnapshot(bool Changed, WireSnapshot Wire, Option<Guid> Shout, Option<Guid> Listen);
@@ -19,14 +36,23 @@ public static class WireIntent {
         new(
             run: scope => scope.Objects
                 .ToFin(Fail: Op.Of(name: nameof(All)).InvalidInput())
-                .Map(objects => toSeq(objects.AllWires).Choose(wire => ResolvedSnapshotOf(objects: objects, wire: wire))),
+                .Map(objects => toSeq(objects.AllWires).Map(wire => WireSnapshot.Of(objects: objects, wire: wire))),
             policy: GrasshopperUiPolicy.Document());
 
     public static GrasshopperUiIntent<Seq<WireSnapshot>> Selected() =>
         new(
             run: scope => scope.Objects
                 .ToFin(Fail: Op.Of(name: nameof(Selected)).InvalidInput())
-                .Map(objects => toSeq(objects.SelectedWires).Choose(wire => ResolvedSnapshotOf(objects: objects, wire: wire))),
+                .Map(objects => toSeq(objects.SelectedWires).Map(wire => WireSnapshot.Of(objects: objects, wire: wire))),
+            policy: GrasshopperUiPolicy.Document());
+
+    public static GrasshopperUiIntent<Seq<WireSnapshot>> Dangling() =>
+        new(
+            run: scope => scope.Objects
+                .ToFin(Fail: Op.Of(name: nameof(Dangling)).InvalidInput())
+                .Map(objects => toSeq(objects.AllWires)
+                    .Map(wire => WireSnapshot.Of(objects: objects, wire: wire))
+                    .Filter(static wire => !wire.Connected)),
             policy: GrasshopperUiPolicy.Document());
 
     public static GrasshopperUiIntent<WireSnapshot> Pick(PointF point) =>
@@ -35,7 +61,7 @@ public static class WireIntent {
                 from pick in CanvasIntent.Pick(point: point, policy: CanvasPickPolicy.All).Run(scope: scope)
                 from wire in pick.WireUnderPick.ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidResult())
                 from objects in scope.Objects.ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
-                from snapshot in ResolvedSnapshotOf(objects: objects, wire: new WireEnds(source: wire.Source, target: wire.Target)).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidResult())
+                from snapshot in ConnectedSnapshotOf(objects: objects, wire: wire).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidResult())
                 select snapshot,
             policy: GrasshopperUiPolicy.Document());
 
@@ -82,18 +108,13 @@ public static class WireIntent {
         from ends in Optional(new WireEnds(source: wire.Source, target: wire.Target))
             .Filter(found => target.Inputs.IndexOf(found.Source) >= 0)
             .ToFin(Fail: Op.Of(name: name).InvalidInput())
-        from snapshot in ResolvedSnapshotOf(objects: objects, wire: ends).ToFin(Fail: Op.Of(name: name).InvalidInput())
+        from snapshot in ConnectedSnapshotOf(objects: objects, wire: ends).ToFin(Fail: Op.Of(name: name).InvalidInput())
         select (Source: source, Target: target, Wire: ends, Snapshot: snapshot);
 
-    private static Option<WireSnapshot> ResolvedSnapshotOf(ObjectList objects, WireEnds wire) =>
-        Optional((Source: objects.FindParameter(instanceId: wire.Source), Target: objects.FindParameter(instanceId: wire.Target)))
-            .Filter(found => found.Source is not null && found.Target is not null && found.Target.Inputs.IndexOf(wire.Source) >= 0)
-            .Map(_ => new WireSnapshot(
-                Source: wire.Source,
-                Target: wire.Target,
-                SourceResolved: true,
-                TargetResolved: true,
-                Selected: objects.IsWireSelected(wire: wire)));
+    private static Option<WireSnapshot> ConnectedSnapshotOf(ObjectList objects, WireEnds wire) =>
+        Optional(wire)
+            .Filter(found => WireSnapshot.IsConnected(objects: objects, wire: found))
+            .Map(found => WireSnapshot.Of(objects: objects, wire: found));
 
     private static Fin<Unit> Mutated(ObjectList objects, WireEnds wire, Func<ObjectList, WireEnds, bool> run, string name) =>
         run(arg1: objects, arg2: wire) switch {
@@ -103,6 +124,11 @@ public static class WireIntent {
 
     private static WireSplitSnapshot Split(DocumentMethods methods, WireSnapshot wire, IParameter source, IParameter target, string name, PointF location) {
         bool changed = methods.SplitWire(source: source, target: target, name: name, location: location, shout: out Shout? shout, listen: out Listen? listen, actions: null);
-        return changed ? new(Changed: true, Wire: wire, Shout: Optional(shout).Map(static item => item.InstanceId), Listen: Optional(listen).Map(static item => item.InstanceId)) : new(Changed: false, Wire: wire, Shout: None, Listen: None);
+        Option<Guid> shoutId = Optional(shout).Map(static item => item.InstanceId);
+        Option<Guid> listenId = Optional(listen).Map(static item => item.InstanceId);
+        return changed switch {
+            true => new(Changed: true, Wire: wire, Shout: shoutId, Listen: listenId),
+            false => new(Changed: false, Wire: wire, Shout: None, Listen: None),
+        };
     }
 }

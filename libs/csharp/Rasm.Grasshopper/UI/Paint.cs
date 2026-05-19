@@ -48,8 +48,19 @@ public static class PaintIntent {
             run: scope =>
                 from canvas in scope.Canvas.ToFin(Fail: Op.Of(name: nameof(Hook)).InvalidInput())
                 from valid in Optional(paint).ToFin(Fail: Op.Of(name: nameof(Hook)).InvalidInput())
-                select (IDisposable)PaintSubscription.Attach(canvas: canvas, phase: phase, paint: valid),
+                from subscription in PaintSubscription.Attach(canvas: canvas, phase: phase, paint: valid)
+                select (IDisposable)subscription,
             policy: GrasshopperUiPolicy.Canvas());
+
+    public static GrasshopperUiIntent<Unit> RedrawOnMouseMove() =>
+        new(
+            run: scope => scope.Canvas
+                .ToFin(Fail: Op.Of(name: nameof(RedrawOnMouseMove)).InvalidInput())
+                .Map(canvas => {
+                    canvas.RedrawOnMouseMove = true;
+                    return unit;
+                }),
+            policy: GrasshopperUiPolicy.Canvas(repaint: true));
 
     private sealed class PaintSubscription : IDisposable {
         private readonly Action dispose;
@@ -62,7 +73,7 @@ public static class PaintIntent {
                 return Fin.Succ(value: unit);
             }));
 
-        internal static PaintSubscription Attach(Canvas canvas, CanvasPaintPhase phase, Func<PaintScope, Fin<Unit>> paint) =>
+        internal static Fin<PaintSubscription> Attach(Canvas canvas, CanvasPaintPhase phase, Func<PaintScope, Fin<Unit>> paint) =>
             phase switch {
                 CanvasPaintPhase.BeforeBackground => AttachCanvas(add: handler => canvas.BeforePaintBackground += handler, remove: handler => canvas.BeforePaintBackground -= handler, phase: phase, paint: paint),
                 CanvasPaintPhase.AfterBackground => AttachCanvas(add: handler => canvas.AfterPaintBackground += handler, remove: handler => canvas.AfterPaintBackground -= handler, phase: phase, paint: paint),
@@ -72,7 +83,7 @@ public static class PaintIntent {
                 CanvasPaintPhase.AfterWires => AttachCanvas(add: handler => canvas.AfterPaintWires += handler, remove: handler => canvas.AfterPaintWires -= handler, phase: phase, paint: paint),
                 CanvasPaintPhase.BeforeObjects => AttachCanvas(add: handler => canvas.BeforePaintObjects += handler, remove: handler => canvas.BeforePaintObjects -= handler, phase: phase, paint: paint),
                 CanvasPaintPhase.AfterObjects => AttachCanvas(add: handler => canvas.AfterPaintObjects += handler, remove: handler => canvas.AfterPaintObjects -= handler, phase: phase, paint: paint),
-                _ => AttachCanvas(add: handler => canvas.AfterPaintObjects += handler, remove: handler => canvas.AfterPaintObjects -= handler, phase: CanvasPaintPhase.AfterObjects, paint: paint),
+                _ => Fin.Fail<PaintSubscription>(error: Op.Of(name: nameof(Attach)).InvalidInput()),
             };
 
         private static PaintSubscription AttachCanvas(Action<EventHandler<CanvasPaintEventArgs>> add, Action<EventHandler<CanvasPaintEventArgs>> remove, CanvasPaintPhase phase, Func<PaintScope, Fin<Unit>> paint) {
