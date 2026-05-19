@@ -6,7 +6,8 @@ public enum PagePhase { Apply, Cancel, Activate, Script, Display, Update, Modify
 
 public readonly record struct PageContext(PagePhase Phase, bool Active = false, RhinoDoc? Document = null, RunMode Mode = RunMode.Interactive, global::Rhino.UI.ObjectPropertiesPageEventArgs? Args = null, IntPtr ParentHandle = default, int Width = 0, int Height = 0) {
     public Option<uint> EventSerialNumber => Optional(Args).Map(static args => args.EventRuntimeSerialNumber);
-    public Option<uint> DocumentSerialNumber => Optional(Args).Map(static args => args.DocRuntimeSerialNumber);
+    public Option<uint> DocumentSerialNumber => Optional(Args).Map(static args => args.DocRuntimeSerialNumber) | Optional(Document).Map(static document => document.RuntimeSerialNumber);
+    public Option<global::Rhino.UI.ObjectPropertiesPage> Page => Optional(Args).Bind(static args => Optional(args.Page));
     public Option<RhinoView> View => Optional(Args).Bind(static args => Optional(args.View));
     public Option<RhinoViewport> Viewport => Optional(Args).Bind(static args => Optional(args.Viewport));
     public int ObjectCount => Optional(Args).Map(static args => args.ObjectCount).IfNone(0);
@@ -22,6 +23,7 @@ public readonly record struct PageContext(PagePhase Phase, bool Active = false, 
     public Fin<Seq<TObject>> Objects<TObject>() where TObject : RhinoObject => Optional(Args).ToFin(Fail: Op.Of(name: nameof(Objects)).InvalidInput()).Map(static args => toSeq(args.GetObjects<TObject>()));
     public Fin<Seq<RhinoObject>> Objects(ObjectType filter) => Optional(Args).ToFin(Fail: Op.Of(name: nameof(Objects)).InvalidInput()).Map(args => toSeq(args.GetObjects(filter: filter)));
     public Fin<Seq<Guid>> ObjectIds() => Objects<RhinoObject>().Map(static objects => objects.Map(static value => value.Id));
+    public Fin<RhinoUi> Ui() { RunMode mode = Mode; return RequireDocument().Map(document => new RhinoUi(document: document, mode: mode)); }
 }
 
 public abstract class RasmOptionsPage : global::Rhino.UI.OptionsDialogPage {

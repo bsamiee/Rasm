@@ -1,5 +1,6 @@
 using Eto.Forms;
 using DrawingIcon = System.Drawing.Icon;
+using ReflectionAssembly = System.Reflection.Assembly;
 
 namespace Rasm.Rhino.UI;
 
@@ -48,10 +49,8 @@ public sealed record PanelOp<TPanel, T> where TPanel : RasmPanel {
 public readonly record struct PanelSnapshot<TPanel>(
     Guid PanelId,
     bool Visible,
-    bool Selected,
     Seq<TPanel> Instances,
-    Seq<Guid> OpenPanelIds,
-    Seq<Guid> DockBarIds) where TPanel : RasmPanel;
+    Seq<Guid> OpenPanelIds) where TPanel : RasmPanel;
 
 public readonly record struct PanelMenuState(
     bool Enabled = true,
@@ -64,8 +63,7 @@ public readonly record struct PanelMenuState(
     nint MenuHandle = default,
     int MenuIndex = -1,
     uint WindowsMenuItemId = 0) {
-    internal static Option<PanelMenuState> Of(global::Rhino.UI.RuiUpdateUi ui) =>
-        Optional(ui).Map(valid => new PanelMenuState(Enabled: valid.Enabled, Checked: valid.Checked, RadioChecked: valid.RadioChecked, Text: Optional(valid.Text), FileId: valid.FileId, MenuId: valid.MenuId, ItemId: valid.MenuItemId, MenuHandle: valid.MenuHandle, MenuIndex: valid.MenuIndex, WindowsMenuItemId: valid.WindowsMenuItemId));
+    internal static Option<PanelMenuState> Of(global::Rhino.UI.RuiUpdateUi ui) => Optional(ui).Bind(static valid => (valid.FileId, valid.MenuId, valid.MenuItemId) switch { (Guid file, Guid menu, Guid item) when file != Guid.Empty && menu != Guid.Empty && item != Guid.Empty => Some(new PanelMenuState(Enabled: valid.Enabled, Checked: valid.Checked, RadioChecked: valid.RadioChecked, Text: Optional(valid.Text), FileId: valid.FileId, MenuId: valid.MenuId, ItemId: valid.MenuItemId, MenuHandle: valid.MenuHandle, MenuIndex: valid.MenuIndex, WindowsMenuItemId: valid.WindowsMenuItemId)), _ => Option<PanelMenuState>.None });
 
     internal Unit Apply(global::Rhino.UI.RuiUpdateUi ui) { ui.Enabled = Enabled; ui.Checked = Checked; ui.RadioChecked = RadioChecked; _ = Text.Iter(value => ui.Text = value); return unit; }
 }
@@ -74,19 +72,16 @@ public static class PanelOp {
     public static PanelOp<TPanel, Unit> Register<TPanel>(
         global::Rhino.PlugIns.PlugIn plugin,
         string caption,
-        System.Reflection.Assembly? iconAssembly,
-        string iconResourceId,
+        object icon,
+        ReflectionAssembly? iconAssembly = null,
         global::Rhino.UI.PanelType panelType = global::Rhino.UI.PanelType.PerDoc) where TPanel : RasmPanel =>
         new(
             run: _ =>
                 from validPlugin in Optional(plugin).ToFin(Fail: Op.Of(name: nameof(Register)).InvalidInput())
                 from validCaption in NonBlank(value: caption)
-                from validResource in NonBlank(value: iconResourceId)
+                from validIcon in Optional(icon).ToFin(Fail: Op.Of(name: nameof(Register)).InvalidInput())
                 from panel in RasmPanel.PanelIdentityOf<TPanel>()
-                from registered in RhinoUi.Protect(valid: () => {
-                    global::Rhino.UI.Panels.RegisterPanel(validPlugin, panel.Type, validCaption, iconAssembly, validResource, panelType);
-                    return Fin.Succ(value: unit);
-                })
+                from registered in RhinoUi.Protect(valid: () => IconDispatch(value: validIcon, native: iconValue => { global::Rhino.UI.Panels.RegisterPanel(validPlugin, panel.Type, validCaption, iconValue, panelType); return unit; }, resource: resourceName => from assembly in Optional(iconAssembly).ToFin(Fail: Op.Of(name: nameof(Register)).InvalidInput()) select ((Func<Unit>)(() => { global::Rhino.UI.Panels.RegisterPanel(validPlugin, panel.Type, validCaption, assembly, resourceName, panelType); return unit; }))(), name: nameof(Register)))
                 select registered,
             interactive: false);
 
@@ -123,14 +118,7 @@ public static class PanelOp {
         new(run: _ =>
             from panel in RasmPanel.PanelIdentityOf<TPanel>()
             from value in Optional(icon).ToFin(Fail: Op.Of(name: nameof(Icon)).InvalidInput())
-            from changed in RhinoUi.Protect(valid: () => value switch {
-                string resource => NonBlank(value: resource).Map(validResource => {
-                    global::Rhino.UI.Panels.ChangePanelIcon(panel.Type, validResource);
-                    return unit;
-                }),
-                DrawingIcon native => ((Func<Fin<Unit>>)(() => { global::Rhino.UI.Panels.ChangePanelIcon(panel.Type, native); return Fin.Succ(value: unit); }))(),
-                _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(Icon)).InvalidInput()),
-            })
+            from changed in RhinoUi.Protect(valid: () => IconDispatch(value: value, native: iconValue => { global::Rhino.UI.Panels.ChangePanelIcon(panel.Type, iconValue); return unit; }, resource: resourceName => Fin.Succ(value: ((Func<Unit>)(() => { global::Rhino.UI.Panels.ChangePanelIcon(panel.Type, resourceName); return unit; }))()), name: nameof(Icon)))
             select changed,
             interactive: false);
 
@@ -149,15 +137,12 @@ public static class PanelOp {
         new(run: document =>
             from panel in RasmPanel.PanelIdentityOf<TPanel>()
             from doc in Optional(document).ToFin(Fail: Op.Of(name: nameof(Snapshot)).InvalidInput())
-            from snapshot in RhinoUi.Protect(valid: () => Fin.Succ(value: new PanelSnapshot<TPanel>(
-                PanelId: panel.Id,
-                Visible: global::Rhino.UI.Panels.IsPanelVisible(panelType: panel.Type),
-                Selected: global::Rhino.UI.Panels.IsPanelVisible(panelType: panel.Type, isSelectedTab: true),
-                Instances: toSeq(global::Rhino.UI.Panels.GetPanels<TPanel>(doc)),
-                OpenPanelIds: toSeq(global::Rhino.UI.Panels.GetOpenPanelIds()),
-                DockBarIds: toSeq(global::Rhino.UI.Panels.PanelDockBars(panelId: panel.Id)))))
+            from snapshot in RhinoUi.Protect(valid: () => { Seq<TPanel> instances = toSeq(global::Rhino.UI.Panels.GetPanels<TPanel>(doc)); Seq<Guid> open = toSeq(global::Rhino.UI.Panels.GetOpenPanelIds()).Distinct(); return Fin.Succ(value: new PanelSnapshot<TPanel>(PanelId: panel.Id, Visible: !instances.IsEmpty && open.Exists(id => id == panel.Id), Instances: instances, OpenPanelIds: open)); })
             select snapshot,
             interactive: false);
+
+    public static PanelOp<TPanel, T> With<TPanel, T>(Func<Seq<TPanel>, Fin<T>> run) where TPanel : RasmPanel =>
+        new(run: document => from validRun in Optional(run).ToFin(Fail: Op.Of(name: nameof(With)).InvalidInput()) from snapshot in Snapshot<TPanel>().Run(document: document) from panels in snapshot.Instances switch { Seq<TPanel> values when !values.IsEmpty => Fin.Succ(value: values), _ => Fin.Fail<Seq<TPanel>>(error: Op.Of(name: nameof(With)).InvalidResult()) } from result in validRun(arg: panels) select result, interactive: true);
 
     public static PanelOp<TPanel, Unit> MenuState<TPanel>(Guid fileId, Guid menuId, Guid itemId, Func<PanelMenuState, Fin<PanelMenuState>> update) where TPanel : RasmPanel =>
         new(run: _ => from validUpdate in Optional(update).ToFin(Fail: Op.Of(name: nameof(MenuState)).InvalidInput()) from validIds in guard(fileId != Guid.Empty && menuId != Guid.Empty && itemId != Guid.Empty, Op.Of(name: nameof(MenuState)).InvalidInput()) from registered in RhinoUi.Protect(valid: () => global::Rhino.UI.RuiUpdateUi.RegisterMenuItem(fileId, menuId, itemId, (_, ui) => _ = RhinoUi.Protect(valid: () => from source in PanelMenuState.Of(ui: ui).ToFin(Fail: Op.Of(name: nameof(MenuState)).InvalidInput()) from state in validUpdate(arg: source) select state.Apply(ui: ui))) switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(MenuState)).InvalidResult()) }) select registered, interactive: false);
@@ -167,5 +152,7 @@ public static class PanelOp {
             false => Fin.Succ(value: value),
             true => Fin.Fail<string>(error: Op.Of(name: nameof(PanelOp)).InvalidInput()),
         };
+
+    private static Fin<Unit> IconDispatch(object value, Func<DrawingIcon, Unit> native, Func<string, Fin<Unit>> resource, string name) => (Optional(value), Optional(native), Optional(resource)) switch { (Option<object> source, Option<Func<DrawingIcon, Unit>> draw, _) when source.Case is DrawingIcon icon && draw.Case is Func<DrawingIcon, Unit> apply => Fin.Succ(value: apply(arg: icon)), (Option<object> source, _, Option<Func<string, Fin<Unit>>> res) when source.Case is string key && res.Case is Func<string, Fin<Unit>> apply => NonBlank(value: key).Bind(valid => apply(arg: valid)), _ => Fin.Fail<Unit>(error: Op.Of(name: name).InvalidInput()) };
 
 }

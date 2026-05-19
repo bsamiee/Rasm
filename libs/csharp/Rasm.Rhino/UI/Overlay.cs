@@ -19,12 +19,7 @@ public readonly record struct OverlayDecision(Option<BoundingBox> Bounds = defau
     public static OverlayDecision Ignore => new();
     public static Fin<OverlayDecision> Include(BoundingBox bounds) => bounds.IsValid switch { true => Fin.Succ(value: new OverlayDecision(Bounds: Some(bounds))), false => Fin.Fail<OverlayDecision>(error: Op.Of(name: nameof(OverlayDecision)).InvalidResult()) };
     public static Fin<OverlayDecision> Include(GeometryBase geometry) =>
-        Optional(geometry)
-            .ToFin(Fail: Op.Of(name: nameof(OverlayDecision)).InvalidInput())
-            .Bind(static value => value.GetBoundingBox(accurate: true) switch {
-                BoundingBox box when box.IsValid => Include(bounds: box),
-                _ => Fin.Fail<OverlayDecision>(error: Op.Of(name: nameof(OverlayDecision)).InvalidResult()),
-            });
+        BoundsOf(source: geometry, op: Op.Of(name: nameof(OverlayDecision))).Bind(Include);
     public static OverlayDecision CullObject(bool cull = true) => new(Cull: Some(cull));
     public static Fin<OverlayDecision> Paint(Func<DisplayPipeline, Fin<Unit>> draw) =>
         Optional(draw)
@@ -50,13 +45,14 @@ public readonly record struct OverlayDecision(Option<BoundingBox> Bounds = defau
             (Func<DrawObjectEventArgs, Fin<Unit>> a, _) => Some(a),
             _ => Option<Func<DrawObjectEventArgs, Fin<Unit>>>.None,
         });
+    internal static Fin<BoundingBox> BoundsOf(object source, Op op) => Optional(source).ToFin(Fail: op.InvalidInput()).Bind(value => value switch { BoundingBox box when box.IsValid => Fin.Succ(value: box), Box box when box.IsValid => Fin.Succ(value: box.BoundingBox), Sphere sphere when sphere.IsValid => Fin.Succ(value: sphere.BoundingBox), Line line when line.IsValid => Fin.Succ(value: line.BoundingBox), Polyline polyline when polyline.IsValid => Fin.Succ(value: polyline.BoundingBox), Circle circle when circle.IsValid => Fin.Succ(value: circle.BoundingBox), Arc arc when arc.IsValid => Fin.Succ(value: arc.BoundingBox()), Point3d point when point.IsValid => Fin.Succ(value: new BoundingBox(point, point)), GeometryBase geometry when geometry.IsValid && geometry.GetBoundingBox(accurate: true) is BoundingBox box && box.IsValid => Fin.Succ(value: box), _ => Fin.Fail<BoundingBox>(error: op.InvalidInput()) });
 }
 
-public readonly record struct OverlayFilter(Option<ObjectType> Geometry = default, Option<ActiveSpace> Space = default, Seq<Guid> ObjectIds = default, Option<(bool On, bool CheckSubObjects)> Selection = default, Option<(RhinoViewport Viewport, bool Exclusive)> Viewport = default, bool Unbind = false) {
+public readonly record struct OverlayFilter(Option<ObjectType> Geometry = default, Option<ActiveSpace> Space = default, Option<Seq<Guid>> ObjectIds = default, Option<(bool On, bool CheckSubObjects)> Selection = default, Option<(RhinoViewport Viewport, bool Exclusive)> Viewport = default, bool Unbind = false) {
     public static OverlayFilter Reset => new(Unbind: true);
 
     internal Fin<Unit> Apply(DisplayConduit conduit) {
-        Option<ObjectType> geometry = Geometry; Option<ActiveSpace> space = Space; Seq<Guid> objectIds = ObjectIds.Filter(static id => id != Guid.Empty).Distinct(); Option<(bool On, bool CheckSubObjects)> selection = Selection; Option<(RhinoViewport Viewport, bool Exclusive)> viewport = Viewport;
+        Option<ObjectType> geometry = Geometry; Option<ActiveSpace> space = Space; Option<Seq<Guid>> objectIds = ObjectIds.Map(static ids => ids.Filter(static id => id != Guid.Empty).Distinct()); Option<(bool On, bool CheckSubObjects)> selection = Selection; Option<(RhinoViewport Viewport, bool Exclusive)> viewport = Viewport;
         bool unbind = Unbind;
         return Optional(conduit)
             .ToFin(Fail: Op.Of(name: nameof(OverlayFilter)).InvalidInput())
@@ -74,10 +70,7 @@ public readonly record struct OverlayFilter(Option<ObjectType> Geometry = defaul
                 _ = geometry.Iter(value => valid.GeometryFilter = value);
                 _ = space.Iter(value => valid.SpaceFilter = value);
                 _ = selection.Iter(value => valid.SetSelectionFilter(on: value.On, checkSubObjects: value.CheckSubObjects));
-                _ = objectIds.IsEmpty switch {
-                    false => Do(action: () => valid.SetObjectIdFilter(ids: objectIds.AsIterable())),
-                    true => unit,
-                };
+                _ = objectIds.Iter(ids => valid.SetObjectIdFilter(ids: ids.AsIterable()));
                 _ = unbind switch {
                     true => unit,
                     false => viewport.Map(value => {
@@ -103,28 +96,13 @@ public abstract class RasmOverlay<TState>(TState initial) : DisplayConduit, IDis
     public TState State => state.Value;
 
     public Fin<Unit> Transition(Func<TState, TState> transition, RhinoDoc? document = null) =>
-        Optional(transition)
-            .ToFin(Fail: Op.Of(name: nameof(Transition)).InvalidInput())
-            .Map(apply => {
-                _ = state.Swap(f: apply);
-                _ = Optional(document).Map(doc => {
-                    doc.Views.Redraw();
-                    return unit;
-                });
-                return unit;
-            });
+        disposed switch { false => Optional(transition).ToFin(Fail: Op.Of(name: nameof(Transition)).InvalidInput()).Map(apply => { _ = state.Swap(f: apply); _ = Optional(document).Iter(static doc => doc.Views.Redraw()); return unit; }), true => Fin.Fail<Unit>(error: Op.Of(name: nameof(Transition)).InvalidInput()) };
 
-    public Fin<Unit> Enable(bool enabled = true, RhinoDoc? document = null) {
-        Enabled = enabled;
-        _ = Optional(document).Iter(static doc => doc.Views.Redraw());
-        return Fin.Succ(value: unit);
-    }
+    public Fin<Unit> Enable(bool enabled = true, RhinoDoc? document = null) =>
+        disposed switch { false => Fin.Succ(value: ((Func<Unit>)(() => { Enabled = enabled; _ = Optional(document).Iter(static doc => doc.Views.Redraw()); return unit; }))()), true => Fin.Fail<Unit>(error: Op.Of(name: nameof(Enable)).InvalidInput()) };
 
     public Fin<Unit> Filter(OverlayFilter filter, RhinoDoc? document = null) =>
-        filter.Apply(conduit: this).Map(_ => {
-            _ = Optional(document).Iter(static doc => doc.Views.Redraw());
-            return unit;
-        });
+        disposed switch { false => filter.Apply(conduit: this).Map(_ => { _ = Optional(document).Iter(static doc => doc.Views.Redraw()); return unit; }), true => Fin.Fail<Unit>(error: Op.Of(name: nameof(Filter)).InvalidInput()) };
 
     public Fin<T> Use<T>(RhinoDoc document, Func<RasmOverlay<TState>, Fin<T>> run) =>
         from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput()) from validRun in Optional(run).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput()) from active in guard(!disposed, Op.Of(name: nameof(Use)).InvalidInput()) from result in RhinoUi.Protect(valid: () => {
@@ -213,7 +191,7 @@ public readonly record struct UiPreviewStyle(
         }
     }
 
-    internal Unit Draw(DisplayPipeline display, GeometryBase geometry) {
+    internal Unit Draw(DisplayPipeline display, object geometry) {
         DrawingColor stroke = StrokeOrDefault;
         DisplayMaterial material = MaterialOrDefault;
         int thickness = Thickness;
@@ -227,8 +205,18 @@ public readonly record struct UiPreviewStyle(
             Extrusion extrusion => Effect(action: () => display.DrawExtrusionWires(extrusion: extrusion, color: stroke, wireDensity: wireDensity)),
             Surface surface => Effect(action: () => display.DrawSurface(surface: surface, wireColor: stroke, wireDensity: wireDensity)),
             Point point => Effect(action: () => display.DrawPoint(point: point.Location, style: pointStyle, radius: pointRadius, color: stroke)),
+            Point3d point => Effect(action: () => display.DrawPoint(point: point, style: pointStyle, radius: pointRadius, color: stroke)),
+            Line line => Effect(action: () => display.DrawLine(line: line, color: stroke, thickness: thickness)),
+            Polyline polyline => Effect(action: () => display.DrawPolyline(polyline: polyline, color: stroke, thickness: thickness)),
+            Arc arc => Effect(action: () => display.DrawArc(arc: arc, color: stroke, thickness: thickness)),
+            Circle circle => Effect(action: () => display.DrawCircle(circle: circle, color: stroke, thickness: thickness)),
             PointCloud cloud => Effect(action: () => display.DrawPointCloud(cloud: cloud, size: pointRadius, color: stroke)),
             SubD subd => Effect(action: () => { display.DrawSubDShaded(subd: subd, material: material); display.DrawSubDWires(subd: subd, color: stroke, thickness: thickness); }),
+            Hatch hatch => Effect(action: () => display.DrawHatch(hatch: hatch, hatchColor: stroke, boundaryColor: stroke)),
+            TextDot dot => Effect(action: () => display.DrawDot(dot: dot, fillColor: stroke, textColor: DrawingColor.White, borderColor: stroke)),
+            TextEntity text => Effect(action: () => display.DrawText(text: text, color: stroke)),
+            AnnotationBase annotation => Effect(action: () => display.DrawAnnotation(annotation: annotation, color: stroke)),
+            Light light => Effect(action: () => display.DrawLight(light: light, wireframeColor: stroke)),
             _ => unit,
         };
     }
@@ -281,18 +269,18 @@ public sealed record UiViewportPreview {
     public static UiViewportPreview Empty { get; } =
         new(draw: _ => Fin.Succ(value: unit), bounds: static () => Fin.Succ(value: OverlayDecision.Ignore), validate: static () => Fin.Succ(value: unit));
 
-    public static UiViewportPreview Of(IEnumerable<GeometryBase> geometry, UiPreviewStyle style = default) {
-        Fin<Seq<GeometryBase>> items = Optional(geometry)
+    public static UiViewportPreview Of<TGeometry>(IEnumerable<TGeometry> geometry, UiPreviewStyle style = default) where TGeometry : notnull {
+        Fin<Seq<object>> items = Optional(geometry)
             .ToFin(Fail: Op.Of(name: nameof(UiViewportPreview)).InvalidInput())
-            .Bind(static source => toSeq(source).TraverseM(item => Optional(item)
+            .Bind(static source => toSeq(source).Map(static item => (object)item).TraverseM(item => Optional(item)
                 .ToFin(Fail: Op.Of(name: nameof(UiViewportPreview)).InvalidInput())
                 .Bind(static value => value switch {
-                    Mesh or Brep or Curve or Extrusion or Surface or Point or PointCloud or SubD => Fin.Succ(value: value),
-                    _ => Fin.Fail<GeometryBase>(error: Op.Of(name: nameof(UiViewportPreview)).InvalidInput()),
+                    Mesh or Brep or Curve or Extrusion or Surface or Point or Point3d or Line or Polyline or Arc or Circle or PointCloud or SubD or Hatch or TextDot or AnnotationBase or Light => Fin.Succ(value: value),
+                    _ => Fin.Fail<object>(error: Op.Of(name: nameof(UiViewportPreview)).InvalidInput()),
                 })).As())
             .Bind(static values => values.IsEmpty switch {
                 false => Fin.Succ(value: values),
-                true => Fin.Fail<Seq<GeometryBase>>(error: Op.Of(name: nameof(UiViewportPreview)).InvalidInput()),
+                true => Fin.Fail<Seq<object>>(error: Op.Of(name: nameof(UiViewportPreview)).InvalidInput()),
             });
         return new(
             draw: context => context.Phase switch {
@@ -303,7 +291,7 @@ public sealed record UiViewportPreview {
             },
             bounds: () => from active in items
                           from decision in active
-                .TraverseM(static item => OverlayDecision.Include(geometry: item))
+                .TraverseM(static item => OverlayDecision.BoundsOf(source: item, op: Op.Of(name: nameof(UiViewportPreview))).Bind(OverlayDecision.Include))
                 .As()
                 .Map(static decisions => decisions.Fold(OverlayDecision.Ignore, static (state, decision) => state + decision))
                           select decision,
@@ -373,7 +361,10 @@ public readonly record struct UiGumballSnapshot(
     Transform GumballTransform,
     Transform TotalTransform,
     global::Rhino.UI.Gumball.GumballMode Mode,
-    bool InRelocate);
+    bool InRelocate) {
+    public Fin<TGeometry> Apply<TGeometry>(TGeometry geometry, bool duplicate = true) where TGeometry : GeometryBase { Transform transform = TotalTransform; return from _ in guard(transform.IsValid, Op.Of(name: nameof(Apply)).InvalidInput()) from source in Optional(geometry).ToFin(Fail: Op.Of(name: nameof(Apply)).InvalidInput()) from target in duplicate switch { true => Optional(source.Duplicate() as TGeometry).ToFin(Fail: Op.Of(name: nameof(Apply)).InvalidResult()), false => Fin.Succ(value: source) } from __ in target.Transform(xform: transform) switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(Apply)).InvalidResult()) } select target; }
+    public Fin<Seq<TGeometry>> Apply<TGeometry>(IEnumerable<TGeometry> geometry, bool duplicate = true) where TGeometry : GeometryBase { UiGumballSnapshot snapshot = this; return Optional(geometry).ToFin(Fail: Op.Of(name: nameof(Apply)).InvalidInput()).Bind(items => toSeq<TGeometry>(items).TraverseM(item => snapshot.Apply(geometry: item, duplicate: duplicate)).As()); }
+}
 
 public sealed record UiGumballSpec {
     private readonly Func<global::Rhino.UI.Gumball.GumballObject, Fin<Unit>> configure;
@@ -403,7 +394,7 @@ public sealed record UiGumballSpec {
     private static Fin<Unit> From(global::Rhino.UI.Gumball.GumballObject gumball, object source, Option<Plane> frame) =>
         (frame.Case, source) switch {
             (Plane plane, BoundingBox box) => Valid(gumball.SetFromBoundingBox(frame: plane, frameBoundingBox: box)),
-            (Plane plane, GeometryBase geometry) => Bounds(geometry: geometry, frame: plane).Bind(box => Valid(gumball.SetFromBoundingBox(frame: plane, frameBoundingBox: box))),
+            (Plane plane, GeometryBase geometry) => Bounds(source: geometry, frame: Some(plane)).Bind(box => Valid(gumball.SetFromBoundingBox(frame: plane, frameBoundingBox: box))),
             (_, BoundingBox box) => Valid(gumball.SetFromBoundingBox(boundingBox: box)),
             (_, Line line) => Valid(gumball.SetFromLine(line: line)),
             (_, Plane plane) => Valid(gumball.SetFromPlane(plane: plane)),
@@ -414,15 +405,13 @@ public sealed record UiGumballSpec {
             (_, Hatch hatch) => Valid(gumball.SetFromHatch(hatch: hatch)),
             (_, Curve curve) => Valid(gumball.SetFromCurve(curve: curve)),
             (_, Extrusion extrusion) => Valid(gumball.SetFromExtrusion(extrusion: extrusion)),
-            (_, GeometryBase geometry) => Bounds(geometry: geometry).Bind(box => Valid(gumball.SetFromBoundingBox(boundingBox: box))),
+            (_, object value) => Bounds(source: value, frame: Option<Plane>.None).Bind(box => Valid(gumball.SetFromBoundingBox(boundingBox: box))),
             _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(UiGumballSpec)).InvalidInput()),
         };
 
-    private static Fin<BoundingBox> Bounds(GeometryBase geometry) => Optional(geometry).ToFin(Fail: Op.Of(name: nameof(UiGumballSpec)).InvalidInput()).Bind(static value => value.GetBoundingBox(accurate: true) switch { BoundingBox box when box.IsValid => Fin.Succ(value: box), _ => Fin.Fail<BoundingBox>(error: Op.Of(name: nameof(UiGumballSpec)).InvalidResult()) });
-
     private static Fin<Unit> Valid(bool value) => value switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(UiGumballSpec)).InvalidResult()) };
 
-    private static Fin<BoundingBox> Bounds(GeometryBase geometry, Plane frame) => Optional(geometry).ToFin(Fail: Op.Of(name: nameof(UiGumballSpec)).InvalidInput()).Bind(value => value.GetBoundingBox(plane: frame) switch { BoundingBox box when box.IsValid => Fin.Succ(value: box), _ => Fin.Fail<BoundingBox>(error: Op.Of(name: nameof(UiGumballSpec)).InvalidResult()) });
+    private static Fin<BoundingBox> Bounds(object source, Option<Plane> frame) => (frame.Case, source) switch { (Plane plane, GeometryBase geometry) => Optional(geometry).ToFin(Fail: Op.Of(name: nameof(UiGumballSpec)).InvalidInput()).Bind(value => value.GetBoundingBox(plane: plane) switch { BoundingBox box when box.IsValid => Fin.Succ(value: box), _ => Fin.Fail<BoundingBox>(error: Op.Of(name: nameof(UiGumballSpec)).InvalidResult()) }), (_, object value) => OverlayDecision.BoundsOf(source: value, op: Op.Of(name: nameof(UiGumballSpec))).Bind(static box => box.IsValid ? Fin.Succ(value: box) : Fin.Fail<BoundingBox>(error: Op.Of(name: nameof(UiGumballSpec)).InvalidResult())) };
 
     private static global::Rhino.UI.Gumball.GumballAppearanceSettings? Settings(global::Rhino.UI.Gumball.GumballAppearanceSettings? seed, Seq<Action<global::Rhino.UI.Gumball.GumballAppearanceSettings>> actions) => (seed, actions.IsEmpty) switch { (global::Rhino.UI.Gumball.GumballAppearanceSettings settings, false) => Apply(settings: settings, actions: actions), (_, false) => Apply(settings: new global::Rhino.UI.Gumball.GumballAppearanceSettings(), actions: actions), _ => seed };
 
@@ -447,22 +436,16 @@ public sealed class UiGumball : IDisposable {
             Mode: conduit.PickResult.Mode,
             InRelocate: conduit.InRelocate);
 
-    public Fin<bool> Pick(global::Rhino.Input.Custom.PickContext pick, GetPoint point) => (Optional(pick).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput()), Optional(point).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())).Apply(static (validPick, validPoint) => (Pick: validPick, Point: validPoint)).As().Map(valid => conduit.PickGumball(pickContext: valid.Pick, getPoint: valid.Point));
+    public Fin<bool> Pick(global::Rhino.Input.Custom.PickContext pick, GetPoint? point = null) => from _ in guard(!disposed, Op.Of(name: nameof(Pick)).InvalidInput()) from validPick in Optional(pick).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput()) select conduit.PickGumball(pickContext: validPick, getPoint: point);
 
     public Fin<bool> Update(Point3d point, Line line) =>
-        conduit.UpdateGumball(point: point, worldLine: line) switch {
-            bool changed => Redraw(value: changed),
-        };
+        from _ in guard(!disposed && point.IsValid && line.IsValid, Op.Of(name: nameof(Update)).InvalidInput()) from changed in Redraw(value: conduit.UpdateGumball(point: point, worldLine: line)) select changed;
 
     public Fin<bool> Update(Plane frame) =>
-        conduit.UpdateGumball(frame: frame) switch {
-            bool changed => Redraw(value: changed),
-        };
+        from _ in guard(!disposed && frame.IsValid, Op.Of(name: nameof(Update)).InvalidInput()) from changed in Redraw(value: conduit.UpdateGumball(frame: frame)) select changed;
 
-    public Fin<Unit> CheckKeys() {
-        conduit.CheckShiftAndControlKeys();
-        return Fin.Succ(value: unit);
-    }
+    public Fin<Unit> CheckKeys() =>
+        disposed switch { false => Fin.Succ(value: ((Func<Unit>)(() => { conduit.CheckShiftAndControlKeys(); return unit; }))()), true => Fin.Fail<Unit>(error: Op.Of(name: nameof(CheckKeys)).InvalidInput()) };
 
     public void Dispose() {
         _ = disposed switch {

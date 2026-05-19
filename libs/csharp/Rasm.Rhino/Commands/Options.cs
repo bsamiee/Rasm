@@ -264,10 +264,6 @@ public abstract record CommandOption {
             CurrentNumericValue: option.CurrentNumericValue);
     }
 
-    private static Fin<CommandOptionValue> SnapshotAt(string name, GetBaseClass getter, Seq<string> values) =>
-        from index in ValidIndex(index: getter.Option().CurrentListOptionIndex, count: values.Count, error: Op.Of(name: nameof(CommandOption)).InvalidResult())
-        select Snapshot(name: name, getter: getter, value: Some((object)values[index]), listIndex: Some(index));
-
     private static Fin<CommandOptionValue> SnapshotAt<T>(string name, GetBaseClass getter, Seq<T> values) =>
         from index in ValidIndex(index: getter.Option().CurrentListOptionIndex, count: values.Count, error: Op.Of(name: nameof(CommandOption)).InvalidResult())
         select Snapshot(name: name, getter: getter, value: Some((object)values[index]!), listIndex: Some(index));

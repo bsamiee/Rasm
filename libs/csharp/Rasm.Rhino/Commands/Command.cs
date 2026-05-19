@@ -11,7 +11,7 @@ public abstract class RasmCommand<TSelf> : Command where TSelf : RasmCommand<TSe
             .Bind(context =>
                 Ready(context: context)
                     .Bind(_ => Run(context: context))
-                    .Bind(result => Complete(context: context, result: result).Map(_ => result))))
+                    .Bind(result => Complete(context: context, result: result))))
             .Match(Succ: static result => result, Fail: FailureResult);
 
     protected abstract Fin<Result> Run(RhinoCommandContext context);
@@ -21,11 +21,15 @@ public abstract class RasmCommand<TSelf> : Command where TSelf : RasmCommand<TSe
         from _ in active.Scope.Context.Map(static _ => unit)
         select unit;
 
-    protected virtual Fin<Unit> Complete(RhinoCommandContext context, Result result) =>
+    protected virtual Fin<Result> Complete(RhinoCommandContext context, Result result) =>
         Optional(context).ToFin(Fail: Op.Of(name: nameof(Complete)).InvalidInput()).Bind(active => result switch {
-            Result.Success => active.Edit.Redraw(),
-            _ => Fin.Succ(value: unit),
+            Result.Success => active.Edit.Redraw().Map(_ => result),
+            _ => Fin.Succ(value: result),
         });
 
-    protected virtual Result FailureResult(Error fault) => fault is Fault.Cancelled ? Result.Cancel : Result.Failure;
+    protected virtual Result FailureResult(Error fault) =>
+        fault switch {
+            Fault.Cancelled => Result.Cancel,
+            Error error => ((Func<Result>)(() => { RhinoApp.WriteLine($"{EnglishName}: {error.Message}"); return Result.Failure; }))(),
+        };
 }

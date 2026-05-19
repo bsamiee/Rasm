@@ -23,7 +23,7 @@ public sealed partial record RhinoUi {
                 false => OnUiThread(run: () => valid.Run(scope: new Scope(Document: document, Mode: mode))),
             });
 
-    public Seq<T> Windows<T>() where T : Form =>
+    public Seq<T> Windows<T>() where T : Window =>
         toSeq(global::Rhino.UI.EtoExtensions.WindowsFromDocument<T>(document));
 
     internal static Window? Parent(RhinoDoc document) =>
@@ -126,11 +126,11 @@ public sealed class UiProgress : IDisposable {
     public Fin<int> Update(UiProgressStep step) =>
         disposed switch {
             true => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidInput()),
-            false => (Next(step: step).Case, step.Label.Case) switch {
-                (int position, _) when position < lower || position > upper => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidInput()),
-                (int position, string label) => Previous(value: global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, label: label, position: position, absolute: true)).Map(previous => { current = position; return previous; }),
-                (_, string label) => RhinoUi.Protect(valid: () => { _ = global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, label: label, position: RhinoMath.UnsetIntIndex, absolute: true); return Fin.Succ(value: current); }),
-                (int position, _) => Previous(value: global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, position: position, absolute: true)).Map(previous => { current = position; return previous; }),
+            false => (Next(step: step).Case, step.Position.Case, step.Label.Case) switch {
+                (int position, _, _) when position < lower || position > upper => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidInput()),
+                (int target, int position, string label) => Previous(value: global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, label: label, position: position, absolute: step.Absolute)).Map(previous => { current = target; return previous; }),
+                (_, _, string label) => Previous(value: global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, label: label, position: RhinoMath.UnsetIntIndex, absolute: true)).Map(_ => current),
+                (int target, int position, _) => Previous(value: global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, position: position, absolute: step.Absolute)).Map(previous => { current = target; return previous; }),
                 _ => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidInput()),
             },
         };

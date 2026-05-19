@@ -59,13 +59,13 @@ public sealed record CommandSelection {
 
     public RhinoDoc Document { get; }
     public Seq<Reference> Items { get; }
-    public Seq<Guid> ObjectIds => Items.Map(static item => item.ObjectId);
-    internal Seq<Reference> TransformTargets =>
+    public Seq<Guid> ObjectIds => Items.Map(static item => item.ObjectId).Distinct();
+    internal Seq<Reference> ObjectTargets =>
         Items.Fold(
-            (Seen: Seq<(Guid ObjectId, uint RuntimeSerialNumber, ComponentIndex ComponentIndex)>(), Targets: Seq<Reference>()),
-            static (state, item) => state.Seen.Exists(seen => seen == (item.ObjectId, item.RuntimeSerialNumber, item.ComponentIndex)) switch {
+            (Seen: LanguageExt.Prelude.HashSet<(Guid ObjectId, uint RuntimeSerialNumber)>(), Targets: Seq<Reference>()),
+            static (state, item) => state.Seen.Contains((item.ObjectId, item.RuntimeSerialNumber)) switch {
                 true => state,
-                false => (Seen: Seq((item.ObjectId, item.RuntimeSerialNumber, item.ComponentIndex)) + state.Seen, Targets: Seq(item) + state.Targets),
+                false => (Seen: state.Seen.Add((item.ObjectId, item.RuntimeSerialNumber)), Targets: Seq(item) + state.Targets),
             }).Targets.Rev();
 
     public Fin<Seq<T>> Project<T>(Func<Reference, Fin<T>> project) => Optional(project).ToFin(Fail: Op.Of(name: nameof(Project)).InvalidInput()).Bind(valid => Items.TraverseM(reference => valid(arg: reference)).As());

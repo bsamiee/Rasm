@@ -23,7 +23,7 @@ public abstract record DocumentTarget {
 
     internal Fin<Unit> Delete(RhinoDoc document, bool quiet, bool ignoreModes, Op op) =>
         Use(document: document, op: op,
-            selection: value => value.TransformTargets.TraverseM(reference => reference.Use(document: document, op: op, use: native => UnitResult(success: document.Objects.Delete(native, quiet, ignoreModes), op: op))).As().Map(static _ => unit),
+            selection: value => value.ObjectTargets.TraverseM(reference => reference.Use(document: document, op: op, use: native => UnitResult(success: document.Objects.Delete(native, quiet, ignoreModes), op: op))).As().Map(static _ => unit),
             reference: value => value.Use(document: document, op: op, use: native => UnitResult(success: document.Objects.Delete(native, quiet, ignoreModes), op: op)),
             objects: ids => DeleteIds(document: document, ids: ids, quiet: quiet, ignoreModes: ignoreModes, op: op));
 
@@ -41,6 +41,12 @@ public abstract record DocumentTarget {
                 _ => Fin.Fail<Seq<Guid>>(error: op.InvalidResult()),
             }),
             objects: static ids => Fin.Succ(value: ids));
+
+    internal Fin<Seq<Guid>> Transform(RhinoDoc document, Transform transform, bool deleteOriginal, Op op) =>
+        Use(document: document, op: op,
+            selection: selection => selection.ObjectTargets.TraverseM(reference => reference.Use(document: document, op: op, use: native => IdResult(id: document.Objects.Transform(objref: native, xform: transform, deleteOriginal: deleteOriginal), op: op))).As(),
+            reference: reference => reference.Use(document: document, op: op, use: native => IdResult(id: document.Objects.Transform(objref: native, xform: transform, deleteOriginal: deleteOriginal), op: op).Map(static id => Seq(id))),
+            objects: ids => ids.TraverseM(id => IdResult(id: document.Objects.Transform(objectId: id, xform: transform, deleteOriginal: deleteOriginal), op: op)).As());
 
     internal abstract Fin<T> Use<T>(RhinoDoc document, Op op, Func<CommandSelection, Fin<T>> selection, Func<CommandSelection.Reference, Fin<T>> reference, Func<Seq<Guid>, Fin<T>> objects);
 
@@ -89,6 +95,8 @@ public abstract record DocumentTarget {
 
     private static Fin<Unit> ReplaceIds(RhinoDoc document, IEnumerable<Guid> ids, object replacement, bool ignoreModes, Op op) =>
         TargetIds(ids: ids, op: op).Bind(target => target.Count switch { 1 => ReplaceOne(document: document, objectId: target[0], replacement: replacement, ignoreModes: ignoreModes, op: op), _ => Fin.Fail<Unit>(error: op.InvalidInput()) });
+
+    internal static Fin<Guid> IdResult(Guid id, Op op) => id switch { Guid value when value != Guid.Empty => Fin.Succ(value: value), _ => Fin.Fail<Guid>(error: op.InvalidResult()) };
 
     private static Fin<Unit> ReplaceOne(RhinoDoc document, Guid objectId, object replacement, bool ignoreModes, Op op) =>
         ReplaceGeometry(replacement: replacement, op: op, use: geometry => document.Objects.Replace(objectId: objectId, geometry: geometry, ignoreModes: ignoreModes));
@@ -166,8 +174,8 @@ public sealed record DocumentEdit {
         }
         from ids in Mutate(document: document, name: nameof(Add), run: () =>
             values.TraverseM(geometry => attributes switch {
-                ObjectAttributes attrs => IdResult(id: document.Objects.Add(geometry, attrs), op: Op.Of(name: nameof(Add))),
-                _ => IdResult(id: document.Objects.Add(geometry), op: Op.Of(name: nameof(Add))),
+                ObjectAttributes attrs => DocumentTarget.IdResult(id: document.Objects.Add(geometry, attrs), op: Op.Of(name: nameof(Add))),
+                _ => DocumentTarget.IdResult(id: document.Objects.Add(geometry), op: Op.Of(name: nameof(Add))),
             }).As())
         select ids;
 
@@ -197,7 +205,7 @@ public sealed record DocumentEdit {
         from document in Available(op: Op.Of(name: nameof(Transform)))
         from _ in guard(transform.IsValid, Op.Of(name: nameof(Transform)).InvalidInput())
         from valid in Optional(target).ToFin(Fail: Op.Of(name: nameof(Transform)).InvalidInput())
-        from ids in Mutate(document: document, name: nameof(Transform), run: () => valid.Use(document: document, op: Op.Of(name: nameof(Transform)), selection: selection => selection.TransformTargets.TraverseM(reference => reference.Use(document: document, op: Op.Of(name: nameof(Transform)), use: native => IdResult(id: document.Objects.Transform(objref: native, xform: transform, deleteOriginal: deleteOriginal), op: Op.Of(name: nameof(Transform))))).As(), reference: reference => reference.Use(document: document, op: Op.Of(name: nameof(Transform)), use: native => IdResult(id: document.Objects.Transform(objref: native, xform: transform, deleteOriginal: deleteOriginal), op: Op.Of(name: nameof(Transform))).Map(static id => Seq(id))), objects: ids => ids.TraverseM(id => IdResult(id: document.Objects.Transform(objectId: id, xform: transform, deleteOriginal: deleteOriginal), op: Op.Of(name: nameof(Transform)))).As()))
+        from ids in Mutate(document: document, name: nameof(Transform), run: () => valid.Transform(document: document, transform: transform, deleteOriginal: deleteOriginal, op: Op.Of(name: nameof(Transform))))
         select ids;
 
     public Fin<int> Select(DocumentTarget target, bool selected = true, DocumentSelectionPolicy? policy = null) =>
@@ -205,6 +213,16 @@ public sealed record DocumentEdit {
         from valid in Optional(target).ToFin(Fail: Op.Of(name: nameof(Select)).InvalidInput())
         from result in valid.Select(document: document, selected: selected, policy: policy ?? DocumentSelectionPolicy.Default, op: Op.Of(name: nameof(Select)))
         select result;
+
+    public Fin<int> SetSelection(DocumentTarget target, DocumentSelectionPolicy? policy = null) =>
+        from document in Available(op: Op.Of(name: nameof(SetSelection))) from valid in Optional(target).ToFin(Fail: Op.Of(name: nameof(SetSelection)).InvalidInput()) from ids in valid.Ids(document: document, op: Op.Of(name: nameof(SetSelection)))
+        from chosen in ids.Distinct() switch { Seq<Guid> values when !values.IsEmpty => Fin.Succ(value: values), _ => Fin.Fail<Seq<Guid>>(error: Op.Of(name: nameof(SetSelection)).InvalidInput()) }
+        let active = policy ?? DocumentSelectionPolicy.Default
+        from count in document.Objects.SetSelectedObjects(objectIds: chosen.AsIterable(), syncHighlight: active.Highlight, persistentSelect: active.Persistent, ignoreGripsState: active.IgnoreGrips, ignoreLayerLocking: active.IgnoreLayerLocking, ignoreLayerVisibility: active.IgnoreLayerVisibility) switch {
+            int value when value >= 0 => Fin.Succ(value: value),
+            _ => Fin.Fail<int>(error: Op.Of(name: nameof(SetSelection)).InvalidResult()),
+        }
+        select count;
 
     public Fin<int> Hide(DocumentTarget target, bool hidden = true) =>
         from document in Available(op: Op.Of(name: nameof(Hide)))
@@ -250,8 +268,6 @@ public sealed record DocumentEdit {
         };
 
     private static Fin<T> Mutate<T>(RhinoDoc document, string name, Func<Fin<T>> run) => Optional(run).ToFin(Fail: Op.Of(name: name).InvalidInput()).Bind(valid => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => { uint undo = document.UndoRecordingIsActive switch { true => 0u, false => document.BeginUndoRecord(description: name) }; try { return valid(); } finally { _ = undo > 0u && document.EndUndoRecord(undoRecordSerialNumber: undo); } }));
-
-    private static Fin<Guid> IdResult(Guid id, Op op) => id switch { Guid value when value != Guid.Empty => Fin.Succ(value: value), _ => Fin.Fail<Guid>(error: op.InvalidResult()) };
 
     private static Fin<int> ApplyState(Seq<Guid> ids, RhinoDoc document, Op op, Func<RhinoObject, bool> ready, Func<RhinoObject, bool> done, Func<Guid, bool> apply) =>
         ids.TraverseM(id => Optional(document.Objects.FindId(id))

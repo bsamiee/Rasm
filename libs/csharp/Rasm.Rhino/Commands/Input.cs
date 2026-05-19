@@ -152,9 +152,11 @@ public sealed record CommandInputPolicy {
             accept: modes);
     public static CommandInputPolicy AcceptNothing() => Accept(modes: CommandInputAccept.Nothing);
     public static CommandInputPolicy AcceptUndo() => Accept(modes: CommandInputAccept.Undo);
+    public static CommandInputPolicy TransparentCommands(bool enabled = true) => Configure(apply: getter => getter.EnableTransparentCommands(enable: enabled));
     public static CommandInputPolicy Options(params CommandOption[] values) => new(options: toSeq(values));
-    public static CommandInputPolicy Objects(int minimum = 1, int maximum = 1, ObjectType types = ObjectType.AnyObject) =>
+    public static CommandInputPolicy Objects(int minimum = 1, int maximum = 1, ObjectType types = ObjectType.AnyObject, bool locked = false) =>
         new(
+            objectActions: locked switch { true => Seq<Action<GetObject>>(static getter => getter.LockedObjectSelect = true), false => Seq<Action<GetObject>>() },
             objects: Some((Min: minimum, Max: maximum)),
             objectTypes: types switch {
                 ObjectType.AnyObject => Option<ObjectType>.None,
@@ -253,11 +255,11 @@ public static class CommandInputs {
             Type t when t == typeof(CommandPoint) || t == typeof(Point3d) || t == typeof(DrawingPoint) => Point<T>(policy: policy),
             Type t when t == typeof(string) || t == typeof(double) => Text<T>(policy: policy),
             Type t when t == typeof(int) => Number<GetInteger, int, T>(policy: policy, create: static () => new GetInteger(), receive: static getter => getter.Get(), current: static getter => getter.Number(), setLower: static (getter, value, strict) => getter.SetLowerLimit(value, strict), setUpper: static (getter, value, strict) => getter.SetUpperLimit(value, strict)),
-            Type t when t == typeof(Line) => Native<T>(run: static () => GetNative<T, Line>(static (out value) => RhinoGet.GetLine(line: out value))),
-            Type t when t == typeof(Polyline) => Native<T>(run: static () => GetNative<T, Polyline>(static (out value) => RhinoGet.GetPolyline(polyline: out value))),
-            Type t when t == typeof(Circle) => Native<T>(run: static () => GetNative<T, Circle>(static (out value) => RhinoGet.GetCircle(circle: out value))),
-            Type t when t == typeof(Arc) => Native<T>(run: static () => GetNative<T, Arc>(static (out value) => RhinoGet.GetArc(arc: out value))),
-            Type t when t == typeof(Plane) => Native<T>(run: static () => GetNative<T, Plane>(static (out value) => RhinoGet.GetPlane(plane: out value))),
+            Type t when t == typeof(Line) => Native<T, Line>(get: static (out value) => RhinoGet.GetLine(line: out value)),
+            Type t when t == typeof(Polyline) => Native<T, Polyline>(get: static (out value) => RhinoGet.GetPolyline(polyline: out value)),
+            Type t when t == typeof(Circle) => Native<T, Circle>(get: static (out value) => RhinoGet.GetCircle(circle: out value)),
+            Type t when t == typeof(Arc) => Native<T, Arc>(get: static (out value) => RhinoGet.GetArc(arc: out value)),
+            Type t when t == typeof(Plane) => Native<T, Plane>(get: static (out value) => RhinoGet.GetPlane(plane: out value)),
             Type t when t == typeof(Seq<Point3d>) => Native<T>(run: () => Rectangle<T>(prompt: policy.PromptText.IfNone(string.Empty))),
             Type t when t == typeof(Box) => Native<T>(run: () => Box<T>(spec: policy.BoxMode.IfNone(new CommandInputPolicy.BoxSpec(Mode: GetBoxMode.All, BasePoint: null, Prompt1: null, Prompt2: null, Prompt3: null)))),
             Type t when t == typeof(Color) => Native<T>(run: () => Color<T>(prompt: policy.PromptText.IfNone(string.Empty), acceptNothing: policy.AcceptsNothing)),
@@ -338,7 +340,8 @@ public static class CommandInputs {
         bool acceptUndo,
         Func<TGetter, GetResult, Option<CommandOptionValue>, (bool Continue, Option<CommandOptionValue> Selected)> transition) where TGetter : GetBaseClass =>
         receive() switch {
-            GetResult.Cancel or GetResult.ExitRhino => Fin.Fail<CommandGet<T>>(error: new Fault.Cancelled()),
+            GetResult.Cancel => Fin.Fail<CommandGet<T>>(error: new Fault.Cancelled()),
+            GetResult.ExitRhino => Read(getter: getter, raw: GetResult.ExitRhino, value: Option<T>.None, option: selected),
             GetResult.Option => scope.Selected(getter: getter).Bind(option => transition(getter, GetResult.Option, Some(option)) switch {
                 (true, Option<CommandOptionValue> next) => ReadLoop(getter: getter, scope: scope, receive: receive, value: value, selected: next, acceptUndo: acceptUndo, transition: transition),
                 (false, Option<CommandOptionValue> next) => Read(getter: getter, raw: GetResult.Option, value: value(getter, GetResult.Option), option: next),
@@ -369,10 +372,11 @@ public static class CommandInputs {
             (Result result, _) => Fin.Succ(value: CommandGet<T>.Native(result: result, value: Option<T>.None)),
         })));
 
-    private static (Result Result, Option<T> Value) GetNative<T, TNative>(NativeGetter<TNative> get) {
-        Result result = get(value: out TNative value);
-        return (Result: result, Value: result == Result.Success ? Cast<T>(value!) : Option<T>.None);
-    }
+    private static CommandInputRequest<T> Native<T, TNative>(NativeGetter<TNative> get) =>
+        Native<T>(run: () => {
+            Result result = get(value: out TNative value);
+            return (Result: result, Value: result == Result.Success ? Cast<T>(value!) : Option<T>.None);
+        });
 
     private static (Result Result, Option<T> Value) Rectangle<T>(string prompt) { Result result = string.IsNullOrWhiteSpace(value: prompt) ? RhinoGet.GetRectangle(corners: out Point3d[] corners) : RhinoGet.GetRectangle(firstPrompt: prompt, corners: out corners); return (Result: result, Value: result == Result.Success ? Cast<T>(toSeq(corners)) : Option<T>.None); }
 
