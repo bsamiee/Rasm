@@ -1,6 +1,6 @@
 namespace Rasm.Rhino.UI;
 
-public enum MousePhase { Move, MoveEnd, Down, DownEnd, Up, UpEnd }
+public enum MousePhase { Move, MoveEnd, Down, DownEnd, Up, UpEnd, DoubleClick, Enter, Hover, Leave }
 
 public readonly record struct MouseContext<TState>(MousePhase Phase, TState State, global::Rhino.UI.MouseCallbackEventArgs Args);
 
@@ -9,8 +9,9 @@ public readonly record struct MouseDecision(bool Cancel) {
     public static MouseDecision Stop => new(Cancel: true);
 }
 
-public abstract class RasmMouseCallback<TState>(TState initial) : global::Rhino.UI.MouseCallback {
+public abstract class RasmMouseCallback<TState>(TState initial) : global::Rhino.UI.MouseCallback, IDisposable {
     private readonly Atom<TState> state = Atom(initial);
+    private bool disposed;
 
     public TState State => state.Value;
 
@@ -25,6 +26,25 @@ public abstract class RasmMouseCallback<TState>(TState initial) : global::Rhino.
     public Fin<Unit> Enable(bool enabled = true) {
         Enabled = enabled;
         return Fin.Succ(value: unit);
+    }
+
+    public void Dispose() {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(obj: this);
+    }
+
+    protected virtual void Dispose(bool disposing) {
+        _ = disposing;
+        _ = disposed switch {
+            true => unit,
+            false => Disable(),
+        };
+        disposed = true;
+    }
+
+    private Unit Disable() {
+        Enabled = false;
+        return unit;
     }
 
     protected virtual Fin<MouseDecision> Change(MouseContext<TState> context) =>
@@ -48,11 +68,23 @@ public abstract class RasmMouseCallback<TState>(TState initial) : global::Rhino.
     protected sealed override void OnEndMouseUp(global::Rhino.UI.MouseCallbackEventArgs e) =>
         _ = Apply(phase: MousePhase.UpEnd, args: e);
 
+    protected sealed override void OnMouseDoubleClick(global::Rhino.UI.MouseCallbackEventArgs e) =>
+        _ = Apply(phase: MousePhase.DoubleClick, args: e);
+
+    protected sealed override void OnMouseEnter(global::Rhino.UI.MouseCallbackEventArgs e) =>
+        _ = Apply(phase: MousePhase.Enter, args: e);
+
+    protected sealed override void OnMouseHover(global::Rhino.UI.MouseCallbackEventArgs e) =>
+        _ = Apply(phase: MousePhase.Hover, args: e);
+
+    protected sealed override void OnMouseLeave(global::Rhino.UI.MouseCallbackEventArgs e) =>
+        _ = Apply(phase: MousePhase.Leave, args: e);
+
     private Fin<Unit> Apply(MousePhase phase, global::Rhino.UI.MouseCallbackEventArgs args) =>
         RhinoUi.Protect(valid: () => Change(context: new MouseContext<TState>(Phase: phase, State: State, Args: args)))
             .Map(decision => {
                 args.Cancel = phase switch {
-                    MousePhase.Move or MousePhase.Down or MousePhase.Up => decision.Cancel,
+                    MousePhase.Move or MousePhase.Down or MousePhase.Up or MousePhase.DoubleClick => decision.Cancel,
                     _ => args.Cancel,
                 };
                 return unit;

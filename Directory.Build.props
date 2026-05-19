@@ -74,6 +74,7 @@
         <RhinoWipResourcesPath>$(RhinoWipAppPath)/Contents/Frameworks/RhCore.framework/Versions/A/Resources</RhinoWipResourcesPath>
         <RhinoCommonReferencePath>$(RhinoWipResourcesPath)/RhinoCommon.dll</RhinoCommonReferencePath>
         <RhinoUiReferencePath>$(RhinoWipResourcesPath)/Rhino.UI.dll</RhinoUiReferencePath>
+        <SystemDrawingCommonReferencePath>$(RhinoWipResourcesPath)/System.Drawing.Common.dll</SystemDrawingCommonReferencePath>
         <EtoReferencePath>$(RhinoWipResourcesPath)/Eto.dll</EtoReferencePath>
         <Grasshopper2ReferencePath>$(RhinoWipResourcesPath)/ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.dll</Grasshopper2ReferencePath>
         <GrasshopperIoReferencePath>$(RhinoWipResourcesPath)/ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.dll</GrasshopperIoReferencePath>
@@ -136,6 +137,15 @@
         </AssemblyAttribute>
     </ItemGroup>
 
+    <ItemGroup Label="Rhino UI Host Platform Metadata" Condition="'$(IsRhinoUiAwareProject)' == 'true'">
+        <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute">
+            <_Parameter1>macos15.0</_Parameter1>
+        </AssemblyAttribute>
+        <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute">
+            <_Parameter1>windows</_Parameter1>
+        </AssemblyAttribute>
+    </ItemGroup>
+
     <ItemGroup Label="RhinoWIP Libraries" Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true' or '$(IsRhinoCommonAwareProject)' == 'true'">
         <Reference Include="RhinoCommon">
             <HintPath>$(RhinoCommonReferencePath)</HintPath>
@@ -146,6 +156,10 @@
     <ItemGroup Label="Rhino UI Libraries" Condition="'$(IsRhinoUiAwareProject)' == 'true'">
         <Reference Include="Rhino.UI">
             <HintPath>$(RhinoUiReferencePath)</HintPath>
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="System.Drawing.Common">
+            <HintPath>$(SystemDrawingCommonReferencePath)</HintPath>
             <Private>false</Private>
         </Reference>
         <Reference Include="Eto">

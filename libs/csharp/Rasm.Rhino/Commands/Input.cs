@@ -72,7 +72,7 @@ public sealed record CommandInputPolicy {
         Seq<Action<GetPoint>> pointActions = default,
         Seq<CommandOption> options = default,
         Option<(int Min, int Max)> objects = default,
-        Option<(bool OnMouseUp, bool TwoDimensional)> point = default,
+        Option<PointSpec> point = default,
         Option<Scalar> scalar = default,
         Option<LimitSpec> bounds = default,
         Option<BoxSpec> box = default,
@@ -86,7 +86,7 @@ public sealed record CommandInputPolicy {
     private Seq<Action<GetPoint>> PointActions { get; }
     internal Seq<CommandOption> OptionList { get; }
     internal Option<(int Min, int Max)> ObjectRange { get; }
-    internal Option<(bool OnMouseUp, bool TwoDimensional)> PointMode { get; }
+    internal Option<PointSpec> PointMode { get; }
     internal Option<Scalar> ScalarMode { get; }
     internal Option<LimitSpec> LimitsMode { get; }
     internal Option<BoxSpec> BoxMode { get; }
@@ -111,7 +111,8 @@ public sealed record CommandInputPolicy {
     public static CommandInputPolicy AcceptNothing() => Configure(apply: AcceptNothingAction);
     public static CommandInputPolicy Options(params CommandOption[] values) => new(options: toSeq(values));
     public static CommandInputPolicy Objects(int minimum = 1, int maximum = 1) => new(objects: Some((Min: minimum, Max: maximum)));
-    public static CommandInputPolicy Point(bool onMouseUp = false, bool twoDimensional = false) => new(point: Some((OnMouseUp: onMouseUp, TwoDimensional: twoDimensional)));
+    public static CommandInputPolicy Point(bool onMouseUp = false, bool twoDimensional = false, Option<global::Rhino.UI.CursorStyle> cursor = default, Option<bool> objectSnapCursors = default) =>
+        new(point: Some(new PointSpec(OnMouseUp: onMouseUp, TwoDimensional: twoDimensional, Cursor: cursor, ObjectSnapCursors: objectSnapCursors)));
     public static CommandInputPolicy Bounds<T>(Option<T> lower = default, Option<T> upper = default, bool strictlyLower = false, bool strictlyUpper = false) where T : IComparable<T> => new(bounds: Some(new LimitSpec(Lower: lower.Map(static value => (object)value), Upper: upper.Map(static value => (object)value), StrictlyLower: strictlyLower, StrictlyUpper: strictlyUpper)));
     public static CommandInputPolicy Number() => new(scalar: Some(new Scalar(Kind: ScalarKind.Number, LengthUnits: Option<UnitSystem>.None, AngleUnits: Option<AngleUnitSystem>.None)));
     public static CommandInputPolicy Number<T>(Option<T> lower = default, Option<T> upper = default, bool strictlyLower = false, bool strictlyUpper = false) where T : IComparable<T> => Bounds(lower: lower, upper: upper, strictlyLower: strictlyLower, strictlyUpper: strictlyUpper) + Number();
@@ -135,7 +136,7 @@ public sealed record CommandInputPolicy {
         Optional(getter).ToFin(Fail: Op.Of(name: nameof(CommandInputPolicy)).InvalidInput()).Map(valid => {
             _ = BaseActions.Iter(action => action(obj: valid));
             _ = valid is GetObject objects ? DefaultObjectActions.Concat(ObjectActions).Iter(action => action(obj: objects)) : unit;
-            _ = valid is GetPoint point ? PointActions.Iter(action => action(obj: point)) : unit;
+            _ = valid is GetPoint point ? ApplyPoint(getter: point) : unit;
             return unit;
         });
 
@@ -154,9 +155,19 @@ public sealed record CommandInputPolicy {
     private static Action<GetBaseClass> AcceptNothingAction { get; } = static getter => getter.AcceptNothing(enable: true);
     private static Option<T> Pick<T>(Option<T> left, Option<T> right) => right.IsSome ? right : left;
     internal enum ScalarKind { Number, Length, Angle }
+    internal sealed record PointSpec(bool OnMouseUp, bool TwoDimensional, Option<global::Rhino.UI.CursorStyle> Cursor, Option<bool> ObjectSnapCursors);
     internal sealed record Scalar(ScalarKind Kind, Option<UnitSystem> LengthUnits, Option<AngleUnitSystem> AngleUnits);
     internal sealed record LimitSpec(Option<object> Lower, Option<object> Upper, bool StrictlyLower, bool StrictlyUpper);
     internal sealed record BoxSpec(GetBoxMode Mode, Point3d? BasePoint, string? Prompt1, string? Prompt2, string? Prompt3);
+
+    private Unit ApplyPoint(GetPoint getter) {
+        _ = PointActions.Iter(action => action(obj: getter));
+        _ = PointMode.Iter(spec => {
+            _ = spec.Cursor.Iter(cursor => getter.SetCursor(cursor));
+            _ = spec.ObjectSnapCursors.Iter(enabled => getter.EnableObjectSnapCursors(enable: enabled));
+        });
+        return unit;
+    }
 }
 
 public static class CommandInputs {
@@ -196,12 +207,12 @@ public static class CommandInputs {
         };
 
     private static CommandInputRequest<T> Point<T>(CommandInputPolicy policy) {
-        (bool onMouseUp, bool configuredTwoDimensional) = policy.PointMode.IfNone((OnMouseUp: false, TwoDimensional: false));
-        bool twoDimensional = configuredTwoDimensional || typeof(T) == typeof(DrawingPoint);
+        CommandInputPolicy.PointSpec spec = policy.PointMode.IfNone(new CommandInputPolicy.PointSpec(OnMouseUp: false, TwoDimensional: false, Cursor: Option<global::Rhino.UI.CursorStyle>.None, ObjectSnapCursors: Option<bool>.None));
+        bool twoDimensional = spec.TwoDimensional || typeof(T) == typeof(DrawingPoint);
         return Getter<GetPoint, T>(
             policy: policy,
             create: static () => new GetPoint(),
-            receive: getter => getter.Get(onMouseUp: onMouseUp, get2DPoint: twoDimensional),
+            receive: getter => getter.Get(onMouseUp: spec.OnMouseUp, get2DPoint: twoDimensional),
             value: static (_, getter, raw) => raw is GetResult.Point or GetResult.Point2d ? PointValue<T>(getter: getter, raw: raw) : Option<T>.None);
     }
 
