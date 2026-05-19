@@ -53,6 +53,23 @@ public readonly record struct PanelSnapshot<TPanel>(
     Seq<Guid> OpenPanelIds,
     Seq<Guid> DockBarIds) where TPanel : RasmPanel;
 
+public readonly record struct PanelMenuState(
+    bool Enabled = true,
+    bool Checked = false,
+    bool RadioChecked = false,
+    Option<string> Text = default,
+    Guid FileId = default,
+    Guid MenuId = default,
+    Guid ItemId = default,
+    nint MenuHandle = default,
+    int MenuIndex = -1,
+    uint WindowsMenuItemId = 0) {
+    internal static Option<PanelMenuState> Of(global::Rhino.UI.RuiUpdateUi ui) =>
+        Optional(ui).Map(valid => new PanelMenuState(Enabled: valid.Enabled, Checked: valid.Checked, RadioChecked: valid.RadioChecked, Text: Optional(valid.Text), FileId: valid.FileId, MenuId: valid.MenuId, ItemId: valid.MenuItemId, MenuHandle: valid.MenuHandle, MenuIndex: valid.MenuIndex, WindowsMenuItemId: valid.WindowsMenuItemId));
+
+    internal Unit Apply(global::Rhino.UI.RuiUpdateUi ui) { ui.Enabled = Enabled; ui.Checked = Checked; ui.RadioChecked = RadioChecked; _ = Text.Iter(value => ui.Text = value); return unit; }
+}
+
 public static class PanelOp {
     public static PanelOp<TPanel, Unit> Register<TPanel>(
         global::Rhino.PlugIns.PlugIn plugin,
@@ -76,6 +93,8 @@ public static class PanelOp {
     public static PanelOp<TPanel, Unit> Open<TPanel>(bool selected = true, Option<Guid> dock = default, Option<Guid> sibling = default) where TPanel : RasmPanel =>
         new(run: _ =>
             RasmPanel.PanelIdentityOf<TPanel>().Bind(panel => RhinoUi.Protect(valid: () => (dock.Case, sibling.Case) switch {
+                (Guid dockBar, _) when dockBar == Guid.Empty => Fin.Fail<Unit>(error: Op.Of(name: nameof(Open)).InvalidInput()),
+                (_, Guid siblingPanel) when siblingPanel == Guid.Empty => Fin.Fail<Unit>(error: Op.Of(name: nameof(Open)).InvalidInput()),
                 (Guid, Guid) => Fin.Fail<Unit>(error: Op.Of(name: nameof(Open)).InvalidInput()),
                 (Guid dockBar, _) => global::Rhino.UI.Panels.OpenPanel(dockBarId: dockBar, panelType: panel.Type, makeSelectedPanel: selected) switch { Guid id when id != Guid.Empty => Fin.Succ(value: unit), _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(Open)).InvalidResult()) },
                 (_, Guid siblingPanel) => global::Rhino.UI.Panels.OpenPanelAsSibling(panelId: panel.Id, siblingPanelId: siblingPanel, makeSelectedPanel: selected) switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(Open)).InvalidResult()) },
@@ -140,8 +159,8 @@ public static class PanelOp {
             select snapshot,
             interactive: false);
 
-    public static PanelOp<TPanel, Unit> MenuState<TPanel>(Guid fileId, Guid menuId, Guid itemId, Func<global::Rhino.UI.RuiUpdateUi, Fin<Unit>> update) where TPanel : RasmPanel =>
-        new(run: _ => from validUpdate in Optional(update).ToFin(Fail: Op.Of(name: nameof(MenuState)).InvalidInput()) from validIds in guard(fileId != Guid.Empty && menuId != Guid.Empty && itemId != Guid.Empty, Op.Of(name: nameof(MenuState)).InvalidInput()) from registered in RhinoUi.Protect(valid: () => global::Rhino.UI.RuiUpdateUi.RegisterMenuItem(fileId, menuId, itemId, (_, ui) => _ = RhinoUi.Protect(valid: () => validUpdate(arg: ui))) switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(MenuState)).InvalidResult()) }) select registered, interactive: false);
+    public static PanelOp<TPanel, Unit> MenuState<TPanel>(Guid fileId, Guid menuId, Guid itemId, Func<PanelMenuState, Fin<PanelMenuState>> update) where TPanel : RasmPanel =>
+        new(run: _ => from validUpdate in Optional(update).ToFin(Fail: Op.Of(name: nameof(MenuState)).InvalidInput()) from validIds in guard(fileId != Guid.Empty && menuId != Guid.Empty && itemId != Guid.Empty, Op.Of(name: nameof(MenuState)).InvalidInput()) from registered in RhinoUi.Protect(valid: () => global::Rhino.UI.RuiUpdateUi.RegisterMenuItem(fileId, menuId, itemId, (_, ui) => _ = RhinoUi.Protect(valid: () => from source in PanelMenuState.Of(ui: ui).ToFin(Fail: Op.Of(name: nameof(MenuState)).InvalidInput()) from state in validUpdate(arg: source) select state.Apply(ui: ui))) switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(MenuState)).InvalidResult()) }) select registered, interactive: false);
 
     private static Fin<string> NonBlank(string value) =>
         string.IsNullOrWhiteSpace(value: value) switch {

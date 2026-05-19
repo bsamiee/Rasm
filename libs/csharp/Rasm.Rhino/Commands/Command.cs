@@ -22,9 +22,10 @@ public abstract class RasmCommand<TSelf> : Command where TSelf : RasmCommand<TSe
         select unit;
 
     protected virtual Fin<Unit> Complete(RhinoCommandContext context, Result result) =>
-        Optional(context)
-            .ToFin(Fail: Op.Of(name: nameof(Complete)).InvalidInput())
-            .Map(static _ => unit);
+        Optional(context).ToFin(Fail: Op.Of(name: nameof(Complete)).InvalidInput()).Bind(active => result switch {
+            Result.Success => active.Edit.Redraw(),
+            _ => Fin.Succ(value: unit),
+        });
 
     protected virtual Result FailureResult(Error fault) => fault is Fault.Cancelled ? Result.Cancel : Result.Failure;
 }

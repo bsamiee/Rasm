@@ -30,16 +30,10 @@ public sealed class RhinoCommandContext {
 
     public Fin<CommandGet<TValue>> Get<TValue>(params CommandInputPolicy[] policies) => Input.Get(request: CommandInputs.Get<TValue>(policies: policies));
 
-    public Fin<RhinoCommandContext> Interactive() =>
-        Mode switch {
-            RunMode.Interactive => Fin.Succ(value: this),
-            _ => Fin.Fail<RhinoCommandContext>(error: Op.Of(name: nameof(Interactive)).InvalidInput()),
-        };
-
-    public Fin<RhinoCommandContext> Scripted() =>
-        Mode switch {
-            RunMode.Scripted => Fin.Succ(value: this),
-            _ => Fin.Fail<RhinoCommandContext>(error: Op.Of(name: nameof(Scripted)).InvalidInput()),
+    public Fin<RhinoCommandContext> Require(RunMode mode, string? name = null) =>
+        (Mode == mode) switch {
+            true => Fin.Succ(value: this),
+            _ => Fin.Fail<RhinoCommandContext>(error: Op.Of(name: string.IsNullOrWhiteSpace(value: name) ? nameof(Require) : name).InvalidInput()),
         };
 
     public Fin<RhinoDoc> Active() =>

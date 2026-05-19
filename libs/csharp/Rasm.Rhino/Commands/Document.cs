@@ -77,70 +77,24 @@ public abstract record DocumentTarget {
                     int count when count == target.Count => Fin.Succ(value: unit),
                     _ => Fin.Fail<Unit>(error: op.InvalidResult()),
                 },
-                true => toSeq(target.AsIterable()
-                    .Select(id => document.Objects.FindId(id))
-                    .Where(static item => item is { IsDeleted: false })) switch {
-                        Seq<RhinoObject> found when found.Count == target.Count => found
-                            .TraverseM(item => UnitResult(success: document.Objects.Delete(item, quiet, true), op: op))
-                            .Map(static _ => unit),
-                        _ => Fin.Fail<Unit>(error: op.InvalidResult()),
-                    },
+                true => target
+                    .TraverseM(id => Optional(document.Objects.FindId(id))
+                        .ToFin(Fail: op.InvalidResult())
+                        .Bind(native => native.IsDeleted switch {
+                            false => UnitResult(success: document.Objects.Delete(native, quiet, true), op: op),
+                            true => Fin.Fail<Unit>(error: op.InvalidResult()),
+                        }))
+                    .Map(static _ => unit),
             });
 
     private static Fin<Unit> ReplaceIds(RhinoDoc document, IEnumerable<Guid> ids, object replacement, bool ignoreModes, Op op) =>
         TargetIds(ids: ids, op: op).Bind(target => target.Count switch { 1 => ReplaceOne(document: document, objectId: target[0], replacement: replacement, ignoreModes: ignoreModes, op: op), _ => Fin.Fail<Unit>(error: op.InvalidInput()) });
 
     private static Fin<Unit> ReplaceOne(RhinoDoc document, Guid objectId, object replacement, bool ignoreModes, Op op) =>
-        ignoreModes switch {
-            true => ReplaceGeometry(replacement: replacement, op: op, use: geometry => document.Objects.Replace(objectId: objectId, geometry: geometry, ignoreModes: true)),
-            false => UnitResult(success: replacement switch {
-                Point3d point => document.Objects.Replace(objectId: objectId, point: point),
-                Point point => document.Objects.Replace(objectId: objectId, point: point),
-                TextEntity text => document.Objects.Replace(objectId: objectId, text: text),
-                Leader leader => document.Objects.Replace(objectId: objectId, leader: leader),
-                TextDot dot => document.Objects.Replace(objectId: objectId, dot: dot),
-                Hatch hatch => document.Objects.Replace(objectId: objectId, hatch: hatch),
-                Line line => document.Objects.Replace(objectId: objectId, line: line),
-                Circle circle => document.Objects.Replace(objectId: objectId, circle: circle),
-                Arc arc => document.Objects.Replace(objectId: objectId, arc: arc),
-                Polyline polyline => document.Objects.Replace(objectId: objectId, polyline: polyline),
-                Curve curve => document.Objects.Replace(objectId: objectId, curve: curve),
-                Extrusion extrusion => document.Objects.Replace(objectId: objectId, extrusion: extrusion),
-                Surface surface => document.Objects.Replace(objectId: objectId, surface: surface),
-                Brep brep => document.Objects.Replace(objectId: objectId, brep: brep),
-                Mesh mesh => document.Objects.Replace(objectId: objectId, mesh: mesh),
-                SubD subd => document.Objects.Replace(objectId: objectId, subD: subd),
-                PointCloud pointCloud => document.Objects.Replace(objectId, pointCloud),
-                GeometryBase geometry => document.Objects.Replace(objectId: objectId, geometry: geometry, ignoreModes: false),
-                _ => false,
-            }, op: op),
-        };
+        ReplaceGeometry(replacement: replacement, op: op, use: geometry => document.Objects.Replace(objectId: objectId, geometry: geometry, ignoreModes: ignoreModes));
 
     private static Fin<Unit> ReplaceOne(RhinoDoc document, ObjRef reference, object replacement, bool ignoreModes, Op op) =>
-        ignoreModes switch {
-            true => ReplaceGeometry(replacement: replacement, op: op, use: geometry => document.Objects.Replace(objref: reference, geometry: geometry, ignoreModes: true)),
-            false => UnitResult(success: replacement switch {
-                Point3d point => document.Objects.Replace(objref: reference, point: point),
-                Point point => document.Objects.Replace(objref: reference, point: point),
-                TextEntity text => document.Objects.Replace(objref: reference, text: text),
-                Leader leader => document.Objects.Replace(objref: reference, leader: leader),
-                TextDot dot => document.Objects.Replace(objref: reference, dot: dot),
-                Hatch hatch => document.Objects.Replace(objref: reference, hatch: hatch),
-                Line line => document.Objects.Replace(objref: reference, line: line),
-                Circle circle => document.Objects.Replace(objref: reference, circle: circle),
-                Arc arc => document.Objects.Replace(objref: reference, arc: arc),
-                Polyline polyline => document.Objects.Replace(objref: reference, polyline: polyline),
-                Curve curve => document.Objects.Replace(objref: reference, curve: curve),
-                Extrusion extrusion => document.Objects.Replace(objref: reference, extrusion: extrusion),
-                Surface surface => document.Objects.Replace(objref: reference, surface: surface),
-                Brep brep => document.Objects.Replace(objref: reference, brep: brep),
-                Mesh mesh => document.Objects.Replace(objref: reference, mesh: mesh),
-                SubD subd => document.Objects.Replace(objref: reference, subD: subd),
-                PointCloud pointCloud => document.Objects.Replace(reference, pointCloud),
-                GeometryBase geometry => document.Objects.Replace(objref: reference, geometry: geometry, ignoreModes: false),
-                _ => false,
-            }, op: op),
-        };
+        ReplaceGeometry(replacement: replacement, op: op, use: geometry => document.Objects.Replace(objref: reference, geometry: geometry, ignoreModes: ignoreModes));
 
     private static Fin<Unit> ReplaceGeometry(object replacement, Op op, Func<GeometryBase, bool> use) =>
         Optional(use).ToFin(Fail: op.InvalidInput()).Bind(valid => ToGeometry(replacement: replacement) switch {

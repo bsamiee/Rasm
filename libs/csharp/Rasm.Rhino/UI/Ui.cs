@@ -124,12 +124,15 @@ public sealed class UiProgress : IDisposable {
     }
 
     public Fin<int> Update(UiProgressStep step) =>
-        (Next(step: step).Case, step.Label.Case) switch {
-            (int position, _) when position < lower || position > upper => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidInput()),
-            (int position, string label) => Previous(value: global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, label: label, position: position, absolute: true)).Map(previous => { current = position; return previous; }),
-            (_, string label) => Previous(value: global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, label: label, position: RhinoMath.UnsetIntIndex, absolute: true)),
-            (int position, _) => Previous(value: global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, position: position, absolute: true)).Map(previous => { current = position; return previous; }),
-            _ => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidInput()),
+        disposed switch {
+            true => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidInput()),
+            false => (Next(step: step).Case, step.Label.Case) switch {
+                (int position, _) when position < lower || position > upper => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidInput()),
+                (int position, string label) => Previous(value: global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, label: label, position: position, absolute: true)).Map(previous => { current = position; return previous; }),
+                (_, string label) => RhinoUi.Protect(valid: () => { _ = global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, label: label, position: RhinoMath.UnsetIntIndex, absolute: true); return Fin.Succ(value: current); }),
+                (int position, _) => Previous(value: global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, position: position, absolute: true)).Map(previous => { current = position; return previous; }),
+                _ => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidInput()),
+            },
         };
 
     public void Dispose() {

@@ -6,7 +6,6 @@ public readonly record struct MouseContext<TState>(MousePhase Phase, TState Stat
     public global::Rhino.UI.Gumball.GumballMode GumballMode => Args.IsOverGumball();
     public bool IsOverGumball => GumballMode != global::Rhino.UI.Gumball.GumballMode.None;
     public global::Rhino.UI.MouseButton MouseButton => Args.MouseButton;
-    public Option<object> Button => Optional(Args.GetType().GetProperty(name: nameof(Button))?.GetValue(obj: Args));
     public bool Shift => Args.ShiftKeyDown;
     public bool Control => Args.CtrlKeyDown;
     public Option<RhinoView> View => Optional(Args.View);
@@ -17,9 +16,14 @@ public readonly record struct MouseContext<TState>(MousePhase Phase, TState Stat
         };
     public Option<Line> WorldLine =>
         (View.Case, ViewportPoint.Case) switch {
-            (RhinoView view, System.Drawing.Point point) => Some(view.ActiveViewport.ClientToWorld(point)),
+            (RhinoView view, System.Drawing.Point point) => view.ActiveViewport.ClientToWorld(point) switch {
+                Line line when line.IsValid => Some(line),
+                _ => Option<Line>.None,
+            },
             _ => Option<Line>.None,
         };
+    public Fin<Line> RequireWorldLine() =>
+        WorldLine.ToFin(Fail: Op.Of(name: nameof(RequireWorldLine)).InvalidInput());
 }
 
 public readonly record struct MouseDecision(bool Cancel) {

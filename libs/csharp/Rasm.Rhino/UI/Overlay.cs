@@ -258,6 +258,13 @@ public readonly record struct UiPreviewScope(
             .Bind(valid => valid.Validate().Map(_ => valid))
             .Bind(valid => overlay.Transition(transition: _ => valid, document: document));
     }
+
+    public Fin<bool> UpdateGumball<TState>(MouseContext<TState> mouse, Point3d point) =>
+        from active in Gumball.ToFin(Fail: Op.Of(name: nameof(UpdateGumball)).InvalidInput())
+        from line in mouse.RequireWorldLine()
+        from _ in active.CheckKeys()
+        from changed in active.Update(point: point, line: line)
+        select changed;
 }
 
 public sealed record UiViewportPreview {

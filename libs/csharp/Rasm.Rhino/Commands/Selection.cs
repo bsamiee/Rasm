@@ -60,12 +60,13 @@ public sealed record CommandSelection {
     public RhinoDoc Document { get; }
     public Seq<Reference> Items { get; }
     public Seq<Guid> ObjectIds => Items.Map(static item => item.ObjectId);
-    internal Seq<Reference> TransformTargets {
-        get {
-            System.Collections.Generic.HashSet<(Guid, uint, ComponentIndex)> seen = [];
-            return Items.Filter(item => seen.Add(item: (item.ObjectId, item.RuntimeSerialNumber, item.ComponentIndex)));
-        }
-    }
+    internal Seq<Reference> TransformTargets =>
+        Items.Fold(
+            (Seen: Seq<(Guid ObjectId, uint RuntimeSerialNumber, ComponentIndex ComponentIndex)>(), Targets: Seq<Reference>()),
+            static (state, item) => state.Seen.Exists(seen => seen == (item.ObjectId, item.RuntimeSerialNumber, item.ComponentIndex)) switch {
+                true => state,
+                false => (Seen: Seq((item.ObjectId, item.RuntimeSerialNumber, item.ComponentIndex)) + state.Seen, Targets: Seq(item) + state.Targets),
+            }).Targets.Rev();
 
     public Fin<Seq<T>> Project<T>(Func<Reference, Fin<T>> project) => Optional(project).ToFin(Fail: Op.Of(name: nameof(Project)).InvalidInput()).Bind(valid => Items.TraverseM(reference => valid(arg: reference)).As());
 
@@ -156,17 +157,18 @@ public sealed record CommandSelection {
         }
 
         internal static Option<Reference> Of(GetPoint getter) =>
-            Optional(getter.PointOnObject())
-                .Map(reference => {
-                    using ObjRef owned = reference;
-                    Reference snapshot = Of(reference: owned, preselected: false);
-                    return snapshot with {
-                        Location = PickLocation.Of(getter: getter).Case switch {
-                            PickLocation location => Some(location),
-                            _ => snapshot.Location,
-                        },
-                    };
-                });
+            Optional(getter)
+                .Bind(valid => Optional(valid.PointOnObject())
+                    .Map(reference => {
+                        using ObjRef owned = reference;
+                        Reference snapshot = Of(reference: owned, preselected: false);
+                        return snapshot with {
+                            Location = PickLocation.Of(getter: valid).Case switch {
+                                PickLocation location => Some(location),
+                                _ => snapshot.Location,
+                            },
+                        };
+                    }));
 
         internal ObjRef ObjRef(RhinoDoc document) {
             ArgumentNullException.ThrowIfNull(argument: document);

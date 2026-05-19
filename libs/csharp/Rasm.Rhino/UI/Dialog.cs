@@ -158,12 +158,13 @@ public static class UiIntent {
         });
 
     public static UiIntent<int> ContextMenu(IEnumerable<string> items, System.Drawing.Point screenPoint, IEnumerable<int>? modes = null) =>
-        Request(name: nameof(ContextMenu), run: _ => Optional(items).ToFin(Fail: Op.Of(name: nameof(ContextMenu)).InvalidInput()).Bind(source => toSeq(source) switch {
-            Seq<string> values when !values.IsEmpty => global::Rhino.UI.Dialogs.ShowContextMenu(items: values.AsIterable(), screenPoint: screenPoint, modes: Optional(modes).Map(static source => toSeq(source)).IfNone(toSeq(Enumerable.Repeat(element: 1, count: values.Count))).AsIterable()) switch {
+        Request(name: nameof(ContextMenu), run: _ => Optional(items).ToFin(Fail: Op.Of(name: nameof(ContextMenu)).InvalidInput()).Bind(source => (toSeq(source), Optional(modes).Map(static value => toSeq(value)).IfNone(Seq<int>())) switch {
+            (Seq<string> values, _) when values.IsEmpty => Fin.Fail<int>(error: Op.Of(name: nameof(ContextMenu)).InvalidInput()),
+            (Seq<string> values, Seq<int> flags) when !flags.IsEmpty && flags.Count != values.Count => Fin.Fail<int>(error: Op.Of(name: nameof(ContextMenu)).InvalidInput()),
+            (Seq<string> values, Seq<int> flags) => global::Rhino.UI.Dialogs.ShowContextMenu(items: values.AsIterable(), screenPoint: screenPoint, modes: (flags.IsEmpty ? toSeq(Enumerable.Repeat(element: 1, count: values.Count)) : flags).AsIterable()) switch {
                 int index when index >= 0 => Fin.Succ(value: index),
                 _ => Fin.Fail<int>(error: new Fault.Cancelled()),
             },
-            _ => Fin.Fail<int>(error: Op.Of(name: nameof(ContextMenu)).InvalidInput()),
         }));
 
     public static UiIntent<Seq<string>> File(string title, string filter, string? fileName = null, string? initialDirectory = null, string? defaultExtension = null, bool save = false, bool multi = false) =>

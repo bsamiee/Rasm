@@ -68,11 +68,17 @@ public abstract record CommandOption {
     public static CommandOption EnumSelection<TEnum>(string name, IEnumerable<TEnum> values, CommandOptionPolicy policy = default) where TEnum : struct, Enum =>
         EnumSelection(name: name, values: toSeq(values), current: policy.Current, varies: policy.Varies);
 
+    public static CommandOption EnumSelection<TEnum>(string name, IEnumerable<TEnum> values, TEnum selected, CommandOptionPolicy policy = default) where TEnum : struct, Enum {
+        Seq<TEnum> source = Optional(values).Map(static items => toSeq(items)).IfNone(Seq<TEnum>());
+        return EnumIndex(values: source, value: selected).Case switch {
+            int current => EnumSelection(name: name, values: source, current: current, varies: policy.Varies),
+            _ => Invalid(name: name),
+        };
+    }
+
     public static CommandOption List(string name, IEnumerable<string> values, string selected, CommandOptionPolicy policy = default) {
         Seq<string> source = Optional(values).Map(static items => toSeq(items)).IfNone(Seq<string>());
-        Option<int> index = toSeq(Enumerable.Range(start: 0, count: source.Count))
-            .Find(i => StringComparer.Ordinal.Equals(x: source[i], y: selected));
-        return index.Case switch {
+        return IndexOf(values: source, selected: selected, same: StringComparer.Ordinal.Equals).Case switch {
             int current => List(name: name, values: source, current: current, varies: policy.Varies),
             _ => Invalid(name: name),
         };
@@ -80,8 +86,7 @@ public abstract record CommandOption {
 
     public static CommandOption List<T>(string name, IEnumerable<T> values, Func<T, string> label, T selected, CommandOptionPolicy policy = default) {
         Seq<T> source = Optional(values).Map(static items => toSeq(items)).IfNone(Seq<T>());
-        Option<int> index = toSeq(Enumerable.Range(start: 0, count: source.Count))
-            .Find(i => EqualityComparer<T>.Default.Equals(x: source[i], y: selected));
+        Option<int> index = IndexOf(values: source, selected: selected, same: EqualityComparer<T>.Default.Equals);
         return (Optional(label).Case, index.Case) switch {
             (Func<T, string> project, int current) => List(name: name, values: source, label: project, current: current, varies: policy.Varies),
             _ => Invalid(name: name),
@@ -292,8 +297,10 @@ public abstract record CommandOption {
         };
 
     private static Option<int> EnumIndex<TEnum>(Seq<TEnum> values, TEnum value) where TEnum : struct, Enum =>
-        toSeq(Enumerable.Range(start: 0, count: values.Count))
-            .Find(index => EqualityComparer<TEnum>.Default.Equals(x: values[index], y: value));
+        IndexOf(values: values, selected: value, same: EqualityComparer<TEnum>.Default.Equals);
+
+    private static Option<int> IndexOf<T>(Seq<T> values, T selected, Func<T, T, bool> same) =>
+        Optional(same).Bind(compare => toSeq(Enumerable.Range(start: 0, count: values.Count)).Find(index => compare(arg1: values[index], arg2: selected)));
 
     internal sealed class Scope : IDisposable {
         private bool disposed;

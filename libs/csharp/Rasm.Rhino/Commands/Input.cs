@@ -154,10 +154,12 @@ public sealed record CommandInputPolicy {
     public static CommandInputPolicy AcceptUndo() => Accept(modes: CommandInputAccept.Undo);
     public static CommandInputPolicy Options(params CommandOption[] values) => new(options: toSeq(values));
     public static CommandInputPolicy Objects(int minimum = 1, int maximum = 1, ObjectType types = ObjectType.AnyObject) =>
-        new(objects: Some((Min: minimum, Max: maximum)), objectTypes: types switch {
-            ObjectType.AnyObject => Option<ObjectType>.None,
-            _ => Some(types),
-        });
+        new(
+            objects: Some((Min: minimum, Max: maximum)),
+            objectTypes: types switch {
+                ObjectType.AnyObject => Option<ObjectType>.None,
+                _ => Some(types),
+            });
     public static CommandInputPolicy Point(
         bool onMouseUp = false,
         bool twoDimensional = false,

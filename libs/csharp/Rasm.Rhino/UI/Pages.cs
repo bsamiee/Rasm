@@ -2,7 +2,7 @@ using Eto.Forms;
 
 namespace Rasm.Rhino.UI;
 
-public enum PagePhase { Apply, Cancel, Activate, Script, Display, Update, Defaults, Help, CreateParent, SizeParent }
+public enum PagePhase { Apply, Cancel, Activate, Script, Display, Update, Modify, Defaults, Help, CreateParent, SizeParent }
 
 public readonly record struct PageContext(PagePhase Phase, bool Active = false, RhinoDoc? Document = null, RunMode Mode = RunMode.Interactive, global::Rhino.UI.ObjectPropertiesPageEventArgs? Args = null, IntPtr ParentHandle = default, int Width = 0, int Height = 0) {
     public Option<uint> EventSerialNumber => Optional(Args).Map(static args => args.EventRuntimeSerialNumber);
@@ -87,10 +87,10 @@ public abstract class RasmPropertiesPage : global::Rhino.UI.ObjectPropertiesPage
     public sealed override void OnCreateParent(IntPtr hwndParent) => _ = ResultOf(context: new PageContext(Phase: PagePhase.CreateParent, ParentHandle: hwndParent));
     public sealed override void OnSizeParent(int width, int height) => _ = ResultOf(context: new PageContext(Phase: PagePhase.SizeParent, Width: width, Height: height));
 
-    protected Fin<Unit> Modify(Func<global::Rhino.UI.ObjectPropertiesPageEventArgs, Fin<Unit>> change) =>
+    protected Fin<Unit> Modify(Func<PageContext, Fin<Unit>> change) =>
         Optional(change).ToFin(Fail: Op.Of(name: nameof(Modify)).InvalidInput()).Bind(valid => RhinoUi.Protect(valid: () => {
             Fin<Unit> result = Fin.Fail<Unit>(error: Op.Of(name: nameof(Modify)).InvalidResult());
-            ModifyPage(callbackAction: args => result = valid(arg: args));
+            ModifyPage(callbackAction: args => result = valid(arg: new PageContext(Phase: PagePhase.Modify, Args: args)));
             return result;
         }));
 
