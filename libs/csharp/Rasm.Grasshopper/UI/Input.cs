@@ -3,7 +3,9 @@ using Eto.Drawing;
 using Eto.Forms;
 using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Extensions;
+using Grasshopper2.UI;
 using Grasshopper2.UI.Flex;
+using Grasshopper2.UI.Icon;
 using Grasshopper2.UI.InputPanel;
 using Grasshopper2.UI.Toolbar;
 using Op = Rasm.Domain.Op;
@@ -75,7 +77,99 @@ public readonly record struct InputPanelSnapshot(int Count, string Category, boo
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct ToolbarSnapshot(int Count, bool Enabled, float MinimumWidth, float MaximumWidth, float Height);
 
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct MenuSnapshot(int Count);
+
 public readonly record struct FileFilter(string Name, Seq<string> Extensions);
+
+public readonly record struct UiCommand(
+    string Name,
+    string Info,
+    Func<Fin<Unit>> Run,
+    Option<IIcon> Icon = default,
+    Option<BarShortcut> Shortcut = default,
+    bool Enabled = true) {
+    internal Fin<UiCommand> Validated(Op op) {
+        UiCommand command = this;
+        return Optional(command.Run)
+            .ToFin(Fail: UiFault.InvalidInput(op: op, detail: "command run delegate is required"))
+            .Map(_ => command);
+    }
+
+    internal Command ToEtoCommand() {
+        string name = Name;
+        string info = Info;
+        bool enabled = Enabled;
+        Func<Fin<Unit>> run = Run;
+        Command command = new() { ID = name, MenuText = name, ToolBarText = name, ToolTip = info, Enabled = enabled };
+        command.Executed += (_, _) => _ = GrasshopperUi.Protect(valid: run);
+        return command;
+    }
+}
+
+public abstract record ToolbarItem {
+    public sealed record Button(UiCommand Command, bool CloseOnActivate = true) : ToolbarItem;
+    public sealed record Toggle(UiCommand Command, bool State, Func<bool, Fin<Unit>> Changed) : ToolbarItem;
+    public sealed record Spacer(string Chapter, string Section) : ToolbarItem;
+
+    internal Fin<Unit> Apply(Bar bar) =>
+        Optional(bar)
+            .ToFin(Fail: UiFault.MissingScope(field: nameof(Bar)))
+            .Bind(valid => this switch {
+                Button button => button.Command.Validated(op: Op.Of(name: nameof(Button))).Map(command => {
+                    PushButton pushed = valid.AddPushButton(
+                        icon: command.Icon.IfNone(default(IIcon)!),
+                        nomen: new Nomen(name: command.Name, info: command.Info),
+                        callback: () => _ = GrasshopperUi.Protect(valid: command.Run),
+                        keys: command.Shortcut.Map(static shortcut => (BarShortcut?)shortcut).IfNone((BarShortcut?)null));
+                    pushed.Enabled = command.Enabled;
+                    pushed.CloseOnActivate = button.CloseOnActivate;
+                    return unit;
+                }),
+                Toggle toggle =>
+                    from command in toggle.Command.Validated(op: Op.Of(name: nameof(Toggle)))
+                    from changed in Optional(toggle.Changed).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Toggle)), detail: "toggle change delegate is required"))
+                    select ((Func<Unit>)(() => {
+                        RadioToggle toggled = valid.AddRadioToggle(
+                            icon: command.Icon.IfNone(default(IIcon)!),
+                            nomen: new Nomen(name: command.Name, info: command.Info),
+                            initial: toggle.State,
+                            callback: state => _ = GrasshopperUi.Protect(valid: () => changed(arg: state)),
+                            keys: command.Shortcut.Map(static shortcut => (BarShortcut?)shortcut).IfNone((BarShortcut?)null));
+                        toggled.Enabled = command.Enabled;
+                        return unit;
+                    }))(),
+                Spacer spacer => Try.lift<Unit>(f: () => {
+                    _ = valid.AddSpacer(chapterName: spacer.Chapter, sectionName: spacer.Section);
+                    return unit;
+                }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(Spacer)), detail: "AddSpacer threw")),
+                _ => Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ToolbarItem)), detail: "unknown toolbar item")),
+            });
+
+    internal Fin<Unit> Apply(ContextMenu menu) =>
+        Optional(menu)
+            .ToFin(Fail: UiFault.MissingScope(field: nameof(ContextMenu)))
+            .Bind(valid => this switch {
+                Button button => button.Command.Validated(op: Op.Of(name: nameof(Button))).Map(command => {
+                    _ = valid.AddItem(text: command.Name, description: command.Info, command: command.ToEtoCommand());
+                    return unit;
+                }),
+                Toggle toggle =>
+                    from command in toggle.Command.Validated(op: Op.Of(name: nameof(Toggle)))
+                    from changed in Optional(toggle.Changed).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Toggle)), detail: "toggle change delegate is required"))
+                    select ((Func<Unit>)(() => {
+                        Command menuCommand = command.ToEtoCommand();
+                        menuCommand.Executed += (_, _) => _ = GrasshopperUi.Protect(valid: () => changed(arg: !toggle.State));
+                        _ = valid.AddItem(text: command.Name, description: command.Info, command: menuCommand);
+                        return unit;
+                    }))(),
+                Spacer => Try.lift<Unit>(f: () => { valid.AddSeparator(); return unit; })
+                    .Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(Spacer)), detail: "AddSeparator threw")),
+                _ => Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ToolbarItem)), detail: "unknown menu item")),
+            });
+}
+
+public readonly record struct ToolbarPlan(Seq<ToolbarItem> Items);
 
 public abstract record InputRequest<T> : GhUiRequest<T> {
     public sealed record Selection(InputSelectionSource Source) : InputRequest<InputSelectionSnapshot> {
@@ -94,13 +188,13 @@ public abstract record InputRequest<T> : GhUiRequest<T> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
         internal override Fin<InputPanelSnapshot> Apply(GrasshopperUi.Scope scope) => Input.PopupPanel(owner: Owner, location: Location, screen: Screen, populate: Populate).Run(scope: scope);
     }
-    public sealed record BarSurface(Func<Bar, Fin<Unit>> Populate) : InputRequest<ToolbarSnapshot> {
+    public sealed record CommandBar(ToolbarPlan Plan) : InputRequest<ToolbarSnapshot> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
-        internal override Fin<ToolbarSnapshot> Apply(GrasshopperUi.Scope scope) => Input.Toolbar(populate: Populate).Run(scope: scope);
+        internal override Fin<ToolbarSnapshot> Apply(GrasshopperUi.Scope scope) => Input.Toolbar(plan: Plan).Run(scope: scope);
     }
-    public sealed record Menu(Func<ContextMenu, Fin<T>> Populate) : InputRequest<T> {
+    public sealed record Menu(ToolbarPlan Plan) : InputRequest<MenuSnapshot> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
-        internal override Fin<T> Apply(GrasshopperUi.Scope scope) => Input.Menu(populate: Populate).Run(scope: scope);
+        internal override Fin<MenuSnapshot> Apply(GrasshopperUi.Scope scope) => Input.Menu(plan: Plan).Run(scope: scope);
     }
     public sealed record Cursor(CursorKind Kind) : InputRequest<CursorKind> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
@@ -176,14 +270,18 @@ internal static partial class Input {
                     });
                 }));
 
-    internal static GrasshopperUiIntent<T> Menu<T>(Func<ContextMenu, Fin<T>> populate) =>
-        IntentFactory.Read<T>(run: _ =>
-            Optional(populate)
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Menu)), detail: "null populate"))
-                .Bind(valid => {
-                    using ContextMenu menu = new();
-                    return valid(arg: menu);
-                }));
+    internal static GrasshopperUiIntent<ToolbarSnapshot> Toolbar(ToolbarPlan plan) =>
+        Toolbar(populate: bar =>
+            plan.Items.TraverseM(item => item.Apply(bar: bar)).Map(static _ => unit).As());
+
+    internal static GrasshopperUiIntent<MenuSnapshot> Menu(ToolbarPlan plan) =>
+        IntentFactory.Read<MenuSnapshot>(run: _ => {
+            using ContextMenu menu = new();
+            return plan.Items
+                .TraverseM(item => item.Apply(menu: menu))
+                .Map(_ => new MenuSnapshot(Count: menu.Items.Count))
+                .As();
+        });
 
     internal static GrasshopperUiIntent<CursorKind> Cursor(CursorKind kind) =>
         IntentFactory.Canvas<CursorKind>(run: scope => scope.NeedCanvas().Map(canvas => {

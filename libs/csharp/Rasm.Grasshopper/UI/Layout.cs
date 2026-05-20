@@ -24,7 +24,25 @@ public readonly record struct LayoutSnapshot(Guid ObjectId, PointF Pivot, Rectan
 public readonly record struct SnappingSnapshot(float Dx, float Dy, string XLabel, string YLabel);
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct SnapCandidate(PointF Target, string XLabel, string YLabel);
+public readonly record struct SnappingPolicy(
+    bool IncludeSelected = true,
+    bool IncludeUnselected = true,
+    Option<SnappingSettings> Settings = default);
+
+[Union]
+public partial record SnapProbe {
+    private SnapProbe() { }
+    public sealed record PointCase(Guid ObjectId, PointF Probe, float Radius = 32f, SnappingPolicy Policy = default) : SnapProbe;
+    public sealed record RectangleCase(Guid ObjectId, RectangleF Bounds, SnappingPolicy Policy = default) : SnapProbe;
+    public sealed record ObjectCase(Guid ObjectId, SnappingPolicy Policy = default) : SnapProbe;
+
+    public static SnapProbe Point(Guid objectId, PointF probe, float radius = 32f, SnappingPolicy policy = default) =>
+        new PointCase(ObjectId: objectId, Probe: probe, Radius: radius, Policy: policy);
+    public static SnapProbe Rectangle(Guid objectId, RectangleF bounds, SnappingPolicy policy = default) =>
+        new RectangleCase(ObjectId: objectId, Bounds: bounds, Policy: policy);
+    public static SnapProbe Object(Guid objectId, SnappingPolicy policy = default) =>
+        new ObjectCase(ObjectId: objectId, Policy: policy);
+}
 
 public abstract record LayoutRequest<T> : GhUiRequest<T> {
     public sealed record ObjectSnapshot(Guid Id) : LayoutRequest<LayoutSnapshot> {
@@ -47,9 +65,9 @@ public abstract record LayoutRequest<T> : GhUiRequest<T> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas);
         internal override Fin<Snapshot<LayoutMoveDelta>> Apply(GrasshopperUi.Scope scope) => Layout.Distribute(axis: Axis, gap: Gap, ids: [.. Ids]).Run(scope: scope);
     }
-    public sealed record SnapProbeRequest(Guid Id, PointF Probe, float Radius = 32f) : LayoutRequest<Option<SnappingSnapshot>> {
+    public sealed record Snapping(SnapProbe Probe) : LayoutRequest<Option<SnappingSnapshot>> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Document();
-        internal override Fin<Option<SnappingSnapshot>> Apply(GrasshopperUi.Scope scope) => Layout.SnapQuery(id: Id, probe: Probe, radius: Radius).Run(scope: scope);
+        internal override Fin<Option<SnappingSnapshot>> Apply(GrasshopperUi.Scope scope) => Layout.Snap(probe: Probe).Run(scope: scope);
     }
 }
 
@@ -63,7 +81,6 @@ internal static partial class Layout {
         IntentFactory.Document<Seq<LayoutSnapshot>>(run: scope =>
             scope.NeedObjects().Map(objs => toSeq(objs.SelectedObjects.Select(o => SnapshotOf(attributes: o.Attributes)))));
 
-    // L-005 fix: snap is inferred from Attributes.Snappable. No caller knob.
     internal static GrasshopperUiIntent<Snapshot<LayoutMoveDelta>> Move(Guid id, float dx, float dy) =>
         GrasshopperUi.Mutate<LayoutMoveDelta>(
             op: Op.Of(name: nameof(Move)),
@@ -118,14 +135,42 @@ internal static partial class Layout {
                         .Bind(last => bag.Commit(document: doc).Map(_ => global::Rasm.Grasshopper.UI.Snapshot.Of<LayoutMoveDelta>(payload: last, ownerId: Some(doc.Hash))));
                 }))));
 
-    internal static GrasshopperUiIntent<Option<SnappingSnapshot>> SnapQuery(Guid id, PointF probe, float radius = 32f) =>
+    internal static GrasshopperUiIntent<Option<SnappingSnapshot>> Snap(SnapProbe probe) =>
         IntentFactory.Document<Option<SnappingSnapshot>>(run: scope =>
-            Optional(probe).Filter(static p => float.IsFinite(p.X) && float.IsFinite(p.Y))
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SnapQuery)), detail: "non-finite probe"))
-                .Bind(_ => ObjectOf(scope: scope, id: id).Bind(obj => scope.NeedDocument().Map(doc =>
-                    SnapProbe(document: doc, obj: obj, probe: probe, radius: radius)))));
+            Optional(probe)
+                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Snap)), detail: "snap probe is required"))
+                .Bind(valid => valid switch {
+                    SnapProbe.PointCase point =>
+                        Optional((point.Probe, point.Radius))
+                            .Filter(static p => float.IsFinite(p.Probe.X) && float.IsFinite(p.Probe.Y) && float.IsFinite(p.Radius) && p.Radius > 0f)
+                            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Snap)), detail: "invalid point probe"))
+                            .Bind(p => SnapRectangle(scope: scope, id: point.ObjectId, bounds: new RectangleF(x: p.Probe.X - p.Radius, y: p.Probe.Y - p.Radius, width: p.Radius * 2f, height: p.Radius * 2f), policy: point.Policy)),
+                    SnapProbe.RectangleCase rectangle =>
+                        SnapRectangle(scope: scope, id: rectangle.ObjectId, bounds: rectangle.Bounds, policy: rectangle.Policy),
+                    SnapProbe.ObjectCase obj =>
+                        ObjectOf(scope: scope, id: obj.ObjectId).Bind(target =>
+                            from document in scope.NeedDocument()
+                            from canvas in scope.NeedCanvas()
+                            select SnapObject(document: document, obj: target, policy: obj.Policy, visibleLimit: canvas.VisibleFrame)),
+                    _ => Fin.Fail<Option<SnappingSnapshot>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Snap)), detail: "unknown snap probe")),
+                }));
 
     // --- [OPERATIONS] ----------------------------------------------------------------------
+    private static Fin<Option<SnappingSnapshot>> SnapRectangle(GrasshopperUi.Scope scope, Guid id, RectangleF bounds, SnappingPolicy policy) =>
+        Optional((Id: id, Bounds: bounds))
+            .Filter(static p => p.Id != Guid.Empty
+                && float.IsFinite(p.Bounds.X)
+                && float.IsFinite(p.Bounds.Y)
+                && float.IsFinite(p.Bounds.Width)
+                && float.IsFinite(p.Bounds.Height)
+                && p.Bounds.Width > 0f
+                && p.Bounds.Height > 0f)
+            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SnapRectangle)), detail: "invalid rectangle probe"))
+            .Bind(valid => ObjectOf(scope: scope, id: valid.Id).Bind(obj =>
+                from document in scope.NeedDocument()
+                from canvas in scope.NeedCanvas()
+                select SnapRectangle(document: document, obj: obj, bounds: valid.Bounds, policy: policy, visibleLimit: canvas.VisibleFrame)));
+
     private static Fin<IDocumentObject> ObjectOf(GrasshopperUi.Scope scope, Guid id) =>
         Optional(id).Filter(static g => g != Guid.Empty)
             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ObjectOf)), detail: "empty Guid"))
@@ -133,7 +178,6 @@ internal static partial class Layout {
                 Optional(objs.Find(instanceId: valid))
                     .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ObjectOf)), detail: $"object {valid} not found"))));
 
-    // L-002 fix: SnapshotOf NO LONGER calls Attributes.Layout(). Bounds read directly.
     private static LayoutSnapshot SnapshotOf(IAttributes attributes) =>
         new(ObjectId: attributes.Owner.InstanceId,
             Pivot: attributes.Pivot,
@@ -141,12 +185,10 @@ internal static partial class Layout {
             AggregateBounds: attributes.AggregateBounds,
             Snappable: attributes.Snappable);
 
-    // L-003 / L-005 fix: capture pre-state, compute snap only when Snappable, apply Move, return delta.
-    // Undo recording happens AFTER successful mutate via UndoStrategy.Manual (RecordUndo in Ui.cs).
     private static LayoutMoveDelta ApplyMove(IDocumentObject obj, GhDocument document, float dx, float dy) {
         IAttributes attributes = obj.Attributes;
         Option<SnappingSnapshot> snap = attributes.Snappable
-            ? SnapMove(document: document, obj: obj, dx: dx, dy: dy)
+            ? SnapMove(document: document, obj: obj, dx: dx, dy: dy, policy: default)
             : Option<SnappingSnapshot>.None;
         (float deltaDx, float deltaDy) = snap.Map(static s => (s.Dx, s.Dy)).IfNone((0f, 0f));
         float effDx = dx + deltaDx;
@@ -160,19 +202,53 @@ internal static partial class Layout {
             Snap: snap);
     }
 
-    private static Option<SnappingSnapshot> SnapMove(GhDocument document, IDocumentObject obj, float dx, float dy) {
+    private static Option<SnappingSnapshot> SnapMove(GhDocument document, IDocumentObject obj, float dx, float dy, SnappingPolicy policy) {
         IAttributes attributes = obj.Attributes;
         RectangleF bounds = attributes.AggregateBounds;
         RectangleF target = new(x: bounds.X + dx, y: bounds.Y + dy, width: bounds.Width, height: bounds.Height);
-        SnappingConstraints constraints = SnappingConstraints.CreateFromDocument(document, obj.InstanceId);
+        return SnapRectangle(document: document, obj: obj, bounds: target, policy: policy, visibleLimit: document.Objects.AttributeBounds);
+    }
+
+    private static Option<SnappingSnapshot> SnapRectangle(GhDocument document, IDocumentObject obj, RectangleF bounds, SnappingPolicy policy, RectangleF visibleLimit) {
+        SnappingPolicy active = ActivePolicy(policy: policy);
+        SnappingConstraints constraints = SnappingConstraints.CreateFromDocument(
+            document: document,
+            includeSelected: active.IncludeSelected,
+            includeUnselected: active.IncludeUnselected,
+            filter: new System.Collections.Generic.HashSet<Guid>([obj.InstanceId]));
         constraints.SnapRectangle(
-            target: target,
-            settings: SnappingSettings.Current,
-            visibleLimit: document.Objects.AttributeBounds,
+            target: bounds,
+            settings: active.Settings.IfNone(SnappingSettings.Current),
+            visibleLimit: visibleLimit,
             snapX: out SnappingAction x,
             snapY: out SnappingAction y);
-        Option<SnappingAction> snapX = Optional(x);
-        Option<SnappingAction> snapY = Optional(y);
+        return SnapshotOf(x: Optional(x), y: Optional(y));
+    }
+
+    private static Option<SnappingSnapshot> SnapObject(GhDocument document, IDocumentObject obj, SnappingPolicy policy, RectangleF visibleLimit) {
+        SnappingPolicy active = ActivePolicy(policy: policy);
+        SnappingConstraints constraints = SnappingConstraints.CreateFromDocument(
+            document: document,
+            includeSelected: active.IncludeSelected,
+            includeUnselected: active.IncludeUnselected,
+            filter: new System.Collections.Generic.HashSet<Guid>([obj.InstanceId]));
+        constraints.SnapObject(
+            target: obj,
+            settings: active.Settings.IfNone(SnappingSettings.Current),
+            visibleLimit: visibleLimit,
+            snapX: out SnappingAction x,
+            snapY: out SnappingAction y);
+        return SnapshotOf(x: Optional(x), y: Optional(y));
+    }
+
+    private static SnappingPolicy ActivePolicy(SnappingPolicy policy) =>
+        policy.IncludeSelected || policy.IncludeUnselected
+            ? policy
+            : policy with { IncludeSelected = true, IncludeUnselected = true };
+
+    private static Option<SnappingSnapshot> SnapshotOf(Option<SnappingAction> x, Option<SnappingAction> y) {
+        Option<SnappingAction> snapX = x;
+        Option<SnappingAction> snapY = y;
         return (snapX.IsSome || snapY.IsSome)
             ? Some(new SnappingSnapshot(
                 Dx: snapX.Map(static a => a.ΔX).IfNone(0f),
@@ -182,27 +258,6 @@ internal static partial class Layout {
             : Option<SnappingSnapshot>.None;
     }
 
-    private static Option<SnappingSnapshot> SnapProbe(GhDocument document, IDocumentObject obj, PointF probe, float radius) {
-        RectangleF probeBounds = new(x: probe.X - radius, y: probe.Y - radius, width: radius * 2f, height: radius * 2f);
-        SnappingConstraints constraints = SnappingConstraints.CreateFromDocument(document, obj.InstanceId);
-        constraints.SnapRectangle(
-            target: probeBounds,
-            settings: SnappingSettings.Current,
-            visibleLimit: document.Objects.AttributeBounds,
-            snapX: out SnappingAction x,
-            snapY: out SnappingAction y);
-        Option<SnappingAction> snapX = Optional(x);
-        Option<SnappingAction> snapY = Optional(y);
-        return (snapX.IsSome || snapY.IsSome)
-            ? Some(new SnappingSnapshot(
-                Dx: snapX.Map(static a => a.ΔX).IfNone(0f),
-                Dy: snapY.Map(static a => a.ΔY).IfNone(0f),
-                XLabel: snapX.Map(static a => a.LabelText).IfNone(string.Empty),
-                YLabel: snapY.Map(static a => a.LabelText).IfNone(string.Empty)))
-            : Option<SnappingSnapshot>.None;
-    }
-
-    // L-001 fix: 4-arm tuple switch becomes a Seq<LayoutAlignmentCase> lattice (matches IntersectionCase pattern).
     private readonly record struct LayoutAlignmentCase(
         Func<Type, Type, bool> Supports,
         Func<IDocumentObject, IDocumentObject, OCD.Fixed, Fin<Unit>> Align) {

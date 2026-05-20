@@ -4,6 +4,7 @@ using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Doc;
 using Grasshopper2.Parameters;
 using Grasshopper2.Parameters.Special;
+using Grasshopper2.Undo;
 using GhDocumentMethods = Grasshopper2.Doc.DocumentMethods;
 using GhObjectList = Grasshopper2.Doc.ObjectList;
 using Op = Rasm.Domain.Op;
@@ -40,9 +41,7 @@ public enum WireTraversal { Upstream, Downstream, Bidirectional }
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct WireGraph(
     Seq<WireSnapshot.ConnectedCase> Wires,
-    Seq<Guid> Visited,
-    bool CycleDetected,
-    Option<Seq<Guid>> Cycle);
+    Seq<Guid> Visited);
 
 public abstract record WireRequest<T> : GhUiRequest<T> {
     public sealed record All : WireRequest<Seq<WireSnapshot.ConnectedCase>> {
@@ -91,7 +90,11 @@ internal static partial class Wire {
 
     internal static GrasshopperUiIntent<WireSnapshot> Pick(PointF point) =>
         IntentFactory.Document<WireSnapshot>(run: scope =>
-            from pickResult in new CanvasRequest<CanvasPickSnapshot>.Pick(Point: point).Apply(scope: scope)
+            from pickResult in UiRail.CanvasDispatch(scope: scope, op: CanvasOp.Pick(point: point))
+                .Bind(static result => result switch {
+                    CanvasResult.PickResult pick => Fin.Succ(value: pick.Pick),
+                    _ => Fin.Fail<CanvasPickSnapshot>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Pick)), detail: "canvas pick did not return a pick result")),
+                })
             from objs in scope.NeedObjects()
             select pickResult.WireUnderPick.Match(
                 Some: wireEnds => (WireSnapshot)SnapshotConnected(objects: objs, wire: wireEnds),
@@ -111,14 +114,17 @@ internal static partial class Wire {
             .Match(
                 Some: valid => GrasshopperUi.Mutate<WireSplitDelta>(
                     op: Op.Of(name: nameof(Split)),
-                    undo: UndoStrategy.GhBuiltIn,
+                    undo: UndoStrategy.None,
                     repaint: RepaintRequest.Canvas,
                     mutate: scope =>
                         from methods in scope.NeedMethods()
                         from objs in scope.NeedObjects()
+                        from doc in scope.NeedDocument()
                         from source in Optional(objs.FindParameter(instanceId: wire.Source)).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Split)), detail: $"source param {wire.Source} not found"))
                         from target in Optional(objs.FindParameter(instanceId: wire.Target)).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Split)), detail: $"target param {wire.Target} not found"))
-                        let split = SplitWire(methods: methods, source: source, target: target, name: valid.Name, location: valid.Location)
+                        let actions = new ActionList([])
+                        let split = SplitWire(methods: methods, source: source, target: target, name: valid.Name, location: valid.Location, actions: actions)
+                        from _ in UiRail.CommitActions(document: doc, op: Op.Of(name: nameof(Split)), actions: actions)
                         select new WireSplitDelta(Changed: split.Changed, Wire: wire, Shout: split.Shout, Listen: split.Listen)),
                 None: () => IntentFactory.Document<Snapshot<WireSplitDelta>>(run: _ => Fin.Fail<Snapshot<WireSplitDelta>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Split)), detail: "empty name or non-finite location"))));
 
@@ -181,8 +187,8 @@ internal static partial class Wire {
                 select new DocumentMutationDelta(Changed: 1, After: UiRail.DocumentSnapshotOf(document: doc, objects: objects)));
 
     private static (bool Changed, Option<Guid> Shout, Option<Guid> Listen) SplitWire(
-        GhDocumentMethods methods, IParameter source, IParameter target, string name, PointF location) {
-        bool changed = methods.SplitWire(source: source, target: target, name: name, location: location, shout: out Shout? shout, listen: out Listen? listen, actions: null);
+        GhDocumentMethods methods, IParameter source, IParameter target, string name, PointF location, ActionList actions) {
+        bool changed = methods.SplitWire(source: source, target: target, name: name, location: location, shout: out Shout? shout, listen: out Listen? listen, actions: actions);
         return (Changed: changed,
             Shout: Optional(shout?.InstanceId).Filter(static g => g != Guid.Empty),
             Listen: Optional(listen?.InstanceId).Filter(static g => g != Guid.Empty));
@@ -196,10 +202,6 @@ internal static partial class Wire {
         }).OfType<IParameter>().Take(count: Math.Max(0, maxHops)).Select(static parameter => parameter.InstanceId)).Distinct().ToSeq();
         Seq<WireSnapshot.ConnectedCase> wires = SafeWires(source: objects.AllWires, objects: objects)
             .Filter(wire => visited.Exists(id => id == wire.Source) && visited.Exists(id => id == wire.Target));
-        return new WireGraph(
-            Wires: wires,
-            Visited: visited,
-            CycleDetected: false,
-            Cycle: Option<Seq<Guid>>.None);
+        return new WireGraph(Wires: wires, Visited: visited);
     }
 }

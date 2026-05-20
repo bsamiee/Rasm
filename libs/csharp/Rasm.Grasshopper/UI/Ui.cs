@@ -184,7 +184,18 @@ public sealed record GrasshopperUiIntent<T> {
     public GrasshopperUiIntent<TOut> Map<TOut>(Func<T, TOut> project) =>
         new(run: scope => Run(scope: scope).Map(project), policy: Policy);
     public GrasshopperUiIntent<TOut> Bind<TOut>(Func<T, GrasshopperUiIntent<TOut>> bind) =>
-        new(run: scope => Run(scope: scope).Bind(value => bind(arg: value).Run(scope: scope)), policy: Policy | GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas));
+        new(
+            run: scope =>
+                from value in Run(scope: scope)
+                from next in Optional(bind(arg: value))
+                    .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Bind)), detail: "bind returned null"))
+                let policy = Policy | next.Policy
+                from resolved in policy == Policy
+                    ? Fin.Succ(value: scope)
+                    : GrasshopperUi.Scope.Resolve(policy: policy, cancellation: scope.Cancellation, undo: scope.UndoGroup)
+                from result in next.Run(scope: resolved)
+                select GrasshopperUi.Repaint(scope: resolved, policy: next.Policy, value: result),
+            policy: Policy);
 }
 
 public abstract record GhUiRequest<T> {
@@ -286,23 +297,6 @@ public sealed partial record GrasshopperUi {
                     from _ in RecordUndo(scope: scope, op: op, undo: undo)
                     select Snapshot.Of<TDelta>(payload: delta, ownerId: scope.Document.Map(d => d.Hash)));
 
-    internal static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> MutateDocument(
-        Op op,
-        Func<GhDocumentMethods, Fin<int>> mutate,
-        RepaintRequest? repaint = null) =>
-            Mutate<DocumentMutationDelta>(
-                op: op,
-                undo: UndoStrategy.GhBuiltIn,
-                repaint: repaint ?? RepaintRequest.Canvas,
-                mutate: scope =>
-                    from methods in scope.NeedMethods()
-                    from document in scope.NeedDocument()
-                    from objects in scope.NeedObjects()
-                    from changed in mutate(arg: methods).Bind(count => count >= 0
-                        ? Fin.Succ(value: count)
-                        : Fin.Fail<int>(error: UiFault.MutationRejected(op: op, detail: $"count={count}")))
-                    select new DocumentMutationDelta(Changed: changed, After: UiRail.DocumentSnapshotOf(document: document, objects: objects)));
-
     private static Fin<Unit> RecordUndo(Scope scope, Op op, UndoStrategy undo) =>
         undo switch {
             UndoStrategy.NoneCase or UndoStrategy.GhBuiltInCase => Fin.Succ(value: unit),
@@ -347,7 +341,7 @@ public sealed partial record GrasshopperUi {
     internal static Fin<T> Protect<T>(Func<Fin<T>> valid, [CallerMemberName] string name = "") =>
         Try.lift<Fin<T>>(f: valid).Run().MapFail(_ => UiFault.ThreadMarshal(detail: name)).Bind(static result => result);
 
-    private static T Repaint<T>(Scope scope, GrasshopperUiPolicy policy, T value) {
+    internal static T Repaint<T>(Scope scope, GrasshopperUiPolicy policy, T value) {
         _ = (policy.Repaint ?? RepaintRequest.None) switch {
             RepaintRequest.NoneCase => unit,
             RepaintRequest.CanvasCase => scope.Canvas.IfSome(static canvas => canvas.Invalidate()),

@@ -53,6 +53,8 @@ public partial record CanvasOp {
     public sealed record InvalidateCase(InvalidateMode Mode) : CanvasOp;
     public sealed record InstantiateCase(Option<string> SearchText, bool MouseCentred) : CanvasOp;
     public sealed record SearchPopupCase : CanvasOp;
+    public sealed record DetailCase : CanvasOp;
+    public sealed record UndoHistoryCase(bool Visible) : CanvasOp;
     public sealed record RenderCase(int Width, int Height, CanvasBitmapLayers Layers) : CanvasOp;
     public sealed record PickMapCase : CanvasOp;
     public sealed record NavigateCase(RectangleF Bounds, CanvasNavigationPolicy Policy) : CanvasOp;
@@ -68,6 +70,8 @@ public partial record CanvasOp {
     public static CanvasOp Invalidate(InvalidateMode mode = InvalidateMode.Immediate) => new InvalidateCase(Mode: mode);
     public static CanvasOp Instantiate(string? searchText = null, bool mouseCentred = true) => new InstantiateCase(SearchText: Optional(searchText), MouseCentred: mouseCentred);
     public static readonly CanvasOp SearchPopup = new SearchPopupCase();
+    public static readonly CanvasOp Detail = new DetailCase();
+    public static CanvasOp UndoHistory(bool visible) => new UndoHistoryCase(Visible: visible);
     public static CanvasOp Render(int width, int height, CanvasBitmapLayers layers = CanvasBitmapLayers.All) => new RenderCase(Width: width, Height: height, Layers: layers);
     public static readonly CanvasOp PickMap = new PickMapCase();
     public static CanvasOp Navigate(RectangleF frame, CanvasNavigationPolicy policy = default) => new NavigateCase(Bounds: frame, Policy: policy);
@@ -86,6 +90,7 @@ public partial record CanvasResult {
     public sealed record MapResult(CanvasMappedPoint Mapped) : CanvasResult;
     public sealed record BitmapResult(CanvasBitmap Bitmap) : CanvasResult;
     public sealed record InteractionResult(CanvasInteractionPolicy Effective) : CanvasResult;
+    public sealed record DetailResult(CanvasDetailSnapshot Detail) : CanvasResult;
     public sealed record UnitResult : CanvasResult;
     public static readonly CanvasResult Unit = new UnitResult();
 }
@@ -100,7 +105,35 @@ public readonly record struct CanvasFramePolicy(float Padding = 48f, CanvasNavig
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CanvasInteractionPolicy(
     bool AllowPan = true, bool AllowZoom = true, bool ShowTilesWhenEmpty = true,
-    bool WindowSelectObjects = true, bool WindowSelectWires = true, bool WindowSelectGroups = true);
+    bool WindowSelectObjects = true, bool WindowSelectWires = true, bool WindowSelectGroups = true,
+    Option<bool> ViewportDragging = default);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CanvasActionSnapshot(
+    bool AllowDrag,
+    bool AllowWireSelect,
+    bool AllowObjectSelect,
+    bool AllowMakeWire,
+    bool AllowDeleteWire,
+    bool AllowModifyWire,
+    bool HasMakeWireFilter,
+    bool HasDeleteWireFilter,
+    bool AllowMakeObject,
+    bool AllowDeleteObject,
+    bool AllowObjectResponse,
+    bool AllowDropFile,
+    bool AllowWireMenu,
+    bool AllowObjectMenu,
+    bool AllowCanvasMenu);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CanvasDetailSnapshot(
+    bool ShowUndoHistory,
+    float ZuiVariableParameterThreshold,
+    float ZuiVariableParameterState,
+    float ZuiWireDetailingThreshold,
+    float ZuiWireDetailingState,
+    CanvasActionSnapshot Actions);
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CanvasBitmap(int Width, int Height, ReadOnlyMemory<byte> Png);
@@ -124,30 +157,10 @@ public readonly record struct CanvasPickSnapshot(
     Option<Guid> InletUnderPick,
     Option<Guid> OutletUnderPick);
 
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct CanvasDragSnapshot(bool ViewportDragging, CanvasInteractionPolicy Interaction);
-
 public abstract record CanvasRequest<T> : GhUiRequest<T> {
     public sealed record Use(CanvasOp Op) : CanvasRequest<CanvasResult> {
         internal override GrasshopperUiPolicy Policy => CanvasPolicyOf(op: Op);
         internal override Fin<CanvasResult> Apply(GrasshopperUi.Scope scope) => UiRail.CanvasDispatch(scope: scope, op: Op);
-    }
-    public sealed record Pick(PointF Point, CoordinateSystem Source = CoordinateSystem.Content) : CanvasRequest<CanvasPickSnapshot> {
-        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
-        internal override Fin<CanvasPickSnapshot> Apply(GrasshopperUi.Scope scope) =>
-            UiRail.CanvasDispatch(scope: scope, op: CanvasOp.Pick(point: Point, source: Source))
-                .Bind(static result => result switch {
-                    CanvasResult.PickResult pick => Fin.Succ(value: pick.Pick),
-                    _ => Fin.Fail<CanvasPickSnapshot>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Pick)), detail: "canvas pick did not return a pick result")),
-                });
-    }
-    public sealed record ViewportDrag(bool Enabled = true, CanvasInteractionPolicy Interaction = default) : CanvasRequest<CanvasDragSnapshot> {
-        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(openEditor: true, repaint: RepaintRequest.Canvas);
-        internal override Fin<CanvasDragSnapshot> Apply(GrasshopperUi.Scope scope) =>
-            from canvas in scope.NeedCanvas()
-            from _ in UiRail.CanvasDispatch(scope: scope, op: CanvasOp.Interaction(policy: Interaction))
-            let enabled = canvas.ViewportDragging = Enabled
-            select new CanvasDragSnapshot(ViewportDragging: canvas.ViewportDragging, Interaction: Interaction);
     }
 
     internal static GrasshopperUiPolicy CanvasPolicyOf(CanvasOp op) =>
@@ -185,7 +198,7 @@ internal static partial class UiRail {
                 System.Action invalidate = i.Mode switch {
                     InvalidateMode.Immediate => canvas.Invalidate,
                     InvalidateMode.Scheduled => canvas.ScheduleRedraw,
-                    _ => Ignore,
+                    _ => new System.Action(static () => { }),
                 };
                 invalidate();
                 return CanvasResult.Unit;
@@ -196,8 +209,21 @@ internal static partial class UiRail {
                 return CanvasResult.Unit;
             }),
         CanvasOp.SearchPopupCase =>
+            Fin.Fail<CanvasResult>(error: UiFault.MutationRejected(
+                op: Op.Of(name: nameof(CanvasOp.SearchPopup)),
+                detail: "Grasshopper2 Canvas.ShowSearchPopup is an empty WIP stub in RhinoWIP 9.0.26132.12306")),
+        CanvasOp.DetailCase =>
+            scope.NeedCanvas().Map(canvas => (CanvasResult)new CanvasResult.DetailResult(
+                Detail: new CanvasDetailSnapshot(
+                    ShowUndoHistory: canvas.ShowUndoHistory,
+                    ZuiVariableParameterThreshold: canvas.ZuiVariableParameterThreshold,
+                    ZuiVariableParameterState: canvas.ZuiVariableParameterState,
+                    ZuiWireDetailingThreshold: canvas.ZuiWireDetailingThreshold,
+                    ZuiWireDetailingState: canvas.ZuiWireDetailingState,
+                    Actions: ActionSnapshotOf(canvas: canvas)))),
+        CanvasOp.UndoHistoryCase h =>
             scope.NeedCanvas().Map(canvas => {
-                canvas.ShowSearchPopup();
+                canvas.ShowUndoHistory = h.Visible;
                 return CanvasResult.Unit;
             }),
         CanvasOp.RenderCase r =>
@@ -257,6 +283,7 @@ internal static partial class UiRail {
                 canvas.WindowSelectObjects = ic.Policy.WindowSelectObjects;
                 canvas.WindowSelectWires = ic.Policy.WindowSelectWires;
                 canvas.WindowSelectGroups = ic.Policy.WindowSelectGroups;
+                _ = ic.Policy.ViewportDragging.Iter(value => canvas.ViewportDragging = value);
                 return (CanvasResult)new CanvasResult.InteractionResult(Effective: ic.Policy);
             }),
         CanvasOp.WindowSelectCase ws =>
@@ -272,12 +299,12 @@ internal static partial class UiRail {
 
     internal static bool CanvasNeedsEditor(CanvasOp op) => op switch {
         CanvasOp.SnapshotCase { OpenEditor: true } => true,
-        CanvasOp.InstantiateCase or CanvasOp.SearchPopupCase or CanvasOp.NavigateCase or CanvasOp.FrameCase or CanvasOp.FitCase => true,
+        CanvasOp.InstantiateCase or CanvasOp.NavigateCase or CanvasOp.FrameCase or CanvasOp.FitCase => true,
         _ => false,
     };
 
     internal static RepaintRequest CanvasRepaintFor(CanvasOp op) => op switch {
-        CanvasOp.NavigateCase or CanvasOp.FrameCase or CanvasOp.FitCase or CanvasOp.ProjectionCase or CanvasOp.InteractionCase or CanvasOp.WindowSelectCase => RepaintRequest.Canvas,
+        CanvasOp.NavigateCase or CanvasOp.FrameCase or CanvasOp.FitCase or CanvasOp.ProjectionCase or CanvasOp.InteractionCase or CanvasOp.WindowSelectCase or CanvasOp.UndoHistoryCase => RepaintRequest.Canvas,
         CanvasOp.InvalidateCase { Mode: InvalidateMode.Scheduled } => RepaintRequest.Scheduled,
         _ => RepaintRequest.None,
     };
@@ -322,9 +349,6 @@ internal static partial class UiRail {
             InletUnderPick: Optional(result.InletUnderPick).Filter(static id => id != Guid.Empty),
             OutletUnderPick: Optional(result.OutletUnderPick).Filter(static id => id != Guid.Empty));
 
-    private static void Ignore() {
-    }
-
     // FrameOf reads bounds directly; no Attributes.Layout() mutation during read.
     private static RectangleF FrameOf(IEnumerable<IDocumentObject> targets) =>
         targets.Aggregate(
@@ -338,11 +362,30 @@ internal static partial class UiRail {
         Optional(bitmap)
             .ToFin(Fail: UiFault.MutationRejected(op: op, detail: "DrawToBitmap returned null"))
             .Bind(owned => Try.lift<CanvasResult>(f: () => {
+                using Bitmap image = owned;
                 using MemoryStream stream = new();
-                owned.Save(stream: stream, format: ImageFormat.Png);
-                int w = width > 0 ? width : owned.Width;
-                int h = height > 0 ? height : owned.Height;
+                image.Save(stream: stream, format: ImageFormat.Png);
+                int w = width > 0 ? width : image.Width;
+                int h = height > 0 ? height : image.Height;
                 return new CanvasResult.BitmapResult(Bitmap: new CanvasBitmap(Width: w, Height: h, Png: stream.ToArray()));
             }).Run().MapFail(_ => UiFault.MutationRejected(op: op, detail: "PNG encode failed")));
+
+    private static CanvasActionSnapshot ActionSnapshotOf(GhCanvas canvas) =>
+        new(
+            AllowDrag: canvas.AllowedActions.AllowDrag,
+            AllowWireSelect: canvas.AllowedActions.AlloWireSelect,
+            AllowObjectSelect: canvas.AllowedActions.AllowObjectSelect,
+            AllowMakeWire: canvas.AllowedActions.AllowMakeWire,
+            AllowDeleteWire: canvas.AllowedActions.AllowDeleteWire,
+            AllowModifyWire: canvas.AllowedActions.AllowModifyWire,
+            HasMakeWireFilter: canvas.AllowedActions.MakeWireFilter is not null,
+            HasDeleteWireFilter: canvas.AllowedActions.DeleteWireFilter is not null,
+            AllowMakeObject: canvas.AllowedActions.AllowMakeObject,
+            AllowDeleteObject: canvas.AllowedActions.AllowDeleteObject,
+            AllowObjectResponse: canvas.AllowedActions.AllowObjectResponse,
+            AllowDropFile: canvas.AllowedActions.AllowDropFile,
+            AllowWireMenu: canvas.AllowedActions.AllowWireMenu,
+            AllowObjectMenu: canvas.AllowedActions.AllowObjectMenu,
+            AllowCanvasMenu: canvas.AllowedActions.AllowCanvasMenu);
 
 }

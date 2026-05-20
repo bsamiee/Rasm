@@ -3,6 +3,7 @@ using Eto.Drawing;
 using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.UI.Canvas;
 using Grasshopper2.UI.Flex;
+using Grasshopper2.UI.Icon;
 using Grasshopper2.UI.Skinning;
 using Rasm.Domain;
 using GhCanvas = Grasshopper2.UI.Canvas.Canvas;
@@ -10,16 +11,7 @@ using GhCanvas = Grasshopper2.UI.Canvas.Canvas;
 namespace Rasm.Grasshopper.UI;
 
 // --- [TYPES] -----------------------------------------------------------------------------
-public enum CanvasPaintPhase {
-    BeforeBackground,
-    AfterBackground,
-    BeforeGroups,
-    AfterGroups,
-    BeforeWires,
-    AfterWires,
-    BeforeObjects,
-    AfterObjects,
-}
+public enum CanvasPaintPhase { BeforeBackground, AfterBackground, BeforeGroups, AfterGroups, BeforeWires, AfterWires, BeforeObjects, AfterObjects, }
 
 // --- [MODELS] ----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
@@ -35,51 +27,85 @@ public readonly record struct PaintScope(
 
     internal Option<CanvasBackgroundPaintEventArgs> Background { get; init; }
 
-    public Fin<Unit> Apply(PaintMark mark) {
+    public Fin<Unit> Apply(DrawMark mark) {
         PaintScope current = this;
         return Optional(mark)
-            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Apply)), detail: "paint mark is required"))
+            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Apply)), detail: "draw mark is required"))
             .Bind(valid => valid.Apply(scope: current));
     }
 }
 
-public abstract record PaintMark {
-    public sealed record Line(PointF A, PointF B, Color Colour, float Thickness = 1f) : PaintMark;
-    public sealed record Rectangle(RectangleF Bounds, Color Edge, Option<Color> Fill = default, float Thickness = 1f) : PaintMark;
-    public sealed record Label(string Value, PointF Location, Color Colour, Option<Font> Font = default) : PaintMark;
+public abstract record DrawMark {
+    public sealed record Line(PointF A, PointF B, Color Colour, float Thickness = 1f) : DrawMark;
+    public sealed record Rectangle(RectangleF Bounds, Color Edge, Option<Color> Fill = default, float Thickness = 1f) : DrawMark;
+    public sealed record Ellipse(RectangleF Bounds, Color Edge, Option<Color> Fill = default, float Thickness = 1f) : DrawMark;
+    public sealed record Label(string Value, PointF Location, Color Colour, Option<Font> Font = default) : DrawMark;
+    public sealed record Image(Eto.Drawing.Image Value, RectangleF Frame) : DrawMark;
+    public sealed record IconGlyph(IIcon Value, RectangleF Frame, Color Background) : DrawMark;
+    public sealed record WirePreview(PointF Source, PointF Target, WireKind Kind = WireKind.Tentative) : DrawMark;
 
-    internal Fin<Unit> Apply(PaintScope scope) => this switch {
-        Line line => Try.lift<Unit>(f: () => {
-            using Pen pen = new(color: line.Colour, thickness: line.Thickness);
-            scope.Graphics.Content.DrawLine(pen, line.A.X, line.A.Y, line.B.X, line.B.Y);
+    internal Fin<Unit> Apply(PaintScope scope) =>
+        Try.lift<Unit>(f: () => {
+            switch (this) {
+                case Line line:
+                    using (Pen pen = new(color: line.Colour, thickness: line.Thickness)) {
+                        scope.Graphics.Content.DrawLine(pen, line.A.X, line.A.Y, line.B.X, line.B.Y);
+                    }
+                    break;
+                case Rectangle rectangle:
+                    _ = rectangle.Fill.IfSome(fill => {
+                        using SolidBrush brush = new(color: fill);
+                        scope.Graphics.Content.FillRectangle(brush: brush, rectangle: rectangle.Bounds);
+                    });
+                    using (Pen pen = new(color: rectangle.Edge, thickness: rectangle.Thickness)) {
+                        scope.Graphics.Content.DrawRectangle(pen: pen, rectangle: rectangle.Bounds);
+                    }
+                    break;
+                case Ellipse ellipse:
+                    _ = ellipse.Fill.IfSome(fill => {
+                        using SolidBrush brush = new(color: fill);
+                        scope.Graphics.Content.FillEllipse(brush: brush, rectangle: ellipse.Bounds);
+                    });
+                    using (Pen pen = new(color: ellipse.Edge, thickness: ellipse.Thickness)) {
+                        scope.Graphics.Content.DrawEllipse(pen: pen, rectangle: ellipse.Bounds);
+                    }
+                    break;
+                case Label text:
+                    using (SolidBrush brush = new(color: text.Colour)) {
+                        scope.Graphics.Content.DrawText(font: text.Font.IfNone(SystemFonts.Default()), brush: brush, location: text.Location, text: text.Value);
+                    }
+                    break;
+                case Image image:
+                    scope.Graphics.Content.DrawImage(image: image.Value, rectangle: image.Frame);
+                    break;
+                case IconGlyph icon:
+                    icon.Value.Draw(context: new IconContext(
+                        context: Eto.Drawing.Context.CreateFromContent(graphics: scope.Graphics),
+                        frame: icon.Frame,
+                        background: icon.Background));
+                    break;
+                case WirePreview wire:
+                    WireSkin skin = scope.Skin.Wires[wire.Kind];
+                    WireShape shape = WireShape.Create(source: wire.Source, target: wire.Target);
+                    using (Pen pen = new(color: skin.Normal, thickness: skin.Outer.Width)) {
+                        skin.Outer.AssignToPen(pen: pen);
+                        shape.Draw(graphics: scope.Graphics.Content, edge: pen);
+                    }
+                    break;
+                default:
+                    throw new InvalidOperationException(message: $"Unknown draw mark {GetType().Name}");
+            }
             return unit;
-        }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(Line)), detail: "DrawLine threw")),
-        Rectangle rectangle => Try.lift<Unit>(f: () => {
-            _ = rectangle.Fill.IfSome(fill => {
-                using SolidBrush brush = new(color: fill);
-                scope.Graphics.Content.FillRectangle(brush: brush, rectangle: rectangle.Bounds);
-            });
-            using Pen pen = new(color: rectangle.Edge, thickness: rectangle.Thickness);
-            scope.Graphics.Content.DrawRectangle(pen: pen, rectangle: rectangle.Bounds);
-            return unit;
-        }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(Rectangle)), detail: "DrawRectangle threw")),
-        Label text => Try.lift<Unit>(f: () => {
-            using SolidBrush brush = new(color: text.Colour);
-            scope.Graphics.Content.DrawText(font: text.Font.IfNone(SystemFonts.Default()), brush: brush, location: text.Location, text: text.Value);
-            return unit;
-        }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(Label)), detail: "DrawText threw")),
-        _ => Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(PaintMark)), detail: "unknown paint mark")),
-    };
+        }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(DrawMark)), detail: $"{GetType().Name} draw failed"));
 }
 
-public readonly record struct PaintPlan(Seq<PaintMark> Marks) {
-    public static PaintPlan Empty => new(Marks: Seq<PaintMark>());
-    public static PaintPlan operator +(PaintPlan left, PaintPlan right) => new(Marks: left.Marks + right.Marks);
-    public static PaintPlan Add(PaintPlan left, PaintPlan right) => left + right;
+public readonly record struct DrawPlan(Seq<DrawMark> Marks) {
+    public static DrawPlan Empty => new(Marks: Seq<DrawMark>());
+    public static DrawPlan operator +(DrawPlan left, DrawPlan right) => new(Marks: left.Marks + right.Marks);
+    public static DrawPlan Add(DrawPlan left, DrawPlan right) => left + right;
     internal Fin<Unit> Apply(PaintScope scope) => Marks.TraverseM(scope.Apply).Map(static marks => unit).As();
 }
 
-// P-003 fix: expanded snapshot carries the Skin instance for callers to query sub-skins (Wires, Shades, Grips, etc.).
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct PaintSkinSnapshot(bool HasSkin, string SkinType, Option<Skin> Skin);
 
@@ -88,7 +114,7 @@ public abstract record PaintRequest<T> : GhUiRequest<T> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
         internal override Fin<PaintSkinSnapshot> Apply(GrasshopperUi.Scope scope) => Paint.Skin().Run(scope: scope);
     }
-    public sealed record Hook(CanvasPaintPhase Phase, PaintPlan Plan) : PaintRequest<IDisposable> {
+    public sealed record Hook(CanvasPaintPhase Phase, DrawPlan Plan) : PaintRequest<IDisposable> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
         internal override Fin<IDisposable> Apply(GrasshopperUi.Scope scope) => Paint.Hook(phase: Phase, paint: Plan.Apply).Run(scope: scope);
     }
@@ -115,14 +141,12 @@ internal static partial class Paint {
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Hook)), detail: $"unknown phase {phase}"))
             select (IDisposable)PaintSubscription.Attach(canvas: canvas, phaseCase: phaseCase, paint: valid));
 
-    // P-002 fix: parameterized — no longer asymmetric (was always true-only in pre-refactor).
     internal static GrasshopperUiIntent<Unit> RedrawOnMouseMove(bool enabled = true) =>
         IntentFactory.Canvas<Unit>(
             repaint: RepaintRequest.Canvas,
             run: scope => scope.NeedCanvas().Map(canvas => { canvas.RedrawOnMouseMove = enabled; return unit; }));
 
     // --- [OPERATIONS] ----------------------------------------------------------------------
-    // P-001 fix: 8-arm switch on CanvasPaintPhase becomes Seq<PaintPhaseCase> lattice.
     private readonly record struct PaintPhaseCase(
         CanvasPaintPhase Phase,
         Action<GhCanvas, EventHandler<CanvasPaintEventArgs>> Attach,

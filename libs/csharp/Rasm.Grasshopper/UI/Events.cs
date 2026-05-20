@@ -11,15 +11,15 @@ namespace Rasm.Grasshopper.UI;
 public partial record UiEvent {
     private UiEvent() { }
     public sealed record PaintCase(CanvasPaintPhase Phase, Func<PaintScope, Fin<Unit>> Handler) : UiEvent;
-    public sealed record DocumentChangedCase(Func<DocumentSnapshot, Fin<Unit>> Handler, TimeSpan PollInterval) : UiEvent;
-    public sealed record SelectionChangedCase(Func<Seq<DocumentObjectSnapshot>, Fin<Unit>> Handler, TimeSpan PollInterval) : UiEvent;
+    public sealed record DocumentChangedCase(Func<DocumentSnapshot, Fin<Unit>> Handler) : UiEvent;
+    public sealed record SelectionChangedCase(Func<Seq<DocumentObjectSnapshot>, Fin<Unit>> Handler) : UiEvent;
 
     public static UiEvent Paint(CanvasPaintPhase phase, Func<PaintScope, Fin<Unit>> handler) =>
         new PaintCase(Phase: phase, Handler: handler);
-    public static UiEvent DocumentChanged(Func<DocumentSnapshot, Fin<Unit>> handler, TimeSpan pollInterval = default) =>
-        new DocumentChangedCase(Handler: handler, PollInterval: pollInterval == default ? TimeSpan.FromMilliseconds(value: 250) : pollInterval);
-    public static UiEvent SelectionChanged(Func<Seq<DocumentObjectSnapshot>, Fin<Unit>> handler, TimeSpan pollInterval = default) =>
-        new SelectionChangedCase(Handler: handler, PollInterval: pollInterval == default ? TimeSpan.FromMilliseconds(value: 250) : pollInterval);
+    public static UiEvent DocumentChanged(Func<DocumentSnapshot, Fin<Unit>> handler) =>
+        new DocumentChangedCase(Handler: handler);
+    public static UiEvent SelectionChanged(Func<Seq<DocumentObjectSnapshot>, Fin<Unit>> handler) =>
+        new SelectionChangedCase(Handler: handler);
 }
 
 public abstract record EventRequest<T> : GhUiRequest<T> {
@@ -34,20 +34,20 @@ internal static partial class Events {
     internal static GrasshopperUiIntent<IDisposable> Subscribe(UiEvent uiEvent) =>
         uiEvent switch {
             UiEvent.PaintCase p => Paint.Hook(phase: p.Phase, paint: p.Handler),
-            UiEvent.DocumentChangedCase d => SubscribeDocumentChange(handler: d.Handler, pollInterval: d.PollInterval),
-            UiEvent.SelectionChangedCase s => SubscribeSelectionChange(handler: s.Handler, pollInterval: s.PollInterval),
+            UiEvent.DocumentChangedCase d => SubscribeDocumentChange(handler: d.Handler),
+            UiEvent.SelectionChangedCase s => SubscribeSelectionChange(handler: s.Handler),
             _ => IntentFactory.Document<IDisposable>(run: _ => Fin.Fail<IDisposable>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Subscribe)), detail: $"event kind not supported: {uiEvent.GetType().Name}"))),
         };
 
     // --- [OPERATIONS] ----------------------------------------------------------------------
-    private static GrasshopperUiIntent<IDisposable> SubscribeDocumentChange(Func<DocumentSnapshot, Fin<Unit>> handler, TimeSpan pollInterval) =>
+    private static GrasshopperUiIntent<IDisposable> SubscribeDocumentChange(Func<DocumentSnapshot, Fin<Unit>> handler) =>
         IntentFactory.Document<IDisposable>(run: scope =>
             from doc in scope.NeedDocument()
             from objs in scope.NeedObjects()
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeDocumentChange)), detail: "null handler"))
             select (IDisposable)DocumentChangeWatcher.Attach(document: doc, objects: objs, handler: valid));
 
-    private static GrasshopperUiIntent<IDisposable> SubscribeSelectionChange(Func<Seq<DocumentObjectSnapshot>, Fin<Unit>> handler, TimeSpan pollInterval) =>
+    private static GrasshopperUiIntent<IDisposable> SubscribeSelectionChange(Func<Seq<DocumentObjectSnapshot>, Fin<Unit>> handler) =>
         IntentFactory.Document<IDisposable>(run: scope =>
             from objs in scope.NeedObjects()
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeSelectionChange)), detail: "null handler"))
