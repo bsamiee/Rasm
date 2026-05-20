@@ -16,6 +16,11 @@ public readonly partial struct VectorAngle {
             .TryCreateValidated<VectorAngle>()
             .ToFin()
             .BindFail(_ => Fin.Fail<VectorAngle>(error: key.InvalidResult()));
+    internal static Fin<VectorAngle> Of(Direction a, Direction b, Direction normal, Op key) =>
+        Vector3d.VectorAngle(v1: a.Value, v2: b.Value, vNormal: normal.Value)
+            .TryCreateValidated<VectorAngle>()
+            .ToFin()
+            .BindFail(_ => Fin.Fail<VectorAngle>(error: key.InvalidResult()));
     internal static Fin<VectorAngle> Of(Vector3d a, Vector3d b, Context context, Op key) =>
         from left in Direction.Of(value: a, context: context, key: key)
         from right in Direction.Of(value: b, context: context, key: key)
@@ -67,17 +72,24 @@ public sealed partial class VectorRelation {
         (true, _) or (_, true) => IntersectionTangency.Tangent,
         _ => IntersectionTangency.Transversal,
     };
-    public static Fin<VectorRelation> Of(Vector3d a, Vector3d b, double tolerance, Op? key = null) {
+    public static Fin<VectorRelation> Of(Vector3d a, Vector3d b, Context context, Op? key = null) {
         Op op = key ?? Op.Of(name: nameof(VectorRelation));
-        return from left in Direction.Of(value: a, tolerance: RhinoMath.ZeroTolerance, key: op)
-               from right in Direction.Of(value: b, tolerance: RhinoMath.ZeroTolerance, key: op)
-               select (left.Value.IsParallelTo(other: right.Value, angleTolerance: tolerance), left.Value.IsPerpendicularTo(other: right.Value, angleTolerance: tolerance)) switch {
+        return from model in Optional(context).ToFin(op.MissingContext())
+               from left in Direction.Of(value: a, context: model, key: op)
+               from right in Direction.Of(value: b, context: model, key: op)
+               select (left.Value.IsParallelTo(other: right.Value, angleTolerance: model.Angle.Value), left.Value.IsPerpendicularTo(other: right.Value, angleTolerance: model.Angle.Value)) switch {
                    (1, _) => Parallel,
                    (-1, _) => AntiParallel,
                    (_, true) => Perpendicular,
                    _ => Oblique,
                };
     }
+    internal Fin<TOut> Project<TOut>(Op key) =>
+        typeof(TOut) switch {
+            Type t when t == typeof(VectorRelation) => Fin.Succ((TOut)(object)this),
+            Type t when t == typeof(IntersectionTangency) => key.AcceptValue(value: Tangency).Map(static value => (TOut)(object)value),
+            _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(VectorRelation), outputType: typeof(TOut))),
+        };
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -123,25 +135,24 @@ public readonly record struct VectorSpan {
         Op op = key ?? Op.Of(name: nameof(VectorSpan));
         return from point in op.AcceptValue(value: anchor)
                from direction in Rasm.Vectors.Direction.Of(value: vector, context: context, key: op)
-               from magnitude in vector.Length.TryCreateValidated<PositiveMagnitude>().ToFin()
+               from magnitude in vector.Length.TryCreateValidated<PositiveMagnitude>().ToFin().BindFail(_ => Fin.Fail<PositiveMagnitude>(error: op.InvalidInput()))
                select new VectorSpan(anchor: point, direction: direction, magnitude: magnitude);
     }
     internal static Fin<VectorSpan> Of(Point3d anchor, Direction direction, double magnitude, Op key) =>
         (key.AcceptValue(value: anchor),
-         magnitude.TryCreateValidated<PositiveMagnitude>().ToFin())
+         magnitude.TryCreateValidated<PositiveMagnitude>().ToFin().BindFail(_ => Fin.Fail<PositiveMagnitude>(error: key.InvalidInput())))
             .Apply((point, length) => new VectorSpan(anchor: point, direction: direction, magnitude: length.Value))
             .As()
             .Bind(span => guard(span.Axis.IsValid, key.InvalidResult()).Bind(_ => Fin.Succ(span)));
-    internal Fin<double> Component(Direction axis, Op key) =>
-        key.AcceptValue(value: Value * axis.Value);
     internal Fin<(double X, double Y)> Components(Plane frame, Op key) {
-        VectorSpan span = this;
-        return from validFrame in key.AcceptValue(value: frame)
-               from xAxis in Direction.Of(value: validFrame.XAxis, tolerance: RhinoMath.ZeroTolerance, key: key)
-               from yAxis in Direction.Of(value: validFrame.YAxis, tolerance: RhinoMath.ZeroTolerance, key: key)
-               from x in span.Component(axis: xAxis, key: key)
-               from y in span.Component(axis: yAxis, key: key)
-               select (X: x, Y: y);
+        Vector3d value = Value;
+        return key.AcceptValue(value: frame).Bind(validFrame =>
+            Vector3d.Decompose(v: value, a: validFrame.XAxis, b: validFrame.YAxis, x: out double x, y: out double y) switch {
+                true => (key.AcceptValue(value: x), key.AcceptValue(value: y))
+                    .Apply(static (validX, validY) => (X: validX, Y: validY))
+                    .As(),
+                false => Fin.Fail<(double X, double Y)>(error: key.InvalidResult()),
+            });
     }
     internal Fin<TOut> Project<TOut>(Op key) =>
         typeof(TOut) switch {
@@ -156,20 +167,26 @@ public readonly record struct VectorSpan {
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 internal readonly record struct VectorRing {
-    private VectorRing(Seq<Point3d> points) => Points = points;
+    private VectorRing(Seq<Point3d> points, Polyline native) {
+        Points = points;
+        Native = native;
+    }
     internal Seq<Point3d> Points { get; }
+    private Polyline Native { get; }
     internal static Fin<VectorRing> Of(Seq<Point3d> points, Op key) =>
         from valid in points.TraverseM(point => key.AcceptValue(value: point)).As()
         from _ in guard(valid.Count >= 3, key.InvalidInput())
-        select new VectorRing(points: valid);
+        let native = new Polyline(valid[0].DistanceTo(other: valid[valid.Count - 1]) <= RhinoMath.ZeroTolerance ? [.. valid.AsIterable()] : [.. valid.AsIterable(), valid[0]])
+        from __ in guard(native.IsValid && native.IsClosed && native.SegmentCount >= 3, key.InvalidInput())
+        select new VectorRing(points: valid, native: native);
     internal Fin<Vector3d> Normal(Op key) =>
-        Direction.Of(value: AreaVector, tolerance: RhinoMath.ZeroTolerance, key: key).Map(static direction => direction.Value);
+        Direction.Of(value: FanVectors.Fold(initialState: Vector3d.Zero, f: static (sum, value) => sum + value), tolerance: RhinoMath.ZeroTolerance, key: key).Map(static direction => direction.Value);
     internal Fin<double> Area(Op key) {
         Seq<Vector3d> fan = FanVectors;
         return key.AcceptValue(value: 0.5 * fan.Fold(initialState: 0.0, f: static (sum, value) => sum + value.Length));
     }
     internal Fin<double> Perimeter(Op key) =>
-        key.AcceptValue(value: EdgeLengths.Fold(initialState: 0.0, f: static (sum, length) => sum + length));
+        key.AcceptValue(value: Native.Length);
     internal Fin<double> EdgeAspect(Op key) =>
         EdgeLengths.Fold(
             initialState: (Count: 0, Min: double.PositiveInfinity, Max: 0.0),
@@ -194,12 +211,6 @@ internal readonly record struct VectorRing {
         get {
             Seq<Point3d> points = Points;
             return points.Map((point, index) => point.DistanceTo(other: points[(index + 1) % points.Count]));
-        }
-    }
-    private Vector3d AreaVector {
-        get {
-            Seq<Vector3d> fan = FanVectors;
-            return fan.Fold(initialState: Vector3d.Zero, f: static (sum, value) => sum + value);
         }
     }
     private Seq<Vector3d> FanVectors {

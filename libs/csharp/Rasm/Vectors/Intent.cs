@@ -4,18 +4,23 @@ namespace Rasm.Vectors;
 [SmartEnum<int>]
 public sealed partial class SupportProjection {
     public static readonly SupportProjection Closest = new(key: 0, hitOutput: typeof(Point3d), parameterMode: false), Direction = new(key: 1, hitOutput: typeof(void), parameterMode: false), Span = new(key: 2, hitOutput: typeof(void), parameterMode: false), Normal = new(key: 3, hitOutput: typeof(void), parameterMode: false), Distance = new(key: 4, hitOutput: typeof(double), parameterMode: false);
-    public static readonly SupportProjection Parameter = new(key: 5, hitOutput: typeof(double), parameterMode: true), Uv = new(key: 6, hitOutput: typeof(Point2d), parameterMode: false), Component = new(key: 7, hitOutput: typeof(ComponentIndex), parameterMode: false), MeshPoint = new(key: 8, hitOutput: typeof(MeshPoint), parameterMode: false), SignedDistance = new(key: 9, hitOutput: typeof(void), parameterMode: false);
+    public static readonly SupportProjection Parameter = new(key: 5, hitOutput: typeof(double), parameterMode: true), Uv = new(key: 6, hitOutput: typeof(Point2d), parameterMode: false), Component = new(key: 7, hitOutput: typeof(ComponentIndex), parameterMode: false), MeshPoint = new(key: 8, hitOutput: typeof(MeshPoint), parameterMode: false), SignedDistance = new(key: 9, hitOutput: typeof(void), parameterMode: false), ContainmentDistance = new(key: 10, hitOutput: typeof(void), parameterMode: false);
     internal Type HitOutput { get; }
     internal bool Hit => HitOutput != typeof(void);
     internal bool ParameterMode { get; }
     internal bool AcceptsHit(Type output) =>
         output == HitOutput || (Equals(Closest) && output == typeof(ClosestHit));
-    internal Fin<TOut> Project<TOut>(ClosestHit hit, Point3d sample, Context context, Op key) =>
+    internal Fin<TOut> Project<TOut>(SupportSpace space, ClosestHit hit, Point3d sample, Context context, Op key) =>
         this switch {
-            SupportProjection p when p.Equals(SignedDistance) && typeof(TOut) == typeof(double) => hit.SignedDistanceFrom(sample: sample, key: key)
+            SupportProjection p when p.Equals(SignedDistance) && typeof(TOut) == typeof(double) => guard(space.CanSignedDistance, key.Unsupported(space.SourceType, typeof(double)))
+                .Bind(_ => space.SignedDistance(hit: hit, sample: sample, key: key))
+                .Bind(distance => key.AcceptValue(value: distance))
+                .Map(static value => (TOut)(object)value),
+            SupportProjection p when p.Equals(ContainmentDistance) && typeof(TOut) == typeof(double) => space.ContainmentDistance(hit: hit, sample: sample, context: context, key: key)
                 .Bind(distance => key.AcceptValue(value: distance))
                 .Map(static value => (TOut)(object)value),
             SupportProjection p when p.Equals(SignedDistance) => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(ClosestHit), outputType: typeof(TOut))),
+            SupportProjection p when p.Equals(ContainmentDistance) => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(ClosestHit), outputType: typeof(TOut))),
             SupportProjection p when p.Hit && p.AcceptsHit(output: typeof(TOut)) => hit.Project<TOut>(key: key, parameterMode: p.ParameterMode)
                 .Bind(values => values.Head.ToFin(key.InvalidResult())),
             SupportProjection p when p.Hit => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(ClosestHit), outputType: typeof(TOut))),
@@ -23,7 +28,8 @@ public sealed partial class SupportProjection {
                 .Bind(direction => direction.Project<TOut>(key: key)),
             SupportProjection p when p.Equals(Span) => VectorSpan.Of(anchor: sample, vector: hit.Point - sample, context: context, key: key)
                 .Bind(span => span.Project<TOut>(key: key)),
-            SupportProjection p when p.Equals(Normal) => hit.Normal.ToFin(Fail: key.InvalidResult())
+            SupportProjection p when p.Equals(Normal) => guard(space.CanClosestNormal, key.Unsupported(space.SourceType, typeof(Vector3d)))
+                .Bind(_ => hit.Normal.ToFin(Fail: key.InvalidResult()))
                 .Bind(normal => Rasm.Vectors.Direction.Of(value: normal, context: context, key: key))
                 .Bind(direction => direction.Project<TOut>(key: key)),
             _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(SupportProjection), outputType: typeof(TOut))),
@@ -54,6 +60,8 @@ public partial record VectorIntent {
     public sealed record FieldCase(VectorField Value, Point3d Sample) : VectorIntent;
     public sealed record RayCase(Point3d Origin, Direction Direction, RayPolicy Policy) : VectorIntent;
     public sealed record RingCase(Seq<Point3d> Points, VectorRingMetric Metric) : VectorIntent;
+    public sealed record ComponentsCase(Point3d Anchor, Vector3d Value, Plane Frame) : VectorIntent;
+    public sealed record RelationCase(Vector3d A, Vector3d B) : VectorIntent;
     public static VectorIntent Between(Point3d origin, SupportSpace target, BoundarySense? sense = null) =>
         new BetweenCase(Origin: origin, Target: target, Sense: sense ?? BoundarySense.Toward);
     public static VectorIntent Axis(SignedAxis axis, Plane? frame = null) =>
@@ -68,4 +76,8 @@ public partial record VectorIntent {
         new RayCase(Origin: origin, Direction: direction, Policy: policy ?? RayPolicy.Forward);
     public static VectorIntent Ring(Seq<Point3d> points, VectorRingMetric metric) =>
         new RingCase(Points: points, Metric: metric);
+    public static VectorIntent Components(Point3d anchor, Vector3d value, Plane frame) =>
+        new ComponentsCase(Anchor: anchor, Value: value, Frame: frame);
+    public static VectorIntent Relation(Vector3d a, Vector3d b) =>
+        new RelationCase(A: a, B: b);
 }

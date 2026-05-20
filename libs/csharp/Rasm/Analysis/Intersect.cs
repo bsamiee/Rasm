@@ -53,12 +53,15 @@ public static partial class Analyze {
             key: Op.Of(),
             supported: IntersectionResult.Supports(left: typeof(TA), right: typeof(TB), output: typeof(TOut), unordered: true),
             compute: static (a, b, ctx, op, p, ct) => IntersectionOf(left: a, right: b, context: ctx, op: op, progress: p, unordered: true, cancel: ct));
-    public static Operation<(TA A, TB B), TOut> Classify<TA, TB, TOut>() where TA : notnull where TB : notnull =>
-        PairOp<TA, TB, TOut>(
+    public static Operation<(TA A, TB B), TOut> Classify<TA, TB, TOut>() where TA : notnull where TB : notnull {
+        bool curvePair = GeometryKernel.CanCurveForm(type: typeof(TA)) && GeometryKernel.CanCurveForm(type: typeof(TB));
+        return PairOp<TA, TB, TOut>(
             key: Op.Of(),
-            supported: IntersectionResult.Supports(left: typeof(TA), right: typeof(TB), output: typeof(TOut), unordered: true)
+            supported: curvePair
+                       && IntersectionResult.Supports(left: typeof(TA), right: typeof(TB), output: typeof(TOut), unordered: true)
                        && (typeof(TOut) == typeof(IntersectionHit) || typeof(TOut) == typeof(IntersectionTangency)),
             compute: static (a, b, ctx, op, p, ct) => ClassifiedIntersectionOf(left: a, right: b, context: ctx, op: op, progress: p, cancel: ct));
+    }
     public static Operation<(TA A, TB B), TOut> Deviation<TA, TB, TOut>() where TA : notnull where TB : notnull {
         Op key = Op.Of();
         return (CanDeviation(left: typeof(TA), right: typeof(TB)) && typeof(TOut) == typeof(CurveDeviation))
@@ -226,14 +229,16 @@ public static partial class Analyze {
                 leftLease.Use(lc => rightLease.Use(rc =>
                     hits.TraverseM(hit => hit switch {
                         IntersectionHit.PointCase pc when pc.Tangency == IntersectionTangency.Unknown =>
-                            TangencyAt(left: lc, right: rc, point: pc.Point, tolerance: context.Angle.Value)
+                            TangencyAt(left: lc, right: rc, point: pc.Point, context: context)
                                 .Map(tangency => IntersectionHit.At(point: pc.Point, tangency: tangency)),
                         _ => Fin.Succ(hit),
                     }).As()))));
-    private static Fin<IntersectionTangency> TangencyAt(Curve left, Curve right, Point3d point, double tolerance) =>
+    private static Fin<IntersectionTangency> TangencyAt(Curve left, Curve right, Point3d point, Context context) =>
         (left.ClosestPoint(testPoint: point, t: out double tl), right.ClosestPoint(testPoint: point, t: out double tr)) switch {
-            (true, true) => VectorRelation.Of(a: left.TangentAt(t: tl), b: right.TangentAt(t: tr), tolerance: tolerance, key: Op.Of(name: nameof(TangencyAt)))
-                .Map(static relation => relation.Tangency)
+            (true, true) => Vector.Project<IntersectionTangency>(
+                    intent: VectorIntent.Relation(a: left.TangentAt(t: tl), b: right.TangentAt(t: tr)),
+                    context: context,
+                    key: Op.Of(name: nameof(TangencyAt)))
                 .BindFail(static _ => Fin.Succ(IntersectionTangency.Unknown)),
             _ => Fin.Succ(IntersectionTangency.Unknown),
         };

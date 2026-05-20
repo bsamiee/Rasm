@@ -19,12 +19,10 @@ public sealed partial class ConformanceMetric {
     internal bool IsContainment { get; }
     internal bool ExactCurveDeviation { get; }
     internal bool AcceptsTarget(Type target, bool curveSource) =>
-        target == typeof(Plane) || target == typeof(Sphere) || target == typeof(Box) || target == typeof(BoundingBox)
-        || (IsContainment && (target == typeof(Brep) || target == typeof(Mesh)))
-        || (IsSigned && !IsContainment && GeometryKernel.CanClosestNormal(type: target))
-        || (!IsSigned && !IsContainment && GeometryKernel.CanClosest(type: target))
-        || (curveSource && (target == typeof(Line) || target == typeof(Circle) || target == typeof(Arc) || target == typeof(Polyline) || GeometryKernel.CanCurveForm(type: target)))
-        || (!IsContainment && GeometryKernel.CanSurfaceForm(type: target));
+        (IsContainment && (target == typeof(Brep) || target == typeof(Mesh)))
+        || (IsSigned && !IsContainment && GeometryKernel.CanSignedDistance(type: target))
+        || (!IsSigned && !IsContainment && (GeometryKernel.CanClosest(type: target)
+            || (curveSource && (target == typeof(Line) || target == typeof(Circle) || target == typeof(Arc) || target == typeof(Polyline) || GeometryKernel.CanCurveForm(type: target)))));
     internal Requirement TargetRequirement(Kind kind) =>
         IsContainment && (kind.Topology == Topology.Brep || kind.Topology == Topology.Mesh) ? Requirement.SolidTopology : Requirement.None;
     internal Fin<Seq<TOut>> Project<TOut>(Conformance request, Seq<ResidualSample> residuals, Context context) =>
@@ -107,28 +105,12 @@ public sealed record Conformance {
             .Bind(points => points.Map((p, i) => distance(arg1: primitive, arg2: p, arg3: context).Map(d => new ResidualSample(i, p, d, context.Absolute.Value, Math.Abs(d) <= context.Absolute.Value))).TraverseM(identity).As());
     private static Fin<double> DistanceFor(ConformanceMetric metric, object target, Point3d point, Context context) =>
         (metric, target) switch {
-            (ConformanceMetric m, Plane plane) when m.IsSigned => Fin.Succ(plane.DistanceTo(testPoint: point)),
-            (ConformanceMetric m, Sphere sphere) when m.IsSigned => Fin.Succ(point.DistanceTo(sphere.Center) - sphere.Radius),
-            (ConformanceMetric m, Box box) when m.IsSigned => Fin.Succ((box.Contains(point, false) ? -1.0 : 1.0) * point.DistanceTo(box.ClosestPoint(point, false))),
-            (ConformanceMetric m, BoundingBox bbox) when m.IsSigned => Fin.Succ((bbox.Contains(point) ? -1.0 : 1.0) * point.DistanceTo(bbox.ClosestPoint(point, false))),
-            (ConformanceMetric m, Brep brep) when m.IsContainment => brep.IsSolid switch {
-                true => GeometryKernel.ClosestOf(geometry: brep, target: point, key: Key)
-                    .Bind(hit => hit.Distance.ToFin(Fail: Key.InvalidResult()))
-                    .Map(distance => (brep.IsPointInside(point, context.Absolute.Value, false) ? -1.0 : 1.0) * distance),
-                false => Fin.Fail<double>(error: Key.InvalidInput()),
-            },
-            (ConformanceMetric m, Mesh mesh) when m.IsContainment => GeometryKernel.ClosestOf(geometry: mesh, target: point, key: Key)
-                .Bind(hit => mesh.IsSolid switch {
-                    true => hit.Distance.ToFin(Fail: Key.InvalidResult()).Map(distance => (mesh.IsPointInside(point, context.Absolute.Value, false) ? -1.0 : 1.0) * distance),
-                    false => Fin.Fail<double>(error: Key.InvalidInput()),
-                }),
-            (ConformanceMetric m, object normalTarget) when m.IsSigned && !m.IsContainment && GeometryKernel.CanClosestNormal(type: normalTarget.GetType()) =>
-                SupportSpace.Of(value: normalTarget, key: Key)
+            (ConformanceMetric m, object solidTarget) when m.IsContainment =>
+                SupportSpace.Of(value: solidTarget, key: Key)
+                    .Bind(space => Vector.Project<double>(intent: VectorIntent.Support(space: space, sample: point, projection: SupportProjection.ContainmentDistance), context: context, key: Key)),
+            (ConformanceMetric m, object signedTarget) when m.IsSigned =>
+                SupportSpace.Of(value: signedTarget, key: Key)
                     .Bind(space => Vector.Project<double>(intent: VectorIntent.Support(space: space, sample: point, projection: SupportProjection.SignedDistance), context: context, key: Key)),
-            (ConformanceMetric m, object surfaceTarget) when m.IsSigned && !m.IsContainment && GeometryKernel.CanSurfaceForm(type: surfaceTarget.GetType()) =>
-                GeometryKernel.SurfaceForm(source: surfaceTarget, op: Key)
-                    .Bind(lease => lease.Use(surface => SupportSpace.Of(value: surface, key: Key)
-                        .Bind(space => Vector.Project<double>(intent: VectorIntent.Support(space: space, sample: point, projection: SupportProjection.SignedDistance), context: context, key: Key)))),
             _ => SupportSpace.Of(value: target, key: Key)
                 .Bind(space => Vector.Project<double>(intent: VectorIntent.Support(space: space, sample: point, projection: SupportProjection.Distance), context: context, key: Key)),
         };

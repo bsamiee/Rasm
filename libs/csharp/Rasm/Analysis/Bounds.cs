@@ -147,7 +147,7 @@ public partial record Bounds : IAspect {
                     let plane = new Plane(origin: Point3d.Origin, normal: axis)
                     from projected in Fin.Succ(samples.Map(plane.ClosestPoint)).ToEff()
                     from disc in RitterFit(samples: projected, key: state.Key, construct: static (c, r) => (Center: c, Radius: r), isValid: static d => d.Radius >= 0.0).ToEff()
-                    let extent = samples.Fold(initialState: (Min: double.PositiveInfinity, Max: double.NegativeInfinity), f: (s, p) => ((p - Point3d.Origin) * axis) switch { double d => (Min: Math.Min(val1: s.Min, val2: d), Max: Math.Max(val1: s.Max, val2: d)) })
+                    let extent = samples.Fold(initialState: (Min: double.PositiveInfinity, Max: double.NegativeInfinity, Axis: axis), f: static (s, p) => ((p - Point3d.Origin) * s.Axis) switch { double d => (Min: Math.Min(val1: s.Min, val2: d), Max: Math.Max(val1: s.Max, val2: d), s.Axis) })
                     from result in (new Cylinder(baseCircle: new Circle(plane: new Plane(origin: disc.Center + (axis * extent.Min), normal: axis), radius: disc.Radius), height: extent.Max - extent.Min) switch {
                         { IsValid: true } cyl => state.Key.Accept(value: cyl),
                         _ => Fin.Fail<Seq<Cylinder>>(state.Key.InvalidResult()),

@@ -85,7 +85,7 @@ public sealed partial class MeshSampleKind {
 [BoundaryAdapter, SmartEnum<int>]
 public sealed partial class MeshMetric {
     public static readonly MeshMetric None = new(key: 0, measure: static (_, _, _, _, key) => Fin.Fail<double>(key.InvalidInput())), EdgeAspect = new(key: 1, measure: FaceEdgeAspect);
-    public static readonly MeshMetric Area = new(key: 2, measure: FaceArea), Perimeter = new(key: 3, measure: FacePerimeter), Skewness = new(key: 4, measure: FaceSkewness), DihedralAngle = new(key: 5, measure: FaceMaxDihedral);
+    public static readonly MeshMetric Area = new(key: 2, measure: FaceArea), Perimeter = new(key: 3, measure: static (mesh, source, vertices, context, key) => RingMetric<double>(metric: VectorRingMetric.Perimeter, mesh: mesh, source: source, vertices: vertices, context: context, key: key)), Skewness = new(key: 4, measure: static (mesh, source, vertices, context, key) => RingMetric<double>(metric: VectorRingMetric.Skewness, mesh: mesh, source: source, vertices: vertices, context: context, key: key)), DihedralAngle = new(key: 5, measure: FaceMaxDihedral);
     [UseDelegateFromConstructor] private partial Fin<double> Measure(Mesh mesh, ComponentIndex source, Seq<Point3d> vertices, Context context, Op key);
     internal Fin<MeshMetricSample> Sample(Mesh? mesh, MeshNgon polygon, Context context, Op key) =>
         Optional(mesh).ToFin(key.InvalidInput())
@@ -140,10 +140,6 @@ public sealed partial class MeshMetric {
                     .Map(static areas => areas.Fold(initialState: 0.0, f: static (total, area) => total + area)),
             _ => RingMetric<double>(metric: VectorRingMetric.Area, mesh: mesh, source: source, vertices: vertices, context: context, key: key),
         };
-    private static Fin<double> FacePerimeter(Mesh mesh, ComponentIndex source, Seq<Point3d> vertices, Context context, Op key) =>
-        RingMetric<double>(metric: VectorRingMetric.Perimeter, mesh: mesh, source: source, vertices: vertices, context: context, key: key);
-    private static Fin<double> FaceSkewness(Mesh mesh, ComponentIndex source, Seq<Point3d> vertices, Context context, Op key) =>
-        RingMetric<double>(metric: VectorRingMetric.Skewness, mesh: mesh, source: source, vertices: vertices, context: context, key: key);
     private static Fin<double> FaceMaxDihedral(Mesh mesh, ComponentIndex source, Seq<Point3d> vertices, Context context, Op key) =>
         NormalOf(mesh: mesh, source: source, vertices: vertices, context: context, key: key).Bind(normal => normal.IsValid switch {
             false => Fin.Succ(0.0),

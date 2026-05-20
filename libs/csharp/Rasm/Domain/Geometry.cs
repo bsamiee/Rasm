@@ -205,7 +205,7 @@ public readonly record struct ClosestHit(Point3d Point, Option<double> Distance,
         && Uv.Map(static uv => uv.IsValid).IfNone(true)
         && Normal.Map(static n => n.IsValid && n.Length > RhinoMath.ZeroTolerance).IfNone(true)
         && Component.Map(static c => c is { ComponentIndexType: not ComponentIndexType.InvalidType } && c.Index >= 0).IfNone(true)
-        && MeshPoint.Map(static m => m.Point.IsValid).IfNone(true);
+        && MeshPoint.Map(static m => OpAcceptance.ValidityOf(source: m).IfNone(false)).IfNone(true);
     internal static bool CanProjectTo(Type output, bool parameterMode = false) =>
         output == typeof(ClosestHit) || output == typeof(double) || output == typeof(Point2d) || output == typeof(ComponentIndex) || output == typeof(MeshPoint)
         || (!parameterMode && (output == typeof(Point3d) || output == typeof(Vector3d)));
@@ -246,7 +246,8 @@ internal static class GeometryKernel {
     internal static bool CanEvaluateSolidTopology(Type type) => typeof(Mesh).IsAssignableFrom(c: type) || typeof(Brep).IsAssignableFrom(c: type) || Can(type: type, predicate: static kind => kind.Topology == Topology.Mesh || kind.Topology == Topology.Brep || kind.Type == typeof(Box) || kind.Type == typeof(BoundingBox) || kind.Topology == Topology.Extrusion || kind.Topology == Topology.SubD);
     internal static bool CanClosest(Type type) =>
         Universal(type: type) || type == typeof(Point3d) || type == typeof(Point) || typeof(PointCloud).IsAssignableFrom(type) || typeof(Brep).IsAssignableFrom(type) || typeof(Mesh).IsAssignableFrom(type) || type == typeof(Box) || type == typeof(BoundingBox) || CanCurveForm(type: type) || CanSurfaceForm(type: type);
-    internal static bool CanClosestNormal(Type type) => Universal(type: type) || type == typeof(Plane) || typeof(PointCloud).IsAssignableFrom(c: type) || typeof(Surface).IsAssignableFrom(c: type) || typeof(BrepFace).IsAssignableFrom(c: type) || typeof(Brep).IsAssignableFrom(c: type) || typeof(Mesh).IsAssignableFrom(c: type);
+    internal static bool CanClosestNormal(Type type) => Universal(type: type) || CanSurfaceForm(type: type) || typeof(PointCloud).IsAssignableFrom(c: type) || typeof(BrepFace).IsAssignableFrom(c: type) || typeof(Brep).IsAssignableFrom(c: type) || typeof(Mesh).IsAssignableFrom(c: type);
+    internal static bool CanSignedDistance(Type type) => type == typeof(Plane) || type == typeof(Sphere) || type == typeof(Box) || type == typeof(BoundingBox) || CanClosestNormal(type: type);
     internal static bool CanReadVertices(Type type) => Can(type: type, predicate: static kind => kind.CanReadVertices);
     internal static bool CanSamplePoints(Type type) => CanCurveForm(type: type) || CanSurfaceForm(type: type) || CanReadVertices(type: type);
     public static Fin<Kind> KindOf(this object geometry, Context context) {
@@ -447,7 +448,7 @@ internal static class GeometryKernel {
             Line line => Fin.Succ(ClosestHit.At(target: target, point: line.ClosestPoint(testPoint: target, limitToFiniteSegment: true), parameter: Some(Math.Clamp(line.ClosestParameter(testPoint: target), 0.0, 1.0)))),
             Polyline polyline => Fin.Succ(ClosestHit.At(target: target, point: polyline.ClosestPoint(testPoint: target), parameter: Some(polyline.ClosestParameter(testPoint: target)))),
             Plane plane when plane.ClosestParameter(testPoint: target, s: out double s, t: out double t) => Fin.Succ(ClosestHit.At(target: target, point: plane.PointAt(u: s, v: t), uv: Some(new Point2d(x: s, y: t)), normal: Some(plane.Normal))),
-            Sphere sphere => Fin.Succ(ClosestHit.At(target: target, point: sphere.ClosestPoint(testPoint: target))),
+            Sphere sphere => SurfaceForm(source: sphere, op: key).Bind(lease => lease.Use(surface => ClosestOf(geometry: surface, target: target, key: key))),
             Box box => Fin.Succ(ClosestHit.At(target: target, point: box.ClosestPoint(target, false))),
             BoundingBox box => Fin.Succ(ClosestHit.At(target: target, point: box.ClosestPoint(target, false))),
             Curve curve when curve.ClosestPoint(testPoint: target, t: out double parameter) =>
@@ -482,4 +483,17 @@ internal static class GeometryKernel {
             _ => Fin.Fail<ClosestHit>(key.Unsupported(g.GetType(), typeof(ClosestHit))),
         }
         select hit;
+    internal static Fin<double> SignedDistanceOf(object? geometry, ClosestHit hit, Point3d sample, Op key) =>
+        from source in Optional(geometry).ToFin(key.InvalidInput())
+        from point in key.AcceptValue(value: sample)
+        from active in key.AcceptValue(value: hit)
+        from distance in source switch {
+            Plane plane => key.AcceptValue(value: plane.DistanceTo(testPoint: point)),
+            Sphere sphere => key.AcceptValue(value: point.DistanceTo(other: sphere.Center) - sphere.Radius),
+            Box box => key.AcceptValue(value: (box.Contains(point, false) ? -1.0 : 1.0) * point.DistanceTo(other: box.ClosestPoint(point, false))),
+            BoundingBox box => key.AcceptValue(value: (box.Contains(point) ? -1.0 : 1.0) * point.DistanceTo(other: box.ClosestPoint(point, false))),
+            object value when CanClosestNormal(type: value.GetType()) => active.SignedDistanceFrom(sample: point, key: key),
+            _ => Fin.Fail<double>(key.Unsupported(geometryType: source.GetType(), outputType: typeof(double))),
+        }
+        select distance;
 }

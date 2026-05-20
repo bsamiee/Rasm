@@ -119,7 +119,11 @@ public sealed partial class MassKind {
     private static Fin<IDisposable> SumAggregate<TMass>(IEnumerable<object> geometry, Context context, MassKind mass, bool firstMoments, bool secondMoments, bool productMoments, Op op, Func<TMass, IEnumerable<TMass>, bool> sum) where TMass : class, IDisposable =>
         toSeq(geometry).Fold(Fin.Succ(Seq<IDisposable>()), (state, item) => state.Bind(owned =>
             mass.compute(item, context, firstMoments, secondMoments, productMoments, op)
-                .Match(Succ: r => Fin.Succ(r.Cons(owned)), Fail: e => (owned.Iter(static r => r.Dispose()), Fin.Fail<Seq<IDisposable>>(e)).Item2)))
+                .Map(computed => computed.Cons(owned))
+                .BindFail(error => {
+                    _ = owned.Iter(static resource => resource.Dispose());
+                    return Fin.Fail<Seq<IDisposable>>(error);
+                })))
             .Bind(owned => {
                 TMass[] masses = [.. owned.AsIterable().Cast<TMass>()];
                 Fin<IDisposable> result = masses.Length switch {
@@ -127,8 +131,15 @@ public sealed partial class MassKind {
                     > 1 when sum(masses[0], Enumerable.Skip(masses, 1)) => Fin.Succ<IDisposable>(masses[0]),
                     _ => Fin.Fail<IDisposable>(new Fault.ComputationFailed(typeof(TMass).Name)),
                 };
-                _ = toSeq(Enumerable.Skip(masses, result.IsSucc ? 1 : 0)).Iter(static r => r.Dispose());
-                return result;
+                return result
+                    .Map(active => {
+                        _ = toSeq(masses).Filter(resource => !ReferenceEquals(objA: resource, objB: active)).Iter(static resource => resource.Dispose());
+                        return active;
+                    })
+                    .BindFail(error => {
+                        _ = owned.Iter(static resource => resource.Dispose());
+                        return Fin.Fail<IDisposable>(error);
+                    });
             });
 }
 

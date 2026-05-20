@@ -123,15 +123,19 @@ public static partial class Analyze {
         select plane;
     private static Fin<double> MinorSpread(Plane fit, Seq<Point3d> points, Context context, Op op) =>
         from angle in PrincipalAngle(points: points, fit: fit, context: context, op: op)
-        from spread in points.TraverseM(point => VectorSpan.Of(anchor: fit.Origin, vector: point - fit.Origin, context: context, key: op)
-            .Bind(span => span.Components(frame: fit, key: op))
+        from spread in points.TraverseM(point => Vector.Project<(double X, double Y)>(
+                intent: VectorIntent.Components(anchor: fit.Origin, value: point - fit.Origin, frame: fit),
+                context: context,
+                key: op)
             .Map(components => Math.Abs(value: (components.X * -Math.Sin(a: angle)) + (components.Y * Math.Cos(d: angle))))
             .BindFail(static _ => Fin.Succ(0.0))).As()
         select spread.Fold(initialState: 0.0, f: Math.Max);
     private static Fin<double> PrincipalAngle(Seq<Point3d> points, Plane fit, Context context, Op op) =>
         points.Fold(initialState: Fin.Succ((Sxx: 0.0, Sxy: 0.0, Syy: 0.0, Fit: fit, Context: context, Key: op)), f: static (state, point) => state.Bind(s =>
-            VectorSpan.Of(anchor: s.Fit.Origin, vector: point - s.Fit.Origin, context: s.Context, key: s.Key)
-                .Bind(span => span.Components(frame: s.Fit, key: s.Key))
+            Vector.Project<(double X, double Y)>(
+                    intent: VectorIntent.Components(anchor: s.Fit.Origin, value: point - s.Fit.Origin, frame: s.Fit),
+                    context: s.Context,
+                    key: s.Key)
                 .BindFail(static _ => Fin.Succ((X: 0.0, Y: 0.0)))
                 .Map(v => (s.Sxx + (v.X * v.X), s.Sxy + (v.X * v.Y), s.Syy + (v.Y * v.Y), s.Fit, s.Context, s.Key))))
             .Map(static sums => 0.5 * Math.Atan2(y: 2.0 * sums.Sxy, x: sums.Sxx - sums.Syy));

@@ -263,10 +263,10 @@ internal static class OpAcceptance {
             Hit h => Some(h is { Id: >= 0 }),
             Couple c => Some(c is { A: >= 0, B: >= 0 }),
             CurveDeviation c => Some(c is { MinimumDistance: double mn, MaximumDistance: double mx, MinimumA.IsValid: true, MinimumB.IsValid: true, MaximumA.IsValid: true, MaximumB.IsValid: true, Tolerance: double t, WithinTolerance: bool w } && RhinoMath.IsValidDouble(mn) && mn >= 0.0 && RhinoMath.IsValidDouble(mx) && mx >= mn && RhinoMath.IsValidDouble(t) && t >= 0.0 && w == (mx <= t)),
-            MeshPoint m => Some(m.Point.IsValid),
+            MeshPoint m => Some(m.Point.IsValid && m.FaceIndex >= 0 && m.ComponentIndex is { ComponentIndexType: not ComponentIndexType.InvalidType, Index: >= 0 } && m.T.All(static t => RhinoMath.IsValidDouble(t))),
             ComponentIndex c => Some(c is { ComponentIndexType: not ComponentIndexType.InvalidType } ci && ci.Index >= 0),
             IntersectionHit h => Some(h.IsValid),
-            ValueTuple<double, Vector3d> t => Some(t is (double m, Vector3d a) && RhinoMath.IsValidDouble(m) && a.IsValid),
+            ValueTuple<double, Vector3d> t => Some(t is (double m, Vector3d a) && RhinoMath.IsValidDouble(m) && m >= 0.0 && a.IsValid && a.Length > RhinoMath.ZeroTolerance),
             _ => ValueValidity.GetValueOrDefault(source.GetType()) is Func<object, bool> fn ? Some(fn(source)) : Option<bool>.None,
         };
     private static Fin<T> Demand<T>(this Op key, bool condition, T value) =>

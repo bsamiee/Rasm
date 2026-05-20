@@ -184,9 +184,9 @@ public static partial class Analyze {
         return Fin.Succ(toSeq(subd.DuplicateEdgeCurves().Select((c, i) => TopologyProjection.Of(c, feature, new ComponentIndex(ComponentIndexType.SubdEdge, i)))));
     }
     internal static Fin<Option<CurveForm>> ClassifyCurveForm(TopologyProjection projection, Context context, Op op) =>
-        projection.As<Curve>().Match(
-            Some: curve => GeometryKernel.CurveFormOf(curve: curve, context: context, op: op).Map(static form => Some(form)),
-            None: () => Fin.Fail<Option<CurveForm>>(op.InvalidResult()));
+        projection.As<Curve>()
+            .ToFin(op.InvalidResult())
+            .Bind(curve => GeometryKernel.CurveFormOf(curve: curve, context: context, op: op).Map(static form => Some(form)));
     private static Fin<Seq<TopologyProjection>> SilhouettesOf(GeometryBase geometry, Curves.SilhouetteCase silhouette, CurveFeature feature, Context context, Op op, CancellationToken cancel) =>
         cancel.IsCancellationRequested
             ? Fin.Fail<Seq<TopologyProjection>>(new Fault.Cancelled())

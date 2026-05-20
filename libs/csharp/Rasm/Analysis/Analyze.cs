@@ -125,12 +125,13 @@ public static partial class Analyze {
         return (
             from active in Optional(operation).ToFin(new Fault.MissingOperation())
             from accepted in active.Supported()
-            from context in scope.Map(static s => s.Context).Match(
-                Some: provided => provided,
-                None: () => accepted.NeedsContext switch {
+            from context in scope.Case switch {
+                Scope provided => provided.Context,
+                _ => accepted.NeedsContext switch {
                     true => Fin.Fail<Context>(accepted.Key.MissingContext()),
                     false => Context.Of(units: UnitSystem.Millimeters).ToFin(),
-                })
+                },
+            }
             from result in accepted.Apply(geometry: inputValues.AsIterable().ToSeq()).Run(env: new Env(Context: context, Progress: progress, Cancellation: cancellation))
             select result).ToValidation();
     }

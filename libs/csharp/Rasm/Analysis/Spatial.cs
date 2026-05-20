@@ -28,10 +28,10 @@ public sealed class Tree : IDisposable {
     public static Validation<Error, Tree> FromBounds<TGeometry>(
         params ReadOnlySpan<TGeometry> items) where TGeometry : GeometryBase =>
         ValidateBounds(items: items)
-            .Bind(static boxes => boxes
-                .Select(static (box, index) => (Box: box, Index: index))
-                .Aggregate(
-                    seed: Fin.Succ(new RTree()), func: static (current, item) => current.Bind(tree => tree.Insert(
+            .Bind(static boxes => toSeq(boxes)
+                .Map(static (box, index) => (Box: box, Index: index))
+                .Fold(
+                    initialState: Fin.Succ(new RTree()), f: static (current, item) => current.Bind(tree => tree.Insert(
                             box: item.Box, elementId: item.Index) switch {
                                 true => Fin.Succ(tree),
                                 false => new Lease<RTree>.Owned(Value: tree).Use(static _ => Fin.Fail<RTree>(Key.InvalidResult())),
