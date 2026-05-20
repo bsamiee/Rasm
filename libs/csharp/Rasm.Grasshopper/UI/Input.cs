@@ -8,6 +8,7 @@ using Grasshopper2.UI.Flex;
 using Grasshopper2.UI.Icon;
 using Grasshopper2.UI.InputPanel;
 using Grasshopper2.UI.Toolbar;
+using Rhino.Geometry;
 using Op = Rasm.Domain.Op;
 
 namespace Rasm.Grasshopper.UI;
@@ -57,10 +58,11 @@ public partial record InputSelectionSource {
 public partial record InputClipboardOp {
     private InputClipboardOp() { }
     public sealed record ReadCase : InputClipboardOp;
-    public sealed record WriteCase(string Text) : InputClipboardOp;
+    public sealed record WriteCase(InputClipboardSnapshot Payload) : InputClipboardOp;
     public sealed record ClearCase : InputClipboardOp;
     public static readonly InputClipboardOp Read = new ReadCase();
-    public static InputClipboardOp Write(string text) => new WriteCase(Text: text);
+    public static InputClipboardOp Write(string text) => new WriteCase(Payload: InputClipboardSnapshot.Of(text: text));
+    public static InputClipboardOp Write(InputClipboardSnapshot payload) => new WriteCase(Payload: payload);
     public static readonly InputClipboardOp Clear = new ClearCase();
 }
 
@@ -79,6 +81,22 @@ public readonly record struct ToolbarSnapshot(int Count, bool Enabled, float Min
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct MenuSnapshot(int Count);
+
+public readonly record struct InputClipboardSnapshot(
+    Option<string> Text,
+    Option<string> Html,
+    Option<Eto.Drawing.Image> Image,
+    Seq<Uri> Uris,
+    Seq<string> Types) {
+    public static InputClipboardSnapshot Empty => new(
+        Text: Option<string>.None,
+        Html: Option<string>.None,
+        Image: Option<Eto.Drawing.Image>.None,
+        Uris: Seq<Uri>(),
+        Types: Seq<string>());
+
+    public static InputClipboardSnapshot Of(string text) => Empty with { Text = Optional(text) };
+}
 
 public readonly record struct FileFilter(string Name, Seq<string> Extensions);
 
@@ -107,17 +125,30 @@ public readonly record struct UiCommand(
     }
 }
 
+[Union]
+internal partial record UiCommandSurface {
+    private UiCommandSurface() { }
+    public sealed record ToolbarCase(Bar Bar) : UiCommandSurface;
+    public sealed record MenuCase(ContextMenu Target) : UiCommandSurface;
+    public static UiCommandSurface Toolbar(Bar bar) => new ToolbarCase(Bar: bar);
+    public static UiCommandSurface Menu(ContextMenu menu) => new MenuCase(Target: menu);
+}
+
 public abstract record ToolbarItem {
     public sealed record Button(UiCommand Command, bool CloseOnActivate = true) : ToolbarItem;
     public sealed record Toggle(UiCommand Command, bool State, Func<bool, Fin<Unit>> Changed) : ToolbarItem;
+    public sealed record Radio(UiCommand Command, bool State, Func<bool, Fin<Unit>> Changed) : ToolbarItem;
+    public sealed record TextInput(string Name, string Value, Func<string, Fin<Unit>> Changed) : ToolbarItem;
+    public sealed record Number(string Name, double Value, Interval Range, Func<double, Fin<Unit>> Changed) : ToolbarItem;
+    public sealed record SwatchInput(string Name, OpenColor.Family Family, Func<OpenColor.Family, Fin<Unit>> Changed) : ToolbarItem;
     public sealed record Spacer(string Chapter, string Section) : ToolbarItem;
 
-    internal Fin<Unit> Apply(Bar bar) =>
-        Optional(bar)
-            .ToFin(Fail: UiFault.MissingScope(field: nameof(Bar)))
-            .Bind(valid => this switch {
-                Button button => button.Command.Validated(op: Op.Of(name: nameof(Button))).Map(command => {
-                    PushButton pushed = valid.AddPushButton(
+    internal Fin<Unit> Apply(UiCommandSurface surface) =>
+        Optional(surface)
+            .ToFin(Fail: UiFault.MissingScope(field: nameof(UiCommandSurface)))
+            .Bind(valid => (this, valid) switch {
+                (Button button, UiCommandSurface.ToolbarCase toolbar) => button.Command.Validated(op: Op.Of(name: nameof(Button))).Map(command => {
+                    PushButton pushed = toolbar.Bar.AddPushButton(
                         icon: command.Icon.IfNone(default(IIcon)!),
                         nomen: new Nomen(name: command.Name, info: command.Info),
                         callback: () => _ = GrasshopperUi.Protect(valid: command.Run),
@@ -126,11 +157,15 @@ public abstract record ToolbarItem {
                     pushed.CloseOnActivate = button.CloseOnActivate;
                     return unit;
                 }),
-                Toggle toggle =>
+                (Button button, UiCommandSurface.MenuCase menu) => button.Command.Validated(op: Op.Of(name: nameof(Button))).Map(command => {
+                    _ = menu.Target.AddItem(text: command.Name, description: command.Info, command: command.ToEtoCommand());
+                    return unit;
+                }),
+                (Toggle toggle, UiCommandSurface.ToolbarCase toolbar) =>
                     from command in toggle.Command.Validated(op: Op.Of(name: nameof(Toggle)))
                     from changed in Optional(toggle.Changed).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Toggle)), detail: "toggle change delegate is required"))
                     select ((Func<Unit>)(() => {
-                        RadioToggle toggled = valid.AddRadioToggle(
+                        RadioToggle toggled = toolbar.Bar.AddRadioToggle(
                             icon: command.Icon.IfNone(default(IIcon)!),
                             nomen: new Nomen(name: command.Name, info: command.Info),
                             initial: toggle.State,
@@ -139,33 +174,67 @@ public abstract record ToolbarItem {
                         toggled.Enabled = command.Enabled;
                         return unit;
                     }))(),
-                Spacer spacer => Try.lift<Unit>(f: () => {
-                    _ = valid.AddSpacer(chapterName: spacer.Chapter, sectionName: spacer.Section);
-                    return unit;
-                }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(Spacer)), detail: "AddSpacer threw")),
-                _ => Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ToolbarItem)), detail: "unknown toolbar item")),
-            });
-
-    internal Fin<Unit> Apply(ContextMenu menu) =>
-        Optional(menu)
-            .ToFin(Fail: UiFault.MissingScope(field: nameof(ContextMenu)))
-            .Bind(valid => this switch {
-                Button button => button.Command.Validated(op: Op.Of(name: nameof(Button))).Map(command => {
-                    _ = valid.AddItem(text: command.Name, description: command.Info, command: command.ToEtoCommand());
-                    return unit;
-                }),
-                Toggle toggle =>
+                (Toggle toggle, UiCommandSurface.MenuCase menu) =>
                     from command in toggle.Command.Validated(op: Op.Of(name: nameof(Toggle)))
                     from changed in Optional(toggle.Changed).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Toggle)), detail: "toggle change delegate is required"))
                     select ((Func<Unit>)(() => {
-                        Command menuCommand = command.ToEtoCommand();
-                        menuCommand.Executed += (_, _) => _ = GrasshopperUi.Protect(valid: () => changed(arg: !toggle.State));
-                        _ = valid.AddItem(text: command.Name, description: command.Info, command: menuCommand);
+                        CheckCommand menuCommand = new() {
+                            ID = command.Name,
+                            MenuText = command.Name,
+                            ToolTip = command.Info,
+                            Enabled = command.Enabled,
+                            Checked = toggle.State,
+                        };
+                        menuCommand.Executed += (_, _) => _ = GrasshopperUi.Protect(valid: () => changed(arg: menuCommand.Checked));
+                        menu.Target.Items.Add(menuCommand.CreateMenuItem());
                         return unit;
                     }))(),
-                Spacer => Try.lift<Unit>(f: () => { valid.AddSeparator(); return unit; })
-                    .Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(Spacer)), detail: "AddSeparator threw")),
-                _ => Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ToolbarItem)), detail: "unknown menu item")),
+                (Radio radio, UiCommandSurface.ToolbarCase toolbar) =>
+                    from command in radio.Command.Validated(op: Op.Of(name: nameof(Radio)))
+                    from changed in Optional(radio.Changed).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Radio)), detail: "radio change delegate is required"))
+                    select ((Func<Unit>)(() => {
+                        RadioToggle toggled = toolbar.Bar.AddRadioToggle(
+                            icon: command.Icon.IfNone(default(IIcon)!),
+                            nomen: new Nomen(name: command.Name, info: command.Info),
+                            initial: radio.State,
+                            callback: state => _ = GrasshopperUi.Protect(valid: () => changed(arg: state)),
+                            keys: command.Shortcut.Map(static shortcut => (BarShortcut?)shortcut).IfNone((BarShortcut?)null));
+                        toggled.Optional = false;
+                        toggled.Enabled = command.Enabled;
+                        return unit;
+                    }))(),
+                (TextInput text, UiCommandSurface.ToolbarCase toolbar) =>
+                    from changed in Optional(text.Changed).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(TextInput)), detail: "text change delegate is required"))
+                    select ((Func<Unit>)(() => {
+                        TextField field = toolbar.Bar.AddTextField(icon: default!, nomen: new Nomen(name: text.Name, info: text.Name), initial: text.Value, placeholder: text.Name);
+                        field.TextChanged += (_, value) => _ = GrasshopperUi.Protect(valid: () => changed(arg: value));
+                        return unit;
+                    }))(),
+                (Number number, UiCommandSurface.ToolbarCase toolbar) =>
+                    from changed in Optional(number.Changed).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Number)), detail: "number change delegate is required"))
+                    select ((Func<Unit>)(() => {
+                        UiNumber uiNumber = UiNumber.Standard(
+                            lower: (decimal)number.Range.T0,
+                            upper: (decimal)number.Range.T1,
+                            value: (decimal)number.Value,
+                            decimals: 3);
+                        toolbar.Bar.Add(new NumberSlider(nomen: new Nomen(name: number.Name, info: number.Name), number: uiNumber, callback: value => _ = GrasshopperUi.Protect(valid: () => changed(arg: (double)value))));
+                        return unit;
+                    }))(),
+                (SwatchInput colour, UiCommandSurface.ToolbarCase toolbar) =>
+                    from changed in Optional(colour.Changed).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SwatchInput)), detail: "colour change delegate is required"))
+                    select ((Func<Unit>)(() => {
+                        toolbar.Bar.AddLifeColours(nomen: new Nomen(name: colour.Name, info: colour.Name), initial: colour.Family, assignment: value => _ = GrasshopperUi.Protect(valid: () => changed(arg: value)));
+                        return unit;
+                    }))(),
+                (Spacer spacer, UiCommandSurface.ToolbarCase toolbar) => Try.lift<Unit>(f: () => {
+                    _ = toolbar.Bar.AddSpacer(chapterName: spacer.Chapter, sectionName: spacer.Section);
+                    return unit;
+                }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(Spacer)), detail: "AddSpacer threw")),
+                (Spacer, UiCommandSurface.MenuCase menu) => Try.lift<Unit>(f: () => { menu.Target.AddSeparator(); return unit; })
+                            .Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(Spacer)), detail: "AddSeparator threw")),
+                (_, UiCommandSurface.MenuCase) => Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ToolbarItem)), detail: $"{GetType().Name} cannot be projected to a context menu")),
+                _ => Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ToolbarItem)), detail: "unknown command surface")),
             });
 }
 
@@ -208,25 +277,25 @@ public abstract record InputRequest<T> : GhUiRequest<T> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
         internal override Fin<Option<string>> Apply(GrasshopperUi.Scope scope) => Input.FileDialog(mode: Mode, initialPath: InitialPath.IfNone(string.Empty), filters: [.. Filters]).Run(scope: scope);
     }
-    public sealed record Clipboard(InputClipboardOp Op) : InputRequest<Option<string>> {
+    public sealed record Clipboard(InputClipboardOp Op) : InputRequest<InputClipboardSnapshot> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
-        internal override Fin<Option<string>> Apply(GrasshopperUi.Scope scope) => Input.Clipboard(op: Op).Run(scope: scope);
+        internal override Fin<InputClipboardSnapshot> Apply(GrasshopperUi.Scope scope) => Input.Clipboard(op: Op).Run(scope: scope);
     }
 }
 
 // --- [SERVICES] --------------------------------------------------------------------------
 internal static partial class Input {
     internal static GrasshopperUiIntent<InputSelectionSnapshot> Selection(InputSelectionSource source) =>
-        IntentFactory.Read<InputSelectionSnapshot>(run: _ =>
+        GhUi.Read<InputSelectionSnapshot>(run: _ =>
             Optional(source)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Selection)), detail: "null source"))
                 .Map(valid => new InputSelectionSnapshot(Mode: valid.Mode(), Modifiers: ModifierOf(keys: Keyboard.Modifiers))));
 
     internal static GrasshopperUiIntent<InputModifierSnapshot> Modifiers(Keys keys) =>
-        IntentFactory.Read<InputModifierSnapshot>(run: _ => Fin.Succ(value: ModifierOf(keys: keys)));
+        GhUi.Read<InputModifierSnapshot>(run: _ => Fin.Succ(value: ModifierOf(keys: keys)));
 
     internal static GrasshopperUiIntent<InputPanelSnapshot> Panel(Func<InputPanel, Fin<Unit>> populate) =>
-        IntentFactory.Read<InputPanelSnapshot>(run: _ =>
+        GhUi.Read<InputPanelSnapshot>(run: _ =>
             Optional(populate)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Panel)), detail: "null populate"))
                 .Bind(valid => {
@@ -238,7 +307,7 @@ internal static partial class Input {
                 }));
 
     internal static GrasshopperUiIntent<InputPanelSnapshot> PopupPanel(Control owner, PointF location, RectangleF screen, Func<InputPanel, Fin<Unit>> populate) =>
-        IntentFactory.Read<InputPanelSnapshot>(run: _ =>
+        GhUi.Read<InputPanelSnapshot>(run: _ =>
             from validOwner in Optional(owner).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(PopupPanel)), detail: "null owner"))
             from validPopulate in Optional(populate).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(PopupPanel)), detail: "null populate"))
             from validLocation in Optional(location)
@@ -256,7 +325,7 @@ internal static partial class Input {
                 Shown: form?.Visible ?? false));
 
     internal static GrasshopperUiIntent<ToolbarSnapshot> Toolbar(Func<Bar, Fin<Unit>> populate) =>
-        IntentFactory.Read<ToolbarSnapshot>(run: _ =>
+        GhUi.Read<ToolbarSnapshot>(run: _ =>
             Optional(populate)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Toolbar)), detail: "null populate"))
                 .Bind(valid => {
@@ -272,25 +341,25 @@ internal static partial class Input {
 
     internal static GrasshopperUiIntent<ToolbarSnapshot> Toolbar(ToolbarPlan plan) =>
         Toolbar(populate: bar =>
-            plan.Items.TraverseM(item => item.Apply(bar: bar)).Map(static _ => unit).As());
+            plan.Items.TraverseM(item => item.Apply(surface: UiCommandSurface.Toolbar(bar: bar))).Map(static _ => unit).As());
 
     internal static GrasshopperUiIntent<MenuSnapshot> Menu(ToolbarPlan plan) =>
-        IntentFactory.Read<MenuSnapshot>(run: _ => {
+        GhUi.Read<MenuSnapshot>(run: _ => {
             using ContextMenu menu = new();
             return plan.Items
-                .TraverseM(item => item.Apply(menu: menu))
+            .TraverseM(item => item.Apply(surface: UiCommandSurface.Menu(menu: menu)))
                 .Map(_ => new MenuSnapshot(Count: menu.Items.Count))
                 .As();
         });
 
     internal static GrasshopperUiIntent<CursorKind> Cursor(CursorKind kind) =>
-        IntentFactory.Canvas<CursorKind>(run: scope => scope.NeedCanvas().Map(canvas => {
+        GhUi.Canvas<CursorKind>(run: scope => scope.NeedCanvas().Map(canvas => {
             canvas.Cursor = CursorOf(kind: kind, canvas: canvas);
             return kind;
         }));
 
     internal static GrasshopperUiIntent<InputDialogResponse> MessageDialog(string title, string message, MessageDialogKind kind = MessageDialogKind.Information, MessageDialogButtons buttons = MessageDialogButtons.Ok) =>
-        IntentFactory.Read<InputDialogResponse>(run: _ =>
+        GhUi.Read<InputDialogResponse>(run: _ =>
             Try.lift<InputDialogResponse>(f: () => {
                 DialogResult result = MessageBox.Show(
                     text: message,
@@ -301,7 +370,7 @@ internal static partial class Input {
             }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(MessageDialog)), detail: "MessageBox.Show threw")));
 
     internal static GrasshopperUiIntent<Option<string>> FileDialog(FileDialogMode mode, string? initialPath = null, params FileFilter[] filters) =>
-        IntentFactory.Read<Option<string>>(run: _ =>
+        GhUi.Read<Option<string>>(run: _ =>
             Try.lift<Option<string>>(f: () => mode switch {
                 FileDialogMode.Open => RunFileDialog(dialog: new OpenFileDialog(), initialPath: initialPath, filters: filters),
                 FileDialogMode.Save => RunFileDialog(dialog: new SaveFileDialog(), initialPath: initialPath, filters: filters),
@@ -309,21 +378,39 @@ internal static partial class Input {
                 _ => Option<string>.None,
             }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(FileDialog)), detail: "FileDialog.ShowDialog threw")));
 
-    internal static GrasshopperUiIntent<Option<string>> Clipboard(InputClipboardOp op) =>
-        IntentFactory.Read<Option<string>>(run: _ =>
-            Try.lift<Option<string>>(f: () => {
-                Func<Option<string>> action = op switch {
-                    InputClipboardOp.ReadCase => static () => Optional(Eto.Forms.Clipboard.Instance.Text),
-                    InputClipboardOp.WriteCase w => () => Some(Eto.Forms.Clipboard.Instance.Text = w.Text),
-                    InputClipboardOp.ClearCase => static () => {
-                        Eto.Forms.Clipboard.Instance.Clear();
-                        return Option<string>.None;
+    internal static GrasshopperUiIntent<InputClipboardSnapshot> Clipboard(InputClipboardOp op) =>
+        GhUi.Read<InputClipboardSnapshot>(run: _scope =>
+            Try.lift<InputClipboardSnapshot>(f: () => {
+                Func<InputClipboardSnapshot> action = op switch {
+                    InputClipboardOp.ReadCase => ClipboardSnapshotOf,
+                    InputClipboardOp.WriteCase w => () => {
+                        Eto.Forms.Clipboard clipboard = Eto.Forms.Clipboard.Instance;
+                        _ = w.Payload.Text.Iter(text => clipboard.Text = text);
+                        _ = w.Payload.Html.Iter(html => clipboard.Html = html);
+                        _ = w.Payload.Image.Iter(image => clipboard.Image = image);
+                        _ = w.Payload.Uris.IsEmpty ? unit : Optional(w.Payload.Uris.ToArray()).Iter(uris => clipboard.Uris = uris);
+                        return ClipboardSnapshotOf();
                     }
                     ,
-                    _ => static () => Option<string>.None,
+                    InputClipboardOp.ClearCase => static () => {
+                        Eto.Forms.Clipboard.Instance.Clear();
+                        return InputClipboardSnapshot.Empty;
+                    }
+                    ,
+                    _ => static () => InputClipboardSnapshot.Empty,
                 };
                 return action();
             }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(Clipboard)), detail: "Clipboard op threw")));
+
+    private static InputClipboardSnapshot ClipboardSnapshotOf() {
+        Eto.Forms.Clipboard clipboard = Eto.Forms.Clipboard.Instance;
+        return new(
+            Text: Optional(clipboard.Text),
+            Html: Optional(clipboard.Html),
+            Image: Optional(clipboard.Image),
+            Uris: toSeq(clipboard.Uris ?? []),
+            Types: toSeq(clipboard.Types ?? []));
+    }
 
     // --- [OPERATIONS] ----------------------------------------------------------------------
     private static InputModifierSnapshot ModifierOf(Keys keys) =>

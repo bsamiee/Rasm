@@ -122,43 +122,33 @@ public partial record FindCriterion {
 }
 
 [Union]
+public partial record DocumentQuery {
+    private DocumentQuery() { }
+    public sealed record SnapshotCase : DocumentQuery;
+    public sealed record ObjectsCase(ObjectsScope Scope) : DocumentQuery;
+    public sealed record ObjectCase(Guid Id) : DocumentQuery;
+    public sealed record ParameterCase(Guid Id) : DocumentQuery;
+    public sealed record GripCase(PointF Point, GripKind Kind) : DocumentQuery;
+    public sealed record FindCase(FindCriterion Criterion) : DocumentQuery;
+    public sealed record MetaNamesCase : DocumentQuery;
+
+    public static readonly DocumentQuery Snapshot = new SnapshotCase();
+    public static DocumentQuery Objects(ObjectsScope scope) => new ObjectsCase(Scope: scope);
+    public static DocumentQuery Object(Guid id) => new ObjectCase(Id: id);
+    public static DocumentQuery Parameter(Guid id) => new ParameterCase(Id: id);
+    public static DocumentQuery Grip(PointF point, GripKind? kind = null) => new GripCase(Point: point, Kind: kind ?? GripKind.InletOrOutlet);
+    public static DocumentQuery Find(FindCriterion criterion) => new FindCase(Criterion: criterion);
+    public static readonly DocumentQuery MetaNames = new MetaNamesCase();
+}
+
+[Union]
 public partial record DocumentOp {
     private DocumentOp() { }
-    public sealed record SnapshotCase : DocumentOp;
-    public sealed record ObjectsCase(ObjectsScope Scope) : DocumentOp;
-    public sealed record ObjectCase(Guid Id) : DocumentOp;
-    public sealed record ParameterCase(Guid Id) : DocumentOp;
-    public sealed record GripCase(PointF Point, GripKind Kind) : DocumentOp;
-    public sealed record FindCase(FindCriterion Criterion) : DocumentOp;
-    public sealed record MetaNamesCase : DocumentOp;
-    public sealed record SelectionCase(SelectionOp Op) : DocumentOp;
-    public sealed record DisplayCase(DisplayOp Op) : DocumentOp;
-    public sealed record ClipboardCase(ClipboardOp Op) : DocumentOp;
-    public sealed record ComposeCase(ComposeOp Op) : DocumentOp;
-    public sealed record ColourCase(Option<GhColour> Override) : DocumentOp;
-    public sealed record DropCase(Guid ProxyId, PointF Location) : DocumentOp;
-    public sealed record AddDependencyCase(PointF Location) : DocumentOp;
-    public sealed record IsolateCase(IsolateOptions Options) : DocumentOp;
-    public sealed record GrowSelectionCase(bool Upstream, bool Downstream) : DocumentOp;
-    public sealed record BatchCase(Seq<GrasshopperUiIntent<DocumentResult>> Steps) : DocumentOp;
+    public sealed record QueryCase(DocumentQuery Request) : DocumentOp;
+    public sealed record MutateCase(Seq<DocumentMutation> Mutations) : DocumentOp;
 
-    public static readonly DocumentOp Snapshot = new SnapshotCase();
-    public static DocumentOp Objects(ObjectsScope scope) => new ObjectsCase(Scope: scope);
-    public static DocumentOp Object(Guid id) => new ObjectCase(Id: id);
-    public static DocumentOp Parameter(Guid id) => new ParameterCase(Id: id);
-    public static DocumentOp Grip(PointF point, GripKind? kind = null) => new GripCase(Point: point, Kind: kind ?? GripKind.InletOrOutlet);
-    public static DocumentOp Find(FindCriterion criterion) => new FindCase(Criterion: criterion);
-    public static readonly DocumentOp MetaNames = new MetaNamesCase();
-    public static DocumentOp Selection(SelectionOp op) => new SelectionCase(Op: op);
-    public static DocumentOp Display(DisplayOp op) => new DisplayCase(Op: op);
-    public static DocumentOp Clipboard(ClipboardOp op) => new ClipboardCase(Op: op);
-    public static DocumentOp Compose(ComposeOp op) => new ComposeCase(Op: op);
-    public static DocumentOp Colour(GhColour? colour = null) => new ColourCase(Override: Optional(colour));
-    public static DocumentOp Drop(Guid proxyId, PointF location) => new DropCase(ProxyId: proxyId, Location: location);
-    public static DocumentOp AddDependency(PointF location) => new AddDependencyCase(Location: location);
-    public static DocumentOp Isolate(IsolateOptions options = default) => new IsolateCase(Options: options);
-    public static DocumentOp GrowSelection(bool upstream = true, bool downstream = true) => new GrowSelectionCase(Upstream: upstream, Downstream: downstream);
-    public static DocumentOp Batch(params GrasshopperUiIntent<DocumentResult>[] steps) => new BatchCase(Steps: toSeq(steps));
+    public static DocumentOp Query(DocumentQuery query) => new QueryCase(Request: query);
+    public static DocumentOp Mutate(params DocumentMutation[] mutations) => new MutateCase(Mutations: toSeq(mutations));
 }
 
 [Union]
@@ -212,30 +202,64 @@ public readonly record struct ParameterSnapshot(
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct DocumentGripSnapshot(Guid Parameter, bool InletWithinRange, bool OutletWithinRange);
 
-public abstract record DocumentRequest<T> : GhUiRequest<T> {
-    public sealed record Use(DocumentOp Op) : DocumentRequest<DocumentResult> {
-        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Document(repaint: UiRail.DocumentRepaintFor(op: Op));
-        internal override Fin<DocumentResult> Apply(GrasshopperUi.Scope scope) => UiRail.DocumentDispatch(scope: scope, op: Op);
-    }
-    public sealed record Transaction(Seq<DocumentMutation> Mutations) : DocumentRequest<Snapshot<DocumentMutationDelta>> {
-        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas);
-        internal override Fin<Snapshot<DocumentMutationDelta>> Apply(GrasshopperUi.Scope scope) =>
-            from methods in scope.NeedMethods()
-            from document in scope.NeedDocument()
-            from objects in scope.NeedObjects()
-            let actions = new ActionList([])
-            from changed in Mutations.TraverseM(m => m.Apply(methods: methods, objects: objects, actions: actions)).Map(static xs => xs.Fold(initialState: 0, f: static (sum, value) => sum + value)).As()
-            from _ in UiRail.CommitActions(document: document, op: Op.Of(name: nameof(Transaction)), actions: actions)
-            select Snapshot.Of(
-                payload: new DocumentMutationDelta(Changed: changed, After: UiRail.DocumentSnapshotOf(document: document, objects: objects)),
-                ownerId: Some(document.Hash));
-    }
+public sealed record DocumentRequest(DocumentOp Op) : GhUiRequest<DocumentResult> {
+    internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Document(repaint: UiRail.DocumentRepaintFor(op: Op));
+    internal override Fin<DocumentResult> Apply(GrasshopperUi.Scope scope) => UiRail.DocumentDispatch(scope: scope, op: Op);
 }
 
 public abstract record DocumentMutation {
     public sealed record Targets(Seq<Guid> Ids, DocumentTargetOp Op) : DocumentMutation;
+    public sealed record SelectionCase(SelectionOp Op) : DocumentMutation;
+    public sealed record DisplayCase(DisplayOp Op) : DocumentMutation;
+    public sealed record ClipboardCase(ClipboardOp Op) : DocumentMutation;
+    public sealed record ComposeCase(ComposeOp Op) : DocumentMutation;
+    public sealed record ColourCase(Option<GhColour> Override) : DocumentMutation;
+    public sealed record DropCase(Guid ProxyId, PointF Location) : DocumentMutation;
+    public sealed record AddDependencyCase(PointF Location) : DocumentMutation;
+    public sealed record IsolateCase(IsolateOptions Options) : DocumentMutation;
+    public sealed record GrowSelectionCase(bool Upstream, bool Downstream) : DocumentMutation;
+
+    public static DocumentMutation Selection(SelectionOp op) => new SelectionCase(Op: op);
+    public static DocumentMutation Display(DisplayOp op) => new DisplayCase(Op: op);
+    public static DocumentMutation Clipboard(ClipboardOp op) => new ClipboardCase(Op: op);
+    public static DocumentMutation Compose(ComposeOp op) => new ComposeCase(Op: op);
+    public static DocumentMutation Colour(GhColour? colour = null) => new ColourCase(Override: Optional(colour));
+    public static DocumentMutation Drop(Guid proxyId, PointF location) => new DropCase(ProxyId: proxyId, Location: location);
+    public static DocumentMutation AddDependency(PointF location) => new AddDependencyCase(Location: location);
+    public static DocumentMutation Isolate(IsolateOptions options = default) => new IsolateCase(Options: options);
+    public static DocumentMutation GrowSelection(bool upstream = true, bool downstream = true) => new GrowSelectionCase(Upstream: upstream, Downstream: downstream);
+
     internal Fin<int> Apply(GhDocumentMethods methods, GhObjectList objects, ActionList actions) => this switch {
         Targets targets => targets.Op.Apply(methods: methods, objects: objects, ids: targets.Ids, actions: actions),
+        SelectionCase selection => UiRail.SelectionDispatch(methods: methods, op: selection.Op, actions: actions),
+        DisplayCase display => UiRail.DisplayDispatch(methods: methods, op: display.Op, actions: actions),
+        ClipboardCase clipboard => UiRail.ClipboardDispatch(methods: methods, op: clipboard.Op, actions: actions),
+        ComposeCase compose => UiRail.ComposeDispatch(methods: methods, op: compose.Op, actions: actions).Map(static created => created.IsSome ? 1 : 0),
+        DropCase drop => Optional((drop.ProxyId, drop.Location))
+            .Filter(static s => s.ProxyId != Guid.Empty && float.IsFinite(s.Location.X) && float.IsFinite(s.Location.Y))
+            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Drop)), detail: "empty proxy id or non-finite location"))
+            .Map(valid => methods.DropObject(obj: valid.ProxyId, location: valid.Location, actions: actions) ? 1 : 0),
+        AddDependencyCase dependency => Optional(dependency.Location)
+            .Filter(static p => float.IsFinite(p.X) && float.IsFinite(p.Y))
+            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(AddDependency)), detail: "non-finite location"))
+            .Map(valid => methods.AddDependency(location: valid, actions: actions) is null ? 0 : 1),
+        IsolateCase isolate =>
+            from primary in Optional(objects.SelectedObjects.FirstOrDefault())
+                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Isolate)), detail: "no object selected to isolate"))
+            from _ in Try.lift<Unit>(f: () => {
+                methods.IsolateObject(obj: primary,
+                    pins: isolate.Options.IncludePins,
+                    inputs: isolate.Options.IncludeInputs,
+                    outputs: isolate.Options.IncludeOutputs,
+                    omit: [.. objects.SelectedObjects.Select(static o => o.InstanceId)],
+                    actions: actions);
+                return unit;
+            }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(Isolate)), detail: "IsolateObject threw"))
+            select 1,
+        ColourCase colour => Fin.Succ(value: methods.SetColourOverrideSelected(
+            colour: colour.Override.Map(static value => (GhColour?)value).IfNone((GhColour?)null),
+            actions: actions)),
+        GrowSelectionCase grow => Fin.Succ(value: methods.GrowSelection(upstream: grow.Upstream, downstream: grow.Downstream)),
         _ => Fin.Fail<int>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentMutation)), detail: "unknown document mutation")),
     };
 }
@@ -273,157 +297,139 @@ public abstract record DocumentTargetOp {
 internal static partial class UiRail {
     internal static GrasshopperUiIntent<DocumentResult> Document(DocumentOp op) {
         ArgumentNullException.ThrowIfNull(argument: op);
-        return GhUi.Apply(new DocumentRequest<DocumentResult>.Use(Op: op));
+        return GhUi.Apply(new DocumentRequest(Op: op));
     }
 
     // --- [OPERATIONS] ----------------------------------------------------------------------
     internal static Fin<DocumentResult> DocumentDispatch(GrasshopperUi.Scope scope, DocumentOp op) => op switch {
-        DocumentOp.SnapshotCase =>
-            from doc in scope.NeedDocument()
-            from objs in scope.NeedObjects()
-            select (DocumentResult)new DocumentResult.SnapshotResult(Snapshot: DocumentSnapshotOf(document: doc, objects: objs)),
-
-        DocumentOp.ObjectsCase o =>
-            scope.NeedObjects().Map(objs => (DocumentResult)new DocumentResult.ObjectListResult(
-                Snapshots: toSeq(ProjectObjects(scope: o.Scope, objects: objs).Select(DocumentObjectSnapshotOf)))),
-
-        DocumentOp.ObjectCase obj =>
-            Optional(obj.Id).Filter(static g => g != Guid.Empty)
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentOp.Object)), detail: "empty Guid"))
-                .Bind(valid => scope.NeedObjects().Map(objs => (DocumentResult)new DocumentResult.ObjectResult(
-                    Snapshot: Optional(objs.Find(instanceId: valid)).Map(DocumentObjectSnapshotOf)))),
-
-        DocumentOp.ParameterCase param =>
-            Optional(param.Id).Filter(static g => g != Guid.Empty)
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentOp.Parameter)), detail: "empty Guid"))
-                .Bind(valid => scope.NeedObjects().Map(objs => (DocumentResult)new DocumentResult.ParameterResult(
-                    Snapshot: Optional(objs.FindParameter(instanceId: valid)).Map(ParameterSnapshotOf)))),
-
-        DocumentOp.GripCase g =>
-            Optional(g.Point).Filter(static p => float.IsFinite(p.X) && float.IsFinite(p.Y))
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentOp.Grip)), detail: "non-finite point"))
-                .Bind(_ => scope.NeedObjects().Map(objs => (DocumentResult)new DocumentResult.GripResult(
-                    Grip: GripSnapshotOf(objects: objs, point: g.Point, kind: g.Kind)))),
-
-        DocumentOp.FindCase f =>
-            scope.NeedObjects().Bind(objs => FindBy(objects: objs, criterion: f.Criterion)
-                .Map(matches => (DocumentResult)new DocumentResult.FindResult(Matches: matches))),
-
-        DocumentOp.MetaNamesCase =>
-            scope.NeedObjects().Map(objs => (DocumentResult)new DocumentResult.MetaNamesResult(Names: toSeq(objs.MetaNames()))),
-
-        DocumentOp.SelectionCase s =>
-            RunMutation(scope: scope, op: Op.Of(name: $"Selection.{NameOfSelection(case_: s.Op)}"),
-                mutate: (methods, _, actions) => SelectionDispatch(methods: methods, op: s.Op, actions: actions))
-                .Map(static delta => (DocumentResult)new DocumentResult.MutationResult(Delta: delta)),
-
-        DocumentOp.DisplayCase d =>
-            RunMutation(scope: scope, op: Op.Of(name: $"Display.{NameOfDisplay(case_: d.Op)}"),
-                mutate: (methods, _, actions) => DisplayDispatch(methods: methods, op: d.Op, actions: actions))
-                .Map(static delta => (DocumentResult)new DocumentResult.MutationResult(Delta: delta)),
-
-        DocumentOp.ClipboardCase c =>
-            RunMutation(scope: scope, op: Op.Of(name: $"Clipboard.{NameOfClipboard(case_: c.Op)}"),
-                mutate: (methods, _, actions) => ClipboardDispatch(methods: methods, op: c.Op, actions: actions))
-                .Map(static delta => (DocumentResult)new DocumentResult.MutationResult(Delta: delta)),
-
-        DocumentOp.ComposeCase c =>
-            from methods in scope.NeedMethods()
-            from doc in scope.NeedDocument()
-            from objs in scope.NeedObjects()
-            let actions = new ActionList([])
-            from created in ComposeDispatch(methods: methods, op: c.Op, actions: actions)
-            from _ in CommitActions(document: doc, op: Op.Of(name: nameof(DocumentOp.Compose)), actions: actions)
-            select (DocumentResult)new DocumentResult.ComposeResult(
-                Delta: Snapshot.Of<DocumentMutationDelta>(
-                    payload: new DocumentMutationDelta(Changed: created.IsSome ? 1 : 0, After: DocumentSnapshotOf(document: doc, objects: objs)),
-                    ownerId: Some(doc.Hash)),
-                CreatedId: created),
-
-        DocumentOp.ColourCase c =>
-            RunMutation(scope: scope, op: Op.Of(name: nameof(DocumentOp.Colour)),
-                mutate: (methods, _, actions) => Fin.Succ(value: methods.SetColourOverrideSelected(
-                    colour: c.Override.Map(static value => (GhColour?)value).IfNone((GhColour?)null),
-                    actions: actions)))
-                .Map(static delta => (DocumentResult)new DocumentResult.MutationResult(Delta: delta)),
-
-        DocumentOp.DropCase d =>
-            Optional((d.ProxyId, d.Location))
-                .Filter(static s => s.ProxyId != Guid.Empty && float.IsFinite(s.Location.X) && float.IsFinite(s.Location.Y))
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentOp.Drop)), detail: "empty proxy id or non-finite location"))
-                .Bind(valid =>
-                    from methods in scope.NeedMethods()
-                    from doc in scope.NeedDocument()
-                    from objs in scope.NeedObjects()
-                    let actions = new ActionList([])
-                    let placed = methods.DropObject(obj: valid.ProxyId, location: valid.Location, actions: actions)
-                    from _ in CommitActions(document: doc, op: Op.Of(name: nameof(DocumentOp.Drop)), actions: actions)
-                    select (DocumentResult)new DocumentResult.DropResult(
-                        Delta: Snapshot.Of<DocumentMutationDelta>(
-                            payload: new DocumentMutationDelta(Changed: placed ? 1 : 0, After: DocumentSnapshotOf(document: doc, objects: objs)),
-                            ownerId: Some(doc.Hash)),
-                        Placed: placed)),
-
-        DocumentOp.AddDependencyCase a =>
-            Optional(a.Location).Filter(static p => float.IsFinite(p.X) && float.IsFinite(p.Y))
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentOp.AddDependency)), detail: "non-finite location"))
-                .Bind(valid =>
-                    from methods in scope.NeedMethods()
-                    from doc in scope.NeedDocument()
-                    from objs in scope.NeedObjects()
-                    let actions = new ActionList([])
-                    let listen = methods.AddDependency(location: valid, actions: actions)
-                    from _ in CommitActions(document: doc, op: Op.Of(name: nameof(DocumentOp.AddDependency)), actions: actions)
-                    select (DocumentResult)new DocumentResult.DependencyResult(
-                        Delta: Snapshot.Of<DocumentMutationDelta>(
-                            payload: new DocumentMutationDelta(Changed: listen is not null ? 1 : 0, After: DocumentSnapshotOf(document: doc, objects: objs)),
-                            ownerId: Some(doc.Hash)),
-                        Listener: Optional(listen?.InstanceId).Filter(static g => g != Guid.Empty),
-                        ShoutId: Optional(listen?.ShoutId).Filter(static g => g != Guid.Empty))),
-
-        DocumentOp.IsolateCase i =>
-            from methods in scope.NeedMethods()
-            from objs in scope.NeedObjects()
-            from doc in scope.NeedDocument()
-            let actions = new ActionList([])
-            from primary in Optional(objs.SelectedObjects.FirstOrDefault())
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentOp.Isolate)), detail: "no object selected to isolate"))
-            from _ in Try.lift<Unit>(f: () => {
-                methods.IsolateObject(obj: primary,
-                    pins: i.Options.IncludePins,
-                    inputs: i.Options.IncludeInputs,
-                    outputs: i.Options.IncludeOutputs,
-                    omit: [.. objs.SelectedObjects.Select(static o => o.InstanceId)],
-                    actions: actions);
-                return unit;
-            }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(DocumentOp.Isolate)), detail: "IsolateObject threw"))
-            from committed in CommitActions(document: doc, op: Op.Of(name: nameof(DocumentOp.Isolate)), actions: actions)
-            select (DocumentResult)new DocumentResult.MutationResult(
-                Delta: Snapshot.Of<DocumentMutationDelta>(
-                    payload: new DocumentMutationDelta(Changed: 1, After: DocumentSnapshotOf(document: doc, objects: objs)),
-                    ownerId: Some(doc.Hash))),
-
-        DocumentOp.GrowSelectionCase g =>
-            RunMutation(scope: scope, op: Op.Of(name: nameof(DocumentOp.GrowSelection)),
-                mutate: (methods, _, _) => Fin.Succ(value: methods.GrowSelection(upstream: g.Upstream, downstream: g.Downstream)))
-                .Map(static delta => (DocumentResult)new DocumentResult.MutationResult(Delta: delta)),
-
-        DocumentOp.BatchCase b =>
-            from doc in scope.NeedDocument()
-            from objs in scope.NeedObjects()
-            from outcome in RunBatch(scope: scope, steps: b.Steps, doc: doc, objs: objs)
-            select (DocumentResult)new DocumentResult.MutationResult(Delta: outcome),
-
+        DocumentOp.QueryCase q => QueryDispatch(scope: scope, query: q.Request),
+        DocumentOp.MutateCase m => MutateDispatch(scope: scope, mutations: m.Mutations),
         _ => Fin.Fail<DocumentResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Document)), detail: "unknown DocumentOp")),
     };
 
     internal static RepaintRequest DocumentRepaintFor(DocumentOp op) => op switch {
-        DocumentOp.SnapshotCase or DocumentOp.ObjectsCase or DocumentOp.ObjectCase or
-        DocumentOp.ParameterCase or DocumentOp.GripCase or DocumentOp.FindCase or DocumentOp.MetaNamesCase => RepaintRequest.None,
+        DocumentOp.QueryCase => RepaintRequest.None,
         _ => RepaintRequest.Canvas,
     };
 
-    private static Fin<int> SelectionDispatch(GhDocumentMethods methods, SelectionOp op, ActionList actions) => op switch {
+    private static Fin<DocumentResult> QueryDispatch(GrasshopperUi.Scope scope, DocumentQuery query) => query switch {
+        DocumentQuery.SnapshotCase =>
+            from doc in scope.NeedDocument()
+            from objs in scope.NeedObjects()
+            select (DocumentResult)new DocumentResult.SnapshotResult(Snapshot: DocumentSnapshotOf(document: doc, objects: objs)),
+        DocumentQuery.ObjectsCase o =>
+            scope.NeedObjects().Map(objs => (DocumentResult)new DocumentResult.ObjectListResult(
+                Snapshots: toSeq(ProjectObjects(scope: o.Scope, objects: objs).Select(DocumentObjectSnapshotOf)))),
+        DocumentQuery.ObjectCase obj =>
+            Optional(obj.Id).Filter(static g => g != Guid.Empty)
+                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentQuery.Object)), detail: "empty Guid"))
+                .Bind(valid => scope.NeedObjects().Map(objs => (DocumentResult)new DocumentResult.ObjectResult(
+                    Snapshot: Optional(objs.Find(instanceId: valid)).Map(DocumentObjectSnapshotOf)))),
+        DocumentQuery.ParameterCase param =>
+            Optional(param.Id).Filter(static g => g != Guid.Empty)
+                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentQuery.Parameter)), detail: "empty Guid"))
+                .Bind(valid => scope.NeedObjects().Map(objs => (DocumentResult)new DocumentResult.ParameterResult(
+                    Snapshot: Optional(objs.FindParameter(instanceId: valid)).Map(ParameterSnapshotOf)))),
+        DocumentQuery.GripCase g =>
+            Optional(g.Point).Filter(static p => float.IsFinite(p.X) && float.IsFinite(p.Y))
+                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentQuery.Grip)), detail: "non-finite point"))
+                .Bind(_ => scope.NeedObjects().Map(objs => (DocumentResult)new DocumentResult.GripResult(
+                    Grip: GripSnapshotOf(objects: objs, point: g.Point, kind: g.Kind)))),
+        DocumentQuery.FindCase f =>
+            scope.NeedObjects().Bind(objs => FindBy(objects: objs, criterion: f.Criterion)
+                .Map(matches => (DocumentResult)new DocumentResult.FindResult(Matches: matches))),
+        DocumentQuery.MetaNamesCase =>
+            scope.NeedObjects().Map(objs => (DocumentResult)new DocumentResult.MetaNamesResult(Names: toSeq(objs.MetaNames()))),
+        _ => Fin.Fail<DocumentResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(QueryDispatch)), detail: "unknown DocumentQuery")),
+    };
+
+    private static Fin<DocumentResult> MutateDispatch(GrasshopperUi.Scope scope, Seq<DocumentMutation> mutations) =>
+        (mutations.Count == 1 ? mutations.Head : Option<DocumentMutation>.None).Match(
+            Some: mutation => mutation switch {
+                DocumentMutation.ComposeCase c => ComposeMutation(scope: scope, op: c.Op),
+                DocumentMutation.DropCase d => DropMutation(scope: scope, proxyId: d.ProxyId, location: d.Location),
+                DocumentMutation.AddDependencyCase a => AddDependencyMutation(scope: scope, location: a.Location),
+                DocumentMutation.IsolateCase i => IsolateMutation(scope: scope, options: i.Options),
+                _ => BatchMutation(scope: scope, mutations: mutations),
+            },
+            None: () => BatchMutation(scope: scope, mutations: mutations));
+
+    private static Fin<DocumentResult> BatchMutation(GrasshopperUi.Scope scope, Seq<DocumentMutation> mutations) =>
+        RunMutation(scope: scope, op: Op.Of(name: nameof(DocumentOp.Mutate)),
+            mutate: (methods, objects, actions) => mutations.TraverseM(m => m.Apply(methods: methods, objects: objects, actions: actions))
+                .Map(static counts => counts.Fold(initialState: 0, f: static (sum, count) => sum + count)).As())
+            .Map(static delta => (DocumentResult)new DocumentResult.MutationResult(Delta: delta));
+
+    private static Fin<DocumentResult> ComposeMutation(GrasshopperUi.Scope scope, ComposeOp op) =>
+        from methods in scope.NeedMethods()
+        from doc in scope.NeedDocument()
+        from objs in scope.NeedObjects()
+        let actions = new ActionList([])
+        from created in ComposeDispatch(methods: methods, op: op, actions: actions)
+        from _ in CommitActions(document: doc, op: Op.Of(name: nameof(DocumentMutation.Compose)), actions: actions)
+        select (DocumentResult)new DocumentResult.ComposeResult(
+            Delta: Snapshot.Of<DocumentMutationDelta>(
+                payload: new DocumentMutationDelta(Changed: created.IsSome ? 1 : 0, After: DocumentSnapshotOf(document: doc, objects: objs)),
+                ownerId: Some(doc.Hash)),
+            CreatedId: created);
+
+    private static Fin<DocumentResult> DropMutation(GrasshopperUi.Scope scope, Guid proxyId, PointF location) =>
+        Optional((ProxyId: proxyId, Location: location))
+            .Filter(static s => s.ProxyId != Guid.Empty && float.IsFinite(s.Location.X) && float.IsFinite(s.Location.Y))
+            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentMutation.Drop)), detail: "empty proxy id or non-finite location"))
+            .Bind(valid =>
+                from methods in scope.NeedMethods()
+                from doc in scope.NeedDocument()
+                from objs in scope.NeedObjects()
+                let actions = new ActionList([])
+                let placed = methods.DropObject(obj: valid.ProxyId, location: valid.Location, actions: actions)
+                from _ in CommitActions(document: doc, op: Op.Of(name: nameof(DocumentMutation.Drop)), actions: actions)
+                select (DocumentResult)new DocumentResult.DropResult(
+                    Delta: Snapshot.Of<DocumentMutationDelta>(
+                        payload: new DocumentMutationDelta(Changed: placed ? 1 : 0, After: DocumentSnapshotOf(document: doc, objects: objs)),
+                        ownerId: Some(doc.Hash)),
+                    Placed: placed));
+
+    private static Fin<DocumentResult> AddDependencyMutation(GrasshopperUi.Scope scope, PointF location) =>
+        Optional(location).Filter(static p => float.IsFinite(p.X) && float.IsFinite(p.Y))
+            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentMutation.AddDependency)), detail: "non-finite location"))
+            .Bind(valid =>
+                from methods in scope.NeedMethods()
+                from doc in scope.NeedDocument()
+                from objs in scope.NeedObjects()
+                let actions = new ActionList([])
+                let listen = methods.AddDependency(location: valid, actions: actions)
+                from _ in CommitActions(document: doc, op: Op.Of(name: nameof(DocumentMutation.AddDependency)), actions: actions)
+                select (DocumentResult)new DocumentResult.DependencyResult(
+                    Delta: Snapshot.Of<DocumentMutationDelta>(
+                        payload: new DocumentMutationDelta(Changed: listen is not null ? 1 : 0, After: DocumentSnapshotOf(document: doc, objects: objs)),
+                        ownerId: Some(doc.Hash)),
+                    Listener: Optional(listen?.InstanceId).Filter(static g => g != Guid.Empty),
+                    ShoutId: Optional(listen?.ShoutId).Filter(static g => g != Guid.Empty)));
+
+    private static Fin<DocumentResult> IsolateMutation(GrasshopperUi.Scope scope, IsolateOptions options) =>
+        from methods in scope.NeedMethods()
+        from objs in scope.NeedObjects()
+        from doc in scope.NeedDocument()
+        let actions = new ActionList([])
+        from primary in Optional(objs.SelectedObjects.FirstOrDefault())
+            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentMutation.Isolate)), detail: "no object selected to isolate"))
+        from _ in Try.lift<Unit>(f: () => {
+            methods.IsolateObject(obj: primary,
+                pins: options.IncludePins,
+                inputs: options.IncludeInputs,
+                outputs: options.IncludeOutputs,
+                omit: [.. objs.SelectedObjects.Select(static o => o.InstanceId)],
+                actions: actions);
+            return unit;
+        }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(DocumentMutation.Isolate)), detail: "IsolateObject threw"))
+        from committed in CommitActions(document: doc, op: Op.Of(name: nameof(DocumentMutation.Isolate)), actions: actions)
+        select (DocumentResult)new DocumentResult.MutationResult(
+            Delta: Snapshot.Of<DocumentMutationDelta>(
+                payload: new DocumentMutationDelta(Changed: 1, After: DocumentSnapshotOf(document: doc, objects: objs)),
+                ownerId: Some(doc.Hash)));
+
+    internal static Fin<int> SelectionDispatch(GhDocumentMethods methods, SelectionOp op, ActionList actions) => op switch {
         SelectionOp.AllCase => Fin.Succ(value: methods.SelectAll()),
         SelectionOp.NoneCase => Fin.Succ(value: methods.DeselectAll()),
         SelectionOp.InvertCase => Fin.Succ(value: methods.InvertSelection()),
@@ -436,7 +442,7 @@ internal static partial class UiRail {
         _ => Fin.Fail<int>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(SelectionDispatch)), detail: "unknown selection op")),
     };
 
-    private static Fin<int> DisplayDispatch(GhDocumentMethods methods, DisplayOp op, ActionList actions) => op switch {
+    internal static Fin<int> DisplayDispatch(GhDocumentMethods methods, DisplayOp op, ActionList actions) => op switch {
         DisplayOp.InputsCase { Change: VisibilityChange.ShowCase } => Fin.Succ(value: methods.ShowSelectedInputs(actions: actions)),
         DisplayOp.InputsCase { Change: VisibilityChange.HideCase } => Fin.Succ(value: methods.HideSelectedInputs(actions: actions)),
         DisplayOp.OutputsCase { Change: VisibilityChange.ShowCase } => Fin.Succ(value: methods.ShowSelectedOutputs(actions: actions)),
@@ -446,7 +452,7 @@ internal static partial class UiRail {
         _ => Fin.Fail<int>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(DisplayDispatch)), detail: "unknown display op")),
     };
 
-    private static Fin<int> ClipboardDispatch(GhDocumentMethods methods, ClipboardOp op, ActionList actions) => op switch {
+    internal static Fin<int> ClipboardDispatch(GhDocumentMethods methods, ClipboardOp op, ActionList actions) => op switch {
         ClipboardOp.CopyCase c => ValidateClipboard(name: nameof(ClipboardOp.Copy), clipboard: c.Kind).Map(k => methods.CopySelection(clipboard: k) ? 1 : 0),
         ClipboardOp.CutCase c => ValidateClipboard(name: nameof(ClipboardOp.Cut), clipboard: c.Kind).Map(k => methods.CutSelection(clipboard: k, actions: actions) ? 1 : 0),
         ClipboardOp.PasteCase p => ValidateClipboard(name: nameof(ClipboardOp.Paste), clipboard: p.Kind).Map(k => methods.PasteFromClipboard(clipboard: k, behaviour: p.Behaviour, actions: actions) ? 1 : 0),
@@ -454,7 +460,7 @@ internal static partial class UiRail {
         _ => Fin.Fail<int>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ClipboardDispatch)), detail: "unknown clipboard op")),
     };
 
-    private static Fin<Option<Guid>> ComposeDispatch(GhDocumentMethods methods, ComposeOp op, ActionList actions) => op switch {
+    internal static Fin<Option<Guid>> ComposeDispatch(GhDocumentMethods methods, ComposeOp op, ActionList actions) => op switch {
         ComposeOp.GroupCase g => Fin.Succ(value: NonEmptyIdOf(Optional(methods.GroupSelection(
             name: g.Name.IfNone(string.Empty),
             colour: g.Colour.Map(static c => (GhOpenColorFamily?)c).IfNone((GhOpenColorFamily?)null),
@@ -534,41 +540,6 @@ internal static partial class UiRail {
                 return unit;
             }).Run().MapFail(_ => UiFault.MutationRejected(op: op, detail: "History.Do threw"));
 
-    private static Fin<Snapshot<DocumentMutationDelta>> RunBatch(
-        GrasshopperUi.Scope scope, Seq<GrasshopperUiIntent<DocumentResult>> steps,
-        GhDocument doc, GhObjectList objs) =>
-        steps.IsEmpty switch {
-            true => Fin.Succ(value: Snapshot.Of<DocumentMutationDelta>(
-                payload: new DocumentMutationDelta(Changed: 0, After: DocumentSnapshotOf(document: doc, objects: objs)),
-                ownerId: Some(doc.Hash))),
-            false => RunBatchSteps(scope: scope, steps: steps, doc: doc, objs: objs),
-        };
-
-    private static Fin<Snapshot<DocumentMutationDelta>> RunBatchSteps(
-        GrasshopperUi.Scope scope, Seq<GrasshopperUiIntent<DocumentResult>> steps,
-        GhDocument doc, GhObjectList objs) {
-        UndoGroup bag = new(verb: "Edit", noun: steps.Count == 1 ? "Mutation" : $"{steps.Count} Mutations");
-        GrasshopperUi.Scope scoped = scope with { UndoGroup = Some(bag) };
-        return steps.Fold(
-                initialState: Fin.Succ<int>(0),
-                f: (state, step) =>
-                    from running in state
-                    from result in step.Run(scope: scoped)
-                    let changed = ChangeCountOf(result: result)
-                    select running + changed)
-            .Bind(total => bag.Commit(document: doc).Map(_ => Snapshot.Of<DocumentMutationDelta>(
-                payload: new DocumentMutationDelta(Changed: total, After: DocumentSnapshotOf(document: doc, objects: objs)),
-                ownerId: Some(doc.Hash))));
-    }
-
-    private static int ChangeCountOf(DocumentResult result) => result switch {
-        DocumentResult.MutationResult m => m.Delta.Payload.Changed,
-        DocumentResult.ComposeResult c => c.Delta.Payload.Changed,
-        DocumentResult.DropResult d => d.Delta.Payload.Changed,
-        DocumentResult.DependencyResult dep => dep.Delta.Payload.Changed,
-        _ => 0,
-    };
-
     internal static DocumentSnapshot DocumentSnapshotOf(GhDocument document, GhObjectList objects) {
         Seq<WireEnds> allWires = Optional(objects.AllWires).Map(static wires => toSeq(wires)).IfNone(Seq<WireEnds>());
         Seq<WireEnds> selectedWires = Optional(objects.SelectedWires).Map(static wires => toSeq(wires)).IfNone(Seq<WireEnds>());
@@ -603,7 +574,4 @@ internal static partial class UiRail {
             OutputCount: parameter.Outputs.Count,
             HasColourOverride: !parameter.ColourOverride.Equals(obj: default(GhColour)));
 
-    private static string NameOfSelection(SelectionOp case_) => case_.GetType().Name.Replace(oldValue: "Case", newValue: string.Empty, comparisonType: StringComparison.Ordinal);
-    private static string NameOfDisplay(DisplayOp case_) => case_.GetType().Name.Replace(oldValue: "Case", newValue: string.Empty, comparisonType: StringComparison.Ordinal);
-    private static string NameOfClipboard(ClipboardOp case_) => case_.GetType().Name.Replace(oldValue: "Case", newValue: string.Empty, comparisonType: StringComparison.Ordinal);
 }

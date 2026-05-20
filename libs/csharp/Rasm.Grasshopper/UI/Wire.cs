@@ -38,58 +38,93 @@ public partial record WireSelectionOp {
 
 public enum WireTraversal { Upstream, Downstream, Bidirectional }
 
+[Union]
+public partial record WireQuery {
+    private WireQuery() { }
+    public sealed record AllCase : WireQuery;
+    public sealed record SelectedCase : WireQuery;
+    public sealed record DanglingCase : WireQuery;
+    public sealed record PickCase(PointF Point) : WireQuery;
+    public sealed record GraphCase(Guid StartParameterId, WireTraversal Direction, int MaxHops) : WireQuery;
+    public static readonly WireQuery All = new AllCase();
+    public static readonly WireQuery Selected = new SelectedCase();
+    public static readonly WireQuery Dangling = new DanglingCase();
+    public static WireQuery Pick(PointF point) => new PickCase(Point: point);
+    public static WireQuery Graph(Guid startParameterId, WireTraversal direction = WireTraversal.Bidirectional, int maxHops = 32) =>
+        new GraphCase(StartParameterId: startParameterId, Direction: direction, MaxHops: maxHops);
+}
+
+[Union]
+public partial record WireOp {
+    private WireOp() { }
+    public sealed record QueryCase(WireQuery Request) : WireOp;
+    public sealed record SelectCase(WireSelectionOp Op) : WireOp;
+    public sealed record SplitCase(WireSnapshot.ConnectedCase Wire, PointF Location) : WireOp;
+    public static WireOp Query(WireQuery query) => new QueryCase(Request: query);
+    public static WireOp Select(WireSelectionOp op) => new SelectCase(Op: op);
+    public static WireOp Split(WireSnapshot.ConnectedCase wire, PointF location) => new SplitCase(Wire: wire, Location: location);
+}
+
+[Union]
+public partial record WireResult {
+    private WireResult() { }
+    public sealed record WiresCase(Seq<WireSnapshot.ConnectedCase> Wires) : WireResult;
+    public sealed record WireCase(WireSnapshot Wire) : WireResult;
+    public sealed record GraphCase(WireGraph Graph) : WireResult;
+    public sealed record MutationCase(Snapshot<DocumentMutationDelta> Delta) : WireResult;
+    public sealed record SplitCase(Snapshot<WireSplitDelta> Delta) : WireResult;
+}
+
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct WireGraph(
     Seq<WireSnapshot.ConnectedCase> Wires,
     Seq<Guid> Visited);
 
-public abstract record WireRequest<T> : GhUiRequest<T> {
-    public sealed record All : WireRequest<Seq<WireSnapshot.ConnectedCase>> {
-        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Document();
-        internal override Fin<Seq<WireSnapshot.ConnectedCase>> Apply(GrasshopperUi.Scope scope) => Wire.All().Run(scope: scope);
-    }
-    public sealed record Selected : WireRequest<Seq<WireSnapshot.ConnectedCase>> {
-        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Document();
-        internal override Fin<Seq<WireSnapshot.ConnectedCase>> Apply(GrasshopperUi.Scope scope) => Wire.Selected().Run(scope: scope);
-    }
-    public sealed record Dangling : WireRequest<Seq<WireSnapshot.ConnectedCase>> {
-        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Document();
-        internal override Fin<Seq<WireSnapshot.ConnectedCase>> Apply(GrasshopperUi.Scope scope) => Wire.Dangling().Run(scope: scope);
-    }
-    public sealed record Pick(PointF Point) : WireRequest<WireSnapshot> {
-        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Document();
-        internal override Fin<WireSnapshot> Apply(GrasshopperUi.Scope scope) => Wire.Pick(point: Point).Run(scope: scope);
-    }
-    public sealed record Selection(WireSelectionOp Op) : WireRequest<Snapshot<DocumentMutationDelta>> {
-        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas);
-        internal override Fin<Snapshot<DocumentMutationDelta>> Apply(GrasshopperUi.Scope scope) => Wire.Selection(op: Op).Run(scope: scope);
-    }
-    public sealed record Split(WireSnapshot.ConnectedCase Wire, string Name, PointF Location) : WireRequest<Snapshot<WireSplitDelta>> {
-        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas);
-        internal override Fin<Snapshot<WireSplitDelta>> Apply(GrasshopperUi.Scope scope) => Rasm.Grasshopper.UI.Wire.Split(Wire, Name, Location).Run(scope: scope);
-    }
-    public sealed record Graph(Guid StartParameterId, WireTraversal Direction = WireTraversal.Bidirectional, int MaxHops = 32) : WireRequest<WireGraph> {
-        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Document();
-        internal override Fin<WireGraph> Apply(GrasshopperUi.Scope scope) => Wire.Graph(startParameterId: StartParameterId, direction: Direction, maxHops: MaxHops).Run(scope: scope);
-    }
+public sealed record WireRequest(WireOp Op) : GhUiRequest<WireResult> {
+    internal override GrasshopperUiPolicy Policy => Wire.PolicyOf(op: Op);
+    internal override Fin<WireResult> Apply(GrasshopperUi.Scope scope) => Wire.Dispatch(op: Op).Run(scope: scope);
 }
 
 // --- [SERVICES] --------------------------------------------------------------------------
 internal static partial class Wire {
+    internal static GrasshopperUiPolicy PolicyOf(WireOp op) =>
+        GrasshopperUiPolicy.Document(repaint: op switch {
+            WireOp.SelectCase or WireOp.SplitCase => RepaintRequest.Canvas,
+            _ => RepaintRequest.None,
+        });
+
+    internal static GrasshopperUiIntent<WireResult> Dispatch(WireOp op) =>
+        op switch {
+            WireOp.QueryCase q => Query(query: q.Request),
+            WireOp.SelectCase s => Selection(op: s.Op).Map(delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
+            WireOp.SplitCase s => Split(wire: s.Wire, location: s.Location).Map(delta => (WireResult)new WireResult.SplitCase(Delta: delta)),
+            _ => GhUi.Document<WireResult>(run: _ => Fin.Fail<WireResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Dispatch)), detail: "unknown wire op"))),
+        };
+
+    internal static GrasshopperUiIntent<WireResult> Query(WireQuery query) =>
+        query switch {
+            WireQuery.AllCase => All().Map(wires => (WireResult)new WireResult.WiresCase(Wires: wires)),
+            WireQuery.SelectedCase => Selected().Map(wires => (WireResult)new WireResult.WiresCase(Wires: wires)),
+            WireQuery.DanglingCase => Dangling().Map(wires => (WireResult)new WireResult.WiresCase(Wires: wires)),
+            WireQuery.PickCase p => Pick(point: p.Point).Map(wire => (WireResult)new WireResult.WireCase(Wire: wire)),
+            WireQuery.GraphCase g => Graph(startParameterId: g.StartParameterId, direction: g.Direction, maxHops: g.MaxHops).Map(graph => (WireResult)new WireResult.GraphCase(Graph: graph)),
+            _ => GhUi.Document<WireResult>(run: _ => Fin.Fail<WireResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Query)), detail: "unknown wire query"))),
+        };
+
     internal static GrasshopperUiIntent<Seq<WireSnapshot.ConnectedCase>> All() =>
-        IntentFactory.Document<Seq<WireSnapshot.ConnectedCase>>(run: scope =>
+        GhUi.Document<Seq<WireSnapshot.ConnectedCase>>(run: scope =>
             scope.NeedObjects().Map(objs => SafeWires(source: objs.AllWires, objects: objs)));
 
     internal static GrasshopperUiIntent<Seq<WireSnapshot.ConnectedCase>> Selected() =>
-        IntentFactory.Document<Seq<WireSnapshot.ConnectedCase>>(run: scope =>
+        GhUi.Document<Seq<WireSnapshot.ConnectedCase>>(run: scope =>
             scope.NeedObjects().Map(objs => SafeWires(source: objs.SelectedWires, objects: objs)));
 
     internal static GrasshopperUiIntent<Seq<WireSnapshot.ConnectedCase>> Dangling() =>
-        IntentFactory.Document<Seq<WireSnapshot.ConnectedCase>>(run: scope =>
+        GhUi.Document<Seq<WireSnapshot.ConnectedCase>>(run: scope =>
             scope.NeedObjects().Map(objs => SafeWires(source: objs.AllWires, objects: objs).Filter(static w => !w.Connected)));
 
     internal static GrasshopperUiIntent<WireSnapshot> Pick(PointF point) =>
-        IntentFactory.Document<WireSnapshot>(run: scope =>
+        GhUi.Document<WireSnapshot>(run: scope =>
             from pickResult in UiRail.CanvasDispatch(scope: scope, op: CanvasOp.Pick(point: point))
                 .Bind(static result => result switch {
                     CanvasResult.PickResult pick => Fin.Succ(value: pick.Pick),
@@ -105,12 +140,12 @@ internal static partial class Wire {
             WireSelectionOp.SelectCase s => MutateWire(op: Op.Of(name: "Wire.Select"), wire: s.Wire, run: static (objs, ends) => objs.SelectWire(wire: ends)),
             WireSelectionOp.DeselectCase d => MutateWire(op: Op.Of(name: "Wire.Deselect"), wire: d.Wire, run: static (objs, ends) => objs.DeselectWire(wire: ends)),
             WireSelectionOp.DeselectAllCase => MutateDeselectAll(op: Op.Of(name: "Wire.DeselectAll")),
-            _ => IntentFactory.Document<Snapshot<DocumentMutationDelta>>(run: _ => Fin.Fail<Snapshot<DocumentMutationDelta>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Selection)), detail: "unknown WireSelectionOp"))),
+            _ => GhUi.Document<Snapshot<DocumentMutationDelta>>(run: _ => Fin.Fail<Snapshot<DocumentMutationDelta>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Selection)), detail: "unknown WireSelectionOp"))),
         };
 
-    internal static GrasshopperUiIntent<Snapshot<WireSplitDelta>> Split(WireSnapshot.ConnectedCase wire, string name, PointF location) =>
-        Optional((Name: name, Location: location))
-            .Filter(static s => !string.IsNullOrWhiteSpace(s.Name) && float.IsFinite(s.Location.X) && float.IsFinite(s.Location.Y))
+    internal static GrasshopperUiIntent<Snapshot<WireSplitDelta>> Split(WireSnapshot.ConnectedCase wire, PointF location) =>
+        Optional(location)
+            .Filter(static point => float.IsFinite(point.X) && float.IsFinite(point.Y))
             .Match(
                 Some: valid => GrasshopperUi.Mutate<WireSplitDelta>(
                     op: Op.Of(name: nameof(Split)),
@@ -123,13 +158,13 @@ internal static partial class Wire {
                         from source in Optional(objs.FindParameter(instanceId: wire.Source)).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Split)), detail: $"source param {wire.Source} not found"))
                         from target in Optional(objs.FindParameter(instanceId: wire.Target)).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Split)), detail: $"target param {wire.Target} not found"))
                         let actions = new ActionList([])
-                        let split = SplitWire(methods: methods, source: source, target: target, name: valid.Name, location: valid.Location, actions: actions)
+                        let split = SplitWire(methods: methods, source: source, target: target, name: string.Empty, location: valid, actions: actions)
                         from _ in UiRail.CommitActions(document: doc, op: Op.Of(name: nameof(Split)), actions: actions)
                         select new WireSplitDelta(Changed: split.Changed, Wire: wire, Shout: split.Shout, Listen: split.Listen)),
-                None: () => IntentFactory.Document<Snapshot<WireSplitDelta>>(run: _ => Fin.Fail<Snapshot<WireSplitDelta>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Split)), detail: "empty name or non-finite location"))));
+                None: () => GhUi.Document<Snapshot<WireSplitDelta>>(run: _ => Fin.Fail<Snapshot<WireSplitDelta>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Split)), detail: "non-finite location"))));
 
     internal static GrasshopperUiIntent<WireGraph> Graph(Guid startParameterId, WireTraversal direction = WireTraversal.Bidirectional, int maxHops = 32) =>
-        IntentFactory.Document<WireGraph>(run: scope =>
+        GhUi.Document<WireGraph>(run: scope =>
             scope.NeedObjects().Bind(objs => Optional(objs.FindParameter(instanceId: startParameterId))
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Graph)), detail: $"parameter {startParameterId} not found"))
                 .Map(start => TraverseGraph(objects: objs, start: start, direction: direction, maxHops: maxHops))));

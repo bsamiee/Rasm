@@ -210,13 +210,13 @@ public static class GhUi {
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Apply)), detail: "request is required"))
                 .Bind(valid => valid.Apply(scope: scope)),
             policy: Optional(request).Map(static valid => valid.Policy).IfNone(GrasshopperUiPolicy.Read));
-}
 
-internal static class IntentFactory {
     internal static GrasshopperUiIntent<T> Read<T>(Func<GrasshopperUi.Scope, Fin<T>> run) =>
         new(run: run, policy: GrasshopperUiPolicy.Read);
+
     internal static GrasshopperUiIntent<T> Canvas<T>(Func<GrasshopperUi.Scope, Fin<T>> run, bool openEditor = false, RepaintRequest? repaint = null) =>
         new(run: run, policy: GrasshopperUiPolicy.Canvas(openEditor: openEditor, repaint: repaint));
+
     internal static GrasshopperUiIntent<T> Document<T>(Func<GrasshopperUi.Scope, Fin<T>> run, RepaintRequest? repaint = null) =>
         new(run: run, policy: GrasshopperUiPolicy.Document(repaint: repaint));
 }
@@ -290,7 +290,7 @@ public sealed partial record GrasshopperUi {
         Func<Scope, Fin<TDelta>> mutate,
         UndoStrategy undo,
         RepaintRequest? repaint = null) =>
-            IntentFactory.Document<Snapshot<TDelta>>(
+            GhUi.Document<Snapshot<TDelta>>(
                 repaint: repaint,
                 run: scope =>
                     from delta in Optional(mutate).ToFin(Fail: UiFault.InvalidInput(op: op, detail: "null delegate")).Bind(m => m(arg: scope))
@@ -366,7 +366,7 @@ public sealed partial record GrasshopperUi {
 public static class GrasshopperUiIntentExtensions {
     public static GrasshopperUiIntent<T> Group<T>(this GrasshopperUiIntent<T> body, string verb, string noun) =>
         Optional(body).Match(
-            Some: valid => IntentFactory.Document<T>(
+            Some: valid => GhUi.Document<T>(
                 repaint: valid.Policy.Repaint,
                 run: scope => {
                     UndoGroup bag = new(verb: verb, noun: noun);
@@ -376,5 +376,5 @@ public static class GrasshopperUiIntentExtensions {
                            from committed in bag.Commit(document: document)
                            select value;
                 }),
-            None: () => IntentFactory.Document<T>(run: _ => Fin.Fail<T>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Group)), detail: "body is required"))));
+            None: () => GhUi.Document<T>(run: _ => Fin.Fail<T>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Group)), detail: "body is required"))));
 }
