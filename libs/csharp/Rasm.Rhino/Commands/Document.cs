@@ -199,10 +199,25 @@ public abstract record DocumentTarget {
 }
 
 public readonly record struct DocumentRedraw(bool Enabled, bool SuppressDuringCommit = false) {
-    public static DocumentRedraw AfterCommit { get; } = new(Enabled: true); public static DocumentRedraw None { get; } = new(Enabled: false);
+    public static DocumentRedraw After { get; } = new(Enabled: true);
+    public static DocumentRedraw None { get; } = new(Enabled: false);
 }
 
-public sealed record DocumentTransaction(string Name, Seq<DocumentOp> Operations, DocumentRedraw Redraw, Seq<DocumentCustomUndo> CustomUndo = default);
+public sealed record DocumentTransaction(
+    string Name,
+    Seq<DocumentOp> Operations,
+    DocumentRedraw Redraw,
+    Seq<DocumentCustomUndo> CustomUndo = default,
+    bool UndoRecorded = true) {
+    public static DocumentTransaction Batch(string name, params DocumentOp[] operations) =>
+        new(Name: name, Operations: toSeq(operations), Redraw: DocumentRedraw.After);
+
+    public DocumentTransaction WithoutUndo() =>
+        this with { UndoRecorded = false };
+
+    public DocumentTransaction WithRedraw(DocumentRedraw redraw) =>
+        this with { Redraw = redraw };
+}
 public readonly record struct DocumentReceipt(Seq<Guid> Created, Seq<Guid> Replaced, Seq<Guid> Deleted, Seq<Guid> Transformed, Seq<Guid> Selected, Seq<Guid> Unselected, Seq<Guid> Hidden, Seq<Guid> Locked, Seq<Guid> Flashed, Seq<Guid> AttributeChanged, Seq<Guid> LifecycleChanged, Seq<DocumentResourceChange> ResourceChanged, Seq<uint> UndoRecords, Seq<string> CustomUndo) {
     public static DocumentReceipt Empty { get; } = new(Created: Seq<Guid>(), Replaced: Seq<Guid>(), Deleted: Seq<Guid>(), Transformed: Seq<Guid>(), Selected: Seq<Guid>(), Unselected: Seq<Guid>(), Hidden: Seq<Guid>(), Locked: Seq<Guid>(), Flashed: Seq<Guid>(), AttributeChanged: Seq<Guid>(), LifecycleChanged: Seq<Guid>(), ResourceChanged: Seq<DocumentResourceChange>(), UndoRecords: Seq<uint>(), CustomUndo: Seq<string>());
     public static DocumentReceipt operator +(DocumentReceipt left, DocumentReceipt right) =>
@@ -210,6 +225,14 @@ public readonly record struct DocumentReceipt(Seq<Guid> Created, Seq<Guid> Repla
 
     public static DocumentReceipt Add(DocumentReceipt left, DocumentReceipt right) =>
         new(Created: left.Created + right.Created, Replaced: left.Replaced + right.Replaced, Deleted: left.Deleted + right.Deleted, Transformed: left.Transformed + right.Transformed, Selected: left.Selected + right.Selected, Unselected: left.Unselected + right.Unselected, Hidden: left.Hidden + right.Hidden, Locked: left.Locked + right.Locked, Flashed: left.Flashed + right.Flashed, AttributeChanged: left.AttributeChanged + right.AttributeChanged, LifecycleChanged: left.LifecycleChanged + right.LifecycleChanged, ResourceChanged: left.ResourceChanged + right.ResourceChanged, UndoRecords: left.UndoRecords + right.UndoRecords, CustomUndo: left.CustomUndo + right.CustomUndo);
+
+    public Rasm.Rhino.UI.UiStatus Status(string verb) {
+        Seq<(string Name, int Count)> changes = Seq(("created", Created.Count), ("replaced", Replaced.Count), ("deleted", Deleted.Count), ("transformed", Transformed.Count), ("selected", Selected.Count), ("unselected", Unselected.Count), ("hidden", Hidden.Count), ("locked", Locked.Count), ("flashed", Flashed.Count), ("attributes", AttributeChanged.Count), ("lifecycle", LifecycleChanged.Count), ("resources", ResourceChanged.Count), ("undo", UndoRecords.Count), ("custom undo", CustomUndo.Count)).Filter(static change => change.Count > 0);
+        return Rasm.Rhino.UI.UiStatus.Script(message: changes.IsEmpty switch {
+            true => $"{verb}: no document changes",
+            false => $"{verb}: {string.Join(separator: ", ", values: changes.Map(static change => $"{change.Name} {change.Count}").AsIterable())}",
+        });
+    }
 }
 
 public readonly record struct DocumentResourceChange(DocumentResourceKind Kind, string Name, Option<DocumentFileMode> FileMode = default);
@@ -386,14 +409,14 @@ public sealed record DocumentEdit {
     public Fin<DocumentReceipt> Commit(DocumentTransaction transaction) =>
         from document in Available(op: Op.Of(name: nameof(Commit)))
         from plan in Optional(transaction).ToFin(Fail: Op.Of(name: nameof(Commit)).InvalidInput())
-        from receipt in plan.Operations switch {
-            Seq<DocumentOp> operations when !operations.IsEmpty || !plan.CustomUndo.IsEmpty => Mutate(document: document, name: plan.Name, recordsUndo: operations.Exists(static operation => operation.RecordsUndo) || !plan.CustomUndo.IsEmpty, suppressRedraw: plan.Redraw.SuppressDuringCommit, run: () =>
-                from customUndo in plan.CustomUndo.TraverseM(undo => undo.Register(document: document, op: Op.Of(name: plan.Name))).As()
-                from result in operations.IsEmpty ? Fin.Succ(value: DocumentReceipt.Empty) : operations.TraverseM(operation => operation.Apply(document: document, domain: Domain, op: Op.Of(name: plan.Name))).As().Map(static receipts => receipts.Fold(DocumentReceipt.Empty, static (state, value) => state + value))
-                select result with { CustomUndo = customUndo }),
-            _ => Fin.Fail<DocumentReceipt>(error: Op.Of(name: nameof(Commit)).InvalidInput()),
-        }
-        from _ in plan.Redraw.Enabled switch {
+        from name in NonBlank(value: plan.Name, op: Op.Of(name: nameof(Commit)))
+        from _ in guard(!plan.Operations.IsEmpty || !plan.CustomUndo.IsEmpty, Op.Of(name: nameof(Commit)).InvalidInput())
+        from __ in guard(plan.UndoRecorded || plan.CustomUndo.IsEmpty, Op.Of(name: name).InvalidInput())
+        from receipt in Mutate(document: document, name: name, recordsUndo: plan.UndoRecorded && (plan.Operations.Exists(static operation => operation.RecordsUndo) || !plan.CustomUndo.IsEmpty), suppressRedraw: plan.Redraw.SuppressDuringCommit, run: () =>
+            from customUndo in plan.CustomUndo.TraverseM(undo => undo.Register(document: document, op: Op.Of(name: name))).As()
+            from result in plan.Operations.TraverseM(operation => operation.Apply(document: document, domain: Domain, op: Op.Of(name: name))).As().Map(static receipts => receipts.Fold(DocumentReceipt.Empty, static (state, value) => state + value))
+            select result with { CustomUndo = customUndo })
+        from redraw in plan.Redraw.Enabled switch {
             true => Redraw(),
             false => Fin.Succ(value: unit),
         }

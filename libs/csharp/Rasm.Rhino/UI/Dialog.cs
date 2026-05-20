@@ -27,33 +27,35 @@ public sealed record UiIntent<T> {
         WithScripted(fallback: (document, _) => Optional(fallback).ToFin(Fail: Op.Of(name: nameof(WithScripted)).InvalidInput()).Bind(project => project(arg: document)));
 }
 
+public readonly record struct UiWindowHandle(uint DocumentSerialNumber, string WindowType, string Title, bool Visible);
+
 public enum UiWindowMode { Modal, SemiModal }
 
 public static class UiIntent {
     public static UiIntent<T> Of<T>(Func<RhinoDoc, RunMode, Fin<T>> run) =>
         new(run: scope => Optional(run).ToFin(Fail: Op.Of(name: nameof(Of)).InvalidInput()).Bind(valid => valid(arg1: scope.Document, arg2: scope.Mode)), interactive: true);
 
-    public static UiIntent<T> Of<T>(Func<RhinoDoc, Fin<T>> run) =>
-        Of(run: (document, _) => Optional(run).ToFin(Fail: Op.Of(name: nameof(Of)).InvalidInput()).Bind(valid => valid(arg: document)));
-
     internal static UiIntent<T> OfScope<T>(Func<RhinoUi.Scope, Fin<T>> run, bool interactive = false, Option<Func<RhinoUi.Scope, Fin<T>>> scripted = default) =>
         new(run: run, interactive: interactive, scripted: scripted);
 
+    public static UiIntent<Unit> Queue(Action run, string name = nameof(Queue)) =>
+        OfScope(_ => RhinoUi.Enqueue(run: run, name: name), interactive: true);
+
     internal static UiIntent<T> Dialog<T>(Func<Window?, RhinoDoc, Fin<T>> show) =>
-        Request(name: nameof(Dialog), run: scope => Optional(show).ToFin(Fail: Op.Of(name: nameof(Dialog)).InvalidInput()).Bind(valid => valid(arg1: RhinoUi.Parent(document: scope.Document), arg2: scope.Document)));
+        Request(name: nameof(Dialog), run: scope => Optional(show).ToFin(Fail: Op.Of(name: nameof(Dialog)).InvalidInput()).Bind(valid => valid(arg1: scope.Parent, arg2: scope.Document)));
 
     public static UiIntent<T> Window<T>(Eto.Forms.Dialog<T> dialog, UiWindowMode mode = UiWindowMode.Modal) =>
         Request(name: nameof(Window), run: scope => Optional(dialog).ToFin(Fail: Op.Of(name: nameof(Window)).InvalidInput()).Bind(valid => mode switch {
-            UiWindowMode.SemiModal => Fin.Succ(value: global::Rhino.UI.EtoExtensions.ShowSemiModal(valid, scope.Document, parent: RhinoUi.Parent(document: scope.Document))),
-            UiWindowMode.Modal => Fin.Succ(value: valid.ShowModal(owner: RhinoUi.Parent(document: scope.Document))),
+            UiWindowMode.SemiModal => Fin.Succ(value: global::Rhino.UI.EtoExtensions.ShowSemiModal(valid, scope.Document, parent: scope.Parent)),
+            UiWindowMode.Modal => Fin.Succ(value: valid.ShowModal(owner: scope.Parent)),
             _ => Fin.Fail<T>(error: Op.Of(name: nameof(Window)).InvalidInput()),
         }));
 
-    public static UiIntent<Unit> Window(Form form) =>
+    public static UiIntent<UiWindowHandle> Window(Form form) =>
         Request(name: nameof(Window), run: scope => Optional(form).ToFin(Fail: Op.Of(name: nameof(Window)).InvalidInput()).Map(valid => {
             global::Rhino.UI.EtoExtensions.UseRhinoStyle(valid);
             global::Rhino.UI.EtoExtensions.Show(valid, scope.Document);
-            return unit;
+            return new UiWindowHandle(DocumentSerialNumber: scope.Document.RuntimeSerialNumber, WindowType: valid.GetType().FullName ?? valid.GetType().Name, Title: valid.Title ?? string.Empty, Visible: valid.Visible);
         }));
 
     public static UiIntent<Unit> Status(UiStatus status) =>
@@ -78,7 +80,7 @@ public static class UiIntent {
         Request(
             name: nameof(Message),
             run: scope => string.IsNullOrWhiteSpace(value: spec.Message) switch {
-                false => Fin.Succ(value: global::Rhino.UI.Dialogs.ShowMessage(parent: RhinoUi.Parent(document: scope.Document), message: spec.Message, title: spec.Title, buttons: spec.Buttons, icon: spec.Icon, defaultButton: spec.DefaultButton, options: spec.Options, mode: spec.Mode)),
+                false => Fin.Succ(value: global::Rhino.UI.Dialogs.ShowMessage(parent: scope.Parent, message: spec.Message, title: spec.Title, buttons: spec.Buttons, icon: spec.Icon, defaultButton: spec.DefaultButton, options: spec.Options, mode: spec.Mode)),
                 true => Fin.Fail<global::Rhino.UI.ShowMessageResult>(error: Op.Of(name: nameof(Message)).InvalidInput()),
             });
 
@@ -186,7 +188,7 @@ public static class UiIntent {
 
     public static UiIntent<string> Folder(string title, Option<string> directory = default) =>
         Request(name: nameof(Folder), run: scope => new SelectFolderDialog { Title = title, Directory = directory.IfNone(string.Empty) } switch {
-            SelectFolderDialog dialog => dialog.ShowDialog(parent: RhinoUi.Parent(document: scope.Document)) switch {
+            SelectFolderDialog dialog => dialog.ShowDialog(parent: scope.Parent) switch {
                 DialogResult.Ok => Optional(dialog.Directory).ToFin(Fail: new Fault.Cancelled()),
                 _ => Fin.Fail<string>(error: new Fault.Cancelled()),
             },
@@ -326,33 +328,26 @@ public static class UiPreview {
             run: (_, _) => Fin.Succ(value: toSeq(source.IfNone(global::Rhino.UI.NamedColorList.Default))));
 
     public static UiIntent<Color4f> Color(UiColorSpec spec, bool allowAlpha = false) =>
-        Of(
-            name: nameof(Color),
-            run: (document, _) => {
+        UiIntent.OfScope(
+            run: scope => {
                 Color4f color = spec.Initial;
                 global::Rhino.UI.NamedColorList? named = spec.Named.Case switch {
                     global::Rhino.UI.NamedColorList value => value,
                     _ => null,
                 };
-                return global::Rhino.UI.Dialogs.ShowColorDialog(parent: RhinoUi.Parent(document: document), color: ref color, allowAlpha: allowAlpha, namedColorList: named, colorCallback: spec.Changed) switch {
+                return global::Rhino.UI.Dialogs.ShowColorDialog(parent: scope.Parent, color: ref color, allowAlpha: allowAlpha, namedColorList: named, colorCallback: spec.Changed) switch {
                     true => Fin.Succ(value: color),
                     false => Fin.Fail<Color4f>(error: new Fault.Cancelled()),
                 };
             },
             interactive: true);
 
-    public static UiIntent<T> Viewport<T>(UiViewportPreview preview, Func<UiPreviewScope, Fin<T>> run, Option<UiGumballSpec> gumball = default) =>
-        Of(
-            name: nameof(Viewport),
-            run: (document, _) => UiViewportPreview.Use(document: document, preview: preview, gumball: gumball, run: run),
-            interactive: true);
-
-    public static UiIntent<T> Viewport<TState, T>(UiViewportInteraction<TState> interaction, Func<UiPreviewScope, Fin<T>> run) =>
+    public static UiIntent<T> Viewport<T>(UiViewportRequest<T> request) =>
         Of(
             name: nameof(Viewport),
             run: (document, _) =>
-                from active in Optional(interaction).ToFin(Fail: Op.Of(name: nameof(Viewport)).InvalidInput())
-                from result in active.Use(document: document, run: run)
+                from active in Optional(request).ToFin(Fail: Op.Of(name: nameof(Viewport)).InvalidInput())
+                from result in active.Execute(document: document)
                 select result,
             interactive: true);
 }

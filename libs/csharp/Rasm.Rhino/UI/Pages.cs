@@ -30,6 +30,12 @@ public readonly record struct PageContext(PagePhase Phase, bool Active = false, 
 
 public enum PageHost { Options, DocumentProperties, ObjectProperties }
 
+public readonly record struct PageMetadata(
+    Option<string> LocalTitle = default,
+    Option<string> IconResource = default,
+    int Index = -1,
+    Option<global::Rhino.UI.PropertyPageType> PageType = default);
+
 public sealed record PageRegistration<TPage>(TPage Page, PageHost Host) where TPage : class {
     public Fin<Unit> Add(ICollection<TPage> pages) =>
         from page in Optional(Page).ToFin(Fail: Op.Of(name: nameof(Add)).InvalidInput())
@@ -51,11 +57,6 @@ public sealed record PageRegistration<TPage>(TPage Page, PageHost Host) where TP
             }),
             _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(Add)).InvalidInput()),
         };
-}
-
-public static class PageRegistration {
-    public static PageRegistration<TPage> Of<TPage>(TPage page, PageHost host) where TPage : class =>
-        new(Page: page, Host: host);
 }
 
 public abstract class RasmOptionsPage : global::Rhino.UI.OptionsDialogPage {
@@ -96,8 +97,9 @@ public abstract class RasmPropertiesPage : global::Rhino.UI.ObjectPropertiesPage
     private readonly ObjectType supportedTypes;
     private readonly bool allObjectsMustBeSupported;
     private readonly bool supportsSubObjects;
+    private readonly PageMetadata metadata;
 
-    protected RasmPropertiesPage(string englishTitle, Control control, ObjectType supportedTypes = ObjectType.AnyObject, bool allObjectsMustBeSupported = false, bool supportsSubObjects = false) {
+    protected RasmPropertiesPage(string englishTitle, Control control, ObjectType supportedTypes = ObjectType.AnyObject, bool allObjectsMustBeSupported = false, bool supportsSubObjects = false, PageMetadata metadata = default) {
         ArgumentException.ThrowIfNullOrWhiteSpace(argument: englishTitle);
         ArgumentNullException.ThrowIfNull(argument: control);
         this.englishTitle = englishTitle;
@@ -105,11 +107,16 @@ public abstract class RasmPropertiesPage : global::Rhino.UI.ObjectPropertiesPage
         this.supportedTypes = supportedTypes;
         this.allObjectsMustBeSupported = allObjectsMustBeSupported;
         this.supportsSubObjects = supportsSubObjects;
+        this.metadata = metadata;
         global::Rhino.UI.EtoExtensions.UseRhinoStyle(control);
     }
 
     public sealed override object PageControl => control;
     public sealed override string EnglishPageTitle => englishTitle;
+    public sealed override string LocalPageTitle => metadata.LocalTitle.IfNone(englishTitle);
+    public sealed override int Index => metadata.Index;
+    public sealed override global::Rhino.UI.PropertyPageType PageType => metadata.PageType.IfNone(global::Rhino.UI.PropertyPageType.Custom);
+    public sealed override string PageIconEmbeddedResourceString => metadata.IconResource.IfNone(string.Empty);
     public sealed override ObjectType SupportedTypes => supportedTypes;
     public sealed override bool AllObjectsMustBeSupported => allObjectsMustBeSupported;
     public sealed override bool SupportsSubObjects => supportsSubObjects;

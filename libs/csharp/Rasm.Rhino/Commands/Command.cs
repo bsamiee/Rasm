@@ -138,20 +138,13 @@ public sealed record CommandStageContext<TState>(
         };
 
     private Fin<CommandStageContext<TState>> Apply(PromptTransition<TState> transition) =>
-        Optional(transition).ToFin(Fail: Op.Of(name: nameof(Apply)).InvalidInput()).Bind(valid => valid switch {
-            PromptTransition<TState>.Stay stay => (this with { State = stay.State }).Run(),
-            PromptTransition<TState>.Forward next => (this with { State = next.State, Index = Index + 1, History = Seq(State) + History }).Run(),
-            PromptTransition<TState>.Back => History.IsEmpty switch {
-                false => (this with { State = History[0], Index = Math.Max(0, Index - 1), History = History.Tail }).Run(),
-                _ => Run(),
-            },
-            PromptTransition<TState>.Commit commit => Fin.Succ(value: this with { State = commit.State, Index = Stages.Count }),
-            PromptTransition<TState>.Cancel => Fin.Fail<CommandStageContext<TState>>(error: new Fault.Cancelled()),
-            _ => Fin.Fail<CommandStageContext<TState>>(error: Op.Of(name: nameof(Apply)).InvalidInput()),
-        });
+        Optional(transition).ToFin(Fail: Op.Of(name: nameof(Apply)).InvalidInput()).Bind(valid => valid.Apply(context: this));
 
     public Fin<Seq<string>> Files(Rasm.Rhino.UI.UiFileSpec spec) =>
         Use(intent: Rasm.Rhino.UI.UiIntent.File(spec: spec), scripted: context => context.Events.Files(context: context, spec: spec));
+
+    public Fin<Unit> Status(Rasm.Rhino.UI.UiStatus status) =>
+        Context.Ui.Use(intent: Rasm.Rhino.UI.UiIntent.Status(status: status));
 
     public Fin<T> Use<T>(Rasm.Rhino.UI.UiIntent<T> intent, Func<CommandStageContext<TState>, Fin<T>> scripted) =>
         from validIntent in Optional(intent).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput())
@@ -201,6 +194,19 @@ public readonly record struct CommandGraphEvents<TState>(
 
 public abstract record PromptTransition<TState> {
     private PromptTransition() { }
+
+    internal Fin<CommandStageContext<TState>> Apply(CommandStageContext<TState> context) =>
+        Optional(context).ToFin(Fail: Op.Of(name: nameof(Apply)).InvalidInput()).Bind(active => this switch {
+            Stay stay => (active with { State = stay.State }).Run(),
+            Forward next => (active with { State = next.State, Index = active.Index + 1, History = Seq(active.State) + active.History }).Run(),
+            Back => active.History.IsEmpty switch {
+                false => (active with { State = active.History[0], Index = Math.Max(0, active.Index - 1), History = active.History.Tail }).Run(),
+                true => active.Run(),
+            },
+            Commit commit => Fin.Succ(value: active with { State = commit.State, Index = active.Stages.Count }),
+            Cancel => Fin.Fail<CommandStageContext<TState>>(error: new Fault.Cancelled()),
+            _ => Fin.Fail<CommandStageContext<TState>>(error: Op.Of(name: nameof(Apply)).InvalidInput()),
+        });
 
     public sealed record Stay(TState State) : PromptTransition<TState>;
     public sealed record Forward(TState State) : PromptTransition<TState>;

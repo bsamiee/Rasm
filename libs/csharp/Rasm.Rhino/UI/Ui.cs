@@ -13,7 +13,13 @@ public sealed partial record RhinoUi {
         this.mode = mode;
     }
 
-    internal readonly record struct Scope(RhinoDoc Document, RunMode Mode);
+    internal readonly record struct Scope(RhinoDoc Document, RunMode Mode, Option<Window> Owner = default) {
+        public Window? Parent =>
+            Owner.Case switch {
+                Window window => window,
+                _ => global::Rhino.UI.RhinoEtoApp.MainWindowForDocument(Document),
+            };
+    }
 
     public Fin<T> Use<T>(UiIntent<T> intent) =>
         Optional(intent)
@@ -26,9 +32,6 @@ public sealed partial record RhinoUi {
 
     internal Seq<T> Windows<T>() where T : Window =>
         toSeq(global::Rhino.UI.EtoExtensions.WindowsFromDocument<T>(document));
-
-    internal static Window? Parent(RhinoDoc document) =>
-        global::Rhino.UI.RhinoEtoApp.MainWindowForDocument(document);
 
     internal static Fin<T> OnUiThread<T>(Func<Fin<T>> run, [CallerMemberName] string name = "") =>
         Optional(run)
@@ -50,6 +53,14 @@ public sealed partial record RhinoUi {
 
     internal static Fin<T> Protect<T>(Func<Fin<T>> valid, [CallerMemberName] string name = "") =>
         OnUiThread(run: valid, name: name);
+
+    internal static Fin<Unit> Enqueue(Action run, string name) =>
+        Optional(run)
+            .ToFin(Fail: Op.Of(name: name).InvalidInput())
+            .Map(valid => {
+                RhinoApp.InvokeOnUiThread(method: valid, args: []);
+                return unit;
+            });
 
     private static Fin<T> Catch<T>(Func<Fin<T>> valid, string name) =>
         Optional(valid)

@@ -60,6 +60,22 @@ public sealed record UiAction(
     Option<string> ToolTip,
     Option<Eto.Drawing.Image> Image,
     Func<RhinoDoc, Fin<Unit>> Run) {
+    public static UiAction Command<TCommand>(
+        string text,
+        Option<string> tooltip = default,
+        Option<Eto.Drawing.Image> image = default) where TCommand : global::Rhino.Commands.Command =>
+        new(
+            Id: typeof(TCommand).Name,
+            Text: text,
+            ToolTip: tooltip,
+            Image: image,
+            Run: document =>
+                from active in Optional(document).ToFin(Fail: Op.Of(name: nameof(UiAction)).InvalidInput())
+                let command = typeof(TCommand).Name
+                from _ in guard(global::Rhino.Commands.Command.LookupCommandId(name: command, searchForEnglishName: true) != Guid.Empty, Op.Of(name: nameof(UiAction)).InvalidInput())
+                from __ in guard(RhinoApp.RunScript(documentSerialNumber: active.RuntimeSerialNumber, script: $"_{command}", echo: false), Op.Of(name: nameof(UiAction)).InvalidResult())
+                select unit);
+
     internal Fin<Eto.Forms.Command> ToCommand(RhinoDoc document) =>
         from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(ToCommand)).InvalidInput())
         from action in Optional(Run).ToFin(Fail: Op.Of(name: nameof(ToCommand)).InvalidInput())
@@ -195,7 +211,7 @@ public abstract record UiChromeOp<T> {
             RhinoUi.Protect(valid: Snapshot);
     }
 
-    public sealed record RuiFile(UiChromeFileMode Mode, Option<Guid> FileId = default, Option<string> Path = default, Option<string> Name = default, bool IgnoreCase = true, bool Prompt = false) : UiChromeOp<PanelChromeSnapshot> {
+    public sealed record RuiFile(UiChromeFileMode Mode, Option<Guid> FileId = default, Option<string> Path = default, Option<string> Name = default, bool IgnoreCase = true, bool Prompt = false, bool SaveAfterOpen = false) : UiChromeOp<PanelChromeSnapshot> {
         internal override bool Interactive => Mode == UiChromeFileMode.Close && Prompt;
 
         internal override Fin<PanelChromeSnapshot> Run(RhinoDoc? document) =>
@@ -203,7 +219,11 @@ public abstract record UiChromeOp<T> {
                 from _ in Mode switch {
                     UiChromeFileMode.Open => from path in NonBlank(value: Path)
                                              from file in Optional(RhinoApp.ToolbarFiles.Open(path: path)).ToFin(Fail: Op.Of(name: nameof(RuiFile)).InvalidResult())
-                                             select unit,
+                                             from saved in SaveAfterOpen switch {
+                                                 true => file.Save() switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(RuiFile)).InvalidResult()) },
+                                                 false => Fin.Succ(value: unit),
+                                             }
+                                             select saved,
                     UiChromeFileMode.Close => from file in FindFile(fileId: FileId, path: Path, name: Name, ignoreCase: IgnoreCase)
                                               from closed in file.Close(prompt: Prompt) switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(RuiFile)).InvalidResult()) }
                                               select closed,

@@ -288,7 +288,7 @@ public sealed record CommandInputPolicy {
     internal bool AcceptsUndo => Accepts(mode: CommandInputAccept.Undo);
     internal static CommandInputPolicy Empty { get; } = new();
 
-    private static CommandInputPolicy Configure<TGetter>(Action<TGetter> apply) where TGetter : GetBaseClass =>
+    public static CommandInputPolicy Configure<TGetter>(Action<TGetter> apply) where TGetter : GetBaseClass =>
         (typeof(TGetter), Optional(apply).Case) switch {
             (Type type, Action<TGetter> action) when type == typeof(GetObject) => new(objectActions: Seq<Action<GetObject>>(getter => action((TGetter)(GetBaseClass)getter))),
             (Type type, Action<TGetter> action) when type == typeof(GetPoint) => new(pointActions: Seq<Action<GetPoint>>(getter => action((TGetter)(GetBaseClass)getter))),
@@ -467,8 +467,14 @@ public sealed record CommandInputPolicy {
                 true => ((Func<Unit>)(() => { getter.ClearConstraints(); return unit; }))(),
                 false => unit,
             };
-            _ = spec.SnapPoints.Iter(point => getter.AddSnapPoint(point: point));
-            _ = spec.ConstructionPoints.Iter(point => getter.AddConstructionPoint(point: point));
+            _ = spec.SnapPoints.IsEmpty switch {
+                false => ((Func<Unit>)(() => { _ = getter.AddSnapPoints(points: [.. spec.SnapPoints]); return unit; }))(),
+                true => unit,
+            };
+            _ = spec.ConstructionPoints.IsEmpty switch {
+                false => ((Func<Unit>)(() => { _ = getter.AddConstructionPoints(points: [.. spec.ConstructionPoints]); return unit; }))(),
+                true => unit,
+            };
             _ = spec.BasePoint.Iter(point => {
                 getter.SetBasePoint(point, true);
                 _ = spec.DrawLineFromBasePoint switch {
@@ -713,7 +719,7 @@ public static class CommandInputs {
     private static CommandInputRequest<T> Native<T>(Func<(Result Result, Option<T> Value)> run) =>
         new(input => Optional(input).ToFin(Fail: Op.Of(name: nameof(Native)).InvalidInput()).Bind(_ => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => run() switch {
             (Result.Success, Option<T> value) => Fin.Succ(value: CommandGet<T>.Native(result: Result.Success, value: value)),
-            (Result.Cancel or Result.CancelModelessDialog, _) => Fin.Fail<CommandGet<T>>(error: new Fault.Cancelled()),
+            (Result.Cancel or Result.CancelModelessDialog or Result.ExitRhino, _) => Fin.Fail<CommandGet<T>>(error: new Fault.Cancelled()),
             (Result.Failure or Result.UnknownCommand, _) => Fin.Fail<CommandGet<T>>(error: Op.Of(name: nameof(Native)).InvalidResult()),
             (Result result, _) => Fin.Succ(value: CommandGet<T>.Native(result: result, value: Option<T>.None)),
         })), scripted: (input, token) => Script<T>(input: input, token: token));

@@ -94,19 +94,40 @@ public sealed record CommandSelection {
         };
 
     public Fin<CommandSelection> Trim(CommandObjectSelection policy) =>
-        from active in Optional(policy).ToFin(Fail: Op.Of(name: nameof(Trim)).InvalidInput())
-        from selection in Items
+        from trimmed in Trimmed(policy: policy)
+        from selection in trimmed.Require(policy: policy)
+        select selection;
+
+    public Fin<TrimResult> Trimmed(CommandObjectSelection policy) =>
+        from active in Optional(policy).ToFin(Fail: Op.Of(name: nameof(Trimmed)).InvalidInput())
+        let values = Items
             .Filter(item => active.SubObjects || !item.IsSubObject)
             .Filter(item => item.Preselected || active.AlreadySelected || !item.Selected)
             .Filter(item => active.References || !item.IsReference)
             .Filter(item => active.Locked || !item.IsLocked)
             .Filter(item => !active.IgnoreGrips || !item.IsGrip)
-            .Distinct() switch {
-                Seq<Reference> values when values.Count >= active.Minimum && (active.Maximum < 0 || values.Count <= active.Maximum) =>
-                    Fin.Succ(value: new CommandSelection(document: Document, items: values)),
-                _ => Fin.Fail<CommandSelection>(error: Op.Of(name: nameof(Trim)).InvalidInput()),
-            }
-        select selection;
+            .Distinct()
+        select new TrimResult(Selection: new CommandSelection(document: Document, items: values), Accepted: values.Count, Rejected: Math.Max(0, Items.Count - values.Count));
+
+    public readonly record struct TrimResult(CommandSelection Selection, int Accepted, int Rejected) {
+        public Fin<CommandSelection> Require(CommandObjectSelection policy) {
+            int accepted = Accepted;
+            CommandSelection selection = Selection;
+            return
+            from active in Optional(policy).ToFin(Fail: Op.Of(name: nameof(TrimResult)).InvalidInput())
+            from _ in guard(accepted >= active.Minimum && (active.Maximum < 0 || accepted <= active.Maximum), Op.Of(name: nameof(TrimResult)).InvalidInput())
+            select selection;
+        }
+
+        public Fin<CommandSelection> RequireAny() {
+            int accepted = Accepted;
+            CommandSelection selection = Selection;
+            return accepted switch {
+                > 0 => Fin.Succ(value: selection),
+                _ => Fin.Fail<CommandSelection>(error: Op.Of(name: nameof(TrimResult)).InvalidResult()),
+            };
+        }
+    }
 
     public static Fin<CommandSelection> Pick(RhinoDoc document, CommandPickPolicy policy) =>
         Optional(policy)

@@ -300,6 +300,24 @@ public readonly record struct UiPreviewScope(
     public Fin<bool> PickGumball(global::Rhino.Input.Custom.PickContext pick, GetPoint point) => from active in Gumball.ToFin(Fail: Op.Of(name: nameof(PickGumball)).InvalidInput()) from validPick in Optional(pick).ToFin(Fail: Op.Of(name: nameof(PickGumball)).InvalidInput()) from validPoint in Optional(point).ToFin(Fail: Op.Of(name: nameof(PickGumball)).InvalidInput()) from picked in active.Pick(pick: validPick, point: validPoint) select picked;
 }
 
+public sealed record UiViewportRequest<T>(Func<RhinoDoc, Fin<T>> Run) {
+    public Fin<T> Execute(RhinoDoc document) =>
+        from validRun in Optional(Run).ToFin(Fail: Op.Of(name: nameof(Execute)).InvalidInput())
+        from result in validRun(arg: document)
+        select result;
+}
+
+public static class UiViewportRequest {
+    public static UiViewportRequest<T> Preview<T>(UiViewportPreview preview, Func<UiPreviewScope, Fin<T>> run, Option<UiGumballSpec> gumball = default) =>
+        new(Run: document => UiViewportPreview.Use(document: document, preview: preview, gumball: gumball, run: run));
+
+    public static UiViewportRequest<T> Interaction<TState, T>(UiViewportInteraction<TState> interaction, Func<UiPreviewScope, Fin<T>> run) =>
+        new(Run: document =>
+            from active in Optional(interaction).ToFin(Fail: Op.Of(name: nameof(Interaction)).InvalidInput())
+            from result in active.Use(document: document, run: run)
+            select result);
+}
+
 public sealed record UiViewportInteraction<TState>(
     TState Initial,
     UiViewportPreview Preview,
