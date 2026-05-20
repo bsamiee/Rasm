@@ -29,7 +29,7 @@ public sealed record FileFormat {
 
     public static FileFormat ThreeDm { get; } = new(key: "3dm", extensions: Seq(".3dm"), capabilities: FileFormatCapability.Import | FileFormatCapability.Export | FileFormatCapability.Archive);
     public static FileFormat Obj { get; } = new(key: "obj", extensions: Seq(".obj"), capabilities: FileFormatCapability.Import | FileFormatCapability.Export | FileFormatCapability.DirectRead | FileFormatCapability.DirectWrite);
-    public static FileFormat Ply { get; } = new(key: "ply", extensions: Seq(".ply"), capabilities: FileFormatCapability.Import | FileFormatCapability.Export | FileFormatCapability.DictionaryRead | FileFormatCapability.DirectWrite);
+    public static FileFormat Ply { get; } = new(key: "ply", extensions: Seq(".ply"), capabilities: FileFormatCapability.Import | FileFormatCapability.Export | FileFormatCapability.DictionaryRead | FileFormatCapability.DirectRead | FileFormatCapability.DirectWrite);
     public static FileFormat Dwg { get; } = new(key: "dwg", extensions: Seq(".dwg", ".dxf"), capabilities: FileFormatCapability.Import | FileFormatCapability.Export | FileFormatCapability.DictionaryRead | FileFormatCapability.DictionaryWrite);
     public static FileFormat Stl { get; } = new(key: "stl", extensions: Seq(".stl"), capabilities: FileFormatCapability.Import | FileFormatCapability.Export | FileFormatCapability.DictionaryRead | FileFormatCapability.DictionaryWrite);
     public static FileFormat Stp { get; } = new(key: "stp", extensions: Seq(".stp", ".step"), capabilities: FileFormatCapability.Import | FileFormatCapability.Export | FileFormatCapability.DictionaryRead | FileFormatCapability.DictionaryWrite);
@@ -39,7 +39,7 @@ public sealed record FileFormat {
     public static FileFormat Txt { get; } = new(key: "txt", extensions: Seq(".txt"), capabilities: FileFormatCapability.Import | FileFormatCapability.Export | FileFormatCapability.DictionaryRead | FileFormatCapability.DictionaryWrite);
     public static FileFormat Csv { get; } = new(key: "csv", extensions: Seq(".csv"), capabilities: FileFormatCapability.Export | FileFormatCapability.DictionaryWrite);
     public static FileFormat Gltf { get; } = new(key: "gltf", extensions: Seq(".gltf", ".glb"), capabilities: FileFormatCapability.Export | FileFormatCapability.DictionaryWrite);
-    public static FileFormat Usd { get; } = new(key: "usd", extensions: Seq(".usd", ".usdz"), capabilities: FileFormatCapability.Export | FileFormatCapability.DictionaryWrite);
+    public static FileFormat Usd { get; } = new(key: "usd", extensions: Seq(".usd", ".usda", ".usdz"), capabilities: FileFormatCapability.Export | FileFormatCapability.DictionaryWrite);
     public static FileFormat Pdf { get; } = new(key: "pdf", extensions: Seq(".pdf"), capabilities: FileFormatCapability.Import | FileFormatCapability.DictionaryRead);
     public static FileFormat Svg { get; } = new(key: "svg", extensions: Seq(".svg"), capabilities: FileFormatCapability.Import | FileFormatCapability.DictionaryRead);
 
@@ -64,12 +64,18 @@ internal static class FileFormatProjection {
             _ => profile.Format,
         };
 
+    internal static Fin<FileFormat> Require(FileEndpoint endpoint, FileProfile profile, FilePhase phase, Op op) =>
+        Resolve(endpoint: endpoint, profile: profile).ToFin(Fail: op.InvalidInput()).Bind(format => SupportsPhase(format: format, phase: phase) switch {
+            true => Fin.Succ(value: format),
+            false => Fin.Fail<FileFormat>(error: op.InvalidInput()),
+        });
+
     internal static Fin<ArchivableDictionary> Dictionary(FileEndpoint endpoint, FileProfile profile, FilePhase phase, Op op) =>
         Resolve(endpoint: endpoint, profile: profile).Case switch {
             FileFormat format when SupportsDictionary(format: format, phase: phase) => NativeDictionary(format: format, profile: profile, phase: phase, op: op),
-            FileFormat format when phase is FilePhase.Import or FilePhase.Export => Fin.Succ(value: SemanticDictionary(format: format, profile: profile)),
+            FileFormat format when SupportsPhase(format: format, phase: phase) => Fin.Succ(value: new ArchivableDictionary()),
             FileFormat => Fin.Fail<ArchivableDictionary>(error: op.InvalidInput()),
-            _ => Fin.Succ(value: SemanticDictionary(format: null, profile: profile)),
+            _ => Fin.Succ(value: new ArchivableDictionary()),
         };
 
     internal static Fin<Unit> Import(RhinoDoc document, FileEndpoint source, FileProfile profile, Op op) =>
@@ -103,11 +109,14 @@ internal static class FileFormatProjection {
         });
 
     internal static Fin<Unit> SaveAs(RhinoDoc document, FileEndpoint target, FileProfile profile, Op op) =>
-        TryResult(run: () => profile.Fidelity switch {
-            FileFidelity.Small => document.SaveAs(file3dmPath: target.Path, version: target.Write.Normalized.Version, saveSmall: true, saveTextures: target.Write.Normalized.IncludeBitmapTable, saveGeometryOnly: target.Write.Normalized.GeometryOnly, savePluginData: target.Write.Normalized.WriteUserData, useCompression: target.Write.Normalized.UseCompression),
-            FileFidelity.GeometryOnly => document.SaveAs(file3dmPath: target.Path, version: target.Write.Normalized.Version, saveSmall: false, saveTextures: target.Write.Normalized.IncludeBitmapTable, saveGeometryOnly: true, savePluginData: target.Write.Normalized.WriteUserData, useCompression: target.Write.Normalized.UseCompression),
-            _ => document.SaveAs(file3dmPath: target.Path, version: target.Write.Normalized.Version),
-        }, op: op);
+        TryResult(run: () => document.SaveAs(
+            file3dmPath: target.Path,
+            version: target.Write.Normalized.Version,
+            saveSmall: profile.Fidelity == FileFidelity.Small,
+            saveTextures: target.Write.Normalized.IncludeBitmapTable,
+            saveGeometryOnly: profile.Fidelity == FileFidelity.GeometryOnly || target.Write.Normalized.GeometryOnly,
+            savePluginData: target.Write.Normalized.WriteUserData,
+            useCompression: target.Write.Normalized.UseCompression), op: op);
 
     internal static Fin<Unit> SaveTemplate(RhinoDoc document, FileEndpoint target, Op op) =>
         TryResult(run: () => document.SaveAsTemplate(file3dmTemplatePath: target.Path, version: target.Write.Normalized.Version), op: op);
@@ -171,25 +180,12 @@ internal static class FileFormatProjection {
         return options;
     }
 
-    private static ArchivableDictionary SemanticDictionary(FileFormat? format, FileProfile profile) {
-        ArchivableDictionary dictionary = new();
-        _ = dictionary.Set("rasm-format", format?.Key ?? "extension-dispatched");
-        _ = dictionary.Set("rasm-fidelity", profile.Fidelity.ToString());
-        _ = dictionary.Set("rasm-resources", profile.Resources.ToString());
-        _ = dictionary.Set("rasm-grouping", profile.Grouping.ToString());
-        _ = dictionary.Set("rasm-sort", profile.Sort.ToString());
-        return dictionary;
-    }
-
     private static Fin<ArchivableDictionary> NativeDictionary(FileFormat format, FileProfile profile, FilePhase phase, Op op) =>
-        Try.lift<ArchivableDictionary>(f: () => {
-            ArchivableDictionary dictionary = phase switch {
+        Try.lift<ArchivableDictionary>(f: () =>
+            phase switch {
                 FilePhase.Import => ReadDictionary(format: format),
                 _ => WriteDictionary(format: format, profile: profile),
-            };
-            _ = dictionary.AddContentsFrom(SemanticDictionary(format: format, profile: profile));
-            return dictionary;
-        })
+            })
             .Run()
             .MapFail(_ => op.InvalidResult());
 
@@ -211,7 +207,7 @@ internal static class FileFormatProjection {
     private static ArchivableDictionary WriteDictionary(FileFormat format, FileProfile profile) =>
         format switch {
             FileFormat value when value == FileFormat.Dwg => new FileDwgWriteOptions().ToDictionary(),
-            FileFormat value when value == FileFormat.Stl => new FileStlWriteOptions { BinaryFile = profile.Fidelity != FileFidelity.Small }.ToDictionary(),
+            FileFormat value when value == FileFormat.Stl => new FileStlWriteOptions { BinaryFile = true }.ToDictionary(),
             FileFormat value when value == FileFormat.Stp => new FileStpWriteOptions().ToDictionary(),
             FileFormat value when value == FileFormat.Fbx => new FileFbxWriteOptions { SaveViews = profile.Fidelity == FileFidelity.Model, SaveLights = profile.Fidelity == FileFidelity.Model }.ToDictionary(),
             FileFormat value when value == FileFormat.Skp => new FileSkpWriteOptions { GroupObjects = profile.Grouping is FileGrouping.Layer or FileGrouping.Block }.ToDictionary(),
@@ -243,6 +239,15 @@ internal static class FileFormatProjection {
         phase switch {
             FilePhase.Import => format.Capabilities.HasFlag(flag: FileFormatCapability.DictionaryRead),
             FilePhase.Export or FilePhase.WriteFile => format.Capabilities.HasFlag(flag: FileFormatCapability.DictionaryWrite),
+            _ => false,
+        };
+
+    private static bool SupportsPhase(FileFormat format, FilePhase phase) =>
+        phase switch {
+            FilePhase.Open => format == FileFormat.ThreeDm,
+            FilePhase.Import => format.Capabilities.HasFlag(flag: FileFormatCapability.Import),
+            FilePhase.Export or FilePhase.WriteFile => format.Capabilities.HasFlag(flag: FileFormatCapability.Export),
+            FilePhase.Write3dmFile or FilePhase.SaveAs or FilePhase.SaveTemplate => format == FileFormat.ThreeDm,
             _ => false,
         };
 

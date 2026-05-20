@@ -31,9 +31,6 @@ public sealed class RhinoFiles {
         from result in valid.Apply(runtime: active)
         select result;
 
-    internal static RhinoFiles Scoped(RhinoDoc document, RunMode mode) =>
-        new(document: Optional(document), mode: mode);
-
     private Fin<FileRuntime> Runtime() =>
         document.Case switch {
             RhinoDoc value => LiveRuntime(document: value, mode: mode),

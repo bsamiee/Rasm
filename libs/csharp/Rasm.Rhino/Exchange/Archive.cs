@@ -4,6 +4,8 @@ using File3dmModel = global::Rhino.FileIO.File3dm;
 using IODirectory = System.IO.Directory;
 using IOPath = System.IO.Path;
 using RenderContent = global::Rhino.FileIO.File3dmRenderContent;
+using RenderEnvironment = global::Rhino.FileIO.File3dmRenderEnvironment;
+using RenderMaterial = global::Rhino.FileIO.File3dmRenderMaterial;
 using RenderTexture = global::Rhino.FileIO.File3dmRenderTexture;
 
 namespace Rasm.Rhino.Exchange;
@@ -39,6 +41,10 @@ public readonly record struct FileResourceGraph(
     int RenderMaterials,
     int RenderEnvironments,
     int RenderTextures,
+    int Linetypes,
+    int DimensionStyles,
+    int HatchPatterns,
+    int NamedConstructionPlanes,
     int Manifest,
     Seq<string> EmbeddedFileNames,
     Seq<string> LinkedBlockArchives,
@@ -49,7 +55,7 @@ public readonly record struct FileResourceGraph(
 internal static class FileArchiveOps {
     internal static Fin<FileReport> Read(FileEndpoint source, ArchiveProfile profile) =>
         from endpoint in source.Input(op: Op.Of(name: nameof(Read)))
-        from archive in UseArchive(source: endpoint, profile: profile, op: Op.Of(name: nameof(Read)), use: (model, log) => Snapshot(source: endpoint, model: model).Map(archive => (Archive: archive, Log: log)))
+        from archive in UseArchive(source: endpoint, profile: profile, op: Op.Of(name: nameof(Read)), use: (model, log) => Snapshot(source: endpoint, model: model, profile: profile).Map(archive => (Archive: archive, Log: log)))
         select FileReport.Of(
             phase: FilePhase.ArchiveRead,
             source: Some(endpoint),
@@ -118,22 +124,29 @@ internal static class FileArchiveOps {
         profile.Slice switch {
             ArchiveSlice.Metadata => (true, File3dmModel.TableTypeFilter.Properties | File3dmModel.TableTypeFilter.Settings, File3dmModel.ObjectTypeFilter.None),
             ArchiveSlice.Objects => (true, File3dmModel.TableTypeFilter.ObjectTable, File3dmModel.ObjectTypeFilter.Any),
-            ArchiveSlice.Resources => (true, File3dmModel.TableTypeFilter.Bitmap | File3dmModel.TableTypeFilter.Material | File3dmModel.TableTypeFilter.Layer | File3dmModel.TableTypeFilter.Group | File3dmModel.TableTypeFilter.InstanceDefinition | File3dmModel.TableTypeFilter.UserTable, File3dmModel.ObjectTypeFilter.None),
+            ArchiveSlice.Resources => (true, File3dmModel.TableTypeFilter.Bitmap | File3dmModel.TableTypeFilter.TextureMapping | File3dmModel.TableTypeFilter.Material | File3dmModel.TableTypeFilter.Linetype | File3dmModel.TableTypeFilter.Layer | File3dmModel.TableTypeFilter.Group | File3dmModel.TableTypeFilter.Font | File3dmModel.TableTypeFilter.FutureFont | File3dmModel.TableTypeFilter.Dimstyle | File3dmModel.TableTypeFilter.Light | File3dmModel.TableTypeFilter.Hatchpattern | File3dmModel.TableTypeFilter.InstanceDefinition | File3dmModel.TableTypeFilter.Historyrecord | File3dmModel.TableTypeFilter.UserTable, File3dmModel.ObjectTypeFilter.None),
             _ => (false, File3dmModel.TableTypeFilter.None, File3dmModel.ObjectTypeFilter.None),
         };
 
-    private static Fin<FileArchive> Snapshot(FileEndpoint source, File3dmModel model) =>
+    private static Fin<FileArchive> Snapshot(FileEndpoint source, File3dmModel model, ArchiveProfile profile) =>
         from metadata in Metadata(source: source)
-        let embedded = toSeq(model.EmbeddedFiles).Map(static file => file.Filename)
-        let linked = toSeq(model.AllInstanceDefinitions).Bind(static definition => NonBlankSeq(value: definition.SourceArchive)).Distinct()
-        let renderMaterials = toSeq(model.RenderMaterials)
-        let renderEnvironments = toSeq(model.RenderEnvironments)
-        let renderTextures = toSeq(model.RenderTextures)
-        let textures = TextureFiles(textures: renderTextures).Distinct()
-        select new FileArchive(
-            Source: source,
-            Metadata: metadata,
-            Resources: new FileResourceGraph(
+        let resources = Resources(model: model)
+        select profile.Projection switch {
+            FileArchiveProjection.Metadata => new FileArchive(Source: source, Metadata: metadata, Resources: EmptyResources),
+            FileArchiveProjection.Graph or FileArchiveProjection.Objects => new FileArchive(Source: source, Metadata: EmptyMetadata, Resources: resources),
+            _ => new FileArchive(Source: source, Metadata: metadata, Resources: resources),
+        };
+
+    private static FileResourceGraph Resources(File3dmModel model) =>
+        (
+            Embedded: toSeq(model.EmbeddedFiles).Map(static file => file.Filename),
+            Linked: toSeq(model.AllInstanceDefinitions).Bind(static definition => NonBlankSeq(value: definition.SourceArchive)).Distinct(),
+            RenderMaterials: toSeq(model.RenderMaterials),
+            RenderEnvironments: toSeq(model.RenderEnvironments),
+            RenderTextures: toSeq(model.RenderTextures),
+            TextureFiles: TextureFiles(textures: toSeq(model.RenderTextures)).Distinct()
+        ) switch {
+            (Seq<string> embedded, Seq<string> linked, Seq<RenderMaterial> renderMaterials, Seq<RenderEnvironment> renderEnvironments, Seq<RenderTexture> renderTextures, Seq<string> textures) => new FileResourceGraph(
                 Objects: model.Objects.Count,
                 Layers: model.AllLayers.Count,
                 Materials: model.AllMaterials.Count,
@@ -143,15 +156,47 @@ internal static class FileArchiveOps {
                 NamedViews: model.AllNamedViews.Count,
                 Strings: model.Strings.Count,
                 PlugInData: model.PlugInData.Count,
-                EmbeddedFiles: toSeq(model.EmbeddedFiles).Count,
+                EmbeddedFiles: embedded.Count,
                 RenderMaterials: renderMaterials.Count,
                 RenderEnvironments: renderEnvironments.Count,
                 RenderTextures: renderTextures.Count,
+                Linetypes: model.AllLinetypes.Count,
+                DimensionStyles: model.AllDimStyles.Count,
+                HatchPatterns: model.AllHatchPatterns.Count,
+                NamedConstructionPlanes: model.AllNamedConstructionPlanes.Count,
                 Manifest: model.Manifest.Count,
                 EmbeddedFileNames: embedded,
                 LinkedBlockArchives: linked,
                 RenderTextureFiles: textures,
-                FileReferences: (linked + textures).Distinct()));
+                FileReferences: (linked + textures).Distinct()),
+        };
+
+    private static FileArchiveMetadata EmptyMetadata => default;
+
+    private static FileResourceGraph EmptyResources =>
+        new(
+            Objects: 0,
+            Layers: 0,
+            Materials: 0,
+            Groups: 0,
+            Blocks: 0,
+            Views: 0,
+            NamedViews: 0,
+            Strings: 0,
+            PlugInData: 0,
+            EmbeddedFiles: 0,
+            RenderMaterials: 0,
+            RenderEnvironments: 0,
+            RenderTextures: 0,
+            Linetypes: 0,
+            DimensionStyles: 0,
+            HatchPatterns: 0,
+            NamedConstructionPlanes: 0,
+            Manifest: 0,
+            EmbeddedFileNames: Seq<string>(),
+            LinkedBlockArchives: Seq<string>(),
+            RenderTextureFiles: Seq<string>(),
+            FileReferences: Seq<string>());
 
     private static Fin<FileArchiveMetadata> Metadata(FileEndpoint source) =>
         Try.lift<FileArchiveMetadata>(f: () => {

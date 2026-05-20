@@ -1,6 +1,5 @@
 using Rasm.Rhino.Commands;
 using IODirectory = System.IO.Directory;
-using IOFile = System.IO.File;
 using IOPath = System.IO.Path;
 
 namespace Rasm.Rhino.Exchange;
@@ -50,7 +49,7 @@ public readonly record struct FileIssue(string Code, string Message) {
 
 public sealed record FilePrompt {
     private FilePrompt(FilePromptMode mode, string title, string filter, Option<string> fileName, Option<string> initialDirectory, Option<string> defaultExtension, FileNamePolicy name, FileWritePolicy write) =>
-        (Mode, Title, Filter, FileName, InitialDirectory, DefaultExtension, Name, Write) = (mode, title, filter, fileName, initialDirectory, defaultExtension, name.Normalized, write.Normalized);
+        (Mode, Title, Filter, FileName, InitialDirectory, DefaultExtension, Name, Write) = (mode, title, filter, fileName, initialDirectory, defaultExtension, PromptName(name: name, defaultExtension: defaultExtension), write.Normalized);
 
     public FilePromptMode Mode { get; }
     public string Title { get; }
@@ -71,7 +70,7 @@ public sealed record FilePrompt {
         Create(mode: FilePromptMode.Folder, title: title, filter: string.Empty, initialDirectory: initialDirectory);
 
     internal Fin<Seq<FileEndpoint>> Defaults(Op op) =>
-        FileName.Case switch {
+        DefaultPath().Case switch {
             string value => FileEndpoint.From(path: value, name: Name, write: Write).Map(endpoint => Seq(endpoint)),
             _ => Fin.Fail<Seq<FileEndpoint>>(error: op.InvalidInput()),
         };
@@ -95,6 +94,23 @@ public sealed record FilePrompt {
             defaultExtension: defaultExtension,
             name: name,
             write: write);
+
+    private Option<string> DefaultPath() =>
+        (Mode, FileName.Case, InitialDirectory.Case) switch {
+            (FilePromptMode.Folder, _, string directory) => Some(directory),
+            (_, string fileName, string directory) when !IOPath.IsPathRooted(path: fileName) => Some(IOPath.Combine(path1: directory, path2: fileName)),
+            (_, string fileName, _) => Some(fileName),
+            _ => Option<string>.None,
+        };
+
+    private static FileNamePolicy PromptName(FileNamePolicy name, Option<string> defaultExtension) =>
+        name.Normalized.Extension.Case switch {
+            string => name.Normalized,
+            _ => defaultExtension.Case switch {
+                string value => name.Normalized with { Extension = Some(value) },
+                _ => name.Normalized,
+            },
+        };
 }
 
 public sealed record FileEndpoint {
@@ -109,11 +125,12 @@ public sealed record FileEndpoint {
     public static Fin<FileEndpoint> From(string path, Option<FileFormat> format = default, FileNamePolicy name = default, FileWritePolicy write = default) =>
         from raw in NonBlank(value: path, op: Op.Of(name: nameof(FileEndpoint)))
         from normalized in NormalizePath(path: raw, op: Op.Of(name: nameof(FileEndpoint)))
+        let named = ApplyExtension(path: normalized, format: Option<FileFormat>.None, name: name)
         let detected = format.Case switch {
             FileFormat known => Some(known),
-            _ => FileFormat.Detect(path: normalized),
+            _ => FileFormat.Detect(path: named),
         }
-        select new FileEndpoint(path: ApplyExtension(path: normalized, format: detected, name: name), format: detected, name: name, write: write);
+        select new FileEndpoint(path: ApplyExtension(path: named, format: detected, name: FileNamePolicy.Default), format: detected, name: name, write: write);
 
     internal FileEndpoint WithPath(string path) =>
         new(path: path, format: Format, name: Name, write: Write);
@@ -125,7 +142,7 @@ public sealed record FileEndpoint {
         };
 
     internal Fin<FileEndpoint> Input(Op op) =>
-        (IOFile.Exists(path: Path) || IODirectory.Exists(path: Path)) switch {
+        IOPath.Exists(path: Path) switch {
             true => Fin.Succ(value: this),
             false => Fin.Fail<FileEndpoint>(error: op.InvalidInput()),
         };
@@ -195,7 +212,7 @@ public sealed record FileEndpoint {
         };
 
     private static bool Exists(string path) =>
-        IOFile.Exists(path: path) || IODirectory.Exists(path: path);
+        IOPath.Exists(path: path);
 
     private static string NumberedPath(string path, int index) =>
         IOPath.Combine(
