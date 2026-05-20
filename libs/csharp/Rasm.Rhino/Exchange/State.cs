@@ -60,11 +60,11 @@ public sealed record FilePrompt {
     public FileNamePolicy Name { get; }
     public FileWritePolicy Write { get; }
 
-    public static Fin<FilePrompt> Open(string title, string filter, bool multiple = false, Option<string> fileName = default, Option<string> initialDirectory = default, Option<string> defaultExtension = default) =>
-        Create(mode: multiple ? FilePromptMode.OpenMany : FilePromptMode.OpenOne, title: title, filter: filter, fileName: fileName, initialDirectory: initialDirectory, defaultExtension: defaultExtension);
+    public static Fin<FilePrompt> Open(string title, string filter = "", bool multiple = false, Option<string> fileName = default, Option<string> initialDirectory = default, Option<string> defaultExtension = default) =>
+        Create(mode: multiple ? FilePromptMode.OpenMany : FilePromptMode.OpenOne, title: title, filter: string.IsNullOrWhiteSpace(value: filter) ? FileFormat.Filter(phase: FilePhase.Import) : filter, fileName: fileName, initialDirectory: initialDirectory, defaultExtension: defaultExtension);
 
-    public static Fin<FilePrompt> Save(string title, string filter, Option<string> fileName = default, Option<string> initialDirectory = default, Option<string> defaultExtension = default, FileWritePolicy write = default) =>
-        Create(mode: FilePromptMode.Save, title: title, filter: filter, fileName: fileName, initialDirectory: initialDirectory, defaultExtension: defaultExtension, write: write);
+    public static Fin<FilePrompt> Save(string title, string filter = "", Option<string> fileName = default, Option<string> initialDirectory = default, Option<string> defaultExtension = default, FileWritePolicy write = default) =>
+        Create(mode: FilePromptMode.Save, title: title, filter: string.IsNullOrWhiteSpace(value: filter) ? FileFormat.Filter(phase: FilePhase.Export) : filter, fileName: fileName, initialDirectory: initialDirectory, defaultExtension: defaultExtension, write: write);
 
     public static Fin<FilePrompt> Folder(string title, Option<string> initialDirectory = default) =>
         Create(mode: FilePromptMode.Folder, title: title, filter: string.Empty, initialDirectory: initialDirectory);
@@ -299,10 +299,11 @@ public sealed record FileReport(
     Option<DocumentReceipt> Receipt,
     Seq<FileIssue> Issues,
     Option<string> NativeLog,
-    Option<FileArchive> Archive = default) {
+    Option<FileArchive> Archive = default,
+    Seq<FileReport> Children = default) {
     public static FileReport Empty(FilePhase phase) =>
-        new(Source: Option<FileEndpoint>.None, Target: Option<FileEndpoint>.None, Format: Option<FileFormat>.None, Phase: phase, Receipt: Option<DocumentReceipt>.None, Issues: Seq<FileIssue>(), NativeLog: Option<string>.None);
+        new(Source: Option<FileEndpoint>.None, Target: Option<FileEndpoint>.None, Format: Option<FileFormat>.None, Phase: phase, Receipt: Option<DocumentReceipt>.None, Issues: Seq<FileIssue>(), NativeLog: Option<string>.None, Children: Seq<FileReport>());
 
-    internal static FileReport Of(FilePhase phase, Option<FileEndpoint> source = default, Option<FileEndpoint> target = default, Option<FileFormat> format = default, Option<DocumentReceipt> receipt = default, Seq<FileIssue> issues = default, Option<string> nativeLog = default, Option<FileArchive> archive = default) =>
-        new(Source: source, Target: target, Format: format, Phase: phase, Receipt: receipt, Issues: issues.IsEmpty ? Seq<FileIssue>() : issues, NativeLog: nativeLog, Archive: archive);
+    internal static FileReport Of(FilePhase phase, Option<FileEndpoint> source = default, Option<FileEndpoint> target = default, Option<FileFormat> format = default, Option<DocumentReceipt> receipt = default, Seq<FileIssue> issues = default, Option<string> nativeLog = default, Option<FileArchive> archive = default, Seq<FileReport> children = default) =>
+        new(Source: source, Target: target, Format: format, Phase: phase, Receipt: receipt, Issues: issues.IsEmpty ? Seq<FileIssue>() : issues, NativeLog: nativeLog, Archive: archive, Children: children.IsEmpty ? Seq<FileReport>() : children);
 }

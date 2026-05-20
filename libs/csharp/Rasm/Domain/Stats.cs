@@ -67,7 +67,7 @@ public readonly record struct ResidualSample(int Index, Point3d Location, double
 public readonly record struct Stat(int Count, double Minimum, double Maximum, double Mean, double Variance, StatContext Context) {
     internal double Rms => Math.Sqrt(d: (Mean * Mean) + Variance);
     internal bool WithinTolerance => Context is StatContext.ToleranceCase t && t.WithinTolerance;
-    internal static Fin<Stat> Of(Seq<double> values, Op key, StatContext? context = null) =>
+    public static Fin<Stat> Of(Seq<double> values, Op key, StatContext? context = null) =>
         values.Fold(
             initialState: (Count: 0, Mean: 0.0, M2: 0.0, Minimum: double.PositiveInfinity, Maximum: double.NegativeInfinity, AllFinite: true),
             f: static (state, value) => (Count: state.Count + 1, Delta: value - state.Mean) switch {

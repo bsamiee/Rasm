@@ -28,6 +28,19 @@ public readonly record struct FileArchiveMetadata(
     int PageViews,
     bool Preview);
 
+public readonly record struct FileResourceEntry(
+    string Kind,
+    Option<string> Name,
+    Option<string> Path,
+    Option<Guid> Id,
+    int Count = 1,
+    Option<string> Value = default,
+    Option<Guid> TypeId = default,
+    Option<Guid> PlugInId = default,
+    Option<Guid> RenderEngineId = default,
+    Option<Guid> GroupId = default,
+    Option<string> Source = default);
+
 public readonly record struct FileResourceGraph(
     int Objects,
     int Layers,
@@ -50,7 +63,14 @@ public readonly record struct FileResourceGraph(
     Seq<string> EmbeddedFileNames,
     Seq<string> LinkedBlockArchives,
     Seq<string> RenderTextureFiles,
-    Seq<string> FileReferences);
+    Seq<string> FileReferences,
+    Seq<FileResourceEntry> Entries) {
+    public Fin<Rasm.Domain.Stat> Summary(Op op) =>
+        Seq(Objects, Layers, Materials, Groups, Blocks, Views, NamedViews, Strings, PlugInData, EmbeddedFiles, RenderMaterials, RenderEnvironments, RenderTextures, Linetypes, DimensionStyles, HatchPatterns, NamedConstructionPlanes, Manifest)
+            .TraverseM(count => count >= 0 ? Fin.Succ(value: (double)count) : Fin.Fail<double>(error: op.InvalidResult()))
+            .As()
+            .Bind(values => Rasm.Domain.Stat.Of(values: values, key: op));
+}
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class FileArchiveOps {
@@ -101,6 +121,14 @@ internal static class FileArchiveOps {
             nativeLog: LogOption(log: string.Join(separator: System.Environment.NewLine, values: Seq(result.ReadLog, result.WriteLog).Filter(static value => !string.IsNullOrWhiteSpace(value: value)).AsIterable())),
             archive: Some(result.Archive),
             receipt: Some(result.Receipt));
+
+    internal static Fin<byte[]> Bytes(FileEndpoint source, ArchiveProfile profile) =>
+        from endpoint in source.Input(op: Op.Of(name: nameof(Bytes)))
+        from bytes in UseArchive(source: endpoint, profile: profile, op: Op.Of(name: nameof(Bytes)), use: (model, _) =>
+            Optional(model.ToByteArray(options: FileFormatProjection.ArchiveWriteOptions(profile: profile)))
+                .Filter(static value => value.Length > 0)
+                .ToFin(Fail: Op.Of(name: nameof(Bytes)).InvalidResult()))
+        select bytes;
 
     private static Fin<T> UseArchive<T>(FileEndpoint source, ArchiveProfile profile, Op op, Func<File3dmModel, string, Fin<T>> use) =>
         Try.lift<Fin<T>>(f: () => {
@@ -158,16 +186,17 @@ internal static class FileArchiveOps {
             TextureFiles: TextureFiles(contents:
                 toSeq(model.RenderMaterials).Map(static material => (RenderContent)material)
                 + toSeq(model.RenderEnvironments).Map(static environment => (RenderContent)environment)
-                + toSeq(model.RenderTextures).Map(static texture => (RenderContent)texture)).Distinct()
+                + toSeq(model.RenderTextures).Map(static texture => (RenderContent)texture)).Distinct(),
+            Entries: ResourceEntries(model: model)
         ) switch {
-            (Seq<string> embedded, Seq<string> linked, Seq<RenderMaterial> renderMaterials, Seq<RenderEnvironment> renderEnvironments, Seq<RenderTexture> renderTextures, Seq<string> textures) => new FileResourceGraph(
+            (Seq<string> embedded, Seq<string> linked, Seq<RenderMaterial> renderMaterials, Seq<RenderEnvironment> renderEnvironments, Seq<RenderTexture> renderTextures, Seq<string> textures, Seq<FileResourceEntry> entries) => new FileResourceGraph(
                 Objects: model.Objects.Count,
                 Layers: model.AllLayers.Count,
                 Materials: model.AllMaterials.Count,
                 Groups: model.AllGroups.Count,
                 Blocks: model.AllInstanceDefinitions.Count,
-                Views: model.AllViews.Count,
-                NamedViews: model.AllNamedViews.Count,
+                Views: model.Views.Count,
+                NamedViews: model.NamedViews.Count,
                 Strings: model.Strings.Count,
                 PlugInData: model.PlugInData.Count,
                 EmbeddedFiles: embedded.Count,
@@ -182,7 +211,8 @@ internal static class FileArchiveOps {
                 EmbeddedFileNames: embedded,
                 LinkedBlockArchives: linked,
                 RenderTextureFiles: textures,
-                FileReferences: (linked + textures).Distinct()),
+                FileReferences: (linked + textures).Distinct(),
+                Entries: entries),
         };
 
     private static FileArchiveMetadata EmptyMetadata => default;
@@ -210,7 +240,8 @@ internal static class FileArchiveOps {
             EmbeddedFileNames: Seq<string>(),
             LinkedBlockArchives: Seq<string>(),
             RenderTextureFiles: Seq<string>(),
-            FileReferences: Seq<string>());
+            FileReferences: Seq<string>(),
+            Entries: Seq<FileResourceEntry>());
 
     private static Seq<FileObjectManifest> Objects(File3dmModel model) =>
         toSeq(model.Objects).Map(fileObject => new FileObjectManifest(
@@ -226,10 +257,43 @@ internal static class FileArchiveOps {
             UserStrings: UserStrings(fileObject: fileObject)));
 
     private static Seq<string> UserStrings(global::Rhino.FileIO.File3dmObject fileObject) =>
-        fileObject.Attributes.GetUserStrings()?.AllKeys switch {
+        (fileObject.Attributes.GetUserStrings()?.AllKeys switch {
             string[] keys => toSeq(keys).Choose(Text),
             _ => Seq<string>(),
-        };
+        }) + (fileObject.Geometry.GetUserStrings()?.AllKeys switch {
+            string[] keys => toSeq(keys).Choose(Text),
+            _ => Seq<string>(),
+        });
+
+    private static Seq<FileResourceEntry> ResourceEntries(File3dmModel model) =>
+        toSeq(model.EmbeddedFiles).Map(file => new FileResourceEntry(Kind: "embedded", Name: Text(value: IOPath.GetFileName(path: file.Filename)), Path: Text(value: file.Filename), Id: Option<Guid>.None, Source: Text(value: file.ComponentType.ToString())))
+        + toSeq(model.PlugInData).Map(data => new FileResourceEntry(Kind: "plugin", Name: Option<string>.None, Path: Option<string>.None, Id: GuidOption(value: data.PlugInId), PlugInId: GuidOption(value: data.PlugInId), Source: Some("File3dmPlugInData")))
+        + toSeq(Enumerable.Range(start: 0, count: model.Strings.Count))
+            .Map(index => new FileResourceEntry(Kind: "string", Name: Text(value: model.Strings.GetKey(i: index)), Path: Option<string>.None, Id: Option<Guid>.None, Value: Text(value: model.Strings.GetValue(i: index))))
+            .Filter(static entry => entry.Name.Case is string || entry.Value.Case is string)
+        + toSeq(model.RenderMaterials).Map(static content => RenderEntry(kind: "render-material", content: content))
+        + toSeq(model.RenderEnvironments).Map(static content => RenderEntry(kind: "render-environment", content: content))
+        + toSeq(model.RenderTextures).Map(static content => RenderEntry(kind: "render-texture", content: content))
+        + toSeq(Enum.GetValues<ModelComponentType>())
+            .Filter(static type => type is not ModelComponentType.Unset and not ModelComponentType.Mixed)
+            .Map(type => new FileResourceEntry(Kind: type.ToString(), Name: Option<string>.None, Path: Option<string>.None, Id: Option<Guid>.None, Count: model.Manifest.ActiveObjectCount(type: type), Source: Some("manifest")))
+            .Filter(static entry => entry.Count > 0);
+
+    private static FileResourceEntry RenderEntry(string kind, RenderContent content) =>
+        new(
+            Kind: kind,
+            Name: Text(value: content.TypeName),
+            Path: content switch {
+                RenderTexture texture => Text(value: texture.Filename),
+                _ => Option<string>.None,
+            },
+            Id: GuidOption(value: content.TypeId),
+            Value: Text(value: content.Kind.ToString()),
+            TypeId: GuidOption(value: content.TypeId),
+            PlugInId: GuidOption(value: content.PlugInId),
+            RenderEngineId: GuidOption(value: content.RenderEngineId),
+            GroupId: GuidOption(value: content.GroupId),
+            Source: content.Reference ? Some("reference") : Some("embedded"));
 
     private static Fin<FileArchiveMetadata> Metadata(FileEndpoint source) =>
         Try.lift<FileArchiveMetadata>(f: () => {
@@ -349,4 +413,10 @@ internal static class FileArchiveOps {
 
     private static Option<string> Text(string? value) =>
         Optional(value).Filter(static text => !string.IsNullOrWhiteSpace(value: text)).Map(static text => text.Trim());
+
+    private static Option<Guid> GuidOption(Guid value) =>
+        value switch {
+            Guid id when id != Guid.Empty => Some(id),
+            _ => Option<Guid>.None,
+        };
 }
