@@ -4,6 +4,18 @@ using Eto.Forms;
 namespace Rasm.Rhino.UI;
 
 // --- [MODELS] -----------------------------------------------------------------------------
+public readonly record struct UiToast(RhinoView View, string Message, Option<int> TextHeight = default, Option<System.Drawing.PointF> Location = default) {
+    internal Unit Apply() {
+        UiToast toast = this;
+        _ = (toast.TextHeight.Case, toast.Location.Case) switch {
+            (int height, System.Drawing.PointF point) when height > 0 => toast.View.ShowToast(toast.Message, height, point),
+            (int height, _) when height > 0 => toast.View.ShowToast(toast.Message, height),
+            _ => toast.View.ShowToast(toast.Message),
+        };
+        return unit;
+    }
+}
+
 public readonly record struct UiStatus(
     Option<string> Prompt = default,
     Option<string> PromptDefault = default,
@@ -12,10 +24,11 @@ public readonly record struct UiStatus(
     Option<double> Distance = default,
     Option<double> Number = default,
     Option<Point3d> Point = default,
+    Seq<UiToast> Toasts = default,
     bool ClearMessage = false) {
     public static UiStatus operator +(UiStatus left, UiStatus right) => Add(left: left, right: right);
     public static UiStatus Add(UiStatus left, UiStatus right) =>
-        new(Prompt: right.Prompt | left.Prompt, PromptDefault: right.PromptDefault | left.PromptDefault, CommandMessage: right.CommandMessage | left.CommandMessage, Message: right.Message | (right.ClearMessage ? Option<string>.None : left.Message), Distance: right.Distance | left.Distance, Number: right.Number | left.Number, Point: right.Point | left.Point, ClearMessage: left.ClearMessage || right.ClearMessage);
+        new(Prompt: right.Prompt | left.Prompt, PromptDefault: right.PromptDefault | left.PromptDefault, CommandMessage: right.CommandMessage | left.CommandMessage, Message: right.Message | (right.ClearMessage ? Option<string>.None : left.Message), Distance: right.Distance | left.Distance, Number: right.Number | left.Number, Point: right.Point | left.Point, Toasts: left.Toasts + right.Toasts, ClearMessage: left.ClearMessage || right.ClearMessage);
     public static UiStatus Add(params UiStatus[] statuses) =>
         Optional(statuses)
             .Map(static values => toSeq(values).Fold(initialState: new UiStatus(), f: static (state, value) => state + value))
@@ -44,10 +57,10 @@ public readonly record struct UiStatus(
             _ = status.Distance.Iter(static value => global::Rhino.UI.StatusBar.SetDistancePane(distance: value));
             _ = status.Number.Iter(static value => global::Rhino.UI.StatusBar.SetNumberPane(number: value));
             _ = status.Point.Iter(static value => global::Rhino.UI.StatusBar.SetPointPane(point: value));
+            _ = status.Toasts.Iter(static value => value.Apply());
             return Fin.Succ(value: unit);
         });
     }
-
 }
 
 public readonly record struct UiProgressSpec(

@@ -27,6 +27,12 @@ public sealed class RhinoCamera(RhinoDoc document) {
         from resolved in Resolve(document: active, viewportId: id)
         select resolved;
 
+    public Fin<CameraScope> Scope(RhinoView view) =>
+        from active in Active()
+        from validView in Optional(view).ToFin(Fail: Op.Of(name: nameof(Scope)).InvalidInput())
+        from scope in Scope(document: active, view: validView, viewport: validView.ActiveViewport, detail: ActiveDetail(view: validView))
+        select scope;
+
     public Fin<T> In<T>(Option<Guid> viewportId, Func<CameraScope, Fin<T>> use) =>
         from valid in Optional(use).ToFin(Fail: Op.Of(name: nameof(In)).InvalidInput())
         from scope in Scope(viewportId: viewportId)
@@ -39,7 +45,7 @@ public sealed class RhinoCamera(RhinoDoc document) {
         select result;
 
     public static Rasm.Rhino.UI.UiIntent<T> Intent<T>(CameraOp<T> operation, Option<Guid> viewportId = default) =>
-        Rasm.Rhino.UI.UiIntent.Of(run: (doc, _) => new RhinoCamera(document: doc).Run(operation: operation, viewportId: viewportId));
+        Rasm.Rhino.UI.UiIntent.Operation(run: (doc, _) => new RhinoCamera(document: doc).Run(operation: operation, viewportId: viewportId));
 
     internal static Fin<Unit> UnitResult(bool success, Op op) =>
         success switch {

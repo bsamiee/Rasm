@@ -35,6 +35,35 @@ public sealed record CameraOp<T> {
         new(run: scope => Optional(bind).ToFin(Fail: Op.Of(name: nameof(Bind)).InvalidInput()).Bind(valid => Apply(scope: scope).Bind(value => Optional(valid(arg: value)).ToFin(Fail: Op.Of(name: nameof(Bind)).InvalidResult()).Bind(next => next.Apply(scope: scope)))));
 }
 
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CameraProjection(Func<RhinoViewport, bool> Apply) {
+    public static CameraProjection Parallel(bool symmetricFrustum = true) =>
+        new(Apply: viewport => viewport.ChangeToParallelProjection(symmetricFrustum: symmetricFrustum));
+
+    public static CameraProjection Perspective(Option<double> targetDistance = default, bool symmetricFrustum = true, double lensLength = 50.0) =>
+        new(Apply: viewport => targetDistance.Case switch {
+            double distance => viewport.ChangeToPerspectiveProjection(targetDistance: distance, symmetricFrustum: symmetricFrustum, lensLength: lensLength),
+            _ => viewport.ChangeToPerspectiveProjection(symmetricFrustum: symmetricFrustum, lensLength: lensLength),
+        });
+
+    public static CameraProjection TwoPointPerspective(double lensLength = 50.0, Option<(Vector3d Up, double TargetDistance)> target = default) =>
+        new(Apply: viewport => target.Case switch {
+            (Vector3d up, double distance) => viewport.ChangeToTwoPointPerspectiveProjection(lensLength: lensLength, up: up, targetDistance: distance),
+            _ => viewport.ChangeToTwoPointPerspectiveProjection(lensLength: lensLength),
+        });
+
+    public static CameraProjection ParallelReflected { get; } =
+        new(Apply: static viewport => viewport.ChangeToParallelReflectedProjection());
+
+    internal Fin<Unit> Use(RhinoViewport viewport, Op op) {
+        Func<RhinoViewport, bool> apply = Apply;
+        return from validViewport in Optional(viewport).ToFin(Fail: op.InvalidInput())
+               from valid in Optional(apply).ToFin(Fail: op.InvalidInput())
+               from result in RhinoCamera.UnitResult(success: valid(arg: validViewport), op: op)
+               select result;
+    }
+}
+
 public sealed record CameraEdit {
     private readonly Func<CameraScope, bool, Fin<Unit>> apply;
 
@@ -93,6 +122,12 @@ public sealed record CameraEdit {
 
     public static CameraEdit Projection(ViewportInfo projection, bool updateTarget = true) =>
         Native(change: viewport => viewport.SetViewProjection(projection: projection, updateTargetLocation: updateTarget));
+
+    public static CameraEdit Projection(CameraProjection projection) =>
+        new(apply: (scope, redraw) =>
+            from _ in projection.Use(viewport: scope.Viewport, op: Op.Of(name: nameof(Projection)))
+            from result in Redraw(scope: scope, redraw: redraw)
+            select result);
 
     public static CameraEdit Frustum(CameraFrustum frustum, bool updateTarget = true) =>
         new(apply: (scope, redraw) => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => {
@@ -265,6 +300,9 @@ public readonly record struct CameraCapture(
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class CameraOps {
+    public static CameraOp<T> Query<T>(Func<CameraScope, Fin<T>> query) =>
+        new(run: scope => Optional(query).ToFin(Fail: Op.Of(name: nameof(Query)).InvalidInput()).Bind(valid => valid(arg: scope)));
+
     public static CameraOp<T> Read<T>(Func<CameraSnapshot, Fin<T>> project) =>
         new(run: scope => Optional(project).ToFin(Fail: Op.Of(name: nameof(Read)).InvalidInput()).Bind(valid => scope.Snapshot().Bind(snapshot => {
             // BOUNDARY ADAPTER - snapshot owns native ViewportInfo only for the projection callback.

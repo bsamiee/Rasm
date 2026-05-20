@@ -153,6 +153,16 @@ public sealed record CommandSelection {
         }
     }
 
+    internal static Fin<CommandSelection> FromObjects(RhinoDoc document, IEnumerable<Guid> objectIds, CommandObjectSelection policy) =>
+        from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(FromObjects)).InvalidInput())
+        from active in Optional(policy).ToFin(Fail: Op.Of(name: nameof(FromObjects)).InvalidInput())
+        from target in DocumentTarget.Objects(objectIds: objectIds)
+        from ids in target.Ids(document: validDocument, op: Op.Of(name: nameof(FromObjects)))
+        from references in ids.TraverseM(id => Optional(validDocument.Objects.FindId(id)).ToFin(Fail: Op.Of(name: nameof(FromObjects)).InvalidResult()).Map(native => new ObjRef(rhinoObject: native))).As()
+        from selection in Fin.Succ(value: From(document: validDocument, references: references, preselected: Seq<(Guid ObjectId, ComponentIndex ComponentIndex)>()))
+        from trimmed in selection.Trim(policy: active)
+        select trimmed;
+
     internal Fin<int> SelectInto(RhinoDoc document, bool selected, DocumentSelectionPolicy policy, Op op) =>
         Try.lift<Fin<int>>(f: () => SelectNative(document: document, selected: selected, policy: policy, op: op))
             .Run()
@@ -288,23 +298,45 @@ public sealed record CommandSelection {
                         _ => Fin.Fail<TGeometry>(error: Op.Of(name: nameof(Geometry)).InvalidResult()),
                     }));
 
-        public Fin<T> Brep<T>(RhinoDoc document, Func<Brep, Fin<T>> use) => Part(document: document, op: Op.Of(name: nameof(Brep)), project: static reference => reference.Brep(), use: use);
-        public Fin<T> Face<T>(RhinoDoc document, Func<BrepFace, Fin<T>> use) => Part(document: document, op: Op.Of(name: nameof(Face)), project: static reference => reference.Face(), use: use);
-        public Fin<T> Edge<T>(RhinoDoc document, Func<BrepEdge, Fin<T>> use) => Part(document: document, op: Op.Of(name: nameof(Edge)), project: static reference => reference.Edge(), use: use);
-        public Fin<T> Trim<T>(RhinoDoc document, Func<BrepTrim, Fin<T>> use) => Part(document: document, op: Op.Of(name: nameof(Trim)), project: static reference => reference.Trim(), use: use);
-        public Fin<T> SubD<T>(RhinoDoc document, Func<SubD, Fin<T>> use) => Part(document: document, op: Op.Of(name: nameof(SubD)), project: static reference => reference.SubD(), use: use);
-        public Fin<T> SubDFace<T>(RhinoDoc document, Func<SubDFace, Fin<T>> use) => Part(document: document, op: Op.Of(name: nameof(SubDFace)), project: static reference => reference.SubDFace(), use: use);
-        public Fin<T> SubDEdge<T>(RhinoDoc document, Func<SubDEdge, Fin<T>> use) => Part(document: document, op: Op.Of(name: nameof(SubDEdge)), project: static reference => reference.SubDEdge(), use: use);
-        public Fin<T> SubDVertex<T>(RhinoDoc document, Func<SubDVertex, Fin<T>> use) => Part(document: document, op: Op.Of(name: nameof(SubDVertex)), project: static reference => reference.SubDVertex(), use: use);
-        public Fin<T> InstanceDefinitionPart<T>(RhinoDoc document, Func<RhinoObject, Fin<T>> use) => Part(document: document, op: Op.Of(name: nameof(InstanceDefinitionPart)), project: static reference => reference.InstanceDefinitionPart(), use: use);
+        public Fin<T> Object<TObject, T>(RhinoDoc document, Func<TObject, Fin<T>> use) where TObject : RhinoObject =>
+            Use(document: document, op: Op.Of(name: nameof(Object)), use: reference =>
+                from native in Optional(reference.Object()).ToFin(Fail: Op.Of(name: nameof(Object)).InvalidResult())
+                from typed in native switch {
+                    TObject value => Fin.Succ(value: value),
+                    _ => Fin.Fail<TObject>(error: Op.Of(name: nameof(Object)).InvalidResult()),
+                }
+                from result in Optional(use).ToFin(Fail: Op.Of(name: nameof(Object)).InvalidInput()).Bind(run => run(arg: typed))
+                select result);
 
-        private Fin<T> Part<TNative, T>(RhinoDoc document, Op op, Func<ObjRef, TNative?> project, Func<TNative, Fin<T>> use) where TNative : class {
+        public Fin<T> Part<TPart, T>(RhinoDoc document, Func<TPart, Fin<T>> use) where TPart : class =>
+            Part(document: document, op: Op.Of(name: nameof(Part)), project: Project<TPart>, use: use);
+
+        public Fin<T> InstanceDefinitionPart<T>(RhinoDoc document, Func<RhinoObject, Fin<T>> use) =>
+            Part(document: document, op: Op.Of(name: nameof(InstanceDefinitionPart)), project: static reference => Cast<RhinoObject>(reference.InstanceDefinitionPart()), use: use);
+
+        private Fin<T> Part<TNative, T>(RhinoDoc document, Op op, Func<ObjRef, Option<TNative>> project, Func<TNative, Fin<T>> use) where TNative : class {
             Reference snapshot = this;
             return Optional(project)
                 .ToFin(Fail: op.InvalidInput())
                 .Bind(projection => Optional(use)
                     .ToFin(Fail: op.InvalidInput())
-                    .Bind(valid => snapshot.Use(document: document, op: op, use: reference => Optional(projection(arg: reference)).ToFin(Fail: op.InvalidResult()).Bind(valid))));
+                    .Bind(valid => snapshot.Use(document: document, op: op, use: reference => projection(arg: reference).ToFin(Fail: op.InvalidResult()).Bind(valid))));
         }
+
+        private static Option<TPart> Project<TPart>(ObjRef reference) where TPart : class =>
+            Optional(reference).Bind(valid => typeof(TPart) switch {
+                Type value when value == typeof(Brep) => Cast<TPart>(valid.Brep()),
+                Type value when value == typeof(BrepFace) => Cast<TPart>(valid.Face()),
+                Type value when value == typeof(BrepEdge) => Cast<TPart>(valid.Edge()),
+                Type value when value == typeof(BrepTrim) => Cast<TPart>(valid.Trim()),
+                Type value when value == typeof(SubD) => Cast<TPart>(valid.SubD()),
+                Type value when value == typeof(SubDFace) => Cast<TPart>(valid.SubDFace()),
+                Type value when value == typeof(SubDEdge) => Cast<TPart>(valid.SubDEdge()),
+                Type value when value == typeof(SubDVertex) => Cast<TPart>(valid.SubDVertex()),
+                _ => Option<TPart>.None,
+            });
+
+        private static Option<TPart> Cast<TPart>(object? value) where TPart : class =>
+            value is TPart typed ? Some(typed) : Option<TPart>.None;
     }
 }

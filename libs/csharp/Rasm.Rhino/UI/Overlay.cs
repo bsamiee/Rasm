@@ -20,8 +20,8 @@ public readonly record struct MouseContext<TState>(MousePhase Phase, TState Stat
     public Option<System.Drawing.Point> ViewportPoint => Args.ViewportPoint switch { { IsEmpty: false } point => Some(point), _ => Option<System.Drawing.Point>.None };
     public Option<Line> WorldLine =>
         (View.Case, ViewportPoint.Case) switch {
-            (RhinoView view, System.Drawing.Point point) => view.ActiveViewport.ClientToWorld(point) switch {
-                Line line when line.IsValid => Some(line),
+            (RhinoView view, System.Drawing.Point point) => view.ActiveViewport.GetFrustumLine(screenX: point.X, screenY: point.Y, worldLine: out Line line) switch {
+                true when line.IsValid && line != Line.Unset => Some(line),
                 _ => Option<Line>.None,
             },
             _ => Option<Line>.None,

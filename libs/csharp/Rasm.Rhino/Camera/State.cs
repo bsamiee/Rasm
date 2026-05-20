@@ -6,12 +6,87 @@ namespace Rasm.Rhino.Camera;
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
+public readonly record struct CameraDepth(double Near, double Far);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CameraSubject(
+    Func<RhinoViewport, Fin<CameraDepth>> Depth,
+    Func<RhinoViewport, Fin<bool>> Visible) {
+    public static CameraSubject Point(Point3d point) =>
+        new(
+            Depth: viewport => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => point.IsValid switch {
+                true => viewport.GetDepth(point: point, distance: out double distance) switch {
+                    true => Fin.Succ(value: new CameraDepth(Near: distance, Far: distance)),
+                    false => Fin.Fail<CameraDepth>(error: Op.Of(name: nameof(Point)).InvalidResult()),
+                },
+                false => Fin.Fail<CameraDepth>(error: Op.Of(name: nameof(Point)).InvalidInput()),
+            }),
+            Visible: viewport => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => point.IsValid switch {
+                true => Fin.Succ(value: viewport.IsVisible(point: point)),
+                false => Fin.Fail<bool>(error: Op.Of(name: nameof(Point)).InvalidInput()),
+            }));
+
+    public static CameraSubject Bounds(BoundingBox bounds) =>
+        new(
+            Depth: viewport => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => bounds.IsValid switch {
+                true => viewport.GetDepth(bbox: bounds, nearDistance: out double near, farDistance: out double far) switch {
+                    true => Fin.Succ(value: new CameraDepth(Near: near, Far: far)),
+                    false => Fin.Fail<CameraDepth>(error: Op.Of(name: nameof(Bounds)).InvalidResult()),
+                },
+                false => Fin.Fail<CameraDepth>(error: Op.Of(name: nameof(Bounds)).InvalidInput()),
+            }),
+            Visible: viewport => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => bounds.IsValid switch {
+                true => Fin.Succ(value: viewport.IsVisible(bbox: bounds)),
+                false => Fin.Fail<bool>(error: Op.Of(name: nameof(Bounds)).InvalidInput()),
+            }));
+
+    public static CameraSubject Sphere(Sphere sphere) =>
+        new(
+            Depth: viewport => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => sphere.IsValid switch {
+                true => viewport.GetDepth(sphere: sphere, nearDistance: out double near, farDistance: out double far) switch {
+                    true => Fin.Succ(value: new CameraDepth(Near: near, Far: far)),
+                    false => Fin.Fail<CameraDepth>(error: Op.Of(name: nameof(Sphere)).InvalidResult()),
+                },
+                false => Fin.Fail<CameraDepth>(error: Op.Of(name: nameof(Sphere)).InvalidInput()),
+            }),
+            Visible: viewport => Bounds(bounds: sphere.BoundingBox).Visible(arg: viewport));
+
+    public static CameraSubject Geometry(GeometryBase geometry) =>
+        Optional(geometry).Map(valid => Bounds(bounds: valid.GetBoundingBox(accurate: true))).IfNone(new CameraSubject(
+            Depth: static _ => Fin.Fail<CameraDepth>(error: Op.Of(name: nameof(Geometry)).InvalidInput()),
+            Visible: static _ => Fin.Fail<bool>(error: Op.Of(name: nameof(Geometry)).InvalidInput())));
+}
+
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct CameraScope(
     RhinoDoc Document,
     RhinoView View,
     RhinoViewport Viewport,
     Option<DetailViewObject> Detail = default) {
     public Fin<CameraSnapshot> Snapshot() => CameraSnapshot.Of(scope: this);
+
+    public Fin<Transform> CoordinateTransform(CoordinateSystem sourceSystem, CoordinateSystem destinationSystem) {
+        RhinoViewport viewport = Viewport;
+        return Rasm.Rhino.UI.RhinoUi.Protect(valid: () => Fin.Succ(value: viewport.GetTransform(sourceSystem: sourceSystem, destinationSystem: destinationSystem)));
+    }
+
+    public Fin<Line> FrustumLine(double screenX, double screenY) {
+        RhinoViewport viewport = Viewport;
+        return Rasm.Rhino.UI.RhinoUi.Protect(valid: () => viewport.GetFrustumLine(screenX: screenX, screenY: screenY, worldLine: out Line line) switch {
+            true when line.IsValid && line != Line.Unset => Fin.Succ(value: line),
+            _ => Fin.Fail<Line>(error: Op.Of(name: nameof(FrustumLine)).InvalidResult()),
+        });
+    }
+
+    public Fin<CameraDepth> Depth(CameraSubject source) {
+        RhinoViewport viewport = Viewport;
+        return Optional(source.Depth).ToFin(Fail: Op.Of(name: nameof(Depth)).InvalidInput()).Bind(valid => valid(arg: viewport));
+    }
+
+    public Fin<bool> Visible(CameraSubject source) {
+        RhinoViewport viewport = Viewport;
+        return Optional(source.Visible).ToFin(Fail: Op.Of(name: nameof(Visible)).InvalidInput()).Bind(valid => valid(arg: viewport));
+    }
 
     public Fin<Unit> Redraw() {
         RhinoView view = View;
@@ -22,6 +97,7 @@ public readonly record struct CameraScope(
                 _ => Fin.Succ(value: ((Func<Unit>)(() => { view.Redraw(); return unit; }))()),
             });
     }
+
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -47,15 +123,20 @@ public readonly record struct CameraFrame(
 
     public static Fin<CameraFrame> LookAt(Point3d location, Point3d target, Option<Vector3d> up = default) {
         Vector3d direction = target - location;
-        return (location.IsValid && target.IsValid && direction.IsValid && direction.Length > RhinoMath.ZeroTolerance) switch {
-            true => Fin.Succ(value: ((Func<CameraFrame>)(() => {
-                Vector3d unitDirection = direction;
-                _ = unitDirection.Unitize();
-                Vector3d cameraUp = up.Filter(static value => value.IsValid && value.Length > RhinoMath.ZeroTolerance).IfNone(Vector3d.ZAxis);
-                Vector3d x = Vector3d.CrossProduct(unitDirection, cameraUp);
-                Vector3d y = Vector3d.CrossProduct(x, unitDirection);
-                return new CameraFrame(Location: location, Target: target, Direction: unitDirection, Up: cameraUp, X: x, Y: y, Z: -unitDirection);
-            }))()),
+        Vector3d unitDirection = direction;
+        _ = unitDirection.Unitize();
+        Vector3d fallbackUp = Math.Abs(Vector3d.Multiply(unitDirection, Vector3d.ZAxis)) switch {
+            double dot when dot > 1.0 - RhinoMath.ZeroTolerance => Vector3d.YAxis,
+            _ => Vector3d.ZAxis,
+        };
+        Vector3d sourceUp = up.Filter(static value => value.IsValid && value.Length > RhinoMath.ZeroTolerance).IfNone(fallbackUp);
+        _ = sourceUp.Unitize();
+        Vector3d x = Vector3d.CrossProduct(sourceUp, unitDirection);
+        _ = x.Unitize();
+        Vector3d y = Vector3d.CrossProduct(unitDirection, x);
+        _ = y.Unitize();
+        return (location.IsValid && target.IsValid && direction.IsValid && direction.Length > RhinoMath.ZeroTolerance && x.IsValid && x.Length > RhinoMath.ZeroTolerance && y.IsValid && y.Length > RhinoMath.ZeroTolerance) switch {
+            true => Fin.Succ(value: ((Func<CameraFrame>)(() => new CameraFrame(Location: location, Target: target, Direction: unitDirection, Up: y, X: x, Y: y, Z: -unitDirection)))()),
             false => Fin.Fail<CameraFrame>(error: Op.Of(name: nameof(LookAt)).InvalidInput()),
         };
     }

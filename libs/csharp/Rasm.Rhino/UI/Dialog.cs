@@ -48,11 +48,16 @@ public static class UiIntent {
     public static UiIntent<T> Of<T>(Func<RhinoDoc, RunMode, Fin<T>> run) =>
         new(run: scope => Optional(run).ToFin(Fail: Op.Of(name: nameof(Of)).InvalidInput()).Bind(valid => valid(arg1: scope.Document, arg2: scope.Mode)), interactive: true);
 
+    public static UiIntent<T> Operation<T>(Func<RhinoDoc, RunMode, Fin<T>> run) =>
+        OfScope(
+            run: scope => Optional(run).ToFin(Fail: Op.Of(name: nameof(Operation)).InvalidInput()).Bind(valid => valid(arg1: scope.Document, arg2: scope.Mode)),
+            interactive: false);
+
     internal static UiIntent<T> OfScope<T>(Func<RhinoUi.Scope, Fin<T>> run, bool interactive = false, Option<Func<RhinoUi.Scope, Fin<T>>> scripted = default) =>
         new(run: run, interactive: interactive, scripted: scripted);
 
-    public static UiIntent<Unit> Queue(Action run, string name = nameof(Queue)) =>
-        OfScope(_ => RhinoUi.Enqueue(run: run, name: name), interactive: true);
+    public static UiIntent<Unit> Enqueue(Action run, string name = nameof(Enqueue)) =>
+        OfScope(_ => RhinoUi.Enqueue(run: run, name: name), interactive: false);
 
     internal static UiIntent<T> Dialog<T>(Func<Window?, RhinoDoc, Fin<T>> show) =>
         Request(name: nameof(Dialog), run: scope => Optional(show).ToFin(Fail: Op.Of(name: nameof(Dialog)).InvalidInput()).Bind(valid => valid(arg1: scope.Parent, arg2: scope.Document)));
