@@ -4,6 +4,7 @@ using DrawingSize = System.Drawing.Size;
 
 namespace Rasm.Rhino.Camera;
 
+// --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CameraScope(
     RhinoDoc Document,

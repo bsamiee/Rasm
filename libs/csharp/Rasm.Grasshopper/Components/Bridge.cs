@@ -5,24 +5,7 @@ using Grasshopper2.Types.Conversion;
 
 namespace Rasm.Grasshopper.Components;
 
-// --- [ERRORS] ---------------------------------------------------------------------------
-[BoundaryAdapter]
-internal sealed record MissingPortInput(string Port, string? Hint = null) : Rasm.Domain.Expected {
-    public override string Message => Hint switch { string h => $"{Port} input is required. Connect: {h}.", _ => $"{Port} input is required." };
-    public override string Category => "Input";
-}
-[BoundaryAdapter]
-internal sealed record UnsupportedSource(string Port, Type SourceType, string? Hint = null) : Rasm.Domain.Expected {
-    public override string Message => Hint switch { string h => $"{Port} input type '{SourceType.Name}' is not supported. Connect: {h}.", _ => $"{Port} input type '{SourceType.Name}' is not supported." };
-    public override string Category => "Input";
-}
-[BoundaryAdapter]
-internal sealed record UnsupportedAccess(string Access) : Rasm.Domain.Expected {
-    public override string Message => $"Unsupported input access: {Access}.";
-    public override string Category => "Access";
-}
-
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Shape {
     private readonly Option<IDisposable> owned;
@@ -91,7 +74,24 @@ internal readonly record struct Flow<T>(Pear<T> Pear, Option<Site> Site) {
     }
 }
 
-// --- [SERVICES] -------------------------------------------------------------------------
+// --- [ERRORS] -----------------------------------------------------------------------------
+[BoundaryAdapter]
+internal sealed record MissingPortInput(string Port, string? Hint = null) : Rasm.Domain.Expected {
+    public override string Message => Hint switch { string h => $"{Port} input is required. Connect: {h}.", _ => $"{Port} input is required." };
+    public override string Category => "Input";
+}
+[BoundaryAdapter]
+internal sealed record UnsupportedSource(string Port, Type SourceType, string? Hint = null) : Rasm.Domain.Expected {
+    public override string Message => Hint switch { string h => $"{Port} input type '{SourceType.Name}' is not supported. Connect: {h}.", _ => $"{Port} input type '{SourceType.Name}' is not supported." };
+    public override string Category => "Input";
+}
+[BoundaryAdapter]
+internal sealed record UnsupportedAccess(string Access) : Rasm.Domain.Expected {
+    public override string Message => $"Unsupported input access: {Access}.";
+    public override string Category => "Access";
+}
+
+// --- [SERVICES] ---------------------------------------------------------------------------
 [BoundaryAdapter]
 internal static class Bridge {
     internal static Fin<Analyze.Scope> Scope(this IDataAccess access) {

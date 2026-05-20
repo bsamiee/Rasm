@@ -11,7 +11,7 @@ using Op = Rasm.Domain.Op;
 
 namespace Rasm.Grasshopper.UI;
 
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ------------------------------------------------------------------------------
 [Union]
 public partial record WireSnapshot {
     private WireSnapshot() { }
@@ -75,6 +75,7 @@ public partial record WireResult {
     public sealed record SplitCase(Snapshot<WireSplitDelta> Delta) : WireResult;
 }
 
+// --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct WireGraph(
     Seq<WireSnapshot.ConnectedCase> Wires,
@@ -85,7 +86,7 @@ internal sealed record WireRequest(WireOp Op) : GhUiRequest<WireResult> {
     internal override Fin<WireResult> Apply(GrasshopperUi.Scope scope) => Wire.Dispatch(op: Op).Run(scope: scope);
 }
 
-// --- [SERVICES] --------------------------------------------------------------------------
+// --- [SERVICES] ---------------------------------------------------------------------------
 internal static partial class UiRail {
 }
 
@@ -175,7 +176,7 @@ internal static partial class Wire {
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Graph)), detail: $"parameter {startParameterId} not found"))
             select TraverseGraph(objects: objects, start: start, direction: direction, maxHops: hops));
 
-    // --- [OPERATIONS] ----------------------------------------------------------------------
+    // --- [OPERATIONS] -------------------------------------------------------------------------
     private static Seq<WireSnapshot.ConnectedCase> SafeWires(IEnumerable<WireEnds>? source, GhObjectList objects) =>
         Optional(source)
             .Map(wires => toSeq(wires).Map(wire => SnapshotConnected(objects: objects, wire: wire)))

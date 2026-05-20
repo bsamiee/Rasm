@@ -9,131 +9,7 @@ using Requirement = Grasshopper2.Parameters.Requirement;
 
 namespace Rasm.Grasshopper.Components;
 
-// --- [TYPES] ----------------------------------------------------------------------------
-public abstract class Port {
-    private protected Port(string name, string code, string info, PortKind kind, Access access, Requirement requirement, PortPolicy policy) {
-        Name = name;
-        Code = code;
-        Info = info;
-        Kind = kind;
-        Access = access;
-        Requirement = requirement;
-        Policy = policy;
-    }
-    public string Name { get; }
-    public string Code { get; }
-    public string Info { get; }
-    public PortKind Kind { get; }
-    public Access Access { get; }
-    public Requirement Requirement { get; }
-    public PortPolicy Policy { get; }
-    public static Port<TVal> Of<TVal>(
-        string name,
-        string code,
-        string info,
-        Access access = Access.Item,
-        Requirement requirement = Requirement.MustExist,
-        PortKind? kind = null,
-        PortPolicy? policy = null) =>
-        Of<TVal>(name: name, code: code, info: info, access: access, requirement: requirement, kind: kind, policy: policy, side: Side.Input);
-    internal static Port<TVal> Of<TVal>(
-        string name,
-        string code,
-        string info,
-        Access access,
-        Requirement requirement,
-        PortKind? kind,
-        PortPolicy? policy,
-        Side side = Side.Input) {
-        ArgumentNullException.ThrowIfNull(argument: name);
-        ArgumentNullException.ThrowIfNull(argument: code);
-        ArgumentNullException.ThrowIfNull(argument: info);
-        Type type = typeof(TVal);
-        PortKind resolvedKind = Optional(kind)
-            .Map(candidate => candidate.Accepts(type: type, side: side) switch {
-                true => candidate,
-                false => throw new ArgumentException(message: $"Port kind '{candidate}' cannot register {type.Name} on {side}.", paramName: nameof(kind)),
-            })
-            .IfNone(() => PortKind.From(type: type, side: side).IfNone(PortKind.Generic));
-        PortPolicy resolved = policy ?? resolvedKind.DefaultPolicy;
-        return new(
-            name: name,
-            code: code,
-            info: info,
-            kind: resolvedKind,
-            access: access,
-            requirement: requirement,
-            policy: requirement switch {
-                Requirement.MayBeMissing => resolved + PortPolicy.Optional + PortPolicy.Category(name: "Optional"),
-                _ => resolved,
-            });
-    }
-    public static Port<Shape> Shape(
-        string name = "Geometry",
-        string code = "G",
-        string info = "Geometry to analyse.",
-        Access access = Access.Tree) =>
-        Of<Shape>(name: name, code: code, info: info, access: access);
-}
-
-// --- [MODELS] ---------------------------------------------------------------------------
-public sealed record PortPolicy {
-    private readonly Func<object, Unit> apply;
-    private PortPolicy(Func<object, Unit> apply) => this.apply = apply;
-    public static PortPolicy Empty { get; } = new(apply: static _ => Unit.Default);
-    public static PortPolicy Vector(bool unitise = false, bool reverse = false) =>
-        On<VectorParameter>(mutate: target => { target.UnitiseVectors = unitise; target.ReverseVectors = reverse; return Unit.Default; });
-    public static PortPolicy Angle(int kind = 0, bool reduce = false) =>
-        On<AngleParameter>(mutate: target => { target.EnforceKind = kind; target.ReduceAngles = reduce; return Unit.Default; });
-    public static PortPolicy Curve(CurveParameter.NormalisationMethod normaliseDomains = CurveParameter.NormalisationMethod.None, bool flip = false) =>
-        On<CurveParameter>(mutate: target => { target.NormaliseDomains = normaliseDomains; target.FlipCurves = flip; return Unit.Default; });
-    public static PortPolicy Surface(bool acceptMeshes = false, CurveParameter.NormalisationMethod normaliseDomains = CurveParameter.NormalisationMethod.None, bool flip = false) =>
-        On<SurfaceParameter>(mutate: target => { target.AcceptMeshes = acceptMeshes; target.NormaliseDomains = normaliseDomains; target.FlipSurfaces = flip; return Unit.Default; });
-    public static PortPolicy Index(IndexModifier indexing = IndexModifier.Clip) =>
-        On<IntegerParameter>(mutate: target => { target.IsIndex = true; target.Indexing = indexing; return Unit.Default; });
-    public static PortPolicy Category(string name, Color? colour = null) =>
-        Compose(
-            On<IParameter>(mutate: parameter => SetCustom(parameter: parameter, key: ModularComponent.__Category, set: (kv, k) => kv.Set(key: k, value: name))),
-            colour switch {
-                Color value => On<IParameter>(mutate: parameter => SetCustom(parameter: parameter, key: ModularComponent.__Colour, set: (kv, k) => kv.Set(key: k, value: value))),
-                _ => Empty,
-            });
-    public static PortPolicy Optional { get; } =
-        On<IParameter>(mutate: parameter => SetCustom(parameter: parameter, key: ModularComponent.__Optional, set: (kv, k) => kv.Set(key: k, value: true)));
-    public static PortPolicy Hidden { get; } = Compose(Optional,
-        On<IParameter>(mutate: parameter => SetCustom(parameter: parameter, key: ModularComponent.__HideByDefault, set: (kv, k) => kv.Set(key: k, value: true))));
-    public static PortPolicy Compose(params PortPolicy[] policies) {
-        ArgumentNullException.ThrowIfNull(argument: policies);
-        return new PortPolicy(apply: parameter => toSeq(policies).Iter(policy => policy.Apply(parameter: parameter)));
-    }
-    public static PortPolicy Add(PortPolicy left, PortPolicy right) => Compose(left, right);
-    public static PortPolicy operator +(PortPolicy left, PortPolicy right) => Add(left: left, right: right);
-    public Unit Apply(object parameter) {
-        ArgumentNullException.ThrowIfNull(argument: parameter);
-        return apply(arg: parameter);
-    }
-    private static PortPolicy On<TParam>(Func<TParam, Unit> mutate) where TParam : class =>
-        new(apply: parameter => parameter switch {
-            TParam target => mutate(arg: target),
-            _ => Unit.Default,
-        });
-    private static Unit SetCustom(IParameter parameter, string key, Action<KeyedValues, string> set) {
-        set(arg1: parameter.CustomValues, arg2: key);
-        return Unit.Default;
-    }
-}
-public sealed class Port<TVal> : Port {
-    internal Port(
-        string name,
-        string code,
-        string info,
-        PortKind kind,
-        Access access,
-        Requirement requirement,
-        PortPolicy policy) : base(name: name, code: code, info: info, kind: kind, access: access, requirement: requirement, policy: policy) { }
-}
-
-// --- [CONSTANTS] ------------------------------------------------------------------------
+// --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
@@ -346,4 +222,126 @@ public sealed partial class PortKind {
     private static Option<PortKind> EnumKind(Type type) =>
         Optional(typeof(PortKind).GetMethod(name: nameof(EnumDefault), bindingAttr: BindingFlags.NonPublic | BindingFlags.Static))
             .Bind(method => Optional(method.MakeGenericMethod(typeArguments: [type]).Invoke(obj: null, parameters: null) as PortKind));
+}
+
+// --- [MODELS] -----------------------------------------------------------------------------
+public abstract class Port {
+    private protected Port(string name, string code, string info, PortKind kind, Access access, Requirement requirement, PortPolicy policy) {
+        Name = name;
+        Code = code;
+        Info = info;
+        Kind = kind;
+        Access = access;
+        Requirement = requirement;
+        Policy = policy;
+    }
+    public string Name { get; }
+    public string Code { get; }
+    public string Info { get; }
+    public PortKind Kind { get; }
+    public Access Access { get; }
+    public Requirement Requirement { get; }
+    public PortPolicy Policy { get; }
+    public static Port<TVal> Of<TVal>(
+        string name,
+        string code,
+        string info,
+        Access access = Access.Item,
+        Requirement requirement = Requirement.MustExist,
+        PortKind? kind = null,
+        PortPolicy? policy = null) =>
+        Of<TVal>(name: name, code: code, info: info, access: access, requirement: requirement, kind: kind, policy: policy, side: Side.Input);
+    internal static Port<TVal> Of<TVal>(
+        string name,
+        string code,
+        string info,
+        Access access,
+        Requirement requirement,
+        PortKind? kind,
+        PortPolicy? policy,
+        Side side = Side.Input) {
+        ArgumentNullException.ThrowIfNull(argument: name);
+        ArgumentNullException.ThrowIfNull(argument: code);
+        ArgumentNullException.ThrowIfNull(argument: info);
+        Type type = typeof(TVal);
+        PortKind resolvedKind = Optional(kind)
+            .Map(candidate => candidate.Accepts(type: type, side: side) switch {
+                true => candidate,
+                false => throw new ArgumentException(message: $"Port kind '{candidate}' cannot register {type.Name} on {side}.", paramName: nameof(kind)),
+            })
+            .IfNone(() => PortKind.From(type: type, side: side).IfNone(PortKind.Generic));
+        PortPolicy resolved = policy ?? resolvedKind.DefaultPolicy;
+        return new(
+            name: name,
+            code: code,
+            info: info,
+            kind: resolvedKind,
+            access: access,
+            requirement: requirement,
+            policy: requirement switch {
+                Requirement.MayBeMissing => resolved + PortPolicy.Optional + PortPolicy.Category(name: "Optional"),
+                _ => resolved,
+            });
+    }
+    public static Port<Shape> Shape(
+        string name = "Geometry",
+        string code = "G",
+        string info = "Geometry to analyse.",
+        Access access = Access.Tree) =>
+        Of<Shape>(name: name, code: code, info: info, access: access);
+}
+public sealed record PortPolicy {
+    private readonly Func<object, Unit> apply;
+    private PortPolicy(Func<object, Unit> apply) => this.apply = apply;
+    public static PortPolicy Empty { get; } = new(apply: static _ => Unit.Default);
+    public static PortPolicy Vector(bool unitise = false, bool reverse = false) =>
+        On<VectorParameter>(mutate: target => { target.UnitiseVectors = unitise; target.ReverseVectors = reverse; return Unit.Default; });
+    public static PortPolicy Angle(int kind = 0, bool reduce = false) =>
+        On<AngleParameter>(mutate: target => { target.EnforceKind = kind; target.ReduceAngles = reduce; return Unit.Default; });
+    public static PortPolicy Curve(CurveParameter.NormalisationMethod normaliseDomains = CurveParameter.NormalisationMethod.None, bool flip = false) =>
+        On<CurveParameter>(mutate: target => { target.NormaliseDomains = normaliseDomains; target.FlipCurves = flip; return Unit.Default; });
+    public static PortPolicy Surface(bool acceptMeshes = false, CurveParameter.NormalisationMethod normaliseDomains = CurveParameter.NormalisationMethod.None, bool flip = false) =>
+        On<SurfaceParameter>(mutate: target => { target.AcceptMeshes = acceptMeshes; target.NormaliseDomains = normaliseDomains; target.FlipSurfaces = flip; return Unit.Default; });
+    public static PortPolicy Index(IndexModifier indexing = IndexModifier.Clip) =>
+        On<IntegerParameter>(mutate: target => { target.IsIndex = true; target.Indexing = indexing; return Unit.Default; });
+    public static PortPolicy Category(string name, Color? colour = null) =>
+        Compose(
+            On<IParameter>(mutate: parameter => SetCustom(parameter: parameter, key: ModularComponent.__Category, set: (kv, k) => kv.Set(key: k, value: name))),
+            colour switch {
+                Color value => On<IParameter>(mutate: parameter => SetCustom(parameter: parameter, key: ModularComponent.__Colour, set: (kv, k) => kv.Set(key: k, value: value))),
+                _ => Empty,
+            });
+    public static PortPolicy Optional { get; } =
+        On<IParameter>(mutate: parameter => SetCustom(parameter: parameter, key: ModularComponent.__Optional, set: (kv, k) => kv.Set(key: k, value: true)));
+    public static PortPolicy Hidden { get; } = Compose(Optional,
+        On<IParameter>(mutate: parameter => SetCustom(parameter: parameter, key: ModularComponent.__HideByDefault, set: (kv, k) => kv.Set(key: k, value: true))));
+    public static PortPolicy Compose(params PortPolicy[] policies) {
+        ArgumentNullException.ThrowIfNull(argument: policies);
+        return new PortPolicy(apply: parameter => toSeq(policies).Iter(policy => policy.Apply(parameter: parameter)));
+    }
+    public static PortPolicy Add(PortPolicy left, PortPolicy right) => Compose(left, right);
+    public static PortPolicy operator +(PortPolicy left, PortPolicy right) => Add(left: left, right: right);
+    public Unit Apply(object parameter) {
+        ArgumentNullException.ThrowIfNull(argument: parameter);
+        return apply(arg: parameter);
+    }
+    private static PortPolicy On<TParam>(Func<TParam, Unit> mutate) where TParam : class =>
+        new(apply: parameter => parameter switch {
+            TParam target => mutate(arg: target),
+            _ => Unit.Default,
+        });
+    private static Unit SetCustom(IParameter parameter, string key, Action<KeyedValues, string> set) {
+        set(arg1: parameter.CustomValues, arg2: key);
+        return Unit.Default;
+    }
+}
+public sealed class Port<TVal> : Port {
+    internal Port(
+        string name,
+        string code,
+        string info,
+        PortKind kind,
+        Access access,
+        Requirement requirement,
+        PortPolicy policy) : base(name: name, code: code, info: info, kind: kind, access: access, requirement: requirement, policy: policy) { }
 }

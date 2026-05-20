@@ -13,7 +13,7 @@ using UndoAction = Grasshopper2.Undo.Action;
 
 namespace Rasm.Grasshopper.UI;
 
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ------------------------------------------------------------------------------
 public enum LayoutAxis { Horizontal, Vertical }
 
 [Union]
@@ -27,7 +27,7 @@ public partial record LayoutArrangement {
     public static LayoutArrangement Distribute(LayoutAxis axis, float gap, Seq<Guid> ids) => new DistributeCase(Axis: axis, Gap: gap, Ids: ids);
 }
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct LayoutSnapshot(Guid ObjectId, PointF Pivot, RectangleF Bounds, RectangleF AggregateBounds, bool Snappable);
 
@@ -82,7 +82,7 @@ internal sealed record LayoutRequest(LayoutOp Op) : GhUiRequest<LayoutResult> {
     internal override Fin<LayoutResult> Apply(GrasshopperUi.Scope scope) => Layout.Dispatch(op: Op).Run(scope: scope);
 }
 
-// --- [SERVICES] --------------------------------------------------------------------------
+// --- [SERVICES] ---------------------------------------------------------------------------
 internal static partial class Layout {
     internal static GrasshopperUiPolicy PolicyOf(LayoutOp op) =>
         GrasshopperUiPolicy.Document(repaint: op switch {
@@ -196,7 +196,7 @@ internal static partial class Layout {
                     _ => Fin.Fail<Option<SnappingSnapshot>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Snap)), detail: "unknown snap probe")),
                 }));
 
-    // --- [OPERATIONS] ----------------------------------------------------------------------
+    // --- [OPERATIONS] -------------------------------------------------------------------------
     private static Fin<Option<SnappingSnapshot>> SnapRectangle(GrasshopperUi.Scope scope, Guid id, RectangleF bounds, SnappingPolicy policy) =>
         Optional((Id: id, Bounds: bounds))
             .Filter(static p => p.Id != Guid.Empty

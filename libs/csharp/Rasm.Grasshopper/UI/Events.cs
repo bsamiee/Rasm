@@ -9,7 +9,7 @@ using Op = Rasm.Domain.Op;
 
 namespace Rasm.Grasshopper.UI;
 
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ------------------------------------------------------------------------------
 [Union]
 public partial record UiEvent {
     private UiEvent() { }
@@ -58,6 +58,7 @@ public enum ControlEventKind {
     DragEnd,
 }
 
+// --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct ControlEventSnapshot(
     ControlEventKind Kind,
@@ -76,7 +77,7 @@ internal sealed record EventRequest(UiEvent Event) : GhUiRequest<IDisposable> {
     internal override Fin<IDisposable> Apply(GrasshopperUi.Scope scope) => Events.Subscribe(uiEvent: Event).Run(scope: scope);
 }
 
-// --- [SERVICES] --------------------------------------------------------------------------
+// --- [SERVICES] ---------------------------------------------------------------------------
 internal static partial class Events {
     internal static GrasshopperUiPolicy PolicyOf(UiEvent uiEvent) =>
         uiEvent switch {
@@ -96,7 +97,7 @@ internal static partial class Events {
             _ => GhUi.Document<IDisposable>(run: _ => Fin.Fail<IDisposable>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Subscribe)), detail: $"event kind not supported: {uiEvent.GetType().Name}"))),
         };
 
-    // --- [OPERATIONS] ----------------------------------------------------------------------
+    // --- [OPERATIONS] -------------------------------------------------------------------------
     private static GrasshopperUiIntent<IDisposable> SubscribeDocumentChange(Func<DocumentSnapshot, Fin<Unit>> handler) =>
         GhUi.Document<IDisposable>(run: scope =>
             from doc in scope.NeedDocument()

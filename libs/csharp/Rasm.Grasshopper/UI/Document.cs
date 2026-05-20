@@ -17,7 +17,7 @@ using SysHashSet = System.Collections.Generic.HashSet<System.Guid>;
 
 namespace Rasm.Grasshopper.UI;
 
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ------------------------------------------------------------------------------
 [Union]
 public partial record VisibilityChange {
     private VisibilityChange() { }
@@ -168,7 +168,7 @@ public partial record DocumentResult {
     public sealed record MutationResult(Snapshot<DocumentMutationDelta> Delta) : DocumentResult;
 }
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] -----------------------------------------------------------------------------
 public enum DocumentRefresh {
     None,
     Canvas,
@@ -308,9 +308,9 @@ public abstract record DocumentTargetOp {
         });
 }
 
-// --- [SERVICES] --------------------------------------------------------------------------
+// --- [SERVICES] ---------------------------------------------------------------------------
 internal static partial class UiRail {
-    // --- [OPERATIONS] ----------------------------------------------------------------------
+    // --- [OPERATIONS] -------------------------------------------------------------------------
     internal static Fin<DocumentResult> DocumentDispatch(GrasshopperUi.Scope scope, DocumentOp op) => op switch {
         DocumentOp.QueryCase q => QueryDispatch(scope: scope, query: q.Request),
         DocumentOp.MutateCase m => MutateDispatch(scope: scope, mutations: m.Mutations, policy: m.Policy),

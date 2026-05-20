@@ -16,7 +16,7 @@ using UndoAction = Grasshopper2.Undo.Action;
 
 namespace Rasm.Grasshopper.UI;
 
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ------------------------------------------------------------------------------
 [Union]
 public partial record RepaintRequest {
     private RepaintRequest() { }
@@ -45,49 +45,6 @@ public partial record RepaintRequest {
     public static RepaintRequest BitwiseOr(RepaintRequest left, RepaintRequest right) => left | right;
 }
 
-// --- [ERRORS] ----------------------------------------------------------------------------
-[Union]
-public abstract partial record UiFault : Expected {
-    private UiFault() : base() { }
-
-    public sealed record MissingScopeCase(string Field) : UiFault {
-        public override string Message => $"GrasshopperUi scope field '{Field}' required but absent.";
-        public override string Category => "Scope";
-    }
-    public sealed record InvalidInputCase(Op Op, string Detail) : UiFault {
-        public override string Message => $"Op '{Op}' rejected input: {Detail}.";
-        public override string Category => "Input";
-    }
-    public sealed record MutationRejectedCase(Op Op, string Detail) : UiFault {
-        public override string Message => $"Op '{Op}' rejected by Grasshopper2: {Detail}.";
-        public override string Category => "Mutation";
-    }
-    public sealed record RhinoEditorCase(string Detail) : UiFault {
-        public override string Message => $"Rhino editor operation failed: {Detail}.";
-        public override string Category => "Editor";
-    }
-    public sealed record ResourceLeakedCase(string Detail) : UiFault {
-        public override string Message => $"Resource teardown failed: {Detail}.";
-        public override string Category => "Resource";
-    }
-    public sealed record ThreadMarshalCase(string Detail) : UiFault {
-        public override string Message => $"UI-thread marshal failed: {Detail}.";
-        public override string Category => "Thread";
-    }
-    public sealed record CancelledCase(Op Op) : UiFault {
-        public override string Message => $"Op '{Op}' cancelled.";
-        public override string Category => "Cancelled";
-    }
-
-    public static UiFault MissingScope(string field) => new MissingScopeCase(Field: field);
-    public static UiFault InvalidInput(Op op, string detail) => new InvalidInputCase(Op: op, Detail: detail);
-    public static UiFault MutationRejected(Op op, string detail) => new MutationRejectedCase(Op: op, Detail: detail);
-    public static UiFault RhinoEditor(string detail) => new RhinoEditorCase(Detail: detail);
-    public static UiFault ResourceLeaked(string detail) => new ResourceLeakedCase(Detail: detail);
-    public static UiFault ThreadMarshal(string detail) => new ThreadMarshalCase(Detail: detail);
-    public static UiFault Cancelled(Op op) => new CancelledCase(Op: op);
-}
-
 [Union]
 internal partial record UndoStrategy {
     private UndoStrategy() { }
@@ -100,7 +57,7 @@ internal partial record UndoStrategy {
     public static UndoStrategy Manual(Func<GrasshopperUi.Scope, UndoEntry> record) => new ManualCase(Record: record);
 }
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Snapshot<T>(
     Option<Guid> OwnerId,
@@ -205,6 +162,50 @@ public abstract record GhUiRequest<T> {
     internal abstract Fin<T> Apply(GrasshopperUi.Scope scope);
 }
 
+// --- [ERRORS] -----------------------------------------------------------------------------
+[Union]
+public abstract partial record UiFault : Expected {
+    private UiFault() : base() { }
+
+    public sealed record MissingScopeCase(string Field) : UiFault {
+        public override string Message => $"GrasshopperUi scope field '{Field}' required but absent.";
+        public override string Category => "Scope";
+    }
+    public sealed record InvalidInputCase(Op Op, string Detail) : UiFault {
+        public override string Message => $"Op '{Op}' rejected input: {Detail}.";
+        public override string Category => "Input";
+    }
+    public sealed record MutationRejectedCase(Op Op, string Detail) : UiFault {
+        public override string Message => $"Op '{Op}' rejected by Grasshopper2: {Detail}.";
+        public override string Category => "Mutation";
+    }
+    public sealed record RhinoEditorCase(string Detail) : UiFault {
+        public override string Message => $"Rhino editor operation failed: {Detail}.";
+        public override string Category => "Editor";
+    }
+    public sealed record ResourceLeakedCase(string Detail) : UiFault {
+        public override string Message => $"Resource teardown failed: {Detail}.";
+        public override string Category => "Resource";
+    }
+    public sealed record ThreadMarshalCase(string Detail) : UiFault {
+        public override string Message => $"UI-thread marshal failed: {Detail}.";
+        public override string Category => "Thread";
+    }
+    public sealed record CancelledCase(Op Op) : UiFault {
+        public override string Message => $"Op '{Op}' cancelled.";
+        public override string Category => "Cancelled";
+    }
+
+    public static UiFault MissingScope(string field) => new MissingScopeCase(Field: field);
+    public static UiFault InvalidInput(Op op, string detail) => new InvalidInputCase(Op: op, Detail: detail);
+    public static UiFault MutationRejected(Op op, string detail) => new MutationRejectedCase(Op: op, Detail: detail);
+    public static UiFault RhinoEditor(string detail) => new RhinoEditorCase(Detail: detail);
+    public static UiFault ResourceLeaked(string detail) => new ResourceLeakedCase(Detail: detail);
+    public static UiFault ThreadMarshal(string detail) => new ThreadMarshalCase(Detail: detail);
+    public static UiFault Cancelled(Op op) => new CancelledCase(Op: op);
+}
+
+// --- [SERVICES] ---------------------------------------------------------------------------
 public static class GhUi {
     public static GrasshopperUiIntent<T> Apply<T>(GhUiRequest<T> request) =>
         new(
@@ -247,7 +248,6 @@ public static class GhUi {
         new(run: run, policy: GrasshopperUiPolicy.Document(repaint: repaint));
 }
 
-// --- [SERVICES] --------------------------------------------------------------------------
 [BoundaryAdapter]
 public sealed partial record GrasshopperUi {
     [StructLayout(LayoutKind.Auto)]

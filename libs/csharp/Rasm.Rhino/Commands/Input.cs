@@ -9,6 +9,7 @@ using UiViewportPreview = Rasm.Rhino.UI.UiViewportPreview;
 
 namespace Rasm.Rhino.Commands;
 
+// --- [MODELS] -----------------------------------------------------------------------------
 public readonly record struct CommandPoint(
     Option<Point3d> Point,
     Option<DrawingPoint> WindowPoint,
@@ -563,6 +564,28 @@ public readonly record struct CommandPointEvent(
     }
 }
 
+public sealed record CommandInput {
+    internal CommandInput(RhinoDoc document, Rasm.Domain.Context domain) {
+        ArgumentNullException.ThrowIfNull(argument: document);
+        ArgumentNullException.ThrowIfNull(argument: domain);
+        Document = document;
+        Domain = domain;
+    }
+
+    public RhinoDoc Document { get; }
+    public Rasm.Domain.Context Domain { get; }
+
+    public Fin<CommandGet<TValue>> Get<TValue>(CommandInputRequest<TValue> request) =>
+        Optional(request).ToFin(Fail: Op.Of(name: nameof(Get)).InvalidInput()).Bind(valid => valid.Run(input: this));
+
+    internal Fin<CommandInputEvent<TValue>> GetEvent<TValue>(CommandInputRequest<TValue> request) =>
+        Optional(request).ToFin(Fail: Op.Of(name: nameof(GetEvent)).InvalidInput()).Bind(valid => valid.RunEvent(input: this));
+
+    internal Fin<CommandInputEvent<TValue>> Script<TValue>(CommandInputRequest<TValue> request, string token) =>
+        Optional(request).ToFin(Fail: Op.Of(name: nameof(Script)).InvalidInput()).Bind(valid => valid.Script(input: this, token: token));
+}
+
+// --- [SERVICES] ---------------------------------------------------------------------------
 public static class CommandInputs {
     public static CommandInputRequest<T> Get<T>(params CommandInputPolicy[] policies) {
         Seq<CommandInputPolicy> active = toSeq(policies);
@@ -825,25 +848,4 @@ public static class CommandInputs {
 
     private static CommandInputRequest<T> BindPolicy<T>(this CommandInputRequest<T> request, Func<Seq<CommandInputPolicy>, CommandInputRequest<T>> rebind) =>
         new(runEvent: request.RunEvent, rebind: rebind, scripted: request.Script);
-}
-
-public sealed record CommandInput {
-    internal CommandInput(RhinoDoc document, Rasm.Domain.Context domain) {
-        ArgumentNullException.ThrowIfNull(argument: document);
-        ArgumentNullException.ThrowIfNull(argument: domain);
-        Document = document;
-        Domain = domain;
-    }
-
-    public RhinoDoc Document { get; }
-    public Rasm.Domain.Context Domain { get; }
-
-    public Fin<CommandGet<TValue>> Get<TValue>(CommandInputRequest<TValue> request) =>
-        Optional(request).ToFin(Fail: Op.Of(name: nameof(Get)).InvalidInput()).Bind(valid => valid.Run(input: this));
-
-    internal Fin<CommandInputEvent<TValue>> GetEvent<TValue>(CommandInputRequest<TValue> request) =>
-        Optional(request).ToFin(Fail: Op.Of(name: nameof(GetEvent)).InvalidInput()).Bind(valid => valid.RunEvent(input: this));
-
-    internal Fin<CommandInputEvent<TValue>> Script<TValue>(CommandInputRequest<TValue> request, string token) =>
-        Optional(request).ToFin(Fail: Op.Of(name: nameof(Script)).InvalidInput()).Bind(valid => valid.Script(input: this, token: token));
 }

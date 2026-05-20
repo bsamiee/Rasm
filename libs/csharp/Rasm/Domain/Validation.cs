@@ -144,26 +144,6 @@ public sealed partial record Requirement {
     }
 }
 
-internal static class RequirementContext {
-    private static Validation<Error, (TA A, TB B)> Validate<TA, TB>(this Context context, TA a, TB b, Requirement requirementA, Requirement requirementB, CancellationToken cancel = default) where TA : notnull where TB : notnull =>
-        (requirementA.Apply(context: context, value: a, cancel: cancel),
-         requirementB.Apply(context: context, value: b, cancel: cancel))
-            .Apply(static (left, right) => (A: left, B: right)).As();
-    internal static Validation<Error, (TA A, TB B, Kind KindA, Kind KindB)> Pair<TA, TB>(
-        this Context context,
-        TA a,
-        TB b,
-        Op op,
-        Func<Op, Kind, Kind, Fin<(Requirement A, Requirement B)>> requirements,
-        CancellationToken cancel = default) where TA : notnull where TB : notnull =>
-        (from pair in context.Validate(a: a, b: b, requirementA: Requirement.None, requirementB: Requirement.None, cancel: cancel)
-         from kindA in ((object)pair.A).KindOf(context: context).ToValidation()
-         from kindB in ((object)pair.B).KindOf(context: context).ToValidation()
-         from required in requirements(arg1: op, arg2: kindA, arg3: kindB).ToValidation()
-         from validated in context.Validate(a: pair.A, b: pair.B, requirementA: required.A, requirementB: required.B, cancel: cancel)
-         select (validated.A, validated.B, KindA: kindA, KindB: kindB)).As();
-}
-
 // --- [ERRORS] -----------------------------------------------------------------------------
 [BoundaryAdapter]
 public abstract record Expected : Error {
@@ -200,6 +180,7 @@ public abstract partial record Fault : Expected {
     public sealed record InvalidUnitSystem(UnitSystem Units, string Requirement) : Fault { public override string Message => $"Model unit system must be {Requirement}; actual={Units}."; public override string Category => "Context"; }
 }
 
+// --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class FaultExtensions {
     [BoundaryAdapter]
     public static string Category(this Error error) => error switch {
@@ -208,7 +189,26 @@ public static partial class FaultExtensions {
     };
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+internal static class RequirementContext {
+    private static Validation<Error, (TA A, TB B)> Validate<TA, TB>(this Context context, TA a, TB b, Requirement requirementA, Requirement requirementB, CancellationToken cancel = default) where TA : notnull where TB : notnull =>
+        (requirementA.Apply(context: context, value: a, cancel: cancel),
+         requirementB.Apply(context: context, value: b, cancel: cancel))
+            .Apply(static (left, right) => (A: left, B: right)).As();
+    internal static Validation<Error, (TA A, TB B, Kind KindA, Kind KindB)> Pair<TA, TB>(
+        this Context context,
+        TA a,
+        TB b,
+        Op op,
+        Func<Op, Kind, Kind, Fin<(Requirement A, Requirement B)>> requirements,
+        CancellationToken cancel = default) where TA : notnull where TB : notnull =>
+        (from pair in context.Validate(a: a, b: b, requirementA: Requirement.None, requirementB: Requirement.None, cancel: cancel)
+         from kindA in ((object)pair.A).KindOf(context: context).ToValidation()
+         from kindB in ((object)pair.B).KindOf(context: context).ToValidation()
+         from required in requirements(arg1: op, arg2: kindA, arg3: kindB).ToValidation()
+         from validated in context.Validate(a: pair.A, b: pair.B, requirementA: required.A, requirementB: required.B, cancel: cancel)
+         select (validated.A, validated.B, KindA: kindA, KindB: kindB)).As();
+}
+
 [BoundaryAdapter]
 internal static class OpAcceptance {
     private static readonly FrozenDictionary<Type, Func<object, bool>> ValueValidity = new Type[] {

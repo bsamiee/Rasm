@@ -4,44 +4,7 @@ using UiViewportPreview = Rasm.Rhino.UI.UiViewportPreview;
 
 namespace Rasm.Rhino.Commands;
 
-public abstract class RasmCommand<TSelf> : Command where TSelf : RasmCommand<TSelf> {
-    public override string EnglishName => typeof(TSelf).Name;
-
-    protected sealed override Result RunCommand(RhinoDoc doc, RunMode mode) =>
-        Rasm.Rhino.UI.RhinoUi.Protect(valid: () =>
-            RhinoCommandContext.Of(doc: doc, mode: mode)
-            .Bind(context =>
-                Ready(context: context)
-                    .Bind(_ => Run(context: context))
-                    .Bind(result => Complete(context: context, result: result))))
-            .Match(Succ: static result => result, Fail: FailureResult);
-
-    protected abstract Fin<Result> Run(RhinoCommandContext context);
-
-    protected Fin<Result> Run<TState>(RhinoCommandContext context, CommandGraph<TState> graph) =>
-        from active in Optional(context).ToFin(Fail: Op.Of(name: nameof(Run)).InvalidInput())
-        from valid in Optional(graph).ToFin(Fail: Op.Of(name: nameof(Run)).InvalidInput())
-        from result in valid.Run(context: active)
-        select result;
-
-    protected virtual Fin<Unit> Ready(RhinoCommandContext context) =>
-        from active in Optional(context).ToFin(Fail: Op.Of(name: nameof(Ready)).InvalidInput())
-        from _ in active.Scope.Context.Map(static _ => unit)
-        select unit;
-
-    protected virtual Fin<Result> Complete(RhinoCommandContext context, Result result) =>
-        Optional(context).ToFin(Fail: Op.Of(name: nameof(Complete)).InvalidInput()).Bind(active => result switch {
-            Result.Success => active.Edit.Redraw().Map(_ => result),
-            _ => Fin.Succ(value: result),
-        });
-
-    protected virtual Result FailureResult(Error fault) =>
-        fault switch {
-            Fault.Cancelled => Result.Cancel,
-            Error error => ((Func<Result>)(() => { RhinoApp.WriteLine($"{EnglishName}: {error.Message}"); return Result.Failure; }))(),
-        };
-}
-
+// --- [MODELS] -----------------------------------------------------------------------------
 public sealed record CommandGraph<TState>(
     TState Initial,
     Seq<CommandStage<TState>> Stages,
@@ -213,4 +176,43 @@ public abstract record PromptTransition<TState> {
     public sealed record Back : PromptTransition<TState>;
     public sealed record Commit(TState State) : PromptTransition<TState>;
     public sealed record Cancel : PromptTransition<TState>;
+}
+
+// --- [SERVICES] ---------------------------------------------------------------------------
+public abstract class RasmCommand<TSelf> : Command where TSelf : RasmCommand<TSelf> {
+    public override string EnglishName => typeof(TSelf).Name;
+
+    protected sealed override Result RunCommand(RhinoDoc doc, RunMode mode) =>
+        Rasm.Rhino.UI.RhinoUi.Protect(valid: () =>
+            RhinoCommandContext.Of(doc: doc, mode: mode)
+            .Bind(context =>
+                Ready(context: context)
+                    .Bind(_ => Run(context: context))
+                    .Bind(result => Complete(context: context, result: result))))
+            .Match(Succ: static result => result, Fail: FailureResult);
+
+    protected abstract Fin<Result> Run(RhinoCommandContext context);
+
+    protected Fin<Result> Run<TState>(RhinoCommandContext context, CommandGraph<TState> graph) =>
+        from active in Optional(context).ToFin(Fail: Op.Of(name: nameof(Run)).InvalidInput())
+        from valid in Optional(graph).ToFin(Fail: Op.Of(name: nameof(Run)).InvalidInput())
+        from result in valid.Run(context: active)
+        select result;
+
+    protected virtual Fin<Unit> Ready(RhinoCommandContext context) =>
+        from active in Optional(context).ToFin(Fail: Op.Of(name: nameof(Ready)).InvalidInput())
+        from _ in active.Scope.Context.Map(static _ => unit)
+        select unit;
+
+    protected virtual Fin<Result> Complete(RhinoCommandContext context, Result result) =>
+        Optional(context).ToFin(Fail: Op.Of(name: nameof(Complete)).InvalidInput()).Bind(active => result switch {
+            Result.Success => active.Edit.Redraw().Map(_ => result),
+            _ => Fin.Succ(value: result),
+        });
+
+    protected virtual Result FailureResult(Error fault) =>
+        fault switch {
+            Fault.Cancelled => Result.Cancel,
+            Error error => ((Func<Result>)(() => { RhinoApp.WriteLine($"{EnglishName}: {error.Message}"); return Result.Failure; }))(),
+        };
 }

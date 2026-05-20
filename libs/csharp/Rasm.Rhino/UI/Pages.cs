@@ -2,8 +2,11 @@ using Eto.Forms;
 
 namespace Rasm.Rhino.UI;
 
+// --- [TYPES] ------------------------------------------------------------------------------
 public enum PagePhase { Apply, Cancel, Activate, Script, Display, Update, Modify, Defaults, Help, CreateParent, SizeParent }
+public enum PageHost { Options, DocumentProperties, ObjectProperties }
 
+// --- [MODELS] -----------------------------------------------------------------------------
 public readonly record struct PageContext(PagePhase Phase, bool Active = false, RhinoDoc? Document = null, RunMode Mode = RunMode.Interactive, global::Rhino.UI.ObjectPropertiesPageEventArgs? Args = null, IntPtr ParentHandle = default, int Width = 0, int Height = 0) {
     public Option<uint> EventSerialNumber => Optional(Args).Map(static args => args.EventRuntimeSerialNumber);
     public Option<uint> DocumentSerialNumber => Optional(Args).Map(static args => args.DocRuntimeSerialNumber) | Optional(Document).Map(static document => document.RuntimeSerialNumber);
@@ -27,8 +30,6 @@ public readonly record struct PageContext(PagePhase Phase, bool Active = false, 
         Objects(filter: filter).Map(static objects => objects.Map(static native => (native.Id, native.ObjectType)));
     public Fin<RhinoUi> Ui() { RunMode mode = Mode; return RequireDocument().Map(document => new RhinoUi(document: document, mode: mode)); }
 }
-
-public enum PageHost { Options, DocumentProperties, ObjectProperties }
 
 public readonly record struct PageMetadata(
     Option<string> LocalTitle = default,
@@ -59,6 +60,7 @@ public sealed record PageRegistration<TPage>(TPage Page, PageHost Host) where TP
         };
 }
 
+// --- [SERVICES] ---------------------------------------------------------------------------
 public abstract class RasmOptionsPage : global::Rhino.UI.OptionsDialogPage {
     private readonly Control control;
     private readonly bool showApplyButton;

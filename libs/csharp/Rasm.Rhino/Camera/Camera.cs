@@ -1,5 +1,6 @@
 namespace Rasm.Rhino.Camera;
 
+// --- [SERVICES] ---------------------------------------------------------------------------
 public sealed class RhinoCamera(RhinoDoc document) {
     private readonly RhinoDoc document = document ?? throw new ArgumentNullException(paramName: nameof(document));
 

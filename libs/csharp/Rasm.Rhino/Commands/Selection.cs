@@ -1,6 +1,6 @@
 namespace Rasm.Rhino.Commands;
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] -----------------------------------------------------------------------------
 public readonly record struct PickLocation(Option<double> CurveParameter, Option<Point2d> SurfaceParameter) {
     internal static Option<PickLocation> Of(ObjRef reference, SelectionMethod selectionMethod) {
         ArgumentNullException.ThrowIfNull(argument: reference);

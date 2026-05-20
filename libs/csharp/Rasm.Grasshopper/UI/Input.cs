@@ -13,7 +13,7 @@ using Op = Rasm.Domain.Op;
 
 namespace Rasm.Grasshopper.UI;
 
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ------------------------------------------------------------------------------
 public enum CursorKind {
     Default, Crosshair, Pointer, IBeam, Move,
     VerticalSplit, HorizontalSplit, SizeAll, NotAllowed,
@@ -66,7 +66,7 @@ public partial record InputClipboardOp {
     public static readonly InputClipboardOp Clear = new ClearCase();
 }
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct InputModifierSnapshot(bool Shift, bool Command, bool Option);
 
@@ -301,7 +301,7 @@ public abstract record InputRequest<T> : GhUiRequest<T> {
     }
 }
 
-// --- [SERVICES] --------------------------------------------------------------------------
+// --- [SERVICES] ---------------------------------------------------------------------------
 internal static partial class Input {
     internal static GrasshopperUiIntent<InputSelectionSnapshot> Selection(InputSelectionSource source) =>
         GhUi.Read<InputSelectionSnapshot>(run: _ =>
@@ -443,7 +443,7 @@ internal static partial class Input {
             Types: toSeq(clipboard.Types ?? []));
     }
 
-    // --- [OPERATIONS] ----------------------------------------------------------------------
+    // --- [OPERATIONS] -------------------------------------------------------------------------
     private static InputModifierSnapshot ModifierOf(Keys keys) =>
         new(Shift: keys.HasShift(), Command: keys.HasCommand(), Option: keys.HasOption());
 

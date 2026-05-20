@@ -1,5 +1,6 @@
 namespace Rasm.Rhino.Commands;
 
+// --- [MODELS] -----------------------------------------------------------------------------
 public sealed class RhinoCommandContext {
     private RhinoCommandContext(RhinoDoc document, RunMode mode, Rasm.Domain.Context domain) {
         Document = document;

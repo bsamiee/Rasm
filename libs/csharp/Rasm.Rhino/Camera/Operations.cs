@@ -7,6 +7,18 @@ using XmlDocument = System.Xml.XmlDocument;
 
 namespace Rasm.Rhino.Camera;
 
+// --- [TYPES] ------------------------------------------------------------------------------
+public enum CameraMouseMove {
+    RotateAroundTarget,
+    RotateCamera,
+    InOutDolly,
+    Magnify,
+    Tilt,
+    DollyZoom,
+    LateralDolly,
+}
+
+// --- [MODELS] -----------------------------------------------------------------------------
 public sealed record CameraOp<T> {
     private readonly Func<CameraScope, Fin<T>> run;
 
@@ -21,80 +33,6 @@ public sealed record CameraOp<T> {
 
     public CameraOp<TNext> Bind<TNext>(Func<T, CameraOp<TNext>> bind) =>
         new(run: scope => Optional(bind).ToFin(Fail: Op.Of(name: nameof(Bind)).InvalidInput()).Bind(valid => Apply(scope: scope).Bind(value => Optional(valid(arg: value)).ToFin(Fail: Op.Of(name: nameof(Bind)).InvalidResult()).Bind(next => next.Apply(scope: scope)))));
-}
-
-public static class CameraOps {
-    public static CameraOp<T> Read<T>(Func<CameraSnapshot, Fin<T>> project) =>
-        new(run: scope => Optional(project).ToFin(Fail: Op.Of(name: nameof(Read)).InvalidInput()).Bind(valid => scope.Snapshot().Bind(snapshot => {
-            // BOUNDARY ADAPTER - snapshot owns native ViewportInfo only for the projection callback.
-            try { return valid(arg: snapshot); } finally { snapshot.Dispose(); }
-        })));
-
-    public static CameraOp<Unit> Change(params CameraEdit[] edits) =>
-        Change(edits: edits, redrawEach: true);
-
-    public static CameraOp<Unit> Change(IEnumerable<CameraEdit> edits, bool redrawEach = true) =>
-        new(run: scope =>
-            from changes in Optional(edits).ToFin(Fail: Op.Of(name: nameof(Change)).InvalidInput()).Map(static source => toSeq(source))
-            from applied in changes.TraverseM(edit => edit.Apply(scope: scope, redraw: redrawEach)).As()
-            from redraw in redrawEach switch {
-                true => Fin.Succ(value: unit),
-                false => scope.Redraw(),
-            }
-            select redraw);
-
-    public static CameraOp<Rasm.Rhino.Commands.DocumentResourceChange> SaveNamed(string name) =>
-        new(run: scope =>
-            from valid in Name(value: name, op: Op.Of(name: nameof(SaveNamed)))
-            from index in scope.Document.NamedViews.Add(name: valid, viewportId: scope.Viewport.Id) switch {
-                int value when value >= 0 => Fin.Succ(value: value),
-                _ => Fin.Fail<int>(error: Op.Of(name: nameof(SaveNamed)).InvalidResult()),
-            }
-            select new Rasm.Rhino.Commands.DocumentResourceChange(Kind: Rasm.Rhino.Commands.DocumentResourceKind.View, Name: valid));
-
-    public static CameraOp<Unit> RestoreNamed(string name) =>
-        RestoreNamed(name: name, restore: CameraNamedRestore.Direct);
-
-    public static CameraOp<Unit> RestoreNamed(string name, CameraNamedRestore restore) =>
-        new(run: scope =>
-            from index in NamedIndex(document: scope.Document, name: name, op: Op.Of(name: nameof(RestoreNamed)))
-            from restored in restore.Apply(document: scope.Document, index: index, viewport: scope.Viewport)
-            from redraw in scope.Redraw()
-            select redraw);
-
-    public static CameraOp<Rasm.Rhino.Commands.DocumentResourceChange> RenameNamed(string current, string next) =>
-        new(run: scope =>
-            from index in NamedIndex(document: scope.Document, name: current, op: Op.Of(name: nameof(RenameNamed)))
-            from name in Name(value: next, op: Op.Of(name: nameof(RenameNamed)))
-            from renamed in RhinoCamera.UnitResult(success: scope.Document.NamedViews.Rename(index: index, newName: name), op: Op.Of(name: nameof(RenameNamed)))
-            select new Rasm.Rhino.Commands.DocumentResourceChange(Kind: Rasm.Rhino.Commands.DocumentResourceKind.View, Name: name));
-
-    public static CameraOp<Rasm.Rhino.Commands.DocumentResourceChange> DeleteNamed(string name) =>
-        new(run: scope =>
-            from index in NamedIndex(document: scope.Document, name: name, op: Op.Of(name: nameof(DeleteNamed)))
-            from valid in Name(value: name, op: Op.Of(name: nameof(DeleteNamed)))
-            from deleted in RhinoCamera.UnitResult(success: scope.Document.NamedViews.Delete(index: index), op: Op.Of(name: nameof(DeleteNamed)))
-            select new Rasm.Rhino.Commands.DocumentResourceChange(Kind: Rasm.Rhino.Commands.DocumentResourceKind.View, Name: valid));
-
-    public static CameraOp<DrawingBitmap> CaptureBitmap(CameraCapture capture) =>
-        new(run: scope => capture.Capture(scope: scope, project: static settings => Optional(ViewCapture.CaptureToBitmap(settings: settings)).ToFin(Fail: Op.Of(name: nameof(CaptureBitmap)).InvalidResult())));
-
-    public static CameraOp<XmlDocument> CaptureSvg(CameraCapture capture) =>
-        new(run: scope => capture.Capture(scope: scope, project: static settings => Optional(ViewCapture.CaptureToSvg(settings: settings)).ToFin(Fail: Op.Of(name: nameof(CaptureSvg)).InvalidResult())));
-
-    private static Fin<int> NamedIndex(RhinoDoc document, string name, Op op) =>
-        from valid in Name(value: name, op: op)
-        from index in document.NamedViews.FindByName(name: valid) switch {
-            int value when value >= 0 => Fin.Succ(value: value),
-            _ => Fin.Fail<int>(error: op.MissingContext()),
-        }
-        select index;
-
-    private static Fin<string> Name(string value, Op op) =>
-        string.IsNullOrWhiteSpace(value: value) switch {
-            false => Fin.Succ(value: value.Trim()),
-            true => Fin.Fail<string>(error: op.InvalidInput()),
-        };
 }
 
 public sealed record CameraEdit {
@@ -241,16 +179,6 @@ public sealed record CameraEdit {
         };
 }
 
-public enum CameraMouseMove {
-    RotateAroundTarget,
-    RotateCamera,
-    InOutDolly,
-    Magnify,
-    Tilt,
-    DollyZoom,
-    LateralDolly,
-}
-
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CameraNamedRestore(Func<RhinoDoc, int, RhinoViewport, Fin<Unit>> Run) {
     public static CameraNamedRestore Direct { get; } =
@@ -333,4 +261,79 @@ public readonly record struct CameraCapture(
                })
                select result;
     }
+}
+
+// --- [OPERATIONS] -------------------------------------------------------------------------
+public static class CameraOps {
+    public static CameraOp<T> Read<T>(Func<CameraSnapshot, Fin<T>> project) =>
+        new(run: scope => Optional(project).ToFin(Fail: Op.Of(name: nameof(Read)).InvalidInput()).Bind(valid => scope.Snapshot().Bind(snapshot => {
+            // BOUNDARY ADAPTER - snapshot owns native ViewportInfo only for the projection callback.
+            try { return valid(arg: snapshot); } finally { snapshot.Dispose(); }
+        })));
+
+    public static CameraOp<Unit> Change(params CameraEdit[] edits) =>
+        Change(edits: edits, redrawEach: true);
+
+    public static CameraOp<Unit> Change(IEnumerable<CameraEdit> edits, bool redrawEach = true) =>
+        new(run: scope =>
+            from changes in Optional(edits).ToFin(Fail: Op.Of(name: nameof(Change)).InvalidInput()).Map(static source => toSeq(source))
+            from applied in changes.TraverseM(edit => edit.Apply(scope: scope, redraw: redrawEach)).As()
+            from redraw in redrawEach switch {
+                true => Fin.Succ(value: unit),
+                false => scope.Redraw(),
+            }
+            select redraw);
+
+    public static CameraOp<Rasm.Rhino.Commands.DocumentResourceChange> SaveNamed(string name) =>
+        new(run: scope =>
+            from valid in Name(value: name, op: Op.Of(name: nameof(SaveNamed)))
+            from index in scope.Document.NamedViews.Add(name: valid, viewportId: scope.Viewport.Id) switch {
+                int value when value >= 0 => Fin.Succ(value: value),
+                _ => Fin.Fail<int>(error: Op.Of(name: nameof(SaveNamed)).InvalidResult()),
+            }
+            select new Rasm.Rhino.Commands.DocumentResourceChange(Kind: Rasm.Rhino.Commands.DocumentResourceKind.View, Name: valid));
+
+    public static CameraOp<Unit> RestoreNamed(string name) =>
+        RestoreNamed(name: name, restore: CameraNamedRestore.Direct);
+
+    public static CameraOp<Unit> RestoreNamed(string name, CameraNamedRestore restore) =>
+        new(run: scope =>
+            from index in NamedIndex(document: scope.Document, name: name, op: Op.Of(name: nameof(RestoreNamed)))
+            from restored in restore.Apply(document: scope.Document, index: index, viewport: scope.Viewport)
+            from redraw in scope.Redraw()
+            select redraw);
+
+    public static CameraOp<Rasm.Rhino.Commands.DocumentResourceChange> RenameNamed(string current, string next) =>
+        new(run: scope =>
+            from index in NamedIndex(document: scope.Document, name: current, op: Op.Of(name: nameof(RenameNamed)))
+            from name in Name(value: next, op: Op.Of(name: nameof(RenameNamed)))
+            from renamed in RhinoCamera.UnitResult(success: scope.Document.NamedViews.Rename(index: index, newName: name), op: Op.Of(name: nameof(RenameNamed)))
+            select new Rasm.Rhino.Commands.DocumentResourceChange(Kind: Rasm.Rhino.Commands.DocumentResourceKind.View, Name: name));
+
+    public static CameraOp<Rasm.Rhino.Commands.DocumentResourceChange> DeleteNamed(string name) =>
+        new(run: scope =>
+            from index in NamedIndex(document: scope.Document, name: name, op: Op.Of(name: nameof(DeleteNamed)))
+            from valid in Name(value: name, op: Op.Of(name: nameof(DeleteNamed)))
+            from deleted in RhinoCamera.UnitResult(success: scope.Document.NamedViews.Delete(index: index), op: Op.Of(name: nameof(DeleteNamed)))
+            select new Rasm.Rhino.Commands.DocumentResourceChange(Kind: Rasm.Rhino.Commands.DocumentResourceKind.View, Name: valid));
+
+    public static CameraOp<DrawingBitmap> CaptureBitmap(CameraCapture capture) =>
+        new(run: scope => capture.Capture(scope: scope, project: static settings => Optional(ViewCapture.CaptureToBitmap(settings: settings)).ToFin(Fail: Op.Of(name: nameof(CaptureBitmap)).InvalidResult())));
+
+    public static CameraOp<XmlDocument> CaptureSvg(CameraCapture capture) =>
+        new(run: scope => capture.Capture(scope: scope, project: static settings => Optional(ViewCapture.CaptureToSvg(settings: settings)).ToFin(Fail: Op.Of(name: nameof(CaptureSvg)).InvalidResult())));
+
+    private static Fin<int> NamedIndex(RhinoDoc document, string name, Op op) =>
+        from valid in Name(value: name, op: op)
+        from index in document.NamedViews.FindByName(name: valid) switch {
+            int value when value >= 0 => Fin.Succ(value: value),
+            _ => Fin.Fail<int>(error: op.MissingContext()),
+        }
+        select index;
+
+    private static Fin<string> Name(string value, Op op) =>
+        string.IsNullOrWhiteSpace(value: value) switch {
+            false => Fin.Succ(value: value.Trim()),
+            true => Fin.Fail<string>(error: op.InvalidInput()),
+        };
 }

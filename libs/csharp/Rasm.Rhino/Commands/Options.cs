@@ -2,7 +2,7 @@ using Color = System.Drawing.Color;
 
 namespace Rasm.Rhino.Commands;
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] -----------------------------------------------------------------------------
 public readonly record struct CommandOptionValue {
     internal CommandOptionValue(
         int index,

@@ -3,6 +3,70 @@ using Eto.Forms;
 
 namespace Rasm.Rhino.UI;
 
+// --- [MODELS] -----------------------------------------------------------------------------
+public readonly record struct UiStatus(
+    Option<string> Prompt = default,
+    Option<string> PromptDefault = default,
+    Option<string> CommandMessage = default,
+    Option<string> Message = default,
+    Option<double> Distance = default,
+    Option<double> Number = default,
+    Option<Point3d> Point = default,
+    bool ClearMessage = false) {
+    public static UiStatus operator +(UiStatus left, UiStatus right) => Add(left: left, right: right);
+    public static UiStatus Add(UiStatus left, UiStatus right) =>
+        new(Prompt: right.Prompt | left.Prompt, PromptDefault: right.PromptDefault | left.PromptDefault, CommandMessage: right.CommandMessage | left.CommandMessage, Message: right.Message | (right.ClearMessage ? Option<string>.None : left.Message), Distance: right.Distance | left.Distance, Number: right.Number | left.Number, Point: right.Point | left.Point, ClearMessage: left.ClearMessage || right.ClearMessage);
+    public static UiStatus Add(params UiStatus[] statuses) =>
+        Optional(statuses)
+            .Map(static values => toSeq(values).Fold(initialState: new UiStatus(), f: static (state, value) => state + value))
+            .IfNone(new UiStatus());
+
+    public static UiStatus Script(string message) =>
+        string.IsNullOrWhiteSpace(value: message) switch {
+            false => new UiStatus(CommandMessage: Some(message.Trim()), Message: Option<string>.None, ClearMessage: false),
+            true => new UiStatus(),
+        };
+
+    internal Fin<Unit> Apply() {
+        UiStatus status = this;
+        return RhinoUi.Protect(valid: () => {
+            _ = (status.Prompt.Case, status.PromptDefault.Case) switch {
+                (string prompt, string fallback) => ((Func<Unit>)(() => { RhinoApp.SetCommandPrompt(prompt: prompt, promptDefault: fallback); return unit; }))(),
+                (string prompt, _) => ((Func<Unit>)(() => { RhinoApp.SetCommandPrompt(prompt: prompt); return unit; }))(),
+                _ => unit,
+            };
+            _ = status.CommandMessage.Iter(static value => RhinoApp.SetCommandPromptMessage(prompt: value));
+            _ = status.ClearMessage switch {
+                true => ((Func<Unit>)(static () => { global::Rhino.UI.StatusBar.ClearMessagePane(); return unit; }))(),
+                false => unit,
+            };
+            _ = status.Message.Iter(static value => global::Rhino.UI.StatusBar.SetMessagePane(message: value));
+            _ = status.Distance.Iter(static value => global::Rhino.UI.StatusBar.SetDistancePane(distance: value));
+            _ = status.Number.Iter(static value => global::Rhino.UI.StatusBar.SetNumberPane(number: value));
+            _ = status.Point.Iter(static value => global::Rhino.UI.StatusBar.SetPointPane(point: value));
+            return Fin.Succ(value: unit);
+        });
+    }
+
+}
+
+public readonly record struct UiProgressSpec(
+    int Lower,
+    int Upper,
+    string Label,
+    bool EmbedLabel = true,
+    bool ShowPercentComplete = true);
+
+public readonly record struct UiProgressStep(
+    Option<int> Position = default,
+    Option<string> Label = default,
+    bool Absolute = true) {
+    public static UiProgressStep Relative(int delta = 1, string? label = null) =>
+        new(Position: Some(delta), Label: Optional(label), Absolute: false);
+}
+
+
+// --- [SERVICES] ---------------------------------------------------------------------------
 public sealed partial record RhinoUi {
     private readonly RhinoDoc document;
     private readonly RunMode mode;
@@ -69,67 +133,6 @@ public sealed partial record RhinoUi {
                 .Run()
                 .MapFail(_ => Op.Of(name: name).InvalidResult())
                 .Bind(static result => result));
-}
-
-public readonly record struct UiStatus(
-    Option<string> Prompt = default,
-    Option<string> PromptDefault = default,
-    Option<string> CommandMessage = default,
-    Option<string> Message = default,
-    Option<double> Distance = default,
-    Option<double> Number = default,
-    Option<Point3d> Point = default,
-    bool ClearMessage = false) {
-    public static UiStatus operator +(UiStatus left, UiStatus right) => Add(left: left, right: right);
-    public static UiStatus Add(UiStatus left, UiStatus right) =>
-        new(Prompt: right.Prompt | left.Prompt, PromptDefault: right.PromptDefault | left.PromptDefault, CommandMessage: right.CommandMessage | left.CommandMessage, Message: right.Message | (right.ClearMessage ? Option<string>.None : left.Message), Distance: right.Distance | left.Distance, Number: right.Number | left.Number, Point: right.Point | left.Point, ClearMessage: left.ClearMessage || right.ClearMessage);
-    public static UiStatus Add(params UiStatus[] statuses) =>
-        Optional(statuses)
-            .Map(static values => toSeq(values).Fold(initialState: new UiStatus(), f: static (state, value) => state + value))
-            .IfNone(new UiStatus());
-
-    public static UiStatus Script(string message) =>
-        string.IsNullOrWhiteSpace(value: message) switch {
-            false => new UiStatus(CommandMessage: Some(message.Trim()), Message: Option<string>.None, ClearMessage: false),
-            true => new UiStatus(),
-        };
-
-    internal Fin<Unit> Apply() {
-        UiStatus status = this;
-        return RhinoUi.Protect(valid: () => {
-            _ = (status.Prompt.Case, status.PromptDefault.Case) switch {
-                (string prompt, string fallback) => ((Func<Unit>)(() => { RhinoApp.SetCommandPrompt(prompt: prompt, promptDefault: fallback); return unit; }))(),
-                (string prompt, _) => ((Func<Unit>)(() => { RhinoApp.SetCommandPrompt(prompt: prompt); return unit; }))(),
-                _ => unit,
-            };
-            _ = status.CommandMessage.Iter(static value => RhinoApp.SetCommandPromptMessage(prompt: value));
-            _ = status.ClearMessage switch {
-                true => ((Func<Unit>)(static () => { global::Rhino.UI.StatusBar.ClearMessagePane(); return unit; }))(),
-                false => unit,
-            };
-            _ = status.Message.Iter(static value => global::Rhino.UI.StatusBar.SetMessagePane(message: value));
-            _ = status.Distance.Iter(static value => global::Rhino.UI.StatusBar.SetDistancePane(distance: value));
-            _ = status.Number.Iter(static value => global::Rhino.UI.StatusBar.SetNumberPane(number: value));
-            _ = status.Point.Iter(static value => global::Rhino.UI.StatusBar.SetPointPane(point: value));
-            return Fin.Succ(value: unit);
-        });
-    }
-
-}
-
-public readonly record struct UiProgressSpec(
-    int Lower,
-    int Upper,
-    string Label,
-    bool EmbedLabel = true,
-    bool ShowPercentComplete = true);
-
-public readonly record struct UiProgressStep(
-    Option<int> Position = default,
-    Option<string> Label = default,
-    bool Absolute = true) {
-    public static UiProgressStep Relative(int delta = 1, string? label = null) =>
-        new(Position: Some(delta), Label: Optional(label), Absolute: false);
 }
 
 public sealed class UiProgress : IDisposable {

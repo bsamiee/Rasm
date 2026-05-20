@@ -7,18 +7,7 @@ using GhEditor = Grasshopper2.UI.Editor;
 
 namespace Rasm.Grasshopper.UI;
 
-// --- [MODELS] ----------------------------------------------------------------------------
-public readonly record struct EditorSnapshot(bool HasEditor, bool HasCanvas, bool HasDocument, bool Collapsed);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct EditorShellSnapshot(
-    bool Collapsed,
-    bool ShowNotes,
-    bool ShowUndoHistory,
-    string InitialLayout,
-    Seq<string> DefinedLayouts);
-
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ------------------------------------------------------------------------------
 [Union]
 public partial record EditorOp {
     private EditorOp() { }
@@ -42,6 +31,17 @@ public partial record EditorResult {
     public sealed record ShellResult(Snapshot<EditorShellSnapshot> Snapshot) : EditorResult;
     public static readonly EditorResult Unit = new UnitResult();
 }
+
+// --- [MODELS] -----------------------------------------------------------------------------
+public readonly record struct EditorSnapshot(bool HasEditor, bool HasCanvas, bool HasDocument, bool Collapsed);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct EditorShellSnapshot(
+    bool Collapsed,
+    bool ShowNotes,
+    bool ShowUndoHistory,
+    string InitialLayout,
+    Seq<string> DefinedLayouts);
 
 internal sealed record EditorRequest(EditorOp Op) : GhUiRequest<EditorResult> {
     internal override GrasshopperUiPolicy Policy => PolicyOf(op: Op);
@@ -91,5 +91,6 @@ internal sealed record EditorRequest(EditorOp Op) : GhUiRequest<EditorResult> {
     };
 }
 
+// --- [SERVICES] ---------------------------------------------------------------------------
 internal static partial class UiRail {
 }

@@ -2,8 +2,11 @@ using DrawingColor = System.Drawing.Color;
 
 namespace Rasm.Rhino.UI;
 
+// --- [TYPES] ------------------------------------------------------------------------------
 public enum MousePhase { Move, MoveEnd, Down, DownEnd, Up, UpEnd, DoubleClick, Enter, Hover, Leave }
+public enum OverlayPhase { Enabled, Cull, PreDrawObjects, PreDrawObject, Foreground, Overlay, PostDraw, Bounds, ZoomBounds }
 
+// --- [MODELS] -----------------------------------------------------------------------------
 public readonly record struct MouseContext<TState>(MousePhase Phase, TState State, global::Rhino.UI.MouseCallbackEventArgs Args) {
     public bool Cancelled => Args.Cancel;
     public bool CanCancelNative => Phase is MousePhase.Move or MousePhase.Down or MousePhase.Up or MousePhase.DoubleClick;
@@ -36,8 +39,6 @@ public readonly record struct MouseContext<TState>(MousePhase Phase, TState Stat
 }
 
 public readonly record struct MouseDecision<TState>(TState State, bool Cancel, Option<string> ToolTip = default);
-
-public enum OverlayPhase { Enabled, Cull, PreDrawObjects, PreDrawObject, Foreground, Overlay, PostDraw, Bounds, ZoomBounds }
 
 public readonly record struct OverlayContext<TState>(OverlayPhase Phase, TState State, object? Args = null, bool Enabled = false) {
     public Option<DrawEventArgs> Draw => Optional(Args as DrawEventArgs);
@@ -124,90 +125,6 @@ public readonly record struct OverlayFilter(Option<ObjectType> Geometry = defaul
             });
     }
 
-}
-
-public abstract class RasmOverlay<TState>(TState initial) : DisplayConduit, IDisposable {
-    private readonly Atom<TState> state = Atom(initial);
-    private bool disposed;
-
-    public TState State => state.Value;
-
-    public Fin<Unit> Transition(Func<TState, TState> transition, RhinoDoc? document = null) =>
-        disposed switch { false => Optional(transition).ToFin(Fail: Op.Of(name: nameof(Transition)).InvalidInput()).Map(apply => { _ = state.Swap(f: apply); _ = Optional(document).Iter(static doc => doc.Views.Redraw()); return unit; }), true => Fin.Fail<Unit>(error: Op.Of(name: nameof(Transition)).InvalidInput()) };
-
-    public Fin<Unit> Enable(bool enabled = true, RhinoDoc? document = null) =>
-        disposed switch { false => Fin.Succ(value: ((Func<Unit>)(() => { Enabled = enabled; _ = Optional(document).Iter(static doc => doc.Views.Redraw()); return unit; }))()), true => Fin.Fail<Unit>(error: Op.Of(name: nameof(Enable)).InvalidInput()) };
-
-    public Fin<Unit> Filter(OverlayFilter filter, RhinoDoc? document = null) =>
-        disposed switch { false => filter.Apply(conduit: this).Map(_ => { _ = Optional(document).Iter(static doc => doc.Views.Redraw()); return unit; }), true => Fin.Fail<Unit>(error: Op.Of(name: nameof(Filter)).InvalidInput()) };
-
-    public Fin<T> Use<T>(RhinoDoc document, Func<RasmOverlay<TState>, Fin<T>> run) =>
-        from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput()) from validRun in Optional(run).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput()) from active in guard(!disposed, Op.Of(name: nameof(Use)).InvalidInput()) from result in RhinoUi.Protect(valid: () => {
-            Enabled = true;
-            validDocument.Views.Redraw();
-            // BOUNDARY ADAPTER - display conduit lifetime must be closed after the caller rail exits.
-            try { return validRun(arg: this); } finally { Dispose(); validDocument.Views.Redraw(); }
-        }) select result;
-
-    public void Dispose() {
-        Dispose(disposing: true);
-        GC.SuppressFinalize(obj: this);
-    }
-
-    protected virtual void Dispose(bool disposing) {
-        _ = disposing;
-        _ = disposed switch {
-            true => unit,
-            false => Disable(),
-        };
-        disposed = true;
-    }
-
-    private Unit Disable() {
-        Enabled = false;
-        return unit;
-    }
-
-    protected virtual Fin<OverlayDecision> Change(OverlayContext<TState> context) =>
-        Fin.Succ(value: OverlayDecision.Ignore);
-
-    protected sealed override void OnEnable(bool enable) =>
-        _ = Apply(phase: OverlayPhase.Enabled, args: null, enabled: enable);
-
-    protected sealed override void ObjectCulling(CullObjectEventArgs e) =>
-        _ = Apply(phase: OverlayPhase.Cull, args: e);
-
-    protected sealed override void PreDrawObjects(DrawEventArgs e) =>
-        _ = Apply(phase: OverlayPhase.PreDrawObjects, args: e);
-
-    protected sealed override void PreDrawObject(DrawObjectEventArgs e) =>
-        _ = Apply(phase: OverlayPhase.PreDrawObject, args: e);
-
-    protected sealed override void DrawForeground(DrawEventArgs e) =>
-        _ = Apply(phase: OverlayPhase.Foreground, args: e);
-
-    protected sealed override void DrawOverlay(DrawEventArgs e) =>
-        _ = Apply(phase: OverlayPhase.Overlay, args: e);
-
-    protected sealed override void PostDrawObjects(DrawEventArgs e) =>
-        _ = Apply(phase: OverlayPhase.PostDraw, args: e);
-
-    protected sealed override void CalculateBoundingBox(CalculateBoundingBoxEventArgs e) =>
-        _ = Apply(phase: OverlayPhase.Bounds, args: e);
-
-    protected sealed override void CalculateBoundingBoxZoomExtents(CalculateBoundingBoxEventArgs e) =>
-        _ = Apply(phase: OverlayPhase.ZoomBounds, args: e);
-
-    private Fin<Unit> Apply(OverlayPhase phase, object? args, bool enabled = false) =>
-        RhinoUi.Protect(valid: () => Change(context: new OverlayContext<TState>(Phase: phase, State: State, Args: args, Enabled: enabled))).Bind(decision => ((Optional(args as DrawEventArgs).Case, Optional(args as DrawObjectEventArgs).Case, decision.Draw.Case, decision.DrawObject.Case) switch {
-            (_, DrawObjectEventArgs target, _, Func<DrawObjectEventArgs, Fin<Unit>> paint) => paint(arg: target),
-            (DrawEventArgs target, _, Func<DisplayPipeline, Fin<Unit>> paint, _) => paint(arg: target.Display),
-            _ => Fin.Succ(value: unit),
-        }).Map(_ => {
-            _ = Optional(args as CalculateBoundingBoxEventArgs).Iter(target => decision.Bounds.Iter(box => target.IncludeBoundingBox(box)));
-            _ = Optional(args as CullObjectEventArgs).Iter(target => decision.Cull.Iter(value => target.CullObject = value));
-            return unit;
-        }));
 }
 
 public readonly record struct UiPreviewStyle(
@@ -305,17 +222,6 @@ public sealed record UiViewportRequest<T>(Func<RhinoDoc, Fin<T>> Run) {
         from validRun in Optional(Run).ToFin(Fail: Op.Of(name: nameof(Execute)).InvalidInput())
         from result in validRun(arg: document)
         select result;
-}
-
-public static class UiViewportRequest {
-    public static UiViewportRequest<T> Preview<T>(UiViewportPreview preview, Func<UiPreviewScope, Fin<T>> run, Option<UiGumballSpec> gumball = default) =>
-        new(Run: document => UiViewportPreview.Use(document: document, preview: preview, gumball: gumball, run: run));
-
-    public static UiViewportRequest<T> Interaction<TState, T>(UiViewportInteraction<TState> interaction, Func<UiPreviewScope, Fin<T>> run) =>
-        new(Run: document =>
-            from active in Optional(interaction).ToFin(Fail: Op.Of(name: nameof(Interaction)).InvalidInput())
-            from result in active.Use(document: document, run: run)
-            select result);
 }
 
 public sealed record UiViewportInteraction<TState>(
@@ -574,6 +480,91 @@ public sealed record UiGumballSpec {
     private static global::Rhino.UI.Gumball.GumballAppearanceSettings Apply(global::Rhino.UI.Gumball.GumballAppearanceSettings settings, Seq<Action<global::Rhino.UI.Gumball.GumballAppearanceSettings>> actions) { _ = actions.Iter(action => action(obj: settings)); return settings; }
 }
 
+// --- [SERVICES] ---------------------------------------------------------------------------
+public abstract class RasmOverlay<TState>(TState initial) : DisplayConduit, IDisposable {
+    private readonly Atom<TState> state = Atom(initial);
+    private bool disposed;
+
+    public TState State => state.Value;
+
+    public Fin<Unit> Transition(Func<TState, TState> transition, RhinoDoc? document = null) =>
+        disposed switch { false => Optional(transition).ToFin(Fail: Op.Of(name: nameof(Transition)).InvalidInput()).Map(apply => { _ = state.Swap(f: apply); _ = Optional(document).Iter(static doc => doc.Views.Redraw()); return unit; }), true => Fin.Fail<Unit>(error: Op.Of(name: nameof(Transition)).InvalidInput()) };
+
+    public Fin<Unit> Enable(bool enabled = true, RhinoDoc? document = null) =>
+        disposed switch { false => Fin.Succ(value: ((Func<Unit>)(() => { Enabled = enabled; _ = Optional(document).Iter(static doc => doc.Views.Redraw()); return unit; }))()), true => Fin.Fail<Unit>(error: Op.Of(name: nameof(Enable)).InvalidInput()) };
+
+    public Fin<Unit> Filter(OverlayFilter filter, RhinoDoc? document = null) =>
+        disposed switch { false => filter.Apply(conduit: this).Map(_ => { _ = Optional(document).Iter(static doc => doc.Views.Redraw()); return unit; }), true => Fin.Fail<Unit>(error: Op.Of(name: nameof(Filter)).InvalidInput()) };
+
+    public Fin<T> Use<T>(RhinoDoc document, Func<RasmOverlay<TState>, Fin<T>> run) =>
+        from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput()) from validRun in Optional(run).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput()) from active in guard(!disposed, Op.Of(name: nameof(Use)).InvalidInput()) from result in RhinoUi.Protect(valid: () => {
+            Enabled = true;
+            validDocument.Views.Redraw();
+            // BOUNDARY ADAPTER - display conduit lifetime must be closed after the caller rail exits.
+            try { return validRun(arg: this); } finally { Dispose(); validDocument.Views.Redraw(); }
+        }) select result;
+
+    public void Dispose() {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(obj: this);
+    }
+
+    protected virtual void Dispose(bool disposing) {
+        _ = disposing;
+        _ = disposed switch {
+            true => unit,
+            false => Disable(),
+        };
+        disposed = true;
+    }
+
+    private Unit Disable() {
+        Enabled = false;
+        return unit;
+    }
+
+    protected virtual Fin<OverlayDecision> Change(OverlayContext<TState> context) =>
+        Fin.Succ(value: OverlayDecision.Ignore);
+
+    protected sealed override void OnEnable(bool enable) =>
+        _ = Apply(phase: OverlayPhase.Enabled, args: null, enabled: enable);
+
+    protected sealed override void ObjectCulling(CullObjectEventArgs e) =>
+        _ = Apply(phase: OverlayPhase.Cull, args: e);
+
+    protected sealed override void PreDrawObjects(DrawEventArgs e) =>
+        _ = Apply(phase: OverlayPhase.PreDrawObjects, args: e);
+
+    protected sealed override void PreDrawObject(DrawObjectEventArgs e) =>
+        _ = Apply(phase: OverlayPhase.PreDrawObject, args: e);
+
+    protected sealed override void DrawForeground(DrawEventArgs e) =>
+        _ = Apply(phase: OverlayPhase.Foreground, args: e);
+
+    protected sealed override void DrawOverlay(DrawEventArgs e) =>
+        _ = Apply(phase: OverlayPhase.Overlay, args: e);
+
+    protected sealed override void PostDrawObjects(DrawEventArgs e) =>
+        _ = Apply(phase: OverlayPhase.PostDraw, args: e);
+
+    protected sealed override void CalculateBoundingBox(CalculateBoundingBoxEventArgs e) =>
+        _ = Apply(phase: OverlayPhase.Bounds, args: e);
+
+    protected sealed override void CalculateBoundingBoxZoomExtents(CalculateBoundingBoxEventArgs e) =>
+        _ = Apply(phase: OverlayPhase.ZoomBounds, args: e);
+
+    private Fin<Unit> Apply(OverlayPhase phase, object? args, bool enabled = false) =>
+        RhinoUi.Protect(valid: () => Change(context: new OverlayContext<TState>(Phase: phase, State: State, Args: args, Enabled: enabled))).Bind(decision => ((Optional(args as DrawEventArgs).Case, Optional(args as DrawObjectEventArgs).Case, decision.Draw.Case, decision.DrawObject.Case) switch {
+            (_, DrawObjectEventArgs target, _, Func<DrawObjectEventArgs, Fin<Unit>> paint) => paint(arg: target),
+            (DrawEventArgs target, _, Func<DisplayPipeline, Fin<Unit>> paint, _) => paint(arg: target.Display),
+            _ => Fin.Succ(value: unit),
+        }).Map(_ => {
+            _ = Optional(args as CalculateBoundingBoxEventArgs).Iter(target => decision.Bounds.Iter(box => target.IncludeBoundingBox(box)));
+            _ = Optional(args as CullObjectEventArgs).Iter(target => decision.Cull.Iter(value => target.CullObject = value));
+            return unit;
+        }));
+}
+
 public sealed class UiGumball : IDisposable {
     private readonly RhinoDoc document;
     private readonly global::Rhino.UI.Gumball.GumballDisplayConduit conduit;
@@ -662,4 +653,16 @@ public sealed class UiGumball : IDisposable {
         document.Views.Redraw();
         return Fin.Succ(value: value);
     }
+}
+
+// --- [OPERATIONS] -------------------------------------------------------------------------
+public static class UiViewportRequest {
+    public static UiViewportRequest<T> Preview<T>(UiViewportPreview preview, Func<UiPreviewScope, Fin<T>> run, Option<UiGumballSpec> gumball = default) =>
+        new(Run: document => UiViewportPreview.Use(document: document, preview: preview, gumball: gumball, run: run));
+
+    public static UiViewportRequest<T> Interaction<TState, T>(UiViewportInteraction<TState> interaction, Func<UiPreviewScope, Fin<T>> run) =>
+        new(Run: document =>
+            from active in Optional(interaction).ToFin(Fail: Op.Of(name: nameof(Interaction)).InvalidInput())
+            from result in active.Use(document: document, run: run)
+            select result);
 }

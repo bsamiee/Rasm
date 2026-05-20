@@ -10,10 +10,10 @@ using GhCanvas = Grasshopper2.UI.Canvas.Canvas;
 
 namespace Rasm.Grasshopper.UI;
 
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ------------------------------------------------------------------------------
 public enum CanvasPaintPhase { BeforeBackground, AfterBackground, BeforeGroups, AfterGroups, BeforeWires, AfterWires, BeforeObjects, AfterObjects, }
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct PaintScope(
     CanvasPaintPhase Phase,
@@ -214,7 +214,7 @@ public abstract record PaintRequest<T> : GhUiRequest<T> {
     }
 }
 
-// --- [SERVICES] --------------------------------------------------------------------------
+// --- [SERVICES] ---------------------------------------------------------------------------
 internal static partial class Paint {
     internal static GrasshopperUiIntent<PaintSkinSnapshot> Skin() =>
         GhUi.Canvas<PaintSkinSnapshot>(run: scope => scope.NeedSkin().Map(skin =>
@@ -236,7 +236,7 @@ internal static partial class Paint {
             repaint: RepaintRequest.Canvas,
             run: scope => scope.NeedCanvas().Map(canvas => { canvas.RedrawOnMouseMove = enabled; return unit; }));
 
-    // --- [OPERATIONS] ----------------------------------------------------------------------
+    // --- [OPERATIONS] -------------------------------------------------------------------------
     private readonly record struct PaintPhaseCase(
         CanvasPaintPhase Phase,
         Action<GhCanvas, EventHandler<CanvasPaintEventArgs>> Attach,

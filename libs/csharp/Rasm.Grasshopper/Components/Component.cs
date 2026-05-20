@@ -20,7 +20,7 @@ using UiShape = Grasshopper2.UI.Skinning.Shape;
 
 namespace Rasm.Grasshopper.Components;
 
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ------------------------------------------------------------------------------
 [AttributeUsage(validOn: AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
 public sealed class IconAttribute(string name) : Attribute {
     public string Name { get; } = name;
@@ -30,15 +30,15 @@ public sealed class IconAttribute(string name) : Attribute {
             _ => fallback,
         };
 }
-
-// --- [MODELS] ---------------------------------------------------------------------------
-public readonly record struct ComponentItem<T>(T Value, bool Hidden = false);
 public interface IComponentDefinition<TSelf> where TSelf : IComponentDefinition<TSelf> {
     public static abstract ComponentSpec Definition { get; }
 }
 internal interface IRasmComponent {
     public ComponentSpec Spec { get; }
 }
+
+// --- [MODELS] -----------------------------------------------------------------------------
+public readonly record struct ComponentItem<T>(T Value, bool Hidden = false);
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct ComponentUi {
@@ -260,7 +260,7 @@ internal readonly record struct GrasshopperRuntime(IDataAccess Access, Analyze.S
     }
 }
 
-// --- [COMPOSITION] ----------------------------------------------------------------------
+// --- [COMPOSITION] ------------------------------------------------------------------------
 [BoundaryAdapter]
 public abstract class Plugin : GhPlugin {
     private readonly string author;

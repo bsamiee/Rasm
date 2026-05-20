@@ -34,7 +34,6 @@ public readonly partial struct AngleTolerance {
         };
 }
 
-// --- [SERVICES] ---------------------------------------------------------------------------
 public sealed record Context {
     private const double DefaultFractionalTolerance = 1.0e-8;
     private Context(AbsoluteTolerance absolute, RelativeTolerance relative, AngleTolerance angle, UnitSystem units) {

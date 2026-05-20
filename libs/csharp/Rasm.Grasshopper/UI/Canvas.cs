@@ -12,7 +12,7 @@ using Op = Rasm.Domain.Op;
 
 namespace Rasm.Grasshopper.UI;
 
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ------------------------------------------------------------------------------
 [Flags]
 public enum CanvasBitmapLayers {
     None = 0, Background = 1, Wires = 2, Messages = 4,
@@ -99,7 +99,7 @@ public partial record CanvasResult {
     public static readonly CanvasResult Unit = new UnitResult();
 }
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CanvasNavigationPolicy(float MinimumZoom = 0.05f, float MaximumZoom = 2f, TimeSpan Duration = default);
 
@@ -174,9 +174,9 @@ internal sealed record CanvasRequest(CanvasOp Op) : GhUiRequest<CanvasResult> {
         GrasshopperUiPolicy.Canvas(openEditor: UiRail.CanvasNeedsEditor(op: op), repaint: UiRail.CanvasRepaintFor(op: op));
 }
 
-// --- [SERVICES] --------------------------------------------------------------------------
+// --- [SERVICES] ---------------------------------------------------------------------------
 internal static partial class UiRail {
-    // --- [OPERATIONS] ----------------------------------------------------------------------
+    // --- [OPERATIONS] -------------------------------------------------------------------------
     internal static Fin<CanvasResult> CanvasDispatch(GrasshopperUi.Scope scope, CanvasOp op) => op switch {
         CanvasOp.SnapshotCase s =>
             scope.NeedCanvas().Map(canvas => (CanvasResult)new CanvasResult.SnapshotResult(Snapshot: scope.Document

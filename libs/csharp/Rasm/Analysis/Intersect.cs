@@ -2,6 +2,7 @@ using Foundation.CSharp.Analyzers.Contracts;
 
 namespace Rasm.Analysis;
 
+// --- [TYPES] ------------------------------------------------------------------------------
 [Union]
 internal partial record IntersectionResult {
     public sealed record Lines(Seq<Line> Values) : IntersectionResult;

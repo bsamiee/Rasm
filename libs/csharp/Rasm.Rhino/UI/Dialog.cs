@@ -6,6 +6,12 @@ using DrawingSize = System.Drawing.Size;
 
 namespace Rasm.Rhino.UI;
 
+// --- [TYPES] ------------------------------------------------------------------------------
+public enum UiWindowMode { Modal, SemiModal }
+public enum UiFileMode { OpenOne, OpenMany, Save }
+public enum UiLayerMode { Single, Multiple, Material }
+
+// --- [MODELS] -----------------------------------------------------------------------------
 public sealed record UiIntent<T> {
     private readonly Func<RhinoUi.Scope, Fin<T>> run;
 
@@ -29,8 +35,15 @@ public sealed record UiIntent<T> {
 
 public readonly record struct UiWindowHandle(uint DocumentSerialNumber, string WindowType, string Title, bool Visible);
 
-public enum UiWindowMode { Modal, SemiModal }
+public readonly record struct UiFileSpec(string Title, string Filter, UiFileMode Mode = UiFileMode.OpenOne, Option<string> FileName = default, Option<string> InitialDirectory = default, Option<string> DefaultExtension = default);
+public readonly record struct UiLayerSpec(string Title, UiLayerMode Mode = UiLayerMode.Single, Option<Seq<int>> Selected = default, bool ShowNewLayer = false, bool ShowSetCurrent = false, bool InitialSetCurrent = false);
+public readonly record struct UiLayerResult(Seq<int> Indices, bool SetCurrent, bool MaterialChanged) {
+    public Option<int> Single => Indices.Find(static index => index >= 0);
+}
+public readonly record struct UiMessageSpec(string Message, string Title, global::Rhino.UI.ShowMessageButton Buttons = default, global::Rhino.UI.ShowMessageIcon Icon = default, global::Rhino.UI.ShowMessageDefaultButton DefaultButton = default, global::Rhino.UI.ShowMessageOptions Options = default, global::Rhino.UI.ShowMessageMode Mode = default);
+public readonly record struct UiColorSpec(Color4f Initial, Option<global::Rhino.UI.NamedColorList> Named = default, global::Rhino.UI.Dialogs.OnColorChangedEvent? Changed = null);
 
+// --- [OPERATIONS] -------------------------------------------------------------------------
 public static class UiIntent {
     public static UiIntent<T> Of<T>(Func<RhinoDoc, RunMode, Fin<T>> run) =>
         new(run: scope => Optional(run).ToFin(Fail: Op.Of(name: nameof(Of)).InvalidInput()).Bind(valid => valid(arg1: scope.Document, arg2: scope.Mode)), interactive: true);
@@ -351,14 +364,3 @@ public static class UiPreview {
                 select result,
             interactive: true);
 }
-
-public enum UiFileMode { OpenOne, OpenMany, Save }
-public enum UiLayerMode { Single, Multiple, Material }
-
-public readonly record struct UiFileSpec(string Title, string Filter, UiFileMode Mode = UiFileMode.OpenOne, Option<string> FileName = default, Option<string> InitialDirectory = default, Option<string> DefaultExtension = default);
-public readonly record struct UiLayerSpec(string Title, UiLayerMode Mode = UiLayerMode.Single, Option<Seq<int>> Selected = default, bool ShowNewLayer = false, bool ShowSetCurrent = false, bool InitialSetCurrent = false);
-public readonly record struct UiLayerResult(Seq<int> Indices, bool SetCurrent, bool MaterialChanged) {
-    public Option<int> Single => Indices.Find(static index => index >= 0);
-}
-public readonly record struct UiMessageSpec(string Message, string Title, global::Rhino.UI.ShowMessageButton Buttons = default, global::Rhino.UI.ShowMessageIcon Icon = default, global::Rhino.UI.ShowMessageDefaultButton DefaultButton = default, global::Rhino.UI.ShowMessageOptions Options = default, global::Rhino.UI.ShowMessageMode Mode = default);
-public readonly record struct UiColorSpec(Color4f Initial, Option<global::Rhino.UI.NamedColorList> Named = default, global::Rhino.UI.Dialogs.OnColorChangedEvent? Changed = null);

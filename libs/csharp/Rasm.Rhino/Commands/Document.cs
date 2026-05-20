@@ -1,5 +1,11 @@
 namespace Rasm.Rhino.Commands;
 
+// --- [TYPES] ------------------------------------------------------------------------------
+public enum DocumentResourceKind { Table, Block, View, File }
+public enum DocumentLifecycle { Purge, Undelete }
+public enum DocumentFileMode { Import, Export, ExportSelected, SaveAs }
+
+// --- [MODELS] -----------------------------------------------------------------------------
 public readonly record struct DocumentSelectionPolicy(bool Highlight, bool IgnoreGrips, bool Persistent, bool IgnoreLayerLocking, bool IgnoreLayerVisibility) {
     public static DocumentSelectionPolicy Default { get; } = new(Highlight: true, IgnoreGrips: true, Persistent: true, IgnoreLayerLocking: false, IgnoreLayerVisibility: false);
 }
@@ -251,9 +257,6 @@ public readonly record struct DocumentCustomUndo(string Name, EventHandler<globa
                select name;
     }
 }
-public enum DocumentResourceKind { Table, Block, View, File }
-public enum DocumentLifecycle { Purge, Undelete }
-public enum DocumentFileMode { Import, Export, ExportSelected, SaveAs }
 
 public abstract record DocumentOp {
     private DocumentOp() { }
@@ -395,6 +398,7 @@ public abstract record DocumentOp {
     internal virtual bool RecordsUndo => true;
 }
 
+// --- [SERVICES] ---------------------------------------------------------------------------
 public sealed record DocumentEdit {
     internal DocumentEdit(RhinoDoc document, Rasm.Domain.Context domain) {
         ArgumentNullException.ThrowIfNull(argument: document);

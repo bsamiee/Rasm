@@ -1,6 +1,6 @@
 namespace Rasm.Grasshopper.Components;
 
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [MODELS] -----------------------------------------------------------------------------
 public sealed class OutputBinding {
     private readonly Func<IDataAccess, Hints, GrasshopperRuntime, Seq<Flow<Shape>>, Seq<object>> run;
     private readonly Func<IDataAccess, Hints, Unit> empty;
@@ -26,7 +26,6 @@ public sealed class OutputBinding {
         empty(arg1: access, arg2: outputs);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
 internal readonly record struct Hints(Seq<(Port Port, int Slot)> Inputs) {
     internal static Hints Capture(Seq<(Port Port, IParameter Parameter)> ports, Func<IParameter, int> index) =>
         new(Inputs: ports.Choose(bound => index(arg: bound.Parameter) switch {
@@ -36,7 +35,7 @@ internal readonly record struct Hints(Seq<(Port Port, int Slot)> Inputs) {
     public Option<int> Slot(Port port) =>
         Inputs.Find(predicate: input => ReferenceEquals(objA: input.Port, objB: port)).Map(static input => input.Slot);
 }
-// --- [SERVICES] -------------------------------------------------------------------------
+// --- [SERVICES] ---------------------------------------------------------------------------
 public static class Output {
     public static OutputBinding Of<TOut>(
         Port<Shape> input,
