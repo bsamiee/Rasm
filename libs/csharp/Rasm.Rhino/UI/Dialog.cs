@@ -17,11 +17,11 @@ public sealed record UiIntent<T> {
 }
 
 public static class UiIntent {
-    public static UiIntent<T> Of<T>(Func<RhinoDoc, RunMode, Fin<T>> run, bool interactive = true) =>
-        new(run: scope => Optional(run).ToFin(Fail: Op.Of(name: nameof(Of)).InvalidInput()).Bind(valid => valid(arg1: scope.Document, arg2: scope.Mode)), interactive: interactive);
+    public static UiIntent<T> Of<T>(Func<RhinoDoc, RunMode, Fin<T>> run) =>
+        new(run: scope => Optional(run).ToFin(Fail: Op.Of(name: nameof(Of)).InvalidInput()).Bind(valid => valid(arg1: scope.Document, arg2: scope.Mode)), interactive: true);
 
-    public static UiIntent<T> Of<T>(Func<RhinoDoc, Fin<T>> run, bool interactive = true) =>
-        Of(run: (document, _) => Optional(run).ToFin(Fail: Op.Of(name: nameof(Of)).InvalidInput()).Bind(valid => valid(arg: document)), interactive: interactive);
+    public static UiIntent<T> Of<T>(Func<RhinoDoc, Fin<T>> run) =>
+        Of(run: (document, _) => Optional(run).ToFin(Fail: Op.Of(name: nameof(Of)).InvalidInput()).Bind(valid => valid(arg: document)));
 
     internal static UiIntent<T> OfScope<T>(Func<RhinoUi.Scope, Fin<T>> run, bool interactive = false) =>
         new(run: run, interactive: interactive);
@@ -361,7 +361,7 @@ public enum UiFileMode { OpenOne, OpenMany, Save }
 public enum UiLayerMode { Single, Multiple, Material }
 
 public readonly record struct UiFileSpec(string Title, string Filter, UiFileMode Mode = UiFileMode.OpenOne, Option<string> FileName = default, Option<string> InitialDirectory = default, Option<string> DefaultExtension = default);
-public readonly record struct UiLayerSpec(string Title, UiLayerMode Mode = UiLayerMode.Single, Option<Seq<int>> Selected = default, bool ShowNewLayer = true, bool ShowSetCurrent = true, bool InitialSetCurrent = false);
+public readonly record struct UiLayerSpec(string Title, UiLayerMode Mode = UiLayerMode.Single, Option<Seq<int>> Selected = default, bool ShowNewLayer = false, bool ShowSetCurrent = false, bool InitialSetCurrent = false);
 public readonly record struct UiLayerResult(Seq<int> Indices, bool SetCurrent, bool MaterialChanged) {
     public Option<int> Single => Indices.Find(static index => index >= 0);
 }

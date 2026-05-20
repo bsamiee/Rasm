@@ -28,8 +28,10 @@ public readonly record struct PageContext(PagePhase Phase, bool Active = false, 
 
 public readonly record struct PageRegistration<TPage>(TPage Page) where TPage : class {
     public Fin<Unit> Add(ICollection<TPage> pages) =>
-        Optional(Page).ToFin(Fail: Op.Of(name: nameof(Add)).InvalidInput()).Bind(page =>
-            Optional(pages).ToFin(Fail: Op.Of(name: nameof(Add)).InvalidInput()).Map(validPages => ((Func<Unit>)(() => { validPages.Add(page); return unit; }))()));
+        from page in Optional(Page).ToFin(Fail: Op.Of(name: nameof(Add)).InvalidInput())
+        from validPages in Optional(pages).ToFin(Fail: Op.Of(name: nameof(Add)).InvalidInput())
+        from added in RhinoUi.Protect(valid: () => { validPages.Add(item: page); return Fin.Succ(value: unit); })
+        select added;
 
     public Fin<Unit> Add(global::Rhino.UI.ObjectPropertiesPageCollection pages) =>
         (Page, pages) switch {
@@ -43,6 +45,9 @@ public readonly record struct PageRegistration<TPage>(TPage Page) where TPage : 
 
 public static class PageRegistration {
     public static PageRegistration<global::Rhino.UI.OptionsDialogPage> Options(global::Rhino.UI.OptionsDialogPage page) =>
+        new(Page: page);
+
+    public static PageRegistration<global::Rhino.UI.OptionsDialogPage> DocumentProperties(global::Rhino.UI.OptionsDialogPage page) =>
         new(Page: page);
 
     public static PageRegistration<global::Rhino.UI.ObjectPropertiesPage> ObjectProperties(global::Rhino.UI.ObjectPropertiesPage page) =>
@@ -107,7 +112,7 @@ public abstract class RasmPropertiesPage : global::Rhino.UI.ObjectPropertiesPage
     public sealed override bool ShouldDisplay(global::Rhino.UI.ObjectPropertiesPageEventArgs e) => ResultOf(context: new PageContext(Phase: PagePhase.Display, Args: e)) == Result.Success;
     public sealed override void UpdatePage(global::Rhino.UI.ObjectPropertiesPageEventArgs e) => _ = ResultOf(context: new PageContext(Phase: PagePhase.Update, Args: e));
     public sealed override bool OnActivate(bool active) => ResultOf(context: new PageContext(Phase: PagePhase.Activate, Active: active)) == Result.Success;
-    public sealed override Result RunScript(global::Rhino.UI.ObjectPropertiesPageEventArgs e) => ResultOf(context: new PageContext(Phase: PagePhase.Script, Args: e));
+    public sealed override Result RunScript(global::Rhino.UI.ObjectPropertiesPageEventArgs e) => ResultOf(context: new PageContext(Phase: PagePhase.Script, Mode: RunMode.Scripted, Args: e));
     public sealed override void OnHelp() => _ = ResultOf(context: new PageContext(Phase: PagePhase.Help));
     public sealed override void OnCreateParent(IntPtr hwndParent) => _ = ResultOf(context: new PageContext(Phase: PagePhase.CreateParent, ParentHandle: hwndParent));
     public sealed override void OnSizeParent(int width, int height) => _ = ResultOf(context: new PageContext(Phase: PagePhase.SizeParent, Width: width, Height: height));

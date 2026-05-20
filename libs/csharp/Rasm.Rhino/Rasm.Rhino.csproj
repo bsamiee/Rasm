@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>RhinoCommon command and document interop boundary for Rasm.</Description>
+        <Description>RhinoCommon command, document, and UI interop boundary for Rasm.</Description>
     </PropertyGroup>
 
     <ItemGroup>
@@ -14,7 +14,6 @@
         <Using Include="Rhino.Commands" />
         <Using Include="Rhino.Display" />
         <Using Include="Rhino.DocObjects" />
-        <Using Include="Rhino.DocObjects.Tables" />
         <Using Include="Rhino.Geometry" />
         <Using Include="Rhino.Input" />
         <Using Include="Rhino.Input.Custom" />

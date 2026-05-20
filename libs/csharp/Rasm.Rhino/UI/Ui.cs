@@ -29,25 +29,28 @@ public sealed partial record RhinoUi {
     internal static Window? Parent(RhinoDoc document) =>
         global::Rhino.UI.RhinoEtoApp.MainWindowForDocument(document);
 
-    internal static Fin<T> OnUiThread<T>(Func<Fin<T>> run) =>
+    internal static Fin<T> OnUiThread<T>(Func<Fin<T>> run, [CallerMemberName] string name = "") =>
         Optional(run)
-            .ToFin(Fail: Op.Of(name: nameof(OnUiThread)).InvalidInput())
+            .ToFin(Fail: Op.Of(name: name).InvalidInput())
             .Bind(valid => RhinoApp.IsOnMainThread switch {
-                true => Protect(valid: valid),
-                false => Invoke(valid: valid),
+                true => Catch(valid: valid, name: name),
+                false => Invoke(valid: valid, name: name),
             });
 
-    private static Fin<T> Invoke<T>(Func<Fin<T>> valid) =>
+    private static Fin<T> Invoke<T>(Func<Fin<T>> valid, string name) =>
         Try.lift<Fin<T>>(f: () => {
-            Fin<T> result = Fin.Fail<T>(error: Op.Of(name: nameof(Invoke)).InvalidResult());
-            RhinoApp.InvokeAndWait(action: () => result = Protect(valid: valid));
+            Fin<T> result = Fin.Fail<T>(error: Op.Of(name: name).InvalidResult());
+            RhinoApp.InvokeAndWait(action: () => result = Catch(valid: valid, name: name));
             return result;
         })
             .Run()
-            .MapFail(static _ => Op.Of(name: nameof(Invoke)).InvalidResult())
+            .MapFail(_ => Op.Of(name: name).InvalidResult())
             .Bind(static result => result);
 
     internal static Fin<T> Protect<T>(Func<Fin<T>> valid, [CallerMemberName] string name = "") =>
+        OnUiThread(run: valid, name: name);
+
+    private static Fin<T> Catch<T>(Func<Fin<T>> valid, string name) =>
         Optional(valid)
             .ToFin(Fail: Op.Of(name: name).InvalidInput())
             .Bind(callback => Try.lift<Fin<T>>(f: callback)
@@ -67,7 +70,7 @@ public readonly record struct UiStatus(
     bool ClearMessage = false) {
     public static UiStatus operator +(UiStatus left, UiStatus right) => Add(left: left, right: right);
     public static UiStatus Add(UiStatus left, UiStatus right) =>
-        new(Prompt: right.Prompt | left.Prompt, PromptDefault: right.PromptDefault | left.PromptDefault, CommandMessage: right.CommandMessage | left.CommandMessage, Message: right.Message | left.Message, Distance: right.Distance | left.Distance, Number: right.Number | left.Number, Point: right.Point | left.Point, ClearMessage: left.ClearMessage || right.ClearMessage);
+        new(Prompt: right.Prompt | left.Prompt, PromptDefault: right.PromptDefault | left.PromptDefault, CommandMessage: right.CommandMessage | left.CommandMessage, Message: right.Message | (right.ClearMessage ? Option<string>.None : left.Message), Distance: right.Distance | left.Distance, Number: right.Number | left.Number, Point: right.Point | left.Point, ClearMessage: left.ClearMessage || right.ClearMessage);
     public static UiStatus Add(params UiStatus[] statuses) =>
         Optional(statuses)
             .Map(static values => toSeq(values).Fold(initialState: new UiStatus(), f: static (state, value) => state + value))
@@ -128,11 +131,11 @@ public sealed class UiProgress : IDisposable {
     public Fin<int> Update(UiProgressStep step) =>
         disposed switch {
             true => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidInput()),
-            false => (Next(step: step).Case, step.Position.Case, step.Label.Case) switch {
+            false => (step.Position.Map(position => step.Absolute ? position : current + position).Case, step.Position.Case, step.Label.Case) switch {
                 (int position, _, _) when position < lower || position > upper => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidInput()),
-                (int target, int position, string label) => Previous(value: global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, label: label, position: position, absolute: step.Absolute)).Map(previous => { current = target; return previous; }),
-                (_, _, string label) => Previous(value: global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, label: label, position: RhinoMath.UnsetIntIndex, absolute: true)).Map(_ => current),
-                (int target, int position, _) => Previous(value: global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, position: position, absolute: step.Absolute)).Map(previous => { current = target; return previous; }),
+                (int target, int position, string label) => global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, label: label, position: position, absolute: step.Absolute) switch { RhinoMath.UnsetIntIndex => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidResult()), _ => Fin.Succ(value: ((Func<int>)(() => { current = target; return target; }))()) },
+                (_, _, string label) => global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, label: label, position: RhinoMath.UnsetIntIndex, absolute: true) switch { RhinoMath.UnsetIntIndex => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidResult()), _ => Fin.Succ(value: current) },
+                (int target, int position, _) => global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, position: position, absolute: step.Absolute) switch { RhinoMath.UnsetIntIndex => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidResult()), _ => Fin.Succ(value: ((Func<int>)(() => { current = target; return target; }))()) },
                 _ => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidInput()),
             },
         };
@@ -140,17 +143,18 @@ public sealed class UiProgress : IDisposable {
     public void Dispose() {
         _ = disposed switch {
             true => unit,
-            false => Hide(),
+            false => ((Func<Unit>)(() => { global::Rhino.UI.StatusBar.HideProgressMeter(docSerialNumber: documentSerialNumber); return unit; }))(),
         };
         disposed = true;
         GC.SuppressFinalize(obj: this);
     }
 
     internal static Fin<T> Use<T>(RhinoDoc document, UiProgressSpec spec, Func<UiProgress, Fin<T>> run) =>
+        from validRun in Optional(run).ToFin(Fail: Op.Of(name: nameof(UiProgress)).InvalidInput())
         from scope in Start(document: document, spec: spec)
         from result in RhinoUi.Protect(valid: () => {
             // BOUNDARY ADAPTER - native status meter must hide even when caller rail fails.
-            try { return run(arg: scope); } finally { scope.Dispose(); }
+            try { return validRun(arg: scope); } finally { scope.Dispose(); }
         })
         select result;
 
@@ -171,20 +175,4 @@ public sealed class UiProgress : IDisposable {
             }
         select created;
 
-    private static Fin<int> Previous(int value) =>
-        value switch {
-            RhinoMath.UnsetIntIndex => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidResult()),
-            _ => Fin.Succ(value: value),
-        };
-
-    private Option<int> Next(UiProgressStep step) =>
-        step.Position.Map(position => step.Absolute switch {
-            true => position,
-            false => current + position,
-        });
-
-    private Unit Hide() {
-        global::Rhino.UI.StatusBar.HideProgressMeter(docSerialNumber: documentSerialNumber);
-        return unit;
-    }
 }

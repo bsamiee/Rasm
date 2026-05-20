@@ -34,6 +34,7 @@ public readonly record struct MouseDecision(bool Cancel, Option<string> ToolTip 
 
 public abstract class RasmMouseCallback<TState>(TState initial) : global::Rhino.UI.MouseCallback, IDisposable {
     private readonly Atom<TState> state = Atom(initial);
+    private readonly Atom<bool> ownsToolTip = Atom(false);
     private bool disposed;
 
     public TState State => state.Value;
@@ -46,7 +47,7 @@ public abstract class RasmMouseCallback<TState>(TState initial) : global::Rhino.
                 return unit;
             });
 
-    public Fin<Unit> Enable(bool enabled = true) =>
+    protected Fin<Unit> Enable(bool enabled = true) =>
         disposed switch { false => Fin.Succ(value: ((Func<Unit>)(() => { Enabled = enabled; return unit; }))()), true => Fin.Fail<Unit>(error: Op.Of(name: nameof(Enable)).InvalidInput()) };
 
     public Fin<T> Use<T>(Func<RasmMouseCallback<TState>, Fin<T>> run) =>
@@ -68,6 +69,11 @@ public abstract class RasmMouseCallback<TState>(TState initial) : global::Rhino.
     }
 
     private Unit Disable() {
+        _ = ownsToolTip.Value switch {
+            true => ((Func<Unit>)(static () => { global::Rhino.UI.MouseCursor.SetToolTip(tooltip: string.Empty); return unit; }))(),
+            false => unit,
+        };
+        _ = ownsToolTip.Swap(static _ => false);
         Enabled = false;
         return unit;
     }
@@ -105,16 +111,29 @@ public abstract class RasmMouseCallback<TState>(TState initial) : global::Rhino.
     protected sealed override void OnMouseLeave(global::Rhino.UI.MouseCallbackEventArgs e) =>
         _ = Apply(phase: MousePhase.Leave, args: e);
 
-    private Fin<Unit> Apply(MousePhase phase, global::Rhino.UI.MouseCallbackEventArgs args) {
+    private Unit Apply(MousePhase phase, global::Rhino.UI.MouseCallbackEventArgs args) {
         MouseContext<TState> context = new(Phase: phase, State: State, Args: args);
         return RhinoUi.Protect(valid: () => Change(context: context))
             .Map(decision => {
-                global::Rhino.UI.MouseCursor.SetToolTip(tooltip: decision.ToolTip.IfNone(string.Empty));
+                _ = decision.ToolTip.Case switch {
+                    string tooltip => ((Func<Unit>)(() => {
+                        _ = ownsToolTip.Swap(static _ => true);
+                        global::Rhino.UI.MouseCursor.SetToolTip(tooltip: tooltip);
+                        return unit;
+                    }))(),
+                    _ => unit,
+                };
                 args.Cancel = context.CanCancelNative switch {
                     true => args.Cancel || decision.Cancel,
                     _ => args.Cancel,
                 };
                 return unit;
-            });
+            })
+            .Match(
+                Succ: static _ => unit,
+                Fail: error => {
+                    RhinoApp.WriteLine(message: $"{nameof(RasmMouseCallback<TState>)}: {error}");
+                    return Disable();
+                });
     }
 }

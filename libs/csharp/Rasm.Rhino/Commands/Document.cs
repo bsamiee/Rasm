@@ -66,8 +66,8 @@ public abstract record DocumentTarget {
 
     internal Fin<Seq<(Guid Id, uint RuntimeSerialNumber)>> RuntimeTargets(RhinoDoc document, Op op) =>
         Use(document: document, op: op,
-            selection: static value => Fin.Succ(value: value.ObjectTargets.Map(static reference => (Id: reference.MutationObjectId, reference.RuntimeSerialNumber))),
-            reference: static value => Fin.Succ(value: Seq((Id: value.MutationObjectId, value.RuntimeSerialNumber))),
+            selection: value => value.ObjectTargets.TraverseM(reference => reference.Use(document: document, op: op, use: _ => Fin.Succ(value: (Id: reference.MutationObjectId, reference.RuntimeSerialNumber)))).As(),
+            reference: value => value.Use(document: document, op: op, use: _ => Fin.Succ(value: Seq((Id: value.MutationObjectId, value.RuntimeSerialNumber)))),
             objects: ids => ids.TraverseM(id => Optional(document.Objects.FindId(id)).ToFin(Fail: op.InvalidResult()).Map(native => (Id: id, native.RuntimeSerialNumber))).As());
 
     internal Fin<Seq<Guid>> Transform(RhinoDoc document, Transform transform, bool deleteOriginal, Op op) =>
@@ -191,7 +191,7 @@ public abstract record DocumentOp {
     }
 
     public sealed record Transform(DocumentTarget Target, global::Rhino.Geometry.Transform Xform, bool DeleteOriginal = true) : DocumentOp {
-        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) => from target in Optional(Target).ToFin(Fail: op.InvalidInput()) from _ in guard(Xform.IsValid, op.InvalidInput()) from ids in target.Transform(document: document, transform: Xform, deleteOriginal: DeleteOriginal, op: op) select DocumentReceipt.Empty with { Transformed = ids };
+        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) => from target in Optional(Target).ToFin(Fail: op.InvalidInput()) from _ in guard(Xform.IsValid, op.InvalidInput()) from originals in target.Ids(document: document, op: op) from ids in target.Transform(document: document, transform: Xform, deleteOriginal: DeleteOriginal, op: op) select DocumentReceipt.Empty with { Created = ids, Deleted = DeleteOriginal ? originals : Seq<Guid>(), Transformed = ids, LifecycleChanged = DeleteOriginal ? originals : Seq<Guid>() };
     }
 
     public sealed record AttributeChange(DocumentTarget Target, Func<ObjectAttributes, Fin<ObjectAttributes>> Change, bool Quiet = true) : DocumentOp {
@@ -218,17 +218,18 @@ public abstract record DocumentOp {
 
     public sealed record UnselectAll(bool IgnorePersistentSelections = false) : DocumentOp {
         internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) =>
-            from selected in Optional(document.Objects.GetSelectedObjects(includeLights: true, includeGrips: true)).ToFin(Fail: op.InvalidInput()).Map(static values => toSeq(values).Map(static native => native.Id).Distinct())
+            from before in DocumentEdit.SelectedIds(document: document, op: op)
             from count in document.Objects.UnselectAll(ignorePersistentSelections: IgnorePersistentSelections) switch { int value and >= 0 => Fin.Succ(value: value), _ => Fin.Fail<int>(error: op.InvalidResult()) }
-            select DocumentReceipt.Empty with { Selected = selected.Take(count) };
+            from after in DocumentEdit.SelectedIds(document: document, op: op)
+            select DocumentReceipt.Empty with { Selected = before.Filter(id => !after.Exists(item => item == id)) };
     }
 
     public sealed record Hide(DocumentTarget Target, bool Hidden = true) : DocumentOp {
-        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) => from target in Optional(Target).ToFin(Fail: op.InvalidInput()) from ids in target.Ids(document: document, op: op) from changed in DocumentEdit.ApplyState(ids: ids, document: document, op: op, ready: native => !Hidden || !native.IsLocked, done: native => native.IsHidden == Hidden, apply: id => Hidden switch { true => document.Objects.Hide(objectId: id, ignoreLayerMode: true), false => document.Objects.Show(objectId: id, ignoreLayerMode: true) }) select DocumentReceipt.Empty with { Hidden = changed, LifecycleChanged = changed };
+        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) => from target in Optional(Target).ToFin(Fail: op.InvalidInput()) from ids in target.Ids(document: document, op: op) from changed in DocumentEdit.ApplyState(ids: ids, document: document, op: op, ready: native => !Hidden || !native.IsLocked, done: native => native.IsHidden == Hidden, apply: id => Hidden switch { true => document.Objects.Hide(objectId: id, ignoreLayerMode: true), false => document.Objects.Show(objectId: id, ignoreLayerMode: true) }) select DocumentReceipt.Empty with { Hidden = changed };
     }
 
     public sealed record Lock(DocumentTarget Target, bool Locked = true) : DocumentOp {
-        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) => from target in Optional(Target).ToFin(Fail: op.InvalidInput()) from ids in target.Ids(document: document, op: op) from changed in DocumentEdit.ApplyState(ids: ids, document: document, op: op, ready: native => !Locked || !native.IsHidden, done: native => native.IsLocked == Locked, apply: id => Locked switch { true => document.Objects.Lock(objectId: id, ignoreLayerMode: true), false => document.Objects.Unlock(objectId: id, ignoreLayerMode: true) }) select DocumentReceipt.Empty with { Locked = changed, LifecycleChanged = changed };
+        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) => from target in Optional(Target).ToFin(Fail: op.InvalidInput()) from ids in target.Ids(document: document, op: op) from changed in DocumentEdit.ApplyState(ids: ids, document: document, op: op, ready: native => !Locked || !native.IsHidden, done: native => native.IsLocked == Locked, apply: id => Locked switch { true => document.Objects.Lock(objectId: id, ignoreLayerMode: true), false => document.Objects.Unlock(objectId: id, ignoreLayerMode: true) }) select DocumentReceipt.Empty with { Locked = changed };
     }
 
     public sealed record Lifecycle(DocumentTarget Target, DocumentLifecycle Change) : DocumentOp {
@@ -385,7 +386,24 @@ public sealed record DocumentEdit {
             _ => Fin.Fail<RhinoDoc>(error: op.InvalidInput()),
         };
 
-    private static Fin<T> Mutate<T>(RhinoDoc document, string name, bool recordsUndo, Func<Fin<T>> run) => Optional(run).ToFin(Fail: Op.Of(name: name).InvalidInput()).Bind(valid => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => { uint undo = (recordsUndo, document.UndoRecordingIsActive) switch { (true, false) => document.BeginUndoRecord(description: name), _ => 0u }; try { return valid(); } finally { _ = undo > 0u && document.EndUndoRecord(undoRecordSerialNumber: undo); } }));
+    private static Fin<T> Mutate<T>(RhinoDoc document, string name, bool recordsUndo, Func<Fin<T>> run) =>
+        Optional(run).ToFin(Fail: Op.Of(name: name).InvalidInput()).Bind(valid => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => {
+            uint undo = (recordsUndo, document.UndoRecordingIsActive) switch { (true, false) => document.BeginUndoRecord(description: name), _ => 0u };
+            bool closed = true;
+            Fin<T> result = Fin.Fail<T>(error: Op.Of(name: name).InvalidResult());
+            try {
+                result = valid();
+            } finally {
+                closed = undo switch {
+                    > 0u => document.EndUndoRecord(undoRecordSerialNumber: undo),
+                    _ => true,
+                };
+            }
+            return result.Bind(value => closed switch {
+                true => Fin.Succ(value: value),
+                false => Fin.Fail<T>(error: Op.Of(name: name).InvalidResult()),
+            });
+        }));
 
     internal static Fin<Seq<Guid>> ApplyState(Seq<Guid> ids, RhinoDoc document, Op op, Func<RhinoObject, bool> ready, Func<RhinoObject, bool> done, Func<Guid, bool> apply) =>
         ids.TraverseM(id => Optional(document.Objects.FindId(id))
@@ -418,6 +436,9 @@ public sealed record DocumentEdit {
 
     internal static Fin<Seq<Guid>> LiveObjectIds(RhinoDoc document) =>
         Optional(document).ToFin(Fail: Op.Of(name: nameof(LiveObjectIds)).InvalidInput()).Map(static value => toSeq(value.Objects.GetObjectIdList(settings: new ObjectEnumeratorSettings { NormalObjects = true, LockedObjects = true, HiddenObjects = true })).Distinct());
+
+    internal static Fin<Seq<Guid>> SelectedIds(RhinoDoc document, Op op) =>
+        Optional(document.Objects.GetSelectedObjects(includeLights: true, includeGrips: true)).ToFin(Fail: op.InvalidInput()).Map(static values => toSeq(values).Map(static native => native.Id).Distinct());
 
     internal static Fin<string> NonBlank(string value, Op op) =>
         string.IsNullOrWhiteSpace(value: value) switch {

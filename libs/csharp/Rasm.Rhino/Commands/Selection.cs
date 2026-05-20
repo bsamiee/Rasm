@@ -90,6 +90,7 @@ public sealed record CommandSelection {
         // BOUNDARY ADAPTER — ObjRef is native disposable state; snapshots must release it even when Rhino accessors throw.
         try {
             Reference[] snapshots = [.. toSeq(source).Map(reference => Reference.Of(
+                document: document,
                 reference: reference,
                 preselected: preselected.Exists(item => item.ObjectId == reference.ObjectId && item.ComponentIndex == reference.GeometryComponentIndex)))];
             return new(document: document, items: toSeq(snapshots));
@@ -140,7 +141,8 @@ public sealed record CommandSelection {
         public Option<int> GripIndex => Grip.Map(static value => value.Index);
         public Option<bool> GripSelected => Grip.Map(static value => value.Selected);
 
-        internal static Reference Of(ObjRef reference, bool preselected) {
+        internal static Reference Of(RhinoDoc document, ObjRef reference, bool preselected) {
+            ArgumentNullException.ThrowIfNull(argument: document);
             ArgumentNullException.ThrowIfNull(argument: reference);
             SelectionMethod selectionMethod = reference.SelectionMethod();
             Point3d selectionPoint = reference.SelectionPoint();
@@ -148,7 +150,7 @@ public sealed record CommandSelection {
             uint detailSerial = reference.SelectionViewDetailSerialNumber();
             return new(
                 ObjectId: reference.ObjectId,
-                DocumentRuntimeSerialNumber: Optional(reference.Document).Map(static document => document.RuntimeSerialNumber).IfNone(0u),
+                DocumentRuntimeSerialNumber: document.RuntimeSerialNumber,
                 RuntimeSerialNumber: reference.RuntimeSerialNumber,
                 ComponentIndex: reference.GeometryComponentIndex,
                 Preselected: preselected,
@@ -170,15 +172,17 @@ public sealed record CommandSelection {
         internal static Option<Reference> Of(GetPoint getter) =>
             Optional(getter)
                 .Bind(valid => Optional(valid.PointOnObject())
-                    .Map(reference => {
+                    .Bind(reference => {
                         using ObjRef owned = reference;
-                        Reference snapshot = Of(reference: owned, preselected: false);
-                        return snapshot with {
-                            Location = PickLocation.Of(getter: valid).Case switch {
-                                PickLocation location => Some(location),
-                                _ => snapshot.Location,
-                            },
-                        };
+                        return Optional(owned.Document).Map(document => {
+                            Reference snapshot = Of(document: document, reference: owned, preselected: false);
+                            return snapshot with {
+                                Location = PickLocation.Of(getter: valid).Case switch {
+                                    PickLocation location => Some(location),
+                                    _ => snapshot.Location,
+                                },
+                            };
+                        });
                     }));
 
         internal ObjRef ObjRef(RhinoDoc document) {
@@ -219,6 +223,7 @@ public sealed record CommandSelection {
             Use(document: document, op: Op.Of(name: nameof(Geometry)), use: reference =>
                 Optional(reference.Geometry())
                     .ToFin(Fail: Op.Of(name: nameof(Geometry)).InvalidResult())
+                    .Bind(static geometry => Optional(geometry.Duplicate()).ToFin(Fail: Op.Of(name: nameof(Geometry)).InvalidResult()))
                     .Bind(static geometry => geometry switch {
                         TGeometry typed => Fin.Succ(value: typed),
                         _ => Fin.Fail<TGeometry>(error: Op.Of(name: nameof(Geometry)).InvalidResult()),

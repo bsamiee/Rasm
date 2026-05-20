@@ -54,7 +54,7 @@ public sealed record CommandGraph<TState>(
             Seq<CommandStage<TState>> values when !values.IsEmpty => Fin.Succ(value: values),
             _ => Fin.Fail<Seq<CommandStage<TState>>>(error: Op.Of(name: nameof(CommandGraph<TState>)).InvalidInput()),
         }
-        from final in CommandStageContext.Start(context: active, state: Initial, stages: stages, events: Events).Run()
+        from final in new CommandStageContext<TState>(Context: active, State: Initial, Stages: stages, Index: 0, History: Seq<TState>(), Events: Events).Run()
         from result in commit(arg: new CommandCommitContext<TState>(Context: active, State: final.State, History: final.History))
         select result;
 }
@@ -80,17 +80,14 @@ public sealed record PromptStage<TState, TValue>(
         let stagePolicies = activePolicies + PreviewPolicy(context: context) + GumballPolicy(context: context, transition: transition)
         let staged = request.With(policies: stagePolicies)
         from inputEvent in context.Context.Mode switch {
-            RunMode.Scripted => context.Events.Token(context: context).Case switch {
-                string token => context.Context.Input.Script(request: staged, token: token),
-                _ => context.Context.Input.GetEvent(request: staged),
-            },
+            RunMode.Scripted => context.Events.Token(context: context).ToFin(Fail: Op.Of(name: Name).InvalidInput()).Bind(token => context.Context.Input.Script(request: staged, token: token)),
             _ => context.Context.Input.GetEvent(request: staged),
         }
         from next in transition.Value.Case switch {
             PromptTransition<TState> value => Fin.Succ(value: value),
             _ => inputEvent.Kind switch {
                 CommandInputEventKind.Cancel or CommandInputEventKind.Exit => Fin.Succ<PromptTransition<TState>>(value: new PromptTransition<TState>.Cancel()),
-                CommandInputEventKind.Undo => Fin.Succ<PromptTransition<TState>>(value: new PromptTransition<TState>.Back(context.State)),
+                CommandInputEventKind.Undo => Fin.Succ<PromptTransition<TState>>(value: new PromptTransition<TState>.Back()),
                 _ => inputEvent.Result.ToFin(Fail: Op.Of(name: Name).InvalidResult()).Bind(got => receive(arg1: context, arg2: got)),
             },
         }
@@ -130,9 +127,9 @@ public sealed record CommandStageContext<TState>(
         Optional(transition).ToFin(Fail: Op.Of(name: nameof(Apply)).InvalidInput()).Bind(valid => valid switch {
             PromptTransition<TState>.Stay stay => (this with { State = stay.State }).Run(),
             PromptTransition<TState>.Forward next => (this with { State = next.State, Index = Index + 1, History = Seq(State) + History }).Run(),
-            PromptTransition<TState>.Back back => History.IsEmpty switch {
+            PromptTransition<TState>.Back => History.IsEmpty switch {
                 false => (this with { State = History[0], Index = Math.Max(0, Index - 1), History = History.Tail }).Run(),
-                _ => (this with { State = back.State }).Run(),
+                _ => Run(),
             },
             PromptTransition<TState>.Commit commit => Fin.Succ(value: this with { State = commit.State, Index = Stages.Count }),
             PromptTransition<TState>.Cancel => Fin.Fail<CommandStageContext<TState>>(error: new Fault.Cancelled()),
@@ -144,11 +141,6 @@ public sealed record CommandStageContext<TState>(
             RunMode.Scripted => Events.Files(context: this, spec: spec),
             _ => Context.Ui.Use(intent: Rasm.Rhino.UI.UiIntent.File(spec: spec)),
         };
-}
-
-public static class CommandStageContext {
-    public static CommandStageContext<TState> Start<TState>(RhinoCommandContext context, TState state, Seq<CommandStage<TState>> stages, CommandGraphEvents<TState> events) =>
-        new(Context: context, State: state, Stages: stages, Index: 0, History: Seq<TState>(), Events: events);
 }
 
 public readonly record struct CommandCommitContext<TState>(RhinoCommandContext Context, TState State, Seq<TState> History) {
@@ -195,7 +187,7 @@ public abstract record PromptTransition<TState> {
 
     public sealed record Stay(TState State) : PromptTransition<TState>;
     public sealed record Forward(TState State) : PromptTransition<TState>;
-    public sealed record Back(TState State) : PromptTransition<TState>;
+    public sealed record Back : PromptTransition<TState>;
     public sealed record Commit(TState State) : PromptTransition<TState>;
     public sealed record Cancel : PromptTransition<TState>;
 }
