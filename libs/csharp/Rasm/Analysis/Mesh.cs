@@ -1,4 +1,5 @@
 using Foundation.CSharp.Analyzers.Contracts;
+using Rasm.Vectors;
 
 namespace Rasm.Analysis;
 
@@ -117,7 +118,7 @@ public sealed partial class MeshMetric {
     private static Fin<Vector3d> NormalOf(Mesh mesh, ComponentIndex source, Op key) =>
         VerticesOf(mesh: mesh, source: source, key: key).Bind(vertices => NormalOf(mesh: mesh, source: source, vertices: vertices, key: key));
     private static Fin<Vector3d> UnitNormal(Vector3d candidate, Op key) =>
-        candidate.IsValid && !candidate.IsTiny() ? Fin.Succ(candidate / candidate.Length) : Fin.Fail<Vector3d>(key.InvalidResult());
+        Direction.Of(value: candidate, tolerance: RhinoMath.ZeroTolerance, key: key).Map(static direction => direction.Value);
     private static Fin<double> FaceEdgeAspect(Mesh mesh, ComponentIndex source, Seq<Point3d> vertices, Op key) =>
         (source switch {
             { ComponentIndexType: ComponentIndexType.MeshFace, Index: int index } when index >= 0 && index < mesh.Faces.Count => Fin.Succ(mesh.Faces.GetFaceAspectRatio(index: index)),
@@ -149,9 +150,8 @@ public sealed partial class MeshMetric {
         vertices.Count switch {
             < 3 => Fin.Fail<double>(key.InvalidResult()),
             int n => vertices.Map((vertex, i) => Vector3d.VectorAngle(a: vertices[(i + n - 1) % n] - vertex, b: vertices[(i + 1) % n] - vertex))
-                .Fold(initialState: Fin.Succ((Max: 0.0, Ideal: (n - 2) * Math.PI / n)), f: (state, angle) => state.Bind(s => RhinoMath.IsValidDouble(x: angle)
-                    ? Fin.Succ((Math.Max(val1: s.Max, val2: Math.Max(val1: (angle - s.Ideal) / (Math.PI - s.Ideal), val2: (s.Ideal - angle) / s.Ideal)), s.Ideal))
-                    : Fin.Fail<(double Max, double Ideal)>(key.InvalidResult())))
+                .Fold(initialState: Fin.Succ((Max: 0.0, Ideal: (n - 2) * Math.PI / n)), f: (state, angle) => state.Bind(s => angle.TryCreateValidated<VectorAngle>().ToFin()
+                    .Map(a => (Math.Max(val1: s.Max, val2: Math.Max(val1: (a.Value - s.Ideal) / (Math.PI - s.Ideal), val2: (s.Ideal - a.Value) / s.Ideal)), s.Ideal))))
                 .Map(static state => state.Max),
         };
     private static Fin<double> FaceMaxDihedral(Mesh mesh, ComponentIndex source, Seq<Point3d> vertices, Op key) =>
@@ -167,10 +167,8 @@ public sealed partial class MeshMetric {
                 _ => Fin.Fail<Seq<int>>(key.InvalidInput()),
             }).Bind(neighbours => neighbours
                 .Fold(initialState: Fin.Succ((Max: 0.0, Mesh: mesh, Normal: normal, Key: key)), f: static (state, other) => state.Bind(s => NormalOf(mesh: s.Mesh, source: new ComponentIndex(ComponentIndexType.MeshFace, other), key: s.Key)
-                    .Map(neighbour => neighbour.IsValid switch {
-                        true => (Math.Max(val1: s.Max, val2: Vector3d.VectorAngle(a: s.Normal, b: neighbour)), s.Mesh, s.Normal, s.Key),
-                        false => s,
-                    })))
+                    .Bind(neighbour => Vector3d.VectorAngle(a: s.Normal, b: neighbour).TryCreateValidated<VectorAngle>().ToFin()
+                        .Map(angle => (Math.Max(val1: s.Max, val2: angle.Value), s.Mesh, s.Normal, s.Key)))))
                 .Map(static state => state.Max)),
         });
 }

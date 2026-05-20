@@ -1,3 +1,5 @@
+using Rasm.Vectors;
+
 namespace Rasm.Analysis;
 
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -188,22 +190,20 @@ public static partial class Analyze {
     private static Fin<Seq<TopologyProjection>> SilhouettesOf(GeometryBase geometry, Curves.SilhouetteCase silhouette, CurveFeature feature, Context context, Op op, CancellationToken cancel) =>
         cancel.IsCancellationRequested
             ? Fin.Fail<Seq<TopologyProjection>>(new Fault.Cancelled())
-            : (Direction: Optional(silhouette.Direction).IfNone(Vector3d.ZAxis), Angle: silhouette.DraftAngle) switch {
-                (Vector3d dir, Option<double> angle) when dir.IsValid && !dir.IsTiny() =>
+            : Direction.Of(value: Optional(silhouette.Direction).IfNone(Vector3d.ZAxis), context: context, key: op)
+                .Bind(direction =>
                     (geometry switch {
                         Brep or BrepFace or Mesh or Extrusion => Fin.Succ((Geometry: geometry, Owned: Option<GeometryBase>.None)),
                         Surface surface => Optional(surface.ToBrep()).ToFin(op.InvalidResult()).Map(static b => (Geometry: (GeometryBase)b, Owned: Some((GeometryBase)b))),
                         SubD subd => Optional(subd.ToBrep(SubDToBrepOptions.Default)).ToFin(op.InvalidResult()).Map(static b => (Geometry: (GeometryBase)b, Owned: Some((GeometryBase)b))),
                         _ => Fin.Fail<(GeometryBase Geometry, Option<GeometryBase> Owned)>(op.Unsupported(geometry.GetType(), typeof(Curve))),
                     }).Bind(shape => {
-                        Fin<Seq<TopologyProjection>> result = Optional(angle.Case switch {
-                            double a => Silhouette.ComputeDraftCurve(shape.Geometry, a, dir, context.Absolute.Value, context.Angle.Value, cancel),
-                            _ => Silhouette.Compute(shape.Geometry, SilhouetteType.Projecting | SilhouetteType.TangentProjects | SilhouetteType.Tangent | SilhouetteType.Crease | SilhouetteType.Boundary, dir, context.Absolute.Value, context.Angle.Value, [], cancel),
+                        Fin<Seq<TopologyProjection>> result = Optional(silhouette.DraftAngle.Case switch {
+                            double a => Silhouette.ComputeDraftCurve(shape.Geometry, a, direction.Value, context.Absolute.Value, context.Angle.Value, cancel),
+                            _ => Silhouette.Compute(shape.Geometry, SilhouetteType.Projecting | SilhouetteType.TangentProjects | SilhouetteType.Tangent | SilhouetteType.Crease | SilhouetteType.Boundary, direction.Value, context.Absolute.Value, context.Angle.Value, [], cancel),
                         }).ToFin(cancel.IsCancellationRequested ? (Error)new Fault.Cancelled() : op.InvalidResult())
                             .Map(arr => toSeq(arr).Map(sil => TopologyProjection.Of(sil.Curve, feature, sil.GeometryComponentIndex)));
                         _ = shape.Owned.Iter(static geom => geom.Dispose());
                         return result;
-                    }),
-                _ => Fin.Fail<Seq<TopologyProjection>>(op.Unsupported(geometry.GetType(), typeof(Curve))),
-            };
+                    }));
 }

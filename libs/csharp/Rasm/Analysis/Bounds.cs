@@ -1,3 +1,5 @@
+using Rasm.Vectors;
+
 namespace Rasm.Analysis;
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -140,7 +142,7 @@ public partial record Bounds : IAspect {
                 key: EnclosingCylinderKey, requiresContext: true, state: (Key: EnclosingCylinderKey, cy.Axis, cy.Count),
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
-                    from axis in (state.Axis is { IsValid: true } a && !a.IsTiny() && a.Unitize() ? Fin.Succ(a) : Fin.Fail<Vector3d>(state.Key.InvalidInput())).ToEff()
+                    from axis in Direction.Of(value: state.Axis, context: context, key: state.Key).Map(static direction => direction.Value).ToEff()
                     from samples in EnclosingSamples(geometry: geometry, count: state.Count, context: context, key: state.Key).ToEff()
                     let plane = new Plane(origin: Point3d.Origin, normal: axis)
                     from projected in Fin.Succ(samples.Map(plane.ClosestPoint)).ToEff()

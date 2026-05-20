@@ -1,3 +1,5 @@
+using Rasm.Vectors;
+
 namespace Rasm.Analysis;
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -47,11 +49,11 @@ public static partial class Analyze {
             _ => Fin.Succ(Seq(s.Faces[0])),
         });
     private static Fin<Seq<TopologyProjection>> RankFaces((Op Key, Seq<TopologyProjection> Faces, Context Runtime) state, Vector3d axis, ExtremumDirection direction) =>
-        (state.Faces.IsEmpty, axis.IsValid && !axis.IsTiny()) switch {
-            (true, _) => Fin.Succ(Seq<TopologyProjection>()),
-            (false, false) => Fin.Fail<Seq<TopologyProjection>>(state.Key.InvalidInput()),
-            _ => state.Faces.Traverse(face => face.As<BrepFace>().ToFin(state.Key.InvalidInput()).Bind(bf => Analyze.CentroidOf(geometry: bf, context: state.Runtime, op: state.Key)).Map(point => (face, Score: new Vector3d(x: point.X, y: point.Y, z: point.Z) * axis))).As()
-                .Map(ranked => Stat.Extrema(items: ranked, projection: static item => item.Score, tolerance: state.Runtime.Absolute.Value * axis.Length, direction: direction).Map(static item => item.face)),
+        state.Faces.IsEmpty switch {
+            true => Fin.Succ(Seq<TopologyProjection>()),
+            false => from vector in Direction.Of(value: axis, context: state.Runtime, key: state.Key)
+                     from ranked in state.Faces.Traverse(face => face.As<BrepFace>().ToFin(state.Key.InvalidInput()).Bind(bf => Analyze.CentroidOf(geometry: bf, context: state.Runtime, op: state.Key)).Map(point => (face, Score: new Vector3d(x: point.X, y: point.Y, z: point.Z) * vector.Value))).As()
+                     select Stat.Extrema(items: ranked, projection: static item => item.Score, tolerance: state.Runtime.Absolute.Value, direction: direction).Map(static item => item.face),
         };
     internal static Fin<Plane> FrameAtFaceCentroid(BrepFace face, Context context, Op op) =>
         CentroidOf(geometry: face, context: context, op: op).Bind(centroid =>

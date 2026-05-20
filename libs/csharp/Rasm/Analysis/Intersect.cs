@@ -1,4 +1,5 @@
 using Foundation.CSharp.Analyzers.Contracts;
+using Rasm.Vectors;
 
 namespace Rasm.Analysis;
 
@@ -223,22 +224,18 @@ public static partial class Analyze {
         GeometryKernel.CurveForm(source: left, op: op).Bind(leftLease =>
             GeometryKernel.CurveForm(source: right, op: op).Bind(rightLease =>
                 leftLease.Use(lc => rightLease.Use(rc =>
-                    Fin.Succ(hits.Map(hit => hit switch {
+                    hits.TraverseM(hit => hit switch {
                         IntersectionHit.PointCase pc when pc.Tangency == IntersectionTangency.Unknown =>
-                            IntersectionHit.At(point: pc.Point, tangency: TangencyAt(left: lc, right: rc, point: pc.Point, tolerance: context.Angle.Value)),
-                        _ => hit,
-                    }))))));
-    private static IntersectionTangency TangencyAt(Curve left, Curve right, Point3d point, double tolerance) =>
+                            TangencyAt(left: lc, right: rc, point: pc.Point, tolerance: context.Angle.Value)
+                                .Map(tangency => IntersectionHit.At(point: pc.Point, tangency: tangency)),
+                        _ => Fin.Succ(hit),
+                    }).As()))));
+    private static Fin<IntersectionTangency> TangencyAt(Curve left, Curve right, Point3d point, double tolerance) =>
         (left.ClosestPoint(testPoint: point, t: out double tl), right.ClosestPoint(testPoint: point, t: out double tr)) switch {
-            (true, true) => (left.TangentAt(t: tl), right.TangentAt(t: tr)) switch {
-                (Vector3d a, Vector3d b) when a.IsValid && b.IsValid && !a.IsTiny() && !b.IsTiny() =>
-                    Vector3d.VectorAngle(a: a, b: b) switch {
-                        double angle when angle <= tolerance || (Math.PI - angle) <= tolerance => IntersectionTangency.Tangent,
-                        _ => IntersectionTangency.Transversal,
-                    },
-                _ => IntersectionTangency.Unknown,
-            },
-            _ => IntersectionTangency.Unknown,
+            (true, true) => VectorRelation.Of(a: left.TangentAt(t: tl), b: right.TangentAt(t: tr), tolerance: tolerance, key: Op.Of(name: nameof(TangencyAt)))
+                .Map(static relation => relation.Tangency)
+                .BindFail(static _ => Fin.Succ(IntersectionTangency.Unknown)),
+            _ => Fin.Succ(IntersectionTangency.Unknown),
         };
     internal static bool CanSelfIntersect(Type geometry) =>
         geometry == typeof(object) || typeof(Curve).IsAssignableFrom(c: geometry) || typeof(Mesh).IsAssignableFrom(c: geometry);

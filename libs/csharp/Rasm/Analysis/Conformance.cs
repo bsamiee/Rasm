@@ -113,7 +113,11 @@ public sealed record Conformance {
                 .Bind(hit => hit.Distance.ToFin(Fail: Key.InvalidResult()))
                 .Map(distance => (brep.IsPointInside(point, tolerance, false) ? -1.0 : 1.0) * distance),
             (ConformanceMetric m, Brep brep) when m.IsSigned => GeometryKernel.ClosestOf(geometry: brep, target: point, key: Key).Bind(hit => hit.SignedDistanceFrom(sample: point, key: Key)),
-            (ConformanceMetric m, Mesh mesh) when m.IsContainment => mesh.ClosestPoint(point, out Point3d meshClosest, out Vector3d meshNormal, 0.0) >= 0 ? Fin.Succ(mesh.IsSolid switch { true => (mesh.IsPointInside(point, tolerance, false) ? -1.0 : 1.0) * point.DistanceTo(meshClosest), false => (point - meshClosest) * meshNormal }) : Fin.Fail<double>(Key.InvalidResult()),
+            (ConformanceMetric m, Mesh mesh) when m.IsContainment => GeometryKernel.ClosestOf(geometry: mesh, target: point, key: Key)
+                .Bind(hit => mesh.IsSolid switch {
+                    true => hit.Distance.ToFin(Fail: Key.InvalidResult()).Map(distance => (mesh.IsPointInside(point, tolerance, false) ? -1.0 : 1.0) * distance),
+                    false => hit.SignedDistanceFrom(sample: point, key: Key),
+                }),
             (ConformanceMetric m, object surfaceLike) when m.IsSigned && GeometryKernel.CanSurfaceForm(type: surfaceLike.GetType()) =>
                 GeometryKernel.SurfaceForm(source: surfaceLike, op: Key).Bind(lease => lease.Use(surface => GeometryKernel.ClosestOf(geometry: surface, target: point, key: Key).Bind(hit => hit.SignedDistanceFrom(sample: point, key: Key)))),
             (_, object surfaceLike) when GeometryKernel.CanSurfaceForm(type: surfaceLike.GetType()) => GeometryKernel.SurfaceForm(source: surfaceLike, op: Key).Bind(lease => lease.Use(surface => GeometryKernel.ClosestOf(geometry: surface, target: point, key: Key).Bind(hit => hit.Distance.ToFin(Fail: Key.InvalidResult())))),

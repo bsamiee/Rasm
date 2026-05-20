@@ -1,3 +1,5 @@
+using Rasm.Vectors;
+
 namespace Rasm.Analysis;
 
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -19,10 +21,10 @@ public partial record Points : IAspect {
     private static readonly Op VerticesKey = Op.Of(name: nameof(Vertices));
     private static readonly Op ControlPointsKey = Op.Of(name: nameof(ControlPoints));
     private static readonly Op SpreadKey = Op.Of(name: nameof(Spread));
-    private static readonly Seq<Vector3d> CardinalDirections = Seq(
-        -Vector3d.XAxis, Vector3d.XAxis,
-        -Vector3d.YAxis, Vector3d.YAxis,
-        -Vector3d.ZAxis, Vector3d.ZAxis);
+    private static readonly Seq<SignedAxis> CardinalAxes = Seq(
+        SignedAxis.NegativeX, SignedAxis.PositiveX,
+        SignedAxis.NegativeY, SignedAxis.PositiveY,
+        SignedAxis.NegativeZ, SignedAxis.PositiveZ);
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         extremaCase: static c => typeof(TOut) == typeof(Point3d) && GeometryKernel.CanCurveForm(type: typeof(TGeometry))
             ? Analysis.Operation<TGeometry, Point3d>.Build(
@@ -32,14 +34,14 @@ public partial record Points : IAspect {
                     from lease in GeometryKernel.CurveForm(source: geometry, op: state.Key).ToEff()
                     from points in lease.Use(curve => curve.IsValid switch {
                         false => Fin.Fail<Seq<Point3d>>(state.Key.InvalidInput()),
-                        true => DirectionsFor(custom: state.Directions, planar: curve.IsPlanar(tolerance: context.Absolute.Value))
-                            .TraverseM(direction => Stat.Extrema(
+                        true => DirectionsFor(custom: state.Directions, planar: curve.IsPlanar(tolerance: context.Absolute.Value), context: context, key: state.Key)
+                            .Bind(directions => directions.TraverseM(direction => Stat.Extrema(
                                     items: toSeq(curve.ExtremeParameters(direction: direction)).Map(curve.PointAt),
                                     projection: p => (Vector3d)p * direction,
                                     tolerance: 0.0,
                                     direction: ExtremumDirection.Maximum)
                                 .Head.ToFin(state.Key.InvalidResult()))
-                            .As(),
+                            .As()),
                     }).ToEff()
                     select points).As<TGeometry, TOut>(key: ExtremaKey)
             : ExtremaKey.Unsupported<TGeometry, TOut>(),
@@ -79,8 +81,10 @@ public partial record Points : IAspect {
                     from result in Analyze.SpreadProject<TOut>(aspect: state.Aspect, points: points, geometry: geometry, context: context, op: state.Key).ToEff()
                     select result)
             : SpreadKey.Unsupported<TGeometry, TOut>());
-    private static Seq<Vector3d> DirectionsFor(Option<Seq<Vector3d>> custom, bool planar) =>
-        custom.Match(Some: ds => ds, None: () => planar ? CardinalDirections.Take(4) : CardinalDirections);
+    private static Fin<Seq<Vector3d>> DirectionsFor(Option<Seq<Vector3d>> custom, bool planar, Context context, Op key) =>
+        custom.IfNone(CardinalAxes.Take(planar ? 4 : 6).Map(static axis => axis.World))
+            .TraverseM(direction => Direction.Of(value: direction, context: context, key: key).Map(static atom => atom.Value))
+            .As();
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -104,25 +108,34 @@ public static partial class Analyze {
             : (Plane.FitPlaneToPoints(points: points.AsIterable(), plane: out Plane fit, maximumDeviation: out double dev), fit.IsValid) switch {
                 (PlaneFitResult.Success, true) => aspect switch {
                     SpreadAspect.Frame => op.AcceptResults<Plane, TOut>(values: Seq(fit)),
-                    SpreadAspect.PrincipalFrame => OrientedFrame(fit: fit, points: points).ToFin(op.InvalidResult()).Bind(plane => op.AcceptResults<Plane, TOut>(values: Seq(plane))),
+                    SpreadAspect.PrincipalFrame => OrientedFrame(fit: fit, points: points, context: context, op: op).Bind(plane => op.AcceptResults<Plane, TOut>(values: Seq(plane))),
                     SpreadAspect.Coplanar => op.AcceptResults<bool, TOut>(values: Seq(dev <= context.Absolute.Value)),
-                    SpreadAspect.Collinear => op.AcceptResults<bool, TOut>(values: Seq(MinorSpread(fit: fit, points: points) <= context.Absolute.Value)),
+                    SpreadAspect.Collinear => MinorSpread(fit: fit, points: points, context: context, op: op).Bind(spread => op.AcceptResults<bool, TOut>(values: Seq(spread <= context.Absolute.Value))),
                     _ => Fin.Fail<Seq<TOut>>(op.Unsupported(geometryType: typeof(SpreadAspect), outputType: typeof(TOut))),
                 },
                 _ when aspect is SpreadAspect.Coplanar or SpreadAspect.Collinear && points.Count <= 2 => op.AcceptResults<bool, TOut>(values: Seq(true)),
                 _ => Fin.Fail<Seq<TOut>>(op.InvalidResult()),
             };
-    private static Option<Plane> OrientedFrame(Plane fit, Seq<Point3d> points) {
-        double angle = PrincipalAngle(points: points, fit: fit);
-        Vector3d xAxis = (fit.XAxis * Math.Cos(d: angle)) + (fit.YAxis * Math.Sin(a: angle));
-        return new Plane(origin: fit.Origin, xDirection: xAxis, yDirection: Vector3d.CrossProduct(a: fit.ZAxis, b: xAxis)) is { IsValid: true } principal ? Some(principal) : Option<Plane>.None;
-    }
-    private static double MinorSpread(Plane fit, Seq<Point3d> points) {
-        double angle = PrincipalAngle(points: points, fit: fit);
-        return points.Map(point => Math.Abs(value: ((point - fit.Origin) * fit.XAxis * -Math.Sin(a: angle)) + ((point - fit.Origin) * fit.YAxis * Math.Cos(d: angle)))).Fold(initialState: 0.0, f: Math.Max);
-    }
-    private static double PrincipalAngle(Seq<Point3d> points, Plane fit) =>
-        points.Fold(initialState: (Sxx: 0.0, Sxy: 0.0, Syy: 0.0), f: (state, point) => ((point - fit.Origin) * fit.XAxis, (point - fit.Origin) * fit.YAxis) switch {
-            (double x, double y) => (state.Sxx + (x * x), state.Sxy + (x * y), state.Syy + (y * y)),
-        }) switch { (double sxx, double sxy, double syy) => 0.5 * Math.Atan2(y: 2.0 * sxy, x: sxx - syy) };
+    private static Fin<Plane> OrientedFrame(Plane fit, Seq<Point3d> points, Context context, Op op) =>
+        from angle in PrincipalAngle(points: points, fit: fit, context: context, op: op)
+        from xAxis in Direction.Of(value: (fit.XAxis * Math.Cos(d: angle)) + (fit.YAxis * Math.Sin(a: angle)), context: context, key: op)
+        from yAxis in Direction.Of(value: Vector3d.CrossProduct(a: fit.ZAxis, b: xAxis.Value), context: context, key: op)
+        from plane in new Plane(origin: fit.Origin, xDirection: xAxis.Value, yDirection: yAxis.Value) switch {
+            { IsValid: true } principal => Fin.Succ(principal),
+            _ => Fin.Fail<Plane>(op.InvalidResult()),
+        }
+        select plane;
+    private static Fin<double> MinorSpread(Plane fit, Seq<Point3d> points, Context context, Op op) =>
+        from angle in PrincipalAngle(points: points, fit: fit, context: context, op: op)
+        from spread in points.TraverseM(point => VectorSpan.Of(anchor: fit.Origin, vector: point - fit.Origin, context: context, key: op)
+            .Map(span => Math.Abs(value: (span.Value * fit.XAxis * -Math.Sin(a: angle)) + (span.Value * fit.YAxis * Math.Cos(d: angle))))
+            .BindFail(static _ => Fin.Succ(0.0))).As()
+        select spread.Fold(initialState: 0.0, f: Math.Max);
+    private static Fin<double> PrincipalAngle(Seq<Point3d> points, Plane fit, Context context, Op op) =>
+        points.Fold(initialState: Fin.Succ((Sxx: 0.0, Sxy: 0.0, Syy: 0.0)), f: (state, point) => state.Bind(s =>
+            VectorSpan.Of(anchor: fit.Origin, vector: point - fit.Origin, context: context, key: op)
+                .Map(span => (X: span.Value * fit.XAxis, Y: span.Value * fit.YAxis))
+                .BindFail(static _ => Fin.Succ((X: 0.0, Y: 0.0)))
+                .Map(v => (s.Sxx + (v.X * v.X), s.Sxy + (v.X * v.Y), s.Syy + (v.Y * v.Y)))))
+            .Map(static sums => 0.5 * Math.Atan2(y: 2.0 * sums.Sxy, x: sums.Sxx - sums.Syy));
 }

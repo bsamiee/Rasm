@@ -250,6 +250,7 @@ internal static class OpAcceptance {
             double scalar => Some(RhinoMath.IsValidDouble(scalar)),
             string text => Some(!string.IsNullOrWhiteSpace(value: text)),
             RayQuery ray => Some(ray.IsValid),
+            Ray3d ray => Some(ray.Position.IsValid && ray.Direction.IsValid && !ray.Direction.IsTiny()),
             bool or int or Enum or SurfaceCurvature or MeshCheckParameters or ISmartEnum<int> or ISmartEnum<string> => Some(true),
             ClosestHit h => Some(h.IsValid),
             TopologyProjection p => Some(p.HasValidSource),
