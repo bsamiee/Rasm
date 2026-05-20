@@ -70,4 +70,9 @@ public sealed class RhinoCommandContext {
         }
         from result in valid(arg1: target.View, arg2: target.Viewport)
         select result;
+
+    public Fin<T> UseInViewport<T>(Option<Guid> viewportId, Func<RhinoView, RhinoViewport, Rasm.Rhino.UI.UiIntent<T>> intent) =>
+        from project in Optional(intent).ToFin(Fail: Op.Of(name: nameof(UseInViewport)).InvalidInput())
+        from result in InViewport(viewportId: viewportId, use: (view, viewport) => Ui.Use(intent: project(arg1: view, arg2: viewport)))
+        select result;
 }

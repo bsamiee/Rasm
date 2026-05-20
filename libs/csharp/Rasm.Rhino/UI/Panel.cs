@@ -1,5 +1,6 @@
 using Eto.Forms;
 using DrawingIcon = System.Drawing.Icon;
+using DrawingSize = System.Drawing.Size;
 using ReflectionAssembly = System.Reflection.Assembly;
 
 namespace Rasm.Rhino.UI;
@@ -155,13 +156,15 @@ public abstract record PanelPlacement {
     }
 }
 
-public abstract record PanelChromeOp<T> {
-    private PanelChromeOp() { }
+public enum UiChromeFileMode { Open, Close, Save, SaveAs }
+
+public abstract record UiChromeOp<T> {
+    private UiChromeOp() { }
 
     internal virtual bool Interactive => true;
     internal abstract Fin<T> Run(RhinoDoc? document);
 
-    public sealed record EtoToolbar(IEnumerable<UiAction> Actions) : PanelChromeOp<Eto.Forms.ToolBar> {
+    public sealed record EtoToolbar(IEnumerable<UiAction> Actions) : UiChromeOp<Eto.Forms.ToolBar> {
         internal override Fin<Eto.Forms.ToolBar> Run(RhinoDoc? document) =>
             from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(EtoToolbar)).InvalidInput())
             from actions in Optional(Actions).ToFin(Fail: Op.Of(name: nameof(EtoToolbar)).InvalidInput()).Map(static values => toSeq(values))
@@ -173,7 +176,7 @@ public abstract record PanelChromeOp<T> {
             }))();
     }
 
-    public sealed record EtoMenu(IEnumerable<UiAction> Actions) : PanelChromeOp<Eto.Forms.MenuBar> {
+    public sealed record EtoMenu(IEnumerable<UiAction> Actions) : UiChromeOp<Eto.Forms.MenuBar> {
         internal override Fin<Eto.Forms.MenuBar> Run(RhinoDoc? document) =>
             from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(EtoMenu)).InvalidInput())
             from actions in Optional(Actions).ToFin(Fail: Op.Of(name: nameof(EtoMenu)).InvalidInput()).Map(static values => toSeq(values))
@@ -185,32 +188,104 @@ public abstract record PanelChromeOp<T> {
             }))();
     }
 
-    public sealed record RuiSnapshot : PanelChromeOp<PanelChromeSnapshot> {
+    public sealed record RuiSnapshot : UiChromeOp<PanelChromeSnapshot> {
         internal override bool Interactive => false;
 
         internal override Fin<PanelChromeSnapshot> Run(RhinoDoc? document) =>
+            RhinoUi.Protect(valid: Snapshot);
+    }
+
+    public sealed record RuiFile(UiChromeFileMode Mode, Option<Guid> FileId = default, Option<string> Path = default, Option<string> Name = default, bool IgnoreCase = true, bool Prompt = false) : UiChromeOp<PanelChromeSnapshot> {
+        internal override bool Interactive => Mode == UiChromeFileMode.Close && Prompt;
+
+        internal override Fin<PanelChromeSnapshot> Run(RhinoDoc? document) =>
+            RhinoUi.Protect(valid: () =>
+                from _ in Mode switch {
+                    UiChromeFileMode.Open => from path in NonBlank(value: Path)
+                                             from file in Optional(RhinoApp.ToolbarFiles.Open(path: path)).ToFin(Fail: Op.Of(name: nameof(RuiFile)).InvalidResult())
+                                             select unit,
+                    UiChromeFileMode.Close => from file in FindFile(fileId: FileId, path: Path, name: Name, ignoreCase: IgnoreCase)
+                                              from closed in file.Close(prompt: Prompt) switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(RuiFile)).InvalidResult()) }
+                                              select closed,
+                    UiChromeFileMode.Save => from file in FindFile(fileId: FileId, path: Path, name: Name, ignoreCase: IgnoreCase)
+                                             from saved in file.Save() switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(RuiFile)).InvalidResult()) }
+                                             select saved,
+                    UiChromeFileMode.SaveAs => from file in FindFile(fileId: FileId, path: Option<string>.None, name: Name, ignoreCase: IgnoreCase)
+                                               from path in NonBlank(value: Path)
+                                               from saved in file.SaveAs(path: path) switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(RuiFile)).InvalidResult()) }
+                                               select saved,
+                    _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(RuiFile)).InvalidInput()),
+                }
+                from snapshot in Snapshot()
+                select snapshot);
+    }
+
+    public sealed record RuiGroup(Guid FileId, Guid GroupId, bool Visible) : UiChromeOp<Unit> {
+        internal override Fin<Unit> Run(RhinoDoc? document) =>
+            RhinoUi.Protect(valid: () =>
+                from file in FindFile(fileId: Some(FileId), path: Option<string>.None, name: Option<string>.None, ignoreCase: true)
+                from activeGroup in toSeq(Enumerable.Range(start: 0, count: file.GroupCount)).Choose(index => Optional(file.GetGroup(index))).Find(candidate => candidate.Id == GroupId).ToFin(Fail: Op.Of(name: nameof(RuiGroup)).InvalidInput())
+                select ((Func<Unit>)(() => { activeGroup.Visible = Visible; return unit; }))());
+    }
+
+    public sealed record RuiSidebar(bool Visible, bool Mru = false) : UiChromeOp<Unit> {
+        internal override Fin<Unit> Run(RhinoDoc? document) =>
             RhinoUi.Protect(valid: () => {
-                Seq<global::Rhino.UI.ToolbarFile> files = toSeq(RhinoApp.ToolbarFiles).Choose(Optional);
-                Seq<(Guid Id, string Name, string Path, int GroupCount, int ToolbarCount)> fileRows =
-                    files.Map(static file => (file.Id, file.Name, file.Path, file.GroupCount, file.ToolbarCount));
-                Seq<(Guid FileId, Guid GroupId, string Name, bool Visible, bool IsDocked)> groupRows =
-                    files.Bind(file => toSeq(Enumerable.Range(start: 0, count: file.GroupCount))
-                        .Choose(index => Optional(file.GetGroup(index)).Map(group => (file.Id, group.Id, group.Name, group.Visible, group.IsDocked))));
-                Seq<(Guid FileId, Guid ToolbarId, string Name)> toolbarRows =
-                    files.Bind(file => toSeq(Enumerable.Range(start: 0, count: file.ToolbarCount))
-                        .Choose(index => Optional(file.GetToolbar(index)).Map(toolbar => (file.Id, toolbar.Id, toolbar.Name))));
-                return Fin.Succ(value: new PanelChromeSnapshot(
-                    Files: fileRows,
-                    Groups: groupRows,
-                    Toolbars: toolbarRows,
-                    SidebarVisible: global::Rhino.UI.ToolbarFileCollection.SidebarIsVisible,
-                    MruSidebarVisible: global::Rhino.UI.ToolbarFileCollection.MruSidebarIsVisible));
+                _ = Mru switch {
+                    true => ((Func<Unit>)(() => { global::Rhino.UI.ToolbarFileCollection.MruSidebarIsVisible = Visible; return unit; }))(),
+                    false => ((Func<Unit>)(() => { global::Rhino.UI.ToolbarFileCollection.SidebarIsVisible = Visible; return unit; }))(),
+                };
+                return Fin.Succ(value: unit);
             });
+    }
+
+    public sealed record RuiToolbarSize(Option<DrawingSize> Bitmap = default, Option<DrawingSize> Tab = default) : UiChromeOp<Unit> {
+        internal override Fin<Unit> Run(RhinoDoc? document) =>
+            RhinoUi.Protect(valid: () =>
+                (Bitmap.Case, Tab.Case) switch {
+                    (DrawingSize bitmap, DrawingSize tab) when bitmap.Width > 0 && bitmap.Height > 0 && tab.Width > 0 && tab.Height > 0 => Fin.Succ(value: ((Func<Unit>)(() => { global::Rhino.UI.Toolbar.BitmapSize = bitmap; global::Rhino.UI.Toolbar.TabSize = tab; return unit; }))()),
+                    (DrawingSize bitmap, _) when bitmap.Width > 0 && bitmap.Height > 0 => Fin.Succ(value: ((Func<Unit>)(() => { global::Rhino.UI.Toolbar.BitmapSize = bitmap; return unit; }))()),
+                    (_, DrawingSize tab) when tab.Width > 0 && tab.Height > 0 => Fin.Succ(value: ((Func<Unit>)(() => { global::Rhino.UI.Toolbar.TabSize = tab; return unit; }))()),
+                    _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(RuiToolbarSize)).InvalidInput()),
+                });
+    }
+
+    private static Fin<global::Rhino.UI.ToolbarFile> FindFile(Option<Guid> fileId, Option<string> path, Option<string> name, bool ignoreCase) =>
+        (fileId.Bind(id => toSeq(RhinoApp.ToolbarFiles).Choose(Optional).Find(file => file.Id == id)) |
+         path.Bind(value => Optional(RhinoApp.ToolbarFiles.FindByPath(path: value))) |
+         name.Bind(value => Optional(RhinoApp.ToolbarFiles.FindByName(name: value, ignoreCase: ignoreCase))))
+        .ToFin(Fail: Op.Of(name: nameof(FindFile)).InvalidInput());
+
+    private static Fin<string> NonBlank(Option<string> value) =>
+        value.ToFin(Fail: Op.Of(name: nameof(NonBlank)).InvalidInput()).Bind(NonBlank);
+
+    private static Fin<string> NonBlank(string value) =>
+        string.IsNullOrWhiteSpace(value: value) switch {
+            false => Fin.Succ(value: value),
+            true => Fin.Fail<string>(error: Op.Of(name: nameof(NonBlank)).InvalidInput()),
+        };
+
+    private static Fin<PanelChromeSnapshot> Snapshot() {
+        Seq<global::Rhino.UI.ToolbarFile> files = toSeq(RhinoApp.ToolbarFiles).Choose(Optional);
+        Seq<(Guid Id, string Name, string Path, int GroupCount, int ToolbarCount)> fileRows =
+            files.Map(static file => (file.Id, file.Name, file.Path, file.GroupCount, file.ToolbarCount));
+        Seq<(Guid FileId, Guid GroupId, string Name, bool Visible, bool IsDocked)> groupRows =
+            files.Bind(file => toSeq(Enumerable.Range(start: 0, count: file.GroupCount))
+                .Choose(index => Optional(file.GetGroup(index)).Map(group => (file.Id, group.Id, group.Name, group.Visible, group.IsDocked))));
+        Seq<(Guid FileId, Guid ToolbarId, string Name)> toolbarRows =
+            files.Bind(file => toSeq(Enumerable.Range(start: 0, count: file.ToolbarCount))
+                .Choose(index => Optional(file.GetToolbar(index)).Map(toolbar => (file.Id, toolbar.Id, toolbar.Name))));
+        return Fin.Succ(value: new PanelChromeSnapshot(
+            Files: fileRows,
+            Groups: groupRows,
+            Toolbars: toolbarRows,
+            SidebarVisible: global::Rhino.UI.ToolbarFileCollection.SidebarIsVisible,
+            MruSidebarVisible: global::Rhino.UI.ToolbarFileCollection.MruSidebarIsVisible));
     }
 }
 
 public static class PanelOp {
-    public static PanelOp<TPanel, T> Chrome<TPanel, T>(PanelChromeOp<T> operation) where TPanel : RasmPanel =>
+    public static PanelOp<TPanel, T> Chrome<TPanel, T>(UiChromeOp<T> operation) where TPanel : RasmPanel =>
         new(
             run: document =>
                 from valid in Optional(operation).ToFin(Fail: Op.Of(name: nameof(Chrome)).InvalidInput())
@@ -226,7 +301,10 @@ public static class PanelOp {
         new(
             run: _ =>
                 from validPlugin in Optional(plugin).ToFin(Fail: Op.Of(name: nameof(Register)).InvalidInput())
-                from validCaption in NonBlank(value: caption)
+                from validCaption in string.IsNullOrWhiteSpace(value: caption) switch {
+                    false => Fin.Succ(value: caption),
+                    true => Fin.Fail<string>(error: Op.Of(name: nameof(Register)).InvalidInput()),
+                }
                 from panel in RasmPanel.PanelIdentityOf<TPanel>()
                 from registered in icon.Register(plugin: validPlugin, type: panel.Type, caption: validCaption, mode: panelType)
                 select registered,
@@ -333,12 +411,6 @@ public static class PanelOp {
             })
             select result,
             interactive: false);
-
-    private static Fin<string> NonBlank(string value) =>
-        string.IsNullOrWhiteSpace(value: value) switch {
-            false => Fin.Succ(value: value),
-            true => Fin.Fail<string>(error: Op.Of(name: nameof(PanelOp)).InvalidInput()),
-        };
 
     private sealed class PanelSubscription(EventHandler<global::Rhino.UI.ShowPanelEventArgs> show, EventHandler<global::Rhino.UI.PanelEventArgs> closed) : IDisposable {
         private bool disposed;

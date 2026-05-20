@@ -164,13 +164,13 @@ public readonly record struct DocumentRedraw(bool Enabled) {
 }
 
 public sealed record DocumentTransaction(string Name, Seq<DocumentOp> Operations, DocumentRedraw Redraw);
-public readonly record struct DocumentReceipt(Seq<Guid> Created, Seq<Guid> Replaced, Seq<Guid> Deleted, Seq<Guid> Transformed, Seq<Guid> Selected, Seq<Guid> Hidden, Seq<Guid> Locked, Seq<Guid> AttributeChanged, Seq<Guid> LifecycleChanged, Seq<DocumentResourceChange> ResourceChanged) {
-    public static DocumentReceipt Empty { get; } = new(Created: Seq<Guid>(), Replaced: Seq<Guid>(), Deleted: Seq<Guid>(), Transformed: Seq<Guid>(), Selected: Seq<Guid>(), Hidden: Seq<Guid>(), Locked: Seq<Guid>(), AttributeChanged: Seq<Guid>(), LifecycleChanged: Seq<Guid>(), ResourceChanged: Seq<DocumentResourceChange>());
+public readonly record struct DocumentReceipt(Seq<Guid> Created, Seq<Guid> Replaced, Seq<Guid> Deleted, Seq<Guid> Transformed, Seq<Guid> Selected, Seq<Guid> Unselected, Seq<Guid> Hidden, Seq<Guid> Locked, Seq<Guid> AttributeChanged, Seq<Guid> LifecycleChanged, Seq<DocumentResourceChange> ResourceChanged) {
+    public static DocumentReceipt Empty { get; } = new(Created: Seq<Guid>(), Replaced: Seq<Guid>(), Deleted: Seq<Guid>(), Transformed: Seq<Guid>(), Selected: Seq<Guid>(), Unselected: Seq<Guid>(), Hidden: Seq<Guid>(), Locked: Seq<Guid>(), AttributeChanged: Seq<Guid>(), LifecycleChanged: Seq<Guid>(), ResourceChanged: Seq<DocumentResourceChange>());
     public static DocumentReceipt operator +(DocumentReceipt left, DocumentReceipt right) =>
         Add(left: left, right: right);
 
     public static DocumentReceipt Add(DocumentReceipt left, DocumentReceipt right) =>
-        new(Created: left.Created + right.Created, Replaced: left.Replaced + right.Replaced, Deleted: left.Deleted + right.Deleted, Transformed: left.Transformed + right.Transformed, Selected: left.Selected + right.Selected, Hidden: left.Hidden + right.Hidden, Locked: left.Locked + right.Locked, AttributeChanged: left.AttributeChanged + right.AttributeChanged, LifecycleChanged: left.LifecycleChanged + right.LifecycleChanged, ResourceChanged: left.ResourceChanged + right.ResourceChanged);
+        new(Created: left.Created + right.Created, Replaced: left.Replaced + right.Replaced, Deleted: left.Deleted + right.Deleted, Transformed: left.Transformed + right.Transformed, Selected: left.Selected + right.Selected, Unselected: left.Unselected + right.Unselected, Hidden: left.Hidden + right.Hidden, Locked: left.Locked + right.Locked, AttributeChanged: left.AttributeChanged + right.AttributeChanged, LifecycleChanged: left.LifecycleChanged + right.LifecycleChanged, ResourceChanged: left.ResourceChanged + right.ResourceChanged);
 }
 
 public readonly record struct DocumentResourceChange(DocumentResourceKind Kind, string Name, Option<DocumentFileMode> FileMode = default);
@@ -211,8 +211,13 @@ public abstract record DocumentOp {
             from target in Optional(Target).ToFin(Fail: op.InvalidInput())
             from ids in target.Ids(document: document, op: op)
             from chosen in ids.Distinct() switch { Seq<Guid> values when !values.IsEmpty => Fin.Succ(value: values), _ => Fin.Fail<Seq<Guid>>(error: op.InvalidInput()) }
+            from before in DocumentEdit.SelectedIds(document: document, op: op)
             from count in document.Objects.SetSelectedObjects(objectIds: chosen.AsIterable(), syncHighlight: Policy.Highlight, persistentSelect: Policy.Persistent, ignoreGripsState: Policy.IgnoreGrips, ignoreLayerLocking: Policy.IgnoreLayerLocking, ignoreLayerVisibility: Policy.IgnoreLayerVisibility) switch { int value when value == chosen.Count => Fin.Succ(value: value), _ => Fin.Fail<int>(error: op.InvalidResult()) }
-            select DocumentReceipt.Empty with { Selected = chosen };
+            from after in DocumentEdit.SelectedIds(document: document, op: op)
+            select DocumentReceipt.Empty with {
+                Selected = after.Filter(id => !before.Exists(item => item == id)),
+                Unselected = before.Filter(id => !after.Exists(item => item == id)),
+            };
     }
 
     public sealed record UnselectAll(bool IgnorePersistentSelections = false) : DocumentOp {
@@ -220,7 +225,7 @@ public abstract record DocumentOp {
             from before in DocumentEdit.SelectedIds(document: document, op: op)
             from count in document.Objects.UnselectAll(ignorePersistentSelections: IgnorePersistentSelections) switch { int value and >= 0 => Fin.Succ(value: value), _ => Fin.Fail<int>(error: op.InvalidResult()) }
             from after in DocumentEdit.SelectedIds(document: document, op: op)
-            select DocumentReceipt.Empty with { Selected = before.Filter(id => !after.Exists(item => item == id)) };
+            select DocumentReceipt.Empty with { Unselected = before.Filter(id => !after.Exists(item => item == id)) };
     }
 
     public sealed record ObjectState(
@@ -232,9 +237,12 @@ public abstract record DocumentOp {
         internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) =>
             from target in Optional(Target).ToFin(Fail: op.InvalidInput())
             from ids in target.Ids(document: document, op: op)
-            from selected in Selected.Case switch {
-                bool value => target.Select(document: document, selected: value, policy: SelectionPolicy ?? DocumentSelectionPolicy.Default, op: op).Map(_ => ids),
-                _ => Fin.Succ(value: Seq<Guid>()),
+            from selection in Selected.Case switch {
+                bool value => target.Select(document: document, selected: value, policy: SelectionPolicy ?? DocumentSelectionPolicy.Default, op: op).Map(_ => value switch {
+                    true => (Selected: ids, Unselected: Seq<Guid>()),
+                    false => (Selected: Seq<Guid>(), Unselected: ids),
+                }),
+                _ => Fin.Succ(value: (Selected: Seq<Guid>(), Unselected: Seq<Guid>())),
             }
             from hidden in Hidden.Case switch {
                 bool value => DocumentEdit.ApplyState(ids: ids, document: document, op: op, ready: native => !value || !native.IsLocked, done: native => native.IsHidden == value, apply: id => value ? document.Objects.Hide(objectId: id, ignoreLayerMode: true) : document.Objects.Show(objectId: id, ignoreLayerMode: true)),
@@ -244,7 +252,7 @@ public abstract record DocumentOp {
                 bool value => DocumentEdit.ApplyState(ids: ids, document: document, op: op, ready: native => !value || !native.IsHidden, done: native => native.IsLocked == value, apply: id => value ? document.Objects.Lock(objectId: id, ignoreLayerMode: true) : document.Objects.Unlock(objectId: id, ignoreLayerMode: true)),
                 _ => Fin.Succ(value: Seq<Guid>()),
             }
-            select DocumentReceipt.Empty with { Selected = selected, Hidden = hidden, Locked = locked };
+            select DocumentReceipt.Empty with { Selected = selection.Selected, Unselected = selection.Unselected, Hidden = hidden, Locked = locked };
     }
 
     public sealed record Lifecycle(DocumentTarget Target, DocumentLifecycle Change) : DocumentOp {

@@ -3,6 +3,23 @@ using Color = System.Drawing.Color;
 namespace Rasm.Rhino.Commands;
 
 // --- [MODELS] ---------------------------------------------------------------------------
+public readonly record struct CommandScalarBounds(Option<double> Lower = default, Option<double> Upper = default) {
+    public Fin<double> Accept(double value) =>
+        from valid in Validate()
+        from accepted in (valid.Lower.Case, valid.Upper.Case) switch {
+            (double lower, _) when value < lower => Fin.Fail<double>(error: Op.Of(name: nameof(CommandScalarBounds)).InvalidInput()),
+            (_, double upper) when value > upper => Fin.Fail<double>(error: Op.Of(name: nameof(CommandScalarBounds)).InvalidInput()),
+            _ => Fin.Succ(value: value),
+        }
+        select accepted;
+
+    public Fin<CommandScalarBounds> Validate() =>
+        (Lower.Case, Upper.Case) switch {
+            (double lower, double upper) when lower > upper => Fin.Fail<CommandScalarBounds>(error: Op.Of(name: nameof(CommandScalarBounds)).InvalidInput()),
+            _ => Fin.Succ(value: this),
+        };
+}
+
 public readonly record struct CommandOptionValue {
     internal CommandOptionValue(
         int index,
@@ -51,10 +68,9 @@ public readonly record struct CommandOptionPolicy(
     string? Prompt = null,
     string Off = "No",
     string On = "Yes",
-    Option<double> Lower = default,
-    Option<double> Upper = default,
     bool AllowEmpty = false,
-    int Current = 0);
+    int Current = 0,
+    CommandScalarBounds Bounds = default);
 
 public abstract record CommandOption {
     private CommandOption(string name) => Name = name;
@@ -66,16 +82,16 @@ public abstract record CommandOption {
     public string Name { get; }
 
     public static CommandOption Of<T>(string name, T value, CommandOptionPolicy policy = default) =>
-        value switch {
-            bool toggle => Toggle(name: name, initial: toggle, off: policy.Off, on: policy.On, localName: Optional(policy.LocalName), varies: policy.Varies),
-            double number => Number(name: name, initial: number, lower: policy.Lower, upper: policy.Upper, prompt: policy.Prompt, localName: Optional(policy.LocalName), varies: policy.Varies),
-            int integer => IntegerBounds(lower: policy.Lower, upper: policy.Upper).Case switch {
+        (value, BoundsOf(policy)) switch {
+            (bool toggle, _) => Toggle(name: name, initial: toggle, off: policy.Off, on: policy.On, localName: Optional(policy.LocalName), varies: policy.Varies),
+            (double number, CommandScalarBounds bounds) => Number(name: name, initial: number, lower: bounds.Lower, upper: bounds.Upper, prompt: policy.Prompt, localName: Optional(policy.LocalName), varies: policy.Varies),
+            (int integer, CommandScalarBounds bounds) => IntegerBounds(lower: bounds.Lower, upper: bounds.Upper).Case switch {
                 (Option<int> lo, Option<int> hi) => Integer(name: name, initial: integer, lower: lo, upper: hi, prompt: policy.Prompt, localName: Optional(policy.LocalName), varies: policy.Varies),
                 _ => Invalid(name: name),
             },
-            string text => Text(name: name, initial: text, allowEmpty: policy.AllowEmpty, prompt: policy.Prompt, localName: Optional(policy.LocalName), varies: policy.Varies),
-            Color color => Color(name: name, initial: color, prompt: policy.Prompt, localName: Optional(policy.LocalName), varies: policy.Varies),
-            IEnumerable<string> values => Choice(name: name, values: values, label: static value => value, policy: policy),
+            (string text, _) => Text(name: name, initial: text, allowEmpty: policy.AllowEmpty, prompt: policy.Prompt, localName: Optional(policy.LocalName), varies: policy.Varies),
+            (Color color, _) => Color(name: name, initial: color, prompt: policy.Prompt, localName: Optional(policy.LocalName), varies: policy.Varies),
+            (IEnumerable<string> values, _) => Choice(name: name, values: values, label: static value => value, policy: policy),
             _ => Invalid(name: name),
         };
 
@@ -116,7 +132,6 @@ public abstract record CommandOption {
 
     private static Case Invalid(string name) =>
         new(Name: name, AddToGetter: static (_, _) => Fin.Fail<Bound>(error: Op.Of(name: nameof(CommandOption)).InvalidInput()));
-
     private static Case Toggle(string name, bool initial, string off = "No", string on = "Yes", Option<string> localName = default, bool varies = false) =>
         Ref(name: name, create: () => (ValidValue(value: off), ValidValue(value: on)).Apply((disabled, enabled) => new OptionToggle(initial, disabled, enabled)).As(), prompt: Option<string>.None, localName: localName, bind: static (GetBaseClass getter, global::Rhino.UI.LocalizeStringPair name, ref OptionToggle native, Option<string> _) => getter.AddOptionToggle(name, ref native), current: static native => native.CurrentValue, script: token => ScriptPair(name: name, token: token).Bind(pair => Bool(value: pair.Value, off: off, on: on).Map(value => Scripted(key: name, value: Some((object)value), listIndex: Option<int>.None, optionType: CommandLineOptionType.Toggle, stringValue: Some(pair.Value)))), varies: varies);
     private static Case Number(string name, double initial, Option<double> lower = default, Option<double> upper = default, string? prompt = null, Option<string> localName = default, bool varies = false) =>
@@ -126,7 +141,7 @@ public abstract record CommandOption {
     private static Case Text(string name, string initial = "", bool allowEmpty = false, string? prompt = null, Option<string> localName = default, bool varies = false) =>
         Ref(name: name, create: () => Fin.Succ(value: new OptionString(initial, allowEmpty)), prompt: Optional(prompt), localName: localName, bind: Prompted(plain: static (GetBaseClass getter, global::Rhino.UI.LocalizeStringPair name, ref OptionString native) => getter.AddOptionString(name, ref native), prompted: static (GetBaseClass getter, global::Rhino.UI.LocalizeStringPair name, ref OptionString native, string label) => getter.AddOptionString(name, ref native, label)), current: static native => native.CurrentValue, script: token => ScriptPair(name: name, token: token).Bind(pair => (!string.IsNullOrEmpty(value: pair.Value) || allowEmpty) ? Some(Scripted(key: name, value: Some((object)pair.Value), listIndex: Option<int>.None, optionType: CommandLineOptionType.Simple, stringValue: Some(pair.Value))) : Option<CommandOptionValue>.None), varies: varies);
     private static Case Color(string name, Color initial, string? prompt = null, Option<string> localName = default, bool varies = false) =>
-        Ref(name: name, create: () => Fin.Succ(value: new OptionColor(initial)), prompt: Optional(prompt), localName: localName, bind: Prompted(plain: static (GetBaseClass getter, global::Rhino.UI.LocalizeStringPair name, ref OptionColor native) => getter.AddOptionColor(name, ref native), prompted: static (GetBaseClass getter, global::Rhino.UI.LocalizeStringPair name, ref OptionColor native, string label) => getter.AddOptionColor(name, ref native, label)), current: static native => native.CurrentValue, script: token => ScriptPair(name: name, token: token).Bind(pair => global::System.Drawing.Color.FromName(name: pair.Value) switch { global::System.Drawing.Color value when value.IsKnownColor || value.IsNamedColor => Some(Scripted(key: name, value: Some((object)value), listIndex: Option<int>.None, optionType: CommandLineOptionType.Color, stringValue: Some(pair.Value))), _ => Option<CommandOptionValue>.None }), varies: varies);
+        Ref(name: name, create: () => Fin.Succ(value: new OptionColor(initial)), prompt: Optional(prompt), localName: localName, bind: Prompted(plain: static (GetBaseClass getter, global::Rhino.UI.LocalizeStringPair name, ref OptionColor native) => getter.AddOptionColor(name, ref native), prompted: static (GetBaseClass getter, global::Rhino.UI.LocalizeStringPair name, ref OptionColor native, string label) => getter.AddOptionColor(name, ref native, label)), current: static native => native.CurrentValue, script: token => ScriptPair(name: name, token: token).Bind(pair => ColorValue(text: pair.Value).Map(value => Scripted(key: name, value: Some((object)value), listIndex: Option<int>.None, optionType: CommandLineOptionType.Color, stringValue: Some(pair.Value)))), varies: varies);
     private static Case List(string name, Seq<string> values, int current = 0, Option<string> localName = default, bool varies = false) =>
         new(Name: name, AddToGetter: (getter, validName) =>
             from valid in values.TraverseM(ValidValue).As()
@@ -159,9 +174,17 @@ public abstract record CommandOption {
 
     internal abstract Fin<Bound> Add(GetBaseClass getter);
     internal abstract Option<CommandOptionValue> Script(string token);
-
     internal static Option<CommandOptionValue> Script(Seq<CommandOption> options, string token) =>
         options.Choose(option => option.Script(token: token)).Find(static _ => true);
+    internal static Option<Color> ColorValue(string text) =>
+        Optional(text)
+            .Map(static value => value.Trim())
+            .Bind(static value => value switch {
+                string named when Enum.TryParse(value: named, ignoreCase: true, result: out global::System.Drawing.KnownColor known) => Some(global::System.Drawing.Color.FromKnownColor(color: known)),
+                string hex when HexColor(text: hex).Case is Color color => Some(color),
+                string csv when CsvColor(text: csv).Case is Color color => Some(color),
+                _ => Option<Color>.None,
+            });
 
     private sealed record Case(string Name, Func<GetBaseClass, string, Fin<Bound>> AddToGetter, Func<string, Option<CommandOptionValue>>? ScriptToken = null) : CommandOption(name: Name) {
         internal override Fin<Bound> Add(GetBaseClass getter) =>
@@ -213,6 +236,9 @@ public abstract record CommandOption {
             double bound when bound >= int.MinValue && bound <= int.MaxValue && Math.Truncate(d: bound) == bound => Some((int)bound),
             _ => Option<int>.None,
         };
+
+    private static CommandScalarBounds BoundsOf(CommandOptionPolicy policy) =>
+        policy.Bounds;
 
     private static Fin<(Option<TValue> Lower, Option<TValue> Upper)> ValidateBounds<TValue>(TValue initial, Option<TValue> lower, Option<TValue> upper) where TValue : IComparable<TValue> =>
         (lower, upper) switch {
@@ -270,6 +296,23 @@ public abstract record CommandOption {
             string text when string.Equals(a: text, b: "1", comparisonType: StringComparison.Ordinal) || string.Equals(a: text, b: "true", comparisonType: StringComparison.OrdinalIgnoreCase) => Some(true),
             string text when string.Equals(a: text, b: "0", comparisonType: StringComparison.Ordinal) || string.Equals(a: text, b: "false", comparisonType: StringComparison.OrdinalIgnoreCase) => Some(false),
             _ => Option<bool>.None,
+        };
+
+    private static Option<Color> HexColor(string text) =>
+        Optional(text)
+            .Map(static value => value.Trim())
+            .Map(static value => value.StartsWith(value: "0x", comparisonType: StringComparison.OrdinalIgnoreCase) ? value[2..] : value.TrimStart(trimChar: '#'))
+            .Bind(static value => value switch {
+                string hex and { Length: 6 } when int.TryParse(s: hex, style: System.Globalization.NumberStyles.HexNumber, provider: System.Globalization.CultureInfo.InvariantCulture, result: out int rgb) => Some(global::System.Drawing.Color.FromArgb(red: (rgb >> 16) & 255, green: (rgb >> 8) & 255, blue: rgb & 255)),
+                string hex and { Length: 8 } when int.TryParse(s: hex, style: System.Globalization.NumberStyles.HexNumber, provider: System.Globalization.CultureInfo.InvariantCulture, result: out int argb) => Some(global::System.Drawing.Color.FromArgb(alpha: (argb >> 24) & 255, red: (argb >> 16) & 255, green: (argb >> 8) & 255, blue: argb & 255)),
+                _ => Option<Color>.None,
+            });
+
+    private static Option<Color> CsvColor(string text) =>
+        text.Split(separator: ',', options: StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries) switch {
+            [string r, string g, string b] when byte.TryParse(s: r, style: System.Globalization.NumberStyles.Integer, provider: System.Globalization.CultureInfo.InvariantCulture, result: out byte red) && byte.TryParse(s: g, style: System.Globalization.NumberStyles.Integer, provider: System.Globalization.CultureInfo.InvariantCulture, result: out byte green) && byte.TryParse(s: b, style: System.Globalization.NumberStyles.Integer, provider: System.Globalization.CultureInfo.InvariantCulture, result: out byte blue) => Some(global::System.Drawing.Color.FromArgb(red: red, green: green, blue: blue)),
+            [string a, string r, string g, string b] when byte.TryParse(s: a, style: System.Globalization.NumberStyles.Integer, provider: System.Globalization.CultureInfo.InvariantCulture, result: out byte alpha) && byte.TryParse(s: r, style: System.Globalization.NumberStyles.Integer, provider: System.Globalization.CultureInfo.InvariantCulture, result: out byte red) && byte.TryParse(s: g, style: System.Globalization.NumberStyles.Integer, provider: System.Globalization.CultureInfo.InvariantCulture, result: out byte green) && byte.TryParse(s: b, style: System.Globalization.NumberStyles.Integer, provider: System.Globalization.CultureInfo.InvariantCulture, result: out byte blue) => Some(global::System.Drawing.Color.FromArgb(alpha: alpha, red: red, green: green, blue: blue)),
+            _ => Option<Color>.None,
         };
 
     private static Fin<Bound> Added(GetBaseClass getter, int index, IDisposable? native, Func<GetBaseClass, Fin<CommandOptionValue>> snapshot, bool varies = false) {

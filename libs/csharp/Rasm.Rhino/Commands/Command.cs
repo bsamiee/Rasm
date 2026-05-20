@@ -93,6 +93,7 @@ public sealed record PromptStage<TState, TValue>(
             _ => inputEvent.Kind switch {
                 CommandInputEventKind.Cancel or CommandInputEventKind.Exit => Fin.Succ<PromptTransition<TState>>(value: new PromptTransition<TState>.Cancel()),
                 CommandInputEventKind.Undo => Fin.Succ<PromptTransition<TState>>(value: new PromptTransition<TState>.Back()),
+                CommandInputEventKind.NoResult or CommandInputEventKind.Miss or CommandInputEventKind.Timeout => Fin.Succ<PromptTransition<TState>>(value: new PromptTransition<TState>.Stay(State: context.State)),
                 CommandInputEventKind.Option => Optional(OptionLens).Case switch {
                     Func<CommandStageContext<TState>, CommandOptionValue, Fin<TState>> lens =>
                         from got in inputEvent.Result.ToFin(Fail: Op.Of(name: Name).InvalidResult())
@@ -154,6 +155,14 @@ public sealed record CommandStageContext<TState>(
             RunMode.Scripted => Events.Files(context: this, spec: spec),
             _ => Context.Ui.Use(intent: Rasm.Rhino.UI.UiIntent.File(spec: spec)),
         };
+
+    public Fin<T> Use<T>(Rasm.Rhino.UI.UiIntent<T> intent, Func<CommandStageContext<TState>, Fin<T>> scripted) =>
+        from validIntent in Optional(intent).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput())
+        from result in Context.Mode switch {
+            RunMode.Scripted => Optional(scripted).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput()).Bind(run => run(arg: this)),
+            _ => Context.Ui.Use(intent: validIntent),
+        }
+        select result;
 }
 
 public readonly record struct CommandCommitContext<TState>(RhinoCommandContext Context, TState State, Seq<TState> History) {

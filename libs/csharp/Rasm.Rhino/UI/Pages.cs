@@ -23,6 +23,8 @@ public readonly record struct PageContext(PagePhase Phase, bool Active = false, 
     public Fin<Seq<TObject>> Objects<TObject>() where TObject : RhinoObject => Optional(Args).ToFin(Fail: Op.Of(name: nameof(Objects)).InvalidInput()).Map(static args => toSeq(args.GetObjects<TObject>()));
     public Fin<Seq<RhinoObject>> Objects(ObjectType filter) => Optional(Args).ToFin(Fail: Op.Of(name: nameof(Objects)).InvalidInput()).Map(args => toSeq(args.GetObjects(filter: filter)));
     public Fin<Seq<Guid>> ObjectIds() => Objects<RhinoObject>().Map(static objects => objects.Map(static value => value.Id));
+    public Fin<Seq<(Guid Id, ObjectType Type)>> Snapshot(ObjectType filter = ObjectType.AnyObject) =>
+        Objects(filter: filter).Map(static objects => objects.Map(static native => (native.Id, native.ObjectType)));
     public Fin<RhinoUi> Ui() { RunMode mode = Mode; return RequireDocument().Map(document => new RhinoUi(document: document, mode: mode)); }
 }
 

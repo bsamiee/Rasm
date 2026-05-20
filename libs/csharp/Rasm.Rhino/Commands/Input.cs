@@ -90,7 +90,7 @@ public readonly record struct CommandGet<T>(
     public bool IsUndo => Raw.Map(static raw => raw == GetResult.Undo).IfNone(false);
 }
 
-internal enum CommandInputEventKind { Value, Option, Undo, Nothing, Cancel, Exit }
+internal enum CommandInputEventKind { Value, Option, Undo, Nothing, NoResult, Miss, Timeout, Cancel, Exit }
 
 internal readonly record struct CommandInputEvent<T>(CommandInputEventKind Kind, Option<CommandGet<T>> Result) {
     internal static CommandInputEvent<T> Of(CommandGet<T> result) =>
@@ -98,7 +98,10 @@ internal readonly record struct CommandInputEvent<T>(CommandInputEventKind Kind,
             Kind: result.Raw.Map(static raw => raw switch {
                 GetResult.Option => CommandInputEventKind.Option,
                 GetResult.Undo => CommandInputEventKind.Undo,
-                GetResult.Nothing or GetResult.NoResult or GetResult.Miss or GetResult.Timeout => CommandInputEventKind.Nothing,
+                GetResult.Nothing => CommandInputEventKind.Nothing,
+                GetResult.NoResult => CommandInputEventKind.NoResult,
+                GetResult.Miss => CommandInputEventKind.Miss,
+                GetResult.Timeout => CommandInputEventKind.Timeout,
                 _ => CommandInputEventKind.Value,
             }).IfNone(result.CommandResult switch {
                 global::Rhino.Commands.Result.Nothing => CommandInputEventKind.Nothing,
@@ -298,7 +301,7 @@ public sealed record CommandInputPolicy {
     public static CommandInputPolicy PointEvents(Func<CommandPointEvent, Fin<Unit>> change) =>
         Optional(change).Map(apply => new CommandInputPolicy(pointEvents: Some(apply))).IfNone(Empty);
     public static CommandInputPolicy PointGumball(UiGumball gumball) =>
-        Optional(gumball).Map(active => new CommandInputPolicy(gumball: Some(active))).IfNone(Empty);
+        Optional(gumball).Map(active => new CommandInputPolicy(gumball: Some(active), pointEvents: Some<Func<CommandPointEvent, Fin<Unit>>>(static _ => Fin.Succ(value: unit)))).IfNone(Empty);
     public static CommandInputPolicy Transform(Func<RhinoViewport, Point3d, global::Rhino.Geometry.Transform> calculate) =>
         Optional(calculate).Map(project => new CommandInputPolicy(transform: Some(project))).IfNone(Empty);
     public static CommandInputPolicy Objects(CommandObjectSelection selection) =>
@@ -340,6 +343,7 @@ public sealed record CommandInputPolicy {
             Constraints = Optional(constraints).Map(static values => toSeq(values)).IfNone(Seq<CommandPointConstraint>()),
         }));
     public static CommandInputPolicy Bounds<T>(Option<T> lower = default, Option<T> upper = default, bool strictlyLower = false, bool strictlyUpper = false) where T : IComparable<T> => new(bounds: Some(new LimitSpec(Lower: lower.Map(static value => (object)value), Upper: upper.Map(static value => (object)value), StrictlyLower: strictlyLower, StrictlyUpper: strictlyUpper)));
+    public static CommandInputPolicy Bounds(CommandScalarBounds bounds) => new(bounds: Some(new LimitSpec(Lower: bounds.Lower.Map(static value => (object)value), Upper: bounds.Upper.Map(static value => (object)value), StrictlyLower: false, StrictlyUpper: false)));
     public static CommandInputPolicy Number() => new(scalar: Some(new Scalar(Kind: ScalarKind.Number, LengthUnits: Option<UnitSystem>.None, AngleUnits: Option<AngleUnitSystem>.None)));
     public static CommandInputPolicy Number<T>(Option<T> lower = default, Option<T> upper = default, bool strictlyLower = false, bool strictlyUpper = false) where T : IComparable<T> => Bounds(lower: lower, upper: upper, strictlyLower: strictlyLower, strictlyUpper: strictlyUpper) + Number();
     public static CommandInputPolicy Length(Option<UnitSystem> units = default) => new(scalar: Some(new Scalar(Kind: ScalarKind.Length, LengthUnits: units, AngleUnits: Option<AngleUnitSystem>.None)));
@@ -505,6 +509,7 @@ public static class CommandInputs {
             Type t when t == typeof(Transform) => Transform<T>(policy: policy),
             Type t when t == typeof(string) || t == typeof(double) => Text<T>(policy: policy),
             Type t when t == typeof(int) => Number<GetInteger, int, T>(policy: policy, create: static () => new GetInteger(), receive: static getter => getter.Get(), current: static getter => getter.Number(), setLower: static (getter, value, strict) => getter.SetLowerLimit(value, strict), setUpper: static (getter, value, strict) => getter.SetUpperLimit(value, strict)),
+            Type t when t == typeof(bool) => new CommandInputRequest<T>(run: static _ => Fin.Fail<CommandGet<T>>(error: Op.Of(name: nameof(Get)).InvalidInput()), scripted: (input, token) => Script<T>(input: input, token: token, policy: policy)),
             Type t when t == typeof(Line) => Native<T, Line>(get: static (out value) => RhinoGet.GetLine(line: out value)),
             Type t when t == typeof(Polyline) => Native<T, Polyline>(get: static (out value) => RhinoGet.GetPolyline(polyline: out value)),
             Type t when t == typeof(Circle) => Native<T, Circle>(get: static (out value) => RhinoGet.GetCircle(circle: out value)),
@@ -667,6 +672,12 @@ public static class CommandInputs {
     private static Option<T> ScriptValue<T>(CommandInput input, string text, CommandInputPolicy policy) =>
         typeof(T) switch {
             Type t when t == typeof(string) => Cast<T>(text),
+            Type t when t == typeof(bool) => text switch {
+                string value when string.Equals(a: value, b: "1", comparisonType: StringComparison.Ordinal) || string.Equals(a: value, b: "true", comparisonType: StringComparison.OrdinalIgnoreCase) || string.Equals(a: value, b: "yes", comparisonType: StringComparison.OrdinalIgnoreCase) => Cast<T>(true),
+                string value when string.Equals(a: value, b: "0", comparisonType: StringComparison.Ordinal) || string.Equals(a: value, b: "false", comparisonType: StringComparison.OrdinalIgnoreCase) || string.Equals(a: value, b: "no", comparisonType: StringComparison.OrdinalIgnoreCase) => Cast<T>(false),
+                _ => Option<T>.None,
+            },
+            Type t when t == typeof(Color) => CommandOption.ColorValue(text: text).Bind(value => Cast<T>(value)),
             Type t when t == typeof(double) => Parse<T>(input: input, text: text, scalar: policy.ScalarMode, bounds: policy.LimitsMode).Bind(Cast<T>),
             Type t when t == typeof(int) => int.TryParse(s: text, style: NumberStyles.Integer, provider: CultureInfo.InvariantCulture, result: out int value) ? policy.LimitsMode.Case switch { CommandInputPolicy.LimitSpec spec => spec.Accept(value: value).Bind(valid => Cast<T>(valid)), _ => Cast<T>(value) } : Option<T>.None,
             Type t when t == typeof(CommandOptionValue) => Option<T>.None,

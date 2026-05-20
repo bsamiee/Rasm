@@ -18,9 +18,10 @@ public sealed partial record RhinoUi {
     public Fin<T> Use<T>(UiIntent<T> intent) =>
         Optional(intent)
             .ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput())
-            .Bind(valid => (valid.Interactive && mode == RunMode.Scripted) switch {
-                true => Fin.Fail<T>(error: Op.Of(name: nameof(Use)).InvalidInput()),
-                false => OnUiThread(run: () => valid.Run(scope: new Scope(Document: document, Mode: mode))),
+            .Bind(valid => (valid.Interactive && mode == RunMode.Scripted, valid.Scripted.Case) switch {
+                (true, Func<Scope, Fin<T>> scripted) => OnUiThread(run: () => scripted(arg: new Scope(Document: document, Mode: mode))),
+                (true, _) => Fin.Fail<T>(error: Op.Of(name: nameof(Use)).InvalidInput()),
+                _ => OnUiThread(run: () => valid.Run(scope: new Scope(Document: document, Mode: mode))),
             });
 
     internal Seq<T> Windows<T>() where T : Window =>

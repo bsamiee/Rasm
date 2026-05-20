@@ -2,6 +2,42 @@ using DrawingColor = System.Drawing.Color;
 
 namespace Rasm.Rhino.UI;
 
+public enum MousePhase { Move, MoveEnd, Down, DownEnd, Up, UpEnd, DoubleClick, Enter, Hover, Leave }
+
+public readonly record struct MouseContext<TState>(MousePhase Phase, TState State, global::Rhino.UI.MouseCallbackEventArgs Args) {
+    public bool Cancelled => Args.Cancel;
+    public bool CanCancelNative => Phase is MousePhase.Move or MousePhase.Down or MousePhase.Up or MousePhase.DoubleClick;
+    public Point2d CursorLocation => global::Rhino.UI.MouseCursor.Location;
+    public global::Rhino.UI.Gumball.GumballMode GumballMode => Args.IsOverGumball();
+    public bool IsOverGumball => GumballMode != global::Rhino.UI.Gumball.GumballMode.None;
+    public global::Rhino.UI.MouseButton MouseButton => Args.MouseButton;
+    public bool Shift => Args.ShiftKeyDown;
+    public bool Control => Args.CtrlKeyDown;
+    public Option<RhinoView> View => Optional(Args.View);
+    public Option<System.Drawing.Point> ViewportPoint => Args.ViewportPoint switch { { IsEmpty: false } point => Some(point), _ => Option<System.Drawing.Point>.None };
+    public Option<Line> WorldLine =>
+        (View.Case, ViewportPoint.Case) switch {
+            (RhinoView view, System.Drawing.Point point) => view.ActiveViewport.ClientToWorld(point) switch {
+                Line line when line.IsValid => Some(line),
+                _ => Option<Line>.None,
+            },
+            _ => Option<Line>.None,
+        };
+    public MouseDecision<TState> Pass => new(State: State, Cancel: false);
+    public MouseDecision<TState> Stop => new(State: State, Cancel: true);
+    public MouseDecision<TState> Next(TState state, bool cancel = false, Option<string> toolTip = default) =>
+        new(State: state, Cancel: cancel, ToolTip: toolTip);
+    public MouseDecision<TState> Hint(string value) =>
+        string.IsNullOrWhiteSpace(value: value) switch {
+            false => new MouseDecision<TState>(State: State, Cancel: false, ToolTip: Some(value)),
+            true => Pass,
+        };
+    public Fin<Line> RequireWorldLine() => WorldLine.ToFin(Fail: Op.Of(name: nameof(RequireWorldLine)).InvalidInput());
+    public Fin<Point3d> Project(Plane plane) => from line in RequireWorldLine() from validPlane in plane.IsValid switch { true => Fin.Succ(value: plane), false => Fin.Fail<Plane>(error: Op.Of(name: nameof(Project)).InvalidInput()) } from point in global::Rhino.Geometry.Intersect.Intersection.LinePlane(line: line, plane: validPlane, lineParameter: out double parameter) switch { true => Fin.Succ(value: line.PointAt(t: parameter)), false => Fin.Fail<Point3d>(error: Op.Of(name: nameof(Project)).InvalidResult()) } select point;
+}
+
+public readonly record struct MouseDecision<TState>(TState State, bool Cancel, Option<string> ToolTip = default);
+
 public enum OverlayPhase { Enabled, Cull, PreDrawObjects, PreDrawObject, Foreground, Overlay, PostDraw, Bounds, ZoomBounds }
 
 public readonly record struct OverlayContext<TState>(OverlayPhase Phase, TState State, object? Args = null, bool Enabled = false) {
@@ -262,6 +298,89 @@ public readonly record struct UiPreviewScope(
         select changed;
 
     public Fin<bool> PickGumball(global::Rhino.Input.Custom.PickContext pick, GetPoint point) => from active in Gumball.ToFin(Fail: Op.Of(name: nameof(PickGumball)).InvalidInput()) from validPick in Optional(pick).ToFin(Fail: Op.Of(name: nameof(PickGumball)).InvalidInput()) from validPoint in Optional(point).ToFin(Fail: Op.Of(name: nameof(PickGumball)).InvalidInput()) from picked in active.Pick(pick: validPick, point: validPoint) select picked;
+}
+
+public sealed record UiViewportInteraction<TState>(
+    TState Initial,
+    UiViewportPreview Preview,
+    Func<MouseContext<TState>, Fin<MouseDecision<TState>>> Mouse,
+    Option<UiGumballSpec> Gumball = default) {
+    internal Fin<T> Use<T>(RhinoDoc document, Func<UiPreviewScope, Fin<T>> run) =>
+        from validRun in Optional(run).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput())
+        from validMouse in Optional(Mouse).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput())
+        from result in UiViewportPreview.Use(document: document, preview: Preview, gumball: Gumball, run: scope => new Callback(initial: Initial, change: validMouse).Use(run: _ => validRun(arg: scope)))
+        select result;
+
+    private sealed class Callback(TState initial, Func<MouseContext<TState>, Fin<MouseDecision<TState>>> change) : global::Rhino.UI.MouseCallback, IDisposable {
+        private readonly Atom<TState> state = Atom(initial);
+        private bool ownsToolTip;
+        private bool disposed;
+
+        internal Fin<T> Use<T>(Func<Callback, Fin<T>> run) =>
+            from validRun in Optional(run).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput())
+            from _ in guard(!disposed, Op.Of(name: nameof(Use)).InvalidInput())
+            from result in RhinoUi.Protect(valid: () => {
+                Enabled = true;
+                // BOUNDARY ADAPTER - native mouse callback lifetime must close after viewport interaction exits.
+                try { return validRun(arg: this); } finally { Dispose(); }
+            })
+            select result;
+
+        public void Dispose() {
+            _ = disposed switch {
+                true => unit,
+                false => Disable(),
+            };
+            disposed = true;
+            GC.SuppressFinalize(obj: this);
+        }
+
+        protected override void OnMouseMove(global::Rhino.UI.MouseCallbackEventArgs e) => _ = Apply(phase: MousePhase.Move, args: e);
+        protected override void OnEndMouseMove(global::Rhino.UI.MouseCallbackEventArgs e) => _ = Apply(phase: MousePhase.MoveEnd, args: e);
+        protected override void OnMouseDown(global::Rhino.UI.MouseCallbackEventArgs e) => _ = Apply(phase: MousePhase.Down, args: e);
+        protected override void OnEndMouseDown(global::Rhino.UI.MouseCallbackEventArgs e) => _ = Apply(phase: MousePhase.DownEnd, args: e);
+        protected override void OnMouseUp(global::Rhino.UI.MouseCallbackEventArgs e) => _ = Apply(phase: MousePhase.Up, args: e);
+        protected override void OnEndMouseUp(global::Rhino.UI.MouseCallbackEventArgs e) => _ = Apply(phase: MousePhase.UpEnd, args: e);
+        protected override void OnMouseDoubleClick(global::Rhino.UI.MouseCallbackEventArgs e) => _ = Apply(phase: MousePhase.DoubleClick, args: e);
+        protected override void OnMouseEnter(global::Rhino.UI.MouseCallbackEventArgs e) => _ = Apply(phase: MousePhase.Enter, args: e);
+        protected override void OnMouseHover(global::Rhino.UI.MouseCallbackEventArgs e) => _ = Apply(phase: MousePhase.Hover, args: e);
+        protected override void OnMouseLeave(global::Rhino.UI.MouseCallbackEventArgs e) => _ = Apply(phase: MousePhase.Leave, args: e);
+
+        private Unit Apply(MousePhase phase, global::Rhino.UI.MouseCallbackEventArgs args) {
+            MouseContext<TState> context = new(Phase: phase, State: state.Value, Args: args);
+            return RhinoUi.Protect(valid: () => change(arg: context))
+                .Map(decision => {
+                    _ = state.Swap(_ => decision.State);
+                    _ = decision.ToolTip.Case switch {
+                        string tooltip => ((Func<Unit>)(() => {
+                            ownsToolTip = true;
+                            global::Rhino.UI.MouseCursor.SetToolTip(tooltip: tooltip);
+                            return unit;
+                        }))(),
+                        _ => unit,
+                    };
+                    args.Cancel = context.CanCancelNative switch {
+                        true => args.Cancel || decision.Cancel,
+                        _ => args.Cancel,
+                    };
+                    return unit;
+                })
+                .Match(Succ: static _ => unit, Fail: error => {
+                    RhinoApp.WriteLine(message: $"{nameof(UiViewportInteraction<TState>)}: {error}");
+                    return Disable();
+                });
+        }
+
+        private Unit Disable() {
+            _ = ownsToolTip switch {
+                true => ((Func<Unit>)(static () => { global::Rhino.UI.MouseCursor.SetToolTip(tooltip: string.Empty); return unit; }))(),
+                false => unit,
+            };
+            ownsToolTip = false;
+            Enabled = false;
+            return unit;
+        }
+    }
 }
 
 public sealed record UiViewportPreview {

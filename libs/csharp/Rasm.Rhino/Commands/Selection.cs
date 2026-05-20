@@ -24,25 +24,6 @@ public readonly record struct PickLocation(Option<double> CurveParameter, Option
         return Of(curve: curve, surface: surface);
     }
 
-    internal static Option<PickLocation> Of(GetPoint getter) {
-        ArgumentNullException.ThrowIfNull(argument: getter);
-        Option<double> curve = getter.PointOnCurve(t: out double curveParameter) switch {
-            Curve when RhinoMath.IsValidDouble(x: curveParameter) => Some(curveParameter),
-            _ => Option<double>.None,
-        };
-        Option<Point2d> surface = getter.PointOnBrep(u: out double brepU, v: out double brepV) switch {
-            BrepFace => new Point2d(x: brepU, y: brepV),
-            _ => getter.PointOnSurface(u: out double surfaceU, v: out double surfaceV) switch {
-                Surface => new Point2d(x: surfaceU, y: surfaceV),
-                _ => Point2d.Unset,
-            },
-        } switch {
-            Point2d point when point.IsValid => Some(point),
-            _ => Option<Point2d>.None,
-        };
-        return Of(curve: curve, surface: surface);
-    }
-
     private static Option<PickLocation> Of(Option<double> curve, Option<Point2d> surface) =>
         (curve.IsSome || surface.IsSome) switch {
             true => Some(new PickLocation(CurveParameter: curve, SurfaceParameter: surface)),
@@ -71,6 +52,11 @@ public sealed record CommandSelection {
 
     public Fin<Seq<T>> Project<T>(Func<Reference, Fin<T>> project) => Optional(project).ToFin(Fail: Op.Of(name: nameof(Project)).InvalidInput()).Bind(valid => Items.TraverseM(reference => valid(arg: reference)).As());
 
+    public Fin<Seq<T>> Project<T>(CommandObjectSelection policy, Func<Reference, Fin<T>> project) =>
+        from trimmed in Trim(policy: policy)
+        from values in trimmed.Project(project: project)
+        select values;
+
     public Fin<Seq<TGeometry>> Geometry<TGeometry>() where TGeometry : GeometryBase =>
         Project(project: reference => reference.Geometry<TGeometry>(document: Document));
 
@@ -84,7 +70,7 @@ public sealed record CommandSelection {
         from active in Optional(policy).ToFin(Fail: Op.Of(name: nameof(Trim)).InvalidInput())
         from selection in Items
             .Filter(item => active.SubObjects || !item.IsSubObject)
-            .Filter(item => active.AlreadySelected || (!item.Preselected && !item.Selected))
+            .Filter(item => item.Preselected || active.AlreadySelected || !item.Selected)
             .Filter(item => active.References || !item.IsReference)
             .Filter(item => active.Locked || !item.IsLocked)
             .Filter(item => !active.IgnoreGrips || !item.IsGrip)
@@ -202,15 +188,7 @@ public sealed record CommandSelection {
                 .Bind(valid => Optional(valid.PointOnObject())
                     .Bind(reference => {
                         using ObjRef owned = reference;
-                        return Optional(owned.Document).Map(document => {
-                            Reference snapshot = Of(document: document, reference: owned, preselected: false);
-                            return snapshot with {
-                                Location = PickLocation.Of(getter: valid).Case switch {
-                                    PickLocation location => Some(location),
-                                    _ => snapshot.Location,
-                                },
-                            };
-                        });
+                        return Optional(owned.Document).Map(document => Of(document: document, reference: owned, preselected: false));
                     }));
 
         internal ObjRef ObjRef(RhinoDoc document) {
