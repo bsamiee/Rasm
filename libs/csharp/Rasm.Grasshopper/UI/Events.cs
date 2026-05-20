@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Eto.Drawing;
 using Eto.Forms;
 using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Doc;
@@ -16,7 +17,7 @@ public partial record UiEvent {
     public sealed record DocumentChangedCase(Func<DocumentSnapshot, Fin<Unit>> Handler) : UiEvent;
     public sealed record SelectionChangedCase(Func<Seq<DocumentObjectSnapshot>, Fin<Unit>> Handler) : UiEvent;
     public sealed record TimerCase(TimeSpan Interval, Func<Fin<Unit>> Handler) : UiEvent;
-    public sealed record ControlCase(Control Source, ControlLifecycle Lifecycle, Func<ControlLifecycleSnapshot, Fin<Unit>> Handler) : UiEvent;
+    public sealed record ControlCase(Control Source, ControlEventKind Kind, Func<ControlEventSnapshot, Fin<Unit>> Handler) : UiEvent;
 
     public static UiEvent Paint(CanvasPaintPhase phase, Func<PaintScope, Fin<Unit>> handler) =>
         new PaintCase(Phase: phase, Handler: handler);
@@ -26,16 +27,51 @@ public partial record UiEvent {
         new SelectionChangedCase(Handler: handler);
     public static UiEvent Timer(TimeSpan interval, Func<Fin<Unit>> handler) =>
         new TimerCase(Interval: interval, Handler: handler);
-    public static UiEvent Control(Control source, ControlLifecycle lifecycle, Func<ControlLifecycleSnapshot, Fin<Unit>> handler) =>
-        new ControlCase(Source: source, Lifecycle: lifecycle, Handler: handler);
+    public static UiEvent Control(Control source, ControlEventKind kind, Func<ControlEventSnapshot, Fin<Unit>> handler) =>
+        new ControlCase(Source: source, Kind: kind, Handler: handler);
 }
 
-public enum ControlLifecycle { Load, LoadComplete, UnLoad, Shown, GotFocus, LostFocus, SizeChanged, EnabledChanged }
+public enum ControlEventKind {
+    PreLoad,
+    Load,
+    LoadComplete,
+    UnLoad,
+    Shown,
+    GotFocus,
+    LostFocus,
+    SizeChanged,
+    EnabledChanged,
+    KeyDown,
+    KeyUp,
+    TextInput,
+    MouseDown,
+    MouseUp,
+    MouseMove,
+    MouseEnter,
+    MouseLeave,
+    MouseDoubleClick,
+    MouseWheel,
+    DragDrop,
+    DragOver,
+    DragEnter,
+    DragLeave,
+    DragEnd,
+}
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct ControlLifecycleSnapshot(ControlLifecycle Lifecycle, bool Enabled, bool Visible);
+public readonly record struct ControlEventSnapshot(
+    ControlEventKind Kind,
+    bool Enabled,
+    bool Visible,
+    bool HasFocus,
+    Option<PointF> Point = default,
+    Option<MouseButtons> Buttons = default,
+    Option<Keys> Keys = default,
+    Option<string> Text = default,
+    Option<SizeF> Delta = default,
+    Option<float> Pressure = default);
 
-public sealed record EventRequest(UiEvent Event) : GhUiRequest<IDisposable> {
+internal sealed record EventRequest(UiEvent Event) : GhUiRequest<IDisposable> {
     internal override GrasshopperUiPolicy Policy => Events.PolicyOf(uiEvent: Event);
     internal override Fin<IDisposable> Apply(GrasshopperUi.Scope scope) => Events.Subscribe(uiEvent: Event).Run(scope: scope);
 }
@@ -44,7 +80,8 @@ public sealed record EventRequest(UiEvent Event) : GhUiRequest<IDisposable> {
 internal static partial class Events {
     internal static GrasshopperUiPolicy PolicyOf(UiEvent uiEvent) =>
         uiEvent switch {
-            UiEvent.PaintCase or UiEvent.DocumentChangedCase or UiEvent.SelectionChangedCase => GrasshopperUiPolicy.Document(),
+            UiEvent.PaintCase => GrasshopperUiPolicy.Canvas(),
+            UiEvent.DocumentChangedCase or UiEvent.SelectionChangedCase => GrasshopperUiPolicy.Document(),
             UiEvent.TimerCase or UiEvent.ControlCase => GrasshopperUiPolicy.Read,
             _ => GrasshopperUiPolicy.Read,
         };
@@ -55,7 +92,7 @@ internal static partial class Events {
             UiEvent.DocumentChangedCase d => SubscribeDocumentChange(handler: d.Handler),
             UiEvent.SelectionChangedCase s => SubscribeSelectionChange(handler: s.Handler),
             UiEvent.TimerCase t => SubscribeTimer(interval: t.Interval, handler: t.Handler),
-            UiEvent.ControlCase c => SubscribeControl(source: c.Source, lifecycle: c.Lifecycle, handler: c.Handler),
+            UiEvent.ControlCase c => SubscribeControl(source: c.Source, kind: c.Kind, handler: c.Handler),
             _ => GhUi.Document<IDisposable>(run: _ => Fin.Fail<IDisposable>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Subscribe)), detail: $"event kind not supported: {uiEvent.GetType().Name}"))),
         };
 
@@ -80,11 +117,11 @@ internal static partial class Events {
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeTimer)), detail: "null handler"))
             select (IDisposable)TimerWatcher.Attach(interval: validInterval, handler: valid));
 
-    private static GrasshopperUiIntent<IDisposable> SubscribeControl(Control source, ControlLifecycle lifecycle, Func<ControlLifecycleSnapshot, Fin<Unit>> handler) =>
+    private static GrasshopperUiIntent<IDisposable> SubscribeControl(Control source, ControlEventKind kind, Func<ControlEventSnapshot, Fin<Unit>> handler) =>
         GhUi.Read<IDisposable>(run: _ =>
             from validSource in Optional(source).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeControl)), detail: "null control"))
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeControl)), detail: "null handler"))
-            select (IDisposable)ControlLifecycleWatcher.Attach(source: validSource, lifecycle: lifecycle, handler: valid));
+            select (IDisposable)ControlEventWatcher.Attach(source: validSource, kind: kind, handler: valid));
 
     private sealed class DocumentChangeWatcher : IDisposable {
         private readonly GhDocument document;
@@ -144,15 +181,10 @@ internal static partial class Events {
         internal static SelectionChangeWatcher Attach(GhObjectList objects, Func<Seq<DocumentObjectSnapshot>, Fin<Unit>> handler) =>
             new(objects: objects, handler: handler);
         private Unit Publish() {
-            Seq<DocumentObjectSnapshot> selected = toSeq(objects.SelectedObjects.Select(SnapshotObjectFor));
+            Seq<DocumentObjectSnapshot> selected = toSeq(objects.SelectedObjects.Select(UiRail.DocumentObjectSnapshotOf));
             _ = GrasshopperUi.Protect(valid: () => handler(arg: selected));
             return unit;
         }
-        private static DocumentObjectSnapshot SnapshotObjectFor(IDocumentObject obj) =>
-            new(Id: obj.InstanceId, Name: obj.Nomen.Name, DisplayName: obj.DisplayName,
-                Selected: obj.Selected, Activity: obj.Activity.ToString(),
-                Display: obj.Display.ToString(), Phase: obj.Phase.ToString(), State: obj.State.ToString(),
-                Bounds: obj.Attributes.Bounds, Pivot: obj.Attributes.Pivot);
         public void Dispose() =>
             objects.ObjectSelectionChanged -= selectedChanged;
     }
@@ -175,47 +207,106 @@ internal static partial class Events {
         }
     }
 
-    private sealed class ControlLifecycleWatcher : IDisposable {
+    private sealed class ControlEventWatcher : IDisposable {
         private readonly Control source;
-        private readonly EventHandler<EventArgs> handler;
-        private readonly ControlLifecycle lifecycle;
-        private ControlLifecycleWatcher(Control source, ControlLifecycle lifecycle, Func<ControlLifecycleSnapshot, Fin<Unit>> publish) {
+        private readonly ControlEventKind kind;
+        private readonly Func<ControlEventSnapshot, Fin<Unit>> publish;
+        private readonly EventHandler<EventArgs> plain;
+        private readonly EventHandler<KeyEventArgs> key;
+        private readonly EventHandler<TextInputEventArgs> text;
+        private readonly EventHandler<MouseEventArgs> mouse;
+        private readonly EventHandler<DragEventArgs> drag;
+        private readonly record struct ControlEventCase(
+            ControlEventKind Kind,
+            Func<ControlEventWatcher, Unit> Attach,
+            Func<ControlEventWatcher, Unit> Detach);
+        private static readonly Seq<ControlEventCase> EventCases = Seq(
+            PlainCase(kind: ControlEventKind.PreLoad, attach: static (s, h) => s.PreLoad += h, detach: static (s, h) => s.PreLoad -= h),
+            PlainCase(kind: ControlEventKind.Load, attach: static (s, h) => s.Load += h, detach: static (s, h) => s.Load -= h),
+            PlainCase(kind: ControlEventKind.LoadComplete, attach: static (s, h) => s.LoadComplete += h, detach: static (s, h) => s.LoadComplete -= h),
+            PlainCase(kind: ControlEventKind.UnLoad, attach: static (s, h) => s.UnLoad += h, detach: static (s, h) => s.UnLoad -= h),
+            PlainCase(kind: ControlEventKind.Shown, attach: static (s, h) => s.Shown += h, detach: static (s, h) => s.Shown -= h),
+            PlainCase(kind: ControlEventKind.GotFocus, attach: static (s, h) => s.GotFocus += h, detach: static (s, h) => s.GotFocus -= h),
+            PlainCase(kind: ControlEventKind.LostFocus, attach: static (s, h) => s.LostFocus += h, detach: static (s, h) => s.LostFocus -= h),
+            PlainCase(kind: ControlEventKind.SizeChanged, attach: static (s, h) => s.SizeChanged += h, detach: static (s, h) => s.SizeChanged -= h),
+            PlainCase(kind: ControlEventKind.EnabledChanged, attach: static (s, h) => s.EnabledChanged += h, detach: static (s, h) => s.EnabledChanged -= h),
+            KeyCase(kind: ControlEventKind.KeyDown, attach: static (s, h) => s.KeyDown += h, detach: static (s, h) => s.KeyDown -= h),
+            KeyCase(kind: ControlEventKind.KeyUp, attach: static (s, h) => s.KeyUp += h, detach: static (s, h) => s.KeyUp -= h),
+            TextCase(kind: ControlEventKind.TextInput, attach: static (s, h) => s.TextInput += h, detach: static (s, h) => s.TextInput -= h),
+            MouseCase(kind: ControlEventKind.MouseDown, attach: static (s, h) => s.MouseDown += h, detach: static (s, h) => s.MouseDown -= h),
+            MouseCase(kind: ControlEventKind.MouseUp, attach: static (s, h) => s.MouseUp += h, detach: static (s, h) => s.MouseUp -= h),
+            MouseCase(kind: ControlEventKind.MouseMove, attach: static (s, h) => s.MouseMove += h, detach: static (s, h) => s.MouseMove -= h),
+            MouseCase(kind: ControlEventKind.MouseEnter, attach: static (s, h) => s.MouseEnter += h, detach: static (s, h) => s.MouseEnter -= h),
+            MouseCase(kind: ControlEventKind.MouseLeave, attach: static (s, h) => s.MouseLeave += h, detach: static (s, h) => s.MouseLeave -= h),
+            MouseCase(kind: ControlEventKind.MouseDoubleClick, attach: static (s, h) => s.MouseDoubleClick += h, detach: static (s, h) => s.MouseDoubleClick -= h),
+            MouseCase(kind: ControlEventKind.MouseWheel, attach: static (s, h) => s.MouseWheel += h, detach: static (s, h) => s.MouseWheel -= h),
+            DragCase(kind: ControlEventKind.DragDrop, attach: static (s, h) => s.DragDrop += h, detach: static (s, h) => s.DragDrop -= h),
+            DragCase(kind: ControlEventKind.DragOver, attach: static (s, h) => s.DragOver += h, detach: static (s, h) => s.DragOver -= h),
+            DragCase(kind: ControlEventKind.DragEnter, attach: static (s, h) => s.DragEnter += h, detach: static (s, h) => s.DragEnter -= h),
+            DragCase(kind: ControlEventKind.DragLeave, attach: static (s, h) => s.DragLeave += h, detach: static (s, h) => s.DragLeave -= h),
+            DragCase(kind: ControlEventKind.DragEnd, attach: static (s, h) => s.DragEnd += h, detach: static (s, h) => s.DragEnd -= h));
+        private ControlEventWatcher(Control source, ControlEventKind kind, Func<ControlEventSnapshot, Fin<Unit>> publish) {
             this.source = source;
-            this.lifecycle = lifecycle;
-            handler = (_, _) => _ = GrasshopperUi.Protect(valid: () => publish(arg: new ControlLifecycleSnapshot(Lifecycle: lifecycle, Enabled: source.Enabled, Visible: source.Visible)));
-            _ = Attach();
+            this.kind = kind;
+            this.publish = publish;
+            plain = (_, _) => Publish(snapshot: SnapshotOf(kind: kind));
+            key = (_, e) => Publish(snapshot: SnapshotOf(kind: kind, keys: Some(e.KeyData)));
+            text = (_, e) => Publish(snapshot: SnapshotOf(kind: kind, text: Optional(e.Text)));
+            mouse = (_, e) => Publish(snapshot: SnapshotOf(kind: kind, point: Some(e.Location), buttons: Some(e.Buttons), keys: Some(e.Modifiers), delta: Some(e.Delta), pressure: Some(e.Pressure)));
+            drag = (_, _) => Publish(snapshot: SnapshotOf(kind: kind));
+            _ = Toggle(attach: true);
         }
-        internal static ControlLifecycleWatcher Attach(Control source, ControlLifecycle lifecycle, Func<ControlLifecycleSnapshot, Fin<Unit>> handler) =>
-            new(source: source, lifecycle: lifecycle, publish: handler);
-        private Unit Attach() =>
-            lifecycle switch {
-                ControlLifecycle.Load => AttachTo(add: static (s, h) => s.Load += h),
-                ControlLifecycle.LoadComplete => AttachTo(add: static (s, h) => s.LoadComplete += h),
-                ControlLifecycle.UnLoad => AttachTo(add: static (s, h) => s.UnLoad += h),
-                ControlLifecycle.Shown => AttachTo(add: static (s, h) => s.Shown += h),
-                ControlLifecycle.GotFocus => AttachTo(add: static (s, h) => s.GotFocus += h),
-                ControlLifecycle.LostFocus => AttachTo(add: static (s, h) => s.LostFocus += h),
-                ControlLifecycle.SizeChanged => AttachTo(add: static (s, h) => s.SizeChanged += h),
-                ControlLifecycle.EnabledChanged => AttachTo(add: static (s, h) => s.EnabledChanged += h),
-                _ => unit,
-            };
-        private Unit Detach() =>
-            lifecycle switch {
-                ControlLifecycle.Load => AttachTo(add: static (s, h) => s.Load -= h),
-                ControlLifecycle.LoadComplete => AttachTo(add: static (s, h) => s.LoadComplete -= h),
-                ControlLifecycle.UnLoad => AttachTo(add: static (s, h) => s.UnLoad -= h),
-                ControlLifecycle.Shown => AttachTo(add: static (s, h) => s.Shown -= h),
-                ControlLifecycle.GotFocus => AttachTo(add: static (s, h) => s.GotFocus -= h),
-                ControlLifecycle.LostFocus => AttachTo(add: static (s, h) => s.LostFocus -= h),
-                ControlLifecycle.SizeChanged => AttachTo(add: static (s, h) => s.SizeChanged -= h),
-                ControlLifecycle.EnabledChanged => AttachTo(add: static (s, h) => s.EnabledChanged -= h),
-                _ => unit,
-            };
-        private Unit AttachTo(Action<Control, EventHandler<EventArgs>> add) {
-            add(arg1: source, arg2: handler);
+        internal static ControlEventWatcher Attach(Control source, ControlEventKind kind, Func<ControlEventSnapshot, Fin<Unit>> handler) =>
+            new(source: source, kind: kind, publish: handler);
+        private Unit Publish(ControlEventSnapshot snapshot) {
+            _ = GrasshopperUi.Protect(valid: () => publish(arg: snapshot));
+            return unit;
+        }
+        private ControlEventSnapshot SnapshotOf(
+            ControlEventKind kind,
+            Option<PointF> point = default,
+            Option<MouseButtons> buttons = default,
+            Option<Keys> keys = default,
+            Option<string> text = default,
+            Option<SizeF> delta = default,
+            Option<float> pressure = default) =>
+            new(Kind: kind, Enabled: source.Enabled, Visible: source.Visible, HasFocus: source.HasFocus, Point: point, Buttons: buttons, Keys: keys, Text: text, Delta: delta, Pressure: pressure);
+        private Unit Toggle(bool attach) =>
+            EventCases
+                .Find(c => c.Kind == kind)
+                .Map(c => attach ? c.Attach(arg: this) : c.Detach(arg: this))
+                .IfNone(unit);
+        private static ControlEventCase PlainCase(ControlEventKind kind, Action<Control, EventHandler<EventArgs>> attach, Action<Control, EventHandler<EventArgs>> detach) =>
+            new(Kind: kind, Attach: watcher => watcher.Plain(add: attach), Detach: watcher => watcher.Plain(add: detach));
+        private static ControlEventCase KeyCase(ControlEventKind kind, Action<Control, EventHandler<KeyEventArgs>> attach, Action<Control, EventHandler<KeyEventArgs>> detach) =>
+            new(Kind: kind, Attach: watcher => watcher.Key(add: attach), Detach: watcher => watcher.Key(add: detach));
+        private static ControlEventCase TextCase(ControlEventKind kind, Action<Control, EventHandler<TextInputEventArgs>> attach, Action<Control, EventHandler<TextInputEventArgs>> detach) =>
+            new(Kind: kind, Attach: watcher => watcher.Text(add: attach), Detach: watcher => watcher.Text(add: detach));
+        private static ControlEventCase MouseCase(ControlEventKind kind, Action<Control, EventHandler<MouseEventArgs>> attach, Action<Control, EventHandler<MouseEventArgs>> detach) =>
+            new(Kind: kind, Attach: watcher => watcher.Mouse(add: attach), Detach: watcher => watcher.Mouse(add: detach));
+        private static ControlEventCase DragCase(ControlEventKind kind, Action<Control, EventHandler<DragEventArgs>> attach, Action<Control, EventHandler<DragEventArgs>> detach) =>
+            new(Kind: kind, Attach: watcher => watcher.Drag(add: attach), Detach: watcher => watcher.Drag(add: detach));
+        private Unit Plain(Action<Control, EventHandler<EventArgs>> add) {
+            add(arg1: source, arg2: plain);
+            return unit;
+        }
+        private Unit Key(Action<Control, EventHandler<KeyEventArgs>> add) {
+            add(arg1: source, arg2: key);
+            return unit;
+        }
+        private Unit Text(Action<Control, EventHandler<TextInputEventArgs>> add) {
+            add(arg1: source, arg2: text);
+            return unit;
+        }
+        private Unit Mouse(Action<Control, EventHandler<MouseEventArgs>> add) {
+            add(arg1: source, arg2: mouse);
+            return unit;
+        }
+        private Unit Drag(Action<Control, EventHandler<DragEventArgs>> add) {
+            add(arg1: source, arg2: drag);
             return unit;
         }
         public void Dispose() =>
-            _ = Detach();
+            _ = Toggle(attach: false);
     }
 }

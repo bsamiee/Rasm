@@ -38,7 +38,60 @@ public readonly record struct PaintScope(
 }
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct PaintStyle(Color Edge, Option<Color> Fill = default, float Thickness = 1f, Option<Font> Font = default, Color Background = default);
+public readonly record struct PaintStyle(
+    Color Edge,
+    Option<Color> Fill = default,
+    float Thickness = 1f,
+    UiFont Font = null!,
+    Color Background = default,
+    PenLineCap LineCap = PenLineCap.Butt,
+    PenLineJoin LineJoin = PenLineJoin.Miter,
+    DashStyle Dash = null!,
+    float MiterLimit = 10f,
+    bool AntiAlias = true,
+    ImageInterpolation ImageInterpolation = ImageInterpolation.Default,
+    PixelOffsetMode PixelOffset = PixelOffsetMode.None) {
+    internal Pen Pen() =>
+        new(color: Edge, thickness: Thickness) {
+            LineCap = LineCap,
+            LineJoin = LineJoin,
+            DashStyle = Dash ?? DashStyles.Solid,
+            MiterLimit = MiterLimit,
+        };
+
+    internal static SolidBrush Brush(Color color) => new(color: color);
+
+    internal Unit Assign(Graphics graphics) {
+        graphics.AntiAlias = AntiAlias;
+        graphics.ImageInterpolation = ImageInterpolation;
+        graphics.PixelOffsetMode = PixelOffset;
+        return unit;
+    }
+}
+
+[Union]
+public partial record UiFont {
+    private UiFont() { }
+    public sealed record SystemCase(SystemFont Kind, float? Size = null, FontDecoration Decoration = FontDecoration.None) : UiFont;
+    public sealed record FamilyCase(string Name, float Size, FontStyle Style = FontStyle.None, FontDecoration Decoration = FontDecoration.None) : UiFont;
+    public sealed record NativeCase(Font Value) : UiFont;
+    public sealed record EmptyCase : UiFont;
+
+    public static UiFont Empty() => new EmptyCase();
+    public static UiFont System(SystemFont kind, float? size = null, FontDecoration decoration = FontDecoration.None) =>
+        new SystemCase(Kind: kind, Size: size, Decoration: decoration);
+    public static UiFont Family(string family, float size, FontStyle style = FontStyle.None, FontDecoration decoration = FontDecoration.None) =>
+        new FamilyCase(Name: family, Size: size, Style: style, Decoration: decoration);
+    public static UiFont Native(Font value) => new NativeCase(Value: value);
+
+    internal Font Resolve() =>
+        this switch {
+            SystemCase system => SystemFonts.Cached(systemFont: system.Kind, size: system.Size, decoration: system.Decoration),
+            FamilyCase family => new Font(family: family.Name, size: family.Size, style: family.Style, decoration: family.Decoration),
+            NativeCase native => native.Value,
+            _ => SystemFonts.Default(),
+        };
+}
 
 [Union]
 public partial record DrawMark {
@@ -46,9 +99,9 @@ public partial record DrawMark {
     public sealed record LineCase(PointF A, PointF B, PaintStyle Style) : DrawMark;
     public sealed record RectangleCase(RectangleF Bounds, PaintStyle Style) : DrawMark;
     public sealed record EllipseCase(RectangleF Bounds, PaintStyle Style) : DrawMark;
-    public sealed record TextCase(string Value, PointF Location, PaintStyle Style) : DrawMark;
+    public sealed record TextCase(string Value, RectangleF Frame, PaintStyle Style, FormattedTextWrapMode Wrap, FormattedTextAlignment Alignment, FormattedTextTrimming Trimming) : DrawMark;
     public sealed record ImageCase(Eto.Drawing.Image Value, RectangleF Frame, PaintStyle Style) : DrawMark;
-    public sealed record IconCase(IIcon Value, RectangleF Frame, PaintStyle Style) : DrawMark;
+    public sealed record GhIconCase(IIcon Value, RectangleF Frame, PaintStyle Style) : DrawMark;
     public sealed record WireCase(PointF Source, PointF Target, WireKind Kind, PaintStyle Style) : DrawMark;
 
     public static DrawMark Line(PointF a, PointF b, Color colour, float thickness = 1f) =>
@@ -57,73 +110,76 @@ public partial record DrawMark {
         new RectangleCase(Bounds: bounds, Style: new PaintStyle(Edge: edge, Fill: fill, Thickness: thickness));
     public static DrawMark Ellipse(RectangleF bounds, Color edge, Option<Color> fill = default, float thickness = 1f) =>
         new EllipseCase(Bounds: bounds, Style: new PaintStyle(Edge: edge, Fill: fill, Thickness: thickness));
-    public static DrawMark Label(string value, PointF location, Color colour, Option<Font> font = default) =>
-        new TextCase(Value: value, Location: location, Style: new PaintStyle(Edge: colour, Font: font));
+    public static DrawMark Label(
+        string value,
+        RectangleF frame,
+        Color colour,
+        UiFont font = null!,
+        FormattedTextWrapMode wrap = FormattedTextWrapMode.Word,
+        FormattedTextAlignment alignment = FormattedTextAlignment.Left,
+        FormattedTextTrimming trimming = FormattedTextTrimming.WordEllipsis) =>
+        new TextCase(Value: value, Frame: frame, Style: new PaintStyle(Edge: colour, Font: font ?? UiFont.Empty()), Wrap: wrap, Alignment: alignment, Trimming: trimming);
     public static DrawMark Image(Eto.Drawing.Image value, RectangleF frame) =>
         new ImageCase(Value: value, Frame: frame, Style: new PaintStyle(Edge: Colors.Transparent));
     public static DrawMark IconGlyph(IIcon value, RectangleF frame, Color background) =>
-        new IconCase(Value: value, Frame: frame, Style: new PaintStyle(Edge: Colors.Transparent, Background: background));
+        new GhIconCase(Value: value, Frame: frame, Style: new PaintStyle(Edge: Colors.Transparent, Background: background));
     public static DrawMark WirePreview(PointF source, PointF target, WireKind kind = WireKind.Tentative) =>
         new WireCase(Source: source, Target: target, Kind: kind, Style: new PaintStyle(Edge: Colors.Transparent));
 
     internal Fin<Unit> Apply(PaintScope scope) =>
         Try.lift<Unit>(f: () => this switch {
-            LineCase line => DrawLine(scope: scope, line: line),
-            RectangleCase rectangle => DrawRectangle(scope: scope, rectangle: rectangle),
-            EllipseCase ellipse => DrawEllipse(scope: scope, ellipse: ellipse),
-            TextCase text => DrawText(scope: scope, text: text),
-            ImageCase image => DrawImage(scope: scope, image: image),
-            IconCase icon => DrawIcon(scope: scope, icon: icon),
+            LineCase line => Draw(scope: scope, style: line.Style, run: graphics => {
+                using Pen pen = line.Style.Pen();
+                graphics.DrawLine(pen, line.A.X, line.A.Y, line.B.X, line.B.Y);
+                return unit;
+            }),
+            RectangleCase rectangle => Draw(scope: scope, style: rectangle.Style, run: graphics => {
+                _ = rectangle.Style.Fill.IfSome(fill => {
+                    using SolidBrush brush = PaintStyle.Brush(color: fill);
+                    graphics.FillRectangle(brush: brush, rectangle: rectangle.Bounds);
+                });
+                using Pen pen = rectangle.Style.Pen();
+                graphics.DrawRectangle(pen: pen, rectangle: rectangle.Bounds);
+                return unit;
+            }),
+            EllipseCase ellipse => Draw(scope: scope, style: ellipse.Style, run: graphics => {
+                _ = ellipse.Style.Fill.IfSome(fill => {
+                    using SolidBrush brush = PaintStyle.Brush(color: fill);
+                    graphics.FillEllipse(brush: brush, rectangle: ellipse.Bounds);
+                });
+                using Pen pen = ellipse.Style.Pen();
+                graphics.DrawEllipse(pen: pen, rectangle: ellipse.Bounds);
+                return unit;
+            }),
+            TextCase text => Draw(scope: scope, style: text.Style, run: graphics => {
+                using Font font = (text.Style.Font ?? UiFont.Empty()).Resolve();
+                using SolidBrush brush = PaintStyle.Brush(color: text.Style.Edge);
+                graphics.DrawText(font, brush, text.Frame, text.Value, text.Wrap, text.Alignment, text.Trimming);
+                return unit;
+            }),
+            ImageCase image => Draw(scope: scope, style: image.Style, run: graphics => {
+                graphics.DrawImage(image: image.Value, rectangle: image.Frame);
+                return unit;
+            }),
+            GhIconCase icon => Draw(scope: scope, style: icon.Style, run: _ => {
+                icon.Value.Draw(context: new IconContext(
+                    context: Eto.Drawing.Context.CreateFromContent(graphics: scope.Graphics),
+                    frame: icon.Frame,
+                    background: icon.Style.Background));
+                return unit;
+            }),
             WireCase wire => DrawWire(scope: scope, wire: wire),
             _ => unit,
         }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(DrawMark)), detail: $"{GetType().Name} draw failed"));
 
-    private static Unit DrawLine(PaintScope scope, LineCase line) {
-        using Pen pen = new(color: line.Style.Edge, thickness: line.Style.Thickness);
-        scope.Graphics.Content.DrawLine(pen, line.A.X, line.A.Y, line.B.X, line.B.Y);
-        return unit;
-    }
-
-    private static Unit DrawRectangle(PaintScope scope, RectangleCase rectangle) {
-        _ = rectangle.Style.Fill.IfSome(fill => {
-            using SolidBrush brush = new(color: fill);
-            scope.Graphics.Content.FillRectangle(brush: brush, rectangle: rectangle.Bounds);
-        });
-        using Pen pen = new(color: rectangle.Style.Edge, thickness: rectangle.Style.Thickness);
-        scope.Graphics.Content.DrawRectangle(pen: pen, rectangle: rectangle.Bounds);
-        return unit;
-    }
-
-    private static Unit DrawEllipse(PaintScope scope, EllipseCase ellipse) {
-        _ = ellipse.Style.Fill.IfSome(fill => {
-            using SolidBrush brush = new(color: fill);
-            scope.Graphics.Content.FillEllipse(brush: brush, rectangle: ellipse.Bounds);
-        });
-        using Pen pen = new(color: ellipse.Style.Edge, thickness: ellipse.Style.Thickness);
-        scope.Graphics.Content.DrawEllipse(pen: pen, rectangle: ellipse.Bounds);
-        return unit;
-    }
-
-    private static Unit DrawText(PaintScope scope, TextCase text) {
-        using SolidBrush brush = new(color: text.Style.Edge);
-        scope.Graphics.Content.DrawText(font: text.Style.Font.IfNone(SystemFonts.Default()), brush: brush, location: text.Location, text: text.Value);
-        return unit;
-    }
-
-    private static Unit DrawImage(PaintScope scope, ImageCase image) {
-        scope.Graphics.Content.DrawImage(image: image.Value, rectangle: image.Frame);
-        return unit;
-    }
-
-    private static Unit DrawIcon(PaintScope scope, IconCase icon) {
-        icon.Value.Draw(context: new IconContext(
-            context: Eto.Drawing.Context.CreateFromContent(graphics: scope.Graphics),
-            frame: icon.Frame,
-            background: icon.Style.Background));
-        return unit;
+    private static Unit Draw(PaintScope scope, PaintStyle style, Func<Graphics, Unit> run) {
+        Graphics graphics = scope.Graphics.Content;
+        _ = style.Assign(graphics: graphics);
+        return run(arg: graphics);
     }
 
     private static Unit DrawWire(PaintScope scope, WireCase wire) {
+        _ = wire.Style.Assign(graphics: scope.Graphics.Content);
         WireSkin skin = scope.Skin.Wires[wire.Kind];
         WireShape shape = WireShape.Create(source: wire.Source, target: wire.Target);
         using Pen pen = new(color: skin.Normal, thickness: skin.Outer.Width);

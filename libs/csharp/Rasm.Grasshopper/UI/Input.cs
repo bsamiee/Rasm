@@ -105,8 +105,10 @@ public readonly record struct UiCommand(
     string Info,
     Func<Fin<Unit>> Run,
     Option<IIcon> Icon = default,
+    Option<Eto.Drawing.Image> Image = default,
     Option<BarShortcut> Shortcut = default,
-    bool Enabled = true) {
+    bool Enabled = true,
+    Option<Func<Fin<bool>>> CanExecute = default) {
     internal Fin<UiCommand> Validated(Op op) {
         UiCommand command = this;
         return Optional(command.Run)
@@ -117,12 +119,26 @@ public readonly record struct UiCommand(
     internal Command ToEtoCommand() {
         string name = Name;
         string info = Info;
-        bool enabled = Enabled;
         Func<Fin<Unit>> run = Run;
-        Command command = new() { ID = name, MenuText = name, ToolBarText = name, ToolTip = info, Enabled = enabled };
+        Command command = new() { ID = name, MenuText = name, ToolBarText = name, ToolTip = info, Enabled = EffectiveEnabled() };
+        _ = Image.Iter(image => command.Image = image);
+        _ = Shortcut.Iter(shortcut => command.Shortcut = shortcut.Keys);
         command.Executed += (_, _) => _ = GrasshopperUi.Protect(valid: run);
         return command;
     }
+
+    internal MenuItem ToMenuItem() {
+        bool enabled = Enabled;
+        Option<Func<Fin<bool>>> canExecute = CanExecute;
+        Command command = ToEtoCommand();
+        MenuItem item = command.CreateMenuItem();
+        _ = canExecute.Iter(can => item.Validate += (_, _) =>
+            item.Enabled = enabled && GrasshopperUi.Protect(valid: can).IfFail(_ => false));
+        return item;
+    }
+
+    internal bool EffectiveEnabled() =>
+        Enabled && CanExecute.Map(can => GrasshopperUi.Protect(valid: can).IfFail(_ => false)).IfNone(true);
 }
 
 [Union]
@@ -153,27 +169,18 @@ public abstract record ToolbarItem {
                         nomen: new Nomen(name: command.Name, info: command.Info),
                         callback: () => _ = GrasshopperUi.Protect(valid: command.Run),
                         keys: command.Shortcut.Map(static shortcut => (BarShortcut?)shortcut).IfNone((BarShortcut?)null));
-                    pushed.Enabled = command.Enabled;
+                    pushed.Enabled = command.EffectiveEnabled();
                     pushed.CloseOnActivate = button.CloseOnActivate;
                     return unit;
                 }),
                 (Button button, UiCommandSurface.MenuCase menu) => button.Command.Validated(op: Op.Of(name: nameof(Button))).Map(command => {
-                    _ = menu.Target.AddItem(text: command.Name, description: command.Info, command: command.ToEtoCommand());
+                    menu.Target.Items.Add(item: command.ToMenuItem());
                     return unit;
                 }),
                 (Toggle toggle, UiCommandSurface.ToolbarCase toolbar) =>
                     from command in toggle.Command.Validated(op: Op.Of(name: nameof(Toggle)))
                     from changed in Optional(toggle.Changed).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Toggle)), detail: "toggle change delegate is required"))
-                    select ((Func<Unit>)(() => {
-                        RadioToggle toggled = toolbar.Bar.AddRadioToggle(
-                            icon: command.Icon.IfNone(default(IIcon)!),
-                            nomen: new Nomen(name: command.Name, info: command.Info),
-                            initial: toggle.State,
-                            callback: state => _ = GrasshopperUi.Protect(valid: () => changed(arg: state)),
-                            keys: command.Shortcut.Map(static shortcut => (BarShortcut?)shortcut).IfNone((BarShortcut?)null));
-                        toggled.Enabled = command.Enabled;
-                        return unit;
-                    }))(),
+                    select AddRadioToggle(bar: toolbar.Bar, command: command, state: toggle.State, optional: true, changed: changed),
                 (Toggle toggle, UiCommandSurface.MenuCase menu) =>
                     from command in toggle.Command.Validated(op: Op.Of(name: nameof(Toggle)))
                     from changed in Optional(toggle.Changed).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Toggle)), detail: "toggle change delegate is required"))
@@ -182,27 +189,22 @@ public abstract record ToolbarItem {
                             ID = command.Name,
                             MenuText = command.Name,
                             ToolTip = command.Info,
-                            Enabled = command.Enabled,
+                            Enabled = command.EffectiveEnabled(),
                             Checked = toggle.State,
                         };
+                        _ = command.Image.Iter(image => menuCommand.Image = image);
+                        _ = command.Shortcut.Iter(shortcut => menuCommand.Shortcut = shortcut.Keys);
                         menuCommand.Executed += (_, _) => _ = GrasshopperUi.Protect(valid: () => changed(arg: menuCommand.Checked));
-                        menu.Target.Items.Add(menuCommand.CreateMenuItem());
+                        MenuItem item = menuCommand.CreateMenuItem();
+                        _ = command.CanExecute.Iter(can => item.Validate += (_, _) =>
+                            item.Enabled = command.Enabled && GrasshopperUi.Protect(valid: can).IfFail(_ => false));
+                        menu.Target.Items.Add(item: item);
                         return unit;
                     }))(),
                 (Radio radio, UiCommandSurface.ToolbarCase toolbar) =>
                     from command in radio.Command.Validated(op: Op.Of(name: nameof(Radio)))
                     from changed in Optional(radio.Changed).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Radio)), detail: "radio change delegate is required"))
-                    select ((Func<Unit>)(() => {
-                        RadioToggle toggled = toolbar.Bar.AddRadioToggle(
-                            icon: command.Icon.IfNone(default(IIcon)!),
-                            nomen: new Nomen(name: command.Name, info: command.Info),
-                            initial: radio.State,
-                            callback: state => _ = GrasshopperUi.Protect(valid: () => changed(arg: state)),
-                            keys: command.Shortcut.Map(static shortcut => (BarShortcut?)shortcut).IfNone((BarShortcut?)null));
-                        toggled.Optional = false;
-                        toggled.Enabled = command.Enabled;
-                        return unit;
-                    }))(),
+                    select AddRadioToggle(bar: toolbar.Bar, command: command, state: radio.State, optional: false, changed: changed),
                 (TextInput text, UiCommandSurface.ToolbarCase toolbar) =>
                     from changed in Optional(text.Changed).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(TextInput)), detail: "text change delegate is required"))
                     select ((Func<Unit>)(() => {
@@ -236,6 +238,18 @@ public abstract record ToolbarItem {
                 (_, UiCommandSurface.MenuCase) => Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ToolbarItem)), detail: $"{GetType().Name} cannot be projected to a context menu")),
                 _ => Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ToolbarItem)), detail: "unknown command surface")),
             });
+
+    private static Unit AddRadioToggle(Bar bar, UiCommand command, bool state, bool optional, Func<bool, Fin<Unit>> changed) {
+        RadioToggle toggled = bar.AddRadioToggle(
+            icon: command.Icon.IfNone(default(IIcon)!),
+            nomen: new Nomen(name: command.Name, info: command.Info),
+            initial: state,
+            callback: value => _ = GrasshopperUi.Protect(valid: () => changed(arg: value)),
+            keys: command.Shortcut.Map(static shortcut => (BarShortcut?)shortcut).IfNone((BarShortcut?)null));
+        toggled.Optional = optional;
+        toggled.Enabled = command.EffectiveEnabled();
+        return unit;
+    }
 }
 
 public readonly record struct ToolbarPlan(Seq<ToolbarItem> Items);
@@ -265,6 +279,10 @@ public abstract record InputRequest<T> : GhUiRequest<T> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
         internal override Fin<MenuSnapshot> Apply(GrasshopperUi.Scope scope) => Input.Menu(plan: Plan).Run(scope: scope);
     }
+    public sealed record MenuShow(ContextMenu Target, Control Owner, PointF Location) : InputRequest<MenuSnapshot> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
+        internal override Fin<MenuSnapshot> Apply(GrasshopperUi.Scope scope) => Input.ShowMenu(menu: Target, owner: Owner, location: Location).Run(scope: scope);
+    }
     public sealed record Cursor(CursorKind Kind) : InputRequest<CursorKind> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
         internal override Fin<CursorKind> Apply(GrasshopperUi.Scope scope) => Input.Cursor(kind: Kind).Run(scope: scope);
@@ -275,7 +293,7 @@ public abstract record InputRequest<T> : GhUiRequest<T> {
     }
     public sealed record File(FileDialogMode Mode, Option<string> InitialPath, Seq<FileFilter> Filters) : InputRequest<Option<string>> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
-        internal override Fin<Option<string>> Apply(GrasshopperUi.Scope scope) => Input.FileDialog(mode: Mode, initialPath: InitialPath.IfNone(string.Empty), filters: [.. Filters]).Run(scope: scope);
+        internal override Fin<Option<string>> Apply(GrasshopperUi.Scope scope) => Input.FileDialog(mode: Mode, initialPath: InitialPath, filters: [.. Filters]).Run(scope: scope);
     }
     public sealed record Clipboard(InputClipboardOp Op) : InputRequest<InputClipboardSnapshot> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
@@ -352,6 +370,19 @@ internal static partial class Input {
                 .As();
         });
 
+    internal static GrasshopperUiIntent<MenuSnapshot> ShowMenu(ContextMenu menu, Control owner, PointF location) =>
+        GhUi.Read<MenuSnapshot>(run: _ =>
+            from validMenu in Optional(menu).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ShowMenu)), detail: "null menu"))
+            from validOwner in Optional(owner).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ShowMenu)), detail: "null owner"))
+            from validLocation in Optional(location)
+                .Filter(static value => float.IsFinite(value.X) && float.IsFinite(value.Y))
+                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ShowMenu)), detail: "non-finite location"))
+            from shown in Try.lift<MenuSnapshot>(f: () => {
+                validMenu.Show(validOwner, validLocation);
+                return new MenuSnapshot(Count: validMenu.Items.Count);
+            }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(ShowMenu)), detail: error.Message))
+            select shown);
+
     internal static GrasshopperUiIntent<CursorKind> Cursor(CursorKind kind) =>
         GhUi.Canvas<CursorKind>(run: scope => scope.NeedCanvas().Map(canvas => {
             canvas.Cursor = CursorOf(kind: kind, canvas: canvas);
@@ -369,12 +400,12 @@ internal static partial class Input {
                 return ResponseOf(result: result);
             }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(MessageDialog)), detail: "MessageBox.Show threw")));
 
-    internal static GrasshopperUiIntent<Option<string>> FileDialog(FileDialogMode mode, string? initialPath = null, params FileFilter[] filters) =>
+    internal static GrasshopperUiIntent<Option<string>> FileDialog(FileDialogMode mode, Option<string> initialPath = default, params FileFilter[] filters) =>
         GhUi.Read<Option<string>>(run: _ =>
             Try.lift<Option<string>>(f: () => mode switch {
-                FileDialogMode.Open => RunFileDialog(dialog: new OpenFileDialog(), initialPath: initialPath, filters: filters),
-                FileDialogMode.Save => RunFileDialog(dialog: new SaveFileDialog(), initialPath: initialPath, filters: filters),
-                FileDialogMode.Folder => RunFolderDialog(initialPath: initialPath),
+                FileDialogMode.Open => RunFileDialog(dialog: new OpenFileDialog(), initialPath: PathOrEmpty(path: initialPath), filters: filters),
+                FileDialogMode.Save => RunFileDialog(dialog: new SaveFileDialog(), initialPath: PathOrEmpty(path: initialPath), filters: filters),
+                FileDialogMode.Folder => RunFolderDialog(initialPath: PathOrEmpty(path: initialPath)),
                 _ => Option<string>.None,
             }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(FileDialog)), detail: "FileDialog.ShowDialog threw")));
 
@@ -415,6 +446,9 @@ internal static partial class Input {
     // --- [OPERATIONS] ----------------------------------------------------------------------
     private static InputModifierSnapshot ModifierOf(Keys keys) =>
         new(Shift: keys.HasShift(), Command: keys.HasCommand(), Option: keys.HasOption());
+
+    private static string PathOrEmpty(Option<string> path) =>
+        path.Filter(static value => !string.IsNullOrWhiteSpace(value)).IfNone(string.Empty);
 
     private static Eto.Forms.Cursor CursorOf(CursorKind kind, Grasshopper2.UI.Canvas.Canvas canvas) {
         _ = canvas;

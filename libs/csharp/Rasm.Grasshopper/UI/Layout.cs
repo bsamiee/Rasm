@@ -77,7 +77,7 @@ public partial record LayoutResult {
     public sealed record SnapResult(Option<SnappingSnapshot> Snapshot) : LayoutResult;
 }
 
-public sealed record LayoutRequest(LayoutOp Op) : GhUiRequest<LayoutResult> {
+internal sealed record LayoutRequest(LayoutOp Op) : GhUiRequest<LayoutResult> {
     internal override GrasshopperUiPolicy Policy => Layout.PolicyOf(op: Op);
     internal override Fin<LayoutResult> Apply(GrasshopperUi.Scope scope) => Layout.Dispatch(op: Op).Run(scope: scope);
 }
@@ -92,18 +92,20 @@ internal static partial class Layout {
 
     internal static GrasshopperUiIntent<LayoutResult> Dispatch(LayoutOp op) =>
         op switch {
-            LayoutOp.SnapshotCase snapshot => GhUi.Document<LayoutResult>(run: scope =>
-                snapshot.Ids.IsEmpty
-                    ? Selection().Run(scope: scope).Map(snapshots => (LayoutResult)new LayoutResult.SnapshotsResult(Snapshots: snapshots))
-                    : snapshot.Ids.TraverseM(id => Snapshot(id: id).Run(scope: scope)).Map(snapshots => (LayoutResult)new LayoutResult.SnapshotsResult(Snapshots: snapshots)).As()),
-            LayoutOp.MeasureCase measure => GhUi.Document<LayoutResult>(run: scope =>
-                measure.Ids.IsEmpty
-                    ? Selection().Run(scope: scope).Map(snapshots => (LayoutResult)new LayoutResult.SnapshotsResult(Snapshots: snapshots))
-                    : measure.Ids.TraverseM(id => Snapshot(id: id).Run(scope: scope)).Map(snapshots => (LayoutResult)new LayoutResult.SnapshotsResult(Snapshots: snapshots)).As()),
+            LayoutOp.SnapshotCase snapshot => Snapshots(ids: snapshot.Ids),
+            LayoutOp.MeasureCase measure => Snapshots(ids: measure.Ids),
             LayoutOp.ArrangeCase a => Arrange(arrangement: a.Arrangement).Map(delta => (LayoutResult)new LayoutResult.MutationResult(Delta: delta)),
             LayoutOp.SnapCase s => Snap(probe: s.Probe).Map(snap => (LayoutResult)new LayoutResult.SnapResult(Snapshot: snap)),
             _ => GhUi.Document<LayoutResult>(run: _ => Fin.Fail<LayoutResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Dispatch)), detail: "unknown layout op"))),
         };
+
+    private static GrasshopperUiIntent<LayoutResult> Snapshots(Seq<Guid> ids) =>
+        GhUi.Document<LayoutResult>(run: scope =>
+            ids.IsEmpty
+                ? Selection().Run(scope: scope).Map(snapshots => (LayoutResult)new LayoutResult.SnapshotsResult(Snapshots: snapshots))
+                : ids.TraverseM(id => Snapshot(id: id).Run(scope: scope))
+                    .Map(snapshots => (LayoutResult)new LayoutResult.SnapshotsResult(Snapshots: snapshots))
+                    .As());
 
     internal static GrasshopperUiIntent<Snapshot<LayoutMoveDelta>> Arrange(LayoutArrangement arrangement) =>
         arrangement switch {
@@ -281,21 +283,18 @@ internal static partial class Layout {
     }
 
     private static SnappingPolicy ActivePolicy(SnappingPolicy policy) =>
-        policy.IncludeSelected || policy.IncludeUnselected
-            ? policy
-            : policy with { IncludeSelected = true, IncludeUnselected = true };
+        Optional(policy)
+            .Filter(static value => value.IncludeSelected || value.IncludeUnselected)
+            .IfNone(policy with { IncludeSelected = true, IncludeUnselected = true });
 
-    private static Option<SnappingSnapshot> SnapshotOf(Option<SnappingAction> x, Option<SnappingAction> y) {
-        Option<SnappingAction> snapX = x;
-        Option<SnappingAction> snapY = y;
-        return (snapX.IsSome || snapY.IsSome)
-            ? Some(new SnappingSnapshot(
-                Dx: snapX.Map(static a => a.ΔX).IfNone(0f),
-                Dy: snapY.Map(static a => a.ΔY).IfNone(0f),
-                XLabel: snapX.Map(static a => a.LabelText).IfNone(string.Empty),
-                YLabel: snapY.Map(static a => a.LabelText).IfNone(string.Empty)))
-            : Option<SnappingSnapshot>.None;
-    }
+    private static Option<SnappingSnapshot> SnapshotOf(Option<SnappingAction> x, Option<SnappingAction> y) =>
+        Optional((X: x, Y: y))
+            .Filter(static snap => snap.X.IsSome || snap.Y.IsSome)
+            .Map(static snap => new SnappingSnapshot(
+                Dx: snap.X.Map(static action => action.ΔX).IfNone(0f),
+                Dy: snap.Y.Map(static action => action.ΔY).IfNone(0f),
+                XLabel: snap.X.Map(static action => action.LabelText).IfNone(string.Empty),
+                YLabel: snap.Y.Map(static action => action.LabelText).IfNone(string.Empty)));
 
     private readonly record struct LayoutAlignmentCase(
         Func<Type, Type, bool> Supports,
@@ -330,36 +329,39 @@ internal static partial class Layout {
             .Bind(static r => r)
             .Map(_ => { a.Attributes.Invalidate(); b.Attributes.Invalidate(); return unit; });
 
+    private readonly record struct LayoutAxisCase(
+        LayoutAxis Axis,
+        Func<RectangleF, float> Origin,
+        Func<RectangleF, float> Span,
+        Func<float, RectangleF, (float Dx, float Dy)> Delta);
+    private static readonly LayoutAxisCase HorizontalAxis = new(
+        Axis: LayoutAxis.Horizontal,
+        Origin: static bounds => bounds.Left,
+        Span: static bounds => bounds.Width,
+        Delta: static (cursor, bounds) => (Dx: cursor - bounds.Left, Dy: 0f));
+    private static readonly Seq<LayoutAxisCase> AxisCases = Seq(
+        HorizontalAxis,
+        new LayoutAxisCase(
+            Axis: LayoutAxis.Vertical,
+            Origin: static bounds => bounds.Top,
+            Span: static bounds => bounds.Height,
+            Delta: static (cursor, bounds) => (Dx: 0f, Dy: cursor - bounds.Top)));
+    private static LayoutAxisCase AxisCaseOf(LayoutAxis axis) =>
+        AxisCases.Find(match => match.Axis == axis).IfNone(HorizontalAxis);
+
     private static Seq<(Guid Id, float Dx, float Dy)> ComputeDistribution(GhObjectList objects, Seq<Guid> ids, LayoutAxis axis, float gap) {
+        LayoutAxisCase projection = AxisCaseOf(axis: axis);
         Seq<(Guid Id, RectangleF Bounds)> snapshots = ids.Choose(id => Optional(objects.Find(instanceId: id))
             .Map(o => (Id: id, Bounds: o.Attributes.AggregateBounds)));
-        Seq<(Guid Id, RectangleF Bounds)> sorted = toSeq(snapshots.OrderBy(s => axis switch {
-            LayoutAxis.Horizontal => s.Bounds.Left,
-            LayoutAxis.Vertical => s.Bounds.Top,
-            _ => s.Bounds.Left,
-        }));
+        Seq<(Guid Id, RectangleF Bounds)> sorted = toSeq(snapshots.OrderBy(s => projection.Origin(arg: s.Bounds)));
         return sorted.Head
             .Map(head => sorted.Fold(
-                initialState: (Cursor: axis switch {
-                    LayoutAxis.Horizontal => head.Bounds.Left,
-                    LayoutAxis.Vertical => head.Bounds.Top,
-                    _ => head.Bounds.Left,
-                }, Moves: Seq<(Guid Id, float Dx, float Dy)>()),
+                initialState: (Cursor: projection.Origin(arg: head.Bounds), Moves: Seq<(Guid Id, float Dx, float Dy)>()),
                 f: (state, s) => (
-                    Cursor: state.Cursor + (axis switch {
-                        LayoutAxis.Horizontal => s.Bounds.Width,
-                        LayoutAxis.Vertical => s.Bounds.Height,
-                        _ => s.Bounds.Width,
-                    }) + gap,
+                    Cursor: state.Cursor + projection.Span(arg: s.Bounds) + gap,
                     Moves: (s.Id,
-                        Dx: axis switch {
-                            LayoutAxis.Horizontal => state.Cursor - s.Bounds.Left,
-                            _ => 0f,
-                        },
-                        Dy: axis switch {
-                            LayoutAxis.Vertical => state.Cursor - s.Bounds.Top,
-                            _ => 0f,
-                        }).Cons(state.Moves)))
+                        projection.Delta(arg1: state.Cursor, arg2: s.Bounds).Dx,
+                        projection.Delta(arg1: state.Cursor, arg2: s.Bounds).Dy).Cons(state.Moves)))
                 .Moves.Rev())
             .IfNone(() => Seq<(Guid Id, float Dx, float Dy)>());
     }

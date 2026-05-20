@@ -3,7 +3,7 @@ using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Extensions;
 using Grasshopper2.Types.Conversion;
 
-namespace Rasm.Grasshopper;
+namespace Rasm.Grasshopper.Components;
 
 // --- [ERRORS] ---------------------------------------------------------------------------
 [BoundaryAdapter]

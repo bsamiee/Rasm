@@ -43,15 +43,15 @@ public partial record EditorResult {
     public static readonly EditorResult Unit = new UnitResult();
 }
 
-public sealed record EditorRequest(EditorOp Op) : GhUiRequest<EditorResult> {
+internal sealed record EditorRequest(EditorOp Op) : GhUiRequest<EditorResult> {
     internal override GrasshopperUiPolicy Policy => PolicyOf(op: Op);
     internal override Fin<EditorResult> Apply(GrasshopperUi.Scope scope) => Dispatch(op: Op);
 
     private static GrasshopperUiPolicy PolicyOf(EditorOp op) =>
         op switch {
-            EditorOp.StateCase => GrasshopperUiPolicy.Read,
+            EditorOp.StateCase or EditorOp.BeginRhinoGetterCase => GrasshopperUiPolicy.Read,
             EditorOp.ShowCase show => GrasshopperUiPolicy.Canvas(openEditor: show.Visible),
-            EditorOp.ShellCase or EditorOp.BeginRhinoGetterCase => GrasshopperUiPolicy.Canvas(openEditor: true),
+            EditorOp.ShellCase => GrasshopperUiPolicy.Canvas(openEditor: true),
             _ => GrasshopperUiPolicy.Read,
         };
 
@@ -89,4 +89,7 @@ public sealed record EditorRequest(EditorOp Op) : GhUiRequest<EditorResult> {
             select valid,
         _ => Fin.Fail<EditorResult>(error: UiFault.InvalidInput(op: Rasm.Domain.Op.Of(name: nameof(EditorRequest)), detail: "unknown editor op")),
     };
+}
+
+internal static partial class UiRail {
 }

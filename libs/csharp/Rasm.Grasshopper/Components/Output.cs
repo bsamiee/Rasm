@@ -1,4 +1,4 @@
-namespace Rasm.Grasshopper;
+namespace Rasm.Grasshopper.Components;
 
 // --- [TYPES] ----------------------------------------------------------------------------
 public sealed class OutputBinding {

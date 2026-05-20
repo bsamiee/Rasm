@@ -7,7 +7,7 @@ using Grasshopper2.Doc;
 using Grasshopper2.Parameters;
 using Requirement = Grasshopper2.Parameters.Requirement;
 
-namespace Rasm.Grasshopper;
+namespace Rasm.Grasshopper.Components;
 
 // --- [TYPES] ----------------------------------------------------------------------------
 public abstract class Port {

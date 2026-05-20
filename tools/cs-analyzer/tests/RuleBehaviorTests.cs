@@ -687,8 +687,8 @@ public sealed class RuleBehaviorTests {
     [Fact]
     public async Task GrasshopperLibraryPathClassifiesAsBoundaryScopeAsync() {
         ImmutableArray<string> ids = await AnalyzeIdsAsync(
-            filePath: "/workspace/libs/csharp/Rasm.Grasshopper/Bridge.cs",
-            source: WithLanguageExt(ns: "Rasm.Grasshopper", type: "Bridge", members: """
+            filePath: "/workspace/libs/csharp/Rasm.Grasshopper/Components/Bridge.cs",
+            source: WithLanguageExt(ns: "Rasm.Grasshopper.Components", type: "Bridge", members: """
                 public int Run(LanguageExt.Fin<int> value) {
                     if (value is null) {
                         return 0;

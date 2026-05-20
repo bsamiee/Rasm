@@ -18,7 +18,7 @@ using UiContext = Eto.Drawing.Context;
 using UiResponse = Grasshopper2.UI.Flex.Response;
 using UiShape = Grasshopper2.UI.Skinning.Shape;
 
-namespace Rasm.Grasshopper;
+namespace Rasm.Grasshopper.Components;
 
 // --- [TYPES] ----------------------------------------------------------------------------
 [AttributeUsage(validOn: AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
