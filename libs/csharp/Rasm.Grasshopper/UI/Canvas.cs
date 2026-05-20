@@ -4,253 +4,318 @@ using Eto.Drawing;
 using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Doc;
 using Grasshopper2.UI.Flex;
-using Grasshopper2.UI.Skinning;
 using GhCanvas = Grasshopper2.UI.Canvas.Canvas;
-using UiShape = Grasshopper2.UI.Skinning.Shape;
+using GhDocument = Grasshopper2.Doc.Document;
+using GhObjectList = Grasshopper2.Doc.ObjectList;
+using Op = Rasm.Domain.Op;
 
 namespace Rasm.Grasshopper.UI;
 
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct CanvasSnapshot(
-    bool HasEditor,
-    bool HasCanvas,
-    bool HasDocument,
-    RectangleF VisibleFrame,
-    RectangleF ContentBounds,
-    PointF ProjectionCentre,
-    float ProjectionZoom,
-    bool WindowSelectObjects,
-    bool WindowSelectWires,
-    bool WindowSelectGroups);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct CanvasPickPolicy(
-    bool IncludeGrips,
-    bool IncludeForeground,
-    bool IncludeBackground,
-    bool IncludeWires,
-    bool Recursive) {
-    public static CanvasPickPolicy All => new(IncludeGrips: true, IncludeForeground: true, IncludeBackground: true, IncludeWires: true, Recursive: true);
+// --- [TYPES] -----------------------------------------------------------------------------
+[Flags]
+public enum CanvasBitmapLayers {
+    Background = 1,
+    Wires = 2,
+    Messages = 4,
+    All = Background | Wires | Messages,
 }
 
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct CanvasPickSnapshot(
-    Pick Kind,
-    Option<PointF> Point,
-    int SelectedCount,
-    int SelectedWireCount,
-    int SelectedObjectCount,
-    int DeselectedCount,
-    int DeselectedWireCount,
-    int DeselectedObjectCount,
-    Option<WireEnds> WireUnderPick,
-    Option<Guid> ObjectUnderPick,
-    Option<Guid> InletUnderPick,
-    Option<Guid> OutletUnderPick) {
-    internal static CanvasPickSnapshot Of(SelectionResult result) =>
-        new(
-            Kind: result.Kind,
-            Point: result.Point switch {
-                PointF point => Optional(point),
-                _ => None,
-            },
-            SelectedCount: result.SelectedCount,
-            SelectedWireCount: result.SelectedWireCount,
-            SelectedObjectCount: result.SelectedObjectCount,
-            DeselectedCount: result.DeselectedCount,
-            DeselectedWireCount: result.DeselectedWireCount,
-            DeselectedObjectCount: result.DeselectedObjectCount,
-            WireUnderPick: Optional(new WireEnds(source: result.WireUnderPick.Source, target: result.WireUnderPick.Target))
-                .Filter(static wire => wire.Source != Guid.Empty && wire.Target != Guid.Empty),
-            ObjectUnderPick: Optional(result.ObjectUnderPick).Filter(static id => id != Guid.Empty),
-            InletUnderPick: Optional(result.InletUnderPick).Filter(static id => id != Guid.Empty),
-            OutletUnderPick: Optional(result.OutletUnderPick).Filter(static id => id != Guid.Empty));
+[Flags]
+public enum CanvasWindowScope {
+    Objects = 1,
+    Wires = 2,
+    Groups = 4,
+    ObjectsAndWires = Objects | Wires,
+    All = Objects | Wires | Groups,
 }
 
+public enum InvalidateMode { Immediate, Scheduled }
+
+[Union]
+public partial record CanvasFitTarget {
+    private CanvasFitTarget() { }
+    public sealed record ContentCase : CanvasFitTarget;
+    public sealed record SelectionCase : CanvasFitTarget;
+    public sealed record ViewportCase : CanvasFitTarget;
+    public static readonly CanvasFitTarget Content = new ContentCase();
+    public static readonly CanvasFitTarget Selection = new SelectionCase();
+    public static readonly CanvasFitTarget Viewport = new ViewportCase();
+}
+
+[Union]
+public partial record CanvasOp {
+    private CanvasOp() { }
+    public sealed record SnapshotCase(bool OpenEditor) : CanvasOp;
+    public sealed record PickCase(PointF Point, CoordinateSystem Source) : CanvasOp;
+    public sealed record MapCase(PointF Point, CoordinateSystem From, CoordinateSystem To) : CanvasOp;
+    public sealed record InvalidateCase(InvalidateMode Mode) : CanvasOp;
+    public sealed record InstantiateCase(Option<string> SearchText, bool MouseCentred) : CanvasOp;
+    public sealed record SearchPopupCase : CanvasOp;
+    public sealed record RenderCase(int Width, int Height, CanvasBitmapLayers Layers) : CanvasOp;
+    public sealed record PickMapCase : CanvasOp;
+    public sealed record NavigateCase(RectangleF Frame, CanvasNavigationPolicy Policy) : CanvasOp;
+    public sealed record FrameCase(Option<Seq<Guid>> Ids, CanvasFramePolicy Policy) : CanvasOp;
+    public sealed record FitCase(CanvasFitTarget Target, CanvasNavigationPolicy Policy) : CanvasOp;
+    public sealed record ProjectionCase(PointF Centre, float Zoom) : CanvasOp;
+    public sealed record InteractionCase(CanvasInteractionPolicy Policy) : CanvasOp;
+    public sealed record WindowSelectCase(WindowSelection Window, Grasshopper2.Extensions.SelectionMode Mode, CanvasWindowScope Scope) : CanvasOp;
+
+    public static CanvasOp Snapshot(bool openEditor = false) => new SnapshotCase(OpenEditor: openEditor);
+    public static CanvasOp Pick(PointF point, CoordinateSystem source = CoordinateSystem.Content) => new PickCase(Point: point, Source: source);
+    public static CanvasOp Map(PointF point, CoordinateSystem from, CoordinateSystem to) => new MapCase(Point: point, From: from, To: to);
+    public static CanvasOp Invalidate(InvalidateMode mode = InvalidateMode.Immediate) => new InvalidateCase(Mode: mode);
+    public static CanvasOp Instantiate(string? searchText = null, bool mouseCentred = true) => new InstantiateCase(SearchText: Optional(searchText), MouseCentred: mouseCentred);
+    public static readonly CanvasOp SearchPopup = new SearchPopupCase();
+    public static CanvasOp Render(int width, int height, CanvasBitmapLayers layers = CanvasBitmapLayers.All) => new RenderCase(Width: width, Height: height, Layers: layers);
+    public static readonly CanvasOp PickMap = new PickMapCase();
+    public static CanvasOp Navigate(RectangleF frame, CanvasNavigationPolicy policy = default) => new NavigateCase(Frame: frame, Policy: policy);
+    public static CanvasOp Frame(Seq<Guid>? ids = null, CanvasFramePolicy policy = default) => new FrameCase(Ids: Optional(ids), Policy: policy);
+    public static CanvasOp Fit(CanvasFitTarget target, CanvasNavigationPolicy policy = default) => new FitCase(Target: target, Policy: policy);
+    public static CanvasOp Projection(PointF centre, float zoom) => new ProjectionCase(Centre: centre, Zoom: zoom);
+    public static CanvasOp Interaction(CanvasInteractionPolicy policy) => new InteractionCase(Policy: policy);
+    public static CanvasOp WindowSelect(WindowSelection window, Grasshopper2.Extensions.SelectionMode mode, CanvasWindowScope scope = CanvasWindowScope.ObjectsAndWires) => new WindowSelectCase(Window: window, Mode: mode, Scope: scope);
+}
+
+[Union]
+public partial record CanvasResult {
+    private CanvasResult() { }
+    public sealed record SnapshotResult(CanvasSnapshot Snapshot) : CanvasResult;
+    public sealed record PickResult(CanvasPickSnapshot Pick) : CanvasResult;
+    public sealed record MapResult(CanvasMappedPoint Mapped) : CanvasResult;
+    public sealed record BitmapResult(CanvasBitmap Bitmap) : CanvasResult;
+    public sealed record InteractionResult(CanvasInteractionPolicy Effective) : CanvasResult;
+    public sealed record UnitResult : CanvasResult;
+    public static readonly CanvasResult Unit = new UnitResult();
+}
+
+// --- [MODELS] ----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct CanvasBitmapSnapshot(int Width, int Height, ReadOnlyMemory<byte> Png);
+public readonly record struct CanvasNavigationPolicy(float MinimumZoom = 0.05f, float MaximumZoom = 2f, TimeSpan Duration = default);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CanvasFramePolicy(float Padding = 48f, CanvasNavigationPolicy Navigation = default);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CanvasInteractionPolicy(
+    bool AllowPan = true, bool AllowZoom = true, bool ShowTilesWhenEmpty = true,
+    bool WindowSelectObjects = true, bool WindowSelectWires = true, bool WindowSelectGroups = true);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CanvasBitmap(int Width, int Height, ReadOnlyMemory<byte> Png);
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CanvasMappedPoint(PointF Source, PointF Target, CoordinateSystem From, CoordinateSystem To);
 
-// --- [INTENTS] --------------------------------------------------------------------------
-public static class CanvasIntent {
-    public static GrasshopperUiIntent<CanvasSnapshot> Snapshot(bool openEditor = false) =>
-        new(
-            run: scope => scope.Canvas.Match(
-                Some: canvas => Fin.Succ(value: SnapshotOf(scope: scope, canvas: canvas)),
-                None: () => Fin.Succ(value: new CanvasSnapshot(
-                    HasEditor: scope.Editor.IsSome,
-                    HasCanvas: false,
-                    HasDocument: false,
-                    VisibleFrame: RectangleF.Empty,
-                    ContentBounds: RectangleF.Empty,
-                    ProjectionCentre: PointF.Empty,
-                    ProjectionZoom: 1,
-                    WindowSelectObjects: false,
-                    WindowSelectWires: false,
-                    WindowSelectGroups: false))),
-            policy: new GrasshopperUiPolicy(OpenEditor: openEditor));
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CanvasSnapshot(
+    bool HasEditor, bool HasCanvas, bool HasDocument,
+    RectangleF VisibleFrame, RectangleF ContentBounds,
+    PointF ProjectionCentre, float ProjectionZoom,
+    bool WindowSelectObjects, bool WindowSelectWires, bool WindowSelectGroups);
 
-    public static GrasshopperUiIntent<Unit> Invalidate(bool scheduled = false) =>
-        new(
-            run: scope => scope.Canvas
-                .ToFin(Fail: Op.Of(name: nameof(Invalidate)).InvalidInput())
-                .Map((GhCanvas canvas) => {
-                    Action<GhCanvas> invalidate = scheduled switch {
-                        true => static target => target.ScheduleRedraw(),
-                        false => static target => target.Invalidate(),
-                    };
-                    invalidate(obj: canvas);
-                    return unit;
-                }),
-            policy: GrasshopperUiPolicy.Canvas());
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CanvasPickSnapshot(
+    Pick Kind, Option<PointF> Point,
+    int SelectedCount, int DeselectedCount,
+    Option<WireEnds> WireUnderPick,
+    Option<Guid> ObjectUnderPick,
+    Option<Guid> InletUnderPick,
+    Option<Guid> OutletUnderPick);
 
-    public static GrasshopperUiIntent<CanvasPickSnapshot> Pick(PointF point, CanvasPickPolicy policy) =>
-        Pick(point: point, source: CoordinateSystem.Content, policy: policy);
+// --- [SERVICES] --------------------------------------------------------------------------
+public static partial class UiRail {
+    public static GrasshopperUiIntent<CanvasResult> Canvas(CanvasOp op) {
+        ArgumentNullException.ThrowIfNull(argument: op);
+        return IntentFactory.Canvas<CanvasResult>(
+            openEditor: CanvasNeedsEditor(op: op),
+            repaint: CanvasRepaintFor(op: op),
+            run: scope => CanvasDispatch(scope: scope, op: op));
+    }
 
-    public static GrasshopperUiIntent<CanvasPickSnapshot> Pick(PointF point, CoordinateSystem source, CanvasPickPolicy policy) =>
-        new(
-            run: scope => Optional(point)
-                .Filter(static value => float.IsFinite(value.X) && float.IsFinite(value.Y))
-                .ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
-                .Bind(validPoint => scope.Canvas
-                    .ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
-                    .Map(canvas => {
-                        PointF mapped = source switch {
-                            CoordinateSystem.Content => validPoint,
-                            _ => canvas.Map(point: validPoint, from: source, to: CoordinateSystem.Content),
-                        };
-                        return CanvasPickSnapshot.Of(result: canvas.ResolvePick(
-                        point: mapped,
-                        includeGrips: policy.IncludeGrips,
-                        includeForeground: policy.IncludeForeground,
-                        includeBackground: policy.IncludeBackground,
-                        includeWires: policy.IncludeWires,
-                        recursive: policy.Recursive));
-                    })),
-            policy: GrasshopperUiPolicy.Canvas());
+    // --- [OPERATIONS] ----------------------------------------------------------------------
+    private static Fin<CanvasResult> CanvasDispatch(GrasshopperUi.Scope scope, CanvasOp op) => op switch {
+        CanvasOp.SnapshotCase s =>
+            scope.NeedCanvas().Map(canvas => (CanvasResult)new CanvasResult.SnapshotResult(Snapshot: scope.Document.Match(
+                Some: d => scope.Objects.Match(
+                    Some: o => SnapshotOf(canvas: canvas, document: d, objects: o),
+                    None: () => EmptySnapshotOf(canvas: canvas)),
+                None: () => EmptySnapshotOf(canvas: canvas)))),
+        CanvasOp.PickCase p =>
+            Optional(p.Point).Filter(static pt => float.IsFinite(pt.X) && float.IsFinite(pt.Y))
+                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasOp.Pick)), detail: "non-finite point"))
+                .Bind(valid => scope.NeedCanvas().Map(canvas => {
+                    PointF content = p.Source == CoordinateSystem.Content ? valid : canvas.Map(point: valid, from: p.Source, to: CoordinateSystem.Content);
+                    SelectionResult result = canvas.ResolvePick(point: content, includeGrips: true, includeForeground: true, includeBackground: true, includeWires: true, recursive: true);
+                    return (CanvasResult)new CanvasResult.PickResult(Pick: PickSnapshotOf(result: result));
+                })),
+        CanvasOp.MapCase m =>
+            Optional(m.Point).Filter(static pt => float.IsFinite(pt.X) && float.IsFinite(pt.Y))
+                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasOp.Map)), detail: "non-finite point"))
+                .Bind(valid => scope.NeedCanvas().Map(canvas => (CanvasResult)new CanvasResult.MapResult(
+                    Mapped: new CanvasMappedPoint(Source: valid, Target: canvas.Map(point: valid, from: m.From, to: m.To), From: m.From, To: m.To)))),
+        CanvasOp.InvalidateCase i =>
+            scope.NeedCanvas().Map(canvas => {
+                _ = i.Mode switch {
+                    InvalidateMode.Immediate => Tap(unit, _ => canvas.Invalidate()),
+                    InvalidateMode.Scheduled => Tap(unit, _ => canvas.ScheduleRedraw()),
+                    _ => unit,
+                };
+                return CanvasResult.Unit;
+            }),
+        CanvasOp.InstantiateCase ins =>
+            scope.NeedCanvas().Map(canvas => {
+                canvas.ShowInstantiationPopup(mouseCentred: ins.MouseCentred, initialText: ins.SearchText.IfNone(string.Empty));
+                return CanvasResult.Unit;
+            }),
+        CanvasOp.SearchPopupCase =>
+            scope.NeedCanvas().Map(canvas => {
+                canvas.ShowSearchPopup();
+                return CanvasResult.Unit;
+            }),
+        CanvasOp.RenderCase r =>
+            Optional((Width: r.Width, Height: r.Height))
+                .Filter(static dim => dim.Width is > 0 and <= 16384 && dim.Height is > 0 and <= 16384)
+                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasOp.Render)), detail: "dimensions out of [1, 16384]"))
+                .Bind(dim => scope.NeedCanvas().Bind(canvas => EncodeBitmap(
+                    bitmap: canvas.DrawToBitmap(
+                        width: dim.Width, height: dim.Height,
+                        drawBackground: r.Layers.HasFlag(flag: CanvasBitmapLayers.Background),
+                        drawWires: r.Layers.HasFlag(flag: CanvasBitmapLayers.Wires),
+                        drawMessages: r.Layers.HasFlag(flag: CanvasBitmapLayers.Messages)),
+                    width: dim.Width, height: dim.Height,
+                    op: Op.Of(name: nameof(CanvasOp.Render))))),
+        CanvasOp.PickMapCase =>
+            scope.NeedCanvas().Bind(canvas => EncodeBitmap(bitmap: canvas.DrawPickMap(), width: 0, height: 0, op: Op.Of(name: nameof(CanvasOp.PickMap)))),
+        CanvasOp.NavigateCase n =>
+            Optional((Frame: n.Frame, Policy: ResolveNavigation(n.Policy)))
+                .Filter(static s => float.IsFinite(s.Frame.X) && float.IsFinite(s.Frame.Y) && float.IsFinite(s.Frame.Width) && float.IsFinite(s.Frame.Height) && s.Policy.MinimumZoom > 0 && s.Policy.MaximumZoom >= s.Policy.MinimumZoom)
+                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasOp.Navigate)), detail: "non-finite frame or invalid zoom range"))
+                .Bind(valid => scope.NeedCanvas().Bind(canvas => scope.NeedDocument().Bind(doc => scope.NeedObjects().Map(objs =>
+                    NavigateTo(canvas: canvas, frame: valid.Frame, policy: valid.Policy, document: doc, objects: objs))))),
+        CanvasOp.FrameCase f =>
+            scope.NeedCanvas().Bind(canvas => scope.NeedDocument().Bind(doc => scope.NeedObjects().Bind(objs => {
+                CanvasFramePolicy fp = ResolveFrame(f.Policy);
+                IEnumerable<IDocumentObject> targets = f.Ids.Match(
+                    Some: list => list.Choose(id => Optional(objs.Find(instanceId: id))).AsEnumerable(),
+                    None: () => objs.SelectedObjects);
+                RectangleF aggregate = FrameOf(targets: targets);
+                return float.IsFinite(aggregate.Width) && float.IsFinite(aggregate.Height) && aggregate.Width > 0 && aggregate.Height > 0
+                    ? Fin.Succ<CanvasResult>(value: NavigateTo(canvas: canvas, frame: RectangleF.Inflate(rectangle: aggregate, width: fp.Padding, height: fp.Padding), policy: ResolveNavigation(fp.Navigation), document: doc, objects: objs))
+                    : Fin.Fail<CanvasResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasOp.Frame)), detail: "no target objects"));
+            }))),
+        CanvasOp.FitCase ft =>
+            scope.NeedCanvas().Bind(canvas => scope.NeedDocument().Bind(doc => scope.NeedObjects().Map(objs => {
+                RectangleF frame = ft.Target switch {
+                    CanvasFitTarget.ContentCase => canvas.ContentBounds,
+                    CanvasFitTarget.SelectionCase => FrameOf(targets: objs.SelectedObjects),
+                    CanvasFitTarget.ViewportCase => canvas.VisibleFrame,
+                    _ => canvas.ContentBounds,
+                };
+                return NavigateTo(canvas: canvas, frame: frame, policy: ResolveNavigation(ft.Policy), document: doc, objects: objs);
+            }))),
+        CanvasOp.ProjectionCase pr =>
+            Optional((Centre: pr.Centre, Zoom: pr.Zoom))
+                .Filter(static s => float.IsFinite(s.Centre.X) && float.IsFinite(s.Centre.Y) && s.Zoom > 0 && float.IsFinite(s.Zoom))
+                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasOp.Projection)), detail: "non-finite centre or zoom"))
+                .Bind(valid => scope.NeedDocument().Bind(doc => scope.NeedObjects().Bind(objs => scope.NeedCanvas().Map(canvas => {
+                    doc.Projection = (valid.Centre, valid.Zoom);
+                    return (CanvasResult)new CanvasResult.SnapshotResult(Snapshot: SnapshotOf(canvas: canvas, document: doc, objects: objs));
+                })))),
+        CanvasOp.InteractionCase ic =>
+            scope.NeedCanvas().Map(canvas => {
+                canvas.AllowPan = ic.Policy.AllowPan;
+                canvas.AllowZoom = ic.Policy.AllowZoom;
+                canvas.ShowTilesWhenEmpty = ic.Policy.ShowTilesWhenEmpty;
+                canvas.WindowSelectObjects = ic.Policy.WindowSelectObjects;
+                canvas.WindowSelectWires = ic.Policy.WindowSelectWires;
+                canvas.WindowSelectGroups = ic.Policy.WindowSelectGroups;
+                return (CanvasResult)new CanvasResult.InteractionResult(Effective: ic.Policy);
+            }),
+        CanvasOp.WindowSelectCase ws =>
+            scope.NeedObjects().Bind(objs => scope.NeedCanvas().Bind(canvas => scope.NeedDocument().Map(doc => {
+                _ = objs.WindowSelect(window: ws.Window, mode: ws.Mode,
+                    considerForeground: ws.Scope.HasFlag(flag: CanvasWindowScope.Objects),
+                    considerBackground: ws.Scope.HasFlag(flag: CanvasWindowScope.Groups),
+                    considerWires: ws.Scope.HasFlag(flag: CanvasWindowScope.Wires));
+                return (CanvasResult)new CanvasResult.SnapshotResult(Snapshot: SnapshotOf(canvas: canvas, document: doc, objects: objs));
+            }))),
+        _ => Fin.Fail<CanvasResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Apply)), detail: "unknown CanvasOp")),
+    };
 
-    public static GrasshopperUiIntent<CanvasMappedPoint> Map(PointF point, CoordinateSystem source, CoordinateSystem target) =>
-        new(
-            run: scope => Optional(point)
-                .Filter(static value => float.IsFinite(value.X) && float.IsFinite(value.Y))
-                .ToFin(Fail: Op.Of(name: nameof(Map)).InvalidInput())
-                .Bind(validPoint => scope.Canvas
-                    .ToFin(Fail: Op.Of(name: nameof(Map)).InvalidInput())
-                    .Map(canvas => new CanvasMappedPoint(Source: validPoint, Target: canvas.Map(point: validPoint, from: source, to: target), From: source, To: target))),
-            policy: GrasshopperUiPolicy.Canvas());
+    private static bool CanvasNeedsEditor(CanvasOp op) => op switch {
+        CanvasOp.SnapshotCase { OpenEditor: true } => true,
+        CanvasOp.InstantiateCase or CanvasOp.SearchPopupCase or CanvasOp.NavigateCase or CanvasOp.FrameCase or CanvasOp.FitCase => true,
+        _ => false,
+    };
 
-    public static GrasshopperUiIntent<Unit> Instantiate(bool mouseCentred, string? initialText = null) =>
-        new(
-            run: scope => scope.Canvas
-                .ToFin(Fail: Op.Of(name: nameof(Instantiate)).InvalidInput())
-                .Map(canvas => {
-                    canvas.ShowInstantiationPopup(mouseCentred: mouseCentred, initialText: initialText);
-                    return unit;
-                }),
-            policy: GrasshopperUiPolicy.Canvas(openEditor: true));
+    private static RepaintRequest CanvasRepaintFor(CanvasOp op) => op switch {
+        CanvasOp.NavigateCase or CanvasOp.FrameCase or CanvasOp.FitCase or CanvasOp.ProjectionCase or CanvasOp.InteractionCase or CanvasOp.WindowSelectCase => RepaintRequest.Canvas,
+        CanvasOp.InvalidateCase { Mode: InvalidateMode.Scheduled } => RepaintRequest.Scheduled,
+        _ => RepaintRequest.None,
+    };
 
-    public static GrasshopperUiIntent<CanvasBitmapSnapshot> Bitmap(int width, int height, bool drawBackground, bool drawWires, bool drawMessages) =>
-        new(
-            run: scope => Optional((Width: width, Height: height))
-                .Filter(static size => size.Width > 0 && size.Height > 0)
-                .ToFin(Fail: Op.Of(name: nameof(Bitmap)).InvalidInput())
-                .Bind(size => scope.Canvas
-                    .ToFin(Fail: Op.Of(name: nameof(Bitmap)).InvalidInput())
-                    .Bind(canvas => Encode(
-                        bitmap: canvas.DrawToBitmap(width: size.Width, height: size.Height, drawBackground: drawBackground, drawWires: drawWires, drawMessages: drawMessages),
-                        name: nameof(Bitmap)))),
-            policy: GrasshopperUiPolicy.Canvas());
+    private static CanvasNavigationPolicy ResolveNavigation(CanvasNavigationPolicy raw) =>
+        raw.MinimumZoom <= 0
+            ? new CanvasNavigationPolicy(MinimumZoom: 0.05f, MaximumZoom: 2f, Duration: raw.Duration == default ? TimeSpan.FromMilliseconds(value: 250) : raw.Duration)
+            : raw with { Duration = raw.Duration == default ? TimeSpan.FromMilliseconds(value: 250) : raw.Duration };
 
-    public static GrasshopperUiIntent<CanvasBitmapSnapshot> PickMap() =>
-        new(
-            run: scope => scope.Canvas
-                .ToFin(Fail: Op.Of(name: nameof(PickMap)).InvalidInput())
-                .Bind(canvas => Encode(bitmap: canvas.DrawPickMap(), name: nameof(PickMap))),
-            policy: GrasshopperUiPolicy.Canvas());
+    private static CanvasFramePolicy ResolveFrame(CanvasFramePolicy raw) =>
+        new(Padding: raw.Padding <= 0 ? 48f : raw.Padding, Navigation: ResolveNavigation(raw.Navigation));
 
-    public static GrasshopperUiIntent<CanvasSnapshot> Navigate(RectangleF frame, float minimumZoom, float maximumZoom, TimeSpan duration = default) =>
-        new(
-            run: scope => Optional(frame)
-                .Filter(value => value.Width > 0 && value.Height > 0 && float.IsFinite(minimumZoom) && float.IsFinite(maximumZoom) && minimumZoom > 0 && maximumZoom >= minimumZoom)
-                .ToFin(Fail: Op.Of(name: nameof(Navigate)).InvalidInput())
-                .Bind(validFrame => scope.Canvas
-                    .ToFin(Fail: Op.Of(name: nameof(Navigate)).InvalidInput())
-                    .Map(canvas => {
-                        canvas.Navigate(frame: validFrame, zoomLimits: (minimumZoom, maximumZoom), duration: duration);
-                        return SnapshotOf(scope: scope, canvas: canvas);
-                    })),
-            policy: GrasshopperUiPolicy.Canvas(openEditor: true, repaint: true));
+    private static CanvasResult NavigateTo(GhCanvas canvas, RectangleF frame, CanvasNavigationPolicy policy, GhDocument document, GhObjectList objects) {
+        canvas.Navigate(frame: frame, zoomLimits: (policy.MinimumZoom, policy.MaximumZoom), duration: policy.Duration);
+        return new CanvasResult.SnapshotResult(Snapshot: SnapshotOf(canvas: canvas, document: document, objects: objects));
+    }
 
-    public static GrasshopperUiIntent<CanvasSnapshot> FrameSelection(float padding = 48, float minimumZoom = 0.05f, float maximumZoom = 2f, TimeSpan duration = default) =>
-        new(
-            run: scope =>
-                from objects in scope.Objects.ToFin(Fail: Op.Of(name: nameof(FrameSelection)).InvalidInput())
-                from frame in FrameOf(objects: objects.SelectedObjects, padding: padding, name: nameof(FrameSelection))
-                from snapshot in Navigate(frame: frame, minimumZoom: minimumZoom, maximumZoom: maximumZoom, duration: duration).Run(scope: scope)
-                select snapshot,
-            policy: GrasshopperUiPolicy.Document(repaint: true));
-
-    public static GrasshopperUiIntent<CanvasSnapshot> FrameObjects(Seq<Guid> ids, float padding = 48, float minimumZoom = 0.05f, float maximumZoom = 2f, TimeSpan duration = default) =>
-        new(
-            run: scope =>
-                from objects in scope.Objects.ToFin(Fail: Op.Of(name: nameof(FrameObjects)).InvalidInput())
-                from frame in FrameOf(objects: ids.Choose(id => Optional(objects.Find(instanceId: id))), padding: padding, name: nameof(FrameObjects))
-                from snapshot in Navigate(frame: frame, minimumZoom: minimumZoom, maximumZoom: maximumZoom, duration: duration).Run(scope: scope)
-                select snapshot,
-            policy: GrasshopperUiPolicy.Document(repaint: true));
-
-    public static GrasshopperUiIntent<bool> ViewportDragging(bool enabled) =>
-        new(
-            run: scope => scope.Canvas
-                .ToFin(Fail: Op.Of(name: nameof(ViewportDragging)).InvalidInput())
-                .Map(canvas => {
-                    canvas.ViewportDragging = enabled;
-                    return canvas.ViewportDragging;
-                }),
-            policy: GrasshopperUiPolicy.Canvas(repaint: true));
-
-    private static CanvasSnapshot SnapshotOf(GrasshopperUi.Scope scope, GhCanvas canvas) =>
-        new(
-            HasEditor: scope.Editor.IsSome,
-            HasCanvas: true,
-            HasDocument: scope.Document.IsSome,
+    internal static CanvasSnapshot SnapshotOf(GhCanvas canvas, GhDocument document, GhObjectList objects) =>
+        new(HasEditor: true, HasCanvas: true, HasDocument: true,
             VisibleFrame: canvas.VisibleFrame,
             ContentBounds: canvas.ContentBounds,
-            ProjectionCentre: canvas.Projection.Origin,
-            ProjectionZoom: canvas.Projection.Zoom,
+            ProjectionCentre: document.Projection.centre,
+            ProjectionZoom: document.Projection.zoom,
             WindowSelectObjects: canvas.WindowSelectObjects,
             WindowSelectWires: canvas.WindowSelectWires,
             WindowSelectGroups: canvas.WindowSelectGroups);
 
-    private static Fin<RectangleF> FrameOf(IEnumerable<IDocumentObject> objects, float padding, string name) =>
-        Optional(objects)
-            .ToFin(Fail: Op.Of(name: name).InvalidInput())
-            .Bind((IEnumerable<IDocumentObject> valid) => toSeq(valid)
-                .Map(static (IDocumentObject obj) => {
-                    obj.Attributes.Layout(shape: UiShape.Default);
-                    return obj.Attributes.AggregateBounds;
-                })
-                .Fold(
-                    Option<RectangleF>.None,
-                    static (Option<RectangleF> state, RectangleF next) => state.Match(
-                        Some: current => Some(RectangleF.Union(current, next)),
-                        None: () => Some(next)))
-                .Map((RectangleF bounds) => {
-                    bounds.Inflate(width: Math.Max(0, padding), height: Math.Max(0, padding));
-                    return bounds;
-                })
-                .Filter(static bounds => bounds.Width > 0 && bounds.Height > 0)
-                .ToFin(Fail: Op.Of(name: name).InvalidResult()));
+    private static CanvasSnapshot EmptySnapshotOf(GhCanvas canvas) =>
+        new(HasEditor: true, HasCanvas: true, HasDocument: false,
+            VisibleFrame: canvas.VisibleFrame,
+            ContentBounds: canvas.ContentBounds,
+            ProjectionCentre: default, ProjectionZoom: 0f,
+            WindowSelectObjects: canvas.WindowSelectObjects,
+            WindowSelectWires: canvas.WindowSelectWires,
+            WindowSelectGroups: canvas.WindowSelectGroups);
 
-    private static Fin<CanvasBitmapSnapshot> Encode(Bitmap? bitmap, string name) =>
+    private static CanvasPickSnapshot PickSnapshotOf(SelectionResult result) =>
+        new(Kind: result.Kind, Point: Optional(result.Point),
+            SelectedCount: result.SelectedCount, DeselectedCount: result.DeselectedCount,
+            WireUnderPick: Optional(result.WireUnderPick),
+            ObjectUnderPick: Optional(result.ObjectUnderPick).Filter(static id => id != Guid.Empty),
+            InletUnderPick: Optional(result.InletUnderPick).Filter(static id => id != Guid.Empty),
+            OutletUnderPick: Optional(result.OutletUnderPick).Filter(static id => id != Guid.Empty));
+
+    // FrameOf reads bounds directly; no Attributes.Layout() mutation during read.
+    private static RectangleF FrameOf(IEnumerable<IDocumentObject> targets) =>
+        targets.Aggregate(
+            seed: Option<RectangleF>.None,
+            func: static (acc, obj) => acc.Match(
+                Some: bounds => Some(RectangleF.Union(rect1: bounds, rect2: obj.Attributes.AggregateBounds)),
+                None: () => Some(obj.Attributes.AggregateBounds)))
+            .IfNone(RectangleF.Empty);
+
+    private static Fin<CanvasResult> EncodeBitmap(Bitmap? bitmap, int width, int height, Op op) =>
         Optional(bitmap)
-            .ToFin(Fail: Op.Of(name: name).InvalidResult())
-            .Map(valid => {
-                using Bitmap owned = valid;
+            .ToFin(Fail: UiFault.MutationRejected(op: op, detail: "DrawToBitmap returned null"))
+            .Bind(owned => Try.lift<CanvasResult>(f: () => {
                 using MemoryStream stream = new();
                 owned.Save(stream: stream, format: ImageFormat.Png);
-                return new CanvasBitmapSnapshot(Width: owned.Width, Height: owned.Height, Png: stream.ToArray());
-            });
+                int w = width > 0 ? width : owned.Width;
+                int h = height > 0 ? height : owned.Height;
+                return new CanvasResult.BitmapResult(Bitmap: new CanvasBitmap(Width: w, Height: h, Png: stream.ToArray()));
+            }).Run().MapFail(_ => UiFault.MutationRejected(op: op, detail: "PNG encode failed")));
+
+    private static T Tap<T>(T value, System.Action<T> action) {
+        action(obj: value);
+        return value;
+    }
 }
