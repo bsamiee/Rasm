@@ -23,6 +23,7 @@ public enum MessageDialogKind { Information, Warning, Error, Question }
 
 [Flags]
 public enum MessageDialogButtons {
+    None = 0,
     Ok = 1, Cancel = 2, Yes = 4, No = 8,
     OkCancel = Ok | Cancel,
     YesNo = Yes | No,
@@ -76,18 +77,61 @@ public readonly record struct ToolbarSnapshot(int Count, bool Enabled, float Min
 
 public readonly record struct FileFilter(string Name, Seq<string> Extensions);
 
+public abstract record InputRequest<T> : GhUiRequest<T> {
+    public sealed record Selection(InputSelectionSource Source) : InputRequest<InputSelectionSnapshot> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
+        internal override Fin<InputSelectionSnapshot> Apply(GrasshopperUi.Scope scope) => Input.Selection(source: Source).Run(scope: scope);
+    }
+    public sealed record Modifiers(Keys Keys) : InputRequest<InputModifierSnapshot> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
+        internal override Fin<InputModifierSnapshot> Apply(GrasshopperUi.Scope scope) => Input.Modifiers(keys: Keys).Run(scope: scope);
+    }
+    public sealed record Panel(Func<InputPanel, Fin<Unit>> Populate) : InputRequest<InputPanelSnapshot> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
+        internal override Fin<InputPanelSnapshot> Apply(GrasshopperUi.Scope scope) => Input.Panel(populate: Populate).Run(scope: scope);
+    }
+    public sealed record Popup(Control Owner, PointF Location, RectangleF Screen, Func<InputPanel, Fin<Unit>> Populate) : InputRequest<InputPanelSnapshot> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
+        internal override Fin<InputPanelSnapshot> Apply(GrasshopperUi.Scope scope) => Input.PopupPanel(owner: Owner, location: Location, screen: Screen, populate: Populate).Run(scope: scope);
+    }
+    public sealed record BarSurface(Func<Bar, Fin<Unit>> Populate) : InputRequest<ToolbarSnapshot> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
+        internal override Fin<ToolbarSnapshot> Apply(GrasshopperUi.Scope scope) => Input.Toolbar(populate: Populate).Run(scope: scope);
+    }
+    public sealed record Menu(Func<ContextMenu, Fin<T>> Populate) : InputRequest<T> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
+        internal override Fin<T> Apply(GrasshopperUi.Scope scope) => Input.Menu(populate: Populate).Run(scope: scope);
+    }
+    public sealed record Cursor(CursorKind Kind) : InputRequest<CursorKind> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
+        internal override Fin<CursorKind> Apply(GrasshopperUi.Scope scope) => Input.Cursor(kind: Kind).Run(scope: scope);
+    }
+    public sealed record Message(string Title, string Body, MessageDialogKind Kind = MessageDialogKind.Information, MessageDialogButtons Buttons = MessageDialogButtons.Ok) : InputRequest<InputDialogResponse> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
+        internal override Fin<InputDialogResponse> Apply(GrasshopperUi.Scope scope) => Input.MessageDialog(title: Title, message: Body, kind: Kind, buttons: Buttons).Run(scope: scope);
+    }
+    public sealed record File(FileDialogMode Mode, Option<string> InitialPath, Seq<FileFilter> Filters) : InputRequest<Option<string>> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
+        internal override Fin<Option<string>> Apply(GrasshopperUi.Scope scope) => Input.FileDialog(mode: Mode, initialPath: InitialPath.IfNone(string.Empty), filters: [.. Filters]).Run(scope: scope);
+    }
+    public sealed record Clipboard(InputClipboardOp Op) : InputRequest<Option<string>> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
+        internal override Fin<Option<string>> Apply(GrasshopperUi.Scope scope) => Input.Clipboard(op: Op).Run(scope: scope);
+    }
+}
+
 // --- [SERVICES] --------------------------------------------------------------------------
-public static partial class Input {
-    public static GrasshopperUiIntent<InputSelectionSnapshot> Selection(InputSelectionSource source) =>
+internal static partial class Input {
+    internal static GrasshopperUiIntent<InputSelectionSnapshot> Selection(InputSelectionSource source) =>
         IntentFactory.Read<InputSelectionSnapshot>(run: _ =>
             Optional(source)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Selection)), detail: "null source"))
                 .Map(valid => new InputSelectionSnapshot(Mode: valid.Mode(), Modifiers: ModifierOf(keys: Keyboard.Modifiers))));
 
-    public static GrasshopperUiIntent<InputModifierSnapshot> Modifiers(Keys keys) =>
+    internal static GrasshopperUiIntent<InputModifierSnapshot> Modifiers(Keys keys) =>
         IntentFactory.Read<InputModifierSnapshot>(run: _ => Fin.Succ(value: ModifierOf(keys: keys)));
 
-    public static GrasshopperUiIntent<InputPanelSnapshot> Panel(Func<InputPanel, Fin<Unit>> populate) =>
+    internal static GrasshopperUiIntent<InputPanelSnapshot> Panel(Func<InputPanel, Fin<Unit>> populate) =>
         IntentFactory.Read<InputPanelSnapshot>(run: _ =>
             Optional(populate)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Panel)), detail: "null populate"))
@@ -99,7 +143,7 @@ public static partial class Input {
                         Shown: false));
                 }));
 
-    public static GrasshopperUiIntent<InputPanelSnapshot> PopupPanel(Control owner, PointF location, RectangleF screen, Func<InputPanel, Fin<Unit>> populate) =>
+    internal static GrasshopperUiIntent<InputPanelSnapshot> PopupPanel(Control owner, PointF location, RectangleF screen, Func<InputPanel, Fin<Unit>> populate) =>
         IntentFactory.Read<InputPanelSnapshot>(run: _ =>
             from validOwner in Optional(owner).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(PopupPanel)), detail: "null owner"))
             from validPopulate in Optional(populate).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(PopupPanel)), detail: "null populate"))
@@ -110,14 +154,14 @@ public static partial class Input {
                 .Filter(static value => float.IsFinite(value.X) && float.IsFinite(value.Y) && float.IsFinite(value.Width) && float.IsFinite(value.Height) && value.Width > 0 && value.Height > 0)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(PopupPanel)), detail: "invalid screen bounds"))
             let panel = new InputPanel()
-            from _ in validPopulate(arg: panel)
+            from populated in validPopulate(arg: panel)
             let form = panel.ShowAsForm(validOwner, validLocation, validScreen)
             select new InputPanelSnapshot(
                 Count: panel.Count,
                 Category: panel.Category ?? string.Empty,
                 Shown: form?.Visible ?? false));
 
-    public static GrasshopperUiIntent<ToolbarSnapshot> Toolbar(Func<Bar, Fin<Unit>> populate) =>
+    internal static GrasshopperUiIntent<ToolbarSnapshot> Toolbar(Func<Bar, Fin<Unit>> populate) =>
         IntentFactory.Read<ToolbarSnapshot>(run: _ =>
             Optional(populate)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Toolbar)), detail: "null populate"))
@@ -132,7 +176,7 @@ public static partial class Input {
                     });
                 }));
 
-    public static GrasshopperUiIntent<T> Menu<T>(Func<ContextMenu, Fin<T>> populate) =>
+    internal static GrasshopperUiIntent<T> Menu<T>(Func<ContextMenu, Fin<T>> populate) =>
         IntentFactory.Read<T>(run: _ =>
             Optional(populate)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Menu)), detail: "null populate"))
@@ -141,13 +185,13 @@ public static partial class Input {
                     return valid(arg: menu);
                 }));
 
-    public static GrasshopperUiIntent<CursorKind> Cursor(CursorKind kind) =>
+    internal static GrasshopperUiIntent<CursorKind> Cursor(CursorKind kind) =>
         IntentFactory.Canvas<CursorKind>(run: scope => scope.NeedCanvas().Map(canvas => {
             canvas.Cursor = CursorOf(kind: kind, canvas: canvas);
             return kind;
         }));
 
-    public static GrasshopperUiIntent<InputDialogResponse> MessageDialog(string title, string message, MessageDialogKind kind = MessageDialogKind.Information, MessageDialogButtons buttons = MessageDialogButtons.Ok) =>
+    internal static GrasshopperUiIntent<InputDialogResponse> MessageDialog(string title, string message, MessageDialogKind kind = MessageDialogKind.Information, MessageDialogButtons buttons = MessageDialogButtons.Ok) =>
         IntentFactory.Read<InputDialogResponse>(run: _ =>
             Try.lift<InputDialogResponse>(f: () => {
                 DialogResult result = MessageBox.Show(
@@ -158,7 +202,7 @@ public static partial class Input {
                 return ResponseOf(result: result);
             }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(MessageDialog)), detail: "MessageBox.Show threw")));
 
-    public static GrasshopperUiIntent<Option<string>> FileDialog(FileDialogMode mode, string? initialPath = null, params FileFilter[] filters) =>
+    internal static GrasshopperUiIntent<Option<string>> FileDialog(FileDialogMode mode, string? initialPath = null, params FileFilter[] filters) =>
         IntentFactory.Read<Option<string>>(run: _ =>
             Try.lift<Option<string>>(f: () => mode switch {
                 FileDialogMode.Open => RunFileDialog(dialog: new OpenFileDialog(), initialPath: initialPath, filters: filters),
@@ -167,13 +211,20 @@ public static partial class Input {
                 _ => Option<string>.None,
             }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(FileDialog)), detail: "FileDialog.ShowDialog threw")));
 
-    public static GrasshopperUiIntent<Option<string>> Clipboard(InputClipboardOp op) =>
+    internal static GrasshopperUiIntent<Option<string>> Clipboard(InputClipboardOp op) =>
         IntentFactory.Read<Option<string>>(run: _ =>
-            Try.lift<Option<string>>(f: () => op switch {
-                InputClipboardOp.ReadCase => Optional(Eto.Forms.Clipboard.Instance.Text),
-                InputClipboardOp.WriteCase w => Tap(Some(w.Text), _ => Eto.Forms.Clipboard.Instance.Text = w.Text),
-                InputClipboardOp.ClearCase => Tap(Option<string>.None, _ => Eto.Forms.Clipboard.Instance.Clear()),
-                _ => Option<string>.None,
+            Try.lift<Option<string>>(f: () => {
+                Func<Option<string>> action = op switch {
+                    InputClipboardOp.ReadCase => static () => Optional(Eto.Forms.Clipboard.Instance.Text),
+                    InputClipboardOp.WriteCase w => () => Some(Eto.Forms.Clipboard.Instance.Text = w.Text),
+                    InputClipboardOp.ClearCase => static () => {
+                        Eto.Forms.Clipboard.Instance.Clear();
+                        return Option<string>.None;
+                    }
+                    ,
+                    _ => static () => Option<string>.None,
+                };
+                return action();
             }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(Clipboard)), detail: "Clipboard op threw")));
 
     // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -212,6 +263,8 @@ public static partial class Input {
         MessageDialogButtons.OkCancel => MessageBoxButtons.OKCancel,
         MessageDialogButtons.YesNo => MessageBoxButtons.YesNo,
         MessageDialogButtons.YesNoCancel => MessageBoxButtons.YesNoCancel,
+        MessageDialogButtons value when (value & MessageDialogButtons.Ok) == MessageDialogButtons.Ok && (value & MessageDialogButtons.Cancel) == MessageDialogButtons.Cancel => MessageBoxButtons.OKCancel,
+        MessageDialogButtons value when (value & MessageDialogButtons.Yes) == MessageDialogButtons.Yes && (value & MessageDialogButtons.No) == MessageDialogButtons.No => MessageBoxButtons.YesNo,
         _ => MessageBoxButtons.OK,
     };
 
@@ -228,19 +281,23 @@ public static partial class Input {
     };
 
     private static Option<string> RunFileDialog(Eto.Forms.FileDialog dialog, string? initialPath, FileFilter[] filters) {
-        if (initialPath is not null) dialog.FileName = initialPath;
-        foreach (FileFilter f in filters) dialog.Filters.Add(item: new Eto.Forms.FileFilter(name: f.Name, extensions: [.. f.Extensions]));
+        _ = Optional(initialPath).Filter(static path => !string.IsNullOrWhiteSpace(path)).IfSome(path => dialog.FileName = path);
+        _ = toSeq(filters).Iter(f => dialog.Filters.Add(item: new Eto.Forms.FileFilter(name: f.Name, extensions: [.. f.Extensions])));
         DialogResult result = dialog.ShowDialog(parent: (Control?)null);
-        return result == DialogResult.Ok ? Some(dialog.FileName) : Option<string>.None;
+        return result switch {
+            DialogResult.Ok => Some(dialog.FileName),
+            _ => Option<string>.None,
+        };
     }
 
     // SelectFolderDialog : CommonDialog (NOT FileDialog) — separate dispatch (per Eto verification).
     private static Option<string> RunFolderDialog(string? initialPath) {
-        SelectFolderDialog dialog = new();
-        if (initialPath is not null) dialog.Directory = initialPath;
+        using SelectFolderDialog dialog = new();
+        _ = Optional(initialPath).Filter(static path => !string.IsNullOrWhiteSpace(path)).IfSome(path => dialog.Directory = path);
         DialogResult result = dialog.ShowDialog(parent: (Control?)null);
-        return result == DialogResult.Ok ? Some(dialog.Directory) : Option<string>.None;
+        return result switch {
+            DialogResult.Ok => Some(dialog.Directory),
+            _ => Option<string>.None,
+        };
     }
-
-    private static T Tap<T>(T value, System.Action<T> action) { action(obj: value); return value; }
 }

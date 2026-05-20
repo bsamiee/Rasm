@@ -42,6 +42,7 @@ public partial record RepaintRequest {
             (ObjectCase l, ObjectCase r) when l.Id == r.Id => left,
             _ => Canvas,
         };
+    public static RepaintRequest BitwiseOr(RepaintRequest left, RepaintRequest right) => left | right;
 }
 
 // --- [ERRORS] ----------------------------------------------------------------------------
@@ -141,7 +142,9 @@ public sealed class UndoGroup {
     internal Fin<Unit> Commit(GhDocument document) =>
         Try.lift<Unit>(f: () => {
             UndoEntry entry = ToEntry();
-            if (entry.Actions.Count > 0) document.Undo.Do(name: entry.AsName(), actions: entry.AsList());
+            _ = Optional(entry)
+                .Filter(static e => e.Actions.Count > 0)
+                .IfSome(e => document.Undo.Do(name: e.AsName(), actions: e.AsList()));
             return unit;
         }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(Commit)), detail: "History.Do threw"));
 }
@@ -153,7 +156,7 @@ public readonly record struct GrasshopperUiPolicy(
     bool RequireDocument = false,
     RepaintRequest? Repaint = null) {
     public static GrasshopperUiPolicy Read => default;
-    public static readonly GrasshopperUiPolicy Empty = default;
+    public static readonly GrasshopperUiPolicy Empty;
 
     internal static GrasshopperUiPolicy Canvas(bool openEditor = false, RepaintRequest? repaint = null) =>
         new(OpenEditor: openEditor, RequireCanvas: true, Repaint: repaint);
@@ -167,7 +170,7 @@ public readonly record struct GrasshopperUiPolicy(
             RequireDocument: left.RequireDocument || right.RequireDocument,
             Repaint: (left.Repaint ?? RepaintRequest.None) | (right.Repaint ?? RepaintRequest.None));
 
-    internal static GrasshopperUiPolicy BitwiseOr(GrasshopperUiPolicy left, GrasshopperUiPolicy right) => left | right;
+    public static GrasshopperUiPolicy BitwiseOr(GrasshopperUiPolicy left, GrasshopperUiPolicy right) => left | right;
 }
 
 public sealed record GrasshopperUiIntent<T> {
@@ -178,6 +181,24 @@ public sealed record GrasshopperUiIntent<T> {
     }
     internal GrasshopperUiPolicy Policy { get; }
     internal Fin<T> Run(GrasshopperUi.Scope scope) => run(arg: scope);
+    public GrasshopperUiIntent<TOut> Map<TOut>(Func<T, TOut> project) =>
+        new(run: scope => Run(scope: scope).Map(project), policy: Policy);
+    public GrasshopperUiIntent<TOut> Bind<TOut>(Func<T, GrasshopperUiIntent<TOut>> bind) =>
+        new(run: scope => Run(scope: scope).Bind(value => bind(arg: value).Run(scope: scope)), policy: Policy | GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas));
+}
+
+public abstract record GhUiRequest<T> {
+    internal abstract GrasshopperUiPolicy Policy { get; }
+    internal abstract Fin<T> Apply(GrasshopperUi.Scope scope);
+}
+
+public static class GhUi {
+    public static GrasshopperUiIntent<T> Apply<T>(GhUiRequest<T> request) =>
+        new(
+            run: scope => Optional(request)
+                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Apply)), detail: "request is required"))
+                .Bind(valid => valid.Apply(scope: scope)),
+            policy: Optional(request).Map(static valid => valid.Policy).IfNone(GrasshopperUiPolicy.Read));
 }
 
 internal static class IntentFactory {
@@ -205,9 +226,9 @@ public sealed partial record GrasshopperUi {
         internal static Fin<Scope> Resolve(GrasshopperUiPolicy policy, CancellationToken cancellation, Option<UndoGroup> undo = default) =>
             cancellation.IsCancellationRequested
                 ? Fin.Fail<Scope>(error: UiFault.Cancelled(op: Op.Of(name: nameof(Resolve))))
-                : ResolveInner(policy: policy, cancellation: cancellation, undo: undo);
+                : ResolveInner(policy: policy, undo: undo, cancellation: cancellation);
 
-        private static Fin<Scope> ResolveInner(GrasshopperUiPolicy policy, CancellationToken cancellation, Option<UndoGroup> undo) {
+        private static Fin<Scope> ResolveInner(GrasshopperUiPolicy policy, Option<UndoGroup> undo, CancellationToken cancellation) {
             GhEditor? editor = (GhEditor.Instance, policy.OpenEditor) switch {
                 (GhEditor current, _) => current,
                 (null, true) => GhEditor.ShowEditor(createVisible: true),
@@ -280,7 +301,7 @@ public sealed partial record GrasshopperUi {
                     from changed in mutate(arg: methods).Bind(count => count >= 0
                         ? Fin.Succ(value: count)
                         : Fin.Fail<int>(error: UiFault.MutationRejected(op: op, detail: $"count={count}")))
-                    select new DocumentMutationDelta(Changed: changed, After: Document.SnapshotOf(document: document, objects: objects)));
+                    select new DocumentMutationDelta(Changed: changed, After: UiRail.DocumentSnapshotOf(document: document, objects: objects)));
 
     private static Fin<Unit> RecordUndo(Scope scope, Op op, UndoStrategy undo) =>
         undo switch {
@@ -290,12 +311,14 @@ public sealed partial record GrasshopperUi {
                 from committed in scope.UndoGroup.Match(
                     Some: bag => Try.lift<Unit>(f: () => {
                         UndoEntry entry = manual.Record(arg: scope);
-                        entry.Actions.Iter(action => bag.Add(action: action));
+                        _ = entry.Actions.Iter(action => bag.Add(action: action));
                         return unit;
                     }).Run().MapFail(_ => UiFault.MutationRejected(op: op, detail: "manual undo recording threw")),
                     None: () => Try.lift<Unit>(f: () => {
                         UndoEntry entry = manual.Record(arg: scope);
-                        if (entry.Actions.Count > 0) document.Undo.Do(name: entry.AsName(), actions: entry.AsList());
+                        _ = Optional(entry)
+                            .Filter(static e => e.Actions.Count > 0)
+                            .IfSome(e => document.Undo.Do(name: e.AsName(), actions: e.AsList()));
                         return unit;
                     }).Run().MapFail(_ => UiFault.MutationRejected(op: op, detail: "History.Do threw")))
                 select committed,
@@ -312,13 +335,12 @@ public sealed partial record GrasshopperUi {
             });
 
     private static Fin<T> Marshal<T>(Func<Fin<T>> valid, CancellationToken cancellation) {
-        TaskCompletionSource<Fin<T>> completion = new(creationOptions: TaskCreationOptions.RunContinuationsAsynchronously);
-        using CancellationTokenRegistration reg = cancellation.Register(
-            callback: static state => ((TaskCompletionSource<Fin<T>>)state!).TrySetResult(Fin.Fail<T>(error: UiFault.Cancelled(op: Op.Of(name: nameof(Marshal))))),
-            state: completion);
         return Try.lift<Fin<T>>(f: () => {
-            RhinoApp.InvokeAndWait(action: () => completion.TrySetResult(result: Protect(valid: valid)));
-            return completion.Task.GetAwaiter().GetResult();
+            Fin<T> result = Fin.Fail<T>(error: UiFault.Cancelled(op: Op.Of(name: nameof(Marshal))));
+            RhinoApp.InvokeAndWait(action: () => result = cancellation.IsCancellationRequested
+                ? Fin.Fail<T>(error: UiFault.Cancelled(op: Op.Of(name: nameof(Marshal))))
+                : Protect(valid: valid));
+            return result;
         }).Run().MapFail(_ => UiFault.ThreadMarshal(detail: "InvokeAndWait threw")).Bind(static result => result);
     }
 
@@ -326,12 +348,12 @@ public sealed partial record GrasshopperUi {
         Try.lift<Fin<T>>(f: valid).Run().MapFail(_ => UiFault.ThreadMarshal(detail: name)).Bind(static result => result);
 
     private static T Repaint<T>(Scope scope, GrasshopperUiPolicy policy, T value) {
-        _ = (policy.Repaint ?? RepaintRequest.None, scope.Canvas, scope.Objects) switch {
-            (RepaintRequest.NoneCase, _, _) => unit,
-            (RepaintRequest.CanvasCase, _, _) when scope.Canvas.IsSome => Tap(unit, _ => scope.Canvas.IfNone(() => null!).Invalidate()),
-            (RepaintRequest.ScheduledCase, _, _) when scope.Canvas.IsSome => Tap(unit, _ => scope.Canvas.IfNone(() => null!).ScheduleRedraw()),
-            (RepaintRequest.RegionCase region, _, _) when scope.Canvas.IsSome => Tap(unit, _ => scope.Canvas.IfNone(() => null!).Invalidate(rect: ToIntRect(region.Bounds))),
-            (RepaintRequest.ObjectCase obj, _, _) when scope.Canvas.IsSome && scope.Objects.IsSome => InvalidateObject(canvas: scope.Canvas.IfNone(() => null!), objects: scope.Objects.IfNone(() => null!), id: obj.Id),
+        _ = (policy.Repaint ?? RepaintRequest.None) switch {
+            RepaintRequest.NoneCase => unit,
+            RepaintRequest.CanvasCase => scope.Canvas.IfSome(static canvas => canvas.Invalidate()),
+            RepaintRequest.ScheduledCase => scope.Canvas.IfSome(static canvas => canvas.ScheduleRedraw()),
+            RepaintRequest.RegionCase region => scope.Canvas.IfSome(canvas => canvas.Invalidate(rect: ToIntRect(region.Bounds))),
+            RepaintRequest.ObjectCase obj => scope.Canvas.Bind(canvas => scope.Objects.Map(objects => InvalidateObject(canvas: canvas, objects: objects, id: obj.Id))).IfNone(unit),
             _ => unit,
         };
         return value;
@@ -345,20 +367,20 @@ public sealed partial record GrasshopperUi {
     private static Eto.Drawing.Rectangle ToIntRect(RectangleF f) =>
         new(x: (int)Math.Floor(f.X), y: (int)Math.Floor(f.Y), width: (int)Math.Ceiling(f.Width), height: (int)Math.Ceiling(f.Height));
 
-    private static T Tap<T>(T value, System.Action<T> action) { action(obj: value); return value; }
 }
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
-public static class UiIntent {
-    public static GrasshopperUiIntent<T> Group<T>(string verb, string noun, GrasshopperUiIntent<T> body) =>
-        IntentFactory.Document<T>(
-            repaint: body.Policy.Repaint,
-            run: scope => {
-                UndoGroup bag = new(verb: verb, noun: noun);
-                GrasshopperUi.Scope grouped = scope with { UndoGroup = Some(bag) };
-                return from value in body.Run(scope: grouped)
-                       from document in scope.NeedDocument()
-                       from _ in bag.Commit(document: document)
-                       select value;
-            });
+public static class GrasshopperUiIntentExtensions {
+    public static GrasshopperUiIntent<T> Group<T>(this GrasshopperUiIntent<T> body, string verb, string noun) =>
+        Optional(body).Match(
+            Some: valid => IntentFactory.Document<T>(
+                repaint: valid.Policy.Repaint,
+                run: scope => {
+                    UndoGroup bag = new(verb: verb, noun: noun);
+                    GrasshopperUi.Scope grouped = scope with { UndoGroup = Some(bag) };
+                    return from value in valid.Run(scope: grouped)
+                           from document in scope.NeedDocument()
+                           from committed in bag.Commit(document: document)
+                           select value;
+                }),
+            None: () => IntentFactory.Document<T>(run: _ => Fin.Fail<T>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Group)), detail: "body is required"))));
 }

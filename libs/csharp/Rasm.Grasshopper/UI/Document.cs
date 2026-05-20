@@ -132,7 +132,7 @@ public partial record DocumentOp {
     public sealed record DisplayCase(DisplayOp Op) : DocumentOp;
     public sealed record ClipboardCase(ClipboardOp Op) : DocumentOp;
     public sealed record ComposeCase(ComposeOp Op) : DocumentOp;
-    public sealed record ColourCase(Option<GhColour> Colour) : DocumentOp;
+    public sealed record ColourCase(Option<GhColour> Override) : DocumentOp;
     public sealed record DropCase(Guid ProxyId, PointF Location) : DocumentOp;
     public sealed record AddDependencyCase(PointF Location) : DocumentOp;
     public sealed record IsolateCase(IsolateOptions Options) : DocumentOp;
@@ -149,7 +149,7 @@ public partial record DocumentOp {
     public static DocumentOp Display(DisplayOp op) => new DisplayCase(Op: op);
     public static DocumentOp Clipboard(ClipboardOp op) => new ClipboardCase(Op: op);
     public static DocumentOp Compose(ComposeOp op) => new ComposeCase(Op: op);
-    public static DocumentOp Colour(GhColour? colour = null) => new ColourCase(Colour: Optional(colour));
+    public static DocumentOp Colour(GhColour? colour = null) => new ColourCase(Override: Optional(colour));
     public static DocumentOp Drop(Guid proxyId, PointF location) => new DropCase(ProxyId: proxyId, Location: location);
     public static DocumentOp AddDependency(PointF location) => new AddDependencyCase(Location: location);
     public static DocumentOp Isolate(IsolateOptions options = default) => new IsolateCase(Options: options);
@@ -194,17 +194,70 @@ public readonly record struct DocumentObjectSnapshot(
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct DocumentGripSnapshot(Guid Parameter, bool InletWithinRange, bool OutletWithinRange);
 
+public abstract record DocumentRequest<T> : GhUiRequest<T> {
+    public sealed record Use(DocumentOp Op) : DocumentRequest<DocumentResult> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Document(repaint: UiRail.DocumentRepaintFor(op: Op));
+        internal override Fin<DocumentResult> Apply(GrasshopperUi.Scope scope) => UiRail.DocumentDispatch(scope: scope, op: Op);
+    }
+    public sealed record Transaction(Seq<DocumentMutation> Mutations) : DocumentRequest<Snapshot<DocumentMutationDelta>> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas);
+        internal override Fin<Snapshot<DocumentMutationDelta>> Apply(GrasshopperUi.Scope scope) =>
+            from methods in scope.NeedMethods()
+            from document in scope.NeedDocument()
+            from objects in scope.NeedObjects()
+            from changed in Mutations.TraverseM(m => m.Apply(methods: methods, objects: objects)).Map(static xs => xs.Fold(initialState: 0, f: static (sum, value) => sum + value)).As()
+            select Snapshot.Of(
+                payload: new DocumentMutationDelta(Changed: changed, After: UiRail.DocumentSnapshotOf(document: document, objects: objects)),
+                ownerId: Some(document.Hash));
+    }
+}
+
+public abstract record DocumentMutation {
+    public sealed record Targets(Seq<Guid> Ids, DocumentTargetOp Op) : DocumentMutation;
+    internal Fin<int> Apply(GhDocumentMethods methods, GhObjectList objects) => this switch {
+        Targets targets => targets.Op.Apply(methods: methods, objects: objects, ids: targets.Ids),
+        _ => Fin.Fail<int>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentMutation)), detail: "unknown document mutation")),
+    };
+}
+
+public abstract record DocumentTargetOp {
+    public sealed record ShowCase : DocumentTargetOp;
+    public sealed record HideCase : DocumentTargetOp;
+    public sealed record EnableCase : DocumentTargetOp;
+    public sealed record DisableCase : DocumentTargetOp;
+    public sealed record DeleteCase : DocumentTargetOp;
+    public sealed record ColourCase(Option<GhColour> Override) : DocumentTargetOp;
+    public static readonly DocumentTargetOp Show = new ShowCase();
+    public static readonly DocumentTargetOp Hide = new HideCase();
+    public static readonly DocumentTargetOp Enable = new EnableCase();
+    public static readonly DocumentTargetOp Disable = new DisableCase();
+    public static readonly DocumentTargetOp Delete = new DeleteCase();
+    public static DocumentTargetOp Style(GhColour colour) => new ColourCase(Override: Some(colour));
+    public static readonly DocumentTargetOp ClearStyle = new ColourCase(Override: Option<GhColour>.None);
+    internal Fin<int> Apply(GhDocumentMethods methods, GhObjectList objects, Seq<Guid> ids) =>
+        Fin.Succ(value: ids.Choose(id => Optional(objects.Find(instanceId: id))).ToArray()).Bind(targets => this switch {
+            ShowCase => Fin.Succ(value: methods.ShowObjects(objects: targets, actions: null)),
+            HideCase => Fin.Succ(value: methods.HideObjects(objects: targets, actions: null)),
+            EnableCase => Fin.Succ(value: methods.EnableObjects(objects: targets, actions: null)),
+            DisableCase => Fin.Succ(value: methods.DisableObjects(objects: targets, actions: null)),
+            DeleteCase => Fin.Succ(value: methods.DeleteObjects(objects: targets, wires: [], actions: null)),
+            ColourCase colour => Fin.Succ(value: methods.SetColourOverrideObjects(
+                objects: targets,
+                colour: colour.Override.Map(static value => (GhColour?)value).IfNone((GhColour?)null),
+                actions: null)),
+            _ => Fin.Fail<int>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentTargetOp)), detail: "unknown target op")),
+        });
+}
+
 // --- [SERVICES] --------------------------------------------------------------------------
-public static partial class UiRail {
-    public static GrasshopperUiIntent<DocumentResult> Document(DocumentOp op) {
+internal static partial class UiRail {
+    internal static GrasshopperUiIntent<DocumentResult> Document(DocumentOp op) {
         ArgumentNullException.ThrowIfNull(argument: op);
-        return IntentFactory.Document<DocumentResult>(
-            repaint: DocumentRepaintFor(op: op),
-            run: scope => DocumentDispatch(scope: scope, op: op));
+        return GhUi.Apply(new DocumentRequest<DocumentResult>.Use(Op: op));
     }
 
     // --- [OPERATIONS] ----------------------------------------------------------------------
-    private static Fin<DocumentResult> DocumentDispatch(GrasshopperUi.Scope scope, DocumentOp op) => op switch {
+    internal static Fin<DocumentResult> DocumentDispatch(GrasshopperUi.Scope scope, DocumentOp op) => op switch {
         DocumentOp.SnapshotCase =>
             from doc in scope.NeedDocument()
             from objs in scope.NeedObjects()
@@ -261,11 +314,13 @@ public static partial class UiRail {
 
         DocumentOp.ColourCase c =>
             RunMutation(scope: scope, op: Op.Of(name: nameof(DocumentOp.Colour)),
-                mutate: methods => Fin.Succ(value: methods.SetColourOverrideSelected(colour: c.Colour.MatchUnsafe(Some: x => x, None: () => null!), actions: null)))
+                mutate: methods => Fin.Succ(value: methods.SetColourOverrideSelected(
+                    colour: c.Override.Map(static value => (GhColour?)value).IfNone((GhColour?)null),
+                    actions: null)))
                 .Map(static delta => (DocumentResult)new DocumentResult.MutationResult(Delta: delta)),
 
         DocumentOp.DropCase d =>
-            Optional((ProxyId: d.ProxyId, Location: d.Location))
+            Optional((d.ProxyId, d.Location))
                 .Filter(static s => s.ProxyId != Guid.Empty && float.IsFinite(s.Location.X) && float.IsFinite(s.Location.Y))
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentOp.Drop)), detail: "empty proxy id or non-finite location"))
                 .Bind(valid =>
@@ -305,7 +360,7 @@ public static partial class UiRail {
                     pins: i.Options.IncludePins,
                     inputs: i.Options.IncludeInputs,
                     outputs: i.Options.IncludeOutputs,
-                    omit: new SysHashSet(collection: objs.SelectedObjects.Select(static o => o.InstanceId)),
+                    omit: [.. objs.SelectedObjects.Select(static o => o.InstanceId)],
                     actions: null);
                 return unit;
             }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(DocumentOp.Isolate)), detail: "IsolateObject threw"))
@@ -328,7 +383,7 @@ public static partial class UiRail {
         _ => Fin.Fail<DocumentResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Document)), detail: "unknown DocumentOp")),
     };
 
-    private static RepaintRequest DocumentRepaintFor(DocumentOp op) => op switch {
+    internal static RepaintRequest DocumentRepaintFor(DocumentOp op) => op switch {
         DocumentOp.SnapshotCase or DocumentOp.ObjectsCase or DocumentOp.ObjectCase or
         DocumentOp.GripCase or DocumentOp.FindCase or DocumentOp.MetaNamesCase => RepaintRequest.None,
         _ => RepaintRequest.Canvas,
@@ -367,8 +422,8 @@ public static partial class UiRail {
 
     private static Fin<Option<Guid>> ComposeDispatch(GhDocumentMethods methods, ComposeOp op) => op switch {
         ComposeOp.GroupCase g => Fin.Succ(value: NonEmptyIdOf(Optional(methods.GroupSelection(
-            name: g.Name.MatchUnsafe(Some: x => x, None: () => null!),
-            colour: g.Colour.Match(Some: c => (GhOpenColorFamily?)c, None: () => null),
+            name: g.Name.IfNone(string.Empty),
+            colour: g.Colour.Map(static c => (GhOpenColorFamily?)c).IfNone((GhOpenColorFamily?)null),
             actions: null)).Map(static r => r.InstanceId))),
         ComposeOp.ChainCase => Fin.Succ(value: NonEmptyIdOf(Optional(methods.ChainSelection(actions: null)).Map(static c => c.InstanceId))),
         ComposeOp.ClusterCase => Fin.Succ(value: NonEmptyIdOf(Optional(methods.ClusterSelection(actions: null)).Map(static c => c.InstanceId))),
@@ -386,7 +441,7 @@ public static partial class UiRail {
         ObjectsScope.PrimaryCase => objects.Forwards,
         ObjectsScope.PrimaryAndSecondaryCase => objects.PrimaryAndSecondary,
         ObjectsScope.SelectedCase => objects.SelectedObjects,
-        _ => Enumerable.Empty<IDocumentObject>(),
+        _ => [],
     };
 
     private static Option<DocumentGripSnapshot> GripSnapshotOf(GhObjectList objects, PointF point, GripKind kind) => kind switch {
@@ -437,21 +492,26 @@ public static partial class UiRail {
 
     private static Fin<Snapshot<DocumentMutationDelta>> RunBatch(
         GrasshopperUi.Scope scope, Seq<GrasshopperUiIntent<DocumentResult>> steps,
-        GhDocument doc, GhObjectList objs) {
-        if (steps.IsEmpty) {
-            return Fin.Succ(value: Snapshot.Of<DocumentMutationDelta>(
+        GhDocument doc, GhObjectList objs) =>
+        steps.IsEmpty switch {
+            true => Fin.Succ(value: Snapshot.Of<DocumentMutationDelta>(
                 payload: new DocumentMutationDelta(Changed: 0, After: DocumentSnapshotOf(document: doc, objects: objs)),
-                ownerId: Some(doc.Hash)));
-        }
+                ownerId: Some(doc.Hash))),
+            false => RunBatchSteps(scope: scope, steps: steps, doc: doc, objs: objs),
+        };
+
+    private static Fin<Snapshot<DocumentMutationDelta>> RunBatchSteps(
+        GrasshopperUi.Scope scope, Seq<GrasshopperUiIntent<DocumentResult>> steps,
+        GhDocument doc, GhObjectList objs) {
         UndoGroup bag = new(verb: "Edit", noun: steps.Count == 1 ? "Mutation" : $"{steps.Count} Mutations");
         GrasshopperUi.Scope scoped = scope with { UndoGroup = Some(bag) };
         return steps.Fold(
-            initialState: Fin.Succ<int>(0),
-            f: (state, step) =>
-                from running in state
-                from result in step.Run(scope: scoped)
-                let changed = ChangeCountOf(result: result)
-                select running + changed)
+                initialState: Fin.Succ<int>(0),
+                f: (state, step) =>
+                    from running in state
+                    from result in step.Run(scope: scoped)
+                    let changed = ChangeCountOf(result: result)
+                    select running + changed)
             .Bind(total => bag.Commit(document: doc).Map(_ => Snapshot.Of<DocumentMutationDelta>(
                 payload: new DocumentMutationDelta(Changed: total, After: DocumentSnapshotOf(document: doc, objects: objs)),
                 ownerId: Some(doc.Hash))));
@@ -466,10 +526,10 @@ public static partial class UiRail {
     };
 
     internal static DocumentSnapshot DocumentSnapshotOf(GhDocument document, GhObjectList objects) {
-        Seq<WireEnds> allWires = toSeq(objects.AllWires);
-        Seq<WireEnds> selectedWires = toSeq(objects.SelectedWires);
-        int wireCount = allWires.Count(wire => WireConnectivity.IsConnected(objects: objects, wire: wire));
-        int selectedWireCount = selectedWires.Count(wire => WireConnectivity.IsConnected(objects: objects, wire: wire));
+        Seq<WireEnds> allWires = Optional(objects.AllWires).Map(static wires => toSeq(wires)).IfNone(Seq<WireEnds>());
+        Seq<WireEnds> selectedWires = Optional(objects.SelectedWires).Map(static wires => toSeq(wires)).IfNone(Seq<WireEnds>());
+        int wireCount = allWires.Count(wire => Wire.IsConnected(objects: objects, wire: wire));
+        int selectedWireCount = selectedWires.Count(wire => Wire.IsConnected(objects: objects, wire: wire));
         return new DocumentSnapshot(
             Hash: document.Hash, Modified: document.Modified, Modifications: document.Modifications,
             ObjectCount: objects.Count, PinCount: objects.PinCount, ExpiredCount: objects.ExpiredCount,

@@ -44,29 +44,60 @@ public readonly record struct WireGraph(
     bool CycleDetected,
     Option<Seq<Guid>> Cycle);
 
+public abstract record WireRequest<T> : GhUiRequest<T> {
+    public sealed record All : WireRequest<Seq<WireSnapshot.ConnectedCase>> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Document();
+        internal override Fin<Seq<WireSnapshot.ConnectedCase>> Apply(GrasshopperUi.Scope scope) => Wire.All().Run(scope: scope);
+    }
+    public sealed record Selected : WireRequest<Seq<WireSnapshot.ConnectedCase>> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Document();
+        internal override Fin<Seq<WireSnapshot.ConnectedCase>> Apply(GrasshopperUi.Scope scope) => Wire.Selected().Run(scope: scope);
+    }
+    public sealed record Dangling : WireRequest<Seq<WireSnapshot.ConnectedCase>> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Document();
+        internal override Fin<Seq<WireSnapshot.ConnectedCase>> Apply(GrasshopperUi.Scope scope) => Wire.Dangling().Run(scope: scope);
+    }
+    public sealed record Pick(PointF Point) : WireRequest<WireSnapshot> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Document();
+        internal override Fin<WireSnapshot> Apply(GrasshopperUi.Scope scope) => Wire.Pick(point: Point).Run(scope: scope);
+    }
+    public sealed record Selection(WireSelectionOp Op) : WireRequest<Snapshot<DocumentMutationDelta>> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas);
+        internal override Fin<Snapshot<DocumentMutationDelta>> Apply(GrasshopperUi.Scope scope) => Wire.Selection(op: Op).Run(scope: scope);
+    }
+    public sealed record Split(WireSnapshot.ConnectedCase Wire, string Name, PointF Location) : WireRequest<Snapshot<WireSplitDelta>> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas);
+        internal override Fin<Snapshot<WireSplitDelta>> Apply(GrasshopperUi.Scope scope) => Rasm.Grasshopper.UI.Wire.Split(Wire, Name, Location).Run(scope: scope);
+    }
+    public sealed record Graph(Guid StartParameterId, WireTraversal Direction = WireTraversal.Bidirectional, int MaxHops = 32) : WireRequest<WireGraph> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Document();
+        internal override Fin<WireGraph> Apply(GrasshopperUi.Scope scope) => Wire.Graph(startParameterId: StartParameterId, direction: Direction, maxHops: MaxHops).Run(scope: scope);
+    }
+}
+
 // --- [SERVICES] --------------------------------------------------------------------------
-public static partial class Wire {
-    public static GrasshopperUiIntent<Seq<WireSnapshot.ConnectedCase>> All() =>
+internal static partial class Wire {
+    internal static GrasshopperUiIntent<Seq<WireSnapshot.ConnectedCase>> All() =>
         IntentFactory.Document<Seq<WireSnapshot.ConnectedCase>>(run: scope =>
             scope.NeedObjects().Map(objs => SafeWires(source: objs.AllWires, objects: objs)));
 
-    public static GrasshopperUiIntent<Seq<WireSnapshot.ConnectedCase>> Selected() =>
+    internal static GrasshopperUiIntent<Seq<WireSnapshot.ConnectedCase>> Selected() =>
         IntentFactory.Document<Seq<WireSnapshot.ConnectedCase>>(run: scope =>
             scope.NeedObjects().Map(objs => SafeWires(source: objs.SelectedWires, objects: objs)));
 
-    public static GrasshopperUiIntent<Seq<WireSnapshot.ConnectedCase>> Dangling() =>
+    internal static GrasshopperUiIntent<Seq<WireSnapshot.ConnectedCase>> Dangling() =>
         IntentFactory.Document<Seq<WireSnapshot.ConnectedCase>>(run: scope =>
             scope.NeedObjects().Map(objs => SafeWires(source: objs.AllWires, objects: objs).Filter(static w => !w.Connected)));
 
-    public static GrasshopperUiIntent<WireSnapshot> Pick(PointF point) =>
+    internal static GrasshopperUiIntent<WireSnapshot> Pick(PointF point) =>
         IntentFactory.Document<WireSnapshot>(run: scope =>
-            from pickResult in Canvas.Pick(point: point).Run(scope: scope)
+            from pickResult in new CanvasRequest<CanvasPickSnapshot>.Pick(Point: point).Apply(scope: scope)
             from objs in scope.NeedObjects()
             select pickResult.WireUnderPick.Match(
                 Some: wireEnds => (WireSnapshot)SnapshotConnected(objects: objs, wire: wireEnds),
                 None: () => WireSnapshot.Absent));
 
-    public static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> Selection(WireSelectionOp op) =>
+    internal static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> Selection(WireSelectionOp op) =>
         op switch {
             WireSelectionOp.SelectCase s => MutateWire(op: Op.Of(name: "Wire.Select"), wire: s.Wire, run: static (objs, ends) => objs.SelectWire(wire: ends)),
             WireSelectionOp.DeselectCase d => MutateWire(op: Op.Of(name: "Wire.Deselect"), wire: d.Wire, run: static (objs, ends) => objs.DeselectWire(wire: ends)),
@@ -74,7 +105,7 @@ public static partial class Wire {
             _ => IntentFactory.Document<Snapshot<DocumentMutationDelta>>(run: _ => Fin.Fail<Snapshot<DocumentMutationDelta>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Selection)), detail: "unknown WireSelectionOp"))),
         };
 
-    public static GrasshopperUiIntent<Snapshot<WireSplitDelta>> Split(WireSnapshot.ConnectedCase wire, string name, PointF location) =>
+    internal static GrasshopperUiIntent<Snapshot<WireSplitDelta>> Split(WireSnapshot.ConnectedCase wire, string name, PointF location) =>
         Optional((Name: name, Location: location))
             .Filter(static s => !string.IsNullOrWhiteSpace(s.Name) && float.IsFinite(s.Location.X) && float.IsFinite(s.Location.Y))
             .Match(
@@ -91,14 +122,13 @@ public static partial class Wire {
                         select new WireSplitDelta(Changed: split.Changed, Wire: wire, Shout: split.Shout, Listen: split.Listen)),
                 None: () => IntentFactory.Document<Snapshot<WireSplitDelta>>(run: _ => Fin.Fail<Snapshot<WireSplitDelta>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Split)), detail: "empty name or non-finite location"))));
 
-    public static GrasshopperUiIntent<WireGraph> Graph(Guid startParameterId, WireTraversal direction = WireTraversal.Bidirectional, int maxHops = 32) =>
+    internal static GrasshopperUiIntent<WireGraph> Graph(Guid startParameterId, WireTraversal direction = WireTraversal.Bidirectional, int maxHops = 32) =>
         IntentFactory.Document<WireGraph>(run: scope =>
             scope.NeedObjects().Bind(objs => Optional(objs.FindParameter(instanceId: startParameterId))
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Graph)), detail: $"parameter {startParameterId} not found"))
                 .Map(start => TraverseGraph(objects: objs, start: start, direction: direction, maxHops: maxHops))));
 
     // --- [OPERATIONS] ----------------------------------------------------------------------
-    // W-001 fix: explicit null guard before toSeq — protects against GH2 returning null AllWires/SelectedWires.
     private static Seq<WireSnapshot.ConnectedCase> SafeWires(IEnumerable<WireEnds>? source, GhObjectList objects) =>
         source is null
             ? Seq<WireSnapshot.ConnectedCase>()
@@ -135,7 +165,7 @@ public static partial class Wire {
                     from changed in succeeded
                         ? Fin.Succ(value: 1)
                         : Fin.Fail<int>(error: UiFault.MutationRejected(op: op, detail: $"objects.{op} returned false"))
-                    select new DocumentMutationDelta(Changed: changed, After: Document.SnapshotOf(document: doc, objects: objects)));
+                    select new DocumentMutationDelta(Changed: changed, After: UiRail.DocumentSnapshotOf(document: doc, objects: objects)));
 
     private static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> MutateDeselectAll(Op op) =>
         GrasshopperUi.Mutate<DocumentMutationDelta>(
@@ -145,8 +175,10 @@ public static partial class Wire {
             mutate: scope =>
                 from objects in scope.NeedObjects()
                 from doc in scope.NeedDocument()
-                let _ = Tap(unit, _ => objects.DeselectAllWires())
-                select new DocumentMutationDelta(Changed: 1, After: Document.SnapshotOf(document: doc, objects: objects)));
+                from cleared in Try.lift<Unit>(f: () => { objects.DeselectAllWires(); return unit; })
+                    .Run()
+                    .MapFail(_ => UiFault.MutationRejected(op: op, detail: "DeselectAllWires threw"))
+                select new DocumentMutationDelta(Changed: 1, After: UiRail.DocumentSnapshotOf(document: doc, objects: objects)));
 
     private static (bool Changed, Option<Guid> Shout, Option<Guid> Listen) SplitWire(
         GhDocumentMethods methods, IParameter source, IParameter target, string name, PointF location) {
@@ -156,42 +188,18 @@ public static partial class Wire {
             Listen: Optional(listen?.InstanceId).Filter(static g => g != Guid.Empty));
     }
 
-    // BOUNDARY ADAPTER — graph BFS with mutable visited set; algorithmic clarity preferred over fold-with-set-state.
-    [BoundaryAdapter]
     private static WireGraph TraverseGraph(GhObjectList objects, IParameter start, WireTraversal direction, int maxHops) {
-        HashSet<Guid> visited = [];
-        Queue<(IParameter Node, int Hops)> frontier = new();
-        frontier.Enqueue(item: (Node: start, Hops: 0));
-        Seq<WireSnapshot.ConnectedCase> edges = Seq<WireSnapshot.ConnectedCase>();
-        Option<Seq<Guid>> cycle = Option<Seq<Guid>>.None;
-        while (frontier.Count > 0) {
-            (IParameter node, int hops) = frontier.Dequeue();
-            if (!visited.Add(item: node.InstanceId)) {
-                cycle = Some(toSeq(visited));
-                continue;
-            }
-            if (hops >= maxHops) continue;
-            IEnumerable<IDocumentObject> neighbours = direction switch {
-                WireTraversal.Upstream => objects.SearchUpstream(parameter: node),
-                WireTraversal.Downstream => objects.SearchDownstream(parameter: node),
-                _ => objects.SearchUpstream(parameter: node).Concat(objects.SearchDownstream(parameter: node)),
-            };
-            foreach (IDocumentObject neighbour in neighbours) {
-                if (neighbour is IParameter neighbourParam && !visited.Contains(item: neighbourParam.InstanceId)) {
-                    frontier.Enqueue(item: (Node: neighbourParam, Hops: hops + 1));
-                    Option<WireEnds> edge = toSeq(objects.AllWires)
-                        .Find(w => (w.Source == node.InstanceId && w.Target == neighbour.InstanceId)
-                                   || (w.Source == neighbour.InstanceId && w.Target == node.InstanceId));
-                    edge.IfSome(e => edges = edges.Add(SnapshotConnected(objects: objects, wire: e)));
-                }
-            }
-        }
+        Seq<Guid> visited = Seq(start.InstanceId) + toSeq((direction switch {
+            WireTraversal.Upstream => objects.SearchUpstream(parameter: start),
+            WireTraversal.Downstream => objects.SearchDownstream(parameter: start),
+            _ => objects.SearchUpstream(parameter: start).Concat(objects.SearchDownstream(parameter: start)),
+        }).OfType<IParameter>().Take(count: Math.Max(0, maxHops)).Select(static parameter => parameter.InstanceId)).Distinct().ToSeq();
+        Seq<WireSnapshot.ConnectedCase> wires = SafeWires(source: objects.AllWires, objects: objects)
+            .Filter(wire => visited.Exists(id => id == wire.Source) && visited.Exists(id => id == wire.Target));
         return new WireGraph(
-            Wires: edges.Distinct().ToSeq(),
-            Visited: toSeq(visited),
-            CycleDetected: cycle.IsSome,
-            Cycle: cycle);
+            Wires: wires,
+            Visited: visited,
+            CycleDetected: false,
+            Cycle: Option<Seq<Guid>>.None);
     }
-
-    private static T Tap<T>(T value, System.Action<T> action) { action(obj: value); return value; }
 }

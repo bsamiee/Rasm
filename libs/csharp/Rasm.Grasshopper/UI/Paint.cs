@@ -34,22 +34,80 @@ public readonly record struct PaintScope(
             None: () => unit);
 
     internal Option<CanvasBackgroundPaintEventArgs> Background { get; init; }
+
+    public Fin<Unit> Apply(PaintMark mark) {
+        PaintScope current = this;
+        return Optional(mark)
+            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Apply)), detail: "paint mark is required"))
+            .Bind(valid => valid.Apply(scope: current));
+    }
+}
+
+public abstract record PaintMark {
+    public sealed record Line(PointF A, PointF B, Color Colour, float Thickness = 1f) : PaintMark;
+    public sealed record Rectangle(RectangleF Bounds, Color Edge, Option<Color> Fill = default, float Thickness = 1f) : PaintMark;
+    public sealed record Label(string Value, PointF Location, Color Colour, Option<Font> Font = default) : PaintMark;
+
+    internal Fin<Unit> Apply(PaintScope scope) => this switch {
+        Line line => Try.lift<Unit>(f: () => {
+            using Pen pen = new(color: line.Colour, thickness: line.Thickness);
+            scope.Graphics.Content.DrawLine(pen, line.A.X, line.A.Y, line.B.X, line.B.Y);
+            return unit;
+        }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(Line)), detail: "DrawLine threw")),
+        Rectangle rectangle => Try.lift<Unit>(f: () => {
+            _ = rectangle.Fill.IfSome(fill => {
+                using SolidBrush brush = new(color: fill);
+                scope.Graphics.Content.FillRectangle(brush: brush, rectangle: rectangle.Bounds);
+            });
+            using Pen pen = new(color: rectangle.Edge, thickness: rectangle.Thickness);
+            scope.Graphics.Content.DrawRectangle(pen: pen, rectangle: rectangle.Bounds);
+            return unit;
+        }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(Rectangle)), detail: "DrawRectangle threw")),
+        Label text => Try.lift<Unit>(f: () => {
+            using SolidBrush brush = new(color: text.Colour);
+            scope.Graphics.Content.DrawText(font: text.Font.IfNone(SystemFonts.Default()), brush: brush, location: text.Location, text: text.Value);
+            return unit;
+        }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(Label)), detail: "DrawText threw")),
+        _ => Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(PaintMark)), detail: "unknown paint mark")),
+    };
+}
+
+public readonly record struct PaintPlan(Seq<PaintMark> Marks) {
+    public static PaintPlan Empty => new(Marks: Seq<PaintMark>());
+    public static PaintPlan operator +(PaintPlan left, PaintPlan right) => new(Marks: left.Marks + right.Marks);
+    public static PaintPlan Add(PaintPlan left, PaintPlan right) => left + right;
+    internal Fin<Unit> Apply(PaintScope scope) => Marks.TraverseM(scope.Apply).Map(static marks => unit).As();
 }
 
 // P-003 fix: expanded snapshot carries the Skin instance for callers to query sub-skins (Wires, Shades, Grips, etc.).
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct PaintSkinSnapshot(bool HasSkin, string SkinType, Option<Skin> Skin);
 
+public abstract record PaintRequest<T> : GhUiRequest<T> {
+    public sealed record Skin : PaintRequest<PaintSkinSnapshot> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
+        internal override Fin<PaintSkinSnapshot> Apply(GrasshopperUi.Scope scope) => Paint.Skin().Run(scope: scope);
+    }
+    public sealed record Hook(CanvasPaintPhase Phase, PaintPlan Plan) : PaintRequest<IDisposable> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
+        internal override Fin<IDisposable> Apply(GrasshopperUi.Scope scope) => Paint.Hook(phase: Phase, paint: Plan.Apply).Run(scope: scope);
+    }
+    public sealed record RedrawOnMouseMove(bool Enabled = true) : PaintRequest<Unit> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Canvas);
+        internal override Fin<Unit> Apply(GrasshopperUi.Scope scope) => Paint.RedrawOnMouseMove(enabled: Enabled).Run(scope: scope);
+    }
+}
+
 // --- [SERVICES] --------------------------------------------------------------------------
-public static partial class Paint {
-    public static GrasshopperUiIntent<PaintSkinSnapshot> Skin() =>
+internal static partial class Paint {
+    internal static GrasshopperUiIntent<PaintSkinSnapshot> Skin() =>
         IntentFactory.Canvas<PaintSkinSnapshot>(run: scope => scope.NeedSkin().Map(skin =>
             new PaintSkinSnapshot(
                 HasSkin: true,
                 SkinType: skin.GetType().FullName ?? skin.GetType().Name,
                 Skin: Some(skin))));
 
-    public static GrasshopperUiIntent<IDisposable> Hook(CanvasPaintPhase phase, Func<PaintScope, Fin<Unit>> paint) =>
+    internal static GrasshopperUiIntent<IDisposable> Hook(CanvasPaintPhase phase, Func<PaintScope, Fin<Unit>> paint) =>
         IntentFactory.Canvas<IDisposable>(run: scope =>
             from canvas in scope.NeedCanvas()
             from valid in Optional(paint).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Hook)), detail: "null paint callback"))
@@ -58,7 +116,7 @@ public static partial class Paint {
             select (IDisposable)PaintSubscription.Attach(canvas: canvas, phaseCase: phaseCase, paint: valid));
 
     // P-002 fix: parameterized — no longer asymmetric (was always true-only in pre-refactor).
-    public static GrasshopperUiIntent<Unit> RedrawOnMouseMove(bool enabled = true) =>
+    internal static GrasshopperUiIntent<Unit> RedrawOnMouseMove(bool enabled = true) =>
         IntentFactory.Canvas<Unit>(
             repaint: RepaintRequest.Canvas,
             run: scope => scope.NeedCanvas().Map(canvas => { canvas.RedrawOnMouseMove = enabled; return unit; }));
@@ -102,35 +160,5 @@ public static partial class Paint {
             phaseCase.Attach(arg1: canvas, arg2: handler);
             return new PaintSubscription(dispose: () => phaseCase.Detach(arg1: canvas, arg2: handler));
         }
-    }
-}
-
-// --- [OPERATIONS] ------------------------------------------------------------------------
-// P-004 fix: drawing helpers on PaintScope via extension methods using ControlGraphics + Skin.
-public static class PaintScopeExtensions {
-    public static Unit DrawLine(this PaintScope scope, PointF a, PointF b, Color colour, float thickness = 1f) {
-        using Pen pen = new(color: colour, thickness: thickness);
-        scope.Graphics.Content.DrawLine(pen, a.X, a.Y, b.X, b.Y);
-        return unit;
-    }
-
-    public static Unit DrawRectangle(this PaintScope scope, RectangleF bounds, Color edge, Color? fill = null, float thickness = 1f) {
-        Optional(fill).IfSome(f => {
-            using SolidBrush brush = new(color: f);
-            scope.Graphics.Content.FillRectangle(brush: brush, rectangle: bounds);
-        });
-        using Pen pen = new(color: edge, thickness: thickness);
-        scope.Graphics.Content.DrawRectangle(pen: pen, rectangle: bounds);
-        return unit;
-    }
-
-    public static Unit DrawText(this PaintScope scope, string text, PointF location, Color colour, Font? font = null) {
-        using SolidBrush brush = new(color: colour);
-        scope.Graphics.Content.DrawText(
-            font: font ?? SystemFonts.Default(),
-            brush: brush,
-            location: location,
-            text: text);
-        return unit;
     }
 }

@@ -104,7 +104,7 @@ csharp_style_expression_bodied_local_functions = when_on_single_line:error    # 
 dotnet_style_prefer_auto_properties = true:error                              # Prefer auto-properties over trivial backing fields.
 
 # --- [FORMATTING_KR] --------------------------------------------------------
-csharp_prefer_braces = true:error                                             # Require braces for explicit control-flow blocks.
+csharp_prefer_braces = false:error                                            # Prefer unbraced control-flow blocks when unavoidable.
 csharp_new_line_before_open_brace = none                                      # Enforce K&R brace placement.
 csharp_new_line_before_else = false                                           # Keep else on the same line as closing brace.
 csharp_new_line_before_catch = false                                          # Keep catch on the same line as closing brace.
