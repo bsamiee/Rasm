@@ -1,3 +1,4 @@
+using Rasm.Rhino.Exchange;
 using Result = Rhino.Commands.Result;
 using UiGumballSnapshot = Rasm.Rhino.UI.UiGumballSnapshot;
 using UiViewportPreview = Rasm.Rhino.UI.UiViewportPreview;
@@ -117,8 +118,11 @@ public sealed record CommandStageContext<TState>(
     private Fin<CommandStageContext<TState>> Apply(PromptTransition<TState> transition) =>
         Optional(transition).ToFin(Fail: Op.Of(name: nameof(Apply)).InvalidInput()).Bind(valid => valid.Apply(context: this));
 
-    public Fin<Seq<string>> Files(Rasm.Rhino.UI.UiFileSpec spec) =>
-        Use(intent: Rasm.Rhino.UI.UiIntent.File(spec: spec), scripted: context => context.Events.Files(context: context, spec: spec));
+    public Fin<Seq<FileEndpoint>> Files(FilePrompt prompt) =>
+        Context.Mode switch {
+            RunMode.Scripted => Events.Files(context: this, prompt: prompt),
+            _ => Context.Files.Run(operation: FileOp.Prompt(prompt: prompt)),
+        };
 
     public Fin<Unit> Status(Rasm.Rhino.UI.UiStatus status) =>
         Context.Ui.Use(intent: Rasm.Rhino.UI.UiIntent.Status(status: status));
@@ -160,13 +164,17 @@ public readonly record struct PromptGumballContext<TState>(CommandStageContext<T
 
 public readonly record struct CommandGraphEvents<TState>(
     Func<CommandStageContext<TState>, Option<string>>? ScriptedToken = null,
-    Func<CommandStageContext<TState>, Rasm.Rhino.UI.UiFileSpec, Fin<Seq<string>>>? ScriptedFiles = null) {
+    Func<CommandStageContext<TState>, FilePrompt, Fin<Seq<FileEndpoint>>>? ScriptedFilePrompt = null) {
     public Option<string> Token(CommandStageContext<TState> context) =>
         Optional(ScriptedToken).Bind(project => project(arg: context));
 
-    public Fin<Seq<string>> Files(CommandStageContext<TState> context, Rasm.Rhino.UI.UiFileSpec spec) =>
-        Optional(ScriptedFiles).Map(project => project(arg1: context, arg2: spec)).IfNone(() =>
-            spec.FileName.Map(value => Seq(value)).ToFin(Fail: Op.Of(name: nameof(Files)).InvalidInput()));
+    public Fin<Seq<FileEndpoint>> Files(CommandStageContext<TState> context, FilePrompt prompt) =>
+        Optional(ScriptedFilePrompt)
+            .Map(project => project(arg1: context, arg2: prompt))
+            .IfNone(() =>
+                from valid in Optional(prompt).ToFin(Fail: Op.Of(name: nameof(Files)).InvalidInput())
+                from defaults in valid.Defaults(op: Op.Of(name: nameof(Files)))
+                select defaults);
 }
 
 public abstract record PromptTransition<TState> {

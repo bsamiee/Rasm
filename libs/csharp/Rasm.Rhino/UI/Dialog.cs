@@ -1,5 +1,6 @@
 using System.Reflection;
 using Eto.Forms;
+using Rasm.Rhino.Exchange;
 using DrawingBitmap = System.Drawing.Bitmap;
 using DrawingColor = System.Drawing.Color;
 using DrawingSize = System.Drawing.Size;
@@ -8,7 +9,6 @@ namespace Rasm.Rhino.UI;
 
 // --- [TYPES] ------------------------------------------------------------------------------
 public enum UiWindowMode { Modal, SemiModal }
-public enum UiFileMode { OpenOne, OpenMany, Save }
 public enum UiLayerMode { Single, Multiple, Material }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -35,7 +35,6 @@ public sealed record UiIntent<T> {
 
 public readonly record struct UiWindowHandle(uint DocumentSerialNumber, string WindowType, string Title, bool Visible);
 
-public readonly record struct UiFileSpec(string Title, string Filter, UiFileMode Mode = UiFileMode.OpenOne, Option<string> FileName = default, Option<string> InitialDirectory = default, Option<string> DefaultExtension = default);
 public readonly record struct UiLayerSpec(string Title, UiLayerMode Mode = UiLayerMode.Single, Option<Seq<int>> Selected = default, bool ShowNewLayer = false, bool ShowSetCurrent = false, bool InitialSetCurrent = false);
 public readonly record struct UiLayerResult(Seq<int> Indices, bool SetCurrent, bool MaterialChanged) {
     public Option<int> Single => Indices.Find(static index => index >= 0);
@@ -184,33 +183,35 @@ public static class UiIntent {
             (Seq<string> values, Seq<int> flags) => global::Rhino.UI.Dialogs.ShowContextMenu(items: values.AsIterable(), screenPoint: screenPoint, modes: (flags.IsEmpty ? toSeq(Enumerable.Repeat(element: 1, count: values.Count)) : flags).AsIterable()) switch {
                 int index when index >= 0 => Fin.Succ(value: index),
                 _ => Fin.Fail<int>(error: new Fault.Cancelled()),
-            },
+            }
         }));
 
-    public static UiIntent<Seq<string>> File(UiFileSpec spec) =>
-        Request(name: nameof(File), run: _ => spec.Mode switch {
-            UiFileMode.Save => new global::Rhino.UI.SaveFileDialog { Title = spec.Title, Filter = spec.Filter, FileName = spec.FileName.IfNone(string.Empty), InitialDirectory = spec.InitialDirectory.IfNone(string.Empty), DefaultExt = spec.DefaultExtension.IfNone(string.Empty) } switch {
-                global::Rhino.UI.SaveFileDialog dialog => dialog.ShowSaveDialog() switch {
-                    true => Fin.Succ(value: Seq(dialog.FileName)),
-                    false => Fin.Fail<Seq<string>>(error: new Fault.Cancelled()),
+    internal static UiIntent<Seq<FileEndpoint>> ExchangeFile(FilePrompt prompt) =>
+        Request(name: nameof(ExchangeFile), run: scope =>
+            from spec in Optional(prompt).ToFin(Fail: Op.Of(name: nameof(ExchangeFile)).InvalidInput())
+            from paths in spec.Mode switch {
+                FilePromptMode.Save => new global::Rhino.UI.SaveFileDialog { Title = spec.Title, Filter = spec.Filter, FileName = spec.FileName.IfNone(string.Empty), InitialDirectory = spec.InitialDirectory.IfNone(string.Empty), DefaultExt = spec.DefaultExtension.IfNone(string.Empty) } switch {
+                    global::Rhino.UI.SaveFileDialog dialog => dialog.ShowSaveDialog() switch {
+                        true => Fin.Succ(value: Seq(dialog.FileName)),
+                        false => Fin.Fail<Seq<string>>(error: new Fault.Cancelled()),
+                    },
                 },
-            },
-            UiFileMode.OpenOne or UiFileMode.OpenMany => new global::Rhino.UI.OpenFileDialog { Title = spec.Title, Filter = spec.Filter, FileName = spec.FileName.IfNone(string.Empty), InitialDirectory = spec.InitialDirectory.IfNone(string.Empty), DefaultExt = spec.DefaultExtension.IfNone(string.Empty), MultiSelect = spec.Mode == UiFileMode.OpenMany } switch {
-                global::Rhino.UI.OpenFileDialog dialog => dialog.ShowOpenDialog() switch {
-                    true => Fin.Succ(value: spec.Mode == UiFileMode.OpenMany ? toSeq(dialog.FileNames) : Seq(dialog.FileName)),
-                    false => Fin.Fail<Seq<string>>(error: new Fault.Cancelled()),
+                FilePromptMode.OpenOne or FilePromptMode.OpenMany => new global::Rhino.UI.OpenFileDialog { Title = spec.Title, Filter = spec.Filter, FileName = spec.FileName.IfNone(string.Empty), InitialDirectory = spec.InitialDirectory.IfNone(string.Empty), DefaultExt = spec.DefaultExtension.IfNone(string.Empty), MultiSelect = spec.Mode == FilePromptMode.OpenMany } switch {
+                    global::Rhino.UI.OpenFileDialog dialog => dialog.ShowOpenDialog() switch {
+                        true => Fin.Succ(value: spec.Mode == FilePromptMode.OpenMany ? toSeq(dialog.FileNames) : Seq(dialog.FileName)),
+                        false => Fin.Fail<Seq<string>>(error: new Fault.Cancelled()),
+                    },
                 },
-            },
-            _ => Fin.Fail<Seq<string>>(error: Op.Of(name: nameof(File)).InvalidInput()),
-        });
-
-    public static UiIntent<string> Folder(string title, Option<string> directory = default) =>
-        Request(name: nameof(Folder), run: scope => new SelectFolderDialog { Title = title, Directory = directory.IfNone(string.Empty) } switch {
-            SelectFolderDialog dialog => dialog.ShowDialog(parent: scope.Parent) switch {
-                DialogResult.Ok => Optional(dialog.Directory).ToFin(Fail: new Fault.Cancelled()),
-                _ => Fin.Fail<string>(error: new Fault.Cancelled()),
-            },
-        });
+                FilePromptMode.Folder => new SelectFolderDialog { Title = spec.Title, Directory = spec.InitialDirectory.IfNone(string.Empty) } switch {
+                    SelectFolderDialog dialog => dialog.ShowDialog(parent: scope.Parent) switch {
+                        DialogResult.Ok => Optional(dialog.Directory).ToFin(Fail: new Fault.Cancelled()).Map(value => Seq(value)),
+                        _ => Fin.Fail<Seq<string>>(error: new Fault.Cancelled()),
+                    },
+                },
+                _ => Fin.Fail<Seq<string>>(error: Op.Of(name: nameof(ExchangeFile)).InvalidInput()),
+            }
+            from endpoints in paths.TraverseM(path => FileEndpoint.From(path: path, name: spec.Name, write: spec.Write)).As()
+            select endpoints);
 
     public static UiIntent<string> Edit(string title, string message, string value = "", bool expanded = false) =>
         Request(name: nameof(Edit), run: _ => global::Rhino.UI.Dialogs.ShowEditBox(title: title, message: message, defaultText: value, multiline: expanded, text: out string result) switch {

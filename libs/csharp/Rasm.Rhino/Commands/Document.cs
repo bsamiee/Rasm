@@ -1,9 +1,8 @@
 namespace Rasm.Rhino.Commands;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-public enum DocumentResourceKind { Table, Block, View, File }
+public enum DocumentResourceKind { Table, Block, View }
 public enum DocumentLifecycle { Purge, Undelete }
-public enum DocumentFileMode { Import, Export, ExportSelected, SaveAs }
 
 // --- [MODELS] -----------------------------------------------------------------------------
 public readonly record struct DocumentSelectionPolicy(bool Highlight, bool IgnoreGrips, bool Persistent, bool IgnoreLayerLocking, bool IgnoreLayerVisibility) {
@@ -241,7 +240,7 @@ public readonly record struct DocumentReceipt(Seq<Guid> Created, Seq<Guid> Repla
     }
 }
 
-public readonly record struct DocumentResourceChange(DocumentResourceKind Kind, string Name, Option<DocumentFileMode> FileMode = default);
+public readonly record struct DocumentResourceChange(DocumentResourceKind Kind, string Name);
 public readonly record struct DocumentCustomUndo(string Name, EventHandler<global::Rhino.Commands.CustomUndoEventArgs> Undo, Option<object> Data = default) {
     internal Fin<string> Register(RhinoDoc document, Op op) {
         string label = Name;
@@ -369,32 +368,6 @@ public abstract record DocumentOp {
             select DocumentReceipt.Empty with { ResourceChanged = Seq(new DocumentResourceChange(Kind: Kind, Name: label)) };
     }
 
-    public sealed record File(string FilePath, DocumentFileMode Mode) : DocumentOp {
-        internal override bool RecordsUndo => Mode == DocumentFileMode.Import;
-
-        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) =>
-            DocumentEdit.NonBlank(value: FilePath, op: op).Bind((string path) =>
-                Snapshot(document: document).Bind((Seq<Guid> created) =>
-                    Write(document: document, path: path, op: op).Bind((Unit _) =>
-                        Snapshot(document: document).Map((Seq<Guid> after) =>
-                            DocumentReceipt.Empty with {
-                                Created = after.Filter(id => !created.Exists(item => item == id)),
-                                ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.File, Name: path, FileMode: Some(Mode))),
-                            }))));
-
-        private Fin<Seq<Guid>> Snapshot(RhinoDoc document) =>
-            Mode == DocumentFileMode.Import ? DocumentEdit.LiveObjectIds(document: document) : Fin.Succ(value: Seq<Guid>());
-
-        private Fin<Unit> Write(RhinoDoc document, string path, Op op) =>
-            Mode switch {
-                DocumentFileMode.Import => DocumentEdit.UnitResult(success: document.Import(filePath: path), op: op),
-                DocumentFileMode.Export => DocumentEdit.UnitResult(success: document.Export(filePath: path), op: op),
-                DocumentFileMode.ExportSelected => DocumentEdit.UnitResult(success: document.ExportSelected(filePath: path), op: op),
-                DocumentFileMode.SaveAs => DocumentEdit.UnitResult(success: document.SaveAs(path), op: op),
-                _ => Fin.Fail<Unit>(error: op.InvalidInput()),
-            };
-    }
-
     internal virtual bool RecordsUndo => true;
 }
 
@@ -411,16 +384,26 @@ public sealed record DocumentEdit {
     public Rasm.Domain.Context Domain { get; }
 
     public Fin<DocumentReceipt> Commit(DocumentTransaction transaction) =>
-        from document in Available(op: Op.Of(name: nameof(Commit)))
         from plan in Optional(transaction).ToFin(Fail: Op.Of(name: nameof(Commit)).InvalidInput())
         from name in NonBlank(value: plan.Name, op: Op.Of(name: nameof(Commit)))
         from _ in guard(!plan.Operations.IsEmpty || !plan.CustomUndo.IsEmpty, Op.Of(name: nameof(Commit)).InvalidInput())
         from __ in guard(plan.UndoRecorded || plan.CustomUndo.IsEmpty, Op.Of(name: name).InvalidInput())
-        from receipt in Mutate(document: document, name: name, recordsUndo: plan.UndoRecorded && (plan.Operations.Exists(static operation => operation.RecordsUndo) || !plan.CustomUndo.IsEmpty), suppressRedraw: plan.Redraw.SuppressDuringCommit, run: () =>
+        from receipt in Commit(
+            name: name,
+            redraw: plan.Redraw,
+            undoRecorded: plan.UndoRecorded && (plan.Operations.Exists(static operation => operation.RecordsUndo) || !plan.CustomUndo.IsEmpty),
+            run: (document, domain, op) =>
             from customUndo in plan.CustomUndo.TraverseM(undo => undo.Register(document: document, op: Op.Of(name: name))).As()
-            from result in plan.Operations.TraverseM(operation => operation.Apply(document: document, domain: Domain, op: Op.Of(name: name))).As().Map(static receipts => receipts.Fold(DocumentReceipt.Empty, static (state, value) => state + value))
+            from result in plan.Operations.TraverseM(operation => operation.Apply(document: document, domain: domain, op: op)).As().Map(static receipts => receipts.Fold(DocumentReceipt.Empty, static (state, value) => state + value))
             select result with { CustomUndo = customUndo })
-        from redraw in plan.Redraw.Enabled switch {
+        select receipt;
+
+    internal Fin<DocumentReceipt> Commit(string name, DocumentRedraw redraw, bool undoRecorded, Func<RhinoDoc, Rasm.Domain.Context, Op, Fin<DocumentReceipt>> run) =>
+        from document in Available(op: Op.Of(name: nameof(Commit)))
+        from label in NonBlank(value: name, op: Op.Of(name: nameof(Commit)))
+        from active in Optional(run).ToFin(Fail: Op.Of(name: label).InvalidInput())
+        from receipt in Mutate(document: document, name: label, recordsUndo: undoRecorded, suppressRedraw: redraw.SuppressDuringCommit, run: () => active(arg1: document, arg2: Domain, arg3: Op.Of(name: label)))
+        from _ in redraw.Enabled switch {
             true => Redraw(),
             false => Fin.Succ(value: unit),
         }

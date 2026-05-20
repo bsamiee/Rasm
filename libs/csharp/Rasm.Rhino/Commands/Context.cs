@@ -11,6 +11,7 @@ public sealed class RhinoCommandContext {
         Edit = new(document: document, domain: domain);
         Ui = new(document: document, mode: mode);
         Camera = new(document: document);
+        Files = Rasm.Rhino.Exchange.RhinoFiles.Live(document: document, mode: mode);
     }
 
     public RhinoDoc Document { get; }
@@ -21,6 +22,7 @@ public sealed class RhinoCommandContext {
     public DocumentEdit Edit { get; }
     public Rasm.Rhino.UI.RhinoUi Ui { get; }
     public Rasm.Rhino.Camera.RhinoCamera Camera { get; }
+    public Rasm.Rhino.Exchange.RhinoFiles Files { get; }
 
     public static Fin<RhinoCommandContext> Of(RhinoDoc doc, RunMode mode) =>
         Optional(doc)
