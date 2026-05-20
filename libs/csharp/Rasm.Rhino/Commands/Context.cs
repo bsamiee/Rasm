@@ -61,4 +61,13 @@ public sealed class RhinoCommandContext {
             _ => Option<RhinoViewport>.None,
         }).ToFin(Fail: Op.Of(name: nameof(Viewport)).MissingContext())
         select (View: view, Viewport: viewport);
+
+    public Fin<T> InViewport<T>(Option<Guid> viewportId, Func<RhinoView, RhinoViewport, Fin<T>> use) =>
+        from valid in Optional(use).ToFin(Fail: Op.Of(name: nameof(InViewport)).InvalidInput())
+        from target in viewportId.Case switch {
+            Guid id => Viewport(viewportId: id),
+            _ => View().Map(static view => (View: view, Viewport: view.ActiveViewport)),
+        }
+        from result in valid(arg1: target.View, arg2: target.Viewport)
+        select result;
 }

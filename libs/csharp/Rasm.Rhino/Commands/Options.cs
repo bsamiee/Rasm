@@ -75,43 +75,27 @@ public abstract record CommandOption {
             },
             string text => Text(name: name, initial: text, allowEmpty: policy.AllowEmpty, prompt: policy.Prompt, localName: Optional(policy.LocalName), varies: policy.Varies),
             Color color => Color(name: name, initial: color, prompt: policy.Prompt, localName: Optional(policy.LocalName), varies: policy.Varies),
-            IEnumerable<string> values => List(name: name, values: toSeq(values), current: policy.Current, localName: Optional(policy.LocalName), varies: policy.Varies),
+            IEnumerable<string> values => Choice(name: name, values: values, label: static value => value, policy: policy),
             _ => Invalid(name: name),
         };
 
     public static CommandOption Named(string name, CommandOptionPolicy policy = default) =>
         NamedOption(name: name, value: policy.ValueName, hidden: policy.Hidden, varies: policy.Varies, localName: Optional(policy.LocalName), localValue: Optional(policy.LocalValueName));
 
-    public static CommandOption Enum<TEnum>(string name, TEnum value, CommandOptionPolicy policy = default) where TEnum : struct, Enum =>
-        EnumList(name: name, initial: value, values: Seq<TEnum>(), varies: policy.Varies);
-
-    public static CommandOption Enum<TEnum>(string name, IEnumerable<TEnum> values, TEnum selected, CommandOptionPolicy policy = default) where TEnum : struct, Enum =>
-        EnumOption(name: name, values: toSeq(values), initial: Some(selected), current: Option<int>.None, varies: policy.Varies);
-
-    public static CommandOption EnumSelection<TEnum>(string name, IEnumerable<TEnum> values, CommandOptionPolicy policy = default) where TEnum : struct, Enum =>
-        EnumSelection(name: name, values: toSeq(values), current: policy.Current, varies: policy.Varies);
-
-    public static CommandOption EnumSelection<TEnum>(string name, IEnumerable<TEnum> values, TEnum selected, CommandOptionPolicy policy = default) where TEnum : struct, Enum {
-        Seq<TEnum> source = Optional(values).Map(static items => toSeq(items)).IfNone(Seq<TEnum>());
-        return EnumIndex(values: source, value: selected).Case switch {
-            int current => EnumSelection(name: name, values: source, current: current, varies: policy.Varies),
-            _ => Invalid(name: name),
-        };
-    }
-
-    public static CommandOption List(string name, IEnumerable<string> values, string selected, CommandOptionPolicy policy = default) {
-        Seq<string> source = Optional(values).Map(static items => toSeq(items)).IfNone(Seq<string>());
-        return IndexOf(values: source, selected: selected, same: StringComparer.Ordinal.Equals).Case switch {
-            int current => List(name: name, values: source, current: current, localName: Optional(policy.LocalName), varies: policy.Varies),
-            _ => Invalid(name: name),
-        };
-    }
-
-    public static CommandOption List<T>(string name, IEnumerable<T> values, Func<T, string> label, T selected, CommandOptionPolicy policy = default) {
+    public static CommandOption Choice<T>(
+        string name,
+        IEnumerable<T> values,
+        Func<T, string> label,
+        Option<T> selected = default,
+        CommandOptionPolicy policy = default) {
         Seq<T> source = Optional(values).Map(static items => toSeq(items)).IfNone(Seq<T>());
-        Option<int> index = IndexOf(values: source, selected: selected, same: EqualityComparer<T>.Default.Equals);
-        return (Optional(label).Case, index.Case) switch {
-            (Func<T, string> project, int current) => List(name: name, values: source, label: project, current: current, localName: Optional(policy.LocalName), varies: policy.Varies),
+        Option<Func<T, string>> project = Optional(label);
+        Option<int> current =
+            selected.Bind(value => toSeq(Enumerable.Range(start: 0, count: source.Count))
+                .Find(index => EqualityComparer<T>.Default.Equals(source[index], value))) |
+            Some(policy.Current);
+        return (project.Case, current.Case) switch {
+            (Func<T, string> labels, int index) => List(name: name, values: source, label: labels, current: index, localName: Optional(policy.LocalName), varies: policy.Varies),
             _ => Invalid(name: name),
         };
     }
@@ -167,42 +151,11 @@ public abstract record CommandOption {
                 from project in Optional(label)
                 from index in toSeq(Enumerable.Range(start: 0, count: values.Count)).Find(index => string.Equals(a: project(arg: values[index]), b: pair.Value, comparisonType: StringComparison.Ordinal) || string.Equals(a: values[index]?.ToString(), b: pair.Value, comparisonType: StringComparison.Ordinal))
                 select Scripted(key: name, value: Some((object)values[index]!), listIndex: Some(index), optionType: CommandLineOptionType.List, stringValue: Some(pair.Value)));
-    private static Case EnumList<TEnum>(string name, TEnum initial, Seq<TEnum> values = default, bool varies = false) where TEnum : struct, Enum =>
-        EnumOption(name: name, values: values, initial: Some(initial), current: Option<int>.None, varies: varies);
-    private static Case EnumSelection<TEnum>(string name, Seq<TEnum> values, int current = 0, bool varies = false) where TEnum : struct, Enum =>
-        EnumOption<TEnum>(name: name, values: values, initial: Option<TEnum>.None, current: Some(current), varies: varies);
-
     private static Case Ref<TNative, TValue>(string name, Func<Fin<TNative>> create, Option<string> prompt, Option<string> localName, RefOptionBinder<TNative> bind, Func<TNative, TValue> current, Func<string, Option<CommandOptionValue>> script, bool varies) where TNative : IDisposable =>
         new(Name: name, AddToGetter: (getter, validName) => create().Bind(native => {
             int index = bind(getter, OptionName(english: validName, localName: localName), ref native, prompt);
             return Added(getter: getter, index: index, native: native, snapshot: g => Fin.Succ(value: Snapshot(key: validName, name: validName, getter: g, value: Some((object)current(arg: native)!), listIndex: Option<int>.None)), varies: varies);
         }), ScriptToken: script);
-
-    private static Case EnumOption<TEnum>(string name, Seq<TEnum> values, Option<TEnum> initial, Option<int> current, bool varies) where TEnum : struct, Enum =>
-        new(Name: name, AddToGetter: (getter, validName) =>
-            from options in current.Case switch {
-                int => NonEmpty(values: values),
-                _ => Fin.Succ(value: values.IsEmpty switch { true => toSeq(global::System.Enum.GetValues<TEnum>()), false => values }),
-            }
-            from selected in current.Case switch {
-                int index => ValidIndex(index: index, count: options.Count, error: Op.Of(name: nameof(CommandOption)).InvalidInput()),
-                _ => Fin.Succ(value: 0),
-            }
-            from seed in initial.Case switch {
-                TEnum value => from _ in EnumIndex(values: options, value: value).ToFin(Fail: Op.Of(name: nameof(CommandOption)).InvalidInput())
-                               select value,
-                _ => Fin.Succ(value: options[0]),
-            }
-            from bound in current.Case switch {
-                int => Added(getter: getter, index: getter.AddOptionEnumSelectionList(validName, options.AsIterable(), selected), native: null, snapshot: g => SnapshotAt(name: validName, getter: g, values: options, selection: true), varies: varies),
-                _ => Added(getter: getter, index: values.IsEmpty ? getter.AddOptionEnumList(validName, seed) : getter.AddOptionEnumList(validName, seed, [.. options]), native: null, snapshot: g => SnapshotAt(name: validName, getter: g, values: options, selection: false), varies: varies),
-            }
-            select bound,
-            ScriptToken: token =>
-                from pair in ScriptPair(name: name, token: token)
-                from selected in ParseEnum<TEnum>(value: pair.Value)
-                from index in EnumIndex(values: values.IsEmpty ? toSeq(global::System.Enum.GetValues<TEnum>()) : values, value: selected)
-                select Scripted(key: name, value: Some((object)selected), listIndex: Some(index), optionType: CommandLineOptionType.List, stringValue: Some(pair.Value)));
 
     internal abstract Fin<Bound> Add(GetBaseClass getter);
     internal abstract Option<CommandOptionValue> Script(string token);
@@ -319,9 +272,6 @@ public abstract record CommandOption {
             _ => Option<bool>.None,
         };
 
-    private static Option<TEnum> ParseEnum<TEnum>(string value) where TEnum : struct, Enum =>
-        global::System.Enum.TryParse(value: value, ignoreCase: true, result: out TEnum selected) ? Some(selected) : Option<TEnum>.None;
-
     private static Fin<Bound> Added(GetBaseClass getter, int index, IDisposable? native, Func<GetBaseClass, Fin<CommandOptionValue>> snapshot, bool varies = false) {
         Bound bound = new(Index: index, Native: native, Capture: snapshot);
         return index switch {
@@ -355,19 +305,6 @@ public abstract record CommandOption {
         from index in ValidIndex(index: getter.Option().CurrentListOptionIndex, count: values.Count, error: Op.Of(name: nameof(CommandOption)).InvalidResult())
         select Snapshot(key: name, name: name, getter: getter, value: Some((object)values[index]!), listIndex: Some(index));
 
-    private static Fin<CommandOptionValue> SnapshotAt<TEnum>(string name, GetBaseClass getter, Seq<TEnum> values, bool selection) where TEnum : struct, Enum =>
-        (selection switch {
-            false => Try.lift<TEnum>(f: getter.GetSelectedEnumValue<TEnum>).Run(),
-            true => Try.lift<TEnum>(f: () => getter.GetSelectedEnumValueFromSelectionList(values.AsIterable())).Run(),
-        })
-            .MapFail(static _ => Op.Of(name: nameof(CommandOption)).InvalidResult())
-            .Map(selected => Snapshot(
-                key: name,
-                name: name,
-                getter: getter,
-                value: Some((object)selected),
-                listIndex: EnumIndex(values: values, value: selected)));
-
     private static Fin<Seq<TValue>> NonEmpty<TValue>(Seq<TValue> values) =>
         values.IsEmpty switch {
             true => Fin.Fail<Seq<TValue>>(error: Op.Of(name: nameof(CommandOption)).InvalidInput()),
@@ -379,9 +316,6 @@ public abstract record CommandOption {
             >= 0 when index < count => Fin.Succ(value: index),
             _ => Fin.Fail<int>(error: error),
         };
-
-    private static Option<int> EnumIndex<TEnum>(Seq<TEnum> values, TEnum value) where TEnum : struct, Enum =>
-        IndexOf(values: values, selected: value, same: EqualityComparer<TEnum>.Default.Equals);
 
     private static Option<int> IndexOf<T>(Seq<T> values, T selected, Func<T, T, bool> same) =>
         Optional(same).Bind(compare => toSeq(Enumerable.Range(start: 0, count: values.Count)).Find(index => compare(arg1: values[index], arg2: selected)));

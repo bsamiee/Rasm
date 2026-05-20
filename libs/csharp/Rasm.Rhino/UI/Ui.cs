@@ -23,7 +23,7 @@ public sealed partial record RhinoUi {
                 false => OnUiThread(run: () => valid.Run(scope: new Scope(Document: document, Mode: mode))),
             });
 
-    public Seq<T> Windows<T>() where T : Window =>
+    internal Seq<T> Windows<T>() where T : Window =>
         toSeq(global::Rhino.UI.EtoExtensions.WindowsFromDocument<T>(document));
 
     internal static Window? Parent(RhinoDoc document) =>
@@ -75,6 +75,12 @@ public readonly record struct UiStatus(
         Optional(statuses)
             .Map(static values => toSeq(values).Fold(initialState: new UiStatus(), f: static (state, value) => state + value))
             .IfNone(new UiStatus());
+
+    public static UiStatus Script(string message) =>
+        string.IsNullOrWhiteSpace(value: message) switch {
+            false => new UiStatus(CommandMessage: Some(message.Trim()), Message: Option<string>.None, ClearMessage: false),
+            true => new UiStatus(),
+        };
 
     internal Fin<Unit> Apply() {
         UiStatus status = this;
@@ -139,6 +145,23 @@ public sealed class UiProgress : IDisposable {
                 _ => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidInput()),
             },
         };
+
+    public Fin<TState> Fold<TItem, TState>(
+        IEnumerable<TItem> items,
+        TState initial,
+        Func<TState, TItem, Fin<TState>> step,
+        Func<TItem, UiProgressStep> progress) =>
+        from source in Optional(items).ToFin(Fail: Op.Of(name: nameof(Fold)).InvalidInput()).Map(static values => toSeq(values))
+        from transition in Optional(step).ToFin(Fail: Op.Of(name: nameof(Fold)).InvalidInput())
+        from project in Optional(progress).ToFin(Fail: Op.Of(name: nameof(Fold)).InvalidInput())
+        from result in source.Fold(
+            Fin.Succ(value: initial),
+            (state, item) =>
+                from current in state
+                from next in transition(arg1: current, arg2: item)
+                from _ in Update(step: project(arg: item))
+                select next)
+        select result;
 
     public void Dispose() {
         _ = disposed switch {

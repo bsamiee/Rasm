@@ -28,6 +28,11 @@ public readonly record struct MouseContext<TState>(MousePhase Phase, TState Stat
 public readonly record struct MouseDecision(bool Cancel, Option<string> ToolTip = default) {
     public static MouseDecision Pass => new(Cancel: false);
     public static MouseDecision Stop => new(Cancel: true);
+    public static MouseDecision Hint(string value) =>
+        string.IsNullOrWhiteSpace(value: value) switch {
+            false => new MouseDecision(Cancel: false, ToolTip: Some(value)),
+            true => Pass,
+        };
     public static MouseDecision operator |(MouseDecision left, MouseDecision right) => BitwiseOr(left: left, right: right);
     public static MouseDecision BitwiseOr(MouseDecision left, MouseDecision right) => new(Cancel: left.Cancel || right.Cancel, ToolTip: right.ToolTip | left.ToolTip);
 }

@@ -16,6 +16,38 @@ public sealed record UiIntent<T> {
     internal Fin<T> Run(RhinoUi.Scope scope) => run(arg: scope);
 }
 
+public enum UiWindowMode { Modal, SemiModal, Modeless }
+
+public sealed record UiWindow<T> {
+    private readonly Func<RhinoUi.Scope, Fin<T>> show;
+
+    internal UiWindow(UiWindowMode mode, Func<RhinoUi.Scope, Fin<T>> show) {
+        Mode = mode;
+        this.show = show;
+    }
+
+    public UiWindowMode Mode { get; }
+
+    internal Fin<T> Show(RhinoUi.Scope scope) =>
+        Optional(show).ToFin(Fail: Op.Of(name: nameof(UiWindow<T>)).InvalidInput()).Bind(valid => valid(arg: scope));
+}
+
+public static class UiWindow {
+    public static UiWindow<T> Dialog<T>(Eto.Forms.Dialog<T> dialog, UiWindowMode mode = UiWindowMode.Modal) =>
+        new(mode: mode, show: scope => Optional(dialog).ToFin(Fail: Op.Of(name: nameof(Dialog)).InvalidInput()).Bind(valid => mode switch {
+            UiWindowMode.SemiModal => Fin.Succ(value: global::Rhino.UI.EtoExtensions.ShowSemiModal(valid, scope.Document, parent: RhinoUi.Parent(document: scope.Document))),
+            UiWindowMode.Modal => Fin.Succ(value: valid.ShowModal(owner: RhinoUi.Parent(document: scope.Document))),
+            _ => Fin.Fail<T>(error: Op.Of(name: nameof(Dialog)).InvalidInput()),
+        }));
+
+    public static UiWindow<Unit> Modeless(Form form) =>
+        new(mode: UiWindowMode.Modeless, show: scope => Optional(form).ToFin(Fail: Op.Of(name: nameof(Modeless)).InvalidInput()).Map(valid => {
+            global::Rhino.UI.EtoExtensions.UseRhinoStyle(valid);
+            global::Rhino.UI.EtoExtensions.Show(valid, scope.Document);
+            return unit;
+        }));
+}
+
 public static class UiIntent {
     public static UiIntent<T> Of<T>(Func<RhinoDoc, RunMode, Fin<T>> run) =>
         new(run: scope => Optional(run).ToFin(Fail: Op.Of(name: nameof(Of)).InvalidInput()).Bind(valid => valid(arg1: scope.Document, arg2: scope.Mode)), interactive: true);
@@ -26,29 +58,11 @@ public static class UiIntent {
     internal static UiIntent<T> OfScope<T>(Func<RhinoUi.Scope, Fin<T>> run, bool interactive = false) =>
         new(run: run, interactive: interactive);
 
-    public static UiIntent<T> Dialog<T>(Func<Window?, RhinoDoc, Fin<T>> show) =>
+    internal static UiIntent<T> Dialog<T>(Func<Window?, RhinoDoc, Fin<T>> show) =>
         Request(name: nameof(Dialog), run: scope => Optional(show).ToFin(Fail: Op.Of(name: nameof(Dialog)).InvalidInput()).Bind(valid => valid(arg1: RhinoUi.Parent(document: scope.Document), arg2: scope.Document)));
 
-    public static UiIntent<T> Eto<T>(Eto.Forms.Dialog<T> dialog, bool semiModal = false) =>
-        Request(
-            name: nameof(Eto),
-            run: scope => Optional(dialog)
-                .ToFin(Fail: Op.Of(name: nameof(Eto)).InvalidInput())
-                .Map(valid => semiModal switch {
-                    true => global::Rhino.UI.EtoExtensions.ShowSemiModal(valid, scope.Document, parent: RhinoUi.Parent(document: scope.Document)),
-                    false => valid.ShowModal(owner: RhinoUi.Parent(document: scope.Document)),
-                }));
-
-    public static UiIntent<Unit> Modeless(Form form) =>
-        Request(
-            name: nameof(Modeless),
-            run: scope => Optional(form)
-                .ToFin(Fail: Op.Of(name: nameof(Modeless)).InvalidInput())
-                .Map(valid => {
-                    global::Rhino.UI.EtoExtensions.UseRhinoStyle(valid);
-                    global::Rhino.UI.EtoExtensions.Show(valid, scope.Document);
-                    return unit;
-                }));
+    public static UiIntent<T> Window<T>(UiWindow<T> window) =>
+        Request(name: nameof(Window), run: scope => Optional(window).ToFin(Fail: Op.Of(name: nameof(Window)).InvalidInput()).Bind(valid => valid.Show(scope: scope)));
 
     public static UiIntent<Unit> Status(UiStatus status) =>
         OfScope(_ => status.Apply());

@@ -26,16 +26,24 @@ public readonly record struct PageContext(PagePhase Phase, bool Active = false, 
     public Fin<RhinoUi> Ui() { RunMode mode = Mode; return RequireDocument().Map(document => new RhinoUi(document: document, mode: mode)); }
 }
 
-public readonly record struct PageRegistration<TPage>(TPage Page) where TPage : class {
+public enum PageHost { Options, DocumentProperties, ObjectProperties }
+
+public sealed record PageRegistration<TPage>(TPage Page, PageHost Host) where TPage : class {
     public Fin<Unit> Add(ICollection<TPage> pages) =>
         from page in Optional(Page).ToFin(Fail: Op.Of(name: nameof(Add)).InvalidInput())
         from validPages in Optional(pages).ToFin(Fail: Op.Of(name: nameof(Add)).InvalidInput())
-        from added in RhinoUi.Protect(valid: () => { validPages.Add(item: page); return Fin.Succ(value: unit); })
+        from added in Host switch {
+            PageHost.Options or PageHost.DocumentProperties => RhinoUi.Protect(valid: () => {
+                validPages.Add(item: page);
+                return Fin.Succ(value: unit);
+            }),
+            _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(Add)).InvalidInput()),
+        }
         select added;
 
     public Fin<Unit> Add(global::Rhino.UI.ObjectPropertiesPageCollection pages) =>
-        (Page, pages) switch {
-            (global::Rhino.UI.ObjectPropertiesPage page, global::Rhino.UI.ObjectPropertiesPageCollection collection) => RhinoUi.Protect(valid: () => {
+        (Page, pages, Host) switch {
+            (global::Rhino.UI.ObjectPropertiesPage page, global::Rhino.UI.ObjectPropertiesPageCollection collection, PageHost.ObjectProperties) => RhinoUi.Protect(valid: () => {
                 collection.Add(page: page);
                 return Fin.Succ(value: unit);
             }),
@@ -44,14 +52,8 @@ public readonly record struct PageRegistration<TPage>(TPage Page) where TPage : 
 }
 
 public static class PageRegistration {
-    public static PageRegistration<global::Rhino.UI.OptionsDialogPage> Options(global::Rhino.UI.OptionsDialogPage page) =>
-        new(Page: page);
-
-    public static PageRegistration<global::Rhino.UI.OptionsDialogPage> DocumentProperties(global::Rhino.UI.OptionsDialogPage page) =>
-        new(Page: page);
-
-    public static PageRegistration<global::Rhino.UI.ObjectPropertiesPage> ObjectProperties(global::Rhino.UI.ObjectPropertiesPage page) =>
-        new(Page: page);
+    public static PageRegistration<TPage> Of<TPage>(TPage page, PageHost host) where TPage : class =>
+        new(Page: page, Host: host);
 }
 
 public abstract class RasmOptionsPage : global::Rhino.UI.OptionsDialogPage {

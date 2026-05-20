@@ -47,6 +47,10 @@ public sealed record CommandGraph<TState>(
     Seq<CommandStage<TState>> Stages,
     Func<CommandCommitContext<TState>, Fin<Result>> Commit,
     CommandGraphEvents<TState> Events = default) {
+    public Fin<CommandGraph<TState>> Append(CommandStage<TState> stage) =>
+        from valid in Optional(stage).ToFin(Fail: Op.Of(name: nameof(Append)).InvalidInput())
+        select this with { Stages = Stages + Seq(valid) };
+
     internal Fin<Result> Run(RhinoCommandContext context) =>
         from active in Optional(context).ToFin(Fail: Op.Of(name: nameof(CommandGraph<TState>)).InvalidInput())
         from commit in Optional(Commit).ToFin(Fail: Op.Of(name: nameof(CommandGraph<TState>)).InvalidInput())

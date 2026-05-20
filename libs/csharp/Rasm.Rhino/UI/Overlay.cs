@@ -307,6 +307,19 @@ public sealed record UiViewportPreview {
             validate: () => items.Map(static _ => unit));
     }
 
+    public static UiViewportPreview FromSelection(Rasm.Rhino.Commands.CommandSelection selection, UiPreviewStyle style = default) {
+        Fin<UiViewportPreview> preview =
+            Optional(selection)
+                .ToFin(Fail: Op.Of(name: nameof(FromSelection)).InvalidInput())
+                .Bind(valid => valid.Geometry<GeometryBase>())
+                .Map(geometry => Of(geometry: geometry, style: style));
+
+        return new(
+            draw: context => preview.Bind(active => active.Draw(context: context)),
+            bounds: () => preview.Bind(active => active.Bounds()),
+            validate: () => preview.Map(static _ => unit));
+    }
+
     public static UiViewportPreview Draw(Func<UiPreviewContext, Fin<Unit>> draw, Func<Fin<OverlayDecision>> bounds) =>
         new(
             draw: context => Optional(draw).ToFin(Fail: Op.Of(name: nameof(Draw)).InvalidInput()).Bind(valid => valid(arg: context)),

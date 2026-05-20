@@ -80,6 +80,21 @@ public sealed record CommandSelection {
             _ => Fin.Fail<Reference>(error: Op.Of(name: nameof(Single)).InvalidInput()),
         };
 
+    public Fin<CommandSelection> Trim(CommandObjectSelection policy) =>
+        from active in Optional(policy).ToFin(Fail: Op.Of(name: nameof(Trim)).InvalidInput())
+        from selection in Items
+            .Filter(item => active.SubObjects || !item.IsSubObject)
+            .Filter(item => active.AlreadySelected || (!item.Preselected && !item.Selected))
+            .Filter(item => active.References || !item.IsReference)
+            .Filter(item => active.Locked || !item.IsLocked)
+            .Filter(item => !active.IgnoreGrips || !item.IsGrip)
+            .Distinct() switch {
+                Seq<Reference> values when values.Count >= active.Minimum && (active.Maximum < 0 || values.Count <= active.Maximum) =>
+                    Fin.Succ(value: new CommandSelection(document: Document, items: values)),
+                _ => Fin.Fail<CommandSelection>(error: Op.Of(name: nameof(Trim)).InvalidInput()),
+            }
+        select selection;
+
     public static Fin<CommandSelection> Pick(RhinoDoc document, global::Rhino.Input.Custom.PickContext context) =>
         from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput()) from validContext in Optional(context).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
         from selection in Rasm.Rhino.UI.RhinoUi.Protect(valid: () => Optional(validDocument.Objects.PickObjects(pickContext: validContext)).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidResult()).Bind(references => references switch { { Length: > 0 } values => Fin.Succ(value: From(document: validDocument, references: toSeq(values), preselected: Seq<(Guid ObjectId, ComponentIndex ComponentIndex)>())), _ => Fin.Fail<CommandSelection>(error: Op.Of(name: nameof(Pick)).InvalidResult()) })) select selection;
@@ -126,6 +141,11 @@ public sealed record CommandSelection {
         uint RuntimeSerialNumber,
         ComponentIndex ComponentIndex,
         bool Preselected,
+        bool Selected,
+        bool Locked,
+        bool Hidden,
+        bool ReferenceObject,
+        ObjectType ObjectType,
         SelectionMethod SelectionMethod,
         Option<(Guid OwnerId, Guid GripId, int Index, bool Selected)> Grip,
         Option<Point3d> SelectionPoint,
@@ -135,6 +155,8 @@ public sealed record CommandSelection {
         Option<PickLocation> Location) {
         public bool IsSubObject => ComponentIndex.IsSet;
         public bool IsGrip => Grip.IsSome;
+        public bool IsLocked => Locked;
+        public bool IsReference => ReferenceObject;
         public Guid MutationObjectId => GripOwnerId.IfNone(ObjectId);
         public Option<Guid> GripOwnerId => Grip.Map(static value => value.OwnerId);
         public Option<Guid> GripObjectId => Grip.Map(static value => value.GripId);
@@ -147,6 +169,7 @@ public sealed record CommandSelection {
             SelectionMethod selectionMethod = reference.SelectionMethod();
             Point3d selectionPoint = reference.SelectionPoint();
             RhinoView? selectionView = reference.SelectionView();
+            RhinoObject? native = reference.Object();
             uint detailSerial = reference.SelectionViewDetailSerialNumber();
             return new(
                 ObjectId: reference.ObjectId,
@@ -154,8 +177,13 @@ public sealed record CommandSelection {
                 RuntimeSerialNumber: reference.RuntimeSerialNumber,
                 ComponentIndex: reference.GeometryComponentIndex,
                 Preselected: preselected,
+                Selected: Optional(native).Map(static value => value.IsSelected(checkSubObjects: true) > 0).IfNone(false),
+                Locked: Optional(native).Map(static value => value.IsLocked).IfNone(false),
+                Hidden: Optional(native).Map(static value => value.IsHidden).IfNone(false),
+                ReferenceObject: Optional(native).Map(static value => value.IsReference).IfNone(false),
+                ObjectType: Optional(native).Map(static value => value.ObjectType).IfNone(ObjectType.None),
                 SelectionMethod: selectionMethod,
-                Grip: Optional(reference.Object() as GripObject).Map(static grip => (grip.OwnerId, grip.Id, grip.Index, grip.IsSelected(checkSubObjects: true) > 0)),
+                Grip: Optional(native as GripObject).Map(static grip => (grip.OwnerId, grip.Id, grip.Index, grip.IsSelected(checkSubObjects: true) > 0)),
                 SelectionPoint: selectionPoint switch {
                     Point3d point when point.IsValid => Some(point),
                     _ => Option<Point3d>.None,

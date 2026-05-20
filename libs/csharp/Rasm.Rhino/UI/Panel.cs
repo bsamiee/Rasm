@@ -46,6 +46,38 @@ public sealed record PanelOp<TPanel, T> where TPanel : RasmPanel {
     internal Fin<T> Run(RhinoDoc? document) => run(arg: document);
 }
 
+public readonly record struct PanelChromeSnapshot(
+    Seq<(Guid Id, string Name, string Path, int GroupCount, int ToolbarCount)> Files,
+    Seq<(Guid FileId, Guid GroupId, string Name, bool Visible, bool IsDocked)> Groups,
+    Seq<(Guid FileId, Guid ToolbarId, string Name)> Toolbars,
+    bool SidebarVisible,
+    bool MruSidebarVisible);
+
+public sealed record UiAction(
+    string Id,
+    string Text,
+    Option<string> ToolTip,
+    Option<Eto.Drawing.Image> Image,
+    Func<RhinoDoc, Fin<Unit>> Run) {
+    internal Fin<Eto.Forms.Command> ToCommand(RhinoDoc document) =>
+        from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(ToCommand)).InvalidInput())
+        from action in Optional(Run).ToFin(Fail: Op.Of(name: nameof(ToCommand)).InvalidInput())
+        from id in string.IsNullOrWhiteSpace(value: Id) switch {
+            false => Fin.Succ(value: Id),
+            true => Fin.Fail<string>(error: Op.Of(name: nameof(ToCommand)).InvalidInput()),
+        }
+        from text in string.IsNullOrWhiteSpace(value: Text) switch {
+            false => Fin.Succ(value: Text),
+            true => Fin.Fail<string>(error: Op.Of(name: nameof(ToCommand)).InvalidInput()),
+        }
+        select ((Func<Eto.Forms.Command>)(() => {
+            Eto.Forms.Command command = new() { ID = id, MenuText = text, ToolBarText = text, ToolTip = ToolTip.IfNone(text) };
+            _ = Image.Iter(active => command.Image = active);
+            command.Executed += (_, _) => _ = RhinoUi.Protect(valid: () => action(arg: validDocument));
+            return command;
+        }))();
+}
+
 public readonly record struct PanelSnapshot<TPanel>(
     Guid PanelId,
     bool Visible,
@@ -123,7 +155,69 @@ public abstract record PanelPlacement {
     }
 }
 
+public abstract record PanelChromeOp<T> {
+    private PanelChromeOp() { }
+
+    internal virtual bool Interactive => true;
+    internal abstract Fin<T> Run(RhinoDoc? document);
+
+    public sealed record EtoToolbar(IEnumerable<UiAction> Actions) : PanelChromeOp<Eto.Forms.ToolBar> {
+        internal override Fin<Eto.Forms.ToolBar> Run(RhinoDoc? document) =>
+            from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(EtoToolbar)).InvalidInput())
+            from actions in Optional(Actions).ToFin(Fail: Op.Of(name: nameof(EtoToolbar)).InvalidInput()).Map(static values => toSeq(values))
+            from commands in actions.TraverseM(action => action.ToCommand(document: validDocument)).As()
+            select ((Func<Eto.Forms.ToolBar>)(() => {
+                Eto.Forms.ToolBar toolbar = new();
+                _ = commands.Iter(command => toolbar.Items.Add(command.CreateToolItem()));
+                return toolbar;
+            }))();
+    }
+
+    public sealed record EtoMenu(IEnumerable<UiAction> Actions) : PanelChromeOp<Eto.Forms.MenuBar> {
+        internal override Fin<Eto.Forms.MenuBar> Run(RhinoDoc? document) =>
+            from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(EtoMenu)).InvalidInput())
+            from actions in Optional(Actions).ToFin(Fail: Op.Of(name: nameof(EtoMenu)).InvalidInput()).Map(static values => toSeq(values))
+            from commands in actions.TraverseM(action => action.ToCommand(document: validDocument)).As()
+            select ((Func<Eto.Forms.MenuBar>)(() => {
+                Eto.Forms.MenuBar menu = new();
+                _ = commands.Iter(command => menu.Items.Add(command.CreateMenuItem()));
+                return menu;
+            }))();
+    }
+
+    public sealed record RuiSnapshot : PanelChromeOp<PanelChromeSnapshot> {
+        internal override bool Interactive => false;
+
+        internal override Fin<PanelChromeSnapshot> Run(RhinoDoc? document) =>
+            RhinoUi.Protect(valid: () => {
+                Seq<global::Rhino.UI.ToolbarFile> files = toSeq(RhinoApp.ToolbarFiles).Choose(Optional);
+                Seq<(Guid Id, string Name, string Path, int GroupCount, int ToolbarCount)> fileRows =
+                    files.Map(static file => (file.Id, file.Name, file.Path, file.GroupCount, file.ToolbarCount));
+                Seq<(Guid FileId, Guid GroupId, string Name, bool Visible, bool IsDocked)> groupRows =
+                    files.Bind(file => toSeq(Enumerable.Range(start: 0, count: file.GroupCount))
+                        .Choose(index => Optional(file.GetGroup(index)).Map(group => (file.Id, group.Id, group.Name, group.Visible, group.IsDocked))));
+                Seq<(Guid FileId, Guid ToolbarId, string Name)> toolbarRows =
+                    files.Bind(file => toSeq(Enumerable.Range(start: 0, count: file.ToolbarCount))
+                        .Choose(index => Optional(file.GetToolbar(index)).Map(toolbar => (file.Id, toolbar.Id, toolbar.Name))));
+                return Fin.Succ(value: new PanelChromeSnapshot(
+                    Files: fileRows,
+                    Groups: groupRows,
+                    Toolbars: toolbarRows,
+                    SidebarVisible: global::Rhino.UI.ToolbarFileCollection.SidebarIsVisible,
+                    MruSidebarVisible: global::Rhino.UI.ToolbarFileCollection.MruSidebarIsVisible));
+            });
+    }
+}
+
 public static class PanelOp {
+    public static PanelOp<TPanel, T> Chrome<TPanel, T>(PanelChromeOp<T> operation) where TPanel : RasmPanel =>
+        new(
+            run: document =>
+                from valid in Optional(operation).ToFin(Fail: Op.Of(name: nameof(Chrome)).InvalidInput())
+                from result in valid.Run(document: document)
+                select result,
+            interactive: Optional(operation).Map(static valid => valid.Interactive).IfNone(true));
+
     public static PanelOp<TPanel, Unit> Register<TPanel>(
         global::Rhino.PlugIns.PlugIn plugin,
         string caption,

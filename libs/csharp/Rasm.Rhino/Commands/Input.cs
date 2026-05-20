@@ -163,6 +163,66 @@ public enum CommandInputAccept {
     TransparentCommands = 256
 }
 
+public sealed record CommandObjectSelection(
+    int Minimum = 1,
+    int Maximum = 1,
+    ObjectType Types = ObjectType.AnyObject,
+    GeometryAttributeFilter Attributes = default,
+    Option<GetObjectGeometryFilter> Filter = default,
+    bool PreSelect = true,
+    bool IgnoreUnacceptablePreselected = true,
+    bool PostSelect = true,
+    bool SubObjects = true,
+    bool Groups = true,
+    bool References = true,
+    bool Locked = false,
+    bool AlreadySelected = false,
+    bool SelectPrevious = true,
+    bool Highlight = true,
+    bool IgnoreGrips = true,
+    bool ClearOnEntry = true,
+    bool UnselectOnExit = true,
+    bool DeselectAllBeforePostSelect = false,
+    bool OneByOnePostSelect = false,
+    bool PressEnterWhenDonePrompt = true,
+    Option<string> PressEnterWhenDoneText = default,
+    bool ChooseOneQuestion = false,
+    bool BottomObjectPreference = false,
+    bool ProxyBrepFromSubD = false,
+    bool InactiveDetailPickEnabled = false) {
+    public static CommandObjectSelection Default { get; } = new();
+
+    internal Fin<Unit> Apply(GetObject getter) =>
+        Optional(getter)
+            .ToFin(Fail: Op.Of(name: nameof(CommandObjectSelection)).InvalidInput())
+            .Map(valid => {
+                valid.GeometryFilter = Types;
+                valid.GeometryAttributeFilter = Attributes;
+                _ = Filter.Iter(active => valid.SetCustomGeometryFilter(active));
+                valid.EnablePreSelect(enable: PreSelect, ignoreUnacceptablePreselectedObjects: IgnoreUnacceptablePreselected);
+                valid.EnablePostSelect(enable: PostSelect);
+                valid.SubObjectSelect = SubObjects;
+                valid.GroupSelect = Groups;
+                valid.ReferenceObjectSelect = References;
+                valid.LockedObjectSelect = Locked;
+                valid.AlreadySelectedObjectSelect = AlreadySelected;
+                valid.EnableSelPrevious(enable: SelectPrevious);
+                valid.EnableHighlight(enable: Highlight);
+                valid.EnableIgnoreGrips(enable: IgnoreGrips);
+                valid.EnableClearObjectsOnEntry(enable: ClearOnEntry);
+                valid.EnableUnselectObjectsOnExit(enable: UnselectOnExit);
+                valid.DeselectAllBeforePostSelect = DeselectAllBeforePostSelect;
+                valid.OneByOnePostSelect = OneByOnePostSelect;
+                valid.EnablePressEnterWhenDonePrompt(enable: PressEnterWhenDonePrompt);
+                _ = PressEnterWhenDoneText.Iter(valid.SetPressEnterWhenDonePrompt);
+                valid.ChooseOneQuestion = ChooseOneQuestion;
+                valid.BottomObjectPreference = BottomObjectPreference;
+                valid.ProxyBrepFromSubD = ProxyBrepFromSubD;
+                valid.InactiveDetailPickEnabled = InactiveDetailPickEnabled;
+                return unit;
+            });
+}
+
 public sealed record CommandInputPolicy {
     private CommandInputPolicy(
         Seq<Action<GetBaseClass>> baseActions = default,
@@ -171,17 +231,16 @@ public sealed record CommandInputPolicy {
         Option<Func<CommandPointEvent, Fin<Unit>>> pointEvents = default,
         Option<UiGumball> gumball = default,
         Seq<CommandOption> options = default,
-        Option<(int Min, int Max)> objects = default,
         Option<PointSpec> point = default,
         Option<Func<RhinoViewport, Point3d, global::Rhino.Geometry.Transform>> transform = default,
         Option<Scalar> scalar = default,
         Option<LimitSpec> bounds = default,
         Option<BoxSpec> box = default,
-        Option<ObjectType> objectTypes = default,
+        Option<CommandObjectSelection> objectSelection = default,
         Option<string> prompt = default,
         bool literalText = false,
         CommandInputAccept accept = CommandInputAccept.None) {
-        BaseActions = baseActions; ObjectActions = objectActions; PointActions = pointActions; PointEvent = pointEvents; Gumball = gumball; OptionList = options; ObjectRange = objects; PointMode = point; TransformMode = transform; ScalarMode = scalar; LimitsMode = bounds; BoxMode = box; ObjectTypes = objectTypes; PromptText = prompt; IsLiteralText = literalText; AcceptModes = accept;
+        BaseActions = baseActions; ObjectActions = objectActions; PointActions = pointActions; PointEvent = pointEvents; Gumball = gumball; OptionList = options; PointMode = point; TransformMode = transform; ScalarMode = scalar; LimitsMode = bounds; BoxMode = box; ObjectSelection = objectSelection; PromptText = prompt; IsLiteralText = literalText; AcceptModes = accept;
     }
 
     private Seq<Action<GetBaseClass>> BaseActions { get; }
@@ -190,13 +249,12 @@ public sealed record CommandInputPolicy {
     internal Option<Func<CommandPointEvent, Fin<Unit>>> PointEvent { get; }
     internal Option<UiGumball> Gumball { get; }
     internal Seq<CommandOption> OptionList { get; }
-    internal Option<(int Min, int Max)> ObjectRange { get; }
     internal Option<PointSpec> PointMode { get; }
     internal Option<Func<RhinoViewport, Point3d, global::Rhino.Geometry.Transform>> TransformMode { get; }
     internal Option<Scalar> ScalarMode { get; }
     internal Option<LimitSpec> LimitsMode { get; }
     internal Option<BoxSpec> BoxMode { get; }
-    internal Option<ObjectType> ObjectTypes { get; }
+    internal Option<CommandObjectSelection> ObjectSelection { get; }
     internal Option<string> PromptText { get; }
     internal bool IsLiteralText { get; }
     internal CommandInputAccept AcceptModes { get; }
@@ -204,7 +262,7 @@ public sealed record CommandInputPolicy {
     internal bool AcceptsUndo => Accepts(mode: CommandInputAccept.Undo);
     internal static CommandInputPolicy Empty { get; } = new();
 
-    public static CommandInputPolicy Configure<TGetter>(Action<TGetter> apply) where TGetter : GetBaseClass =>
+    private static CommandInputPolicy Configure<TGetter>(Action<TGetter> apply) where TGetter : GetBaseClass =>
         (typeof(TGetter), Optional(apply).Case) switch {
             (Type type, Action<TGetter> action) when type == typeof(GetObject) => new(objectActions: Seq<Action<GetObject>>(getter => action((TGetter)(GetBaseClass)getter))),
             (Type type, Action<TGetter> action) when type == typeof(GetPoint) => new(pointActions: Seq<Action<GetPoint>>(getter => action((TGetter)(GetBaseClass)getter))),
@@ -243,14 +301,11 @@ public sealed record CommandInputPolicy {
         Optional(gumball).Map(active => new CommandInputPolicy(gumball: Some(active))).IfNone(Empty);
     public static CommandInputPolicy Transform(Func<RhinoViewport, Point3d, global::Rhino.Geometry.Transform> calculate) =>
         Optional(calculate).Map(project => new CommandInputPolicy(transform: Some(project))).IfNone(Empty);
-    public static CommandInputPolicy Objects(int minimum = 1, int maximum = 1, ObjectType types = ObjectType.AnyObject, bool locked = false) =>
-        new(
-            objectActions: locked switch { true => Seq<Action<GetObject>>(static getter => getter.LockedObjectSelect = true), false => Seq<Action<GetObject>>() },
-            objects: Some((Min: minimum, Max: maximum)),
-            objectTypes: types switch {
-                ObjectType.AnyObject => Option<ObjectType>.None,
-                _ => Some(types),
-            });
+    public static CommandInputPolicy Objects(CommandObjectSelection selection) =>
+        Optional(selection)
+            .Map(static valid => new CommandInputPolicy(objectSelection: Some(valid)))
+            .IfNone(Empty);
+
     public static CommandInputPolicy Point(
         bool onMouseUp = false,
         bool twoDimensional = false,
@@ -297,7 +352,7 @@ public sealed record CommandInputPolicy {
     public static CommandInputPolicy Add(CommandInputPolicy left, CommandInputPolicy right) {
         ArgumentNullException.ThrowIfNull(argument: left);
         ArgumentNullException.ThrowIfNull(argument: right);
-        return new(baseActions: left.BaseActions + right.BaseActions, objectActions: left.ObjectActions + right.ObjectActions, pointActions: left.PointActions + right.PointActions, pointEvents: Compose(left.PointEvent, right.PointEvent), gumball: Pick(left.Gumball, right.Gumball), options: left.OptionList + right.OptionList, objects: Pick(left.ObjectRange, right.ObjectRange), point: Pick(left.PointMode, right.PointMode), transform: Pick(left.TransformMode, right.TransformMode), scalar: Pick(left.ScalarMode, right.ScalarMode), bounds: Pick(left.LimitsMode, right.LimitsMode), box: Pick(left.BoxMode, right.BoxMode), objectTypes: Pick(left.ObjectTypes, right.ObjectTypes), prompt: Pick(left.PromptText, right.PromptText), literalText: left.IsLiteralText || right.IsLiteralText, accept: left.AcceptModes | right.AcceptModes);
+        return new(baseActions: left.BaseActions + right.BaseActions, objectActions: left.ObjectActions + right.ObjectActions, pointActions: left.PointActions + right.PointActions, pointEvents: Compose(left.PointEvent, right.PointEvent), gumball: Pick(left.Gumball, right.Gumball), options: left.OptionList + right.OptionList, point: Pick(left.PointMode, right.PointMode), transform: Pick(left.TransformMode, right.TransformMode), scalar: Pick(left.ScalarMode, right.ScalarMode), bounds: Pick(left.LimitsMode, right.LimitsMode), box: Pick(left.BoxMode, right.BoxMode), objectSelection: Pick(left.ObjectSelection, right.ObjectSelection), prompt: Pick(left.PromptText, right.PromptText), literalText: left.IsLiteralText || right.IsLiteralText, accept: left.AcceptModes | right.AcceptModes);
     }
 
     internal static CommandInputPolicy Merge(Seq<CommandInputPolicy> policies) =>
@@ -312,18 +367,6 @@ public sealed record CommandInputPolicy {
                 _ => Fin.Succ(value: unit),
             };
         });
-
-    private static Seq<Action<GetObject>> DefaultObjectActions { get; } = Seq<Action<GetObject>>(
-        static getter => getter.EnablePreSelect(enable: true, ignoreUnacceptablePreselectedObjects: true),
-        static getter => getter.EnablePostSelect(enable: true),
-        static getter => getter.SubObjectSelect = true,
-        static getter => getter.ReferenceObjectSelect = true,
-        static getter => getter.EnableSelPrevious(enable: true),
-        static getter => getter.EnableHighlight(enable: true),
-        static getter => getter.EnableIgnoreGrips(enable: true),
-        static getter => getter.EnableClearObjectsOnEntry(enable: true),
-        static getter => getter.EnableUnselectObjectsOnExit(enable: true),
-        static getter => getter.EnablePressEnterWhenDonePrompt(enable: true));
 
     private bool Accepts(CommandInputAccept mode) => (AcceptModes & mode) == mode;
     private static Option<T> Pick<T>(Option<T> left, Option<T> right) => right | left;
@@ -380,11 +423,14 @@ public sealed record CommandInputPolicy {
         }).IfNone(Fin.Succ(value: unit));
     }
 
-    private Fin<Unit> ApplyObject(GetObject getter) {
-        _ = ObjectTypes.Iter(types => getter.GeometryFilter = types);
-        _ = DefaultObjectActions.Concat(ObjectActions).Iter(action => action(obj: getter));
-        return Fin.Succ(value: unit);
-    }
+    private Fin<Unit> ApplyObject(GetObject getter) =>
+        from valid in Optional(getter).ToFin(Fail: Op.Of(name: nameof(ApplyObject)).InvalidInput())
+        from applied in ObjectSelection.IfNone(CommandObjectSelection.Default).Apply(getter: valid)
+        from _ in ObjectActions.TraverseM(action => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => {
+            action(obj: valid);
+            return Fin.Succ(value: unit);
+        })).As().Map(static _ => unit)
+        select unit;
 }
 
 public enum CommandPointEventPhase { MouseMove, MouseDown, DynamicDraw, PostDrawObjects }
@@ -479,14 +525,16 @@ public static class CommandInputs {
     private delegate Result NativeGetter<TNative>(out TNative value);
 
     private static CommandInputRequest<T> Objects<T>(CommandInputPolicy policy, Seq<CommandInputPolicy> policies) =>
-        policy.ObjectRange.IfNone((Min: 1, Max: 1)) switch {
-            ( < 0, _) or (_, < -1) => Invalid<T>(name: nameof(Get)),
-            (int lo, int hi) when hi > 0 && hi < lo => Invalid<T>(name: nameof(Get)),
-            (int lo, int hi) => Getter<GetObject, T>(
-                policy: CommandInputPolicy.Merge(policies: Seq(lo == 0 ? CommandInputPolicy.Accept(modes: CommandInputAccept.Nothing | CommandInputAccept.EnterWhenDone) : CommandInputPolicy.Empty, hi == 0 ? CommandInputPolicy.Accept(modes: CommandInputAccept.EnterWhenDone) : CommandInputPolicy.Empty) + policies),
+        policy.ObjectSelection.IfNone(CommandObjectSelection.Default) switch { { Minimum: < 0 } or { Maximum: < -1 } => Invalid<T>(name: nameof(Get)),
+            CommandObjectSelection selection when selection.Maximum > 0 && selection.Maximum < selection.Minimum => Invalid<T>(name: nameof(Get)),
+            CommandObjectSelection selection => Getter<GetObject, T>(
+                policy: CommandInputPolicy.Merge(
+                    policies: Seq(
+                        selection.Minimum == 0 ? CommandInputPolicy.Accept(modes: CommandInputAccept.Nothing | CommandInputAccept.EnterWhenDone) : CommandInputPolicy.Empty,
+                        selection.Maximum == 0 ? CommandInputPolicy.Accept(modes: CommandInputAccept.EnterWhenDone) : CommandInputPolicy.Empty) + policies),
                 create: static () => new GetObject(),
-                receive: getter => getter.GetMultiple(minimumNumber: lo, maximumNumber: hi),
-                value: static (source, getter, raw) => SelectionOf(document: source.Document, getter: getter, raw: raw).Bind(Cast<T>),
+                receive: getter => getter.GetMultiple(minimumNumber: selection.Minimum, maximumNumber: selection.Maximum),
+                value: (source, getter, raw) => SelectionValue<T>(source: source, getter: getter, raw: raw, policy: selection),
                 transition: static (getter, raw, selected) => raw is GetResult.Option ? ((Func<(bool Continue, Option<CommandOptionValue> Selected)>)(() => { getter.EnablePreSelect(enable: false, ignoreUnacceptablePreselectedObjects: true); return (Continue: true, Selected: selected); }))() : (Continue: false, Selected: selected)),
         };
 
@@ -648,6 +696,11 @@ public static class CommandInputs {
                     ? toSeq(references).Filter(static reference => Optional(reference.Object()).Map(static item => item.IsSelected(checkSubObjects: true) > 0).IfNone(false)).Map(static reference => (reference.ObjectId, reference.GeometryComponentIndex))
                     : Seq<(Guid ObjectId, ComponentIndex ComponentIndex)>()))
             : Option<CommandSelection>.None;
+
+    private static Option<T> SelectionValue<T>(CommandInput source, GetObject getter, GetResult raw, CommandObjectSelection policy) =>
+        SelectionOf(document: source.Document, getter: getter, raw: raw)
+            .Bind(selection => selection.Trim(policy: policy).ToOption())
+            .Bind(Cast<T>);
 
     private static Option<T> PointValue<T>(GetPoint getter, GetResult raw) =>
         (raw, typeof(T)) switch {
