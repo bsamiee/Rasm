@@ -75,6 +75,9 @@ public static class Snapshot {
 
 public readonly record struct DocumentMutationDelta(int Changed, DocumentSnapshot After);
 public readonly record struct LayoutMoveDelta(Guid ObjectId, float Dx, float Dy, LayoutSnapshot After, Option<SnappingSnapshot> Snap);
+public readonly record struct LayoutArrangeDelta(Seq<LayoutMoveDelta> Moves) {
+    public int Count => Moves.Count;
+}
 public readonly record struct WireSplitDelta(bool Changed, WireSnapshot.ConnectedCase Wire, Option<Guid> Shout, Option<Guid> Listen);
 
 public readonly record struct UndoEntry(string Verb, string Noun, Seq<UndoAction> Actions) {

@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using Eto.Drawing;
 using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Doc;
+using Grasshopper2.Parameters;
 using Grasshopper2.UI.Canvas;
 using Grasshopper2.UI.Flex;
 using GhCanvas = Grasshopper2.UI.Canvas.Canvas;
@@ -102,7 +103,8 @@ public partial record CanvasResult {
     public sealed record PickResult(CanvasPickSnapshot Pick) : CanvasResult;
     public sealed record MapResult(CanvasMappedPoint Mapped) : CanvasResult;
     public sealed record BitmapResult(CanvasBitmap Bitmap) : CanvasResult;
-    public sealed record InteractionResult(CanvasInteractionPolicy Effective) : CanvasResult;
+    public sealed record InteractionResult(CanvasInteractionSnapshot Interaction) : CanvasResult;
+    public sealed record WindowResult(CanvasWindowSnapshot Window) : CanvasResult;
     public sealed record DetailResult(CanvasDetailSnapshot Detail) : CanvasResult;
     public sealed record ActionsResult(CanvasActionSnapshot Snapshot) : CanvasResult;
     public sealed record SnapFeedbackResult(CanvasSnapFeedbackSnapshot Feedback) : CanvasResult;
@@ -127,6 +129,9 @@ public readonly record struct CanvasInteractionPolicy(
     bool ClearSnapFeedback = false);
 
 [StructLayout(LayoutKind.Auto)]
+public readonly record struct CanvasInteractionSnapshot(CanvasInteractionPolicy Before, CanvasInteractionPolicy After);
+
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct CanvasProjectionPolicy(Option<PointF> Centre = default, Option<float> Zoom = default);
 
 [StructLayout(LayoutKind.Auto)]
@@ -143,7 +148,27 @@ public readonly record struct CanvasActionPolicy(
     Option<bool> AllowDropFile = default,
     Option<bool> AllowWireMenu = default,
     Option<bool> AllowObjectMenu = default,
-    Option<bool> AllowCanvasMenu = default) {
+    Option<bool> AllowCanvasMenu = default,
+    Option<Func<(IParameter source, IParameter target), bool>> MakeWireFilter = default,
+    Option<Func<(IParameter source, IParameter target), bool>> DeleteWireFilter = default) {
+    internal static CanvasActionPolicy Capture(CanvasActions actions) =>
+        new(
+            AllowDrag: Some(actions.AllowDrag),
+            AllowWireSelect: Some(actions.AlloWireSelect),
+            AllowObjectSelect: Some(actions.AllowObjectSelect),
+            AllowMakeWire: Some(actions.AllowMakeWire),
+            AllowDeleteWire: Some(actions.AllowDeleteWire),
+            AllowModifyWire: Some(actions.AllowModifyWire),
+            AllowMakeObject: Some(actions.AllowMakeObject),
+            AllowDeleteObject: Some(actions.AllowDeleteObject),
+            AllowObjectResponse: Some(actions.AllowObjectResponse),
+            AllowDropFile: Some(actions.AllowDropFile),
+            AllowWireMenu: Some(actions.AllowWireMenu),
+            AllowObjectMenu: Some(actions.AllowObjectMenu),
+            AllowCanvasMenu: Some(actions.AllowCanvasMenu),
+            MakeWireFilter: Optional(actions.MakeWireFilter),
+            DeleteWireFilter: Optional(actions.DeleteWireFilter));
+
     internal Unit Apply(CanvasActions actions) {
         _ = AllowDrag.Iter(value => actions.AllowDrag = value);
         _ = AllowWireSelect.Iter(value => actions.AlloWireSelect = value);
@@ -158,6 +183,8 @@ public readonly record struct CanvasActionPolicy(
         _ = AllowWireMenu.Iter(value => actions.AllowWireMenu = value);
         _ = AllowObjectMenu.Iter(value => actions.AllowObjectMenu = value);
         _ = AllowCanvasMenu.Iter(value => actions.AllowCanvasMenu = value);
+        _ = MakeWireFilter.Iter(value => actions.MakeWireFilter = value);
+        _ = DeleteWireFilter.Iter(value => actions.DeleteWireFilter = value);
         return unit;
     }
 }
@@ -216,12 +243,30 @@ public readonly record struct CanvasPickSnapshot(
     Option<Guid> InletUnderPick,
     Option<Guid> OutletUnderPick);
 
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CanvasWindowSnapshot(CanvasSnapshot Canvas, int SelectedCount, int DeselectedCount);
+
 internal sealed record CanvasRequest(CanvasOp Op) : GhUiRequest<CanvasResult> {
     internal override GrasshopperUiPolicy Policy => CanvasPolicyOf(op: Op);
     internal override Fin<CanvasResult> Apply(GrasshopperUi.Scope scope) => UiRail.CanvasDispatch(scope: scope, op: Op);
 
     internal static GrasshopperUiPolicy CanvasPolicyOf(CanvasOp op) =>
-        GrasshopperUiPolicy.Canvas(openEditor: UiRail.CanvasNeedsEditor(op: op), repaint: UiRail.CanvasRepaintFor(op: op));
+        op.Switch(
+            snapshotCase: static s => GrasshopperUiPolicy.Canvas(openEditor: s.OpenEditor),
+            pickCase: static _ => GrasshopperUiPolicy.Canvas(),
+            mapCase: static _ => GrasshopperUiPolicy.Canvas(),
+            invalidateCase: static i => GrasshopperUiPolicy.Canvas(repaint: i.Mode.Repaint),
+            instantiateCase: static _ => GrasshopperUiPolicy.Canvas(openEditor: true),
+            detailCase: static _ => GrasshopperUiPolicy.Canvas(),
+            actionsCase: static _ => GrasshopperUiPolicy.Canvas(),
+            renderCase: static _ => GrasshopperUiPolicy.Canvas(),
+            pickMapCase: static _ => GrasshopperUiPolicy.Canvas(),
+            viewCase: static _ => GrasshopperUiPolicy.Canvas(openEditor: true, repaint: RepaintRequest.Canvas),
+            snapFeedbackCase: static _ => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Canvas),
+            interactionCase: static i => i.Policy.Projection.IsSome
+                ? GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas)
+                : GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Canvas),
+            windowSelectCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas));
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
@@ -293,6 +338,7 @@ internal static partial class UiRail {
             }),
         CanvasOp.InteractionCase ic =>
             scope.NeedCanvas().Bind(canvas => {
+                CanvasInteractionPolicy before = InteractionOf(canvas: canvas, document: scope.Document);
                 canvas.AllowPan = ic.Policy.AllowPan;
                 canvas.AllowZoom = ic.Policy.AllowZoom;
                 canvas.ShowTilesWhenEmpty = ic.Policy.ShowTilesWhenEmpty;
@@ -302,51 +348,23 @@ internal static partial class UiRail {
                 _ = ic.Policy.ViewportDragging.Iter(value => canvas.ViewportDragging = value);
                 _ = ic.Policy.Actions.Iter(policy => policy.Apply(actions: canvas.AllowedActions));
                 _ = ic.Policy.ClearSnapFeedback ? ClearSnapFeedback(canvas: canvas) : unit;
-                return ic.Policy.Projection.Match(
-                    Some: projection => ApplyProjection(scope: scope, policy: projection)
-                        .Map(_ => (CanvasResult)new CanvasResult.InteractionResult(Effective: ic.Policy)),
-                    None: () => Fin.Succ<CanvasResult>(value: new CanvasResult.InteractionResult(Effective: ic.Policy)));
+                return ic.Policy.Projection.TraverseM(projection => ApplyProjection(scope: scope, policy: projection)).As()
+                    .Map(_ => (CanvasResult)new CanvasResult.InteractionResult(
+                        Interaction: new CanvasInteractionSnapshot(Before: before, After: InteractionOf(canvas: canvas, document: scope.Document))));
             }),
         CanvasOp.WindowSelectCase ws =>
             scope.NeedObjects().Bind(objs => scope.NeedCanvas().Bind(canvas => scope.NeedDocument().Map(doc => {
-                _ = objs.WindowSelect(window: ws.Window, mode: ws.Mode,
+                SelectionResult result = objs.WindowSelect(window: ws.Window, mode: ws.Mode,
                     considerForeground: (ws.Scope & CanvasWindowScope.Objects) == CanvasWindowScope.Objects,
                     considerBackground: (ws.Scope & CanvasWindowScope.Groups) == CanvasWindowScope.Groups,
                     considerWires: (ws.Scope & CanvasWindowScope.Wires) == CanvasWindowScope.Wires);
-                return (CanvasResult)new CanvasResult.SnapshotResult(Snapshot: SnapshotOf(canvas: canvas, document: doc, objects: objs));
+                return (CanvasResult)new CanvasResult.WindowResult(Window: new CanvasWindowSnapshot(
+                    Canvas: SnapshotOf(canvas: canvas, document: doc, objects: objs),
+                    SelectedCount: result.SelectedCount,
+                    DeselectedCount: result.DeselectedCount));
             }))),
         _ => Fin.Fail<CanvasResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasDispatch)), detail: "unknown CanvasOp")),
     };
-
-    internal static bool CanvasNeedsEditor(CanvasOp op) => op.Switch(
-        snapshotCase: static snapshot => snapshot.OpenEditor,
-        pickCase: static _ => false,
-        mapCase: static _ => false,
-        invalidateCase: static _ => false,
-        instantiateCase: static _ => true,
-        detailCase: static _ => false,
-        actionsCase: static _ => false,
-        renderCase: static _ => false,
-        pickMapCase: static _ => false,
-        viewCase: static _ => true,
-        snapFeedbackCase: static _ => false,
-        interactionCase: static _ => false,
-        windowSelectCase: static _ => false);
-
-    internal static RepaintRequest CanvasRepaintFor(CanvasOp op) => op.Switch(
-        snapshotCase: static _ => RepaintRequest.None,
-        pickCase: static _ => RepaintRequest.None,
-        mapCase: static _ => RepaintRequest.None,
-        invalidateCase: static invalidate => invalidate.Mode.Repaint,
-        instantiateCase: static _ => RepaintRequest.None,
-        detailCase: static _ => RepaintRequest.None,
-        actionsCase: static _ => RepaintRequest.None,
-        renderCase: static _ => RepaintRequest.None,
-        pickMapCase: static _ => RepaintRequest.None,
-        viewCase: static _ => RepaintRequest.Canvas,
-        snapFeedbackCase: static _ => RepaintRequest.Canvas,
-        interactionCase: static _ => RepaintRequest.Canvas,
-        windowSelectCase: static _ => RepaintRequest.Canvas);
 
     private static Fin<CanvasResult> ViewDispatch(GrasshopperUi.Scope scope, CanvasViewOp view) =>
         view switch {
@@ -426,6 +444,20 @@ internal static partial class UiRail {
             WindowSelectObjects: canvas.WindowSelectObjects,
             WindowSelectWires: canvas.WindowSelectWires,
             WindowSelectGroups: canvas.WindowSelectGroups);
+
+    private static CanvasInteractionPolicy InteractionOf(GhCanvas canvas, Option<GhDocument> document = default) =>
+        new(
+            AllowPan: canvas.AllowPan,
+            AllowZoom: canvas.AllowZoom,
+            ShowTilesWhenEmpty: canvas.ShowTilesWhenEmpty,
+            WindowSelectObjects: canvas.WindowSelectObjects,
+            WindowSelectWires: canvas.WindowSelectWires,
+            WindowSelectGroups: canvas.WindowSelectGroups,
+            ViewportDragging: Some(canvas.ViewportDragging),
+            Actions: Some(CanvasActionPolicy.Capture(actions: canvas.AllowedActions)),
+            Projection: document.Map(static doc => new CanvasProjectionPolicy(
+                Centre: Some(doc.Projection.centre),
+                Zoom: Some(doc.Projection.zoom))));
 
     private static CanvasSnapshot EmptySnapshotOf(GhCanvas canvas) =>
         new(HasEditor: true, HasCanvas: true, HasDocument: false,

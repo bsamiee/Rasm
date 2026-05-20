@@ -70,11 +70,33 @@ public readonly record struct SnappingSnapshot(
     Option<PointF> LabelPoint,
     Option<TextAnchor> LabelAnchor);
 
+[Union]
+public partial record SnapSetting {
+    private SnapSetting() { }
+    public sealed record WithRuleCase(SnappingRule Rule) : SnapSetting;
+    public sealed record WithoutRuleCase(SnappingRule Rule) : SnapSetting;
+    public sealed record FeedbackCase(bool Enabled, Color Colour) : SnapSetting;
+
+    public static SnapSetting With(SnappingRule rule) => new WithRuleCase(Rule: rule);
+    public static SnapSetting Without(SnappingRule rule) => new WithoutRuleCase(Rule: rule);
+    public static SnapSetting Feedback(bool enabled, Color colour) => new FeedbackCase(Enabled: enabled, Colour: colour);
+
+    internal SnappingSettings Apply(SnappingSettings settings) =>
+        Switch(
+            state: settings,
+            withRuleCase: static (state, op) => state.WithRules(rules: op.Rule),
+            withoutRuleCase: static (state, op) => state.WithoutRules(rules: op.Rule),
+            feedbackCase: static (state, op) => state.WithFeedback(drawFeedback: op.Enabled, colour: op.Colour));
+}
+
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct SnappingPolicy(
     bool IncludeSelected = true,
     bool IncludeUnselected = true,
-    Option<SnappingSettings> Settings = default);
+    Seq<SnapSetting> Settings = default) {
+    internal SnappingSettings Native =>
+        Settings.Fold(SnappingSettings.Current, static (state, op) => op.Apply(settings: state));
+}
 
 [Union]
 public partial record SnapProbe {
@@ -107,7 +129,7 @@ public partial record LayoutOp {
 public partial record LayoutResult {
     private LayoutResult() { }
     public sealed record SnapshotsResult(Seq<LayoutSnapshot> Snapshots) : LayoutResult;
-    public sealed record MutationResult(Snapshot<LayoutMoveDelta> Delta) : LayoutResult;
+    public sealed record MutationResult(Snapshot<LayoutArrangeDelta> Delta) : LayoutResult;
     public sealed record SnapResult(Option<SnappingSnapshot> Snapshot) : LayoutResult;
 }
 
@@ -140,12 +162,16 @@ internal static partial class Layout {
                     .Map(snapshots => (LayoutResult)new LayoutResult.SnapshotsResult(Snapshots: snapshots))
                     .As());
 
-    internal static GrasshopperUiIntent<Snapshot<LayoutMoveDelta>> Arrange(LayoutArrangement arrangement) =>
+    internal static GrasshopperUiIntent<Snapshot<LayoutArrangeDelta>> Arrange(LayoutArrangement arrangement) =>
         arrangement switch {
-            LayoutArrangement.MoveCase move => Move(id: move.Id, dx: move.Dx, dy: move.Dy),
-            LayoutArrangement.AlignCase align => Align(left: align.Left, right: align.Right, fix: align.Fix),
+            LayoutArrangement.MoveCase move =>
+                Move(id: move.Id, dx: move.Dx, dy: move.Dy)
+                    .Map(delta => delta.Map(payload => new LayoutArrangeDelta(Moves: Seq(payload)))),
+            LayoutArrangement.AlignCase align =>
+                Align(left: align.Left, right: align.Right, fix: align.Fix)
+                    .Map(delta => delta.Map(payload => new LayoutArrangeDelta(Moves: Seq(payload)))),
             LayoutArrangement.DistributeCase distribute => Distribute(axis: distribute.Axis, gap: distribute.Gap, ids: [.. distribute.Ids]),
-            _ => GhUi.Document<Snapshot<LayoutMoveDelta>>(run: _ => Fin.Fail<Snapshot<LayoutMoveDelta>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Arrange)), detail: "unknown layout arrangement"))),
+            _ => GhUi.Document<Snapshot<LayoutArrangeDelta>>(run: _ => Fin.Fail<Snapshot<LayoutArrangeDelta>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Arrange)), detail: "unknown layout arrangement"))),
         };
 
     internal static GrasshopperUiIntent<LayoutSnapshot> Snapshot(Guid id) =>
@@ -188,26 +214,32 @@ internal static partial class Layout {
             mutate: scope =>
                 from leftObj in ObjectOf(scope: scope, id: left)
                 from rightObj in ObjectOf(scope: scope, id: right)
+                let before = SnapshotOf(attributes: rightObj.Attributes)
                 from _ in AlignVia(a: leftObj, b: rightObj, fix: fix)
-                select new LayoutMoveDelta(ObjectId: right, Dx: 0f, Dy: 0f, After: SnapshotOf(attributes: rightObj.Attributes), Snap: Option<SnappingSnapshot>.None));
+                let after = SnapshotOf(attributes: rightObj.Attributes)
+                select new LayoutMoveDelta(ObjectId: right, Dx: after.Pivot.X - before.Pivot.X, Dy: after.Pivot.Y - before.Pivot.Y, After: after, Snap: Option<SnappingSnapshot>.None));
 
-    internal static GrasshopperUiIntent<Snapshot<LayoutMoveDelta>> Distribute(LayoutAxis axis, float gap, params Guid[] ids) =>
-        GhUi.Document<Snapshot<LayoutMoveDelta>>(
+    internal static GrasshopperUiIntent<Snapshot<LayoutArrangeDelta>> Distribute(LayoutAxis axis, float gap, params Guid[] ids) =>
+        GhUi.Document<Snapshot<LayoutArrangeDelta>>(
             repaint: RepaintRequest.Canvas,
             run: scope => Optional(ids)
                 .Filter(static values => values.Length >= 2)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Distribute)), detail: "Distribute requires at least 2 ids"))
-                .Bind(validIds => scope.NeedDocument().Bind(doc => scope.NeedObjects().Bind(objs => {
-                    UndoGroup bag = new(verb: "Layout", noun: $"Distribute {axis}");
-                    GrasshopperUi.Scope scoped = scope with { UndoGroup = Some(bag) };
-                    Seq<(Guid Id, float Dx, float Dy)> moves = ComputeDistribution(objects: objs, ids: toSeq(validIds), axis: axis, gap: gap);
-                    return moves.Head
-                        .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Distribute)), detail: "no supplied ids resolved to document objects"))
-                        .Bind(_ => moves.TraverseM(m => Move(id: m.Id, dx: m.Dx, dy: m.Dy, snap: false).Run(scope: scoped).Map(static s => s.Payload)).As())
-                        .Bind(deltas => deltas.Rev().Head
-                            .ToFin(Fail: UiFault.MutationRejected(op: Op.Of(name: nameof(Distribute)), detail: "distribution produced no deltas")))
-                        .Bind(last => bag.Commit(document: doc).Map(_ => global::Rasm.Grasshopper.UI.Snapshot.Of<LayoutMoveDelta>(payload: last, ownerId: Some(doc.Hash))));
-                }))));
+                .Bind(validIds => Optional(gap)
+                    .Filter(static value => float.IsFinite(value))
+                    .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Distribute)), detail: "non-finite gap"))
+                    .Bind(validGap => scope.NeedDocument().Bind(doc => scope.NeedObjects().Bind(objs => {
+                        UndoGroup bag = new(verb: "Layout", noun: $"Distribute {axis}");
+                        GrasshopperUi.Scope scoped = scope with { UndoGroup = Some(bag) };
+                        Seq<(Guid Id, float Dx, float Dy)> moves = ComputeDistribution(objects: objs, ids: toSeq(validIds), axis: axis, gap: validGap);
+                        return Optional(moves)
+                            .Filter(static values => values.Count >= 2)
+                            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Distribute)), detail: "fewer than 2 supplied ids resolved to document objects"))
+                            .Bind(_ => moves.TraverseM(m => Move(id: m.Id, dx: m.Dx, dy: m.Dy, snap: false).Run(scope: scoped).Map(static s => s.Payload)).As())
+                            .Bind(deltas => bag.Commit(document: doc).Map(_ => global::Rasm.Grasshopper.UI.Snapshot.Of<LayoutArrangeDelta>(
+                                payload: new LayoutArrangeDelta(Moves: deltas),
+                                ownerId: Some(doc.Hash))));
+                    })))));
 
     internal static GrasshopperUiIntent<Option<SnappingSnapshot>> Snap(SnapProbe probe) =>
         GhUi.Document<Option<SnappingSnapshot>>(run: scope =>
@@ -291,11 +323,11 @@ internal static partial class Layout {
             filter: new System.Collections.Generic.HashSet<Guid>([obj.InstanceId]));
         constraints.SnapRectangle(
             target: bounds,
-            settings: active.Settings.IfNone(SnappingSettings.Current),
+            settings: active.Native,
             visibleLimit: visibleLimit,
             snapX: out SnappingAction x,
             snapY: out SnappingAction y);
-        return SnapshotOf(x: Optional(x), y: Optional(y));
+        return SnapshotOf(x: Optional(x), y: Optional(SnappingAction.SmallerMagnitude(a: y, b: SnappingConstraints.SnapWires(target: obj, boundsOverride: bounds, settings: active.Native))));
     }
 
     private static Option<SnappingSnapshot> SnapObject(GhDocument document, IDocumentObject obj, SnappingPolicy policy, RectangleF visibleLimit) {
@@ -307,7 +339,7 @@ internal static partial class Layout {
             filter: new System.Collections.Generic.HashSet<Guid>([obj.InstanceId]));
         constraints.SnapObject(
             target: obj,
-            settings: active.Settings.IfNone(SnappingSettings.Current),
+            settings: active.Native,
             visibleLimit: visibleLimit,
             snapX: out SnappingAction x,
             snapY: out SnappingAction y);
@@ -315,9 +347,10 @@ internal static partial class Layout {
     }
 
     private static SnappingPolicy ActivePolicy(SnappingPolicy policy) =>
-        Optional(policy)
-            .Filter(static value => value.IncludeSelected || value.IncludeUnselected)
-            .IfNone(policy with { IncludeSelected = true, IncludeUnselected = true });
+        (policy.IncludeSelected || policy.IncludeUnselected) switch {
+            true => policy,
+            false => policy with { IncludeSelected = true, IncludeUnselected = true },
+        };
 
     internal static Option<SnappingSnapshot> SnapshotOf(Option<SnappingAction> x, Option<SnappingAction> y) =>
         Optional((X: x, Y: y))
@@ -374,9 +407,9 @@ internal static partial class Layout {
                 initialState: (Cursor: axis.Origin(bounds: head.Bounds), Moves: Seq<(Guid Id, float Dx, float Dy)>()),
                 f: (state, s) => (
                     Cursor: state.Cursor + axis.Span(bounds: s.Bounds) + gap,
-                    Moves: (s.Id,
-                        axis.Delta(cursor: state.Cursor, bounds: s.Bounds).Dx,
-                        axis.Delta(cursor: state.Cursor, bounds: s.Bounds).Dy).Cons(state.Moves)))
+                    Moves: axis.Delta(cursor: state.Cursor, bounds: s.Bounds) switch {
+                        (float dx, float dy) => (s.Id, dx, dy).Cons(state.Moves),
+                    }))
                 .Moves.Rev())
             .IfNone(() => Seq<(Guid Id, float Dx, float Dy)>());
     }

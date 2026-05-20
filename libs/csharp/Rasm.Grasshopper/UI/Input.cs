@@ -206,10 +206,12 @@ internal partial record UiCommandSurface {
 public abstract record ToolbarItem {
     public sealed record Button(UiCommand Command, bool CloseOnActivate = true) : ToolbarItem;
     public sealed record Toggle(UiCommand Command, bool State, Func<bool, Fin<Unit>> Changed) : ToolbarItem;
+    public sealed record SectionToggle(string Name, bool State, Seq<string> Sections = default) : ToolbarItem;
     public sealed record Radio(UiCommand Command, bool State, Func<bool, Fin<Unit>> Changed) : ToolbarItem;
     public sealed record TextInput(string Name, string Value, Func<string, Fin<Unit>> Changed) : ToolbarItem;
     public sealed record Number(string Name, double Value, Interval Range, Func<double, Fin<Unit>> Changed) : ToolbarItem;
     public sealed record SwatchInput(string Name, OpenColor.Family Family, Func<OpenColor.Family, Fin<Unit>> Changed) : ToolbarItem;
+    public sealed record ColourBars(string Name, OpenColor.Family Family, Func<OpenColor.Family, Fin<Unit>> Changed) : ToolbarItem;
     public sealed record Spacer(string Chapter, string Section) : ToolbarItem;
 
     internal Fin<Unit> Apply(UiCommandSurface surface) =>
@@ -254,6 +256,10 @@ public abstract record ToolbarItem {
                         menu.Target.Items.Add(item: item);
                         return unit;
                     }))(),
+                (SectionToggle toggle, UiCommandSurface.ToolbarCase toolbar) => Try.lift<Unit>(f: () => {
+                    _ = toolbar.Bar.AddToggle(nomen: new Nomen(name: toggle.Name, info: toggle.Name), initialState: toggle.State, additionalAffectedSections: [.. toggle.Sections]);
+                    return unit;
+                }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(SectionToggle)), detail: "AddToggle threw")),
                 (Radio radio, UiCommandSurface.ToolbarCase toolbar) =>
                     from command in radio.Command.Validated(op: Op.Of(name: nameof(Radio)))
                     from changed in Optional(radio.Changed).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Radio)), detail: "radio change delegate is required"))
@@ -280,6 +286,16 @@ public abstract record ToolbarItem {
                     from changed in Optional(colour.Changed).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SwatchInput)), detail: "colour change delegate is required"))
                     select ((Func<Unit>)(() => {
                         toolbar.Bar.AddLifeColours(nomen: new Nomen(name: colour.Name, info: colour.Name), initial: colour.Family, assignment: value => _ = GrasshopperUi.Protect(valid: () => changed(arg: value)));
+                        return unit;
+                    }))(),
+                (ColourBars colour, UiCommandSurface.ToolbarCase toolbar) =>
+                    from changed in Optional(colour.Changed).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ColourBars)), detail: "colour change delegate is required"))
+                    select ((Func<Unit>)(() => {
+                        void Assign(OpenColor.Family value) => _ = GrasshopperUi.Protect(valid: () => changed(arg: value));
+                        Nomen nomen = new(name: $"{colour.Name} {{family}}", info: $"{colour.Name} {{family}}");
+                        toolbar.Bar.AddLifeColours(nomen: nomen, initial: colour.Family, assignment: Assign);
+                        toolbar.Bar.AddCoolColours(nomen: nomen, initial: colour.Family, assignment: Assign);
+                        toolbar.Bar.AddWarmColours(nomen: nomen, initial: colour.Family, assignment: Assign);
                         return unit;
                     }))(),
                 (Spacer spacer, UiCommandSurface.ToolbarCase toolbar) => Try.lift<Unit>(f: () => {
@@ -524,12 +540,13 @@ internal static partial class Input {
         scope.Editor.Map(static _ => (Control?)Grasshopper2.UI.Editor.ThisOrRhino).IfNone((Control?)null);
 
     internal static Option<string> RunFileDialog(Eto.Forms.FileDialog dialog, Control? parent, Option<string> initialPath, FileFilter[] filters) {
+        using Eto.Forms.FileDialog owned = dialog;
         _ = initialPath.Filter(static path => !string.IsNullOrWhiteSpace(path))
-            .IfSome(path => dialog.Directory = new Uri(uriString: Directory.Exists(path: path) ? path : System.IO.Path.GetDirectoryName(path: path) ?? string.Empty));
-        _ = toSeq(filters).Iter(f => dialog.Filters.Add(item: new Eto.Forms.FileFilter(name: f.Name, extensions: [.. f.Extensions])));
-        DialogResult result = dialog.ShowDialog(parent: parent);
+            .IfSome(path => owned.Directory = new Uri(uriString: Directory.Exists(path: path) ? path : System.IO.Path.GetDirectoryName(path: path) ?? string.Empty));
+        _ = toSeq(filters).Iter(f => owned.Filters.Add(item: new Eto.Forms.FileFilter(name: f.Name, extensions: [.. f.Extensions])));
+        DialogResult result = owned.ShowDialog(parent: parent);
         return result switch {
-            DialogResult.Ok => Some(dialog.FileName),
+            DialogResult.Ok => Some(owned.FileName),
             _ => Option<string>.None,
         };
     }

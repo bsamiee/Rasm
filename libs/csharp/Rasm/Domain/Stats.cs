@@ -14,8 +14,8 @@ public sealed partial class ScalarMetric {
         IsMagnitude ? key.AcceptValue(value: value).Map(static vector => vector.Length) : Fin.Fail<double>(error: key.Unsupported(geometryType: typeof(Vector3d), outputType: typeof(double)));
     internal Fin<double> Of(SurfaceCurvature value, Op key) =>
         this switch {
-            ScalarMetric metric when metric.Key == Gaussian.Key => Fin.Succ(value: value.Gaussian),
-            ScalarMetric metric when metric.Key == Mean.Key => Fin.Succ(value: value.Mean),
+            ScalarMetric metric when metric.Key == Gaussian.Key => key.AcceptValue(value: value.Gaussian),
+            ScalarMetric metric when metric.Key == Mean.Key => key.AcceptValue(value: value.Mean),
             _ => Fin.Fail<double>(error: key.Unsupported(geometryType: typeof(SurfaceCurvature), outputType: typeof(double))),
         };
 }
@@ -75,7 +75,7 @@ public readonly record struct Stat(int Count, double Minimum, double Maximum, do
                     Count: count, Mean: state.Mean + (delta / count), M2: state.M2 + (delta * (value - (state.Mean + (delta / count)))), Minimum: Math.Min(val1: state.Minimum, val2: value), Maximum: Math.Max(val1: state.Maximum, val2: value), AllFinite: state.AllFinite && RhinoMath.IsValidDouble(x: value)),
             }) switch {
                 (0, _, _, _, _, _) or (_, _, _, _, _, false) => Fin.Fail<Stat>(key.InvalidResult()),
-                (int count, double mean, double m2, double minimum, double maximum, _) => Fin.Succ(new Stat(
+                (int count, double mean, double m2, double minimum, double maximum, _) => key.AcceptValue(value: new Stat(
                     Count: count, Minimum: minimum, Maximum: maximum, Mean: mean, Variance: Math.Max(val1: 0.0, val2: m2 / count), Context: context ?? StatContext.None)),
             };
     internal static Seq<TItem> Extrema<TItem>(Seq<TItem> items, Func<TItem, double> projection, double tolerance, ExtremumDirection direction) => items.Fold(
@@ -86,12 +86,15 @@ public readonly record struct Stat(int Count, double Minimum, double Maximum, do
             _ => state,
         }).Hits.Rev();
     internal static Fin<TOut> Residuals<TOut>(Seq<ResidualSample> samples, Op key, ResidualAggregate aggregate) =>
-        samples.TraverseM(sample => OpAcceptance.ValidityOf(source: sample).IfNone(false) ? Fin.Succ(sample) : Fin.Fail<ResidualSample>(key.InvalidResult())).As()
+        samples.TraverseM(sample => key.AcceptValue(value: sample)).As()
             .Bind(validated => (aggregate, typeof(TOut)) switch {
-                (ResidualAggregate.DistancesCase, Type t) when t == typeof(Seq<double>) => Fin.Succ((TOut)(object)validated.Map(static sample => sample.Distance)),
+                (ResidualAggregate.DistancesCase, Type t) when t == typeof(Seq<double>) => key.Accept(values: validated.Map(static sample => sample.Distance)).Map(static distances => (TOut)(object)distances),
                 (ResidualAggregate.SummaryCase summary, Type t) when t == typeof(Stat) => Of(values: validated.Map(static sample => sample.Distance), key: key)
-                    .Map(stat => (TOut)(object)(stat with { Context = StatContext.Tolerance(tolerance: summary.Tolerance, minimum: stat.Minimum, maximum: stat.Maximum) })),
-                (ResidualAggregate.MaximumCase, Type t) when t == typeof(ResidualSample) => Extrema(items: validated, projection: static sample => sample.Distance, tolerance: 0.0, direction: ExtremumDirection.Maximum).Head.ToFin(key.InvalidResult()).Map(static sample => (TOut)(object)sample),
+                    .Bind(stat => key.AcceptValue(value: stat with { Context = StatContext.Tolerance(tolerance: summary.Tolerance, minimum: stat.Minimum, maximum: stat.Maximum) }))
+                    .Map(static stat => (TOut)(object)stat),
+                (ResidualAggregate.MaximumCase, Type t) when t == typeof(ResidualSample) => Extrema(items: validated, projection: static sample => sample.Distance, tolerance: 0.0, direction: ExtremumDirection.Maximum).Head.ToFin(key.InvalidResult())
+                    .Bind(sample => key.AcceptValue(value: sample))
+                    .Map(static sample => (TOut)(object)sample),
                 (ResidualAggregate.DistributionCase dist, Type t) when t == typeof(Distribution) => Distribution.Of(values: validated.Map(static sample => sample.Distance), percentiles: dist.Percentiles, key: key).Map(d => (TOut)(object)d),
                 _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(ResidualSample), outputType: typeof(TOut))),
             });
@@ -108,7 +111,8 @@ public readonly record struct Distribution(Stat Summary, double Median, double I
                         Median: Quantile(sorted: sorted, fraction: 0.5),
                         Iqr: Quantile(sorted: sorted, fraction: 0.75) - Quantile(sorted: sorted, fraction: 0.25),
                         Percentiles: valid.Map(p => (Percentile: p, Value: Quantile(sorted: sorted, fraction: p / 100.0)))),
-                }));
+                }))
+            .Bind(distribution => key.AcceptValue(value: distribution));
     private static double Quantile(Seq<double> sorted, double fraction) =>
         (sorted.Count - 1) * Math.Clamp(value: fraction, min: 0.0, max: 1.0) switch {
             double idx when Math.Abs(value: idx - Math.Floor(d: idx)) <= RhinoMath.ZeroTolerance => sorted[(int)Math.Floor(d: idx)],

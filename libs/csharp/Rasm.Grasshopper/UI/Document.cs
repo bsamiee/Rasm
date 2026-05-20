@@ -582,7 +582,7 @@ internal static partial class UiRail {
         from document in scope.NeedDocument()
         from objects in scope.NeedObjects()
         from canvas in scope.NeedCanvas()
-        let actions = new ActionList([])
+        let actions = ActionList.Empty
         from changed in mutate(arg1: methods, arg2: objects, arg3: actions).Bind(count => count switch {
             >= 0 => Fin.Succ(value: count),
             _ => Fin.Fail<int>(error: UiFault.MutationRejected(op: op, detail: $"count={count}")),
