@@ -81,6 +81,9 @@ public readonly record struct CommandGet<T>(
     internal static CommandGet<T> Native(Result result, Option<T> value) =>
         new(Raw: Option<GetResult>.None, CommandResult: result, Value: value, Option: Option<CommandOptionValue>.None, GotDefault: false, Snapshot: CommandSnapshot.Empty);
 
+    internal static CommandGet<T> ScriptOption(CommandOptionValue option) =>
+        new(Raw: Some(GetResult.Option), CommandResult: Result.Success, Value: Option<T>.None, Option: Some(option), GotDefault: false, Snapshot: CommandSnapshot.Empty);
+
     public Option<TOut> As<TOut>() =>
         Value.Bind(static value => value is TOut typed ? Some(typed) : Option<TOut>.None);
 
@@ -606,8 +609,12 @@ public static class CommandInputs {
     private static Fin<CommandInputEvent<T>> Script<T>(CommandInput input, string token, CommandInputPolicy? policy = null) =>
         from source in Optional(input).ToFin(Fail: Op.Of(name: nameof(Script)).InvalidInput())
         from text in Optional(token).ToFin(Fail: Op.Of(name: nameof(Script)).InvalidInput())
-        from value in ScriptValue<T>(input: source, text: text, policy: Optional(policy).IfNone(CommandInputPolicy.Empty)).ToFin(Fail: Op.Of(name: nameof(Script)).InvalidResult())
-        select CommandInputEvent<T>.Of(result: CommandGet<T>.Native(result: Result.Success, value: Some(value)));
+        from result in CommandOption.Script(options: Optional(policy).IfNone(CommandInputPolicy.Empty).OptionList, token: text).Case switch {
+            CommandOptionValue option => Fin.Succ(value: CommandGet<T>.ScriptOption(option: option)),
+            _ => from value in ScriptValue<T>(input: source, text: text, policy: Optional(policy).IfNone(CommandInputPolicy.Empty)).ToFin(Fail: Op.Of(name: nameof(Script)).InvalidResult())
+                 select CommandGet<T>.Native(result: Result.Success, value: Some(value)),
+        }
+        select CommandInputEvent<T>.Of(result: result);
 
     private static Option<T> ScriptValue<T>(CommandInput input, string text, CommandInputPolicy policy) =>
         typeof(T) switch {

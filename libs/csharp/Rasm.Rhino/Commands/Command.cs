@@ -69,7 +69,8 @@ public sealed record PromptStage<TState, TValue>(
     Func<TState, Seq<CommandInputPolicy>> Policies,
     Func<CommandStageContext<TState>, CommandGet<TValue>, Fin<PromptTransition<TState>>> Receive,
     Func<PromptPreviewContext<TState>, Option<UiViewportPreview>>? Preview = null,
-    Func<PromptGumballContext<TState>, Fin<Option<PromptTransition<TState>>>>? Gumball = null) : CommandStage<TState>(Name) {
+    Func<PromptGumballContext<TState>, Fin<Option<PromptTransition<TState>>>>? Gumball = null,
+    Func<CommandStageContext<TState>, CommandOptionValue, Fin<TState>>? OptionLens = null) : CommandStage<TState>(Name) {
     internal override Fin<PromptTransition<TState>> Run(CommandStageContext<TState> context) =>
         from input in Optional(Input).ToFin(Fail: Op.Of(name: Name).InvalidInput())
         from policies in Optional(Policies).ToFin(Fail: Op.Of(name: Name).InvalidInput())
@@ -88,6 +89,14 @@ public sealed record PromptStage<TState, TValue>(
             _ => inputEvent.Kind switch {
                 CommandInputEventKind.Cancel or CommandInputEventKind.Exit => Fin.Succ<PromptTransition<TState>>(value: new PromptTransition<TState>.Cancel()),
                 CommandInputEventKind.Undo => Fin.Succ<PromptTransition<TState>>(value: new PromptTransition<TState>.Back()),
+                CommandInputEventKind.Option => Optional(OptionLens).Case switch {
+                    Func<CommandStageContext<TState>, CommandOptionValue, Fin<TState>> lens =>
+                        from got in inputEvent.Result.ToFin(Fail: Op.Of(name: Name).InvalidResult())
+                        from selected in got.Option.ToFin(Fail: Op.Of(name: Name).InvalidResult())
+                        from state in lens(arg1: context, arg2: selected)
+                        select (PromptTransition<TState>)new PromptTransition<TState>.Stay(State: state),
+                    _ => inputEvent.Result.ToFin(Fail: Op.Of(name: Name).InvalidResult()).Bind(got => receive(arg1: context, arg2: got)),
+                },
                 _ => inputEvent.Result.ToFin(Fail: Op.Of(name: Name).InvalidResult()).Bind(got => receive(arg1: context, arg2: got)),
             },
         }
