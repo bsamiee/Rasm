@@ -255,11 +255,10 @@ public readonly record struct UiPreviewScope(
             .Bind(valid => overlay.Transition(transition: _ => valid, document: document));
     }
 
-    public Fin<bool> UpdateGumball<TState>(MouseContext<TState> mouse, Point3d point) =>
+    public Fin<bool> UpdateGumball(Point3d point, Line worldLine) =>
         from active in Gumball.ToFin(Fail: Op.Of(name: nameof(UpdateGumball)).InvalidInput())
-        from line in mouse.RequireWorldLine()
         from _ in active.CheckKeys()
-        from changed in active.Update(point: point, line: line)
+        from changed in active.Update(point: point, line: worldLine)
         select changed;
 
     public Fin<bool> PickGumball(global::Rhino.Input.Custom.PickContext pick, GetPoint point) => from active in Gumball.ToFin(Fail: Op.Of(name: nameof(PickGumball)).InvalidInput()) from validPick in Optional(pick).ToFin(Fail: Op.Of(name: nameof(PickGumball)).InvalidInput()) from validPoint in Optional(point).ToFin(Fail: Op.Of(name: nameof(PickGumball)).InvalidInput()) from picked in active.Pick(pick: validPick, point: validPoint) select picked;
@@ -285,7 +284,7 @@ public sealed record UiViewportPreview {
             .Bind(static source => toSeq(source).Map(static item => (object)item).TraverseM(item => Optional(item)
                 .ToFin(Fail: Op.Of(name: nameof(UiViewportPreview)).InvalidInput())
                 .Bind(static value => value switch {
-                    Mesh or Brep or Curve or Extrusion or Surface or Point or Point3d or Line or Polyline or Arc or Circle or Box or BoundingBox or Sphere or Ellipse or PointCloud or SubD or Hatch or TextDot or AnnotationBase or Light => Fin.Succ(value: value),
+                    Mesh or Brep or Curve or Extrusion or Surface or Point or Point3d or Line or Polyline or Arc or Circle or Box or BoundingBox or Sphere or Ellipse or PointCloud or SubD or Hatch or TextDot or TextEntity or AnnotationBase or Light => Fin.Succ(value: value),
                     _ => Fin.Fail<object>(error: Op.Of(name: nameof(UiViewportPreview)).InvalidInput()),
                 })).As())
             .Bind(static values => values.IsEmpty switch {

@@ -78,17 +78,28 @@ public sealed record PromptStage<TState, TValue>(
         from activePolicies in Optional(policies(arg: context.State)).ToFin(Fail: Op.Of(name: Name).InvalidInput())
         let transition = Atom(Option<PromptTransition<TState>>.None)
         let stagePolicies = activePolicies + PreviewPolicy(context: context) + GumballPolicy(context: context, transition: transition)
-        from got in context.Context.Input.Get(request: request.With(policies: stagePolicies))
+        let staged = request.With(policies: stagePolicies)
+        from inputEvent in context.Context.Mode switch {
+            RunMode.Scripted => context.Events.Token(context: context).Case switch {
+                string token => context.Context.Input.Script(request: staged, token: token),
+                _ => context.Context.Input.GetEvent(request: staged),
+            },
+            _ => context.Context.Input.GetEvent(request: staged),
+        }
         from next in transition.Value.Case switch {
             PromptTransition<TState> value => Fin.Succ(value: value),
-            _ => receive(arg1: context, arg2: got),
+            _ => inputEvent.Kind switch {
+                CommandInputEventKind.Cancel or CommandInputEventKind.Exit => Fin.Succ<PromptTransition<TState>>(value: new PromptTransition<TState>.Cancel()),
+                CommandInputEventKind.Undo => Fin.Succ<PromptTransition<TState>>(value: new PromptTransition<TState>.Back(context.State)),
+                _ => inputEvent.Result.ToFin(Fail: Op.Of(name: Name).InvalidResult()).Bind(got => receive(arg1: context, arg2: got)),
+            },
         }
         select next;
 
     private Seq<CommandInputPolicy> PreviewPolicy(CommandStageContext<TState> context) =>
         Optional(Preview)
-            .Map(preview => Seq(CommandInputPolicy.PointEvents(pointEvent => preview(arg: new PromptPreviewContext<TState>(Stage: context, Event: pointEvent)).Case switch {
-                UiViewportPreview active => pointEvent.Preview(preview: active),
+            .Map(preview => Seq(CommandInputPolicy.PointEvents(pointEvent => (pointEvent.Display.IsSome, preview(arg: new PromptPreviewContext<TState>(Stage: context, Event: pointEvent)).Case) switch {
+                (true, UiViewportPreview active) => pointEvent.Preview(preview: active),
                 _ => Fin.Succ(value: unit),
             })))
             .IfNone(Seq<CommandInputPolicy>());
@@ -127,6 +138,12 @@ public sealed record CommandStageContext<TState>(
             PromptTransition<TState>.Cancel => Fin.Fail<CommandStageContext<TState>>(error: new Fault.Cancelled()),
             _ => Fin.Fail<CommandStageContext<TState>>(error: Op.Of(name: nameof(Apply)).InvalidInput()),
         });
+
+    public Fin<Seq<string>> Files(Rasm.Rhino.UI.UiFileSpec spec) =>
+        Context.Mode switch {
+            RunMode.Scripted => Events.Files(context: this, spec: spec),
+            _ => Context.Ui.Use(intent: Rasm.Rhino.UI.UiIntent.File(spec: spec)),
+        };
 }
 
 public static class CommandStageContext {
@@ -153,19 +170,24 @@ public readonly record struct PromptPreviewContext<TState>(CommandStageContext<T
 }
 
 public readonly record struct PromptGumballContext<TState>(CommandStageContext<TState> Stage, CommandPointEvent Event) {
-    public TState State => Stage.State; public RhinoCommandContext Context => Stage.Context; public Option<UiGumballSnapshot> Snapshot => Event.GumballSnapshot;
+    public TState State => Stage.State;
+    public RhinoCommandContext Context => Stage.Context;
+    public Option<Point3d> Point => Event.Point;
+    public Option<UiGumballSnapshot> Snapshot => Event.GumballSnapshot;
+    public Fin<bool> Pick(global::Rhino.Input.Custom.PickContext pick) => Event.PickGumball(pick: pick);
+    public Fin<bool> Update(Line worldLine) => Event.UpdateGumball(worldLine: worldLine);
+    public Fin<bool> Update(Plane frame) => Event.UpdateGumball(frame: frame);
 }
 
 public readonly record struct CommandGraphEvents<TState>(
     Func<CommandStageContext<TState>, Option<string>>? ScriptedToken = null,
-    Func<CommandStageContext<TState>, Rasm.Rhino.UI.UiIntent<Seq<string>>, Fin<Seq<string>>>? ScriptedFiles = null) {
+    Func<CommandStageContext<TState>, Rasm.Rhino.UI.UiFileSpec, Fin<Seq<string>>>? ScriptedFiles = null) {
     public Option<string> Token(CommandStageContext<TState> context) =>
         Optional(ScriptedToken).Bind(project => project(arg: context));
 
-    public Fin<Seq<string>> Files(CommandStageContext<TState> context, Rasm.Rhino.UI.UiIntent<Seq<string>> intent) =>
-        Optional(ScriptedFiles)
-            .ToFin(Fail: Op.Of(name: nameof(Files)).InvalidInput())
-            .Bind(project => project(arg1: context, arg2: intent));
+    public Fin<Seq<string>> Files(CommandStageContext<TState> context, Rasm.Rhino.UI.UiFileSpec spec) =>
+        Optional(ScriptedFiles).Map(project => project(arg1: context, arg2: spec)).IfNone(() =>
+            spec.FileName.Map(value => Seq(value)).ToFin(Fail: Op.Of(name: nameof(Files)).InvalidInput()));
 }
 
 public abstract record PromptTransition<TState> {

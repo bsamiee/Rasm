@@ -17,10 +17,10 @@ public sealed record UiIntent<T> {
 }
 
 public static class UiIntent {
-    public static UiIntent<T> Of<T>(Func<RhinoDoc, RunMode, Fin<T>> run, bool interactive = false) =>
+    public static UiIntent<T> Of<T>(Func<RhinoDoc, RunMode, Fin<T>> run, bool interactive = true) =>
         new(run: scope => Optional(run).ToFin(Fail: Op.Of(name: nameof(Of)).InvalidInput()).Bind(valid => valid(arg1: scope.Document, arg2: scope.Mode)), interactive: interactive);
 
-    public static UiIntent<T> Of<T>(Func<RhinoDoc, Fin<T>> run, bool interactive = false) =>
+    public static UiIntent<T> Of<T>(Func<RhinoDoc, Fin<T>> run, bool interactive = true) =>
         Of(run: (document, _) => Optional(run).ToFin(Fail: Op.Of(name: nameof(Of)).InvalidInput()).Bind(valid => valid(arg: document)), interactive: interactive);
 
     internal static UiIntent<T> OfScope<T>(Func<RhinoUi.Scope, Fin<T>> run, bool interactive = false) =>

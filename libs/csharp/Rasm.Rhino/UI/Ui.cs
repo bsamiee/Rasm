@@ -48,10 +48,12 @@ public sealed partial record RhinoUi {
             .Bind(static result => result);
 
     internal static Fin<T> Protect<T>(Func<Fin<T>> valid, [CallerMemberName] string name = "") =>
-        Try.lift<Fin<T>>(f: valid)
-            .Run()
-            .MapFail(_ => Op.Of(name: name).InvalidResult())
-            .Bind(static result => result);
+        Optional(valid)
+            .ToFin(Fail: Op.Of(name: name).InvalidInput())
+            .Bind(callback => Try.lift<Fin<T>>(f: callback)
+                .Run()
+                .MapFail(_ => Op.Of(name: name).InvalidResult())
+                .Bind(static result => result));
 }
 
 public readonly record struct UiStatus(

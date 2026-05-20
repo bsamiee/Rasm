@@ -60,6 +60,7 @@ public sealed record CommandSelection {
     public RhinoDoc Document { get; }
     public Seq<Reference> Items { get; }
     public Seq<Guid> ObjectIds => Items.Map(static item => item.ObjectId).Distinct();
+    public Seq<Guid> MutationObjectIds => Items.Map(static item => item.MutationObjectId).Distinct();
     internal Seq<Reference> ObjectTargets =>
         Items.Fold(
             (Seen: LanguageExt.Prelude.HashSet<(Guid ObjectId, uint RuntimeSerialNumber)>(), Targets: Seq<Reference>()),
@@ -131,6 +132,14 @@ public sealed record CommandSelection {
         Option<Guid> SelectionViewportId,
         uint SelectionViewDetailSerialNumber,
         Option<PickLocation> Location) {
+        public bool IsSubObject => ComponentIndex.IsSet;
+        public bool IsGrip => Grip.IsSome;
+        public Guid MutationObjectId => GripOwnerId.IfNone(ObjectId);
+        public Option<Guid> GripOwnerId => Grip.Map(static value => value.OwnerId);
+        public Option<Guid> GripObjectId => Grip.Map(static value => value.GripId);
+        public Option<int> GripIndex => Grip.Map(static value => value.Index);
+        public Option<bool> GripSelected => Grip.Map(static value => value.Selected);
+
         internal static Reference Of(ObjRef reference, bool preselected) {
             ArgumentNullException.ThrowIfNull(argument: reference);
             SelectionMethod selectionMethod = reference.SelectionMethod();

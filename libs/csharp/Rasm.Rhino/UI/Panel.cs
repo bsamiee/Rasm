@@ -71,6 +71,10 @@ public readonly record struct PanelMenuState(
     internal Unit Apply(global::Rhino.UI.RuiUpdateUi ui) { ui.Enabled = Enabled; ui.Checked = Checked; ui.RadioChecked = RadioChecked; _ = Text.Iter(value => ui.Text = value); return unit; }
 }
 
+public enum PanelHostPhase { Shown, Hidden, Closed }
+
+public readonly record struct PanelHostEvent(PanelHostPhase Phase, Option<global::Rhino.UI.ShowPanelEventArgs> Show, Option<global::Rhino.UI.PanelEventArgs> Closed);
+
 public abstract record PanelPlacement {
     private PanelPlacement() { }
     public static PanelPlacement Default { get; } = new DefaultPlacement();
@@ -174,6 +178,40 @@ public static class PanelOp {
     public static PanelOp<TPanel, Unit> MenuState<TPanel>(Guid fileId, Guid menuId, Guid itemId, Func<PanelMenuState, Fin<PanelMenuState>> update) where TPanel : RasmPanel =>
         new(run: _ => from validUpdate in Optional(update).ToFin(Fail: Op.Of(name: nameof(MenuState)).InvalidInput()) from validIds in guard(fileId != Guid.Empty && menuId != Guid.Empty && itemId != Guid.Empty, Op.Of(name: nameof(MenuState)).InvalidInput()) from registered in RhinoUi.Protect(valid: () => global::Rhino.UI.RuiUpdateUi.RegisterMenuItem(fileId, menuId, itemId, (_, ui) => _ = RhinoUi.Protect(valid: () => from source in PanelMenuState.Of(ui: ui).ToFin(Fail: Op.Of(name: nameof(MenuState)).InvalidInput()) from state in validUpdate(arg: source) select state.Apply(ui: ui))) switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(MenuState)).InvalidResult()) }) select registered, interactive: false);
 
+    public static PanelOp<TPanel, T> Watch<TPanel, T>(Func<PanelHostEvent, Fin<Unit>> change, Func<Fin<T>> run) where TPanel : RasmPanel =>
+        new(run: _ =>
+            from panel in RasmPanel.PanelIdentityOf<TPanel>()
+            from valid in Optional(change).ToFin(Fail: Op.Of(name: nameof(Watch)).InvalidInput())
+            from body in Optional(run).ToFin(Fail: Op.Of(name: nameof(Watch)).InvalidInput())
+            from subscription in RhinoUi.Protect(valid: () => {
+                void Show(object? _, global::Rhino.UI.ShowPanelEventArgs args) =>
+                    _ = (args.PanelId == panel.Id) switch {
+                        true => RhinoUi.Protect(valid: () => valid(arg: new PanelHostEvent(Phase: args.Show ? PanelHostPhase.Shown : PanelHostPhase.Hidden, Show: Some(args), Closed: Option<global::Rhino.UI.PanelEventArgs>.None))),
+                        false => Fin.Succ(value: unit),
+                    };
+
+                void Closed(object? _, global::Rhino.UI.PanelEventArgs args) =>
+                    _ = (args.PanelId == panel.Id) switch {
+                        true => RhinoUi.Protect(valid: () => valid(arg: new PanelHostEvent(Phase: PanelHostPhase.Closed, Show: Option<global::Rhino.UI.ShowPanelEventArgs>.None, Closed: Some(args)))),
+                        false => Fin.Succ(value: unit),
+                    };
+
+                EventHandler<global::Rhino.UI.ShowPanelEventArgs> show = Show;
+                EventHandler<global::Rhino.UI.PanelEventArgs> closed = Closed;
+                global::Rhino.UI.Panels.Show += show;
+                global::Rhino.UI.Panels.Closed += closed;
+                return Fin.Succ(value: new PanelSubscription(show: show, closed: closed));
+            })
+            from result in RhinoUi.Protect(valid: () => {
+                try {
+                    return body();
+                } finally {
+                    subscription.Dispose();
+                }
+            })
+            select result,
+            interactive: false);
+
     private static Fin<string> NonBlank(string value) =>
         string.IsNullOrWhiteSpace(value: value) switch {
             false => Fin.Succ(value: value),
@@ -182,4 +220,20 @@ public static class PanelOp {
 
     private static Fin<Unit> IconDispatch(object value, Func<DrawingIcon, Unit> native, Func<string, Fin<Unit>> resource, string name) => (Optional(value), Optional(native), Optional(resource)) switch { (Option<object> source, Option<Func<DrawingIcon, Unit>> draw, _) when source.Case is DrawingIcon icon && draw.Case is Func<DrawingIcon, Unit> apply => Fin.Succ(value: apply(arg: icon)), (Option<object> source, _, Option<Func<string, Fin<Unit>>> res) when source.Case is string key && res.Case is Func<string, Fin<Unit>> apply => NonBlank(value: key).Bind(valid => apply(arg: valid)), _ => Fin.Fail<Unit>(error: Op.Of(name: name).InvalidInput()) };
 
+    private sealed class PanelSubscription(EventHandler<global::Rhino.UI.ShowPanelEventArgs> show, EventHandler<global::Rhino.UI.PanelEventArgs> closed) : IDisposable {
+        private bool disposed;
+
+        public void Dispose() {
+            _ = disposed switch {
+                true => unit,
+                false => ((Func<Unit>)(() => {
+                    global::Rhino.UI.Panels.Show -= show;
+                    global::Rhino.UI.Panels.Closed -= closed;
+                    return unit;
+                }))(),
+            };
+            disposed = true;
+            GC.SuppressFinalize(obj: this);
+        }
+    }
 }

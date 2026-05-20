@@ -30,6 +30,47 @@ public readonly record struct CommandPoint(
     }
 }
 
+public abstract record CommandPointConstraint {
+    private CommandPointConstraint() { }
+    internal abstract bool Apply(GetPoint getter);
+
+    public sealed record AlongLine(Line Value) : CommandPointConstraint {
+        internal override bool Apply(GetPoint getter) => getter.Constrain(line: Value);
+    }
+
+    public sealed record AlongArc(Arc Value) : CommandPointConstraint {
+        internal override bool Apply(GetPoint getter) => getter.Constrain(arc: Value);
+    }
+
+    public sealed record AlongCircle(Circle Value) : CommandPointConstraint {
+        internal override bool Apply(GetPoint getter) => getter.Constrain(circle: Value);
+    }
+
+    public sealed record InPlane(Plane Value, bool ThroughCursor = true) : CommandPointConstraint {
+        internal override bool Apply(GetPoint getter) => getter.Constrain(Value, ThroughCursor);
+    }
+
+    public sealed record OnSphere(Sphere Value) : CommandPointConstraint {
+        internal override bool Apply(GetPoint getter) => getter.Constrain(sphere: Value);
+    }
+
+    public sealed record OnCylinder(Cylinder Value) : CommandPointConstraint {
+        internal override bool Apply(GetPoint getter) => getter.Constrain(cylinder: Value);
+    }
+
+    public sealed record OnCurve(Curve Value, bool AllowPickingPointOffObject = false) : CommandPointConstraint {
+        internal override bool Apply(GetPoint getter) => getter.Constrain(curve: Value, allowPickingPointOffObject: AllowPickingPointOffObject);
+    }
+
+    public sealed record OnSurface(Surface Value, bool AllowPickingPointOffObject = false) : CommandPointConstraint {
+        internal override bool Apply(GetPoint getter) => getter.Constrain(surface: Value, allowPickingPointOffObject: AllowPickingPointOffObject);
+    }
+
+    public sealed record OnMesh(Mesh Value, bool AllowPickingPointOffObject = false) : CommandPointConstraint {
+        internal override bool Apply(GetPoint getter) => getter.Constrain(mesh: Value, allowPickingPointOffObject: AllowPickingPointOffObject);
+    }
+}
+
 public readonly record struct CommandSnapshot(
     Option<RhinoView> View,
     Option<DrawingPoint> WindowPoint,
@@ -69,16 +110,57 @@ public readonly record struct CommandGet<T>(
     public bool IsUndo => Raw.Map(static raw => raw == GetResult.Undo).IfNone(false);
 }
 
-public sealed record CommandInputRequest<T> {
-    private readonly Func<CommandInput, Fin<CommandGet<T>>> run;
-    private readonly Func<Seq<CommandInputPolicy>, CommandInputRequest<T>> rebind;
+internal enum CommandInputEventKind { Value, Option, Undo, Nothing, Cancel, Exit }
 
-    internal CommandInputRequest(Func<CommandInput, Fin<CommandGet<T>>> run, Func<Seq<CommandInputPolicy>, CommandInputRequest<T>>? rebind = null) {
-        this.run = run;
+internal readonly record struct CommandInputEvent<T>(CommandInputEventKind Kind, Option<CommandGet<T>> Result) {
+    internal static CommandInputEvent<T> Of(CommandGet<T> result) =>
+        new(
+            Kind: result.Raw.Case switch {
+                GetResult.Option => CommandInputEventKind.Option,
+                GetResult.Undo => CommandInputEventKind.Undo,
+                GetResult.Nothing or GetResult.NoResult or GetResult.Miss or GetResult.Timeout => CommandInputEventKind.Nothing,
+                _ => CommandInputEventKind.Value,
+            },
+            Result: Some(result));
+
+    internal static CommandInputEvent<T> Cancelled { get; } =
+        new(Kind: CommandInputEventKind.Cancel, Result: Option<CommandGet<T>>.None);
+
+    internal static CommandInputEvent<T> Exit { get; } =
+        new(Kind: CommandInputEventKind.Exit, Result: Option<CommandGet<T>>.None);
+
+    internal Fin<CommandGet<T>> ToGet() =>
+        Kind switch {
+            CommandInputEventKind.Cancel or CommandInputEventKind.Exit => Fin.Fail<CommandGet<T>>(error: new Fault.Cancelled()),
+            _ => Result.ToFin(Fail: Op.Of(name: nameof(CommandInputEvent<T>)).InvalidResult()),
+        };
+}
+
+public sealed record CommandInputRequest<T> {
+    private readonly Func<CommandInput, Fin<CommandInputEvent<T>>> run;
+    private readonly Func<Seq<CommandInputPolicy>, CommandInputRequest<T>> rebind;
+    private readonly Func<CommandInput, string, Fin<CommandInputEvent<T>>> scripted;
+
+    internal CommandInputRequest(Func<CommandInput, Fin<CommandGet<T>>> run, Func<Seq<CommandInputPolicy>, CommandInputRequest<T>>? rebind = null, Func<CommandInput, string, Fin<CommandInputEvent<T>>>? scripted = null) {
+        this.run = input => run(arg: input).Map(CommandInputEvent<T>.Of);
         this.rebind = rebind ?? (_ => this);
+        this.scripted = scripted ?? ((_, _) => Fin.Fail<CommandInputEvent<T>>(error: Op.Of(name: nameof(CommandInputRequest<T>)).InvalidInput()));
     }
 
-    internal Fin<CommandGet<T>> Run(CommandInput input) => run(arg: input);
+    internal CommandInputRequest(Func<CommandInput, Fin<CommandInputEvent<T>>> runEvent, Func<Seq<CommandInputPolicy>, CommandInputRequest<T>>? rebind, Func<CommandInput, string, Fin<CommandInputEvent<T>>> scripted) {
+        run = runEvent;
+        this.rebind = rebind ?? (_ => this);
+        this.scripted = scripted;
+    }
+
+    internal Fin<CommandGet<T>> Run(CommandInput input) =>
+        RunEvent(input: input).Bind(static inputEvent => inputEvent.ToGet());
+
+    internal Fin<CommandInputEvent<T>> RunEvent(CommandInput input) =>
+        run(arg: input);
+
+    internal Fin<CommandInputEvent<T>> Script(CommandInput input, string token) =>
+        scripted(arg1: input, arg2: token);
 
     internal CommandInputRequest<T> With(Seq<CommandInputPolicy> policies) =>
         rebind(arg: policies);
@@ -194,8 +276,31 @@ public sealed record CommandInputPolicy {
         Option<Point3d> basePoint = default,
         bool drawLineFromBasePoint = false,
         bool snapToCurves = false,
-        bool permitConstraintOptions = true) =>
-        new(point: Some(DefaultPointSpec with { OnMouseUp = onMouseUp, TwoDimensional = twoDimensional, Cursor = cursor, ObjectSnapCursors = objectSnapCursors, BasePoint = basePoint, DrawLineFromBasePoint = drawLineFromBasePoint, SnapToCurves = snapToCurves, PermitConstraintOptions = permitConstraintOptions }));
+        bool permitConstraintOptions = true,
+        bool noRedrawOnExit = false,
+        bool permitFromOption = true,
+        bool permitTabMode = true,
+        int permitElevatorMode = 0,
+        IEnumerable<Point3d>? snapPoints = null,
+        IEnumerable<Point3d>? constructionPoints = null,
+        IEnumerable<CommandPointConstraint>? constraints = null) =>
+        new(point: Some(DefaultPointSpec with {
+            OnMouseUp = onMouseUp,
+            TwoDimensional = twoDimensional,
+            Cursor = cursor,
+            ObjectSnapCursors = objectSnapCursors,
+            BasePoint = basePoint,
+            DrawLineFromBasePoint = drawLineFromBasePoint,
+            SnapToCurves = snapToCurves,
+            PermitConstraintOptions = permitConstraintOptions,
+            NoRedrawOnExit = noRedrawOnExit,
+            PermitFromOption = permitFromOption,
+            PermitTabMode = permitTabMode,
+            PermitElevatorMode = permitElevatorMode,
+            SnapPoints = Optional(snapPoints).Map(static points => toSeq(points)).IfNone(Seq<Point3d>()),
+            ConstructionPoints = Optional(constructionPoints).Map(static points => toSeq(points)).IfNone(Seq<Point3d>()),
+            Constraints = Optional(constraints).Map(static values => toSeq(values)).IfNone(Seq<CommandPointConstraint>()),
+        }));
     public static CommandInputPolicy Bounds<T>(Option<T> lower = default, Option<T> upper = default, bool strictlyLower = false, bool strictlyUpper = false) where T : IComparable<T> => new(bounds: Some(new LimitSpec(Lower: lower.Map(static value => (object)value), Upper: upper.Map(static value => (object)value), StrictlyLower: strictlyLower, StrictlyUpper: strictlyUpper)));
     public static CommandInputPolicy Number() => new(scalar: Some(new Scalar(Kind: ScalarKind.Number, LengthUnits: Option<UnitSystem>.None, AngleUnits: Option<AngleUnitSystem>.None)));
     public static CommandInputPolicy Number<T>(Option<T> lower = default, Option<T> upper = default, bool strictlyLower = false, bool strictlyUpper = false) where T : IComparable<T> => Bounds(lower: lower, upper: upper, strictlyLower: strictlyLower, strictlyUpper: strictlyUpper) + Number();
@@ -245,8 +350,8 @@ public sealed record CommandInputPolicy {
             _ => Option<Func<CommandPointEvent, Fin<Unit>>>.None,
         };
     internal enum ScalarKind { Number, Length, Angle }
-    internal sealed record PointSpec(bool OnMouseUp, bool TwoDimensional, Option<global::Rhino.UI.CursorStyle> Cursor, Option<bool> ObjectSnapCursors, Option<Point3d> BasePoint, bool DrawLineFromBasePoint, bool SnapToCurves, bool PermitConstraintOptions);
-    internal static PointSpec DefaultPointSpec { get; } = new(OnMouseUp: false, TwoDimensional: false, Cursor: Option<global::Rhino.UI.CursorStyle>.None, ObjectSnapCursors: Option<bool>.None, BasePoint: Option<Point3d>.None, DrawLineFromBasePoint: false, SnapToCurves: false, PermitConstraintOptions: true);
+    internal sealed record PointSpec(bool OnMouseUp, bool TwoDimensional, Option<global::Rhino.UI.CursorStyle> Cursor, Option<bool> ObjectSnapCursors, Option<Point3d> BasePoint, bool DrawLineFromBasePoint, bool SnapToCurves, bool PermitConstraintOptions, bool NoRedrawOnExit, bool PermitFromOption, bool PermitTabMode, int PermitElevatorMode, Seq<Point3d> SnapPoints, Seq<Point3d> ConstructionPoints, Seq<CommandPointConstraint> Constraints);
+    internal static PointSpec DefaultPointSpec { get; } = new(OnMouseUp: false, TwoDimensional: false, Cursor: Option<global::Rhino.UI.CursorStyle>.None, ObjectSnapCursors: Option<bool>.None, BasePoint: Option<Point3d>.None, DrawLineFromBasePoint: false, SnapToCurves: false, PermitConstraintOptions: true, NoRedrawOnExit: false, PermitFromOption: true, PermitTabMode: true, PermitElevatorMode: 0, SnapPoints: Seq<Point3d>(), ConstructionPoints: Seq<Point3d>(), Constraints: Seq<CommandPointConstraint>());
     internal sealed record Scalar(ScalarKind Kind, Option<UnitSystem> LengthUnits, Option<AngleUnitSystem> AngleUnits);
     internal sealed record LimitSpec(Option<object> Lower, Option<object> Upper, bool StrictlyLower, bool StrictlyUpper) {
         internal Fin<(Option<TValue> Lower, Option<TValue> Upper)> Project<TValue>(Op op) where TValue : IComparable<TValue> => (Lower.Bind(ScalarBound<TValue>), Upper.Bind(ScalarBound<TValue>)) switch { (Option<TValue> lower, _) when Lower.IsSome && !lower.IsSome => Fin.Fail<(Option<TValue> Lower, Option<TValue> Upper)>(error: op.InvalidInput()), (_, Option<TValue> upper) when Upper.IsSome && !upper.IsSome => Fin.Fail<(Option<TValue> Lower, Option<TValue> Upper)>(error: op.InvalidInput()), (Option<TValue> lower, Option<TValue> upper) when lower.Case is TValue left && upper.Case is TValue right && left.CompareTo(other: right) > 0 => Fin.Fail<(Option<TValue> Lower, Option<TValue> Upper)>(error: op.InvalidInput()), (Option<TValue> lower, Option<TValue> upper) when lower.Case is TValue left && upper.Case is TValue right && left.CompareTo(other: right) == 0 && (StrictlyLower || StrictlyUpper) => Fin.Fail<(Option<TValue> Lower, Option<TValue> Upper)>(error: op.InvalidInput()), (Option<TValue> lower, Option<TValue> upper) => Fin.Succ(value: (Lower: lower, Upper: upper)) };
@@ -267,7 +372,14 @@ public sealed record CommandInputPolicy {
             _ = spec.Cursor.Iter(cursor => getter.SetCursor(cursor));
             _ = spec.ObjectSnapCursors.Iter(enabled => getter.EnableObjectSnapCursors(enable: enabled));
             getter.PermitConstraintOptions(spec.PermitConstraintOptions);
+            getter.EnableNoRedrawOnExit(spec.NoRedrawOnExit);
+            getter.PermitFromOption(spec.PermitFromOption);
+            getter.PermitTabMode(spec.PermitTabMode);
+            getter.PermitElevatorMode(spec.PermitElevatorMode);
             getter.EnableSnapToCurves(enable: spec.SnapToCurves);
+            _ = spec.SnapPoints.Iter(point => getter.AddSnapPoint(point: point));
+            _ = spec.ConstructionPoints.Iter(point => getter.AddConstructionPoint(point: point));
+            _ = spec.Constraints.Iter(value => _ = value.Apply(getter: getter));
             _ = spec.BasePoint.Iter(point => {
                 getter.SetBasePoint(point, true);
                 _ = spec.DrawLineFromBasePoint switch {
@@ -299,6 +411,9 @@ public readonly record struct CommandPointEvent(
     public Option<Point3d> Point =>
         Mouse.Map(static args => args.Point) | Draw.Map(static args => args.CurrentPoint);
 
+    public Option<System.Drawing.Point> WindowPoint =>
+        Mouse.Map(static args => args.WindowPoint);
+
     public Option<RhinoViewport> Viewport =>
         Mouse.Map(static args => args.Viewport) | Draw.Map(static args => args.Viewport) | PostDraw.Map(static args => args.Viewport);
 
@@ -307,6 +422,32 @@ public readonly record struct CommandPointEvent(
 
     public Option<UiGumballSnapshot> GumballSnapshot =>
         Gumball.Map(static value => value.Snapshot);
+
+    public Fin<bool> PickGumball(global::Rhino.Input.Custom.PickContext pick) {
+        Option<UiGumball> gumball = Gumball;
+        GetPoint getter = Getter;
+        return from active in gumball.ToFin(Fail: Op.Of(name: nameof(PickGumball)).InvalidInput())
+               from valid in Optional(pick).ToFin(Fail: Op.Of(name: nameof(PickGumball)).InvalidInput())
+               from picked in active.Pick(pick: valid, point: getter)
+               select picked;
+    }
+
+    public Fin<bool> UpdateGumball(Line worldLine) {
+        Option<UiGumball> gumball = Gumball;
+        Option<Point3d> point = Point;
+        return from active in gumball.ToFin(Fail: Op.Of(name: nameof(UpdateGumball)).InvalidInput())
+               from current in point.ToFin(Fail: Op.Of(name: nameof(UpdateGumball)).InvalidInput())
+               from _ in active.CheckKeys()
+               from changed in active.Update(point: current, line: worldLine)
+               select changed;
+    }
+
+    public Fin<bool> UpdateGumball(Plane frame) {
+        Option<UiGumball> gumball = Gumball;
+        return from active in gumball.ToFin(Fail: Op.Of(name: nameof(UpdateGumball)).InvalidInput())
+               from changed in active.Update(frame: frame)
+               select changed;
+    }
 
     public Fin<Unit> Preview(UiViewportPreview preview) {
         CommandPointEvent current = this;
@@ -402,7 +543,7 @@ public static class CommandInputs {
         Func<CommandInput, TGetter, GetResult, Option<T>> value,
         Func<TGetter, Fin<Unit>>? configure = null,
         Func<TGetter, GetResult, Option<CommandOptionValue>, (bool Continue, Option<CommandOptionValue> Selected)>? transition = null) where TGetter : GetBaseClass, IDisposable =>
-        new(run: input => Optional(input).ToFin(Fail: Op.Of(name: nameof(Get)).InvalidInput()).Bind(valid => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => {
+        new(runEvent: input => Optional(input).ToFin(Fail: Op.Of(name: nameof(Get)).InvalidInput()).Bind(valid => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => {
             using TGetter getter = create();
             Atom<Option<Error>> eventFault = Atom(Option<Error>.None);
             return from configured in configure is Func<TGetter, Fin<Unit>> apply ? apply(arg: getter) : Fin.Succ(value: unit)
@@ -413,11 +554,11 @@ public static class CommandInputs {
                        return ReadLoop(getter: getter, scope: active, receive: () => receive(arg: getter), value: (g, raw) => value(arg1: valid, arg2: g, arg3: raw), selected: Option<CommandOptionValue>.None, acceptUndo: policy.AcceptsUndo, transition: transition ?? (static (_, _, selected) => (Continue: false, Selected: selected)));
                    })
                    from checkedResult in eventFault.Value.Case switch {
-                       Error error => Fin.Fail<CommandGet<T>>(error: error),
+                       Error error => Fin.Fail<CommandInputEvent<T>>(error: error),
                        _ => Fin.Succ(value: result),
                    }
                    select checkedResult;
-        })));
+        })), rebind: null, scripted: (input, token) => Script<T>(input: input, token: token, policy: policy));
 
     private static Fin<Unit> BindPointEvents(RhinoDoc document, GetPoint getter, Option<Func<CommandPointEvent, Fin<Unit>>> events, Option<UiGumball> gumball, Atom<Option<Error>> fault) =>
         events.Map(change => {
@@ -434,7 +575,7 @@ public static class CommandInputs {
             return unit;
         }).Map(Fin.Succ).IfNone(Fin.Succ(value: unit));
 
-    private static Fin<CommandGet<T>> ReadLoop<TGetter, T>(
+    private static Fin<CommandInputEvent<T>> ReadLoop<TGetter, T>(
         TGetter getter,
         CommandOption.Scope scope,
         Func<GetResult> receive,
@@ -443,14 +584,14 @@ public static class CommandInputs {
         bool acceptUndo,
         Func<TGetter, GetResult, Option<CommandOptionValue>, (bool Continue, Option<CommandOptionValue> Selected)> transition) where TGetter : GetBaseClass =>
         receive() switch {
-            GetResult.Cancel => Fin.Fail<CommandGet<T>>(error: new Fault.Cancelled()),
-            GetResult.ExitRhino => Fin.Fail<CommandGet<T>>(error: new Fault.Cancelled()),
+            GetResult.Cancel => Fin.Succ(value: CommandInputEvent<T>.Cancelled),
+            GetResult.ExitRhino => Fin.Succ(value: CommandInputEvent<T>.Exit),
             GetResult.Option => scope.Selected(getter: getter).Bind(option => transition(getter, GetResult.Option, Some(option)) switch {
                 (true, Option<CommandOptionValue> next) => ReadLoop(getter: getter, scope: scope, receive: receive, value: value, selected: next, acceptUndo: acceptUndo, transition: transition),
                 (false, Option<CommandOptionValue> next) => Read(getter: getter, raw: GetResult.Option, value: value(getter, GetResult.Option), option: next),
             }),
             GetResult.Undo when acceptUndo => Read(getter: getter, raw: GetResult.Undo, value: Option<T>.None, option: selected),
-            GetResult.Undo => Fin.Fail<CommandGet<T>>(error: Op.Of(name: nameof(ReadLoop)).InvalidResult()),
+            GetResult.Undo => Fin.Fail<CommandInputEvent<T>>(error: Op.Of(name: nameof(ReadLoop)).InvalidResult()),
             GetResult raw and (GetResult.NoResult or GetResult.Nothing or GetResult.Miss or GetResult.Timeout) => Read(getter: getter, raw: raw, value: Option<T>.None, option: selected),
             GetResult raw => transition(getter, raw, selected) switch {
                 (true, Option<CommandOptionValue> next) => ReadLoop(getter: getter, scope: scope, receive: receive, value: value, selected: next, acceptUndo: acceptUndo, transition: transition),
@@ -458,12 +599,12 @@ public static class CommandInputs {
             },
         };
 
-    private static Fin<CommandGet<T>> Read<TGetter, T>(TGetter getter, GetResult raw, Option<T> value, Option<CommandOptionValue> option) where TGetter : GetBaseClass {
+    private static Fin<CommandInputEvent<T>> Read<TGetter, T>(TGetter getter, GetResult raw, Option<T> value, Option<CommandOptionValue> option) where TGetter : GetBaseClass {
         Option<T> projected = value | option.Bind(static selected => selected is T selectedValue ? Some(selectedValue) : Option<T>.None);
         CommandGet<T> snapshot = CommandGet<T>.Of(getter: getter, raw: raw, value: projected, option: option);
         return (raw, projected.IsSome || (raw == GetResult.Option && option.IsSome) || snapshot.Snapshot.Has(raw: raw)) switch {
-            (GetResult.Object or GetResult.Point or GetResult.Point2d or GetResult.Number or GetResult.String or GetResult.Color or GetResult.Rectangle2d or GetResult.Line2d, false) => Fin.Fail<CommandGet<T>>(error: Op.Of(name: nameof(Read)).InvalidResult()),
-            _ => Fin.Succ(value: snapshot),
+            (GetResult.Object or GetResult.Point or GetResult.Point2d or GetResult.Number or GetResult.String or GetResult.Color or GetResult.Rectangle2d or GetResult.Line2d, false) => Fin.Fail<CommandInputEvent<T>>(error: Op.Of(name: nameof(Read)).InvalidResult()),
+            _ => Fin.Succ(value: CommandInputEvent<T>.Of(result: snapshot)),
         };
     }
 
@@ -473,7 +614,22 @@ public static class CommandInputs {
             (Result.Cancel or Result.CancelModelessDialog, _) => Fin.Fail<CommandGet<T>>(error: new Fault.Cancelled()),
             (Result.Failure or Result.UnknownCommand, _) => Fin.Fail<CommandGet<T>>(error: Op.Of(name: nameof(Native)).InvalidResult()),
             (Result result, _) => Fin.Succ(value: CommandGet<T>.Native(result: result, value: Option<T>.None)),
-        })));
+        })), scripted: (input, token) => Script<T>(input: input, token: token));
+
+    private static Fin<CommandInputEvent<T>> Script<T>(CommandInput input, string token, CommandInputPolicy? policy = null) =>
+        from source in Optional(input).ToFin(Fail: Op.Of(name: nameof(Script)).InvalidInput())
+        from text in Optional(token).ToFin(Fail: Op.Of(name: nameof(Script)).InvalidInput())
+        from value in ScriptValue<T>(input: source, text: text, policy: Optional(policy).IfNone(CommandInputPolicy.Empty)).ToFin(Fail: Op.Of(name: nameof(Script)).InvalidResult())
+        select CommandInputEvent<T>.Of(result: CommandGet<T>.Native(result: Result.Success, value: Some(value)));
+
+    private static Option<T> ScriptValue<T>(CommandInput input, string text, CommandInputPolicy policy) =>
+        typeof(T) switch {
+            Type t when t == typeof(string) => Cast<T>(text),
+            Type t when t == typeof(double) => Parse<T>(input: input, text: text, scalar: policy.ScalarMode, bounds: policy.LimitsMode).Bind(Cast<T>),
+            Type t when t == typeof(int) => int.TryParse(s: text, style: NumberStyles.Integer, provider: CultureInfo.InvariantCulture, result: out int value) ? Cast<T>(value) : Option<T>.None,
+            Type t when t == typeof(CommandOptionValue) => Option<T>.None,
+            _ => Option<T>.None,
+        };
 
     private static CommandInputRequest<T> Native<T, TNative>(NativeGetter<TNative> get) =>
         Native<T>(run: () => {
@@ -547,7 +703,7 @@ public static class CommandInputs {
         };
 
     private static CommandInputRequest<T> BindPolicy<T>(this CommandInputRequest<T> request, Func<Seq<CommandInputPolicy>, CommandInputRequest<T>> rebind) =>
-        new(run: request.Run, rebind: rebind);
+        new(runEvent: request.RunEvent, rebind: rebind, scripted: request.Script);
 }
 
 public sealed record CommandInput {
@@ -563,4 +719,10 @@ public sealed record CommandInput {
 
     public Fin<CommandGet<TValue>> Get<TValue>(CommandInputRequest<TValue> request) =>
         Optional(request).ToFin(Fail: Op.Of(name: nameof(Get)).InvalidInput()).Bind(valid => valid.Run(input: this));
+
+    internal Fin<CommandInputEvent<TValue>> GetEvent<TValue>(CommandInputRequest<TValue> request) =>
+        Optional(request).ToFin(Fail: Op.Of(name: nameof(GetEvent)).InvalidInput()).Bind(valid => valid.RunEvent(input: this));
+
+    internal Fin<CommandInputEvent<TValue>> Script<TValue>(CommandInputRequest<TValue> request, string token) =>
+        Optional(request).ToFin(Fail: Op.Of(name: nameof(Script)).InvalidInput()).Bind(valid => valid.Script(input: this, token: token));
 }

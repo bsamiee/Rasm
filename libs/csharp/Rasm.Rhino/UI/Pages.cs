@@ -30,13 +30,22 @@ public readonly record struct PageRegistration<TPage>(TPage Page) where TPage : 
     public Fin<Unit> Add(ICollection<TPage> pages) =>
         Optional(Page).ToFin(Fail: Op.Of(name: nameof(Add)).InvalidInput()).Bind(page =>
             Optional(pages).ToFin(Fail: Op.Of(name: nameof(Add)).InvalidInput()).Map(validPages => ((Func<Unit>)(() => { validPages.Add(page); return unit; }))()));
+
+    public Fin<Unit> Add(global::Rhino.UI.ObjectPropertiesPageCollection pages) =>
+        (Page, pages) switch {
+            (global::Rhino.UI.ObjectPropertiesPage page, global::Rhino.UI.ObjectPropertiesPageCollection collection) => RhinoUi.Protect(valid: () => {
+                collection.Add(page: page);
+                return Fin.Succ(value: unit);
+            }),
+            _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(Add)).InvalidInput()),
+        };
 }
 
 public static class PageRegistration {
     public static PageRegistration<global::Rhino.UI.OptionsDialogPage> Options(global::Rhino.UI.OptionsDialogPage page) =>
         new(Page: page);
 
-    public static PageRegistration<global::Rhino.UI.ObjectPropertiesPage> Properties(global::Rhino.UI.ObjectPropertiesPage page) =>
+    public static PageRegistration<global::Rhino.UI.ObjectPropertiesPage> ObjectProperties(global::Rhino.UI.ObjectPropertiesPage page) =>
         new(Page: page);
 }
 
