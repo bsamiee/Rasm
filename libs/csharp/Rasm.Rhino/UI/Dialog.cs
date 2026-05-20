@@ -316,11 +316,7 @@ public static class UiPreview {
         Of(
             name: nameof(Icon),
             run: (_, _) =>
-                from name in Optional(resourceName).ToFin(Fail: Op.Of(name: nameof(Icon)).InvalidInput())
-                    .Bind(static value => string.IsNullOrWhiteSpace(value: value) switch {
-                        false => Fin.Succ(value: value),
-                        true => Fin.Fail<string>(error: Op.Of(name: nameof(Icon)).InvalidInput()),
-                    })
+                from name in Op.Of(name: nameof(Icon)).AcceptText(value: resourceName).MapFail(_ => Op.Of(name: nameof(Icon)).InvalidInput())
                 from validAssembly in Optional(assembly).ToFin(Fail: Op.Of(name: nameof(Icon)).InvalidInput())
                 from _ in guard(size.Width > 0 && size.Height > 0, Op.Of(name: nameof(Icon)).InvalidInput())
                 from bitmap in Optional(global::Rhino.UI.DrawingUtilities.BitmapFromIconResource(name, size, validAssembly))
@@ -331,11 +327,7 @@ public static class UiPreview {
         Of(
             name: nameof(Svg),
             run: (_, _) =>
-                from source in Optional(svg).ToFin(Fail: Op.Of(name: nameof(Svg)).InvalidInput())
-                    .Bind(static value => string.IsNullOrWhiteSpace(value: value) switch {
-                        false => Fin.Succ(value: value),
-                        true => Fin.Fail<string>(error: Op.Of(name: nameof(Svg)).InvalidInput()),
-                    })
+                from source in Op.Of(name: nameof(Svg)).AcceptText(value: svg).MapFail(_ => Op.Of(name: nameof(Svg)).InvalidInput())
                 from _ in guard(width > 0 && height > 0, Op.Of(name: nameof(Svg)).InvalidInput())
                 from bitmap in Optional(global::Rhino.UI.DrawingUtilities.BitmapFromSvg(svg: source, width: width, height: height, adjustForDarkMode: global::Rhino.Runtime.HostUtils.RunningInDarkMode))
                     .ToFin(Fail: Op.Of(name: nameof(Svg)).InvalidResult())

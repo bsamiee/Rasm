@@ -133,10 +133,7 @@ public abstract record UiChromeOp<T> {
         value.ToFin(Fail: Op.Of(name: nameof(NonBlank)).InvalidInput()).Bind(NonBlank);
 
     private static Fin<string> NonBlank(string value) =>
-        string.IsNullOrWhiteSpace(value: value) switch {
-            false => Fin.Succ(value: value),
-            true => Fin.Fail<string>(error: Op.Of(name: nameof(NonBlank)).InvalidInput()),
-        };
+        Op.Of(name: nameof(NonBlank)).AcceptText(value: value).MapFail(_ => Op.Of(name: nameof(NonBlank)).InvalidInput());
 
     private static Fin<PanelChromeSnapshot> Snapshot() {
         Seq<global::Rhino.UI.ToolbarFile> files = toSeq(RhinoApp.ToolbarFiles).Choose(Optional);
@@ -324,10 +321,7 @@ public static class PanelOp {
         new(
             run: _ =>
                 from validPlugin in Optional(plugin).ToFin(Fail: Op.Of(name: nameof(Register)).InvalidInput())
-                from validCaption in string.IsNullOrWhiteSpace(value: caption) switch {
-                    false => Fin.Succ(value: caption),
-                    true => Fin.Fail<string>(error: Op.Of(name: nameof(Register)).InvalidInput()),
-                }
+                from validCaption in Op.Of(name: nameof(Register)).AcceptText(value: caption).MapFail(_ => Op.Of(name: nameof(Register)).InvalidInput())
                 from panel in RasmPanel.PanelIdentityOf<TPanel>()
                 from registered in icon.Register(plugin: validPlugin, type: panel.Type, caption: validCaption, mode: panelType)
                 select registered,

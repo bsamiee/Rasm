@@ -15,6 +15,8 @@ public readonly partial struct Op {
     [BoundaryAdapter] public Error InvalidInput() => new Fault.InvalidInput(Key: this);
     [BoundaryAdapter] public Error InvalidResult() => new Fault.InvalidResult(Key: this);
     [BoundaryAdapter] public Error Unsupported(Type geometryType, Type outputType) => new Fault.Unsupported(Key: this, GeometryType: geometryType, OutputType: outputType);
+    [BoundaryAdapter] public Fin<T> AcceptValue<T>(T value) => OpAcceptance.AcceptValue(key: this, value: value);
+    [BoundaryAdapter] public Fin<string> AcceptText(string value) => AcceptValue(value: value).Map(static text => text.Trim());
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------

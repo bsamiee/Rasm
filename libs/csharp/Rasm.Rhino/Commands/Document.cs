@@ -113,7 +113,8 @@ public abstract record DocumentTarget {
     }
 
     private sealed record ReferenceTarget(CommandSelection.Reference Value) : DocumentTarget {
-        internal override Fin<T> Use<T>(RhinoDoc document, Op op, Func<CommandSelection, Fin<T>> selection, Func<CommandSelection.Reference, Fin<T>> reference, Func<Seq<Guid>, Fin<T>> objects) => reference(arg: Value);
+        internal override Fin<T> Use<T>(RhinoDoc document, Op op, Func<CommandSelection, Fin<T>> selection, Func<CommandSelection.Reference, Fin<T>> reference, Func<Seq<Guid>, Fin<T>> objects) =>
+            Value.Use(document: document, op: op, use: _ => reference(arg: Value));
     }
 
     private sealed record ObjectsTarget(Seq<Guid> Values) : DocumentTarget {
@@ -288,10 +289,8 @@ public abstract record DocumentOp {
     public sealed record SetSelection(DocumentTarget Target, DocumentSelectionPolicy Policy) : DocumentOp {
         internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) =>
             from target in Optional(Target).ToFin(Fail: op.InvalidInput())
-            from ids in target.Ids(document: document, op: op)
-            from chosen in ids.Distinct() switch { Seq<Guid> values when !values.IsEmpty => Fin.Succ(value: values), _ => Fin.Fail<Seq<Guid>>(error: op.InvalidInput()) }
             from before in DocumentEdit.SelectedIds(document: document, op: op)
-            from count in document.Objects.SetSelectedObjects(objectIds: chosen.AsIterable(), syncHighlight: Policy.Highlight, persistentSelect: Policy.Persistent, ignoreGripsState: Policy.IgnoreGrips, ignoreLayerLocking: Policy.IgnoreLayerLocking, ignoreLayerVisibility: Policy.IgnoreLayerVisibility) switch { int value when value == chosen.Count => Fin.Succ(value: value), _ => Fin.Fail<int>(error: op.InvalidResult()) }
+            from _ in target.Select(document: document, selected: true, policy: Policy, op: op)
             from after in DocumentEdit.SelectedIds(document: document, op: op)
             select DocumentReceipt.Empty with {
                 Selected = after.Filter(id => !before.Exists(item => item == id)),
@@ -485,10 +484,7 @@ public sealed record DocumentEdit {
         Optional(document.Objects.GetSelectedObjects(includeLights: true, includeGrips: true)).ToFin(Fail: op.InvalidInput()).Map(static values => toSeq(values).Map(static native => native.Id).Distinct());
 
     internal static Fin<string> NonBlank(string value, Op op) =>
-        string.IsNullOrWhiteSpace(value: value) switch {
-            false => Fin.Succ(value: value),
-            true => Fin.Fail<string>(error: op.InvalidInput()),
-        };
+        op.AcceptText(value: value).MapFail(_ => op.InvalidInput());
 
     internal static Fin<Unit> UnitResult(bool success, Op op) =>
         success switch {

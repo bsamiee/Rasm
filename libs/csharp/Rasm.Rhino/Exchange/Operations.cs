@@ -32,13 +32,14 @@ public sealed record FileOp<T> {
             select result);
 }
 
-public abstract record FileExchange {
+internal enum FileWriteIntent { Save, SaveAs, WriteFile, Write3dm, Template, Export }
+
+[Union]
+public abstract partial record FileExchange {
     private FileExchange() { }
     public sealed record Open(FileEndpoint Source, FileProfile Profile) : FileExchange;
     public sealed record Import(FileEndpoint Source, FileProfile Profile) : FileExchange;
-    public sealed record Export(FileEndpoint Target, Option<DocumentTarget> Objects, FileProfile Profile) : FileExchange {
-        public Export(FileEndpoint target, DocumentTarget objects, FileProfile profile) : this(Target: target, Objects: Some(objects), Profile: profile) { }
-    }
+    public sealed record Export(FileEndpoint Target, Option<DocumentTarget> Objects, FileProfile Profile) : FileExchange;
     public sealed record Save(FileProfile Profile) : FileExchange;
     public sealed record SaveAs(FileEndpoint Target, FileProfile Profile) : FileExchange;
     public sealed record WriteFile(FileEndpoint Target, FileProfile Profile) : FileExchange;
@@ -46,11 +47,12 @@ public abstract record FileExchange {
     public sealed record SaveTemplate(FileEndpoint Target, FileProfile Profile) : FileExchange;
     public sealed record ArchiveRead(FileEndpoint Source, ArchiveProfile Profile) : FileExchange;
     public sealed record ArchiveExtract(FileEndpoint Source, FileEndpoint Target, ArchiveProfile Profile) : FileExchange;
-    public sealed record ArchiveInsert(FileEndpoint Source, FileEndpoint Embedded, FileEndpoint Target, ArchiveProfile Profile) : FileExchange;
+    public sealed record ArchiveUpdate(FileEndpoint Source, FileEndpoint Target, global::Rasm.Rhino.Exchange.ArchiveUpdate Update, ArchiveProfile Profile) : FileExchange;
     public sealed record Batch(Seq<FileExchange> Items, FileBatchPolicy Policy) : FileExchange;
 }
 
-public abstract record HeadlessExchange {
+[Union]
+public abstract partial record HeadlessExchange {
     private HeadlessExchange() { }
     public sealed record Create : HeadlessExchange;
     public sealed record CreateFromTemplate(FileEndpoint Template) : HeadlessExchange;
@@ -62,21 +64,19 @@ public static class FileOp {
     public static FileOp<FileReport> Do(FileExchange exchange) =>
         FileOp<FileReport>.Of(run: runtime =>
             from active in Optional(exchange).ToFin(Fail: Op.Of(name: nameof(Do)).InvalidInput())
-            from result in active switch {
-                FileExchange.Open open => Open(source: open.Source, profile: open.Profile),
-                FileExchange.Import import => Import(runtime: runtime, source: import.Source, profile: import.Profile),
-                FileExchange.Export export => Export(runtime: runtime, target: export.Target, objects: export.Objects, profile: export.Profile),
-                FileExchange.Save save => Save(runtime: runtime, profile: save.Profile),
-                FileExchange.SaveAs saveAs => SaveAs(runtime: runtime, target: saveAs.Target, profile: saveAs.Profile),
-                FileExchange.WriteFile write => WriteFile(runtime: runtime, target: write.Target, profile: write.Profile),
-                FileExchange.Write3dmFile write => Write3dmFile(runtime: runtime, target: write.Target, profile: write.Profile),
-                FileExchange.SaveTemplate template => SaveTemplate(runtime: runtime, target: template.Target, profile: template.Profile),
-                FileExchange.ArchiveRead archive => FileArchiveOps.Read(source: archive.Source, profile: archive.Profile),
-                FileExchange.ArchiveExtract archive => FileArchiveOps.Extract(source: archive.Source, target: archive.Target, profile: archive.Profile),
-                FileExchange.ArchiveInsert archive => FileArchiveOps.Insert(source: archive.Source, embedded: archive.Embedded, target: archive.Target, profile: archive.Profile),
-                FileExchange.Batch batch => Batch(runtime: runtime, items: batch.Items, policy: batch.Policy),
-                _ => Fin.Fail<FileReport>(error: Op.Of(name: nameof(Do)).InvalidInput()),
-            }
+            from result in active.Switch(
+                open: open => Open(source: open.Source, profile: open.Profile),
+                import: import => Import(runtime: runtime, source: import.Source, profile: import.Profile),
+                export: export => Export(runtime: runtime, target: export.Target, objects: export.Objects, profile: export.Profile),
+                save: save => Write(runtime: runtime, target: Option<FileEndpoint>.None, profile: save.Profile, intent: FileWriteIntent.Save),
+                saveAs: saveAs => Write(runtime: runtime, target: Some(saveAs.Target), profile: saveAs.Profile, intent: FileWriteIntent.SaveAs),
+                writeFile: write => Write(runtime: runtime, target: Some(write.Target), profile: write.Profile, intent: FileWriteIntent.WriteFile),
+                write3dmFile: write => Write(runtime: runtime, target: Some(write.Target), profile: write.Profile, intent: FileWriteIntent.Write3dm),
+                saveTemplate: template => Write(runtime: runtime, target: Some(template.Target), profile: template.Profile, intent: FileWriteIntent.Template),
+                archiveRead: archive => FileArchiveOps.Read(source: archive.Source, profile: archive.Profile),
+                archiveExtract: archive => FileArchiveOps.Extract(source: archive.Source, target: archive.Target, profile: archive.Profile),
+                archiveUpdate: archive => FileArchiveOps.Update(source: archive.Source, target: archive.Target, update: archive.Update, profile: archive.Profile),
+                batch: batch => Batch(runtime: runtime, items: batch.Items, policy: batch.Policy))
             select result);
 
     public static FileOp<T> Headless<T>(HeadlessExchange scope, FileOp<T> body) =>
@@ -133,69 +133,59 @@ public static class FileOp {
             undoRecorded: false,
             run: (document, _, op) => objects.Case switch {
                 DocumentTarget selection => ExportTarget(document: document, target: selection, endpoint: endpoint, profile: profile, op: op),
-                _ => FileFormatProjection.Export(document: document, target: endpoint, profile: profile, selected: false, op: op).Map(static _ => DocumentReceipt.Empty),
+                _ => FileFormatProjection.Write(document: document, target: Some(endpoint), profile: profile, intent: FileWriteIntent.Export, selected: false, op: op).Map(static _ => DocumentReceipt.Empty),
             })
         select FileReport.Of(phase: FilePhase.Export, source: Option<FileEndpoint>.None, target: Some(endpoint), format: FileFormatProjection.Resolve(endpoint: endpoint, profile: profile), receipt: Some(receipt));
 
-    private static Fin<FileReport> Save(FileRuntime runtime, FileProfile profile) =>
-        from live in Live(runtime: runtime, op: Op.Of(name: nameof(Save)))
+    private static Fin<FileReport> Write(FileRuntime runtime, Option<FileEndpoint> target, FileProfile profile, FileWriteIntent intent) =>
+        from live in Live(runtime: runtime, op: Op.Of(name: nameof(Write)))
+        from endpoint in WriteEndpoint(target: target, intent: intent)
         from receipt in live.Edit.Commit(
-            name: nameof(Save),
+            name: intent.ToString(),
             redraw: DocumentRedraw.None,
             undoRecorded: false,
-            run: (document, _, op) => TryUnit(run: document.Save, op: op).Map(_ => DocumentReceipt.Empty))
-        select FileReport.Of(phase: FilePhase.Save, format: profile.Format, receipt: Some(receipt));
+            run: (document, _, op) =>
+                FileFormatProjection.Write(document: document, target: endpoint, profile: profile, intent: intent, selected: false, op: op)
+                    .Map(static _ => DocumentReceipt.Empty))
+        select FileReport.Of(
+            phase: PhaseOf(intent: intent),
+            target: endpoint,
+            format: endpoint.Case switch {
+                FileEndpoint value => FileFormatProjection.Resolve(endpoint: value, profile: profile),
+                _ => profile.Format,
+            },
+            receipt: Some(receipt));
 
-    private static Fin<FileReport> SaveAs(FileRuntime runtime, FileEndpoint target, FileProfile profile) =>
-        from live in Live(runtime: runtime, op: Op.Of(name: nameof(SaveAs)))
-        from endpoint in target.WithFormat(format: FileFormat.ThreeDm).Output(op: Op.Of(name: nameof(SaveAs)))
-        from receipt in live.Edit.Commit(
-            name: nameof(SaveAs),
-            redraw: DocumentRedraw.None,
-            undoRecorded: false,
-            run: (document, _, op) => FileFormatProjection.SaveAs(document: document, target: endpoint, profile: profile, op: op).Map(_ => DocumentReceipt.Empty))
-        select FileReport.Of(phase: FilePhase.SaveAs, target: Some(endpoint), format: FileFormatProjection.Resolve(endpoint: endpoint, profile: profile), receipt: Some(receipt));
+    private static Fin<Option<FileEndpoint>> WriteEndpoint(Option<FileEndpoint> target, FileWriteIntent intent) =>
+        intent switch {
+            FileWriteIntent.Save => Fin.Succ(Option<FileEndpoint>.None),
+            FileWriteIntent.SaveAs or FileWriteIntent.Write3dm or FileWriteIntent.Template =>
+                target.ToFin(Fail: Op.Of(name: nameof(WriteEndpoint)).InvalidInput())
+                    .Bind(endpoint => endpoint.WithFormat(format: FileFormat.ThreeDm).Output(op: Op.Of(name: nameof(WriteEndpoint))))
+                    .Map(Some),
+            _ => target.ToFin(Fail: Op.Of(name: nameof(WriteEndpoint)).InvalidInput())
+                .Bind(endpoint => endpoint.Output(op: Op.Of(name: nameof(WriteEndpoint))))
+                .Map(Some),
+        };
 
-    private static Fin<FileReport> WriteFile(FileRuntime runtime, FileEndpoint target, FileProfile profile) =>
-        from live in Live(runtime: runtime, op: Op.Of(name: nameof(WriteFile)))
-        from endpoint in target.Output(op: Op.Of(name: nameof(WriteFile)))
-        from receipt in live.Edit.Commit(
-            name: nameof(WriteFile),
-            redraw: DocumentRedraw.None,
-            undoRecorded: false,
-            run: (document, _, op) => FileFormatProjection.WriteFile(document: document, target: endpoint, profile: profile, selected: false, updatePath: true, op: op).Map(_ => DocumentReceipt.Empty))
-        select FileReport.Of(phase: FilePhase.WriteFile, target: Some(endpoint), format: FileFormatProjection.Resolve(endpoint: endpoint, profile: profile), receipt: Some(receipt));
-
-    private static Fin<FileReport> Write3dmFile(FileRuntime runtime, FileEndpoint target, FileProfile profile) =>
-        from live in Live(runtime: runtime, op: Op.Of(name: nameof(Write3dmFile)))
-        from endpoint in target.WithFormat(format: FileFormat.ThreeDm).Output(op: Op.Of(name: nameof(Write3dmFile)))
-        from receipt in live.Edit.Commit(
-            name: nameof(Write3dmFile),
-            redraw: DocumentRedraw.None,
-            undoRecorded: false,
-            run: (document, _, op) => FileFormatProjection.Write3dmFile(document: document, target: endpoint, profile: profile, selected: false, updatePath: false, op: op).Map(_ => DocumentReceipt.Empty))
-        select FileReport.Of(phase: FilePhase.Write3dmFile, target: Some(endpoint), format: FileFormatProjection.Resolve(endpoint: endpoint, profile: profile), receipt: Some(receipt));
-
-    private static Fin<FileReport> SaveTemplate(FileRuntime runtime, FileEndpoint target, FileProfile profile) =>
-        from live in Live(runtime: runtime, op: Op.Of(name: nameof(SaveTemplate)))
-        from endpoint in target.WithFormat(format: FileFormat.ThreeDm).Output(op: Op.Of(name: nameof(SaveTemplate)))
-        from receipt in live.Edit.Commit(
-            name: nameof(SaveTemplate),
-            redraw: DocumentRedraw.None,
-            undoRecorded: false,
-            run: (document, _, op) => FileFormatProjection.SaveTemplate(document: document, target: endpoint, op: op).Map(_ => DocumentReceipt.Empty))
-        select FileReport.Of(phase: FilePhase.SaveTemplate, target: Some(endpoint), format: FileFormatProjection.Resolve(endpoint: endpoint, profile: profile), receipt: Some(receipt));
+    private static FilePhase PhaseOf(FileWriteIntent intent) =>
+        intent switch {
+            FileWriteIntent.Save => FilePhase.Save,
+            FileWriteIntent.SaveAs => FilePhase.SaveAs,
+            FileWriteIntent.WriteFile => FilePhase.WriteFile,
+            FileWriteIntent.Write3dm => FilePhase.Write3dmFile,
+            FileWriteIntent.Template => FilePhase.SaveTemplate,
+            FileWriteIntent.Export => FilePhase.Export,
+            _ => FilePhase.Batch,
+        };
 
     private static Fin<FileReport> Batch(FileRuntime runtime, Seq<FileExchange> items, FileBatchPolicy policy) =>
         items switch {
-            Seq<FileExchange> values when !values.IsEmpty => values.Fold(
-                Fin.Succ(value: Seq<FileReport>()),
-                (reports, exchange) => policy.ContinueOnError switch {
-                    false => from state in reports from report in Do(exchange: exchange).Apply(runtime: runtime) select state + Seq(report),
-                    true => reports.Bind(state => Do(exchange: exchange).Apply(runtime: runtime).Match(
-                        Succ: report => Fin.Succ(value: state + Seq(report)),
-                        Fail: error => Fin.Succ(value: state + Seq(FileReport.Empty(phase: FilePhase.Batch) with { Issues = Seq(new FileIssue(Code: error.Category(), Message: error.Message)) })))),
-                }).Map(reports => FileReport.Of(phase: FilePhase.Batch, issues: reports.Bind(static report => report.Issues))),
+            Seq<FileExchange> values when !values.IsEmpty => values.TraverseM(exchange =>
+                Do(exchange: exchange).Apply(runtime: runtime).BindFail(error => policy.ContinueOnError switch {
+                    true => Fin.Succ(value: FileReport.Empty(phase: FilePhase.Batch) with { Issues = Seq(new FileIssue(Code: error.Category(), Message: error.Message)) }),
+                    false => Fin.Fail<FileReport>(error: error),
+                })).As().Map(reports => FileReport.Of(phase: FilePhase.Batch, issues: reports.Bind(static report => report.Issues))),
             _ => Fin.Fail<FileReport>(error: Op.Of(name: nameof(Batch)).InvalidInput()),
         };
 
@@ -204,20 +194,18 @@ public static class FileOp {
             RhinoDoc? headless = null;
             // BOUNDARY ADAPTER — headless RhinoDoc is native disposable document state.
             try {
-                Fin<RhinoDoc> opened = scope switch {
-                    HeadlessExchange.Create =>
+                Fin<RhinoDoc> opened = scope.Switch(
+                    create: static _ =>
                         Optional(RhinoDoc.CreateHeadless(file3dmTemplatePath: null)).ToFin(Fail: Op.Of(name: nameof(Headless)).InvalidResult()),
-                    HeadlessExchange.CreateFromTemplate create =>
+                    createFromTemplate: static create =>
                         from template in create.Template.Input(op: Op.Of(name: nameof(Headless)))
                         from document in Optional(RhinoDoc.CreateHeadless(file3dmTemplatePath: template.Path)).ToFin(Fail: Op.Of(name: nameof(Headless)).InvalidResult())
                         select document,
-                    HeadlessExchange.Open open =>
+                    open: static open =>
                         from source in open.Source.Input(op: Op.Of(name: nameof(Headless)))
-                        let options = FileFormatProjection.Dictionary(endpoint: source, profile: open.Profile, phase: FilePhase.Import, op: Op.Of(name: nameof(Headless))).IfFail(_ => new ArchivableDictionary())
+                        let options = FileFormatProjection.Dictionary(endpoint: source, profile: open.Profile, phase: FilePhase.Headless, op: Op.Of(name: nameof(Headless))).IfFail(_ => new ArchivableDictionary())
                         from document in Optional(RhinoDoc.OpenHeadless(filePath: source.Path, options: options)).ToFin(Fail: Op.Of(name: nameof(Headless)).InvalidResult())
-                        select document,
-                    _ => Fin.Fail<RhinoDoc>(error: Op.Of(name: nameof(Headless)).InvalidInput()),
-                };
+                        select document);
                 return opened.Bind(document => {
                     headless = document;
                     return Rasm.Domain.Context.Of(doc: document).ToFin().Bind(domain => body.Apply(runtime: new FileRuntime(
@@ -246,7 +234,7 @@ public static class FileOp {
                     let capture = ((Func<Seq<Guid>, Unit>)(ids => { before = ids; return unit; }))(selected)
                     from _ in DocumentEdit.UnitResult(success: document.Objects.UnselectAll(ignorePersistentSelections: true) >= 0, op: op)
                     from __ in target.Select(document: document, selected: true, policy: DocumentSelectionPolicy.Default, op: op)
-                    from ___ in FileFormatProjection.Export(document: document, target: endpoint, profile: profile, selected: true, op: op)
+                    from ___ in FileFormatProjection.Write(document: document, target: Some(endpoint), profile: profile, intent: FileWriteIntent.Export, selected: true, op: op)
                     select DocumentReceipt.Empty;
             } finally {
                 _ = document.Objects.UnselectAll(ignorePersistentSelections: true);
@@ -267,12 +255,4 @@ public static class FileOp {
             _ => Fin.Fail<(RhinoDoc Document, Rasm.Domain.Context Domain, DocumentEdit Edit)>(error: op.MissingContext()),
         };
 
-    private static Fin<Unit> TryUnit(Func<bool> run, Op op) =>
-        Try.lift<bool>(f: run)
-            .Run()
-            .MapFail(_ => op.InvalidResult())
-            .Bind(success => success switch {
-                true => Fin.Succ(value: unit),
-                false => Fin.Fail<Unit>(error: op.InvalidResult()),
-            });
 }

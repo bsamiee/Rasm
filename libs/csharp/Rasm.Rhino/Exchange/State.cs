@@ -13,9 +13,9 @@ public enum FileFidelity { Model, Small, GeometryOnly }
 public enum FileResourcePolicy { Reference, Embed, Copy }
 public enum FileGrouping { Document, File, Layer, ObjectName, ObjectType, Material, Block, UserString }
 public enum FileSort { Stable, File, Layer, ObjectName, ObjectType, Material, Block, UserMetadata }
-public enum FilePhase { Prompt, Open, Import, Export, Save, SaveAs, WriteFile, Write3dmFile, SaveTemplate, Headless, ArchiveRead, ArchiveExtract, ArchiveInsert, Batch }
+public enum FilePhase { Prompt, Open, Headless, Import, Export, Save, SaveAs, WriteFile, Write3dmFile, SaveTemplate, ArchiveRead, ArchiveExtract, ArchiveUpdate, Batch }
 public enum ArchiveSlice { Full, Metadata, Objects, Resources }
-public enum FileArchiveProjection { MetadataAndGraph, Metadata, Graph, Objects }
+public enum FileArchiveProjection { Full, MetadataAndGraph, Metadata, Graph, Objects }
 
 // --- [MODELS] -----------------------------------------------------------------------------
 public readonly record struct FileNamePolicy(FileCollisionPolicy Collision = FileCollisionPolicy.Preserve, Option<string> Extension = default) {
@@ -85,15 +85,24 @@ public sealed record FilePrompt {
         FileNamePolicy name = default,
         FileWritePolicy write = default) =>
         from validTitle in FileEndpoint.NonBlank(value: title, op: Op.Of(name: nameof(FilePrompt)))
+        from validFileName in TextOption(value: fileName, op: Op.Of(name: nameof(FilePrompt)))
+        from validDirectory in TextOption(value: initialDirectory, op: Op.Of(name: nameof(FilePrompt)))
+        from validExtension in TextOption(value: defaultExtension, op: Op.Of(name: nameof(FilePrompt)))
         select new FilePrompt(
             mode: mode,
             title: validTitle,
             filter: filter ?? string.Empty,
-            fileName: fileName,
-            initialDirectory: initialDirectory,
-            defaultExtension: defaultExtension,
+            fileName: validFileName,
+            initialDirectory: validDirectory,
+            defaultExtension: validExtension,
             name: name,
             write: write);
+
+    private static Fin<Option<string>> TextOption(Option<string> value, Op op) =>
+        value.Case switch {
+            string text => op.AcceptText(value: text).Map(Some).MapFail(_ => op.InvalidInput()),
+            _ => Fin.Succ(Option<string>.None),
+        };
 
     private Option<string> DefaultPath() =>
         (Mode, FileName.Case, InitialDirectory.Case) switch {
@@ -153,11 +162,20 @@ public sealed record FileEndpoint {
         from resolved in endpoint.ResolveCollision(op: op)
         select resolved;
 
+    internal Fin<FileEndpoint> Folder(Op op) =>
+        Try.lift<Fin<FileEndpoint>>(f: () => {
+            _ = IODirectory.CreateDirectory(path: Path);
+            return IODirectory.Exists(path: Path) switch {
+                true => Fin.Succ(value: this),
+                false => Fin.Fail<FileEndpoint>(error: op.InvalidResult()),
+            };
+        })
+            .Run()
+            .MapFail(_ => op.InvalidResult())
+            .Bind(static result => result);
+
     internal static Fin<string> NonBlank(string value, Op op) =>
-        string.IsNullOrWhiteSpace(value: value) switch {
-            false => Fin.Succ(value: value.Trim()),
-            true => Fin.Fail<string>(error: op.InvalidInput()),
-        };
+        op.AcceptText(value: value).MapFail(_ => op.InvalidInput());
 
     private Fin<Unit> EnsureDirectory(Op op) =>
         Try.lift<Fin<Unit>>(f: () => {
@@ -244,9 +262,34 @@ public sealed record FileProfile {
             });
 }
 
-public sealed record ArchiveProfile(ArchiveSlice Slice, FileArchiveProjection Projection, FileWritePolicy Write) {
-    public static ArchiveProfile Full { get; } = new(Slice: ArchiveSlice.Full, Projection: FileArchiveProjection.MetadataAndGraph, Write: FileWritePolicy.Default);
+public sealed record ArchiveProfile(ArchiveSlice Slice, FileArchiveProjection Projection, FileWritePolicy Write, Seq<string> Embedded = default) {
+    public static ArchiveProfile Full { get; } = new(Slice: ArchiveSlice.Full, Projection: FileArchiveProjection.Full, Write: FileWritePolicy.Default);
+
+    internal bool Includes(string file) =>
+        Embedded.IsEmpty || Embedded.Exists(name =>
+            string.Equals(a: name, b: file, comparisonType: StringComparison.OrdinalIgnoreCase)
+            || string.Equals(a: name, b: IOPath.GetFileName(path: file), comparisonType: StringComparison.OrdinalIgnoreCase));
 }
+
+public sealed record ArchiveUpdate(
+    Option<FileArchiveMetadataPatch> Metadata = default,
+    Seq<FileEndpoint> Embed = default,
+    Seq<string> Extract = default,
+    Seq<FileEndpoint> LinkBlocks = default);
+
+public readonly record struct FileArchiveMetadataPatch(
+    Option<string> Notes,
+    Option<string> ApplicationName,
+    Option<string> ApplicationUrl,
+    Option<string> ApplicationDetails);
+
+public readonly record struct FileObjectManifest(
+    Guid Id,
+    Option<string> Name,
+    Option<string> Layer,
+    ObjectType ObjectType,
+    Option<string> Material,
+    Seq<string> UserStrings);
 
 public sealed record FileReport(
     Option<FileEndpoint> Source,

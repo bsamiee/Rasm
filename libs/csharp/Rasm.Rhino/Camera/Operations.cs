@@ -362,8 +362,5 @@ public static class CameraOps {
         select index;
 
     private static Fin<string> Name(string value, Op op) =>
-        string.IsNullOrWhiteSpace(value: value) switch {
-            false => Fin.Succ(value: value.Trim()),
-            true => Fin.Fail<string>(error: op.InvalidInput()),
-        };
+        op.AcceptText(value: value).MapFail(_ => op.InvalidInput());
 }
