@@ -25,7 +25,18 @@ public enum CanvasWindowScope {
     All = Objects | Wires | Groups,
 }
 
-public enum InvalidateMode { Immediate, Scheduled }
+[SmartEnum<int>]
+public sealed partial class InvalidateMode {
+    public static readonly InvalidateMode Immediate = new(
+        key: 0,
+        repaint: RepaintRequest.Canvas);
+
+    public static readonly InvalidateMode Scheduled = new(
+        key: 1,
+        repaint: RepaintRequest.Scheduled);
+
+    public RepaintRequest Repaint { get; }
+}
 
 [Union]
 public partial record CanvasFitTarget {
@@ -72,7 +83,7 @@ public partial record CanvasOp {
     public static CanvasOp Snapshot(bool openEditor = false) => new SnapshotCase(OpenEditor: openEditor);
     public static CanvasOp Pick(PointF point, CoordinateSystem source = CoordinateSystem.Content) => new PickCase(Point: point, Source: source);
     public static CanvasOp Map(PointF point, CoordinateSystem from, CoordinateSystem to) => new MapCase(Point: point, From: from, To: to);
-    public static CanvasOp Invalidate(InvalidateMode mode = InvalidateMode.Immediate) => new InvalidateCase(Mode: mode);
+    public static CanvasOp Invalidate(InvalidateMode? mode = null) => new InvalidateCase(Mode: mode ?? InvalidateMode.Immediate);
     public static CanvasOp Instantiate(string? searchText = null, bool mouseCentred = true) => new InstantiateCase(SearchText: Optional(searchText), MouseCentred: mouseCentred);
     public static readonly CanvasOp Detail = new DetailCase();
     public static CanvasOp Actions() => new ActionsCase();
@@ -235,20 +246,16 @@ internal static partial class UiRail {
                 .Bind(valid => scope.NeedCanvas().Map(canvas => (CanvasResult)new CanvasResult.MapResult(
                     Mapped: new CanvasMappedPoint(Source: valid, Target: canvas.Map(point: valid, from: m.From, to: m.To), From: m.From, To: m.To)))),
         CanvasOp.InvalidateCase i =>
-            scope.NeedCanvas().Map(canvas => {
-                System.Action invalidate = i.Mode switch {
-                    InvalidateMode.Immediate => canvas.Invalidate,
-                    InvalidateMode.Scheduled => canvas.ScheduleRedraw,
-                    _ => new System.Action(static () => { }),
-                };
-                invalidate();
-                return CanvasResult.Unit;
-            }),
+            scope.NeedCanvas().Map(_ => CanvasResult.Unit),
         CanvasOp.InstantiateCase ins =>
-            scope.NeedCanvas().Map(canvas => {
-                canvas.ShowInstantiationPopup(mouseCentred: ins.MouseCentred, initialText: ins.SearchText.IfNone(string.Empty));
-                return CanvasResult.Unit;
-            }),
+            scope.NeedCanvas()
+                .Bind(canvas => Optional(canvas.AllowedActions.AllowMakeObject)
+                    .Filter(static allowed => allowed)
+                    .ToFin(Fail: UiFault.MutationRejected(op: Op.Of(name: nameof(CanvasOp.Instantiate)), detail: "canvas disallows object creation"))
+                    .Map(_ => {
+                        canvas.ShowInstantiationPopup(mouseCentred: ins.MouseCentred, initialText: ins.SearchText.IfNone(string.Empty));
+                        return CanvasResult.Unit;
+                    })),
         CanvasOp.DetailCase =>
             scope.NeedCanvas().Map(canvas => (CanvasResult)new CanvasResult.DetailResult(
                 Detail: new CanvasDetailSnapshot(
@@ -311,17 +318,35 @@ internal static partial class UiRail {
         _ => Fin.Fail<CanvasResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasDispatch)), detail: "unknown CanvasOp")),
     };
 
-    internal static bool CanvasNeedsEditor(CanvasOp op) => op switch {
-        CanvasOp.SnapshotCase { OpenEditor: true } => true,
-        CanvasOp.InstantiateCase or CanvasOp.ViewCase => true,
-        _ => false,
-    };
+    internal static bool CanvasNeedsEditor(CanvasOp op) => op.Switch(
+        snapshotCase: static snapshot => snapshot.OpenEditor,
+        pickCase: static _ => false,
+        mapCase: static _ => false,
+        invalidateCase: static _ => false,
+        instantiateCase: static _ => true,
+        detailCase: static _ => false,
+        actionsCase: static _ => false,
+        renderCase: static _ => false,
+        pickMapCase: static _ => false,
+        viewCase: static _ => true,
+        snapFeedbackCase: static _ => false,
+        interactionCase: static _ => false,
+        windowSelectCase: static _ => false);
 
-    internal static RepaintRequest CanvasRepaintFor(CanvasOp op) => op switch {
-        CanvasOp.ViewCase or CanvasOp.SnapFeedbackCase or CanvasOp.InteractionCase or CanvasOp.WindowSelectCase => RepaintRequest.Canvas,
-        CanvasOp.InvalidateCase { Mode: InvalidateMode.Scheduled } => RepaintRequest.Scheduled,
-        _ => RepaintRequest.None,
-    };
+    internal static RepaintRequest CanvasRepaintFor(CanvasOp op) => op.Switch(
+        snapshotCase: static _ => RepaintRequest.None,
+        pickCase: static _ => RepaintRequest.None,
+        mapCase: static _ => RepaintRequest.None,
+        invalidateCase: static invalidate => invalidate.Mode.Repaint,
+        instantiateCase: static _ => RepaintRequest.None,
+        detailCase: static _ => RepaintRequest.None,
+        actionsCase: static _ => RepaintRequest.None,
+        renderCase: static _ => RepaintRequest.None,
+        pickMapCase: static _ => RepaintRequest.None,
+        viewCase: static _ => RepaintRequest.Canvas,
+        snapFeedbackCase: static _ => RepaintRequest.Canvas,
+        interactionCase: static _ => RepaintRequest.Canvas,
+        windowSelectCase: static _ => RepaintRequest.Canvas);
 
     private static Fin<CanvasResult> ViewDispatch(GrasshopperUi.Scope scope, CanvasViewOp view) =>
         view switch {
@@ -350,12 +375,10 @@ internal static partial class UiRail {
                     objects: objs),
             CanvasViewOp.FitCase ft =>
                 scope.NeedCanvas().Bind(canvas => scope.NeedDocument().Bind(doc => scope.NeedObjects().Map(objs => {
-                    RectangleF frame = ft.Target switch {
-                        CanvasFitTarget.ContentCase => canvas.ContentBounds,
-                        CanvasFitTarget.SelectionCase => FrameOf(targets: objs.SelectedObjects).IfNone(RectangleF.Empty),
-                        CanvasFitTarget.ViewportCase => canvas.VisibleFrame,
-                        _ => canvas.ContentBounds,
-                    };
+                    RectangleF frame = ft.Target.Switch(
+                        contentCase: _ => canvas.ContentBounds,
+                        selectionCase: _ => FrameOf(targets: objs.SelectedObjects).IfNone(RectangleF.Empty),
+                        viewportCase: _ => canvas.VisibleFrame);
                     return (CanvasResult)NavigateTo(canvas: canvas, frame: frame, policy: ResolveNavigation(raw: ft.Policy), document: doc, objects: objs);
                 }))),
             CanvasViewOp.ProjectionCase pr =>
@@ -369,12 +392,17 @@ internal static partial class UiRail {
 
     private static Fin<Unit> ApplyProjection(GrasshopperUi.Scope scope, CanvasProjectionPolicy policy) =>
         from document in scope.NeedDocument()
+        from canvas in scope.NeedCanvas()
         let centre = policy.Centre.IfNone(document.Projection.centre)
         let zoom = policy.Zoom.IfNone(document.Projection.zoom)
         from valid in Optional((Centre: centre, Zoom: zoom))
             .Filter(static s => float.IsFinite(s.Centre.X) && float.IsFinite(s.Centre.Y) && s.Zoom > 0 && float.IsFinite(s.Zoom))
             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasViewOp.Projection)), detail: "non-finite centre or zoom"))
-        select ((Func<Unit>)(() => { document.Projection = (valid.Centre, valid.Zoom); return unit; }))();
+        select ((Func<Unit>)(() => {
+            canvas.Projection = canvas.Projection.SetZoom(zoom: valid.Zoom).SetCentre(centre: valid.Centre, frame: canvas.VisibleFrame);
+            document.Projection = (valid.Centre, valid.Zoom);
+            return unit;
+        }))();
 
     private static CanvasNavigationPolicy ResolveNavigation(CanvasNavigationPolicy raw) =>
         raw.MinimumZoom <= 0
@@ -429,9 +457,9 @@ internal static partial class UiRail {
 
     // FrameOf reads bounds directly; no Attributes.Layout() mutation during read.
     private static Option<RectangleF> FrameOf(IEnumerable<IDocumentObject> targets) =>
-        targets.Aggregate(
-            seed: Option<RectangleF>.None,
-            func: static (acc, obj) => acc.Match(
+        toSeq(targets).Fold(
+            initialState: Option<RectangleF>.None,
+            f: static (acc, obj) => acc.Match(
                 Some: bounds => Some(RectangleF.Union(rect1: bounds, rect2: obj.Attributes.AggregateBounds)),
                 None: () => Some(obj.Attributes.AggregateBounds)));
 

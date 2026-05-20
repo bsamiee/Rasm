@@ -3,6 +3,7 @@ using Eto.Drawing;
 using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Components;
 using Grasshopper2.Doc;
+using Grasshopper2.Extensions;
 using Grasshopper2.Parameters;
 using Grasshopper2.UI.Canvas;
 using Grasshopper2.Undo.Actions;
@@ -14,7 +15,29 @@ using UndoAction = Grasshopper2.Undo.Action;
 namespace Rasm.Grasshopper.UI;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-public enum LayoutAxis { Horizontal, Vertical }
+[SmartEnum<int>]
+public sealed partial class LayoutAxis {
+    public static readonly LayoutAxis Horizontal = new(
+        key: 0,
+        origin: static bounds => bounds.Left,
+        span: static bounds => bounds.Width,
+        delta: static (cursor, bounds) => (Dx: cursor - bounds.Left, Dy: 0f));
+
+    public static readonly LayoutAxis Vertical = new(
+        key: 1,
+        origin: static bounds => bounds.Top,
+        span: static bounds => bounds.Height,
+        delta: static (cursor, bounds) => (Dx: 0f, Dy: cursor - bounds.Top));
+
+    [UseDelegateFromConstructor]
+    internal partial float Origin(RectangleF bounds);
+
+    [UseDelegateFromConstructor]
+    internal partial float Span(RectangleF bounds);
+
+    [UseDelegateFromConstructor]
+    internal partial (float Dx, float Dy) Delta(float cursor, RectangleF bounds);
+}
 
 [Union]
 public partial record LayoutArrangement {
@@ -37,7 +60,15 @@ public readonly record struct LayoutSnapshot(Guid ObjectId, PointF Pivot, Rectan
 }
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct SnappingSnapshot(float Dx, float Dy, string XLabel, string YLabel);
+public readonly record struct SnappingSnapshot(
+    float Dx,
+    float Dy,
+    float Magnitude,
+    string XLabel,
+    string YLabel,
+    Seq<LineF> Lines,
+    Option<PointF> LabelPoint,
+    Option<TextAnchor> LabelAnchor);
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct SnappingPolicy(
@@ -200,23 +231,22 @@ internal static partial class Layout {
 
     // --- [OPERATIONS] -------------------------------------------------------------------------
     private static Fin<Option<SnappingSnapshot>> SnapRectangle(GrasshopperUi.Scope scope, Guid id, RectangleF bounds, SnappingPolicy policy) =>
-        Optional((Id: id, Bounds: bounds))
-            .Filter(static p => p.Id != Guid.Empty
-                && float.IsFinite(p.Bounds.X)
-                && float.IsFinite(p.Bounds.Y)
-                && float.IsFinite(p.Bounds.Width)
-                && float.IsFinite(p.Bounds.Height)
-                && p.Bounds.Width > 0f
-                && p.Bounds.Height > 0f)
+        Optional(bounds)
+            .Filter(static b => float.IsFinite(b.X)
+                && float.IsFinite(b.Y)
+                && float.IsFinite(b.Width)
+                && float.IsFinite(b.Height)
+                && b.Width > 0f
+                && b.Height > 0f)
             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SnapRectangle)), detail: "invalid rectangle probe"))
-            .Bind(valid => ObjectOf(scope: scope, id: valid.Id).Bind(obj =>
+            .Bind(valid => ObjectOf(scope: scope, id: id).Bind(obj =>
                 from document in scope.NeedDocument()
                 from canvas in scope.NeedCanvas()
-                select SnapRectangle(document: document, obj: obj, bounds: valid.Bounds, policy: policy, visibleLimit: canvas.VisibleFrame)));
+                select SnapRectangle(document: document, obj: obj, bounds: valid, policy: policy, visibleLimit: canvas.VisibleFrame)));
 
     private static Fin<IDocumentObject> ObjectOf(GrasshopperUi.Scope scope, Guid id) =>
-        Optional(id).Filter(static g => g != Guid.Empty)
-            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ObjectOf)), detail: "empty Guid"))
+        Op.Of(name: nameof(ObjectOf)).AcceptValue(value: id)
+            .MapFail(_ => UiFault.InvalidInput(op: Op.Of(name: nameof(ObjectOf)), detail: "empty Guid"))
             .Bind(valid => scope.NeedObjects().Bind(objs =>
                 Optional(objs.Find(instanceId: valid))
                     .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ObjectOf)), detail: $"object {valid} not found"))));
@@ -295,8 +325,12 @@ internal static partial class Layout {
             .Map(static snap => new SnappingSnapshot(
                 Dx: snap.X.Map(static action => action.ΔX).IfNone(0f),
                 Dy: snap.Y.Map(static action => action.ΔY).IfNone(0f),
+                Magnitude: snap.X.Map(static action => action.Magnitude).IfNone(0f) + snap.Y.Map(static action => action.Magnitude).IfNone(0f),
                 XLabel: snap.X.Map(static action => action.LabelText).IfNone(string.Empty),
-                YLabel: snap.Y.Map(static action => action.LabelText).IfNone(string.Empty)));
+                YLabel: snap.Y.Map(static action => action.LabelText).IfNone(string.Empty),
+                Lines: snap.X.Map(static action => toSeq(action.Lines)).IfNone(Seq<LineF>()) + snap.Y.Map(static action => toSeq(action.Lines)).IfNone(Seq<LineF>()),
+                LabelPoint: snap.X.Map(static action => action.LabelPoint) | snap.Y.Map(static action => action.LabelPoint),
+                LabelAnchor: snap.X.Map(static action => action.LabelAnchor) | snap.Y.Map(static action => action.LabelAnchor)));
 
     private readonly record struct LayoutAlignmentCase(
         Func<Type, Type, bool> Supports,
@@ -331,39 +365,18 @@ internal static partial class Layout {
             .Bind(static r => r)
             .Map(_ => { a.Attributes.Invalidate(); b.Attributes.Invalidate(); return unit; });
 
-    private readonly record struct LayoutAxisCase(
-        LayoutAxis Axis,
-        Func<RectangleF, float> Origin,
-        Func<RectangleF, float> Span,
-        Func<float, RectangleF, (float Dx, float Dy)> Delta);
-    private static readonly LayoutAxisCase HorizontalAxis = new(
-        Axis: LayoutAxis.Horizontal,
-        Origin: static bounds => bounds.Left,
-        Span: static bounds => bounds.Width,
-        Delta: static (cursor, bounds) => (Dx: cursor - bounds.Left, Dy: 0f));
-    private static readonly Seq<LayoutAxisCase> AxisCases = Seq(
-        HorizontalAxis,
-        new LayoutAxisCase(
-            Axis: LayoutAxis.Vertical,
-            Origin: static bounds => bounds.Top,
-            Span: static bounds => bounds.Height,
-            Delta: static (cursor, bounds) => (Dx: 0f, Dy: cursor - bounds.Top)));
-    private static LayoutAxisCase AxisCaseOf(LayoutAxis axis) =>
-        AxisCases.Find(match => match.Axis == axis).IfNone(HorizontalAxis);
-
     private static Seq<(Guid Id, float Dx, float Dy)> ComputeDistribution(GhObjectList objects, Seq<Guid> ids, LayoutAxis axis, float gap) {
-        LayoutAxisCase projection = AxisCaseOf(axis: axis);
         Seq<(Guid Id, RectangleF Bounds)> snapshots = ids.Choose(id => Optional(objects.Find(instanceId: id))
             .Map(o => (Id: id, Bounds: o.Attributes.AggregateBounds)));
-        Seq<(Guid Id, RectangleF Bounds)> sorted = toSeq(snapshots.OrderBy(s => projection.Origin(arg: s.Bounds)));
+        Seq<(Guid Id, RectangleF Bounds)> sorted = toSeq(snapshots.OrderBy(s => axis.Origin(bounds: s.Bounds)));
         return sorted.Head
             .Map(head => sorted.Fold(
-                initialState: (Cursor: projection.Origin(arg: head.Bounds), Moves: Seq<(Guid Id, float Dx, float Dy)>()),
+                initialState: (Cursor: axis.Origin(bounds: head.Bounds), Moves: Seq<(Guid Id, float Dx, float Dy)>()),
                 f: (state, s) => (
-                    Cursor: state.Cursor + projection.Span(arg: s.Bounds) + gap,
+                    Cursor: state.Cursor + axis.Span(bounds: s.Bounds) + gap,
                     Moves: (s.Id,
-                        projection.Delta(arg1: state.Cursor, arg2: s.Bounds).Dx,
-                        projection.Delta(arg1: state.Cursor, arg2: s.Bounds).Dy).Cons(state.Moves)))
+                        axis.Delta(cursor: state.Cursor, bounds: s.Bounds).Dx,
+                        axis.Delta(cursor: state.Cursor, bounds: s.Bounds).Dy).Cons(state.Moves)))
                 .Moves.Rev())
             .IfNone(() => Seq<(Guid Id, float Dx, float Dy)>());
     }

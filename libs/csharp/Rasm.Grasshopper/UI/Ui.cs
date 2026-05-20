@@ -61,17 +61,16 @@ internal partial record UndoStrategy {
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Snapshot<T>(
     Option<Guid> OwnerId,
-    DateTimeOffset CapturedAt,
     T Payload) {
     public Snapshot<TOut> Map<TOut>(Func<T, TOut> project) {
         ArgumentNullException.ThrowIfNull(argument: project);
-        return new(OwnerId: OwnerId, CapturedAt: CapturedAt, Payload: project(arg: Payload));
+        return new(OwnerId: OwnerId, Payload: project(arg: Payload));
     }
 }
 
 public static class Snapshot {
     public static Snapshot<T> Of<T>(T payload, Option<Guid> ownerId = default) =>
-        new(OwnerId: ownerId, CapturedAt: DateTimeOffset.UtcNow, Payload: payload);
+        new(OwnerId: ownerId, Payload: payload);
 }
 
 public readonly record struct DocumentMutationDelta(int Changed, DocumentSnapshot After);
@@ -111,16 +110,16 @@ public readonly record struct GrasshopperUiPolicy(
     bool OpenEditor = false,
     bool RequireCanvas = false,
     bool RequireDocument = false,
-    RepaintRequest Repaint = null!) {
-    public static GrasshopperUiPolicy Read => new(Repaint: RepaintRequest.None);
+    Option<RepaintRequest> Repaint = default) {
+    public static GrasshopperUiPolicy Read => new(Repaint: Some(RepaintRequest.None));
     public static GrasshopperUiPolicy Empty => Read;
 
-    internal RepaintRequest RepaintOrNone => Optional(Repaint).IfNone(RepaintRequest.None);
+    internal RepaintRequest RepaintOrNone => Repaint.IfNone(RepaintRequest.None);
 
     internal static GrasshopperUiPolicy Canvas(bool openEditor = false, RepaintRequest? repaint = null) =>
-        new(OpenEditor: openEditor, RequireCanvas: true, Repaint: repaint ?? RepaintRequest.None);
+        new(OpenEditor: openEditor, RequireCanvas: true, Repaint: Some(repaint ?? RepaintRequest.None));
     internal static GrasshopperUiPolicy Document(RepaintRequest? repaint = null) =>
-        new(RequireCanvas: true, RequireDocument: true, Repaint: repaint ?? RepaintRequest.None);
+        new(RequireCanvas: true, RequireDocument: true, Repaint: Some(repaint ?? RepaintRequest.None));
 
     public static GrasshopperUiPolicy operator |(GrasshopperUiPolicy left, GrasshopperUiPolicy right) =>
         new(
@@ -179,8 +178,8 @@ public abstract partial record UiFault : Expected {
         public override string Message => $"Op '{Op}' rejected by Grasshopper2: {Detail}.";
         public override string Category => "Mutation";
     }
-    public sealed record RhinoEditorCase(string Detail) : UiFault {
-        public override string Message => $"Rhino editor operation failed: {Detail}.";
+    public sealed record GhEditorCase(string Detail) : UiFault {
+        public override string Message => $"Grasshopper editor operation failed: {Detail}.";
         public override string Category => "Editor";
     }
     public sealed record ResourceLeakedCase(string Detail) : UiFault {
@@ -199,7 +198,7 @@ public abstract partial record UiFault : Expected {
     public static UiFault MissingScope(string field) => new MissingScopeCase(Field: field);
     public static UiFault InvalidInput(Op op, string detail) => new InvalidInputCase(Op: op, Detail: detail);
     public static UiFault MutationRejected(Op op, string detail) => new MutationRejectedCase(Op: op, Detail: detail);
-    public static UiFault RhinoEditor(string detail) => new RhinoEditorCase(Detail: detail);
+    public static UiFault GhEditor(string detail) => new GhEditorCase(Detail: detail);
     public static UiFault ResourceLeaked(string detail) => new ResourceLeakedCase(Detail: detail);
     public static UiFault ThreadMarshal(string detail) => new ThreadMarshalCase(Detail: detail);
     public static UiFault Cancelled(Op op) => new CancelledCase(Op: op);
@@ -288,7 +287,7 @@ public sealed partial record GrasshopperUi {
                 _ => null,
             };
             GhCanvas? canvas = editor?.Canvas;
-            GhDocument? document = canvas?.Document;
+            GhDocument? document = editor?.Documents.Current ?? canvas?.Document;
             Scope scope = new(
                 Editor: Optional(editor),
                 Canvas: Optional(canvas),

@@ -36,7 +36,25 @@ public partial record WireSelectionOp {
     public static readonly WireSelectionOp DeselectAll = new DeselectAllCase();
 }
 
-public enum WireTraversal { Upstream, Downstream, Bidirectional }
+[SmartEnum<int>]
+public sealed partial class WireTraversal {
+    private delegate IEnumerable<IDocumentObject> SearchObjects(GhObjectList objects, IParameter parameter);
+
+    public static readonly WireTraversal Upstream = new(
+        key: 0,
+        search: static (objects, parameter) => objects.SearchUpstream(parameter: parameter));
+
+    public static readonly WireTraversal Downstream = new(
+        key: 1,
+        search: static (objects, parameter) => objects.SearchDownstream(parameter: parameter));
+
+    public static readonly WireTraversal Bidirectional = new(
+        key: 2,
+        search: static (objects, parameter) => objects.SearchUpstream(parameter: parameter).Concat(objects.SearchDownstream(parameter: parameter)));
+
+    [UseDelegateFromConstructor]
+    internal partial IEnumerable<IDocumentObject> Search(GhObjectList objects, IParameter parameter);
+}
 
 [Union]
 public partial record WireQuery {
@@ -50,8 +68,8 @@ public partial record WireQuery {
     public static readonly WireQuery Selected = new SelectedCase();
     public static readonly WireQuery Dangling = new DanglingCase();
     public static WireQuery Pick(PointF point) => new PickCase(Point: point);
-    public static WireQuery Graph(Guid startParameterId, WireTraversal direction = WireTraversal.Bidirectional, int maxHops = 32) =>
-        new GraphCase(StartParameterId: startParameterId, Direction: direction, MaxHops: maxHops);
+    public static WireQuery Graph(Guid startParameterId, WireTraversal? direction = null, int maxHops = 32) =>
+        new GraphCase(StartParameterId: startParameterId, Direction: direction ?? WireTraversal.Bidirectional, MaxHops: maxHops);
 }
 
 [Union]
@@ -162,13 +180,13 @@ internal static partial class Wire {
                 from _ in UiRail.CommitActions(document: doc, op: Op.Of(name: nameof(Split)), actions: actions)
                 select new WireSplitDelta(Changed: split.Changed, Wire: wire, Shout: split.Shout, Listen: split.Listen));
 
-    internal static GrasshopperUiIntent<WireGraph> Graph(Guid startParameterId, WireTraversal direction = WireTraversal.Bidirectional, int maxHops = 32) =>
+    internal static GrasshopperUiIntent<WireGraph> Graph(Guid startParameterId, WireTraversal? direction = null, int maxHops = 32) =>
         GhUi.Document<WireGraph>(run: scope =>
             from hops in Optional(maxHops)
                 .Filter(static count => count >= 0)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Graph)), detail: "maxHops must be non-negative"))
             from objects in scope.NeedObjects()
-            from graphObjects in TraverseObjects(objects: objects, startParameterId: startParameterId, direction: direction)
+            from graphObjects in TraverseObjects(objects: objects, startParameterId: startParameterId, direction: direction ?? WireTraversal.Bidirectional)
             select GraphOf(objects: objects, graphObjects: graphObjects, startParameterId: startParameterId, maxHops: hops));
 
     // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -180,7 +198,7 @@ internal static partial class Wire {
     internal static WireSnapshot.ConnectedCase SnapshotConnected(GhObjectList objects, WireEnds wire) {
         IParameter? source = objects.FindParameter(instanceId: wire.Source);
         IParameter? target = objects.FindParameter(instanceId: wire.Target);
-        bool connected = source is not null && target is not null && target.Inputs.IndexOf(wire.Source) >= 0;
+        bool connected = source is not null && target is not null && WireData.TryCreate(source: source, target: target, data: out _);
         return new WireSnapshot.ConnectedCase(
             Source: wire.Source, Target: wire.Target,
             SourceResolved: source is not null, TargetResolved: target is not null,
@@ -189,19 +207,15 @@ internal static partial class Wire {
     }
 
     internal static bool IsConnected(GhObjectList objects, WireEnds wire) =>
-        objects.FindParameter(instanceId: wire.Source) is not null
-        && objects.FindParameter(instanceId: wire.Target) is { } target
-        && target.Inputs.IndexOf(wire.Source) >= 0;
+        (objects.FindParameter(instanceId: wire.Source), objects.FindParameter(instanceId: wire.Target)) switch {
+            (IParameter source, IParameter target) => WireData.TryCreate(source: source, target: target, data: out _),
+            _ => false,
+        };
 
     internal static Fin<Seq<IDocumentObject>> TraverseObjects(GhObjectList objects, Guid startParameterId, WireTraversal direction) =>
         Optional(objects.FindParameter(instanceId: startParameterId))
             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(TraverseObjects)), detail: $"parameter {startParameterId} not found"))
-            .Bind(parameter => direction switch {
-                WireTraversal.Upstream => Fin.Succ(value: toSeq(objects.SearchUpstream(parameter: parameter)).Distinct()),
-                WireTraversal.Downstream => Fin.Succ(value: toSeq(objects.SearchDownstream(parameter: parameter)).Distinct()),
-                WireTraversal.Bidirectional => Fin.Succ(value: toSeq(objects.SearchUpstream(parameter: parameter).Concat(objects.SearchDownstream(parameter: parameter))).Distinct()),
-                _ => Fin.Fail<Seq<IDocumentObject>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(WireTraversal)), detail: $"unknown traversal {direction}")),
-            });
+            .Map(parameter => toSeq(direction.Search(objects: objects, parameter: parameter)).Distinct());
 
     private static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> MutateWire(
         Op op,

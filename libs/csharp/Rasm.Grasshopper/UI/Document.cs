@@ -181,18 +181,29 @@ public partial record DocumentHistoryOp {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-public enum DocumentRefresh {
-    None,
-    Canvas,
-    ScheduledCanvas,
-    Solution,
-    Display,
-    SolutionAndDisplay,
+[SmartEnum<int>]
+public sealed partial class DocumentRefresh {
+    private delegate Unit RefreshAction(GhDocument document, GhCanvas canvas);
+
+    public static readonly DocumentRefresh None = new(key: 0, apply: static (_, _) => unit);
+    public static readonly DocumentRefresh Canvas = new(key: 1, apply: static (_, canvas) => { canvas.Invalidate(); return unit; });
+    public static readonly DocumentRefresh ScheduledCanvas = new(key: 2, apply: static (_, canvas) => { canvas.ScheduleRedraw(); return unit; });
+    public static readonly DocumentRefresh Solution = new(key: 3, apply: static (document, canvas) => { _ = document.Solution.Start(mode: SolutionMode.Regular); return unit; });
+    public static readonly DocumentRefresh Display = new(key: 4, apply: static (document, _) => { document.Display.UpdateDisplay(); return unit; });
+    public static readonly DocumentRefresh SolutionAndDisplay = new(key: 5, apply: static (document, canvas) => {
+        _ = document.Solution.Start(mode: SolutionMode.Regular);
+        document.Display.UpdateDisplay();
+        return unit;
+    });
+
+    [UseDelegateFromConstructor]
+    internal partial Unit Apply(GhDocument document, GhCanvas canvas);
 }
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct DocumentMutationPolicy(DocumentRefresh Refresh = DocumentRefresh.Canvas) {
-    public static DocumentMutationPolicy Default => new(Refresh: DocumentRefresh.Canvas);
+public readonly record struct DocumentMutationPolicy(Option<DocumentRefresh> Refresh = default) {
+    public static DocumentMutationPolicy Default => new(Refresh: Some(DocumentRefresh.Canvas));
+    internal DocumentRefresh RefreshOrDefault => Refresh.IfNone(DocumentRefresh.Canvas);
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -257,12 +268,13 @@ public partial record DocumentTarget {
         };
 }
 
-public abstract record DocumentMutation {
+[Union]
+public abstract partial record DocumentMutation {
     public sealed record TargetCase(DocumentTarget Subject, DocumentTargetOp Op) : DocumentMutation;
     public sealed record SelectionCase(SelectionOp Op) : DocumentMutation;
     public sealed record DisplayCase(DisplayOp Op) : DocumentMutation;
     public sealed record ClipboardCase(ClipboardOp Op) : DocumentMutation;
-    public sealed record ComposeCase(ComposeOp Op) : DocumentMutation;
+    public sealed record ComposeCase(DocumentTarget Subject, ComposeOp Op) : DocumentMutation;
     public sealed record DropCase(Guid ProxyId, PointF Location) : DocumentMutation;
     public sealed record AddDependencyCase(PointF Location) : DocumentMutation;
     public sealed record IsolateCase(IsolateOptions Options) : DocumentMutation;
@@ -271,34 +283,39 @@ public abstract record DocumentMutation {
     public static DocumentMutation Selection(SelectionOp op) => new SelectionCase(Op: op);
     public static DocumentMutation Display(DisplayOp op) => new DisplayCase(Op: op);
     public static DocumentMutation Clipboard(ClipboardOp op) => new ClipboardCase(Op: op);
-    public static DocumentMutation Compose(ComposeOp op) => new ComposeCase(Op: op);
+    public static DocumentMutation Compose(ComposeOp op) => new ComposeCase(Subject: DocumentTarget.Selection, Op: op);
+    public static DocumentMutation Compose(DocumentTarget target, ComposeOp op) => new ComposeCase(Subject: target, Op: op);
     public static DocumentMutation Drop(Guid proxyId, PointF location) => new DropCase(ProxyId: proxyId, Location: location);
     public static DocumentMutation AddDependency(PointF location) => new AddDependencyCase(Location: location);
     public static DocumentMutation Isolate(IsolateOptions options = default) => new IsolateCase(Options: options);
 
     internal Fin<int> Apply(GhDocumentMethods methods, GhObjectList objects, ActionList actions) => this switch {
         TargetCase target => target.Subject.Apply(methods: methods, objects: objects, op: target.Op, actions: actions),
-        SelectionCase selection => UiRail.SelectionDispatch(methods: methods, op: selection.Op, actions: actions),
+        SelectionCase selection => UiRail.SelectionDispatch(methods: methods, op: selection.Op),
         DisplayCase display => UiRail.DisplayDispatch(methods: methods, op: display.Op, actions: actions),
         ClipboardCase clipboard => UiRail.ClipboardDispatch(methods: methods, op: clipboard.Op, actions: actions),
-        ComposeCase compose => UiRail.ComposeDispatch(methods: methods, op: compose.Op, actions: actions).Map(static created => created.IsSome ? 1 : 0),
-        DropCase drop => Optional((drop.ProxyId, drop.Location))
-            .Filter(static s => s.ProxyId != Guid.Empty && float.IsFinite(s.Location.X) && float.IsFinite(s.Location.Y))
-            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Drop)), detail: "empty proxy id or non-finite location"))
-            .Map(valid => methods.DropObject(obj: valid.ProxyId, location: valid.Location, actions: actions) ? 1 : 0),
+        ComposeCase compose => UiRail.ComposeDispatch(methods: methods, objects: objects, target: compose.Subject, op: compose.Op, actions: actions).Map(static created => created.IsSome ? 1 : 0),
+        DropCase drop =>
+            from proxy in Op.Of(name: nameof(Drop)).AcceptValue(value: drop.ProxyId)
+                .MapFail(_ => UiFault.InvalidInput(op: Op.Of(name: nameof(Drop)), detail: "empty proxy id"))
+            from location in Optional(drop.Location)
+                .Filter(static point => float.IsFinite(point.X) && float.IsFinite(point.Y))
+                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Drop)), detail: "non-finite location"))
+            select methods.DropObject(obj: proxy, location: location, actions: actions) ? 1 : 0,
         AddDependencyCase dependency => Optional(dependency.Location)
             .Filter(static p => float.IsFinite(p.X) && float.IsFinite(p.Y))
             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(AddDependency)), detail: "non-finite location"))
             .Map(valid => methods.AddDependency(location: valid, actions: actions) is null ? 0 : 1),
         IsolateCase isolate =>
-            from primary in Optional(objects.SelectedObjects.FirstOrDefault())
+            from selected in Fin.Succ(value: toSeq(objects.SelectedObjects))
+            from primary in selected.Head
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Isolate)), detail: "no object selected to isolate"))
             from _ in Try.lift<Unit>(f: () => {
                 methods.IsolateObject(obj: primary,
                     pins: isolate.Options.IncludePins,
                     inputs: isolate.Options.IncludeInputs,
                     outputs: isolate.Options.IncludeOutputs,
-                    omit: [.. objects.SelectedObjects.Select(static o => o.InstanceId)],
+                    omit: [.. selected.Map(static o => o.InstanceId)],
                     actions: actions);
                 return unit;
             }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(Isolate)), detail: "IsolateObject threw"))
@@ -307,20 +324,21 @@ public abstract record DocumentMutation {
     };
 }
 
-public abstract record DocumentTargetOp {
+[Union]
+public abstract partial record DocumentTargetOp {
     public sealed record ShowCase : DocumentTargetOp;
     public sealed record HideCase : DocumentTargetOp;
     public sealed record ToggleVisibilityCase : DocumentTargetOp;
     public sealed record EnableCase : DocumentTargetOp;
     public sealed record DisableCase : DocumentTargetOp;
-    public sealed record DeleteCase(bool DataOnly) : DocumentTargetOp;
+    public sealed record DeleteCase(bool DataOnly, Seq<WireEnds> Wires) : DocumentTargetOp;
     public sealed record ColourCase(Option<GhColour> Override) : DocumentTargetOp;
     public static readonly DocumentTargetOp Show = new ShowCase();
     public static readonly DocumentTargetOp Hide = new HideCase();
     public static readonly DocumentTargetOp ToggleVisibility = new ToggleVisibilityCase();
     public static readonly DocumentTargetOp Enable = new EnableCase();
     public static readonly DocumentTargetOp Disable = new DisableCase();
-    public static DocumentTargetOp Delete(bool dataOnly = false) => new DeleteCase(DataOnly: dataOnly);
+    public static DocumentTargetOp Delete(bool dataOnly = false, Seq<WireEnds> wires = default) => new DeleteCase(DataOnly: dataOnly, Wires: wires);
     public static DocumentTargetOp Style(GhColour colour) => new ColourCase(Override: Some(colour));
     public static readonly DocumentTargetOp ClearStyle = new ColourCase(Override: Option<GhColour>.None);
     internal Fin<int> Apply(GhDocumentMethods methods, GhObjectList objects, Seq<Guid> ids, ActionList actions) =>
@@ -330,11 +348,11 @@ public abstract record DocumentTargetOp {
         .Bind(targets => this switch {
             ShowCase => Fin.Succ(value: methods.ShowObjects(objects: targets, actions: actions)),
             HideCase => Fin.Succ(value: methods.HideObjects(objects: targets, actions: actions)),
-            ToggleVisibilityCase => Fin.Fail<int>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentTargetOp.ToggleVisibility)), detail: "toggle visibility applies only to the selection target")),
+            ToggleVisibilityCase => Fin.Succ(value: methods.ToggleDisplayObjects(objects: targets, actions: actions)),
             EnableCase => Fin.Succ(value: methods.EnableObjects(objects: targets, actions: actions)),
             DisableCase => Fin.Succ(value: methods.DisableObjects(objects: targets, actions: actions)),
-            DeleteCase { DataOnly: false } => Fin.Succ(value: methods.DeleteObjects(objects: targets, wires: [], actions: actions)),
-            DeleteCase { DataOnly: true } => Fin.Fail<int>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentTargetOp.Delete)), detail: "data-only delete applies only to the selection target")),
+            DeleteCase { DataOnly: false } delete => Fin.Succ(value: methods.DeleteObjects(objects: targets, wires: [.. delete.Wires], actions: actions)),
+            DeleteCase { DataOnly: true } => Fin.Succ(value: methods.DeleteObjectData(objects: targets, actions: actions)),
             ColourCase colour => Fin.Succ(value: methods.SetColourOverrideObjects(
                 objects: targets,
                 colour: colour.Override.Map(static value => (GhColour?)value).IfNone((GhColour?)null),
@@ -349,7 +367,9 @@ public abstract record DocumentTargetOp {
             ToggleVisibilityCase => Fin.Succ(value: methods.ToggleDisplaySelected(actions: actions)),
             EnableCase => Fin.Succ(value: methods.EnableSelected(actions: actions)),
             DisableCase => Fin.Succ(value: methods.DisableSelected(actions: actions)),
-            DeleteCase { DataOnly: false } => Fin.Succ(value: methods.DeleteSelection(actions: actions)),
+            DeleteCase { DataOnly: false } delete => delete.Wires.IsEmpty
+                ? Fin.Succ(value: methods.DeleteSelection(actions: actions))
+                : Fin.Succ(value: methods.DeleteObjects(objects: [], wires: [.. delete.Wires], actions: actions)),
             DeleteCase { DataOnly: true } => Fin.Succ(value: methods.DeleteSelectionData(actions: actions)),
             ColourCase colour => Fin.Succ(value: methods.SetColourOverrideSelected(
                 colour: colour.Override.Map(static value => (GhColour?)value).IfNone((GhColour?)null),
@@ -383,13 +403,13 @@ internal static partial class UiRail {
             scope.NeedObjects().Map(objs => (DocumentResult)new DocumentResult.ObjectListResult(
                 Snapshots: toSeq(ProjectObjects(scope: o.Scope, objects: objs).Select(DocumentObjectSnapshotOf)))),
         DocumentQuery.ObjectCase obj =>
-            Optional(obj.Id).Filter(static g => g != Guid.Empty)
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentQuery.Object)), detail: "empty Guid"))
+            Op.Of(name: nameof(DocumentQuery.Object)).AcceptValue(value: obj.Id)
+                .MapFail(_ => UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentQuery.Object)), detail: "empty Guid"))
                 .Bind(valid => scope.NeedObjects().Map(objs => (DocumentResult)new DocumentResult.ObjectResult(
                     Snapshot: Optional(objs.Find(instanceId: valid)).Map(DocumentObjectSnapshotOf)))),
         DocumentQuery.ParameterCase param =>
-            Optional(param.Id).Filter(static g => g != Guid.Empty)
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentQuery.Parameter)), detail: "empty Guid"))
+            Op.Of(name: nameof(DocumentQuery.Parameter)).AcceptValue(value: param.Id)
+                .MapFail(_ => UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentQuery.Parameter)), detail: "empty Guid"))
                 .Bind(valid => scope.NeedObjects().Map(objs => (DocumentResult)new DocumentResult.ParameterResult(
                     Snapshot: Optional(objs.FindParameter(instanceId: valid)).Map(ParameterSnapshotOf)))),
         DocumentQuery.GripCase g =>
@@ -414,7 +434,7 @@ internal static partial class UiRail {
             policy: policy)
             .Map(static delta => (DocumentResult)new DocumentResult.MutationResult(Delta: delta));
 
-    internal static Fin<int> SelectionDispatch(GhDocumentMethods methods, SelectionOp op, ActionList actions) => op switch {
+    internal static Fin<int> SelectionDispatch(GhDocumentMethods methods, SelectionOp op) => op switch {
         SelectionOp.AllCase => Fin.Succ(value: methods.SelectAll()),
         SelectionOp.NoneCase => Fin.Succ(value: methods.DeselectAll()),
         SelectionOp.InvertCase => Fin.Succ(value: methods.InvertSelection()),
@@ -439,22 +459,40 @@ internal static partial class UiRail {
         _ => Fin.Fail<int>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ClipboardDispatch)), detail: "unknown clipboard op")),
     };
 
-    internal static Fin<Option<Guid>> ComposeDispatch(GhDocumentMethods methods, ComposeOp op, ActionList actions) => op switch {
-        ComposeOp.GroupCase g => Fin.Succ(value: NonEmptyIdOf(Optional(methods.GroupSelection(
-            name: g.Name.IfNone(string.Empty),
-            colour: g.Colour.Map(static c => (GhOpenColorFamily?)c).IfNone((GhOpenColorFamily?)null),
-            actions: actions)).Map(static r => r.InstanceId))),
-        ComposeOp.ChainCase => Fin.Succ(value: NonEmptyIdOf(Optional(methods.ChainSelection(actions: actions)).Map(static c => c.InstanceId))),
-        ComposeOp.ClusterCase => Fin.Succ(value: NonEmptyIdOf(Optional(methods.ClusterSelection(actions: actions)).Map(static c => c.InstanceId))),
-        _ => Fin.Fail<Option<Guid>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ComposeDispatch)), detail: "unknown compose op")),
-    };
-
-    private static Option<Guid> NonEmptyIdOf(Option<Guid> id) => id.Filter(static g => g != Guid.Empty);
+    internal static Fin<Option<Guid>> ComposeDispatch(GhDocumentMethods methods, GhObjectList objects, DocumentTarget target, ComposeOp op, ActionList actions) =>
+        target switch {
+            DocumentTarget.SelectionCase => op switch {
+                ComposeOp.GroupCase g => Fin.Succ(value: Optional(methods.GroupSelection(
+                    name: g.Name.IfNone(string.Empty),
+                    colour: g.Colour.Map(static c => (GhOpenColorFamily?)c).IfNone((GhOpenColorFamily?)null),
+                    actions: actions)).Map(static r => r.InstanceId).Filter(static id => id != Guid.Empty)),
+                ComposeOp.ChainCase => Fin.Succ(value: Optional(methods.ChainSelection(actions: actions)).Map(static c => c.InstanceId).Filter(static id => id != Guid.Empty)),
+                ComposeOp.ClusterCase => Fin.Succ(value: Optional(methods.ClusterSelection(actions: actions)).Map(static c => c.InstanceId).Filter(static id => id != Guid.Empty)),
+                _ => Fin.Fail<Option<Guid>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ComposeDispatch)), detail: "unknown compose op")),
+            },
+            DocumentTarget.ObjectsCase selected => selected.Ids
+                .TraverseM(id => Optional(objects.Find(instanceId: id))
+                    .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentTarget.Objects)), detail: $"object {id} not found")))
+                .As()
+                .Map(static resolved => resolved.ToArray())
+                .Bind(targets => op switch {
+                    ComposeOp.GroupCase g => Fin.Succ(value: Optional(methods.GroupObjects(
+                        objects: targets,
+                        name: g.Name.IfNone(string.Empty),
+                        colour: g.Colour.Map(static c => (GhOpenColorFamily?)c).IfNone((GhOpenColorFamily?)null),
+                        actions: actions)).Map(static r => r.InstanceId).Filter(static id => id != Guid.Empty)),
+                    ComposeOp.ChainCase => Fin.Succ(value: Optional(methods.ChainObjects(objects: targets, actions: actions)).Map(static c => c.InstanceId).Filter(static id => id != Guid.Empty)),
+                    ComposeOp.ClusterCase => Fin.Succ(value: Optional(methods.ClusterObjects(objects: targets, actions: actions)).Map(static c => c.InstanceId).Filter(static id => id != Guid.Empty)),
+                    _ => Fin.Fail<Option<Guid>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ComposeDispatch)), detail: "unknown compose op")),
+                }),
+            _ => Fin.Fail<Option<Guid>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ComposeDispatch)), detail: "unknown target")),
+        };
 
     private static Fin<ClipboardKind> ValidateClipboard(string name, ClipboardKind clipboard) =>
-        clipboard == ClipboardKind.Instance
-            ? Fin.Fail<ClipboardKind>(error: UiFault.InvalidInput(op: Op.Of(name: name), detail: "ClipboardKind.Instance is not supported"))
-            : Fin.Succ(value: clipboard);
+        clipboard switch {
+            ClipboardKind.Instance => Fin.Fail<ClipboardKind>(error: UiFault.InvalidInput(op: Op.Of(name: name), detail: "ClipboardKind.Instance is not supported")),
+            _ => Fin.Succ(value: clipboard),
+        };
 
     private static IEnumerable<IDocumentObject> ProjectObjects(ObjectsScope scope, GhObjectList objects) => scope switch {
         ObjectsScope.PrimaryCase => objects.Forwards,
@@ -545,9 +583,10 @@ internal static partial class UiRail {
         from objects in scope.NeedObjects()
         from canvas in scope.NeedCanvas()
         let actions = new ActionList([])
-        from changed in mutate(arg1: methods, arg2: objects, arg3: actions).Bind(count => count >= 0
-            ? Fin.Succ(value: count)
-            : Fin.Fail<int>(error: UiFault.MutationRejected(op: op, detail: $"count={count}")))
+        from changed in mutate(arg1: methods, arg2: objects, arg3: actions).Bind(count => count switch {
+            >= 0 => Fin.Succ(value: count),
+            _ => Fin.Fail<int>(error: UiFault.MutationRejected(op: op, detail: $"count={count}")),
+        })
         from _ in CommitActions(document: document, op: op, actions: actions)
         from refreshed in Refresh(document: document, canvas: canvas, policy: policy)
         select Snapshot.Of<DocumentMutationDelta>(
@@ -556,30 +595,18 @@ internal static partial class UiRail {
 
     private static Fin<Unit> Refresh(GhDocument document, GhCanvas canvas, DocumentMutationPolicy policy) =>
         Try.lift<Unit>(f: () => {
-            System.Action action = policy.Refresh switch {
-                DocumentRefresh.Canvas => canvas.Invalidate,
-                DocumentRefresh.ScheduledCanvas => canvas.ScheduleRedraw,
-                DocumentRefresh.Solution => () => _ = document.Solution.Start(mode: SolutionMode.Regular),
-                DocumentRefresh.Display => document.Display.UpdateDisplay,
-                DocumentRefresh.SolutionAndDisplay => () => {
-                    _ = document.Solution.Start(mode: SolutionMode.Regular);
-                    document.Display.UpdateDisplay();
-                }
-                ,
-                _ => static () => { }
-                ,
-            };
-            action();
+            _ = policy.RefreshOrDefault.Apply(document: document, canvas: canvas);
             return unit;
         }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Refresh)), detail: error.Message));
 
     internal static Fin<Unit> CommitActions(GhDocument document, Op op, ActionList actions) =>
-        actions.Count <= 0
-            ? Fin.Succ(value: unit)
-            : Try.lift<Unit>(f: () => {
+        actions.Count switch {
+            <= 0 => Fin.Succ(value: unit),
+            _ => Try.lift<Unit>(f: () => {
                 document.Undo.Do(name: ("Edit", op.ToString()), actions: actions);
                 return unit;
-            }).Run().MapFail(_ => UiFault.MutationRejected(op: op, detail: "History.Do threw"));
+            }).Run().MapFail(_ => UiFault.MutationRejected(op: op, detail: "History.Do threw")),
+        };
 
     internal static DocumentSnapshot DocumentSnapshotOf(GhDocument document, GhObjectList objects) {
         Seq<WireEnds> allWires = Optional(objects.AllWires).Map(static wires => toSeq(wires)).IfNone(Seq<WireEnds>());
@@ -613,6 +640,6 @@ internal static partial class UiRail {
             TypeFlavour: parameter.TypeFlavour.ToString(),
             InputCount: parameter.Inputs.Count,
             OutputCount: parameter.Outputs.Count,
-            HasColourOverride: !parameter.ColourOverride.Equals(obj: default(GhColour)));
+            HasColourOverride: parameter.ColourOverride is not null);
 
 }

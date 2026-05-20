@@ -75,7 +75,7 @@ internal sealed record EditorRequest(EditorOp Op) : GhUiRequest<EditorResult> {
             Try.lift<EditorResult>(f: () => {
                 _ = GhEditor.ShowEditor(createVisible: show.Visible, layoutRules: show.Layout.IfNone(string.Empty));
                 return EditorResult.Unit;
-            }).Run().MapFail(_ => UiFault.RhinoEditor(detail: nameof(EditorOp.Show))),
+            }).Run().MapFail(_ => UiFault.GhEditor(detail: nameof(EditorOp.Show))),
         EditorOp.EnsureVisibleCase =>
             Try.lift<EditorResult>(f: () => {
                 GhEditor editor = GhEditor.ShowEditor(createVisible: true, layoutRules: string.Empty);
@@ -83,22 +83,25 @@ internal sealed record EditorRequest(EditorOp Op) : GhUiRequest<EditorResult> {
                     .GetMethod(name: "EnsureVisible", bindingAttr: System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic)
                     ?.Invoke(obj: editor, parameters: []);
                 return EditorResult.Unit;
-            }).Run().MapFail(_ => UiFault.RhinoEditor(detail: nameof(EditorOp.EnsureVisible))),
+            }).Run().MapFail(_ => UiFault.GhEditor(detail: nameof(EditorOp.EnsureVisible))),
         EditorOp.StateCase =>
             Fin.Succ<EditorResult>(value: new EditorResult.StateResult(Snapshot: GhEditor.Instance switch {
-                GhEditor editor => new EditorSnapshot(
-                    HasEditor: true,
-                    HasCanvas: editor.Canvas is not null,
-                    HasDocument: editor.Canvas?.Document is not null,
-                    Collapsed: editor.Collapsed,
-                    HasStatusBar: editor.StatusBar is not null,
-                    ShowNotes: editor.ShowNotes,
-                    ShowUndoHistory: editor.Canvas?.ShowUndoHistory ?? false,
-                    InitialLayout: GhEditor.InitialLayout,
-                    DefinedLayouts: toSeq(GhEditor.DefinedLayouts),
-                    MostRecentActiveDocument: Optional(editor.MostRecentActiveDocument),
-                    MostRecentLoadedDocuments: toSeq(editor.MostRecentLoadedDocuments),
-                    MostRecentCount: editor.MostRecentCount),
+                GhEditor editor => ((Func<EditorSnapshot>)(() => {
+                    Grasshopper2.Doc.Document? document = editor.Documents.Current ?? editor.Canvas?.Document;
+                    return new EditorSnapshot(
+                        HasEditor: true,
+                        HasCanvas: editor.Canvas is not null,
+                        HasDocument: document is not null,
+                        Collapsed: editor.Collapsed,
+                        HasStatusBar: editor.StatusBar is not null,
+                        ShowNotes: editor.ShowNotes,
+                        ShowUndoHistory: editor.Canvas?.ShowUndoHistory ?? false,
+                        InitialLayout: GhEditor.InitialLayout,
+                        DefinedLayouts: toSeq(GhEditor.DefinedLayouts),
+                        MostRecentActiveDocument: Optional(editor.MostRecentActiveDocument),
+                        MostRecentLoadedDocuments: toSeq(editor.MostRecentLoadedDocuments),
+                        MostRecentCount: editor.MostRecentCount);
+                }))(),
                 _ => new EditorSnapshot(
                     HasEditor: false,
                     HasCanvas: false,
@@ -125,14 +128,14 @@ internal sealed record EditorRequest(EditorOp Op) : GhUiRequest<EditorResult> {
                     ShowUndoHistory: current.Canvas.ShowUndoHistory,
                     InitialLayout: GhEditor.InitialLayout,
                     DefinedLayouts: toSeq(GhEditor.DefinedLayouts)));
-            }).Run().MapFail(_ => UiFault.RhinoEditor(detail: nameof(EditorOp.Shell)))
+            }).Run().MapFail(_ => UiFault.GhEditor(detail: nameof(EditorOp.Shell)))
             .Map(snapshot => (EditorResult)new EditorResult.ShellResult(Snapshot: snapshot)),
         EditorOp.BeginRhinoGetterCase getter =>
             from active in Optional(getter.Document.IfNone(RhinoDoc.ActiveDoc)).ToFin(Fail: UiFault.MissingScope(field: "rhino-doc"))
-            from started in Try.lift<bool>(f: () => GhEditor.BeginRhinoGetter(doc: active)).Run().MapFail(_ => UiFault.RhinoEditor(detail: nameof(EditorOp.BeginRhinoGetter)))
+            from started in Try.lift<bool>(f: () => GhEditor.BeginRhinoGetter(doc: active)).Run().MapFail(_ => UiFault.GhEditor(detail: nameof(EditorOp.BeginRhinoGetter)))
             from valid in started
                 ? Fin.Succ<EditorResult>(value: EditorResult.Unit)
-                : Fin.Fail<EditorResult>(error: UiFault.RhinoEditor(detail: "Rhino getter is already active or no document can receive it"))
+                : Fin.Fail<EditorResult>(error: UiFault.GhEditor(detail: "Rhino getter is already active or no document can receive it"))
             select valid,
         _ => Fin.Fail<EditorResult>(error: UiFault.InvalidInput(op: Rasm.Domain.Op.Of(name: nameof(EditorRequest)), detail: "unknown editor op")),
     };

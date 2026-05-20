@@ -11,7 +11,41 @@ using GhCanvas = Grasshopper2.UI.Canvas.Canvas;
 namespace Rasm.Grasshopper.UI;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-public enum CanvasPaintPhase { BeforeBackground, AfterBackground, BeforeGroups, AfterGroups, BeforeWires, AfterWires, BeforeObjects, AfterObjects, }
+[SmartEnum<int>]
+public sealed partial class CanvasPaintPhase {
+    private delegate Unit PaintWire(GhCanvas canvas, EventHandler<CanvasPaintEventArgs> handler);
+
+    public static readonly CanvasPaintPhase BeforeBackground = new(key: 0,
+        attach: static (canvas, handler) => { canvas.BeforePaintBackground += handler; return unit; },
+        detach: static (canvas, handler) => { canvas.BeforePaintBackground -= handler; return unit; });
+    public static readonly CanvasPaintPhase AfterBackground = new(key: 1,
+        attach: static (canvas, handler) => { canvas.AfterPaintBackground += handler; return unit; },
+        detach: static (canvas, handler) => { canvas.AfterPaintBackground -= handler; return unit; });
+    public static readonly CanvasPaintPhase BeforeGroups = new(key: 2,
+        attach: static (canvas, handler) => { canvas.BeforePaintGroups += handler; return unit; },
+        detach: static (canvas, handler) => { canvas.BeforePaintGroups -= handler; return unit; });
+    public static readonly CanvasPaintPhase AfterGroups = new(key: 3,
+        attach: static (canvas, handler) => { canvas.AfterPaintGroups += handler; return unit; },
+        detach: static (canvas, handler) => { canvas.AfterPaintGroups -= handler; return unit; });
+    public static readonly CanvasPaintPhase BeforeWires = new(key: 4,
+        attach: static (canvas, handler) => { canvas.BeforePaintWires += handler; return unit; },
+        detach: static (canvas, handler) => { canvas.BeforePaintWires -= handler; return unit; });
+    public static readonly CanvasPaintPhase AfterWires = new(key: 5,
+        attach: static (canvas, handler) => { canvas.AfterPaintWires += handler; return unit; },
+        detach: static (canvas, handler) => { canvas.AfterPaintWires -= handler; return unit; });
+    public static readonly CanvasPaintPhase BeforeObjects = new(key: 6,
+        attach: static (canvas, handler) => { canvas.BeforePaintObjects += handler; return unit; },
+        detach: static (canvas, handler) => { canvas.BeforePaintObjects -= handler; return unit; });
+    public static readonly CanvasPaintPhase AfterObjects = new(key: 7,
+        attach: static (canvas, handler) => { canvas.AfterPaintObjects += handler; return unit; },
+        detach: static (canvas, handler) => { canvas.AfterPaintObjects -= handler; return unit; });
+
+    [UseDelegateFromConstructor]
+    internal partial Unit Attach(GhCanvas canvas, EventHandler<CanvasPaintEventArgs> handler);
+
+    [UseDelegateFromConstructor]
+    internal partial Unit Detach(GhCanvas canvas, EventHandler<CanvasPaintEventArgs> handler);
+}
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
@@ -36,12 +70,12 @@ public readonly record struct PaintScope(
             .Bind(valid => valid.Apply(scope: current));
     }
 
-    public Fin<PaintTextMeasurement> MeasureText(string value, UiFont font = null!) {
+    public Fin<PaintTextMeasurement> MeasureText(string value, Option<UiFont> font = default) {
         ControlGraphics graphics = Graphics;
         return Optional(value)
             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(MeasureText)), detail: "text is required"))
             .Bind(valid => Try.lift<PaintTextMeasurement>(f: () =>
-                (font ?? UiFont.Empty()).Use(run: resolved => {
+                font.IfNone(UiFont.Empty()).Use(run: resolved => {
                     SizeF size = graphics.Content.MeasureString(font: resolved, text: valid);
                     return new PaintTextMeasurement(Text: valid, Size: size);
                 })).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(MeasureText)), detail: error.Message)));
@@ -53,11 +87,11 @@ public readonly record struct PaintStyle(
     Color Edge,
     Option<Color> Fill = default,
     float Thickness = 1f,
-    UiFont Font = null!,
+    Option<UiFont> Font = default,
     Color Background = default,
     PenLineCap LineCap = PenLineCap.Butt,
     PenLineJoin LineJoin = PenLineJoin.Miter,
-    DashStyle Dash = null!,
+    Option<DashStyle> Dash = default,
     float MiterLimit = 10f,
     bool AntiAlias = true,
     ImageInterpolation ImageInterpolation = ImageInterpolation.Default,
@@ -66,7 +100,7 @@ public readonly record struct PaintStyle(
         new(color: Edge, thickness: Thickness) {
             LineCap = LineCap,
             LineJoin = LineJoin,
-            DashStyle = Dash ?? DashStyles.Solid,
+            DashStyle = Dash.IfNone(DashStyles.Solid),
             MiterLimit = MiterLimit,
         };
 
@@ -101,15 +135,13 @@ public partial record UiFont {
     internal T Use<T>(Func<Font, T> run) =>
         this switch {
             SystemCase system => run(arg: SystemFonts.Cached(systemFont: system.Kind, size: system.Size, decoration: system.Decoration)),
-            FamilyCase family => UseOwned(font: new Font(family: family.Name, size: family.Size, style: family.Style, decoration: family.Decoration), run: run),
+            FamilyCase family => ((Func<T>)(() => {
+                using Font owned = new(family: family.Name, size: family.Size, style: family.Style, decoration: family.Decoration);
+                return run(arg: owned);
+            }))(),
             NativeCase native => run(arg: native.Value),
             _ => run(arg: SystemFonts.Default()),
         };
-
-    private static T UseOwned<T>(Font font, Func<Font, T> run) {
-        using Font owned = font;
-        return run(arg: owned);
-    }
 }
 
 [Union]
@@ -139,11 +171,11 @@ public partial record DrawMark {
         string value,
         RectangleF frame,
         Color colour,
-        UiFont font = null!,
+        Option<UiFont> font = default,
         FormattedTextWrapMode wrap = FormattedTextWrapMode.Word,
         FormattedTextAlignment alignment = FormattedTextAlignment.Left,
         FormattedTextTrimming trimming = FormattedTextTrimming.WordEllipsis) =>
-        new TextCase(Value: value, Frame: frame, Style: new PaintStyle(Edge: colour, Font: font ?? UiFont.Empty()), Wrap: wrap, Alignment: alignment, Trimming: trimming);
+        new TextCase(Value: value, Frame: frame, Style: new PaintStyle(Edge: colour, Font: font), Wrap: wrap, Alignment: alignment, Trimming: trimming);
     public static DrawMark Image(Eto.Drawing.Image value, RectangleF frame) =>
         new ImageCase(Value: value, Frame: frame, Style: new PaintStyle(Edge: Colors.Transparent));
     public static DrawMark IconGlyph(IIcon value, RectangleF frame, Color background) =>
@@ -176,7 +208,7 @@ public partial record DrawMark {
                 return DrawShape(graphics: graphics, style: path.Style, shape: shape);
             }),
             TextCase text => Draw(scope: scope, style: text.Style, run: graphics =>
-                (text.Style.Font ?? UiFont.Empty()).Use(run: font => {
+                text.Style.Font.IfNone(UiFont.Empty()).Use(run: font => {
                     using SolidBrush brush = PaintStyle.Brush(color: text.Style.Edge);
                     graphics.DrawText(font, brush, text.Frame, text.Value, text.Wrap, text.Alignment, text.Trimming);
                     return unit;
@@ -275,9 +307,8 @@ internal static partial class Paint {
         GhUi.Canvas<IDisposable>(run: scope =>
             from canvas in scope.NeedCanvas()
             from valid in Optional(paint).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Hook)), detail: "null paint callback"))
-            from phaseCase in PhaseCases.Find(p => p.Phase == phase)
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Hook)), detail: $"unknown phase {phase}"))
-            select (IDisposable)PaintSubscription.Attach(canvas: canvas, phaseCase: phaseCase, paint: valid));
+            from validPhase in Optional(phase).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Hook)), detail: "null phase"))
+            select (IDisposable)PaintSubscription.Attach(canvas: canvas, phase: validPhase, paint: valid));
 
     internal static GrasshopperUiIntent<Unit> RedrawOnMouseMove(bool enabled = true) =>
         GhUi.Canvas<Unit>(
@@ -285,21 +316,6 @@ internal static partial class Paint {
             run: scope => scope.NeedCanvas().Map(canvas => { canvas.RedrawOnMouseMove = enabled; return unit; }));
 
     // --- [OPERATIONS] -------------------------------------------------------------------------
-    private readonly record struct PaintPhaseCase(
-        CanvasPaintPhase Phase,
-        Action<GhCanvas, EventHandler<CanvasPaintEventArgs>> Attach,
-        Action<GhCanvas, EventHandler<CanvasPaintEventArgs>> Detach);
-
-    private static readonly Seq<PaintPhaseCase> PhaseCases = Seq(
-        new PaintPhaseCase(Phase: CanvasPaintPhase.BeforeBackground, Attach: static (c, h) => c.BeforePaintBackground += h, Detach: static (c, h) => c.BeforePaintBackground -= h),
-        new PaintPhaseCase(Phase: CanvasPaintPhase.AfterBackground, Attach: static (c, h) => c.AfterPaintBackground += h, Detach: static (c, h) => c.AfterPaintBackground -= h),
-        new PaintPhaseCase(Phase: CanvasPaintPhase.BeforeGroups, Attach: static (c, h) => c.BeforePaintGroups += h, Detach: static (c, h) => c.BeforePaintGroups -= h),
-        new PaintPhaseCase(Phase: CanvasPaintPhase.AfterGroups, Attach: static (c, h) => c.AfterPaintGroups += h, Detach: static (c, h) => c.AfterPaintGroups -= h),
-        new PaintPhaseCase(Phase: CanvasPaintPhase.BeforeWires, Attach: static (c, h) => c.BeforePaintWires += h, Detach: static (c, h) => c.BeforePaintWires -= h),
-        new PaintPhaseCase(Phase: CanvasPaintPhase.AfterWires, Attach: static (c, h) => c.AfterPaintWires += h, Detach: static (c, h) => c.AfterPaintWires -= h),
-        new PaintPhaseCase(Phase: CanvasPaintPhase.BeforeObjects, Attach: static (c, h) => c.BeforePaintObjects += h, Detach: static (c, h) => c.BeforePaintObjects -= h),
-        new PaintPhaseCase(Phase: CanvasPaintPhase.AfterObjects, Attach: static (c, h) => c.AfterPaintObjects += h, Detach: static (c, h) => c.AfterPaintObjects -= h));
-
     private sealed class PaintSubscription : IDisposable {
         private readonly System.Action dispose;
         private PaintSubscription(System.Action dispose) => this.dispose = dispose;
@@ -309,17 +325,17 @@ internal static partial class Paint {
                 return Fin.Succ(value: unit);
             }));
 
-        internal static PaintSubscription Attach(GhCanvas canvas, PaintPhaseCase phaseCase, Func<PaintScope, Fin<Unit>> paint) {
+        internal static PaintSubscription Attach(GhCanvas canvas, CanvasPaintPhase phase, Func<PaintScope, Fin<Unit>> paint) {
             void Handler(object? sender, CanvasPaintEventArgs args) =>
                 _ = GrasshopperUi.Protect(valid: () => paint(arg: new PaintScope(
-                    Phase: phaseCase.Phase,
+                    Phase: phase,
                     Graphics: args.Graphics,
                     Skin: args.Skin) {
                     Background = Optional(args as CanvasBackgroundPaintEventArgs),
                 }));
             EventHandler<CanvasPaintEventArgs> handler = Handler;
-            phaseCase.Attach(arg1: canvas, arg2: handler);
-            return new PaintSubscription(dispose: () => phaseCase.Detach(arg1: canvas, arg2: handler));
+            _ = phase.Attach(canvas: canvas, handler: handler);
+            return new PaintSubscription(dispose: () => phase.Detach(canvas: canvas, handler: handler));
         }
     }
 }

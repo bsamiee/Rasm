@@ -1,3 +1,4 @@
+using System.IO;
 using System.Runtime.InteropServices;
 using Eto.Drawing;
 using Eto.Forms;
@@ -14,15 +15,54 @@ using Op = Rasm.Domain.Op;
 namespace Rasm.Grasshopper.UI;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-public enum CursorKind {
-    Default, Crosshair, Pointer, IBeam, Move,
-    VerticalSplit, HorizontalSplit, SizeAll, NotAllowed,
-    WireIn, WireOut, WireQuestion,
+[SmartEnum<int>]
+public sealed partial class CursorKind {
+    private delegate Eto.Forms.Cursor CursorSource(Grasshopper2.UI.Canvas.Canvas canvas);
+
+    public static readonly CursorKind Default = new(key: 0, cursor: static _ => Cursors.Default);
+    public static readonly CursorKind Crosshair = new(key: 1, cursor: static _ => Cursors.Crosshair);
+    public static readonly CursorKind Pointer = new(key: 2, cursor: static _ => Cursors.Pointer);
+    public static readonly CursorKind IBeam = new(key: 3, cursor: static _ => Cursors.IBeam);
+    public static readonly CursorKind Move = new(key: 4, cursor: static _ => Cursors.Move);
+    public static readonly CursorKind VerticalSplit = new(key: 5, cursor: static _ => Cursors.VerticalSplit);
+    public static readonly CursorKind HorizontalSplit = new(key: 6, cursor: static _ => Cursors.HorizontalSplit);
+    public static readonly CursorKind SizeAll = new(key: 7, cursor: static _ => Cursors.SizeAll);
+    public static readonly CursorKind NotAllowed = new(key: 8, cursor: static _ => Cursors.NotAllowed);
+    public static readonly CursorKind WireIn = new(key: 9, cursor: static _ => Grasshopper2.UI.Canvas.Canvas.CursorWireIn ?? Cursors.Pointer);
+    public static readonly CursorKind WireOut = new(key: 10, cursor: static _ => Grasshopper2.UI.Canvas.Canvas.CursorWireOut ?? Cursors.Pointer);
+    public static readonly CursorKind WireQuestion = new(key: 11, cursor: static _ => Grasshopper2.UI.Canvas.Canvas.CursorQuestion ?? Cursors.Default);
+
+    [UseDelegateFromConstructor]
+    internal partial Eto.Forms.Cursor Cursor(Grasshopper2.UI.Canvas.Canvas canvas);
 }
 
-public enum FileDialogMode { Open, Save, Folder }
+[SmartEnum<int>]
+public sealed partial class FileDialogMode {
+    private delegate Option<string> DialogRun(Control? parent, Option<string> initialPath, FileFilter[] filters);
 
-public enum MessageDialogKind { Information, Warning, Error, Question }
+    public static readonly FileDialogMode Open = new(
+        key: 0,
+        run: static (parent, initialPath, filters) => Input.RunFileDialog(dialog: new OpenFileDialog(), parent: parent, initialPath: initialPath, filters: filters));
+    public static readonly FileDialogMode Save = new(
+        key: 1,
+        run: static (parent, initialPath, filters) => Input.RunFileDialog(dialog: new SaveFileDialog(), parent: parent, initialPath: initialPath, filters: filters));
+    public static readonly FileDialogMode Folder = new(
+        key: 2,
+        run: static (parent, initialPath, _) => Input.RunFolderDialog(parent: parent, initialPath: initialPath));
+
+    [UseDelegateFromConstructor]
+    internal partial Option<string> Run(Control? parent, Option<string> initialPath, FileFilter[] filters);
+}
+
+[SmartEnum<int>]
+public sealed partial class MessageDialogKind {
+    public static readonly MessageDialogKind Information = new(key: 0, type: MessageBoxType.Information);
+    public static readonly MessageDialogKind Warning = new(key: 1, type: MessageBoxType.Warning);
+    public static readonly MessageDialogKind Error = new(key: 2, type: MessageBoxType.Error);
+    public static readonly MessageDialogKind Question = new(key: 3, type: MessageBoxType.Question);
+
+    public MessageBoxType Type { get; }
+}
 
 [Flags]
 public enum MessageDialogButtons {
@@ -33,7 +73,22 @@ public enum MessageDialogButtons {
     YesNoCancel = Yes | No | Cancel,
 }
 
-public enum InputDialogResponse { None, Ok, Cancel, Yes, No, Abort, Ignore, Retry }
+[SmartEnum<int>]
+public sealed partial class InputDialogResponse {
+    public static readonly InputDialogResponse None = new(key: 0, native: DialogResult.None);
+    public static readonly InputDialogResponse Ok = new(key: 1, native: DialogResult.Ok);
+    public static readonly InputDialogResponse Cancel = new(key: 2, native: DialogResult.Cancel);
+    public static readonly InputDialogResponse Yes = new(key: 3, native: DialogResult.Yes);
+    public static readonly InputDialogResponse No = new(key: 4, native: DialogResult.No);
+    public static readonly InputDialogResponse Abort = new(key: 5, native: DialogResult.Abort);
+    public static readonly InputDialogResponse Ignore = new(key: 6, native: DialogResult.Ignore);
+    public static readonly InputDialogResponse Retry = new(key: 7, native: DialogResult.Retry);
+
+    public DialogResult Native { get; }
+
+    internal static InputDialogResponse Of(DialogResult result) =>
+        toSeq(Items).Find(item => item.Native == result).IfNone(None);
+}
 
 [Union]
 public partial record InputSelectionSource {
@@ -46,12 +101,10 @@ public partial record InputSelectionSource {
     public static InputSelectionSource From(MouseEventArgs mouse) => new MouseCase(Source: mouse);
     public static InputSelectionSource From(WindowSelectionEventArgs window) => new WindowCase(Source: window);
 
-    internal SelectionMode Mode() => this switch {
-        ControlCase c => c.Source.SelectionMode(),
-        MouseCase m => m.Source.SelectionMode(),
-        WindowCase w => w.Source.SelectionMode(),
-        _ => SelectionMode.Include,
-    };
+    internal SelectionMode Mode() => Switch(
+        controlCase: static c => c.Source.SelectionMode(),
+        mouseCase: static m => m.Source.SelectionMode(),
+        windowCase: static w => w.Source.SelectionMode());
 }
 
 [Union]
@@ -295,9 +348,9 @@ public abstract record InputRequest<T> : GhUiRequest<T> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
         internal override Fin<CursorKind> Apply(GrasshopperUi.Scope scope) => Input.Cursor(kind: Kind).Run(scope: scope);
     }
-    public sealed record Message(string Title, string Body, MessageDialogKind Kind = MessageDialogKind.Information, MessageDialogButtons Buttons = MessageDialogButtons.Ok) : InputRequest<InputDialogResponse> {
+    public sealed record Message(string Title, string Body, MessageDialogKind? Kind = null, MessageDialogButtons Buttons = MessageDialogButtons.Ok) : InputRequest<InputDialogResponse> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
-        internal override Fin<InputDialogResponse> Apply(GrasshopperUi.Scope scope) => Input.MessageDialog(title: Title, message: Body, kind: Kind, buttons: Buttons).Run(scope: scope);
+        internal override Fin<InputDialogResponse> Apply(GrasshopperUi.Scope scope) => Input.MessageDialog(title: Title, message: Body, kind: Kind ?? MessageDialogKind.Information, buttons: Buttons).Run(scope: scope);
     }
     public sealed record File(FileDialogMode Mode, Option<string> InitialPath, Seq<FileFilter> Filters) : InputRequest<Option<string>> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
@@ -398,29 +451,26 @@ internal static partial class Input {
 
     internal static GrasshopperUiIntent<CursorKind> Cursor(CursorKind kind) =>
         GhUi.Canvas<CursorKind>(run: scope => scope.NeedCanvas().Map(canvas => {
-            canvas.Cursor = CursorOf(kind: kind, canvas: canvas);
+            canvas.Cursor = kind.Cursor(canvas: canvas);
             return kind;
         }));
 
-    internal static GrasshopperUiIntent<InputDialogResponse> MessageDialog(string title, string message, MessageDialogKind kind = MessageDialogKind.Information, MessageDialogButtons buttons = MessageDialogButtons.Ok) =>
-        GhUi.Read<InputDialogResponse>(run: _ =>
+    internal static GrasshopperUiIntent<InputDialogResponse> MessageDialog(string title, string message, MessageDialogKind? kind = null, MessageDialogButtons buttons = MessageDialogButtons.Ok) =>
+        GhUi.Read<InputDialogResponse>(run: scope =>
             Try.lift<InputDialogResponse>(f: () => {
                 DialogResult result = MessageBox.Show(
+                    parent: DialogParent(scope: scope),
                     text: message,
                     caption: title,
                     buttons: ButtonsOf(buttons),
-                    type: TypeOf(kind));
-                return ResponseOf(result: result);
+                    type: (kind ?? MessageDialogKind.Information).Type);
+                return InputDialogResponse.Of(result: result);
             }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(MessageDialog)), detail: "MessageBox.Show threw")));
 
     internal static GrasshopperUiIntent<Option<string>> FileDialog(FileDialogMode mode, Option<string> initialPath = default, params FileFilter[] filters) =>
-        GhUi.Read<Option<string>>(run: _ =>
-            Try.lift<Option<string>>(f: () => mode switch {
-                FileDialogMode.Open => RunFileDialog(dialog: new OpenFileDialog(), initialPath: PathOrEmpty(path: initialPath), filters: filters),
-                FileDialogMode.Save => RunFileDialog(dialog: new SaveFileDialog(), initialPath: PathOrEmpty(path: initialPath), filters: filters),
-                FileDialogMode.Folder => RunFolderDialog(initialPath: PathOrEmpty(path: initialPath)),
-                _ => Option<string>.None,
-            }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(FileDialog)), detail: "FileDialog.ShowDialog threw")));
+        GhUi.Read<Option<string>>(run: scope =>
+            Try.lift<Option<string>>(f: () => mode.Run(parent: DialogParent(scope: scope), initialPath: initialPath, filters: filters))
+                .Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(FileDialog)), detail: "FileDialog.ShowDialog threw")));
 
     internal static GrasshopperUiIntent<InputClipboardSnapshot> Clipboard(InputClipboardOp op) =>
         GhUi.Read<InputClipboardSnapshot>(run: _scope =>
@@ -460,36 +510,6 @@ internal static partial class Input {
     private static InputModifierSnapshot ModifierOf(Keys keys) =>
         new(Shift: keys.HasShift(), Command: keys.HasCommand(), Option: keys.HasOption());
 
-    private static string PathOrEmpty(Option<string> path) =>
-        path.Filter(static value => !string.IsNullOrWhiteSpace(value)).IfNone(string.Empty);
-
-    private static Eto.Forms.Cursor CursorOf(CursorKind kind, Grasshopper2.UI.Canvas.Canvas canvas) {
-        _ = canvas;
-        return kind switch {
-            CursorKind.Default => Cursors.Default,
-            CursorKind.Crosshair => Cursors.Crosshair,
-            CursorKind.Pointer => Cursors.Pointer,
-            CursorKind.IBeam => Cursors.IBeam,
-            CursorKind.Move => Cursors.Move,
-            CursorKind.VerticalSplit => Cursors.VerticalSplit,
-            CursorKind.HorizontalSplit => Cursors.HorizontalSplit,
-            CursorKind.SizeAll => Cursors.SizeAll,
-            CursorKind.NotAllowed => Cursors.NotAllowed,
-            CursorKind.WireIn => Grasshopper2.UI.Canvas.Canvas.CursorWireIn ?? Cursors.Pointer,
-            CursorKind.WireOut => Grasshopper2.UI.Canvas.Canvas.CursorWireOut ?? Cursors.Pointer,
-            CursorKind.WireQuestion => Grasshopper2.UI.Canvas.Canvas.CursorQuestion ?? Cursors.Default,
-            _ => Cursors.Default,
-        };
-    }
-
-    private static MessageBoxType TypeOf(MessageDialogKind k) => k switch {
-        MessageDialogKind.Information => MessageBoxType.Information,
-        MessageDialogKind.Warning => MessageBoxType.Warning,
-        MessageDialogKind.Error => MessageBoxType.Error,
-        MessageDialogKind.Question => MessageBoxType.Question,
-        _ => MessageBoxType.Information,
-    };
-
     private static MessageBoxButtons ButtonsOf(MessageDialogButtons b) => b switch {
         MessageDialogButtons.Ok => MessageBoxButtons.OK,
         MessageDialogButtons.OkCancel => MessageBoxButtons.OKCancel,
@@ -500,22 +520,14 @@ internal static partial class Input {
         _ => MessageBoxButtons.OK,
     };
 
-    private static InputDialogResponse ResponseOf(DialogResult result) => result switch {
-        DialogResult.None => InputDialogResponse.None,
-        DialogResult.Ok => InputDialogResponse.Ok,
-        DialogResult.Cancel => InputDialogResponse.Cancel,
-        DialogResult.Yes => InputDialogResponse.Yes,
-        DialogResult.No => InputDialogResponse.No,
-        DialogResult.Abort => InputDialogResponse.Abort,
-        DialogResult.Ignore => InputDialogResponse.Ignore,
-        DialogResult.Retry => InputDialogResponse.Retry,
-        _ => InputDialogResponse.None,
-    };
+    private static Control? DialogParent(GrasshopperUi.Scope scope) =>
+        scope.Editor.Map(static _ => (Control?)Grasshopper2.UI.Editor.ThisOrRhino).IfNone((Control?)null);
 
-    private static Option<string> RunFileDialog(Eto.Forms.FileDialog dialog, string? initialPath, FileFilter[] filters) {
-        _ = Optional(initialPath).Filter(static path => !string.IsNullOrWhiteSpace(path)).IfSome(path => dialog.FileName = path);
+    internal static Option<string> RunFileDialog(Eto.Forms.FileDialog dialog, Control? parent, Option<string> initialPath, FileFilter[] filters) {
+        _ = initialPath.Filter(static path => !string.IsNullOrWhiteSpace(path))
+            .IfSome(path => dialog.Directory = new Uri(uriString: Directory.Exists(path: path) ? path : System.IO.Path.GetDirectoryName(path: path) ?? string.Empty));
         _ = toSeq(filters).Iter(f => dialog.Filters.Add(item: new Eto.Forms.FileFilter(name: f.Name, extensions: [.. f.Extensions])));
-        DialogResult result = dialog.ShowDialog(parent: (Control?)null);
+        DialogResult result = dialog.ShowDialog(parent: parent);
         return result switch {
             DialogResult.Ok => Some(dialog.FileName),
             _ => Option<string>.None,
@@ -523,10 +535,10 @@ internal static partial class Input {
     }
 
     // SelectFolderDialog : CommonDialog (NOT FileDialog) — separate dispatch (per Eto verification).
-    private static Option<string> RunFolderDialog(string? initialPath) {
+    internal static Option<string> RunFolderDialog(Control? parent, Option<string> initialPath) {
         using SelectFolderDialog dialog = new();
-        _ = Optional(initialPath).Filter(static path => !string.IsNullOrWhiteSpace(path)).IfSome(path => dialog.Directory = path);
-        DialogResult result = dialog.ShowDialog(parent: (Control?)null);
+        _ = initialPath.Filter(static path => !string.IsNullOrWhiteSpace(path)).IfSome(path => dialog.Directory = path);
+        DialogResult result = dialog.ShowDialog(parent: parent);
         return result switch {
             DialogResult.Ok => Some(dialog.Directory),
             _ => Option<string>.None,

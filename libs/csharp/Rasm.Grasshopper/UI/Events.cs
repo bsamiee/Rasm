@@ -15,8 +15,7 @@ namespace Rasm.Grasshopper.UI;
 public partial record UiEvent {
     private UiEvent() { }
     public sealed record PaintCase(CanvasPaintPhase Phase, Func<PaintScope, Fin<Unit>> Handler) : UiEvent;
-    public sealed record DocumentChangedCase(Func<DocumentSnapshot, Fin<Unit>> Handler) : UiEvent;
-    public sealed record SelectionChangedCase(Func<Seq<DocumentObjectSnapshot>, Fin<Unit>> Handler) : UiEvent;
+    public sealed record DocumentCase(DocumentEventKind Kind, Func<DocumentEventSnapshot, Fin<Unit>>? Handler) : UiEvent;
     public sealed record SolutionCase(SolutionEventKind Kind, Func<DocumentSnapshot, Fin<Unit>> Handler) : UiEvent;
     public sealed record UndoCase(UndoEventKind Kind, Func<DocumentHistorySnapshot, Fin<Unit>> Handler) : UiEvent;
     public sealed record TimerCase(TimeSpan Interval, Func<Fin<Unit>> Handler) : UiEvent;
@@ -24,10 +23,12 @@ public partial record UiEvent {
 
     public static UiEvent Paint(CanvasPaintPhase phase, Func<PaintScope, Fin<Unit>> handler) =>
         new PaintCase(Phase: phase, Handler: handler);
-    public static UiEvent DocumentChanged(Func<DocumentSnapshot, Fin<Unit>> handler) =>
-        new DocumentChangedCase(Handler: handler);
-    public static UiEvent SelectionChanged(Func<Seq<DocumentObjectSnapshot>, Fin<Unit>> handler) =>
-        new SelectionChangedCase(Handler: handler);
+    public static UiEvent Document(DocumentEventKind kind, Func<DocumentEventSnapshot, Fin<Unit>> handler) =>
+        new DocumentCase(Kind: kind, Handler: handler);
+    public static UiEvent DocumentChanged(Func<DocumentSnapshot, Fin<Unit>>? handler) =>
+        new DocumentCase(Kind: DocumentEventKind.Changed, Handler: handler is null ? null : e => handler(arg: e.Document));
+    public static UiEvent SelectionChanged(Func<Seq<DocumentObjectSnapshot>, Fin<Unit>>? handler) =>
+        new DocumentCase(Kind: DocumentEventKind.Selection, Handler: handler is null ? null : e => handler(arg: e.Objects));
     public static UiEvent Solution(SolutionEventKind kind, Func<DocumentSnapshot, Fin<Unit>> handler) =>
         new SolutionCase(Kind: kind, Handler: handler);
     public static UiEvent Undo(UndoEventKind kind, Func<DocumentHistorySnapshot, Fin<Unit>> handler) =>
@@ -38,38 +39,213 @@ public partial record UiEvent {
         new ControlCase(Source: source, Kind: kind, Handler: handler);
 }
 
-public enum SolutionEventKind { AboutToStart, Started, Stopped, Cancelled, Completed, Faulted }
+internal readonly record struct DocumentEventHandlers(
+    EventHandler<DocumentModifiedEventArgs> Modified,
+    EventHandler<DocumentStateEventArgs> State,
+    EventHandler<AfterAddObjectEventArgs> Added,
+    EventHandler<AfterRemoveObjectEventArgs> Removed,
+    EventHandler<ObjectEventArgs> Expired,
+    EventHandler<ObjectEventArgs> Selection,
+    EventHandler<ObjectEventArgs> Enabled,
+    EventHandler<ObjectEventArgs> Relevance,
+    EventHandler<ObjectEventArgs> Layout,
+    EventHandler<ObjectEventArgs> Display,
+    EventHandler<ObjectNameEventArgs> Name,
+    EventHandler<ObjectGuidEventArgs> Id);
 
-public enum UndoEventKind { Undone, Redone, Modified, NodeAdded, NodeRemoved, NodeMerged, NodeMoved }
+[SmartEnum<int>]
+public sealed partial class DocumentEventKind {
+    private delegate Unit DocumentEventWire(GhDocument document, GhObjectList objects, DocumentEventHandlers events);
 
-public enum ControlEventKind {
-    PreLoad,
-    Load,
-    LoadComplete,
-    UnLoad,
-    Shown,
-    GotFocus,
-    LostFocus,
-    SizeChanged,
-    EnabledChanged,
-    KeyDown,
-    KeyUp,
-    TextInput,
-    MouseDown,
-    MouseUp,
-    MouseMove,
-    MouseEnter,
-    MouseLeave,
-    MouseDoubleClick,
-    MouseWheel,
-    DragDrop,
-    DragOver,
-    DragEnter,
-    DragLeave,
-    DragEnd,
+    public static readonly DocumentEventKind Changed = new(key: 0, attach: static (document, objects, events) => {
+        document.ModifiedChanged += events.Modified; document.StateChanged += events.State;
+        objects.ObjectAdded += events.Added; objects.ObjectRemoved += events.Removed; objects.ObjectExpired += events.Expired;
+        objects.ObjectNameChanged += events.Name; objects.ObjectSelectionChanged += events.Selection; objects.ObjectEnabledChanged += events.Enabled;
+        objects.ObjectRelevanceChanged += events.Relevance; objects.ObjectLayoutChanged += events.Layout; objects.ObjectDisplayChanged += events.Display;
+        objects.ObjectInstanceIdChanged += events.Id; return unit;
+    }, detach: static (document, objects, events) => {
+        document.ModifiedChanged -= events.Modified; document.StateChanged -= events.State;
+        objects.ObjectAdded -= events.Added; objects.ObjectRemoved -= events.Removed; objects.ObjectExpired -= events.Expired;
+        objects.ObjectNameChanged -= events.Name; objects.ObjectSelectionChanged -= events.Selection; objects.ObjectEnabledChanged -= events.Enabled;
+        objects.ObjectRelevanceChanged -= events.Relevance; objects.ObjectLayoutChanged -= events.Layout; objects.ObjectDisplayChanged -= events.Display;
+        objects.ObjectInstanceIdChanged -= events.Id; return unit;
+    });
+    public static readonly DocumentEventKind Modified = new(key: 1,
+        attach: static (document, _, events) => { document.ModifiedChanged += events.Modified; return unit; },
+        detach: static (document, _, events) => { document.ModifiedChanged -= events.Modified; return unit; });
+    public static readonly DocumentEventKind StateChanged = new(key: 2,
+        attach: static (document, _, events) => { document.StateChanged += events.State; return unit; },
+        detach: static (document, _, events) => { document.StateChanged -= events.State; return unit; });
+    public static readonly DocumentEventKind ObjectAdded = new(key: 3,
+        attach: static (_, objects, events) => { objects.ObjectAdded += events.Added; return unit; },
+        detach: static (_, objects, events) => { objects.ObjectAdded -= events.Added; return unit; });
+    public static readonly DocumentEventKind ObjectRemoved = new(key: 4,
+        attach: static (_, objects, events) => { objects.ObjectRemoved += events.Removed; return unit; },
+        detach: static (_, objects, events) => { objects.ObjectRemoved -= events.Removed; return unit; });
+    public static readonly DocumentEventKind ObjectExpired = new(key: 5,
+        attach: static (_, objects, events) => { objects.ObjectExpired += events.Expired; return unit; },
+        detach: static (_, objects, events) => { objects.ObjectExpired -= events.Expired; return unit; });
+    public static readonly DocumentEventKind ObjectName = new(key: 6,
+        attach: static (_, objects, events) => { objects.ObjectNameChanged += events.Name; return unit; },
+        detach: static (_, objects, events) => { objects.ObjectNameChanged -= events.Name; return unit; });
+    public static readonly DocumentEventKind Selection = new(key: 7,
+        attach: static (_, objects, events) => { objects.ObjectSelectionChanged += events.Selection; return unit; },
+        detach: static (_, objects, events) => { objects.ObjectSelectionChanged -= events.Selection; return unit; });
+    public static readonly DocumentEventKind ObjectEnabled = new(key: 8,
+        attach: static (_, objects, events) => { objects.ObjectEnabledChanged += events.Enabled; return unit; },
+        detach: static (_, objects, events) => { objects.ObjectEnabledChanged -= events.Enabled; return unit; });
+    public static readonly DocumentEventKind ObjectRelevance = new(key: 9,
+        attach: static (_, objects, events) => { objects.ObjectRelevanceChanged += events.Relevance; return unit; },
+        detach: static (_, objects, events) => { objects.ObjectRelevanceChanged -= events.Relevance; return unit; });
+    public static readonly DocumentEventKind ObjectLayout = new(key: 10,
+        attach: static (_, objects, events) => { objects.ObjectLayoutChanged += events.Layout; return unit; },
+        detach: static (_, objects, events) => { objects.ObjectLayoutChanged -= events.Layout; return unit; });
+    public static readonly DocumentEventKind ObjectDisplay = new(key: 11,
+        attach: static (_, objects, events) => { objects.ObjectDisplayChanged += events.Display; return unit; },
+        detach: static (_, objects, events) => { objects.ObjectDisplayChanged -= events.Display; return unit; });
+    public static readonly DocumentEventKind ObjectInstanceId = new(key: 12,
+        attach: static (_, objects, events) => { objects.ObjectInstanceIdChanged += events.Id; return unit; },
+        detach: static (_, objects, events) => { objects.ObjectInstanceIdChanged -= events.Id; return unit; });
+
+    [UseDelegateFromConstructor]
+    internal partial Unit Attach(GhDocument document, GhObjectList objects, DocumentEventHandlers events);
+    [UseDelegateFromConstructor]
+    internal partial Unit Detach(GhDocument document, GhObjectList objects, DocumentEventHandlers events);
+}
+
+internal readonly record struct SolutionEventHandlers(
+    EventHandler<SolutionIdEventArgs> About,
+    EventHandler<SolutionEventArgs> Plain,
+    EventHandler<SolutionExceptionEventArgs> Faulted);
+
+[SmartEnum<int>]
+public sealed partial class SolutionEventKind {
+    private delegate Unit SolutionEventWire(SolutionServer solution, SolutionEventHandlers events);
+
+    public static readonly SolutionEventKind AboutToStart = new(key: 0,
+        attach: static (solution, events) => { solution.SolutionAboutToStart += events.About; return unit; },
+        detach: static (solution, events) => { solution.SolutionAboutToStart -= events.About; return unit; });
+    public static readonly SolutionEventKind Started = new(key: 1,
+        attach: static (solution, events) => { solution.SolutionStarted += events.Plain; return unit; },
+        detach: static (solution, events) => { solution.SolutionStarted -= events.Plain; return unit; });
+    public static readonly SolutionEventKind Stopped = new(key: 2,
+        attach: static (solution, events) => { solution.SolutionStopped += events.Plain; return unit; },
+        detach: static (solution, events) => { solution.SolutionStopped -= events.Plain; return unit; });
+    public static readonly SolutionEventKind Cancelled = new(key: 3,
+        attach: static (solution, events) => { solution.SolutionCancelled += events.Plain; return unit; },
+        detach: static (solution, events) => { solution.SolutionCancelled -= events.Plain; return unit; });
+    public static readonly SolutionEventKind Completed = new(key: 4,
+        attach: static (solution, events) => { solution.SolutionCompleted += events.Plain; return unit; },
+        detach: static (solution, events) => { solution.SolutionCompleted -= events.Plain; return unit; });
+    public static readonly SolutionEventKind Faulted = new(key: 5,
+        attach: static (solution, events) => { solution.SolutionFaulted += events.Faulted; return unit; },
+        detach: static (solution, events) => { solution.SolutionFaulted -= events.Faulted; return unit; });
+
+    [UseDelegateFromConstructor]
+    internal partial Unit Attach(SolutionServer solution, SolutionEventHandlers events);
+    [UseDelegateFromConstructor]
+    internal partial Unit Detach(SolutionServer solution, SolutionEventHandlers events);
+}
+
+internal readonly record struct UndoEventHandlers(
+    EventHandler<UndoEventArgs> Plain,
+    EventHandler<UndoNodeEventArgs> Node,
+    EventHandler<UndoNodeMovedEventArgs> Moved);
+
+[SmartEnum<int>]
+public sealed partial class UndoEventKind {
+    private delegate Unit UndoEventWire(History history, UndoEventHandlers events);
+
+    public static readonly UndoEventKind Undone = new(key: 0,
+        attach: static (history, events) => { history.Undone += events.Plain; return unit; },
+        detach: static (history, events) => { history.Undone -= events.Plain; return unit; });
+    public static readonly UndoEventKind Redone = new(key: 1,
+        attach: static (history, events) => { history.Redone += events.Plain; return unit; },
+        detach: static (history, events) => { history.Redone -= events.Plain; return unit; });
+    public static readonly UndoEventKind Modified = new(key: 2,
+        attach: static (history, events) => { history.Modified += events.Plain; return unit; },
+        detach: static (history, events) => { history.Modified -= events.Plain; return unit; });
+    public static readonly UndoEventKind NodeAdded = new(key: 3,
+        attach: static (history, events) => { history.NodeAdded += events.Node; return unit; },
+        detach: static (history, events) => { history.NodeAdded -= events.Node; return unit; });
+    public static readonly UndoEventKind NodeRemoved = new(key: 4,
+        attach: static (history, events) => { history.NodeRemoved += events.Node; return unit; },
+        detach: static (history, events) => { history.NodeRemoved -= events.Node; return unit; });
+    public static readonly UndoEventKind NodeMerged = new(key: 5,
+        attach: static (history, events) => { history.NodeMerged += events.Node; return unit; },
+        detach: static (history, events) => { history.NodeMerged -= events.Node; return unit; });
+    public static readonly UndoEventKind NodeMoved = new(key: 6,
+        attach: static (history, events) => { history.NodeMoved += events.Moved; return unit; },
+        detach: static (history, events) => { history.NodeMoved -= events.Moved; return unit; });
+
+    [UseDelegateFromConstructor]
+    internal partial Unit Attach(History history, UndoEventHandlers events);
+    [UseDelegateFromConstructor]
+    internal partial Unit Detach(History history, UndoEventHandlers events);
+}
+
+internal readonly record struct ControlEventHandlers(
+    EventHandler<EventArgs> Plain,
+    EventHandler<KeyEventArgs> Key,
+    EventHandler<TextInputEventArgs> Text,
+    EventHandler<MouseEventArgs> Mouse,
+    EventHandler<DragEventArgs> Drag);
+
+[SmartEnum<int>]
+public sealed partial class ControlEventKind {
+    private delegate Unit ControlEventWire(Control source, ControlEventHandlers events);
+
+    public static readonly ControlEventKind PreLoad = Plain(key: 0, attach: static (s, h) => s.PreLoad += h, detach: static (s, h) => s.PreLoad -= h);
+    public static readonly ControlEventKind Load = Plain(key: 1, attach: static (s, h) => s.Load += h, detach: static (s, h) => s.Load -= h);
+    public static readonly ControlEventKind LoadComplete = Plain(key: 2, attach: static (s, h) => s.LoadComplete += h, detach: static (s, h) => s.LoadComplete -= h);
+    public static readonly ControlEventKind UnLoad = Plain(key: 3, attach: static (s, h) => s.UnLoad += h, detach: static (s, h) => s.UnLoad -= h);
+    public static readonly ControlEventKind Shown = Plain(key: 4, attach: static (s, h) => s.Shown += h, detach: static (s, h) => s.Shown -= h);
+    public static readonly ControlEventKind GotFocus = Plain(key: 5, attach: static (s, h) => s.GotFocus += h, detach: static (s, h) => s.GotFocus -= h);
+    public static readonly ControlEventKind LostFocus = Plain(key: 6, attach: static (s, h) => s.LostFocus += h, detach: static (s, h) => s.LostFocus -= h);
+    public static readonly ControlEventKind SizeChanged = Plain(key: 7, attach: static (s, h) => s.SizeChanged += h, detach: static (s, h) => s.SizeChanged -= h);
+    public static readonly ControlEventKind EnabledChanged = Plain(key: 8, attach: static (s, h) => s.EnabledChanged += h, detach: static (s, h) => s.EnabledChanged -= h);
+    public static readonly ControlEventKind KeyDown = Keyed(key: 9, attach: static (s, h) => s.KeyDown += h, detach: static (s, h) => s.KeyDown -= h);
+    public static readonly ControlEventKind KeyUp = Keyed(key: 10, attach: static (s, h) => s.KeyUp += h, detach: static (s, h) => s.KeyUp -= h);
+    public static readonly ControlEventKind TextInput = Textual(key: 11, attach: static (s, h) => s.TextInput += h, detach: static (s, h) => s.TextInput -= h);
+    public static readonly ControlEventKind MouseDown = Moused(key: 12, attach: static (s, h) => s.MouseDown += h, detach: static (s, h) => s.MouseDown -= h);
+    public static readonly ControlEventKind MouseUp = Moused(key: 13, attach: static (s, h) => s.MouseUp += h, detach: static (s, h) => s.MouseUp -= h);
+    public static readonly ControlEventKind MouseMove = Moused(key: 14, attach: static (s, h) => s.MouseMove += h, detach: static (s, h) => s.MouseMove -= h);
+    public static readonly ControlEventKind MouseEnter = Moused(key: 15, attach: static (s, h) => s.MouseEnter += h, detach: static (s, h) => s.MouseEnter -= h);
+    public static readonly ControlEventKind MouseLeave = Moused(key: 16, attach: static (s, h) => s.MouseLeave += h, detach: static (s, h) => s.MouseLeave -= h);
+    public static readonly ControlEventKind MouseDoubleClick = Moused(key: 17, attach: static (s, h) => s.MouseDoubleClick += h, detach: static (s, h) => s.MouseDoubleClick -= h);
+    public static readonly ControlEventKind MouseWheel = Moused(key: 18, attach: static (s, h) => s.MouseWheel += h, detach: static (s, h) => s.MouseWheel -= h);
+    public static readonly ControlEventKind DragDrop = Dragged(key: 19, attach: static (s, h) => s.DragDrop += h, detach: static (s, h) => s.DragDrop -= h);
+    public static readonly ControlEventKind DragOver = Dragged(key: 20, attach: static (s, h) => s.DragOver += h, detach: static (s, h) => s.DragOver -= h);
+    public static readonly ControlEventKind DragEnter = Dragged(key: 21, attach: static (s, h) => s.DragEnter += h, detach: static (s, h) => s.DragEnter -= h);
+    public static readonly ControlEventKind DragLeave = Dragged(key: 22, attach: static (s, h) => s.DragLeave += h, detach: static (s, h) => s.DragLeave -= h);
+    public static readonly ControlEventKind DragEnd = Dragged(key: 23, attach: static (s, h) => s.DragEnd += h, detach: static (s, h) => s.DragEnd -= h);
+
+    private static ControlEventKind Plain(int key, Action<Control, EventHandler<EventArgs>> attach, Action<Control, EventHandler<EventArgs>> detach) =>
+        new(key: key, attach: (source, events) => { attach(arg1: source, arg2: events.Plain); return unit; }, detach: (source, events) => { detach(arg1: source, arg2: events.Plain); return unit; });
+    private static ControlEventKind Keyed(int key, Action<Control, EventHandler<KeyEventArgs>> attach, Action<Control, EventHandler<KeyEventArgs>> detach) =>
+        new(key: key, attach: (source, events) => { attach(arg1: source, arg2: events.Key); return unit; }, detach: (source, events) => { detach(arg1: source, arg2: events.Key); return unit; });
+    private static ControlEventKind Textual(int key, Action<Control, EventHandler<TextInputEventArgs>> attach, Action<Control, EventHandler<TextInputEventArgs>> detach) =>
+        new(key: key, attach: (source, events) => { attach(arg1: source, arg2: events.Text); return unit; }, detach: (source, events) => { detach(arg1: source, arg2: events.Text); return unit; });
+    private static ControlEventKind Moused(int key, Action<Control, EventHandler<MouseEventArgs>> attach, Action<Control, EventHandler<MouseEventArgs>> detach) =>
+        new(key: key, attach: (source, events) => { attach(arg1: source, arg2: events.Mouse); return unit; }, detach: (source, events) => { detach(arg1: source, arg2: events.Mouse); return unit; });
+    private static ControlEventKind Dragged(int key, Action<Control, EventHandler<DragEventArgs>> attach, Action<Control, EventHandler<DragEventArgs>> detach) =>
+        new(key: key, attach: (source, events) => { attach(arg1: source, arg2: events.Drag); return unit; }, detach: (source, events) => { detach(arg1: source, arg2: events.Drag); return unit; });
+
+    [UseDelegateFromConstructor]
+    internal partial Unit Attach(Control source, ControlEventHandlers events);
+    [UseDelegateFromConstructor]
+    internal partial Unit Detach(Control source, ControlEventHandlers events);
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct DocumentEventSnapshot(
+    DocumentEventKind Kind,
+    DocumentSnapshot Document,
+    Seq<DocumentObjectSnapshot> Objects,
+    Seq<WireSnapshot.ConnectedCase> Wires,
+    Option<string> Detail);
+
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct ControlEventSnapshot(
     ControlEventKind Kind,
@@ -91,38 +267,30 @@ internal sealed record EventRequest(UiEvent Event) : GhUiRequest<IDisposable> {
 // --- [SERVICES] ---------------------------------------------------------------------------
 internal static partial class Events {
     internal static GrasshopperUiPolicy PolicyOf(UiEvent uiEvent) =>
-        uiEvent switch {
-            UiEvent.PaintCase => GrasshopperUiPolicy.Canvas(),
-            UiEvent.DocumentChangedCase or UiEvent.SelectionChangedCase or UiEvent.SolutionCase or UiEvent.UndoCase => GrasshopperUiPolicy.Document(),
-            UiEvent.TimerCase or UiEvent.ControlCase => GrasshopperUiPolicy.Read,
-            _ => GrasshopperUiPolicy.Read,
-        };
+        uiEvent.Switch(
+            paintCase: static _ => GrasshopperUiPolicy.Canvas(),
+            documentCase: static _ => GrasshopperUiPolicy.Document(),
+            solutionCase: static _ => GrasshopperUiPolicy.Document(),
+            undoCase: static _ => GrasshopperUiPolicy.Document(),
+            timerCase: static _ => GrasshopperUiPolicy.Read,
+            controlCase: static _ => GrasshopperUiPolicy.Read);
 
     internal static GrasshopperUiIntent<IDisposable> Subscribe(UiEvent uiEvent) =>
-        uiEvent switch {
-            UiEvent.PaintCase p => Paint.Hook(phase: p.Phase, paint: p.Handler),
-            UiEvent.DocumentChangedCase d => SubscribeDocumentChange(handler: d.Handler),
-            UiEvent.SelectionChangedCase s => SubscribeSelectionChange(handler: s.Handler),
-            UiEvent.SolutionCase s => SubscribeSolution(kind: s.Kind, handler: s.Handler),
-            UiEvent.UndoCase u => SubscribeUndo(kind: u.Kind, handler: u.Handler),
-            UiEvent.TimerCase t => SubscribeTimer(interval: t.Interval, handler: t.Handler),
-            UiEvent.ControlCase c => SubscribeControl(source: c.Source, kind: c.Kind, handler: c.Handler),
-            _ => GhUi.Document<IDisposable>(run: _ => Fin.Fail<IDisposable>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Subscribe)), detail: $"event kind not supported: {uiEvent.GetType().Name}"))),
-        };
+        uiEvent.Switch(
+            paintCase: static p => Paint.Hook(phase: p.Phase, paint: p.Handler),
+            documentCase: static d => SubscribeDocument(kind: d.Kind, handler: d.Handler),
+            solutionCase: static s => SubscribeSolution(kind: s.Kind, handler: s.Handler),
+            undoCase: static u => SubscribeUndo(kind: u.Kind, handler: u.Handler),
+            timerCase: static t => SubscribeTimer(interval: t.Interval, handler: t.Handler),
+            controlCase: static c => SubscribeControl(source: c.Source, kind: c.Kind, handler: c.Handler));
 
     // --- [OPERATIONS] -------------------------------------------------------------------------
-    private static GrasshopperUiIntent<IDisposable> SubscribeDocumentChange(Func<DocumentSnapshot, Fin<Unit>> handler) =>
+    private static GrasshopperUiIntent<IDisposable> SubscribeDocument(DocumentEventKind kind, Func<DocumentEventSnapshot, Fin<Unit>>? handler) =>
         GhUi.Document<IDisposable>(run: scope =>
             from doc in scope.NeedDocument()
             from objs in scope.NeedObjects()
-            from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeDocumentChange)), detail: "null handler"))
-            select (IDisposable)DocumentChangeWatcher.Attach(document: doc, objects: objs, handler: valid));
-
-    private static GrasshopperUiIntent<IDisposable> SubscribeSelectionChange(Func<Seq<DocumentObjectSnapshot>, Fin<Unit>> handler) =>
-        GhUi.Document<IDisposable>(run: scope =>
-            from objs in scope.NeedObjects()
-            from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeSelectionChange)), detail: "null handler"))
-            select (IDisposable)SelectionChangeWatcher.Attach(objects: objs, handler: valid));
+            from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeDocument)), detail: "null handler"))
+            select (IDisposable)DocumentEventWatcher.Attach(document: doc, objects: objs, kind: kind, handler: valid));
 
     private static GrasshopperUiIntent<IDisposable> SubscribeSolution(SolutionEventKind kind, Func<DocumentSnapshot, Fin<Unit>> handler) =>
         GhUi.Document<IDisposable>(run: scope =>
@@ -150,89 +318,68 @@ internal static partial class Events {
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeControl)), detail: "null handler"))
             select (IDisposable)ControlEventWatcher.Attach(source: validSource, kind: kind, handler: valid));
 
-    private sealed class DocumentChangeWatcher : IDisposable {
+    private sealed class DocumentEventWatcher : IDisposable {
         private readonly GhDocument document;
         private readonly GhObjectList objects;
-        private readonly Func<DocumentSnapshot, Fin<Unit>> handler;
-        private readonly EventHandler<DocumentModifiedEventArgs> modified;
-        private readonly EventHandler<DocumentStateEventArgs> state;
-        private readonly EventHandler<AfterAddObjectEventArgs> added;
-        private readonly EventHandler<AfterRemoveObjectEventArgs> removed;
-        private readonly EventHandler<ObjectEventArgs> objectChanged;
-        private DocumentChangeWatcher(GhDocument document, GhObjectList objects, Func<DocumentSnapshot, Fin<Unit>> handler) {
+        private readonly Func<DocumentEventSnapshot, Fin<Unit>> handler;
+        private readonly DocumentEventKind kind;
+        private readonly DocumentEventHandlers events;
+        private DocumentEventWatcher(GhDocument document, GhObjectList objects, DocumentEventKind kind, Func<DocumentEventSnapshot, Fin<Unit>> handler) {
             this.document = document;
             this.objects = objects;
+            this.kind = kind;
             this.handler = handler;
-            modified = (_, _) => Publish();
-            state = (_, _) => Publish();
-            added = (_, _) => Publish();
-            removed = (_, _) => Publish();
-            objectChanged = (_, _) => Publish();
-            document.ModifiedChanged += modified;
-            document.StateChanged += state;
-            objects.ObjectAdded += added;
-            objects.ObjectRemoved += removed;
-            objects.ObjectExpired += objectChanged;
-            objects.ObjectEnabledChanged += objectChanged;
-            objects.ObjectLayoutChanged += objectChanged;
-            objects.ObjectDisplayChanged += objectChanged;
+            events = new(
+                Modified: (_, e) => Publish(kind: DocumentEventKind.Modified, detail: Some($"{e.Oldstate}->{e.NewState}")),
+                State: (_, e) => Publish(kind: DocumentEventKind.StateChanged, detail: Some($"{e.Oldstate}->{e.NewState}")),
+                Added: (_, e) => Publish(kind: DocumentEventKind.ObjectAdded, changed: Optional(e.Object)),
+                Removed: (_, e) => Publish(kind: DocumentEventKind.ObjectRemoved, changed: Optional(e.Object)),
+                Expired: (_, e) => Publish(kind: DocumentEventKind.ObjectExpired, changed: Optional(e.Object)),
+                Selection: (_, e) => Publish(kind: DocumentEventKind.Selection, changed: Optional(e.Object)),
+                Enabled: (_, e) => Publish(kind: DocumentEventKind.ObjectEnabled, changed: Optional(e.Object)),
+                Relevance: (_, e) => Publish(kind: DocumentEventKind.ObjectRelevance, changed: Optional(e.Object)),
+                Layout: (_, e) => Publish(kind: DocumentEventKind.ObjectLayout, changed: Optional(e.Object)),
+                Display: (_, e) => Publish(kind: DocumentEventKind.ObjectDisplay, changed: Optional(e.Object)),
+                Name: (_, e) => Publish(kind: DocumentEventKind.ObjectName, changed: Optional(e.Owner), detail: Some($"{e.Old}->{e.New}")),
+                Id: (_, e) => Publish(kind: DocumentEventKind.ObjectInstanceId, changed: Optional(e.Object), detail: Some($"{e.OldId}->{e.NewId}")));
+            _ = kind.Attach(document: document, objects: objects, events: events);
         }
-        internal static DocumentChangeWatcher Attach(GhDocument document, GhObjectList objects, Func<DocumentSnapshot, Fin<Unit>> handler) =>
-            new(document: document, objects: objects, handler: handler);
-        private Unit Publish() {
-            _ = GrasshopperUi.Protect(valid: () => handler(arg: UiRail.DocumentSnapshotOf(document: document, objects: objects)));
+        internal static DocumentEventWatcher Attach(GhDocument document, GhObjectList objects, DocumentEventKind kind, Func<DocumentEventSnapshot, Fin<Unit>> handler) =>
+            new(document: document, objects: objects, kind: kind, handler: handler);
+        private Unit Publish(DocumentEventKind kind, Option<IDocumentObject> changed = default, Option<string> detail = default) {
+            _ = GrasshopperUi.Protect(valid: () => handler(arg: SnapshotOf(kind: kind, changed: changed, detail: detail)));
             return unit;
         }
-        public void Dispose() {
-            document.ModifiedChanged -= modified;
-            document.StateChanged -= state;
-            objects.ObjectAdded -= added;
-            objects.ObjectRemoved -= removed;
-            objects.ObjectExpired -= objectChanged;
-            objects.ObjectEnabledChanged -= objectChanged;
-            objects.ObjectLayoutChanged -= objectChanged;
-            objects.ObjectDisplayChanged -= objectChanged;
-        }
-    }
-
-    private sealed class SelectionChangeWatcher : IDisposable {
-        private readonly GhObjectList objects;
-        private readonly Func<Seq<DocumentObjectSnapshot>, Fin<Unit>> handler;
-        private readonly EventHandler<ObjectEventArgs> selectedChanged;
-        private SelectionChangeWatcher(GhObjectList objects, Func<Seq<DocumentObjectSnapshot>, Fin<Unit>> handler) {
-            this.objects = objects;
-            this.handler = handler;
-            selectedChanged = (_, _) => Publish();
-            objects.ObjectSelectionChanged += selectedChanged;
-        }
-        internal static SelectionChangeWatcher Attach(GhObjectList objects, Func<Seq<DocumentObjectSnapshot>, Fin<Unit>> handler) =>
-            new(objects: objects, handler: handler);
-        private Unit Publish() {
-            Seq<DocumentObjectSnapshot> selected = toSeq(objects.SelectedObjects.Select(UiRail.DocumentObjectSnapshotOf));
-            _ = GrasshopperUi.Protect(valid: () => handler(arg: selected));
-            return unit;
-        }
+        private DocumentEventSnapshot SnapshotOf(DocumentEventKind kind, Option<IDocumentObject> changed, Option<string> detail) =>
+            new(
+                Kind: kind,
+                Document: UiRail.DocumentSnapshotOf(document: document, objects: objects),
+                Objects: (kind == DocumentEventKind.Selection) switch {
+                    true => toSeq(objects.SelectedObjects.Select(UiRail.DocumentObjectSnapshotOf)),
+                    false => changed.Map(obj => Seq(UiRail.DocumentObjectSnapshotOf(obj))).IfNone(Seq<DocumentObjectSnapshot>()),
+                },
+                Wires: (kind == DocumentEventKind.Selection) switch {
+                    true => Optional(objects.SelectedWires).Map(wires => toSeq(wires).Map(wire => global::Rasm.Grasshopper.UI.Wire.SnapshotConnected(objects: objects, wire: wire))).IfNone(Seq<WireSnapshot.ConnectedCase>()),
+                    false => Seq<WireSnapshot.ConnectedCase>(),
+                },
+                Detail: detail);
         public void Dispose() =>
-            objects.ObjectSelectionChanged -= selectedChanged;
+            _ = kind.Detach(document: document, objects: objects, events: events);
     }
 
     private sealed class SolutionWatcher : IDisposable {
         private readonly GhDocument document;
         private readonly GhObjectList objects;
         private readonly Func<DocumentSnapshot, Fin<Unit>> handler;
-        private readonly EventHandler<SolutionIdEventArgs> about;
-        private readonly EventHandler<SolutionEventArgs> plain;
-        private readonly EventHandler<SolutionExceptionEventArgs> faulted;
         private readonly SolutionEventKind kind;
+        private readonly SolutionEventHandlers events;
         private SolutionWatcher(GhDocument document, GhObjectList objects, SolutionEventKind kind, Func<DocumentSnapshot, Fin<Unit>> handler) {
             this.document = document;
             this.objects = objects;
             this.handler = handler;
             this.kind = kind;
-            about = (_, _) => Publish();
-            plain = (_, _) => Publish();
-            faulted = (_, _) => Publish();
-            _ = Toggle(attach: true);
+            events = new(About: (_, _) => Publish(), Plain: (_, _) => Publish(), Faulted: (_, _) => Publish());
+            _ = kind.Attach(solution: document.Solution, events: events);
         }
         internal static SolutionWatcher Attach(GhDocument document, GhObjectList objects, SolutionEventKind kind, Func<DocumentSnapshot, Fin<Unit>> handler) =>
             new(document: document, objects: objects, kind: kind, handler: handler);
@@ -240,45 +387,21 @@ internal static partial class Events {
             _ = GrasshopperUi.Protect(valid: () => handler(arg: UiRail.DocumentSnapshotOf(document: document, objects: objects)));
             return unit;
         }
-        private Unit Toggle(bool attach) =>
-            (kind, attach) switch {
-                (SolutionEventKind.AboutToStart, true) => Attach(add: static (s, h) => s.SolutionAboutToStart += h, handler: about),
-                (SolutionEventKind.AboutToStart, false) => Attach(add: static (s, h) => s.SolutionAboutToStart -= h, handler: about),
-                (SolutionEventKind.Started, true) => Attach(add: static (s, h) => s.SolutionStarted += h, handler: plain),
-                (SolutionEventKind.Started, false) => Attach(add: static (s, h) => s.SolutionStarted -= h, handler: plain),
-                (SolutionEventKind.Stopped, true) => Attach(add: static (s, h) => s.SolutionStopped += h, handler: plain),
-                (SolutionEventKind.Stopped, false) => Attach(add: static (s, h) => s.SolutionStopped -= h, handler: plain),
-                (SolutionEventKind.Cancelled, true) => Attach(add: static (s, h) => s.SolutionCancelled += h, handler: plain),
-                (SolutionEventKind.Cancelled, false) => Attach(add: static (s, h) => s.SolutionCancelled -= h, handler: plain),
-                (SolutionEventKind.Completed, true) => Attach(add: static (s, h) => s.SolutionCompleted += h, handler: plain),
-                (SolutionEventKind.Completed, false) => Attach(add: static (s, h) => s.SolutionCompleted -= h, handler: plain),
-                (SolutionEventKind.Faulted, true) => Attach(add: static (s, h) => s.SolutionFaulted += h, handler: faulted),
-                (SolutionEventKind.Faulted, false) => Attach(add: static (s, h) => s.SolutionFaulted -= h, handler: faulted),
-                _ => unit,
-            };
-        private Unit Attach<T>(Action<SolutionServer, EventHandler<T>> add, EventHandler<T> handler) where T : EventArgs {
-            add(arg1: document.Solution, arg2: handler);
-            return unit;
-        }
         public void Dispose() =>
-            _ = Toggle(attach: false);
+            _ = kind.Detach(solution: document.Solution, events: events);
     }
 
     private sealed class UndoWatcher : IDisposable {
         private readonly GhDocument document;
         private readonly Func<DocumentHistorySnapshot, Fin<Unit>> handler;
-        private readonly EventHandler<UndoEventArgs> plain;
-        private readonly EventHandler<UndoNodeEventArgs> node;
-        private readonly EventHandler<UndoNodeMovedEventArgs> moved;
         private readonly UndoEventKind kind;
+        private readonly UndoEventHandlers events;
         private UndoWatcher(GhDocument document, UndoEventKind kind, Func<DocumentHistorySnapshot, Fin<Unit>> handler) {
             this.document = document;
             this.handler = handler;
             this.kind = kind;
-            plain = (_, _) => Publish();
-            node = (_, _) => Publish();
-            moved = (_, _) => Publish();
-            _ = Toggle(attach: true);
+            events = new(Plain: (_, _) => Publish(), Node: (_, _) => Publish(), Moved: (_, _) => Publish());
+            _ = kind.Attach(history: document.Undo, events: events);
         }
         internal static UndoWatcher Attach(GhDocument document, UndoEventKind kind, Func<DocumentHistorySnapshot, Fin<Unit>> handler) =>
             new(document: document, kind: kind, handler: handler);
@@ -286,30 +409,8 @@ internal static partial class Events {
             _ = GrasshopperUi.Protect(valid: () => handler(arg: UiRail.HistorySnapshotOf(document: document)));
             return unit;
         }
-        private Unit Toggle(bool attach) =>
-            (kind, attach) switch {
-                (UndoEventKind.Undone, true) => Attach(add: static (h, e) => h.Undone += e, handler: plain),
-                (UndoEventKind.Undone, false) => Attach(add: static (h, e) => h.Undone -= e, handler: plain),
-                (UndoEventKind.Redone, true) => Attach(add: static (h, e) => h.Redone += e, handler: plain),
-                (UndoEventKind.Redone, false) => Attach(add: static (h, e) => h.Redone -= e, handler: plain),
-                (UndoEventKind.Modified, true) => Attach(add: static (h, e) => h.Modified += e, handler: plain),
-                (UndoEventKind.Modified, false) => Attach(add: static (h, e) => h.Modified -= e, handler: plain),
-                (UndoEventKind.NodeAdded, true) => Attach(add: static (h, e) => h.NodeAdded += e, handler: node),
-                (UndoEventKind.NodeAdded, false) => Attach(add: static (h, e) => h.NodeAdded -= e, handler: node),
-                (UndoEventKind.NodeRemoved, true) => Attach(add: static (h, e) => h.NodeRemoved += e, handler: node),
-                (UndoEventKind.NodeRemoved, false) => Attach(add: static (h, e) => h.NodeRemoved -= e, handler: node),
-                (UndoEventKind.NodeMerged, true) => Attach(add: static (h, e) => h.NodeMerged += e, handler: node),
-                (UndoEventKind.NodeMerged, false) => Attach(add: static (h, e) => h.NodeMerged -= e, handler: node),
-                (UndoEventKind.NodeMoved, true) => Attach(add: static (h, e) => h.NodeMoved += e, handler: moved),
-                (UndoEventKind.NodeMoved, false) => Attach(add: static (h, e) => h.NodeMoved -= e, handler: moved),
-                _ => unit,
-            };
-        private Unit Attach<T>(Action<History, EventHandler<T>> add, EventHandler<T> handler) where T : EventArgs {
-            add(arg1: document.Undo, arg2: handler);
-            return unit;
-        }
         public void Dispose() =>
-            _ = Toggle(attach: false);
+            _ = kind.Detach(history: document.Undo, events: events);
     }
 
     private sealed class TimerWatcher : IDisposable {
@@ -334,50 +435,18 @@ internal static partial class Events {
         private readonly Control source;
         private readonly ControlEventKind kind;
         private readonly Func<ControlEventSnapshot, Fin<Unit>> publish;
-        private readonly EventHandler<EventArgs> plain;
-        private readonly EventHandler<KeyEventArgs> key;
-        private readonly EventHandler<TextInputEventArgs> text;
-        private readonly EventHandler<MouseEventArgs> mouse;
-        private readonly EventHandler<DragEventArgs> drag;
-        private readonly record struct ControlEventCase(
-            ControlEventKind Kind,
-            Func<ControlEventWatcher, Unit> Attach,
-            Func<ControlEventWatcher, Unit> Detach);
-        private static readonly Seq<ControlEventCase> EventCases = Seq(
-            PlainCase(kind: ControlEventKind.PreLoad, attach: static (s, h) => s.PreLoad += h, detach: static (s, h) => s.PreLoad -= h),
-            PlainCase(kind: ControlEventKind.Load, attach: static (s, h) => s.Load += h, detach: static (s, h) => s.Load -= h),
-            PlainCase(kind: ControlEventKind.LoadComplete, attach: static (s, h) => s.LoadComplete += h, detach: static (s, h) => s.LoadComplete -= h),
-            PlainCase(kind: ControlEventKind.UnLoad, attach: static (s, h) => s.UnLoad += h, detach: static (s, h) => s.UnLoad -= h),
-            PlainCase(kind: ControlEventKind.Shown, attach: static (s, h) => s.Shown += h, detach: static (s, h) => s.Shown -= h),
-            PlainCase(kind: ControlEventKind.GotFocus, attach: static (s, h) => s.GotFocus += h, detach: static (s, h) => s.GotFocus -= h),
-            PlainCase(kind: ControlEventKind.LostFocus, attach: static (s, h) => s.LostFocus += h, detach: static (s, h) => s.LostFocus -= h),
-            PlainCase(kind: ControlEventKind.SizeChanged, attach: static (s, h) => s.SizeChanged += h, detach: static (s, h) => s.SizeChanged -= h),
-            PlainCase(kind: ControlEventKind.EnabledChanged, attach: static (s, h) => s.EnabledChanged += h, detach: static (s, h) => s.EnabledChanged -= h),
-            KeyCase(kind: ControlEventKind.KeyDown, attach: static (s, h) => s.KeyDown += h, detach: static (s, h) => s.KeyDown -= h),
-            KeyCase(kind: ControlEventKind.KeyUp, attach: static (s, h) => s.KeyUp += h, detach: static (s, h) => s.KeyUp -= h),
-            TextCase(kind: ControlEventKind.TextInput, attach: static (s, h) => s.TextInput += h, detach: static (s, h) => s.TextInput -= h),
-            MouseCase(kind: ControlEventKind.MouseDown, attach: static (s, h) => s.MouseDown += h, detach: static (s, h) => s.MouseDown -= h),
-            MouseCase(kind: ControlEventKind.MouseUp, attach: static (s, h) => s.MouseUp += h, detach: static (s, h) => s.MouseUp -= h),
-            MouseCase(kind: ControlEventKind.MouseMove, attach: static (s, h) => s.MouseMove += h, detach: static (s, h) => s.MouseMove -= h),
-            MouseCase(kind: ControlEventKind.MouseEnter, attach: static (s, h) => s.MouseEnter += h, detach: static (s, h) => s.MouseEnter -= h),
-            MouseCase(kind: ControlEventKind.MouseLeave, attach: static (s, h) => s.MouseLeave += h, detach: static (s, h) => s.MouseLeave -= h),
-            MouseCase(kind: ControlEventKind.MouseDoubleClick, attach: static (s, h) => s.MouseDoubleClick += h, detach: static (s, h) => s.MouseDoubleClick -= h),
-            MouseCase(kind: ControlEventKind.MouseWheel, attach: static (s, h) => s.MouseWheel += h, detach: static (s, h) => s.MouseWheel -= h),
-            DragCase(kind: ControlEventKind.DragDrop, attach: static (s, h) => s.DragDrop += h, detach: static (s, h) => s.DragDrop -= h),
-            DragCase(kind: ControlEventKind.DragOver, attach: static (s, h) => s.DragOver += h, detach: static (s, h) => s.DragOver -= h),
-            DragCase(kind: ControlEventKind.DragEnter, attach: static (s, h) => s.DragEnter += h, detach: static (s, h) => s.DragEnter -= h),
-            DragCase(kind: ControlEventKind.DragLeave, attach: static (s, h) => s.DragLeave += h, detach: static (s, h) => s.DragLeave -= h),
-            DragCase(kind: ControlEventKind.DragEnd, attach: static (s, h) => s.DragEnd += h, detach: static (s, h) => s.DragEnd -= h));
+        private readonly ControlEventHandlers events;
         private ControlEventWatcher(Control source, ControlEventKind kind, Func<ControlEventSnapshot, Fin<Unit>> publish) {
             this.source = source;
             this.kind = kind;
             this.publish = publish;
-            plain = (_, _) => Publish(snapshot: SnapshotOf(kind: kind));
-            key = (_, e) => Publish(snapshot: SnapshotOf(kind: kind, keys: Some(e.KeyData)));
-            text = (_, e) => Publish(snapshot: SnapshotOf(kind: kind, text: Optional(e.Text)));
-            mouse = (_, e) => Publish(snapshot: SnapshotOf(kind: kind, point: Some(e.Location), buttons: Some(e.Buttons), keys: Some(e.Modifiers), delta: Some(e.Delta), pressure: Some(e.Pressure)));
-            drag = (_, _) => Publish(snapshot: SnapshotOf(kind: kind));
-            _ = Toggle(attach: true);
+            events = new(
+                Plain: (_, _) => Publish(snapshot: SnapshotOf(kind: kind)),
+                Key: (_, e) => Publish(snapshot: SnapshotOf(kind: kind, keys: Some(e.KeyData))),
+                Text: (_, e) => Publish(snapshot: SnapshotOf(kind: kind, text: Optional(e.Text))),
+                Mouse: (_, e) => Publish(snapshot: SnapshotOf(kind: kind, point: Some(e.Location), buttons: Some(e.Buttons), keys: Some(e.Modifiers), delta: Some(e.Delta), pressure: Some(e.Pressure))),
+                Drag: (_, _) => Publish(snapshot: SnapshotOf(kind: kind)));
+            _ = kind.Attach(source: source, events: events);
         }
         internal static ControlEventWatcher Attach(Control source, ControlEventKind kind, Func<ControlEventSnapshot, Fin<Unit>> handler) =>
             new(source: source, kind: kind, publish: handler);
@@ -394,42 +463,7 @@ internal static partial class Events {
             Option<SizeF> delta = default,
             Option<float> pressure = default) =>
             new(Kind: kind, Enabled: source.Enabled, Visible: source.Visible, HasFocus: source.HasFocus, Point: point, Buttons: buttons, Keys: keys, Text: text, Delta: delta, Pressure: pressure);
-        private Unit Toggle(bool attach) =>
-            EventCases
-                .Find(c => c.Kind == kind)
-                .Map(c => attach ? c.Attach(arg: this) : c.Detach(arg: this))
-                .IfNone(unit);
-        private static ControlEventCase PlainCase(ControlEventKind kind, Action<Control, EventHandler<EventArgs>> attach, Action<Control, EventHandler<EventArgs>> detach) =>
-            new(Kind: kind, Attach: watcher => watcher.Plain(add: attach), Detach: watcher => watcher.Plain(add: detach));
-        private static ControlEventCase KeyCase(ControlEventKind kind, Action<Control, EventHandler<KeyEventArgs>> attach, Action<Control, EventHandler<KeyEventArgs>> detach) =>
-            new(Kind: kind, Attach: watcher => watcher.Key(add: attach), Detach: watcher => watcher.Key(add: detach));
-        private static ControlEventCase TextCase(ControlEventKind kind, Action<Control, EventHandler<TextInputEventArgs>> attach, Action<Control, EventHandler<TextInputEventArgs>> detach) =>
-            new(Kind: kind, Attach: watcher => watcher.Text(add: attach), Detach: watcher => watcher.Text(add: detach));
-        private static ControlEventCase MouseCase(ControlEventKind kind, Action<Control, EventHandler<MouseEventArgs>> attach, Action<Control, EventHandler<MouseEventArgs>> detach) =>
-            new(Kind: kind, Attach: watcher => watcher.Mouse(add: attach), Detach: watcher => watcher.Mouse(add: detach));
-        private static ControlEventCase DragCase(ControlEventKind kind, Action<Control, EventHandler<DragEventArgs>> attach, Action<Control, EventHandler<DragEventArgs>> detach) =>
-            new(Kind: kind, Attach: watcher => watcher.Drag(add: attach), Detach: watcher => watcher.Drag(add: detach));
-        private Unit Plain(Action<Control, EventHandler<EventArgs>> add) {
-            add(arg1: source, arg2: plain);
-            return unit;
-        }
-        private Unit Key(Action<Control, EventHandler<KeyEventArgs>> add) {
-            add(arg1: source, arg2: key);
-            return unit;
-        }
-        private Unit Text(Action<Control, EventHandler<TextInputEventArgs>> add) {
-            add(arg1: source, arg2: text);
-            return unit;
-        }
-        private Unit Mouse(Action<Control, EventHandler<MouseEventArgs>> add) {
-            add(arg1: source, arg2: mouse);
-            return unit;
-        }
-        private Unit Drag(Action<Control, EventHandler<DragEventArgs>> add) {
-            add(arg1: source, arg2: drag);
-            return unit;
-        }
         public void Dispose() =>
-            _ = Toggle(attach: false);
+            _ = kind.Detach(source: source, events: events);
     }
 }
