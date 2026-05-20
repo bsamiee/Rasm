@@ -37,22 +37,47 @@ public abstract record DocumentTarget {
     public static Fin<DocumentTarget> Filter(ObjectEnumeratorSettings settings) =>
         Optional(settings).ToFin(Fail: Op.Of(name: nameof(DocumentTarget)).InvalidInput()).Map(value => (DocumentTarget)new FilterTarget(value));
 
+    public static Fin<DocumentTarget> Layer(int layerIndex) =>
+        layerIndex switch {
+            >= 0 => Filter(settings: new ObjectEnumeratorSettings { NormalObjects = true, LockedObjects = true, HiddenObjects = true, LayerIndexFilter = layerIndex }),
+            _ => Fin.Fail<DocumentTarget>(error: Op.Of(name: nameof(Layer)).InvalidInput()),
+        };
+
+    public static Fin<DocumentTarget> UserString(string key, Option<string> value = default) =>
+        DocumentEdit.NonBlank(value: key, op: Op.Of(name: nameof(UserString))).Map(valid => (DocumentTarget)new PredicateTarget(QuerySettings(), (_, native) =>
+            Optional(native.Attributes?.GetUserString(key: valid)).Map(stored => value.Case switch {
+                string expected => string.Equals(a: stored, b: expected, comparisonType: StringComparison.Ordinal),
+                _ => !string.IsNullOrEmpty(value: stored),
+            }).IfNone(false)));
+
+    public static Fin<DocumentTarget> DrawColor(global::System.Drawing.Color color) =>
+        color.IsEmpty switch {
+            false => Fin.Succ<DocumentTarget>(value: new PredicateTarget(QuerySettings(), (document, native) => Optional(native.Attributes).Map(attributes => attributes.DrawColor(document: document) == color).IfNone(false))),
+            true => Fin.Fail<DocumentTarget>(error: Op.Of(name: nameof(DrawColor)).InvalidInput()),
+        };
+
+    public static Fin<DocumentTarget> ClippingPlanes() =>
+        Filter(settings: new ObjectEnumeratorSettings { NormalObjects = true, LockedObjects = true, HiddenObjects = true, ObjectTypeFilter = ObjectType.ClipPlane });
+
+    public static Fin<DocumentTarget> Pick(CommandPickPolicy policy) =>
+        Optional(policy).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput()).Map(value => (DocumentTarget)new PickTarget(value));
+
     internal Fin<int> Select(RhinoDoc document, bool selected, DocumentSelectionPolicy policy, Op op) =>
         Use(document: document, op: op,
             selection: value => value.SelectInto(document: document, selected: selected, policy: policy, op: op),
-            reference: value => value.Use(document: document, op: op, use: native => UnitResult(success: document.Objects.Select(native, selected, policy.Highlight, policy.Persistent, policy.IgnoreGrips, policy.IgnoreLayerLocking, policy.IgnoreLayerVisibility), op: op).Map(static _ => 1)),
+            reference: value => value.Use(document: document, op: op, use: native => DocumentEdit.UnitResult(success: document.Objects.Select(native, selected, policy.Highlight, policy.Persistent, policy.IgnoreGrips, policy.IgnoreLayerLocking, policy.IgnoreLayerVisibility), op: op).Map(static _ => 1)),
             objects: ids => CountResult(count: document.Objects.Select(ids.AsIterable(), selected, policy.Highlight, policy.Persistent, policy.IgnoreGrips, policy.IgnoreLayerLocking, policy.IgnoreLayerVisibility), expected: ids.Count, op: op));
 
     internal Fin<Unit> Delete(RhinoDoc document, bool quiet, bool ignoreModes, Op op) =>
         Use(document: document, op: op,
-            selection: value => value.ObjectTargets.TraverseM(reference => reference.Use(document: document, op: op, use: native => UnitResult(success: document.Objects.Delete(native, quiet, ignoreModes), op: op))).As().Map(static _ => unit),
-            reference: value => value.Use(document: document, op: op, use: native => UnitResult(success: document.Objects.Delete(native, quiet, ignoreModes), op: op)),
+            selection: value => value.ObjectTargets.TraverseM(reference => reference.Use(document: document, op: op, use: native => DocumentEdit.UnitResult(success: document.Objects.Delete(native, quiet, ignoreModes), op: op))).As().Map(static _ => unit),
+            reference: value => value.Use(document: document, op: op, use: native => DocumentEdit.UnitResult(success: document.Objects.Delete(native, quiet, ignoreModes), op: op)),
             objects: ids => DeleteIds(document: document, ids: ids, quiet: quiet, ignoreModes: ignoreModes, op: op));
 
     internal Fin<Unit> Replace(RhinoDoc document, object replacement, bool ignoreModes, Op op) =>
         Use(document: document, op: op,
-            selection: value => value.Single().Bind(reference => reference.Use(document: document, op: op, use: native => ReplaceOne(document: document, reference: native, replacement: replacement, ignoreModes: ignoreModes, op: op))),
-            reference: value => value.Use(document: document, op: op, use: native => ReplaceOne(document: document, reference: native, replacement: replacement, ignoreModes: ignoreModes, op: op)),
+            selection: value => value.Single().Bind(reference => reference.Use(document: document, op: op, use: native => ReplaceGeometry(replacement: replacement, op: op, use: geometry => document.Objects.Replace(objref: native, geometry: geometry, ignoreModes: ignoreModes)))),
+            reference: value => value.Use(document: document, op: op, use: native => ReplaceGeometry(replacement: replacement, op: op, use: geometry => document.Objects.Replace(objref: native, geometry: geometry, ignoreModes: ignoreModes))),
             objects: ids => ReplaceIds(document: document, ids: ids, replacement: replacement, ignoreModes: ignoreModes, op: op));
 
     internal Fin<Seq<Guid>> Ids(RhinoDoc document, Op op) =>
@@ -98,6 +123,31 @@ public abstract record DocumentTarget {
             });
     }
 
+    private sealed record PredicateTarget(ObjectEnumeratorSettings Settings, Func<RhinoDoc, RhinoObject, bool> Predicate) : DocumentTarget {
+        internal override Fin<T> Use<T>(RhinoDoc document, Op op, Func<CommandSelection, Fin<T>> selection, Func<CommandSelection.Reference, Fin<T>> reference, Func<Seq<Guid>, Fin<T>> objects) =>
+            from validDocument in Optional(document).ToFin(Fail: op.InvalidInput())
+            from predicate in Optional(Predicate).ToFin(Fail: op.InvalidInput())
+            from ids in toSeq(validDocument.Objects.GetObjectList(settings: Settings))
+                .Filter(native => predicate(arg1: validDocument, arg2: native))
+                .Map(static native => native.Id)
+                .Distinct() switch {
+                    Seq<Guid> values when !values.IsEmpty => Fin.Succ(value: values),
+                    _ => Fin.Fail<Seq<Guid>>(error: op.InvalidResult()),
+                }
+            from result in objects(arg: ids)
+            select result;
+    }
+
+    private sealed record PickTarget(CommandPickPolicy Policy) : DocumentTarget {
+        internal override Fin<T> Use<T>(RhinoDoc document, Op op, Func<CommandSelection, Fin<T>> selection, Func<CommandSelection.Reference, Fin<T>> reference, Func<Seq<Guid>, Fin<T>> objects) =>
+            from picked in CommandSelection.Pick(document: document, policy: Policy)
+            from result in selection(arg: picked)
+            select result;
+    }
+
+    private static ObjectEnumeratorSettings QuerySettings() =>
+        new() { NormalObjects = true, LockedObjects = true, HiddenObjects = true };
+
     private static Fin<Seq<Guid>> TargetIds(IEnumerable<Guid> ids, Op op) =>
         Optional(ids)
             .ToFin(Fail: op.InvalidInput())
@@ -123,27 +173,21 @@ public abstract record DocumentTarget {
                     .TraverseM(id => Optional(document.Objects.FindId(id))
                         .ToFin(Fail: op.InvalidResult())
                         .Bind(native => native.IsDeleted switch {
-                            false => UnitResult(success: document.Objects.Delete(native, quiet, true), op: op),
+                            false => DocumentEdit.UnitResult(success: document.Objects.Delete(native, quiet, true), op: op),
                             true => Fin.Fail<Unit>(error: op.InvalidResult()),
                         }))
                     .Map(static _ => unit),
             });
 
     private static Fin<Unit> ReplaceIds(RhinoDoc document, IEnumerable<Guid> ids, object replacement, bool ignoreModes, Op op) =>
-        TargetIds(ids: ids, op: op).Bind(target => target.Count switch { 1 => ReplaceOne(document: document, objectId: target[0], replacement: replacement, ignoreModes: ignoreModes, op: op), _ => Fin.Fail<Unit>(error: op.InvalidInput()) });
+        TargetIds(ids: ids, op: op).Bind(target => target.Count switch { 1 => ReplaceGeometry(replacement: replacement, op: op, use: geometry => document.Objects.Replace(objectId: target[0], geometry: geometry, ignoreModes: ignoreModes)), _ => Fin.Fail<Unit>(error: op.InvalidInput()) });
 
     internal static Fin<Guid> IdResult(Guid id, Op op) => id switch { Guid value when value != Guid.Empty => Fin.Succ(value: value), _ => Fin.Fail<Guid>(error: op.InvalidResult()) };
-
-    private static Fin<Unit> ReplaceOne(RhinoDoc document, Guid objectId, object replacement, bool ignoreModes, Op op) =>
-        ReplaceGeometry(replacement: replacement, op: op, use: geometry => document.Objects.Replace(objectId: objectId, geometry: geometry, ignoreModes: ignoreModes));
-
-    private static Fin<Unit> ReplaceOne(RhinoDoc document, ObjRef reference, object replacement, bool ignoreModes, Op op) =>
-        ReplaceGeometry(replacement: replacement, op: op, use: geometry => document.Objects.Replace(objref: reference, geometry: geometry, ignoreModes: ignoreModes));
 
     private static Fin<Unit> ReplaceGeometry(object replacement, Op op, Func<GeometryBase, bool> use) =>
         from valid in Optional(use).ToFin(Fail: op.InvalidInput())
         from geometry in DocumentGeometry.Of(source: replacement)
-        from result in geometry.Use(op: op, use: native => UnitResult(success: valid(arg: native), op: op))
+        from result in geometry.Use(op: op, use: native => DocumentEdit.UnitResult(success: valid(arg: native), op: op))
         select result;
 
     private static Fin<int> CountResult(int count, int expected, Op op) =>
@@ -152,28 +196,38 @@ public abstract record DocumentTarget {
             _ => Fin.Fail<int>(error: op.InvalidResult()),
         };
 
-    private static Fin<Unit> UnitResult(bool success, Op op) =>
-        success switch {
-            true => Fin.Succ(value: unit),
-            false => Fin.Fail<Unit>(error: op.InvalidResult()),
-        };
 }
 
-public readonly record struct DocumentRedraw(bool Enabled) {
+public readonly record struct DocumentRedraw(bool Enabled, bool SuppressDuringCommit = false) {
     public static DocumentRedraw AfterCommit { get; } = new(Enabled: true); public static DocumentRedraw None { get; } = new(Enabled: false);
 }
 
-public sealed record DocumentTransaction(string Name, Seq<DocumentOp> Operations, DocumentRedraw Redraw);
-public readonly record struct DocumentReceipt(Seq<Guid> Created, Seq<Guid> Replaced, Seq<Guid> Deleted, Seq<Guid> Transformed, Seq<Guid> Selected, Seq<Guid> Unselected, Seq<Guid> Hidden, Seq<Guid> Locked, Seq<Guid> AttributeChanged, Seq<Guid> LifecycleChanged, Seq<DocumentResourceChange> ResourceChanged) {
-    public static DocumentReceipt Empty { get; } = new(Created: Seq<Guid>(), Replaced: Seq<Guid>(), Deleted: Seq<Guid>(), Transformed: Seq<Guid>(), Selected: Seq<Guid>(), Unselected: Seq<Guid>(), Hidden: Seq<Guid>(), Locked: Seq<Guid>(), AttributeChanged: Seq<Guid>(), LifecycleChanged: Seq<Guid>(), ResourceChanged: Seq<DocumentResourceChange>());
+public sealed record DocumentTransaction(string Name, Seq<DocumentOp> Operations, DocumentRedraw Redraw, Seq<DocumentCustomUndo> CustomUndo = default);
+public readonly record struct DocumentReceipt(Seq<Guid> Created, Seq<Guid> Replaced, Seq<Guid> Deleted, Seq<Guid> Transformed, Seq<Guid> Selected, Seq<Guid> Unselected, Seq<Guid> Hidden, Seq<Guid> Locked, Seq<Guid> Flashed, Seq<Guid> AttributeChanged, Seq<Guid> LifecycleChanged, Seq<DocumentResourceChange> ResourceChanged, Seq<uint> UndoRecords, Seq<string> CustomUndo) {
+    public static DocumentReceipt Empty { get; } = new(Created: Seq<Guid>(), Replaced: Seq<Guid>(), Deleted: Seq<Guid>(), Transformed: Seq<Guid>(), Selected: Seq<Guid>(), Unselected: Seq<Guid>(), Hidden: Seq<Guid>(), Locked: Seq<Guid>(), Flashed: Seq<Guid>(), AttributeChanged: Seq<Guid>(), LifecycleChanged: Seq<Guid>(), ResourceChanged: Seq<DocumentResourceChange>(), UndoRecords: Seq<uint>(), CustomUndo: Seq<string>());
     public static DocumentReceipt operator +(DocumentReceipt left, DocumentReceipt right) =>
         Add(left: left, right: right);
 
     public static DocumentReceipt Add(DocumentReceipt left, DocumentReceipt right) =>
-        new(Created: left.Created + right.Created, Replaced: left.Replaced + right.Replaced, Deleted: left.Deleted + right.Deleted, Transformed: left.Transformed + right.Transformed, Selected: left.Selected + right.Selected, Unselected: left.Unselected + right.Unselected, Hidden: left.Hidden + right.Hidden, Locked: left.Locked + right.Locked, AttributeChanged: left.AttributeChanged + right.AttributeChanged, LifecycleChanged: left.LifecycleChanged + right.LifecycleChanged, ResourceChanged: left.ResourceChanged + right.ResourceChanged);
+        new(Created: left.Created + right.Created, Replaced: left.Replaced + right.Replaced, Deleted: left.Deleted + right.Deleted, Transformed: left.Transformed + right.Transformed, Selected: left.Selected + right.Selected, Unselected: left.Unselected + right.Unselected, Hidden: left.Hidden + right.Hidden, Locked: left.Locked + right.Locked, Flashed: left.Flashed + right.Flashed, AttributeChanged: left.AttributeChanged + right.AttributeChanged, LifecycleChanged: left.LifecycleChanged + right.LifecycleChanged, ResourceChanged: left.ResourceChanged + right.ResourceChanged, UndoRecords: left.UndoRecords + right.UndoRecords, CustomUndo: left.CustomUndo + right.CustomUndo);
 }
 
 public readonly record struct DocumentResourceChange(DocumentResourceKind Kind, string Name, Option<DocumentFileMode> FileMode = default);
+public readonly record struct DocumentCustomUndo(string Name, EventHandler<global::Rhino.Commands.CustomUndoEventArgs> Undo, Option<object> Data = default) {
+    internal Fin<string> Register(RhinoDoc document, Op op) {
+        string label = Name;
+        EventHandler<global::Rhino.Commands.CustomUndoEventArgs> handler = Undo;
+        Option<object> data = Data;
+        return from validDocument in Optional(document).ToFin(Fail: op.InvalidInput())
+               from name in DocumentEdit.NonBlank(value: label, op: op)
+               from undo in Optional(handler).ToFin(Fail: op.InvalidInput())
+               from _ in Rasm.Rhino.UI.RhinoUi.Protect(valid: () => data.Case switch {
+                   object tag => DocumentEdit.UnitResult(success: validDocument.AddCustomUndoEvent(description: name, handler: undo, tag: tag), op: op),
+                   _ => DocumentEdit.UnitResult(success: validDocument.AddCustomUndoEvent(description: name, handler: undo), op: op),
+               })
+               select name;
+    }
+}
 public enum DocumentResourceKind { Table, Block, View, File }
 public enum DocumentLifecycle { Purge, Undelete }
 public enum DocumentFileMode { Import, Export, ExportSelected, SaveAs }
@@ -255,6 +309,20 @@ public abstract record DocumentOp {
             select DocumentReceipt.Empty with { Selected = selection.Selected, Unselected = selection.Unselected, Hidden = hidden, Locked = locked };
     }
 
+    public sealed record Flash(DocumentTarget Target, bool UseSelectionColor = true) : DocumentOp {
+        internal override bool RecordsUndo => false;
+
+        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) =>
+            from target in Optional(Target).ToFin(Fail: op.InvalidInput())
+            from ids in target.Ids(document: document, op: op)
+            from objects in ids.TraverseM(id => Optional(document.Objects.FindId(id)).ToFin(Fail: op.InvalidResult())).As()
+            from _ in Rasm.Rhino.UI.RhinoUi.Protect(valid: () => {
+                document.Views.FlashObjects(list: objects.AsIterable(), useSelectionColor: UseSelectionColor);
+                return Fin.Succ(value: unit);
+            })
+            select DocumentReceipt.Empty with { Flashed = ids };
+    }
+
     public sealed record Lifecycle(DocumentTarget Target, DocumentLifecycle Change) : DocumentOp {
         internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) =>
             from target in Optional(Target).ToFin(Fail: op.InvalidInput())
@@ -319,7 +387,10 @@ public sealed record DocumentEdit {
         from document in Available(op: Op.Of(name: nameof(Commit)))
         from plan in Optional(transaction).ToFin(Fail: Op.Of(name: nameof(Commit)).InvalidInput())
         from receipt in plan.Operations switch {
-            Seq<DocumentOp> operations when !operations.IsEmpty => Mutate(document: document, name: plan.Name, recordsUndo: operations.Exists(static operation => operation.RecordsUndo), run: () => operations.TraverseM(operation => operation.Apply(document: document, domain: Domain, op: Op.Of(name: plan.Name))).As().Map(static receipts => receipts.Fold(DocumentReceipt.Empty, static (state, value) => state + value))),
+            Seq<DocumentOp> operations when !operations.IsEmpty || !plan.CustomUndo.IsEmpty => Mutate(document: document, name: plan.Name, recordsUndo: operations.Exists(static operation => operation.RecordsUndo) || !plan.CustomUndo.IsEmpty, suppressRedraw: plan.Redraw.SuppressDuringCommit, run: () =>
+                from customUndo in plan.CustomUndo.TraverseM(undo => undo.Register(document: document, op: Op.Of(name: plan.Name))).As()
+                from result in operations.IsEmpty ? Fin.Succ(value: DocumentReceipt.Empty) : operations.TraverseM(operation => operation.Apply(document: document, domain: Domain, op: Op.Of(name: plan.Name))).As().Map(static receipts => receipts.Fold(DocumentReceipt.Empty, static (state, value) => state + value))
+                select result with { CustomUndo = customUndo }),
             _ => Fin.Fail<DocumentReceipt>(error: Op.Of(name: nameof(Commit)).InvalidInput()),
         }
         from _ in plan.Redraw.Enabled switch {
@@ -341,22 +412,30 @@ public sealed record DocumentEdit {
             _ => Fin.Fail<RhinoDoc>(error: op.InvalidInput()),
         };
 
-    private static Fin<T> Mutate<T>(RhinoDoc document, string name, bool recordsUndo, Func<Fin<T>> run) =>
+    private static Fin<DocumentReceipt> Mutate(RhinoDoc document, string name, bool recordsUndo, bool suppressRedraw, Func<Fin<DocumentReceipt>> run) =>
         Optional(run).ToFin(Fail: Op.Of(name: name).InvalidInput()).Bind(valid => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => {
             uint undo = (recordsUndo, document.UndoRecordingIsActive) switch { (true, false) => document.BeginUndoRecord(description: name), _ => 0u };
             bool closed = true;
-            Fin<T> result = Fin.Fail<T>(error: Op.Of(name: name).InvalidResult());
+            Fin<DocumentReceipt> result = Fin.Fail<DocumentReceipt>(error: Op.Of(name: name).InvalidResult());
+            _ = suppressRedraw switch {
+                true => ((Func<Unit>)(() => { document.Views.EnableRedraw(enable: false, redrawDocument: false, redrawLayers: false); return unit; }))(),
+                false => unit,
+            };
             try {
                 result = valid();
             } finally {
+                _ = suppressRedraw switch {
+                    true => ((Func<Unit>)(() => { document.Views.EnableRedraw(enable: true, redrawDocument: true, redrawLayers: true); return unit; }))(),
+                    false => unit,
+                };
                 closed = undo switch {
                     > 0u => document.EndUndoRecord(undoRecordSerialNumber: undo),
                     _ => true,
                 };
             }
             return result.Bind(value => closed switch {
-                true => Fin.Succ(value: value),
-                false => Fin.Fail<T>(error: Op.Of(name: name).InvalidResult()),
+                true => Fin.Succ(value: value with { UndoRecords = undo switch { > 0u => Seq(undo), _ => Seq<uint>() } }),
+                false => Fin.Fail<DocumentReceipt>(error: Op.Of(name: name).InvalidResult()),
             });
         }));
 

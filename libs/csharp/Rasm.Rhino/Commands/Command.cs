@@ -151,17 +151,12 @@ public sealed record CommandStageContext<TState>(
         });
 
     public Fin<Seq<string>> Files(Rasm.Rhino.UI.UiFileSpec spec) =>
-        Context.Mode switch {
-            RunMode.Scripted => Events.Files(context: this, spec: spec),
-            _ => Context.Ui.Use(intent: Rasm.Rhino.UI.UiIntent.File(spec: spec)),
-        };
+        Use(intent: Rasm.Rhino.UI.UiIntent.File(spec: spec), scripted: context => context.Events.Files(context: context, spec: spec));
 
     public Fin<T> Use<T>(Rasm.Rhino.UI.UiIntent<T> intent, Func<CommandStageContext<TState>, Fin<T>> scripted) =>
         from validIntent in Optional(intent).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput())
-        from result in Context.Mode switch {
-            RunMode.Scripted => Optional(scripted).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput()).Bind(run => run(arg: this)),
-            _ => Context.Ui.Use(intent: validIntent),
-        }
+        from run in Optional(scripted).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput())
+        from result in Context.Ui.Use(intent: validIntent.WithScripted(fallback: (_, _) => run(arg: this)))
         select result;
 }
 

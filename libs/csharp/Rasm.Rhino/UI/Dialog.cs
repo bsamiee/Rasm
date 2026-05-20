@@ -74,13 +74,6 @@ public static class UiIntent {
     public static UiIntent<T> Gumball<T>(UiGumballSpec spec, Func<UiGumball, Fin<T>> run) =>
         OfScope(scope => Optional(run).ToFin(Fail: Op.Of(name: nameof(Gumball)).InvalidInput()).Bind(valid => UiGumball.Use(document: scope.Document, spec: spec, run: valid)), interactive: true);
 
-    public static UiIntent<T> Preview<T>(UiPreview<T> preview) =>
-        OfScope(
-            run: scope => Optional(preview)
-                .ToFin(Fail: Op.Of(name: nameof(Preview)).InvalidInput())
-                .Bind(valid => valid.Run(scope: scope)),
-            interactive: Optional(preview).Map(static value => value.Interactive).IfNone(false));
-
     public static UiIntent<global::Rhino.UI.ShowMessageResult> Message(UiMessageSpec spec) =>
         Request(
             name: nameof(Message),
@@ -248,36 +241,20 @@ public static class UiIntent {
         };
 }
 
-public sealed record UiPreview<T> {
-    private readonly string name;
-    private readonly Func<RhinoUi.Scope, Fin<T>> run;
-
-    internal UiPreview(string name, Func<RhinoUi.Scope, Fin<T>> run, bool interactive) =>
-        (this.name, this.run, Interactive) = (name, run, interactive);
-
-    internal bool Interactive { get; }
-
-    internal Fin<T> Run(RhinoUi.Scope scope) =>
-        Optional(run)
-            .ToFin(Fail: Op.Of(name: name).InvalidInput())
-            .Bind(valid => valid(arg: scope));
-}
-
 public static class UiPreview {
-    public static UiPreview<T> Of<T>(string name, Func<RhinoDoc, RunMode, Fin<T>> run, bool interactive = false) {
+    public static UiIntent<T> Of<T>(string name, Func<RhinoDoc, RunMode, Fin<T>> run, bool interactive = false) {
         string operation = string.IsNullOrWhiteSpace(value: name) switch {
             false => name,
             true => nameof(UiPreview),
         };
-        return new(
-            name: operation,
+        return UiIntent.OfScope(
             run: scope => Optional(run)
                 .ToFin(Fail: Op.Of(name: operation).InvalidInput())
                 .Bind(valid => valid(arg1: scope.Document, arg2: scope.Mode)),
             interactive: interactive);
     }
 
-    public static UiPreview<DrawingBitmap> Mesh(IEnumerable<Mesh> meshes, DrawingSize size, IEnumerable<DrawingColor>? colors = null) =>
+    public static UiIntent<DrawingBitmap> Mesh(IEnumerable<Mesh> meshes, DrawingSize size, IEnumerable<DrawingColor>? colors = null) =>
         Of(
             name: nameof(Mesh),
             run: (document, _) =>
@@ -300,7 +277,7 @@ public static class UiPreview {
                         .ToFin(Fail: Op.Of(name: nameof(Mesh)).InvalidResult())
                     select bitmap));
 
-    public static UiPreview<Seq<Point2f[]>> Curve(Curve curve, Linetype linetype, DrawingSize size) =>
+    public static UiIntent<Seq<Point2f[]>> Curve(Curve curve, Linetype linetype, DrawingSize size) =>
         Of(
             name: nameof(Curve),
             run: (_, _) =>
@@ -314,7 +291,7 @@ public static class UiPreview {
                         .ToFin(Fail: Op.Of(name: nameof(Curve)).InvalidResult())
                     select toSeq(preview)));
 
-    public static UiPreview<DrawingBitmap> Icon(string resourceName, DrawingSize size, Assembly assembly) =>
+    public static UiIntent<DrawingBitmap> Icon(string resourceName, DrawingSize size, Assembly assembly) =>
         Of(
             name: nameof(Icon),
             run: (_, _) =>
@@ -329,7 +306,7 @@ public static class UiPreview {
                     .ToFin(Fail: Op.Of(name: nameof(Icon)).InvalidResult())
                 select bitmap);
 
-    public static UiPreview<DrawingBitmap> Svg(string svg, int width, int height) =>
+    public static UiIntent<DrawingBitmap> Svg(string svg, int width, int height) =>
         Of(
             name: nameof(Svg),
             run: (_, _) =>
@@ -343,12 +320,12 @@ public static class UiPreview {
                     .ToFin(Fail: Op.Of(name: nameof(Svg)).InvalidResult())
                 select bitmap);
 
-    public static UiPreview<Seq<global::Rhino.UI.NamedColor>> NamedColors(Option<global::Rhino.UI.NamedColorList> source = default) =>
+    public static UiIntent<Seq<global::Rhino.UI.NamedColor>> NamedColors(Option<global::Rhino.UI.NamedColorList> source = default) =>
         Of(
             name: nameof(NamedColors),
             run: (_, _) => Fin.Succ(value: toSeq(source.IfNone(global::Rhino.UI.NamedColorList.Default))));
 
-    public static UiPreview<Color4f> Color(UiColorSpec spec, bool allowAlpha = false) =>
+    public static UiIntent<Color4f> Color(UiColorSpec spec, bool allowAlpha = false) =>
         Of(
             name: nameof(Color),
             run: (document, _) => {
@@ -364,13 +341,13 @@ public static class UiPreview {
             },
             interactive: true);
 
-    public static UiPreview<T> Viewport<T>(UiViewportPreview preview, Func<UiPreviewScope, Fin<T>> run, Option<UiGumballSpec> gumball = default) =>
+    public static UiIntent<T> Viewport<T>(UiViewportPreview preview, Func<UiPreviewScope, Fin<T>> run, Option<UiGumballSpec> gumball = default) =>
         Of(
             name: nameof(Viewport),
             run: (document, _) => UiViewportPreview.Use(document: document, preview: preview, gumball: gumball, run: run),
             interactive: true);
 
-    public static UiPreview<T> Viewport<TState, T>(UiViewportInteraction<TState> interaction, Func<UiPreviewScope, Fin<T>> run) =>
+    public static UiIntent<T> Viewport<TState, T>(UiViewportInteraction<TState> interaction, Func<UiPreviewScope, Fin<T>> run) =>
         Of(
             name: nameof(Viewport),
             run: (document, _) =>

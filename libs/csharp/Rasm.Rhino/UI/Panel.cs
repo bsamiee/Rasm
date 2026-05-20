@@ -149,7 +149,7 @@ public abstract record PanelPlacement {
         internal override Fin<Unit> Open(Type panelType, Guid panelId, bool selected) => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.OpenPanel(panelType: panelType, makeSelectedPanel: selected); return Fin.Succ(value: unit); });
     }
     private sealed record DockPlacement(Guid DockBarId) : PanelPlacement {
-        internal override Fin<Unit> Open(Type panelType, Guid panelId, bool selected) => RhinoUi.Protect(valid: () => global::Rhino.UI.Panels.OpenPanel(dockBarId: DockBarId, panelType: panelType, makeSelectedPanel: selected) switch { Guid id when id != Guid.Empty => Fin.Succ(value: unit), _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(Open)).InvalidResult()) });
+        internal override Fin<Unit> Open(Type panelType, Guid panelId, bool selected) => RhinoUi.Protect(valid: () => global::Rhino.UI.Panels.OpenPanel(dockBarId: DockBarId, panelType: panelType, makeSelectedPanel: selected) switch { Guid id when id != Guid.Empty || OperatingSystem.IsMacOS() => Fin.Succ(value: unit), _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(Open)).InvalidResult()) });
     }
     private sealed record SiblingPlacement(Guid PanelId) : PanelPlacement {
         internal override Fin<Unit> Open(Type panelType, Guid panelId, bool selected) => RhinoUi.Protect(valid: () => global::Rhino.UI.Panels.OpenPanelAsSibling(panelId: panelId, siblingPanelId: PanelId, makeSelectedPanel: selected) switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(Open)).InvalidResult()) });

@@ -32,8 +32,7 @@ public readonly record struct MouseContext<TState>(MousePhase Phase, TState Stat
             false => new MouseDecision<TState>(State: State, Cancel: false, ToolTip: Some(value)),
             true => Pass,
         };
-    public Fin<Line> RequireWorldLine() => WorldLine.ToFin(Fail: Op.Of(name: nameof(RequireWorldLine)).InvalidInput());
-    public Fin<Point3d> Project(Plane plane) => from line in RequireWorldLine() from validPlane in plane.IsValid switch { true => Fin.Succ(value: plane), false => Fin.Fail<Plane>(error: Op.Of(name: nameof(Project)).InvalidInput()) } from point in global::Rhino.Geometry.Intersect.Intersection.LinePlane(line: line, plane: validPlane, lineParameter: out double parameter) switch { true => Fin.Succ(value: line.PointAt(t: parameter)), false => Fin.Fail<Point3d>(error: Op.Of(name: nameof(Project)).InvalidResult()) } select point;
+    public Fin<Point3d> Project(Plane plane) => from line in WorldLine.ToFin(Fail: Op.Of(name: nameof(Project)).InvalidInput()) from validPlane in plane.IsValid switch { true => Fin.Succ(value: plane), false => Fin.Fail<Plane>(error: Op.Of(name: nameof(Project)).InvalidInput()) } from point in global::Rhino.Geometry.Intersect.Intersection.LinePlane(line: line, plane: validPlane, lineParameter: out double parameter) switch { true => Fin.Succ(value: line.PointAt(t: parameter)), false => Fin.Fail<Point3d>(error: Op.Of(name: nameof(Project)).InvalidResult()) } select point;
 }
 
 public readonly record struct MouseDecision<TState>(TState State, bool Cancel, Option<string> ToolTip = default);
@@ -96,13 +95,14 @@ public readonly record struct OverlayFilter(Option<ObjectType> Geometry = defaul
             .ToFin(Fail: Op.Of(name: nameof(OverlayFilter)).InvalidInput())
             .Map(valid => {
                 _ = unbind switch {
-                    true => Do(action: () => {
+                    true => ((Func<Unit>)(() => {
                         valid.GeometryFilter = ObjectType.AnyObject;
                         valid.SpaceFilter = ActiveSpace.None;
                         valid.SetSelectionFilter(on: false, checkSubObjects: false);
                         valid.SetObjectIdFilter(ids: Seq<Guid>().AsIterable());
                         valid.UnbindAll();
-                    }),
+                        return unit;
+                    }))(),
                     false => unit,
                 };
                 _ = geometry.Iter(value => valid.GeometryFilter = value);
@@ -112,10 +112,10 @@ public readonly record struct OverlayFilter(Option<ObjectType> Geometry = defaul
                 _ = unbind switch {
                     true => unit,
                     false => viewport.Map(value => {
-                        _ = Do(action: valid.UnbindAll);
+                        _ = ((Func<Unit>)(() => { valid.UnbindAll(); return unit; }))();
                         _ = value.Exclusive switch {
-                            true => Do(action: () => valid.ExclusiveBind(viewport: value.Viewport)),
-                            false => Do(action: () => valid.Bind(viewport: value.Viewport)),
+                            true => ((Func<Unit>)(() => { valid.ExclusiveBind(viewport: value.Viewport); return unit; }))(),
+                            false => ((Func<Unit>)(() => { valid.Bind(viewport: value.Viewport); return unit; }))(),
                         };
                         return unit;
                     }).IfNone(unit),
@@ -124,7 +124,6 @@ public readonly record struct OverlayFilter(Option<ObjectType> Geometry = defaul
             });
     }
 
-    private static Unit Do(Action action) { action(); return unit; }
 }
 
 public abstract class RasmOverlay<TState>(TState initial) : DisplayConduit, IDisposable {
@@ -241,6 +240,7 @@ public readonly record struct UiPreviewStyle(
                 Brep brep => Fin.Succ(value: Effect(action: () => { pipeline.DrawBrepShaded(brep: brep, material: material); pipeline.DrawBrepWires(brep: brep, color: stroke, wireDensity: wireDensity); })),
                 Curve curve => Fin.Succ(value: Effect(action: () => pipeline.DrawCurve(curve: curve, color: stroke, thickness: thickness))),
                 Extrusion extrusion => Fin.Succ(value: Effect(action: () => pipeline.DrawExtrusionWires(extrusion: extrusion, color: stroke, wireDensity: wireDensity))),
+                ClippingPlaneSurface clipping => Fin.Succ(value: Effect(action: () => pipeline.DrawClippingPlaneWires(clippingPlane: clipping, color: stroke))),
                 Surface surface => Fin.Succ(value: Effect(action: () => pipeline.DrawSurface(surface: surface, wireColor: stroke, wireDensity: wireDensity))),
                 Point point => Fin.Succ(value: Effect(action: () => pipeline.DrawPoint(point: point.Location, style: pointStyle, radius: pointRadius, color: stroke))),
                 Point3d point => Fin.Succ(value: Effect(action: () => pipeline.DrawPoint(point: point, style: pointStyle, radius: pointRadius, color: stroke))),
@@ -402,10 +402,7 @@ public sealed record UiViewportPreview {
             .ToFin(Fail: Op.Of(name: nameof(UiViewportPreview)).InvalidInput())
             .Bind(static source => toSeq(source).Map(static item => (object)item).TraverseM(item => Optional(item)
                 .ToFin(Fail: Op.Of(name: nameof(UiViewportPreview)).InvalidInput())
-                .Bind(static value => value switch {
-                    Mesh or Brep or Curve or Extrusion or Surface or Point or Point3d or Line or Polyline or Arc or Circle or Box or BoundingBox or Sphere or Ellipse or PointCloud or SubD or Hatch or TextDot or TextEntity or AnnotationBase or Light => Fin.Succ(value: value),
-                    _ => Fin.Fail<object>(error: Op.Of(name: nameof(UiViewportPreview)).InvalidInput()),
-                })).As())
+                .Bind(static value => OverlayDecision.BoundsOf(source: value, op: Op.Of(name: nameof(UiViewportPreview))).Map(_ => value))).As())
             .Bind(static values => values.IsEmpty switch {
                 false => Fin.Succ(value: values),
                 true => Fin.Fail<Seq<object>>(error: Op.Of(name: nameof(UiViewportPreview)).InvalidInput()),

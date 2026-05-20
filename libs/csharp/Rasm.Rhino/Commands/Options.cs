@@ -3,23 +3,6 @@ using Color = System.Drawing.Color;
 namespace Rasm.Rhino.Commands;
 
 // --- [MODELS] ---------------------------------------------------------------------------
-public readonly record struct CommandScalarBounds(Option<double> Lower = default, Option<double> Upper = default) {
-    public Fin<double> Accept(double value) =>
-        from valid in Validate()
-        from accepted in (valid.Lower.Case, valid.Upper.Case) switch {
-            (double lower, _) when value < lower => Fin.Fail<double>(error: Op.Of(name: nameof(CommandScalarBounds)).InvalidInput()),
-            (_, double upper) when value > upper => Fin.Fail<double>(error: Op.Of(name: nameof(CommandScalarBounds)).InvalidInput()),
-            _ => Fin.Succ(value: value),
-        }
-        select accepted;
-
-    public Fin<CommandScalarBounds> Validate() =>
-        (Lower.Case, Upper.Case) switch {
-            (double lower, double upper) when lower > upper => Fin.Fail<CommandScalarBounds>(error: Op.Of(name: nameof(CommandScalarBounds)).InvalidInput()),
-            _ => Fin.Succ(value: this),
-        };
-}
-
 public readonly record struct CommandOptionValue {
     internal CommandOptionValue(
         int index,
@@ -70,7 +53,8 @@ public readonly record struct CommandOptionPolicy(
     string On = "Yes",
     bool AllowEmpty = false,
     int Current = 0,
-    CommandScalarBounds Bounds = default);
+    Option<double> Lower = default,
+    Option<double> Upper = default);
 
 public abstract record CommandOption {
     private CommandOption(string name) => Name = name;
@@ -82,16 +66,16 @@ public abstract record CommandOption {
     public string Name { get; }
 
     public static CommandOption Of<T>(string name, T value, CommandOptionPolicy policy = default) =>
-        (value, BoundsOf(policy)) switch {
-            (bool toggle, _) => Toggle(name: name, initial: toggle, off: policy.Off, on: policy.On, localName: Optional(policy.LocalName), varies: policy.Varies),
-            (double number, CommandScalarBounds bounds) => Number(name: name, initial: number, lower: bounds.Lower, upper: bounds.Upper, prompt: policy.Prompt, localName: Optional(policy.LocalName), varies: policy.Varies),
-            (int integer, CommandScalarBounds bounds) => IntegerBounds(lower: bounds.Lower, upper: bounds.Upper).Case switch {
+        value switch {
+            bool toggle => Toggle(name: name, initial: toggle, off: policy.Off, on: policy.On, localName: Optional(policy.LocalName), varies: policy.Varies),
+            double number => Number(name: name, initial: number, lower: policy.Lower, upper: policy.Upper, prompt: policy.Prompt, localName: Optional(policy.LocalName), varies: policy.Varies),
+            int integer => IntegerBounds(lower: policy.Lower, upper: policy.Upper).Case switch {
                 (Option<int> lo, Option<int> hi) => Integer(name: name, initial: integer, lower: lo, upper: hi, prompt: policy.Prompt, localName: Optional(policy.LocalName), varies: policy.Varies),
                 _ => Invalid(name: name),
             },
-            (string text, _) => Text(name: name, initial: text, allowEmpty: policy.AllowEmpty, prompt: policy.Prompt, localName: Optional(policy.LocalName), varies: policy.Varies),
-            (Color color, _) => Color(name: name, initial: color, prompt: policy.Prompt, localName: Optional(policy.LocalName), varies: policy.Varies),
-            (IEnumerable<string> values, _) => Choice(name: name, values: values, label: static value => value, policy: policy),
+            string text => Text(name: name, initial: text, allowEmpty: policy.AllowEmpty, prompt: policy.Prompt, localName: Optional(policy.LocalName), varies: policy.Varies),
+            Color color => Color(name: name, initial: color, prompt: policy.Prompt, localName: Optional(policy.LocalName), varies: policy.Varies),
+            IEnumerable<string> values => Choice(name: name, values: values, label: static value => value, policy: policy),
             _ => Invalid(name: name),
         };
 
@@ -110,8 +94,9 @@ public abstract record CommandOption {
             selected.Bind(value => toSeq(Enumerable.Range(start: 0, count: source.Count))
                 .Find(index => EqualityComparer<T>.Default.Equals(source[index], value))) |
             Some(policy.Current);
-        return (project.Case, current.Case) switch {
-            (Func<T, string> labels, int index) => List(name: name, values: source, label: labels, current: index, localName: Optional(policy.LocalName), varies: policy.Varies),
+        return (typeof(T).IsEnum, project.Case, current.Case) switch {
+            (true, Func<T, string> labels, int index) => EnumList(name: name, values: source, label: labels, current: index, varies: policy.Varies),
+            (_, Func<T, string> labels, int index) => List(name: name, values: source, label: labels, current: index, localName: Optional(policy.LocalName), varies: policy.Varies),
             _ => Invalid(name: name),
         };
     }
@@ -133,11 +118,11 @@ public abstract record CommandOption {
     private static Case Invalid(string name) =>
         new(Name: name, AddToGetter: static (_, _) => Fin.Fail<Bound>(error: Op.Of(name: nameof(CommandOption)).InvalidInput()));
     private static Case Toggle(string name, bool initial, string off = "No", string on = "Yes", Option<string> localName = default, bool varies = false) =>
-        Ref(name: name, create: () => (ValidValue(value: off), ValidValue(value: on)).Apply((disabled, enabled) => new OptionToggle(initial, disabled, enabled)).As(), prompt: Option<string>.None, localName: localName, bind: static (GetBaseClass getter, global::Rhino.UI.LocalizeStringPair name, ref OptionToggle native, Option<string> _) => getter.AddOptionToggle(name, ref native), current: static native => native.CurrentValue, script: token => ScriptPair(name: name, token: token).Bind(pair => Bool(value: pair.Value, off: off, on: on).Map(value => Scripted(key: name, value: Some((object)value), listIndex: Option<int>.None, optionType: CommandLineOptionType.Toggle, stringValue: Some(pair.Value)))), varies: varies);
+        Ref(name: name, create: () => (ValidValue(value: off), ValidValue(value: on)).Apply((disabled, enabled) => new OptionToggle(initial, disabled, enabled)).As(), prompt: Option<string>.None, localName: localName, bind: static (GetBaseClass getter, global::Rhino.UI.LocalizeStringPair name, ref OptionToggle native, Option<string> _) => getter.AddOptionToggle(name, ref native), current: static native => native.CurrentValue, script: token => ScriptPair(name: name, token: token).Bind(pair => BoolValue(value: pair.Value, off: off, on: on).Map(value => Scripted(key: name, value: Some((object)value), listIndex: Option<int>.None, optionType: CommandLineOptionType.Toggle, stringValue: Some(pair.Value)))), varies: varies);
     private static Case Number(string name, double initial, Option<double> lower = default, Option<double> upper = default, string? prompt = null, Option<string> localName = default, bool varies = false) =>
-        Ref(name: name, create: () => BoundedOption(initial: initial, lower: lower, upper: upper, unconstrained: static (double value) => new OptionDouble(value), single: static (double value, bool isLower, double bound) => new OptionDouble(value, isLower, bound), bounded: static (double value, double lo, double hi) => new OptionDouble(value, lo, hi)), prompt: Optional(prompt), localName: localName, bind: Prompted(plain: static (GetBaseClass getter, global::Rhino.UI.LocalizeStringPair name, ref OptionDouble native) => getter.AddOptionDouble(name, ref native), prompted: static (GetBaseClass getter, global::Rhino.UI.LocalizeStringPair name, ref OptionDouble native, string label) => getter.AddOptionDouble(name, ref native, label)), current: static native => native.CurrentValue, script: token => ScriptPair(name: name, token: token).Bind(pair => double.TryParse(s: pair.Value, style: System.Globalization.NumberStyles.Float, provider: System.Globalization.CultureInfo.InvariantCulture, result: out double parsed) ? ValidateBounds(initial: parsed, lower: lower, upper: upper).ToOption().Map(_ => Scripted(key: name, value: Some((object)parsed), listIndex: Option<int>.None, optionType: CommandLineOptionType.Number, stringValue: Some(pair.Value))) : Option<CommandOptionValue>.None), varies: varies);
+        Ref(name: name, create: () => BoundedOption(initial: initial, lower: lower, upper: upper, unconstrained: static (double value) => new OptionDouble(value), single: static (double value, bool isLower, double bound) => new OptionDouble(value, isLower, bound), bounded: static (double value, double lo, double hi) => new OptionDouble(value, lo, hi)), prompt: Optional(prompt), localName: localName, bind: Prompted(plain: static (GetBaseClass getter, global::Rhino.UI.LocalizeStringPair name, ref OptionDouble native) => getter.AddOptionDouble(name, ref native), prompted: static (GetBaseClass getter, global::Rhino.UI.LocalizeStringPair name, ref OptionDouble native, string label) => getter.AddOptionDouble(name, ref native, label)), current: static native => native.CurrentValue, script: token => ScriptPair(name: name, token: token).Bind(pair => double.TryParse(s: pair.Value, style: System.Globalization.NumberStyles.Float, provider: System.Globalization.CultureInfo.InvariantCulture, result: out double parsed) ? Limit(lower: lower, upper: upper).Accept(value: parsed).Map(value => Scripted(key: name, value: Some((object)value), listIndex: Option<int>.None, optionType: CommandLineOptionType.Number, stringValue: Some(pair.Value))) : Option<CommandOptionValue>.None), varies: varies);
     private static Case Integer(string name, int initial, Option<int> lower = default, Option<int> upper = default, string? prompt = null, Option<string> localName = default, bool varies = false) =>
-        Ref(name: name, create: () => BoundedOption(initial: initial, lower: lower, upper: upper, unconstrained: static (int value) => new OptionInteger(value), single: static (int value, bool isLower, int bound) => new OptionInteger(value, isLower, bound), bounded: static (int value, int lo, int hi) => new OptionInteger(value, lo, hi)), prompt: Optional(prompt), localName: localName, bind: Prompted(plain: static (GetBaseClass getter, global::Rhino.UI.LocalizeStringPair name, ref OptionInteger native) => getter.AddOptionInteger(name, ref native), prompted: static (GetBaseClass getter, global::Rhino.UI.LocalizeStringPair name, ref OptionInteger native, string label) => getter.AddOptionInteger(name, ref native, label)), current: static native => native.CurrentValue, script: token => ScriptPair(name: name, token: token).Bind(pair => int.TryParse(s: pair.Value, style: System.Globalization.NumberStyles.Integer, provider: System.Globalization.CultureInfo.InvariantCulture, result: out int parsed) ? ValidateBounds(initial: parsed, lower: lower, upper: upper).ToOption().Map(_ => Scripted(key: name, value: Some((object)parsed), listIndex: Option<int>.None, optionType: CommandLineOptionType.Number, stringValue: Some(pair.Value))) : Option<CommandOptionValue>.None), varies: varies);
+        Ref(name: name, create: () => BoundedOption(initial: initial, lower: lower, upper: upper, unconstrained: static (int value) => new OptionInteger(value), single: static (int value, bool isLower, int bound) => new OptionInteger(value, isLower, bound), bounded: static (int value, int lo, int hi) => new OptionInteger(value, lo, hi)), prompt: Optional(prompt), localName: localName, bind: Prompted(plain: static (GetBaseClass getter, global::Rhino.UI.LocalizeStringPair name, ref OptionInteger native) => getter.AddOptionInteger(name, ref native), prompted: static (GetBaseClass getter, global::Rhino.UI.LocalizeStringPair name, ref OptionInteger native, string label) => getter.AddOptionInteger(name, ref native, label)), current: static native => native.CurrentValue, script: token => ScriptPair(name: name, token: token).Bind(pair => int.TryParse(s: pair.Value, style: System.Globalization.NumberStyles.Integer, provider: System.Globalization.CultureInfo.InvariantCulture, result: out int parsed) ? Limit(lower: lower, upper: upper).Accept(value: parsed).Map(value => Scripted(key: name, value: Some((object)value), listIndex: Option<int>.None, optionType: CommandLineOptionType.Number, stringValue: Some(pair.Value))) : Option<CommandOptionValue>.None), varies: varies);
     private static Case Text(string name, string initial = "", bool allowEmpty = false, string? prompt = null, Option<string> localName = default, bool varies = false) =>
         Ref(name: name, create: () => Fin.Succ(value: new OptionString(initial, allowEmpty)), prompt: Optional(prompt), localName: localName, bind: Prompted(plain: static (GetBaseClass getter, global::Rhino.UI.LocalizeStringPair name, ref OptionString native) => getter.AddOptionString(name, ref native), prompted: static (GetBaseClass getter, global::Rhino.UI.LocalizeStringPair name, ref OptionString native, string label) => getter.AddOptionString(name, ref native, label)), current: static native => native.CurrentValue, script: token => ScriptPair(name: name, token: token).Bind(pair => (!string.IsNullOrEmpty(value: pair.Value) || allowEmpty) ? Some(Scripted(key: name, value: Some((object)pair.Value), listIndex: Option<int>.None, optionType: CommandLineOptionType.Simple, stringValue: Some(pair.Value))) : Option<CommandOptionValue>.None), varies: varies);
     private static Case Color(string name, Color initial, string? prompt = null, Option<string> localName = default, bool varies = false) =>
@@ -160,6 +145,18 @@ public abstract record CommandOption {
             from nonEmpty in NonEmpty(values: items)
             from index in ValidIndex(index: current, count: items.Count, error: Op.Of(name: nameof(CommandOption)).InvalidInput())
             from bound in Added(getter: getter, index: getter.AddOptionList(OptionName(english: validName, localName: localName), labels.Map(static value => new global::Rhino.UI.LocalizeStringPair(english: value, local: value)).AsIterable(), index), native: null, snapshot: g => SnapshotAt(name: validName, getter: g, values: nonEmpty), varies: varies)
+            select bound,
+            ScriptToken: token =>
+                from pair in ScriptPair(name: name, token: token)
+                from project in Optional(label)
+                from index in toSeq(Enumerable.Range(start: 0, count: values.Count)).Find(index => string.Equals(a: project(arg: values[index]), b: pair.Value, comparisonType: StringComparison.Ordinal) || string.Equals(a: values[index]?.ToString(), b: pair.Value, comparisonType: StringComparison.Ordinal))
+                select Scripted(key: name, value: Some((object)values[index]!), listIndex: Some(index), optionType: CommandLineOptionType.List, stringValue: Some(pair.Value)));
+    private static Case EnumList<T>(string name, Seq<T> values, Func<T, string> label, int current = 0, bool varies = false) =>
+        new(Name: name, AddToGetter: (getter, validName) =>
+            from items in values.TraverseM(value => Optional(value).ToFin(Fail: Op.Of(name: nameof(CommandOption)).InvalidInput())).As()
+            from nonEmpty in NonEmpty(values: items)
+            from index in ValidIndex(index: current, count: nonEmpty.Count, error: Op.Of(name: nameof(CommandOption)).InvalidInput())
+            from bound in Added(getter: getter, index: AddEnumSelection(getter: getter, name: validName, values: nonEmpty, index: index), native: null, snapshot: g => SnapshotEnum(name: validName, getter: g, values: nonEmpty), varies: varies)
             select bound,
             ScriptToken: token =>
                 from pair in ScriptPair(name: name, token: token)
@@ -207,7 +204,15 @@ public abstract record CommandOption {
     internal static Fin<Scope> Bind(Seq<CommandOption> options, GetBaseClass getter) =>
         Optional(getter)
             .ToFin(Fail: Op.Of(name: nameof(CommandOption)).InvalidInput())
-            .Bind(g => options.Map(static option => option.Name).Distinct().Count == options.Count ? options.TraverseM(option => option.Add(getter: g)).As() : Fin.Fail<Seq<Bound>>(error: Op.Of(name: nameof(CommandOption)).InvalidInput()))
+            .Bind(g => options.Map(static option => option.Name).Distinct().Count == options.Count
+                ? options.Fold(Fin.Succ(value: Seq<Bound>()), (state, option) =>
+                    state.Bind(bounds => option.Add(getter: g).Match(
+                        Succ: bound => Fin.Succ(value: bounds + Seq(bound)),
+                        Fail: error => {
+                            _ = bounds.Iter(static bound => bound.Release());
+                            return Fin.Fail<Seq<Bound>>(error: error);
+                        })))
+                : Fin.Fail<Seq<Bound>>(error: Op.Of(name: nameof(CommandOption)).InvalidInput()))
             .Map(static bounds => new Scope(bounds: bounds));
 
     private static Fin<TNative> BoundedOption<TValue, TNative>(
@@ -217,12 +222,13 @@ public abstract record CommandOption {
         Func<TValue, TNative> unconstrained,
         Func<TValue, bool, TValue, TNative> single,
         Func<TValue, TValue, TValue, TNative> bounded) where TValue : IComparable<TValue> =>
-        from valid in ValidateBounds(initial: initial, lower: lower, upper: upper)
+        from valid in Limit(lower: lower, upper: upper).Project<TValue>(op: Op.Of(name: nameof(CommandOption)))
+        from accepted in Limit(lower: lower, upper: upper).Accept(value: initial).ToFin(Fail: Op.Of(name: nameof(CommandOption)).InvalidInput())
         select (valid.Lower, valid.Upper) switch {
-            ( { IsSome: true } lo, { IsSome: true } hi) => bounded(arg1: initial, arg2: lo.IfNone(initial), arg3: hi.IfNone(initial)),
-            ( { IsSome: true } lo, _) => single(arg1: initial, arg2: true, arg3: lo.IfNone(initial)),
-            (_, { IsSome: true } hi) => single(arg1: initial, arg2: false, arg3: hi.IfNone(initial)),
-            _ => unconstrained(arg: initial),
+            ( { IsSome: true } lo, { IsSome: true } hi) => bounded(arg1: accepted, arg2: lo.IfNone(accepted), arg3: hi.IfNone(accepted)),
+            ( { IsSome: true } lo, _) => single(arg1: accepted, arg2: true, arg3: lo.IfNone(accepted)),
+            (_, { IsSome: true } hi) => single(arg1: accepted, arg2: false, arg3: hi.IfNone(accepted)),
+            _ => unconstrained(arg: accepted),
         };
 
     private static Option<(Option<int> Lower, Option<int> Upper)> IntegerBounds(Option<double> lower, Option<double> upper) =>
@@ -237,16 +243,8 @@ public abstract record CommandOption {
             _ => Option<int>.None,
         };
 
-    private static CommandScalarBounds BoundsOf(CommandOptionPolicy policy) =>
-        policy.Bounds;
-
-    private static Fin<(Option<TValue> Lower, Option<TValue> Upper)> ValidateBounds<TValue>(TValue initial, Option<TValue> lower, Option<TValue> upper) where TValue : IComparable<TValue> =>
-        (lower, upper) switch {
-            (Option<TValue> lo, Option<TValue> hi) when lo.Case is TValue left && hi.Case is TValue right && left.CompareTo(other: right) > 0 => Fin.Fail<(Option<TValue> Lower, Option<TValue> Upper)>(error: Op.Of(name: nameof(CommandOption)).InvalidInput()),
-            (Option<TValue> lo, _) when lo.Case is TValue left && initial.CompareTo(other: left) < 0 => Fin.Fail<(Option<TValue> Lower, Option<TValue> Upper)>(error: Op.Of(name: nameof(CommandOption)).InvalidInput()),
-            (_, Option<TValue> hi) when hi.Case is TValue right && initial.CompareTo(other: right) > 0 => Fin.Fail<(Option<TValue> Lower, Option<TValue> Upper)>(error: Op.Of(name: nameof(CommandOption)).InvalidInput()),
-            _ => Fin.Succ(value: (Lower: lower, Upper: upper)),
-        };
+    private static CommandInputPolicy.LimitSpec Limit<TValue>(Option<TValue> lower, Option<TValue> upper) where TValue : IComparable<TValue> =>
+        new(Lower: lower.Map(static value => (object)value), Upper: upper.Map(static value => (object)value), StrictlyLower: false, StrictlyUpper: false);
 
     private static RefOptionBinder<TNative> Prompted<TNative>(RefOptionPlainBinder<TNative> plain, RefOptionPromptBinder<TNative> prompted) where TNative : IDisposable =>
         (GetBaseClass getter, global::Rhino.UI.LocalizeStringPair name, ref TNative native, Option<string> prompt) => prompt.Case switch {
@@ -289,12 +287,12 @@ public abstract record CommandOption {
     private static Option<string> ScriptName(string name, string token) =>
         Optional(token).Map(static value => value.Trim()).Bind(value => string.Equals(a: value, b: name, comparisonType: StringComparison.Ordinal) ? Some(name) : Option<string>.None);
 
-    private static Option<bool> Bool(string value, string off, string on) =>
+    internal static Option<bool> BoolValue(string value, string off = "No", string on = "Yes") =>
         value switch {
             string text when string.Equals(a: text, b: on, comparisonType: StringComparison.OrdinalIgnoreCase) => Some(true),
             string text when string.Equals(a: text, b: off, comparisonType: StringComparison.OrdinalIgnoreCase) => Some(false),
-            string text when string.Equals(a: text, b: "1", comparisonType: StringComparison.Ordinal) || string.Equals(a: text, b: "true", comparisonType: StringComparison.OrdinalIgnoreCase) => Some(true),
-            string text when string.Equals(a: text, b: "0", comparisonType: StringComparison.Ordinal) || string.Equals(a: text, b: "false", comparisonType: StringComparison.OrdinalIgnoreCase) => Some(false),
+            string text when string.Equals(a: text, b: "1", comparisonType: StringComparison.Ordinal) || string.Equals(a: text, b: "true", comparisonType: StringComparison.OrdinalIgnoreCase) || string.Equals(a: text, b: "yes", comparisonType: StringComparison.OrdinalIgnoreCase) || string.Equals(a: text, b: "on", comparisonType: StringComparison.OrdinalIgnoreCase) => Some(true),
+            string text when string.Equals(a: text, b: "0", comparisonType: StringComparison.Ordinal) || string.Equals(a: text, b: "false", comparisonType: StringComparison.OrdinalIgnoreCase) || string.Equals(a: text, b: "no", comparisonType: StringComparison.OrdinalIgnoreCase) || string.Equals(a: text, b: "off", comparisonType: StringComparison.OrdinalIgnoreCase) => Some(false),
             _ => Option<bool>.None,
         };
 
@@ -347,6 +345,22 @@ public abstract record CommandOption {
     private static Fin<CommandOptionValue> SnapshotAt<T>(string name, GetBaseClass getter, Seq<T> values) =>
         from index in ValidIndex(index: getter.Option().CurrentListOptionIndex, count: values.Count, error: Op.Of(name: nameof(CommandOption)).InvalidResult())
         select Snapshot(key: name, name: name, getter: getter, value: Some((object)values[index]!), listIndex: Some(index));
+
+    private static Fin<CommandOptionValue> SnapshotEnum<T>(string name, GetBaseClass getter, Seq<T> values) =>
+        from selected in Optional(SelectedEnum(getter: getter, values: values)).ToFin(Fail: Op.Of(name: nameof(CommandOption)).InvalidResult())
+        from typed in selected is T value ? Fin.Succ(value: value) : Fin.Fail<T>(error: Op.Of(name: nameof(CommandOption)).InvalidResult())
+        from index in IndexOf(values: values, selected: typed, same: EqualityComparer<T>.Default.Equals).ToFin(Fail: Op.Of(name: nameof(CommandOption)).InvalidResult())
+        select Snapshot(key: name, name: name, getter: getter, value: Some((object)typed!), listIndex: Some(index));
+
+    private static int AddEnumSelection<T>(GetBaseClass getter, string name, Seq<T> values, int index) {
+        IEnumerable<T> selection = values.AsIterable();
+        return getter.AddOptionEnumSelectionList(name, (dynamic)selection, index);
+    }
+
+    private static object SelectedEnum<T>(GetBaseClass getter, Seq<T> values) {
+        IEnumerable<T> selection = values.AsIterable();
+        return getter.GetSelectedEnumValueFromSelectionList((dynamic)selection)!;
+    }
 
     private static Fin<Seq<TValue>> NonEmpty<TValue>(Seq<TValue> values) =>
         values.IsEmpty switch {

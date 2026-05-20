@@ -31,6 +31,33 @@ public readonly record struct PickLocation(Option<double> CurveParameter, Option
         };
 }
 
+public sealed record CommandPickPolicy(
+    Option<RhinoView> View = default,
+    Option<Line> PickLine = default,
+    global::Rhino.Input.Custom.PickStyle PickStyle = global::Rhino.Input.Custom.PickStyle.PointPick,
+    global::Rhino.Input.Custom.PickMode PickMode = global::Rhino.Input.Custom.PickMode.Shaded,
+    bool PickGroups = false,
+    bool SubObjects = false,
+    Option<Transform> Transform = default,
+    bool UpdateClippingPlanes = true) {
+    internal Fin<T> Use<T>(Func<global::Rhino.Input.Custom.PickContext, Fin<T>> use) =>
+        Optional(use).ToFin(Fail: Op.Of(name: nameof(CommandPickPolicy)).InvalidInput()).Bind(valid => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => {
+            using global::Rhino.Input.Custom.PickContext context = new();
+            _ = View.Iter(active => context.View = active);
+            _ = PickLine.Iter(line => context.PickLine = line);
+            context.PickStyle = PickStyle;
+            context.PickMode = PickMode;
+            context.PickGroupsEnabled = PickGroups;
+            context.SubObjectSelectionEnabled = SubObjects;
+            _ = Transform.Iter(active => context.SetPickTransform(active));
+            _ = UpdateClippingPlanes switch {
+                true => ((Func<Unit>)(() => { context.UpdateClippingPlanes(); return unit; }))(),
+                false => unit,
+            };
+            return valid(arg: context);
+        }));
+}
+
 public sealed record CommandSelection {
     private CommandSelection(RhinoDoc document, Seq<Reference> items) {
         ArgumentNullException.ThrowIfNull(argument: document);
@@ -80,6 +107,11 @@ public sealed record CommandSelection {
                 _ => Fin.Fail<CommandSelection>(error: Op.Of(name: nameof(Trim)).InvalidInput()),
             }
         select selection;
+
+    public static Fin<CommandSelection> Pick(RhinoDoc document, CommandPickPolicy policy) =>
+        Optional(policy)
+            .ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
+            .Bind(valid => valid.Use(context => Pick(document: document, context: context)));
 
     public static Fin<CommandSelection> Pick(RhinoDoc document, global::Rhino.Input.Custom.PickContext context) =>
         from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput()) from validContext in Optional(context).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
@@ -234,5 +266,24 @@ public sealed record CommandSelection {
                         TGeometry typed => Fin.Succ(value: typed),
                         _ => Fin.Fail<TGeometry>(error: Op.Of(name: nameof(Geometry)).InvalidResult()),
                     }));
+
+        public Fin<T> Brep<T>(RhinoDoc document, Func<Brep, Fin<T>> use) => Part(document: document, op: Op.Of(name: nameof(Brep)), project: static reference => reference.Brep(), use: use);
+        public Fin<T> Face<T>(RhinoDoc document, Func<BrepFace, Fin<T>> use) => Part(document: document, op: Op.Of(name: nameof(Face)), project: static reference => reference.Face(), use: use);
+        public Fin<T> Edge<T>(RhinoDoc document, Func<BrepEdge, Fin<T>> use) => Part(document: document, op: Op.Of(name: nameof(Edge)), project: static reference => reference.Edge(), use: use);
+        public Fin<T> Trim<T>(RhinoDoc document, Func<BrepTrim, Fin<T>> use) => Part(document: document, op: Op.Of(name: nameof(Trim)), project: static reference => reference.Trim(), use: use);
+        public Fin<T> SubD<T>(RhinoDoc document, Func<SubD, Fin<T>> use) => Part(document: document, op: Op.Of(name: nameof(SubD)), project: static reference => reference.SubD(), use: use);
+        public Fin<T> SubDFace<T>(RhinoDoc document, Func<SubDFace, Fin<T>> use) => Part(document: document, op: Op.Of(name: nameof(SubDFace)), project: static reference => reference.SubDFace(), use: use);
+        public Fin<T> SubDEdge<T>(RhinoDoc document, Func<SubDEdge, Fin<T>> use) => Part(document: document, op: Op.Of(name: nameof(SubDEdge)), project: static reference => reference.SubDEdge(), use: use);
+        public Fin<T> SubDVertex<T>(RhinoDoc document, Func<SubDVertex, Fin<T>> use) => Part(document: document, op: Op.Of(name: nameof(SubDVertex)), project: static reference => reference.SubDVertex(), use: use);
+        public Fin<T> InstanceDefinitionPart<T>(RhinoDoc document, Func<RhinoObject, Fin<T>> use) => Part(document: document, op: Op.Of(name: nameof(InstanceDefinitionPart)), project: static reference => reference.InstanceDefinitionPart(), use: use);
+
+        private Fin<T> Part<TNative, T>(RhinoDoc document, Op op, Func<ObjRef, TNative?> project, Func<TNative, Fin<T>> use) where TNative : class {
+            Reference snapshot = this;
+            return Optional(project)
+                .ToFin(Fail: op.InvalidInput())
+                .Bind(projection => Optional(use)
+                    .ToFin(Fail: op.InvalidInput())
+                    .Bind(valid => snapshot.Use(document: document, op: op, use: reference => Optional(projection(arg: reference)).ToFin(Fail: op.InvalidResult()).Bind(valid))));
+        }
     }
 }
