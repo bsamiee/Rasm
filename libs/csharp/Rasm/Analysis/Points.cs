@@ -21,10 +21,6 @@ public partial record Points : IAspect {
     private static readonly Op VerticesKey = Op.Of(name: nameof(Vertices));
     private static readonly Op ControlPointsKey = Op.Of(name: nameof(ControlPoints));
     private static readonly Op SpreadKey = Op.Of(name: nameof(Spread));
-    private static readonly Seq<SignedAxis> CardinalAxes = Seq(
-        SignedAxis.NegativeX, SignedAxis.PositiveX,
-        SignedAxis.NegativeY, SignedAxis.PositiveY,
-        SignedAxis.NegativeZ, SignedAxis.PositiveZ);
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         extremaCase: static c => typeof(TOut) == typeof(Point3d) && GeometryKernel.CanCurveForm(type: typeof(TGeometry))
             ? Analysis.Operation<TGeometry, Point3d>.Build(
@@ -82,7 +78,7 @@ public partial record Points : IAspect {
                     select result)
             : SpreadKey.Unsupported<TGeometry, TOut>());
     private static Fin<Seq<Vector3d>> DirectionsFor(Option<Seq<Vector3d>> custom, bool planar, Context context, Op key) =>
-        custom.IfNone(CardinalAxes.Take(planar ? 4 : 6).Map(static axis => axis.World))
+        custom.IfNone(SignedAxis.Cardinal(planar: planar).Map(static axis => axis.World))
             .TraverseM(direction => Direction.Of(value: direction, context: context, key: key).Map(static atom => atom.Value))
             .As();
 }
@@ -128,14 +124,15 @@ public static partial class Analyze {
     private static Fin<double> MinorSpread(Plane fit, Seq<Point3d> points, Context context, Op op) =>
         from angle in PrincipalAngle(points: points, fit: fit, context: context, op: op)
         from spread in points.TraverseM(point => VectorSpan.Of(anchor: fit.Origin, vector: point - fit.Origin, context: context, key: op)
-            .Map(span => Math.Abs(value: (span.Value * fit.XAxis * -Math.Sin(a: angle)) + (span.Value * fit.YAxis * Math.Cos(d: angle))))
+            .Bind(span => span.Components(frame: fit, key: op))
+            .Map(components => Math.Abs(value: (components.X * -Math.Sin(a: angle)) + (components.Y * Math.Cos(d: angle))))
             .BindFail(static _ => Fin.Succ(0.0))).As()
         select spread.Fold(initialState: 0.0, f: Math.Max);
     private static Fin<double> PrincipalAngle(Seq<Point3d> points, Plane fit, Context context, Op op) =>
-        points.Fold(initialState: Fin.Succ((Sxx: 0.0, Sxy: 0.0, Syy: 0.0)), f: (state, point) => state.Bind(s =>
-            VectorSpan.Of(anchor: fit.Origin, vector: point - fit.Origin, context: context, key: op)
-                .Map(span => (X: span.Value * fit.XAxis, Y: span.Value * fit.YAxis))
+        points.Fold(initialState: Fin.Succ((Sxx: 0.0, Sxy: 0.0, Syy: 0.0, Fit: fit, Context: context, Key: op)), f: static (state, point) => state.Bind(s =>
+            VectorSpan.Of(anchor: s.Fit.Origin, vector: point - s.Fit.Origin, context: s.Context, key: s.Key)
+                .Bind(span => span.Components(frame: s.Fit, key: s.Key))
                 .BindFail(static _ => Fin.Succ((X: 0.0, Y: 0.0)))
-                .Map(v => (s.Sxx + (v.X * v.X), s.Sxy + (v.X * v.Y), s.Syy + (v.Y * v.Y)))))
+                .Map(v => (s.Sxx + (v.X * v.X), s.Sxy + (v.X * v.Y), s.Syy + (v.Y * v.Y), s.Fit, s.Context, s.Key))))
             .Map(static sums => 0.5 * Math.Atan2(y: 2.0 * sums.Sxy, x: sums.Sxx - sums.Syy));
 }

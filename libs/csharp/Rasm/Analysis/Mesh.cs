@@ -84,14 +84,14 @@ public sealed partial class MeshSampleKind {
 
 [BoundaryAdapter, SmartEnum<int>]
 public sealed partial class MeshMetric {
-    public static readonly MeshMetric None = new(key: 0, sample: static (_, _, _, key) => Fin.Fail<double>(key.InvalidInput())), EdgeAspect = new(key: 1, sample: FaceEdgeAspect);
-    public static readonly MeshMetric Area = new(key: 2, sample: FaceArea), Perimeter = new(key: 3, sample: FacePerimeter), Skewness = new(key: 4, sample: FaceSkewness), DihedralAngle = new(key: 5, sample: FaceMaxDihedral);
-    private readonly Func<Mesh, ComponentIndex, Seq<Point3d>, Op, Fin<double>> sample;
-    internal Fin<MeshMetricSample> Sample(Mesh? mesh, MeshNgon polygon, Op key) =>
+    public static readonly MeshMetric None = new(key: 0, measure: static (_, _, _, _, key) => Fin.Fail<double>(key.InvalidInput())), EdgeAspect = new(key: 1, measure: FaceEdgeAspect);
+    public static readonly MeshMetric Area = new(key: 2, measure: FaceArea), Perimeter = new(key: 3, measure: FacePerimeter), Skewness = new(key: 4, measure: FaceSkewness), DihedralAngle = new(key: 5, measure: FaceMaxDihedral);
+    [UseDelegateFromConstructor] private partial Fin<double> Measure(Mesh mesh, ComponentIndex source, Seq<Point3d> vertices, Context context, Op key);
+    internal Fin<MeshMetricSample> Sample(Mesh? mesh, MeshNgon polygon, Context context, Op key) =>
         Optional(mesh).ToFin(key.InvalidInput())
             .Bind(native => Analyze.VisiblePolygonSourceOf(mesh: native, polygon: polygon, key: key)
                 .Bind(source => VerticesOf(mesh: native, source: source, key: key).Map(vertices => (Mesh: native, Source: source, Vertices: vertices))))
-            .Bind(state => sample(arg1: state.Mesh, arg2: state.Source, arg3: state.Vertices, arg4: key)
+            .Bind(state => Measure(mesh: state.Mesh, source: state.Source, vertices: state.Vertices, context: context, key: key)
                 .Map(value => (state.Source, Value: value)))
             .Bind(state => state switch {
                 (Source: { ComponentIndexType: not ComponentIndexType.InvalidType, Index: >= 0 }, Value: double value) when RhinoMath.IsValidDouble(x: value) && value >= 0.0 => Fin.Succ(new MeshMetricSample(Source: state.Source, Value: value)),
@@ -101,74 +101,63 @@ public sealed partial class MeshMetric {
         { ComponentIndexType: ComponentIndexType.MeshFace, Index: int face } when face >= 0 && face < mesh.Faces.Count =>
             mesh.Faces.GetFaceVertices(face, out Point3f a, out Point3f b, out Point3f c, out Point3f d) switch { true when mesh.Faces[face].IsQuad => Fin.Succ(Seq((Point3d)a, (Point3d)b, (Point3d)c, (Point3d)d)), true => Fin.Succ(Seq((Point3d)a, (Point3d)b, (Point3d)c)), false => Fin.Fail<Seq<Point3d>>(key.InvalidResult()) },
         { ComponentIndexType: ComponentIndexType.MeshNgon, Index: int ngon } when ngon >= 0 && ngon < mesh.Ngons.Count =>
-            Optional(mesh.Ngons[ngon].BoundaryVertexIndexList()).ToFin(key.InvalidResult()).Bind(indices => toSeq(indices).TraverseM(i => i <= int.MaxValue && (int)i < mesh.Vertices.Count ? Fin.Succ((Point3d)mesh.Vertices[(int)i]) : Fin.Fail<Point3d>(key.InvalidResult())).As()),
+            Optional(mesh.Ngons.NgonBoundaryVertexList(ngon: mesh.Ngons[ngon], bAppendStartPoint: false)).ToFin(key.InvalidResult()).Map(static points => toSeq(points)),
         _ => Fin.Fail<Seq<Point3d>>(key.InvalidInput()),
     };
-    private static Fin<Vector3d> NormalOf(Mesh mesh, ComponentIndex source, Seq<Point3d> vertices, Op key) => source switch {
+    private static Fin<Seq<int>> FaceIndicesOf(Mesh mesh, int ngon, Op key) =>
+        Optional(mesh.Ngons[ngon].FaceIndexList()).ToFin(key.InvalidResult())
+            .Bind(faces => toSeq(faces).TraverseM(face => face <= int.MaxValue && (int)face < mesh.Faces.Count ? Fin.Succ((int)face) : Fin.Fail<int>(key.InvalidResult())).As()
+                .Bind(indices => indices.IsEmpty ? Fin.Fail<Seq<int>>(key.InvalidResult()) : Fin.Succ(indices)));
+    private static Fin<TOut> RingMetric<TOut>(VectorRingMetric metric, Mesh mesh, ComponentIndex source, Seq<Point3d> vertices, Context context, Op key) =>
+        (vertices.IsEmpty ? VerticesOf(mesh: mesh, source: source, key: key) : Fin.Succ(vertices))
+            .Bind(points => Vector.Project<TOut>(intent: VectorIntent.Ring(points: points, metric: metric), context: context, key: key));
+    private static Fin<Vector3d> NormalOf(Mesh mesh, ComponentIndex source, Seq<Point3d> vertices, Context context, Op key) => source switch {
         { ComponentIndexType: ComponentIndexType.MeshFace, Index: int face } when face >= 0 && face < mesh.Faces.Count =>
             (mesh.FaceNormals.Count > face || mesh.FaceNormals.ComputeFaceNormals()) && mesh.FaceNormals.Count > face
-                ? UnitNormal(candidate: new Vector3d(mesh.FaceNormals[face]), key: key)
+                ? Direction.Of(value: new Vector3d(mesh.FaceNormals[face]), tolerance: RhinoMath.ZeroTolerance, key: key).Map(static direction => direction.Value)
                 : Fin.Fail<Vector3d>(key.InvalidResult()),
-        { ComponentIndexType: ComponentIndexType.MeshNgon } => vertices.Count switch {
-            >= 3 => UnitNormal(candidate: vertices.Map((point, index) => Vector3d.CrossProduct(point - vertices[0], vertices[(index + 1) % vertices.Count] - vertices[0])).Fold(Vector3d.Zero, static (sum, v) => sum + v), key: key),
-            _ => Fin.Fail<Vector3d>(key.InvalidResult()),
-        },
+        { ComponentIndexType: ComponentIndexType.MeshNgon, Index: int ngon } when ngon >= 0 && ngon < mesh.Ngons.Count =>
+            FaceIndicesOf(mesh: mesh, ngon: ngon, key: key)
+                .Bind(faces => ((mesh.FaceNormals.Count >= mesh.Faces.Count || mesh.FaceNormals.ComputeFaceNormals()) && mesh.FaceNormals.Count >= mesh.Faces.Count) switch {
+                    true => faces.TraverseM(face => FaceArea(mesh: mesh, source: new ComponentIndex(ComponentIndexType.MeshFace, face), vertices: Seq<Point3d>(), context: context, key: key)
+                        .Map(area => new Vector3d(mesh.FaceNormals[face]) * area)).As()
+                        .Bind(weighted => Direction.Of(value: weighted.Fold(initialState: Vector3d.Zero, f: static (sum, normal) => sum + normal), tolerance: RhinoMath.ZeroTolerance, key: key).Map(static direction => direction.Value)),
+                    false => RingMetric<Vector3d>(metric: VectorRingMetric.Normal, mesh: mesh, source: source, vertices: vertices, context: context, key: key),
+                }),
         _ => Fin.Fail<Vector3d>(key.InvalidInput()),
     };
-    private static Fin<Vector3d> NormalOf(Mesh mesh, ComponentIndex source, Op key) =>
-        VerticesOf(mesh: mesh, source: source, key: key).Bind(vertices => NormalOf(mesh: mesh, source: source, vertices: vertices, key: key));
-    private static Fin<Vector3d> UnitNormal(Vector3d candidate, Op key) =>
-        Direction.Of(value: candidate, tolerance: RhinoMath.ZeroTolerance, key: key).Map(static direction => direction.Value);
-    private static Fin<double> FaceEdgeAspect(Mesh mesh, ComponentIndex source, Seq<Point3d> vertices, Op key) =>
+    private static Fin<double> FaceEdgeAspect(Mesh mesh, ComponentIndex source, Seq<Point3d> vertices, Context context, Op key) =>
         (source switch {
             { ComponentIndexType: ComponentIndexType.MeshFace, Index: int index } when index >= 0 && index < mesh.Faces.Count => Fin.Succ(mesh.Faces.GetFaceAspectRatio(index: index)),
             _ => Fin.Fail<double>(key.InvalidInput()),
         })
-            .BindFail(_ => vertices.Count >= 3
-            ? vertices.Map((p, i) => p.DistanceTo(other: vertices[(i + 1) % vertices.Count])).Filter(static length => length > RhinoMath.ZeroTolerance) switch {
-                Seq<double> lengths when !lengths.IsEmpty => lengths.Fold(initialState: (Min: double.PositiveInfinity, Max: 0.0), f: static (range, length) => (Math.Min(val1: range.Min, val2: length), Math.Max(val1: range.Max, val2: length))) switch {
-                    (double min, double max) when RhinoMath.IsValidDouble(x: min) && min > RhinoMath.ZeroTolerance && RhinoMath.IsValidDouble(x: max) => Fin.Succ(max / min),
-                    _ => Fin.Fail<double>(key.InvalidResult()),
-                },
-                _ => Fin.Fail<double>(key.InvalidResult()),
-            }
-            : Fin.Fail<double>(key.InvalidResult()));
-    private static Fin<double> FaceArea(Mesh mesh, ComponentIndex source, Seq<Point3d> vertices, Op key) =>
+            .BindFail(_ => RingMetric<double>(metric: VectorRingMetric.EdgeAspect, mesh: mesh, source: source, vertices: vertices, context: context, key: key));
+    private static Fin<double> FaceArea(Mesh mesh, ComponentIndex source, Seq<Point3d> vertices, Context context, Op key) =>
         source switch {
             { ComponentIndexType: ComponentIndexType.MeshNgon, Index: int ngon } when ngon >= 0 && ngon < mesh.Ngons.Count =>
-                Optional(mesh.Ngons[ngon].FaceIndexList()).ToFin(key.InvalidResult())
-                    .Bind(faces => toSeq(faces).TraverseM(face => face <= int.MaxValue ? FaceArea(mesh: mesh, source: new ComponentIndex(ComponentIndexType.MeshFace, (int)face), vertices: Seq<Point3d>(), key: key) : Fin.Fail<double>(key.InvalidResult())).As())
+                FaceIndicesOf(mesh: mesh, ngon: ngon, key: key)
+                    .Bind(faces => faces.TraverseM(face => FaceArea(mesh: mesh, source: new ComponentIndex(ComponentIndexType.MeshFace, face), vertices: Seq<Point3d>(), context: context, key: key)).As())
                     .Map(static areas => areas.Fold(initialState: 0.0, f: static (total, area) => total + area)),
-            _ => (vertices.IsEmpty ? VerticesOf(mesh: mesh, source: source, key: key) : Fin.Succ(vertices))
-                .Bind(points => points.Count >= 3
-                    ? Fin.Succ(0.5 * Enumerable.Range(start: 1, count: points.Count - 2).Sum(i => Vector3d.CrossProduct(a: points[i] - points[0], b: points[i + 1] - points[0]).Length))
-                    : Fin.Fail<double>(key.InvalidResult())),
+            _ => RingMetric<double>(metric: VectorRingMetric.Area, mesh: mesh, source: source, vertices: vertices, context: context, key: key),
         };
-    private static Fin<double> FacePerimeter(Mesh mesh, ComponentIndex source, Seq<Point3d> vertices, Op key) =>
-        vertices.Map((p, i) => p.DistanceTo(other: vertices[(i + 1) % vertices.Count])).Fold(initialState: 0.0, f: static (acc, d) => acc + d);
-    private static Fin<double> FaceSkewness(Mesh mesh, ComponentIndex source, Seq<Point3d> vertices, Op key) =>
-        vertices.Count switch {
-            < 3 => Fin.Fail<double>(key.InvalidResult()),
-            int n => vertices.Map((vertex, i) => Vector3d.VectorAngle(a: vertices[(i + n - 1) % n] - vertex, b: vertices[(i + 1) % n] - vertex))
-                .Fold(initialState: Fin.Succ((Max: 0.0, Ideal: (n - 2) * Math.PI / n)), f: (state, angle) => state.Bind(s => angle.TryCreateValidated<VectorAngle>().ToFin()
-                    .Map(a => (Math.Max(val1: s.Max, val2: Math.Max(val1: (a.Value - s.Ideal) / (Math.PI - s.Ideal), val2: (s.Ideal - a.Value) / s.Ideal)), s.Ideal))))
-                .Map(static state => state.Max),
-        };
-    private static Fin<double> FaceMaxDihedral(Mesh mesh, ComponentIndex source, Seq<Point3d> vertices, Op key) =>
-        NormalOf(mesh: mesh, source: source, vertices: vertices, key: key).Bind(normal => normal.IsValid switch {
+    private static Fin<double> FacePerimeter(Mesh mesh, ComponentIndex source, Seq<Point3d> vertices, Context context, Op key) =>
+        RingMetric<double>(metric: VectorRingMetric.Perimeter, mesh: mesh, source: source, vertices: vertices, context: context, key: key);
+    private static Fin<double> FaceSkewness(Mesh mesh, ComponentIndex source, Seq<Point3d> vertices, Context context, Op key) =>
+        RingMetric<double>(metric: VectorRingMetric.Skewness, mesh: mesh, source: source, vertices: vertices, context: context, key: key);
+    private static Fin<double> FaceMaxDihedral(Mesh mesh, ComponentIndex source, Seq<Point3d> vertices, Context context, Op key) =>
+        NormalOf(mesh: mesh, source: source, vertices: vertices, context: context, key: key).Bind(normal => normal.IsValid switch {
             false => Fin.Succ(0.0),
             true => (source switch {
                 { ComponentIndexType: ComponentIndexType.MeshFace, Index: int face } when face >= 0 && face < mesh.Faces.Count =>
                     Fin.Succ(toSeq(mesh.Faces.AdjacentFaces(faceIndex: face))),
                 { ComponentIndexType: ComponentIndexType.MeshNgon, Index: int ngon } when ngon >= 0 && ngon < mesh.Ngons.Count =>
-                    Optional(mesh.Ngons[ngon].FaceIndexList()).ToFin(key.InvalidResult())
-                        .Bind(faces => toSeq(faces).TraverseM(face => face <= int.MaxValue && (int)face < mesh.Faces.Count ? Fin.Succ((int)face) : Fin.Fail<int>(key.InvalidResult())).As())
+                    FaceIndicesOf(mesh: mesh, ngon: ngon, key: key)
                         .Map(parts => parts.Bind(face => toSeq(mesh.Faces.AdjacentFaces(faceIndex: face))).Filter(other => !parts.Exists(face => face == other)).Distinct()),
                 _ => Fin.Fail<Seq<int>>(key.InvalidInput()),
             }).Bind(neighbours => neighbours
-                .Fold(initialState: Fin.Succ((Max: 0.0, Mesh: mesh, Normal: normal, Key: key)), f: static (state, other) => state.Bind(s => NormalOf(mesh: s.Mesh, source: new ComponentIndex(ComponentIndexType.MeshFace, other), key: s.Key)
-                    .Bind(neighbour => Vector3d.VectorAngle(a: s.Normal, b: neighbour).TryCreateValidated<VectorAngle>().ToFin()
-                        .Map(angle => (Math.Max(val1: s.Max, val2: angle.Value), s.Mesh, s.Normal, s.Key)))))
+                .Fold(initialState: Fin.Succ((Max: 0.0, Mesh: mesh, Normal: normal, Context: context, Key: key)), f: static (state, other) => state.Bind(s => NormalOf(mesh: s.Mesh, source: new ComponentIndex(ComponentIndexType.MeshFace, other), vertices: Seq<Point3d>(), context: s.Context, key: s.Key)
+                    .Bind(neighbour => VectorAngle.Of(a: s.Normal, b: neighbour, context: s.Context, key: s.Key)
+                        .Map(angle => (Math.Max(val1: s.Max, val2: angle.Value), s.Mesh, s.Normal, s.Context, s.Key)))))
                 .Map(static state => state.Max)),
         });
 }
@@ -188,14 +177,18 @@ public static partial class Analyze {
     }
     internal static Operation<Mesh, MeshMetricSample> MeshMetricSamplesOp(MeshMetric metric, Op key) =>
         Operation<Mesh, MeshMetricSample>.Build(
-            key: key, state: (Key: key, Metric: metric), requirement: Requirement.MeshCheck,
-            evaluator: static (state, geometry) => MeshMetricSamples(mesh: geometry, metric: state.Metric, key: state.Key).Bind(samples => state.Key.Accept(values: samples)).ToEff());
+            key: key, state: (Key: key, Metric: metric), requirement: Requirement.MeshCheck, requiresContext: true,
+            evaluator: static (state, geometry) => from context in Env.Asks
+                                                   from samples in MeshMetricSamples(mesh: geometry, metric: state.Metric, context: context, key: state.Key).ToEff()
+                                                   select samples);
     internal static Operation<Mesh, Stat> MeshMetricStatOp(MeshMetric metric, Op key) =>
         Operation<Mesh, Stat>.Build(
-            key: key, state: (Key: key, Metric: metric), requirement: Requirement.MeshCheck,
-            evaluator: static (state, geometry) => MeshMetricSamples(mesh: geometry, metric: state.Metric, key: state.Key)
-                .Bind(samples => Stat.Of(values: samples.Map(static sample => sample.Value), key: state.Key))
-                .Bind(stat => state.Key.Accept(value: stat)).ToEff());
+            key: key, state: (Key: key, Metric: metric), requirement: Requirement.MeshCheck, requiresContext: true,
+            evaluator: static (state, geometry) => from context in Env.Asks
+                                                   from stat in MeshMetricSamples(mesh: geometry, metric: state.Metric, context: context, key: state.Key)
+                                                       .Bind(samples => Stat.Of(values: samples.Map(static sample => sample.Value), key: state.Key))
+                                                       .Bind(stat => state.Key.Accept(value: stat)).ToEff()
+                                                   select stat);
     internal static Operation<Mesh, MeshSample> MeshSamples(MeshSampleGroup group) {
         Op key = Op.Of(name: $"Mesh{group.Label}");
         return Operation<Mesh, MeshSample>.Build(
@@ -246,9 +239,9 @@ public static partial class Analyze {
         }
     }
     internal static Operation<TGeometry, TOut> MeshLift<TGeometry, TOut, TValue>(Op key, Operation<Mesh, TValue> source) where TGeometry : notnull =>
-        Native<TGeometry, TOut, Mesh, TValue, Operation<Mesh, TValue>>(key: key, state: source, project: static (q, mesh) => q.Apply(geometry: Seq(mesh)));
-    private static Fin<Seq<MeshMetricSample>> MeshMetricSamples(Mesh mesh, MeshMetric metric, Op key) =>
-        VisiblePolygonsOf(mesh: mesh, key: key).Bind(polygons => polygons.TraverseM(polygon => metric.Sample(mesh: mesh, polygon: polygon, key: key)).As());
+        Native<TGeometry, TOut, Mesh, TValue, Operation<Mesh, TValue>>(key: key, state: source, requirement: source.Requirement, requiresContext: source.RequiresContext, project: static (q, mesh) => q.Apply(geometry: Seq(mesh)));
+    private static Fin<Seq<MeshMetricSample>> MeshMetricSamples(Mesh mesh, MeshMetric metric, Context context, Op key) =>
+        VisiblePolygonsOf(mesh: mesh, key: key).Bind(polygons => polygons.TraverseM(polygon => metric.Sample(mesh: mesh, polygon: polygon, context: context, key: key)).As());
     internal static Fin<int> VisiblePolygonCountOf(Mesh mesh, Op key) =>
         Fin.Succ(mesh.GetNgonAndFacesCount());
     internal static Fin<ComponentIndex> VisiblePolygonSourceOf(Mesh mesh, MeshNgon polygon, Op key) =>

@@ -48,7 +48,7 @@ public readonly record struct RayPolicy {
     internal Fin<Line> Line(Point3d origin, Direction direction, Op key) {
         Option<PositiveMagnitude> length = Length;
         Vector3d vector = direction.Value * Sense.Sign;
-        return from span in length.ToFin(Fail: new VectorFault.Invalid(Key: key, Requirement: "finite ray segment length"))
+        return from span in length.ToFin(Fail: key.InvalidInput())
                from point in key.AcceptValue(value: origin)
                from line in key.AcceptValue(value: new Line(start: point, direction: vector, length: span.Value))
                select line;
@@ -56,9 +56,25 @@ public readonly record struct RayPolicy {
     internal Fin<VectorSpan> Span(Point3d origin, Direction direction, Context context, Op key) {
         Option<PositiveMagnitude> length = Length;
         Vector3d vector = direction.Value * Sense.Sign;
-        return from span in length.ToFin(Fail: new VectorFault.Invalid(Key: key, Requirement: "finite ray segment length"))
+        return from span in length.ToFin(Fail: key.InvalidInput())
                from value in VectorSpan.Of(anchor: origin, vector: vector * span.Value, context: context, key: key)
                select value;
+    }
+    internal Fin<TOut> Project<TOut>(Point3d origin, Direction direction, Context context, Op key) {
+        RayPolicy policy = this;
+        Vector3d vector = direction.Value * policy.Sense.Sign;
+        return typeof(TOut) switch {
+            Type t when t == typeof(Ray3d) => policy.Ray(origin: origin, direction: direction, key: key)
+                .Bind(ray => key.AcceptValue(value: ray).Map(static value => (TOut)(object)value)),
+            Type t when t == typeof(Direction) => Direction.Of(value: vector, context: context, key: key)
+                .Bind(active => active.Project<TOut>(key: key)),
+            Type t when t == typeof(Vector3d) => key.AcceptValue(value: vector).Map(static value => (TOut)(object)value),
+            Type t when t == typeof(Line) => policy.Line(origin: origin, direction: direction, key: key)
+                .Bind(line => key.AcceptValue(value: line).Map(static value => (TOut)(object)value)),
+            Type t when t == typeof(VectorSpan) => policy.Span(origin: origin, direction: direction, context: context, key: key)
+                .Bind(span => span.Project<TOut>(key: key)),
+            _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(Ray3d), outputType: typeof(TOut))),
+        };
     }
 }
 
@@ -80,24 +96,23 @@ public partial record VectorField {
         new BlendCase(Fields: fields, Mode: blend ?? FieldBlend.Sum);
     internal Fin<VectorSpan> Sample(Point3d sample, Context context, Op? key = null) {
         Op op = key ?? Op.Of(name: nameof(Sample));
-        return this switch {
-            ConstantCase c => VectorSpan.Of(anchor: sample, vector: c.Value, context: context, key: op),
-            InfluenceCase c => from hit in c.Source.Closest(sample: sample, key: op)
-                               from distance in hit.Distance.ToFin(Fail: op.InvalidResult())
-                               let residual = c.Radius.Map(radius => Math.Abs(distance - radius.Value)).IfNone(distance)
-                               let shellSign = c.Radius.Map(radius => distance >= radius.Value ? 1.0 : -1.0).IfNone(1.0)
-                               from weight in c.Falloff.Weight(distance: residual, key: op)
-                               from direction in Direction.Of(value: c.Sense.Sign * shellSign * (hit.Point - sample), context: context, key: op)
-                               from span in VectorSpan.Of(anchor: sample, direction: direction, magnitude: c.Radius.IsSome ? residual * weight : weight, key: op)
-                               select span,
-            NormalCase c => from hit in c.Source.Closest(sample: sample, key: op)
-                            from normal in hit.Normal.ToFin(Fail: op.InvalidResult())
-                            from direction in Direction.Of(value: c.Sense.Sign * normal, context: context, key: op)
-                            from span in VectorSpan.Of(anchor: sample, direction: direction, magnitude: 1.0, key: op)
-                            select span,
-            BlendCase c => c.Fields.TraverseM(field => field.Sample(sample: sample, context: context, key: op)).As()
-                .Bind(spans => c.Mode.Combine(spans: spans, sample: sample, context: context, key: op)),
-            _ => Fin.Fail<VectorSpan>(error: new VectorFault.Unsupported(Key: op, Source: GetType(), Output: typeof(VectorSpan))),
-        };
+        return Switch(
+            state: (Sample: sample, Context: context, Key: op),
+            constantCase: static (state, c) => VectorSpan.Of(anchor: state.Sample, vector: c.Value, context: state.Context, key: state.Key),
+            influenceCase: static (state, c) => from hit in c.Source.Closest(sample: state.Sample, key: state.Key)
+                                                from distance in hit.Distance.ToFin(Fail: state.Key.InvalidResult())
+                                                let residual = c.Radius.Map(radius => Math.Abs(distance - radius.Value)).IfNone(distance)
+                                                let shellSign = c.Radius.Map(radius => distance >= radius.Value ? 1.0 : -1.0).IfNone(1.0)
+                                                from weight in c.Falloff.Weight(distance: residual, key: state.Key)
+                                                from direction in Direction.Of(value: c.Sense.Sign * shellSign * (hit.Point - state.Sample), context: state.Context, key: state.Key)
+                                                from span in VectorSpan.Of(anchor: state.Sample, direction: direction, magnitude: c.Radius.IsSome ? residual * weight : weight, key: state.Key)
+                                                select span,
+            normalCase: static (state, c) => from hit in c.Source.Closest(sample: state.Sample, key: state.Key)
+                                             from normal in hit.Normal.ToFin(Fail: state.Key.InvalidResult())
+                                             from direction in Direction.Of(value: c.Sense.Sign * normal, context: state.Context, key: state.Key)
+                                             from span in VectorSpan.Of(anchor: state.Sample, direction: direction, magnitude: 1.0, key: state.Key)
+                                             select span,
+            blendCase: static (state, c) => c.Fields.TraverseM(field => field.Sample(sample: state.Sample, context: state.Context, key: state.Key)).As()
+                .Bind(spans => c.Mode.Combine(spans: spans, sample: state.Sample, context: state.Context, key: state.Key)));
     }
 }

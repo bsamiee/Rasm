@@ -12,7 +12,6 @@ public readonly record struct SupportSpace {
         return from source in Optional(value).ToFin(op.InvalidInput())
                let type = source.GetType()
                from _ in guard(type != typeof(object) && type != typeof(GeometryBase) && GeometryKernel.CanClosest(type: type), op.Unsupported(type, typeof(ClosestHit)))
-               from __ in guard(OpAcceptance.ValidityOf(source: source).IfNone(false), op.InvalidInput())
                select new SupportSpace(value: source);
     }
     internal Fin<ClosestHit> Closest(Point3d sample, Op key) =>

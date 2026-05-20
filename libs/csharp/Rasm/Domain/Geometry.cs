@@ -429,6 +429,7 @@ internal static class GeometryKernel {
     internal static Fin<ClosestHit> ClosestOf(object? geometry, Point3d target, Op key) =>
         from _ in guard(target.IsValid, key.InvalidInput())
         from g in Optional(geometry).ToFin(key.InvalidInput())
+        from __ in guard(!CanClosest(type: g.GetType()) || OpAcceptance.ValidityOf(source: g).IfNone(false), key.InvalidInput())
         from hit in g switch {
             Point3d point when point.IsValid => Fin.Succ(ClosestHit.At(target: target, point: point)),
             Point { IsValid: true } point => Fin.Succ(ClosestHit.At(target: target, point: point.Location)),
@@ -468,7 +469,11 @@ internal static class GeometryKernel {
                     _ => Fin.Succ(ClosestHit.At(target: target, point: point, component: Some(component))),
                 },
             Mesh mesh => Optional(mesh.ClosestMeshPoint(testPoint: target, maximumDistance: 0.0)).ToFin(key.InvalidResult())
-                .Map(meshPoint => ClosestHit.At(target: target, point: meshPoint.Point, normal: Some(mesh.NormalAt(meshPoint: meshPoint)), component: Some(meshPoint.ComponentIndex), meshPoint: Some(meshPoint))),
+                .Map(meshPoint => mesh.NormalAt(meshPoint: meshPoint) switch {
+                    Vector3d normal when normal.IsValid && !normal.IsTiny() =>
+                        ClosestHit.At(target: target, point: meshPoint.Point, normal: Some(normal), component: Some(meshPoint.ComponentIndex), meshPoint: Some(meshPoint)),
+                    _ => ClosestHit.At(target: target, point: meshPoint.Point, component: Some(meshPoint.ComponentIndex), meshPoint: Some(meshPoint)),
+                }),
             object curveLike when CanCurveForm(type: curveLike.GetType()) =>
                 CurveForm(source: curveLike, op: key).Bind(lease => lease.Use(curve => ClosestOf(geometry: curve, target: target, key: key))),
             object surfaceLike when CanSurfaceForm(type: surfaceLike.GetType()) =>
