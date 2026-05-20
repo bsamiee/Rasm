@@ -8,13 +8,8 @@ namespace Rasm.Rhino.Exchange;
 // --- [TYPES] ------------------------------------------------------------------------------
 [Flags]
 public enum FileFormatCapability {
-    None = 0,
-    Import = 1,
-    Export = 2,
-    DictionaryRead = 4,
-    DictionaryWrite = 8,
-    DirectRead = 16,
-    DirectWrite = 32,
+    None = 0, Import = 1, Export = 2,
+    DictionaryRead = 4, DictionaryWrite = 8, DirectRead = 16, DirectWrite = 32,
     Archive = 64,
 }
 
