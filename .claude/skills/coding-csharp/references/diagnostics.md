@@ -26,17 +26,15 @@ using LanguageExt.Traits;
 using Microsoft.Extensions.Logging;
 using static LanguageExt.Prelude;
 
+// Telemetry identities (ActivitySource/Meter) are owned by observability.md [1] Signals
+// to satisfy SINGLETON_IDS canon. Diagnostics re-uses those identities — never re-instantiates.
 public static class Diagnostics {
-    internal static readonly ActivitySource Source =
-        new(name: "Domain.Service", version: "1.0.0");
-    internal static readonly Meter ServiceMeter =
-        new(name: "Domain.Service", version: "1.0.0");
     internal static ILoggerFactory LoggerFactory { get; set; } =
         Microsoft.Extensions.Logging.LoggerFactory.Create(
             configure: static (ILoggingBuilder builder) =>
                 builder.AddConsole());
     internal static readonly Counter<long> ProbeCount =
-        ServiceMeter.CreateCounter<long>(
+        Signals.ServiceMeter.CreateCounter<long>(
             name: "domain.diagnostics.probes",
             unit: "probes",
             description: "Probe invocations.");
@@ -78,7 +76,7 @@ public static class Probe {
     public static Eff<RT, T> Span<RT, T>(
         Eff<RT, T> pipeline, string spanName) =>
         from result in IO.lift(() =>
-                Diagnostics.Source.StartActivity(
+                Signals.Source.StartActivity(
                     name: spanName, kind: ActivityKind.Internal))
             .Bracket(
                 Use: (Activity? activity) =>

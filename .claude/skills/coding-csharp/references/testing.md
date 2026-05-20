@@ -271,43 +271,38 @@ using static LanguageExt.Prelude;
 
 // --- [RUNTIME] ---------------------------------------------------------------
 
+// Test runtimes carry Func<> delegates, never single-impl interfaces (CSP0501).
+// Each capability is one delegate field; substitution is per-test inline.
 public sealed record TestRuntime(
-    IGatewayProvider Gateway,
+    Func<DomainIdentity, string, Fin<TransactionState>> Authorize,
     IClock Clock,
     CancellationToken CancellationToken = default);
-
-// Test stub that always succeeds
-public sealed class StubGateway : IGatewayProvider {
-    public Fin<TransactionState> Authorize(DomainIdentity id, string token) =>
-        Fin.Succ<TransactionState>(new TransactionState.Authorized(Id: id, AuthorizationToken: token));
-}
-
-// Test stub that always fails with a specific error
-public sealed class FaultingGateway : IGatewayProvider {
-    public Fin<TransactionState> Authorize(DomainIdentity id, string token) =>
-        Fin.Fail<TransactionState>(Error.New(message: "gateway-timeout"));
-}
 
 // --- [TESTS] -----------------------------------------------------------------
 
 public sealed class AuthorizationPipelineTests {
-    private static TestRuntime MakeRuntime(IGatewayProvider gateway) =>
-        new(Gateway: gateway, Clock: SystemClock.Instance);
-
     [Fact]
     public void Success_path_returns_authorized_state() {
+        TestRuntime runtime = new(
+            Authorize: static (DomainIdentity id, string token) =>
+                Fin.Succ<TransactionState>(new TransactionState.Authorized(Id: id, AuthorizationToken: token)),
+            Clock: SystemClock.Instance);
         Fin<TransactionState> result = AuthorizationPipeline
             .Authorize<TestRuntime>(id: SomeIdentity(), token: "tok-001")
-            .Run(runtime: MakeRuntime(gateway: new StubGateway()));
+            .Run(runtime: runtime);
         Assert.True(result.IsSucc);
     }
 
-    // @catchM recovery: stub triggers the error; pipeline must return fallback.
+    // @catchM recovery: delegate triggers the error; pipeline must return fallback.
     [Fact]
     public void Gateway_timeout_falls_back_to_faulted_state() {
+        TestRuntime runtime = new(
+            Authorize: static (DomainIdentity _, string __) =>
+                Fin.Fail<TransactionState>(Error.New(message: "gateway-timeout")),
+            Clock: SystemClock.Instance);
         Fin<TransactionState> result = AuthorizationPipeline
             .AuthorizeWithFallback<TestRuntime>(id: SomeIdentity(), token: "tok-001")
-            .Run(runtime: MakeRuntime(gateway: new FaultingGateway()));
+            .Run(runtime: runtime);
         result.Match(
             Succ: (TransactionState state) => Assert.IsType<TransactionState.Faulted>(state),
             Fail: (Error _) => throw new UnreachableException());

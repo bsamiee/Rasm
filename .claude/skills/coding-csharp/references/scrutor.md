@@ -3,7 +3,7 @@
 
 <br>
 
-Verified baseline: `Scrutor` `7.0.0` targeting `net462`, `netstandard2.0`, `net8.0` (`net8.0` is the highest published target; newer runtimes consume it via forward compatibility). Extends the built-in Microsoft container via `Scan` + `Decorate`/`TryDecorate` on `IServiceCollection`. v6.0+ `AddClasses()` scans only public non-abstract classes by default; pass `publicOnly: false` to include internal types. Imports: `using Scrutor;` (`RegistrationStrategy`, `ReplacementBehavior`, `DecoratedService<T>`, `ServiceDescriptorAttribute`).
+Verified baseline: `Scrutor` v7+ (targeting `netstandard2.0`/`net8.0`/`net9.0`+; newer runtimes consume forward-compatibly). Extends the built-in Microsoft container via `Scan` + `Decorate`/`TryDecorate` on `IServiceCollection`. v6.0+ `AddClasses()` scans only public non-abstract classes by default; pass `publicOnly: false` to include internal types. Imports: `using Scrutor;` (`RegistrationStrategy`, `ReplacementBehavior`, `DecoratedService<T>`, `ServiceDescriptorAttribute`).
 
 ---
 ## [1][BOUNDED_DISCOVERY]

@@ -192,6 +192,49 @@ public static class AtomicLedger {
 
 ---
 
+## Pipes and Streams (LanguageExt v5)
+
+LanguageExt v5 ships first-class `Pipe<RT,IN,OUT,A>`, `Producer<RT,OUT,A>`, `Consumer<RT,IN,A>` for streaming computation. Use when the boundary produces an unbounded sequence OR the transform composes filter/map/take across multiple stages OR the pipeline needs back-pressure semantics that `Channel<T>` cannot express algebraically.
+
+```csharp
+namespace Domain.Effects;
+
+using LanguageExt;
+using LanguageExt.Pipes;
+using static LanguageExt.Prelude;
+
+public static class StreamingPipeline {
+    // Producer: pulls values from a source and yields them downstream.
+    public static Producer<RT, Sample, Unit> Stream<RT>(Source source)
+        where RT : Has<RT, Source> =>
+        from sample in Producer.lift<RT, Sample>(source.Next())
+        from _ in Producer.yield<RT, Sample>(sample)
+        select unit;
+    // Pipe: awaits upstream values, transforms, yields downstream.
+    public static Pipe<RT, Sample, Reading, Unit> Convert<RT>() =>
+        from sample in Pipe.await<RT, Sample, Reading>()
+        from reading in Pipe.lift<RT, Sample, Reading, Reading>(Reading.FromSample(sample))
+        from _ in Pipe.yield<RT, Sample, Reading>(reading)
+        select unit;
+    // Consumer: terminal sink — awaits upstream values and effects them out.
+    public static Consumer<RT, Reading, Unit> Sink<RT>(IReadingSink sink)
+        where RT : Has<RT, IReadingSink> =>
+        from reading in Consumer.await<RT, Reading>()
+        from _ in Consumer.lift<RT, Reading>(sink.Emit(reading))
+        select unit;
+    // Composition: source -> conversion -> terminal via | operator.
+    public static Eff<RT, Unit> Pipeline<RT>(Source source, IReadingSink sink)
+        where RT : Has<RT, Source>, Has<RT, IReadingSink> =>
+        (Stream<RT>(source) | Convert<RT>() | Sink<RT>(sink)).RunEffect();
+}
+```
+
+Pipes are NOT a replacement for `Channel<T>` at boundary adapters where multiple producers/consumers compete; they ARE the algebraic primitive for in-domain stream transforms where composition matters more than concurrency.
+
+`liftIO` vs `liftEff` boundary: `liftIO` brings an `IO<A>` into the current `Eff<RT,A>` carrying RT context; `liftEff` is the generic kind lift for `K<F,A>` where `F : Fallible`. Prefer `liftIO` when crossing into the host effect surface; `liftEff` when staying within higher-kinded abstraction.
+
+---
+
 ## Rules
 
 - [ALWAYS] `Fin<T>` for synchronous failures — monadic `Bind`/`Map`, `Match` at boundary only.

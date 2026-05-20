@@ -44,6 +44,54 @@ static Fin<T> ScaleValidated<T, TScalar>(TScalar raw, TScalar factor)
 - `Locus<ByteOffset, ByteLength, long>` branches from `Identifier` parallel to `VectorSpace`/`Amount` — subtraction returns the distance type (`ByteLength`), not the position type, enforcing that position deltas yield magnitudes; `AlignToPow2` on `ByteLength` normalizes lengths before use as alignment operands for the elided `ByteOffset.AlignUp`/`AlignDown`, a semantic coupling the parameter types alone cannot encode.
 - `SkipFactoryMethods = true` suppresses Thinktecture's `Create`/`TryCreate`; the interface list owns algebraic shape (`Amount`, `Locus`, `DomainType`), the source generator owns ordinal infrastructure (equality, comparison, `ToString`) — §2's `WorkerCount` inherits the same split with `DomainType` alone, without `Amount`, because construction is its sole external obligation.
 
+## Modern Syntax Density (C# 14)
+
+Every data carrier uses C# 14 primary constructors. Every multi-step pattern check uses list/property/relational patterns instead of nested switches. Collections constructed via collection expressions.
+
+```csharp
+namespace Domain.Telemetry;
+
+// Primary constructor + property pattern + list pattern + collection expression composition.
+// Bounds is a flat record with two fields; primary ctor makes the public surface one line.
+public readonly record struct Bounds(Box Box, double Diagonal) {
+    public static Fin<Bounds> Of(ReadOnlySpan<Point3d> samples) =>
+        samples switch {
+            [] => Fin<Bounds>.Fail(Error.New("Empty samples")),
+            [Point3d single] => Fin.Succ(new Bounds(Box: Box.Of(single), Diagonal: 0d)),
+            [Point3d first, .. var rest] when first.IsValid =>
+                Fin.Succ(Bounds.From(first, rest)),
+            _ => Fin<Bounds>.Fail(Error.New("Invalid sample set")),
+        };
+}
+
+// Property patterns + relational patterns + and/or combinators replace nested switch arms.
+public static Fin<Reading> Validate(Reading reading) =>
+    reading switch {
+        { Value: > 0d and < 100d, Unit: not null } valid => Fin.Succ(valid),
+        { Value: <= 0d } => Fin<Reading>.Fail(Error.New("Non-positive value")),
+        { Unit: null } => Fin<Reading>.Fail(Error.New("Missing unit")),
+        _ => Fin<Reading>.Fail(Error.New("Out of range")),
+    };
+
+// Collection expressions for Seq<T>, ReadOnlySpan<T>, and spread composition.
+// Replaces new[] { ... }, ImmutableArray.Create(...), and Seq construction via factory methods.
+Seq<Vector3d> axes = [Vector3d.XAxis, Vector3d.YAxis, Vector3d.ZAxis];
+Seq<Sample> combined = [..first.Samples, ..second.Samples, sentinel];
+ReadOnlySpan<int> bounds = [0, 1, 2, 4, 8, 16];
+```
+
+Avoid: positional records with ≥3 params accessed positionally (CSP0726 — caller must use named arguments), nested `switch` where a list/property pattern handles it in one expression, `new[] { ... }` / `ImmutableArray.Create(...)` where `[...]` works, manual constructors where the primary constructor suffices, multiple `if`/`switch` arms checking the same property where a single property pattern with `and`/`or` combinators expresses the rule.
+
+Required members and the `field` keyword: use `required` on record properties that must be initialized at construction time even when no primary constructor parameter exists; use `field` inside property accessors for inline normalization (clamping, trimming, rounding) without an explicit backing field declaration.
+
+```csharp
+public sealed record Reading {
+    public required double Value { get => field; init => field = Math.Clamp(value, 0d, 100d); }
+    public required string Unit  { get => field; init => field = value.Trim(); }
+}
+```
+
+---
 ## Smart Constructors and Refined Scalar Boundaries
 
 Construction failure that escapes the return type distributes the rejection obligation as caller convention — `TraverseM(T.From)` cannot route those failures through `BindFail`, and every binding site discovers invalidity as an unhandled exception rather than a structural obligation encoded in the type. `Fin<SELF>` internalizes the boundary: the rejection codomain is structural, and every call site binding `From`'s result is statically obligated to account for failure before value extraction. Bypass routes — implicit scalar coercion, Thinktecture's generated `Create` path, `default(T)` construction — breach the guarantee independently; closure requires all three sealed simultaneously.

@@ -33,7 +33,7 @@ Diagnostic table for structural issues. Consult FIRST when triaging code review 
 |  [10]   | **`.Where().Sum()` on hot path**            | LINQ heap allocation          | `TensorPrimitives` / span-based processing            |
 |  [11]   | **`null` used for 2+ semantic meanings**    | Collapsed absence semantics   | `Option<T>` for absence, `Fin<T>` for failure         |
 |  [12]   | **3+ sibling methods (`Get`/`TryGet`/...)** | API surface inflation         | One `Execute<R>(Query)` entry point                   |
-|  [13]   | **`private` method with single caller**     | Helper spam                   | Inline at call site or promote to domain type         |
+|  [13]   | **`private` method with single caller**     | Helper spam                   | Inline at call site, or collapse into the owning polymorphic dispatch surface as a [Union] case method / SmartEnum behavior closure / fold algebra step. Never promote to a standalone helper file. |
 |  [14]   | **Repetitive switch arms, near-identical**  | Brute-force inlining          | Fold algebra or `K<F,A>` generic pipeline             |
 |  [15]   | **Composition root has long `Add*` chains** | Registration drift risk       | Scrutor `Scan` + explicit `UsingRegistrationStrategy` |
 
@@ -58,7 +58,7 @@ Diagnostic table for structural issues. Consult FIRST when triaging code review 
 ---
 ## [5][SURFACE_QUALITY]
 
-- [ ] **No helper spam**: every private function is called from 2+ sites within the module -- single-call private functions should be inlined; multi-call functions shared across modules indicate wrong module boundary
+- [ ] **No helper spam**: every private function is called from 2+ sites within the module — single-call private functions are inlined; multi-call functions collapse into the canonical owning [Union]'s dispatch arm or SmartEnum behavior closure, never a standalone helper file
 - [ ] **No arity spam**: 3+ methods sharing a name prefix or structural pattern collapse to one polymorphic function via `params ReadOnlySpan<T>` or a typed query algebra
 - [ ] **No surface inflation**: `Get`/`GetMany`/`TryGet`/`GetOrDefault` sibling families indicate a missing query algebra -- one `Execute<R>(Query<K,V,R>)` method owns all variation
 - [ ] **No interface pollution**: `IFoo` with exactly one `Foo` implementation adds indirection without value -- remove the interface; inject `Func<>` delegates for testability
@@ -68,7 +68,8 @@ Diagnostic table for structural issues. Consult FIRST when triaging code review 
 ---
 ## [6][DENSITY]
 
-- [ ] **~400 LOC refactoring signal** (domain modules -- skill reference files use 450 LOC cap): a module approaching 400 lines signals multiple domain concerns; NOT a hard cap -- a single complex DU hierarchy with 450 lines of exhaustive pattern matching may be correct
+- [ ] **Pressure-point density signals (not byte count)**: ≥3 parallel types/records for one concept; ≥3 sibling factory methods sharing a prefix; ≥3 near-identical switch arms; ≥3 single-call private helpers. Any one triggers IN-PLACE polymorphic collapse — never file extraction, never functionality removal.
+- [ ] **Greenfield posture**: no `[Obsolete]`, no `Adapt*`/`From*Legacy*` helpers, no `internal static T BackcompatX(...)`. Every refactor breaks APIs cleanly.
 - [ ] **Dense logic, not brute-force inlining**: algebraic composition (Bind/Map/Pipe chains, DU folds, applicative validation) over verbose mechanical repetition; repetitive switch arms with near-identical bodies indicate a missing abstraction
 - [ ] **No wrapper/indirection spam**: single-use `private` methods wrapping a library call with no additional logic should be inlined -- wrappers justified only when adding validation, error translation, or span-based optimization
 
@@ -121,7 +122,7 @@ Concrete search patterns an agent can apply to any `.cs` file:
 |   [3]   | **EFFECT_INTEGRITY**        | Fin/Validation/Eff layering, no try/catch, no mid-Match         | `effects.md` [1], [4], [2]          |
 |   [4]   | **CONTROL_FLOW**            | Zero branching, exhaustive switch, no early-return guards       | `effects.md` [4], `patterns.md` [1] |
 |   [5]   | **SURFACE_QUALITY**         | No helper/arity/surface spam, no interface/null pollution       | `composition.md` [2], [5]           |
-|   [6]   | **DENSITY**                 | ~400 LOC signal, algebraic density, no wrapper spam             | `patterns.md` [1]                   |
+|   [6]   | **DENSITY**                 | Concept-density pressure points, algebraic collapse-in-place, no wrapper spam, no file extraction | `patterns.md` [1]                   |
 |   [7]   | **PERFORMANCE_SENSITIVITY** | Static lambdas, span I/O, SIMD, stackalloc, ValueTask           | `performance.md` [1], [7], [4]      |
 |   [8]   | **TESTING_INTEGRITY**       | FsCheck property laws, Testcontainers boundary invariants       | --                                  |
 |   [9]   | **DETECTION_HEURISTICS**    | 13 grep-able patterns with severity and coverage classification | --                                  |

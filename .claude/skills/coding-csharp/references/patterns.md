@@ -124,7 +124,17 @@ Litmus test: adding a new case requires modifying existing function bodies. A DU
 **HELPER_SPAM**
 
 [ANTI-PATTERN]: `private static Fin<T> ValidateHelper(T value)` called from a single site.
-[CORRECT]: Inline the logic at the call site, or if used from 2+ modules, promote to a domain-specific function on the owning type.
+[CORRECT]: Inline at the call site. If used from 2+ call sites, collapse it into the owning polymorphic surface as a `[Union]` case method, `SmartEnum<T>` behavior closure, or fold algebra step. Never promote to a top-level helper file. Never create a `*Helper`/`*Util`/`*Common` type.
+
+**FILE_EXTRACTION_REFLEX**
+
+[ANTI-PATTERN]: Splitting a 500-LOC module into five 100-LOC files when concept-density signals fire (≥3 parallel types, ≥3 sibling factories, ≥3 repeated switch arms).
+[CORRECT]: Collapse the cases into one polymorphic `[Union]` dispatch + one fold algebra, producing a denser 300-LOC module in the same file. LOC reduction is a side effect of polymorphism, never the goal. Extraction loses the unified surface that makes the concept reasonable; future contributors must navigate multiple files to understand one decision.
+
+**LEGACY_SHIM**
+
+[ANTI-PATTERN]: `[Obsolete("Use NewShape")] public TOld Old() => New().ToOld();` or `internal static V2 Adapt(V1 legacy) => new(legacy.A, legacy.B);`.
+[CORRECT]: Break the API. Update all call sites in the same change. The codebase is greenfield — there is no V1, no legacy, no other team consuming the surface. The cs-analyzer + editorconfig enforce immediate compliance; any shim is a rejection of the architecture and a vector for future drift.
 
 **PHANTOM_BYPASS**
 
@@ -152,7 +162,7 @@ public readonly record struct UserId<TState> {
 **DENSITY_OVER_VOLUME**
 
 [ANTI-PATTERN]: 500-line module with repetitive switch arms containing near-identical bodies.
-[CORRECT]: Extract the varying part into a fold algebra or `K<F,A>` generic function; the repetitive structure collapses to a single polymorphic pipeline. File proliferation and helper extraction are always code smells.
+[CORRECT]: COLLAPSE-IN-PLACE — merge the repetitive switch arms into a single arm parameterized by a `[Union]` case or `SmartEnum<T>` entry carrying the varying field as data. The "varying part" becomes a payload field on the case, NOT a new file, NOT a new helper, NOT a deletion. File proliferation, helper extraction, and functionality removal are always code smells. The fix is more polymorphism in the same surface, never less code.
 
 ---
 ## [2][QUICK_REFERENCE]
@@ -180,3 +190,5 @@ public readonly record struct UserId<TState> {
 |  [18]   | DENSITY_OVER_VOLUME      | Repetitive arms, brute-force inline    | Fold algebra / `K<F,A>` generic pipeline                     |
 |  [19]   | PHANTOM_BYPASS           | Public ctor on phantom-parameterized   | Private ctor + `internal UnsafeWrap` factory                 |
 |  [20]   | DUAL_CANONICAL_SHAPE     | Two encodings for same domain concept  | One encoding per concept per bounded context                 |
+|  [21]   | FILE_EXTRACTION_REFLEX   | Splitting one module into many files when concept density fires | Collapse cases into one [Union]/SmartEnum + fold; densify in place |
+|  [22]   | LEGACY_SHIM              | [Obsolete] / Adapt* / *Backcompat surfaces | Break the API, update all call sites in the same change |

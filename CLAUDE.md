@@ -65,6 +65,10 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - [NEVER] Split one concern across parallel names, objects, services, or error rails.
 - [NEVER] Add comments describing "what"; reserve comments for "why", boundary exceptions, and non-obvious invariants.
 - [NEVER] Add new code before searching for existing canonical shapes, vocabularies, services, and policies to extend.
+- [NEVER] Extract code to new files to reduce LOC. Densify in place through polymorphism, fold algebras, table-driven dispatch.
+- [NEVER] Add shims, adapters, legacy aliases, `[Obsolete]` wrappers, or backwards-compat surfaces. Break APIs freely when collapse improves the system.
+- [NEVER] Treat ~350 LOC or any specific byte-count as a refactor trigger. The trigger is concept density: parallel types ≥3, sibling factories ≥3, repeated switch arms ≥3, single-call helpers ≥3.
+- [NEVER] Delete functionality to satisfy a "density" or "LOC" signal. Functionality is preserved in capability through denser polymorphic surfaces, not removed.
 
 [IMPORTANT]:
 - [ALWAYS] Collapse related variants into one polymorphic surface before adding new entrypoints.
@@ -89,6 +93,31 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 3. [ALWAYS] **Reference**: `"dependencies": { "my-dep": "catalog:" }`.
 4. [ALWAYS] **Install**: `pnpm install`.
 5. [ALWAYS] **Validate**: `pnpm exec nx run-many -t typecheck`.
+
+### [5.2][QUALITY_GATES]
+
+[IMPORTANT]:
+1. [ALWAYS] **During iteration** use `bash scripts/check-cs.sh check` — routes changed files to owning projects, fast.
+2. [ALWAYS] **After each discrete phase of work** run `bash scripts/check-cs.sh check` to catch analyzer violations while context is fresh.
+3. [ALWAYS] **Final completion** use `bash scripts/check-cs.sh test` — runs analyzer + format + tests on affected projects.
+4. [NEVER] **Run `full` or `test-full`** unless trigger files (`Directory.Build.props`, `.editorconfig`, `*.csproj`, `Workspace.slnx`) were modified — these rebuild the entire solution.
+5. [ALWAYS] **Trust the analyzer**: 50+ CSP rules (`tools/cs-analyzer/Kernel/RuleCatalog.cs`) enforce coding-csharp standards. When CSP#### fires, fix the architecture; do not suppress.
+
+Reference: `scripts/check-cs.sh` MODE_SPEC routes are `check` (changed/check), `full` (full/check), `test` (changed/test), `test-full` (full/test).
+
+### [5.3][PLAN_DISCIPLINE]
+
+[IMPORTANT]:
+- [ALWAYS] Plans are documents, not narratives. Maximum 1-2 screen pages.
+- [ALWAYS] Structure: Context (1 sentence on why), Critical files (paths + line numbers), Approach (3-5 bullets), Verification (1-2 commands). Nothing else.
+- [NEVER] Include "Phase 1...Phase N" workflow narration, alternatives considered, or implementation prose. The plan is the recommendation, not a journal.
+- [ALWAYS] If a plan exceeds the page limit, that is signal to collapse the problem, not expand the prose.
+
+### [5.4][SURFACE_PREFERENCE]
+
+[IMPORTANT]:
+- [ALWAYS] Prefer FEWER deep, complex surfaces over MANY loose, simple ones. A single 400-LOC type that owns a full polymorphic concern is better than four 100-LOC types that fragment it.
+- [ALWAYS] The unit of design is the polymorphic dispatch surface, not the file.
 
 ---
 ## [6][FILE_ORGANIZATION]
