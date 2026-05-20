@@ -1,4 +1,5 @@
 using Foundation.CSharp.Analyzers.Contracts;
+using Rasm.Vectors;
 
 namespace Rasm.Analysis;
 
@@ -21,6 +22,7 @@ public sealed partial class ConformanceMetric {
         target == typeof(Plane) || target == typeof(Sphere) || target == typeof(Box) || target == typeof(BoundingBox)
         || (IsContainment && (target == typeof(Brep) || target == typeof(Mesh)))
         || (Equals(SignedResidual) && typeof(Brep).IsAssignableFrom(target))
+        || (!IsSigned && !IsContainment && GeometryKernel.CanClosest(type: target))
         || (curveSource && (target == typeof(Line) || target == typeof(Circle) || target == typeof(Arc) || target == typeof(Polyline) || GeometryKernel.CanCurveForm(type: target)))
         || GeometryKernel.CanSurfaceForm(type: target);
     internal Requirement TargetRequirement(Kind kind) =>
@@ -86,10 +88,10 @@ public sealed record Conformance {
             (object curveLike, object targetCurveLike) when GeometryKernel.CanCurveForm(type: curveLike.GetType()) && GeometryKernel.CanCurveForm(type: targetCurveLike.GetType()) => CurveCurveSamples(aspect, curveLike, targetCurveLike, context),
             (object curveLike, _) when GeometryKernel.CanCurveForm(type: curveLike.GetType()) =>
                 GeometryKernel.CurveForm(source: curveLike, op: Key).Bind(lease => lease.Use(curve =>
-                    SampleResiduals(curve, target, aspect.Count, context, sampler: GeometryKernel.SamplePoints, distance: (t, pt) => DistanceFor(metric: aspect.Metric, target: t, point: pt, tolerance: context.Absolute.Value)))),
+                    SampleResiduals(curve, target, aspect.Count, context, sampler: GeometryKernel.SamplePoints, distance: (t, pt, model) => DistanceFor(metric: aspect.Metric, target: t, point: pt, context: model)))),
             (object surfaceLike, _) when GeometryKernel.CanSurfaceForm(type: surfaceLike.GetType()) =>
                 GeometryKernel.SurfaceForm(source: surfaceLike, op: Key).Bind(lease => lease.Use(surface =>
-                    SampleResiduals(surface, target, aspect.Count, context, GeometryKernel.SamplePoints, distance: (t, pt) => DistanceFor(metric: aspect.Metric, target: t, point: pt, tolerance: context.Absolute.Value)))),
+                    SampleResiduals(surface, target, aspect.Count, context, GeometryKernel.SamplePoints, distance: (t, pt, model) => DistanceFor(metric: aspect.Metric, target: t, point: pt, context: model)))),
             _ => Fin.Fail<Seq<ResidualSample>>(Key.Unsupported(typeof(TGeometry), typeof(ResidualSample))),
         };
     private static Fin<Seq<ResidualSample>> CurveCurveSamples(Conformance aspect, object curveLike, object targetCurveLike, Context context) =>
@@ -98,12 +100,12 @@ public sealed record Conformance {
                 .Bind(rightLease => leftLease.Use(left => rightLease.Use(right => aspect.Metric.ExactCurveDeviation switch {
                     true => Analyze.CurveDeviationOf(left: left, right: right, context: context, op: Key)
                         .Map(static d => Seq(new ResidualSample(Index: 0, Location: d.MaximumA, Distance: d.MaximumDistance, Tolerance: d.Tolerance, WithinTolerance: d.WithinTolerance))),
-                    false => SampleResiduals(left, right, aspect.Count, context, sampler: GeometryKernel.SamplePoints, distance: static (c, pt) => c.ClosestPoint(testPoint: pt, t: out double t) ? Fin.Succ(pt.DistanceTo(c.PointAt(t: t))) : Fin.Fail<double>(Key.InvalidResult())),
+                    false => SampleResiduals(left, right, aspect.Count, context, sampler: GeometryKernel.SamplePoints, distance: (c, pt, model) => DistanceFor(metric: aspect.Metric, target: c, point: pt, context: model)),
                 }))));
-    private static Fin<Seq<ResidualSample>> SampleResiduals<TGeometry, TPrimitive>(TGeometry geometry, TPrimitive primitive, int count, Context context, Func<TGeometry, int, Context, Op, Fin<Seq<Point3d>>> sampler, Func<TPrimitive, Point3d, Fin<double>> distance) where TGeometry : notnull where TPrimitive : notnull =>
+    private static Fin<Seq<ResidualSample>> SampleResiduals<TGeometry, TPrimitive>(TGeometry geometry, TPrimitive primitive, int count, Context context, Func<TGeometry, int, Context, Op, Fin<Seq<Point3d>>> sampler, Func<TPrimitive, Point3d, Context, Fin<double>> distance) where TGeometry : notnull where TPrimitive : notnull =>
         sampler(arg1: geometry, arg2: count, arg3: context, arg4: Key)
-            .Bind(points => points.Map((p, i) => distance(arg1: primitive, arg2: p).Map(d => new ResidualSample(i, p, d, context.Absolute.Value, Math.Abs(d) <= context.Absolute.Value))).TraverseM(identity).As());
-    private static Fin<double> DistanceFor(ConformanceMetric metric, object target, Point3d point, double tolerance) =>
+            .Bind(points => points.Map((p, i) => distance(arg1: primitive, arg2: p, arg3: context).Map(d => new ResidualSample(i, p, d, context.Absolute.Value, Math.Abs(d) <= context.Absolute.Value))).TraverseM(identity).As());
+    private static Fin<double> DistanceFor(ConformanceMetric metric, object target, Point3d point, Context context) =>
         (metric, target) switch {
             (ConformanceMetric m, Plane plane) when m.IsSigned => Fin.Succ(plane.DistanceTo(testPoint: point)),
             (ConformanceMetric m, Sphere sphere) when m.IsSigned => Fin.Succ(point.DistanceTo(sphere.Center) - sphere.Radius),
@@ -111,17 +113,17 @@ public sealed record Conformance {
             (ConformanceMetric m, BoundingBox bbox) when m.IsSigned => Fin.Succ((bbox.Contains(point) ? -1.0 : 1.0) * point.DistanceTo(bbox.ClosestPoint(point, false))),
             (ConformanceMetric m, Brep { IsSolid: true } brep) when m.IsContainment => GeometryKernel.ClosestOf(geometry: brep, target: point, key: Key)
                 .Bind(hit => hit.Distance.ToFin(Fail: Key.InvalidResult()))
-                .Map(distance => (brep.IsPointInside(point, tolerance, false) ? -1.0 : 1.0) * distance),
+                .Map(distance => (brep.IsPointInside(point, context.Absolute.Value, false) ? -1.0 : 1.0) * distance),
             (ConformanceMetric m, Brep brep) when m.IsSigned => GeometryKernel.ClosestOf(geometry: brep, target: point, key: Key).Bind(hit => hit.SignedDistanceFrom(sample: point, key: Key)),
             (ConformanceMetric m, Mesh mesh) when m.IsContainment => GeometryKernel.ClosestOf(geometry: mesh, target: point, key: Key)
                 .Bind(hit => mesh.IsSolid switch {
-                    true => hit.Distance.ToFin(Fail: Key.InvalidResult()).Map(distance => (mesh.IsPointInside(point, tolerance, false) ? -1.0 : 1.0) * distance),
+                    true => hit.Distance.ToFin(Fail: Key.InvalidResult()).Map(distance => (mesh.IsPointInside(point, context.Absolute.Value, false) ? -1.0 : 1.0) * distance),
                     false => hit.SignedDistanceFrom(sample: point, key: Key),
                 }),
             (ConformanceMetric m, object surfaceLike) when m.IsSigned && GeometryKernel.CanSurfaceForm(type: surfaceLike.GetType()) =>
                 GeometryKernel.SurfaceForm(source: surfaceLike, op: Key).Bind(lease => lease.Use(surface => GeometryKernel.ClosestOf(geometry: surface, target: point, key: Key).Bind(hit => hit.SignedDistanceFrom(sample: point, key: Key)))),
-            (_, object surfaceLike) when GeometryKernel.CanSurfaceForm(type: surfaceLike.GetType()) => GeometryKernel.SurfaceForm(source: surfaceLike, op: Key).Bind(lease => lease.Use(surface => GeometryKernel.ClosestOf(geometry: surface, target: point, key: Key).Bind(hit => hit.Distance.ToFin(Fail: Key.InvalidResult())))),
-            _ => GeometryKernel.ClosestOf(geometry: target, target: point, key: Key).Bind(hit => hit.Distance.ToFin(Fail: Key.InvalidResult())),
+            _ => SupportSpace.Of(value: target, key: Key)
+                .Bind(space => Vector.Project<double>(intent: VectorIntent.Support(space: space, sample: point, projection: SupportProjection.Distance), context: context)),
         };
 }
 

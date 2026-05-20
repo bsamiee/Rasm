@@ -25,6 +25,15 @@ public readonly partial struct VectorAngle {
             : new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"VectorAngle must be in [0,2*pi] radians (got {value:R})."));
 }
 
+[ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+public readonly partial struct PositiveMagnitude {
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
+        validationError = RhinoMath.IsValidDouble(x: value) && value > RhinoMath.ZeroTolerance
+            ? null
+            : new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"PositiveMagnitude requires a positive finite value (got {value:R})."));
+}
+
 [BoundaryAdapter, SmartEnum<int>]
 public sealed partial class BoundarySense {
     public static readonly BoundarySense Toward = new(key: 1, sign: 1.0), Away = new(key: -1, sign: -1.0);
@@ -53,11 +62,10 @@ public sealed partial class VectorRelation {
         Op op = key ?? Op.Of(name: nameof(VectorRelation));
         return from left in Direction.Of(value: a, tolerance: RhinoMath.ZeroTolerance, key: op)
                from right in Direction.Of(value: b, tolerance: RhinoMath.ZeroTolerance, key: op)
-               from angle in Vector3d.VectorAngle(a: left.Value, b: right.Value).TryCreateValidated<VectorAngle>().ToFin()
-               select angle.Value switch {
-                   double value when value <= tolerance => Parallel,
-                   double value when Math.Abs(value: Math.PI - value) <= tolerance => AntiParallel,
-                   double value when Math.Abs(value: (Math.PI * 0.5) - value) <= tolerance => Perpendicular,
+               select (left.Value.IsParallelTo(other: right.Value, angleTolerance: tolerance), left.Value.IsPerpendicularTo(other: right.Value, angleTolerance: tolerance)) switch {
+                   (1, _) => Parallel,
+                   (-1, _) => AntiParallel,
+                   (_, true) => Perpendicular,
                    _ => Oblique,
                };
     }
@@ -70,20 +78,18 @@ public readonly record struct Direction {
     public static Fin<Direction> Of(Vector3d value, Context context, Op? key = null) =>
         Optional(context).ToFin((key ?? Op.Of(name: nameof(Direction))).MissingContext())
             .Bind(model => Of(value: value, tolerance: model.Absolute.Value, key: key));
-    internal static Fin<Direction> Of(Vector3d value, double tolerance, Op? key = null) =>
-        Unitized(value: value, tolerance: tolerance, op: key ?? Op.Of(name: nameof(Direction)));
-    public static Direction operator -(Direction direction) => new(value: -direction.Value);
-    public static Vector3d operator *(Direction direction, double magnitude) => direction.Value * magnitude;
-    public static Direction Negate(Direction direction) => -direction;
-    public static Vector3d Multiply(Direction direction, double magnitude) => direction * magnitude;
-    [BoundaryAdapter]
-    private static Fin<Direction> Unitized(Vector3d value, double tolerance, Op op) {
+    internal static Fin<Direction> Of(Vector3d value, double tolerance, Op? key = null) {
+        Op op = key ?? Op.Of(name: nameof(Direction));
         Vector3d candidate = value;
         return (candidate.IsValid, candidate.IsTiny(tolerance), candidate.Unitize(), candidate.IsValid) switch {
             (true, false, true, true) => Fin.Succ(new Direction(value: candidate)),
             _ => Fin.Fail<Direction>(error: new VectorFault.Invalid(Key: op, Requirement: "a valid non-tiny unitizable Vector3d")),
         };
     }
+    public static Direction operator -(Direction direction) => new(value: -direction.Value);
+    public static Vector3d operator *(Direction direction, double magnitude) => direction.Value * magnitude;
+    public static Direction Negate(Direction direction) => -direction;
+    public static Vector3d Multiply(Direction direction, double magnitude) => direction * magnitude;
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -102,17 +108,13 @@ public readonly record struct VectorSpan {
         Op op = key ?? Op.Of(name: nameof(VectorSpan));
         return from point in op.AcceptValue(value: anchor)
                from direction in Rasm.Vectors.Direction.Of(value: vector, context: context, key: op)
-               from magnitude in RhinoMath.IsValidDouble(x: vector.Length) && vector.Length > context.Absolute.Value
-                   ? Fin.Succ(vector.Length)
-                   : Fin.Fail<double>(error: new VectorFault.Invalid(Key: op, Requirement: "positive finite vector magnitude"))
+               from magnitude in vector.Length.TryCreateValidated<PositiveMagnitude>().ToFin()
                select new VectorSpan(anchor: point, direction: direction, magnitude: magnitude);
     }
     internal static Fin<VectorSpan> Of(Point3d anchor, Direction direction, double magnitude, Op key) =>
         (key.AcceptValue(value: anchor),
-         RhinoMath.IsValidDouble(x: magnitude) && magnitude > RhinoMath.ZeroTolerance
-            ? Fin.Succ(magnitude)
-            : Fin.Fail<double>(error: new VectorFault.Invalid(Key: key, Requirement: "positive finite span magnitude")))
-            .Apply((point, length) => new VectorSpan(anchor: point, direction: direction, magnitude: length))
+         magnitude.TryCreateValidated<PositiveMagnitude>().ToFin())
+            .Apply((point, length) => new VectorSpan(anchor: point, direction: direction, magnitude: length.Value))
             .As()
-            .Bind(span => span.Axis.IsValid ? Fin.Succ(span) : Fin.Fail<VectorSpan>(key.InvalidResult()));
+            .Bind(span => guard(span.Axis.IsValid, key.InvalidResult()).Bind(_ => Fin.Succ(span)));
 }

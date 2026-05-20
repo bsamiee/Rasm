@@ -3,8 +3,13 @@ namespace Rasm.Vectors;
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class SupportProjection {
-    public static readonly SupportProjection Closest = new(key: 0), Direction = new(key: 1), Span = new(key: 2), Normal = new(key: 3), Distance = new(key: 4);
-    public static readonly SupportProjection Parameter = new(key: 5), Uv = new(key: 6), Component = new(key: 7), MeshPoint = new(key: 8);
+    public static readonly SupportProjection Closest = new(key: 0, hitOutput: typeof(Point3d), parameterMode: false), Direction = new(key: 1, hitOutput: typeof(void), parameterMode: false), Span = new(key: 2, hitOutput: typeof(void), parameterMode: false), Normal = new(key: 3, hitOutput: typeof(void), parameterMode: false), Distance = new(key: 4, hitOutput: typeof(double), parameterMode: false);
+    public static readonly SupportProjection Parameter = new(key: 5, hitOutput: typeof(double), parameterMode: true), Uv = new(key: 6, hitOutput: typeof(Point2d), parameterMode: false), Component = new(key: 7, hitOutput: typeof(ComponentIndex), parameterMode: false), MeshPoint = new(key: 8, hitOutput: typeof(MeshPoint), parameterMode: false);
+    internal Type HitOutput { get; }
+    internal bool Hit => HitOutput != typeof(void);
+    internal bool ParameterMode { get; }
+    internal bool AcceptsHit(Type output) =>
+        output == HitOutput || (Equals(Closest) && output == typeof(ClosestHit));
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------

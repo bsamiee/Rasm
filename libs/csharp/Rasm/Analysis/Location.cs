@@ -1,3 +1,4 @@
+using Rasm.Vectors;
 using LocationAspect = Rasm.Analysis.Location;
 
 namespace Rasm.Analysis;
@@ -101,7 +102,8 @@ public static partial class Analyze {
                     false => LocationAspect.NormalAtKey.Unsupported<TGeometry, TOut>(),
                 },
             (LocationValue.TangentCase, Locator.CurveParameter or Locator.ArcLength or Locator.NormalizedMid) =>
-                Located<TGeometry, TOut, Curve, Vector3d>(key: LocationAspect.TangentKey, operation: () => CurveLocatedOp<TGeometry, Vector3d>(key: LocationAspect.TangentKey, locator: locator, project: static (curve, parameter, _) => LocationAspect.TangentKey.Accept(value: curve.TangentAt(t: parameter)))),
+                Located<TGeometry, TOut, Curve, Vector3d>(key: LocationAspect.TangentKey, operation: () => CurveLocatedOp<TGeometry, Vector3d>(key: LocationAspect.TangentKey, locator: locator, project: static (curve, parameter, context) =>
+                    Direction.Of(value: curve.TangentAt(t: parameter), context: context, key: LocationAspect.TangentKey).Bind(direction => LocationAspect.TangentKey.Accept(value: direction.Value)))),
             (LocationValue.CurvatureCase, Locator.CurveParameter or Locator.ArcLength or Locator.NormalizedMid) =>
                 Located<TGeometry, TOut, Curve, Vector3d>(key: LocationAspect.CurvatureAtKey, operation: () => CurveLocatedOp<TGeometry, Vector3d>(key: LocationAspect.CurvatureAtKey, locator: locator, project: static (curve, t, _) => LocationAspect.CurvatureAtKey.Accept(value: curve.CurvatureAt(t: t)))),
             (LocationValue.CurvatureCase, Locator.SurfaceParameter sp) =>

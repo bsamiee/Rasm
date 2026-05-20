@@ -64,15 +64,11 @@ public static class Vector {
         hit.Project<TOut>(key: key, parameterMode: parameterMode).Bind(values => values.Head.ToFin(key.InvalidResult()));
     private static Fin<TOut> ProjectSupport<TOut>(SupportProjection projection, ClosestHit hit, Point3d sample, Context context, Op key) =>
         projection switch {
-            SupportProjection p when p.Equals(SupportProjection.Closest) => ProjectHit<TOut>(hit: hit, key: key),
+            SupportProjection p when p.Hit && p.AcceptsHit(output: typeof(TOut)) => ProjectHit<TOut>(hit: hit, key: key, parameterMode: p.ParameterMode),
+            SupportProjection p when p.Hit => Fin.Fail<TOut>(error: new VectorFault.Unsupported(Key: key, Source: projection.GetType(), Output: typeof(TOut))),
             SupportProjection p when p.Equals(SupportProjection.Direction) => Direction.Of(value: hit.Point - sample, context: context, key: key).Bind(direction => ProjectDirection<TOut>(direction: direction, key: key)),
             SupportProjection p when p.Equals(SupportProjection.Span) => VectorSpan.Of(anchor: sample, vector: hit.Point - sample, context: context, key: key).Bind(span => ProjectSpan<TOut>(span: span, key: key)),
             SupportProjection p when p.Equals(SupportProjection.Normal) => hit.Normal.ToFin(Fail: key.InvalidResult()).Bind(normal => Direction.Of(value: normal, context: context, key: key)).Bind(direction => ProjectDirection<TOut>(direction: direction, key: key)),
-            SupportProjection p when p.Equals(SupportProjection.Distance) => ProjectHit<TOut>(hit: hit, key: key),
-            SupportProjection p when p.Equals(SupportProjection.Parameter) => ProjectHit<TOut>(hit: hit, key: key, parameterMode: true),
-            SupportProjection p when p.Equals(SupportProjection.Uv) => ProjectHit<TOut>(hit: hit, key: key),
-            SupportProjection p when p.Equals(SupportProjection.Component) => ProjectHit<TOut>(hit: hit, key: key),
-            SupportProjection p when p.Equals(SupportProjection.MeshPoint) => ProjectHit<TOut>(hit: hit, key: key),
             _ => Fin.Fail<TOut>(error: new VectorFault.Unsupported(Key: key, Source: projection.GetType(), Output: typeof(TOut))),
         };
 }

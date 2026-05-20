@@ -244,8 +244,9 @@ internal static class GeometryKernel {
     internal static bool CanDecomposeFaces(Type type) => typeof(BrepFace).IsAssignableFrom(c: type) || Can(type: type, predicate: static kind => kind.CanCoerceTo(target: typeof(Brep)));
     internal static bool CanEvaluateTopology(Type type) => typeof(Mesh).IsAssignableFrom(c: type) || typeof(Brep).IsAssignableFrom(c: type) || Can(type: type, predicate: static kind => kind.Topology == Topology.Mesh || kind.Topology == Topology.Brep || kind.CanCoerceTo(target: typeof(Brep)));
     internal static bool CanEvaluateSolidTopology(Type type) => typeof(Mesh).IsAssignableFrom(c: type) || typeof(Brep).IsAssignableFrom(c: type) || Can(type: type, predicate: static kind => kind.Topology == Topology.Mesh || kind.Topology == Topology.Brep || kind.Type == typeof(Box) || kind.Type == typeof(BoundingBox) || kind.Topology == Topology.Extrusion || kind.Topology == Topology.SubD);
-    internal static bool CanClosest(Type type) => Universal(type: type) || typeof(Brep).IsAssignableFrom(type) || typeof(Mesh).IsAssignableFrom(type) || type == typeof(Box) || type == typeof(BoundingBox) || CanCurveForm(type: type) || CanSurfaceForm(type: type);
-    internal static bool CanClosestNormal(Type type) => Universal(type: type) || type == typeof(Plane) || typeof(Surface).IsAssignableFrom(c: type) || typeof(BrepFace).IsAssignableFrom(c: type) || typeof(Brep).IsAssignableFrom(c: type) || typeof(Mesh).IsAssignableFrom(c: type);
+    internal static bool CanClosest(Type type) =>
+        Universal(type: type) || type == typeof(Point3d) || type == typeof(Point) || typeof(PointCloud).IsAssignableFrom(type) || typeof(Brep).IsAssignableFrom(type) || typeof(Mesh).IsAssignableFrom(type) || type == typeof(Box) || type == typeof(BoundingBox) || CanCurveForm(type: type) || CanSurfaceForm(type: type);
+    internal static bool CanClosestNormal(Type type) => Universal(type: type) || type == typeof(Plane) || typeof(PointCloud).IsAssignableFrom(c: type) || typeof(Surface).IsAssignableFrom(c: type) || typeof(BrepFace).IsAssignableFrom(c: type) || typeof(Brep).IsAssignableFrom(c: type) || typeof(Mesh).IsAssignableFrom(c: type);
     internal static bool CanReadVertices(Type type) => Can(type: type, predicate: static kind => kind.CanReadVertices);
     internal static bool CanSamplePoints(Type type) => CanCurveForm(type: type) || CanSurfaceForm(type: type) || CanReadVertices(type: type);
     public static Fin<Kind> KindOf(this object geometry, Context context) {
@@ -429,6 +430,19 @@ internal static class GeometryKernel {
         from _ in guard(target.IsValid, key.InvalidInput())
         from g in Optional(geometry).ToFin(key.InvalidInput())
         from hit in g switch {
+            Point3d point when point.IsValid => Fin.Succ(ClosestHit.At(target: target, point: point)),
+            Point { IsValid: true } point => Fin.Succ(ClosestHit.At(target: target, point: point.Location)),
+            PointCloud { IsValid: true } cloud => cloud.ClosestPoint(testPoint: target) switch {
+                int index when index >= 0 && index < cloud.Count => Fin.Succ(ClosestHit.At(
+                    target: target,
+                    point: cloud.PointAt(index: index),
+                    normal: cloud[index].Normal switch {
+                        Vector3d normal when normal.IsValid && !normal.IsTiny() => Some(normal),
+                        _ => Option<Vector3d>.None,
+                    },
+                    component: Some(new ComponentIndex(ComponentIndexType.PointCloudPoint, index)))),
+                _ => Fin.Fail<ClosestHit>(key.InvalidResult()),
+            },
             Line line => Fin.Succ(ClosestHit.At(target: target, point: line.ClosestPoint(testPoint: target, limitToFiniteSegment: true), parameter: Some(Math.Clamp(line.ClosestParameter(testPoint: target), 0.0, 1.0)))),
             Polyline polyline => Fin.Succ(ClosestHit.At(target: target, point: polyline.ClosestPoint(testPoint: target), parameter: Some(polyline.ClosestParameter(testPoint: target)))),
             Plane plane when plane.ClosestParameter(testPoint: target, s: out double s, t: out double t) => Fin.Succ(ClosestHit.At(target: target, point: plane.PointAt(u: s, v: t), uv: Some(new Point2d(x: s, y: t)), normal: Some(plane.Normal))),

@@ -30,36 +30,34 @@ public sealed partial class FieldBlend {
 // --- [MODELS] -----------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct RayPolicy {
-    private RayPolicy(BoundarySense sense, Option<double> length) {
+    private RayPolicy(BoundarySense sense, Option<PositiveMagnitude> length) {
         Sense = sense;
         Length = length;
     }
     public BoundarySense Sense { get; }
-    public Option<double> Length { get; }
-    public static RayPolicy Forward => new(sense: BoundarySense.Toward, length: Option<double>.None);
-    public static RayPolicy Reverse => new(sense: BoundarySense.Away, length: Option<double>.None);
+    public Option<PositiveMagnitude> Length { get; }
+    public static RayPolicy Forward => new(sense: BoundarySense.Toward, length: Option<PositiveMagnitude>.None);
+    public static RayPolicy Reverse => new(sense: BoundarySense.Away, length: Option<PositiveMagnitude>.None);
     public static Fin<RayPolicy> Segment(double length, BoundarySense? sense = null, Op? key = null) =>
-        (RhinoMath.IsValidDouble(x: length), length > RhinoMath.ZeroTolerance, key ?? Op.Of(name: nameof(RayPolicy))) switch {
-            (true, true, Op op) => Fin.Succ(new RayPolicy(sense: sense ?? BoundarySense.Toward, length: Some(length))),
-            (_, _, Op op) => Fin.Fail<RayPolicy>(error: new VectorFault.Invalid(Key: op, Requirement: "positive finite ray segment length")),
-        };
+        length.TryCreateValidated<PositiveMagnitude>().ToFin()
+            .Map(span => new RayPolicy(sense: sense ?? BoundarySense.Toward, length: Some(span)));
     internal Fin<Ray3d> Ray(Point3d origin, Direction direction, Op key) {
         Vector3d vector = direction.Value * Sense.Sign;
         return key.AcceptValue(value: origin).Map(point => new Ray3d(position: point, direction: vector));
     }
     internal Fin<Line> Line(Point3d origin, Direction direction, Op key) {
-        Option<double> length = Length;
+        Option<PositiveMagnitude> length = Length;
         Vector3d vector = direction.Value * Sense.Sign;
         return from span in length.ToFin(Fail: new VectorFault.Invalid(Key: key, Requirement: "finite ray segment length"))
                from point in key.AcceptValue(value: origin)
-               from line in key.AcceptValue(value: new Line(start: point, direction: vector, length: span))
+               from line in key.AcceptValue(value: new Line(start: point, direction: vector, length: span.Value))
                select line;
     }
     internal Fin<VectorSpan> Span(Point3d origin, Direction direction, Context context, Op key) {
-        Option<double> length = Length;
+        Option<PositiveMagnitude> length = Length;
         Vector3d vector = direction.Value * Sense.Sign;
         return from span in length.ToFin(Fail: new VectorFault.Invalid(Key: key, Requirement: "finite ray segment length"))
-               from value in VectorSpan.Of(anchor: origin, vector: vector * span, context: context, key: key)
+               from value in VectorSpan.Of(anchor: origin, vector: vector * span.Value, context: context, key: key)
                select value;
     }
 }
@@ -67,14 +65,17 @@ public readonly record struct RayPolicy {
 [Union]
 public partial record VectorField {
     public sealed record ConstantCase(Vector3d Value) : VectorField;
-    public sealed record InfluenceCase(SupportSpace Source, Falloff Falloff, BoundarySense Sense) : VectorField;
+    public sealed record InfluenceCase(SupportSpace Source, Falloff Falloff, BoundarySense Sense, Option<PositiveMagnitude> Radius) : VectorField;
     public sealed record NormalCase(SupportSpace Source, BoundarySense Sense) : VectorField;
     public sealed record BlendCase(Seq<VectorField> Fields, FieldBlend Mode) : VectorField;
     public static VectorField Constant(Vector3d value) => new ConstantCase(Value: value);
     public static VectorField Influence(SupportSpace source, Falloff? falloff = null, BoundarySense? sense = null) =>
-        new InfluenceCase(Source: source, Falloff: falloff ?? Falloff.Inverse, Sense: sense ?? BoundarySense.Toward);
+        new InfluenceCase(Source: source, Falloff: falloff ?? Falloff.Inverse, Sense: sense ?? BoundarySense.Toward, Radius: Option<PositiveMagnitude>.None);
     public static VectorField Normal(SupportSpace source, BoundarySense? sense = null) =>
         new NormalCase(Source: source, Sense: sense ?? BoundarySense.Toward);
+    public static Fin<VectorField> Shell(SupportSpace source, double radius, Falloff? falloff = null, BoundarySense? sense = null) =>
+        radius.TryCreateValidated<PositiveMagnitude>().ToFin()
+            .Map(value => (VectorField)new InfluenceCase(Source: source, Falloff: falloff ?? Falloff.Constant, Sense: sense ?? BoundarySense.Toward, Radius: Some(value)));
     public static VectorField Blend(Seq<VectorField> fields, FieldBlend? blend = null) =>
         new BlendCase(Fields: fields, Mode: blend ?? FieldBlend.Sum);
     internal Fin<VectorSpan> Sample(Point3d sample, Context context, Op? key = null) {
@@ -83,9 +84,11 @@ public partial record VectorField {
             ConstantCase c => VectorSpan.Of(anchor: sample, vector: c.Value, context: context, key: op),
             InfluenceCase c => from hit in c.Source.Closest(sample: sample, key: op)
                                from distance in hit.Distance.ToFin(Fail: op.InvalidResult())
-                               from weight in c.Falloff.Weight(distance: distance, key: op)
-                               from direction in Direction.Of(value: c.Sense.Sign * (hit.Point - sample), context: context, key: op)
-                               from span in VectorSpan.Of(anchor: sample, direction: direction, magnitude: weight, key: op)
+                               let residual = c.Radius.Map(radius => Math.Abs(distance - radius.Value)).IfNone(distance)
+                               let shellSign = c.Radius.Map(radius => distance >= radius.Value ? 1.0 : -1.0).IfNone(1.0)
+                               from weight in c.Falloff.Weight(distance: residual, key: op)
+                               from direction in Direction.Of(value: c.Sense.Sign * shellSign * (hit.Point - sample), context: context, key: op)
+                               from span in VectorSpan.Of(anchor: sample, direction: direction, magnitude: c.Radius.IsSome ? residual * weight : weight, key: op)
                                select span,
             NormalCase c => from hit in c.Source.Closest(sample: sample, key: op)
                             from normal in hit.Normal.ToFin(Fail: op.InvalidResult())
