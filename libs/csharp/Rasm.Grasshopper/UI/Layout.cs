@@ -29,7 +29,12 @@ public partial record LayoutArrangement {
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct LayoutSnapshot(Guid ObjectId, PointF Pivot, RectangleF Bounds, RectangleF AggregateBounds, bool Snappable);
+public readonly record struct LayoutSnapshot(Guid ObjectId, PointF Pivot, RectangleF Bounds, RectangleF AggregateBounds, bool Snappable) {
+    public SizeF Size => new(width: Bounds.Width, height: Bounds.Height);
+    public SizeF AggregateSize => new(width: AggregateBounds.Width, height: AggregateBounds.Height);
+    public PointF Centre => new(x: Bounds.X + (Bounds.Width / 2f), y: Bounds.Y + (Bounds.Height / 2f));
+    public PointF AggregateCentre => new(x: AggregateBounds.X + (AggregateBounds.Width / 2f), y: AggregateBounds.Y + (AggregateBounds.Height / 2f));
+}
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct SnappingSnapshot(float Dx, float Dy, string XLabel, string YLabel);
@@ -59,12 +64,10 @@ public partial record SnapProbe {
 public partial record LayoutOp {
     private LayoutOp() { }
     public sealed record SnapshotCase(Seq<Guid> Ids) : LayoutOp;
-    public sealed record MeasureCase(Seq<Guid> Ids) : LayoutOp;
     public sealed record ArrangeCase(LayoutArrangement Arrangement) : LayoutOp;
     public sealed record SnapCase(SnapProbe Probe) : LayoutOp;
 
     public static LayoutOp Snapshot(params Guid[] ids) => new SnapshotCase(Ids: toSeq(ids));
-    public static LayoutOp Measure(params Guid[] ids) => new MeasureCase(Ids: toSeq(ids));
     public static LayoutOp Arrange(LayoutArrangement arrangement) => new ArrangeCase(Arrangement: arrangement);
     public static LayoutOp Snap(SnapProbe probe) => new SnapCase(Probe: probe);
 }
@@ -93,7 +96,6 @@ internal static partial class Layout {
     internal static GrasshopperUiIntent<LayoutResult> Dispatch(LayoutOp op) =>
         op switch {
             LayoutOp.SnapshotCase snapshot => Snapshots(ids: snapshot.Ids),
-            LayoutOp.MeasureCase measure => Snapshots(ids: measure.Ids),
             LayoutOp.ArrangeCase a => Arrange(arrangement: a.Arrangement).Map(delta => (LayoutResult)new LayoutResult.MutationResult(Delta: delta)),
             LayoutOp.SnapCase s => Snap(probe: s.Probe).Map(snap => (LayoutResult)new LayoutResult.SnapResult(Snapshot: snap)),
             _ => GhUi.Document<LayoutResult>(run: _ => Fin.Fail<LayoutResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Dispatch)), detail: "unknown layout op"))),
@@ -287,7 +289,7 @@ internal static partial class Layout {
             .Filter(static value => value.IncludeSelected || value.IncludeUnselected)
             .IfNone(policy with { IncludeSelected = true, IncludeUnselected = true });
 
-    private static Option<SnappingSnapshot> SnapshotOf(Option<SnappingAction> x, Option<SnappingAction> y) =>
+    internal static Option<SnappingSnapshot> SnapshotOf(Option<SnappingAction> x, Option<SnappingAction> y) =>
         Optional((X: x, Y: y))
             .Filter(static snap => snap.X.IsSome || snap.Y.IsSome)
             .Map(static snap => new SnappingSnapshot(

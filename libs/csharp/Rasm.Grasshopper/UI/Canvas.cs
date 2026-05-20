@@ -110,7 +110,46 @@ public readonly record struct CanvasFramePolicy(float Padding = 48f, CanvasNavig
 public readonly record struct CanvasInteractionPolicy(
     bool AllowPan = true, bool AllowZoom = true, bool ShowTilesWhenEmpty = true,
     bool WindowSelectObjects = true, bool WindowSelectWires = true, bool WindowSelectGroups = true,
-    Option<bool> ViewportDragging = default);
+    Option<bool> ViewportDragging = default,
+    Option<CanvasActionPolicy> Actions = default,
+    Option<CanvasProjectionPolicy> Projection = default,
+    bool ClearSnapFeedback = false);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CanvasProjectionPolicy(Option<PointF> Centre = default, Option<float> Zoom = default);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CanvasActionPolicy(
+    Option<bool> AllowDrag = default,
+    Option<bool> AllowWireSelect = default,
+    Option<bool> AllowObjectSelect = default,
+    Option<bool> AllowMakeWire = default,
+    Option<bool> AllowDeleteWire = default,
+    Option<bool> AllowModifyWire = default,
+    Option<bool> AllowMakeObject = default,
+    Option<bool> AllowDeleteObject = default,
+    Option<bool> AllowObjectResponse = default,
+    Option<bool> AllowDropFile = default,
+    Option<bool> AllowWireMenu = default,
+    Option<bool> AllowObjectMenu = default,
+    Option<bool> AllowCanvasMenu = default) {
+    internal Unit Apply(CanvasActions actions) {
+        _ = AllowDrag.Iter(value => actions.AllowDrag = value);
+        _ = AllowWireSelect.Iter(value => actions.AlloWireSelect = value);
+        _ = AllowObjectSelect.Iter(value => actions.AllowObjectSelect = value);
+        _ = AllowMakeWire.Iter(value => actions.AllowMakeWire = value);
+        _ = AllowDeleteWire.Iter(value => actions.AllowDeleteWire = value);
+        _ = AllowModifyWire.Iter(value => actions.AllowModifyWire = value);
+        _ = AllowMakeObject.Iter(value => actions.AllowMakeObject = value);
+        _ = AllowDeleteObject.Iter(value => actions.AllowDeleteObject = value);
+        _ = AllowObjectResponse.Iter(value => actions.AllowObjectResponse = value);
+        _ = AllowDropFile.Iter(value => actions.AllowDropFile = value);
+        _ = AllowWireMenu.Iter(value => actions.AllowWireMenu = value);
+        _ = AllowObjectMenu.Iter(value => actions.AllowObjectMenu = value);
+        _ = AllowCanvasMenu.Iter(value => actions.AllowCanvasMenu = value);
+        return unit;
+    }
+}
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CanvasActionSnapshot(
@@ -246,7 +285,7 @@ internal static partial class UiRail {
                 return (CanvasResult)new CanvasResult.SnapFeedbackResult(Feedback: SnapFeedbackOf(canvas: canvas));
             }),
         CanvasOp.InteractionCase ic =>
-            scope.NeedCanvas().Map(canvas => {
+            scope.NeedCanvas().Bind(canvas => {
                 canvas.AllowPan = ic.Policy.AllowPan;
                 canvas.AllowZoom = ic.Policy.AllowZoom;
                 canvas.ShowTilesWhenEmpty = ic.Policy.ShowTilesWhenEmpty;
@@ -254,7 +293,12 @@ internal static partial class UiRail {
                 canvas.WindowSelectWires = ic.Policy.WindowSelectWires;
                 canvas.WindowSelectGroups = ic.Policy.WindowSelectGroups;
                 _ = ic.Policy.ViewportDragging.Iter(value => canvas.ViewportDragging = value);
-                return (CanvasResult)new CanvasResult.InteractionResult(Effective: ic.Policy);
+                _ = ic.Policy.Actions.Iter(policy => policy.Apply(actions: canvas.AllowedActions));
+                _ = ic.Policy.ClearSnapFeedback ? ClearSnapFeedback(canvas: canvas) : unit;
+                return ic.Policy.Projection.Match(
+                    Some: projection => ApplyProjection(scope: scope, policy: projection)
+                        .Map(_ => (CanvasResult)new CanvasResult.InteractionResult(Effective: ic.Policy)),
+                    None: () => Fin.Succ<CanvasResult>(value: new CanvasResult.InteractionResult(Effective: ic.Policy)));
             }),
         CanvasOp.WindowSelectCase ws =>
             scope.NeedObjects().Bind(objs => scope.NeedCanvas().Bind(canvas => scope.NeedDocument().Map(doc => {
@@ -315,15 +359,22 @@ internal static partial class UiRail {
                     return (CanvasResult)NavigateTo(canvas: canvas, frame: frame, policy: ResolveNavigation(raw: ft.Policy), document: doc, objects: objs);
                 }))),
             CanvasViewOp.ProjectionCase pr =>
-                Optional((pr.Centre, pr.Zoom))
-                    .Filter(static s => float.IsFinite(s.Centre.X) && float.IsFinite(s.Centre.Y) && s.Zoom > 0 && float.IsFinite(s.Zoom))
-                    .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasViewOp.Projection)), detail: "non-finite centre or zoom"))
-                    .Bind(valid => scope.NeedDocument().Bind(doc => scope.NeedObjects().Bind(objs => scope.NeedCanvas().Map(canvas => {
-                        doc.Projection = (valid.Centre, valid.Zoom);
-                        return (CanvasResult)new CanvasResult.SnapshotResult(Snapshot: SnapshotOf(canvas: canvas, document: doc, objects: objs));
-                    })))),
+                from _ in ApplyProjection(scope: scope, policy: new CanvasProjectionPolicy(Centre: Some(pr.Centre), Zoom: Some(pr.Zoom)))
+                from canvas in scope.NeedCanvas()
+                from doc in scope.NeedDocument()
+                from objs in scope.NeedObjects()
+                select (CanvasResult)new CanvasResult.SnapshotResult(Snapshot: SnapshotOf(canvas: canvas, document: doc, objects: objs)),
             _ => Fin.Fail<CanvasResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ViewDispatch)), detail: "unknown CanvasViewOp")),
         };
+
+    private static Fin<Unit> ApplyProjection(GrasshopperUi.Scope scope, CanvasProjectionPolicy policy) =>
+        from document in scope.NeedDocument()
+        let centre = policy.Centre.IfNone(document.Projection.centre)
+        let zoom = policy.Zoom.IfNone(document.Projection.zoom)
+        from valid in Optional((Centre: centre, Zoom: zoom))
+            .Filter(static s => float.IsFinite(s.Centre.X) && float.IsFinite(s.Centre.Y) && s.Zoom > 0 && float.IsFinite(s.Zoom))
+            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasViewOp.Projection)), detail: "non-finite centre or zoom"))
+        select ((Func<Unit>)(() => { document.Projection = (valid.Centre, valid.Zoom); return unit; }))();
 
     private static CanvasNavigationPolicy ResolveNavigation(CanvasNavigationPolicy raw) =>
         raw.MinimumZoom <= 0
@@ -365,15 +416,8 @@ internal static partial class UiRail {
 
     private static CanvasSnapFeedbackSnapshot SnapFeedbackOf(GhCanvas canvas) =>
         new(
-            X: SnapActionOf(action: Optional(canvas.SnapXAction), xAxis: true),
-            Y: SnapActionOf(action: Optional(canvas.SnapYAction), xAxis: false));
-
-    private static Option<SnappingSnapshot> SnapActionOf(Option<SnappingAction> action, bool xAxis) =>
-        action.Map(a => new SnappingSnapshot(
-            Dx: xAxis ? a.ΔX : 0f,
-            Dy: xAxis ? 0f : a.ΔY,
-            XLabel: xAxis ? a.LabelText : string.Empty,
-            YLabel: xAxis ? string.Empty : a.LabelText));
+            X: Layout.SnapshotOf(x: Optional(canvas.SnapXAction), y: Option<SnappingAction>.None),
+            Y: Layout.SnapshotOf(x: Option<SnappingAction>.None, y: Optional(canvas.SnapYAction)));
 
     private static CanvasPickSnapshot PickSnapshotOf(SelectionResult result) =>
         new(Kind: result.Kind, Point: Optional(result.Point),

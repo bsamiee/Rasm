@@ -8,15 +8,7 @@ using XmlDocument = System.Xml.XmlDocument;
 namespace Rasm.Rhino.Camera;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-public enum CameraMouseMove {
-    RotateAroundTarget,
-    RotateCamera,
-    InOutDolly,
-    Magnify,
-    Tilt,
-    DollyZoom,
-    LateralDolly,
-}
+public enum CameraMouseMove { RotateAroundTarget, RotateCamera, InOutDolly, Magnify, Tilt, DollyZoom, LateralDolly, }
 
 // --- [MODELS] -----------------------------------------------------------------------------
 public sealed record CameraOp<T> {

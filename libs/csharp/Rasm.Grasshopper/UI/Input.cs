@@ -252,7 +252,11 @@ public abstract record ToolbarItem {
     }
 }
 
-public readonly record struct ToolbarPlan(Seq<ToolbarItem> Items);
+public readonly record struct CommandPlan(Seq<ToolbarItem> Items) {
+    public static CommandPlan Empty => new(Items: Seq<ToolbarItem>());
+    public static CommandPlan operator +(CommandPlan left, CommandPlan right) => new(Items: left.Items + right.Items);
+    public static CommandPlan Add(CommandPlan left, CommandPlan right) => left + right;
+}
 
 public abstract record InputRequest<T> : GhUiRequest<T> {
     public sealed record Selection(InputSelectionSource Source) : InputRequest<InputSelectionSnapshot> {
@@ -271,11 +275,15 @@ public abstract record InputRequest<T> : GhUiRequest<T> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
         internal override Fin<InputPanelSnapshot> Apply(GrasshopperUi.Scope scope) => Input.PopupPanel(owner: Owner, location: Location, screen: Screen, populate: Populate).Run(scope: scope);
     }
-    public sealed record CommandBar(ToolbarPlan Plan) : InputRequest<ToolbarSnapshot> {
+    public sealed record CommandBar(CommandPlan Plan) : InputRequest<ToolbarSnapshot> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
         internal override Fin<ToolbarSnapshot> Apply(GrasshopperUi.Scope scope) => Input.Toolbar(plan: Plan).Run(scope: scope);
     }
-    public sealed record Menu(ToolbarPlan Plan) : InputRequest<MenuSnapshot> {
+    public sealed record CommandPanel(CommandPlan Plan) : InputRequest<InputPanelSnapshot> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
+        internal override Fin<InputPanelSnapshot> Apply(GrasshopperUi.Scope scope) => Input.Panel(plan: Plan).Run(scope: scope);
+    }
+    public sealed record Menu(CommandPlan Plan) : InputRequest<MenuSnapshot> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
         internal override Fin<MenuSnapshot> Apply(GrasshopperUi.Scope scope) => Input.Menu(plan: Plan).Run(scope: scope);
     }
@@ -357,11 +365,16 @@ internal static partial class Input {
                     });
                 }));
 
-    internal static GrasshopperUiIntent<ToolbarSnapshot> Toolbar(ToolbarPlan plan) =>
+    internal static GrasshopperUiIntent<InputPanelSnapshot> Panel(CommandPlan plan) =>
+        Panel(populate: panel => Try.lift<Bar>(f: () => panel.AddBar(drawCategoryLabels: false)).Run()
+            .MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(Panel)), detail: "InputPanel.AddBar threw"))
+            .Bind(bar => plan.Items.TraverseM(item => item.Apply(surface: UiCommandSurface.Toolbar(bar: bar))).Map(static _ => unit).As()));
+
+    internal static GrasshopperUiIntent<ToolbarSnapshot> Toolbar(CommandPlan plan) =>
         Toolbar(populate: bar =>
             plan.Items.TraverseM(item => item.Apply(surface: UiCommandSurface.Toolbar(bar: bar))).Map(static _ => unit).As());
 
-    internal static GrasshopperUiIntent<MenuSnapshot> Menu(ToolbarPlan plan) =>
+    internal static GrasshopperUiIntent<MenuSnapshot> Menu(CommandPlan plan) =>
         GhUi.Read<MenuSnapshot>(run: _ => {
             using ContextMenu menu = new();
             return plan.Items

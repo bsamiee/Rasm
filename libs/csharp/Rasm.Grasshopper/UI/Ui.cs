@@ -238,6 +238,22 @@ public static class GhUi {
     public static GrasshopperUiIntent<IDisposable> Event(UiEvent uiEvent) =>
         Apply(request: new EventRequest(Event: uiEvent));
 
+    public static GrasshopperUiIntent<T> Group<T>(string verb, string noun, GrasshopperUiIntent<T> body) =>
+        Optional(body).Match(
+            Some: valid => Document<T>(
+                repaint: valid.Policy.RepaintOrNone,
+                run: scope => {
+                    UndoGroup bag = new(verb: verb, noun: noun);
+                    GrasshopperUi.Scope grouped = scope with { UndoGroup = Some(bag) };
+                    return from value in valid.Run(scope: grouped)
+                           from document in scope.NeedDocument()
+                           from committed in bag.Commit(document: document)
+                           select value;
+                }),
+            None: () => Document<T>(
+                run: _ => Fin.Fail<T>(
+                    error: UiFault.InvalidInput(op: Op.Of(name: nameof(Group)), detail: "body is required"))));
+
     internal static GrasshopperUiIntent<T> Read<T>(Func<GrasshopperUi.Scope, Fin<T>> run) =>
         new(run: run, policy: GrasshopperUiPolicy.Read);
 
@@ -386,20 +402,4 @@ public sealed partial record GrasshopperUi {
     private static Eto.Drawing.Rectangle ToIntRect(RectangleF f) =>
         new(x: (int)Math.Floor(f.X), y: (int)Math.Floor(f.Y), width: (int)Math.Ceiling(f.Width), height: (int)Math.Ceiling(f.Height));
 
-}
-
-public static class GrasshopperUiIntentExtensions {
-    public static GrasshopperUiIntent<T> Group<T>(this GrasshopperUiIntent<T> body, string verb, string noun) =>
-        Optional(body).Match(
-            Some: valid => GhUi.Document<T>(
-                repaint: valid.Policy.RepaintOrNone,
-                run: scope => {
-                    UndoGroup bag = new(verb: verb, noun: noun);
-                    GrasshopperUi.Scope grouped = scope with { UndoGroup = Some(bag) };
-                    return from value in valid.Run(scope: grouped)
-                           from document in scope.NeedDocument()
-                           from committed in bag.Commit(document: document)
-                           select value;
-                }),
-            None: () => GhUi.Document<T>(run: _ => Fin.Fail<T>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Group)), detail: "body is required"))));
 }

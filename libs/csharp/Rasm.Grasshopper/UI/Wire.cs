@@ -86,10 +86,6 @@ internal sealed record WireRequest(WireOp Op) : GhUiRequest<WireResult> {
     internal override Fin<WireResult> Apply(GrasshopperUi.Scope scope) => Wire.Dispatch(op: Op).Run(scope: scope);
 }
 
-// --- [SERVICES] ---------------------------------------------------------------------------
-internal static partial class UiRail {
-}
-
 internal static partial class Wire {
     internal static GrasshopperUiPolicy PolicyOf(WireOp op) =>
         GrasshopperUiPolicy.Document(repaint: op switch {
@@ -172,9 +168,8 @@ internal static partial class Wire {
                 .Filter(static count => count >= 0)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Graph)), detail: "maxHops must be non-negative"))
             from objects in scope.NeedObjects()
-            from start in Optional(objects.FindParameter(instanceId: startParameterId))
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Graph)), detail: $"parameter {startParameterId} not found"))
-            select TraverseGraph(objects: objects, start: start, direction: direction, maxHops: hops));
+            from graphObjects in TraverseObjects(objects: objects, startParameterId: startParameterId, direction: direction)
+            select GraphOf(objects: objects, graphObjects: graphObjects, startParameterId: startParameterId, maxHops: hops));
 
     // --- [OPERATIONS] -------------------------------------------------------------------------
     private static Seq<WireSnapshot.ConnectedCase> SafeWires(IEnumerable<WireEnds>? source, GhObjectList objects) =>
@@ -197,6 +192,16 @@ internal static partial class Wire {
         objects.FindParameter(instanceId: wire.Source) is not null
         && objects.FindParameter(instanceId: wire.Target) is { } target
         && target.Inputs.IndexOf(wire.Source) >= 0;
+
+    internal static Fin<Seq<IDocumentObject>> TraverseObjects(GhObjectList objects, Guid startParameterId, WireTraversal direction) =>
+        Optional(objects.FindParameter(instanceId: startParameterId))
+            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(TraverseObjects)), detail: $"parameter {startParameterId} not found"))
+            .Bind(parameter => direction switch {
+                WireTraversal.Upstream => Fin.Succ(value: toSeq(objects.SearchUpstream(parameter: parameter)).Distinct()),
+                WireTraversal.Downstream => Fin.Succ(value: toSeq(objects.SearchDownstream(parameter: parameter)).Distinct()),
+                WireTraversal.Bidirectional => Fin.Succ(value: toSeq(objects.SearchUpstream(parameter: parameter).Concat(objects.SearchDownstream(parameter: parameter))).Distinct()),
+                _ => Fin.Fail<Seq<IDocumentObject>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(WireTraversal)), detail: $"unknown traversal {direction}")),
+            });
 
     private static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> MutateWire(
         Op op,
@@ -236,12 +241,8 @@ internal static partial class Wire {
             Listen: Optional(listen?.InstanceId).Filter(static g => g != Guid.Empty));
     }
 
-    private static WireGraph TraverseGraph(GhObjectList objects, IParameter start, WireTraversal direction, int maxHops) {
-        Seq<Guid> visited = Seq(start.InstanceId) + toSeq((direction switch {
-            WireTraversal.Upstream => objects.SearchUpstream(parameter: start),
-            WireTraversal.Downstream => objects.SearchDownstream(parameter: start),
-            _ => objects.SearchUpstream(parameter: start).Concat(objects.SearchDownstream(parameter: start)),
-        }).OfType<IParameter>().Take(count: maxHops).Select(static parameter => parameter.InstanceId)).Distinct().ToSeq();
+    private static WireGraph GraphOf(GhObjectList objects, Seq<IDocumentObject> graphObjects, Guid startParameterId, int maxHops) {
+        Seq<Guid> visited = (Seq<Guid>(startParameterId) + toSeq(graphObjects.Choose(static obj => Optional(obj as IParameter)).Take(count: maxHops).Select(static parameter => parameter.InstanceId))).Distinct();
         Seq<WireSnapshot.ConnectedCase> wires = SafeWires(source: objects.AllWires, objects: objects)
             .Filter(wire => visited.Exists(id => id == wire.Source) && visited.Exists(id => id == wire.Target));
         return new WireGraph(Wires: wires, Visited: visited);

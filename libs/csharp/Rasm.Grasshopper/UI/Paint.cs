@@ -35,6 +35,17 @@ public readonly record struct PaintScope(
             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Apply)), detail: "draw mark is required"))
             .Bind(valid => valid.Apply(scope: current));
     }
+
+    public Fin<PaintTextMeasurement> MeasureText(string value, UiFont font = null!) {
+        ControlGraphics graphics = Graphics;
+        return Optional(value)
+            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(MeasureText)), detail: "text is required"))
+            .Bind(valid => Try.lift<PaintTextMeasurement>(f: () =>
+                (font ?? UiFont.Empty()).Use(run: resolved => {
+                    SizeF size = graphics.Content.MeasureString(font: resolved, text: valid);
+                    return new PaintTextMeasurement(Text: valid, Size: size);
+                })).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(MeasureText)), detail: error.Message)));
+    }
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -69,6 +80,9 @@ public readonly record struct PaintStyle(
     }
 }
 
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct PaintTextMeasurement(string Text, SizeF Size);
+
 [Union]
 public partial record UiFont {
     private UiFont() { }
@@ -84,13 +98,18 @@ public partial record UiFont {
         new FamilyCase(Name: family, Size: size, Style: style, Decoration: decoration);
     public static UiFont Native(Font value) => new NativeCase(Value: value);
 
-    internal Font Resolve() =>
+    internal T Use<T>(Func<Font, T> run) =>
         this switch {
-            SystemCase system => SystemFonts.Cached(systemFont: system.Kind, size: system.Size, decoration: system.Decoration),
-            FamilyCase family => new Font(family: family.Name, size: family.Size, style: family.Style, decoration: family.Decoration),
-            NativeCase native => native.Value,
-            _ => SystemFonts.Default(),
+            SystemCase system => run(arg: SystemFonts.Cached(systemFont: system.Kind, size: system.Size, decoration: system.Decoration)),
+            FamilyCase family => UseOwned(font: new Font(family: family.Name, size: family.Size, style: family.Style, decoration: family.Decoration), run: run),
+            NativeCase native => run(arg: native.Value),
+            _ => run(arg: SystemFonts.Default()),
         };
+
+    private static T UseOwned<T>(Font font, Func<Font, T> run) {
+        using Font owned = font;
+        return run(arg: owned);
+    }
 }
 
 [Union]
@@ -98,7 +117,9 @@ public partial record DrawMark {
     private DrawMark() { }
     public sealed record LineCase(PointF A, PointF B, PaintStyle Style) : DrawMark;
     public sealed record RectangleCase(RectangleF Bounds, PaintStyle Style) : DrawMark;
+    public sealed record RoundedRectangleCase(RectangleF Bounds, float Radius, PaintStyle Style) : DrawMark;
     public sealed record EllipseCase(RectangleF Bounds, PaintStyle Style) : DrawMark;
+    public sealed record PathCase(IGraphicsPath Geometry, PaintStyle Style) : DrawMark;
     public sealed record TextCase(string Value, RectangleF Frame, PaintStyle Style, FormattedTextWrapMode Wrap, FormattedTextAlignment Alignment, FormattedTextTrimming Trimming) : DrawMark;
     public sealed record ImageCase(Eto.Drawing.Image Value, RectangleF Frame, PaintStyle Style) : DrawMark;
     public sealed record GhIconCase(IIcon Value, RectangleF Frame, PaintStyle Style) : DrawMark;
@@ -108,8 +129,12 @@ public partial record DrawMark {
         new LineCase(A: a, B: b, Style: new PaintStyle(Edge: colour, Thickness: thickness));
     public static DrawMark Rectangle(RectangleF bounds, Color edge, Option<Color> fill = default, float thickness = 1f) =>
         new RectangleCase(Bounds: bounds, Style: new PaintStyle(Edge: edge, Fill: fill, Thickness: thickness));
+    public static DrawMark RoundedRectangle(RectangleF bounds, float radius, Color edge, Option<Color> fill = default, float thickness = 1f) =>
+        new RoundedRectangleCase(Bounds: bounds, Radius: radius, Style: new PaintStyle(Edge: edge, Fill: fill, Thickness: thickness));
     public static DrawMark Ellipse(RectangleF bounds, Color edge, Option<Color> fill = default, float thickness = 1f) =>
         new EllipseCase(Bounds: bounds, Style: new PaintStyle(Edge: edge, Fill: fill, Thickness: thickness));
+    public static DrawMark Path(IGraphicsPath path, Color edge, Option<Color> fill = default, float thickness = 1f) =>
+        new PathCase(Geometry: path, Style: new PaintStyle(Edge: edge, Fill: fill, Thickness: thickness));
     public static DrawMark Label(
         string value,
         RectangleF frame,
@@ -134,29 +159,28 @@ public partial record DrawMark {
                 return unit;
             }),
             RectangleCase rectangle => Draw(scope: scope, style: rectangle.Style, run: graphics => {
-                _ = rectangle.Style.Fill.IfSome(fill => {
-                    using SolidBrush brush = PaintStyle.Brush(color: fill);
-                    graphics.FillRectangle(brush: brush, rectangle: rectangle.Bounds);
-                });
-                using Pen pen = rectangle.Style.Pen();
-                graphics.DrawRectangle(pen: pen, rectangle: rectangle.Bounds);
-                return unit;
+                PaintShape shape = PaintShape.Rectangle(bounds: rectangle.Bounds);
+                return DrawShape(graphics: graphics, style: rectangle.Style, shape: shape);
+            }),
+            RoundedRectangleCase rounded => Draw(scope: scope, style: rounded.Style, run: graphics => {
+                using IGraphicsPath path = GraphicsPath.GetRoundRect(rectangle: rounded.Bounds, radius: rounded.Radius);
+                PaintShape shape = PaintShape.Path(path: path);
+                return DrawShape(graphics: graphics, style: rounded.Style, shape: shape);
             }),
             EllipseCase ellipse => Draw(scope: scope, style: ellipse.Style, run: graphics => {
-                _ = ellipse.Style.Fill.IfSome(fill => {
-                    using SolidBrush brush = PaintStyle.Brush(color: fill);
-                    graphics.FillEllipse(brush: brush, rectangle: ellipse.Bounds);
-                });
-                using Pen pen = ellipse.Style.Pen();
-                graphics.DrawEllipse(pen: pen, rectangle: ellipse.Bounds);
-                return unit;
+                PaintShape shape = PaintShape.Ellipse(bounds: ellipse.Bounds);
+                return DrawShape(graphics: graphics, style: ellipse.Style, shape: shape);
             }),
-            TextCase text => Draw(scope: scope, style: text.Style, run: graphics => {
-                using Font font = (text.Style.Font ?? UiFont.Empty()).Resolve();
-                using SolidBrush brush = PaintStyle.Brush(color: text.Style.Edge);
-                graphics.DrawText(font, brush, text.Frame, text.Value, text.Wrap, text.Alignment, text.Trimming);
-                return unit;
+            PathCase path => Draw(scope: scope, style: path.Style, run: graphics => {
+                PaintShape shape = PaintShape.Path(path: path.Geometry);
+                return DrawShape(graphics: graphics, style: path.Style, shape: shape);
             }),
+            TextCase text => Draw(scope: scope, style: text.Style, run: graphics =>
+                (text.Style.Font ?? UiFont.Empty()).Use(run: font => {
+                    using SolidBrush brush = PaintStyle.Brush(color: text.Style.Edge);
+                    graphics.DrawText(font, brush, text.Frame, text.Value, text.Wrap, text.Alignment, text.Trimming);
+                    return unit;
+                })),
             ImageCase image => Draw(scope: scope, style: image.Style, run: graphics => {
                 graphics.DrawImage(image: image.Value, rectangle: image.Frame);
                 return unit;
@@ -176,6 +200,30 @@ public partial record DrawMark {
         Graphics graphics = scope.Graphics.Content;
         _ = style.Assign(graphics: graphics);
         return run(arg: graphics);
+    }
+
+    private static Unit DrawShape(Graphics graphics, PaintStyle style, PaintShape shape) {
+        _ = style.Fill.IfSome(fill => {
+            using SolidBrush brush = PaintStyle.Brush(color: fill);
+            shape.Fill(graphics, brush);
+        });
+        using Pen pen = style.Pen();
+        shape.Stroke(graphics, pen);
+        return unit;
+    }
+
+    private readonly record struct PaintShape(Action<Graphics, SolidBrush> Fill, Action<Graphics, Pen> Stroke) {
+        internal static PaintShape Rectangle(RectangleF bounds) =>
+            new(Fill: (graphics, brush) => graphics.FillRectangle(brush: brush, rectangle: bounds),
+                Stroke: (graphics, pen) => graphics.DrawRectangle(pen: pen, rectangle: bounds));
+
+        internal static PaintShape Ellipse(RectangleF bounds) =>
+            new(Fill: (graphics, brush) => graphics.FillEllipse(brush: brush, rectangle: bounds),
+                Stroke: (graphics, pen) => graphics.DrawEllipse(pen: pen, rectangle: bounds));
+
+        internal static PaintShape Path(IGraphicsPath path) =>
+            new(Fill: (graphics, brush) => graphics.FillPath(brush: brush, path: path),
+                Stroke: (graphics, pen) => graphics.DrawPath(pen: pen, path: path));
     }
 
     private static Unit DrawWire(PaintScope scope, WireCase wire) {

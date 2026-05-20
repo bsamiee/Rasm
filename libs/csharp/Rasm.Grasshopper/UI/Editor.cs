@@ -13,11 +13,13 @@ public partial record EditorOp {
     private EditorOp() { }
     public sealed record ShowCase(bool Visible, Option<string> Layout) : EditorOp;
     public sealed record StateCase : EditorOp;
+    public sealed record EnsureVisibleCase : EditorOp;
     public sealed record ShellCase(Option<bool> Collapsed, Option<bool> ShowNotes, Option<bool> ShowUndoHistory, Option<string> Layout) : EditorOp;
     public sealed record BeginRhinoGetterCase(Option<RhinoDoc> Document) : EditorOp;
 
     public static EditorOp Show(bool visible = true, string? layout = null) => new ShowCase(Visible: visible, Layout: Optional(layout));
     public static readonly EditorOp State = new StateCase();
+    public static readonly EditorOp EnsureVisible = new EnsureVisibleCase();
     public static EditorOp Shell(Option<bool> collapsed = default, Option<bool> showNotes = default, Option<bool> showUndoHistory = default, Option<string> layout = default) =>
         new ShellCase(Collapsed: collapsed, ShowNotes: showNotes, ShowUndoHistory: showUndoHistory, Layout: layout);
     public static EditorOp BeginRhinoGetter(RhinoDoc? document = null) => new BeginRhinoGetterCase(Document: Optional(document));
@@ -33,7 +35,19 @@ public partial record EditorResult {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-public readonly record struct EditorSnapshot(bool HasEditor, bool HasCanvas, bool HasDocument, bool Collapsed);
+public readonly record struct EditorSnapshot(
+    bool HasEditor,
+    bool HasCanvas,
+    bool HasDocument,
+    bool Collapsed,
+    bool HasStatusBar,
+    bool ShowNotes,
+    bool ShowUndoHistory,
+    string InitialLayout,
+    Seq<string> DefinedLayouts,
+    Option<string> MostRecentActiveDocument,
+    Seq<string> MostRecentLoadedDocuments,
+    int MostRecentCount);
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct EditorShellSnapshot(
@@ -51,6 +65,7 @@ internal sealed record EditorRequest(EditorOp Op) : GhUiRequest<EditorResult> {
         op switch {
             EditorOp.StateCase or EditorOp.BeginRhinoGetterCase => GrasshopperUiPolicy.Read,
             EditorOp.ShowCase show => GrasshopperUiPolicy.Canvas(openEditor: show.Visible),
+            EditorOp.EnsureVisibleCase => GrasshopperUiPolicy.Canvas(openEditor: true),
             EditorOp.ShellCase => GrasshopperUiPolicy.Canvas(openEditor: true),
             _ => GrasshopperUiPolicy.Read,
         };
@@ -61,10 +76,42 @@ internal sealed record EditorRequest(EditorOp Op) : GhUiRequest<EditorResult> {
                 _ = GhEditor.ShowEditor(createVisible: show.Visible, layoutRules: show.Layout.IfNone(string.Empty));
                 return EditorResult.Unit;
             }).Run().MapFail(_ => UiFault.RhinoEditor(detail: nameof(EditorOp.Show))),
+        EditorOp.EnsureVisibleCase =>
+            Try.lift<EditorResult>(f: () => {
+                GhEditor editor = GhEditor.ShowEditor(createVisible: true, layoutRules: string.Empty);
+                _ = typeof(GhEditor)
+                    .GetMethod(name: "EnsureVisible", bindingAttr: System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic)
+                    ?.Invoke(obj: editor, parameters: []);
+                return EditorResult.Unit;
+            }).Run().MapFail(_ => UiFault.RhinoEditor(detail: nameof(EditorOp.EnsureVisible))),
         EditorOp.StateCase =>
             Fin.Succ<EditorResult>(value: new EditorResult.StateResult(Snapshot: GhEditor.Instance switch {
-                GhEditor editor => new EditorSnapshot(HasEditor: true, HasCanvas: editor.Canvas is not null, HasDocument: editor.Canvas?.Document is not null, Collapsed: editor.Collapsed),
-                _ => new EditorSnapshot(HasEditor: false, HasCanvas: false, HasDocument: false, Collapsed: false),
+                GhEditor editor => new EditorSnapshot(
+                    HasEditor: true,
+                    HasCanvas: editor.Canvas is not null,
+                    HasDocument: editor.Canvas?.Document is not null,
+                    Collapsed: editor.Collapsed,
+                    HasStatusBar: editor.StatusBar is not null,
+                    ShowNotes: editor.ShowNotes,
+                    ShowUndoHistory: editor.Canvas?.ShowUndoHistory ?? false,
+                    InitialLayout: GhEditor.InitialLayout,
+                    DefinedLayouts: toSeq(GhEditor.DefinedLayouts),
+                    MostRecentActiveDocument: Optional(editor.MostRecentActiveDocument),
+                    MostRecentLoadedDocuments: toSeq(editor.MostRecentLoadedDocuments),
+                    MostRecentCount: editor.MostRecentCount),
+                _ => new EditorSnapshot(
+                    HasEditor: false,
+                    HasCanvas: false,
+                    HasDocument: false,
+                    Collapsed: false,
+                    HasStatusBar: false,
+                    ShowNotes: false,
+                    ShowUndoHistory: false,
+                    InitialLayout: GhEditor.InitialLayout,
+                    DefinedLayouts: toSeq(GhEditor.DefinedLayouts),
+                    MostRecentActiveDocument: Option<string>.None,
+                    MostRecentLoadedDocuments: Seq<string>(),
+                    MostRecentCount: 0),
             })),
         EditorOp.ShellCase shell =>
             Try.lift<Snapshot<EditorShellSnapshot>>(f: () => {
@@ -89,8 +136,4 @@ internal sealed record EditorRequest(EditorOp Op) : GhUiRequest<EditorResult> {
             select valid,
         _ => Fin.Fail<EditorResult>(error: UiFault.InvalidInput(op: Rasm.Domain.Op.Of(name: nameof(EditorRequest)), detail: "unknown editor op")),
     };
-}
-
-// --- [SERVICES] ---------------------------------------------------------------------------
-internal static partial class UiRail {
 }
