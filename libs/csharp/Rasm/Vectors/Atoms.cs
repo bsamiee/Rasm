@@ -61,10 +61,6 @@ public sealed partial class SignedAxis {
 [SmartEnum<int>]
 public sealed partial class VectorRelation {
     public static readonly VectorRelation Oblique = new(key: 0), Parallel = new(key: 1), AntiParallel = new(key: -1), Perpendicular = new(key: 2);
-    internal IntersectionTangency Tangency => (Equals(Parallel), Equals(AntiParallel)) switch {
-        (true, _) or (_, true) => IntersectionTangency.Tangent,
-        _ => IntersectionTangency.Transversal,
-    };
     public static Fin<VectorRelation> Of(Vector3d a, Vector3d b, Context context, Op? key = null) {
         Op op = key.OrDefault();
         return from model in Optional(context).ToFin(op.MissingContext())
@@ -80,8 +76,58 @@ public sealed partial class VectorRelation {
     internal Fin<TOut> Project<TOut>(Op key) =>
         typeof(TOut) switch {
             Type t when t == typeof(VectorRelation) => Fin.Succ((TOut)(object)this),
-            Type t when t == typeof(IntersectionTangency) => key.AcceptValue(value: Tangency).Map(static value => (TOut)(object)value),
             _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(VectorRelation), outputType: typeof(TOut))),
+        };
+}
+
+[SmartEnum<int>]
+public sealed partial class CurveProjection {
+    public static readonly CurveProjection Tangent = new(key: 0,
+        sample: static (curve, t) => Fin.Succ((object)curve.TangentAt(t: t)));
+    public static readonly CurveProjection Curvature = new(key: 1,
+        sample: static (curve, t) => Fin.Succ((object)curve.CurvatureAt(t: t)));
+    public static readonly CurveProjection FrenetFrame = new(key: 2,
+        sample: static (curve, t) => curve.FrameAt(t: t, plane: out Plane p)
+            ? Fin.Succ((object)p)
+            : Fin.Fail<object>(Error.New(message: "Curve.FrameAt failed.")));
+    public static readonly CurveProjection BishopFrame = new(key: 3,
+        sample: static (curve, t) => curve.PerpendicularFrameAt(t: t, plane: out Plane p)
+            ? Fin.Succ((object)p)
+            : Fin.Fail<object>(Error.New(message: "Curve.PerpendicularFrameAt failed.")));
+    public static readonly CurveProjection ArcLength = new(key: 4,
+        sample: static (curve, t) => Fin.Succ((object)curve.GetLength(new Interval(curve.Domain.T0, t))));
+    [UseDelegateFromConstructor] private partial Fin<object> Sample(Curve curve, double parameter);
+    internal Fin<TOut> Project<TOut>(Curve curve, double parameter, Context context, Op key) =>
+        from _ in guard(curve.Domain.IncludesParameter(t: parameter), key.InvalidInput())
+        from raw in Sample(curve: curve, parameter: parameter).BindFail(_ => Fin.Fail<object>(key.InvalidResult()))
+        from output in (raw, typeof(TOut)) switch {
+            (Vector3d v, Type t) when t == typeof(Vector3d) => key.AcceptValue(value: (TOut)(object)v),
+            (Vector3d v, Type t) when t == typeof(Direction) => Direction.Of(value: v, context: context, key: key).Bind(d => d.Project<TOut>(key: key)),
+            (Vector3d v, Type t) when t == typeof(double) => key.AcceptValue(value: (TOut)(object)v.Length),
+            (Plane p, Type t) when t == typeof(Plane) => key.AcceptValue(value: (TOut)(object)p),
+            (Plane p, Type t) when t == typeof(VectorFrame) => VectorFrame.Of(origin: p.Origin, normal: p.ZAxis, xHint: Some(p.XAxis), context: context, key: key).Bind(f => f.Project<TOut>(key: key)),
+            (double d, Type t) when t == typeof(double) => key.AcceptValue(value: (TOut)(object)d),
+            _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(CurveProjection), outputType: typeof(TOut))),
+        }
+        select output;
+}
+
+[SmartEnum<int>]
+public sealed partial class ConeProjection {
+    public static readonly ConeProjection HalfAngle = new(key: 0, sample: static cone => cone.HalfAngle);
+    public static readonly ConeProjection SolidAngle = new(key: 1, sample: static cone => cone.SolidAngle);
+    public static readonly ConeProjection Axis = new(key: 2, sample: static cone => cone.Axis);
+    public static readonly ConeProjection Apex = new(key: 3, sample: static cone => cone.Apex);
+    [UseDelegateFromConstructor] private partial object Sample(VectorCone cone);
+    internal Fin<TOut> Project<TOut>(VectorCone cone, Op key) =>
+        (Sample(cone: cone), typeof(TOut)) switch {
+            (VectorAngle a, Type t) when t == typeof(VectorAngle) => Fin.Succ((TOut)(object)a),
+            (VectorAngle a, Type t) when t == typeof(double) => key.AcceptValue(value: a.Value).Map(static x => (TOut)(object)x),
+            (double d, Type t) when t == typeof(double) => key.AcceptValue(value: d).Map(static x => (TOut)(object)x),
+            (Direction d, Type t) when t == typeof(Direction) => Fin.Succ((TOut)(object)d),
+            (Direction d, Type t) when t == typeof(Vector3d) => key.AcceptValue(value: d.Value).Map(static x => (TOut)(object)x),
+            (Point3d p, Type t) when t == typeof(Point3d) => key.AcceptValue(value: p).Map(static x => (TOut)(object)x),
+            _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(ConeProjection), outputType: typeof(TOut))),
         };
 }
 
@@ -118,8 +164,6 @@ public readonly record struct Direction {
     }
     public static Direction operator -(Direction direction) => new(value: -direction.Value);
     public static Vector3d operator *(Direction direction, double magnitude) => direction.Value * magnitude;
-    public static Direction Negate(Direction direction) => -direction;
-    public static Vector3d Multiply(Direction direction, double magnitude) => direction * magnitude;
     public Direction Reflect(Direction normal) =>
         new(value: Value - (2.0 * (Value * normal.Value) * normal.Value));
     public static Fin<Direction> Refract(Direction incident, Direction normal, double etaIncident, double etaTransmitted, Op key) =>
@@ -197,7 +241,13 @@ public readonly record struct VectorFrame {
         Op op = key.OrDefault();
         return from point in op.AcceptValue(value: origin)
                from z in Direction.Of(value: normal, context: context, key: op)
-               from x in XDirectionOf(normal: z, hint: xHint, context: context, key: op)
+               from x in xHint.Case switch {
+                   Vector3d raw => Direction.Of(value: raw - (z.Value * (raw * z.Value)), context: context, key: op),
+                   _ => SeedPerpendicular(axis: z.Value) switch {
+                       Vector3d seed => Direction.Of(value: seed, context: context, key: op),
+                       _ => Fin.Fail<Direction>(error: op.InvalidResult()),
+                   },
+               }
                from y in Direction.Of(value: Vector3d.CrossProduct(a: z.Value, b: x.Value), context: context, key: op)
                let frame = new Plane(origin: point, xDirection: x.Value, yDirection: y.Value)
                from valid in (frame.IsValid && Vector3d.AreOrthonormal(x: frame.XAxis, y: frame.YAxis, z: frame.ZAxis) && Vector3d.AreRighthanded(x: frame.XAxis, y: frame.YAxis, z: frame.ZAxis)) switch {
@@ -206,15 +256,15 @@ public readonly record struct VectorFrame {
                }
                select new VectorFrame(value: valid);
     }
-    private static Fin<Direction> XDirectionOf(Direction normal, Option<Vector3d> hint, Context context, Op key) {
-        Vector3d candidate = normal.Value;
-        return hint.Case switch {
-            Vector3d raw => Direction.Of(value: raw - (normal.Value * (raw * normal.Value)), context: context, key: key),
-            _ => candidate.PerpendicularTo(other: normal.Value) switch {
-                true => Direction.Of(value: candidate, context: context, key: key),
-                false => Fin.Fail<Direction>(error: key.InvalidResult()),
-            },
-        };
+    public static Fin<Seq<VectorFrame>> Chain(Seq<Point3d> points, Direction initialNormal, bool closed, Context context, Op? key = null) {
+        Op op = key.OrDefault();
+        return CloudKernel.BishopChainOf(points: points, initialNormal: initialNormal, closed: closed, context: context, key: op)
+            .Bind(planes => planes.TraverseM(p => Of(origin: p.Origin, normal: p.ZAxis, xHint: Some(p.XAxis), context: context, key: op)).As());
+    }
+    // Vector3d.PerpendicularTo is a value-receiver mutator; wrap once so call-sites read functionally.
+    internal static Vector3d? SeedPerpendicular(Vector3d axis) {
+        Vector3d seed = axis;
+        return seed.PerpendicularTo(other: axis) ? seed : null;
     }
     internal Fin<TOut> Project<TOut>(Op key) =>
         typeof(TOut) switch {
@@ -222,5 +272,79 @@ public readonly record struct VectorFrame {
             Type t when t == typeof(Plane) => key.AcceptValue(value: Value).Map(static value => (TOut)(object)value),
             Type t when t == typeof(Transform) => key.AcceptValue(value: Transform.PlaneToPlane(plane0: Plane.WorldXY, plane1: Value)).Map(static value => (TOut)(object)value),
             _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(VectorFrame), outputType: typeof(TOut))),
+        };
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct VectorCone {
+    private VectorCone(Point3d apex, Direction axis, VectorAngle halfAngle) {
+        Apex = apex;
+        Axis = axis;
+        HalfAngle = halfAngle;
+    }
+    public Point3d Apex { get; }
+    public Direction Axis { get; }
+    public VectorAngle HalfAngle { get; }
+    public double SolidAngle => RhinoMath.TwoPI * (1.0 - Math.Cos(d: HalfAngle.Value));
+    public static Fin<VectorCone> Of(Point3d apex, Vector3d axis, double halfAngleRadians, Context context, Op? key = null) {
+        Op op = key.OrDefault();
+        return from anchor in op.AcceptValue(value: apex)
+               from direction in Direction.Of(value: axis, context: context, key: op)
+               from angle in op.AcceptValidated<VectorAngle>(candidate: halfAngleRadians)
+               from _ in guard(angle.Value <= Math.PI, op.InvalidInput())
+               select new VectorCone(apex: anchor, axis: direction, halfAngle: angle);
+    }
+    public Fin<bool> Contains(Vector3d query, Context context, Op? key = null) {
+        Op op = key.OrDefault();
+        Direction axis = Axis;
+        double halfAngle = HalfAngle.Value;
+        return from probe in Direction.Of(value: query, context: context, key: op)
+               from angle in VectorAngle.Of(a: axis, b: probe, pivot: AnglePivot.World, key: op)
+               select angle.Value <= halfAngle;
+    }
+    public static Fin<VectorCone> Enclose(VectorCone left, VectorCone right, Context context, Op? key = null) {
+        Op op = key.OrDefault();
+        return from model in Optional(context).ToFin(op.MissingContext())
+               from _ in guard(left.Apex.DistanceTo(other: right.Apex) <= model.Absolute.Value, op.InvalidInput())
+               from between in VectorAngle.Of(a: left.Axis, b: right.Axis, pivot: AnglePivot.World, key: op)
+               let widest = Math.Max(val1: left.HalfAngle.Value, val2: right.HalfAngle.Value)
+               let combined = Math.Min(val1: Math.PI, val2: Math.Max(val1: widest, val2: (between.Value * 0.5) + widest))
+               from bisector in (left.Axis.Value + right.Axis.Value) switch {
+                   Vector3d sum when !sum.IsTiny() => Direction.Of(value: sum, context: model, key: op),
+                   _ => VectorFrame.SeedPerpendicular(axis: left.Axis.Value) switch {
+                       Vector3d seed => Direction.Of(value: seed, context: model, key: op),
+                       _ => Direction.Of(value: left.Axis.Value, context: model, key: op),
+                   },
+               }
+               from result in Of(apex: left.Apex, axis: bisector.Value, halfAngleRadians: combined, context: model, key: op)
+               select result;
+    }
+    public Fin<Seq<Direction>> PartitionBy(int sectors, Context context, Op? key = null) {
+        Op op = key.OrDefault();
+        Vector3d axisVector = Axis.Value;
+        double halfAngle = HalfAngle.Value;
+        return from _ in guard(sectors >= 1, op.InvalidInput())
+               from rim in VectorFrame.SeedPerpendicular(axis: axisVector) switch {
+                   Vector3d seed => Direction.Of(value: seed, context: context, key: op),
+                   _ => Fin.Fail<Direction>(error: op.InvalidResult()),
+               }
+               let stepAngle = RhinoMath.TwoPI / sectors
+               let rimVector = rim.Value
+               from rays in toSeq(Enumerable.Range(start: 0, count: sectors)).TraverseM(i =>
+                   Direction.Of(
+                       value: (Math.Cos(d: halfAngle) * axisVector) + (Math.Sin(a: halfAngle) * (Transform.Rotation(angleRadians: stepAngle * i, rotationAxis: axisVector, rotationCenter: Point3d.Origin) * rimVector)),
+                       context: context,
+                       key: op)).As()
+               select rays;
+    }
+    internal Fin<TOut> Project<TOut>(Op key) =>
+        typeof(TOut) switch {
+            Type t when t == typeof(VectorCone) => Fin.Succ((TOut)(object)this),
+            Type t when t == typeof(VectorAngle) => HalfAngle.Project<TOut>(key: key),
+            Type t when t == typeof(double) => key.AcceptValue(value: SolidAngle).Map(static value => (TOut)(object)value),
+            Type t when t == typeof(Direction) => Axis.Project<TOut>(key: key),
+            Type t when t == typeof(Vector3d) => key.AcceptValue(value: Axis.Value).Map(static value => (TOut)(object)value),
+            Type t when t == typeof(Point3d) => key.AcceptValue(value: Apex).Map(static value => (TOut)(object)value),
+            _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(VectorCone), outputType: typeof(TOut))),
         };
 }

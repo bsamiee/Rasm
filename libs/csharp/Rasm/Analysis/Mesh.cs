@@ -6,7 +6,7 @@ namespace Rasm.Analysis;
 // --- [TYPES] ------------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshMetricSample(ComponentIndex Source, double Value);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshSample(MeshSampleKind Kind, int Value);
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshFaceShape(ComponentIndex Source, VectorRingShape Shape);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshFaceShape(ComponentIndex Source, VectorCloudShape Shape);
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [Union]
@@ -92,7 +92,7 @@ public sealed partial class MeshSampleKind {
 [BoundaryAdapter, SmartEnum<int>]
 public sealed partial class MeshMetric {
     public static readonly MeshMetric None = new(key: 0, measure: static (_, _, _, _, key) => Fin.Fail<double>(key.InvalidInput())), EdgeAspect = new(key: 1, measure: FaceEdgeAspect);
-    public static readonly MeshMetric Area = new(key: 2, measure: FaceArea), Perimeter = new(key: 3, measure: static (mesh, source, vertices, context, key) => RingMetric<double>(metric: VectorRingMetric.Perimeter, mesh: mesh, source: source, vertices: vertices, context: context, key: key)), Skewness = new(key: 4, measure: static (mesh, source, vertices, context, key) => RingMetric<double>(metric: VectorRingMetric.Skewness, mesh: mesh, source: source, vertices: vertices, context: context, key: key)), DihedralAngle = new(key: 5, measure: FaceMaxDihedral);
+    public static readonly MeshMetric Area = new(key: 2, measure: FaceArea), Perimeter = new(key: 3, measure: static (mesh, source, vertices, context, key) => RingMetric<double>(metric: VectorCloudMetric.Perimeter, mesh: mesh, source: source, vertices: vertices, context: context, key: key)), Skewness = new(key: 4, measure: static (mesh, source, vertices, context, key) => RingMetric<double>(metric: VectorCloudMetric.Skewness, mesh: mesh, source: source, vertices: vertices, context: context, key: key)), DihedralAngle = new(key: 5, measure: FaceMaxDihedral);
     [UseDelegateFromConstructor] private partial Fin<double> Measure(Mesh mesh, ComponentIndex source, Seq<Point3d> vertices, Context context, Op key);
     internal Fin<MeshMetricSample> Sample(Mesh? mesh, MeshNgon polygon, Context context, Op key) =>
         Optional(mesh).ToFin(key.InvalidInput())
@@ -108,7 +108,7 @@ public sealed partial class MeshMetric {
         Optional(mesh).ToFin(key.InvalidInput())
             .Bind(native => Analyze.VisiblePolygonSourceOf(mesh: native, polygon: polygon, key: key)
                 .Bind(source => VerticesOf(mesh: native, source: source, key: key).Map(vertices => (Mesh: native, Source: source, Vertices: vertices))))
-            .Bind(state => RingMetric<VectorRingShape>(metric: VectorRingMetric.Shape, mesh: state.Mesh, source: state.Source, vertices: state.Vertices, context: context, key: key)
+            .Bind(state => RingMetric<VectorCloudShape>(metric: VectorCloudMetric.Shape, mesh: state.Mesh, source: state.Source, vertices: state.Vertices, context: context, key: key)
                 .Map(shape => new MeshFaceShape(Source: state.Source, Shape: shape)));
     private static Fin<Seq<Point3d>> VerticesOf(Mesh mesh, ComponentIndex source, Op key) => source switch {
         { ComponentIndexType: ComponentIndexType.MeshFace, Index: int face } when face >= 0 && face < mesh.Faces.Count =>
@@ -121,21 +121,23 @@ public sealed partial class MeshMetric {
         Optional(mesh.Ngons[ngon].FaceIndexList()).ToFin(key.InvalidResult())
             .Bind(faces => toSeq(faces).TraverseM(face => face <= int.MaxValue && (int)face < mesh.Faces.Count ? Fin.Succ((int)face) : Fin.Fail<int>(key.InvalidResult())).As()
                 .Bind(indices => indices.IsEmpty ? Fin.Fail<Seq<int>>(key.InvalidResult()) : Fin.Succ(indices)));
-    private static Fin<TOut> RingMetric<TOut>(VectorRingMetric metric, Mesh mesh, ComponentIndex source, Seq<Point3d> vertices, Context context, Op key) =>
+    private static Fin<TOut> RingMetric<TOut>(VectorCloudMetric metric, Mesh mesh, ComponentIndex source, Seq<Point3d> vertices, Context context, Op key) =>
         (vertices.IsEmpty ? VerticesOf(mesh: mesh, source: source, key: key) : Fin.Succ(vertices))
-            .Bind(points => Vector.Project<TOut>(intent: VectorIntent.Ring(points: points, metric: metric), context: context, key: key));
+            .Bind(points => VectorCloud.Ring(points: points, context: context, key: key))
+            .Bind(cloud => VectorIntent.Cloud(cloud: cloud, metric: metric, key: key))
+            .Bind(intent => intent.Project<TOut>(context: context, key: key));
     private static Fin<Vector3d> NormalOf(Mesh mesh, ComponentIndex source, Seq<Point3d> vertices, Context context, Op key) => source switch {
         { ComponentIndexType: ComponentIndexType.MeshFace, Index: int face } when face >= 0 && face < mesh.Faces.Count =>
             (mesh.FaceNormals.Count > face || mesh.FaceNormals.ComputeFaceNormals()) && mesh.FaceNormals.Count > face
-                ? Vector.Project<Vector3d>(intent: VectorIntent.Direction(value: new Vector3d(mesh.FaceNormals[face])), context: context, key: key)
+                ? VectorIntent.Direction(value: new Vector3d(mesh.FaceNormals[face])).Project<Vector3d>(context: context, key: key)
                 : Fin.Fail<Vector3d>(key.InvalidResult()),
         { ComponentIndexType: ComponentIndexType.MeshNgon, Index: int ngon } when ngon >= 0 && ngon < mesh.Ngons.Count =>
             FaceIndicesOf(mesh: mesh, ngon: ngon, key: key)
                 .Bind(faces => ((mesh.FaceNormals.Count >= mesh.Faces.Count || mesh.FaceNormals.ComputeFaceNormals()) && mesh.FaceNormals.Count >= mesh.Faces.Count) switch {
                     true => faces.TraverseM(face => FaceArea(mesh: mesh, source: new ComponentIndex(ComponentIndexType.MeshFace, face), vertices: Seq<Point3d>(), context: context, key: key)
                         .Map(area => new Vector3d(mesh.FaceNormals[face]) * area)).As()
-                        .Bind(weighted => Vector.Project<Vector3d>(intent: VectorIntent.Direction(value: weighted.Fold(initialState: Vector3d.Zero, f: static (sum, normal) => sum + normal)), context: context, key: key)),
-                    false => RingMetric<Vector3d>(metric: VectorRingMetric.Normal, mesh: mesh, source: source, vertices: vertices, context: context, key: key),
+                        .Bind(weighted => VectorIntent.Direction(value: weighted.Fold(initialState: Vector3d.Zero, f: static (sum, normal) => sum + normal)).Project<Vector3d>(context: context, key: key)),
+                    false => RingMetric<Vector3d>(metric: VectorCloudMetric.Normal, mesh: mesh, source: source, vertices: vertices, context: context, key: key),
                 }),
         _ => Fin.Fail<Vector3d>(key.InvalidInput()),
     };
@@ -144,14 +146,14 @@ public sealed partial class MeshMetric {
             { ComponentIndexType: ComponentIndexType.MeshFace, Index: int index } when index >= 0 && index < mesh.Faces.Count => Fin.Succ(mesh.Faces.GetFaceAspectRatio(index: index)),
             _ => Fin.Fail<double>(key.InvalidInput()),
         })
-            .BindFail(_ => RingMetric<double>(metric: VectorRingMetric.EdgeAspect, mesh: mesh, source: source, vertices: vertices, context: context, key: key));
+            .BindFail(_ => RingMetric<double>(metric: VectorCloudMetric.EdgeAspect, mesh: mesh, source: source, vertices: vertices, context: context, key: key));
     private static Fin<double> FaceArea(Mesh mesh, ComponentIndex source, Seq<Point3d> vertices, Context context, Op key) =>
         source switch {
             { ComponentIndexType: ComponentIndexType.MeshNgon, Index: int ngon } when ngon >= 0 && ngon < mesh.Ngons.Count =>
                 FaceIndicesOf(mesh: mesh, ngon: ngon, key: key)
                     .Bind(faces => faces.TraverseM(face => FaceArea(mesh: mesh, source: new ComponentIndex(ComponentIndexType.MeshFace, face), vertices: Seq<Point3d>(), context: context, key: key)).As())
                     .Map(static areas => areas.Fold(initialState: 0.0, f: static (total, area) => total + area)),
-            _ => RingMetric<double>(metric: VectorRingMetric.Area, mesh: mesh, source: source, vertices: vertices, context: context, key: key),
+            _ => RingMetric<double>(metric: VectorCloudMetric.Area, mesh: mesh, source: source, vertices: vertices, context: context, key: key),
         };
     private static Fin<double> FaceMaxDihedral(Mesh mesh, ComponentIndex source, Seq<Point3d> vertices, Context context, Op key) =>
         NormalOf(mesh: mesh, source: source, vertices: vertices, context: context, key: key).Bind(normal =>
@@ -164,10 +166,8 @@ public sealed partial class MeshMetric {
                 _ => Fin.Fail<Seq<int>>(key.InvalidInput()),
             }).Bind(neighbours => neighbours
                 .Fold(initialState: Fin.Succ((Max: 0.0, Mesh: mesh, Normal: normal, Context: context, Key: key)), f: static (state, other) => state.Bind(s => NormalOf(mesh: s.Mesh, source: new ComponentIndex(ComponentIndexType.MeshFace, other), vertices: Seq<Point3d>(), context: s.Context, key: s.Key)
-                    .Bind(neighbour => Vector.Project<double>(
-                            intent: VectorIntent.Angular(a: s.Normal, b: neighbour),
-                            context: s.Context,
-                            key: s.Key)
+                    .Bind(neighbour => VectorIntent.Angular(a: s.Normal, b: neighbour)
+                            .Project<double>(context: s.Context, key: s.Key)
                         .Map(angle => (Math.Max(val1: s.Max, val2: angle), s.Mesh, s.Normal, s.Context, s.Key)))))
                 .Map(static state => state.Max)));
 }

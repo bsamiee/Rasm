@@ -234,10 +234,11 @@ public static partial class Analyze {
                     }).As()))));
     private static Fin<IntersectionTangency> TangencyAt(Curve left, Curve right, Point3d point, Context context) =>
         (left.ClosestPoint(testPoint: point, t: out double tl), right.ClosestPoint(testPoint: point, t: out double tr)) switch {
-            (true, true) => Vector.Project<IntersectionTangency>(
-                    intent: VectorIntent.Relation(a: left.TangentAt(t: tl), b: right.TangentAt(t: tr)),
-                    context: context,
-                    key: Op.Of(name: nameof(TangencyAt)))
+            (true, true) => VectorIntent.Relation(a: left.TangentAt(t: tl), b: right.TangentAt(t: tr))
+                .Project<VectorRelation>(context: context, key: Op.Of(name: nameof(TangencyAt)))
+                .Map(static relation => relation.Equals(VectorRelation.Parallel) || relation.Equals(VectorRelation.AntiParallel)
+                    ? IntersectionTangency.Tangent
+                    : IntersectionTangency.Transversal)
                 .BindFail(static _ => Fin.Succ(IntersectionTangency.Unknown)),
             _ => Fin.Succ(IntersectionTangency.Unknown),
         };

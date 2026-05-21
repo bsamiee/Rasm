@@ -80,7 +80,7 @@ public partial record Points : IAspect {
                     select result)
             : SpreadKey.Unsupported<TGeometry, TOut>());
     private static Fin<Seq<Vector3d>> DirectionsFor(Option<Seq<Vector3d>> custom, bool planar, Context context, Op key) =>
-        Vector.Project<Seq<Vector3d>>(intent: VectorIntent.Axes(values: custom, planar: planar), context: context, key: key);
+        VectorIntent.Axes(values: custom, planar: planar).Project<Seq<Vector3d>>(context: context, key: key);
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -114,8 +114,8 @@ public static partial class Analyze {
             };
     private static Fin<Plane> OrientedFrame(Plane fit, Seq<Point3d> points, Context context, Op op) =>
         from angle in PrincipalAngle(points: points, fit: fit, context: context, op: op)
-        from xAxis in Vector.Project<Vector3d>(intent: VectorIntent.Direction(value: (fit.XAxis * Math.Cos(d: angle)) + (fit.YAxis * Math.Sin(a: angle))), context: context, key: op)
-        from yAxis in Vector.Project<Vector3d>(intent: VectorIntent.Direction(value: Vector3d.CrossProduct(a: fit.ZAxis, b: xAxis)), context: context, key: op)
+        from xAxis in VectorIntent.Direction(value: (fit.XAxis * Math.Cos(d: angle)) + (fit.YAxis * Math.Sin(a: angle))).Project<Vector3d>(context: context, key: op)
+        from yAxis in VectorIntent.Direction(value: Vector3d.CrossProduct(a: fit.ZAxis, b: xAxis)).Project<Vector3d>(context: context, key: op)
         from plane in new Plane(origin: fit.Origin, xDirection: xAxis, yDirection: yAxis) switch {
             { IsValid: true } principal => Fin.Succ(principal),
             _ => Fin.Fail<Plane>(op.InvalidResult()),
@@ -123,19 +123,15 @@ public static partial class Analyze {
         select plane;
     private static Fin<double> MinorSpread(Plane fit, Seq<Point3d> points, Context context, Op op) =>
         from angle in PrincipalAngle(points: points, fit: fit, context: context, op: op)
-        from spread in points.TraverseM(point => Vector.Project<(double X, double Y)>(
-                intent: VectorIntent.Components(anchor: fit.Origin, value: point - fit.Origin, frame: fit),
-                context: context,
-                key: op)
+        from spread in points.TraverseM(point => VectorIntent.Components(anchor: fit.Origin, value: point - fit.Origin, frame: fit)
+                .Project<(double X, double Y)>(context: context, key: op)
             .Map(components => Math.Abs(value: (components.X * -Math.Sin(a: angle)) + (components.Y * Math.Cos(d: angle))))
             .BindFail(static _ => Fin.Succ(0.0))).As()
         select spread.Fold(initialState: 0.0, f: Math.Max);
     private static Fin<double> PrincipalAngle(Seq<Point3d> points, Plane fit, Context context, Op op) =>
         points.Fold(initialState: Fin.Succ((Sxx: 0.0, Sxy: 0.0, Syy: 0.0, Fit: fit, Context: context, Key: op)), f: static (state, point) => state.Bind(s =>
-            Vector.Project<(double X, double Y)>(
-                    intent: VectorIntent.Components(anchor: s.Fit.Origin, value: point - s.Fit.Origin, frame: s.Fit),
-                    context: s.Context,
-                    key: s.Key)
+            VectorIntent.Components(anchor: s.Fit.Origin, value: point - s.Fit.Origin, frame: s.Fit)
+                    .Project<(double X, double Y)>(context: s.Context, key: s.Key)
                 .BindFail(static _ => Fin.Succ((X: 0.0, Y: 0.0)))
                 .Map(v => (s.Sxx + (v.X * v.X), s.Sxy + (v.X * v.Y), s.Syy + (v.Y * v.Y), s.Fit, s.Context, s.Key))))
             .Map(static sums => 0.5 * Math.Atan2(y: 2.0 * sums.Sxy, x: sums.Sxx - sums.Syy));

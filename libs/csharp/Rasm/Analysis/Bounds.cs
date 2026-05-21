@@ -142,7 +142,7 @@ public partial record Bounds : IAspect {
                 key: EnclosingCylinderKey, requiresContext: true, state: (Key: EnclosingCylinderKey, cy.Axis, cy.Count),
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
-                    from axis in Vector.Project<Vector3d>(intent: VectorIntent.Direction(value: state.Axis), context: context, key: state.Key).ToEff()
+                    from axis in VectorIntent.Direction(value: state.Axis).Project<Vector3d>(context: context, key: state.Key).ToEff()
                     from samples in EnclosingSamples(geometry: geometry, count: state.Count, context: context, key: state.Key).ToEff()
                     let plane = new Plane(origin: Point3d.Origin, normal: axis)
                     from projected in Fin.Succ(samples.Map(plane.ClosestPoint)).ToEff()

@@ -110,7 +110,7 @@ public sealed record Conformance {
             (_, true) => SupportProjection.SignedDistance,
             _ => SupportProjection.Distance,
         }
-        from distance in Vector.Project<double>(intent: VectorIntent.Support(space: space, sample: point, projection: projection), context: context, key: Key)
+        from distance in VectorIntent.Support(space: space, sample: point, projection: projection).Project<double>(context: context, key: Key)
         select distance;
 }
 

@@ -190,7 +190,7 @@ public static partial class Analyze {
     private static Fin<Seq<TopologyProjection>> SilhouettesOf(GeometryBase geometry, Curves.SilhouetteCase silhouette, CurveFeature feature, Context context, Op op, CancellationToken cancel) =>
         cancel.IsCancellationRequested
             ? Fin.Fail<Seq<TopologyProjection>>(new Fault.Cancelled())
-            : Vector.Project<Vector3d>(intent: VectorIntent.Direction(value: Optional(silhouette.Direction).IfNone(Vector3d.ZAxis)), context: context, key: op)
+            : VectorIntent.Direction(value: Optional(silhouette.Direction).IfNone(Vector3d.ZAxis)).Project<Vector3d>(context: context, key: op)
                 .Bind(direction =>
                     (geometry switch {
                         Brep or BrepFace or Mesh or Extrusion => Fin.Succ((Geometry: geometry, Owned: Option<GeometryBase>.None)),

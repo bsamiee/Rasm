@@ -49,7 +49,7 @@
         <AnalysisLevel>latest-all</AnalysisLevel>
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
-        <NoWarn>$(NoWarn);CS1591</NoWarn>
+        <NoWarn>$(NoWarn);CS1591;CA2225</NoWarn>
         <LocalCSharpAnalyzerRoot>tools/cs-analyzer</LocalCSharpAnalyzerRoot>
         <LocalCSharpAnalyzerProject>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '$(LocalCSharpAnalyzerRoot)', 'CsAnalyzer.csproj'))</LocalCSharpAnalyzerProject>
         <BoundaryExemptionContractsPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '$(LocalCSharpAnalyzerRoot)', 'Contracts', 'BoundaryContracts.cs'))</BoundaryExemptionContractsPath>

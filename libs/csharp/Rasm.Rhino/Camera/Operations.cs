@@ -95,14 +95,14 @@ public sealed record CameraEdit {
     public static CameraEdit Direction(Vector3d value, bool updateTarget = true) =>
         new(apply: (scope, redraw) =>
             from context in Context.Of(doc: scope.Document).ToFin()
-            from direction in Vector.Project<Vector3d>(intent: VectorIntent.Direction(value: value), context: context, key: Op.Of(name: nameof(Direction)))
+            from direction in VectorIntent.Direction(value: value).Project<Vector3d>(context: context, key: Op.Of(name: nameof(Direction)))
             from result in Native(change: viewport => viewport.SetCameraDirection(cameraDirection: direction, updateTargetLocation: updateTarget)).Apply(scope: scope, redraw: redraw)
             select result);
 
     public static CameraEdit Up(Vector3d value) =>
         new(apply: (scope, redraw) =>
             from context in Context.Of(doc: scope.Document).ToFin()
-            from up in Vector.Project<Vector3d>(intent: VectorIntent.Direction(value: value), context: context, key: Op.Of(name: nameof(Up)))
+            from up in VectorIntent.Direction(value: value).Project<Vector3d>(context: context, key: Op.Of(name: nameof(Up)))
             from result in Native(change: viewport => viewport.CameraUp = up).Apply(scope: scope, redraw: redraw)
             select result);
 
@@ -163,7 +163,7 @@ public sealed record CameraEdit {
     public static CameraEdit Rotate(double radians, Vector3d axis, Point3d center) =>
         new(apply: (scope, redraw) =>
             from context in Context.Of(doc: scope.Document).ToFin()
-            from direction in Vector.Project<Vector3d>(intent: VectorIntent.Direction(value: axis), context: context, key: Op.Of(name: nameof(Rotate)))
+            from direction in VectorIntent.Direction(value: axis).Project<Vector3d>(context: context, key: Op.Of(name: nameof(Rotate)))
             from result in Native(change: viewport => viewport.Rotate(angleRadians: radians, rotationAxis: direction, rotationCenter: center)).Apply(scope: scope, redraw: redraw)
             select result);
 

@@ -89,7 +89,8 @@ public static partial class Analyze {
             (LocationValue.PointCase, Locator.ClosestTo ct) =>
                 ClosestOp<TGeometry, TOut>(key: LocationAspect.ClosestKey, target: ct.Probe, projection: SupportProjection.Closest),
             (LocationValue.FrameCase, Locator.CurveParameter or Locator.ArcLength or Locator.NormalizedMid) =>
-                Located<TGeometry, TOut, Curve, Plane>(key: LocationAspect.FrameAtKey, operation: () => CurveLocatedOp<TGeometry, Plane>(key: LocationAspect.FrameAtKey, locator: locator, project: static (curve, t, _) => curve.FrameAt(t: t, plane: out Plane frame) ? LocationAspect.FrameAtKey.Accept(value: frame) : Fin.Fail<Seq<Plane>>(LocationAspect.FrameAtKey.InvalidResult()))),
+                Located<TGeometry, TOut, Curve, Plane>(key: LocationAspect.FrameAtKey, operation: () => CurveLocatedOp<TGeometry, Plane>(key: LocationAspect.FrameAtKey, locator: locator, project: static (curve, t, context) =>
+                    VectorIntent.Curve(source: curve, parameter: t, mode: CurveProjection.FrenetFrame).Project<Plane>(context: context, key: LocationAspect.FrameAtKey).Bind(plane => LocationAspect.FrameAtKey.Accept(value: plane)))),
             (LocationValue.FrameCase, Locator.SurfaceParameter sp) =>
                 Located<TGeometry, TOut, Surface, Plane>(key: LocationAspect.FrameAtKey, operation: () => SurfaceUvOp<TGeometry, Plane>(key: LocationAspect.FrameAtKey, uv: sp.Uv, project: static (surface, p) => GeometryKernel.FrameAt(surface: surface, uv: p, key: LocationAspect.FrameAtKey).Bind(frame => LocationAspect.FrameAtKey.Accept(value: frame)))),
             (LocationValue.FrameCase, Locator.ClosestTo ct) =>
@@ -102,9 +103,10 @@ public static partial class Analyze {
                 ClosestOp<TGeometry, TOut>(key: LocationAspect.NormalAtKey, target: ct.Probe, projection: SupportProjection.Normal),
             (LocationValue.TangentCase, Locator.CurveParameter or Locator.ArcLength or Locator.NormalizedMid) =>
                 Located<TGeometry, TOut, Curve, Vector3d>(key: LocationAspect.TangentKey, operation: () => CurveLocatedOp<TGeometry, Vector3d>(key: LocationAspect.TangentKey, locator: locator, project: static (curve, parameter, context) =>
-                    Vector.Project<Vector3d>(intent: VectorIntent.Direction(value: curve.TangentAt(t: parameter)), context: context, key: LocationAspect.TangentKey).Bind(tangent => LocationAspect.TangentKey.Accept(value: tangent)))),
+                    VectorIntent.Curve(source: curve, parameter: parameter, mode: CurveProjection.Tangent).Project<Vector3d>(context: context, key: LocationAspect.TangentKey).Bind(tangent => LocationAspect.TangentKey.Accept(value: tangent)))),
             (LocationValue.CurvatureCase, Locator.CurveParameter or Locator.ArcLength or Locator.NormalizedMid) =>
-                Located<TGeometry, TOut, Curve, Vector3d>(key: LocationAspect.CurvatureAtKey, operation: () => CurveLocatedOp<TGeometry, Vector3d>(key: LocationAspect.CurvatureAtKey, locator: locator, project: static (curve, t, _) => LocationAspect.CurvatureAtKey.Accept(value: curve.CurvatureAt(t: t)))),
+                Located<TGeometry, TOut, Curve, Vector3d>(key: LocationAspect.CurvatureAtKey, operation: () => CurveLocatedOp<TGeometry, Vector3d>(key: LocationAspect.CurvatureAtKey, locator: locator, project: static (curve, t, context) =>
+                    VectorIntent.Curve(source: curve, parameter: t, mode: CurveProjection.Curvature).Project<Vector3d>(context: context, key: LocationAspect.CurvatureAtKey).Bind(curvature => LocationAspect.CurvatureAtKey.Accept(value: curvature)))),
             (LocationValue.CurvatureCase, Locator.SurfaceParameter sp) =>
                 Located<TGeometry, TOut, Surface, SurfaceCurvature>(key: LocationAspect.CurvatureAtKey, operation: () => SurfaceUvOp<TGeometry, SurfaceCurvature>(key: LocationAspect.CurvatureAtKey, uv: sp.Uv, project: static (surface, p) => Optional(surface.CurvatureAt(u: p.X, v: p.Y)).ToFin(LocationAspect.CurvatureAtKey.InvalidResult()).Map(static curvature => Seq(curvature)))),
             (LocationValue.DerivativeCase { Order: >= 0 } derivative, Locator.CurveParameter or Locator.ArcLength or Locator.NormalizedMid) =>
@@ -135,10 +137,8 @@ public static partial class Analyze {
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
                     from space in SupportSpace.Of(value: geometry, key: state.Key).ToEff()
-                    from result in Vector.Project<TOut>(
-                        intent: VectorIntent.Support(space: space, sample: state.Target, projection: state.Projection),
-                        context: context,
-                        key: state.Key).Map(value => Seq(value)).ToEff()
+                    from result in VectorIntent.Support(space: space, sample: state.Target, projection: state.Projection)
+                        .Project<TOut>(context: context, key: state.Key).Map(value => Seq(value)).ToEff()
                     select result),
             _ => key.Unsupported<TGeometry, TOut>(),
         };

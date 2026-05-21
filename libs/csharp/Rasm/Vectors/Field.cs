@@ -14,18 +14,18 @@ public sealed partial class FieldBlend {
 }
 
 [SmartEnum<int>]
-public sealed partial class FieldIntegrator {
-    public static readonly FieldIntegrator Euler = new(key: 0, step: static (field, point, h, ctx, op) =>
+public sealed partial class IntegratorKind {
+    public static readonly IntegratorKind Euler = new(key: 0, step: static (field, point, h, ctx, op) =>
         from sample in field.SampleVector(sample: point, context: ctx, key: op)
         from next in op.AcceptValue(value: point + (sample * h))
         select next);
-    public static readonly FieldIntegrator Heun = new(key: 1, step: static (field, point, h, ctx, op) =>
+    public static readonly IntegratorKind Heun = new(key: 1, step: static (field, point, h, ctx, op) =>
         from k1 in field.SampleVector(sample: point, context: ctx, key: op)
         from predictor in op.AcceptValue(value: point + (k1 * h))
         from k2 in field.SampleVector(sample: predictor, context: ctx, key: op)
         from next in op.AcceptValue(value: point + ((k1 + k2) * (h * 0.5)))
         select next);
-    public static readonly FieldIntegrator RK4 = new(key: 2, step: static (field, point, h, ctx, op) =>
+    public static readonly IntegratorKind RK4 = new(key: 2, step: static (field, point, h, ctx, op) =>
         from k1 in field.SampleVector(sample: point, context: ctx, key: op)
         from p2 in op.AcceptValue(value: point + (k1 * (h * 0.5)))
         from k2 in field.SampleVector(sample: p2, context: ctx, key: op)
@@ -39,6 +39,72 @@ public sealed partial class FieldIntegrator {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
+[Union]
+public abstract partial record FieldIntegrator {
+    private FieldIntegrator() { }
+    public sealed record FixedCase(IntegratorKind Kind) : FieldIntegrator;
+    public sealed record AdaptiveCase(PositiveMagnitude Tolerance) : FieldIntegrator;
+    public static FieldIntegrator Euler => new FixedCase(Kind: IntegratorKind.Euler);
+    public static FieldIntegrator Heun => new FixedCase(Kind: IntegratorKind.Heun);
+    public static FieldIntegrator RK4 => new FixedCase(Kind: IntegratorKind.RK4);
+    public static Fin<FieldIntegrator> RK45Adaptive(double tolerance, Op? key = null) {
+        Op op = key.OrDefault();
+        return op.AcceptValidated<PositiveMagnitude>(candidate: tolerance)
+            .Map(static value => (FieldIntegrator)new AdaptiveCase(Tolerance: value));
+    }
+    internal Fin<(Point3d Next, double SuggestedStep, bool Accepted)> Step(VectorField field, Point3d point, double h, Context context, Op key) => Switch(
+        state: (Field: field, Point: point, H: h, Context: context, Key: key),
+        fixedCase: static (s, c) => c.Kind.Step(field: s.Field, point: s.Point, h: s.H, context: s.Context, key: s.Key)
+            .Map(next => (Next: next, SuggestedStep: s.H, Accepted: true)),
+        adaptiveCase: static (s, c) => DormandPrinceStep(field: s.Field, point: s.Point, h: s.H, tolerance: c.Tolerance.Value, context: s.Context, key: s.Key));
+    private static Fin<(Point3d Next, double SuggestedStep, bool Accepted)> DormandPrinceStep(
+        VectorField field, Point3d point, double h, double tolerance, Context context, Op key) =>
+        from k1 in field.SampleVector(sample: point, context: context, key: key)
+        from k2 in field.SampleVector(sample: point + (k1 * (h * 0.2)), context: context, key: key)
+        from k3 in field.SampleVector(sample: point + (((k1 * (3.0 / 40.0)) + (k2 * (9.0 / 40.0))) * h), context: context, key: key)
+        from k4 in field.SampleVector(sample: point + (((k1 * (44.0 / 45.0)) + (k2 * (-56.0 / 15.0)) + (k3 * (32.0 / 9.0))) * h), context: context, key: key)
+        from k5 in field.SampleVector(sample: point + (((k1 * (19372.0 / 6561.0)) + (k2 * (-25360.0 / 2187.0)) + (k3 * (64448.0 / 6561.0)) + (k4 * (-212.0 / 729.0))) * h), context: context, key: key)
+        from k6 in field.SampleVector(sample: point + (((k1 * (9017.0 / 3168.0)) + (k2 * (-355.0 / 33.0)) + (k3 * (46732.0 / 5247.0)) + (k4 * (49.0 / 176.0)) + (k5 * (-5103.0 / 18656.0))) * h), context: context, key: key)
+        let y5 = point + (((k1 * (35.0 / 384.0)) + (k3 * (500.0 / 1113.0)) + (k4 * (125.0 / 192.0)) + (k5 * (-2187.0 / 6784.0)) + (k6 * (11.0 / 84.0))) * h)
+        from k7 in field.SampleVector(sample: y5, context: context, key: key)
+        let y4 = point + (((k1 * (5179.0 / 57600.0)) + (k3 * (7571.0 / 16695.0)) + (k4 * (393.0 / 640.0)) + (k5 * (-92097.0 / 339200.0)) + (k6 * (187.0 / 2100.0)) + (k7 * (1.0 / 40.0))) * h)
+        let err = (y5 - y4).Length
+        let scale = err > RhinoMath.ZeroTolerance ? Math.Clamp(value: 0.9 * Math.Pow(x: tolerance / err, y: 0.2), min: 0.2, max: 10.0) : 10.0
+        from result in err <= tolerance
+            ? key.AcceptValue(value: (Next: y5, SuggestedStep: h * scale, Accepted: true))
+            : key.AcceptValue(value: (Next: point, SuggestedStep: h * scale, Accepted: false))
+        select result;
+}
+
+[Union]
+public abstract partial record Termination {
+    private Termination() { }
+    public sealed record StepCountCase(int Count) : Termination;
+    public sealed record ArcLengthCase(PositiveMagnitude Length) : Termination;
+    public sealed record MagnitudeFloorCase(PositiveMagnitude Threshold) : Termination;
+    public static Fin<Termination> Steps(int count, Op? key = null) {
+        Op op = key.OrDefault();
+        return count > 0
+            ? Fin.Succ<Termination>(new StepCountCase(Count: count))
+            : Fin.Fail<Termination>(op.InvalidInput());
+    }
+    public static Fin<Termination> ArcLength(double length, Op? key = null) {
+        Op op = key.OrDefault();
+        return op.AcceptValidated<PositiveMagnitude>(candidate: length)
+            .Map(static l => (Termination)new ArcLengthCase(Length: l));
+    }
+    public static Fin<Termination> Magnitude(double threshold, Op? key = null) {
+        Op op = key.OrDefault();
+        return op.AcceptValidated<PositiveMagnitude>(candidate: threshold)
+            .Map(static t => (Termination)new MagnitudeFloorCase(Threshold: t));
+    }
+    internal bool ShouldStop(int stepCount, double arcLengthSoFar, Vector3d currentSample) => Switch(
+        state: (StepCount: stepCount, ArcLength: arcLengthSoFar, Sample: currentSample),
+        stepCountCase: static (s, c) => s.StepCount >= c.Count,
+        arcLengthCase: static (s, c) => s.ArcLength >= c.Length.Value,
+        magnitudeFloorCase: static (s, c) => s.Sample.Length < c.Threshold.Value);
+}
+
 [Union]
 public abstract partial record Falloff {
     private Falloff() { }
@@ -142,6 +208,7 @@ public partial record VectorField {
     public static VectorField Blend(Seq<VectorField> fields, FieldBlend? blend = null) =>
         new BlendCase(Fields: fields, Mode: blend ?? FieldBlend.Sum);
     public static VectorField Zero { get; } = Constant(value: Vector3d.Zero);
+    // Monoid: associative under flatten-into-BlendCase(Sum); Zero is the identity. Canonical sum is always a flat BlendCase, never nested.
     public static VectorField operator +(VectorField left, VectorField right) => (left, right) switch {
         (BlendCase l, BlendCase r) when l.Mode.Equals(FieldBlend.Sum) && r.Mode.Equals(FieldBlend.Sum) =>
             new BlendCase(Fields: l.Fields.Concat(r.Fields).ToSeq(), Mode: FieldBlend.Sum),
