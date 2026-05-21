@@ -1,3 +1,5 @@
+using Rasm.Analysis;
+
 namespace Rasm.Rhino.Commands;
 
 // --- [MODELS] -----------------------------------------------------------------------------

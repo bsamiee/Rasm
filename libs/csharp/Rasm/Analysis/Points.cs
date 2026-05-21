@@ -1,9 +1,14 @@
+using Foundation.CSharp.Analyzers.Contracts;
 using Rasm.Vectors;
 
 namespace Rasm.Analysis;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-public enum SpreadAspect { Frame, PrincipalFrame, Distribution, Collinear, Coplanar }
+[BoundaryAdapter, SmartEnum<int>]
+public sealed partial class SpreadAspect {
+    public static readonly SpreadAspect Frame = new(key: 0, output: typeof(Plane)), PrincipalFrame = new(key: 1, output: typeof(Plane)), Distribution = new(key: 2, output: typeof(Stat)), Collinear = new(key: 3, output: typeof(bool)), Coplanar = new(key: 4, output: typeof(bool));
+    public Type Output { get; }
+}
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [Union]
@@ -65,10 +70,7 @@ public partial record Points : IAspect {
                                                     from result in op.Accept(values: points).ToEff()
                                                     select result).As<TGeometry, TOut>(key: ControlPointsKey)
             : ControlPointsKey.Unsupported<TGeometry, TOut>(),
-        spreadCase: static s => ((s.Aspect is SpreadAspect.Frame or SpreadAspect.PrincipalFrame && typeof(TOut) == typeof(Plane))
-                || (s.Aspect == SpreadAspect.Distribution && typeof(TOut) == typeof(Stat))
-                || (s.Aspect is SpreadAspect.Collinear or SpreadAspect.Coplanar && typeof(TOut) == typeof(bool)))
-            && GeometryKernel.CanReadVertices(type: typeof(TGeometry))
+        spreadCase: static s => s.Aspect.Output == typeof(TOut) && GeometryKernel.CanReadVertices(type: typeof(TGeometry))
             ? Analysis.Operation<TGeometry, TOut>.Build(
                 key: SpreadKey, requiresContext: true, state: (Key: SpreadKey, s.Aspect),
                 evaluator: static (state, geometry) =>
@@ -78,9 +80,7 @@ public partial record Points : IAspect {
                     select result)
             : SpreadKey.Unsupported<TGeometry, TOut>());
     private static Fin<Seq<Vector3d>> DirectionsFor(Option<Seq<Vector3d>> custom, bool planar, Context context, Op key) =>
-        custom.IfNone(SignedAxis.Cardinal(planar: planar).Map(static axis => axis.World))
-            .TraverseM(direction => Direction.Of(value: direction, context: context, key: key).Map(static atom => atom.Value))
-            .As();
+        Vector.Project<Seq<Vector3d>>(intent: VectorIntent.Axes(values: custom, planar: planar), context: context, key: key);
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -99,24 +99,24 @@ public static partial class Analyze {
             _ => Fin.Fail<Seq<Point3d>>(op.Unsupported(g.GetType(), typeof(Point3d))),
         });
     internal static Fin<Seq<TOut>> SpreadProject<TOut>(SpreadAspect aspect, Seq<Point3d> points, object geometry, Context context, Op op) =>
-        aspect == SpreadAspect.Distribution
+        aspect.Equals(SpreadAspect.Distribution)
             ? CentroidOf(geometry: geometry, context: context, op: op).Bind(centroid => Stat.Of(values: points.Map(point => point.DistanceTo(other: centroid)), key: op)).Bind(stat => op.AcceptResults<Stat, TOut>(values: Seq(stat)))
             : (Plane.FitPlaneToPoints(points: points.AsIterable(), plane: out Plane fit, maximumDeviation: out double dev), fit.IsValid) switch {
                 (PlaneFitResult.Success, true) => aspect switch {
-                    SpreadAspect.Frame => op.AcceptResults<Plane, TOut>(values: Seq(fit)),
-                    SpreadAspect.PrincipalFrame => OrientedFrame(fit: fit, points: points, context: context, op: op).Bind(plane => op.AcceptResults<Plane, TOut>(values: Seq(plane))),
-                    SpreadAspect.Coplanar => op.AcceptResults<bool, TOut>(values: Seq(dev <= context.Absolute.Value)),
-                    SpreadAspect.Collinear => MinorSpread(fit: fit, points: points, context: context, op: op).Bind(spread => op.AcceptResults<bool, TOut>(values: Seq(spread <= context.Absolute.Value))),
+                    SpreadAspect a when a.Equals(SpreadAspect.Frame) => op.AcceptResults<Plane, TOut>(values: Seq(fit)),
+                    SpreadAspect a when a.Equals(SpreadAspect.PrincipalFrame) => OrientedFrame(fit: fit, points: points, context: context, op: op).Bind(plane => op.AcceptResults<Plane, TOut>(values: Seq(plane))),
+                    SpreadAspect a when a.Equals(SpreadAspect.Coplanar) => op.AcceptResults<bool, TOut>(values: Seq(dev <= context.Absolute.Value)),
+                    SpreadAspect a when a.Equals(SpreadAspect.Collinear) => MinorSpread(fit: fit, points: points, context: context, op: op).Bind(spread => op.AcceptResults<bool, TOut>(values: Seq(spread <= context.Absolute.Value))),
                     _ => Fin.Fail<Seq<TOut>>(op.Unsupported(geometryType: typeof(SpreadAspect), outputType: typeof(TOut))),
                 },
-                _ when aspect is SpreadAspect.Coplanar or SpreadAspect.Collinear && points.Count <= 2 => op.AcceptResults<bool, TOut>(values: Seq(true)),
+                _ when (aspect.Equals(SpreadAspect.Coplanar) || aspect.Equals(SpreadAspect.Collinear)) && points.Count <= 2 => op.AcceptResults<bool, TOut>(values: Seq(true)),
                 _ => Fin.Fail<Seq<TOut>>(op.InvalidResult()),
             };
     private static Fin<Plane> OrientedFrame(Plane fit, Seq<Point3d> points, Context context, Op op) =>
         from angle in PrincipalAngle(points: points, fit: fit, context: context, op: op)
-        from xAxis in Direction.Of(value: (fit.XAxis * Math.Cos(d: angle)) + (fit.YAxis * Math.Sin(a: angle)), context: context, key: op)
-        from yAxis in Direction.Of(value: Vector3d.CrossProduct(a: fit.ZAxis, b: xAxis.Value), context: context, key: op)
-        from plane in new Plane(origin: fit.Origin, xDirection: xAxis.Value, yDirection: yAxis.Value) switch {
+        from xAxis in Vector.Project<Vector3d>(intent: VectorIntent.Direction(value: (fit.XAxis * Math.Cos(d: angle)) + (fit.YAxis * Math.Sin(a: angle))), context: context, key: op)
+        from yAxis in Vector.Project<Vector3d>(intent: VectorIntent.Direction(value: Vector3d.CrossProduct(a: fit.ZAxis, b: xAxis)), context: context, key: op)
+        from plane in new Plane(origin: fit.Origin, xDirection: xAxis, yDirection: yAxis) switch {
             { IsValid: true } principal => Fin.Succ(principal),
             _ => Fin.Fail<Plane>(op.InvalidResult()),
         }

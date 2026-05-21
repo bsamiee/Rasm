@@ -104,16 +104,14 @@ public sealed record Conformance {
         sampler(arg1: geometry, arg2: count, arg3: context, arg4: Key)
             .Bind(points => points.Map((p, i) => distance(arg1: primitive, arg2: p, arg3: context).Map(d => new ResidualSample(i, p, d, context.Absolute.Value, Math.Abs(d) <= context.Absolute.Value))).TraverseM(identity).As());
     private static Fin<double> DistanceFor(ConformanceMetric metric, object target, Point3d point, Context context) =>
-        (metric, target) switch {
-            (ConformanceMetric m, object solidTarget) when m.IsContainment =>
-                SupportSpace.Of(value: solidTarget, key: Key)
-                    .Bind(space => Vector.Project<double>(intent: VectorIntent.Support(space: space, sample: point, projection: SupportProjection.ContainmentDistance), context: context, key: Key)),
-            (ConformanceMetric m, object signedTarget) when m.IsSigned =>
-                SupportSpace.Of(value: signedTarget, key: Key)
-                    .Bind(space => Vector.Project<double>(intent: VectorIntent.Support(space: space, sample: point, projection: SupportProjection.SignedDistance), context: context, key: Key)),
-            _ => SupportSpace.Of(value: target, key: Key)
-                .Bind(space => Vector.Project<double>(intent: VectorIntent.Support(space: space, sample: point, projection: SupportProjection.Distance), context: context, key: Key)),
-        };
+        from space in SupportSpace.Of(value: target, key: Key)
+        let projection = (metric.IsContainment, metric.IsSigned) switch {
+            (true, _) => SupportProjection.ContainmentDistance,
+            (_, true) => SupportProjection.SignedDistance,
+            _ => SupportProjection.Distance,
+        }
+        from distance in Vector.Project<double>(intent: VectorIntent.Support(space: space, sample: point, projection: projection), context: context, key: Key)
+        select distance;
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------

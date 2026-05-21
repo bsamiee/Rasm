@@ -87,11 +87,16 @@ public static partial class Analyze {
             (LocationValue.PointCase, Locator.SurfaceParameter sp) =>
                 Located<TGeometry, TOut, Surface, Point3d>(key: LocationAspect.PointAtKey, operation: () => SurfaceUvOp<TGeometry, Point3d>(key: LocationAspect.PointAtKey, uv: sp.Uv, project: static (surface, p) => LocationAspect.PointAtKey.Accept(value: surface.PointAt(u: p.X, v: p.Y)))),
             (LocationValue.PointCase, Locator.ClosestTo ct) =>
-                ClosestOp<TGeometry, TOut>(key: LocationAspect.ClosestKey, target: ct.Probe, canProject: static t => ClosestHit.CanProjectTo(output: t), project: static (hit, key) => hit.Project<TOut>(key: key)),
+                ClosestOp<TGeometry, TOut>(key: LocationAspect.ClosestKey, target: ct.Probe, canProject: static t => t == typeof(Point3d) || t == typeof(ClosestHit), project: static (hit, key) => hit.Project<TOut>(key: key)),
             (LocationValue.FrameCase, Locator.CurveParameter or Locator.ArcLength or Locator.NormalizedMid) =>
                 Located<TGeometry, TOut, Curve, Plane>(key: LocationAspect.FrameAtKey, operation: () => CurveLocatedOp<TGeometry, Plane>(key: LocationAspect.FrameAtKey, locator: locator, project: static (curve, t, _) => curve.FrameAt(t: t, plane: out Plane frame) ? LocationAspect.FrameAtKey.Accept(value: frame) : Fin.Fail<Seq<Plane>>(LocationAspect.FrameAtKey.InvalidResult()))),
             (LocationValue.FrameCase, Locator.SurfaceParameter sp) =>
                 Located<TGeometry, TOut, Surface, Plane>(key: LocationAspect.FrameAtKey, operation: () => SurfaceUvOp<TGeometry, Plane>(key: LocationAspect.FrameAtKey, uv: sp.Uv, project: static (surface, p) => GeometryKernel.FrameAt(surface: surface, uv: p, key: LocationAspect.FrameAtKey).Bind(frame => LocationAspect.FrameAtKey.Accept(value: frame)))),
+            (LocationValue.FrameCase, Locator.ClosestTo ct) =>
+                GeometryKernel.CanClosestFrame(type: typeof(TGeometry)) switch {
+                    true => ClosestOp<TGeometry, TOut>(key: LocationAspect.FrameAtKey, target: ct.Probe, canProject: static t => t == typeof(Plane) || t == typeof(ClosestHit), project: static (hit, key) => hit.Project<TOut>(key: key)),
+                    false => LocationAspect.FrameAtKey.Unsupported<TGeometry, TOut>(),
+                },
             (LocationValue.FrameCase, Locator.PerpendicularParameters ps) =>
                 Located<TGeometry, TOut, Curve, Plane>(key: LocationAspect.PerpendicularFrameAtKey, operation: () => PerpendicularFrameOp<TGeometry>(key: LocationAspect.PerpendicularFrameAtKey, parameters: ps.Ts)),
             (LocationValue.NormalCase, Locator.SurfaceParameter sp) =>
@@ -103,7 +108,7 @@ public static partial class Analyze {
                 },
             (LocationValue.TangentCase, Locator.CurveParameter or Locator.ArcLength or Locator.NormalizedMid) =>
                 Located<TGeometry, TOut, Curve, Vector3d>(key: LocationAspect.TangentKey, operation: () => CurveLocatedOp<TGeometry, Vector3d>(key: LocationAspect.TangentKey, locator: locator, project: static (curve, parameter, context) =>
-                    Direction.Of(value: curve.TangentAt(t: parameter), context: context, key: LocationAspect.TangentKey).Bind(direction => LocationAspect.TangentKey.Accept(value: direction.Value)))),
+                    Vector.Project<Vector3d>(intent: VectorIntent.Direction(value: curve.TangentAt(t: parameter)), context: context, key: LocationAspect.TangentKey).Bind(tangent => LocationAspect.TangentKey.Accept(value: tangent)))),
             (LocationValue.CurvatureCase, Locator.CurveParameter or Locator.ArcLength or Locator.NormalizedMid) =>
                 Located<TGeometry, TOut, Curve, Vector3d>(key: LocationAspect.CurvatureAtKey, operation: () => CurveLocatedOp<TGeometry, Vector3d>(key: LocationAspect.CurvatureAtKey, locator: locator, project: static (curve, t, _) => LocationAspect.CurvatureAtKey.Accept(value: curve.CurvatureAt(t: t)))),
             (LocationValue.CurvatureCase, Locator.SurfaceParameter sp) =>

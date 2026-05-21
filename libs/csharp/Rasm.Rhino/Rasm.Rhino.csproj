@@ -8,7 +8,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Using Include="Rasm.Analysis" />
         <Using Include="Rasm.Domain" />
         <Using Include="Rhino" />
         <Using Include="Rhino.Commands" />

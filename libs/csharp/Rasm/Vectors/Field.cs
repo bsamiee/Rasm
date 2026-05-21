@@ -19,17 +19,24 @@ public sealed partial class FieldBlend {
 public sealed partial class FieldIntegrator {
     public static readonly FieldIntegrator Euler = new(key: 0, step: static (field, point, h, ctx, op) =>
         from sample in field.SampleVector(sample: point, context: ctx, key: op)
-        select point + (sample * h));
+        from next in op.AcceptValue(value: point + (sample * h))
+        select next);
     public static readonly FieldIntegrator Heun = new(key: 1, step: static (field, point, h, ctx, op) =>
         from k1 in field.SampleVector(sample: point, context: ctx, key: op)
-        from k2 in field.SampleVector(sample: point + (k1 * h), context: ctx, key: op)
-        select point + ((k1 + k2) * (h * 0.5)));
+        from predictor in op.AcceptValue(value: point + (k1 * h))
+        from k2 in field.SampleVector(sample: predictor, context: ctx, key: op)
+        from next in op.AcceptValue(value: point + ((k1 + k2) * (h * 0.5)))
+        select next);
     public static readonly FieldIntegrator RK4 = new(key: 2, step: static (field, point, h, ctx, op) =>
         from k1 in field.SampleVector(sample: point, context: ctx, key: op)
-        from k2 in field.SampleVector(sample: point + (k1 * (h * 0.5)), context: ctx, key: op)
-        from k3 in field.SampleVector(sample: point + (k2 * (h * 0.5)), context: ctx, key: op)
-        from k4 in field.SampleVector(sample: point + (k3 * h), context: ctx, key: op)
-        select point + ((k1 + (2.0 * k2) + (2.0 * k3) + k4) * (h / 6.0)));
+        from p2 in op.AcceptValue(value: point + (k1 * (h * 0.5)))
+        from k2 in field.SampleVector(sample: p2, context: ctx, key: op)
+        from p3 in op.AcceptValue(value: point + (k2 * (h * 0.5)))
+        from k3 in field.SampleVector(sample: p3, context: ctx, key: op)
+        from p4 in op.AcceptValue(value: point + (k3 * h))
+        from k4 in field.SampleVector(sample: p4, context: ctx, key: op)
+        from next in op.AcceptValue(value: point + ((k1 + (2.0 * k2) + (2.0 * k3) + k4) * (h / 6.0)))
+        select next);
     [UseDelegateFromConstructor] internal partial Fin<Point3d> Step(VectorField field, Point3d point, double h, Context context, Op key);
 }
 
@@ -48,11 +55,11 @@ public abstract partial record Falloff {
         Op op = key.OrDefault();
         return op.AcceptValidated<PositiveMagnitude>(candidate: sigma).Map(static value => (Falloff)new GaussianCase(Sigma: value));
     }
-    internal Fin<double> Weight(double distance, Op key) => Switch(
-        state: (Distance: distance, Key: key),
+    internal Fin<double> Weight(double distance, double tolerance, Op key) => Switch(
+        state: (Distance: distance, Tolerance: tolerance, Key: key),
         constantCase: static (_, _) => Fin.Succ(1.0),
-        inverseCase: static (state, _) => state.Distance > RhinoMath.ZeroTolerance ? Fin.Succ(1.0 / state.Distance) : Fin.Fail<double>(state.Key.InvalidInput()),
-        inverseSquareCase: static (state, _) => state.Distance > RhinoMath.ZeroTolerance ? Fin.Succ(1.0 / (state.Distance * state.Distance)) : Fin.Fail<double>(state.Key.InvalidInput()),
+        inverseCase: static (state, _) => state.Distance > state.Tolerance ? Fin.Succ(1.0 / state.Distance) : Fin.Fail<double>(state.Key.InvalidInput()),
+        inverseSquareCase: static (state, _) => state.Distance > state.Tolerance ? Fin.Succ(1.0 / (state.Distance * state.Distance)) : Fin.Fail<double>(state.Key.InvalidInput()),
         gaussianCase: static (state, gaussian) => Fin.Succ(Math.Exp(-(state.Distance * state.Distance) / (2.0 * gaussian.Sigma.Value * gaussian.Sigma.Value))));
 }
 
@@ -167,7 +174,7 @@ public partial record VectorField {
                 from distance in hit.Distance.ToFin(Fail: op.InvalidResult())
                 let residual = c.Radius.Map(radius => Math.Abs(distance - radius.Value)).IfNone(distance)
                 let shellSign = c.Radius.Map(radius => distance >= radius.Value ? 1.0 : -1.0).IfNone(1.0)
-                from weight in c.Falloff.Weight(distance: residual, key: op)
+                from weight in c.Falloff.Weight(distance: residual, tolerance: state.Context.Absolute.Value, key: op)
                 select (Raw: shellSign * (hit.Point - state.Sample), Scale: c.Radius.IsSome ? residual * weight : weight)),
         normalCase: static (state, c) =>
             from _ in guard(c.Source.CanClosestNormal, state.Key.Unsupported(c.Source.SourceType, typeof(Vector3d)))

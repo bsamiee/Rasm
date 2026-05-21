@@ -1,3 +1,4 @@
+using Rasm.Analysis;
 using DrawingColor = System.Drawing.Color;
 
 namespace Rasm.Rhino.UI;
@@ -81,9 +82,11 @@ public readonly record struct OverlayDecision(Option<BoundingBox> Bounds = defau
             (Func<DrawObjectEventArgs, Fin<Unit>> a, _) => Some(a),
             _ => Option<Func<DrawObjectEventArgs, Fin<Unit>>>.None,
         });
-    internal static Fin<BoundingBox> BoundsOf(object source, Op op) => Optional(source).ToFin(Fail: op.InvalidInput()).Bind(value => value switch { BoundingBox box when box.IsValid => Fin.Succ(value: box), Box box when box.IsValid => Fin.Succ(value: box.BoundingBox), Sphere sphere when sphere.IsValid => Fin.Succ(value: sphere.BoundingBox), Line line when line.IsValid => Fin.Succ(value: line.BoundingBox), Polyline polyline when polyline.IsValid => Fin.Succ(value: polyline.BoundingBox), Circle circle when circle.IsValid => Fin.Succ(value: circle.BoundingBox), Arc arc when arc.IsValid => Fin.Succ(value: arc.BoundingBox()), Ellipse ellipse when ellipse.IsValid => CurveBounds(curve: ellipse.ToNurbsCurve(), op: op), Point3d point when point.IsValid => Fin.Succ(value: new BoundingBox(point, point)), GeometryBase geometry when geometry.IsValid && geometry.GetBoundingBox(accurate: true) is BoundingBox box && box.IsValid => Fin.Succ(value: box), _ => Fin.Fail<BoundingBox>(error: op.InvalidInput()) });
-
-    private static Fin<BoundingBox> CurveBounds(Curve curve, Op op) => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => { try { return Optional(curve).ToFin(Fail: op.InvalidInput()).Bind(static value => value.GetBoundingBox(accurate: true) switch { BoundingBox box when box.IsValid => Fin.Succ(value: box), _ => Fin.Fail<BoundingBox>(error: Op.Of(name: nameof(CurveBounds)).InvalidResult()) }); } finally { curve?.Dispose(); } });
+    internal static Fin<BoundingBox> BoundsOf(object source, Op op) =>
+        Analyze.Run(operation: Analyze.Bounds<object, BoundingBox>(aspect: Rasm.Analysis.Bounds.AxisAligned), input: source)
+            .ToFin()
+            .Bind(boxes => boxes.Count switch { > 0 => Fin.Succ(value: boxes[0]), _ => Fin.Fail<BoundingBox>(error: op.InvalidResult()) })
+            .Bind(box => box.IsValid ? Fin.Succ(value: box) : Fin.Fail<BoundingBox>(error: op.InvalidResult()));
 }
 
 public readonly record struct OverlayFilter(Option<ObjectType> Geometry = default, Option<ActiveSpace> Space = default, Option<Seq<Guid>> ObjectIds = default, Option<(bool On, bool CheckSubObjects)> Selection = default, Option<(RhinoViewport Viewport, bool Exclusive)> Viewport = default, bool Unbind = false) {

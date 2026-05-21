@@ -190,7 +190,7 @@ public static partial class Analyze {
     private static Fin<Seq<TopologyProjection>> SilhouettesOf(GeometryBase geometry, Curves.SilhouetteCase silhouette, CurveFeature feature, Context context, Op op, CancellationToken cancel) =>
         cancel.IsCancellationRequested
             ? Fin.Fail<Seq<TopologyProjection>>(new Fault.Cancelled())
-            : Direction.Of(value: Optional(silhouette.Direction).IfNone(Vector3d.ZAxis), context: context, key: op)
+            : Vector.Project<Vector3d>(intent: VectorIntent.Direction(value: Optional(silhouette.Direction).IfNone(Vector3d.ZAxis)), context: context, key: op)
                 .Bind(direction =>
                     (geometry switch {
                         Brep or BrepFace or Mesh or Extrusion => Fin.Succ((Geometry: geometry, Owned: Option<GeometryBase>.None)),
@@ -199,8 +199,8 @@ public static partial class Analyze {
                         _ => Fin.Fail<(GeometryBase Geometry, Option<GeometryBase> Owned)>(op.Unsupported(geometry.GetType(), typeof(Curve))),
                     }).Bind(shape => {
                         Fin<Seq<TopologyProjection>> result = Optional(silhouette.DraftAngle.Case switch {
-                            double a => Silhouette.ComputeDraftCurve(shape.Geometry, a, direction.Value, context.Absolute.Value, context.Angle.Value, cancel),
-                            _ => Silhouette.Compute(shape.Geometry, SilhouetteType.Projecting | SilhouetteType.TangentProjects | SilhouetteType.Tangent | SilhouetteType.Crease | SilhouetteType.Boundary, direction.Value, context.Absolute.Value, context.Angle.Value, [], cancel),
+                            double a => Silhouette.ComputeDraftCurve(shape.Geometry, a, direction, context.Absolute.Value, context.Angle.Value, cancel),
+                            _ => Silhouette.Compute(shape.Geometry, SilhouetteType.Projecting | SilhouetteType.TangentProjects | SilhouetteType.Tangent | SilhouetteType.Crease | SilhouetteType.Boundary, direction, context.Absolute.Value, context.Angle.Value, [], cancel),
                         }).ToFin(cancel.IsCancellationRequested ? (Error)new Fault.Cancelled() : op.InvalidResult())
                             .Map(arr => toSeq(arr).Map(sil => TopologyProjection.Of(sil.Curve, feature, sil.GeometryComponentIndex)));
                         _ = shape.Owned.Iter(static geom => geom.Dispose());

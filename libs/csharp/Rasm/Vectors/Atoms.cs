@@ -122,14 +122,20 @@ public readonly record struct Direction {
     public static Vector3d Multiply(Direction direction, double magnitude) => direction * magnitude;
     public Direction Reflect(Direction normal) =>
         new(value: Value - (2.0 * (Value * normal.Value) * normal.Value));
-    public static Fin<Direction> Refract(Direction incident, Direction normal, double etaIncident, double etaTransmitted, Op key) {
-        double eta = etaIncident / etaTransmitted;
-        double cosI = -(incident.Value * normal.Value);
-        double k = 1.0 - (eta * eta * (1.0 - (cosI * cosI)));
-        return k >= 0.0
-            ? Of(value: (eta * incident.Value) + (((eta * cosI) - Math.Sqrt(k)) * normal.Value), tolerance: RhinoMath.ZeroTolerance, key: key)
-            : Fin.Fail<Direction>(error: key.InvalidResult());
-    }
+    public static Fin<Direction> Refract(Direction incident, Direction normal, double etaIncident, double etaTransmitted, Op key) =>
+        from activeIncident in key.AcceptValidated<PositiveMagnitude>(candidate: etaIncident)
+        from activeTransmitted in key.AcceptValidated<PositiveMagnitude>(candidate: etaTransmitted)
+        let exiting = incident.Value * normal.Value > 0.0
+        let orientedNormal = exiting ? -normal.Value : normal.Value
+        let eta = exiting ? activeTransmitted.Value / activeIncident.Value : activeIncident.Value / activeTransmitted.Value
+        let cosI = Math.Clamp(value: -(incident.Value * orientedNormal), min: -1.0, max: 1.0)
+        let k = 1.0 - (eta * eta * (1.0 - (cosI * cosI)))
+        from direction in k switch {
+            >= 0.0 => Of(value: (eta * incident.Value) + (((eta * cosI) - Math.Sqrt(k)) * orientedNormal), tolerance: RhinoMath.ZeroTolerance, key: key),
+            double small when small > -RhinoMath.ZeroTolerance => Of(value: (eta * incident.Value) + (eta * cosI * orientedNormal), tolerance: RhinoMath.ZeroTolerance, key: key),
+            _ => Fin.Fail<Direction>(error: key.InvalidResult()),
+        }
+        select direction;
     internal Fin<TOut> Project<TOut>(Op key) =>
         typeof(TOut) switch {
             Type t when t == typeof(Direction) => Fin.Succ((TOut)(object)this),
@@ -184,80 +190,199 @@ public readonly record struct VectorSpan {
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct VectorRingShape(
+    Vector3d Normal,
+    double SignedArea,
+    double Area,
+    double Perimeter,
+    double EdgeAspect,
+    double Skewness,
+    double PlanarityDeviation,
+    Point3d Centroid,
+    Plane BestFitPlane,
+    Plane PrincipalFrame,
+    Seq<(double Moment, Vector3d Axis)> PrincipalAxes,
+    bool Convex,
+    CurveOrientation Orientation) {
+    internal bool IsValid => Normal is { IsValid: true } && !Normal.IsTiny()
+        && RhinoMath.IsValidDouble(SignedArea)
+        && RhinoMath.IsValidDouble(Area) && Area >= 0.0
+        && RhinoMath.IsValidDouble(Perimeter) && Perimeter > 0.0
+        && RhinoMath.IsValidDouble(EdgeAspect) && EdgeAspect >= 1.0
+        && RhinoMath.IsValidDouble(Skewness) && Skewness >= 0.0
+        && RhinoMath.IsValidDouble(PlanarityDeviation) && PlanarityDeviation >= 0.0
+        && Centroid.IsValid
+        && BestFitPlane.IsValid
+        && PrincipalFrame.IsValid
+        && PrincipalAxes.ForAll(static axis => OpAcceptance.ValidityOf(source: axis).IfNone(false))
+        && Orientation is CurveOrientation.Clockwise or CurveOrientation.CounterClockwise;
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 internal readonly record struct VectorRing {
-    private VectorRing(Seq<Point3d> points, Polyline native) {
+    private VectorRing(Seq<Point3d> points, Polyline native, Context context) {
         Points = points;
         Native = native;
+        Context = context;
     }
     internal Seq<Point3d> Points { get; }
     private Polyline Native { get; }
-    internal static Fin<VectorRing> Of(Seq<Point3d> points, Op key) =>
+    private Context Context { get; }
+    internal static Fin<VectorRing> Of(Seq<Point3d> points, Context context, Op key) =>
+        from model in Optional(context).ToFin(key.MissingContext())
         from valid in points.Traverse(point => key.AcceptValue(value: point).ToValidation()).As().ToFin()
-        from _ in guard(valid.Count >= 3, key.InvalidInput())
-        let native = new Polyline(valid[0].DistanceTo(other: valid[valid.Count - 1]) <= RhinoMath.ZeroTolerance ? [.. valid.AsIterable()] : [.. valid.AsIterable(), valid[0]])
-        from __ in guard(native.IsValid && native.IsClosed && native.SegmentCount >= 3, key.InvalidInput())
-        select new VectorRing(points: valid, native: native);
+        let closed = valid.Count > 1 && valid[0].DistanceTo(other: valid[valid.Count - 1]) <= model.Absolute.Value
+        let vertices = closed ? valid.Init : valid
+        from _ in guard(vertices.Count >= 3, key.InvalidInput())
+        let native = new Polyline([.. vertices.AsIterable(), vertices[0]])
+        from __ in guard(native.IsValid && native.IsClosedWithinTolerance(model.Absolute.Value) && native.SegmentCount >= 3, key.InvalidInput())
+        from ___ in SimpleLoop(native: native, context: model, key: key)
+        select new VectorRing(points: vertices, native: native, context: model);
     internal Fin<Vector3d> Normal(Op key) =>
-        Direction.Of(value: FanVectors.Fold(initialState: Vector3d.Zero, f: static (sum, value) => sum + value), tolerance: RhinoMath.ZeroTolerance, key: key).Map(static direction => direction.Value);
+        WithCurve(
+            state: (Context, Key: key),
+            project: static (state, curve) =>
+                OrientationOf(curve: curve, context: state.Context, key: state.Key).Map(static ring => ring.Normal),
+            key: key);
     internal Fin<double> Area(Op key) =>
-        key.AcceptValue(value: 0.5 * FanVectors.Fold(initialState: Vector3d.Zero, f: static (sum, value) => sum + value).Length);
+        WithMassProperties(project: static (props, op) => op.AcceptValue(value: props.Area), key: key);
     internal Fin<double> Perimeter(Op key) =>
         key.AcceptValue(value: Native.Length);
-    internal Fin<double> EdgeAspect(Op key) {
-        Seq<Point3d> points = Points;
-        return points.Map((point, index) => point.DistanceTo(other: points[(index + 1) % points.Count]))
-            .Fold(
-                initialState: (Count: 0, Min: double.PositiveInfinity, Max: 0.0),
-                f: static (range, length) => length > RhinoMath.ZeroTolerance
-                    ? (Count: range.Count + 1, Min: Math.Min(val1: range.Min, val2: length), Max: Math.Max(val1: range.Max, val2: length))
-                    : range) switch {
-                        (Count: > 0, Min: double min, Max: double max) when RhinoMath.IsValidDouble(x: min) && min > RhinoMath.ZeroTolerance && RhinoMath.IsValidDouble(x: max) =>
-                            key.AcceptValue(value: max / min),
-                        _ => Fin.Fail<double>(error: key.InvalidResult()),
-                    };
-    }
-    internal Fin<double> Skewness(Op key) {
-        Seq<Point3d> points = Points;
-        return points.Count switch {
-            int count when count >= 3 => points.Map((point, index) => Vector3d.VectorAngle(a: points[(index + count - 1) % count] - point, b: points[(index + 1) % count] - point))
-                .Fold(initialState: Fin.Succ((Max: 0.0, Ideal: (count - 2) * Math.PI / count)), f: (state, angle) => state.Bind(s => key.AcceptValidated<VectorAngle>(candidate: angle)
-                    .Map(a => (Max: Math.Max(val1: s.Max, val2: Math.Max(val1: (a.Value - s.Ideal) / (Math.PI - s.Ideal), val2: (s.Ideal - a.Value) / s.Ideal)), s.Ideal))))
-                .Map(static state => state.Max),
-            _ => Fin.Fail<double>(error: key.InvalidResult()),
-        };
-    }
+    internal Fin<double> EdgeAspect(Op key) =>
+        EdgeAspectOf(native: Native, context: Context, key: key);
+    internal Fin<double> Skewness(Op key) =>
+        WithCurve(
+            state: (Points, Context, Key: key),
+            project: static (state, curve) =>
+                from ring in OrientationOf(curve: curve, context: state.Context, key: state.Key)
+                from skewness in SkewnessOf(points: state.Points, normal: ring.Normal, key: state.Key)
+                select skewness,
+            key: key);
     internal Fin<Point3d> Centroid(Op key) =>
         WithMassProperties(project: static (props, k) => k.AcceptValue(value: props.Centroid), key: key);
     internal Fin<Plane> BestFitPlane(Op key) =>
-        (Plane.FitPlaneToPoints(points: Points.AsIterable(), plane: out Plane plane, maximumDeviation: out double _), plane) switch {
-            (PlaneFitResult.Success, { IsValid: true } valid) => key.AcceptValue(value: valid),
-            _ => Fin.Fail<Plane>(error: key.InvalidResult()),
+        BestFitPlaneOf(points: Points, key: key);
+    private static Fin<(Plane Plane, double Deviation)> BestFitOf(Seq<Point3d> points, Op key) =>
+        (Plane.FitPlaneToPoints(points: points.AsIterable(), plane: out Plane plane, maximumDeviation: out double deviation), plane) switch {
+            (PlaneFitResult.Success, { IsValid: true } valid) =>
+                from acceptedPlane in key.AcceptValue(value: valid)
+                from acceptedDeviation in key.AcceptValue(value: deviation)
+                select (Plane: acceptedPlane, Deviation: acceptedDeviation),
+            _ => Fin.Fail<(Plane Plane, double Deviation)>(error: key.InvalidResult()),
         };
+    private static Fin<Plane> BestFitPlaneOf(Seq<Point3d> points, Op key) =>
+        BestFitOf(points: points, key: key).Map(static fit => fit.Plane);
     internal Fin<Seq<Vector3d>> PrincipalAxes(Op key) =>
-        WithMassProperties(project: static (props, k) =>
-            (props.CentroidCoordinatesPrincipalMomentsOfInertia(x: out double _, xaxis: out Vector3d xAxis, y: out double _, yaxis: out Vector3d yAxis, z: out double _, zaxis: out Vector3d zAxis), Seq(xAxis, yAxis, zAxis)) switch {
-                (true, Seq<Vector3d> axes) when axes.ForAll(static v => v.IsValid && !v.IsTiny()) => k.AcceptValue(value: axes),
-                _ => Fin.Fail<Seq<Vector3d>>(error: k.InvalidResult()),
-            }, key: key);
+        WithMassProperties(project: static (props, k) => AxesOf(mass: props, key: k).Bind(axes => axes.Map(static axis => axis.Axis).TraverseM(axis => k.AcceptValue(value: axis)).As()), key: key);
     internal Fin<Plane> PrincipalFrame(Op key) =>
-        WithMassProperties(project: static (props, k) =>
-            (props.CentroidCoordinatesPrincipalMomentsOfInertia(x: out double _, xaxis: out Vector3d xAxis, y: out double _, yaxis: out Vector3d yAxis, z: out double _, zaxis: out Vector3d _), xAxis, yAxis) switch {
-                (true, var x, var y) when x.IsValid && y.IsValid && !x.IsTiny() && !y.IsTiny() && new Plane(origin: props.Centroid, xDirection: x, yDirection: y) is { IsValid: true } frame
-                    => k.AcceptValue(value: frame),
-                _ => Fin.Fail<Plane>(error: k.InvalidResult()),
-            }, key: key);
-    private Fin<TResult> WithMassProperties<TResult>(Func<AreaMassProperties, Op, Fin<TResult>> project, Op key) {
-        using PolylineCurve curve = Native.ToPolylineCurve();
-        using AreaMassProperties? props = AreaMassProperties.Compute(closedPlanarCurve: curve);
-        return props switch {
-            AreaMassProperties valid => project(valid, key),
-            _ => Fin.Fail<TResult>(error: key.InvalidResult()),
-        };
+        WithCurve(
+            state: (Context, Key: key),
+            project: static (state, curve) =>
+                from ring in OrientationOf(curve: curve, context: state.Context, key: state.Key)
+                from frame in WithMassProperties(
+                    curve: curve,
+                    context: state.Context,
+                    project: static (s, mass) => AxesOf(mass: mass, key: s.Key).Bind(axes => PrincipalFrameOf(centroid: mass.Centroid, axes: axes, normal: s.Normal, context: s.Context, key: s.Key)),
+                    state: (state.Context, state.Key, ring.Normal),
+                    key: state.Key)
+                select frame,
+            key: key);
+    internal Fin<VectorRingShape> Shape(Op key) =>
+        WithCurve(
+            state: (Points, Native, Context, Key: key),
+            project: static (state, curve) => {
+                using AreaMassProperties? props = AreaMassProperties.Compute(closedPlanarCurve: curve, planarTolerance: state.Context.Absolute.Value);
+                return from mass in Optional(props).ToFin(state.Key.InvalidResult())
+                       from ring in OrientationOf(curve: curve, context: state.Context, key: state.Key)
+                       from fit in BestFitOf(points: state.Points, key: state.Key)
+                       from edgeAspect in EdgeAspectOf(native: state.Native, context: state.Context, key: state.Key)
+                       from skewness in SkewnessOf(points: state.Points, normal: ring.Normal, key: state.Key)
+                       from axes in AxesOf(mass: mass, key: state.Key)
+                       from principal in PrincipalFrameOf(centroid: mass.Centroid, axes: axes, normal: ring.Normal, context: state.Context, key: state.Key)
+                       let shape = new VectorRingShape(
+                           Normal: ring.Normal,
+                           SignedArea: ring.Orientation == CurveOrientation.CounterClockwise ? mass.Area : -mass.Area,
+                           Area: mass.Area,
+                           Perimeter: state.Native.Length,
+                           EdgeAspect: edgeAspect,
+                           Skewness: skewness,
+                           PlanarityDeviation: fit.Deviation,
+                           Centroid: mass.Centroid,
+                           BestFitPlane: fit.Plane,
+                           PrincipalFrame: principal,
+                           PrincipalAxes: axes,
+                           Convex: state.Native.IsConvexLoop(strictlyConvex: false),
+                           Orientation: ring.Orientation)
+                       from valid in shape.IsValid ? Fin.Succ(shape) : Fin.Fail<VectorRingShape>(state.Key.InvalidResult())
+                       select valid;
+            },
+            key: key);
+    private static Fin<double> EdgeAspectOf(Polyline native, Context context, Op key) {
+        double tolerance = context.Absolute.Value;
+        return Optional(native.GetSegments()).ToFin(key.InvalidResult()).Bind(segments => toSeq(segments).Map(static segment => segment.Length) switch {
+            Seq<double> lengths when !lengths.IsEmpty && lengths.ForAll(length => RhinoMath.IsValidDouble(x: length) && length > tolerance) =>
+                lengths.Fold(initialState: (Min: double.PositiveInfinity, Max: 0.0), f: static (range, length) => (Min: Math.Min(val1: range.Min, val2: length), Max: Math.Max(val1: range.Max, val2: length))) switch {
+                    (Min: double min, Max: double max) when min > tolerance && max >= min => key.AcceptValue(value: max / min),
+                    _ => Fin.Fail<double>(error: key.InvalidResult()),
+                },
+            _ => Fin.Fail<double>(error: key.InvalidResult()),
+        });
     }
-    private Seq<Vector3d> FanVectors {
-        get {
-            Seq<Point3d> points = Points;
-            return points.Map((point, index) => Vector3d.CrossProduct(a: point - points[0], b: points[(index + 1) % points.Count] - points[0]));
-        }
+    private static Fin<double> SkewnessOf(Seq<Point3d> points, Vector3d normal, Op key) =>
+        points.Count switch {
+            int count when count >= 3 => points.Map((point, index) => (
+                    Previous: points[(index + count - 1) % count] - point,
+                    Next: points[(index + 1) % count] - point,
+                    Normal: normal))
+                .Map(static vectors => Vector3d.VectorAngle(a: vectors.Previous, b: vectors.Next) switch {
+                    double angle when Vector3d.CrossProduct(a: vectors.Previous, b: vectors.Next) * vectors.Normal > 0.0 => RhinoMath.TwoPI - angle,
+                    double angle => angle,
+                })
+                .Fold(initialState: Fin.Succ((Max: 0.0, Ideal: (count - 2) * Math.PI / count, Key: key)), f: static (state, angle) => state.Bind(s => s.Key.AcceptValidated<VectorAngle>(candidate: angle)
+                    .Map(a => (Max: Math.Max(val1: s.Max, val2: Math.Max(val1: (a.Value - s.Ideal) / (Math.PI - s.Ideal), val2: (s.Ideal - a.Value) / s.Ideal)), s.Ideal, s.Key))))
+                .Map(static state => state.Max),
+            _ => Fin.Fail<double>(error: key.InvalidResult()),
+        };
+    private static Fin<Seq<(double Moment, Vector3d Axis)>> AxesOf(AreaMassProperties mass, Op key) =>
+        (mass.CentroidCoordinatesPrincipalMomentsOfInertia(x: out double x, xaxis: out Vector3d xAxis, y: out double y, yaxis: out Vector3d yAxis, z: out double z, zaxis: out Vector3d zAxis), Seq((Moment: x, Axis: xAxis), (Moment: y, Axis: yAxis), (Moment: z, Axis: zAxis))) switch {
+            (true, Seq<(double Moment, Vector3d Axis)> axes) => axes.TraverseM(axis => key.AcceptValue(value: axis)).As(),
+            _ => Fin.Fail<Seq<(double Moment, Vector3d Axis)>>(error: key.InvalidResult()),
+        };
+    private static Fin<Plane> PrincipalFrameOf(Point3d centroid, Seq<(double Moment, Vector3d Axis)> axes, Vector3d normal, Context context, Op key) =>
+        axes.TraverseM(axis => Direction.Of(value: axis.Axis, context: context, key: key).Map(direction => (axis.Moment, Axis: direction.Value, Score: Math.Abs(direction.Value * normal)))).As()
+            .Bind(valid => toSeq(valid.AsIterable().OrderBy(static axis => axis.Score)).Take(2) switch {
+                Seq<(double Moment, Vector3d Axis, double Score)> chosen when chosen.Count == 2 => new Plane(
+                    origin: centroid,
+                    xDirection: chosen[0].Axis,
+                    yDirection: Vector3d.CrossProduct(a: chosen[0].Axis, b: chosen[1].Axis) * normal >= 0.0 ? chosen[1].Axis : -chosen[1].Axis) switch {
+                    { IsValid: true } frame => key.AcceptValue(value: frame),
+                        _ => Fin.Fail<Plane>(error: key.InvalidResult()),
+                    },
+                _ => Fin.Fail<Plane>(error: key.InvalidResult()),
+            });
+    private static Fin<(Plane Plane, Vector3d Normal, CurveOrientation Orientation)> OrientationOf(PolylineCurve curve, Context context, Op key) =>
+        (curve.TryGetPlane(plane: out Plane plane, tolerance: context.Absolute.Value), plane) switch {
+            (true, { IsValid: true } frame) => curve.ClosedCurveOrientation(plane: frame) switch {
+                CurveOrientation.Clockwise => Direction.Of(value: -frame.Normal, context: context, key: key).Map(normal => (Plane: frame, Normal: normal.Value, Orientation: CurveOrientation.Clockwise)),
+                CurveOrientation.CounterClockwise => Direction.Of(value: frame.Normal, context: context, key: key).Map(normal => (Plane: frame, Normal: normal.Value, Orientation: CurveOrientation.CounterClockwise)),
+                _ => Fin.Fail<(Plane Plane, Vector3d Normal, CurveOrientation Orientation)>(key.InvalidResult()),
+            },
+            _ => Fin.Fail<(Plane Plane, Vector3d Normal, CurveOrientation Orientation)>(key.InvalidResult()),
+        };
+    private static Fin<Unit> SimpleLoop(Polyline native, Context context, Op key) =>
+        Optional(native.ToPolylineCurve()).ToFin(key.InvalidResult()).Bind(curve => new Lease<PolylineCurve>.Owned(Value: curve).Use(
+            state: (Context: context, Key: key),
+            project: static (state, active) => Optional(Intersection.CurveSelf(curve: active, tolerance: state.Context.Absolute.Value)).ToFin(state.Key.InvalidResult())
+                .Bind(events => events.Count == 0 ? Fin.Succ(unit) : Fin.Fail<Unit>(state.Key.InvalidInput()))));
+    private Fin<TResult> WithCurve<TState, TResult>(TState state, Func<TState, PolylineCurve, Fin<TResult>> project, Op key) =>
+        Optional(Native.ToPolylineCurve()).ToFin(key.InvalidResult()).Bind(curve => new Lease<PolylineCurve>.Owned(Value: curve).Use(state: state, project: project));
+    private static Fin<TResult> WithMassProperties<TState, TResult>(PolylineCurve curve, Context context, Func<TState, AreaMassProperties, Fin<TResult>> project, TState state, Op key) =>
+        Optional(AreaMassProperties.Compute(closedPlanarCurve: curve, planarTolerance: context.Absolute.Value)).ToFin(key.InvalidResult())
+            .Bind(props => new Lease<AreaMassProperties>.Owned(Value: props).Use<TState, Fin<TResult>>(state: state, project: project));
+    private Fin<TResult> WithMassProperties<TResult>(Func<AreaMassProperties, Op, Fin<TResult>> project, Op key) {
+        return WithCurve(
+            state: (Context, Key: key, Project: project),
+            project: static (state, curve) => WithMassProperties(curve: curve, context: state.Context, project: static (s, mass) => s.Project(arg1: mass, arg2: s.Key), state, key: state.Key),
+            key: key);
     }
 }
