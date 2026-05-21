@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 ((BASH_VERSINFO[0] > 5 || (BASH_VERSINFO[0] == 5 && BASH_VERSINFO[1] >= 3))) || { printf 'rhino: Bash 5.3+ is required\n' >&2; exit 1; }
-shopt -s inherit_errexit nullglob
-shopt -s array_expand_once 2>/dev/null || true
+shopt -s inherit_errexit nullglob array_expand_once
 IFS=$'\n\t'
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"

@@ -114,7 +114,7 @@ public readonly record struct Distribution(Stat Summary, double Median, double I
                 }))
             .Bind(distribution => key.AcceptValue(value: distribution));
     private static double Quantile(Seq<double> sorted, double fraction) =>
-        (sorted.Count - 1) * Math.Clamp(value: fraction, min: 0.0, max: 1.0) switch {
+        ((sorted.Count - 1) * Math.Clamp(value: fraction, min: 0.0, max: 1.0)) switch {
             double idx when Math.Abs(value: idx - Math.Floor(d: idx)) <= RhinoMath.ZeroTolerance => sorted[(int)Math.Floor(d: idx)],
             double idx when Math.Abs(value: Math.Ceiling(a: idx) - idx) <= RhinoMath.ZeroTolerance => sorted[(int)Math.Ceiling(a: idx)],
             double idx => sorted[(int)Math.Floor(d: idx)] + ((sorted[(int)Math.Ceiling(a: idx)] - sorted[(int)Math.Floor(d: idx)]) * (idx - Math.Floor(d: idx))),

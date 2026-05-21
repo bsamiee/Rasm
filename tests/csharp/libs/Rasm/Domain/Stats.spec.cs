@@ -6,9 +6,8 @@ namespace Rasm.Tests.Domain;
 // --- [CONSTANTS] ----------------------------------------------------------------------------
 public static class StatGens {
     public static readonly Op Key = Op.Of(name: "stats-test");
-    public static readonly Func<double, double, bool> Approx = static (a, b) =>
-        Math.Abs(value: a - b) < 1.0e-6 * Math.Max(val1: 1.0, val2: Math.Abs(value: a) + Math.Abs(value: b));
-    public static readonly Gen<Seq<double>> NonEmptyFinite = Gens.Finite.Array[1, 256].Select(static (double[] xs) => toSeq(xs));
+    public static readonly Func<double, double, bool> Approx = Gens.Approx(relativeTolerance: 1.0e-6);
+    public static readonly Gen<Seq<double>> NonEmptyFinite = Gens.NonEmptySeq(element: Gens.Finite);
     public static readonly Gen<Seq<double>> SingletonFinite = Gens.Finite.Select(static (double x) => Seq(x));
     public static readonly Gen<Seq<double>> ConstantFinite = Gens.Finite.Select(Gen.Int[2, 64], static (double x, int n) => toSeq(Enumerable.Repeat(element: x, count: n)));
     public static readonly Gen<ScalarMetric> ScalarMetricCase = Gen.OneOfConst(ScalarMetric.Magnitude, ScalarMetric.Gaussian, ScalarMetric.Mean);
@@ -73,6 +72,17 @@ public sealed class StatComputationLaws {
             Assert.Equal(expected: System.Linq.Enumerable.Min(xs.AsIterable()), actual: s.Minimum);
             Assert.Equal(expected: System.Linq.Enumerable.Max(xs.AsIterable()), actual: s.Maximum);
         }));
+}
+
+public sealed class DistributionLaws {
+    [Fact]
+    public void MedianMatchesSortedMiddleOracle() =>
+        Spec.Metamorphic(StatGens.NonEmptyFinite,
+            path: static (Seq<double> xs) => Distribution.Of(values: xs, percentiles: Seq<double>(), key: StatGens.Key).Match(Succ: static d => d.Median, Fail: static _ => double.NaN),
+            oracle: static (Seq<double> xs) => System.Linq.Enumerable.OrderBy(xs.AsIterable(), static v => v).ToArray() switch {
+                double[] sorted => sorted.Length % 2 == 1 ? sorted[sorted.Length / 2] : 0.5 * (sorted[(sorted.Length / 2) - 1] + sorted[sorted.Length / 2]),
+            },
+            eq: StatGens.Approx);
 }
 
 public sealed class StatContextLaws {

@@ -8,8 +8,6 @@ namespace Rasm.TestKit;
 public static class Spec {
     public static void ForAll<T>(Gen<T> gen, Action<T> property) =>
         gen.Sample(value => Apply(action: property, value: value));
-    public static void ForAll<T>(Gen<T> gen, Func<T, bool> predicate) =>
-        gen.Sample(value => predicate(value) ? true : throw new XunitException($"ForAll failed for {value}"));
     public static void Implies<T>(Gen<T> gen, Func<T, bool> premise, Action<T> body) =>
         gen.Sample(value => premise(value) switch { true => Apply(action: body, value: value), false => true });
     public static void Roundtrip<TIn, TOut>(Gen<TIn> gen, Func<TIn, TOut> forward, Func<TOut, TIn> back, Func<TIn, TIn, bool>? eq = null) =>
@@ -24,6 +22,13 @@ public static class Spec {
         gen.Select(gen, gen).Sample((T a, T b, T c) => EqOrThrow(left: op(op(a, b), c), right: op(a, op(b, c)), predicate: eq));
     public static void Inverse<T>(Gen<T> gen, Func<T, T> f, Func<T, T> g, Func<T, T, bool>? eq = null) =>
         gen.Sample(value => EqOrThrow(left: value, right: g(f(value)), predicate: eq));
+    public static void Monotone<T, TKey>(Gen<(T Lo, T Hi)> pairs, Func<T, TKey> projection, IComparer<TKey>? comparer = null) =>
+        pairs.Sample(p => (comparer ?? Comparer<TKey>.Default).Compare(x: projection(p.Lo), y: projection(p.Hi)) <= 0
+            ? true
+            : throw new XunitException($"Monotone violated: f({p.Lo}) = {projection(p.Lo)} > {projection(p.Hi)} = f({p.Hi})"));
+    public static void Permutation<T, TResult>(Gen<T[]> gen, Func<T[], TResult> f, Func<TResult, TResult, bool>? eq = null) =>
+        gen.SelectMany(arr => Gen.Shuffle(arr).Select(perm => (Original: arr, Shuffled: perm))).Sample(p =>
+            EqOrThrow(left: f(p.Original), right: f(p.Shuffled), predicate: eq));
     public static void Metamorphic<T, TResult>(Gen<T> gen, Func<T, TResult> path, Func<T, TResult> oracle, Func<TResult, TResult, bool>? eq = null) =>
         gen.Sample(value => EqOrThrow(left: path(value), right: oracle(value), predicate: eq));
     public static void Regression<T>(Gen<T> gen, Action<T> property, string seed) =>

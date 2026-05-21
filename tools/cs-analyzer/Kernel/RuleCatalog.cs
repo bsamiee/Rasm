@@ -82,6 +82,16 @@ internal static class RuleCatalog {
     /// Threshold of 3 mirrors the call-site cognitive load — two-field records read clearly positionally, three-plus do not.
     /// </summary>
     internal static readonly DiagnosticDescriptor CSP0726 = Err("CSP0726", "PositionalRecordConstructor", "Record '{0}' has {1} primary-constructor parameters; use named arguments at every call site to survive field reordering", "SurfaceArea");
+    /// <summary>
+    /// CSP0727 SwitchExpressionPrecedence — fires when a switch expression appears as the right operand of an arithmetic
+    /// binary operator (*, /, %, +, -) without explicit parentheses. C# 12+ precedence places the switch expression
+    /// HIGHER than multiplicative/additive operators, so `A * B switch { ... }` parses as `A * (B switch { ... })`,
+    /// not `(A * B) switch { ... }`. The trap is silent: no warning, no analyzer signal, no test failure that maps back
+    /// to the precedence rule. Localized in production via a metamorphic test on Distribution.Median (May 2026).
+    /// Fix: parenthesize the intended switch input — `(A * B) switch { ... }` — or parenthesize the switch result —
+    /// `A * (B switch { ... })`. Either expresses intent unambiguously.
+    /// </summary>
+    internal static readonly DiagnosticDescriptor CSP0727 = Err("CSP0727", "SwitchExpressionPrecedence", "Switch expression as right operand of '{0}' binds tighter than arithmetic; wrap the intended switch input '(A {0} B) switch {{ ... }}' or the switch result 'A {0} (B switch {{ ... }})' in parentheses", "FunctionalDiscipline");
 
     // --- [PERFORMANCE_RULES] --------------------------------------------------
 
@@ -157,5 +167,5 @@ internal static class RuleCatalog {
         CSP0601, CSP0602, CSP0603, CSP0604, CSP0605, CSP0606, CSP0607, CSP0608,
         CSP0701, CSP0702, CSP0703, CSP0704, CSP0705, CSP0706, CSP0707, CSP0708, CSP0709,
         CSP0710, CSP0711, CSP0712, CSP0713, CSP0714, CSP0715, CSP0717, CSP0718, CSP0719, CSP0720,
-        CSP0723, CSP0724, CSP0725, CSP0726);
+        CSP0723, CSP0724, CSP0725, CSP0726, CSP0727);
 }

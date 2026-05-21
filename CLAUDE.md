@@ -46,7 +46,7 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 ## [3][DEPENDENCY_POLICY]
 
 [IMPORTANT]: **External-Lib-First**: approved dependencies are primary implementation surface.
-- [ALWAYS] Treat dependencies declared in `pyproject.toml`, `pnpm-workspace.yaml`, `Directory.Build.props`/`build.props`, and equivalent manifests as first-class libraries.
+- [ALWAYS] Treat dependencies declared in `pyproject.toml`, `pnpm-workspace.yaml`, `Directory.Packages.props`, and equivalent manifests as first-class libraries.
 - [ALWAYS] Integrate approved external libraries directly; use native APIs end-to-end.
 - [ALWAYS] Prefer ecosystem libraries that already own the domain concern over local reinvention.
 - [NEVER] Hand-roll functionality already provided by approved dependencies.

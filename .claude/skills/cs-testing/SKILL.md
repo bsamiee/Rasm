@@ -26,7 +26,7 @@ Generate dense, law-driven test suites. Pure-managed logic exercises algebraic p
 5. Verify oracle independence via [->guardrails.md](references/guardrails.md).
 6. Validate against [section 8](#8validation).
 
-**Stack:** xUnit v3 (`xunit.v3.mtp-off`), CsCheck 4.7+ (PBT + shrinking + `Gen.OneOfConst`/`Gen.Frequency`/`Gen.Recursive`), LanguageExt 5 (Fin/Validation/Eff under test), Thinktecture (smart constructors).
+**Stack:** xUnit v3 (`xunit.v3.mtp-off` for runnable test projects, `xunit.v3.assert` for `Rasm.TestKit` extensibility), CsCheck 4.7 (PBT + shrinking + `Sample`/`SampleMetamorphic`/`SampleParallel`/`SampleModelBased`), LanguageExt 5 (Fin/Validation/Eff under test), Thinktecture (smart constructors), coverlet.msbuild 6 (coverage configured in `Directory.Build.props`, opt-in via `/p:CollectCoverage=true`).
 
 **References:**
 
@@ -168,18 +168,39 @@ Walk the law taxonomy per export. Pack laws sharing the same arbitrary into one 
 |   [7]   | `gen.Array[min, max]`                | Variable-length array generator                                                        | Collection-driven tests                                  |
 |   [8]   | `gen.Sample(action)`                 | Run 100 cases (default), shrink on throw                                               | Property loop                                            |
 |   [9]   | `gen.Sample(predicate)`              | bool-form property                                                                     | Idiomatic boolean laws                                   |
-|  [10]   | `gen.Sample(predicate, seed: "…")`   | Replay a previously-shrunk failing case                                                | Regression pin without copy-paste literals               |
-|  [11]   | `Gen.Frequency(...)`                 | Weighted alternatives                                                                  | Bias case distribution                                   |
-|  [12]   | `Gen.Recursive(...)`                 | Bounded-depth tree generation                                                          | Recursive structures (curves, breps)                     |
-|  [13]   | `Spec.Metamorphic(gen, path, oracle)` | Assert SUT result equals an INDEPENDENT oracle path over the same input               | External oracle without snapshot files                   |
-|  [14]   | `Spec.Regression(gen, action, seed)`  | Pin a shrunk failing case under a stable name                                          | Reproducible regression evidence                         |
-|  [15]   | `action.Faster(other, sigma: 6)`     | Paired-sample t-test perf comparison via CsCheck (use inside `[Fact(Explicit = true)]`) | Statistical perf guard without BenchmarkDotNet           |
+|  [10]   | `gen.Sample(..., seed: "…")`         | Replay a previously-shrunk failing case (the seed string in the failure message IS the persistence) | Regression pin without copy-paste literals |
+|  [11]   | `gen.Sample(..., time: seconds)`     | Bound CsCheck sampling by wall-clock instead of iter count                              | Suits CI budgets where shrink cost varies                |
+|  [12]   | `gen.Sample(..., threads: n)`        | Override CsCheck's per-sample thread pool (default `ProcessorCount`)                    | Determinism for cross-machine repro; CI = 1              |
+|  [13]   | `Gen.Frequency(...)`                 | Weighted alternatives                                                                  | Bias case distribution                                   |
+|  [14]   | `Gen.Recursive(...)`                 | Bounded-depth tree generation                                                          | Recursive structures (curves, breps)                     |
+|  [15]   | `Gen.Shuffle(arr)`                   | Generator of permutations of a fixed array                                              | Powers `Spec.Permutation`; order-invariance laws         |
+|  [16]   | `Spec.Metamorphic(gen, path, oracle)` | Assert SUT result equals an INDEPENDENT oracle path over the same input               | External oracle without snapshot files                   |
+|  [17]   | `Spec.Permutation(gen, f, eq?)`      | `f(xs) = f(shuffle(xs))` — order invariance via `Gen.Shuffle`                          | Aggregations (Mean/Sum/Variance/Set ops)                 |
+|  [18]   | `Spec.Monotone(orderedPair, proj, cmp?)` | `f(lo) ≤ f(hi)` over ordered pair generators                                       | Quantile/sort/projection laws                            |
+|  [19]   | `gen.SampleMetamorphic(Gen<Metamorphic<T>>)` | Two-transformation MR (e.g. `f(x)` vs `f(T(x))` related by R)                  | Catches non-pointwise invariants                         |
+|  [20]   | `gen.SampleModelBased(...ops)`       | State-machine PBT: actual vs reference-model after each `Operation<TActual, TModel>`   | Stateful APIs, mutable wrappers, caches                  |
+|  [21]   | `gen.SampleParallel(...ops)`         | Concurrent execution; CsCheck shrinks failing interleavings                            | Linearizability of thread-safe APIs                      |
+|  [22]   | `gen.Single(predicate, seed)`        | Find AND pin one sample matching predicate                                              | Single-case regression without re-running shrink         |
+|  [23]   | `Check.Hash(action, expected, dp)`   | Hash-based regression with `.cs.cache` file alongside test source                       | Replaces golden-file fixture suites                      |
+|  [24]   | `Spec.Regression(gen, action, seed)` | Pin a shrunk failing case under a stable name                                          | Reproducible regression evidence                         |
+|  [25]   | `action.Faster(other, sigma: 6)`     | Paired-sample sigma comparison (`σ ≥ 6` ≈ 1-in-5×10⁸ false positive); use inside `[Fact(Explicit = true)]` | Statistical perf guard without BenchmarkDotNet           |
+
+**Environment variable overrides (assembly-wide, no code edit):**
+
+| [VAR]              | [OVERRIDES]                   | [USE]                                                              |
+| ------------------ | ----------------------------- | ------------------------------------------------------------------ |
+| `CsCheck_Iter`     | `iter:` (default 100)         | `CsCheck_Iter=10000 bash scripts/test.sh` — deep coverage on demand |
+| `CsCheck_Time`     | `time:` (seconds)             | `CsCheck_Time=60 bash scripts/test.sh` — wall-clock budget         |
+| `CsCheck_Seed`     | `seed:` (replay shrunk case)  | `CsCheck_Seed=<seed> bash scripts/test.sh "...~MyLaw"` — repro     |
+| `CsCheck_Sigma`    | `sigma:` for `Faster` (def 6) | `CsCheck_Sigma=50 bash scripts/test.sh "...~PerfLaw"` — stricter   |
+| `CsCheck_Threads`  | per-sample thread count       | `CsCheck_Threads=1 bash scripts/test.sh` — single-threaded CI run  |
 
 [CRITICAL]:
 - [NEVER] Use `gen.Sample(_ => { ... })` without returning `true` / asserting — the property runs but silently passes.
 - [ALWAYS] Use `Spec.ForAll(gen, Action<T>)` from `Rasm.TestKit` to wrap properties — it adapts `Action` to CsCheck's `Func<T, bool>` contract.
 - [ALWAYS] Use `Spec.Succ` / `Spec.Fail` for `Fin<T>` assertions — null-coalescing-guarded; no CA1062 suppression.
-- [ALWAYS] Use `Spec.Metamorphic` when an external algorithm (LINQ, NIST vector, hand-derived formula) can compute the same result via an unrelated path. Metamorphic tests are the strongest defense against oracle-impl coupling.
+- [ALWAYS] Use `Spec.Metamorphic` when an external algorithm (LINQ, NIST vector, hand-derived formula) can compute the same result via an unrelated path. Metamorphic tests are the strongest defense against oracle-impl coupling AND against subtle language-precedence bugs (`Stats.spec.cs::MedianMatchesSortedMiddleOracle` localized a C# `switch` vs `*` precedence error that no hand-written assertion caught).
+- [ALWAYS] Pair `Sample(threads: 1)` with `[CollectionDefinition(DisableParallelization = true)]` when the predicate body touches RhinoCommon static state.
 
 ---
 ## [6.2][XUNIT_V3_ADVANCED]
@@ -198,10 +219,11 @@ Walk the law taxonomy per export. Pack laws sharing the same arbitrary into one 
 |   [7]   | `IAsyncLifetime` / `IAsyncDisposable`                  | Per-class async setup/teardown. Prefer over constructor + IDisposable when fixtures are async. |
 |   [8]   | `[assembly: AssemblyFixture(typeof(T))]` + `IAssemblyFixture<T>` | One-time process-wide fixture (e.g. bridge handle). v3-only; no v2 equivalent.         |
 |   [9]   | `[assembly: CaptureConsole]` / `[assembly: CaptureTrace]` | Route stdout/Trace into per-test buffer. Replaces `Console.SetOut` shimming.           |
-|  [10]   | `xunit.runner.json` (repo root, linked via `Directory.Build.props`) | Shared runtime config: `parallelAlgorithm: "conservative"`, `preEnumerateTheories: true`, `longRunningTestSeconds: 30`. |
+|  [10]   | `xunit.runner.json` generated into `obj/` per test project (source: `_XunitRunnerJsonContent` in `Directory.Build.props`) | Shared runtime config: `parallelAlgorithm: "conservative"`, `preEnumerateTheories: true`, `longRunningTestSeconds: 30`, `shadowCopy: false`. |
 
 [CRITICAL]:
-- [NEVER] Use MTP-only switches (`-filter` query language, `--list-tests` MTP variant) — this monorepo pins `xunit.v3.mtp-off` for VSTest stability.
+- [NEVER] Use MTP-only switches (`-filter` query language, `--list-tests` MTP variant) — this monorepo pins `xunit.v3.mtp-off` for VSTest stability + coverlet collector-compat.
+- [NEVER] Reference `xunit.v3.mtp-off` from a non-executable assembly (`OutputType` != Exe). xUnit v3 rejects it with `xunit.v3.core.mtp-off.targets(15,5)`. For test-support libraries like `Rasm.TestKit`, set `IsTestKitProject=true` (via path under `tests/csharp/_testkit/`) — `Directory.Build.props` routes it to `xunit.v3.assert` instead.
 - [ALWAYS] Add `[Fact(Explicit = true)]` to any perf rail using `Action.Faster(...)`. Standard test runs must not pay the comparison cost.
 
 ---
@@ -213,6 +235,7 @@ Walk the law taxonomy per export. Pack laws sharing the same arbitrary into one 
 - **Algebraic laws as external oracles.** Roundtrip, idempotence, commutativity, associativity, monotonicity — these are mathematical truths independent of how the implementation was written. AI cannot fabricate a law that "happens to pass"; law correctness is provable independent of implementation.
 - **Parametric generation multiplies coverage per LOC.** A single `Spec.ForAll(gen, property)` invocation runs 100 cases per default; one line replaces hundreds of hand-assertions with a universally-quantified property.
 - **Generators routed through production factories.** Arbitraries call `TryCreate`/`Validate` on the same smart-constructor surface as production code. There is no parallel construction path that drifts under refactoring; shrinking finds the minimum counterexample at the exact boundary the implementation must honor.
+- **The xUnit assertion is the EXCEPTION, not the call.** CsCheck's `Sample(predicate)` runs `predicate(value)`; predicate returns `true` for pass, throws for fail. `Spec.*` helpers wrap this with named law primitives that throw `XunitException` on mismatch. A spec body without visible `Assert.XXX(...)` calls is NOT missing assertions — the law helper IS the assertion. Inline `Assert` inside a `Sample` predicate is redundant.
 
 | [INDEX] | [LAYER]                     | [MECHANISM]                                         |
 | :-----: | --------------------------- | --------------------------------------------------- |
@@ -245,15 +268,10 @@ Walk the law taxonomy per export. Pack laws sharing the same arbitrary into one 
 bash scripts/check-cs.sh check                                  # static analysis (no tests)
 bash scripts/test.sh                                            # run all xUnit tests
 bash scripts/test.sh "FullyQualifiedName~VectorAngleProps"      # filter to one class
-bash scripts/test.sh --coverage                                 # run + emit per-file coverage table
-bash scripts/test.sh --coverage "FullyQualifiedName~Stats"      # filter + coverage
+dotnet test Workspace.slnx /p:CollectCoverage=true              # opt-in coverage via coverlet.msbuild
+CsCheck_Seed=<seed> bash scripts/test.sh "FullyQualifiedName~X" # replay a shrunk seed without code edits
 ```
 
-**Coverage measurement.** `--coverage` mode invokes `dotnet test` with `coverlet.collector 10.0.1` (auto-referenced by `Directory.Build.props` for every test project) and the repo's `.coverage.runsettings` filter (`Include=[Rasm*]*,[Foundation.CSharp.Analyzers]*,[Radyab]*`; `Exclude=[*Tests]*,[*TestKit]*`; generated `*.g.cs` / `obj/` excluded). The post-process Python summarizer reads every `.artifacts/coverage/*/coverage.cobertura.xml` produced by the test session, computes a per-source-line union across runs (so coverage isn't double-counted when the same production file is instrumented by multiple test projects), and prints:
-
-- **Overall stats**: file count, total lines hit, percent.
-- **Per-file table** sorted worst-first, showing `pct  hit/total  file`.
-
-A 0% reading on a production file in the static rail is a routing signal, not a defect: the file likely touches RhinoCommon native code and belongs in the bridge rail. Use the per-file table to identify gaps; route bridge candidates to `rhino-verify`, write new static specs for true static gaps.
+**Coverage measurement.** Configured in `Directory.Build.props` (Coverage PropertyGroup) for every `IsTestProject=true` assembly: `<CoverletOutputFormat>cobertura</CoverletOutputFormat>`, `<CoverletOutput>.artifacts/coverage/<project>/</CoverletOutput>`, `<Include>[Rasm*]*,[Foundation.CSharp.Analyzers]*,[Radyab]*</Include>`, `<Exclude>[*Tests]*,[*TestKit]*</Exclude>`, plus `SkipAutoProps`, `DeterministicReport`, generated-code attribute filters. Opt in via `dotnet test /p:CollectCoverage=true` — the test script itself stays unflagged. Output: per-project cobertura.xml under `.artifacts/coverage/`. A 0% reading on a production file in the static rail is a routing signal, not a defect: the file likely touches RhinoCommon native code and belongs in the bridge rail.
 
 [REFERENCE] Detailed guardrails and anti-patterns: [->guardrails.md](references/guardrails.md).

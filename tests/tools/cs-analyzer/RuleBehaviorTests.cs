@@ -458,6 +458,12 @@ public sealed class RuleBehaviorTests {
                 public Triple Build() => new Triple(1, 2, 3);
             }
             """),
+        new("CSP0727", File(scope: "Domain/Services", type: "SwitchPrecedenceTrap"), Domain(type: "SwitchPrecedenceTrap", members: """
+            public int Quantile(int count, int fraction) =>
+                count * fraction switch {
+                    int idx => idx,
+                };
+            """)),
     ];
 
     [Theory]
@@ -931,6 +937,45 @@ public sealed class RuleBehaviorTests {
                 """).ConfigureAwait(true);
 
         Assert.DoesNotContain(expected: "CSP0506", collection: ids);
+    }
+    [Fact]
+    public async Task ParenthesizedSwitchInputDoesNotEmitSwitchPrecedenceDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/ParenthesizedSwitchInput.cs",
+            source: Domain(type: "ParenthesizedSwitchInput", members: """
+                public int Quantile(int count, int fraction) =>
+                    (count * fraction) switch {
+                        int idx => idx,
+                    };
+                """)).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0727", collection: ids);
+    }
+    [Fact]
+    public async Task ParenthesizedSwitchResultDoesNotEmitSwitchPrecedenceDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/ParenthesizedSwitchResult.cs",
+            source: Domain(type: "ParenthesizedSwitchResult", members: """
+                public int Scale(int count, int fraction) =>
+                    count * (fraction switch {
+                        int x => x,
+                    });
+                """)).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0727", collection: ids);
+    }
+    [Fact]
+    public async Task SwitchAsLeftOperandDoesNotEmitSwitchPrecedenceDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/SwitchAsLeftOperand.cs",
+            source: Domain(type: "SwitchAsLeftOperand", members: """
+                public int Shift(int value) =>
+                    (value switch {
+                        int x => x,
+                    }) + 1;
+                """)).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0727", collection: ids);
     }
     [Fact]
     public async Task InlineBoundedChannelOptionsWithFullModeDoesNotEmitChannelFullModeDiagnosticAsync() {

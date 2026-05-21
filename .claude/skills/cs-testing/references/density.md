@@ -129,3 +129,34 @@ When the spec exceeds 175 LOC:
 2. **Move** edge cases that share a generator with algebra into the algebra section.
 3. **Split** only when distinct concept (e.g. one spec per source `.cs` file).
 4. **Promote** generator definitions to `Rasm.TestKit/Gens.cs` when used by 2+ specs.
+
+---
+## [7][SHARED_TESTKIT_PRIMITIVES]
+>**Dictum:** *Promote any predicate or generator used by 2+ specs to TestKit; spec authors compose, never reimplement.*
+
+<br>
+
+`Rasm.TestKit.Gens` exposes the shared distribution-shaped generators. Spec-local generators belong inside `<Module>Gens` only when the shape is module-specific.
+
+| [GEN]                                       | [SHAPE]                                                                                    | [USE_WHEN]                                                  |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| `Gens.Finite`                               | `Gen<double>` ∈ [-1e6, 1e6]                                                                 | Default bounded-double generator                            |
+| `Gens.Positive`                             | `Gen<double>` ∈ [1e-6, 1e6]                                                                 | Strictly positive doubles (above zero tolerance)            |
+| `Gens.PositiveFinite`                       | `Gen<double>` > 0 ∧ finite                                                                  | Non-strictly positive finite                                |
+| `Gens.Tolerance`                            | `Gen<double>` ∈ [1e-12, 1e-3]                                                               | Tolerance parameter samples                                 |
+| `Gens.Probability`                          | `Gen<double>` ∈ [0, 1) via `Gen.Double.Unit`                                                | Fractions, percentages, weights                             |
+| `Gens.UnitAngle`                            | `Gen<double>` ∈ [0, 2π]                                                                      | Angular parameter samples                                   |
+| `Gens.Point` / `Gens.Vec` / `Gens.UnitVec`  | `Gen<Point3d>` / `Gen<Vector3d>` / unit `Vector3d`                                          | Geometry test inputs                                        |
+| `Gens.Plane` / `Gens.Line`                  | `Gen<Plane>` / `Gen<Line>`                                                                  | Affine/linear primitives for projection/intersection tests  |
+| `Gens.Bbox` / `Gens.NonEmptyBbox`           | `Gen<BoundingBox>` (any) / valid + non-degenerate                                            | Bounding-box law inputs                                     |
+| `Gens.SmallArray(g)` / `Gens.LargeArray(g)` | `Gen<T[]>` length [0, 32] / [1000, 10000]                                                    | Distribution-shaped array generators                        |
+| `Gens.UniqueArray(g)`                       | `Gen<T[]>` distinct elements via `g.ArrayUnique`                                            | Set/uniqueness-sensitive tests                              |
+| `Gens.SortedArray(g)` where `T : IComparable<T>` | `Gen<T[]>` sorted ascending                                                            | Binary-search/quantile/order tests                          |
+| `Gens.OrderedPair(g)` where `T : IComparable<T>` | `Gen<(T Lo, T Hi)>` with Lo ≤ Hi                                                        | `Spec.Monotone` input                                       |
+| `Gens.NonEmptyArray(g, max)`                | `Gen<T[]>` length [1, max]                                                                  | Mandatory-input aggregations                                |
+| `Gens.NonEmptySeq(g, max)`                  | `Gen<Seq<T>>` materialized to LE5 `Seq`                                                     | LE5-native aggregations                                     |
+| `Gens.Approx(tol)`                          | `Func<double, double, bool>` relative-tolerance equality                                     | `eq:` parameter for floating-point Metamorphic/Roundtrip    |
+
+[CRITICAL]:
+- [NEVER] Re-define a local `Approx` predicate or `NonEmptyFinite` generator in a spec. Use `Gens.Approx(relativeTolerance: ...)` / `Gens.NonEmptySeq(element: Gens.Finite)`.
+- [ALWAYS] Pick the narrowest existing generator; fall back to `Gens.<X>` parameterized form only when no existing primitive fits. New shapes go into `Rasm.TestKit/Gens.cs` once a second consumer appears.

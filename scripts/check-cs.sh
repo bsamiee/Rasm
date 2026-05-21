@@ -92,7 +92,7 @@ _changed_files() {
 _ignored_test_fixture() {
     local -r file="$1"
     [[ "${file}" == *.csproj ]] && return 1
-    case "${file}" in tests/ast-grep/*|tests/py_analyzer/*|tests/python/*) return 0 ;; *) return 1 ;; esac
+    case "${file}" in tests/tools/ast-grep/*|tests/tools/py_analyzer/*|tests/python/*) return 0 ;; *) return 1 ;; esac
 }
 _full_trigger() {
     local -r file="$1"
@@ -253,7 +253,7 @@ _self_test() {
     [[ -v MODE_SPEC[check] && -v MODE_SPEC[full] ]] || _die "Mode table incomplete"
     [[ ! -v MODE_SPEC[test] && ! -v MODE_SPEC[test-full] ]] || _die "Mode table must not advertise test routes; run scripts/test.sh"
     _full_trigger Directory.Build.props && _full_trigger libs/csharp/Rasm.Rhino/Rasm.Rhino.csproj
-    _ignored_test_fixture tests/ast-grep/pass/src/domain/expression_flow.ts || _die "Ignored test fixture route failed"
+    _ignored_test_fixture tests/tools/ast-grep/pass/src/domain/expression_flow.ts || _die "Ignored test fixture route failed"
     _assert_eq ignore "$(_route_file package.json)"
     _assert_eq full "$(_route_file tools/cs-analyzer/config.json)"
 }

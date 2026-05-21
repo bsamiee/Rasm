@@ -15,20 +15,22 @@
   <Folder Name="/libs/csharp/Rasm.Rhino/">
     <Project Path="libs/csharp/Rasm.Rhino/Rasm.Rhino.csproj" />
   </Folder>
-  <Folder Name="/tools/" />
-  <Folder Name="/tools/cs-analyzer/">
-    <Project Path="tools/cs-analyzer/CsAnalyzer.csproj" />
-  </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/csharp/" />
   <Folder Name="/tests/csharp/_testkit/">
     <Project Path="tests/csharp/_testkit/Rasm.TestKit.csproj" />
   </Folder>
-  <Folder Name="/tests/csharp/cs-analyzer/">
-    <Project Path="tests/csharp/cs-analyzer/CsAnalyzer.Tests.csproj" />
+  <Folder Name="/tests/csharp/libs/" />
+  <Folder Name="/tests/csharp/libs/Rasm/">
+    <Project Path="tests/csharp/libs/Rasm/Rasm.Tests.csproj" />
   </Folder>
-  <Folder Name="/tests/csharp/Rasm/">
-    <Project Path="tests/csharp/Rasm/Rasm.Tests.csproj" />
+  <Folder Name="/tests/tools/" />
+  <Folder Name="/tests/tools/cs-analyzer/">
+    <Project Path="tests/tools/cs-analyzer/CsAnalyzer.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/" />
+  <Folder Name="/tools/cs-analyzer/">
+    <Project Path="tools/cs-analyzer/CsAnalyzer.csproj" />
   </Folder>
   <Folder Name="/tools/rhino-bridge/" />
   <Folder Name="/tools/rhino-bridge/client/">

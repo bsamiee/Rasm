@@ -72,3 +72,4 @@ CSP0723 | FunctionalDiscipline  | Error    | RhinoActiveDocLeak
 CSP0724 | TypeDiscipline        | Error    | FlagsEnumOveruse
 CSP0725 | FunctionalDiscipline  | Error    | ImperativeAccumulator
 CSP0726 | SurfaceArea           | Error    | PositionalRecordConstructor
+CSP0727 | FunctionalDiscipline  | Error    | SwitchExpressionPrecedence

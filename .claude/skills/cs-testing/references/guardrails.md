@@ -55,7 +55,7 @@ For each `[Fact]` you author, walk:
 
 <br>
 
-When a spec lives at `tests/csharp/Rasm/Vectors/Atoms.spec.cs` with `namespace Rasm.Tests.Vectors;`, the unqualified token `Vectors.Direction` resolves to `Rasm.Tests.Vectors.Direction` (test-local, usually doesn't exist), not to `Rasm.Vectors.Direction`.
+When a spec lives at `tests/csharp/libs/Rasm/Vectors/Atoms.spec.cs` with `namespace Rasm.Tests.Vectors;`, the unqualified token `Vectors.Direction` resolves to `Rasm.Tests.Vectors.Direction` (test-local, usually doesn't exist), not to `Rasm.Vectors.Direction`.
 
 **Fix:** fully qualify the production type at the call site.
 
@@ -125,7 +125,37 @@ The `Spec.Succ` / `Spec.Fail` helpers in `Rasm.TestKit` wrap this pattern with t
 For `Eff<RT,T>` pipelines: construct a runtime as a plain `record` carrying `Func<>` delegates, call `.Run(rt)` to collapse to `Fin<T>`, then `Match`. No interface mocks.
 
 ---
-## [8][SNAPSHOT_DISCIPLINE]
+## [8][SWITCH_PRECEDENCE_TRAP]
+>**Dictum:** *`switch` and `with` expressions outrank `*`/`/`/`%`. Parenthesize the switch input when arithmetic precedes it.*
+
+<br>
+
+```csharp
+// Wrong — parses as `(Count - 1) * (Math.Clamp(...) switch { ... })`.
+//   Switch input becomes `Math.Clamp(fraction, 0, 1)` ∈ [0, 1], not the intended `(Count-1) * Math.Clamp(...)`.
+//   Every percentile silently miscomputes; no analyzer warning; unit-test author would have reproduced the bug.
+private static double Quantile(Seq<double> sorted, double fraction) =>
+    (sorted.Count - 1) * Math.Clamp(value: fraction, min: 0.0, max: 1.0) switch {
+        double idx when ... => sorted[(int)Math.Floor(idx)],
+        ...
+    };
+
+// Right — parens force the multiplication into the switch input.
+private static double Quantile(Seq<double> sorted, double fraction) =>
+    ((sorted.Count - 1) * Math.Clamp(value: fraction, min: 0.0, max: 1.0)) switch {
+        double idx when ... => sorted[(int)Math.Floor(idx)],
+        ...
+    };
+```
+
+C# precedence (Microsoft docs, "C# operators and expressions"): *unary > range > switch and with > multiplicative > additive > ...*. Most engineers internalize `*` as higher than `switch` because most languages do not have switch expressions; C#'s ordering is counter-intuitive.
+
+[CRITICAL]:
+- [ALWAYS] When an arrow-body lambda combines arithmetic and a switch expression, write the switch input as a parenthesized expression. Doing so is a no-op when the parser already agreed with you and a one-character disambiguation when it didn't.
+- [ALWAYS] Independent metamorphic oracles catch this bug class; oracle-tied hand-asserted unit tests do NOT (the assertion expression replicates the same precedence error). See `Stats.spec.cs::MedianMatchesSortedMiddleOracle` for the historical exemplar.
+
+---
+## [9][SNAPSHOT_DISCIPLINE]
 >**Dictum:** *Snapshot the runtime-observable output, never source-generator artifacts.*
 
 <br>

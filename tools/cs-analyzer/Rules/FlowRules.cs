@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using Foundation.CSharp.Analyzers.Kernel;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
@@ -78,6 +79,23 @@ internal static class FlowRules {
             (true, true) => Diagnostic.Create(RuleCatalog.CSP0706, context.Operation.Syntax.GetLocation()),
             _ => null,
         });
+
+    // --- [PRECEDENCE_RULES] ---------------------------------------------------
+
+    internal static void CheckSwitchExpressionPrecedence(SyntaxNodeAnalysisContext context, ScopeInfo scope) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, context.Node) switch {
+            (true, SwitchExpressionSyntax @switch) when @switch.Parent is BinaryExpressionSyntax binary
+                && ReferenceEquals(objA: binary.Right, objB: @switch)
+                && IsArithmeticBinary(binary.Kind())
+                => Diagnostic.Create(RuleCatalog.CSP0727, @switch.SwitchKeyword.GetLocation(), binary.OperatorToken.Text),
+            _ => null,
+        });
+    private static bool IsArithmeticBinary(SyntaxKind kind) =>
+        kind is SyntaxKind.MultiplyExpression
+            or SyntaxKind.DivideExpression
+            or SyntaxKind.ModuloExpression
+            or SyntaxKind.AddExpression
+            or SyntaxKind.SubtractExpression;
     internal static void CheckVariableReassignment(OperationAnalysisContext context, ScopeInfo scope, ISimpleAssignmentOperation assignment) {
         string targetName = assignment.Target is ILocalReferenceOperation local ? local.Local.Name : string.Empty;
         AnalyzerState.Report(context.ReportDiagnostic, (scope.IsFunctional, SymbolFacts.IsSelfReassignment(assignment), targetName.Length > 0) switch {

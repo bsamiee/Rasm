@@ -1,6 +1,7 @@
 using Foundation.CSharp.Analyzers.Kernel;
 using Foundation.CSharp.Analyzers.Rules;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
 
@@ -139,8 +140,20 @@ internal static class AnalyzerDispatcher {
 
     // --- [SYNTAX_DISPATCH] ---------------------------------------------------
 
-    internal static void Run(SyntaxNodeAnalysisContext context, AnalyzerState state) =>
-        ShapeRules.CheckVarInference(context, state);
+    internal static void Run(SyntaxNodeAnalysisContext context, AnalyzerState state) {
+        ScopeInfo scope = context.ContainingSymbol switch {
+            ISymbol symbol => state.ScopeFor(symbol: symbol),
+            _ => new ScopeInfo(kind: ScopeKind.Other, namespaceName: string.Empty, filePath: context.Node.SyntaxTree.FilePath),
+        };
+        switch (context.Node) {
+            case VariableDeclarationSyntax or ForEachStatementSyntax or DeclarationExpressionSyntax:
+                ShapeRules.CheckVarInference(context, state);
+                return;
+            case SwitchExpressionSyntax:
+                FlowRules.CheckSwitchExpressionPrecedence(context, scope);
+                return;
+        }
+    }
 
     // --- [COMPILATION_DISPATCH] ----------------------------------------------
 

@@ -20,8 +20,9 @@
     <ItemGroup Label="Test Stack">
         <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
         <PackageVersion Include="xunit.v3.mtp-off" Version="3.2.2" />
+        <PackageVersion Include="xunit.v3.assert" Version="3.2.2" />
         <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
         <PackageVersion Include="CsCheck" Version="4.7.0" />
-        <PackageVersion Include="coverlet.collector" Version="10.0.1" />
+        <PackageVersion Include="coverlet.msbuild" Version="6.0.4" />
     </ItemGroup>
 </Project>

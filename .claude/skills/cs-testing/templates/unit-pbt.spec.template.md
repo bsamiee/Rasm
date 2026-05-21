@@ -3,7 +3,7 @@
 
 <br>
 
-Template for a static-rail unit PBT spec. Live reference: `tests/csharp/Rasm/Vectors/Atoms.spec.cs` (32 tests, 15 LOC of generators, 90% coverage of Atoms.cs's pure-managed surface).
+Template for a static-rail unit PBT spec. Live reference: `tests/csharp/libs/Rasm/Vectors/Atoms.spec.cs` (32 tests, 15 LOC of generators, 90% coverage of Atoms.cs's pure-managed surface).
 
 ---
 ## [1][CANONICAL_LAYOUT]
@@ -132,10 +132,29 @@ public void <Operation>MatchesIndependentOracle() =>
     Spec.Metamorphic(<Module>Gens.<Generator>,
         path:   static (<Input> x) => <Operation>.Of(x).Match(Succ: r => r.Value, Fail: _ => double.NaN),
         oracle: static (<Input> x) => System.Linq.Enumerable.<IndependentAggregation>(x.AsIterable()),
-        eq:     static (double a, double b) => Math.Abs(a - b) < 1.0e-6 * Math.Max(1.0, Math.Abs(a) + Math.Abs(b)));
+        eq:     Gens.Approx(relativeTolerance: 1.0e-6));
 ```
 
-The oracle must reach the same answer by a different code path (LINQ, closed-form formula, RFC vector, etc.). Live example: `tests/csharp/Rasm/Domain/Stats.spec.cs::MeanMatchesLinqAverage`.
+The oracle must reach the same answer by a different code path (LINQ, closed-form formula, RFC vector, etc.). Live example: `tests/csharp/libs/Rasm/Domain/Stats.spec.cs::MeanMatchesLinqAverage`.
+
+**Order-invariance via `Spec.Permutation`** (uses `Gen.Shuffle` internally):
+
+```csharp
+[Fact]
+public void <Aggregation>IsPermutationInvariant() =>
+    Spec.Permutation(Gens.NonEmptyArray(Gens.Finite),
+        f:  static (double[] xs) => <Aggregation>(xs),
+        eq: Gens.Approx(1.0e-9));
+```
+
+**Monotonicity via `Spec.Monotone`** (consumes ordered pairs):
+
+```csharp
+[Fact]
+public void <Projection>IsMonotone() =>
+    Spec.Monotone(Gens.OrderedPair(Gens.Finite),
+        projection: static (double x) => <Projection>(x));
+```
 
 **Regression seed pin** (after CsCheck shrinks a failure, capture the seed string):
 
