@@ -8,10 +8,11 @@
         <RasmRhinoRoot>$([MSBuild]::NormalizeDirectory('$(CSharpLibsRoot)', 'Rasm.Rhino'))</RasmRhinoRoot>
         <RhinoBridgeRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'tools', 'rhino-bridge'))</RhinoBridgeRoot>
         <RhinoBridgePluginRoot>$([MSBuild]::NormalizeDirectory('$(RhinoBridgeRoot)', 'plugin'))</RhinoBridgePluginRoot>
+        <TestsRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'tests', 'csharp'))</TestsRoot>
         <NormalizedProjectDirectory>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)'))</NormalizedProjectDirectory>
         <IsRhinoBridgeProject Condition="'$(IsRhinoBridgeProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoBridgeRoot)'))">true</IsRhinoBridgeProject>
         <IsRhinoBridgeProject Condition="'$(IsRhinoBridgeProject)' == ''">false</IsRhinoBridgeProject>
-        <IsTestProject Condition="'$(IsTestProject)' == '' and $([System.String]::Copy('$(MSBuildProjectName)').EndsWith('.Tests'))">true</IsTestProject>
+        <IsTestProject Condition="'$(IsTestProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRoot)'))">true</IsTestProject>
         <IsTestProject Condition="'$(IsTestProject)' == ''">false</IsTestProject>
         <IsRhinoPluginProject Condition="'$(IsRhinoPluginProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoAppsRoot)'))">true</IsRhinoPluginProject>
         <IsRhinoPluginProject Condition="'$(IsRhinoPluginProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoBridgePluginRoot)'))">true</IsRhinoPluginProject>
@@ -58,7 +59,6 @@
         <SkipBoundaryExemptionContracts Condition="'$(IsRhinoBridgeProject)' == 'true'">true</SkipBoundaryExemptionContracts>
         <SkipBoundaryExemptionContracts Condition="'$(SkipBoundaryExemptionContracts)' == ''">false</SkipBoundaryExemptionContracts>
         <UseWorkspaceLibraries Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true'">false</UseWorkspaceLibraries>
-        <UseWorkspaceLibraries Condition="'$(IsTestProject)' == 'true'">false</UseWorkspaceLibraries>
         <UseWorkspaceLibraries Condition="'$(IsRhinoBridgeProject)' == 'true'">false</UseWorkspaceLibraries>
         <UseWorkspaceLibraries Condition="'$(UseWorkspaceLibraries)' == ''">true</UseWorkspaceLibraries>
     </PropertyGroup>
@@ -102,6 +102,19 @@
         <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all">
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
+        <PackageReference Include="CsCheck" PrivateAssets="all" />
+        <PackageReference Include="coverlet.collector" PrivateAssets="all">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup Label="Test Usings" Condition="'$(IsTestProject)' == 'true'">
+        <Using Include="Xunit" />
+        <Using Include="CsCheck" />
+    </ItemGroup>
+
+    <ItemGroup Label="Test Runtime Config" Condition="'$(IsTestProject)' == 'true' and Exists('$(MSBuildThisFileDirectory)xunit.runner.json')">
+        <Content Include="$(MSBuildThisFileDirectory)xunit.runner.json" Link="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" Visible="false" />
     </ItemGroup>
 
     <ItemGroup Label="Global Workspace Usings" Condition="'$(IsLocalCSharpAnalyzerProject)' != 'true' and '$(UseWorkspaceLibraries)' == 'true'">
@@ -125,6 +138,8 @@
 
     <ItemGroup Label="Friend Assemblies" Condition="'$(MSBuildProjectName)' == 'Rasm'">
         <InternalsVisibleTo Include="Rasm.Grasshopper" />
+        <InternalsVisibleTo Include="Rasm.Tests" />
+        <InternalsVisibleTo Include="Rasm.TestKit" />
     </ItemGroup>
 
     <ItemGroup Label="RhinoWIP Assembly Metadata" Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true'">
@@ -158,7 +173,8 @@
     <ItemGroup Label="RhinoWIP Libraries" Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true' or '$(IsRhinoCommonAwareProject)' == 'true'">
         <Reference Include="RhinoCommon">
             <HintPath>$(RhinoCommonReferencePath)</HintPath>
-            <Private>false</Private>
+            <Private Condition="'$(IsTestProject)' == 'true'">true</Private>
+            <Private Condition="'$(IsTestProject)' != 'true'">false</Private>
         </Reference>
     </ItemGroup>
 

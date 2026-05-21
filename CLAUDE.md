@@ -14,14 +14,16 @@ Operate as a senior developer in a bleeding-edge monorepo; use the newest viable
 
 If reviewing, refining, editing, creating, or modifying X file type, use skill Y (required):
 
-| [INDEX] | [FILE_TYPE]                | [REQUIRED_SKILL]        |
-| :-----: | -------------------------- | ----------------------- |
-|   [1]   | TypeScript (`.ts`, `.tsx`) | `coding-ts`             |
-|   [2]   | C# (`.cs`)                 | `coding-csharp`         |
-|   [3]   | Python (`.py`)             | `coding-python`         |
-|   [4]   | Bash/sh (`.sh`, `.bash`)   | `coding-bash`           |
-|   [5]   | SQL (`.sql`)               | `coding-pg`             |
-|   [6]   | Markdown/docs (`.md`)      | `docgen`, `style-standards` |
+| [INDEX] | [FILE_TYPE]                          | [REQUIRED_SKILL]            |
+| :-----: | ------------------------------------ | --------------------------- |
+|   [1]   | TypeScript (`.ts`, `.tsx`)           | `coding-ts`                 |
+|   [2]   | C# production (`.cs` under `libs/`, `apps/`, `tools/`) | `coding-csharp` |
+|   [3]   | C# tests (`.spec.cs` under `tests/csharp/`) | `cs-testing`         |
+|   [4]   | RhinoCode scenarios (`.verify.csx`)  | `rhino-verify`              |
+|   [5]   | Python (`.py`)                       | `coding-python`             |
+|   [6]   | Bash/sh (`.sh`, `.bash`)             | `coding-bash`               |
+|   [7]   | SQL (`.sql`)                         | `coding-pg`                 |
+|   [8]   | Markdown/docs (`.md`)                | `docgen`, `style-standards` |
 
 [IMPORTANT]:
 - [ALWAYS] Language-specific mechanics come from the required `coding-*` skill.
@@ -96,14 +98,15 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 
 ### [5.2][QUALITY_GATES]
 
-[IMPORTANT]:
-1. [ALWAYS] **During iteration** use `bash scripts/check-cs.sh check` — routes changed files to owning projects, fast.
-2. [ALWAYS] **After each discrete phase of work** run `bash scripts/check-cs.sh check` to catch analyzer violations while context is fresh.
-3. [ALWAYS] **Final completion** use `bash scripts/check-cs.sh test` — runs analyzer + format + tests on affected projects.
-4. [NEVER] **Run `full` or `test-full`** unless trigger files (`Directory.Build.props`, `.editorconfig`, `*.csproj`, `Workspace.slnx`) were modified — these rebuild the entire solution.
-5. [ALWAYS] **Trust the analyzer**: 50+ CSP rules (`tools/cs-analyzer/Kernel/RuleCatalog.cs`) enforce coding-csharp standards. When CSP#### fires, fix the architecture; do not suppress.
+Three orthogonal rails: static analysis, unit tests, runtime verification. Each script owns one rail; never conflate.
 
-Reference: `scripts/check-cs.sh` MODE_SPEC routes are `check` (changed/check), `full` (full/check), `test` (changed/test), `test-full` (full/test).
+[IMPORTANT]:
+1. [ALWAYS] **Static (build/format/analyze)** — `bash scripts/check-cs.sh check`. Routes changed files to owning projects. Runs build + `dotnet format` + analyzer gate. No tests.
+2. [ALWAYS] **Full static** — `bash scripts/check-cs.sh full`. Required only when trigger files change (`Directory.Build.props`, `Directory.Build.targets`, `Directory.Packages.props`, `Workspace.slnx`, `.editorconfig`, `global.json`).
+3. [ALWAYS] **Unit tests** — `bash scripts/test.sh [<filter>]`. Runs `dotnet test Workspace.slnx`. Tests live under `tests/csharp/<project>/`.
+4. [ALWAYS] **Rhino runtime verification** — `bash scripts/rhino.sh verify <path-or-glob>`. Routes scenarios through the in-process bridge against running `RhinoWIP.app`. Outputs JSON evidence + PNG captures under `.artifacts/verify/`. See the `rhino-verify` skill.
+5. [ALWAYS] **Trust the analyzer**: 50+ CSP rules (`tools/cs-analyzer/Kernel/RuleCatalog.cs`) enforce coding-csharp standards. When CSP#### fires, fix the architecture; do not suppress.
+6. [NEVER] Re-introduce a `test` mode into `check-cs.sh`. Tests are a separate gate.
 
 ### [5.3][PLAN_DISCIPLINE]
 

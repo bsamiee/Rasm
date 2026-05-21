@@ -86,13 +86,7 @@ These checks apply ONLY to code annotated as hot-path or residing in performance
 - [ ] For bounded `length + allowed chars`, use cached `SearchValues<char>` + `ContainsAnyExcept`/`IndexOfAnyExcept`; reserve `[GeneratedRegex]` for structural grammars. See `performance.md` [7A]
 
 ---
-## [8][TESTING_INTEGRITY]
-
-- [ ] FsCheck property laws cover smart constructors and state transitions (identity/associativity/closure where applicable)
-- [ ] Testcontainers.PostgreSql integration checks verify boundary invariants against real runtime dependencies
-
----
-## [9][DETECTION_HEURISTICS]
+## [8][DETECTION_HEURISTICS]
 
 Concrete search patterns an agent can apply to any `.cs` file:
 
@@ -113,7 +107,7 @@ Concrete search patterns an agent can apply to any `.cs` file:
 |  [13]   | **`new Regex(` in smart constructor or domain code**     | RUNTIME_REGEX_COMPILATION      |    High    | CSP0704/CSP0606/SYSLIB1040 |
 
 ---
-## [10][QUICK_REFERENCE]
+## [9][QUICK_REFERENCE]
 
 | [INDEX] | [CHECKLIST_AREA]            | [WHAT_IT_VALIDATES]                                             | [REFERENCE]                         |
 | :-----: | :-------------------------- | :-------------------------------------------------------------- | :---------------------------------- |
@@ -124,9 +118,8 @@ Concrete search patterns an agent can apply to any `.cs` file:
 |   [5]   | **SURFACE_QUALITY**         | No helper/arity/surface spam, no interface/null pollution       | `composition.md` [2], [5]           |
 |   [6]   | **DENSITY**                 | Concept-density pressure points, algebraic collapse-in-place, no wrapper spam, no file extraction | `patterns.md` [1]                   |
 |   [7]   | **PERFORMANCE_SENSITIVITY** | Static lambdas, span I/O, SIMD, stackalloc, ValueTask           | `performance.md` [1], [7], [4]      |
-|   [8]   | **TESTING_INTEGRITY**       | FsCheck property laws, Testcontainers boundary invariants       | --                                  |
-|   [9]   | **DETECTION_HEURISTICS**    | 13 grep-able patterns with severity and coverage classification | --                                  |
-|  [10]   | **BOUNDARY_ADAPTER**        | FluentValidation async RuleSets bridged to typed channels       | `effects.md` [4], [2]               |
+|   [8]   | **DETECTION_HEURISTICS**    | 13 grep-able patterns with severity and coverage classification | --                                  |
+|   [9]   | **BOUNDARY_ADAPTER**        | FluentValidation async RuleSets bridged to typed channels       | `effects.md` [4], [2]               |
 
 ---
 ## [11][BOUNDARY_ADAPTER]

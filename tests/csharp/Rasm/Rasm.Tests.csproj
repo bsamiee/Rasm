@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <AssemblyName>Rasm.Tests</AssemblyName>
+        <RootNamespace>Rasm.Tests</RootNamespace>
+        <IsRhinoCommonAwareProject>true</IsRhinoCommonAwareProject>
+    </PropertyGroup>
+    <ItemGroup>
+        <ProjectReference Include="../../../libs/csharp/Rasm/Rasm.csproj" />
+        <ProjectReference Include="../_testkit/Rasm.TestKit.csproj" />
+    </ItemGroup>
+</Project>

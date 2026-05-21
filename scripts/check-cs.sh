@@ -6,13 +6,13 @@ IFS=$'\n\t'
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 readonly SCRIPT_DIR ROOT_DIR
-readonly SOLUTION_PATH="${ROOT_DIR}/Workspace.slnx" FORMAT_SEVERITY="${FORMAT_SEVERITY:-warn}" CONFIGURATIONS_RAW="${CONFIGURATIONS:-Debug Release}" TEST_CONFIGURATION="${TEST_CONFIGURATION:-Release}"
+readonly SOLUTION_PATH="${ROOT_DIR}/Workspace.slnx" FORMAT_SEVERITY="${FORMAT_SEVERITY:-warn}" CONFIGURATIONS_RAW="${CONFIGURATIONS:-Debug Release}"
 readonly LOCK_ROOT="${ROOT_DIR}/.artifacts/locks"
 readonly UNUSED_CODE_DIAGNOSTICS="IDE0005 IDE0051 IDE0052 CS0169 CS0649"
 readonly -a PROJECT_EXCLUDE_ARGS=(--exclude .artifacts --exclude .cache --exclude .git --exclude .nx --exclude bin --exclude coverage --exclude node_modules --exclude obj --exclude test-results --exclude tmp)
 readonly -a DOTNET_SERIAL_BUILD_ARGS=(-maxcpucount:1 -p:BuildInParallel=false)
 readonly -a FULL_TRIGGER_FILES=(Directory.Build.props Directory.Build.targets Directory.Packages.props Workspace.slnx .editorconfig global.json)
-declare -Ar MODE_SPEC=([check]='changed|check' [full]='full|check' [test]='changed|test' [test-full]='full|test')
+declare -Ar MODE_SPEC=([check]=changed [full]=full)
 ACTIVE_LOCK="" ACTIVE_TOKEN=""
 _die() { local -r message="$1" code="${2:-1}"; printf 'check-cs: %s\n' "${message//$'\n'/$'\n'check-cs: }" >&2; exit "${code}"; }
 _err() { local -r exit_code="$1" command="$2" line="$3"; printf 'check-cs: failed with %s at line %s: %s\n' "${exit_code}" "${line}" "${command}" >&2; }
@@ -78,13 +78,6 @@ _array_has() {
     local item
     for item in "$@"; do [[ "${item}" == "${needle}" ]] && return 0; done
     return 1
-}
-_test_projects() {
-    local -n __tests="$1"
-    shift
-    __tests=()
-    local project
-    for project in "$@"; do [[ "${project}" == */*Tests.csproj || "${project}" == *Tests.csproj ]] && __tests+=("${project}"); done
 }
 _changed_files() {
     local -n __changed="$1"
@@ -208,11 +201,8 @@ _route_changed() {
     ((${#__projects[@]} == 0)) || _expand_projects "${projects_ref}" "${solution_projects[@]}"
 }
 _build_targets() {
-    local -r with_tests="$1"
-    shift
     local -a configurations=()
     IFS=' ' read -r -a configurations <<< "${CONFIGURATIONS_RAW}"
-    [[ "${with_tests}" != test ]] || _array_has "${TEST_CONFIGURATION}" "${configurations[@]}" || configurations+=("${TEST_CONFIGURATION}")
     local configuration target
     for configuration in "${configurations[@]}"; do
         for target in "$@"; do
@@ -227,44 +217,30 @@ _format_targets() {
         dotnet format "${target}" --verify-no-changes --severity info --diagnostics "${UNUSED_CODE_DIAGNOSTICS}" --no-restore
     done
 }
-_run_tests() {
-    # shellcheck disable=SC2178  # nameref target name is a scalar input for an array.
-    local -n __tests="$1"
-    ((${#__tests[@]} > 0)) || { printf 'check-cs: no relevant C# tests\n'; return 0; }
-    local test_project
-    for test_project in "${__tests[@]}"; do
-        dotnet test "${ROOT_DIR}/${test_project}" --configuration "${TEST_CONFIGURATION}" --no-build -- RunConfiguration.MaxCpuCount=1
-    done
-}
 _run_gate() {
-    local -r scope="$1" with_tests="$2"
-    shift 2
-    # shellcheck disable=SC2034  # populated through nameref by _test_projects.
-    local -a projects=("$@") targets=() format_targets=() tests=()
+    local -r scope="$1"
+    shift
+    local -a projects=("$@") targets=() format_targets=()
     ((${#projects[@]} > 0)) || _die "No C# projects selected"
     [[ "${scope}" == full ]] && targets=("${SOLUTION_PATH}") || targets=("${projects[@]/#/${ROOT_DIR}/}")
     [[ "${scope}" == targeted && ${#targets[@]} -gt 1 ]] && format_targets=("${SOLUTION_PATH}") || format_targets=("${targets[@]}")
     printf 'check-cs: %s gate (%d): %s\n' "${scope}" "${#projects[@]}" "${projects[*]}"
     dotnet restore "${SOLUTION_PATH}" --locked-mode --disable-parallel
-    _build_targets "${with_tests}" "${targets[@]}"
+    _build_targets "${targets[@]}"
     _format_targets "${format_targets[@]}"
-    [[ "${with_tests}" == test ]] || return 0
-    _test_projects tests "${projects[@]}"
-    _run_tests tests
 }
 _run_mode() {
     local -r mode="$1"
     shift
-    local scope with_tests
-    IFS='|' read -r scope with_tests <<< "${MODE_SPEC[${mode}]}"
+    local -r scope="${MODE_SPEC[${mode}]}"
     local -a solution_projects=("$@") projects=() routed=()
     local full=0
     [[ "${scope}" == full ]] || {
         _route_changed projects full routed "${solution_projects[@]}"
         ((${#routed[@]} > 0)) || { printf 'check-cs: no C#-relevant changes; skipping dotnet gate\n'; return 0; }
-        ((full == 0)) && { _run_gate targeted "${with_tests}" "${projects[@]}"; return; }
+        ((full == 0)) && { _run_gate targeted "${projects[@]}"; return; }
     }
-    _run_gate full "${with_tests}" "${solution_projects[@]}"
+    _run_gate full "${solution_projects[@]}"
 }
 _assert_eq() { [[ "$1" == "$2" ]] || _die "ASSERT ${FUNCNAME[1]}:${BASH_LINENO[0]}: '${1}' != '${2}'"; }
 _self_test() {
@@ -274,7 +250,8 @@ _self_test() {
     local owner
     owner="$(_owning_project libs/csharp/Rasm.Rhino/Commands/Command.cs)"
     _assert_eq libs/csharp/Rasm.Rhino/Rasm.Rhino.csproj "${owner}"
-    [[ -v MODE_SPEC[check] && -v MODE_SPEC[full] && -v MODE_SPEC[test] && -v MODE_SPEC[test-full] ]] || _die "Mode table incomplete"
+    [[ -v MODE_SPEC[check] && -v MODE_SPEC[full] ]] || _die "Mode table incomplete"
+    [[ ! -v MODE_SPEC[test] && ! -v MODE_SPEC[test-full] ]] || _die "Mode table must not advertise test routes; run scripts/test.sh"
     _full_trigger Directory.Build.props && _full_trigger libs/csharp/Rasm.Rhino/Rasm.Rhino.csproj
     _ignored_test_fixture tests/ast-grep/pass/src/domain/expression_flow.ts || _die "Ignored test fixture route failed"
     _assert_eq ignore "$(_route_file package.json)"

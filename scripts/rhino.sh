@@ -38,6 +38,7 @@ CLEANING=0
 declare -Ar ROUTES=(
     [--self-test]='_self_test|0|0|--self-test|'
     [build]='_build|0|1|build [version]|'
+    [verify]='_verify|1|1|verify <path-or-glob>|'
     [package]='_cmd_package|2|2|package <package> <version>|'
     [push-test]='_push_package|2|2|push-test <package> <version>|https://test.yak.rhino3d.com'
     [push]='_push_package|2|2|push <package> <version>|-'
@@ -60,7 +61,7 @@ declare -Ar ROUTES=(
     [api:types]='_api_types|1|2|api types <api-key> [pattern]|'
     [api:decompile]='_api_decompile|2|2|api decompile <api-key> <type>|'
 )
-readonly -a ROUTE_ORDER=(--self-test build bridge:build bridge:package bridge:install bridge:launch bridge:restart bridge:doctor bridge:script bridge:load bridge:load-smoke bridge:check bridge:check-source bridge:unload bridge:quit api:doctor api:path api:xml api:types api:decompile package push-test push)
+readonly -a ROUTE_ORDER=(--self-test build verify bridge:build bridge:package bridge:install bridge:launch bridge:restart bridge:doctor bridge:script bridge:load bridge:load-smoke bridge:check bridge:check-source bridge:unload bridge:quit api:doctor api:path api:xml api:types api:decompile package push-test push)
 readonly -a BRIDGE_PROJECTS=("${BRIDGE_PROTOCOL_PROJECT}" "${BRIDGE_PLUGIN_PROJECT}" "${BRIDGE_CLIENT_PROJECT}")
 _trap_err() {
     local -r exit_code="$?"
@@ -233,23 +234,85 @@ _with_lock() {
     rmdir -- "${lock_dir}" 2>/dev/null || true
 }
 _bridge_client() {
-    _with_lock bridge-client-build _bridge_client_built "$@"
+    _with_lock bridge-client-build _bridge_client_locked "$@"
 }
-_bridge_client_built() {
+_bridge_client_locked() {
+    _bridge_client_ensure
+    _bridge_client_invoke "$@" || exit "$?"
+}
+_bridge_client_ensure() {
     local -r lock_root="${PACKAGE_STAGE_ROOT}/locks"
     local build_log
     build_log="$(mktemp "${lock_root}/bridge-client-build.XXXXXXXXXX")"
     CLEANUP_PATHS+=("${build_log}")
-    dotnet restore "${BRIDGE_CLIENT_PROJECT}" --locked-mode --disable-parallel >"${build_log}" 2>&1 || {
-        cat "${build_log}" >&2
-        _die "Bridge client restore failed"
-    }
-    dotnet build "${BRIDGE_CLIENT_PROJECT}" --configuration "${CONFIGURATION}" --no-restore "${DOTNET_SERIAL_BUILD_ARGS[@]}" >>"${build_log}" 2>&1 || {
-        cat "${build_log}" >&2
-        _die "Bridge client build failed"
-    }
+    dotnet restore "${BRIDGE_CLIENT_PROJECT}" --locked-mode --disable-parallel >"${build_log}" 2>&1 || { cat "${build_log}" >&2; _die "Bridge client restore failed"; }
+    dotnet build "${BRIDGE_CLIENT_PROJECT}" --configuration "${CONFIGURATION}" --no-restore "${DOTNET_SERIAL_BUILD_ARGS[@]}" >>"${build_log}" 2>&1 || { cat "${build_log}" >&2; _die "Bridge client build failed"; }
     rm -f -- "${build_log}"
-    dotnet run --no-build --project "${BRIDGE_CLIENT_PROJECT}" --configuration "${CONFIGURATION}" -- "$@" || exit "$?"
+}
+_bridge_client_invoke() {
+    dotnet run --no-build --project "${BRIDGE_CLIENT_PROJECT}" --configuration "${CONFIGURATION}" -- "$@"
+}
+_verify() {
+    local -r pattern="$1"
+    _with_lock bridge-client-build _verify_locked "${pattern}"
+}
+_verify_locked() {
+    local -r pattern="$1"
+    local -a scenarios=()
+    _verify_discover "${pattern}" scenarios
+    ((${#scenarios[@]} > 0)) || _die "No *.verify.csx scenarios matched: ${pattern}"
+    _bridge_client_ensure
+    _verify_run "${scenarios[@]}"
+}
+_verify_discover() {
+    local -r pattern="$1"
+    local -n __scenarios="$2"
+    __scenarios=()
+    if [[ -f "${pattern}" && "${pattern}" == *.verify.csx ]]; then
+        __scenarios=("${pattern}")
+        return 0
+    fi
+    if [[ -d "${pattern}" ]]; then
+        mapfile -t __scenarios < <(fd -H -e csx '\.verify\.csx$' "${pattern}" | LC_ALL=C sort)
+        return 0
+    fi
+    mapfile -t __scenarios < <(fd -H -e csx '\.verify\.csx$' "${ROOT_DIR}" | rg -- "${pattern}" | LC_ALL=C sort)
+}
+_verify_run() {
+    local -a scenarios=("$@")
+    local -r report_dir="${PACKAGE_STAGE_ROOT}/verify"
+    local -r capture_dir="${report_dir}/captures"
+    mkdir -p -- "${report_dir}" "${capture_dir}"
+    CLEANUP_PATHS+=("${report_dir}/.tmp")
+    mkdir -p -- "${report_dir}/.tmp"
+    local -a result_files=()
+    local scenario name wrapped result rc status ok=0 failed=0
+    for scenario in "${scenarios[@]}"; do
+        name="${scenario##*/}"; name="${name%.verify.csx}"
+        wrapped="${report_dir}/.tmp/${name}.csx"
+        result="${report_dir}/${name}.json"
+        _verify_wrap "${scenario}" "${name}" "${capture_dir}/${name}.png" "${wrapped}"
+        rc=0
+        _bridge_client_invoke script "${wrapped}" --result "${result}" >/dev/null 2>&1 || rc=$?
+        status="$(jq -r '.status // "failed"' "${result}" 2>/dev/null || printf 'failed')"
+        result_files+=("${result}")
+        case "${status}" in
+            ok) ((ok++)); printf '[OK]     %s capture=%s\n' "${scenario#"${ROOT_DIR}/"}" "${capture_dir}/${name}.png" >&2 ;;
+            *) ((failed++)); printf '[FAILED] %s rc=%s status=%s result=%s\n' "${scenario#"${ROOT_DIR}/"}" "${rc}" "${status}" "${result}" >&2 ;;
+        esac
+    done
+    local -r summary="${report_dir}/summary.json"
+    jq -n --argjson ok "${ok}" --argjson failed "${failed}" --slurpfile s <(jq -s '.' "${result_files[@]}") '{summary:{ok:$ok,failed:$failed,total:($ok+$failed)},scenarios:$s[0]}' > "${summary}"
+    cat "${summary}"
+    ((failed == 0)) || exit 1
+}
+_verify_wrap() {
+    local -r source="$1" name="$2" capture="$3" wrapped="$4"
+    {
+        printf 'const string SCENARIO_NAME = "%s";\n' "${name//\"/\\\"}"
+        printf 'const string CAPTURE_PATH = "%s";\n' "${capture//\"/\\\"}"
+        cat -- "${source}"
+    } > "${wrapped}"
 }
 _api_meta() {
     local -r key="$1"

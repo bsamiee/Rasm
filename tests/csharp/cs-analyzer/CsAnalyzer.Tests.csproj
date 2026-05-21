@@ -5,7 +5,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="../CsAnalyzer.csproj" />
+        <ProjectReference Include="../../../tools/cs-analyzer/CsAnalyzer.csproj" />
     </ItemGroup>
 
     <ItemGroup>

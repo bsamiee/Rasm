@@ -136,7 +136,6 @@ When the analyzer rejects, treat the rejection as architectural pressure, not as
 | [observability.md](references/observability.md) | Serilog, OpenTelemetry                 |
 | [performance.md](references/performance.md)     | SIMD, Span, hot paths                  |
 | [diagnostics.md](references/diagnostics.md)     | Debugging, profiling                   |
-| [testing.md](references/testing.md)             | FsCheck PBT, xUnit, benchmarks         |
 
 ## Validation gate
 
@@ -162,9 +161,7 @@ These packages are standard libraries — use over BCL/stdlib equivalents.
 | ------------------------------- | -------------------------------------------------------------- |
 | LanguageExt.Core                | FP primitives, ROP, `Eff`/`Fin`/`Validation`, `Schedule`, STM  |
 | Thinktecture.Runtime.Extensions | Value objects, smart enums, `[Union]` source-generated dispatch |
-| FsCheck (+ FsCheck.Xunit)       | Property-based testing                                          |
-| xUnit / xunit.v3                | Test framework                                                  |
-| BenchmarkDotNet                 | Performance benchmarking                                        |
+| BenchmarkDotNet                 | Hot-path micro-benchmarking (perf validation, not test gates)   |
 | Meziantou.Analyzer              | Static analysis enforcement                                     |
 | Microsoft.VisualStudio.Threading.Analyzers | Threading-correctness diagnostics                  |
 
