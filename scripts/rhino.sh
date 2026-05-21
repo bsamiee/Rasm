@@ -353,9 +353,26 @@ _dotnet_root_valid() {
 _dotnet_root_resolve() {
     local -a candidates=()
     [[ -n "${DOTNET_ROOT:-}" ]] && candidates=("${DOTNET_ROOT}" "${DOTNET_ROOT}/share/dotnet")
+    local dotnet_path dotnet_real runtime_line runtime_path runtime_root
+    if dotnet_path="$(command -v dotnet 2>/dev/null)"; then
+        dotnet_real="$(realpath "${dotnet_path}" 2>/dev/null || printf '%s\n' "${dotnet_path}")"
+        candidates+=("${dotnet_real%/*}")
+        local -a runtime_lines=()
+        mapfile -t runtime_lines < <(dotnet --list-runtimes 2>/dev/null || true)
+        for runtime_line in "${runtime_lines[@]}"; do
+            [[ "${runtime_line}" == Microsoft.NETCore.App\ * ]] || continue
+            runtime_path="${runtime_line##* [}"
+            runtime_path="${runtime_path%]}"
+            runtime_root="${runtime_path%/shared/Microsoft.NETCore.App}"
+            [[ "${runtime_root}" != "${runtime_path}" ]] && candidates+=("${runtime_root}")
+        done
+    fi
     candidates+=("/usr/local/share/dotnet")
     local root
+    declare -A seen=()
     for root in "${candidates[@]}"; do
+        [[ -n "${root}" && ! -v seen["${root}"] ]] || continue
+        seen["${root}"]=1
         _dotnet_root_valid "${root}" && { printf '%s\n' "${root}"; return 0; }
     done
     return 1
@@ -398,8 +415,10 @@ _api_types() {
     local assembly xml fallback
     _api_meta "${key}" assembly xml fallback
     [[ -f "${assembly}" ]] || _die "Missing API assembly for ${key}: ${assembly}"
-    [[ -n "${pattern}" ]] && { _with_dotnet_apphost ilspycmd -l c "${assembly}" | rg -n -- "${pattern}"; return; }
-    _with_dotnet_apphost ilspycmd -l c "${assembly}"
+    local types
+    types="$(_with_dotnet_apphost ilspycmd -l cisde "${assembly}")"
+    [[ -n "${pattern}" ]] || { printf '%s\n' "${types}"; return; }
+    rg -n -- "${pattern}" <<< "${types}" || _die "No API types matched ${key}: ${pattern}"
 }
 _api_decompile() {
     local -r key="$1"
