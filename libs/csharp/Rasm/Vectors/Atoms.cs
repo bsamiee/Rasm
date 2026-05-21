@@ -10,22 +10,15 @@ public readonly partial struct VectorAngle {
         validationError = RhinoMath.IsValidDouble(x: value) && value is >= 0.0 and <= RhinoMath.TwoPI
             ? null
             : new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"VectorAngle must be in [0,2*pi] radians (got {value:R})."));
-    internal static Fin<VectorAngle> Of(Direction a, Direction b, Option<Plane> frame, Op key) =>
-        frame.Map(plane => Vector3d.VectorAngle(a: a.Value, b: b.Value, plane: plane))
-            .IfNone(() => Vector3d.VectorAngle(a: a.Value, b: b.Value))
-            .TryCreateValidated<VectorAngle>()
-            .ToFin()
-            .BindFail(_ => Fin.Fail<VectorAngle>(error: key.InvalidResult()));
-    internal static Fin<VectorAngle> Of(Direction a, Direction b, Direction normal, Op key) =>
-        Vector3d.VectorAngle(v1: a.Value, v2: b.Value, vNormal: normal.Value)
-            .TryCreateValidated<VectorAngle>()
-            .ToFin()
-            .BindFail(_ => Fin.Fail<VectorAngle>(error: key.InvalidResult()));
-    internal static Fin<VectorAngle> Of(Vector3d a, Vector3d b, Context context, Op key) =>
-        from left in Direction.Of(value: a, context: context, key: key)
-        from right in Direction.Of(value: b, context: context, key: key)
-        from angle in Of(a: left, b: right, frame: Option<Plane>.None, key: key)
-        select angle;
+    internal static Fin<VectorAngle> Of(Direction a, Direction b, AnglePivot pivot, Op key) =>
+        key.AcceptValidated<VectorAngle>(candidate: pivot.Compute(a: a.Value, b: b.Value));
+    internal static Fin<VectorAngle> Of(Vector3d a, Vector3d b, Context context, AnglePivot? pivot = null, Op? key = null) {
+        Op op = key.OrDefault();
+        return from left in Direction.Of(value: a, context: context, key: op)
+               from right in Direction.Of(value: b, context: context, key: op)
+               from angle in Of(a: left, b: right, pivot: pivot ?? AnglePivot.World, key: op)
+               select angle;
+    }
     internal Fin<TOut> Project<TOut>(Op key) =>
         typeof(TOut) switch {
             Type t when t == typeof(VectorAngle) => Fin.Succ((TOut)(object)this),
@@ -73,7 +66,7 @@ public sealed partial class VectorRelation {
         _ => IntersectionTangency.Transversal,
     };
     public static Fin<VectorRelation> Of(Vector3d a, Vector3d b, Context context, Op? key = null) {
-        Op op = key ?? Op.Of(name: nameof(VectorRelation));
+        Op op = key.OrDefault();
         return from model in Optional(context).ToFin(op.MissingContext())
                from left in Direction.Of(value: a, context: model, key: op)
                from right in Direction.Of(value: b, context: model, key: op)
@@ -93,14 +86,30 @@ public sealed partial class VectorRelation {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
+[Union]
+public abstract partial record AnglePivot {
+    private AnglePivot() { }
+    public sealed record WorldCase : AnglePivot;
+    public sealed record FrameCase(Plane Value) : AnglePivot;
+    public sealed record NormalCase(Direction Value) : AnglePivot;
+    public static AnglePivot World => new WorldCase();
+    public static AnglePivot Frame(Plane frame) => new FrameCase(Value: frame);
+    public static AnglePivot Normal(Direction normal) => new NormalCase(Value: normal);
+    internal double Compute(Vector3d a, Vector3d b) => Switch(
+        state: (A: a, B: b),
+        worldCase: static (state, _) => Vector3d.VectorAngle(a: state.A, b: state.B),
+        frameCase: static (state, frame) => Vector3d.VectorAngle(a: state.A, b: state.B, plane: frame.Value),
+        normalCase: static (state, normal) => Vector3d.VectorAngle(v1: state.A, v2: state.B, vNormal: normal.Value.Value));
+}
+
 public readonly record struct Direction {
     private Direction(Vector3d value) => Value = value;
     public Vector3d Value { get; }
     public static Fin<Direction> Of(Vector3d value, Context context, Op? key = null) =>
-        Optional(context).ToFin((key ?? Op.Of(name: nameof(Direction))).MissingContext())
+        Optional(context).ToFin(key.OrDefault().MissingContext())
             .Bind(model => Of(value: value, tolerance: model.Absolute.Value, key: key));
     internal static Fin<Direction> Of(Vector3d value, double tolerance, Op? key = null) {
-        Op op = key ?? Op.Of(name: nameof(Direction));
+        Op op = key.OrDefault();
         Vector3d candidate = value;
         return (candidate.IsValid, candidate.IsTiny(tolerance), candidate.Unitize(), candidate.IsValid) switch {
             (true, false, true, true) => Fin.Succ(new Direction(value: candidate)),
@@ -111,6 +120,16 @@ public readonly record struct Direction {
     public static Vector3d operator *(Direction direction, double magnitude) => direction.Value * magnitude;
     public static Direction Negate(Direction direction) => -direction;
     public static Vector3d Multiply(Direction direction, double magnitude) => direction * magnitude;
+    public Direction Reflect(Direction normal) =>
+        new(value: Value - (2.0 * (Value * normal.Value) * normal.Value));
+    public static Fin<Direction> Refract(Direction incident, Direction normal, double etaIncident, double etaTransmitted, Op key) {
+        double eta = etaIncident / etaTransmitted;
+        double cosI = -(incident.Value * normal.Value);
+        double k = 1.0 - (eta * eta * (1.0 - (cosI * cosI)));
+        return k >= 0.0
+            ? Of(value: (eta * incident.Value) + (((eta * cosI) - Math.Sqrt(k)) * normal.Value), tolerance: RhinoMath.ZeroTolerance, key: key)
+            : Fin.Fail<Direction>(error: key.InvalidResult());
+    }
     internal Fin<TOut> Project<TOut>(Op key) =>
         typeof(TOut) switch {
             Type t when t == typeof(Direction) => Fin.Succ((TOut)(object)this),
@@ -132,15 +151,14 @@ public readonly record struct VectorSpan {
     public Vector3d Value => Direction * Magnitude;
     public Line Axis => new(from: Anchor, to: Anchor + Value);
     public static Fin<VectorSpan> Of(Point3d anchor, Vector3d vector, Context context, Op? key = null) {
-        Op op = key ?? Op.Of(name: nameof(VectorSpan));
+        Op op = key.OrDefault();
         return from point in op.AcceptValue(value: anchor)
                from direction in Rasm.Vectors.Direction.Of(value: vector, context: context, key: op)
-               from magnitude in vector.Length.TryCreateValidated<PositiveMagnitude>().ToFin().BindFail(_ => Fin.Fail<PositiveMagnitude>(error: op.InvalidInput()))
-               select new VectorSpan(anchor: point, direction: direction, magnitude: magnitude);
+               from magnitude in op.AcceptValidated<PositiveMagnitude>(candidate: vector.Length)
+               select new VectorSpan(anchor: point, direction: direction, magnitude: magnitude.Value);
     }
     internal static Fin<VectorSpan> Of(Point3d anchor, Direction direction, double magnitude, Op key) =>
-        (key.AcceptValue(value: anchor),
-         magnitude.TryCreateValidated<PositiveMagnitude>().ToFin().BindFail(_ => Fin.Fail<PositiveMagnitude>(error: key.InvalidInput())))
+        (key.AcceptValue(value: anchor), key.AcceptValidated<PositiveMagnitude>(candidate: magnitude))
             .Apply((point, length) => new VectorSpan(anchor: point, direction: direction, magnitude: length.Value))
             .As()
             .Bind(span => guard(span.Axis.IsValid, key.InvalidResult()).Bind(_ => Fin.Succ(span)));
@@ -174,44 +192,67 @@ internal readonly record struct VectorRing {
     internal Seq<Point3d> Points { get; }
     private Polyline Native { get; }
     internal static Fin<VectorRing> Of(Seq<Point3d> points, Op key) =>
-        from valid in points.TraverseM(point => key.AcceptValue(value: point)).As()
+        from valid in points.Traverse(point => key.AcceptValue(value: point).ToValidation()).As().ToFin()
         from _ in guard(valid.Count >= 3, key.InvalidInput())
         let native = new Polyline(valid[0].DistanceTo(other: valid[valid.Count - 1]) <= RhinoMath.ZeroTolerance ? [.. valid.AsIterable()] : [.. valid.AsIterable(), valid[0]])
         from __ in guard(native.IsValid && native.IsClosed && native.SegmentCount >= 3, key.InvalidInput())
         select new VectorRing(points: valid, native: native);
     internal Fin<Vector3d> Normal(Op key) =>
         Direction.Of(value: FanVectors.Fold(initialState: Vector3d.Zero, f: static (sum, value) => sum + value), tolerance: RhinoMath.ZeroTolerance, key: key).Map(static direction => direction.Value);
-    internal Fin<double> Area(Op key) {
-        Seq<Vector3d> fan = FanVectors;
-        return key.AcceptValue(value: 0.5 * fan.Fold(initialState: 0.0, f: static (sum, value) => sum + value.Length));
-    }
+    internal Fin<double> Area(Op key) =>
+        key.AcceptValue(value: 0.5 * FanVectors.Fold(initialState: Vector3d.Zero, f: static (sum, value) => sum + value).Length);
     internal Fin<double> Perimeter(Op key) =>
         key.AcceptValue(value: Native.Length);
-    internal Fin<double> EdgeAspect(Op key) =>
-        EdgeLengths.Fold(
-            initialState: (Count: 0, Min: double.PositiveInfinity, Max: 0.0),
-            f: static (range, length) => length > RhinoMath.ZeroTolerance
-                ? (Count: range.Count + 1, Min: Math.Min(val1: range.Min, val2: length), Max: Math.Max(val1: range.Max, val2: length))
-                : range) switch {
-                    (Count: > 0, Min: double min, Max: double max) when RhinoMath.IsValidDouble(x: min) && min > RhinoMath.ZeroTolerance && RhinoMath.IsValidDouble(x: max) =>
-                        key.AcceptValue(value: max / min),
-                    _ => Fin.Fail<double>(error: key.InvalidResult()),
-                };
+    internal Fin<double> EdgeAspect(Op key) {
+        Seq<Point3d> points = Points;
+        return points.Map((point, index) => point.DistanceTo(other: points[(index + 1) % points.Count]))
+            .Fold(
+                initialState: (Count: 0, Min: double.PositiveInfinity, Max: 0.0),
+                f: static (range, length) => length > RhinoMath.ZeroTolerance
+                    ? (Count: range.Count + 1, Min: Math.Min(val1: range.Min, val2: length), Max: Math.Max(val1: range.Max, val2: length))
+                    : range) switch {
+                        (Count: > 0, Min: double min, Max: double max) when RhinoMath.IsValidDouble(x: min) && min > RhinoMath.ZeroTolerance && RhinoMath.IsValidDouble(x: max) =>
+                            key.AcceptValue(value: max / min),
+                        _ => Fin.Fail<double>(error: key.InvalidResult()),
+                    };
+    }
     internal Fin<double> Skewness(Op key) {
         Seq<Point3d> points = Points;
         return points.Count switch {
             int count when count >= 3 => points.Map((point, index) => Vector3d.VectorAngle(a: points[(index + count - 1) % count] - point, b: points[(index + 1) % count] - point))
-                .Fold(initialState: Fin.Succ((Max: 0.0, Ideal: (count - 2) * Math.PI / count)), f: static (state, angle) => state.Bind(s => angle.TryCreateValidated<VectorAngle>().ToFin()
+                .Fold(initialState: Fin.Succ((Max: 0.0, Ideal: (count - 2) * Math.PI / count)), f: (state, angle) => state.Bind(s => key.AcceptValidated<VectorAngle>(candidate: angle)
                     .Map(a => (Max: Math.Max(val1: s.Max, val2: Math.Max(val1: (a.Value - s.Ideal) / (Math.PI - s.Ideal), val2: (s.Ideal - a.Value) / s.Ideal)), s.Ideal))))
                 .Map(static state => state.Max),
             _ => Fin.Fail<double>(error: key.InvalidResult()),
         };
     }
-    private Seq<double> EdgeLengths {
-        get {
-            Seq<Point3d> points = Points;
-            return points.Map((point, index) => point.DistanceTo(other: points[(index + 1) % points.Count]));
-        }
+    internal Fin<Point3d> Centroid(Op key) =>
+        WithMassProperties(project: static (props, k) => k.AcceptValue(value: props.Centroid), key: key);
+    internal Fin<Plane> BestFitPlane(Op key) =>
+        (Plane.FitPlaneToPoints(points: Points.AsIterable(), plane: out Plane plane, maximumDeviation: out double _), plane) switch {
+            (PlaneFitResult.Success, { IsValid: true } valid) => key.AcceptValue(value: valid),
+            _ => Fin.Fail<Plane>(error: key.InvalidResult()),
+        };
+    internal Fin<Seq<Vector3d>> PrincipalAxes(Op key) =>
+        WithMassProperties(project: static (props, k) =>
+            (props.CentroidCoordinatesPrincipalMomentsOfInertia(x: out double _, xaxis: out Vector3d xAxis, y: out double _, yaxis: out Vector3d yAxis, z: out double _, zaxis: out Vector3d zAxis), Seq(xAxis, yAxis, zAxis)) switch {
+                (true, Seq<Vector3d> axes) when axes.ForAll(static v => v.IsValid && !v.IsTiny()) => k.AcceptValue(value: axes),
+                _ => Fin.Fail<Seq<Vector3d>>(error: k.InvalidResult()),
+            }, key: key);
+    internal Fin<Plane> PrincipalFrame(Op key) =>
+        WithMassProperties(project: static (props, k) =>
+            (props.CentroidCoordinatesPrincipalMomentsOfInertia(x: out double _, xaxis: out Vector3d xAxis, y: out double _, yaxis: out Vector3d yAxis, z: out double _, zaxis: out Vector3d _), xAxis, yAxis) switch {
+                (true, var x, var y) when x.IsValid && y.IsValid && !x.IsTiny() && !y.IsTiny() && new Plane(origin: props.Centroid, xDirection: x, yDirection: y) is { IsValid: true } frame
+                    => k.AcceptValue(value: frame),
+                _ => Fin.Fail<Plane>(error: k.InvalidResult()),
+            }, key: key);
+    private Fin<TResult> WithMassProperties<TResult>(Func<AreaMassProperties, Op, Fin<TResult>> project, Op key) {
+        using PolylineCurve curve = Native.ToPolylineCurve();
+        using AreaMassProperties? props = AreaMassProperties.Compute(closedPlanarCurve: curve);
+        return props switch {
+            AreaMassProperties valid => project(valid, key),
+            _ => Fin.Fail<TResult>(error: key.InvalidResult()),
+        };
     }
     private Seq<Vector3d> FanVectors {
         get {

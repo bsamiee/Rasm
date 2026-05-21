@@ -11,7 +11,7 @@ public sealed record SupportSpace {
     internal bool CanClosestNormal => GeometryKernel.CanClosestNormal(type: SourceType);
     internal bool CanSignedDistance => GeometryKernel.CanSignedDistance(type: SourceType);
     public static Fin<SupportSpace> Of(object? value, Op? key = null) {
-        Op op = key ?? Op.Of(name: nameof(SupportSpace));
+        Op op = key.OrDefault();
         return from source in Optional(value).ToFin(op.InvalidInput())
                let type = source.GetType()
                from _ in guard(type != typeof(object) && type != typeof(GeometryBase) && GeometryKernel.CanClosest(type: type), op.Unsupported(type, typeof(ClosestHit)))

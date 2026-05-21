@@ -195,9 +195,9 @@ public sealed record TopologyProjection {
     }
 }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct ClosestHit(Point3d Point, Option<double> Distance, Option<double> Parameter, Option<Point2d> Uv, Option<Vector3d> Normal, Option<ComponentIndex> Component, Option<MeshPoint> MeshPoint) {
-    internal static ClosestHit At(Point3d target, Point3d point, Option<double> parameter = default, Option<Point2d> uv = default, Option<Vector3d> normal = default, Option<ComponentIndex> component = default, Option<MeshPoint> meshPoint = default) =>
-        new(Point: point, Distance: Some(target.DistanceTo(other: point)), Parameter: parameter, Uv: uv, Normal: normal, Component: component, MeshPoint: meshPoint);
+public readonly record struct ClosestHit(Point3d Point, Option<double> Distance, Option<double> Parameter, Option<Point2d> Uv, Option<Vector3d> Normal, Option<ComponentIndex> Component, Option<MeshPoint> MeshPoint, Option<Vector3d> Tangent, Option<Plane> Frame) {
+    internal static ClosestHit At(Point3d target, Point3d point, Option<double> parameter = default, Option<Point2d> uv = default, Option<Vector3d> normal = default, Option<ComponentIndex> component = default, Option<MeshPoint> meshPoint = default, Option<Vector3d> tangent = default, Option<Plane> frame = default) =>
+        new(Point: point, Distance: Some(target.DistanceTo(other: point)), Parameter: parameter, Uv: uv, Normal: normal, Component: component, MeshPoint: meshPoint, Tangent: tangent, Frame: frame);
     internal bool IsValid => Point.IsValid
         && Distance.IsSome
         && Distance.Map(static d => RhinoMath.IsValidDouble(d) && d >= 0.0).IfNone(true)
@@ -205,7 +205,9 @@ public readonly record struct ClosestHit(Point3d Point, Option<double> Distance,
         && Uv.Map(static uv => uv.IsValid).IfNone(true)
         && Normal.Map(static n => n.IsValid && n.Length > RhinoMath.ZeroTolerance).IfNone(true)
         && Component.Map(static c => c is { ComponentIndexType: not ComponentIndexType.InvalidType } && c.Index >= 0).IfNone(true)
-        && MeshPoint.Map(static m => OpAcceptance.ValidityOf(source: m).IfNone(false)).IfNone(true);
+        && MeshPoint.Map(static m => OpAcceptance.ValidityOf(source: m).IfNone(false)).IfNone(true)
+        && Tangent.Map(static v => v.IsValid && v.Length > RhinoMath.ZeroTolerance).IfNone(true)
+        && Frame.Map(static p => p.IsValid).IfNone(true);
     internal static bool CanProjectTo(Type output, bool parameterMode = false) =>
         output == typeof(ClosestHit) || output == typeof(double) || output == typeof(Point2d) || output == typeof(ComponentIndex) || output == typeof(MeshPoint)
         || (!parameterMode && (output == typeof(Point3d) || output == typeof(Vector3d)));
@@ -247,6 +249,8 @@ internal static class GeometryKernel {
     internal static bool CanClosest(Type type) =>
         Universal(type: type) || type == typeof(Point3d) || type == typeof(Point) || typeof(PointCloud).IsAssignableFrom(type) || typeof(Brep).IsAssignableFrom(type) || typeof(Mesh).IsAssignableFrom(type) || type == typeof(Box) || type == typeof(BoundingBox) || CanCurveForm(type: type) || CanSurfaceForm(type: type);
     internal static bool CanClosestNormal(Type type) => Universal(type: type) || CanSurfaceForm(type: type) || typeof(PointCloud).IsAssignableFrom(c: type) || typeof(BrepFace).IsAssignableFrom(c: type) || typeof(Brep).IsAssignableFrom(c: type) || typeof(Mesh).IsAssignableFrom(c: type);
+    internal static bool CanClosestTangent(Type type) => Universal(type: type) || type == typeof(Line) || type == typeof(Polyline) || CanCurveForm(type: type);
+    internal static bool CanClosestFrame(Type type) => CanClosestTangent(type: type) || CanClosestNormal(type: type) || type == typeof(Plane);
     internal static bool CanSignedDistance(Type type) => type == typeof(Plane) || type == typeof(Sphere) || type == typeof(Box) || type == typeof(BoundingBox) || CanClosestNormal(type: type);
     internal static bool CanReadVertices(Type type) => Can(type: type, predicate: static kind => kind.CanReadVertices);
     internal static bool CanSamplePoints(Type type) => CanCurveForm(type: type) || CanSurfaceForm(type: type) || CanReadVertices(type: type);
@@ -445,26 +449,48 @@ internal static class GeometryKernel {
                     component: Some(new ComponentIndex(ComponentIndexType.PointCloudPoint, index)))),
                 _ => Fin.Fail<ClosestHit>(key.InvalidResult()),
             },
-            Line line => Fin.Succ(ClosestHit.At(target: target, point: line.ClosestPoint(testPoint: target, limitToFiniteSegment: true), parameter: Some(Math.Clamp(line.ClosestParameter(testPoint: target), 0.0, 1.0)))),
-            Polyline polyline => Fin.Succ(ClosestHit.At(target: target, point: polyline.ClosestPoint(testPoint: target), parameter: Some(polyline.ClosestParameter(testPoint: target)))),
-            Plane plane when plane.ClosestParameter(testPoint: target, s: out double s, t: out double t) => Fin.Succ(ClosestHit.At(target: target, point: plane.PointAt(u: s, v: t), uv: Some(new Point2d(x: s, y: t)), normal: Some(plane.Normal))),
+            Line line => Fin.Succ(ClosestHit.At(target: target,
+                point: line.ClosestPoint(testPoint: target, limitToFiniteSegment: true),
+                parameter: Some(Math.Clamp(line.ClosestParameter(testPoint: target), 0.0, 1.0)),
+                tangent: line.UnitTangent is { IsValid: true } tangent && !tangent.IsTiny() ? Some(tangent) : Option<Vector3d>.None,
+                frame: new Plane(origin: line.ClosestPoint(testPoint: target, limitToFiniteSegment: true), normal: line.UnitTangent) is { IsValid: true } lineFrame ? Some(lineFrame) : Option<Plane>.None)),
+            Polyline polyline => polyline.TangentAt(t: polyline.ClosestParameter(testPoint: target)) switch {
+                Vector3d polyTangent when polyTangent.IsValid && !polyTangent.IsTiny() => Fin.Succ(ClosestHit.At(target: target,
+                    point: polyline.ClosestPoint(testPoint: target),
+                    parameter: Some(polyline.ClosestParameter(testPoint: target)),
+                    tangent: Some(polyTangent),
+                    frame: new Plane(origin: polyline.ClosestPoint(testPoint: target), normal: polyTangent) is { IsValid: true } polyFrame ? Some(polyFrame) : Option<Plane>.None)),
+                _ => Fin.Succ(ClosestHit.At(target: target,
+                    point: polyline.ClosestPoint(testPoint: target),
+                    parameter: Some(polyline.ClosestParameter(testPoint: target)))),
+            },
+            Plane plane when plane.ClosestParameter(testPoint: target, s: out double s, t: out double t) => Fin.Succ(ClosestHit.At(target: target,
+                point: plane.PointAt(u: s, v: t),
+                uv: Some(new Point2d(x: s, y: t)),
+                normal: Some(plane.Normal),
+                frame: new Plane(origin: plane.PointAt(u: s, v: t), xDirection: plane.XAxis, yDirection: plane.YAxis) is { IsValid: true } planeFrame ? Some(planeFrame) : Option<Plane>.None)),
             Sphere sphere => SurfaceForm(source: sphere, op: key).Bind(lease => lease.Use(surface => ClosestOf(geometry: surface, target: target, key: key))),
             Box box => Fin.Succ(ClosestHit.At(target: target, point: box.ClosestPoint(target, false))),
             BoundingBox box => Fin.Succ(ClosestHit.At(target: target, point: box.ClosestPoint(target, false))),
             Curve curve when curve.ClosestPoint(testPoint: target, t: out double parameter) =>
-                Fin.Succ(ClosestHit.At(target: target, point: curve.PointAt(t: parameter), parameter: Some(parameter))),
+                Fin.Succ(ClosestHit.At(target: target, point: curve.PointAt(t: parameter), parameter: Some(parameter),
+                    tangent: curve.TangentAt(t: parameter) switch { Vector3d v when v.IsValid && !v.IsTiny() => Some(v), _ => Option<Vector3d>.None },
+                    frame: (curve.PerpendicularFrameAt(t: parameter, plane: out Plane perpFrame), perpFrame) switch { (true, { IsValid: true } valid) => Some(valid), _ => Option<Plane>.None })),
             BrepFace face when face.ClosestPointOnFace(testPoint: target, u: out double u, v: out double v, maximumDistance: 0.0) =>
                 NormalAt(surface: face, uv: new Point2d(x: u, y: v), key: key).Map(normal =>
                     ClosestHit.At(target: target, point: face.PointAt(u: u, v: v), uv: Some(new Point2d(x: u, y: v)), normal: Some(normal),
-                        component: face.FaceIndex >= 0 ? Some(new ComponentIndex(ComponentIndexType.BrepFace, face.FaceIndex)) : Option<ComponentIndex>.None)),
+                        component: face.FaceIndex >= 0 ? Some(new ComponentIndex(ComponentIndexType.BrepFace, face.FaceIndex)) : Option<ComponentIndex>.None,
+                        frame: FrameAt(surface: face, uv: new Point2d(x: u, y: v), key: key).ToOption())),
             Surface surface when surface.ClosestPoint(testPoint: target, u: out double u, v: out double v) =>
                 NormalAt(surface: surface, uv: new Point2d(x: u, y: v), key: key).Map(normal =>
-                    ClosestHit.At(target: target, point: surface.PointAt(u: u, v: v), uv: Some(new Point2d(x: u, y: v)), normal: Some(normal))),
+                    ClosestHit.At(target: target, point: surface.PointAt(u: u, v: v), uv: Some(new Point2d(x: u, y: v)), normal: Some(normal),
+                        frame: FrameAt(surface: surface, uv: new Point2d(x: u, y: v), key: key).ToOption())),
             Brep brep when brep.ClosestPoint(target, out Point3d point, out ComponentIndex component, out double u, out double v, 0.0, out Vector3d _) =>
                 component switch {
                     { ComponentIndexType: ComponentIndexType.BrepFace, Index: int faceIndex } when faceIndex >= 0 && faceIndex < brep.Faces.Count =>
                         NormalAt(surface: brep.Faces[faceIndex], uv: new Point2d(x: u, y: v), key: key).Map(oriented =>
-                            ClosestHit.At(target: target, point: point, uv: Some(new Point2d(x: u, y: v)), normal: Some(oriented), component: Some(component))),
+                            ClosestHit.At(target: target, point: point, uv: Some(new Point2d(x: u, y: v)), normal: Some(oriented), component: Some(component),
+                                frame: FrameAt(surface: brep.Faces[faceIndex], uv: new Point2d(x: u, y: v), key: key).ToOption())),
                     { ComponentIndexType: ComponentIndexType.BrepEdge } =>
                         Fin.Succ(ClosestHit.At(target: target, point: point, parameter: Some(u), component: Some(component))),
                     _ => Fin.Succ(ClosestHit.At(target: target, point: point, component: Some(component))),
@@ -472,7 +498,8 @@ internal static class GeometryKernel {
             Mesh mesh => Optional(mesh.ClosestMeshPoint(testPoint: target, maximumDistance: 0.0)).ToFin(key.InvalidResult())
                 .Map(meshPoint => mesh.NormalAt(meshPoint: meshPoint) switch {
                     Vector3d normal when normal.IsValid && !normal.IsTiny() =>
-                        ClosestHit.At(target: target, point: meshPoint.Point, normal: Some(normal), component: Some(meshPoint.ComponentIndex), meshPoint: Some(meshPoint)),
+                        ClosestHit.At(target: target, point: meshPoint.Point, normal: Some(normal), component: Some(meshPoint.ComponentIndex), meshPoint: Some(meshPoint),
+                            frame: new Plane(origin: meshPoint.Point, normal: normal) is { IsValid: true } meshFrame ? Some(meshFrame) : Option<Plane>.None),
                     _ => ClosestHit.At(target: target, point: meshPoint.Point, component: Some(meshPoint.ComponentIndex), meshPoint: Some(meshPoint)),
                 }),
             object curveLike when CanCurveForm(type: curveLike.GetType()) =>

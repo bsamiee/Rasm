@@ -19,8 +19,18 @@ public readonly partial struct Op {
     [BoundaryAdapter] public Fin<string> AcceptText(string value) => AcceptValue(value: value).Map(static text => text.Trim());
 }
 
+public static partial class OpExtensions {
+    [BoundaryAdapter]
+    public static Op OrDefault(this Op? key, [CallerMemberName] string name = "") =>
+        key ?? Op.Of(name: name);
+    [BoundaryAdapter]
+    public static Fin<TVO> AcceptValidated<TVO>(this Op op, double candidate) where TVO : IObjectFactory<TVO, double, ValidationError> =>
+        OpAcceptance.TryCreateValidated<TVO>(candidate: candidate).ToFin();
+}
+
 // --- [MODELS] -----------------------------------------------------------------------------
 public sealed partial record Requirement {
+    private static readonly Op Operand = Op.Of(name: nameof(Operand));
     private readonly Seq<Check> checks;
     private Requirement(Seq<Check> checks) => this.checks = checks;
     internal bool IsEmpty => checks.IsEmpty;
@@ -33,17 +43,17 @@ public sealed partial record Requirement {
     private static Requirement Single(Check check) => new(checks: Seq(check));
     public Validation<Error, T> Apply<T>(Context context, T? value, CancellationToken cancel = default) where T : notnull =>
         (value, context, this) switch {
-            (T candidate, _, Requirement { IsEmpty: true }) => Op.Of(name: "Operand").AcceptValue(value: candidate).ToValidation(),
+            (T candidate, _, Requirement { IsEmpty: true }) => Operand.AcceptValue(value: candidate).ToValidation(),
             (T candidate, Context ctx, Requirement req) => RunChecks(checks: req.checks, context: ctx, original: candidate, cancel: cancel),
             _ => Fin.Fail<T>(error: new Fault.MissingGeometry()).ToValidation(),
         };
     private static Validation<Error, T> RunChecks<T>(Seq<Check> checks, Context context, T original, CancellationToken cancel) where T : notnull =>
         original switch {
             GeometryBase geometry => RunChecks(checks: checks, context: context, geometry: geometry, original: original, cancel: cancel),
-            object curveLike when GeometryKernel.CanCurveForm(type: curveLike.GetType()) => RunLeaseChecks(lease: GeometryKernel.CurveForm(source: curveLike, op: Op.Of(name: "Operand")), checks: checks, context: context, original: original, cancel: cancel),
-            object surfaceLike when GeometryKernel.CanSurfaceForm(type: surfaceLike.GetType()) => RunLeaseChecks(lease: GeometryKernel.SurfaceForm(source: surfaceLike, op: Op.Of(name: "Operand")), checks: checks, context: context, original: original, cancel: cancel),
-            object brepLike when GeometryKernel.CanCoerce(source: brepLike.GetType(), target: typeof(Brep)) => RunLeaseChecks(lease: GeometryKernel.BrepForm(source: brepLike, op: Op.Of(name: "Operand")), checks: checks, context: context, original: original, cancel: cancel),
-            _ => Op.Of(name: "Operand").AcceptValue(value: original).ToValidation(),
+            object curveLike when GeometryKernel.CanCurveForm(type: curveLike.GetType()) => RunLeaseChecks(lease: GeometryKernel.CurveForm(source: curveLike, op: Operand), checks: checks, context: context, original: original, cancel: cancel),
+            object surfaceLike when GeometryKernel.CanSurfaceForm(type: surfaceLike.GetType()) => RunLeaseChecks(lease: GeometryKernel.SurfaceForm(source: surfaceLike, op: Operand), checks: checks, context: context, original: original, cancel: cancel),
+            object brepLike when GeometryKernel.CanCoerce(source: brepLike.GetType(), target: typeof(Brep)) => RunLeaseChecks(lease: GeometryKernel.BrepForm(source: brepLike, op: Operand), checks: checks, context: context, original: original, cancel: cancel),
+            _ => Operand.AcceptValue(value: original).ToValidation(),
         };
     private static Validation<Error, T> RunChecks<T>(Seq<Check> checks, Context context, GeometryBase geometry, T original, CancellationToken cancel) where T : notnull =>
         checks
