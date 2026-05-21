@@ -14,16 +14,16 @@ Operate as a senior developer in a bleeding-edge monorepo; use the newest viable
 
 If reviewing, refining, editing, creating, or modifying X file type, use skill Y (required):
 
-| [INDEX] | [FILE_TYPE]                          | [REQUIRED_SKILL]            |
-| :-----: | ------------------------------------ | --------------------------- |
-|   [1]   | TypeScript (`.ts`, `.tsx`)           | `coding-ts`                 |
-|   [2]   | C# production (`.cs` under `libs/`, `apps/`, `tools/`) | `coding-csharp` |
-|   [3]   | C# tests (`.spec.cs` under `tests/csharp/`) | `cs-testing`         |
-|   [4]   | RhinoCode scenarios (`.verify.csx`)  | `rhino-verify`              |
-|   [5]   | Python (`.py`)                       | `coding-python`             |
-|   [6]   | Bash/sh (`.sh`, `.bash`)             | `coding-bash`               |
-|   [7]   | SQL (`.sql`)                         | `coding-pg`                 |
-|   [8]   | Markdown/docs (`.md`)                | `docgen`, `style-standards` |
+| [INDEX] | [FILE_TYPE]                         | [REQUIRED_SKILL]            |
+| :-----: | ----------------------------------- | --------------------------- |
+|   [1]   | TypeScript (`.ts`, `.tsx`)          | `coding-ts`                 |
+|   [2]   | C# production (`.cs`)               | `coding-csharp`             |
+|   [3]   | C# tests (`.spec.cs`)               | `cs-testing`                |
+|   [4]   | RhinoCode scenarios (`.verify.csx`) | `rhino-verify`              |
+|   [5]   | Python (`.py`)                      | `coding-python`             |
+|   [6]   | Bash/sh (`.sh`, `.bash`)            | `coding-bash`               |
+|   [7]   | SQL (`.sql`)                        | `coding-pg`                 |
+|   [8]   | Markdown/docs (`.md`)               | `docgen`, `style-standards` |
 
 [IMPORTANT]:
 - [ALWAYS] Language-specific mechanics come from the required `coding-*` skill.
@@ -103,7 +103,7 @@ Three orthogonal rails: static analysis, unit tests, runtime verification. Each 
 [IMPORTANT]:
 1. [ALWAYS] **Static (build/format/analyze)** — `bash scripts/check-cs.sh check`. Routes changed files to owning projects. Runs build + `dotnet format` + analyzer gate. No tests.
 2. [ALWAYS] **Full static** — `bash scripts/check-cs.sh full`. Required only when trigger files change (`Directory.Build.props`, `Directory.Build.targets`, `Directory.Packages.props`, `Workspace.slnx`, `.editorconfig`, `global.json`).
-3. [ALWAYS] **Unit tests** — `bash scripts/test.sh [<filter>]`. Runs `dotnet test Workspace.slnx`. Tests live under `tests/csharp/<project>/`.
+3. [ALWAYS] **Unit tests** — `bash scripts/test.sh [<filter>]`. Runs `dotnet test` against the library tests target (`tests/csharp/libs/Rasm/Rasm.Tests.csproj` by default; override via `TEST_TARGET=<csproj>` for any other test project, e.g. `tests/tools/cs-analyzer/CsAnalyzer.Tests.csproj`).
 4. [ALWAYS] **Rhino runtime verification** — `bash scripts/rhino.sh verify <path-or-glob>`. Routes scenarios through the in-process bridge against running `RhinoWIP.app`. Outputs JSON evidence + PNG captures under `.artifacts/verify/`. See the `rhino-verify` skill.
 5. [ALWAYS] **Trust the analyzer**: 50+ CSP rules (`tools/cs-analyzer/Kernel/RuleCatalog.cs`) enforce coding-csharp standards. When CSP#### fires, fix the architecture; do not suppress.
 6. [NEVER] Re-introduce a `test` mode into `check-cs.sh`. Tests are a separate gate.

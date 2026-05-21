@@ -92,7 +92,7 @@ _changed_files() {
 _ignored_test_fixture() {
     local -r file="$1"
     [[ "${file}" == *.csproj ]] && return 1
-    case "${file}" in tests/tools/ast-grep/*|tests/tools/py_analyzer/*|tests/python/*) return 0 ;; *) return 1 ;; esac
+    case "${file}" in tests/tools/ast-grep/*|tests/tools/py_analyzer/*) return 0 ;; *) return 1 ;; esac
 }
 _full_trigger() {
     local -r file="$1"

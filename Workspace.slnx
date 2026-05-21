@@ -24,6 +24,12 @@
   <Folder Name="/tests/csharp/libs/Rasm/">
     <Project Path="tests/csharp/libs/Rasm/Rasm.Tests.csproj" />
   </Folder>
+  <Folder Name="/tests/csharp/libs/Rasm.Grasshopper/">
+    <Project Path="tests/csharp/libs/Rasm.Grasshopper/Rasm.Grasshopper.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/csharp/libs/Rasm.Rhino/">
+    <Project Path="tests/csharp/libs/Rasm.Rhino/Rasm.Rhino.Tests.csproj" />
+  </Folder>
   <Folder Name="/tests/tools/" />
   <Folder Name="/tests/tools/cs-analyzer/">
     <Project Path="tests/tools/cs-analyzer/CsAnalyzer.Tests.csproj" />
