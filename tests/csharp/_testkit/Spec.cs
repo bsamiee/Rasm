@@ -57,5 +57,5 @@ public static class Spec {
     // BOUNDARY ADAPTER — optional Action<T> -> LanguageExt Match's Unit-returning lambda contract.
     private static Unit Tap<T>(Action<T>? action, T value) { action?.Invoke(value); return unit; }
     private static bool EqOrThrow<T>(T left, T right, Func<T, T, bool>? predicate) =>
-        (predicate ?? EqualityComparer<T>.Default.Equals)(left!, right!) ? true : throw new XunitException($"Equality failed: {left} != {right}");
+        (predicate ?? EqualityComparer<T>.Default.Equals)(left, right) ? true : throw new XunitException($"Equality failed: {left} != {right}");
 }

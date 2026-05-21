@@ -160,7 +160,7 @@ One library's types per module boundary. Bridge at layer edges via Schema decode
 ## Validation gate
 
 - Required during iteration: `pnpm check:ts`.
-- Required for final completion: run every impacted language gate explicitly; for shared standards/tooling, run `pnpm check:ts`, `pnpm check:py`, and `pnpm check:cs`.
+- Required for final completion: run every impacted language gate explicitly; for shared standards/tooling, run `pnpm check:ts`, `pnpm check:py`, and `bash scripts/check-cs.sh full`.
 - Reject completion when load order, contracts, or checks are not satisfied.
 - Examples inside this skill are executable doctrine: no unmarked `Object.*`, ternaries, `undefined as never`, bare `Error`, unbounded `unknown`, or one-use helper extraction in golden paths.
 

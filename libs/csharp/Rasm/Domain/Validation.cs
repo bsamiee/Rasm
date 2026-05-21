@@ -223,7 +223,7 @@ internal static class RequirementContext {
 [BoundaryAdapter]
 internal static class OpAcceptance {
     private static readonly FrozenDictionary<Type, Func<object, bool>> ValueValidity = new Type[] {
-        typeof(Point2d), typeof(Point3d), typeof(Vector3d), typeof(Plane), typeof(BoundingBox), typeof(Box), typeof(Sphere),
+        typeof(Point2d), typeof(Point3d), typeof(Vector3d), typeof(Plane), typeof(Transform), typeof(BoundingBox), typeof(Box), typeof(Sphere),
         typeof(Cylinder), typeof(Cone), typeof(Torus), typeof(Arc), typeof(Circle), typeof(Ellipse), typeof(Rectangle3d), typeof(Interval), typeof(Line), typeof(Polyline),
     }.ToFrozenDictionary(static t => t, static t => {
         ParameterExpression p = Expression.Parameter(typeof(object));

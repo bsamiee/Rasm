@@ -27,7 +27,7 @@ Scripts are transient diagnostic entrypoints for current code and real Rhino API
 Avoid it for:
 - Synthetic unit-test suites.
 - Mocked Rhino or Grasshopper behavior.
-- Pure C# analyzer failures already covered by `pnpm check:cs`.
+- Pure C# analyzer failures already covered by `bash scripts/check-cs.sh check`.
 - Long-running UI-thread experiments that require server-side cancellation.
 
 ---
@@ -273,7 +273,7 @@ API metadata lookup uses local sources in this order:
 
 <br>
 
-Run after bridge changes. Run gates serially in listed order. Never parallelize bridge build/check/package commands, `pnpm check:cs`, or live Rhino commands; they share build caches, lock directories, and one live Rhino endpoint.
+Run after bridge changes. Run gates serially in listed order. Never parallelize bridge build/check/package commands, `bash scripts/check-cs.sh check`, or live Rhino commands; they share build caches, lock directories, and one live Rhino endpoint.
 
 ```bash
 bash -n scripts/rhino.sh
@@ -286,7 +286,7 @@ scripts/rhino.sh api xml gh2 IDataAccess
 scripts/rhino.sh api types rhino-ui Panels
 scripts/rhino.sh api decompile rhino-ui Rhino.UI.DataSerializer
 scripts/rhino.sh bridge build
-pnpm check:cs
+bash scripts/check-cs.sh check
 scripts/rhino.sh bridge doctor
 scripts/rhino.sh bridge check apps/grasshopper/Radyab/Radyab.csproj
 rc=0

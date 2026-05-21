@@ -11,7 +11,11 @@ public sealed partial class ScalarMetric {
     internal bool IsMagnitude => Key == Magnitude.Key;
     internal bool IsSurface => Key == Gaussian.Key || Key == Mean.Key;
     internal Fin<double> Of(Vector3d value, Op key) =>
-        IsMagnitude ? key.AcceptValue(value: value).Map(static vector => vector.Length) : Fin.Fail<double>(error: key.Unsupported(geometryType: typeof(Vector3d), outputType: typeof(double)));
+        IsMagnitude
+            ? from vector in key.AcceptValue(value: value)
+              from length in key.AcceptValue(value: vector.Length)
+              select length
+            : Fin.Fail<double>(error: key.Unsupported(geometryType: typeof(Vector3d), outputType: typeof(double)));
     internal Fin<double> Of(SurfaceCurvature value, Op key) =>
         this switch {
             ScalarMetric metric when metric.Key == Gaussian.Key => key.AcceptValue(value: value.Gaussian),

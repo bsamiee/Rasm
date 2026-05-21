@@ -52,7 +52,7 @@ internal sealed class BridgeSessions : IDisposable {
         Assembly[] required = [typeof(RhinoApp).Assembly, typeof(BridgeWire).Assembly, typeof(Host).Assembly];
         return [.. required
             .Where(static assembly => !string.IsNullOrWhiteSpace(assembly.GetName().Name))
-            .GroupBy(static assembly => assembly.GetName().Name!, StringComparer.Ordinal)
+            .GroupBy(static assembly => assembly.GetName().Name, StringComparer.Ordinal)
             .Select(static group => group.First())
             .OrderBy(static assembly => assembly.GetName().Name, StringComparer.Ordinal)
             .Select(static assembly => Loaded(assembly: assembly, required: true))];

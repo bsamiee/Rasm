@@ -331,8 +331,6 @@ dotnet_diagnostic.IDE0280.severity = error                                    # 
 dotnet_diagnostic.IDE0330.severity = error                                    # Prefer System.Threading.Lock over object-based locking.
 dotnet_diagnostic.IDE0340.severity = error                                    # Use unbound generic types in nameof for generic type names.
 dotnet_diagnostic.IDE0360.severity = error                                    # Simplify property accessors to expression-bodied form when trivial.
-dotnet_diagnostic.IDE0370.severity = error                                    # Remove unnecessary suppression context.
-dotnet_diagnostic.IDE0380.severity = error                                    # Remove unnecessary unsafe modifier.
 dotnet_diagnostic.IDE1005.severity = error                                    # Prefer null-conditional delegate invocation (?.Invoke).
 
 [tests/**/*.cs]

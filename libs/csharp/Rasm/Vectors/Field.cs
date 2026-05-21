@@ -175,10 +175,10 @@ public partial record VectorField {
                 from weight in c.Falloff.Weight(distance: residual, tolerance: state.Context.Absolute.Value, key: op)
                 select (Raw: shellSign * (hit.Point - state.Sample), Scale: c.Radius.IsSome ? residual * weight : weight)),
         normalCase: static (state, c) =>
-            from _ in guard(c.Source.CanClosestNormal, state.Key.Unsupported(c.Source.SourceType, typeof(Vector3d)))
             from vector in ClosestDirected(
                 source: c.Source, sample: state.Sample, sense: c.Sense, context: state.Context, key: state.Key,
-                hitToScaled: (hit, op) => from normal in hit.Normal.ToFin(Fail: op.InvalidResult())
+                hitToScaled: (hit, op) => from _ in guard(c.Source.AdmitsNormal(hit: hit), op.Unsupported(c.Source.SourceType, typeof(Vector3d)))
+                                          from normal in hit.Normal.ToFin(Fail: op.InvalidResult())
                                           select (Raw: normal, Scale: 1.0))
             select vector,
         blendCase: static (state, c) => c.Fields.TraverseM(field => field.SampleVector(sample: state.Sample, context: state.Context, key: state.Key)).As()

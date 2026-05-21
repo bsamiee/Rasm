@@ -3,26 +3,26 @@ namespace Rasm.Vectors;
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class SupportProjection {
-    public static readonly SupportProjection Closest = new(key: 0, parameterMode: false, sign: 1.0, capability: static _ => true, accepts: static output => output == typeof(Point3d) || output == typeof(ClosestHit));
-    public static readonly SupportProjection Direction = new(key: 1, parameterMode: false, sign: 1.0, capability: static _ => true, accepts: static _ => false);
-    public static readonly SupportProjection Span = new(key: 2, parameterMode: false, sign: 1.0, capability: static _ => true, accepts: static _ => false);
-    public static readonly SupportProjection SignedSpanAway = new(key: 13, parameterMode: false, sign: -1.0, capability: static _ => true, accepts: static _ => false);
-    public static readonly SupportProjection Normal = new(key: 3, parameterMode: false, sign: 1.0, capability: static space => space.CanClosestNormal, accepts: static _ => false);
-    public static readonly SupportProjection Distance = new(key: 4, parameterMode: false, sign: 1.0, capability: static _ => true, accepts: static output => output == typeof(double));
-    public static readonly SupportProjection Parameter = new(key: 5, parameterMode: true, sign: 1.0, capability: static _ => true, accepts: static output => output == typeof(double));
-    public static readonly SupportProjection Uv = new(key: 6, parameterMode: false, sign: 1.0, capability: static _ => true, accepts: static output => output == typeof(Point2d));
-    public static readonly SupportProjection Component = new(key: 7, parameterMode: false, sign: 1.0, capability: static _ => true, accepts: static output => output == typeof(ComponentIndex));
-    public static readonly SupportProjection MeshPoint = new(key: 8, parameterMode: false, sign: 1.0, capability: static _ => true, accepts: static output => output == typeof(MeshPoint));
-    public static readonly SupportProjection SignedDistance = new(key: 9, parameterMode: false, sign: 1.0, capability: static space => space.CanSignedDistance, accepts: static _ => false);
-    public static readonly SupportProjection ContainmentDistance = new(key: 10, parameterMode: false, sign: 1.0, capability: static _ => true, accepts: static _ => false);
-    public static readonly SupportProjection Tangent = new(key: 11, parameterMode: false, sign: 1.0, capability: static space => GeometryKernel.CanClosestTangent(space.SourceType), accepts: static _ => false);
-    public static readonly SupportProjection Frame = new(key: 12, parameterMode: false, sign: 1.0, capability: static space => GeometryKernel.CanClosestFrame(space.SourceType), accepts: static output => output == typeof(Plane));
+    public static readonly SupportProjection Closest = new(key: 0, parameterMode: false, sign: 1.0, capability: static (_, _) => true, accepts: static output => output == typeof(Point3d) || output == typeof(ClosestHit));
+    public static readonly SupportProjection Direction = new(key: 1, parameterMode: false, sign: 1.0, capability: static (_, _) => true, accepts: static _ => false);
+    public static readonly SupportProjection Span = new(key: 2, parameterMode: false, sign: 1.0, capability: static (_, _) => true, accepts: static _ => false);
+    public static readonly SupportProjection SignedSpanAway = new(key: 13, parameterMode: false, sign: -1.0, capability: static (_, _) => true, accepts: static _ => false);
+    public static readonly SupportProjection Normal = new(key: 3, parameterMode: false, sign: 1.0, capability: static (space, hit) => space.AdmitsNormal(hit: hit), accepts: static output => output == typeof(ClosestHit));
+    public static readonly SupportProjection Distance = new(key: 4, parameterMode: false, sign: 1.0, capability: static (_, hit) => hit.Distance.IsSome, accepts: static output => output == typeof(double) || output == typeof(ClosestHit));
+    public static readonly SupportProjection Parameter = new(key: 5, parameterMode: true, sign: 1.0, capability: static (_, hit) => hit.Parameter.IsSome, accepts: static output => output == typeof(double) || output == typeof(ClosestHit));
+    public static readonly SupportProjection Uv = new(key: 6, parameterMode: false, sign: 1.0, capability: static (_, hit) => hit.Uv.IsSome, accepts: static output => output == typeof(Point2d) || output == typeof(ClosestHit));
+    public static readonly SupportProjection Component = new(key: 7, parameterMode: false, sign: 1.0, capability: static (_, hit) => hit.Component.IsSome, accepts: static output => output == typeof(ComponentIndex) || output == typeof(ClosestHit));
+    public static readonly SupportProjection MeshPoint = new(key: 8, parameterMode: false, sign: 1.0, capability: static (_, hit) => hit.MeshPoint.IsSome, accepts: static output => output == typeof(MeshPoint) || output == typeof(ClosestHit));
+    public static readonly SupportProjection SignedDistance = new(key: 9, parameterMode: false, sign: 1.0, capability: static (space, hit) => space.AdmitsSignedDistance(hit: hit), accepts: static output => output == typeof(double));
+    public static readonly SupportProjection ContainmentDistance = new(key: 10, parameterMode: false, sign: 1.0, capability: static (space, hit) => space.AdmitsContainmentDistance(hit: hit), accepts: static output => output == typeof(double));
+    public static readonly SupportProjection Tangent = new(key: 11, parameterMode: false, sign: 1.0, capability: static (space, hit) => space.AdmitsTangent(hit: hit), accepts: static output => output == typeof(ClosestHit));
+    public static readonly SupportProjection Frame = new(key: 12, parameterMode: false, sign: 1.0, capability: static (space, hit) => space.AdmitsFrame(hit: hit), accepts: static output => output == typeof(Plane) || output == typeof(ClosestHit));
     internal bool ParameterMode { get; }
     internal double Sign { get; }
-    [UseDelegateFromConstructor] private partial bool Capability(SupportSpace space);
+    [UseDelegateFromConstructor] private partial bool Capability(SupportSpace space, ClosestHit hit);
     [UseDelegateFromConstructor] private partial bool Accepts(Type output);
     internal Fin<TOut> Project<TOut>(SupportSpace space, ClosestHit hit, Point3d sample, Context context, Op key) =>
-        Capability(space: space) switch {
+        Capability(space: space, hit: hit) switch {
             false => Fin.Fail<TOut>(error: key.Unsupported(geometryType: space.SourceType, outputType: typeof(TOut))),
             true => this switch {
                 SupportProjection p when p.Equals(SignedDistance) || p.Equals(ContainmentDistance) => typeof(TOut) == typeof(double)
@@ -47,50 +47,27 @@ public sealed partial class SupportProjection {
         };
 }
 
-[SmartEnum<int>]
-public sealed partial class VectorRingMetric {
-    public static readonly VectorRingMetric Normal = new(key: 0, output: typeof(Vector3d), measure: static (ring, key) => ring.Normal(key: key).Map(static value => (object)value));
-    public static readonly VectorRingMetric EdgeAspect = new(key: 1, output: typeof(double), measure: static (ring, key) => ring.EdgeAspect(key: key).Map(static value => (object)value)), Area = new(key: 2, output: typeof(double), measure: static (ring, key) => ring.Area(key: key).Map(static value => (object)value));
-    public static readonly VectorRingMetric Perimeter = new(key: 3, output: typeof(double), measure: static (ring, key) => ring.Perimeter(key: key).Map(static value => (object)value)), Skewness = new(key: 4, output: typeof(double), measure: static (ring, key) => ring.Skewness(key: key).Map(static value => (object)value));
-    public static readonly VectorRingMetric Centroid = new(key: 5, output: typeof(Point3d), measure: static (ring, key) => ring.Centroid(key: key).Map(static value => (object)value));
-    public static readonly VectorRingMetric BestFitPlane = new(key: 6, output: typeof(Plane), measure: static (ring, key) => ring.BestFitPlane(key: key).Map(static value => (object)value));
-    public static readonly VectorRingMetric PrincipalAxes = new(key: 7, output: typeof(Seq<Vector3d>), measure: static (ring, key) => ring.PrincipalAxes(key: key).Map(static value => (object)value));
-    public static readonly VectorRingMetric PrincipalFrame = new(key: 8, output: typeof(Plane), measure: static (ring, key) => ring.PrincipalFrame(key: key).Map(static value => (object)value));
-    public static readonly VectorRingMetric Shape = new(key: 9, output: typeof(VectorRingShape), measure: static (ring, key) => ring.Shape(key: key).Map(static value => (object)value));
-    public Type Output { get; }
-    [UseDelegateFromConstructor] private partial Fin<object> Measure(VectorRing ring, Op key);
-    internal Fin<TOut> Project<TOut>(VectorRing ring, Op key) =>
-        Output.Equals(typeof(TOut)) switch {
-            true => Measure(ring: ring, key: key).Bind(value => value switch {
-                Seq<Vector3d> axes => axes.TraverseM(axis => key.AcceptValue(value: axis)).As().Map(static valid => (TOut)(object)valid),
-                VectorRingShape shape when shape.IsValid => Fin.Succ((TOut)(object)shape),
-                VectorRingShape => Fin.Fail<TOut>(key.InvalidResult()),
-                _ => key.AcceptValue(value: value).Map(static valid => (TOut)valid),
-            }),
-            false => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(VectorRing), outputType: typeof(TOut))),
-        };
-}
-
 // --- [MODELS] -----------------------------------------------------------------------------
 [Union]
 public abstract partial record VectorIntent {
     private VectorIntent() { }
-    public sealed record AxisCase(SignedAxis Value, Option<Plane> Frame) : VectorIntent;
+    public sealed record AxisCase(SignedAxis Value, Option<Plane> Basis) : VectorIntent;
     public sealed record DirectionCase(Vector3d Value) : VectorIntent;
     public sealed record AxesCase(Option<Seq<Vector3d>> Values, bool Planar) : VectorIntent;
     public sealed record AngularCase(Vector3d A, Vector3d B, AnglePivot Pivot) : VectorIntent;
     public sealed record SupportCase(SupportSpace Space, Point3d Sample, SupportProjection Projection) : VectorIntent;
     public sealed record FieldCase(VectorField Value, Point3d Sample) : VectorIntent;
     public sealed record RayCase(Point3d Origin, Direction RayDirection, RayPolicy Policy) : VectorIntent;
+    public sealed record FrameCase(Point3d Origin, Vector3d Normal, Option<Vector3d> XHint) : VectorIntent;
     public sealed record RingCase(Seq<Point3d> Points, VectorRingMetric Metric) : VectorIntent;
-    public sealed record ComponentsCase(Point3d Anchor, Vector3d Value, Plane Frame) : VectorIntent;
+    public sealed record ComponentsCase(Point3d Anchor, Vector3d Value, Plane Basis) : VectorIntent;
     public sealed record RelationCase(Vector3d A, Vector3d B) : VectorIntent;
     public sealed record BounceCase(Direction Incident, SupportSpace Surface, Point3d Sample, BouncePolicy Policy) : VectorIntent;
     public sealed record StreamlineCase(VectorField Source, Point3d Seed, PositiveMagnitude StepSize, int Steps, FieldIntegrator Integrator) : VectorIntent;
     public Fin<TOut> Project<TOut>(Context context, Op op) => Switch(
         state: (Context: context, Key: op),
         axisCase: static (state, axis) =>
-            from direction in Vectors.Direction.Of(value: axis.Value.Of(frame: axis.Frame), context: state.Context, key: state.Key)
+            from direction in Vectors.Direction.Of(value: axis.Value.Of(frame: axis.Basis), context: state.Context, key: state.Key)
             from output in direction.Project<TOut>(key: state.Key)
             select output,
         directionCase: static (state, intent) =>
@@ -116,13 +93,17 @@ public abstract partial record VectorIntent {
             select output,
         fieldCase: static (state, intent) => intent.Value.Project<TOut>(sample: intent.Sample, context: state.Context, key: state.Key),
         rayCase: static (state, intent) => intent.Policy.Project<TOut>(origin: intent.Origin, direction: intent.RayDirection, context: state.Context, key: state.Key),
+        frameCase: static (state, intent) =>
+            from frame in VectorFrame.Of(origin: intent.Origin, normal: intent.Normal, xHint: intent.XHint, context: state.Context, key: state.Key)
+            from output in frame.Project<TOut>(key: state.Key)
+            select output,
         ringCase: static (state, intent) =>
             from ring in VectorRing.Of(points: intent.Points, context: state.Context, key: state.Key)
             from output in intent.Metric.Project<TOut>(ring: ring, key: state.Key)
             select output,
         componentsCase: static (state, intent) =>
             from span in VectorSpan.Of(anchor: intent.Anchor, vector: intent.Value, context: state.Context, key: state.Key)
-            from components in span.Components(frame: intent.Frame, key: state.Key)
+            from components in span.Components(frame: intent.Basis, key: state.Key)
             from output in typeof(TOut) == typeof(ValueTuple<double, double>)
                 ? state.Key.AcceptValue(value: components).Map(static value => (TOut)(object)value)
                 : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(VectorSpan), outputType: typeof(TOut)))
@@ -154,7 +135,7 @@ public abstract partial record VectorIntent {
     public static VectorIntent Between(Point3d origin, SupportSpace target, BoundarySense? sense = null) =>
         new SupportCase(Space: target, Sample: origin, Projection: (sense ?? BoundarySense.Toward).Equals(BoundarySense.Toward) ? SupportProjection.Span : SupportProjection.SignedSpanAway);
     public static VectorIntent Axis(SignedAxis axis, Plane? frame = null) =>
-        new AxisCase(Value: axis, Frame: Optional(frame));
+        new AxisCase(Value: axis, Basis: Optional(frame));
     public static VectorIntent Direction(Vector3d value) =>
         new DirectionCase(Value: value);
     public static VectorIntent Axes(Option<Seq<Vector3d>> values = default, bool planar = false) =>
@@ -167,10 +148,12 @@ public abstract partial record VectorIntent {
         new FieldCase(Value: field, Sample: sample);
     public static VectorIntent Ray(Point3d origin, Direction direction, RayPolicy? policy = null) =>
         new RayCase(Origin: origin, RayDirection: direction, Policy: policy ?? RayPolicy.Forward);
+    public static VectorIntent Frame(Point3d origin, Vector3d normal, Option<Vector3d> xHint = default) =>
+        new FrameCase(Origin: origin, Normal: normal, XHint: xHint);
     public static VectorIntent Ring(Seq<Point3d> points, VectorRingMetric metric) =>
         new RingCase(Points: points, Metric: metric);
     public static VectorIntent Components(Point3d anchor, Vector3d value, Plane frame) =>
-        new ComponentsCase(Anchor: anchor, Value: value, Frame: frame);
+        new ComponentsCase(Anchor: anchor, Value: value, Basis: frame);
     public static VectorIntent Relation(Vector3d a, Vector3d b) =>
         new RelationCase(A: a, B: b);
     public static VectorIntent Bounce(Direction incident, SupportSpace surface, Point3d sample, BouncePolicy? policy = null) =>

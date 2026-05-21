@@ -139,8 +139,8 @@ When the analyzer rejects, treat the rejection as architectural pressure, not as
 
 ## Validation gate
 
-- Required during iteration: `pnpm check:cs`.
-- Required for final completion: run every impacted language gate explicitly; for shared standards/tooling, run `pnpm check:ts`, `pnpm check:py`, and `pnpm check:cs`.
+- Required during iteration: `bash scripts/check-cs.sh check`.
+- Required for final completion: run every impacted language gate explicitly; for shared standards/tooling, run `pnpm check:ts`, `pnpm check:py`, and `bash scripts/check-cs.sh full`.
 - Reject completion when load order, contracts, or checks are not satisfied.
 - Examples inside this skill are executable doctrine: runtime-record `Eff<RT,T>.Asks`, generated Thinktecture factories only when they serve boundary construction, no v4 `Has<...>` pattern, and no single-call helper extraction.
 
@@ -150,7 +150,7 @@ When the analyzer rejects, treat the rejection as architectural pressure, not as
 - Implicit invocation: "Review this C# module for Thinktecture value object, Scrutor decorator, and no-helper compliance."
 - Noisy context: "Ignore frontend notes and only audit the C# persistence adapter."
 - Negative control: "Only write TypeScript Effect code." Expected: do not load C# references unless C# code appears.
-- Compliance checks: output should load only relevant references, avoid command thrash, avoid helper files, preserve runtime-record/LanguageExt doctrine, and run `pnpm check:cs` or narrower configured .NET gates when code is touched.
+- Compliance checks: output should load only relevant references, avoid command thrash, avoid helper files, preserve runtime-record/LanguageExt doctrine, and run `bash scripts/check-cs.sh check` or narrower configured .NET gates when code is touched.
 
 
 ## First-class libraries

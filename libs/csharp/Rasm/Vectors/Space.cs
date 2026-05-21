@@ -10,6 +10,23 @@ public sealed record SupportSpace {
     internal Type SourceType => Value.GetType();
     internal bool CanClosestNormal => GeometryKernel.CanClosestNormal(type: SourceType);
     internal bool CanSignedDistance => GeometryKernel.CanSignedDistance(type: SourceType);
+    internal bool AdmitsNormal(ClosestHit hit) =>
+        CanClosestNormal && hit.Normal.IsSome;
+    internal bool AdmitsTangent(ClosestHit hit) =>
+        GeometryKernel.CanClosestTangent(type: SourceType) && hit.Tangent.IsSome;
+    internal bool AdmitsFrame(ClosestHit hit) =>
+        GeometryKernel.CanClosestFrame(type: SourceType) && hit.Frame.IsSome;
+    internal bool AdmitsSignedDistance(ClosestHit hit) =>
+        Value switch {
+            Plane or Sphere or Box or BoundingBox => hit.Distance.IsSome,
+            _ => CanSignedDistance && hit.Normal.IsSome,
+        };
+    internal bool AdmitsContainmentDistance(ClosestHit hit) =>
+        Value switch {
+            Brep { IsSolid: true } or Mesh { IsSolid: true } => hit.Distance.IsSome,
+            Brep or Mesh => false,
+            _ => AdmitsSignedDistance(hit: hit),
+        };
     public static Fin<SupportSpace> Of(object? value, Op? key = null) {
         Op op = key.OrDefault();
         return from source in Optional(value).ToFin(op.InvalidInput())

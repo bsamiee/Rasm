@@ -47,7 +47,7 @@ RhinoWIP currently hosts .NET 10 while installed McNeel assemblies can target ol
 Run C# quality gates:
 
 ```bash
-pnpm check:cs
+bash scripts/check-cs.sh check
 ```
 
 Build Rhino artifacts:

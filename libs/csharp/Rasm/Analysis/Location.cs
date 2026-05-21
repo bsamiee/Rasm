@@ -87,25 +87,19 @@ public static partial class Analyze {
             (LocationValue.PointCase, Locator.SurfaceParameter sp) =>
                 Located<TGeometry, TOut, Surface, Point3d>(key: LocationAspect.PointAtKey, operation: () => SurfaceUvOp<TGeometry, Point3d>(key: LocationAspect.PointAtKey, uv: sp.Uv, project: static (surface, p) => LocationAspect.PointAtKey.Accept(value: surface.PointAt(u: p.X, v: p.Y)))),
             (LocationValue.PointCase, Locator.ClosestTo ct) =>
-                ClosestOp<TGeometry, TOut>(key: LocationAspect.ClosestKey, target: ct.Probe, canProject: static t => t == typeof(Point3d) || t == typeof(ClosestHit), project: static (hit, key) => hit.Project<TOut>(key: key)),
+                ClosestOp<TGeometry, TOut>(key: LocationAspect.ClosestKey, target: ct.Probe, projection: SupportProjection.Closest),
             (LocationValue.FrameCase, Locator.CurveParameter or Locator.ArcLength or Locator.NormalizedMid) =>
                 Located<TGeometry, TOut, Curve, Plane>(key: LocationAspect.FrameAtKey, operation: () => CurveLocatedOp<TGeometry, Plane>(key: LocationAspect.FrameAtKey, locator: locator, project: static (curve, t, _) => curve.FrameAt(t: t, plane: out Plane frame) ? LocationAspect.FrameAtKey.Accept(value: frame) : Fin.Fail<Seq<Plane>>(LocationAspect.FrameAtKey.InvalidResult()))),
             (LocationValue.FrameCase, Locator.SurfaceParameter sp) =>
                 Located<TGeometry, TOut, Surface, Plane>(key: LocationAspect.FrameAtKey, operation: () => SurfaceUvOp<TGeometry, Plane>(key: LocationAspect.FrameAtKey, uv: sp.Uv, project: static (surface, p) => GeometryKernel.FrameAt(surface: surface, uv: p, key: LocationAspect.FrameAtKey).Bind(frame => LocationAspect.FrameAtKey.Accept(value: frame)))),
             (LocationValue.FrameCase, Locator.ClosestTo ct) =>
-                GeometryKernel.CanClosestFrame(type: typeof(TGeometry)) switch {
-                    true => ClosestOp<TGeometry, TOut>(key: LocationAspect.FrameAtKey, target: ct.Probe, canProject: static t => t == typeof(Plane) || t == typeof(ClosestHit), project: static (hit, key) => hit.Project<TOut>(key: key)),
-                    false => LocationAspect.FrameAtKey.Unsupported<TGeometry, TOut>(),
-                },
+                ClosestOp<TGeometry, TOut>(key: LocationAspect.FrameAtKey, target: ct.Probe, projection: SupportProjection.Frame),
             (LocationValue.FrameCase, Locator.PerpendicularParameters ps) =>
                 Located<TGeometry, TOut, Curve, Plane>(key: LocationAspect.PerpendicularFrameAtKey, operation: () => PerpendicularFrameOp<TGeometry>(key: LocationAspect.PerpendicularFrameAtKey, parameters: ps.Ts)),
             (LocationValue.NormalCase, Locator.SurfaceParameter sp) =>
                 Located<TGeometry, TOut, Surface, Vector3d>(key: LocationAspect.NormalAtKey, operation: () => SurfaceUvOp<TGeometry, Vector3d>(key: LocationAspect.NormalAtKey, uv: sp.Uv, project: static (surface, p) => GeometryKernel.NormalAt(surface: surface, uv: p, key: LocationAspect.NormalAtKey).Bind(normal => LocationAspect.NormalAtKey.Accept(value: normal)))),
             (LocationValue.NormalCase, Locator.ClosestTo ct) =>
-                GeometryKernel.CanClosestNormal(type: typeof(TGeometry)) switch {
-                    true => ClosestOp<TGeometry, TOut>(key: LocationAspect.NormalAtKey, target: ct.Probe, canProject: static t => t == typeof(Vector3d) || t == typeof(ClosestHit), project: static (hit, key) => hit.Project<TOut>(key: key)),
-                    false => LocationAspect.NormalAtKey.Unsupported<TGeometry, TOut>(),
-                },
+                ClosestOp<TGeometry, TOut>(key: LocationAspect.NormalAtKey, target: ct.Probe, projection: SupportProjection.Normal),
             (LocationValue.TangentCase, Locator.CurveParameter or Locator.ArcLength or Locator.NormalizedMid) =>
                 Located<TGeometry, TOut, Curve, Vector3d>(key: LocationAspect.TangentKey, operation: () => CurveLocatedOp<TGeometry, Vector3d>(key: LocationAspect.TangentKey, locator: locator, project: static (curve, parameter, context) =>
                     Vector.Project<Vector3d>(intent: VectorIntent.Direction(value: curve.TangentAt(t: parameter)), context: context, key: LocationAspect.TangentKey).Bind(tangent => LocationAspect.TangentKey.Accept(value: tangent)))),
@@ -118,7 +112,7 @@ public static partial class Analyze {
             (LocationValue.DerivativeCase, _) =>
                 Operation<TGeometry, TOut>.Reject(key: LocationAspect.DerivativeAtKey, fault: LocationAspect.DerivativeAtKey.InvalidInput()),
             (LocationValue.ParameterCase, Locator.ClosestTo ct) =>
-                ClosestOp<TGeometry, TOut>(key: LocationAspect.ParameterAtKey, target: ct.Probe, canProject: static t => ClosestHit.CanProjectTo(output: t, parameterMode: true), project: static (hit, key) => hit.Project<TOut>(key: key, parameterMode: true)),
+                ClosestOp<TGeometry, TOut>(key: LocationAspect.ParameterAtKey, target: ct.Probe, projection: SupportProjection.Parameter),
             (LocationValue.LengthCase, Locator.CurveParameter) =>
                 Located<TGeometry, TOut, Curve, double>(key: LocationAspect.LengthAtKey, operation: () => CurveLocatedOp<TGeometry, double>(key: LocationAspect.LengthAtKey, locator: locator, project: static (curve, t, context) => curve.GetLength(fractionalTolerance: context.Fractional, subdomain: new Interval(t0: curve.Domain.T0, t1: t)) switch {
                     double length when RhinoMath.IsValidDouble(x: length) && length >= 0.0 => LocationAspect.LengthAtKey.Accept(value: length),
@@ -133,14 +127,18 @@ public static partial class Analyze {
             (LocationValue.LengthCase, _) => LocationAspect.LengthAtKey.Unsupported<TGeometry, TOut>(),
             _ => LocationAspect.PointAtKey.Unsupported<TGeometry, TOut>(),
         };
-    internal static Operation<TGeometry, TOut> ClosestOp<TGeometry, TOut>(Op key, Point3d target, Func<Type, bool> canProject, Func<ClosestHit, Op, Fin<Seq<TOut>>> project) where TGeometry : notnull =>
-        (target.IsValid, canProject(arg: typeof(TOut)), GeometryKernel.CanClosest(type: typeof(TGeometry))) switch {
-            (false, _, _) => Operation<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput()),
-            (true, true, true) => Operation<TGeometry, TOut>.Build(
-                key: key, state: (Key: key, Target: target, Project: project),
+    internal static Operation<TGeometry, TOut> ClosestOp<TGeometry, TOut>(Op key, Point3d target, SupportProjection projection) where TGeometry : notnull =>
+        (target.IsValid, GeometryKernel.CanClosest(type: typeof(TGeometry))) switch {
+            (false, _) => Operation<TGeometry, TOut>.Reject(key: key, fault: key.InvalidInput()),
+            (true, true) => Operation<TGeometry, TOut>.Build(
+                key: key, state: (Key: key, Target: target, Projection: projection),
                 evaluator: static (state, geometry) =>
-                    from hit in GeometryKernel.ClosestOf(geometry: geometry, target: state.Target, key: state.Key).ToEff()
-                    from result in state.Project(arg1: hit, arg2: state.Key).ToEff()
+                    from context in Env.Asks
+                    from space in SupportSpace.Of(value: geometry, key: state.Key).ToEff()
+                    from result in Vector.Project<TOut>(
+                        intent: VectorIntent.Support(space: space, sample: state.Target, projection: state.Projection),
+                        context: context,
+                        key: state.Key).Map(value => Seq(value)).ToEff()
                     select result),
             _ => key.Unsupported<TGeometry, TOut>(),
         };
