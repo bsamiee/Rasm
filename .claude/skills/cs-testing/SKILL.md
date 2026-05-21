@@ -180,6 +180,7 @@ Walk the law taxonomy per export. Pack laws sharing the same arbitrary into one 
 |  [19]   | `gen.SampleMetamorphic(Gen<Metamorphic<T>>)` | Two-transformation MR (e.g. `f(x)` vs `f(T(x))` related by R)                  | Catches non-pointwise invariants                         |
 |  [20]   | `gen.SampleModelBased(...ops)`       | State-machine PBT: actual vs reference-model after each `Operation<TActual, TModel>`   | Stateful APIs, mutable wrappers, caches                  |
 |  [21]   | `gen.SampleParallel(...ops)`         | Concurrent execution; CsCheck shrinks failing interleavings                            | Linearizability of thread-safe APIs                      |
+|  [21a]  | `Spec.ConcurrentProfiled(init, writeLine, ...ops)` | `SampleParallel` wrapped in `Causal.Profile`; emits per-region attribution table | Concurrent test passes but contention/latency profile is needed for tuning |
 |  [22]   | `gen.Single(predicate, seed)`        | Find AND pin one sample matching predicate                                              | Single-case regression without re-running shrink         |
 |  [23]   | `Check.Hash(action, expected, dp)`   | Hash-based regression with `.cs.cache` file alongside test source                       | Replaces golden-file fixture suites                      |
 |  [24]   | `Spec.Regression(gen, action, seed)` | Pin a shrunk failing case under a stable name                                          | Reproducible regression evidence                         |

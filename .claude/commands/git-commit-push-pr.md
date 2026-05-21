@@ -17,17 +17,6 @@ allowed-tools: Bash(git checkout:*), Bash(git add:*), Bash(git status:*), Bash(g
 4. **Push**: Push feature branch to origin (`git push -u origin <branch>`)
 5. **PR**: Create PR via `gh pr create --base main` using template below
 
-## Lefthook Fixes
-
-Pre-commit `imperatives` hook blocks: `try`, `throw`, `let`, `var`, `for`, `while`, `if`
-
-**Fix surgically** - no new types/constants/helpers:
-- `try/catch` → `Effect.try` or `Effect.tryPromise`
-- `throw` → `Effect.fail` or `Effect.die`
-- `let` → `const` with reassignment via pipe/reduce
-- `for/while` → `.map()`, `.filter()`, `.reduce()`, `Effect.forEach`
-- `if` → ternary `a ? b : c`, guard `a && b`, `Match.value().pipe()`
-
 ## PR Template
 
 ```markdown
@@ -47,4 +36,4 @@ Pre-commit `imperatives` hook blocks: `try`, `throw`, `let`, `var`, `for`, `whil
 
 ## Execution
 
-Run all steps in a single message. On lefthook failure, read the failing file, fix imperatives inline, re-commit.
+Run all steps in a single message.

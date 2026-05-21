@@ -91,7 +91,6 @@ catalog:
   jspdf: 4.2.1
   jszip: 3.10.1
   knip: 6.11.0
-  lefthook: 2.1.6
   lightningcss: 1.32.0
   lucide-react: 1.14.0
   nanoid: 5.1.11
@@ -164,7 +163,6 @@ allowBuilds:
   core-js: true
   cpu-features: true
   esbuild: true
-  lefthook: true
   msgpackr-extract: true
   nx: true
   protobufjs: true
@@ -181,7 +179,6 @@ onlyBuiltDependencies:
   - core-js
   - cpu-features
   - esbuild
-  - lefthook
   - msgpackr-extract
   - nx
   - protobufjs

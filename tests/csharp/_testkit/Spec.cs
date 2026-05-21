@@ -29,6 +29,12 @@ public static class Spec {
     public static void Permutation<T, TResult>(Gen<T[]> gen, Func<T[], TResult> f, Func<TResult, TResult, bool>? eq = null) =>
         gen.SelectMany(arr => Gen.Shuffle(arr).Select(perm => (Original: arr, Shuffled: perm))).Sample(p =>
             EqOrThrow(left: f(p.Original), right: f(p.Shuffled), predicate: eq));
+    public static void ConcurrentProfiled<T>(Gen<T> init, Action<string> writeLine, params GenOperation<T>[] operations) =>
+        Causal.Profile(action: () => (init ?? throw new ArgumentNullException(nameof(init))).SampleParallel(operations))
+              .Output(output: writeLine ?? throw new ArgumentNullException(nameof(writeLine)));
+    public static void ConcurrentProfiled<TActual, TModel>(Gen<(TActual Actual, TModel Model)> init, Action<string> writeLine, params GenOperation<TActual, TModel>[] operations) =>
+        Causal.Profile(action: () => (init ?? throw new ArgumentNullException(nameof(init))).SampleParallel(operations))
+              .Output(output: writeLine ?? throw new ArgumentNullException(nameof(writeLine)));
     public static void Metamorphic<T, TResult>(Gen<T> gen, Func<T, TResult> path, Func<T, TResult> oracle, Func<TResult, TResult, bool>? eq = null) =>
         gen.Sample(value => EqOrThrow(left: path(value), right: oracle(value), predicate: eq));
     public static void Regression<T>(Gen<T> gen, Action<T> property, string seed) =>

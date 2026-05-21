@@ -134,6 +134,21 @@ Runtime config is generated at build time into `obj/xunit.runner.json` per test 
 
 To change runtime config: edit `_XunitRunnerJsonContent` in `Directory.Build.props`; do NOT reintroduce a loose `xunit.runner.json` at repo root.
 
+---
+## [7][SERIALIZER_REGISTRATION]
+>**Dictum:** *Geometry types in `TheoryData<...>` rows display verbatim and survive regression-seed lookup.*
+
+<br>
+
+`Rasm.TestKit.RhinoGeometrySerializer` (in `tests/csharp/_testkit/`) implements `Xunit.Sdk.IXunitSerializer` for `Point3d` / `Vector3d` / `BoundingBox`. `Directory.Build.props` emits `[assembly: Xunit.Sdk.RegisterXunitSerializerAttribute]` automatically for every test assembly that is both `IsTestProject=true` and `IsRhinoCommonAwareProject=true` — `Rasm.Tests`, `Rasm.Grasshopper.Tests`, `Rasm.Rhino.Tests` get it; `Foundation.CSharp.Analyzers.Tests` does not.
+
+Effect on spec authors:
+- `TheoryData<Point3d, ...>` rows render as `(1.0, 2.0, 3.0)` not `<unknown>`.
+- `xUnit1045` analyzer warnings on theory data containing geometry types are silenced.
+- CsCheck regression-seed lookup is stable for geometry-typed generators across runs and machines.
+
+No spec-level action required. The serializer round-trips via `R` format + invariant culture (full-precision doubles); deserialization discriminates on `type` parameter + list-pattern arity (3 components → `Point3d`/`Vector3d`, 6 components → `BoundingBox`).
+
 **Cross-assembly parallelism** is `dotnet test`'s default — each csproj runs in its own process.
 
 **Within-assembly parallelism** for shared-state regions (Rhino bridge handle, Roslyn workspace, native handles) is suppressed via:
