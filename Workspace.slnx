@@ -4,7 +4,6 @@
   <Folder Name="/apps/grasshopper/Radyab/">
     <Project Path="apps/grasshopper/Radyab/Radyab.csproj" />
   </Folder>
-  <Folder Name="/apps/rhino/" />
   <Folder Name="/libs/" />
   <Folder Name="/libs/csharp/" />
   <Folder Name="/libs/csharp/Rasm/">
