@@ -207,7 +207,7 @@ public sealed record FileFormat {
         };
 
     internal static Fin<Unit> NativeBool(Func<bool> run, Op op) =>
-        Try.lift<bool>(f: run)
+        Try.lift(f: run)
             .Run()
             .MapFail(_ => op.InvalidResult())
             .Bind(success => success switch {

@@ -1,11 +1,9 @@
 using System.Runtime.InteropServices;
 using Eto.Drawing;
-using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.UI.Canvas;
 using Grasshopper2.UI.Flex;
 using Grasshopper2.UI.Icon;
 using Grasshopper2.UI.Skinning;
-using Rasm.Domain;
 using GhCanvas = Grasshopper2.UI.Canvas.Canvas;
 
 namespace Rasm.Grasshopper.UI;
@@ -74,7 +72,7 @@ public readonly record struct PaintScope(
         ControlGraphics graphics = Graphics;
         return Optional(value)
             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(MeasureText)), detail: "text is required"))
-            .Bind(valid => Try.lift<PaintTextMeasurement>(f: () =>
+            .Bind(valid => Try.lift(f: () =>
                 font.IfNone(UiFont.Empty()).Use(run: resolved => {
                     SizeF size = graphics.Content.MeasureString(font: resolved, text: valid);
                     return new PaintTextMeasurement(Text: valid, Size: size);
@@ -153,7 +151,7 @@ public partial record DrawMark {
     public sealed record EllipseCase(RectangleF Bounds, PaintStyle Style) : DrawMark;
     public sealed record PathCase(IGraphicsPath Geometry, PaintStyle Style) : DrawMark;
     public sealed record TextCase(string Value, RectangleF Frame, PaintStyle Style, FormattedTextWrapMode Wrap, FormattedTextAlignment Alignment, FormattedTextTrimming Trimming) : DrawMark;
-    public sealed record ImageCase(Eto.Drawing.Image Value, RectangleF Frame, PaintStyle Style) : DrawMark;
+    public sealed record ImageCase(Image Value, RectangleF Frame, PaintStyle Style) : DrawMark;
     public sealed record GhIconCase(IIcon Value, RectangleF Frame, PaintStyle Style) : DrawMark;
     public sealed record WireCase(PointF Source, PointF Target, WireKind Kind, PaintStyle Style) : DrawMark;
 
@@ -176,7 +174,7 @@ public partial record DrawMark {
         FormattedTextAlignment alignment = FormattedTextAlignment.Left,
         FormattedTextTrimming trimming = FormattedTextTrimming.WordEllipsis) =>
         new TextCase(Value: value, Frame: frame, Style: new PaintStyle(Edge: colour, Font: font), Wrap: wrap, Alignment: alignment, Trimming: trimming);
-    public static DrawMark Image(Eto.Drawing.Image value, RectangleF frame) =>
+    public static DrawMark Image(Image value, RectangleF frame) =>
         new ImageCase(Value: value, Frame: frame, Style: new PaintStyle(Edge: Colors.Transparent));
     public static DrawMark IconGlyph(IIcon value, RectangleF frame, Color background) =>
         new GhIconCase(Value: value, Frame: frame, Style: new PaintStyle(Edge: Colors.Transparent, Background: background));
@@ -184,7 +182,7 @@ public partial record DrawMark {
         new WireCase(Source: source, Target: target, Kind: kind, Style: new PaintStyle(Edge: Colors.Transparent));
 
     internal Fin<Unit> Apply(PaintScope scope) =>
-        Try.lift<Unit>(f: () => this switch {
+        Try.lift(f: () => this switch {
             LineCase line => Draw(scope: scope, style: line.Style, run: graphics => {
                 using Pen pen = line.Style.Pen();
                 graphics.DrawLine(pen, line.A.X, line.A.Y, line.B.X, line.B.Y);
@@ -297,28 +295,28 @@ public abstract record PaintRequest<T> : GhUiRequest<T> {
 // --- [SERVICES] ---------------------------------------------------------------------------
 internal static partial class Paint {
     internal static GrasshopperUiIntent<PaintSkinSnapshot> Skin() =>
-        GhUi.Canvas<PaintSkinSnapshot>(run: scope => scope.NeedSkin().Map(skin =>
+        GhUi.Canvas(run: scope => scope.NeedSkin().Map(skin =>
             new PaintSkinSnapshot(
                 HasSkin: true,
                 SkinType: skin.GetType().FullName ?? skin.GetType().Name,
                 Skin: Some(skin))));
 
     internal static GrasshopperUiIntent<IDisposable> Hook(CanvasPaintPhase phase, Func<PaintScope, Fin<Unit>> paint) =>
-        GhUi.Canvas<IDisposable>(run: scope =>
+        GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
             from valid in Optional(paint).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Hook)), detail: "null paint callback"))
             from validPhase in Optional(phase).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Hook)), detail: "null phase"))
             select (IDisposable)PaintSubscription.Attach(canvas: canvas, phase: validPhase, paint: valid));
 
     internal static GrasshopperUiIntent<Unit> RedrawOnMouseMove(bool enabled = true) =>
-        GhUi.Canvas<Unit>(
+        GhUi.Canvas(
             repaint: RepaintRequest.Canvas,
             run: scope => scope.NeedCanvas().Map(canvas => { canvas.RedrawOnMouseMove = enabled; return unit; }));
 
     // --- [OPERATIONS] -------------------------------------------------------------------------
     private sealed class PaintSubscription : IDisposable {
-        private readonly System.Action dispose;
-        private PaintSubscription(System.Action dispose) => this.dispose = dispose;
+        private readonly Action dispose;
+        private PaintSubscription(Action dispose) => this.dispose = dispose;
         public void Dispose() =>
             _ = GrasshopperUi.OnUiThread(run: () => GrasshopperUi.Protect(valid: () => {
                 dispose();

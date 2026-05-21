@@ -7,7 +7,7 @@ namespace Rasm.Rhino.Exchange;
 internal readonly record struct FileRuntime(
     Option<RhinoDoc> Document,
     RunMode Mode,
-    Option<Rasm.Domain.Context> Domain,
+    Option<Context> Domain,
     Option<DocumentEdit> Edit,
     Option<RhinoUi> Ui);
 
@@ -37,7 +37,7 @@ public sealed class RhinoFiles {
             _ => Fin.Succ(value: new FileRuntime(
                 Document: Option<RhinoDoc>.None,
                 Mode: mode,
-                Domain: Option<Rasm.Domain.Context>.None,
+                Domain: Option<Context>.None,
                 Edit: Option<DocumentEdit>.None,
                 Ui: Option<RhinoUi>.None)),
         };
@@ -45,7 +45,7 @@ public sealed class RhinoFiles {
     private static Fin<FileRuntime> LiveRuntime(RhinoDoc document, RunMode mode) =>
         document switch {
             { IsAvailable: true, IsClosing: false, IsInitializing: false, IsOpening: false } active =>
-                Rasm.Domain.Context.Of(doc: active).ToFin().Map(domain => new FileRuntime(
+                Context.Of(doc: active).ToFin().Map(domain => new FileRuntime(
                     Document: Some(active),
                     Mode: mode,
                     Domain: Some(domain),

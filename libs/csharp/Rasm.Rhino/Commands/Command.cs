@@ -16,11 +16,11 @@ public sealed record CommandGraph<TState>(
         select this with { Stages = Stages + Seq(valid) };
 
     internal Fin<Result> Run(RhinoCommandContext context) =>
-        from active in Optional(context).ToFin(Fail: Op.Of(name: nameof(CommandGraph<TState>)).InvalidInput())
-        from commit in Optional(Commit).ToFin(Fail: Op.Of(name: nameof(CommandGraph<TState>)).InvalidInput())
+        from active in Optional(context).ToFin(Fail: Op.Of(name: nameof(CommandGraph<>)).InvalidInput())
+        from commit in Optional(Commit).ToFin(Fail: Op.Of(name: nameof(CommandGraph<>)).InvalidInput())
         from stages in Stages switch {
             Seq<CommandStage<TState>> values when !values.IsEmpty => Fin.Succ(value: values),
-            _ => Fin.Fail<Seq<CommandStage<TState>>>(error: Op.Of(name: nameof(CommandGraph<TState>)).InvalidInput()),
+            _ => Fin.Fail<Seq<CommandStage<TState>>>(error: Op.Of(name: nameof(CommandGraph<>)).InvalidInput()),
         }
         from final in new CommandStageContext<TState>(Context: active, State: Initial, Stages: stages, Index: 0, History: Seq<TState>(), Events: Events).Run()
         from result in commit(arg: new CommandCommitContext<TState>(Context: active, State: final.State, History: final.History))
@@ -124,10 +124,10 @@ public sealed record CommandStageContext<TState>(
             _ => Context.Files.Run(operation: FileOp.Prompt(prompt: prompt)),
         };
 
-    public Fin<Unit> Status(Rasm.Rhino.UI.UiStatus status) =>
-        Context.Ui.Use(intent: Rasm.Rhino.UI.UiIntent.Status(status: status));
+    public Fin<Unit> Status(UI.UiStatus status) =>
+        Context.Ui.Use(intent: UI.UiIntent.Status(status: status));
 
-    public Fin<T> Use<T>(Rasm.Rhino.UI.UiIntent<T> intent, Func<CommandStageContext<TState>, Fin<T>> scripted) =>
+    public Fin<T> Use<T>(UI.UiIntent<T> intent, Func<CommandStageContext<TState>, Fin<T>> scripted) =>
         from validIntent in Optional(intent).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput())
         from run in Optional(scripted).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput())
         from result in Context.Ui.Use(intent: validIntent.WithScripted(fallback: (_, _) => run(arg: this)))
@@ -137,7 +137,7 @@ public sealed record CommandStageContext<TState>(
 public readonly record struct CommandCommitContext<TState>(RhinoCommandContext Context, TState State, Seq<TState> History) {
     public RhinoDoc Document => Context.Document;
     public DocumentEdit Edit => Context.Edit;
-    public Rasm.Rhino.UI.RhinoUi Ui => Context.Ui;
+    public UI.RhinoUi Ui => Context.Ui;
 }
 
 public readonly record struct PromptPreviewContext<TState>(CommandStageContext<TState> Stage, CommandPointEvent Event) {
@@ -157,7 +157,7 @@ public readonly record struct PromptGumballContext<TState>(CommandStageContext<T
     public RhinoCommandContext Context => Stage.Context;
     public Option<Point3d> Point => Event.Point;
     public Option<UiGumballSnapshot> Snapshot => Event.GumballSnapshot;
-    public Fin<bool> Pick(global::Rhino.Input.Custom.PickContext pick) => Event.PickGumball(pick: pick);
+    public Fin<bool> Pick(PickContext pick) => Event.PickGumball(pick: pick);
     public Fin<bool> Update(Line worldLine) => Event.UpdateGumball(worldLine: worldLine);
     public Fin<bool> Update(Plane frame) => Event.UpdateGumball(frame: frame);
 }
@@ -205,7 +205,7 @@ public abstract class RasmCommand<TSelf> : Command where TSelf : RasmCommand<TSe
     public override string EnglishName => typeof(TSelf).Name;
 
     protected sealed override Result RunCommand(RhinoDoc doc, RunMode mode) =>
-        Rasm.Rhino.UI.RhinoUi.Protect(valid: () =>
+        UI.RhinoUi.Protect(valid: () =>
             RhinoCommandContext.Of(doc: doc, mode: mode)
             .Bind(context =>
                 Ready(context: context)

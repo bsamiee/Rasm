@@ -27,7 +27,7 @@ file abstract record DocumentGeometry {
         internal override Fin<T> Use<T>(Op op, Func<GeometryBase, Fin<T>> use) => from geometry in Optional(Geometry).ToFin(Fail: op.InvalidInput()) from valid in Optional(use).ToFin(Fail: op.InvalidInput()) from result in valid(arg: geometry) select result;
     }
     private sealed record Owned(GeometryBase Geometry) : DocumentGeometry {
-        internal override Fin<T> Use<T>(Op op, Func<GeometryBase, Fin<T>> use) => Optional(use).ToFin(Fail: op.InvalidInput()).Bind(valid => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => { try { return valid(arg: Geometry); } finally { Geometry.Dispose(); } }));
+        internal override Fin<T> Use<T>(Op op, Func<GeometryBase, Fin<T>> use) => Optional(use).ToFin(Fail: op.InvalidInput()).Bind(valid => UI.RhinoUi.Protect(valid: () => { try { return valid(arg: Geometry); } finally { Geometry.Dispose(); } }));
     }
 }
 
@@ -56,7 +56,7 @@ public abstract record DocumentTarget {
                 _ => !string.IsNullOrEmpty(value: stored),
             }).IfNone(false)));
 
-    public static Fin<DocumentTarget> DrawColor(global::System.Drawing.Color color) =>
+    public static Fin<DocumentTarget> DrawColor(System.Drawing.Color color) =>
         color.IsEmpty switch {
             false => Fin.Succ<DocumentTarget>(value: new PredicateTarget(QuerySettings(), (document, native) => Optional(native.Attributes).Map(attributes => attributes.DrawColor(document: document) == color).IfNone(false))),
             true => Fin.Fail<DocumentTarget>(error: Op.Of(name: nameof(DrawColor)).InvalidInput()),
@@ -233,9 +233,9 @@ public readonly record struct DocumentReceipt(Seq<Guid> Created, Seq<Guid> Repla
     public static DocumentReceipt Add(DocumentReceipt left, DocumentReceipt right) =>
         new(Created: left.Created + right.Created, Replaced: left.Replaced + right.Replaced, Deleted: left.Deleted + right.Deleted, Transformed: left.Transformed + right.Transformed, Selected: left.Selected + right.Selected, Unselected: left.Unselected + right.Unselected, Hidden: left.Hidden + right.Hidden, Locked: left.Locked + right.Locked, Flashed: left.Flashed + right.Flashed, AttributeChanged: left.AttributeChanged + right.AttributeChanged, LifecycleChanged: left.LifecycleChanged + right.LifecycleChanged, ResourceChanged: left.ResourceChanged + right.ResourceChanged, UndoRecords: left.UndoRecords + right.UndoRecords, CustomUndo: left.CustomUndo + right.CustomUndo);
 
-    public Rasm.Rhino.UI.UiStatus Status(string verb) {
+    public UI.UiStatus Status(string verb) {
         Seq<(string Name, int Count)> changes = Seq(("created", Created.Count), ("replaced", Replaced.Count), ("deleted", Deleted.Count), ("transformed", Transformed.Count), ("selected", Selected.Count), ("unselected", Unselected.Count), ("hidden", Hidden.Count), ("locked", Locked.Count), ("flashed", Flashed.Count), ("attributes", AttributeChanged.Count), ("lifecycle", LifecycleChanged.Count), ("resources", ResourceChanged.Count), ("undo", UndoRecords.Count), ("custom undo", CustomUndo.Count)).Filter(static change => change.Count > 0);
-        return Rasm.Rhino.UI.UiStatus.Script(message: changes.IsEmpty switch {
+        return UI.UiStatus.Script(message: changes.IsEmpty switch {
             true => $"{verb}: no document changes",
             false => $"{verb}: {string.Join(separator: ", ", values: changes.Map(static change => $"{change.Name} {change.Count}").AsIterable())}",
         });
@@ -243,15 +243,15 @@ public readonly record struct DocumentReceipt(Seq<Guid> Created, Seq<Guid> Repla
 }
 
 public readonly record struct DocumentResourceChange(DocumentResourceKind Kind, string Name);
-public readonly record struct DocumentCustomUndo(string Name, EventHandler<global::Rhino.Commands.CustomUndoEventArgs> Undo, Option<object> Data = default) {
+public readonly record struct DocumentCustomUndo(string Name, EventHandler<CustomUndoEventArgs> Undo, Option<object> Data = default) {
     internal Fin<string> Register(RhinoDoc document, Op op) {
         string label = Name;
-        EventHandler<global::Rhino.Commands.CustomUndoEventArgs> handler = Undo;
+        EventHandler<CustomUndoEventArgs> handler = Undo;
         Option<object> data = Data;
         return from validDocument in Optional(document).ToFin(Fail: op.InvalidInput())
                from name in DocumentEdit.NonBlank(value: label, op: op)
                from undo in Optional(handler).ToFin(Fail: op.InvalidInput())
-               from _ in Rasm.Rhino.UI.RhinoUi.Protect(valid: () => data.Case switch {
+               from _ in UI.RhinoUi.Protect(valid: () => data.Case switch {
                    object tag => DocumentEdit.UnitResult(success: validDocument.AddCustomUndoEvent(description: name, handler: undo, tag: tag), op: op),
                    _ => DocumentEdit.UnitResult(success: validDocument.AddCustomUndoEvent(description: name, handler: undo), op: op),
                })
@@ -261,25 +261,25 @@ public readonly record struct DocumentCustomUndo(string Name, EventHandler<globa
 
 public abstract record DocumentOp {
     private DocumentOp() { }
-    internal abstract Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op);
+    internal abstract Fin<DocumentReceipt> Apply(RhinoDoc document, Context domain, Op op);
     public sealed record Create(IEnumerable<object> Sources, ObjectAttributes? Attributes = null) : DocumentOp {
-        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) => from edit in Optional(document).ToFin(Fail: op.InvalidInput()) from ids in DocumentEdit.AddRaw(document: edit, domain: domain, sources: Sources, attributes: Attributes, op: op) select DocumentReceipt.Empty with { Created = ids };
+        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Context domain, Op op) => from edit in Optional(document).ToFin(Fail: op.InvalidInput()) from ids in DocumentEdit.AddRaw(document: edit, domain: domain, sources: Sources, attributes: Attributes, op: op) select DocumentReceipt.Empty with { Created = ids };
     }
 
     public sealed record Replace(DocumentTarget Target, object Replacement, bool IgnoreModes = false) : DocumentOp {
-        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) => from target in Optional(Target).ToFin(Fail: op.InvalidInput()) from value in Optional(Replacement).ToFin(Fail: op.InvalidInput()) from ids in target.Ids(document: document, op: op) from _ in target.Replace(document: document, replacement: value, ignoreModes: IgnoreModes, op: op) select DocumentReceipt.Empty with { Replaced = ids };
+        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Context domain, Op op) => from target in Optional(Target).ToFin(Fail: op.InvalidInput()) from value in Optional(Replacement).ToFin(Fail: op.InvalidInput()) from ids in target.Ids(document: document, op: op) from _ in target.Replace(document: document, replacement: value, ignoreModes: IgnoreModes, op: op) select DocumentReceipt.Empty with { Replaced = ids };
     }
 
     public sealed record Delete(DocumentTarget Target, bool Quiet = true, bool IgnoreModes = false) : DocumentOp {
-        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) => from target in Optional(Target).ToFin(Fail: op.InvalidInput()) from ids in target.Ids(document: document, op: op) from _ in target.Delete(document: document, quiet: Quiet, ignoreModes: IgnoreModes, op: op) select DocumentReceipt.Empty with { Deleted = ids, LifecycleChanged = ids };
+        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Context domain, Op op) => from target in Optional(Target).ToFin(Fail: op.InvalidInput()) from ids in target.Ids(document: document, op: op) from _ in target.Delete(document: document, quiet: Quiet, ignoreModes: IgnoreModes, op: op) select DocumentReceipt.Empty with { Deleted = ids, LifecycleChanged = ids };
     }
 
     public sealed record Transform(DocumentTarget Target, global::Rhino.Geometry.Transform Xform, bool DeleteOriginal = true) : DocumentOp {
-        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) => from target in Optional(Target).ToFin(Fail: op.InvalidInput()) from _ in guard(Xform.IsValid, op.InvalidInput()) from originals in target.Ids(document: document, op: op) from ids in target.Transform(document: document, transform: Xform, deleteOriginal: DeleteOriginal, op: op) select DocumentReceipt.Empty with { Created = ids, Deleted = DeleteOriginal ? originals : Seq<Guid>(), Transformed = ids, LifecycleChanged = DeleteOriginal ? originals : Seq<Guid>() };
+        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Context domain, Op op) => from target in Optional(Target).ToFin(Fail: op.InvalidInput()) from _ in guard(Xform.IsValid, op.InvalidInput()) from originals in target.Ids(document: document, op: op) from ids in target.Transform(document: document, transform: Xform, deleteOriginal: DeleteOriginal, op: op) select DocumentReceipt.Empty with { Created = ids, Deleted = DeleteOriginal ? originals : Seq<Guid>(), Transformed = ids, LifecycleChanged = DeleteOriginal ? originals : Seq<Guid>() };
     }
 
     public sealed record AttributeChange(DocumentTarget Target, Func<ObjectAttributes, Fin<ObjectAttributes>> Change, bool Quiet = true) : DocumentOp {
-        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) =>
+        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Context domain, Op op) =>
             from target in Optional(Target).ToFin(Fail: op.InvalidInput())
             from change in Optional(Change).ToFin(Fail: op.InvalidInput())
             from ids in target.Ids(document: document, op: op)
@@ -288,7 +288,7 @@ public abstract record DocumentOp {
     }
 
     public sealed record SetSelection(DocumentTarget Target, DocumentSelectionPolicy Policy) : DocumentOp {
-        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) =>
+        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Context domain, Op op) =>
             from target in Optional(Target).ToFin(Fail: op.InvalidInput())
             from before in DocumentEdit.SelectedIds(document: document, op: op)
             from _ in target.Select(document: document, selected: true, policy: Policy, op: op)
@@ -300,7 +300,7 @@ public abstract record DocumentOp {
     }
 
     public sealed record UnselectAll(bool IgnorePersistentSelections = false) : DocumentOp {
-        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) =>
+        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Context domain, Op op) =>
             from before in DocumentEdit.SelectedIds(document: document, op: op)
             from count in document.Objects.UnselectAll(ignorePersistentSelections: IgnorePersistentSelections) switch { int value and >= 0 => Fin.Succ(value: value), _ => Fin.Fail<int>(error: op.InvalidResult()) }
             from after in DocumentEdit.SelectedIds(document: document, op: op)
@@ -313,7 +313,7 @@ public abstract record DocumentOp {
         Option<bool> Hidden = default,
         Option<bool> Locked = default,
         DocumentSelectionPolicy? SelectionPolicy = null) : DocumentOp {
-        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) =>
+        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Context domain, Op op) =>
             from target in Optional(Target).ToFin(Fail: op.InvalidInput())
             from ids in target.Ids(document: document, op: op)
             from selection in Selected.Case switch {
@@ -337,11 +337,11 @@ public abstract record DocumentOp {
     public sealed record Flash(DocumentTarget Target, bool UseSelectionColor = true) : DocumentOp {
         internal override bool RecordsUndo => false;
 
-        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) =>
+        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Context domain, Op op) =>
             from target in Optional(Target).ToFin(Fail: op.InvalidInput())
             from ids in target.Ids(document: document, op: op)
             from objects in ids.TraverseM(id => Optional(document.Objects.FindId(id)).ToFin(Fail: op.InvalidResult())).As()
-            from _ in Rasm.Rhino.UI.RhinoUi.Protect(valid: () => {
+            from _ in UI.RhinoUi.Protect(valid: () => {
                 document.Views.FlashObjects(list: objects.AsIterable(), useSelectionColor: UseSelectionColor);
                 return Fin.Succ(value: unit);
             })
@@ -349,7 +349,7 @@ public abstract record DocumentOp {
     }
 
     public sealed record Lifecycle(DocumentTarget Target, DocumentLifecycle Change) : DocumentOp {
-        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) =>
+        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Context domain, Op op) =>
             from target in Optional(Target).ToFin(Fail: op.InvalidInput())
             from targets in target.RuntimeTargets(document: document, op: op)
             from changed in targets.TraverseM(item => Change switch {
@@ -361,7 +361,7 @@ public abstract record DocumentOp {
     }
 
     public sealed record Resource(DocumentResourceKind Kind, string Name, Func<RhinoDoc, Fin<string>> Change) : DocumentOp {
-        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Rasm.Domain.Context domain, Op op) =>
+        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Context domain, Op op) =>
             from name in DocumentEdit.NonBlank(value: Name, op: op)
             from change in Optional(Change).ToFin(Fail: op.InvalidInput())
             from label in change(arg: document).Map(value => string.IsNullOrWhiteSpace(value: value) ? name : value)
@@ -373,7 +373,7 @@ public abstract record DocumentOp {
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 public sealed record DocumentEdit {
-    internal DocumentEdit(RhinoDoc document, Rasm.Domain.Context domain) {
+    internal DocumentEdit(RhinoDoc document, Context domain) {
         ArgumentNullException.ThrowIfNull(argument: document);
         ArgumentNullException.ThrowIfNull(argument: domain);
         Document = document;
@@ -381,7 +381,7 @@ public sealed record DocumentEdit {
     }
 
     public RhinoDoc Document { get; }
-    public Rasm.Domain.Context Domain { get; }
+    public Context Domain { get; }
 
     public Fin<DocumentReceipt> Commit(DocumentTransaction transaction) =>
         from plan in Optional(transaction).ToFin(Fail: Op.Of(name: nameof(Commit)).InvalidInput())
@@ -398,7 +398,7 @@ public sealed record DocumentEdit {
             select result with { CustomUndo = customUndo })
         select receipt;
 
-    internal Fin<DocumentReceipt> Commit(string name, DocumentRedraw redraw, bool undoRecorded, Func<RhinoDoc, Rasm.Domain.Context, Op, Fin<DocumentReceipt>> run) =>
+    internal Fin<DocumentReceipt> Commit(string name, DocumentRedraw redraw, bool undoRecorded, Func<RhinoDoc, Context, Op, Fin<DocumentReceipt>> run) =>
         from document in Available(op: Op.Of(name: nameof(Commit)))
         from label in NonBlank(value: name, op: Op.Of(name: nameof(Commit)))
         from active in Optional(run).ToFin(Fail: Op.Of(name: label).InvalidInput())
@@ -423,7 +423,7 @@ public sealed record DocumentEdit {
         };
 
     private static Fin<DocumentReceipt> Mutate(RhinoDoc document, string name, bool recordsUndo, bool suppressRedraw, Func<Fin<DocumentReceipt>> run) =>
-        Optional(run).ToFin(Fail: Op.Of(name: name).InvalidInput()).Bind(valid => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => {
+        Optional(run).ToFin(Fail: Op.Of(name: name).InvalidInput()).Bind(valid => UI.RhinoUi.Protect(valid: () => {
             uint undo = (recordsUndo, document.UndoRecordingIsActive) switch { (true, false) => document.BeginUndoRecord(description: name), _ => 0u };
             bool closed = true;
             Fin<DocumentReceipt> result = Fin.Fail<DocumentReceipt>(error: Op.Of(name: name).InvalidResult());
@@ -461,7 +461,7 @@ public sealed record DocumentEdit {
                 },
             })).As().Map(static result => result.Somes());
 
-    internal static Fin<Seq<Guid>> AddRaw(RhinoDoc document, Rasm.Domain.Context domain, IEnumerable<object> sources, ObjectAttributes? attributes, Op op) =>
+    internal static Fin<Seq<Guid>> AddRaw(RhinoDoc document, Context domain, IEnumerable<object> sources, ObjectAttributes? attributes, Op op) =>
         from validDocument in Optional(document).ToFin(Fail: op.InvalidInput())
         from validDomain in Optional(domain).ToFin(Fail: op.InvalidInput())
         from source in Optional(sources).ToFin(Fail: op.InvalidInput())

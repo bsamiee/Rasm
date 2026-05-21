@@ -40,9 +40,9 @@ public sealed partial class TopologyScalar {
     public static readonly TopologyScalar BoundaryLoops = new(key: 2, output: typeof(int), extract: static (g, op) => Analyze.BoundaryLoopsOf(geometry: g, op: op).Map(static value => (object)value));
     public static readonly TopologyScalar Genus = new(key: 3, output: typeof(int), extract: static (g, op) => Analyze.GenusOf(geometry: g, op: op).Map(static value => (object)value));
     public static readonly TopologyScalar HoleCount = new(key: 4, output: typeof(int), extract: static (g, op) => Analyze.HoleCountOf(geometry: g, op: op).Map(static value => (object)value));
-    public static readonly TopologyScalar FaceCount = new(key: 5, output: typeof(int), extract: static (g, op) => Analyze.ElementCountOf<GeometryBase>(geometry: g, op: op, meshCount: static m => m.Faces.Count, brepCount: static b => b.Faces.Count).Map(static value => (object)value));
-    public static readonly TopologyScalar EdgeCount = new(key: 6, output: typeof(int), extract: static (g, op) => Analyze.ElementCountOf<GeometryBase>(geometry: g, op: op, meshCount: static m => m.TopologyEdges.Count, brepCount: static b => b.Edges.Count).Map(static value => (object)value));
-    public static readonly TopologyScalar VertexCount = new(key: 7, output: typeof(int), extract: static (g, op) => Analyze.ElementCountOf<GeometryBase>(geometry: g, op: op, meshCount: static m => m.Vertices.Count, brepCount: static b => b.Vertices.Count).Map(static value => (object)value));
+    public static readonly TopologyScalar FaceCount = new(key: 5, output: typeof(int), extract: static (g, op) => Analyze.ElementCountOf(geometry: g, op: op, meshCount: static m => m.Faces.Count, brepCount: static b => b.Faces.Count).Map(static value => (object)value));
+    public static readonly TopologyScalar EdgeCount = new(key: 6, output: typeof(int), extract: static (g, op) => Analyze.ElementCountOf(geometry: g, op: op, meshCount: static m => m.TopologyEdges.Count, brepCount: static b => b.Edges.Count).Map(static value => (object)value));
+    public static readonly TopologyScalar VertexCount = new(key: 7, output: typeof(int), extract: static (g, op) => Analyze.ElementCountOf(geometry: g, op: op, meshCount: static m => m.Vertices.Count, brepCount: static b => b.Vertices.Count).Map(static value => (object)value));
     public Type Output { get; }
     [UseDelegateFromConstructor] internal partial Fin<object> Extract(GeometryBase geometry, Op op);
     internal Fin<int> IntegerOf(GeometryBase geometry, Op op) => Extract(geometry: geometry, op: op).Bind(value => value is int count ? Fin.Succ(count) : Fin.Fail<int>(op.InvalidResult()));
@@ -53,7 +53,7 @@ public static partial class Analyze {
     public static Operation<TGeometry, TOut> Topologies<TGeometry, TOut>(Topologies aspect) where TGeometry : notnull => Aspect<Topologies, TGeometry, TOut>(aspect: aspect);
     public static Operation<TGeometry, TOut> Coerce<TGeometry, TOut>() where TGeometry : notnull where TOut : notnull {
         Op key = Op.Of();
-        return (Rasm.Domain.Kind.Of(typeof(TOut)), GeometryKernel.CanCoerce(typeof(TGeometry), typeof(TOut))) switch {
+        return (Domain.Kind.Of(typeof(TOut)), GeometryKernel.CanCoerce(typeof(TGeometry), typeof(TOut))) switch {
             (Option<Kind> someKind, true) when someKind.IsSome => KernelLift<TGeometry, TOut, Op>(key: key, state: key, requirement: Requirement.Basic, extract: static (op, g, ctx) => GeometryKernel.CoerceTo<TOut>(g, ctx, op).Bind(coerced => op.Accept(value: coerced))),
             _ => key.Unsupported<TGeometry, TOut>(),
         };
@@ -62,9 +62,9 @@ public static partial class Analyze {
         Op key = Op.Of();
         return GeometryKernel.Can(type: typeof(TGeometry), predicate: static _ => true)
             ? typeof(TOut) switch {
-                Type t when t == typeof(Kind) => KernelLift<TGeometry, Kind, Op>(key: key, state: key, extract: static (op, g, ctx) => ((object)g).KindOf(context: ctx).Bind(k => op.Accept(value: k))).As<TGeometry, TOut>(key: key),
-                Type t when t == typeof(string) => KernelLift<TGeometry, string, Op>(key: key, state: key, extract: static (op, g, ctx) => ((object)g).KindOf(context: ctx).Bind(k => op.Accept(value: k.ToString(null, System.Globalization.CultureInfo.InvariantCulture)))).As<TGeometry, TOut>(key: key),
-                Type t when t == typeof(Topology) => KernelLift<TGeometry, Topology, Op>(key: key, state: key, extract: static (op, g, ctx) => ((object)g).KindOf(context: ctx).Bind(k => op.Accept(value: k.Topology))).As<TGeometry, TOut>(key: key),
+                Type t when t == typeof(Kind) => KernelLift<TGeometry, Kind, Op>(key: key, state: key, extract: static (op, g, ctx) => g.KindOf(context: ctx).Bind(k => op.Accept(value: k))).As<TGeometry, TOut>(key: key),
+                Type t when t == typeof(string) => KernelLift<TGeometry, string, Op>(key: key, state: key, extract: static (op, g, ctx) => g.KindOf(context: ctx).Bind(k => op.Accept(value: k.ToString(null, CultureInfo.InvariantCulture)))).As<TGeometry, TOut>(key: key),
+                Type t when t == typeof(Topology) => KernelLift<TGeometry, Topology, Op>(key: key, state: key, extract: static (op, g, ctx) => g.KindOf(context: ctx).Bind(k => op.Accept(value: k.Topology))).As<TGeometry, TOut>(key: key),
                 _ => key.Unsupported<TGeometry, TOut>(),
             }
             : key.Unsupported<TGeometry, TOut>();
@@ -118,7 +118,7 @@ public static partial class Analyze {
             _ => Fin.Fail<TResult>(op.Unsupported(g.GetType(), typeof(TResult))),
         });
     private static Fin<object> ExtractTopologyScalar<TGeometry>(TGeometry geometry, TopologyScalar scalar, Op op) where TGeometry : notnull =>
-        OnGeometry<TGeometry, object>(
+        OnGeometry(
             geometry: geometry,
             op: op,
             onMesh: mesh => scalar.Extract(geometry: mesh, op: op),
@@ -131,7 +131,7 @@ public static partial class Analyze {
             _ => Fin.Fail<Seq<Interval>>(op.Unsupported(g.GetType(), typeof(Interval))),
         });
     internal static Fin<BrepSolidOrientation> SolidOrientationOf<TGeometry>(TGeometry geometry, Op op) where TGeometry : notnull =>
-        OnGeometry<TGeometry, BrepSolidOrientation>(geometry: geometry, op: op,
+        OnGeometry(geometry: geometry, op: op,
             onMesh: mesh => Fin.Succ(mesh.SolidOrientation() switch {
                 1 => BrepSolidOrientation.Outward,
                 -1 => BrepSolidOrientation.Inward,
@@ -140,7 +140,7 @@ public static partial class Analyze {
             onBrep: brep => Fin.Succ(brep.SolidOrientation));
     internal static Fin<bool> ContainsPoint<TGeometry>(TGeometry geometry, Point3d target, Context context, Op op) where TGeometry : notnull =>
         from _ in guard(target.IsValid, op.InvalidInput())
-        from contained in OnGeometry<TGeometry, bool>(
+        from contained in OnGeometry(
             geometry: geometry,
             op: op,
             onMesh: mesh => Fin.Succ(mesh.IsPointInside(target, context.Absolute.Value, false)),
@@ -163,19 +163,19 @@ public static partial class Analyze {
         components.TraverseM(component => component is TOut typed ? Fin.Succ(typed) : Fin.Fail<TOut>(op.Unsupported(geometryType: component.GetType(), outputType: typeof(TOut)))).As()
             .BindFail(error => components.Iter(static component => component.Dispose()) switch { _ => Fin.Fail<Seq<TOut>>(error) });
     internal static Fin<bool> ManifoldOf<TG>(TG geometry, Op op) where TG : notnull =>
-        OnGeometry<TG, bool>(geometry: geometry, op: op,
+        OnGeometry(geometry: geometry, op: op,
             onMesh: static m => Fin.Succ(m.IsManifold(topologicalTest: true, isOriented: out bool _, hasBoundary: out bool _)),
             onBrep: static b => Fin.Succ(b.IsManifold));
     internal static Fin<int> EulerOf<TG>(TG geometry, Op op) where TG : notnull =>
-        OnGeometry<TG, int>(geometry: geometry, op: op,
+        OnGeometry(geometry: geometry, op: op,
             onMesh: static m => Fin.Succ(m.TopologyVertices.Count - m.TopologyEdges.Count + m.Faces.Count),
             onBrep: b => b.IsManifold ? Fin.Succ(b.Vertices.Count - b.Edges.Count + b.Faces.Count) : Fin.Fail<int>(op.Unsupported(typeof(Brep), typeof(int))));
     internal static Fin<int> BoundaryLoopsOf<TG>(TG geometry, Op op) where TG : notnull =>
-        OnGeometry<TG, int>(geometry: geometry, op: op,
+        OnGeometry(geometry: geometry, op: op,
             onMesh: static m => Fin.Succ(Optional(m.GetNakedEdges()).Map(static p => p.Length).IfNone(0)),
             onBrep: static b => Fin.Succ(BrepBoundaryCount(brep: b, predicate: static l => l.LoopType is BrepLoopType.Outer or BrepLoopType.Inner)));
     internal static Fin<int> GenusOf<TG>(TG geometry, Op op) where TG : notnull =>
-        OnGeometry<TG, int>(geometry: geometry, op: op,
+        OnGeometry(geometry: geometry, op: op,
             onMesh: m => m.IsManifold(topologicalTest: true, isOriented: out bool oriented, hasBoundary: out bool _) && oriented
                 ? (EulerOf(geometry: m, op: op), BoundaryLoopsOf(geometry: m, op: op), ComponentCountOf(geometry: m, op: op)).Apply(static (euler, boundaries, components) => ((2 * components) - euler - boundaries) / 2).As()
                 : Fin.Fail<int>(op.Unsupported(typeof(Mesh), typeof(int))),
@@ -183,11 +183,11 @@ public static partial class Analyze {
                 ? (EulerOf(geometry: b, op: op), BoundaryLoopsOf(geometry: b, op: op), ComponentCountOf(geometry: b, op: op)).Apply(static (euler, boundaries, components) => ((2 * components) - euler - boundaries) / 2).As()
                 : Fin.Fail<int>(op.Unsupported(typeof(Brep), typeof(int))));
     internal static Fin<int> HoleCountOf<TG>(TG geometry, Op op) where TG : notnull =>
-        OnGeometry<TG, int>(geometry: geometry, op: op,
+        OnGeometry(geometry: geometry, op: op,
             onMesh: m => (BoundaryLoopsOf(geometry: m, op: op), ComponentCountOf(geometry: m, op: op)).Apply(static (boundaries, components) => Math.Max(val1: 0, val2: boundaries - components)).As(),
             onBrep: b => (BoundaryLoopsOf(geometry: b, op: op), ComponentCountOf(geometry: b, op: op)).Apply(static (boundaries, components) => Math.Max(val1: 0, val2: boundaries - components)).As());
     internal static Fin<int> ElementCountOf<TG>(TG geometry, Op op, Func<Mesh, int> meshCount, Func<Brep, int> brepCount) where TG : notnull =>
-        OnGeometry<TG, int>(geometry: geometry, op: op, onMesh: m => Fin.Succ(meshCount(arg: m)), onBrep: b => Fin.Succ(brepCount(arg: b)));
+        OnGeometry(geometry: geometry, op: op, onMesh: m => Fin.Succ(meshCount(arg: m)), onBrep: b => Fin.Succ(brepCount(arg: b)));
     private static int BrepBoundaryCount(Brep brep, Func<BrepLoop, bool> predicate) =>
         toSeq(brep.Loops).Filter(loop => predicate(arg: loop) && toSeq(loop.Trims).Exists(static trim => trim.Edge is { Valence: EdgeAdjacency.Naked })).Count;
     private static Fin<int> ComponentCountOf<TGeometry>(TGeometry geometry, Op op) where TGeometry : notnull =>

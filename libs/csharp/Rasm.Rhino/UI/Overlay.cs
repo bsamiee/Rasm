@@ -83,7 +83,7 @@ public readonly record struct OverlayDecision(Option<BoundingBox> Bounds = defau
             _ => Option<Func<DrawObjectEventArgs, Fin<Unit>>>.None,
         });
     internal static Fin<BoundingBox> BoundsOf(object source, Op op) =>
-        Analyze.Run(operation: Analyze.Bounds<object, BoundingBox>(aspect: Rasm.Analysis.Bounds.AxisAligned), input: source)
+        Analyze.Run(operation: Analyze.Bounds<object, BoundingBox>(aspect: Analysis.Bounds.AxisAligned), input: source)
             .ToFin()
             .Bind(boxes => boxes.Count switch { > 0 => Fin.Succ(value: boxes[0]), _ => Fin.Fail<BoundingBox>(error: op.InvalidResult()) })
             .Bind(box => box.IsValid ? Fin.Succ(value: box) : Fin.Fail<BoundingBox>(error: op.InvalidResult()));
@@ -217,7 +217,7 @@ public readonly record struct UiPreviewScope(
         from changed in active.Update(point: point, line: worldLine)
         select changed;
 
-    public Fin<bool> PickGumball(global::Rhino.Input.Custom.PickContext pick, GetPoint point) => from active in Gumball.ToFin(Fail: Op.Of(name: nameof(PickGumball)).InvalidInput()) from validPick in Optional(pick).ToFin(Fail: Op.Of(name: nameof(PickGumball)).InvalidInput()) from validPoint in Optional(point).ToFin(Fail: Op.Of(name: nameof(PickGumball)).InvalidInput()) from picked in active.Pick(pick: validPick, point: validPoint) select picked;
+    public Fin<bool> PickGumball(PickContext pick, GetPoint point) => from active in Gumball.ToFin(Fail: Op.Of(name: nameof(PickGumball)).InvalidInput()) from validPick in Optional(pick).ToFin(Fail: Op.Of(name: nameof(PickGumball)).InvalidInput()) from validPoint in Optional(point).ToFin(Fail: Op.Of(name: nameof(PickGumball)).InvalidInput()) from picked in active.Pick(pick: validPick, point: validPoint) select picked;
 }
 
 public sealed record UiViewportRequest<T>(Func<RhinoDoc, Fin<T>> Run) {
@@ -293,7 +293,7 @@ public sealed record UiViewportInteraction<TState>(
                     return unit;
                 })
                 .Match(Succ: static _ => unit, Fail: error => {
-                    RhinoApp.WriteLine(message: $"{nameof(UiViewportInteraction<TState>)}: {error}");
+                    RhinoApp.WriteLine(message: $"{nameof(UiViewportInteraction<>)}: {error}");
                     return Disable();
                 });
         }
@@ -350,7 +350,7 @@ public sealed record UiViewportPreview {
             validate: () => items.Map(static _ => unit));
     }
 
-    public static UiViewportPreview FromSelection(Rasm.Rhino.Commands.CommandSelection selection, UiPreviewStyle style = default) {
+    public static UiViewportPreview FromSelection(Commands.CommandSelection selection, UiPreviewStyle style = default) {
         Fin<UiViewportPreview> preview =
             Optional(selection)
                 .ToFin(Fail: Op.Of(name: nameof(FromSelection)).InvalidInput())
@@ -428,7 +428,7 @@ public readonly record struct UiGumballSnapshot(
     global::Rhino.UI.Gumball.GumballMode Mode,
     bool InRelocate) {
     public Fin<TGeometry> Apply<TGeometry>(TGeometry geometry, bool duplicate = true) where TGeometry : GeometryBase { Transform transform = TotalTransform; return from _ in guard(transform.IsValid, Op.Of(name: nameof(Apply)).InvalidInput()) from source in Optional(geometry).ToFin(Fail: Op.Of(name: nameof(Apply)).InvalidInput()) from target in duplicate switch { true => Optional(source.Duplicate() as TGeometry).ToFin(Fail: Op.Of(name: nameof(Apply)).InvalidResult()), false => Fin.Succ(value: source) } from __ in target.Transform(xform: transform) switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(Apply)).InvalidResult()) } select target; }
-    public Fin<Seq<TGeometry>> Apply<TGeometry>(IEnumerable<TGeometry> geometry, bool duplicate = true) where TGeometry : GeometryBase { UiGumballSnapshot snapshot = this; return Optional(geometry).ToFin(Fail: Op.Of(name: nameof(Apply)).InvalidInput()).Bind(items => toSeq<TGeometry>(items).TraverseM(item => snapshot.Apply(geometry: item, duplicate: duplicate)).As()); }
+    public Fin<Seq<TGeometry>> Apply<TGeometry>(IEnumerable<TGeometry> geometry, bool duplicate = true) where TGeometry : GeometryBase { UiGumballSnapshot snapshot = this; return Optional(geometry).ToFin(Fail: Op.Of(name: nameof(Apply)).InvalidInput()).Bind(items => toSeq(items).TraverseM(item => snapshot.Apply(geometry: item, duplicate: duplicate)).As()); }
 }
 
 public sealed record UiGumballSpec {
@@ -586,7 +586,7 @@ public sealed class UiGumball : IDisposable {
             Mode: conduit.PickResult.Mode,
             InRelocate: conduit.InRelocate);
 
-    public Fin<bool> Pick(global::Rhino.Input.Custom.PickContext pick, GetPoint point) => from _ in guard(!disposed, Op.Of(name: nameof(Pick)).InvalidInput()) from validPick in Optional(pick).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput()) from validPoint in Optional(point).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput()) select conduit.PickGumball(pickContext: validPick, getPoint: validPoint);
+    public Fin<bool> Pick(PickContext pick, GetPoint point) => from _ in guard(!disposed, Op.Of(name: nameof(Pick)).InvalidInput()) from validPick in Optional(pick).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput()) from validPoint in Optional(point).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput()) select conduit.PickGumball(pickContext: validPick, getPoint: validPoint);
 
     public Fin<bool> Update(Point3d point, Line line) =>
         from _ in guard(!disposed && point.IsValid && line.IsValid, Op.Of(name: nameof(Update)).InvalidInput()) from changed in Redraw(value: conduit.UpdateGumball(point: point, worldLine: line)) select changed;

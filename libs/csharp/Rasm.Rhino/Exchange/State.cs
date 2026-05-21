@@ -223,7 +223,7 @@ public sealed record FileEndpoint {
             .ToFin(Fail: op.InvalidInput());
 
     private static Fin<string> NormalizePath(string path, Op op) =>
-        Try.lift<string>(f: () => IOPath.GetFullPath(path: path))
+        Try.lift(f: () => IOPath.GetFullPath(path: path))
             .Run()
             .MapFail(_ => op.InvalidInput());
 

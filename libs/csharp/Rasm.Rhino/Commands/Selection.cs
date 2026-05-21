@@ -34,15 +34,15 @@ public readonly record struct PickLocation(Option<double> CurveParameter, Option
 public sealed record CommandPickPolicy(
     Option<RhinoView> View = default,
     Option<Line> PickLine = default,
-    global::Rhino.Input.Custom.PickStyle PickStyle = global::Rhino.Input.Custom.PickStyle.PointPick,
-    global::Rhino.Input.Custom.PickMode PickMode = global::Rhino.Input.Custom.PickMode.Shaded,
+    PickStyle PickStyle = PickStyle.PointPick,
+    PickMode PickMode = PickMode.Shaded,
     bool PickGroups = false,
     bool SubObjects = false,
     Option<Transform> Transform = default,
     bool UpdateClippingPlanes = true) {
-    internal Fin<T> Use<T>(Func<global::Rhino.Input.Custom.PickContext, Fin<T>> use) =>
-        Optional(use).ToFin(Fail: Op.Of(name: nameof(CommandPickPolicy)).InvalidInput()).Bind(valid => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => {
-            using global::Rhino.Input.Custom.PickContext context = new();
+    internal Fin<T> Use<T>(Func<PickContext, Fin<T>> use) =>
+        Optional(use).ToFin(Fail: Op.Of(name: nameof(CommandPickPolicy)).InvalidInput()).Bind(valid => UI.RhinoUi.Protect(valid: () => {
+            using PickContext context = new();
             _ = View.Iter(active => context.View = active);
             _ = PickLine.Iter(line => context.PickLine = line);
             context.PickStyle = PickStyle;
@@ -71,7 +71,7 @@ public sealed record CommandSelection {
     public Seq<Guid> MutationObjectIds => Items.Map(static item => item.MutationObjectId).Distinct();
     internal Seq<Reference> ObjectTargets =>
         Items.Fold(
-            (Seen: LanguageExt.Prelude.HashSet<(Guid ObjectId, uint RuntimeSerialNumber)>(), Targets: Seq<Reference>()),
+            (Seen: HashSet<(Guid ObjectId, uint RuntimeSerialNumber)>(), Targets: Seq<Reference>()),
             static (state, item) => state.Seen.Contains((item.ObjectId, item.RuntimeSerialNumber)) switch {
                 true => state,
                 false => (Seen: state.Seen.Add((item.ObjectId, item.RuntimeSerialNumber)), Targets: Seq(item) + state.Targets),
@@ -134,9 +134,9 @@ public sealed record CommandSelection {
             .ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
             .Bind(valid => valid.Use(context => Pick(document: document, context: context)));
 
-    public static Fin<CommandSelection> Pick(RhinoDoc document, global::Rhino.Input.Custom.PickContext context) =>
+    public static Fin<CommandSelection> Pick(RhinoDoc document, PickContext context) =>
         from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput()) from validContext in Optional(context).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
-        from selection in Rasm.Rhino.UI.RhinoUi.Protect(valid: () => Optional(validDocument.Objects.PickObjects(pickContext: validContext)).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidResult()).Bind(references => references switch { { Length: > 0 } values => Fin.Succ(value: From(document: validDocument, references: toSeq(values), preselected: Seq<(Guid ObjectId, ComponentIndex ComponentIndex)>())), _ => Fin.Fail<CommandSelection>(error: Op.Of(name: nameof(Pick)).InvalidResult()) })) select selection;
+        from selection in UI.RhinoUi.Protect(valid: () => Optional(validDocument.Objects.PickObjects(pickContext: validContext)).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidResult()).Bind(references => references switch { { Length: > 0 } values => Fin.Succ(value: From(document: validDocument, references: toSeq(values), preselected: Seq<(Guid ObjectId, ComponentIndex ComponentIndex)>())), _ => Fin.Fail<CommandSelection>(error: Op.Of(name: nameof(Pick)).InvalidResult()) })) select selection;
 
     internal static CommandSelection From(RhinoDoc document, Seq<ObjRef> references, Seq<(Guid ObjectId, ComponentIndex ComponentIndex)> preselected) {
         ArgumentNullException.ThrowIfNull(argument: document);

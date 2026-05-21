@@ -109,7 +109,7 @@ public partial record Bounds : IAspect {
                     from context in Env.Asks
                     from frame in MassKind.PrincipalFrameOf(geometry: native, context: context, key: state).ToEff()
                     from obb in (new Box(frame, native) switch { { IsValid: true } b => Fin.Succ(b), _ => Fin.Fail<Box>(state.InvalidResult()) }).ToEff()
-                    from aabb in ((object)native).BoundsOf(op: state).ToEff()
+                    from aabb in native.BoundsOf(op: state).ToEff()
                     from result in (obb.Volume > RhinoMath.ZeroTolerance ? state.Accept(value: aabb.Volume / obb.Volume) : Fin.Fail<Seq<double>>(state.InvalidResult())).ToEff()
                     select result)
             : BoxTightnessKey.Unsupported<TGeometry, TOut>(),

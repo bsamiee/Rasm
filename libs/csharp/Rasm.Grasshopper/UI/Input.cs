@@ -1,10 +1,7 @@
-using System.IO;
 using System.Runtime.InteropServices;
 using Eto.Drawing;
 using Eto.Forms;
-using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Extensions;
-using Grasshopper2.UI;
 using Grasshopper2.UI.Flex;
 using Grasshopper2.UI.Icon;
 using Grasshopper2.UI.InputPanel;
@@ -16,7 +13,7 @@ namespace Rasm.Grasshopper.UI;
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class CursorKind {
-    private delegate Eto.Forms.Cursor CursorSource(Grasshopper2.UI.Canvas.Canvas canvas);
+    private delegate Cursor CursorSource(Grasshopper2.UI.Canvas.Canvas canvas);
 
     public static readonly CursorKind Default = new(key: 0, cursor: static _ => Cursors.Default);
     public static readonly CursorKind Crosshair = new(key: 1, cursor: static _ => Cursors.Crosshair);
@@ -32,7 +29,7 @@ public sealed partial class CursorKind {
     public static readonly CursorKind WireQuestion = new(key: 11, cursor: static _ => Grasshopper2.UI.Canvas.Canvas.CursorQuestion ?? Cursors.Default);
 
     [UseDelegateFromConstructor]
-    internal partial Eto.Forms.Cursor Cursor(Grasshopper2.UI.Canvas.Canvas canvas);
+    internal partial Cursor Cursor(Grasshopper2.UI.Canvas.Canvas canvas);
 }
 
 [SmartEnum<int>]
@@ -137,13 +134,13 @@ public readonly record struct MenuSnapshot(int Count);
 public readonly record struct InputClipboardSnapshot(
     Option<string> Text,
     Option<string> Html,
-    Option<Eto.Drawing.Image> Image,
+    Option<Image> Image,
     Seq<Uri> Uris,
     Seq<string> Types) {
     public static InputClipboardSnapshot Empty => new(
         Text: Option<string>.None,
         Html: Option<string>.None,
-        Image: Option<Eto.Drawing.Image>.None,
+        Image: Option<Image>.None,
         Uris: Seq<Uri>(),
         Types: Seq<string>());
 
@@ -157,7 +154,7 @@ public readonly record struct UiCommand(
     string Info,
     Func<Fin<Unit>> Run,
     Option<IIcon> Icon = default,
-    Option<Eto.Drawing.Image> Image = default,
+    Option<Image> Image = default,
     Option<BarShortcut> Shortcut = default,
     bool Enabled = true,
     Option<Func<Fin<bool>>> CanExecute = default) {
@@ -192,8 +189,8 @@ public readonly record struct UiCommand(
     internal bool EffectiveEnabled() =>
         Enabled && CanExecute.Map(can => GrasshopperUi.Protect(valid: can).IfFail(_ => false)).IfNone(true);
 
-    internal Option<Eto.Drawing.Image> MenuImage =>
-        Image | Icon.Map(static icon => (Eto.Drawing.Image)icon.DrawToBitmap(size: new Size(width: 16, height: 16), padding: 0, background: Colors.Transparent));
+    internal Option<Image> MenuImage =>
+        Image | Icon.Map(static icon => (Image)icon.DrawToBitmap(size: new Size(width: 16, height: 16), padding: 0, background: Colors.Transparent));
 }
 
 [Union]
@@ -258,7 +255,7 @@ public abstract record ToolbarItem {
                         menu.Target.Items.Add(item: item);
                         return unit;
                     }))(),
-                (SectionToggle toggle, UiCommandSurface.ToolbarCase toolbar) => Try.lift<Unit>(f: () => {
+                (SectionToggle toggle, UiCommandSurface.ToolbarCase toolbar) => Try.lift(f: () => {
                     _ = toolbar.Bar.AddToggle(nomen: new Nomen(name: toggle.Name, info: toggle.Name), initialState: toggle.State, additionalAffectedSections: [.. toggle.Sections]);
                     return unit;
                 }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(SectionToggle)), detail: "AddToggle threw")),
@@ -296,11 +293,11 @@ public abstract record ToolbarItem {
                         toolbar.Bar.AddWarmColours(nomen: nomen, initial: colour.Family, assignment: Assign);
                         return unit;
                     }))(),
-                (Spacer spacer, UiCommandSurface.ToolbarCase toolbar) => Try.lift<Unit>(f: () => {
+                (Spacer spacer, UiCommandSurface.ToolbarCase toolbar) => Try.lift(f: () => {
                     _ = toolbar.Bar.AddSpacer(chapterName: spacer.Chapter, sectionName: spacer.Section);
                     return unit;
                 }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(Spacer)), detail: "AddSpacer threw")),
-                (Spacer, UiCommandSurface.MenuCase menu) => Try.lift<Unit>(f: () => { menu.Target.AddSeparator(); return unit; })
+                (Spacer, UiCommandSurface.MenuCase menu) => Try.lift(f: () => { menu.Target.AddSeparator(); return unit; })
                             .Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(Spacer)), detail: "AddSeparator threw")),
                 (_, UiCommandSurface.MenuCase) => Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ToolbarItem)), detail: $"{GetType().Name} cannot be projected to a context menu")),
                 _ => Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ToolbarItem)), detail: "unknown command surface")),
@@ -379,16 +376,16 @@ public abstract record InputRequest<T> : GhUiRequest<T> {
 // --- [SERVICES] ---------------------------------------------------------------------------
 internal static partial class Input {
     internal static GrasshopperUiIntent<InputSelectionSnapshot> Selection(InputSelectionSource source) =>
-        GhUi.Read<InputSelectionSnapshot>(run: _ =>
+        GhUi.Read(run: _ =>
             Optional(source)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Selection)), detail: "null source"))
                 .Map(valid => new InputSelectionSnapshot(Mode: valid.Mode(), Modifiers: ModifierOf(keys: Keyboard.Modifiers))));
 
     internal static GrasshopperUiIntent<InputModifierSnapshot> Modifiers(Keys keys) =>
-        GhUi.Read<InputModifierSnapshot>(run: _ => Fin.Succ(value: ModifierOf(keys: keys)));
+        GhUi.Read(run: _ => Fin.Succ(value: ModifierOf(keys: keys)));
 
     internal static GrasshopperUiIntent<InputPanelSnapshot> Panel(Func<InputPanel, Fin<Unit>> populate) =>
-        GhUi.Read<InputPanelSnapshot>(run: _ =>
+        GhUi.Read(run: _ =>
             Optional(populate)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Panel)), detail: "null populate"))
                 .Bind(valid => {
@@ -400,7 +397,7 @@ internal static partial class Input {
                 }));
 
     internal static GrasshopperUiIntent<InputPanelSnapshot> PopupPanel(Control owner, PointF location, RectangleF screen, Func<InputPanel, Fin<Unit>> populate) =>
-        GhUi.Read<InputPanelSnapshot>(run: _ =>
+        GhUi.Read(run: _ =>
             from validOwner in Optional(owner).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(PopupPanel)), detail: "null owner"))
             from validPopulate in Optional(populate).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(PopupPanel)), detail: "null populate"))
             from validLocation in Optional(location)
@@ -418,7 +415,7 @@ internal static partial class Input {
                 Shown: form?.Visible ?? false));
 
     internal static GrasshopperUiIntent<ToolbarSnapshot> Toolbar(Func<Bar, Fin<Unit>> populate) =>
-        GhUi.Read<ToolbarSnapshot>(run: _ =>
+        GhUi.Read(run: _ =>
             Optional(populate)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Toolbar)), detail: "null populate"))
                 .Bind(valid => {
@@ -433,7 +430,7 @@ internal static partial class Input {
                 }));
 
     internal static GrasshopperUiIntent<InputPanelSnapshot> Panel(CommandPlan plan) =>
-        Panel(populate: panel => Try.lift<Bar>(f: () => panel.AddBar(drawCategoryLabels: false)).Run()
+        Panel(populate: panel => Try.lift(f: () => panel.AddBar(drawCategoryLabels: false)).Run()
             .MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(Panel)), detail: "InputPanel.AddBar threw"))
             .Bind(bar => plan.Items.TraverseM(item => item.Apply(surface: UiCommandSurface.Toolbar(bar: bar))).Map(static _ => unit).As()));
 
@@ -442,7 +439,7 @@ internal static partial class Input {
             plan.Items.TraverseM(item => item.Apply(surface: UiCommandSurface.Toolbar(bar: bar))).Map(static _ => unit).As());
 
     internal static GrasshopperUiIntent<MenuSnapshot> Menu(CommandPlan plan) =>
-        GhUi.Read<MenuSnapshot>(run: _ => {
+        GhUi.Read(run: _ => {
             using ContextMenu menu = new();
             return plan.Items
             .TraverseM(item => item.Apply(surface: UiCommandSurface.Menu(menu: menu)))
@@ -451,27 +448,27 @@ internal static partial class Input {
         });
 
     internal static GrasshopperUiIntent<MenuSnapshot> ShowMenu(ContextMenu menu, Control owner, PointF location) =>
-        GhUi.Read<MenuSnapshot>(run: _ =>
+        GhUi.Read(run: _ =>
             from validMenu in Optional(menu).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ShowMenu)), detail: "null menu"))
             from validOwner in Optional(owner).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ShowMenu)), detail: "null owner"))
             from validLocation in Optional(location)
                 .Filter(static value => float.IsFinite(value.X) && float.IsFinite(value.Y))
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ShowMenu)), detail: "non-finite location"))
-            from shown in Try.lift<MenuSnapshot>(f: () => {
+            from shown in Try.lift(f: () => {
                 validMenu.Show(validOwner, validLocation);
                 return new MenuSnapshot(Count: validMenu.Items.Count);
             }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(ShowMenu)), detail: error.Message))
             select shown);
 
     internal static GrasshopperUiIntent<CursorKind> Cursor(CursorKind kind) =>
-        GhUi.Canvas<CursorKind>(run: scope => scope.NeedCanvas().Map(canvas => {
+        GhUi.Canvas(run: scope => scope.NeedCanvas().Map(canvas => {
             canvas.Cursor = kind.Cursor(canvas: canvas);
             return kind;
         }));
 
     internal static GrasshopperUiIntent<InputDialogResponse> MessageDialog(string title, string message, MessageDialogKind? kind = null, MessageDialogButtons buttons = MessageDialogButtons.Ok) =>
-        GhUi.Read<InputDialogResponse>(run: scope =>
-            Try.lift<InputDialogResponse>(f: () => {
+        GhUi.Read(run: scope =>
+            Try.lift(f: () => {
                 DialogResult result = MessageBox.Show(
                     parent: DialogParent(scope: scope),
                     text: message,
@@ -482,17 +479,17 @@ internal static partial class Input {
             }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(MessageDialog)), detail: "MessageBox.Show threw")));
 
     internal static GrasshopperUiIntent<Option<string>> FileDialog(FileDialogMode mode, Option<string> initialPath = default, params FileFilter[] filters) =>
-        GhUi.Read<Option<string>>(run: scope =>
-            Try.lift<Option<string>>(f: () => mode.Run(parent: DialogParent(scope: scope), initialPath: initialPath, filters: filters))
+        GhUi.Read(run: scope =>
+            Try.lift(f: () => mode.Run(parent: DialogParent(scope: scope), initialPath: initialPath, filters: filters))
                 .Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(FileDialog)), detail: "FileDialog.ShowDialog threw")));
 
     internal static GrasshopperUiIntent<InputClipboardSnapshot> Clipboard(InputClipboardOp op) =>
-        GhUi.Read<InputClipboardSnapshot>(run: _scope =>
-            Try.lift<InputClipboardSnapshot>(f: () => {
+        GhUi.Read(run: _scope =>
+            Try.lift(f: () => {
                 Func<InputClipboardSnapshot> action = op switch {
                     InputClipboardOp.ReadCase => ClipboardSnapshotOf,
                     InputClipboardOp.WriteCase w => () => {
-                        Eto.Forms.Clipboard clipboard = Eto.Forms.Clipboard.Instance;
+                        Clipboard clipboard = Eto.Forms.Clipboard.Instance;
                         _ = w.Payload.Text.Iter(text => clipboard.Text = text);
                         _ = w.Payload.Html.Iter(html => clipboard.Html = html);
                         _ = w.Payload.Image.Iter(image => clipboard.Image = image);
@@ -511,7 +508,7 @@ internal static partial class Input {
             }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(Clipboard)), detail: "Clipboard op threw")));
 
     private static InputClipboardSnapshot ClipboardSnapshotOf() {
-        Eto.Forms.Clipboard clipboard = Eto.Forms.Clipboard.Instance;
+        Clipboard clipboard = Eto.Forms.Clipboard.Instance;
         return new(
             Text: Optional(clipboard.Text),
             Html: Optional(clipboard.Html),
@@ -535,10 +532,10 @@ internal static partial class Input {
     };
 
     private static Control? DialogParent(GrasshopperUi.Scope scope) =>
-        scope.Editor.Map(static _ => (Control?)Grasshopper2.UI.Editor.ThisOrRhino).IfNone((Control?)null);
+        scope.Editor.Map(static _ => (Control?)Editor.ThisOrRhino).IfNone((Control?)null);
 
-    internal static Option<string> RunFileDialog(Eto.Forms.FileDialog dialog, Control? parent, Option<string> initialPath, FileFilter[] filters) {
-        using Eto.Forms.FileDialog owned = dialog;
+    internal static Option<string> RunFileDialog(FileDialog dialog, Control? parent, Option<string> initialPath, FileFilter[] filters) {
+        using FileDialog owned = dialog;
         _ = initialPath.Filter(static path => !string.IsNullOrWhiteSpace(path))
             .IfSome(path => owned.Directory = new Uri(uriString: Directory.Exists(path: path) ? path : System.IO.Path.GetDirectoryName(path: path) ?? string.Empty));
         _ = toSeq(filters).Iter(f => owned.Filters.Add(item: new Eto.Forms.FileFilter(name: f.Name, extensions: [.. f.Extensions])));

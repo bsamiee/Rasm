@@ -33,25 +33,25 @@ public abstract record UiChromeOp<T> {
     internal virtual bool Interactive => true;
     internal abstract Fin<T> Run(RhinoDoc? document);
 
-    public sealed record EtoToolbar(IEnumerable<UiAction> Actions) : UiChromeOp<Eto.Forms.ToolBar> {
-        internal override Fin<Eto.Forms.ToolBar> Run(RhinoDoc? document) =>
+    public sealed record EtoToolbar(IEnumerable<UiAction> Actions) : UiChromeOp<ToolBar> {
+        internal override Fin<ToolBar> Run(RhinoDoc? document) =>
             from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(EtoToolbar)).InvalidInput())
             from actions in Optional(Actions).ToFin(Fail: Op.Of(name: nameof(EtoToolbar)).InvalidInput()).Map(static values => toSeq(values))
             from commands in actions.TraverseM(action => action.ToCommand(document: validDocument)).As()
-            select ((Func<Eto.Forms.ToolBar>)(() => {
-                Eto.Forms.ToolBar toolbar = new();
+            select ((Func<ToolBar>)(() => {
+                ToolBar toolbar = new();
                 _ = commands.Iter(command => toolbar.Items.Add(command.CreateToolItem()));
                 return toolbar;
             }))();
     }
 
-    public sealed record EtoMenu(IEnumerable<UiAction> Actions) : UiChromeOp<Eto.Forms.MenuBar> {
-        internal override Fin<Eto.Forms.MenuBar> Run(RhinoDoc? document) =>
+    public sealed record EtoMenu(IEnumerable<UiAction> Actions) : UiChromeOp<MenuBar> {
+        internal override Fin<MenuBar> Run(RhinoDoc? document) =>
             from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(EtoMenu)).InvalidInput())
             from actions in Optional(Actions).ToFin(Fail: Op.Of(name: nameof(EtoMenu)).InvalidInput()).Map(static values => toSeq(values))
             from commands in actions.TraverseM(action => action.ToCommand(document: validDocument)).As()
-            select ((Func<Eto.Forms.MenuBar>)(() => {
-                Eto.Forms.MenuBar menu = new();
+            select ((Func<MenuBar>)(() => {
+                MenuBar menu = new();
                 _ = commands.Iter(command => menu.Items.Add(command.CreateMenuItem()));
                 return menu;
             }))();

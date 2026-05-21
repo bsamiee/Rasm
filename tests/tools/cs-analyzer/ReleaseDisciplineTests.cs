@@ -2,7 +2,6 @@ using System.Collections.Immutable;
 using System.Text.RegularExpressions;
 using Foundation.CSharp.Analyzers.Tests.Infrastructure;
 using Microsoft.CodeAnalysis;
-using Xunit;
 
 namespace Foundation.CSharp.Analyzers.Tests;
 

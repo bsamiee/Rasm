@@ -1,15 +1,15 @@
 using Rasm.Rhino.Commands;
 using DrawingBitmap = System.Drawing.Bitmap;
-using EmbeddedFile = global::Rhino.FileIO.File3dmEmbeddedFile;
-using File3dmModel = global::Rhino.FileIO.File3dm;
-using File3dmNotes = global::Rhino.FileIO.File3dmNotes;
-using File3dmObject = global::Rhino.FileIO.File3dmObject;
-using InstanceReferenceGeometry = global::Rhino.Geometry.InstanceReferenceGeometry;
+using EmbeddedFile = Rhino.FileIO.File3dmEmbeddedFile;
+using File3dmModel = Rhino.FileIO.File3dm;
+using File3dmNotes = Rhino.FileIO.File3dmNotes;
+using File3dmObject = Rhino.FileIO.File3dmObject;
+using InstanceReferenceGeometry = Rhino.Geometry.InstanceReferenceGeometry;
 using IOPath = System.IO.Path;
-using RenderContent = global::Rhino.FileIO.File3dmRenderContent;
-using RenderEnvironment = global::Rhino.FileIO.File3dmRenderEnvironment;
-using RenderMaterial = global::Rhino.FileIO.File3dmRenderMaterial;
-using RenderTexture = global::Rhino.FileIO.File3dmRenderTexture;
+using RenderContent = Rhino.FileIO.File3dmRenderContent;
+using RenderEnvironment = Rhino.FileIO.File3dmRenderEnvironment;
+using RenderMaterial = Rhino.FileIO.File3dmRenderMaterial;
+using RenderTexture = Rhino.FileIO.File3dmRenderTexture;
 
 namespace Rasm.Rhino.Exchange;
 
@@ -77,11 +77,11 @@ public readonly record struct FileResourceGraph(
     Seq<string> FileReferences,
     Seq<FileResourceEntry> Entries,
     Seq<FileResourceEdge> Edges) {
-    public Fin<Rasm.Domain.Stat> Summary(Op op) =>
+    public Fin<Stat> Summary(Op op) =>
         Seq(Objects, Layers, Materials, Groups, Blocks, Views, NamedViews, Strings, PlugInData, EmbeddedFiles, RenderMaterials, RenderEnvironments, RenderTextures, Linetypes, DimensionStyles, HatchPatterns, NamedConstructionPlanes, Manifest, Relations)
             .TraverseM(count => count >= 0 ? Fin.Succ(value: (double)count) : Fin.Fail<double>(error: op.InvalidResult()))
             .As()
-            .Bind(values => Rasm.Domain.Stat.Of(values: values, key: op));
+            .Bind(values => Stat.Of(values: values, key: op));
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -340,12 +340,12 @@ internal static class FileArchiveOps {
             .Bind(material => GuidOption(value: material.Id))
             .Map(id => new FileResourceEdge(FromKind: "object", FromId: GuidOption(value: fileObject.Attributes.ObjectId), ToKind: "material", ToId: Some(id), Role: "material"));
 
-    private static Option<global::Rhino.DocObjects.Material> MaterialOf(File3dmModel model, File3dmObject fileObject) =>
+    private static Option<Material> MaterialOf(File3dmModel model, File3dmObject fileObject) =>
         fileObject.Attributes.MaterialSource switch {
             ObjectMaterialSource.MaterialFromObject => Optional(model.AllMaterials.FindIndex(index: fileObject.Attributes.MaterialIndex)),
             ObjectMaterialSource.MaterialFromLayer => Optional(model.AllLayers.FindIndex(index: fileObject.Attributes.LayerIndex)?.RenderMaterialIndex)
                 .Bind(index => Optional(model.AllMaterials.FindIndex(index: index))),
-            _ => Option<global::Rhino.DocObjects.Material>.None,
+            _ => Option<Material>.None,
         };
 
     private static Option<FileResourceEdge> LinetypeEdge(File3dmModel model, File3dmObject fileObject) =>
@@ -353,7 +353,7 @@ internal static class FileArchiveOps {
             ObjectLinetypeSource.LinetypeFromObject => Optional(model.AllLinetypes.FindIndex(index: fileObject.Attributes.LinetypeIndex)),
             ObjectLinetypeSource.LinetypeFromLayer => Optional(model.AllLayers.FindIndex(index: fileObject.Attributes.LayerIndex)?.LinetypeIndex)
                 .Bind(index => Optional(model.AllLinetypes.FindIndex(index: index))),
-            _ => Option<global::Rhino.DocObjects.Linetype>.None,
+            _ => Option<Linetype>.None,
         })
         .Bind(linetype => GuidOption(value: linetype.Id))
         .Map(id => new FileResourceEdge(FromKind: "object", FromId: GuidOption(value: fileObject.Attributes.ObjectId), ToKind: "linetype", ToId: Some(id), Role: "linetype"));
@@ -417,7 +417,7 @@ internal static class FileArchiveOps {
             Source: content.Reference ? Some("reference") : Some("embedded"));
 
     private static Fin<FileArchiveMetadata> Metadata(FileEndpoint source, File3dmModel model) =>
-        Try.lift<FileArchiveMetadata>(f: () => {
+        Try.lift(f: () => {
             DateTime createdOn = model.Created;
             DateTime lastEditedOn = model.LastEdited;
             DrawingBitmap? preview = model.GetPreviewImage();
@@ -484,7 +484,7 @@ internal static class FileArchiveOps {
         };
 
     private static Fin<Unit> ApplyMetadata(File3dmModel model, FileArchiveMetadataPatch patch) =>
-        Try.lift<Unit>(f: () => {
+        Try.lift(f: () => {
             _ = patch.Notes.Map(value => model.Notes = new File3dmNotes { Notes = value });
             _ = patch.ApplicationName.Map(value => model.ApplicationName = value);
             _ = patch.ApplicationUrl.Map(value => model.ApplicationUrl = value);

@@ -4,7 +4,7 @@ namespace Rasm.Rhino.Commands;
 
 // --- [MODELS] -----------------------------------------------------------------------------
 public sealed class RhinoCommandContext {
-    private RhinoCommandContext(RhinoDoc document, RunMode mode, Rasm.Domain.Context domain) {
+    private RhinoCommandContext(RhinoDoc document, RunMode mode, Context domain) {
         Document = document;
         Mode = mode;
         Domain = domain;
@@ -13,25 +13,25 @@ public sealed class RhinoCommandContext {
         Edit = new(document: document, domain: domain);
         Ui = new(document: document, mode: mode);
         Camera = new(document: document);
-        Files = Rasm.Rhino.Exchange.RhinoFiles.Live(document: document, mode: mode);
+        Files = Exchange.RhinoFiles.Live(document: document, mode: mode);
     }
 
     public RhinoDoc Document { get; }
     public RunMode Mode { get; }
-    public Rasm.Domain.Context Domain { get; }
+    public Context Domain { get; }
     public Analyze.Scope Scope { get; }
     public CommandInput Input { get; }
     public DocumentEdit Edit { get; }
-    public Rasm.Rhino.UI.RhinoUi Ui { get; }
-    public Rasm.Rhino.Camera.RhinoCamera Camera { get; }
-    public Rasm.Rhino.Exchange.RhinoFiles Files { get; }
+    public UI.RhinoUi Ui { get; }
+    public Camera.RhinoCamera Camera { get; }
+    public Exchange.RhinoFiles Files { get; }
 
     public static Fin<RhinoCommandContext> Of(RhinoDoc doc, RunMode mode) =>
         Optional(doc)
             .ToFin(Fail: Op.Of(name: nameof(RhinoCommandContext)).MissingContext())
             .Bind(document => document switch {
                 { IsAvailable: true, IsClosing: false, IsInitializing: false, IsOpening: false } =>
-                    Rasm.Domain.Context.Of(doc: document).ToFin().Map(domain => new RhinoCommandContext(document: document, mode: mode, domain: domain)),
+                    Context.Of(doc: document).ToFin().Map(domain => new RhinoCommandContext(document: document, mode: mode, domain: domain)),
                 _ => Fin.Fail<RhinoCommandContext>(error: Op.Of(name: nameof(RhinoCommandContext)).MissingContext()),
             });
 

@@ -61,7 +61,7 @@ public static class UiIntent {
     internal static UiIntent<T> Dialog<T>(Func<Window?, RhinoDoc, Fin<T>> show) =>
         Request(name: nameof(Dialog), run: scope => Optional(show).ToFin(Fail: Op.Of(name: nameof(Dialog)).InvalidInput()).Bind(valid => valid(arg1: scope.Parent, arg2: scope.Document)));
 
-    public static UiIntent<T> Window<T>(Eto.Forms.Dialog<T> dialog, UiWindowMode mode = UiWindowMode.Modal) =>
+    public static UiIntent<T> Window<T>(Dialog<T> dialog, UiWindowMode mode = UiWindowMode.Modal) =>
         Request(name: nameof(Window), run: scope => Optional(dialog).ToFin(Fail: Op.Of(name: nameof(Window)).InvalidInput()).Bind(valid => mode switch {
             UiWindowMode.SemiModal => Fin.Succ(value: global::Rhino.UI.EtoExtensions.ShowSemiModal(valid, scope.Document, parent: scope.Parent)),
             UiWindowMode.Modal => Fin.Succ(value: valid.ShowModal(owner: scope.Parent)),
@@ -126,7 +126,7 @@ public static class UiIntent {
 
     public static UiIntent<Seq<bool>> Checklist(string title, string message, IEnumerable<string> items, IEnumerable<bool> states) =>
         Request(name: nameof(Checklist), run: _ => (Optional(items).ToFin(Fail: Op.Of(name: nameof(Checklist)).InvalidInput()).Map(static source => toSeq(source)), Optional(states).ToFin(Fail: Op.Of(name: nameof(Checklist)).InvalidInput()).Map(static source => toSeq(source))).Apply(static (values, checks) => (Values: values, Checks: checks)).As().Bind(values => values switch {
-            (Seq<string> choices, Seq<bool> checks) when !choices.IsEmpty && choices.Count == checks.Count => Optional(global::Rhino.UI.Dialogs.ShowCheckListBox(title: title, message: message, items: (System.Collections.IList)(string[])[.. choices], checkState: (bool[])[.. checks])).ToFin(Fail: new Fault.Cancelled()).Map(static result => toSeq(result).Map(static item => item)),
+            (Seq<string> choices, Seq<bool> checks) when !choices.IsEmpty && choices.Count == checks.Count => Optional(global::Rhino.UI.Dialogs.ShowCheckListBox(title: title, message: message, items: (string[])[.. choices], checkState: (bool[])[.. checks])).ToFin(Fail: new Fault.Cancelled()).Map(static result => toSeq(result).Map(static item => item)),
             _ => Fin.Fail<Seq<bool>>(error: Op.Of(name: nameof(Checklist)).InvalidInput()),
         }));
 

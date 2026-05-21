@@ -1,4 +1,3 @@
-using Foundation.CSharp.Analyzers.Contracts;
 using Rasm.Vectors;
 
 namespace Rasm.Analysis;

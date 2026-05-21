@@ -1,7 +1,6 @@
 using System.Runtime.InteropServices;
 using Eto.Drawing;
 using Eto.Forms;
-using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Doc;
 using Grasshopper2.Undo;
 using GhDocument = Grasshopper2.Doc.Document;
@@ -286,34 +285,34 @@ internal static partial class Events {
 
     // --- [OPERATIONS] -------------------------------------------------------------------------
     private static GrasshopperUiIntent<IDisposable> SubscribeDocument(DocumentEventKind kind, Func<DocumentEventSnapshot, Fin<Unit>>? handler) =>
-        GhUi.Document<IDisposable>(run: scope =>
+        GhUi.Document(run: scope =>
             from doc in scope.NeedDocument()
             from objs in scope.NeedObjects()
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeDocument)), detail: "null handler"))
             select (IDisposable)DocumentEventWatcher.Attach(document: doc, objects: objs, kind: kind, handler: valid));
 
     private static GrasshopperUiIntent<IDisposable> SubscribeSolution(SolutionEventKind kind, Func<DocumentSnapshot, Fin<Unit>> handler) =>
-        GhUi.Document<IDisposable>(run: scope =>
+        GhUi.Document(run: scope =>
             from document in scope.NeedDocument()
             from objects in scope.NeedObjects()
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeSolution)), detail: "null handler"))
             select (IDisposable)SolutionWatcher.Attach(document: document, objects: objects, kind: kind, handler: valid));
 
     private static GrasshopperUiIntent<IDisposable> SubscribeUndo(UndoEventKind kind, Func<DocumentHistorySnapshot, Fin<Unit>> handler) =>
-        GhUi.Document<IDisposable>(run: scope =>
+        GhUi.Document(run: scope =>
             from document in scope.NeedDocument()
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeUndo)), detail: "null handler"))
             select (IDisposable)UndoWatcher.Attach(document: document, kind: kind, handler: valid));
 
     private static GrasshopperUiIntent<IDisposable> SubscribeTimer(TimeSpan interval, Func<Fin<Unit>> handler) =>
-        GhUi.Read<IDisposable>(run: _ =>
+        GhUi.Read(run: _ =>
             from validInterval in Optional(interval).Filter(static value => value > TimeSpan.Zero)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeTimer)), detail: "interval must be positive"))
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeTimer)), detail: "null handler"))
             select (IDisposable)TimerWatcher.Attach(interval: validInterval, handler: valid));
 
     private static GrasshopperUiIntent<IDisposable> SubscribeControl(Control source, ControlEventKind kind, Func<ControlEventSnapshot, Fin<Unit>> handler) =>
-        GhUi.Read<IDisposable>(run: _ =>
+        GhUi.Read(run: _ =>
             from validSource in Optional(source).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeControl)), detail: "null control"))
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeControl)), detail: "null handler"))
             select (IDisposable)ControlEventWatcher.Attach(source: validSource, kind: kind, handler: valid));
@@ -359,7 +358,7 @@ internal static partial class Events {
                     false => changed.Map(obj => Seq(UiRail.DocumentObjectSnapshotOf(obj))).IfNone(Seq<DocumentObjectSnapshot>()),
                 },
                 Wires: (kind == DocumentEventKind.Selection) switch {
-                    true => Optional(objects.SelectedWires).Map(wires => toSeq(wires).Map(wire => global::Rasm.Grasshopper.UI.Wire.SnapshotConnected(objects: objects, wire: wire))).IfNone(Seq<WireSnapshot.ConnectedCase>()),
+                    true => Optional(objects.SelectedWires).Map(wires => toSeq(wires).Map(wire => Wire.SnapshotConnected(objects: objects, wire: wire))).IfNone(Seq<WireSnapshot.ConnectedCase>()),
                     false => Seq<WireSnapshot.ConnectedCase>(),
                 },
                 Detail: detail);

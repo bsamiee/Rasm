@@ -205,7 +205,7 @@ internal sealed class BridgeLoadContext : AssemblyLoadContext {
         }
     }
     private bool IsClosureAssembly(Assembly assembly) =>
-        AssemblyLoadContext.GetLoadContext(assembly: assembly) == this;
+        GetLoadContext(assembly: assembly) == this;
     private static Dictionary<string, Assembly> SharedAssemblies() =>
         AppDomain.CurrentDomain.GetAssemblies()
             .Where(static assembly => IsUnder(path: assembly.Location, root: HostRoot))
@@ -220,20 +220,20 @@ internal sealed class BridgeLoadContext : AssemblyLoadContext {
             return new(StringComparer.Ordinal);
         }
         try {
-            using System.Text.Json.JsonDocument document = System.Text.Json.JsonDocument.Parse(json: File.ReadAllText(path: deps, encoding: Encoding.UTF8));
+            using JsonDocument document = JsonDocument.Parse(json: File.ReadAllText(path: deps, encoding: Encoding.UTF8));
             return document.RootElement.GetProperty(propertyName: "targets").EnumerateObject()
                 .SelectMany(target => target.Value.EnumerateObject())
                 .SelectMany(library => PackageRuntimeAssets(library: library, packages: packages))
                 .GroupBy(static item => item.Name, StringComparer.Ordinal)
                 .ToDictionary(static group => group.Key, static group => group.First().Path, StringComparer.Ordinal);
-        } catch (Exception error) when (error is IOException or System.Text.Json.JsonException or InvalidOperationException or ArgumentException) {
+        } catch (Exception error) when (error is IOException or JsonException or InvalidOperationException or ArgumentException) {
             return new(StringComparer.Ordinal);
         }
     }
-    private static IEnumerable<(string Name, string Path)> PackageRuntimeAssets(System.Text.Json.JsonProperty library, string packages) {
+    private static IEnumerable<(string Name, string Path)> PackageRuntimeAssets(JsonProperty library, string packages) {
         string[] package = library.Name.Split(separator: '/', count: 2);
         return package is [string id, string version]
-            && library.Value.TryGetProperty(propertyName: "runtime", value: out System.Text.Json.JsonElement runtime)
+            && library.Value.TryGetProperty(propertyName: "runtime", value: out JsonElement runtime)
             && Directory.EnumerateDirectories(path: packages).FirstOrDefault(path => string.Equals(a: Path.GetFileName(path: path), b: id, comparisonType: StringComparison.OrdinalIgnoreCase)) is string packageRoot
             ? runtime.EnumerateObject()
                 .Select(asset => Path.Combine(path1: packageRoot, path2: version, path3: asset.Name))

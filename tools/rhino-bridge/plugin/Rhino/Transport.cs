@@ -291,7 +291,7 @@ internal sealed class BridgeServer : IDisposable {
         };
     private static void ScheduleQuit(BridgeReply reply) {
         if (reply is { Command: BridgeWire.Quit, Status: BridgeWire.Ok }) {
-            RhinoApp.InvokeOnUiThread((Action)(() => RhinoApp.Exit(false)));
+            RhinoApp.InvokeOnUiThread(() => RhinoApp.Exit(false));
         }
     }
     private static BridgeReply InvokeOnRhinoThread(string command, Func<RhinoDoc?, BridgeReply> work) {
@@ -363,7 +363,7 @@ internal sealed class BridgeServer : IDisposable {
     }
     private static void WriteRhinoLine(string message) {
         if (RhinoApp.InvokeRequired) {
-            RhinoApp.InvokeOnUiThread((Action)(() => RhinoApp.WriteLine(message)));
+            RhinoApp.InvokeOnUiThread(() => RhinoApp.WriteLine(message));
         } else {
             RhinoApp.WriteLine(message);
         }

@@ -109,7 +109,7 @@ public sealed class UndoGroup {
     }
     internal UndoEntry ToEntry() => new(Verb: Verb, Noun: Noun, Actions: toSeq(actions));
     internal Fin<Unit> Commit(GhDocument document) =>
-        Try.lift<Unit>(f: () => {
+        Try.lift(f: () => {
             UndoEntry entry = ToEntry();
             _ = Optional(entry)
                 .Filter(static e => e.Actions.Count > 0)
@@ -246,7 +246,7 @@ public static class GhUi {
 
     public static GrasshopperUiIntent<T> Group<T>(string verb, string noun, GrasshopperUiIntent<T> body) =>
         Optional(body).Match(
-            Some: valid => Document<T>(
+            Some: valid => Document(
                 repaint: valid.Policy.RepaintOrNone,
                 run: scope => {
                     UndoGroup bag = new(verb: verb, noun: noun);
@@ -256,7 +256,7 @@ public static class GhUi {
                            from committed in bag.Commit(document: document)
                            select value;
                 }),
-            None: () => Document<T>(
+            None: () => Document(
                 run: _ => Fin.Fail<T>(
                     error: UiFault.InvalidInput(op: Op.Of(name: nameof(Group)), detail: "body is required"))));
 
@@ -338,12 +338,12 @@ public sealed partial record GrasshopperUi {
         Func<Scope, Fin<TDelta>> mutate,
         UndoStrategy undo,
         RepaintRequest? repaint = null) =>
-            GhUi.Document<Snapshot<TDelta>>(
+            GhUi.Document(
                 repaint: repaint,
                 run: scope =>
                     from delta in Optional(mutate).ToFin(Fail: UiFault.InvalidInput(op: op, detail: "null delegate")).Bind(m => m(arg: scope))
                     from _ in RecordUndo(scope: scope, op: op, undo: undo)
-                    select Snapshot.Of<TDelta>(payload: delta, ownerId: scope.Document.Map(d => d.Hash)));
+                    select Snapshot.Of(payload: delta, ownerId: scope.Document.Map(d => d.Hash)));
 
     private static Fin<Unit> RecordUndo(Scope scope, Op op, UndoStrategy undo) =>
         undo switch {
@@ -353,7 +353,7 @@ public sealed partial record GrasshopperUi {
                 from entry in Try.lift(f: () => manual.Record(arg: scope))
                     .Run()
                     .MapFail(_ => UiFault.MutationRejected(op: op, detail: "manual undo recording threw"))
-                from committed in Try.lift<Unit>(f: () => {
+                from committed in Try.lift(f: () => {
                     _ = scope.UndoGroup
                         .Map(bag => entry.Actions.Iter(action => bag.Add(action: action)))
                         .IfNone(() => Optional(entry)
@@ -405,7 +405,7 @@ public sealed partial record GrasshopperUi {
             Some: obj => { canvas.Invalidate(rect: ToIntRect(obj.Attributes.AggregateBounds)); return unit; },
             None: () => { canvas.Invalidate(); return unit; });
 
-    private static Eto.Drawing.Rectangle ToIntRect(RectangleF f) =>
+    private static Rectangle ToIntRect(RectangleF f) =>
         new(x: (int)Math.Floor(f.X), y: (int)Math.Floor(f.Y), width: (int)Math.Ceiling(f.Width), height: (int)Math.Ceiling(f.Height));
 
 }

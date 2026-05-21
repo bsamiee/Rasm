@@ -159,7 +159,7 @@ public readonly record struct VectorSpan {
     public static Fin<VectorSpan> Of(Point3d anchor, Vector3d vector, Context context, Op? key = null) {
         Op op = key.OrDefault();
         return from point in op.AcceptValue(value: anchor)
-               from direction in Rasm.Vectors.Direction.Of(value: vector, context: context, key: op)
+               from direction in Direction.Of(value: vector, context: context, key: op)
                from magnitude in op.AcceptValidated<PositiveMagnitude>(candidate: vector.Length)
                select new VectorSpan(anchor: point, direction: direction, magnitude: magnitude.Value);
     }
@@ -378,7 +378,7 @@ internal readonly record struct VectorRing {
         Optional(Native.ToPolylineCurve()).ToFin(key.InvalidResult()).Bind(curve => new Lease<PolylineCurve>.Owned(Value: curve).Use(state: state, project: project));
     private static Fin<TResult> WithMassProperties<TState, TResult>(PolylineCurve curve, Context context, Func<TState, AreaMassProperties, Fin<TResult>> project, TState state, Op key) =>
         Optional(AreaMassProperties.Compute(closedPlanarCurve: curve, planarTolerance: context.Absolute.Value)).ToFin(key.InvalidResult())
-            .Bind(props => new Lease<AreaMassProperties>.Owned(Value: props).Use<TState, Fin<TResult>>(state: state, project: project));
+            .Bind(props => new Lease<AreaMassProperties>.Owned(Value: props).Use(state: state, project: project));
     private Fin<TResult> WithMassProperties<TResult>(Func<AreaMassProperties, Op, Fin<TResult>> project, Op key) {
         return WithCurve(
             state: (Context, Key: key, Project: project),

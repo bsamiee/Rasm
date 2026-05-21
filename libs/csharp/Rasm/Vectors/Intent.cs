@@ -32,15 +32,15 @@ public sealed partial class SupportProjection {
                     : Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(ClosestHit), outputType: typeof(TOut))),
                 SupportProjection p when p.Accepts(output: typeof(TOut)) && ClosestHit.CanProjectTo(output: typeof(TOut), parameterMode: p.ParameterMode) => hit.Project<TOut>(key: key, parameterMode: p.ParameterMode)
                     .Bind(values => values.Head.ToFin(key.InvalidResult())),
-                SupportProjection p when p.Equals(Direction) => Rasm.Vectors.Direction.Of(value: hit.Point - sample, context: context, key: key)
+                SupportProjection p when p.Equals(Direction) => Vectors.Direction.Of(value: hit.Point - sample, context: context, key: key)
                     .Bind(direction => direction.Project<TOut>(key: key)),
                 SupportProjection p when p.Equals(Span) || p.Equals(SignedSpanAway) => VectorSpan.Of(anchor: sample, vector: p.Sign * (hit.Point - sample), context: context, key: key)
                     .Bind(span => span.Project<TOut>(key: key)),
                 SupportProjection p when p.Equals(Normal) => hit.Normal.ToFin(Fail: key.InvalidResult())
-                    .Bind(normal => Rasm.Vectors.Direction.Of(value: normal, context: context, key: key))
+                    .Bind(normal => Vectors.Direction.Of(value: normal, context: context, key: key))
                     .Bind(direction => direction.Project<TOut>(key: key)),
                 SupportProjection p when p.Equals(Tangent) => hit.Tangent.ToFin(Fail: key.InvalidResult())
-                    .Bind(tangent => Rasm.Vectors.Direction.Of(value: tangent, context: context, key: key))
+                    .Bind(tangent => Vectors.Direction.Of(value: tangent, context: context, key: key))
                     .Bind(direction => direction.Project<TOut>(key: key)),
                 _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(SupportProjection), outputType: typeof(TOut))),
             },
@@ -90,16 +90,16 @@ public abstract partial record VectorIntent {
     public Fin<TOut> Project<TOut>(Context context, Op op) => Switch(
         state: (Context: context, Key: op),
         axisCase: static (state, axis) =>
-            from direction in Rasm.Vectors.Direction.Of(value: axis.Value.Of(frame: axis.Frame), context: state.Context, key: state.Key)
+            from direction in Vectors.Direction.Of(value: axis.Value.Of(frame: axis.Frame), context: state.Context, key: state.Key)
             from output in direction.Project<TOut>(key: state.Key)
             select output,
         directionCase: static (state, intent) =>
-            from direction in Rasm.Vectors.Direction.Of(value: intent.Value, context: state.Context, key: state.Key)
+            from direction in Vectors.Direction.Of(value: intent.Value, context: state.Context, key: state.Key)
             from output in direction.Project<TOut>(key: state.Key)
             select output,
         axesCase: static (state, intent) =>
             from axes in intent.Values.IfNone(SignedAxis.Cardinal(planar: intent.Planar).Map(static axis => axis.World))
-                .TraverseM(axis => Rasm.Vectors.Direction.Of(value: axis, context: state.Context, key: state.Key).Map(static direction => direction.Value))
+                .TraverseM(axis => Vectors.Direction.Of(value: axis, context: state.Context, key: state.Key).Map(static direction => direction.Value))
                 .As()
             from _ in guard(!axes.IsEmpty, state.Key.InvalidInput())
             from output in typeof(TOut) == typeof(Seq<Vector3d>)
@@ -134,7 +134,7 @@ public abstract partial record VectorIntent {
         bounceCase: static (state, intent) =>
             from hit in intent.Surface.Closest(sample: intent.Sample, key: state.Key)
             from rawNormal in hit.Normal.ToFin(Fail: state.Key.InvalidResult())
-            from normal in Rasm.Vectors.Direction.Of(value: rawNormal, context: state.Context, key: state.Key)
+            from normal in Vectors.Direction.Of(value: rawNormal, context: state.Context, key: state.Key)
             from reflected in intent.Policy.Apply(incident: intent.Incident, normal: normal, key: state.Key)
             from output in reflected.Project<TOut>(key: state.Key)
             select output,

@@ -1,10 +1,7 @@
 using System.Runtime.InteropServices;
 using Eto.Drawing;
-using Foundation.CSharp.Analyzers.Contracts;
-using Grasshopper2.Components;
 using Grasshopper2.Doc;
 using Grasshopper2.Extensions;
-using Grasshopper2.Parameters;
 using Grasshopper2.UI.Canvas;
 using Grasshopper2.Undo.Actions;
 using GhDocument = Grasshopper2.Doc.Document;
@@ -162,17 +159,17 @@ internal static partial class Layout {
             LayoutOp.MeasureCase measure => Measure(scope: measure.Scope),
             LayoutOp.ArrangeCase a => Arrange(arrangement: a.Arrangement).Map(delta => (LayoutResult)new LayoutResult.MutationResult(Delta: delta)),
             LayoutOp.SnapCase s => Snap(probe: s.Probe).Map(snap => (LayoutResult)new LayoutResult.SnapResult(Snapshot: snap)),
-            _ => GhUi.Document<LayoutResult>(run: _ => Fin.Fail<LayoutResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Dispatch)), detail: "unknown layout op"))),
+            _ => GhUi.Document(run: _ => Fin.Fail<LayoutResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Dispatch)), detail: "unknown layout op"))),
         };
 
     private static GrasshopperUiIntent<LayoutResult> Measure(LayoutMeasure scope) =>
         Optional(scope)
             .Map(static valid => valid.Switch(
                 selectionCase: static _ => Selection().Map(snapshots => (LayoutResult)new LayoutResult.SnapshotsResult(Snapshots: snapshots)),
-                objectsCase: static o => GhUi.Document<LayoutResult>(run: ctx => o.Ids.TraverseM(id => Snapshot(id: id).Run(scope: ctx))
+                objectsCase: static o => GhUi.Document(run: ctx => o.Ids.TraverseM(id => Snapshot(id: id).Run(scope: ctx))
                     .Map(snapshots => (LayoutResult)new LayoutResult.SnapshotsResult(Snapshots: snapshots))
                     .As())))
-            .IfNone(GhUi.Document<LayoutResult>(run: _ => Fin.Fail<LayoutResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Measure)), detail: "layout measure is required"))));
+            .IfNone(GhUi.Document(run: _ => Fin.Fail<LayoutResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Measure)), detail: "layout measure is required"))));
 
     internal static GrasshopperUiIntent<Snapshot<LayoutArrangeDelta>> Arrange(LayoutArrangement arrangement) =>
         arrangement switch {
@@ -186,19 +183,19 @@ internal static partial class Layout {
                 Align(left: align.Left, right: align.Right, fix: align.Fix)
                     .Map(delta => delta.Map(payload => new LayoutArrangeDelta(Moves: Seq(payload)))),
             LayoutArrangement.DistributeCase distribute => Distribute(axis: distribute.Axis, gap: distribute.Gap, ids: [.. distribute.Ids]),
-            _ => GhUi.Document<Snapshot<LayoutArrangeDelta>>(run: _ => Fin.Fail<Snapshot<LayoutArrangeDelta>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Arrange)), detail: "unknown layout arrangement"))),
+            _ => GhUi.Document(run: _ => Fin.Fail<Snapshot<LayoutArrangeDelta>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Arrange)), detail: "unknown layout arrangement"))),
         };
 
     internal static GrasshopperUiIntent<LayoutSnapshot> Snapshot(Guid id) =>
-        GhUi.Document<LayoutSnapshot>(run: scope =>
+        GhUi.Document(run: scope =>
             ObjectOf(scope: scope, id: id).Map(obj => SnapshotOf(attributes: obj.Attributes)));
 
     internal static GrasshopperUiIntent<Seq<LayoutSnapshot>> Selection() =>
-        GhUi.Document<Seq<LayoutSnapshot>>(run: scope =>
+        GhUi.Document(run: scope =>
             scope.NeedObjects().Map(objs => toSeq(objs.SelectedObjects.Select(o => SnapshotOf(attributes: o.Attributes)))));
 
     internal static GrasshopperUiIntent<Snapshot<LayoutMoveDelta>> Move(Guid id, float dx, float dy, bool snap = true) =>
-        GrasshopperUi.Mutate<LayoutMoveDelta>(
+        GrasshopperUi.Mutate(
             op: Op.Of(name: nameof(Move)),
             repaint: RepaintRequest.Object(id: id),
             undo: PivotUndo(noun: "Move", id: id),
@@ -210,7 +207,7 @@ internal static partial class Layout {
                         ApplyMove(obj: obj, document: doc, dx: delta.Dx, dy: delta.Dy, snap: snap)))));
 
     internal static GrasshopperUiIntent<Snapshot<LayoutMoveDelta>> Place(Guid id, PointF pivot) =>
-        GrasshopperUi.Mutate<LayoutMoveDelta>(
+        GrasshopperUi.Mutate(
             op: Op.Of(name: nameof(Place)),
             repaint: RepaintRequest.Object(id: id),
             undo: PivotUndo(noun: "Place", id: id),
@@ -224,7 +221,7 @@ internal static partial class Layout {
                 select ApplyMove(obj: obj, document: doc, dx: valid.X - before.Pivot.X, dy: valid.Y - before.Pivot.Y, snap: false));
 
     internal static GrasshopperUiIntent<Snapshot<LayoutMoveDelta>> Align(Guid left, Guid right, OCD.Fixed fix = OCD.Fixed.None) =>
-        GrasshopperUi.Mutate<LayoutMoveDelta>(
+        GrasshopperUi.Mutate(
             op: Op.Of(name: nameof(Align)),
             repaint: RepaintRequest.Canvas,
             undo: UndoStrategy.Manual(record: s => s.Objects.Match(
@@ -245,7 +242,7 @@ internal static partial class Layout {
                 select new LayoutMoveDelta(ObjectId: right, Dx: after.Pivot.X - before.Pivot.X, Dy: after.Pivot.Y - before.Pivot.Y, After: after, Snap: Option<SnappingSnapshot>.None));
 
     internal static GrasshopperUiIntent<Snapshot<LayoutArrangeDelta>> Distribute(LayoutAxis axis, float gap, params Guid[] ids) =>
-        GhUi.Document<Snapshot<LayoutArrangeDelta>>(
+        GhUi.Document(
             repaint: RepaintRequest.Canvas,
             run: scope => Optional(ids)
                 .Filter(static values => values.Length >= 2)
@@ -261,13 +258,13 @@ internal static partial class Layout {
                             .Filter(static values => values.Count >= 2)
                             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Distribute)), detail: "fewer than 2 supplied ids resolved to document objects"))
                             .Bind(_ => moves.TraverseM(m => Move(id: m.Id, dx: m.Dx, dy: m.Dy, snap: false).Run(scope: scoped).Map(static s => s.Payload)).As())
-                            .Bind(deltas => bag.Commit(document: doc).Map(_ => global::Rasm.Grasshopper.UI.Snapshot.Of<LayoutArrangeDelta>(
+                            .Bind(deltas => bag.Commit(document: doc).Map(_ => UI.Snapshot.Of(
                                 payload: new LayoutArrangeDelta(Moves: deltas),
                                 ownerId: Some(doc.Hash))));
                     })))));
 
     internal static GrasshopperUiIntent<Option<SnappingSnapshot>> Snap(SnapProbe probe) =>
-        GhUi.Document<Option<SnappingSnapshot>>(run: scope =>
+        GhUi.Document(run: scope =>
             Optional(probe)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Snap)), detail: "snap probe is required"))
                 .Bind(valid => valid switch {
@@ -400,14 +397,14 @@ internal static partial class Layout {
     private readonly record struct LayoutAlignmentCase(
         Func<Type, Type, bool> Supports,
         Func<IDocumentObject, IDocumentObject, OCD.Fixed, Fin<Unit>> Align) {
-        internal static LayoutAlignmentCase Pair<TL, TR>(System.Action<TL, TR, OCD.Fixed> align)
+        internal static LayoutAlignmentCase Pair<TL, TR>(Action<TL, TR, OCD.Fixed> align)
             where TL : class
             where TR : class =>
             new(
                 Supports: static (l, r) => typeof(TL).IsAssignableFrom(c: l) && typeof(TR).IsAssignableFrom(c: r),
                 Align: (a, b, fix) => (a, b) switch {
                     (TL leftCast, TR rightCast) =>
-                        Try.lift<Unit>(f: () => { align(arg1: leftCast, arg2: rightCast, arg3: fix); return unit; })
+                        Try.lift(f: () => { align(arg1: leftCast, arg2: rightCast, arg3: fix); return unit; })
                             .Run()
                             .MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: "Align"), detail: $"OCD.AlignObjects threw for ({typeof(TL).Name}, {typeof(TR).Name})")),
                     _ => Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: "Align"), detail: $"type mismatch")),

@@ -115,7 +115,7 @@ public static partial class Analyze {
             key: key, state: (Key: key, Aspect: aspect, Project: project), requiresContext: true,
             evaluator: static (state, geometry) =>
                 from runtime in Env.EnvAsks
-                from kind in ((object)geometry).KindOf(context: runtime.Context).ToEff()
+                from kind in geometry.KindOf(context: runtime.Context).ToEff()
                 let feature = state.Aspect.Feature(topology: kind.Topology)
                 from curves in CurveProjections(geometry: geometry, aspect: state.Aspect, feature: feature, context: runtime.Context, op: state.Key, cancel: runtime.Cancellation).ToEff()
                 from chosen in state.Aspect.Select(curves: curves).ToEff()
@@ -123,31 +123,31 @@ public static partial class Analyze {
                 select result).As<TGeometry, TOut>(key: key);
     internal static Fin<Seq<TopologyProjection>> CurveProjections<TGeometry>(TGeometry geometry, Curves aspect, CurveFeature feature, Context context, Op op, CancellationToken cancel) where TGeometry : notnull =>
         Optional(geometry).ToFin(op.InvalidInput()).Bind(g => (g, aspect) switch {
-            (Curve or Line or Polyline or Circle or Arc or Ellipse, Analysis.Curves.EdgesCase { Kind.Case: null or CurveFeature.Boundary } or Analysis.Curves.AtCase or Analysis.Curves.SegmentsCase or Analysis.Curves.FormCase) => CurveInput(source: g, aspect: aspect, feature: feature, op: op),
-            (Brep brep, Analysis.Curves.EdgesCase { Kind.Case: null or CurveFeature.Boundary or CurveFeature.NakedOuter or CurveFeature.NakedInner or CurveFeature.Interior or CurveFeature.NonManifold } or Analysis.Curves.AtCase or Analysis.Curves.FormCase) =>
+            (Curve or Line or Polyline or Circle or Arc or Ellipse, Curves.EdgesCase { Kind.Case: null or CurveFeature.Boundary } or Analysis.Curves.AtCase or Analysis.Curves.SegmentsCase or Analysis.Curves.FormCase) => CurveInput(source: g, aspect: aspect, feature: feature, op: op),
+            (Brep brep, Curves.EdgesCase { Kind.Case: null or CurveFeature.Boundary or CurveFeature.NakedOuter or CurveFeature.NakedInner or CurveFeature.Interior or CurveFeature.NonManifold } or Analysis.Curves.AtCase or Analysis.Curves.FormCase) =>
                 SelectTopologyFeatures(source: brep.Edges, selector: aspect,
                     describe: static edge => new EdgeDescriptor.OfBrep(Valence: edge.Valence, Loops: toSeq(edge.TrimIndices()).Choose(t => Optional(edge.Brep.Trims[t].Loop).Map(static loop => loop.LoopType))),
                     project: edge => Optional(edge.DuplicateCurve()).Map(c => TopologyProjection.Of(c, feature, new ComponentIndex(ComponentIndexType.BrepEdge, edge.EdgeIndex)))),
-            (Brep brep, Analysis.Curves.EdgesCase { Kind.Case: CurveFeature.OuterLoop or CurveFeature.InnerLoop }) =>
+            (Brep brep, Curves.EdgesCase { Kind.Case: CurveFeature.OuterLoop or CurveFeature.InnerLoop }) =>
                 SelectTopologyFeatures(source: brep.Loops, selector: aspect,
                     describe: static loop => new EdgeDescriptor.OfLoop(LoopType: loop.LoopType),
                     project: loop => Optional(loop.To3dCurve()).Map(c => TopologyProjection.Of(c, feature, new ComponentIndex(ComponentIndexType.BrepLoop, loop.LoopIndex)))),
-            (Brep brep, Analysis.Curves.IsoCase iso) => toSeq(brep.Faces).TraverseM(f => IsoSeq(surface: f, iso: iso.Direction, normalized: iso.Normalized, op: op).Map(s => s.Map(c => TopologyProjection.Of(c, feature, new ComponentIndex(ComponentIndexType.BrepFace, f.FaceIndex))))).As().Map(static nested => nested.Bind(static seq => seq)),
-            (BrepFace face, Analysis.Curves.EdgesCase { Kind.Case: null or CurveFeature.Boundary } or Analysis.Curves.AtCase or Analysis.Curves.FormCase) =>
+            (Brep brep, Curves.IsoCase iso) => toSeq(brep.Faces).TraverseM(f => IsoSeq(surface: f, iso: iso.Direction, normalized: iso.Normalized, op: op).Map(s => s.Map(c => TopologyProjection.Of(c, feature, new ComponentIndex(ComponentIndexType.BrepFace, f.FaceIndex))))).As().Map(static nested => nested.Bind(static seq => seq)),
+            (BrepFace face, Curves.EdgesCase { Kind.Case: null or CurveFeature.Boundary } or Analysis.Curves.AtCase or Analysis.Curves.FormCase) =>
                 FaceBoundaryEdgesOf(face: face, selector: aspect, feature: feature),
-            (Mesh mesh, Analysis.Curves.EdgesCase { Kind.Case: null or CurveFeature.Boundary or CurveFeature.Interior or CurveFeature.NonManifold } or Analysis.Curves.AtCase or Analysis.Curves.FormCase) =>
+            (Mesh mesh, Curves.EdgesCase { Kind.Case: null or CurveFeature.Boundary or CurveFeature.Interior or CurveFeature.NonManifold } or Analysis.Curves.AtCase or Analysis.Curves.FormCase) =>
                 SelectTopologyFeatures(source: Enumerable.Range(start: 0, count: mesh.TopologyEdges.Count), selector: aspect,
                     describe: i => new EdgeDescriptor.OfMesh(ConnectedFaces: mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: i).Length),
                     project: i => Some(TopologyProjection.Of(curve: mesh.TopologyEdges.EdgeLine(topologyEdgeIndex: i).ToNurbsCurve(), feature: feature, source: new ComponentIndex(ComponentIndexType.MeshTopologyEdge, i)))),
-            (Surface surface, Analysis.Curves.IsoCase iso) => IsoSeq(surface: surface, iso: iso.Direction, normalized: iso.Normalized, op: op).Map(seq => seq.Map(c => TopologyProjection.Of(c, feature, new ComponentIndex(ComponentIndexType.NoType, 0)))),
-            (object surfaceLike, Analysis.Curves.IsoCase iso) when GeometryKernel.CanSurfaceForm(type: surfaceLike.GetType()) =>
+            (Surface surface, Curves.IsoCase iso) => IsoSeq(surface: surface, iso: iso.Direction, normalized: iso.Normalized, op: op).Map(seq => seq.Map(c => TopologyProjection.Of(c, feature, new ComponentIndex(ComponentIndexType.NoType, 0)))),
+            (object surfaceLike, Curves.IsoCase iso) when GeometryKernel.CanSurfaceForm(type: surfaceLike.GetType()) =>
                 GeometryKernel.SurfaceForm(source: surfaceLike, op: op).Bind(lease => lease.Use(surface => IsoSeq(surface: surface, iso: iso.Direction, normalized: iso.Normalized, op: op).Map(seq => seq.Map(c => TopologyProjection.Of(c, feature, new ComponentIndex(ComponentIndexType.NoType, 0)))))),
-            (object brepLike, Analysis.Curves.EdgesCase { Kind.Case: null or CurveFeature.Boundary } or Analysis.Curves.AtCase or Analysis.Curves.FormCase) when GeometryKernel.CanCoerce(source: brepLike.GetType(), target: typeof(Brep)) =>
+            (object brepLike, Curves.EdgesCase { Kind.Case: null or CurveFeature.Boundary } or Analysis.Curves.AtCase or Analysis.Curves.FormCase) when GeometryKernel.CanCoerce(source: brepLike.GetType(), target: typeof(Brep)) =>
                 GeometryKernel.BrepForm(source: brepLike, op: op).Bind(lease => lease.Use(brep => SelectTopologyFeatures(source: brep.Edges, selector: aspect,
                     describe: static edge => new EdgeDescriptor.OfBrep(Valence: edge.Valence, Loops: toSeq(edge.TrimIndices()).Choose(t => Optional(edge.Brep.Trims[t].Loop).Map(static loop => loop.LoopType))),
                     project: edge => Optional(edge.DuplicateCurve()).Map(c => TopologyProjection.Of(c, feature, new ComponentIndex(ComponentIndexType.BrepEdge, edge.EdgeIndex)))))),
-            (SubD subd, Analysis.Curves.EdgesCase { Kind.Case: null } or Analysis.Curves.AtCase or Analysis.Curves.SegmentsCase or Analysis.Curves.FormCase) => SubDEdges(subd: subd, feature: feature),
-            (GeometryBase native, Analysis.Curves.SilhouetteCase silhouette) => SilhouettesOf(geometry: native, silhouette: silhouette, feature: feature, context: context, op: op, cancel: cancel),
+            (SubD subd, Curves.EdgesCase { Kind.Case: null } or Analysis.Curves.AtCase or Analysis.Curves.SegmentsCase or Analysis.Curves.FormCase) => SubDEdges(subd: subd, feature: feature),
+            (GeometryBase native, Curves.SilhouetteCase silhouette) => SilhouettesOf(geometry: native, silhouette: silhouette, feature: feature, context: context, op: op, cancel: cancel),
             _ => Fin.Fail<Seq<TopologyProjection>>(op.Unsupported(g.GetType(), typeof(Curve))),
         });
     internal static Fin<Seq<Curve>> IsoSeq(Surface surface, IsoStatus iso, double normalized, Op op) => (iso, normalized is >= 0.0 and <= 1.0) switch {
@@ -163,9 +163,9 @@ public static partial class Analyze {
     };
     private static Fin<Seq<TopologyProjection>> CurveInput(object source, Curves aspect, CurveFeature feature, Op op) =>
         GeometryKernel.CurveForm(source: source, op: op).Bind(lease => lease.Use(native => aspect switch {
-            Analysis.Curves.EdgesCase { Kind.Case: null or CurveFeature.Boundary } when native.TryGetPolyline(polyline: out Polyline polyline) && polyline.SegmentCount > 0 =>
+            Curves.EdgesCase { Kind.Case: null or CurveFeature.Boundary } when native.TryGetPolyline(polyline: out Polyline polyline) && polyline.SegmentCount > 0 =>
                 Fin.Succ(toSeq(polyline.GetSegments().Select((segment, i) => TopologyProjection.Of(new LineCurve(segment), feature, new ComponentIndex(ComponentIndexType.PolycurveSegment, i))))),
-            Analysis.Curves.SegmentsCase segments => Optional(segments.Smooth ? native.GetSubCurves() : native.DuplicateSegments()) switch {
+            Curves.SegmentsCase segments => Optional(segments.Smooth ? native.GetSubCurves() : native.DuplicateSegments()) switch {
                 Option<Curve[]> opt when opt.Case is Curve[] arr && arr.Length > 0 => Fin.Succ(toSeq(arr.Select((cc, i) => TopologyProjection.Of(cc, feature, new ComponentIndex(ComponentIndexType.PolycurveSegment, i))))),
                 _ => Optional(native.DuplicateCurve()).ToFin(op.InvalidResult()).Map(d => Seq(TopologyProjection.Of(d, feature, new ComponentIndex(ComponentIndexType.PolycurveSegment, 0)))),
             },
@@ -175,7 +175,7 @@ public static partial class Analyze {
         Fin.Succ(toSeq(source).Choose(item => selector.Matches(descriptor: describe(arg: item)) ? project(arg: item) : Option<TopologyProjection>.None));
     private static Fin<Seq<TopologyProjection>> FaceBoundaryEdgesOf(BrepFace face, Curves selector, CurveFeature feature) =>
         Fin.Succ(toSeq(face.Loops).Bind(loop => toSeq(loop.Trims).Choose(trim => (selector, trim.Edge) switch {
-            (Analysis.Curves.EdgesCase { Kind.Case: null or CurveFeature.Boundary } or Analysis.Curves.AtCase or Analysis.Curves.FormCase, BrepEdge edge) =>
+            (Curves.EdgesCase { Kind.Case: null or CurveFeature.Boundary } or Analysis.Curves.AtCase or Analysis.Curves.FormCase, BrepEdge edge) =>
                 Optional(edge.DuplicateCurve()).Map(curve => TopologyProjection.Of(curve: curve, feature: feature, source: new ComponentIndex(ComponentIndexType.BrepEdge, edge.EdgeIndex))),
             _ => Option<TopologyProjection>.None,
         })));
@@ -201,7 +201,7 @@ public static partial class Analyze {
                         Fin<Seq<TopologyProjection>> result = Optional(silhouette.DraftAngle.Case switch {
                             double a => Silhouette.ComputeDraftCurve(shape.Geometry, a, direction, context.Absolute.Value, context.Angle.Value, cancel),
                             _ => Silhouette.Compute(shape.Geometry, SilhouetteType.Projecting | SilhouetteType.TangentProjects | SilhouetteType.Tangent | SilhouetteType.Crease | SilhouetteType.Boundary, direction, context.Absolute.Value, context.Angle.Value, [], cancel),
-                        }).ToFin(cancel.IsCancellationRequested ? (Error)new Fault.Cancelled() : op.InvalidResult())
+                        }).ToFin(cancel.IsCancellationRequested ? new Fault.Cancelled() : op.InvalidResult())
                             .Map(arr => toSeq(arr).Map(sil => TopologyProjection.Of(sil.Curve, feature, sil.GeometryComponentIndex)));
                         _ = shape.Owned.Iter(static geom => geom.Dispose());
                         return result;

@@ -52,7 +52,7 @@ public static partial class Analyze {
         state.Faces.IsEmpty switch {
             true => Fin.Succ(Seq<TopologyProjection>()),
             false => from vector in Vector.Project<Vector3d>(intent: VectorIntent.Direction(value: axis), context: state.Runtime, key: state.Key)
-                     from ranked in state.Faces.Traverse(face => face.As<BrepFace>().ToFin(state.Key.InvalidInput()).Bind(bf => Analyze.CentroidOf(geometry: bf, context: state.Runtime, op: state.Key)).Map(point => (face, Score: new Vector3d(x: point.X, y: point.Y, z: point.Z) * vector))).As()
+                     from ranked in state.Faces.Traverse(face => face.As<BrepFace>().ToFin(state.Key.InvalidInput()).Bind(bf => CentroidOf(geometry: bf, context: state.Runtime, op: state.Key)).Map(point => (face, Score: new Vector3d(x: point.X, y: point.Y, z: point.Z) * vector))).As()
                      select Stat.Extrema(items: ranked, projection: static item => item.Score, tolerance: state.Runtime.Absolute.Value, direction: direction).Map(static item => item.face),
         };
     internal static Fin<Plane> FrameAtFaceCentroid(BrepFace face, Context context, Op op) =>

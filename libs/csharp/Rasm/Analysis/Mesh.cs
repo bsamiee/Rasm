@@ -37,7 +37,7 @@ public partial record Meshes : IAspect {
     private static readonly Op OutlineKey = Op.Of(name: "MeshOutline");
     public Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         samplesCase: static s => Analyze.MeshLift<TGeometry, TOut, MeshSample>(key: SamplesKey, source: Analyze.MeshSamples(group: s.Group)),
-        faceQualityCase: static fq => fq.Metric.Equals(Analysis.MeshMetric.None)
+        faceQualityCase: static fq => fq.Metric.Equals(MeshMetric.None)
             ? Analysis.Operation<TGeometry, TOut>.Reject(key: FaceQualityKey, fault: FaceQualityKey.InvalidInput())
             : typeof(TOut) switch {
                 Type output when output == typeof(MeshMetricSample) => Analyze.MeshLift<TGeometry, TOut, MeshMetricSample>(key: FaceQualityKey, source: Analyze.MeshMetricSamplesOp(metric: fq.Metric, key: FaceQualityKey)),

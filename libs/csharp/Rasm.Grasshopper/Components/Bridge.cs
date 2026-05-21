@@ -30,7 +30,7 @@ public readonly record struct Shape {
             .ToFin(new MissingPortInput(Port: nameof(Shape), Hint: Accepted))
             .Bind(raw => raw switch {
                 Shape shape => Fin.Succ(shape),
-                object candidate when Rasm.Domain.Kind.Of(type: candidate.GetType()).IsSome => Op.Create(value: nameof(Shape)).AcceptValue(value: candidate).Map(valid => new Shape(inner: valid, owned: owned.Filter(owner => ReferenceEquals(objA: owner, objB: valid)))),
+                object candidate when Domain.Kind.Of(type: candidate.GetType()).IsSome => Op.Create(value: nameof(Shape)).AcceptValue(value: candidate).Map(valid => new Shape(inner: valid, owned: owned.Filter(owner => ReferenceEquals(objA: owner, objB: valid)))),
                 object candidate => Fin.Fail<Shape>(new UnsupportedSource(Port: nameof(Shape), SourceType: candidate.GetType(), Hint: Accepted)),
             });
     internal static Option<Shape> Converted(object raw, GeometryBase? value) =>
@@ -76,17 +76,17 @@ internal readonly record struct Flow<T>(Pear<T> Pear, Option<Site> Site) {
 
 // --- [ERRORS] -----------------------------------------------------------------------------
 [BoundaryAdapter]
-internal sealed record MissingPortInput(string Port, string? Hint = null) : Rasm.Domain.Expected {
+internal sealed record MissingPortInput(string Port, string? Hint = null) : Domain.Expected {
     public override string Message => Hint switch { string h => $"{Port} input is required. Connect: {h}.", _ => $"{Port} input is required." };
     public override string Category => "Input";
 }
 [BoundaryAdapter]
-internal sealed record UnsupportedSource(string Port, Type SourceType, string? Hint = null) : Rasm.Domain.Expected {
+internal sealed record UnsupportedSource(string Port, Type SourceType, string? Hint = null) : Domain.Expected {
     public override string Message => Hint switch { string h => $"{Port} input type '{SourceType.Name}' is not supported. Connect: {h}.", _ => $"{Port} input type '{SourceType.Name}' is not supported." };
     public override string Category => "Input";
 }
 [BoundaryAdapter]
-internal sealed record UnsupportedAccess(string Access) : Rasm.Domain.Expected {
+internal sealed record UnsupportedAccess(string Access) : Domain.Expected {
     public override string Message => $"Unsupported input access: {Access}.";
     public override string Category => "Access";
 }
@@ -136,15 +136,15 @@ internal static class Bridge {
         };
     private static Fin<Seq<Flow<TVal>>> ReadNative<TVal>(IDataAccess access, int slot, Port port) =>
         port.Access switch {
-            Access.Item => access.GetPears<TVal>(index: slot, pears: out Pear<TVal>[] pears) switch {
+            Access.Item => access.GetPears(index: slot, pears: out Pear<TVal>[] pears) switch {
                 true => FlowPears(port: port, pears: pears.Select(static pear => (Pear: pear, Site: Option<Site>.None))),
                 _ => MissingFlow<TVal>(port: port),
             },
-            Access.Twig => access.GetTwig<TVal>(index: slot, twig: out Twig<TVal> twig) switch {
+            Access.Twig => access.GetTwig(index: slot, twig: out Twig<TVal> twig) switch {
                 true => FlowPears(port: port, pears: twig.Pears.Select(static pear => (Pear: pear, Site: Option<Site>.None))),
                 _ => MissingFlow<TVal>(port: port),
             },
-            Access.Tree => access.GetTree<TVal>(index: slot, tree: out Tree<TVal> tree) switch {
+            Access.Tree => access.GetTree(index: slot, tree: out Tree<TVal> tree) switch {
                 true => FlowPears(port: port, pears: tree.EnumerateLeaves().Select(static leaf => (leaf.Pear, Site: Some(leaf.Site)))),
                 _ => MissingFlow<TVal>(port: port),
             },

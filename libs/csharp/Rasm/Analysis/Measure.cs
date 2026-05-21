@@ -162,7 +162,7 @@ public static partial class Analyze {
     }
     internal static Operation<TGeometry, TOut> Length<TGeometry, TOut>() where TGeometry : notnull {
         Op key = Op.Of();
-        Option<Requirement> requirement = (typeof(TOut) == typeof(double), typeof(TGeometry), Rasm.Domain.Kind.Of(typeof(TGeometry)).Case) switch {
+        Option<Requirement> requirement = (typeof(TOut) == typeof(double), typeof(TGeometry), Domain.Kind.Of(typeof(TGeometry)).Case) switch {
             (true, Type geometry, _) when geometry == typeof(object) || geometry == typeof(GeometryBase) => Some(Requirement.CurveLength),
             (true, _, Kind kind) when kind.Topology == Topology.Curve => Some(Requirement.CurveLength),
             _ => Option<Requirement>.None,

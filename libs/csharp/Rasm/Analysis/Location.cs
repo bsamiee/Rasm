@@ -38,17 +38,17 @@ internal partial record CurvatureAggregation {
 // --- [MODELS] -----------------------------------------------------------------------------
 [Union]
 public partial record Location : IAspect {
-    public sealed record AtCase(Locator Locator, LocationValue Value) : Location;
-    public sealed record CurvatureSamplesCase(int Count, CurvatureMode Mode) : Location; public sealed record CurvatureExtremaCase(int Count, CurvatureMode Mode, ExtremumDirection Direction) : Location;
-    public sealed record DivideCase(Division By) : Location; public sealed record OrientationCase(Plane Plane) : Location; public sealed record ContainsCase(Point3d Probe, Plane Frame) : Location; public sealed record ShortPathCase(Point2d Start, Point2d End) : Location;
-    public static Location At(Locator at, LocationValue value) => new AtCase(Locator: at, Value: value);
-    public static Location Curvature(int count, CurvatureMode mode) => new CurvatureSamplesCase(Count: count, Mode: mode);
-    public static Location CurvatureExtrema(int count, CurvatureMode mode, ExtremumDirection direction) => new CurvatureExtremaCase(Count: count, Mode: mode, Direction: direction);
-    public static Location DivideByCount(int count) => new DivideCase(By: new Division.ByCount(Count: count));
-    public static Location DivideByLength(double length) => new DivideCase(By: new Division.ByLength(Length: length));
-    public static Location Orientation(Plane plane) => new OrientationCase(Plane: plane);
-    public static Location Contains(Point3d point, Plane plane) => new ContainsCase(Probe: point, Frame: plane);
-    public static Location ShortPath(Point2d start, Point2d end) => new ShortPathCase(Start: start, End: end);
+    public sealed record AtCase(Locator Locator, LocationValue Value) : LocationAspect;
+    public sealed record CurvatureSamplesCase(int Count, CurvatureMode Mode) : LocationAspect; public sealed record CurvatureExtremaCase(int Count, CurvatureMode Mode, ExtremumDirection Direction) : LocationAspect;
+    public sealed record DivideCase(Division By) : LocationAspect; public sealed record OrientationCase(Plane Plane) : LocationAspect; public sealed record ContainsCase(Point3d Probe, Plane Frame) : LocationAspect; public sealed record ShortPathCase(Point2d Start, Point2d End) : LocationAspect;
+    public static LocationAspect At(Locator at, LocationValue value) => new AtCase(Locator: at, Value: value);
+    public static LocationAspect Curvature(int count, CurvatureMode mode) => new CurvatureSamplesCase(Count: count, Mode: mode);
+    public static LocationAspect CurvatureExtrema(int count, CurvatureMode mode, ExtremumDirection direction) => new CurvatureExtremaCase(Count: count, Mode: mode, Direction: direction);
+    public static LocationAspect DivideByCount(int count) => new DivideCase(By: new Division.ByCount(Count: count));
+    public static LocationAspect DivideByLength(double length) => new DivideCase(By: new Division.ByLength(Length: length));
+    public static LocationAspect Orientation(Plane plane) => new OrientationCase(Plane: plane);
+    public static LocationAspect Contains(Point3d point, Plane plane) => new ContainsCase(Probe: point, Frame: plane);
+    public static LocationAspect ShortPath(Point2d start, Point2d end) => new ShortPathCase(Start: start, End: end);
     internal static readonly Op TangentKey = Op.Of(name: "Tangent"); internal static readonly Op PointAtKey = Op.Of(name: "PointAt");
     internal static readonly Op ClosestKey = Op.Of(name: "Closest"); internal static readonly Op ParameterAtKey = Op.Of(name: "ParameterAt");
     internal static readonly Op FrameAtKey = Op.Of(name: "FrameAt"); internal static readonly Op PerpendicularFrameAtKey = Op.Of(name: "PerpendicularFrameAt"); internal static readonly Op CurvatureAtKey = Op.Of(name: "CurvatureAt"); internal static readonly Op DerivativeAtKey = Op.Of(name: "DerivativeAt");

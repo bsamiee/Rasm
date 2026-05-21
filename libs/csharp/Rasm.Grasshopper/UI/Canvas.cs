@@ -1,9 +1,6 @@
-using System.IO;
 using System.Runtime.InteropServices;
 using Eto.Drawing;
-using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Doc;
-using Grasshopper2.Parameters;
 using Grasshopper2.UI.Canvas;
 using Grasshopper2.UI.Flex;
 using GhCanvas = Grasshopper2.UI.Canvas.Canvas;

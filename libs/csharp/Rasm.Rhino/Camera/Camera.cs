@@ -44,8 +44,8 @@ public sealed class RhinoCamera(RhinoDoc document) {
         from result in In(viewportId: viewportId, use: valid.Apply)
         select result;
 
-    public static Rasm.Rhino.UI.UiIntent<T> Intent<T>(CameraOp<T> operation, Option<Guid> viewportId = default) =>
-        Rasm.Rhino.UI.UiIntent.Operation(run: (doc, _) => new RhinoCamera(document: doc).Run(operation: operation, viewportId: viewportId));
+    public static UI.UiIntent<T> Intent<T>(CameraOp<T> operation, Option<Guid> viewportId = default) =>
+        UI.UiIntent.Operation(run: (doc, _) => new RhinoCamera(document: doc).Run(operation: operation, viewportId: viewportId));
 
     internal static Fin<Unit> UnitResult(bool success, Op op) =>
         success switch {

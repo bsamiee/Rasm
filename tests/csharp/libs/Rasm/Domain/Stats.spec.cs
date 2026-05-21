@@ -52,25 +52,25 @@ public sealed class StatComputationLaws {
     public void MeanMatchesLinqAverage() =>
         Spec.Metamorphic(StatGens.NonEmptyFinite,
             path: static (Seq<double> xs) => Stat.Of(values: xs, key: StatGens.Key).Match(Succ: static s => s.Mean, Fail: static _ => double.NaN),
-            oracle: static (Seq<double> xs) => System.Linq.Enumerable.Average(xs.AsIterable()),
+            oracle: static (Seq<double> xs) => Enumerable.Average(xs.AsIterable()),
             eq: StatGens.Approx);
     [Fact]
     public void VarianceMatchesTextbookTwoPassFormula() =>
         Spec.Metamorphic(StatGens.NonEmptyFinite,
             path: static (Seq<double> xs) => Stat.Of(values: xs, key: StatGens.Key).Match(Succ: static s => s.Variance, Fail: static _ => double.NaN),
-            oracle: static (Seq<double> xs) => System.Linq.Enumerable.Average(xs.AsIterable().Select(x => (x - System.Linq.Enumerable.Average(xs.AsIterable())) * (x - System.Linq.Enumerable.Average(xs.AsIterable())))),
+            oracle: static (Seq<double> xs) => Enumerable.Average(xs.AsIterable().Select(x => (x - Enumerable.Average(xs.AsIterable())) * (x - Enumerable.Average(xs.AsIterable())))),
             eq: StatGens.Approx);
     [Fact]
     public void RmsMatchesDirectQuadraticMean() =>
         Spec.Metamorphic(StatGens.NonEmptyFinite,
             path: static (Seq<double> xs) => Stat.Of(values: xs, key: StatGens.Key).Match(Succ: static s => s.Rms, Fail: static _ => double.NaN),
-            oracle: static (Seq<double> xs) => Math.Sqrt(d: System.Linq.Enumerable.Average(xs.AsIterable().Select(static x => x * x))),
+            oracle: static (Seq<double> xs) => Math.Sqrt(d: Enumerable.Average(xs.AsIterable().Select(static x => x * x))),
             eq: StatGens.Approx);
     [Fact]
     public void ExtremaMatchLinqMinMax() =>
         Spec.ForAll(StatGens.NonEmptyFinite, xs => Spec.Succ(Stat.Of(values: xs, key: StatGens.Key), then: s => {
-            Assert.Equal(expected: System.Linq.Enumerable.Min(xs.AsIterable()), actual: s.Minimum);
-            Assert.Equal(expected: System.Linq.Enumerable.Max(xs.AsIterable()), actual: s.Maximum);
+            Assert.Equal(expected: Enumerable.Min(xs.AsIterable()), actual: s.Minimum);
+            Assert.Equal(expected: Enumerable.Max(xs.AsIterable()), actual: s.Maximum);
         }));
 }
 
@@ -79,7 +79,7 @@ public sealed class DistributionLaws {
     public void MedianMatchesSortedMiddleOracle() =>
         Spec.Metamorphic(StatGens.NonEmptyFinite,
             path: static (Seq<double> xs) => Distribution.Of(values: xs, percentiles: Seq<double>(), key: StatGens.Key).Match(Succ: static d => d.Median, Fail: static _ => double.NaN),
-            oracle: static (Seq<double> xs) => System.Linq.Enumerable.OrderBy(xs.AsIterable(), static v => v).ToArray() switch {
+            oracle: static (Seq<double> xs) => Enumerable.OrderBy(xs.AsIterable(), static v => v).ToArray() switch {
                 double[] sorted => sorted.Length % 2 == 1 ? sorted[sorted.Length / 2] : 0.5 * (sorted[(sorted.Length / 2) - 1] + sorted[sorted.Length / 2]),
             },
             eq: StatGens.Approx);

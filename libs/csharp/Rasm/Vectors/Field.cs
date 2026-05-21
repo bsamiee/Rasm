@@ -1,5 +1,3 @@
-using Foundation.CSharp.Analyzers.Contracts;
-
 namespace Rasm.Vectors;
 
 // --- [TYPES] ------------------------------------------------------------------------------

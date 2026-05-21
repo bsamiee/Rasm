@@ -14,35 +14,35 @@ public readonly record struct CameraSubject(
     Func<RhinoViewport, Fin<bool>> Visible) {
     public static CameraSubject Point(Point3d point) =>
         new(
-            Depth: viewport => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => point.IsValid switch {
+            Depth: viewport => UI.RhinoUi.Protect(valid: () => point.IsValid switch {
                 true => viewport.GetDepth(point: point, distance: out double distance) switch {
                     true => Fin.Succ(value: new CameraDepth(Near: distance, Far: distance)),
                     false => Fin.Fail<CameraDepth>(error: Op.Of(name: nameof(Point)).InvalidResult()),
                 },
                 false => Fin.Fail<CameraDepth>(error: Op.Of(name: nameof(Point)).InvalidInput()),
             }),
-            Visible: viewport => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => point.IsValid switch {
+            Visible: viewport => UI.RhinoUi.Protect(valid: () => point.IsValid switch {
                 true => Fin.Succ(value: viewport.IsVisible(point: point)),
                 false => Fin.Fail<bool>(error: Op.Of(name: nameof(Point)).InvalidInput()),
             }));
 
     public static CameraSubject Bounds(BoundingBox bounds) =>
         new(
-            Depth: viewport => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => bounds.IsValid switch {
+            Depth: viewport => UI.RhinoUi.Protect(valid: () => bounds.IsValid switch {
                 true => viewport.GetDepth(bbox: bounds, nearDistance: out double near, farDistance: out double far) switch {
                     true => Fin.Succ(value: new CameraDepth(Near: near, Far: far)),
                     false => Fin.Fail<CameraDepth>(error: Op.Of(name: nameof(Bounds)).InvalidResult()),
                 },
                 false => Fin.Fail<CameraDepth>(error: Op.Of(name: nameof(Bounds)).InvalidInput()),
             }),
-            Visible: viewport => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => bounds.IsValid switch {
+            Visible: viewport => UI.RhinoUi.Protect(valid: () => bounds.IsValid switch {
                 true => Fin.Succ(value: viewport.IsVisible(bbox: bounds)),
                 false => Fin.Fail<bool>(error: Op.Of(name: nameof(Bounds)).InvalidInput()),
             }));
 
     public static CameraSubject Sphere(Sphere sphere) =>
         new(
-            Depth: viewport => Rasm.Rhino.UI.RhinoUi.Protect(valid: () => sphere.IsValid switch {
+            Depth: viewport => UI.RhinoUi.Protect(valid: () => sphere.IsValid switch {
                 true => viewport.GetDepth(sphere: sphere, nearDistance: out double near, farDistance: out double far) switch {
                     true => Fin.Succ(value: new CameraDepth(Near: near, Far: far)),
                     false => Fin.Fail<CameraDepth>(error: Op.Of(name: nameof(Sphere)).InvalidResult()),
@@ -67,12 +67,12 @@ public readonly record struct CameraScope(
 
     public Fin<Transform> CoordinateTransform(CoordinateSystem sourceSystem, CoordinateSystem destinationSystem) {
         RhinoViewport viewport = Viewport;
-        return Rasm.Rhino.UI.RhinoUi.Protect(valid: () => Fin.Succ(value: viewport.GetTransform(sourceSystem: sourceSystem, destinationSystem: destinationSystem)));
+        return UI.RhinoUi.Protect(valid: () => Fin.Succ(value: viewport.GetTransform(sourceSystem: sourceSystem, destinationSystem: destinationSystem)));
     }
 
     public Fin<Line> FrustumLine(double screenX, double screenY) {
         RhinoViewport viewport = Viewport;
-        return Rasm.Rhino.UI.RhinoUi.Protect(valid: () => viewport.GetFrustumLine(screenX: screenX, screenY: screenY, worldLine: out Line line) switch {
+        return UI.RhinoUi.Protect(valid: () => viewport.GetFrustumLine(screenX: screenX, screenY: screenY, worldLine: out Line line) switch {
             true when line.IsValid && line != Line.Unset => Fin.Succ(value: line),
             _ => Fin.Fail<Line>(error: Op.Of(name: nameof(FrustumLine)).InvalidResult()),
         });
@@ -91,7 +91,7 @@ public readonly record struct CameraScope(
     public Fin<Unit> Redraw() {
         RhinoView view = View;
         Option<DetailViewObject> detail = Detail;
-        return Rasm.Rhino.UI.RhinoUi.Protect(valid: () =>
+        return UI.RhinoUi.Protect(valid: () =>
             detail.Case switch {
                 DetailViewObject value when !value.CommitViewportChanges() => Fin.Fail<Unit>(error: Op.Of(name: nameof(Redraw)).InvalidResult()),
                 _ => Fin.Succ(value: ((Func<Unit>)(() => { view.Redraw(); return unit; }))()),

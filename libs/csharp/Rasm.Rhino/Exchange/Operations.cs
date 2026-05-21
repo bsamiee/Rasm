@@ -61,7 +61,7 @@ public abstract partial record FileExchange {
     public sealed record Publish(FileEndpoint Target, FilePublish Spec) : FileExchange;
     public sealed record ArchiveRead(FileEndpoint Source, ArchiveProfile Profile) : FileExchange;
     public sealed record ArchiveExtract(FileEndpoint Source, FileEndpoint Target, ArchiveProfile Profile) : FileExchange;
-    public sealed record ArchiveUpdate(FileEndpoint Source, FileEndpoint Target, global::Rasm.Rhino.Exchange.ArchiveUpdate Update, ArchiveProfile Profile) : FileExchange;
+    public sealed record ArchiveUpdate(FileEndpoint Source, FileEndpoint Target, Exchange.ArchiveUpdate Update, ArchiveProfile Profile) : FileExchange;
 }
 
 [Union]
@@ -225,7 +225,7 @@ public static class FileOp {
             }).As()
         from pdf in Optional(FilePdf.Create()).ToFin(Fail: op.InvalidResult())
         from names in pages.TraverseM(page => AddPdfSheet(pdf: pdf, page: page.Page, sheet: page.Sheet, layers: publish.Layers, op: op)).As()
-        from _ in Try.lift<Unit>(f: () => { pdf.Write(filename: endpoint.Path); return unit; }).Run().MapFail(_ => op.InvalidResult())
+        from _ in Try.lift(f: () => { pdf.Write(filename: endpoint.Path); return unit; }).Run().MapFail(_ => op.InvalidResult())
         from __ in Optional(new IOFileInfo(fileName: endpoint.Path))
             .Filter(static info => info.Exists && info.Length > 0)
             .ToFin(Fail: op.InvalidResult())
@@ -277,7 +277,7 @@ public static class FileOp {
                         select document);
                 return opened.Bind(document => {
                     headless = document;
-                    return Rasm.Domain.Context.Of(doc: document).ToFin().Bind(domain => body.Apply(runtime: new FileRuntime(
+                    return Context.Of(doc: document).ToFin().Bind(domain => body.Apply(runtime: new FileRuntime(
                         Document: Some(document),
                         Mode: RunMode.Scripted,
                         Domain: Some(domain),
@@ -323,10 +323,10 @@ public static class FileOp {
             .MapFail(_ => op.InvalidResult())
             .Bind(static result => result);
 
-    private static Fin<(RhinoDoc Document, Rasm.Domain.Context Domain, DocumentEdit Edit)> Live(FileRuntime runtime, Op op) =>
+    private static Fin<(RhinoDoc Document, Context Domain, DocumentEdit Edit)> Live(FileRuntime runtime, Op op) =>
         (runtime.Document.Case, runtime.Domain.Case, runtime.Edit.Case) switch {
-            (RhinoDoc document, Rasm.Domain.Context domain, DocumentEdit edit) => Fin.Succ(value: (document, domain, edit)),
-            _ => Fin.Fail<(RhinoDoc Document, Rasm.Domain.Context Domain, DocumentEdit Edit)>(error: op.MissingContext()),
+            (RhinoDoc document, Context domain, DocumentEdit edit) => Fin.Succ(value: (document, domain, edit)),
+            _ => Fin.Fail<(RhinoDoc Document, Context Domain, DocumentEdit Edit)>(error: op.MissingContext()),
         };
 
 }

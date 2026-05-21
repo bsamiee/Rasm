@@ -1,10 +1,7 @@
 using System.Runtime.InteropServices;
 using Eto.Drawing;
-using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Doc;
-using Grasshopper2.Parameters;
 using Grasshopper2.Parameters.Special;
-using Grasshopper2.UI;
 using Grasshopper2.UI.Slider;
 using Grasshopper2.Undo;
 using GhCanvas = Grasshopper2.UI.Canvas.Canvas;
@@ -15,7 +12,6 @@ using GhEditor = Grasshopper2.UI.Editor;
 using GhObjectList = Grasshopper2.Doc.ObjectList;
 using GhOpenColorFamily = Eto.Drawing.OpenColor.Family;
 using Op = Rasm.Domain.Op;
-using SysHashSet = System.Collections.Generic.HashSet<System.Guid>;
 
 namespace Rasm.Grasshopper.UI;
 
@@ -400,7 +396,7 @@ public abstract partial record DocumentMutation {
             from primary in selected.Head
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Isolate)), detail: "no object selected to isolate"))
             let before = actions.Count
-            from _ in Try.lift<Unit>(f: () => {
+            from _ in Try.lift(f: () => {
                 methods.IsolateObject(obj: primary,
                     pins: isolate.Options.IncludePins,
                     inputs: isolate.Options.IncludeInputs,
@@ -615,10 +611,10 @@ internal static partial class UiRail {
         FindCriterion.ByDrawOrderCase d =>
             Fin.Succ(value: toSeq(objects.ObjectsByDrawOrder(includeForeground: d.Foreground, includeBackground: d.Background)).Map(DocumentObjectSnapshotOf)),
         FindCriterion.UpstreamCase u =>
-            global::Rasm.Grasshopper.UI.Wire.TraverseObjects(objects: objects, startParameterId: u.ParameterId, direction: WireTraversal.Upstream)
+            Wire.TraverseObjects(objects: objects, startParameterId: u.ParameterId, direction: WireTraversal.Upstream)
                 .Map(matches => matches.Map(DocumentObjectSnapshotOf)),
         FindCriterion.DownstreamCase d =>
-            global::Rasm.Grasshopper.UI.Wire.TraverseObjects(objects: objects, startParameterId: d.ParameterId, direction: WireTraversal.Downstream)
+            Wire.TraverseObjects(objects: objects, startParameterId: d.ParameterId, direction: WireTraversal.Downstream)
                 .Map(matches => matches.Map(DocumentObjectSnapshotOf)),
         FindCriterion.ByNameCase n =>
             Op.Of(name: nameof(FindCriterion.ByName)).AcceptText(value: n.Substring)
@@ -649,16 +645,16 @@ internal static partial class UiRail {
                 from document in scope.NeedDocument()
                 from canvas in scope.NeedCanvas()
                 from shown in Try.lift<DocumentResult>(f: () => {
-                    _ = Grasshopper2.Undo.History.ShowHistory(canvas: canvas);
+                    _ = History.ShowHistory(canvas: canvas);
                     return new DocumentResult.HistoryResult(Snapshot: HistorySnapshotOf(document: document));
                 }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(DocumentHistoryOp.ShowHistory)), detail: error.Message))
                 select shown,
             _ => Fin.Fail<DocumentResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(HistoryDispatch)), detail: "unknown history op")),
         };
 
-    private static Fin<DocumentResult> MutateHistory(GrasshopperUi.Scope scope, Op op, System.Action<GhDocument> run) =>
+    private static Fin<DocumentResult> MutateHistory(GrasshopperUi.Scope scope, Op op, Action<GhDocument> run) =>
         from document in scope.NeedDocument()
-        from _ in Try.lift<Unit>(f: () => { run(document); return unit; }).Run().MapFail(error => UiFault.MutationRejected(op: op, detail: error.Message))
+        from _ in Try.lift(f: () => { run(document); return unit; }).Run().MapFail(error => UiFault.MutationRejected(op: op, detail: error.Message))
         select (DocumentResult)new DocumentResult.HistoryResult(Snapshot: HistorySnapshotOf(document: document));
 
     internal static DocumentHistorySnapshot HistorySnapshotOf(GhDocument document) =>
@@ -685,12 +681,12 @@ internal static partial class UiRail {
         })
         from _ in CommitActions(document: document, op: op, actions: actions)
         from refreshed in Refresh(document: document, canvas: canvas, policy: policy)
-        select Snapshot.Of<DocumentMutationDelta>(
+        select Snapshot.Of(
             payload: new DocumentMutationDelta(Changed: receipt.Changed, After: DocumentSnapshotOf(document: document, objects: objects), Created: receipt.Created),
             ownerId: Some(document.Hash));
 
     private static Fin<Unit> Refresh(GhDocument document, GhCanvas canvas, DocumentMutationPolicy policy) =>
-        Try.lift<Unit>(f: () => {
+        Try.lift(f: () => {
             _ = policy.RefreshOrDefault.Apply(document: document, canvas: canvas);
             return unit;
         }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Refresh)), detail: error.Message));
@@ -698,7 +694,7 @@ internal static partial class UiRail {
     internal static Fin<Unit> CommitActions(GhDocument document, Op op, ActionList actions) =>
         actions.Count switch {
             <= 0 => Fin.Succ(value: unit),
-            _ => Try.lift<Unit>(f: () => {
+            _ => Try.lift(f: () => {
                 document.Undo.Do(name: ("Edit", op.ToString()), actions: actions);
                 return unit;
             }).Run().MapFail(_ => UiFault.MutationRejected(op: op, detail: "History.Do threw")),
@@ -707,8 +703,8 @@ internal static partial class UiRail {
     internal static DocumentSnapshot DocumentSnapshotOf(GhDocument document, GhObjectList objects) {
         Seq<WireEnds> allWires = Optional(objects.AllWires).Map(static wires => toSeq(wires)).IfNone(Seq<WireEnds>());
         Seq<WireEnds> selectedWires = Optional(objects.SelectedWires).Map(static wires => toSeq(wires)).IfNone(Seq<WireEnds>());
-        int wireCount = allWires.Count(wire => global::Rasm.Grasshopper.UI.Wire.IsConnected(objects: objects, wire: wire));
-        int selectedWireCount = selectedWires.Count(wire => global::Rasm.Grasshopper.UI.Wire.IsConnected(objects: objects, wire: wire));
+        int wireCount = allWires.Count(wire => Wire.IsConnected(objects: objects, wire: wire));
+        int selectedWireCount = selectedWires.Count(wire => Wire.IsConnected(objects: objects, wire: wire));
         return new DocumentSnapshot(
             Hash: document.Hash, Modified: document.Modified, Modifications: document.Modifications,
             ObjectCount: objects.Count, PinCount: objects.PinCount, ExpiredCount: objects.ExpiredCount,

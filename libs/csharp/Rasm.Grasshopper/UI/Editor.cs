@@ -1,7 +1,4 @@
 using System.Runtime.InteropServices;
-using Foundation.CSharp.Analyzers.Contracts;
-using Grasshopper2.UI;
-using Rasm.Domain;
 using Rhino;
 using GhEditor = Grasshopper2.UI.Editor;
 
@@ -72,12 +69,12 @@ internal sealed record EditorRequest(EditorOp Op) : GhUiRequest<EditorResult> {
 
     private static Fin<EditorResult> Dispatch(EditorOp op) => op switch {
         EditorOp.ShowCase show =>
-            Try.lift<EditorResult>(f: () => {
+            Try.lift(f: () => {
                 _ = GhEditor.ShowEditor(createVisible: show.Visible, layoutRules: show.Layout.IfNone(string.Empty));
                 return EditorResult.Unit;
             }).Run().MapFail(_ => UiFault.GhEditor(detail: nameof(EditorOp.Show))),
         EditorOp.EnsureVisibleCase =>
-            Try.lift<EditorResult>(f: () => {
+            Try.lift(f: () => {
                 GhEditor editor = GhEditor.ShowEditor(createVisible: true, layoutRules: string.Empty);
                 _ = typeof(GhEditor)
                     .GetMethod(name: "EnsureVisible", bindingAttr: System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic)
@@ -117,7 +114,7 @@ internal sealed record EditorRequest(EditorOp Op) : GhUiRequest<EditorResult> {
                     MostRecentCount: 0),
             })),
         EditorOp.ShellCase shell =>
-            Try.lift<Snapshot<EditorShellSnapshot>>(f: () => {
+            Try.lift(f: () => {
                 GhEditor current = GhEditor.ShowEditor(createVisible: true, layoutRules: shell.Layout.IfNone(string.Empty));
                 _ = shell.Collapsed.Iter(value => current.Collapsed = value);
                 _ = shell.ShowNotes.Iter(value => current.ShowNotes = value);
@@ -132,11 +129,11 @@ internal sealed record EditorRequest(EditorOp Op) : GhUiRequest<EditorResult> {
             .Map(snapshot => (EditorResult)new EditorResult.ShellResult(Snapshot: snapshot)),
         EditorOp.BeginRhinoGetterCase getter =>
             from active in Optional(getter.Document.IfNone(RhinoDoc.ActiveDoc)).ToFin(Fail: UiFault.MissingScope(field: "rhino-doc"))
-            from started in Try.lift<bool>(f: () => GhEditor.BeginRhinoGetter(doc: active)).Run().MapFail(_ => UiFault.GhEditor(detail: nameof(EditorOp.BeginRhinoGetter)))
+            from started in Try.lift(f: () => GhEditor.BeginRhinoGetter(doc: active)).Run().MapFail(_ => UiFault.GhEditor(detail: nameof(EditorOp.BeginRhinoGetter)))
             from valid in started
-                ? Fin.Succ<EditorResult>(value: EditorResult.Unit)
+                ? Fin.Succ(value: EditorResult.Unit)
                 : Fin.Fail<EditorResult>(error: UiFault.GhEditor(detail: "Rhino getter is already active or no document can receive it"))
             select valid,
-        _ => Fin.Fail<EditorResult>(error: UiFault.InvalidInput(op: Rasm.Domain.Op.Of(name: nameof(EditorRequest)), detail: "unknown editor op")),
+        _ => Fin.Fail<EditorResult>(error: UiFault.InvalidInput(op: Domain.Op.Of(name: nameof(EditorRequest)), detail: "unknown editor op")),
     };
 }

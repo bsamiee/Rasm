@@ -1,4 +1,3 @@
-using CsCheck;
 using Rhino.Geometry;
 using Xunit.Sdk;
 

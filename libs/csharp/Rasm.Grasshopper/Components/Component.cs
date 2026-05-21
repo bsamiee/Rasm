@@ -5,8 +5,6 @@ using Eto.Forms;
 using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Doc;
 using Grasshopper2.Doc.Attributes;
-using Grasshopper2.Parameters;
-using Grasshopper2.UI.Flex;
 using Grasshopper2.UI.Icon;
 using Grasshopper2.UI.InputPanel;
 using Grasshopper2.UI.Primitives;
@@ -305,7 +303,7 @@ public abstract class Plugin : GhPlugin {
             Type owner => owner != typeof(GhPlugin),
             _ => false,
         };
-        return Seq<Option<string>>(
+        return Seq(
                 plugins.Count == 1 ? Option<string>.None : Some($"{activeType.Assembly.GetName().Name}: expected one plugin type, found {plugins.Count}"),
                 plugins.Exists(type => type == activeType) ? Option<string>.None : Some($"{activeType.FullName}: active plugin is not the assembly plugin type"),
                 IoIdOf(type: activeType).Filter(id => id == active.Id).IsSome ? Option<string>.None : Some($"{activeType.FullName}: plugin Id does not match IoId"),
@@ -372,7 +370,7 @@ public abstract class Plugin<TSelf> : Plugin where TSelf : Plugin<TSelf> {
                 name: Self.Assembly.GetName().Name ?? Self.Name,
                 info: Self.Assembly.GetCustomAttribute<AssemblyDescriptionAttribute>()?.Description ?? string.Empty));
 }
-public abstract class Component<TSelf> : Grasshopper2.Components.ModularComponent, IRasmComponent where TSelf : Component<TSelf>, IComponentDefinition<TSelf> {
+public abstract class Component<TSelf> : ModularComponent, IRasmComponent where TSelf : Component<TSelf>, IComponentDefinition<TSelf> {
     private Seq<(Port Port, IParameter Parameter)> cachedInputs;
     private Seq<(Port Port, IParameter Parameter)> cachedOutputs;
     protected Component() : base(nomen: Self.GetCustomAttribute<NomenAttribute>()?.Nomen ?? new Nomen(name: Self.Name, info: string.Empty)) {

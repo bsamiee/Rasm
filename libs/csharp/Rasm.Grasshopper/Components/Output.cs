@@ -114,14 +114,14 @@ public static class Output {
             });
     }
     private static Seq<object> Drain<TOut>(Port<TOut> port, int slot, Seq<Flow<TOut>> values, IDataAccess access) {
-        Seq<object> transfers = access.Write<TOut>(slot: slot, port: port, values: values);
+        Seq<object> transfers = access.Write(slot: slot, port: port, values: values);
         _ = values.Choose(static value => value.Item is TopologyProjection projection ? Some(projection) : Option<TopologyProjection>.None)
             .Iter(projection => _ = transfers.Exists(output => ReferenceEquals(objA: output, objB: projection) || projection.Transfers(output: output)) switch { true => unit, false => projection.Dispose() });
         return transfers;
     }
     private static Unit Empty<TOut>(Port<TOut> port, IDataAccess access, int slot) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        return access.Write<TOut>(slot: slot, port: port, values: Seq<Flow<TOut>>()) switch { _ => Unit.Default };
+        return access.Write(slot: slot, port: port, values: Seq<Flow<TOut>>()) switch { _ => Unit.Default };
     }
     private static Unit RemarkUnsupported(Port port, IDataAccess access, Seq<Fault.Unsupported> faults) {
         Seq<Fault.Unsupported> found = faults.Distinct().ToSeq();

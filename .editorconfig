@@ -115,7 +115,7 @@ csharp_new_line_between_query_expression_clauses = false                      # 
 dotnet_style_allow_multiple_blank_lines_experimental = false                  # Disallow consecutive blank lines for denser deterministic files.
 csharp_style_allow_blank_lines_between_consecutive_braces_experimental = false # Disallow blank lines between adjacent brace blocks.
 csharp_style_allow_blank_line_after_colon_in_constructor_initializer_experimental = false # Disallow blank lines after constructor initializer colon.
-csharp_style_allow_blank_line_after_token_in_arrow_expression_clause_experimental = false # Disallow blank lines after arrow expression tokens.
+csharp_style_allow_blank_line_after_token_in_arrow_expression_clause_experimental = true # Allow wrapping arrow expression body to next line for long pipelines.
 csharp_style_allow_blank_line_after_token_in_conditional_expression_experimental = false  # Disallow blank lines after conditional-expression tokens.
 csharp_preserve_single_line_statements = true                                 # Preserve compact single-line statements.
 csharp_preserve_single_line_blocks = true                                     # Preserve compact single-line block bodies.
@@ -183,8 +183,8 @@ dotnet_diagnostic.CA1512.severity = error                                     # 
 dotnet_diagnostic.CA1513.severity = error                                     # Use ObjectDisposedException throw helper methods.
 dotnet_diagnostic.CA1514.severity = error                                     # Avoid redundant length argument checks.
 dotnet_diagnostic.CA1516.severity = error                                     # Prefer cross-platform intrinsics over architecture-specific APIs.
-dotnet_diagnostic.CS0169.severity = error                                    # Remove private fields that are never used.
-dotnet_diagnostic.CS0649.severity = error                                    # Assign every field through validated construction.
+dotnet_diagnostic.CS0169.severity = error                                     # Remove private fields that are never used.
+dotnet_diagnostic.CS0649.severity = error                                     # Assign every field through validated construction.
 dotnet_diagnostic.CA1806.severity = error                                     # Prevent ignoring method results unintentionally.
 dotnet_diagnostic.CA1812.severity = error                                     # Remove internal types that are never instantiated.
 dotnet_diagnostic.CA1819.severity = error                                     # Avoid returning arrays from properties.
@@ -301,6 +301,39 @@ dotnet_diagnostic.MA0158.severity = error                                     # 
 dotnet_diagnostic.MA0166.severity = error                                     # Forward TimeProvider when overloads support it.
 MA0032.allowOverloadsWithOptionalParameters = false                           # Require token-aware overload usage even when optional params exist.
 dotnet_code_quality_unused_parameters = all                                   # Enforce unused-parameter analysis for all member visibilities.
+
+# --- [IDE_QUALITY_RULES] ----------------------------------------------------
+# Roslyn IDE rules without dedicated style preference keys. Most ship at silent
+# severity by default and are invisible to `dotnet format --severity warn`.
+# Each entry promotes a mechanical, behavior-preserving cleanup to error.
+dotnet_diagnostic.IDE0001.severity = error                                    # Simplify type names (drop unneeded namespace qualifiers).
+dotnet_diagnostic.IDE0002.severity = error                                    # Simplify member access (drop unneeded type qualifiers).
+dotnet_diagnostic.IDE0004.severity = error                                    # Remove unnecessary cast expressions.
+dotnet_diagnostic.IDE0005.severity = error                                    # Remove unnecessary using directives.
+dotnet_diagnostic.IDE0035.severity = error                                    # Remove unreachable code.
+dotnet_diagnostic.IDE0051.severity = error                                    # Remove unused private members.
+dotnet_diagnostic.IDE0052.severity = error                                    # Remove private members that are written but never read.
+dotnet_diagnostic.IDE0064.severity = error                                    # Make struct fields writable when reassignment is intended.
+dotnet_diagnostic.IDE0070.severity = error                                    # Use System.HashCode.Combine for composite hash codes.
+dotnet_diagnostic.IDE0076.severity = error                                    # Remove invalid SuppressMessage attribute targets.
+dotnet_diagnostic.IDE0077.severity = error                                    # Avoid legacy SuppressMessage target format strings.
+dotnet_diagnostic.IDE0079.severity = error                                    # Remove stale suppression attributes/pragmas.
+dotnet_diagnostic.IDE0080.severity = error                                    # Remove unnecessary null-suppression (!) operator.
+dotnet_diagnostic.IDE0082.severity = error                                    # Prefer nameof over typeof(T).Name.
+dotnet_diagnostic.IDE0100.severity = error                                    # Remove redundant equality (x == true → x).
+dotnet_diagnostic.IDE0110.severity = error                                    # Remove unnecessary discard pattern arms.
+dotnet_diagnostic.IDE0120.severity = error                                    # Simplify chained LINQ expressions.
+dotnet_diagnostic.IDE0121.severity = error                                    # Simplify LINQ type check and cast (.OfType<T>()).
+dotnet_diagnostic.IDE0220.severity = error                                    # Add explicit cast in foreach loops over non-generic IEnumerable.
+dotnet_diagnostic.IDE0240.severity = error                                    # Remove redundant #nullable directives.
+dotnet_diagnostic.IDE0241.severity = error                                    # Remove unnecessary #nullable directives.
+dotnet_diagnostic.IDE0280.severity = error                                    # Use nameof in attribute arguments where applicable.
+dotnet_diagnostic.IDE0330.severity = error                                    # Prefer System.Threading.Lock over object-based locking.
+dotnet_diagnostic.IDE0340.severity = error                                    # Use unbound generic types in nameof for generic type names.
+dotnet_diagnostic.IDE0360.severity = error                                    # Simplify property accessors to expression-bodied form when trivial.
+dotnet_diagnostic.IDE0370.severity = error                                    # Remove unnecessary suppression context.
+dotnet_diagnostic.IDE0380.severity = error                                    # Remove unnecessary unsafe modifier.
+dotnet_diagnostic.IDE1005.severity = error                                    # Prefer null-conditional delegate invocation (?.Invoke).
 
 [tests/**/*.cs]
 dotnet_diagnostic.CA1515.severity = none                                      # xUnit + CsCheck discovery requires public test classes and generators.
