@@ -13,7 +13,7 @@ public enum FileFidelity { Model, Small, GeometryOnly }
 public enum FileResourcePolicy { Reference, Embed, Copy }
 public enum FileGrouping { Document, File, Layer, ObjectName, ObjectType, Material, Block, UserString }
 public enum FileSort { Stable, File, Layer, ObjectName, ObjectType, Material, Block, UserString }
-public enum FilePhase { Prompt, Open, Headless, Import, Export, Publish, Save, SaveAs, WriteFile, Write3dmFile, SaveTemplate, ArchiveRead, ArchiveExtract, ArchiveUpdate, Batch }
+public enum FilePhase { Prompt, Open, Headless, Import, Export, Publish, NamedLayerState, Save, SaveAs, WriteFile, Write3dmFile, SaveTemplate, ArchiveRead, ArchiveExtract, ArchiveUpdate, Batch }
 public enum ArchiveSlice { Full, Metadata, Objects, Resources }
 public enum FileArchiveProjection { Full, MetadataAndGraph, Metadata, Graph, Objects }
 
@@ -185,7 +185,7 @@ public sealed record FileEndpoint {
         })
             .Run()
             .MapFail(_ => op.InvalidResult())
-            .Bind(static result => result);
+            .Flatten();
 
     internal static Fin<string> NonBlank(string value, Op op) =>
         op.AcceptText(value: value).MapFail(_ => op.InvalidInput());
@@ -205,7 +205,7 @@ public sealed record FileEndpoint {
         })
             .Run()
             .MapFail(_ => op.InvalidInput())
-            .Bind(static result => result);
+            .Flatten();
 
     private Fin<FileEndpoint> ResolveCollision(Op op) =>
         (Name.Normalized.Collision, Write.Normalized.Overwrite, Exists(path: Path)) switch {
@@ -290,15 +290,31 @@ public sealed record ArchiveUpdate(
     Seq<string> Extract = default,
     Seq<FileEndpoint> LinkBlocks = default);
 
-public sealed record FilePublish(Seq<FileSheet> Sheets, FileProfile Profile, bool Layers = true);
+public sealed record FilePublish(FilePublishTarget Target, Seq<FileSheet> Sheets, FileProfile Profile, bool Layers = true);
 
 public sealed record FileSheet(
     Option<Guid> Id = default,
     Option<string> Name = default,
+    Option<string> Group = default,
     double Dpi = 300.0,
     bool PrintWidths = true,
     bool Raster = false,
-    ViewCaptureSettings.ColorMode Color = ViewCaptureSettings.ColorMode.DisplayColor);
+    ViewCaptureSettings.ColorMode Color = ViewCaptureSettings.ColorMode.DisplayColor) {
+    internal Fin<ViewCaptureSettings> Settings(RhinoPageView page, Op op) =>
+        from active in Optional(page).ToFin(Fail: op.InvalidInput())
+        from dpi in (double.IsFinite(d: Dpi), Dpi) switch {
+            (true, > 0.0) => Fin.Succ(value: Dpi),
+            _ => Fin.Fail<double>(error: op.InvalidInput()),
+        }
+        select new ViewCaptureSettings(sourcePageView: active, dpi: dpi) {
+            UsePrintWidths = PrintWidths,
+            RasterMode = Raster,
+            OutputColor = Color,
+        };
+}
+
+internal readonly record struct FileSheetPage(RhinoPageView Page, FileSheet Sheet);
+internal readonly record struct FilePublishResult(Option<FileEndpoint> Target, Option<FileFormat> Format, DocumentReceipt Receipt, Seq<FileIssue> Issues = default, Option<string> NativeLog = default);
 
 public readonly record struct FileArchiveMetadataPatch(
     Option<string> Notes,

@@ -1,7 +1,11 @@
 namespace Rasm.Rhino.Commands;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-public enum DocumentResourceKind { Table, Block, View }
+public enum DocumentResourceKind {
+    Object, Layer, Material, Group, Block, View, NamedView, Layout, NamedLayerState, Linetype, DimensionStyle, Hatch, ConstructionPlane,
+    Image, TextureMapping, TextStyle, RenderLight, HistoryRecord, SectionStyle, Markup, PageViewGroup,
+    RenderContent, RenderMaterial, RenderEnvironment, RenderTexture, FileReference, EmbeddedFile, Metadata, Text,
+}
 public enum DocumentLifecycle { Purge, Undelete }
 
 // --- [MODELS] -----------------------------------------------------------------------------

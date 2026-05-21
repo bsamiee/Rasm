@@ -53,10 +53,11 @@ public sealed record FileFormat {
         };
 
     internal Fin<Unit> Export(FileWriteOptions options, RhinoDoc document, FileEndpoint target, FileProfile profile) =>
-        (options.WriteSelectedObjectsOnly, DirectExportReady(options: options, writesOptions: ops.DirectWriteOptions), ops.DirectWrite) switch {
-            (false, true, Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>> write) => write(arg1: profile, arg2: options, arg3: document, arg4: target),
-            (true, _, _) => NativeBool(run: () => document.ExportSelected(filePath: target.Path, options: options.OptionsDictionary), op: Op.Of(name: $"{Key}Export")),
-            _ => NativeBool(run: () => document.WriteFile(path: target.Path, options: options), op: Op.Of(name: $"{Key}Export")),
+        (this == ThreeDm, options.WriteSelectedObjectsOnly, DirectExportReady(options: options, writesOptions: ops.DirectWriteOptions), ops.DirectWrite) switch {
+            (true, _, _, _) => NativeBool(run: () => document.Write3dmFile(path: target.Path, options: options), op: Op.Of(name: $"{Key}Export")),
+            (false, false, true, Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>> write) => write(arg1: profile, arg2: options, arg3: document, arg4: target),
+            (false, true, _, _) => NativeBool(run: () => document.ExportSelected(filePath: target.Path, options: options.OptionsDictionary), op: Op.Of(name: $"{Key}Export")),
+            _ => NativeBool(run: () => document.Export(filePath: target.Path, options: options.OptionsDictionary), op: Op.Of(name: $"{Key}Export")),
         };
 
     internal Option<ArchivableDictionary> Dictionary(FileProfile profile, FilePhase phase) =>
@@ -365,21 +366,41 @@ public sealed record FileFormat {
             LoadText = profile.Fidelity == FileFidelity.Model || profile.Grouping == FileGrouping.UserString,
         };
 
-    private static FileCsvWriteOptions CsvOptions(FileProfile profile) =>
-        new() {
+    private static FileCsvWriteOptions CsvOptions(FileProfile profile) {
+        bool layer = profile.Grouping == FileGrouping.Layer || profile.Sort == FileSort.Layer;
+        bool group = profile.Grouping == FileGrouping.Block || profile.Sort == FileSort.Block;
+        bool material = profile.Grouping == FileGrouping.Material || profile.Sort == FileSort.Material;
+        bool user = profile.Grouping == FileGrouping.UserString;
+        bool measured = profile.Fidelity != FileFidelity.GeometryOnly;
+        return new() {
             Header = true,
-            LayerName = profile.Grouping == FileGrouping.Layer || profile.Sort == FileSort.Layer,
-            GroupName = profile.Grouping == FileGrouping.Block,
+            LayerName = layer,
+            LayerIndex = layer,
+            LayerColor = layer,
+            LayerHierarchy = layer,
+            GroupName = group,
+            GroupIndexes = group,
             ObjectName = profile.Grouping == FileGrouping.ObjectName || profile.Sort == FileSort.ObjectName,
             ObjectID = true,
             ObjectColor = profile.Sort == FileSort.ObjectType,
-            ObjectMaterial = profile.Grouping == FileGrouping.Material || profile.Sort == FileSort.Material,
-            ObjectDescription = profile.Grouping == FileGrouping.UserString,
-            AttributesKeys = profile.Grouping == FileGrouping.UserString,
-            AttributesTexts = profile.Grouping == FileGrouping.UserString,
-            ObjectKeys = profile.Grouping == FileGrouping.UserString,
-            ObjectsTexts = profile.Grouping == FileGrouping.UserString,
+            ObjectMaterial = material,
+            ObjectDescription = user,
+            SurroundPointsWithDoubleQuotes = true,
+            Length = measured,
+            Perimeter = measured,
+            Area = measured,
+            Volume = measured,
+            AreaCentroid = measured,
+            VolumeCentroid = measured,
+            AreaMoments = measured,
+            VolumeMoments = measured,
+            CumulativeMassProperties = measured,
+            AttributesKeys = user,
+            AttributesTexts = user,
+            ObjectKeys = user,
+            ObjectsTexts = user,
         };
+    }
 
     private readonly record struct FileFormatOps(
         FileCapability Capability,
@@ -471,7 +492,7 @@ internal static class FileFormatProjection {
         })
             .Run()
             .MapFail(_ => op.InvalidResult())
-            .Bind(static result => result);
+            .Flatten();
 
     private static Fin<Unit> WithWriteOptions(FileEndpoint target, FileProfile profile, FilePhase phase, bool selected, bool updatePath, Op op, Func<FileWriteOptions, Fin<Unit>> run) =>
         Try.lift<Fin<Unit>>(f: () => {
@@ -480,7 +501,7 @@ internal static class FileFormatProjection {
         })
             .Run()
             .MapFail(_ => op.InvalidResult())
-            .Bind(static result => result);
+            .Flatten();
 
     private static FileReadOptions ReadOptions(FileEndpoint endpoint, FileProfile profile) {
         FileReadOptions options = new() {

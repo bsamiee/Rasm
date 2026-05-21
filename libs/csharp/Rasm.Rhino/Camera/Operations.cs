@@ -334,7 +334,7 @@ public static class CameraOps {
                 int value when value >= 0 => Fin.Succ(value: value),
                 _ => Fin.Fail<int>(error: Op.Of(name: nameof(SaveNamed)).InvalidResult()),
             }
-            select new Commands.DocumentResourceChange(Kind: Commands.DocumentResourceKind.View, Name: valid));
+            select new Commands.DocumentResourceChange(Kind: Commands.DocumentResourceKind.NamedView, Name: valid));
 
     public static CameraOp<Unit> RestoreNamed(string name) =>
         RestoreNamed(name: name, restore: CameraNamedRestore.Direct);
@@ -351,14 +351,14 @@ public static class CameraOps {
             from index in NamedIndex(document: scope.Document, name: current, op: Op.Of(name: nameof(RenameNamed)))
             from name in Name(value: next, op: Op.Of(name: nameof(RenameNamed)))
             from renamed in RhinoCamera.UnitResult(success: scope.Document.NamedViews.Rename(index: index, newName: name), op: Op.Of(name: nameof(RenameNamed)))
-            select new Commands.DocumentResourceChange(Kind: Commands.DocumentResourceKind.View, Name: name));
+            select new Commands.DocumentResourceChange(Kind: Commands.DocumentResourceKind.NamedView, Name: name));
 
     public static CameraOp<Commands.DocumentResourceChange> DeleteNamed(string name) =>
         new(run: scope =>
             from index in NamedIndex(document: scope.Document, name: name, op: Op.Of(name: nameof(DeleteNamed)))
             from valid in Name(value: name, op: Op.Of(name: nameof(DeleteNamed)))
             from deleted in RhinoCamera.UnitResult(success: scope.Document.NamedViews.Delete(index: index), op: Op.Of(name: nameof(DeleteNamed)))
-            select new Commands.DocumentResourceChange(Kind: Commands.DocumentResourceKind.View, Name: valid));
+            select new Commands.DocumentResourceChange(Kind: Commands.DocumentResourceKind.NamedView, Name: valid));
 
     public static CameraOp<DrawingBitmap> CaptureBitmap(CameraCapture capture) =>
         new(run: scope => capture.Capture(scope: scope, project: static settings => Optional(ViewCapture.CaptureToBitmap(settings: settings)).ToFin(Fail: Op.Of(name: nameof(CaptureBitmap)).InvalidResult())));
