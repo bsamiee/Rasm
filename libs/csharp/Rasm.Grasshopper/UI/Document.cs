@@ -4,6 +4,8 @@ using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Doc;
 using Grasshopper2.Parameters;
 using Grasshopper2.Parameters.Special;
+using Grasshopper2.UI;
+using Grasshopper2.UI.Slider;
 using Grasshopper2.Undo;
 using GhCanvas = Grasshopper2.UI.Canvas.Canvas;
 using GhColour = Grasshopper2.Types.Colour.Colour;
@@ -23,10 +25,8 @@ public partial record VisibilityChange {
     private VisibilityChange() { }
     public sealed record ShowCase : VisibilityChange;
     public sealed record HideCase : VisibilityChange;
-    public sealed record ToggleCase : VisibilityChange;
     public static readonly VisibilityChange Show = new ShowCase();
     public static readonly VisibilityChange Hide = new HideCase();
-    public static readonly VisibilityChange Toggle = new ToggleCase();
 }
 
 [Union]
@@ -246,6 +246,66 @@ public readonly record struct ParameterSnapshot(
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct DocumentGripSnapshot(Guid Parameter, bool InletWithinRange, bool OutletWithinRange);
 
+[Union]
+public partial record ObjectSpec {
+    private ObjectSpec() { }
+    public sealed record SliderCase(string Name, UiNumber Number, Option<string> Format, GripShape Shape, Color Colour) : ObjectSpec;
+    public sealed record ToggleCase(string Name, bool State) : ObjectSpec;
+
+    public static ObjectSpec Slider(string name, UiNumber number, string? format = null, GripShape shape = GripShape.Label, Color? colour = null) =>
+        new SliderCase(Name: name, Number: number, Format: Optional(format), Shape: shape, Colour: colour ?? Colors.Crimson);
+    public static ObjectSpec Toggle(string name, bool state) => new ToggleCase(Name: name, State: state);
+
+    internal Fin<IDocumentObject> Build(Op op) =>
+        Switch(
+            state: op,
+            sliderCase: static (key, s) =>
+                from name in key.AcceptText(value: s.Name)
+                from number in Optional(s.Number).ToFin(Fail: UiFault.InvalidInput(op: key, detail: "slider number is required"))
+                select (IDocumentObject)new NumberSliderObject(userName: name, number: number) {
+                    GripColour = s.Colour,
+                    GripDisplay = s.Shape,
+                    GripFormat = s.Format.IfNone("{0}"),
+                },
+            toggleCase: static (key, t) =>
+                from name in key.AcceptText(value: t.Name)
+                select (IDocumentObject)new ToggleObject(state: t.State) { UserName = name });
+}
+
+[Union]
+public partial record DropCue {
+    private DropCue() { }
+    public sealed record NoneCase : DropCue;
+    public sealed record SourceCase(Guid Id) : DropCue;
+    public sealed record TargetCase(Guid Id) : DropCue;
+    public sealed record BetweenCase(Guid SourceId, Guid TargetId) : DropCue;
+
+    public static readonly DropCue None = new NoneCase();
+    public static DropCue Source(Guid source) => new SourceCase(Id: source);
+    public static DropCue Target(Guid target) => new TargetCase(Id: target);
+    public static DropCue Between(Guid source, Guid target) => new BetweenCase(SourceId: source, TargetId: target);
+
+    internal Fin<(Option<IParameter> Source, Option<IParameter> Target)> Resolve(GhObjectList objects, Op op) =>
+        Switch(
+            state: (Objects: objects, Op: op),
+            noneCase: static (_, _) => Fin.Succ(value: (Source: Option<IParameter>.None, Target: Option<IParameter>.None)),
+            sourceCase: static (state, cue) => ResolveCue(objects: state.Objects, id: cue.Id, label: nameof(Source), op: state.Op)
+                .Map(static source => (Source: source, Target: Option<IParameter>.None)),
+            targetCase: static (state, cue) => ResolveCue(objects: state.Objects, id: cue.Id, label: nameof(Target), op: state.Op)
+                .Map(static target => (Source: Option<IParameter>.None, Target: target)),
+            betweenCase: static (state, cue) =>
+                from source in ResolveCue(objects: state.Objects, id: cue.SourceId, label: nameof(Source), op: state.Op)
+                from target in ResolveCue(objects: state.Objects, id: cue.TargetId, label: nameof(Target), op: state.Op)
+                select (Source: source, Target: target));
+
+    private static Fin<Option<IParameter>> ResolveCue(GhObjectList objects, Guid id, string label, Op op) =>
+        Op.Of(name: label).AcceptValue(value: id)
+            .MapFail(_ => UiFault.InvalidInput(op: op, detail: $"{label} cue id is empty"))
+            .Bind(valid => Optional(objects.FindParameter(instanceId: valid))
+                .ToFin(Fail: UiFault.InvalidInput(op: op, detail: $"{label} cue parameter {valid} not found"))
+                .Map(static parameter => Some(parameter)));
+}
+
 internal sealed record DocumentRequest(DocumentOp Op) : GhUiRequest<DocumentResult> {
     internal override GrasshopperUiPolicy Policy => UiRail.DocumentPolicyFor(op: Op);
     internal override Fin<DocumentResult> Apply(GrasshopperUi.Scope scope) => UiRail.DocumentDispatch(scope: scope, op: Op);
@@ -276,6 +336,7 @@ public abstract partial record DocumentMutation {
     public sealed record ClipboardCase(ClipboardOp Op) : DocumentMutation;
     public sealed record ComposeCase(DocumentTarget Subject, ComposeOp Op) : DocumentMutation;
     public sealed record DropCase(Guid ProxyId, PointF Location) : DocumentMutation;
+    public sealed record PlaceCase(ObjectSpec Object, PointF Location, DropCue Cue) : DocumentMutation;
     public sealed record AddDependencyCase(PointF Location) : DocumentMutation;
     public sealed record IsolateCase(IsolateOptions Options) : DocumentMutation;
 
@@ -286,30 +347,59 @@ public abstract partial record DocumentMutation {
     public static DocumentMutation Compose(ComposeOp op) => new ComposeCase(Subject: DocumentTarget.Selection, Op: op);
     public static DocumentMutation Compose(DocumentTarget target, ComposeOp op) => new ComposeCase(Subject: target, Op: op);
     public static DocumentMutation Drop(Guid proxyId, PointF location) => new DropCase(ProxyId: proxyId, Location: location);
+    public static DocumentMutation Place(ObjectSpec obj, PointF location, DropCue? cue = null) => new PlaceCase(Object: obj, Location: location, Cue: cue ?? DropCue.None);
     public static DocumentMutation AddDependency(PointF location) => new AddDependencyCase(Location: location);
     public static DocumentMutation Isolate(IsolateOptions options = default) => new IsolateCase(Options: options);
 
-    internal Fin<int> Apply(GhDocumentMethods methods, GhObjectList objects, ActionList actions) => this switch {
-        TargetCase target => target.Subject.Apply(methods: methods, objects: objects, op: target.Op, actions: actions),
-        SelectionCase selection => UiRail.SelectionDispatch(methods: methods, op: selection.Op),
-        DisplayCase display => UiRail.DisplayDispatch(methods: methods, op: display.Op, actions: actions),
-        ClipboardCase clipboard => UiRail.ClipboardDispatch(methods: methods, op: clipboard.Op, actions: actions),
-        ComposeCase compose => UiRail.ComposeDispatch(methods: methods, objects: objects, target: compose.Subject, op: compose.Op, actions: actions).Map(static created => created.IsSome ? 1 : 0),
+    internal Fin<DocumentMutationReceipt> Apply(GhDocumentMethods methods, GhObjectList objects, ActionList actions) => this switch {
+        TargetCase target => target.Subject.Apply(methods: methods, objects: objects, op: target.Op, actions: actions).Map(static changed => DocumentMutationReceipt.Count(changed: changed)),
+        SelectionCase selection => UiRail.SelectionDispatch(methods: methods, op: selection.Op).Map(static changed => DocumentMutationReceipt.Count(changed: changed)),
+        DisplayCase display => UiRail.DisplayDispatch(methods: methods, op: display.Op, actions: actions).Map(static changed => DocumentMutationReceipt.Count(changed: changed)),
+        ClipboardCase clipboard => UiRail.ClipboardDispatch(methods: methods, op: clipboard.Op, actions: actions).Map(static changed => DocumentMutationReceipt.Count(changed: changed)),
+        ComposeCase compose => UiRail.ComposeDispatch(methods: methods, objects: objects, target: compose.Subject, op: compose.Op, actions: actions)
+            .Map(static created => created.Map(static id => DocumentMutationReceipt.CreatedObject(id: id)).IfNone(DocumentMutationReceipt.None)),
         DropCase drop =>
             from proxy in Op.Of(name: nameof(Drop)).AcceptValue(value: drop.ProxyId)
                 .MapFail(_ => UiFault.InvalidInput(op: Op.Of(name: nameof(Drop)), detail: "empty proxy id"))
             from location in Optional(drop.Location)
                 .Filter(static point => float.IsFinite(point.X) && float.IsFinite(point.Y))
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Drop)), detail: "non-finite location"))
-            select methods.DropObject(obj: proxy, location: location, actions: actions) ? 1 : 0,
+            select methods.DropObject(obj: proxy, location: location, actions: actions) switch {
+                true => DocumentMutationReceipt.Count(changed: 1),
+                false => DocumentMutationReceipt.None,
+            },
+        PlaceCase place =>
+            from spec in Optional(place.Object).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Place)), detail: "object spec is required"))
+            from location in Optional(place.Location)
+                .Filter(static point => float.IsFinite(point.X) && float.IsFinite(point.Y))
+                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Place)), detail: "non-finite location"))
+            from obj in spec.Build(op: Op.Of(name: nameof(Place)))
+            from cue in Optional(place.Cue).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Place)), detail: "drop cue is required"))
+            from resolved in cue.Resolve(objects: objects, op: Op.Of(name: nameof(Place)))
+            let native = (resolved.Source.IsSome || resolved.Target.IsSome) switch {
+                true => methods.DropObject(
+                    obj: obj,
+                    location: location,
+                    sourceCue: resolved.Source.Map(static value => (IParameter?)value).IfNone((IParameter?)null),
+                    targetCue: resolved.Target.Map(static value => (IParameter?)value).IfNone((IParameter?)null),
+                    actions: actions),
+                false => methods.DropObject(obj: obj, location: location, actions: actions),
+            }
+            select native switch {
+                true => DocumentMutationReceipt.CreatedObject(id: obj.InstanceId),
+                false => DocumentMutationReceipt.None,
+            },
         AddDependencyCase dependency => Optional(dependency.Location)
             .Filter(static p => float.IsFinite(p.X) && float.IsFinite(p.Y))
             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(AddDependency)), detail: "non-finite location"))
-            .Map(valid => methods.AddDependency(location: valid, actions: actions) is null ? 0 : 1),
+            .Map(valid => Optional(methods.AddDependency(location: valid, actions: actions))
+                .Map(static listen => DocumentMutationReceipt.CreatedObject(id: listen.InstanceId))
+                .IfNone(DocumentMutationReceipt.None)),
         IsolateCase isolate =>
             from selected in Fin.Succ(value: toSeq(objects.SelectedObjects))
             from primary in selected.Head
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Isolate)), detail: "no object selected to isolate"))
+            let before = actions.Count
             from _ in Try.lift<Unit>(f: () => {
                 methods.IsolateObject(obj: primary,
                     pins: isolate.Options.IncludePins,
@@ -319,8 +409,11 @@ public abstract partial record DocumentMutation {
                     actions: actions);
                 return unit;
             }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(Isolate)), detail: "IsolateObject threw"))
-            select 1,
-        _ => Fin.Fail<int>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentMutation)), detail: "unknown document mutation")),
+            select (actions.Count > before) switch {
+                true => DocumentMutationReceipt.Count(changed: 1),
+                false => DocumentMutationReceipt.None,
+            },
+        _ => Fin.Fail<DocumentMutationReceipt>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentMutation)), detail: "unknown document mutation")),
     };
 }
 
@@ -430,7 +523,7 @@ internal static partial class UiRail {
     private static Fin<DocumentResult> MutateDispatch(GrasshopperUi.Scope scope, Seq<DocumentMutation> mutations, DocumentMutationPolicy policy) =>
         RunMutation(scope: scope, op: Op.Of(name: nameof(DocumentOp.Mutate)),
             mutate: (methods, objects, actions) => mutations.TraverseM(m => m.Apply(methods: methods, objects: objects, actions: actions))
-                .Map(static counts => counts.Fold(initialState: 0, f: static (sum, count) => sum + count)).As(),
+                .Map(static receipts => receipts.Fold(initialState: DocumentMutationReceipt.None, f: static (sum, receipt) => sum + receipt)).As(),
             policy: policy)
             .Map(static delta => (DocumentResult)new DocumentResult.MutationResult(Delta: delta));
 
@@ -446,8 +539,6 @@ internal static partial class UiRail {
         DisplayOp.InputsCase { Change: VisibilityChange.HideCase } => Fin.Succ(value: methods.HideSelectedInputs(actions: actions)),
         DisplayOp.OutputsCase { Change: VisibilityChange.ShowCase } => Fin.Succ(value: methods.ShowSelectedOutputs(actions: actions)),
         DisplayOp.OutputsCase { Change: VisibilityChange.HideCase } => Fin.Succ(value: methods.HideSelectedOutputs(actions: actions)),
-        DisplayOp.InputsCase { Change: VisibilityChange.ToggleCase } or DisplayOp.OutputsCase { Change: VisibilityChange.ToggleCase } =>
-            Fin.Fail<int>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(DisplayDispatch)), detail: "Toggle not supported on Inputs/Outputs visibility")),
         _ => Fin.Fail<int>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(DisplayDispatch)), detail: "unknown display op")),
     };
 
@@ -514,9 +605,13 @@ internal static partial class UiRail {
 
     private static Fin<Seq<DocumentObjectSnapshot>> FindBy(GhObjectList objects, FindCriterion criterion) => criterion switch {
         FindCriterion.NearPointCase n =>
-            Optional(n.Point).Filter(static p => float.IsFinite(p.X) && float.IsFinite(p.Y))
+            from point in Optional(n.Point).Filter(static p => float.IsFinite(p.X) && float.IsFinite(p.Y))
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(FindBy)), detail: "non-finite point"))
-                .Map(_ => toSeq(objects.FindNear<IDocumentObject>(locus: n.Point, maxResults: n.MaxResults, maxDistance: n.MaxDistance)).Map(DocumentObjectSnapshotOf)),
+            from maxResults in Optional(n.MaxResults).Filter(static count => count > 0)
+                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(FindBy)), detail: "maxResults must be positive"))
+            from maxDistance in Optional(n.MaxDistance).Filter(static distance => float.IsFinite(distance) && distance >= 0f)
+                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(FindBy)), detail: "maxDistance must be finite and non-negative"))
+            select toSeq(objects.FindNear<IDocumentObject>(locus: point, maxResults: maxResults, maxDistance: maxDistance)).Map(DocumentObjectSnapshotOf),
         FindCriterion.ByDrawOrderCase d =>
             Fin.Succ(value: toSeq(objects.ObjectsByDrawOrder(includeForeground: d.Foreground, includeBackground: d.Background)).Map(DocumentObjectSnapshotOf)),
         FindCriterion.UpstreamCase u =>
@@ -526,8 +621,9 @@ internal static partial class UiRail {
             global::Rasm.Grasshopper.UI.Wire.TraverseObjects(objects: objects, startParameterId: d.ParameterId, direction: WireTraversal.Downstream)
                 .Map(matches => matches.Map(DocumentObjectSnapshotOf)),
         FindCriterion.ByNameCase n =>
-            Fin.Succ(value: toSeq(objects.Forwards)
-                .Filter(o => o.Nomen.Name.Contains(value: n.Substring, comparisonType: n.CaseInsensitive ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+            Op.Of(name: nameof(FindCriterion.ByName)).AcceptText(value: n.Substring)
+                .Map(text => toSeq(objects.Forwards)
+                .Filter(o => o.Nomen.Name.Contains(value: text, comparisonType: n.CaseInsensitive ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
                 .Map(DocumentObjectSnapshotOf)),
         _ => Fin.Fail<Seq<DocumentObjectSnapshot>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(FindBy)), detail: "unknown criterion")),
     };
@@ -576,21 +672,21 @@ internal static partial class UiRail {
     private static Fin<Snapshot<DocumentMutationDelta>> RunMutation(
         GrasshopperUi.Scope scope,
         Op op,
-        Func<GhDocumentMethods, GhObjectList, ActionList, Fin<int>> mutate,
+        Func<GhDocumentMethods, GhObjectList, ActionList, Fin<DocumentMutationReceipt>> mutate,
         DocumentMutationPolicy policy) =>
         from methods in scope.NeedMethods()
         from document in scope.NeedDocument()
         from objects in scope.NeedObjects()
         from canvas in scope.NeedCanvas()
         let actions = ActionList.Empty
-        from changed in mutate(arg1: methods, arg2: objects, arg3: actions).Bind(count => count switch {
-            >= 0 => Fin.Succ(value: count),
-            _ => Fin.Fail<int>(error: UiFault.MutationRejected(op: op, detail: $"count={count}")),
+        from receipt in mutate(arg1: methods, arg2: objects, arg3: actions).Bind(result => result.Changed switch {
+            >= 0 => Fin.Succ(value: result),
+            _ => Fin.Fail<DocumentMutationReceipt>(error: UiFault.MutationRejected(op: op, detail: $"count={result.Changed}")),
         })
         from _ in CommitActions(document: document, op: op, actions: actions)
         from refreshed in Refresh(document: document, canvas: canvas, policy: policy)
         select Snapshot.Of<DocumentMutationDelta>(
-            payload: new DocumentMutationDelta(Changed: changed, After: DocumentSnapshotOf(document: document, objects: objects)),
+            payload: new DocumentMutationDelta(Changed: receipt.Changed, After: DocumentSnapshotOf(document: document, objects: objects), Created: receipt.Created),
             ownerId: Some(document.Hash));
 
     private static Fin<Unit> Refresh(GhDocument document, GhCanvas canvas, DocumentMutationPolicy policy) =>

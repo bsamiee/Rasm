@@ -43,9 +43,11 @@ public sealed partial class LayoutAxis {
 public partial record LayoutArrangement {
     private LayoutArrangement() { }
     public sealed record MoveCase(Guid Id, float Dx, float Dy) : LayoutArrangement;
+    public sealed record PlaceCase(Guid Id, PointF Pivot) : LayoutArrangement;
     public sealed record AlignCase(Guid Left, Guid Right, OCD.Fixed Fix) : LayoutArrangement;
     public sealed record DistributeCase(LayoutAxis Axis, float Gap, Seq<Guid> Ids) : LayoutArrangement;
     public static LayoutArrangement Move(Guid id, float dx, float dy) => new MoveCase(Id: id, Dx: dx, Dy: dy);
+    public static LayoutArrangement Place(Guid id, PointF pivot) => new PlaceCase(Id: id, Pivot: pivot);
     public static LayoutArrangement Align(Guid left, Guid right, OCD.Fixed fix = OCD.Fixed.None) => new AlignCase(Left: left, Right: right, Fix: fix);
     public static LayoutArrangement Distribute(LayoutAxis axis, float gap, Seq<Guid> ids) => new DistributeCase(Axis: axis, Gap: gap, Ids: ids);
 }
@@ -99,6 +101,15 @@ public readonly record struct SnappingPolicy(
 }
 
 [Union]
+public partial record LayoutMeasure {
+    private LayoutMeasure() { }
+    public sealed record SelectionCase : LayoutMeasure;
+    public sealed record ObjectsCase(Seq<Guid> Ids) : LayoutMeasure;
+    public static readonly LayoutMeasure Selection = new SelectionCase();
+    public static LayoutMeasure Objects(params Guid[] ids) => new ObjectsCase(Ids: toSeq(ids));
+}
+
+[Union]
 public partial record SnapProbe {
     private SnapProbe() { }
     public sealed record PointCase(Guid ObjectId, PointF Probe, float Radius = 32f, SnappingPolicy Policy = default) : SnapProbe;
@@ -116,11 +127,11 @@ public partial record SnapProbe {
 [Union]
 public partial record LayoutOp {
     private LayoutOp() { }
-    public sealed record SnapshotCase(Seq<Guid> Ids) : LayoutOp;
+    public sealed record MeasureCase(LayoutMeasure Scope) : LayoutOp;
     public sealed record ArrangeCase(LayoutArrangement Arrangement) : LayoutOp;
     public sealed record SnapCase(SnapProbe Probe) : LayoutOp;
 
-    public static LayoutOp Snapshot(params Guid[] ids) => new SnapshotCase(Ids: toSeq(ids));
+    public static LayoutOp Measure(LayoutMeasure scope) => new MeasureCase(Scope: scope);
     public static LayoutOp Arrange(LayoutArrangement arrangement) => new ArrangeCase(Arrangement: arrangement);
     public static LayoutOp Snap(SnapProbe probe) => new SnapCase(Probe: probe);
 }
@@ -148,24 +159,28 @@ internal static partial class Layout {
 
     internal static GrasshopperUiIntent<LayoutResult> Dispatch(LayoutOp op) =>
         op switch {
-            LayoutOp.SnapshotCase snapshot => Snapshots(ids: snapshot.Ids),
+            LayoutOp.MeasureCase measure => Measure(scope: measure.Scope),
             LayoutOp.ArrangeCase a => Arrange(arrangement: a.Arrangement).Map(delta => (LayoutResult)new LayoutResult.MutationResult(Delta: delta)),
             LayoutOp.SnapCase s => Snap(probe: s.Probe).Map(snap => (LayoutResult)new LayoutResult.SnapResult(Snapshot: snap)),
             _ => GhUi.Document<LayoutResult>(run: _ => Fin.Fail<LayoutResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Dispatch)), detail: "unknown layout op"))),
         };
 
-    private static GrasshopperUiIntent<LayoutResult> Snapshots(Seq<Guid> ids) =>
-        GhUi.Document<LayoutResult>(run: scope =>
-            ids.IsEmpty
-                ? Selection().Run(scope: scope).Map(snapshots => (LayoutResult)new LayoutResult.SnapshotsResult(Snapshots: snapshots))
-                : ids.TraverseM(id => Snapshot(id: id).Run(scope: scope))
+    private static GrasshopperUiIntent<LayoutResult> Measure(LayoutMeasure scope) =>
+        Optional(scope)
+            .Map(static valid => valid.Switch(
+                selectionCase: static _ => Selection().Map(snapshots => (LayoutResult)new LayoutResult.SnapshotsResult(Snapshots: snapshots)),
+                objectsCase: static o => GhUi.Document<LayoutResult>(run: ctx => o.Ids.TraverseM(id => Snapshot(id: id).Run(scope: ctx))
                     .Map(snapshots => (LayoutResult)new LayoutResult.SnapshotsResult(Snapshots: snapshots))
-                    .As());
+                    .As())))
+            .IfNone(GhUi.Document<LayoutResult>(run: _ => Fin.Fail<LayoutResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Measure)), detail: "layout measure is required"))));
 
     internal static GrasshopperUiIntent<Snapshot<LayoutArrangeDelta>> Arrange(LayoutArrangement arrangement) =>
         arrangement switch {
             LayoutArrangement.MoveCase move =>
                 Move(id: move.Id, dx: move.Dx, dy: move.Dy)
+                    .Map(delta => delta.Map(payload => new LayoutArrangeDelta(Moves: Seq(payload)))),
+            LayoutArrangement.PlaceCase place =>
+                Place(id: place.Id, pivot: place.Pivot)
                     .Map(delta => delta.Map(payload => new LayoutArrangeDelta(Moves: Seq(payload)))),
             LayoutArrangement.AlignCase align =>
                 Align(left: align.Left, right: align.Right, fix: align.Fix)
@@ -186,17 +201,27 @@ internal static partial class Layout {
         GrasshopperUi.Mutate<LayoutMoveDelta>(
             op: Op.Of(name: nameof(Move)),
             repaint: RepaintRequest.Object(id: id),
-            undo: UndoStrategy.Manual(record: s => s.Objects.Match(
-                Some: objs => Optional(objs.Find(instanceId: id))
-                    .Map(static obj => new UndoEntry(Verb: "Layout", Noun: "Move", Actions: Seq<UndoAction>(new PivotAction(obj: obj))))
-                    .IfNone(new UndoEntry(Verb: "Layout", Noun: "Move", Actions: Seq<UndoAction>())),
-                None: () => new UndoEntry(Verb: "Layout", Noun: "Move", Actions: Seq<UndoAction>()))),
+            undo: PivotUndo(noun: "Move", id: id),
             mutate: scope =>
                 Optional((Dx: dx, Dy: dy))
                     .Filter(static d => float.IsFinite(d.Dx) && float.IsFinite(d.Dy))
                     .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Move)), detail: "non-finite delta"))
                     .Bind(delta => ObjectOf(scope: scope, id: id).Bind(obj => scope.NeedDocument().Map(doc =>
                         ApplyMove(obj: obj, document: doc, dx: delta.Dx, dy: delta.Dy, snap: snap)))));
+
+    internal static GrasshopperUiIntent<Snapshot<LayoutMoveDelta>> Place(Guid id, PointF pivot) =>
+        GrasshopperUi.Mutate<LayoutMoveDelta>(
+            op: Op.Of(name: nameof(Place)),
+            repaint: RepaintRequest.Object(id: id),
+            undo: PivotUndo(noun: "Place", id: id),
+            mutate: scope =>
+                from valid in Optional(pivot)
+                    .Filter(static point => float.IsFinite(point.X) && float.IsFinite(point.Y))
+                    .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Place)), detail: "non-finite pivot"))
+                from obj in ObjectOf(scope: scope, id: id)
+                from doc in scope.NeedDocument()
+                let before = SnapshotOf(attributes: obj.Attributes)
+                select ApplyMove(obj: obj, document: doc, dx: valid.X - before.Pivot.X, dy: valid.Y - before.Pivot.Y, snap: false));
 
     internal static GrasshopperUiIntent<Snapshot<LayoutMoveDelta>> Align(Guid left, Guid right, OCD.Fixed fix = OCD.Fixed.None) =>
         GrasshopperUi.Mutate<LayoutMoveDelta>(
@@ -262,6 +287,13 @@ internal static partial class Layout {
                 }));
 
     // --- [OPERATIONS] -------------------------------------------------------------------------
+    private static UndoStrategy PivotUndo(string noun, Guid id) =>
+        UndoStrategy.Manual(record: s => s.Objects.Match(
+            Some: objs => Optional(objs.Find(instanceId: id))
+                .Map(obj => new UndoEntry(Verb: "Layout", Noun: noun, Actions: Seq<UndoAction>(new PivotAction(obj: obj))))
+                .IfNone(new UndoEntry(Verb: "Layout", Noun: noun, Actions: Seq<UndoAction>())),
+            None: () => new UndoEntry(Verb: "Layout", Noun: noun, Actions: Seq<UndoAction>())));
+
     private static Fin<Option<SnappingSnapshot>> SnapRectangle(GrasshopperUi.Scope scope, Guid id, RectangleF bounds, SnappingPolicy policy) =>
         Optional(bounds)
             .Filter(static b => float.IsFinite(b.X)
@@ -404,10 +436,12 @@ internal static partial class Layout {
         Seq<(Guid Id, RectangleF Bounds)> sorted = toSeq(snapshots.OrderBy(s => axis.Origin(bounds: s.Bounds)));
         return sorted.Head
             .Map(head => sorted.Fold(
-                initialState: (Cursor: axis.Origin(bounds: head.Bounds), Moves: Seq<(Guid Id, float Dx, float Dy)>()),
-                f: (state, s) => (
-                    Cursor: state.Cursor + axis.Span(bounds: s.Bounds) + gap,
-                    Moves: axis.Delta(cursor: state.Cursor, bounds: s.Bounds) switch {
+                initialState: (Axis: axis, Gap: gap, Cursor: axis.Origin(bounds: head.Bounds), Moves: Seq<(Guid Id, float Dx, float Dy)>()),
+                f: static (state, s) => (
+                    state.Axis,
+                    state.Gap,
+                    Cursor: state.Cursor + state.Axis.Span(bounds: s.Bounds) + state.Gap,
+                    Moves: state.Axis.Delta(cursor: state.Cursor, bounds: s.Bounds) switch {
                         (float dx, float dy) => (s.Id, dx, dy).Cons(state.Moves),
                     }))
                 .Moves.Rev())

@@ -26,19 +26,6 @@ public enum CanvasWindowScope {
     All = Objects | Wires | Groups,
 }
 
-[SmartEnum<int>]
-public sealed partial class InvalidateMode {
-    public static readonly InvalidateMode Immediate = new(
-        key: 0,
-        repaint: RepaintRequest.Canvas);
-
-    public static readonly InvalidateMode Scheduled = new(
-        key: 1,
-        repaint: RepaintRequest.Scheduled);
-
-    public RepaintRequest Repaint { get; }
-}
-
 [Union]
 public partial record CanvasFitTarget {
     private CanvasFitTarget() { }
@@ -48,6 +35,26 @@ public partial record CanvasFitTarget {
     public static readonly CanvasFitTarget Content = new ContentCase();
     public static readonly CanvasFitTarget Selection = new SelectionCase();
     public static readonly CanvasFitTarget Viewport = new ViewportCase();
+}
+
+[Union]
+public partial record CanvasLocus {
+    private CanvasLocus() { }
+    public sealed record PointCase(PointF Value) : CanvasLocus;
+    public sealed record BoundsCase(RectangleF Value) : CanvasLocus;
+    public static CanvasLocus Point(PointF value) => new PointCase(Value: value);
+    public static CanvasLocus Bounds(RectangleF value) => new BoundsCase(Value: value);
+    internal Fin<CanvasLocus> Map(GhCanvas canvas, CoordinateSystem from, CoordinateSystem to) =>
+        Switch(
+            state: (Canvas: canvas, From: from, To: to),
+            pointCase: static (state, p) => Optional(p.Value)
+                .Filter(static value => float.IsFinite(value.X) && float.IsFinite(value.Y))
+                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasLocus)), detail: "non-finite point"))
+                .Map(value => Point(value: state.Canvas.Map(point: value, from: state.From, to: state.To))),
+            boundsCase: static (state, b) => Optional(b.Value)
+                .Filter(static value => float.IsFinite(value.X) && float.IsFinite(value.Y) && float.IsFinite(value.Width) && float.IsFinite(value.Height))
+                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasLocus)), detail: "non-finite bounds"))
+                .Map(value => Bounds(value: state.Canvas.Map(rectangle: value, from: state.From, to: state.To))));
 }
 
 [Union]
@@ -69,8 +76,8 @@ public partial record CanvasOp {
     private CanvasOp() { }
     public sealed record SnapshotCase(bool OpenEditor) : CanvasOp;
     public sealed record PickCase(PointF Point, CoordinateSystem Source) : CanvasOp;
-    public sealed record MapCase(PointF Point, CoordinateSystem From, CoordinateSystem To) : CanvasOp;
-    public sealed record InvalidateCase(InvalidateMode Mode) : CanvasOp;
+    public sealed record MapCase(CanvasLocus Locus, CoordinateSystem From, CoordinateSystem To) : CanvasOp;
+    public sealed record InvalidateCase(RepaintRequest Repaint) : CanvasOp;
     public sealed record InstantiateCase(Option<string> SearchText, bool MouseCentred) : CanvasOp;
     public sealed record DetailCase : CanvasOp;
     public sealed record ActionsCase : CanvasOp;
@@ -83,8 +90,8 @@ public partial record CanvasOp {
 
     public static CanvasOp Snapshot(bool openEditor = false) => new SnapshotCase(OpenEditor: openEditor);
     public static CanvasOp Pick(PointF point, CoordinateSystem source = CoordinateSystem.Content) => new PickCase(Point: point, Source: source);
-    public static CanvasOp Map(PointF point, CoordinateSystem from, CoordinateSystem to) => new MapCase(Point: point, From: from, To: to);
-    public static CanvasOp Invalidate(InvalidateMode? mode = null) => new InvalidateCase(Mode: mode ?? InvalidateMode.Immediate);
+    public static CanvasOp Map(CanvasLocus locus, CoordinateSystem from, CoordinateSystem to) => new MapCase(Locus: locus, From: from, To: to);
+    public static CanvasOp Invalidate(RepaintRequest? repaint = null) => new InvalidateCase(Repaint: repaint ?? RepaintRequest.Canvas);
     public static CanvasOp Instantiate(string? searchText = null, bool mouseCentred = true) => new InstantiateCase(SearchText: Optional(searchText), MouseCentred: mouseCentred);
     public static readonly CanvasOp Detail = new DetailCase();
     public static CanvasOp Actions() => new ActionsCase();
@@ -101,7 +108,7 @@ public partial record CanvasResult {
     private CanvasResult() { }
     public sealed record SnapshotResult(CanvasSnapshot Snapshot) : CanvasResult;
     public sealed record PickResult(CanvasPickSnapshot Pick) : CanvasResult;
-    public sealed record MapResult(CanvasMappedPoint Mapped) : CanvasResult;
+    public sealed record MapResult(CanvasMappedLocus Mapped) : CanvasResult;
     public sealed record BitmapResult(CanvasBitmap Bitmap) : CanvasResult;
     public sealed record InteractionResult(CanvasInteractionSnapshot Interaction) : CanvasResult;
     public sealed record WindowResult(CanvasWindowSnapshot Window) : CanvasResult;
@@ -225,7 +232,7 @@ public readonly record struct CanvasSnapFeedbackSnapshot(
 public readonly record struct CanvasBitmap(int Width, int Height, ReadOnlyMemory<byte> Png);
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct CanvasMappedPoint(PointF Source, PointF Target, CoordinateSystem From, CoordinateSystem To);
+public readonly record struct CanvasMappedLocus(CanvasLocus Source, CanvasLocus Target, CoordinateSystem From, CoordinateSystem To);
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CanvasSnapshot(
@@ -255,7 +262,7 @@ internal sealed record CanvasRequest(CanvasOp Op) : GhUiRequest<CanvasResult> {
             snapshotCase: static s => GrasshopperUiPolicy.Canvas(openEditor: s.OpenEditor),
             pickCase: static _ => GrasshopperUiPolicy.Canvas(),
             mapCase: static _ => GrasshopperUiPolicy.Canvas(),
-            invalidateCase: static i => GrasshopperUiPolicy.Canvas(repaint: i.Mode.Repaint),
+            invalidateCase: static i => GrasshopperUiPolicy.Canvas(repaint: i.Repaint),
             instantiateCase: static _ => GrasshopperUiPolicy.Canvas(openEditor: true),
             detailCase: static _ => GrasshopperUiPolicy.Canvas(),
             actionsCase: static _ => GrasshopperUiPolicy.Canvas(),
@@ -286,11 +293,11 @@ internal static partial class UiRail {
                     return (CanvasResult)new CanvasResult.PickResult(Pick: PickSnapshotOf(result: result));
                 })),
         CanvasOp.MapCase m =>
-            Optional(m.Point).Filter(static pt => float.IsFinite(pt.X) && float.IsFinite(pt.Y))
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasOp.Map)), detail: "non-finite point"))
-                .Bind(valid => scope.NeedCanvas().Map(canvas => (CanvasResult)new CanvasResult.MapResult(
-                    Mapped: new CanvasMappedPoint(Source: valid, Target: canvas.Map(point: valid, from: m.From, to: m.To), From: m.From, To: m.To)))),
-        CanvasOp.InvalidateCase i =>
+            Optional(m.Locus)
+                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasOp.Map)), detail: "locus is required"))
+                .Bind(locus => scope.NeedCanvas().Bind(canvas => locus.Map(canvas: canvas, from: m.From, to: m.To)
+                    .Map(mapped => (CanvasResult)new CanvasResult.MapResult(Mapped: new CanvasMappedLocus(Source: locus, Target: mapped, From: m.From, To: m.To))))),
+        CanvasOp.InvalidateCase =>
             scope.NeedCanvas().Map(_ => CanvasResult.Unit),
         CanvasOp.InstantiateCase ins =>
             scope.NeedCanvas()
@@ -423,9 +430,14 @@ internal static partial class UiRail {
         }))();
 
     private static CanvasNavigationPolicy ResolveNavigation(CanvasNavigationPolicy raw) =>
-        raw.MinimumZoom <= 0
-            ? new CanvasNavigationPolicy(MinimumZoom: 0.05f, MaximumZoom: 2f, Duration: raw.Duration == default ? TimeSpan.FromMilliseconds(value: 250) : raw.Duration)
-            : raw with { Duration = raw.Duration == default ? TimeSpan.FromMilliseconds(value: 250) : raw.Duration };
+        (raw.MinimumZoom, raw.MaximumZoom, raw.Duration) switch {
+            (float minimum, float maximum, TimeSpan duration) when float.IsFinite(minimum) && minimum > 0f && float.IsFinite(maximum) && maximum >= minimum =>
+                new(MinimumZoom: minimum, MaximumZoom: maximum, Duration: duration == default ? TimeSpan.FromMilliseconds(value: 250) : duration),
+            (float minimum, _, TimeSpan duration) when float.IsFinite(minimum) && minimum > 0f =>
+                new(MinimumZoom: minimum, MaximumZoom: Math.Max(val1: minimum, val2: 2f), Duration: duration == default ? TimeSpan.FromMilliseconds(value: 250) : duration),
+            (_, _, TimeSpan duration) =>
+                new(MinimumZoom: 0.05f, MaximumZoom: 2f, Duration: duration == default ? TimeSpan.FromMilliseconds(value: 250) : duration),
+        };
 
     private static CanvasFramePolicy ResolveFrame(CanvasFramePolicy raw) =>
         new(Padding: raw.Padding <= 0 ? 48f : raw.Padding, Navigation: ResolveNavigation(raw.Navigation));

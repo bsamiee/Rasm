@@ -9,7 +9,6 @@ using Grasshopper2.UI.Flex;
 using Grasshopper2.UI.Icon;
 using Grasshopper2.UI.InputPanel;
 using Grasshopper2.UI.Toolbar;
-using Rhino.Geometry;
 using Op = Rasm.Domain.Op;
 
 namespace Rasm.Grasshopper.UI;
@@ -174,7 +173,7 @@ public readonly record struct UiCommand(
         string info = Info;
         Func<Fin<Unit>> run = Run;
         Command command = new() { ID = name, MenuText = name, ToolBarText = name, ToolTip = info, Enabled = EffectiveEnabled() };
-        _ = Image.Iter(image => command.Image = image);
+        _ = MenuImage.Iter(image => command.Image = image);
         _ = Shortcut.Iter(shortcut => command.Shortcut = shortcut.Keys);
         command.Executed += (_, _) => _ = GrasshopperUi.Protect(valid: run);
         return command;
@@ -192,6 +191,9 @@ public readonly record struct UiCommand(
 
     internal bool EffectiveEnabled() =>
         Enabled && CanExecute.Map(can => GrasshopperUi.Protect(valid: can).IfFail(_ => false)).IfNone(true);
+
+    internal Option<Eto.Drawing.Image> MenuImage =>
+        Image | Icon.Map(static icon => (Eto.Drawing.Image)icon.DrawToBitmap(size: new Size(width: 16, height: 16), padding: 0, background: Colors.Transparent));
 }
 
 [Union]
@@ -209,7 +211,7 @@ public abstract record ToolbarItem {
     public sealed record SectionToggle(string Name, bool State, Seq<string> Sections = default) : ToolbarItem;
     public sealed record Radio(UiCommand Command, bool State, Func<bool, Fin<Unit>> Changed) : ToolbarItem;
     public sealed record TextInput(string Name, string Value, Func<string, Fin<Unit>> Changed) : ToolbarItem;
-    public sealed record Number(string Name, double Value, Interval Range, Func<double, Fin<Unit>> Changed) : ToolbarItem;
+    public sealed record Number(string Name, UiNumber Value, Func<decimal, Fin<Unit>> Changed) : ToolbarItem;
     public sealed record SwatchInput(string Name, OpenColor.Family Family, Func<OpenColor.Family, Fin<Unit>> Changed) : ToolbarItem;
     public sealed record ColourBars(string Name, OpenColor.Family Family, Func<OpenColor.Family, Fin<Unit>> Changed) : ToolbarItem;
     public sealed record Spacer(string Chapter, string Section) : ToolbarItem;
@@ -247,7 +249,7 @@ public abstract record ToolbarItem {
                             Enabled = command.EffectiveEnabled(),
                             Checked = toggle.State,
                         };
-                        _ = command.Image.Iter(image => menuCommand.Image = image);
+                        _ = command.MenuImage.Iter(image => menuCommand.Image = image);
                         _ = command.Shortcut.Iter(shortcut => menuCommand.Shortcut = shortcut.Keys);
                         menuCommand.Executed += (_, _) => _ = GrasshopperUi.Protect(valid: () => changed(arg: menuCommand.Checked));
                         MenuItem item = menuCommand.CreateMenuItem();
@@ -273,13 +275,9 @@ public abstract record ToolbarItem {
                     }))(),
                 (Number number, UiCommandSurface.ToolbarCase toolbar) =>
                     from changed in Optional(number.Changed).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Number)), detail: "number change delegate is required"))
+                    from value in Optional(number.Value).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Number)), detail: "UiNumber is required"))
                     select ((Func<Unit>)(() => {
-                        UiNumber uiNumber = UiNumber.Standard(
-                            lower: (decimal)number.Range.T0,
-                            upper: (decimal)number.Range.T1,
-                            value: (decimal)number.Value,
-                            decimals: 3);
-                        toolbar.Bar.Add(new NumberSlider(nomen: new Nomen(name: number.Name, info: number.Name), number: uiNumber, callback: value => _ = GrasshopperUi.Protect(valid: () => changed(arg: (double)value))));
+                        toolbar.Bar.Add(new NumberSlider(nomen: new Nomen(name: number.Name, info: number.Name), number: value, callback: current => _ = GrasshopperUi.Protect(valid: () => changed(arg: current))));
                         return unit;
                     }))(),
                 (SwatchInput colour, UiCommandSurface.ToolbarCase toolbar) =>

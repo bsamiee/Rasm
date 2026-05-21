@@ -260,6 +260,7 @@ internal static class OpAcceptance {
             null => Option<bool>.None,
             GeometryBase geometry => Some(geometry.IsValid),
             double scalar => Some(RhinoMath.IsValidDouble(scalar)),
+            float scalar => Some(float.IsFinite(scalar)),
             Guid id => Some(id != Guid.Empty),
             string text => Some(!string.IsNullOrWhiteSpace(value: text)),
             RayQuery ray => Some(ray.IsValid),

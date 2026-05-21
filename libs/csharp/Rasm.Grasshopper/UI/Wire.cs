@@ -76,7 +76,18 @@ public sealed partial class WireEdit {
         key: 2,
         apply: static (methods, source, target, actions) =>
             from connected in Wire.RequireConnected(source: source, target: target, op: Op.Of(name: "Wire.Delete"))
-            select methods.DeleteObjects(objects: [], wires: [new WireEnds(source: source.InstanceId, target: target.InstanceId)], actions: actions));
+            from changed in NativeCount(op: Op.Of(name: "Wire.Delete"), name: "DocumentMethods.DeleteObjects", run: () => methods.DeleteObjects(objects: [], wires: [new WireEnds(source: source.InstanceId, target: target.InstanceId)], actions: actions))
+            select changed);
+
+    public static readonly WireEdit DisconnectInputs = new(
+        key: 3,
+        apply: static (_, _, target, actions) =>
+            NativeCount(op: Op.Of(name: "Wire.DisconnectInputs"), name: "Connections.DisconnectAllInputs", run: () => Connections.DisconnectAllInputs(target: target, undo: actions)));
+
+    public static readonly WireEdit DisconnectOutputs = new(
+        key: 4,
+        apply: static (_, source, _, actions) =>
+            NativeCount(op: Op.Of(name: "Wire.DisconnectOutputs"), name: "Connections.DisconnectAllOutputs", run: () => Connections.DisconnectAllOutputs(source: source, undo: actions)));
 
     [UseDelegateFromConstructor]
     internal partial Fin<int> Apply(GhDocumentMethods methods, IParameter source, IParameter target, ActionList actions);
@@ -88,6 +99,15 @@ public sealed partial class WireEdit {
             .Bind(changed => changed switch {
                 true => Fin.Succ(value: 1),
                 false => Fin.Fail<int>(error: UiFault.MutationRejected(op: op, detail: $"{name} returned false")),
+            });
+
+    private static Fin<int> NativeCount(Op op, string name, Func<int> run) =>
+        Try.lift<int>(f: run)
+            .Run()
+            .MapFail(_ => UiFault.MutationRejected(op: op, detail: $"{name} threw"))
+            .Bind(count => count switch {
+                >= 0 => Fin.Succ(value: count),
+                _ => Fin.Fail<int>(error: UiFault.MutationRejected(op: op, detail: $"{name} returned {count}")),
             });
 }
 
@@ -127,7 +147,6 @@ public partial record WireResult {
     public sealed record WireCase(WireSnapshot Wire) : WireResult;
     public sealed record GraphCase(WireGraph Graph) : WireResult;
     public sealed record MutationCase(Snapshot<DocumentMutationDelta> Delta) : WireResult;
-    public sealed record SplitCase(Snapshot<WireSplitDelta> Delta) : WireResult;
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -152,7 +171,7 @@ internal static partial class Wire {
         op switch {
             WireOp.QueryCase q => Query(query: q.Request),
             WireOp.SelectCase s => Selection(op: s.Op).Map(delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
-            WireOp.SplitCase s => Split(wire: s.Wire, location: s.Location).Map(delta => (WireResult)new WireResult.SplitCase(Delta: delta)),
+            WireOp.SplitCase s => Split(wire: s.Wire, location: s.Location).Map(delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
             WireOp.EditCase e => Edit(wire: e.Wire, edit: e.Kind).Map(delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
             _ => GhUi.Document<WireResult>(run: _ => Fin.Fail<WireResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Dispatch)), detail: "unknown wire op"))),
         };
@@ -199,8 +218,8 @@ internal static partial class Wire {
             _ => GhUi.Document<Snapshot<DocumentMutationDelta>>(run: _ => Fin.Fail<Snapshot<DocumentMutationDelta>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Selection)), detail: "unknown WireSelectionOp"))),
         };
 
-    internal static GrasshopperUiIntent<Snapshot<WireSplitDelta>> Split(WireSnapshot.ConnectedCase wire, PointF location) =>
-        GrasshopperUi.Mutate<WireSplitDelta>(
+    internal static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> Split(WireSnapshot.ConnectedCase wire, PointF location) =>
+        GrasshopperUi.Mutate<DocumentMutationDelta>(
             op: Op.Of(name: nameof(Split)),
             undo: UndoStrategy.None,
             repaint: RepaintRequest.Canvas,
@@ -216,8 +235,12 @@ internal static partial class Wire {
                 from connected in RequireConnected(source: source, target: target, op: Op.Of(name: nameof(Split)))
                 let actions = ActionList.Empty
                 let split = SplitWire(methods: methods, source: source, target: target, name: string.Empty, location: valid, actions: actions)
+                let created = split.Shout.Map(static id => Seq(id)).IfNone(Seq<Guid>()) + split.Listen.Map(static id => Seq(id)).IfNone(Seq<Guid>())
                 from committed in UiRail.CommitActions(document: doc, op: Op.Of(name: nameof(Split)), actions: actions)
-                select new WireSplitDelta(Changed: split.Changed, Wire: wire, Shout: split.Shout, Listen: split.Listen));
+                select new DocumentMutationDelta(
+                    Changed: split.Changed ? 1 : 0,
+                    After: UiRail.DocumentSnapshotOf(document: doc, objects: objs),
+                    Created: created));
 
     internal static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> Edit(WireSnapshot.ConnectedCase wire, WireEdit edit) =>
         GrasshopperUi.Mutate<DocumentMutationDelta>(

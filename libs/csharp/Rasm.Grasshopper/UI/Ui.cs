@@ -73,12 +73,22 @@ public static class Snapshot {
         new(OwnerId: ownerId, Payload: payload);
 }
 
-public readonly record struct DocumentMutationDelta(int Changed, DocumentSnapshot After);
+internal readonly record struct DocumentMutationReceipt(int Changed, Seq<Guid> Created) {
+    public static DocumentMutationReceipt None => new(Changed: 0, Created: Seq<Guid>());
+    public static DocumentMutationReceipt Count(int changed) => new(Changed: changed, Created: Seq<Guid>());
+    public static DocumentMutationReceipt CreatedObject(Guid id) =>
+        id switch {
+            Guid value when value != Guid.Empty => new(Changed: 1, Created: Seq(value)),
+            _ => None,
+        };
+    public static DocumentMutationReceipt operator +(DocumentMutationReceipt left, DocumentMutationReceipt right) =>
+        new(Changed: left.Changed + right.Changed, Created: left.Created + right.Created);
+}
+public readonly record struct DocumentMutationDelta(int Changed, DocumentSnapshot After, Seq<Guid> Created = default);
 public readonly record struct LayoutMoveDelta(Guid ObjectId, float Dx, float Dy, LayoutSnapshot After, Option<SnappingSnapshot> Snap);
 public readonly record struct LayoutArrangeDelta(Seq<LayoutMoveDelta> Moves) {
     public int Count => Moves.Count;
 }
-public readonly record struct WireSplitDelta(bool Changed, WireSnapshot.ConnectedCase Wire, Option<Guid> Shout, Option<Guid> Listen);
 
 public readonly record struct UndoEntry(string Verb, string Noun, Seq<UndoAction> Actions) {
     internal VerbNoun AsName() => (Verb, Noun);
@@ -130,7 +140,6 @@ public readonly record struct GrasshopperUiPolicy(
             RequireCanvas: left.RequireCanvas || right.RequireCanvas,
             RequireDocument: left.RequireDocument || right.RequireDocument,
             Repaint: left.RepaintOrNone | right.RepaintOrNone);
-
     public static GrasshopperUiPolicy BitwiseOr(GrasshopperUiPolicy left, GrasshopperUiPolicy right) => left | right;
 }
 
@@ -185,10 +194,6 @@ public abstract partial record UiFault : Expected {
         public override string Message => $"Grasshopper editor operation failed: {Detail}.";
         public override string Category => "Editor";
     }
-    public sealed record ResourceLeakedCase(string Detail) : UiFault {
-        public override string Message => $"Resource teardown failed: {Detail}.";
-        public override string Category => "Resource";
-    }
     public sealed record ThreadMarshalCase(string Detail) : UiFault {
         public override string Message => $"UI-thread marshal failed: {Detail}.";
         public override string Category => "Thread";
@@ -202,7 +207,6 @@ public abstract partial record UiFault : Expected {
     public static UiFault InvalidInput(Op op, string detail) => new InvalidInputCase(Op: op, Detail: detail);
     public static UiFault MutationRejected(Op op, string detail) => new MutationRejectedCase(Op: op, Detail: detail);
     public static UiFault GhEditor(string detail) => new GhEditorCase(Detail: detail);
-    public static UiFault ResourceLeaked(string detail) => new ResourceLeakedCase(Detail: detail);
     public static UiFault ThreadMarshal(string detail) => new ThreadMarshalCase(Detail: detail);
     public static UiFault Cancelled(Op op) => new CancelledCase(Op: op);
 }
