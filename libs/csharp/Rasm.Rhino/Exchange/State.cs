@@ -12,8 +12,8 @@ public enum FileCollisionPolicy { Preserve, AppendNumber, Replace }
 public enum FileFidelity { Model, Small, GeometryOnly }
 public enum FileResourcePolicy { Reference, Embed, Copy }
 public enum FileGrouping { Document, File, Layer, ObjectName, ObjectType, Material, Block, UserString }
-public enum FileSort { Stable, File, Layer, ObjectName, ObjectType, Material, Block, UserMetadata }
-public enum FilePhase { Prompt, Open, Headless, Import, Export, Save, SaveAs, WriteFile, Write3dmFile, SaveTemplate, ArchiveRead, ArchiveExtract, ArchiveUpdate, Batch }
+public enum FileSort { Stable, File, Layer, ObjectName, ObjectType, Material, Block, UserString }
+public enum FilePhase { Prompt, Open, Headless, Import, Export, Publish, Save, SaveAs, WriteFile, Write3dmFile, SaveTemplate, ArchiveRead, ArchiveExtract, ArchiveUpdate, Batch }
 public enum ArchiveSlice { Full, Metadata, Objects, Resources }
 public enum FileArchiveProjection { Full, MetadataAndGraph, Metadata, Graph, Objects }
 
@@ -33,8 +33,11 @@ public readonly record struct FileWritePolicy(
     bool WriteUserData = true,
     bool GeometryOnly = false,
     bool UseCompression = true,
+    bool CreateBackupFiles = true,
+    bool CreateOtherBackupFiles = true,
+    Option<Transform> Xform = default,
     int Version = 0) {
-    public static FileWritePolicy Default => new(IncludeRenderMeshes: true, IncludePreviewImage: true, IncludeBitmapTable: true, IncludeHistory: true, WriteUserData: true, UseCompression: true);
+    public static FileWritePolicy Default => new(IncludeRenderMeshes: true, IncludePreviewImage: true, IncludeBitmapTable: true, IncludeHistory: true, WriteUserData: true, UseCompression: true, CreateBackupFiles: true, CreateOtherBackupFiles: true);
     internal FileWritePolicy Normalized => this == default ? Default : this;
 }
 
@@ -63,8 +66,18 @@ public sealed record FilePrompt {
     public static Fin<FilePrompt> Open(string title, string filter = "", bool multiple = false, Option<string> fileName = default, Option<string> initialDirectory = default, Option<string> defaultExtension = default) =>
         Create(mode: multiple ? FilePromptMode.OpenMany : FilePromptMode.OpenOne, title: title, filter: string.IsNullOrWhiteSpace(value: filter) ? FileFormat.Filter(phase: FilePhase.Import) : filter, fileName: fileName, initialDirectory: initialDirectory, defaultExtension: defaultExtension);
 
-    public static Fin<FilePrompt> Save(string title, string filter = "", Option<string> fileName = default, Option<string> initialDirectory = default, Option<string> defaultExtension = default, FileWritePolicy write = default) =>
-        Create(mode: FilePromptMode.Save, title: title, filter: string.IsNullOrWhiteSpace(value: filter) ? FileFormat.Filter(phase: FilePhase.Export) : filter, fileName: fileName, initialDirectory: initialDirectory, defaultExtension: defaultExtension, write: write);
+    public static Fin<FilePrompt> Save(string title, string filter = "", Option<string> fileName = default, Option<string> initialDirectory = default, Option<string> defaultExtension = default, FileWritePolicy write = default, FilePhase phase = FilePhase.Export) =>
+        phase switch {
+            FilePhase.Export or FilePhase.Publish => Create(
+                mode: FilePromptMode.Save,
+                title: title,
+                filter: string.IsNullOrWhiteSpace(value: filter) ? FileFormat.Filter(phase: phase) : filter,
+                fileName: fileName,
+                initialDirectory: initialDirectory,
+                defaultExtension: defaultExtension,
+                write: write),
+            _ => Fin.Fail<FilePrompt>(error: Op.Of(name: nameof(FilePrompt)).InvalidInput()),
+        };
 
     public static Fin<FilePrompt> Folder(string title, Option<string> initialDirectory = default) =>
         Create(mode: FilePromptMode.Folder, title: title, filter: string.Empty, initialDirectory: initialDirectory);
@@ -276,6 +289,16 @@ public sealed record ArchiveUpdate(
     Seq<FileEndpoint> Embed = default,
     Seq<string> Extract = default,
     Seq<FileEndpoint> LinkBlocks = default);
+
+public sealed record FilePublish(Seq<FileSheet> Sheets, FileProfile Profile, bool Layers = true);
+
+public sealed record FileSheet(
+    Option<Guid> Id = default,
+    Option<string> Name = default,
+    double Dpi = 300.0,
+    bool PrintWidths = true,
+    bool Raster = false,
+    ViewCaptureSettings.ColorMode Color = ViewCaptureSettings.ColorMode.DisplayColor);
 
 public readonly record struct FileArchiveMetadataPatch(
     Option<string> Notes,
