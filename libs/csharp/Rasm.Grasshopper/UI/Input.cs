@@ -347,7 +347,7 @@ public abstract record InputRequest<T> : GhUiRequest<T> {
     // is complete. macOS: DisplayMode.Attached presents as a sheet on the parent window.
     public sealed record Dialog<TResult>(Func<Eto.Forms.Dialog<TResult>, Fin<Unit>> Configure, string Title = "", DialogDisplayMode Mode = DialogDisplayMode.Default) : InputRequest<Option<TResult>> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
-        internal override Fin<Option<TResult>> Apply(GrasshopperUi.Scope scope) => Input.Dialog<TResult>(configure: Configure, title: Title, mode: Mode).Run(scope: scope);
+        internal override Fin<Option<TResult>> Apply(GrasshopperUi.Scope scope) => Input.Dialog(configure: Configure, title: Title, mode: Mode).Run(scope: scope);
     }
     public sealed record PickColor(Color Initial, bool AllowAlpha = true) : InputRequest<Option<Color>> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
@@ -496,15 +496,15 @@ internal static partial class Input {
                 return action();
             }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Clipboard)), detail: $"Clipboard op threw: {error.Message}")));
 
-    internal static GrasshopperUiIntent<Option<TResult>> Dialog<TResult>(Func<Eto.Forms.Dialog<TResult>, Fin<Unit>> configure, string title, DialogDisplayMode mode) =>
+    internal static GrasshopperUiIntent<Option<TResult>> Dialog<TResult>(Func<Dialog<TResult>, Fin<Unit>> configure, string title, DialogDisplayMode mode) =>
         GhUi.Read(run: scope =>
             from validConfigure in Optional(configure).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Dialog)), detail: "null configure delegate"))
-            from result in RunDialog<TResult>(scope: scope, title: title, mode: mode, configure: validConfigure)
+            from result in RunDialog(scope: scope, title: title, mode: mode, configure: validConfigure)
             select result);
 
-    private static Fin<Option<TResult>> RunDialog<TResult>(GrasshopperUi.Scope scope, string title, DialogDisplayMode mode, Func<Eto.Forms.Dialog<TResult>, Fin<Unit>> configure) =>
+    private static Fin<Option<TResult>> RunDialog<TResult>(GrasshopperUi.Scope scope, string title, DialogDisplayMode mode, Func<Dialog<TResult>, Fin<Unit>> configure) =>
         Try.lift<Fin<Option<TResult>>>(f: () => {
-            using Eto.Forms.Dialog<TResult> dialog = new() { Title = title, DisplayMode = mode };
+            using Dialog<TResult> dialog = new() { Title = title, DisplayMode = mode };
             return configure(arg: dialog).Map(_ => Optional(dialog.ShowModal(owner: DialogParent(scope: scope))));
         }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Dialog)), detail: $"Dialog<T> threw: {error.Message}")).Bind(static r => r);
 

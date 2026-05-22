@@ -8,45 +8,49 @@ namespace Rasm.Vectors;
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class RegistrationKind {
-    public static readonly RegistrationKind PointToPoint = new(key: 0);
-    public static readonly RegistrationKind PointToPlane = new(key: 1);
-    public static readonly RegistrationKind Symmetric = new(key: 2);
-    public static readonly RegistrationKind Robust = new(key: 3);
+    public static readonly RegistrationKind PointToPoint = new(key: 0,
+        solveStep: static (source, target, _, _, current, key) => PopulationKernel.SolvePointToPoint(source: source, target: target, current: current, key: key));
+    public static readonly RegistrationKind PointToPlane = new(key: 1,
+        solveStep: static (source, target, normals, _, current, key) => PopulationKernel.SolvePointToPlane(source: source, target: target, normals: normals, current: current, key: key));
+    public static readonly RegistrationKind Symmetric = new(key: 2,
+        solveStep: static (source, target, normals, _, current, key) => PopulationKernel.SolveSymmetric(source: source, target: target, normals: normals, current: current, key: key));
+    public static readonly RegistrationKind Robust = new(key: 3,
+        solveStep: static (source, target, _, residuals, current, key) => PopulationKernel.SolveRobustProcrustes(source: source, target: target, residuals: residuals, current: current, key: key));
+    [UseDelegateFromConstructor] internal partial Fin<Transform> SolveStep(Seq<Point3d> source, Point3d[] target, Vector3d[] normals, double[] residuals, Transform current, Op key);
     internal Fin<Transform> Align(VectorCloud source, VectorCloud target, Context context, Op? key = null) =>
         PopulationKernel.AlignClouds(kind: this, source: source, target: target, context: context, key: key.OrDefault());
-}
-
-[Union]
-public abstract partial record HullKind {
-    private HullKind() { }
-    public sealed record ConvexCase : HullKind;
-    public static HullKind Convex => new ConvexCase();
-    internal Fin<Mesh> Compute(VectorCloud source, Context context, Op? key = null) =>
-        PopulationKernel.ComputeHull(kind: this, source: source, context: context, key: key.OrDefault());
 }
 
 [Union]
 public abstract partial record SamplingKind {
     private SamplingKind() { }
     public sealed record PoissonDiskCase(PositiveMagnitude Radius) : SamplingKind;
-    public sealed record FarthestPointCase(int Count) : SamplingKind;
-    public sealed record FarthestPointOptimizationCase(int Count) : SamplingKind;
-    public sealed record LloydCase(int Count, int Iterations) : SamplingKind;
-    public sealed record CapacityConstrainedCase(int Count, int Capacity) : SamplingKind;
+    public sealed record FarthestPointCase(Dimension Count) : SamplingKind;
+    public sealed record FarthestPointOptimizationCase(Dimension Count) : SamplingKind;
+    public sealed record LloydCase(Dimension Count, Dimension Iterations) : SamplingKind;
+    public sealed record CapacityConstrainedCase(Dimension Count, Dimension Capacity) : SamplingKind;
     public static Fin<SamplingKind> PoissonDisk(double radius, Op? key = null) =>
         key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: radius).Map(r => (SamplingKind)new PoissonDiskCase(Radius: r));
-    public static Fin<SamplingKind> FarthestPoint(int count, Op? key = null) =>
-        count > 0 ? Fin.Succ<SamplingKind>(new FarthestPointCase(Count: count)) : Fin.Fail<SamplingKind>(key.OrDefault().InvalidInput());
-    public static Fin<SamplingKind> FarthestPointOptimization(int count, Op? key = null) =>
-        count > 0 ? Fin.Succ<SamplingKind>(new FarthestPointOptimizationCase(Count: count)) : Fin.Fail<SamplingKind>(key.OrDefault().InvalidInput());
-    public static Fin<SamplingKind> Lloyd(int count, int iterations, Op? key = null) =>
-        count > 0 && iterations >= 1
-            ? Fin.Succ<SamplingKind>(new LloydCase(Count: count, Iterations: iterations))
-            : Fin.Fail<SamplingKind>(key.OrDefault().InvalidInput());
-    public static Fin<SamplingKind> CapacityConstrained(int count, int capacity, Op? key = null) =>
-        count > 0 && capacity > 0
-            ? Fin.Succ<SamplingKind>(new CapacityConstrainedCase(Count: count, Capacity: capacity))
-            : Fin.Fail<SamplingKind>(key.OrDefault().InvalidInput());
+    public static Fin<SamplingKind> FarthestPoint(int count, Op? key = null) {
+        Op op = key.OrDefault();
+        return op.AcceptValidated<Dimension>(candidate: count).Map(static value => (SamplingKind)new FarthestPointCase(Count: value));
+    }
+    public static Fin<SamplingKind> FarthestPointOptimization(int count, Op? key = null) {
+        Op op = key.OrDefault();
+        return op.AcceptValidated<Dimension>(candidate: count).Map(static value => (SamplingKind)new FarthestPointOptimizationCase(Count: value));
+    }
+    public static Fin<SamplingKind> Lloyd(int count, int iterations, Op? key = null) {
+        Op op = key.OrDefault();
+        return from c in op.AcceptValidated<Dimension>(candidate: count)
+               from i in op.AcceptValidated<Dimension>(candidate: iterations)
+               select (SamplingKind)new LloydCase(Count: c, Iterations: i);
+    }
+    public static Fin<SamplingKind> CapacityConstrained(int count, int capacity, Op? key = null) {
+        Op op = key.OrDefault();
+        return from c in op.AcceptValidated<Dimension>(candidate: count)
+               from cap in op.AcceptValidated<Dimension>(candidate: capacity)
+               select (SamplingKind)new CapacityConstrainedCase(Count: c, Capacity: cap);
+    }
     internal Fin<VectorCloud> Sample(MeshSpace domain, Context context, Op? key = null) =>
         PopulationKernel.SampleOnMesh(kind: this, domain: domain, context: context, key: key.OrDefault());
     internal Fin<VectorCloud> Sample(ScalarField domain, BoundingBox region, Context context, Op? key = null) =>
@@ -55,10 +59,10 @@ public abstract partial record SamplingKind {
         double safeArea = Math.Max(val1: area, val2: RhinoMath.SqrtEpsilon);
         double target = this switch {
             PoissonDiskCase pd => safeArea / Math.Max(val1: pd.Radius.Value * pd.Radius.Value, val2: RhinoMath.SqrtEpsilon),
-            FarthestPointCase fp => fp.Count,
-            FarthestPointOptimizationCase fpo => fpo.Count,
-            LloydCase lloyd => lloyd.Count,
-            CapacityConstrainedCase ccvt => ccvt.Count * ccvt.Capacity,
+            FarthestPointCase fp => fp.Count.Value,
+            FarthestPointOptimizationCase fpo => fpo.Count.Value,
+            LloydCase lloyd => lloyd.Count.Value,
+            CapacityConstrainedCase ccvt => ccvt.Count.Value * ccvt.Capacity.Value,
             _ => 1.0,
         };
         return Math.Max(val1: target / safeArea, val2: 1.0 / safeArea);
@@ -96,8 +100,6 @@ internal static class PopulationKernel {
     // correspondence-finding outer loop; the inner solve switches on kind.
     internal static Fin<Transform> AlignClouds(RegistrationKind kind, VectorCloud source, VectorCloud target, Context context, Op key) =>
         (source, target) switch {
-            (VectorCloud.ClusterCase src, VectorCloud.ClusterCase tgt) when kind.Equals(RegistrationKind.PointToPoint)
-                => ProcrustesAlign(source: src.Vertices, target: tgt.Vertices, key: key),
             (VectorCloud.ClusterCase src, VectorCloud.ClusterCase tgt)
                 => IcpAlign(source: src, target: tgt, kind: kind, key: key),
             _ => Fin.Fail<Transform>(error: key.InvalidInput()),
@@ -116,11 +118,8 @@ internal static class PopulationKernel {
         Transform current = Transform.Identity;
         for (int iter = 0; iter < IcpMaxIterations; iter++) {
             (Point3d[] matchedTarget, Vector3d[] matchedNormals, double[] residuals) = FindCorrespondences(source: source.Vertices, target: target, normals: targetNormals, current: current);
-            Fin<Transform> deltaFin =
-                kind.Equals(RegistrationKind.PointToPlane) ? SolvePointToPlane(source: source.Vertices, target: matchedTarget, normals: matchedNormals, current: current, key: key)
-                : kind.Equals(RegistrationKind.Symmetric) ? SolveSymmetric(source: source.Vertices, target: matchedTarget, normals: matchedNormals, current: current, key: key)
-                : SolveRobustProcrustes(source: source.Vertices, target: matchedTarget, residuals: residuals, current: current, key: key);
-            Transform delta = deltaFin.Match(Succ: static value => value, Fail: static _ => Transform.Unset);
+            Fin<Transform> deltaFin = kind.SolveStep(source: source.Vertices, target: matchedTarget, normals: matchedNormals, residuals: residuals, current: current, key: key);
+            Transform delta = deltaFin.IfFail(Transform.Unset);
             if (!delta.IsValid) return Fin.Fail<Transform>(error: key.InvalidResult());
             current = delta * current;
             if (IsApproximatelyIdentity(delta: delta)) break;
@@ -129,24 +128,31 @@ internal static class PopulationKernel {
     }
     private static Vector3d[] EstimateNormalsViaCovariance(VectorCloud.ClusterCase target) {
         Point3d[] points = [.. target.Vertices.AsIterable()];
-        return EstimateNormalsFromPoints(points: points, neighborhoodOf: i => KNearestPoints(cluster: target, index: i));
+        int k = Math.Min(val1: NormalEstimationNeighbors, val2: points.Length);
+        int[][] neighborhoods = [.. RTree.PointCloudKNeighbors(pointcloud: target.Indexed, needlePts: points, amount: k)];
+        return EstimateNormalsFromPoints(points: points, neighborhoodOf: i => NeighborhoodOf(points: points, ids: neighborhoods.Length > i ? neighborhoods[i] : []));
     }
     private static (Point3d[] Target, Vector3d[] Normals, double[] Residuals) FindCorrespondences(Seq<Point3d> source, VectorCloud.ClusterCase target, Vector3d[] normals, Transform current) {
         int n = source.Count;
+        Point3d[] transformed = [.. source.AsIterable().Select(point => current * point)];
+        int[][] nearestIds = [.. RTree.PointCloudKNeighbors(pointcloud: target.Indexed, needlePts: transformed, amount: 1)];
         Point3d[] matchedTarget = new Point3d[n]; Vector3d[] matchedNormals = new Vector3d[n]; double[] residuals = new double[n];
         for (int i = 0; i < n; i++) {
-            Point3d transformed = current * source[index: i];
-            int nearest = target.Indexed.ClosestPoint(testPoint: transformed);
-            if (nearest < 0 || nearest >= target.Vertices.Count) { matchedTarget[i] = transformed; matchedNormals[i] = Vector3d.ZAxis; continue; }
+            int nearest = nearestIds.Length > i && nearestIds[i].Length > 0 ? nearestIds[i][0] : -1;
+            if (nearest < 0 || nearest >= target.Vertices.Count) { matchedTarget[i] = transformed[i]; matchedNormals[i] = Vector3d.ZAxis; continue; }
             matchedTarget[i] = target.Vertices[index: nearest];
             matchedNormals[i] = normals[nearest];
-            residuals[i] = transformed.DistanceTo(other: matchedTarget[i]);
+            residuals[i] = transformed[i].DistanceTo(other: matchedTarget[i]);
         }
         return (Target: matchedTarget, Normals: matchedNormals, Residuals: residuals);
     }
+    internal static Fin<Transform> SolvePointToPoint(Seq<Point3d> source, Point3d[] target, Transform current, Op key) {
+        Seq<Point3d> transformedSource = toSeq(source.AsIterable().Select(p => current * p));
+        return ProcrustesAlign(source: transformedSource, target: toSeq(target), key: key);
+    }
     // Point-to-plane linearization (Chen-Medioni 1992): assume small-angle rotation R ≈ I + [ω]×,
     // minimize ||A[ω;t] − b||² where each row is [cross(p, n) | n] · [ω;t] = (q − p) · n.
-    private static Fin<Transform> SolvePointToPlane(Seq<Point3d> source, Point3d[] target, Vector3d[] normals, Transform current, Op key) {
+    internal static Fin<Transform> SolvePointToPlane(Seq<Point3d> source, Point3d[] target, Vector3d[] normals, Transform current, Op key) {
         int n = source.Count;
         double[] aFlat = new double[n * 6]; double[] b = new double[n];
         for (int i = 0; i < n; i++) {
@@ -160,7 +166,7 @@ internal static class PopulationKernel {
     }
     // Symmetric objective (Rusinkiewicz 2019): use the half-sum of source and target normals;
     // the symmetric formulation has better convergence for high-curvature surfaces.
-    private static Fin<Transform> SolveSymmetric(Seq<Point3d> source, Point3d[] target, Vector3d[] normals, Transform current, Op key) {
+    internal static Fin<Transform> SolveSymmetric(Seq<Point3d> source, Point3d[] target, Vector3d[] normals, Transform current, Op key) {
         int n = source.Count;
         Vector3d[] sourceNormals = EstimateSourceNormals(source: source, current: current);
         double[] aFlat = new double[n * 6]; double[] b = new double[n];
@@ -177,7 +183,7 @@ internal static class PopulationKernel {
     private static Vector3d[] EstimateSourceNormals(Seq<Point3d> source, Transform current) =>
         EstimateNormalsFromPoints(points: [.. source.Map(p => current * p).AsIterable()]);
     // Robust ICP via Welsch IRLS: w_i = exp(-r_i² / (2ν²)), then weighted Procrustes.
-    private static Fin<Transform> SolveRobustProcrustes(Seq<Point3d> source, Point3d[] target, double[] residuals, Transform current, Op key) {
+    internal static Fin<Transform> SolveRobustProcrustes(Seq<Point3d> source, Point3d[] target, double[] residuals, Transform current, Op key) {
         int n = source.Count;
         double[] weights = new double[n];
         double maxResidual = residuals.Length > 0 ? residuals.Max() : 1.0;
@@ -264,16 +270,15 @@ internal static class PopulationKernel {
     }
 
     // --- [HULL] -----------------------------------------------------------------------------
-    internal static Fin<Mesh> ComputeHull(HullKind kind, VectorCloud source, Context context, Op key) =>
+    internal static Fin<Mesh> ComputeHull(VectorCloud source, Context context, Op key) =>
         source switch {
-            VectorCloud.ClusterCase cluster => kind switch {
-                HullKind.ConvexCase => ConvexHullOf(cluster: cluster, context: context, key: key),
-                _ => Fin.Fail<Mesh>(error: key.Unsupported(geometryType: kind.GetType(), outputType: typeof(Mesh))),
-            },
+            VectorCloud.ClusterCase cluster => ConvexHullOf(cluster: cluster, context: context, key: key),
             _ => Fin.Fail<Mesh>(error: key.Unsupported(geometryType: source.GetType(), outputType: typeof(Mesh))),
         };
     private static Fin<Mesh> ConvexHullOf(VectorCloud.ClusterCase cluster, Context context, Op key) {
-        using Mesh? hull = (Mesh?)(object?)Mesh.CreateConvexHull3D(points: cluster.Vertices.AsIterable(), hullFacets: out _, tolerance: context.Absolute.Value, angleTolerance: context.Angle.Value);
+        if (cluster.Vertices.Count < 4 || Point3d.ArePointsCoplanar(points: cluster.Vertices.AsIterable(), tolerance: context.Absolute.Value))
+            return Fin.Fail<Mesh>(error: key.InvalidInput());
+        using Mesh? hull = Mesh.CreateConvexHull3D(points: cluster.Vertices.AsIterable(), hullFacets: out _, tolerance: context.Absolute.Value, angleTolerance: context.Angle.Value);
         return hull is not { IsValid: true }
             ? Fin.Fail<Mesh>(error: key.InvalidResult())
             : Fin.Succ(hull.DuplicateMesh());
@@ -290,10 +295,10 @@ internal static class PopulationKernel {
             _ => EnumerateMeshSurface(mesh: domain.Native, density: kind.MeshCandidateDensity(area: props.Area)) switch {
                 Seq<Point3d> candidates => kind switch {
                     SamplingKind.PoissonDiskCase pd => FromArray(points: PoissonDiskSample(candidates: candidates, radius: pd.Radius.Value), context: context, key: key),
-                    SamplingKind.FarthestPointCase fp => FromArray(points: FarthestPointSample(candidates: candidates, count: fp.Count), context: context, key: key),
-                    SamplingKind.FarthestPointOptimizationCase fpo => FromArray(points: FpoSample(candidates: candidates, count: fpo.Count), context: context, key: key),
-                    SamplingKind.LloydCase lloyd => FromArray(points: LloydRelaxation(candidates: candidates, count: lloyd.Count, iterations: lloyd.Iterations), context: context, key: key),
-                    SamplingKind.CapacityConstrainedCase ccvt => CapacityConstrainedSample(candidates: candidates, count: ccvt.Count, capacity: ccvt.Capacity, key: key)
+                    SamplingKind.FarthestPointCase fp => FromArray(points: FarthestPointSample(candidates: candidates, count: fp.Count.Value), context: context, key: key),
+                    SamplingKind.FarthestPointOptimizationCase fpo => FromArray(points: FpoSample(candidates: candidates, count: fpo.Count.Value), context: context, key: key),
+                    SamplingKind.LloydCase lloyd => FromArray(points: LloydRelaxation(candidates: candidates, count: lloyd.Count.Value, iterations: lloyd.Iterations.Value), context: context, key: key),
+                    SamplingKind.CapacityConstrainedCase ccvt => CapacityConstrainedSample(candidates: candidates, count: ccvt.Count.Value, capacity: ccvt.Capacity.Value, key: key)
                         .Bind(points => FromArray(points: points, context: context, key: key)),
                     _ => Fin.Fail<VectorCloud>(error: key.Unsupported(geometryType: kind.GetType(), outputType: typeof(VectorCloud))),
                 },
@@ -304,10 +309,10 @@ internal static class PopulationKernel {
         Seq<Point3d> candidates = EnumerateScalarFieldSubzero(field: domain, region: region, context: context, key: key);
         return kind switch {
             SamplingKind.PoissonDiskCase pd => FromArray(points: PoissonDiskSample(candidates: candidates, radius: pd.Radius.Value), context: context, key: key),
-            SamplingKind.FarthestPointCase fp => FromArray(points: FarthestPointSample(candidates: candidates, count: fp.Count), context: context, key: key),
-            SamplingKind.FarthestPointOptimizationCase fpo => FromArray(points: FpoSample(candidates: candidates, count: fpo.Count), context: context, key: key),
-            SamplingKind.LloydCase lloyd => FromArray(points: LloydRelaxation(candidates: candidates, count: lloyd.Count, iterations: lloyd.Iterations), context: context, key: key),
-            SamplingKind.CapacityConstrainedCase ccvt => CapacityConstrainedSample(candidates: candidates, count: ccvt.Count, capacity: ccvt.Capacity, key: key)
+            SamplingKind.FarthestPointCase fp => FromArray(points: FarthestPointSample(candidates: candidates, count: fp.Count.Value), context: context, key: key),
+            SamplingKind.FarthestPointOptimizationCase fpo => FromArray(points: FpoSample(candidates: candidates, count: fpo.Count.Value), context: context, key: key),
+            SamplingKind.LloydCase lloyd => FromArray(points: LloydRelaxation(candidates: candidates, count: lloyd.Count.Value, iterations: lloyd.Iterations.Value), context: context, key: key),
+            SamplingKind.CapacityConstrainedCase ccvt => CapacityConstrainedSample(candidates: candidates, count: ccvt.Count.Value, capacity: ccvt.Capacity.Value, key: key)
                 .Bind(points => FromArray(points: points, context: context, key: key)),
             _ => Fin.Fail<VectorCloud>(error: key.Unsupported(geometryType: kind.GetType(), outputType: typeof(VectorCloud))),
         };
@@ -354,14 +359,15 @@ internal static class PopulationKernel {
         if (candidates.IsEmpty) return [];
         double r2 = radius * radius;
         List<Point3d> chosen = [];
+        PointCloud chosenIndex = [];
         Random rng = new(Seed: 19);
         int[] order = [.. Enumerable.Range(start: 0, count: candidates.Count).OrderBy(_ => rng.Next())];
 #pragma warning restore CA5394
         for (int idx = 0; idx < order.Length; idx++) {
             Point3d p = candidates[index: order[idx]];
-            bool tooClose = false;
-            for (int j = 0; j < chosen.Count; j++) if (p.DistanceToSquared(other: chosen[index: j]) < r2) { tooClose = true; break; }
-            if (!tooClose) chosen.Add(item: p);
+            int nearest = chosenIndex.Count > 0 ? chosenIndex.ClosestPoint(testPoint: p) : -1;
+            bool tooClose = nearest >= 0 && nearest < chosen.Count && p.DistanceToSquared(other: chosen[index: nearest]) < r2;
+            if (!tooClose) { chosen.Add(item: p); chosenIndex.Add(point: p); }
         }
         return [.. chosen];
     }
@@ -386,6 +392,7 @@ internal static class PopulationKernel {
     private static Point3d[] FpoSample(Seq<Point3d> candidates, int count) {
         Point3d[] chosen = FarthestPointSample(candidates: candidates, count: count);
         if (chosen.Length < 2) return chosen;
+        PointCloud candidateIndex = CandidateIndex(candidates: candidates);
         for (int iter = 0; iter < 8; iter++) {
             for (int i = 0; i < chosen.Length; i++) {
                 Point3d centroid = Point3d.Origin;
@@ -398,7 +405,7 @@ internal static class PopulationKernel {
                 if (neighborCount > 0) {
                     Point3d avg = new(x: centroid.X / neighborCount, y: centroid.Y / neighborCount, z: centroid.Z / neighborCount);
                     Vector3d nudge = chosen[i] - avg; nudge *= 0.05;
-                    chosen[i] = NearestCandidate(candidates: candidates, point: new Point3d(x: chosen[i].X + nudge.X, y: chosen[i].Y + nudge.Y, z: chosen[i].Z + nudge.Z));
+                    chosen[i] = NearestCandidate(candidates: candidates, index: candidateIndex, point: new Point3d(x: chosen[i].X + nudge.X, y: chosen[i].Y + nudge.Y, z: chosen[i].Z + nudge.Z));
                 }
             }
         }
@@ -408,39 +415,50 @@ internal static class PopulationKernel {
         if (candidates.IsEmpty) return [];
         int total = candidates.Count;
         Point3d[] sites = FarthestPointSample(candidates: candidates, count: count);
+        PointCloud candidateIndex = CandidateIndex(candidates: candidates);
         for (int iter = 0; iter < iterations; iter++) {
             Point3d[] sums = new Point3d[sites.Length];
             int[] counts = new int[sites.Length];
+            PointCloud siteIndex = [];
+            siteIndex.AddRange(points: sites);
             for (int i = 0; i < total; i++) {
-                int closest = 0; double best = double.MaxValue;
-                for (int s = 0; s < sites.Length; s++) {
-                    double d = candidates[index: i].DistanceToSquared(other: sites[s]);
-                    if (d < best) { best = d; closest = s; }
-                }
+                int closest = siteIndex.ClosestPoint(testPoint: candidates[index: i]);
+                if (closest < 0 || closest >= sites.Length) closest = 0;
                 sums[closest] = new Point3d(x: sums[closest].X + candidates[index: i].X, y: sums[closest].Y + candidates[index: i].Y, z: sums[closest].Z + candidates[index: i].Z);
                 counts[closest]++;
             }
             for (int s = 0; s < sites.Length; s++)
-                if (counts[s] > 0) sites[s] = NearestCandidate(candidates: candidates, point: new Point3d(x: sums[s].X / counts[s], y: sums[s].Y / counts[s], z: sums[s].Z / counts[s]));
+                if (counts[s] > 0) sites[s] = NearestCandidate(candidates: candidates, index: candidateIndex, point: new Point3d(x: sums[s].X / counts[s], y: sums[s].Y / counts[s], z: sums[s].Z / counts[s]));
         }
         return sites;
     }
-    private static Point3d NearestCandidate(Seq<Point3d> candidates, Point3d point) =>
-        candidates.Fold(initialState: (Point: candidates[index: 0], Distance: double.MaxValue),
-            f: (best, candidate) => candidate.DistanceToSquared(other: point) is double d && d < best.Distance ? (candidate, d) : best).Point;
+    private static PointCloud CandidateIndex(Seq<Point3d> candidates) {
+        PointCloud cloud = [];
+        cloud.AddRange(points: candidates.AsIterable());
+        return cloud;
+    }
+    private static Point3d NearestCandidate(Seq<Point3d> candidates, PointCloud index, Point3d point) =>
+        index.ClosestPoint(testPoint: point) switch {
+            int nearest when nearest >= 0 && nearest < candidates.Count => candidates[index: nearest],
+            _ => candidates[index: 0],
+        };
     private static Fin<Point3d[]> CapacityConstrainedSample(Seq<Point3d> candidates, int count, int capacity, Op key) {
-        if (candidates.Count > count * capacity) return Fin.Fail<Point3d[]>(key.InvalidInput());
         Point3d[] sites = FarthestPointSample(candidates: candidates, count: count);
         int total = candidates.Count;
         int[] assignment = new int[total];
         int[] siteFill = new int[sites.Length];
         for (int i = 0; i < total; i++) {
-            int closest = 0; double best = double.MaxValue;
+            int closest = -1; double best = double.MaxValue;
             for (int s = 0; s < sites.Length; s++) {
                 if (siteFill[s] >= capacity) continue;
                 double d = candidates[index: i].DistanceToSquared(other: sites[s]);
                 if (d < best) { best = d; closest = s; }
             }
+            if (closest < 0)
+                for (int s = 0; s < sites.Length; s++) {
+                    double d = candidates[index: i].DistanceToSquared(other: sites[s]);
+                    if (d < best) { best = d; closest = s; }
+                }
             assignment[i] = closest; siteFill[closest]++;
         }
         Point3d[] sums = new Point3d[sites.Length]; int[] counts = new int[sites.Length];
@@ -469,7 +487,7 @@ internal static class PopulationKernel {
             : Fin.Succ(result);
     }
     private static Fin<Mesh> SimplifyOf(MeshSpace space, ReduceMeshParameters parameters, Op key) {
-        Mesh clone = (Mesh)space.Native.DuplicateShallow();
+        Mesh clone = space.Native.DuplicateMesh();
         bool ok = clone.Reduce(parameters: parameters);
         return ok && clone.IsValid ? Fin.Succ(clone) : Fin.Fail<Mesh>(error: key.InvalidResult());
     }
@@ -508,18 +526,18 @@ internal static class PopulationKernel {
         return key.AcceptValue(value: toSeq(unoriented));
     }
     private static Vector3d[] EstimateNormalsFromPoints(Point3d[] points) =>
-        EstimateNormalsFromPoints(points: points, neighborhoodOf: i => toSeq(Enumerable.Range(start: 0, count: points.Length)
-            .OrderBy(j => points[i].DistanceToSquared(other: points[j]))
-            .Take(Math.Min(val1: NormalEstimationNeighbors, val2: points.Length))
-            .Select(j => points[j])));
-    private static Seq<Point3d> KNearestPoints(VectorCloud.ClusterCase cluster, int index) {
-        Point3d point = cluster.Vertices[index: index];
-        int k = Math.Min(val1: NormalEstimationNeighbors, val2: cluster.Vertices.Count);
-        int[] ids = RTree.PointCloudKNeighbors(pointcloud: cluster.Indexed, needlePts: [point], amount: k).FirstOrDefault() ?? [];
-        return ids.Length == 0
-            ? toSeq(Enumerable.Range(start: 0, count: cluster.Vertices.Count).Take(k).Select(i => cluster.Vertices[index: i]))
-            : toSeq(ids.Select(i => cluster.Vertices[index: i]));
+        EstimateNormalsFromPoints(points: points, neighborhoodOf: BatchedNeighborhoods(points: points));
+    private static Func<int, Seq<Point3d>> BatchedNeighborhoods(Point3d[] points) {
+        PointCloud cloud = [];
+        cloud.AddRange(points: points);
+        int k = Math.Min(val1: NormalEstimationNeighbors, val2: points.Length);
+        int[][] ids = [.. RTree.PointCloudKNeighbors(pointcloud: cloud, needlePts: points, amount: k)];
+        return i => NeighborhoodOf(points: points, ids: ids.Length > i ? ids[i] : []);
     }
+    private static Seq<Point3d> NeighborhoodOf(Point3d[] points, int[] ids) =>
+        ids.Length == 0
+            ? toSeq(points.Take(Math.Min(val1: NormalEstimationNeighbors, val2: points.Length)))
+            : toSeq(ids.Where(i => i >= 0 && i < points.Length).Select(i => points[i]));
     private static Vector3d[] EstimateNormalsFromPoints(Point3d[] points, Func<int, Seq<Point3d>> neighborhoodOf) {
         int n = points.Length;
         Vector3d[] normals = new Vector3d[n];

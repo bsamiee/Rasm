@@ -23,6 +23,12 @@ public sealed partial class SupportProjection {
     [UseDelegateFromConstructor] private partial bool Capability(SupportSpace space, ClosestHit hit);
     [UseDelegateFromConstructor] private partial bool Accepts(Type output);
     [UseDelegateFromConstructor] private partial Fin<object> ProjectRaw(SupportProjectionState state);
+    internal bool CanProjectVector(SupportSpace space) =>
+        Equals(Direction)
+        || Equals(Span)
+        || Equals(SignedSpanAway)
+        || (Equals(Normal) && GeometryKernel.CanClosestNormal(type: space.SourceType))
+        || (Equals(Tangent) && GeometryKernel.CanClosestTangent(type: space.SourceType));
     internal Fin<TOut> Project<TOut>(SupportSpace space, ClosestHit hit, Point3d sample, Context context, Op key) =>
         (Capability(space: space, hit: hit), Accepts(output: typeof(TOut))) switch {
             (false, _) => Fin.Fail<TOut>(error: key.Unsupported(geometryType: space.SourceType, outputType: typeof(TOut))),
@@ -81,15 +87,15 @@ public abstract partial record VectorIntent {
     public sealed record PoseCase(Plane From, Plane To, double Parameter, MotionInterpolation Mode) : VectorIntent;
     public sealed record TensorCase(TensorField Source, Point3d Point) : VectorIntent;
     public sealed record MeshOperatorCase(ScalarField MeshField, Point3d Point) : VectorIntent;
-    public sealed record FlattenCase(MeshSpace Space, SurfaceParameterization Kind) : VectorIntent;
-    public sealed record HullCase(VectorCloud Source, HullKind Kind) : VectorIntent;
+    public sealed record FlattenCase(MeshSpace Space) : VectorIntent;
+    public sealed record HullCase(VectorCloud Source) : VectorIntent;
     public sealed record SampleCase(MeshSpace Domain, SamplingKind Kind) : VectorIntent;
     public sealed record RegisterCase(VectorCloud Source, VectorCloud Target, RegistrationKind Kind) : VectorIntent;
     public sealed record RemeshCase(MeshSpace Space, RemeshKind Kind) : VectorIntent;
-    public sealed record TransportCase(VectorCloud Source, VectorCloud Target, double Regularization, int IterationCap, bool Unbiased) : VectorIntent;
+    public sealed record TransportCase(VectorCloud Source, VectorCloud Target, PositiveMagnitude Regularization, Dimension IterationCap, bool Unbiased) : VectorIntent;
     public sealed record TopologyCase(MeshSpace Space) : VectorIntent;
     public sealed record FeaturesCase(MeshSpace Space, double DihedralRadians) : VectorIntent;
-    public sealed record DescriptorCase(MeshSpace Space, MeshDescriptor Kind, int EigenpairCount) : VectorIntent;
+    public sealed record DescriptorCase(MeshSpace Space, MeshDescriptor Kind, Dimension EigenpairCount) : VectorIntent;
     public Fin<TOut> Project<TOut>(Context context, Op? key = null) {
         Op op = key.OrDefault();
         return from model in Optional(context).ToFin(op.MissingContext())
@@ -195,15 +201,19 @@ public abstract partial record VectorIntent {
                 context: state.Context, key: state.Key)
             from output in direction.Project<TOut>(key: state.Key)
             select output,
-        slerpCase: static (state, intent) => Math.Acos(d: Math.Clamp(value: intent.A.Value * intent.B.Value, min: -1.0, max: 1.0)) switch {
-            double theta when Math.Abs(value: Math.Sin(a: theta)) < RhinoMath.ZeroTolerance =>
-                Vectors.Direction.Of(value: intent.A.Value, context: state.Context, key: state.Key).Bind(d => d.Project<TOut>(key: state.Key)),
-            double theta =>
-                Vectors.Direction.Of(
-                    value: (Math.Sin(a: (1.0 - intent.Parameter) * theta) / Math.Sin(a: theta) * intent.A.Value)
-                        + (Math.Sin(a: intent.Parameter * theta) / Math.Sin(a: theta) * intent.B.Value),
-                    context: state.Context, key: state.Key).Bind(d => d.Project<TOut>(key: state.Key)),
-        },
+        slerpCase: static (state, intent) =>
+            from rotation in intent.A.Value.IsParallelTo(other: intent.B.Value, angleTolerance: state.Context.Angle.Value) switch {
+                -1 => Fin.Succ(Quaternion.Rotation(Math.PI, VectorFrame.SeedPerpendicular(axis: intent.A.Value))),
+                _ => Transform.Rotation(startDirection: intent.A.Value, endDirection: intent.B.Value, rotationCenter: Point3d.Origin).GetQuaternion(quaternion: out Quaternion target)
+                    ? Fin.Succ(target)
+                    : Fin.Fail<Quaternion>(state.Key.InvalidResult()),
+            }
+            from direction in Vectors.Direction.Of(
+                value: Quaternion.Slerp(a: Quaternion.Identity, b: rotation, t: intent.Parameter).Rotate(v: intent.A.Value),
+                context: state.Context,
+                key: state.Key)
+            from output in direction.Project<TOut>(key: state.Key)
+            select output,
         projectOntoCase: static (state, intent) =>
             from direction in Vectors.Direction.Of(
                 value: Transform.PlanarProjection(plane: intent.Target) * intent.Value,
@@ -234,13 +244,13 @@ public abstract partial record VectorIntent {
             select output,
         meshOperatorCase: static (state, intent) => intent.MeshField.Project<TOut>(sample: intent.Point, context: state.Context, key: state.Key),
         flattenCase: static (state, intent) =>
-            from coords in intent.Kind.Compute(space: intent.Space, key: state.Key)
+            from coords in MeshKernel.ParameterizeFlatten(space: intent.Space, key: state.Key)
             from output in typeof(TOut) == typeof(Arr<Point2d>)
                 ? state.Key.AcceptValue(value: coords).Map(static v => (TOut)(object)v)
                 : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(FlattenCase), outputType: typeof(TOut)))
             select output,
         hullCase: static (state, intent) =>
-            from mesh in intent.Kind.Compute(source: intent.Source, context: state.Context, key: state.Key)
+            from mesh in PopulationKernel.ComputeHull(source: intent.Source, context: state.Context, key: state.Key)
             from output in typeof(TOut) switch {
                 Type t when t == typeof(Mesh) => state.Key.AcceptValue(value: mesh).Map(static v => (TOut)(object)v),
                 Type t when t == typeof(VectorCloud) => VectorCloud.Cluster(
@@ -269,7 +279,7 @@ public abstract partial record VectorIntent {
                 ? state.Key.AcceptValue(value: mesh).Map(static v => (TOut)(object)v)
                 : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(RemeshCase), outputType: typeof(TOut)))
             select output,
-        transportCase: static (state, intent) => IntentKernel.Sinkhorn<TOut>(source: intent.Source, target: intent.Target, regularization: intent.Regularization, maxIterations: intent.IterationCap, unbiased: intent.Unbiased, key: state.Key),
+        transportCase: static (state, intent) => IntentKernel.Sinkhorn<TOut>(source: intent.Source, target: intent.Target, regularization: intent.Regularization.Value, maxIterations: intent.IterationCap.Value, unbiased: intent.Unbiased, key: state.Key),
         topologyCase: static (state, intent) =>
             from topology in intent.Space.Topology(key: state.Key)
             from output in typeof(TOut) == typeof((int Euler, int Genus, int BoundaryComponents))
@@ -282,7 +292,7 @@ public abstract partial record VectorIntent {
                 ? state.Key.AcceptValue(value: edges).Map(static v => (TOut)(object)v)
                 : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(FeaturesCase), outputType: typeof(TOut)))
             select output,
-        descriptorCase: static (state, intent) => IntentKernel.DescribeShape<TOut>(space: intent.Space, kind: intent.Kind, eigenpairs: intent.EigenpairCount, key: state.Key));
+        descriptorCase: static (state, intent) => IntentKernel.DescribeShape<TOut>(space: intent.Space, kind: intent.Kind, eigenpairs: intent.EigenpairCount.Value, key: state.Key));
     public static VectorIntent Between(Point3d origin, SupportSpace target, BoundarySense? sense = null) =>
         new SupportCase(Space: target, Query: origin, Projection: (sense ?? BoundarySense.Toward).Equals(BoundarySense.Toward) ? SupportProjection.Span : SupportProjection.SignedSpanAway);
     public static VectorIntent Axis(SignedAxis axis, Plane? frame = null) =>
@@ -348,10 +358,10 @@ public abstract partial record VectorIntent {
         new TensorCase(Source: source, Point: point);
     public static VectorIntent MeshOperator(ScalarField meshField, Point3d point) =>
         new MeshOperatorCase(MeshField: meshField, Point: point);
-    public static VectorIntent Flatten(MeshSpace space, SurfaceParameterization kind) =>
-        new FlattenCase(Space: space, Kind: kind);
-    public static VectorIntent Hull(VectorCloud source, HullKind kind) =>
-        new HullCase(Source: source, Kind: kind);
+    public static VectorIntent Flatten(MeshSpace space) =>
+        new FlattenCase(Space: space);
+    public static VectorIntent Hull(VectorCloud source) =>
+        new HullCase(Source: source);
     public static VectorIntent Sample(MeshSpace domain, SamplingKind kind) =>
         new SampleCase(Domain: domain, Kind: kind);
     public static VectorIntent Register(VectorCloud source, VectorCloud target, RegistrationKind kind) =>
@@ -360,9 +370,9 @@ public abstract partial record VectorIntent {
         new RemeshCase(Space: space, Kind: kind);
     public static Fin<VectorIntent> Transport(VectorCloud source, VectorCloud target, double regularization, int iterationCap, bool unbiased = false, Op? key = null) {
         Op op = key.OrDefault();
-        return RhinoMath.IsValidDouble(x: regularization) && regularization > 0.0 && iterationCap >= 1
-            ? Fin.Succ((VectorIntent)new TransportCase(Source: source, Target: target, Regularization: regularization, IterationCap: iterationCap, Unbiased: unbiased))
-            : Fin.Fail<VectorIntent>(op.InvalidInput());
+        return from reg in op.AcceptValidated<PositiveMagnitude>(candidate: regularization)
+               from cap in op.AcceptValidated<Dimension>(candidate: iterationCap)
+               select (VectorIntent)new TransportCase(Source: source, Target: target, Regularization: reg, IterationCap: cap, Unbiased: unbiased);
     }
     public static VectorIntent Topology(MeshSpace space) =>
         new TopologyCase(Space: space);
@@ -370,10 +380,11 @@ public abstract partial record VectorIntent {
         RhinoMath.IsValidDouble(x: dihedralRadians) && dihedralRadians > 0.0
             ? Fin.Succ((VectorIntent)new FeaturesCase(Space: space, DihedralRadians: dihedralRadians))
             : Fin.Fail<VectorIntent>(key.OrDefault().InvalidInput());
-    public static Fin<VectorIntent> Descriptor(MeshSpace space, MeshDescriptor kind, int eigenpairCount, Op? key = null) =>
-        eigenpairCount >= 1
-            ? Fin.Succ((VectorIntent)new DescriptorCase(Space: space, Kind: kind, EigenpairCount: eigenpairCount))
-            : Fin.Fail<VectorIntent>(key.OrDefault().InvalidInput());
+    public static Fin<VectorIntent> Descriptor(MeshSpace space, MeshDescriptor kind, int eigenpairCount, Op? key = null) {
+        Op op = key.OrDefault();
+        return from count in op.AcceptValidated<Dimension>(candidate: eigenpairCount)
+               select (VectorIntent)new DescriptorCase(Space: space, Kind: kind, EigenpairCount: count);
+    }
     private const int MaxIterations = 100000;
 }
 
@@ -385,22 +396,26 @@ internal static class IntentKernel {
             _ => Fin.Fail<TOut>(key.Unsupported(geometryType: source.GetType(), outputType: typeof(TOut))),
         };
     private static Fin<TOut> SinkhornCluster<TOut>(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, double regularization, int maxIterations, bool unbiased, Op key) {
-        if (source.Vertices.Count < 1 || target.Vertices.Count < 1) return Fin.Fail<TOut>(error: key.InvalidInput());
-        SinkhornPlan plan = SinkhornOt(source: source.Vertices, target: target.Vertices, reg: regularization, maxIter: maxIterations);
-        double distance = unbiased
-            ? plan.Distance
-                - (0.5 * SinkhornOt(source: source.Vertices, target: source.Vertices, reg: regularization, maxIter: maxIterations).Distance)
-                - (0.5 * SinkhornOt(source: target.Vertices, target: target.Vertices, reg: regularization, maxIter: maxIterations).Distance)
-            : plan.Distance;
-        return typeof(TOut) switch {
+        return source.Vertices.Count < 1 || target.Vertices.Count < 1
+            ? Fin.Fail<TOut>(error: key.InvalidInput())
+            : (from plan in SinkhornOt(source: source.Vertices, target: target.Vertices, reg: regularization, maxIter: maxIterations, key: key)
+               from distance in unbiased
+                    ? from sourceBias in SinkhornOt(source: source.Vertices, target: source.Vertices, reg: regularization, maxIter: maxIterations, key: key)
+                      from targetBias in SinkhornOt(source: target.Vertices, target: target.Vertices, reg: regularization, maxIter: maxIterations, key: key)
+                      select plan.Distance - (0.5 * sourceBias.Distance) - (0.5 * targetBias.Distance)
+                    : key.AcceptValue(value: plan.Distance)
+               from output in ProjectSinkhorn<TOut>(source: source, target: target, plan: plan, distance: distance, key: key)
+               select output);
+    }
+    private static Fin<TOut> ProjectSinkhorn<TOut>(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, SinkhornPlan plan, double distance, Op key) =>
+        typeof(TOut) switch {
             Type t when t == typeof(double) => key.AcceptValue(value: distance).Map(static d => (TOut)(object)d),
             Type t when t == typeof(Matrix) => ProjectCoupling<TOut>(plan: plan, key: key),
             Type t when t == typeof(VectorCloud) => ProjectTransportedCloud<TOut>(source: source, target: target, plan: plan, key: key),
             _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(VectorIntent.TransportCase), outputType: typeof(TOut))),
         };
-    }
-    private sealed record SinkhornPlan(double Distance, DenseMatrixD Coupling);
-    private static SinkhornPlan SinkhornOt(Seq<Point3d> source, Seq<Point3d> target, double reg, int maxIter) {
+    private sealed record SinkhornPlan(double Distance, DenseMatrixD Coupling, double SourceResidual, double TargetResidual, int Iterations, bool IsNumeric);
+    private static Fin<SinkhornPlan> SinkhornOt(Seq<Point3d> source, Seq<Point3d> target, double reg, int maxIter, Op key) {
         int m = source.Count; int n = target.Count;
         DenseMatrixD cost = DenseMatrixD.Create(rows: m, columns: n, value: 0.0);
         DenseMatrixD kernel = DenseMatrixD.Create(rows: m, columns: n, value: 0.0);
@@ -413,7 +428,11 @@ internal static class IntentKernel {
         DenseVectorD u = DenseVectorD.Create(m, 1.0);
         DenseVectorD v = DenseVectorD.Create(n, 1.0);
         double aMass = 1.0 / m; double bMass = 1.0 / n;
+        double sourceResidual = double.PositiveInfinity;
+        double targetResidual = double.PositiveInfinity;
+        int iterations = 0;
         for (int iter = 0; iter < maxIter; iter++) {
+            iterations = iter + 1;
             for (int i = 0; i < m; i++) {
                 double sum = 0.0;
                 for (int j = 0; j < n; j++) sum += kernel[i, j] * v[j];
@@ -424,6 +443,8 @@ internal static class IntentKernel {
                 for (int i = 0; i < m; i++) sum += kernel[i, j] * u[i];
                 v[j] = sum > RhinoMath.ZeroTolerance ? bMass / sum : bMass;
             }
+            (sourceResidual, targetResidual) = SinkhornResiduals(kernel: kernel, u: u, v: v, aMass: aMass, bMass: bMass);
+            if (Math.Max(val1: sourceResidual, val2: targetResidual) <= RhinoMath.SqrtEpsilon) break;
         }
         double dist = 0.0;
         DenseMatrixD coupling = DenseMatrixD.Create(rows: m, columns: n, value: 0.0);
@@ -432,7 +453,25 @@ internal static class IntentKernel {
                 coupling[i, j] = u[i] * kernel[i, j] * v[j];
                 dist += coupling[i, j] * cost[i, j];
             }
-        return new SinkhornPlan(Distance: dist, Coupling: coupling);
+        bool numeric = RhinoMath.IsValidDouble(x: dist) && coupling.Enumerate().All(RhinoMath.IsValidDouble);
+        return numeric && Math.Max(val1: sourceResidual, val2: targetResidual) <= RhinoMath.SqrtEpsilon
+            ? Fin.Succ(new SinkhornPlan(Distance: dist, Coupling: coupling, SourceResidual: sourceResidual, TargetResidual: targetResidual, Iterations: iterations, IsNumeric: numeric))
+            : Fin.Fail<SinkhornPlan>(key.InvalidResult());
+    }
+    private static (double Source, double Target) SinkhornResiduals(DenseMatrixD kernel, DenseVectorD u, DenseVectorD v, double aMass, double bMass) {
+        double sourceResidual = 0.0;
+        double targetResidual = 0.0;
+        for (int i = 0; i < kernel.RowCount; i++) {
+            double row = 0.0;
+            for (int j = 0; j < kernel.ColumnCount; j++) row += u[i] * kernel[i, j] * v[j];
+            sourceResidual = Math.Max(val1: sourceResidual, val2: Math.Abs(value: row - aMass));
+        }
+        for (int j = 0; j < kernel.ColumnCount; j++) {
+            double col = 0.0;
+            for (int i = 0; i < kernel.RowCount; i++) col += u[i] * kernel[i, j] * v[j];
+            targetResidual = Math.Max(val1: targetResidual, val2: Math.Abs(value: col - bMass));
+        }
+        return (Source: sourceResidual, Target: targetResidual);
     }
     private static Fin<TOut> ProjectCoupling<TOut>(SinkhornPlan plan, Op key) {
         Dimension rows = Dimension.Create(value: plan.Coupling.RowCount);
@@ -453,8 +492,12 @@ internal static class IntentKernel {
     }
     // Sun-Ovsjanikov-Guibas 2009 HKS(x, t) = Σ exp(-t λ_i) φ_i²(x); WKS analogous with log-energy.
     internal static Fin<TOut> DescribeShape<TOut>(MeshSpace space, MeshDescriptor kind, int eigenpairs, Op key) =>
-        from laplacian in space.Laplacian(kind: MeshLaplacian.Cotangent, key: key)
-        from eigen in laplacian.Stiffness.SmallestEigenpairs(k: eigenpairs, tolerance: 1e-6, maxIterations: 200, key: key)
+        from laplacian in space.Laplacian(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
+        from eigen in MatrixKernel.GeneralizedEigenpairs(
+            stiffness: laplacian.Stiffness,
+            mass: laplacian.MassConsistent,
+            k: eigenpairs,
+            key: key)
         from output in ProjectDescriptor<TOut>(kind: kind, eigen: eigen, key: key)
         select output;
     private static Fin<TOut> ProjectDescriptor<TOut>(MeshDescriptor kind, Seq<(double Eigenvalue, Arr<double> Eigenvector)> eigen, Op key) =>

@@ -114,14 +114,11 @@ public abstract partial record VectorCloud {
     public sealed record PolylineCase(Seq<Point3d> Vertices, Context Tolerance) : VectorCloud;
     public sealed record ClusterCase(Seq<Point3d> Vertices, Context Tolerance) : VectorCloud {
         private static readonly ConditionalWeakTable<ClusterCase, PointCloud> CloudCache = [];
-        private static readonly ConditionalWeakTable<ClusterCase, RTree> TreeCache = [];
         internal PointCloud Indexed => CloudCache.GetValue(key: this, createValueCallback: static c => {
             PointCloud pc = [];
             pc.AddRange(points: c.Vertices.AsIterable());
             return pc;
         });
-        internal RTree Tree => TreeCache.GetValue(key: this,
-            createValueCallback: static c => RTree.CreatePointCloudTree(cloud: c.Indexed));
         internal Fin<ClosestHit> ClosestVertex(Point3d sample, Op key) =>
             Indexed.ClosestPoint(testPoint: sample) switch {
                 int idx when idx >= 0 && idx < Vertices.Count => key.AcceptValue(value: ClosestHit.At(
@@ -139,7 +136,8 @@ public abstract partial record VectorCloud {
         }
         private Fin<Seq<int>> SearchTree(Sphere ball, Op key) {
             List<int> buffer = [];
-            return Tree.Search(sphere: ball, callback: (_, args) => buffer.Add(item: args.Id))
+            using RTree tree = RTree.CreatePointCloudTree(cloud: Indexed);
+            return tree.Search(sphere: ball, callback: (_, args) => buffer.Add(item: args.Id))
                 ? key.AcceptValue(value: toSeq(buffer))
                 : Fin.Fail<Seq<int>>(error: key.InvalidResult());
         }

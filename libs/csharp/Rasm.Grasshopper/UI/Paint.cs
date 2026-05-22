@@ -178,7 +178,7 @@ public partial record EdgeSource {
     // is returned; otherwise a fresh Pen is allocated (caller must Dispose via using).
     internal Pen CreatePen(float thickness, PenLineCap cap, PenLineJoin join, float miterLimit, DashStyle dash) {
         bool vanilla = cap == PenLineCap.Square && join == PenLineJoin.Miter && miterLimit == 10f;
-        return Switch<Pen>(
+        return Switch(
             solidCase: s => vanilla
                 ? Pens.Cached(color: s.Colour, thickness: thickness, dashStyle: dash)
                 : new Pen(color: s.Colour, thickness: thickness) { LineCap = cap, LineJoin = join, MiterLimit = miterLimit, DashStyle = dash },

@@ -19,20 +19,22 @@ Testing work is intentionally excluded from this pass. Static gates remain the c
 | --- | --- | --- |
 | Atoms | axes, directions, spans, cones, angles, bounce/refraction, curve/surface sampling, pose interpolation | `Atoms.cs` |
 | Clouds | ring/polyline/cluster construction, mass properties, PCA metrics, Bishop frames, normal orientation | `Cloud.cs` |
-| Fields | scalar/vector/tensor unions, SDF primitives, noise, geodesic/MCF/vector heat/cross-field sampling with validation | `Field.cs` |
+| Fields | scalar/vector/tensor unions, SDF primitives, noise, geodesic/MCF/cross-field sampling with validation | `Field.cs` |
 | Intents | singular projection rail plus `Tensor`, `MeshOperator`, `Surface`, `Flatten`, `Hull`, `Sample`, `Register`, `Remesh`, `Transport`, `Topology`, `Features`, `Descriptor` cases | `Intent.cs` |
 | Matrices | dense matrix/SVD/LU/QR/eigen/Cholesky, sparse CSR/Hermitian CSR, MathNet sparse iterative solve, local LOBPCG | `Matrix.cs` |
-| Meshes | cached laplacian/field state, Rhino LSCM flattening, heat geodesic, mean-curvature flow, vector heat, cross-field, topology/features/descriptors | `Mesh.cs` |
+| Meshes | cached laplacian/field state, Rhino LSCM flattening, heat geodesic, mean-curvature flow, cross-field, topology/features/descriptors | `Mesh.cs` |
 | Population | registration, convex hull, sampling, remesh, Rhino/RTree normal orientation kernels | `Population.cs` |
 | Space | shared context/tolerance vocabulary | `Space.cs` |
 
 ## Removed Public Claims
 
 - `VectorIntent.Populate(...)` was removed. Use `VectorIntent.Sample(...)`.
+- `HitProjection` and `VectorField.Normal(...)`/`VectorField.Tangent(...)` were removed. `VectorField.Hit(...)` uses `SupportProjection`.
+- `HullKind` and `SurfaceParameterization` were removed. `VectorIntent.Hull(...)` is Rhino convex hull; `VectorIntent.Flatten(...)` is Rhino LSCM.
 - `HullKind.Alpha(...)` and `HullKind.Chi(...)` were removed. RhinoCommon owns convex hull here; alpha/chi hulls are not shipped without a complete API-backed implementation.
 - `SurfaceParameterization.BFF` and `BFFWithCones` were removed. `LSCM` is the truthful flattening mode.
 - Public `DualQuaternion` output and screw interpolation were removed. Registration projects `Transform` directly.
-- Sparse Cholesky/LDL/AMD public claims and sparse-Hermitian dense direct solve were removed. Sparse real systems solve through MathNet iterative solvers and preconditioners; dense Cholesky remains a dense factorization result.
+- Sparse Cholesky/LDL/AMD public claims, sparse-Hermitian dense direct solve, and vector-heat projection were removed. Sparse real systems solve through MathNet iterative solvers and preconditioners; dense Cholesky remains a dense factorization result.
 - Inert boundary-condition, cone-vertex, quad cross-field, isotropic remesh, and `ShapeDna` count fields were removed from public cases.
 - Misleading `OpenSimplex2F` and `OpenSimplex2S` names were replaced with implementation-truthful simplex noise names.
 - Testing rows and spec-file commitments were removed from this roadmap because testing is out of scope for this pass.
@@ -57,13 +59,15 @@ Hull support is convex-only through RhinoCommon. Sampling remains `SamplingKind`
 
 ### Matrix Core
 
-Dense matrix operations delegate to MathNet decompositions and norms. Sparse real matrices are assembled with MathNet sparse builders and solved through MathNet iterative solvers with diagonal preconditioning plus residual checks. `SmallestEigenpairs` remains a named local LOBPCG kernel because MathNet does not provide that API.
+Dense matrix operations delegate to MathNet decompositions and norms. Sparse real matrices are assembled with MathNet sparse builders and solved through MathNet iterative solvers with diagonal preconditioning plus residual checks. Generalized spectral descriptors use Cholesky congruence and back-transform eigenvectors through the mass factor. `SmallestEigenpairs` remains a named local LOBPCG kernel because MathNet does not provide that API.
 
 Sparse Hermitian matrices expose multiplication and LOBPCG eigenpairs only; direct solve is not exposed without a truthful sparse Hermitian solver.
 
 ### Mesh Algorithms
 
-Mesh caches are owned by the `ConditionalWeakTable`-backed `LaplacianCache`, including geodesic, mean-curvature-flow, vector-heat, and cross-field fields with parameter-sensitive keys.
+Mesh caches are owned by the `ConditionalWeakTable`-backed `LaplacianCache`, including geodesic, mean-curvature-flow, and cross-field fields with parameter-sensitive keys.
+
+Vector heat is not exposed until a truthful sparse complex transport solve is available; it does not ship as a placeholder and it does not densify sparse Hermitian systems.
 
 Scalar and complex mesh sampling use `Mesh.ClosestMeshPoint`, `MeshPoint.T`, and face topology for barycentric/quad interpolation. Mesh curvature, reduction, and quad remeshing prefer RhinoCommon APIs.
 
@@ -71,7 +75,7 @@ Topology projection returns `(int Euler, int Genus, int BoundaryComponents)`. Fe
 
 ### Transport
 
-`Transport` computes a Sinkhorn coupling through MathNet matrix/vector storage. The same case projects scalar cost, coupling `Matrix`, or transported `VectorCloud`; the scalar remains one output shape on the same rail, not a sibling service.
+`Transport` computes a Sinkhorn coupling through MathNet matrix/vector storage. The same case projects scalar cost, coupling `Matrix`, or transported `VectorCloud`; the scalar remains one output shape on the same rail, not a sibling service. Marginal residuals, iteration count, and numeric validity gate convergence before projection.
 
 ### Field Validation
 
