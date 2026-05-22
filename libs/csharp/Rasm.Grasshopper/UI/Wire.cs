@@ -1,6 +1,4 @@
 using System.Globalization;
-using System.Runtime.InteropServices;
-using Eto.Drawing;
 using Grasshopper2.Doc;
 using Grasshopper2.Parameters.Special;
 using Grasshopper2.Undo;
@@ -57,41 +55,41 @@ public sealed partial class WireTraversal {
 
 [SmartEnum<int>]
 public sealed partial class WireEdit {
-    private delegate Fin<int> WireEditRun(GhDocumentMethods methods, IParameter source, IParameter target, ActionList actions);
+    private delegate Fin<int> WireEditRun(GhDocumentMethods methods, GhObjectList objects, IParameter source, IParameter target, ActionList actions);
 
     public static readonly WireEdit Connect = new(
         key: 0,
-        apply: static (_, source, target, actions) =>
+        apply: static (_, _, source, target, actions) =>
             WireData.TryCreate(source: source, target: target, data: out WireData _)
                 ? Native(op: Op.Of(name: "Wire.Connect"), name: "Connections.Connect", run: () => Connections.Connect(source: source, target: target, undo: actions))
                 : Fin.Fail<int>(error: UiFault.MutationRejected(op: Op.Of(name: "Wire.Connect"), detail: "source and target are incompatible for a wire connection")));
 
     public static readonly WireEdit Disconnect = new(
         key: 1,
-        apply: static (_, source, target, actions) =>
-            from connected in Wire.RequireConnected(source: source, target: target, op: Op.Of(name: "Wire.Disconnect"))
+        apply: static (_, objects, source, target, actions) =>
+            from connected in Wire.RequireConnected(objects: objects, source: source, target: target, op: Op.Of(name: "Wire.Disconnect"))
             from changed in Native(op: Op.Of(name: "Wire.Disconnect"), name: "Connections.Disconnect", run: () => Connections.Disconnect(source: source, target: target, undo: actions))
             select changed);
 
     public static readonly WireEdit Delete = new(
         key: 2,
-        apply: static (methods, source, target, actions) =>
-            from connected in Wire.RequireConnected(source: source, target: target, op: Op.Of(name: "Wire.Delete"))
+        apply: static (methods, objects, source, target, actions) =>
+            from connected in Wire.RequireConnected(objects: objects, source: source, target: target, op: Op.Of(name: "Wire.Delete"))
             from changed in NativeCount(op: Op.Of(name: "Wire.Delete"), name: "DocumentMethods.DeleteObjects", run: () => methods.DeleteObjects(objects: [], wires: [new WireEnds(source: source.InstanceId, target: target.InstanceId)], actions: actions))
             select changed);
 
     public static readonly WireEdit DisconnectInputs = new(
         key: 3,
-        apply: static (_, _, target, actions) =>
+        apply: static (_, _, _, target, actions) =>
             NativeCount(op: Op.Of(name: "Wire.DisconnectInputs"), name: "Connections.DisconnectAllInputs", run: () => Connections.DisconnectAllInputs(target: target, undo: actions)));
 
     public static readonly WireEdit DisconnectOutputs = new(
         key: 4,
-        apply: static (_, source, _, actions) =>
+        apply: static (_, _, source, _, actions) =>
             NativeCount(op: Op.Of(name: "Wire.DisconnectOutputs"), name: "Connections.DisconnectAllOutputs", run: () => Connections.DisconnectAllOutputs(source: source, undo: actions)));
 
     [UseDelegateFromConstructor]
-    internal partial Fin<int> Apply(GhDocumentMethods methods, IParameter source, IParameter target, ActionList actions);
+    internal partial Fin<int> Apply(GhDocumentMethods methods, GhObjectList objects, IParameter source, IParameter target, ActionList actions);
 
     private static Fin<int> Native(Op op, string name, Func<bool> run) =>
         Try.lift(f: run)
@@ -169,23 +167,19 @@ internal static partial class Wire {
         });
 
     internal static GrasshopperUiIntent<WireResult> Dispatch(WireOp op) =>
-        op switch {
-            WireOp.QueryCase q => Query(query: q.Request),
-            WireOp.SelectCase s => Selection(op: s.Op).Map(delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
-            WireOp.SplitCase s => Split(wire: s.Wire, location: s.Location).Map(delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
-            WireOp.EditCase e => Edit(wire: e.Wire, edit: e.Kind).Map(delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
-            _ => GhUi.Document(run: _ => Fin.Fail<WireResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Dispatch)), detail: "unknown wire op"))),
-        };
+        op.Switch(
+            queryCase: static q => Query(query: q.Request),
+            selectCase: static s => Selection(op: s.Op).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
+            splitCase: static s => Split(wire: s.Wire, location: s.Location).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
+            editCase: static e => Edit(wire: e.Wire, edit: e.Kind).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)));
 
     internal static GrasshopperUiIntent<WireResult> Query(WireQuery query) =>
-        query switch {
-            WireQuery.AllCase => All().Map(wires => (WireResult)new WireResult.WiresCase(Wires: wires)),
-            WireQuery.SelectedCase => Selected().Map(wires => (WireResult)new WireResult.WiresCase(Wires: wires)),
-            WireQuery.DanglingCase => Dangling().Map(wires => (WireResult)new WireResult.WiresCase(Wires: wires)),
-            WireQuery.PickCase p => Pick(point: p.Point).Map(wire => (WireResult)new WireResult.WireCase(Wire: wire)),
-            WireQuery.GraphCase g => Graph(startParameterId: g.StartParameterId, direction: g.Direction, maxHops: g.MaxHops).Map(graph => (WireResult)new WireResult.GraphCase(Graph: graph)),
-            _ => GhUi.Document(run: _ => Fin.Fail<WireResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Query)), detail: "unknown wire query"))),
-        };
+        query.Switch(
+            allCase: static _ => All().Map(static wires => (WireResult)new WireResult.WiresCase(Wires: wires)),
+            selectedCase: static _ => Selected().Map(static wires => (WireResult)new WireResult.WiresCase(Wires: wires)),
+            danglingCase: static _ => Dangling().Map(static wires => (WireResult)new WireResult.WiresCase(Wires: wires)),
+            pickCase: static p => Pick(point: p.Point).Map(static wire => (WireResult)new WireResult.WireCase(Wire: wire)),
+            graphCase: static g => Graph(startParameterId: g.StartParameterId, direction: g.Direction, maxHops: g.MaxHops).Map(static graph => (WireResult)new WireResult.GraphCase(Graph: graph)));
 
     internal static GrasshopperUiIntent<Seq<WireSnapshot.ConnectedCase>> All() =>
         GhUi.Document(run: scope =>
@@ -212,17 +206,15 @@ internal static partial class Wire {
                 None: () => WireSnapshot.Absent));
 
     internal static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> Selection(WireSelectionOp op) =>
-        op switch {
-            WireSelectionOp.SelectCase s => MutateWire(op: Op.Of(name: "Wire.Select"), wire: s.Wire, run: static (objs, ends) => objs.SelectWire(wire: ends)),
-            WireSelectionOp.DeselectCase d => MutateWire(op: Op.Of(name: "Wire.Deselect"), wire: d.Wire, run: static (objs, ends) => objs.DeselectWire(wire: ends)),
-            WireSelectionOp.DeselectAllCase => MutateDeselectAll(op: Op.Of(name: "Wire.DeselectAll")),
-            _ => GhUi.Document(run: _ => Fin.Fail<Snapshot<DocumentMutationDelta>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Selection)), detail: "unknown WireSelectionOp"))),
-        };
+        op.Switch(
+            selectCase: static s => MutateWire(op: Op.Of(name: "Wire.Select"), wire: s.Wire, run: static (objs, ends) => objs.SelectWire(wire: ends)),
+            deselectCase: static d => MutateWire(op: Op.Of(name: "Wire.Deselect"), wire: d.Wire, run: static (objs, ends) => objs.DeselectWire(wire: ends)),
+            deselectAllCase: static _ => MutateDeselectAll(op: Op.Of(name: "Wire.DeselectAll")));
 
     internal static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> Split(WireSnapshot.ConnectedCase wire, PointF location) =>
         GrasshopperUi.Mutate(
             op: Op.Of(name: nameof(Split)),
-            undo: UndoStrategy.None,
+            undo: UndoStrategy.Auto,
             repaint: RepaintRequest.Canvas,
             mutate: scope =>
                 from valid in Op.Of(name: nameof(Split)).AcceptPoint(value: location, detail: "non-finite location")
@@ -231,7 +223,7 @@ internal static partial class Wire {
                 from doc in scope.NeedDocument()
                 from source in Optional(objs.FindParameter(instanceId: wire.Source)).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Split)), detail: $"source param {wire.Source} not found"))
                 from target in Optional(objs.FindParameter(instanceId: wire.Target)).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Split)), detail: $"target param {wire.Target} not found"))
-                from connected in RequireConnected(source: source, target: target, op: Op.Of(name: nameof(Split)))
+                from connected in RequireConnected(objects: objs, source: source, target: target, op: Op.Of(name: nameof(Split)))
                 let actions = ActionList.Empty
                 let split = SplitWire(methods: methods, source: source, target: target, name: string.Empty, location: valid, actions: actions)
                 let created = split.Shout.Map(static id => Seq(id)).IfNone(Seq<Guid>()) + split.Listen.Map(static id => Seq(id)).IfNone(Seq<Guid>())
@@ -244,7 +236,7 @@ internal static partial class Wire {
     internal static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> Edit(WireSnapshot.ConnectedCase wire, WireEdit edit) =>
         GrasshopperUi.Mutate(
             op: Op.Of(name: string.Create(CultureInfo.InvariantCulture, $"Wire.{edit}")),
-            undo: UndoStrategy.None,
+            undo: UndoStrategy.Auto,
             repaint: RepaintRequest.Canvas,
             mutate: scope =>
                 from validEdit in Optional(edit).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Edit)), detail: "wire edit is required"))
@@ -254,7 +246,7 @@ internal static partial class Wire {
                 from source in Optional(objs.FindParameter(instanceId: wire.Source)).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Edit)), detail: $"source param {wire.Source} not found"))
                 from target in Optional(objs.FindParameter(instanceId: wire.Target)).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Edit)), detail: $"target param {wire.Target} not found"))
                 let actions = ActionList.Empty
-                from changed in validEdit.Apply(methods: methods, source: source, target: target, actions: actions)
+                from changed in validEdit.Apply(methods: methods, objects: objs, source: source, target: target, actions: actions)
                 from committed in UiRail.CommitActions(document: doc, op: Op.Of(name: string.Create(CultureInfo.InvariantCulture, $"Wire.{validEdit}")), actions: actions)
                 select new DocumentMutationDelta(Changed: changed, After: UiRail.DocumentSnapshotOf(document: doc, objects: objs)));
 
@@ -276,7 +268,7 @@ internal static partial class Wire {
     internal static WireSnapshot.ConnectedCase SnapshotConnected(GhObjectList objects, WireEnds wire) {
         IParameter? source = objects.FindParameter(instanceId: wire.Source);
         IParameter? target = objects.FindParameter(instanceId: wire.Target);
-        bool connected = source is not null && target is not null && WireData.TryCreate(source: source, target: target, data: out _);
+        bool connected = IsConnected(objects: objects, wire: wire);
         return new WireSnapshot.ConnectedCase(
             Source: wire.Source, Target: wire.Target,
             SourceResolved: source is not null, TargetResolved: target is not null,
@@ -285,16 +277,18 @@ internal static partial class Wire {
     }
 
     internal static bool IsConnected(GhObjectList objects, WireEnds wire) =>
-        (objects.FindParameter(instanceId: wire.Source), objects.FindParameter(instanceId: wire.Target)) switch {
-            (IParameter source, IParameter target) => WireData.TryCreate(source: source, target: target, data: out _),
-            _ => false,
-        };
+        Optional(objects.AllWires)
+            .Map(wires => wires.Any(w => w.Source == wire.Source && w.Target == wire.Target))
+            .IfNone(noneValue: false);
 
-    internal static Fin<Unit> RequireConnected(IParameter source, IParameter target, Op op) =>
-        WireData.TryCreate(source: source, target: target, data: out _)
+    internal static Fin<Unit> RequireConnected(GhObjectList objects, IParameter source, IParameter target, Op op) =>
+        IsConnected(objects: objects, wire: new WireEnds(source: source.InstanceId, target: target.InstanceId))
             ? Fin.Succ(value: unit)
             : Fin.Fail<Unit>(error: UiFault.MutationRejected(op: op, detail: "wire is not currently connected"));
 
+    // Native Doc.Connectivity provides cycle-safe topological traversal with built-in dedup; replaces
+    // hand-rolled SearchUpstream/Downstream BFS. Parameter -> Owner resolution happens upstream of the
+    // connectivity lookup since Connectivity is object-keyed, not parameter-keyed.
     internal static Fin<Seq<IDocumentObject>> TraverseObjects(GhObjectList objects, Guid startParameterId, WireTraversal direction) =>
         Optional(objects.FindParameter(instanceId: startParameterId))
             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(TraverseObjects)), detail: $"parameter {startParameterId} not found"))
@@ -306,7 +300,7 @@ internal static partial class Wire {
         Func<GhObjectList, WireEnds, bool> run) =>
             GrasshopperUi.Mutate(
                 op: op,
-                undo: UndoStrategy.GhBuiltIn,
+                undo: UndoStrategy.Auto,
                 repaint: RepaintRequest.Canvas,
                 mutate: scope =>
                     from objects in scope.NeedObjects()
@@ -325,7 +319,7 @@ internal static partial class Wire {
     private static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> MutateDeselectAll(Op op) =>
         GrasshopperUi.Mutate(
             op: op,
-            undo: UndoStrategy.GhBuiltIn,
+            undo: UndoStrategy.Auto,
             repaint: RepaintRequest.Canvas,
             mutate: scope =>
                 from objects in scope.NeedObjects()
@@ -347,8 +341,10 @@ internal static partial class Wire {
 
     private static WireGraph GraphOf(GhObjectList objects, Seq<IDocumentObject> graphObjects, Guid startParameterId, int maxHops) {
         Seq<Guid> visited = (Seq(startParameterId) + toSeq(graphObjects.Choose(static obj => Optional(obj as IParameter)).Take(count: maxHops).Select(static parameter => parameter.InstanceId))).Distinct();
+        // O(1) lookup avoids O(N*M) Seq.Exists when filtering wires against the visited frontier.
+        LanguageExt.HashSet<Guid> visitedSet = toHashSet(visited);
         Seq<WireSnapshot.ConnectedCase> wires = SafeWires(source: objects.AllWires, objects: objects)
-            .Filter(wire => visited.Exists(id => id == wire.Source) && visited.Exists(id => id == wire.Target));
+            .Filter(wire => visitedSet.Find(key: wire.Source).IsSome && visitedSet.Find(key: wire.Target).IsSome);
         return new WireGraph(Wires: wires, Visited: visited);
     }
 }

@@ -181,11 +181,13 @@
     </ItemGroup>
 
     <ItemGroup Label="Grasshopper-Aware Usings" Condition="'$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">
+        <Using Include="Eto.Drawing" />
         <Using Include="Grasshopper2.Types.Numeric" />
         <Using Include="Grasshopper2.UI" />
         <Using Include="Rasm.Analysis" />
         <Using Include="Rasm.Domain" />
         <Using Include="Rhino.Geometry" />
+        <Using Include="System.Runtime.InteropServices" />
     </ItemGroup>
 
     <ItemGroup Label="Test Friend Assemblies" Condition="$([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(CSharpLibsRoot)'))">

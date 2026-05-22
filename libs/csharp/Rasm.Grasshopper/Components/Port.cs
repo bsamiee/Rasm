@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Reflection;
-using Eto.Drawing;
 using Grasshopper2.Doc;
 using Requirement = Grasshopper2.Parameters.Requirement;
 

@@ -1,5 +1,5 @@
-using System.Runtime.InteropServices;
-using Eto.Drawing;
+using System.Globalization;
+using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Doc;
 using Grasshopper2.UI.Animation;
 using Grasshopper2.UI.Canvas;
@@ -138,6 +138,17 @@ public readonly record struct CanvasInteractionSnapshot(CanvasInteractionPolicy 
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CanvasProjectionPolicy(Option<PointF> Centre = default, Option<float> Zoom = default);
+
+// Canonical zoom-factor primitive. Construction validates `IsFinite && (0, 1000]` once; downstream code
+// reads `.Value` without re-validating. Float not double — Eto.Drawing zoom and GH2 Projection are float-keyed.
+[ValueObject<float>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+public readonly partial struct ZoomFactor {
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) =>
+        validationError = float.IsFinite(value) && value is > 0f and <= 1000f
+            ? null
+            : new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"ZoomFactor must be finite within (0, 1000] (got {value:R})."));
+}
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CanvasActionPolicy(
@@ -421,11 +432,12 @@ internal static partial class UiRail {
         from valid in Optional((Centre: centre, Zoom: zoom))
             .Filter(static s => float.IsFinite(s.Centre.X) && float.IsFinite(s.Centre.Y) && s.Zoom > 0 && float.IsFinite(s.Zoom))
             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasViewOp.Projection)), detail: "non-finite centre or zoom"))
-        select ((Func<Unit>)(() => {
+        from _ in Try.lift(f: () => {
             canvas.Projection = canvas.Projection.SetZoom(zoom: valid.Zoom).SetCentre(centre: valid.Centre, frame: canvas.VisibleFrame);
             document.Projection = (valid.Centre, valid.Zoom);
             return unit;
-        }))();
+        }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(CanvasViewOp.Projection)), detail: $"projection assign threw: {error.Message}"))
+        select unit;
 
     private static CanvasViewPolicy ResolveView(CanvasViewPolicy raw, float defaultPadding = 0f) {
         TimeSpan duration = raw.Duration == default ? Animators.DurationToTimeSpan(duration: GhDuration.Normal) : raw.Duration;

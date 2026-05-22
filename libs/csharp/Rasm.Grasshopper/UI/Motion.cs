@@ -1,6 +1,4 @@
 using System.Diagnostics;
-using System.Runtime.InteropServices;
-using Eto.Drawing;
 using Grasshopper2.UI.Animation;
 using Grasshopper2.UI.Skinning;
 using Grasshopper2.UI.Sparkles;
@@ -20,6 +18,95 @@ public interface IMotionVector<T> {
     public T Scale(T value, float scalar);
     public float Norm(T value);
     public T Interpolate(T value0, T value1, double factor);
+}
+
+// Polymorphic easing surface — 16 GH2-native cases delegate to MotionEquations.Blend; 9 closed-form
+// families (Sine/Expo/Circ/Elastic/Back/BounceOut/Cubic/Quart/Quint × In/Out/InOut) implement the
+// canonical Penner formulae inline. Pre-multiplied to a per-case `Func<double, double>` at registration
+// time so the hot 60 Hz tick path pays only the partial method invoke + a single virtual delegate dispatch.
+[SmartEnum<int>]
+public sealed partial class Easing {
+    private delegate double EasingCurve(double t);
+
+    // --- [GH2_NATIVE] (delegate to MotionEquations.Blend) -----------------------------------
+    public static readonly Easing Linear = Native(key: 0, motion: GhMotion.Linear);
+    public static readonly Easing LinearDelayed = Native(key: 1, motion: GhMotion.LinearDelayed);
+    public static readonly Easing EaseIn = Native(key: 2, motion: GhMotion.EaseIn);
+    public static readonly Easing EaseInDelayed = Native(key: 3, motion: GhMotion.EaseInDelayed);
+    public static readonly Easing EaseOut = Native(key: 4, motion: GhMotion.EaseOut);
+    public static readonly Easing EaseOutDelayed = Native(key: 5, motion: GhMotion.EaseOutDelayed);
+    public static readonly Easing EaseInOut = Native(key: 6, motion: GhMotion.EaseInOut);
+    public static readonly Easing EaseInOutDelayed = Native(key: 7, motion: GhMotion.EaseInOutDelayed);
+    public static readonly Easing SnapIn = Native(key: 8, motion: GhMotion.SnapIn);
+    public static readonly Easing SnapInDelayed = Native(key: 9, motion: GhMotion.SnapInDelayed);
+    public static readonly Easing SnapOut = Native(key: 10, motion: GhMotion.SnapOut);
+    public static readonly Easing SnapOutDelayed = Native(key: 11, motion: GhMotion.SnapOutDelayed);
+    public static readonly Easing Bounce = Native(key: 12, motion: GhMotion.Bounce);
+    public static readonly Easing BounceDelayed = Native(key: 13, motion: GhMotion.BounceDelayed);
+    public static readonly Easing Twang = Native(key: 14, motion: GhMotion.Twang);
+    public static readonly Easing TwangDelayed = Native(key: 15, motion: GhMotion.TwangDelayed);
+
+    // --- [CLOSED_FORM] (Penner equations) ---------------------------------------------------
+    public static readonly Easing SineIn = Closed(key: 16, compute: static t => 1.0 - Math.Cos(t * Math.PI / 2.0));
+    public static readonly Easing SineOut = Closed(key: 17, compute: static t => Math.Sin(t * Math.PI / 2.0));
+    public static readonly Easing SineInOut = Closed(key: 18, compute: static t => -(Math.Cos(Math.PI * t) - 1.0) / 2.0);
+    public static readonly Easing ExpoIn = Closed(key: 19, compute: static t => t == 0.0 ? 0.0 : Math.Pow(2.0, (10.0 * t) - 10.0));
+    public static readonly Easing ExpoOut = Closed(key: 20, compute: static t => t == 1.0 ? 1.0 : 1.0 - Math.Pow(2.0, -10.0 * t));
+    public static readonly Easing ExpoInOut = Closed(key: 21, compute: static t =>
+        t == 0.0 ? 0.0 : t == 1.0 ? 1.0 :
+        t < 0.5 ? Math.Pow(2.0, (20.0 * t) - 10.0) / 2.0 : (2.0 - Math.Pow(2.0, (-20.0 * t) + 10.0)) / 2.0);
+    public static readonly Easing CircIn = Closed(key: 22, compute: static t => 1.0 - Math.Sqrt(1.0 - (t * t)));
+    public static readonly Easing CircOut = Closed(key: 23, compute: static t => Math.Sqrt(1.0 - ((t - 1.0) * (t - 1.0))));
+    public static readonly Easing CircInOut = Closed(key: 24, compute: static t =>
+        t < 0.5
+            ? (1.0 - Math.Sqrt(1.0 - (4.0 * t * t))) / 2.0
+            : (Math.Sqrt(1.0 - (((-2.0 * t) + 2.0) * ((-2.0 * t) + 2.0))) + 1.0) / 2.0);
+    public static readonly Easing ElasticIn = Closed(key: 25, compute: static t =>
+        t == 0.0 ? 0.0 : t == 1.0 ? 1.0 :
+        -Math.Pow(2.0, (10.0 * t) - 10.0) * Math.Sin(((t * 10.0) - 10.75) * (2.0 * Math.PI / 3.0)));
+    public static readonly Easing ElasticOut = Closed(key: 26, compute: static t =>
+        t == 0.0 ? 0.0 : t == 1.0 ? 1.0 :
+        (Math.Pow(2.0, -10.0 * t) * Math.Sin(((t * 10.0) - 0.75) * (2.0 * Math.PI / 3.0))) + 1.0);
+    public static readonly Easing ElasticInOut = Closed(key: 27, compute: static t =>
+        t == 0.0 ? 0.0 : t == 1.0 ? 1.0 :
+        t < 0.5
+            ? -(Math.Pow(2.0, (20.0 * t) - 10.0) * Math.Sin(((20.0 * t) - 11.125) * (2.0 * Math.PI / 4.5))) / 2.0
+            : (Math.Pow(2.0, (-20.0 * t) + 10.0) * Math.Sin(((20.0 * t) - 11.125) * (2.0 * Math.PI / 4.5)) / 2.0) + 1.0);
+    public static readonly Easing BackIn = Closed(key: 28, compute: static t => (2.70158 * t * t * t) - (1.70158 * t * t));
+    public static readonly Easing BackOut = Closed(key: 29, compute: static t =>
+        1.0 + (2.70158 * Math.Pow(t - 1.0, 3.0)) + (1.70158 * Math.Pow(t - 1.0, 2.0)));
+    public static readonly Easing BackInOut = Closed(key: 30, compute: static t =>
+        t < 0.5
+            ? Math.Pow(2.0 * t, 2.0) * ((((1.70158 * 1.525) + 1.0) * 2.0 * t) - (1.70158 * 1.525)) / 2.0
+            : ((Math.Pow((2.0 * t) - 2.0, 2.0) * ((((1.70158 * 1.525) + 1.0) * ((t * 2.0) - 2.0)) + (1.70158 * 1.525))) + 2.0) / 2.0);
+    public static readonly Easing BounceOut = Closed(key: 31, compute: BounceOutFormula);
+    public static readonly Easing CubicIn = Closed(key: 32, compute: static t => t * t * t);
+    public static readonly Easing CubicOut = Closed(key: 33, compute: static t => 1.0 - Math.Pow(1.0 - t, 3.0));
+    public static readonly Easing CubicInOut = Closed(key: 34, compute: static t =>
+        t < 0.5 ? 4.0 * t * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 3.0) / 2.0));
+    public static readonly Easing QuartIn = Closed(key: 35, compute: static t => t * t * t * t);
+    public static readonly Easing QuartOut = Closed(key: 36, compute: static t => 1.0 - Math.Pow(1.0 - t, 4.0));
+    public static readonly Easing QuintIn = Closed(key: 37, compute: static t => t * t * t * t * t);
+    public static readonly Easing QuintOut = Closed(key: 38, compute: static t => 1.0 - Math.Pow(1.0 - t, 5.0));
+
+    [UseDelegateFromConstructor]
+    public partial double Apply(double t);
+
+    private static Easing Native(int key, GhMotion motion) =>
+        new(key: key, apply: t => MotionEquations.Blend(motion: motion, parameter: t));
+
+    private static Easing Closed(int key, EasingCurve compute) => new(key: key, apply: t => compute(t));
+
+    private static double BounceOutFormula(double t) {
+        const double N1 = 7.5625;
+        const double D1 = 2.75;
+        return t switch {
+            < 1.0 / D1 => N1 * t * t,
+            < 2.0 / D1 => (N1 * (t - (1.5 / D1)) * (t - (1.5 / D1))) + 0.75,
+            < 2.5 / D1 => (N1 * (t - (2.25 / D1)) * (t - (2.25 / D1))) + 0.9375,
+            _ => (N1 * (t - (2.625 / D1)) * (t - (2.625 / D1))) + 0.984375,
+        };
+    }
 }
 
 public abstract record MotionRequest<T> : GhUiRequest<T> {
@@ -58,8 +145,6 @@ public abstract record MotionRequest<T> : GhUiRequest<T> {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-// Spring physics configuration. Use Response(...) factory for SwiftUI-style (response, dampingFraction)
-// parametrization, or the direct (stiffness, damping, mass) constructor. Presets cover canonical UI feels.
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct SpringConfig(float Stiffness, float Damping, float Mass = 1f) {
     public static SpringConfig Response(float response, float dampingFraction, float mass = 1f) {
@@ -75,19 +160,12 @@ public readonly record struct SpringConfig(float Stiffness, float Damping, float
     public static readonly SpringConfig Sluggish = Response(response: 1.00f, dampingFraction: 1.20f);
 }
 
-// Snapshot of spring physics at a frame boundary. Lives inside Atom<SpringRunnerState<T>>;
-// each Tick reads, computes, swaps. Retarget mutates Target/Velocity through the same atom.
-// Clock is a Stopwatch.GetTimestamp() value — monotonic, immune to wall-clock skew.
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct SpringRunnerState<T>(
     T Value, T Velocity, T Target,
     SpringConfig Config, IMotionVector<T> Vector,
     Action<T> Sink, long Clock);
 
-// Re-targetable spring handle. Owns its Atom-backed state cell + paint subscription.
-// Retarget preserves velocity by default; supply InitialVelocity override for impulses.
-// RetargetWhen runs SwapMaybe with a predicate so ordered chains skip clobbering newer targets.
-// Dispose unhooks the paint phase and releases the cell.
 public sealed class SpringHandle<T> : IDisposable {
     private readonly Atom<SpringRunnerState<T>> cell;
     private readonly Subscription subscription;
@@ -123,8 +201,6 @@ public sealed class SpringHandle<T> : IDisposable {
     public void Dispose() => subscription.Dispose();
 }
 
-// Snapshot of pulse animator + remaining cycles. Lives inside Atom<PulseRunnerState<T>>;
-// each Tick reads ValueNow, re-issues a fresh Animated<T> when current segment finishes.
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct PulseRunnerState<T>(
     Animated<T> Animated,
@@ -134,11 +210,6 @@ internal readonly record struct PulseRunnerState<T>(
     int CyclesRemaining,
     IMotionVector<T> Vector);
 
-// Typed dispatcher: per-type vector arithmetic + interpolation for generic motion cases.
-// Subsumes ad-hoc lambda dispatch — adding a new Spring<T>/Pulse<T> instantiation only requires
-// supplying the matching IMotionVector<T> entry here. Native Interpolators are reused for linear lerps.
-// MotionVector.ColorHSL is a drop-in alternative to MotionVector.Color that routes Interpolate
-// through Eto.Drawing.ColorHSL with shortest-arc hue blending for visually-correct hue tweens.
 public static class MotionVector {
     public static readonly IMotionVector<float> Float = new Vector<float>(
         zero: 0f,
@@ -374,10 +445,8 @@ internal static class Motion {
                 }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(ZoomGate)), detail: $"tick threw: {error.Message}"))).Run(scope: scope)
             select sub);
 
-    // Semi-implicit (symplectic) Euler integrator capsule. Owns the Atom cell + canvas + cached
-    // swap delegate. Scratch fields hold next-frame values so the Swap mapper closure (allocated
-    // once at construction) reads them without per-frame capture — zero closure allocation on the
-    // 60 Hz path, leaving only the unavoidable Atom Box<A> per swap.
+    // Cached applyScratch delegate reads instance fields without per-frame capture; the 60 Hz
+    // path allocates only the unavoidable Atom Box<A> per swap.
     private sealed class SpringTicker<T> {
         private readonly Atom<SpringRunnerState<T>> cell;
         private readonly Grasshopper2.UI.Canvas.Canvas canvas;
@@ -414,14 +483,13 @@ internal static class Motion {
             s.Sink(newValue);
 
             bool atRest = (s.Vector.Norm(displacement) < SpringRestThreshold) && (s.Vector.Norm(newVelocity) < SpringRestThreshold);
-            _ = atRest ? unit : ((Func<Unit>)(() => { canvas.ScheduleRedraw(); return unit; }))();
+            _ = atRest ? unit : Wake();
             return unit;
         }
+
+        private Unit Wake() { canvas.ScheduleRedraw(); return unit; }
     }
 
-    // Pulse animator + cycle bookkeeping capsule. Mirrors SpringTicker: cached swap delegate keeps
-    // the re-issue path closure-free. Native Animated<T>.State is strictly terminal so re-creation
-    // (not Chain) is the only re-issue path. Sink fires every frame with ValueNow.
     private sealed class PulseTicker<T> {
         private readonly Atom<PulseRunnerState<T>> cell;
         private readonly Action<T> sink;

@@ -1,6 +1,4 @@
 using System.Globalization;
-using System.Runtime.InteropServices;
-using Eto.Drawing;
 using Grasshopper2.Doc;
 using Grasshopper2.Extensions;
 using Grasshopper2.UI.Canvas;
@@ -156,12 +154,10 @@ internal static partial class Layout {
         });
 
     internal static GrasshopperUiIntent<LayoutResult> Dispatch(LayoutOp op) =>
-        op switch {
-            LayoutOp.MeasureCase measure => Measure(scope: measure.Scope),
-            LayoutOp.ArrangeCase a => Arrange(arrangement: a.Arrangement).Map(delta => (LayoutResult)new LayoutResult.MutationResult(Delta: delta)),
-            LayoutOp.SnapCase s => Snap(probe: s.Probe).Map(snap => (LayoutResult)new LayoutResult.SnapResult(Snapshot: snap)),
-            _ => GhUi.Document(run: _ => Fin.Fail<LayoutResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Dispatch)), detail: "unknown layout op"))),
-        };
+        op.Switch(
+            measureCase: static measure => Measure(scope: measure.Scope),
+            arrangeCase: static a => Arrange(arrangement: a.Arrangement).Map(static delta => (LayoutResult)new LayoutResult.MutationResult(Delta: delta)),
+            snapCase: static s => Snap(probe: s.Probe).Map(static snap => (LayoutResult)new LayoutResult.SnapResult(Snapshot: snap)));
 
     private static GrasshopperUiIntent<LayoutResult> Measure(LayoutMeasure scope) =>
         Optional(scope)
@@ -173,19 +169,14 @@ internal static partial class Layout {
             .IfNone(GhUi.Document(run: _ => Fin.Fail<LayoutResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Measure)), detail: "layout measure is required"))));
 
     internal static GrasshopperUiIntent<Snapshot<LayoutArrangeDelta>> Arrange(LayoutArrangement arrangement) =>
-        arrangement switch {
-            LayoutArrangement.MoveCase move =>
-                Move(id: move.Id, dx: move.Dx, dy: move.Dy)
-                    .Map(delta => delta.Map(payload => new LayoutArrangeDelta(Moves: Seq(payload)))),
-            LayoutArrangement.PlaceCase place =>
-                Place(id: place.Id, pivot: place.Pivot)
-                    .Map(delta => delta.Map(payload => new LayoutArrangeDelta(Moves: Seq(payload)))),
-            LayoutArrangement.AlignCase align =>
-                Align(left: align.Left, right: align.Right, fix: align.Fix)
-                    .Map(delta => delta.Map(payload => new LayoutArrangeDelta(Moves: Seq(payload)))),
-            LayoutArrangement.DistributeCase distribute => Distribute(axis: distribute.Axis, gap: distribute.Gap, ids: [.. distribute.Ids]),
-            _ => GhUi.Document(run: _ => Fin.Fail<Snapshot<LayoutArrangeDelta>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Arrange)), detail: "unknown layout arrangement"))),
-        };
+        arrangement.Switch(
+            moveCase: static move => Move(id: move.Id, dx: move.Dx, dy: move.Dy)
+                .Map(static delta => delta.Map(static payload => new LayoutArrangeDelta(Moves: Seq(payload)))),
+            placeCase: static place => Place(id: place.Id, pivot: place.Pivot)
+                .Map(static delta => delta.Map(static payload => new LayoutArrangeDelta(Moves: Seq(payload)))),
+            alignCase: static align => Align(left: align.Left, right: align.Right, fix: align.Fix)
+                .Map(static delta => delta.Map(static payload => new LayoutArrangeDelta(Moves: Seq(payload)))),
+            distributeCase: static distribute => Distribute(axis: distribute.Axis, gap: distribute.Gap, ids: [.. distribute.Ids]));
 
     internal static GrasshopperUiIntent<LayoutSnapshot> Snapshot(Guid id) =>
         GhUi.Document(run: scope =>

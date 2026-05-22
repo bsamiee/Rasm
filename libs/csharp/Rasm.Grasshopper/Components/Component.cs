@@ -1,7 +1,5 @@
 using System.Globalization;
 using System.Reflection;
-using System.Runtime.InteropServices;
-using Eto.Drawing;
 using Eto.Forms;
 using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Doc;

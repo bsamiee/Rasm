@@ -1,6 +1,4 @@
 using System.Globalization;
-using System.Runtime.InteropServices;
-using Eto.Drawing;
 using Grasshopper2.Doc;
 using Grasshopper2.Extensions;
 using Grasshopper2.Parameters.Special;
@@ -299,11 +297,10 @@ public partial record DocumentTarget {
     public static DocumentTarget Objects(params Guid[] ids) => new ObjectsCase(Ids: toSeq(ids));
 
     internal Fin<int> Apply(GhDocumentMethods methods, GhObjectList objects, DocumentTargetOp op, ActionList actions) =>
-        this switch {
-            SelectionCase => op.ApplySelected(methods: methods, actions: actions),
-            ObjectsCase target => op.Apply(methods: methods, objects: objects, ids: target.Ids, actions: actions),
-            _ => Fin.Fail<int>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentTarget)), detail: "unknown target")),
-        };
+        Switch(
+            state: (methods, objects, op, actions),
+            selectionCase: static (s, _) => s.op.ApplySelected(methods: s.methods, actions: s.actions),
+            objectsCase: static (s, target) => s.op.Apply(methods: s.methods, objects: s.objects, ids: target.Ids, actions: s.actions));
 }
 
 [Union]
@@ -329,65 +326,65 @@ public abstract partial record DocumentMutation {
     public static DocumentMutation AddDependency(PointF location) => new AddDependencyCase(Location: location);
     public static DocumentMutation Isolate(IsolateOptions options = default) => new IsolateCase(Options: options);
 
-    internal Fin<DocumentMutationReceipt> Apply(GhDocumentMethods methods, GhObjectList objects, ActionList actions) => this switch {
-        TargetCase target => target.Subject.Apply(methods: methods, objects: objects, op: target.Op, actions: actions).Map(static changed => DocumentMutationReceipt.Count(changed: changed)),
-        SelectionCase selection => UiRail.SelectionDispatch(methods: methods, op: selection.Op).Map(static changed => DocumentMutationReceipt.Count(changed: changed)),
-        DisplayCase display => UiRail.DisplayDispatch(methods: methods, op: display.Op, actions: actions).Map(static changed => DocumentMutationReceipt.Count(changed: changed)),
-        ClipboardCase clipboard => UiRail.ClipboardDispatch(methods: methods, op: clipboard.Op, actions: actions).Map(static changed => DocumentMutationReceipt.Count(changed: changed)),
-        ComposeCase compose => UiRail.ComposeDispatch(methods: methods, objects: objects, target: compose.Subject, op: compose.Op, actions: actions)
-            .Map(static created => created.Map(static id => DocumentMutationReceipt.CreatedObject(id: id)).IfNone(DocumentMutationReceipt.None)),
-        DropCase drop =>
-            from proxy in Op.Of(name: nameof(Drop)).AcceptValue(value: drop.ProxyId)
-                .MapFail(_ => UiFault.InvalidInput(op: Op.Of(name: nameof(Drop)), detail: "empty proxy id"))
-            from location in Op.Of(name: nameof(Drop)).AcceptPoint(value: drop.Location, detail: "non-finite location")
-            select methods.DropObject(obj: proxy, location: location, actions: actions) switch {
-                true => DocumentMutationReceipt.Count(changed: 1),
-                false => DocumentMutationReceipt.None,
-            },
-        PlaceCase place =>
-            from spec in Optional(place.Object).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Place)), detail: "object spec is required"))
-            from location in Op.Of(name: nameof(Place)).AcceptPoint(value: place.Location, detail: "non-finite location")
-            from obj in spec.Build(op: Op.Of(name: nameof(Place)))
-            from cue in Optional(place.Cue).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Place)), detail: "drop cue is required"))
-            from resolved in cue.Resolve(objects: objects, op: Op.Of(name: nameof(Place)))
-            let native = (resolved.Source.IsSome || resolved.Target.IsSome) switch {
-                true => methods.DropObject(
-                    obj: obj,
-                    location: location,
-                    sourceCue: resolved.Source.Map(static value => (IParameter?)value).IfNone((IParameter?)null),
-                    targetCue: resolved.Target.Map(static value => (IParameter?)value).IfNone((IParameter?)null),
-                    actions: actions),
-                false => methods.DropObject(obj: obj, location: location, actions: actions),
-            }
-            select native switch {
-                true => DocumentMutationReceipt.CreatedObject(id: obj.InstanceId),
-                false => DocumentMutationReceipt.None,
-            },
-        AddDependencyCase dependency => Op.Of(name: nameof(AddDependency))
-            .AcceptPoint(value: dependency.Location, detail: "non-finite location")
-            .Map(valid => Optional(methods.AddDependency(location: valid, actions: actions))
-                .Map(static listen => DocumentMutationReceipt.CreatedObject(id: listen.InstanceId))
-                .IfNone(DocumentMutationReceipt.None)),
-        IsolateCase isolate =>
-            from selected in Fin.Succ(value: toSeq(objects.SelectedObjects))
-            from primary in selected.Head
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Isolate)), detail: "no object selected to isolate"))
-            let before = actions.Count
-            from _ in Try.lift(f: () => {
-                methods.IsolateObject(obj: primary,
-                    pins: isolate.Options.IncludePins,
-                    inputs: isolate.Options.IncludeInputs,
-                    outputs: isolate.Options.IncludeOutputs,
-                    omit: selected.ToInstanceIdSet(),
-                    actions: actions);
-                return unit;
-            }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Isolate)), detail: $"IsolateObject threw: {error.Message}"))
-            select (actions.Count > before) switch {
-                true => DocumentMutationReceipt.Count(changed: 1),
-                false => DocumentMutationReceipt.None,
-            },
-        _ => Fin.Fail<DocumentMutationReceipt>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentMutation)), detail: "unknown document mutation")),
-    };
+    internal Fin<DocumentMutationReceipt> Apply(GhDocumentMethods methods, GhObjectList objects, ActionList actions) =>
+        Switch(
+            state: (methods, objects, actions),
+            targetCase: static (s, target) => target.Subject.Apply(methods: s.methods, objects: s.objects, op: target.Op, actions: s.actions).Map(static changed => DocumentMutationReceipt.Count(changed: changed)),
+            selectionCase: static (s, selection) => UiRail.SelectionDispatch(methods: s.methods, op: selection.Op).Map(static changed => DocumentMutationReceipt.Count(changed: changed)),
+            displayCase: static (s, display) => UiRail.DisplayDispatch(methods: s.methods, op: display.Op, actions: s.actions).Map(static changed => DocumentMutationReceipt.Count(changed: changed)),
+            clipboardCase: static (s, clipboard) => UiRail.ClipboardDispatch(methods: s.methods, op: clipboard.Op, actions: s.actions).Map(static changed => DocumentMutationReceipt.Count(changed: changed)),
+            composeCase: static (s, compose) => UiRail.ComposeDispatch(methods: s.methods, objects: s.objects, target: compose.Subject, op: compose.Op, actions: s.actions)
+                .Map(static created => created.Map(static id => DocumentMutationReceipt.CreatedObject(id: id)).IfNone(DocumentMutationReceipt.None)),
+            dropCase: static (s, drop) =>
+                from proxy in Op.Of(name: nameof(Drop)).AcceptValue(value: drop.ProxyId)
+                    .MapFail(static _ => UiFault.InvalidInput(op: Op.Of(name: nameof(Drop)), detail: "empty proxy id"))
+                from location in Op.Of(name: nameof(Drop)).AcceptPoint(value: drop.Location, detail: "non-finite location")
+                select s.methods.DropObject(obj: proxy, location: location, actions: s.actions) switch {
+                    true => DocumentMutationReceipt.Count(changed: 1),
+                    false => DocumentMutationReceipt.None,
+                },
+            placeCase: static (s, place) =>
+                from spec in Optional(place.Object).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Place)), detail: "object spec is required"))
+                from location in Op.Of(name: nameof(Place)).AcceptPoint(value: place.Location, detail: "non-finite location")
+                from obj in spec.Build(op: Op.Of(name: nameof(Place)))
+                from cue in Optional(place.Cue).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Place)), detail: "drop cue is required"))
+                from resolved in cue.Resolve(objects: s.objects, op: Op.Of(name: nameof(Place)))
+                let native = (resolved.Source.IsSome || resolved.Target.IsSome) switch {
+                    true => s.methods.DropObject(
+                        obj: obj,
+                        location: location,
+                        sourceCue: resolved.Source.Map(static value => (IParameter?)value).IfNone((IParameter?)null),
+                        targetCue: resolved.Target.Map(static value => (IParameter?)value).IfNone((IParameter?)null),
+                        actions: s.actions),
+                    false => s.methods.DropObject(obj: obj, location: location, actions: s.actions),
+                }
+                select native switch {
+                    true => DocumentMutationReceipt.CreatedObject(id: obj.InstanceId),
+                    false => DocumentMutationReceipt.None,
+                },
+            addDependencyCase: static (s, dependency) => Op.Of(name: nameof(AddDependency))
+                .AcceptPoint(value: dependency.Location, detail: "non-finite location")
+                .Map(valid => Optional(s.methods.AddDependency(location: valid, actions: s.actions))
+                    .Map(static listen => DocumentMutationReceipt.CreatedObject(id: listen.InstanceId))
+                    .IfNone(DocumentMutationReceipt.None)),
+            isolateCase: static (s, isolate) =>
+                from selected in Fin.Succ(value: toSeq(s.objects.SelectedObjects))
+                from primary in selected.Head
+                    .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Isolate)), detail: "no object selected to isolate"))
+                let before = s.actions.Count
+                from _ in Try.lift(f: () => {
+                    s.methods.IsolateObject(obj: primary,
+                        pins: isolate.Options.IncludePins,
+                        inputs: isolate.Options.IncludeInputs,
+                        outputs: isolate.Options.IncludeOutputs,
+                        omit: selected.ToInstanceIdSet(),
+                        actions: s.actions);
+                    return unit;
+                }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Isolate)), detail: $"IsolateObject threw: {error.Message}"))
+                select (s.actions.Count > before) switch {
+                    true => DocumentMutationReceipt.Count(changed: 1),
+                    false => DocumentMutationReceipt.None,
+                });
 }
 
 [Union]
@@ -411,55 +408,54 @@ public abstract partial record DocumentTargetOp {
         ids.TraverseM(id => Optional(objects.Find(instanceId: id))
             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentTarget)), detail: $"object {id} not found")))
         .Map(static resolved => resolved.ToArray())
-        .Bind(targets => this switch {
-            ShowCase => Fin.Succ(value: methods.ShowObjects(objects: targets, actions: actions)),
-            HideCase => Fin.Succ(value: methods.HideObjects(objects: targets, actions: actions)),
-            ToggleVisibilityCase => Fin.Succ(value: methods.ToggleDisplayObjects(objects: targets, actions: actions)),
-            EnableCase => Fin.Succ(value: methods.EnableObjects(objects: targets, actions: actions)),
-            DisableCase => Fin.Succ(value: methods.DisableObjects(objects: targets, actions: actions)),
-            DeleteCase { DataOnly: false } delete => Fin.Succ(value: methods.DeleteObjects(objects: targets, wires: [.. delete.Wires], actions: actions)),
-            DeleteCase { DataOnly: true } => Fin.Succ(value: methods.DeleteObjectData(objects: targets, actions: actions)),
-            ColourCase colour => Fin.Succ(value: methods.SetColourOverrideObjects(
-                objects: targets,
+        .Bind(targets => Switch(
+            state: (methods, targets, actions),
+            showCase: static (s, _) => Fin.Succ(value: s.methods.ShowObjects(objects: s.targets, actions: s.actions)),
+            hideCase: static (s, _) => Fin.Succ(value: s.methods.HideObjects(objects: s.targets, actions: s.actions)),
+            toggleVisibilityCase: static (s, _) => Fin.Succ(value: s.methods.ToggleDisplayObjects(objects: s.targets, actions: s.actions)),
+            enableCase: static (s, _) => Fin.Succ(value: s.methods.EnableObjects(objects: s.targets, actions: s.actions)),
+            disableCase: static (s, _) => Fin.Succ(value: s.methods.DisableObjects(objects: s.targets, actions: s.actions)),
+            deleteCase: static (s, delete) => Fin.Succ(value: delete.DataOnly
+                ? s.methods.DeleteObjectData(objects: s.targets, actions: s.actions)
+                : s.methods.DeleteObjects(objects: s.targets, wires: [.. delete.Wires], actions: s.actions)),
+            colourCase: static (s, colour) => Fin.Succ(value: s.methods.SetColourOverrideObjects(
+                objects: s.targets,
                 colour: colour.Override.Map(static value => (GhColour?)value).IfNone((GhColour?)null),
-                actions: actions)),
-            _ => Fin.Fail<int>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentTargetOp)), detail: "unknown target op")),
-        }).As();
+                actions: s.actions)))).As();
 
     internal Fin<int> ApplySelected(GhDocumentMethods methods, ActionList actions) =>
-        this switch {
-            ShowCase => Fin.Succ(value: methods.ShowSelected(actions: actions)),
-            HideCase => Fin.Succ(value: methods.HideSelected(actions: actions)),
-            ToggleVisibilityCase => Fin.Succ(value: methods.ToggleDisplaySelected(actions: actions)),
-            EnableCase => Fin.Succ(value: methods.EnableSelected(actions: actions)),
-            DisableCase => Fin.Succ(value: methods.DisableSelected(actions: actions)),
-            DeleteCase { DataOnly: false } delete => delete.Wires.IsEmpty
-                ? Fin.Succ(value: methods.DeleteSelection(actions: actions))
-                : Fin.Succ(value: methods.DeleteObjects(objects: [], wires: [.. delete.Wires], actions: actions)),
-            DeleteCase { DataOnly: true } => Fin.Succ(value: methods.DeleteSelectionData(actions: actions)),
-            ColourCase colour => Fin.Succ(value: methods.SetColourOverrideSelected(
+        Switch(
+            state: (methods, actions),
+            showCase: static (s, _) => Fin.Succ(value: s.methods.ShowSelected(actions: s.actions)),
+            hideCase: static (s, _) => Fin.Succ(value: s.methods.HideSelected(actions: s.actions)),
+            toggleVisibilityCase: static (s, _) => Fin.Succ(value: s.methods.ToggleDisplaySelected(actions: s.actions)),
+            enableCase: static (s, _) => Fin.Succ(value: s.methods.EnableSelected(actions: s.actions)),
+            disableCase: static (s, _) => Fin.Succ(value: s.methods.DisableSelected(actions: s.actions)),
+            deleteCase: static (s, delete) => Fin.Succ(value: delete.DataOnly
+                ? s.methods.DeleteSelectionData(actions: s.actions)
+                : delete.Wires.IsEmpty
+                    ? s.methods.DeleteSelection(actions: s.actions)
+                    : s.methods.DeleteObjects(objects: [], wires: [.. delete.Wires], actions: s.actions)),
+            colourCase: static (s, colour) => Fin.Succ(value: s.methods.SetColourOverrideSelected(
                 colour: colour.Override.Map(static value => (GhColour?)value).IfNone((GhColour?)null),
-                actions: actions)),
-            _ => Fin.Fail<int>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentTargetOp)), detail: "unknown selected target op")),
-        };
+                actions: s.actions)));
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 internal static partial class UiRail {
     // --- [OPERATIONS] -------------------------------------------------------------------------
-    internal static Fin<DocumentResult> DocumentDispatch(GrasshopperUi.Scope scope, DocumentOp op) => op switch {
-        DocumentOp.QueryCase q => QueryDispatch(scope: scope, query: q.Request),
-        DocumentOp.MutateCase m => MutateDispatch(scope: scope, mutations: m.Mutations, policy: m.Policy),
-        DocumentOp.HistoryCase h => HistoryDispatch(scope: scope, op: h.Request),
-        _ => Fin.Fail<DocumentResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Document)), detail: "unknown DocumentOp")),
-    };
+    internal static Fin<DocumentResult> DocumentDispatch(GrasshopperUi.Scope scope, DocumentOp op) =>
+        op.Switch(
+            state: scope,
+            queryCase: static (s, q) => QueryDispatch(scope: s, query: q.Request),
+            mutateCase: static (s, m) => MutateDispatch(scope: s, mutations: m.Mutations, policy: m.Policy),
+            historyCase: static (s, h) => HistoryDispatch(scope: s, op: h.Request));
 
     internal static GrasshopperUiPolicy DocumentPolicyFor(DocumentOp op) =>
-        op switch {
-            DocumentOp.QueryCase { Request: DocumentQuery.UniverseCase } => GrasshopperUiPolicy.Read,
-            DocumentOp.MutateCase mutate => GrasshopperUiPolicy.Document(repaint: mutate.Policy.RepaintOrDefault),
-            _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
-        };
+        op.Switch(
+            queryCase: static q => q.Request is DocumentQuery.UniverseCase ? GrasshopperUiPolicy.Read : GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
+            mutateCase: static mutate => GrasshopperUiPolicy.Document(repaint: mutate.Policy.RepaintOrDefault),
+            historyCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None));
 
     private static Fin<DocumentResult> QueryDispatch(GrasshopperUi.Scope scope, DocumentQuery query) => query switch {
         DocumentQuery.SnapshotCase =>
@@ -514,28 +510,30 @@ internal static partial class UiRail {
             policy: policy)
             .Map(static delta => (DocumentResult)new DocumentResult.MutationResult(Delta: delta));
 
-    internal static Fin<int> SelectionDispatch(GhDocumentMethods methods, SelectionOp op) => op switch {
-        SelectionOp.AllCase => Fin.Succ(value: methods.SelectAll()),
-        SelectionOp.NoneCase => Fin.Succ(value: methods.DeselectAll()),
-        SelectionOp.InvertCase => Fin.Succ(value: methods.InvertSelection()),
-        _ => Fin.Fail<int>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(SelectionDispatch)), detail: "unknown selection op")),
-    };
+    internal static Fin<int> SelectionDispatch(GhDocumentMethods methods, SelectionOp op) =>
+        op.Switch(
+            state: methods,
+            allCase: static (m, _) => Fin.Succ(value: m.SelectAll()),
+            noneCase: static (m, _) => Fin.Succ(value: m.DeselectAll()),
+            invertCase: static (m, _) => Fin.Succ(value: m.InvertSelection()));
 
-    internal static Fin<int> DisplayDispatch(GhDocumentMethods methods, DisplayOp op, ActionList actions) => op switch {
-        DisplayOp.InputsCase { Change: VisibilityChange.ShowCase } => Fin.Succ(value: methods.ShowSelectedInputs(actions: actions)),
-        DisplayOp.InputsCase { Change: VisibilityChange.HideCase } => Fin.Succ(value: methods.HideSelectedInputs(actions: actions)),
-        DisplayOp.OutputsCase { Change: VisibilityChange.ShowCase } => Fin.Succ(value: methods.ShowSelectedOutputs(actions: actions)),
-        DisplayOp.OutputsCase { Change: VisibilityChange.HideCase } => Fin.Succ(value: methods.HideSelectedOutputs(actions: actions)),
-        _ => Fin.Fail<int>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(DisplayDispatch)), detail: "unknown display op")),
-    };
+    internal static Fin<int> DisplayDispatch(GhDocumentMethods methods, DisplayOp op, ActionList actions) =>
+        op.Switch(
+            state: (methods, actions),
+            inputsCase: static (s, inputs) => Fin.Succ(value: inputs.Change is VisibilityChange.ShowCase
+                ? s.methods.ShowSelectedInputs(actions: s.actions)
+                : s.methods.HideSelectedInputs(actions: s.actions)),
+            outputsCase: static (s, outputs) => Fin.Succ(value: outputs.Change is VisibilityChange.ShowCase
+                ? s.methods.ShowSelectedOutputs(actions: s.actions)
+                : s.methods.HideSelectedOutputs(actions: s.actions)));
 
-    internal static Fin<int> ClipboardDispatch(GhDocumentMethods methods, ClipboardOp op, ActionList actions) => op switch {
-        ClipboardOp.CopyCase c => ValidateClipboard(name: nameof(ClipboardOp.Copy), clipboard: c.Kind).Map(k => methods.CopySelection(clipboard: k) ? 1 : 0),
-        ClipboardOp.CutCase c => ValidateClipboard(name: nameof(ClipboardOp.Cut), clipboard: c.Kind).Map(k => methods.CutSelection(clipboard: k, actions: actions) ? 1 : 0),
-        ClipboardOp.PasteCase p => ValidateClipboard(name: nameof(ClipboardOp.Paste), clipboard: p.Kind).Map(k => methods.PasteFromClipboard(clipboard: k, behaviour: p.Behaviour, actions: actions) ? 1 : 0),
-        ClipboardOp.PasteGh1XmlCase => Fin.Succ(value: methods.PasteGrasshopper1XmlFromClipboard(actions: actions) ? 1 : 0),
-        _ => Fin.Fail<int>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ClipboardDispatch)), detail: "unknown clipboard op")),
-    };
+    internal static Fin<int> ClipboardDispatch(GhDocumentMethods methods, ClipboardOp op, ActionList actions) =>
+        op.Switch(
+            state: (methods, actions),
+            copyCase: static (s, c) => ValidateClipboard(name: nameof(ClipboardOp.Copy), clipboard: c.Kind).Map(k => s.methods.CopySelection(clipboard: k) ? 1 : 0),
+            cutCase: static (s, c) => ValidateClipboard(name: nameof(ClipboardOp.Cut), clipboard: c.Kind).Map(k => s.methods.CutSelection(clipboard: k, actions: s.actions) ? 1 : 0),
+            pasteCase: static (s, p) => ValidateClipboard(name: nameof(ClipboardOp.Paste), clipboard: p.Kind).Map(k => s.methods.PasteFromClipboard(clipboard: k, behaviour: p.Behaviour, actions: s.actions) ? 1 : 0),
+            pasteGh1XmlCase: static (s, _) => Fin.Succ(value: s.methods.PasteGrasshopper1XmlFromClipboard(actions: s.actions) ? 1 : 0));
 
     internal static Fin<Option<Guid>> ComposeDispatch(GhDocumentMethods methods, GhObjectList objects, DocumentTarget target, ComposeOp op, ActionList actions) =>
         target switch {
@@ -617,25 +615,22 @@ internal static partial class UiRail {
             .Map(static snapshots => new DocumentUniverseSnapshot(Documents: snapshots, Count: snapshots.Count));
 
     private static Fin<DocumentResult> HistoryDispatch(GrasshopperUi.Scope scope, DocumentHistoryOp op) =>
-        op switch {
-            DocumentHistoryOp.QueryCase =>
-                scope.NeedDocument().Map(document => (DocumentResult)new DocumentResult.HistoryResult(Snapshot: HistorySnapshotOf(document: document))),
-            DocumentHistoryOp.UndoCase =>
-                MutateHistory(scope: scope, op: Op.Of(name: nameof(DocumentHistoryOp.Undo)), run: static document => document.Undo.Undo()),
-            DocumentHistoryOp.RedoCase =>
-                MutateHistory(scope: scope, op: Op.Of(name: nameof(DocumentHistoryOp.Redo)), run: static document => document.Undo.Redo()),
-            DocumentHistoryOp.ClearCase =>
-                MutateHistory(scope: scope, op: Op.Of(name: nameof(DocumentHistoryOp.Clear)), run: static document => document.Undo.Clear()),
-            DocumentHistoryOp.ShowHistoryCase =>
-                from document in scope.NeedDocument()
-                from canvas in scope.NeedCanvas()
-                from shown in Try.lift<DocumentResult>(f: () => {
-                    _ = History.ShowHistory(canvas: canvas);
-                    return new DocumentResult.HistoryResult(Snapshot: HistorySnapshotOf(document: document));
-                }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(DocumentHistoryOp.ShowHistory)), detail: error.Message))
-                select shown,
-            _ => Fin.Fail<DocumentResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(HistoryDispatch)), detail: "unknown history op")),
-        };
+        op.Switch(
+            state: scope,
+            queryCase: (s, _) => s.NeedDocument().Map(document => (DocumentResult)new DocumentResult.HistoryResult(Snapshot: HistorySnapshotOf(document: document))),
+            undoCase: (s, _) => MutateHistory(scope: s, op: Op.Of(name: nameof(DocumentHistoryOp.Undo)), run: static document => document.Undo.Undo()),
+            redoCase: (s, _) => MutateHistory(scope: s, op: Op.Of(name: nameof(DocumentHistoryOp.Redo)), run: static document => document.Undo.Redo()),
+            clearCase: (s, _) => MutateHistory(scope: s, op: Op.Of(name: nameof(DocumentHistoryOp.Clear)), run: static document => document.Undo.Clear()),
+            showHistoryCase: (s, _) => DispatchShowHistory(scope: s));
+
+    private static Fin<DocumentResult> DispatchShowHistory(GrasshopperUi.Scope scope) =>
+        from document in scope.NeedDocument()
+        from canvas in scope.NeedCanvas()
+        from shown in Try.lift<DocumentResult>(f: () => {
+            _ = History.ShowHistory(canvas: canvas);
+            return new DocumentResult.HistoryResult(Snapshot: HistorySnapshotOf(document: document));
+        }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(DocumentHistoryOp.ShowHistory)), detail: error.Message))
+        select shown;
 
     private static Fin<DocumentResult> MutateHistory(GrasshopperUi.Scope scope, Op op, Action<GhDocument> run) =>
         from document in scope.NeedDocument()
@@ -672,10 +667,20 @@ internal static partial class UiRail {
         actions.Count switch {
             <= 0 => Fin.Succ(value: unit),
             _ => Try.lift(f: () => {
-                document.Undo.Do(name: ("Edit", op.ToString()), actions: actions);
+                document.Undo.Do(name: VerbNounOf(op: op), actions: actions);
                 return unit;
             }).Run().MapFail(error => UiFault.MutationRejected(op: op, detail: $"History.Do threw: {error.Message}")),
         };
+
+    // Op names follow "Noun.Verb"; the History panel renders VerbNoun as "Verb Noun" (e.g. "Connect Wire"),
+    // so we split rather than emit a flat "Edit Wire.Connect" label.
+    internal static VerbNoun VerbNounOf(Op op) {
+        string name = op.ToString();
+        int dot = name.IndexOf(value: '.', comparisonType: StringComparison.Ordinal);
+        return dot > 0 && dot < name.Length - 1
+            ? (Verb: name[(dot + 1)..], Noun: name[..dot])
+            : (Verb: "Edit", Noun: name);
+    }
 
     internal static DocumentSnapshot DocumentSnapshotOf(GhDocument document, GhObjectList objects) {
         Seq<WireEnds> allWires = Optional(objects.AllWires).Map(static wires => toSeq(wires)).IfNone(Seq<WireEnds>());
