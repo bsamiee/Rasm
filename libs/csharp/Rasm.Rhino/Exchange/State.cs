@@ -1,5 +1,8 @@
+using System.Drawing.Imaging;
 using System.Globalization;
+using System.Text.RegularExpressions;
 using Rasm.Rhino.Commands;
+using DrawingImageFormat = System.Drawing.Imaging.ImageFormat;
 using IODirectory = System.IO.Directory;
 using IOPath = System.IO.Path;
 using ObjectTypeFilter = Rhino.FileIO.File3dm.ObjectTypeFilter;
@@ -16,7 +19,8 @@ public enum FileFidelity { Model, Small, GeometryOnly }
 public enum FileResourcePolicy { Reference, Embed, Copy }
 public enum FileGrouping { Document, File, Layer, ObjectName, ObjectType, Material, Block, UserString }
 public enum FileSort { Stable, File, Layer, ObjectName, ObjectType, Material, Block, UserString }
-public enum FileRasterEncoding { Png, Jpeg, Tiff, Bitmap }
+
+public enum FileTiffCompression { Default, None, Lzw, Ccitt3, Ccitt4, Rle }
 
 [Flags]
 public enum FileArchiveProjection {
@@ -30,40 +34,30 @@ public enum FileArchiveProjection {
 
 [SmartEnum<int>]
 public sealed partial class FilePhase {
-    public static readonly FilePhase Prompt = new(key: 0, requires: Capability.None);
-    public static readonly FilePhase Open = new(key: 1, requires: Capability.Archive);
-    public static readonly FilePhase Headless = new(key: 2, requires: Capability.ArchiveOrImport);
-    public static readonly FilePhase Import = new(key: 3, requires: Capability.Import);
-    public static readonly FilePhase Export = new(key: 4, requires: Capability.Export);
-    public static readonly FilePhase Publish = new(key: 5, requires: Capability.Publish);
-    public static readonly FilePhase NamedLayerState = new(key: 6, requires: Capability.None);
-    public static readonly FilePhase Save = new(key: 7, requires: Capability.None);
-    public static readonly FilePhase SaveAs = new(key: 8, requires: Capability.Archive);
-    public static readonly FilePhase WriteFile = new(key: 9, requires: Capability.Export);
-    public static readonly FilePhase Write3dmFile = new(key: 10, requires: Capability.Archive);
-    public static readonly FilePhase SaveTemplate = new(key: 11, requires: Capability.Archive);
-    public static readonly FilePhase ArchiveRead = new(key: 12, requires: Capability.None);
-    public static readonly FilePhase ArchiveExtract = new(key: 13, requires: Capability.None);
-    public static readonly FilePhase ArchiveUpdate = new(key: 14, requires: Capability.None);
-    public static readonly FilePhase ArchiveInspect = new(key: 15, requires: Capability.None);
-    public static readonly FilePhase ArchiveValidate = new(key: 16, requires: Capability.None);
-    public static readonly FilePhase Batch = new(key: 17, requires: Capability.None);
-    public static readonly FilePhase SheetEdit = new(key: 18, requires: Capability.None);
+    public static readonly FilePhase Prompt = new(key: 0, requires: FileCapability.None);
+    public static readonly FilePhase Open = new(key: 1, requires: FileCapability.Archive);
+    public static readonly FilePhase Headless = new(key: 2, requires: FileCapability.Archive | FileCapability.Import);
+    public static readonly FilePhase Import = new(key: 3, requires: FileCapability.Import);
+    public static readonly FilePhase Export = new(key: 4, requires: FileCapability.Export);
+    public static readonly FilePhase Publish = new(key: 5, requires: FileCapability.Publish);
+    public static readonly FilePhase NamedLayerState = new(key: 6, requires: FileCapability.None);
+    public static readonly FilePhase Save = new(key: 7, requires: FileCapability.None);
+    public static readonly FilePhase SaveAs = new(key: 8, requires: FileCapability.Archive);
+    public static readonly FilePhase WriteFile = new(key: 9, requires: FileCapability.Export);
+    public static readonly FilePhase Write3dmFile = new(key: 10, requires: FileCapability.Archive);
+    public static readonly FilePhase SaveTemplate = new(key: 11, requires: FileCapability.Archive);
+    public static readonly FilePhase ArchiveRead = new(key: 12, requires: FileCapability.None);
+    public static readonly FilePhase ArchiveExtract = new(key: 13, requires: FileCapability.None);
+    public static readonly FilePhase ArchiveUpdate = new(key: 14, requires: FileCapability.None);
+    public static readonly FilePhase ArchiveInspect = new(key: 15, requires: FileCapability.None);
+    public static readonly FilePhase ArchiveValidate = new(key: 16, requires: FileCapability.None);
+    public static readonly FilePhase Batch = new(key: 17, requires: FileCapability.None);
+    public static readonly FilePhase SheetEdit = new(key: 18, requires: FileCapability.None);
 
-    public Capability Requires { get; }
+    public FileCapability Requires { get; }
 
     internal bool Allows(FileCapability capability) =>
-        Requires switch {
-            Capability.None => true,
-            Capability.Archive => capability.Archive,
-            Capability.Import => capability.Import,
-            Capability.Export => capability.Export,
-            Capability.Publish => capability.Publish,
-            Capability.ArchiveOrImport => capability.Archive || capability.Import,
-            _ => false,
-        };
-
-    public enum Capability { None, Archive, Import, Export, Publish, ArchiveOrImport }
+        Requires == FileCapability.None || (Requires & capability) != FileCapability.None;
 }
 
 [SmartEnum<int>]
@@ -101,6 +95,61 @@ public sealed partial class FileIssueCode {
     public static readonly FileIssueCode WatchFailure = new(key: "watch-failure");
     public static readonly FileIssueCode BrokenLink = new(key: "broken-link");
 }
+
+[SmartEnum<int>]
+public sealed partial class FileRasterEncoding {
+    public static readonly FileRasterEncoding Png = new(
+        key: 0,
+        format: () => FileFormat.Png,
+        image: () => DrawingImageFormat.Png,
+        compression: FileTiffCompression.Default);
+    public static readonly FileRasterEncoding Jpeg = new(
+        key: 1,
+        format: () => FileFormat.Jpeg,
+        image: () => DrawingImageFormat.Jpeg,
+        compression: FileTiffCompression.Default);
+    public static readonly FileRasterEncoding Tiff = new(
+        key: 2,
+        format: () => FileFormat.Tiff,
+        image: () => DrawingImageFormat.Tiff,
+        compression: FileTiffCompression.Lzw);
+    public static readonly FileRasterEncoding Bitmap = new(
+        key: 3,
+        format: () => FileFormat.Bmp,
+        image: () => DrawingImageFormat.Bmp,
+        compression: FileTiffCompression.Default);
+
+    private readonly Func<FileFormat> format;
+    private readonly Func<DrawingImageFormat> image;
+
+    public FileFormat Format => format();
+    public DrawingImageFormat Image => image();
+    public FileTiffCompression Compression { get; }
+
+    // Returns codec-parameter spec pairs. The actual EncoderParameter instances are
+    // constructed and disposed inside the SaveBitmap using-scope.
+    internal Seq<(Encoder Encoder, long Value)> Parameters(FileRasterSettings settings) =>
+        Equals(Jpeg) ? Seq((Encoder.Quality, settings.JpegQuality))
+        : Equals(Tiff) ? Seq((Encoder.Compression, (long)CompressionValue(compression: settings.TiffCompression.IfNone(noneValue: Compression))))
+        : Equals(Png) ? settings.PngDepth.Map(depth => Seq<(Encoder, long)>((Encoder.ColorDepth, depth))).IfNone(Seq<(Encoder, long)>())
+        : Seq<(Encoder, long)>();
+
+    private static EncoderValue CompressionValue(FileTiffCompression compression) =>
+        compression switch {
+            FileTiffCompression.None => EncoderValue.CompressionNone,
+            FileTiffCompression.Lzw => EncoderValue.CompressionLZW,
+            FileTiffCompression.Ccitt3 => EncoderValue.CompressionCCITT3,
+            FileTiffCompression.Ccitt4 => EncoderValue.CompressionCCITT4,
+            FileTiffCompression.Rle => EncoderValue.CompressionRle,
+            _ => EncoderValue.CompressionLZW,
+        };
+}
+
+public readonly record struct FileRasterSettings(
+    long JpegQuality = FileSheetDefaults.DefaultJpegQuality,
+    Option<FileTiffCompression> TiffCompression = default,
+    Option<int> PngDepth = default,
+    Option<double> ExifDpi = default);
 
 [SmartEnum<string>]
 public sealed partial class FileResourceRole {
@@ -416,18 +465,18 @@ public sealed record FileSheet(
             (true, > 0.0) => Fin.Succ(value: Dpi),
             _ => Fin.Fail<double>(error: op.InvalidInput()),
         }
-        select Configure(settings: new ViewCaptureSettings(sourcePageView: active, dpi: dpi));
+        select Configure(settings: new ViewCaptureSettings(sourcePageView: active, dpi: dpi), page: active);
 
-    private ViewCaptureSettings Configure(ViewCaptureSettings settings) {
+    private ViewCaptureSettings Configure(ViewCaptureSettings settings, RhinoPageView page) {
         settings.UsePrintWidths = PrintWidths;
         settings.RasterMode = Raster;
         settings.OutputColor = Color;
-        _ = Decor.Iter(decor => decor.Apply(settings: settings));
+        _ = Decor.Iter(decor => decor.Apply(settings: settings, page: page));
         return settings;
     }
 }
 
-public readonly record struct FileSheetDecor(
+public readonly partial record struct FileSheetDecor(
     bool DrawGrid = false,
     bool DrawAxis = false,
     bool DrawLights = false,
@@ -445,7 +494,7 @@ public readonly record struct FileSheetDecor(
     Option<double> ModelScale = default,
     Option<string> HeaderText = default,
     Option<string> FooterText = default) {
-    internal ViewCaptureSettings Apply(ViewCaptureSettings settings) {
+    internal ViewCaptureSettings Apply(ViewCaptureSettings settings, RhinoPageView page) {
         settings.DrawGrid = DrawGrid;
         settings.DrawAxis = DrawAxis;
         settings.DrawLights = DrawLights;
@@ -461,10 +510,24 @@ public readonly record struct FileSheetDecor(
         _ = ArrowheadSizeMillimeters.Iter(value => settings.ArrowheadSizeMillimeters = value);
         _ = TextDotPointSize.Iter(value => settings.TextDotPointSize = value);
         _ = ModelScale.Iter(settings.SetModelScaleToValue);
-        _ = HeaderText.Iter(value => settings.HeaderText = value);
-        _ = FooterText.Iter(value => settings.FooterText = value);
+        _ = HeaderText.Iter(value => settings.HeaderText = Interpolate(template: value, document: page.Document, page: page));
+        _ = FooterText.Iter(value => settings.FooterText = Interpolate(template: value, document: page.Document, page: page));
         return settings;
     }
+
+    // Substitutes `{key}` from RhinoDoc.Strings + page metadata (`{page}`, `{index}`, `{total}`).
+    private static string Interpolate(string template, RhinoDoc document, RhinoPageView page) =>
+        string.IsNullOrEmpty(value: template)
+            ? template
+            : TokenPattern().Replace(input: template, evaluator: match => match.Groups["key"].Value switch {
+                "page" => page.PageName ?? string.Empty,
+                "index" => (page.PageNumber + 1).ToString(provider: CultureInfo.InvariantCulture),
+                "total" => (document.Views.GetPageViews()?.Length ?? 0).ToString(provider: CultureInfo.InvariantCulture),
+                string key => document.Strings.GetValue(key: key) ?? match.Value,
+            });
+
+    [GeneratedRegex(pattern: "\\{(?<key>[^{}]+)\\}", options: RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture, matchTimeoutMilliseconds: 250)]
+    private static partial Regex TokenPattern();
 }
 
 public readonly record struct FileSheetSpec(
@@ -488,11 +551,13 @@ public abstract partial record FileSheetEdit {
     public sealed record Remove(string SheetName) : FileSheetEdit;
     public sealed record Duplicate(string SheetName, bool WithGeometry = true) : FileSheetEdit;
     public sealed record Rename(string SheetName, string NewName) : FileSheetEdit;
+    public sealed record Reorder(Seq<string> SheetNames) : FileSheetEdit;
     public sealed record AddDetail(string SheetName, FileDetailSpec Spec) : FileSheetEdit;
     public sealed record RemoveDetail(string SheetName, string DetailName) : FileSheetEdit;
     public sealed record ActivateDetail(string SheetName, Option<string> DetailName) : FileSheetEdit;
     public sealed record LayerOverride(string SheetName, string DetailName, string LayerPath, Option<System.Drawing.Color> Color = default, Option<bool> Visible = default) : FileSheetEdit;
     public sealed record ClippingOverride(string SheetName, string DetailName, BoundingBox Box) : FileSheetEdit;
+    public sealed record RefreshLinks(Option<Seq<string>> Archives = default) : FileSheetEdit;
 }
 
 internal readonly record struct FileSheetPage(RhinoPageView Page, FileSheet Sheet);

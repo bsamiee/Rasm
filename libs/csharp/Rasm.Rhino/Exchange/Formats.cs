@@ -7,25 +7,16 @@ using IOPath = System.IO.Path;
 namespace Rasm.Rhino.Exchange;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-public readonly record struct FileCapability {
-    private FileCapability(bool import, bool export, bool archive, bool publish) =>
-        (Import, Export, Archive, Publish) = (import, export, archive, publish);
-
-    public bool Import { get; }
-    public bool Export { get; }
-    internal bool Archive { get; }
-    internal bool Publish { get; }
-
-    public static FileCapability Plugin(bool import = true, bool export = true) =>
-        new(import: import, export: export, archive: false, publish: false);
-
-    public static FileCapability Raster { get; } = new(import: false, export: false, archive: false, publish: true);
-
-    internal static FileCapability File3dm { get; } = new(import: true, export: true, archive: true, publish: false);
-
-    internal static FileCapability PdfFormat { get; } = new(import: true, export: false, archive: false, publish: true);
-
-    internal static FileCapability SvgFormat { get; } = new(import: true, export: false, archive: false, publish: true);
+[Flags]
+public enum FileCapability {
+    None = 0,
+    Import = 1 << 0,
+    Export = 1 << 1,
+    Archive = 1 << 2,
+    Publish = 1 << 3,
+    File3dm = Import | Export | Archive,
+    Raster = Publish,
+    Vector = Import | Publish,
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -156,7 +147,7 @@ public sealed record FileFormat {
     public static FileFormat Pdf { get; } = new(
         key: "pdf",
         extensions: Seq(".pdf"),
-        capability: FileCapability.PdfFormat,
+        capability: FileCapability.Vector,
         read: static profile => PdfReadOptions(profile: profile).ToDictionary(),
         write: null,
         directRead: DirectRead(static (profile, _) => PdfReadOptions(profile: profile), FilePdf.Read, "pdfRead"),
@@ -165,7 +156,7 @@ public sealed record FileFormat {
     public static FileFormat Svg { get; } = new(
         key: "svg",
         extensions: Seq(".svg"),
-        capability: FileCapability.SvgFormat,
+        capability: FileCapability.Vector,
         read: static _ => new FileSvgReadOptions().ToDictionary(),
         write: null,
         directRead: DirectRead(NewRead<FileSvgReadOptions>(), FileSvg.Read, "svgRead"),
@@ -212,7 +203,7 @@ public sealed record FileFormat {
                 .Bind(text => text.TrimStart('.').Equals(value: "json", comparisonType: StringComparison.OrdinalIgnoreCase)
                     ? Fin.Fail<string>(error: Op.Of(name: nameof(Custom)).Unsupported(geometryType: typeof(FileFormat), outputType: typeof(FileFormat)))
                     : Fin.Succ(value: text.StartsWith('.') ? text : $".{text}"))).As()
-        from _ in guard(!validExtensions.IsEmpty && (capability.Import || capability.Export || capability.Publish), Op.Of(name: nameof(Custom)).InvalidInput())
+        from _ in guard(!validExtensions.IsEmpty && capability != FileCapability.None, Op.Of(name: nameof(Custom)).InvalidInput())
         from __ in guard(!ByKey.ContainsKey(key: validKey.TrimStart('.')) && !validExtensions.Exists(ByExtension.ContainsKey), Op.Of(name: nameof(Custom)).InvalidInput())
         select new FileFormat(key: validKey.TrimStart('.'), extensions: validExtensions.Distinct(), capability: capability, read: null, write: null, directRead: null, directWrite: null, directWriteOptions: false);
 
@@ -261,7 +252,9 @@ public sealed record FileFormat {
         Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>>? directWrite = null,
         bool directWriteOptions = false) =>
         new(key: key, extensions: extensions,
-            capability: archive ? FileCapability.File3dm : FileCapability.Plugin(import: import, export: export),
+            capability: archive
+                ? FileCapability.File3dm
+                : (import ? FileCapability.Import : FileCapability.None) | (export ? FileCapability.Export : FileCapability.None),
             read: read, write: write, directRead: directRead, directWrite: directWrite, directWriteOptions: directWriteOptions);
 
     private delegate bool NativeReadCall<in TOptions>(string path, RhinoDoc doc, TOptions options);

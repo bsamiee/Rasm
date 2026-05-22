@@ -34,24 +34,19 @@ public sealed class RhinoFiles {
 
     private Fin<FileRuntime> Runtime() =>
         document.Case switch {
-            RhinoDoc value => LiveRuntime(document: value, mode: mode),
-            _ => Fin.Succ(value: new FileRuntime(
-                document: Option<RhinoDoc>.None,
-                mode: mode,
-                domain: Option<Context>.None,
-                edit: Option<DocumentEdit>.None,
-                ui: Option<RhinoUi>.None)),
-        };
-
-    private static Fin<FileRuntime> LiveRuntime(RhinoDoc document, RunMode mode) =>
-        document switch {
-            { IsAvailable: true, IsClosing: false, IsInitializing: false, IsOpening: false } active =>
+            RhinoDoc { IsAvailable: true, IsClosing: false, IsInitializing: false, IsOpening: false } active =>
                 Context.Of(doc: active).ToFin().Map(domain => new FileRuntime(
                     document: Some(active),
                     mode: mode,
                     domain: Some(domain),
                     edit: Some(new DocumentEdit(document: active, domain: domain)),
                     ui: Some(new RhinoUi(document: active, mode: mode)))),
-            _ => Fin.Fail<FileRuntime>(error: Op.Of(name: nameof(RhinoFiles)).MissingContext()),
+            RhinoDoc => Fin.Fail<FileRuntime>(error: Op.Of(name: nameof(RhinoFiles)).MissingContext()),
+            _ => Fin.Succ(value: new FileRuntime(
+                document: Option<RhinoDoc>.None,
+                mode: mode,
+                domain: Option<Context>.None,
+                edit: Option<DocumentEdit>.None,
+                ui: Option<RhinoUi>.None)),
         };
 }
