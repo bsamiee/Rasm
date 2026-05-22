@@ -1,0 +1,67 @@
+# [H1][LANGUAGEEXT_EFFECTS]
+>**Dictum:** *Effects preserve execution and failure meaning until the host consumes them.*
+
+<br>
+
+[IMPORTANT] Rasm runtime effects use runtime records and `Eff.runtime<RT>()`. Boundary adapters may use statement control flow only with an explicit boundary marker in code.
+
+---
+## [1][RAILS]
+>**Dictum:** *One rail answers one failure question.*
+
+<br>
+
+| [INDEX] | [RAIL] | [QUESTION] | [USE] |
+| :-----: | ------ | ---------- | ----- |
+| [1] | `Fin<T>` | Did one operation succeed or fail? | Native calls, value admission, projection. |
+| [2] | `Validation<Error,T>` | Which independent inputs failed? | Multi-input GH2, formula symbols, requirement sets. |
+| [3] | `Eff<RT,T>` | Which runtime context is needed? | Rhino docs, GH runtime, filesystem, clock, bridge. |
+| [4] | `IO<T>` | Which side-effect is deferred? | Resource, file, process, and host execution descriptions. |
+
+---
+## [2][RUNTIME_RECORD]
+>**Dictum:** *Runtime records expose capabilities without service location.*
+
+<br>
+
+Use `Eff.runtime<RT>()` to read host capability records, then project with `Map`, `Bind`, `MapFail`, `BiMap`, or LINQ query syntax. Keep runtime records small and concrete. Do not introduce service locators, decorator containers, or unused package posture when a runtime record owns the dependency.
+
+---
+## [3][SCHEDULE]
+>**Dictum:** *Retry policy is algebra, not exception plumbing.*
+
+<br>
+
+| [INDEX] | [SURFACE] | [USE] |
+| :-----: | --------- | ----- |
+| [1] | `Schedule.recurs`, `spaced`, `linear`, `exponential`, `fibonacci` | Bounded retry/repeat cadence. |
+| [2] | `upto`, `fixedInterval`, `windowed` | Time or count limits. |
+| [3] | `maxDelay`, `maxCumulativeDelay`, `jitter`, `decorrelate`, `resetAfter` | Host-friendly backoff shaping. |
+| [4] | `IO<T>.Retry`, `Repeat`, `Timeout`, `Fork`, `Finally`, `Bracket` | Resource and retry composition. |
+
+Use schedule policy at composition boundaries only. Domain transforms stay pure and fallible through `Fin` or `Validation`.
+
+---
+## [4][STATE]
+>**Dictum:** *Managed state belongs to hosts, not domain transforms.*
+
+<br>
+
+| [INDEX] | [SURFACE] | [USE] |
+| :-----: | --------- | ----- |
+| [1] | `Atom<T>` | UI/session state with validated transitions. |
+| [2] | `AtomHashMap`, `AtomSeq`, `AtomQue` | Host-owned concurrent collections. |
+| [3] | `Ref<T>` and STM | Coordinated mutable references under explicit transaction. |
+
+Never use LanguageExt state to hide Rhino object lifetime, GH2 tree mutation, or ordinary domain accumulation.
+
+---
+## [5][RECOVERY]
+>**Dictum:** *Recovery projects typed failures, not raw exceptions.*
+
+<br>
+
+- Convert native exceptions at boundary adapters into `Error` once.
+- Prefer `MapFail`, `BiMap`, fallback alternatives, and verified catch combinators from local XML.
+- Keep terminal collapse at command/component/tool edges.
+- Preserve original operation, host object, tolerance, and input name in diagnostics.

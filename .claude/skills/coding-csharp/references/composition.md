@@ -2,7 +2,7 @@
 
 ## Composition Root and Lifetime Policy
 
-Eagerly resolving scoped capabilities into an `Eff` runtime captures scope-bound references into a potentially longer-lived reader, producing the same captive dependency violation as injecting a scoped service into a singleton. The current pattern is a plain runtime record with explicit properties and `Eff<RT,T>.Asks`; do not resurrect v4 `Has<...>`/`Readable.asks` machinery.
+Eagerly resolving scoped capabilities into an `Eff` runtime captures scope-bound references into a potentially longer-lived reader, producing the same captive dependency violation as injecting a scoped service into a singleton. The current pattern is a plain runtime record read through `Eff.runtime<RT>()`; do not resurrect v4 `Has<...>`/`Readable.asks` machinery.
 
 ```csharp
 namespace Infra.Composition;
@@ -13,8 +13,9 @@ public sealed record AppRuntime(IServiceProvider Scope) {
 }
 
 static Eff<AppRuntime, Unit> SyncClock() =>
-    from clock in Eff<AppRuntime, IClock>.Asks(static (AppRuntime rt) => rt.Clock)
-    from store in Eff<AppRuntime, IObjectStore>.Asks(static (AppRuntime rt) => rt.Store)
+    from runtime in Eff.runtime<AppRuntime>()
+    let clock = runtime.Clock
+    let store = runtime.Store
     from _     in liftEff(() => store.Put("last-sync", clock.UtcNow()))
     select unit;
 
@@ -33,7 +34,7 @@ public sealed class EffLifecycleHost(
 }
 ```
 
-- `Eff<AppRuntime,T>.Asks` defers resolution through explicit runtime-record properties; `SyncClock` demonstrates the payoff: multi-capability composition via LINQ comprehension without a service-locator surface leaking into the domain pipeline
+- `Eff.runtime<AppRuntime>()` defers resolution through explicit runtime-record properties; `SyncClock` demonstrates the payoff: multi-capability composition via LINQ comprehension without a service-locator surface leaking into the domain pipeline
 - `RunScoped` captures `factory` (non-static, primary constructor parameter — startup-only, not hot-path) as the sole bridge: `CreateAsyncScope()` guarantees disposal under cancellation, `new AppRuntime(scope.ServiceProvider)` binds runtime to scope lifetime, `using EnvIO` owns the cancellation-linked environment, `RunUnsafeAsync` collapses `Error` into exceptions at the host boundary where `StartAsync`/`StopAsync` propagate failures as shutdown signals
 - `boot`/`drain` are pre-composed Eff programs passed at registration — callers sequence via LINQ comprehension before the host sees them; `IHostedService` provides the two-phase contract (`StartAsync` forward, `StopAsync` reverse) without lifecycle ceremony
 

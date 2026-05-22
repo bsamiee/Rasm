@@ -106,7 +106,7 @@ Each sibling method duplicates authorization, logging, and error-handling logic.
 **INTERFACE_POLLUTION**
 
 [ANTI-PATTERN]: `IFooService` for every `FooService` with exactly one implementation.
-[CORRECT]: Use runtime-record DI with `Eff<RT,T>.Asks(...)` for effectful services; `Func<>` delegates for pure-module testable substitution. Reserve interfaces for genuine polymorphism (2+ implementations). Composition roots should prefer constrained Scrutor scans plus `RegistrationStrategy.Throw` over hand-maintained `AddScoped` lists.
+[CORRECT]: Use runtime-record DI with `Eff.runtime<RT>()` for effectful services; `Func<>` delegates for pure-module testable substitution. Reserve interfaces for genuine polymorphism (2+ implementations). Composition roots should prefer constrained Scrutor scans plus `RegistrationStrategy.Throw` over hand-maintained `AddScoped` lists.
 Single-implementation interfaces add a file, a navigation indirection, and a naming convention (`IFoo`/`Foo`) that carries zero semantic information.
 
 **ANEMIC_DOMAIN**
@@ -183,7 +183,7 @@ public readonly record struct UserId<TState> {
 |  [11]   | PREMATURE_MATCH_COLLAPSE | `.Match` called mid-pipeline           | `Map`/`Bind`/`BiMap` within context                          |
 |  [12]   | API_SURFACE_INFLATION    | `Get`/`GetMany`/`TryGet` siblings      | `Execute<R>(query)` algebra pattern                          |
 |  [13]   | NULL_ARCHITECTURE        | `null` for multiple semantic states    | `Option<T>` / `Fin<T>` typed absence                         |
-|  [14]   | INTERFACE_POLLUTION      | `IService` single implementation       | Runtime-record DI (`Asks`) + constrained Scrutor scan policy |
+|  [14]   | INTERFACE_POLLUTION      | `IService` single implementation       | Runtime-record DI + constrained Scrutor scan policy          |
 |  [15]   | ANEMIC_DOMAIN            | Entity with only getters/setters       | Smart constructors + `with`-expressions                      |
 |  [16]   | GOD_FUNCTION             | Giant switch violating OCP             | `sealed abstract record` DU + `Fold` / `K<F,A>`              |
 |  [17]   | HELPER_SPAM              | `private` function, single call site   | Inline at call site or promote to owning type                |

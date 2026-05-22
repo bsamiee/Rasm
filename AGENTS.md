@@ -37,7 +37,7 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - Route README, ADR, changelog, architecture, code documentation, and standards changes through `docgen`.
 - Route Markdown structure, headers, lists, tables, diagrams, separators, and voice changes through `style-standards`.
 - Keep documentation rooted in existing paths, commands, and configured tooling; remove invented or stale paths.
-- Use `docs/system-api-map` for BCL, `System.*`, package/reference, and RhinoWIP host-reference policy; use `docs/external-libs-api` for approved external-library APIs.
+- Use `docs/system-api-map` for BCL, `System.*`, package/reference, C# meta, and RhinoWIP host-reference policy; use `docs/external-libs` for approved external-library APIs.
 
 ## [6][LIVE_RHINO_BRIDGE]
 - Source lives under `tools/rhino-bridge`: `protocol/` is the Rhino-free named-pipe protocol shared by client/plugin, `plugin/` is the RhinoCommon `.rhp` that executes RhinoCode in-process, and `client/` is the local CLI that owns orchestration and phase JSON.

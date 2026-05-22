@@ -186,7 +186,8 @@ public static class AsyncStreams {
     // Runtime record must expose CancellationToken as a property (v5 pattern).
     public static Eff<RT, Seq<T>> ConsumeChannel<RT, T>(
         ChannelReader<T> reader, Func<RT, CancellationToken> tokenAccessor) =>
-        from token in Eff<RT, CancellationToken>.Asks(tokenAccessor)
+        from runtime in Eff.runtime<RT>()
+        let token = tokenAccessor(runtime)
         from items in liftIO(async () => {
             // [BOUNDARY ADAPTER -- async enumeration over channel with runtime token]
             Seq<T> acc = Empty;
@@ -312,7 +313,7 @@ public static class AtomicCoordination {
             return !ReferenceEquals(snapshot, after);
         }).Bind((bool isNew) => isNew
             ? (from result in process
-                   | @catchM((Error err) => true, (Error err) => liftEff<RT, TResult>(() => {
+                   | @catch((Error err) => true, (Error err) => liftEff<RT, TResult>(() => {
                          Processed.Swap((HashMap<EventId, Instant> current) =>
                              current.Remove(eventId));
                          return Prelude.raise<TResult>(

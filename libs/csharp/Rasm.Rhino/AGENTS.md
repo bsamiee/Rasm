@@ -27,7 +27,7 @@ Each category folder owns one full Rhino concern. Capture native API capability 
 - Treat RhinoWIP 9 as target. Do not rely on older public examples unless current local API evidence confirms semantics.
 - Keep `Domain` and `Analysis` as quality references for C# shape, ROP rails, polymorphism, and density unless scope explicitly expands.
 - Reuse `LanguageExt` and `Thinktecture` deliberately when they collapse surface area, strengthen types, or remove repeated logic.
-- Use `docs/system-api-map` for BCL, `System.*`, and package/reference policy. `System.Drawing.Common` is RhinoWIP-hosted UI/raster boundary surface only, not a universal NuGet dependency.
+- Use `docs/system-api-map` for BCL, `System.*`, package/reference, and C# meta policy. Use local RhinoWIP XML/decompile first for Rhino math/API claims, `docs/external-libs/mathnet` for numerical algorithms, and LanguageExt/Thinktecture docs for rails and generated type collapse. `System.Drawing.Common` is RhinoWIP-hosted UI/raster boundary surface only, not a universal NuGet dependency.
 
 ## Surface Rules
 

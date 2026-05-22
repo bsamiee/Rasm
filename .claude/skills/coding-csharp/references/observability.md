@@ -243,7 +243,8 @@ public static class ObserveEff {
     public static Eff<RT, T> Pipeline<RT, T>(
         Eff<RT, T> pipeline, string operation, TagList dimensions)
         where RT : IObservabilityRuntime =>
-        from provider in Eff<RT, IObservabilityProvider>.Asks(static (RT runtime) => runtime.ObservabilityProvider)
+        from runtime in Eff.runtime<RT>()
+        let provider = runtime.ObservabilityProvider
         from result in IO.lift(() => Signals.Source.StartActivity(operation, ActivityKind.Internal))
             .Bracket(
                 Use: (Activity? activity) => {

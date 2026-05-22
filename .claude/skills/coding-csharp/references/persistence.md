@@ -11,7 +11,7 @@ EF Core persistence aligned with LanguageExt v5. DbContext access lifts into `Ef
 
 <br>
 
-`Eff<RT,T>` wraps DbContext operations so that database access is explicit in the type signature -- callers cannot accidentally invoke SQL without acknowledging the effect. The runtime record carries `AppDbContext` as a property; `Eff<RT, T>.Asks` lifts the accessor into the pipeline. `IO.liftAsync` wraps async EF Core calls, keeping `async`/`await` confined to the `IO` boundary. Scope ownership belongs to the composition root -- never dispose context inside an `Eff` pipeline. Configure the provider once via `DbContextOptionsBuilder` with `EnableRetryOnFailure` for transient fault tolerance and `UseSnakeCaseNamingConvention` for PostgreSQL idiom.
+`Eff<RT,T>` wraps DbContext operations so that database access is explicit in the type signature -- callers cannot accidentally invoke SQL without acknowledging the effect. The runtime record carries `AppDbContext` as a property; `Eff.runtime<RT>()` lifts the runtime into the pipeline and property reads select capabilities. `IO.liftAsync` wraps async EF Core calls, keeping `async`/`await` confined to the `IO` boundary. Scope ownership belongs to the composition root -- never dispose context inside an `Eff` pipeline. Configure the provider once via `DbContextOptionsBuilder` with `EnableRetryOnFailure` for transient fault tolerance and `UseSnakeCaseNamingConvention` for PostgreSQL idiom.
 
 ```csharp
 namespace Persistence.Context;
@@ -26,11 +26,11 @@ public sealed record PersistenceRuntime(
 // --- [ACCESS] ----------------------------------------------------------------
 public static class DbAccess {
     public static Eff<PersistenceRuntime, AppDbContext> ResolveContext =>
-        Eff<PersistenceRuntime, AppDbContext>.Asks(
-            static (PersistenceRuntime rt) => rt.Database);
+        Eff.runtime<PersistenceRuntime>()
+            .Map(static (PersistenceRuntime rt) => rt.Database);
     public static Eff<PersistenceRuntime, CancellationToken> ResolveToken =>
-        Eff<PersistenceRuntime, CancellationToken>.Asks(
-            static (PersistenceRuntime rt) => rt.Token);
+        Eff.runtime<PersistenceRuntime>()
+            .Map(static (PersistenceRuntime rt) => rt.Token);
     public static Eff<PersistenceRuntime, Seq<TEntity>> QueryAll<TEntity>(
         Func<AppDbContext, IQueryable<TEntity>> queryFactory) where TEntity : class =>
         from database in ResolveContext
@@ -351,7 +351,7 @@ public abstract record RepoQuery<TKey, TEntity, TResult> where TEntity : class {
 
 | [INDEX] | [PATTERN]                | [WHEN]                                   | [KEY_TRAIT]                                |
 | :-----: | :----------------------- | :--------------------------------------- | :----------------------------------------- |
-|   [1]   | **DbContext as Eff**     | Database access in effect pipeline       | `Eff<RT,T>.Asks` + `IO.liftAsync`          |
+|   [1]   | **DbContext as Eff**     | Database access in effect pipeline       | `Eff.runtime<RT>()` + `IO.liftAsync`       |
 |   [2]   | **Query composition**    | Reusable WHERE clauses                   | `Expression<Func<T, bool>>` + `IQueryable` |
 |   [3]   | **Keyset pagination**    | Cursor-based paging without COUNT        | `OrderBy.Where(Id > cursor).Take(N+1)`     |
 |   [4]   | **Read projection**      | CQRS read model DTO                      | `AsNoTracking` + `.Select()` push-down     |

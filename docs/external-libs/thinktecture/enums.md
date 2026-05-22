@@ -1,0 +1,38 @@
+# [H1][THINKTECTURE_ENUMS]
+>**Dictum:** *Smart enums are closed registries with item-owned behavior.*
+
+<br>
+
+[IMPORTANT] Use smart enums where a bounded vocabulary carries lookup, metadata, and behavior.
+
+---
+## [1][REGISTRIES]
+>**Dictum:** *The generated item set is the source of truth.*
+
+<br>
+
+| [INDEX] | [SURFACE] | [USE] |
+| :-----: | --------- | ----- |
+| [1] | `Items` | Complete registry for derived maps and docs. |
+| [2] | `Get`, `TryGet` | Key admission at boundary edges. |
+| [3] | Key comparers | Protocol-specific string or scalar policy. |
+| [4] | Generated JSON/parse support | Only when an adopted boundary requires it. |
+
+---
+## [2][BEHAVIOR]
+>**Dictum:** *Closed behavior belongs on each item, not beside it.*
+
+<br>
+
+Use delegate-backed constructor members when each item owns behavior such as metric projection, port policy, field blend, display mode, or host capability gate. Prefer generated `Switch`/`Map` or item delegates over external dictionaries and repeated switch arms.
+
+---
+## [3][RASM_POLICY]
+>**Dictum:** *Smart enums replace strings, loose enums, and side maps.*
+
+<br>
+
+- Use smart enums for stable bounded protocol vocabularies.
+- Keep Rhino/GH native names at boundary mapping only.
+- Derive lookup tables from generated `Items`.
+- Do not mirror a smart enum with parallel constants or dictionaries.

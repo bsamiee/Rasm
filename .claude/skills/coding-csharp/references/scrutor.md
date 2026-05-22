@@ -138,7 +138,7 @@ public static class OpenGenericDecoration {
 
 <br>
 
-When domain services return `Eff<RT,T>` (CSP0504), decorators must compose via `Map`/`MapFail`/`Bind` within the pipeline. The runtime-record pattern threads dependencies via `Eff<RT, T>.Asks` -- no `Has<RT>` interfaces. `Retry` uses algebraic `Schedule` combinators per `effects.md` [8].
+When domain services return `Eff<RT,T>` (CSP0504), decorators must compose via `Map`/`MapFail`/`Bind` within the pipeline. The runtime-record pattern threads dependencies via `Eff.runtime<RT>()` and property selection; do not introduce legacy capability-marker interfaces. `Retry` uses algebraic `Schedule` combinators per `effects.md` [8].
 
 ```csharp
 namespace App.Bootstrap;
@@ -160,8 +160,8 @@ public sealed class TracingOrderDecorator : IOrderPipeline {
     private readonly IOrderPipeline _inner;
     public TracingOrderDecorator(IOrderPipeline inner) => _inner = inner;
     public Eff<OrderRuntime, OrderConfirmation> Execute(OrderRequest request) =>
-        from tracing in Eff<OrderRuntime, ActivitySource>.Asks(
-            static (OrderRuntime rt) => rt.Tracing)
+        from runtime in Eff.runtime<OrderRuntime>()
+        let tracing = runtime.Tracing
         let activity = tracing.StartActivity(name: "order.execute")
         from result in _inner.Execute(request: request)
             .Map((OrderConfirmation confirmation) => {

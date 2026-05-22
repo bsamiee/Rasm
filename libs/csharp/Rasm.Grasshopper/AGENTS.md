@@ -35,7 +35,7 @@ Build GH2-native component, data, and UI rails that let downstream apps stay thi
 - Preserve read-only semantics. Snapshot/query operations should not open editors, mutate documents, or repaint unless the request policy says so.
 - Preserve mutation semantics. Document, layout, and wire changes must flow through the existing mutation rail with undo, repaint, action commit, and snapshot behavior owned once.
 - Use GH2/Eto/RhinoCommon only. Do not introduce WinForms, WPF, polling replacements for native events, or an Eto abstraction layer beside the current rail.
-- Use `docs/system-api-map` for GH2/Rhino/System API boundary decisions, especially host-provided assemblies versus NuGet packages.
+- Use `docs/system-api-map` for GH2/Rhino/System API boundary decisions, especially host-provided assemblies versus NuGet packages. Use `docs/external-libs/mathnet` only where numerical or symbolic computation adds value; preserve GH2 tree, path, coverage, and ownership semantics.
 
 ## Rasm Integration Rules
 

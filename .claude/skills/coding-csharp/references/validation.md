@@ -42,7 +42,7 @@ Diagnostic table for structural issues. Consult FIRST when triaging code review 
 
 - [ ] `Fin<T>` for synchronous fallible operations -- `Bind`/`Map` chain; `Match` appears ONLY at program/API boundaries
 - [ ] `Validation<Error,T>` for multi-field validation -- applicative `.Apply()` tuple; no sequential short-circuiting
-- [ ] `Eff<RT,T>` for effectful pipelines -- runtime-record DI via `Eff<RT,T>.Asks`; no constructor injection
+- [ ] `Eff<RT,T>` for effectful pipelines -- runtime-record DI via `Eff.runtime<RT>()`; no constructor injection
 - [ ] No `try`/`catch`/`throw` in domain transforms under `Domain.*`; boundary adapters are limited to protocol-required `try/finally`/guarded flow only
 - [ ] No `Match` mid-pipeline -- if `.Match(Succ: ..., Fail: ...)` appears before the final return/boundary, it is premature; use `Map`/`Bind`/`BiMap` instead
 

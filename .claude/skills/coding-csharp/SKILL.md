@@ -62,11 +62,12 @@ When the analyzer rejects, treat the rejection as architectural pressure, not as
 | ------------------- | ------------ | -------------------------------------------------------------------------------------- |
 | ROP / Effects       | LanguageExt  | `Fin<T>`, `Validation<Error,T>`, `Eff<RT,T>`, `IO<A>`, `K<F,A>`, `Option<T>`, `Seq<T>` |
 | Value objects / DUs | Thinktecture | `[ValueObject<T>]`, `[SmartEnum<T>]`, `[Union]`, generated dispatch                    |
+| Numerics / Symbolics | MathNet | Linear algebra, solvers, statistics, and symbolic formulas after Rhino/GH ownership is settled |
 | Scheduling          | LanguageExt  | `Schedule.exponential` / `spaced` / `jitter` / `recurs` / `upto` algebra               |
 | State               | LanguageExt  | `Atom<T>` validators, `Ref<T>` + `atomic` STM, `Bracket` resource scope                |
 
 - One library's error/option type per module — no mixing across libraries in same file.
-- Resilience is composition-root concern via `@catchM` + `Schedule` — never a domain primitive (no retry-as-policy library).
+- Resilience is composition-root concern via verified LanguageExt recovery combinators + `Schedule` — never a domain primitive (no retry-as-policy library).
 - DI is host-supplied; this codebase favours runtime records over service-locator scans.
 
 
@@ -104,7 +105,7 @@ When the analyzer rejects, treat the rejection as architectural pressure, not as
 
 **Resources**
 - Time via host-injected clock (e.g. `IClock`), never direct `DateTime*`.
-- Retry/timeout/resilience via LanguageExt `Schedule` algebra + `@catchM` recovery — composition root concern only.
+- Retry/timeout/resilience via LanguageExt `Schedule` algebra and verified recovery combinators — composition root concern only.
 - `static` lambdas on hot-path closures — zero closure allocations.
 
 **Formatting**
@@ -120,6 +121,8 @@ When the analyzer rejects, treat the rejection as architectural pressure, not as
 | ----------------------------------------- | ---------------------------------------- |
 | [validation.md](references/validation.md) | Compliance checklist and completion gate |
 | [patterns.md](references/patterns.md)     | Anti-pattern detection heuristics        |
+
+When working in Rasm, read `docs/system-api-map` and `docs/external-libs` after this skill for BCL/System, LanguageExt, Thinktecture, MathNet, RhinoWIP, and GH2 source-order policy.
 
 **Task-routed references**:
 
@@ -142,7 +145,7 @@ When the analyzer rejects, treat the rejection as architectural pressure, not as
 - Required during iteration: `bash scripts/check-cs.sh check`.
 - Required for final completion: run every impacted language gate explicitly; for shared standards/tooling, run `pnpm check:ts`, `pnpm check:py`, and `bash scripts/check-cs.sh full`.
 - Reject completion when load order, contracts, or checks are not satisfied.
-- Examples inside this skill are executable doctrine: runtime-record `Eff<RT,T>.Asks`, generated Thinktecture factories only when they serve boundary construction, no v4 `Has<...>` pattern, and no single-call helper extraction.
+- Examples inside this skill are executable doctrine: runtime-record `Eff.runtime<RT>()`, generated Thinktecture factories only when they serve boundary construction, no legacy runtime trait DI pattern, and no single-call helper extraction.
 
 ## Skill eval prompts
 
@@ -161,11 +164,12 @@ These packages are standard libraries — use over BCL/stdlib equivalents.
 | ------------------------------- | -------------------------------------------------------------- |
 | LanguageExt.Core                | FP primitives, ROP, `Eff`/`Fin`/`Validation`, `Schedule`, STM  |
 | Thinktecture.Runtime.Extensions | Value objects, smart enums, `[Union]` source-generated dispatch |
-| BenchmarkDotNet                 | Hot-path micro-benchmarking (perf validation, not test gates)   |
+| MathNet.Numerics                | Linear algebra, solvers, statistics, optimization              |
+| MathNet.Symbolics               | Symbolic expression parse, transform, calculus, evaluation     |
 | Meziantou.Analyzer              | Static analysis enforcement                                     |
 | Microsoft.VisualStudio.Threading.Analyzers | Threading-correctness diagnostics                  |
 
-Note: Polly, FluentValidation, NodaTime, Scrutor are intentionally absent. Retry/backoff is covered by LanguageExt `Schedule`; validation by `Validation<Error,T>` applicative; time by host injection; DI composition by runtime records (`Eff<RT,T>.Asks`).
+Note: Polly, FluentValidation, NodaTime, Scrutor, and BenchmarkDotNet are intentionally absent until a concrete consumer is introduced. Retry/backoff is covered by LanguageExt `Schedule`; validation by `Validation<Error,T>` applicative; time by host injection; DI composition by runtime records (`Eff.runtime<RT>()`).
 
 
 ## Active-folder canonical templates

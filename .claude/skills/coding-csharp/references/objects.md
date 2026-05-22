@@ -228,10 +228,12 @@ public static class PaymentWorkflow {
         result.RequireAuthorizationCode()                          // Fin<string> via Switch
             .ToEff<PaymentRuntime>()                               // lift into Eff<RT, string>
             .Bind((string code) =>
-                Eff<PaymentRuntime, IPaymentGateway>.Asks(static (PaymentRuntime rt) => rt.Gateway)
+                Eff.runtime<PaymentRuntime>()
+                    .Map(static (PaymentRuntime rt) => rt.Gateway)
                     .Bind((IPaymentGateway gw) => gw.Issue(authorizationCode: code)))
             .Bind((ReceiptId receipt) =>
-                Eff<PaymentRuntime, IAuditLog>.Asks(static (PaymentRuntime rt) => rt.Audit)
+                Eff.runtime<PaymentRuntime>()
+                    .Map(static (PaymentRuntime rt) => rt.Audit)
                     .Bind((IAuditLog log) => log.Record(receiptId: receipt))
                     .Map((_) => receipt));
 }
