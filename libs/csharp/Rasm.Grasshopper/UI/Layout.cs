@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.InteropServices;
 using Eto.Drawing;
 using Grasshopper2.Doc;
@@ -251,7 +252,7 @@ internal static partial class Layout {
                     .Filter(static value => float.IsFinite(value))
                     .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Distribute)), detail: "non-finite gap"))
                     .Bind(validGap => scope.NeedDocument().Bind(doc => scope.NeedObjects().Bind(objs => {
-                        UndoGroup bag = new(verb: "Layout", noun: $"Distribute {axis}");
+                        UndoGroup bag = new(verb: "Layout", noun: string.Create(CultureInfo.InvariantCulture, $"Distribute {axis}"));
                         GrasshopperUi.Scope scoped = scope with { UndoGroup = Some(bag) };
                         Seq<(Guid Id, float Dx, float Dy)> moves = ComputeDistribution(objects: objs, ids: toSeq(validIds), axis: axis, gap: validGap);
                         return Optional(moves)

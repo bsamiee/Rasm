@@ -52,7 +52,7 @@ public readonly record struct PaintScope(
     ControlGraphics Graphics,
     Skin Skin) {
     public bool DefaultBackgroundOverridden =>
-        Background.Map(static args => args.DefaultOverridden).IfNone(false);
+        Background.Map(static args => args.DefaultOverridden).IfNone(noneValue: false);
 
     public Unit OverrideDefault() =>
         Background.Match(

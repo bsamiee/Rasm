@@ -1,10 +1,10 @@
+using System.Globalization;
 using System.Runtime.InteropServices;
 using Eto.Drawing;
 using Grasshopper2.Doc;
 using Grasshopper2.Parameters.Special;
 using Grasshopper2.UI.Slider;
 using Grasshopper2.Undo;
-using GhCanvas = Grasshopper2.UI.Canvas.Canvas;
 using GhColour = Grasshopper2.Types.Colour.Colour;
 using GhDocument = Grasshopper2.Doc.Document;
 using GhDocumentMethods = Grasshopper2.Doc.DocumentMethods;
@@ -177,29 +177,10 @@ public partial record DocumentHistoryOp {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-[SmartEnum<int>]
-public sealed partial class DocumentRefresh {
-    private delegate Unit RefreshAction(GhDocument document, GhCanvas canvas);
-
-    public static readonly DocumentRefresh None = new(key: 0, apply: static (_, _) => unit);
-    public static readonly DocumentRefresh Canvas = new(key: 1, apply: static (_, canvas) => { canvas.Invalidate(); return unit; });
-    public static readonly DocumentRefresh ScheduledCanvas = new(key: 2, apply: static (_, canvas) => { canvas.ScheduleRedraw(); return unit; });
-    public static readonly DocumentRefresh Solution = new(key: 3, apply: static (document, canvas) => { _ = document.Solution.Start(mode: SolutionMode.Regular); return unit; });
-    public static readonly DocumentRefresh Display = new(key: 4, apply: static (document, _) => { document.Display.UpdateDisplay(); return unit; });
-    public static readonly DocumentRefresh SolutionAndDisplay = new(key: 5, apply: static (document, canvas) => {
-        _ = document.Solution.Start(mode: SolutionMode.Regular);
-        document.Display.UpdateDisplay();
-        return unit;
-    });
-
-    [UseDelegateFromConstructor]
-    internal partial Unit Apply(GhDocument document, GhCanvas canvas);
-}
-
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct DocumentMutationPolicy(Option<DocumentRefresh> Refresh = default) {
-    public static DocumentMutationPolicy Default => new(Refresh: Some(DocumentRefresh.Canvas));
-    internal DocumentRefresh RefreshOrDefault => Refresh.IfNone(DocumentRefresh.Canvas);
+public readonly record struct DocumentMutationPolicy(Option<RepaintRequest> Repaint = default) {
+    public static DocumentMutationPolicy Default => new(Repaint: Some(RepaintRequest.Canvas));
+    internal RepaintRequest RepaintOrDefault => Repaint.IfNone(RepaintRequest.Canvas);
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -480,6 +461,7 @@ internal static partial class UiRail {
     internal static GrasshopperUiPolicy DocumentPolicyFor(DocumentOp op) =>
         op switch {
             DocumentOp.QueryCase { Request: DocumentQuery.UniverseCase } => GrasshopperUiPolicy.Read,
+            DocumentOp.MutateCase mutate => GrasshopperUiPolicy.Document(repaint: mutate.Policy.RepaintOrDefault),
             _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
         };
 
@@ -673,23 +655,15 @@ internal static partial class UiRail {
         from methods in scope.NeedMethods()
         from document in scope.NeedDocument()
         from objects in scope.NeedObjects()
-        from canvas in scope.NeedCanvas()
         let actions = ActionList.Empty
         from receipt in mutate(arg1: methods, arg2: objects, arg3: actions).Bind(result => result.Changed switch {
             >= 0 => Fin.Succ(value: result),
-            _ => Fin.Fail<DocumentMutationReceipt>(error: UiFault.MutationRejected(op: op, detail: $"count={result.Changed}")),
+            _ => Fin.Fail<DocumentMutationReceipt>(error: UiFault.MutationRejected(op: op, detail: string.Create(CultureInfo.InvariantCulture, $"count={result.Changed}"))),
         })
         from _ in CommitActions(document: document, op: op, actions: actions)
-        from refreshed in Refresh(document: document, canvas: canvas, policy: policy)
         select Snapshot.Of(
             payload: new DocumentMutationDelta(Changed: receipt.Changed, After: DocumentSnapshotOf(document: document, objects: objects), Created: receipt.Created),
             ownerId: Some(document.Hash));
-
-    private static Fin<Unit> Refresh(GhDocument document, GhCanvas canvas, DocumentMutationPolicy policy) =>
-        Try.lift(f: () => {
-            _ = policy.RefreshOrDefault.Apply(document: document, canvas: canvas);
-            return unit;
-        }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Refresh)), detail: error.Message));
 
     internal static Fin<Unit> CommitActions(GhDocument document, Op op, ActionList actions) =>
         actions.Count switch {

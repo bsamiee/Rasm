@@ -1,10 +1,12 @@
 using System.Runtime.InteropServices;
 using Eto.Drawing;
 using Grasshopper2.Doc;
+using Grasshopper2.UI.Animation;
 using Grasshopper2.UI.Canvas;
 using Grasshopper2.UI.Flex;
 using GhCanvas = Grasshopper2.UI.Canvas.Canvas;
 using GhDocument = Grasshopper2.Doc.Document;
+using GhDuration = Grasshopper2.UI.Animation.Duration;
 using GhObjectList = Grasshopper2.Doc.ObjectList;
 using Op = Rasm.Domain.Op;
 
@@ -394,9 +396,7 @@ internal static partial class UiRail {
             CanvasViewOp.FitCase ft =>
                 scope.NeedCanvas().Bind(canvas => scope.NeedDocument().Bind(doc => scope.NeedObjects().Map(objs => {
                     RectangleF frame = ft.Target.Switch(
-                        contentCase: _ => canvas.ContentBounds,
-                        selectionCase: _ => FrameOf(targets: objs.SelectedObjects).IfNone(RectangleF.Empty),
-                        viewportCase: _ => canvas.VisibleFrame);
+state: (canvas, objs), contentCase: static (state, _) => state.canvas.ContentBounds, selectionCase: static (state, _) => FrameOf(targets: state.objs.SelectedObjects).IfNone(RectangleF.Empty), viewportCase: static (state, _) => state.canvas.VisibleFrame);
                     return (CanvasResult)NavigateTo(canvas: canvas, frame: frame, policy: ResolveNavigation(raw: ft.Policy), document: doc, objects: objs);
                 }))),
             CanvasViewOp.ProjectionCase pr =>
@@ -422,15 +422,14 @@ internal static partial class UiRail {
             return unit;
         }))();
 
-    private static CanvasNavigationPolicy ResolveNavigation(CanvasNavigationPolicy raw) =>
-        (raw.MinimumZoom, raw.MaximumZoom, raw.Duration) switch {
-            (float minimum, float maximum, TimeSpan duration) when float.IsFinite(minimum) && minimum > 0f && float.IsFinite(maximum) && maximum >= minimum =>
-                new(MinimumZoom: minimum, MaximumZoom: maximum, Duration: duration == default ? TimeSpan.FromMilliseconds(value: 250) : duration),
-            (float minimum, _, TimeSpan duration) when float.IsFinite(minimum) && minimum > 0f =>
-                new(MinimumZoom: minimum, MaximumZoom: Math.Max(val1: minimum, val2: 2f), Duration: duration == default ? TimeSpan.FromMilliseconds(value: 250) : duration),
-            (_, _, TimeSpan duration) =>
-                new(MinimumZoom: 0.05f, MaximumZoom: 2f, Duration: duration == default ? TimeSpan.FromMilliseconds(value: 250) : duration),
-        };
+    private static CanvasNavigationPolicy ResolveNavigation(CanvasNavigationPolicy raw) {
+        TimeSpan duration = raw.Duration == default ? Animators.DurationToTimeSpan(duration: GhDuration.Normal) : raw.Duration;
+        bool minOk = float.IsFinite(raw.MinimumZoom) && raw.MinimumZoom > 0f;
+        bool maxOk = float.IsFinite(raw.MaximumZoom) && raw.MaximumZoom >= raw.MinimumZoom;
+        float minimum = minOk ? raw.MinimumZoom : 0.05f;
+        float maximum = (minOk && maxOk) ? raw.MaximumZoom : Math.Max(val1: minimum, val2: 2f);
+        return new(MinimumZoom: minimum, MaximumZoom: maximum, Duration: duration);
+    }
 
     private static CanvasFramePolicy ResolveFrame(CanvasFramePolicy raw) =>
         new(Padding: raw.Padding <= 0 ? 48f : raw.Padding, Navigation: ResolveNavigation(raw.Navigation));

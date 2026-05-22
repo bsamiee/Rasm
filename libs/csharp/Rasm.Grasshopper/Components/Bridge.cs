@@ -166,7 +166,7 @@ internal static class Bridge {
                     _ => Garden.TreeFromPears(pears: values.Map(static value => value.Pear).AsIterable()),
                 };
                 access.SetTree(index: slot, tree: TreePrefix(access: access, slot: slot) is int prefix ? tree.WithPathPrefix(element: prefix) : tree);
-            }) switch { _ => transferred },
+            }) switch { _ => transferred, },
             _ => Effect(action: () => access.AddError(text: name, details: $"Unsupported output access: {targetAccess}.")) switch { _ => Seq<object>() },
         };
     }

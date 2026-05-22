@@ -154,7 +154,7 @@ public readonly record struct UiCommand(
     }
 
     internal bool EffectiveEnabled() =>
-        Enabled && CanExecute.Map(can => GrasshopperUi.Protect(valid: can).IfFail(_ => false)).IfNone(true);
+        Enabled && CanExecute.Map(can => GrasshopperUi.Protect(valid: can).IfFail(_ => false)).IfNone(noneValue: true);
 
     internal Option<Image> MenuImage =>
         Image | Icon.Map(static icon => (Image)icon.DrawToBitmap(size: new Size(width: 16, height: 16), padding: 0, background: Colors.Transparent));
