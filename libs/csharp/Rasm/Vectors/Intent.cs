@@ -70,6 +70,10 @@ public abstract partial record VectorIntent {
     public sealed record RelationCase(Vector3d A, Vector3d B) : VectorIntent;
     public sealed record BounceCase(Direction Incident, SupportSpace Surface, Point3d Sample, BouncePolicy Policy) : VectorIntent;
     public sealed record StreamlineCase(VectorField Source, Point3d Seed, PositiveMagnitude InitialStep, FieldIntegrator Integrator, Termination Termination) : VectorIntent;
+    public sealed record LerpCase(Vector3d A, Vector3d B, double Parameter) : VectorIntent;
+    public sealed record SlerpCase(Direction A, Direction B, double Parameter) : VectorIntent;
+    public sealed record ProjectOntoCase(Vector3d Value, Plane Target) : VectorIntent;
+    public sealed record MirrorCase(Vector3d Value, Plane Across) : VectorIntent;
     public Fin<TOut> Project<TOut>(Context context, Op? key = null) {
         Op op = key.OrDefault();
         return from model in Optional(context).ToFin(op.MissingContext())
@@ -169,6 +173,33 @@ public abstract partial record VectorIntent {
                 Type t when t == typeof(Polyline) => state.Key.AcceptValue(value: new Polyline(trajectory.AsIterable())).Map(static value => (TOut)(object)value),
                 _ => Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(StreamlineCase), outputType: typeof(TOut))),
             }
+            select output,
+        lerpCase: static (state, intent) =>
+            from direction in Vectors.Direction.Of(
+                value: ((1.0 - intent.Parameter) * intent.A) + (intent.Parameter * intent.B),
+                context: state.Context, key: state.Key)
+            from output in direction.Project<TOut>(key: state.Key)
+            select output,
+        slerpCase: static (state, intent) => Math.Acos(d: Math.Clamp(value: intent.A.Value * intent.B.Value, min: -1.0, max: 1.0)) switch {
+            double theta when Math.Abs(value: Math.Sin(a: theta)) < RhinoMath.ZeroTolerance =>
+                Vectors.Direction.Of(value: intent.A.Value, context: state.Context, key: state.Key).Bind(d => d.Project<TOut>(key: state.Key)),
+            double theta =>
+                Vectors.Direction.Of(
+                    value: (Math.Sin(a: (1.0 - intent.Parameter) * theta) / Math.Sin(a: theta) * intent.A.Value)
+                        + (Math.Sin(a: intent.Parameter * theta) / Math.Sin(a: theta) * intent.B.Value),
+                    context: state.Context, key: state.Key).Bind(d => d.Project<TOut>(key: state.Key)),
+        },
+        projectOntoCase: static (state, intent) =>
+            from direction in Vectors.Direction.Of(
+                value: intent.Value - (intent.Value * intent.Target.ZAxis * intent.Target.ZAxis),
+                context: state.Context, key: state.Key)
+            from output in direction.Project<TOut>(key: state.Key)
+            select output,
+        mirrorCase: static (state, intent) =>
+            from direction in Vectors.Direction.Of(
+                value: intent.Value - (2.0 * (intent.Value * intent.Across.ZAxis) * intent.Across.ZAxis),
+                context: state.Context, key: state.Key)
+            from output in direction.Project<TOut>(key: state.Key)
             select output);
     public static VectorIntent Between(Point3d origin, SupportSpace target, BoundarySense? sense = null) =>
         new SupportCase(Space: target, Sample: origin, Projection: (sense ?? BoundarySense.Toward).Equals(BoundarySense.Toward) ? SupportProjection.Span : SupportProjection.SignedSpanAway);
@@ -219,5 +250,13 @@ public abstract partial record VectorIntent {
         return op.AcceptValidated<PositiveMagnitude>(candidate: initialStep)
             .Map(h => (VectorIntent)new StreamlineCase(Source: field, Seed: seed, InitialStep: h, Integrator: integrator ?? FieldIntegrator.RK4, Termination: termination));
     }
+    public static VectorIntent Lerp(Vector3d a, Vector3d b, double t) =>
+        new LerpCase(A: a, B: b, Parameter: Math.Clamp(value: t, min: 0.0, max: 1.0));
+    public static VectorIntent Slerp(Direction a, Direction b, double t) =>
+        new SlerpCase(A: a, B: b, Parameter: Math.Clamp(value: t, min: 0.0, max: 1.0));
+    public static VectorIntent ProjectOnto(Vector3d value, Plane target) =>
+        new ProjectOntoCase(Value: value, Target: target);
+    public static VectorIntent Mirror(Vector3d value, Plane across) =>
+        new MirrorCase(Value: value, Across: across);
     private const int MaxIterations = 100000;
 }

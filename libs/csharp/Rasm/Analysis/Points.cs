@@ -128,11 +128,18 @@ public static partial class Analyze {
             .Map(components => Math.Abs(value: (components.X * -Math.Sin(a: angle)) + (components.Y * Math.Cos(d: angle))))
             .BindFail(static _ => Fin.Succ(0.0))).As()
         select spread.Fold(initialState: 0.0, f: Math.Max);
-    private static Fin<double> PrincipalAngle(Seq<Point3d> points, Plane fit, Context context, Op op) =>
-        points.Fold(initialState: Fin.Succ((Sxx: 0.0, Sxy: 0.0, Syy: 0.0, Fit: fit, Context: context, Key: op)), f: static (state, point) => state.Bind(s =>
-            VectorIntent.Components(anchor: s.Fit.Origin, value: point - s.Fit.Origin, frame: s.Fit)
-                    .Project<(double X, double Y)>(context: s.Context, key: s.Key)
-                .BindFail(static _ => Fin.Succ((X: 0.0, Y: 0.0)))
-                .Map(v => (s.Sxx + (v.X * v.X), s.Sxy + (v.X * v.Y), s.Syy + (v.Y * v.Y), s.Fit, s.Context, s.Key))))
-            .Map(static sums => 0.5 * Math.Atan2(y: 2.0 * sums.Sxy, x: sums.Sxx - sums.Syy));
+    // Principal angle of the 2D point cloud in `fit` plane coordinates. Defers to Vectors'
+    // N-D Welford covariance + Jacobi eigen on the 2x2 symmetric covariance matrix; the
+    // first eigenvector encodes the principal axis directly via atan2.
+    private static Fin<double> PrincipalAngle(Seq<Point3d> points, Plane fit, Context context, Op op) {
+        Seq<Arr<double>> planar = points.Map(point =>
+            VectorIntent.Components(anchor: fit.Origin, value: point - fit.Origin, frame: fit)
+                .Project<(double X, double Y)>(context: context, key: op)
+                .Match(
+                    Succ: v => new Arr<double>([v.X, v.Y]),
+                    Fail: _ => new Arr<double>([0.0, 0.0])));
+        return CloudKernel.CovarianceOf(points: planar, dimension: Vectors.Dimension.Create(value: 2), key: op)
+            .Bind(stats => stats.Cov.DecomposeEigen(key: op))
+            .Map(static eigen => Math.Atan2(y: eigen[0].Eigenvector[1], x: eigen[0].Eigenvector[0]));
+    }
 }

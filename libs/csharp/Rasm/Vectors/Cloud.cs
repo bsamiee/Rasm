@@ -3,17 +3,6 @@ using Foundation.CSharp.Analyzers.Contracts;
 namespace Rasm.Vectors;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SymmetricMatrix(int Dimension, Arr<double> Upper) {
-    public bool IsValid =>
-        Dimension > 0
-        && Upper.Count == Dimension * (Dimension + 1) / 2
-        && Upper.All(RhinoMath.IsValidDouble);
-    internal double At(int i, int j) => Upper[FlatIndex(n: Dimension, i: Math.Min(val1: i, val2: j), j: Math.Max(val1: i, val2: j))];
-    internal SymmetricMatrix With(int i, int j, double value) => this with { Upper = Upper.SetItem(FlatIndex(n: Dimension, i: Math.Min(val1: i, val2: j), j: Math.Max(val1: i, val2: j)), value) };
-    private static int FlatIndex(int n, int i, int j) => (i * n) - (i * (i - 1) / 2) + (j - i);
-}
-
 [SmartEnum<int>]
 public sealed partial class VectorCloudMetric {
     public static readonly VectorCloudMetric Normal = new(key: 0, output: typeof(Vector3d),
@@ -235,104 +224,40 @@ internal static class CloudKernel {
             clusterCase: static (s, c) => s.PointRail(arg1: c.Vertices, arg2: c.Tolerance, arg3: s.Key));
 
     // --- [WELFORD] ----------------------------------------------------------------------
+    // N-D Welford covariance accumulator: delta_k = p_k - mean_k; mean := mean + delta / n;
+    // delta2_k = p_k - mean'_k; M_ij += delta_i * delta2_j for i <= j (upper-triangular).
+    // Canonical entry; per-Point3d boundary overload trades the 3D seam.
+    internal static Fin<(Arr<double> Mean, SymmetricMatrix Cov)> CovarianceOf(Seq<Arr<double>> points, Dimension dimension, Op key) {
+        int dim = dimension.Value;
+        Arr<double> initialMean = [.. Enumerable.Repeat(element: 0.0, count: dim)];
+        Arr<double> initialUpper = [.. Enumerable.Repeat(element: 0.0, count: dim * (dim + 1) / 2)];
+        (int n, Arr<double> mean, Arr<double> upper) = points.Fold(
+            initialState: (N: 0, Mean: initialMean, Upper: initialUpper),
+            f: (acc, point) => point.Count == dim ? StepWelford(state: acc, point: point, dim: dim) : acc);
+        return n > 0
+            ? key.AcceptValue(value: (
+                mean,
+                Cov: new SymmetricMatrix(Dimension: dimension, Upper: [.. upper.Map(value => value / n)])))
+            : Fin.Fail<(Arr<double>, SymmetricMatrix)>(key.InvalidResult());
+    }
     internal static Fin<(Vector3d Mean, SymmetricMatrix Cov)> CovarianceOf(Seq<Point3d> points, Op key) =>
-        points.Count switch {
-            0 => Fin.Fail<(Vector3d, SymmetricMatrix)>(key.InvalidResult()),
-            _ => points.Fold(
-                initialState: (N: 0, Mean: Vector3d.Zero, M: (M00: 0.0, M01: 0.0, M02: 0.0, M11: 0.0, M12: 0.0, M22: 0.0)),
-                f: static (state, p) => {
-                    int n = state.N + 1;
-                    Vector3d value = (Vector3d)p;
-                    Vector3d delta = value - state.Mean;
-                    Vector3d meanNew = state.Mean + (delta / n);
-                    Vector3d delta2 = value - meanNew;
-                    return (N: n, Mean: meanNew, M: (
-                        M00: state.M.M00 + (delta.X * delta2.X),
-                        M01: state.M.M01 + (delta.X * delta2.Y),
-                        M02: state.M.M02 + (delta.X * delta2.Z),
-                        M11: state.M.M11 + (delta.Y * delta2.Y),
-                        M12: state.M.M12 + (delta.Y * delta2.Z),
-                        M22: state.M.M22 + (delta.Z * delta2.Z)));
-                }) switch {
-                    (int n, Vector3d mean, (double M00, double M01, double M02, double M11, double M12, double M22) m) when n > 0 => key.AcceptValue(value: (
-                        Mean: mean,
-                        Cov: new SymmetricMatrix(Dimension: 3, Upper: [
-                            m.M00 / n, m.M01 / n, m.M02 / n, m.M11 / n, m.M12 / n, m.M22 / n,
-                        ]))),
-                    _ => Fin.Fail<(Vector3d, SymmetricMatrix)>(key.InvalidResult()),
-                },
-        };
-
-    // --- [EIGEN] ------------------------------------------------------------------------
-    // Jacobi cyclic eigendecomposition for symmetric N x N matrices. State carries A and the N columns of V
-    // (the accumulated orthogonal rotation). After convergence A is diagonal and V columns are eigenvectors.
-    // The sweep order is the canonical lexicographic (p, q) with p < q traversal, materialised as a Seq once
-    // per call and folded over each iteration; this generalises trivially from 3 x 3 (3 pairs) to N x N (N (N-1)/2 pairs).
-    internal static Fin<Seq<(double Eigenvalue, Arr<double> Eigenvector)>> DecomposeEigen(SymmetricMatrix m, Op key) {
-        int n = m.Dimension;
-        Seq<(int P, int Q)> pairs = SweepPairs(dimension: n);
-        Arr<Arr<double>> identityV = [.. Enumerable.Range(start: 0, count: n).Select(i =>
-            new Arr<double>(Enumerable.Range(start: 0, count: n).Select(j => i == j ? 1.0 : 0.0)))];
-        (SymmetricMatrix A, Arr<Arr<double>> V) = toSeq(Enumerable.Range(start: 0, count: MaxSweeps)).Fold(
-            initialState: (A: m, V: identityV),
-            f: (state, _) => Converged(matrix: state.A, pairs: pairs, dimension: n, epsilon: EigenEpsilon)
-                ? state
-                : pairs.Fold(initialState: state, f: static (s, pq) => Givens(state: s, p: pq.P, q: pq.Q)));
-        return toSeq(Enumerable.Range(start: 0, count: n)
-            .Select(i => (Eigenvalue: A.At(i: i, j: i), Eigenvector: V[i]))
-            .OrderByDescending(static p => Math.Abs(value: p.Eigenvalue)))
-            .TraverseM(p => key.AcceptValue(value: p)).As();
+        CovarianceOf(
+            points: points.Map(static p => new Arr<double>([p.X, p.Y, p.Z])),
+            dimension: Dimension.Create(value: 3),
+            key: key)
+            .Map(static result => (AsVector3d(v: result.Mean), result.Cov));
+    private static (int N, Arr<double> Mean, Arr<double> Upper) StepWelford(
+        (int N, Arr<double> Mean, Arr<double> Upper) state, Arr<double> point, int dim) {
+        int n = state.N + 1;
+        Arr<double> delta = [.. toSeq(Enumerable.Range(start: 0, count: dim)).Map(k => point[k] - state.Mean[k])];
+        Arr<double> newMean = [.. toSeq(Enumerable.Range(start: 0, count: dim)).Map(k => state.Mean[k] + (delta[k] / n))];
+        Arr<double> delta2 = [.. toSeq(Enumerable.Range(start: 0, count: dim)).Map(k => point[k] - newMean[k])];
+        Arr<double> newUpper = [.. Enumerable.Range(start: 0, count: dim)
+            .SelectMany(i => Enumerable.Range(start: i, count: dim - i).Select(j => (I: i, J: j)))
+            .Select((pair, idx) => state.Upper[idx] + (delta[pair.I] * delta2[pair.J]))];
+        return (N: n, Mean: newMean, Upper: newUpper);
     }
-    private const int MaxSweeps = 12;
-    private const double EigenEpsilon = 1e-14;
-    private static Seq<(int P, int Q)> SweepPairs(int dimension) =>
-        toSeq(from p in Enumerable.Range(start: 0, count: dimension - 1)
-              from q in Enumerable.Range(start: p + 1, count: dimension - 1 - p)
-              select (P: p, Q: q));
-    private static bool Converged(SymmetricMatrix matrix, Seq<(int P, int Q)> pairs, int dimension, double epsilon) {
-        double offDiag = pairs.Fold(initialState: 0.0, f: (sum, pq) => sum + Math.Abs(value: matrix.At(i: pq.P, j: pq.Q)));
-        double diag = toSeq(Enumerable.Range(start: 0, count: dimension))
-            .Fold(initialState: 0.0, f: (sum, i) => sum + Math.Abs(value: matrix.At(i: i, j: i)));
-        return offDiag < epsilon * diag;
-    }
-    // One Givens rotation on the (p, q) plane: zeros A_pq, updates A_pp / A_qq and the off-diagonal entries
-    // A_rp / A_rq for every r not in {p, q}, and rotates the corresponding V_p / V_q eigenvector columns.
-    private static (SymmetricMatrix A, Arr<Arr<double>> V) Givens(
-        (SymmetricMatrix A, Arr<Arr<double>> V) state, int p, int q) =>
-        Math.Abs(value: state.A.At(i: p, j: q)) < RhinoMath.SqrtEpsilon * RhinoMath.SqrtEpsilon
-            ? state
-            : ApplyJacobi(state: state, p: p, q: q);
-    private static (SymmetricMatrix A, Arr<Arr<double>> V) ApplyJacobi(
-        (SymmetricMatrix A, Arr<Arr<double>> V) state, int p, int q) {
-        double apq = state.A.At(i: p, j: q);
-        double app = state.A.At(i: p, j: p);
-        double aqq = state.A.At(i: q, j: q);
-        double theta = (aqq - app) / (2.0 * apq);
-        double t = theta >= 0.0
-            ? 1.0 / (theta + Math.Sqrt(d: 1.0 + (theta * theta)))
-            : 1.0 / (theta - Math.Sqrt(d: 1.0 + (theta * theta)));
-        double cosVal = 1.0 / Math.Sqrt(d: 1.0 + (t * t));
-        double sinVal = t * cosVal;
-        double newApp = (cosVal * cosVal * app) - (2.0 * sinVal * cosVal * apq) + (sinVal * sinVal * aqq);
-        double newAqq = (sinVal * sinVal * app) + (2.0 * sinVal * cosVal * apq) + (cosVal * cosVal * aqq);
-        int dimension = state.A.Dimension;
-        SymmetricMatrix newA = toSeq(Enumerable.Range(start: 0, count: dimension))
-            .Filter(r => r != p && r != q)
-            .Fold(
-                initialState: state.A.With(i: p, j: p, value: newApp).With(i: q, j: q, value: newAqq).With(i: p, j: q, value: 0.0),
-                f: (matrix, r) => state.A.At(i: r, j: p) switch {
-                    double arp => state.A.At(i: r, j: q) switch {
-                        double arq => matrix.With(i: r, j: p, value: (cosVal * arp) - (sinVal * arq))
-                            .With(i: r, j: q, value: (sinVal * arp) + (cosVal * arq)),
-                    },
-                });
-        Arr<double> oldVp = state.V[p];
-        Arr<double> oldVq = state.V[q];
-        Arr<double> newVp = [.. Enumerable.Range(start: 0, count: dimension).Select(k => (cosVal * oldVp[k]) - (sinVal * oldVq[k]))];
-        Arr<double> newVq = [.. Enumerable.Range(start: 0, count: dimension).Select(k => (sinVal * oldVp[k]) + (cosVal * oldVq[k]))];
-        return (A: newA, V: state.V.SetItem(p, newVp).SetItem(q, newVq));
-    }
-    private static Vector3d AsVector3d(Arr<double> v) => new(x: v[0], y: v[1], z: v[2]);
+    internal static Vector3d AsVector3d(Arr<double> v) => new(x: v[0], y: v[1], z: v[2]);
 
     // --- [BISHOP] -----------------------------------------------------------------------
     internal static Fin<Seq<Plane>> BishopFramesOf(VectorCloud cloud, Op key) =>
@@ -432,7 +357,7 @@ internal static class CloudKernel {
                 project: static (props, op) => AxesOf(mass: props, key: op).Bind(axes => axes.Map(static a => a.Axis).TraverseM(a => op.AcceptValue(value: a)).As()),
                 key: k),
             pointRail: static (points, _, k) => CovarianceOf(points: points, key: k)
-                .Bind(stats => DecomposeEigen(m: stats.Cov, key: k))
+                .Bind(stats => stats.Cov.DecomposeEigen(key: k))
                 .Bind(eigen => eigen.Map(static p => AsVector3d(v: p.Eigenvector)).TraverseM(v => k.AcceptValue(value: v)).As()));
     internal static Fin<Plane> PrincipalFrameOf(VectorCloud cloud, Op key) =>
         WithCaseRails(cloud: cloud, key: key,
@@ -446,7 +371,7 @@ internal static class CloudKernel {
                     key: state.Key)
                 select frame, key: k),
             pointRail: static (points, ctx, k) => CovarianceOf(points: points, key: k)
-                .Bind(stats => DecomposeEigen(m: stats.Cov, key: k)
+                .Bind(stats => stats.Cov.DecomposeEigen(key: k)
                     .Bind(eigen => VectorFrame.Of(origin: (Point3d)stats.Mean, normal: AsVector3d(v: eigen[2].Eigenvector), xHint: Some(AsVector3d(v: eigen[0].Eigenvector)), context: ctx, key: k))
                     .Bind(frame => frame.Project<Plane>(key: k))));
     internal static Fin<VectorCloudShape> ShapeOf(VectorCloud cloud, Op key) =>
@@ -457,11 +382,11 @@ internal static class CloudKernel {
             clusterCase: static (k, cluster) => PointSetShapeOf(points: cluster.Vertices, context: cluster.Tolerance, forPolyline: false, key: k));
     internal static Fin<Vector3d> PrincipalDirectionOf(Seq<Point3d> points, Op key) =>
         CovarianceOf(points: points, key: key)
-            .Bind(stats => DecomposeEigen(m: stats.Cov, key: key))
+            .Bind(stats => stats.Cov.DecomposeEigen(key: key))
             .Bind(eigen => key.AcceptValue(value: AsVector3d(v: eigen[0].Eigenvector)));
     internal static Fin<Vector3d> SpreadOf(Seq<Point3d> points, Op key) =>
         CovarianceOf(points: points, key: key)
-            .Bind(stats => DecomposeEigen(m: stats.Cov, key: key))
+            .Bind(stats => stats.Cov.DecomposeEigen(key: key))
             .Bind(eigen => key.AcceptValue(value: new Vector3d(eigen[0].Eigenvalue, eigen[1].Eigenvalue, eigen[2].Eigenvalue)));
 
     // --- [RING] -------------------------------------------------------------------------
@@ -535,7 +460,7 @@ internal static class CloudKernel {
             ? BestFitOf(points: points, key: key).Map(static f => (Plane: Some(f.Plane), Deviation: Some(f.Deviation)))
             : Fin.Succ((Plane: Option<Plane>.None, Deviation: Option<double>.None))
         from stats in CovarianceOf(points: points, key: key)
-        from eigen in DecomposeEigen(m: stats.Cov, key: key)
+        from eigen in stats.Cov.DecomposeEigen(key: key)
         let axes = eigen.Map(static p => (Moment: p.Eigenvalue, Axis: AsVector3d(v: p.Eigenvector)))
         from principal in VectorFrame.Of(origin: (Point3d)stats.Mean, normal: AsVector3d(v: eigen[2].Eigenvector), xHint: Some(AsVector3d(v: eigen[0].Eigenvector)), context: context, key: key)
             .Bind(frame => frame.Project<Plane>(key: key))
