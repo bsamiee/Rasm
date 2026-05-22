@@ -21,48 +21,37 @@ namespace Rasm.Grasshopper.UI;
 [Union]
 public partial record RepaintRequest {
     private RepaintRequest() { }
-    public sealed record NoneCase : RepaintRequest {
-        internal override Unit ApplyTo(GrasshopperUi.Scope scope) => unit;
-    }
-    public sealed record ObjectCase(Guid Id) : RepaintRequest {
-        internal override Unit ApplyTo(GrasshopperUi.Scope scope) {
-            Guid id = Id;
-            return scope.Canvas.Bind(canvas => scope.Objects.Map(objects =>
-                Optional(objects.Find(instanceId: id)).Match(
-                    Some: o => { canvas.Invalidate(rect: GrasshopperUi.ControlSpace(canvas: canvas, bounds: o.Attributes.AggregateBounds)); return unit; },
-                    None: () => { canvas.Invalidate(); return unit; }))).IfNone(unit);
-        }
-    }
-    public sealed record RegionCase(RectangleF Bounds) : RepaintRequest {
-        internal override Unit ApplyTo(GrasshopperUi.Scope scope) {
-            RectangleF bounds = Bounds;
-            return scope.Canvas.IfSome(canvas => canvas.Invalidate(rect: GrasshopperUi.ControlSpace(canvas: canvas, bounds: bounds)));
-        }
-    }
-    public sealed record CanvasCase : RepaintRequest {
-        internal override Unit ApplyTo(GrasshopperUi.Scope scope) => scope.Canvas.IfSome(static canvas => canvas.Invalidate());
-    }
-    public sealed record ScheduledCase : RepaintRequest {
-        internal override Unit ApplyTo(GrasshopperUi.Scope scope) => scope.Canvas.IfSome(static canvas => canvas.ScheduleRedraw());
-    }
-    public sealed record SolutionCase : RepaintRequest {
-        internal override Unit ApplyTo(GrasshopperUi.Scope scope) =>
-            scope.Document.IfSome(static doc => { _ = doc.Solution.Start(mode: SolutionMode.Regular); return unit; });
-    }
-    public sealed record DisplayCase : RepaintRequest {
-        internal override Unit ApplyTo(GrasshopperUi.Scope scope) =>
-            scope.Document.IfSome(static doc => { doc.Display.UpdateDisplay(); return unit; });
-    }
-    public sealed record SolutionAndDisplayCase : RepaintRequest {
-        internal override Unit ApplyTo(GrasshopperUi.Scope scope) =>
-            scope.Document.IfSome(static doc => {
+    public sealed record NoneCase : RepaintRequest;
+    public sealed record ObjectCase(Guid Id) : RepaintRequest;
+    public sealed record RegionCase(RectangleF Bounds) : RepaintRequest;
+    public sealed record CanvasCase : RepaintRequest;
+    public sealed record ScheduledCase : RepaintRequest;
+    public sealed record SolutionCase : RepaintRequest;
+    public sealed record DisplayCase : RepaintRequest;
+    public sealed record SolutionAndDisplayCase : RepaintRequest;
+
+    // State-threaded dispatch over the 8 cases. Scope flows through `state` so every arm can stay
+    // `static` (zero closure capture). Explicit type arguments select the Func-returning Switch
+    // overload (the codegen also emits a void Action variant that would otherwise win for the
+    // unit-returning arms). Outer parameters use named bindings to keep inner `_ = ...` discards
+    // unambiguous under static-anonymous-function rules.
+    internal Unit ApplyTo(GrasshopperUi.Scope scope) =>
+        Switch(state: scope,
+            noneCase: static (_, _) => unit,
+            objectCase: static (s, o) => s.Canvas.Bind(canvas => s.Objects.Map(objects =>
+                Optional(objects.Find(instanceId: o.Id)).Match(
+                    Some: target => { canvas.Invalidate(rect: GrasshopperUi.ControlSpace(canvas: canvas, bounds: target.Attributes.AggregateBounds)); return unit; },
+                    None: () => { canvas.Invalidate(); return unit; }))).IfNone(unit),
+            regionCase: static (s, r) => s.Canvas.IfSome(canvas => canvas.Invalidate(rect: GrasshopperUi.ControlSpace(canvas: canvas, bounds: r.Bounds))),
+            canvasCase: static (s, _) => s.Canvas.IfSome(static canvas => canvas.Invalidate()),
+            scheduledCase: static (s, _) => s.Canvas.IfSome(static canvas => canvas.ScheduleRedraw()),
+            solutionCase: static (s, op) => s.Document.IfSome(static doc => { _ = doc.Solution.Start(mode: SolutionMode.Regular); return unit; }),
+            displayCase: static (s, _) => s.Document.IfSome(static doc => { doc.Display.UpdateDisplay(); return unit; }),
+            solutionAndDisplayCase: static (s, op) => s.Document.IfSome(static doc => {
                 _ = doc.Solution.Start(mode: SolutionMode.Regular);
                 doc.Display.UpdateDisplay();
                 return unit;
-            });
-    }
-
-    internal abstract Unit ApplyTo(GrasshopperUi.Scope scope);
+            }));
 
     public static readonly RepaintRequest None = new NoneCase();
     public static readonly RepaintRequest Canvas = new CanvasCase();
@@ -284,30 +273,28 @@ public abstract record GhUiRequest<T> {
 public abstract partial record UiFault : Expected {
     private UiFault() : base() { }
 
-    public sealed record MissingScopeCase(string Field) : UiFault {
-        public override string Message => $"GrasshopperUi scope field '{Field}' required but absent.";
-        public override string Category => "Scope";
-    }
-    public sealed record InvalidInputCase(Op Op, string Detail) : UiFault {
-        public override string Message => $"Op '{Op}' rejected input: {Detail}.";
-        public override string Category => "Input";
-    }
-    public sealed record MutationRejectedCase(Op Op, string Detail) : UiFault {
-        public override string Message => $"Op '{Op}' rejected by Grasshopper2: {Detail}.";
-        public override string Category => "Mutation";
-    }
-    public sealed record GhEditorCase(string Detail) : UiFault {
-        public override string Message => $"Grasshopper editor operation failed: {Detail}.";
-        public override string Category => "Editor";
-    }
-    public sealed record ThreadMarshalCase(string Detail) : UiFault {
-        public override string Message => $"UI-thread marshal failed: {Detail}.";
-        public override string Category => "Thread";
-    }
-    public sealed record CancelledCase(Op Op) : UiFault {
-        public override string Message => $"Op '{Op}' cancelled.";
-        public override string Category => "Cancelled";
-    }
+    public sealed record MissingScopeCase(string Field) : UiFault;
+    public sealed record InvalidInputCase(Op Op, string Detail) : UiFault;
+    public sealed record MutationRejectedCase(Op Op, string Detail) : UiFault;
+    public sealed record GhEditorCase(string Detail) : UiFault;
+    public sealed record ThreadMarshalCase(string Detail) : UiFault;
+    public sealed record CancelledCase(Op Op) : UiFault;
+
+    public override string Message => Switch(
+        missingScopeCase: static m => $"GrasshopperUi scope field '{m.Field}' required but absent.",
+        invalidInputCase: static i => $"Op '{i.Op}' rejected input: {i.Detail}.",
+        mutationRejectedCase: static r => $"Op '{r.Op}' rejected by Grasshopper2: {r.Detail}.",
+        ghEditorCase: static e => $"Grasshopper editor operation failed: {e.Detail}.",
+        threadMarshalCase: static t => $"UI-thread marshal failed: {t.Detail}.",
+        cancelledCase: static c => $"Op '{c.Op}' cancelled.");
+
+    public override string Category => Switch(
+        missingScopeCase: static _ => "Scope",
+        invalidInputCase: static _ => "Input",
+        mutationRejectedCase: static _ => "Mutation",
+        ghEditorCase: static _ => "Editor",
+        threadMarshalCase: static _ => "Thread",
+        cancelledCase: static _ => "Cancelled");
 
     public static UiFault MissingScope(string field) => new MissingScopeCase(Field: field);
     public static UiFault InvalidInput(Op op, string detail) => new InvalidInputCase(Op: op, Detail: detail);

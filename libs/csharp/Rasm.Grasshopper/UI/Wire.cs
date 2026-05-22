@@ -286,9 +286,9 @@ internal static partial class Wire {
             ? Fin.Succ(value: unit)
             : Fin.Fail<Unit>(error: UiFault.MutationRejected(op: op, detail: "wire is not currently connected"));
 
-    // Native Doc.Connectivity provides cycle-safe topological traversal with built-in dedup; replaces
-    // hand-rolled SearchUpstream/Downstream BFS. Parameter -> Owner resolution happens upstream of the
-    // connectivity lookup since Connectivity is object-keyed, not parameter-keyed.
+    // ObjectList.SearchUpstream/SearchDownstream is GH2-native cycle-safe depth-first-without-duplicates
+    // keyed by the source parameter (narrower than Connectivity's owner-keyed walk). Distinct() guards
+    // the Bidirectional case where Up/Down sequences may overlap at shared subgraphs.
     internal static Fin<Seq<IDocumentObject>> TraverseObjects(GhObjectList objects, Guid startParameterId, WireTraversal direction) =>
         Optional(objects.FindParameter(instanceId: startParameterId))
             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(TraverseObjects)), detail: $"parameter {startParameterId} not found"))
