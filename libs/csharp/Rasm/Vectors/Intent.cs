@@ -116,17 +116,16 @@ public abstract partial record VectorIntent {
             select output,
         curveCase: static (state, intent) => intent.Mode.Project<TOut>(curve: intent.Source, parameter: intent.Parameter, context: state.Context, key: state.Key),
         cloudCase: static (state, intent) => intent.Metric.Project<TOut>(cloud: intent.Value, key: state.Key),
-        windingCase: static (state, intent) => intent.Value.Switch(
-            state: (state.Key, intent.Query),
-            ringCase: static (s, ring) =>
-                from normal in CloudKernel.RingNormalOf(ring: ring, key: s.Key)
-                from winding in CloudKernel.PlanarWindingOf(ring: ring.Vertices, planeNormal: normal, query: s.Query, key: s.Key)
+        windingCase: static (state, intent) => intent.Value switch {
+            VectorCloud.RingCase ring =>
+                from normal in CloudKernel.RingNormalOf(ring: ring, key: state.Key)
+                from winding in CloudKernel.PlanarWindingOf(ring: ring.Vertices, planeNormal: normal, query: intent.Query, key: state.Key)
                 from output in typeof(TOut) == typeof(int)
                     ? Fin.Succ((TOut)(object)winding)
-                    : Fin.Fail<TOut>(error: s.Key.Unsupported(geometryType: typeof(WindingCase), outputType: typeof(TOut)))
+                    : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(WindingCase), outputType: typeof(TOut)))
                 select output,
-            polylineCase: static (s, c) => Fin.Fail<TOut>(error: s.Key.Unsupported(geometryType: c.GetType(), outputType: typeof(int))),
-            clusterCase: static (s, c) => Fin.Fail<TOut>(error: s.Key.Unsupported(geometryType: c.GetType(), outputType: typeof(int)))),
+            _ => Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: intent.Value.GetType(), outputType: typeof(int))),
+        },
         coneCase: static (state, intent) => intent.Mode.Project<TOut>(cone: intent.Value, key: state.Key),
         componentsCase: static (state, intent) =>
             from span in VectorSpan.Of(anchor: intent.Anchor, vector: intent.Value, context: state.Context, key: state.Key)

@@ -28,7 +28,7 @@ public readonly record struct SymmetricMatrix(Dimension Dimension, Arr<double> U
                 .Map(idx => self.At(i: idx / dim, j: idx % dim))]);
     }
     public Fin<Seq<(double Eigenvalue, Arr<double> Eigenvector)>> DecomposeEigen(Op? key = null) =>
-        MatrixKernel.JacobiSymmetric(matrix: this, key: key.OrDefault());
+        MatrixKernel.SymmetricEigen(matrix: this, key: key.OrDefault());
     public Fin<Matrix> DecomposeCholesky(Op? key = null) =>
         MatrixKernel.Cholesky(matrix: this, key: key.OrDefault());
 }
@@ -184,6 +184,18 @@ internal static class MatrixKernel {
     private const double JacobiEpsilon = 1e-14;
     private const double QrEpsilon = 1e-12;
     private const int MaxQrIterations = 256;
+    private const int MaxInverseIterations = 32;
+    private const double InverseIterationEpsilon = 1e-10;
+
+    // --- [HOUSEHOLDER_PRIMITIVES] ---------------------------------------------------------
+    private static double L2Norm(Arr<double> x) =>
+        Math.Sqrt(d: x.Fold(initialState: 0.0, f: static (sum, v) => sum + (v * v)));
+    private static Option<(Arr<double> V, double Beta)> Reflector(Arr<double> x, double normX) {
+        double sign = x[0] >= 0.0 ? 1.0 : -1.0;
+        Arr<double> v = x.SetItem(0, x[0] + (sign * normX));
+        double vNormSq = v.Fold(initialState: 0.0, f: static (sum, value) => sum + (value * value));
+        return vNormSq < RhinoMath.ZeroTolerance ? None : Some((V: v, Beta: 2.0 / vNormSq));
+    }
 
     // --- [NORMS_SOLVERS] ------------------------------------------------------------------
     internal static double AbsoluteColumnSumMax(Matrix matrix) {
@@ -219,19 +231,15 @@ internal static class MatrixKernel {
             f: (acc, i) => acc.SetItem(i, (y[i] - toSeq(Enumerable.Range(start: i + 1, count: n - i - 1))
                 .Fold(initialState: 0.0, f: (s, j) => s + (U.At(i: i, j: j) * acc[j]))) / U.At(i: i, j: i)));
     }
-    // Solve M*X = I column by column: each column j of X is the solution to M*x = e_j.
-    // Row-major storage means entries[i*n + j] = inverse[i,j] = column_j[i].
+    // M*X=I by column: X[:, j] solves M*x = e_j. Row-major: entries[i*n+j] = column_j[i].
     internal static Matrix LuInverse(LuResult lu, int n) {
         Seq<Arr<double>> columns = toSeq(Enumerable.Range(start: 0, count: n).Select(j =>
             LuSolve(lu: lu, rhs: [.. Enumerable.Range(start: 0, count: n).Select(i => i == j ? 1.0 : 0.0)])));
         return new Matrix(Rows: lu.L.Rows, Cols: lu.U.Cols,
             Entries: [.. Enumerable.Range(start: 0, count: n * n).Select(idx => columns[idx % n][idx / n])]);
     }
-    // Householder QR: A = Q * R where Q is orthogonal (m x m) and R is upper-triangular (m x n).
-    // For each column j, build a Householder reflector H_j that zeros R[j+1..m, j], apply it
-    // from the LEFT to R, and from the RIGHT to the accumulating Q (since
-    // Q = H_0 * H_1 * ... * H_{n-1} after left-applications). Householder loses orthogonality
-    // far slower than Modified Gram-Schmidt for ill-conditioned inputs.
+    // Householder QR: A = Q*R, Q orthogonal m x m, R upper-tri m x n. Per column j: H_j zeros
+    // R[j+1..m, j], applied left to R and right to Q. Stable vs MGS on ill-conditioned A.
     internal static Fin<QrResult> QrHouseholder(Matrix matrix, Op key) {
         int m = matrix.Rows.Value;
         int n = matrix.Cols.Value;
@@ -243,28 +251,16 @@ internal static class MatrixKernel {
         return Fin.Succ(new QrResult(Q: Q, R: R));
     }
     private static (Matrix Q, Matrix R) HouseholderQrStep((Matrix Q, Matrix R) state, int column, int m, int n) {
-        int subSize = m - column;
         Matrix rSnap = state.R;
-        Arr<double> x = [.. toSeq(Enumerable.Range(start: 0, count: subSize))
+        Arr<double> x = [.. toSeq(Enumerable.Range(start: 0, count: m - column))
             .Map(i => rSnap.At(i: column + i, j: column))];
-        double normX = Math.Sqrt(d: x.Fold(initialState: 0.0, f: (sum, v) => sum + (v * v)));
-        return normX < RhinoMath.ZeroTolerance
-            ? state
-            : QrApplyReflector(state: state, column: column, n: n, x: x, normX: normX);
+        double normX = L2Norm(x: x);
+        return normX < RhinoMath.ZeroTolerance ? state : Reflector(x: x, normX: normX).Match(
+            Some: rb => (Q: ReflectRightSubspace(matrix: state.Q, column: column, v: rb.V, beta: rb.Beta),
+                         R: ReflectLeftSubspace(matrix: state.R, column: column, n: n, v: rb.V, beta: rb.Beta)),
+            None: () => state);
     }
-    private static (Matrix Q, Matrix R) QrApplyReflector((Matrix Q, Matrix R) state, int column, int n, Arr<double> x, double normX) {
-        double sign = x[0] >= 0.0 ? 1.0 : -1.0;
-        double alpha = -sign * normX;
-        Arr<double> v = x.SetItem(0, x[0] - alpha);
-        double vNormSq = v.Fold(initialState: 0.0, f: (sum, value) => sum + (value * value));
-        return vNormSq < RhinoMath.ZeroTolerance
-            ? state
-            : (Q: ReflectRightSubspace(matrix: state.Q, column: column, v: v, beta: 2.0 / vNormSq),
-               R: ReflectLeftSubspace(matrix: state.R, column: column, n: n, v: v, beta: 2.0 / vNormSq));
-    }
-    // Apply H = I - beta v v^T to matrix M from the LEFT (only rows column..m and columns
-    // column..n change). Computes column dot products against v then subtracts the rank-1
-    // update beta * v * dot_k along each column k >= column.
+    // H = I - beta v v^T applied LEFT to M: column dot vs v, subtract rank-1 beta*v*dot per col.
     private static Matrix ReflectLeftSubspace(Matrix matrix, int column, int n, Arr<double> v, double beta) {
         int subSize = v.Count;
         Matrix self = matrix;
@@ -278,8 +274,7 @@ internal static class MatrixKernel {
                     f: (mm, l) => mm.With(i: column + l, j: k, value: mm.At(i: column + l, j: k) - (beta * v[l] * colDot)));
             });
     }
-    // Apply H = I - beta v v^T to matrix M from the RIGHT (only columns column..column+|v|
-    // change). Computes row dot products against v then subtracts the rank-1 update.
+    // H = I - beta v v^T applied RIGHT to M: row dot vs v, subtract rank-1 beta*v*dot per row.
     private static Matrix ReflectRightSubspace(Matrix matrix, int column, Arr<double> v, double beta) {
         int subSize = v.Count;
         int rows = matrix.Rows.Value;
@@ -296,48 +291,23 @@ internal static class MatrixKernel {
     }
 
     // --- [SYMMETRIC_EIGEN] ----------------------------------------------------------------
-    // Jacobi cyclic eigendecomposition for symmetric N x N matrices. State carries A and the
-    // N columns of V (the accumulated orthogonal rotation). After convergence A is diagonal and
-    // V columns are eigenvectors. The sweep order is canonical lexicographic (p, q) with p < q
-    // traversal, materialised as a Seq once per call.
-    internal static Fin<Seq<(double Eigenvalue, Arr<double> Eigenvector)>> JacobiSymmetric(SymmetricMatrix matrix, Op key) {
-        int n = matrix.Dimension.Value;
-        Seq<(int P, int Q)> pairs = SweepPairs(dimension: n);
-        Arr<Arr<double>> identity = [.. Enumerable.Range(start: 0, count: n).Select(i =>
-            new Arr<double>(Enumerable.Range(start: 0, count: n).Select(j => i == j ? 1.0 : 0.0)))];
-        (SymmetricMatrix A, Arr<Arr<double>> V) = toSeq(Enumerable.Range(start: 0, count: MaxSweeps)).Fold(
-            initialState: (A: matrix, V: identity),
-            f: (state, _) => SymmetricConverged(matrix: state.A, pairs: pairs, dimension: n)
-                ? state
-                : pairs.Fold(initialState: state, f: static (s, pq) => Givens(state: s, p: pq.P, q: pq.Q)));
-        return Fin.Succ(toSeq(Enumerable.Range(start: 0, count: n)
-            .Select(i => (Eigenvalue: A.At(i: i, j: i), Eigenvector: V[i]))
-            .OrderByDescending(static p => Math.Abs(value: p.Eigenvalue))));
-    }
+    // Symmetric eigendecomposition via the Hessenberg + Francis QR pipeline. A symmetric
+    // matrix's Hessenberg form is tridiagonal; Francis QR with Wilkinson shift converges
+    // cubically on tridiagonal. Imaginary parts of returned pairs must be ~0 for real-symmetric
+    // input — they are validated and stripped here. Sorted by |eigenvalue| descending.
+    internal static Fin<Seq<(double Eigenvalue, Arr<double> Eigenvector)>> SymmetricEigen(SymmetricMatrix matrix, Op key) =>
+        from complex in matrix.ToDense().DecomposeEigen(key: key)
+        from real in complex.TraverseM(pair =>
+            Math.Abs(value: pair.Eigenvalue.Imaginary) >= RhinoMath.SqrtEpsilon
+                ? Fin.Fail<(double Eigenvalue, Arr<double> Eigenvector)>(error: key.InvalidResult())
+                : Fin.Succ((Eigenvalue: pair.Eigenvalue.Real,
+                            Eigenvector: new Arr<double>(pair.Eigenvector.AsIterable().Select(static c => c.Real))))).As()
+        select toSeq(real.AsIterable().OrderByDescending(static p => Math.Abs(value: p.Eigenvalue)));
     internal static Seq<(int P, int Q)> SweepPairs(int dimension) =>
         toSeq(from p in Enumerable.Range(start: 0, count: dimension - 1)
               from q in Enumerable.Range(start: p + 1, count: dimension - 1 - p)
               select (P: p, Q: q));
-    private static bool SymmetricConverged(SymmetricMatrix matrix, Seq<(int P, int Q)> pairs, int dimension) {
-        double offDiag = pairs.Fold(initialState: 0.0, f: (sum, pq) => sum + Math.Abs(value: matrix.At(i: pq.P, j: pq.Q)));
-        double diag = toSeq(Enumerable.Range(start: 0, count: dimension))
-            .Fold(initialState: 0.0, f: (sum, i) => sum + Math.Abs(value: matrix.At(i: i, j: i)));
-        return offDiag < JacobiEpsilon * diag;
-    }
-    // One Givens rotation on the (p, q) plane: zeros A_pq, updates A_pp / A_qq and the
-    // off-diagonal entries A_rp / A_rq for every r not in {p, q}, and rotates the corresponding
-    // V_p / V_q eigenvector columns. Skip threshold is relative-scaled to the diagonal entries
-    // to avoid spurious work on already-converged pairs at any matrix magnitude.
-    private static (SymmetricMatrix A, Arr<Arr<double>> V) Givens(
-        (SymmetricMatrix A, Arr<Arr<double>> V) state, int p, int q) {
-        double apq = state.A.At(i: p, j: q);
-        double scale = Math.Sqrt(d: Math.Abs(value: state.A.At(i: p, j: p)) * Math.Abs(value: state.A.At(i: q, j: q)));
-        return Math.Abs(value: apq) < RhinoMath.SqrtEpsilon * Math.Max(val1: RhinoMath.ZeroTolerance, val2: scale)
-            ? state
-            : ApplyJacobi(state: state, p: p, q: q);
-    }
-    // Computes Givens (cos, sin) from the symmetric 2x2 eigenvalue problem with diagonals
-    // (app, aqq) and off-diagonal apq. Uses the sign-preserving tangent formula
+    // Givens (cos, sin) from symmetric 2x2 eigen via sign-preserving tangent
     // t = sign(theta) / (|theta| + sqrt(1 + theta^2)) to avoid catastrophic cancellation.
     private static (double Cos, double Sin) ComputeGivensAngle(double app, double aqq, double apq) {
         double theta = (aqq - app) / (2.0 * apq);
@@ -347,32 +317,10 @@ internal static class MatrixKernel {
         double cos = 1.0 / Math.Sqrt(d: 1.0 + (t * t));
         return (Cos: cos, Sin: t * cos);
     }
-    private static (SymmetricMatrix A, Arr<Arr<double>> V) ApplyJacobi(
-        (SymmetricMatrix A, Arr<Arr<double>> V) state, int p, int q) {
-        double apq = state.A.At(i: p, j: q);
-        double app = state.A.At(i: p, j: p);
-        double aqq = state.A.At(i: q, j: q);
-        (double cosVal, double sinVal) = ComputeGivensAngle(app: app, aqq: aqq, apq: apq);
-        double newApp = (cosVal * cosVal * app) - (2.0 * sinVal * cosVal * apq) + (sinVal * sinVal * aqq);
-        double newAqq = (sinVal * sinVal * app) + (2.0 * sinVal * cosVal * apq) + (cosVal * cosVal * aqq);
-        int dimension = state.A.Dimension.Value;
-        SymmetricMatrix newA = toSeq(Enumerable.Range(start: 0, count: dimension))
-            .Filter(r => r != p && r != q)
-            .Fold(
-                initialState: state.A.With(i: p, j: p, value: newApp).With(i: q, j: q, value: newAqq).With(i: p, j: q, value: 0.0),
-                f: (m, r) => m.With(i: r, j: p, value: (cosVal * state.A.At(i: r, j: p)) - (sinVal * state.A.At(i: r, j: q)))
-                    .With(i: r, j: q, value: (sinVal * state.A.At(i: r, j: p)) + (cosVal * state.A.At(i: r, j: q))));
-        Arr<double> oldVp = state.V[p];
-        Arr<double> oldVq = state.V[q];
-        Arr<double> newVp = [.. Enumerable.Range(start: 0, count: dimension).Select(k => (cosVal * oldVp[k]) - (sinVal * oldVq[k]))];
-        Arr<double> newVq = [.. Enumerable.Range(start: 0, count: dimension).Select(k => (sinVal * oldVp[k]) + (cosVal * oldVq[k]))];
-        return (A: newA, V: state.V.SetItem(p, newVp).SetItem(q, newVq));
-    }
 
     // --- [CHOLESKY] -----------------------------------------------------------------------
-    // Right-looking Cholesky: A = L * Lᵀ where L is lower triangular. Each column k computes
-    // L_kk = sqrt(A_kk - sum_{j<k} L_kj²) and L_ik = (A_ik - sum_{j<k} L_ij * L_kj) / L_kk.
-    // Fails on non-SPD input (negative or zero pivot).
+    // Right-looking Cholesky A = L*L^T: L_kk = sqrt(A_kk - sum_{j<k} L_kj^2);
+    // L_ik = (A_ik - sum_{j<k} L_ij*L_kj) / L_kk. Fails on non-SPD (zero/negative pivot).
     internal static Fin<Matrix> Cholesky(SymmetricMatrix matrix, Op key) {
         int n = matrix.Dimension.Value;
         return toSeq(Enumerable.Range(start: 0, count: n)).Fold(
@@ -395,9 +343,8 @@ internal static class MatrixKernel {
     }
 
     // --- [LU] -----------------------------------------------------------------------------
-    // LU with partial pivoting (Doolittle). PA = LU where L is unit lower triangular and U is
-    // upper triangular. Permutation[i] = original row index now placed at row i; SwapCount
-    // tracks the number of row exchanges (used for determinant sign).
+    // Doolittle PA = LU: L unit lower-tri, U upper-tri. Permutation[i] = source row now at i;
+    // SwapCount tracks exchanges for determinant sign.
     internal static Fin<LuResult> LuPartialPivot(Matrix matrix, Op key) {
         int n = matrix.Rows.Value;
         Arr<int> initialPerm = [.. Enumerable.Range(start: 0, count: n)];
@@ -459,9 +406,8 @@ internal static class MatrixKernel {
     }
 
     // --- [HESSENBERG] ---------------------------------------------------------------------
-    // Householder reductions to upper Hessenberg form. For each column k in [0, n-2):
-    // build a reflector that zeroes out entries below position (k+1, k), then apply it from
-    // both sides. Result: H = Qᵀ A Q with H_ij = 0 for i > j + 1.
+    // Householder reduction to upper Hessenberg: per column k in [0, n-2), reflect entries
+    // below (k+1, k) on both sides. Result H = Q^T A Q with H_ij = 0 for i > j+1.
     internal static Fin<Matrix> Hessenberg(Matrix matrix, Op key) {
         int n = matrix.Rows.Value;
         return n != matrix.Cols.Value
@@ -471,22 +417,12 @@ internal static class MatrixKernel {
                 f: (A, k) => HouseholderStep(matrix: A, column: k, n: n)));
     }
     private static Matrix HouseholderStep(Matrix matrix, int column, int n) {
-        int subSize = n - column - 1;
-        Arr<double> x = [.. toSeq(Enumerable.Range(start: column + 1, count: subSize))
+        Arr<double> x = [.. toSeq(Enumerable.Range(start: column + 1, count: n - column - 1))
             .Map(i => matrix.At(i: i, j: column))];
-        double normX = Math.Sqrt(d: x.Fold(initialState: 0.0, f: (sum, v) => sum + (v * v)));
-        return normX < RhinoMath.ZeroTolerance
-            ? matrix
-            : ApplyHouseholder(matrix: matrix, column: column, n: n, x: x, normX: normX);
-    }
-    private static Matrix ApplyHouseholder(Matrix matrix, int column, int n, Arr<double> x, double normX) {
-        double sign = x[0] >= 0.0 ? 1.0 : -1.0;
-        double alpha = -sign * normX;
-        Arr<double> v = x.SetItem(0, x[0] - alpha);
-        double vNormSq = v.Fold(initialState: 0.0, f: (sum, value) => sum + (value * value));
-        return vNormSq < RhinoMath.ZeroTolerance
-            ? matrix
-            : ApplyReflector(matrix: matrix, column: column, n: n, v: v, beta: 2.0 / vNormSq);
+        double normX = L2Norm(x: x);
+        return normX < RhinoMath.ZeroTolerance ? matrix : Reflector(x: x, normX: normX).Match(
+            Some: rb => ApplyReflector(matrix: matrix, column: column, n: n, v: rb.V, beta: rb.Beta),
+            None: () => matrix);
     }
     private static Matrix ApplyReflector(Matrix matrix, int column, int n, Arr<double> v, double beta) {
         int subSize = v.Count;
@@ -513,10 +449,9 @@ internal static class MatrixKernel {
     }
 
     // --- [GENERAL_EIGEN] ------------------------------------------------------------------
-    // Francis-style explicit-shift QR with single Wilkinson shift, applied to the Hessenberg
-    // form. After convergence, 1x1 diagonal blocks give real eigenvalues; 2x2 blocks give
-    // conjugate pairs via characteristic polynomial. Eigenvectors are recovered via inverse
-    // iteration on (H - lambda I).
+    // Francis explicit-shift QR with Wilkinson shift on Hessenberg form. 1x1 blocks => real
+    // eigenvalues, 2x2 blocks => conjugate pairs via characteristic poly. Eigenvectors via
+    // inverse iteration on (H - lambda I).
     internal static Fin<Seq<(Complex Eigenvalue, Arr<Complex> Eigenvector)>> FrancisQr(Matrix matrix, Op key) =>
         matrix.Rows.Value != matrix.Cols.Value
             ? Fin.Fail<Seq<(Complex, Arr<Complex>)>>(error: key.InvalidInput())
@@ -623,12 +558,9 @@ internal static class MatrixKernel {
             : Seq(new Complex(real: trace * 0.5, imaginary: Math.Sqrt(d: -disc)),
                   new Complex(real: trace * 0.5, imaginary: -Math.Sqrt(d: -disc)));
     }
-    // Inverse iteration with cached LU. (A - lambda I) is factorised ONCE per eigenvalue; the
-    // 32-iteration loop reuses forward + back substitution against the cached factors. Real
-    // shifts factor the n x n shifted matrix; complex shifts factor the 2n x 2n real
-    // augmentation [[M, imagI],[-imagI, M]] which encodes the complex system.
-    private const int MaxInverseIterations = 32;
-    private const double InverseIterationEpsilon = 1e-10;
+    // Inverse iteration with cached LU: factorise (A - lambda I) once, reuse forward/back
+    // substitution. Real shift -> n x n; complex shift -> 2n x 2n real augmentation
+    // [[M, imagI], [-imagI, M]] encoding the complex system.
     private static Fin<Arr<Complex>> InverseIteration(Matrix matrix, Complex eigenvalue, Op key) {
         int n = matrix.Rows.Value;
         Arr<Complex> initial = [.. Enumerable.Range(start: 0, count: n).Select(_ => new Complex(real: 1.0, imaginary: 0.0))];
@@ -651,9 +583,14 @@ internal static class MatrixKernel {
                 : ApplyAugmentedLu(L: Lu.L, U: Lu.U, perm: Lu.Permutation, rhs: rhs, n: n);
         }
     }
+    // Inverse iteration on (A - lambda*I) is undefined when lambda is an exact eigenvalue:
+    // LU back-solve divides by ~0 producing NaN eigenvectors. Standard fix: perturb shift by
+    // a tiny relative offset so the shifted matrix is regular while staying within convergence
+    // tolerance of the true eigenvalue.
     private static Fin<ShiftedFactorisation> FactorShifted(Matrix matrix, Complex eigenvalue, Op key) {
         int n = matrix.Rows.Value;
-        Matrix shifted = ShiftDiagonal(matrix: matrix, n: n, by: eigenvalue.Real);
+        double perturbation = RhinoMath.SqrtEpsilon * Math.Max(val1: 1.0, val2: Math.Abs(value: eigenvalue.Real));
+        Matrix shifted = ShiftDiagonal(matrix: matrix, n: n, by: eigenvalue.Real - perturbation);
         return Math.Abs(value: eigenvalue.Imaginary) < QrEpsilon
             ? shifted.DecomposeLu(key: key).Map(lu => new ShiftedFactorisation(Lu: lu, IsRealShift: true, Original: n))
             : BuildComplexAugmented(shifted: shifted, n: n, imag: eigenvalue.Imaginary).DecomposeLu(key: key)
@@ -737,14 +674,10 @@ internal static class MatrixKernel {
     }
 
     // --- [SVD_GOLUB_REINSCH] --------------------------------------------------------------
-    // Golub-Reinsch SVD: Householder bidiagonalisation reduces A (m x n) to upper bidiagonal
-    // B with U_left and V_right accumulators capturing the left/right reflectors. The
-    // bidiagonalised form is then diagonalised by Givens-based rotations operating on B's
-    // columns; because B has at most one super-diagonal entry per row the rotations converge
-    // dramatically faster than they would on the dense A. Final U/V incorporate the
-    // bidiagonalisation accumulators; singular values are sign-normalised and sorted
-    // descending. The pipeline shares `ReflectLeftSubspace`/`ReflectRightSubspace` with QR
-    // and Hessenberg, keeping Householder algebra unified.
+    // Golub-Reinsch SVD: Householder bidiagonalise A -> B with U_left/V_right accumulators;
+    // diagonalise B via column-Givens (B is sparser than A so converges much faster than
+    // one-sided Jacobi). Final U/V fold in the bidiag accumulators; sigma sorted descending.
+    // Shares ReflectLeftSubspace/ReflectRightSubspace with QR/Hessenberg.
     internal static Fin<SvdResult> SvdJacobi(Matrix matrix, Op key) {
         int m = matrix.Rows.Value;
         int n = matrix.Cols.Value;
@@ -779,53 +712,28 @@ internal static class MatrixKernel {
             : (uAfter, bAfterLeft, state.V);
     }
     private static (Matrix U, Matrix B) LeftHouseholderColumn(Matrix U, Matrix B, int k, int m, int n) {
-        int subSize = m - k;
         Matrix bSnap = B;
-        Arr<double> x = [.. toSeq(Enumerable.Range(start: 0, count: subSize))
+        Arr<double> x = [.. toSeq(Enumerable.Range(start: 0, count: m - k))
             .Map(i => bSnap.At(i: k + i, j: k))];
-        double normX = Math.Sqrt(d: x.Fold(initialState: 0.0, f: static (sum, v) => sum + (v * v)));
-        return normX < RhinoMath.ZeroTolerance
-            ? (U, B)
-            : ApplyBidiagonalLeftReflector(U: U, B: B, k: k, n: n, x: x, normX: normX);
-    }
-    private static (Matrix U, Matrix B) ApplyBidiagonalLeftReflector(Matrix U, Matrix B, int k, int n, Arr<double> x, double normX) {
-        double sign = x[0] >= 0.0 ? 1.0 : -1.0;
-        double alpha = -sign * normX;
-        Arr<double> v = x.SetItem(0, x[0] - alpha);
-        double vNormSq = v.Fold(initialState: 0.0, f: static (sum, value) => sum + (value * value));
-        return vNormSq < RhinoMath.ZeroTolerance
-            ? (U, B)
-            : (U: ReflectRightSubspace(matrix: U, column: k, v: v, beta: 2.0 / vNormSq),
-               B: ReflectLeftSubspace(matrix: B, column: k, n: n, v: v, beta: 2.0 / vNormSq));
+        double normX = L2Norm(x: x);
+        return normX < RhinoMath.ZeroTolerance ? (U, B) : Reflector(x: x, normX: normX).Match(
+            Some: rb => (U: ReflectRightSubspace(matrix: U, column: k, v: rb.V, beta: rb.Beta),
+                         B: ReflectLeftSubspace(matrix: B, column: k, n: n, v: rb.V, beta: rb.Beta)),
+            None: () => (U, B));
     }
     private static (Matrix B, Matrix V) RightHouseholderRow(Matrix B, Matrix V, int k, int n) {
-        int subSize = n - k - 1;
         Matrix bSnap = B;
-        Arr<double> y = [.. toSeq(Enumerable.Range(start: 0, count: subSize))
+        Arr<double> y = [.. toSeq(Enumerable.Range(start: 0, count: n - k - 1))
             .Map(i => bSnap.At(i: k, j: k + 1 + i))];
-        double normY = Math.Sqrt(d: y.Fold(initialState: 0.0, f: static (sum, v) => sum + (v * v)));
-        return normY < RhinoMath.ZeroTolerance
-            ? (B, V)
-            : ApplyBidiagonalRightReflector(B: B, V: V, k: k, y: y, normY: normY);
+        double normY = L2Norm(x: y);
+        return normY < RhinoMath.ZeroTolerance ? (B, V) : Reflector(x: y, normX: normY).Match(
+            Some: rb => (B: ReflectRightSubspace(matrix: B, column: k + 1, v: rb.V, beta: rb.Beta),
+                         V: ReflectRightSubspace(matrix: V, column: k + 1, v: rb.V, beta: rb.Beta)),
+            None: () => (B, V));
     }
-    private static (Matrix B, Matrix V) ApplyBidiagonalRightReflector(Matrix B, Matrix V, int k, Arr<double> y, double normY) {
-        double sign = y[0] >= 0.0 ? 1.0 : -1.0;
-        double alpha = -sign * normY;
-        Arr<double> w = y.SetItem(0, y[0] - alpha);
-        double wNormSq = w.Fold(initialState: 0.0, f: static (sum, value) => sum + (value * value));
-        return wNormSq < RhinoMath.ZeroTolerance
-            ? (B, V)
-            : (B: ReflectRightSubspace(matrix: B, column: k + 1, v: w, beta: 2.0 / wNormSq),
-               V: ReflectRightSubspace(matrix: V, column: k + 1, v: w, beta: 2.0 / wNormSq));
-    }
-    // Phase 2 ----------------------------------------------------------------------------
-    // Givens sweep on bidiagonal-conditioned A: rotates column pairs (p, q) to orthogonalise.
-    // Equivalent to one-sided Jacobi but starting from B (much closer to diagonal than A).
+    // Phase 2: Givens sweep on bidiagonal-conditioned A — one-sided Jacobi seeded from B.
     private static bool BidiagonalSweepConverged(Matrix matrix, int n) {
-        double offDiag = toSeq(
-            from p in Enumerable.Range(start: 0, count: n - 1)
-            from q in Enumerable.Range(start: p + 1, count: n - 1 - p)
-            select (P: p, Q: q))
+        double offDiag = SweepPairs(dimension: n)
             .Fold(initialState: 0.0,
                 f: (sum, pq) => sum + Math.Abs(value: BidiagonalColumnDot(matrix: matrix, p: pq.P, q: pq.Q)));
         double diag = toSeq(Enumerable.Range(start: 0, count: n))
@@ -839,10 +747,7 @@ internal static class MatrixKernel {
             .Fold(initialState: 0.0, f: (sum, i) => sum + (self.At(i: i, j: p) * self.At(i: i, j: q)));
     }
     private static (Matrix A, Matrix V) BidiagonalSweep((Matrix A, Matrix V) state, int n) =>
-        toSeq(from p in Enumerable.Range(start: 0, count: n - 1)
-              from q in Enumerable.Range(start: p + 1, count: n - 1 - p)
-              select (P: p, Q: q))
-            .Fold(initialState: state, f: static (s, pq) => BidiagonalRotatePair(state: s, p: pq.P, q: pq.Q));
+        SweepPairs(dimension: n).Fold(initialState: state, f: static (s, pq) => BidiagonalRotatePair(state: s, p: pq.P, q: pq.Q));
     private static (Matrix A, Matrix V) BidiagonalRotatePair((Matrix A, Matrix V) state, int p, int q) {
         double app = BidiagonalColumnDot(matrix: state.A, p: p, q: p);
         double aqq = BidiagonalColumnDot(matrix: state.A, p: q, q: q);
@@ -865,11 +770,9 @@ internal static class MatrixKernel {
             f: (mm, i) => mm.With(i: i, j: p, value: (cos * self.At(i: i, j: p)) - (sin * self.At(i: i, j: q)))
                 .With(i: i, j: q, value: (sin * self.At(i: i, j: p)) + (cos * self.At(i: i, j: q))));
     }
-    // Phase 3 ----------------------------------------------------------------------------
-    // Final assembly: column norms of BRotated == singular values; U_intermediate[:, j] =
-    // BRotated[:, perm[j]] / sigma_j; final U = UBidiag * U_intermediate. V is the already-
-    // composed Jacobi V (which incorporates VBidiag because Phase 2 was seeded with VBidiag).
-    // Singular values are sorted descending; columns of U and V are permuted to match.
+    // Phase 3: column norms of BRotated are the singular values; U_intermediate[:, j] =
+    // BRotated[:, perm[j]] / sigma_j; final U = UBidiag * U_intermediate. V is already the
+    // composed Jacobi V (incorporates VBidiag since Phase 2 seeded with VBidiag).
     private static SvdResult BuildSortedSvd(Matrix UBidiag, Matrix BRotated, Matrix V, int m, int n) {
         Seq<(double Norm, int Column)> norms = toSeq(Enumerable.Range(start: 0, count: n))
             .Map(j => (Norm: Math.Sqrt(d: BidiagonalColumnDot(matrix: BRotated, p: j, q: j)), Column: j))
@@ -880,8 +783,7 @@ internal static class MatrixKernel {
         Matrix sortedV = new(Rows: V.Rows, Cols: V.Cols,
             Entries: [.. toSeq(Enumerable.Range(start: 0, count: n * n))
                 .Map(idx => V.At(i: idx / n, j: norms[idx % n].Column))]);
-        // U_intermediate is m x n: column j = BRotated[:, perm[j]] / sigma_j (zero if
-        // singular value is degenerate).
+        // U_intermediate is m x n: column j = BRotated[:, perm[j]] / sigma_j (zero if singular value is degenerate).
         Matrix uIntermediate = new(Rows: Dimension.Create(value: m), Cols: Dimension.Create(value: n),
             Entries: [.. toSeq(Enumerable.Range(start: 0, count: m * n))
                 .Map(idx => norms[idx % n].Norm > RhinoMath.ZeroTolerance

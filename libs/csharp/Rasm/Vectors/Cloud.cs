@@ -5,75 +5,39 @@ namespace Rasm.Vectors;
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class VectorCloudMetric {
-    public static readonly VectorCloudMetric Normal = new(key: 0, output: typeof(Vector3d),
-        admitsCase: static cloud => cloud is VectorCloud.RingCase,
-        measure: static (cloud, k) => CloudKernel.RingNormalOf(ring: (VectorCloud.RingCase)cloud, key: k).Map(static v => (object)v));
-    public static readonly VectorCloudMetric Area = new(key: 1, output: typeof(double),
-        admitsCase: static cloud => cloud is VectorCloud.RingCase,
-        measure: static (cloud, k) => CloudKernel.RingAreaOf(ring: (VectorCloud.RingCase)cloud, key: k).Map(static v => (object)v));
-    public static readonly VectorCloudMetric Perimeter = new(key: 2, output: typeof(double),
-        admitsCase: static cloud => cloud is VectorCloud.RingCase,
-        measure: static (cloud, k) => k.AcceptValue(value: ((VectorCloud.RingCase)cloud).Native.Length).Map(static v => (object)v));
-    public static readonly VectorCloudMetric EdgeAspect = new(key: 3, output: typeof(double),
-        admitsCase: static cloud => cloud is VectorCloud.RingCase,
-        measure: static (cloud, k) => CloudKernel.EdgeAspectOf(native: ((VectorCloud.RingCase)cloud).Native, context: ((VectorCloud.RingCase)cloud).Tolerance, key: k).Map(static v => (object)v));
-    public static readonly VectorCloudMetric Skewness = new(key: 4, output: typeof(double),
-        admitsCase: static cloud => cloud is VectorCloud.RingCase,
-        measure: static (cloud, k) => CloudKernel.RingSkewnessOf(ring: (VectorCloud.RingCase)cloud, key: k).Map(static v => (object)v));
-    public static readonly VectorCloudMetric Compactness = new(key: 5, output: typeof(double),
-        admitsCase: static cloud => cloud is VectorCloud.RingCase,
-        measure: static (cloud, k) => CloudKernel.RingCompactnessOf(ring: (VectorCloud.RingCase)cloud, key: k).Map(static v => (object)v));
-    public static readonly VectorCloudMetric MomentAnisotropy = new(key: 6, output: typeof(double),
-        admitsCase: static cloud => cloud is VectorCloud.RingCase,
-        measure: static (cloud, k) => CloudKernel.RingMomentAnisotropyOf(ring: (VectorCloud.RingCase)cloud, key: k).Map(static v => (object)v));
-    public static readonly VectorCloudMetric RadiiOfGyration = new(key: 7, output: typeof(Vector3d),
-        admitsCase: static cloud => cloud is VectorCloud.RingCase,
-        measure: static (cloud, k) => CloudKernel.WithMassProperties(ring: (VectorCloud.RingCase)cloud, project: static (props, op) => op.AcceptValue(value: props.CentroidCoordinatesRadiiOfGyration), key: k).Map(static v => (object)v));
-    public static readonly VectorCloudMetric AreaError = new(key: 8, output: typeof(double),
-        admitsCase: static cloud => cloud is VectorCloud.RingCase,
-        measure: static (cloud, k) => CloudKernel.WithMassProperties(ring: (VectorCloud.RingCase)cloud, project: static (props, op) => op.AcceptValue(value: props.AreaError), key: k).Map(static v => (object)v));
-    public static readonly VectorCloudMetric CentroidError = new(key: 9, output: typeof(Vector3d),
-        admitsCase: static cloud => cloud is VectorCloud.RingCase,
-        measure: static (cloud, k) => CloudKernel.WithMassProperties(ring: (VectorCloud.RingCase)cloud, project: static (props, op) => op.AcceptValue(value: props.CentroidError), key: k).Map(static v => (object)v));
-    public static readonly VectorCloudMetric Centroid = new(key: 10, output: typeof(Point3d),
-        admitsCase: static _ => true,
-        measure: static (cloud, k) => CloudKernel.CentroidOf(cloud: cloud, key: k).Map(static v => (object)v));
-    public static readonly VectorCloudMetric BestFitPlane = new(key: 11, output: typeof(Plane),
-        admitsCase: static _ => true,
-        measure: static (cloud, k) => CloudKernel.BestFitPlaneOf(cloud: cloud, key: k).Map(static v => (object)v));
-    public static readonly VectorCloudMetric PrincipalAxes = new(key: 12, output: typeof(Seq<Vector3d>),
-        admitsCase: static _ => true,
-        measure: static (cloud, k) => CloudKernel.PrincipalAxesOf(cloud: cloud, key: k).Map(static v => (object)v));
-    public static readonly VectorCloudMetric PrincipalFrame = new(key: 13, output: typeof(Plane),
-        admitsCase: static _ => true,
-        measure: static (cloud, k) => CloudKernel.PrincipalFrameOf(cloud: cloud, key: k).Map(static v => (object)v));
-    public static readonly VectorCloudMetric Shape = new(key: 14, output: typeof(VectorCloudShape),
-        admitsCase: static _ => true,
-        measure: static (cloud, k) => CloudKernel.ShapeOf(cloud: cloud, key: k).Map(static v => (object)v));
+    public static readonly VectorCloudMetric Normal = Ring(key: 0, output: typeof(Vector3d), measure: static (c, k) => CloudKernel.RingNormalOf(ring: c, key: k).Map(static v => (object)v));
+    public static readonly VectorCloudMetric Area = Ring(key: 1, output: typeof(double), measure: static (c, k) => CloudKernel.RingAreaOf(ring: c, key: k).Map(static v => (object)v));
+    public static readonly VectorCloudMetric Perimeter = Ring(key: 2, output: typeof(double), measure: static (c, k) => k.AcceptValue(value: c.Native.Length).Map(static v => (object)v));
+    public static readonly VectorCloudMetric EdgeAspect = Ring(key: 3, output: typeof(double), measure: static (c, k) => CloudKernel.EdgeAspectOf(native: c.Native, context: c.Tolerance, key: k).Map(static v => (object)v));
+    public static readonly VectorCloudMetric Skewness = Ring(key: 4, output: typeof(double), measure: static (c, k) => CloudKernel.RingSkewnessOf(ring: c, key: k).Map(static v => (object)v));
+    public static readonly VectorCloudMetric Compactness = Ring(key: 5, output: typeof(double), measure: static (c, k) => CloudKernel.RingCompactnessOf(ring: c, key: k).Map(static v => (object)v));
+    public static readonly VectorCloudMetric MomentAnisotropy = Ring(key: 6, output: typeof(double), measure: static (c, k) => CloudKernel.RingMomentAnisotropyOf(ring: c, key: k).Map(static v => (object)v));
+    public static readonly VectorCloudMetric RadiiOfGyration = Ring(key: 7, output: typeof(Vector3d), measure: static (c, k) => CloudKernel.WithMassProperties(ring: c, project: static (op, props) => op.AcceptValue(value: props.CentroidCoordinatesRadiiOfGyration), key: k).Map(static v => (object)v));
+    public static readonly VectorCloudMetric AreaError = Ring(key: 8, output: typeof(double), measure: static (c, k) => CloudKernel.WithMassProperties(ring: c, project: static (op, props) => op.AcceptValue(value: props.AreaError), key: k).Map(static v => (object)v));
+    public static readonly VectorCloudMetric CentroidError = Ring(key: 9, output: typeof(Vector3d), measure: static (c, k) => CloudKernel.WithMassProperties(ring: c, project: static (op, props) => op.AcceptValue(value: props.CentroidError), key: k).Map(static v => (object)v));
+    public static readonly VectorCloudMetric Centroid = All(key: 10, output: typeof(Point3d), measure: static (c, k) => CloudKernel.CentroidOf(cloud: c, key: k).Map(static v => (object)v));
+    public static readonly VectorCloudMetric BestFitPlane = All(key: 11, output: typeof(Plane), measure: static (c, k) => CloudKernel.BestFitPlaneOf(cloud: c, key: k).Map(static v => (object)v));
+    public static readonly VectorCloudMetric PrincipalAxes = All(key: 12, output: typeof(Seq<Vector3d>), measure: static (c, k) => CloudKernel.PrincipalAxesOf(cloud: c, key: k).Map(static v => (object)v));
+    public static readonly VectorCloudMetric PrincipalFrame = All(key: 13, output: typeof(Plane), measure: static (c, k) => CloudKernel.PrincipalFrameOf(cloud: c, key: k).Map(static v => (object)v));
+    public static readonly VectorCloudMetric Shape = All(key: 14, output: typeof(VectorCloudShape), measure: static (c, k) => CloudKernel.ShapeOf(cloud: c, key: k).Map(static v => (object)v));
     public static readonly VectorCloudMetric BishopFrames = new(key: 15, output: typeof(Seq<Plane>),
         admitsCase: static cloud => cloud is VectorCloud.PolylineCase or VectorCloud.RingCase,
         measure: static (cloud, k) => CloudKernel.BishopFramesOf(cloud: cloud, key: k).Map(static v => (object)v));
-    public static readonly VectorCloudMetric TangentFlow = new(key: 16, output: typeof(Seq<Vector3d>),
-        admitsCase: static cloud => cloud is VectorCloud.PolylineCase,
-        measure: static (cloud, k) => CloudKernel.TangentFlowOf(points: ((VectorCloud.PolylineCase)cloud).Vertices, key: k).Map(static v => (object)v));
-    public static readonly VectorCloudMetric CumulativeArcLength = new(key: 17, output: typeof(Seq<double>),
-        admitsCase: static cloud => cloud is VectorCloud.PolylineCase,
-        measure: static (cloud, k) => CloudKernel.CumulativeArcLengthOf(points: ((VectorCloud.PolylineCase)cloud).Vertices, key: k).Map(static v => (object)v));
-    public static readonly VectorCloudMetric EdgeCurvatures = new(key: 18, output: typeof(Seq<double>),
-        admitsCase: static cloud => cloud is VectorCloud.PolylineCase,
-        measure: static (cloud, k) => CloudKernel.EdgeCurvaturesOf(points: ((VectorCloud.PolylineCase)cloud).Vertices, key: k).Map(static v => (object)v));
-    public static readonly VectorCloudMetric OpenLength = new(key: 19, output: typeof(double),
-        admitsCase: static cloud => cloud is VectorCloud.PolylineCase,
-        measure: static (cloud, k) => CloudKernel.OpenLengthOf(points: ((VectorCloud.PolylineCase)cloud).Vertices, key: k).Map(static v => (object)v));
-    public static readonly VectorCloudMetric Covariance = new(key: 20, output: typeof(SymmetricMatrix),
-        admitsCase: static cloud => cloud is VectorCloud.ClusterCase,
-        measure: static (cloud, k) => CloudKernel.CovarianceOf(points: ((VectorCloud.ClusterCase)cloud).Vertices, key: k).Map(static v => (object)v.Cov));
-    public static readonly VectorCloudMetric PrincipalDirection = new(key: 21, output: typeof(Vector3d),
-        admitsCase: static cloud => cloud is VectorCloud.ClusterCase,
-        measure: static (cloud, k) => CloudKernel.PrincipalDirectionOf(points: ((VectorCloud.ClusterCase)cloud).Vertices, key: k).Map(static v => (object)v));
-    public static readonly VectorCloudMetric Spread = new(key: 22, output: typeof(Vector3d),
-        admitsCase: static cloud => cloud is VectorCloud.ClusterCase,
-        measure: static (cloud, k) => CloudKernel.SpreadOf(points: ((VectorCloud.ClusterCase)cloud).Vertices, key: k).Map(static v => (object)v));
+    public static readonly VectorCloudMetric TangentFlow = Poly(key: 16, output: typeof(Seq<Vector3d>), measure: static (pts, k) => CloudKernel.TangentFlowOf(points: pts, key: k).Map(static v => (object)v));
+    public static readonly VectorCloudMetric CumulativeArcLength = Poly(key: 17, output: typeof(Seq<double>), measure: static (pts, k) => CloudKernel.CumulativeArcLengthOf(points: pts, key: k).Map(static v => (object)v));
+    public static readonly VectorCloudMetric EdgeCurvatures = Poly(key: 18, output: typeof(Seq<double>), measure: static (pts, k) => CloudKernel.EdgeCurvaturesOf(points: pts, key: k).Map(static v => (object)v));
+    public static readonly VectorCloudMetric OpenLength = Poly(key: 19, output: typeof(double), measure: static (pts, k) => CloudKernel.OpenLengthOf(points: pts, key: k).Map(static v => (object)v));
+    public static readonly VectorCloudMetric Covariance = Cluster(key: 20, output: typeof(SymmetricMatrix), measure: static (pts, k) => CloudKernel.CovarianceOf(points: pts, key: k).Map(static v => (object)v.Cov));
+    public static readonly VectorCloudMetric PrincipalDirection = Cluster(key: 21, output: typeof(Vector3d), measure: static (pts, k) => CloudKernel.PrincipalDirectionOf(points: pts, key: k).Map(static v => (object)v));
+    public static readonly VectorCloudMetric Spread = Cluster(key: 22, output: typeof(Vector3d), measure: static (pts, k) => CloudKernel.SpreadOf(points: pts, key: k).Map(static v => (object)v));
+    private static VectorCloudMetric Ring(int key, Type output, Func<VectorCloud.RingCase, Op, Fin<object>> measure) =>
+        new(key: key, output: output, admitsCase: static cloud => cloud is VectorCloud.RingCase, measure: (cloud, k) => measure((VectorCloud.RingCase)cloud, k));
+    private static VectorCloudMetric All(int key, Type output, Func<VectorCloud, Op, Fin<object>> measure) =>
+        new(key: key, output: output, admitsCase: static _ => true, measure: measure);
+    private static VectorCloudMetric Poly(int key, Type output, Func<Seq<Point3d>, Op, Fin<object>> measure) =>
+        new(key: key, output: output, admitsCase: static cloud => cloud is VectorCloud.PolylineCase, measure: (cloud, k) => measure(((VectorCloud.PolylineCase)cloud).Vertices, k));
+    private static VectorCloudMetric Cluster(int key, Type output, Func<Seq<Point3d>, Op, Fin<object>> measure) =>
+        new(key: key, output: output, admitsCase: static cloud => cloud is VectorCloud.ClusterCase, measure: (cloud, k) => measure(((VectorCloud.ClusterCase)cloud).Vertices, k));
     public Type Output { get; }
     [UseDelegateFromConstructor] internal partial bool AdmitsCase(VectorCloud cloud);
     [UseDelegateFromConstructor] private partial Fin<object> Measure(VectorCloud cloud, Op key);
@@ -155,7 +119,7 @@ public abstract partial record VectorCloud {
             return pc;
         });
         internal RTree Tree => TreeCache.GetValue(key: this,
-            createValueCallback: static c => RTree.CreateFromPointArray(points: c.Vertices.AsIterable()));
+            createValueCallback: static c => RTree.CreatePointCloudTree(cloud: c.Indexed));
         internal Fin<ClosestHit> ClosestVertex(Point3d sample, Op key) =>
             Indexed.ClosestPoint(testPoint: sample) switch {
                 int idx when idx >= 0 && idx < Vertices.Count => key.AcceptValue(value: ClosestHit.At(
@@ -268,10 +232,8 @@ internal static class CloudKernel {
                 .Bind(initialNormal => BishopChainOf(points: ring.Vertices, initialNormal: initialNormal, closed: true, context: ring.Tolerance, key: k)),
             polylineCase: static (k, polyline) => polyline.Vertices.Count < 2
                 ? Fin.Fail<Seq<Plane>>(k.InvalidInput())
-                : (VectorFrame.SeedPerpendicular(axis: polyline.Vertices[1] - polyline.Vertices[0]) switch {
-                    Vector3d seed => Direction.Of(value: seed, context: polyline.Tolerance, key: k),
-                    _ => Fin.Fail<Direction>(k.InvalidResult()),
-                }).Bind(initialNormal => BishopChainOf(points: polyline.Vertices, initialNormal: initialNormal, closed: false, context: polyline.Tolerance, key: k)),
+                : Direction.Of(value: VectorFrame.SeedPerpendicular(axis: polyline.Vertices[1] - polyline.Vertices[0]), context: polyline.Tolerance, key: k)
+                    .Bind(initialNormal => BishopChainOf(points: polyline.Vertices, initialNormal: initialNormal, closed: false, context: polyline.Tolerance, key: k)),
             clusterCase: static (k, c) => Fin.Fail<Seq<Plane>>(k.Unsupported(geometryType: c.GetType(), outputType: typeof(Seq<Plane>))));
     internal static Fin<Seq<Plane>> BishopChainOf(Seq<Point3d> points, Direction initialNormal, bool closed, Context context, Op key) =>
         points.Count switch {
@@ -345,7 +307,7 @@ internal static class CloudKernel {
     // --- [DISPATCH] ---------------------------------------------------------------------
     internal static Fin<Point3d> CentroidOf(VectorCloud cloud, Op key) =>
         WithCaseRails(cloud: cloud, key: key,
-            ringRail: static (ring, k) => WithMassProperties(ring: ring, project: static (props, op) => op.AcceptValue(value: props.Centroid), key: k),
+            ringRail: static (ring, k) => WithMassProperties(ring: ring, project: static (op, props) => op.AcceptValue(value: props.Centroid), key: k),
             pointRail: static (points, _, k) => CovarianceOf(points: points, key: k).Bind(stats => k.AcceptValue(value: (Point3d)stats.Mean)));
     internal static Fin<Plane> BestFitPlaneOf(VectorCloud cloud, Op key) =>
         WithCaseRails(cloud: cloud, key: key,
@@ -354,7 +316,7 @@ internal static class CloudKernel {
     internal static Fin<Seq<Vector3d>> PrincipalAxesOf(VectorCloud cloud, Op key) =>
         WithCaseRails(cloud: cloud, key: key,
             ringRail: static (ring, k) => WithMassProperties(ring: ring,
-                project: static (props, op) => AxesOf(mass: props, key: op).Bind(axes => axes.Map(static a => a.Axis).TraverseM(a => op.AcceptValue(value: a)).As()),
+                project: static (op, props) => AxesOf(mass: props, key: op).Bind(axes => axes.Map(static a => a.Axis).TraverseM(a => op.AcceptValue(value: a)).As()),
                 key: k),
             pointRail: static (points, _, k) => CovarianceOf(points: points, key: k)
                 .Bind(stats => stats.Cov.DecomposeEigen(key: k))
@@ -394,7 +356,7 @@ internal static class CloudKernel {
         WithRingCurve(ring: ring, project: static (state, curve) =>
             RingOrientationOf(curve: curve, context: state.Context, key: state.Key).Map(static o => o.Normal), key: key);
     internal static Fin<double> RingAreaOf(VectorCloud.RingCase ring, Op key) =>
-        WithMassProperties(ring: ring, project: static (props, op) => op.AcceptValue(value: props.Area), key: key);
+        WithMassProperties(ring: ring, project: static (op, props) => op.AcceptValue(value: props.Area), key: key);
     internal static Fin<double> RingCompactnessOf(VectorCloud.RingCase ring, Op key) {
         double perimeter = ring.Native.Length;
         return RingAreaOf(ring: ring, key: key).Bind(area => CompactnessOf(area: area, perimeter: perimeter, key: key));
@@ -563,15 +525,12 @@ internal static class CloudKernel {
         };
     private static Fin<TResult> WithRingCurve<TResult>(VectorCloud.RingCase ring, Func<(Seq<Point3d> Vertices, Polyline Native, Context Context, Op Key), PolylineCurve, Fin<TResult>> project, Op key) =>
         Optional(ring.Native.ToPolylineCurve()).ToFin(key.InvalidResult()).Bind(curve => new Lease<PolylineCurve>.Owned(Value: curve).Use(state: (ring.Vertices, ring.Native, Context: ring.Tolerance, Key: key), project: project));
-    private static Fin<TResult> WithMassPropertiesInternal<TState, TResult>(PolylineCurve curve, Context context, Func<TState, AreaMassProperties, Fin<TResult>> project, TState state, Op key) =>
+    internal static Fin<TResult> WithMassPropertiesInternal<TState, TResult>(PolylineCurve curve, Context context, Func<TState, AreaMassProperties, Fin<TResult>> project, TState state, Op key) =>
         Optional(AreaMassProperties.Compute(closedPlanarCurve: curve, planarTolerance: context.Absolute.Value)).ToFin(key.InvalidResult())
             .Bind(props => new Lease<AreaMassProperties>.Owned(Value: props).Use(state: state, project: project));
-    internal static Fin<TResult> WithMassProperties<TResult>(VectorCloud.RingCase ring, Func<AreaMassProperties, Op, Fin<TResult>> project, Op key) =>
+    internal static Fin<TResult> WithMassProperties<TResult>(VectorCloud.RingCase ring, Func<Op, AreaMassProperties, Fin<TResult>> project, Op key) =>
         WithRingCurve(ring: ring, project: (state, curve) => WithMassPropertiesInternal(
-            curve: curve, context: state.Context,
-            project: (s, mass) => project(arg1: mass, arg2: s.Key),
-            state: (state.Context, state.Key, Curve: curve),
-            key: state.Key), key: key);
+            curve: curve, context: state.Context, project: project, state: state.Key, key: state.Key), key: key);
 
     // --- [POLYLINE_METRICS] -------------------------------------------------------------
     internal static Fin<Seq<Vector3d>> TangentFlowOf(Seq<Point3d> points, Op key) =>

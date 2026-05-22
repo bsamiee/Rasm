@@ -21,70 +21,51 @@ public readonly record struct ButcherTableau(Seq<Seq<double>> Coupling, Seq<doub
 
 [SmartEnum<int>]
 public sealed partial class IntegratorKind {
-    public static readonly IntegratorKind Euler = new(key: 0, tableau: new ButcherTableau(
-        Coupling: [[]],
-        Weights: [1.0],
-        ErrorWeights: Option<Seq<double>>.None));
-    public static readonly IntegratorKind Heun = new(key: 1, tableau: new ButcherTableau(
-        Coupling: [[], [1.0]],
-        Weights: [0.5, 0.5],
-        ErrorWeights: Option<Seq<double>>.None));
-    public static readonly IntegratorKind Midpoint = new(key: 2, tableau: new ButcherTableau(
-        Coupling: [[], [0.5]],
-        Weights: [0.0, 1.0],
-        ErrorWeights: Option<Seq<double>>.None));
-    public static readonly IntegratorKind Ralston = new(key: 3, tableau: new ButcherTableau(
-        Coupling: [[], [2.0 / 3.0]],
-        Weights: [0.25, 0.75],
-        ErrorWeights: Option<Seq<double>>.None));
-    public static readonly IntegratorKind RK4 = new(key: 4, tableau: new ButcherTableau(
-        Coupling: [[], [0.5], [0.0, 0.5], [0.0, 0.0, 1.0]],
-        Weights: [1.0 / 6.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 6.0],
-        ErrorWeights: Option<Seq<double>>.None));
-    public static readonly IntegratorKind RK38 = new(key: 5, tableau: new ButcherTableau(
-        Coupling: [[], [1.0 / 3.0], [-1.0 / 3.0, 1.0], [1.0, -1.0, 1.0]],
-        Weights: [1.0 / 8.0, 3.0 / 8.0, 3.0 / 8.0, 1.0 / 8.0],
-        ErrorWeights: Option<Seq<double>>.None));
-    public static readonly IntegratorKind BogackiShampine = new(key: 6, tableau: new ButcherTableau(
-        Coupling: [[], [0.5], [0.0, 0.75], [2.0 / 9.0, 1.0 / 3.0, 4.0 / 9.0]],
-        Weights: [2.0 / 9.0, 1.0 / 3.0, 4.0 / 9.0, 0.0],
-        ErrorWeights: Some<Seq<double>>([7.0 / 24.0, 0.25, 1.0 / 3.0, 1.0 / 8.0])));
-    public static readonly IntegratorKind CashKarp = new(key: 7, tableau: new ButcherTableau(
-        Coupling: [
-            [],
-            [0.2],
-            [3.0 / 40.0, 9.0 / 40.0],
-            [0.3, -0.9, 1.2],
+    public static readonly IntegratorKind Euler = Fixed(key: 0, coupling: [[]], weights: [1.0]);
+    public static readonly IntegratorKind Heun = Fixed(key: 1, coupling: [[], [1.0]], weights: [0.5, 0.5]);
+    public static readonly IntegratorKind Midpoint = Fixed(key: 2, coupling: [[], [0.5]], weights: [0.0, 1.0]);
+    public static readonly IntegratorKind Ralston = Fixed(key: 3, coupling: [[], [2.0 / 3.0]], weights: [0.25, 0.75]);
+    public static readonly IntegratorKind RK4 = Fixed(key: 4,
+        coupling: [[], [0.5], [0.0, 0.5], [0.0, 0.0, 1.0]],
+        weights: [1.0 / 6.0, 1.0 / 3.0, 1.0 / 3.0, 1.0 / 6.0]);
+    public static readonly IntegratorKind RK38 = Fixed(key: 5,
+        coupling: [[], [1.0 / 3.0], [-1.0 / 3.0, 1.0], [1.0, -1.0, 1.0]],
+        weights: [1.0 / 8.0, 3.0 / 8.0, 3.0 / 8.0, 1.0 / 8.0]);
+    public static readonly IntegratorKind BogackiShampine = Adaptive(key: 6,
+        coupling: [[], [0.5], [0.0, 0.75], [2.0 / 9.0, 1.0 / 3.0, 4.0 / 9.0]],
+        weights: [2.0 / 9.0, 1.0 / 3.0, 4.0 / 9.0, 0.0],
+        errorWeights: [7.0 / 24.0, 0.25, 1.0 / 3.0, 1.0 / 8.0]);
+    public static readonly IntegratorKind CashKarp = Adaptive(key: 7,
+        coupling: [[], [0.2], [3.0 / 40.0, 9.0 / 40.0], [0.3, -0.9, 1.2],
             [-11.0 / 54.0, 2.5, -70.0 / 27.0, 35.0 / 27.0],
             [1631.0 / 55296.0, 175.0 / 512.0, 575.0 / 13824.0, 44275.0 / 110592.0, 253.0 / 4096.0]],
-        Weights: [37.0 / 378.0, 0.0, 250.0 / 621.0, 125.0 / 594.0, 0.0, 512.0 / 1771.0],
-        ErrorWeights: Some<Seq<double>>([2825.0 / 27648.0, 0.0, 18575.0 / 48384.0, 13525.0 / 55296.0, 277.0 / 14336.0, 0.25])));
-    public static readonly IntegratorKind DormandPrince = new(key: 8, tableau: new ButcherTableau(
-        Coupling: [
-            [],
-            [1.0 / 5.0],
-            [3.0 / 40.0, 9.0 / 40.0],
+        weights: [37.0 / 378.0, 0.0, 250.0 / 621.0, 125.0 / 594.0, 0.0, 512.0 / 1771.0],
+        errorWeights: [2825.0 / 27648.0, 0.0, 18575.0 / 48384.0, 13525.0 / 55296.0, 277.0 / 14336.0, 0.25]);
+    public static readonly IntegratorKind DormandPrince = Adaptive(key: 8,
+        coupling: [[], [1.0 / 5.0], [3.0 / 40.0, 9.0 / 40.0],
             [44.0 / 45.0, -56.0 / 15.0, 32.0 / 9.0],
             [19372.0 / 6561.0, -25360.0 / 2187.0, 64448.0 / 6561.0, -212.0 / 729.0],
             [9017.0 / 3168.0, -355.0 / 33.0, 46732.0 / 5247.0, 49.0 / 176.0, -5103.0 / 18656.0],
             [35.0 / 384.0, 0.0, 500.0 / 1113.0, 125.0 / 192.0, -2187.0 / 6784.0, 11.0 / 84.0]],
-        Weights: [35.0 / 384.0, 0.0, 500.0 / 1113.0, 125.0 / 192.0, -2187.0 / 6784.0, 11.0 / 84.0, 0.0],
-        ErrorWeights: Some<Seq<double>>([5179.0 / 57600.0, 0.0, 7571.0 / 16695.0, 393.0 / 640.0, -92097.0 / 339200.0, 187.0 / 2100.0, 1.0 / 40.0])));
+        weights: [35.0 / 384.0, 0.0, 500.0 / 1113.0, 125.0 / 192.0, -2187.0 / 6784.0, 11.0 / 84.0, 0.0],
+        errorWeights: [5179.0 / 57600.0, 0.0, 7571.0 / 16695.0, 393.0 / 640.0, -92097.0 / 339200.0, 187.0 / 2100.0, 1.0 / 40.0]);
     public ButcherTableau Tableau { get; }
     internal bool IsAdaptive => Tableau.ErrorWeights.IsSome;
     internal int Order => Tableau.Weights.Count;
-    // PI-controller step-scale constants used by `FieldIntegrator.AdaptiveCase`. Safety factor
-    // 0.9 buffers against under-prediction; order exponent 1/5 matches DormandPrince/CashKarp
-    // (5(4) embedded pair); clamp range prevents runaway growth or stalling.
+    // PI-controller step-scale constants for AdaptiveCase. Safety 0.9 buffers under-prediction;
+    // exponent 1/5 matches DP/CashKarp embedded 5(4) pairs; scale range prevents runaway/stall.
     internal const double AdaptiveSafetyFactor = 0.9;
     internal const double AdaptiveOrderExponent = 0.2;
     internal const double AdaptiveMinScale = 0.2;
     internal const double AdaptiveMaxScale = 10.0;
+    private static IntegratorKind Fixed(int key, double[][] coupling, double[] weights) =>
+        new(key: key, tableau: new ButcherTableau(Coupling: toSeq(coupling.Select(static r => toSeq(r))), Weights: toSeq(weights), ErrorWeights: Option<Seq<double>>.None));
+    private static IntegratorKind Adaptive(int key, double[][] coupling, double[] weights, double[] errorWeights) =>
+        new(key: key, tableau: new ButcherTableau(Coupling: toSeq(coupling.Select(static r => toSeq(r))), Weights: toSeq(weights), ErrorWeights: Some(toSeq(errorWeights))));
 }
 
-// Constructive solid geometry operations over signed-distance fields. Union = min, Intersect
-// = max, Difference = max(a, -b). SmoothUnion is the Pythagorean blend ubiquitous in shader
-// SDFs, parameterised by smoothness radius.
+// Constructive solid geometry operations over signed-distance fields. Union = min, Intersect = max, Difference = max(a, -b).
+// SmoothUnion is the Pythagorean blend ubiquitous in shader SDFs, parameterised by smoothness radius.
 [SmartEnum<int>]
 public sealed partial class CsgKind {
     public static readonly CsgKind Union = new(key: 0, combine: static (a, b) => Math.Min(val1: a, val2: b));
@@ -385,24 +366,17 @@ public partial record VectorField {
             ? Fin.Succ<VectorField>(new ScaledCase(Source: source, Scale: 1.0 / divisor))
             : Fin.Fail<VectorField>(op.InvalidInput());
     }
-    public static Fin<VectorField> Gradient(ScalarField source, double epsilon, Op? key = null) {
-        Op op = key.OrDefault();
-        return from active in Optional(source).ToFin(op.InvalidInput())
-               from eps in op.AcceptValidated<PositiveMagnitude>(candidate: epsilon)
-               select (VectorField)new GradientCase(Source: active, Epsilon: eps);
-    }
-    public static Fin<VectorField> Curl(VectorField source, double epsilon, Op? key = null) {
-        Op op = key.OrDefault();
-        return from active in Optional(source).ToFin(op.InvalidInput())
-               from eps in op.AcceptValidated<PositiveMagnitude>(candidate: epsilon)
-               select (VectorField)new CurlCase(Source: active, Epsilon: eps);
-    }
+    public static Fin<VectorField> Gradient(ScalarField source, double epsilon, Op? key = null) =>
+        FieldNabla.WithSourceEpsilon<ScalarField, VectorField>(source, epsilon,
+            static (s, e) => new GradientCase(Source: s, Epsilon: e), key);
+    public static Fin<VectorField> Curl(VectorField source, double epsilon, Op? key = null) =>
+        FieldNabla.WithSourceEpsilon<VectorField, VectorField>(source, epsilon,
+            static (s, e) => new CurlCase(Source: s, Epsilon: e), key);
     public static Fin<VectorField> Ring(Point3d center, Direction axis, double radius, Falloff? falloff = null, Op? key = null) {
         Op op = key.OrDefault();
         return op.AcceptValidated<PositiveMagnitude>(candidate: radius)
-            .Bind(r => (falloff ?? Falloff.Gaussian(sigma: radius / 3.0, key: op).IfFail(Falloff.Constant)) switch {
-                Falloff active => Fin.Succ((VectorField)new RingCase(Center: center, Axis: axis, Radius: r, Falloff: active)),
-            });
+            .Map(r => (VectorField)new RingCase(Center: center, Axis: axis, Radius: r,
+                Falloff: falloff ?? Falloff.Gaussian(sigma: radius / 3.0, key: op).IfFail(Falloff.Constant)));
     }
     public static VectorField Helical(Point3d anchor, Direction axis, double axial, double swirl, Falloff? falloff = null) =>
         new HelicalCase(Anchor: anchor, Axis: axis, Axial: axial, Swirl: swirl, Falloff: falloff ?? Falloff.Constant);
@@ -421,16 +395,11 @@ public partial record VectorField {
     public static VectorField CrossProduct(VectorField left, VectorField right) =>
         new CrossProductCase(Left: left, Right: right);
     public static VectorField Zero { get; } = Constant(value: Vector3d.Zero);
+    private static Seq<VectorField> FlattenSum(VectorField field) =>
+        field is BlendCase b && b.Mode.Equals(FieldBlend.Sum) ? b.Fields : Seq(field);
     // Monoid: associative under flatten-into-BlendCase(Sum); Zero is the identity. Canonical sum is always a flat BlendCase, never nested.
-    public static VectorField operator +(VectorField left, VectorField right) => (left, right) switch {
-        (BlendCase l, BlendCase r) when l.Mode.Equals(FieldBlend.Sum) && r.Mode.Equals(FieldBlend.Sum) =>
-            new BlendCase(Fields: l.Fields.Concat(r.Fields).ToSeq(), Mode: FieldBlend.Sum),
-        (BlendCase l, _) when l.Mode.Equals(FieldBlend.Sum) =>
-            new BlendCase(Fields: l.Fields.Add(right), Mode: FieldBlend.Sum),
-        (_, BlendCase r) when r.Mode.Equals(FieldBlend.Sum) =>
-            new BlendCase(Fields: Seq(left).Concat(r.Fields).ToSeq(), Mode: FieldBlend.Sum),
-        _ => new BlendCase(Fields: Seq(left, right), Mode: FieldBlend.Sum),
-    };
+    public static VectorField operator +(VectorField left, VectorField right) =>
+        new BlendCase(Fields: FlattenSum(left).Concat(FlattenSum(right)).ToSeq(), Mode: FieldBlend.Sum);
     public static VectorField operator -(VectorField left, VectorField right) => left + (-right);
     public static VectorField operator -(VectorField field) => new ScaledCase(Source: field, Scale: -1.0);
     public static VectorField operator *(VectorField field, double scale) => new ScaledCase(Source: field, Scale: scale);
@@ -615,18 +584,12 @@ public partial record ScalarField {
     public static ScalarField Blend(Seq<ScalarField> fields, FieldBlend? blend = null) =>
         new BlendCase(Fields: fields, Mode: blend ?? FieldBlend.Sum);
     public static ScalarField Magnitude(VectorField source) => new MagnitudeCase(Source: source);
-    public static Fin<ScalarField> Divergence(VectorField source, double epsilon, Op? key = null) {
-        Op op = key.OrDefault();
-        return from active in Optional(source).ToFin(op.InvalidInput())
-               from eps in op.AcceptValidated<PositiveMagnitude>(candidate: epsilon)
-               select (ScalarField)new DivergenceCase(Source: active, Epsilon: eps);
-    }
-    public static Fin<ScalarField> Laplacian(ScalarField source, double epsilon, Op? key = null) {
-        Op op = key.OrDefault();
-        return from active in Optional(source).ToFin(op.InvalidInput())
-               from eps in op.AcceptValidated<PositiveMagnitude>(candidate: epsilon)
-               select (ScalarField)new LaplacianCase(Source: active, Epsilon: eps);
-    }
+    public static Fin<ScalarField> Divergence(VectorField source, double epsilon, Op? key = null) =>
+        FieldNabla.WithSourceEpsilon<VectorField, ScalarField>(source, epsilon,
+            static (s, e) => new DivergenceCase(Source: s, Epsilon: e), key);
+    public static Fin<ScalarField> Laplacian(ScalarField source, double epsilon, Op? key = null) =>
+        FieldNabla.WithSourceEpsilon<ScalarField, ScalarField>(source, epsilon,
+            static (s, e) => new LaplacianCase(Source: s, Epsilon: e), key);
     public static Fin<ScalarField> Divide(ScalarField source, double divisor, Op? key = null) {
         Op op = key.OrDefault();
         return Math.Abs(value: divisor) > RhinoMath.ZeroTolerance
@@ -668,12 +631,9 @@ public partial record ScalarField {
             ? Fin.Fail<ScalarField>(op.InvalidInput())
             : Fin.Succ((ScalarField)new PeriodicCase(Source: source, Period: period));
     }
-    public static Fin<ScalarField> StrainMagnitude(VectorField source, double epsilon, Op? key = null) {
-        Op op = key.OrDefault();
-        return from active in Optional(source).ToFin(op.InvalidInput())
-               from eps in op.AcceptValidated<PositiveMagnitude>(candidate: epsilon)
-               select (ScalarField)new StrainMagnitudeCase(Source: active, Epsilon: eps);
-    }
+    public static Fin<ScalarField> StrainMagnitude(VectorField source, double epsilon, Op? key = null) =>
+        FieldNabla.WithSourceEpsilon<VectorField, ScalarField>(source, epsilon,
+            static (s, e) => new StrainMagnitudeCase(Source: s, Epsilon: e), key);
     public static Fin<ScalarField> Clamp(ScalarField source, double minimum, double maximum, Op? key = null) {
         Op op = key.OrDefault();
         return from active in Optional(source).ToFin(op.InvalidInput())
@@ -681,15 +641,10 @@ public partial record ScalarField {
                select (ScalarField)new ClampCase(Source: active, Minimum: minimum, Maximum: maximum);
     }
     public static ScalarField Zero { get; } = Constant(value: 0.0);
-    public static ScalarField operator +(ScalarField left, ScalarField right) => (left, right) switch {
-        (BlendCase l, BlendCase r) when l.Mode.Equals(FieldBlend.Sum) && r.Mode.Equals(FieldBlend.Sum) =>
-            new BlendCase(Fields: l.Fields.Concat(r.Fields).ToSeq(), Mode: FieldBlend.Sum),
-        (BlendCase l, _) when l.Mode.Equals(FieldBlend.Sum) =>
-            new BlendCase(Fields: l.Fields.Add(right), Mode: FieldBlend.Sum),
-        (_, BlendCase r) when r.Mode.Equals(FieldBlend.Sum) =>
-            new BlendCase(Fields: Seq(left).Concat(r.Fields).ToSeq(), Mode: FieldBlend.Sum),
-        _ => new BlendCase(Fields: Seq(left, right), Mode: FieldBlend.Sum),
-    };
+    private static Seq<ScalarField> FlattenSum(ScalarField field) =>
+        field is BlendCase b && b.Mode.Equals(FieldBlend.Sum) ? b.Fields : Seq(field);
+    public static ScalarField operator +(ScalarField left, ScalarField right) =>
+        new BlendCase(Fields: FlattenSum(left).Concat(FlattenSum(right)).ToSeq(), Mode: FieldBlend.Sum);
     public static ScalarField operator -(ScalarField left, ScalarField right) => left + (-right);
     public static ScalarField operator -(ScalarField field) => new ScaledCase(Source: field, Scale: -1.0);
     public static ScalarField operator *(ScalarField field, double scale) => new ScaledCase(Source: field, Scale: scale);
@@ -782,6 +737,13 @@ public partial record ScalarField {
 }
 
 internal static class FieldNabla {
+    internal static Fin<TResult> WithSourceEpsilon<TSource, TResult>(TSource? source, double epsilon, Func<TSource, PositiveMagnitude, TResult> make, Op? key)
+        where TSource : class {
+        Op op = key.OrDefault();
+        return from active in Optional(source).ToFin(op.InvalidInput())
+               from eps in op.AcceptValidated<PositiveMagnitude>(candidate: epsilon)
+               select make(active, eps);
+    }
     // Component of `r` perpendicular to a unit axis: r - (r . axis) * axis. Used by every axis-relative field case (Vortex/Ring/Helical/BiotSavart) to extract the in-plane part.
     internal static Vector3d PerpendicularComponent(Vector3d r, Vector3d axis) => r - (r * axis * axis);
     // Wrap a sample point into the fundamental period parallelepiped via component-wise round-half-to-even reduction. Used by `PeriodicCase` to fold space into a single cell.

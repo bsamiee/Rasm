@@ -252,10 +252,7 @@ public readonly record struct VectorFrame {
                from z in Direction.Of(value: normal, context: context, key: op)
                from x in xHint.Case switch {
                    Vector3d raw => Direction.Of(value: raw - (z.Value * (raw * z.Value)), context: context, key: op),
-                   _ => SeedPerpendicular(axis: z.Value) switch {
-                       Vector3d seed => Direction.Of(value: seed, context: context, key: op),
-                       _ => Fin.Fail<Direction>(error: op.InvalidResult()),
-                   },
+                   _ => Direction.Of(value: SeedPerpendicular(axis: z.Value), context: context, key: op),
                }
                from y in Direction.Of(value: Vector3d.CrossProduct(a: z.Value, b: x.Value), context: context, key: op)
                let frame = new Plane(origin: point, xDirection: x.Value, yDirection: y.Value)
@@ -270,10 +267,10 @@ public readonly record struct VectorFrame {
         return CloudKernel.BishopChainOf(points: points, initialNormal: initialNormal, closed: closed, context: context, key: op)
             .Bind(planes => planes.TraverseM(p => Of(origin: p.Origin, normal: p.ZAxis, xHint: Some(p.XAxis), context: context, key: op)).As());
     }
-    // Vector3d.PerpendicularTo is a value-receiver mutator; wrap once so call-sites read functionally.
-    internal static Vector3d? SeedPerpendicular(Vector3d axis) {
+    internal static Vector3d SeedPerpendicular(Vector3d axis) {
         Vector3d seed = axis;
-        return seed.PerpendicularTo(other: axis) ? seed : null;
+        _ = seed.PerpendicularTo(other: axis);
+        return seed;
     }
     internal Fin<TOut> Project<TOut>(Op key) =>
         typeof(TOut) switch {
@@ -320,10 +317,7 @@ public readonly record struct VectorCone {
                let combined = Math.Min(val1: Math.PI, val2: Math.Max(val1: widest, val2: (between.Value * 0.5) + widest))
                from bisector in (left.Axis.Value + right.Axis.Value) switch {
                    Vector3d sum when !sum.IsTiny() => Direction.Of(value: sum, context: model, key: op),
-                   _ => VectorFrame.SeedPerpendicular(axis: left.Axis.Value) switch {
-                       Vector3d seed => Direction.Of(value: seed, context: model, key: op),
-                       _ => Direction.Of(value: left.Axis.Value, context: model, key: op),
-                   },
+                   _ => Direction.Of(value: VectorFrame.SeedPerpendicular(axis: left.Axis.Value), context: model, key: op),
                }
                from result in Of(apex: left.Apex, axis: bisector.Value, halfAngleRadians: combined, context: model, key: op)
                select result;
@@ -333,15 +327,14 @@ public readonly record struct VectorCone {
         Vector3d axisVector = Axis.Value;
         double halfAngle = HalfAngle.Value;
         return from _ in guard(sectors >= 1, op.InvalidInput())
-               from rim in VectorFrame.SeedPerpendicular(axis: axisVector) switch {
-                   Vector3d seed => Direction.Of(value: seed, context: context, key: op),
-                   _ => Fin.Fail<Direction>(error: op.InvalidResult()),
-               }
+               from rim in Direction.Of(value: VectorFrame.SeedPerpendicular(axis: axisVector), context: context, key: op)
                let stepAngle = RhinoMath.TwoPI / sectors
-               let rimVector = rim.Value
+               let lateral = Math.Sin(a: halfAngle)
+               let coaxial = Math.Cos(d: halfAngle) * axisVector
+               let rimCross = Vector3d.CrossProduct(a: axisVector, b: rim.Value)
                from rays in toSeq(Enumerable.Range(start: 0, count: sectors)).TraverseM(i =>
                    Direction.Of(
-                       value: (Math.Cos(d: halfAngle) * axisVector) + (Math.Sin(a: halfAngle) * (Transform.Rotation(angleRadians: stepAngle * i, rotationAxis: axisVector, rotationCenter: Point3d.Origin) * rimVector)),
+                       value: coaxial + (lateral * ((Math.Cos(d: stepAngle * i) * rim.Value) + (Math.Sin(a: stepAngle * i) * rimCross))),
                        context: context,
                        key: op)).As()
                select rays;

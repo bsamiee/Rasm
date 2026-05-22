@@ -18,6 +18,8 @@ public static class Gens {
     public static readonly Gen<Vector3d> Vec = Finite.Select(Finite, Finite, static (double x, double y, double z) => new Vector3d(x: x, y: y, z: z));
     public static readonly Gen<Vector3d> NonZeroVec = Vec.Where(predicate: static v => v.Length > 1.0e-6);
     public static readonly Gen<Vector3d> UnitVec = NonZeroVec.Select(static (Vector3d v) => v / v.Length);
+    public static readonly Gen<(Vector3d A, Vector3d B)> VecPair = NonZeroVec.Select(NonZeroVec, static (Vector3d a, Vector3d b) => (A: a, B: b));
+    public static readonly Gen<(Vector3d A, Vector3d B)> UnitVecPair = UnitVec.Select(UnitVec, static (Vector3d a, Vector3d b) => (A: a, B: b));
     public static readonly Gen<Plane> Plane = Point.Select(UnitVec, static (Point3d origin, Vector3d normal) => new Plane(origin: origin, normal: normal));
     public static readonly Gen<Line> Line = Point.Select(Point, static (Point3d a, Point3d b) => new Line(from: a, to: b));
     public static readonly Gen<BoundingBox> Bbox = Point.Select(Point, static (Point3d a, Point3d b) => new BoundingBox(
