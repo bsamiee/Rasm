@@ -2,6 +2,7 @@ using System.Drawing.Imaging;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Rasm.Rhino.Commands;
+using DrawingColor = System.Drawing.Color;
 using DrawingImageFormat = System.Drawing.Imaging.ImageFormat;
 using IODirectory = System.IO.Directory;
 using IOPath = System.IO.Path;
@@ -437,7 +438,10 @@ public sealed record ArchiveUpdate(
     Seq<string> Extract = default,
     Seq<FileEndpoint> LinkBlocks = default);
 
-public sealed record FilePublish(FilePublishTarget Target, Seq<FileSheet> Sheets, FileProfile Profile, bool Layers = true);
+public sealed record FilePublish(FilePublishTarget Target, Seq<FileSheet> Sheets, FileProfile Profile, bool Layers = true, Option<string> Snapshot = default) {
+    public FilePublish WithSnapshot(string name) =>
+        this with { Snapshot = string.IsNullOrWhiteSpace(value: name) ? Option<string>.None : Some(name.Trim()) };
+}
 
 internal static class FileSheetDefaults {
     internal const double DefaultPublishDpi = 300.0;
@@ -551,9 +555,10 @@ public abstract partial record FileSheetEdit {
     public sealed record AddDetail(string SheetName, FileDetailSpec Spec) : FileSheetEdit;
     public sealed record RemoveDetail(string SheetName, string DetailName) : FileSheetEdit;
     public sealed record ActivateDetail(string SheetName, Option<string> DetailName) : FileSheetEdit;
-    public sealed record LayerOverride(string SheetName, string DetailName, string LayerPath, Option<System.Drawing.Color> Color = default, Option<bool> Visible = default) : FileSheetEdit;
+    public sealed record LayerOverride(string SheetName, string DetailName, string LayerPath, Option<DrawingColor> Color = default, Option<bool> Visible = default) : FileSheetEdit;
     public sealed record ClippingOverride(string SheetName, string DetailName, BoundingBox Box) : FileSheetEdit;
     public sealed record RefreshLinks(Option<Seq<string>> Archives = default, bool SkipUpToDate = false) : FileSheetEdit;
+    public sealed record FlattenLinkedBlocks(Option<Seq<string>> Archives = default, Option<Seq<Guid>> Ids = default) : FileSheetEdit;
 }
 
 internal readonly record struct FileSheetPage(RhinoPageView Page, FileSheet Sheet);

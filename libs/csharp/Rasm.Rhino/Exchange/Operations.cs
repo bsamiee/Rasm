@@ -435,9 +435,41 @@ public static class FileOp {
                let sheets = active.Sheets.IsEmpty ? views.Map(static page => new FileSheet(Id: Some(page.MainViewport.Id))) : active.Sheets
                from pages in sheets.TraverseM(sheet => MatchSheet(document: live.Document, views: views, sheet: sheet, op: op)).As().Map(static groups => groups.Bind(static items => items))
                from _ in guard(!pages.IsEmpty, op.InvalidInput())
-               from result in RhinoUi.Protect(valid: () => target.Write(pages: pages, layers: active.Layers, op: op))
+               from result in active.Snapshot.Case switch {
+                   string snapshot => InSnapshot(document: live.Document, snapshotName: snapshot, op: op, body: () => RhinoUi.Protect(valid: () => target.Write(pages: pages, layers: active.Layers, op: op))),
+                   _ => RhinoUi.Protect(valid: () => target.Write(pages: pages, layers: active.Layers, op: op)),
+               }
                select FileReport.Of(phase: FilePhase.Publish, target: result.Target, format: result.Format, issues: result.Issues, nativeLog: result.NativeLog, receipt: Some(result.Receipt), sheets: result.Sheets);
     }
+
+    // BOUNDARY ADAPTER — SnapshotTable exposes only `Names[]`; save/restore/delete go through
+    // `RhinoApp.RunScript("-_Snapshot <verb> _Name <name> _Enter", echo: false)`. We bracket the
+    // body with: save-current-state-to-sentinel → restore-target-snapshot → body → restore-sentinel
+    // → delete-sentinel. The sentinel uses `Guid.NewGuid("N")` (32 hex chars, no whitespace) so the
+    // user's named snapshot table is left intact and macro quoting is unnecessary. `_Save` against
+    // a unique sentinel cannot collide; `_Restore` on an unknown name returns false and surfaces as
+    // `Op.InvalidResult`. The try/finally guarantees sentinel cleanup even when the body fails.
+    private static Fin<T> InSnapshot<T>(RhinoDoc document, string snapshotName, Op op, Func<Fin<T>> body) =>
+        from target in FileEndpoint.NonBlank(value: snapshotName, op: op)
+        from _exists in toSeq(document.Snapshots.Names).Exists(name => string.Equals(a: name, b: target, comparisonType: StringComparison.Ordinal))
+            ? Fin.Succ(value: unit)
+            : Fin.Fail<Unit>(error: op.InvalidInput())
+        let sentinel = string.Create(CultureInfo.InvariantCulture, $"__rasm_publish_{Guid.NewGuid():N}")
+        from _saved in SnapshotScript(serial: document.RuntimeSerialNumber, verb: "_Save", name: sentinel, op: op)
+        from result in op.Catch(() => {
+            try {
+                return from _restored in SnapshotScript(serial: document.RuntimeSerialNumber, verb: "_Restore", name: target, op: op)
+                       from value in Optional(body).ToFin(Fail: op.InvalidInput()).Bind(valid => valid())
+                       select value;
+            } finally {
+                _ = SnapshotScript(serial: document.RuntimeSerialNumber, verb: "_Restore", name: sentinel, op: op);
+                _ = SnapshotScript(serial: document.RuntimeSerialNumber, verb: "_Delete", name: sentinel, op: op);
+            }
+        })
+        select result;
+
+    private static Fin<Unit> SnapshotScript(uint serial, string verb, string name, Op op) =>
+        op.Catch(() => RhinoApp.RunScript(documentSerialNumber: serial, script: string.Create(CultureInfo.InvariantCulture, $"-_Snapshot {verb} _Name {name} _Enter"), echo: false) switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: op.InvalidResult()) });
 
     private static Fin<Seq<FileSheetPage>> MatchSheet(RhinoDoc document, Seq<RhinoPageView> views, FileSheet sheet, Op op) {
         Option<int> groupIndex = sheet.Group.Bind(name => Optional(document.PageViewGroups.FindName(name: name)).Map(static active => active.Index));
@@ -558,7 +590,8 @@ internal static class SheetEditOps {
             activateDetail: static (ctx, edit) => ActivateDetail(document: ctx.Document, sheetName: edit.SheetName, detailName: edit.DetailName, op: ctx.Op),
             layerOverride: static (ctx, edit) => ApplyLayerOverride(document: ctx.Document, sheetName: edit.SheetName, detailName: edit.DetailName, layerPath: edit.LayerPath, color: edit.Color, visible: edit.Visible, op: ctx.Op),
             clippingOverride: static (ctx, edit) => ApplyClippingOverride(document: ctx.Document, sheetName: edit.SheetName, detailName: edit.DetailName, box: edit.Box, op: ctx.Op),
-            refreshLinks: static (ctx, edit) => RefreshLinks(document: ctx.Document, archives: edit.Archives, skipUpToDate: edit.SkipUpToDate, op: ctx.Op));
+            refreshLinks: static (ctx, edit) => RefreshLinks(document: ctx.Document, archives: edit.Archives, skipUpToDate: edit.SkipUpToDate, op: ctx.Op),
+            flattenLinkedBlocks: static (ctx, edit) => FlattenLinkedBlocks(document: ctx.Document, archives: edit.Archives, ids: edit.Ids, op: ctx.Op));
 
     private static Fin<DocumentReceipt> CreateSheet(RhinoDoc document, FileSheetSpec spec, Op op) =>
         from name in FileEndpoint.NonBlank(value: spec.Name, op: op)
@@ -723,6 +756,37 @@ internal static class SheetEditOps {
                     AttributeChanged = refreshed.Map(static definition => definition.Id),
                     ResourceChanged = refreshed.Map(static definition => new DocumentResourceChange(Kind: DocumentResourceKind.Block, Name: definition.Name ?? string.Empty)),
                 }));
+
+    // BOUNDARY ADAPTER — InstanceDefinitionLayerStyle.Active is valid only when UpdateType==Linked
+    // (per RhinoCommon XML doc on the enum). LinkedAndEmbedded forbids Active; Static forbids it
+    // by design. Tenuous definitions are excluded because their layer-style mutation will not
+    // persist (tenuous defs are dropped from save unless referenced by a live instance). Negative
+    // ArchiveFileStatus (NotALinkedInstanceDefinition=-3, LinkedFileNotReadable=-2, NotFound=-1)
+    // means the linked archive cannot be read, so flattening would materialize incomplete tables.
+    // The pre-existing `LayerStyle == Active` filter avoids redundant writes and redundant
+    // InstanceDefinitionTableEvent.Modified fires. Flattening is NOT losslessly reversible:
+    // toggling back to Reference leaves orphan layer/material rows that must be purged manually.
+    private static Fin<DocumentReceipt> FlattenLinkedBlocks(RhinoDoc document, Option<Seq<string>> archives, Option<Seq<Guid>> ids, Op op) =>
+        op.Catch(() => {
+            Seq<InstanceDefinition> targets = toSeq(document.InstanceDefinitions)
+                .Filter(static definition => definition.UpdateType == InstanceDefinitionUpdateType.Linked)
+                .Filter(static definition => !definition.IsTenuous)
+                .Filter(static definition => definition.ArchiveFileStatus >= InstanceDefinitionArchiveFileStatus.LinkedFileIsUpToDate)
+                .Filter(static definition => definition.LayerStyle != InstanceDefinitionLayerStyle.Active)
+                .Filter(definition => archives.Case switch {
+                    Seq<string> filter => filter.Exists(path => string.Equals(a: path, b: definition.SourceArchive ?? string.Empty, comparisonType: StringComparison.OrdinalIgnoreCase)),
+                    _ => true,
+                })
+                .Filter(definition => ids.Case switch {
+                    Seq<Guid> filter => filter.Exists(id => id == definition.Id),
+                    _ => true,
+                });
+            _ = targets.Iter(static definition => definition.LayerStyle = InstanceDefinitionLayerStyle.Active);
+            return Fin.Succ(value: DocumentReceipt.Empty with {
+                AttributeChanged = targets.Map(static definition => definition.Id),
+                ResourceChanged = targets.Map(static definition => new DocumentResourceChange(Kind: DocumentResourceKind.Block, Name: definition.Name ?? string.Empty)),
+            });
+        });
 
     private static Fin<T> Resolve<T>(IEnumerable<T> source, Func<T, bool> match, Op op) =>
         toSeq(source).Find(match).ToFin(Fail: op.InvalidInput());
