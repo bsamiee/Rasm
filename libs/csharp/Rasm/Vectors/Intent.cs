@@ -47,8 +47,6 @@ public sealed partial class SupportProjection {
         };
 }
 
-internal readonly record struct StreamlineState(Seq<Point3d> Trail, Point3d Current, double H, double Arc, int Steps, int Rejects, bool Done);
-
 // --- [MODELS] -----------------------------------------------------------------------------
 [Union]
 public abstract partial record VectorIntent {
@@ -74,6 +72,19 @@ public abstract partial record VectorIntent {
     public sealed record SlerpCase(Direction A, Direction B, double Parameter) : VectorIntent;
     public sealed record ProjectOntoCase(Vector3d Value, Plane Target) : VectorIntent;
     public sealed record MirrorCase(Vector3d Value, Plane Across) : VectorIntent;
+    public sealed record SurfaceCase(SurfaceSpace SurfaceSource, double U, double V, SurfaceProjection Mode) : VectorIntent;
+    public sealed record PoseCase(Plane From, Plane To, double Parameter, MotionInterpolation Mode) : VectorIntent;
+    public sealed record TensorCase(TensorField Source, Point3d Point) : VectorIntent;
+    public sealed record MeshOperatorCase(ScalarField MeshField, Point3d Point) : VectorIntent;
+    public sealed record FlattenCase(MeshSpace Space, SurfaceParameterization Kind, Seq<int> ConeVertices) : VectorIntent;
+    public sealed record HullCase(VectorCloud Source, HullKind Kind) : VectorIntent;
+    public sealed record SampleCase(MeshSpace Domain, SamplingKind Kind) : VectorIntent;
+    public sealed record RegisterCase(VectorCloud Source, VectorCloud Target, RegistrationKind Kind) : VectorIntent;
+    public sealed record RemeshCase(MeshSpace Space, RemeshKind Kind) : VectorIntent;
+    public sealed record TransportCase(VectorCloud Source, VectorCloud Target, double Regularization, int IterationCap, bool Unbiased) : VectorIntent;
+    public sealed record TopologyCase(MeshSpace Space) : VectorIntent;
+    public sealed record FeaturesCase(MeshSpace Space, double DihedralRadians) : VectorIntent;
+    public sealed record DescriptorCase(MeshSpace Space, MeshDescriptor Kind, int EigenpairCount) : VectorIntent;
     public Fin<TOut> Project<TOut>(Context context, Op? key = null) {
         Op op = key.OrDefault();
         return from model in Optional(context).ToFin(op.MissingContext())
@@ -151,7 +162,7 @@ public abstract partial record VectorIntent {
                 f: (acc, _) => acc.Bind(s => s.Done
                     ? Fin.Succ(s)
                     : intent.Source.SampleVector(sample: s.Current, context: state.Context, key: state.Key).Bind(vector =>
-                        intent.Termination.ShouldStop(stepCount: s.Steps, arcLengthSoFar: s.Arc, currentSample: vector)
+                        intent.Termination.ShouldStop(state: s, currentSample: vector, context: state.Context, key: state.Key)
                             ? Fin.Succ(s with { Done = true })
                             : intent.Integrator.Step(field: intent.Source, point: s.Current, h: s.H, context: state.Context, key: state.Key).Map(step => step.Accepted switch {
                                 true => s with {
@@ -199,7 +210,68 @@ public abstract partial record VectorIntent {
                 value: intent.Value - (2.0 * (intent.Value * intent.Across.ZAxis) * intent.Across.ZAxis),
                 context: state.Context, key: state.Key)
             from output in direction.Project<TOut>(key: state.Key)
-            select output);
+            select output,
+        surfaceCase: static (state, intent) => intent.SurfaceSource.Sample<TOut>(projection: intent.Mode, u: intent.U, v: intent.V, key: state.Key),
+        poseCase: static (state, intent) => intent.Mode.Interpolate(a: intent.From, b: intent.To, t: Math.Clamp(value: intent.Parameter, min: 0.0, max: 1.0)) is Plane p
+            && typeof(TOut) == typeof(Plane)
+                ? state.Key.AcceptValue(value: p).Map(static v => (TOut)(object)v)
+                : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(PoseCase), outputType: typeof(TOut))),
+        tensorCase: static (state, intent) =>
+            from tensor in intent.Source.SampleTensor(sample: intent.Point, context: state.Context, key: state.Key)
+            from output in typeof(TOut) switch {
+                Type t when t == typeof(SymmetricMatrix) => state.Key.AcceptValue(value: tensor).Map(static v => (TOut)(object)v),
+                Type t when t == typeof(Seq<(double Eigenvalue, Direction Eigenvector)>) =>
+                    intent.Source.PrincipalDirections(sample: intent.Point, context: state.Context, key: state.Key).Map(static p => (TOut)(object)p),
+                _ => Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(TensorCase), outputType: typeof(TOut))),
+            }
+            select output,
+        meshOperatorCase: static (state, intent) => intent.MeshField.Project<TOut>(sample: intent.Point, context: state.Context, key: state.Key),
+        flattenCase: static (state, intent) =>
+            from coords in intent.Kind.Compute(space: intent.Space, coneVertices: intent.ConeVertices, key: state.Key)
+            from output in typeof(TOut) == typeof(Arr<Point2d>)
+                ? state.Key.AcceptValue(value: coords).Map(static v => (TOut)(object)v)
+                : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(FlattenCase), outputType: typeof(TOut)))
+            select output,
+        hullCase: static (state, intent) =>
+            from cloud in intent.Kind.Compute(source: intent.Source, context: state.Context, key: state.Key)
+            from output in typeof(TOut) == typeof(VectorCloud)
+                ? state.Key.AcceptValue(value: cloud).Map(static v => (TOut)(object)v)
+                : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(HullCase), outputType: typeof(TOut)))
+            select output,
+        sampleCase: static (state, intent) =>
+            from cloud in intent.Kind.Sample(domain: intent.Domain, context: state.Context, key: state.Key)
+            from output in typeof(TOut) == typeof(VectorCloud)
+                ? state.Key.AcceptValue(value: cloud).Map(static v => (TOut)(object)v)
+                : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(SampleCase), outputType: typeof(TOut)))
+            select output,
+        registerCase: static (state, intent) =>
+            from dq in intent.Kind.Align(source: intent.Source, target: intent.Target, context: state.Context, key: state.Key)
+            from output in typeof(TOut) switch {
+                Type t when t == typeof(DualQuaternion) => state.Key.AcceptValue(value: dq).Map(static v => (TOut)(object)v),
+                Type t when t == typeof(Transform) => state.Key.AcceptValue(value: dq.ToTransform()).Map(static v => (TOut)(object)v),
+                _ => Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(RegisterCase), outputType: typeof(TOut))),
+            }
+            select output,
+        remeshCase: static (state, intent) =>
+            from mesh in intent.Kind.Apply(space: intent.Space, context: state.Context, key: state.Key)
+            from output in typeof(TOut) == typeof(Mesh)
+                ? state.Key.AcceptValue(value: mesh).Map(static v => (TOut)(object)v)
+                : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(RemeshCase), outputType: typeof(TOut)))
+            select output,
+        transportCase: static (state, intent) => IntentKernel.Sinkhorn<TOut>(source: intent.Source, target: intent.Target, regularization: intent.Regularization, maxIterations: intent.IterationCap, unbiased: intent.Unbiased, key: state.Key),
+        topologyCase: static (state, intent) =>
+            from euler in intent.Space.EulerCharacteristic(key: state.Key)
+            from output in typeof(TOut) == typeof(int)
+                ? state.Key.AcceptValue(value: euler).Map(static v => (TOut)(object)v)
+                : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(TopologyCase), outputType: typeof(TOut)))
+            select output,
+        featuresCase: static (state, intent) =>
+            from edges in intent.Space.FeatureEdges(dihedralRadians: intent.DihedralRadians, key: state.Key)
+            from output in typeof(TOut) == typeof(Seq<(int A, int B)>)
+                ? state.Key.AcceptValue(value: edges).Map(static v => (TOut)(object)v)
+                : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(FeaturesCase), outputType: typeof(TOut)))
+            select output,
+        descriptorCase: static (state, intent) => IntentKernel.DescribeShape<TOut>(space: intent.Space, kind: intent.Kind, eigenpairs: intent.EigenpairCount, key: state.Key));
     public static VectorIntent Between(Point3d origin, SupportSpace target, BoundarySense? sense = null) =>
         new SupportCase(Space: target, Sample: origin, Projection: (sense ?? BoundarySense.Toward).Equals(BoundarySense.Toward) ? SupportProjection.Span : SupportProjection.SignedSpanAway);
     public static VectorIntent Axis(SignedAxis axis, Plane? frame = null) =>
@@ -257,5 +329,118 @@ public abstract partial record VectorIntent {
         new ProjectOntoCase(Value: value, Target: target);
     public static VectorIntent Mirror(Vector3d value, Plane across) =>
         new MirrorCase(Value: value, Across: across);
+    public static VectorIntent OnSurface(SurfaceSpace space, double u, double v, SurfaceProjection mode) =>
+        new SurfaceCase(SurfaceSource: space, U: u, V: v, Mode: mode);
+    public static VectorIntent Pose(Plane from, Plane to, double t, MotionInterpolation mode) =>
+        new PoseCase(From: from, To: to, Parameter: t, Mode: mode);
+    public static VectorIntent Tensor(TensorField source, Point3d point) =>
+        new TensorCase(Source: source, Point: point);
+    public static VectorIntent MeshOperator(ScalarField meshField, Point3d point) =>
+        new MeshOperatorCase(MeshField: meshField, Point: point);
+    public static VectorIntent Flatten(MeshSpace space, SurfaceParameterization kind, Seq<int> coneVertices = default) =>
+        new FlattenCase(Space: space, Kind: kind, ConeVertices: coneVertices);
+    public static VectorIntent Hull(VectorCloud source, HullKind kind) =>
+        new HullCase(Source: source, Kind: kind);
+    public static VectorIntent Populate(MeshSpace domain, SamplingKind kind) =>
+        new SampleCase(Domain: domain, Kind: kind);
+    public static VectorIntent Register(VectorCloud source, VectorCloud target, RegistrationKind kind) =>
+        new RegisterCase(Source: source, Target: target, Kind: kind);
+    public static VectorIntent Remesh(MeshSpace space, RemeshKind kind) =>
+        new RemeshCase(Space: space, Kind: kind);
+    public static Fin<VectorIntent> Transport(VectorCloud source, VectorCloud target, double regularization, int iterationCap, bool unbiased = false, Op? key = null) {
+        Op op = key.OrDefault();
+        return RhinoMath.IsValidDouble(x: regularization) && regularization > 0.0 && iterationCap >= 1
+            ? Fin.Succ((VectorIntent)new TransportCase(Source: source, Target: target, Regularization: regularization, IterationCap: iterationCap, Unbiased: unbiased))
+            : Fin.Fail<VectorIntent>(op.InvalidInput());
+    }
+    public static VectorIntent Topology(MeshSpace space) =>
+        new TopologyCase(Space: space);
+    public static Fin<VectorIntent> Features(MeshSpace space, double dihedralRadians, Op? key = null) =>
+        RhinoMath.IsValidDouble(x: dihedralRadians) && dihedralRadians > 0.0
+            ? Fin.Succ((VectorIntent)new FeaturesCase(Space: space, DihedralRadians: dihedralRadians))
+            : Fin.Fail<VectorIntent>(key.OrDefault().InvalidInput());
+    public static Fin<VectorIntent> Descriptor(MeshSpace space, MeshDescriptor kind, int eigenpairCount, Op? key = null) =>
+        eigenpairCount >= 1
+            ? Fin.Succ((VectorIntent)new DescriptorCase(Space: space, Kind: kind, EigenpairCount: eigenpairCount))
+            : Fin.Fail<VectorIntent>(key.OrDefault().InvalidInput());
     private const int MaxIterations = 100000;
+}
+
+// --- [OPERATIONS] -------------------------------------------------------------------------
+internal static class IntentKernel {
+    // Cuturi 2013 Sinkhorn-Knopp: K = exp(-C/eps); iterate u = a/(K v), v = b/(K^T u);
+    // coupling = diag(u) K diag(v); Sinkhorn distance is <coupling, C>.
+    internal static Fin<TOut> Sinkhorn<TOut>(VectorCloud source, VectorCloud target, double regularization, int maxIterations, bool unbiased, Op key) =>
+        (source, target) switch {
+            (VectorCloud.ClusterCase src, VectorCloud.ClusterCase tgt) => SinkhornCluster<TOut>(source: src, target: tgt, regularization: regularization, maxIterations: maxIterations, unbiased: unbiased, key: key),
+            _ => Fin.Fail<TOut>(key.Unsupported(geometryType: source.GetType(), outputType: typeof(TOut))),
+        };
+    // ALGORITHM KERNEL — Sinkhorn-Knopp requires mutable row/column scaling vectors; the
+    // alternating fixed-point cannot be expressed without state mutation.
+    private static Fin<TOut> SinkhornCluster<TOut>(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, double regularization, int maxIterations, bool unbiased, Op key) {
+        int m = source.Vertices.Count; int n = target.Vertices.Count;
+        if (m < 1 || n < 1) return Fin.Fail<TOut>(key.InvalidInput());
+        double[][] cost = [.. Enumerable.Range(0, m).Select(_ => new double[n])];
+        double[][] kernel = [.. Enumerable.Range(0, m).Select(_ => new double[n])];
+        for (int i = 0; i < m; i++)
+            for (int j = 0; j < n; j++) {
+                double d2 = source.Vertices[index: i].DistanceToSquared(other: target.Vertices[index: j]);
+                cost[i][j] = d2;
+                kernel[i][j] = Math.Exp(d: -d2 / regularization);
+            }
+        double[] u = [.. Enumerable.Repeat(element: 1.0, count: m)];
+        double[] v = [.. Enumerable.Repeat(element: 1.0, count: n)];
+        double aMass = 1.0 / m; double bMass = 1.0 / n;
+        for (int iter = 0; iter < maxIterations; iter++) {
+            for (int i = 0; i < m; i++) {
+                double sum = 0.0;
+                for (int j = 0; j < n; j++) sum += kernel[i][j] * v[j];
+                u[i] = sum > RhinoMath.ZeroTolerance ? aMass / sum : aMass;
+            }
+            for (int j = 0; j < n; j++) {
+                double sum = 0.0;
+                for (int i = 0; i < m; i++) sum += kernel[i][j] * u[i];
+                v[j] = sum > RhinoMath.ZeroTolerance ? bMass / sum : bMass;
+            }
+        }
+        double distance = 0.0;
+        for (int i = 0; i < m; i++)
+            for (int j = 0; j < n; j++) distance += u[i] * kernel[i][j] * v[j] * cost[i][j];
+        return typeof(TOut) switch {
+            Type t when t == typeof(double) => key.AcceptValue(value: distance).Map(static d => (TOut)(object)d),
+            _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(VectorCloud), outputType: typeof(TOut))),
+        };
+    }
+    // Sun-Ovsjanikov-Guibas 2009 HKS(x, t) = Σ exp(-t λ_i) φ_i²(x); WKS analogous with log-energy.
+    internal static Fin<TOut> DescribeShape<TOut>(MeshSpace space, MeshDescriptor kind, int eigenpairs, Op key) =>
+        from laplacian in space.Laplacian(kind: MeshLaplacian.Cotangent, key: key)
+        from eigen in laplacian.Stiffness.SmallestEigenpairs(k: eigenpairs, tolerance: 1e-6, maxIterations: 200, key: key)
+        from output in ProjectDescriptor<TOut>(kind: kind, eigen: eigen, key: key)
+        select output;
+    private static Fin<TOut> ProjectDescriptor<TOut>(MeshDescriptor kind, Seq<(double Eigenvalue, Arr<double> Eigenvector)> eigen, Op key) =>
+        kind switch {
+            MeshDescriptor.ShapeDnaCase => typeof(TOut) == typeof(Seq<double>)
+                ? key.AcceptValue(value: toSeq(eigen.Map(static p => p.Eigenvalue).AsIterable())).Map(static v => (TOut)(object)v)
+                : Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(MeshDescriptor.ShapeDnaCase), outputType: typeof(TOut))),
+            MeshDescriptor.HeatKernelSignatureCase hks => DescriptorAtTimes<TOut>(eigen: eigen, scales: hks.Times, project: static (t, lambda) => Math.Exp(d: -t * lambda), key: key),
+            MeshDescriptor.WaveKernelSignatureCase wks => DescriptorAtTimes<TOut>(eigen: eigen, scales: wks.Energies, project: (e, lambda) => Math.Exp(d: -Math.Pow(x: Math.Log(d: Math.Max(val1: lambda, val2: RhinoMath.ZeroTolerance)) - Math.Log(d: e), y: 2) / (2.0 * wks.Sigma * wks.Sigma)), key: key),
+            _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: kind.GetType(), outputType: typeof(TOut))),
+        };
+    private static Fin<TOut> DescriptorAtTimes<TOut>(Seq<(double Eigenvalue, Arr<double> Eigenvector)> eigen, Seq<double> scales, Func<double, double, double> project, Op key) {
+        if (eigen.IsEmpty || scales.IsEmpty) return Fin.Fail<TOut>(error: key.InvalidInput());
+        int n = eigen[index: 0].Eigenvector.Count;
+        double[][] result = [.. Enumerable.Range(0, n).Select(_ => new double[scales.Count])];
+        for (int s = 0; s < scales.Count; s++)
+            for (int i = 0; i < n; i++) {
+                double sum = 0.0;
+                for (int e = 0; e < eigen.Count; e++) {
+                    double phi = eigen[index: e].Eigenvector[index: i];
+                    sum += project(arg1: scales[index: s], arg2: eigen[index: e].Eigenvalue) * phi * phi;
+                }
+                result[i][s] = sum;
+            }
+        return typeof(TOut) == typeof(Arr<Arr<double>>)
+            ? key.AcceptValue(value: new Arr<Arr<double>>(result.Select(r => new Arr<double>(r)))).Map(static v => (TOut)(object)v)
+            : Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(MeshDescriptor), outputType: typeof(TOut)));
+    }
 }

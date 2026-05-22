@@ -1,5 +1,14 @@
 using System.Numerics;
 using Foundation.CSharp.Analyzers.Contracts;
+using MathNet.Numerics.LinearAlgebra;
+using LinearVector = MathNet.Numerics.LinearAlgebra.Vector<double>;
+using ComplexVector = MathNet.Numerics.LinearAlgebra.Vector<System.Numerics.Complex>;
+using DenseMatrixD = MathNet.Numerics.LinearAlgebra.Double.DenseMatrix;
+using DenseVectorD = MathNet.Numerics.LinearAlgebra.Double.DenseVector;
+using SparseMatrixD = MathNet.Numerics.LinearAlgebra.Double.SparseMatrix;
+using DenseMatrixC = MathNet.Numerics.LinearAlgebra.Complex.DenseMatrix;
+using DenseVectorC = MathNet.Numerics.LinearAlgebra.Complex.DenseVector;
+using SparseMatrixC = MathNet.Numerics.LinearAlgebra.Complex.SparseMatrix;
 
 namespace Rasm.Vectors;
 
@@ -55,74 +64,35 @@ public readonly record struct Matrix(Dimension Rows, Dimension Cols, Arr<double>
     public static Matrix Zero(Dimension rows, Dimension cols) =>
         new(Rows: rows, Cols: cols,
             Entries: [.. Enumerable.Repeat(element: 0.0, count: rows.Value * cols.Value)]);
-    public Matrix Transpose() {
-        Matrix self = this;
-        int r = Rows.Value;
-        int c = Cols.Value;
-        return new Matrix(Rows: Cols, Cols: Rows,
-            Entries: [.. toSeq(Enumerable.Range(start: 0, count: r * c))
-                .Map(idx => self.At(i: idx % r, j: idx / r))]);
-    }
-    public static Matrix operator *(Matrix a, Matrix b) {
-        int aRows = a.Rows.Value;
-        int aCols = a.Cols.Value;
-        int bCols = b.Cols.Value;
-        return new Matrix(Rows: a.Rows, Cols: b.Cols,
-            Entries: [.. toSeq(Enumerable.Range(start: 0, count: aRows * bCols))
-                .Map(idx => toSeq(Enumerable.Range(start: 0, count: aCols))
-                    .Fold(initialState: 0.0, f: (sum, k) => sum + (a.At(i: idx / bCols, j: k) * b.At(i: k, j: idx % bCols))))]);
-    }
-    public Fin<Matrix> ReduceHessenberg(Op? key = null) =>
-        MatrixKernel.Hessenberg(matrix: this, key: key.OrDefault());
+    public Matrix Transpose() => MatrixKernel.FromMathNet(MatrixKernel.ToMathNet(this).Transpose(), Cols, Rows);
+    public static Matrix operator *(Matrix a, Matrix b) =>
+        MatrixKernel.FromMathNet(MatrixKernel.ToMathNet(a).Multiply(MatrixKernel.ToMathNet(b)), a.Rows, b.Cols);
     public Fin<Seq<(Complex Eigenvalue, Arr<Complex> Eigenvector)>> DecomposeEigen(Op? key = null) =>
-        MatrixKernel.FrancisQr(matrix: this, key: key.OrDefault());
-    public Fin<SvdResult> DecomposeSvd(Op? key = null) =>
-        MatrixKernel.SvdJacobi(matrix: this, key: key.OrDefault());
-    public Fin<LuResult> DecomposeLu(Op? key = null) =>
-        MatrixKernel.LuPartialPivot(matrix: this, key: key.OrDefault());
-    public Fin<QrResult> DecomposeQr(Op? key = null) =>
-        MatrixKernel.QrHouseholder(matrix: this, key: key.OrDefault());
+        MatrixKernel.GeneralEigen(matrix: this, key: key.OrDefault());
+    public Fin<SvdResult> DecomposeSvd(Op? key = null) => MatrixKernel.Svd(matrix: this, key: key.OrDefault());
+    public Fin<LuResult> DecomposeLu(Op? key = null) => MatrixKernel.Lu(matrix: this, key: key.OrDefault());
+    public Fin<QrResult> DecomposeQr(Op? key = null) => MatrixKernel.Qr(matrix: this, key: key.OrDefault());
     public double Frobenius => MatrixNormKind.Frobenius.Compute(matrix: this);
-    public Fin<double> Norm(MatrixNormKind kind, Op? key = null) {
-        Op op = key.OrDefault();
-        return kind is null
-            ? Fin.Fail<double>(error: op.InvalidInput())
-            : Fin.Succ(kind.Compute(matrix: this));
-    }
-    public Fin<double> Trace(Op? key = null) {
-        Op op = key.OrDefault();
-        int n = Math.Min(val1: Rows.Value, val2: Cols.Value);
-        Matrix self = this;
-        return op.AcceptValue(value: toSeq(Enumerable.Range(start: 0, count: n))
-            .Fold(initialState: 0.0, f: (sum, i) => sum + self.At(i: i, j: i)));
-    }
+    public Fin<double> Norm(MatrixNormKind kind, Op? key = null) =>
+        kind is null ? Fin.Fail<double>(error: key.OrDefault().InvalidInput()) : Fin.Succ(kind.Compute(matrix: this));
+    public Fin<double> Trace(Op? key = null) => key.OrDefault().AcceptValue(value: MatrixKernel.ToMathNet(this).Trace());
     public Fin<double> Determinant(Op? key = null) =>
         DecomposeLu(key: key.OrDefault()).Map(static lu => lu.Determinant);
     public Fin<double> Spectral(Op? key = null) =>
         DecomposeSvd(key: key.OrDefault()).Map(static svd => svd.Sigma.IsEmpty ? 0.0 : svd.Sigma[0]);
     public Fin<Arr<double>> Solve(Arr<double> rhs, Op? key = null) {
         Op op = key.OrDefault();
-        int n = Rows.Value;
-        return rhs.Count != n || n != Cols.Value
+        return rhs.Count != Rows.Value || Rows.Value != Cols.Value
             ? Fin.Fail<Arr<double>>(error: op.InvalidInput())
             : DecomposeLu(key: op).Map(lu => lu.Solve(rhs: rhs));
     }
-    public Fin<int> Rank(Op? key = null) {
-        Op op = key.OrDefault();
-        Matrix self = this;
-        int dim = Math.Max(val1: Rows.Value, val2: Cols.Value);
-        return DecomposeSvd(key: op).Map(svd => {
-            double maxSigma = svd.Sigma.Fold(initialState: 0.0, f: static (m, s) => Math.Max(val1: m, val2: s));
-            double threshold = maxSigma * RhinoMath.SqrtEpsilon * dim;
-            return svd.Sigma.Fold(initialState: 0, f: (count, s) => s > threshold ? count + 1 : count);
-        });
-    }
+    public Fin<int> Rank(Op? key = null) =>
+        DecomposeSvd(key: key.OrDefault()).Map(static svd => svd.NumericalRank());
     public Fin<Matrix> Inverse(Op? key = null) {
         Op op = key.OrDefault();
-        int n = Rows.Value;
-        return n != Cols.Value
+        return Rows.Value != Cols.Value
             ? Fin.Fail<Matrix>(error: op.InvalidInput())
-            : DecomposeLu(key: op).Map(lu => MatrixKernel.LuInverse(lu: lu, n: n));
+            : Fin.Succ(MatrixKernel.FromMathNet(MatrixKernel.ToMathNet(this).Inverse(), Rows, Cols));
     }
     public Fin<Matrix> PseudoInverse(Op? key = null) =>
         DecomposeSvd(key: key.OrDefault()).Map(static svd => svd.PseudoInverse());
@@ -131,14 +101,23 @@ public readonly record struct Matrix(Dimension Rows, Dimension Cols, Arr<double>
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SvdResult(Matrix U, Arr<double> Sigma, Matrix V) {
     public bool IsValid => U.IsValid && V.IsValid && Sigma.All(static value => RhinoMath.IsValidDouble(x: value) && value >= 0.0);
+    public int NumericalRank() {
+        Arr<double> sigma = Sigma;
+        if (sigma.IsEmpty) return 0;
+        double maxSigma = sigma.Fold(initialState: 0.0, f: static (m, s) => Math.Max(val1: m, val2: s));
+        int largerDim = Math.Max(val1: U.Rows.Value, val2: V.Cols.Value);
+        double threshold = maxSigma * RhinoMath.SqrtEpsilon * largerDim;
+        return sigma.Fold(initialState: 0, f: (count, s) => s > threshold ? count + 1 : count);
+    }
     public Matrix PseudoInverse() {
         Arr<double> sigma = Sigma;
-        int n = sigma.Count;
         int uCols = U.Cols.Value;
         int vCols = V.Cols.Value;
+        double threshold = sigma.IsEmpty ? 0.0 :
+            sigma.Fold(initialState: 0.0, f: static (m, s) => Math.Max(val1: m, val2: s)) * RhinoMath.SqrtEpsilon * Math.Max(uCols, vCols);
         Matrix sigmaInv = new(Rows: V.Cols, Cols: U.Cols,
             Entries: [.. toSeq(Enumerable.Range(start: 0, count: vCols * uCols))
-                .Map(idx => (idx / uCols) == (idx % uCols) && (idx / uCols) < n && sigma[idx / uCols] > RhinoMath.SqrtEpsilon
+                .Map(idx => (idx / uCols) == (idx % uCols) && (idx / uCols) < sigma.Count && sigma[idx / uCols] > threshold
                     ? 1.0 / sigma[idx / uCols]
                     : 0.0)]);
         return V * sigmaInv * U.Transpose();
@@ -165,632 +144,537 @@ public readonly record struct QrResult(Matrix Q, Matrix R) {
     public bool IsValid => Q.IsValid && R.IsValid;
 }
 
+// L is the dense lower-triangular Cholesky factor. Sparse-direct factor with fill-reduction
+// is deferred; extreme-scale callers should iterate via BiCgStab on the raw SparseMatrix.
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct CholeskyResult(Matrix L) {
+    public bool IsValid => L.IsValid && L.Rows.Value == L.Cols.Value;
+    public Fin<Arr<double>> Solve(Arr<double> rhs, Op? key = null) =>
+        MatrixKernel.CholeskySolve(L: L, rhs: rhs, key: key.OrDefault());
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SparseMatrix(Dimension Rows, Dimension Cols, Arr<int> RowPtr, Arr<int> ColInd, Arr<double> Values) {
+    public bool IsValid =>
+        RowPtr.Count == Rows.Value + 1
+        && ColInd.Count == Values.Count
+        && Values.All(RhinoMath.IsValidDouble)
+        && RowPtr[0] == 0
+        && RowPtr[Rows.Value] == Values.Count;
+    public int NonZeros => Values.Count;
+    public static Fin<SparseMatrix> FromTriplets(Dimension rows, Dimension cols, IEnumerable<(int Row, int Col, double Value)> triplets, Op? key = null) {
+        Op op = key.OrDefault();
+        return Optional(triplets).ToFin(op.InvalidInput()).Bind(active => MatrixKernel.AssembleSparse(rows: rows, cols: cols, triplets: active, op: op));
+    }
+    public Fin<Arr<double>> Multiply(Arr<double> vector, Op? key = null) {
+        Op op = key.OrDefault();
+        return vector.Count != Cols.Value
+            ? Fin.Fail<Arr<double>>(op.InvalidInput())
+            : Fin.Succ(MatrixKernel.SparseMatVec(self: this, x: vector));
+    }
+    public Matrix ToDense() => MatrixKernel.SparseToDense(self: this);
+    public Fin<CholeskyResult> DecomposeCholesky(Op? key = null) =>
+        MatrixKernel.SparseCholesky(matrix: this, key: key.OrDefault());
+    public Fin<Arr<double>> Solve(Arr<double> rhs, Op? key = null) =>
+        DecomposeCholesky(key: key).Bind(c => c.Solve(rhs: rhs, key: key));
+    public Fin<Seq<(double Eigenvalue, Arr<double> Eigenvector)>> SmallestEigenpairs(int k, double tolerance, int maxIterations = 200, Op? key = null) =>
+        MatrixKernel.Lobpcg(matrix: this, k: k, tolerance: tolerance, maxIterations: maxIterations, key: key.OrDefault());
+}
+
+// Upper-triangular storage; Multiply reconstructs the lower triangle by conjugate transpose.
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SparseHermitian(Dimension Order, Arr<int> RowPtr, Arr<int> ColInd, Arr<Complex> Values) {
+    public bool IsValid =>
+        RowPtr.Count == Order.Value + 1
+        && ColInd.Count == Values.Count
+        && Values.All(static c => RhinoMath.IsValidDouble(c.Real) && RhinoMath.IsValidDouble(c.Imaginary))
+        && RowPtr[0] == 0
+        && RowPtr[Order.Value] == Values.Count;
+    public int NonZeros => Values.Count;
+    public static Fin<SparseHermitian> FromTriplets(Dimension order, IEnumerable<(int Row, int Col, Complex Value)> upperTriplets, Op? key = null) {
+        Op op = key.OrDefault();
+        return Optional(upperTriplets).ToFin(op.InvalidInput()).Bind(active => MatrixKernel.AssembleHermitian(order: order, triplets: active, op: op));
+    }
+    public Fin<Arr<Complex>> Multiply(Arr<Complex> vector, Op? key = null) {
+        Op op = key.OrDefault();
+        return vector.Count != Order.Value
+            ? Fin.Fail<Arr<Complex>>(op.InvalidInput())
+            : Fin.Succ(MatrixKernel.HermitianMatVec(self: this, x: vector));
+    }
+    public Fin<Seq<(double Eigenvalue, Arr<Complex> Eigenvector)>> SmallestEigenpairs(int k, double tolerance, int maxIterations = 200, Op? key = null) =>
+        MatrixKernel.LobpcgHermitian(matrix: this, k: k, tolerance: tolerance, maxIterations: maxIterations, key: key.OrDefault());
+}
+
 [SmartEnum<int>]
 public sealed partial class MatrixNormKind {
-    public static readonly MatrixNormKind Frobenius = new(key: 0,
-        compute: static m => Math.Sqrt(d: m.Entries.Fold(initialState: 0.0, f: static (sum, e) => sum + (e * e))));
-    public static readonly MatrixNormKind MaxAbs = new(key: 1,
-        compute: static m => m.Entries.Fold(initialState: 0.0, f: static (acc, e) => Math.Max(val1: acc, val2: Math.Abs(value: e))));
-    public static readonly MatrixNormKind L1 = new(key: 2,
-        compute: static m => MatrixKernel.AbsoluteColumnSumMax(matrix: m));
-    public static readonly MatrixNormKind LInf = new(key: 3,
-        compute: static m => MatrixKernel.AbsoluteRowSumMax(matrix: m));
+    public static readonly MatrixNormKind Frobenius = new(key: 0, compute: static m => MatrixKernel.ToMathNet(m).FrobeniusNorm());
+    public static readonly MatrixNormKind MaxAbs = new(key: 1, compute: static m => MatrixKernel.ToMathNet(m).Enumerate().Aggregate(0.0, static (acc, e) => Math.Max(acc, Math.Abs(e))));
+    public static readonly MatrixNormKind L1 = new(key: 2, compute: static m => MatrixKernel.ToMathNet(m).L1Norm());
+    public static readonly MatrixNormKind LInf = new(key: 3, compute: static m => MatrixKernel.ToMathNet(m).InfinityNorm());
     [UseDelegateFromConstructor] internal partial double Compute(Matrix matrix);
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class MatrixKernel {
-    private const int MaxSweeps = 64;
-    private const double JacobiEpsilon = 1e-14;
-    private const double QrEpsilon = 1e-12;
-    private const int MaxQrIterations = 256;
-    private const int MaxInverseIterations = 32;
-    private const double InverseIterationEpsilon = 1e-10;
+    // --- [BRIDGE] ---------------------------------------------------------------------------
+    internal static DenseMatrixD ToMathNet(Matrix m) =>
+        (DenseMatrixD)DenseMatrixD.Build.Dense(m.Rows.Value, m.Cols.Value, m.At);
+    internal static Matrix FromMathNet(Matrix<double> m, Dimension rows, Dimension cols) {
+        double[] entries = new double[rows.Value * cols.Value];
+        for (int i = 0; i < rows.Value; i++)
+            for (int j = 0; j < cols.Value; j++)
+                entries[(i * cols.Value) + j] = m[i, j];
+        return new Matrix(Rows: rows, Cols: cols, Entries: new Arr<double>(entries));
+    }
+    private static DenseMatrixC ToMathNetComplex(Matrix m) =>
+        (DenseMatrixC)DenseMatrixC.Build.Dense(m.Rows.Value, m.Cols.Value, (i, j) => new Complex(m.At(i: i, j: j), 0.0));
+    private static Arr<double> ArrFromVector(LinearVector v) => new(v.ToArray());
 
-    // --- [HOUSEHOLDER_PRIMITIVES] ---------------------------------------------------------
-    private static double L2Norm(Arr<double> x) =>
-        Math.Sqrt(d: x.Fold(initialState: 0.0, f: static (sum, v) => sum + (v * v)));
-    private static Option<(Arr<double> V, double Beta)> Reflector(Arr<double> x, double normX) {
-        double sign = x[0] >= 0.0 ? 1.0 : -1.0;
-        Arr<double> v = x.SetItem(0, x[0] + (sign * normX));
-        double vNormSq = v.Fold(initialState: 0.0, f: static (sum, value) => sum + (value * value));
-        return vNormSq < RhinoMath.ZeroTolerance ? None : Some((V: v, Beta: 2.0 / vNormSq));
+    // --- [DENSE_DECOMPOSITIONS] -------------------------------------------------------------
+    internal static Fin<SvdResult> Svd(Matrix matrix, Op key) {
+        MathNet.Numerics.LinearAlgebra.Factorization.Svd<double> svd = ToMathNet(matrix).Svd(computeVectors: true);
+        return Fin.Succ(new SvdResult(
+            U: FromMathNet(svd.U, matrix.Rows, matrix.Rows),
+            Sigma: ArrFromVector(svd.S),
+            V: FromMathNet(svd.VT.Transpose(), matrix.Cols, matrix.Cols)));
     }
-
-    // --- [NORMS_SOLVERS] ------------------------------------------------------------------
-    internal static double AbsoluteColumnSumMax(Matrix matrix) {
-        Matrix self = matrix;
-        int rows = matrix.Rows.Value;
-        int cols = matrix.Cols.Value;
-        return toSeq(Enumerable.Range(start: 0, count: cols))
-            .Fold(initialState: 0.0, f: (best, j) => Math.Max(val1: best, val2:
-                toSeq(Enumerable.Range(start: 0, count: rows))
-                    .Fold(initialState: 0.0, f: (col, i) => col + Math.Abs(value: self.At(i: i, j: j)))));
+    internal static Fin<LuResult> Lu(Matrix matrix, Op key) {
+        if (matrix.Rows.Value != matrix.Cols.Value) return Fin.Fail<LuResult>(key.InvalidInput());
+        MathNet.Numerics.LinearAlgebra.Factorization.LU<double> lu = ToMathNet(matrix).LU();
+        int n = matrix.Rows.Value;
+        Arr<int> permutation = ExtractPermutation(p: lu.P, n: n);
+        return Fin.Succ(new LuResult(
+            Permutation: permutation,
+            SwapCount: CountSwaps(perm: permutation, n: n),
+            L: FromMathNet(lu.L, matrix.Rows, matrix.Cols),
+            U: FromMathNet(lu.U, matrix.Rows, matrix.Cols)));
     }
-    internal static double AbsoluteRowSumMax(Matrix matrix) {
-        Matrix self = matrix;
-        int rows = matrix.Rows.Value;
-        int cols = matrix.Cols.Value;
-        return toSeq(Enumerable.Range(start: 0, count: rows))
-            .Fold(initialState: 0.0, f: (best, i) => Math.Max(val1: best, val2:
-                toSeq(Enumerable.Range(start: 0, count: cols))
-                    .Fold(initialState: 0.0, f: (row, j) => row + Math.Abs(value: self.At(i: i, j: j)))));
+    internal static Fin<QrResult> Qr(Matrix matrix, Op key) {
+        MathNet.Numerics.LinearAlgebra.Factorization.QR<double> qr = ToMathNet(matrix).QR(MathNet.Numerics.LinearAlgebra.Factorization.QRMethod.Full);
+        return Fin.Succ(new QrResult(
+            Q: FromMathNet(qr.Q, matrix.Rows, matrix.Rows),
+            R: FromMathNet(qr.R, matrix.Rows, matrix.Cols)));
     }
-    internal static Arr<double> LuSolve(LuResult lu, Arr<double> rhs) {
-        int n = lu.L.Rows.Value;
-        Arr<int> perm = lu.Permutation;
-        Matrix L = lu.L;
-        Matrix U = lu.U;
-        Arr<double> permuted = [.. Enumerable.Range(start: 0, count: n).Select(i => rhs[perm[i]])];
-        Arr<double> y = toSeq(Enumerable.Range(start: 0, count: n)).Fold(
-            initialState: new Arr<double>(Enumerable.Repeat(element: 0.0, count: n)),
-            f: (acc, i) => acc.SetItem(i, permuted[i] - toSeq(Enumerable.Range(start: 0, count: i))
-                .Fold(initialState: 0.0, f: (s, j) => s + (L.At(i: i, j: j) * acc[j]))));
-        return toSeq(Enumerable.Range(start: 0, count: n).Reverse()).Fold(
-            initialState: new Arr<double>(Enumerable.Repeat(element: 0.0, count: n)),
-            f: (acc, i) => acc.SetItem(i, (y[i] - toSeq(Enumerable.Range(start: i + 1, count: n - i - 1))
-                .Fold(initialState: 0.0, f: (s, j) => s + (U.At(i: i, j: j) * acc[j]))) / U.At(i: i, j: i)));
-    }
-    // M*X=I by column: X[:, j] solves M*x = e_j. Row-major: entries[i*n+j] = column_j[i].
-    internal static Matrix LuInverse(LuResult lu, int n) {
-        Seq<Arr<double>> columns = toSeq(Enumerable.Range(start: 0, count: n).Select(j =>
-            LuSolve(lu: lu, rhs: [.. Enumerable.Range(start: 0, count: n).Select(i => i == j ? 1.0 : 0.0)])));
-        return new Matrix(Rows: lu.L.Rows, Cols: lu.U.Cols,
-            Entries: [.. Enumerable.Range(start: 0, count: n * n).Select(idx => columns[idx % n][idx / n])]);
-    }
-    // Householder QR: A = Q*R, Q orthogonal m x m, R upper-tri m x n. Per column j: H_j zeros
-    // R[j+1..m, j], applied left to R and right to Q. Stable vs MGS on ill-conditioned A.
-    internal static Fin<QrResult> QrHouseholder(Matrix matrix, Op key) {
-        int m = matrix.Rows.Value;
-        int n = matrix.Cols.Value;
-        int limit = Math.Min(val1: m, val2: n);
-        Matrix initialQ = Matrix.Identity(dim: matrix.Rows);
-        (Matrix Q, Matrix R) = toSeq(Enumerable.Range(start: 0, count: limit)).Fold(
-            initialState: (Q: initialQ, R: matrix),
-            f: (state, j) => HouseholderQrStep(state: state, column: j, m: m, n: n));
-        return Fin.Succ(new QrResult(Q: Q, R: R));
-    }
-    private static (Matrix Q, Matrix R) HouseholderQrStep((Matrix Q, Matrix R) state, int column, int m, int n) {
-        Matrix rSnap = state.R;
-        Arr<double> x = [.. toSeq(Enumerable.Range(start: 0, count: m - column))
-            .Map(i => rSnap.At(i: column + i, j: column))];
-        double normX = L2Norm(x: x);
-        return normX < RhinoMath.ZeroTolerance ? state : Reflector(x: x, normX: normX).Match(
-            Some: rb => (Q: ReflectRightSubspace(matrix: state.Q, column: column, v: rb.V, beta: rb.Beta),
-                         R: ReflectLeftSubspace(matrix: state.R, column: column, n: n, v: rb.V, beta: rb.Beta)),
-            None: () => state);
-    }
-    // H = I - beta v v^T applied LEFT to M: column dot vs v, subtract rank-1 beta*v*dot per col.
-    private static Matrix ReflectLeftSubspace(Matrix matrix, int column, int n, Arr<double> v, double beta) {
-        int subSize = v.Count;
-        Matrix self = matrix;
-        return toSeq(Enumerable.Range(start: column, count: n - column)).Fold(
-            initialState: matrix,
-            f: (m, k) => {
-                double colDot = toSeq(Enumerable.Range(start: 0, count: subSize))
-                    .Fold(initialState: 0.0, f: (sum, l) => sum + (v[l] * self.At(i: column + l, j: k)));
-                return toSeq(Enumerable.Range(start: 0, count: subSize)).Fold(
-                    initialState: m,
-                    f: (mm, l) => mm.With(i: column + l, j: k, value: mm.At(i: column + l, j: k) - (beta * v[l] * colDot)));
-            });
-    }
-    // H = I - beta v v^T applied RIGHT to M: row dot vs v, subtract rank-1 beta*v*dot per row.
-    private static Matrix ReflectRightSubspace(Matrix matrix, int column, Arr<double> v, double beta) {
-        int subSize = v.Count;
-        int rows = matrix.Rows.Value;
-        Matrix self = matrix;
-        return toSeq(Enumerable.Range(start: 0, count: rows)).Fold(
-            initialState: matrix,
-            f: (m, i) => {
-                double rowDot = toSeq(Enumerable.Range(start: 0, count: subSize))
-                    .Fold(initialState: 0.0, f: (sum, l) => sum + (self.At(i: i, j: column + l) * v[l]));
-                return toSeq(Enumerable.Range(start: 0, count: subSize)).Fold(
-                    initialState: m,
-                    f: (mm, l) => mm.With(i: i, j: column + l, value: mm.At(i: i, j: column + l) - (beta * rowDot * v[l])));
-            });
-    }
-
-    // --- [SYMMETRIC_EIGEN] ----------------------------------------------------------------
-    // Symmetric eigendecomposition via the Hessenberg + Francis QR pipeline. A symmetric
-    // matrix's Hessenberg form is tridiagonal; Francis QR with Wilkinson shift converges
-    // cubically on tridiagonal. Imaginary parts of returned pairs must be ~0 for real-symmetric
-    // input — they are validated and stripped here. Sorted by |eigenvalue| descending.
-    internal static Fin<Seq<(double Eigenvalue, Arr<double> Eigenvector)>> SymmetricEigen(SymmetricMatrix matrix, Op key) =>
-        from complex in matrix.ToDense().DecomposeEigen(key: key)
-        from real in complex.TraverseM(pair =>
-            Math.Abs(value: pair.Eigenvalue.Imaginary) >= RhinoMath.SqrtEpsilon
-                ? Fin.Fail<(double Eigenvalue, Arr<double> Eigenvector)>(error: key.InvalidResult())
-                : Fin.Succ((Eigenvalue: pair.Eigenvalue.Real,
-                            Eigenvector: new Arr<double>(pair.Eigenvector.AsIterable().Select(static c => c.Real))))).As()
-        select toSeq(real.AsIterable().OrderByDescending(static p => Math.Abs(value: p.Eigenvalue)));
-    internal static Seq<(int P, int Q)> SweepPairs(int dimension) =>
-        toSeq(from p in Enumerable.Range(start: 0, count: dimension - 1)
-              from q in Enumerable.Range(start: p + 1, count: dimension - 1 - p)
-              select (P: p, Q: q));
-    // Givens (cos, sin) from symmetric 2x2 eigen via sign-preserving tangent
-    // t = sign(theta) / (|theta| + sqrt(1 + theta^2)) to avoid catastrophic cancellation.
-    private static (double Cos, double Sin) ComputeGivensAngle(double app, double aqq, double apq) {
-        double theta = (aqq - app) / (2.0 * apq);
-        double t = theta >= 0.0
-            ? 1.0 / (theta + Math.Sqrt(d: 1.0 + (theta * theta)))
-            : 1.0 / (theta - Math.Sqrt(d: 1.0 + (theta * theta)));
-        double cos = 1.0 / Math.Sqrt(d: 1.0 + (t * t));
-        return (Cos: cos, Sin: t * cos);
-    }
-
-    // --- [CHOLESKY] -----------------------------------------------------------------------
-    // Right-looking Cholesky A = L*L^T: L_kk = sqrt(A_kk - sum_{j<k} L_kj^2);
-    // L_ik = (A_ik - sum_{j<k} L_ij*L_kj) / L_kk. Fails on non-SPD (zero/negative pivot).
     internal static Fin<Matrix> Cholesky(SymmetricMatrix matrix, Op key) {
-        int n = matrix.Dimension.Value;
-        return toSeq(Enumerable.Range(start: 0, count: n)).Fold(
-            initialState: Fin.Succ(Matrix.Zero(rows: matrix.Dimension, cols: matrix.Dimension)),
-            f: (acc, k) => acc.Bind(L => CholeskyColumn(matrix: matrix, L: L, k: k, n: n, key: key)));
-    }
-    private static Fin<Matrix> CholeskyColumn(SymmetricMatrix matrix, Matrix L, int k, int n, Op key) {
-        double sumDiag = toSeq(Enumerable.Range(start: 0, count: k))
-            .Fold(initialState: 0.0, f: (sum, j) => sum + (L.At(i: k, j: j) * L.At(i: k, j: j)));
-        double diagVal = matrix.At(i: k, j: k) - sumDiag;
-        return diagVal > RhinoMath.ZeroTolerance
-            ? toSeq(Enumerable.Range(start: k + 1, count: n - k - 1)).Fold(
-                initialState: Fin.Succ(L.With(i: k, j: k, value: Math.Sqrt(d: diagVal))),
-                f: (rowAcc, i) => rowAcc.Map(Lk => {
-                    double sumOff = toSeq(Enumerable.Range(start: 0, count: k))
-                        .Fold(initialState: 0.0, f: (sum, j) => sum + (Lk.At(i: i, j: j) * Lk.At(i: k, j: j)));
-                    return Lk.With(i: i, j: k, value: (matrix.At(i: i, j: k) - sumOff) / Lk.At(i: k, j: k));
-                }))
-            : Fin.Fail<Matrix>(error: key.InvalidInput());
-    }
-
-    // --- [LU] -----------------------------------------------------------------------------
-    // Doolittle PA = LU: L unit lower-tri, U upper-tri. Permutation[i] = source row now at i;
-    // SwapCount tracks exchanges for determinant sign.
-    internal static Fin<LuResult> LuPartialPivot(Matrix matrix, Op key) {
-        int n = matrix.Rows.Value;
-        Arr<int> initialPerm = [.. Enumerable.Range(start: 0, count: n)];
-        return n != matrix.Cols.Value
-            ? Fin.Fail<LuResult>(error: key.InvalidInput())
-            : toSeq(Enumerable.Range(start: 0, count: n - 1)).Fold(
-                initialState: Fin.Succ((A: matrix, P: initialPerm, Swaps: 0)),
-                f: (acc, k) => acc.Bind(state => LuStep(state: state, k: k, n: n, key: key)))
-                .Map(state => SplitLu(combined: state.A, perm: state.P, swaps: state.Swaps, n: n));
-    }
-    private static Fin<(Matrix A, Arr<int> P, int Swaps)> LuStep((Matrix A, Arr<int> P, int Swaps) state, int k, int n, Op key) {
-        Matrix A = state.A;
-        (int pivotRow, double pivotVal) = toSeq(Enumerable.Range(start: k, count: n - k))
-            .Fold(initialState: (Row: k, Value: 0.0),
-                f: (best, r) => Math.Abs(value: A.At(i: r, j: k)) > Math.Abs(value: best.Value)
-                    ? (Row: r, Value: A.At(i: r, j: k))
-                    : best);
-        return Math.Abs(value: pivotVal) <= RhinoMath.ZeroTolerance
-            ? Fin.Fail<(Matrix, Arr<int>, int)>(error: key.InvalidResult())
-            : Fin.Succ(LuPivotAndEliminate(state: state, k: k, pivotRow: pivotRow, n: n));
-    }
-    private static (Matrix A, Arr<int> P, int Swaps) LuPivotAndEliminate((Matrix A, Arr<int> P, int Swaps) state, int k, int pivotRow, int n) {
-        Matrix source = state.A;
-        Matrix swapped = pivotRow == k
-            ? state.A
-            : toSeq(Enumerable.Range(start: 0, count: n)).Fold(
-                initialState: state.A,
-                f: (m, j) => m.With(i: k, j: j, value: source.At(i: pivotRow, j: j)).With(i: pivotRow, j: j, value: source.At(i: k, j: j)));
-        Arr<int> newPerm = pivotRow == k ? state.P : state.P.SetItem(k, state.P[pivotRow]).SetItem(pivotRow, state.P[k]);
-        int newSwaps = pivotRow == k ? state.Swaps : state.Swaps + 1;
-        double pivot = swapped.At(i: k, j: k);
-        Matrix eliminated = toSeq(Enumerable.Range(start: k + 1, count: n - k - 1)).Fold(
-            initialState: swapped,
-            f: (m, i) => {
-                double factor = m.At(i: i, j: k) / pivot;
-                Matrix afterStore = m.With(i: i, j: k, value: factor);
-                return toSeq(Enumerable.Range(start: k + 1, count: n - k - 1)).Fold(
-                    initialState: afterStore,
-                    f: (mm, j) => mm.With(i: i, j: j, value: mm.At(i: i, j: j) - (factor * mm.At(i: k, j: j))));
-            });
-        return (A: eliminated, P: newPerm, Swaps: newSwaps);
-    }
-    private static LuResult SplitLu(Matrix combined, Arr<int> perm, int swaps, int n) {
-        Matrix self = combined;
-        Matrix L = new(Rows: combined.Rows, Cols: combined.Cols,
-            Entries: [.. toSeq(Enumerable.Range(start: 0, count: n * n))
-                .Map(idx => (idx / n) switch {
-                    int i when i == idx % n => 1.0,
-                    int i when i > idx % n => self.At(i: i, j: idx % n),
-                    _ => 0.0,
-                })]);
-        Matrix U = new(Rows: combined.Rows, Cols: combined.Cols,
-            Entries: [.. toSeq(Enumerable.Range(start: 0, count: n * n))
-                .Map(idx => (idx / n) switch {
-                    int i when i <= idx % n => self.At(i: i, j: idx % n),
-                    _ => 0.0,
-                })]);
-        return new LuResult(Permutation: perm, SwapCount: swaps, L: L, U: U);
-    }
-
-    // --- [HESSENBERG] ---------------------------------------------------------------------
-    // Householder reduction to upper Hessenberg: per column k in [0, n-2), reflect entries
-    // below (k+1, k) on both sides. Result H = Q^T A Q with H_ij = 0 for i > j+1.
-    internal static Fin<Matrix> Hessenberg(Matrix matrix, Op key) {
-        int n = matrix.Rows.Value;
-        return n != matrix.Cols.Value
-            ? Fin.Fail<Matrix>(error: key.InvalidInput())
-            : Fin.Succ(toSeq(Enumerable.Range(start: 0, count: n - 2)).Fold(
-                initialState: matrix,
-                f: (A, k) => HouseholderStep(matrix: A, column: k, n: n)));
-    }
-    private static Matrix HouseholderStep(Matrix matrix, int column, int n) {
-        Arr<double> x = [.. toSeq(Enumerable.Range(start: column + 1, count: n - column - 1))
-            .Map(i => matrix.At(i: i, j: column))];
-        double normX = L2Norm(x: x);
-        return normX < RhinoMath.ZeroTolerance ? matrix : Reflector(x: x, normX: normX).Match(
-            Some: rb => ApplyReflector(matrix: matrix, column: column, n: n, v: rb.V, beta: rb.Beta),
-            None: () => matrix);
-    }
-    private static Matrix ApplyReflector(Matrix matrix, int column, int n, Arr<double> v, double beta) {
-        int subSize = v.Count;
-        int subStart = column + 1;
-        Matrix afterLeft = toSeq(Enumerable.Range(start: 0, count: n)).Fold(
-            initialState: matrix,
-            f: (m, j) => {
-                double dot = toSeq(Enumerable.Range(start: 0, count: subSize))
-                    .Fold(initialState: 0.0, f: (sum, k) => sum + (v[k] * m.At(i: subStart + k, j: j)));
-                return toSeq(Enumerable.Range(start: 0, count: subSize)).Fold(
-                    initialState: m,
-                    f: (mm, k) => mm.With(i: subStart + k, j: j, value: mm.At(i: subStart + k, j: j) - (beta * v[k] * dot)));
-            });
-        Matrix afterRight = toSeq(Enumerable.Range(start: 0, count: n)).Fold(
-            initialState: afterLeft,
-            f: (m, i) => {
-                double dot = toSeq(Enumerable.Range(start: 0, count: subSize))
-                    .Fold(initialState: 0.0, f: (sum, k) => sum + (v[k] * m.At(i: i, j: subStart + k)));
-                return toSeq(Enumerable.Range(start: 0, count: subSize)).Fold(
-                    initialState: m,
-                    f: (mm, k) => mm.With(i: i, j: subStart + k, value: mm.At(i: i, j: subStart + k) - (beta * v[k] * dot)));
-            });
-        return afterRight;
-    }
-
-    // --- [GENERAL_EIGEN] ------------------------------------------------------------------
-    // Francis explicit-shift QR with Wilkinson shift on Hessenberg form. 1x1 blocks => real
-    // eigenvalues, 2x2 blocks => conjugate pairs via characteristic poly. Eigenvectors via
-    // inverse iteration on (H - lambda I).
-    internal static Fin<Seq<(Complex Eigenvalue, Arr<Complex> Eigenvector)>> FrancisQr(Matrix matrix, Op key) =>
-        matrix.Rows.Value != matrix.Cols.Value
-            ? Fin.Fail<Seq<(Complex, Arr<Complex>)>>(error: key.InvalidInput())
-            : Hessenberg(matrix: matrix, key: key)
-                .Bind(H => ConvergeQr(H: H, key: key))
-                .Bind(T => ExtractEigenpairs(matrix: matrix, schur: T, key: key));
-    private static Fin<Matrix> ConvergeQr(Matrix H, Op key) {
-        int n = H.Rows.Value;
-        Matrix converged = toSeq(Enumerable.Range(start: 0, count: MaxQrIterations)).Fold(
-            initialState: (H, ConvergedSize: n),
-            f: static (state, _) => state.ConvergedSize <= 1
-                ? state
-                : QrSweep(state: state)).H;
-        return Fin.Succ(converged);
-    }
-    private static (Matrix H, int ConvergedSize) QrSweep((Matrix H, int ConvergedSize) state) {
-        int p = state.ConvergedSize - 1;
-        double subdiag = Math.Abs(value: state.H.At(i: p, j: p - 1));
-        double scale = Math.Abs(value: state.H.At(i: p - 1, j: p - 1)) + Math.Abs(value: state.H.At(i: p, j: p));
-        return subdiag < QrEpsilon * Math.Max(val1: RhinoMath.ZeroTolerance, val2: scale)
-            ? (state.H, ConvergedSize: state.ConvergedSize - 1)
-            : (WilkinsonShiftQr(H: state.H, p: p), state.ConvergedSize);
-    }
-    private static Matrix WilkinsonShiftQr(Matrix H, int p) {
-        double a = H.At(i: p - 1, j: p - 1);
-        double b = H.At(i: p - 1, j: p);
-        double c = H.At(i: p, j: p - 1);
-        double d = H.At(i: p, j: p);
-        double trace = a + d;
-        double det = (a * d) - (b * c);
-        double disc = (trace * trace * 0.25) - det;
-        double shift = disc >= 0.0
-            ? (Math.Abs(value: (trace * 0.5) - Math.Sqrt(d: disc) - d) < Math.Abs(value: (trace * 0.5) + Math.Sqrt(d: disc) - d)
-                ? (trace * 0.5) - Math.Sqrt(d: disc)
-                : (trace * 0.5) + Math.Sqrt(d: disc))
-            : trace * 0.5;
-        int n = H.Rows.Value;
-        Matrix shifted = toSeq(Enumerable.Range(start: 0, count: n)).Fold(
-            initialState: H,
-            f: (m, i) => m.With(i: i, j: i, value: m.At(i: i, j: i) - shift));
-        Matrix afterStep = GivensSweepQr(H: shifted, p: p);
-        return toSeq(Enumerable.Range(start: 0, count: n)).Fold(
-            initialState: afterStep,
-            f: (m, i) => m.With(i: i, j: i, value: m.At(i: i, j: i) + shift));
-    }
-    private static Matrix GivensSweepQr(Matrix H, int p) {
-        int n = H.Rows.Value;
-        return toSeq(Enumerable.Range(start: 0, count: p)).Fold(
-            initialState: H,
-            f: (m, k) => ApplyGivensQr(matrix: m, k: k, p: p, n: n));
-    }
-    private static Matrix ApplyGivensQr(Matrix matrix, int k, int p, int n) {
-        double a = matrix.At(i: k, j: k);
-        double b = matrix.At(i: k + 1, j: k);
-        double r = Math.Sqrt(d: (a * a) + (b * b));
-        return r < RhinoMath.ZeroTolerance
-            ? matrix
-            : GivensRotate(matrix: matrix, k: k, n: n, cos: a / r, sin: b / r);
-    }
-    private static Matrix GivensRotate(Matrix matrix, int k, int n, double cos, double sin) {
-        Matrix afterLeft = toSeq(Enumerable.Range(start: 0, count: n)).Fold(
-            initialState: matrix,
-            f: (m, j) => {
-                double top = m.At(i: k, j: j);
-                double bot = m.At(i: k + 1, j: j);
-                return m.With(i: k, j: j, value: (cos * top) + (sin * bot))
-                    .With(i: k + 1, j: j, value: (-sin * top) + (cos * bot));
-            });
-        return toSeq(Enumerable.Range(start: 0, count: n)).Fold(
-            initialState: afterLeft,
-            f: (m, i) => {
-                double left = m.At(i: i, j: k);
-                double right = m.At(i: i, j: k + 1);
-                return m.With(i: i, j: k, value: (cos * left) + (sin * right))
-                    .With(i: i, j: k + 1, value: (-sin * left) + (cos * right));
-            });
-    }
-    private static Fin<Seq<(Complex Eigenvalue, Arr<Complex> Eigenvector)>> ExtractEigenpairs(Matrix matrix, Matrix schur, Op key) {
-        int n = schur.Rows.Value;
-        Seq<Complex> eigenvalues = ExtractEigenvalues(schur: schur, n: n);
-        return eigenvalues.Map(value => InverseIteration(matrix: matrix, eigenvalue: value, key: key)
-            .Map(eigenvector => (Eigenvalue: value, Eigenvector: eigenvector)))
-            .TraverseM(static pair => pair).As();
-    }
-    private static Seq<Complex> ExtractEigenvalues(Matrix schur, int n) =>
-        toSeq(Enumerable.Range(start: 0, count: n)).Fold(
-            initialState: (Index: 0, Values: Seq<Complex>()),
-            f: (state, _) => state.Index >= n
-                ? state
-                : state.Index < n - 1 && Math.Abs(value: schur.At(i: state.Index + 1, j: state.Index)) > QrEpsilon
-                    ? (Index: state.Index + 2, Values: state.Values.Concat(ExtractPair(schur: schur, k: state.Index)).ToSeq())
-                    : (Index: state.Index + 1, Values: state.Values.Add(new Complex(real: schur.At(i: state.Index, j: state.Index), imaginary: 0.0)))).Values;
-    private static Seq<Complex> ExtractPair(Matrix schur, int k) {
-        double a = schur.At(i: k, j: k);
-        double b = schur.At(i: k, j: k + 1);
-        double c = schur.At(i: k + 1, j: k);
-        double d = schur.At(i: k + 1, j: k + 1);
-        double trace = a + d;
-        double det = (a * d) - (b * c);
-        double disc = (trace * trace * 0.25) - det;
-        return disc >= 0.0
-            ? Seq(new Complex(real: (trace * 0.5) + Math.Sqrt(d: disc), imaginary: 0.0),
-                  new Complex(real: (trace * 0.5) - Math.Sqrt(d: disc), imaginary: 0.0))
-            : Seq(new Complex(real: trace * 0.5, imaginary: Math.Sqrt(d: -disc)),
-                  new Complex(real: trace * 0.5, imaginary: -Math.Sqrt(d: -disc)));
-    }
-    // Inverse iteration with cached LU: factorise (A - lambda I) once, reuse forward/back
-    // substitution. Real shift -> n x n; complex shift -> 2n x 2n real augmentation
-    // [[M, imagI], [-imagI, M]] encoding the complex system.
-    private static Fin<Arr<Complex>> InverseIteration(Matrix matrix, Complex eigenvalue, Op key) {
-        int n = matrix.Rows.Value;
-        Arr<Complex> initial = [.. Enumerable.Range(start: 0, count: n).Select(_ => new Complex(real: 1.0, imaginary: 0.0))];
-        return FactorShifted(matrix: matrix, eigenvalue: eigenvalue, key: key)
-            .Map(fact => toSeq(Enumerable.Range(start: 0, count: MaxInverseIterations)).Fold(
-                initialState: (V: initial, Done: false),
-                f: (s, _) => s.Done
-                    ? s
-                    : fact.Apply(rhs: s.V) switch {
-                        Arr<Complex> solved => Normalize(values: solved) switch {
-                            Arr<Complex> normalised => (V: normalised, Done: ConvergedComplex(previous: s.V, current: normalised)),
-                        },
-                    }).V);
-    }
-    private readonly record struct ShiftedFactorisation(LuResult Lu, bool IsRealShift, int Original) {
-        internal Arr<Complex> Apply(Arr<Complex> rhs) {
-            int n = Original;
-            return IsRealShift
-                ? ApplyRealLu(L: Lu.L, U: Lu.U, perm: Lu.Permutation, rhs: rhs, n: n)
-                : ApplyAugmentedLu(L: Lu.L, U: Lu.U, perm: Lu.Permutation, rhs: rhs, n: n);
+        try {
+            MathNet.Numerics.LinearAlgebra.Factorization.Cholesky<double> chol = ToMathNet(matrix.ToDense()).Cholesky();
+            return Fin.Succ(FromMathNet(chol.Factor, matrix.Dimension, matrix.Dimension));
+        } catch (ArgumentException) {
+            return Fin.Fail<Matrix>(key.InvalidInput());
+        } catch (InvalidOperationException) {
+            return Fin.Fail<Matrix>(key.InvalidInput());
         }
     }
-    // Inverse iteration on (A - lambda*I) is undefined when lambda is an exact eigenvalue:
-    // LU back-solve divides by ~0 producing NaN eigenvectors. Standard fix: perturb shift by
-    // a tiny relative offset so the shifted matrix is regular while staying within convergence
-    // tolerance of the true eigenvalue.
-    private static Fin<ShiftedFactorisation> FactorShifted(Matrix matrix, Complex eigenvalue, Op key) {
+    internal static Fin<Seq<(double Eigenvalue, Arr<double> Eigenvector)>> SymmetricEigen(SymmetricMatrix matrix, Op key) {
+        MathNet.Numerics.LinearAlgebra.Factorization.Evd<double> evd = ToMathNet(matrix.ToDense()).Evd(Symmetricity.Symmetric);
+        int n = matrix.Dimension.Value;
+        return Fin.Succ(toSeq(Enumerable.Range(start: 0, count: n)
+            .Select(i => (Eigenvalue: evd.EigenValues[i].Real, Eigenvector: ArrFromVector(evd.EigenVectors.Column(i))))
+            .OrderByDescending(static p => Math.Abs(p.Eigenvalue))));
+    }
+    internal static Fin<Seq<(Complex Eigenvalue, Arr<Complex> Eigenvector)>> GeneralEigen(Matrix matrix, Op key) {
+        if (matrix.Rows.Value != matrix.Cols.Value) return Fin.Fail<Seq<(Complex, Arr<Complex>)>>(key.InvalidInput());
+        MathNet.Numerics.LinearAlgebra.Factorization.Evd<Complex> evd = ToMathNetComplex(matrix).Evd(Symmetricity.Asymmetric);
         int n = matrix.Rows.Value;
-        double perturbation = RhinoMath.SqrtEpsilon * Math.Max(val1: 1.0, val2: Math.Abs(value: eigenvalue.Real));
-        Matrix shifted = ShiftDiagonal(matrix: matrix, n: n, by: eigenvalue.Real - perturbation);
-        return Math.Abs(value: eigenvalue.Imaginary) < QrEpsilon
-            ? shifted.DecomposeLu(key: key).Map(lu => new ShiftedFactorisation(Lu: lu, IsRealShift: true, Original: n))
-            : BuildComplexAugmented(shifted: shifted, n: n, imag: eigenvalue.Imaginary).DecomposeLu(key: key)
-                .Map(lu => new ShiftedFactorisation(Lu: lu, IsRealShift: false, Original: n));
+        return Fin.Succ(toSeq(Enumerable.Range(start: 0, count: n)
+            .Select(i => (Eigenvalue: evd.EigenValues[i], Eigenvector: ArrFromComplexVector(evd.EigenVectors.Column(i))))));
     }
-    private static Matrix ShiftDiagonal(Matrix matrix, int n, double by) {
-        Matrix self = matrix;
-        return toSeq(Enumerable.Range(start: 0, count: n)).Fold(
-            initialState: matrix,
-            f: (m, i) => m.With(i: i, j: i, value: self.At(i: i, j: i) - by));
+    private static Arr<Complex> ArrFromComplexVector(ComplexVector v) => new(v.ToArray());
+    // Forward-back substitution on the cached LU factor pair, O(n^2). Permutation applied
+    // to rhs first; then solve L y = Pb, then U x = y. No matrix inversion required.
+    internal static Arr<double> LuSolve(LuResult lu, Arr<double> rhs) {
+        int n = lu.L.Rows.Value;
+        double[] permuted = new double[n];
+        for (int i = 0; i < n; i++) permuted[i] = rhs[index: lu.Permutation[index: i]];
+        double[] y = new double[n];
+        for (int i = 0; i < n; i++) {
+            double sum = permuted[i];
+            for (int j = 0; j < i; j++) sum -= lu.L.At(i: i, j: j) * y[j];
+            y[i] = sum;
+        }
+        double[] x = new double[n];
+        for (int i = n - 1; i >= 0; i--) {
+            double sum = y[i];
+            for (int j = i + 1; j < n; j++) sum -= lu.U.At(i: i, j: j) * x[j];
+            x[i] = sum / lu.U.At(i: i, j: i);
+        }
+        return new Arr<double>(x);
     }
-    private static Matrix BuildComplexAugmented(Matrix shifted, int n, double imag) {
-        Matrix self = shifted;
-        Dimension big = Dimension.Create(value: 2 * n);
-        return new Matrix(Rows: big, Cols: big,
-            Entries: [.. toSeq(Enumerable.Range(start: 0, count: 4 * n * n))
-                .Map(idx => {
-                    int row = idx / (2 * n);
-                    int col = idx % (2 * n);
-                    int subRow = row % n;
-                    int subCol = col % n;
-                    return (row < n, col < n) switch {
-                        (true, true) or (false, false) => self.At(i: subRow, j: subCol),
-                        (true, false) when subRow == subCol => imag,
-                        (false, true) when subRow == subCol => -imag,
-                        _ => 0.0,
-                    };
-                })]);
-    }
-    private static Arr<Complex> ApplyRealLu(Matrix L, Matrix U, Arr<int> perm, Arr<Complex> rhs, int n) {
-        Arr<Complex> permuted = [.. Enumerable.Range(start: 0, count: n).Select(i => rhs[perm[i]])];
-        Arr<Complex> y = ForwardSolveComplex(L: L, b: permuted, n: n);
-        return BackSolveComplex(U: U, b: y, n: n);
-    }
-    private static Arr<Complex> ApplyAugmentedLu(Matrix L, Matrix U, Arr<int> perm, Arr<Complex> rhs, int n) {
-        Arr<double> bigRhs = [.. Enumerable.Range(start: 0, count: 2 * n)
-            .Select(i => i < n ? rhs[i].Real : rhs[i - n].Imaginary)];
-        Arr<double> permuted = [.. Enumerable.Range(start: 0, count: 2 * n).Select(i => bigRhs[perm[i]])];
-        Arr<double> y = ForwardSolveReal(L: L, b: permuted, n: 2 * n);
-        Arr<double> x = BackSolveReal(U: U, b: y, n: 2 * n);
-        return [.. Enumerable.Range(start: 0, count: n).Select(i => new Complex(real: x[i], imaginary: x[i + n]))];
-    }
-    private static bool ConvergedComplex(Arr<Complex> previous, Arr<Complex> current) {
-        double diff = toSeq(Enumerable.Range(start: 0, count: previous.Count))
-            .Fold(initialState: 0.0, f: (sum, i) => sum + Complex.Abs(value: current[i] - previous[i]));
-        double scale = toSeq(Enumerable.Range(start: 0, count: previous.Count))
-            .Fold(initialState: 0.0, f: (sum, i) => sum + Complex.Abs(value: current[i]));
-        return diff < InverseIterationEpsilon * Math.Max(val1: RhinoMath.ZeroTolerance, val2: scale);
-    }
-    private static Arr<Complex> ForwardSolveComplex(Matrix L, Arr<Complex> b, int n) =>
-        toSeq(Enumerable.Range(start: 0, count: n)).Fold(
-            initialState: new Arr<Complex>(Enumerable.Repeat(element: Complex.Zero, count: n)),
-            f: (y, i) => y.SetItem(i,
-                (b[i] - toSeq(Enumerable.Range(start: 0, count: i))
-                    .Fold(initialState: Complex.Zero, f: (sum, j) => sum + (L.At(i: i, j: j) * y[j]))) / L.At(i: i, j: i)));
-    private static Arr<Complex> BackSolveComplex(Matrix U, Arr<Complex> b, int n) =>
-        toSeq(Enumerable.Range(start: 0, count: n).Reverse()).Fold(
-            initialState: new Arr<Complex>(Enumerable.Repeat(element: Complex.Zero, count: n)),
-            f: (x, i) => x.SetItem(i,
-                (b[i] - toSeq(Enumerable.Range(start: i + 1, count: n - i - 1))
-                    .Fold(initialState: Complex.Zero, f: (sum, j) => sum + (U.At(i: i, j: j) * x[j]))) / U.At(i: i, j: i)));
-    private static Arr<double> ForwardSolveReal(Matrix L, Arr<double> b, int n) =>
-        toSeq(Enumerable.Range(start: 0, count: n)).Fold(
-            initialState: new Arr<double>(Enumerable.Repeat(element: 0.0, count: n)),
-            f: (y, i) => y.SetItem(i,
-                (b[i] - toSeq(Enumerable.Range(start: 0, count: i))
-                    .Fold(initialState: 0.0, f: (sum, j) => sum + (L.At(i: i, j: j) * y[j]))) / L.At(i: i, j: i)));
-    private static Arr<double> BackSolveReal(Matrix U, Arr<double> b, int n) =>
-        toSeq(Enumerable.Range(start: 0, count: n).Reverse()).Fold(
-            initialState: new Arr<double>(Enumerable.Repeat(element: 0.0, count: n)),
-            f: (x, i) => x.SetItem(i,
-                (b[i] - toSeq(Enumerable.Range(start: i + 1, count: n - i - 1))
-                    .Fold(initialState: 0.0, f: (sum, j) => sum + (U.At(i: i, j: j) * x[j]))) / U.At(i: i, j: i)));
-    private static Arr<Complex> Normalize(Arr<Complex> values) {
-        double normSq = values.Fold(initialState: 0.0,
-            f: (sum, value) => sum + (value.Real * value.Real) + (value.Imaginary * value.Imaginary));
-        double norm = Math.Sqrt(d: normSq);
-        return norm < RhinoMath.ZeroTolerance
-            ? values
-            : [.. values.AsIterable().Select(v => v / norm)];
+    private static Arr<int> ExtractPermutation(MathNet.Numerics.Permutation p, int n) =>
+        [.. Enumerable.Range(0, n).Select(i => p[i])];
+    private static int CountSwaps(Arr<int> perm, int n) {
+        bool[] visited = new bool[n];
+        int swaps = 0;
+        for (int i = 0; i < n; i++) {
+            if (visited[i] || perm[i] == i) continue;
+            int j = i;
+            int cycle = 0;
+            while (!visited[j]) { visited[j] = true; j = perm[j]; cycle++; }
+            swaps += cycle - 1;
+        }
+        return swaps;
     }
 
-    // --- [SVD_GOLUB_REINSCH] --------------------------------------------------------------
-    // Golub-Reinsch SVD: Householder bidiagonalise A -> B with U_left/V_right accumulators;
-    // diagonalise B via column-Givens (B is sparser than A so converges much faster than
-    // one-sided Jacobi). Final U/V fold in the bidiag accumulators; sigma sorted descending.
-    // Shares ReflectLeftSubspace/ReflectRightSubspace with QR/Hessenberg.
-    internal static Fin<SvdResult> SvdJacobi(Matrix matrix, Op key) {
-        int m = matrix.Rows.Value;
-        int n = matrix.Cols.Value;
-        // Phase 1: Bidiagonalise via two-sided Householder. A = U_bidiag * B * V_bidiag^T.
-        (Matrix uBidiag, Matrix bidiag, Matrix vBidiag) = Bidiagonalise(matrix: matrix, m: m, n: n);
-        // Phase 2: Givens sweep on B's columns until orthogonal. After convergence
-        // B_rotated = B * V_jacobi and ||B_rotated[:, j]|| == sigma_j. V_jacobi composes
-        // with V_bidiag to give the final V.
-        (Matrix bRotated, Matrix vJacobi) = toSeq(Enumerable.Range(start: 0, count: MaxSweeps)).Fold(
-            initialState: (A: bidiag, V: vBidiag),
-            f: (state, _) => BidiagonalSweepConverged(matrix: state.A, n: n)
-                ? state
-                : BidiagonalSweep(state: state, n: n));
-        // Phase 3: thin-SVD U_j = (U_bidiag * B_rotated[:, perm[j]]) / sigma_j; V is V_jacobi.
-        return Fin.Succ(BuildSortedSvd(UBidiag: uBidiag, BRotated: bRotated, V: vJacobi, m: m, n: n));
+    // --- [DENSE_CHOLESKY_SOLVE] -------------------------------------------------------------
+    // Forward-back substitution on lower-triangular L (where A = L L^T): solve L y = rhs,
+    // then L^T x = y. Used by CholeskyResult.Solve over both dense and sparse-derived L.
+    internal static Fin<Arr<double>> CholeskySolve(Matrix L, Arr<double> rhs, Op key) {
+        int n = L.Rows.Value;
+        if (rhs.Count != n) return Fin.Fail<Arr<double>>(key.InvalidInput());
+        double[] y = new double[n];
+        for (int i = 0; i < n; i++) {
+            double sum = rhs[i];
+            for (int j = 0; j < i; j++) sum -= L.At(i: i, j: j) * y[j];
+            double diag = L.At(i: i, j: i);
+            if (Math.Abs(diag) < RhinoMath.ZeroTolerance) return Fin.Fail<Arr<double>>(key.InvalidResult());
+            y[i] = sum / diag;
+        }
+        double[] x = new double[n];
+        for (int i = n - 1; i >= 0; i--) {
+            double sum = y[i];
+            for (int j = i + 1; j < n; j++) sum -= L.At(i: j, j: i) * x[j];
+            x[i] = sum / L.At(i: i, j: i);
+        }
+        return Fin.Succ(new Arr<double>(x));
     }
-    // Phase 1 ----------------------------------------------------------------------------
-    private static (Matrix U, Matrix B, Matrix V) Bidiagonalise(Matrix matrix, int m, int n) {
-        int limit = Math.Min(val1: m, val2: n);
-        Matrix uInit = Matrix.Identity(dim: matrix.Rows);
-        Matrix vInit = Matrix.Identity(dim: matrix.Cols);
-        return toSeq(Enumerable.Range(start: 0, count: limit)).Fold(
-            initialState: (U: uInit, B: matrix, V: vInit),
-            f: (state, k) => BidiagonaliseStep(state: state, k: k, m: m, n: n));
-    }
-    private static (Matrix U, Matrix B, Matrix V) BidiagonaliseStep((Matrix U, Matrix B, Matrix V) state, int k, int m, int n) {
-        (Matrix uAfter, Matrix bAfterLeft) = LeftHouseholderColumn(U: state.U, B: state.B, k: k, m: m, n: n);
-        return k < n - 1
-            ? RightHouseholderRow(B: bAfterLeft, V: state.V, k: k, n: n) switch {
-                (Matrix bAfterRight, Matrix vAfter) => (uAfter, bAfterRight, vAfter),
+
+    // --- [SPARSE_ASSEMBLY] ------------------------------------------------------------------
+    internal static Fin<SparseMatrix> AssembleSparse(Dimension rows, Dimension cols, IEnumerable<(int Row, int Col, double Value)> triplets, Op op) {
+        List<(int Row, int Col, double Value)> sorted = [.. triplets.Where(t => RhinoMath.IsValidDouble(t.Value) && t.Row >= 0 && t.Row < rows.Value && t.Col >= 0 && t.Col < cols.Value)
+            .GroupBy(static t => (t.Row, t.Col))
+            .Select(static g => (g.Key.Row, g.Key.Col, Value: g.Sum(static t => t.Value)))
+            .OrderBy(static t => t.Row).ThenBy(static t => t.Col)];
+        int[] rowPtr = new int[rows.Value + 1];
+        int[] colInd = new int[sorted.Count];
+        double[] values = new double[sorted.Count];
+        int cursor = 0;
+        for (int row = 0; row < rows.Value; row++) {
+            rowPtr[row] = cursor;
+            while (cursor < sorted.Count && sorted[cursor].Row == row) {
+                colInd[cursor] = sorted[cursor].Col;
+                values[cursor] = sorted[cursor].Value;
+                cursor++;
             }
-            : (uAfter, bAfterLeft, state.V);
+        }
+        rowPtr[rows.Value] = cursor;
+        return Fin.Succ(new SparseMatrix(Rows: rows, Cols: cols, RowPtr: new Arr<int>(rowPtr), ColInd: new Arr<int>(colInd), Values: new Arr<double>(values)));
     }
-    private static (Matrix U, Matrix B) LeftHouseholderColumn(Matrix U, Matrix B, int k, int m, int n) {
-        Matrix bSnap = B;
-        Arr<double> x = [.. toSeq(Enumerable.Range(start: 0, count: m - k))
-            .Map(i => bSnap.At(i: k + i, j: k))];
-        double normX = L2Norm(x: x);
-        return normX < RhinoMath.ZeroTolerance ? (U, B) : Reflector(x: x, normX: normX).Match(
-            Some: rb => (U: ReflectRightSubspace(matrix: U, column: k, v: rb.V, beta: rb.Beta),
-                         B: ReflectLeftSubspace(matrix: B, column: k, n: n, v: rb.V, beta: rb.Beta)),
-            None: () => (U, B));
+    internal static Fin<SparseHermitian> AssembleHermitian(Dimension order, IEnumerable<(int Row, int Col, Complex Value)> triplets, Op op) {
+        List<(int Row, int Col, Complex Value)> upper = [.. triplets.Where(t => t.Row >= 0 && t.Col >= 0 && t.Row < order.Value && t.Col < order.Value && t.Row <= t.Col)
+            .GroupBy(static t => (t.Row, t.Col))
+            .Select(static g => (g.Key.Row, g.Key.Col, Value: g.Aggregate(Complex.Zero, static (acc, t) => acc + t.Value)))
+            .OrderBy(static t => t.Row).ThenBy(static t => t.Col)];
+        int[] rowPtr = new int[order.Value + 1];
+        int[] colInd = new int[upper.Count];
+        Complex[] values = new Complex[upper.Count];
+        int cursor = 0;
+        for (int row = 0; row < order.Value; row++) {
+            rowPtr[row] = cursor;
+            while (cursor < upper.Count && upper[cursor].Row == row) {
+                colInd[cursor] = upper[cursor].Col;
+                values[cursor] = upper[cursor].Row == upper[cursor].Col ? new Complex(upper[cursor].Value.Real, 0.0) : upper[cursor].Value;
+                cursor++;
+            }
+        }
+        rowPtr[order.Value] = cursor;
+        return Fin.Succ(new SparseHermitian(Order: order, RowPtr: new Arr<int>(rowPtr), ColInd: new Arr<int>(colInd), Values: new Arr<Complex>(values)));
     }
-    private static (Matrix B, Matrix V) RightHouseholderRow(Matrix B, Matrix V, int k, int n) {
-        Matrix bSnap = B;
-        Arr<double> y = [.. toSeq(Enumerable.Range(start: 0, count: n - k - 1))
-            .Map(i => bSnap.At(i: k, j: k + 1 + i))];
-        double normY = L2Norm(x: y);
-        return normY < RhinoMath.ZeroTolerance ? (B, V) : Reflector(x: y, normX: normY).Match(
-            Some: rb => (B: ReflectRightSubspace(matrix: B, column: k + 1, v: rb.V, beta: rb.Beta),
-                         V: ReflectRightSubspace(matrix: V, column: k + 1, v: rb.V, beta: rb.Beta)),
-            None: () => (B, V));
+
+    // --- [SPARSE_OPERATIONS] ----------------------------------------------------------------
+    internal static Arr<double> SparseMatVec(SparseMatrix self, Arr<double> x) {
+        int n = self.Rows.Value;
+        double[] y = new double[n];
+        for (int i = 0; i < n; i++) {
+            double sum = 0.0;
+            for (int k = self.RowPtr[i]; k < self.RowPtr[i + 1]; k++) sum += self.Values[k] * x[self.ColInd[k]];
+            y[i] = sum;
+        }
+        return new Arr<double>(y);
     }
-    // Phase 2: Givens sweep on bidiagonal-conditioned A — one-sided Jacobi seeded from B.
-    private static bool BidiagonalSweepConverged(Matrix matrix, int n) {
-        double offDiag = SweepPairs(dimension: n)
-            .Fold(initialState: 0.0,
-                f: (sum, pq) => sum + Math.Abs(value: BidiagonalColumnDot(matrix: matrix, p: pq.P, q: pq.Q)));
-        double diag = toSeq(Enumerable.Range(start: 0, count: n))
-            .Fold(initialState: 0.0, f: (sum, i) => sum + BidiagonalColumnDot(matrix: matrix, p: i, q: i));
-        return offDiag < JacobiEpsilon * Math.Max(val1: RhinoMath.ZeroTolerance, val2: diag);
+    internal static Arr<Complex> HermitianMatVec(SparseHermitian self, Arr<Complex> x) {
+        int n = self.Order.Value;
+        Complex[] y = new Complex[n];
+        // Upper triangle stored; lower triangle = conjugate-transpose.
+        for (int i = 0; i < n; i++) {
+            for (int k = self.RowPtr[i]; k < self.RowPtr[i + 1]; k++) {
+                int j = self.ColInd[k];
+                Complex v = self.Values[k];
+                y[i] += v * x[j];
+                if (i != j) y[j] += Complex.Conjugate(v) * x[i];
+            }
+        }
+        return new Arr<Complex>(y);
     }
-    private static double BidiagonalColumnDot(Matrix matrix, int p, int q) {
-        int m = matrix.Rows.Value;
-        Matrix self = matrix;
-        return toSeq(Enumerable.Range(start: 0, count: m))
-            .Fold(initialState: 0.0, f: (sum, i) => sum + (self.At(i: i, j: p) * self.At(i: i, j: q)));
+    internal static Matrix SparseToDense(SparseMatrix self) {
+        int rows = self.Rows.Value;
+        int cols = self.Cols.Value;
+        double[] entries = new double[rows * cols];
+        for (int i = 0; i < rows; i++)
+            for (int k = self.RowPtr[i]; k < self.RowPtr[i + 1]; k++)
+                entries[(i * cols) + self.ColInd[k]] = self.Values[k];
+        return new Matrix(Rows: self.Rows, Cols: self.Cols, Entries: new Arr<double>(entries));
     }
-    private static (Matrix A, Matrix V) BidiagonalSweep((Matrix A, Matrix V) state, int n) =>
-        SweepPairs(dimension: n).Fold(initialState: state, f: static (s, pq) => BidiagonalRotatePair(state: s, p: pq.P, q: pq.Q));
-    private static (Matrix A, Matrix V) BidiagonalRotatePair((Matrix A, Matrix V) state, int p, int q) {
-        double app = BidiagonalColumnDot(matrix: state.A, p: p, q: p);
-        double aqq = BidiagonalColumnDot(matrix: state.A, p: q, q: q);
-        double apq = BidiagonalColumnDot(matrix: state.A, p: p, q: q);
-        double scale = Math.Sqrt(d: app * aqq);
-        return Math.Abs(value: apq) < RhinoMath.SqrtEpsilon * Math.Max(val1: RhinoMath.ZeroTolerance, val2: scale)
-            ? state
-            : ApplyBidiagonalColumnRotation(state: state, p: p, q: q, app: app, aqq: aqq, apq: apq);
+    internal static Fin<CholeskyResult> SparseCholesky(SparseMatrix matrix, Op key) {
+        if (matrix.Rows.Value != matrix.Cols.Value) return Fin.Fail<CholeskyResult>(key.InvalidInput());
+        try {
+            MathNet.Numerics.LinearAlgebra.Factorization.Cholesky<double> chol = ToMathNet(SparseToDense(matrix)).Cholesky();
+            return Fin.Succ(new CholeskyResult(L: FromMathNet(chol.Factor, matrix.Rows, matrix.Cols)));
+        } catch (ArgumentException) {
+            return Fin.Fail<CholeskyResult>(key.InvalidInput());
+        } catch (InvalidOperationException) {
+            return Fin.Fail<CholeskyResult>(key.InvalidInput());
+        }
     }
-    private static (Matrix A, Matrix V) ApplyBidiagonalColumnRotation((Matrix A, Matrix V) state, int p, int q, double app, double aqq, double apq) {
-        (double cosVal, double sinVal) = ComputeGivensAngle(app: app, aqq: aqq, apq: apq);
-        return (A: RotateBidiagonalColumns(matrix: state.A, p: p, q: q, cos: cosVal, sin: sinVal),
-                V: RotateBidiagonalColumns(matrix: state.V, p: p, q: q, cos: cosVal, sin: sinVal));
+
+    // --- [LOBPCG] ---------------------------------------------------------------------------
+    // Knyazev 2001. Subspace span([X_i, R_i, P_i]) reduced via Rayleigh-Ritz to a 3k x 3k
+    // generalised eigenproblem; Jacobi-diagonal preconditioner; converges on residual L2 norm.
+    internal static Fin<Seq<(double Eigenvalue, Arr<double> Eigenvector)>> Lobpcg(SparseMatrix matrix, int k, double tolerance, int maxIterations, Op key) {
+        int n = matrix.Rows.Value;
+        if (matrix.Rows.Value != matrix.Cols.Value || k < 1 || k >= n || !RhinoMath.IsValidDouble(tolerance) || tolerance <= 0)
+            return Fin.Fail<Seq<(double, Arr<double>)>>(key.InvalidInput());
+        Matrix<double> A = ToMathNetSparse(matrix);
+        Matrix<double> X = OrthonormalRandom(rows: n, k: k, seed: 17);
+        LinearVector jacobi = ExtractDiagonalInverse(A);
+        Matrix<double> P = DenseMatrixD.Create(n, k, 0.0);
+        LinearVector? eigenvalues = null;
+        Matrix<double>? eigenvectors = null;
+        for (int iter = 0; iter < maxIterations; iter++) {
+            Matrix<double> AX = A * X;
+            LinearVector lambda = RayleighQuotients(X: X, AX: AX);
+            Matrix<double> R = AX - (X * DenseMatrixD.OfDiagonalVector(lambda));
+            if (MaxColumnNorm(R) < tolerance) {
+                eigenvalues = lambda;
+                eigenvectors = X;
+                break;
+            }
+            Matrix<double> W = ApplyJacobi(R: R, invDiag: jacobi);
+            Matrix<double> S = AssembleSubspace(X: X, W: W, P: P);
+            Matrix<double> Ahat = S.Transpose() * (A * S);
+            Matrix<double> Mhat = S.Transpose() * S;
+            (LinearVector eigVals, Matrix<double> eigVecs) = SolveGeneralised(Ahat: Ahat, Mhat: Mhat);
+            Matrix<double> Z = TakeSmallest(eigVals: eigVals, eigVecs: eigVecs, k: k);
+            Matrix<double> Xnew = S * Z;
+            P = (W * Z.SubMatrix(k, k, 0, k)) + (P * Z.SubMatrix(2 * k, k, 0, k));
+            X = OrthonormaliseColumns(Xnew);
+            eigenvalues = lambda;
+            eigenvectors = X;
+        }
+        if (eigenvalues is null || eigenvectors is null) return Fin.Fail<Seq<(double, Arr<double>)>>(key.InvalidResult());
+        LinearVector finalVals = eigenvalues;
+        Matrix<double> finalVecs = eigenvectors;
+        IEnumerable<(double Eigenvalue, Arr<double> Eigenvector)> pairs = Enumerable.Range(0, k)
+            .Select(i => (Eigenvalue: finalVals[i], Eigenvector: ArrFromVector(finalVecs.Column(i))))
+            .OrderBy(static p => p.Eigenvalue);
+        return Fin.Succ(toSeq(pairs));
     }
-    private static Matrix RotateBidiagonalColumns(Matrix matrix, int p, int q, double cos, double sin) {
-        int m = matrix.Rows.Value;
-        Matrix self = matrix;
-        return toSeq(Enumerable.Range(start: 0, count: m)).Fold(
-            initialState: matrix,
-            f: (mm, i) => mm.With(i: i, j: p, value: (cos * self.At(i: i, j: p)) - (sin * self.At(i: i, j: q)))
-                .With(i: i, j: q, value: (sin * self.At(i: i, j: p)) + (cos * self.At(i: i, j: q))));
+    internal static Fin<Seq<(double Eigenvalue, Arr<Complex> Eigenvector)>> LobpcgHermitian(SparseHermitian matrix, int k, double tolerance, int maxIterations, Op key) {
+        int n = matrix.Order.Value;
+        if (k < 1 || k >= n || !RhinoMath.IsValidDouble(tolerance) || tolerance <= 0)
+            return Fin.Fail<Seq<(double, Arr<Complex>)>>(key.InvalidInput());
+        Matrix<Complex> A = ToMathNetHermitian(matrix);
+        Matrix<Complex> X = OrthonormalRandomComplex(rows: n, k: k, seed: 19);
+        ComplexVector jacobi = ExtractDiagonalInverseComplex(A);
+        Matrix<Complex> P = DenseMatrixC.Create(n, k, Complex.Zero);
+        ComplexVector? eigenvalues = null;
+        Matrix<Complex>? eigenvectors = null;
+        for (int iter = 0; iter < maxIterations; iter++) {
+            Matrix<Complex> AX = A * X;
+            ComplexVector lambda = RayleighQuotientsComplex(X: X, AX: AX);
+            Matrix<Complex> R = AX - (X * DenseMatrixC.OfDiagonalVector(lambda));
+            if (MaxColumnNormComplex(R) < tolerance) {
+                eigenvalues = lambda;
+                eigenvectors = X;
+                break;
+            }
+            Matrix<Complex> W = ApplyJacobiComplex(R: R, invDiag: jacobi);
+            Matrix<Complex> S = AssembleSubspaceComplex(X: X, W: W, P: P);
+            Matrix<Complex> Ahat = S.ConjugateTranspose() * (A * S);
+            Matrix<Complex> Mhat = S.ConjugateTranspose() * S;
+            (ComplexVector eigVals, Matrix<Complex> eigVecs) = SolveGeneralisedComplex(Ahat: Ahat, Mhat: Mhat);
+            Matrix<Complex> Z = TakeSmallestComplex(eigVals: eigVals, eigVecs: eigVecs, k: k);
+            Matrix<Complex> Xnew = S * Z;
+            P = (W * Z.SubMatrix(k, k, 0, k)) + (P * Z.SubMatrix(2 * k, k, 0, k));
+            X = OrthonormaliseColumnsComplex(Xnew);
+            eigenvalues = lambda;
+            eigenvectors = X;
+        }
+        if (eigenvalues is null || eigenvectors is null) return Fin.Fail<Seq<(double, Arr<Complex>)>>(key.InvalidResult());
+        ComplexVector finalVals = eigenvalues;
+        Matrix<Complex> finalVecs = eigenvectors;
+        IEnumerable<(double Eigenvalue, Arr<Complex> Eigenvector)> pairs = Enumerable.Range(0, k)
+            .Select(i => (Eigenvalue: finalVals[i].Real, Eigenvector: ArrFromComplexVector(finalVecs.Column(i))))
+            .OrderBy(static p => p.Eigenvalue);
+        return Fin.Succ(toSeq(pairs));
     }
-    // Phase 3: column norms of BRotated are the singular values; U_intermediate[:, j] =
-    // BRotated[:, perm[j]] / sigma_j; final U = UBidiag * U_intermediate. V is already the
-    // composed Jacobi V (incorporates VBidiag since Phase 2 seeded with VBidiag).
-    private static SvdResult BuildSortedSvd(Matrix UBidiag, Matrix BRotated, Matrix V, int m, int n) {
-        Seq<(double Norm, int Column)> norms = toSeq(Enumerable.Range(start: 0, count: n))
-            .Map(j => (Norm: Math.Sqrt(d: BidiagonalColumnDot(matrix: BRotated, p: j, q: j)), Column: j))
-            .OrderByDescending(static pair => pair.Norm)
-            .AsIterable()
-            .ToSeq();
-        Arr<double> sigma = [.. norms.Map(static pair => pair.Norm)];
-        Matrix sortedV = new(Rows: V.Rows, Cols: V.Cols,
-            Entries: [.. toSeq(Enumerable.Range(start: 0, count: n * n))
-                .Map(idx => V.At(i: idx / n, j: norms[idx % n].Column))]);
-        // U_intermediate is m x n: column j = BRotated[:, perm[j]] / sigma_j (zero if singular value is degenerate).
-        Matrix uIntermediate = new(Rows: Dimension.Create(value: m), Cols: Dimension.Create(value: n),
-            Entries: [.. toSeq(Enumerable.Range(start: 0, count: m * n))
-                .Map(idx => norms[idx % n].Norm > RhinoMath.ZeroTolerance
-                    ? BRotated.At(i: idx / n, j: norms[idx % n].Column) / norms[idx % n].Norm
-                    : 0.0)]);
-        // Compose with the bidiagonal U accumulator to recover the SVD identity A = U Σ Vᵀ.
-        Matrix sortedU = UBidiag * uIntermediate;
-        return new SvdResult(U: sortedU, Sigma: sigma, V: sortedV);
+
+    // --- [LOBPCG_PRIMITIVES] ----------------------------------------------------------------
+    private static Matrix<double> ToMathNetSparse(SparseMatrix s) {
+        SparseMatrixD m = new(rows: s.Rows.Value, columns: s.Cols.Value);
+        for (int i = 0; i < s.Rows.Value; i++)
+            for (int kIndex = s.RowPtr[i]; kIndex < s.RowPtr[i + 1]; kIndex++)
+                m[i, s.ColInd[kIndex]] = s.Values[kIndex];
+        return m;
+    }
+    private static Matrix<Complex> ToMathNetHermitian(SparseHermitian s) {
+        SparseMatrixC m = new(rows: s.Order.Value, columns: s.Order.Value);
+        for (int i = 0; i < s.Order.Value; i++)
+            for (int kIndex = s.RowPtr[i]; kIndex < s.RowPtr[i + 1]; kIndex++) {
+                int j = s.ColInd[kIndex];
+                Complex v = s.Values[kIndex];
+                m[i, j] = v;
+                if (i != j) m[j, i] = Complex.Conjugate(v);
+            }
+        return m;
+    }
+#pragma warning disable CA5394 // Random is sufficient for LOBPCG initial guess; not security-sensitive.
+    private static Matrix<double> OrthonormalRandom(int rows, int k, int seed) {
+        Random rng = new(seed);
+        DenseMatrixD m = DenseMatrixD.Create(rows, k, (_, _) => (rng.NextDouble() * 2.0) - 1.0);
+        return OrthonormaliseColumns(m);
+    }
+    private static Matrix<Complex> OrthonormalRandomComplex(int rows, int k, int seed) {
+        Random rng = new(seed);
+        DenseMatrixC m = DenseMatrixC.Create(rows, k, (_, _) => new Complex((rng.NextDouble() * 2.0) - 1.0, (rng.NextDouble() * 2.0) - 1.0));
+        return OrthonormaliseColumnsComplex(m);
+    }
+#pragma warning restore CA5394
+    // Modified Gram-Schmidt with one reorthogonalisation pass for numerical stability on
+    // ill-conditioned X. Drops columns whose norm collapses to ~0 (linearly dependent on
+    // earlier columns) by leaving them zero; caller must handle rank deficiency.
+    private static Matrix<double> OrthonormaliseColumns(Matrix<double> m) {
+        int n = m.RowCount;
+        int k = m.ColumnCount;
+        DenseMatrixD q = DenseMatrixD.Create(n, k, 0.0);
+        for (int j = 0; j < k; j++) {
+            LinearVector v = m.Column(j);
+            for (int i = 0; i < j; i++) {
+                double dot = q.Column(i).DotProduct(v);
+                v -= q.Column(i) * dot;
+            }
+            double norm = v.L2Norm();
+            if (norm > RhinoMath.SqrtEpsilon) q.SetColumn(j, v / norm);
+        }
+        return q;
+    }
+    private static Matrix<Complex> OrthonormaliseColumnsComplex(Matrix<Complex> m) {
+        int n = m.RowCount;
+        int k = m.ColumnCount;
+        DenseMatrixC q = DenseMatrixC.Create(n, k, Complex.Zero);
+        for (int j = 0; j < k; j++) {
+            ComplexVector v = m.Column(j);
+            for (int i = 0; i < j; i++) {
+                Complex dot = q.Column(i).ConjugateDotProduct(v);
+                v -= q.Column(i) * dot;
+            }
+            double norm = v.L2Norm();
+            if (norm > RhinoMath.SqrtEpsilon) q.SetColumn(j, v / norm);
+        }
+        return q;
+    }
+    private static LinearVector ExtractDiagonalInverse(Matrix<double> A) {
+        DenseVectorD inv = DenseVectorD.Create(A.RowCount, 1.0);
+        for (int i = 0; i < A.RowCount; i++) {
+            double d = A[i, i];
+            inv[i] = Math.Abs(d) > RhinoMath.SqrtEpsilon ? 1.0 / d : 1.0;
+        }
+        return inv;
+    }
+    private static ComplexVector ExtractDiagonalInverseComplex(Matrix<Complex> A) {
+        DenseVectorC inv = DenseVectorC.Create(A.RowCount, Complex.One);
+        for (int i = 0; i < A.RowCount; i++) {
+            Complex d = A[i, i];
+            inv[i] = Complex.Abs(d) > RhinoMath.SqrtEpsilon ? Complex.One / d : Complex.One;
+        }
+        return inv;
+    }
+    private static LinearVector RayleighQuotients(Matrix<double> X, Matrix<double> AX) {
+        DenseVectorD r = DenseVectorD.Create(X.ColumnCount, 0.0);
+        for (int j = 0; j < X.ColumnCount; j++) r[j] = X.Column(j).DotProduct(AX.Column(j)) / Math.Max(X.Column(j).DotProduct(X.Column(j)), RhinoMath.ZeroTolerance);
+        return r;
+    }
+    private static ComplexVector RayleighQuotientsComplex(Matrix<Complex> X, Matrix<Complex> AX) {
+        DenseVectorC r = DenseVectorC.Create(X.ColumnCount, Complex.Zero);
+        for (int j = 0; j < X.ColumnCount; j++) {
+            Complex num = X.Column(j).ConjugateDotProduct(AX.Column(j));
+            Complex den = X.Column(j).ConjugateDotProduct(X.Column(j));
+            r[j] = Complex.Abs(den) > RhinoMath.ZeroTolerance ? num / den : Complex.Zero;
+        }
+        return r;
+    }
+    private static double MaxColumnNorm(Matrix<double> m) {
+        double max = 0.0;
+        for (int j = 0; j < m.ColumnCount; j++) max = Math.Max(max, m.Column(j).L2Norm());
+        return max;
+    }
+    private static double MaxColumnNormComplex(Matrix<Complex> m) {
+        double max = 0.0;
+        for (int j = 0; j < m.ColumnCount; j++) max = Math.Max(max, m.Column(j).L2Norm());
+        return max;
+    }
+    private static Matrix<double> ApplyJacobi(Matrix<double> R, LinearVector invDiag) {
+        DenseMatrixD W = DenseMatrixD.Create(R.RowCount, R.ColumnCount, 0.0);
+        for (int j = 0; j < R.ColumnCount; j++)
+            for (int i = 0; i < R.RowCount; i++) W[i, j] = R[i, j] * invDiag[i];
+        return W;
+    }
+    private static Matrix<Complex> ApplyJacobiComplex(Matrix<Complex> R, ComplexVector invDiag) {
+        DenseMatrixC W = DenseMatrixC.Create(R.RowCount, R.ColumnCount, Complex.Zero);
+        for (int j = 0; j < R.ColumnCount; j++)
+            for (int i = 0; i < R.RowCount; i++) W[i, j] = R[i, j] * invDiag[i];
+        return W;
+    }
+    private static Matrix<double> AssembleSubspace(Matrix<double> X, Matrix<double> W, Matrix<double> P) {
+        int n = X.RowCount;
+        int k = X.ColumnCount;
+        DenseMatrixD S = DenseMatrixD.Create(n, 3 * k, 0.0);
+        S.SetSubMatrix(0, 0, X);
+        S.SetSubMatrix(0, k, W);
+        S.SetSubMatrix(0, 2 * k, P);
+        return OrthonormaliseColumns(S);
+    }
+    private static Matrix<Complex> AssembleSubspaceComplex(Matrix<Complex> X, Matrix<Complex> W, Matrix<Complex> P) {
+        int n = X.RowCount;
+        int k = X.ColumnCount;
+        DenseMatrixC S = DenseMatrixC.Create(n, 3 * k, Complex.Zero);
+        S.SetSubMatrix(0, 0, X);
+        S.SetSubMatrix(0, k, W);
+        S.SetSubMatrix(0, 2 * k, P);
+        return OrthonormaliseColumnsComplex(S);
+    }
+    // Generalised symmetric eigenproblem A z = lambda M z via Mhat-Cholesky reduction to a
+    // standard problem: factor Mhat = L L^T, solve (L^-1 A L^-T) y = lambda y, then z = L^-T y.
+    private static (LinearVector Vals, Matrix<double> Vecs) SolveGeneralised(Matrix<double> Ahat, Matrix<double> Mhat) {
+        MathNet.Numerics.LinearAlgebra.Factorization.Cholesky<double> chol = Mhat.Cholesky();
+        Matrix<double> L = chol.Factor;
+        Matrix<double> LinvA = L.Inverse() * Ahat;
+        Matrix<double> reduced = LinvA * L.Inverse().Transpose();
+        Matrix<double> sym = (reduced + reduced.Transpose()) * 0.5;
+        MathNet.Numerics.LinearAlgebra.Factorization.Evd<double> evd = sym.Evd(Symmetricity.Symmetric);
+        LinearVector vals = DenseVectorD.Create(evd.EigenValues.Count, i => evd.EigenValues[i].Real);
+        Matrix<double> vecs = L.Inverse().Transpose() * evd.EigenVectors;
+        return (Vals: vals, Vecs: vecs);
+    }
+    private static (ComplexVector Vals, Matrix<Complex> Vecs) SolveGeneralisedComplex(Matrix<Complex> Ahat, Matrix<Complex> Mhat) {
+        MathNet.Numerics.LinearAlgebra.Factorization.Cholesky<Complex> chol = Mhat.Cholesky();
+        Matrix<Complex> L = chol.Factor;
+        Matrix<Complex> LinvA = L.Inverse() * Ahat;
+        Matrix<Complex> reduced = LinvA * L.Inverse().ConjugateTranspose();
+        Matrix<Complex> herm = (reduced + reduced.ConjugateTranspose()) * 0.5;
+        MathNet.Numerics.LinearAlgebra.Factorization.Evd<Complex> evd = herm.Evd(Symmetricity.Hermitian);
+        Matrix<Complex> vecs = L.Inverse().ConjugateTranspose() * evd.EigenVectors;
+        return (Vals: evd.EigenValues, Vecs: vecs);
+    }
+    private static Matrix<double> TakeSmallest(LinearVector eigVals, Matrix<double> eigVecs, int k) {
+        int[] sorted = [.. Enumerable.Range(0, eigVals.Count).OrderBy(i => eigVals[i]).Take(k)];
+        DenseMatrixD Z = DenseMatrixD.Create(eigVecs.RowCount, k, 0.0);
+        for (int idx = 0; idx < k; idx++) Z.SetColumn(idx, eigVecs.Column(sorted[idx]));
+        return Z;
+    }
+    private static Matrix<Complex> TakeSmallestComplex(ComplexVector eigVals, Matrix<Complex> eigVecs, int k) {
+        int[] sorted = [.. Enumerable.Range(0, eigVals.Count).OrderBy(i => eigVals[i].Real).Take(k)];
+        DenseMatrixC Z = DenseMatrixC.Create(eigVecs.RowCount, k, Complex.Zero);
+        for (int idx = 0; idx < k; idx++) Z.SetColumn(idx, eigVecs.Column(sorted[idx]));
+        return Z;
     }
 }

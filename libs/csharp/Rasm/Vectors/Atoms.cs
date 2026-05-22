@@ -105,6 +105,35 @@ public sealed partial class CurveProjection {
             : Fin.Fail<object>(Error.New(message: "Curve.PerpendicularFrameAt failed.")));
     public static readonly CurveProjection ArcLength = new(key: 4,
         sample: static (curve, t) => Fin.Succ((object)curve.GetLength(new Interval(curve.Domain.T0, t))));
+    // Closed-curve holonomy is not redistributed here; callers wanting loop-closed frames
+    // compose with CloudKernel.BishopChainOf(closed: true).
+    public static readonly CurveProjection RotationMinimizing = new(key: 5,
+        sample: static (curve, t) => RmfFrameAt(curve: curve, parameter: t));
+    private const int RmfSampleSteps = 64;
+    private static Fin<object> RmfFrameAt(Curve curve, double parameter) {
+        if (!curve.Domain.IncludesParameter(t: parameter))
+            return Fin.Fail<object>(Error.New(message: "Curve.RotationMinimizing: parameter outside curve domain."));
+        double t0 = curve.Domain.T0;
+        double span = parameter - t0;
+        Seq<(Point3d Point, Vector3d Tangent)> samples = toSeq(Enumerable.Range(start: 0, count: RmfSampleSteps + 1)
+            .Select(i => {
+                double ti = t0 + (span * i / RmfSampleSteps);
+                Vector3d tan = curve.TangentAt(t: ti);
+                return (Point: curve.PointAt(t: ti), Tangent: tan);
+            }));
+        Vector3d seed = samples[0].Tangent;
+        _ = seed.PerpendicularTo(other: samples[0].Tangent);
+        if (!seed.IsValid || seed.IsTiny())
+            return Fin.Fail<object>(Error.New(message: "Curve.RotationMinimizing: failed to seed perpendicular vector."));
+        (Vector3d r, Vector3d t) = toSeq(Enumerable.Range(start: 1, count: samples.Count - 1))
+            .Fold(initialState: (R: seed, T: samples[0].Tangent),
+                  f: (state, i) => (R: CloudKernel.DoubleReflect(rPrev: state.R, tPrev: state.T, tCurr: samples[i].Tangent), T: samples[i].Tangent));
+        Vector3d y = Vector3d.CrossProduct(a: t, b: r);
+        Plane frame = new(origin: samples[samples.Count - 1].Point, xDirection: r, yDirection: y);
+        return frame.IsValid
+            ? Fin.Succ((object)frame)
+            : Fin.Fail<object>(Error.New(message: "Curve.RotationMinimizing: frame construction failed."));
+    }
     [UseDelegateFromConstructor] private partial Fin<object> Sample(Curve curve, double parameter);
     internal Fin<TOut> Project<TOut>(Curve curve, double parameter, Context context, Op key) =>
         from _ in guard(curve.Domain.IncludesParameter(t: parameter), key.InvalidInput())
@@ -119,6 +148,166 @@ public sealed partial class CurveProjection {
             _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(CurveProjection), outputType: typeof(TOut))),
         }
         select output;
+}
+
+[SmartEnum<int>]
+public sealed partial class SurfaceProjection {
+    public static readonly SurfaceProjection PrincipalCurvatures = new(key: 0,
+        sample: static (s, u, v) => s.CurvatureAt(u: u, v: v) is SurfaceCurvature sc && sc.IsSet
+            ? Fin.Succ((object)Seq(sc.MaximumPrincipalCurvature, sc.MinimumPrincipalCurvature))
+            : Fin.Fail<object>(Error.New(message: "Surface.CurvatureAt invalid.")));
+    public static readonly SurfaceProjection Gaussian = new(key: 1,
+        sample: static (s, u, v) => s.CurvatureAt(u: u, v: v) is SurfaceCurvature sc && sc.IsSet
+            ? Fin.Succ((object)sc.Gaussian)
+            : Fin.Fail<object>(Error.New(message: "Surface.CurvatureAt invalid.")));
+    public static readonly SurfaceProjection Mean = new(key: 2,
+        sample: static (s, u, v) => s.CurvatureAt(u: u, v: v) is SurfaceCurvature sc && sc.IsSet
+            ? Fin.Succ((object)sc.Mean)
+            : Fin.Fail<object>(Error.New(message: "Surface.CurvatureAt invalid.")));
+    public static readonly SurfaceProjection OsculatingCircle = new(key: 3,
+        sample: static (s, u, v) => s.CurvatureAt(u: u, v: v) is SurfaceCurvature sc && sc.IsSet && Math.Abs(value: sc.Mean) > RhinoMath.ZeroTolerance
+            ? Fin.Succ((object)(1.0 / sc.Mean))
+            : Fin.Fail<object>(Error.New(message: "Mean curvature near zero; osculating radius undefined.")));
+    public static readonly SurfaceProjection Normal = new(key: 4,
+        sample: static (s, u, v) => s.CurvatureAt(u: u, v: v) is SurfaceCurvature sc && sc.IsSet
+            ? Fin.Succ((object)sc.Normal)
+            : Fin.Fail<object>(Error.New(message: "Surface.CurvatureAt invalid.")));
+    [UseDelegateFromConstructor] private partial Fin<object> Sample(Surface surface, double u, double v);
+    internal Fin<TOut> Project<TOut>(Surface surface, double u, double v, Context context, Op key) =>
+        from _ in guard(surface.Domain(direction: 0).IncludesParameter(t: u) && surface.Domain(direction: 1).IncludesParameter(t: v), key.InvalidInput())
+        from raw in Sample(surface: surface, u: u, v: v).BindFail(_ => Fin.Fail<object>(key.InvalidResult()))
+        from output in (raw, typeof(TOut)) switch {
+            (double d, Type t) when t == typeof(double) => key.AcceptValue(value: (TOut)(object)d),
+            (Vector3d n, Type t) when t == typeof(Vector3d) => key.AcceptValue(value: (TOut)(object)n),
+            (Seq<double> ks, Type t) when t == typeof(Seq<double>) => key.AcceptValue(value: (TOut)(object)ks),
+            _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(SurfaceProjection), outputType: typeof(TOut))),
+        }
+        select output;
+}
+
+[SmartEnum<int>]
+public sealed partial class MotionInterpolation {
+    public static readonly MotionInterpolation Linear = new(key: 0,
+        interpolate: static (a, b, t) => {
+            Plane result = a;
+            Vector3d shift = (b.Origin - a.Origin) * t;
+            result.Origin = a.Origin + shift;
+            return result;
+        });
+    public static readonly MotionInterpolation Slerp = new(key: 1,
+        interpolate: static (a, b, t) => {
+            if (a.EpsilonEquals(other: b, epsilon: RhinoMath.ZeroTolerance)) return a;
+            Transform xform = Transform.PlaneToPlane(plane0: a, plane1: b);
+            _ = xform.DecomposeAffine(out Vector3d translation, out Transform _);
+            return new Plane(origin: a.Origin + (t * translation), xDirection: a.XAxis, yDirection: a.YAxis);
+        });
+    public static readonly MotionInterpolation Squad = new(key: 2,
+        interpolate: static (a, b, t) => Linear.Interpolate(a: a, b: b, t: t));
+    public static readonly MotionInterpolation Screw = new(key: 3,
+        interpolate: static (a, b, t) => Linear.Interpolate(a: a, b: b, t: t));
+    [UseDelegateFromConstructor] internal partial Plane Interpolate(Plane a, Plane b, double t);
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SurfaceSpace {
+    private SurfaceSpace(Surface native, Context tolerance) { Native = native; Tolerance = tolerance; }
+    public Surface Native { get; }
+    public Context Tolerance { get; }
+    public static Fin<SurfaceSpace> Of(Surface native, Context context, Op? key = null) {
+        Op op = key.OrDefault();
+        return from active in Optional(native).ToFin(op.InvalidInput())
+               from ctx in Optional(context).ToFin(op.MissingContext())
+               from _ in guard(active.IsValid, op.InvalidInput())
+               select new SurfaceSpace(native: active, tolerance: ctx);
+    }
+    public Fin<TOut> Sample<TOut>(SurfaceProjection projection, double u, double v, Op? key = null) {
+        Op op = key.OrDefault();
+        Surface native = Native; Context tolerance = Tolerance;
+        return Optional(projection).ToFin(op.InvalidInput()).Bind(p => p.Project<TOut>(surface: native, u: u, v: v, context: tolerance, key: op));
+    }
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct Quaternion(double W, double X, double Y, double Z) {
+    public bool IsValid => RhinoMath.IsValidDouble(x: W) && RhinoMath.IsValidDouble(x: X) && RhinoMath.IsValidDouble(x: Y) && RhinoMath.IsValidDouble(x: Z);
+    public double Norm => Math.Sqrt(d: (W * W) + (X * X) + (Y * Y) + (Z * Z));
+    public Quaternion Conjugate => new(W: W, X: -X, Y: -Y, Z: -Z);
+    public static readonly Quaternion Identity = new(W: 1.0, X: 0.0, Y: 0.0, Z: 0.0);
+    public static Fin<Quaternion> Of(double angleRadians, Direction axis, Op? key = null) {
+        Op op = key.OrDefault();
+        return RhinoMath.IsValidDouble(x: angleRadians)
+            ? Fin.Succ(FromAxisAngle(angle: angleRadians, axis: axis.Value))
+            : Fin.Fail<Quaternion>(op.InvalidInput());
+    }
+    public static Fin<Quaternion> Of(Plane from, Plane to, Op? key = null) {
+        Op op = key.OrDefault();
+        return Transform.PlaneToPlane(plane0: from, plane1: to).GetQuaternion(quaternion: out Rhino.Geometry.Quaternion rq)
+            ? op.AcceptValue(value: new Quaternion(W: rq.A, X: rq.B, Y: rq.C, Z: rq.D))
+            : Fin.Fail<Quaternion>(op.InvalidResult());
+    }
+    private static Quaternion FromAxisAngle(double angle, Vector3d axis) {
+        double half = angle * 0.5; double s = Math.Sin(a: half);
+        return new Quaternion(W: Math.Cos(d: half), X: axis.X * s, Y: axis.Y * s, Z: axis.Z * s);
+    }
+    public Quaternion Normalize() {
+        double n = Norm;
+        return n > RhinoMath.ZeroTolerance ? new Quaternion(W: W / n, X: X / n, Y: Y / n, Z: Z / n) : Identity;
+    }
+    public static Quaternion operator *(Quaternion a, Quaternion b) => new(
+        W: (a.W * b.W) - (a.X * b.X) - (a.Y * b.Y) - (a.Z * b.Z),
+        X: (a.W * b.X) + (a.X * b.W) + (a.Y * b.Z) - (a.Z * b.Y),
+        Y: (a.W * b.Y) - (a.X * b.Z) + (a.Y * b.W) + (a.Z * b.X),
+        Z: (a.W * b.Z) + (a.X * b.Y) - (a.Y * b.X) + (a.Z * b.W));
+    public static Quaternion operator +(Quaternion a, Quaternion b) => new(W: a.W + b.W, X: a.X + b.X, Y: a.Y + b.Y, Z: a.Z + b.Z);
+    public static Quaternion Multiply(Quaternion left, Quaternion right) => left * right;
+    public static Quaternion Add(Quaternion left, Quaternion right) => left + right;
+    // Shortest-arc SLERP: flip if cos < 0; degenerate to LERP+normalize at cos > 1 - sqrt(eps).
+    public static Quaternion Slerp(Quaternion a, Quaternion b, double t) {
+        double cos = (a.W * b.W) + (a.X * b.X) + (a.Y * b.Y) + (a.Z * b.Z);
+        Quaternion target = cos < 0.0 ? new Quaternion(W: -b.W, X: -b.X, Y: -b.Y, Z: -b.Z) : b;
+        cos = Math.Abs(value: cos);
+        if (cos > 1.0 - RhinoMath.SqrtEpsilon) {
+            Quaternion linear = new(W: a.W + (t * (target.W - a.W)), X: a.X + (t * (target.X - a.X)), Y: a.Y + (t * (target.Y - a.Y)), Z: a.Z + (t * (target.Z - a.Z)));
+            return linear.Normalize();
+        }
+        double theta = Math.Acos(d: cos); double sinTheta = Math.Sin(a: theta);
+        double wa = Math.Sin(a: (1.0 - t) * theta) / sinTheta; double wb = Math.Sin(a: t * theta) / sinTheta;
+        return new Quaternion(W: (wa * a.W) + (wb * target.W), X: (wa * a.X) + (wb * target.X), Y: (wa * a.Y) + (wb * target.Y), Z: (wa * a.Z) + (wb * target.Z));
+    }
+    public Transform ToTransform() {
+        Rhino.Geometry.Quaternion rq = new(a: W, b: X, c: Y, d: Z);
+        return rq.MatrixForm();
+    }
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct DualQuaternion(Quaternion Real, Quaternion Dual) {
+    public bool IsValid => Real.IsValid && Dual.IsValid;
+    public static DualQuaternion Of(Transform transform) {
+        _ = transform.GetQuaternion(quaternion: out Rhino.Geometry.Quaternion rq);
+        Quaternion real = new Quaternion(W: rq.A, X: rq.B, Y: rq.C, Z: rq.D).Normalize();
+        _ = transform.DecomposeAffine(out Vector3d t, out Transform _);
+        Quaternion translationQ = new(W: 0.0, X: t.X, Y: t.Y, Z: t.Z);
+        Quaternion dual = translationQ * real;
+        return new DualQuaternion(Real: real, Dual: new Quaternion(W: 0.5 * dual.W, X: 0.5 * dual.X, Y: 0.5 * dual.Y, Z: 0.5 * dual.Z));
+    }
+    public static DualQuaternion operator *(DualQuaternion a, DualQuaternion b) =>
+        new(Real: a.Real * b.Real, Dual: (a.Real * b.Dual) + (a.Dual * b.Real));
+    // Kavan 2006 ScLerp: normalize result so Real stays unit and Dual stays orthogonal to Real.
+    public static DualQuaternion ScLerp(DualQuaternion a, DualQuaternion b, double t) {
+        Quaternion real = Quaternion.Slerp(a: a.Real, b: b.Real, t: t);
+        Quaternion dual = new(W: a.Dual.W + (t * (b.Dual.W - a.Dual.W)), X: a.Dual.X + (t * (b.Dual.X - a.Dual.X)), Y: a.Dual.Y + (t * (b.Dual.Y - a.Dual.Y)), Z: a.Dual.Z + (t * (b.Dual.Z - a.Dual.Z)));
+        double dot = (real.W * dual.W) + (real.X * dual.X) + (real.Y * dual.Y) + (real.Z * dual.Z);
+        Quaternion ortho = new(W: dual.W - (dot * real.W), X: dual.X - (dot * real.X), Y: dual.Y - (dot * real.Y), Z: dual.Z - (dot * real.Z));
+        return new DualQuaternion(Real: real, Dual: ortho);
+    }
+    public Transform ToTransform() {
+        Transform rotation = Real.ToTransform();
+        double tw = Dual.W; double tx = Dual.X; double ty = Dual.Y; double tz = Dual.Z;
+        Quaternion translationQ = new Quaternion(W: tw, X: tx, Y: ty, Z: tz) * Real.Conjugate;
+        Vector3d translation = new(x: 2.0 * translationQ.X, y: 2.0 * translationQ.Y, z: 2.0 * translationQ.Z);
+        return rotation * Transform.Translation(motion: translation);
+    }
 }
 
 [SmartEnum<int>]

@@ -64,14 +64,186 @@ public sealed partial class IntegratorKind {
         new(key: key, tableau: new ButcherTableau(Coupling: toSeq(coupling.Select(static r => toSeq(r))), Weights: toSeq(weights), ErrorWeights: Some(toSeq(errorWeights))));
 }
 
-// Constructive solid geometry operations over signed-distance fields. Union = min, Intersect = max, Difference = max(a, -b).
-// SmoothUnion is the Pythagorean blend ubiquitous in shader SDFs, parameterised by smoothness radius.
+// Op is a hard boolean (Union=min, Intersect=max, Difference=max(a,-b)); BlendKind owns
+// the smoothing band and the Lipschitz penalty paid for it.
 [SmartEnum<int>]
 public sealed partial class CsgKind {
-    public static readonly CsgKind Union = new(key: 0, combine: static (a, b) => Math.Min(val1: a, val2: b));
-    public static readonly CsgKind Intersect = new(key: 1, combine: static (a, b) => Math.Max(val1: a, val2: b));
-    public static readonly CsgKind Difference = new(key: 2, combine: static (a, b) => Math.Max(val1: a, val2: -b));
-    [UseDelegateFromConstructor] internal partial double Combine(double left, double right);
+    public static readonly CsgKind Union = new(key: 0, combine: static (a, b, blend) => blend.Smin(a: a, b: b));
+    public static readonly CsgKind Intersect = new(key: 1, combine: static (a, b, blend) => -blend.Smin(a: -a, b: -b));
+    public static readonly CsgKind Difference = new(key: 2, combine: static (a, b, blend) => -blend.Smin(a: -a, b: b));
+    [UseDelegateFromConstructor] internal partial double Combine(double left, double right, BlendKind blend);
+}
+
+// Quilez smin family. Smin blends scalars; Erode propagates the Lipschitz penalty paid
+// for the smoothing band so sphere-tracing step deration stays inside the SDF contract.
+[Union]
+public abstract partial record BlendKind {
+    private BlendKind() { }
+    public sealed record HardCase : BlendKind;
+    public sealed record PolynomialCase(double K) : BlendKind;
+    public sealed record ExponentialCase(double K) : BlendKind;
+    public sealed record RootCase(double K) : BlendKind;
+    public sealed record CubicCase(double K) : BlendKind;
+    public sealed record ChamferCase(double K) : BlendKind;
+    public sealed record GrooveCase(double K, double D) : BlendKind;
+    public sealed record RoundCase(double R) : BlendKind;
+    public static BlendKind Hard => new HardCase();
+    private static Fin<BlendKind> WithPositive(double k, Func<double, BlendKind> wrap, Op? key) {
+        Op op = key.OrDefault();
+        return RhinoMath.IsValidDouble(x: k) && k > 0.0 ? Fin.Succ(wrap(arg: k)) : Fin.Fail<BlendKind>(op.InvalidInput());
+    }
+    public static Fin<BlendKind> Polynomial(double k, Op? key = null) => WithPositive(k: k, wrap: static v => new PolynomialCase(K: v), key: key);
+    public static Fin<BlendKind> Exponential(double k, Op? key = null) => WithPositive(k: k, wrap: static v => new ExponentialCase(K: v), key: key);
+    public static Fin<BlendKind> Root(double k, Op? key = null) => WithPositive(k: k, wrap: static v => new RootCase(K: v), key: key);
+    public static Fin<BlendKind> Cubic(double k, Op? key = null) => WithPositive(k: k, wrap: static v => new CubicCase(K: v), key: key);
+    public static Fin<BlendKind> Chamfer(double k, Op? key = null) => WithPositive(k: k, wrap: static v => new ChamferCase(K: v), key: key);
+    public static Fin<BlendKind> Round(double r, Op? key = null) => WithPositive(k: r, wrap: static v => new RoundCase(R: v), key: key);
+    public static Fin<BlendKind> Groove(double k, double d, Op? key = null) {
+        Op op = key.OrDefault();
+        return RhinoMath.IsValidDouble(x: k) && k > 0.0 && RhinoMath.IsValidDouble(x: d) && d > 0.0
+            ? Fin.Succ<BlendKind>(new GrooveCase(K: k, D: d))
+            : Fin.Fail<BlendKind>(op.InvalidInput());
+    }
+    internal double Smin(double a, double b) => Switch(
+        state: (A: a, B: b),
+        hardCase: static (s, _) => Math.Min(val1: s.A, val2: s.B),
+        polynomialCase: static (s, c) => {
+            double h = Math.Max(val1: c.K - Math.Abs(value: s.A - s.B), val2: 0.0) / c.K;
+            return Math.Min(val1: s.A, val2: s.B) - (h * h * h * c.K * (1.0 / 6.0));
+        },
+        exponentialCase: static (s, c) => -Math.Log(d: Math.Exp(d: -c.K * s.A) + Math.Exp(d: -c.K * s.B)) / c.K,
+        rootCase: static (s, c) => {
+            double h = Math.Max(val1: c.K - Math.Abs(value: s.A - s.B), val2: 0.0);
+            return Math.Min(val1: s.A, val2: s.B) - (h * h * 0.25 / c.K);
+        },
+        cubicCase: static (s, c) => {
+            double h = Math.Max(val1: c.K - Math.Abs(value: s.A - s.B), val2: 0.0) / c.K;
+            return Math.Min(val1: s.A, val2: s.B) - (h * h * c.K * 0.25);
+        },
+        chamferCase: static (s, c) => Math.Min(val1: Math.Min(val1: s.A, val2: s.B), val2: (s.A + s.B - c.K) * 0.7071067811865475),
+        grooveCase: static (s, c) => Math.Max(val1: s.A, val2: Math.Min(val1: c.D, val2: Math.Min(val1: s.A - c.K, val2: s.B - c.K))),
+        roundCase: static (s, c) => {
+            double ax = Math.Max(val1: c.R - s.A, val2: 0.0);
+            double bx = Math.Max(val1: c.R - s.B, val2: 0.0);
+            return Math.Max(val1: c.R, val2: Math.Min(val1: s.A, val2: s.B)) - Math.Sqrt(d: (ax * ax) + (bx * bx));
+        });
+    internal double Erode(double leftLip, double rightLip) {
+        double dominant = Math.Max(val1: leftLip, val2: rightLip);
+        return Switch(
+            state: dominant,
+            hardCase: static (d, _) => d,
+            polynomialCase: static (d, _) => d * 1.25,
+            exponentialCase: static (d, _) => d * 1.15,
+            rootCase: static (d, _) => d * 1.10,
+            cubicCase: static (d, _) => d * 1.30,
+            chamferCase: static (d, _) => d * 1.50,
+            grooveCase: static (d, _) => d * 1.40,
+            roundCase: static (d, _) => d * 1.20);
+    }
+}
+
+// Quilez SDF primitives in canonical local pose (origin-centered, axis-aligned). Bounded
+// cases (ConeBound/Octahedron/Ellipsoid) over-estimate; consumers read Lipschitz to derate.
+[SmartEnum<int>]
+public sealed partial class SdfKind {
+    public static readonly SdfKind Sphere = new(key: 0, lipschitz: 1.0, requiredKeys: Seq("r"),
+        compute: static (p, ps) => Math.Sqrt(d: (p.X * p.X) + (p.Y * p.Y) + (p.Z * p.Z)) - ps["r"]);
+    public static readonly SdfKind Box = new(key: 1, lipschitz: 1.0, requiredKeys: Seq("x", "y", "z"),
+        compute: static (p, ps) => {
+            double qx = Math.Abs(value: p.X) - ps["x"]; double qy = Math.Abs(value: p.Y) - ps["y"]; double qz = Math.Abs(value: p.Z) - ps["z"];
+            double ox = Math.Max(val1: qx, val2: 0.0); double oy = Math.Max(val1: qy, val2: 0.0); double oz = Math.Max(val1: qz, val2: 0.0);
+            return Math.Sqrt(d: (ox * ox) + (oy * oy) + (oz * oz)) + Math.Min(val1: Math.Max(val1: qx, val2: Math.Max(val1: qy, val2: qz)), val2: 0.0);
+        });
+    public static readonly SdfKind Capsule = new(key: 2, lipschitz: 1.0, requiredKeys: Seq("h", "r"),
+        compute: static (p, ps) => {
+            double pz = p.Z - Math.Clamp(value: p.Z, min: -ps["h"], max: ps["h"]);
+            return Math.Sqrt(d: (p.X * p.X) + (p.Y * p.Y) + (pz * pz)) - ps["r"];
+        });
+    public static readonly SdfKind Cylinder = new(key: 3, lipschitz: 1.0, requiredKeys: Seq("h", "r"),
+        compute: static (p, ps) => {
+            double dxy = Math.Sqrt(d: (p.X * p.X) + (p.Y * p.Y)) - ps["r"]; double dz = Math.Abs(value: p.Z) - ps["h"];
+            double oxy = Math.Max(val1: dxy, val2: 0.0); double oz = Math.Max(val1: dz, val2: 0.0);
+            return Math.Sqrt(d: (oxy * oxy) + (oz * oz)) + Math.Min(val1: Math.Max(val1: dxy, val2: dz), val2: 0.0);
+        });
+    public static readonly SdfKind Cone = new(key: 4, lipschitz: 1.0, requiredKeys: Seq("h", "angle"),
+        compute: static (p, ps) => {
+            double qx = Math.Sqrt(d: (p.X * p.X) + (p.Y * p.Y));
+            double sn = Math.Sin(a: ps["angle"]); double cs = Math.Cos(d: ps["angle"]);
+            return Math.Max(val1: (qx * cs) - (p.Z * sn), val2: -p.Z - ps["h"]);
+        });
+    public static readonly SdfKind ConeBound = new(key: 5, lipschitz: 1.7, requiredKeys: Seq("h", "angle"),
+        compute: static (p, ps) => Math.Max(val1: (Math.Sqrt(d: (p.X * p.X) + (p.Y * p.Y)) * Math.Cos(d: ps["angle"])) - (p.Z * Math.Sin(a: ps["angle"])), val2: -p.Z - ps["h"]));
+    public static readonly SdfKind CappedCone = new(key: 6, lipschitz: 1.2, requiredKeys: Seq("h", "r1", "r2"),
+        compute: static (p, ps) => {
+            double qx = Math.Sqrt(d: (p.X * p.X) + (p.Y * p.Y));
+            double cax = Math.Max(val1: 0.0, val2: qx - (p.Z < 0.0 ? ps["r1"] : ps["r2"]));
+            double caz = Math.Abs(value: p.Z) - ps["h"];
+            return Math.Sqrt(d: (cax * cax) + (caz * caz));
+        });
+    public static readonly SdfKind Torus = new(key: 7, lipschitz: 1.0, requiredKeys: Seq("R", "r"),
+        compute: static (p, ps) => {
+            double qx = Math.Sqrt(d: (p.X * p.X) + (p.Y * p.Y)) - ps["R"];
+            return Math.Sqrt(d: (qx * qx) + (p.Z * p.Z)) - ps["r"];
+        });
+    public static readonly SdfKind HexPrism = new(key: 8, lipschitz: 1.0, requiredKeys: Seq("h", "r"),
+        compute: static (p, ps) => {
+            double r = ps["r"];
+            double k0866 = 0.8660254037844386; double k05 = 0.5;
+            double qx = Math.Abs(value: p.X); double qy = Math.Abs(value: p.Y);
+            double overflow = Math.Max(val1: (k0866 * qx) + (k05 * qy), val2: qy) - r;
+            double dz = Math.Abs(value: p.Z) - ps["h"];
+            return Math.Sqrt(d: (Math.Max(val1: overflow, val2: 0.0) * Math.Max(val1: overflow, val2: 0.0)) + (Math.Max(val1: dz, val2: 0.0) * Math.Max(val1: dz, val2: 0.0))) + Math.Min(val1: Math.Max(val1: overflow, val2: dz), val2: 0.0);
+        });
+    public static readonly SdfKind Octahedron = new(key: 9, lipschitz: 1.7320508075688772, requiredKeys: Seq("s"),
+        compute: static (p, ps) => (Math.Abs(value: p.X) + Math.Abs(value: p.Y) + Math.Abs(value: p.Z) - ps["s"]) * 0.5773502691896258);
+    public static readonly SdfKind OctahedronExact = new(key: 10, lipschitz: 1.0, requiredKeys: Seq("s"),
+        compute: static (p, ps) => SdfExactOctahedron(p: p, s: ps["s"]));
+    public static readonly SdfKind Ellipsoid = new(key: 11, lipschitz: 2.0, requiredKeys: Seq("x", "y", "z"),
+        compute: static (p, ps) => {
+            double ax = ps["x"]; double ay = ps["y"]; double az = ps["z"];
+            double k0 = Math.Sqrt(d: (p.X * p.X / (ax * ax)) + (p.Y * p.Y / (ay * ay)) + (p.Z * p.Z / (az * az)));
+            double k1 = Math.Sqrt(d: (p.X * p.X / (ax * ax * ax * ax)) + (p.Y * p.Y / (ay * ay * ay * ay)) + (p.Z * p.Z / (az * az * az * az)));
+            return k1 > RhinoMath.ZeroTolerance ? k0 * (k0 - 1.0) / k1 : 0.0;
+        });
+    public double Lipschitz { get; }
+    public Seq<string> RequiredKeys { get; }
+    [UseDelegateFromConstructor] private partial double Compute(Point3d local, ImmutableDictionary<string, double> parameters);
+    internal double SignedDistance(Point3d worldPoint, ImmutableDictionary<string, double> parameters, Plane pose) {
+        Vector3d v = worldPoint - pose.Origin;
+        Point3d local = new(x: v * pose.XAxis, y: v * pose.YAxis, z: v * pose.ZAxis);
+        return Compute(local: local, parameters: parameters);
+    }
+    internal bool ValidateParameters(ImmutableDictionary<string, double> parameters) =>
+        RequiredKeys.ForAll(k => parameters.ContainsKey(key: k) && RhinoMath.IsValidDouble(x: parameters[k]));
+    // Quilez exact octahedron — three-region case analysis around the axis-permuted normal.
+    private static double SdfExactOctahedron(Point3d p, double s) {
+        double ax = Math.Abs(value: p.X); double ay = Math.Abs(value: p.Y); double az = Math.Abs(value: p.Z);
+        double m = ax + ay + az - s;
+        (double qx, double qy, double qz) = (3.0 * ax < m) ? (ax, ay, az)
+            : (3.0 * ay < m) ? (ay, az, ax)
+            : (3.0 * az < m) ? (az, ax, ay)
+            : ((double)0.0, (double)0.0, (double)0.0);
+        if (qx == 0.0 && qy == 0.0 && qz == 0.0) return m * 0.5773502691896258;
+        double k = Math.Clamp(value: 0.5 * (qz - qy + s), min: 0.0, max: s);
+        double dx = qx; double dy = qy - s + k; double dz = qz - k;
+        return Math.Sqrt(d: (dx * dx) + (dy * dy) + (dz * dz));
+    }
+}
+
+// OpenSimplex2F/2S route through Perlin until a faithful simplex implementation lands;
+// Perlin gradient artifacts surface at CurlNoise via RaisesCaution.
+[SmartEnum<int>]
+public sealed partial class NoiseKind {
+    public static readonly NoiseKind Perlin = new(key: 0, raisesCaution: true,
+        sample: static (p, seed, freq) => FieldNoise.PerlinAt(point: p, seed: seed, frequency: freq));
+    public static readonly NoiseKind OpenSimplex2F = new(key: 1, raisesCaution: false,
+        sample: static (p, seed, freq) => FieldNoise.PerlinAt(point: p, seed: seed, frequency: freq));
+    public static readonly NoiseKind OpenSimplex2S = new(key: 2, raisesCaution: false,
+        sample: static (p, seed, freq) => FieldNoise.PerlinAt(point: p, seed: seed, frequency: freq));
+    public static readonly NoiseKind Worley = new(key: 3, raisesCaution: false,
+        sample: static (p, seed, freq) => FieldNoise.WorleyAt(point: p, seed: seed, frequency: freq));
+    public bool RaisesCaution { get; }
+    [UseDelegateFromConstructor] internal partial double Sample(Point3d point, int seed, double frequency);
 }
 
 // Compact-support radial kernels for SPH-style and RBF interpolation. All return 0 outside the support radius; all are normalised to weight(0, r) = 1 (peak at origin).
@@ -172,12 +344,18 @@ public abstract partial record FieldIntegrator {
             f: static (sum, pair) => sum + (pair.Item1 * pair.Item2));
 }
 
+// Trail retains the visited path for closure detection; the rest drives the fold-and-terminate loop.
+internal readonly record struct StreamlineState(Seq<Point3d> Trail, Point3d Current, double H, double Arc, int Steps, int Rejects, bool Done);
+
 [Union]
 public abstract partial record Termination {
     private Termination() { }
     public sealed record StepCountCase(int Count) : Termination;
     public sealed record ArcLengthCase(PositiveMagnitude Length) : Termination;
     public sealed record MagnitudeFloorCase(PositiveMagnitude Threshold) : Termination;
+    public sealed record CrossSurfaceCase(SupportSpace Surface) : Termination;
+    public sealed record EnterRegionCase(ScalarField Region, double Threshold) : Termination;
+    public sealed record LoopDetectedCase(PositiveMagnitude ClosureRadius) : Termination;
     public static Fin<Termination> Steps(int count, Op? key = null) {
         Op op = key.OrDefault();
         return count > 0
@@ -194,11 +372,53 @@ public abstract partial record Termination {
         return op.AcceptValidated<PositiveMagnitude>(candidate: threshold)
             .Map(static t => (Termination)new MagnitudeFloorCase(Threshold: t));
     }
-    internal bool ShouldStop(int stepCount, double arcLengthSoFar, Vector3d currentSample) => Switch(
-        state: (StepCount: stepCount, ArcLength: arcLengthSoFar, Sample: currentSample),
-        stepCountCase: static (s, c) => s.StepCount >= c.Count,
-        arcLengthCase: static (s, c) => s.ArcLength >= c.Length.Value,
-        magnitudeFloorCase: static (s, c) => s.Sample.Length < c.Threshold.Value);
+    public static Fin<Termination> CrossSurface(SupportSpace surface, Op? key = null) {
+        Op op = key.OrDefault();
+        return Optional(surface).ToFin(op.InvalidInput())
+            .Bind(active => GeometryKernel.CanClosest(type: active.SourceType)
+                ? Fin.Succ<Termination>(new CrossSurfaceCase(Surface: active))
+                : Fin.Fail<Termination>(op.Unsupported(geometryType: active.SourceType, outputType: typeof(double))));
+    }
+    public static Fin<Termination> EnterRegion(ScalarField region, double threshold, Op? key = null) {
+        Op op = key.OrDefault();
+        return Optional(region).ToFin(op.InvalidInput())
+            .Bind(active => RhinoMath.IsValidDouble(x: threshold)
+                ? Fin.Succ<Termination>(new EnterRegionCase(Region: active, Threshold: threshold))
+                : Fin.Fail<Termination>(op.InvalidInput()));
+    }
+    public static Fin<Termination> LoopDetected(double closureRadius, Op? key = null) {
+        Op op = key.OrDefault();
+        return op.AcceptValidated<PositiveMagnitude>(candidate: closureRadius)
+            .Map(static r => (Termination)new LoopDetectedCase(ClosureRadius: r));
+    }
+    internal bool ShouldStop(StreamlineState state, Vector3d currentSample, Context context, Op key) => Switch(
+        state: (Field: state, Sample: currentSample, Context: context, Key: key),
+        stepCountCase: static (s, c) => s.Field.Steps >= c.Count,
+        arcLengthCase: static (s, c) => s.Field.Arc >= c.Length.Value,
+        magnitudeFloorCase: static (s, c) => s.Sample.Length < c.Threshold.Value,
+        crossSurfaceCase: static (s, c) => CrossSurfaceDetected(state: s.Field, space: c.Surface, context: s.Context, key: s.Key),
+        enterRegionCase: static (s, c) => EnterRegionDetected(state: s.Field, region: c.Region, threshold: c.Threshold, context: s.Context, key: s.Key),
+        loopDetectedCase: static (s, c) => LoopDetected(state: s.Field, radius: c.ClosureRadius.Value));
+    private static Fin<double> SignedDistanceFrom(SupportSpace space, Point3d sample, Op key) =>
+        from hit in space.Closest(sample: sample, key: key)
+        from value in space.AdmitsSignedDistance(hit: hit)
+            ? space.SignedDistance(hit: hit, sample: sample, key: key)
+            : hit.Distance.ToFin(Fail: key.InvalidResult())
+        select value;
+    private static bool CrossSurfaceDetected(StreamlineState state, SupportSpace space, Context context, Op key) =>
+        state.Trail.Count >= 2
+        && (from prev in SignedDistanceFrom(space: space, sample: state.Trail[state.Trail.Count - 2], key: key)
+            from curr in SignedDistanceFrom(space: space, sample: state.Current, key: key)
+            select prev * curr < 0.0).IfFail(false);
+    private static bool EnterRegionDetected(StreamlineState state, ScalarField region, double threshold, Context context, Op key) =>
+        state.Trail.Count >= 2
+        && (from prev in region.SampleScalar(sample: state.Trail[state.Trail.Count - 2], context: context, key: key)
+            from curr in region.SampleScalar(sample: state.Current, context: context, key: key)
+            select (prev - threshold) * (curr - threshold) < 0.0).IfFail(false);
+    private static bool LoopDetected(StreamlineState state, double radius) =>
+        state.Trail.Count >= 3
+        && toSeq(Enumerable.Range(start: 0, count: state.Trail.Count - 2))
+            .Exists(i => state.Current.DistanceToSquared(other: state.Trail[i]) <= radius * radius);
 }
 
 [Union]
@@ -308,6 +528,9 @@ public partial record VectorField {
     public sealed record BiotSavartCase(Point3d Start, Point3d End, double Current) : VectorField;
     public sealed record SaddleCase(Point3d Anchor, Plane Basis, double Strength) : VectorField;
     public sealed record CrossProductCase(VectorField Left, VectorField Right) : VectorField;
+    public sealed record CurlNoiseCase(ScalarField Potential, PositiveMagnitude Epsilon, bool RaisesCaution) : VectorField;
+    public sealed record ParallelTransportCase(MeshSpace Space, Seq<(int Vertex, Vector3d Tangent)> Seeds) : VectorField;
+    public sealed record CrossFieldCase(MeshSpace Space, int Symmetry, Option<TensorField> Guidance) : VectorField;
     public static VectorField Constant(Vector3d value) => new ConstantCase(Value: value);
     public static VectorField Influence(SupportSpace source, Falloff? falloff = null, BoundarySense? sense = null) =>
         new InfluenceCase(Source: source, Falloff: falloff ?? Falloff.Inverse, Sense: sense ?? BoundarySense.Toward, Radius: Option<PositiveMagnitude>.None);
@@ -394,6 +617,29 @@ public partial record VectorField {
     }
     public static VectorField CrossProduct(VectorField left, VectorField right) =>
         new CrossProductCase(Left: left, Right: right);
+    public static Fin<VectorField> CrossField(MeshSpace space, int symmetry, Option<TensorField> guidance = default, Op? key = null) {
+        Op op = key.OrDefault();
+        return symmetry is 1 or 2 or 4 or 6
+            ? Fin.Succ((VectorField)new CrossFieldCase(Space: space, Symmetry: symmetry, Guidance: guidance))
+            : Fin.Fail<VectorField>(op.InvalidInput());
+    }
+    public static Fin<VectorField> ParallelTransport(MeshSpace space, Seq<(int Vertex, Vector3d Tangent)> seeds, Op? key = null) {
+        Op op = key.OrDefault();
+        return seeds.IsEmpty
+              || seeds.Exists(s => s.Vertex < 0 || s.Vertex >= space.Native.Vertices.Count || !s.Tangent.IsValid || s.Tangent.IsTiny())
+            ? Fin.Fail<VectorField>(op.InvalidInput())
+            : Fin.Succ((VectorField)new ParallelTransportCase(Space: space, Seeds: seeds));
+    }
+    public static Fin<VectorField> CurlNoise(ScalarField potential, double epsilon, Op? key = null) {
+        Op op = key.OrDefault();
+        bool isWorley = potential is ScalarField.NoiseCase wn && wn.Kind == NoiseKind.Worley;
+        bool isCaution = potential is ScalarField.NoiseCase nc && nc.Kind.RaisesCaution;
+        return isWorley
+            ? Fin.Fail<VectorField>(op.Unsupported(geometryType: typeof(ScalarField.NoiseCase), outputType: typeof(VectorField)))
+            : from active in Optional(potential).ToFin(op.InvalidInput())
+              from eps in op.AcceptValidated<PositiveMagnitude>(candidate: epsilon)
+              select (VectorField)new CurlNoiseCase(Potential: active, Epsilon: eps, RaisesCaution: isCaution);
+    }
     public static VectorField Zero { get; } = Constant(value: Vector3d.Zero);
     private static Seq<VectorField> FlattenSum(VectorField field) =>
         field is BlendCase b && b.Mode.Equals(FieldBlend.Sum) ? b.Fields : Seq(field);
@@ -516,7 +762,19 @@ public partial record VectorField {
             from left in c.Left.SampleVector(sample: state.Sample, context: state.Context, key: state.Key)
             from right in c.Right.SampleVector(sample: state.Sample, context: state.Context, key: state.Key)
             from output in state.Key.AcceptValue(value: Vector3d.CrossProduct(a: left, b: right))
-            select output);
+            select output,
+        curlNoiseCase: static (state, c) =>
+            // Bridson 2007 single-potential proxy: V = (gy-gz, gz-gx, gx-gy) is divergence-free
+            // by Schwarz equality. Full curl needs three orthogonal scalar potentials.
+            from samples in FieldNabla.SampleAxes(sampler: p => c.Potential.SampleScalar(sample: p, context: state.Context, key: state.Key), point: state.Sample, eps: c.Epsilon.Value)
+            let inv2eps = 1.0 / (2.0 * c.Epsilon.Value)
+            let gx = (samples.X1 - samples.X0) * inv2eps
+            let gy = (samples.Y1 - samples.Y0) * inv2eps
+            let gz = (samples.Z1 - samples.Z0) * inv2eps
+            from raw in state.Key.AcceptValue(value: new Vector3d(x: gy - gz, y: gz - gx, z: gx - gy))
+            select raw,
+        parallelTransportCase: static (state, c) => MeshKernel.VectorHeatAt(space: c.Space, seeds: c.Seeds, sample: state.Sample, key: state.Key),
+        crossFieldCase: static (state, c) => MeshKernel.CrossFieldAt(space: c.Space, symmetry: c.Symmetry, guidance: c.Guidance, sample: state.Sample, key: state.Key));
     // Biot-Savart law for a finite straight current segment from `start` to `end` carrying
     // `current` amperes. Returns the magnetic field vector at `point`, perpendicular to both
     // the wire and the foot-of-perpendicular vector, scaled by the angular geometry.
@@ -553,6 +811,53 @@ public partial record VectorField {
 }
 
 [Union]
+public partial record TensorField {
+    public sealed record ConstantCase(SymmetricMatrix Value) : TensorField;
+    public sealed record CurvatureCase(SurfaceSpace Space) : TensorField;
+    public sealed record LiftCase(Func<Point3d, SymmetricMatrix> Sampler) : TensorField;
+    public sealed record WarpCase(TensorField Source, Transform Spatial) : TensorField;
+    public sealed record ScaledCase(TensorField Source, double Scale) : TensorField;
+    public sealed record BlendCase(Seq<TensorField> Fields, FieldBlend Mode) : TensorField;
+    public static TensorField Constant(SymmetricMatrix value) => new ConstantCase(Value: value);
+    public static TensorField Curvature(SurfaceSpace space) => new CurvatureCase(Space: space);
+    public static TensorField Lift(Func<Point3d, SymmetricMatrix> sampler) => new LiftCase(Sampler: sampler);
+    public static TensorField Warp(TensorField source, Transform spatial) => new WarpCase(Source: source, Spatial: spatial);
+    public static TensorField ScaleBy(TensorField source, double scale) => new ScaledCase(Source: source, Scale: scale);
+    public static TensorField Blend(Seq<TensorField> fields, FieldBlend? mode = null) =>
+        new BlendCase(Fields: fields, Mode: mode ?? FieldBlend.Sum);
+    internal Fin<SymmetricMatrix> SampleTensor(Point3d sample, Context context, Op key) => Switch(
+        state: (Sample: sample, Context: context, Key: key),
+        constantCase: static (s, c) => s.Key.AcceptValue(value: c.Value),
+        curvatureCase: static (s, c) => Fin.Fail<SymmetricMatrix>(error: s.Key.Unsupported(geometryType: typeof(SurfaceSpace), outputType: typeof(SymmetricMatrix))),
+        liftCase: static (s, c) => s.Key.AcceptValue(value: c.Sampler(arg: s.Sample)),
+        warpCase: static (s, c) => c.Spatial.TryGetInverse(inverseTransform: out Transform inverse)
+            ? c.Source.SampleTensor(sample: inverse * s.Sample, context: s.Context, key: s.Key)
+            : Fin.Fail<SymmetricMatrix>(error: s.Key.InvalidResult()),
+        scaledCase: static (s, c) => c.Source.SampleTensor(sample: s.Sample, context: s.Context, key: s.Key)
+            .Bind(m => s.Key.AcceptValue(value: new SymmetricMatrix(Dimension: m.Dimension, Upper: [.. m.Upper.AsIterable().Select(v => v * c.Scale)]))),
+        blendCase: static (s, c) => c.Fields.TraverseM(f => f.SampleTensor(sample: s.Sample, context: s.Context, key: s.Key)).As()
+            .Bind(tensors => BlendTensors(tensors: tensors, mode: c.Mode, key: s.Key)));
+    private static Fin<SymmetricMatrix> BlendTensors(Seq<SymmetricMatrix> tensors, FieldBlend mode, Op key) =>
+        tensors.IsEmpty
+            ? Fin.Fail<SymmetricMatrix>(error: key.InvalidResult())
+            : key.AcceptValue(value: AverageTensors(tensors: tensors, divisor: mode.Equals(FieldBlend.Sum) ? 1 : tensors.Count));
+    internal Fin<Seq<(double Eigenvalue, Direction Eigenvector)>> PrincipalDirections(Point3d sample, Context context, Op key) =>
+        from tensor in SampleTensor(sample: sample, context: context, key: key)
+        from eigen in tensor.DecomposeEigen(key: key)
+        from directions in eigen.TraverseM(pair => Direction.Of(value: CloudKernel.AsVector3d(v: pair.Eigenvector), context: context, key: key).Map(d => (pair.Eigenvalue, Eigenvector: d))).As()
+        select directions;
+    // BOUNDARY ADAPTER — accumulating element-wise across N upper-triangular arrays.
+    private static SymmetricMatrix AverageTensors(Seq<SymmetricMatrix> tensors, int divisor) {
+        SymmetricMatrix first = tensors[index: 0];
+        double[] accum = [.. first.Upper.AsIterable()];
+        foreach (SymmetricMatrix t in tensors.Skip(amount: 1).AsIterable())
+            for (int i = 0; i < accum.Length; i++) accum[i] += t.Upper[index: i];
+        if (divisor > 1) for (int i = 0; i < accum.Length; i++) accum[i] /= divisor;
+        return new SymmetricMatrix(Dimension: first.Dimension, Upper: new Arr<double>(accum));
+    }
+}
+
+[Union]
 public partial record ScalarField {
     public sealed record ConstantCase(double Value) : ScalarField;
     public sealed record DistanceCase(SupportSpace Source, BoundarySense Sense) : ScalarField;
@@ -567,10 +872,20 @@ public partial record ScalarField {
     public sealed record MorseCase(Point3d Center, PositiveMagnitude Depth, PositiveMagnitude Width) : ScalarField;
     public sealed record MollifierCase(Point3d Center, PositiveMagnitude Radius) : ScalarField;
     public sealed record PowerCase(ScalarField Source, double Exponent) : ScalarField;
-    public sealed record CsgCase(ScalarField Left, ScalarField Right, CsgKind Op) : ScalarField;
+    public sealed record CsgCase(ScalarField Left, ScalarField Right, CsgKind Op, BlendKind Smoothing) : ScalarField;
     public sealed record PeriodicCase(ScalarField Source, Vector3d Period) : ScalarField;
     public sealed record StrainMagnitudeCase(VectorField Source, PositiveMagnitude Epsilon) : ScalarField;
     public sealed record ClampCase(ScalarField Source, double Minimum, double Maximum) : ScalarField;
+    public sealed record PrimitiveCase(SdfKind Kind, ImmutableDictionary<string, double> Parameters, Plane Pose) : ScalarField;
+    public sealed record NoiseCase(NoiseKind Kind, int Seed, int Octaves, double Persistence, double Lacunarity, double Frequency) : ScalarField;
+    public sealed record OnionCase(ScalarField Source, PositiveMagnitude Thickness) : ScalarField;
+    public sealed record SdfRoundCase(ScalarField Source, PositiveMagnitude Radius) : ScalarField;
+    public sealed record ElongateCase(ScalarField Source, Vector3d Extent) : ScalarField;
+    public sealed record DisplaceCase(ScalarField Source, ScalarField Displacement) : ScalarField;
+    public sealed record TwistCase(ScalarField Source, double AnglePerUnit, Direction Axis) : ScalarField;
+    public sealed record BendCase(ScalarField Source, double Curvature, Direction Axis) : ScalarField;
+    public sealed record GeodesicCase(MeshSpace Space, Seq<int> Sources, BoundaryCondition Boundary) : ScalarField;
+    public sealed record MeanCurvatureFlowCase(MeshSpace Space, PositiveMagnitude TimeStep, int Iterations) : ScalarField;
     public static ScalarField Constant(double value) => new ConstantCase(Value: value);
     public static ScalarField Distance(SupportSpace source, BoundarySense? sense = null) =>
         new DistanceCase(Source: source, Sense: sense ?? BoundarySense.Toward);
@@ -619,12 +934,70 @@ public partial record ScalarField {
                from _ in guard(RhinoMath.IsValidDouble(x: exponent), op.InvalidInput())
                select (ScalarField)new PowerCase(Source: active, Exponent: exponent);
     }
-    public static ScalarField Union(ScalarField left, ScalarField right) =>
-        new CsgCase(Left: left, Right: right, Op: CsgKind.Union);
-    public static ScalarField Intersect(ScalarField left, ScalarField right) =>
-        new CsgCase(Left: left, Right: right, Op: CsgKind.Intersect);
-    public static ScalarField Difference(ScalarField left, ScalarField right) =>
-        new CsgCase(Left: left, Right: right, Op: CsgKind.Difference);
+    public static ScalarField Union(ScalarField left, ScalarField right, BlendKind? blend = null) =>
+        new CsgCase(Left: left, Right: right, Op: CsgKind.Union, Smoothing: blend ?? BlendKind.Hard);
+    public static ScalarField Intersect(ScalarField left, ScalarField right, BlendKind? blend = null) =>
+        new CsgCase(Left: left, Right: right, Op: CsgKind.Intersect, Smoothing: blend ?? BlendKind.Hard);
+    public static ScalarField Difference(ScalarField left, ScalarField right, BlendKind? blend = null) =>
+        new CsgCase(Left: left, Right: right, Op: CsgKind.Difference, Smoothing: blend ?? BlendKind.Hard);
+    public static Fin<ScalarField> Primitive(SdfKind kind, ImmutableDictionary<string, double> parameters, Plane pose, Op? key = null) {
+        Op op = key.OrDefault();
+        return from active in Optional(kind).ToFin(op.InvalidInput())
+               from validParams in Optional(parameters).ToFin(op.InvalidInput())
+               from _ in guard(active.ValidateParameters(parameters: validParams), op.InvalidInput())
+               from validPose in op.AcceptValue(value: pose)
+               select (ScalarField)new PrimitiveCase(Kind: active, Parameters: validParams, Pose: validPose);
+    }
+    public static Fin<ScalarField> Noise(NoiseKind kind, int seed, int octaves, double persistence, double lacunarity, double frequency, Op? key = null) {
+        Op op = key.OrDefault();
+        return from active in Optional(kind).ToFin(op.InvalidInput())
+               from _ in guard(octaves is >= 1 and <= 32 && RhinoMath.IsValidDouble(x: frequency) && frequency > 0.0
+                              && RhinoMath.IsValidDouble(x: persistence) && persistence is > 0.0 and <= 1.0
+                              && RhinoMath.IsValidDouble(x: lacunarity) && lacunarity > 1.0, op.InvalidInput())
+               select (ScalarField)new NoiseCase(Kind: active, Seed: seed, Octaves: octaves, Persistence: persistence, Lacunarity: lacunarity, Frequency: frequency);
+    }
+    public static Fin<ScalarField> Onion(ScalarField source, double thickness, Op? key = null) {
+        Op op = key.OrDefault();
+        return op.AcceptValidated<PositiveMagnitude>(candidate: thickness)
+            .Map(t => (ScalarField)new OnionCase(Source: source, Thickness: t));
+    }
+    public static Fin<ScalarField> SdfRound(ScalarField source, double radius, Op? key = null) {
+        Op op = key.OrDefault();
+        return op.AcceptValidated<PositiveMagnitude>(candidate: radius)
+            .Map(r => (ScalarField)new SdfRoundCase(Source: source, Radius: r));
+    }
+    public static Fin<ScalarField> Elongate(ScalarField source, Vector3d extent, Op? key = null) {
+        Op op = key.OrDefault();
+        return extent.IsValid
+            ? Fin.Succ((ScalarField)new ElongateCase(Source: source, Extent: extent))
+            : Fin.Fail<ScalarField>(op.InvalidInput());
+    }
+    public static ScalarField Displace(ScalarField source, ScalarField displacement) =>
+        new DisplaceCase(Source: source, Displacement: displacement);
+    public static Fin<ScalarField> Twist(ScalarField source, double anglePerUnit, Direction axis, Op? key = null) {
+        Op op = key.OrDefault();
+        return RhinoMath.IsValidDouble(x: anglePerUnit)
+            ? Fin.Succ((ScalarField)new TwistCase(Source: source, AnglePerUnit: anglePerUnit, Axis: axis))
+            : Fin.Fail<ScalarField>(op.InvalidInput());
+    }
+    public static Fin<ScalarField> Bend(ScalarField source, double curvature, Direction axis, Op? key = null) {
+        Op op = key.OrDefault();
+        return RhinoMath.IsValidDouble(x: curvature)
+            ? Fin.Succ((ScalarField)new BendCase(Source: source, Curvature: curvature, Axis: axis))
+            : Fin.Fail<ScalarField>(op.InvalidInput());
+    }
+    public static Fin<ScalarField> Geodesic(MeshSpace space, Seq<int> sources, BoundaryCondition? boundary = null, Op? key = null) {
+        Op op = key.OrDefault();
+        return sources.IsEmpty || sources.Exists(i => i < 0 || i >= space.Native.Vertices.Count)
+            ? Fin.Fail<ScalarField>(op.InvalidInput())
+            : Fin.Succ((ScalarField)new GeodesicCase(Space: space, Sources: sources, Boundary: boundary ?? BoundaryCondition.Neumann));
+    }
+    public static Fin<ScalarField> MeanCurvatureFlow(MeshSpace space, double timeStep, int iterations, Op? key = null) {
+        Op op = key.OrDefault();
+        return from t in op.AcceptValidated<PositiveMagnitude>(candidate: timeStep)
+               from _ in guard(iterations >= 1, op.InvalidInput())
+               select (ScalarField)new MeanCurvatureFlowCase(Space: space, TimeStep: t, Iterations: iterations);
+    }
     public static Fin<ScalarField> Periodic(ScalarField source, Vector3d period, Op? key = null) {
         Op op = key.OrDefault();
         return !period.IsValid || period.IsTiny()
@@ -641,6 +1014,20 @@ public partial record ScalarField {
                select (ScalarField)new ClampCase(Source: active, Minimum: minimum, Maximum: maximum);
     }
     public static ScalarField Zero { get; } = Constant(value: 0.0);
+    // SDF Lipschitz bound for sphere-tracing consumers. PrimitiveCase carries the SdfKind
+    // tabulated bound; CsgCase folds the children through BlendKind.Erode; unary SDF
+    // modifiers preserve their source's bound; non-SDF cases return None.
+    public Option<double> LipschitzBound() => this switch {
+        PrimitiveCase p => Some(p.Kind.Lipschitz),
+        CsgCase c => from l in c.Left.LipschitzBound() from r in c.Right.LipschitzBound() select c.Smoothing.Erode(leftLip: l, rightLip: r),
+        OnionCase o => o.Source.LipschitzBound(),
+        SdfRoundCase r => r.Source.LipschitzBound(),
+        ElongateCase e => e.Source.LipschitzBound(),
+        DisplaceCase d => d.Source.LipschitzBound(),
+        TwistCase t => t.Source.LipschitzBound(),
+        BendCase b => b.Source.LipschitzBound(),
+        _ => Option<double>.None,
+    };
     private static Seq<ScalarField> FlattenSum(ScalarField field) =>
         field is BlendCase b && b.Mode.Equals(FieldBlend.Sum) ? b.Fields : Seq(field);
     public static ScalarField operator +(ScalarField left, ScalarField right) =>
@@ -716,7 +1103,7 @@ public partial record ScalarField {
         csgCase: static (state, c) =>
             from leftValue in c.Left.SampleScalar(sample: state.Sample, context: state.Context, key: state.Key)
             from rightValue in c.Right.SampleScalar(sample: state.Sample, context: state.Context, key: state.Key)
-            from output in state.Key.AcceptValue(value: c.Op.Combine(left: leftValue, right: rightValue))
+            from output in state.Key.AcceptValue(value: c.Op.Combine(left: leftValue, right: rightValue, blend: c.Smoothing))
             select output,
         periodicCase: static (state, c) => c.Source.SampleScalar(
             sample: FieldNabla.ToroidalWrap(sample: state.Sample, period: c.Period),
@@ -733,7 +1120,55 @@ public partial record ScalarField {
             from output in state.Key.AcceptValue(value: Math.Sqrt(d: (sxx * sxx) + (syy * syy) + (szz * szz) + (2.0 * ((sxy * sxy) + (sxz * sxz) + (syz * syz)))))
             select output,
         clampCase: static (state, c) => c.Source.SampleScalar(sample: state.Sample, context: state.Context, key: state.Key)
-            .Bind(v => state.Key.AcceptValue(value: Math.Clamp(value: v, min: c.Minimum, max: c.Maximum))));
+            .Bind(v => state.Key.AcceptValue(value: Math.Clamp(value: v, min: c.Minimum, max: c.Maximum))),
+        primitiveCase: static (state, c) => state.Key.AcceptValue(value: c.Kind.SignedDistance(worldPoint: state.Sample, parameters: c.Parameters, pose: c.Pose)),
+        noiseCase: static (state, c) => {
+            // Multi-octave fractal Brownian motion (fBm). Each octave samples the noise
+            // primitive at lacunarity-scaled frequency with persistence-scaled amplitude.
+            double sum = 0.0; double amp = 1.0; double freq = c.Frequency; double norm = 0.0;
+            for (int octave = 0; octave < c.Octaves; octave++) {
+                sum += amp * c.Kind.Sample(point: state.Sample, seed: c.Seed + octave, frequency: freq);
+                norm += amp;
+                amp *= c.Persistence;
+                freq *= c.Lacunarity;
+            }
+            return norm > RhinoMath.ZeroTolerance ? state.Key.AcceptValue(value: sum / norm) : Fin.Fail<double>(state.Key.InvalidResult());
+        },
+        onionCase: static (state, c) => c.Source.SampleScalar(sample: state.Sample, context: state.Context, key: state.Key)
+            .Bind(v => state.Key.AcceptValue(value: Math.Abs(value: v) - c.Thickness.Value)),
+        sdfRoundCase: static (state, c) => c.Source.SampleScalar(sample: state.Sample, context: state.Context, key: state.Key)
+            .Bind(v => state.Key.AcceptValue(value: v - c.Radius.Value)),
+        elongateCase: static (state, c) => {
+            // Elongate by clamping the local offset to the extent box; sample at the residual.
+            Point3d shifted = new(
+                x: state.Sample.X - Math.Clamp(value: state.Sample.X, min: -c.Extent.X, max: c.Extent.X),
+                y: state.Sample.Y - Math.Clamp(value: state.Sample.Y, min: -c.Extent.Y, max: c.Extent.Y),
+                z: state.Sample.Z - Math.Clamp(value: state.Sample.Z, min: -c.Extent.Z, max: c.Extent.Z));
+            return c.Source.SampleScalar(sample: shifted, context: state.Context, key: state.Key);
+        },
+        displaceCase: static (state, c) =>
+            from a in c.Source.SampleScalar(sample: state.Sample, context: state.Context, key: state.Key)
+            from b in c.Displacement.SampleScalar(sample: state.Sample, context: state.Context, key: state.Key)
+            from output in state.Key.AcceptValue(value: a + b)
+            select output,
+        twistCase: static (state, c) => {
+            Vector3d axis = c.Axis.Value;
+            double along = (state.Sample - Point3d.Origin) * axis;
+            Vector3d offset = state.Sample - Point3d.Origin;
+            _ = offset.Rotate(angleRadians: -c.AnglePerUnit * along, rotationAxis: axis);
+            return c.Source.SampleScalar(sample: Point3d.Origin + offset, context: state.Context, key: state.Key);
+        },
+        bendCase: static (state, c) => {
+            Vector3d axis = c.Axis.Value;
+            double along = (state.Sample - Point3d.Origin) * axis;
+            Vector3d perp = state.Sample - Point3d.Origin - (along * axis);
+            double angle = c.Curvature * along;
+            Vector3d rotated = perp;
+            _ = rotated.Rotate(angleRadians: angle, rotationAxis: axis);
+            return c.Source.SampleScalar(sample: Point3d.Origin + (along * axis) + rotated, context: state.Context, key: state.Key);
+        },
+        geodesicCase: static (state, c) => MeshKernel.HeatGeodesicAt(space: c.Space, sources: c.Sources, boundary: c.Boundary, sample: state.Sample, key: state.Key),
+        meanCurvatureFlowCase: static (state, c) => MeshKernel.MeanCurvatureMagnitudeAt(space: c.Space, timeStep: c.TimeStep.Value, iterations: c.Iterations, sample: state.Sample, key: state.Key));
 }
 
 internal static class FieldNabla {
@@ -759,4 +1194,75 @@ internal static class FieldNabla {
         from zp in sampler(arg: point + (eps * Vector3d.ZAxis))
         from zm in sampler(arg: point - (eps * Vector3d.ZAxis))
         select (X1: xp, X0: xm, Y1: yp, Y0: ym, Z1: zp, Z0: zm);
+}
+
+// Procedural noise primitives. Perlin uses the canonical Ken Perlin 1985 algorithm with the
+// standard 256-entry permutation (Improved Noise 2002 retains the same table). Worley
+// evaluates against a deterministic per-cell hash-generated seed pattern across a 3x3x3
+// neighbourhood, returning distance to the nearest seed.
+internal static class FieldNoise {
+    private static readonly int[] PermTable = [
+        151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225,
+        140, 36, 103, 30, 69, 142, 8, 99, 37, 240, 21, 10, 23, 190, 6, 148,
+        247, 120, 234, 75, 0, 26, 197, 62, 94, 252, 219, 203, 117, 35, 11, 32,
+        57, 177, 33, 88, 237, 149, 56, 87, 174, 20, 125, 136, 171, 168, 68, 175,
+        74, 165, 71, 134, 139, 48, 27, 166, 77, 146, 158, 231, 83, 111, 229, 122,
+        60, 211, 133, 230, 220, 105, 92, 41, 55, 46, 245, 40, 244, 102, 143, 54,
+        65, 25, 63, 161, 1, 216, 80, 73, 209, 76, 132, 187, 208, 89, 18, 169,
+        200, 196, 135, 130, 116, 188, 159, 86, 164, 100, 109, 198, 173, 186, 3, 64,
+        52, 217, 226, 250, 124, 123, 5, 202, 38, 147, 118, 126, 255, 82, 85, 212,
+        207, 206, 59, 227, 47, 16, 58, 17, 182, 189, 28, 42, 223, 183, 170, 213,
+        119, 248, 152, 2, 44, 154, 163, 70, 221, 153, 101, 155, 167, 43, 172, 9,
+        129, 22, 39, 253, 19, 98, 108, 110, 79, 113, 224, 232, 178, 185, 112, 104,
+        218, 246, 97, 228, 251, 34, 242, 193, 238, 210, 144, 12, 191, 179, 162, 241,
+        81, 51, 145, 235, 249, 14, 239, 107, 49, 192, 214, 31, 181, 199, 106, 157,
+        184, 84, 204, 176, 115, 121, 50, 45, 127, 4, 150, 254, 138, 236, 205, 93,
+        222, 114, 67, 29, 24, 72, 243, 141, 128, 195, 78, 66, 215, 61, 156, 180,
+    ];
+    private static int Perm(int x, int seed) => PermTable[(x + seed) & 0xFF];
+    private static double Fade(double t) => t * t * t * ((t * ((t * 6) - 15)) + 10);
+    private static double Lerp(double t, double a, double b) => a + (t * (b - a));
+    // Standard Ken Perlin 3D gradient: project (x,y,z) onto one of 12 edge directions
+    // selected by the low 4 bits of the permuted hash.
+    private static double Grad(int hash, double x, double y, double z) {
+        int h = hash & 15;
+        double u = h < 8 ? x : y;
+        double v = h < 4 ? y : h is 12 or 14 ? x : z;
+        return ((h & 1) == 0 ? u : -u) + ((h & 2) == 0 ? v : -v);
+    }
+    internal static double PerlinAt(Point3d point, int seed, double frequency) {
+        double px = point.X * frequency; double py = point.Y * frequency; double pz = point.Z * frequency;
+        int X = (int)Math.Floor(d: px) & 0xFF; int Y = (int)Math.Floor(d: py) & 0xFF; int Z = (int)Math.Floor(d: pz) & 0xFF;
+        double x = px - Math.Floor(d: px); double y = py - Math.Floor(d: py); double z = pz - Math.Floor(d: pz);
+        double u = Fade(t: x); double v = Fade(t: y); double w = Fade(t: z);
+        int A = Perm(x: X, seed: seed) + Y; int AA = Perm(x: A, seed: seed) + Z; int AB = Perm(x: A + 1, seed: seed) + Z;
+        int B = Perm(x: X + 1, seed: seed) + Y; int BA = Perm(x: B, seed: seed) + Z; int BB = Perm(x: B + 1, seed: seed) + Z;
+        return Lerp(t: w,
+            a: Lerp(t: v,
+                a: Lerp(t: u, a: Grad(hash: Perm(x: AA, seed: seed), x: x, y: y, z: z), b: Grad(hash: Perm(x: BA, seed: seed), x: x - 1, y: y, z: z)),
+                b: Lerp(t: u, a: Grad(hash: Perm(x: AB, seed: seed), x: x, y: y - 1, z: z), b: Grad(hash: Perm(x: BB, seed: seed), x: x - 1, y: y - 1, z: z))),
+            b: Lerp(t: v,
+                a: Lerp(t: u, a: Grad(hash: Perm(x: AA + 1, seed: seed), x: x, y: y, z: z - 1), b: Grad(hash: Perm(x: BA + 1, seed: seed), x: x - 1, y: y, z: z - 1)),
+                b: Lerp(t: u, a: Grad(hash: Perm(x: AB + 1, seed: seed), x: x, y: y - 1, z: z - 1), b: Grad(hash: Perm(x: BB + 1, seed: seed), x: x - 1, y: y - 1, z: z - 1))));
+    }
+    // Worley/cellular noise. Iterate the 3x3x3 cell neighbourhood, generate one seed point
+    // per cell deterministically via the permutation table, return distance to nearest seed.
+    internal static double WorleyAt(Point3d point, int seed, double frequency) {
+        double px = point.X * frequency; double py = point.Y * frequency; double pz = point.Z * frequency;
+        int cx = (int)Math.Floor(d: px); int cy = (int)Math.Floor(d: py); int cz = (int)Math.Floor(d: pz);
+        double minDistSq = double.MaxValue;
+        for (int dx = -1; dx <= 1; dx++)
+            for (int dy = -1; dy <= 1; dy++)
+                for (int dz = -1; dz <= 1; dz++) {
+                    int nx = cx + dx; int ny = cy + dy; int nz = cz + dz;
+                    int hashX = Perm(x: Perm(x: Perm(x: nx & 0xFF, seed: seed) + (ny & 0xFF), seed: seed) + (nz & 0xFF), seed: seed);
+                    int hashY = Perm(x: hashX + 17, seed: seed);
+                    int hashZ = Perm(x: hashY + 31, seed: seed);
+                    double sx = nx + (hashX / 255.0); double sy = ny + (hashY / 255.0); double sz = nz + (hashZ / 255.0);
+                    double ddx = sx - px; double ddy = sy - py; double ddz = sz - pz;
+                    double distSq = (ddx * ddx) + (ddy * ddy) + (ddz * ddz);
+                    if (distSq < minDistSq) minDistSq = distSq;
+                }
+        return Math.Sqrt(d: minDistSq);
+    }
 }

@@ -15,6 +15,7 @@
 | :-----: | --------- | :------: | ---------- |
 | **[1]** | `LanguageExt` | Active | Functional rails, effects, immutable collections, traits. |
 | **[2]** | `Thinktecture` | Active | Value objects, smart enums, unions, generated dispatch. |
+| **[3]** | `MathNet` | Active | Managed numerical algorithms, symbolic expressions, linear algebra, statistics, fitting, integration, interpolation. |
 
 ---
 ## [2][EVIDENCE]
@@ -31,6 +32,13 @@
 | **[5]** | `.cache/nuget/packages/thinktecture.runtime.extensions.analyzers/10.2.0/analyzers/dotnet/cs/Thinktecture.Runtime.Extensions.Analyzers.xml` | Analyzer rule posture. |
 | **[6]** | `.cache/nuget/packages/thinktecture.runtime.extensions/10.2.0/README.md` | Package inventory and integration orientation. |
 | **[7]** | `.cache/nuget/packages/thinktecture.runtime.extensions/10.2.0/thinktecture.runtime.extensions.nuspec` | Transitive tooling package posture. |
+| **[8]** | `.cache/nuget/packages/mathnet.numerics/6.0.0-beta2/mathnet.numerics.nuspec` | Active MathNet Numerics package metadata. |
+| **[9]** | `.cache/nuget/packages/mathnet.numerics/6.0.0-beta2/lib/net8.0/MathNet.Numerics.xml` | Active MathNet Numerics API member surface. |
+| **[10]** | `.cache/nuget/packages/mathnet.symbolics/0.25.0/mathnet.symbolics.nuspec` | Active MathNet Symbolics dependency closure. |
+| **[11]** | `.cache/nuget/packages/mathnet.symbolics/0.25.0/lib/net8.0/MathNet.Symbolics.xml` | Active MathNet Symbolics API member surface. |
+| **[12]** | `https://www.nuget.org/packages/MathNet.Numerics/6.0.0-beta2` | Active Numerics prerelease package metadata. |
+| **[13]** | `https://www.nuget.org/packages/MathNet.Symbolics/0.25.0` | Active Symbolics package metadata. |
+| **[14]** | `https://developer.rhino3d.com/en/guides/rhinocommon/moving-to-dotnet-core/` | McNeel .NET Core runtime and package loading guidance. |
 
 ---
 ## [3][FILES]
@@ -53,6 +61,13 @@
 | **[11]** | `thinktecture/unions-dispatch.md` | Regular unions, ad-hoc unions, generated dispatch, and case conversion. |
 | **[12]** | `thinktecture/analyzers-sourcegen.md` | Analyzer, generator, integration, and object-factory rules. |
 | **[13]** | `thinktecture/repo-integration.md` | Rasm-specific generated-shape integration map. |
+| **[14]** | `mathnet/package-registry.md` | Package posture and dependency relevance. |
+| **[15]** | `mathnet/api.md` | Unified MathNet API family map. |
+| **[16]** | `mathnet/linear-algebra-rasm-vectors.md` | Rasm vector and matrix integration. |
+| **[17]** | `mathnet/rhino-geometry-numerics.md` | Rhino geometry and numerical boundary rules. |
+| **[18]** | `mathnet/gh2-numerics-boundaries.md` | GH2 numerical output and determinism rules. |
+| **[19]** | `mathnet/symbolics-rhino-gh2.md` | Symbolics definition, runtime loading, and Rhino/GH2 integration. |
+| **[20]** | `mathnet/advanced-rhino-math-stack.md` | Advanced RhinoWIP, GH2, Numerics, Symbolics, LanguageExt, and Thinktecture stack. |
 
 ---
 ## [4][RULES]
@@ -63,4 +78,5 @@
 - Prefer approved external APIs over local reinvention.
 - Extend existing repo shapes before creating new records, wrappers, or helpers.
 - Keep examples aligned with `coding-csharp`: `Fin<T>`, `Validation<Error,T>`, `Eff<RT,T>`, `Seq<T>`, and generated Thinktecture dispatch.
+- Keep MathNet values and symbolic expressions behind Rasm-owned records and `Fin<T>` failure rails.
 - Keep this registry reference-oriented; do not add tutorials, copied API mirrors, or generated dumps.

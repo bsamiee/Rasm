@@ -1,8 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>RhinoCommon command, document, and UI interop boundary for Rasm.</Description>
-        <!-- Rhino loads System.Drawing.Common on macOS via its own runtime; suppress platform analyzer false positives. -->
-        <NoWarn>$(NoWarn);CA1416</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>

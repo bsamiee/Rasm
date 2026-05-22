@@ -42,6 +42,8 @@
         <Optimize>true</Optimize>
         <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
         <IsPackable Condition="'$(IsPackable)' == ''">false</IsPackable>
+        <RuntimeIdentifiers>osx-arm64</RuntimeIdentifiers>
+        <PlatformTarget>AnyCPU</PlatformTarget>
     </PropertyGroup>
 
     <PropertyGroup Label="Analysis">
@@ -50,6 +52,7 @@
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <NoWarn>$(NoWarn);CS1591;CA2225</NoWarn>
+        <NoWarn Condition="'$(IsRhinoUiAwareProject)' == 'true'">$(NoWarn);CA1416</NoWarn>
         <LocalCSharpAnalyzerRoot>tools/cs-analyzer</LocalCSharpAnalyzerRoot>
         <LocalCSharpAnalyzerProject>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '$(LocalCSharpAnalyzerRoot)', 'CsAnalyzer.csproj'))</LocalCSharpAnalyzerProject>
         <BoundaryExemptionContractsPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '$(LocalCSharpAnalyzerRoot)', 'Contracts', 'BoundaryContracts.cs'))</BoundaryExemptionContractsPath>
@@ -211,13 +214,7 @@
         </AssemblyAttribute>
     </ItemGroup>
 
-    <ItemGroup Label="Rhino UI Host Platform Metadata" Condition="'$(IsRhinoUiAwareProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true'">
-        <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute">
-            <_Parameter1>macos15.0</_Parameter1>
-        </AssemblyAttribute>
-    </ItemGroup>
-
-    <ItemGroup Label="Grasshopper UI Platform Metadata" Condition="'$(IsGrasshopperAwareProject)' == 'true' and '$(IsRhinoUiAwareProject)' != 'true'">
+    <ItemGroup Label="macOS Host Platform Metadata" Condition="'$(IsRhinoUiAwareProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">
         <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute">
             <_Parameter1>macos15.0</_Parameter1>
         </AssemblyAttribute>

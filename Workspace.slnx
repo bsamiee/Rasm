@@ -12,6 +12,9 @@
   <Folder Name="/libs/csharp/Rasm.Grasshopper/">
     <Project Path="libs/csharp/Rasm.Grasshopper/Rasm.Grasshopper.csproj" />
   </Folder>
+  <Folder Name="/libs/csharp/Rasm.Materials/">
+    <Project Path="libs/csharp/Rasm.Materials/Rasm.Materials.csproj" />
+  </Folder>
   <Folder Name="/libs/csharp/Rasm.Rhino/">
     <Project Path="libs/csharp/Rasm.Rhino/Rasm.Rhino.csproj" />
   </Folder>

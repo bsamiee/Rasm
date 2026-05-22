@@ -271,7 +271,8 @@ internal static class CloudKernel {
             },
         };
     }
-    private static Vector3d DoubleReflect(Vector3d rPrev, Vector3d tPrev, Vector3d tCurr) =>
+    // Reused by CurveProjection.RotationMinimizing in Atoms.cs.
+    internal static Vector3d DoubleReflect(Vector3d rPrev, Vector3d tPrev, Vector3d tCurr) =>
         (tCurr - tPrev) switch {
             Vector3d v1 when v1.IsTiny() => rPrev,
             Vector3d v1 => (RL: ReflectAcross(value: rPrev, axis: v1), TL: ReflectAcross(value: tPrev, axis: v1)) switch {

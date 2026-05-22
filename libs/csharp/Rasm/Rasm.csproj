@@ -4,11 +4,17 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <PackageReference Include="MathNet.Numerics" />
+        <PackageReference Include="MathNet.Symbolics" />
+    </ItemGroup>
+
+    <ItemGroup>
         <Using Include="Rasm.Domain" />
         <Using Include="Rhino" />
         <Using Include="Rhino.FileIO" />
         <Using Include="Rhino.Geometry" />
         <Using Include="Rhino.Geometry.Intersect" />
+        <Using Include="System.Collections.Immutable" />
         <Using Include="System.Globalization" />
         <Using Include="System.Runtime.CompilerServices" />
         <Using Include="System.Runtime.InteropServices" />
