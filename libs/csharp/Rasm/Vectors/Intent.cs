@@ -58,7 +58,8 @@ public abstract partial record VectorIntent {
     public sealed record AxesCase(Option<Seq<Vector3d>> Values, bool Planar) : VectorIntent;
     public sealed record AngularCase(Vector3d A, Vector3d B, AnglePivot Pivot) : VectorIntent;
     public sealed record SupportCase(SupportSpace Space, Point3d Sample, SupportProjection Projection) : VectorIntent;
-    public sealed record FieldCase(VectorField Value, Point3d Sample) : VectorIntent;
+    public sealed record VectorFieldCase(VectorField Value, Point3d Sample) : VectorIntent;
+    public sealed record ScalarFieldCase(ScalarField Value, Point3d Sample) : VectorIntent;
     public sealed record RayCase(Point3d Origin, Direction RayDirection, RayPolicy Policy) : VectorIntent;
     public sealed record FrameCase(Point3d Origin, Vector3d Normal, Option<Vector3d> XHint) : VectorIntent;
     public sealed record CurveCase(Curve Source, double Parameter, CurveProjection Mode) : VectorIntent;
@@ -102,7 +103,8 @@ public abstract partial record VectorIntent {
             from hit in intent.Space.Closest(sample: intent.Sample, key: state.Key)
             from output in intent.Projection.Project<TOut>(space: intent.Space, hit: hit, sample: intent.Sample, context: state.Context, key: state.Key)
             select output,
-        fieldCase: static (state, intent) => intent.Value.Project<TOut>(sample: intent.Sample, context: state.Context, key: state.Key),
+        vectorFieldCase: static (state, intent) => intent.Value.Project<TOut>(sample: intent.Sample, context: state.Context, key: state.Key),
+        scalarFieldCase: static (state, intent) => intent.Value.Project<TOut>(sample: intent.Sample, context: state.Context, key: state.Key),
         rayCase: static (state, intent) => intent.Policy.Project<TOut>(origin: intent.Origin, direction: intent.RayDirection, context: state.Context, key: state.Key),
         frameCase: static (state, intent) =>
             from frame in VectorFrame.Of(origin: intent.Origin, normal: intent.Normal, xHint: intent.XHint, context: state.Context, key: state.Key)
@@ -110,16 +112,17 @@ public abstract partial record VectorIntent {
             select output,
         curveCase: static (state, intent) => intent.Mode.Project<TOut>(curve: intent.Source, parameter: intent.Parameter, context: state.Context, key: state.Key),
         cloudCase: static (state, intent) => intent.Metric.Project<TOut>(cloud: intent.Value, key: state.Key),
-        windingCase: static (state, intent) => intent.Value switch {
-            VectorCloud.RingCase ring =>
-                from normal in CloudKernel.RingNormalOf(ring: ring, key: state.Key)
-                from winding in CloudKernel.PlanarWindingOf(ring: ring.Vertices, planeNormal: normal, query: intent.Query, key: state.Key)
+        windingCase: static (state, intent) => intent.Value.Switch(
+            state: (state.Key, intent.Query),
+            ringCase: static (s, ring) =>
+                from normal in CloudKernel.RingNormalOf(ring: ring, key: s.Key)
+                from winding in CloudKernel.PlanarWindingOf(ring: ring.Vertices, planeNormal: normal, query: s.Query, key: s.Key)
                 from output in typeof(TOut) == typeof(int)
                     ? Fin.Succ((TOut)(object)winding)
-                    : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(WindingCase), outputType: typeof(TOut)))
+                    : Fin.Fail<TOut>(error: s.Key.Unsupported(geometryType: typeof(WindingCase), outputType: typeof(TOut)))
                 select output,
-            _ => Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: intent.Value.GetType(), outputType: typeof(int))),
-        },
+            polylineCase: static (s, c) => Fin.Fail<TOut>(error: s.Key.Unsupported(geometryType: c.GetType(), outputType: typeof(int))),
+            clusterCase: static (s, c) => Fin.Fail<TOut>(error: s.Key.Unsupported(geometryType: c.GetType(), outputType: typeof(int)))),
         coneCase: static (state, intent) => intent.Mode.Project<TOut>(cone: intent.Value, key: state.Key),
         componentsCase: static (state, intent) =>
             from span in VectorSpan.Of(anchor: intent.Anchor, vector: intent.Value, context: state.Context, key: state.Key)
@@ -140,7 +143,27 @@ public abstract partial record VectorIntent {
             from output in reflected.Project<TOut>(key: state.Key)
             select output,
         streamlineCase: static (state, intent) =>
-            from trajectory in IntegrateUntilTermination(source: intent.Source, seed: intent.Seed, initialStep: intent.InitialStep.Value, integrator: intent.Integrator, termination: intent.Termination, context: state.Context, key: state.Key)
+            from trajectory in toSeq(Enumerable.Range(start: 0, count: MaxIterations)).Fold(
+                initialState: Fin.Succ(new StreamlineState(Trail: Seq(intent.Seed), Current: intent.Seed, H: intent.InitialStep.Value, Arc: 0.0, Steps: 0, Rejects: 0, Done: false)),
+                f: (acc, _) => acc.Bind(s => s.Done
+                    ? Fin.Succ(s)
+                    : intent.Source.SampleVector(sample: s.Current, context: state.Context, key: state.Key).Bind(vector =>
+                        intent.Termination.ShouldStop(stepCount: s.Steps, arcLengthSoFar: s.Arc, currentSample: vector)
+                            ? Fin.Succ(s with { Done = true })
+                            : intent.Integrator.Step(field: intent.Source, point: s.Current, h: s.H, context: state.Context, key: state.Key).Map(step => step.Accepted switch {
+                                true => s with {
+                                    Trail = s.Trail.Add(step.Next),
+                                    Current = step.Next,
+                                    H = step.SuggestedStep,
+                                    Arc = s.Arc + step.Next.DistanceTo(other: s.Current),
+                                    Steps = s.Steps + 1,
+                                    Rejects = 0,
+                                },
+                                false => s.Rejects >= intent.Integrator.RejectBudget
+                                    ? s with { Done = true }
+                                    : s with { H = step.SuggestedStep, Rejects = s.Rejects + 1 },
+                            }))))
+                .Map(static s => s.Trail)
             from output in typeof(TOut) switch {
                 Type t when t == typeof(Seq<Point3d>) => trajectory.TraverseM(point => state.Key.AcceptValue(value: point)).As().Map(static value => (TOut)(object)value),
                 Type t when t == typeof(Polyline) => state.Key.AcceptValue(value: new Polyline(trajectory.AsIterable())).Map(static value => (TOut)(object)value),
@@ -160,7 +183,9 @@ public abstract partial record VectorIntent {
     public static VectorIntent Support(SupportSpace space, Point3d sample, SupportProjection projection) =>
         new SupportCase(Space: space, Sample: sample, Projection: projection);
     public static VectorIntent Field(VectorField field, Point3d sample) =>
-        new FieldCase(Value: field, Sample: sample);
+        new VectorFieldCase(Value: field, Sample: sample);
+    public static VectorIntent Scalar(ScalarField field, Point3d sample) =>
+        new ScalarFieldCase(Value: field, Sample: sample);
     public static VectorIntent Ray(Point3d origin, Direction direction, RayPolicy? policy = null) =>
         new RayCase(Origin: origin, RayDirection: direction, Policy: policy ?? RayPolicy.Forward);
     public static VectorIntent Frame(Point3d origin, Vector3d normal, Option<Vector3d> xHint = default) =>
@@ -194,28 +219,5 @@ public abstract partial record VectorIntent {
         return op.AcceptValidated<PositiveMagnitude>(candidate: initialStep)
             .Map(h => (VectorIntent)new StreamlineCase(Source: field, Seed: seed, InitialStep: h, Integrator: integrator ?? FieldIntegrator.RK4, Termination: termination));
     }
-    private static Fin<Seq<Point3d>> IntegrateUntilTermination(VectorField source, Point3d seed, double initialStep, FieldIntegrator integrator, Termination termination, Context context, Op key) =>
-        toSeq(Enumerable.Range(start: 0, count: MaxIterations)).Fold(
-            initialState: Fin.Succ(new StreamlineState(Trail: Seq(seed), Current: seed, H: initialStep, Arc: 0.0, Steps: 0, Rejects: 0, Done: false)),
-            f: (acc, _) => acc.Bind(state => state.Done ? Fin.Succ(state) : IntegrateOne(source: source, integrator: integrator, termination: termination, state: state, context: context, key: key)))
-            .Map(static state => state.Trail);
-    private static Fin<StreamlineState> IntegrateOne(VectorField source, FieldIntegrator integrator, Termination termination, StreamlineState state, Context context, Op key) =>
-        source.SampleVector(sample: state.Current, context: context, key: key).Bind(vector =>
-            termination.ShouldStop(stepCount: state.Steps, arcLengthSoFar: state.Arc, currentSample: vector)
-                ? Fin.Succ(state with { Done = true })
-                : integrator.Step(field: source, point: state.Current, h: state.H, context: context, key: key).Map(step => step.Accepted switch {
-                    true => state with {
-                        Trail = state.Trail.Add(step.Next),
-                        Current = step.Next,
-                        H = step.SuggestedStep,
-                        Arc = state.Arc + step.Next.DistanceTo(other: state.Current),
-                        Steps = state.Steps + 1,
-                        Rejects = 0,
-                    },
-                    false => state.Rejects >= MaxRejects
-                        ? state with { Done = true }
-                        : state with { H = step.SuggestedStep, Rejects = state.Rejects + 1 },
-                }));
     private const int MaxIterations = 100000;
-    private const int MaxRejects = 3;
 }

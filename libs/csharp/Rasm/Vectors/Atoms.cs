@@ -157,8 +157,8 @@ public readonly record struct Direction {
     internal static Fin<Direction> Of(Vector3d value, double tolerance, Op? key = null) {
         Op op = key.OrDefault();
         Vector3d candidate = value;
-        return (candidate.IsValid, candidate.IsTiny(tolerance), candidate.Unitize(), candidate.IsValid) switch {
-            (true, false, true, true) => Fin.Succ(new Direction(value: candidate)),
+        return (candidate.IsValid, candidate.IsTiny(tolerance), candidate.Unitize()) switch {
+            (true, false, true) => Fin.Succ(new Direction(value: candidate)),
             _ => Fin.Fail<Direction>(error: op.InvalidInput()),
         };
     }

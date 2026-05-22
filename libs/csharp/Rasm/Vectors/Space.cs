@@ -29,13 +29,19 @@ public sealed record SupportSpace {
         };
     public static Fin<SupportSpace> Of(object? value, Op? key = null) {
         Op op = key.OrDefault();
-        return from source in Optional(value).ToFin(op.InvalidInput())
-               let type = source.GetType()
-               from _ in guard(type != typeof(object) && type != typeof(GeometryBase) && GeometryKernel.CanClosest(type: type), op.Unsupported(type, typeof(ClosestHit)))
-               select new SupportSpace(value: source);
+        return value switch {
+            VectorCloud.ClusterCase cluster => Fin.Succ(new SupportSpace(value: cluster)),
+            _ => from source in Optional(value).ToFin(op.InvalidInput())
+                 let type = source.GetType()
+                 from _ in guard(type != typeof(object) && type != typeof(GeometryBase) && GeometryKernel.CanClosest(type: type), op.Unsupported(type, typeof(ClosestHit)))
+                 select new SupportSpace(value: source),
+        };
     }
     internal Fin<ClosestHit> Closest(Point3d sample, Op key) =>
-        GeometryKernel.ClosestOf(geometry: Value, target: sample, key: key);
+        Value switch {
+            VectorCloud.ClusterCase cluster => cluster.ClosestVertex(sample: sample, key: key),
+            _ => GeometryKernel.ClosestOf(geometry: Value, target: sample, key: key),
+        };
     internal Fin<double> SignedDistance(ClosestHit hit, Point3d sample, Op key) =>
         GeometryKernel.SignedDistanceOf(geometry: Value, hit: hit, sample: sample, key: key);
     internal Fin<double> ContainmentDistance(ClosestHit hit, Point3d sample, Context context, Op key) =>

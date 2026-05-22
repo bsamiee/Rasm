@@ -4,10 +4,14 @@ namespace Rasm.Vectors;
 
 // --- [TYPES] ------------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SymmetricMatrix3d(double M00, double M01, double M02, double M11, double M12, double M22) {
+public readonly record struct SymmetricMatrix(int Dimension, Arr<double> Upper) {
     public bool IsValid =>
-        RhinoMath.IsValidDouble(M00) && RhinoMath.IsValidDouble(M01) && RhinoMath.IsValidDouble(M02) &&
-        RhinoMath.IsValidDouble(M11) && RhinoMath.IsValidDouble(M12) && RhinoMath.IsValidDouble(M22);
+        Dimension > 0
+        && Upper.Count == Dimension * (Dimension + 1) / 2
+        && Upper.All(RhinoMath.IsValidDouble);
+    internal double At(int i, int j) => Upper[FlatIndex(n: Dimension, i: Math.Min(val1: i, val2: j), j: Math.Max(val1: i, val2: j))];
+    internal SymmetricMatrix With(int i, int j, double value) => this with { Upper = Upper.SetItem(FlatIndex(n: Dimension, i: Math.Min(val1: i, val2: j), j: Math.Max(val1: i, val2: j)), value) };
+    private static int FlatIndex(int n, int i, int j) => (i * n) - (i * (i - 1) / 2) + (j - i);
 }
 
 [SmartEnum<int>]
@@ -72,7 +76,7 @@ public sealed partial class VectorCloudMetric {
     public static readonly VectorCloudMetric OpenLength = new(key: 19, output: typeof(double),
         admitsCase: static cloud => cloud is VectorCloud.PolylineCase,
         measure: static (cloud, k) => CloudKernel.OpenLengthOf(points: ((VectorCloud.PolylineCase)cloud).Vertices, key: k).Map(static v => (object)v));
-    public static readonly VectorCloudMetric Covariance = new(key: 20, output: typeof(SymmetricMatrix3d),
+    public static readonly VectorCloudMetric Covariance = new(key: 20, output: typeof(SymmetricMatrix),
         admitsCase: static cloud => cloud is VectorCloud.ClusterCase,
         measure: static (cloud, k) => CloudKernel.CovarianceOf(points: ((VectorCloud.ClusterCase)cloud).Vertices, key: k).Map(static v => (object)v.Cov));
     public static readonly VectorCloudMetric PrincipalDirection = new(key: 21, output: typeof(Vector3d),
@@ -94,8 +98,8 @@ public sealed partial class VectorCloudMetric {
                     Seq<Plane> planes => planes.TraverseM(p => key.AcceptValue(value: p)).As().Map(static valid => (TOut)(object)valid),
                     VectorCloudShape shape when shape.IsValid => Fin.Succ((TOut)(object)shape),
                     VectorCloudShape => Fin.Fail<TOut>(key.InvalidResult()),
-                    SymmetricMatrix3d matrix when matrix.IsValid => Fin.Succ((TOut)value),
-                    SymmetricMatrix3d => Fin.Fail<TOut>(key.InvalidResult()),
+                    SymmetricMatrix matrix when matrix.IsValid => Fin.Succ((TOut)value),
+                    SymmetricMatrix => Fin.Fail<TOut>(key.InvalidResult()),
                     _ => key.AcceptValue(value: value).Map(static v => (TOut)v),
                 }),
                 false => Fin.Fail<TOut>(error: key.Unsupported(geometryType: cloud.GetType(), outputType: typeof(TOut))),
@@ -153,17 +157,51 @@ public abstract partial record VectorCloud {
     private VectorCloud() { }
     public sealed record RingCase(Seq<Point3d> Vertices, Polyline Native, Context Tolerance) : VectorCloud;
     public sealed record PolylineCase(Seq<Point3d> Vertices, Context Tolerance) : VectorCloud;
-    public sealed record ClusterCase(Seq<Point3d> Vertices, Context Tolerance) : VectorCloud;
+    public sealed record ClusterCase(Seq<Point3d> Vertices, Context Tolerance) : VectorCloud {
+        private static readonly ConditionalWeakTable<ClusterCase, PointCloud> CloudCache = [];
+        private static readonly ConditionalWeakTable<ClusterCase, RTree> TreeCache = [];
+        internal PointCloud Indexed => CloudCache.GetValue(key: this, createValueCallback: static c => {
+            PointCloud pc = [];
+            pc.AddRange(points: c.Vertices.AsIterable());
+            return pc;
+        });
+        internal RTree Tree => TreeCache.GetValue(key: this,
+            createValueCallback: static c => RTree.CreateFromPointArray(points: c.Vertices.AsIterable()));
+        internal Fin<ClosestHit> ClosestVertex(Point3d sample, Op key) =>
+            Indexed.ClosestPoint(testPoint: sample) switch {
+                int idx when idx >= 0 && idx < Vertices.Count => key.AcceptValue(value: ClosestHit.At(
+                    target: sample,
+                    point: Vertices[idx],
+                    component: Some(new ComponentIndex(type: ComponentIndexType.PointCloudPoint, index: idx)))),
+                _ => Fin.Fail<ClosestHit>(error: key.InvalidResult()),
+            };
+        internal Fin<Seq<int>> WithinRadius(Point3d sample, double radius, Op key) {
+            Sphere ball = new(center: sample, radius: radius);
+            return ball.IsValid switch {
+                false => Fin.Fail<Seq<int>>(error: key.InvalidInput()),
+                true => SearchTree(ball: ball, key: key),
+            };
+        }
+        private Fin<Seq<int>> SearchTree(Sphere ball, Op key) {
+            List<int> buffer = [];
+            return Tree.Search(sphere: ball, callback: (_, args) => buffer.Add(item: args.Id))
+                ? key.AcceptValue(value: toSeq(buffer))
+                : Fin.Fail<Seq<int>>(error: key.InvalidResult());
+        }
+    }
     public static Fin<VectorCloud> Ring(Seq<Point3d> points, Context context, Op? key = null) {
         Op op = key.OrDefault();
         return from model in Optional(context).ToFin(op.MissingContext())
                from valid in points.Traverse(point => op.AcceptValue(value: point).ToValidation()).As().ToFin()
-               let closed = valid.Count > 1 && valid[0].DistanceTo(other: valid[valid.Count - 1]) <= model.Absolute.Value
+               let closed = valid.Count > 1 && valid[0].EpsilonEquals(other: valid[valid.Count - 1], epsilon: model.Absolute.Value)
                let vertices = closed ? valid.Init : valid
                from _ in guard(vertices.Count >= 3, op.InvalidInput())
                let native = new Polyline([.. vertices.AsIterable(), vertices[0]])
                from __ in guard(native.IsValid && native.IsClosedWithinTolerance(model.Absolute.Value) && native.SegmentCount >= 3, op.InvalidInput())
-               from ___ in CloudKernel.SimpleLoop(native: native, context: model, key: op)
+               from ___ in Optional(native.ToPolylineCurve()).ToFin(op.InvalidResult()).Bind(curve => new Lease<PolylineCurve>.Owned(Value: curve).Use(
+                   state: (Context: model, Key: op),
+                   project: static (state, active) => Optional(Intersection.CurveSelf(curve: active, tolerance: state.Context.Absolute.Value)).ToFin(state.Key.InvalidResult())
+                       .Bind(events => events.Count == 0 ? Fin.Succ(unit) : Fin.Fail<Unit>(state.Key.InvalidInput()))))
                select (VectorCloud)new RingCase(Vertices: vertices, Native: native, Tolerance: model);
     }
     public static Fin<VectorCloud> Polyline(Seq<Point3d> points, Context context, Op? key = null) {
@@ -190,115 +228,126 @@ internal static class CloudKernel {
         Func<VectorCloud.RingCase, Op, Fin<T>> ringRail,
         Func<Seq<Point3d>, Context, Op, Fin<T>> pointRail,
         Op key) =>
-        cloud switch {
-            VectorCloud.RingCase ring => ringRail(arg1: ring, arg2: key),
-            VectorCloud.PolylineCase polyline => pointRail(arg1: polyline.Vertices, arg2: polyline.Tolerance, arg3: key),
-            VectorCloud.ClusterCase cluster => pointRail(arg1: cluster.Vertices, arg2: cluster.Tolerance, arg3: key),
-            _ => Fin.Fail<T>(error: key.InvalidInput()),
-        };
+        cloud.Switch(
+            state: (RingRail: ringRail, PointRail: pointRail, Key: key),
+            ringCase: static (s, c) => s.RingRail(arg1: c, arg2: s.Key),
+            polylineCase: static (s, c) => s.PointRail(arg1: c.Vertices, arg2: c.Tolerance, arg3: s.Key),
+            clusterCase: static (s, c) => s.PointRail(arg1: c.Vertices, arg2: c.Tolerance, arg3: s.Key));
 
     // --- [WELFORD] ----------------------------------------------------------------------
-    internal static Fin<(Vector3d Mean, SymmetricMatrix3d Cov)> CovarianceOf(Seq<Point3d> points, Op key) =>
+    internal static Fin<(Vector3d Mean, SymmetricMatrix Cov)> CovarianceOf(Seq<Point3d> points, Op key) =>
         points.Count switch {
-            0 => Fin.Fail<(Vector3d, SymmetricMatrix3d)>(key.InvalidResult()),
+            0 => Fin.Fail<(Vector3d, SymmetricMatrix)>(key.InvalidResult()),
             _ => points.Fold(
                 initialState: (N: 0, Mean: Vector3d.Zero, M: (M00: 0.0, M01: 0.0, M02: 0.0, M11: 0.0, M12: 0.0, M22: 0.0)),
-                f: static (state, p) => WelfordStep(state: state, value: (Vector3d)p)) switch {
+                f: static (state, p) => {
+                    int n = state.N + 1;
+                    Vector3d value = (Vector3d)p;
+                    Vector3d delta = value - state.Mean;
+                    Vector3d meanNew = state.Mean + (delta / n);
+                    Vector3d delta2 = value - meanNew;
+                    return (N: n, Mean: meanNew, M: (
+                        M00: state.M.M00 + (delta.X * delta2.X),
+                        M01: state.M.M01 + (delta.X * delta2.Y),
+                        M02: state.M.M02 + (delta.X * delta2.Z),
+                        M11: state.M.M11 + (delta.Y * delta2.Y),
+                        M12: state.M.M12 + (delta.Y * delta2.Z),
+                        M22: state.M.M22 + (delta.Z * delta2.Z)));
+                }) switch {
                     (int n, Vector3d mean, (double M00, double M01, double M02, double M11, double M12, double M22) m) when n > 0 => key.AcceptValue(value: (
                         Mean: mean,
-                        Cov: new SymmetricMatrix3d(
-                            M00: m.M00 / n, M01: m.M01 / n, M02: m.M02 / n,
-                            M11: m.M11 / n, M12: m.M12 / n, M22: m.M22 / n))),
-                    _ => Fin.Fail<(Vector3d, SymmetricMatrix3d)>(key.InvalidResult()),
+                        Cov: new SymmetricMatrix(Dimension: 3, Upper: [
+                            m.M00 / n, m.M01 / n, m.M02 / n, m.M11 / n, m.M12 / n, m.M22 / n,
+                        ]))),
+                    _ => Fin.Fail<(Vector3d, SymmetricMatrix)>(key.InvalidResult()),
                 },
         };
-    private static (int N, Vector3d Mean, (double M00, double M01, double M02, double M11, double M12, double M22) M) WelfordStep(
-        (int N, Vector3d Mean, (double M00, double M01, double M02, double M11, double M12, double M22) M) state,
-        Vector3d value) {
-        int n = state.N + 1;
-        Vector3d delta = value - state.Mean;
-        Vector3d meanNew = state.Mean + (delta / n);
-        Vector3d delta2 = value - meanNew;
-        return (N: n, Mean: meanNew, M: (
-            M00: state.M.M00 + (delta.X * delta2.X),
-            M01: state.M.M01 + (delta.X * delta2.Y),
-            M02: state.M.M02 + (delta.X * delta2.Z),
-            M11: state.M.M11 + (delta.Y * delta2.Y),
-            M12: state.M.M12 + (delta.Y * delta2.Z),
-            M22: state.M.M22 + (delta.Z * delta2.Z)));
-    }
 
-    // --- [EIGEN3X3] ---------------------------------------------------------------------
-    // Jacobi cyclic eigendecomposition. State carries the symmetric A and the three columns of V
+    // --- [EIGEN] ------------------------------------------------------------------------
+    // Jacobi cyclic eigendecomposition for symmetric N x N matrices. State carries A and the N columns of V
     // (the accumulated orthogonal rotation). After convergence A is diagonal and V columns are eigenvectors.
-    internal static Fin<Seq<(double Eigenvalue, Vector3d Eigenvector)>> DecomposeEigen(SymmetricMatrix3d m, Op key) {
-        (SymmetricMatrix3d A, Vector3d V0, Vector3d V1, Vector3d V2) = toSeq(Enumerable.Range(start: 0, count: MaxSweeps)).Fold(
-            initialState: (A: m, V0: Vector3d.XAxis, V1: Vector3d.YAxis, V2: Vector3d.ZAxis),
-            f: static (s, _) => (Math.Abs(s.A.M01) + Math.Abs(s.A.M02) + Math.Abs(s.A.M12)) < (EigenEpsilon * (Math.Abs(s.A.M00) + Math.Abs(s.A.M11) + Math.Abs(s.A.M22)))
-                ? s
-                : Givens(state: Givens(state: Givens(state: s, p: 0, q: 1), p: 0, q: 2), p: 1, q: 2));
-        return toSeq(Seq(
-                (Eigenvalue: A.M00, Eigenvector: V0),
-                (Eigenvalue: A.M11, Eigenvector: V1),
-                (Eigenvalue: A.M22, Eigenvector: V2)).AsIterable()
-            .OrderByDescending(static p => Math.Abs(p.Eigenvalue)))
+    // The sweep order is the canonical lexicographic (p, q) with p < q traversal, materialised as a Seq once
+    // per call and folded over each iteration; this generalises trivially from 3 x 3 (3 pairs) to N x N (N (N-1)/2 pairs).
+    internal static Fin<Seq<(double Eigenvalue, Arr<double> Eigenvector)>> DecomposeEigen(SymmetricMatrix m, Op key) {
+        int n = m.Dimension;
+        Seq<(int P, int Q)> pairs = SweepPairs(dimension: n);
+        Arr<Arr<double>> identityV = [.. Enumerable.Range(start: 0, count: n).Select(i =>
+            new Arr<double>(Enumerable.Range(start: 0, count: n).Select(j => i == j ? 1.0 : 0.0)))];
+        (SymmetricMatrix A, Arr<Arr<double>> V) = toSeq(Enumerable.Range(start: 0, count: MaxSweeps)).Fold(
+            initialState: (A: m, V: identityV),
+            f: (state, _) => Converged(matrix: state.A, pairs: pairs, dimension: n, epsilon: EigenEpsilon)
+                ? state
+                : pairs.Fold(initialState: state, f: static (s, pq) => Givens(state: s, p: pq.P, q: pq.Q)));
+        return toSeq(Enumerable.Range(start: 0, count: n)
+            .Select(i => (Eigenvalue: A.At(i: i, j: i), Eigenvector: V[i]))
+            .OrderByDescending(static p => Math.Abs(value: p.Eigenvalue)))
             .TraverseM(p => key.AcceptValue(value: p)).As();
     }
     private const int MaxSweeps = 12;
     private const double EigenEpsilon = 1e-14;
-    // One Givens rotation: reads the (p,q) off-diagonal of A, computes Jacobi (c,s), writes the rotated A
-    // cells via `with { … }` and rotates the two affected V columns. r = 3-p-q identifies the untouched axis.
-    private static (SymmetricMatrix3d A, Vector3d V0, Vector3d V1, Vector3d V2) Givens(
-        (SymmetricMatrix3d A, Vector3d V0, Vector3d V1, Vector3d V2) state, int p, int q) {
-        double apq = (p, q) switch { (0, 1) => state.A.M01, (0, 2) => state.A.M02, _ => state.A.M12 };
-        int r = 3 - p - q;
-        double app = p switch { 0 => state.A.M00, 1 => state.A.M11, _ => state.A.M22 };
-        double aqq = q switch { 0 => state.A.M00, 1 => state.A.M11, _ => state.A.M22 };
-        double arp = (Math.Min(val1: r, val2: p), Math.Max(val1: r, val2: p)) switch { (0, 1) => state.A.M01, (0, 2) => state.A.M02, _ => state.A.M12 };
-        double arq = (Math.Min(val1: r, val2: q), Math.Max(val1: r, val2: q)) switch { (0, 1) => state.A.M01, (0, 2) => state.A.M02, _ => state.A.M12 };
+    private static Seq<(int P, int Q)> SweepPairs(int dimension) =>
+        toSeq(from p in Enumerable.Range(start: 0, count: dimension - 1)
+              from q in Enumerable.Range(start: p + 1, count: dimension - 1 - p)
+              select (P: p, Q: q));
+    private static bool Converged(SymmetricMatrix matrix, Seq<(int P, int Q)> pairs, int dimension, double epsilon) {
+        double offDiag = pairs.Fold(initialState: 0.0, f: (sum, pq) => sum + Math.Abs(value: matrix.At(i: pq.P, j: pq.Q)));
+        double diag = toSeq(Enumerable.Range(start: 0, count: dimension))
+            .Fold(initialState: 0.0, f: (sum, i) => sum + Math.Abs(value: matrix.At(i: i, j: i)));
+        return offDiag < epsilon * diag;
+    }
+    // One Givens rotation on the (p, q) plane: zeros A_pq, updates A_pp / A_qq and the off-diagonal entries
+    // A_rp / A_rq for every r not in {p, q}, and rotates the corresponding V_p / V_q eigenvector columns.
+    private static (SymmetricMatrix A, Arr<Arr<double>> V) Givens(
+        (SymmetricMatrix A, Arr<Arr<double>> V) state, int p, int q) =>
+        Math.Abs(value: state.A.At(i: p, j: q)) < RhinoMath.SqrtEpsilon * RhinoMath.SqrtEpsilon
+            ? state
+            : ApplyJacobi(state: state, p: p, q: q);
+    private static (SymmetricMatrix A, Arr<Arr<double>> V) ApplyJacobi(
+        (SymmetricMatrix A, Arr<Arr<double>> V) state, int p, int q) {
+        double apq = state.A.At(i: p, j: q);
+        double app = state.A.At(i: p, j: p);
+        double aqq = state.A.At(i: q, j: q);
         double theta = (aqq - app) / (2.0 * apq);
         double t = theta >= 0.0
-            ? 1.0 / (theta + Math.Sqrt(1.0 + (theta * theta)))
-            : 1.0 / (theta - Math.Sqrt(1.0 + (theta * theta)));
-        double c = 1.0 / Math.Sqrt(1.0 + (t * t));
-        double s = t * c;
-        double newApp = (c * c * app) - (2.0 * s * c * apq) + (s * s * aqq);
-        double newAqq = (s * s * app) + (2.0 * s * c * apq) + (c * c * aqq);
-        double newArp = (c * arp) - (s * arq);
-        double newArq = (s * arp) + (c * arq);
-        return (Math.Abs(apq) < 1e-16, p, q, r) switch {
-            (true, _, _, _) => state,
-            (_, 0, 1, 2) => (
-                state.A with { M00 = newApp, M11 = newAqq, M01 = 0.0, M02 = newArp, M12 = newArq },
-                (c * state.V0) - (s * state.V1),
-                (s * state.V0) + (c * state.V1),
-                state.V2),
-            (_, 0, 2, 1) => (
-                state.A with { M00 = newApp, M22 = newAqq, M02 = 0.0, M01 = newArp, M12 = newArq },
-                (c * state.V0) - (s * state.V2),
-                state.V1,
-                (s * state.V0) + (c * state.V2)),
-            _ => (
-                state.A with { M11 = newApp, M22 = newAqq, M12 = 0.0, M01 = newArp, M02 = newArq },
-                state.V0,
-                (c * state.V1) - (s * state.V2),
-                (s * state.V1) + (c * state.V2)),
-        };
+            ? 1.0 / (theta + Math.Sqrt(d: 1.0 + (theta * theta)))
+            : 1.0 / (theta - Math.Sqrt(d: 1.0 + (theta * theta)));
+        double cosVal = 1.0 / Math.Sqrt(d: 1.0 + (t * t));
+        double sinVal = t * cosVal;
+        double newApp = (cosVal * cosVal * app) - (2.0 * sinVal * cosVal * apq) + (sinVal * sinVal * aqq);
+        double newAqq = (sinVal * sinVal * app) + (2.0 * sinVal * cosVal * apq) + (cosVal * cosVal * aqq);
+        int dimension = state.A.Dimension;
+        SymmetricMatrix newA = toSeq(Enumerable.Range(start: 0, count: dimension))
+            .Filter(r => r != p && r != q)
+            .Fold(
+                initialState: state.A.With(i: p, j: p, value: newApp).With(i: q, j: q, value: newAqq).With(i: p, j: q, value: 0.0),
+                f: (matrix, r) => state.A.At(i: r, j: p) switch {
+                    double arp => state.A.At(i: r, j: q) switch {
+                        double arq => matrix.With(i: r, j: p, value: (cosVal * arp) - (sinVal * arq))
+                            .With(i: r, j: q, value: (sinVal * arp) + (cosVal * arq)),
+                    },
+                });
+        Arr<double> oldVp = state.V[p];
+        Arr<double> oldVq = state.V[q];
+        Arr<double> newVp = [.. Enumerable.Range(start: 0, count: dimension).Select(k => (cosVal * oldVp[k]) - (sinVal * oldVq[k]))];
+        Arr<double> newVq = [.. Enumerable.Range(start: 0, count: dimension).Select(k => (sinVal * oldVp[k]) + (cosVal * oldVq[k]))];
+        return (A: newA, V: state.V.SetItem(p, newVp).SetItem(q, newVq));
     }
+    private static Vector3d AsVector3d(Arr<double> v) => new(x: v[0], y: v[1], z: v[2]);
 
     // --- [BISHOP] -----------------------------------------------------------------------
     internal static Fin<Seq<Plane>> BishopFramesOf(VectorCloud cloud, Op key) =>
-        cloud switch {
-            VectorCloud.RingCase ring => RingNormalOf(ring: ring, key: key)
-                .Bind(normal => Direction.Of(value: normal, context: ring.Tolerance, key: key))
-                .Bind(initialNormal => BishopChainOf(points: ring.Vertices, initialNormal: initialNormal, closed: true, context: ring.Tolerance, key: key)),
-            VectorCloud.PolylineCase polyline when polyline.Vertices.Count >= 2 =>
-                (VectorFrame.SeedPerpendicular(axis: polyline.Vertices[1] - polyline.Vertices[0]) switch {
-                    Vector3d seed => Direction.Of(value: seed, context: polyline.Tolerance, key: key),
-                    _ => Fin.Fail<Direction>(key.InvalidResult()),
-                }).Bind(initialNormal => BishopChainOf(points: polyline.Vertices, initialNormal: initialNormal, closed: false, context: polyline.Tolerance, key: key)),
-            _ => Fin.Fail<Seq<Plane>>(key.InvalidInput()),
-        };
+        cloud.Switch(
+            state: key,
+            ringCase: static (k, ring) => RingNormalOf(ring: ring, key: k)
+                .Bind(normal => Direction.Of(value: normal, context: ring.Tolerance, key: k))
+                .Bind(initialNormal => BishopChainOf(points: ring.Vertices, initialNormal: initialNormal, closed: true, context: ring.Tolerance, key: k)),
+            polylineCase: static (k, polyline) => polyline.Vertices.Count < 2
+                ? Fin.Fail<Seq<Plane>>(k.InvalidInput())
+                : (VectorFrame.SeedPerpendicular(axis: polyline.Vertices[1] - polyline.Vertices[0]) switch {
+                    Vector3d seed => Direction.Of(value: seed, context: polyline.Tolerance, key: k),
+                    _ => Fin.Fail<Direction>(k.InvalidResult()),
+                }).Bind(initialNormal => BishopChainOf(points: polyline.Vertices, initialNormal: initialNormal, closed: false, context: polyline.Tolerance, key: k)),
+            clusterCase: static (k, c) => Fin.Fail<Seq<Plane>>(k.Unsupported(geometryType: c.GetType(), outputType: typeof(Seq<Plane>))));
     internal static Fin<Seq<Plane>> BishopChainOf(Seq<Point3d> points, Direction initialNormal, bool closed, Context context, Op key) =>
         points.Count switch {
             < 2 => Fin.Fail<Seq<Plane>>(key.InvalidInput()),
@@ -365,7 +414,7 @@ internal static class CloudKernel {
         ring.Count switch {
             < 3 => Fin.Fail<int>(key.InvalidInput()),
             _ => key.AcceptValue(value: (int)Math.Round(ring.Map((v, i) => (V0: v - query, V1: ring[(i + 1) % ring.Count] - query))
-                .Fold(initialState: 0.0, f: (sum, pair) => sum + Math.Atan2(y: planeNormal * Vector3d.CrossProduct(a: pair.V0, b: pair.V1), x: pair.V0 * pair.V1)) / RhinoMath.TwoPI)),
+                .Fold(initialState: 0.0, f: (sum, pair) => sum + Vector3d.VectorAngle(v1: pair.V0, v2: pair.V1, vNormal: planeNormal)) / RhinoMath.TwoPI)),
         };
 
     // --- [DISPATCH] ---------------------------------------------------------------------
@@ -384,7 +433,7 @@ internal static class CloudKernel {
                 key: k),
             pointRail: static (points, _, k) => CovarianceOf(points: points, key: k)
                 .Bind(stats => DecomposeEigen(m: stats.Cov, key: k))
-                .Bind(eigen => eigen.Map(static p => p.Eigenvector).TraverseM(v => k.AcceptValue(value: v)).As()));
+                .Bind(eigen => eigen.Map(static p => AsVector3d(v: p.Eigenvector)).TraverseM(v => k.AcceptValue(value: v)).As()));
     internal static Fin<Plane> PrincipalFrameOf(VectorCloud cloud, Op key) =>
         WithCaseRails(cloud: cloud, key: key,
             ringRail: static (ring, k) => WithRingCurve(ring: ring, project: static (state, curve) =>
@@ -398,19 +447,18 @@ internal static class CloudKernel {
                 select frame, key: k),
             pointRail: static (points, ctx, k) => CovarianceOf(points: points, key: k)
                 .Bind(stats => DecomposeEigen(m: stats.Cov, key: k)
-                    .Bind(eigen => VectorFrame.Of(origin: (Point3d)stats.Mean, normal: eigen[2].Eigenvector, xHint: Some(eigen[0].Eigenvector), context: ctx, key: k))
+                    .Bind(eigen => VectorFrame.Of(origin: (Point3d)stats.Mean, normal: AsVector3d(v: eigen[2].Eigenvector), xHint: Some(AsVector3d(v: eigen[0].Eigenvector)), context: ctx, key: k))
                     .Bind(frame => frame.Project<Plane>(key: k))));
     internal static Fin<VectorCloudShape> ShapeOf(VectorCloud cloud, Op key) =>
-        cloud switch {
-            VectorCloud.RingCase ring => RingShapeOf(ring: ring, key: key),
-            VectorCloud.PolylineCase polyline => PointSetShapeOf(points: polyline.Vertices, context: polyline.Tolerance, forPolyline: true, key: key),
-            VectorCloud.ClusterCase cluster => PointSetShapeOf(points: cluster.Vertices, context: cluster.Tolerance, forPolyline: false, key: key),
-            _ => Fin.Fail<VectorCloudShape>(key.InvalidInput()),
-        };
+        cloud.Switch(
+            state: key,
+            ringCase: static (k, ring) => RingShapeOf(ring: ring, key: k),
+            polylineCase: static (k, polyline) => PointSetShapeOf(points: polyline.Vertices, context: polyline.Tolerance, forPolyline: true, key: k),
+            clusterCase: static (k, cluster) => PointSetShapeOf(points: cluster.Vertices, context: cluster.Tolerance, forPolyline: false, key: k));
     internal static Fin<Vector3d> PrincipalDirectionOf(Seq<Point3d> points, Op key) =>
         CovarianceOf(points: points, key: key)
             .Bind(stats => DecomposeEigen(m: stats.Cov, key: key))
-            .Bind(eigen => key.AcceptValue(value: eigen[0].Eigenvector));
+            .Bind(eigen => key.AcceptValue(value: AsVector3d(v: eigen[0].Eigenvector)));
     internal static Fin<Vector3d> SpreadOf(Seq<Point3d> points, Op key) =>
         CovarianceOf(points: points, key: key)
             .Bind(stats => DecomposeEigen(m: stats.Cov, key: key))
@@ -488,8 +536,8 @@ internal static class CloudKernel {
             : Fin.Succ((Plane: Option<Plane>.None, Deviation: Option<double>.None))
         from stats in CovarianceOf(points: points, key: key)
         from eigen in DecomposeEigen(m: stats.Cov, key: key)
-        let axes = eigen.Map(static p => (Moment: p.Eigenvalue, Axis: p.Eigenvector))
-        from principal in VectorFrame.Of(origin: (Point3d)stats.Mean, normal: eigen[2].Eigenvector, xHint: Some(eigen[0].Eigenvector), context: context, key: key)
+        let axes = eigen.Map(static p => (Moment: p.Eigenvalue, Axis: AsVector3d(v: p.Eigenvector)))
+        from principal in VectorFrame.Of(origin: (Point3d)stats.Mean, normal: AsVector3d(v: eigen[2].Eigenvector), xHint: Some(AsVector3d(v: eigen[0].Eigenvector)), context: context, key: key)
             .Bind(frame => frame.Project<Plane>(key: key))
         let shape = new VectorCloudShape(
             Normal: None, SignedArea: None, Area: None, Perimeter: None,
@@ -588,11 +636,6 @@ internal static class CloudKernel {
             },
             _ => Fin.Fail<(Plane Plane, Vector3d Normal, CurveOrientation Orientation)>(key.InvalidResult()),
         };
-    internal static Fin<Unit> SimpleLoop(Polyline native, Context context, Op key) =>
-        Optional(native.ToPolylineCurve()).ToFin(key.InvalidResult()).Bind(curve => new Lease<PolylineCurve>.Owned(Value: curve).Use(
-            state: (Context: context, Key: key),
-            project: static (state, active) => Optional(Intersection.CurveSelf(curve: active, tolerance: state.Context.Absolute.Value)).ToFin(state.Key.InvalidResult())
-                .Bind(events => events.Count == 0 ? Fin.Succ(unit) : Fin.Fail<Unit>(state.Key.InvalidInput()))));
     private static Fin<TResult> WithRingCurve<TResult>(VectorCloud.RingCase ring, Func<(Seq<Point3d> Vertices, Polyline Native, Context Context, Op Key), PolylineCurve, Fin<TResult>> project, Op key) =>
         Optional(ring.Native.ToPolylineCurve()).ToFin(key.InvalidResult()).Bind(curve => new Lease<PolylineCurve>.Owned(Value: curve).Use(state: (ring.Vertices, ring.Native, Context: ring.Tolerance, Key: key), project: project));
     private static Fin<TResult> WithMassPropertiesInternal<TState, TResult>(PolylineCurve curve, Context context, Func<TState, AreaMassProperties, Fin<TResult>> project, TState state, Op key) =>
