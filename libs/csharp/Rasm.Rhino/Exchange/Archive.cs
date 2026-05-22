@@ -90,25 +90,18 @@ public readonly record struct FileResourceGraph(
             .As()
             .Bind(values => Stat.Of(values: values, key: op));
 
-    public Seq<FileIssue> ValidateLinks() =>
-        (LinkedBlockArchives + RenderTextureFiles + FileReferences)
-            .Distinct()
-            .Filter(static path => !string.IsNullOrWhiteSpace(value: path))
-            .Filter(static path => !File.Exists(path: path))
-            .Map(static path => FileIssue.Of(code: FileIssueCode.BrokenLink, message: $"missing linked resource: {path}"));
-
-    // BOUNDARY ADAPTER — PLINQ over File.Exists; UI callers must wrap in Task.Run.
-    internal Seq<FileIssue> ValidateLinksParallel() {
+    // BOUNDARY ADAPTER — `parallel: true` fans `File.Exists` across PLINQ workers; UI callers must
+    // wrap in `Task.Run` to avoid stutter on archives with hundreds of links.
+    public Seq<FileIssue> Validate(bool parallel = true) {
         string[] paths = [.. (LinkedBlockArchives + RenderTextureFiles + FileReferences)
             .Distinct()
             .Filter(static path => !string.IsNullOrWhiteSpace(value: path))
             .AsIterable()];
-        return paths.Length == 0
-            ? Seq<FileIssue>()
-            : toSeq(paths
-                .AsParallel()
-                .Where(static path => !File.Exists(path: path))
-                .Select(static path => FileIssue.Of(code: FileIssueCode.BrokenLink, message: $"missing linked resource: {path}")));
+        return paths.Length switch {
+            0 => Seq<FileIssue>(),
+            _ => toSeq((parallel ? paths.AsParallel().Where(static path => !File.Exists(path: path)) : paths.Where(static path => !File.Exists(path: path)))
+                .Select(static path => FileIssue.Of(code: FileIssueCode.BrokenLink, message: $"missing linked resource: {path}"))),
+        };
     }
 }
 
@@ -201,7 +194,7 @@ internal static class FileArchiveOps {
     internal static Fin<FileReport> Validate(FileArchiveSource source, ArchiveProfile profile) =>
         from result in UseArchive(source: source, profile: profile with { Projection = FileArchiveProjection.Graph }, op: Op.Of(name: nameof(Validate)), use: (endpoint, model, log) =>
             Snapshot(source: source, model: model, profile: profile with { Projection = FileArchiveProjection.Graph })
-                .Map(archive => (Endpoint: endpoint, Archive: archive, Log: log, Issues: archive.Resources.ValidateLinksParallel())))
+                .Map(archive => (Endpoint: endpoint, Archive: archive, Log: log, Issues: archive.Resources.Validate(parallel: true))))
         select FileReport.Of(
             phase: FilePhase.ArchiveValidate,
             source: result.Endpoint,
@@ -284,7 +277,13 @@ internal static class FileArchiveOps {
             + toSeq(model.RenderEnvironments).Map(static environment => (RenderContent)environment)
             + toSeq(model.RenderTextures).Map(static texture => (RenderContent)texture);
         Seq<string> embedded = toSeq(model.EmbeddedFiles).Map(static file => file.Filename);
-        Seq<string> linked = toSeq(model.AllInstanceDefinitions).Bind(static definition => Text(value: definition.SourceArchive).Map(Seq).IfNone(Seq<string>())).Distinct();
+        // BOUNDARY ADAPTER — `File3dm.AllInstanceDefinitions` returns `InstanceDefinitionGeometry`
+        // (archive-time projection). `SourceArchive` is set to empty for unlinked definitions;
+        // non-empty implies linked. `UpdateType`/`ArchiveFileStatus` live on the live-doc
+        // `InstanceDefinition` and are unavailable from the read-only archive surface.
+        Seq<string> linked = toSeq(model.AllInstanceDefinitions)
+            .Choose(static definition => Text(value: definition.SourceArchive))
+            .Distinct();
         Seq<string> textures = renderTree.Bind(static content => TraverseRender(content: content, parent: Option<RenderContent>.None, project: static (cur, _) => cur switch {
             RenderTexture texture => Text(value: texture.Filename).Map(Seq).IfNone(Seq<string>()),
             _ => Seq<string>(),
@@ -314,7 +313,12 @@ internal static class FileArchiveOps {
             + Entries(source: model.AllLayers, kind: DocumentResourceKind.Layer, name: static l => Text(value: l.FullPath), id: static l => GuidOption(value: l.Id), label: "layer")
             + Entries(source: model.AllMaterials, kind: DocumentResourceKind.Material, name: static m => Text(value: m.Name), id: static m => GuidOption(value: m.Id), label: "material")
             + Entries(source: model.AllGroups, kind: DocumentResourceKind.Group, name: static g => Text(value: g.Name), id: static g => GuidOption(value: g.Id), label: "group")
-            + toSeq(model.AllInstanceDefinitions).Map(definition => new FileResourceEntry(Kind: DocumentResourceKind.Block, Name: Text(value: definition.Name), Path: Text(value: definition.SourceArchive), Id: GuidOption(value: definition.Id), Source: Some(Text(value: definition.SourceArchive).Map(static _ => "linked-block").IfNone("block"))))
+            + toSeq(model.AllInstanceDefinitions).Map(definition => new FileResourceEntry(
+                Kind: DocumentResourceKind.Block,
+                Name: Text(value: definition.Name),
+                Path: Text(value: definition.SourceArchive),
+                Id: GuidOption(value: definition.Id),
+                Source: Some(Text(value: definition.SourceArchive).Map(static _ => "linked-block").IfNone("block"))))
             + Entries(source: model.AllLinetypes, kind: DocumentResourceKind.Linetype, name: static l => Text(value: l.Name), id: static l => GuidOption(value: l.Id), label: "linetype")
             + Entries(source: model.AllDimStyles, kind: DocumentResourceKind.DimensionStyle, name: static s => Text(value: s.Name), id: static s => GuidOption(value: s.Id), label: "dimension-style")
             + Entries(source: model.AllHatchPatterns, kind: DocumentResourceKind.Hatch, name: static p => Text(value: p.Name), id: static p => GuidOption(value: p.Id), label: "hatch-pattern")

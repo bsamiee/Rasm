@@ -102,47 +102,42 @@ public sealed partial class FileRasterEncoding {
         key: 0,
         format: () => FileFormat.Png,
         image: () => DrawingImageFormat.Png,
-        compression: FileTiffCompression.Default);
+        compression: FileTiffCompression.Default,
+        encode: static (_, settings) => settings.PngDepth.Map(depth => Seq<(Encoder, long)>((Encoder.ColorDepth, depth))).IfNone(Seq<(Encoder, long)>()));
     public static readonly FileRasterEncoding Jpeg = new(
         key: 1,
         format: () => FileFormat.Jpeg,
         image: () => DrawingImageFormat.Jpeg,
-        compression: FileTiffCompression.Default);
+        compression: FileTiffCompression.Default,
+        encode: static (_, settings) => Seq<(Encoder, long)>((Encoder.Quality, settings.JpegQuality)));
     public static readonly FileRasterEncoding Tiff = new(
         key: 2,
         format: () => FileFormat.Tiff,
         image: () => DrawingImageFormat.Tiff,
-        compression: FileTiffCompression.Lzw);
+        compression: FileTiffCompression.Lzw,
+        encode: static (encoding, settings) => Seq<(Encoder, long)>((Encoder.Compression, (long)(settings.TiffCompression.IfNone(noneValue: encoding.Compression) switch {
+            FileTiffCompression.None => EncoderValue.CompressionNone,
+            FileTiffCompression.Ccitt3 => EncoderValue.CompressionCCITT3,
+            FileTiffCompression.Ccitt4 => EncoderValue.CompressionCCITT4,
+            FileTiffCompression.Rle => EncoderValue.CompressionRle,
+            _ => EncoderValue.CompressionLZW,
+        }))));
     public static readonly FileRasterEncoding Bitmap = new(
         key: 3,
         format: () => FileFormat.Bmp,
         image: () => DrawingImageFormat.Bmp,
-        compression: FileTiffCompression.Default);
+        compression: FileTiffCompression.Default,
+        encode: static (_, _) => Seq<(Encoder, long)>());
 
     private readonly Func<FileFormat> format;
     private readonly Func<DrawingImageFormat> image;
+    private readonly Func<FileRasterEncoding, FileRasterSettings, Seq<(Encoder Encoder, long Value)>> encode;
 
     public FileFormat Format => format();
     public DrawingImageFormat Image => image();
     public FileTiffCompression Compression { get; }
 
-    // Returns codec-parameter spec pairs. The actual EncoderParameter instances are
-    // constructed and disposed inside the SaveBitmap using-scope.
-    internal Seq<(Encoder Encoder, long Value)> Parameters(FileRasterSettings settings) =>
-        Equals(Jpeg) ? Seq((Encoder.Quality, settings.JpegQuality))
-        : Equals(Tiff) ? Seq((Encoder.Compression, (long)CompressionValue(compression: settings.TiffCompression.IfNone(noneValue: Compression))))
-        : Equals(Png) ? settings.PngDepth.Map(depth => Seq<(Encoder, long)>((Encoder.ColorDepth, depth))).IfNone(Seq<(Encoder, long)>())
-        : Seq<(Encoder, long)>();
-
-    private static EncoderValue CompressionValue(FileTiffCompression compression) =>
-        compression switch {
-            FileTiffCompression.None => EncoderValue.CompressionNone,
-            FileTiffCompression.Lzw => EncoderValue.CompressionLZW,
-            FileTiffCompression.Ccitt3 => EncoderValue.CompressionCCITT3,
-            FileTiffCompression.Ccitt4 => EncoderValue.CompressionCCITT4,
-            FileTiffCompression.Rle => EncoderValue.CompressionRle,
-            _ => EncoderValue.CompressionLZW,
-        };
+    internal Seq<(Encoder Encoder, long Value)> Parameters(FileRasterSettings settings) => encode(arg1: this, arg2: settings);
 }
 
 public readonly record struct FileRasterSettings(
@@ -395,7 +390,7 @@ public sealed record FileEndpoint {
     private static bool Exists(string path) =>
         IOPath.Exists(path: path);
 
-    private static string NumberedPath(string path, int index) =>
+    internal static string NumberedPath(string path, int index) =>
         IOPath.Combine(
             path1: IOPath.GetDirectoryName(path: path) ?? string.Empty,
             path2: string.Create(CultureInfo.InvariantCulture, $"{IOPath.GetFileNameWithoutExtension(path: path)}-{index:000}{IOPath.GetExtension(path: path)}"));
@@ -515,16 +510,17 @@ public readonly partial record struct FileSheetDecor(
         return settings;
     }
 
-    // Substitutes `{key}` from RhinoDoc.Strings + page metadata (`{page}`, `{index}`, `{total}`).
-    private static string Interpolate(string template, RhinoDoc document, RhinoPageView page) =>
-        string.IsNullOrEmpty(value: template)
+    private static string Interpolate(string template, RhinoDoc document, RhinoPageView page) {
+        int total = document.Views.GetPageViews()?.Length ?? 0;
+        return string.IsNullOrEmpty(value: template)
             ? template
             : TokenPattern().Replace(input: template, evaluator: match => match.Groups["key"].Value switch {
                 "page" => page.PageName ?? string.Empty,
                 "index" => (page.PageNumber + 1).ToString(provider: CultureInfo.InvariantCulture),
-                "total" => (document.Views.GetPageViews()?.Length ?? 0).ToString(provider: CultureInfo.InvariantCulture),
+                "total" => total.ToString(provider: CultureInfo.InvariantCulture),
                 string key => document.Strings.GetValue(key: key) ?? match.Value,
             });
+    }
 
     [GeneratedRegex(pattern: "\\{(?<key>[^{}]+)\\}", options: RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture, matchTimeoutMilliseconds: 250)]
     private static partial Regex TokenPattern();
@@ -557,7 +553,7 @@ public abstract partial record FileSheetEdit {
     public sealed record ActivateDetail(string SheetName, Option<string> DetailName) : FileSheetEdit;
     public sealed record LayerOverride(string SheetName, string DetailName, string LayerPath, Option<System.Drawing.Color> Color = default, Option<bool> Visible = default) : FileSheetEdit;
     public sealed record ClippingOverride(string SheetName, string DetailName, BoundingBox Box) : FileSheetEdit;
-    public sealed record RefreshLinks(Option<Seq<string>> Archives = default) : FileSheetEdit;
+    public sealed record RefreshLinks(Option<Seq<string>> Archives = default, bool SkipUpToDate = false) : FileSheetEdit;
 }
 
 internal readonly record struct FileSheetPage(RhinoPageView Page, FileSheet Sheet);
