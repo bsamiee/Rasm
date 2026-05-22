@@ -13,11 +13,11 @@
 
 | [INDEX] | [RAIL] | [QUESTION] | [CANONICAL_USE] |
 | :-----: | ------ | ---------- | --------------- |
-| **[1]** | `Option<T>` | Is a value present? | Optional GH2 inputs, probes, fallback values. |
-| **[2]** | `Fin<T>` | Did a fallible operation succeed? | Smart constructors, dispatch, native API projection, shape normalization. |
-| **[3]** | `Validation<Error,T>` | Which independent constraints failed? | Context and geometry validation before analysis. |
-| **[4]** | `Eff<RT,T>` | What runtime-dependent effect produces the value? | Analysis pipelines requiring `Env`, progress, cancellation, or context. |
-| **[5]** | `IO<T>` | Which boundary effect is deferred? | Resource and async descriptions before execution. |
+| [1] | `Option<T>` | Is a value present? | Optional GH2 inputs, probes, fallback values. |
+| [2] | `Fin<T>` | Did a fallible operation succeed? | Smart constructors, dispatch, native API projection, shape normalization. |
+| [3] | `Validation<Error,T>` | Which independent constraints failed? | Context and geometry validation before analysis. |
+| [4] | `Eff<RT,T>` | What runtime-dependent effect produces the value? | Analysis pipelines requiring `Env`, progress, cancellation, or context. |
+| [5] | `IO<T>` | Which boundary effect is deferred? | Resource and async descriptions before execution. |
 
 ---
 ## [2][FIN]
@@ -94,14 +94,14 @@ Collapse surfaces:
 
 | [INDEX] | [SURFACE] | [USE] |
 | :-----: | --------- | ----- |
-| **[1]** | `IO<T>.Bracket`, `BracketFail`, `Finally` | Resource-safe native handles and cleanup paths. |
-| **[2]** | `IO<T>.WithEnv`, `WithEnvFail` | Local `EnvIO` adjustment without global mutation. |
-| **[3]** | `IO<T>.Fork`, `ForkIO<T>`, `awaitAll`, `awaitAny` | Parallel boundary work with explicit cancellation and awaiting. |
-| **[4]** | `IO<T>.Timeout` | Time-bounded boundary work. |
-| **[5]** | `IO<T>.Retry`, `RetryWhile`, `RetryUntil` | Retry failed IO using optional `Schedule` policy. |
-| **[6]** | `IO<T>.Repeat`, `RepeatWhile`, `RepeatUntil` | Repeat successful IO using optional `Schedule` policy. |
-| **[7]** | `Schedule.recurs`, `spaced`, `linear`, `exponential`, `fibonacci` | Attempt count and backoff families. |
-| **[8]** | `Schedule.upto`, `maxDelay`, `maxCumulativeDelay`, `jitter`, `decorrelate`, `fixedInterval`, `windowed` | Runtime budgets, delay ceilings, de-correlation, and clock-window policy. |
+| [1] | `IO<T>.Bracket`, `BracketFail`, `Finally` | Resource-safe native handles and cleanup paths. |
+| [2] | `IO<T>.WithEnv`, `WithEnvFail` | Local `EnvIO` adjustment without global mutation. |
+| [3] | `IO<T>.Fork`, `ForkIO<T>`, `awaitAll`, `awaitAny` | Parallel boundary work with explicit cancellation and awaiting. |
+| [4] | `IO<T>.Timeout` | Time-bounded boundary work. |
+| [5] | `IO<T>.Retry`, `RetryWhile`, `RetryUntil` | Retry failed IO using optional `Schedule` policy. |
+| [6] | `IO<T>.Repeat`, `RepeatWhile`, `RepeatUntil` | Repeat successful IO using optional `Schedule` policy. |
+| [7] | `Schedule.recurs`, `spaced`, `linear`, `exponential`, `fibonacci` | Attempt count and backoff families. |
+| [8] | `Schedule.upto`, `maxDelay`, `maxCumulativeDelay`, `jitter`, `decorrelate`, `fixedInterval`, `windowed` | Runtime budgets, delay ceilings, de-correlation, and clock-window policy. |
 
 Use `Run` for ordinary `Eff` boundaries. Use `RunIO` only when the next boundary still speaks `IO<T>`. Use unsafe collapse only where a host API requires exceptions.
 
@@ -113,13 +113,13 @@ Use `Run` for ordinary `Eff` boundaries. Use `RunIO` only when the next boundary
 
 | [INDEX] | [SURFACE] | [USE] |
 | :-----: | --------- | ----- |
-| **[1]** | `MapFail` | Annotate or normalize errors while preserving the rail. |
-| **[2]** | `BindFail` | Recover with another fallible computation. |
-| **[3]** | `@catch` | Selective recovery in `Eff` and `IO` pipelines. |
-| **[4]** | `Schedule` | Retry, repeat, timeout, and backoff as values. |
-| **[5]** | `|` alternative | Fallback path after failure. |
-| **[6]** | `expected`, `exceptional`, `expectedOf`, `exceptionalOf` | Route expected and exceptional `Error` classes without collapsing the rail. |
-| **[7]** | `RetryIO`, `RepeatIO`, `TimeoutIO`, `BracketIO` | Advanced IO operations available through `MonadUnliftIO` style carriers. |
+| [1] | `MapFail` | Annotate or normalize errors while preserving the rail. |
+| [2] | `BindFail` | Recover with another fallible computation. |
+| [3] | `@catch` | Selective recovery in `Eff` and `IO` pipelines. |
+| [4] | `Schedule` | Retry, repeat, timeout, and backoff as values. |
+| [5] | `|` alternative | Fallback path after failure. |
+| [6] | `expected`, `exceptional`, `expectedOf`, `exceptionalOf` | Route expected and exceptional `Error` classes without collapsing the rail. |
+| [7] | `RetryIO`, `RepeatIO`, `TimeoutIO`, `BracketIO` | Advanced IO operations available through `MonadUnliftIO` style carriers. |
 
 ---
 ## [8][RULES]

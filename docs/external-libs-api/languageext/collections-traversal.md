@@ -13,16 +13,16 @@
 
 | [INDEX] | [TYPE] | [USE] | [AVOID_WHEN] |
 | :-----: | ------ | ----- | ------------ |
-| **[1]** | `Seq<T>` | General immutable sequence, traversal, folds, GH2 flow values. | Hot inner loops need spans. |
-| **[2]** | `Arr<T>` | Strict immutable indexed batch. | Lazy or streaming traversal is desired. |
-| **[3]** | `Lst<T>` | List-specific structural operations. | `Seq<T>` already covers traversal. |
-| **[4]** | `HashMap<K,V>` | Fast immutable keyed lookup. | Key reflection causes host issues. |
-| **[5]** | `Map<K,V>` | Ordered immutable keyed lookup. | Ordering has no semantic value. |
-| **[6]** | `Set<T>` | Ordered uniqueness. | Hash semantics are enough. |
-| **[7]** | `HashSet<T>` | Fast uniqueness. | Stable ordering is required. |
-| **[8]** | `Que<T>` | FIFO worklist. | Random access is required. |
-| **[9]** | `Stck<T>` | LIFO worklist. | FIFO order is required. |
-| **[10]** | `Iterable<T>` | Lazy iterable abstraction. | Prefer `Seq<T>` at module boundaries unless laziness is material. |
+| [1] | `Seq<T>` | General immutable sequence, traversal, folds, GH2 flow values. | Hot inner loops need spans. |
+| [2] | `Arr<T>` | Strict immutable indexed batch. | Lazy or streaming traversal is desired. |
+| [3] | `Lst<T>` | List-specific structural operations. | `Seq<T>` already covers traversal. |
+| [4] | `HashMap<K,V>` | Fast immutable keyed lookup. | Key reflection causes host issues. |
+| [5] | `Map<K,V>` | Ordered immutable keyed lookup. | Ordering has no semantic value. |
+| [6] | `Set<T>` | Ordered uniqueness. | Hash semantics are enough. |
+| [7] | `HashSet<T>` | Fast uniqueness. | Stable ordering is required. |
+| [8] | `Que<T>` | FIFO worklist. | Random access is required. |
+| [9] | `Stck<T>` | LIFO worklist. | FIFO order is required. |
+| [10] | `Iterable<T>` | Lazy iterable abstraction. | Prefer `Seq<T>` at module boundaries unless laziness is material. |
 
 ---
 ## [2][FUSION]
@@ -32,13 +32,13 @@
 
 | [INDEX] | [SURFACE] | [USE] |
 | :-----: | --------- | ----- |
-| **[1]** | `Choose` | Fuse filter and projection into one traversal. |
-| **[2]** | `Map` | Pure projection preserving cardinality. |
-| **[3]** | `Bind` | Projection that emits zero, one, or many values. |
-| **[4]** | `Fold` | Total accumulation. |
-| **[5]** | `FoldWhile` | Early-exit accumulation. |
-| **[6]** | `Exists` and `ForAll` | Predicate reduction. |
-| **[7]** | `Head` | Optional first value. |
+| [1] | `Choose` | Fuse filter and projection into one traversal. |
+| [2] | `Map` | Pure projection preserving cardinality. |
+| [3] | `Bind` | Projection that emits zero, one, or many values. |
+| [4] | `Fold` | Total accumulation. |
+| [5] | `FoldWhile` | Early-exit accumulation. |
+| [6] | `Exists` and `ForAll` | Predicate reduction. |
+| [7] | `Head` | Optional first value. |
 
 [CRITICAL] Do not use mutable accumulators in domain transforms. Fold into immutable state and project once.
 
@@ -68,12 +68,12 @@ Rasm pattern:
 
 | [INDEX] | [PATTERN] | [WHY] |
 | :-----: | --------- | ----- |
-| **[1]** | `.Cons(value)` in folds | O(1) prepend. |
-| **[2]** | `.Rev()` at projection boundary | Restores insertion order. |
-| **[3]** | `.Add(value)` outside hot folds | Clear append when cost is acceptable. |
-| **[4]** | `Seq<T>()` as identity | Empty immutable sequence. |
-| **[5]** | `toSeq(source)` at boundary | Converts external enumerables into repo vocabulary. |
-| **[6]** | `HeadOrNone`, `HeadOrInvalid` | Safe head access where empty input is expected. |
+| [1] | `.Cons(value)` in folds | O(1) prepend. |
+| [2] | `.Rev()` at projection boundary | Restores insertion order. |
+| [3] | `.Add(value)` outside hot folds | Clear append when cost is acceptable. |
+| [4] | `Seq<T>()` as identity | Empty immutable sequence. |
+| [5] | `toSeq(source)` at boundary | Converts external enumerables into repo vocabulary. |
+| [6] | `HeadOrNone`, `HeadOrInvalid` | Safe head access where empty input is expected. |
 
 ---
 ## [5][INTEROP]
@@ -83,11 +83,11 @@ Rasm pattern:
 
 | [INDEX] | [SOURCE] | [ADAPTER_POLICY] |
 | :-----: | -------- | ---------------- |
-| **[1]** | `IEnumerable<T>` | Convert with `toSeq` before domain traversal. |
-| **[2]** | Arrays | Convert with `toSeq` or `AsIterable().ToSeq()` when rail APIs are needed. |
-| **[3]** | GH2 `Tree<T>` | Convert through `Bridge.Read<T>` into `Seq<Flow<T>>`. |
-| **[4]** | RhinoCommon result arrays | Convert immediately and validate with `Fin<T>` or `Validation<Error,T>`. |
-| **[5]** | Hot-path spans | Keep span-local; lift to `Fin<T>` at public surface. |
+| [1] | `IEnumerable<T>` | Convert with `toSeq` before domain traversal. |
+| [2] | Arrays | Convert with `toSeq` or `AsIterable().ToSeq()` when rail APIs are needed. |
+| [3] | GH2 `Tree<T>` | Convert through `Bridge.Read<T>` into `Seq<Flow<T>>`. |
+| [4] | RhinoCommon result arrays | Convert immediately and validate with `Fin<T>` or `Validation<Error,T>`. |
+| [5] | Hot-path spans | Keep span-local; lift to `Fin<T>` at public surface. |
 
 ---
 ## [6][RULES]

@@ -13,11 +13,11 @@
 
 | [INDEX] | [TYPE] | [ROLE] |
 | :-----: | ------ | ------ |
-| **[1]** | `K<F,A>` | Higher-kinded value encoded for C#. |
-| **[2]** | `K<F,A,B>` | Higher-kinded value with two carried types. |
-| **[3]** | `.As()` | Downcast from `K<F,A>` to the concrete carrier at a consumption boundary. |
-| **[4]** | `pure<F,A>` | Lift a value into the abstract carrier. |
-| **[5]** | `error<F,A>` | Lift failure into a fallible carrier. |
+| [1] | `K<F,A>` | Higher-kinded value encoded for C#. |
+| [2] | `K<F,A,B>` | Higher-kinded value with two carried types. |
+| [3] | `.As()` | Downcast from `K<F,A>` to the concrete carrier at a consumption boundary. |
+| [4] | `pure<F,A>` | Lift a value into the abstract carrier. |
+| [5] | `error<F,A>` | Lift failure into a fallible carrier. |
 
 [CRITICAL] `.As()` belongs at the boundary where a concrete carrier is required. Do not scatter `.As()` through the middle of a generic algorithm.
 
@@ -29,18 +29,18 @@
 
 | [INDEX] | [CONSTRAINT] | [ALLOWS] | [USE_WHEN] |
 | :-----: | ------------ | -------- | ---------- |
-| **[1]** | `Functor<F>` | `Map`. | Success projection only. |
-| **[2]** | `Applicative<F>` | Pure values and independent application. | Independent effects can combine. |
-| **[3]** | `Monad<F>` | Dependent `Bind` sequencing. | Later steps depend on earlier values. |
-| **[4]** | `Fallible<F>` | Failure construction and recovery. | Algorithm needs typed failure without choosing `Fin` or `Eff`. |
-| **[5]** | `SemigroupK<F>` | Alternative combination. | Fallback between computations. |
-| **[6]** | `MonoidK<F>` | Empty computation. | Folded effect sequences need identity. |
-| **[7]** | `Alternative<F>` | Applicative plus choice. | Combine independent effects with fallback semantics. |
-| **[8]** | `Choice<F>` | Branch-like choice as algebra. | Encode selection without statement branching. |
-| **[9]** | `Bifunctor<F>` | Map two carried channels. | Preserve context while transforming both sides. |
-| **[10]** | `Local<M,E>` | Local environment transformation. | Prefer direct runtime records unless environment adaptation repeats. |
-| **[11]** | `MonadIO<M>` and `MonadUnliftIO<M>` | Lift, bracket, retry, repeat, and timeout IO from abstract carriers. | Infrastructure only; avoid exposing to GH2 components. |
-| **[12]** | `Natural<F,G>` variants | Natural transformations between carriers. | Use when carrier conversion is a reusable law, not a one-off cast. |
+| [1] | `Functor<F>` | `Map`. | Success projection only. |
+| [2] | `Applicative<F>` | Pure values and independent application. | Independent effects can combine. |
+| [3] | `Monad<F>` | Dependent `Bind` sequencing. | Later steps depend on earlier values. |
+| [4] | `Fallible<F>` | Failure construction and recovery. | Algorithm needs typed failure without choosing `Fin` or `Eff`. |
+| [5] | `SemigroupK<F>` | Alternative combination. | Fallback between computations. |
+| [6] | `MonoidK<F>` | Empty computation. | Folded effect sequences need identity. |
+| [7] | `Alternative<F>` | Applicative plus choice. | Combine independent effects with fallback semantics. |
+| [8] | `Choice<F>` | Branch-like choice as algebra. | Encode selection without statement branching. |
+| [9] | `Bifunctor<F>` | Map two carried channels. | Preserve context while transforming both sides. |
+| [10] | `Local<M,E>` | Local environment transformation. | Prefer direct runtime records unless environment adaptation repeats. |
+| [11] | `MonadIO<M>` and `MonadUnliftIO<M>` | Lift, bracket, retry, repeat, and timeout IO from abstract carriers. | Infrastructure only; avoid exposing to GH2 components. |
+| [12] | `Natural<F,G>` variants | Natural transformations between carriers. | Use when carrier conversion is a reusable law, not a one-off cast. |
 
 ---
 ## [3][KLEISLI]
@@ -66,15 +66,15 @@ Canonical shapes:
 
 | [INDEX] | [TYPE] | [USE] |
 | :-----: | ------ | ----- |
-| **[1]** | `OptionT<M,A>` | Optional result inside another monad. |
-| **[2]** | `EitherT<L,M,R>` | Typed left/right result inside another monad. |
-| **[3]** | `FinT<M,A>` | `Error` rail inside another monad. |
-| **[4]** | `ValidationT<F,M,A>` | Accumulating validation inside another monad. |
-| **[5]** | `ReaderT<E,M,A>` | Environment access inside another monad. |
-| **[6]** | `StateT<S,M,A>` | State threading inside another monad. |
-| **[7]** | `WriterT<W,M,A>` | Monoidal output inside another monad. |
-| **[8]** | `TryT<M,A>` | Exception-capturing rail inside another monad. |
-| **[9]** | `IdentityT<M,A>` | Pure carrier transformer. |
+| [1] | `OptionT<M,A>` | Optional result inside another monad. |
+| [2] | `EitherT<L,M,R>` | Typed left/right result inside another monad. |
+| [3] | `FinT<M,A>` | `Error` rail inside another monad. |
+| [4] | `ValidationT<F,M,A>` | Accumulating validation inside another monad. |
+| [5] | `ReaderT<E,M,A>` | Environment access inside another monad. |
+| [6] | `StateT<S,M,A>` | State threading inside another monad. |
+| [7] | `WriterT<W,M,A>` | Monoidal output inside another monad. |
+| [8] | `TryT<M,A>` | Exception-capturing rail inside another monad. |
+| [9] | `IdentityT<M,A>` | Pure carrier transformer. |
 
 [IMPORTANT] Prefer direct `Eff<RT,T>` or `Fin<T>` until transformer use removes visible nested `Map` or `Bind` plumbing.
 
@@ -86,11 +86,11 @@ Canonical shapes:
 
 | [INDEX] | [TRAIT] | [MEANING] |
 | :-----: | ------- | --------- |
-| **[1]** | `LanguageExt.Traits.Domain.DomainType<SELF,REPR>` | Validated conversion between domain type and representation. |
-| **[2]** | `LanguageExt.Traits.Domain.Identifier<SELF>` | Identity-like value. |
-| **[3]** | `LanguageExt.Traits.Domain.Amount<SELF,SCALAR>` | Quantity with vector-space behavior. |
-| **[4]** | `LanguageExt.Traits.Domain.Locus<SELF,DISTANCE,SCALAR>` | Position that subtracts to a distance. |
-| **[5]** | `LanguageExt.Traits.Domain.VectorSpace<SELF,SCALAR>` | Scalable additive value. |
+| [1] | `LanguageExt.Traits.Domain.DomainType<SELF,REPR>` | Validated conversion between domain type and representation. |
+| [2] | `LanguageExt.Traits.Domain.Identifier<SELF>` | Identity-like value. |
+| [3] | `LanguageExt.Traits.Domain.Amount<SELF,SCALAR>` | Quantity with vector-space behavior. |
+| [4] | `LanguageExt.Traits.Domain.Locus<SELF,DISTANCE,SCALAR>` | Position that subtracts to a distance. |
+| [5] | `LanguageExt.Traits.Domain.VectorSpace<SELF,SCALAR>` | Scalable additive value. |
 
 Use these only when generic math and domain algebra materially improve the implementation. For simple boundary wrappers, Thinktecture `[ValueObject<T>]` remains the smaller shape.
 
