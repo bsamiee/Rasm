@@ -58,12 +58,9 @@ public readonly record struct Matrix(Dimension Rows, Dimension Cols, Arr<double>
             : Fin.Fail<Matrix>(error: op.InvalidInput());
     }
     public static Matrix Identity(Dimension dim) =>
-        new(Rows: dim, Cols: dim,
-            Entries: [.. toSeq(Enumerable.Range(start: 0, count: dim.Value * dim.Value))
-                .Map(idx => (idx / dim.Value) == (idx % dim.Value) ? 1.0 : 0.0)]);
+        MatrixKernel.FromMathNet(m: DenseMatrixD.CreateIdentity(order: dim.Value), rows: dim, cols: dim);
     public static Matrix Zero(Dimension rows, Dimension cols) =>
-        new(Rows: rows, Cols: cols,
-            Entries: [.. Enumerable.Repeat(element: 0.0, count: rows.Value * cols.Value)]);
+        MatrixKernel.FromMathNet(m: DenseMatrixD.Create(rows: rows.Value, columns: cols.Value, value: 0.0), rows: rows, cols: cols);
     public Matrix Transpose() => MatrixKernel.FromMathNet(MatrixKernel.ToMathNet(this).Transpose(), Cols, Rows);
     public static Matrix operator *(Matrix a, Matrix b) =>
         MatrixKernel.FromMathNet(MatrixKernel.ToMathNet(a).Multiply(MatrixKernel.ToMathNet(b)), a.Rows, b.Cols);
@@ -86,9 +83,10 @@ public readonly record struct Matrix(Dimension Rows, Dimension Cols, Arr<double>
         DecomposeSvd(key: key.OrDefault()).Map(static svd => svd.NumericalRank());
     public Fin<Matrix> Inverse(Op? key = null) {
         Op op = key.OrDefault();
+        Matrix self = this;
         return Rows.Value != Cols.Value
             ? Fin.Fail<Matrix>(error: op.InvalidInput())
-            : Fin.Succ(MatrixKernel.FromMathNet(MatrixKernel.ToMathNet(this).Inverse(), Rows, Cols));
+            : op.Catch(() => Fin.Succ(MatrixKernel.FromMathNet(MatrixKernel.ToMathNet(self).Inverse(), self.Rows, self.Cols)));
     }
     public Fin<Matrix> PseudoInverse(Op? key = null) =>
         DecomposeSvd(key: key.OrDefault()).Map(static svd => svd.PseudoInverse());
@@ -140,7 +138,6 @@ public readonly record struct QrResult(Matrix Q, Matrix R) {
     public bool IsValid => Q.IsValid && R.IsValid;
 }
 
-// Dense lower-triangular factor L (A = L Lᵀ); sparse inputs are densified before factorization.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct CholeskyResult(Matrix L, Matrix Source) {
     public bool IsValid => L.IsValid && Source.IsValid && L.Rows.Value == L.Cols.Value && Source.Rows.Value == Source.Cols.Value;
@@ -170,8 +167,6 @@ public readonly record struct SparseMatrix(Dimension Rows, Dimension Cols, Arr<i
             : Fin.Succ(MatrixKernel.SparseMatVec(self: this, x: vector));
     }
     public Matrix ToDense() => MatrixKernel.SparseToDense(self: this);
-    public Fin<CholeskyResult> DecomposeCholesky(Op? key = null) =>
-        MatrixKernel.SparseCholesky(matrix: this, key: key.OrDefault());
     public Fin<Arr<double>> Solve(Arr<double> rhs, Op? key = null) =>
         MatrixKernel.SparseSolve(matrix: this, rhs: rhs, key: key.OrDefault());
     public Fin<Seq<(double Eigenvalue, Arr<double> Eigenvector)>> SmallestEigenpairs(int k, double tolerance, int maxIterations = 200, Op? key = null) =>
@@ -207,13 +202,6 @@ public readonly record struct SparseHermitian(Dimension Order, Arr<int> RowPtr, 
             ? Fin.Fail<Arr<Complex>>(op.InvalidInput())
             : Fin.Succ(MatrixKernel.HermitianMatVec(self: this, x: vector));
     }
-    public Fin<Arr<Complex>> Solve(Arr<Complex> rhs, Op? key = null) {
-        Op op = key.OrDefault();
-        SparseHermitian self = this;
-        return rhs.Count != Order.Value
-            ? Fin.Fail<Arr<Complex>>(op.InvalidInput())
-            : op.Catch(() => Fin.Succ(MatrixKernel.SolveHermitianDense(self: self, rhs: rhs)));
-    }
     public Fin<Seq<(double Eigenvalue, Arr<Complex> Eigenvector)>> SmallestEigenpairs(int k, double tolerance, int maxIterations = 200, Op? key = null) =>
         MatrixKernel.LobpcgHermitian(matrix: this, k: k, tolerance: tolerance, maxIterations: maxIterations, key: key.OrDefault());
 }
@@ -231,7 +219,7 @@ public sealed partial class MatrixNormKind {
 internal static class MatrixKernel {
     // --- [BRIDGE] ---------------------------------------------------------------------------
     internal static DenseMatrixD ToMathNet(Matrix m) =>
-        (DenseMatrixD)DenseMatrixD.Build.Dense(m.Rows.Value, m.Cols.Value, m.At);
+        (DenseMatrixD)DenseMatrixD.Build.DenseOfRowMajor(m.Rows.Value, m.Cols.Value, m.Entries.AsIterable());
     internal static Matrix FromMathNet(Matrix<double> m, Dimension rows, Dimension cols) {
         double[] entries = new double[rows.Value * cols.Value];
         for (int i = 0; i < rows.Value; i++)
@@ -408,16 +396,6 @@ internal static class MatrixKernel {
                     ? Fin.Succ(ArrFromVector(x))
                     : Fin.Fail<Arr<double>>(key.InvalidResult());
             });
-    internal static Fin<CholeskyResult> SparseCholesky(SparseMatrix matrix, Op key) =>
-        matrix.Rows.Value != matrix.Cols.Value
-            ? Fin.Fail<CholeskyResult>(key.InvalidInput())
-            : key.Catch(() => {
-                Matrix source = SparseToDense(self: matrix);
-                return Fin.Succ(new CholeskyResult(
-                    L: FromMathNet(ToMathNet(source).Cholesky().Factor, matrix.Rows, matrix.Cols),
-                    Source: source));
-            });
-
     // --- [LOBPCG] ---------------------------------------------------------------------------
     // Knyazev 2001. Subspace span([X_i, R_i, P_i]) reduced via Rayleigh-Ritz to a 3k x 3k
     // generalised eigenproblem; Jacobi-diagonal preconditioner; converges on residual L2 norm.

@@ -9,7 +9,7 @@ Testing work is intentionally excluded from this pass. Static gates remain the c
 - `VectorIntent.Project<TOut>(Context, Op?)` is the only consumer projection rail.
 - Primitive factories may construct atoms, spaces, fields, clouds, matrices, and population operators, but they do not bypass `VectorIntent` for intent projection.
 - Unsupported public cases are removed instead of retained as placeholder failures.
-- RhinoCommon owns geometry queries, interpolation, point clouds, mesh reduction/remeshing, closest mesh projection, and transforms.
+- RhinoCommon owns geometry queries, interpolation, point clouds, mesh reduction/remeshing, closest mesh projection, transforms, convex hull mesh output, and LSCM unwrapping.
 - MathNet owns dense/sparse matrix construction, dense decompositions, iterative sparse solves, and numeric diagnostics.
 - Local kernels remain only where RhinoCommon/MathNet do not expose the algorithm directly.
 
@@ -22,7 +22,7 @@ Testing work is intentionally excluded from this pass. Static gates remain the c
 | Fields | scalar/vector/tensor unions, SDF primitives, noise, geodesic/MCF/vector heat/cross-field sampling with validation | `Field.cs` |
 | Intents | singular projection rail plus `Tensor`, `MeshOperator`, `Surface`, `Flatten`, `Hull`, `Sample`, `Register`, `Remesh`, `Transport`, `Topology`, `Features`, `Descriptor` cases | `Intent.cs` |
 | Matrices | dense matrix/SVD/LU/QR/eigen/Cholesky, sparse CSR/Hermitian CSR, MathNet sparse iterative solve, local LOBPCG | `Matrix.cs` |
-| Meshes | cached laplacian/field state, LSCM flattening, heat geodesic, mean-curvature flow, vector heat, cross-field, topology/features/descriptors | `Mesh.cs` |
+| Meshes | cached laplacian/field state, Rhino LSCM flattening, heat geodesic, mean-curvature flow, vector heat, cross-field, topology/features/descriptors | `Mesh.cs` |
 | Population | registration, convex hull, sampling, remesh, Rhino/RTree normal orientation kernels | `Population.cs` |
 | Space | shared context/tolerance vocabulary | `Space.cs` |
 
@@ -31,8 +31,10 @@ Testing work is intentionally excluded from this pass. Static gates remain the c
 - `VectorIntent.Populate(...)` was removed. Use `VectorIntent.Sample(...)`.
 - `HullKind.Alpha(...)` and `HullKind.Chi(...)` were removed. RhinoCommon owns convex hull here; alpha/chi hulls are not shipped without a complete API-backed implementation.
 - `SurfaceParameterization.BFF` and `BFFWithCones` were removed. `LSCM` is the truthful flattening mode.
-- Public `DualQuaternion` output was removed. Screw interpolation may use dual-quaternion math internally, but public registration projects `Transform`.
-- Sparse Cholesky/LDL/AMD public claims were removed. Sparse systems solve through MathNet iterative solvers and preconditioners; dense Cholesky remains a dense factorization result.
+- Public `DualQuaternion` output and screw interpolation were removed. Registration projects `Transform` directly.
+- Sparse Cholesky/LDL/AMD public claims and sparse-Hermitian dense direct solve were removed. Sparse real systems solve through MathNet iterative solvers and preconditioners; dense Cholesky remains a dense factorization result.
+- Inert boundary-condition, cone-vertex, quad cross-field, isotropic remesh, and `ShapeDna` count fields were removed from public cases.
+- Misleading `OpenSimplex2F` and `OpenSimplex2S` names were replaced with implementation-truthful simplex noise names.
 - Testing rows and spec-file commitments were removed from this roadmap because testing is out of scope for this pass.
 
 ## Algorithm Notes
@@ -43,13 +45,13 @@ Testing work is intentionally excluded from this pass. Static gates remain the c
 
 ### Motion And Frames
 
-`MotionInterpolation.Linear` and `Slerp` use Rhino `Quaternion` interpolation over `Transform`/`Plane` state. `Screw` keeps dual-quaternion math internal for screw interpolation only.
+`MotionInterpolation.Linear` and `Slerp` use Rhino `Quaternion` interpolation over `Transform`/`Plane` state.
 
-`CurveProjection.RotationMinimizing` evaluates a double-reflection rotation-minimizing frame using the same kernel as cloud Bishop frames, rather than delegating to a generic perpendicular frame.
+`CurveProjection.BishopFrame` delegates to Rhino `Curve.PerpendicularFrameAt`; no duplicate RMF path is retained.
 
 ### Clouds And Population
 
-`VectorCloud.OrientNormals(Context, Op?)` estimates local normals from Rhino point-cloud/RTree k-nearest neighborhoods and orients them by MST propagation.
+`VectorCloud.OrientNormals(Context, Op?)` estimates local normals from Rhino point-cloud k-nearest neighborhoods and orients them by MST propagation.
 
 Hull support is convex-only through RhinoCommon. Sampling remains `SamplingKind`-driven for Poisson disk, farthest point, farthest point optimization, Lloyd, and capacity-constrained modes.
 
@@ -57,7 +59,7 @@ Hull support is convex-only through RhinoCommon. Sampling remains `SamplingKind`
 
 Dense matrix operations delegate to MathNet decompositions and norms. Sparse real matrices are assembled with MathNet sparse builders and solved through MathNet iterative solvers with diagonal preconditioning plus residual checks. `SmallestEigenpairs` remains a named local LOBPCG kernel because MathNet does not provide that API.
 
-Sparse Hermitian systems retain dense Hermitian solve where the current algorithm requires complex Cholesky; callers should treat that as a bounded fallback, not a sparse-factorization guarantee.
+Sparse Hermitian matrices expose multiplication and LOBPCG eigenpairs only; direct solve is not exposed without a truthful sparse Hermitian solver.
 
 ### Mesh Algorithms
 
@@ -69,11 +71,11 @@ Topology projection returns `(int Euler, int Genus, int BoundaryComponents)`. Fe
 
 ### Transport
 
-`Transport` computes a Sinkhorn coupling. The same case projects scalar cost, coupling `Matrix`, or transported `VectorCloud`; the scalar remains one output shape on the same rail, not a sibling service.
+`Transport` computes a Sinkhorn coupling through MathNet matrix/vector storage. The same case projects scalar cost, coupling `Matrix`, or transported `VectorCloud`; the scalar remains one output shape on the same rail, not a sibling service.
 
 ### Field Validation
 
-SDF parameters are validated per shape before evaluation. Periodic scalar fields reject zero-period axes. Cross-field construction rejects guidance until guided cross-field assembly is implemented. Unsupported noise/projection combinations fail at construction rather than being ignored during sampling.
+SDF parameters are validated per shape before evaluation. Periodic scalar fields reject zero-period axes. Cross-field construction accepts only symmetry because guided assembly is not exposed. Unsupported noise/projection combinations fail at construction rather than being ignored during sampling.
 
 ## Static Verification
 

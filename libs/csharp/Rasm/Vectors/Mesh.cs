@@ -79,17 +79,12 @@ public sealed partial class MeshLaplacian {
 }
 
 [SmartEnum<int>]
-public sealed partial class BoundaryCondition {
-    public static readonly BoundaryCondition Neumann = new(key: 0);
-    public static readonly BoundaryCondition Dirichlet = new(key: 1);
-    public static readonly BoundaryCondition AverageOfBoth = new(key: 2);
-}
-
-[SmartEnum<int>]
 public sealed partial class SurfaceParameterization {
     public static readonly SurfaceParameterization LSCM = new(key: 0);
-    internal Fin<Arr<Point2d>> Compute(MeshSpace space, Seq<int> coneVertices, Op key) =>
-        MeshKernel.ParameterizeFlatten(space: space, kind: this, coneVertices: coneVertices, key: key);
+    internal Fin<Arr<Point2d>> Compute(MeshSpace space, Op key) =>
+        Equals(LSCM)
+            ? MeshKernel.ParameterizeFlatten(space: space, key: key)
+            : Fin.Fail<Arr<Point2d>>(key.Unsupported(geometryType: typeof(SurfaceParameterization), outputType: typeof(Arr<Point2d>)));
 }
 
 [Union]
@@ -97,7 +92,7 @@ public abstract partial record MeshDescriptor {
     private MeshDescriptor() { }
     public sealed record HeatKernelSignatureCase(Seq<double> Times) : MeshDescriptor;
     public sealed record WaveKernelSignatureCase(Seq<double> Energies, double Sigma) : MeshDescriptor;
-    public sealed record ShapeDnaCase(int K) : MeshDescriptor;
+    public sealed record ShapeDnaCase : MeshDescriptor;
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -375,80 +370,23 @@ internal static class MeshKernel {
         return key.AcceptValue(value: toSeq(features));
     }
 
-    internal static Fin<Arr<Point2d>> ParameterizeFlatten(MeshSpace space, SurfaceParameterization kind, Seq<int> coneVertices, Op key) {
-        Mesh mesh = space.Native;
-        int n = mesh.Vertices.Count;
-        Seq<int> boundary = BoundaryVerticesOf(mesh: mesh);
-        if (boundary.Count < 2) return Fin.Fail<Arr<Point2d>>(error: key.InvalidInput());
-        (int pin1, int pin2) = ChooseExtremePins(mesh: mesh, boundary: boundary);
-        Point3d p1 = mesh.Vertices[index: pin1]; Point3d p2 = mesh.Vertices[index: pin2];
-        double pinDist = p1.DistanceTo(other: p2);
-        return pinDist < RhinoMath.ZeroTolerance
-            ? Fin.Fail<Arr<Point2d>>(error: key.InvalidResult())
-            : from L in space.Laplacian(kind: MeshLaplacian.Cotangent, key: key)
-              from uv in LscmSolve(mesh: mesh, L: L, pin1: pin1, pin2: pin2, pinDist: pinDist, key: key)
-              select uv;
-    }
-    private static Seq<int> BoundaryVerticesOf(Mesh mesh) {
-        System.Collections.Generic.HashSet<int> set = [];
-        for (int e = 0; e < mesh.TopologyEdges.Count; e++)
-            if (mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: e).Length == 1) {
-                IndexPair p = mesh.TopologyEdges.GetTopologyVertices(topologyEdgeIndex: e);
-                _ = set.Add(item: p.I); _ = set.Add(item: p.J);
-            }
-        return toSeq(set);
-    }
-    private static (int Pin1, int Pin2) ChooseExtremePins(Mesh mesh, Seq<int> boundary) {
-        int pin1 = boundary[index: 0]; int pin2 = boundary[index: 0];
-        double bestDist = 0.0;
-        for (int i = 0; i < boundary.Count; i++)
-            for (int j = i + 1; j < boundary.Count; j++) {
-                double d = mesh.Vertices[index: boundary[index: i]].DistanceTo(other: mesh.Vertices[index: boundary[index: j]]);
-                if (d > bestDist) { bestDist = d; pin1 = boundary[index: i]; pin2 = boundary[index: j]; }
-            }
-        return (pin1, pin2);
-    }
-    // LSCM linear system: (L_real ⊗ I₂) UV = 0 with two pinned vertices imposing the affine frame.
-    // Solved as the reduced (2(n−2))-system; cotangent SPD assures unique minimum-residual UV.
-    private static Fin<Arr<Point2d>> LscmSolve(Mesh mesh, SparseLaplacian L, int pin1, int pin2, double pinDist, Op key) {
-        int n = mesh.Vertices.Count;
-        Dictionary<int, int> freeIdx = [];
-        for (int i = 0; i < n; i++) if (i != pin1 && i != pin2) freeIdx[key: i] = freeIdx.Count;
-        int m = freeIdx.Count;
-        List<(int Row, int Col, double Value)> sysTriplets = [];
-        double[] rhsU = new double[m]; double[] rhsV = new double[m];
-        for (int i = 0; i < n; i++) {
-            if (!freeIdx.TryGetValue(key: i, value: out int row)) continue;
-            for (int k = L.Stiffness.RowPtr[index: i]; k < L.Stiffness.RowPtr[index: i + 1]; k++) {
-                int j = L.Stiffness.ColInd[index: k];
-                double w = L.Stiffness.Values[index: k];
-                if (freeIdx.TryGetValue(key: j, value: out int col)) sysTriplets.Add(item: (row, col, w));
-                else if (j == pin1) rhsU[row] -= w * 0.0;
-                else if (j == pin2) { rhsU[row] -= w * pinDist; rhsV[row] -= w * 0.0; }
-            }
-        }
-        Dimension dim = Dimension.Create(value: m);
-        return from A in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: sysTriplets, key: key)
-               from u in A.Solve(rhs: new Arr<double>(rhsU), key: key)
-               from v in A.Solve(rhs: new Arr<double>(rhsV), key: key)
-               select AssemblePinnedUv(n: n, freeIdx: freeIdx, u: u, v: v, pin1: pin1, pin2: pin2, pinDist: pinDist);
-    }
-    private static Arr<Point2d> AssemblePinnedUv(int n, Dictionary<int, int> freeIdx, Arr<double> u, Arr<double> v, int pin1, int pin2, double pinDist) {
-        Point2d[] uv = new Point2d[n];
-        uv[pin1] = new Point2d(x: 0.0, y: 0.0);
-        uv[pin2] = new Point2d(x: pinDist, y: 0.0);
-        for (int i = 0; i < n; i++) if (freeIdx.TryGetValue(key: i, value: out int idx)) uv[i] = new Point2d(x: u[index: idx], y: v[index: idx]);
-        return new Arr<Point2d>(uv);
+    internal static Fin<Arr<Point2d>> ParameterizeFlatten(MeshSpace space, Op key) {
+        using Mesh mesh = space.Native.DuplicateMesh();
+        using MeshUnwrapper unwrapper = new(mesh);
+        bool ok = unwrapper.Unwrap(method: MeshUnwrapMethod.LSCM);
+        return ok && mesh.TextureCoordinates.Count == mesh.Vertices.Count
+            ? key.AcceptValue(value: new Arr<Point2d>([.. mesh.TextureCoordinates.Select(static t => new Point2d(x: t.X, y: t.Y))]))
+            : Fin.Fail<Arr<Point2d>>(error: key.InvalidResult());
     }
     // --- [HEAT_METHOD] ----------------------------------------------------------------------
     // Crane-Weischedel-Wardetzky 2013: solve (M + tL)u = δ; X = -∇u/|∇u|; Lφ = ∇·X.
     private sealed record DoubleBoxArr(Arr<double> Values);
-    internal static Fin<double> HeatGeodesicAt(MeshSpace space, Seq<int> sources, BoundaryCondition boundary, Point3d sample, Op key) =>
-        from distances in EnsureGeodesicDistances(space: space, sources: sources, boundary: boundary, key: key)
+    internal static Fin<double> HeatGeodesicAt(MeshSpace space, Seq<int> sources, Point3d sample, Op key) =>
+        from distances in EnsureGeodesicDistances(space: space, sources: sources, key: key)
         from value in InterpolateOnFaceTree(space: space, sample: sample, perVertex: distances, key: key)
         select value;
-    private static Fin<Arr<double>> EnsureGeodesicDistances(MeshSpace space, Seq<int> sources, BoundaryCondition boundary, Op key) {
-        string cacheKey = string.Create(CultureInfo.InvariantCulture, $"geodesic|{string.Join(separator: ",", values: sources.AsIterable().OrderBy(static i => i))}|{boundary.Key}");
+    private static Fin<Arr<double>> EnsureGeodesicDistances(MeshSpace space, Seq<int> sources, Op key) {
+        string cacheKey = string.Create(CultureInfo.InvariantCulture, $"geodesic|{string.Join(separator: ",", values: sources.AsIterable().OrderBy(static i => i))}");
         return space.Cache.FieldCache.TryGetValue(key: cacheKey, value: out object? cached) && cached is DoubleBoxArr box
             ? Fin.Succ(box.Values)
             : space.Laplacian(kind: MeshLaplacian.Cotangent, key: key).Bind(L => ComputeHeatGeodesic(space: space, laplacian: L, sources: sources, key: key))
@@ -697,7 +635,7 @@ internal static class MeshKernel {
                from scalarSys in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: ScalarHeatTriplets(L: L, t: t), key: key)
                from magnitudes in scalarSys.Solve(rhs: BuildSeedMagnitudes(n: n, seeds: seeds, mass: L.MassLumped), key: key)
                from vectorSys in AugmentHermitianDiagonal(L: Lconn, mass: L.MassLumped, t: t, key: key)
-               from solutions in vectorSys.Solve(rhs: BuildSeedComplex(n: n, seeds: seeds, frames: fb, mass: L.MassLumped), key: key)
+               from solutions in key.Catch(() => Fin.Succ(MatrixKernel.SolveHermitianDense(self: vectorSys, rhs: BuildSeedComplex(n: n, seeds: seeds, frames: fb, mass: L.MassLumped))))
                select RecoverVectorField(magnitudes: magnitudes, complex: solutions);
     }
     private static List<(int Row, int Col, double Value)> ScalarHeatTriplets(SparseLaplacian L, double t) {
@@ -756,7 +694,7 @@ internal static class MeshKernel {
     // local N-RoSy direction; sampling interpolates complex values and reconstructs a 3D
     // direction by projecting back into the tangent frame at the barycentric centroid.
     private sealed record CrossFieldCache(Complex[] PerVertex);
-    internal static Fin<Vector3d> CrossFieldAt(MeshSpace space, int symmetry, Option<TensorField> guidance, Point3d sample, Op key) =>
+    internal static Fin<Vector3d> CrossFieldAt(MeshSpace space, int symmetry, Point3d sample, Op key) =>
         from cached in EnsureCrossField(space: space, symmetry: symmetry, key: key)
         from value in InterpolateComplexAt(space: space, sample: sample, perVertex: cached, key: key)
         select value;

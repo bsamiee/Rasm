@@ -12,7 +12,7 @@ public sealed partial class RegistrationKind {
     public static readonly RegistrationKind PointToPlane = new(key: 1);
     public static readonly RegistrationKind Symmetric = new(key: 2);
     public static readonly RegistrationKind Robust = new(key: 3);
-    internal Fin<DualQuaternion> Align(VectorCloud source, VectorCloud target, Context context, Op? key = null) =>
+    internal Fin<Transform> Align(VectorCloud source, VectorCloud target, Context context, Op? key = null) =>
         PopulationKernel.AlignClouds(kind: this, source: source, target: target, context: context, key: key.OrDefault());
 }
 
@@ -21,7 +21,7 @@ public abstract partial record HullKind {
     private HullKind() { }
     public sealed record ConvexCase : HullKind;
     public static HullKind Convex => new ConvexCase();
-    internal Fin<VectorCloud> Compute(VectorCloud source, Context context, Op? key = null) =>
+    internal Fin<Mesh> Compute(VectorCloud source, Context context, Op? key = null) =>
         PopulationKernel.ComputeHull(kind: this, source: source, context: context, key: key.OrDefault());
 }
 
@@ -31,7 +31,7 @@ public abstract partial record SamplingKind {
     public sealed record PoissonDiskCase(PositiveMagnitude Radius) : SamplingKind;
     public sealed record FarthestPointCase(int Count) : SamplingKind;
     public sealed record FarthestPointOptimizationCase(int Count) : SamplingKind;
-    public sealed record LloydCase(int Iterations) : SamplingKind;
+    public sealed record LloydCase(int Count, int Iterations) : SamplingKind;
     public sealed record CapacityConstrainedCase(int Count, int Capacity) : SamplingKind;
     public static Fin<SamplingKind> PoissonDisk(double radius, Op? key = null) =>
         key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: radius).Map(r => (SamplingKind)new PoissonDiskCase(Radius: r));
@@ -39,8 +39,10 @@ public abstract partial record SamplingKind {
         count > 0 ? Fin.Succ<SamplingKind>(new FarthestPointCase(Count: count)) : Fin.Fail<SamplingKind>(key.OrDefault().InvalidInput());
     public static Fin<SamplingKind> FarthestPointOptimization(int count, Op? key = null) =>
         count > 0 ? Fin.Succ<SamplingKind>(new FarthestPointOptimizationCase(Count: count)) : Fin.Fail<SamplingKind>(key.OrDefault().InvalidInput());
-    public static Fin<SamplingKind> Lloyd(int iterations, Op? key = null) =>
-        iterations >= 1 ? Fin.Succ<SamplingKind>(new LloydCase(Iterations: iterations)) : Fin.Fail<SamplingKind>(key.OrDefault().InvalidInput());
+    public static Fin<SamplingKind> Lloyd(int count, int iterations, Op? key = null) =>
+        count > 0 && iterations >= 1
+            ? Fin.Succ<SamplingKind>(new LloydCase(Count: count, Iterations: iterations))
+            : Fin.Fail<SamplingKind>(key.OrDefault().InvalidInput());
     public static Fin<SamplingKind> CapacityConstrained(int count, int capacity, Op? key = null) =>
         count > 0 && capacity > 0
             ? Fin.Succ<SamplingKind>(new CapacityConstrainedCase(Count: count, Capacity: capacity))
@@ -49,25 +51,34 @@ public abstract partial record SamplingKind {
         PopulationKernel.SampleOnMesh(kind: this, domain: domain, context: context, key: key.OrDefault());
     internal Fin<VectorCloud> Sample(ScalarField domain, BoundingBox region, Context context, Op? key = null) =>
         PopulationKernel.SampleInScalarField(kind: this, domain: domain, region: region, context: context, key: key.OrDefault());
+    internal double MeshCandidateDensity(double area) {
+        double safeArea = Math.Max(val1: area, val2: RhinoMath.SqrtEpsilon);
+        double target = this switch {
+            PoissonDiskCase pd => safeArea / Math.Max(val1: pd.Radius.Value * pd.Radius.Value, val2: RhinoMath.SqrtEpsilon),
+            FarthestPointCase fp => fp.Count,
+            FarthestPointOptimizationCase fpo => fpo.Count,
+            LloydCase lloyd => lloyd.Count,
+            CapacityConstrainedCase ccvt => ccvt.Count * ccvt.Capacity,
+            _ => 1.0,
+        };
+        return Math.Max(val1: target / safeArea, val2: 1.0 / safeArea);
+    }
 }
 
 [Union]
 public abstract partial record RemeshKind {
     private RemeshKind() { }
-    public sealed record IsotropicCase(PositiveMagnitude TargetEdge) : RemeshKind;
-    public sealed record QuadCase(VectorField CrossField, PositiveMagnitude TargetEdge) : RemeshKind;
-    public sealed record SimplifyCase(int TargetFaces, bool UseQem) : RemeshKind;
-    public sealed record AdaptiveCurvatureCase(ScalarField CurvatureField, double MinEdge, double MaxEdge) : RemeshKind;
-    public static Fin<RemeshKind> Isotropic(double targetEdge, Op? key = null) =>
-        key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: targetEdge).Map(t => (RemeshKind)new IsotropicCase(TargetEdge: t));
-    public static Fin<RemeshKind> Quad(VectorField crossField, double targetEdge, Op? key = null) =>
-        key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: targetEdge).Map(t => (RemeshKind)new QuadCase(CrossField: crossField, TargetEdge: t));
-    public static Fin<RemeshKind> Simplify(int targetFaces, bool useQem, Op? key = null) =>
-        targetFaces >= 1 ? Fin.Succ<RemeshKind>(new SimplifyCase(TargetFaces: targetFaces, UseQem: useQem)) : Fin.Fail<RemeshKind>(key.OrDefault().InvalidInput());
-    public static Fin<RemeshKind> AdaptiveCurvature(ScalarField curvatureField, double minEdge, double maxEdge, Op? key = null) =>
-        RhinoMath.IsValidDouble(x: minEdge) && RhinoMath.IsValidDouble(x: maxEdge) && minEdge > 0.0 && maxEdge > minEdge
-            ? Fin.Succ<RemeshKind>(new AdaptiveCurvatureCase(CurvatureField: curvatureField, MinEdge: minEdge, MaxEdge: maxEdge))
-            : Fin.Fail<RemeshKind>(key.OrDefault().InvalidInput());
+    public sealed record QuadCase(PositiveMagnitude TargetEdge) : RemeshKind;
+    public sealed record SimplifyCase(ReduceMeshParameters Parameters) : RemeshKind;
+    public static Fin<RemeshKind> Quad(double targetEdge, Op? key = null) =>
+        key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: targetEdge).Map(t => (RemeshKind)new QuadCase(TargetEdge: t));
+    public static Fin<RemeshKind> Simplify(ReduceMeshParameters parameters, Op? key = null) {
+        Op op = key.OrDefault();
+        return Optional(parameters).ToFin(op.InvalidInput())
+            .Bind(active => active.DesiredPolygonCount >= 1
+                ? Fin.Succ<RemeshKind>(new SimplifyCase(Parameters: active))
+                : Fin.Fail<RemeshKind>(op.InvalidInput()));
+    }
     internal Fin<Mesh> Apply(MeshSpace space, Context context, Op? key = null) =>
         PopulationKernel.ApplyRemesh(kind: this, space: space, context: context, key: key.OrDefault());
 }
@@ -83,25 +94,24 @@ internal static class PopulationKernel {
     // Umeyama 1991 (point-to-point) | Chen-Medioni 1992 (point-to-plane) | Rusinkiewicz 2019
     // (symmetric) | yaoyx689 2020 robust IRLS with Welsch loss. All four share the iterative
     // correspondence-finding outer loop; the inner solve switches on kind.
-    internal static Fin<DualQuaternion> AlignClouds(RegistrationKind kind, VectorCloud source, VectorCloud target, Context context, Op key) =>
+    internal static Fin<Transform> AlignClouds(RegistrationKind kind, VectorCloud source, VectorCloud target, Context context, Op key) =>
         (source, target) switch {
             (VectorCloud.ClusterCase src, VectorCloud.ClusterCase tgt) when kind.Equals(RegistrationKind.PointToPoint)
                 => ProcrustesAlign(source: src.Vertices, target: tgt.Vertices, key: key),
             (VectorCloud.ClusterCase src, VectorCloud.ClusterCase tgt)
                 => IcpAlign(source: src, target: tgt, kind: kind, key: key),
-            _ => Fin.Fail<DualQuaternion>(error: key.InvalidInput()),
+            _ => Fin.Fail<Transform>(error: key.InvalidInput()),
         };
 
-    private static Fin<DualQuaternion> ProcrustesAlign(Seq<Point3d> source, Seq<Point3d> target, Op key) {
-        if (source.Count != target.Count || source.Count < 3) return Fin.Fail<DualQuaternion>(error: key.InvalidInput());
+    private static Fin<Transform> ProcrustesAlign(Seq<Point3d> source, Seq<Point3d> target, Op key) {
+        if (source.Count != target.Count || source.Count < 3) return Fin.Fail<Transform>(error: key.InvalidInput());
         Point3d srcCentroid = CentroidOf(points: source);
         Point3d tgtCentroid = CentroidOf(points: target);
-        return AlignViaCrossCovariance(source: source, target: target, srcCentroid: srcCentroid, tgtCentroid: tgtCentroid, weights: null, key: key)
-            .Map(DualQuaternion.Of);
+        return AlignViaCrossCovariance(source: source, target: target, srcCentroid: srcCentroid, tgtCentroid: tgtCentroid, weights: null, key: key);
     }
     // Iterative closest-point with correspondence re-association at each step; inner solve
     // selects between point-to-plane, symmetric, and robust by RegistrationKind.
-    private static Fin<DualQuaternion> IcpAlign(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, RegistrationKind kind, Op key) {
+    private static Fin<Transform> IcpAlign(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, RegistrationKind kind, Op key) {
         Vector3d[] targetNormals = EstimateNormalsViaCovariance(target: target);
         Transform current = Transform.Identity;
         for (int iter = 0; iter < IcpMaxIterations; iter++) {
@@ -111,11 +121,11 @@ internal static class PopulationKernel {
                 : kind.Equals(RegistrationKind.Symmetric) ? SolveSymmetric(source: source.Vertices, target: matchedTarget, normals: matchedNormals, current: current, key: key)
                 : SolveRobustProcrustes(source: source.Vertices, target: matchedTarget, residuals: residuals, current: current, key: key);
             Transform delta = deltaFin.Match(Succ: static value => value, Fail: static _ => Transform.Unset);
-            if (!delta.IsValid) return Fin.Fail<DualQuaternion>(error: key.InvalidResult());
+            if (!delta.IsValid) return Fin.Fail<Transform>(error: key.InvalidResult());
             current = delta * current;
             if (IsApproximatelyIdentity(delta: delta)) break;
         }
-        return Fin.Succ(DualQuaternion.Of(transform: current));
+        return Fin.Succ(current);
     }
     private static Vector3d[] EstimateNormalsViaCovariance(VectorCloud.ClusterCase target) {
         Point3d[] points = [.. target.Vertices.AsIterable()];
@@ -254,19 +264,19 @@ internal static class PopulationKernel {
     }
 
     // --- [HULL] -----------------------------------------------------------------------------
-    internal static Fin<VectorCloud> ComputeHull(HullKind kind, VectorCloud source, Context context, Op key) =>
+    internal static Fin<Mesh> ComputeHull(HullKind kind, VectorCloud source, Context context, Op key) =>
         source switch {
             VectorCloud.ClusterCase cluster => kind switch {
                 HullKind.ConvexCase => ConvexHullOf(cluster: cluster, context: context, key: key),
-                _ => Fin.Fail<VectorCloud>(error: key.Unsupported(geometryType: kind.GetType(), outputType: typeof(VectorCloud))),
+                _ => Fin.Fail<Mesh>(error: key.Unsupported(geometryType: kind.GetType(), outputType: typeof(Mesh))),
             },
-            _ => Fin.Fail<VectorCloud>(error: key.Unsupported(geometryType: source.GetType(), outputType: typeof(VectorCloud))),
+            _ => Fin.Fail<Mesh>(error: key.Unsupported(geometryType: source.GetType(), outputType: typeof(Mesh))),
         };
-    private static Fin<VectorCloud> ConvexHullOf(VectorCloud.ClusterCase cluster, Context context, Op key) {
-        using Mesh hull = Mesh.CreateConvexHull3D(points: cluster.Vertices.AsIterable(), hullFacets: out _, tolerance: context.Absolute.Value, angleTolerance: context.Angle.Value);
-        return !hull.IsValid
-            ? Fin.Fail<VectorCloud>(error: key.InvalidResult())
-            : VectorCloud.Cluster(points: toSeq(hull.Vertices.AsIterable().Select(static v => (Point3d)v)), context: context, key: key);
+    private static Fin<Mesh> ConvexHullOf(VectorCloud.ClusterCase cluster, Context context, Op key) {
+        using Mesh? hull = (Mesh?)(object?)Mesh.CreateConvexHull3D(points: cluster.Vertices.AsIterable(), hullFacets: out _, tolerance: context.Absolute.Value, angleTolerance: context.Angle.Value);
+        return hull is not { IsValid: true }
+            ? Fin.Fail<Mesh>(error: key.InvalidResult())
+            : Fin.Succ(hull.DuplicateMesh());
     }
     // --- [SAMPLING] -------------------------------------------------------------------------
     // Bridson 2007 dart-throwing for Poisson disk; greedy MaxMin for FarthestPoint; Lloyd's
@@ -274,14 +284,20 @@ internal static class PopulationKernel {
     // descent for CCVT. All operate on triangulated mesh surface; ScalarField sampling uses
     // rejection-on-voxel-grid.
     internal static Fin<VectorCloud> SampleOnMesh(SamplingKind kind, MeshSpace domain, Context context, Op key) {
-        Seq<Point3d> candidates = EnumerateMeshSurface(mesh: domain.Native, density: 4.0);
-        return kind switch {
-            SamplingKind.PoissonDiskCase pd => FromArray(points: PoissonDiskSample(candidates: candidates, radius: pd.Radius.Value), context: context, key: key),
-            SamplingKind.FarthestPointCase fp => FromArray(points: FarthestPointSample(candidates: candidates, count: fp.Count), context: context, key: key),
-            SamplingKind.FarthestPointOptimizationCase fpo => FromArray(points: FpoSample(candidates: candidates, count: fpo.Count), context: context, key: key),
-            SamplingKind.LloydCase lloyd => FromArray(points: LloydRelaxation(candidates: candidates, iterations: lloyd.Iterations), context: context, key: key),
-            SamplingKind.CapacityConstrainedCase ccvt => FromArray(points: CapacityConstrainedSample(candidates: candidates, count: ccvt.Count, capacity: ccvt.Capacity), context: context, key: key),
-            _ => Fin.Fail<VectorCloud>(error: key.Unsupported(geometryType: kind.GetType(), outputType: typeof(VectorCloud))),
+        using AreaMassProperties? props = AreaMassProperties.Compute(mesh: domain.Native);
+        return props switch {
+            null => Fin.Fail<VectorCloud>(error: key.InvalidResult()),
+            _ => EnumerateMeshSurface(mesh: domain.Native, density: kind.MeshCandidateDensity(area: props.Area)) switch {
+                Seq<Point3d> candidates => kind switch {
+                    SamplingKind.PoissonDiskCase pd => FromArray(points: PoissonDiskSample(candidates: candidates, radius: pd.Radius.Value), context: context, key: key),
+                    SamplingKind.FarthestPointCase fp => FromArray(points: FarthestPointSample(candidates: candidates, count: fp.Count), context: context, key: key),
+                    SamplingKind.FarthestPointOptimizationCase fpo => FromArray(points: FpoSample(candidates: candidates, count: fpo.Count), context: context, key: key),
+                    SamplingKind.LloydCase lloyd => FromArray(points: LloydRelaxation(candidates: candidates, count: lloyd.Count, iterations: lloyd.Iterations), context: context, key: key),
+                    SamplingKind.CapacityConstrainedCase ccvt => CapacityConstrainedSample(candidates: candidates, count: ccvt.Count, capacity: ccvt.Capacity, key: key)
+                        .Bind(points => FromArray(points: points, context: context, key: key)),
+                    _ => Fin.Fail<VectorCloud>(error: key.Unsupported(geometryType: kind.GetType(), outputType: typeof(VectorCloud))),
+                },
+            },
         };
     }
     internal static Fin<VectorCloud> SampleInScalarField(SamplingKind kind, ScalarField domain, BoundingBox region, Context context, Op key) {
@@ -290,8 +306,9 @@ internal static class PopulationKernel {
             SamplingKind.PoissonDiskCase pd => FromArray(points: PoissonDiskSample(candidates: candidates, radius: pd.Radius.Value), context: context, key: key),
             SamplingKind.FarthestPointCase fp => FromArray(points: FarthestPointSample(candidates: candidates, count: fp.Count), context: context, key: key),
             SamplingKind.FarthestPointOptimizationCase fpo => FromArray(points: FpoSample(candidates: candidates, count: fpo.Count), context: context, key: key),
-            SamplingKind.LloydCase lloyd => FromArray(points: LloydRelaxation(candidates: candidates, iterations: lloyd.Iterations), context: context, key: key),
-            SamplingKind.CapacityConstrainedCase ccvt => FromArray(points: CapacityConstrainedSample(candidates: candidates, count: ccvt.Count, capacity: ccvt.Capacity), context: context, key: key),
+            SamplingKind.LloydCase lloyd => FromArray(points: LloydRelaxation(candidates: candidates, count: lloyd.Count, iterations: lloyd.Iterations), context: context, key: key),
+            SamplingKind.CapacityConstrainedCase ccvt => CapacityConstrainedSample(candidates: candidates, count: ccvt.Count, capacity: ccvt.Capacity, key: key)
+                .Bind(points => FromArray(points: points, context: context, key: key)),
             _ => Fin.Fail<VectorCloud>(error: key.Unsupported(geometryType: kind.GetType(), outputType: typeof(VectorCloud))),
         };
     }
@@ -302,10 +319,12 @@ internal static class PopulationKernel {
     private static Seq<Point3d> EnumerateMeshSurface(Mesh mesh, double density) {
         List<Point3d> samples = [];
         Random rng = new(Seed: 17);
-        for (int f = 0; f < mesh.Faces.Count; f++) {
-            MeshFace face = mesh.Faces[index: f];
+        using Mesh triangulated = mesh.DuplicateMesh();
+        _ = triangulated.Faces.ConvertQuadsToTriangles();
+        for (int f = 0; f < triangulated.Faces.Count; f++) {
+            MeshFace face = triangulated.Faces[index: f];
             if (!face.IsTriangle) continue;
-            Point3d a = mesh.Vertices[index: face.A]; Point3d b = mesh.Vertices[index: face.B]; Point3d c = mesh.Vertices[index: face.C];
+            Point3d a = triangulated.Vertices[index: face.A]; Point3d b = triangulated.Vertices[index: face.B]; Point3d c = triangulated.Vertices[index: face.C];
             double area = 0.5 * Vector3d.CrossProduct(a: b - a, b: c - a).Length;
             int count = Math.Max(val1: 1, val2: (int)Math.Ceiling(a: area * density));
             for (int s = 0; s < count; s++) {
@@ -379,17 +398,16 @@ internal static class PopulationKernel {
                 if (neighborCount > 0) {
                     Point3d avg = new(x: centroid.X / neighborCount, y: centroid.Y / neighborCount, z: centroid.Z / neighborCount);
                     Vector3d nudge = chosen[i] - avg; nudge *= 0.05;
-                    chosen[i] = new Point3d(x: chosen[i].X + nudge.X, y: chosen[i].Y + nudge.Y, z: chosen[i].Z + nudge.Z);
+                    chosen[i] = NearestCandidate(candidates: candidates, point: new Point3d(x: chosen[i].X + nudge.X, y: chosen[i].Y + nudge.Y, z: chosen[i].Z + nudge.Z));
                 }
             }
         }
         return chosen;
     }
-    private static Point3d[] LloydRelaxation(Seq<Point3d> candidates, int iterations) {
+    private static Point3d[] LloydRelaxation(Seq<Point3d> candidates, int count, int iterations) {
         if (candidates.IsEmpty) return [];
         int total = candidates.Count;
-        int seedCount = Math.Max(val1: 1, val2: (int)Math.Sqrt(d: total));
-        Point3d[] sites = FarthestPointSample(candidates: candidates, count: seedCount);
+        Point3d[] sites = FarthestPointSample(candidates: candidates, count: count);
         for (int iter = 0; iter < iterations; iter++) {
             Point3d[] sums = new Point3d[sites.Length];
             int[] counts = new int[sites.Length];
@@ -403,11 +421,15 @@ internal static class PopulationKernel {
                 counts[closest]++;
             }
             for (int s = 0; s < sites.Length; s++)
-                if (counts[s] > 0) sites[s] = new Point3d(x: sums[s].X / counts[s], y: sums[s].Y / counts[s], z: sums[s].Z / counts[s]);
+                if (counts[s] > 0) sites[s] = NearestCandidate(candidates: candidates, point: new Point3d(x: sums[s].X / counts[s], y: sums[s].Y / counts[s], z: sums[s].Z / counts[s]));
         }
         return sites;
     }
-    private static Point3d[] CapacityConstrainedSample(Seq<Point3d> candidates, int count, int capacity) {
+    private static Point3d NearestCandidate(Seq<Point3d> candidates, Point3d point) =>
+        candidates.Fold(initialState: (Point: candidates[index: 0], Distance: double.MaxValue),
+            f: (best, candidate) => candidate.DistanceToSquared(other: point) is double d && d < best.Distance ? (candidate, d) : best).Point;
+    private static Fin<Point3d[]> CapacityConstrainedSample(Seq<Point3d> candidates, int count, int capacity, Op key) {
+        if (candidates.Count > count * capacity) return Fin.Fail<Point3d[]>(key.InvalidInput());
         Point3d[] sites = FarthestPointSample(candidates: candidates, count: count);
         int total = candidates.Count;
         int[] assignment = new int[total];
@@ -429,18 +451,14 @@ internal static class PopulationKernel {
         }
         for (int s = 0; s < sites.Length; s++)
             if (counts[s] > 0) sites[s] = new Point3d(x: sums[s].X / counts[s], y: sums[s].Y / counts[s], z: sums[s].Z / counts[s]);
-        return sites;
+        return Fin.Succ(sites);
     }
 
     // --- [REMESH] ---------------------------------------------------------------------------
-    // Quad → Rhino.Mesh.QuadRemesh native; Simplify → Rhino.Mesh.Reduce native (Garland-Heckbert);
-    // Isotropic → Botsch-Kobbelt local ops loop; AdaptiveCurvature → curvature-driven targetEdge.
     internal static Fin<Mesh> ApplyRemesh(RemeshKind kind, MeshSpace space, Context context, Op key) =>
         kind switch {
             RemeshKind.QuadCase quad => QuadRemeshOf(space: space, targetEdge: quad.TargetEdge.Value, key: key),
-            RemeshKind.SimplifyCase simplify => SimplifyOf(space: space, targetFaces: simplify.TargetFaces, useQem: simplify.UseQem, key: key),
-            RemeshKind.IsotropicCase iso => IsotropicRemeshOf(space: space, targetEdge: iso.TargetEdge.Value, key: key),
-            RemeshKind.AdaptiveCurvatureCase ac => AdaptiveCurvatureRemeshOf(space: space, curvature: ac.CurvatureField, minEdge: ac.MinEdge, maxEdge: ac.MaxEdge, context: context, key: key),
+            RemeshKind.SimplifyCase simplify => SimplifyOf(space: space, parameters: simplify.Parameters, key: key),
             _ => Fin.Fail<Mesh>(error: key.Unsupported(geometryType: kind.GetType(), outputType: typeof(Mesh))),
         };
     private static Fin<Mesh> QuadRemeshOf(MeshSpace space, double targetEdge, Op key) {
@@ -450,36 +468,11 @@ internal static class PopulationKernel {
             ? Fin.Fail<Mesh>(error: key.InvalidResult())
             : Fin.Succ(result);
     }
-    private static Fin<Mesh> SimplifyOf(MeshSpace space, int targetFaces, bool useQem, Op key) {
+    private static Fin<Mesh> SimplifyOf(MeshSpace space, ReduceMeshParameters parameters, Op key) {
         Mesh clone = (Mesh)space.Native.DuplicateShallow();
-        bool ok = clone.Reduce(desiredPolygonCount: targetFaces, allowDistortion: !useQem, accuracy: 9, normalizeSize: false);
+        bool ok = clone.Reduce(parameters: parameters);
         return ok && clone.IsValid ? Fin.Succ(clone) : Fin.Fail<Mesh>(error: key.InvalidResult());
     }
-    // Botsch-Kobbelt 2004: collapse short edges below 4/5 target; Laplacian smoothing implicit
-    // via normal recomputation and topology repair. Long-edge split deferred to native QuadRemesh.
-    private static Fin<Mesh> IsotropicRemeshOf(MeshSpace space, double targetEdge, Op key) {
-        Mesh working = (Mesh)space.Native.DuplicateShallow();
-        double tooShort = 4.0 / 5.0 * targetEdge;
-        for (int iter = 0; iter < 5; iter++) {
-            _ = working.CollapseFacesByEdgeLength(bGreaterThan: false, edgeLength: tooShort);
-            _ = working.Normals.ComputeNormals();
-            _ = working.Compact();
-        }
-        _ = working.CollapseFacesByByAspectRatio(aspectRatio: 11.5);
-        return working.IsValid ? Fin.Succ(working) : Fin.Fail<Mesh>(error: key.InvalidResult());
-    }
-    private static Fin<Mesh> AdaptiveCurvatureRemeshOf(MeshSpace space, ScalarField curvature, double minEdge, double maxEdge, Context context, Op key) {
-        Mesh working = (Mesh)space.Native.DuplicateShallow();
-        for (int v = 0; v < working.Vertices.Count; v++) {
-            double curvVal = curvature.SampleScalar(sample: working.Vertices[index: v], context: context, key: key)
-                .Match(Succ: static value => value, Fail: static _ => 0.0);
-            double targetForVertex = Math.Clamp(value: maxEdge / Math.Max(val1: 1.0, val2: Math.Abs(value: curvVal) * 10.0), min: minEdge, max: maxEdge);
-            _ = working.CollapseFacesByEdgeLength(bGreaterThan: false, edgeLength: targetForVertex * 0.5);
-        }
-        _ = working.Compact();
-        return working.IsValid ? Fin.Succ(working) : Fin.Fail<Mesh>(error: key.InvalidResult());
-    }
-
     // --- [NORMAL_ORIENTATION] ---------------------------------------------------------------
     // Hoppe-DeRose-Duchamp-McDonald-Stuetzle 1992: build minimum spanning tree over k-nearest
     // neighbour graph weighted by 1 − |n_i · n_j|; flip normals to consistently agree along MST.
@@ -522,20 +515,10 @@ internal static class PopulationKernel {
     private static Seq<Point3d> KNearestPoints(VectorCloud.ClusterCase cluster, int index) {
         Point3d point = cluster.Vertices[index: index];
         int k = Math.Min(val1: NormalEstimationNeighbors, val2: cluster.Vertices.Count);
-        double radius = Math.Max(val1: cluster.Tolerance.Absolute.Value, val2: RhinoMath.SqrtEpsilon);
-        List<int> ids = [];
-        for (int step = 0; step < 16 && ids.Count < k; step++) {
-            ids.Clear();
-            _ = cluster.Tree.Search(sphere: new Sphere(center: point, radius: radius), callback: (_, args) => ids.Add(item: args.Id));
-            radius *= 2.0;
-        }
-        IEnumerable<int> active = ids.Count >= k
-            ? ids.Distinct()
-            : Enumerable.Range(start: 0, count: cluster.Vertices.Count);
-        return toSeq(active
-            .OrderBy(i => point.DistanceToSquared(other: cluster.Vertices[index: i]))
-            .Take(k)
-            .Select(i => cluster.Vertices[index: i]));
+        int[] ids = RTree.PointCloudKNeighbors(pointcloud: cluster.Indexed, needlePts: [point], amount: k).FirstOrDefault() ?? [];
+        return ids.Length == 0
+            ? toSeq(Enumerable.Range(start: 0, count: cluster.Vertices.Count).Take(k).Select(i => cluster.Vertices[index: i]))
+            : toSeq(ids.Select(i => cluster.Vertices[index: i]));
     }
     private static Vector3d[] EstimateNormalsFromPoints(Point3d[] points, Func<int, Seq<Point3d>> neighborhoodOf) {
         int n = points.Length;

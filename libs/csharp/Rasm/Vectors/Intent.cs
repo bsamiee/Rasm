@@ -1,51 +1,56 @@
+using DenseMatrixD = MathNet.Numerics.LinearAlgebra.Double.DenseMatrix;
+using DenseVectorD = MathNet.Numerics.LinearAlgebra.Double.DenseVector;
+
 namespace Rasm.Vectors;
 
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class SupportProjection {
-    public static readonly SupportProjection Closest = new(key: 0, parameterMode: false, sign: 1.0, capability: static (_, _) => true, accepts: static output => output == typeof(Point3d) || output == typeof(ClosestHit));
-    public static readonly SupportProjection Direction = new(key: 1, parameterMode: false, sign: 1.0, capability: static (_, _) => true, accepts: static output => output == typeof(Direction) || output == typeof(Vector3d));
-    public static readonly SupportProjection Span = new(key: 2, parameterMode: false, sign: 1.0, capability: static (_, _) => true, accepts: static output => output == typeof(VectorSpan) || output == typeof(Vector3d) || output == typeof(Line) || output == typeof(double));
-    public static readonly SupportProjection SignedSpanAway = new(key: 13, parameterMode: false, sign: -1.0, capability: static (_, _) => true, accepts: static output => output == typeof(VectorSpan) || output == typeof(Vector3d) || output == typeof(Line) || output == typeof(double));
-    public static readonly SupportProjection Normal = new(key: 3, parameterMode: false, sign: 1.0, capability: static (space, hit) => space.AdmitsNormal(hit: hit), accepts: static output => output == typeof(ClosestHit));
-    public static readonly SupportProjection Distance = new(key: 4, parameterMode: false, sign: 1.0, capability: static (_, hit) => hit.Distance.IsSome, accepts: static output => output == typeof(double) || output == typeof(ClosestHit));
-    public static readonly SupportProjection Parameter = new(key: 5, parameterMode: true, sign: 1.0, capability: static (_, hit) => hit.Parameter.IsSome, accepts: static output => output == typeof(double) || output == typeof(ClosestHit));
-    public static readonly SupportProjection Uv = new(key: 6, parameterMode: false, sign: 1.0, capability: static (_, hit) => hit.Uv.IsSome, accepts: static output => output == typeof(Point2d) || output == typeof(ClosestHit));
-    public static readonly SupportProjection Component = new(key: 7, parameterMode: false, sign: 1.0, capability: static (_, hit) => hit.Component.IsSome, accepts: static output => output == typeof(ComponentIndex) || output == typeof(ClosestHit));
-    public static readonly SupportProjection MeshPoint = new(key: 8, parameterMode: false, sign: 1.0, capability: static (_, hit) => hit.MeshPoint.IsSome, accepts: static output => output == typeof(MeshPoint) || output == typeof(ClosestHit));
-    public static readonly SupportProjection SignedDistance = new(key: 9, parameterMode: false, sign: 1.0, capability: static (space, hit) => space.AdmitsSignedDistance(hit: hit), accepts: static output => output == typeof(double));
-    public static readonly SupportProjection ContainmentDistance = new(key: 10, parameterMode: false, sign: 1.0, capability: static (space, hit) => space.AdmitsContainmentDistance(hit: hit), accepts: static output => output == typeof(double));
-    public static readonly SupportProjection Tangent = new(key: 11, parameterMode: false, sign: 1.0, capability: static (space, hit) => space.AdmitsTangent(hit: hit), accepts: static output => output == typeof(ClosestHit));
-    public static readonly SupportProjection Frame = new(key: 12, parameterMode: false, sign: 1.0, capability: static (space, hit) => space.AdmitsFrame(hit: hit), accepts: static output => output == typeof(Plane) || output == typeof(ClosestHit));
-    internal bool ParameterMode { get; }
-    internal double Sign { get; }
+    public static readonly SupportProjection Closest = Hit(key: 0, accepts: static output => output == typeof(Point3d) || output == typeof(ClosestHit), projectRaw: s => s.Output == typeof(Point3d) ? Accept(state: s, value: s.Hit.Point) : Accept(state: s, value: s.Hit));
+    public static readonly SupportProjection Direction = new(key: 1, capability: static (_, _) => true, accepts: static output => output == typeof(Direction) || output == typeof(Vector3d), projectRaw: s => DirectionOf(vector: s.Hit.Point - s.Sample, state: s));
+    public static readonly SupportProjection Span = SpanOf(key: 2, sign: 1.0);
+    public static readonly SupportProjection SignedSpanAway = SpanOf(key: 13, sign: -1.0);
+    public static readonly SupportProjection Normal = new(key: 3, capability: static (space, hit) => space.AdmitsNormal(hit: hit), accepts: DirectionOrHit, projectRaw: s => s.Output == typeof(ClosestHit) ? Accept(state: s, value: s.Hit) : s.Hit.Normal.ToFin(Fail: s.Key.InvalidResult()).Bind(normal => DirectionOf(vector: normal, state: s)));
+    public static readonly SupportProjection Distance = Hit(key: 4, accepts: static output => output == typeof(double) || output == typeof(ClosestHit), projectRaw: s => s.Output == typeof(double) ? s.Hit.Distance.ToFin(Fail: s.Key.InvalidResult()).Bind(distance => Accept(state: s, value: distance)) : Accept(state: s, value: s.Hit), capability: static (_, hit) => hit.Distance.IsSome);
+    public static readonly SupportProjection Parameter = Hit(key: 5, accepts: static output => output == typeof(double) || output == typeof(ClosestHit), projectRaw: s => s.Output == typeof(double) ? s.Hit.Parameter.ToFin(Fail: s.Key.InvalidResult()).Bind(parameter => Accept(state: s, value: parameter)) : Accept(state: s, value: s.Hit), capability: static (_, hit) => hit.Parameter.IsSome);
+    public static readonly SupportProjection Uv = Hit(key: 6, accepts: static output => output == typeof(Point2d) || output == typeof(ClosestHit), projectRaw: s => s.Output == typeof(Point2d) ? s.Hit.Uv.ToFin(Fail: s.Key.InvalidResult()).Bind(uv => Accept(state: s, value: uv)) : Accept(state: s, value: s.Hit), capability: static (_, hit) => hit.Uv.IsSome);
+    public static readonly SupportProjection Component = Hit(key: 7, accepts: static output => output == typeof(ComponentIndex) || output == typeof(ClosestHit), projectRaw: s => s.Output == typeof(ComponentIndex) ? s.Hit.Component.ToFin(Fail: s.Key.InvalidResult()).Bind(component => Accept(state: s, value: component)) : Accept(state: s, value: s.Hit), capability: static (_, hit) => hit.Component.IsSome);
+    public static readonly SupportProjection MeshPoint = Hit(key: 8, accepts: static output => output == typeof(MeshPoint) || output == typeof(ClosestHit), projectRaw: s => s.Output == typeof(MeshPoint) ? s.Hit.MeshPoint.ToFin(Fail: s.Key.InvalidResult()).Bind(meshPoint => Accept(state: s, value: meshPoint)) : Accept(state: s, value: s.Hit), capability: static (_, hit) => hit.MeshPoint.IsSome);
+    public static readonly SupportProjection SignedDistance = new(key: 9, capability: static (space, hit) => space.AdmitsSignedDistance(hit: hit), accepts: static output => output == typeof(double), projectRaw: s => s.Space.SignedDistance(hit: s.Hit, sample: s.Sample, key: s.Key).Bind(distance => Accept(state: s, value: distance)));
+    public static readonly SupportProjection ContainmentDistance = new(key: 10, capability: static (space, hit) => space.AdmitsContainmentDistance(hit: hit), accepts: static output => output == typeof(double), projectRaw: s => s.Space.ContainmentDistance(hit: s.Hit, sample: s.Sample, context: s.Context, key: s.Key).Bind(distance => Accept(state: s, value: distance)));
+    public static readonly SupportProjection Tangent = new(key: 11, capability: static (space, hit) => space.AdmitsTangent(hit: hit), accepts: DirectionOrHit, projectRaw: s => s.Output == typeof(ClosestHit) ? Accept(state: s, value: s.Hit) : s.Hit.Tangent.ToFin(Fail: s.Key.InvalidResult()).Bind(tangent => DirectionOf(vector: tangent, state: s)));
+    public static readonly SupportProjection Frame = Hit(key: 12, accepts: static output => output == typeof(Plane) || output == typeof(ClosestHit), projectRaw: s => s.Output == typeof(Plane) ? s.Hit.Frame.ToFin(Fail: s.Key.InvalidResult()).Bind(frame => Accept(state: s, value: frame)) : Accept(state: s, value: s.Hit), capability: static (space, hit) => space.AdmitsFrame(hit: hit));
     [UseDelegateFromConstructor] private partial bool Capability(SupportSpace space, ClosestHit hit);
     [UseDelegateFromConstructor] private partial bool Accepts(Type output);
+    [UseDelegateFromConstructor] private partial Fin<object> ProjectRaw(SupportProjectionState state);
     internal Fin<TOut> Project<TOut>(SupportSpace space, ClosestHit hit, Point3d sample, Context context, Op key) =>
-        Capability(space: space, hit: hit) switch {
-            false => Fin.Fail<TOut>(error: key.Unsupported(geometryType: space.SourceType, outputType: typeof(TOut))),
-            true => this switch {
-                SupportProjection p when p.Equals(SignedDistance) || p.Equals(ContainmentDistance) => typeof(TOut) == typeof(double)
-                    ? (p.Equals(SignedDistance) ? space.SignedDistance(hit: hit, sample: sample, key: key) : space.ContainmentDistance(hit: hit, sample: sample, context: context, key: key))
-                        .Bind(distance => key.AcceptValue(value: distance))
-                        .Map(static value => (TOut)(object)value)
-                    : Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(ClosestHit), outputType: typeof(TOut))),
-                SupportProjection p when p.Equals(Direction) => Vectors.Direction.Of(value: hit.Point - sample, context: context, key: key)
-                    .Bind(direction => direction.Project<TOut>(key: key)),
-                SupportProjection p when p.Equals(Span) || p.Equals(SignedSpanAway) => VectorSpan.Of(anchor: sample, vector: p.Sign * (hit.Point - sample), context: context, key: key)
-                    .Bind(span => span.Project<TOut>(key: key)),
-                SupportProjection p when p.Equals(Normal) => hit.Normal.ToFin(Fail: key.InvalidResult())
-                    .Bind(normal => Vectors.Direction.Of(value: normal, context: context, key: key))
-                    .Bind(direction => direction.Project<TOut>(key: key)),
-                SupportProjection p when p.Equals(Tangent) => hit.Tangent.ToFin(Fail: key.InvalidResult())
-                    .Bind(tangent => Vectors.Direction.Of(value: tangent, context: context, key: key))
-                    .Bind(direction => direction.Project<TOut>(key: key)),
-                SupportProjection p when p.Accepts(output: typeof(TOut)) && ClosestHit.CanProjectTo(output: typeof(TOut), parameterMode: p.ParameterMode) => hit.Project<TOut>(key: key, parameterMode: p.ParameterMode)
-                    .Bind(values => values.Head.ToFin(key.InvalidResult())),
-                _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(SupportProjection), outputType: typeof(TOut))),
-            },
+        (Capability(space: space, hit: hit), Accepts(output: typeof(TOut))) switch {
+            (false, _) => Fin.Fail<TOut>(error: key.Unsupported(geometryType: space.SourceType, outputType: typeof(TOut))),
+            (_, false) => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(SupportProjection), outputType: typeof(TOut))),
+            _ => ProjectRaw(state: new SupportProjectionState(Space: space, Hit: hit, Sample: sample, Context: context, Key: key, Output: typeof(TOut)))
+                .Bind(value => value is TOut output ? key.AcceptValue(value: output) : Fin.Fail<TOut>(error: key.InvalidResult())),
         };
+    private static bool DirectionOrHit(Type output) => output == typeof(Direction) || output == typeof(Vector3d) || output == typeof(ClosestHit);
+    private static SupportProjection Hit(int key, Func<Type, bool> accepts, Func<SupportProjectionState, Fin<object>> projectRaw, Func<SupportSpace, ClosestHit, bool>? capability = null) =>
+        new(key: key, capability: capability ?? ((_, _) => true), accepts: accepts, projectRaw: projectRaw);
+    private static SupportProjection SpanOf(int key, double sign) =>
+        new(key: key, capability: static (_, _) => true, accepts: static output => output == typeof(VectorSpan) || output == typeof(Vector3d) || output == typeof(Line) || output == typeof(double),
+            projectRaw: state => VectorSpan.Of(anchor: state.Sample, vector: sign * (state.Hit.Point - state.Sample), context: state.Context, key: state.Key)
+                .Bind(span => state.Output switch {
+                    Type t when t == typeof(VectorSpan) => Accept(state: state, value: span),
+                    Type t when t == typeof(Vector3d) => Accept(state: state, value: span.Value),
+                    Type t when t == typeof(Line) => Accept(state: state, value: span.Axis),
+                    Type t when t == typeof(double) => Accept(state: state, value: span.Magnitude),
+                    _ => Fin.Fail<object>(error: state.Key.Unsupported(geometryType: typeof(VectorSpan), outputType: state.Output)),
+                }));
+    private static Fin<object> DirectionOf(Vector3d vector, SupportProjectionState state) =>
+        Vectors.Direction.Of(value: vector, context: state.Context, key: state.Key)
+            .Bind(direction => state.Output == typeof(Direction) ? Accept(state: state, value: direction) : Accept(state: state, value: direction.Value));
+    private static Fin<object> Accept<T>(SupportProjectionState state, T value) =>
+        state.Key.AcceptValue(value: value).Map(static accepted => (object)accepted!);
 }
+
+internal readonly record struct SupportProjectionState(SupportSpace Space, ClosestHit Hit, Point3d Sample, Context Context, Op Key, Type Output);
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [Union]
@@ -76,7 +81,7 @@ public abstract partial record VectorIntent {
     public sealed record PoseCase(Plane From, Plane To, double Parameter, MotionInterpolation Mode) : VectorIntent;
     public sealed record TensorCase(TensorField Source, Point3d Point) : VectorIntent;
     public sealed record MeshOperatorCase(ScalarField MeshField, Point3d Point) : VectorIntent;
-    public sealed record FlattenCase(MeshSpace Space, SurfaceParameterization Kind, Seq<int> ConeVertices) : VectorIntent;
+    public sealed record FlattenCase(MeshSpace Space, SurfaceParameterization Kind) : VectorIntent;
     public sealed record HullCase(VectorCloud Source, HullKind Kind) : VectorIntent;
     public sealed record SampleCase(MeshSpace Domain, SamplingKind Kind) : VectorIntent;
     public sealed record RegisterCase(VectorCloud Source, VectorCloud Target, RegistrationKind Kind) : VectorIntent;
@@ -212,10 +217,12 @@ public abstract partial record VectorIntent {
             from output in direction.Project<TOut>(key: state.Key)
             select output,
         surfaceCase: static (state, intent) => intent.SurfaceSource.Sample<TOut>(projection: intent.Mode, u: intent.U, v: intent.V, key: state.Key),
-        poseCase: static (state, intent) => intent.Mode.Interpolate(a: intent.From, b: intent.To, t: Math.Clamp(value: intent.Parameter, min: 0.0, max: 1.0)) is Plane p
-            && typeof(TOut) == typeof(Plane)
-                ? state.Key.AcceptValue(value: p).Map(static v => (TOut)(object)v)
-                : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(PoseCase), outputType: typeof(TOut))),
+        poseCase: static (state, intent) =>
+            from pose in intent.Mode.Interpolate(a: intent.From, b: intent.To, t: intent.Parameter).BindFail(_ => Fin.Fail<Plane>(state.Key.InvalidResult()))
+            from output in typeof(TOut) == typeof(Plane)
+                ? state.Key.AcceptValue(value: pose).Map(static v => (TOut)(object)v)
+                : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(PoseCase), outputType: typeof(TOut)))
+            select output,
         tensorCase: static (state, intent) =>
             from tensor in intent.Source.SampleTensor(sample: intent.Point, context: state.Context, key: state.Key)
             from output in typeof(TOut) switch {
@@ -227,16 +234,21 @@ public abstract partial record VectorIntent {
             select output,
         meshOperatorCase: static (state, intent) => intent.MeshField.Project<TOut>(sample: intent.Point, context: state.Context, key: state.Key),
         flattenCase: static (state, intent) =>
-            from coords in intent.Kind.Compute(space: intent.Space, coneVertices: intent.ConeVertices, key: state.Key)
+            from coords in intent.Kind.Compute(space: intent.Space, key: state.Key)
             from output in typeof(TOut) == typeof(Arr<Point2d>)
                 ? state.Key.AcceptValue(value: coords).Map(static v => (TOut)(object)v)
                 : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(FlattenCase), outputType: typeof(TOut)))
             select output,
         hullCase: static (state, intent) =>
-            from cloud in intent.Kind.Compute(source: intent.Source, context: state.Context, key: state.Key)
-            from output in typeof(TOut) == typeof(VectorCloud)
-                ? state.Key.AcceptValue(value: cloud).Map(static v => (TOut)(object)v)
-                : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(HullCase), outputType: typeof(TOut)))
+            from mesh in intent.Kind.Compute(source: intent.Source, context: state.Context, key: state.Key)
+            from output in typeof(TOut) switch {
+                Type t when t == typeof(Mesh) => state.Key.AcceptValue(value: mesh).Map(static v => (TOut)(object)v),
+                Type t when t == typeof(VectorCloud) => VectorCloud.Cluster(
+                    points: toSeq(mesh.Vertices.AsIterable().Select(static v => (Point3d)v)),
+                    context: state.Context,
+                    key: state.Key).Map(static v => (TOut)(object)v),
+                _ => Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(HullCase), outputType: typeof(TOut))),
+            }
             select output,
         sampleCase: static (state, intent) =>
             from cloud in intent.Kind.Sample(domain: intent.Domain, context: state.Context, key: state.Key)
@@ -245,9 +257,9 @@ public abstract partial record VectorIntent {
                 : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(SampleCase), outputType: typeof(TOut)))
             select output,
         registerCase: static (state, intent) =>
-            from dq in intent.Kind.Align(source: intent.Source, target: intent.Target, context: state.Context, key: state.Key)
+            from transform in intent.Kind.Align(source: intent.Source, target: intent.Target, context: state.Context, key: state.Key)
             from output in typeof(TOut) switch {
-                Type t when t == typeof(Transform) => state.Key.AcceptValue(value: dq.ToTransform()).Map(static v => (TOut)(object)v),
+                Type t when t == typeof(Transform) => state.Key.AcceptValue(value: transform).Map(static v => (TOut)(object)v),
                 _ => Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(RegisterCase), outputType: typeof(TOut))),
             }
             select output,
@@ -331,13 +343,13 @@ public abstract partial record VectorIntent {
     public static VectorIntent OnSurface(SurfaceSpace space, double u, double v, SurfaceProjection mode) =>
         new SurfaceCase(SurfaceSource: space, U: u, V: v, Mode: mode);
     public static VectorIntent Pose(Plane from, Plane to, double t, MotionInterpolation mode) =>
-        new PoseCase(From: from, To: to, Parameter: t, Mode: mode);
+        new PoseCase(From: from, To: to, Parameter: Math.Clamp(value: t, min: 0.0, max: 1.0), Mode: mode);
     public static VectorIntent Tensor(TensorField source, Point3d point) =>
         new TensorCase(Source: source, Point: point);
     public static VectorIntent MeshOperator(ScalarField meshField, Point3d point) =>
         new MeshOperatorCase(MeshField: meshField, Point: point);
-    public static VectorIntent Flatten(MeshSpace space, SurfaceParameterization kind, Seq<int> coneVertices = default) =>
-        new FlattenCase(Space: space, Kind: kind, ConeVertices: coneVertices);
+    public static VectorIntent Flatten(MeshSpace space, SurfaceParameterization kind) =>
+        new FlattenCase(Space: space, Kind: kind);
     public static VectorIntent Hull(VectorCloud source, HullKind kind) =>
         new HullCase(Source: source, Kind: kind);
     public static VectorIntent Sample(MeshSpace domain, SamplingKind kind) =>
@@ -387,56 +399,53 @@ internal static class IntentKernel {
             _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(VectorIntent.TransportCase), outputType: typeof(TOut))),
         };
     }
-    private sealed record SinkhornPlan(double Distance, double[][] Coupling);
+    private sealed record SinkhornPlan(double Distance, DenseMatrixD Coupling);
     private static SinkhornPlan SinkhornOt(Seq<Point3d> source, Seq<Point3d> target, double reg, int maxIter) {
         int m = source.Count; int n = target.Count;
-        double[][] cost = [.. Enumerable.Range(start: 0, count: m).Select(_ => new double[n])];
-        double[][] kernel = [.. Enumerable.Range(start: 0, count: m).Select(_ => new double[n])];
+        DenseMatrixD cost = DenseMatrixD.Create(rows: m, columns: n, value: 0.0);
+        DenseMatrixD kernel = DenseMatrixD.Create(rows: m, columns: n, value: 0.0);
         for (int i = 0; i < m; i++)
             for (int j = 0; j < n; j++) {
                 double d2 = source[index: i].DistanceToSquared(other: target[index: j]);
-                cost[i][j] = d2;
-                kernel[i][j] = Math.Exp(d: -d2 / reg);
+                cost[i, j] = d2;
+                kernel[i, j] = Math.Exp(d: -d2 / reg);
             }
-        double[] u = [.. Enumerable.Repeat(element: 1.0, count: m)];
-        double[] v = [.. Enumerable.Repeat(element: 1.0, count: n)];
+        DenseVectorD u = DenseVectorD.Create(m, 1.0);
+        DenseVectorD v = DenseVectorD.Create(n, 1.0);
         double aMass = 1.0 / m; double bMass = 1.0 / n;
         for (int iter = 0; iter < maxIter; iter++) {
             for (int i = 0; i < m; i++) {
                 double sum = 0.0;
-                for (int j = 0; j < n; j++) sum += kernel[i][j] * v[j];
+                for (int j = 0; j < n; j++) sum += kernel[i, j] * v[j];
                 u[i] = sum > RhinoMath.ZeroTolerance ? aMass / sum : aMass;
             }
             for (int j = 0; j < n; j++) {
                 double sum = 0.0;
-                for (int i = 0; i < m; i++) sum += kernel[i][j] * u[i];
+                for (int i = 0; i < m; i++) sum += kernel[i, j] * u[i];
                 v[j] = sum > RhinoMath.ZeroTolerance ? bMass / sum : bMass;
             }
         }
         double dist = 0.0;
-        double[][] coupling = [.. Enumerable.Range(start: 0, count: m).Select(_ => new double[n])];
+        DenseMatrixD coupling = DenseMatrixD.Create(rows: m, columns: n, value: 0.0);
         for (int i = 0; i < m; i++)
             for (int j = 0; j < n; j++) {
-                coupling[i][j] = u[i] * kernel[i][j] * v[j];
-                dist += coupling[i][j] * cost[i][j];
+                coupling[i, j] = u[i] * kernel[i, j] * v[j];
+                dist += coupling[i, j] * cost[i, j];
             }
         return new SinkhornPlan(Distance: dist, Coupling: coupling);
     }
     private static Fin<TOut> ProjectCoupling<TOut>(SinkhornPlan plan, Op key) {
-        Dimension rows = Dimension.Create(value: plan.Coupling.Length);
-        Dimension cols = Dimension.Create(value: plan.Coupling[0].Length);
-        return Matrix.Of(
-            rows: rows,
-            cols: cols,
-            entries: new Arr<double>([.. plan.Coupling.SelectMany(static row => row)]),
-            key: key).Map(static matrix => (TOut)(object)matrix);
+        Dimension rows = Dimension.Create(value: plan.Coupling.RowCount);
+        Dimension cols = Dimension.Create(value: plan.Coupling.ColumnCount);
+        return key.AcceptValue(value: MatrixKernel.FromMathNet(m: plan.Coupling, rows: rows, cols: cols))
+            .Map(static matrix => (TOut)(object)matrix);
     }
     private static Fin<TOut> ProjectTransportedCloud<TOut>(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, SinkhornPlan plan, Op key) {
         Point3d[] transported = new Point3d[source.Vertices.Count];
         for (int i = 0; i < source.Vertices.Count; i++) {
-            double mass = plan.Coupling[i].Sum();
+            double mass = plan.Coupling.Row(i).Sum();
             Vector3d sum = Vector3d.Zero;
-            for (int j = 0; j < target.Vertices.Count; j++) sum += plan.Coupling[i][j] * (Vector3d)target.Vertices[index: j];
+            for (int j = 0; j < target.Vertices.Count; j++) sum += plan.Coupling[i, j] * (Vector3d)target.Vertices[index: j];
             transported[i] = mass > RhinoMath.ZeroTolerance ? Point3d.Origin + (sum / mass) : source.Vertices[index: i];
         }
         return VectorCloud.Cluster(points: toSeq(transported), context: source.Tolerance, key: key)

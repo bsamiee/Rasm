@@ -208,16 +208,16 @@ public sealed partial class SdfKind {
     public double Lipschitz { get; }
     public Seq<string> RequiredKeys { get; }
     [UseDelegateFromConstructor] private partial double Compute(Point3d local, ImmutableDictionary<string, double> parameters);
-    internal double SignedDistance(Point3d worldPoint, ImmutableDictionary<string, double> parameters, Plane pose) {
-        Vector3d v = worldPoint - pose.Origin;
-        Point3d local = new(x: v * pose.XAxis, y: v * pose.YAxis, z: v * pose.ZAxis);
-        return Compute(local: local, parameters: parameters);
-    }
+    internal Fin<double> SignedDistance(Point3d worldPoint, ImmutableDictionary<string, double> parameters, Plane pose, Op key) =>
+        pose.RemapToPlaneSpace(ptSample: worldPoint, ptPlane: out Point3d local)
+            ? key.AcceptValue(value: Compute(local: local, parameters: parameters))
+            : Fin.Fail<double>(key.InvalidResult());
     internal bool ValidateParameters(ImmutableDictionary<string, double> parameters) =>
         RequiredKeys.ForAll(k => parameters.ContainsKey(key: k) && RhinoMath.IsValidDouble(x: parameters[k]))
         && (!Equals(Ellipsoid) || RequiredKeys.ForAll(k => parameters[k] > RhinoMath.ZeroTolerance))
         && (!Equals(Torus) || ((parameters["R"] > RhinoMath.ZeroTolerance) && (parameters["r"] > RhinoMath.ZeroTolerance)))
-        && (!Equals(Cone) || ((parameters["h"] > RhinoMath.ZeroTolerance) && (parameters["r1"] >= 0.0) && (parameters["r2"] >= 0.0)))
+        && (!Equals(Cone) || ((parameters["h"] > RhinoMath.ZeroTolerance) && (parameters["angle"] > RhinoMath.ZeroTolerance) && (parameters["angle"] < Math.PI)))
+        && (!Equals(ConeBound) || ((parameters["h"] > RhinoMath.ZeroTolerance) && (parameters["angle"] > RhinoMath.ZeroTolerance) && (parameters["angle"] < Math.PI)))
         && (!Equals(CappedCone) || ((parameters["h"] > RhinoMath.ZeroTolerance) && (parameters["r1"] >= 0.0) && (parameters["r2"] >= 0.0)));
     // Quilez exact octahedron — three-region case analysis around the axis-permuted normal.
     private static double SdfExactOctahedron(Point3d p, double s) {
@@ -238,10 +238,10 @@ public sealed partial class SdfKind {
 public sealed partial class NoiseKind {
     public static readonly NoiseKind Perlin = new(key: 0, raisesCaution: true,
         sample: static (p, seed, freq) => FieldNoise.PerlinAt(point: p, seed: seed, frequency: freq));
-    public static readonly NoiseKind OpenSimplex2F = new(key: 1, raisesCaution: false,
-        sample: static (p, seed, freq) => FieldNoise.OpenSimplexAt(point: p, seed: seed, frequency: freq, smooth: false));
-    public static readonly NoiseKind OpenSimplex2S = new(key: 2, raisesCaution: false,
-        sample: static (p, seed, freq) => FieldNoise.OpenSimplexAt(point: p, seed: seed, frequency: freq, smooth: true));
+    public static readonly NoiseKind Simplex = new(key: 1, raisesCaution: false,
+        sample: static (p, seed, freq) => FieldNoise.SkewedSimplexAt(point: p, seed: seed, frequency: freq, smooth: false));
+    public static readonly NoiseKind SmoothSimplex = new(key: 2, raisesCaution: false,
+        sample: static (p, seed, freq) => FieldNoise.SkewedSimplexAt(point: p, seed: seed, frequency: freq, smooth: true));
     public static readonly NoiseKind Worley = new(key: 3, raisesCaution: false,
         sample: static (p, seed, freq) => FieldNoise.WorleyAt(point: p, seed: seed, frequency: freq));
     public bool RaisesCaution { get; }
@@ -534,7 +534,7 @@ public partial record VectorField {
     public sealed record CrossProductCase(VectorField Left, VectorField Right) : VectorField;
     public sealed record CurlNoiseCase(ScalarField Potential, PositiveMagnitude Epsilon, bool RaisesCaution) : VectorField;
     public sealed record ParallelTransportCase(MeshSpace Space, Seq<(int Vertex, Vector3d Tangent)> Seeds) : VectorField;
-    public sealed record CrossFieldCase(MeshSpace Space, int Symmetry, Option<TensorField> Guidance) : VectorField;
+    public sealed record CrossFieldCase(MeshSpace Space, int Symmetry) : VectorField;
     public static VectorField Constant(Vector3d value) => new ConstantCase(Value: value);
     public static VectorField Influence(SupportSpace source, Falloff? falloff = null, BoundarySense? sense = null) =>
         new InfluenceCase(Source: source, Falloff: falloff ?? Falloff.Inverse, Sense: sense ?? BoundarySense.Toward, Radius: Option<PositiveMagnitude>.None);
@@ -621,12 +621,10 @@ public partial record VectorField {
     }
     public static VectorField CrossProduct(VectorField left, VectorField right) =>
         new CrossProductCase(Left: left, Right: right);
-    public static Fin<VectorField> CrossField(MeshSpace space, int symmetry, Option<TensorField> guidance = default, Op? key = null) {
+    public static Fin<VectorField> CrossField(MeshSpace space, int symmetry, Op? key = null) {
         Op op = key.OrDefault();
-        return guidance.IsSome
-            ? Fin.Fail<VectorField>(op.Unsupported(geometryType: typeof(TensorField), outputType: typeof(CrossFieldCase)))
-            : symmetry is 1 or 2 or 4 or 6
-            ? Fin.Succ((VectorField)new CrossFieldCase(Space: space, Symmetry: symmetry, Guidance: guidance))
+        return symmetry is 1 or 2 or 4 or 6
+            ? Fin.Succ((VectorField)new CrossFieldCase(Space: space, Symmetry: symmetry))
             : Fin.Fail<VectorField>(op.InvalidInput());
     }
     public static Fin<VectorField> ParallelTransport(MeshSpace space, Seq<(int Vertex, Vector3d Tangent)> seeds, Op? key = null) {
@@ -773,7 +771,7 @@ public partial record VectorField {
             from raw in state.Key.AcceptValue(value: new Vector3d(x: g3.Y - g2.Z, y: g1.Z - g3.X, z: g2.X - g1.Y))
             select raw,
         parallelTransportCase: static (state, c) => MeshKernel.VectorHeatAt(space: c.Space, seeds: c.Seeds, sample: state.Sample, key: state.Key),
-        crossFieldCase: static (state, c) => MeshKernel.CrossFieldAt(space: c.Space, symmetry: c.Symmetry, guidance: c.Guidance, sample: state.Sample, key: state.Key));
+        crossFieldCase: static (state, c) => MeshKernel.CrossFieldAt(space: c.Space, symmetry: c.Symmetry, sample: state.Sample, key: state.Key));
     // Biot-Savart law for a finite straight current segment from `start` to `end` carrying
     // `current` amperes. Returns the magnetic field vector at `point`, perpendicular to both
     // the wire and the foot-of-perpendicular vector, scaled by the angular geometry.
@@ -904,7 +902,7 @@ public partial record ScalarField {
     public sealed record DisplaceCase(ScalarField Source, ScalarField Displacement) : ScalarField;
     public sealed record TwistCase(ScalarField Source, double AnglePerUnit, Direction Axis) : ScalarField;
     public sealed record BendCase(ScalarField Source, double Curvature, Direction Axis) : ScalarField;
-    public sealed record GeodesicCase(MeshSpace Space, Seq<int> Sources, BoundaryCondition Boundary) : ScalarField;
+    public sealed record GeodesicCase(MeshSpace Space, Seq<int> Sources) : ScalarField;
     public sealed record MeanCurvatureFlowCase(MeshSpace Space, PositiveMagnitude TimeStep, int Iterations) : ScalarField;
     public static ScalarField Constant(double value) => new ConstantCase(Value: value);
     public static ScalarField Distance(SupportSpace source, BoundarySense? sense = null) =>
@@ -1006,11 +1004,11 @@ public partial record ScalarField {
             ? Fin.Succ((ScalarField)new BendCase(Source: source, Curvature: curvature, Axis: axis))
             : Fin.Fail<ScalarField>(op.InvalidInput());
     }
-    public static Fin<ScalarField> Geodesic(MeshSpace space, Seq<int> sources, BoundaryCondition? boundary = null, Op? key = null) {
+    public static Fin<ScalarField> Geodesic(MeshSpace space, Seq<int> sources, Op? key = null) {
         Op op = key.OrDefault();
         return sources.IsEmpty || sources.Exists(i => i < 0 || i >= space.Native.Vertices.Count)
             ? Fin.Fail<ScalarField>(op.InvalidInput())
-            : Fin.Succ((ScalarField)new GeodesicCase(Space: space, Sources: sources, Boundary: boundary ?? BoundaryCondition.Neumann));
+            : Fin.Succ((ScalarField)new GeodesicCase(Space: space, Sources: sources));
     }
     public static Fin<ScalarField> MeanCurvatureFlow(MeshSpace space, double timeStep, int iterations, Op? key = null) {
         Op op = key.OrDefault();
@@ -1138,7 +1136,7 @@ public partial record ScalarField {
             select output,
         clampCase: static (state, c) => c.Source.SampleScalar(sample: state.Sample, context: state.Context, key: state.Key)
             .Bind(v => state.Key.AcceptValue(value: Math.Clamp(value: v, min: c.Minimum, max: c.Maximum))),
-        primitiveCase: static (state, c) => state.Key.AcceptValue(value: c.Kind.SignedDistance(worldPoint: state.Sample, parameters: c.Parameters, pose: c.Pose)),
+        primitiveCase: static (state, c) => c.Kind.SignedDistance(worldPoint: state.Sample, parameters: c.Parameters, pose: c.Pose, key: state.Key),
         // Multi-octave fBm: octave k contributes persistence^k * sample(freq * lacunarity^k); norm is the closed-form geometric series of amplitudes.
         noiseCase: static (state, c) => {
             (double sum, _, _) = toSeq(Enumerable.Range(start: 0, count: c.Octaves)).Fold(
@@ -1186,7 +1184,7 @@ public partial record ScalarField {
             Vector3d rotated = Transform.Rotation(angleRadians: c.Curvature * along, rotationAxis: axis, rotationCenter: Point3d.Origin) * perp;
             return c.Source.SampleScalar(sample: Point3d.Origin + (along * axis) + rotated, context: state.Context, key: state.Key);
         },
-        geodesicCase: static (state, c) => MeshKernel.HeatGeodesicAt(space: c.Space, sources: c.Sources, boundary: c.Boundary, sample: state.Sample, key: state.Key),
+        geodesicCase: static (state, c) => MeshKernel.HeatGeodesicAt(space: c.Space, sources: c.Sources, sample: state.Sample, key: state.Key),
         meanCurvatureFlowCase: static (state, c) => MeshKernel.MeanCurvatureMagnitudeAt(space: c.Space, timeStep: c.TimeStep.Value, iterations: c.Iterations, sample: state.Sample, key: state.Key));
 }
 
@@ -1249,8 +1247,7 @@ internal static class FieldNoise {
     private static int Perm(int x, int seed) => PermTable[(x + seed) & 0xFF];
     private static double Fade(double t) => t * t * t * ((t * ((t * 6) - 15)) + 10);
     private static double Lerp(double t, double a, double b) => a + (t * (b - a));
-    // Standard Ken Perlin 3D gradient: project (x,y,z) onto one of 12 edge directions
-    // selected by the low 4 bits of the permuted hash.
+    // Standard Ken Perlin 3D gradient: project (x,y,z) onto one of 12 edge directions selected by the low 4 bits of the permuted hash.
     private static double Grad(int hash, double x, double y, double z) {
         int h = hash & 15;
         double u = h < 8 ? x : y;
@@ -1292,7 +1289,7 @@ internal static class FieldNoise {
                 }
         return Math.Sqrt(d: minDistSq);
     }
-    internal static double OpenSimplexAt(Point3d point, int seed, double frequency, bool smooth) {
+    internal static double SkewedSimplexAt(Point3d point, int seed, double frequency, bool smooth) {
         double stretch = (point.X + point.Y + point.Z) * (1.0 / 3.0);
         Point3d skewed = new(x: point.X + stretch, y: point.Y + stretch, z: point.Z + stretch);
         double baseNoise = SimplexAt(point: skewed, seed: seed, frequency: frequency);
