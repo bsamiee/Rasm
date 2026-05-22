@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Eto.Drawing;
 using Foundation.CSharp.Analyzers.Contracts;
+using Grasshopper2.UI.Flex;
 using Grasshopper2.UI.Skinning;
 using Grasshopper2.Undo;
 using Rhino;
@@ -57,6 +58,62 @@ internal partial record UndoStrategy {
     public static UndoStrategy Manual(Func<GrasshopperUi.Scope, UndoEntry> record) => new ManualCase(Record: record);
 }
 
+[Union]
+public partial record Subscription : IDisposable {
+    private Subscription() { }
+    public sealed record AtomCase(System.Action Detach, bool MarshalToUi) : Subscription;
+    public sealed record CompositeCase(Seq<Subscription> Members) : Subscription;
+    public sealed record EmptyCase : Subscription;
+
+    public static readonly Subscription Empty = new EmptyCase();
+    public static Subscription Atom(System.Action detach, bool marshalToUi = false) => new AtomCase(Detach: detach, MarshalToUi: marshalToUi);
+    // Members are stored LIFO (most-recently-acquired first) so Dispose iterates in detach order without allocating a reversed view.
+    public static Subscription Composite(Seq<Subscription> members) =>
+        members.Count switch {
+            0 => Empty,
+            1 => members.Head.IfNone(Empty),
+            _ => new CompositeCase(Members: members.Rev()),
+        };
+
+    public static Subscription operator |(Subscription left, Subscription right) =>
+        (left, right) switch {
+            (EmptyCase, _) => right,
+            (_, EmptyCase) => left,
+            (CompositeCase l, CompositeCase r) => new CompositeCase(Members: r.Members + l.Members),
+            (_, CompositeCase r) => new CompositeCase(Members: r.Members.Add(left)),
+            (CompositeCase l, _) => new CompositeCase(Members: Seq(right) + l.Members),
+            _ => new CompositeCase(Members: Seq(right, left)),
+        };
+
+    public void Dispose() {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(obj: this);
+    }
+
+    protected virtual void Dispose(bool disposing) {
+        if (!disposing) {
+            return;
+        }
+        _ = Switch(
+            atomCase: static a => {
+                Fin<Unit> Apply() => GrasshopperUi.Protect(valid: () => { a.Detach(); return Fin.Succ(value: unit); });
+                return a.MarshalToUi ? GrasshopperUi.OnUiThread(run: Apply, cancellation: CancellationToken.None) : Apply();
+            },
+            compositeCase: static c => { _ = c.Members.Iter(static s => s.Dispose()); return Fin.Succ(value: unit); },
+            emptyCase: static _ => Fin.Succ(value: unit));
+    }
+
+    internal static Fin<Subscription> Bind(System.Action attach, System.Action detach, bool marshalToUi = false) =>
+        Try.lift(f: () => { attach(); return unit; }).Run()
+            .Map(_ => (Subscription)new AtomCase(Detach: detach, MarshalToUi: marshalToUi))
+            .MapFail(attachError => {
+                Error primary = UiFault.MutationRejected(op: Op.Of(name: nameof(Bind)), detail: $"attach failed: {attachError.Message}");
+                return Try.lift(f: () => { detach(); return unit; }).Run().Match(
+                    Succ: _ => primary,
+                    Fail: rollbackError => primary + UiFault.MutationRejected(op: Op.Of(name: nameof(Bind)), detail: $"rollback failed: {rollbackError.Message}"));
+            });
+}
+
 // --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Snapshot<T>(
@@ -90,32 +147,37 @@ public readonly record struct LayoutArrangeDelta(Seq<LayoutMoveDelta> Moves) {
     public int Count => Moves.Count;
 }
 
-public readonly record struct UndoEntry(string Verb, string Noun, Seq<UndoAction> Actions) {
-    internal VerbNoun AsName() => (Verb, Noun);
+// Public bag contract exposes only the appender; Annotate and Commit are implementation details on UndoGroup.
+public interface IUndoBag {
+    public Unit Add(UndoAction action);
+}
+
+public readonly record struct UndoEntry(VerbNoun Name, Seq<UndoAction> Actions) {
     internal ActionList AsList() => new([.. Actions]);
 }
 
-public sealed class UndoGroup {
+internal sealed class UndoGroup : IUndoBag {
     private readonly List<UndoAction> actions = [];
-    public string Verb { get; }
-    public string Noun { get; }
-    internal UndoGroup(string verb, string noun) {
-        Verb = verb;
-        Noun = noun;
-    }
+    public VerbNoun Name { get; private set; }
+    internal UndoGroup(string verb, string noun) => Name = (verb, noun);
     public Unit Add(UndoAction action) {
         actions.Add(item: action);
         return unit;
     }
-    internal UndoEntry ToEntry() => new(Verb: Verb, Noun: Noun, Actions: toSeq(actions));
+    // Append a nested label via VerbNoun's native concatenation; the History panel sees nested provenance preserved in the single combined record.
+    internal Unit Annotate(string verb, string noun) {
+        Name += (verb, noun);
+        return unit;
+    }
+    internal UndoEntry ToEntry() => new(Name: Name, Actions: toSeq(actions));
     internal Fin<Unit> Commit(GhDocument document) =>
         Try.lift(f: () => {
             UndoEntry entry = ToEntry();
             _ = Optional(entry)
                 .Filter(static e => e.Actions.Count > 0)
-                .IfSome(e => document.Undo.Do(name: e.AsName(), actions: e.AsList()));
+                .IfSome(e => document.Undo.Do(name: e.Name, actions: e.AsList()));
             return unit;
-        }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(Commit)), detail: "History.Do threw"));
+        }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Commit)), detail: $"History.Do threw: {error.Message}"));
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -241,21 +303,23 @@ public static class GhUi {
     public static GrasshopperUiIntent<T> Paint<T>(PaintRequest<T> request) =>
         Apply(request: request);
 
-    public static GrasshopperUiIntent<IDisposable> Event(UiEvent uiEvent) =>
+    public static GrasshopperUiIntent<Subscription> Event(UiEvent uiEvent) =>
         Apply(request: new EventRequest(Event: uiEvent));
 
     public static GrasshopperUiIntent<T> Group<T>(string verb, string noun, GrasshopperUiIntent<T> body) =>
         Optional(body).Match(
             Some: valid => Document(
                 repaint: valid.Policy.RepaintOrNone,
-                run: scope => {
-                    UndoGroup bag = new(verb: verb, noun: noun);
-                    GrasshopperUi.Scope grouped = scope with { UndoGroup = Some(bag) };
-                    return from value in valid.Run(scope: grouped)
-                           from document in scope.NeedDocument()
-                           from committed in bag.Commit(document: document)
-                           select value;
-                }),
+                run: scope => scope.UndoGroup.Match(
+                    Some: bag => { _ = bag.Annotate(verb: verb, noun: noun); return valid.Run(scope: scope); },
+                    None: () => {
+                        UndoGroup bag = new(verb: verb, noun: noun);
+                        GrasshopperUi.Scope grouped = scope with { UndoGroup = Some(bag) };
+                        return from value in valid.Run(scope: grouped)
+                               from document in scope.NeedDocument()
+                               from committed in bag.Commit(document: document)
+                               select value;
+                    })),
             None: () => Document(
                 run: _ => Fin.Fail<T>(
                     error: UiFault.InvalidInput(op: Op.Of(name: nameof(Group)), detail: "body is required"))));
@@ -352,16 +416,16 @@ public sealed partial record GrasshopperUi {
                 from document in scope.NeedDocument()
                 from entry in Try.lift(f: () => manual.Record(arg: scope))
                     .Run()
-                    .MapFail(_ => UiFault.MutationRejected(op: op, detail: "manual undo recording threw"))
+                    .MapFail(error => UiFault.MutationRejected(op: op, detail: $"manual undo recording threw: {error.Message}"))
                 from committed in Try.lift(f: () => {
                     _ = scope.UndoGroup
                         .Map(bag => entry.Actions.Iter(action => bag.Add(action: action)))
                         .IfNone(() => Optional(entry)
                             .Filter(static e => e.Actions.Count > 0)
-                            .Map(e => { document.Undo.Do(name: e.AsName(), actions: e.AsList()); return unit; })
+                            .Map(e => { document.Undo.Do(name: e.Name, actions: e.AsList()); return unit; })
                             .IfNone(unit));
                     return unit;
-                }).Run().MapFail(_ => UiFault.MutationRejected(op: op, detail: "History.Do threw"))
+                }).Run().MapFail(error => UiFault.MutationRejected(op: op, detail: $"History.Do threw: {error.Message}"))
                 select committed,
             _ => Fin.Fail<Unit>(error: UiFault.MutationRejected(op: op, detail: "unknown undo strategy")),
         };
@@ -382,30 +446,27 @@ public sealed partial record GrasshopperUi {
                 ? Fin.Fail<T>(error: UiFault.Cancelled(op: Op.Of(name: nameof(Marshal))))
                 : Protect(valid: valid));
             return result;
-        }).Run().MapFail(_ => UiFault.ThreadMarshal(detail: "InvokeAndWait threw")).Bind(static result => result);
+        }).Run().MapFail(error => UiFault.ThreadMarshal(detail: $"InvokeAndWait threw: {error.Message}")).Bind(static result => result);
     }
 
     internal static Fin<T> Protect<T>(Func<Fin<T>> valid, [CallerMemberName] string name = "") =>
-        Try.lift<Fin<T>>(f: valid).Run().MapFail(_ => UiFault.ThreadMarshal(detail: name)).Bind(static result => result);
+        Try.lift<Fin<T>>(f: valid).Run().MapFail(error => UiFault.ThreadMarshal(detail: $"{name}: {error.Message}")).Bind(static result => result);
 
     internal static T Repaint<T>(Scope scope, GrasshopperUiPolicy policy, T value) {
         _ = policy.RepaintOrNone switch {
             RepaintRequest.NoneCase => unit,
             RepaintRequest.CanvasCase => scope.Canvas.IfSome(static canvas => canvas.Invalidate()),
             RepaintRequest.ScheduledCase => scope.Canvas.IfSome(static canvas => canvas.ScheduleRedraw()),
-            RepaintRequest.RegionCase region => scope.Canvas.IfSome(canvas => canvas.Invalidate(rect: ToIntRect(region.Bounds))),
-            RepaintRequest.ObjectCase obj => scope.Canvas.Bind(canvas => scope.Objects.Map(objects => InvalidateObject(canvas: canvas, objects: objects, id: obj.Id))).IfNone(unit),
+            RepaintRequest.RegionCase region => scope.Canvas.IfSome(canvas => canvas.Invalidate(rect: ControlSpace(canvas: canvas, bounds: region.Bounds))),
+            RepaintRequest.ObjectCase obj => scope.Canvas.Bind(canvas => scope.Objects.Map(objects =>
+                Optional(objects.Find(instanceId: obj.Id)).Match(
+                    Some: o => { canvas.Invalidate(rect: ControlSpace(canvas: canvas, bounds: o.Attributes.AggregateBounds)); return unit; },
+                    None: () => { canvas.Invalidate(); return unit; }))).IfNone(unit),
             _ => unit,
         };
         return value;
     }
 
-    private static Unit InvalidateObject(GhCanvas canvas, GhObjectList objects, Guid id) =>
-        Optional(objects.Find(instanceId: id)).Match(
-            Some: obj => { canvas.Invalidate(rect: ToIntRect(obj.Attributes.AggregateBounds)); return unit; },
-            None: () => { canvas.Invalidate(); return unit; });
-
-    private static Rectangle ToIntRect(RectangleF f) =>
-        new(x: (int)Math.Floor(f.X), y: (int)Math.Floor(f.Y), width: (int)Math.Ceiling(f.Width), height: (int)Math.Ceiling(f.Height));
-
+    private static Rectangle ControlSpace(GhCanvas canvas, RectangleF bounds) =>
+        Rectangle.Ceiling(canvas.Map(rectangle: bounds, from: CoordinateSystem.Content, to: CoordinateSystem.Control));
 }

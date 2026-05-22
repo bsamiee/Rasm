@@ -1,7 +1,27 @@
+using Rasm.Domain;
 using Rhino.Geometry;
 using Xunit.Sdk;
 
 namespace Rasm.TestKit;
+
+// --- [TYPES] --------------------------------------------------------------------------------
+public delegate bool TryCreate<TIn, TOut>(TIn value, out TOut obj);
+
+// --- [CONSTANTS] ----------------------------------------------------------------------------
+public static class TestTraits {
+    public const string Category = "Category";
+    public const string Speed = "Speed";
+    public const string Domain = "Domain";
+    public const string Algebra = "Algebra";
+    public const string Rail = "Rail";
+    public const string Snapshot = "Snapshot";
+    public const string Fast = "Fast";
+    public const string Slow = "Slow";
+    public const string Vectors = "Vectors";
+    public const string Stats = "Stats";
+    public const string Geometry = "Geometry";
+    public const string Grasshopper = "Grasshopper";
+}
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 public static class Spec {
@@ -46,6 +66,53 @@ public static class Spec {
         _ = (result ?? throw new ArgumentNullException(nameof(result))).Match(
             Succ: value => throw new XunitException($"Expected Fail; got Succ: {value}"),
             Fail: error => Tap(action: then, value: error));
+    // Category-based failure assertion — couples to Fault.Category (stable contract) instead of error.Message (drifts on refactor).
+    public static void FailCategory<T>(Fin<T> result, string category) =>
+        Fail(result: result, then: error => Assert.Equal(expected: category, actual: error.Category()));
+    public static void FailCode<T>(Fin<T> result, int code) =>
+        Fail(result: result, then: error => Assert.Equal(expected: code, actual: error.Code));
+    // Accumulated-errors assertion for Validation — order-independent; matches LE's commutative Apply.
+    // Validation<Error,T> aggregates via Error.+ which produces ManyErrors; flatten to per-error category list.
+    public static void AllErrors<T>(Validation<Error, T> v, params string[] expectedCategories) {
+        ArgumentNullException.ThrowIfNull(argument: v);
+        string[] expected = [.. (expectedCategories ?? throw new ArgumentNullException(nameof(expectedCategories))).OrderBy(static c => c, StringComparer.Ordinal)];
+        _ = v.Match(
+            Succ: value => throw new XunitException($"Expected Fail; got Succ: {value}"),
+            Fail: error => {
+                Seq<Error> errors = error switch {
+                    ManyErrors many => toSeq(many.Errors),
+                    _ => Seq(error),
+                };
+                string[] actual = [.. errors.Map(static (Error e) => e.Category()).OrderBy(static c => c, StringComparer.Ordinal)];
+                Assert.Equal(expected: expected, actual: actual);
+                return unit;
+            });
+    }
+    public static void Some<T>(Option<T> result, Action<T>? then = null) =>
+        _ = result.Match(
+            Some: value => Tap(action: then, value: value),
+            None: () => throw new XunitException(userMessage: "Expected Some; got None"));
+    public static void None<T>(Option<T> result) =>
+        _ = result.Match(
+            Some: value => throw new XunitException(userMessage: $"Expected None; got Some: {value}"),
+            None: static () => unit);
+    // Thinktecture shape laws — collapse repeated key-distinctness + value-object roundtrip + non-finite-rejection patterns.
+    public static void SmartEnumKeysUnique<T, TKey>(IReadOnlyList<T> items, Func<T, TKey> key) where TKey : notnull =>
+        Assert.Equal(
+            expected: (items ?? throw new ArgumentNullException(nameof(items))).Count,
+            actual: items.Select(selector: key ?? throw new ArgumentNullException(nameof(key))).Distinct().Count());
+    public static void ValueObjectRoundtrip<TVO, TKey>(Gen<TKey> validGen, TryCreate<TKey, TVO> tryCreate, Func<TVO, TKey> read, Func<TKey, TKey, bool>? eq = null) =>
+        Roundtrip(
+            gen: validGen ?? throw new ArgumentNullException(nameof(validGen)),
+            forward: x => (tryCreate ?? throw new ArgumentNullException(nameof(tryCreate)))(x, out TVO v)
+                ? v
+                : throw new XunitException(userMessage: $"validGen produced invalid value for {typeof(TVO).Name}: {x}"),
+            back: read ?? throw new ArgumentNullException(nameof(read)),
+            eq: eq);
+    public static void ValueObjectRejectsNonFinite(Func<double, bool> tryCreate) =>
+        ForAll(
+            gen: Gen.OneOfConst(double.NaN, double.PositiveInfinity, double.NegativeInfinity),
+            property: x => Assert.False(condition: (tryCreate ?? throw new ArgumentNullException(nameof(tryCreate)))(x)));
     public static void EqualWithin(double left, double right, double tolerance, string? what = null) =>
         _ = Math.Abs(left - right) <= tolerance ? true : throw new XunitException($"{what ?? "EqualWithin"}: |{left:R} - {right:R}| = {Math.Abs(left - right):R} > {tolerance:R}");
     public static void NearEqual(Point3d left, Point3d right, double tolerance = 1e-9) =>

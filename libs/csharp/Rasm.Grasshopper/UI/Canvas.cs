@@ -277,10 +277,9 @@ internal sealed record CanvasRequest(CanvasOp Op) : GhUiRequest<CanvasResult> {
 internal static partial class UiRail {
     // --- [OPERATIONS] -------------------------------------------------------------------------
     internal static Fin<CanvasResult> CanvasDispatch(GrasshopperUi.Scope scope, CanvasOp op) => op switch {
-        CanvasOp.SnapshotCase s =>
-            scope.NeedCanvas().Map(canvas => (CanvasResult)new CanvasResult.SnapshotResult(Snapshot: scope.Document
-                .Bind(d => scope.Objects.Map(o => SnapshotOf(canvas: canvas, document: d, objects: o)))
-                .IfNone(EmptySnapshotOf(canvas: canvas)))),
+        CanvasOp.SnapshotCase =>
+            scope.NeedCanvas().Map(canvas => (CanvasResult)new CanvasResult.SnapshotResult(
+                Snapshot: SnapshotOf(canvas: canvas, document: canvas.Document, objects: canvas.Document.Objects))),
         CanvasOp.PickCase p =>
             Optional(p.Point).Filter(static pt => float.IsFinite(pt.X) && float.IsFinite(pt.Y))
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasOp.Pick)), detail: "non-finite point"))
@@ -334,10 +333,7 @@ internal static partial class UiRail {
             ViewDispatch(scope: scope, view: v.Request),
         CanvasOp.SnapFeedbackCase f =>
             scope.NeedCanvas().Map(canvas => {
-                _ = f.Clear switch {
-                    true => ClearSnapFeedback(canvas: canvas),
-                    false => unit,
-                };
+                _ = f.Clear ? ClearSnapFeedback(canvas: canvas) : unit;
                 return (CanvasResult)new CanvasResult.SnapFeedbackResult(Feedback: SnapFeedbackOf(canvas: canvas));
             }),
         CanvasOp.InteractionCase ic =>
@@ -468,15 +464,6 @@ internal static partial class UiRail {
                 Centre: Some(doc.Projection.centre),
                 Zoom: Some(doc.Projection.zoom))));
 
-    private static CanvasSnapshot EmptySnapshotOf(GhCanvas canvas) =>
-        new(HasEditor: true, HasCanvas: true, HasDocument: false,
-            VisibleFrame: canvas.VisibleFrame,
-            ContentBounds: canvas.ContentBounds,
-            ProjectionCentre: default, ProjectionZoom: 0f,
-            WindowSelectObjects: canvas.WindowSelectObjects,
-            WindowSelectWires: canvas.WindowSelectWires,
-            WindowSelectGroups: canvas.WindowSelectGroups);
-
     private static Unit ClearSnapFeedback(GhCanvas canvas) {
         canvas.SnapXAction = null;
         canvas.SnapYAction = null;
@@ -514,7 +501,7 @@ internal static partial class UiRail {
                 int w = width > 0 ? width : image.Width;
                 int h = height > 0 ? height : image.Height;
                 return new CanvasResult.BitmapResult(Bitmap: new CanvasBitmap(Width: w, Height: h, Png: stream.ToArray()));
-            }).Run().MapFail(_ => UiFault.MutationRejected(op: op, detail: "PNG encode failed")));
+            }).Run().MapFail(error => UiFault.MutationRejected(op: op, detail: $"PNG encode failed: {error.Message}")));
 
     private static CanvasActionSnapshot ActionSnapshotOf(GhCanvas canvas) =>
         new(

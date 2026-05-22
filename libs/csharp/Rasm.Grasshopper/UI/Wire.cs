@@ -61,7 +61,9 @@ public sealed partial class WireEdit {
     public static readonly WireEdit Connect = new(
         key: 0,
         apply: static (_, source, target, actions) =>
-            Native(op: Op.Of(name: "Wire.Connect"), name: "Connections.Connect", run: () => Connections.Connect(source: source, target: target, undo: actions)));
+            WireData.TryCreate(source: source, target: target, data: out WireData _)
+                ? Native(op: Op.Of(name: "Wire.Connect"), name: "Connections.Connect", run: () => Connections.Connect(source: source, target: target, undo: actions))
+                : Fin.Fail<int>(error: UiFault.MutationRejected(op: Op.Of(name: "Wire.Connect"), detail: "source and target are incompatible for a wire connection")));
 
     public static readonly WireEdit Disconnect = new(
         key: 1,
@@ -93,7 +95,7 @@ public sealed partial class WireEdit {
     private static Fin<int> Native(Op op, string name, Func<bool> run) =>
         Try.lift(f: run)
             .Run()
-            .MapFail(_ => UiFault.MutationRejected(op: op, detail: $"{name} threw"))
+            .MapFail(error => UiFault.MutationRejected(op: op, detail: $"{name} threw: {error.Message}"))
             .Bind(changed => changed switch {
                 true => Fin.Succ(value: 1),
                 false => Fin.Fail<int>(error: UiFault.MutationRejected(op: op, detail: $"{name} returned false")),
@@ -102,7 +104,7 @@ public sealed partial class WireEdit {
     private static Fin<int> NativeCount(Op op, string name, Func<int> run) =>
         Try.lift(f: run)
             .Run()
-            .MapFail(_ => UiFault.MutationRejected(op: op, detail: $"{name} threw"))
+            .MapFail(error => UiFault.MutationRejected(op: op, detail: $"{name} threw: {error.Message}"))
             .Bind(count => count switch {
                 >= 0 => Fin.Succ(value: count),
                 _ => Fin.Fail<int>(error: UiFault.MutationRejected(op: op, detail: $"{name} returned {count}")),
@@ -332,7 +334,7 @@ internal static partial class Wire {
                 let before = objects.SelectedWireCount
                 from ran in Try.lift(f: () => { objects.DeselectAllWires(); return unit; })
                     .Run()
-                    .MapFail(_ => UiFault.MutationRejected(op: op, detail: "DeselectAllWires threw"))
+                    .MapFail(error => UiFault.MutationRejected(op: op, detail: $"DeselectAllWires threw: {error.Message}"))
                 let after = objects.SelectedWireCount
                 select new DocumentMutationDelta(Changed: Math.Max(val1: 0, val2: before - after), After: UiRail.DocumentSnapshotOf(document: doc, objects: objects)));
 
