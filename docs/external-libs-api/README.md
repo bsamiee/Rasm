@@ -48,25 +48,23 @@
 
 | [INDEX] | [FILE] | [PURPOSE] |
 | :-----: | ------ | --------- |
-| [1] | `languageext/package-registry.md` | Package posture and dependency relevance. |
-| [2] | `languageext/core-api-map.md` | Unified API family map. |
-| [3] | `languageext/rop-effects.md` | Error rails, effects, recovery, collapse boundaries. |
-| [4] | `languageext/traits-hkt.md` | Higher-kinded traits and effect-polymorphic algorithms. |
-| [5] | `languageext/collections-traversal.md` | Immutable collections, folds, traversal, accumulation. |
-| [6] | `languageext/repo-integration.md` | Rasm-specific integration map. |
-| [7] | `thinktecture/package-registry.md` | Package posture and dependency relevance. |
-| [8] | `thinktecture/core-api-map.md` | Unified generated-type API family map. |
-| [9] | `thinktecture/value-objects.md` | Value-object construction, validation, comparison, conversion, and rails. |
-| [10] | `thinktecture/smart-enums.md` | Closed vocabularies, generated lookup, dispatch, and item behavior. |
-| [11] | `thinktecture/unions-dispatch.md` | Regular unions, ad-hoc unions, generated dispatch, and case conversion. |
-| [12] | `thinktecture/analyzers-sourcegen.md` | Analyzer, generator, integration, and object-factory rules. |
-| [13] | `thinktecture/repo-integration.md` | Rasm-specific generated-shape integration map. |
-| [14] | `mathnet/api.md` | Unified MathNet API family map. |
-| [15] | `mathnet/linear-algebra-rasm-vectors.md` | Rasm vector and matrix integration. |
-| [16] | `mathnet/rhino-geometry-numerics.md` | Rhino geometry and numerical boundary rules. |
-| [17] | `mathnet/gh2-numerics-boundaries.md` | GH2 numerical output and determinism rules. |
-| [18] | `mathnet/symbolics-rhino-gh2.md` | Symbolics definition, runtime loading, and Rhino/GH2 integration. |
-| [19] | `mathnet/advanced-rhino-math-stack.md` | Advanced RhinoWIP, GH2, Numerics, Symbolics, LanguageExt, and Thinktecture stack. |
+| [1] | `languageext/core-api-map.md` | Unified API family map. |
+| [2] | `languageext/rop-effects.md` | Error rails, effects, recovery, collapse boundaries. |
+| [3] | `languageext/traits-hkt.md` | Higher-kinded traits and effect-polymorphic algorithms. |
+| [4] | `languageext/collections-traversal.md` | Immutable collections, folds, traversal, accumulation. |
+| [5] | `languageext/repo-integration.md` | Rasm-specific integration map. |
+| [6] | `thinktecture/core-api-map.md` | Unified generated-type API family map. |
+| [7] | `thinktecture/value-objects.md` | Value-object construction, validation, comparison, conversion, and rails. |
+| [8] | `thinktecture/smart-enums.md` | Closed vocabularies, generated lookup, dispatch, and item behavior. |
+| [9] | `thinktecture/unions-dispatch.md` | Regular unions, ad-hoc unions, generated dispatch, and case conversion. |
+| [10] | `thinktecture/analyzers-sourcegen.md` | Analyzer, generator, integration, and object-factory rules. |
+| [11] | `thinktecture/repo-integration.md` | Rasm-specific generated-shape integration map. |
+| [12] | `mathnet/api.md` | Unified MathNet API family map. |
+| [13] | `mathnet/linear-algebra-rasm-vectors.md` | Rasm vector and matrix integration. |
+| [14] | `mathnet/rhino-geometry-numerics.md` | Rhino geometry and numerical boundary rules. |
+| [15] | `mathnet/gh2-numerics-boundaries.md` | GH2 numerical output and determinism rules. |
+| [16] | `mathnet/symbolics-rhino-gh2.md` | Symbolics definition, runtime loading, and Rhino/GH2 integration. |
+| [17] | `mathnet/advanced-rhino-math-stack.md` | Advanced RhinoWIP, GH2, Numerics, Symbolics, LanguageExt, and Thinktecture stack. |
 
 ---
 ## [4][RULES]
