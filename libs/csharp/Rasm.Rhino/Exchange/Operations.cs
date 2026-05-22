@@ -34,10 +34,25 @@ public abstract partial record FileExchange {
     public sealed record SheetEdit(FileSheetEdit Edit) : FileExchange;
 }
 
+public readonly record struct FilePdfPage(
+    int WidthDots,
+    int HeightDots,
+    int Dpi,
+    Option<Func<FilePdf, int, Op, Fin<Unit>>> Annotate = default);
+
 [Union(SwitchMapStateParameterName = "ctx")]
 public abstract partial record FilePublishTarget {
     private FilePublishTarget() { }
-    public sealed record Pdf(FileEndpoint Target, Option<Func<FilePdf, int, Op, Fin<Unit>>> Annotate = default) : FilePublishTarget;
+    // BOUNDARY ADAPTER — `FilePdf.SetCustomPages` REPLACES previously-added pages, so it cannot be
+    // mixed with `AddPage(ViewCaptureSettings)`. `Prefix` and `Suffix` use the blank-page
+    // `AddPage(width, height, dpi)` overload sequenced before/after sheet captures; each page
+    // carries its own annotation callback for cover/title/signature stamping. The top-level
+    // `Annotate` applies to sheet pages only.
+    public sealed record Pdf(
+        FileEndpoint Target,
+        Seq<FilePdfPage> Prefix = default,
+        Seq<FilePdfPage> Suffix = default,
+        Option<Func<FilePdf, int, Op, Fin<Unit>>> Annotate = default) : FilePublishTarget;
     public sealed record Printer(string Name, int Copies = 1) : FilePublishTarget;
     public sealed record Raster(FileEndpoint Target, FileRasterEncoding? Encoding = null, FileRasterSettings Settings = default) : FilePublishTarget {
         internal FileRasterEncoding ResolvedEncoding => Encoding ?? FileRasterEncoding.Png;
@@ -55,7 +70,8 @@ public abstract partial record FilePublishTarget {
     private static Fin<FilePublishResult> WritePdf(Pdf target, Seq<FileSheetPage> pages, bool layers, Op op) =>
         from endpoint in target.Target.WithFormat(format: FileFormat.Pdf).Output(op: op)
         from pdf in Optional(FilePdf.Create()).ToFin(Fail: op.InvalidResult())
-        from added in pages.TraverseM(page =>
+        from _prefix in target.Prefix.TraverseM(spec => AddBlankPdfPage(pdf: pdf, spec: spec, op: op)).As()
+        from _sheets in pages.TraverseM(page =>
             from settings in page.Sheet.Settings(page: page.Page, op: op)
             from index in op.Catch(() => {
                 using ViewCaptureSettings owned = settings;
@@ -67,8 +83,9 @@ public abstract partial record FilePublishTarget {
             })
             from annotated in op.Catch(() => target.Annotate.Map(annotate => annotate(arg1: pdf, arg2: index, arg3: op)).IfNone(Fin.Succ(value: unit)))
             select unit).As()
-        from _ in op.Catch(() => { pdf.Write(filename: endpoint.Path); return Fin.Succ(value: unit); })
-        from __ in Optional(new IOFileInfo(fileName: endpoint.Path))
+        from _suffix in target.Suffix.TraverseM(spec => AddBlankPdfPage(pdf: pdf, spec: spec, op: op)).As()
+        from _write in op.Catch(() => { pdf.Write(filename: endpoint.Path); return Fin.Succ(value: unit); })
+        from _verify in Optional(new IOFileInfo(fileName: endpoint.Path))
             .Filter(static info => info.Exists && info.Length > 0)
             .ToFin(Fail: op.InvalidResult())
         select new FilePublishResult(
@@ -76,6 +93,14 @@ public abstract partial record FilePublishTarget {
             Format: Some(FileFormat.Pdf),
             Receipt: DocumentReceipt.Empty,
             Sheets: pages.Map(SheetReportOf));
+
+    private static Fin<Unit> AddBlankPdfPage(FilePdf pdf, FilePdfPage spec, Op op) =>
+        from index in op.Catch(() => pdf.AddPage(widthInDots: spec.WidthDots, heightInDots: spec.HeightDots, dotsPerInch: spec.Dpi) switch {
+            int value when value >= 0 => Fin.Succ(value: value),
+            _ => Fin.Fail<int>(error: op.InvalidResult()),
+        })
+        from annotated in op.Catch(() => spec.Annotate.Map(annotate => annotate(arg1: pdf, arg2: index, arg3: op)).IfNone(Fin.Succ(value: unit)))
+        select unit;
 
     private static Fin<FilePublishResult> WritePrinter(Printer target, Seq<FileSheetPage> pages, Op op) =>
         from name in FileEndpoint.NonBlank(value: target.Name, op: op)
@@ -111,7 +136,7 @@ public abstract partial record FilePublishTarget {
                            using ViewCaptureSettings owned = captureSettings;
                            DrawingBitmap? bitmap = ViewCapture.CaptureToBitmap(settings: owned);
                            try {
-                               string path = pages.Count == 1 ? endpoint.Path : NumberedSibling(path: endpoint.Path, index: item.Index, extension: encoding.Format.Extensions[0]);
+                               string path = pages.Count == 1 ? endpoint.Path : FileEndpoint.NumberedPath(path: endpoint.Path, index: item.Index + 1);
                                return Optional(bitmap)
                                    .ToFin(Fail: op.InvalidResult())
                                    .Map(active => {
@@ -139,7 +164,7 @@ public abstract partial record FilePublishTarget {
                 from settings in item.Page.Sheet.Settings(page: item.Page.Page, op: op)
                 from rendered in op.Catch(() => {
                     using ViewCaptureSettings owned = settings;
-                    string path = pages.Count == 1 ? endpoint.Path : NumberedSibling(path: endpoint.Path, index: item.Index, extension: ".svg");
+                    string path = pages.Count == 1 ? endpoint.Path : FileEndpoint.NumberedPath(path: endpoint.Path, index: item.Index + 1);
                     return Optional(ViewCapture.CaptureToSvg(settings: owned))
                         .ToFin(Fail: op.InvalidResult())
                         .Bind(document => op.Catch(() => {
@@ -179,11 +204,6 @@ public abstract partial record FilePublishTarget {
                 .Map(static _ => unit)
                 .ToFin(Fail: op.InvalidResult());
         });
-
-    private static string NumberedSibling(string path, int index, string extension) =>
-        Path.Combine(
-            path1: Path.GetDirectoryName(path: path) ?? string.Empty,
-            path2: string.Create(CultureInfo.InvariantCulture, $"{Path.GetFileNameWithoutExtension(path: path)}-{index + 1:000}{extension}"));
 
     private static FileSheetReport SheetReportOf(FileSheetPage entry) {
         DetailViewObject[] details = entry.Page.GetDetailViews() ?? [];
@@ -538,7 +558,7 @@ internal static class SheetEditOps {
             activateDetail: static (ctx, edit) => ActivateDetail(document: ctx.Document, sheetName: edit.SheetName, detailName: edit.DetailName, op: ctx.Op),
             layerOverride: static (ctx, edit) => ApplyLayerOverride(document: ctx.Document, sheetName: edit.SheetName, detailName: edit.DetailName, layerPath: edit.LayerPath, color: edit.Color, visible: edit.Visible, op: ctx.Op),
             clippingOverride: static (ctx, edit) => ApplyClippingOverride(document: ctx.Document, sheetName: edit.SheetName, detailName: edit.DetailName, box: edit.Box, op: ctx.Op),
-            refreshLinks: static (ctx, edit) => RefreshLinks(document: ctx.Document, archives: edit.Archives, op: ctx.Op));
+            refreshLinks: static (ctx, edit) => RefreshLinks(document: ctx.Document, archives: edit.Archives, skipUpToDate: edit.SkipUpToDate, op: ctx.Op));
 
     private static Fin<DocumentReceipt> CreateSheet(RhinoDoc document, FileSheetSpec spec, Op op) =>
         from name in FileEndpoint.NonBlank(value: spec.Name, op: op)
@@ -683,20 +703,26 @@ internal static class SheetEditOps {
         };
 
     // BOUNDARY ADAPTER — InstanceDefinitionTable.RefreshLinkedBlock is synchronous; reload + redraw
-    // happens on the caller's thread. Use Archives filter to scope reload to a path subset.
-    private static Fin<DocumentReceipt> RefreshLinks(RhinoDoc document, Option<Seq<string>> archives, Op op) =>
-        op.Catch(() => {
-            Seq<InstanceDefinition> refreshed = toSeq(document.InstanceDefinitions)
+    // happens on the caller's thread. `UpdateType` discriminates linked-vs-embedded definitions
+    // (SourceArchive alone is unreliable). `SkipUpToDate` consults `ArchiveFileStatus` to avoid
+    // reloading definitions whose source has not changed. TraverseM short-circuits on first failed
+    // refresh so callers see an InvalidResult error rather than silently dropped definitions.
+    private static Fin<DocumentReceipt> RefreshLinks(RhinoDoc document, Option<Seq<string>> archives, bool skipUpToDate, Op op) =>
+        op.Catch(() =>
+            toSeq(document.InstanceDefinitions)
+                .Filter(static definition => definition.UpdateType is InstanceDefinitionUpdateType.Linked or InstanceDefinitionUpdateType.LinkedAndEmbedded)
                 .Filter(definition => archives.Case switch {
                     Seq<string> filter => filter.Exists(path => string.Equals(a: path, b: definition.SourceArchive ?? string.Empty, comparisonType: StringComparison.OrdinalIgnoreCase)),
-                    _ => !string.IsNullOrWhiteSpace(value: definition.SourceArchive),
+                    _ => true,
                 })
-                .Filter(definition => document.InstanceDefinitions.RefreshLinkedBlock(definition: definition));
-            return Fin.Succ(value: DocumentReceipt.Empty with {
-                AttributeChanged = refreshed.Map(static definition => definition.Id),
-                ResourceChanged = refreshed.Map(static definition => new DocumentResourceChange(Kind: DocumentResourceKind.Block, Name: definition.Name ?? string.Empty)),
-            });
-        });
+                .Filter(definition => !skipUpToDate || definition.ArchiveFileStatus != InstanceDefinitionArchiveFileStatus.LinkedFileIsUpToDate)
+                .TraverseM(definition => document.InstanceDefinitions.RefreshLinkedBlock(definition: definition)
+                    ? Fin.Succ(value: definition)
+                    : Fin.Fail<InstanceDefinition>(error: op.InvalidResult())).As()
+                .Map(refreshed => DocumentReceipt.Empty with {
+                    AttributeChanged = refreshed.Map(static definition => definition.Id),
+                    ResourceChanged = refreshed.Map(static definition => new DocumentResourceChange(Kind: DocumentResourceKind.Block, Name: definition.Name ?? string.Empty)),
+                }));
 
     private static Fin<T> Resolve<T>(IEnumerable<T> source, Func<T, bool> match, Op op) =>
         toSeq(source).Find(match).ToFin(Fail: op.InvalidInput());
