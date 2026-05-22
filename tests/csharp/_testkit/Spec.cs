@@ -96,6 +96,18 @@ public static class Spec {
         _ = result.Match(
             Some: value => throw new XunitException(userMessage: $"Expected None; got Some: {value}"),
             None: static () => unit);
+    // ManyErrors aggregation assertion — any Error.+ rail (Bind rollback, paint hook failures, document mutation rollbacks)
+    // produces a ManyErrors on double-fault. Asserts structural shape (exact count) + that each expected substring appears in at least one inner Message.
+    public static void ManyErrors(Error error, int expectedCount, params string[] expectedSubstrings) {
+        ArgumentNullException.ThrowIfNull(argument: error);
+        ArgumentNullException.ThrowIfNull(argument: expectedSubstrings);
+        ManyErrors many = Assert.IsType<ManyErrors>(@object: error);
+        Assert.Equal(expected: expectedCount, actual: many.Errors.Count);
+        _ = expectedSubstrings.AsIterable().Iter(substring =>
+            Assert.Contains(collection: many.Errors, filter: e => e.Message.Contains(value: substring, comparisonType: StringComparison.Ordinal)));
+    }
+    public static void FailMany<T>(Fin<T> result, int expectedCount, params string[] expectedSubstrings) =>
+        Fail(result: result, then: error => ManyErrors(error: error, expectedCount: expectedCount, expectedSubstrings: expectedSubstrings));
     // Thinktecture shape laws — collapse repeated key-distinctness + value-object roundtrip + non-finite-rejection patterns.
     public static void SmartEnumKeysUnique<T, TKey>(IReadOnlyList<T> items, Func<T, TKey> key) where TKey : notnull =>
         Assert.Equal(

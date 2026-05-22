@@ -116,15 +116,13 @@ public sealed class SubscriptionBindLaws {
         Assert.Equal(expected: 1, actual: rollbacks);
     }
     [Fact]
-    public void DoubleFaultProducesManyErrorsCarryingBothCauses() {
-        Fin<Subscription> result = Subscription.Bind(
-            attach: static () => throw new InvalidOperationException(message: "attach-boom"),
-            detach: static () => throw new InvalidOperationException(message: "rollback-boom"));
-        Spec.Fail(result: result, then: static error => {
-            ManyErrors many = Assert.IsType<ManyErrors>(@object: error);
-            Assert.Equal(expected: 2, actual: many.Errors.Count);
-            Assert.Contains(collection: many.Errors, filter: e => e.Message.Contains(value: "attach-boom", comparisonType: StringComparison.Ordinal));
-            Assert.Contains(collection: many.Errors, filter: e => e.Message.Contains(value: "rollback-boom", comparisonType: StringComparison.Ordinal));
-        });
-    }
+    public void DoubleFaultProducesManyErrorsCarryingBothCauses() =>
+        // Spec.FailMany factors out the Fail + IsType<ManyErrors> + count + per-substring check so any future
+        // Error.+ rail (paint hook failures, document mutation rollbacks) reuses the same template.
+        Spec.FailMany(
+            result: Subscription.Bind(
+                attach: static () => throw new InvalidOperationException(message: "attach-boom"),
+                detach: static () => throw new InvalidOperationException(message: "rollback-boom")),
+            expectedCount: 2,
+            expectedSubstrings: ["attach-boom", "rollback-boom"]);
 }

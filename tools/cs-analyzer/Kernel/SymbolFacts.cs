@@ -233,6 +233,29 @@ internal static class SymbolFacts {
         && (invocation.TargetMethod.ContainingType?.ContainingNamespace?.ToDisplayString() ?? string.Empty)
             .StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal)
         && (invocation.TargetMethod.ContainingType?.Name ?? string.Empty) is "Eff" or "IO" or "Fin" or "Try" or "TryOption" or "Option" or "Validation";
+    // Fluent-pipeline receiver walk: extension methods carry their receiver in Arguments[0], not Instance.
+    // Use ExtractReceiver to obtain the receiver of any invocation regardless of extension-vs-instance shape;
+    // chain with UnwrapReceiver to peel implicit IConversionOperation wrappers (boxing, generic constraints).
+    internal static IOperation? ExtractReceiver(IInvocationOperation invocation) =>
+        invocation.Instance switch {
+            IOperation receiver => receiver,
+            _ => invocation.TargetMethod.IsExtensionMethod switch {
+                true when invocation.Arguments.Length > 0 => invocation.Arguments[0].Value,
+                _ => null,
+            },
+        };
+    internal static IOperation? UnwrapReceiver(IOperation? operation) =>
+        operation switch {
+            IConversionOperation { Operand: IOperation inner } => UnwrapReceiver(inner),
+            _ => operation,
+        };
+    internal static IAnonymousFunctionOperation? UnwrapLambda(IOperation operation) =>
+        operation switch {
+            IAnonymousFunctionOperation lambda => lambda,
+            IDelegateCreationOperation { Target: IAnonymousFunctionOperation lambda } => lambda,
+            IConversionOperation { Operand: IOperation inner } => UnwrapLambda(inner),
+            _ => null,
+        };
     internal static bool IsBlockingInvocation(IInvocationOperation invocation) =>
         BlockingMethods.Contains(invocation.TargetMethod.Name)
         && invocation.TargetMethod.ContainingType is INamedTypeSymbol containingType

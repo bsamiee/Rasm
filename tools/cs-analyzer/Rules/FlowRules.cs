@@ -54,14 +54,14 @@ internal static class FlowRules {
             _ => null,
         });
     // CSP0728: detect Try.lift(...).Run().MapFail(_ => ...) chain that discards the captured exception.
-    // Run is an extension method on TryExtensions, so its receiver is Arguments[0], not Instance. We walk both.
+    // Receiver walk uses SymbolFacts.ExtractReceiver/UnwrapReceiver/UnwrapLambda — see [SymbolFacts.cs] for shared helpers.
     internal static void CheckMapFailDiscardsException(OperationAnalysisContext context, ScopeInfo scope, IInvocationOperation invocation) {
         bool isMapFail = invocation.TargetMethod.Name == "MapFail"
             && (invocation.TargetMethod.ContainingType?.ContainingNamespace?.ToDisplayString() ?? string.Empty)
                 .StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal);
-        bool capturedException = isMapFail && ReceiverIsRunOfTryLift(UnwrapReceiver(ExtractReceiver(invocation)));
+        bool capturedException = isMapFail && ReceiverIsRunOfTryLift(SymbolFacts.UnwrapReceiver(SymbolFacts.ExtractReceiver(invocation)));
         IAnonymousFunctionOperation? lambda = (invocation.Arguments.Length > 0, capturedException) switch {
-            (true, true) => UnwrapLambda(invocation.Arguments[invocation.Arguments.Length - 1].Value),
+            (true, true) => SymbolFacts.UnwrapLambda(invocation.Arguments[invocation.Arguments.Length - 1].Value),
             _ => null,
         };
         bool singleDiscard = lambda?.Symbol.Parameters switch {
@@ -78,29 +78,9 @@ internal static class FlowRules {
         && runCall.TargetMethod.Name is "Run" or "RunAsync"
         && (runCall.TargetMethod.ContainingType?.ContainingNamespace?.ToDisplayString() ?? string.Empty)
             .StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal)
-        && UnwrapReceiver(ExtractReceiver(runCall)) is IInvocationOperation liftCall
+        && SymbolFacts.UnwrapReceiver(SymbolFacts.ExtractReceiver(runCall)) is IInvocationOperation liftCall
         && liftCall.TargetMethod.Name == "lift"
         && (liftCall.TargetMethod.ContainingType?.Name == "Try" || liftCall.TargetMethod.ContainingType?.Name == "TryExtensions");
-    private static IOperation? ExtractReceiver(IInvocationOperation invocation) =>
-        invocation.Instance switch {
-            IOperation receiver => receiver,
-            _ => invocation.TargetMethod.IsExtensionMethod switch {
-                true when invocation.Arguments.Length > 0 => invocation.Arguments[0].Value,
-                _ => null,
-            },
-        };
-    private static IOperation? UnwrapReceiver(IOperation? operation) =>
-        operation switch {
-            IConversionOperation { Operand: IOperation inner } => UnwrapReceiver(inner),
-            _ => operation,
-        };
-    private static IAnonymousFunctionOperation? UnwrapLambda(IOperation operation) =>
-        operation switch {
-            IAnonymousFunctionOperation lambda => lambda,
-            IDelegateCreationOperation { Target: IAnonymousFunctionOperation lambda } => lambda,
-            IConversionOperation { Operand: IOperation inner } => UnwrapLambda(inner),
-            _ => null,
-        };
 
     // --- [NULL_RULES] ---------------------------------------------------------
 
