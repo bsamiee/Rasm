@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.UI.Animation;
 using Grasshopper2.UI.Skinning;
 using Grasshopper2.UI.Sparkles;
@@ -13,6 +14,9 @@ namespace Rasm.Grasshopper.UI;
 // --- [TYPES] ------------------------------------------------------------------------------
 public interface IMotionVector<T> {
     public T Zero { get; }
+    // Per-type rest threshold. Color channels are [0,1] (1/255 = 1 visual quanta); pixel-quantized
+    // PointF/SizeF/RectangleF cross visual rest at half a logical pixel; scalars at 1e-3 normalized.
+    public float RestEpsilon { get; }
     public T Add(T a, T b);
     public T Subtract(T a, T b);
     public T Scale(T value, float scalar);
@@ -20,13 +24,30 @@ public interface IMotionVector<T> {
     public T Interpolate(T value0, T value1, double factor);
 }
 
-// Polymorphic easing surface — 16 GH2-native cases delegate to MotionEquations.Blend; 9 closed-form
-// families (Sine/Expo/Circ/Elastic/Back/BounceOut/Cubic/Quart/Quint × In/Out/InOut) implement the
-// canonical Penner formulae inline. Pre-multiplied to a per-case `Func<double, double>` at registration
+// Polymorphic runner contract. SpringRunnerState and PulseRunnerState implement this so a single
+// MotionRunner<TState> drives both spring physics and pulse tweens through static dispatch.
+internal interface IMotionState<TSelf> where TSelf : struct, IMotionState<TSelf> {
+    public TSelf Step();              // pure compute: integrate / reissue / no-op
+    public Unit Emit();               // side effect: invoke sink with current value
+    public bool IsActive { get; }     // continue ticking next frame?
+    public TSelf MergeInto(TSelf live); // preserve concurrent mutator updates (e.g., SpringHandle.Retarget)
+}
+
+// Polymorphic easing surface — 16 GH2-native cases delegate to MotionEquations.Blend; 30 closed-form
+// Penner cases (Sine/Quad/Cubic/Quart/Quint/Expo/Circ/Back/Elastic/Bounce × In/Out/InOut) implement the
+// canonical formulae inline. Pre-multiplied to a per-case `Func<double, double>` at registration
 // time so the hot 60 Hz tick path pays only the partial method invoke + a single virtual delegate dispatch.
 [SmartEnum<int>]
 public sealed partial class Easing {
     private delegate double EasingCurve(double t);
+
+    // Penner Back parameters (overshoot magnitudes). c2 = c1 * 1.525 for the In/Out variant.
+    private const double BackC1 = 1.70158;
+    private const double BackC3 = BackC1 + 1.0;
+    private const double BackC2 = BackC1 * 1.525;
+    // Bounce piecewise normalization constants.
+    private const double BounceN1 = 7.5625;
+    private const double BounceD1 = 2.75;
 
     // --- [GH2_NATIVE] (delegate to MotionEquations.Blend) -----------------------------------
     public static readonly Easing Linear = Native(key: 0, motion: GhMotion.Linear);
@@ -46,48 +67,61 @@ public sealed partial class Easing {
     public static readonly Easing Twang = Native(key: 14, motion: GhMotion.Twang);
     public static readonly Easing TwangDelayed = Native(key: 15, motion: GhMotion.TwangDelayed);
 
-    // --- [CLOSED_FORM] (Penner equations) ---------------------------------------------------
+    // --- [CLOSED_FORM] (Penner equations: 10 families × In/Out/InOut) -----------------------
     public static readonly Easing SineIn = Closed(key: 16, compute: static t => 1.0 - Math.Cos(t * Math.PI / 2.0));
     public static readonly Easing SineOut = Closed(key: 17, compute: static t => Math.Sin(t * Math.PI / 2.0));
     public static readonly Easing SineInOut = Closed(key: 18, compute: static t => -(Math.Cos(Math.PI * t) - 1.0) / 2.0);
-    public static readonly Easing ExpoIn = Closed(key: 19, compute: static t => t == 0.0 ? 0.0 : Math.Pow(2.0, (10.0 * t) - 10.0));
-    public static readonly Easing ExpoOut = Closed(key: 20, compute: static t => t == 1.0 ? 1.0 : 1.0 - Math.Pow(2.0, -10.0 * t));
-    public static readonly Easing ExpoInOut = Closed(key: 21, compute: static t =>
+    public static readonly Easing QuadIn = Closed(key: 19, compute: static t => t * t);
+    public static readonly Easing QuadOut = Closed(key: 20, compute: static t => 1.0 - ((1.0 - t) * (1.0 - t)));
+    public static readonly Easing QuadInOut = Closed(key: 21, compute: static t =>
+        t < 0.5 ? 2.0 * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 2.0) / 2.0));
+    public static readonly Easing CubicIn = Closed(key: 22, compute: static t => t * t * t);
+    public static readonly Easing CubicOut = Closed(key: 23, compute: static t => 1.0 - Math.Pow(1.0 - t, 3.0));
+    public static readonly Easing CubicInOut = Closed(key: 24, compute: static t =>
+        t < 0.5 ? 4.0 * t * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 3.0) / 2.0));
+    public static readonly Easing QuartIn = Closed(key: 25, compute: static t => t * t * t * t);
+    public static readonly Easing QuartOut = Closed(key: 26, compute: static t => 1.0 - Math.Pow(1.0 - t, 4.0));
+    public static readonly Easing QuartInOut = Closed(key: 27, compute: static t =>
+        t < 0.5 ? 8.0 * t * t * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 4.0) / 2.0));
+    public static readonly Easing QuintIn = Closed(key: 28, compute: static t => t * t * t * t * t);
+    public static readonly Easing QuintOut = Closed(key: 29, compute: static t => 1.0 - Math.Pow(1.0 - t, 5.0));
+    public static readonly Easing QuintInOut = Closed(key: 30, compute: static t =>
+        t < 0.5 ? 16.0 * t * t * t * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 5.0) / 2.0));
+    public static readonly Easing ExpoIn = Closed(key: 31, compute: static t => t == 0.0 ? 0.0 : Math.Pow(2.0, (10.0 * t) - 10.0));
+    public static readonly Easing ExpoOut = Closed(key: 32, compute: static t => t == 1.0 ? 1.0 : 1.0 - Math.Pow(2.0, -10.0 * t));
+    public static readonly Easing ExpoInOut = Closed(key: 33, compute: static t =>
         t == 0.0 ? 0.0 : t == 1.0 ? 1.0 :
         t < 0.5 ? Math.Pow(2.0, (20.0 * t) - 10.0) / 2.0 : (2.0 - Math.Pow(2.0, (-20.0 * t) + 10.0)) / 2.0);
-    public static readonly Easing CircIn = Closed(key: 22, compute: static t => 1.0 - Math.Sqrt(1.0 - (t * t)));
-    public static readonly Easing CircOut = Closed(key: 23, compute: static t => Math.Sqrt(1.0 - ((t - 1.0) * (t - 1.0))));
-    public static readonly Easing CircInOut = Closed(key: 24, compute: static t =>
+    public static readonly Easing CircIn = Closed(key: 34, compute: static t => 1.0 - Math.Sqrt(1.0 - (t * t)));
+    public static readonly Easing CircOut = Closed(key: 35, compute: static t => Math.Sqrt(1.0 - ((t - 1.0) * (t - 1.0))));
+    public static readonly Easing CircInOut = Closed(key: 36, compute: static t =>
         t < 0.5
             ? (1.0 - Math.Sqrt(1.0 - (4.0 * t * t))) / 2.0
             : (Math.Sqrt(1.0 - (((-2.0 * t) + 2.0) * ((-2.0 * t) + 2.0))) + 1.0) / 2.0);
-    public static readonly Easing ElasticIn = Closed(key: 25, compute: static t =>
+    public static readonly Easing BackIn = Closed(key: 37, compute: static t => (BackC3 * t * t * t) - (BackC1 * t * t));
+    public static readonly Easing BackOut = Closed(key: 38, compute: static t =>
+        1.0 + (BackC3 * Math.Pow(t - 1.0, 3.0)) + (BackC1 * Math.Pow(t - 1.0, 2.0)));
+    public static readonly Easing BackInOut = Closed(key: 39, compute: static t =>
+        t < 0.5
+            ? Math.Pow(2.0 * t, 2.0) * (((BackC2 + 1.0) * 2.0 * t) - BackC2) / 2.0
+            : ((Math.Pow((2.0 * t) - 2.0, 2.0) * (((BackC2 + 1.0) * ((t * 2.0) - 2.0)) + BackC2)) + 2.0) / 2.0);
+    public static readonly Easing ElasticIn = Closed(key: 40, compute: static t =>
         t == 0.0 ? 0.0 : t == 1.0 ? 1.0 :
         -Math.Pow(2.0, (10.0 * t) - 10.0) * Math.Sin(((t * 10.0) - 10.75) * (2.0 * Math.PI / 3.0)));
-    public static readonly Easing ElasticOut = Closed(key: 26, compute: static t =>
+    public static readonly Easing ElasticOut = Closed(key: 41, compute: static t =>
         t == 0.0 ? 0.0 : t == 1.0 ? 1.0 :
         (Math.Pow(2.0, -10.0 * t) * Math.Sin(((t * 10.0) - 0.75) * (2.0 * Math.PI / 3.0))) + 1.0);
-    public static readonly Easing ElasticInOut = Closed(key: 27, compute: static t =>
+    public static readonly Easing ElasticInOut = Closed(key: 42, compute: static t =>
         t == 0.0 ? 0.0 : t == 1.0 ? 1.0 :
         t < 0.5
             ? -(Math.Pow(2.0, (20.0 * t) - 10.0) * Math.Sin(((20.0 * t) - 11.125) * (2.0 * Math.PI / 4.5))) / 2.0
             : (Math.Pow(2.0, (-20.0 * t) + 10.0) * Math.Sin(((20.0 * t) - 11.125) * (2.0 * Math.PI / 4.5)) / 2.0) + 1.0);
-    public static readonly Easing BackIn = Closed(key: 28, compute: static t => (2.70158 * t * t * t) - (1.70158 * t * t));
-    public static readonly Easing BackOut = Closed(key: 29, compute: static t =>
-        1.0 + (2.70158 * Math.Pow(t - 1.0, 3.0)) + (1.70158 * Math.Pow(t - 1.0, 2.0)));
-    public static readonly Easing BackInOut = Closed(key: 30, compute: static t =>
+    public static readonly Easing BounceIn = Closed(key: 43, compute: static t => 1.0 - BounceOutFormula(1.0 - t));
+    public static readonly Easing BounceOut = Closed(key: 44, compute: BounceOutFormula);
+    public static readonly Easing BounceInOut = Closed(key: 45, compute: static t =>
         t < 0.5
-            ? Math.Pow(2.0 * t, 2.0) * ((((1.70158 * 1.525) + 1.0) * 2.0 * t) - (1.70158 * 1.525)) / 2.0
-            : ((Math.Pow((2.0 * t) - 2.0, 2.0) * ((((1.70158 * 1.525) + 1.0) * ((t * 2.0) - 2.0)) + (1.70158 * 1.525))) + 2.0) / 2.0);
-    public static readonly Easing BounceOut = Closed(key: 31, compute: BounceOutFormula);
-    public static readonly Easing CubicIn = Closed(key: 32, compute: static t => t * t * t);
-    public static readonly Easing CubicOut = Closed(key: 33, compute: static t => 1.0 - Math.Pow(1.0 - t, 3.0));
-    public static readonly Easing CubicInOut = Closed(key: 34, compute: static t =>
-        t < 0.5 ? 4.0 * t * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 3.0) / 2.0));
-    public static readonly Easing QuartIn = Closed(key: 35, compute: static t => t * t * t * t);
-    public static readonly Easing QuartOut = Closed(key: 36, compute: static t => 1.0 - Math.Pow(1.0 - t, 4.0));
-    public static readonly Easing QuintIn = Closed(key: 37, compute: static t => t * t * t * t * t);
-    public static readonly Easing QuintOut = Closed(key: 38, compute: static t => 1.0 - Math.Pow(1.0 - t, 5.0));
+            ? (1.0 - BounceOutFormula(1.0 - (2.0 * t))) / 2.0
+            : (1.0 + BounceOutFormula((2.0 * t) - 1.0)) / 2.0);
 
     [UseDelegateFromConstructor]
     public partial double Apply(double t);
@@ -97,16 +131,13 @@ public sealed partial class Easing {
 
     private static Easing Closed(int key, EasingCurve compute) => new(key: key, apply: t => compute(t));
 
-    private static double BounceOutFormula(double t) {
-        const double N1 = 7.5625;
-        const double D1 = 2.75;
-        return t switch {
-            < 1.0 / D1 => N1 * t * t,
-            < 2.0 / D1 => (N1 * (t - (1.5 / D1)) * (t - (1.5 / D1))) + 0.75,
-            < 2.5 / D1 => (N1 * (t - (2.25 / D1)) * (t - (2.25 / D1))) + 0.9375,
-            _ => (N1 * (t - (2.625 / D1)) * (t - (2.625 / D1))) + 0.984375,
+    private static double BounceOutFormula(double t) =>
+        t switch {
+            < 1.0 / BounceD1 => BounceN1 * t * t,
+            < 2.0 / BounceD1 => (BounceN1 * (t - (1.5 / BounceD1)) * (t - (1.5 / BounceD1))) + 0.75,
+            < 2.5 / BounceD1 => (BounceN1 * (t - (2.25 / BounceD1)) * (t - (2.25 / BounceD1))) + 0.9375,
+            _ => (BounceN1 * (t - (2.625 / BounceD1)) * (t - (2.625 / BounceD1))) + 0.984375,
         };
-    }
 }
 
 public abstract record MotionRequest<T> : GhUiRequest<T> {
@@ -145,15 +176,35 @@ public abstract record MotionRequest<T> : GhUiRequest<T> {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
+// Mass-spring-damper coefficients with construction-time finite+positivity invariants. The
+// generated Create(...) factory enforces physics admission so the semi-implicit Euler step
+// at SpringRunnerState.Step cannot receive NaN/zero/negative values that would explode the
+// integrator. Response(...) derives (stiffness, damping) from the canonical UIKit-style
+// (response-time, damping-fraction, mass) parameterisation.
+[ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct SpringConfig(float Stiffness, float Damping, float Mass = 1f) {
+public readonly partial struct SpringConfig {
+    public float Stiffness { get; }
+    public float Damping { get; }
+    public float Mass { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float stiffness, ref float damping, ref float mass) =>
+        validationError = (float.IsFinite(stiffness) && stiffness > 0f, float.IsFinite(damping) && damping >= 0f, float.IsFinite(mass) && mass > 0f) switch {
+            (true, true, true) => null,
+            (false, _, _) => new ValidationError(message: $"SpringConfig.Stiffness must be finite and > 0 (got {stiffness:R})."),
+            (_, false, _) => new ValidationError(message: $"SpringConfig.Damping must be finite and >= 0 (got {damping:R})."),
+            (_, _, false) => new ValidationError(message: $"SpringConfig.Mass must be finite and > 0 (got {mass:R})."),
+        };
+
     public static SpringConfig Response(float response, float dampingFraction, float mass = 1f) {
         float twoPiOverR = (float)(2.0 * Math.PI) / response;
-        return new SpringConfig(
-            Stiffness: twoPiOverR * twoPiOverR * mass,
-            Damping: 4f * (float)Math.PI * dampingFraction * mass / response,
-            Mass: mass);
+        return Create(
+            stiffness: twoPiOverR * twoPiOverR * mass,
+            damping: 4f * (float)Math.PI * dampingFraction * mass / response,
+            mass: mass);
     }
+
     public static readonly SpringConfig Snappy = Response(response: 0.30f, dampingFraction: 0.85f);
     public static readonly SpringConfig Bouncy = Response(response: 0.55f, dampingFraction: 0.50f);
     public static readonly SpringConfig Smooth = Response(response: 0.50f, dampingFraction: 1.00f);
@@ -164,7 +215,34 @@ public readonly record struct SpringConfig(float Stiffness, float Damping, float
 internal readonly record struct SpringRunnerState<T>(
     T Value, T Velocity, T Target,
     SpringConfig Config, IMotionVector<T> Vector,
-    Action<T> Sink, long Clock);
+    Action<T> Sink, long Clock) : IMotionState<SpringRunnerState<T>> {
+    // Semi-implicit Euler step with frame-rate clamp. Stiffness/damping/mass cached locally for the
+    // hot loop. Displacement = current - target; force = -k*displacement - b*velocity; a = F / m.
+    public SpringRunnerState<T> Step() {
+        long now = Stopwatch.GetTimestamp();
+        float dt = Math.Min(val1: (float)Stopwatch.GetElapsedTime(startingTimestamp: Clock, endingTimestamp: now).TotalSeconds, val2: Motion.MaxFrameDelta);
+        T displacement = Vector.Subtract(Value, Target);
+        T accel = Vector.Scale(
+            Vector.Add(
+                Vector.Scale(displacement, -Config.Stiffness),
+                Vector.Scale(Velocity, -Config.Damping)),
+            1f / Config.Mass);
+        T newVelocity = Vector.Add(Velocity, Vector.Scale(accel, dt));
+        T newValue = Vector.Add(Value, Vector.Scale(newVelocity, dt));
+        return this with { Value = newValue, Velocity = newVelocity, Clock = now };
+    }
+
+    public Unit Emit() { Sink(Value); return unit; }
+
+    // Rest detection: both displacement and velocity below the per-vector visual threshold.
+    public bool IsActive =>
+        !((Vector.Norm(Vector.Subtract(Value, Target)) < Vector.RestEpsilon) && (Vector.Norm(Velocity) < Vector.RestEpsilon));
+
+    // Preserve any concurrent Target/Sink updates from SpringHandle.Retarget by merging only the
+    // integrator-owned fields back into the live cell value.
+    public SpringRunnerState<T> MergeInto(SpringRunnerState<T> live) =>
+        live with { Value = Value, Velocity = Velocity, Clock = Clock };
+}
 
 public sealed class SpringHandle<T> : IDisposable {
     private readonly Atom<SpringRunnerState<T>> cell;
@@ -208,11 +286,42 @@ internal readonly record struct PulseRunnerState<T>(
     GhDuration Duration, GhMotion Easing,
     bool Yoyo, bool Infinite,
     int CyclesRemaining,
-    IMotionVector<T> Vector);
+    IMotionVector<T> Vector,
+    Action<T> Sink) : IMotionState<PulseRunnerState<T>> {
+    // Reissue a fresh animator when the current cycle finishes and more remain; yoyo reverses
+    // endpoints on each reissue. Non-cycling completion is a no-op (IsActive returns false next).
+    public PulseRunnerState<T> Step() =>
+        (Animated.State == GhState.Finished, Infinite || CyclesRemaining > 0) switch {
+            (true, true) => this with {
+                Animated = Animated<T>.CreateUnfinished(
+                    value0: Yoyo ? Animated.Value1 : From,
+                    value1: Yoyo ? Animated.Value0 : To,
+                    duration: Animators.DurationToTimeSpan(duration: Duration),
+                    motion: Easing,
+                    interpolator: Vector.Interpolate),
+                CyclesRemaining = Infinite ? CyclesRemaining : CyclesRemaining - 1,
+            },
+            _ => this,
+        };
+
+    public Unit Emit() { Sink(Animated.ValueNow); return unit; }
+
+    public bool IsActive => Animated.State != GhState.Finished || Infinite || CyclesRemaining > 0;
+
+    public PulseRunnerState<T> MergeInto(PulseRunnerState<T> live) =>
+        live with { Animated = Animated, CyclesRemaining = CyclesRemaining };
+}
 
 public static class MotionVector {
+    // Rest-epsilon vocabulary: scalars at 1e-3 normalized; pixel-quantized geometry rests at half a
+    // logical pixel; channel-quantized colors rest at one byte of visual delta (1/255).
+    private const float ScalarRest = 0.001f;
+    private const float PixelRest = 0.5f;
+    private const float ChannelRest = 1f / 255f;
+
     public static readonly IMotionVector<float> Float = new Vector<float>(
         zero: 0f,
+        restEpsilon: ScalarRest,
         add: static (a, b) => a + b,
         subtract: static (a, b) => a - b,
         scale: static (v, s) => v * s,
@@ -220,6 +329,7 @@ public static class MotionVector {
         interpolate: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t));
     public static readonly IMotionVector<double> Double = new Vector<double>(
         zero: 0.0,
+        restEpsilon: ScalarRest,
         add: static (a, b) => a + b,
         subtract: static (a, b) => a - b,
         scale: static (v, s) => v * s,
@@ -227,6 +337,7 @@ public static class MotionVector {
         interpolate: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t));
     public static readonly IMotionVector<PointF> PointF = new Vector<PointF>(
         zero: Eto.Drawing.PointF.Empty,
+        restEpsilon: PixelRest,
         add: static (a, b) => new PointF(a.X + b.X, a.Y + b.Y),
         subtract: static (a, b) => new PointF(a.X - b.X, a.Y - b.Y),
         scale: static (v, s) => new PointF(v.X * s, v.Y * s),
@@ -234,6 +345,7 @@ public static class MotionVector {
         interpolate: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t));
     public static readonly IMotionVector<SizeF> SizeF = new Vector<SizeF>(
         zero: Eto.Drawing.SizeF.Empty,
+        restEpsilon: PixelRest,
         add: static (a, b) => new SizeF(a.Width + b.Width, a.Height + b.Height),
         subtract: static (a, b) => new SizeF(a.Width - b.Width, a.Height - b.Height),
         scale: static (v, s) => new SizeF(v.Width * s, v.Height * s),
@@ -241,6 +353,7 @@ public static class MotionVector {
         interpolate: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t));
     public static readonly IMotionVector<RectangleF> RectangleF = new Vector<RectangleF>(
         zero: Eto.Drawing.RectangleF.Empty,
+        restEpsilon: PixelRest,
         add: static (a, b) => new RectangleF(a.X + b.X, a.Y + b.Y, a.Width + b.Width, a.Height + b.Height),
         subtract: static (a, b) => new RectangleF(a.X - b.X, a.Y - b.Y, a.Width - b.Width, a.Height - b.Height),
         scale: static (v, s) => new RectangleF(v.X * s, v.Y * s, v.Width * s, v.Height * s),
@@ -248,6 +361,7 @@ public static class MotionVector {
         interpolate: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t));
     public static readonly IMotionVector<Color> Color = new Vector<Color>(
         zero: new Color(red: 0f, green: 0f, blue: 0f, alpha: 0f),
+        restEpsilon: ChannelRest,
         add: static (a, b) => new Color(red: a.R + b.R, green: a.G + b.G, blue: a.B + b.B, alpha: a.A + b.A),
         subtract: static (a, b) => new Color(red: a.R - b.R, green: a.G - b.G, blue: a.B - b.B, alpha: a.A - b.A),
         scale: static (v, s) => new Color(red: v.R * s, green: v.G * s, blue: v.B * s, alpha: v.A * s),
@@ -255,6 +369,7 @@ public static class MotionVector {
         interpolate: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t));
     public static readonly IMotionVector<Color> ColorHSL = new Vector<Color>(
         zero: new Color(red: 0f, green: 0f, blue: 0f, alpha: 0f),
+        restEpsilon: ChannelRest,
         add: static (a, b) => new Color(red: a.R + b.R, green: a.G + b.G, blue: a.B + b.B, alpha: a.A + b.A),
         subtract: static (a, b) => new Color(red: a.R - b.R, green: a.G - b.G, blue: a.B - b.B, alpha: a.A - b.A),
         scale: static (v, s) => new Color(red: v.R * s, green: v.G * s, blue: v.B * s, alpha: v.A * s),
@@ -265,6 +380,7 @@ public static class MotionVector {
         ColorHSL ha = a;
         ColorHSL hb = b;
         float tf = (float)factor;
+        // Wrap hue delta into [-180, +180] to take the shortest arc around the colour wheel.
         float hueDelta = ((hb.H - ha.H + 540f) % 360f) - 180f;
         return new ColorHSL(
             hue: ha.H + (hueDelta * tf),
@@ -276,12 +392,14 @@ public static class MotionVector {
 
 internal sealed class Vector<T>(
     T zero,
+    float restEpsilon,
     Func<T, T, T> add,
     Func<T, T, T> subtract,
     Func<T, float, T> scale,
     Func<T, float> norm,
     Func<T, T, double, T> interpolate) : IMotionVector<T> {
     public T Zero { get; } = zero;
+    public float RestEpsilon { get; } = restEpsilon;
     public T Add(T a, T b) => add(arg1: a, arg2: b);
     public T Subtract(T a, T b) => subtract(arg1: a, arg2: b);
     public T Scale(T value, float scalar) => scale(arg1: value, arg2: scalar);
@@ -314,8 +432,9 @@ public static class Glyph {
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 internal static class Motion {
-    private const float SpringRestThreshold = 0.001f;
-    private const float MaxFrameDelta = 1f / 30f;
+    // Frame-rate clamp on the integrator dt. Prevents spring instability when the window stalls
+    // (e.g., debugger break, long GC pause). Equivalent to "minimum 30 fps" assumption.
+    internal const float MaxFrameDelta = 1f / 30f;
 
     internal static GrasshopperUiIntent<Subscription> Tween<TValue>(Animated<TValue> animated, Action<TValue> sink) =>
         GhUi.Canvas(run: scope =>
@@ -342,10 +461,10 @@ internal static class Motion {
                 Vector: validVector,
                 Sink: validSink,
                 Clock: Stopwatch.GetTimestamp()))
-            let ticker = new SpringTicker<TValue>(cell: cell, canvas: canvas)
+            let runner = MotionRunner<SpringRunnerState<TValue>>.Of(cell: cell, canvas: canvas)
             from sub in Paint.Hook(
                 phase: CanvasPaintPhase.BeforeBackground,
-                paint: paintScope => Try.lift(ticker.Tick)
+                paint: _ => Try.lift(runner.Tick)
                     .Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Spring)), detail: $"tick threw: {error.Message}"))).Run(scope: scope)
             from initial in Try.lift(f: () => { canvas.ScheduleRedraw(); return unit; }).Run()
                 .MapFail(error => UiFault.ThreadMarshal(detail: $"{nameof(Spring)} initial redraw threw: {error.Message}"))
@@ -366,18 +485,19 @@ internal static class Motion {
                 value0: start, value1: target,
                 duration: Animators.DurationToTimeSpan(duration: duration),
                 motion: easing,
-                interpolator: (a, b, t) => validVector.Interpolate(a, b, t))
+                interpolator: validVector.Interpolate)
             let cell = Atom(new PulseRunnerState<TValue>(
                 Animated: initial,
                 From: start, To: target,
                 Duration: duration, Easing: easing,
                 Yoyo: yoyo, Infinite: infinite,
                 CyclesRemaining: validCycles - 1,
-                Vector: validVector))
-            let ticker = new PulseTicker<TValue>(cell: cell, sink: validSink, canvas: canvas)
+                Vector: validVector,
+                Sink: validSink))
+            let runner = MotionRunner<PulseRunnerState<TValue>>.Of(cell: cell, canvas: canvas)
             from sub in Paint.Hook(
                 phase: CanvasPaintPhase.BeforeBackground,
-                paint: paintScope => Try.lift(ticker.Tick)
+                paint: _ => Try.lift(runner.Tick)
                     .Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Pulse)), detail: $"tick threw: {error.Message}"))).Run(scope: scope)
             from kickoff in Try.lift(f: () => { canvas.ScheduleRedraw(); return unit; }).Run()
                 .MapFail(error => UiFault.ThreadMarshal(detail: $"{nameof(Pulse)} initial redraw threw: {error.Message}"))
@@ -445,90 +565,36 @@ internal static class Motion {
                 }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(ZoomGate)), detail: $"tick threw: {error.Message}"))).Run(scope: scope)
             select sub);
 
-    // Cached applyScratch delegate reads instance fields without per-frame capture; the 60 Hz
-    // path allocates only the unavoidable Atom Box<A> per swap.
-    private sealed class SpringTicker<T> {
-        private readonly Atom<SpringRunnerState<T>> cell;
+    // Unified motion capsule: state owns Step/Emit/IsActive/MergeInto; runner owns the cell+canvas
+    // plumbing, the cached applyScratch closure, and the redraw schedule. Per-tick allocations are
+    // limited to the unavoidable Atom Box<A> per swap — no per-frame closure capture.
+    internal sealed class MotionRunner<TState> where TState : struct, IMotionState<TState> {
+        private readonly Atom<TState> cell;
         private readonly Grasshopper2.UI.Canvas.Canvas canvas;
-        private readonly Func<SpringRunnerState<T>, SpringRunnerState<T>> applyScratch;
+        private readonly Func<TState, TState> applyScratch;
+        private TState scratch;
 
-        private T scratchValue = default!;
-        private T scratchVelocity = default!;
-        private long scratchClock;
-
-        internal SpringTicker(Atom<SpringRunnerState<T>> cell, Grasshopper2.UI.Canvas.Canvas canvas) {
+        private MotionRunner(Atom<TState> cell, Grasshopper2.UI.Canvas.Canvas canvas) {
             this.cell = cell;
             this.canvas = canvas;
-            applyScratch = state => state with { Value = scratchValue, Velocity = scratchVelocity, Clock = scratchClock };
-        }
-
-        internal Unit Tick() {
-            SpringRunnerState<T> s = cell.Value;
-            long now = Stopwatch.GetTimestamp();
-            float dt = Math.Min(val1: (float)Stopwatch.GetElapsedTime(startingTimestamp: s.Clock, endingTimestamp: now).TotalSeconds, val2: MaxFrameDelta);
-
-            T displacement = s.Vector.Subtract(s.Value, s.Target);
-            T accel = s.Vector.Scale(
-                s.Vector.Add(
-                    s.Vector.Scale(displacement, -s.Config.Stiffness),
-                    s.Vector.Scale(s.Velocity, -s.Config.Damping)),
-                1f / s.Config.Mass);
-            T newVelocity = s.Vector.Add(s.Velocity, s.Vector.Scale(accel, dt));
-            T newValue = s.Vector.Add(s.Value, s.Vector.Scale(newVelocity, dt));
-
-            scratchValue = newValue;
-            scratchVelocity = newVelocity;
-            scratchClock = now;
-            _ = cell.Swap(applyScratch);
-            s.Sink(newValue);
-
-            bool atRest = (s.Vector.Norm(displacement) < SpringRestThreshold) && (s.Vector.Norm(newVelocity) < SpringRestThreshold);
-            _ = atRest ? unit : Wake();
-            return unit;
-        }
-
-        private Unit Wake() { canvas.ScheduleRedraw(); return unit; }
-    }
-
-    private sealed class PulseTicker<T> {
-        private readonly Atom<PulseRunnerState<T>> cell;
-        private readonly Action<T> sink;
-        private readonly Grasshopper2.UI.Canvas.Canvas canvas;
-        private readonly Func<PulseRunnerState<T>, PulseRunnerState<T>> applyScratch;
-
-        private Animated<T> scratchAnimated = default!;
-        private int scratchCyclesRemaining;
-
-        internal PulseTicker(Atom<PulseRunnerState<T>> cell, Action<T> sink, Grasshopper2.UI.Canvas.Canvas canvas) {
-            this.cell = cell;
-            this.sink = sink;
-            this.canvas = canvas;
-            applyScratch = state => state with { Animated = scratchAnimated, CyclesRemaining = scratchCyclesRemaining };
-        }
-
-        internal Unit Tick() {
-            PulseRunnerState<T> s = cell.Value;
-            sink(s.Animated.ValueNow);
-            bool finished = s.Animated.State == GhState.Finished;
-            bool moreCycles = s.Infinite || s.CyclesRemaining > 0;
-            _ = (finished, moreCycles) switch {
-                (true, true) => Reissue(s),
-                (false, _) => Wake(),
-                _ => unit,
+            // Block body re-reads the mutable `scratch` field on every invocation. A method-group form
+            // `scratch.MergeInto` would bind the struct receiver at construction (to default(TState))
+            // and freeze the merge; the explicit read here is load-bearing.
+            applyScratch = live => {
+                TState current = scratch;
+                return current.MergeInto(live: live);
             };
-            return unit;
         }
 
-        private Unit Reissue(PulseRunnerState<T> s) {
-            scratchAnimated = Animated<T>.CreateUnfinished(
-                value0: s.Yoyo ? s.Animated.Value1 : s.From,
-                value1: s.Yoyo ? s.Animated.Value0 : s.To,
-                duration: Animators.DurationToTimeSpan(duration: s.Duration),
-                motion: s.Easing,
-                interpolator: s.Vector.Interpolate);
-            scratchCyclesRemaining = s.Infinite ? s.CyclesRemaining : s.CyclesRemaining - 1;
+        internal static MotionRunner<TState> Of(Atom<TState> cell, Grasshopper2.UI.Canvas.Canvas canvas) =>
+            new(cell: cell, canvas: canvas);
+
+        internal Unit Tick() {
+            TState next = cell.Value.Step();
+            _ = next.Emit();
+            scratch = next;
             _ = cell.Swap(applyScratch);
-            canvas.ScheduleRedraw();
+            _ = next.IsActive ? Wake() : unit;
             return unit;
         }
 

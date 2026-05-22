@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.UI.Canvas;
 using Grasshopper2.UI.Flex;
 using Grasshopper2.UI.Icon;
@@ -56,16 +58,18 @@ public readonly record struct PaintScope(
             .Bind(valid => valid.Apply(scope: current));
     }
 
-    public Fin<PaintTextMeasurement> MeasureText(string value, Option<UiFont> font = default) {
-        ControlGraphics graphics = Graphics;
-        return Optional(value)
+    // Routed through TextMeasure (process-static cache + private FormattedText scratch). Avoids
+    // Graphics.MeasureString's silent state leak: that method mutates the private SharedFormattedText
+    // singleton with only Font+Text, inheriting Wrap/Alignment/Trimming/MaximumSize from whatever
+    // the prior DrawText left behind (verified against Eto.Mac.Drawing.GraphicsHandler.MeasureString
+    // IL offset 37767-37773, Eto 2.11.0).
+    public Fin<PaintTextMeasurement> MeasureText(string value, Option<UiFont> font = default) =>
+        Optional(value)
             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(MeasureText)), detail: "text is required"))
             .Bind(valid => Try.lift(f: () =>
-                font.IfNone(UiFont.Empty()).Use(run: resolved => {
-                    SizeF size = graphics.Content.MeasureString(font: resolved, text: valid);
-                    return new PaintTextMeasurement(Text: valid, Size: size);
-                })).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(MeasureText)), detail: error.Message)));
-    }
+                font.IfNone(UiFont.Empty()).Use(run: resolved =>
+                    new PaintTextMeasurement(Text: valid, Size: TextMeasure.Single(font: resolved, text: valid))
+                )).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(MeasureText)), detail: error.Message)));
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -103,6 +107,58 @@ public readonly record struct PaintStyle(
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct PaintTextMeasurement(string Text, SizeF Size);
 
+// Process-static measurement cache. Keys by (Font, Text, Wrap, Alignment, Trimming, MaxWidth,
+// MaxHeight, Decoration) since FormattedText.Measure honors all of these. Font carries value-
+// semantic Equals/GetHashCode on (Family, Size, Style, Platform) per Eto.Drawing.Font:130-142,
+// but FontDecoration is NOT in that equality — included explicitly here. Per-thread FormattedText
+// scratch avoids cross-thread mutation; AppKit text APIs are main-thread-only on macOS Quartz, so
+// callers off the UI thread must marshal first (the paint hook pipeline already guarantees UI
+// thread). Cache hits skip the entire NSAttributedString + NSLayoutManager + BoundingRectWithSize
+// pipeline (verified against Eto.Mac.Drawing.FormattedTextHandler IL offset 37004-37271).
+internal static class TextMeasure {
+    private readonly record struct Key(
+        Font Font, string Text,
+        FormattedTextWrapMode Wrap, FormattedTextAlignment Alignment, FormattedTextTrimming Trimming,
+        float MaxWidth, float MaxHeight, FontDecoration Decoration);
+
+    private static readonly ConcurrentDictionary<Key, SizeF> Cache = new();
+    [ThreadStatic] private static FormattedText? scratch;
+
+    private static FormattedText Scratch() => scratch ??= new FormattedText();
+
+    // Single-line measurement: Wrap=None, no trimming, unbounded max size. Matches the intent of
+    // the prior Graphics.MeasureString call but without the shared-state leak.
+    internal static SizeF Single(Font font, string text) =>
+        Measure(font: font, text: text,
+            wrap: FormattedTextWrapMode.None,
+            alignment: FormattedTextAlignment.Left,
+            trimming: FormattedTextTrimming.None,
+            maxSize: new SizeF(float.MaxValue, float.MaxValue));
+
+    // Layout-aware measurement honoring wrap/alignment/trimming/maxSize. Use when measuring text
+    // that will be rendered through Graphics.DrawText(font, brush, frame, text, wrap, alignment,
+    // trimming) — measurement and draw must agree on all six axes.
+    internal static SizeF Measure(Font font, string text,
+        FormattedTextWrapMode wrap, FormattedTextAlignment alignment, FormattedTextTrimming trimming,
+        SizeF maxSize) =>
+        Cache.GetOrAdd(
+            key: new Key(Font: font, Text: text, Wrap: wrap, Alignment: alignment, Trimming: trimming,
+                MaxWidth: maxSize.Width, MaxHeight: maxSize.Height, Decoration: font.FontDecoration),
+            valueFactory: static k => {
+                FormattedText ft = Scratch();
+                ft.Font = k.Font;
+                ft.Text = k.Text;
+                ft.Wrap = k.Wrap;
+                ft.Alignment = k.Alignment;
+                ft.Trimming = k.Trimming;
+                ft.MaximumSize = new SizeF(width: k.MaxWidth, height: k.MaxHeight);
+                return ft.Measure();
+            });
+
+    internal static int Count => Cache.Count;
+    internal static Unit Clear() { Cache.Clear(); return unit; }
+}
+
 [Union]
 public partial record UiFont {
     private UiFont() { }
@@ -118,23 +174,31 @@ public partial record UiFont {
         new FamilyCase(Name: family, Size: size, Style: style, Decoration: decoration);
     public static UiFont Native(Font value) => new NativeCase(Value: value);
 
-    internal T Use<T>(Func<Font, T> run) {
-        T UseFamily(FamilyCase family) {
-            using Font owned = new(family: family.Name, size: family.Size, style: family.Style, decoration: family.Decoration);
-            return run(arg: owned);
-        }
-        return this switch {
-            SystemCase system => run(arg: SystemFonts.Cached(systemFont: system.Kind, size: system.Size, decoration: system.Decoration)),
-            FamilyCase family => UseFamily(family: family),
-            NativeCase native => run(arg: native.Value),
-            _ => run(arg: SystemFonts.Default()),
-        };
-    }
+    // State-threaded dispatch passes the caller's run delegate through `state` so every arm stays
+    // `static`. Family case owns a transient Font via `using`; system/native/empty cases hit cached
+    // or caller-owned instances directly.
+    internal T Use<T>(Func<Font, T> run) =>
+        Switch(state: run,
+            systemCase: static (r, s) => r(arg: SystemFonts.Cached(systemFont: s.Kind, size: s.Size, decoration: s.Decoration)),
+            familyCase: static (r, f) => {
+                using Font owned = new(family: f.Name, size: f.Size, style: f.Style, decoration: f.Decoration);
+                return r(arg: owned);
+            },
+            nativeCase: static (r, n) => r(arg: n.Value),
+            emptyCase: static (r, _) => r(arg: SystemFonts.Default()));
 }
 
-// Polymorphic fill source. Solid uses Brushes.Cached for hot-path reuse; gradient/texture cases
-// build a new Brush per draw since each carries unique positioning. Each case owns its brush
-// construction via CreateBrush — DrawMark callers see one uniform surface.
+// Polymorphic fill source. Solid hits Brushes.Cached for hot-path reuse; gradient/texture cases
+// build a fresh Brush per draw since each carries unique positioning. Per Eto 2.11.0 IL inspection
+// on macOS Quartz, every Brush.Dispose() is effectively inert: the handler ControlObject is non-
+// IDisposable (`BrushData` struct for Solid; non-IDisposable `BrushObject` reference types for
+// LinearGradient/RadialGradient/Texture), and native CGGradient/CGImage release only via the
+// finalizer of the wrapper NativeObject — there is no eager release path through the managed API.
+// Consequently `using` on the returned Brush is safe-but-pointless under current Eto; a
+// UseBrush<T> dispatcher would add ceremony without removing any leak. If a future Eto release
+// attaches IDisposable to a handler control object, switch CreateBrush to a higher-order form
+// at that point. IsCached remains as the defensive discriminant for callers that want to gate
+// on disposal policy proactively.
 [Union]
 public partial record FillSource {
     private FillSource() { }
@@ -151,8 +215,6 @@ public partial record FillSource {
     public static FillSource Texture(Image source, float opacity = 1f) =>
         new TextureCase(Source: source, Opacity: opacity);
 
-    // Solid path returns the cached singleton; gradient/texture paths allocate fresh. Callers must
-    // never Dispose the returned Brush when the source is Solid — the cache owns the lifetime.
     internal Brush CreateBrush() =>
         Switch<Brush>(
             solidCase: static s => Brushes.Cached(color: s.Colour),
@@ -163,8 +225,13 @@ public partial record FillSource {
     internal bool IsCached => this is SolidCase;
 }
 
-// Polymorphic edge source. Solid case uses Pens.Cached when the configured pen is vanilla
-// (Eto.Drawing.Pen ctor defaults: PenLineCap.Square, PenLineJoin.Miter, MiterLimit 10).
+// Polymorphic edge source. Solid+vanilla cap/join routes through Pens.Cached(color, thickness,
+// dash) for hot-path reuse. The vanilla predicate matches Eto.Mac.Drawing.PenHandler.Create exactly
+// (Eto 2.11.0 IL line 111: LineCap = PenLineCap.Square.ToCG(); LineJoin defaults to enum-zero =
+// kCGLineJoinMiter; MiterLimit = 10f; DashStyle = null). Non-vanilla paths and brush-backed pens
+// allocate fresh — caller-owned lifetime via `using` (also inert disposal under Eto 2.11 since
+// the PenControl ControlObject is non-IDisposable, but reserving `using` future-proofs against
+// upstream contract tightening).
 [Union]
 public partial record EdgeSource {
     private EdgeSource() { }
@@ -174,25 +241,44 @@ public partial record EdgeSource {
     public static EdgeSource Solid(Color colour) => new SolidCase(Colour: colour);
     public static EdgeSource FromFill(FillSource source) => new BrushBackedCase(Source: source);
 
-    // Returns a Pen with the given thickness + dash. For Solid+vanilla cap/join the cached singleton
-    // is returned; otherwise a fresh Pen is allocated (caller must Dispose via using).
-    internal Pen CreatePen(float thickness, PenLineCap cap, PenLineJoin join, float miterLimit, DashStyle dash) {
-        bool vanilla = cap == PenLineCap.Square && join == PenLineJoin.Miter && miterLimit == 10f;
-        return Switch(
-            solidCase: s => vanilla
+    internal Pen CreatePen(float thickness, PenLineCap cap, PenLineJoin join, float miterLimit, DashStyle dash) =>
+        Switch(
+            solidCase: s => IsVanilla(cap: cap, join: join, miterLimit: miterLimit)
                 ? Pens.Cached(color: s.Colour, thickness: thickness, dashStyle: dash)
                 : new Pen(color: s.Colour, thickness: thickness) { LineCap = cap, LineJoin = join, MiterLimit = miterLimit, DashStyle = dash },
             brushBackedCase: b => new Pen(brush: b.Source.CreateBrush(), thickness: thickness) { LineCap = cap, LineJoin = join, MiterLimit = miterLimit, DashStyle = dash });
-    }
 
     internal bool IsCached(PenLineCap cap, PenLineJoin join, float miterLimit) =>
-        this is SolidCase && cap == PenLineCap.Square && join == PenLineJoin.Miter && miterLimit == 10f;
+        this is SolidCase && IsVanilla(cap: cap, join: join, miterLimit: miterLimit);
+
+    private static bool IsVanilla(PenLineCap cap, PenLineJoin join, float miterLimit) =>
+        cap == PenLineCap.Square && join == PenLineJoin.Miter && miterLimit == 10f;
 }
 
-// Per-corner rounded rectangle radii (clockwise from top-left).
+// Per-corner rounded rectangle radii (clockwise from top-left). Each corner must be finite and
+// non-negative — GraphicsPath.GetRoundRect silently mis-renders with NaN or negative input, so the
+// invariant is enforced at construction.
+[ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct CornerRadii(float TopLeft, float TopRight, float BottomRight, float BottomLeft) {
-    public static CornerRadii Uniform(float radius) => new(TopLeft: radius, TopRight: radius, BottomRight: radius, BottomLeft: radius);
+public readonly partial struct CornerRadii {
+    public float TopLeft { get; }
+    public float TopRight { get; }
+    public float BottomRight { get; }
+    public float BottomLeft { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float topLeft, ref float topRight, ref float bottomRight, ref float bottomLeft) =>
+        validationError = (Valid(topLeft), Valid(topRight), Valid(bottomRight), Valid(bottomLeft)) switch {
+            (true, true, true, true) => null,
+            (false, _, _, _) => new ValidationError(message: $"CornerRadii.TopLeft must be finite and >= 0 (got {topLeft:R})."),
+            (_, false, _, _) => new ValidationError(message: $"CornerRadii.TopRight must be finite and >= 0 (got {topRight:R})."),
+            (_, _, false, _) => new ValidationError(message: $"CornerRadii.BottomRight must be finite and >= 0 (got {bottomRight:R})."),
+            (_, _, _, false) => new ValidationError(message: $"CornerRadii.BottomLeft must be finite and >= 0 (got {bottomLeft:R})."),
+        };
+
+    private static bool Valid(float corner) => float.IsFinite(corner) && corner >= 0f;
+
+    public static CornerRadii Uniform(float radius) => Create(topLeft: radius, topRight: radius, bottomRight: radius, bottomLeft: radius);
     internal bool IsUniform => TopLeft == TopRight && TopLeft == BottomRight && TopLeft == BottomLeft;
 }
 
@@ -238,62 +324,56 @@ public partial record DrawMark {
     public static DrawMark WirePreview(PointF source, PointF target, WireKind kind = WireKind.Tentative) =>
         new WireCase(Source: source, Target: target, Kind: kind, Style: new PaintStyle(Edge: Colors.Transparent));
 
+    // State-threaded dispatch: scope flows through `state` so every arm stays `static` (no closure
+    // capture per-paint). Each arm receives (scope, case-payload) and dispatches to the appropriate
+    // shape/text/image/wire primitive.
     internal Fin<Unit> Apply(PaintScope scope) =>
-        Try.lift(f: () => this switch {
-            LineCase line => Draw(scope: scope, style: line.Style, run: graphics => {
+        Try.lift(f: () => Switch(state: scope,
+            lineCase: static (s, line) => Draw(scope: s, style: line.Style, run: graphics => {
                 using Pen pen = line.Style.Pen();
                 graphics.DrawLine(pen, line.A.X, line.A.Y, line.B.X, line.B.Y);
                 return unit;
             }),
-            RectangleCase rectangle => Draw(scope: scope, style: rectangle.Style, run: graphics => {
-                PaintShape shape = PaintShape.Rectangle(bounds: rectangle.Bounds);
-                return DrawShape(graphics: graphics, style: rectangle.Style, shape: shape);
+            rectangleCase: static (s, r) => Draw(scope: s, style: r.Style, run: graphics =>
+                DrawShape(graphics: graphics, style: r.Style, shape: PaintShape.Rectangle(bounds: r.Bounds))),
+            roundedRectangleCase: static (s, r) => Draw(scope: s, style: r.Style, run: graphics => {
+                using IGraphicsPath path = GraphicsPath.GetRoundRect(rectangle: r.Bounds, radius: r.Radius);
+                return DrawShape(graphics: graphics, style: r.Style, shape: PaintShape.Path(path: path));
             }),
-            RoundedRectangleCase rounded => Draw(scope: scope, style: rounded.Style, run: graphics => {
-                using IGraphicsPath path = GraphicsPath.GetRoundRect(rectangle: rounded.Bounds, radius: rounded.Radius);
-                PaintShape shape = PaintShape.Path(path: path);
-                return DrawShape(graphics: graphics, style: rounded.Style, shape: shape);
-            }),
-            RoundedCornersCase corners => Draw(scope: scope, style: corners.Style, run: graphics => {
-                using IGraphicsPath path = corners.Radii.IsUniform
-                    ? GraphicsPath.GetRoundRect(rectangle: corners.Bounds, radius: corners.Radii.TopLeft)
+            roundedCornersCase: static (s, c) => Draw(scope: s, style: c.Style, run: graphics => {
+                using IGraphicsPath path = c.Radii.IsUniform
+                    ? GraphicsPath.GetRoundRect(rectangle: c.Bounds, radius: c.Radii.TopLeft)
                     : GraphicsPath.GetRoundRect(
-                        rectangle: corners.Bounds,
-                        nwRadius: corners.Radii.TopLeft,
-                        neRadius: corners.Radii.TopRight,
-                        seRadius: corners.Radii.BottomRight,
-                        swRadius: corners.Radii.BottomLeft);
-                PaintShape shape = PaintShape.Path(path: path);
-                return DrawShape(graphics: graphics, style: corners.Style, shape: shape);
+                        rectangle: c.Bounds,
+                        nwRadius: c.Radii.TopLeft,
+                        neRadius: c.Radii.TopRight,
+                        seRadius: c.Radii.BottomRight,
+                        swRadius: c.Radii.BottomLeft);
+                return DrawShape(graphics: graphics, style: c.Style, shape: PaintShape.Path(path: path));
             }),
-            EllipseCase ellipse => Draw(scope: scope, style: ellipse.Style, run: graphics => {
-                PaintShape shape = PaintShape.Ellipse(bounds: ellipse.Bounds);
-                return DrawShape(graphics: graphics, style: ellipse.Style, shape: shape);
-            }),
-            PathCase path => Draw(scope: scope, style: path.Style, run: graphics => {
-                PaintShape shape = PaintShape.Path(path: path.Geometry);
-                return DrawShape(graphics: graphics, style: path.Style, shape: shape);
-            }),
-            TextCase text => Draw(scope: scope, style: text.Style, run: graphics =>
-                text.Style.Font.IfNone(UiFont.Empty()).Use(run: font => {
-                    using SolidBrush brush = PaintStyle.Brush(color: text.Style.Edge);
-                    graphics.DrawText(font, brush, text.Frame, text.Value, text.Wrap, text.Alignment, text.Trimming);
+            ellipseCase: static (s, e) => Draw(scope: s, style: e.Style, run: graphics =>
+                DrawShape(graphics: graphics, style: e.Style, shape: PaintShape.Ellipse(bounds: e.Bounds))),
+            pathCase: static (s, p) => Draw(scope: s, style: p.Style, run: graphics =>
+                DrawShape(graphics: graphics, style: p.Style, shape: PaintShape.Path(path: p.Geometry))),
+            textCase: static (s, t) => Draw(scope: s, style: t.Style, run: graphics =>
+                t.Style.Font.IfNone(UiFont.Empty()).Use(run: font => {
+                    using SolidBrush brush = PaintStyle.Brush(color: t.Style.Edge);
+                    graphics.DrawText(font, brush, t.Frame, t.Value, t.Wrap, t.Alignment, t.Trimming);
                     return unit;
                 })),
-            ImageCase image => Draw(scope: scope, style: image.Style, run: graphics => {
-                graphics.DrawImage(image: image.Value, rectangle: image.Frame);
+            imageCase: static (s, i) => Draw(scope: s, style: i.Style, run: graphics => {
+                graphics.DrawImage(image: i.Value, rectangle: i.Frame);
                 return unit;
             }),
-            GhIconCase icon => Draw(scope: scope, style: icon.Style, run: _ => {
-                icon.Value.Draw(context: new IconContext(
-                    context: Eto.Drawing.Context.CreateFromContent(graphics: scope.Graphics),
-                    frame: icon.Frame,
-                    background: icon.Style.Background));
+            ghIconCase: static (s, g) => Draw(scope: s, style: g.Style, run: _ => {
+                g.Value.Draw(context: new IconContext(
+                    context: Eto.Drawing.Context.CreateFromContent(graphics: s.Graphics),
+                    frame: g.Frame,
+                    background: g.Style.Background));
                 return unit;
             }),
-            WireCase wire => DrawWire(scope: scope, wire: wire),
-            _ => unit,
-        }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(DrawMark)), detail: $"{GetType().Name} draw failed: {error.Message}"));
+            wireCase: static (s, w) => DrawWire(scope: s, wire: w)
+        )).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(DrawMark)), detail: $"{GetType().Name} draw failed: {error.Message}"));
 
     private static Unit Draw(PaintScope scope, PaintStyle style, Func<Graphics, Unit> run) {
         Graphics graphics = scope.Graphics.Content;

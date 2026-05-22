@@ -617,11 +617,11 @@ internal static partial class UiRail {
     private static Fin<DocumentResult> HistoryDispatch(GrasshopperUi.Scope scope, DocumentHistoryOp op) =>
         op.Switch(
             state: scope,
-            queryCase: (s, _) => s.NeedDocument().Map(document => (DocumentResult)new DocumentResult.HistoryResult(Snapshot: HistorySnapshotOf(document: document))),
-            undoCase: (s, _) => MutateHistory(scope: s, op: Op.Of(name: nameof(DocumentHistoryOp.Undo)), run: static document => document.Undo.Undo()),
-            redoCase: (s, _) => MutateHistory(scope: s, op: Op.Of(name: nameof(DocumentHistoryOp.Redo)), run: static document => document.Undo.Redo()),
-            clearCase: (s, _) => MutateHistory(scope: s, op: Op.Of(name: nameof(DocumentHistoryOp.Clear)), run: static document => document.Undo.Clear()),
-            showHistoryCase: (s, _) => DispatchShowHistory(scope: s));
+            queryCase: static (s, _) => s.NeedDocument().Map(document => (DocumentResult)new DocumentResult.HistoryResult(Snapshot: HistorySnapshotOf(document: document))),
+            undoCase: static (s, _) => MutateHistory(scope: s, op: Op.Of(name: nameof(DocumentHistoryOp.Undo)), run: static document => document.Undo.Undo()),
+            redoCase: static (s, _) => MutateHistory(scope: s, op: Op.Of(name: nameof(DocumentHistoryOp.Redo)), run: static document => document.Undo.Redo()),
+            clearCase: static (s, _) => MutateHistory(scope: s, op: Op.Of(name: nameof(DocumentHistoryOp.Clear)), run: static document => document.Undo.Clear()),
+            showHistoryCase: static (s, _) => DispatchShowHistory(scope: s));
 
     private static Fin<DocumentResult> DispatchShowHistory(GrasshopperUi.Scope scope) =>
         from document in scope.NeedDocument()
