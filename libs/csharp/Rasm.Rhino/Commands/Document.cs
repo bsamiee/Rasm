@@ -101,11 +101,11 @@ public abstract record DocumentTarget {
             Optional(native.Attributes?.GetUserString(key: valid)).Map(stored => value.Case switch {
                 string expected => string.Equals(a: stored, b: expected, comparisonType: StringComparison.Ordinal),
                 _ => !string.IsNullOrEmpty(value: stored),
-            }).IfNone(false)));
+            }).IfNone(noneValue: false)));
 
     public static Fin<DocumentTarget> DrawColor(System.Drawing.Color color) =>
         color.IsEmpty switch {
-            false => Fin.Succ<DocumentTarget>(value: new PredicateTarget(QuerySettings(), (document, native) => Optional(native.Attributes).Map(attributes => attributes.DrawColor(document: document) == color).IfNone(false))),
+            false => Fin.Succ<DocumentTarget>(value: new PredicateTarget(QuerySettings(), (document, native) => Optional(native.Attributes).Map(attributes => attributes.DrawColor(document: document) == color).IfNone(noneValue: false))),
             true => Fin.Fail<DocumentTarget>(error: Op.Of(name: nameof(DrawColor)).InvalidInput()),
         };
 
@@ -236,7 +236,7 @@ public abstract record DocumentTarget {
                     .TraverseM(id => Optional(document.Objects.FindId(id))
                         .ToFin(Fail: op.InvalidResult())
                         .Bind(native => native.IsDeleted switch {
-                            false => op.Confirm(success: document.Objects.Delete(native, quiet, true)),
+                            false => op.Confirm(success: document.Objects.Delete(native, quiet, ignoreModes: true)),
                             true => Fin.Fail<Unit>(error: op.InvalidResult()),
                         }))
                     .Map(static _ => unit),

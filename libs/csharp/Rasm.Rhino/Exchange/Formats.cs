@@ -8,52 +8,68 @@ namespace Rasm.Rhino.Exchange;
 
 // --- [TYPES] ------------------------------------------------------------------------------
 public readonly record struct FileCapability {
-    private FileCapability(bool import, bool export, bool archive) =>
-        (Import, Export, Archive) = (import, export, archive);
+    private FileCapability(bool import, bool export, bool archive, bool publish) =>
+        (Import, Export, Archive, Publish) = (import, export, archive, publish);
 
     public bool Import { get; }
     public bool Export { get; }
     internal bool Archive { get; }
+    internal bool Publish { get; }
 
     public static FileCapability Plugin(bool import = true, bool export = true) =>
-        new(import: import, export: export, archive: false);
+        new(import: import, export: export, archive: false, publish: false);
 
-    internal static FileCapability File3dm { get; } = new(import: true, export: true, archive: true);
+    public static FileCapability Raster { get; } = new(import: false, export: false, archive: false, publish: true);
 
-    internal bool Supports(FilePhase phase) =>
-        phase switch {
-            FilePhase.Open or FilePhase.SaveAs or FilePhase.Write3dmFile or FilePhase.SaveTemplate => Archive,
-            FilePhase.Headless => Archive || Import,
-            FilePhase.Import => Import,
-            FilePhase.Export or FilePhase.WriteFile => Export,
-            _ => false,
-        };
+    internal static FileCapability File3dm { get; } = new(import: true, export: true, archive: true, publish: false);
+
+    internal static FileCapability PdfFormat { get; } = new(import: true, export: false, archive: false, publish: true);
+
+    internal static FileCapability SvgFormat { get; } = new(import: true, export: false, archive: false, publish: true);
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
 public sealed record FileFormat {
-    private readonly FileFormatOps ops;
-
-    private FileFormat(string key, Seq<string> extensions, FileFormatOps ops) =>
-        (Key, Extensions, this.ops) = (key, extensions, ops);
+    private FileFormat(string key, Seq<string> extensions, FileCapability capability,
+        Func<FileProfile, ArchivableDictionary>? read,
+        Func<FileProfile, ArchivableDictionary>? write,
+        Func<FileProfile, FileReadOptions, RhinoDoc, FileEndpoint, Fin<Unit>>? directRead,
+        Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>>? directWrite,
+        bool directWriteOptions) {
+        Key = key;
+        Extensions = extensions;
+        Capability = capability;
+        readBuilder = read;
+        writeBuilder = write;
+        directReadCall = directRead;
+        directWriteCall = directWrite;
+        this.directWriteOptions = directWriteOptions;
+    }
 
     public string Key { get; }
     public Seq<string> Extensions { get; }
+    internal FileCapability Capability { get; }
+
+    private readonly Func<FileProfile, ArchivableDictionary>? readBuilder;
+    private readonly Func<FileProfile, ArchivableDictionary>? writeBuilder;
+    private readonly Func<FileProfile, FileReadOptions, RhinoDoc, FileEndpoint, Fin<Unit>>? directReadCall;
+    private readonly Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>>? directWriteCall;
+    private readonly bool directWriteOptions;
 
     internal Fin<Unit> Read(FileReadOptions options, RhinoDoc document, FileEndpoint source, FileProfile profile) =>
-        ops.DirectRead switch {
+        directReadCall switch {
             Func<FileProfile, FileReadOptions, RhinoDoc, FileEndpoint, Fin<Unit>> read => read(arg1: profile, arg2: options, arg3: document, arg4: source),
             _ => NativeBool(run: () => document.Import(filePath: source.Path, options: options.OptionsDictionary), op: Op.Of(name: $"{Key}Read")),
         };
 
     internal Fin<Unit> Write(FileWriteOptions options, RhinoDoc document, FileEndpoint target, FileProfile profile) =>
-        (DirectFileReady(options: options, writesOptions: ops.DirectWriteOptions), ops.DirectWrite) switch {
+        ((directWriteOptions || options.Xform.IsIdentity) && !options.CreateBackupFiles && !options.CreateOtherBackupFiles, directWriteCall) switch {
             (true, Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>> write) => write(arg1: profile, arg2: options, arg3: document, arg4: target),
             _ => NativeBool(run: () => document.WriteFile(path: target.Path, options: options), op: Op.Of(name: $"{Key}Write")),
         };
 
     internal Fin<Unit> Export(FileWriteOptions options, RhinoDoc document, FileEndpoint target, FileProfile profile) =>
-        (this == ThreeDm, options.WriteSelectedObjectsOnly, DirectExportReady(options: options, writesOptions: ops.DirectWriteOptions), ops.DirectWrite) switch {
+        (this == ThreeDm, options.WriteSelectedObjectsOnly, directWriteOptions || options.Xform.IsIdentity, directWriteCall) switch {
             (true, _, _, _) => NativeBool(run: () => document.Write3dmFile(path: target.Path, options: options), op: Op.Of(name: $"{Key}Export")),
             (false, false, true, Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>> write) => write(arg1: profile, arg2: options, arg3: document, arg4: target),
             (false, true, _, _) => NativeBool(run: () => document.ExportSelected(filePath: target.Path, options: options.OptionsDictionary), op: Op.Of(name: $"{Key}Export")),
@@ -61,17 +77,12 @@ public sealed record FileFormat {
         };
 
     internal Option<ArchivableDictionary> Dictionary(FileProfile profile, FilePhase phase) =>
-        (phase, ops.Read, ops.Write) switch {
-            (FilePhase.Headless or FilePhase.Import, Func<FileProfile, ArchivableDictionary> read, _) => Some(read(arg: profile)),
-            (FilePhase.Export or FilePhase.WriteFile, _, Func<FileProfile, ArchivableDictionary> write) => Some(write(arg: profile)),
-            _ => Option<ArchivableDictionary>.None,
-        };
+        (phase == FilePhase.Headless || phase == FilePhase.Import) && readBuilder is not null ? Some(readBuilder(arg: profile))
+        : (phase == FilePhase.Export || phase == FilePhase.WriteFile) && writeBuilder is not null ? Some(writeBuilder(arg: profile))
+        : Option<ArchivableDictionary>.None;
 
     internal bool Supports(FilePhase phase) =>
-        phase switch {
-            FilePhase.Publish => this == Pdf,
-            _ => ops.Capability.Supports(phase: phase),
-        };
+        phase.Allows(capability: Capability);
 
     public static FileFormat ThreeDm { get; } = Native(key: "3dm", extensions: Seq(".3dm"), archive: true);
     public static FileFormat ThreeDs { get; } = Native(
@@ -142,10 +153,30 @@ public sealed record FileFormat {
     public static FileFormat Csv { get; } = Native(key: "csv", extensions: Seq(".csv"), import: false, write: static profile => CsvOptions(profile: profile).ToDictionary(), directWrite: DirectWrite(static (profile, _) => CsvOptions(profile: profile), FileCsv.Write, "csvWrite"));
     public static FileFormat Gltf { get; } = Native(key: "gltf", extensions: Seq(".gltf", ".glb"), import: false, write: static profile => GltfWriteOptions(profile: profile).ToDictionary(), directWrite: DirectWrite(static (profile, _) => GltfWriteOptions(profile: profile), FileGltf.Write, "gltfWrite"));
     public static FileFormat Usd { get; } = Native(key: "usd", extensions: Seq(".usd", ".usda", ".usdz"), import: false, write: static profile => UsdWriteOptions(profile: profile).ToDictionary(), directWrite: DirectWrite(static (profile, _) => UsdWriteOptions(profile: profile), FileUsd.Write, "usdWrite"));
-    public static FileFormat Pdf { get; } = Native(key: "pdf", extensions: Seq(".pdf"), export: false, read: static profile => PdfReadOptions(profile: profile).ToDictionary(), directRead: DirectRead(static (profile, _) => PdfReadOptions(profile: profile), FilePdf.Read, "pdfRead"));
-    public static FileFormat Svg { get; } = Native(key: "svg", extensions: Seq(".svg"), export: false, read: static _ => new FileSvgReadOptions().ToDictionary(), directRead: DirectRead(NewRead<FileSvgReadOptions>(), FileSvg.Read, "svgRead"));
+    public static FileFormat Pdf { get; } = new(
+        key: "pdf",
+        extensions: Seq(".pdf"),
+        capability: FileCapability.PdfFormat,
+        read: static profile => PdfReadOptions(profile: profile).ToDictionary(),
+        write: null,
+        directRead: DirectRead(static (profile, _) => PdfReadOptions(profile: profile), FilePdf.Read, "pdfRead"),
+        directWrite: null,
+        directWriteOptions: false);
+    public static FileFormat Svg { get; } = new(
+        key: "svg",
+        extensions: Seq(".svg"),
+        capability: FileCapability.SvgFormat,
+        read: static _ => new FileSvgReadOptions().ToDictionary(),
+        write: null,
+        directRead: DirectRead(NewRead<FileSvgReadOptions>(), FileSvg.Read, "svgRead"),
+        directWrite: null,
+        directWriteOptions: false);
+    public static FileFormat Png { get; } = new(key: "png", extensions: Seq(".png"), capability: FileCapability.Raster, read: null, write: null, directRead: null, directWrite: null, directWriteOptions: false);
+    public static FileFormat Jpeg { get; } = new(key: "jpeg", extensions: Seq(".jpg", ".jpeg"), capability: FileCapability.Raster, read: null, write: null, directRead: null, directWrite: null, directWriteOptions: false);
+    public static FileFormat Tiff { get; } = new(key: "tiff", extensions: Seq(".tif", ".tiff"), capability: FileCapability.Raster, read: null, write: null, directRead: null, directWrite: null, directWriteOptions: false);
+    public static FileFormat Bmp { get; } = new(key: "bmp", extensions: Seq(".bmp"), capability: FileCapability.Raster, read: null, write: null, directRead: null, directWrite: null, directWriteOptions: false);
 
-    public static Seq<FileFormat> Known { get; } = Seq(ThreeDm, ThreeDs, ThreeMf, Ai, Amf, Obj, Ply, Cd, Dgn, Dst, Dwg, Eps, Stl, Stp, Fbx, Ghs, Gts, Iges, Lwo, Nwd, Pov, Sat, Skp, Slc, Sw, Udo, Vda, Vrml, X3dv, Xaml, Xt, Raw, Txt, Csv, Gltf, Usd, Pdf, Svg);
+    public static Seq<FileFormat> Known { get; } = Seq(ThreeDm, ThreeDs, ThreeMf, Ai, Amf, Obj, Ply, Cd, Dgn, Dst, Dwg, Eps, Stl, Stp, Fbx, Ghs, Gts, Iges, Lwo, Nwd, Pov, Sat, Skp, Slc, Sw, Udo, Vda, Vrml, X3dv, Xaml, Xt, Raw, Txt, Csv, Gltf, Usd, Pdf, Svg, Png, Jpeg, Tiff, Bmp);
 
     private static FrozenDictionary<string, FileFormat> ByKey { get; } =
         Known.AsIterable().ToFrozenDictionary(keySelector: static format => format.Key, elementSelector: static format => format, comparer: StringComparer.OrdinalIgnoreCase);
@@ -181,22 +212,22 @@ public sealed record FileFormat {
                 .Bind(text => text.TrimStart('.').Equals(value: "json", comparisonType: StringComparison.OrdinalIgnoreCase)
                     ? Fin.Fail<string>(error: Op.Of(name: nameof(Custom)).Unsupported(geometryType: typeof(FileFormat), outputType: typeof(FileFormat)))
                     : Fin.Succ(value: text.StartsWith('.') ? text : $".{text}"))).As()
-        from _ in guard(!validExtensions.IsEmpty && (capability.Import || capability.Export), Op.Of(name: nameof(Custom)).InvalidInput())
+        from _ in guard(!validExtensions.IsEmpty && (capability.Import || capability.Export || capability.Publish), Op.Of(name: nameof(Custom)).InvalidInput())
         from __ in guard(!ByKey.ContainsKey(key: validKey.TrimStart('.')) && !validExtensions.Exists(ByExtension.ContainsKey), Op.Of(name: nameof(Custom)).InvalidInput())
-        select new FileFormat(key: validKey.TrimStart('.'), extensions: validExtensions.Distinct(), ops: new FileFormatOps(Capability: capability));
+        select new FileFormat(key: validKey.TrimStart('.'), extensions: validExtensions.Distinct(), capability: capability, read: null, write: null, directRead: null, directWrite: null, directWriteOptions: false);
 
-    public static string Filter(FilePhase phase = FilePhase.Prompt, Seq<FileFormat> formats = default) =>
+    public static string Filter(FilePhase phase, Seq<FileFormat> formats = default) =>
         (formats.IsEmpty ? Known : formats)
             .Filter(format => !format.Extensions.IsEmpty && (phase == FilePhase.Prompt || format.Supports(phase: phase)))
             .Map(static format => (
-                Label: $"{format.Key.ToUpperInvariant()} ({string.Join(separator: ";", values: format.Extensions.Map(static extension => $"*{extension}").AsIterable())})",
-                Patterns: string.Join(separator: ";", values: format.Extensions.Map(static extension => $"*{extension}").AsIterable())))
+                Label: $"{format.Key.ToUpperInvariant()} ({string.Join(separator: ';', values: format.Extensions.Map(static extension => $"*{extension}").AsIterable())})",
+                Patterns: string.Join(separator: ';', values: format.Extensions.Map(static extension => $"*{extension}").AsIterable())))
             .Distinct()
             switch {
                 Seq<(string Label, string Patterns)> rows when !rows.IsEmpty =>
-                    string.Join(separator: "|", values: (Seq((
+                    string.Join(separator: '|', values: (Seq((
                             Label: "All supported files",
-                            Patterns: string.Join(separator: ";", values: rows.Bind(static row => toSeq(row.Patterns.Split(';'))).Distinct().AsIterable())))
+                            Patterns: string.Join(separator: ';', values: rows.Bind(static row => toSeq(row.Patterns.Split(';'))).Distinct().AsIterable())))
                         + rows).Map(static row => $"{row.Label}|{row.Patterns}").AsIterable()),
                 _ => "All files (*.*)|*.*",
             };
@@ -218,12 +249,6 @@ public sealed record FileFormat {
             _ => Fin.Fail<Unit>(error: op.InvalidResult()),
         };
 
-    private static bool DirectExportReady(FileWriteOptions options, bool writesOptions) =>
-        writesOptions || options.Xform.IsIdentity;
-
-    private static bool DirectFileReady(FileWriteOptions options, bool writesOptions) =>
-        DirectExportReady(options: options, writesOptions: writesOptions) && !options.CreateBackupFiles && !options.CreateOtherBackupFiles;
-
     private static FileFormat Native(
         string key,
         Seq<string> extensions,
@@ -235,13 +260,9 @@ public sealed record FileFormat {
         Func<FileProfile, FileReadOptions, RhinoDoc, FileEndpoint, Fin<Unit>>? directRead = null,
         Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>>? directWrite = null,
         bool directWriteOptions = false) =>
-        new(key: key, extensions: extensions, ops: new FileFormatOps(
-            Capability: archive ? FileCapability.File3dm : FileCapability.Plugin(import: import, export: export),
-            Read: read,
-            Write: write,
-            DirectRead: directRead,
-            DirectWrite: directWrite,
-            DirectWriteOptions: directWriteOptions));
+        new(key: key, extensions: extensions,
+            capability: archive ? FileCapability.File3dm : FileCapability.Plugin(import: import, export: export),
+            read: read, write: write, directRead: directRead, directWrite: directWrite, directWriteOptions: directWriteOptions);
 
     private delegate bool NativeReadCall<in TOptions>(string path, RhinoDoc doc, TOptions options);
     private delegate bool NativeWriteCall<in TOptions>(string path, RhinoDoc doc, TOptions options);
@@ -395,14 +416,6 @@ public sealed record FileFormat {
             ObjectsTexts = user,
         };
     }
-
-    private readonly record struct FileFormatOps(
-        FileCapability Capability,
-        Func<FileProfile, ArchivableDictionary>? Read = null,
-        Func<FileProfile, ArchivableDictionary>? Write = null,
-        Func<FileProfile, FileReadOptions, RhinoDoc, FileEndpoint, Fin<Unit>>? DirectRead = null,
-        Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>>? DirectWrite = null,
-        bool DirectWriteOptions = false);
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -427,46 +440,32 @@ internal static class FileFormatProjection {
 
     internal static Fin<Unit> Import(RhinoDoc document, FileEndpoint source, FileProfile profile, Op op) =>
         from format in Require(endpoint: source, profile: profile, phase: FilePhase.Import, op: op)
-        from imported in WithReadOptions(source: source, profile: profile, op: op, run: options => format.Read(options: options, document: document, source: source, profile: profile))
+        from imported in op.Catch(() => {
+            using FileReadOptions options = ReadOptions(endpoint: source, profile: profile);
+            return format.Read(options: options, document: document, source: source, profile: profile);
+        })
         select imported;
 
     internal static Fin<Unit> Write(RhinoDoc document, Option<FileEndpoint> target, FileProfile profile, FilePhase phase, bool selected, Op op) =>
-        phase switch {
-            FilePhase.Save => FileFormat.NativeBool(run: document.Save, op: op),
-            FilePhase.SaveAs => Target(target: target, op: op).Bind(endpoint => WithWriteOptions(
-                target: endpoint,
-                profile: profile,
-                phase: FilePhase.SaveAs,
-                selected: false,
-                updatePath: true,
-                op: op,
-                run: options => FileFormat.NativeBool(run: () => document.WriteFile(path: endpoint.Path, options: options), op: op))),
-            FilePhase.Write3dmFile => Target(target: target, op: op).Bind(endpoint => WithWriteOptions(
-                target: endpoint,
-                profile: profile,
-                phase: FilePhase.Write3dmFile,
-                selected: selected,
-                updatePath: false,
-                op: op,
-                run: options => FileFormat.NativeBool(run: () => document.Write3dmFile(path: endpoint.Path, options: options), op: op))),
-            FilePhase.SaveTemplate => Target(target: target, op: op)
-                .Bind(endpoint => FileFormat.NativeBool(run: () => document.SaveAsTemplate(file3dmTemplatePath: endpoint.Path, version: endpoint.Write.Normalized.Version), op: op)),
-            FilePhase.Export or FilePhase.WriteFile => Target(target: target, op: op).Bind(endpoint =>
-                from format in Require(endpoint: endpoint, profile: profile, phase: phase, op: op)
-                from written in WithWriteOptions(
-                    target: endpoint,
-                    profile: profile,
-                    phase: phase,
-                    selected: selected,
-                    updatePath: phase == FilePhase.WriteFile,
-                    op: op,
-                    run: options => phase switch {
-                        FilePhase.Export => format.Export(options: options, document: document, target: endpoint, profile: profile),
-                        _ => format.Write(options: options, document: document, target: endpoint, profile: profile),
-                    })
-                select written),
-            _ => Fin.Fail<Unit>(error: op.InvalidInput()),
-        };
+        phase == FilePhase.Save
+            ? FileFormat.NativeBool(run: document.Save, op: op)
+            : target.ToFin(Fail: op.InvalidInput()).Bind(endpoint =>
+                phase == FilePhase.SaveAs ? op.Catch(() => {
+                    using FileWriteOptions options = WriteOptions(endpoint: endpoint, profile: profile, phase: FilePhase.SaveAs, selected: false, updatePath: true);
+                    return FileFormat.NativeBool(run: () => document.WriteFile(path: endpoint.Path, options: options), op: op);
+                })
+                : phase == FilePhase.Write3dmFile ? op.Catch(() => {
+                    using FileWriteOptions options = WriteOptions(endpoint: endpoint, profile: profile, phase: FilePhase.Write3dmFile, selected: selected, updatePath: false);
+                    return FileFormat.NativeBool(run: () => document.Write3dmFile(path: endpoint.Path, options: options), op: op);
+                })
+                : phase == FilePhase.SaveTemplate ? FileFormat.NativeBool(run: () => document.SaveAsTemplate(file3dmTemplatePath: endpoint.Path, version: endpoint.Write.Normalized.Version), op: op)
+                : phase == FilePhase.Export || phase == FilePhase.WriteFile ? Require(endpoint: endpoint, profile: profile, phase: phase, op: op).Bind(format => op.Catch(() => {
+                    using FileWriteOptions options = WriteOptions(endpoint: endpoint, profile: profile, phase: phase, selected: selected, updatePath: phase == FilePhase.WriteFile);
+                    return phase == FilePhase.Export
+                        ? format.Export(options: options, document: document, target: endpoint, profile: profile)
+                        : format.Write(options: options, document: document, target: endpoint, profile: profile);
+                }))
+                : Fin.Fail<Unit>(error: op.InvalidInput()));
 
     internal static File3dmWriteOptions ArchiveWriteOptions(ArchiveProfile profile) {
         FileWritePolicy write = profile.Write.Normalized;
@@ -475,21 +474,6 @@ internal static class FileFormatProjection {
         options.EnableAnalysisMeshes(objectType: ObjectType.AnyObject, enable: write.IncludeRenderMeshes);
         return options;
     }
-
-    private static Fin<FileEndpoint> Target(Option<FileEndpoint> target, Op op) =>
-        target.ToFin(Fail: op.InvalidInput());
-
-    private static Fin<Unit> WithReadOptions(FileEndpoint source, FileProfile profile, Op op, Func<FileReadOptions, Fin<Unit>> run) =>
-        op.Catch(() => {
-            using FileReadOptions options = ReadOptions(endpoint: source, profile: profile);
-            return run(arg: options);
-        });
-
-    private static Fin<Unit> WithWriteOptions(FileEndpoint target, FileProfile profile, FilePhase phase, bool selected, bool updatePath, Op op, Func<FileWriteOptions, Fin<Unit>> run) =>
-        op.Catch(() => {
-            using FileWriteOptions options = WriteOptions(endpoint: target, profile: profile, phase: phase, selected: selected, updatePath: updatePath);
-            return run(arg: options);
-        });
 
     private static FileReadOptions ReadOptions(FileEndpoint endpoint, FileProfile profile) {
         FileReadOptions options = new() {

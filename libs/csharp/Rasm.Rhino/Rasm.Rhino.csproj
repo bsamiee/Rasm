@@ -1,10 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>RhinoCommon command, document, and UI interop boundary for Rasm.</Description>
+        <!-- Rhino loads System.Drawing.Common on macOS via its own runtime; suppress platform analyzer false positives. -->
+        <NoWarn>$(NoWarn);CA1416</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>
         <ProjectReference Include="../Rasm/Rasm.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="System.Drawing.Common" />
     </ItemGroup>
 
     <ItemGroup>

@@ -122,7 +122,7 @@ public readonly record struct CommandGet<T>(
     public Option<TOut> As<TOut>() =>
         Value.Bind(static value => value is TOut typed ? Some(typed) : Option<TOut>.None);
 
-    public bool IsUndo => Raw.Map(static raw => raw == GetResult.Undo).IfNone(false);
+    public bool IsUndo => Raw.Map(static raw => raw == GetResult.Undo).IfNone(noneValue: false);
 }
 
 internal enum CommandInputEventKind { Value, Option, Undo, Nothing, Rejected, NoResult, Miss, Timeout, Cancel, Exit }
@@ -201,7 +201,7 @@ public enum CommandInputAccept {
     Color = 32,
     Text = 64,
     CustomMessage = 128,
-    TransparentCommands = 256
+    TransparentCommands = 256,
 }
 
 public sealed record CommandObjectSelection(
@@ -493,9 +493,9 @@ public sealed record CommandInputPolicy {
                 true => unit,
             };
             _ = spec.BasePoint.Iter(point => {
-                getter.SetBasePoint(point, true);
+                getter.SetBasePoint(point, showDistanceInStatusBar: true);
                 _ = spec.DrawLineFromBasePoint switch {
-                    true => Op.Side(() => getter.DrawLineFromPoint(point, true)),
+                    true => Op.Side(() => getter.DrawLineFromPoint(point, showDistanceInStatusBar: true)),
                     false => unit,
                 };
             });
@@ -817,7 +817,7 @@ public static class CommandInputs {
                 document: document,
                 references: toSeq(references),
                 preselected: getter.ObjectsWerePreselected
-                    ? toSeq(references).Filter(static reference => Optional(reference.Object()).Map(static item => item.IsSelected(checkSubObjects: true) > 0).IfNone(false)).Map(static reference => (reference.ObjectId, reference.GeometryComponentIndex))
+                    ? toSeq(references).Filter(static reference => Optional(reference.Object()).Map(static item => item.IsSelected(checkSubObjects: true) > 0).IfNone(noneValue: false)).Map(static reference => (reference.ObjectId, reference.GeometryComponentIndex))
                     : Seq<(Guid ObjectId, ComponentIndex ComponentIndex)>()))
             : Option<CommandSelection>.None;
 
