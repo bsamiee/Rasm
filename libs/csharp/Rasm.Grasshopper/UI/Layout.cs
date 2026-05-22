@@ -229,10 +229,10 @@ internal static partial class Layout {
                     IDocumentObject? l = objs.Find(instanceId: left);
                     IDocumentObject? r = objs.Find(instanceId: right);
                     return l is not null && r is not null
-                        ? new UndoEntry(Verb: "Layout", Noun: "Align", Actions: Seq<UndoAction>(new PivotAction(obj: l.FoundingObject), new PivotAction(obj: r.FoundingObject)))
-                        : new UndoEntry(Verb: "Layout", Noun: "Align", Actions: Seq<UndoAction>());
+                        ? new UndoEntry(Name: ("Layout", "Align"), Actions: Seq<UndoAction>(new PivotAction(obj: l.FoundingObject), new PivotAction(obj: r.FoundingObject)))
+                        : new UndoEntry(Name: ("Layout", "Align"), Actions: Seq<UndoAction>());
                 },
-                None: () => new UndoEntry(Verb: "Layout", Noun: "Align", Actions: Seq<UndoAction>()))),
+                None: () => new UndoEntry(Name: ("Layout", "Align"), Actions: Seq<UndoAction>()))),
             mutate: scope =>
                 from leftObj in ObjectOf(scope: scope, id: left)
                 from rightObj in ObjectOf(scope: scope, id: right)
@@ -287,9 +287,9 @@ internal static partial class Layout {
     private static UndoStrategy PivotUndo(string noun, Guid id) =>
         UndoStrategy.Manual(record: s => s.Objects.Match(
             Some: objs => Optional(objs.Find(instanceId: id))
-                .Map(obj => new UndoEntry(Verb: "Layout", Noun: noun, Actions: Seq<UndoAction>(new PivotAction(obj: obj))))
-                .IfNone(new UndoEntry(Verb: "Layout", Noun: noun, Actions: Seq<UndoAction>())),
-            None: () => new UndoEntry(Verb: "Layout", Noun: noun, Actions: Seq<UndoAction>())));
+                .Map(obj => new UndoEntry(Name: ("Layout", noun), Actions: Seq<UndoAction>(new PivotAction(obj: obj))))
+                .IfNone(new UndoEntry(Name: ("Layout", noun), Actions: Seq<UndoAction>())),
+            None: () => new UndoEntry(Name: ("Layout", noun), Actions: Seq<UndoAction>())));
 
     private static Fin<Option<SnappingSnapshot>> SnapRectangle(GrasshopperUi.Scope scope, Guid id, RectangleF bounds, SnappingPolicy policy) =>
         Optional(bounds)
@@ -406,7 +406,7 @@ internal static partial class Layout {
                     (TL leftCast, TR rightCast) =>
                         Try.lift(f: () => { align(arg1: leftCast, arg2: rightCast, arg3: fix); return unit; })
                             .Run()
-                            .MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: "Align"), detail: $"OCD.AlignObjects threw for ({typeof(TL).Name}, {typeof(TR).Name})")),
+                            .MapFail(error => UiFault.MutationRejected(op: Op.Of(name: "Align"), detail: $"OCD.AlignObjects threw for ({typeof(TL).Name}, {typeof(TR).Name}): {error.Message}")),
                     _ => Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: "Align"), detail: $"type mismatch")),
                 });
     }
@@ -439,9 +439,9 @@ internal static partial class Layout {
                     state.Gap,
                     Cursor: state.Cursor + state.Axis.Span(bounds: s.Bounds) + state.Gap,
                     Moves: state.Axis.Delta(cursor: state.Cursor, bounds: s.Bounds) switch {
-                        (float dx, float dy) => (s.Id, dx, dy).Cons(state.Moves),
+                        (float dx, float dy) => state.Moves.Add((s.Id, dx, dy)),
                     }))
-                .Moves.Rev())
+                .Moves)
             .IfNone(() => Seq<(Guid Id, float Dx, float Dy)>());
     }
 }

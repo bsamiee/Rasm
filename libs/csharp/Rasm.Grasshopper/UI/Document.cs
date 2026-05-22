@@ -404,7 +404,7 @@ public abstract partial record DocumentMutation {
                     omit: [.. selected.Map(static o => o.InstanceId)],
                     actions: actions);
                 return unit;
-            }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(Isolate)), detail: "IsolateObject threw"))
+            }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Isolate)), detail: $"IsolateObject threw: {error.Message}"))
             select (actions.Count > before) switch {
                 true => DocumentMutationReceipt.Count(changed: 1),
                 false => DocumentMutationReceipt.None,
@@ -697,7 +697,7 @@ internal static partial class UiRail {
             _ => Try.lift(f: () => {
                 document.Undo.Do(name: ("Edit", op.ToString()), actions: actions);
                 return unit;
-            }).Run().MapFail(_ => UiFault.MutationRejected(op: op, detail: "History.Do threw")),
+            }).Run().MapFail(error => UiFault.MutationRejected(op: op, detail: $"History.Do threw: {error.Message}")),
         };
 
     internal static DocumentSnapshot DocumentSnapshotOf(GhDocument document, GhObjectList objects) {

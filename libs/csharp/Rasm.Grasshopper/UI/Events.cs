@@ -14,7 +14,7 @@ namespace Rasm.Grasshopper.UI;
 public partial record UiEvent {
     private UiEvent() { }
     public sealed record PaintCase(CanvasPaintPhase Phase, Func<PaintScope, Fin<Unit>> Handler) : UiEvent;
-    public sealed record DocumentCase(DocumentEventKind Kind, Func<DocumentEventSnapshot, Fin<Unit>>? Handler) : UiEvent;
+    public sealed record DocumentCase(DocumentEventKind Kind, Func<DocumentEventSnapshot, Fin<Unit>> Handler) : UiEvent;
     public sealed record SolutionCase(SolutionEventKind Kind, Func<DocumentSnapshot, Fin<Unit>> Handler) : UiEvent;
     public sealed record UndoCase(UndoEventKind Kind, Func<DocumentHistorySnapshot, Fin<Unit>> Handler) : UiEvent;
     public sealed record TimerCase(TimeSpan Interval, Func<Fin<Unit>> Handler) : UiEvent;
@@ -24,10 +24,10 @@ public partial record UiEvent {
         new PaintCase(Phase: phase, Handler: handler);
     public static UiEvent Document(DocumentEventKind kind, Func<DocumentEventSnapshot, Fin<Unit>> handler) =>
         new DocumentCase(Kind: kind, Handler: handler);
-    public static UiEvent DocumentChanged(Func<DocumentSnapshot, Fin<Unit>>? handler) =>
-        new DocumentCase(Kind: DocumentEventKind.Changed, Handler: handler is null ? null : e => handler(arg: e.Document));
-    public static UiEvent SelectionChanged(Func<Seq<DocumentObjectSnapshot>, Fin<Unit>>? handler) =>
-        new DocumentCase(Kind: DocumentEventKind.Selection, Handler: handler is null ? null : e => handler(arg: e.Objects));
+    public static UiEvent DocumentChanged(Func<DocumentSnapshot, Fin<Unit>> handler) =>
+        new DocumentCase(Kind: DocumentEventKind.Changed, Handler: e => handler(arg: e.Document));
+    public static UiEvent SelectionChanged(Func<Seq<DocumentObjectSnapshot>, Fin<Unit>> handler) =>
+        new DocumentCase(Kind: DocumentEventKind.Selection, Handler: e => handler(arg: e.Objects));
     public static UiEvent Solution(SolutionEventKind kind, Func<DocumentSnapshot, Fin<Unit>> handler) =>
         new SolutionCase(Kind: kind, Handler: handler);
     public static UiEvent Undo(UndoEventKind kind, Func<DocumentHistorySnapshot, Fin<Unit>> handler) =>
@@ -258,9 +258,9 @@ public readonly record struct ControlEventSnapshot(
     Option<SizeF> Delta = default,
     Option<float> Pressure = default);
 
-internal sealed record EventRequest(UiEvent Event) : GhUiRequest<IDisposable> {
+internal sealed record EventRequest(UiEvent Event) : GhUiRequest<Subscription> {
     internal override GrasshopperUiPolicy Policy => Events.PolicyOf(uiEvent: Event);
-    internal override Fin<IDisposable> Apply(GrasshopperUi.Scope scope) => Events.Subscribe(uiEvent: Event).Run(scope: scope);
+    internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Events.Subscribe(uiEvent: Event).Run(scope: scope);
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
@@ -274,7 +274,7 @@ internal static partial class Events {
             timerCase: static _ => GrasshopperUiPolicy.Read,
             controlCase: static _ => GrasshopperUiPolicy.Read);
 
-    internal static GrasshopperUiIntent<IDisposable> Subscribe(UiEvent uiEvent) =>
+    internal static GrasshopperUiIntent<Subscription> Subscribe(UiEvent uiEvent) =>
         uiEvent.Switch(
             paintCase: static p => Paint.Hook(phase: p.Phase, paint: p.Handler),
             documentCase: static d => SubscribeDocument(kind: d.Kind, handler: d.Handler),
@@ -284,177 +284,101 @@ internal static partial class Events {
             controlCase: static c => SubscribeControl(source: c.Source, kind: c.Kind, handler: c.Handler));
 
     // --- [OPERATIONS] -------------------------------------------------------------------------
-    private static GrasshopperUiIntent<IDisposable> SubscribeDocument(DocumentEventKind kind, Func<DocumentEventSnapshot, Fin<Unit>>? handler) =>
+    private static GrasshopperUiIntent<Subscription> SubscribeDocument(DocumentEventKind kind, Func<DocumentEventSnapshot, Fin<Unit>> handler) =>
         GhUi.Document(run: scope =>
             from doc in scope.NeedDocument()
             from objs in scope.NeedObjects()
-            from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeDocument)), detail: "null handler"))
-            select (IDisposable)DocumentEventWatcher.Attach(document: doc, objects: objs, kind: kind, handler: valid));
+            let events = BuildDocumentHandlers(doc: doc, objs: objs, handler: handler)
+            from sub in Subscription.Bind(
+                attach: () => kind.Attach(document: doc, objects: objs, events: events),
+                detach: () => kind.Detach(document: doc, objects: objs, events: events),
+                marshalToUi: true)
+            select sub);
 
-    private static GrasshopperUiIntent<IDisposable> SubscribeSolution(SolutionEventKind kind, Func<DocumentSnapshot, Fin<Unit>> handler) =>
+    private static GrasshopperUiIntent<Subscription> SubscribeSolution(SolutionEventKind kind, Func<DocumentSnapshot, Fin<Unit>> handler) =>
         GhUi.Document(run: scope =>
-            from document in scope.NeedDocument()
-            from objects in scope.NeedObjects()
+            from doc in scope.NeedDocument()
+            from objs in scope.NeedObjects()
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeSolution)), detail: "null handler"))
-            select (IDisposable)SolutionWatcher.Attach(document: document, objects: objects, kind: kind, handler: valid));
+            let publish = (System.Action)(() => GrasshopperUi.Protect(valid: () => valid(arg: UiRail.DocumentSnapshotOf(document: doc, objects: objs))).Ignore())
+            let events = new SolutionEventHandlers(About: (_, _) => publish(), Plain: (_, _) => publish(), Faulted: (_, _) => publish())
+            from sub in Subscription.Bind(
+                attach: () => kind.Attach(solution: doc.Solution, events: events),
+                detach: () => kind.Detach(solution: doc.Solution, events: events),
+                marshalToUi: true)
+            select sub);
 
-    private static GrasshopperUiIntent<IDisposable> SubscribeUndo(UndoEventKind kind, Func<DocumentHistorySnapshot, Fin<Unit>> handler) =>
+    private static GrasshopperUiIntent<Subscription> SubscribeUndo(UndoEventKind kind, Func<DocumentHistorySnapshot, Fin<Unit>> handler) =>
         GhUi.Document(run: scope =>
-            from document in scope.NeedDocument()
+            from doc in scope.NeedDocument()
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeUndo)), detail: "null handler"))
-            select (IDisposable)UndoWatcher.Attach(document: document, kind: kind, handler: valid));
+            let publish = (System.Action)(() => GrasshopperUi.Protect(valid: () => valid(arg: UiRail.HistorySnapshotOf(document: doc))).Ignore())
+            let events = new UndoEventHandlers(Plain: (_, _) => publish(), Node: (_, _) => publish(), Moved: (_, _) => publish())
+            from sub in Subscription.Bind(
+                attach: () => kind.Attach(history: doc.Undo, events: events),
+                detach: () => kind.Detach(history: doc.Undo, events: events),
+                marshalToUi: true)
+            select sub);
 
-    private static GrasshopperUiIntent<IDisposable> SubscribeTimer(TimeSpan interval, Func<Fin<Unit>> handler) =>
-        GhUi.Read(run: _ =>
+    private static GrasshopperUiIntent<Subscription> SubscribeTimer(TimeSpan interval, Func<Fin<Unit>> handler) =>
+        GhUi.Read(run: scope =>
             from validInterval in Optional(interval).Filter(static value => value > TimeSpan.Zero)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeTimer)), detail: "interval must be positive"))
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeTimer)), detail: "null handler"))
-            select (IDisposable)TimerWatcher.Attach(interval: validInterval, handler: valid));
+            let timer = new UITimer { Interval = validInterval.TotalSeconds }
+            let elapsed = (EventHandler<EventArgs>)((_, _) => GrasshopperUi.Protect(valid: valid).Ignore())
+            from sub in Subscription.Bind(
+                attach: () => { timer.Elapsed += elapsed; timer.Start(); },
+                detach: () => { timer.Elapsed -= elapsed; timer.Stop(); timer.Dispose(); },
+                marshalToUi: true)
+            select sub);
 
-    private static GrasshopperUiIntent<IDisposable> SubscribeControl(Control source, ControlEventKind kind, Func<ControlEventSnapshot, Fin<Unit>> handler) =>
-        GhUi.Read(run: _ =>
+    private static GrasshopperUiIntent<Subscription> SubscribeControl(Control source, ControlEventKind kind, Func<ControlEventSnapshot, Fin<Unit>> handler) =>
+        GhUi.Read(run: scope =>
             from validSource in Optional(source).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeControl)), detail: "null control"))
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeControl)), detail: "null handler"))
-            select (IDisposable)ControlEventWatcher.Attach(source: validSource, kind: kind, handler: valid));
+            let events = BuildControlHandlers(source: validSource, kind: kind, handler: valid)
+            from sub in Subscription.Bind(
+                attach: () => kind.Attach(source: validSource, events: events),
+                detach: () => kind.Detach(source: validSource, events: events),
+                marshalToUi: true)
+            select sub);
 
-    private sealed class DocumentEventWatcher : IDisposable {
-        private readonly GhDocument document;
-        private readonly GhObjectList objects;
-        private readonly Func<DocumentEventSnapshot, Fin<Unit>> handler;
-        private readonly DocumentEventKind kind;
-        private readonly DocumentEventHandlers events;
-        private DocumentEventWatcher(GhDocument document, GhObjectList objects, DocumentEventKind kind, Func<DocumentEventSnapshot, Fin<Unit>> handler) {
-            this.document = document;
-            this.objects = objects;
-            this.kind = kind;
-            this.handler = handler;
-            events = new(
-                Modified: (_, e) => Publish(kind: DocumentEventKind.Modified, detail: Some($"{e.Oldstate}->{e.NewState}")),
-                State: (_, e) => Publish(kind: DocumentEventKind.StateChanged, detail: Some($"{e.Oldstate}->{e.NewState}")),
-                Added: (_, e) => Publish(kind: DocumentEventKind.ObjectAdded, changed: Optional(e.Object)),
-                Removed: (_, e) => Publish(kind: DocumentEventKind.ObjectRemoved, changed: Optional(e.Object)),
-                Expired: (_, e) => Publish(kind: DocumentEventKind.ObjectExpired, changed: Optional(e.Object)),
-                Selection: (_, e) => Publish(kind: DocumentEventKind.Selection, changed: Optional(e.Object)),
-                Enabled: (_, e) => Publish(kind: DocumentEventKind.ObjectEnabled, changed: Optional(e.Object)),
-                Relevance: (_, e) => Publish(kind: DocumentEventKind.ObjectRelevance, changed: Optional(e.Object)),
-                Layout: (_, e) => Publish(kind: DocumentEventKind.ObjectLayout, changed: Optional(e.Object)),
-                Display: (_, e) => Publish(kind: DocumentEventKind.ObjectDisplay, changed: Optional(e.Object)),
-                Name: (_, e) => Publish(kind: DocumentEventKind.ObjectName, changed: Optional(e.Owner), detail: Some($"{e.Old}->{e.New}")),
-                Id: (_, e) => Publish(kind: DocumentEventKind.ObjectInstanceId, changed: Optional(e.Object), detail: Some($"{e.OldId}->{e.NewId}")));
-            _ = kind.Attach(document: document, objects: objects, events: events);
-        }
-        internal static DocumentEventWatcher Attach(GhDocument document, GhObjectList objects, DocumentEventKind kind, Func<DocumentEventSnapshot, Fin<Unit>> handler) =>
-            new(document: document, objects: objects, kind: kind, handler: handler);
-        private Unit Publish(DocumentEventKind kind, Option<IDocumentObject> changed = default, Option<string> detail = default) {
-            _ = GrasshopperUi.Protect(valid: () => handler(arg: SnapshotOf(kind: kind, changed: changed, detail: detail)));
-            return unit;
-        }
-        private DocumentEventSnapshot SnapshotOf(DocumentEventKind kind, Option<IDocumentObject> changed, Option<string> detail) =>
+    private static DocumentEventHandlers BuildDocumentHandlers(GhDocument doc, GhObjectList objs, Func<DocumentEventSnapshot, Fin<Unit>> handler) {
+        DocumentEventSnapshot Snapshot(DocumentEventKind k, Option<IDocumentObject> changed = default, Option<string> detail = default) =>
             new(
-                Kind: kind,
-                Document: UiRail.DocumentSnapshotOf(document: document, objects: objects),
-                Objects: (kind == DocumentEventKind.Selection) switch {
-                    true => toSeq(objects.SelectedObjects.Select(UiRail.DocumentObjectSnapshotOf)),
+                Kind: k,
+                Document: UiRail.DocumentSnapshotOf(document: doc, objects: objs),
+                Objects: (k == DocumentEventKind.Selection) switch {
+                    true => toSeq(objs.SelectedObjects.Select(UiRail.DocumentObjectSnapshotOf)),
                     false => changed.Map(obj => Seq(UiRail.DocumentObjectSnapshotOf(obj))).IfNone(Seq<DocumentObjectSnapshot>()),
                 },
-                Wires: (kind == DocumentEventKind.Selection) switch {
-                    true => Optional(objects.SelectedWires).Map(wires => toSeq(wires).Map(wire => Wire.SnapshotConnected(objects: objects, wire: wire))).IfNone(Seq<WireSnapshot.ConnectedCase>()),
+                Wires: (k == DocumentEventKind.Selection) switch {
+                    true => Optional(objs.SelectedWires).Map(wires => toSeq(wires).Map(wire => Wire.SnapshotConnected(objects: objs, wire: wire))).IfNone(Seq<WireSnapshot.ConnectedCase>()),
                     false => Seq<WireSnapshot.ConnectedCase>(),
                 },
                 Detail: detail);
-        public void Dispose() =>
-            _ = kind.Detach(document: document, objects: objects, events: events);
-    }
-
-    private sealed class SolutionWatcher : IDisposable {
-        private readonly GhDocument document;
-        private readonly GhObjectList objects;
-        private readonly Func<DocumentSnapshot, Fin<Unit>> handler;
-        private readonly SolutionEventKind kind;
-        private readonly SolutionEventHandlers events;
-        private SolutionWatcher(GhDocument document, GhObjectList objects, SolutionEventKind kind, Func<DocumentSnapshot, Fin<Unit>> handler) {
-            this.document = document;
-            this.objects = objects;
-            this.handler = handler;
-            this.kind = kind;
-            events = new(About: (_, _) => Publish(), Plain: (_, _) => Publish(), Faulted: (_, _) => Publish());
-            _ = kind.Attach(solution: document.Solution, events: events);
-        }
-        internal static SolutionWatcher Attach(GhDocument document, GhObjectList objects, SolutionEventKind kind, Func<DocumentSnapshot, Fin<Unit>> handler) =>
-            new(document: document, objects: objects, kind: kind, handler: handler);
-        private Unit Publish() {
-            _ = GrasshopperUi.Protect(valid: () => handler(arg: UiRail.DocumentSnapshotOf(document: document, objects: objects)));
+        Unit Publish(DocumentEventKind k, Option<IDocumentObject> changed = default, Option<string> detail = default) {
+            _ = GrasshopperUi.Protect(valid: () => handler(arg: Snapshot(k, changed, detail)));
             return unit;
         }
-        public void Dispose() =>
-            _ = kind.Detach(solution: document.Solution, events: events);
+        return new DocumentEventHandlers(
+            Modified: (_, e) => Publish(DocumentEventKind.Modified, detail: Some($"{e.Oldstate}->{e.NewState}")),
+            State: (_, e) => Publish(DocumentEventKind.StateChanged, detail: Some($"{e.Oldstate}->{e.NewState}")),
+            Added: (_, e) => Publish(DocumentEventKind.ObjectAdded, changed: Optional(e.Object)),
+            Removed: (_, e) => Publish(DocumentEventKind.ObjectRemoved, changed: Optional(e.Object)),
+            Expired: (_, e) => Publish(DocumentEventKind.ObjectExpired, changed: Optional(e.Object)),
+            Selection: (_, e) => Publish(DocumentEventKind.Selection, changed: Optional(e.Object)),
+            Enabled: (_, e) => Publish(DocumentEventKind.ObjectEnabled, changed: Optional(e.Object)),
+            Relevance: (_, e) => Publish(DocumentEventKind.ObjectRelevance, changed: Optional(e.Object)),
+            Layout: (_, e) => Publish(DocumentEventKind.ObjectLayout, changed: Optional(e.Object)),
+            Display: (_, e) => Publish(DocumentEventKind.ObjectDisplay, changed: Optional(e.Object)),
+            Name: (_, e) => Publish(DocumentEventKind.ObjectName, changed: Optional(e.Owner), detail: Some($"{e.Old}->{e.New}")),
+            Id: (_, e) => Publish(DocumentEventKind.ObjectInstanceId, changed: Optional(e.Object), detail: Some($"{e.OldId}->{e.NewId}")));
     }
 
-    private sealed class UndoWatcher : IDisposable {
-        private readonly GhDocument document;
-        private readonly Func<DocumentHistorySnapshot, Fin<Unit>> handler;
-        private readonly UndoEventKind kind;
-        private readonly UndoEventHandlers events;
-        private UndoWatcher(GhDocument document, UndoEventKind kind, Func<DocumentHistorySnapshot, Fin<Unit>> handler) {
-            this.document = document;
-            this.handler = handler;
-            this.kind = kind;
-            events = new(Plain: (_, _) => Publish(), Node: (_, _) => Publish(), Moved: (_, _) => Publish());
-            _ = kind.Attach(history: document.Undo, events: events);
-        }
-        internal static UndoWatcher Attach(GhDocument document, UndoEventKind kind, Func<DocumentHistorySnapshot, Fin<Unit>> handler) =>
-            new(document: document, kind: kind, handler: handler);
-        private Unit Publish() {
-            _ = GrasshopperUi.Protect(valid: () => handler(arg: UiRail.HistorySnapshotOf(document: document)));
-            return unit;
-        }
-        public void Dispose() =>
-            _ = kind.Detach(history: document.Undo, events: events);
-    }
-
-    private sealed class TimerWatcher : IDisposable {
-        private readonly UITimer timer;
-        private readonly EventHandler<EventArgs> elapsed;
-        private TimerWatcher(TimeSpan interval, Func<Fin<Unit>> handler) {
-            timer = new UITimer { Interval = interval.TotalSeconds };
-            elapsed = (_, _) => _ = GrasshopperUi.Protect(valid: handler);
-            timer.Elapsed += elapsed;
-            timer.Start();
-        }
-        internal static TimerWatcher Attach(TimeSpan interval, Func<Fin<Unit>> handler) =>
-            new(interval: interval, handler: handler);
-        public void Dispose() {
-            timer.Elapsed -= elapsed;
-            timer.Stop();
-            timer.Dispose();
-        }
-    }
-
-    private sealed class ControlEventWatcher : IDisposable {
-        private readonly Control source;
-        private readonly ControlEventKind kind;
-        private readonly Func<ControlEventSnapshot, Fin<Unit>> publish;
-        private readonly ControlEventHandlers events;
-        private ControlEventWatcher(Control source, ControlEventKind kind, Func<ControlEventSnapshot, Fin<Unit>> publish) {
-            this.source = source;
-            this.kind = kind;
-            this.publish = publish;
-            events = new(
-                Plain: (_, _) => Publish(snapshot: SnapshotOf(kind: kind)),
-                Key: (_, e) => Publish(snapshot: SnapshotOf(kind: kind, keys: Some(e.KeyData))),
-                Text: (_, e) => Publish(snapshot: SnapshotOf(kind: kind, text: Optional(e.Text))),
-                Mouse: (_, e) => Publish(snapshot: SnapshotOf(kind: kind, point: Some(e.Location), buttons: Some(e.Buttons), keys: Some(e.Modifiers), delta: Some(e.Delta), pressure: Some(e.Pressure))),
-                Drag: (_, _) => Publish(snapshot: SnapshotOf(kind: kind)));
-            _ = kind.Attach(source: source, events: events);
-        }
-        internal static ControlEventWatcher Attach(Control source, ControlEventKind kind, Func<ControlEventSnapshot, Fin<Unit>> handler) =>
-            new(source: source, kind: kind, publish: handler);
-        private Unit Publish(ControlEventSnapshot snapshot) {
-            _ = GrasshopperUi.Protect(valid: () => publish(arg: snapshot));
-            return unit;
-        }
-        private ControlEventSnapshot SnapshotOf(
-            ControlEventKind kind,
+    private static ControlEventHandlers BuildControlHandlers(Control source, ControlEventKind kind, Func<ControlEventSnapshot, Fin<Unit>> handler) {
+        ControlEventSnapshot Snapshot(
             Option<PointF> point = default,
             Option<MouseButtons> buttons = default,
             Option<Keys> keys = default,
@@ -462,7 +386,15 @@ internal static partial class Events {
             Option<SizeF> delta = default,
             Option<float> pressure = default) =>
             new(Kind: kind, Enabled: source.Enabled, Visible: source.Visible, HasFocus: source.HasFocus, Point: point, Buttons: buttons, Keys: keys, Text: text, Delta: delta, Pressure: pressure);
-        public void Dispose() =>
-            _ = kind.Detach(source: source, events: events);
+        Unit Publish(ControlEventSnapshot snapshot) {
+            _ = GrasshopperUi.Protect(valid: () => handler(arg: snapshot));
+            return unit;
+        }
+        return new ControlEventHandlers(
+            Plain: (_, _) => Publish(Snapshot()),
+            Key: (_, e) => Publish(Snapshot(keys: Some(e.KeyData))),
+            Text: (_, e) => Publish(Snapshot(text: Optional(e.Text))),
+            Mouse: (_, e) => Publish(Snapshot(point: Some(e.Location), buttons: Some(e.Buttons), keys: Some(e.Modifiers), delta: Some(e.Delta), pressure: Some(e.Pressure))),
+            Drag: (_, _) => Publish(Snapshot()));
     }
 }

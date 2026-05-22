@@ -224,7 +224,7 @@ public partial record DrawMark {
             }),
             WireCase wire => DrawWire(scope: scope, wire: wire),
             _ => unit,
-        }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(DrawMark)), detail: $"{GetType().Name} draw failed"));
+        }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(DrawMark)), detail: $"{GetType().Name} draw failed: {error.Message}"));
 
     private static Unit Draw(PaintScope scope, PaintStyle style, Func<Graphics, Unit> run) {
         Graphics graphics = scope.Graphics.Content;
@@ -282,9 +282,9 @@ public abstract record PaintRequest<T> : GhUiRequest<T> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
         internal override Fin<PaintSkinSnapshot> Apply(GrasshopperUi.Scope scope) => Paint.Skin().Run(scope: scope);
     }
-    public sealed record Hook(CanvasPaintPhase Phase, DrawPlan Plan) : PaintRequest<IDisposable> {
+    public sealed record Hook(CanvasPaintPhase Phase, DrawPlan Plan) : PaintRequest<Subscription> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
-        internal override Fin<IDisposable> Apply(GrasshopperUi.Scope scope) => Paint.Hook(phase: Phase, paint: Plan.Apply).Run(scope: scope);
+        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Paint.Hook(phase: Phase, paint: Plan.Apply).Run(scope: scope);
     }
     public sealed record RedrawOnMouseMove(bool Enabled = true) : PaintRequest<Unit> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Canvas);
@@ -301,39 +301,25 @@ internal static partial class Paint {
                 SkinType: skin.GetType().FullName ?? skin.GetType().Name,
                 Skin: Some(skin))));
 
-    internal static GrasshopperUiIntent<IDisposable> Hook(CanvasPaintPhase phase, Func<PaintScope, Fin<Unit>> paint) =>
+    internal static GrasshopperUiIntent<Subscription> Hook(CanvasPaintPhase phase, Func<PaintScope, Fin<Unit>> paint) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
             from valid in Optional(paint).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Hook)), detail: "null paint callback"))
             from validPhase in Optional(phase).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Hook)), detail: "null phase"))
-            select (IDisposable)PaintSubscription.Attach(canvas: canvas, phase: validPhase, paint: valid));
+            let handler = (EventHandler<CanvasPaintEventArgs>)((_, args) => GrasshopperUi.Protect(valid: () => valid(arg: new PaintScope(
+                Phase: validPhase,
+                Graphics: args.Graphics,
+                Skin: args.Skin) {
+                Background = Optional(args as CanvasBackgroundPaintEventArgs),
+            })).Ignore())
+            from sub in Subscription.Bind(
+                attach: () => validPhase.Attach(canvas: canvas, handler: handler),
+                detach: () => validPhase.Detach(canvas: canvas, handler: handler),
+                marshalToUi: true)
+            select sub);
 
     internal static GrasshopperUiIntent<Unit> RedrawOnMouseMove(bool enabled = true) =>
         GhUi.Canvas(
             repaint: RepaintRequest.Canvas,
             run: scope => scope.NeedCanvas().Map(canvas => { canvas.RedrawOnMouseMove = enabled; return unit; }));
-
-    // --- [OPERATIONS] -------------------------------------------------------------------------
-    private sealed class PaintSubscription : IDisposable {
-        private readonly Action dispose;
-        private PaintSubscription(Action dispose) => this.dispose = dispose;
-        public void Dispose() =>
-            _ = GrasshopperUi.OnUiThread(run: () => GrasshopperUi.Protect(valid: () => {
-                dispose();
-                return Fin.Succ(value: unit);
-            }));
-
-        internal static PaintSubscription Attach(GhCanvas canvas, CanvasPaintPhase phase, Func<PaintScope, Fin<Unit>> paint) {
-            void Handler(object? sender, CanvasPaintEventArgs args) =>
-                _ = GrasshopperUi.Protect(valid: () => paint(arg: new PaintScope(
-                    Phase: phase,
-                    Graphics: args.Graphics,
-                    Skin: args.Skin) {
-                    Background = Optional(args as CanvasBackgroundPaintEventArgs),
-                }));
-            EventHandler<CanvasPaintEventArgs> handler = Handler;
-            _ = phase.Attach(canvas: canvas, handler: handler);
-            return new PaintSubscription(dispose: () => phase.Detach(canvas: canvas, handler: handler));
-        }
-    }
 }

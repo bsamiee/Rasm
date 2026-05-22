@@ -72,7 +72,7 @@ internal sealed record EditorRequest(EditorOp Op) : GhUiRequest<EditorResult> {
             Try.lift(f: () => {
                 _ = GhEditor.ShowEditor(createVisible: show.Visible, layoutRules: show.Layout.IfNone(string.Empty));
                 return EditorResult.Unit;
-            }).Run().MapFail(_ => UiFault.GhEditor(detail: nameof(EditorOp.Show))),
+            }).Run().MapFail(error => UiFault.GhEditor(detail: $"{nameof(EditorOp.Show)}: {error.Message}")),
         EditorOp.EnsureVisibleCase =>
             Try.lift(f: () => {
                 GhEditor editor = GhEditor.ShowEditor(createVisible: true, layoutRules: string.Empty);
@@ -80,7 +80,7 @@ internal sealed record EditorRequest(EditorOp Op) : GhUiRequest<EditorResult> {
                     .GetMethod(name: "EnsureVisible", bindingAttr: System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic)
                     ?.Invoke(obj: editor, parameters: []);
                 return EditorResult.Unit;
-            }).Run().MapFail(_ => UiFault.GhEditor(detail: nameof(EditorOp.EnsureVisible))),
+            }).Run().MapFail(error => UiFault.GhEditor(detail: $"{nameof(EditorOp.EnsureVisible)}: {error.Message}")),
         EditorOp.StateCase =>
             Fin.Succ<EditorResult>(value: new EditorResult.StateResult(Snapshot: GhEditor.Instance switch {
                 GhEditor editor => ((Func<EditorSnapshot>)(() => {
@@ -125,11 +125,11 @@ internal sealed record EditorRequest(EditorOp Op) : GhUiRequest<EditorResult> {
                     ShowUndoHistory: current.Canvas.ShowUndoHistory,
                     InitialLayout: GhEditor.InitialLayout,
                     DefinedLayouts: toSeq(GhEditor.DefinedLayouts)));
-            }).Run().MapFail(_ => UiFault.GhEditor(detail: nameof(EditorOp.Shell)))
+            }).Run().MapFail(error => UiFault.GhEditor(detail: $"{nameof(EditorOp.Shell)}: {error.Message}"))
             .Map(snapshot => (EditorResult)new EditorResult.ShellResult(Snapshot: snapshot)),
         EditorOp.BeginRhinoGetterCase getter =>
             from active in Optional(getter.Document.IfNone(RhinoDoc.ActiveDoc)).ToFin(Fail: UiFault.MissingScope(field: "rhino-doc"))
-            from started in Try.lift(f: () => GhEditor.BeginRhinoGetter(doc: active)).Run().MapFail(_ => UiFault.GhEditor(detail: nameof(EditorOp.BeginRhinoGetter)))
+            from started in Try.lift(f: () => GhEditor.BeginRhinoGetter(doc: active)).Run().MapFail(error => UiFault.GhEditor(detail: $"{nameof(EditorOp.BeginRhinoGetter)}: {error.Message}"))
             from valid in started
                 ? Fin.Succ(value: EditorResult.Unit)
                 : Fin.Fail<EditorResult>(error: UiFault.GhEditor(detail: "Rhino getter is already active or no document can receive it"))

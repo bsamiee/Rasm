@@ -1,15 +1,19 @@
+using Rasm.Domain;
 using Rhino.Geometry;
 
 namespace Rasm.TestKit;
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 public static class Gens {
+    // --- [SCALARS] -------------------------------------------------------------------------
     public static readonly Gen<double> Finite = Gen.Double[start: -1.0e6, finish: 1.0e6];
     public static readonly Gen<double> Positive = Gen.Double[start: 1.0e-6, finish: 1.0e6];
     public static readonly Gen<double> PositiveFinite = Finite.Where(predicate: static x => x > 0.0);
     public static readonly Gen<double> Tolerance = Gen.Double[start: 1.0e-12, finish: 1.0e-3];
     public static readonly Gen<double> UnitAngle = Gen.Double[start: 0.0, finish: 2.0 * Math.PI];
     public static readonly Gen<double> Probability = Gen.Double.Unit;
+
+    // --- [GEOMETRY] ------------------------------------------------------------------------
     public static readonly Gen<Point3d> Point = Finite.Select(Finite, Finite, static (double x, double y, double z) => new Point3d(x: x, y: y, z: z));
     public static readonly Gen<Vector3d> Vec = Finite.Select(Finite, Finite, static (double x, double y, double z) => new Vector3d(x: x, y: y, z: z));
     public static readonly Gen<Vector3d> NonZeroVec = Vec.Where(predicate: static v => v.Length > 1.0e-6);
@@ -22,6 +26,8 @@ public static class Gens {
     public static readonly Gen<BoundingBox> NonEmptyBbox = Bbox.Where(predicate: static b => b.IsValid && b.Diagonal.Length > 1.0e-6);
     public static Func<double, double, bool> Approx(double relativeTolerance = 1.0e-9) =>
         (a, b) => Math.Abs(value: a - b) <= relativeTolerance * Math.Max(val1: 1.0, val2: Math.Abs(value: a) + Math.Abs(value: b));
+
+    // --- [COLLECTIONS] ---------------------------------------------------------------------
     public static Gen<T[]> SmallArray<T>(Gen<T> element) =>
         (element ?? throw new ArgumentNullException(nameof(element))).Array[0, 32];
     public static Gen<T[]> NonEmptyArray<T>(Gen<T> element, int max = 256) =>
@@ -36,4 +42,26 @@ public static class Gens {
         (element ?? throw new ArgumentNullException(nameof(element))).Select(element, static (T a, T b) => a.CompareTo(b) <= 0 ? (Lo: a, Hi: b) : (Lo: b, Hi: a));
     public static Gen<Seq<T>> NonEmptySeq<T>(Gen<T> element, int max = 256) =>
         NonEmptyArray(element: element ?? throw new ArgumentNullException(nameof(element)), max: max).Select(static (T[] xs) => toSeq(xs));
+    public static Gen<Seq<T>> SeqOf<T>(Gen<T> element, int max = 256) =>
+        (element ?? throw new ArgumentNullException(nameof(element))).Array[0, max].Select(static (T[] xs) => toSeq(xs));
+
+    // --- [RAIL] ----------------------------------------------------------------------------
+    public static readonly Op TestKey = Op.Of(name: "testkit");
+    public static readonly Gen<Op> OpKey = Gen.String[1, 32].Select(static (string name) => Op.Of(name: name));
+    public static readonly Gen<Error> Fault = Gen.OneOfConst<Error>(
+        new Fault.MissingGeometry(),
+        new Fault.Cancelled(),
+        new Fault.MissingOperation());
+    public static Gen<Fin<T>> FinOf<T>(Gen<T> succ, Gen<Error>? fail = null, int succWeight = 80) =>
+        Gen.Frequency(
+            (succWeight, (succ ?? throw new ArgumentNullException(nameof(succ))).Select(static (T v) => Fin.Succ(value: v))),
+            (100 - succWeight, (fail ?? Fault).Select(static (Error e) => Fin.Fail<T>(error: e))));
+    public static Gen<Option<T>> OptionOf<T>(Gen<T> some, int someWeight = 80) =>
+        Gen.Frequency(
+            (someWeight, (some ?? throw new ArgumentNullException(nameof(some))).Select(static (T v) => Some(value: v))),
+            (100 - someWeight, Gen.Const(value: Option<T>.None)));
+    public static Gen<Validation<Error, T>> ValidationOf<T>(Gen<T> succ, Gen<Error>? fail = null) =>
+        Gen.OneOf(
+            (succ ?? throw new ArgumentNullException(nameof(succ))).Select(static (T v) => Success<Error, T>(value: v)),
+            (fail ?? Fault).Select(static (Error e) => Fail<Error, T>(value: e)));
 }

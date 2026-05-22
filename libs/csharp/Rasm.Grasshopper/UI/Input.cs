@@ -34,56 +34,23 @@ public sealed partial class CursorKind {
 
 [SmartEnum<int>]
 public sealed partial class FileDialogMode {
-    private delegate Option<string> DialogRun(Control? parent, Option<string> initialPath, FileFilter[] filters);
+    private delegate Seq<string> DialogRun(Control? parent, Option<string> initialPath, FileFilter[] filters, bool multiSelect, Option<string> title);
 
     public static readonly FileDialogMode Open = new(
         key: 0,
-        run: static (parent, initialPath, filters) => Input.RunFileDialog(dialog: new OpenFileDialog(), parent: parent, initialPath: initialPath, filters: filters));
+        run: static (parent, initialPath, filters, multi, title) =>
+            Input.RunFileDialog(dialog: new OpenFileDialog { MultiSelect = multi }, parent: parent, initialPath: initialPath, filters: filters, title: title));
     public static readonly FileDialogMode Save = new(
         key: 1,
-        run: static (parent, initialPath, filters) => Input.RunFileDialog(dialog: new SaveFileDialog(), parent: parent, initialPath: initialPath, filters: filters));
+        run: static (parent, initialPath, filters, _, title) =>
+            Input.RunFileDialog(dialog: new SaveFileDialog(), parent: parent, initialPath: initialPath, filters: filters, title: title));
     public static readonly FileDialogMode Folder = new(
         key: 2,
-        run: static (parent, initialPath, _) => Input.RunFolderDialog(parent: parent, initialPath: initialPath));
+        run: static (parent, initialPath, _, _, title) =>
+            Input.RunFolderDialog(parent: parent, initialPath: initialPath, title: title));
 
     [UseDelegateFromConstructor]
-    internal partial Option<string> Run(Control? parent, Option<string> initialPath, FileFilter[] filters);
-}
-
-[SmartEnum<int>]
-public sealed partial class MessageDialogKind {
-    public static readonly MessageDialogKind Information = new(key: 0, type: MessageBoxType.Information);
-    public static readonly MessageDialogKind Warning = new(key: 1, type: MessageBoxType.Warning);
-    public static readonly MessageDialogKind Error = new(key: 2, type: MessageBoxType.Error);
-    public static readonly MessageDialogKind Question = new(key: 3, type: MessageBoxType.Question);
-
-    public MessageBoxType Type { get; }
-}
-
-[Flags]
-public enum MessageDialogButtons {
-    None = 0,
-    Ok = 1, Cancel = 2, Yes = 4, No = 8,
-    OkCancel = Ok | Cancel,
-    YesNo = Yes | No,
-    YesNoCancel = Yes | No | Cancel,
-}
-
-[SmartEnum<int>]
-public sealed partial class InputDialogResponse {
-    public static readonly InputDialogResponse None = new(key: 0, native: DialogResult.None);
-    public static readonly InputDialogResponse Ok = new(key: 1, native: DialogResult.Ok);
-    public static readonly InputDialogResponse Cancel = new(key: 2, native: DialogResult.Cancel);
-    public static readonly InputDialogResponse Yes = new(key: 3, native: DialogResult.Yes);
-    public static readonly InputDialogResponse No = new(key: 4, native: DialogResult.No);
-    public static readonly InputDialogResponse Abort = new(key: 5, native: DialogResult.Abort);
-    public static readonly InputDialogResponse Ignore = new(key: 6, native: DialogResult.Ignore);
-    public static readonly InputDialogResponse Retry = new(key: 7, native: DialogResult.Retry);
-
-    public DialogResult Native { get; }
-
-    internal static InputDialogResponse Of(DialogResult result) =>
-        toSeq(Items).Find(item => item.Native == result).IfNone(None);
+    internal partial Seq<string> Run(Control? parent, Option<string> initialPath, FileFilter[] filters, bool multiSelect, Option<string> title);
 }
 
 [Union]
@@ -258,7 +225,7 @@ public abstract record ToolbarItem {
                 (SectionToggle toggle, UiCommandSurface.ToolbarCase toolbar) => Try.lift(f: () => {
                     _ = toolbar.Bar.AddToggle(nomen: new Nomen(name: toggle.Name, info: toggle.Name), initialState: toggle.State, additionalAffectedSections: [.. toggle.Sections]);
                     return unit;
-                }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(SectionToggle)), detail: "AddToggle threw")),
+                }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(SectionToggle)), detail: $"AddToggle threw: {error.Message}")),
                 (Radio radio, UiCommandSurface.ToolbarCase toolbar) =>
                     from command in radio.Command.Validated(op: Op.Of(name: nameof(Radio)))
                     from changed in Optional(radio.Changed).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Radio)), detail: "radio change delegate is required"))
@@ -296,9 +263,9 @@ public abstract record ToolbarItem {
                 (Spacer spacer, UiCommandSurface.ToolbarCase toolbar) => Try.lift(f: () => {
                     _ = toolbar.Bar.AddSpacer(chapterName: spacer.Chapter, sectionName: spacer.Section);
                     return unit;
-                }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(Spacer)), detail: "AddSpacer threw")),
+                }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Spacer)), detail: $"AddSpacer threw: {error.Message}")),
                 (Spacer, UiCommandSurface.MenuCase menu) => Try.lift(f: () => { menu.Target.AddSeparator(); return unit; })
-                            .Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(Spacer)), detail: "AddSeparator threw")),
+                            .Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Spacer)), detail: $"AddSeparator threw: {error.Message}")),
                 (_, UiCommandSurface.MenuCase) => Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ToolbarItem)), detail: $"{GetType().Name} cannot be projected to a context menu")),
                 _ => Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ToolbarItem)), detail: "unknown command surface")),
             });
@@ -347,25 +314,21 @@ public abstract record InputRequest<T> : GhUiRequest<T> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
         internal override Fin<InputPanelSnapshot> Apply(GrasshopperUi.Scope scope) => Input.Panel(plan: Plan).Run(scope: scope);
     }
-    public sealed record Menu(CommandPlan Plan) : InputRequest<MenuSnapshot> {
+    public sealed record MenuShow(CommandPlan Plan, Control Owner, PointF Location) : InputRequest<MenuSnapshot> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
-        internal override Fin<MenuSnapshot> Apply(GrasshopperUi.Scope scope) => Input.Menu(plan: Plan).Run(scope: scope);
-    }
-    public sealed record MenuShow(ContextMenu Target, Control Owner, PointF Location) : InputRequest<MenuSnapshot> {
-        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
-        internal override Fin<MenuSnapshot> Apply(GrasshopperUi.Scope scope) => Input.ShowMenu(menu: Target, owner: Owner, location: Location).Run(scope: scope);
+        internal override Fin<MenuSnapshot> Apply(GrasshopperUi.Scope scope) => Input.ShowMenu(plan: Plan, owner: Owner, location: Location).Run(scope: scope);
     }
     public sealed record Cursor(CursorKind Kind) : InputRequest<CursorKind> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
         internal override Fin<CursorKind> Apply(GrasshopperUi.Scope scope) => Input.Cursor(kind: Kind).Run(scope: scope);
     }
-    public sealed record Message(string Title, string Body, MessageDialogKind? Kind = null, MessageDialogButtons Buttons = MessageDialogButtons.Ok) : InputRequest<InputDialogResponse> {
+    public sealed record Message(string Title, string Body, MessageBoxType Kind = MessageBoxType.Information, MessageBoxButtons Buttons = MessageBoxButtons.OK, MessageBoxDefaultButton Default = MessageBoxDefaultButton.Default) : InputRequest<DialogResult> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
-        internal override Fin<InputDialogResponse> Apply(GrasshopperUi.Scope scope) => Input.MessageDialog(title: Title, message: Body, kind: Kind ?? MessageDialogKind.Information, buttons: Buttons).Run(scope: scope);
+        internal override Fin<DialogResult> Apply(GrasshopperUi.Scope scope) => Input.MessageDialog(title: Title, message: Body, kind: Kind, buttons: Buttons, defaultButton: Default).Run(scope: scope);
     }
-    public sealed record File(FileDialogMode Mode, Option<string> InitialPath, Seq<FileFilter> Filters) : InputRequest<Option<string>> {
+    public sealed record File(FileDialogMode Mode, Option<string> InitialPath, Seq<FileFilter> Filters, bool MultiSelect = false, Option<string> Title = default) : InputRequest<Seq<string>> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
-        internal override Fin<Option<string>> Apply(GrasshopperUi.Scope scope) => Input.FileDialog(mode: Mode, initialPath: InitialPath, filters: [.. Filters]).Run(scope: scope);
+        internal override Fin<Seq<string>> Apply(GrasshopperUi.Scope scope) => Input.FileDialog(mode: Mode, initialPath: InitialPath, multiSelect: MultiSelect, title: Title, filters: [.. Filters]).Run(scope: scope);
     }
     public sealed record Clipboard(InputClipboardOp Op) : InputRequest<InputClipboardSnapshot> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
@@ -431,32 +394,24 @@ internal static partial class Input {
 
     internal static GrasshopperUiIntent<InputPanelSnapshot> Panel(CommandPlan plan) =>
         Panel(populate: panel => Try.lift(f: () => panel.AddBar(drawCategoryLabels: false)).Run()
-            .MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(Panel)), detail: "InputPanel.AddBar threw"))
+            .MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Panel)), detail: $"InputPanel.AddBar threw: {error.Message}"))
             .Bind(bar => plan.Items.TraverseM(item => item.Apply(surface: UiCommandSurface.Toolbar(bar: bar))).Map(static _ => unit).As()));
 
     internal static GrasshopperUiIntent<ToolbarSnapshot> Toolbar(CommandPlan plan) =>
         Toolbar(populate: bar =>
             plan.Items.TraverseM(item => item.Apply(surface: UiCommandSurface.Toolbar(bar: bar))).Map(static _ => unit).As());
 
-    internal static GrasshopperUiIntent<MenuSnapshot> Menu(CommandPlan plan) =>
-        GhUi.Read(run: _ => {
-            using ContextMenu menu = new();
-            return plan.Items
-            .TraverseM(item => item.Apply(surface: UiCommandSurface.Menu(menu: menu)))
-                .Map(_ => new MenuSnapshot(Count: menu.Items.Count))
-                .As();
-        });
-
-    internal static GrasshopperUiIntent<MenuSnapshot> ShowMenu(ContextMenu menu, Control owner, PointF location) =>
+    internal static GrasshopperUiIntent<MenuSnapshot> ShowMenu(CommandPlan plan, Control owner, PointF location) =>
         GhUi.Read(run: _ =>
-            from validMenu in Optional(menu).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ShowMenu)), detail: "null menu"))
             from validOwner in Optional(owner).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ShowMenu)), detail: "null owner"))
             from validLocation in Optional(location)
                 .Filter(static value => float.IsFinite(value.X) && float.IsFinite(value.Y))
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ShowMenu)), detail: "non-finite location"))
+            let menu = new ContextMenu()
+            from populated in plan.Items.TraverseM(item => item.Apply(surface: UiCommandSurface.Menu(menu: menu))).As()
             from shown in Try.lift(f: () => {
-                validMenu.Show(validOwner, validLocation);
-                return new MenuSnapshot(Count: validMenu.Items.Count);
+                menu.Show(validOwner, validLocation);
+                return new MenuSnapshot(Count: menu.Items.Count);
             }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(ShowMenu)), detail: error.Message))
             select shown);
 
@@ -466,22 +421,21 @@ internal static partial class Input {
             return kind;
         }));
 
-    internal static GrasshopperUiIntent<InputDialogResponse> MessageDialog(string title, string message, MessageDialogKind? kind = null, MessageDialogButtons buttons = MessageDialogButtons.Ok) =>
+    internal static GrasshopperUiIntent<DialogResult> MessageDialog(string title, string message, MessageBoxType kind = MessageBoxType.Information, MessageBoxButtons buttons = MessageBoxButtons.OK, MessageBoxDefaultButton defaultButton = MessageBoxDefaultButton.Default) =>
         GhUi.Read(run: scope =>
-            Try.lift(f: () => {
-                DialogResult result = MessageBox.Show(
-                    parent: DialogParent(scope: scope),
-                    text: message,
-                    caption: title,
-                    buttons: ButtonsOf(buttons),
-                    type: (kind ?? MessageDialogKind.Information).Type);
-                return InputDialogResponse.Of(result: result);
-            }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(MessageDialog)), detail: "MessageBox.Show threw")));
+            Try.lift(f: () => MessageBox.Show(
+                parent: DialogParent(scope: scope),
+                text: message,
+                caption: title,
+                buttons: buttons,
+                type: kind,
+                defaultButton: defaultButton))
+            .Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(MessageDialog)), detail: $"MessageBox.Show threw: {error.Message}")));
 
-    internal static GrasshopperUiIntent<Option<string>> FileDialog(FileDialogMode mode, Option<string> initialPath = default, params FileFilter[] filters) =>
+    internal static GrasshopperUiIntent<Seq<string>> FileDialog(FileDialogMode mode, Option<string> initialPath = default, bool multiSelect = false, Option<string> title = default, params FileFilter[] filters) =>
         GhUi.Read(run: scope =>
-            Try.lift(f: () => mode.Run(parent: DialogParent(scope: scope), initialPath: initialPath, filters: filters))
-                .Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(FileDialog)), detail: "FileDialog.ShowDialog threw")));
+            Try.lift(f: () => mode.Run(parent: DialogParent(scope: scope), initialPath: initialPath, filters: filters, multiSelect: multiSelect, title: title))
+                .Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(FileDialog)), detail: $"FileDialog.ShowDialog threw: {error.Message}")));
 
     internal static GrasshopperUiIntent<InputClipboardSnapshot> Clipboard(InputClipboardOp op) =>
         GhUi.Read(run: _scope =>
@@ -505,7 +459,7 @@ internal static partial class Input {
                     _ => static () => InputClipboardSnapshot.Empty,
                 };
                 return action();
-            }).Run().MapFail(_ => UiFault.MutationRejected(op: Op.Of(name: nameof(Clipboard)), detail: "Clipboard op threw")));
+            }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Clipboard)), detail: $"Clipboard op threw: {error.Message}")));
 
     private static InputClipboardSnapshot ClipboardSnapshotOf() {
         Clipboard clipboard = Eto.Forms.Clipboard.Instance;
@@ -521,39 +475,32 @@ internal static partial class Input {
     private static InputModifierSnapshot ModifierOf(Keys keys) =>
         new(Shift: keys.HasShift(), Command: keys.HasCommand(), Option: keys.HasOption());
 
-    private static MessageBoxButtons ButtonsOf(MessageDialogButtons b) => b switch {
-        MessageDialogButtons.Ok => MessageBoxButtons.OK,
-        MessageDialogButtons.OkCancel => MessageBoxButtons.OKCancel,
-        MessageDialogButtons.YesNo => MessageBoxButtons.YesNo,
-        MessageDialogButtons.YesNoCancel => MessageBoxButtons.YesNoCancel,
-        MessageDialogButtons value when (value & MessageDialogButtons.Ok) == MessageDialogButtons.Ok && (value & MessageDialogButtons.Cancel) == MessageDialogButtons.Cancel => MessageBoxButtons.OKCancel,
-        MessageDialogButtons value when (value & MessageDialogButtons.Yes) == MessageDialogButtons.Yes && (value & MessageDialogButtons.No) == MessageDialogButtons.No => MessageBoxButtons.YesNo,
-        _ => MessageBoxButtons.OK,
-    };
-
     private static Control? DialogParent(GrasshopperUi.Scope scope) =>
         scope.Editor.Map(static _ => (Control?)Editor.ThisOrRhino).IfNone((Control?)null);
 
-    internal static Option<string> RunFileDialog(FileDialog dialog, Control? parent, Option<string> initialPath, FileFilter[] filters) {
+    internal static Seq<string> RunFileDialog(FileDialog dialog, Control? parent, Option<string> initialPath, FileFilter[] filters, Option<string> title) {
         using FileDialog owned = dialog;
         _ = initialPath.Filter(static path => !string.IsNullOrWhiteSpace(path))
             .IfSome(path => owned.Directory = new Uri(uriString: Directory.Exists(path: path) ? path : System.IO.Path.GetDirectoryName(path: path) ?? string.Empty));
+        _ = title.IfSome(value => owned.Title = value);
         _ = toSeq(filters).Iter(f => owned.Filters.Add(item: new Eto.Forms.FileFilter(name: f.Name, extensions: [.. f.Extensions])));
         DialogResult result = owned.ShowDialog(parent: parent);
         return result switch {
-            DialogResult.Ok => Some(owned.FileName),
-            _ => Option<string>.None,
+            DialogResult.Ok when owned is OpenFileDialog { MultiSelect: true } open => toSeq(open.Filenames),
+            DialogResult.Ok => Seq(owned.FileName),
+            _ => Seq<string>(),
         };
     }
 
     // SelectFolderDialog : CommonDialog (NOT FileDialog) — separate dispatch (per Eto verification).
-    internal static Option<string> RunFolderDialog(Control? parent, Option<string> initialPath) {
+    internal static Seq<string> RunFolderDialog(Control? parent, Option<string> initialPath, Option<string> title) {
         using SelectFolderDialog dialog = new();
         _ = initialPath.Filter(static path => !string.IsNullOrWhiteSpace(path)).IfSome(path => dialog.Directory = path);
+        _ = title.IfSome(value => dialog.Title = value);
         DialogResult result = dialog.ShowDialog(parent: parent);
         return result switch {
-            DialogResult.Ok => Some(dialog.Directory),
-            _ => Option<string>.None,
+            DialogResult.Ok => Seq(dialog.Directory),
+            _ => Seq<string>(),
         };
     }
 }
