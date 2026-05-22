@@ -15,7 +15,16 @@ public enum FileGrouping { Document, File, Layer, ObjectName, ObjectType, Materi
 public enum FileSort { Stable, File, Layer, ObjectName, ObjectType, Material, Block, UserString }
 public enum FilePhase { Prompt, Open, Headless, Import, Export, Publish, NamedLayerState, Save, SaveAs, WriteFile, Write3dmFile, SaveTemplate, ArchiveRead, ArchiveExtract, ArchiveUpdate, Batch }
 public enum ArchiveSlice { Full, Metadata, Objects, Resources }
-public enum FileArchiveProjection { Full, MetadataAndGraph, Metadata, Graph, Objects }
+
+[Flags]
+public enum FileArchiveProjection {
+    None = 0,
+    Metadata = 1,
+    Graph = 2,
+    Objects = 4,
+    MetadataAndGraph = Metadata | Graph,
+    Full = Metadata | Graph | Objects,
+}
 
 // --- [MODELS] -----------------------------------------------------------------------------
 public readonly record struct FileNamePolicy(FileCollisionPolicy Collision = FileCollisionPolicy.Preserve, Option<string> Extension = default) {
@@ -175,37 +184,35 @@ public sealed record FileEndpoint {
         from resolved in endpoint.ResolveCollision(op: op)
         select resolved;
 
-    internal Fin<FileEndpoint> Folder(Op op) =>
-        Try.lift<Fin<FileEndpoint>>(f: () => {
-            _ = IODirectory.CreateDirectory(path: Path);
-            return IODirectory.Exists(path: Path) switch {
-                true => Fin.Succ(value: this),
+    internal Fin<FileEndpoint> Folder(Op op) {
+        FileEndpoint self = this;
+        return op.Catch(() => {
+            _ = IODirectory.CreateDirectory(path: self.Path);
+            return IODirectory.Exists(path: self.Path) switch {
+                true => Fin.Succ(value: self),
                 false => Fin.Fail<FileEndpoint>(error: op.InvalidResult()),
             };
-        })
-            .Run()
-            .MapFail(_ => op.InvalidResult())
-            .Flatten();
+        });
+    }
 
     internal static Fin<string> NonBlank(string value, Op op) =>
         op.AcceptText(value: value).MapFail(_ => op.InvalidInput());
 
-    private Fin<Unit> EnsureDirectory(Op op) =>
-        Try.lift<Fin<Unit>>(f: () => {
-            string? directory = IOPath.GetDirectoryName(path: Path);
+    private Fin<Unit> EnsureDirectory(Op op) {
+        FileEndpoint self = this;
+        return op.Catch(() => {
+            string? directory = IOPath.GetDirectoryName(path: self.Path);
             return directory switch {
                 string value when string.IsNullOrWhiteSpace(value: value) => Fin.Succ(value: unit),
-                string value => Write.Normalized.Directory switch {
-                    FileDirectoryPolicy.Create => Fin.Succ(value: ((Func<Unit>)(() => { _ = IODirectory.CreateDirectory(path: value); return unit; }))()),
+                string value => self.Write.Normalized.Directory switch {
+                    FileDirectoryPolicy.Create => Fin.Succ(value: Op.Side(() => IODirectory.CreateDirectory(path: value))),
                     FileDirectoryPolicy.Existing when IODirectory.Exists(path: value) => Fin.Succ(value: unit),
                     _ => Fin.Fail<Unit>(error: op.InvalidInput()),
                 },
                 _ => Fin.Fail<Unit>(error: op.InvalidInput()),
             };
-        })
-            .Run()
-            .MapFail(_ => op.InvalidInput())
-            .Flatten();
+        });
+    }
 
     private Fin<FileEndpoint> ResolveCollision(Op op) =>
         (Name.Normalized.Collision, Write.Normalized.Overwrite, Exists(path: Path)) switch {
@@ -223,9 +230,7 @@ public sealed record FileEndpoint {
             .ToFin(Fail: op.InvalidInput());
 
     private static Fin<string> NormalizePath(string path, Op op) =>
-        Try.lift(f: () => IOPath.GetFullPath(path: path))
-            .Run()
-            .MapFail(_ => op.InvalidInput());
+        op.Catch(() => Fin.Succ(value: IOPath.GetFullPath(path: path)));
 
     private static string ApplyExtension(string path, Option<FileFormat> format, FileNamePolicy name) =>
         name.Normalized.Extension.Case switch {

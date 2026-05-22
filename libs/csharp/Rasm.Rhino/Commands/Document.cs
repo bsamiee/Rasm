@@ -1,11 +1,46 @@
 namespace Rasm.Rhino.Commands;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-public enum DocumentResourceKind {
-    Object, Layer, Material, Group, Block, View, NamedView, Layout, NamedLayerState, Linetype, DimensionStyle, Hatch, ConstructionPlane,
-    Image, TextureMapping, TextStyle, RenderLight, HistoryRecord, SectionStyle, Markup, PageViewGroup,
-    RenderContent, RenderMaterial, RenderEnvironment, RenderTexture, FileReference, EmbeddedFile, Metadata, Text,
+[SmartEnum<int>]
+public sealed partial class DocumentResourceKind {
+    public static readonly DocumentResourceKind Object = new(key: 0, componentType: ModelComponentType.ModelGeometry);
+    public static readonly DocumentResourceKind Layer = new(key: 1, componentType: ModelComponentType.Layer);
+    public static readonly DocumentResourceKind Material = new(key: 2, componentType: ModelComponentType.Material);
+    public static readonly DocumentResourceKind Group = new(key: 3, componentType: ModelComponentType.Group);
+    public static readonly DocumentResourceKind Block = new(key: 4, componentType: ModelComponentType.InstanceDefinition);
+    public static readonly DocumentResourceKind View = new(key: 5, componentType: ModelComponentType.Unset);
+    public static readonly DocumentResourceKind NamedView = new(key: 6, componentType: ModelComponentType.Unset);
+    public static readonly DocumentResourceKind Layout = new(key: 7, componentType: ModelComponentType.Unset);
+    public static readonly DocumentResourceKind NamedLayerState = new(key: 8, componentType: ModelComponentType.Unset);
+    public static readonly DocumentResourceKind Linetype = new(key: 9, componentType: ModelComponentType.LinePattern);
+    public static readonly DocumentResourceKind DimensionStyle = new(key: 10, componentType: ModelComponentType.DimStyle);
+    public static readonly DocumentResourceKind Hatch = new(key: 11, componentType: ModelComponentType.HatchPattern);
+    public static readonly DocumentResourceKind ConstructionPlane = new(key: 12, componentType: ModelComponentType.Unset);
+    public static readonly DocumentResourceKind Image = new(key: 13, componentType: ModelComponentType.Image);
+    public static readonly DocumentResourceKind TextureMapping = new(key: 14, componentType: ModelComponentType.TextureMapping);
+    public static readonly DocumentResourceKind TextStyle = new(key: 15, componentType: ModelComponentType.TextStyle);
+    public static readonly DocumentResourceKind RenderLight = new(key: 16, componentType: ModelComponentType.RenderLight);
+    public static readonly DocumentResourceKind HistoryRecord = new(key: 17, componentType: ModelComponentType.HistoryRecord);
+    public static readonly DocumentResourceKind SectionStyle = new(key: 18, componentType: ModelComponentType.SectionStyle);
+    public static readonly DocumentResourceKind Markup = new(key: 19, componentType: ModelComponentType.Markup);
+    public static readonly DocumentResourceKind PageViewGroup = new(key: 20, componentType: ModelComponentType.PageViewGroup);
+    public static readonly DocumentResourceKind RenderContent = new(key: 21, componentType: ModelComponentType.RenderContent);
+    public static readonly DocumentResourceKind RenderMaterial = new(key: 22, componentType: ModelComponentType.Unset);
+    public static readonly DocumentResourceKind RenderEnvironment = new(key: 23, componentType: ModelComponentType.Unset);
+    public static readonly DocumentResourceKind RenderTexture = new(key: 24, componentType: ModelComponentType.Unset);
+    public static readonly DocumentResourceKind FileReference = new(key: 25, componentType: ModelComponentType.Unset);
+    public static readonly DocumentResourceKind EmbeddedFile = new(key: 26, componentType: ModelComponentType.EmbeddedFile);
+    public static readonly DocumentResourceKind Metadata = new(key: 27, componentType: ModelComponentType.Unset);
+    public static readonly DocumentResourceKind Text = new(key: 28, componentType: ModelComponentType.Unset);
+
+    public ModelComponentType ComponentType { get; }
+
+    public static Option<DocumentResourceKind> ForComponentType(ModelComponentType type) =>
+        type == ModelComponentType.Unset
+            ? Option<DocumentResourceKind>.None
+            : Items.AsIterable().Find(kind => kind.ComponentType == type);
 }
+
 public enum DocumentLifecycle { Purge, Undelete }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -28,10 +63,18 @@ file abstract record DocumentGeometry {
             _ => Fin.Fail<DocumentGeometry>(error: Op.Of(name: nameof(DocumentGeometry)).InvalidInput()),
         });
     private sealed record Borrowed(GeometryBase Geometry) : DocumentGeometry {
-        internal override Fin<T> Use<T>(Op op, Func<GeometryBase, Fin<T>> use) => from geometry in Optional(Geometry).ToFin(Fail: op.InvalidInput()) from valid in Optional(use).ToFin(Fail: op.InvalidInput()) from result in valid(arg: geometry) select result;
+        internal override Fin<T> Use<T>(Op op, Func<GeometryBase, Fin<T>> use) =>
+            op.Catch(() => from geometry in Optional(Geometry).ToFin(Fail: op.InvalidInput())
+                           from valid in Optional(use).ToFin(Fail: op.InvalidInput())
+                           from result in valid(arg: geometry)
+                           select result);
     }
     private sealed record Owned(GeometryBase Geometry) : DocumentGeometry {
-        internal override Fin<T> Use<T>(Op op, Func<GeometryBase, Fin<T>> use) => Optional(use).ToFin(Fail: op.InvalidInput()).Bind(valid => UI.RhinoUi.Protect(valid: () => { try { return valid(arg: Geometry); } finally { Geometry.Dispose(); } }));
+        internal override Fin<T> Use<T>(Op op, Func<GeometryBase, Fin<T>> use) =>
+            op.Catch(() => Optional(use).ToFin(Fail: op.InvalidInput()).Bind(valid => {
+                using GeometryBase owned = Geometry;
+                return valid(arg: owned);
+            }));
     }
 }
 
@@ -49,7 +92,7 @@ public abstract record DocumentTarget {
 
     public static Fin<DocumentTarget> Layer(int layerIndex) =>
         layerIndex switch {
-            >= 0 => Filter(settings: new ObjectEnumeratorSettings { NormalObjects = true, LockedObjects = true, HiddenObjects = true, LayerIndexFilter = layerIndex }),
+            >= 0 => Filter(settings: QuerySettings(configure: s => s.LayerIndexFilter = layerIndex)),
             _ => Fin.Fail<DocumentTarget>(error: Op.Of(name: nameof(Layer)).InvalidInput()),
         };
 
@@ -67,7 +110,7 @@ public abstract record DocumentTarget {
         };
 
     public static Fin<DocumentTarget> ClippingPlanes() =>
-        Filter(settings: new ObjectEnumeratorSettings { NormalObjects = true, LockedObjects = true, HiddenObjects = true, ObjectTypeFilter = ObjectType.ClipPlane });
+        Filter(settings: QuerySettings(configure: s => s.ObjectTypeFilter = ObjectType.ClipPlane));
 
     public static Fin<DocumentTarget> Pick(CommandPickPolicy policy) =>
         Optional(policy).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput()).Map(value => (DocumentTarget)new PickTarget(value));
@@ -75,20 +118,26 @@ public abstract record DocumentTarget {
     internal Fin<int> Select(RhinoDoc document, bool selected, DocumentSelectionPolicy policy, Op op) =>
         Use(document: document, op: op,
             selection: value => value.SelectInto(document: document, selected: selected, policy: policy, op: op),
-            reference: value => value.Use(document: document, op: op, use: native => DocumentEdit.UnitResult(success: document.Objects.Select(native, selected, policy.Highlight, policy.Persistent, policy.IgnoreGrips, policy.IgnoreLayerLocking, policy.IgnoreLayerVisibility), op: op).Map(static _ => 1)),
-            objects: ids => CountResult(count: document.Objects.Select(ids.AsIterable(), selected, policy.Highlight, policy.Persistent, policy.IgnoreGrips, policy.IgnoreLayerLocking, policy.IgnoreLayerVisibility), expected: ids.Count, op: op));
+            reference: value => value.Use(document: document, op: op, use: native => op.Confirm(success: document.Objects.Select(native, selected, policy.Highlight, policy.Persistent, policy.IgnoreGrips, policy.IgnoreLayerLocking, policy.IgnoreLayerVisibility)).Map(static _ => 1)),
+            objects: ids => document.Objects.Select(ids.AsIterable(), selected, policy.Highlight, policy.Persistent, policy.IgnoreGrips, policy.IgnoreLayerLocking, policy.IgnoreLayerVisibility) switch {
+                int value when value == ids.Count => Fin.Succ(value: value),
+                _ => Fin.Fail<int>(error: op.InvalidResult()),
+            });
 
     internal Fin<Unit> Delete(RhinoDoc document, bool quiet, bool ignoreModes, Op op) =>
         Use(document: document, op: op,
-            selection: value => value.ObjectTargets.TraverseM(reference => reference.Use(document: document, op: op, use: native => DocumentEdit.UnitResult(success: document.Objects.Delete(native, quiet, ignoreModes), op: op))).As().Map(static _ => unit),
-            reference: value => value.Use(document: document, op: op, use: native => DocumentEdit.UnitResult(success: document.Objects.Delete(native, quiet, ignoreModes), op: op)),
+            selection: value => value.ObjectTargets.TraverseM(reference => reference.Use(document: document, op: op, use: native => op.Confirm(success: document.Objects.Delete(native, quiet, ignoreModes)))).As().Map(static _ => unit),
+            reference: value => value.Use(document: document, op: op, use: native => op.Confirm(success: document.Objects.Delete(native, quiet, ignoreModes))),
             objects: ids => DeleteIds(document: document, ids: ids, quiet: quiet, ignoreModes: ignoreModes, op: op));
 
     internal Fin<Unit> Replace(RhinoDoc document, object replacement, bool ignoreModes, Op op) =>
         Use(document: document, op: op,
             selection: value => value.Single().Bind(reference => reference.Use(document: document, op: op, use: native => ReplaceGeometry(replacement: replacement, op: op, use: geometry => document.Objects.Replace(objref: native, geometry: geometry, ignoreModes: ignoreModes)))),
             reference: value => value.Use(document: document, op: op, use: native => ReplaceGeometry(replacement: replacement, op: op, use: geometry => document.Objects.Replace(objref: native, geometry: geometry, ignoreModes: ignoreModes))),
-            objects: ids => ReplaceIds(document: document, ids: ids, replacement: replacement, ignoreModes: ignoreModes, op: op));
+            objects: ids => TargetIds(ids: ids, op: op).Bind(target => target.Count switch {
+                1 => ReplaceGeometry(replacement: replacement, op: op, use: geometry => document.Objects.Replace(objectId: target[0], geometry: geometry, ignoreModes: ignoreModes)),
+                _ => Fin.Fail<Unit>(error: op.InvalidInput()),
+            }));
 
     internal Fin<Seq<Guid>> Ids(RhinoDoc document, Op op) =>
         Use(document: document, op: op,
@@ -156,8 +205,11 @@ public abstract record DocumentTarget {
             select result;
     }
 
-    private static ObjectEnumeratorSettings QuerySettings() =>
-        new() { NormalObjects = true, LockedObjects = true, HiddenObjects = true };
+    private static ObjectEnumeratorSettings QuerySettings(Action<ObjectEnumeratorSettings>? configure = null) {
+        ObjectEnumeratorSettings settings = new() { NormalObjects = true, LockedObjects = true, HiddenObjects = true };
+        configure?.Invoke(obj: settings);
+        return settings;
+    }
 
     private static Fin<Seq<Guid>> TargetIds(IEnumerable<Guid> ids, Op op) =>
         Optional(ids)
@@ -184,29 +236,19 @@ public abstract record DocumentTarget {
                     .TraverseM(id => Optional(document.Objects.FindId(id))
                         .ToFin(Fail: op.InvalidResult())
                         .Bind(native => native.IsDeleted switch {
-                            false => DocumentEdit.UnitResult(success: document.Objects.Delete(native, quiet, true), op: op),
+                            false => op.Confirm(success: document.Objects.Delete(native, quiet, true)),
                             true => Fin.Fail<Unit>(error: op.InvalidResult()),
                         }))
                     .Map(static _ => unit),
             });
-
-    private static Fin<Unit> ReplaceIds(RhinoDoc document, IEnumerable<Guid> ids, object replacement, bool ignoreModes, Op op) =>
-        TargetIds(ids: ids, op: op).Bind(target => target.Count switch { 1 => ReplaceGeometry(replacement: replacement, op: op, use: geometry => document.Objects.Replace(objectId: target[0], geometry: geometry, ignoreModes: ignoreModes)), _ => Fin.Fail<Unit>(error: op.InvalidInput()) });
 
     internal static Fin<Guid> IdResult(Guid id, Op op) => id switch { Guid value when value != Guid.Empty => Fin.Succ(value: value), _ => Fin.Fail<Guid>(error: op.InvalidResult()) };
 
     private static Fin<Unit> ReplaceGeometry(object replacement, Op op, Func<GeometryBase, bool> use) =>
         from valid in Optional(use).ToFin(Fail: op.InvalidInput())
         from geometry in DocumentGeometry.Of(source: replacement)
-        from result in geometry.Use(op: op, use: native => DocumentEdit.UnitResult(success: valid(arg: native), op: op))
+        from result in geometry.Use(op: op, use: native => op.Confirm(success: valid(arg: native)))
         select result;
-
-    private static Fin<int> CountResult(int count, int expected, Op op) =>
-        count switch {
-            int value when value == expected => Fin.Succ(value: value),
-            _ => Fin.Fail<int>(error: op.InvalidResult()),
-        };
-
 }
 
 public readonly record struct DocumentRedraw(bool Enabled, bool SuppressDuringCommit = false) {
@@ -256,8 +298,8 @@ public readonly record struct DocumentCustomUndo(string Name, EventHandler<Custo
                from name in DocumentEdit.NonBlank(value: label, op: op)
                from undo in Optional(handler).ToFin(Fail: op.InvalidInput())
                from _ in UI.RhinoUi.Protect(valid: () => data.Case switch {
-                   object tag => DocumentEdit.UnitResult(success: validDocument.AddCustomUndoEvent(description: name, handler: undo, tag: tag), op: op),
-                   _ => DocumentEdit.UnitResult(success: validDocument.AddCustomUndoEvent(description: name, handler: undo), op: op),
+                   object tag => op.Confirm(success: validDocument.AddCustomUndoEvent(description: name, handler: undo, tag: tag)),
+                   _ => op.Confirm(success: validDocument.AddCustomUndoEvent(description: name, handler: undo)),
                })
                select name;
     }
@@ -428,30 +470,27 @@ public sealed record DocumentEdit {
 
     private static Fin<DocumentReceipt> Mutate(RhinoDoc document, string name, bool recordsUndo, bool suppressRedraw, Func<Fin<DocumentReceipt>> run) =>
         Optional(run).ToFin(Fail: Op.Of(name: name).InvalidInput()).Bind(valid => UI.RhinoUi.Protect(valid: () => {
+            Op op = Op.Of(name: name);
             uint undo = (recordsUndo, document.UndoRecordingIsActive) switch { (true, false) => document.BeginUndoRecord(description: name), _ => 0u };
             bool closed = true;
-            Fin<DocumentReceipt> result = Fin.Fail<DocumentReceipt>(error: Op.Of(name: name).InvalidResult());
-            _ = suppressRedraw switch {
-                true => ((Func<Unit>)(() => { document.Views.EnableRedraw(enable: false, redrawDocument: false, redrawLayers: false); return unit; }))(),
-                false => unit,
-            };
+            Fin<DocumentReceipt> result = Fin.Fail<DocumentReceipt>(error: op.InvalidResult());
+            _ = suppressRedraw ? Redraw(document: document, enabled: false) : unit;
             try {
                 result = valid();
             } finally {
-                _ = suppressRedraw switch {
-                    true => ((Func<Unit>)(() => { document.Views.EnableRedraw(enable: true, redrawDocument: true, redrawLayers: true); return unit; }))(),
-                    false => unit,
-                };
-                closed = undo switch {
-                    > 0u => document.EndUndoRecord(undoRecordSerialNumber: undo),
-                    _ => true,
-                };
+                _ = suppressRedraw ? Redraw(document: document, enabled: true) : unit;
+                closed = undo switch { > 0u => document.EndUndoRecord(undoRecordSerialNumber: undo), _ => true };
             }
             return result.Bind(value => closed switch {
                 true => Fin.Succ(value: value with { UndoRecords = undo switch { > 0u => Seq(undo), _ => Seq<uint>() } }),
-                false => Fin.Fail<DocumentReceipt>(error: Op.Of(name: name).InvalidResult()),
+                false => Fin.Fail<DocumentReceipt>(error: op.InvalidResult()),
             });
         }));
+
+    private static Unit Redraw(RhinoDoc document, bool enabled) {
+        document.Views.EnableRedraw(enable: enabled, redrawDocument: enabled, redrawLayers: enabled);
+        return unit;
+    }
 
     internal static Fin<Seq<Guid>> ApplyState(Seq<Guid> ids, RhinoDoc document, Op op, Func<RhinoObject, bool> ready, Func<RhinoObject, bool> done, Func<Guid, bool> apply) =>
         ids.TraverseM(id => Optional(document.Objects.FindId(id))
@@ -490,10 +529,4 @@ public sealed record DocumentEdit {
 
     internal static Fin<string> NonBlank(string value, Op op) =>
         op.AcceptText(value: value).MapFail(_ => op.InvalidInput());
-
-    internal static Fin<Unit> UnitResult(bool success, Op op) =>
-        success switch {
-            true => Fin.Succ(value: unit),
-            false => Fin.Fail<Unit>(error: op.InvalidResult()),
-        };
 }

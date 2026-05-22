@@ -35,7 +35,7 @@ public abstract record FilePublishTarget {
             from endpoint in Target.WithFormat(format: FileFormat.Pdf).Output(op: op)
             from pdf in Optional(FilePdf.Create()).ToFin(Fail: op.InvalidResult())
             from added in pages.TraverseM(page => Add(pdf: pdf, page: page, layers: layers, op: op)).As()
-            from _ in Try.lift(f: () => { pdf.Write(filename: endpoint.Path); return unit; }).Run().MapFail(_ => op.InvalidResult())
+            from _ in op.Catch(() => { pdf.Write(filename: endpoint.Path); return Fin.Succ(value: unit); })
             from __ in Optional(new IOFileInfo(fileName: endpoint.Path))
                 .Filter(static info => info.Exists && info.Length > 0)
                 .ToFin(Fail: op.InvalidResult())
@@ -46,18 +46,14 @@ public abstract record FilePublishTarget {
 
         private static Fin<Unit> Add(FilePdf pdf, FileSheetPage page, bool layers, Op op) =>
             from settings in page.Sheet.Settings(page: page.Page, op: op)
-            from added in Try.lift<Fin<Unit>>(f: () => {
-                // BOUNDARY ADAPTER — FilePdf mutates native page state before writing the final document.
-                try {
-                    pdf.LayersAsOptionalContentGroups = layers && !settings.RasterMode;
-                    return pdf.AddPage(settings: settings) switch {
-                        >= 0 => Fin.Succ(value: unit),
-                        _ => Fin.Fail<Unit>(error: op.InvalidResult()),
-                    };
-                } finally {
-                    settings.Dispose();
-                }
-            }).Run().MapFail(_ => op.InvalidResult()).Flatten()
+            from added in op.Catch(() => {
+                using ViewCaptureSettings owned = settings;
+                pdf.LayersAsOptionalContentGroups = layers && !owned.RasterMode;
+                return pdf.AddPage(settings: owned) switch {
+                    >= 0 => Fin.Succ(value: unit),
+                    _ => Fin.Fail<Unit>(error: op.InvalidResult()),
+                };
+            })
             select added;
     }
 
@@ -69,11 +65,10 @@ public abstract record FilePublishTarget {
                 _ => Fin.Fail<int>(error: op.InvalidInput()),
             }
             from settings in pages.TraverseM(page => page.Sheet.Settings(page: page.Page, op: op)).As()
-            from result in Try.lift<Fin<FilePublishResult>>(f: () => {
+            from result in op.Catch(() => {
                 ViewCaptureSettings[] captures = [.. settings];
-                // BOUNDARY ADAPTER — printer dispatch consumes native capture settings and each setting owns unmanaged print info.
                 try {
-                    return DocumentEdit.UnitResult(success: ViewCapture.SendToPrinter(printerName: name, settings: captures, copies: copies), op: op)
+                    return op.Confirm(success: ViewCapture.SendToPrinter(printerName: name, settings: captures, copies: copies))
                         .Map(_ => new FilePublishResult(
                             Target: Option<FileEndpoint>.None,
                             Format: Option<FileFormat>.None,
@@ -82,7 +77,7 @@ public abstract record FilePublishTarget {
                 } finally {
                     _ = toSeq(captures).Iter(static settings => settings.Dispose());
                 }
-            }).Run().MapFail(_ => op.InvalidResult()).Flatten()
+            })
             select result;
     }
 
@@ -109,16 +104,16 @@ public abstract partial record FileLayerState {
                 select new DocumentResourceChange(Kind: DocumentResourceKind.NamedLayerState, Name: name),
             restore: static (state, change) =>
                 from name in FileEndpoint.NonBlank(value: change.Name, op: state.Op)
-                from _ in DocumentEdit.UnitResult(success: state.Document.NamedLayerStates.Restore(name: name, properties: change.Properties, viewportId: change.Viewport.IfNone(Guid.Empty)), op: state.Op)
+                from _ in state.Op.Confirm(success: state.Document.NamedLayerStates.Restore(name: name, properties: change.Properties, viewportId: change.Viewport.IfNone(Guid.Empty)))
                 select new DocumentResourceChange(Kind: DocumentResourceKind.NamedLayerState, Name: name),
             rename: static (state, change) =>
                 from name in FileEndpoint.NonBlank(value: change.Name, op: state.Op)
                 from next in FileEndpoint.NonBlank(value: change.Next, op: state.Op)
-                from _ in DocumentEdit.UnitResult(success: state.Document.NamedLayerStates.Rename(oldName: name, newName: next), op: state.Op)
+                from _ in state.Op.Confirm(success: state.Document.NamedLayerStates.Rename(oldName: name, newName: next))
                 select new DocumentResourceChange(Kind: DocumentResourceKind.NamedLayerState, Name: next),
             delete: static (state, change) =>
                 from name in FileEndpoint.NonBlank(value: change.Name, op: state.Op)
-                from _ in DocumentEdit.UnitResult(success: state.Document.NamedLayerStates.Delete(name: name), op: state.Op)
+                from _ in state.Op.Confirm(success: state.Document.NamedLayerStates.Delete(name: name))
                 select new DocumentResourceChange(Kind: DocumentResourceKind.NamedLayerState, Name: name),
             import: static (state, change) =>
                 from source in change.Source.Input(op: state.Op)
@@ -197,7 +192,7 @@ public static class FileOp {
         from endpoint in source.Input(op: Op.Of(name: nameof(FileExchange.Open)))
         from format in FileFormatProjection.Require(endpoint: endpoint, profile: profile, phase: FilePhase.Open, op: Op.Of(name: nameof(FileExchange.Open)))
         from _ in format == FileFormat.ThreeDm ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: Op.Of(name: nameof(FileExchange.Open)).InvalidInput())
-        from report in Try.lift<Fin<FileReport>>(f: () => {
+        from report in Op.Of(name: nameof(FileExchange.Open)).Catch(() => {
             RhinoDoc? opened = RhinoDoc.Open(filePath: endpoint.Path, wasAlreadyOpen: out bool wasAlreadyOpen);
             return Optional(opened)
                 .ToFin(Fail: Op.Of(name: nameof(FileExchange.Open)).InvalidResult())
@@ -207,7 +202,7 @@ public static class FileOp {
                     target: Option<FileEndpoint>.None,
                     format: Some(format),
                     issues: wasAlreadyOpen ? Seq(new FileIssue(Code: "already-open", Message: "Document was already open.")) : Seq<FileIssue>()));
-        }).Run().MapFail(_ => Op.Of(name: nameof(FileExchange.Open)).InvalidResult()).Flatten()
+        })
         select report;
 
     private static Fin<FileReport> ImportCore(FileRuntime runtime, FileEndpoint source, FileProfile profile) =>
@@ -328,9 +323,8 @@ public static class FileOp {
         };
 
     private static Fin<T> HeadlessScope<T>(HeadlessExchange scope, Eff<FileRuntime, T> body) =>
-        Try.lift<Fin<T>>(f: () => {
+        Op.Of(name: nameof(Headless)).Catch(() => {
             RhinoDoc? headless = null;
-            // BOUNDARY ADAPTER — headless RhinoDoc is native disposable document state.
             try {
                 Fin<RhinoDoc> opened = scope.Switch(
                     create: static _ =>
@@ -360,13 +354,10 @@ public static class FileOp {
             } finally {
                 headless?.Dispose();
             }
-        })
-            .Run()
-            .MapFail(_ => Op.Of(name: nameof(Headless)).InvalidResult())
-            .Flatten();
+        });
 
     private static Fin<DocumentReceipt> ExportTarget(RhinoDoc document, DocumentTarget target, FileEndpoint endpoint, FileProfile profile, Op op) =>
-        Try.lift<Fin<DocumentReceipt>>(f: () => {
+        op.Catch(() => {
             Seq<Guid> before = Seq<Guid>();
             Fin<DocumentReceipt> result = Fin.Fail<DocumentReceipt>(error: op.InvalidResult());
             // BOUNDARY ADAPTER — export selected mutates Rhino selection temporarily and must restore it.
@@ -375,7 +366,7 @@ public static class FileOp {
                     from selected in DocumentEdit.SelectedIds(document: document, op: op)
                     let capture = ((Func<Seq<Guid>, Unit>)(ids => { before = ids; return unit; }))(selected)
                     from ids in target.Ids(document: document, op: op)
-                    from _ in DocumentEdit.UnitResult(success: document.Objects.UnselectAll(ignorePersistentSelections: false) >= 0, op: op)
+                    from _ in op.Confirm(success: document.Objects.UnselectAll(ignorePersistentSelections: false) >= 0)
                     from __ in document.Objects.SetSelectedObjects(objectIds: ids.AsIterable(), syncHighlight: true, persistentSelect: false, ignoreGripsState: true, ignoreLayerLocking: false, ignoreLayerVisibility: false) switch {
                         int count when count == ids.Count => Fin.Succ(value: unit),
                         _ => Fin.Fail<Unit>(error: op.InvalidResult()),
@@ -391,10 +382,7 @@ public static class FileOp {
                 };
             }
             return result;
-        })
-            .Run()
-            .MapFail(_ => op.InvalidResult())
-            .Flatten();
+        });
 
     private static Fin<(RhinoDoc Document, Context Domain, DocumentEdit Edit)> Live(FileRuntime runtime, Op op) =>
         (runtime.Document.Case, runtime.Domain.Case, runtime.Edit.Case) switch {

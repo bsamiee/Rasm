@@ -99,14 +99,13 @@ public readonly record struct OverlayFilter(Option<ObjectType> Geometry = defaul
             .ToFin(Fail: Op.Of(name: nameof(OverlayFilter)).InvalidInput())
             .Map(valid => {
                 _ = unbind switch {
-                    true => ((Func<Unit>)(() => {
+                    true => Op.Side(() => {
                         valid.GeometryFilter = ObjectType.AnyObject;
                         valid.SpaceFilter = ActiveSpace.None;
                         valid.SetSelectionFilter(on: false, checkSubObjects: false);
                         valid.SetObjectIdFilter(ids: Seq<Guid>().AsIterable());
                         valid.UnbindAll();
-                        return unit;
-                    }))(),
+                    }),
                     false => unit,
                 };
                 _ = geometry.Iter(value => valid.GeometryFilter = value);
@@ -116,10 +115,10 @@ public readonly record struct OverlayFilter(Option<ObjectType> Geometry = defaul
                 _ = unbind switch {
                     true => unit,
                     false => viewport.Map(value => {
-                        _ = ((Func<Unit>)(() => { valid.UnbindAll(); return unit; }))();
+                        _ = Op.Side(() => valid.UnbindAll());
                         _ = value.Exclusive switch {
-                            true => ((Func<Unit>)(() => { valid.ExclusiveBind(viewport: value.Viewport); return unit; }))(),
-                            false => ((Func<Unit>)(() => { valid.Bind(viewport: value.Viewport); return unit; }))(),
+                            true => Op.Side(() => valid.ExclusiveBind(viewport: value.Viewport)),
+                            false => Op.Side(() => valid.Bind(viewport: value.Viewport)),
                         };
                         return unit;
                     }).IfNone(unit),
@@ -279,11 +278,10 @@ public sealed record UiViewportInteraction<TState>(
                 .Map(decision => {
                     _ = state.Swap(_ => decision.State);
                     _ = decision.ToolTip.Case switch {
-                        string tooltip => ((Func<Unit>)(() => {
+                        string tooltip => Op.Side(() => {
                             ownsToolTip = true;
                             global::Rhino.UI.MouseCursor.SetToolTip(tooltip: tooltip);
-                            return unit;
-                        }))(),
+                        }),
                         _ => unit,
                     };
                     args.Cancel = context.CanCancelNative switch {
@@ -300,7 +298,7 @@ public sealed record UiViewportInteraction<TState>(
 
         private Unit Disable() {
             _ = ownsToolTip switch {
-                true => ((Func<Unit>)(static () => { global::Rhino.UI.MouseCursor.SetToolTip(tooltip: string.Empty); return unit; }))(),
+                true => Op.Side(static () => global::Rhino.UI.MouseCursor.SetToolTip(tooltip: string.Empty)),
                 false => unit,
             };
             ownsToolTip = false;
@@ -494,7 +492,7 @@ public abstract class RasmOverlay<TState>(TState initial) : DisplayConduit, IDis
         disposed switch { false => Optional(transition).ToFin(Fail: Op.Of(name: nameof(Transition)).InvalidInput()).Map(apply => { _ = state.Swap(f: apply); _ = Optional(document).Iter(static doc => doc.Views.Redraw()); return unit; }), true => Fin.Fail<Unit>(error: Op.Of(name: nameof(Transition)).InvalidInput()) };
 
     public Fin<Unit> Enable(bool enabled = true, RhinoDoc? document = null) =>
-        disposed switch { false => Fin.Succ(value: ((Func<Unit>)(() => { Enabled = enabled; _ = Optional(document).Iter(static doc => doc.Views.Redraw()); return unit; }))()), true => Fin.Fail<Unit>(error: Op.Of(name: nameof(Enable)).InvalidInput()) };
+        disposed switch { false => Fin.Succ(value: Op.Side(() => { Enabled = enabled; _ = Optional(document).Iter(static doc => doc.Views.Redraw()); })), true => Fin.Fail<Unit>(error: Op.Of(name: nameof(Enable)).InvalidInput()) };
 
     public Fin<Unit> Filter(OverlayFilter filter, RhinoDoc? document = null) =>
         disposed switch { false => filter.Apply(conduit: this).Map(_ => { _ = Optional(document).Iter(static doc => doc.Views.Redraw()); return unit; }), true => Fin.Fail<Unit>(error: Op.Of(name: nameof(Filter)).InvalidInput()) };
@@ -595,7 +593,7 @@ public sealed class UiGumball : IDisposable {
         from _ in guard(!disposed && frame.IsValid, Op.Of(name: nameof(Update)).InvalidInput()) from changed in Redraw(value: conduit.UpdateGumball(frame: frame)) select changed;
 
     public Fin<Unit> CheckKeys() =>
-        disposed switch { false => Fin.Succ(value: ((Func<Unit>)(() => { conduit.CheckShiftAndControlKeys(); return unit; }))()), true => Fin.Fail<Unit>(error: Op.Of(name: nameof(CheckKeys)).InvalidInput()) };
+        disposed switch { false => Fin.Succ(value: Op.Side(conduit.CheckShiftAndControlKeys)), true => Fin.Fail<Unit>(error: Op.Of(name: nameof(CheckKeys)).InvalidInput()) };
 
     public void Dispose() {
         _ = disposed switch {

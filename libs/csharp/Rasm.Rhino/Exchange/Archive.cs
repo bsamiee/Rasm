@@ -161,36 +161,31 @@ internal static class FileArchiveOps {
                     false => Fin.Succ(value: bytes.Value),
                     true => Fin.Fail<ReadOnlyMemory<byte>>(error: op.InvalidInput()),
                 }
-                from value in Try.lift<Fin<T>>(f: () => {
+                from value in op.Catch(() => {
                     File3dmModel? model = null;
-                    // BOUNDARY ADAPTER — File3dm.FromByteArray allocates unmanaged archive state.
                     try {
                         model = File3dmModel.FromByteArray(bytes: memory.ToArray());
                         return Optional(model).ToFin(Fail: op.InvalidResult()).Bind(activeModel => valid(arg1: Option<FileEndpoint>.None, arg2: activeModel, arg3: string.Empty));
                     } finally {
                         model?.Dispose();
                     }
-                }).Run().MapFail(_ => op.InvalidResult()).Flatten()
+                })
                 select value,
             _ => Fin.Fail<T>(error: op.InvalidInput()),
         }
         select result;
 
     internal static Fin<T> UseArchive<T>(FileEndpoint source, ArchiveProfile profile, Op op, Func<File3dmModel, string, Fin<T>> use) =>
-        Try.lift<Fin<T>>(f: () => {
+        op.Catch(() => {
             File3dmModel? model = null;
             string log = string.Empty;
-            // BOUNDARY ADAPTER — File3dm is unmanaged archive state and must be disposed after projection.
             try {
                 model = ReadModel(source: source, profile: profile, log: out log);
                 return Optional(model).ToFin(Fail: op.InvalidResult()).Bind(active => use(arg1: active, arg2: log));
             } finally {
                 model?.Dispose();
             }
-        })
-            .Run()
-            .MapFail(_ => op.InvalidResult())
-            .Flatten();
+        });
 
     private static File3dmModel? ReadModel(FileEndpoint source, ArchiveProfile profile, out string log) =>
         NativeFilter(profile: profile) switch {
@@ -227,18 +222,15 @@ internal static class FileArchiveOps {
 
     private static Fin<FileArchive> Snapshot(FileArchiveSource source, File3dmModel model, ArchiveProfile profile) =>
         profile.Projection switch {
-            FileArchiveProjection.Full =>
-                Metadata(source: source, model: model).Map(metadata => new FileArchive(Source: source, Metadata: metadata, Resources: Resources(model: model), Objects: Objects(model: model))),
-            FileArchiveProjection.MetadataAndGraph =>
-                Metadata(source: source, model: model).Map(metadata => new FileArchive(Source: source, Metadata: metadata, Resources: Resources(model: model), Objects: Seq<FileObjectManifest>())),
-            FileArchiveProjection.Metadata =>
-                Metadata(source: source, model: model).Map(metadata => new FileArchive(Source: source, Metadata: metadata, Resources: EmptyResources, Objects: Seq<FileObjectManifest>())),
-            FileArchiveProjection.Graph =>
-                Fin.Succ(value: new FileArchive(Source: source, Metadata: EmptyMetadata, Resources: Resources(model: model), Objects: Seq<FileObjectManifest>())),
-            FileArchiveProjection.Objects =>
-                Fin.Succ(value: new FileArchive(Source: source, Metadata: EmptyMetadata, Resources: EmptyResources, Objects: Objects(model: model))),
-            _ =>
-                Fin.Fail<FileArchive>(error: Op.Of(name: nameof(Snapshot)).InvalidInput()),
+            FileArchiveProjection.None => Fin.Fail<FileArchive>(error: Op.Of(name: nameof(Snapshot)).InvalidInput()),
+            FileArchiveProjection projection =>
+                ((projection & FileArchiveProjection.Metadata) != FileArchiveProjection.None
+                    ? Metadata(source: source, model: model)
+                    : Fin.Succ(value: EmptyMetadata)).Map(metadata => new FileArchive(
+                        Source: source,
+                        Metadata: metadata,
+                        Resources: (projection & FileArchiveProjection.Graph) != FileArchiveProjection.None ? Resources(model: model) : EmptyResources,
+                        Objects: (projection & FileArchiveProjection.Objects) != FileArchiveProjection.None ? Objects(model: model) : Seq<FileObjectManifest>())),
         };
 
     private static Option<FileFormat> FormatOf(Option<FileEndpoint> source) =>
@@ -363,32 +355,9 @@ internal static class FileArchiveOps {
 
     private static Seq<FileResourceEntry> ManifestEntries(File3dmModel model) =>
         toSeq(Enum.GetValues<ModelComponentType>())
-            .Choose(type => ManifestKind(type: type).Map(kind => (Kind: kind, Type: type)))
+            .Choose(type => DocumentResourceKind.ForComponentType(type: type).Map(kind => (Kind: kind, Type: type)))
             .Map(row => new FileResourceEntry(Kind: row.Kind, Name: Text(value: row.Type.ToString()), Path: Option<string>.None, Id: Option<Guid>.None, Count: model.Manifest.ActiveObjectCount(type: row.Type), Source: Some("manifest")))
             .Filter(static entry => entry.Count > 0);
-
-    private static Option<DocumentResourceKind> ManifestKind(ModelComponentType type) =>
-        type switch {
-            ModelComponentType.Image => Some(DocumentResourceKind.Image),
-            ModelComponentType.TextureMapping => Some(DocumentResourceKind.TextureMapping),
-            ModelComponentType.Material => Some(DocumentResourceKind.Material),
-            ModelComponentType.LinePattern => Some(DocumentResourceKind.Linetype),
-            ModelComponentType.Layer => Some(DocumentResourceKind.Layer),
-            ModelComponentType.Group => Some(DocumentResourceKind.Group),
-            ModelComponentType.TextStyle => Some(DocumentResourceKind.TextStyle),
-            ModelComponentType.DimStyle => Some(DocumentResourceKind.DimensionStyle),
-            ModelComponentType.RenderLight => Some(DocumentResourceKind.RenderLight),
-            ModelComponentType.HatchPattern => Some(DocumentResourceKind.Hatch),
-            ModelComponentType.InstanceDefinition => Some(DocumentResourceKind.Block),
-            ModelComponentType.ModelGeometry => Some(DocumentResourceKind.Object),
-            ModelComponentType.HistoryRecord => Some(DocumentResourceKind.HistoryRecord),
-            ModelComponentType.RenderContent => Some(DocumentResourceKind.RenderContent),
-            ModelComponentType.EmbeddedFile => Some(DocumentResourceKind.EmbeddedFile),
-            ModelComponentType.SectionStyle => Some(DocumentResourceKind.SectionStyle),
-            ModelComponentType.Markup => Some(DocumentResourceKind.Markup),
-            ModelComponentType.PageViewGroup => Some(DocumentResourceKind.PageViewGroup),
-            _ => Option<DocumentResourceKind>.None,
-        };
 
     private static Seq<FileResourceEdge> ResourceEdges(File3dmModel model) =>
         toSeq(model.Objects).Bind(fileObject =>
@@ -489,12 +458,12 @@ internal static class FileArchiveOps {
             Source: content.Reference ? Some("reference") : Some("embedded"));
 
     private static Fin<FileArchiveMetadata> Metadata(FileArchiveSource source, File3dmModel model) =>
-        Try.lift(f: () => {
+        Op.Of(name: nameof(Metadata)).Catch(() => {
             DateTime createdOn = model.Created;
             DateTime lastEditedOn = model.LastEdited;
             DrawingBitmap? preview = model.GetPreviewImage();
             preview?.Dispose();
-            return new FileArchiveMetadata(
+            return Fin.Succ(new FileArchiveMetadata(
                 ArchiveVersion: model.ArchiveVersion,
                 Notes: Text(value: model.Notes.Notes),
                 ApplicationName: Text(value: model.ApplicationName),
@@ -509,10 +478,8 @@ internal static class FileArchiveOps {
                     FileArchiveSource.Path path => toSeq(File3dmModel.ReadPageViews(path: path.Value.Path)).Count,
                     _ => 0,
                 },
-                Preview: preview is not null);
-        })
-            .Run()
-            .MapFail(_ => Op.Of(name: nameof(Metadata)).InvalidResult());
+                Preview: preview is not null));
+        });
 
     private static Fin<FileEndpoint> ExtractFile(EmbeddedFile file, FileEndpoint folder, Op op) =>
         FileEndpoint.From(path: IOPath.Combine(path1: folder.Path, path2: IOPath.GetFileName(path: file.Filename)))
@@ -556,27 +523,22 @@ internal static class FileArchiveOps {
         DocumentReceipt.Empty with { ResourceChanged = changes };
 
     private static Fin<Unit> ApplyMetadata(File3dmModel model, FileArchiveMetadataPatch patch) =>
-        Try.lift(f: () => {
+        Op.Of(name: nameof(ApplyMetadata)).Catch(() => {
             _ = patch.Notes.Map(value => model.Notes = new File3dmNotes { Notes = value });
             _ = patch.ApplicationName.Map(value => model.ApplicationName = value);
             _ = patch.ApplicationUrl.Map(value => model.ApplicationUrl = value);
             _ = patch.ApplicationDetails.Map(value => model.ApplicationDetails = value);
-            return unit;
-        })
-            .Run()
-            .MapFail(_ => Op.Of(name: nameof(ApplyMetadata)).InvalidResult());
+            return Fin.Succ(value: unit);
+        });
 
     private static Fin<string> WriteArchive(File3dmModel model, FileEndpoint target, ArchiveProfile profile, Op op) =>
-        Try.lift<Fin<string>>(f: () => {
+        op.Catch(() => {
             string log = string.Empty;
             return model.WriteWithLog(path: target.Path, options: FileFormatProjection.ArchiveWriteOptions(profile: profile), errorLog: out log) switch {
                 true => Fin.Succ(value: log),
                 false => Fin.Fail<string>(error: op.InvalidResult()),
             };
-        })
-            .Run()
-            .MapFail(_ => op.InvalidResult())
-            .Flatten();
+        });
 
     private static Seq<FileIssue> IssueLog(string log) =>
         string.IsNullOrWhiteSpace(value: log) switch {

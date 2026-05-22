@@ -163,11 +163,10 @@ public sealed record CommandSelection {
         from trimmed in selection.Trim(policy: active)
         select trimmed;
 
-    internal Fin<int> SelectInto(RhinoDoc document, bool selected, DocumentSelectionPolicy policy, Op op) =>
-        Try.lift<Fin<int>>(f: () => SelectNative(document: document, selected: selected, policy: policy, op: op))
-            .Run()
-            .MapFail(_ => op.InvalidResult())
-            .Bind(static value => value);
+    internal Fin<int> SelectInto(RhinoDoc document, bool selected, DocumentSelectionPolicy policy, Op op) {
+        CommandSelection self = this;
+        return op.Catch(() => self.SelectNative(document: document, selected: selected, policy: policy, op: op));
+    }
 
     private Fin<int> SelectNative(RhinoDoc document, bool selected, DocumentSelectionPolicy policy, Op op) {
         ArgumentNullException.ThrowIfNull(argument: document);

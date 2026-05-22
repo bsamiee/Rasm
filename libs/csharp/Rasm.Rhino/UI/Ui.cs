@@ -44,13 +44,13 @@ public readonly record struct UiStatus(
         UiStatus status = this;
         return RhinoUi.Protect(valid: () => {
             _ = (status.Prompt.Case, status.PromptDefault.Case) switch {
-                (string prompt, string fallback) => ((Func<Unit>)(() => { RhinoApp.SetCommandPrompt(prompt: prompt, promptDefault: fallback); return unit; }))(),
-                (string prompt, _) => ((Func<Unit>)(() => { RhinoApp.SetCommandPrompt(prompt: prompt); return unit; }))(),
+                (string prompt, string fallback) => Op.Side(() => RhinoApp.SetCommandPrompt(prompt: prompt, promptDefault: fallback)),
+                (string prompt, _) => Op.Side(() => RhinoApp.SetCommandPrompt(prompt: prompt)),
                 _ => unit,
             };
             _ = status.CommandMessage.Iter(static value => RhinoApp.SetCommandPromptMessage(prompt: value));
             _ = status.ClearMessage switch {
-                true => ((Func<Unit>)(static () => { global::Rhino.UI.StatusBar.ClearMessagePane(); return unit; }))(),
+                true => Op.Side(static () => global::Rhino.UI.StatusBar.ClearMessagePane()),
                 false => unit,
             };
             _ = status.Message.Iter(static value => global::Rhino.UI.StatusBar.SetMessagePane(message: value));
@@ -119,14 +119,11 @@ public sealed partial record RhinoUi {
             });
 
     private static Fin<T> Invoke<T>(Func<Fin<T>> valid, string name) =>
-        Try.lift<Fin<T>>(f: () => {
+        Op.Of(name: name).Catch(() => {
             Fin<T> result = Fin.Fail<T>(error: Op.Of(name: name).InvalidResult());
-            RhinoApp.InvokeAndWait(action: () => result = Catch(valid: valid, name: name));
+            RhinoApp.InvokeAndWait(action: () => result = Op.Of(name: name).Catch(valid));
             return result;
-        })
-            .Run()
-            .MapFail(_ => Op.Of(name: name).InvalidResult())
-            .Bind(static result => result);
+        });
 
     internal static Fin<T> Protect<T>(Func<Fin<T>> valid, [CallerMemberName] string name = "") =>
         OnUiThread(run: valid, name: name);
@@ -140,12 +137,7 @@ public sealed partial record RhinoUi {
             });
 
     private static Fin<T> Catch<T>(Func<Fin<T>> valid, string name) =>
-        Optional(valid)
-            .ToFin(Fail: Op.Of(name: name).InvalidInput())
-            .Bind(callback => Try.lift<Fin<T>>(f: callback)
-                .Run()
-                .MapFail(_ => Op.Of(name: name).InvalidResult())
-                .Bind(static result => result));
+        Op.Of(name: name).Catch(valid);
 }
 
 public sealed class UiProgress : IDisposable {
@@ -194,7 +186,7 @@ public sealed class UiProgress : IDisposable {
     public void Dispose() {
         _ = disposed switch {
             true => unit,
-            false => ((Func<Unit>)(() => { global::Rhino.UI.StatusBar.HideProgressMeter(docSerialNumber: documentSerialNumber); return unit; }))(),
+            false => Op.Side(() => global::Rhino.UI.StatusBar.HideProgressMeter(docSerialNumber: documentSerialNumber)),
         };
         disposed = true;
         GC.SuppressFinalize(obj: this);

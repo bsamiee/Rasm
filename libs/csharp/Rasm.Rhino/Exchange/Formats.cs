@@ -208,13 +208,7 @@ public sealed record FileFormat {
         };
 
     internal static Fin<Unit> NativeBool(Func<bool> run, Op op) =>
-        Try.lift(f: run)
-            .Run()
-            .MapFail(_ => op.InvalidResult())
-            .Bind(success => success switch {
-                true => Fin.Succ(value: unit),
-                false => Fin.Fail<Unit>(error: op.InvalidResult()),
-            });
+        op.Catch(() => op.Confirm(success: run()));
 
     internal static Fin<Unit> NativeWrite(WriteFileResult result, Op op) =>
         result switch {
@@ -486,22 +480,16 @@ internal static class FileFormatProjection {
         target.ToFin(Fail: op.InvalidInput());
 
     private static Fin<Unit> WithReadOptions(FileEndpoint source, FileProfile profile, Op op, Func<FileReadOptions, Fin<Unit>> run) =>
-        Try.lift<Fin<Unit>>(f: () => {
+        op.Catch(() => {
             using FileReadOptions options = ReadOptions(endpoint: source, profile: profile);
             return run(arg: options);
-        })
-            .Run()
-            .MapFail(_ => op.InvalidResult())
-            .Flatten();
+        });
 
     private static Fin<Unit> WithWriteOptions(FileEndpoint target, FileProfile profile, FilePhase phase, bool selected, bool updatePath, Op op, Func<FileWriteOptions, Fin<Unit>> run) =>
-        Try.lift<Fin<Unit>>(f: () => {
+        op.Catch(() => {
             using FileWriteOptions options = WriteOptions(endpoint: target, profile: profile, phase: phase, selected: selected, updatePath: updatePath);
             return run(arg: options);
-        })
-            .Run()
-            .MapFail(_ => op.InvalidResult())
-            .Flatten();
+        });
 
     private static FileReadOptions ReadOptions(FileEndpoint endpoint, FileProfile profile) {
         FileReadOptions options = new() {

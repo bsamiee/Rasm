@@ -98,15 +98,15 @@ public abstract record UiChromeOp<T> {
             RhinoUi.Protect(valid: () =>
                 from file in FindFile(fileId: Some(FileId), path: Option<string>.None, name: Option<string>.None, ignoreCase: true)
                 from activeGroup in toSeq(Enumerable.Range(start: 0, count: file.GroupCount)).Choose(index => Optional(file.GetGroup(index))).Find(candidate => candidate.Id == GroupId).ToFin(Fail: Op.Of(name: nameof(RuiGroup)).InvalidInput())
-                select ((Func<Unit>)(() => { activeGroup.Visible = Visible; return unit; }))());
+                select Op.Side(() => activeGroup.Visible = Visible));
     }
 
     public sealed record RuiSidebar(bool Visible, bool Mru = false) : UiChromeOp<Unit> {
         internal override Fin<Unit> Run(RhinoDoc? document) =>
             RhinoUi.Protect(valid: () => {
                 _ = Mru switch {
-                    true => ((Func<Unit>)(() => { global::Rhino.UI.ToolbarFileCollection.MruSidebarIsVisible = Visible; return unit; }))(),
-                    false => ((Func<Unit>)(() => { global::Rhino.UI.ToolbarFileCollection.SidebarIsVisible = Visible; return unit; }))(),
+                    true => Op.Side(() => global::Rhino.UI.ToolbarFileCollection.MruSidebarIsVisible = Visible),
+                    false => Op.Side(() => global::Rhino.UI.ToolbarFileCollection.SidebarIsVisible = Visible),
                 };
                 return Fin.Succ(value: unit);
             });
@@ -116,9 +116,9 @@ public abstract record UiChromeOp<T> {
         internal override Fin<Unit> Run(RhinoDoc? document) =>
             RhinoUi.Protect(valid: () =>
                 (Bitmap.Case, Tab.Case) switch {
-                    (DrawingSize bitmap, DrawingSize tab) when bitmap.Width > 0 && bitmap.Height > 0 && tab.Width > 0 && tab.Height > 0 => Fin.Succ(value: ((Func<Unit>)(() => { global::Rhino.UI.Toolbar.BitmapSize = bitmap; global::Rhino.UI.Toolbar.TabSize = tab; return unit; }))()),
-                    (DrawingSize bitmap, _) when bitmap.Width > 0 && bitmap.Height > 0 => Fin.Succ(value: ((Func<Unit>)(() => { global::Rhino.UI.Toolbar.BitmapSize = bitmap; return unit; }))()),
-                    (_, DrawingSize tab) when tab.Width > 0 && tab.Height > 0 => Fin.Succ(value: ((Func<Unit>)(() => { global::Rhino.UI.Toolbar.TabSize = tab; return unit; }))()),
+                    (DrawingSize bitmap, DrawingSize tab) when bitmap.Width > 0 && bitmap.Height > 0 && tab.Width > 0 && tab.Height > 0 => Fin.Succ(value: Op.Side(() => { global::Rhino.UI.Toolbar.BitmapSize = bitmap; global::Rhino.UI.Toolbar.TabSize = tab; })),
+                    (DrawingSize bitmap, _) when bitmap.Width > 0 && bitmap.Height > 0 => Fin.Succ(value: Op.Side(() => global::Rhino.UI.Toolbar.BitmapSize = bitmap)),
+                    (_, DrawingSize tab) when tab.Width > 0 && tab.Height > 0 => Fin.Succ(value: Op.Side(() => global::Rhino.UI.Toolbar.TabSize = tab)),
                     _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(RuiToolbarSize)).InvalidInput()),
                 });
     }
@@ -254,8 +254,8 @@ public readonly record struct PanelIcon(Option<DrawingIcon> Icon, Option<string>
             _ => from resource in resourceName.ToFin(Fail: Op.Of(name: nameof(Register)).InvalidInput())
                  from registered in RhinoUi.Protect(valid: () => {
                      _ = resourceAssembly.Case switch {
-                         ReflectionAssembly assembly => ((Func<Unit>)(() => { global::Rhino.UI.Panels.RegisterPanel(plugin, type, caption, assembly, resource, mode); return unit; }))(),
-                         _ => ((Func<Unit>)(() => { global::Rhino.UI.Panels.RegisterPanel(plugin, type, caption, null!, resource, mode); return unit; }))(),
+                         ReflectionAssembly assembly => Op.Side(() => global::Rhino.UI.Panels.RegisterPanel(plugin, type, caption, assembly, resource, mode)),
+                         _ => Op.Side(() => global::Rhino.UI.Panels.RegisterPanel(plugin, type, caption, null!, resource, mode)),
                      };
                      return Fin.Succ(value: unit);
                  })
@@ -362,8 +362,8 @@ public static class PanelOp {
         new(run: document =>
             RasmPanel.PanelIdentityOf<TPanel>().Bind(panel => RhinoUi.Protect(valid: () => {
                 _ = document switch {
-                    RhinoDoc doc => ((Func<Unit>)(() => { global::Rhino.UI.Panels.ClosePanel(panelId: panel.Id, doc: doc); return unit; }))(),
-                    _ => ((Func<Unit>)(() => { global::Rhino.UI.Panels.ClosePanel(panelType: panel.Type); return unit; }))(),
+                    RhinoDoc doc => Op.Side(() => global::Rhino.UI.Panels.ClosePanel(panelId: panel.Id, doc: doc)),
+                    _ => Op.Side(() => global::Rhino.UI.Panels.ClosePanel(panelType: panel.Type)),
                 };
                 return Fin.Succ(value: unit);
             })),
@@ -435,11 +435,10 @@ public static class PanelOp {
         public void Dispose() {
             _ = disposed switch {
                 true => unit,
-                false => ((Func<Unit>)(() => {
+                false => Op.Side(() => {
                     global::Rhino.UI.Panels.Show -= show;
                     global::Rhino.UI.Panels.Closed -= closed;
-                    return unit;
-                }))(),
+                }),
             };
             disposed = true;
             GC.SuppressFinalize(obj: this);

@@ -481,26 +481,26 @@ public sealed record CommandInputPolicy {
             getter.PermitElevatorMode(spec.PermitElevatorMode);
             getter.EnableSnapToCurves(enable: spec.SnapToCurves);
             _ = spec.ClearConstraints switch {
-                true => ((Func<Unit>)(() => { getter.ClearConstraints(); return unit; }))(),
+                true => Op.Side(getter.ClearConstraints),
                 false => unit,
             };
             _ = spec.SnapPoints.IsEmpty switch {
-                false => ((Func<Unit>)(() => { _ = getter.AddSnapPoints(points: [.. spec.SnapPoints]); return unit; }))(),
+                false => Op.Side(() => getter.AddSnapPoints(points: [.. spec.SnapPoints])),
                 true => unit,
             };
             _ = spec.ConstructionPoints.IsEmpty switch {
-                false => ((Func<Unit>)(() => { _ = getter.AddConstructionPoints(points: [.. spec.ConstructionPoints]); return unit; }))(),
+                false => Op.Side(() => getter.AddConstructionPoints(points: [.. spec.ConstructionPoints])),
                 true => unit,
             };
             _ = spec.BasePoint.Iter(point => {
                 getter.SetBasePoint(point, true);
                 _ = spec.DrawLineFromBasePoint switch {
-                    true => ((Func<Unit>)(() => { getter.DrawLineFromPoint(point, true); return unit; }))(),
+                    true => Op.Side(() => getter.DrawLineFromPoint(point, true)),
                     false => unit,
                 };
             });
             return (spec.DistanceFromBasePoint.Case switch {
-                double value when RhinoMath.IsValidDouble(x: value) && value >= 0.0 => Fin.Succ(value: ((Func<Unit>)(() => { getter.ConstrainDistanceFromBasePoint(distance: value); return unit; }))()),
+                double value when RhinoMath.IsValidDouble(x: value) && value >= 0.0 => Fin.Succ(value: Op.Side(() => getter.ConstrainDistanceFromBasePoint(distance: value))),
                 double => Fin.Fail<Unit>(error: Op.Of(name: nameof(ApplyPoint)).InvalidInput()),
                 _ => Fin.Succ(value: unit),
             }).Bind(_ => spec.Constraints.Fold(
@@ -716,16 +716,17 @@ public static class CommandInputs {
                     _ = getter.InterruptMouseMove();
                     return unit;
                 });
-            getter.MouseMove += (_, args) => _ = Apply(pointEvent: new CommandPointEvent(Phase: CommandPointEventPhase.MouseMove, Document: document, Getter: getter, Mouse: Some(args), Draw: Option<GetPointDrawEventArgs>.None, PostDraw: Option<DrawEventArgs>.None, Gumball: gumball));
-            getter.MouseDown += (_, args) => _ = Apply(pointEvent: new CommandPointEvent(Phase: CommandPointEventPhase.MouseDown, Document: document, Getter: getter, Mouse: Some(args), Draw: Option<GetPointDrawEventArgs>.None, PostDraw: Option<DrawEventArgs>.None, Gumball: gumball));
-            getter.DynamicDraw += (_, args) => _ = Apply(pointEvent: new CommandPointEvent(Phase: CommandPointEventPhase.DynamicDraw, Document: document, Getter: getter, Mouse: Option<GetPointMouseEventArgs>.None, Draw: Some(args), PostDraw: Option<DrawEventArgs>.None, Gumball: gumball));
-            _ = fullFrameRedraw switch {
-                true => ((Func<Unit>)(() => {
-                    getter.PostDrawObjects += (_, args) => _ = Apply(pointEvent: new CommandPointEvent(Phase: CommandPointEventPhase.PostDrawObjects, Document: document, Getter: getter, Mouse: Option<GetPointMouseEventArgs>.None, Draw: Option<GetPointDrawEventArgs>.None, PostDraw: Some(args), Gumball: gumball));
-                    return unit;
-                }))(),
-                false => unit,
-            };
+            Unit Subscribe<TArgs>(Action<EventHandler<TArgs>> register, CommandPointEventPhase phase, Func<TArgs, (Option<GetPointMouseEventArgs> Mouse, Option<GetPointDrawEventArgs> Draw, Option<DrawEventArgs> Post)> project) {
+                register((_, args) => {
+                    (Option<GetPointMouseEventArgs> mouse, Option<GetPointDrawEventArgs> draw, Option<DrawEventArgs> post) = project(arg: args);
+                    _ = Apply(pointEvent: new CommandPointEvent(Phase: phase, Document: document, Getter: getter, Mouse: mouse, Draw: draw, PostDraw: post, Gumball: gumball));
+                });
+                return unit;
+            }
+            _ = Subscribe<GetPointMouseEventArgs>(h => getter.MouseMove += h, CommandPointEventPhase.MouseMove, static a => (Some(a), Option<GetPointDrawEventArgs>.None, Option<DrawEventArgs>.None));
+            _ = Subscribe<GetPointMouseEventArgs>(h => getter.MouseDown += h, CommandPointEventPhase.MouseDown, static a => (Some(a), Option<GetPointDrawEventArgs>.None, Option<DrawEventArgs>.None));
+            _ = Subscribe<GetPointDrawEventArgs>(h => getter.DynamicDraw += h, CommandPointEventPhase.DynamicDraw, static a => (Option<GetPointMouseEventArgs>.None, Some(a), Option<DrawEventArgs>.None));
+            _ = fullFrameRedraw ? Subscribe<DrawEventArgs>(h => getter.PostDrawObjects += h, CommandPointEventPhase.PostDrawObjects, static a => (Option<GetPointMouseEventArgs>.None, Option<GetPointDrawEventArgs>.None, Some(a))) : unit;
             getter.FullFrameRedrawDuringGet = fullFrameRedraw;
             return unit;
         }).Map(Fin.Succ).IfNone(Fin.Succ(value: unit));
@@ -881,11 +882,10 @@ public static class CommandInputs {
             CommandInputPolicy.LimitSpec b =>
                 from projected in b.Project<TValue>(op: Op.Of(name: nameof(Limits)))
                 from valid in Optional(getter).ToFin(Fail: Op.Of(name: nameof(Limits)).InvalidInput())
-                select ((Func<Unit>)(() => {
+                select Op.Side(() => {
                     _ = projected.Lower.Iter(value => setLower(arg1: valid, arg2: value, arg3: b.StrictlyLower));
                     _ = projected.Upper.Iter(value => setUpper(arg1: valid, arg2: value, arg3: b.StrictlyUpper));
-                    return unit;
-                }))(),
+                }),
             _ => Fin.Succ(value: unit),
         };
 

@@ -16,6 +16,21 @@ public readonly partial struct Op {
     [BoundaryAdapter] public Error Unsupported(Type geometryType, Type outputType) => new Fault.Unsupported(Key: this, GeometryType: geometryType, OutputType: outputType);
     [BoundaryAdapter] public Fin<T> AcceptValue<T>(T value) => OpAcceptance.AcceptValue(key: this, value: value);
     [BoundaryAdapter] public Fin<string> AcceptText(string value) => AcceptValue(value: value).Map(static text => text.Trim());
+    [BoundaryAdapter] public Fin<Unit> Confirm(bool success) => success ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: InvalidResult());
+    [BoundaryAdapter]
+    public Fin<T> Catch<T>(Func<Fin<T>> body) {
+        Op self = this;
+        return Optional(body).ToFin(Fail: self.InvalidInput()).Bind(valid =>
+            Try.lift<Fin<T>>(f: valid).Run().Match(
+                Succ: static result => result,
+                Fail: _ => Fin.Fail<T>(error: self.InvalidResult())));
+    }
+    [BoundaryAdapter]
+    public static Unit Side(Action action) {
+        ArgumentNullException.ThrowIfNull(argument: action);
+        action();
+        return unit;
+    }
 }
 
 public static partial class OpExtensions {

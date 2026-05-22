@@ -235,6 +235,11 @@ public abstract class RasmCommand<TSelf> : Command where TSelf : RasmCommand<TSe
     protected virtual Result FailureResult(Error fault) =>
         fault switch {
             Fault.Cancelled => Result.Cancel,
-            Error error => ((Func<Result>)(() => { RhinoApp.WriteLine($"{EnglishName}: {error.Message}"); return Result.Failure; }))(),
+            Error error => Failure(name: EnglishName, message: error.Message),
         };
+
+    private static Result Failure(string name, string message) {
+        RhinoApp.WriteLine(message: $"{name}: {message}");
+        return Result.Failure;
+    }
 }
