@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Eto.Drawing;
 using Grasshopper2.UI.Animation;
@@ -76,11 +77,12 @@ public readonly record struct SpringConfig(float Stiffness, float Damping, float
 
 // Snapshot of spring physics at a frame boundary. Lives inside Atom<SpringRunnerState<T>>;
 // each Tick reads, computes, swaps. Retarget mutates Target/Velocity through the same atom.
+// Clock is a Stopwatch.GetTimestamp() value — monotonic, immune to wall-clock skew.
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct SpringRunnerState<T>(
     T Value, T Velocity, T Target,
     SpringConfig Config, IMotionVector<T> Vector,
-    Action<T> Sink, DateTime Clock);
+    Action<T> Sink, long Clock);
 
 // Re-targetable spring handle. Owns its Atom-backed state cell + paint subscription.
 // Retarget preserves velocity by default; supply InitialVelocity override for impulses.
@@ -250,13 +252,8 @@ internal static class Motion {
             from validSink in Optional(sink).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Tween)), detail: "sink delegate is required"))
             from sub in Paint.Hook(
                 phase: CanvasPaintPhase.BeforeBackground,
-                paint: paintScope => Try.lift(f: () => {
-                    validSink(animated.ValueNow);
-                    _ = animated.State == GhState.Finished ? unit : ((Func<Unit>)(() => { canvas.ScheduleRedraw(); return unit; }))();
-                    return unit;
-                }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Tween)), detail: $"tick threw: {error.Message}"))).Run(scope: scope)
-            from initial in Try.lift(f: () => { canvas.ScheduleRedraw(); return unit; }).Run()
-                .MapFail(error => UiFault.ThreadMarshal(detail: $"{nameof(Tween)} initial redraw threw: {error.Message}"))
+                paint: _ => Try.lift(f: () => { validSink(canvas.Animate(animated: animated)); return unit; })
+                    .Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Tween)), detail: $"tick threw: {error.Message}"))).Run(scope: scope)
             select sub);
 
     internal static GrasshopperUiIntent<SpringHandle<TValue>> Spring<TValue>(
@@ -273,7 +270,7 @@ internal static class Motion {
                 Config: config,
                 Vector: validVector,
                 Sink: validSink,
-                Clock: DateTime.UtcNow))
+                Clock: Stopwatch.GetTimestamp()))
             let ticker = new SpringTicker<TValue>(cell: cell, canvas: canvas)
             from sub in Paint.Hook(
                 phase: CanvasPaintPhase.BeforeBackground,
@@ -321,20 +318,15 @@ internal static class Motion {
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
             from validPath in Optional(path).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Stroke)), detail: "path is required"))
-            from validOrigin in Optional(origin)
-                .Filter(static p => float.IsFinite(p.X) && float.IsFinite(p.Y))
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Stroke)), detail: "non-finite origin"))
+            from validOrigin in Op.Of(name: nameof(Stroke)).AcceptPoint(value: origin, detail: "non-finite origin")
             let progress = Animators.Unfinished(value0: 0.0, value1: 1.0, duration: duration, motion: easing)
             from sub in Paint.Hook(
                 phase: CanvasPaintPhase.AfterObjects,
                 paint: paintScope => Try.lift(f: () => {
                     using Pen pen = style.Pen();
-                    validPath.Draw(paintScope.Graphics.Content, pen, progress.ValueNow, validOrigin, scale, angle);
-                    _ = progress.State == GhState.Finished ? unit : ((Func<Unit>)(() => { canvas.ScheduleRedraw(); return unit; }))();
+                    validPath.Draw(paintScope.Graphics.Content, pen, canvas.Animate(animated: progress), validOrigin, scale, angle);
                     return unit;
                 }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Stroke)), detail: $"draw threw: {error.Message}"))).Run(scope: scope)
-            from initial in Try.lift(f: () => { canvas.ScheduleRedraw(); return unit; }).Run()
-                .MapFail(error => UiFault.ThreadMarshal(detail: $"{nameof(Stroke)} initial redraw threw: {error.Message}"))
             select sub);
 
     internal static GrasshopperUiIntent<Unit> Sparkle(ISparkle instance) =>
@@ -360,10 +352,13 @@ internal static class Motion {
     internal static GrasshopperUiIntent<Unit> Navigate(PointF centre, GhDuration duration, float minZoom, float maxZoom) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
-            from valid in Optional((Centre: centre, MinZoom: minZoom, MaxZoom: maxZoom))
-                .Filter(static s => float.IsFinite(s.Centre.X) && float.IsFinite(s.Centre.Y) && float.IsFinite(s.MinZoom) && s.MinZoom > 0 && float.IsFinite(s.MaxZoom) && s.MaxZoom >= s.MinZoom)
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Navigate)), detail: "invalid navigate parameters"))
-            from _ in Try.lift(f: () => { canvas.Navigate(point: valid.Centre, zoomLimits: (valid.MinZoom, valid.MaxZoom), duration: duration); return unit; }).Run()
+            from validCentre in Op.Of(name: nameof(Navigate)).AcceptPoint(value: centre, detail: "non-finite centre")
+            from validMin in Op.Of(name: nameof(Navigate)).AcceptFinite(value: minZoom, detail: "min zoom must be finite and positive", requirePositive: true)
+            from validMax in Op.Of(name: nameof(Navigate)).AcceptFinite(value: maxZoom, detail: "max zoom must be finite and positive", requirePositive: true)
+            from _ in validMax >= validMin
+                ? Fin.Succ(value: unit)
+                : Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Navigate)), detail: "max zoom below min zoom"))
+            from __ in Try.lift(f: () => { canvas.Navigate(point: validCentre, zoomLimits: (validMin, validMax), duration: duration); return unit; }).Run()
                 .MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Navigate)), detail: $"navigate threw: {error.Message}"))
             select unit);
 
@@ -390,7 +385,7 @@ internal static class Motion {
 
         private T scratchValue = default!;
         private T scratchVelocity = default!;
-        private DateTime scratchClock;
+        private long scratchClock;
 
         internal SpringTicker(Atom<SpringRunnerState<T>> cell, Grasshopper2.UI.Canvas.Canvas canvas) {
             this.cell = cell;
@@ -400,8 +395,8 @@ internal static class Motion {
 
         internal Unit Tick() {
             SpringRunnerState<T> s = cell.Value;
-            DateTime now = DateTime.UtcNow;
-            float dt = Math.Min(val1: (float)(now - s.Clock).TotalSeconds, val2: MaxFrameDelta);
+            long now = Stopwatch.GetTimestamp();
+            float dt = Math.Min(val1: (float)Stopwatch.GetElapsedTime(startingTimestamp: s.Clock, endingTimestamp: now).TotalSeconds, val2: MaxFrameDelta);
 
             T displacement = s.Vector.Subtract(s.Value, s.Target);
             T accel = s.Vector.Scale(

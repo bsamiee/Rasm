@@ -75,10 +75,7 @@ internal sealed record EditorRequest(EditorOp Op) : GhUiRequest<EditorResult> {
             }).Run().MapFail(error => UiFault.GhEditor(detail: $"{nameof(EditorOp.Show)}: {error.Message}")),
         EditorOp.EnsureVisibleCase =>
             Try.lift(f: () => {
-                GhEditor editor = GhEditor.ShowEditor(createVisible: true, layoutRules: string.Empty);
-                _ = typeof(GhEditor)
-                    .GetMethod(name: "EnsureVisible", bindingAttr: System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic)
-                    ?.Invoke(obj: editor, parameters: []);
+                _ = GhEditor.ShowEditor(createVisible: true, layoutRules: string.Empty);
                 return EditorResult.Unit;
             }).Run().MapFail(error => UiFault.GhEditor(detail: $"{nameof(EditorOp.EnsureVisible)}: {error.Message}")),
         EditorOp.StateCase =>

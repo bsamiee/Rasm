@@ -201,11 +201,9 @@ internal static partial class Layout {
             repaint: RepaintRequest.Object(id: id),
             undo: PivotUndo(noun: "Move", id: id),
             mutate: scope =>
-                Optional((Dx: dx, Dy: dy))
-                    .Filter(static d => float.IsFinite(d.Dx) && float.IsFinite(d.Dy))
-                    .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Move)), detail: "non-finite delta"))
+                Op.Of(name: nameof(Move)).AcceptPoint(value: new PointF(x: dx, y: dy), detail: "non-finite delta")
                     .Bind(delta => ObjectOf(scope: scope, id: id).Bind(obj => scope.NeedDocument().Map(doc =>
-                        ApplyMove(obj: obj, document: doc, dx: delta.Dx, dy: delta.Dy, snap: snap)))));
+                        ApplyMove(obj: obj, document: doc, dx: delta.X, dy: delta.Y, snap: snap)))));
 
     internal static GrasshopperUiIntent<Snapshot<LayoutMoveDelta>> Place(Guid id, PointF pivot) =>
         GrasshopperUi.Mutate(
@@ -213,9 +211,7 @@ internal static partial class Layout {
             repaint: RepaintRequest.Object(id: id),
             undo: PivotUndo(noun: "Place", id: id),
             mutate: scope =>
-                from valid in Optional(pivot)
-                    .Filter(static point => float.IsFinite(point.X) && float.IsFinite(point.Y))
-                    .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Place)), detail: "non-finite pivot"))
+                from valid in Op.Of(name: nameof(Place)).AcceptPoint(value: pivot, detail: "non-finite pivot")
                 from obj in ObjectOf(scope: scope, id: id)
                 from doc in scope.NeedDocument()
                 let before = SnapshotOf(attributes: obj.Attributes)
@@ -248,9 +244,7 @@ internal static partial class Layout {
             run: scope => Optional(ids)
                 .Filter(static values => values.Length >= 2)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Distribute)), detail: "Distribute requires at least 2 ids"))
-                .Bind(validIds => Optional(gap)
-                    .Filter(static value => float.IsFinite(value))
-                    .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Distribute)), detail: "non-finite gap"))
+                .Bind(validIds => Op.Of(name: nameof(Distribute)).AcceptFinite(value: gap, detail: "non-finite gap")
                     .Bind(validGap => scope.NeedDocument().Bind(doc => scope.NeedObjects().Bind(objs => {
                         UndoGroup bag = new(verb: "Layout", noun: string.Create(CultureInfo.InvariantCulture, $"Distribute {axis}"));
                         GrasshopperUi.Scope scoped = scope with { UndoGroup = Some(bag) };
@@ -270,10 +264,10 @@ internal static partial class Layout {
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Snap)), detail: "snap probe is required"))
                 .Bind(valid => valid switch {
                     SnapProbe.PointCase point =>
-                        Optional((point.Probe, point.Radius))
-                            .Filter(static p => float.IsFinite(p.Probe.X) && float.IsFinite(p.Probe.Y) && float.IsFinite(p.Radius) && p.Radius > 0f)
-                            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Snap)), detail: "invalid point probe"))
-                            .Bind(p => SnapRectangle(scope: scope, id: point.ObjectId, bounds: new RectangleF(x: p.Probe.X - p.Radius, y: p.Probe.Y - p.Radius, width: p.Radius * 2f, height: p.Radius * 2f), policy: point.Policy)),
+                        from probe in Op.Of(name: nameof(Snap)).AcceptPoint(value: point.Probe, detail: "non-finite probe")
+                        from radius in Op.Of(name: nameof(Snap)).AcceptFinite(value: point.Radius, detail: "radius must be finite and positive", requirePositive: true)
+                        from snapped in SnapRectangle(scope: scope, id: point.ObjectId, bounds: new RectangleF(x: probe.X - radius, y: probe.Y - radius, width: radius * 2f, height: radius * 2f), policy: point.Policy)
+                        select snapped,
                     SnapProbe.RectangleCase rectangle =>
                         SnapRectangle(scope: scope, id: rectangle.ObjectId, bounds: rectangle.Bounds, policy: rectangle.Policy),
                     SnapProbe.ObjectCase obj =>
@@ -293,14 +287,7 @@ internal static partial class Layout {
             None: () => new UndoEntry(Name: ("Layout", noun), Actions: Seq<UndoAction>())));
 
     private static Fin<Option<SnappingSnapshot>> SnapRectangle(GrasshopperUi.Scope scope, Guid id, RectangleF bounds, SnappingPolicy policy) =>
-        Optional(bounds)
-            .Filter(static b => float.IsFinite(b.X)
-                && float.IsFinite(b.Y)
-                && float.IsFinite(b.Width)
-                && float.IsFinite(b.Height)
-                && b.Width > 0f
-                && b.Height > 0f)
-            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SnapRectangle)), detail: "invalid rectangle probe"))
+        Op.Of(name: nameof(SnapRectangle)).AcceptRect(value: bounds, detail: "invalid rectangle probe", requirePositive: true)
             .Bind(valid => ObjectOf(scope: scope, id: id).Bind(obj =>
                 from document in scope.NeedDocument()
                 from canvas in scope.NeedCanvas()
@@ -322,8 +309,12 @@ internal static partial class Layout {
 
     private static LayoutMoveDelta ApplyMove(IDocumentObject obj, GhDocument document, float dx, float dy, bool snap) {
         IAttributes attributes = obj.Attributes;
+        RectangleF bounds = attributes.AggregateBounds;
         Option<SnappingSnapshot> snapped = snap && attributes.Snappable
-            ? SnapMove(document: document, obj: obj, dx: dx, dy: dy, policy: default)
+            ? SnapRectangle(
+                document: document, obj: obj,
+                bounds: new RectangleF(x: bounds.X + dx, y: bounds.Y + dy, width: bounds.Width, height: bounds.Height),
+                policy: default, visibleLimit: document.Objects.AttributeBounds)
             : Option<SnappingSnapshot>.None;
         (float deltaDx, float deltaDy) = snapped.Map(static s => (s.Dx, s.Dy)).IfNone((0f, 0f));
         float effDx = dx + deltaDx;
@@ -335,13 +326,6 @@ internal static partial class Layout {
             Dx: effDx, Dy: effDy,
             After: SnapshotOf(attributes: attributes),
             Snap: snapped);
-    }
-
-    private static Option<SnappingSnapshot> SnapMove(GhDocument document, IDocumentObject obj, float dx, float dy, SnappingPolicy policy) {
-        IAttributes attributes = obj.Attributes;
-        RectangleF bounds = attributes.AggregateBounds;
-        RectangleF target = new(x: bounds.X + dx, y: bounds.Y + dy, width: bounds.Width, height: bounds.Height);
-        return SnapRectangle(document: document, obj: obj, bounds: target, policy: policy, visibleLimit: document.Objects.AttributeBounds);
     }
 
     private static Option<SnappingSnapshot> SnapRectangle(GhDocument document, IDocumentObject obj, RectangleF bounds, SnappingPolicy policy, RectangleF visibleLimit) {

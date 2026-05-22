@@ -228,6 +228,7 @@ public partial record DrawMark {
 
     private static Unit Draw(PaintScope scope, PaintStyle style, Func<Graphics, Unit> run) {
         Graphics graphics = scope.Graphics.Content;
+        using IDisposable state = graphics.SaveTransformState();
         _ = style.Assign(graphics: graphics);
         return run(arg: graphics);
     }
@@ -257,12 +258,19 @@ public partial record DrawMark {
     }
 
     private static Unit DrawWire(PaintScope scope, WireCase wire) {
-        _ = wire.Style.Assign(graphics: scope.Graphics.Content);
+        Graphics graphics = scope.Graphics.Content;
+        using IDisposable state = graphics.SaveTransformState();
+        _ = wire.Style.Assign(graphics: graphics);
         WireSkin skin = scope.Skin.Wires[wire.Kind];
         WireShape shape = WireShape.Create(source: wire.Source, target: wire.Target);
-        using Pen pen = new(color: skin.Normal, thickness: skin.Outer.Width);
-        skin.Outer.AssignToPen(pen: pen);
-        shape.Draw(graphics: scope.Graphics.Content, edge: pen);
+        using Pen outerPen = new(color: skin.Normal, thickness: skin.Outer.Width);
+        skin.Outer.AssignToPen(pen: outerPen);
+        shape.Draw(graphics: graphics, edge: outerPen);
+        _ = Optional(skin.Inner).Iter(inner => {
+            using Pen innerPen = new(color: skin.Normal, thickness: inner.Width);
+            inner.AssignToPen(pen: innerPen);
+            shape.Draw(graphics: graphics, edge: innerPen);
+        });
         return unit;
     }
 }

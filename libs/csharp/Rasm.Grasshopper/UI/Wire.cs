@@ -225,9 +225,7 @@ internal static partial class Wire {
             undo: UndoStrategy.None,
             repaint: RepaintRequest.Canvas,
             mutate: scope =>
-                from valid in Optional(location)
-                    .Filter(static point => float.IsFinite(point.X) && float.IsFinite(point.Y))
-                    .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Split)), detail: "non-finite location"))
+                from valid in Op.Of(name: nameof(Split)).AcceptPoint(value: location, detail: "non-finite location")
                 from methods in scope.NeedMethods()
                 from objs in scope.NeedObjects()
                 from doc in scope.NeedDocument()

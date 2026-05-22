@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Eto.Drawing;
+using Eto.Forms;
 using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.UI.Flex;
 using Grasshopper2.UI.Skinning;
@@ -283,6 +284,29 @@ public abstract partial record UiFault : Expected {
     public static UiFault Cancelled(Op op) => new CancelledCase(Op: op);
 }
 
+public static partial class OpUiExtensions {
+    [BoundaryAdapter]
+    internal static Fin<PointF> AcceptPoint(this Op op, PointF value, string detail = "non-finite point") =>
+        float.IsFinite(value.X) && float.IsFinite(value.Y)
+            ? Fin.Succ(value)
+            : Fin.Fail<PointF>(error: UiFault.InvalidInput(op: op, detail: detail));
+
+    [BoundaryAdapter]
+    internal static Fin<RectangleF> AcceptRect(this Op op, RectangleF value, string detail = "non-finite rect", bool requirePositive = false) =>
+        float.IsFinite(value.X) && float.IsFinite(value.Y) && float.IsFinite(value.Width) && float.IsFinite(value.Height)
+        && (!requirePositive || (value.Width > 0f && value.Height > 0f))
+            ? Fin.Succ(value)
+            : Fin.Fail<RectangleF>(error: UiFault.InvalidInput(op: op, detail: detail));
+
+    [BoundaryAdapter]
+    internal static Fin<float> AcceptFinite(this Op op, float value, string detail = "non-finite value", bool requirePositive = false, bool nonNegative = false) =>
+        float.IsFinite(value)
+        && (!requirePositive || value > 0f)
+        && (!nonNegative || value >= 0f)
+            ? Fin.Succ(value)
+            : Fin.Fail<float>(error: UiFault.InvalidInput(op: op, detail: detail));
+}
+
 // --- [SERVICES] ---------------------------------------------------------------------------
 public static class GhUi {
     public static GrasshopperUiIntent<T> Apply<T>(GhUiRequest<T> request) =>
@@ -452,15 +476,13 @@ public sealed partial record GrasshopperUi {
                 (false, _) => Marshal(valid: valid, cancellation: cancellation),
             });
 
-    private static Fin<T> Marshal<T>(Func<Fin<T>> valid, CancellationToken cancellation) {
-        return Try.lift<Fin<T>>(f: () => {
-            Fin<T> result = Fin.Fail<T>(error: UiFault.Cancelled(op: Op.Of(name: nameof(Marshal))));
-            RhinoApp.InvokeAndWait(action: () => result = cancellation.IsCancellationRequested
-                ? Fin.Fail<T>(error: UiFault.Cancelled(op: Op.Of(name: nameof(Marshal))))
-                : Protect(valid: valid));
-            return result;
-        }).Run().MapFail(error => UiFault.ThreadMarshal(detail: $"InvokeAndWait threw: {error.Message}")).Bind(static result => result);
-    }
+    private static Fin<T> Marshal<T>(Func<Fin<T>> valid, CancellationToken cancellation) =>
+        Try.lift<Fin<T>>(f: () => cancellation.IsCancellationRequested
+            ? Fin.Fail<T>(error: UiFault.Cancelled(op: Op.Of(name: nameof(Marshal))))
+            : Application.Instance.Invoke(func: () => Protect(valid: valid)))
+            .Run()
+            .MapFail(error => UiFault.ThreadMarshal(detail: $"Application.Invoke threw: {error.Message}"))
+            .Bind(static result => result);
 
     internal static Fin<T> Protect<T>(Func<Fin<T>> valid, [CallerMemberName] string name = "") =>
         Try.lift<Fin<T>>(f: valid).Run().MapFail(error => UiFault.ThreadMarshal(detail: $"{name}: {error.Message}")).Bind(static result => result);
@@ -470,9 +492,9 @@ public sealed partial record GrasshopperUi {
             .Bind(valid => RhinoApp.IsOnMainThread
                 ? Protect(valid: () => { valid(); return Fin.Succ(value: unit); })
                 : Try.lift(f: () => {
-                    RhinoApp.InvokeOnUiThread(method: (System.Action)(() => Protect(valid: () => { valid(); return Fin.Succ(value: unit); }).Ignore()), args: []);
+                    Application.Instance.AsyncInvoke(action: () => Protect(valid: () => { valid(); return Fin.Succ(value: unit); }).Ignore());
                     return unit;
-                }).Run().MapFail(error => UiFault.ThreadMarshal(detail: $"InvokeOnUiThread threw: {error.Message}")));
+                }).Run().MapFail(error => UiFault.ThreadMarshal(detail: $"AsyncInvoke threw: {error.Message}")));
 
     internal static T Repaint<T>(Scope scope, GrasshopperUiPolicy policy, T value) {
         _ = policy.RepaintOrNone switch {

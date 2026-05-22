@@ -363,12 +363,8 @@ internal static partial class Input {
         GhUi.Read(run: _ =>
             from validOwner in Optional(owner).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(PopupPanel)), detail: "null owner"))
             from validPopulate in Optional(populate).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(PopupPanel)), detail: "null populate"))
-            from validLocation in Optional(location)
-                .Filter(static value => float.IsFinite(value.X) && float.IsFinite(value.Y))
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(PopupPanel)), detail: "non-finite location"))
-            from validScreen in Optional(screen)
-                .Filter(static value => float.IsFinite(value.X) && float.IsFinite(value.Y) && float.IsFinite(value.Width) && float.IsFinite(value.Height) && value.Width > 0 && value.Height > 0)
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(PopupPanel)), detail: "invalid screen bounds"))
+            from validLocation in Op.Of(name: nameof(PopupPanel)).AcceptPoint(value: location, detail: "non-finite location")
+            from validScreen in Op.Of(name: nameof(PopupPanel)).AcceptRect(value: screen, detail: "invalid screen bounds", requirePositive: true)
             let panel = new InputPanel()
             from populated in validPopulate(arg: panel)
             let form = panel.ShowAsForm(validOwner, validLocation, validScreen)
@@ -404,9 +400,7 @@ internal static partial class Input {
     internal static GrasshopperUiIntent<MenuSnapshot> ShowMenu(CommandPlan plan, Control owner, PointF location) =>
         GhUi.Read(run: _ =>
             from validOwner in Optional(owner).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ShowMenu)), detail: "null owner"))
-            from validLocation in Optional(location)
-                .Filter(static value => float.IsFinite(value.X) && float.IsFinite(value.Y))
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ShowMenu)), detail: "non-finite location"))
+            from validLocation in Op.Of(name: nameof(ShowMenu)).AcceptPoint(value: location, detail: "non-finite location")
             let menu = new ContextMenu()
             from populated in plan.Items.TraverseM(item => item.Apply(surface: UiCommandSurface.Menu(menu: menu))).As()
             from shown in Try.lift(f: () => {

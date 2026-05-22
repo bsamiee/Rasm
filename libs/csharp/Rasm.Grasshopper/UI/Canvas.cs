@@ -46,27 +46,25 @@ public partial record CanvasLocus {
     internal Fin<CanvasLocus> Map(GhCanvas canvas, CoordinateSystem from, CoordinateSystem to) =>
         Switch(
             state: (Canvas: canvas, From: from, To: to),
-            pointCase: static (state, p) => Optional(p.Value)
-                .Filter(static value => float.IsFinite(value.X) && float.IsFinite(value.Y))
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasLocus)), detail: "non-finite point"))
+            pointCase: static (state, p) => Op.Of(name: nameof(CanvasLocus))
+                .AcceptPoint(value: p.Value, detail: "non-finite point")
                 .Map(value => Point(value: state.Canvas.Map(point: value, from: state.From, to: state.To))),
-            boundsCase: static (state, b) => Optional(b.Value)
-                .Filter(static value => float.IsFinite(value.X) && float.IsFinite(value.Y) && float.IsFinite(value.Width) && float.IsFinite(value.Height))
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasLocus)), detail: "non-finite bounds"))
+            boundsCase: static (state, b) => Op.Of(name: nameof(CanvasLocus))
+                .AcceptRect(value: b.Value, detail: "non-finite bounds")
                 .Map(value => Bounds(value: state.Canvas.Map(rectangle: value, from: state.From, to: state.To))));
 }
 
 [Union]
 public partial record CanvasViewOp {
     private CanvasViewOp() { }
-    public sealed record BoundsCase(RectangleF Region, CanvasNavigationPolicy Policy) : CanvasViewOp;
-    public sealed record SelectionCase(Option<Seq<Guid>> Ids, CanvasFramePolicy Policy) : CanvasViewOp;
-    public sealed record FitCase(CanvasFitTarget Target, CanvasNavigationPolicy Policy) : CanvasViewOp;
+    public sealed record BoundsCase(RectangleF Region, CanvasViewPolicy Policy) : CanvasViewOp;
+    public sealed record SelectionCase(Option<Seq<Guid>> Ids, CanvasViewPolicy Policy) : CanvasViewOp;
+    public sealed record FitCase(CanvasFitTarget Target, CanvasViewPolicy Policy) : CanvasViewOp;
     public sealed record ProjectionCase(PointF Centre, float Zoom) : CanvasViewOp;
 
-    public static CanvasViewOp Bounds(RectangleF bounds, CanvasNavigationPolicy policy = default) => new BoundsCase(Region: bounds, Policy: policy);
-    public static CanvasViewOp Selection(Seq<Guid>? ids = null, CanvasFramePolicy policy = default) => new SelectionCase(Ids: Optional(ids), Policy: policy);
-    public static CanvasViewOp Fit(CanvasFitTarget target, CanvasNavigationPolicy policy = default) => new FitCase(Target: target, Policy: policy);
+    public static CanvasViewOp Bounds(RectangleF bounds, CanvasViewPolicy policy = default) => new BoundsCase(Region: bounds, Policy: policy);
+    public static CanvasViewOp Selection(Seq<Guid>? ids = null, CanvasViewPolicy policy = default) => new SelectionCase(Ids: Optional(ids), Policy: policy);
+    public static CanvasViewOp Fit(CanvasFitTarget target, CanvasViewPolicy policy = default) => new FitCase(Target: target, Policy: policy);
     public static CanvasViewOp Projection(PointF centre, float zoom) => new ProjectionCase(Centre: centre, Zoom: zoom);
 }
 
@@ -120,10 +118,11 @@ public partial record CanvasResult {
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct CanvasNavigationPolicy(float MinimumZoom = 0.05f, float MaximumZoom = 2f, TimeSpan Duration = default);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct CanvasFramePolicy(float Padding = 48f, CanvasNavigationPolicy Navigation = default);
+public readonly record struct CanvasViewPolicy(
+    float MinimumZoom = 0.05f,
+    float MaximumZoom = 2f,
+    TimeSpan Duration = default,
+    float Padding = 0f);
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CanvasInteractionPolicy(
@@ -283,8 +282,7 @@ internal static partial class UiRail {
             scope.NeedCanvas().Map(canvas => (CanvasResult)new CanvasResult.SnapshotResult(
                 Snapshot: SnapshotOf(canvas: canvas, document: canvas.Document, objects: canvas.Document.Objects))),
         CanvasOp.PickCase p =>
-            Optional(p.Point).Filter(static pt => float.IsFinite(pt.X) && float.IsFinite(pt.Y))
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasOp.Pick)), detail: "non-finite point"))
+            Op.Of(name: nameof(CanvasOp.Pick)).AcceptPoint(value: p.Point, detail: "non-finite point")
                 .Bind(valid => scope.NeedCanvas().Map(canvas => {
                     PointF content = p.Source == CoordinateSystem.Content ? valid : canvas.Map(point: valid, from: p.Source, to: CoordinateSystem.Content);
                     SelectionResult result = canvas.ResolvePick(point: content, includeGrips: true, includeForeground: true, includeBackground: true, includeWires: true, recursive: true);
@@ -371,33 +369,40 @@ internal static partial class UiRail {
     private static Fin<CanvasResult> ViewDispatch(GrasshopperUi.Scope scope, CanvasViewOp view) =>
         view switch {
             CanvasViewOp.BoundsCase n =>
-                Optional((Frame: n.Region, Policy: ResolveNavigation(n.Policy)))
-                    .Filter(static s => float.IsFinite(s.Frame.X) && float.IsFinite(s.Frame.Y) && float.IsFinite(s.Frame.Width) && float.IsFinite(s.Frame.Height) && s.Policy.MinimumZoom > 0 && s.Policy.MaximumZoom >= s.Policy.MinimumZoom)
-                    .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasViewOp.Bounds)), detail: "non-finite frame or invalid zoom range"))
-                    .Bind(valid => scope.NeedCanvas().Bind(canvas => scope.NeedDocument().Bind(doc => scope.NeedObjects().Map(objs =>
-                        (CanvasResult)NavigateTo(canvas: canvas, frame: valid.Frame, policy: valid.Policy, document: doc, objects: objs))))),
+                from frame in Op.Of(name: nameof(CanvasViewOp.Bounds)).AcceptRect(value: n.Region, detail: "non-finite frame")
+                let policy = ResolveView(raw: n.Policy)
+                from validZoom in policy.MaximumZoom >= policy.MinimumZoom
+                    ? Fin.Succ(value: policy)
+                    : Fin.Fail<CanvasViewPolicy>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasViewOp.Bounds)), detail: "invalid zoom range"))
+                from canvas in scope.NeedCanvas()
+                from doc in scope.NeedDocument()
+                from objs in scope.NeedObjects()
+                select (CanvasResult)NavigateTo(canvas: canvas, frame: frame, policy: validZoom, document: doc, objects: objs),
             CanvasViewOp.SelectionCase f =>
                 from canvas in scope.NeedCanvas()
                 from doc in scope.NeedDocument()
                 from objs in scope.NeedObjects()
-                let frame = ResolveFrame(raw: f.Policy)
+                let policy = ResolveView(raw: f.Policy, defaultPadding: 48f)
                 let targets = f.Ids
                     .Map(list => list.Choose(id => Optional(objs.Find(instanceId: id))))
                     .IfNone(toSeq(objs.SelectedObjects))
                 from aggregate in FrameOf(targets: targets)
-                    .Filter(static bounds => float.IsFinite(bounds.Width) && float.IsFinite(bounds.Height) && bounds.Width > 0 && bounds.Height > 0)
                     .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasViewOp.Selection)), detail: "no target objects"))
+                from validAggregate in Op.Of(name: nameof(CanvasViewOp.Selection)).AcceptRect(value: aggregate, detail: "non-finite or zero-size aggregate", requirePositive: true)
                 select (CanvasResult)NavigateTo(
                     canvas: canvas,
-                    frame: RectangleF.Inflate(rectangle: aggregate, width: frame.Padding, height: frame.Padding),
-                    policy: ResolveNavigation(raw: frame.Navigation),
+                    frame: RectangleF.Inflate(rectangle: validAggregate, width: policy.Padding, height: policy.Padding),
+                    policy: policy,
                     document: doc,
                     objects: objs),
             CanvasViewOp.FitCase ft =>
                 scope.NeedCanvas().Bind(canvas => scope.NeedDocument().Bind(doc => scope.NeedObjects().Map(objs => {
                     RectangleF frame = ft.Target.Switch(
-state: (canvas, objs), contentCase: static (state, _) => state.canvas.ContentBounds, selectionCase: static (state, _) => FrameOf(targets: state.objs.SelectedObjects).IfNone(RectangleF.Empty), viewportCase: static (state, _) => state.canvas.VisibleFrame);
-                    return (CanvasResult)NavigateTo(canvas: canvas, frame: frame, policy: ResolveNavigation(raw: ft.Policy), document: doc, objects: objs);
+                        state: (canvas, objs),
+                        contentCase: static (state, _) => state.canvas.ContentBounds,
+                        selectionCase: static (state, _) => FrameOf(targets: state.objs.SelectedObjects).IfNone(RectangleF.Empty),
+                        viewportCase: static (state, _) => state.canvas.VisibleFrame);
+                    return (CanvasResult)NavigateTo(canvas: canvas, frame: frame, policy: ResolveView(raw: ft.Policy), document: doc, objects: objs);
                 }))),
             CanvasViewOp.ProjectionCase pr =>
                 from _ in ApplyProjection(scope: scope, policy: new CanvasProjectionPolicy(Centre: Some(pr.Centre), Zoom: Some(pr.Zoom)))
@@ -422,19 +427,17 @@ state: (canvas, objs), contentCase: static (state, _) => state.canvas.ContentBou
             return unit;
         }))();
 
-    private static CanvasNavigationPolicy ResolveNavigation(CanvasNavigationPolicy raw) {
+    private static CanvasViewPolicy ResolveView(CanvasViewPolicy raw, float defaultPadding = 0f) {
         TimeSpan duration = raw.Duration == default ? Animators.DurationToTimeSpan(duration: GhDuration.Normal) : raw.Duration;
         bool minOk = float.IsFinite(raw.MinimumZoom) && raw.MinimumZoom > 0f;
         bool maxOk = float.IsFinite(raw.MaximumZoom) && raw.MaximumZoom >= raw.MinimumZoom;
         float minimum = minOk ? raw.MinimumZoom : 0.05f;
         float maximum = (minOk && maxOk) ? raw.MaximumZoom : Math.Max(val1: minimum, val2: 2f);
-        return new(MinimumZoom: minimum, MaximumZoom: maximum, Duration: duration);
+        float padding = float.IsFinite(raw.Padding) && raw.Padding > 0f ? raw.Padding : defaultPadding;
+        return new(MinimumZoom: minimum, MaximumZoom: maximum, Duration: duration, Padding: padding);
     }
 
-    private static CanvasFramePolicy ResolveFrame(CanvasFramePolicy raw) =>
-        new(Padding: raw.Padding <= 0 ? 48f : raw.Padding, Navigation: ResolveNavigation(raw.Navigation));
-
-    private static CanvasResult.SnapshotResult NavigateTo(GhCanvas canvas, RectangleF frame, CanvasNavigationPolicy policy, GhDocument document, GhObjectList objects) {
+    private static CanvasResult.SnapshotResult NavigateTo(GhCanvas canvas, RectangleF frame, CanvasViewPolicy policy, GhDocument document, GhObjectList objects) {
         canvas.Navigate(frame: frame, zoomLimits: (policy.MinimumZoom, policy.MaximumZoom), duration: policy.Duration);
         return new CanvasResult.SnapshotResult(Snapshot: SnapshotOf(canvas: canvas, document: document, objects: objects));
     }
