@@ -99,9 +99,8 @@ public abstract partial record FilePublishTarget {
         select result;
 
     private static Fin<FilePublishResult> WriteRaster(Raster target, Seq<FileSheetPage> pages, Op op) =>
-        from extension in RasterFormat(encoding: target.Encoding, op: op)
-        from imageFormat in RasterImageFormat(encoding: target.Encoding, op: op)
-        from endpoint in target.Target.WithFormat(format: extension).Output(op: op)
+        from mapping in RasterMapping(encoding: target.Encoding, op: op)
+        from endpoint in target.Target.WithFormat(format: mapping.Extension).Output(op: op)
         from written in pages.Map((page, index) => (Index: index, Page: page))
             .TraverseM(item =>
                 from settings in item.Page.Sheet.Settings(page: item.Page.Page, op: op)
@@ -109,10 +108,10 @@ public abstract partial record FilePublishTarget {
                     using ViewCaptureSettings owned = settings;
                     DrawingBitmap? bitmap = ViewCapture.CaptureToBitmap(settings: owned);
                     try {
-                        string path = pages.Count == 1 ? endpoint.Path : NumberedSibling(path: endpoint.Path, index: item.Index, extension: extension.Extensions[0]);
+                        string path = pages.Count == 1 ? endpoint.Path : NumberedSibling(path: endpoint.Path, index: item.Index, extension: mapping.Extension.Extensions[0]);
                         return Optional(bitmap)
                             .ToFin(Fail: op.InvalidResult())
-                            .Bind(active => SaveBitmap(bitmap: active, format: imageFormat, path: path, jpegQuality: target.JpegQuality, op: op));
+                            .Bind(active => SaveBitmap(bitmap: active, format: mapping.Image, path: path, jpegQuality: target.JpegQuality, op: op));
                     } finally {
                         bitmap?.Dispose();
                     }
@@ -120,7 +119,7 @@ public abstract partial record FilePublishTarget {
                 select rendered).As()
         select new FilePublishResult(
             Target: Some(endpoint),
-            Format: Some(extension),
+            Format: Some(mapping.Extension),
             Receipt: DocumentReceipt.Empty,
             Sheets: pages.Map(SheetReportOf),
             NativeLog: Some(string.Create(CultureInfo.InvariantCulture, $"raster:{target.Encoding};quality:{target.JpegQuality};sheets:{pages.Count}")));
@@ -148,22 +147,13 @@ public abstract partial record FilePublishTarget {
             Sheets: pages.Map(SheetReportOf),
             NativeLog: Some(string.Create(CultureInfo.InvariantCulture, $"svg;sheets:{pages.Count}")));
 
-    private static Fin<FileFormat> RasterFormat(FileRasterEncoding encoding, Op op) =>
+    private static Fin<(FileFormat Extension, DrawingImageFormat Image)> RasterMapping(FileRasterEncoding encoding, Op op) =>
         encoding switch {
-            FileRasterEncoding.Png => Fin.Succ(value: FileFormat.Png),
-            FileRasterEncoding.Jpeg => Fin.Succ(value: FileFormat.Jpeg),
-            FileRasterEncoding.Tiff => Fin.Succ(value: FileFormat.Tiff),
-            FileRasterEncoding.Bitmap => Fin.Succ(value: FileFormat.Bmp),
-            _ => Fin.Fail<FileFormat>(error: op.InvalidInput()),
-        };
-
-    private static Fin<DrawingImageFormat> RasterImageFormat(FileRasterEncoding encoding, Op op) =>
-        encoding switch {
-            FileRasterEncoding.Png => Fin.Succ(value: DrawingImageFormat.Png),
-            FileRasterEncoding.Jpeg => Fin.Succ(value: DrawingImageFormat.Jpeg),
-            FileRasterEncoding.Tiff => Fin.Succ(value: DrawingImageFormat.Tiff),
-            FileRasterEncoding.Bitmap => Fin.Succ(value: DrawingImageFormat.Bmp),
-            _ => Fin.Fail<DrawingImageFormat>(error: op.InvalidInput()),
+            FileRasterEncoding.Png => Fin.Succ(value: (FileFormat.Png, DrawingImageFormat.Png)),
+            FileRasterEncoding.Jpeg => Fin.Succ(value: (FileFormat.Jpeg, DrawingImageFormat.Jpeg)),
+            FileRasterEncoding.Tiff => Fin.Succ(value: (FileFormat.Tiff, DrawingImageFormat.Tiff)),
+            FileRasterEncoding.Bitmap => Fin.Succ(value: (FileFormat.Bmp, DrawingImageFormat.Bmp)),
+            _ => Fin.Fail<(FileFormat, DrawingImageFormat)>(error: op.InvalidInput()),
         };
 
     private static Fin<Unit> SaveBitmap(DrawingBitmap bitmap, DrawingImageFormat format, string path, long jpegQuality, Op op) =>

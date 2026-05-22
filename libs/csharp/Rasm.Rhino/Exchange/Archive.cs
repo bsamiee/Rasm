@@ -97,8 +97,7 @@ public readonly record struct FileResourceGraph(
             .Filter(static path => !File.Exists(path: path))
             .Map(static path => FileIssue.Of(code: FileIssueCode.BrokenLink, message: $"missing linked resource: {path}"));
 
-    // BOUNDARY ADAPTER — PLINQ over File.Exists. Callers on the UI thread should wrap
-    // FileOp.Do(new FileExchange.ArchiveValidate(...)) in Task.Run.
+    // BOUNDARY ADAPTER — PLINQ over File.Exists; UI callers must wrap in Task.Run.
     internal Seq<FileIssue> ValidateLinksParallel() {
         string[] paths = [.. (LinkedBlockArchives + RenderTextureFiles + FileReferences)
             .Distinct()
