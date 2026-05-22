@@ -4,6 +4,7 @@ using EmbeddedFile = Rhino.FileIO.File3dmEmbeddedFile;
 using File3dmModel = Rhino.FileIO.File3dm;
 using File3dmNotes = Rhino.FileIO.File3dmNotes;
 using File3dmObject = Rhino.FileIO.File3dmObject;
+using File3dmSettings = Rhino.FileIO.File3dmSettings;
 using InstanceReferenceGeometry = Rhino.Geometry.InstanceReferenceGeometry;
 using IOPath = System.IO.Path;
 using RenderContent = Rhino.FileIO.File3dmRenderContent;
@@ -35,7 +36,14 @@ public readonly record struct FileArchiveMetadata(
     Option<DateTime> CreatedOn,
     Option<DateTime> LastEditedOn,
     int PageViews,
-    bool Preview);
+    bool Preview,
+    Option<UnitSystem> ModelUnits = default,
+    Option<UnitSystem> PageUnits = default,
+    Option<double> ModelAbsoluteTolerance = default,
+    Option<double> ModelAngleToleranceRadians = default,
+    Option<string> ModelUrl = default,
+    Option<Point3d> ModelBasePoint = default,
+    Option<EarthAnchorPoint> EarthAnchor = default);
 
 public readonly record struct FileResourceEntry(
     DocumentResourceKind Kind,
@@ -209,19 +217,23 @@ internal static class FileArchiveOps {
         from snapshot in Op.Of(name: nameof(Inspect)).Catch(() => {
             DrawingBitmap? preview = File3dmModel.ReadPreviewImage(path: path.Path);
             preview?.Dispose();
+            _ = File3dmModel.ReadRevisionHistory(path: path.Path, createdBy: out string createdBy, lastEditedBy: out string lastEditedBy, revision: out int revision, createdOn: out DateTime createdOn, lastEditedOn: out DateTime lastEditedOn);
+            File3dmModel.ReadApplicationData(path: path.Path, applicationName: out string applicationName, applicationUrl: out string applicationUrl, applicationDetails: out string applicationDetails);
+            EarthAnchorPoint? anchor = File3dmModel.ReadEarthAnchorPoint(path: path.Path);
             return Fin.Succ(value: new FileArchiveMetadata(
                 ArchiveVersion: File3dmModel.ReadArchiveVersion(path: path.Path),
                 Notes: Text(value: File3dmModel.ReadNotes(path: path.Path)),
-                ApplicationName: Option<string>.None,
-                ApplicationUrl: Option<string>.None,
-                ApplicationDetails: Option<string>.None,
-                Revision: Option<int>.None,
-                CreatedBy: Option<string>.None,
-                LastEditedBy: Option<string>.None,
-                CreatedOn: Option<DateTime>.None,
-                LastEditedOn: Option<DateTime>.None,
+                ApplicationName: Text(value: applicationName),
+                ApplicationUrl: Text(value: applicationUrl),
+                ApplicationDetails: Text(value: applicationDetails),
+                Revision: revision > 0 ? Some(revision) : Option<int>.None,
+                CreatedBy: Text(value: createdBy),
+                LastEditedBy: Text(value: lastEditedBy),
+                CreatedOn: createdOn == DateTime.MinValue ? Option<DateTime>.None : Some(createdOn),
+                LastEditedOn: lastEditedOn == DateTime.MinValue ? Option<DateTime>.None : Some(lastEditedOn),
                 PageViews: toSeq(File3dmModel.ReadPageViews(path: path.Path)).Count,
-                Preview: preview is not null));
+                Preview: preview is not null,
+                EarthAnchor: Optional(anchor)));
         })
         select snapshot;
 
@@ -305,8 +317,18 @@ internal static class FileArchiveOps {
         Seq<FileResourceEntry> entries =
             toSeq(model.EmbeddedFiles).Map(file => new FileResourceEntry(Kind: DocumentResourceKind.EmbeddedFile, Name: Text(value: IOPath.GetFileName(path: file.Filename)), Path: Text(value: file.Filename), Id: Option<Guid>.None, Source: Text(value: file.ComponentType.ToString())))
             + toSeq(model.PlugInData).Map(data => new FileResourceEntry(Kind: DocumentResourceKind.Metadata, Name: Option<string>.None, Path: Option<string>.None, Id: GuidOption(value: data.PlugInId), PlugInId: GuidOption(value: data.PlugInId), Source: Some("File3dmPlugInData")))
+            + toSeq(model.Strings.GetSectionNames() ?? [])
+                .Bind(section => toSeq(model.Strings.GetEntryNames(section: section) ?? [])
+                    .Map(entry => new FileResourceEntry(
+                        Kind: DocumentResourceKind.Text,
+                        Name: Text(value: entry),
+                        Path: Text(value: section),
+                        Id: Option<Guid>.None,
+                        Value: Text(value: model.Strings.GetValue(section: section, entry: entry)),
+                        Source: Some("section"))))
+                .Filter(static entry => entry.Name.Case is string || entry.Value.Case is string)
             + toSeq(Enumerable.Range(start: 0, count: model.Strings.Count))
-                .Map(index => new FileResourceEntry(Kind: DocumentResourceKind.Text, Name: Text(value: model.Strings.GetKey(i: index)), Path: Option<string>.None, Id: Option<Guid>.None, Value: Text(value: model.Strings.GetValue(i: index))))
+                .Map(index => new FileResourceEntry(Kind: DocumentResourceKind.Text, Name: Text(value: model.Strings.GetKey(i: index)), Path: Option<string>.None, Id: Option<Guid>.None, Value: Text(value: model.Strings.GetValue(i: index)), Source: Some("flat")))
                 .Filter(static entry => entry.Name.Case is string || entry.Value.Case is string)
             + renderEntries
             + ManifestEntries(model: model)
@@ -462,6 +484,7 @@ internal static class FileArchiveOps {
             DateTime lastEditedOn = model.LastEdited;
             DrawingBitmap? preview = model.GetPreviewImage();
             preview?.Dispose();
+            File3dmSettings settings = model.Settings;
             return Fin.Succ(new FileArchiveMetadata(
                 ArchiveVersion: model.ArchiveVersion,
                 Notes: Text(value: model.Notes.Notes),
@@ -477,7 +500,14 @@ internal static class FileArchiveOps {
                     FileArchiveSource.Path path => toSeq(File3dmModel.ReadPageViews(path: path.Value.Path)).Count,
                     _ => 0,
                 },
-                Preview: preview is not null));
+                Preview: preview is not null,
+                ModelUnits: settings.ModelUnitSystem == UnitSystem.None ? Option<UnitSystem>.None : Some(settings.ModelUnitSystem),
+                PageUnits: settings.PageUnitSystem == UnitSystem.None ? Option<UnitSystem>.None : Some(settings.PageUnitSystem),
+                ModelAbsoluteTolerance: settings.ModelAbsoluteTolerance > 0.0 ? Some(settings.ModelAbsoluteTolerance) : Option<double>.None,
+                ModelAngleToleranceRadians: settings.ModelAngleToleranceRadians > 0.0 ? Some(settings.ModelAngleToleranceRadians) : Option<double>.None,
+                ModelUrl: Text(value: settings.ModelUrl),
+                ModelBasePoint: settings.ModelBasepoint == Point3d.Origin ? Option<Point3d>.None : Some(settings.ModelBasepoint),
+                EarthAnchor: Optional(model.EarthAnchorPoint)));
         });
 
     private static Fin<FileEndpoint> ExtractFile(EmbeddedFile file, FileEndpoint folder, Op op) =>

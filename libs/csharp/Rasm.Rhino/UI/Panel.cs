@@ -1,6 +1,7 @@
 using Eto.Forms;
 using DrawingIcon = System.Drawing.Icon;
 using DrawingSize = System.Drawing.Size;
+using GuidAttribute = System.Runtime.InteropServices.GuidAttribute;
 using ReflectionAssembly = System.Reflection.Assembly;
 
 namespace Rasm.Rhino.UI;
@@ -298,8 +299,8 @@ public abstract class RasmPanel : Panel, global::Rhino.UI.IPanel {
 
     internal static Fin<PanelIdentity> PanelIdentityOf<TPanel>() where TPanel : RasmPanel {
         Type type = typeof(TPanel);
-        bool constructible = type.GetConstructor(types: [typeof(uint)]) is not null || type.GetConstructor(types: Type.EmptyTypes) is not null;
-        return type.GetCustomAttributes(attributeType: typeof(System.Runtime.InteropServices.GuidAttribute), inherit: false).FirstOrDefault() switch { System.Runtime.InteropServices.GuidAttribute attribute when constructible && Guid.TryParse(input: attribute.Value, result: out Guid id) && id != Guid.Empty => Fin.Succ(value: new PanelIdentity(Type: type, Id: id)), _ => Fin.Fail<PanelIdentity>(error: Op.Of(name: nameof(PanelIdentityOf)).InvalidInput()) };
+        Op op = Op.Of(name: nameof(PanelIdentityOf));
+        return (type.GetConstructor(types: [typeof(uint)]) is not null || type.GetConstructor(types: Type.EmptyTypes) is not null, type.GetCustomAttributes(attributeType: typeof(GuidAttribute), inherit: false).FirstOrDefault()) switch { (false, _) => Fin.Fail<PanelIdentity>(error: op.Unsupported(geometryType: type, outputType: typeof(PanelIdentity))), (true, GuidAttribute attribute) when Guid.TryParse(input: attribute.Value, result: out Guid id) && id != Guid.Empty => Fin.Succ(value: new PanelIdentity(Type: type, Id: id)), _ => Fin.Fail<PanelIdentity>(error: op.InvalidInput()) };
     }
 }
 
