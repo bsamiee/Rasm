@@ -20,17 +20,7 @@ public sealed partial class RegistrationKind {
 public abstract partial record HullKind {
     private HullKind() { }
     public sealed record ConvexCase : HullKind;
-    public sealed record AlphaCase(double Radius) : HullKind;
-    public sealed record ChiCase(double Lambda) : HullKind;
     public static HullKind Convex => new ConvexCase();
-    public static Fin<HullKind> Alpha(double alpha, Op? key = null) =>
-        RhinoMath.IsValidDouble(x: alpha) && alpha > 0.0
-            ? Fin.Succ<HullKind>(new AlphaCase(Radius: alpha))
-            : Fin.Fail<HullKind>(key.OrDefault().InvalidInput());
-    public static Fin<HullKind> Chi(double lambda, Op? key = null) =>
-        RhinoMath.IsValidDouble(x: lambda) && lambda > 0.0
-            ? Fin.Succ<HullKind>(new ChiCase(Lambda: lambda))
-            : Fin.Fail<HullKind>(key.OrDefault().InvalidInput());
     internal Fin<VectorCloud> Compute(VectorCloud source, Context context, Op? key = null) =>
         PopulationKernel.ComputeHull(kind: this, source: source, context: context, key: key.OrDefault());
 }
@@ -127,8 +117,10 @@ internal static class PopulationKernel {
         }
         return Fin.Succ(DualQuaternion.Of(transform: current));
     }
-    private static Vector3d[] EstimateNormalsViaCovariance(VectorCloud.ClusterCase target) =>
-        EstimateNormalsFromPoints(points: [.. target.Vertices.AsIterable()]);
+    private static Vector3d[] EstimateNormalsViaCovariance(VectorCloud.ClusterCase target) {
+        Point3d[] points = [.. target.Vertices.AsIterable()];
+        return EstimateNormalsFromPoints(points: points, neighborhoodOf: i => KNearestPoints(cluster: target, index: i));
+    }
     private static (Point3d[] Target, Vector3d[] Normals, double[] Residuals) FindCorrespondences(Seq<Point3d> source, VectorCloud.ClusterCase target, Vector3d[] normals, Transform current) {
         int n = source.Count;
         Point3d[] matchedTarget = new Point3d[n]; Vector3d[] matchedNormals = new Vector3d[n]; double[] residuals = new double[n];
@@ -266,8 +258,6 @@ internal static class PopulationKernel {
         source switch {
             VectorCloud.ClusterCase cluster => kind switch {
                 HullKind.ConvexCase => ConvexHullOf(cluster: cluster, context: context, key: key),
-                HullKind.AlphaCase => Fin.Fail<VectorCloud>(key.Unsupported(geometryType: typeof(HullKind.AlphaCase), outputType: typeof(VectorCloud))),
-                HullKind.ChiCase => Fin.Fail<VectorCloud>(key.Unsupported(geometryType: typeof(HullKind.ChiCase), outputType: typeof(VectorCloud))),
                 _ => Fin.Fail<VectorCloud>(error: key.Unsupported(geometryType: kind.GetType(), outputType: typeof(VectorCloud))),
             },
             _ => Fin.Fail<VectorCloud>(error: key.Unsupported(geometryType: source.GetType(), outputType: typeof(VectorCloud))),
@@ -524,15 +514,34 @@ internal static class PopulationKernel {
         }
         return key.AcceptValue(value: toSeq(unoriented));
     }
-    private static Vector3d[] EstimateNormalsFromPoints(Point3d[] points) {
+    private static Vector3d[] EstimateNormalsFromPoints(Point3d[] points) =>
+        EstimateNormalsFromPoints(points: points, neighborhoodOf: i => toSeq(Enumerable.Range(start: 0, count: points.Length)
+            .OrderBy(j => points[i].DistanceToSquared(other: points[j]))
+            .Take(Math.Min(val1: NormalEstimationNeighbors, val2: points.Length))
+            .Select(j => points[j])));
+    private static Seq<Point3d> KNearestPoints(VectorCloud.ClusterCase cluster, int index) {
+        Point3d point = cluster.Vertices[index: index];
+        int k = Math.Min(val1: NormalEstimationNeighbors, val2: cluster.Vertices.Count);
+        double radius = Math.Max(val1: cluster.Tolerance.Absolute.Value, val2: RhinoMath.SqrtEpsilon);
+        List<int> ids = [];
+        for (int step = 0; step < 16 && ids.Count < k; step++) {
+            ids.Clear();
+            _ = cluster.Tree.Search(sphere: new Sphere(center: point, radius: radius), callback: (_, args) => ids.Add(item: args.Id));
+            radius *= 2.0;
+        }
+        IEnumerable<int> active = ids.Count >= k
+            ? ids.Distinct()
+            : Enumerable.Range(start: 0, count: cluster.Vertices.Count);
+        return toSeq(active
+            .OrderBy(i => point.DistanceToSquared(other: cluster.Vertices[index: i]))
+            .Take(k)
+            .Select(i => cluster.Vertices[index: i]));
+    }
+    private static Vector3d[] EstimateNormalsFromPoints(Point3d[] points, Func<int, Seq<Point3d>> neighborhoodOf) {
         int n = points.Length;
         Vector3d[] normals = new Vector3d[n];
-        int k = Math.Min(val1: NormalEstimationNeighbors, val2: n);
         for (int i = 0; i < n; i++) {
-            Seq<Point3d> neighborhood = toSeq(Enumerable.Range(start: 0, count: n)
-                .OrderBy(j => points[i].DistanceToSquared(other: points[j]))
-                .Take(k)
-                .Select(j => points[j]));
+            Seq<Point3d> neighborhood = neighborhoodOf(arg: i);
             normals[i] = CloudKernel.CovarianceOf(points: neighborhood, key: Op.Of())
                 .Bind(stats => stats.Cov.DecomposeEigen(key: Op.Of()))
                 .Map(eigen => CloudKernel.AsVector3d(v: eigen[index: 2].Eigenvector))

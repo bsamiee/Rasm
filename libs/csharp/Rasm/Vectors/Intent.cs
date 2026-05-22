@@ -30,8 +30,6 @@ public sealed partial class SupportProjection {
                         .Bind(distance => key.AcceptValue(value: distance))
                         .Map(static value => (TOut)(object)value)
                     : Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(ClosestHit), outputType: typeof(TOut))),
-                SupportProjection p when p.Accepts(output: typeof(TOut)) && ClosestHit.CanProjectTo(output: typeof(TOut), parameterMode: p.ParameterMode) => hit.Project<TOut>(key: key, parameterMode: p.ParameterMode)
-                    .Bind(values => values.Head.ToFin(key.InvalidResult())),
                 SupportProjection p when p.Equals(Direction) => Vectors.Direction.Of(value: hit.Point - sample, context: context, key: key)
                     .Bind(direction => direction.Project<TOut>(key: key)),
                 SupportProjection p when p.Equals(Span) || p.Equals(SignedSpanAway) => VectorSpan.Of(anchor: sample, vector: p.Sign * (hit.Point - sample), context: context, key: key)
@@ -42,6 +40,8 @@ public sealed partial class SupportProjection {
                 SupportProjection p when p.Equals(Tangent) => hit.Tangent.ToFin(Fail: key.InvalidResult())
                     .Bind(tangent => Vectors.Direction.Of(value: tangent, context: context, key: key))
                     .Bind(direction => direction.Project<TOut>(key: key)),
+                SupportProjection p when p.Accepts(output: typeof(TOut)) && ClosestHit.CanProjectTo(output: typeof(TOut), parameterMode: p.ParameterMode) => hit.Project<TOut>(key: key, parameterMode: p.ParameterMode)
+                    .Bind(values => values.Head.ToFin(key.InvalidResult())),
                 _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(SupportProjection), outputType: typeof(TOut))),
             },
         };
@@ -55,9 +55,9 @@ public abstract partial record VectorIntent {
     public sealed record DirectionCase(Vector3d Value) : VectorIntent;
     public sealed record AxesCase(Option<Seq<Vector3d>> Values, bool Planar) : VectorIntent;
     public sealed record AngularCase(Vector3d A, Vector3d B, AnglePivot Pivot) : VectorIntent;
-    public sealed record SupportCase(SupportSpace Space, Point3d Sample, SupportProjection Projection) : VectorIntent;
-    public sealed record VectorFieldCase(VectorField Value, Point3d Sample) : VectorIntent;
-    public sealed record ScalarFieldCase(ScalarField Value, Point3d Sample) : VectorIntent;
+    public sealed record SupportCase(SupportSpace Space, Point3d Query, SupportProjection Projection) : VectorIntent;
+    public sealed record VectorFieldCase(VectorField Value, Point3d Query) : VectorIntent;
+    public sealed record ScalarFieldCase(ScalarField Value, Point3d Query) : VectorIntent;
     public sealed record RayCase(Point3d Origin, Direction RayDirection, RayPolicy Policy) : VectorIntent;
     public sealed record FrameCase(Point3d Origin, Vector3d Normal, Option<Vector3d> XHint) : VectorIntent;
     public sealed record CurveCase(Curve Source, double Parameter, CurveProjection Mode) : VectorIntent;
@@ -66,7 +66,7 @@ public abstract partial record VectorIntent {
     public sealed record ConeCase(VectorCone Value, ConeProjection Mode) : VectorIntent;
     public sealed record ComponentsCase(Point3d Anchor, Vector3d Value, Plane Basis) : VectorIntent;
     public sealed record RelationCase(Vector3d A, Vector3d B) : VectorIntent;
-    public sealed record BounceCase(Direction Incident, SupportSpace Surface, Point3d Sample, BouncePolicy Policy) : VectorIntent;
+    public sealed record BounceCase(Direction Incident, SupportSpace Surface, Point3d Query, BouncePolicy Policy) : VectorIntent;
     public sealed record StreamlineCase(VectorField Source, Point3d Seed, PositiveMagnitude InitialStep, FieldIntegrator Integrator, Termination Termination) : VectorIntent;
     public sealed record LerpCase(Vector3d A, Vector3d B, double Parameter) : VectorIntent;
     public sealed record SlerpCase(Direction A, Direction B, double Parameter) : VectorIntent;
@@ -115,11 +115,11 @@ public abstract partial record VectorIntent {
             from output in angle.Project<TOut>(key: state.Key)
             select output,
         supportCase: static (state, intent) =>
-            from hit in intent.Space.Closest(sample: intent.Sample, key: state.Key)
-            from output in intent.Projection.Project<TOut>(space: intent.Space, hit: hit, sample: intent.Sample, context: state.Context, key: state.Key)
+            from hit in intent.Space.Closest(sample: intent.Query, key: state.Key)
+            from output in intent.Projection.Project<TOut>(space: intent.Space, hit: hit, sample: intent.Query, context: state.Context, key: state.Key)
             select output,
-        vectorFieldCase: static (state, intent) => intent.Value.Project<TOut>(sample: intent.Sample, context: state.Context, key: state.Key),
-        scalarFieldCase: static (state, intent) => intent.Value.Project<TOut>(sample: intent.Sample, context: state.Context, key: state.Key),
+        vectorFieldCase: static (state, intent) => intent.Value.Project<TOut>(sample: intent.Query, context: state.Context, key: state.Key),
+        scalarFieldCase: static (state, intent) => intent.Value.Project<TOut>(sample: intent.Query, context: state.Context, key: state.Key),
         rayCase: static (state, intent) => intent.Policy.Project<TOut>(origin: intent.Origin, direction: intent.RayDirection, context: state.Context, key: state.Key),
         frameCase: static (state, intent) =>
             from frame in VectorFrame.Of(origin: intent.Origin, normal: intent.Normal, xHint: intent.XHint, context: state.Context, key: state.Key)
@@ -150,7 +150,7 @@ public abstract partial record VectorIntent {
             from output in relation.Project<TOut>(key: state.Key)
             select output,
         bounceCase: static (state, intent) =>
-            from hit in intent.Surface.Closest(sample: intent.Sample, key: state.Key)
+            from hit in intent.Surface.Closest(sample: intent.Query, key: state.Key)
             from rawNormal in hit.Normal.ToFin(Fail: state.Key.InvalidResult())
             from normal in Vectors.Direction.Of(value: rawNormal, context: state.Context, key: state.Key)
             from reflected in intent.Policy.Apply(incident: intent.Incident, normal: normal, key: state.Key)
@@ -247,7 +247,6 @@ public abstract partial record VectorIntent {
         registerCase: static (state, intent) =>
             from dq in intent.Kind.Align(source: intent.Source, target: intent.Target, context: state.Context, key: state.Key)
             from output in typeof(TOut) switch {
-                Type t when t == typeof(DualQuaternion) => state.Key.AcceptValue(value: dq).Map(static v => (TOut)(object)v),
                 Type t when t == typeof(Transform) => state.Key.AcceptValue(value: dq.ToTransform()).Map(static v => (TOut)(object)v),
                 _ => Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(RegisterCase), outputType: typeof(TOut))),
             }
@@ -260,9 +259,9 @@ public abstract partial record VectorIntent {
             select output,
         transportCase: static (state, intent) => IntentKernel.Sinkhorn<TOut>(source: intent.Source, target: intent.Target, regularization: intent.Regularization, maxIterations: intent.IterationCap, unbiased: intent.Unbiased, key: state.Key),
         topologyCase: static (state, intent) =>
-            from euler in intent.Space.EulerCharacteristic(key: state.Key)
-            from output in typeof(TOut) == typeof(int)
-                ? state.Key.AcceptValue(value: euler).Map(static v => (TOut)(object)v)
+            from topology in intent.Space.Topology(key: state.Key)
+            from output in typeof(TOut) == typeof((int Euler, int Genus, int BoundaryComponents))
+                ? state.Key.AcceptValue(value: topology).Map(static v => (TOut)(object)v)
                 : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(TopologyCase), outputType: typeof(TOut)))
             select output,
         featuresCase: static (state, intent) =>
@@ -273,7 +272,7 @@ public abstract partial record VectorIntent {
             select output,
         descriptorCase: static (state, intent) => IntentKernel.DescribeShape<TOut>(space: intent.Space, kind: intent.Kind, eigenpairs: intent.EigenpairCount, key: state.Key));
     public static VectorIntent Between(Point3d origin, SupportSpace target, BoundarySense? sense = null) =>
-        new SupportCase(Space: target, Sample: origin, Projection: (sense ?? BoundarySense.Toward).Equals(BoundarySense.Toward) ? SupportProjection.Span : SupportProjection.SignedSpanAway);
+        new SupportCase(Space: target, Query: origin, Projection: (sense ?? BoundarySense.Toward).Equals(BoundarySense.Toward) ? SupportProjection.Span : SupportProjection.SignedSpanAway);
     public static VectorIntent Axis(SignedAxis axis, Plane? frame = null) =>
         new AxisCase(Value: axis, Basis: Optional(frame));
     public static VectorIntent Direction(Vector3d value) =>
@@ -283,11 +282,11 @@ public abstract partial record VectorIntent {
     public static VectorIntent Angular(Vector3d a, Vector3d b, AnglePivot? pivot = null) =>
         new AngularCase(A: a, B: b, Pivot: pivot ?? AnglePivot.World);
     public static VectorIntent Support(SupportSpace space, Point3d sample, SupportProjection projection) =>
-        new SupportCase(Space: space, Sample: sample, Projection: projection);
+        new SupportCase(Space: space, Query: sample, Projection: projection);
     public static VectorIntent Field(VectorField field, Point3d sample) =>
-        new VectorFieldCase(Value: field, Sample: sample);
+        new VectorFieldCase(Value: field, Query: sample);
     public static VectorIntent Scalar(ScalarField field, Point3d sample) =>
-        new ScalarFieldCase(Value: field, Sample: sample);
+        new ScalarFieldCase(Value: field, Query: sample);
     public static VectorIntent Ray(Point3d origin, Direction direction, RayPolicy? policy = null) =>
         new RayCase(Origin: origin, RayDirection: direction, Policy: policy ?? RayPolicy.Forward);
     public static VectorIntent Frame(Point3d origin, Vector3d normal, Option<Vector3d> xHint = default) =>
@@ -315,7 +314,7 @@ public abstract partial record VectorIntent {
     public static VectorIntent Relation(Vector3d a, Vector3d b) =>
         new RelationCase(A: a, B: b);
     public static VectorIntent Bounce(Direction incident, SupportSpace surface, Point3d sample, BouncePolicy? policy = null) =>
-        new BounceCase(Incident: incident, Surface: surface, Sample: sample, Policy: policy ?? BouncePolicy.Reflect);
+        new BounceCase(Incident: incident, Surface: surface, Query: sample, Policy: policy ?? BouncePolicy.Reflect);
     public static Fin<VectorIntent> Streamline(VectorField field, Point3d seed, double initialStep, Termination termination, FieldIntegrator? integrator = null, Op? key = null) {
         Op op = key.OrDefault();
         return op.AcceptValidated<PositiveMagnitude>(candidate: initialStep)
@@ -341,7 +340,7 @@ public abstract partial record VectorIntent {
         new FlattenCase(Space: space, Kind: kind, ConeVertices: coneVertices);
     public static VectorIntent Hull(VectorCloud source, HullKind kind) =>
         new HullCase(Source: source, Kind: kind);
-    public static VectorIntent Populate(MeshSpace domain, SamplingKind kind) =>
+    public static VectorIntent Sample(MeshSpace domain, SamplingKind kind) =>
         new SampleCase(Domain: domain, Kind: kind);
     public static VectorIntent Register(VectorCloud source, VectorCloud target, RegistrationKind kind) =>
         new RegisterCase(Source: source, Target: target, Kind: kind);
@@ -368,29 +367,28 @@ public abstract partial record VectorIntent {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class IntentKernel {
-    // Cuturi 2013 Sinkhorn-Knopp: K = exp(-C/eps); iterate u = a/(K v), v = b/(K^T u);
-    // coupling = diag(u) K diag(v); Sinkhorn distance is <coupling, C>.
     internal static Fin<TOut> Sinkhorn<TOut>(VectorCloud source, VectorCloud target, double regularization, int maxIterations, bool unbiased, Op key) =>
         (source, target) switch {
             (VectorCloud.ClusterCase src, VectorCloud.ClusterCase tgt) => SinkhornCluster<TOut>(source: src, target: tgt, regularization: regularization, maxIterations: maxIterations, unbiased: unbiased, key: key),
             _ => Fin.Fail<TOut>(key.Unsupported(geometryType: source.GetType(), outputType: typeof(TOut))),
         };
-    // ALGORITHM KERNEL — Sinkhorn-Knopp requires mutable row/column scaling vectors; the
-    // alternating fixed-point cannot be expressed without state mutation. The `unbiased` flag
-    // activates the Feydy-Séjourné-Vialard-Trouvé-Peyré 2019 Sinkhorn divergence variant
-    // S(α,β) = OT(α,β) − ½ OT(α,α) − ½ OT(β,β) which zeroes out on identical distributions.
     private static Fin<TOut> SinkhornCluster<TOut>(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, double regularization, int maxIterations, bool unbiased, Op key) {
         if (source.Vertices.Count < 1 || target.Vertices.Count < 1) return Fin.Fail<TOut>(error: key.InvalidInput());
-        double distance = SinkhornOt(source: source.Vertices, target: target.Vertices, reg: regularization, maxIter: maxIterations);
-        if (unbiased) {
-            distance -= 0.5 * SinkhornOt(source: source.Vertices, target: source.Vertices, reg: regularization, maxIter: maxIterations);
-            distance -= 0.5 * SinkhornOt(source: target.Vertices, target: target.Vertices, reg: regularization, maxIter: maxIterations);
-        }
-        return typeof(TOut) == typeof(double)
-            ? key.AcceptValue(value: distance).Map(static d => (TOut)(object)d)
-            : Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(VectorCloud), outputType: typeof(TOut)));
+        SinkhornPlan plan = SinkhornOt(source: source.Vertices, target: target.Vertices, reg: regularization, maxIter: maxIterations);
+        double distance = unbiased
+            ? plan.Distance
+                - (0.5 * SinkhornOt(source: source.Vertices, target: source.Vertices, reg: regularization, maxIter: maxIterations).Distance)
+                - (0.5 * SinkhornOt(source: target.Vertices, target: target.Vertices, reg: regularization, maxIter: maxIterations).Distance)
+            : plan.Distance;
+        return typeof(TOut) switch {
+            Type t when t == typeof(double) => key.AcceptValue(value: distance).Map(static d => (TOut)(object)d),
+            Type t when t == typeof(Matrix) => ProjectCoupling<TOut>(plan: plan, key: key),
+            Type t when t == typeof(VectorCloud) => ProjectTransportedCloud<TOut>(source: source, target: target, plan: plan, key: key),
+            _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(VectorIntent.TransportCase), outputType: typeof(TOut))),
+        };
     }
-    private static double SinkhornOt(Seq<Point3d> source, Seq<Point3d> target, double reg, int maxIter) {
+    private sealed record SinkhornPlan(double Distance, double[][] Coupling);
+    private static SinkhornPlan SinkhornOt(Seq<Point3d> source, Seq<Point3d> target, double reg, int maxIter) {
         int m = source.Count; int n = target.Count;
         double[][] cost = [.. Enumerable.Range(start: 0, count: m).Select(_ => new double[n])];
         double[][] kernel = [.. Enumerable.Range(start: 0, count: m).Select(_ => new double[n])];
@@ -416,9 +414,33 @@ internal static class IntentKernel {
             }
         }
         double dist = 0.0;
+        double[][] coupling = [.. Enumerable.Range(start: 0, count: m).Select(_ => new double[n])];
         for (int i = 0; i < m; i++)
-            for (int j = 0; j < n; j++) dist += u[i] * kernel[i][j] * v[j] * cost[i][j];
-        return dist;
+            for (int j = 0; j < n; j++) {
+                coupling[i][j] = u[i] * kernel[i][j] * v[j];
+                dist += coupling[i][j] * cost[i][j];
+            }
+        return new SinkhornPlan(Distance: dist, Coupling: coupling);
+    }
+    private static Fin<TOut> ProjectCoupling<TOut>(SinkhornPlan plan, Op key) {
+        Dimension rows = Dimension.Create(value: plan.Coupling.Length);
+        Dimension cols = Dimension.Create(value: plan.Coupling[0].Length);
+        return Matrix.Of(
+            rows: rows,
+            cols: cols,
+            entries: new Arr<double>([.. plan.Coupling.SelectMany(static row => row)]),
+            key: key).Map(static matrix => (TOut)(object)matrix);
+    }
+    private static Fin<TOut> ProjectTransportedCloud<TOut>(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, SinkhornPlan plan, Op key) {
+        Point3d[] transported = new Point3d[source.Vertices.Count];
+        for (int i = 0; i < source.Vertices.Count; i++) {
+            double mass = plan.Coupling[i].Sum();
+            Vector3d sum = Vector3d.Zero;
+            for (int j = 0; j < target.Vertices.Count; j++) sum += plan.Coupling[i][j] * (Vector3d)target.Vertices[index: j];
+            transported[i] = mass > RhinoMath.ZeroTolerance ? Point3d.Origin + (sum / mass) : source.Vertices[index: i];
+        }
+        return VectorCloud.Cluster(points: toSeq(transported), context: source.Tolerance, key: key)
+            .Map(static cloud => (TOut)(object)cloud);
     }
     // Sun-Ovsjanikov-Guibas 2009 HKS(x, t) = Σ exp(-t λ_i) φ_i²(x); WKS analogous with log-energy.
     internal static Fin<TOut> DescribeShape<TOut>(MeshSpace space, MeshDescriptor kind, int eigenpairs, Op key) =>

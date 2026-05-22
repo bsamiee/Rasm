@@ -173,7 +173,7 @@ public readonly record struct SparseMatrix(Dimension Rows, Dimension Cols, Arr<i
     public Fin<CholeskyResult> DecomposeCholesky(Op? key = null) =>
         MatrixKernel.SparseCholesky(matrix: this, key: key.OrDefault());
     public Fin<Arr<double>> Solve(Arr<double> rhs, Op? key = null) =>
-        DecomposeCholesky(key: key).Bind(c => c.Solve(rhs: rhs, key: key));
+        MatrixKernel.SparseSolve(matrix: this, rhs: rhs, key: key.OrDefault());
     public Fin<Seq<(double Eigenvalue, Arr<double> Eigenvector)>> SmallestEigenpairs(int k, double tolerance, int maxIterations = 200, Op? key = null) =>
         MatrixKernel.Lobpcg(matrix: this, k: k, tolerance: tolerance, maxIterations: maxIterations, key: key.OrDefault());
     private static bool RowPointersAreMonotone(Arr<int> rowPtr) =>
@@ -390,6 +390,24 @@ internal static class MatrixKernel {
     }
     internal static Matrix SparseToDense(SparseMatrix self) =>
         FromMathNet(m: ToMathNetSparse(s: self), rows: self.Rows, cols: self.Cols);
+    internal static Fin<Arr<double>> SparseSolve(SparseMatrix matrix, Arr<double> rhs, Op key) =>
+        matrix.Rows.Value != matrix.Cols.Value || rhs.Count != matrix.Rows.Value
+            ? Fin.Fail<Arr<double>>(key.InvalidInput())
+            : key.Catch(() => {
+                Matrix<double> A = ToMathNetSparse(s: matrix);
+                LinearVector b = DenseVectorD.OfArray([.. rhs.AsIterable()]);
+                MathNet.Numerics.LinearAlgebra.Double.Solvers.DiagonalPreconditioner preconditioner = new();
+                preconditioner.Initialize(matrix: A);
+                MathNet.Numerics.LinearAlgebra.Solvers.Iterator<double> iterator = new([
+                    new MathNet.Numerics.LinearAlgebra.Solvers.ResidualStopCriterion<double>(maximum: RhinoMath.SqrtEpsilon, minimumIterationsBelowMaximum: 2),
+                    new MathNet.Numerics.LinearAlgebra.Solvers.IterationCountStopCriterion<double>(maximumNumberOfIterations: Math.Max(val1: 64, val2: matrix.Rows.Value * 8)),
+                ]);
+                LinearVector x = A.SolveIterative(input: b, solver: new MathNet.Numerics.LinearAlgebra.Double.Solvers.BiCgStab(), iterator: iterator, preconditioner: preconditioner);
+                double residual = (b - A.Multiply(x)).L2Norm() / Math.Max(val1: 1.0, val2: b.L2Norm());
+                return residual <= Math.Sqrt(RhinoMath.SqrtEpsilon)
+                    ? Fin.Succ(ArrFromVector(x))
+                    : Fin.Fail<Arr<double>>(key.InvalidResult());
+            });
     internal static Fin<CholeskyResult> SparseCholesky(SparseMatrix matrix, Op key) =>
         matrix.Rows.Value != matrix.Cols.Value
             ? Fin.Fail<CholeskyResult>(key.InvalidInput())

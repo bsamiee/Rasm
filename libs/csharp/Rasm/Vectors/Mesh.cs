@@ -35,6 +35,8 @@ public readonly record struct MeshSpace {
         MeshKernel.LaplacianOf(space: this, kind: kind, key: key.OrDefault());
     public Fin<int> EulerCharacteristic(Op? key = null) =>
         MeshKernel.EulerCharacteristicOf(space: this, key: key.OrDefault());
+    public Fin<(int Euler, int Genus, int BoundaryComponents)> Topology(Op? key = null) =>
+        MeshKernel.TopologyOf(space: this, key: key.OrDefault());
     public Fin<Seq<(int A, int B)>> FeatureEdges(double dihedralRadians, Op? key = null) =>
         MeshKernel.DetectFeatureEdgesOf(space: this, dihedralRadians: dihedralRadians, key: key.OrDefault());
     public Fin<double> MeanEdgeLength(Op? key = null) =>
@@ -50,6 +52,7 @@ internal sealed class LaplacianCache {
     private readonly Lazy<Fin<SparseLaplacian>> nonmanifold;
     private readonly Lazy<RTree> faceTree;
     private readonly Lazy<double> meanEdgeLength;
+    internal Dictionary<string, object> FieldCache { get; } = [];
     private LaplacianCache(MeshSpace space) {
         Op fallback = Op.Of();
         cotangent = new Lazy<Fin<SparseLaplacian>>(valueFactory: () => MeshKernel.AssembleCotangent(mesh: space.Native, key: fallback));
@@ -85,8 +88,6 @@ public sealed partial class BoundaryCondition {
 [SmartEnum<int>]
 public sealed partial class SurfaceParameterization {
     public static readonly SurfaceParameterization LSCM = new(key: 0);
-    public static readonly SurfaceParameterization BFF = new(key: 1);
-    public static readonly SurfaceParameterization BFFWithCones = new(key: 2);
     internal Fin<Arr<Point2d>> Compute(MeshSpace space, Seq<int> coneVertices, Op key) =>
         MeshKernel.ParameterizeFlatten(space: space, kind: this, coneVertices: coneVertices, key: key);
 }
@@ -348,6 +349,12 @@ internal static class MeshKernel {
     }
     internal static Fin<int> EulerCharacteristicOf(MeshSpace space, Op key) =>
         key.AcceptValue(value: space.Native.Vertices.Count - space.Native.TopologyEdges.Count + space.Native.Faces.Count);
+    internal static Fin<(int Euler, int Genus, int BoundaryComponents)> TopologyOf(MeshSpace space, Op key) {
+        int euler = space.Native.Vertices.Count - space.Native.TopologyEdges.Count + space.Native.Faces.Count;
+        int boundaryComponents = space.Native.GetNakedEdges().Length;
+        int genus = Math.Max(val1: 0, val2: (2 - boundaryComponents - euler) / 2);
+        return key.AcceptValue(value: (Euler: euler, Genus: genus, BoundaryComponents: boundaryComponents));
+    }
     // BOUNDARY ADAPTER — iterates the topology edge list to compute dihedral angles between
     // adjacent face normals; non-manifold or boundary edges (≠2 connected faces) skipped.
     internal static Fin<Seq<(int A, int B)>> DetectFeatureEdgesOf(MeshSpace space, double dihedralRadians, Op key) {
@@ -373,8 +380,6 @@ internal static class MeshKernel {
         int n = mesh.Vertices.Count;
         Seq<int> boundary = BoundaryVerticesOf(mesh: mesh);
         if (boundary.Count < 2) return Fin.Fail<Arr<Point2d>>(error: key.InvalidInput());
-        if (kind.Equals(SurfaceParameterization.BFF)) return Fin.Fail<Arr<Point2d>>(key.Unsupported(geometryType: typeof(SurfaceParameterization), outputType: typeof(Arr<Point2d>)));
-        if (kind.Equals(SurfaceParameterization.BFFWithCones) && coneVertices.IsEmpty) return Fin.Fail<Arr<Point2d>>(key.InvalidInput());
         (int pin1, int pin2) = ChooseExtremePins(mesh: mesh, boundary: boundary);
         Point3d p1 = mesh.Vertices[index: pin1]; Point3d p2 = mesh.Vertices[index: pin2];
         double pinDist = p1.DistanceTo(other: p2);
@@ -382,10 +387,7 @@ internal static class MeshKernel {
             ? Fin.Fail<Arr<Point2d>>(error: key.InvalidResult())
             : from L in space.Laplacian(kind: MeshLaplacian.Cotangent, key: key)
               from uv in LscmSolve(mesh: mesh, L: L, pin1: pin1, pin2: pin2, pinDist: pinDist, key: key)
-              from refined in kind.Equals(SurfaceParameterization.BFFWithCones) && !coneVertices.IsEmpty
-                  ? CherrierConeRefine(mesh: mesh, L: L, baseUV: uv, cones: coneVertices, pin1: pin1, pin2: pin2, key: key)
-                  : Fin.Succ(uv)
-              select refined;
+              select uv;
     }
     private static Seq<int> BoundaryVerticesOf(Mesh mesh) {
         System.Collections.Generic.HashSet<int> set = [];
@@ -427,9 +429,8 @@ internal static class MeshKernel {
         }
         Dimension dim = Dimension.Create(value: m);
         return from A in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: sysTriplets, key: key)
-               from chol in A.DecomposeCholesky(key: key)
-               from u in chol.Solve(rhs: new Arr<double>(rhsU), key: key)
-               from v in chol.Solve(rhs: new Arr<double>(rhsV), key: key)
+               from u in A.Solve(rhs: new Arr<double>(rhsU), key: key)
+               from v in A.Solve(rhs: new Arr<double>(rhsV), key: key)
                select AssemblePinnedUv(n: n, freeIdx: freeIdx, u: u, v: v, pin1: pin1, pin2: pin2, pinDist: pinDist);
     }
     private static Arr<Point2d> AssemblePinnedUv(int n, Dictionary<int, int> freeIdx, Arr<double> u, Arr<double> v, int pin1, int pin2, double pinDist) {
@@ -439,55 +440,19 @@ internal static class MeshKernel {
         for (int i = 0; i < n; i++) if (freeIdx.TryGetValue(key: i, value: out int idx)) uv[i] = new Point2d(x: u[index: idx], y: v[index: idx]);
         return new Arr<Point2d>(uv);
     }
-    // Cherrier system: add cone-angle constraints δ_k * u_k = θ_target via Lagrange-multiplier
-    // augmentation on the cotangent SPD; recovers conformal scale factor and adjusts UV.
-    private static Fin<Arr<Point2d>> CherrierConeRefine(Mesh mesh, SparseLaplacian L, Arr<Point2d> baseUV, Seq<int> cones, int pin1, int pin2, Op key) {
-        int n = mesh.Vertices.Count;
-        Dictionary<int, int> freeIdx = [];
-        for (int i = 0; i < n; i++) if (i != pin1 && i != pin2) freeIdx[key: i] = freeIdx.Count;
-        int m = freeIdx.Count;
-        List<(int Row, int Col, double Value)> triplets = [];
-        for (int i = 0; i < n; i++) {
-            if (!freeIdx.TryGetValue(key: i, value: out int row)) continue;
-            for (int k = L.Stiffness.RowPtr[index: i]; k < L.Stiffness.RowPtr[index: i + 1]; k++) {
-                int j = L.Stiffness.ColInd[index: k];
-                if (freeIdx.TryGetValue(key: j, value: out int col)) triplets.Add(item: (row, col, L.Stiffness.Values[index: k]));
-            }
-        }
-        double[] rhs = new double[m];
-        double coneShare = 2.0 * Math.PI / Math.Max(val1: cones.Count, val2: 1);
-        for (int c = 0; c < cones.Count; c++)
-            if (freeIdx.TryGetValue(key: cones[index: c], value: out int idx)) rhs[idx] += coneShare;
-        Dimension dim = Dimension.Create(value: m);
-        return from A in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: triplets, key: key)
-               from chol in A.DecomposeCholesky(key: key)
-               from scale in chol.Solve(rhs: new Arr<double>(rhs), key: key)
-               select RescaleUv(baseUV: baseUV, scale: scale, freeIdx: freeIdx);
-    }
-    private static Arr<Point2d> RescaleUv(Arr<Point2d> baseUV, Arr<double> scale, Dictionary<int, int> freeIdx) {
-        Point2d[] out_ = [.. baseUV.AsIterable()];
-        for (int i = 0; i < out_.Length; i++)
-            if (freeIdx.TryGetValue(key: i, value: out int idx)) {
-                double factor = Math.Exp(d: scale[index: idx]);
-                out_[i] = new Point2d(x: baseUV[index: i].X * factor, y: baseUV[index: i].Y * factor);
-            }
-        return new Arr<Point2d>(out_);
-    }
-
     // --- [HEAT_METHOD] ----------------------------------------------------------------------
     // Crane-Weischedel-Wardetzky 2013: solve (M + tL)u = δ; X = -∇u/|∇u|; Lφ = ∇·X.
     private sealed record DoubleBoxArr(Arr<double> Values);
-    private static readonly Dictionary<string, DoubleBoxArr> GeodesicCache = [];
     internal static Fin<double> HeatGeodesicAt(MeshSpace space, Seq<int> sources, BoundaryCondition boundary, Point3d sample, Op key) =>
         from distances in EnsureGeodesicDistances(space: space, sources: sources, boundary: boundary, key: key)
         from value in InterpolateOnFaceTree(space: space, sample: sample, perVertex: distances, key: key)
         select value;
     private static Fin<Arr<double>> EnsureGeodesicDistances(MeshSpace space, Seq<int> sources, BoundaryCondition boundary, Op key) {
-        string cacheKey = string.Create(CultureInfo.InvariantCulture, $"{space.Native.GetHashCode()}|{string.Join(separator: ",", values: sources.AsIterable().OrderBy(static i => i))}|{boundary.Key}");
-        return GeodesicCache.TryGetValue(key: cacheKey, value: out DoubleBoxArr? cached)
-            ? Fin.Succ(cached.Values)
+        string cacheKey = string.Create(CultureInfo.InvariantCulture, $"geodesic|{string.Join(separator: ",", values: sources.AsIterable().OrderBy(static i => i))}|{boundary.Key}");
+        return space.Cache.FieldCache.TryGetValue(key: cacheKey, value: out object? cached) && cached is DoubleBoxArr box
+            ? Fin.Succ(box.Values)
             : space.Laplacian(kind: MeshLaplacian.Cotangent, key: key).Bind(L => ComputeHeatGeodesic(space: space, laplacian: L, sources: sources, key: key))
-                .Map(d => { GeodesicCache[key: cacheKey] = new DoubleBoxArr(Values: d); return d; });
+                .Map(d => { space.Cache.FieldCache[key: cacheKey] = new DoubleBoxArr(Values: d); return d; });
     }
     private static Fin<Arr<double>> ComputeHeatGeodesic(MeshSpace space, SparseLaplacian laplacian, Seq<int> sources, Op key) {
         int n = space.Native.Vertices.Count;
@@ -503,15 +468,14 @@ internal static class MeshKernel {
             }
         Dimension dim = Dimension.Create(value: n);
         return from A in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: aTriplets, key: key)
-               from chol in A.DecomposeCholesky(key: key)
                from delta in Fin.Succ(BuildSourceDelta(n: n, sources: sources, mass: laplacian.MassLumped))
-               from u in chol.Solve(rhs: delta, key: key)
+               from u in A.Solve(rhs: delta, key: key)
                from gradient in Fin.Succ(ComputeTriangleGradients(mesh: space.Native, u: u))
                from divergence in Fin.Succ(ComputeVertexDivergence(mesh: space.Native, gradients: gradient))
-               from poissonChol in space.Laplacian(kind: MeshLaplacian.Cotangent, key: key)
+               from poisson in space.Laplacian(kind: MeshLaplacian.Cotangent, key: key)
                    .Bind(L => SparseMatrix.FromTriplets(rows: dim, cols: dim,
-                       triplets: PoissonTriplets(L: L, sources: sources), key: key).Bind(P => P.DecomposeCholesky(key: key)))
-               from phi in poissonChol.Solve(rhs: divergence, key: key)
+                       triplets: PoissonTriplets(L: L, sources: sources), key: key))
+               from phi in poisson.Solve(rhs: divergence, key: key)
                select NormalizeToZero(values: phi);
     }
     private static Arr<double> BuildSourceDelta(int n, Seq<int> sources, Arr<double> mass) {
@@ -572,52 +536,34 @@ internal static class MeshKernel {
         double min = values.Fold(initialState: double.MaxValue, f: static (m, v) => Math.Min(val1: m, val2: v));
         return new Arr<double>([.. values.AsIterable().Select(v => v - min)]);
     }
-    // BOUNDARY ADAPTER — face RTree returns nearest face index; we barycentric-interpolate
-    // the per-vertex scalar across that triangle.
     private static Fin<double> InterpolateOnFaceTree(MeshSpace space, Point3d sample, Arr<double> perVertex, Op key) {
-        int bestFace = -1; double bestDist = double.MaxValue;
-        _ = space.Cache.FaceTree.Search(sphere: new Sphere(center: sample, radius: space.Cache.MeanEdgeLength * 4.0),
-            callback: (_, args) => {
-                MeshFace face = space.Native.Faces[index: args.Id];
-                if (!face.IsTriangle) return;
-                Point3d va = space.Native.Vertices[index: face.A]; Point3d vb = space.Native.Vertices[index: face.B]; Point3d vc = space.Native.Vertices[index: face.C];
-                Point3d centroid = new(x: (va.X + vb.X + vc.X) / 3.0, y: (va.Y + vb.Y + vc.Y) / 3.0, z: (va.Z + vb.Z + vc.Z) / 3.0);
-                double d = centroid.DistanceToSquared(other: sample);
-                if (d < bestDist) { bestDist = d; bestFace = args.Id; }
-            });
-        if (bestFace < 0) return Fin.Fail<double>(key.InvalidResult());
-        MeshFace winner = space.Native.Faces[index: bestFace];
-        Point3d a = space.Native.Vertices[index: winner.A]; Point3d b = space.Native.Vertices[index: winner.B]; Point3d c = space.Native.Vertices[index: winner.C];
-        (double wa, double wb, double wc) = BarycentricCoordinates(p: sample, a: a, b: b, c: c);
-        return key.AcceptValue(value: (wa * perVertex[index: winner.A]) + (wb * perVertex[index: winner.B]) + (wc * perVertex[index: winner.C]));
+        MeshPoint meshPoint = space.Native.ClosestMeshPoint(testPoint: sample, maximumDistance: 0.0);
+        return meshPoint is null || meshPoint.FaceIndex < 0
+            ? Fin.Fail<double>(key.InvalidResult())
+            : key.AcceptValue(value: InterpolateFaceValue(mesh: space.Native, meshPoint: meshPoint, perVertex: perVertex));
     }
-    private static (double Wa, double Wb, double Wc) BarycentricCoordinates(Point3d p, Point3d a, Point3d b, Point3d c) {
-        Vector3d v0 = b - a; Vector3d v1 = c - a; Vector3d v2 = p - a;
-        double d00 = v0 * v0; double d01 = v0 * v1; double d11 = v1 * v1;
-        double d20 = v2 * v0; double d21 = v2 * v1;
-        double denom = (d00 * d11) - (d01 * d01);
-        if (Math.Abs(value: denom) < RhinoMath.ZeroTolerance) return (1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0);
-        double wb = ((d11 * d20) - (d01 * d21)) / denom;
-        double wc = ((d00 * d21) - (d01 * d20)) / denom;
-        return (1.0 - wb - wc, wb, wc);
+    private static double InterpolateFaceValue(Mesh mesh, MeshPoint meshPoint, Arr<double> perVertex) {
+        MeshFace face = mesh.Faces[index: meshPoint.FaceIndex];
+        double[] weights = meshPoint.T;
+        double value = (weights[0] * perVertex[index: face.A]) + (weights[1] * perVertex[index: face.B]) + (weights[2] * perVertex[index: face.C]);
+        return face.IsQuad ? value + (weights[3] * perVertex[index: face.D]) : value;
     }
 
     // --- [MEAN_CURVATURE_FLOW] --------------------------------------------------------------
     // Desbrun-Meyer-Schröder-Barr 1999: implicit Euler step (M + dt L) X' = M X. We iterate
     // on a copy of vertex positions and return the per-vertex magnitude of (X' - X) as the
     // scalar field — a proxy for total displacement induced by the flow.
-    private static readonly Dictionary<string, DoubleBoxArr> McfCache = [];
     internal static Fin<double> MeanCurvatureMagnitudeAt(MeshSpace space, double timeStep, int iterations, Point3d sample, Op key) =>
         from displacements in EnsureMcfDisplacements(space: space, timeStep: timeStep, iterations: iterations, key: key)
         from value in InterpolateOnFaceTree(space: space, sample: sample, perVertex: displacements, key: key)
         select value;
     private static Fin<Arr<double>> EnsureMcfDisplacements(MeshSpace space, double timeStep, int iterations, Op key) {
-        string cacheKey = string.Create(CultureInfo.InvariantCulture, $"{space.Native.GetHashCode()}|{timeStep:R}|{iterations}");
-        return McfCache.TryGetValue(key: cacheKey, value: out DoubleBoxArr? cached)
-            ? Fin.Succ(cached.Values)
+        string cacheKey = string.Create(CultureInfo.InvariantCulture, $"mcf|{timeStep:R}|{iterations}");
+        return space.Cache.FieldCache.TryGetValue(key: cacheKey, value: out object? cached) && cached is DoubleBoxArr box
+            ? Fin.Succ(box.Values)
             : space.Laplacian(kind: MeshLaplacian.Cotangent, key: key)
                 .Bind(L => ComputeMeanCurvatureFlow(space: space, laplacian: L, timeStep: timeStep, iterations: iterations, key: key))
-                .Map(d => { McfCache[key: cacheKey] = new DoubleBoxArr(Values: d); return d; });
+                .Map(d => { space.Cache.FieldCache[key: cacheKey] = new DoubleBoxArr(Values: d); return d; });
     }
     private static Fin<Arr<double>> ComputeMeanCurvatureFlow(MeshSpace space, SparseLaplacian laplacian, double timeStep, int iterations, Op key) {
         int n = space.Native.Vertices.Count;
@@ -630,21 +576,19 @@ internal static class MeshKernel {
                 aTriplets.Add(item: (i, j, timeStep * laplacian.Stiffness.Values[index: k]));
             }
         return from A in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: aTriplets, key: key)
-               from chol in A.DecomposeCholesky(key: key)
-               from final in IterateMcf(space: space, mass: laplacian.MassLumped, chol: chol, iterations: iterations, key: key)
+               from final in IterateMcf(space: space, mass: laplacian.MassLumped, system: A, iterations: iterations, key: key)
                select ComputeDisplacements(original: space.Native, smoothed: final);
     }
-    private static Fin<(double[] X, double[] Y, double[] Z)> IterateMcf(MeshSpace space, Arr<double> mass, CholeskyResult chol, int iterations, Op key) {
+    private static Fin<(double[] X, double[] Y, double[] Z)> IterateMcf(MeshSpace space, Arr<double> mass, SparseMatrix system, int iterations, Op key) {
         int n = space.Native.Vertices.Count;
         double[] x = new double[n]; double[] y = new double[n]; double[] z = new double[n];
         for (int i = 0; i < n; i++) { Point3d v = space.Native.Vertices[index: i]; x[i] = v.X; y[i] = v.Y; z[i] = v.Z; }
-        Fin<Unit> rail = Fin.Succ(unit);
         for (int iter = 0; iter < iterations; iter++) {
             double[] rhsX = new double[n]; double[] rhsY = new double[n]; double[] rhsZ = new double[n];
             for (int i = 0; i < n; i++) { rhsX[i] = mass[index: i] * x[i]; rhsY[i] = mass[index: i] * y[i]; rhsZ[i] = mass[index: i] * z[i]; }
-            Fin<Arr<double>> sx = chol.Solve(rhs: new Arr<double>(rhsX), key: key);
-            Fin<Arr<double>> sy = chol.Solve(rhs: new Arr<double>(rhsY), key: key);
-            Fin<Arr<double>> sz = chol.Solve(rhs: new Arr<double>(rhsZ), key: key);
+            Fin<Arr<double>> sx = system.Solve(rhs: new Arr<double>(rhsX), key: key);
+            Fin<Arr<double>> sy = system.Solve(rhs: new Arr<double>(rhsY), key: key);
+            Fin<Arr<double>> sz = system.Solve(rhs: new Arr<double>(rhsZ), key: key);
             Fin<(Arr<double> X, Arr<double> Y, Arr<double> Z)> step = from a in sx from b in sy from c in sz select (X: a, Y: b, Z: c);
             (Arr<double> nx, Arr<double> ny, Arr<double> nz) = step.Match(
                 Succ: static value => value,
@@ -726,7 +670,6 @@ internal static class MeshKernel {
     // independently, then recover y_i = (u_i / |Y_i|) Y_i. Phase recovered from complex Y,
     // magnitude from real u; both lifted into 3D via per-vertex tangent frames.
     private sealed record VectorHeatCache(Complex[] PerVertex);
-    private static readonly Dictionary<string, VectorHeatCache> VectorHeatTable = [];
     internal static Fin<Vector3d> VectorHeatAt(MeshSpace space, Seq<(int Vertex, Vector3d Tangent)> seeds, Point3d sample, Op key) =>
         from cached in EnsureVectorHeatField(space: space, seeds: seeds, key: key)
         from value in InterpolateComplexAt(space: space, sample: sample, perVertex: cached, key: key)
@@ -735,11 +678,11 @@ internal static class MeshKernel {
         string seedKey = string.Join(separator: "|",
             values: seeds.AsIterable().OrderBy(static s => s.Vertex)
                 .Select(static s => string.Create(CultureInfo.InvariantCulture, $"{s.Vertex}:{s.Tangent.X:R}:{s.Tangent.Y:R}:{s.Tangent.Z:R}")));
-        string cacheKey = string.Create(CultureInfo.InvariantCulture, $"{space.Native.GetHashCode()}|{seedKey}");
-        return VectorHeatTable.TryGetValue(key: cacheKey, value: out VectorHeatCache? cached)
-            ? Fin.Succ(cached.PerVertex)
+        string cacheKey = string.Create(CultureInfo.InvariantCulture, $"vector-heat|{seedKey}");
+        return space.Cache.FieldCache.TryGetValue(key: cacheKey, value: out object? cached) && cached is VectorHeatCache field
+            ? Fin.Succ(field.PerVertex)
             : ComputeVectorHeat(space: space, seeds: seeds, key: key)
-                .Map(per => { VectorHeatTable[key: cacheKey] = new VectorHeatCache(PerVertex: per); return per; });
+                .Map(per => { space.Cache.FieldCache[key: cacheKey] = new VectorHeatCache(PerVertex: per); return per; });
     }
     private static Fin<Complex[]> ComputeVectorHeat(MeshSpace space, Seq<(int Vertex, Vector3d Tangent)> seeds, Op key) {
         Mesh mesh = space.Native;
@@ -752,8 +695,7 @@ internal static class MeshKernel {
         return from L in space.Laplacian(kind: MeshLaplacian.Cotangent, key: key)
                from Lconn in BuildConnectionLaplacian(space: space, symmetry: 1.0, key: key)
                from scalarSys in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: ScalarHeatTriplets(L: L, t: t), key: key)
-               from scalarChol in scalarSys.DecomposeCholesky(key: key)
-               from magnitudes in scalarChol.Solve(rhs: BuildSeedMagnitudes(n: n, seeds: seeds, mass: L.MassLumped), key: key)
+               from magnitudes in scalarSys.Solve(rhs: BuildSeedMagnitudes(n: n, seeds: seeds, mass: L.MassLumped), key: key)
                from vectorSys in AugmentHermitianDiagonal(L: Lconn, mass: L.MassLumped, t: t, key: key)
                from solutions in vectorSys.Solve(rhs: BuildSeedComplex(n: n, seeds: seeds, frames: fb, mass: L.MassLumped), key: key)
                select RecoverVectorField(magnitudes: magnitudes, complex: solutions);
@@ -814,17 +756,16 @@ internal static class MeshKernel {
     // local N-RoSy direction; sampling interpolates complex values and reconstructs a 3D
     // direction by projecting back into the tangent frame at the barycentric centroid.
     private sealed record CrossFieldCache(Complex[] PerVertex);
-    private static readonly Dictionary<string, CrossFieldCache> CrossFieldTable = [];
     internal static Fin<Vector3d> CrossFieldAt(MeshSpace space, int symmetry, Option<TensorField> guidance, Point3d sample, Op key) =>
         from cached in EnsureCrossField(space: space, symmetry: symmetry, key: key)
         from value in InterpolateComplexAt(space: space, sample: sample, perVertex: cached, key: key)
         select value;
     private static Fin<Complex[]> EnsureCrossField(MeshSpace space, int symmetry, Op key) {
-        string cacheKey = string.Create(CultureInfo.InvariantCulture, $"{space.Native.GetHashCode()}|{symmetry}");
-        return CrossFieldTable.TryGetValue(key: cacheKey, value: out CrossFieldCache? cached)
-            ? Fin.Succ(cached.PerVertex)
+        string cacheKey = string.Create(CultureInfo.InvariantCulture, $"cross|{symmetry}");
+        return space.Cache.FieldCache.TryGetValue(key: cacheKey, value: out object? cached) && cached is CrossFieldCache field
+            ? Fin.Succ(field.PerVertex)
             : ComputeCrossField(space: space, symmetry: symmetry, key: key)
-                .Map(per => { CrossFieldTable[key: cacheKey] = new CrossFieldCache(PerVertex: per); return per; });
+                .Map(per => { space.Cache.FieldCache[key: cacheKey] = new CrossFieldCache(PerVertex: per); return per; });
     }
     private static Fin<Complex[]> ComputeCrossField(MeshSpace space, int symmetry, Op key) =>
         BuildConnectionLaplacian(space: space, symmetry: symmetry, key: key)
@@ -846,25 +787,16 @@ internal static class MeshKernel {
 
     // --- [COMPLEX_FIELD_SAMPLING] -----------------------------------------------------------
     private static Fin<Vector3d> InterpolateComplexAt(MeshSpace space, Point3d sample, Complex[] perVertex, Op key) {
-        int bestFace = -1; double bestDist = double.MaxValue;
-        _ = space.Cache.FaceTree.Search(sphere: new Sphere(center: sample, radius: space.Cache.MeanEdgeLength * 4.0),
-            callback: (_, args) => {
-                MeshFace face = space.Native.Faces[index: args.Id];
-                if (!face.IsTriangle) return;
-                Point3d va = space.Native.Vertices[index: face.A]; Point3d vb = space.Native.Vertices[index: face.B]; Point3d vc = space.Native.Vertices[index: face.C];
-                Point3d centroid = new(x: (va.X + vb.X + vc.X) / 3.0, y: (va.Y + vb.Y + vc.Y) / 3.0, z: (va.Z + vb.Z + vc.Z) / 3.0);
-                double d = centroid.DistanceToSquared(other: sample);
-                if (d < bestDist) { bestDist = d; bestFace = args.Id; }
-            });
-        if (bestFace < 0) return Fin.Fail<Vector3d>(error: key.InvalidResult());
-        MeshFace winner = space.Native.Faces[index: bestFace];
-        Point3d pa = space.Native.Vertices[index: winner.A]; Point3d pb = space.Native.Vertices[index: winner.B]; Point3d pc = space.Native.Vertices[index: winner.C];
-        (double wa, double wb, double wc) = BarycentricCoordinates(p: sample, a: pa, b: pb, c: pc);
+        MeshPoint meshPoint = space.Native.ClosestMeshPoint(testPoint: sample, maximumDistance: 0.0);
+        if (meshPoint is null || meshPoint.FaceIndex < 0) return Fin.Fail<Vector3d>(error: key.InvalidResult());
+        MeshFace winner = space.Native.Faces[index: meshPoint.FaceIndex];
+        double[] weights = meshPoint.T;
         FrameBundle fb = EnsureVertexFrames(mesh: space.Native);
         Vector3d result =
-            (wa * ((perVertex[winner.A].Real * fb.X[winner.A]) + (perVertex[winner.A].Imaginary * fb.Y[winner.A]))) +
-            (wb * ((perVertex[winner.B].Real * fb.X[winner.B]) + (perVertex[winner.B].Imaginary * fb.Y[winner.B]))) +
-            (wc * ((perVertex[winner.C].Real * fb.X[winner.C]) + (perVertex[winner.C].Imaginary * fb.Y[winner.C])));
+            (weights[0] * ((perVertex[winner.A].Real * fb.X[winner.A]) + (perVertex[winner.A].Imaginary * fb.Y[winner.A]))) +
+            (weights[1] * ((perVertex[winner.B].Real * fb.X[winner.B]) + (perVertex[winner.B].Imaginary * fb.Y[winner.B]))) +
+            (weights[2] * ((perVertex[winner.C].Real * fb.X[winner.C]) + (perVertex[winner.C].Imaginary * fb.Y[winner.C]))) +
+            (winner.IsQuad ? weights[3] * ((perVertex[winner.D].Real * fb.X[winner.D]) + (perVertex[winner.D].Imaginary * fb.Y[winner.D])) : Vector3d.Zero);
         return key.AcceptValue(value: result);
     }
 }

@@ -214,7 +214,11 @@ public sealed partial class SdfKind {
         return Compute(local: local, parameters: parameters);
     }
     internal bool ValidateParameters(ImmutableDictionary<string, double> parameters) =>
-        RequiredKeys.ForAll(k => parameters.ContainsKey(key: k) && RhinoMath.IsValidDouble(x: parameters[k]));
+        RequiredKeys.ForAll(k => parameters.ContainsKey(key: k) && RhinoMath.IsValidDouble(x: parameters[k]))
+        && (!Equals(Ellipsoid) || RequiredKeys.ForAll(k => parameters[k] > RhinoMath.ZeroTolerance))
+        && (!Equals(Torus) || ((parameters["R"] > RhinoMath.ZeroTolerance) && (parameters["r"] > RhinoMath.ZeroTolerance)))
+        && (!Equals(Cone) || ((parameters["h"] > RhinoMath.ZeroTolerance) && (parameters["r1"] >= 0.0) && (parameters["r2"] >= 0.0)))
+        && (!Equals(CappedCone) || ((parameters["h"] > RhinoMath.ZeroTolerance) && (parameters["r1"] >= 0.0) && (parameters["r2"] >= 0.0)));
     // Quilez exact octahedron — three-region case analysis around the axis-permuted normal.
     private static double SdfExactOctahedron(Point3d p, double s) {
         double ax = Math.Abs(value: p.X); double ay = Math.Abs(value: p.Y); double az = Math.Abs(value: p.Z);
@@ -619,7 +623,9 @@ public partial record VectorField {
         new CrossProductCase(Left: left, Right: right);
     public static Fin<VectorField> CrossField(MeshSpace space, int symmetry, Option<TensorField> guidance = default, Op? key = null) {
         Op op = key.OrDefault();
-        return symmetry is 1 or 2 or 4 or 6
+        return guidance.IsSome
+            ? Fin.Fail<VectorField>(op.Unsupported(geometryType: typeof(TensorField), outputType: typeof(CrossFieldCase)))
+            : symmetry is 1 or 2 or 4 or 6
             ? Fin.Succ((VectorField)new CrossFieldCase(Space: space, Symmetry: symmetry, Guidance: guidance))
             : Fin.Fail<VectorField>(op.InvalidInput());
     }
@@ -1014,7 +1020,7 @@ public partial record ScalarField {
     }
     public static Fin<ScalarField> Periodic(ScalarField source, Vector3d period, Op? key = null) {
         Op op = key.OrDefault();
-        return !period.IsValid || period.IsTiny()
+        return !period.IsValid || Math.Abs(value: period.X) <= RhinoMath.ZeroTolerance || Math.Abs(value: period.Y) <= RhinoMath.ZeroTolerance || Math.Abs(value: period.Z) <= RhinoMath.ZeroTolerance
             ? Fin.Fail<ScalarField>(op.InvalidInput())
             : Fin.Succ((ScalarField)new PeriodicCase(Source: source, Period: period));
     }

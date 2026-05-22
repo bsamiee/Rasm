@@ -173,6 +173,8 @@ public abstract partial record VectorCloud {
                from _ in guard(valid.Count >= 1, op.InvalidInput())
                select (VectorCloud)new ClusterCase(Vertices: valid, Tolerance: model);
     }
+    public Fin<Seq<Vector3d>> OrientNormals(Context context, Op? key = null) =>
+        PopulationKernel.OrientNormalsViaMst(cloud: this, context: context, key: key.OrDefault());
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------

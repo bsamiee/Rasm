@@ -107,12 +107,28 @@ public sealed partial class CurveProjection {
         sample: static (curve, t) => Fin.Succ((object)curve.GetLength(new Interval(curve.Domain.T0, t))));
     public static readonly CurveProjection RotationMinimizing = new(key: 5,
         sample: static (curve, t) => RmfFrameAt(curve: curve, parameter: t));
-    private static Fin<object> RmfFrameAt(Curve curve, double parameter) =>
-        !curve.Domain.IncludesParameter(t: parameter)
-            ? Fin.Fail<object>(Op.Of().InvalidInput())
-            : curve.PerpendicularFrameAt(t: parameter, plane: out Plane frame) && frame.IsValid
-                ? Fin.Succ((object)frame)
-                : Fin.Fail<object>(Op.Of().InvalidResult());
+    private static Fin<object> RmfFrameAt(Curve curve, double parameter) {
+        Op key = Op.Of();
+        if (!curve.Domain.IncludesParameter(t: parameter)) return Fin.Fail<object>(key.InvalidInput());
+        if (!curve.PerpendicularFrameAt(t: curve.Domain.T0, plane: out Plane frame) || !frame.IsValid) return Fin.Fail<object>(key.InvalidResult());
+        if (Math.Abs(value: parameter - curve.Domain.T0) <= RhinoMath.ZeroTolerance) return Fin.Succ((object)frame);
+        Vector3d r = frame.XAxis;
+        Vector3d tPrev = curve.TangentAt(t: curve.Domain.T0);
+        if (!tPrev.Unitize()) return Fin.Fail<object>(key.InvalidResult());
+        int steps = Math.Clamp(value: curve.SpanCount * 8, min: 2, max: 256);
+        for (int i = 1; i <= steps; i++) {
+            double t = curve.Domain.ParameterAt((double)i / steps * curve.Domain.NormalizedParameterAt(parameter));
+            Vector3d tCurr = curve.TangentAt(t: t);
+            if (!tCurr.Unitize()) return Fin.Fail<object>(key.InvalidResult());
+            r = CloudKernel.DoubleReflect(rPrev: r, tPrev: tPrev, tCurr: tCurr);
+            tPrev = tCurr;
+        }
+        Point3d origin = curve.PointAt(t: parameter);
+        Vector3d y = Vector3d.CrossProduct(a: tPrev, b: r);
+        return r.Unitize() && y.Unitize()
+            ? Fin.Succ((object)new Plane(origin: origin, xDirection: r, yDirection: y))
+            : Fin.Fail<object>(key.InvalidResult());
+    }
     [UseDelegateFromConstructor] private partial Fin<object> Sample(Curve curve, double parameter);
     internal Fin<TOut> Project<TOut>(Curve curve, double parameter, Context context, Op key) =>
         from _ in guard(curve.Domain.IncludesParameter(t: parameter), key.InvalidInput())
@@ -217,8 +233,8 @@ public readonly record struct SurfaceSpace {
     }
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct Quaternion(double W, double X, double Y, double Z) {
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct Quaternion(double W, double X, double Y, double Z) {
     public bool IsValid => RhinoMath.IsValidDouble(x: W) && RhinoMath.IsValidDouble(x: X) && RhinoMath.IsValidDouble(x: Y) && RhinoMath.IsValidDouble(x: Z);
     public double Norm => Math.Sqrt(d: (W * W) + (X * X) + (Y * Y) + (Z * Z));
     public Quaternion Conjugate => new(W: W, X: -X, Y: -Y, Z: -Z);
@@ -249,18 +265,15 @@ public readonly record struct Quaternion(double W, double X, double Y, double Z)
         Y: (a.W * b.Y) - (a.X * b.Z) + (a.Y * b.W) + (a.Z * b.X),
         Z: (a.W * b.Z) + (a.X * b.Y) - (a.Y * b.X) + (a.Z * b.W));
     public static Quaternion operator +(Quaternion a, Quaternion b) => new(W: a.W + b.W, X: a.X + b.X, Y: a.Y + b.Y, Z: a.Z + b.Z);
-    // Shortest-arc SLERP: flip on cos<0; lerp+normalize fallback when cos>1-√ε.
     public static Quaternion Slerp(Quaternion a, Quaternion b, double t) {
         double cos = (a.W * b.W) + (a.X * b.X) + (a.Y * b.Y) + (a.Z * b.Z);
         Quaternion target = cos < 0.0 ? new Quaternion(W: -b.W, X: -b.X, Y: -b.Y, Z: -b.Z) : b;
-        cos = Math.Abs(value: cos);
-        if (cos > 1.0 - RhinoMath.SqrtEpsilon) {
-            Quaternion linear = new(W: a.W + (t * (target.W - a.W)), X: a.X + (t * (target.X - a.X)), Y: a.Y + (t * (target.Y - a.Y)), Z: a.Z + (t * (target.Z - a.Z)));
-            return linear.Normalize();
-        }
-        double theta = Math.Acos(d: cos); double sinTheta = Math.Sin(a: theta);
-        double wa = Math.Sin(a: (1.0 - t) * theta) / sinTheta; double wb = Math.Sin(a: t * theta) / sinTheta;
-        return new Quaternion(W: (wa * a.W) + (wb * target.W), X: (wa * a.X) + (wb * target.X), Y: (wa * a.Y) + (wb * target.Y), Z: (wa * a.Z) + (wb * target.Z));
+        Rhino.Geometry.Quaternion qa = new(a: a.W, b: a.X, c: a.Y, d: a.Z);
+        Rhino.Geometry.Quaternion qb = new(a: target.W, b: target.X, c: target.Y, d: target.Z);
+        Rhino.Geometry.Quaternion q = Math.Abs(value: cos) > 1.0 - RhinoMath.SqrtEpsilon
+            ? Rhino.Geometry.Quaternion.Lerp(a: qa, b: qb, t: t)
+            : Rhino.Geometry.Quaternion.Slerp(a: qa, b: qb, t: t);
+        return new Quaternion(W: q.A, X: q.B, Y: q.C, Z: q.D).Normalize();
     }
     public Transform ToTransform() {
         Rhino.Geometry.Quaternion rq = new(a: W, b: X, c: Y, d: Z);
@@ -268,8 +281,8 @@ public readonly record struct Quaternion(double W, double X, double Y, double Z)
     }
 }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct DualQuaternion(Quaternion Real, Quaternion Dual) {
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct DualQuaternion(Quaternion Real, Quaternion Dual) {
     public bool IsValid => Real.IsValid && Dual.IsValid;
     public static DualQuaternion Of(Transform transform) {
         _ = transform.GetQuaternion(quaternion: out Rhino.Geometry.Quaternion rq);
@@ -281,7 +294,6 @@ public readonly record struct DualQuaternion(Quaternion Real, Quaternion Dual) {
     }
     public static DualQuaternion operator *(DualQuaternion a, DualQuaternion b) =>
         new(Real: a.Real * b.Real, Dual: (a.Real * b.Dual) + (a.Dual * b.Real));
-    // Kavan 2006 ScLerp: SLERP Real, lerp Dual, then orthogonalise Dual against Real.
     public static DualQuaternion ScLerp(DualQuaternion a, DualQuaternion b, double t) {
         Quaternion real = Quaternion.Slerp(a: a.Real, b: b.Real, t: t);
         Quaternion dual = new(W: a.Dual.W + (t * (b.Dual.W - a.Dual.W)), X: a.Dual.X + (t * (b.Dual.X - a.Dual.X)), Y: a.Dual.Y + (t * (b.Dual.Y - a.Dual.Y)), Z: a.Dual.Z + (t * (b.Dual.Z - a.Dual.Z)));
