@@ -3,7 +3,9 @@
 
 <br>
 
-[IMPORTANT] Read this file as an API registry, not a tutorial. Implementation examples belong in owning code, with this map used to select the correct surface.
+[IMPORTANT] API registry for selecting LanguageExt surface families.
+
+[IMPORTANT] Baseline: `LanguageExt.Core` `5.0.0-beta-77` net10.0 XML. Use `docs/system-api-map/api.md` for BCL overlap.
 
 ---
 ## [1][FOUNDATION]
@@ -18,6 +20,7 @@
 | [3] | LINQ operators | `Select`, `SelectMany`, `Where`-like guard composition. | Preferred for multi-step rails. |
 | [4] | `Map`, `Bind`, `BiMap`, `BindFail`, `MapFail` | Context-preserving transforms. | Required before final boundary collapse. |
 | [5] | `Fin.Succ`, `Fin.Fail`, `pure<F,A>`, `error<F,A>` | Explicit success, pure, and failure construction. | Prefer explicit rail constructors over exceptions. |
+| [6] | `Flatten()` | Collapses nested compatible rails such as `Fin<Fin<T>>` when the pinned API exposes it. | Prefer over manual nested `Match` or success/failure rewraps. |
 
 ---
 ## [2][MONADS]
@@ -34,9 +37,9 @@
 | [5] | `Try<T>` | Exception capture. | Avoid in domain code; prefer explicit error rails. |
 | [6] | `Reader<E,T>` | Environment access. | Prefer `Eff<RT,T>` runtime records for effectful paths. |
 | [7] | `State<S,T>` | Explicit state threading. | Reserve for pure state machines. |
-| [8] | `Writer<W,T>` | Monoidal output accumulation. | Defer until a true log/value accumulation problem appears. |
+| [8] | `Writer<W,T>` | Monoidal output accumulation. | Use for true log/value accumulation. |
 | [9] | `Identity<T>` | Pure identity carrier. | Use only as a trait instantiation target. |
-| [10] | `These<L,R>` | Inclusive-or result. | Defer until partial-success semantics are explicit. |
+| [10] | `These<L,R>` | Inclusive-or result. | Use when partial-success semantics are explicit. |
 
 ---
 ## [3][EFFECTS]
@@ -54,9 +57,10 @@
 | [6] | `Schedule` | Retry, repeat, timeout, and fallback policy. | Use as algebraic policy value, usually in decorators. |
 | [7] | `Resources`, `Bracket`, `bracketIO` | Acquire-use-release. | Prefer over manual cleanup outside protocol boundaries. |
 | [8] | `liftIO`, `liftEff`, `Eff.lift`, `LiftIO` | Lift tasks, `Fin`, `Either`, and IO descriptions into effect rails. | Prefer these universal constructors over ad hoc conversion helpers. |
+| [9] | Advanced IO family | Locality, scheduling, interruption, and fork coordination. | Details live in `rop-effects.md`. |
 
 ---
-## [4A][CONCURRENCY]
+## [4][CONCURRENCY]
 >**Dictum:** *Core concurrency is explicit state, not incidental mutation.*
 
 <br>
@@ -64,12 +68,12 @@
 | [INDEX] | [TYPE] | [USE] | [RASM_POSTURE] |
 | :-----: | ------ | ----- | -------------- |
 | [1] | `Atom<T>` | Lock-free single-value CAS with optional validator. | Use for boundary-owned shared state only. |
-| [2] | `AtomHashMap<K,V>`, `AtomSeq<T>`, `AtomQue<T>` | Atomic wrappers over persistent collections. | Defer until host state needs atomic collection operations. |
+| [2] | `AtomHashMap<K,V>`, `AtomSeq<T>`, `AtomQue<T>` | Atomic wrappers over persistent collections. | Use for host-owned atomic collection operations. |
 | [3] | `Ref<T>` | STM reference. | Use with `atomic`, `snapshot`, or `serial` for multi-value transactions. |
 | [4] | `atomic`, `atomicIO`, `snapshot`, `serial` | Transaction boundaries over refs. | Keep effects pure inside transaction functions. |
 
 ---
-## [4][COLLECTIONS]
+## [5][COLLECTIONS]
 >**Dictum:** *Immutable collections encode traversal semantics.*
 
 <br>
@@ -85,7 +89,7 @@
 | [7] | `Que<T>` and `Stck<T>` | Immutable queue and stack. | Use for worklists when direction matters. |
 
 ---
-## [5][TRAITS]
+## [6][TRAITS]
 >**Dictum:** *Traits make algorithms generic over computation shape.*
 
 <br>
@@ -105,20 +109,20 @@
 | [11] | `MonadIO<F>`, `MonadUnliftIO<F>` | IO lifting and IO boundary operations in abstract carriers. | Reserve for advanced effect-polymorphic infrastructure. |
 
 ---
-## [5A][SPECIALIZED_CORE]
+## [7][SPECIALIZED_CORE]
 >**Dictum:** *Specialized APIs stay dormant until they remove real code.*
 
 <br>
 
 | [INDEX] | [SURFACE] | [CAPABILITY] | [POSTURE] |
 | :-----: | --------- | ------------ | --------- |
-| [1] | `Lens<S,A>` and `Prism<S,A>` | Composable field and variant focus. | Defer; Thinktecture dispatch and records currently cover domain shape. |
-| [2] | `Pretty.Doc` and `DocAnn` | Structured pretty-printing. | Defer until diagnostics need layout-aware text. |
+| [1] | `Lens<S,A>` and `Prism<S,A>` | Composable field and variant focus. | Use when focus removes repeated record projection. |
+| [2] | `Pretty.Doc` and `DocAnn` | Structured pretty-printing. | Use when diagnostics need layout-aware text. |
 | [3] | `UnitsOfMeasure` | Unit constants such as `ms`, `sec`, `m`, `mm`. | Use for `Schedule` durations; keep Rhino unit policy in `Context`. |
 | [4] | `Memo<T>` and `memoK` | Thread-safe memoization. | Use only for stable expensive projections; avoid caching Rhino-owned mutable objects. |
 
 ---
-## [6][RULES]
+## [8][RULES]
 >**Dictum:** *Select the smallest surface that preserves semantics.*
 
 <br>

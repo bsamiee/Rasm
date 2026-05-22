@@ -5,6 +5,8 @@
 
 [IMPORTANT] Convert between Rhino and MathNet only at the numerical boundary. Preserve Rhino tolerance, validity, and unit semantics through `Context` and `Op`.
 
+[IMPORTANT] Baseline: RhinoCommon remains geometry authority; MathNet owns managed numerical projection; `docs/system-api-map/api.md` owns BCL numeric primitives and `TensorPrimitives` candidate policy.
+
 ---
 ## [1][BOUNDARY_TYPES]
 >**Dictum:** *Native geometry remains the source of spatial truth.*
@@ -39,7 +41,7 @@
 
 ---
 ## [3][TOLERANCE]
->**Dictum:** *Numerical algorithms must respect Rhino model tolerance.*
+>**Dictum:** *Numerical algorithms respect Rhino model tolerance.*
 
 <br>
 

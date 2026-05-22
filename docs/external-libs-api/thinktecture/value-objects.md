@@ -5,6 +5,8 @@
 
 [IMPORTANT] Value objects are preferred for bounded primitives. They make invalid construction impossible at normal call sites and cheap to validate at host boundaries.
 
+[IMPORTANT] Baseline: stable pin `10.2.0`. Use generated factories for domain primitive admission; use BCL `field` only for trivial property normalization without generated construction, parsing, conversion, or analyzer support.
+
 ---
 ## [1][DECLARATION]
 >**Dictum:** *The attribute declaration is the API contract.*
@@ -23,6 +25,7 @@
 | [8] | `EmptyStringInFactoryMethodsYieldsNull` | Allows string-key class factories to return `null` for empty or whitespace input. |
 | [9] | `AllowDefaultStructs` | Allows explicit `default` or parameterless construction for struct value objects. |
 | [10] | `DefaultInstancePropertyName` | Names generated static default instance property for struct value objects. |
+| [11] | `SkipEqualityComparison` | Excludes a member from generated equality in complex value objects where it is not identity. |
 
 [CRITICAL] Do not create local `Of`, `From`, or `Try` helpers around generated factories unless the method adds boundary semantics such as caller-name capture or rail conversion.
 
@@ -112,7 +115,7 @@
 
 ---
 ## [7][RASM_ANCHORS]
->**Dictum:** *Current value objects already define the tolerance boundary.*
+>**Dictum:** *Rasm value objects define the tolerance boundary.*
 
 <br>
 

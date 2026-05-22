@@ -27,14 +27,14 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 
 [IMPORTANT]:
 - [ALWAYS] Language-specific mechanics come from the required `coding-*` skill.
-- [ALWAYS] Treat `.claude/skills/*` as the active local skill directory unless project config proves otherwise.
+- [ALWAYS] Treat `.claude/skills/*` as project skill context and `/Users/bardiasamiee/.codex/skills/*` as Codex runtime skill context; keep overlapping standards mirrored when they govern this repo.
 - [ALWAYS] Documentation mechanics come from `docgen`; Markdown structure and voice come from `style-standards`.
 
 ---
 ## [2][BEHAVIOR]
 
 [IMPORTANT]:
-- [ALWAYS] Use new sources when conducting research; sources [MUST] be within last 6 months from current date.
+- [ALWAYS] Use new sources when conducting research; sources [MUST] be within last 9 months from current date unless stable official docs are the only primary source for a settled platform rule.
 - [ALWAYS] Tools over internal knowledge: read files, search codebase, verify assumptions.
 - [ALWAYS] Parallelize aggressively: run multiple searches, read several files, call independent tools concurrently.
 - [ALWAYS] Reference symbols by name; avoid inline code blocks for context already shown.
@@ -52,6 +52,11 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - [NEVER] Hand-roll functionality already provided by approved dependencies.
 - [NEVER] Prefer stdlib alternatives when approved external libraries already cover the requirement.
 - [NEVER] Create thin wrappers that rename or forward external APIs without adding domain value.
+
+[IMPORTANT]: **.NET-Central-Package-Management**: C# package versions live in `Directory.Packages.props`; project files may declare usage but never versions.
+- [ALWAYS] Check `docs/system-api-map` before adding a `System.*` package, global using, or BCL replacement.
+- [ALWAYS] Keep RhinoWIP/GH2/Eto/System.Drawing host assemblies resolved through `Directory.Build.props` app-bundle references; if SDK compilation needs a NuGet reference surface, add it only as a conditioned central compile package.
+- [NEVER] Add unused `PackageVersion` entries as future intent.
 
 ---
 ## [4][UNIVERSAL_CONSTRAINTS]
@@ -89,12 +94,20 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 
 ### [5.1][DEPENDENCIES]
 
+[IMPORTANT] TypeScript dependency workflow:
+
 [IMPORTANT]:
 1. [ALWAYS] **Check catalog**: `rg -n "my-dep" pnpm-workspace.yaml`.
 2. [ALWAYS] **Add to catalog** (if missing): `my-dep: 1.2.3` (exact version).
 3. [ALWAYS] **Reference**: `"dependencies": { "my-dep": "catalog:" }`.
 4. [ALWAYS] **Install**: `pnpm install`.
 5. [ALWAYS] **Validate**: `pnpm exec nx run-many -t typecheck`.
+
+[IMPORTANT] C# dependency workflow:
+1. [ALWAYS] **Check package truth**: `rg -n "<PackageId>" Directory.Packages.props Directory.Build.props **/*.csproj`.
+2. [ALWAYS] **Add version centrally** only when a concrete consumer is added.
+3. [ALWAYS] **Keep project references versionless** under central package management.
+4. [ALWAYS] **Validate graph**: `dotnet restore Workspace.slnx --locked-mode` for removals, normal restore only when graph changes.
 
 ### [5.2][QUALITY_GATES]
 

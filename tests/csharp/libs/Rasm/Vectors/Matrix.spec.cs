@@ -7,17 +7,14 @@ using Xunit.Sdk;
 namespace Rasm.Tests.Vectors;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-// Decomposition assertions reconstruct A from raw factors via independent arithmetic and compare entrywise — never rerun the decomposition under test.
 public static class MatrixGens {
     public static readonly Op Key = Op.Of(name: "matrix-test");
-    // Loosen baseline 1e-9 to absorb O(n^3) reconstruction roundoff at n <= 6.
     public static readonly Func<double, double, bool> Approx = Gens.Approx(relativeTolerance: 1.0e-7);
     private const int MaxDim = 6;
     private static Matrix MakeMatrix(int rows, int cols, double[] buffer) =>
         Matrix.Of(rows: Dimension.Create(value: rows), cols: Dimension.Create(value: cols),
                 entries: [.. buffer.Take(count: rows * cols)], key: Key)
             .Match(Succ: static m => m, Fail: static _ => throw new InvalidOperationException(message: "matrix"));
-    // Decouple dimension and length shrinking by always taking from a max-sized buffer.
     public static readonly Gen<Matrix> TallOrSquare =
         Gen.Int[start: 2, finish: MaxDim].Select(
             Gen.Int[start: 2, finish: MaxDim], Gen.Double[start: -10.0, finish: 10.0].Array[MaxDim * MaxDim],
@@ -25,14 +22,11 @@ public static class MatrixGens {
     public static readonly Gen<Matrix> Square =
         Gen.Int[start: 2, finish: MaxDim].Select(Gen.Double[start: -10.0, finish: 10.0].Array[MaxDim * MaxDim],
             static (int n, double[] buf) => MakeMatrix(rows: n, cols: n, buffer: buf));
-    // Diagonal dominance via shift guarantees non-singularity (eigenvalues bounded away from 0)
-    // so LU/Inverse/Solve don't fail on degenerate columns. Required for solver-style tests.
     public static readonly Gen<Matrix> NonSingularSquare = Square.Select(static (Matrix a) => {
         int n = a.Rows.Value;
         return toSeq(Enumerable.Range(start: 0, count: n)).Fold(initialState: a,
             f: (m, i) => m.With(i: i, j: i, value: m.At(i: i, j: i) + (n + 20.0)));
     });
-    // SPD via A^T*A + n*I: A^T*A is positive semi-definite; shifting by n eliminates near-zero eigenvalues so Cholesky converges. Symmetry holds by construction.
     public static readonly Gen<SymmetricMatrix> Spd = Square.Select(static (Matrix a) => {
         int n = a.Rows.Value;
         Matrix shifted = toSeq(Enumerable.Range(start: 0, count: n)).Fold(initialState: a.Transpose() * a,
@@ -61,20 +55,19 @@ public sealed class MatrixCoreLaws {
             MatrixOracles.AssertEntrywise(expected: a, actual: a.Transpose().Transpose(), label: "T(T(A))");
         });
     [Fact]
-    public void TraceAndFrobeniusMatchClosedForm() =>
-        Spec.ForAll(MatrixGens.TallOrSquare, static a => {
-            Spec.Succ(a.Trace(key: MatrixGens.Key), then: t => Spec.EqualWithin(left: t,
-                right: toSeq(Enumerable.Range(start: 0, count: Math.Min(val1: a.Rows.Value, val2: a.Cols.Value)))
-                    .Fold(initialState: 0.0, f: (s, i) => s + a.At(i: i, j: i)),
-                tolerance: 1.0e-12, what: "trace"));
+    public void TraceAndFrobeniusMatchClosedForm() {
+        Spec.ForAll(MatrixGens.Square, static a => Spec.Succ(a.Trace(key: MatrixGens.Key), then: t => Spec.EqualWithin(left: t,
+            right: toSeq(Enumerable.Range(start: 0, count: a.Rows.Value)).Fold(initialState: 0.0, f: (s, i) => s + a.At(i: i, j: i)),
+            tolerance: 1.0e-12, what: "trace")));
+        Spec.ForAll(MatrixGens.TallOrSquare, static a =>
             Spec.EqualWithin(left: a.Frobenius,
                 right: Math.Sqrt(d: a.Entries.Fold(initialState: 0.0, f: static (s, e) => s + (e * e))),
-                tolerance: 1.0e-10, what: "frobenius");
-        });
+                tolerance: 1.0e-10, what: "frobenius"));
+    }
     [Fact]
     public void NormKindsHaveDistinctKeysAndNonNegativeValues() {
         MatrixNormKind[] all = [MatrixNormKind.Frobenius, MatrixNormKind.MaxAbs, MatrixNormKind.L1, MatrixNormKind.LInf];
-        Assert.Equal(expected: all.Length, actual: all.Select(static (MatrixNormKind k) => k.Key).Distinct().Count());
+        Spec.SmartEnumKeysUnique(items: all, key: static k => k.Key);
         Spec.ForAll(MatrixGens.TallOrSquare, a =>
             _ = toSeq(all).Iter(k => Spec.Succ(a.Norm(kind: k, key: MatrixGens.Key), then: n => Assert.True(n >= 0.0, userMessage: $"{k.Key} norm negative: {n:R}"))));
     }
@@ -113,7 +106,7 @@ public sealed class DecompositionLaws {
     public void SvdFactorsAreOrthogonal() =>
         Spec.ForAll(MatrixGens.TallOrSquare, static a => Spec.Succ(a.DecomposeSvd(key: MatrixGens.Key), then: svd => {
             MatrixOracles.AssertGram(matrix: svd.V, sigma: null, label: "V");
-            MatrixOracles.AssertGram(matrix: svd.U, sigma: svd.Sigma, label: "U");
+            MatrixOracles.AssertGram(matrix: svd.U, sigma: null, label: "U");
         }));
     [Fact]
     public void QrReconstructsAndQIsOrthogonal() =>
@@ -136,8 +129,6 @@ public sealed class DecompositionLaws {
     public void CholeskyReconstructsSpd() =>
         Spec.ForAll(MatrixGens.Spd, static spd => Spec.Succ(spd.DecomposeCholesky(key: MatrixGens.Key), then: l =>
             MatrixOracles.AssertEntrywise(expected: spd.ToDense(), actual: l * l.Transpose(), label: "L*L^T")));
-    // Francis QR (Hessenberg + Wilkinson shift + inverse iteration) on the dense form converges
-    // cubically on the tridiagonal Hessenberg of a symmetric matrix; residual fits 1e-7 baseline.
     [Fact]
     public void SymmetricEigenSatisfiesAvEqualsLambdaV() =>
         Spec.ForAll(MatrixGens.Spd, static spd => Spec.Succ(spd.DecomposeEigen(key: MatrixGens.Key), then: eigs => {
@@ -152,16 +143,10 @@ public sealed class DecompositionLaws {
                 });
             });
         }));
-
-    // --- [HELPERS] --------------------------------------------------------------------------
-    private static Matrix SvdReconstruct(SvdResult svd, int n) {
-        int k = svd.Sigma.Count;
-        Arr<double> sigma = svd.Sigma;
-        Matrix sigmaDiag = new(Rows: Dimension.Create(value: k), Cols: Dimension.Create(value: n),
-            Entries: [.. Enumerable.Range(start: 0, count: k * n).Select(idx =>
-                idx / n == idx % n && idx / n < k ? sigma[idx / n] : 0.0)]);
-        return svd.U * sigmaDiag * svd.V.Transpose();
-    }
+    private static Matrix SvdReconstruct(SvdResult svd, int n) =>
+        svd.U * new Matrix(Rows: svd.U.Cols, Cols: Dimension.Create(value: n),
+            Entries: [.. Enumerable.Range(start: 0, count: svd.U.Cols.Value * n).Select(idx =>
+                idx / n == idx % n && idx / n < svd.Sigma.Count ? svd.Sigma[idx / n] : 0.0)]) * svd.V.Transpose();
     private static Arr<double> ProductMv(Matrix matrix, Arr<double> vector) =>
         [.. Enumerable.Range(start: 0, count: matrix.Rows.Value).Select(i =>
             Enumerable.Range(start: 0, count: matrix.Cols.Value).Sum(j => matrix.At(i: i, j: j) * vector[j]))];
@@ -176,15 +161,12 @@ internal static class MatrixOracles {
                 ? unit : throw new XunitException(userMessage: $"{label} mismatch [{row},{col}]: {actual.At(i: row, j: col):R} vs {expected.At(i: row, j: col):R}");
         });
     }
-    // sigma == null: full orthonormality (M^T*M = I). sigma != null: thin-SVD mask — diagonals
-    // are 1 only where sigma[i] > RhinoMath.ZeroTolerance (must match BuildSortedSvd's internal
-    // threshold so borderline-singular columns are classified consistently).
     internal static void AssertGram(Matrix matrix, Arr<double>? sigma, string label) {
         int n = matrix.Cols.Value;
         Matrix gram = matrix.Transpose() * matrix;
         _ = toSeq(Enumerable.Range(start: 0, count: n * n)).Iter(idx => {
             int row = idx / n, col = idx % n;
-            double expected = row == col && (sigma is null || sigma.Value[row] > RhinoMath.ZeroTolerance) ? 1.0 : 0.0;
+            double expected = row == col && (sigma is null || row >= sigma.Value.Count || sigma.Value[row] > RhinoMath.ZeroTolerance) ? 1.0 : 0.0;
             _ = MatrixGens.Approx(gram.At(i: row, j: col), expected)
                 ? unit : throw new XunitException(userMessage: $"{label}^T*{label}[{row},{col}] expected {expected:R}, got {gram.At(i: row, j: col):R}");
         });

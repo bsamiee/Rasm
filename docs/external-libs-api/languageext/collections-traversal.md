@@ -5,6 +5,8 @@
 
 [IMPORTANT] Rasm uses `Seq<T>` as the default cross-module sequence because it composes with LanguageExt traversal, validation, and effect APIs.
 
+[IMPORTANT] Baseline: `LanguageExt.Core` `5.0.0-beta-77` net10.0 XML. Use `docs/system-api-map/api.md` when hot paths need spans, `SearchValues`, `FrozenDictionary`, or `TensorPrimitives`.
+
 ---
 ## [1][COLLECTION_SELECTION]
 >**Dictum:** *Choose the collection by operation shape.*
@@ -39,6 +41,8 @@
 | [5] | `FoldWhile` | Early-exit accumulation. |
 | [6] | `Exists` and `ForAll` | Predicate reduction. |
 | [7] | `Head` | Optional first value. |
+| [8] | `accumWhile` and `accumWhileM` | Accumulate while a predicate boundary holds. |
+| [9] | `Iterable<T>` and `Iterator<T>` | Lazy traversal when materialization is invalid. |
 
 [CRITICAL] Do not use mutable accumulators in domain transforms. Fold into immutable state and project once.
 
@@ -73,7 +77,7 @@ Rasm pattern:
 | [3] | `.Add(value)` outside hot folds | Clear append when cost is acceptable. |
 | [4] | `Seq<T>()` as identity | Empty immutable sequence. |
 | [5] | `toSeq(source)` at boundary | Converts external enumerables into repo vocabulary. |
-| [6] | `HeadOrNone`, `HeadOrInvalid` | Safe head access where empty input is expected. |
+| [6] | `Head`, `headOrNone` | Safe head access where empty input is expected. |
 
 ---
 ## [5][INTEROP]
@@ -91,7 +95,7 @@ Rasm pattern:
 
 ---
 ## [6][RULES]
->**Dictum:** *Traversal code should read as algebra, not procedure.*
+>**Dictum:** *Traversal code reads as algebra, not procedure.*
 
 <br>
 

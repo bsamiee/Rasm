@@ -16,14 +16,14 @@ Encode building-material reference data (sizes, families, grades, types, bonds, 
 
 ## Folder Ownership
 
-- `Brick/` owns the masonry catalogue: regional brick sizes (US/UK/DIN/AU/IS), bond patterns as course-template data, special shapes, joint profiles and specifications, grade and ASTM type vocabularies.
+- `Bricks/` owns the masonry catalogue: regional brick sizes (US/UK/DIN/AU/IS), bond patterns as course-template data, special shapes, joint profiles and specifications, grade and ASTM type vocabularies.
 - Future material folders (`Steel/`, `Concrete/`, `Timber/`, `Glass/`, `Stone/`, …) follow the same pattern: one folder, one polymorphic catalogue, one query surface, one error union.
 
 ## Domain Extension Rules
 
 - Treat each material folder as a closed bounded context. No cross-material data sharing at the catalogue level — a brick joint is not a stone joint; encode separately even when names overlap.
 - Add new bricks by extending the `BrickDesignation` `SmartEnum` and the corresponding `BrickCatalog` static. Never branch the regional taxonomy into per-region SmartEnums.
-- Flow outward from `Rasm.Materials.Brick` into consumers. `Rasm.Materials` itself never depends on geometry, Rhino, or Grasshopper.
+- Flow outward from `Rasm.Materials.Bricks` into consumers. `Rasm.Materials` itself never depends on geometry, Rhino, or Grasshopper.
 
 ## Surface Rules
 
@@ -37,4 +37,5 @@ Encode building-material reference data (sizes, families, grades, types, bonds, 
 - Keep brick records immutable: `sealed record Brick` with primary constructor, no setters, no mutation.
 - Bond patterns are `Seq<Orientation>` sequences with offset fractions, never strings or magic numbers.
 - Use `Fin<T>` for lookups that may miss; switch expressions for dispatch; `[Union]` for orientation/cut/shape/error variance; `[SmartEnum<string>]` for closed designations.
+- Use `docs/system-api-map` for `FrozenDictionary`, BCL collection, and package/reference policy; keep catalog data in static frozen lookups unless a generated smart enum owns the behavior.
 - Cite the source standard inline as XML doc comment on each catalogue entry (e.g., `/// <summary>BIA TN 10 Table 1.</summary>`).

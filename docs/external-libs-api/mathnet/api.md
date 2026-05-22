@@ -3,7 +3,9 @@
 
 <br>
 
-[IMPORTANT] This file maps available API families. It is not a generated member dump. Use local XML for exact signatures before implementation.
+[IMPORTANT] MathNet capability registry for Rasm-owned numerical and symbolic boundaries. Use local XML for exact signatures.
+
+[IMPORTANT] Baseline: `MathNet.Numerics` `6.0.0-beta2` and `MathNet.Symbolics` `0.25.0`. Use `docs/system-api-map/api.md` for BCL tensors, spans, and RhinoWIP host-reference boundaries.
 
 ---
 ## [1][FOUNDATION]
@@ -22,11 +24,9 @@
 | [7] | `MathNet.Numerics` | `Trig`, `Euclid`, `Combinatorics`, `Constants` | Trigonometric helpers, Euclidean algorithms, combinatorial functions, scalar constants. | Use only where RhinoCommon is not the semantic owner. |
 | [8] | `MathNet.Numerics.LinearRegression` | `SimpleRegression`, `MultipleRegression`, `WeightedRegression` | Regression helpers for fitted scalar models. | Keep estimator names and residual policy explicit. |
 | [9] | `MathNet.Numerics.GoodnessOfFit` | Fit metrics | R-squared, error, and distance metrics for model fit. | Use only beside a named fitting operation. |
-| [10] | `MathNet.Numerics.Financial` | Financial math helpers | Rates, payments, and cash-flow calculations. | Reserve for non-geometry financial features. |
-| [11] | `MathNet.Numerics` | `FindRoots`, `FindMinimum`, `Integrate`, `Interpolate`, `Differentiate` | Static facades: `FindRoots.OfFunction`, derivative, quadratic, cubic, polynomial, Chebyshev; `FindMinimum` scalar, constrained, gradient, Hessian paths. | Use when a compact facade removes ceremony without hiding operation policy. |
-| [12] | `MathNet.Numerics` | `ContourIntegrate`, `DifferIntegrate` | `ContourIntegrate` complex paths; `DifferIntegrate.DoubleExponential`, `GaussLegendre`, `GaussKronrod` fractional derivative/integral bridge APIs. | Activate for advanced analytic kernels and symbolic-to-numeric validation. |
-| [13] | `MathNet.Numerics` | `Sorting`, `Permutation`, `ExcelFunctions`, `TestFunctions` | Ordering utilities, permutation representation, Excel-style functions, benchmark/test functions. | Use directly for algorithm infrastructure and optimization diagnostics. |
-| [14] | `MathNet.Numerics` | `Complex32`, `ComplexExtensions`, `Evaluate`, `AppSwitches`, `ArrayExtensions`, `IPrecisionSupport<T>`, `RandomSeed`, `RandomExtensions` | Single-precision complex support, Chebyshev evaluation, app switches, array helpers, precision contracts, and random seeding helpers. | Use as direct infrastructure inside owning numeric kernels. |
+| [10] | `MathNet.Numerics` | Static facades | Root finding, minimization, integration, interpolation, differentiation. | Use when a facade removes ceremony without hiding policy. |
+| [11] | `MathNet.Numerics` | Analytic infrastructure | Complex paths, fractional calculus, sorting, permutations, precision, random seeding. | Use inside owning numeric kernels only. |
+| [12] | `MathNet.Numerics` | Provider controls | Provider inspection and runtime capability reporting. | Keep managed provider until macOS RhinoWIP load and benchmarks prove value. |
 
 ---
 ## [2][LINEAR_ALGEBRA]
@@ -60,8 +60,9 @@
 | [5] | `MathNet.Numerics.LinearAlgebra.Factorization` | `Evd<T>` / `Symmetricity`, `GramSchmidt<T>`, `ISolver<T>` | General, symmetric, Hermitian, orthogonalization, and solve-backed decomposition surfaces. | Active for eigen and orthogonalization paths. |
 | [6] | Typed factorization namespaces | `DenseCholesky`, `DenseEvd`, `DenseGramSchmidt`, `DenseLU`, `DenseQR`, `DenseSvd`, `User*` variants. | Concrete double, single, complex, and complex32 factorization implementations. | Keep internal and project into Rasm result records only when public semantics are needed. |
 | [7] | `MathNet.Numerics.LinearAlgebra.Solvers` | Solver infrastructure | `IIterativeSolver<T>`, `Iterator<T>`, `SolverSetup<T>`, `UnitPreconditioner<T>`, `CompositeSolver`, stop criteria, `IterationStatus`. | Use for linear-system solve policy only. |
-| [8] | `MathNet.Numerics.LinearAlgebra.Double.Solvers` and typed peers | Concrete solvers and preconditioners | `BiCgStab`, TFQMR, `GpBiCg`, `MlkBiCgStab`, ILU0, ILUTP, diagonal preconditioners. | Does not replace Rasm sparse eigen or LOBPCG code. |
+| [8] | Typed solver namespaces | Concrete solvers and preconditioners. | Linear-system solve policy only; does not replace sparse eigen ownership. |
 | [9] | `MathNet.Numerics.LinearAlgebra.Storage` | Matrix and vector storage classes | Dense, diagonal, sparse vector, and sparse compressed-row matrix storage. | Internal implementation detail only. |
+| [10] | Matrix/vector `Solve` and factorization result APIs | Direct linear system and least-squares solve paths. | Prefer over local solve ceremony when Rasm only adds `Fin` failure projection. |
 
 ---
 ## [4][STATISTICS_PROBABILITY]
@@ -76,7 +77,7 @@
 | [3] | `MathNet.Numerics.Statistics` | `DescriptiveStatistics` / `RunningStatistics` | Snapshot and streaming descriptive stats. | Back Rasm accumulator records and streaming geometry descriptors. |
 | [4] | `MathNet.Numerics.Statistics` | `Correlation`, `Histogram`, `Bucket`, `QuantileDefinition`, `RankDefinition` | Correlation matrices, bucket summaries, quantile and rank policy. | Useful for point-cloud descriptors; define bins and estimator policy first. |
 | [5] | `MathNet.Numerics.Statistics` | `StreamingStatistics`, `MeanVariance`, `MeanStandardDeviation`, `Covariance`, `PopulationCovariance`, `QuantileCustom`, `QuantileRank`, `Entropy` | Exact estimator and streaming surfaces. | Encode estimator mode before exposing outputs. |
-| [6] | `MathNet.Numerics.Distributions` | Continuous, discrete, and multivariate distributions. | Normal, beta, `BetaScaled`, gamma, Poisson, binomial, uniform, student-t, Burr, inverse Gaussian, Pareto, matrix normal, Wishart, inverse Wishart, Dirichlet, Normal-Gamma, Zipf, skewed generalized families. | Use with deterministic `RandomSource` only. |
+| [6] | `MathNet.Numerics.Distributions` | Continuous, discrete, and multivariate distributions. | Standard probability families. | Use with deterministic `RandomSource` only. |
 | [7] | `MathNet.Numerics.Random` | `RandomSource`, `Xoshiro256StarStar`, Xorshift, Mersenne Twister, system sources, `CryptoRandomSource`. | Seeded and non-deterministic random generation. | Prefer `Xoshiro256StarStar` for graph-visible sampling; keep `CryptoRandomSource` out of replay-sensitive GH2 outputs. |
 | [8] | `MathNet.Numerics.Statistics` | `RunningWeightedStatistics`, `WeightedDescriptiveStatistics`, `MovingStatistics` | Weighted, streaming, and moving-window summaries. | Use only with explicit weighting/window semantics. |
 | [9] | `MathNet.Numerics.Statistics` | `KernelDensity`, `Mcmc` | Kernel density and Markov-chain sampling. | Use for probabilistic geometry descriptors and stochastic search workflows. |
@@ -89,10 +90,10 @@
 
 | [INDEX] | [USING] | [SURFACE] | [FUNCTIONALITY] | [RASM_POSTURE] |
 | :-----: | ------- | --------- | --------------- | -------------- |
-| [1] | `MathNet.Numerics.Interpolation` | `Interpolate`, `CubicSpline`, `Barycentric`, `LinearSpline`, `StepInterpolation`, rational and polynomial interpolation, `QuadraticSpline`, `LogLinear`, `TransformedInterpolation`, `SplineBoundaryCondition`, `IInterpolation` | Interpolate sampled values. | Use for scalar fields when boundary semantics are explicit. |
+| [1] | `MathNet.Numerics.Interpolation` | Interpolation families. | Interpolate sampled values. | Use for scalar fields with explicit boundary semantics. |
 | [2] | `MathNet.Numerics.Integration` | `Integrate`, Simpson, Newton-Cotes, Gauss-Legendre, double-exponential, `OnClosedInterval`, `OnRectangle`, `OnCuboid`, `GaussKronrodRule`, `GaussRule` | Numerical integration over scalar domains. | Map convergence failures into `Fin<T>`. |
 | [3] | `MathNet.Numerics.RootFinding` | Bisection, Brent, Broyden, cubic, Newton-Raphson, secant-style roots, zero-crossing bracketing. | Scalar and system root solving. | Prefer `TryFindRoot` paths where available; validate brackets and convergence policy at Rasm boundary. |
-| [4] | `MathNet.Numerics.Optimization` | `FindMinimum`, objective functions, minimizers, line search, least squares, result records, exceptions. | BFGS, BFGS-B, golden section, conjugate gradient, Newton, trust-region dogleg/Newton-CG, line searches, Nelder-Mead, Levenberg-Marquardt, `ExitCondition`. | Primary substrate for fitting, registration, field calibration, and solver tuning. |
+| [4] | `MathNet.Numerics.Optimization` | Minimizers, objectives, line search, least squares, result records. | BFGS, Newton, Nelder-Mead, Levenberg-Marquardt, and peers. | Primary substrate for fitting, registration, field calibration, and solver tuning. |
 | [5] | `MathNet.Numerics.Differentiation` | Numerical derivatives and gradients. | Finite-difference differentiation. | Prefer Rhino analytic derivatives when available. |
 | [6] | `MathNet.Numerics.IntegralTransforms` | `Fourier`, `Hartley`, options and frequency scales. | Mutating FFT APIs: forward/inverse, real, 2D, multi-dimensional, and frequency scale helpers. | Treat as mutating/scale-sensitive until proven at call site. |
 | [7] | `MathNet.Numerics.OdeSolvers` | `RungeKutta`, `AdamsBashforth` | Fixed-step ordinary differential equation integration. | Activate for vector-field tracing and iterative geometry growth; do not treat as adaptive event simulation. |
@@ -108,10 +109,9 @@
 | [1] | Core provider controls | `MathNet.Numerics.Control`, `LinearAlgebraControl`, `FourierTransformControl`, `SparseSolverControl` | Core control and provider activation surfaces. |
 | [2] | `MathNet.Numerics.Data.Text` | Matrix and vector text readers/writers. | Add when matrix import/export becomes product surface. |
 | [3] | `MathNet.Numerics.Data.Matlab` | MATLAB matrix data interchange. | Add when MATLAB interchange becomes product surface. |
-| [4] | `MathNet.Numerics.Providers.OpenBLAS` | Native BLAS/LAPACK provider adapter. | Add after package add, RhinoWIP macOS arm64 native-path load, and benchmarks. |
-| [5] | `MathNet.Numerics.Providers.MKL` | Native MKL provider adapter. | Add after package add, RhinoWIP macOS arm64 native-path load, and benchmarks. |
-| [6] | `MathNet.Numerics.Providers.CUDA` | CUDA provider adapter. | Ignore for macOS-only target. |
-| [7] | `MathNet.Numerics.Providers.SparseSolver` | `ManagedSparseSolverProvider`, DSS types. | Use for sparse linear-system strategy, not sparse eigen ownership. |
+| [4] | Native BLAS/LAPACK providers | OpenBLAS or MKL adapters. | Add after package add, RhinoWIP macOS arm64 load, and benchmarks. |
+| [5] | Native GPU providers | CUDA adapters. | Ignore for macOS-only target. |
+| [6] | `MathNet.Numerics.Providers.SparseSolver` | Managed sparse solver provider and DSS types. | Sparse linear-system strategy only. |
 
 ---
 ## [7][SYMBOLICS]
@@ -121,7 +121,7 @@
 
 | [INDEX] | [USING] | [SURFACE] | [FUNCTIONALITY] | [RASM_POSTURE] |
 | :-----: | ------- | --------- | --------------- | -------------- |
-| [1] | `MathNet.Symbolics` | `SymbolicExpression` | C#-friendly facade for construction, arithmetic, parsing, substitution, differentiation, formatting, evaluation, and compilation; includes `Expression`, `Type`, numeric value accessors, `VariableName`, operands, `FreeOf`, substitution, variable/function collection, summands, factors. | Preferred C# entrypoint behind future Rasm expression records. |
+| [1] | `MathNet.Symbolics` | `SymbolicExpression` | C# facade for construction, parsing, substitution, calculus, formatting, evaluation, and compilation. | Preferred C# entrypoint behind Rasm expression records. |
 | [2] | `MathNet.Symbolics` | `Expression` | Lower-level F# discriminated expression tree. | Keep internal unless exhaustive symbolic shape inspection is required. |
 | [3] | `MathNet.Symbolics` | `Infix` | `Parse`, `TryParse`, `ParseOrThrow`, `ParseOrUndefined`, `ParseVisual`, `Format`, visual format. | Use for user text only through `Fin<T>` parse rails. |
 | [4] | `MathNet.Symbolics` | `MathML`, `LaTeX` | MathML parse/format, strict content XML, semantic annotations, LaTeX output. | Use for portable display/import/export, not core identity. |

@@ -1,14 +1,14 @@
 using System.Numerics;
 using Foundation.CSharp.Analyzers.Contracts;
 using MathNet.Numerics.LinearAlgebra;
-using LinearVector = MathNet.Numerics.LinearAlgebra.Vector<double>;
 using ComplexVector = MathNet.Numerics.LinearAlgebra.Vector<System.Numerics.Complex>;
-using DenseMatrixD = MathNet.Numerics.LinearAlgebra.Double.DenseMatrix;
-using DenseVectorD = MathNet.Numerics.LinearAlgebra.Double.DenseVector;
-using SparseMatrixD = MathNet.Numerics.LinearAlgebra.Double.SparseMatrix;
 using DenseMatrixC = MathNet.Numerics.LinearAlgebra.Complex.DenseMatrix;
+using DenseMatrixD = MathNet.Numerics.LinearAlgebra.Double.DenseMatrix;
 using DenseVectorC = MathNet.Numerics.LinearAlgebra.Complex.DenseVector;
+using DenseVectorD = MathNet.Numerics.LinearAlgebra.Double.DenseVector;
+using LinearVector = MathNet.Numerics.LinearAlgebra.Vector<double>;
 using SparseMatrixC = MathNet.Numerics.LinearAlgebra.Complex.SparseMatrix;
+using SparseMatrixD = MathNet.Numerics.LinearAlgebra.Double.SparseMatrix;
 
 namespace Rasm.Vectors;
 

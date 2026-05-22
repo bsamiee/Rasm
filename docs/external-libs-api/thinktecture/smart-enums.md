@@ -5,6 +5,8 @@
 
 [IMPORTANT] Use smart enums for closed vocabularies that carry behavior, metadata, type lookup, or wire keys. Prefer them over native enums when values need generated lookup, validation, dispatch, or item-specific methods.
 
+[IMPORTANT] Baseline: stable pin `10.2.0`. Keep derived dictionaries only when lookup key differs from generated key; otherwise use generated `Items`, `Get`, `TryGet`, parse, and validation.
+
 ---
 ## [1][DECLARATION]
 >**Dictum:** *The key type determines lookup and boundary behavior.*
@@ -55,6 +57,7 @@
 | [5] | `UseDelegateFromConstructorAttribute.DelegateName` | Selects constructor delegate by name when multiple delegates exist. |
 | [6] | `ValidateConstructorArguments` | Normalizes or rejects item constructor arguments during static item creation. |
 | [7] | Instance methods over stored delegates | Exposes behavior as `item.Compute(...)`, `item.Bind(...)`, or equivalent domain vocabulary. |
+| [8] | Generic smart-enum contracts | Allows enum-polymorphic algorithms when multiple vocabularies share the same generated behavior. |
 
 [IMPORTANT] Prefer behavior-on-enum when the behavior is closed with the item set. Prefer a separate algebra only when behavior is independently extensible.
 
@@ -92,7 +95,7 @@
 
 ---
 ## [6][RASM_ANCHORS]
->**Dictum:** *Current smart enums carry native geometry and GH2 behavior.*
+>**Dictum:** *Rasm smart enums carry native geometry and GH2 behavior.*
 
 <br>
 

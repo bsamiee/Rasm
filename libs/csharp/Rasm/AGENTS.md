@@ -43,3 +43,4 @@ Build reusable category logic for advanced downstream code: analysis, vectors, d
 - Keep operation internals functional. Use `Fin<T>`, `Validation`, `Eff`, `Option`, `Seq`, `TraverseM`, folds, projections, and typed failures.
 - Keep native interop at boundary adapters. Convert nullable, bool, disposable, and native ownership semantics into typed rails immediately.
 - Prefer advanced C# and approved libraries when they reduce surface area or strengthen invariants. Use `LanguageExt` and `Thinktecture` to collapse behavior, not to decorate unchanged imperative code.
+- Use `docs/system-api-map` for BCL, `System.*`, and package/reference policy; use `docs/external-libs-api/mathnet` before writing numerical algorithms by hand.

@@ -8,10 +8,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="System.Drawing.Common" />
-    </ItemGroup>
-
-    <ItemGroup>
         <Using Include="Rasm.Domain" />
         <Using Include="Rhino" />
         <Using Include="Rhino.Commands" />

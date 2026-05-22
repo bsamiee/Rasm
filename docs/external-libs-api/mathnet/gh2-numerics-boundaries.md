@@ -3,7 +3,9 @@
 
 <br>
 
-[IMPORTANT] MathNet APIs are a `Rasm` implementation detail. GH2 ports should expose Rhino/GH-native data, scalars, Rasm records, or tree/list structures already owned by the boundary.
+[IMPORTANT] MathNet APIs are a `Rasm` implementation detail. GH2 ports expose Rhino/GH-native data, scalars, Rasm records, or boundary-owned tree/list structures.
+
+[IMPORTANT] Baseline: GH2 projects do not add direct MathNet package references unless a GH2 boundary file owns a numeric API. Use `Rasm` projection surfaces.
 
 ---
 ## [1][OUTPUT_POLICY]
@@ -52,7 +54,7 @@
 | [3] | Non-finite numeric value | `Op.InvalidInput` or `Op.InvalidResult` by boundary. | Component rejects value before output. |
 | [4] | Unsupported output type | `Op.Unsupported` | Port/output shape remains explicit. |
 | [5] | Missing context | `Op.MissingContext` | Component reports missing Rhino model context. |
-| [6] | Symbolic parse error | Future expression parse fault or `Op.InvalidInput` | Component reports invalid expression text. |
+| [6] | Symbolic parse error | `Op.InvalidInput` | Component reports invalid expression text. |
 
 ---
 ## [4][BOUNDARY_RULES]

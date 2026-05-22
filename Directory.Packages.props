@@ -17,7 +17,7 @@
         <PackageVersion Include="MathNet.Symbolics" Version="0.25.0" />
     </ItemGroup>
 
-    <ItemGroup Label="Graphics">
+    <ItemGroup Label="Rhino UI Compile Surface">
         <PackageVersion Include="System.Drawing.Common" Version="10.0.0" />
     </ItemGroup>
 

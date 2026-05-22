@@ -5,6 +5,8 @@
 
 [IMPORTANT] Use higher-kinded abstraction only when it removes real duplication across `Fin`, `Eff`, `Option`, `Validation`, or collection effects. A single caller does not justify a generic trait surface.
 
+[IMPORTANT] Baseline: `LanguageExt.Core` `5.0.0-beta-77` net10.0 XML. BCL generic math and span constraints live in `docs/system-api-map/api.md`.
+
 ---
 ## [1][CORE_TYPES]
 >**Dictum:** *`K<F,A>` is the carrier for effect-polymorphic values.*
@@ -49,8 +51,8 @@
 <br>
 
 Use `A -> K<F,B>` arrows when:
-- The same pipeline should run as `Fin<T>` for pure validation and `Eff<RT,T>` for host execution.
-- A sequence of stages should fold into one computation.
+- The same pipeline runs as `Fin<T>` for pure validation and `Eff<RT,T>` for host execution.
+- A sequence of stages folds into one computation.
 - Failure policy belongs at the composition boundary, not inside every stage.
 
 Canonical shapes:
@@ -75,6 +77,9 @@ Canonical shapes:
 | [7] | `WriterT<W,M,A>` | Monoidal output inside another monad. |
 | [8] | `TryT<M,A>` | Exception-capturing rail inside another monad. |
 | [9] | `IdentityT<M,A>` | Pure carrier transformer. |
+| [10] | `MapT`, `MapM` | Transformer-specific mapping. |
+| [11] | `Run` | Transformer collapse. |
+| [12] | `guard`, `ToValidation` | Guarding and rail projection. |
 
 [IMPORTANT] Prefer direct `Eff<RT,T>` or `Fin<T>` until transformer use removes visible nested `Map` or `Bind` plumbing.
 

@@ -3,9 +3,11 @@
 
 <br>
 
-[IMPORTANT] `MathNet.Symbolics` works as managed `net10.0` code for Rasm, but it is not a RhinoCommon feature. Use it behind Rasm-owned expression types and prove plugin output/load behavior for RhinoWIP.
+[IMPORTANT] `MathNet.Symbolics` works as managed `net10.0` code for Rasm. It is not a RhinoCommon feature. Use it behind Rasm-owned expression types and prove plugin output/load behavior for RhinoWIP.
 
-[IMPORTANT] `MathNet.Symbolics` `0.25.0` ships `net48`, `net6.0`, `net8.0`, and `netstandard2.0` assets. `net10.0` consumes the `net8.0` asset unless a future package adds a `net10.0` target. The package nuspec declares `MathNet.Numerics` and `MathNet.Numerics.FSharp` `6.0.0-beta1`; Rasm centrally pins both to `6.0.0-beta2`.
+[IMPORTANT] `MathNet.Symbolics` `0.25.0` ships `net48`, `net6.0`, `net8.0`, and `netstandard2.0` assets. `net10.0` consumes the `net8.0` asset. The package nuspec declares `MathNet.Numerics` and `MathNet.Numerics.FSharp` `6.0.0-beta1`; Rasm centrally pins both to `6.0.0-beta2`.
+
+[IMPORTANT] Baseline: local NuGet metadata. Keep Symbolics behind Rasm expression ownership and do not expose raw F# or MathNet objects to GH2 ports.
 
 ---
 ## [1][DEFINITION]
@@ -27,7 +29,7 @@
 
 ---
 ## [2][CS_API]
->**Dictum:** *C# code should start from `SymbolicExpression`.*
+>**Dictum:** *C# code starts from `SymbolicExpression`.*
 
 <br>
 
@@ -66,9 +68,9 @@
 
 <br>
 
-| [INDEX] | [FUTURE_RASM_SHAPE] | [SYMBOLICS_BACKING] | [RULE] |
+| [INDEX] | [RASM_CONCEPT] | [SYMBOLICS_BACKING] | [RULE] |
 | :-----: | ------------------- | ------------------- | ------ |
-| [1] | `Formula` value | `SymbolicExpression` | Store normalized expression identity plus cached parse; `Formula` is the greenfield public concept. |
+| [1] | Formula value | `SymbolicExpression` | Store normalized expression identity plus cached parse. |
 | [2] | `FormulaText` | string value object | Preserve canonical persistence and display-independent identity. |
 | [3] | `SymbolName` set | `Structure.CollectVariables` / `CollectIdentifiers` | Validate variables against operation-specific vocabularies. |
 | [4] | `ExpressionFormat` | Infix, LaTeX, MathML, semantic MathML. | Treat format as explicit output policy, not identity. |

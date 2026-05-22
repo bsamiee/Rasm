@@ -5,6 +5,8 @@
 
 [IMPORTANT] Use unions when a type has a known set of variants and each consumer must acknowledge every variant. Generated dispatch is the API surface; local visitors and helper switches duplicate it.
 
+[IMPORTANT] Baseline: stable pin `10.2.0`. Use unions for impossible option bags and erased `object` targets; use BCL APIs directly when there is no closed variant set.
+
 ---
 ## [1][REGULAR_UNIONS]
 >**Dictum:** *Regular unions name domain cases explicitly.*
@@ -54,6 +56,7 @@
 | [3] | State overloads | Threads immutable context into static lambdas. |
 | [4] | `SwitchPartially` and `MapPartially` | Handles a configured subset and forwards the rest. |
 | [5] | `UnionSwitchMapOverloadAttribute` | Limits nested generated overloads with `StopAt`. |
+| [6] | Generated partial dispatch warnings | Analyzer feedback for incomplete dispatch posture. |
 
 [CRITICAL] Use generated state overloads for dense static lambdas. This avoids closure capture while keeping the case logic in one expression.
 
@@ -114,4 +117,4 @@
 | [5] | GH adapter errors | Use boundary records for host-facing failures without adding closed dispatch. |
 | [6] | `Boundaries`, `Bounds`, `Curves`, `Location`, `Meshes`, `Points`, `Spatial` | Aspect unions that select geometry operations. |
 
-[IMPORTANT] Current Rasm code uses generated `Switch` for operation dispatch. Generated `Map` is available for pure projections when it reduces case-handling code without mixing effects.
+[IMPORTANT] Rasm code uses generated `Switch` for operation dispatch. Generated `Map` is available for pure projections when it reduces case-handling code without mixing effects.

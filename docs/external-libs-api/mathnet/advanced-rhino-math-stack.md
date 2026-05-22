@@ -3,7 +3,9 @@
 
 <br>
 
-[IMPORTANT] This project targets Rhino 9/WIP, GH2, and `net10.0`. Build future math features around direct MathNet, RhinoCommon, LanguageExt, and Thinktecture usage. Remove local ceremony when an external library already owns the hard algorithm.
+[IMPORTANT] Rasm targets Rhino 9/WIP, GH2, and `net10.0`. Math features use direct MathNet, RhinoCommon, LanguageExt, and Thinktecture APIs. External libraries own hard algorithms.
+
+[IMPORTANT] Baseline: MathNet packages are centrally pinned. RhinoCommon, GH2, and Eto assemblies come from RhinoWIP. BCL tensors and hashing stay out of the graph until first consumer.
 
 ---
 ## [1][STACK]
@@ -35,31 +37,32 @@
 | [6] | Simulation traces | Symbolic vector fields. | ODE solvers, interpolation, integration, root finding. | Emit curves, frames, events, and state trees. |
 
 ---
-## [3][TYPE_OWNERSHIP]
+## [3][RASM_CONCEPT_BOUNDARIES]
 >**Dictum:** *Rasm types encode intent; MathNet types execute algorithms.*
 
 <br>
 
 | [INDEX] | [TYPE] | [BACKING] | [RULE] |
 | :-----: | ------ | --------- | ------ |
-| [1] | `Formula` | `SymbolicExpression` | Store expression intent and canonical text; expose transform/evaluate operations. |
-| [2] | `SymbolName` | string value object | Bound accepted variables and prevent empty symbols. |
-| [3] | `NumericKernel` | smart enum or union | Select exact MathNet family: factorization, minimizer, interpolator, integration rule, distribution, transform, derivative, or ODE stepper. |
+| [1] | Formula values | `SymbolicExpression` | Store expression intent and canonical text; expose transform/evaluate operations. |
+| [2] | Symbol names | String value object | Bound accepted variables and prevent empty symbols. |
+| [3] | Numeric kernels | Smart enum or union | Select MathNet family: factorization, minimizer, interpolation, integration, distribution, transform, derivative, or ODE stepper. |
 | [4] | `Matrix` / `SparseMatrix` | MathNet matrices internally | Keep public storage Rasm-owned and execution MathNet-owned. |
-| [5] | `Field` | formula plus compiled evaluator or sampled grid | Let exact formulas and sampled values coexist under one operation vocabulary. |
-| [6] | `SolverResult` | MathNet result plus Rasm diagnostics | Preserve convergence, residuals, iterations, and output values. |
+| [5] | Fields | Formula plus compiled evaluator or sampled grid | Let exact formulas and sampled values coexist under one operation vocabulary. |
+| [6] | Solver results | MathNet result plus Rasm diagnostics | Preserve convergence, residuals, iterations, and output values. |
 
 ---
 ## [4][IMPLEMENTATION_RULES]
->**Dictum:** *Future code should delete local ceremony by leaning into library power.*
+>**Dictum:** *Library power deletes local ceremony.*
 
 <br>
 
-- Prefer `SymbolicExpression` for C# formula work; use lower-level `Expression` only for structural inspection.
-- Prefer MathNet builders, factorization objects, minimizers, distributions, and interpolation types directly inside Rasm kernels.
-- Prefer Thinktecture generated dispatch for solver modes, transform modes, distributions, and output shapes.
-- Prefer `Fin<T>` and `Validation` rails at parse, admission, solver, evaluation, and Rhino conversion boundaries.
-- Prefer `Eff<RT,T>` when formulas or numeric kernels need model context, cancellation, progress, or runtime services.
+- Use `SymbolicExpression` for C# formula work; use lower-level `Expression` only for structural inspection.
+- Use MathNet builders, factorization objects, minimizers, distributions, and interpolation types directly inside Rasm kernels.
+- Use Numerics 6 managed providers by default; native providers require macOS RhinoWIP load proof and BenchmarkDotNet evidence.
+- Use Thinktecture generated dispatch for solver modes, transform modes, distributions, and output shapes.
+- Use `Fin<T>` and `Validation` rails at parse, admission, solver, evaluation, and Rhino conversion boundaries.
+- Use `Eff<RT,T>` when formulas or numeric kernels need model context, cancellation, progress, or runtime services.
 - Collapse single-use adapters into owning operations; keep MathNet implementation details private to Rasm concern files.
 
 ---

@@ -239,6 +239,10 @@
         </Reference>
     </ItemGroup>
 
+    <ItemGroup Label="Rhino UI Compile Packages" Condition="'$(IsRhinoUiAwareProject)' == 'true'">
+        <PackageReference Include="System.Drawing.Common" ExcludeAssets="runtime" />
+    </ItemGroup>
+
     <ItemGroup Label="Grasshopper Libraries" Condition="'$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">
         <Reference Include="Grasshopper2">
             <HintPath>$(Grasshopper2ReferencePath)</HintPath>

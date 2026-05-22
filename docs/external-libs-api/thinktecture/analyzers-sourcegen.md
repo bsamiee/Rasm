@@ -5,6 +5,8 @@
 
 [IMPORTANT] The pinned core package brings matching analyzer, source-generator, and refactoring packages transitively. Treat analyzer warnings as generated-contract feedback, not style noise.
 
+[IMPORTANT] Baseline: `Thinktecture.Runtime.Extensions` `10.2.0` plus transitive analyzer and source-generator packages. Keep generated-shape diagnostics enabled.
+
 ---
 ## [1][SOURCE_GENERATOR]
 >**Dictum:** *The source generator materializes the public API promised by attributes.*
@@ -68,7 +70,7 @@
 | [6] | `UseForSerialization` | Selects object factory for serializer conversion. |
 | [7] | `UseWithEntityFramework` | Selects object factory for EF conversion. |
 | [8] | `UseForModelBinding` | Selects object factory for ASP.NET model binding. |
-| [9] | `HasCorrespondingConstructor` | Aligns object-factory value shape with a constructor shape. |
+| [9] | `ObjectFactory.HasCorrespondingConstructor` / `HasCorrespondingConstructor` | Aligns factory value shape with constructor shape. |
 | [10] | `ObjectFactory<ReadOnlySpan<char>>` | Enables System.Text.Json span-based deserialization on .NET 9+. |
 
 [IMPORTANT] Use object factories for custom wire shape, complex value objects, keyless smart enums, and ad-hoc unions. Simple keyed value objects and keyed smart enums often need only generated parsable/conversion members plus the correct integration package.

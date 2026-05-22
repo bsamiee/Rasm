@@ -5,6 +5,8 @@
 
 [IMPORTANT] `Rasm.Vectors.Matrix` is the active bridge. Keep MathNet types internal unless a public Rasm type deliberately exposes that external surface.
 
+[IMPORTANT] Baseline: `MathNet.Numerics` `6.0.0-beta2`. Direct factorization and `Solve` APIs replace local matrix ceremony when Rasm adds no tolerance, ordering, diagnostics, or `Fin<T>` policy.
+
 ---
 ## [1][OWNERSHIP]
 >**Dictum:** *Public matrix semantics stay in Rasm value shapes.*
@@ -35,7 +37,7 @@
 | [4] | `EVD` / `SVD` | Ill-conditioned inputs change rank and ordering semantics. | Document tolerance and sort output deterministically. |
 | [5] | Iterative solvers | Non-convergence and stop criteria are algorithmic outputs. | Model convergence status before exposing solver results. |
 
-[CRITICAL] For greenfield `net10.0`, prefer direct MathNet factorization and solver objects inside the owning Rasm operation. Collapse local numeric ceremony unless it carries Rasm-specific tolerance, ownership, or GH2 output semantics.
+[CRITICAL] Use direct MathNet factorization and solver objects inside owning Rasm operations. Keep local numeric code only when it carries Rasm-specific tolerance, ownership, or GH2 output semantics.
 
 | [INDEX] | [KERNEL_INVARIANT] | [RULE] |
 | :-----: | ------------------ | ------ |
@@ -58,18 +60,18 @@
 | [3] | Sparse factorization | Sparse matvec and eigen bridges are sparse; current sparse direct Cholesky densifies. |
 | [4] | Native providers | Keep managed provider until RhinoWIP macOS loading and benchmarks prove value. |
 | [5] | LOBPCG | Rasm owns sparse-eigen algorithm policy where MathNet lacks the operation; MathNet iterative solvers target linear systems `Ax = b`. |
-| [6] | Preconditioners | Use typed solver namespaces only for future linear solve paths. |
+| [6] | Preconditioners | Use typed solver namespaces only for linear solve paths. |
 
 ---
-## [4][VECTOR_ROADMAP]
->**Dictum:** *MathNet should remove numerical ceremony from vector work.*
+## [4][INTEGRATION_TARGETS]
+>**Dictum:** *MathNet removes numerical ceremony from vector work.*
 
 <br>
 
-| [INDEX] | [RASM_AREA] | [MATHNET_CAPABILITY] | [NEXT_USE] |
+| [INDEX] | [RASM_AREA] | [MATHNET_CAPABILITY] | [ACTIVATION_RULE] |
 | :-----: | ----------- | -------------------- | ---------- |
 | [1] | Covariance and principal axes | `Statistics`, `Matrix<double>.Evd`, `Svd<T>` | Compare estimator semantics before replacing current covariance code. |
 | [2] | Mesh Laplacian spectra | Sparse matrix, Hermitian matrix, EVD, iterative solvers | Keep Rasm sparse shape; use MathNet execution internally. |
-| [3] | Registration | SVD and least-squares | Return Rasm transforms or future pose atoms, not MathNet matrices. |
+| [3] | Registration | SVD and least-squares | Return Rasm transforms or pose atoms, not MathNet matrices. |
 | [4] | Field solvers | Linear solves and interpolation | Bind convergence into `Fin<T>` and `Op` diagnostics. |
 | [5] | Descriptors | Eigenpairs, FFT, histograms | Define stable descriptor ordering and scaling first. |

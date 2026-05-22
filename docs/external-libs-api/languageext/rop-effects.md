@@ -5,6 +5,8 @@
 
 [IMPORTANT] Rasm uses LanguageExt effects as architecture, not syntax preference. Keep rail choice visible in the return type and keep `.Match` at final boundaries.
 
+[IMPORTANT] Baseline: `LanguageExt.Core` `5.0.0-beta-77` net10.0 XML. Use `Flatten()` for nested rail collapse where available. BCL runtime APIs live in `docs/system-api-map/api.md`.
+
 ---
 ## [1][RAIL_SELECTION]
 >**Dictum:** *Each rail answers a different failure question.*
@@ -42,7 +44,7 @@ Use `Fin<T>` when:
 Use `Validation<Error,T>` when:
 - Multiple geometry requirements must report together.
 - Context construction validates absolute tolerance, relative tolerance, angle tolerance, and units.
-- A public API should return all expected invalid inputs instead of the first failure.
+- A public API returns all expected invalid inputs instead of the first failure.
 
 `Validation<Error,T>` composes through tuple `.Apply()` and traversal. Convert `Validation<Error,T>` to `Fin<T>` with `.ToFin()` when accumulation ends. Convert `Fin<T>` to `Validation<Error,T>` only at accumulation boundaries through explicit success/failure projection or repo-owned extensions that are proven in the pinned API.
 
@@ -56,7 +58,7 @@ Use `Eff<RT,T>` when:
 - The computation needs runtime context through `Eff.runtime<RT>().Map(...).As()` or a module-level accessor such as `Env.Asks`.
 - The computation must remain testable without service location.
 - IO, cancellation, progress, or host context participates.
-- A native operation must remain deferred until `Run(runtime)` at the adapter boundary.
+- A native operation remains deferred until `Run(runtime)` at the adapter boundary.
 
 Rasm shape:
 - `Env` is the runtime record for analysis effects.
@@ -74,10 +76,12 @@ Rasm shape:
 <br>
 
 Use `IO<T>` for:
-- Async APIs lifted with `liftIO(() => task)`, `liftEff(() => task)`, `Eff.lift`, or `Eff<RT,T>.LiftIO`.
+- Async APIs lift with `liftIO(() => task)`, `liftEff(() => task)`, `Eff.lift`, or `Eff<RT,T>.LiftIO`.
 - Resource lifecycles through `Bracket`.
 - Boundary operations that must run exactly once after composition.
 - Repeated or retried effects via `Schedule`.
+
+Advanced IO surfaces such as `localIO`, `postIO`, `tailIO`, `uninterruptible`, `ForkIO`, `awaitAll`, `awaitAny`, and `mapIO` belong in infrastructure code. Domain modules should expose `Fin<T>`, `Validation<Error,T>`, or `Eff<RT,T>`, not raw scheduling machinery.
 
 Collapse surfaces:
 - `Eff<RT,T>.Run(runtime)` returns `Fin<T>` for normal boundary execution.

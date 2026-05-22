@@ -3,7 +3,9 @@
 
 <br>
 
-[IMPORTANT] This file maps LanguageExt API families to the current repo implementation. Use these anchors before creating new rails, wrappers, or helper files.
+[IMPORTANT] LanguageExt API families mapped to repo implementation anchors.
+
+[IMPORTANT] Baseline: `LanguageExt.Core` `5.0.0-beta-77` net10.0 XML. BCL replacement boundaries live in `docs/system-api-map/api.md`.
 
 ---
 ## [1][CORE_ANALYSIS]
@@ -15,7 +17,7 @@
 | :-----: | -------- | --------------------- | ------ |
 | [1] | `Operation<TGeometry,TOut>` | `Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>` | Canonical executable query shape. |
 | [2] | `Operation.Apply` | `Eff<Env, Seq<TOut>>` | Runs one geometry or a sequence under runtime context. |
-| [3] | `Operation.Aggregate` | `Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>>` | Promotes aggregate-capable queries without overload families. |
+| [3] | `Operation.Build(... aggregate: Some(...))`, `IsAggregate` | `Option<Func<Seq<TGeometry>, Eff<Env, Seq<TOut>>>>` | Promotes aggregate-capable queries. |
 | [4] | `Operation.Reject` | `Fin.Fail<T>()` lifted into `Eff<Env,T>` | Converts unsupported query shape into an effectful failure. |
 | [5] | `Analyze.Run` | `Validation<Error, Seq<TOut>>` | Public boundary returning accumulated validation result. |
 
@@ -73,7 +75,7 @@
 | [1] | `Bridge.Read<T>` | `Fin<Seq<Flow<T>>>` | Reads item, twig, or tree values with typed failures. |
 | [2] | `Bridge.ReadShape` | `Fin<Seq<Flow<Shape>>>` | Normalizes GH2 and Rhino geometry into `Shape`. |
 | [3] | `Bridge.Scope` | `Fin<Analyze.Scope>` | Converts GH2 unit and tolerance metadata into analysis context. |
-| [4] | `GrasshopperRuntime.Read` | `Fin<Option<TVal>>` | Reads optional component parameters. |
+| [4] | `GrasshopperRuntime.Read<TVal>(Port<TVal>)` | `Fin<Seq<Flow<TVal>>>` | Reads component parameter flows. |
 | [5] | `Output.Of` | `Eff<Env, Seq<Flow<T>>>` collapsed to GH2 writes | Binds one domain aspect to one GH output port. |
 | [6] | `Flow<T>` | `Option<Site>` plus `Pear<T>` | Carries GH2 metadata and tree location through projection. |
 | [7] | `Bridge.Write<T>` | `Unit` | Terminal adapter writing GH2 output. |
@@ -81,11 +83,11 @@
 
 ---
 ## [6][COMPONENTS]
->**Dictum:** *App components should remain thin declarations.*
+>**Dictum:** *App components remain thin declarations.*
 
 <br>
 
-Radyab components should:
+Radyab components:
 - Declare `Port<Shape>` and optional `Port<T>` values.
 - Use `Output.Of`.
 - Select existing `IAspect` values or `Analyze.*` operations.
@@ -94,7 +96,7 @@ Radyab components should:
 
 ---
 ## [7][RULES]
->**Dictum:** *New code should flow through existing rails.*
+>**Dictum:** *New code flows through existing rails.*
 
 <br>
 

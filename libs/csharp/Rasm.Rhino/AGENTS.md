@@ -27,6 +27,7 @@ Each category folder owns one full Rhino concern. Capture native API capability 
 - Treat RhinoWIP 9 as target. Do not rely on older public examples unless current local API evidence confirms semantics.
 - Keep `Domain` and `Analysis` as quality references for C# shape, ROP rails, polymorphism, and density unless scope explicitly expands.
 - Reuse `LanguageExt` and `Thinktecture` deliberately when they collapse surface area, strengthen types, or remove repeated logic.
+- Use `docs/system-api-map` for BCL, `System.*`, and package/reference policy. `System.Drawing.Common` is RhinoWIP-hosted UI/raster boundary surface only, not a universal NuGet dependency.
 
 ## Surface Rules
 
@@ -47,7 +48,7 @@ Each category folder owns one full Rhino concern. Capture native API capability 
 ## Exchange Folder Boundary Guidance
 
 - **Capability vocabulary is a bitmask**: `FileCapability` is `[Flags]` (`Import | Export | Archive | Publish`). `FilePhase.Allows(capability)` performs a single bitwise check — `Requires == None || (Requires & capability) != None`. No nested enum, no dispatch switch. Compose freely (`FileCapability.Import | FileCapability.Publish` for PDF/SVG hybrid formats).
-- **Raster encoding owns its codec metadata**: `FileRasterEncoding` is `[SmartEnum<int>]` carrying `(Format, Image, Compression)`. `FilePublishTarget.Raster(Target, Encoding, Settings)` accepts a `FileRasterSettings` record (`JpegQuality`, `TiffCompression`, `PngDepth`, `ExifDpi`). `SaveBitmap` reads `encoding.Parameters(settings)` and threads codec params (TIFF LZW/CCITT, PNG colour depth, JPEG quality) through `System.Drawing.Common` `EncoderParameter[]` automatically, with proper disposal.
+- **Raster encoding owns its codec metadata**: `FileRasterEncoding` is `[SmartEnum<int>]` carrying `(Format, Image, Compression)`. `FilePublishTarget.Raster(Target, Encoding, Settings)` accepts a `FileRasterSettings` record (`JpegQuality`, `TiffCompression`, `PngDepth`, `ExifDpi`). `SaveBitmap` reads `encoding.Parameters(settings)` and threads codec params (TIFF LZW/CCITT, PNG colour depth, JPEG quality) through RhinoWIP-hosted `System.Drawing.Common` `EncoderParameter[]` automatically, with proper disposal.
 - **Link validation offload**: `FileOp.Do(new FileExchange.ArchiveValidate(...))` performs `File.Exists` checks across all linked block archives, render texture files, and file references via PLINQ. The operation parallelizes across worker threads but executes synchronously from the calling thread. UI-thread callers MUST wrap the dispatch in `Task.Run` to avoid stutter on archives with hundreds of linked resources. Headless and batch processes can invoke directly.
 - **PDF page captures rasterize**: `FilePublishTarget.Pdf.Annotate` callback runs INSIDE `op.Catch` per page; throws are converted to `Fin.Fail` per page. The annotation callback receives `(FilePdf, int pageIndex, Op op)` — use `pdf.DrawText` / `DrawLine` / `DrawBitmap` for title-block stamps.
 - **Sheet/detail receipts are typed**: `FileExchange.SheetEdit` operations populate the correct `DocumentReceipt` slot — `Created` for new sheets/details, `Deleted` for removals, `AttributeChanged` for rename/reorder/activate/layer-override/clipping-override/refresh-links. Downstream code can pattern-match on receipt fields for selective undo or audit.

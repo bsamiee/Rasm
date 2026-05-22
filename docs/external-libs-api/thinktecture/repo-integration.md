@@ -5,6 +5,8 @@
 
 [IMPORTANT] Thinktecture generated APIs map to current repo implementation. Use these anchors before adding local wrappers, helper registries, or visitor-style dispatch.
 
+[IMPORTANT] Baseline: repo pin `Thinktecture.Runtime.Extensions` `10.2.0`; source-generator and analyzer packages arrive transitively. BCL replacements belong in `docs/system-api-map/api.md`.
+
 ---
 ## [1][PACKAGE_WIRING]
 >**Dictum:** *The package is workspace-wide by central version and global reference.*
@@ -17,6 +19,7 @@
 | [2] | `Directory.Build.props` | Adds the package reference for workspace libraries. |
 | [3] | `Rasm.csproj` and `Rasm.Grasshopper.csproj` | Import the `Thinktecture` namespace. |
 | [4] | `.cache/nuget/packages/thinktecture.runtime.extensions/10.2.0` | Local package and generated API truth. |
+| [5] | `docs/system-api-map/api.md` | BCL and package adoption boundary for generated-shape alternatives. |
 
 ---
 ## [2][VALUE_BOUNDARIES]

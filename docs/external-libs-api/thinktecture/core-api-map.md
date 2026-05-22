@@ -5,6 +5,8 @@
 
 [IMPORTANT] API registry for `Thinktecture.Runtime.Extensions` `10.2.0`. Use generated contracts directly; avoid wrapper factories, lookup tables, and dispatch helpers around them.
 
+[IMPORTANT] Baseline: stable repo pin `10.2.0`; prerelease `10.3.0-beta02` not adopted. Use `docs/system-api-map/api.md` when BCL primitives, `FrozenDictionary`, or span APIs own the concern.
+
 ---
 ## [1][VALUE_OBJECTS]
 >**Dictum:** *A value object owns primitive admission once.*
@@ -18,6 +20,7 @@
 | [3] | `ValidateFactoryArguments` | Partial validation and normalization hook that receives `ref ValidationError?` and `ref` arguments. | Validate external inputs without throwing. |
 | [4] | `ValidationError` | Generator-native validation result. | Bridge generated factories into `Fin<T>` or `Validation<Error,T>`. |
 | [5] | `IObjectFactory<TSelf,TValue,TValidationError>` | Static validation interface for generated factories and object factories. | Generic construction rails such as tolerance validation. |
+| [6] | `TypeParamRef1` through `TypeParamRef5` | Generic attribute references for generated shapes. | Use when generic generated declarations remove parallel manual types. |
 
 ---
 ## [2][ENUMS]
@@ -45,6 +48,7 @@
 | [3] | `[AdHocUnion]` | Non-generic ad-hoc union declaration with fixed `T1` through `T5` `Type` constructor/property cases. | Cases requiring runtime `typeof(...)` arguments or generic type refs. |
 | [4] | Generated `Switch` and `Map` | Exhaustive dispatch with named case handlers and optional state overloads. | Replace local visitor, pattern-helper, or strategy-wrapper code. |
 | [5] | `SwitchPartially` and `MapPartially` | Partial dispatch where configured. | Nested or staged handling while keeping generated case names. |
+| [6] | Span-based string lookup | Generated fast key parsing for keyed smart enums. | Prefer over manual dictionaries when the key is the enum key. |
 
 ---
 ## [4][COMPARISON_AND_CONVERSION]

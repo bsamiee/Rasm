@@ -31,11 +31,15 @@ RhinoWIP macOS workspace for first-party Rhino and Grasshopper products. Each ap
 | `TargetFramework` | `net10.0` |
 | `RhinoWipAppPath` | `/Applications/RhinoWIP.app` |
 | `RhinoCommonReferencePath` | Installed RhinoWIP `RhinoCommon.dll` |
+| `RhinoUiReferencePath` | Installed RhinoWIP `Rhino.UI.dll` |
+| `EtoReferencePath` | Installed RhinoWIP Eto assembly. |
+| `SystemDrawingCommonReferencePath` | RhinoWIP-hosted `System.Drawing.Common.dll` for UI/raster boundaries. |
 | `Grasshopper2ReferencePath` | Installed RhinoWIP `Grasshopper2.dll` |
 | `GrasshopperIoReferencePath` | Installed RhinoWIP `GrasshopperIO.dll` |
 | `IsGrasshopperPluginProject` | Enables `.rhp` output plus local Grasshopper2 and GrasshopperIO references. |
 | `IsGrasshopperAwareProject` | Enables Grasshopper2 and GrasshopperIO references without plugin output. |
 | `IsRhinoCommonAwareProject` | Enables local RhinoCommon references. |
+| `IsRhinoUiAwareProject` | Enables Rhino UI, Eto, and RhinoWIP-hosted drawing references. |
 | `UseWorkspaceLibraries` | Enables the shared LanguageExt and Thinktecture package surface. |
 
 Plugin projects set plugin classification explicitly in their `.csproj`; build behavior does not depend on product names.
@@ -108,7 +112,7 @@ Host assemblies stay outside package output: `RhinoCommon`, `Grasshopper2`, and 
 
 The generated Yak package root is `.artifacts/rhino/<package>/package`, with `manifest.yml` and plugin files at the top level required by Yak.
 
-Package-to-plugin membership is explicit in `scripts/rhino.sh`. The current package map stages `radyab` from `apps/grasshopper/Radyab`; future Grasshopper or Rhino plugins should add sibling app roots and one deliberate package mapping.
+Package-to-plugin membership is explicit in `scripts/rhino.sh`. The package map stages `radyab` from `apps/grasshopper/Radyab`; new Grasshopper or Rhino plugins add sibling app roots and one deliberate package mapping.
 
 ## Runtime Notes
 
@@ -130,6 +134,6 @@ Automated Rhino/GH2 unit-test frameworks stay out of this foundation until Rhino
 - `Bridge.Write<T>` uses `SetPear`, `SetTwig<T>`, and `SetTree` with `Garden.TwigFromPears`, `Garden.TreeFromLeaves`, and `Garden.TreeFromPears`.
 - `Output` keeps final GH2 side effects at the component boundary.
 
-To add a new parameter type, extend `PortKind` with a static case that returns the native `InputAdder.Add{X}` and `OutputAdder.Add{X}` parameter instances. Port factories automatically fall back to `PortKind.Generic` for unmapped CLR types, so new typed mappings should be added only when GH2 has a real native parameter.
+Add a new parameter type by extending `PortKind` with a static case that returns the native `InputAdder.Add{X}` and `OutputAdder.Add{X}` parameter instances. Port factories fall back to `PortKind.Generic` for unmapped CLR types; add typed mappings only when GH2 has a real native parameter.
 
 To add a component, create static `Port<T>` and `OutputBinding` declarations, pass them to `ComponentSpec.Of`, and inherit `Component`. Prefer adding `PortPolicy` at the port declaration over local validation or conversion code.
