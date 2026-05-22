@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Extensions;
 using Grasshopper2.Types.Conversion;

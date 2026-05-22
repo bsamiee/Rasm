@@ -1,5 +1,3 @@
-using System.Runtime.InteropServices;
-using Eto.Drawing;
 using Grasshopper2.UI.Canvas;
 using Grasshopper2.UI.Flex;
 using Grasshopper2.UI.Icon;
@@ -13,36 +11,26 @@ namespace Rasm.Grasshopper.UI;
 public sealed partial class CanvasPaintPhase {
     private delegate Unit PaintWire(GhCanvas canvas, EventHandler<CanvasPaintEventArgs> handler);
 
-    public static readonly CanvasPaintPhase BeforeBackground = new(key: 0,
-        attach: static (canvas, handler) => { canvas.BeforePaintBackground += handler; return unit; },
-        detach: static (canvas, handler) => { canvas.BeforePaintBackground -= handler; return unit; });
-    public static readonly CanvasPaintPhase AfterBackground = new(key: 1,
-        attach: static (canvas, handler) => { canvas.AfterPaintBackground += handler; return unit; },
-        detach: static (canvas, handler) => { canvas.AfterPaintBackground -= handler; return unit; });
-    public static readonly CanvasPaintPhase BeforeGroups = new(key: 2,
-        attach: static (canvas, handler) => { canvas.BeforePaintGroups += handler; return unit; },
-        detach: static (canvas, handler) => { canvas.BeforePaintGroups -= handler; return unit; });
-    public static readonly CanvasPaintPhase AfterGroups = new(key: 3,
-        attach: static (canvas, handler) => { canvas.AfterPaintGroups += handler; return unit; },
-        detach: static (canvas, handler) => { canvas.AfterPaintGroups -= handler; return unit; });
-    public static readonly CanvasPaintPhase BeforeWires = new(key: 4,
-        attach: static (canvas, handler) => { canvas.BeforePaintWires += handler; return unit; },
-        detach: static (canvas, handler) => { canvas.BeforePaintWires -= handler; return unit; });
-    public static readonly CanvasPaintPhase AfterWires = new(key: 5,
-        attach: static (canvas, handler) => { canvas.AfterPaintWires += handler; return unit; },
-        detach: static (canvas, handler) => { canvas.AfterPaintWires -= handler; return unit; });
-    public static readonly CanvasPaintPhase BeforeObjects = new(key: 6,
-        attach: static (canvas, handler) => { canvas.BeforePaintObjects += handler; return unit; },
-        detach: static (canvas, handler) => { canvas.BeforePaintObjects -= handler; return unit; });
-    public static readonly CanvasPaintPhase AfterObjects = new(key: 7,
-        attach: static (canvas, handler) => { canvas.AfterPaintObjects += handler; return unit; },
-        detach: static (canvas, handler) => { canvas.AfterPaintObjects -= handler; return unit; });
+    public static readonly CanvasPaintPhase BeforeBackground = Phase(key: 0, attach: static (c, h) => c.BeforePaintBackground += h, detach: static (c, h) => c.BeforePaintBackground -= h);
+    public static readonly CanvasPaintPhase AfterBackground = Phase(key: 1, attach: static (c, h) => c.AfterPaintBackground += h, detach: static (c, h) => c.AfterPaintBackground -= h);
+    public static readonly CanvasPaintPhase BeforeGroups = Phase(key: 2, attach: static (c, h) => c.BeforePaintGroups += h, detach: static (c, h) => c.BeforePaintGroups -= h);
+    public static readonly CanvasPaintPhase AfterGroups = Phase(key: 3, attach: static (c, h) => c.AfterPaintGroups += h, detach: static (c, h) => c.AfterPaintGroups -= h);
+    public static readonly CanvasPaintPhase BeforeWires = Phase(key: 4, attach: static (c, h) => c.BeforePaintWires += h, detach: static (c, h) => c.BeforePaintWires -= h);
+    public static readonly CanvasPaintPhase AfterWires = Phase(key: 5, attach: static (c, h) => c.AfterPaintWires += h, detach: static (c, h) => c.AfterPaintWires -= h);
+    public static readonly CanvasPaintPhase BeforeObjects = Phase(key: 6, attach: static (c, h) => c.BeforePaintObjects += h, detach: static (c, h) => c.BeforePaintObjects -= h);
+    public static readonly CanvasPaintPhase AfterObjects = Phase(key: 7, attach: static (c, h) => c.AfterPaintObjects += h, detach: static (c, h) => c.AfterPaintObjects -= h);
 
     [UseDelegateFromConstructor]
     internal partial Unit Attach(GhCanvas canvas, EventHandler<CanvasPaintEventArgs> handler);
 
     [UseDelegateFromConstructor]
     internal partial Unit Detach(GhCanvas canvas, EventHandler<CanvasPaintEventArgs> handler);
+
+    private static CanvasPaintPhase Phase(int key, Action<GhCanvas, EventHandler<CanvasPaintEventArgs>> attach, Action<GhCanvas, EventHandler<CanvasPaintEventArgs>> detach) =>
+        new(
+            key: key,
+            attach: (c, h) => { attach(arg1: c, arg2: h); return unit; },
+            detach: (c, h) => { detach(arg1: c, arg2: h); return unit; });
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -130,16 +118,82 @@ public partial record UiFont {
         new FamilyCase(Name: family, Size: size, Style: style, Decoration: decoration);
     public static UiFont Native(Font value) => new NativeCase(Value: value);
 
-    internal T Use<T>(Func<Font, T> run) =>
-        this switch {
+    internal T Use<T>(Func<Font, T> run) {
+        T UseFamily(FamilyCase family) {
+            using Font owned = new(family: family.Name, size: family.Size, style: family.Style, decoration: family.Decoration);
+            return run(arg: owned);
+        }
+        return this switch {
             SystemCase system => run(arg: SystemFonts.Cached(systemFont: system.Kind, size: system.Size, decoration: system.Decoration)),
-            FamilyCase family => ((Func<T>)(() => {
-                using Font owned = new(family: family.Name, size: family.Size, style: family.Style, decoration: family.Decoration);
-                return run(arg: owned);
-            }))(),
+            FamilyCase family => UseFamily(family: family),
             NativeCase native => run(arg: native.Value),
             _ => run(arg: SystemFonts.Default()),
         };
+    }
+}
+
+// Polymorphic fill source. Solid uses Brushes.Cached for hot-path reuse; gradient/texture cases
+// build a new Brush per draw since each carries unique positioning. Each case owns its brush
+// construction via CreateBrush — DrawMark callers see one uniform surface.
+[Union]
+public partial record FillSource {
+    private FillSource() { }
+    public sealed record SolidCase(Color Colour) : FillSource;
+    public sealed record LinearCase(Color Start, Color End, PointF From, PointF To, GradientWrapMode Wrap = GradientWrapMode.Pad) : FillSource;
+    public sealed record RadialCase(Color Centre, Color Edge, PointF Origin, PointF Focus, SizeF Radius, GradientWrapMode Wrap = GradientWrapMode.Pad) : FillSource;
+    public sealed record TextureCase(Image Source, float Opacity = 1f) : FillSource;
+
+    public static FillSource Solid(Color colour) => new SolidCase(Colour: colour);
+    public static FillSource Linear(Color start, Color end, PointF from, PointF to, GradientWrapMode wrap = GradientWrapMode.Pad) =>
+        new LinearCase(Start: start, End: end, From: from, To: to, Wrap: wrap);
+    public static FillSource Radial(Color centre, Color edge, PointF origin, PointF focus, SizeF radius, GradientWrapMode wrap = GradientWrapMode.Pad) =>
+        new RadialCase(Centre: centre, Edge: edge, Origin: origin, Focus: focus, Radius: radius, Wrap: wrap);
+    public static FillSource Texture(Image source, float opacity = 1f) =>
+        new TextureCase(Source: source, Opacity: opacity);
+
+    // Solid path returns the cached singleton; gradient/texture paths allocate fresh. Callers must
+    // never Dispose the returned Brush when the source is Solid — the cache owns the lifetime.
+    internal Brush CreateBrush() =>
+        Switch<Brush>(
+            solidCase: static s => Brushes.Cached(color: s.Colour),
+            linearCase: static l => new LinearGradientBrush(startColor: l.Start, endColor: l.End, startPoint: l.From, endPoint: l.To) { Wrap = l.Wrap },
+            radialCase: static r => new RadialGradientBrush(startColor: r.Centre, endColor: r.Edge, center: r.Origin, gradientOrigin: r.Focus, radius: r.Radius) { Wrap = r.Wrap },
+            textureCase: static t => new TextureBrush(image: t.Source, opacity: t.Opacity));
+
+    internal bool IsCached => this is SolidCase;
+}
+
+// Polymorphic edge source. Solid case uses Pens.Cached when the configured pen is vanilla
+// (Eto.Drawing.Pen ctor defaults: PenLineCap.Square, PenLineJoin.Miter, MiterLimit 10).
+[Union]
+public partial record EdgeSource {
+    private EdgeSource() { }
+    public sealed record SolidCase(Color Colour) : EdgeSource;
+    public sealed record BrushBackedCase(FillSource Source) : EdgeSource;
+
+    public static EdgeSource Solid(Color colour) => new SolidCase(Colour: colour);
+    public static EdgeSource FromFill(FillSource source) => new BrushBackedCase(Source: source);
+
+    // Returns a Pen with the given thickness + dash. For Solid+vanilla cap/join the cached singleton
+    // is returned; otherwise a fresh Pen is allocated (caller must Dispose via using).
+    internal Pen CreatePen(float thickness, PenLineCap cap, PenLineJoin join, float miterLimit, DashStyle dash) {
+        bool vanilla = cap == PenLineCap.Square && join == PenLineJoin.Miter && miterLimit == 10f;
+        return Switch<Pen>(
+            solidCase: s => vanilla
+                ? Pens.Cached(color: s.Colour, thickness: thickness, dashStyle: dash)
+                : new Pen(color: s.Colour, thickness: thickness) { LineCap = cap, LineJoin = join, MiterLimit = miterLimit, DashStyle = dash },
+            brushBackedCase: b => new Pen(brush: b.Source.CreateBrush(), thickness: thickness) { LineCap = cap, LineJoin = join, MiterLimit = miterLimit, DashStyle = dash });
+    }
+
+    internal bool IsCached(PenLineCap cap, PenLineJoin join, float miterLimit) =>
+        this is SolidCase && cap == PenLineCap.Square && join == PenLineJoin.Miter && miterLimit == 10f;
+}
+
+// Per-corner rounded rectangle radii (clockwise from top-left).
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CornerRadii(float TopLeft, float TopRight, float BottomRight, float BottomLeft) {
+    public static CornerRadii Uniform(float radius) => new(TopLeft: radius, TopRight: radius, BottomRight: radius, BottomLeft: radius);
+    internal bool IsUniform => TopLeft == TopRight && TopLeft == BottomRight && TopLeft == BottomLeft;
 }
 
 [Union]
@@ -148,6 +202,7 @@ public partial record DrawMark {
     public sealed record LineCase(PointF A, PointF B, PaintStyle Style) : DrawMark;
     public sealed record RectangleCase(RectangleF Bounds, PaintStyle Style) : DrawMark;
     public sealed record RoundedRectangleCase(RectangleF Bounds, float Radius, PaintStyle Style) : DrawMark;
+    public sealed record RoundedCornersCase(RectangleF Bounds, CornerRadii Radii, PaintStyle Style) : DrawMark;
     public sealed record EllipseCase(RectangleF Bounds, PaintStyle Style) : DrawMark;
     public sealed record PathCase(IGraphicsPath Geometry, PaintStyle Style) : DrawMark;
     public sealed record TextCase(string Value, RectangleF Frame, PaintStyle Style, FormattedTextWrapMode Wrap, FormattedTextAlignment Alignment, FormattedTextTrimming Trimming) : DrawMark;
@@ -161,6 +216,8 @@ public partial record DrawMark {
         new RectangleCase(Bounds: bounds, Style: new PaintStyle(Edge: edge, Fill: fill, Thickness: thickness));
     public static DrawMark RoundedRectangle(RectangleF bounds, float radius, Color edge, Option<Color> fill = default, float thickness = 1f) =>
         new RoundedRectangleCase(Bounds: bounds, Radius: radius, Style: new PaintStyle(Edge: edge, Fill: fill, Thickness: thickness));
+    public static DrawMark RoundedCorners(RectangleF bounds, CornerRadii radii, Color edge, Option<Color> fill = default, float thickness = 1f) =>
+        new RoundedCornersCase(Bounds: bounds, Radii: radii, Style: new PaintStyle(Edge: edge, Fill: fill, Thickness: thickness));
     public static DrawMark Ellipse(RectangleF bounds, Color edge, Option<Color> fill = default, float thickness = 1f) =>
         new EllipseCase(Bounds: bounds, Style: new PaintStyle(Edge: edge, Fill: fill, Thickness: thickness));
     public static DrawMark Path(IGraphicsPath path, Color edge, Option<Color> fill = default, float thickness = 1f) =>
@@ -196,6 +253,18 @@ public partial record DrawMark {
                 using IGraphicsPath path = GraphicsPath.GetRoundRect(rectangle: rounded.Bounds, radius: rounded.Radius);
                 PaintShape shape = PaintShape.Path(path: path);
                 return DrawShape(graphics: graphics, style: rounded.Style, shape: shape);
+            }),
+            RoundedCornersCase corners => Draw(scope: scope, style: corners.Style, run: graphics => {
+                using IGraphicsPath path = corners.Radii.IsUniform
+                    ? GraphicsPath.GetRoundRect(rectangle: corners.Bounds, radius: corners.Radii.TopLeft)
+                    : GraphicsPath.GetRoundRect(
+                        rectangle: corners.Bounds,
+                        nwRadius: corners.Radii.TopLeft,
+                        neRadius: corners.Radii.TopRight,
+                        seRadius: corners.Radii.BottomRight,
+                        swRadius: corners.Radii.BottomLeft);
+                PaintShape shape = PaintShape.Path(path: path);
+                return DrawShape(graphics: graphics, style: corners.Style, shape: shape);
             }),
             EllipseCase ellipse => Draw(scope: scope, style: ellipse.Style, run: graphics => {
                 PaintShape shape = PaintShape.Ellipse(bounds: ellipse.Bounds);

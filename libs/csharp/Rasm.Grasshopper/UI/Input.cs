@@ -1,5 +1,3 @@
-using System.Runtime.InteropServices;
-using Eto.Drawing;
 using Eto.Forms;
 using Grasshopper2.Extensions;
 using Grasshopper2.UI.Flex;
@@ -205,7 +203,7 @@ public abstract record ToolbarItem {
                 (Toggle toggle, UiCommandSurface.MenuCase menu) =>
                     from command in toggle.Command.Validated(op: Op.Of(name: nameof(Toggle)))
                     from changed in Optional(toggle.Changed).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Toggle)), detail: "toggle change delegate is required"))
-                    select ((Func<Unit>)(() => {
+                    from added in Try.lift(f: () => {
                         CheckCommand menuCommand = new() {
                             ID = command.Name,
                             MenuText = command.Name,
@@ -221,7 +219,8 @@ public abstract record ToolbarItem {
                             item.Enabled = command.Enabled && GrasshopperUi.Protect(valid: can).IfFail(_ => false));
                         menu.Target.Items.Add(item: item);
                         return unit;
-                    }))(),
+                    }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Toggle)), detail: $"menu toggle threw: {error.Message}"))
+                    select added,
                 (SectionToggle toggle, UiCommandSurface.ToolbarCase toolbar) => Try.lift(f: () => {
                     _ = toolbar.Bar.AddToggle(nomen: new Nomen(name: toggle.Name, info: toggle.Name), initialState: toggle.State, additionalAffectedSections: [.. toggle.Sections]);
                     return unit;
@@ -232,34 +231,38 @@ public abstract record ToolbarItem {
                     select AddRadioToggle(bar: toolbar.Bar, command: command, state: radio.State, optional: false, changed: changed),
                 (TextInput text, UiCommandSurface.ToolbarCase toolbar) =>
                     from changed in Optional(text.Changed).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(TextInput)), detail: "text change delegate is required"))
-                    select ((Func<Unit>)(() => {
+                    from added in Try.lift(f: () => {
                         TextField field = toolbar.Bar.AddTextField(icon: default!, nomen: new Nomen(name: text.Name, info: text.Name), initial: text.Value, placeholder: text.Name);
                         field.TextChanged += (_, value) => _ = GrasshopperUi.Protect(valid: () => changed(arg: value));
                         return unit;
-                    }))(),
+                    }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(TextInput)), detail: $"AddTextField threw: {error.Message}"))
+                    select added,
                 (Number number, UiCommandSurface.ToolbarCase toolbar) =>
                     from changed in Optional(number.Changed).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Number)), detail: "number change delegate is required"))
                     from value in Optional(number.Value).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Number)), detail: "UiNumber is required"))
-                    select ((Func<Unit>)(() => {
+                    from added in Try.lift(f: () => {
                         toolbar.Bar.Add(new NumberSlider(nomen: new Nomen(name: number.Name, info: number.Name), number: value, callback: current => _ = GrasshopperUi.Protect(valid: () => changed(arg: current))));
                         return unit;
-                    }))(),
+                    }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Number)), detail: $"NumberSlider threw: {error.Message}"))
+                    select added,
                 (SwatchInput colour, UiCommandSurface.ToolbarCase toolbar) =>
                     from changed in Optional(colour.Changed).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SwatchInput)), detail: "colour change delegate is required"))
-                    select ((Func<Unit>)(() => {
+                    from added in Try.lift(f: () => {
                         toolbar.Bar.AddLifeColours(nomen: new Nomen(name: colour.Name, info: colour.Name), initial: colour.Family, assignment: value => _ = GrasshopperUi.Protect(valid: () => changed(arg: value)));
                         return unit;
-                    }))(),
+                    }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(SwatchInput)), detail: $"AddLifeColours threw: {error.Message}"))
+                    select added,
                 (ColourBars colour, UiCommandSurface.ToolbarCase toolbar) =>
                     from changed in Optional(colour.Changed).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ColourBars)), detail: "colour change delegate is required"))
-                    select ((Func<Unit>)(() => {
+                    from added in Try.lift(f: () => {
                         void Assign(OpenColor.Family value) => _ = GrasshopperUi.Protect(valid: () => changed(arg: value));
                         Nomen nomen = new(name: $"{colour.Name} {{family}}", info: $"{colour.Name} {{family}}");
                         toolbar.Bar.AddLifeColours(nomen: nomen, initial: colour.Family, assignment: Assign);
                         toolbar.Bar.AddCoolColours(nomen: nomen, initial: colour.Family, assignment: Assign);
                         toolbar.Bar.AddWarmColours(nomen: nomen, initial: colour.Family, assignment: Assign);
                         return unit;
-                    }))(),
+                    }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(ColourBars)), detail: $"colour bars threw: {error.Message}"))
+                    select added,
                 (Spacer spacer, UiCommandSurface.ToolbarCase toolbar) => Try.lift(f: () => {
                     _ = toolbar.Bar.AddSpacer(chapterName: spacer.Chapter, sectionName: spacer.Section);
                     return unit;
@@ -322,6 +325,11 @@ public abstract record InputRequest<T> : GhUiRequest<T> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
         internal override Fin<CursorKind> Apply(GrasshopperUi.Scope scope) => Input.Cursor(kind: Kind).Run(scope: scope);
     }
+    // RAII cursor; dispose the returned IDisposable to restore the canvas's prior Cursor.
+    public sealed record CursorScope(CursorKind Kind) : InputRequest<IDisposable> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
+        internal override Fin<IDisposable> Apply(GrasshopperUi.Scope scope) => Input.CursorScope(kind: Kind).Run(scope: scope);
+    }
     public sealed record Message(string Title, string Body, MessageBoxType Kind = MessageBoxType.Information, MessageBoxButtons Buttons = MessageBoxButtons.OK, MessageBoxDefaultButton Default = MessageBoxDefaultButton.Default) : InputRequest<DialogResult> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
         internal override Fin<DialogResult> Apply(GrasshopperUi.Scope scope) => Input.MessageDialog(title: Title, message: Body, kind: Kind, buttons: Buttons, defaultButton: Default).Run(scope: scope);
@@ -334,6 +342,32 @@ public abstract record InputRequest<T> : GhUiRequest<T> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
         internal override Fin<InputClipboardSnapshot> Apply(GrasshopperUi.Scope scope) => Input.Clipboard(op: Op).Run(scope: scope);
     }
+    // Typed modal dialog. The Configure delegate is responsible for installing widgets, wiring
+    // a confirmation Button that invokes dialog.Close(result), and returning Fin.Succ once setup
+    // is complete. macOS: DisplayMode.Attached presents as a sheet on the parent window.
+    public sealed record Dialog<TResult>(Func<Eto.Forms.Dialog<TResult>, Fin<Unit>> Configure, string Title = "", DialogDisplayMode Mode = DialogDisplayMode.Default) : InputRequest<Option<TResult>> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
+        internal override Fin<Option<TResult>> Apply(GrasshopperUi.Scope scope) => Input.Dialog<TResult>(configure: Configure, title: Title, mode: Mode).Run(scope: scope);
+    }
+    public sealed record PickColor(Color Initial, bool AllowAlpha = true) : InputRequest<Option<Color>> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
+        internal override Fin<Option<Color>> Apply(GrasshopperUi.Scope scope) => Input.PickColor(initial: Initial, allowAlpha: AllowAlpha).Run(scope: scope);
+    }
+    public sealed record PickFont(Option<Font> Initial = default) : InputRequest<Option<Font>> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
+        internal override Fin<Option<Font>> Apply(GrasshopperUi.Scope scope) => Input.PickFont(initial: Initial).Run(scope: scope);
+    }
+    public sealed record Notify(string Title, string Body, Option<Image> ContentImage = default) : InputRequest<Unit> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
+        internal override Fin<Unit> Apply(GrasshopperUi.Scope scope) => Input.Notify(title: Title, message: Body, contentImage: ContentImage).Run(scope: scope);
+    }
+}
+
+// Scope-restoring cursor capsule; disposing reinstates the canvas's prior Cursor. Use via
+// `using IDisposable _ = await GhUi.Input(new InputRequest<...>.CursorScope(...)).Use(...);`
+// or directly through `Input.CursorScope(kind)` when the surrounding scope is already typed.
+internal sealed class ScopedCursor(Grasshopper2.UI.Canvas.Canvas target, Cursor previous) : IDisposable {
+    public void Dispose() => target.Cursor = previous;
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
@@ -415,6 +449,13 @@ internal static partial class Input {
             return kind;
         }));
 
+    internal static GrasshopperUiIntent<IDisposable> CursorScope(CursorKind kind) =>
+        GhUi.Canvas(run: scope => scope.NeedCanvas().Map(canvas => {
+            Cursor previous = canvas.Cursor;
+            canvas.Cursor = kind.Cursor(canvas: canvas);
+            return (IDisposable)new ScopedCursor(target: canvas, previous: previous);
+        }));
+
     internal static GrasshopperUiIntent<DialogResult> MessageDialog(string title, string message, MessageBoxType kind = MessageBoxType.Information, MessageBoxButtons buttons = MessageBoxButtons.OK, MessageBoxDefaultButton defaultButton = MessageBoxDefaultButton.Default) =>
         GhUi.Read(run: scope =>
             Try.lift(f: () => MessageBox.Show(
@@ -454,6 +495,46 @@ internal static partial class Input {
                 };
                 return action();
             }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Clipboard)), detail: $"Clipboard op threw: {error.Message}")));
+
+    internal static GrasshopperUiIntent<Option<TResult>> Dialog<TResult>(Func<Eto.Forms.Dialog<TResult>, Fin<Unit>> configure, string title, DialogDisplayMode mode) =>
+        GhUi.Read(run: scope =>
+            from validConfigure in Optional(configure).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Dialog)), detail: "null configure delegate"))
+            from result in RunDialog<TResult>(scope: scope, title: title, mode: mode, configure: validConfigure)
+            select result);
+
+    private static Fin<Option<TResult>> RunDialog<TResult>(GrasshopperUi.Scope scope, string title, DialogDisplayMode mode, Func<Eto.Forms.Dialog<TResult>, Fin<Unit>> configure) =>
+        Try.lift<Fin<Option<TResult>>>(f: () => {
+            using Eto.Forms.Dialog<TResult> dialog = new() { Title = title, DisplayMode = mode };
+            return configure(arg: dialog).Map(_ => Optional(dialog.ShowModal(owner: DialogParent(scope: scope))));
+        }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Dialog)), detail: $"Dialog<T> threw: {error.Message}")).Bind(static r => r);
+
+    internal static GrasshopperUiIntent<Option<Color>> PickColor(Color initial, bool allowAlpha) =>
+        GhUi.Read(run: scope =>
+            Try.lift(f: () => {
+                using ColorDialog dialog = new() { Color = initial, AllowAlpha = allowAlpha };
+                return dialog.ShowDialog(parent: DialogParent(scope: scope)) == DialogResult.Ok
+                    ? Some(dialog.Color)
+                    : Option<Color>.None;
+            }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(PickColor)), detail: $"ColorDialog threw: {error.Message}")));
+
+    internal static GrasshopperUiIntent<Option<Font>> PickFont(Option<Font> initial) =>
+        GhUi.Read(run: scope =>
+            Try.lift(f: () => {
+                using FontDialog dialog = new();
+                _ = initial.Iter(f => dialog.Font = f);
+                return dialog.ShowDialog(parent: DialogParent(scope: scope)) == DialogResult.Ok
+                    ? Some(dialog.Font)
+                    : Option<Font>.None;
+            }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(PickFont)), detail: $"FontDialog threw: {error.Message}")));
+
+    internal static GrasshopperUiIntent<Unit> Notify(string title, string message, Option<Image> contentImage) =>
+        GhUi.Read(run: scope =>
+            Try.lift(f: () => {
+                Notification notification = new() { Title = title, Message = message };
+                Unit assignImage = contentImage.Iter(image => notification.ContentImage = image);
+                notification.Show(indicator: null!);
+                return assignImage;
+            }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Notify)), detail: $"Notification threw: {error.Message}")));
 
     private static InputClipboardSnapshot ClipboardSnapshotOf() {
         Clipboard clipboard = Eto.Forms.Clipboard.Instance;

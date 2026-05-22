@@ -1,6 +1,4 @@
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using Eto.Drawing;
 using Eto.Forms;
 using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.UI.Flex;
@@ -23,14 +21,48 @@ namespace Rasm.Grasshopper.UI;
 [Union]
 public partial record RepaintRequest {
     private RepaintRequest() { }
-    public sealed record NoneCase : RepaintRequest;
-    public sealed record ObjectCase(Guid Id) : RepaintRequest;
-    public sealed record RegionCase(RectangleF Bounds) : RepaintRequest;
-    public sealed record CanvasCase : RepaintRequest;
-    public sealed record ScheduledCase : RepaintRequest;
-    public sealed record SolutionCase : RepaintRequest;
-    public sealed record DisplayCase : RepaintRequest;
-    public sealed record SolutionAndDisplayCase : RepaintRequest;
+    public sealed record NoneCase : RepaintRequest {
+        internal override Unit ApplyTo(GrasshopperUi.Scope scope) => unit;
+    }
+    public sealed record ObjectCase(Guid Id) : RepaintRequest {
+        internal override Unit ApplyTo(GrasshopperUi.Scope scope) {
+            Guid id = Id;
+            return scope.Canvas.Bind(canvas => scope.Objects.Map(objects =>
+                Optional(objects.Find(instanceId: id)).Match(
+                    Some: o => { canvas.Invalidate(rect: GrasshopperUi.ControlSpace(canvas: canvas, bounds: o.Attributes.AggregateBounds)); return unit; },
+                    None: () => { canvas.Invalidate(); return unit; }))).IfNone(unit);
+        }
+    }
+    public sealed record RegionCase(RectangleF Bounds) : RepaintRequest {
+        internal override Unit ApplyTo(GrasshopperUi.Scope scope) {
+            RectangleF bounds = Bounds;
+            return scope.Canvas.IfSome(canvas => canvas.Invalidate(rect: GrasshopperUi.ControlSpace(canvas: canvas, bounds: bounds)));
+        }
+    }
+    public sealed record CanvasCase : RepaintRequest {
+        internal override Unit ApplyTo(GrasshopperUi.Scope scope) => scope.Canvas.IfSome(static canvas => canvas.Invalidate());
+    }
+    public sealed record ScheduledCase : RepaintRequest {
+        internal override Unit ApplyTo(GrasshopperUi.Scope scope) => scope.Canvas.IfSome(static canvas => canvas.ScheduleRedraw());
+    }
+    public sealed record SolutionCase : RepaintRequest {
+        internal override Unit ApplyTo(GrasshopperUi.Scope scope) =>
+            scope.Document.IfSome(static doc => { _ = doc.Solution.Start(mode: SolutionMode.Regular); return unit; });
+    }
+    public sealed record DisplayCase : RepaintRequest {
+        internal override Unit ApplyTo(GrasshopperUi.Scope scope) =>
+            scope.Document.IfSome(static doc => { doc.Display.UpdateDisplay(); return unit; });
+    }
+    public sealed record SolutionAndDisplayCase : RepaintRequest {
+        internal override Unit ApplyTo(GrasshopperUi.Scope scope) =>
+            scope.Document.IfSome(static doc => {
+                _ = doc.Solution.Start(mode: SolutionMode.Regular);
+                doc.Display.UpdateDisplay();
+                return unit;
+            });
+    }
+
+    internal abstract Unit ApplyTo(GrasshopperUi.Scope scope);
 
     public static readonly RepaintRequest None = new NoneCase();
     public static readonly RepaintRequest Canvas = new CanvasCase();
@@ -58,15 +90,16 @@ public partial record RepaintRequest {
     public static RepaintRequest BitwiseOr(RepaintRequest left, RepaintRequest right) => left | right;
 }
 
+// Auto covers both the "no undo recording" intent (caller will commit actions via UiRail.CommitActions)
+// and the "GH built-in produces no actions" intent (Select/DeselectWire). Manual captures actions through
+// the supplied record delegate.
 [Union]
 internal partial record UndoStrategy {
     private UndoStrategy() { }
-    public sealed record GhBuiltInCase : UndoStrategy;
+    public sealed record AutoCase : UndoStrategy;
     public sealed record ManualCase(Func<GrasshopperUi.Scope, UndoEntry> Record) : UndoStrategy;
-    public sealed record NoneCase : UndoStrategy;
 
-    public static readonly UndoStrategy GhBuiltIn = new GhBuiltInCase();
-    public static readonly UndoStrategy None = new NoneCase();
+    public static readonly UndoStrategy Auto = new AutoCase();
     public static UndoStrategy Manual(Func<GrasshopperUi.Scope, UndoEntry> record) => new ManualCase(Record: record);
 }
 
@@ -446,14 +479,21 @@ public sealed partial record GrasshopperUi {
                     from _ in RecordUndo(scope: scope, op: op, undo: undo)
                     select Snapshot.Of(payload: delta, ownerId: scope.Document.Map(d => d.Hash)));
 
+    // Two-phase commit: PrepareUndo captures pre-state on each Action without committing to History;
+    // a cancellation check between prepare and Do() prevents leaving the document mutated with no
+    // undo entry. GH2 doc (Action.PrepareUndo): "a call to PrepareUndo is not necessarily followed
+    // by a call to PerformUndo".
     private static Fin<Unit> RecordUndo(Scope scope, Op op, UndoStrategy undo) =>
         undo switch {
-            UndoStrategy.NoneCase or UndoStrategy.GhBuiltInCase => Fin.Succ(value: unit),
+            UndoStrategy.AutoCase => Fin.Succ(value: unit),
             UndoStrategy.ManualCase manual =>
                 from document in scope.NeedDocument()
                 from entry in Try.lift(f: () => manual.Record(arg: scope))
                     .Run()
                     .MapFail(error => UiFault.MutationRejected(op: op, detail: $"manual undo recording threw: {error.Message}"))
+                from _cancel in scope.Cancellation.IsCancellationRequested
+                    ? Fin.Fail<Unit>(error: UiFault.MutationRejected(op: op, detail: "cancelled before undo recording; document mutated without undo entry"))
+                    : Fin.Succ(value: unit)
                 from committed in Try.lift(f: () => {
                     _ = scope.UndoGroup
                         .Map(bag => entry.Actions.Iter(action => bag.Add(action: action)))
@@ -497,27 +537,10 @@ public sealed partial record GrasshopperUi {
                 }).Run().MapFail(error => UiFault.ThreadMarshal(detail: $"AsyncInvoke threw: {error.Message}")));
 
     internal static T Repaint<T>(Scope scope, GrasshopperUiPolicy policy, T value) {
-        _ = policy.RepaintOrNone switch {
-            RepaintRequest.NoneCase => unit,
-            RepaintRequest.CanvasCase => scope.Canvas.IfSome(static canvas => canvas.Invalidate()),
-            RepaintRequest.ScheduledCase => scope.Canvas.IfSome(static canvas => canvas.ScheduleRedraw()),
-            RepaintRequest.RegionCase region => scope.Canvas.IfSome(canvas => canvas.Invalidate(rect: ControlSpace(canvas: canvas, bounds: region.Bounds))),
-            RepaintRequest.ObjectCase obj => scope.Canvas.Bind(canvas => scope.Objects.Map(objects =>
-                Optional(objects.Find(instanceId: obj.Id)).Match(
-                    Some: o => { canvas.Invalidate(rect: ControlSpace(canvas: canvas, bounds: o.Attributes.AggregateBounds)); return unit; },
-                    None: () => { canvas.Invalidate(); return unit; }))).IfNone(unit),
-            RepaintRequest.SolutionCase => scope.Document.IfSome(static doc => { _ = doc.Solution.Start(mode: SolutionMode.Regular); return unit; }),
-            RepaintRequest.DisplayCase => scope.Document.IfSome(static doc => { doc.Display.UpdateDisplay(); return unit; }),
-            RepaintRequest.SolutionAndDisplayCase => scope.Document.IfSome(static doc => {
-                _ = doc.Solution.Start(mode: SolutionMode.Regular);
-                doc.Display.UpdateDisplay();
-                return unit;
-            }),
-            _ => unit,
-        };
+        _ = policy.RepaintOrNone.ApplyTo(scope: scope);
         return value;
     }
 
-    private static Rectangle ControlSpace(GhCanvas canvas, RectangleF bounds) =>
+    internal static Rectangle ControlSpace(GhCanvas canvas, RectangleF bounds) =>
         Rectangle.Ceiling(canvas.Map(rectangle: bounds, from: CoordinateSystem.Content, to: CoordinateSystem.Control));
 }

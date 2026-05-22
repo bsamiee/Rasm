@@ -1,5 +1,3 @@
-using System.Runtime.InteropServices;
-using Eto.Drawing;
 using Eto.Forms;
 using Grasshopper2.Doc;
 using Grasshopper2.Undo;
@@ -69,47 +67,35 @@ public sealed partial class DocumentEventKind {
         objects.ObjectRelevanceChanged -= events.Relevance; objects.ObjectLayoutChanged -= events.Layout; objects.ObjectDisplayChanged -= events.Display;
         objects.ObjectInstanceIdChanged -= events.Id; return unit;
     });
-    public static readonly DocumentEventKind Modified = new(key: 1,
-        attach: static (document, _, events) => { document.ModifiedChanged += events.Modified; return unit; },
-        detach: static (document, _, events) => { document.ModifiedChanged -= events.Modified; return unit; });
-    public static readonly DocumentEventKind StateChanged = new(key: 2,
-        attach: static (document, _, events) => { document.StateChanged += events.State; return unit; },
-        detach: static (document, _, events) => { document.StateChanged -= events.State; return unit; });
-    public static readonly DocumentEventKind ObjectAdded = new(key: 3,
-        attach: static (_, objects, events) => { objects.ObjectAdded += events.Added; return unit; },
-        detach: static (_, objects, events) => { objects.ObjectAdded -= events.Added; return unit; });
-    public static readonly DocumentEventKind ObjectRemoved = new(key: 4,
-        attach: static (_, objects, events) => { objects.ObjectRemoved += events.Removed; return unit; },
-        detach: static (_, objects, events) => { objects.ObjectRemoved -= events.Removed; return unit; });
-    public static readonly DocumentEventKind ObjectExpired = new(key: 5,
-        attach: static (_, objects, events) => { objects.ObjectExpired += events.Expired; return unit; },
-        detach: static (_, objects, events) => { objects.ObjectExpired -= events.Expired; return unit; });
-    public static readonly DocumentEventKind ObjectName = new(key: 6,
-        attach: static (_, objects, events) => { objects.ObjectNameChanged += events.Name; return unit; },
-        detach: static (_, objects, events) => { objects.ObjectNameChanged -= events.Name; return unit; });
-    public static readonly DocumentEventKind Selection = new(key: 7,
-        attach: static (_, objects, events) => { objects.ObjectSelectionChanged += events.Selection; return unit; },
-        detach: static (_, objects, events) => { objects.ObjectSelectionChanged -= events.Selection; return unit; });
-    public static readonly DocumentEventKind ObjectEnabled = new(key: 8,
-        attach: static (_, objects, events) => { objects.ObjectEnabledChanged += events.Enabled; return unit; },
-        detach: static (_, objects, events) => { objects.ObjectEnabledChanged -= events.Enabled; return unit; });
-    public static readonly DocumentEventKind ObjectRelevance = new(key: 9,
-        attach: static (_, objects, events) => { objects.ObjectRelevanceChanged += events.Relevance; return unit; },
-        detach: static (_, objects, events) => { objects.ObjectRelevanceChanged -= events.Relevance; return unit; });
-    public static readonly DocumentEventKind ObjectLayout = new(key: 10,
-        attach: static (_, objects, events) => { objects.ObjectLayoutChanged += events.Layout; return unit; },
-        detach: static (_, objects, events) => { objects.ObjectLayoutChanged -= events.Layout; return unit; });
-    public static readonly DocumentEventKind ObjectDisplay = new(key: 11,
-        attach: static (_, objects, events) => { objects.ObjectDisplayChanged += events.Display; return unit; },
-        detach: static (_, objects, events) => { objects.ObjectDisplayChanged -= events.Display; return unit; });
-    public static readonly DocumentEventKind ObjectInstanceId = new(key: 12,
-        attach: static (_, objects, events) => { objects.ObjectInstanceIdChanged += events.Id; return unit; },
-        detach: static (_, objects, events) => { objects.ObjectInstanceIdChanged -= events.Id; return unit; });
+    public static readonly DocumentEventKind Modified = OnDocument(key: 1, attach: static (d, h) => d.ModifiedChanged += h, detach: static (d, h) => d.ModifiedChanged -= h, selector: static e => e.Modified);
+    public static readonly DocumentEventKind StateChanged = OnDocument(key: 2, attach: static (d, h) => d.StateChanged += h, detach: static (d, h) => d.StateChanged -= h, selector: static e => e.State);
+    public static readonly DocumentEventKind ObjectAdded = OnObjects(key: 3, attach: static (o, h) => o.ObjectAdded += h, detach: static (o, h) => o.ObjectAdded -= h, selector: static e => e.Added);
+    public static readonly DocumentEventKind ObjectRemoved = OnObjects(key: 4, attach: static (o, h) => o.ObjectRemoved += h, detach: static (o, h) => o.ObjectRemoved -= h, selector: static e => e.Removed);
+    public static readonly DocumentEventKind ObjectExpired = OnObjects(key: 5, attach: static (o, h) => o.ObjectExpired += h, detach: static (o, h) => o.ObjectExpired -= h, selector: static e => e.Expired);
+    public static readonly DocumentEventKind ObjectName = OnObjects(key: 6, attach: static (o, h) => o.ObjectNameChanged += h, detach: static (o, h) => o.ObjectNameChanged -= h, selector: static e => e.Name);
+    public static readonly DocumentEventKind Selection = OnObjects(key: 7, attach: static (o, h) => o.ObjectSelectionChanged += h, detach: static (o, h) => o.ObjectSelectionChanged -= h, selector: static e => e.Selection);
+    public static readonly DocumentEventKind ObjectEnabled = OnObjects(key: 8, attach: static (o, h) => o.ObjectEnabledChanged += h, detach: static (o, h) => o.ObjectEnabledChanged -= h, selector: static e => e.Enabled);
+    public static readonly DocumentEventKind ObjectRelevance = OnObjects(key: 9, attach: static (o, h) => o.ObjectRelevanceChanged += h, detach: static (o, h) => o.ObjectRelevanceChanged -= h, selector: static e => e.Relevance);
+    public static readonly DocumentEventKind ObjectLayout = OnObjects(key: 10, attach: static (o, h) => o.ObjectLayoutChanged += h, detach: static (o, h) => o.ObjectLayoutChanged -= h, selector: static e => e.Layout);
+    public static readonly DocumentEventKind ObjectDisplay = OnObjects(key: 11, attach: static (o, h) => o.ObjectDisplayChanged += h, detach: static (o, h) => o.ObjectDisplayChanged -= h, selector: static e => e.Display);
+    public static readonly DocumentEventKind ObjectInstanceId = OnObjects(key: 12, attach: static (o, h) => o.ObjectInstanceIdChanged += h, detach: static (o, h) => o.ObjectInstanceIdChanged -= h, selector: static e => e.Id);
 
     [UseDelegateFromConstructor]
     internal partial Unit Attach(GhDocument document, GhObjectList objects, DocumentEventHandlers events);
     [UseDelegateFromConstructor]
     internal partial Unit Detach(GhDocument document, GhObjectList objects, DocumentEventHandlers events);
+
+    private static DocumentEventKind OnDocument<TArgs>(int key, Action<GhDocument, EventHandler<TArgs>> attach, Action<GhDocument, EventHandler<TArgs>> detach, Func<DocumentEventHandlers, EventHandler<TArgs>> selector) =>
+        new(
+            key: key,
+            attach: (d, _, e) => { attach(arg1: d, arg2: selector(arg: e)); return unit; },
+            detach: (d, _, e) => { detach(arg1: d, arg2: selector(arg: e)); return unit; });
+
+    private static DocumentEventKind OnObjects<TArgs>(int key, Action<GhObjectList, EventHandler<TArgs>> attach, Action<GhObjectList, EventHandler<TArgs>> detach, Func<DocumentEventHandlers, EventHandler<TArgs>> selector) =>
+        new(
+            key: key,
+            attach: (_, o, e) => { attach(arg1: o, arg2: selector(arg: e)); return unit; },
+            detach: (_, o, e) => { detach(arg1: o, arg2: selector(arg: e)); return unit; });
 }
 
 internal readonly record struct SolutionEventHandlers(
@@ -121,29 +107,23 @@ internal readonly record struct SolutionEventHandlers(
 public sealed partial class SolutionEventKind {
     private delegate Unit SolutionEventWire(SolutionServer solution, SolutionEventHandlers events);
 
-    public static readonly SolutionEventKind AboutToStart = new(key: 0,
-        attach: static (solution, events) => { solution.SolutionAboutToStart += events.About; return unit; },
-        detach: static (solution, events) => { solution.SolutionAboutToStart -= events.About; return unit; });
-    public static readonly SolutionEventKind Started = new(key: 1,
-        attach: static (solution, events) => { solution.SolutionStarted += events.Plain; return unit; },
-        detach: static (solution, events) => { solution.SolutionStarted -= events.Plain; return unit; });
-    public static readonly SolutionEventKind Stopped = new(key: 2,
-        attach: static (solution, events) => { solution.SolutionStopped += events.Plain; return unit; },
-        detach: static (solution, events) => { solution.SolutionStopped -= events.Plain; return unit; });
-    public static readonly SolutionEventKind Cancelled = new(key: 3,
-        attach: static (solution, events) => { solution.SolutionCancelled += events.Plain; return unit; },
-        detach: static (solution, events) => { solution.SolutionCancelled -= events.Plain; return unit; });
-    public static readonly SolutionEventKind Completed = new(key: 4,
-        attach: static (solution, events) => { solution.SolutionCompleted += events.Plain; return unit; },
-        detach: static (solution, events) => { solution.SolutionCompleted -= events.Plain; return unit; });
-    public static readonly SolutionEventKind Faulted = new(key: 5,
-        attach: static (solution, events) => { solution.SolutionFaulted += events.Faulted; return unit; },
-        detach: static (solution, events) => { solution.SolutionFaulted -= events.Faulted; return unit; });
+    public static readonly SolutionEventKind AboutToStart = Of(key: 0, attach: static (s, h) => s.SolutionAboutToStart += h, detach: static (s, h) => s.SolutionAboutToStart -= h, selector: static e => e.About);
+    public static readonly SolutionEventKind Started = Of(key: 1, attach: static (s, h) => s.SolutionStarted += h, detach: static (s, h) => s.SolutionStarted -= h, selector: static e => e.Plain);
+    public static readonly SolutionEventKind Stopped = Of(key: 2, attach: static (s, h) => s.SolutionStopped += h, detach: static (s, h) => s.SolutionStopped -= h, selector: static e => e.Plain);
+    public static readonly SolutionEventKind Cancelled = Of(key: 3, attach: static (s, h) => s.SolutionCancelled += h, detach: static (s, h) => s.SolutionCancelled -= h, selector: static e => e.Plain);
+    public static readonly SolutionEventKind Completed = Of(key: 4, attach: static (s, h) => s.SolutionCompleted += h, detach: static (s, h) => s.SolutionCompleted -= h, selector: static e => e.Plain);
+    public static readonly SolutionEventKind Faulted = Of(key: 5, attach: static (s, h) => s.SolutionFaulted += h, detach: static (s, h) => s.SolutionFaulted -= h, selector: static e => e.Faulted);
 
     [UseDelegateFromConstructor]
     internal partial Unit Attach(SolutionServer solution, SolutionEventHandlers events);
     [UseDelegateFromConstructor]
     internal partial Unit Detach(SolutionServer solution, SolutionEventHandlers events);
+
+    private static SolutionEventKind Of<TArgs>(int key, Action<SolutionServer, EventHandler<TArgs>> attach, Action<SolutionServer, EventHandler<TArgs>> detach, Func<SolutionEventHandlers, EventHandler<TArgs>> selector) =>
+        new(
+            key: key,
+            attach: (s, e) => { attach(arg1: s, arg2: selector(arg: e)); return unit; },
+            detach: (s, e) => { detach(arg1: s, arg2: selector(arg: e)); return unit; });
 }
 
 internal readonly record struct UndoEventHandlers(
@@ -155,32 +135,24 @@ internal readonly record struct UndoEventHandlers(
 public sealed partial class UndoEventKind {
     private delegate Unit UndoEventWire(History history, UndoEventHandlers events);
 
-    public static readonly UndoEventKind Undone = new(key: 0,
-        attach: static (history, events) => { history.Undone += events.Plain; return unit; },
-        detach: static (history, events) => { history.Undone -= events.Plain; return unit; });
-    public static readonly UndoEventKind Redone = new(key: 1,
-        attach: static (history, events) => { history.Redone += events.Plain; return unit; },
-        detach: static (history, events) => { history.Redone -= events.Plain; return unit; });
-    public static readonly UndoEventKind Modified = new(key: 2,
-        attach: static (history, events) => { history.Modified += events.Plain; return unit; },
-        detach: static (history, events) => { history.Modified -= events.Plain; return unit; });
-    public static readonly UndoEventKind NodeAdded = new(key: 3,
-        attach: static (history, events) => { history.NodeAdded += events.Node; return unit; },
-        detach: static (history, events) => { history.NodeAdded -= events.Node; return unit; });
-    public static readonly UndoEventKind NodeRemoved = new(key: 4,
-        attach: static (history, events) => { history.NodeRemoved += events.Node; return unit; },
-        detach: static (history, events) => { history.NodeRemoved -= events.Node; return unit; });
-    public static readonly UndoEventKind NodeMerged = new(key: 5,
-        attach: static (history, events) => { history.NodeMerged += events.Node; return unit; },
-        detach: static (history, events) => { history.NodeMerged -= events.Node; return unit; });
-    public static readonly UndoEventKind NodeMoved = new(key: 6,
-        attach: static (history, events) => { history.NodeMoved += events.Moved; return unit; },
-        detach: static (history, events) => { history.NodeMoved -= events.Moved; return unit; });
+    public static readonly UndoEventKind Undone = Of(key: 0, attach: static (h, x) => h.Undone += x, detach: static (h, x) => h.Undone -= x, selector: static e => e.Plain);
+    public static readonly UndoEventKind Redone = Of(key: 1, attach: static (h, x) => h.Redone += x, detach: static (h, x) => h.Redone -= x, selector: static e => e.Plain);
+    public static readonly UndoEventKind Modified = Of(key: 2, attach: static (h, x) => h.Modified += x, detach: static (h, x) => h.Modified -= x, selector: static e => e.Plain);
+    public static readonly UndoEventKind NodeAdded = Of(key: 3, attach: static (h, x) => h.NodeAdded += x, detach: static (h, x) => h.NodeAdded -= x, selector: static e => e.Node);
+    public static readonly UndoEventKind NodeRemoved = Of(key: 4, attach: static (h, x) => h.NodeRemoved += x, detach: static (h, x) => h.NodeRemoved -= x, selector: static e => e.Node);
+    public static readonly UndoEventKind NodeMerged = Of(key: 5, attach: static (h, x) => h.NodeMerged += x, detach: static (h, x) => h.NodeMerged -= x, selector: static e => e.Node);
+    public static readonly UndoEventKind NodeMoved = Of(key: 6, attach: static (h, x) => h.NodeMoved += x, detach: static (h, x) => h.NodeMoved -= x, selector: static e => e.Moved);
 
     [UseDelegateFromConstructor]
     internal partial Unit Attach(History history, UndoEventHandlers events);
     [UseDelegateFromConstructor]
     internal partial Unit Detach(History history, UndoEventHandlers events);
+
+    private static UndoEventKind Of<TArgs>(int key, Action<History, EventHandler<TArgs>> attach, Action<History, EventHandler<TArgs>> detach, Func<UndoEventHandlers, EventHandler<TArgs>> selector) =>
+        new(
+            key: key,
+            attach: (h, e) => { attach(arg1: h, arg2: selector(arg: e)); return unit; },
+            detach: (h, e) => { detach(arg1: h, arg2: selector(arg: e)); return unit; });
 }
 
 internal readonly record struct ControlEventHandlers(
