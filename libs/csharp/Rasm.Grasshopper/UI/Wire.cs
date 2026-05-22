@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.InteropServices;
 using Eto.Drawing;
 using Grasshopper2.Doc;
@@ -107,7 +108,7 @@ public sealed partial class WireEdit {
             .MapFail(error => UiFault.MutationRejected(op: op, detail: $"{name} threw: {error.Message}"))
             .Bind(count => count switch {
                 >= 0 => Fin.Succ(value: count),
-                _ => Fin.Fail<int>(error: UiFault.MutationRejected(op: op, detail: $"{name} returned {count}")),
+                _ => Fin.Fail<int>(error: UiFault.MutationRejected(op: op, detail: string.Create(CultureInfo.InvariantCulture, $"{name} returned {count}"))),
             });
 }
 
@@ -244,7 +245,7 @@ internal static partial class Wire {
 
     internal static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> Edit(WireSnapshot.ConnectedCase wire, WireEdit edit) =>
         GrasshopperUi.Mutate(
-            op: Op.Of(name: $"Wire.{edit}"),
+            op: Op.Of(name: string.Create(CultureInfo.InvariantCulture, $"Wire.{edit}")),
             undo: UndoStrategy.None,
             repaint: RepaintRequest.Canvas,
             mutate: scope =>
@@ -256,7 +257,7 @@ internal static partial class Wire {
                 from target in Optional(objs.FindParameter(instanceId: wire.Target)).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Edit)), detail: $"target param {wire.Target} not found"))
                 let actions = ActionList.Empty
                 from changed in validEdit.Apply(methods: methods, source: source, target: target, actions: actions)
-                from committed in UiRail.CommitActions(document: doc, op: Op.Of(name: $"Wire.{validEdit}"), actions: actions)
+                from committed in UiRail.CommitActions(document: doc, op: Op.Of(name: string.Create(CultureInfo.InvariantCulture, $"Wire.{validEdit}")), actions: actions)
                 select new DocumentMutationDelta(Changed: changed, After: UiRail.DocumentSnapshotOf(document: doc, objects: objs)));
 
     internal static GrasshopperUiIntent<WireGraph> Graph(Guid startParameterId, WireTraversal? direction = null, int maxHops = 32) =>

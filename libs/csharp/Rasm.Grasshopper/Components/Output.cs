@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Rasm.Grasshopper.Components;
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -129,7 +131,7 @@ public static class Output {
             true => Option<string>.None,
             false => Some(found.Count switch {
                 1 => found.Head.Map(static fault => fault.Message).IfNone("Unsupported source."),
-                int count => string.Join(separator: Environment.NewLine, values: $"Unsupported source/output combinations: {count}".Cons(found.Map(static fault => fault.Message)).AsIterable()),
+                int count => string.Join(separator: Environment.NewLine, values: string.Create(CultureInfo.InvariantCulture, $"Unsupported source/output combinations: {count}").Cons(found.Map(static fault => fault.Message)).AsIterable()),
             }),
         };
         _ = details.Iter(details => access.AddRemark(text: port.Name, details: details));

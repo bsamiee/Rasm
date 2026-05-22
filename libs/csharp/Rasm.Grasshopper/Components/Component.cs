@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Eto.Drawing;
@@ -66,7 +67,7 @@ public readonly record struct ComponentUi {
 
     internal Fin<Decision> Run(Callback context) {
         Seq<StepOp> current = ops;
-        return Try.lift<Fin<Decision>>(f: () => current.Fold(Fin.Succ(value: Decision.Pass), (Fin<Decision> state, StepOp op) =>
+        return Try.lift<Fin<Decision>>(f: () => current.Fold(Fin.Succ(value: Decision.Pass), (state, op) =>
                 state.Bind(decision => decision.IsTerminal ? Fin.Succ(value: decision) : op.Run(arg: context).Map(next => decision + next))))
             .Run()
             .MapFail(error => Op.Of(name: nameof(Run)).InvalidResult() + error)
@@ -186,7 +187,7 @@ public readonly record struct ComponentUi {
 
         bool IMouseHoverAttributes.RespondToMouseHover(PointF controlPoint, PointF contentPoint) =>
             ui.Run(context: new Callback.Pointer(Requested: Phase.Hover, Owner: Owner, ContentPoint: contentPoint, ControlPoint: Optional(controlPoint)))
-                .Map(decision => decision.Hover.IfNone(false))
+                .Map(decision => decision.Hover.IfNone(noneValue: false))
                 .IfFail(_ => false);
 
         protected override UiResponse HandleMouseDown(MouseEventArgs e) => Respond(phase: Phase.MouseDown, mouse: e);
@@ -352,7 +353,7 @@ public abstract class Plugin : GhPlugin {
             _ => false,
         };
     private static Seq<string> NullsAt(Type spec, string side, int count, Func<int, bool> missing) =>
-        toSeq(Enumerable.Range(start: 0, count: count).Where(predicate: missing.Invoke).Select(index => $"{spec.FullName}: {side} {index} is null"));
+        toSeq(Enumerable.Range(start: 0, count: count).Where(predicate: missing.Invoke).Select(index => string.Create(CultureInfo.InvariantCulture, $"{spec.FullName}: {side} {index} is null")));
     private static Seq<string> Duplicates(Type spec, string side, Seq<Port> ports, string key, Func<Port, string> project, Func<Port, string> label) =>
         toSeq(ports.GroupBy(keySelector: project, comparer: StringComparer.Ordinal)
             .Where(static group => group.Skip(1).Any())

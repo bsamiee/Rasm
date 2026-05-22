@@ -13,6 +13,7 @@ using GhDocumentMethods = Grasshopper2.Doc.DocumentMethods;
 using GhEditor = Grasshopper2.UI.Editor;
 using GhObjectList = Grasshopper2.Doc.ObjectList;
 using Op = Rasm.Domain.Op;
+using SolutionMode = Grasshopper2.Doc.SolutionMode;
 using UndoAction = Grasshopper2.Undo.Action;
 
 namespace Rasm.Grasshopper.UI;
@@ -26,10 +27,16 @@ public partial record RepaintRequest {
     public sealed record RegionCase(RectangleF Bounds) : RepaintRequest;
     public sealed record CanvasCase : RepaintRequest;
     public sealed record ScheduledCase : RepaintRequest;
+    public sealed record SolutionCase : RepaintRequest;
+    public sealed record DisplayCase : RepaintRequest;
+    public sealed record SolutionAndDisplayCase : RepaintRequest;
 
     public static readonly RepaintRequest None = new NoneCase();
     public static readonly RepaintRequest Canvas = new CanvasCase();
     public static readonly RepaintRequest Scheduled = new ScheduledCase();
+    public static readonly RepaintRequest Solution = new SolutionCase();
+    public static readonly RepaintRequest Display = new DisplayCase();
+    public static readonly RepaintRequest SolutionAndDisplay = new SolutionAndDisplayCase();
     public static RepaintRequest Object(Guid id) => new ObjectCase(Id: id);
     public static RepaintRequest Region(RectangleF bounds) => new RegionCase(Bounds: bounds);
 
@@ -37,6 +44,10 @@ public partial record RepaintRequest {
         (left, right) switch {
             (NoneCase, _) => right,
             (_, NoneCase) => left,
+            (SolutionAndDisplayCase, _) or (_, SolutionAndDisplayCase) => SolutionAndDisplay,
+            (SolutionCase, DisplayCase) or (DisplayCase, SolutionCase) => SolutionAndDisplay,
+            (SolutionCase, _) or (_, SolutionCase) => Solution,
+            (DisplayCase, _) or (_, DisplayCase) => Display,
             (CanvasCase, _) or (_, CanvasCase) => Canvas,
             (ScheduledCase, _) or (_, ScheduledCase) => Scheduled,
             (RegionCase l, RegionCase r) => Region(bounds: RectangleF.Union(l.Bounds, r.Bounds)),
@@ -95,10 +106,9 @@ public partial record Subscription : IDisposable {
             return;
         }
         _ = Switch(
-            atomCase: static a => {
-                Fin<Unit> Apply() => GrasshopperUi.Protect(valid: () => { a.Detach(); return Fin.Succ(value: unit); });
-                return a.MarshalToUi ? GrasshopperUi.OnUiThread(run: Apply, cancellation: CancellationToken.None) : Apply();
-            },
+            atomCase: static a => a.MarshalToUi
+                ? GrasshopperUi.DetachOnUiThread(run: a.Detach)
+                : GrasshopperUi.Protect(valid: () => { a.Detach(); return Fin.Succ(value: unit); }),
             compositeCase: static c => { _ = c.Members.Iter(static s => s.Dispose()); return Fin.Succ(value: unit); },
             emptyCase: static _ => Fin.Succ(value: unit));
     }
@@ -303,6 +313,9 @@ public static class GhUi {
     public static GrasshopperUiIntent<T> Paint<T>(PaintRequest<T> request) =>
         Apply(request: request);
 
+    public static GrasshopperUiIntent<T> Motion<T>(MotionRequest<T> request) =>
+        Apply(request: request);
+
     public static GrasshopperUiIntent<Subscription> Event(UiEvent uiEvent) =>
         Apply(request: new EventRequest(Event: uiEvent));
 
@@ -452,6 +465,15 @@ public sealed partial record GrasshopperUi {
     internal static Fin<T> Protect<T>(Func<Fin<T>> valid, [CallerMemberName] string name = "") =>
         Try.lift<Fin<T>>(f: valid).Run().MapFail(error => UiFault.ThreadMarshal(detail: $"{name}: {error.Message}")).Bind(static result => result);
 
+    internal static Fin<Unit> DetachOnUiThread(System.Action run) =>
+        Optional(run).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DetachOnUiThread)), detail: "null delegate"))
+            .Bind(valid => RhinoApp.IsOnMainThread
+                ? Protect(valid: () => { valid(); return Fin.Succ(value: unit); })
+                : Try.lift(f: () => {
+                    RhinoApp.InvokeOnUiThread(method: (System.Action)(() => Protect(valid: () => { valid(); return Fin.Succ(value: unit); }).Ignore()), args: []);
+                    return unit;
+                }).Run().MapFail(error => UiFault.ThreadMarshal(detail: $"InvokeOnUiThread threw: {error.Message}")));
+
     internal static T Repaint<T>(Scope scope, GrasshopperUiPolicy policy, T value) {
         _ = policy.RepaintOrNone switch {
             RepaintRequest.NoneCase => unit,
@@ -462,6 +484,13 @@ public sealed partial record GrasshopperUi {
                 Optional(objects.Find(instanceId: obj.Id)).Match(
                     Some: o => { canvas.Invalidate(rect: ControlSpace(canvas: canvas, bounds: o.Attributes.AggregateBounds)); return unit; },
                     None: () => { canvas.Invalidate(); return unit; }))).IfNone(unit),
+            RepaintRequest.SolutionCase => scope.Document.IfSome(static doc => { _ = doc.Solution.Start(mode: SolutionMode.Regular); return unit; }),
+            RepaintRequest.DisplayCase => scope.Document.IfSome(static doc => { doc.Display.UpdateDisplay(); return unit; }),
+            RepaintRequest.SolutionAndDisplayCase => scope.Document.IfSome(static doc => {
+                _ = doc.Solution.Start(mode: SolutionMode.Regular);
+                doc.Display.UpdateDisplay();
+                return unit;
+            }),
             _ => unit,
         };
         return value;

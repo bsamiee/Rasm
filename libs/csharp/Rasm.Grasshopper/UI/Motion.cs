@@ -1,0 +1,474 @@
+using System.Runtime.InteropServices;
+using Eto.Drawing;
+using Grasshopper2.UI.Animation;
+using Grasshopper2.UI.Skinning;
+using Grasshopper2.UI.Sparkles;
+using GhDuration = Grasshopper2.UI.Animation.Duration;
+using GhMotion = Grasshopper2.UI.Animation.Motion;
+using GhState = Grasshopper2.UI.Animation.State;
+using Op = Rasm.Domain.Op;
+using ZoomThreshold = Grasshopper2.UI.ZoomThreshold;
+
+namespace Rasm.Grasshopper.UI;
+
+// --- [TYPES] ------------------------------------------------------------------------------
+public interface IMotionVector<T> {
+    public T Zero { get; }
+    public T Add(T a, T b);
+    public T Subtract(T a, T b);
+    public T Scale(T value, float scalar);
+    public float Norm(T value);
+    public T Interpolate(T value0, T value1, double factor);
+}
+
+public abstract record MotionRequest<T> : GhUiRequest<T> {
+    public sealed record Tween<TValue>(Animated<TValue> Animated, Action<TValue> Sink) : MotionRequest<Subscription> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled);
+        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Tween(animated: Animated, sink: Sink).Run(scope: scope);
+    }
+    public sealed record Spring<TValue>(TValue From, TValue To, SpringConfig Config, IMotionVector<TValue> Vector, Action<TValue> Sink, Option<TValue> InitialVelocity = default) : MotionRequest<SpringHandle<TValue>> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled);
+        internal override Fin<SpringHandle<TValue>> Apply(GrasshopperUi.Scope scope) => Motion.Spring(start: From, target: To, config: Config, vector: Vector, sink: Sink, initialVelocity: InitialVelocity).Run(scope: scope);
+    }
+    public sealed record Pulse<TValue>(TValue From, TValue To, GhDuration Duration, GhMotion Easing, IMotionVector<TValue> Vector, Action<TValue> Sink, int Cycles = 1, bool Yoyo = false, bool Infinite = false) : MotionRequest<Subscription> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled);
+        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Pulse(start: From, target: To, duration: Duration, easing: Easing, cycles: Cycles, yoyo: Yoyo, infinite: Infinite, vector: Vector, sink: Sink).Run(scope: scope);
+    }
+    public sealed record Stroke(AnimatedPath Path, GhDuration Duration, GhMotion Easing, PaintStyle Style, PointF Origin, float Scale = 1f, float Angle = 0f) : MotionRequest<Subscription> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled);
+        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Stroke(path: Path, duration: Duration, easing: Easing, style: Style, origin: Origin, scale: Scale, angle: Angle).Run(scope: scope);
+    }
+    public sealed record Sparkle(ISparkle Instance) : MotionRequest<Unit> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled);
+        internal override Fin<Unit> Apply(GrasshopperUi.Scope scope) => Motion.Sparkle(instance: Instance).Run(scope: scope);
+    }
+    public sealed record Theme(Skin From, Skin To, GhDuration Duration, GhMotion Easing, Action<Skin> Sink) : MotionRequest<Subscription> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled);
+        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Theme(start: From, target: To, duration: Duration, easing: Easing, sink: Sink).Run(scope: scope);
+    }
+    public sealed record Navigate(PointF Centre, GhDuration Duration, float MinZoom = 0.05f, float MaxZoom = 2f) : MotionRequest<Unit> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
+        internal override Fin<Unit> Apply(GrasshopperUi.Scope scope) => Motion.Navigate(centre: Centre, duration: Duration, minZoom: MinZoom, maxZoom: MaxZoom).Run(scope: scope);
+    }
+    public sealed record ZoomGate(ZoomThreshold Threshold, Action<float> Sink) : MotionRequest<Subscription> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled);
+        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.ZoomGate(threshold: Threshold, sink: Sink).Run(scope: scope);
+    }
+}
+
+// --- [MODELS] -----------------------------------------------------------------------------
+// Spring physics configuration. Use Response(...) factory for SwiftUI-style (response, dampingFraction)
+// parametrization, or the direct (stiffness, damping, mass) constructor. Presets cover canonical UI feels.
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct SpringConfig(float Stiffness, float Damping, float Mass = 1f) {
+    public static SpringConfig Response(float response, float dampingFraction, float mass = 1f) {
+        float twoPiOverR = (float)(2.0 * Math.PI) / response;
+        return new SpringConfig(
+            Stiffness: twoPiOverR * twoPiOverR * mass,
+            Damping: 4f * (float)Math.PI * dampingFraction * mass / response,
+            Mass: mass);
+    }
+    public static readonly SpringConfig Snappy = Response(response: 0.30f, dampingFraction: 0.85f);
+    public static readonly SpringConfig Bouncy = Response(response: 0.55f, dampingFraction: 0.50f);
+    public static readonly SpringConfig Smooth = Response(response: 0.50f, dampingFraction: 1.00f);
+    public static readonly SpringConfig Sluggish = Response(response: 1.00f, dampingFraction: 1.20f);
+}
+
+// Snapshot of spring physics at a frame boundary. Lives inside Atom<SpringRunnerState<T>>;
+// each Tick reads, computes, swaps. Retarget mutates Target/Velocity through the same atom.
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct SpringRunnerState<T>(
+    T Value, T Velocity, T Target,
+    SpringConfig Config, IMotionVector<T> Vector,
+    Action<T> Sink, DateTime Clock);
+
+// Re-targetable spring handle. Owns its Atom-backed state cell + paint subscription.
+// Retarget preserves velocity by default; supply InitialVelocity override for impulses.
+// RetargetWhen runs SwapMaybe with a predicate so ordered chains skip clobbering newer targets.
+// Dispose unhooks the paint phase and releases the cell.
+public sealed class SpringHandle<T> : IDisposable {
+    private readonly Atom<SpringRunnerState<T>> cell;
+    private readonly Subscription subscription;
+    private readonly Action wake;
+
+    internal SpringHandle(Atom<SpringRunnerState<T>> cell, Subscription subscription, Action wake) {
+        this.cell = cell;
+        this.subscription = subscription;
+        this.wake = wake;
+    }
+
+    public T CurrentValue => cell.Value.Value;
+    public T CurrentVelocity => cell.Value.Velocity;
+    public T CurrentTarget => cell.Value.Target;
+
+    public Unit Retarget(T target, Option<T> initialVelocity = default) {
+        _ = cell.Swap(state => state with {
+            Target = target,
+            Velocity = initialVelocity.IfNone(state.Velocity),
+        });
+        wake();
+        return unit;
+    }
+
+    public Unit RetargetWhen(T target, Func<T, bool> shouldUpdate, Option<T> initialVelocity = default) {
+        _ = cell.SwapMaybe(state => shouldUpdate(state.Target)
+            ? Some(state with { Target = target, Velocity = initialVelocity.IfNone(state.Velocity) })
+            : Option<SpringRunnerState<T>>.None);
+        wake();
+        return unit;
+    }
+
+    public void Dispose() => subscription.Dispose();
+}
+
+// Snapshot of pulse animator + remaining cycles. Lives inside Atom<PulseRunnerState<T>>;
+// each Tick reads ValueNow, re-issues a fresh Animated<T> when current segment finishes.
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct PulseRunnerState<T>(
+    Animated<T> Animated,
+    T From, T To,
+    GhDuration Duration, GhMotion Easing,
+    bool Yoyo, bool Infinite,
+    int CyclesRemaining,
+    IMotionVector<T> Vector);
+
+// Typed dispatcher: per-type vector arithmetic + interpolation for generic motion cases.
+// Subsumes ad-hoc lambda dispatch — adding a new Spring<T>/Pulse<T> instantiation only requires
+// supplying the matching IMotionVector<T> entry here. Native Interpolators are reused for linear lerps.
+// MotionVector.ColorHSL is a drop-in alternative to MotionVector.Color that routes Interpolate
+// through Eto.Drawing.ColorHSL with shortest-arc hue blending for visually-correct hue tweens.
+public static class MotionVector {
+    public static readonly IMotionVector<float> Float = new Vector<float>(
+        zero: 0f,
+        add: static (a, b) => a + b,
+        subtract: static (a, b) => a - b,
+        scale: static (v, s) => v * s,
+        norm: static v => Math.Abs(v),
+        interpolate: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t));
+    public static readonly IMotionVector<double> Double = new Vector<double>(
+        zero: 0.0,
+        add: static (a, b) => a + b,
+        subtract: static (a, b) => a - b,
+        scale: static (v, s) => v * s,
+        norm: static v => (float)Math.Abs(v),
+        interpolate: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t));
+    public static readonly IMotionVector<PointF> PointF = new Vector<PointF>(
+        zero: Eto.Drawing.PointF.Empty,
+        add: static (a, b) => new PointF(a.X + b.X, a.Y + b.Y),
+        subtract: static (a, b) => new PointF(a.X - b.X, a.Y - b.Y),
+        scale: static (v, s) => new PointF(v.X * s, v.Y * s),
+        norm: static v => MathF.Sqrt((v.X * v.X) + (v.Y * v.Y)),
+        interpolate: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t));
+    public static readonly IMotionVector<SizeF> SizeF = new Vector<SizeF>(
+        zero: Eto.Drawing.SizeF.Empty,
+        add: static (a, b) => new SizeF(a.Width + b.Width, a.Height + b.Height),
+        subtract: static (a, b) => new SizeF(a.Width - b.Width, a.Height - b.Height),
+        scale: static (v, s) => new SizeF(v.Width * s, v.Height * s),
+        norm: static v => MathF.Sqrt((v.Width * v.Width) + (v.Height * v.Height)),
+        interpolate: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t));
+    public static readonly IMotionVector<RectangleF> RectangleF = new Vector<RectangleF>(
+        zero: Eto.Drawing.RectangleF.Empty,
+        add: static (a, b) => new RectangleF(a.X + b.X, a.Y + b.Y, a.Width + b.Width, a.Height + b.Height),
+        subtract: static (a, b) => new RectangleF(a.X - b.X, a.Y - b.Y, a.Width - b.Width, a.Height - b.Height),
+        scale: static (v, s) => new RectangleF(v.X * s, v.Y * s, v.Width * s, v.Height * s),
+        norm: static v => Math.Max(Math.Max(Math.Abs(v.X), Math.Abs(v.Y)), Math.Max(Math.Abs(v.Width), Math.Abs(v.Height))),
+        interpolate: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t));
+    public static readonly IMotionVector<Color> Color = new Vector<Color>(
+        zero: new Color(red: 0f, green: 0f, blue: 0f, alpha: 0f),
+        add: static (a, b) => new Color(red: a.R + b.R, green: a.G + b.G, blue: a.B + b.B, alpha: a.A + b.A),
+        subtract: static (a, b) => new Color(red: a.R - b.R, green: a.G - b.G, blue: a.B - b.B, alpha: a.A - b.A),
+        scale: static (v, s) => new Color(red: v.R * s, green: v.G * s, blue: v.B * s, alpha: v.A * s),
+        norm: static v => Math.Max(Math.Max(Math.Abs(v.R), Math.Abs(v.G)), Math.Max(Math.Abs(v.B), Math.Abs(v.A))),
+        interpolate: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t));
+    public static readonly IMotionVector<Color> ColorHSL = new Vector<Color>(
+        zero: new Color(red: 0f, green: 0f, blue: 0f, alpha: 0f),
+        add: static (a, b) => new Color(red: a.R + b.R, green: a.G + b.G, blue: a.B + b.B, alpha: a.A + b.A),
+        subtract: static (a, b) => new Color(red: a.R - b.R, green: a.G - b.G, blue: a.B - b.B, alpha: a.A - b.A),
+        scale: static (v, s) => new Color(red: v.R * s, green: v.G * s, blue: v.B * s, alpha: v.A * s),
+        norm: static v => Math.Max(Math.Max(Math.Abs(v.R), Math.Abs(v.G)), Math.Max(Math.Abs(v.B), Math.Abs(v.A))),
+        interpolate: HslInterpolate);
+
+    private static Color HslInterpolate(Color a, Color b, double factor) {
+        ColorHSL ha = a;
+        ColorHSL hb = b;
+        float tf = (float)factor;
+        float hueDelta = ((hb.H - ha.H + 540f) % 360f) - 180f;
+        return new ColorHSL(
+            hue: ha.H + (hueDelta * tf),
+            saturation: ha.S + ((hb.S - ha.S) * tf),
+            luminance: ha.L + ((hb.L - ha.L) * tf),
+            alpha: ha.A + ((hb.A - ha.A) * tf));
+    }
+}
+
+internal sealed class Vector<T>(
+    T zero,
+    Func<T, T, T> add,
+    Func<T, T, T> subtract,
+    Func<T, float, T> scale,
+    Func<T, float> norm,
+    Func<T, T, double, T> interpolate) : IMotionVector<T> {
+    public T Zero { get; } = zero;
+    public T Add(T a, T b) => add(arg1: a, arg2: b);
+    public T Subtract(T a, T b) => subtract(arg1: a, arg2: b);
+    public T Scale(T value, float scalar) => scale(arg1: value, arg2: scalar);
+    public float Norm(T value) => norm(arg: value);
+    public T Interpolate(T value0, T value1, double factor) => interpolate(arg1: value0, arg2: value1, arg3: factor);
+}
+
+public static class Spark {
+    public static ISparkle Blast(BlastRadius radius, PointF location, Color colour, bool attachedToContent = false) =>
+        new BlastSparkle(radius: radius, location: location, colour: colour, attachedToContent: attachedToContent);
+    public static ISparkle Edge(PointF point0, PointF point1, bool attachedToContent = false) =>
+        new EdgeSparkle(edge0: point0, edge1: point1, attachedToContent: attachedToContent);
+    public static ISparkle Face(RectangleF face, bool attachedToContent = false) =>
+        new FaceSparkle(face: face, attachedToContent: attachedToContent);
+    public static ISparkle Notice(NoticeType notice, PointF location, bool attachedToContent = false) =>
+        new NoticeSparkle(notice: notice, location: location, attachedToContent: attachedToContent);
+}
+
+public static class Glyph {
+    public static AnimatedPath Error(float size = 1f) => AnimatedPath.CreateErrorPath(size: size);
+    public static AnimatedPath Warning(float size = 1f) => AnimatedPath.CreateWarningPath(size: size);
+    public static AnimatedPath Success(float size = 1f) => AnimatedPath.CreateSuccessPath(size: size);
+    public static AnimatedPath Message(float size = 1f) => AnimatedPath.CreateMessagePath(size: size);
+    public static AnimatedPath Arrow(float size, float angle = 0f) => AnimatedPath.CreateArrowPath(size: size, angle: angle);
+    public static AnimatedPath Of(IEnumerable<IAnimatedStroke> strokes) => new(strokes: strokes);
+    public static IAnimatedStroke Line(PointF point0, PointF point1) => new LineStroke(point0: point0, point1: point1);
+    public static IAnimatedStroke Arc(ArcF arc) => new ArcStroke(arc: arc);
+    public static IAnimatedStroke Gap(PointF point0, PointF point1) => new GapStroke(point0: point0, point1: point1);
+}
+
+// --- [SERVICES] ---------------------------------------------------------------------------
+internal static class Motion {
+    private const float SpringRestThreshold = 0.001f;
+    private const float MaxFrameDelta = 1f / 30f;
+
+    internal static GrasshopperUiIntent<Subscription> Tween<TValue>(Animated<TValue> animated, Action<TValue> sink) =>
+        GhUi.Canvas(run: scope =>
+            from canvas in scope.NeedCanvas()
+            from validSink in Optional(sink).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Tween)), detail: "sink delegate is required"))
+            from sub in Paint.Hook(
+                phase: CanvasPaintPhase.BeforeBackground,
+                paint: paintScope => Try.lift(f: () => {
+                    validSink(animated.ValueNow);
+                    _ = animated.State == GhState.Finished ? unit : ((Func<Unit>)(() => { canvas.ScheduleRedraw(); return unit; }))();
+                    return unit;
+                }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Tween)), detail: $"tick threw: {error.Message}"))).Run(scope: scope)
+            from initial in Try.lift(f: () => { canvas.ScheduleRedraw(); return unit; }).Run()
+                .MapFail(error => UiFault.ThreadMarshal(detail: $"{nameof(Tween)} initial redraw threw: {error.Message}"))
+            select sub);
+
+    internal static GrasshopperUiIntent<SpringHandle<TValue>> Spring<TValue>(
+        TValue start, TValue target, SpringConfig config, IMotionVector<TValue> vector,
+        Action<TValue> sink, Option<TValue> initialVelocity) =>
+        GhUi.Canvas(run: scope =>
+            from canvas in scope.NeedCanvas()
+            from validVector in Optional(vector).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Spring)), detail: "vector is required"))
+            from validSink in Optional(sink).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Spring)), detail: "sink delegate is required"))
+            let cell = Atom(new SpringRunnerState<TValue>(
+                Value: start,
+                Velocity: initialVelocity.IfNone(validVector.Zero),
+                Target: target,
+                Config: config,
+                Vector: validVector,
+                Sink: validSink,
+                Clock: DateTime.UtcNow))
+            let ticker = new SpringTicker<TValue>(cell: cell, canvas: canvas)
+            from sub in Paint.Hook(
+                phase: CanvasPaintPhase.BeforeBackground,
+                paint: paintScope => Try.lift(ticker.Tick)
+                    .Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Spring)), detail: $"tick threw: {error.Message}"))).Run(scope: scope)
+            from initial in Try.lift(f: () => { canvas.ScheduleRedraw(); return unit; }).Run()
+                .MapFail(error => UiFault.ThreadMarshal(detail: $"{nameof(Spring)} initial redraw threw: {error.Message}"))
+            select new SpringHandle<TValue>(cell: cell, subscription: sub, wake: canvas.ScheduleRedraw));
+
+    internal static GrasshopperUiIntent<Subscription> Pulse<TValue>(
+        TValue start, TValue target, GhDuration duration, GhMotion easing, int cycles, bool yoyo, bool infinite,
+        IMotionVector<TValue> vector, Action<TValue> sink) =>
+        GhUi.Canvas(run: scope =>
+            from canvas in scope.NeedCanvas()
+            from validVector in Optional(vector).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Pulse)), detail: "vector is required"))
+            from validSink in Optional(sink).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Pulse)), detail: "sink delegate is required"))
+            from validCycles in infinite
+                ? Fin.Succ(1)
+                : Optional(cycles).Filter(static c => c >= 1)
+                    .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Pulse)), detail: "cycles must be positive when not infinite"))
+            let initial = Animated<TValue>.CreateUnfinished(
+                value0: start, value1: target,
+                duration: Animators.DurationToTimeSpan(duration: duration),
+                motion: easing,
+                interpolator: (a, b, t) => validVector.Interpolate(a, b, t))
+            let cell = Atom(new PulseRunnerState<TValue>(
+                Animated: initial,
+                From: start, To: target,
+                Duration: duration, Easing: easing,
+                Yoyo: yoyo, Infinite: infinite,
+                CyclesRemaining: validCycles - 1,
+                Vector: validVector))
+            let ticker = new PulseTicker<TValue>(cell: cell, sink: validSink, canvas: canvas)
+            from sub in Paint.Hook(
+                phase: CanvasPaintPhase.BeforeBackground,
+                paint: paintScope => Try.lift(ticker.Tick)
+                    .Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Pulse)), detail: $"tick threw: {error.Message}"))).Run(scope: scope)
+            from kickoff in Try.lift(f: () => { canvas.ScheduleRedraw(); return unit; }).Run()
+                .MapFail(error => UiFault.ThreadMarshal(detail: $"{nameof(Pulse)} initial redraw threw: {error.Message}"))
+            select sub);
+
+    internal static GrasshopperUiIntent<Subscription> Stroke(
+        AnimatedPath path, GhDuration duration, GhMotion easing, PaintStyle style,
+        PointF origin, float scale, float angle) =>
+        GhUi.Canvas(run: scope =>
+            from canvas in scope.NeedCanvas()
+            from validPath in Optional(path).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Stroke)), detail: "path is required"))
+            from validOrigin in Optional(origin)
+                .Filter(static p => float.IsFinite(p.X) && float.IsFinite(p.Y))
+                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Stroke)), detail: "non-finite origin"))
+            let progress = Animators.Unfinished(value0: 0.0, value1: 1.0, duration: duration, motion: easing)
+            from sub in Paint.Hook(
+                phase: CanvasPaintPhase.AfterObjects,
+                paint: paintScope => Try.lift(f: () => {
+                    using Pen pen = style.Pen();
+                    validPath.Draw(paintScope.Graphics.Content, pen, progress.ValueNow, validOrigin, scale, angle);
+                    _ = progress.State == GhState.Finished ? unit : ((Func<Unit>)(() => { canvas.ScheduleRedraw(); return unit; }))();
+                    return unit;
+                }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Stroke)), detail: $"draw threw: {error.Message}"))).Run(scope: scope)
+            from initial in Try.lift(f: () => { canvas.ScheduleRedraw(); return unit; }).Run()
+                .MapFail(error => UiFault.ThreadMarshal(detail: $"{nameof(Stroke)} initial redraw threw: {error.Message}"))
+            select sub);
+
+    internal static GrasshopperUiIntent<Unit> Sparkle(ISparkle instance) =>
+        GhUi.Canvas(
+            repaint: RepaintRequest.Scheduled,
+            run: scope =>
+                from canvas in scope.NeedCanvas()
+                from valid in Optional(instance).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Sparkle)), detail: "sparkle is required"))
+                from _ in Try.lift(f: () => { canvas.AddSparkle(sparkle: valid); return unit; }).Run()
+                    .MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Sparkle)), detail: $"AddSparkle threw: {error.Message}"))
+                select unit);
+
+    internal static GrasshopperUiIntent<Subscription> Theme(
+        Skin start, Skin target, GhDuration duration, GhMotion easing, Action<Skin> sink) =>
+        Tween(
+            animated: Animated<Skin>.CreateUnfinished(
+                value0: start, value1: target,
+                duration: Animators.DurationToTimeSpan(duration: duration),
+                motion: easing,
+                interpolator: static (a, b, t) => a.Interpolate(b, (float)t)),
+            sink: sink);
+
+    internal static GrasshopperUiIntent<Unit> Navigate(PointF centre, GhDuration duration, float minZoom, float maxZoom) =>
+        GhUi.Canvas(run: scope =>
+            from canvas in scope.NeedCanvas()
+            from valid in Optional((Centre: centre, MinZoom: minZoom, MaxZoom: maxZoom))
+                .Filter(static s => float.IsFinite(s.Centre.X) && float.IsFinite(s.Centre.Y) && float.IsFinite(s.MinZoom) && s.MinZoom > 0 && float.IsFinite(s.MaxZoom) && s.MaxZoom >= s.MinZoom)
+                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Navigate)), detail: "invalid navigate parameters"))
+            from _ in Try.lift(f: () => { canvas.Navigate(point: valid.Centre, zoomLimits: (valid.MinZoom, valid.MaxZoom), duration: duration); return unit; }).Run()
+                .MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Navigate)), detail: $"navigate threw: {error.Message}"))
+            select unit);
+
+    internal static GrasshopperUiIntent<Subscription> ZoomGate(ZoomThreshold threshold, Action<float> sink) =>
+        GhUi.Canvas(run: scope =>
+            from canvas in scope.NeedCanvas()
+            from validSink in Optional(sink).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ZoomGate)), detail: "sink delegate is required"))
+            from sub in Paint.Hook(
+                phase: CanvasPaintPhase.BeforeBackground,
+                paint: paintScope => Try.lift(f: () => {
+                    validSink(canvas.AnimatedZoomFactor(threshold: threshold));
+                    return unit;
+                }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(ZoomGate)), detail: $"tick threw: {error.Message}"))).Run(scope: scope)
+            select sub);
+
+    // Semi-implicit (symplectic) Euler integrator capsule. Owns the Atom cell + canvas + cached
+    // swap delegate. Scratch fields hold next-frame values so the Swap mapper closure (allocated
+    // once at construction) reads them without per-frame capture — zero closure allocation on the
+    // 60 Hz path, leaving only the unavoidable Atom Box<A> per swap.
+    private sealed class SpringTicker<T> {
+        private readonly Atom<SpringRunnerState<T>> cell;
+        private readonly Grasshopper2.UI.Canvas.Canvas canvas;
+        private readonly Func<SpringRunnerState<T>, SpringRunnerState<T>> applyScratch;
+
+        private T scratchValue = default!;
+        private T scratchVelocity = default!;
+        private DateTime scratchClock;
+
+        internal SpringTicker(Atom<SpringRunnerState<T>> cell, Grasshopper2.UI.Canvas.Canvas canvas) {
+            this.cell = cell;
+            this.canvas = canvas;
+            applyScratch = state => state with { Value = scratchValue, Velocity = scratchVelocity, Clock = scratchClock };
+        }
+
+        internal Unit Tick() {
+            SpringRunnerState<T> s = cell.Value;
+            DateTime now = DateTime.UtcNow;
+            float dt = Math.Min(val1: (float)(now - s.Clock).TotalSeconds, val2: MaxFrameDelta);
+
+            T displacement = s.Vector.Subtract(s.Value, s.Target);
+            T accel = s.Vector.Scale(
+                s.Vector.Add(
+                    s.Vector.Scale(displacement, -s.Config.Stiffness),
+                    s.Vector.Scale(s.Velocity, -s.Config.Damping)),
+                1f / s.Config.Mass);
+            T newVelocity = s.Vector.Add(s.Velocity, s.Vector.Scale(accel, dt));
+            T newValue = s.Vector.Add(s.Value, s.Vector.Scale(newVelocity, dt));
+
+            scratchValue = newValue;
+            scratchVelocity = newVelocity;
+            scratchClock = now;
+            _ = cell.Swap(applyScratch);
+            s.Sink(newValue);
+
+            bool atRest = (s.Vector.Norm(displacement) < SpringRestThreshold) && (s.Vector.Norm(newVelocity) < SpringRestThreshold);
+            _ = atRest ? unit : ((Func<Unit>)(() => { canvas.ScheduleRedraw(); return unit; }))();
+            return unit;
+        }
+    }
+
+    // Pulse animator + cycle bookkeeping capsule. Mirrors SpringTicker: cached swap delegate keeps
+    // the re-issue path closure-free. Native Animated<T>.State is strictly terminal so re-creation
+    // (not Chain) is the only re-issue path. Sink fires every frame with ValueNow.
+    private sealed class PulseTicker<T> {
+        private readonly Atom<PulseRunnerState<T>> cell;
+        private readonly Action<T> sink;
+        private readonly Grasshopper2.UI.Canvas.Canvas canvas;
+        private readonly Func<PulseRunnerState<T>, PulseRunnerState<T>> applyScratch;
+
+        private Animated<T> scratchAnimated = default!;
+        private int scratchCyclesRemaining;
+
+        internal PulseTicker(Atom<PulseRunnerState<T>> cell, Action<T> sink, Grasshopper2.UI.Canvas.Canvas canvas) {
+            this.cell = cell;
+            this.sink = sink;
+            this.canvas = canvas;
+            applyScratch = state => state with { Animated = scratchAnimated, CyclesRemaining = scratchCyclesRemaining };
+        }
+
+        internal Unit Tick() {
+            PulseRunnerState<T> s = cell.Value;
+            sink(s.Animated.ValueNow);
+            bool finished = s.Animated.State == GhState.Finished;
+            bool moreCycles = s.Infinite || s.CyclesRemaining > 0;
+            _ = (finished, moreCycles) switch {
+                (true, true) => Reissue(s),
+                (false, _) => Wake(),
+                _ => unit,
+            };
+            return unit;
+        }
+
+        private Unit Reissue(PulseRunnerState<T> s) {
+            scratchAnimated = Animated<T>.CreateUnfinished(
+                value0: s.Yoyo ? s.Animated.Value1 : s.From,
+                value1: s.Yoyo ? s.Animated.Value0 : s.To,
+                duration: Animators.DurationToTimeSpan(duration: s.Duration),
+                motion: s.Easing,
+                interpolator: s.Vector.Interpolate);
+            scratchCyclesRemaining = s.Infinite ? s.CyclesRemaining : s.CyclesRemaining - 1;
+            _ = cell.Swap(applyScratch);
+            canvas.ScheduleRedraw();
+            return unit;
+        }
+
+        private Unit Wake() { canvas.ScheduleRedraw(); return unit; }
+    }
+}
