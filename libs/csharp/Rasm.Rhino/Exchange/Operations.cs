@@ -1,8 +1,13 @@
+using System.Drawing.Imaging;
+using System.Globalization;
 using Rasm.Rhino.Commands;
 using Rasm.Rhino.UI;
 using Rhino.Collections;
 using Rhino.DocObjects.Tables;
 using Rhino.FileIO;
+using DetailViewGeometry = Rhino.Geometry.DetailView;
+using DrawingBitmap = System.Drawing.Bitmap;
+using DrawingImageFormat = System.Drawing.Imaging.ImageFormat;
 using IOFileInfo = System.IO.FileInfo;
 
 namespace Rasm.Rhino.Exchange;
@@ -24,63 +29,174 @@ public abstract partial record FileExchange {
     public sealed record ArchiveRead(FileArchiveSource Source, ArchiveProfile Profile) : FileExchange;
     public sealed record ArchiveExtract(FileArchiveSource Source, FileEndpoint Target, ArchiveProfile Profile) : FileExchange;
     public sealed record ArchiveUpdate(FileArchiveSource Source, FileEndpoint Target, Exchange.ArchiveUpdate Update, ArchiveProfile Profile) : FileExchange;
+    public sealed record ArchiveInspect(FileEndpoint Source) : FileExchange;
+    public sealed record ArchiveValidate(FileArchiveSource Source, ArchiveProfile Profile) : FileExchange;
+    public sealed record SheetEdit(FileSheetEdit Edit) : FileExchange;
 }
 
-public abstract record FilePublishTarget {
+[Union(SwitchMapStateParameterName = "ctx")]
+public abstract partial record FilePublishTarget {
     private FilePublishTarget() { }
-    internal abstract Fin<FilePublishResult> Write(Seq<FileSheetPage> pages, bool layers, Op op);
+    public sealed record Pdf(FileEndpoint Target, Option<Func<FilePdf, int, Op, Fin<Unit>>> Annotate = default) : FilePublishTarget;
+    public sealed record Printer(string Name, int Copies = 1) : FilePublishTarget;
+    public sealed record Raster(FileEndpoint Target, FileRasterEncoding Encoding = FileRasterEncoding.Png, long JpegQuality = FileSheetDefaults.DefaultJpegQuality) : FilePublishTarget;
+    public sealed record Svg(FileEndpoint Target) : FilePublishTarget;
 
-    public sealed record Pdf(FileEndpoint Target) : FilePublishTarget {
-        internal override Fin<FilePublishResult> Write(Seq<FileSheetPage> pages, bool layers, Op op) =>
-            from endpoint in Target.WithFormat(format: FileFormat.Pdf).Output(op: op)
-            from pdf in Optional(FilePdf.Create()).ToFin(Fail: op.InvalidResult())
-            from added in pages.TraverseM(page => Add(pdf: pdf, page: page, layers: layers, op: op)).As()
-            from _ in op.Catch(() => { pdf.Write(filename: endpoint.Path); return Fin.Succ(value: unit); })
-            from __ in Optional(new IOFileInfo(fileName: endpoint.Path))
-                .Filter(static info => info.Exists && info.Length > 0)
-                .ToFin(Fail: op.InvalidResult())
-            select new FilePublishResult(
-                Target: Some(endpoint),
-                Format: Some(FileFormat.Pdf),
-                Receipt: DocumentReceipt.Empty);
+    internal Fin<FilePublishResult> Write(Seq<FileSheetPage> pages, bool layers, Op op) =>
+        Switch(
+            (Pages: pages, Layers: layers, Op: op),
+            pdf: static (ctx, target) => WritePdf(target: target, pages: ctx.Pages, layers: ctx.Layers, op: ctx.Op),
+            printer: static (ctx, target) => WritePrinter(target: target, pages: ctx.Pages, op: ctx.Op),
+            raster: static (ctx, target) => WriteRaster(target: target, pages: ctx.Pages, op: ctx.Op),
+            svg: static (ctx, target) => WriteSvg(target: target, pages: ctx.Pages, op: ctx.Op));
 
-        private static Fin<Unit> Add(FilePdf pdf, FileSheetPage page, bool layers, Op op) =>
+    private static Fin<FilePublishResult> WritePdf(Pdf target, Seq<FileSheetPage> pages, bool layers, Op op) =>
+        from endpoint in target.Target.WithFormat(format: FileFormat.Pdf).Output(op: op)
+        from pdf in Optional(FilePdf.Create()).ToFin(Fail: op.InvalidResult())
+        from added in pages.TraverseM(page =>
             from settings in page.Sheet.Settings(page: page.Page, op: op)
-            from added in op.Catch(() => {
+            from index in op.Catch(() => {
                 using ViewCaptureSettings owned = settings;
                 pdf.LayersAsOptionalContentGroups = layers && !owned.RasterMode;
                 return pdf.AddPage(settings: owned) switch {
-                    >= 0 => Fin.Succ(value: unit),
-                    _ => Fin.Fail<Unit>(error: op.InvalidResult()),
+                    int value when value >= 0 => Fin.Succ(value: value),
+                    _ => Fin.Fail<int>(error: op.InvalidResult()),
                 };
             })
-            select added;
-    }
+            from annotated in op.Catch(() => target.Annotate.Map(annotate => annotate(arg1: pdf, arg2: index, arg3: op)).IfNone(Fin.Succ(value: unit)))
+            select unit).As()
+        from _ in op.Catch(() => { pdf.Write(filename: endpoint.Path); return Fin.Succ(value: unit); })
+        from __ in Optional(new IOFileInfo(fileName: endpoint.Path))
+            .Filter(static info => info.Exists && info.Length > 0)
+            .ToFin(Fail: op.InvalidResult())
+        select new FilePublishResult(
+            Target: Some(endpoint),
+            Format: Some(FileFormat.Pdf),
+            Receipt: DocumentReceipt.Empty,
+            Sheets: pages.Map(SheetReportOf));
 
-    public sealed record Printer(string Name, int Copies = 1) : FilePublishTarget {
-        internal override Fin<FilePublishResult> Write(Seq<FileSheetPage> pages, bool layers, Op op) =>
-            from name in FileEndpoint.NonBlank(value: Name, op: op)
-            from copies in Copies switch {
-                > 0 => Fin.Succ(value: Copies),
-                _ => Fin.Fail<int>(error: op.InvalidInput()),
+    private static Fin<FilePublishResult> WritePrinter(Printer target, Seq<FileSheetPage> pages, Op op) =>
+        from name in FileEndpoint.NonBlank(value: target.Name, op: op)
+        from copies in target.Copies switch {
+            > 0 => Fin.Succ(value: target.Copies),
+            _ => Fin.Fail<int>(error: op.InvalidInput()),
+        }
+        from settings in pages.TraverseM(page => page.Sheet.Settings(page: page.Page, op: op)).As()
+        from result in op.Catch(() => {
+            ViewCaptureSettings[] captures = [.. settings];
+            try {
+                return op.Confirm(success: ViewCapture.SendToPrinter(printerName: name, settings: captures, copies: copies))
+                    .Map(_ => new FilePublishResult(
+                        Target: Option<FileEndpoint>.None,
+                        Format: Option<FileFormat>.None,
+                        Receipt: DocumentReceipt.Empty,
+                        Sheets: pages.Map(SheetReportOf),
+                        NativeLog: Some(string.Create(CultureInfo.InvariantCulture, $"printer:{name};copies:{copies};sheets:{pages.Count}"))));
+            } finally {
+                _ = toSeq(captures).Iter(static settings => settings.Dispose());
             }
-            from settings in pages.TraverseM(page => page.Sheet.Settings(page: page.Page, op: op)).As()
-            from result in op.Catch(() => {
-                ViewCaptureSettings[] captures = [.. settings];
-                try {
-                    return op.Confirm(success: ViewCapture.SendToPrinter(printerName: name, settings: captures, copies: copies))
-                        .Map(_ => new FilePublishResult(
-                            Target: Option<FileEndpoint>.None,
-                            Format: Option<FileFormat>.None,
-                            Receipt: DocumentReceipt.Empty,
-                            NativeLog: Some($"printer:{name};copies:{copies};sheets:{pages.Count}")));
-                } finally {
-                    _ = toSeq(captures).Iter(static settings => settings.Dispose());
-                }
-            })
-            select result;
-    }
+        })
+        select result;
 
+    private static Fin<FilePublishResult> WriteRaster(Raster target, Seq<FileSheetPage> pages, Op op) =>
+        from extension in RasterFormat(encoding: target.Encoding, op: op)
+        from imageFormat in RasterImageFormat(encoding: target.Encoding, op: op)
+        from endpoint in target.Target.WithFormat(format: extension).Output(op: op)
+        from written in pages.Map((page, index) => (Index: index, Page: page))
+            .TraverseM(item =>
+                from settings in item.Page.Sheet.Settings(page: item.Page.Page, op: op)
+                from rendered in op.Catch(() => {
+                    using ViewCaptureSettings owned = settings;
+                    DrawingBitmap? bitmap = ViewCapture.CaptureToBitmap(settings: owned);
+                    try {
+                        string path = pages.Count == 1 ? endpoint.Path : NumberedSibling(path: endpoint.Path, index: item.Index, extension: extension.Extensions[0]);
+                        return Optional(bitmap)
+                            .ToFin(Fail: op.InvalidResult())
+                            .Bind(active => SaveBitmap(bitmap: active, format: imageFormat, path: path, jpegQuality: target.JpegQuality, op: op));
+                    } finally {
+                        bitmap?.Dispose();
+                    }
+                })
+                select rendered).As()
+        select new FilePublishResult(
+            Target: Some(endpoint),
+            Format: Some(extension),
+            Receipt: DocumentReceipt.Empty,
+            Sheets: pages.Map(SheetReportOf),
+            NativeLog: Some(string.Create(CultureInfo.InvariantCulture, $"raster:{target.Encoding};quality:{target.JpegQuality};sheets:{pages.Count}")));
+
+    private static Fin<FilePublishResult> WriteSvg(Svg target, Seq<FileSheetPage> pages, Op op) =>
+        from endpoint in target.Target.WithFormat(format: FileFormat.Svg).Output(op: op)
+        from written in pages.Map((page, index) => (Index: index, Page: page))
+            .TraverseM(item =>
+                from settings in item.Page.Sheet.Settings(page: item.Page.Page, op: op)
+                from rendered in op.Catch(() => {
+                    using ViewCaptureSettings owned = settings;
+                    string path = pages.Count == 1 ? endpoint.Path : NumberedSibling(path: endpoint.Path, index: item.Index, extension: ".svg");
+                    return Optional(ViewCapture.CaptureToSvg(settings: owned))
+                        .ToFin(Fail: op.InvalidResult())
+                        .Bind(document => op.Catch(() => {
+                            document.Save(filename: path);
+                            return Optional(new IOFileInfo(fileName: path)).Filter(static info => info.Exists && info.Length > 0).Map(static _ => unit).ToFin(Fail: op.InvalidResult());
+                        }));
+                })
+                select rendered).As()
+        select new FilePublishResult(
+            Target: Some(endpoint),
+            Format: Some(FileFormat.Svg),
+            Receipt: DocumentReceipt.Empty,
+            Sheets: pages.Map(SheetReportOf),
+            NativeLog: Some(string.Create(CultureInfo.InvariantCulture, $"svg;sheets:{pages.Count}")));
+
+    private static Fin<FileFormat> RasterFormat(FileRasterEncoding encoding, Op op) =>
+        encoding switch {
+            FileRasterEncoding.Png => Fin.Succ(value: FileFormat.Png),
+            FileRasterEncoding.Jpeg => Fin.Succ(value: FileFormat.Jpeg),
+            FileRasterEncoding.Tiff => Fin.Succ(value: FileFormat.Tiff),
+            FileRasterEncoding.Bitmap => Fin.Succ(value: FileFormat.Bmp),
+            _ => Fin.Fail<FileFormat>(error: op.InvalidInput()),
+        };
+
+    private static Fin<DrawingImageFormat> RasterImageFormat(FileRasterEncoding encoding, Op op) =>
+        encoding switch {
+            FileRasterEncoding.Png => Fin.Succ(value: DrawingImageFormat.Png),
+            FileRasterEncoding.Jpeg => Fin.Succ(value: DrawingImageFormat.Jpeg),
+            FileRasterEncoding.Tiff => Fin.Succ(value: DrawingImageFormat.Tiff),
+            FileRasterEncoding.Bitmap => Fin.Succ(value: DrawingImageFormat.Bmp),
+            _ => Fin.Fail<DrawingImageFormat>(error: op.InvalidInput()),
+        };
+
+    private static Fin<Unit> SaveBitmap(DrawingBitmap bitmap, DrawingImageFormat format, string path, long jpegQuality, Op op) =>
+        op.Catch(() => {
+            ImageCodecInfo? jpegEncoder = format.Guid == DrawingImageFormat.Jpeg.Guid
+                ? toSeq(ImageCodecInfo.GetImageEncoders()).Find(static codec => codec.FormatID == DrawingImageFormat.Jpeg.Guid).Case as ImageCodecInfo
+                : null;
+            _ = jpegEncoder switch {
+                ImageCodecInfo encoder => Op.Side(() => {
+                    using EncoderParameters parameters = new(1);
+                    parameters.Param[0] = new EncoderParameter(Encoder.Quality, jpegQuality);
+                    bitmap.Save(filename: path, encoder: encoder, encoderParams: parameters);
+                }),
+                _ => Op.Side(() => bitmap.Save(filename: path, format: format)),
+            };
+            return Optional(new IOFileInfo(fileName: path))
+                .Filter(static info => info.Exists && info.Length > 0)
+                .Map(static _ => unit)
+                .ToFin(Fail: op.InvalidResult());
+        });
+
+    private static string NumberedSibling(string path, int index, string extension) =>
+        Path.Combine(
+            path1: Path.GetDirectoryName(path: path) ?? string.Empty,
+            path2: string.Create(CultureInfo.InvariantCulture, $"{Path.GetFileNameWithoutExtension(path: path)}-{index + 1:000}{extension}"));
+
+    private static FileSheetReport SheetReportOf(FileSheetPage entry) {
+        DetailViewObject[] details = entry.Page.GetDetailViews() ?? [];
+        Option<string> scale = details.Length > 0 && details[0].GetFormattedScale(format: DetailViewObject.ScaleFormat.OneToModelLength, out string formatted)
+            ? Some(formatted)
+            : Option<string>.None;
+        return new FileSheetReport(PageName: entry.Page.PageName, Scale: scale, DetailCount: details.Length);
+    }
 }
 
 [Union(SwitchMapStateParameterName = "state")]
@@ -132,6 +248,25 @@ internal abstract partial record HeadlessExchange {
     public sealed record Open(FileEndpoint Source, FileProfile Profile) : HeadlessExchange;
 }
 
+public sealed record FileWatch(
+    Option<Action<DocumentOpenEventArgs>> OnBeginOpen = default,
+    Option<Action<DocumentOpenEventArgs>> OnEndOpen = default,
+    Option<Action<DocumentSaveEventArgs>> OnBeginSave = default,
+    Option<Action<DocumentSaveEventArgs>> OnEndSave = default,
+    Option<Action<DocumentEventArgs>> OnClose = default,
+    Option<Action<DocumentEventArgs>> OnNew = default);
+
+public sealed record FilePlugInRegistration(
+    string Key,
+    string DisplayName,
+    Seq<string> Extensions,
+    FileCapability Capability,
+    Func<RhinoDoc, FileEndpoint, FileProfile, Op, Fin<Unit>> Read,
+    Func<RhinoDoc, FileEndpoint, FileProfile, Op, Fin<Unit>> Write) {
+    internal Fin<FileFormat> Register() =>
+        FileFormat.Custom(key: Key, extensions: Extensions, capability: Capability);
+}
+
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class FileOp {
     internal static Eff<FileRuntime, T> Lift<T>(Func<FileRuntime, Fin<T>> run) =>
@@ -157,29 +292,36 @@ public static class FileOp {
                 namedLayerState: static (runtime, state) => NamedLayerStateCore(runtime: runtime, change: state.Change),
                 archiveRead: static (_, archive) => FileArchiveOps.Read(source: archive.Source, profile: archive.Profile),
                 archiveExtract: static (_, archive) => FileArchiveOps.Extract(source: archive.Source, target: archive.Target, profile: archive.Profile),
-                archiveUpdate: static (_, archive) => FileArchiveOps.Update(source: archive.Source, target: archive.Target, update: archive.Update, profile: archive.Profile))
+                archiveUpdate: static (_, archive) => FileArchiveOps.Update(source: archive.Source, target: archive.Target, update: archive.Update, profile: archive.Profile),
+                archiveInspect: static (_, archive) => FileArchiveOps.Inspect(source: archive.Source).Map(metadata => FileReport.Of(
+                    phase: FilePhase.ArchiveInspect,
+                    source: Some(archive.Source),
+                    archive: Some(new FileArchive(Source: new FileArchiveSource.Path(Value: archive.Source), Metadata: metadata, Resources: default, Objects: Seq<FileObjectManifest>())))),
+                archiveValidate: static (_, archive) => FileArchiveOps.Validate(source: archive.Source, profile: archive.Profile),
+                sheetEdit: static (runtime, sheet) => SheetEditCore(runtime: runtime, edit: sheet.Edit))
             select result);
 
     public static Eff<FileRuntime, byte[]> ArchiveBytes(FileArchiveSource source, ArchiveProfile profile) =>
         Lift(run: _ => FileArchiveOps.Bytes(source: source, profile: profile));
 
     public static Eff<FileRuntime, FileReport> Batch(Seq<Eff<FileRuntime, FileReport>> items, FileBatchPolicy policy) =>
-        Lift(run: runtime => BatchOps(runtime: runtime, items: items, policy: policy));
+        Lift(run: runtime => items switch {
+            Seq<Eff<FileRuntime, FileReport>> values when !values.IsEmpty => values.TraverseM(operation =>
+                operation.Run(runtime).BindFail(error => policy.ContinueOnError switch {
+                    true => Fin.Succ(value: FileReport.Empty(phase: FilePhase.Batch) with { Issues = Seq(FileIssue.Of(code: FileIssueCode.BatchFailure, message: error.Message)) }),
+                    false => Fin.Fail<FileReport>(error: error),
+                })).As().Map(reports => FileReport.Of(phase: FilePhase.Batch, issues: reports.Bind(static report => report.Issues), children: reports)),
+            _ => Fin.Fail<FileReport>(error: Op.Of(name: nameof(Batch)).InvalidInput()),
+        });
 
     public static Eff<FileRuntime, T> Headless<T>(Eff<FileRuntime, T> body) =>
-        Headless(scope: new HeadlessExchange.Create(), body: body);
+        HeadlessOp(scope: new HeadlessExchange.Create(), body: body);
 
     public static Eff<FileRuntime, T> Headless<T>(FileEndpoint source, FileProfile profile, Eff<FileRuntime, T> body) =>
-        Headless(scope: new HeadlessExchange.Open(Source: source, Profile: profile), body: body);
+        HeadlessOp(scope: new HeadlessExchange.Open(Source: source, Profile: profile), body: body);
 
     public static Eff<FileRuntime, T> HeadlessTemplate<T>(FileEndpoint template, Eff<FileRuntime, T> body) =>
-        Headless(scope: new HeadlessExchange.CreateFromTemplate(Template: template), body: body);
-
-    internal static Eff<FileRuntime, T> Headless<T>(HeadlessExchange scope, Eff<FileRuntime, T> body) =>
-        Lift(run: runtime =>
-            from active in Optional(scope).ToFin(Fail: Op.Of(name: nameof(Headless)).InvalidInput())
-            from result in HeadlessScope(scope: active, body: body)
-            select result);
+        HeadlessOp(scope: new HeadlessExchange.CreateFromTemplate(Template: template), body: body);
 
     public static Eff<FileRuntime, Seq<FileEndpoint>> Prompt(FilePrompt prompt) =>
         Lift(run: runtime =>
@@ -187,6 +329,17 @@ public static class FileOp {
             from ui in runtime.Ui.ToFin(Fail: Op.Of(name: nameof(Prompt)).MissingContext())
             from result in ui.Use(intent: UiIntent.ExchangeFile(prompt: active))
             select result);
+
+    public static Eff<FileRuntime, IDisposable> Subscribe(FileWatch watch) =>
+        Lift(run: _ => FileWatchSubscription.Of(watch: watch));
+
+    public static Fin<FileFormat> Register(FilePlugInRegistration registration) =>
+        from active in Optional(registration).ToFin(Fail: Op.Of(name: nameof(Register)).InvalidInput())
+        from format in active.Register()
+        select format;
+
+    internal static Eff<FileRuntime, T> HeadlessOp<T>(HeadlessExchange scope, Eff<FileRuntime, T> body) =>
+        Lift(run: _ => HeadlessScope(scope: scope, body: body));
 
     private static Fin<FileReport> OpenCore(FileEndpoint source, FileProfile profile) =>
         from endpoint in source.Input(op: Op.Of(name: nameof(FileExchange.Open)))
@@ -201,7 +354,7 @@ public static class FileOp {
                     source: Some(endpoint),
                     target: Option<FileEndpoint>.None,
                     format: Some(format),
-                    issues: wasAlreadyOpen ? Seq(new FileIssue(Code: "already-open", Message: "Document was already open.")) : Seq<FileIssue>()));
+                    issues: wasAlreadyOpen ? Seq(FileIssue.Of(code: FileIssueCode.AlreadyOpen, message: "Document was already open.")) : Seq<FileIssue>()));
         })
         select report;
 
@@ -234,14 +387,12 @@ public static class FileOp {
 
     private static Fin<FileReport> WriteCore(FileRuntime runtime, Option<FileEndpoint> target, FileProfile profile, FilePhase phase) =>
         from live in Live(runtime: runtime, op: Op.Of(name: nameof(WriteCore)))
-        from endpoint in WriteEndpoint(target: target, phase: phase)
+        from endpoint in WriteEndpoint(target: target, phase: phase, op: Op.Of(name: nameof(WriteCore)))
         from receipt in live.Edit.Commit(
-            name: phase.ToString(),
+            name: nameof(WriteCore),
             redraw: DocumentRedraw.None,
             undoRecorded: false,
-            run: (document, _, op) =>
-                FileFormatProjection.Write(document: document, target: endpoint, profile: profile, phase: phase, selected: false, op: op)
-                    .Map(static _ => DocumentReceipt.Empty))
+            run: (document, _, inner) => FileFormatProjection.Write(document: document, target: endpoint, profile: profile, phase: phase, selected: false, op: inner).Map(static _ => DocumentReceipt.Empty))
         select FileReport.Of(
             phase: phase,
             target: endpoint,
@@ -251,25 +402,47 @@ public static class FileOp {
             },
             receipt: Some(receipt));
 
-    private static Fin<Option<FileEndpoint>> WriteEndpoint(Option<FileEndpoint> target, FilePhase phase) =>
-        phase switch {
-            FilePhase.Save => Fin.Succ(Option<FileEndpoint>.None),
-            FilePhase.SaveAs or FilePhase.Write3dmFile or FilePhase.SaveTemplate =>
-                target.ToFin(Fail: Op.Of(name: nameof(WriteEndpoint)).InvalidInput())
-                    .Bind(endpoint => endpoint.WithFormat(format: FileFormat.ThreeDm).Output(op: Op.Of(name: nameof(WriteEndpoint))))
-                    .Map(Some),
-            _ => target.ToFin(Fail: Op.Of(name: nameof(WriteEndpoint)).InvalidInput())
-                .Bind(endpoint => endpoint.Output(op: Op.Of(name: nameof(WriteEndpoint))))
-                .Map(Some),
-        };
+    private static Fin<Option<FileEndpoint>> WriteEndpoint(Option<FileEndpoint> target, FilePhase phase, Op op) =>
+        phase == FilePhase.Save ? Fin.Succ(Option<FileEndpoint>.None)
+        : (phase == FilePhase.SaveAs || phase == FilePhase.Write3dmFile || phase == FilePhase.SaveTemplate)
+            ? target.ToFin(Fail: op.InvalidInput())
+                .Bind(endpoint => endpoint.WithFormat(format: FileFormat.ThreeDm).Output(op: op))
+                .Map(Some)
+            : target.ToFin(Fail: op.InvalidInput()).Bind(endpoint => endpoint.Output(op: op)).Map(Some);
 
-    private static Fin<FileReport> PublishCore(FileRuntime runtime, FilePublish publish) =>
-        from live in Live(runtime: runtime, op: Op.Of(name: nameof(FileExchange.Publish)))
-        from active in Optional(publish).ToFin(Fail: Op.Of(name: nameof(FileExchange.Publish)).InvalidInput())
-        from target in Optional(active.Target).ToFin(Fail: Op.Of(name: nameof(FileExchange.Publish)).InvalidInput())
-        from sheets in SheetPages(document: live.Document, publish: active, op: Op.Of(name: nameof(FileExchange.Publish)))
-        from result in RhinoUi.Protect(valid: () => target.Write(pages: sheets, layers: active.Layers, op: Op.Of(name: nameof(FileExchange.Publish))))
-        select FileReport.Of(phase: FilePhase.Publish, target: result.Target, format: result.Format, issues: result.Issues, nativeLog: result.NativeLog, receipt: Some(result.Receipt));
+    private static Fin<FileReport> PublishCore(FileRuntime runtime, FilePublish publish) {
+        Op op = Op.Of(name: nameof(FileExchange.Publish));
+        return from live in Live(runtime: runtime, op: op)
+               from active in Optional(publish).ToFin(Fail: op.InvalidInput())
+               from target in Optional(active.Target).ToFin(Fail: op.InvalidInput())
+               from views in Optional(toSeq(live.Document.Views.GetPageViews()))
+                   .Filter(static pages => !pages.IsEmpty)
+                   .ToFin(Fail: op.InvalidInput())
+               let sheets = active.Sheets.IsEmpty ? views.Map(static page => new FileSheet(Id: Some(page.MainViewport.Id))) : active.Sheets
+               from pages in sheets.TraverseM(sheet => MatchSheet(document: live.Document, views: views, sheet: sheet, op: op)).As().Map(static groups => groups.Bind(static items => items))
+               from _ in guard(!pages.IsEmpty, op.InvalidInput())
+               from result in RhinoUi.Protect(valid: () => target.Write(pages: pages, layers: active.Layers, op: op))
+               select FileReport.Of(phase: FilePhase.Publish, target: result.Target, format: result.Format, issues: result.Issues, nativeLog: result.NativeLog, receipt: Some(result.Receipt), sheets: result.Sheets);
+    }
+
+    private static Fin<Seq<FileSheetPage>> MatchSheet(RhinoDoc document, Seq<RhinoPageView> views, FileSheet sheet, Op op) {
+        Option<int> groupIndex = sheet.Group.Bind(name => Optional(document.PageViewGroups.FindName(name: name)).Map(static active => active.Index));
+        bool filterless = sheet.Id.IsNone && sheet.Name.IsNone && sheet.Group.IsNone && sheet.Predicate.IsNone;
+        Seq<FileSheetPage> matches = (sheet.Group.Case, groupIndex.Case, filterless) switch {
+            (string, not int, _) => Seq<FileSheetPage>(),
+            (_, _, true) => views.Head.Map(page => new FileSheetPage(Page: page, Sheet: sheet)).ToSeq(),
+            _ => views
+                .Filter(page =>
+                    sheet.Id.Map(id => page.MainViewport.Id == id).IfNone(noneValue: true)
+                    && sheet.Name.Map(name => string.Equals(a: page.PageName, b: name, comparisonType: StringComparison.OrdinalIgnoreCase)).IfNone(noneValue: true)
+                    && groupIndex.Map(index => page.IsInPageViewGroup(pageViewGroupIndex: index)).IfNone(noneValue: true)
+                    && sheet.Predicate.Map(predicate => predicate(arg: page)).IfNone(noneValue: true))
+                .Map(page => new FileSheetPage(Page: page, Sheet: sheet)),
+        };
+        return matches.IsEmpty
+            ? Fin.Fail<Seq<FileSheetPage>>(error: op.InvalidInput())
+            : Fin.Succ(value: matches);
+    }
 
     private static Fin<FileReport> NamedLayerStateCore(FileRuntime runtime, FileLayerState change) =>
         from live in Live(runtime: runtime, op: Op.Of(name: nameof(FileExchange.NamedLayerState)))
@@ -283,49 +456,21 @@ public static class FileOp {
                     .Map(static changed => DocumentReceipt.Empty with { ResourceChanged = Seq(changed) }))
         select FileReport.Of(phase: FilePhase.NamedLayerState, receipt: Some(receipt));
 
-    private static Fin<Seq<FileSheetPage>> SheetPages(RhinoDoc document, FilePublish publish, Op op) =>
-        from views in Optional(toSeq(document.Views.GetPageViews()))
-            .Filter(static pages => !pages.IsEmpty)
-            .ToFin(Fail: op.InvalidInput())
-        let sheets = publish.Sheets.IsEmpty ? views.Map(static page => new FileSheet(Id: Some(page.MainViewport.Id))) : publish.Sheets
-        from pages in sheets.TraverseM(sheet =>
-                SheetMatches(document: document, views: views, sheet: sheet) switch {
-                    Seq<FileSheetPage> matches when !matches.IsEmpty => Fin.Succ(value: matches),
-                    _ => Fin.Fail<Seq<FileSheetPage>>(error: op.InvalidInput()),
-                })
-            .As()
-            .Map(static groups => groups.Bind(static items => items))
-        from _ in guard(!pages.IsEmpty, op.InvalidInput())
-        select pages;
-
-    private static Seq<FileSheetPage> SheetMatches(RhinoDoc document, Seq<RhinoPageView> views, FileSheet sheet) {
-        Option<int> group = sheet.Group.Bind(name => Optional(document.PageViewGroups.FindName(name: name)).Map(static active => active.Index));
-        return (sheet.Id.Case, sheet.Name.Case, sheet.Group.Case, group.Case) switch {
-            (_, _, string, not int) => Seq<FileSheetPage>(),
-            (not Guid, not string, not string, _) => views.Head.Map(page => new FileSheetPage(Page: page, Sheet: sheet)).ToSeq(),
-            _ => views
-                .Filter(page =>
-                    sheet.Id.Map(id => page.MainViewport.Id == id).IfNone(true)
-                    && sheet.Name.Map(name => string.Equals(a: page.PageName, b: name, comparisonType: StringComparison.OrdinalIgnoreCase)).IfNone(true)
-                    && group.Map(index => page.IsInPageViewGroup(pageViewGroupIndex: index)).IfNone(true))
-                .Map(page => new FileSheetPage(Page: page, Sheet: sheet)),
-        };
-    }
-
-    private static Fin<FileReport> BatchOps(FileRuntime runtime, Seq<Eff<FileRuntime, FileReport>> items, FileBatchPolicy policy) =>
-        items switch {
-            Seq<Eff<FileRuntime, FileReport>> values when !values.IsEmpty => values.TraverseM(operation =>
-                operation.Run(runtime).BindFail(error => policy.ContinueOnError switch {
-                    true => Fin.Succ(value: FileReport.Empty(phase: FilePhase.Batch) with { Issues = Seq(new FileIssue(Code: error.Category(), Message: error.Message)) }),
-                    false => Fin.Fail<FileReport>(error: error),
-                })).As().Map(reports => FileReport.Of(phase: FilePhase.Batch, issues: reports.Bind(static report => report.Issues), children: reports)),
-            _ => Fin.Fail<FileReport>(error: Op.Of(name: nameof(Batch)).InvalidInput()),
-        };
+    private static Fin<FileReport> SheetEditCore(FileRuntime runtime, FileSheetEdit edit) =>
+        from live in Live(runtime: runtime, op: Op.Of(name: nameof(FileExchange.SheetEdit)))
+        from active in Optional(edit).ToFin(Fail: Op.Of(name: nameof(FileExchange.SheetEdit)).InvalidInput())
+        from receipt in live.Edit.Commit(
+            name: nameof(FileExchange.SheetEdit),
+            redraw: DocumentRedraw.After,
+            undoRecorded: true,
+            run: (document, _, op) => SheetEditOps.Apply(document: document, edit: active, op: op))
+        select FileReport.Of(phase: FilePhase.SheetEdit, receipt: Some(receipt));
 
     private static Fin<T> HeadlessScope<T>(HeadlessExchange scope, Eff<FileRuntime, T> body) =>
         Op.Of(name: nameof(Headless)).Catch(() => {
             RhinoDoc? headless = null;
             try {
+                // BOUNDARY ADAPTER — RhinoDoc is disposable resource owning native handle
                 Fin<RhinoDoc> opened = scope.Switch(
                     create: static _ =>
                         Optional(RhinoDoc.CreateHeadless(file3dmTemplatePath: null)).ToFin(Fail: Op.Of(name: nameof(Headless)).InvalidResult()),
@@ -357,37 +502,214 @@ public static class FileOp {
         });
 
     private static Fin<DocumentReceipt> ExportTarget(RhinoDoc document, DocumentTarget target, FileEndpoint endpoint, FileProfile profile, Op op) =>
-        op.Catch(() => {
-            Seq<Guid> before = Seq<Guid>();
-            Fin<DocumentReceipt> result = Fin.Fail<DocumentReceipt>(error: op.InvalidResult());
-            // BOUNDARY ADAPTER — export selected mutates Rhino selection temporarily and must restore it.
+        // BOUNDARY ADAPTER — export selected mutates Rhino selection temporarily and must restore it.
+        op.Catch(() => DocumentEdit.SelectedIds(document: document, op: op).Bind(before => {
             try {
-                result =
-                    from selected in DocumentEdit.SelectedIds(document: document, op: op)
-                    let capture = ((Func<Seq<Guid>, Unit>)(ids => { before = ids; return unit; }))(selected)
-                    from ids in target.Ids(document: document, op: op)
-                    from _ in op.Confirm(success: document.Objects.UnselectAll(ignorePersistentSelections: false) >= 0)
-                    from __ in document.Objects.SetSelectedObjects(objectIds: ids.AsIterable(), syncHighlight: true, persistentSelect: false, ignoreGripsState: true, ignoreLayerLocking: false, ignoreLayerVisibility: false) switch {
-                        int count when count == ids.Count => Fin.Succ(value: unit),
-                        _ => Fin.Fail<Unit>(error: op.InvalidResult()),
-                    }
-                    from ___ in DocumentEdit.SelectedIds(document: document, op: op).Bind(active => active.OrderBy(static id => id).AsIterable().SequenceEqual(second: ids.OrderBy(static id => id).AsIterable()) ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: op.InvalidResult()))
-                    from ____ in FileFormatProjection.Write(document: document, target: Some(endpoint), profile: profile, phase: FilePhase.Export, selected: true, op: op)
-                    select DocumentReceipt.Empty with { Selected = ids };
+                return from ids in target.Ids(document: document, op: op)
+                       from _ in op.Confirm(success: document.Objects.UnselectAll(ignorePersistentSelections: false) >= 0)
+                       from __ in document.Objects.SetSelectedObjects(objectIds: ids.AsIterable(), syncHighlight: true, persistentSelect: false, ignoreGripsState: true, ignoreLayerLocking: false, ignoreLayerVisibility: false) switch {
+                           int count when count == ids.Count => Fin.Succ(value: unit),
+                           _ => Fin.Fail<Unit>(error: op.InvalidResult()),
+                       }
+                       from ___ in DocumentEdit.SelectedIds(document: document, op: op).Bind(active => active.Order().AsIterable().SequenceEqual(second: ids.Order().AsIterable()) ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: op.InvalidResult()))
+                       from ____ in FileFormatProjection.Write(document: document, target: Some(endpoint), profile: profile, phase: FilePhase.Export, selected: true, op: op)
+                       select DocumentReceipt.Empty with { Selected = ids };
             } finally {
                 _ = document.Objects.UnselectAll(ignorePersistentSelections: false);
-                _ = before.IsEmpty switch {
-                    true => 0,
-                    false => document.Objects.SetSelectedObjects(objectIds: before.AsIterable(), syncHighlight: true, persistentSelect: true, ignoreGripsState: true, ignoreLayerLocking: false, ignoreLayerVisibility: false),
-                };
+                _ = before.IsEmpty
+                    ? 0
+                    : document.Objects.SetSelectedObjects(objectIds: before.AsIterable(), syncHighlight: true, persistentSelect: true, ignoreGripsState: true, ignoreLayerLocking: false, ignoreLayerVisibility: false);
             }
-            return result;
-        });
+        }));
 
     private static Fin<(RhinoDoc Document, Context Domain, DocumentEdit Edit)> Live(FileRuntime runtime, Op op) =>
         (runtime.Document.Case, runtime.Domain.Case, runtime.Edit.Case) switch {
             (RhinoDoc document, Context domain, DocumentEdit edit) => Fin.Succ(value: (document, domain, edit)),
             _ => Fin.Fail<(RhinoDoc Document, Context Domain, DocumentEdit Edit)>(error: op.MissingContext()),
         };
+}
 
+// --- [COMPOSITION] ------------------------------------------------------------------------
+internal static class SheetEditOps {
+    internal static Fin<DocumentReceipt> Apply(RhinoDoc document, FileSheetEdit edit, Op op) =>
+        edit.Switch(
+            (Document: document, Op: op),
+            create: static (ctx, edit) => CreateSheet(document: ctx.Document, spec: edit.Spec, op: ctx.Op),
+            remove: static (ctx, edit) => RemoveSheet(document: ctx.Document, sheetName: edit.SheetName, op: ctx.Op),
+            duplicate: static (ctx, edit) => DuplicateSheet(document: ctx.Document, sheetName: edit.SheetName, withGeometry: edit.WithGeometry, op: ctx.Op),
+            rename: static (ctx, edit) => RenameSheet(document: ctx.Document, sheetName: edit.SheetName, newName: edit.NewName, op: ctx.Op),
+            addDetail: static (ctx, edit) => AddDetail(document: ctx.Document, sheetName: edit.SheetName, spec: edit.Spec, op: ctx.Op),
+            removeDetail: static (ctx, edit) => RemoveDetail(document: ctx.Document, sheetName: edit.SheetName, detailName: edit.DetailName, op: ctx.Op),
+            activateDetail: static (ctx, edit) => ActivateDetail(document: ctx.Document, sheetName: edit.SheetName, detailName: edit.DetailName, op: ctx.Op),
+            layerOverride: static (ctx, edit) => ApplyLayerOverride(document: ctx.Document, sheetName: edit.SheetName, detailName: edit.DetailName, layerPath: edit.LayerPath, color: edit.Color, visible: edit.Visible, op: ctx.Op),
+            clippingOverride: static (ctx, edit) => ApplyClippingOverride(document: ctx.Document, sheetName: edit.SheetName, detailName: edit.DetailName, box: edit.Box, op: ctx.Op));
+
+    private static Fin<DocumentReceipt> CreateSheet(RhinoDoc document, FileSheetSpec spec, Op op) =>
+        from name in FileEndpoint.NonBlank(value: spec.Name, op: op)
+        from page in op.Catch(() => {
+            RhinoPageView? created = (spec.WidthMillimeters.Case, spec.HeightMillimeters.Case) switch {
+                (double width, double height) => document.Views.AddPageView(title: name, pageWidth: width, pageHeight: height),
+                _ => document.Views.AddPageView(title: name),
+            };
+            return Optional(created).ToFin(Fail: op.InvalidResult());
+        })
+        from _ in op.Catch(() => {
+            _ = spec.Group.Case switch {
+                string groupName => document.PageViewGroups.FindName(name: groupName) switch {
+                    PageViewGroup => 0,
+                    _ => document.PageViewGroups.Add(groupMembers: Seq(page).AsIterable()),
+                },
+                _ => 0,
+            };
+            return Fin.Succ(value: unit);
+        })
+        select DocumentReceipt.Empty with {
+            Created = Seq(page.MainViewport.Id),
+            ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: name)),
+        };
+
+    private static Fin<DocumentReceipt> RemoveSheet(RhinoDoc document, string sheetName, Op op) =>
+        from page in ResolveSheet(document: document, name: sheetName, op: op)
+        let pageId = page.MainViewport.Id
+        from _ in op.Confirm(success: page.Close())
+        select DocumentReceipt.Empty with {
+            Deleted = Seq(pageId),
+            ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: sheetName)),
+        };
+
+    private static Fin<DocumentReceipt> DuplicateSheet(RhinoDoc document, string sheetName, bool withGeometry, Op op) =>
+        from page in ResolveSheet(document: document, name: sheetName, op: op)
+        from copy in Optional(page.Duplicate(duplicatePageGeometry: withGeometry)).ToFin(Fail: op.InvalidResult())
+        select DocumentReceipt.Empty with {
+            Created = Seq(copy.MainViewport.Id),
+            ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: copy.PageName)),
+        };
+
+    private static Fin<DocumentReceipt> RenameSheet(RhinoDoc document, string sheetName, string newName, Op op) =>
+        from page in ResolveSheet(document: document, name: sheetName, op: op)
+        from name in FileEndpoint.NonBlank(value: newName, op: op)
+        from _ in op.Catch(() => { page.PageName = name; return Fin.Succ(value: unit); })
+        select DocumentReceipt.Empty with {
+            AttributeChanged = Seq(page.MainViewport.Id),
+            ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: name)),
+        };
+
+    private static Fin<DocumentReceipt> AddDetail(RhinoDoc document, string sheetName, FileDetailSpec spec, Op op) =>
+        from page in ResolveSheet(document: document, name: sheetName, op: op)
+        from name in FileEndpoint.NonBlank(value: spec.Name, op: op)
+        from detail in Optional(page.AddDetailView(title: name, corner0: spec.Corner, corner1: spec.Opposite, initialProjection: spec.Projection)).ToFin(Fail: op.InvalidResult())
+        from _ in op.Catch(() => {
+            _ = detail.DetailGeometry switch {
+                DetailViewGeometry geometry => Op.Side(() => geometry.IsProjectionLocked = spec.ProjectionLocked),
+                _ => unit,
+            };
+            _ = spec.DisplayMode.Iter(id => Optional(DisplayModeDescription.GetDisplayMode(id: id)).Iter(mode => detail.Viewport.DisplayMode = mode));
+            _ = detail.CommitViewportChanges();
+            return Fin.Succ(value: unit);
+        })
+        select DocumentReceipt.Empty with {
+            Created = Seq(detail.Id),
+            ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: name)),
+        };
+
+    private static Fin<DocumentReceipt> RemoveDetail(RhinoDoc document, string sheetName, string detailName, Op op) =>
+        from page in ResolveSheet(document: document, name: sheetName, op: op)
+        from name in FileEndpoint.NonBlank(value: detailName, op: op)
+        from detail in ResolveDetail(page: page, name: name, op: op)
+        let detailId = detail.Id
+        from _ in op.Confirm(success: document.Objects.Delete(obj: detail, quiet: true))
+        select DocumentReceipt.Empty with {
+            Deleted = Seq(detailId),
+            ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: name)),
+        };
+
+    private static Fin<DocumentReceipt> ActivateDetail(RhinoDoc document, string sheetName, Option<string> detailName, Op op) =>
+        from page in ResolveSheet(document: document, name: sheetName, op: op)
+        from target in detailName.Case switch {
+            string name => ResolveDetail(page: page, name: name, op: op).Bind(detail =>
+                op.Catch(() => { detail.IsActive = true; return Fin.Succ(value: Some(detail.Id)); })),
+            _ => op.Catch(() => { page.SetPageAsActive(); return Fin.Succ(value: Option<Guid>.None); }),
+        }
+        select DocumentReceipt.Empty with {
+            AttributeChanged = target.Map(Seq).IfNone(Seq(page.MainViewport.Id)),
+            ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: detailName.IfNone(sheetName))),
+        };
+
+    private static Fin<DocumentReceipt> ApplyLayerOverride(RhinoDoc document, string sheetName, string detailName, string layerPath, Option<System.Drawing.Color> color, Option<bool> visible, Op op) =>
+        from page in ResolveSheet(document: document, name: sheetName, op: op)
+        from name in FileEndpoint.NonBlank(value: detailName, op: op)
+        from path in FileEndpoint.NonBlank(value: layerPath, op: op)
+        from detail in ResolveDetail(page: page, name: name, op: op)
+        from layer in ResolveLayer(document: document, path: path, op: op)
+        from _ in op.Catch(() => {
+            Guid viewportId = detail.Viewport.Id;
+            _ = color.Iter(value => layer.SetPerViewportColor(viewportId: viewportId, color: value));
+            _ = visible.Iter(value => layer.SetPerViewportVisible(viewportId: viewportId, visible: value));
+            _ = detail.CommitViewportChanges();
+            return Fin.Succ(value: unit);
+        })
+        select DocumentReceipt.Empty with {
+            AttributeChanged = Seq(detail.Id),
+            ResourceChanged = Seq(
+                new DocumentResourceChange(Kind: DocumentResourceKind.Layer, Name: path),
+                new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: name)),
+        };
+
+    private static Fin<DocumentReceipt> ApplyClippingOverride(RhinoDoc document, string sheetName, string detailName, BoundingBox box, Op op) =>
+        from page in ResolveSheet(document: document, name: sheetName, op: op)
+        from name in FileEndpoint.NonBlank(value: detailName, op: op)
+        from valid in box.IsValid ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: op.InvalidInput())
+        from detail in ResolveDetail(page: page, name: name, op: op)
+        from applied in op.Catch(() => {
+            detail.Viewport.SetClippingPlanes(box: box);
+            _ = detail.CommitViewportChanges();
+            return Fin.Succ(value: unit);
+        })
+        select DocumentReceipt.Empty with {
+            AttributeChanged = Seq(detail.Id),
+            ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: name)),
+        };
+
+    private static Fin<DetailViewObject> ResolveDetail(RhinoPageView page, string name, Op op) =>
+        toSeq(page.GetDetailViews())
+            .Find(d => string.Equals(a: d.Attributes.Name, b: name, comparisonType: StringComparison.OrdinalIgnoreCase))
+            .ToFin(Fail: op.InvalidInput());
+
+    private static Fin<Layer> ResolveLayer(RhinoDoc document, string path, Op op) {
+        int index = document.Layers.FindByFullPath(layerPath: path, notFoundReturnValue: -1);
+        return index >= 0
+            ? Optional(document.Layers[index]).ToFin(Fail: op.InvalidInput())
+            : Fin.Fail<Layer>(error: op.InvalidInput());
+    }
+
+    private static Fin<RhinoPageView> ResolveSheet(RhinoDoc document, string name, Op op) =>
+        from validName in FileEndpoint.NonBlank(value: name, op: op)
+        from page in toSeq(document.Views.GetPageViews())
+            .Find(view => string.Equals(a: view.PageName, b: validName, comparisonType: StringComparison.OrdinalIgnoreCase))
+            .ToFin(Fail: op.InvalidInput())
+        select page;
+}
+
+internal sealed class FileWatchSubscription : IDisposable {
+    private readonly Seq<Action> detachers;
+    private FileWatchSubscription(Seq<Action> detachers) => this.detachers = detachers;
+
+    internal static Fin<IDisposable> Of(FileWatch watch) =>
+        Optional(watch).ToFin(Fail: Op.Of(name: nameof(FileWatchSubscription)).InvalidInput())
+            .Map<IDisposable>(active => new FileWatchSubscription(detachers:
+                Attach(handler: active.OnBeginOpen, add: static h => RhinoDoc.BeginOpenDocument += h, remove: static h => RhinoDoc.BeginOpenDocument -= h)
+                + Attach(handler: active.OnEndOpen, add: static h => RhinoDoc.EndOpenDocument += h, remove: static h => RhinoDoc.EndOpenDocument -= h)
+                + Attach(handler: active.OnBeginSave, add: static h => RhinoDoc.BeginSaveDocument += h, remove: static h => RhinoDoc.BeginSaveDocument -= h)
+                + Attach(handler: active.OnEndSave, add: static h => RhinoDoc.EndSaveDocument += h, remove: static h => RhinoDoc.EndSaveDocument -= h)
+                + Attach(handler: active.OnClose, add: static h => RhinoDoc.CloseDocument += h, remove: static h => RhinoDoc.CloseDocument -= h)
+                + Attach(handler: active.OnNew, add: static h => RhinoDoc.NewDocument += h, remove: static h => RhinoDoc.NewDocument -= h)));
+
+    private static Seq<Action> Attach<TArgs>(Option<Action<TArgs>> handler, Action<EventHandler<TArgs>> add, Action<EventHandler<TArgs>> remove) where TArgs : EventArgs =>
+        handler.Map(action => {
+            void Wrapper(object? _, TArgs args) => action(args);
+            add(Wrapper);
+            return Seq(() => remove(Wrapper));
+        }).IfNone(Seq<Action>());
+
+    public void Dispose() => detachers.Iter(detach => detach()).Ignore();
 }

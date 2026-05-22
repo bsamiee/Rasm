@@ -311,7 +311,7 @@ public static class PanelOp {
                 from valid in Optional(operation).ToFin(Fail: Op.Of(name: nameof(Chrome)).InvalidInput())
                 from result in valid.Run(document: document)
                 select result,
-            interactive: Optional(operation).Map(static valid => valid.Interactive).IfNone(true));
+            interactive: Optional(operation).Map(static valid => valid.Interactive).IfNone(noneValue: true));
 
     public static PanelOp<TPanel, Unit> Register<TPanel>(
         global::Rhino.PlugIns.PlugIn plugin,

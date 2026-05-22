@@ -1,6 +1,9 @@
+using System.Globalization;
 using Rasm.Rhino.Commands;
 using IODirectory = System.IO.Directory;
 using IOPath = System.IO.Path;
+using ObjectTypeFilter = Rhino.FileIO.File3dm.ObjectTypeFilter;
+using TableTypeFilter = Rhino.FileIO.File3dm.TableTypeFilter;
 
 namespace Rasm.Rhino.Exchange;
 
@@ -13,8 +16,7 @@ public enum FileFidelity { Model, Small, GeometryOnly }
 public enum FileResourcePolicy { Reference, Embed, Copy }
 public enum FileGrouping { Document, File, Layer, ObjectName, ObjectType, Material, Block, UserString }
 public enum FileSort { Stable, File, Layer, ObjectName, ObjectType, Material, Block, UserString }
-public enum FilePhase { Prompt, Open, Headless, Import, Export, Publish, NamedLayerState, Save, SaveAs, WriteFile, Write3dmFile, SaveTemplate, ArchiveRead, ArchiveExtract, ArchiveUpdate, Batch }
-public enum ArchiveSlice { Full, Metadata, Objects, Resources }
+public enum FileRasterEncoding { Png, Jpeg, Tiff, Bitmap }
 
 [Flags]
 public enum FileArchiveProjection {
@@ -24,6 +26,94 @@ public enum FileArchiveProjection {
     Objects = 4,
     MetadataAndGraph = Metadata | Graph,
     Full = Metadata | Graph | Objects,
+}
+
+[SmartEnum<int>]
+public sealed partial class FilePhase {
+    public static readonly FilePhase Prompt = new(key: 0, requires: Capability.None);
+    public static readonly FilePhase Open = new(key: 1, requires: Capability.Archive);
+    public static readonly FilePhase Headless = new(key: 2, requires: Capability.ArchiveOrImport);
+    public static readonly FilePhase Import = new(key: 3, requires: Capability.Import);
+    public static readonly FilePhase Export = new(key: 4, requires: Capability.Export);
+    public static readonly FilePhase Publish = new(key: 5, requires: Capability.Publish);
+    public static readonly FilePhase NamedLayerState = new(key: 6, requires: Capability.None);
+    public static readonly FilePhase Save = new(key: 7, requires: Capability.None);
+    public static readonly FilePhase SaveAs = new(key: 8, requires: Capability.Archive);
+    public static readonly FilePhase WriteFile = new(key: 9, requires: Capability.Export);
+    public static readonly FilePhase Write3dmFile = new(key: 10, requires: Capability.Archive);
+    public static readonly FilePhase SaveTemplate = new(key: 11, requires: Capability.Archive);
+    public static readonly FilePhase ArchiveRead = new(key: 12, requires: Capability.None);
+    public static readonly FilePhase ArchiveExtract = new(key: 13, requires: Capability.None);
+    public static readonly FilePhase ArchiveUpdate = new(key: 14, requires: Capability.None);
+    public static readonly FilePhase ArchiveInspect = new(key: 15, requires: Capability.None);
+    public static readonly FilePhase ArchiveValidate = new(key: 16, requires: Capability.None);
+    public static readonly FilePhase Batch = new(key: 17, requires: Capability.None);
+    public static readonly FilePhase SheetEdit = new(key: 18, requires: Capability.None);
+
+    public Capability Requires { get; }
+
+    internal bool Allows(FileCapability capability) =>
+        Requires switch {
+            Capability.None => true,
+            Capability.Archive => capability.Archive,
+            Capability.Import => capability.Import,
+            Capability.Export => capability.Export,
+            Capability.Publish => capability.Publish,
+            Capability.ArchiveOrImport => capability.Archive || capability.Import,
+            _ => false,
+        };
+
+    public enum Capability { None, Archive, Import, Export, Publish, ArchiveOrImport }
+}
+
+[SmartEnum<int>]
+public sealed partial class ArchiveSlice {
+    public static readonly ArchiveSlice Full = new(key: 0, tables: TableTypeFilter.None, objectFilter: ObjectTypeFilter.None, filtered: false);
+    public static readonly ArchiveSlice Metadata = new(key: 1,
+        tables: TableTypeFilter.Properties | TableTypeFilter.Settings,
+        objectFilter: ObjectTypeFilter.None,
+        filtered: true);
+    public static readonly ArchiveSlice Objects = new(key: 2,
+        tables: TableTypeFilter.ObjectTable | TableTypeFilter.Layer | TableTypeFilter.Material,
+        objectFilter: ObjectTypeFilter.Any,
+        filtered: true);
+    public static readonly ArchiveSlice Resources = new(key: 3,
+        tables: TableTypeFilter.Properties | TableTypeFilter.Settings | TableTypeFilter.Bitmap | TableTypeFilter.Font
+              | TableTypeFilter.FutureFont | TableTypeFilter.Light | TableTypeFilter.Historyrecord
+              | TableTypeFilter.TextureMapping | TableTypeFilter.Material | TableTypeFilter.Linetype
+              | TableTypeFilter.Layer | TableTypeFilter.Group | TableTypeFilter.Dimstyle
+              | TableTypeFilter.Hatchpattern | TableTypeFilter.InstanceDefinition | TableTypeFilter.ObjectTable
+              | TableTypeFilter.UserTable,
+        objectFilter: ObjectTypeFilter.Any,
+        filtered: true);
+
+    public TableTypeFilter Tables { get; }
+    public ObjectTypeFilter ObjectFilter { get; }
+    public bool Filtered { get; }
+}
+
+[SmartEnum<string>]
+public sealed partial class FileIssueCode {
+    public static readonly FileIssueCode Native = new(key: "native");
+    public static readonly FileIssueCode AlreadyOpen = new(key: "already-open");
+    public static readonly FileIssueCode BatchFailure = new(key: "batch-failure");
+    public static readonly FileIssueCode EmptyArchive = new(key: "empty-archive");
+    public static readonly FileIssueCode WatchFailure = new(key: "watch-failure");
+    public static readonly FileIssueCode BrokenLink = new(key: "broken-link");
+}
+
+[SmartEnum<string>]
+public sealed partial class FileResourceRole {
+    public static readonly FileResourceRole Layer = new(key: "layer");
+    public static readonly FileResourceRole Material = new(key: "material");
+    public static readonly FileResourceRole Linetype = new(key: "linetype");
+    public static readonly FileResourceRole Group = new(key: "group");
+    public static readonly FileResourceRole Block = new(key: "block");
+    public static readonly FileResourceRole Instance = new(key: "instance");
+    public static readonly FileResourceRole Member = new(key: "member");
+    public static readonly FileResourceRole Linked = new(key: "linked");
+    public static readonly FileResourceRole Texture = new(key: "texture");
+    public static readonly FileResourceRole Child = new(key: "child");
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -54,9 +144,14 @@ public readonly record struct FileBatchPolicy(bool ContinueOnError = false) {
     public static FileBatchPolicy StopOnFirstError { get; } = new(ContinueOnError: false);
 }
 
-public readonly record struct FileIssue(string Code, string Message) {
+public readonly record struct FileIssue(FileIssueCode Code, string Message) {
     public static FileIssue Native(string message) =>
-        new(Code: "native", Message: string.IsNullOrWhiteSpace(value: message) ? "No native log." : message);
+        new(Code: FileIssueCode.Native, Message: string.IsNullOrWhiteSpace(value: message) ? "No native log." : message);
+
+    public static FileIssue Of(FileIssueCode code, string message) {
+        ArgumentNullException.ThrowIfNull(argument: code);
+        return new(Code: code, Message: string.IsNullOrWhiteSpace(value: message) ? code.Key : message);
+    }
 }
 
 public sealed record FilePrompt {
@@ -75,18 +170,19 @@ public sealed record FilePrompt {
     public static Fin<FilePrompt> Open(string title, string filter = "", bool multiple = false, Option<string> fileName = default, Option<string> initialDirectory = default, Option<string> defaultExtension = default) =>
         Create(mode: multiple ? FilePromptMode.OpenMany : FilePromptMode.OpenOne, title: title, filter: string.IsNullOrWhiteSpace(value: filter) ? FileFormat.Filter(phase: FilePhase.Import) : filter, fileName: fileName, initialDirectory: initialDirectory, defaultExtension: defaultExtension);
 
-    public static Fin<FilePrompt> Save(string title, string filter = "", Option<string> fileName = default, Option<string> initialDirectory = default, Option<string> defaultExtension = default, FileWritePolicy write = default, FilePhase phase = FilePhase.Export) =>
-        phase switch {
-            FilePhase.Export or FilePhase.Publish => Create(
+    public static Fin<FilePrompt> Save(string title, string filter = "", Option<string> fileName = default, Option<string> initialDirectory = default, Option<string> defaultExtension = default, FileWritePolicy write = default, FilePhase? phase = null) {
+        FilePhase active = phase ?? FilePhase.Export;
+        return active == FilePhase.Export || active == FilePhase.Publish
+            ? Create(
                 mode: FilePromptMode.Save,
                 title: title,
-                filter: string.IsNullOrWhiteSpace(value: filter) ? FileFormat.Filter(phase: phase) : filter,
+                filter: string.IsNullOrWhiteSpace(value: filter) ? FileFormat.Filter(phase: active) : filter,
                 fileName: fileName,
                 initialDirectory: initialDirectory,
                 defaultExtension: defaultExtension,
-                write: write),
-            _ => Fin.Fail<FilePrompt>(error: Op.Of(name: nameof(FilePrompt)).InvalidInput()),
-        };
+                write: write)
+            : Fin.Fail<FilePrompt>(error: Op.Of(name: nameof(FilePrompt)).InvalidInput());
+    }
 
     public static Fin<FilePrompt> Folder(string title, Option<string> initialDirectory = default) =>
         Create(mode: FilePromptMode.Folder, title: title, filter: string.Empty, initialDirectory: initialDirectory);
@@ -224,7 +320,7 @@ public sealed record FileEndpoint {
         };
 
     private Fin<FileEndpoint> NextAvailable(Op op) =>
-        toSeq(Enumerable.Range(start: 1, count: 9999))
+        toSeq(Enumerable.Range(start: 1, count: MaxCollisionAttempts))
             .Map(index => WithPath(path: NumberedPath(path: Path, index: index)))
             .Find(static endpoint => !Exists(path: endpoint.Path))
             .ToFin(Fail: op.InvalidInput());
@@ -253,7 +349,9 @@ public sealed record FileEndpoint {
     private static string NumberedPath(string path, int index) =>
         IOPath.Combine(
             path1: IOPath.GetDirectoryName(path: path) ?? string.Empty,
-            path2: $"{IOPath.GetFileNameWithoutExtension(path: path)}-{index:000}{IOPath.GetExtension(path: path)}");
+            path2: string.Create(CultureInfo.InvariantCulture, $"{IOPath.GetFileNameWithoutExtension(path: path)}-{index:000}{IOPath.GetExtension(path: path)}"));
+
+    private const int MaxCollisionAttempts = 9999;
 }
 
 public sealed record FileProfile {
@@ -297,29 +395,111 @@ public sealed record ArchiveUpdate(
 
 public sealed record FilePublish(FilePublishTarget Target, Seq<FileSheet> Sheets, FileProfile Profile, bool Layers = true);
 
+internal static class FileSheetDefaults {
+    internal const double DefaultPublishDpi = 300.0;
+    internal const long DefaultJpegQuality = 90L;
+}
+
 public sealed record FileSheet(
     Option<Guid> Id = default,
     Option<string> Name = default,
     Option<string> Group = default,
-    double Dpi = 300.0,
+    double Dpi = FileSheetDefaults.DefaultPublishDpi,
     bool PrintWidths = true,
     bool Raster = false,
-    ViewCaptureSettings.ColorMode Color = ViewCaptureSettings.ColorMode.DisplayColor) {
+    ViewCaptureSettings.ColorMode Color = ViewCaptureSettings.ColorMode.DisplayColor,
+    Option<FileSheetDecor> Decor = default,
+    Option<Func<RhinoPageView, bool>> Predicate = default) {
     internal Fin<ViewCaptureSettings> Settings(RhinoPageView page, Op op) =>
         from active in Optional(page).ToFin(Fail: op.InvalidInput())
         from dpi in (double.IsFinite(d: Dpi), Dpi) switch {
             (true, > 0.0) => Fin.Succ(value: Dpi),
             _ => Fin.Fail<double>(error: op.InvalidInput()),
         }
-        select new ViewCaptureSettings(sourcePageView: active, dpi: dpi) {
-            UsePrintWidths = PrintWidths,
-            RasterMode = Raster,
-            OutputColor = Color,
-        };
+        select Configure(settings: new ViewCaptureSettings(sourcePageView: active, dpi: dpi));
+
+    private ViewCaptureSettings Configure(ViewCaptureSettings settings) {
+        settings.UsePrintWidths = PrintWidths;
+        settings.RasterMode = Raster;
+        settings.OutputColor = Color;
+        _ = Decor.Iter(decor => decor.Apply(settings: settings));
+        return settings;
+    }
+}
+
+public readonly record struct FileSheetDecor(
+    bool DrawGrid = false,
+    bool DrawAxis = false,
+    bool DrawLights = false,
+    bool DrawLockedObjects = true,
+    bool DrawSelectedObjectsOnly = false,
+    bool DrawMargins = false,
+    bool DrawClippingPlanes = false,
+    bool DrawWallpaper = false,
+    bool DrawBackgroundBitmap = false,
+    bool DrawBackground = true,
+    Option<double> WireThicknessScale = default,
+    Option<double> PointSizeMillimeters = default,
+    Option<double> ArrowheadSizeMillimeters = default,
+    Option<double> TextDotPointSize = default,
+    Option<double> ModelScale = default,
+    Option<string> HeaderText = default,
+    Option<string> FooterText = default) {
+    internal ViewCaptureSettings Apply(ViewCaptureSettings settings) {
+        settings.DrawGrid = DrawGrid;
+        settings.DrawAxis = DrawAxis;
+        settings.DrawLights = DrawLights;
+        settings.DrawLockedObjects = DrawLockedObjects;
+        settings.DrawSelectedObjectsOnly = DrawSelectedObjectsOnly;
+        settings.DrawMargins = DrawMargins;
+        settings.DrawClippingPlanes = DrawClippingPlanes;
+        settings.DrawWallpaper = DrawWallpaper;
+        settings.DrawBackgroundBitmap = DrawBackgroundBitmap;
+        settings.DrawBackground = DrawBackground;
+        _ = WireThicknessScale.Iter(value => settings.WireThicknessScale = value);
+        _ = PointSizeMillimeters.Iter(value => settings.PointSizeMillimeters = value);
+        _ = ArrowheadSizeMillimeters.Iter(value => settings.ArrowheadSizeMillimeters = value);
+        _ = TextDotPointSize.Iter(value => settings.TextDotPointSize = value);
+        _ = ModelScale.Iter(settings.SetModelScaleToValue);
+        _ = HeaderText.Iter(value => settings.HeaderText = value);
+        _ = FooterText.Iter(value => settings.FooterText = value);
+        return settings;
+    }
+}
+
+public readonly record struct FileSheetSpec(
+    string Name,
+    Option<double> WidthMillimeters = default,
+    Option<double> HeightMillimeters = default,
+    Option<string> Group = default);
+
+public readonly record struct FileDetailSpec(
+    string Name,
+    Point2d Corner,
+    Point2d Opposite,
+    DefinedViewportProjection Projection = DefinedViewportProjection.Top,
+    bool ProjectionLocked = true,
+    Option<Guid> DisplayMode = default);
+
+[Union(SwitchMapStateParameterName = "context")]
+public abstract partial record FileSheetEdit {
+    private FileSheetEdit() { }
+    public sealed record Create(FileSheetSpec Spec) : FileSheetEdit;
+    public sealed record Remove(string SheetName) : FileSheetEdit;
+    public sealed record Duplicate(string SheetName, bool WithGeometry = true) : FileSheetEdit;
+    public sealed record Rename(string SheetName, string NewName) : FileSheetEdit;
+    public sealed record AddDetail(string SheetName, FileDetailSpec Spec) : FileSheetEdit;
+    public sealed record RemoveDetail(string SheetName, string DetailName) : FileSheetEdit;
+    public sealed record ActivateDetail(string SheetName, Option<string> DetailName) : FileSheetEdit;
+    public sealed record LayerOverride(string SheetName, string DetailName, string LayerPath, Option<System.Drawing.Color> Color = default, Option<bool> Visible = default) : FileSheetEdit;
+    public sealed record ClippingOverride(string SheetName, string DetailName, BoundingBox Box) : FileSheetEdit;
 }
 
 internal readonly record struct FileSheetPage(RhinoPageView Page, FileSheet Sheet);
-internal readonly record struct FilePublishResult(Option<FileEndpoint> Target, Option<FileFormat> Format, DocumentReceipt Receipt, Seq<FileIssue> Issues = default, Option<string> NativeLog = default);
+
+public readonly record struct FileSheetReport(string PageName, Option<string> Scale, int DetailCount);
+
+internal readonly record struct FilePublishResult(Option<FileEndpoint> Target, Option<FileFormat> Format, DocumentReceipt Receipt, Seq<FileSheetReport> Sheets = default, Seq<FileIssue> Issues = default, Option<string> NativeLog = default);
 
 public readonly record struct FileArchiveMetadataPatch(
     Option<string> Notes,
@@ -344,10 +524,11 @@ public sealed record FileReport(
     Seq<FileIssue> Issues,
     Option<string> NativeLog,
     Option<FileArchive> Archive = default,
-    Seq<FileReport> Children = default) {
+    Seq<FileReport> Children = default,
+    Seq<FileSheetReport> Sheets = default) {
     public static FileReport Empty(FilePhase phase) =>
-        new(Source: Option<FileEndpoint>.None, Target: Option<FileEndpoint>.None, Format: Option<FileFormat>.None, Phase: phase, Receipt: Option<DocumentReceipt>.None, Issues: Seq<FileIssue>(), NativeLog: Option<string>.None, Children: Seq<FileReport>());
+        new(Source: Option<FileEndpoint>.None, Target: Option<FileEndpoint>.None, Format: Option<FileFormat>.None, Phase: phase, Receipt: Option<DocumentReceipt>.None, Issues: Seq<FileIssue>(), NativeLog: Option<string>.None, Children: Seq<FileReport>(), Sheets: Seq<FileSheetReport>());
 
-    internal static FileReport Of(FilePhase phase, Option<FileEndpoint> source = default, Option<FileEndpoint> target = default, Option<FileFormat> format = default, Option<DocumentReceipt> receipt = default, Seq<FileIssue> issues = default, Option<string> nativeLog = default, Option<FileArchive> archive = default, Seq<FileReport> children = default) =>
-        new(Source: source, Target: target, Format: format, Phase: phase, Receipt: receipt, Issues: issues.IsEmpty ? Seq<FileIssue>() : issues, NativeLog: nativeLog, Archive: archive, Children: children.IsEmpty ? Seq<FileReport>() : children);
+    internal static FileReport Of(FilePhase phase, Option<FileEndpoint> source = default, Option<FileEndpoint> target = default, Option<FileFormat> format = default, Option<DocumentReceipt> receipt = default, Seq<FileIssue> issues = default, Option<string> nativeLog = default, Option<FileArchive> archive = default, Seq<FileReport> children = default, Seq<FileSheetReport> sheets = default) =>
+        new(Source: source, Target: target, Format: format, Phase: phase, Receipt: receipt, Issues: issues.IsEmpty ? Seq<FileIssue>() : issues, NativeLog: nativeLog, Archive: archive, Children: children.IsEmpty ? Seq<FileReport>() : children, Sheets: sheets.IsEmpty ? Seq<FileSheetReport>() : sheets);
 }

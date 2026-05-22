@@ -85,7 +85,7 @@ public static class UiIntent {
         })), interactive: true);
 
     public static UiIntent<T> Panel<TPanel, T>(PanelOp<TPanel, T> operation) where TPanel : RasmPanel =>
-        OfScope(run: scope => Optional(operation).ToFin(Fail: Op.Of(name: nameof(Panel)).InvalidInput()).Bind(valid => valid.Run(document: scope.Document)), interactive: Optional(operation).Map(static value => value.Interactive).IfNone(false));
+        OfScope(run: scope => Optional(operation).ToFin(Fail: Op.Of(name: nameof(Panel)).InvalidInput()).Bind(valid => valid.Run(document: scope.Document)), interactive: Optional(operation).Map(static value => value.Interactive).IfNone(noneValue: false));
 
     public static UiIntent<T> Progress<T>(UiProgressSpec spec, Func<UiProgress, Fin<T>> run) =>
         OfScope(scope => Optional(run).ToFin(Fail: Op.Of(name: nameof(Progress)).InvalidInput()).Bind(valid => UiProgress.Use(document: scope.Document, spec: spec, run: valid)));
@@ -183,7 +183,7 @@ public static class UiIntent {
             (Seq<string> values, Seq<int> flags) => global::Rhino.UI.Dialogs.ShowContextMenu(items: values.AsIterable(), screenPoint: screenPoint, modes: (flags.IsEmpty ? toSeq(Enumerable.Repeat(element: 1, count: values.Count)) : flags).AsIterable()) switch {
                 int index when index >= 0 => Fin.Succ(value: index),
                 _ => Fin.Fail<int>(error: new Fault.Cancelled()),
-            }
+            },
         }));
 
     internal static UiIntent<Seq<FileEndpoint>> ExchangeFile(FilePrompt prompt) =>
