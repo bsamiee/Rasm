@@ -92,6 +92,18 @@ internal static class RuleCatalog {
     /// `A * (B switch { ... })`. Either expresses intent unambiguously.
     /// </summary>
     internal static readonly DiagnosticDescriptor CSP0727 = Err("CSP0727", "SwitchExpressionPrecedence", "Switch expression as right operand of '{0}' binds tighter than arithmetic; wrap the intended switch input '(A {0} B) switch {{ ... }}' or the switch result 'A {0} (B switch {{ ... }})' in parentheses", "FunctionalDiscipline");
+    /// <summary>
+    /// CSP0728 MapFailDiscardsException — fires when a LanguageExt MapFail lambda following the
+    /// canonical `Try.lift(...).Run().MapFail(...)` exception-capture chain uses the C# discard
+    /// parameter '_'. The Try.lift wrapper captures the actual exception; the discard erases that
+    /// payload at the boundary between rail-typed code and the producer of diagnostic context.
+    /// Use a named parameter and thread the inbound Error/Message into the produced fault, either
+    /// via interpolation (`$"...: {error.Message}"`) or via Error aggregation (`existing + error`).
+    /// The chain check is strict (Try.lift → Run → MapFail) so Op-level validation MapFails
+    /// (Op.AcceptValue/AcceptText.MapFail(_ => ...)) remain permitted: those discard a
+    /// non-information-bearing validation error in favour of a domain-specific substitute.
+    /// </summary>
+    internal static readonly DiagnosticDescriptor CSP0728 = Err("CSP0728", "MapFailDiscardsException", "MapFail discards Try.lift-captured exception via '_'; bind the parameter and thread error.Message into the produced fault (e.g. $\"...: {error.Message}\") or aggregate via Error.+", "FunctionalDiscipline");
 
     // --- [PERFORMANCE_RULES] --------------------------------------------------
 
@@ -167,5 +179,5 @@ internal static class RuleCatalog {
         CSP0601, CSP0602, CSP0603, CSP0604, CSP0605, CSP0606, CSP0607, CSP0608,
         CSP0701, CSP0702, CSP0703, CSP0704, CSP0705, CSP0706, CSP0707, CSP0708, CSP0709,
         CSP0710, CSP0711, CSP0712, CSP0713, CSP0714, CSP0715, CSP0717, CSP0718, CSP0719, CSP0720,
-        CSP0723, CSP0724, CSP0725, CSP0726, CSP0727);
+        CSP0723, CSP0724, CSP0725, CSP0726, CSP0727, CSP0728);
 }

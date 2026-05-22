@@ -66,6 +66,7 @@ internal static class AnalyzerDispatcher {
                 FlowRules.CheckMatchCollapse(context, state, scope, invocation);
                 FlowRules.CheckMatchBoundaryStrict(context, state, scope, invocation);
                 FlowRules.CheckRunInTransform(context, scope, invocation);
+                FlowRules.CheckMapFailDiscardsException(context, scope, invocation);
                 FlowRules.CheckReferenceEqualsNull(context, scope, invocation);
                 FlowRules.CheckAsyncBlocking(context, scope, invocation);
                 FlowRules.CheckTaskRunFanOut(context, scope, invocation);

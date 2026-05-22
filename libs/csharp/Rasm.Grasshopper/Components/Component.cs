@@ -69,7 +69,7 @@ public readonly record struct ComponentUi {
         return Try.lift<Fin<Decision>>(f: () => current.Fold(Fin.Succ(value: Decision.Pass), (Fin<Decision> state, StepOp op) =>
                 state.Bind(decision => decision.IsTerminal ? Fin.Succ(value: decision) : op.Run(arg: context).Map(next => decision + next))))
             .Run()
-            .MapFail(_ => Op.Of(name: nameof(Run)).InvalidResult())
+            .MapFail(error => Op.Of(name: nameof(Run)).InvalidResult() + error)
             .Bind(static result => result);
     }
 
