@@ -119,11 +119,11 @@ public sealed class TerminationLaws {
         Termination steps = Termination.Steps(count: 5, key: FieldGens.Key).Match(Succ: static t => t, Fail: static _ => throw new InvalidOperationException(message: "setup"));
         Termination arc = Termination.ArcLength(length: 2.0, key: FieldGens.Key).Match(Succ: static t => t, Fail: static _ => throw new InvalidOperationException(message: "setup"));
         Termination mag = Termination.Magnitude(threshold: 1.0, key: FieldGens.Key).Match(Succ: static t => t, Fail: static _ => throw new InvalidOperationException(message: "setup"));
-        Assert.True(steps.ShouldStop(state: new(Trail: Seq<Point3d>(), Current: Point3d.Origin, H: 1.0, Arc: 0.0, Steps: 5, Rejects: 0, Done: false), currentSample: Vector3d.Zero, context: null!, key: FieldGens.Key));
-        Assert.False(steps.ShouldStop(state: new(Trail: Seq<Point3d>(), Current: Point3d.Origin, H: 1.0, Arc: 0.0, Steps: 4, Rejects: 0, Done: false), currentSample: Vector3d.Zero, context: null!, key: FieldGens.Key));
-        Assert.True(arc.ShouldStop(state: new(Trail: Seq<Point3d>(), Current: Point3d.Origin, H: 1.0, Arc: 2.0, Steps: 0, Rejects: 0, Done: false), currentSample: Vector3d.Zero, context: null!, key: FieldGens.Key));
-        Assert.True(mag.ShouldStop(state: new(Trail: Seq<Point3d>(), Current: Point3d.Origin, H: 1.0, Arc: 0.0, Steps: 0, Rejects: 0, Done: false), currentSample: new Vector3d(x: 0.5, y: 0.0, z: 0.0), context: null!, key: FieldGens.Key));
-        Assert.False(mag.ShouldStop(state: new(Trail: Seq<Point3d>(), Current: Point3d.Origin, H: 1.0, Arc: 0.0, Steps: 0, Rejects: 0, Done: false), currentSample: new Vector3d(x: 2.0, y: 0.0, z: 0.0), context: null!, key: FieldGens.Key));
+        Assert.True(steps.ShouldStop(state: new(Trail: Seq<Point3d>(), Current: Point3d.Origin, H: 1.0, Arc: 0.0, Steps: 5, Rejects: 0, Done: false), currentSample: Vector3d.Zero, context: null!, key: FieldGens.Key).Match(Succ: static value => value, Fail: static _ => false));
+        Assert.False(steps.ShouldStop(state: new(Trail: Seq<Point3d>(), Current: Point3d.Origin, H: 1.0, Arc: 0.0, Steps: 4, Rejects: 0, Done: false), currentSample: Vector3d.Zero, context: null!, key: FieldGens.Key).Match(Succ: static value => value, Fail: static _ => true));
+        Assert.True(arc.ShouldStop(state: new(Trail: Seq<Point3d>(), Current: Point3d.Origin, H: 1.0, Arc: 2.0, Steps: 0, Rejects: 0, Done: false), currentSample: Vector3d.Zero, context: null!, key: FieldGens.Key).Match(Succ: static value => value, Fail: static _ => false));
+        Assert.True(mag.ShouldStop(state: new(Trail: Seq<Point3d>(), Current: Point3d.Origin, H: 1.0, Arc: 0.0, Steps: 0, Rejects: 0, Done: false), currentSample: new Vector3d(x: 0.5, y: 0.0, z: 0.0), context: null!, key: FieldGens.Key).Match(Succ: static value => value, Fail: static _ => false));
+        Assert.False(mag.ShouldStop(state: new(Trail: Seq<Point3d>(), Current: Point3d.Origin, H: 1.0, Arc: 0.0, Steps: 0, Rejects: 0, Done: false), currentSample: new Vector3d(x: 2.0, y: 0.0, z: 0.0), context: null!, key: FieldGens.Key).Match(Succ: static value => value, Fail: static _ => true));
     }
 }
 

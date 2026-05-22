@@ -38,7 +38,7 @@ public readonly record struct SymmetricMatrix(Dimension Dimension, Arr<double> U
     }
     public Fin<Seq<(double Eigenvalue, Arr<double> Eigenvector)>> DecomposeEigen(Op? key = null) =>
         MatrixKernel.SymmetricEigen(matrix: this, key: key.OrDefault());
-    public Fin<Matrix> DecomposeCholesky(Op? key = null) =>
+    public Fin<CholeskyResult> DecomposeCholesky(Op? key = null) =>
         MatrixKernel.Cholesky(matrix: this, key: key.OrDefault());
 }
 
@@ -80,12 +80,8 @@ public readonly record struct Matrix(Dimension Rows, Dimension Cols, Arr<double>
         DecomposeLu(key: key.OrDefault()).Map(static lu => lu.Determinant);
     public Fin<double> Spectral(Op? key = null) =>
         DecomposeSvd(key: key.OrDefault()).Map(static svd => svd.Sigma.IsEmpty ? 0.0 : svd.Sigma[0]);
-    public Fin<Arr<double>> Solve(Arr<double> rhs, Op? key = null) {
-        Op op = key.OrDefault();
-        return rhs.Count != Rows.Value || Rows.Value != Cols.Value
-            ? Fin.Fail<Arr<double>>(error: op.InvalidInput())
-            : DecomposeLu(key: op).Map(lu => lu.Solve(rhs: rhs));
-    }
+    public Fin<Arr<double>> Solve(Arr<double> rhs, Op? key = null) =>
+        MatrixKernel.Solve(matrix: this, rhs: rhs, key: key.OrDefault());
     public Fin<int> Rank(Op? key = null) =>
         DecomposeSvd(key: key.OrDefault()).Map(static svd => svd.NumericalRank());
     public Fin<Matrix> Inverse(Op? key = null) {
@@ -125,7 +121,7 @@ public readonly record struct SvdResult(Matrix U, Arr<double> Sigma, Matrix V) {
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct LuResult(Arr<int> Permutation, int SwapCount, Matrix L, Matrix U) {
+public readonly record struct LuResult(Arr<int> Permutation, int SwapCount, Matrix L, Matrix U, Matrix Source) {
     public bool IsValid => L.IsValid && U.IsValid && Permutation.Count == L.Rows.Value;
     public double Determinant {
         get {
@@ -144,13 +140,12 @@ public readonly record struct QrResult(Matrix Q, Matrix R) {
     public bool IsValid => Q.IsValid && R.IsValid;
 }
 
-// L is the dense lower-triangular Cholesky factor. Sparse-direct factor with fill-reduction
-// is deferred; extreme-scale callers should iterate via BiCgStab on the raw SparseMatrix.
+// Dense lower-triangular factor L (A = L Lᵀ); sparse inputs are densified before factorization.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct CholeskyResult(Matrix L) {
-    public bool IsValid => L.IsValid && L.Rows.Value == L.Cols.Value;
+public readonly record struct CholeskyResult(Matrix L, Matrix Source) {
+    public bool IsValid => L.IsValid && Source.IsValid && L.Rows.Value == L.Cols.Value && Source.Rows.Value == Source.Cols.Value;
     public Fin<Arr<double>> Solve(Arr<double> rhs, Op? key = null) =>
-        MatrixKernel.CholeskySolve(L: L, rhs: rhs, key: key.OrDefault());
+        MatrixKernel.CholeskySolve(source: Source, rhs: rhs, key: key.OrDefault());
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -160,7 +155,9 @@ public readonly record struct SparseMatrix(Dimension Rows, Dimension Cols, Arr<i
         && ColInd.Count == Values.Count
         && Values.All(RhinoMath.IsValidDouble)
         && RowPtr[0] == 0
-        && RowPtr[Rows.Value] == Values.Count;
+        && RowPtr[Rows.Value] == Values.Count
+        && RowPointersAreMonotone(RowPtr)
+        && ColumnIndicesAreBoundedAndSorted(rowPtr: RowPtr, colInd: ColInd, cols: Cols.Value);
     public int NonZeros => Values.Count;
     public static Fin<SparseMatrix> FromTriplets(Dimension rows, Dimension cols, IEnumerable<(int Row, int Col, double Value)> triplets, Op? key = null) {
         Op op = key.OrDefault();
@@ -179,6 +176,15 @@ public readonly record struct SparseMatrix(Dimension Rows, Dimension Cols, Arr<i
         DecomposeCholesky(key: key).Bind(c => c.Solve(rhs: rhs, key: key));
     public Fin<Seq<(double Eigenvalue, Arr<double> Eigenvector)>> SmallestEigenpairs(int k, double tolerance, int maxIterations = 200, Op? key = null) =>
         MatrixKernel.Lobpcg(matrix: this, k: k, tolerance: tolerance, maxIterations: maxIterations, key: key.OrDefault());
+    private static bool RowPointersAreMonotone(Arr<int> rowPtr) =>
+        toSeq(Enumerable.Range(start: 0, count: Math.Max(val1: 0, val2: rowPtr.Count - 1)))
+            .ForAll(i => rowPtr[i] <= rowPtr[i + 1]);
+    private static bool ColumnIndicesAreBoundedAndSorted(Arr<int> rowPtr, Arr<int> colInd, int cols) =>
+        toSeq(Enumerable.Range(start: 0, count: Math.Max(val1: 0, val2: rowPtr.Count - 1)))
+            .ForAll(row => toSeq(Enumerable.Range(start: rowPtr[row], count: rowPtr[row + 1] - rowPtr[row]))
+                .Fold(initialState: (Ok: true, Prev: -1), f: (state, k) => (
+                    Ok: state.Ok && colInd[k] >= 0 && colInd[k] < cols && colInd[k] > state.Prev,
+                    Prev: colInd[k])).Ok);
 }
 
 // Upper-triangular storage; Multiply reconstructs the lower triangle by conjugate transpose.
@@ -200,6 +206,13 @@ public readonly record struct SparseHermitian(Dimension Order, Arr<int> RowPtr, 
         return vector.Count != Order.Value
             ? Fin.Fail<Arr<Complex>>(op.InvalidInput())
             : Fin.Succ(MatrixKernel.HermitianMatVec(self: this, x: vector));
+    }
+    public Fin<Arr<Complex>> Solve(Arr<Complex> rhs, Op? key = null) {
+        Op op = key.OrDefault();
+        SparseHermitian self = this;
+        return rhs.Count != Order.Value
+            ? Fin.Fail<Arr<Complex>>(op.InvalidInput())
+            : op.Catch(() => Fin.Succ(MatrixKernel.SolveHermitianDense(self: self, rhs: rhs)));
     }
     public Fin<Seq<(double Eigenvalue, Arr<Complex> Eigenvector)>> SmallestEigenpairs(int k, double tolerance, int maxIterations = 200, Op? key = null) =>
         MatrixKernel.LobpcgHermitian(matrix: this, k: k, tolerance: tolerance, maxIterations: maxIterations, key: key.OrDefault());
@@ -247,7 +260,8 @@ internal static class MatrixKernel {
             Permutation: permutation,
             SwapCount: CountSwaps(perm: permutation, n: n),
             L: FromMathNet(lu.L, matrix.Rows, matrix.Cols),
-            U: FromMathNet(lu.U, matrix.Rows, matrix.Cols)));
+            U: FromMathNet(lu.U, matrix.Rows, matrix.Cols),
+            Source: matrix));
     }
     internal static Fin<QrResult> Qr(Matrix matrix, Op key) {
         MathNet.Numerics.LinearAlgebra.Factorization.QR<double> qr = ToMathNet(matrix).QR(MathNet.Numerics.LinearAlgebra.Factorization.QRMethod.Full);
@@ -255,16 +269,13 @@ internal static class MatrixKernel {
             Q: FromMathNet(qr.Q, matrix.Rows, matrix.Rows),
             R: FromMathNet(qr.R, matrix.Rows, matrix.Cols)));
     }
-    internal static Fin<Matrix> Cholesky(SymmetricMatrix matrix, Op key) {
-        try {
-            MathNet.Numerics.LinearAlgebra.Factorization.Cholesky<double> chol = ToMathNet(matrix.ToDense()).Cholesky();
-            return Fin.Succ(FromMathNet(chol.Factor, matrix.Dimension, matrix.Dimension));
-        } catch (ArgumentException) {
-            return Fin.Fail<Matrix>(key.InvalidInput());
-        } catch (InvalidOperationException) {
-            return Fin.Fail<Matrix>(key.InvalidInput());
-        }
-    }
+    internal static Fin<CholeskyResult> Cholesky(SymmetricMatrix matrix, Op key) =>
+        key.Catch(() => {
+            Matrix source = matrix.ToDense();
+            return Fin.Succ(new CholeskyResult(
+                L: FromMathNet(ToMathNet(source).Cholesky().Factor, matrix.Dimension, matrix.Dimension),
+                Source: source));
+        });
     internal static Fin<Seq<(double Eigenvalue, Arr<double> Eigenvector)>> SymmetricEigen(SymmetricMatrix matrix, Op key) {
         MathNet.Numerics.LinearAlgebra.Factorization.Evd<double> evd = ToMathNet(matrix.ToDense()).Evd(Symmetricity.Symmetric);
         int n = matrix.Dimension.Value;
@@ -280,26 +291,12 @@ internal static class MatrixKernel {
             .Select(i => (Eigenvalue: evd.EigenValues[i], Eigenvector: ArrFromComplexVector(evd.EigenVectors.Column(i))))));
     }
     private static Arr<Complex> ArrFromComplexVector(ComplexVector v) => new(v.ToArray());
-    // Forward-back substitution on the cached LU factor pair, O(n^2). Permutation applied
-    // to rhs first; then solve L y = Pb, then U x = y. No matrix inversion required.
-    internal static Arr<double> LuSolve(LuResult lu, Arr<double> rhs) {
-        int n = lu.L.Rows.Value;
-        double[] permuted = new double[n];
-        for (int i = 0; i < n; i++) permuted[i] = rhs[index: lu.Permutation[index: i]];
-        double[] y = new double[n];
-        for (int i = 0; i < n; i++) {
-            double sum = permuted[i];
-            for (int j = 0; j < i; j++) sum -= lu.L.At(i: i, j: j) * y[j];
-            y[i] = sum;
-        }
-        double[] x = new double[n];
-        for (int i = n - 1; i >= 0; i--) {
-            double sum = y[i];
-            for (int j = i + 1; j < n; j++) sum -= lu.U.At(i: i, j: j) * x[j];
-            x[i] = sum / lu.U.At(i: i, j: i);
-        }
-        return new Arr<double>(x);
-    }
+    internal static Fin<Arr<double>> Solve(Matrix matrix, Arr<double> rhs, Op key) =>
+        rhs.Count != matrix.Rows.Value || matrix.Rows.Value != matrix.Cols.Value
+            ? Fin.Fail<Arr<double>>(error: key.InvalidInput())
+            : key.Catch(() => Fin.Succ(ArrFromVector(ToMathNet(matrix).LU().Solve(DenseVectorD.OfArray([.. rhs.AsIterable()])))));
+    internal static Arr<double> LuSolve(LuResult lu, Arr<double> rhs) =>
+        ArrFromVector(ToMathNet(lu.Source).LU().Solve(DenseVectorD.OfArray([.. rhs.AsIterable()])));
     private static Arr<int> ExtractPermutation(MathNet.Numerics.Permutation p, int n) =>
         [.. Enumerable.Range(0, n).Select(i => p[i])];
     private static int CountSwaps(Arr<int> perm, int n) {
@@ -316,34 +313,22 @@ internal static class MatrixKernel {
     }
 
     // --- [DENSE_CHOLESKY_SOLVE] -------------------------------------------------------------
-    // Forward-back substitution on lower-triangular L (where A = L L^T): solve L y = rhs,
-    // then L^T x = y. Used by CholeskyResult.Solve over both dense and sparse-derived L.
-    internal static Fin<Arr<double>> CholeskySolve(Matrix L, Arr<double> rhs, Op key) {
-        int n = L.Rows.Value;
-        if (rhs.Count != n) return Fin.Fail<Arr<double>>(key.InvalidInput());
-        double[] y = new double[n];
-        for (int i = 0; i < n; i++) {
-            double sum = rhs[i];
-            for (int j = 0; j < i; j++) sum -= L.At(i: i, j: j) * y[j];
-            double diag = L.At(i: i, j: i);
-            if (Math.Abs(diag) < RhinoMath.ZeroTolerance) return Fin.Fail<Arr<double>>(key.InvalidResult());
-            y[i] = sum / diag;
-        }
-        double[] x = new double[n];
-        for (int i = n - 1; i >= 0; i--) {
-            double sum = y[i];
-            for (int j = i + 1; j < n; j++) sum -= L.At(i: j, j: i) * x[j];
-            x[i] = sum / L.At(i: i, j: i);
-        }
-        return Fin.Succ(new Arr<double>(x));
+    internal static Fin<Arr<double>> CholeskySolve(Matrix source, Arr<double> rhs, Op key) {
+        return rhs.Count != source.Rows.Value || source.Rows.Value != source.Cols.Value
+            ? Fin.Fail<Arr<double>>(key.InvalidInput())
+            : key.Catch(() => Fin.Succ(ArrFromVector(ToMathNet(source).Cholesky().Solve(DenseVectorD.OfArray([.. rhs.AsIterable()])))));
     }
 
     // --- [SPARSE_ASSEMBLY] ------------------------------------------------------------------
     internal static Fin<SparseMatrix> AssembleSparse(Dimension rows, Dimension cols, IEnumerable<(int Row, int Col, double Value)> triplets, Op op) {
-        List<(int Row, int Col, double Value)> sorted = [.. triplets.Where(t => RhinoMath.IsValidDouble(t.Value) && t.Row >= 0 && t.Row < rows.Value && t.Col >= 0 && t.Col < cols.Value)
+        List<(int Row, int Col, double Value)> indexed = [.. triplets.Where(t => RhinoMath.IsValidDouble(t.Value) && t.Row >= 0 && t.Row < rows.Value && t.Col >= 0 && t.Col < cols.Value)
             .GroupBy(static t => (t.Row, t.Col))
-            .Select(static g => (g.Key.Row, g.Key.Col, Value: g.Sum(static t => t.Value)))
-            .OrderBy(static t => t.Row).ThenBy(static t => t.Col)];
+            .Select(static g => (g.Key.Row, g.Key.Col, Value: g.Sum(static t => t.Value)))];
+        SparseMatrixD mathNet = SparseMatrixD.OfIndexed(rows: rows.Value, columns: cols.Value, enumerable: indexed);
+        List<(int Row, int Col, double Value)> sorted = [.. mathNet.EnumerateIndexed(Zeros.AllowSkip)
+            .Where(static t => RhinoMath.IsValidDouble(x: t.Item3) && Math.Abs(value: t.Item3) > 0.0)
+            .OrderBy(static t => t.Item1).ThenBy(static t => t.Item2)
+            .Select(static t => (Row: t.Item1, Col: t.Item2, Value: t.Item3))];
         int[] rowPtr = new int[rows.Value + 1];
         int[] colInd = new int[sorted.Count];
         double[] values = new double[sorted.Count];
@@ -381,16 +366,8 @@ internal static class MatrixKernel {
     }
 
     // --- [SPARSE_OPERATIONS] ----------------------------------------------------------------
-    internal static Arr<double> SparseMatVec(SparseMatrix self, Arr<double> x) {
-        int n = self.Rows.Value;
-        double[] y = new double[n];
-        for (int i = 0; i < n; i++) {
-            double sum = 0.0;
-            for (int k = self.RowPtr[i]; k < self.RowPtr[i + 1]; k++) sum += self.Values[k] * x[self.ColInd[k]];
-            y[i] = sum;
-        }
-        return new Arr<double>(y);
-    }
+    internal static Arr<double> SparseMatVec(SparseMatrix self, Arr<double> x) =>
+        ArrFromVector(ToMathNetSparse(s: self).Multiply(DenseVectorD.OfArray([.. x.AsIterable()])));
     internal static Arr<Complex> HermitianMatVec(SparseHermitian self, Arr<Complex> x) {
         int n = self.Order.Value;
         Complex[] y = new Complex[n];
@@ -405,26 +382,23 @@ internal static class MatrixKernel {
         }
         return new Arr<Complex>(y);
     }
-    internal static Matrix SparseToDense(SparseMatrix self) {
-        int rows = self.Rows.Value;
-        int cols = self.Cols.Value;
-        double[] entries = new double[rows * cols];
-        for (int i = 0; i < rows; i++)
-            for (int k = self.RowPtr[i]; k < self.RowPtr[i + 1]; k++)
-                entries[(i * cols) + self.ColInd[k]] = self.Values[k];
-        return new Matrix(Rows: self.Rows, Cols: self.Cols, Entries: new Arr<double>(entries));
+    internal static Arr<Complex> SolveHermitianDense(SparseHermitian self, Arr<Complex> rhs) {
+        Matrix<Complex> dense = ToMathNetHermitian(self);
+        ComplexVector b = DenseVectorC.OfArray([.. rhs.AsIterable()]);
+        ComplexVector x = dense.Cholesky().Solve(b);
+        return new Arr<Complex>([.. x]);
     }
-    internal static Fin<CholeskyResult> SparseCholesky(SparseMatrix matrix, Op key) {
-        if (matrix.Rows.Value != matrix.Cols.Value) return Fin.Fail<CholeskyResult>(key.InvalidInput());
-        try {
-            MathNet.Numerics.LinearAlgebra.Factorization.Cholesky<double> chol = ToMathNet(SparseToDense(matrix)).Cholesky();
-            return Fin.Succ(new CholeskyResult(L: FromMathNet(chol.Factor, matrix.Rows, matrix.Cols)));
-        } catch (ArgumentException) {
-            return Fin.Fail<CholeskyResult>(key.InvalidInput());
-        } catch (InvalidOperationException) {
-            return Fin.Fail<CholeskyResult>(key.InvalidInput());
-        }
-    }
+    internal static Matrix SparseToDense(SparseMatrix self) =>
+        FromMathNet(m: ToMathNetSparse(s: self), rows: self.Rows, cols: self.Cols);
+    internal static Fin<CholeskyResult> SparseCholesky(SparseMatrix matrix, Op key) =>
+        matrix.Rows.Value != matrix.Cols.Value
+            ? Fin.Fail<CholeskyResult>(key.InvalidInput())
+            : key.Catch(() => {
+                Matrix source = SparseToDense(self: matrix);
+                return Fin.Succ(new CholeskyResult(
+                    L: FromMathNet(ToMathNet(source).Cholesky().Factor, matrix.Rows, matrix.Cols),
+                    Source: source));
+            });
 
     // --- [LOBPCG] ---------------------------------------------------------------------------
     // Knyazev 2001. Subspace span([X_i, R_i, P_i]) reduced via Rayleigh-Ritz to a 3k x 3k
@@ -642,28 +616,22 @@ internal static class MatrixKernel {
         S.SetSubMatrix(0, 2 * k, P);
         return OrthonormaliseColumnsComplex(S);
     }
-    // Generalised symmetric eigenproblem A z = lambda M z via Mhat-Cholesky reduction to a
-    // standard problem: factor Mhat = L L^T, solve (L^-1 A L^-T) y = lambda y, then z = L^-T y.
+    // Generalised eigenproblem A z = λ M z via Cholesky reduction: M = L Lᵀ → (L⁻¹ A L⁻ᵀ) y = λ y, z = L⁻ᵀ y.
     private static (LinearVector Vals, Matrix<double> Vecs) SolveGeneralised(Matrix<double> Ahat, Matrix<double> Mhat) {
-        MathNet.Numerics.LinearAlgebra.Factorization.Cholesky<double> chol = Mhat.Cholesky();
-        Matrix<double> L = chol.Factor;
-        Matrix<double> LinvA = L.Inverse() * Ahat;
-        Matrix<double> reduced = LinvA * L.Inverse().Transpose();
+        Matrix<double> Linv = Mhat.Cholesky().Factor.Inverse();
+        Matrix<double> reduced = Linv * Ahat * Linv.Transpose();
         Matrix<double> sym = (reduced + reduced.Transpose()) * 0.5;
         MathNet.Numerics.LinearAlgebra.Factorization.Evd<double> evd = sym.Evd(Symmetricity.Symmetric);
-        LinearVector vals = DenseVectorD.Create(evd.EigenValues.Count, i => evd.EigenValues[i].Real);
-        Matrix<double> vecs = L.Inverse().Transpose() * evd.EigenVectors;
-        return (Vals: vals, Vecs: vecs);
+        return (
+            Vals: DenseVectorD.Create(evd.EigenValues.Count, i => evd.EigenValues[i].Real),
+            Vecs: Linv.Transpose() * evd.EigenVectors);
     }
     private static (ComplexVector Vals, Matrix<Complex> Vecs) SolveGeneralisedComplex(Matrix<Complex> Ahat, Matrix<Complex> Mhat) {
-        MathNet.Numerics.LinearAlgebra.Factorization.Cholesky<Complex> chol = Mhat.Cholesky();
-        Matrix<Complex> L = chol.Factor;
-        Matrix<Complex> LinvA = L.Inverse() * Ahat;
-        Matrix<Complex> reduced = LinvA * L.Inverse().ConjugateTranspose();
+        Matrix<Complex> Linv = Mhat.Cholesky().Factor.Inverse();
+        Matrix<Complex> reduced = Linv * Ahat * Linv.ConjugateTranspose();
         Matrix<Complex> herm = (reduced + reduced.ConjugateTranspose()) * 0.5;
         MathNet.Numerics.LinearAlgebra.Factorization.Evd<Complex> evd = herm.Evd(Symmetricity.Hermitian);
-        Matrix<Complex> vecs = L.Inverse().ConjugateTranspose() * evd.EigenVectors;
-        return (Vals: evd.EigenValues, Vecs: vecs);
+        return (Vals: evd.EigenValues, Vecs: Linv.ConjugateTranspose() * evd.EigenVectors);
     }
     private static Matrix<double> TakeSmallest(LinearVector eigVals, Matrix<double> eigVecs, int k) {
         int[] sorted = [.. Enumerable.Range(0, eigVals.Count).OrderBy(i => eigVals[i]).Take(k)];

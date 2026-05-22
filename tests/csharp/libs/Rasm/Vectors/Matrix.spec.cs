@@ -127,8 +127,8 @@ public sealed class DecompositionLaws {
         }));
     [Fact]
     public void CholeskyReconstructsSpd() =>
-        Spec.ForAll(MatrixGens.Spd, static spd => Spec.Succ(spd.DecomposeCholesky(key: MatrixGens.Key), then: l =>
-            MatrixOracles.AssertEntrywise(expected: spd.ToDense(), actual: l * l.Transpose(), label: "L*L^T")));
+        Spec.ForAll(MatrixGens.Spd, static spd => Spec.Succ(spd.DecomposeCholesky(key: MatrixGens.Key), then: chol =>
+            MatrixOracles.AssertEntrywise(expected: spd.ToDense(), actual: chol.L * chol.L.Transpose(), label: "L*L^T")));
     [Fact]
     public void SymmetricEigenSatisfiesAvEqualsLambdaV() =>
         Spec.ForAll(MatrixGens.Spd, static spd => Spec.Succ(spd.DecomposeEigen(key: MatrixGens.Key), then: eigs => {

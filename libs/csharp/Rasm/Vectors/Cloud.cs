@@ -1,4 +1,6 @@
 using Foundation.CSharp.Analyzers.Contracts;
+using DenseMatrixD = MathNet.Numerics.LinearAlgebra.Double.DenseMatrix;
+using LinearMatrix = MathNet.Numerics.LinearAlgebra.Matrix<double>;
 
 namespace Rasm.Vectors;
 
@@ -187,22 +189,23 @@ internal static class CloudKernel {
             polylineCase: static (s, c) => s.PointRail(arg1: c.Vertices, arg2: c.Tolerance, arg3: s.Key),
             clusterCase: static (s, c) => s.PointRail(arg1: c.Vertices, arg2: c.Tolerance, arg3: s.Key));
 
-    // --- [WELFORD] ----------------------------------------------------------------------
-    // N-D Welford covariance accumulator: delta_k = p_k - mean_k; mean := mean + delta / n;
-    // delta2_k = p_k - mean'_k; M_ij += delta_i * delta2_j for i <= j (upper-triangular).
-    // Canonical entry; per-Point3d boundary overload trades the 3D seam.
+    // --- [COVARIANCE] -------------------------------------------------------------------
     internal static Fin<(Arr<double> Mean, SymmetricMatrix Cov)> CovarianceOf(Seq<Arr<double>> points, Dimension dimension, Op key) {
         int dim = dimension.Value;
-        Arr<double> initialMean = [.. Enumerable.Repeat(element: 0.0, count: dim)];
-        Arr<double> initialUpper = [.. Enumerable.Repeat(element: 0.0, count: dim * (dim + 1) / 2)];
-        (int n, Arr<double> mean, Arr<double> upper) = points.Fold(
-            initialState: (N: 0, Mean: initialMean, Upper: initialUpper),
-            f: (acc, point) => point.Count == dim ? StepWelford(state: acc, point: point, dim: dim) : acc);
-        return n > 0
-            ? key.AcceptValue(value: (
-                mean,
-                Cov: new SymmetricMatrix(Dimension: dimension, Upper: [.. upper.Map(value => value / n)])))
-            : Fin.Fail<(Arr<double>, SymmetricMatrix)>(key.InvalidResult());
+        Arr<Arr<double>> rows = [.. points.AsIterable()];
+        return rows.IsEmpty || rows.Exists(point => point.Count != dim || !point.ForAll(RhinoMath.IsValidDouble))
+            ? Fin.Fail<(Arr<double>, SymmetricMatrix)>(key.InvalidInput())
+            : key.Catch(() => {
+                LinearMatrix coordinates = DenseMatrixD.Build.Dense(rows: rows.Count, columns: dim, init: (i, j) => rows[i][j]);
+                double[] mean = new double[dim];
+                for (int j = 0; j < dim; j++) mean[j] = coordinates.Column(j).Average();
+                LinearMatrix centered = DenseMatrixD.Build.Dense(rows: rows.Count, columns: dim, init: (i, j) => coordinates[i, j] - mean[j]);
+                LinearMatrix covariance = centered.TransposeThisAndMultiply(centered) / rows.Count;
+                double[] upper = [.. Enumerable.Range(start: 0, count: dim)
+                    .SelectMany(i => Enumerable.Range(start: i, count: dim - i).Select(j => covariance[i, j]))];
+                return SymmetricMatrix.Of(dim: dimension, upper: new Arr<double>(upper), key: key)
+                    .Map(cov => (Mean: new Arr<double>(mean), Cov: cov));
+            });
     }
     internal static Fin<(Vector3d Mean, SymmetricMatrix Cov)> CovarianceOf(Seq<Point3d> points, Op key) =>
         CovarianceOf(
@@ -210,17 +213,6 @@ internal static class CloudKernel {
             dimension: Dimension.Create(value: 3),
             key: key)
             .Map(static result => (AsVector3d(v: result.Mean), result.Cov));
-    private static (int N, Arr<double> Mean, Arr<double> Upper) StepWelford(
-        (int N, Arr<double> Mean, Arr<double> Upper) state, Arr<double> point, int dim) {
-        int n = state.N + 1;
-        Arr<double> delta = [.. toSeq(Enumerable.Range(start: 0, count: dim)).Map(k => point[k] - state.Mean[k])];
-        Arr<double> newMean = [.. toSeq(Enumerable.Range(start: 0, count: dim)).Map(k => state.Mean[k] + (delta[k] / n))];
-        Arr<double> delta2 = [.. toSeq(Enumerable.Range(start: 0, count: dim)).Map(k => point[k] - newMean[k])];
-        Arr<double> newUpper = [.. Enumerable.Range(start: 0, count: dim)
-            .SelectMany(i => Enumerable.Range(start: i, count: dim - i).Select(j => (I: i, J: j)))
-            .Select((pair, idx) => state.Upper[idx] + (delta[pair.I] * delta2[pair.J]))];
-        return (N: n, Mean: newMean, Upper: newUpper);
-    }
     internal static Vector3d AsVector3d(Arr<double> v) => new(x: v[0], y: v[1], z: v[2]);
 
     // --- [BISHOP] -----------------------------------------------------------------------

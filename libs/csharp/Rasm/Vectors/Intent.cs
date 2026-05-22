@@ -4,9 +4,9 @@ namespace Rasm.Vectors;
 [SmartEnum<int>]
 public sealed partial class SupportProjection {
     public static readonly SupportProjection Closest = new(key: 0, parameterMode: false, sign: 1.0, capability: static (_, _) => true, accepts: static output => output == typeof(Point3d) || output == typeof(ClosestHit));
-    public static readonly SupportProjection Direction = new(key: 1, parameterMode: false, sign: 1.0, capability: static (_, _) => true, accepts: static _ => false);
-    public static readonly SupportProjection Span = new(key: 2, parameterMode: false, sign: 1.0, capability: static (_, _) => true, accepts: static _ => false);
-    public static readonly SupportProjection SignedSpanAway = new(key: 13, parameterMode: false, sign: -1.0, capability: static (_, _) => true, accepts: static _ => false);
+    public static readonly SupportProjection Direction = new(key: 1, parameterMode: false, sign: 1.0, capability: static (_, _) => true, accepts: static output => output == typeof(Direction) || output == typeof(Vector3d));
+    public static readonly SupportProjection Span = new(key: 2, parameterMode: false, sign: 1.0, capability: static (_, _) => true, accepts: static output => output == typeof(VectorSpan) || output == typeof(Vector3d) || output == typeof(Line) || output == typeof(double));
+    public static readonly SupportProjection SignedSpanAway = new(key: 13, parameterMode: false, sign: -1.0, capability: static (_, _) => true, accepts: static output => output == typeof(VectorSpan) || output == typeof(Vector3d) || output == typeof(Line) || output == typeof(double));
     public static readonly SupportProjection Normal = new(key: 3, parameterMode: false, sign: 1.0, capability: static (space, hit) => space.AdmitsNormal(hit: hit), accepts: static output => output == typeof(ClosestHit));
     public static readonly SupportProjection Distance = new(key: 4, parameterMode: false, sign: 1.0, capability: static (_, hit) => hit.Distance.IsSome, accepts: static output => output == typeof(double) || output == typeof(ClosestHit));
     public static readonly SupportProjection Parameter = new(key: 5, parameterMode: true, sign: 1.0, capability: static (_, hit) => hit.Parameter.IsSome, accepts: static output => output == typeof(double) || output == typeof(ClosestHit));
@@ -162,7 +162,7 @@ public abstract partial record VectorIntent {
                 f: (acc, _) => acc.Bind(s => s.Done
                     ? Fin.Succ(s)
                     : intent.Source.SampleVector(sample: s.Current, context: state.Context, key: state.Key).Bind(vector =>
-                        intent.Termination.ShouldStop(state: s, currentSample: vector, context: state.Context, key: state.Key)
+                        intent.Termination.ShouldStop(state: s, currentSample: vector, context: state.Context, key: state.Key).Bind(stop => stop
                             ? Fin.Succ(s with { Done = true })
                             : intent.Integrator.Step(field: intent.Source, point: s.Current, h: s.H, context: state.Context, key: state.Key).Map(step => step.Accepted switch {
                                 true => s with {
@@ -176,7 +176,7 @@ public abstract partial record VectorIntent {
                                 false => s.Rejects >= intent.Integrator.RejectBudget
                                     ? s with { Done = true }
                                     : s with { H = step.SuggestedStep, Rejects = s.Rejects + 1 },
-                            }))))
+                            })))))
                 .Map(static s => s.Trail)
             from output in typeof(TOut) switch {
                 Type t when t == typeof(Seq<Point3d>) => trajectory.TraverseM(point => state.Key.AcceptValue(value: point)).As().Map(static value => (TOut)(object)value),
@@ -201,13 +201,13 @@ public abstract partial record VectorIntent {
         },
         projectOntoCase: static (state, intent) =>
             from direction in Vectors.Direction.Of(
-                value: intent.Value - (intent.Value * intent.Target.ZAxis * intent.Target.ZAxis),
+                value: Transform.PlanarProjection(plane: intent.Target) * intent.Value,
                 context: state.Context, key: state.Key)
             from output in direction.Project<TOut>(key: state.Key)
             select output,
         mirrorCase: static (state, intent) =>
             from direction in Vectors.Direction.Of(
-                value: intent.Value - (2.0 * (intent.Value * intent.Across.ZAxis) * intent.Across.ZAxis),
+                value: Transform.Mirror(mirrorPlane: intent.Across) * intent.Value,
                 context: state.Context, key: state.Key)
             from output in direction.Project<TOut>(key: state.Key)
             select output,
@@ -376,22 +376,34 @@ internal static class IntentKernel {
             _ => Fin.Fail<TOut>(key.Unsupported(geometryType: source.GetType(), outputType: typeof(TOut))),
         };
     // ALGORITHM KERNEL — Sinkhorn-Knopp requires mutable row/column scaling vectors; the
-    // alternating fixed-point cannot be expressed without state mutation.
+    // alternating fixed-point cannot be expressed without state mutation. The `unbiased` flag
+    // activates the Feydy-Séjourné-Vialard-Trouvé-Peyré 2019 Sinkhorn divergence variant
+    // S(α,β) = OT(α,β) − ½ OT(α,α) − ½ OT(β,β) which zeroes out on identical distributions.
     private static Fin<TOut> SinkhornCluster<TOut>(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, double regularization, int maxIterations, bool unbiased, Op key) {
-        int m = source.Vertices.Count; int n = target.Vertices.Count;
-        if (m < 1 || n < 1) return Fin.Fail<TOut>(key.InvalidInput());
-        double[][] cost = [.. Enumerable.Range(0, m).Select(_ => new double[n])];
-        double[][] kernel = [.. Enumerable.Range(0, m).Select(_ => new double[n])];
+        if (source.Vertices.Count < 1 || target.Vertices.Count < 1) return Fin.Fail<TOut>(error: key.InvalidInput());
+        double distance = SinkhornOt(source: source.Vertices, target: target.Vertices, reg: regularization, maxIter: maxIterations);
+        if (unbiased) {
+            distance -= 0.5 * SinkhornOt(source: source.Vertices, target: source.Vertices, reg: regularization, maxIter: maxIterations);
+            distance -= 0.5 * SinkhornOt(source: target.Vertices, target: target.Vertices, reg: regularization, maxIter: maxIterations);
+        }
+        return typeof(TOut) == typeof(double)
+            ? key.AcceptValue(value: distance).Map(static d => (TOut)(object)d)
+            : Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(VectorCloud), outputType: typeof(TOut)));
+    }
+    private static double SinkhornOt(Seq<Point3d> source, Seq<Point3d> target, double reg, int maxIter) {
+        int m = source.Count; int n = target.Count;
+        double[][] cost = [.. Enumerable.Range(start: 0, count: m).Select(_ => new double[n])];
+        double[][] kernel = [.. Enumerable.Range(start: 0, count: m).Select(_ => new double[n])];
         for (int i = 0; i < m; i++)
             for (int j = 0; j < n; j++) {
-                double d2 = source.Vertices[index: i].DistanceToSquared(other: target.Vertices[index: j]);
+                double d2 = source[index: i].DistanceToSquared(other: target[index: j]);
                 cost[i][j] = d2;
-                kernel[i][j] = Math.Exp(d: -d2 / regularization);
+                kernel[i][j] = Math.Exp(d: -d2 / reg);
             }
         double[] u = [.. Enumerable.Repeat(element: 1.0, count: m)];
         double[] v = [.. Enumerable.Repeat(element: 1.0, count: n)];
         double aMass = 1.0 / m; double bMass = 1.0 / n;
-        for (int iter = 0; iter < maxIterations; iter++) {
+        for (int iter = 0; iter < maxIter; iter++) {
             for (int i = 0; i < m; i++) {
                 double sum = 0.0;
                 for (int j = 0; j < n; j++) sum += kernel[i][j] * v[j];
@@ -403,13 +415,10 @@ internal static class IntentKernel {
                 v[j] = sum > RhinoMath.ZeroTolerance ? bMass / sum : bMass;
             }
         }
-        double distance = 0.0;
+        double dist = 0.0;
         for (int i = 0; i < m; i++)
-            for (int j = 0; j < n; j++) distance += u[i] * kernel[i][j] * v[j] * cost[i][j];
-        return typeof(TOut) switch {
-            Type t when t == typeof(double) => key.AcceptValue(value: distance).Map(static d => (TOut)(object)d),
-            _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(VectorCloud), outputType: typeof(TOut))),
-        };
+            for (int j = 0; j < n; j++) dist += u[i] * kernel[i][j] * v[j] * cost[i][j];
+        return dist;
     }
     // Sun-Ovsjanikov-Guibas 2009 HKS(x, t) = Σ exp(-t λ_i) φ_i²(x); WKS analogous with log-energy.
     internal static Fin<TOut> DescribeShape<TOut>(MeshSpace space, MeshDescriptor kind, int eigenpairs, Op key) =>
