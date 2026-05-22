@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 using Eto.Drawing;
 using Grasshopper2.Doc;
+using Grasshopper2.Extensions;
 using Grasshopper2.Parameters.Special;
 using Grasshopper2.UI.Slider;
 using Grasshopper2.Undo;
@@ -338,18 +339,14 @@ public abstract partial record DocumentMutation {
         DropCase drop =>
             from proxy in Op.Of(name: nameof(Drop)).AcceptValue(value: drop.ProxyId)
                 .MapFail(_ => UiFault.InvalidInput(op: Op.Of(name: nameof(Drop)), detail: "empty proxy id"))
-            from location in Optional(drop.Location)
-                .Filter(static point => float.IsFinite(point.X) && float.IsFinite(point.Y))
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Drop)), detail: "non-finite location"))
+            from location in Op.Of(name: nameof(Drop)).AcceptPoint(value: drop.Location, detail: "non-finite location")
             select methods.DropObject(obj: proxy, location: location, actions: actions) switch {
                 true => DocumentMutationReceipt.Count(changed: 1),
                 false => DocumentMutationReceipt.None,
             },
         PlaceCase place =>
             from spec in Optional(place.Object).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Place)), detail: "object spec is required"))
-            from location in Optional(place.Location)
-                .Filter(static point => float.IsFinite(point.X) && float.IsFinite(point.Y))
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Place)), detail: "non-finite location"))
+            from location in Op.Of(name: nameof(Place)).AcceptPoint(value: place.Location, detail: "non-finite location")
             from obj in spec.Build(op: Op.Of(name: nameof(Place)))
             from cue in Optional(place.Cue).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Place)), detail: "drop cue is required"))
             from resolved in cue.Resolve(objects: objects, op: Op.Of(name: nameof(Place)))
@@ -366,9 +363,8 @@ public abstract partial record DocumentMutation {
                 true => DocumentMutationReceipt.CreatedObject(id: obj.InstanceId),
                 false => DocumentMutationReceipt.None,
             },
-        AddDependencyCase dependency => Optional(dependency.Location)
-            .Filter(static p => float.IsFinite(p.X) && float.IsFinite(p.Y))
-            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(AddDependency)), detail: "non-finite location"))
+        AddDependencyCase dependency => Op.Of(name: nameof(AddDependency))
+            .AcceptPoint(value: dependency.Location, detail: "non-finite location")
             .Map(valid => Optional(methods.AddDependency(location: valid, actions: actions))
                 .Map(static listen => DocumentMutationReceipt.CreatedObject(id: listen.InstanceId))
                 .IfNone(DocumentMutationReceipt.None)),
@@ -382,7 +378,7 @@ public abstract partial record DocumentMutation {
                     pins: isolate.Options.IncludePins,
                     inputs: isolate.Options.IncludeInputs,
                     outputs: isolate.Options.IncludeOutputs,
-                    omit: [.. selected.Map(static o => o.InstanceId)],
+                    omit: selected.ToInstanceIdSet(),
                     actions: actions);
                 return unit;
             }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Isolate)), detail: $"IsolateObject threw: {error.Message}"))
@@ -472,7 +468,12 @@ internal static partial class UiRail {
             select (DocumentResult)new DocumentResult.SnapshotResult(Snapshot: DocumentSnapshotOf(document: doc, objects: objs)),
         DocumentQuery.ObjectsCase o =>
             scope.NeedObjects().Map(objs => (DocumentResult)new DocumentResult.ObjectListResult(
-                Snapshots: toSeq(ProjectObjects(scope: o.Scope, objects: objs).Select(DocumentObjectSnapshotOf)))),
+                Snapshots: toSeq((o.Scope switch {
+                    ObjectsScope.PrimaryCase => objs.Forwards,
+                    ObjectsScope.PrimaryAndSecondaryCase => objs.PrimaryAndSecondary,
+                    ObjectsScope.SelectedCase => objs.SelectedObjects,
+                    _ => [],
+                }).Select(DocumentObjectSnapshotOf)))),
         DocumentQuery.ObjectCase obj =>
             Op.Of(name: nameof(DocumentQuery.Object)).AcceptValue(value: obj.Id)
                 .MapFail(_ => UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentQuery.Object)), detail: "empty Guid"))
@@ -484,10 +485,18 @@ internal static partial class UiRail {
                 .Bind(valid => scope.NeedObjects().Map(objs => (DocumentResult)new DocumentResult.ParameterResult(
                     Snapshot: Optional(objs.FindParameter(instanceId: valid)).Map(ParameterSnapshotOf)))),
         DocumentQuery.GripCase g =>
-            Optional(g.Point).Filter(static p => float.IsFinite(p.X) && float.IsFinite(p.Y))
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentQuery.Grip)), detail: "non-finite point"))
-                .Bind(_ => scope.NeedObjects().Map(objs => (DocumentResult)new DocumentResult.GripResult(
-                    Grip: GripSnapshotOf(objects: objs, point: g.Point, kind: g.Kind)))),
+            from point in Op.Of(name: nameof(DocumentQuery.Grip)).AcceptPoint(value: g.Point, detail: "non-finite point")
+            from objs in scope.NeedObjects()
+            select (DocumentResult)new DocumentResult.GripResult(Grip: g.Kind switch {
+                GripKind.InletCase => Optional(objs.FindByInlet(point: point))
+                    .Map(static p => new DocumentGripSnapshot(Parameter: p.InstanceId, InletWithinRange: true, OutletWithinRange: false)),
+                GripKind.OutletCase => Optional(objs.FindByOutlet(point: point))
+                    .Map(static p => new DocumentGripSnapshot(Parameter: p.InstanceId, InletWithinRange: false, OutletWithinRange: true)),
+                GripKind.InletOrOutletCase => Optional(objs.FindByInletOrOutlet(point: point))
+                    .Filter(static found => found.parameter is not null)
+                    .Map(static found => new DocumentGripSnapshot(Parameter: found.parameter.InstanceId, InletWithinRange: found.inletWithinRange, OutletWithinRange: found.outletWithinRange)),
+                _ => Option<DocumentGripSnapshot>.None,
+            }),
         DocumentQuery.FindCase f =>
             scope.NeedObjects().Bind(objs => FindBy(objects: objs, criterion: f.Criterion)
                 .Map(matches => (DocumentResult)new DocumentResult.FindResult(Matches: matches))),
@@ -535,8 +544,12 @@ internal static partial class UiRail {
                     name: g.Name.IfNone(string.Empty),
                     colour: g.Colour.Map(static c => (GhOpenColorFamily?)c).IfNone((GhOpenColorFamily?)null),
                     actions: actions)).Map(static r => r.InstanceId).Filter(static id => id != Guid.Empty)),
-                ComposeOp.ChainCase => Fin.Succ(value: Optional(methods.ChainSelection(actions: actions)).Map(static c => c.InstanceId).Filter(static id => id != Guid.Empty)),
-                ComposeOp.ClusterCase => Fin.Succ(value: Optional(methods.ClusterSelection(actions: actions)).Map(static c => c.InstanceId).Filter(static id => id != Guid.Empty)),
+                ComposeOp.ChainCase =>
+                    PreflightCompose(op: Op.Of(name: nameof(ComposeOp.Chain)), check: () => methods.CanCreateChain(objects.SelectedObjects, out string whyNot) ? (true, whyNot) : (false, whyNot))
+                        .Map(_ => Optional(methods.ChainSelection(actions: actions)).Map(static c => c.InstanceId).Filter(static id => id != Guid.Empty)),
+                ComposeOp.ClusterCase =>
+                    PreflightCompose(op: Op.Of(name: nameof(ComposeOp.Cluster)), check: () => methods.CanCreateCluster(objects.SelectedObjects, out string whyNot) ? (true, whyNot) : (false, whyNot))
+                        .Map(_ => Optional(methods.ClusterSelection(actions: actions)).Map(static c => c.InstanceId).Filter(static id => id != Guid.Empty)),
                 _ => Fin.Fail<Option<Guid>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ComposeDispatch)), detail: "unknown compose op")),
             },
             DocumentTarget.ObjectsCase selected => selected.Ids
@@ -550,8 +563,12 @@ internal static partial class UiRail {
                         name: g.Name.IfNone(string.Empty),
                         colour: g.Colour.Map(static c => (GhOpenColorFamily?)c).IfNone((GhOpenColorFamily?)null),
                         actions: actions)).Map(static r => r.InstanceId).Filter(static id => id != Guid.Empty)),
-                    ComposeOp.ChainCase => Fin.Succ(value: Optional(methods.ChainObjects(objects: targets, actions: actions)).Map(static c => c.InstanceId).Filter(static id => id != Guid.Empty)),
-                    ComposeOp.ClusterCase => Fin.Succ(value: Optional(methods.ClusterObjects(objects: targets, actions: actions)).Map(static c => c.InstanceId).Filter(static id => id != Guid.Empty)),
+                    ComposeOp.ChainCase =>
+                        PreflightCompose(op: Op.Of(name: nameof(ComposeOp.Chain)), check: () => methods.CanCreateChain(targets, out string whyNot) ? (true, whyNot) : (false, whyNot))
+                            .Map(_ => Optional(methods.ChainObjects(objects: targets, actions: actions)).Map(static c => c.InstanceId).Filter(static id => id != Guid.Empty)),
+                    ComposeOp.ClusterCase =>
+                        PreflightCompose(op: Op.Of(name: nameof(ComposeOp.Cluster)), check: () => methods.CanCreateCluster(targets, out string whyNot) ? (true, whyNot) : (false, whyNot))
+                            .Map(_ => Optional(methods.ClusterObjects(objects: targets, actions: actions)).Map(static c => c.InstanceId).Filter(static id => id != Guid.Empty)),
                     _ => Fin.Fail<Option<Guid>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ComposeDispatch)), detail: "unknown compose op")),
                 }),
             _ => Fin.Fail<Option<Guid>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ComposeDispatch)), detail: "unknown target")),
@@ -563,32 +580,18 @@ internal static partial class UiRail {
             _ => Fin.Succ(value: clipboard),
         };
 
-    private static IEnumerable<IDocumentObject> ProjectObjects(ObjectsScope scope, GhObjectList objects) => scope switch {
-        ObjectsScope.PrimaryCase => objects.Forwards,
-        ObjectsScope.PrimaryAndSecondaryCase => objects.PrimaryAndSecondary,
-        ObjectsScope.SelectedCase => objects.SelectedObjects,
-        _ => [],
-    };
-
-    private static Option<DocumentGripSnapshot> GripSnapshotOf(GhObjectList objects, PointF point, GripKind kind) => kind switch {
-        GripKind.InletCase => Optional(objects.FindByInlet(point: point))
-            .Map(static p => new DocumentGripSnapshot(Parameter: p.InstanceId, InletWithinRange: true, OutletWithinRange: false)),
-        GripKind.OutletCase => Optional(objects.FindByOutlet(point: point))
-            .Map(static p => new DocumentGripSnapshot(Parameter: p.InstanceId, InletWithinRange: false, OutletWithinRange: true)),
-        GripKind.InletOrOutletCase => Optional(objects.FindByInletOrOutlet(point: point))
-            .Filter(static found => found.parameter is not null)
-            .Map(static found => new DocumentGripSnapshot(Parameter: found.parameter.InstanceId, InletWithinRange: found.inletWithinRange, OutletWithinRange: found.outletWithinRange)),
-        _ => Option<DocumentGripSnapshot>.None,
-    };
+    private static Fin<Unit> PreflightCompose(Op op, Func<(bool Ok, string WhyNot)> check) =>
+        check() switch {
+            (true, _) => Fin.Succ(value: unit),
+            (false, string whyNot) => Fin.Fail<Unit>(error: UiFault.MutationRejected(op: op, detail: string.IsNullOrWhiteSpace(value: whyNot) ? "pre-flight rejected" : whyNot)),
+        };
 
     private static Fin<Seq<DocumentObjectSnapshot>> FindBy(GhObjectList objects, FindCriterion criterion) => criterion switch {
         FindCriterion.NearPointCase n =>
-            from point in Optional(n.Point).Filter(static p => float.IsFinite(p.X) && float.IsFinite(p.Y))
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(FindBy)), detail: "non-finite point"))
+            from point in Op.Of(name: nameof(FindBy)).AcceptPoint(value: n.Point, detail: "non-finite point")
             from maxResults in Optional(n.MaxResults).Filter(static count => count > 0)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(FindBy)), detail: "maxResults must be positive"))
-            from maxDistance in Optional(n.MaxDistance).Filter(static distance => float.IsFinite(distance) && distance >= 0f)
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(FindBy)), detail: "maxDistance must be finite and non-negative"))
+            from maxDistance in Op.Of(name: nameof(FindBy)).AcceptFinite(value: n.MaxDistance, detail: "maxDistance must be finite and non-negative", nonNegative: true)
             select toSeq(objects.FindNear<IDocumentObject>(locus: point, maxResults: maxResults, maxDistance: maxDistance)).Map(DocumentObjectSnapshotOf),
         FindCriterion.ByDrawOrderCase d =>
             Fin.Succ(value: toSeq(objects.ObjectsByDrawOrder(includeForeground: d.Foreground, includeBackground: d.Background)).Map(DocumentObjectSnapshotOf)),

@@ -256,7 +256,10 @@ public readonly record struct ControlEventSnapshot(
     Option<Keys> Keys = default,
     Option<string> Text = default,
     Option<SizeF> Delta = default,
-    Option<float> Pressure = default);
+    Option<float> Pressure = default,
+    Option<DragEffects> DragEffects = default,
+    Option<DragEffects> AllowedDragEffects = default,
+    Option<IDataObject> DragData = default);
 
 internal sealed record EventRequest(UiEvent Event) : GhUiRequest<Subscription> {
     internal override GrasshopperUiPolicy Policy => Events.PolicyOf(uiEvent: Event);
@@ -384,8 +387,13 @@ internal static partial class Events {
             Option<Keys> keys = default,
             Option<string> text = default,
             Option<SizeF> delta = default,
-            Option<float> pressure = default) =>
-            new(Kind: kind, Enabled: source.Enabled, Visible: source.Visible, HasFocus: source.HasFocus, Point: point, Buttons: buttons, Keys: keys, Text: text, Delta: delta, Pressure: pressure);
+            Option<float> pressure = default,
+            Option<DragEffects> dragEffects = default,
+            Option<DragEffects> allowedDragEffects = default,
+            Option<IDataObject> dragData = default) =>
+            new(Kind: kind, Enabled: source.Enabled, Visible: source.Visible, HasFocus: source.HasFocus,
+                Point: point, Buttons: buttons, Keys: keys, Text: text, Delta: delta, Pressure: pressure,
+                DragEffects: dragEffects, AllowedDragEffects: allowedDragEffects, DragData: dragData);
         Unit Publish(ControlEventSnapshot snapshot) {
             _ = GrasshopperUi.Protect(valid: () => handler(arg: snapshot));
             return unit;
@@ -395,6 +403,6 @@ internal static partial class Events {
             Key: (_, e) => Publish(Snapshot(keys: Some(e.KeyData))),
             Text: (_, e) => Publish(Snapshot(text: Optional(e.Text))),
             Mouse: (_, e) => Publish(Snapshot(point: Some(e.Location), buttons: Some(e.Buttons), keys: Some(e.Modifiers), delta: Some(e.Delta), pressure: Some(e.Pressure))),
-            Drag: (_, _) => Publish(Snapshot()));
+            Drag: (_, e) => Publish(Snapshot(point: Some(e.Location), keys: Some(e.Modifiers), dragEffects: Some(e.Effects), allowedDragEffects: Some(e.AllowedEffects), dragData: Optional<IDataObject>(value: e.Data))));
     }
 }
