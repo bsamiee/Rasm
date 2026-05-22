@@ -41,6 +41,9 @@ public static partial class OpExtensions {
     [BoundaryAdapter]
     public static Fin<TVO> AcceptValidated<TVO>(this Op op, double candidate) where TVO : IObjectFactory<TVO, double, ValidationError> =>
         OpAcceptance.TryCreateValidated<TVO>(candidate: candidate).ToFin();
+    [BoundaryAdapter]
+    public static Fin<TVO> AcceptValidated<TVO>(this Op op, int candidate) where TVO : IObjectFactory<TVO, int, ValidationError> =>
+        OpAcceptance.TryCreateValidated<TVO>(candidate: candidate).ToFin();
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -256,6 +259,13 @@ internal static class OpAcceptance {
     };
     [BoundaryAdapter]
     internal static Validation<Error, TVO> TryCreateValidated<TVO>(this double candidate) where TVO : IObjectFactory<TVO, double, ValidationError> =>
+        (TVO.Validate(value: candidate, provider: CultureInfo.InvariantCulture, item: out TVO? value), value) switch {
+            (null, TVO ok) => Fin.Succ(ok).ToValidation(),
+            (ValidationError err, _) => Fin.Fail<TVO>(error: new Fault.OutOfRange(Label: typeof(TVO).Name, Scalar: candidate, Requirement: err.Message)).ToValidation(),
+            _ => Fin.Fail<TVO>(error: new Fault.OutOfRange(Label: typeof(TVO).Name, Scalar: candidate, Requirement: "validation failed")).ToValidation(),
+        };
+    [BoundaryAdapter]
+    internal static Validation<Error, TVO> TryCreateValidated<TVO>(this int candidate) where TVO : IObjectFactory<TVO, int, ValidationError> =>
         (TVO.Validate(value: candidate, provider: CultureInfo.InvariantCulture, item: out TVO? value), value) switch {
             (null, TVO ok) => Fin.Succ(ok).ToValidation(),
             (ValidationError err, _) => Fin.Fail<TVO>(error: new Fault.OutOfRange(Label: typeof(TVO).Name, Scalar: candidate, Requirement: err.Message)).ToValidation(),
