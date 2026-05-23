@@ -150,6 +150,45 @@ public sealed record CameraEdit {
             from result in Native(change: viewport => viewport.SetConstructionPlane(plane: plane)).Apply(scope: scope, redraw: redraw)
             select result);
 
+    // `ConstructionPlane` overload preserves grid/axis/color spec that `Plane(Plane)` discards.
+    public static CameraEdit Plane(ConstructionPlane plane) =>
+        new(apply: (scope, redraw) =>
+            from _ in Optional(plane).ToFin(Fail: Op.Of(name: nameof(Plane)).InvalidInput())
+            from result in Native(change: viewport => viewport.SetConstructionPlane(cplane: plane)).Apply(scope: scope, redraw: redraw)
+            select result);
+
+    // `SetToPlanView` atomically sets camera + cplane in one native call vs a 4-edit composition.
+    public static CameraEdit Plan(Point3d origin, Vector3d xDirection, Vector3d yDirection, bool setConstructionPlane = true) =>
+        new(apply: (scope, redraw) =>
+            from _ in guard(origin.IsValid && xDirection.IsValid && yDirection.IsValid && xDirection.Length > RhinoMath.ZeroTolerance && yDirection.Length > RhinoMath.ZeroTolerance, Op.Of(name: nameof(Plan)).InvalidInput())
+            from result in Native(change: viewport => viewport.SetToPlanView(origin, xDirection, yDirection, setConstructionPlane)).Apply(scope: scope, redraw: redraw)
+            select result);
+
+    public static CameraEdit DisplayMode(DisplayModeDescription mode) =>
+        new(apply: (scope, redraw) =>
+            from valid in Optional(mode).ToFin(Fail: Op.Of(name: nameof(DisplayMode)).InvalidInput())
+            from result in Native(change: viewport => viewport.DisplayMode = valid).Apply(scope: scope, redraw: redraw)
+            select result);
+
+    public static CameraEdit SetClippingPlanes(BoundingBox box) =>
+        new(apply: (scope, redraw) =>
+            from _ in guard(box.IsValid, Op.Of(name: nameof(SetClippingPlanes)).InvalidInput())
+            from result in Native(change: viewport => viewport.SetClippingPlanes(box: box)).Apply(scope: scope, redraw: redraw)
+            select result);
+
+    // Atomic location+direction+up+frustum mutation via `ViewportInfo.TransformCamera` + commit;
+    // replaces the per-axis 4-edit chain when a single world-space transform is the intent.
+    public static CameraEdit TransformCamera(Transform xform) =>
+        new(apply: (scope, redraw) => UI.RhinoUi.Protect(valid: () => {
+            Op op = Op.Of(name: nameof(TransformCamera));
+            return Optional(scope.Viewport).ToFin(Fail: op.InvalidInput()).Bind(viewport => {
+                using ViewportInfo projection = new(rhinoViewport: viewport);
+                return op.Confirm(success: projection.TransformCamera(xform: xform))
+                    .Bind(_ => op.Confirm(success: viewport.SetViewProjection(projection: projection, updateTargetLocation: true)))
+                    .Bind(_ => Redraw(scope: scope, redraw: redraw));
+            });
+        }));
+
     public static CameraEdit Zoom() =>
         Native(change: static viewport => viewport.ZoomExtents());
 
@@ -294,12 +333,26 @@ public static class CameraOps {
     public static CameraOp<Unit> Change(params CameraEdit[] edits) =>
         Change(edits: edits, redrawEach: true);
 
+    // `redrawEach: false` brackets the batch in `Views.EnableRedraw(false)` + final Redraw to
+    // eliminate flicker; try/finally restores redraw even when an edit throws.
     public static CameraOp<Unit> Change(IEnumerable<CameraEdit> edits, bool redrawEach = true) =>
         new(Run: scope =>
             from changes in Optional(edits).ToFin(Fail: Op.Of(name: nameof(Change)).InvalidInput()).Map(static source => toSeq(source))
-            from applied in changes.TraverseM(edit => edit.Apply(scope: scope, redraw: redrawEach)).As()
-            from redraw in redrawEach ? Fin.Succ(value: unit) : scope.Redraw()
-            select redraw);
+            from result in ApplyBatch(scope: scope, changes: changes, redrawEach: redrawEach)
+            select result);
+
+    private static Fin<Unit> ApplyBatch(CameraScope scope, Seq<CameraEdit> changes, bool redrawEach) =>
+        redrawEach switch {
+            true => changes.TraverseM(edit => edit.Apply(scope: scope, redraw: true)).As().Map(static _ => unit),
+            false => UI.RhinoUi.Protect(valid: () => {
+                scope.Document.Views.EnableRedraw(enable: false, redrawDocument: false, redrawLayers: false);
+                try {
+                    return changes.TraverseM(edit => edit.Apply(scope: scope, redraw: false)).As().Bind(_ => scope.Redraw());
+                } finally {
+                    scope.Document.Views.EnableRedraw(enable: true, redrawDocument: false, redrawLayers: false);
+                }
+            }),
+        };
 
     public static CameraOp<Commands.DocumentResourceChange> SaveNamed(string name) =>
         new(Run: scope =>

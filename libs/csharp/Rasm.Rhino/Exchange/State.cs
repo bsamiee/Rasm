@@ -555,10 +555,11 @@ public abstract partial record FileSheetEdit {
     public sealed record AddDetail(string SheetName, FileDetailSpec Spec) : FileSheetEdit;
     public sealed record RemoveDetail(string SheetName, string DetailName) : FileSheetEdit;
     public sealed record ActivateDetail(string SheetName, Option<string> DetailName) : FileSheetEdit;
-    public sealed record LayerOverride(string SheetName, string DetailName, string LayerPath, Option<DrawingColor> Color = default, Option<bool> Visible = default) : FileSheetEdit;
+    public sealed record LayerOverride(string SheetName, string DetailName, string LayerPath, Option<DrawingColor> Color = default, Option<bool> Visible = default, Option<DrawingColor> PlotColor = default, Option<double> PlotWeight = default) : FileSheetEdit;
     public sealed record ClippingOverride(string SheetName, string DetailName, BoundingBox Box) : FileSheetEdit;
     public sealed record RefreshLinks(Option<Seq<string>> Archives = default, bool SkipUpToDate = false) : FileSheetEdit;
     public sealed record FlattenLinkedBlocks(Option<Seq<string>> Archives = default, Option<Seq<Guid>> Ids = default) : FileSheetEdit;
+    public sealed record ExportBlock(string BlockName, FileEndpoint Target) : FileSheetEdit;
 }
 
 internal readonly record struct FileSheetPage(RhinoPageView Page, FileSheet Sheet);
