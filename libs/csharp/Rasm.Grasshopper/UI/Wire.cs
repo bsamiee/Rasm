@@ -277,15 +277,13 @@ internal static partial class Wire {
     internal static WireSnapshot.ConnectedCase SnapshotConnected(GhObjectList objects, WireEnds wire) =>
         SnapshotIn(objects: objects, wire: wire, index: IndexOf(objects: objects));
 
-    // Connectivity = wire exists in AllWires AND both endpoints resolve to live parameters. AllWires
-    // includes dangling entries by GH2 design; membership alone is insufficient. Single-call cost is
-    // O(N) due to per-call IndexOf rebuild — acceptable for mutation guards (RequireConnected,
-    // MutateWire precheck) which fire once per op. Batch readers (Dangling, Graph) amortize via
-    // SafeWires which builds the index once and reuses it for every wire.
+    // Single-wire connectivity probe via Connections.IndexOf (O(degree-of-source)) avoids the O(N)
+    // AllWires HashSet rebuild that the prior IndexOf approach paid for every guard. Batch readers
+    // (Dangling, Graph) still amortize one AllWires snapshot through SafeWires.
     internal static bool IsConnected(GhObjectList objects, WireEnds wire) =>
-        IndexOf(objects: objects).Find(key: (wire.Source, wire.Target)).IsSome
-        && objects.FindParameter(instanceId: wire.Source) is not null
-        && objects.FindParameter(instanceId: wire.Target) is not null;
+        objects.FindParameter(instanceId: wire.Source) is IParameter source
+            && objects.FindParameter(instanceId: wire.Target) is not null
+            && source.Outputs.IndexOf(parameter: wire.Target) >= 0;
 
     private static WireSnapshot.ConnectedCase SnapshotIn(GhObjectList objects, WireEnds wire, LanguageExt.HashSet<(Guid Source, Guid Target)> index) {
         IParameter? source = objects.FindParameter(instanceId: wire.Source);

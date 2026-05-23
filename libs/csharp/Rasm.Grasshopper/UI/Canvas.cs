@@ -79,6 +79,8 @@ public partial record CanvasOp {
     public sealed record MapCase(CanvasLocus Locus, CoordinateSystem From, CoordinateSystem To) : CanvasOp;
     public sealed record InvalidateCase(RepaintRequest Repaint) : CanvasOp;
     public sealed record InstantiateCase(Option<string> SearchText, bool MouseCentred) : CanvasOp;
+    public sealed record SearchCase : CanvasOp;
+    public sealed record FocusCase : CanvasOp;
     public sealed record DetailCase : CanvasOp;
     public sealed record ActionsCase : CanvasOp;
     public sealed record RenderCase(int Width, int Height, CanvasBitmapLayers Layers) : CanvasOp;
@@ -93,6 +95,8 @@ public partial record CanvasOp {
     public static CanvasOp Map(CanvasLocus locus, CoordinateSystem from, CoordinateSystem to) => new MapCase(Locus: locus, From: from, To: to);
     public static CanvasOp Invalidate(RepaintRequest? repaint = null) => new InvalidateCase(Repaint: repaint ?? RepaintRequest.Canvas);
     public static CanvasOp Instantiate(string? searchText = null, bool mouseCentred = true) => new InstantiateCase(SearchText: Optional(searchText), MouseCentred: mouseCentred);
+    public static readonly CanvasOp Search = new SearchCase();
+    public static readonly CanvasOp Focus = new FocusCase();
     public static readonly CanvasOp Detail = new DetailCase();
     public static CanvasOp Actions() => new ActionsCase();
     public static CanvasOp Render(int width, int height, CanvasBitmapLayers layers = CanvasBitmapLayers.All) => new RenderCase(Width: width, Height: height, Layers: layers);
@@ -115,6 +119,7 @@ public partial record CanvasResult {
     public sealed record DetailResult(CanvasDetailSnapshot Detail) : CanvasResult;
     public sealed record ActionsResult(CanvasActionSnapshot Snapshot) : CanvasResult;
     public sealed record SnapFeedbackResult(CanvasSnapFeedbackSnapshot Feedback) : CanvasResult;
+    public sealed record FocusResult(Option<string> FocusedNomen) : CanvasResult;
     public sealed record UnitResult : CanvasResult;
     public static readonly CanvasResult Unit = new UnitResult();
 }
@@ -283,6 +288,8 @@ internal sealed record CanvasRequest(CanvasOp Op) : GhUiRequest<CanvasResult> {
             mapCase: static _ => GrasshopperUiPolicy.Canvas(),
             invalidateCase: static i => GrasshopperUiPolicy.Canvas(repaint: i.Repaint),
             instantiateCase: static _ => GrasshopperUiPolicy.Canvas(openEditor: true),
+            searchCase: static _ => GrasshopperUiPolicy.Canvas(openEditor: true),
+            focusCase: static _ => GrasshopperUiPolicy.Canvas(),
             detailCase: static _ => GrasshopperUiPolicy.Canvas(),
             actionsCase: static _ => GrasshopperUiPolicy.Canvas(),
             renderCase: static _ => GrasshopperUiPolicy.Canvas(),
@@ -330,6 +337,14 @@ internal static partial class UiRail {
                         canvas.ShowInstantiationPopup(mouseCentred: ins.MouseCentred, initialText: ins.SearchText.IfNone(string.Empty));
                         return CanvasResult.Unit;
                     })),
+        CanvasOp.SearchCase =>
+            scope.NeedCanvas().Map(canvas => { canvas.ShowSearchPopup(); return CanvasResult.Unit; }),
+        CanvasOp.FocusCase =>
+            scope.NeedCanvas().Map(canvas => (CanvasResult)new CanvasResult.FocusResult(
+                FocusedNomen: Optional(canvas.FocusObject).Map(static target => target switch {
+                    IInteraction interaction => interaction.Nomen.Name,
+                    _ => target.GetType().Name,
+                }))),
         CanvasOp.DetailCase =>
             scope.NeedCanvas().Map(canvas => (CanvasResult)new CanvasResult.DetailResult(
                 Detail: new CanvasDetailSnapshot(
