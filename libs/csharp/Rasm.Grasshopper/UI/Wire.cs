@@ -185,6 +185,9 @@ internal static partial class Wire {
         GhUi.Document(run: scope =>
             scope.NeedObjects().Map(objs => SafeWires(source: objs.SelectedWires, objects: objs)));
 
+    // ObjectList.AllWires enumerates BOTH connected wires AND dangling entries (wires whose
+    // source/target parameter has been deleted but whose WireEnds record remains). Dangling
+    // therefore filters on Connected, which requires parameter resolution per IsConnected.
     internal static GrasshopperUiIntent<Seq<WireSnapshot.ConnectedCase>> Dangling() =>
         GhUi.Document(run: scope =>
             scope.NeedObjects().Map(objs => SafeWires(source: objs.AllWires, objects: objs).Filter(static w => !w.Connected)));
@@ -256,26 +259,44 @@ internal static partial class Wire {
             select GraphOf(objects: objects, graphObjects: graphObjects, startParameterId: startParameterId, maxHops: hops));
 
     // --- [OPERATIONS] -------------------------------------------------------------------------
-    private static Seq<WireSnapshot.ConnectedCase> SafeWires(IEnumerable<WireEnds>? source, GhObjectList objects) =>
-        Optional(source)
-            .Map(wires => toSeq(wires).Map(wire => SnapshotConnected(objects: objects, wire: wire)))
+    // Batch-friendly: materialize AllWires into a (Source, Target) index ONCE per call so each
+    // SnapshotConnected is O(1) membership + 2 FindParameter calls instead of O(N) AllWires.Any.
+    // Single-wire callers (RequireConnected, MutateWire precheck) use the IsConnected wrapper.
+    private static Seq<WireSnapshot.ConnectedCase> SafeWires(IEnumerable<WireEnds>? source, GhObjectList objects) {
+        LanguageExt.HashSet<(Guid Source, Guid Target)> index = IndexOf(objects: objects);
+        return Optional(source)
+            .Map(wires => toSeq(wires).Map(wire => SnapshotIn(objects: objects, wire: wire, index: index)))
             .IfNone(Seq<WireSnapshot.ConnectedCase>());
+    }
 
-    internal static WireSnapshot.ConnectedCase SnapshotConnected(GhObjectList objects, WireEnds wire) {
+    private static LanguageExt.HashSet<(Guid Source, Guid Target)> IndexOf(GhObjectList objects) =>
+        Optional(objects.AllWires)
+            .Map(wires => toHashSet(toSeq(wires).Map(static w => (w.Source, w.Target))))
+            .IfNone(toHashSet(Seq<(Guid Source, Guid Target)>()));
+
+    internal static WireSnapshot.ConnectedCase SnapshotConnected(GhObjectList objects, WireEnds wire) =>
+        SnapshotIn(objects: objects, wire: wire, index: IndexOf(objects: objects));
+
+    // Connectivity = wire exists in AllWires AND both endpoints resolve to live parameters. AllWires
+    // includes dangling entries by GH2 design; membership alone is insufficient. Single-call cost is
+    // O(N) due to per-call IndexOf rebuild — acceptable for mutation guards (RequireConnected,
+    // MutateWire precheck) which fire once per op. Batch readers (Dangling, Graph) amortize via
+    // SafeWires which builds the index once and reuses it for every wire.
+    internal static bool IsConnected(GhObjectList objects, WireEnds wire) =>
+        IndexOf(objects: objects).Find(key: (wire.Source, wire.Target)).IsSome
+        && objects.FindParameter(instanceId: wire.Source) is not null
+        && objects.FindParameter(instanceId: wire.Target) is not null;
+
+    private static WireSnapshot.ConnectedCase SnapshotIn(GhObjectList objects, WireEnds wire, LanguageExt.HashSet<(Guid Source, Guid Target)> index) {
         IParameter? source = objects.FindParameter(instanceId: wire.Source);
         IParameter? target = objects.FindParameter(instanceId: wire.Target);
-        bool connected = IsConnected(objects: objects, wire: wire);
+        bool connected = index.Find(key: (wire.Source, wire.Target)).IsSome && source is not null && target is not null;
         return new WireSnapshot.ConnectedCase(
             Source: wire.Source, Target: wire.Target,
             SourceResolved: source is not null, TargetResolved: target is not null,
             Connected: connected,
             Selected: connected && objects.IsWireSelected(wire: wire));
     }
-
-    internal static bool IsConnected(GhObjectList objects, WireEnds wire) =>
-        Optional(objects.AllWires)
-            .Map(wires => wires.Any(w => w.Source == wire.Source && w.Target == wire.Target))
-            .IfNone(noneValue: false);
 
     internal static Fin<Unit> RequireConnected(GhObjectList objects, IParameter source, IParameter target, Op op) =>
         IsConnected(objects: objects, wire: new WireEnds(source: source.InstanceId, target: target.InstanceId))

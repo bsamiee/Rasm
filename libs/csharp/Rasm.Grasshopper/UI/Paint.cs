@@ -251,8 +251,14 @@ public partial record EdgeSource {
     internal bool IsCached(PenLineCap cap, PenLineJoin join, float miterLimit) =>
         this is SolidCase && IsVanilla(cap: cap, join: join, miterLimit: miterLimit);
 
+    // Pens.Cached uses reference-equality DashStyle key and assumes default cap/join/miter; we hit the
+    // cache only when the requested pen matches that vanilla profile. Float equality on miterLimit is
+    // bit-exact here because 10f is the Eto default literal — no arithmetic separates the requested
+    // value from the constant — so MathF.Abs(...) < eps would only matter if a caller computed the
+    // limit. We accept exact equality and document the bound.
+    internal const float DefaultMiterLimit = 10f;
     private static bool IsVanilla(PenLineCap cap, PenLineJoin join, float miterLimit) =>
-        cap == PenLineCap.Square && join == PenLineJoin.Miter && miterLimit == 10f;
+        cap == PenLineCap.Square && join == PenLineJoin.Miter && Math.Abs(miterLimit - DefaultMiterLimit) < 1e-3f;
 }
 
 // Per-corner rounded rectangle radii (clockwise from top-left). GraphicsPath.GetRoundRect silently
