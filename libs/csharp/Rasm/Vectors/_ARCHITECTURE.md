@@ -70,14 +70,14 @@ flowchart LR
     Dispatch -->|cloud metrics, curvature, transport, winding, hull| Cloud
     Dispatch -->|Laplacian, topology, features, descriptors, remesh| Mesh
     Dispatch -->|sample| Sample
-    Dispatch -->|align (Point / Plane / Symmetric / Robust / GICP)| Align
+    Dispatch -->|"align (Point / Plane / Symmetric / Robust / GICP)"| Align
 
     Space -->|closest queries| Domain
     Field -->|mesh-backed fields, Hodge, heat, log map| Mesh
     Mesh -->|Laplacian, spectral basis, DEC| Spectral
     Field -->|spectral distance, biharmonic, diffusion, HKS, WKS| Spectral
     Cloud -->|curvature via Modes shape operator| Modes
-    Cloud -->|transport (Sinkhorn unbalanced)| Matrix
+    Cloud -->|"transport (Sinkhorn unbalanced)"| Matrix
     Sample -->|emits cluster| Cloud
     Align -->|normal estimation, correspondence| Cloud
     Cloud -->|covariance, coupling| Matrix
