@@ -65,6 +65,18 @@ public abstract partial record SpectralFilter {
     internal Fin<Arr<double>> Apply(SpectralBasis basis, Option<Seq<int>> sources, Op key) =>
         guard(basis.IsValid, key.InvalidInput())
             .Bind(_ => SpectralCore.EvaluateFiltered(basis: basis, sources: sources, filter: this, key: key));
+
+    // Partial monoidal composition. Closed pairs: Heat∘Heat (time-additive), Diffusion∘Diffusion
+    // (time-additive), Identity neutral. All other pairs (Wave×Wave, Biharmonic×Heat,
+    // CommuteTime×*, etc.) are not algebraically closed and return None — callers cannot fake
+    // closure by silently producing approximate filters.
+    public Option<SpectralFilter> Compose(SpectralFilter other) => (this, other) switch {
+        (HeatCase a, HeatCase b) => Some(Heat(time: PositiveMagnitude.Create(value: a.Time.Value + b.Time.Value))),
+        (DiffusionCase a, DiffusionCase b) => Some(Diffusion(time: PositiveMagnitude.Create(value: a.Time.Value + b.Time.Value))),
+        (IdentityCase, _) => Some(other),
+        (_, IdentityCase) => Some(this),
+        _ => Option<SpectralFilter>.None,
+    };
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -113,6 +125,365 @@ internal static class SpectralCore {
         if (isPairwise)
             for (int v = 0; v < n; v++) result[v] = Math.Sqrt(d: Math.Max(val1: 0.0, val2: result[v] * normFactor));
         return key.AcceptValue(value: new Arr<double>(result));
+    }
+
+    // --- [CROUZEIX_RAVIART] -----------------------------------------------------------------
+    // Stein-Wardetzky-Jacobson-Grinspun 2020 Crouzeix-Raviart connection Laplacian on edges,
+    // verified against geometry-central `intrinsic_geometry_interface.cpp` lines 586-679. Feng-
+    // Crane 2024 SHM diffuses per-edge complex tangent encodings via (M_CR + t·L_CR) X_t = X_0
+    // on the intrinsic-Delaunay edge set (cot ≥ 0 ⇒ L_CR is Hermitian PSD ⇒ real-2|E| block is
+    // SPD ⇒ Cholesky succeeds without a Delaunay fallback).
+    // M_CR[e] = (1/3) Σ_{f∋e} area(f) (diagonal); used as both LHS coefficient and pivot for the
+    // real-2|E| SPD embedding [[A,-B],[B,A]] where H = A + iB is Hermitian.
+    internal static Fin<SparseMatrix> BuildCrouzeixRaviartHeatSystem(MeshKernel.IntrinsicMesh mesh, double time, Op key) {
+        if (!mesh.IsFrozen) return Fin.Fail<SparseMatrix>(error: key.InvalidInput());
+        int eCount = mesh.EdgeCount;
+        if (eCount == 0) return Fin.Fail<SparseMatrix>(error: key.InvalidInput());
+        int faceCapacity = mesh.Triangles.Count;
+        List<(int Row, int Col, double Value)> triplets = new(capacity: (2 * eCount) + (faceCapacity * 36));
+        // Diagonal mass M_CR: Σ_{f∋e} area(f)/3, accumulated per face then injected at (e,e) and
+        // (e+|E|, e+|E|) for the real-block embedding.
+        double[] mass = new double[eCount];
+        foreach (int f in mesh.LiveFaceIndices()) {
+            double area = mesh.AreaOfFace(faceIdx: f);
+            if (area < DegenerateTriangleArea) continue;
+            double contribution = area / 3.0;
+            int[] edges = mesh.EdgesOfFace(faceIdx: f);
+            for (int k = 0; k < edges.Length; k++) if (edges[k] >= 0) mass[edges[k]] += contribution;
+        }
+        for (int e = 0; e < eCount; e++) {
+            triplets.Add(item: (e, e, mass[e]));
+            triplets.Add(item: (e + eCount, e + eCount, mass[e]));
+        }
+        // Per-face CR connection contributions. Each surviving intrinsic face emits three corner
+        // pairs; intrinsic edge orientations come from the canonical (Lo,Hi) ordering on
+        // IntrinsicEdge — sameOrientation[k] is true iff the face's cyclic traversal of edges[k]
+        // matches the canonical Lo→Hi direction.
+        foreach (int f in mesh.LiveFaceIndices()) {
+            (int A, int B, int C)? slot = mesh.Triangles[index: f];
+            if (slot is null) continue;
+            (int va, int vb, int vc) = slot.Value;
+            int[] edges = mesh.EdgesOfFace(faceIdx: f);
+            if (edges.Length != 3 || edges[0] < 0 || edges[1] < 0 || edges[2] < 0) continue;
+            double lAB = mesh.EdgeAt(index: edges[0]).Length;
+            double lBC = mesh.EdgeAt(index: edges[1]).Length;
+            double lCA = mesh.EdgeAt(index: edges[2]).Length;
+            double area = mesh.AreaOfFace(faceIdx: f);
+            if (area < DegenerateTriangleArea) continue;
+            bool oAB = mesh.EdgeAt(index: edges[0]).Lo == va;
+            bool oBC = mesh.EdgeAt(index: edges[1]).Lo == vb;
+            bool oCA = mesh.EdgeAt(index: edges[2]).Lo == vc;
+            bool[] sameOrientation = [oAB, oBC, oCA];
+            EmitCrouzeixRaviartPair(triplets: triplets, edges: edges, sameOrientation: sameOrientation, eCount: eCount, heA: 0, heB: 1, lA: lBC, lB: lAB, lOpp: lCA, area: area, time: time);
+            EmitCrouzeixRaviartPair(triplets: triplets, edges: edges, sameOrientation: sameOrientation, eCount: eCount, heA: 1, heB: 2, lA: lCA, lB: lBC, lOpp: lAB, area: area, time: time);
+            EmitCrouzeixRaviartPair(triplets: triplets, edges: edges, sameOrientation: sameOrientation, eCount: eCount, heA: 2, heB: 0, lA: lAB, lB: lCA, lOpp: lBC, area: area, time: time);
+        }
+        Dimension dim = Dimension.Create(value: 2 * eCount);
+        return SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: triplets, key: key);
+    }
+    private static void EmitCrouzeixRaviartPair(List<(int Row, int Col, double Value)> triplets, int[] edges, bool[] sameOrientation, int eCount, int heA, int heB, double lA, double lB, double lOpp, double area, double time) {
+        int iE = edges[heA];
+        int jE = edges[heB];
+        if (iE < 0 || jE < 0) return;
+        double weight = ((lA * lA) + (lB * lB) - (lOpp * lOpp)) / (2.0 * area);
+        double cosTheta = ((lA * lA) + (lB * lB) - (lOpp * lOpp)) / (2.0 * lA * lB);
+        double sinTheta = 2.0 * area / (lA * lB);
+        double sij = sameOrientation[heA] == sameOrientation[heB] ? 1.0 : -1.0;
+        double re = weight * sij * cosTheta * time;
+        double im = -weight * sij * sinTheta * time;
+        double diag = weight * time;
+        triplets.Add(item: (iE, iE, diag));
+        triplets.Add(item: (jE, jE, diag));
+        triplets.Add(item: (iE + eCount, iE + eCount, diag));
+        triplets.Add(item: (jE + eCount, jE + eCount, diag));
+        triplets.Add(item: (iE, jE, re));
+        triplets.Add(item: (jE, iE, re));
+        triplets.Add(item: (iE + eCount, jE + eCount, re));
+        triplets.Add(item: (jE + eCount, iE + eCount, re));
+        triplets.Add(item: (iE, jE + eCount, -im));
+        triplets.Add(item: (jE + eCount, iE, -im));
+        triplets.Add(item: (iE + eCount, jE, im));
+        triplets.Add(item: (jE, iE + eCount, im));
+    }
+    // Sample the per-edge complex field X_t at each intrinsic face barycenter. Per `SignedHeat
+    // Solver::sampleAtFaceBarycenters`: for each face edge with canonical tangent t_e (unit) and
+    // in-plane normal n_e = N_f × t_e, accumulate Y_f += Re(X_t[e])·t_e + Im(X_t[e])·n_e then
+    // normalise per face. Result is Vector3d per intrinsic face index; null face slots produce
+    // zero entries. The face plane uses extrinsic 3D vertex positions (the intrinsic face has
+    // the same 3-vertex set in 3D as any flipped variant, just different edge structure).
+    internal static Vector3d[] SampleCrouzeixRaviartFaceField(Mesh mesh, MeshKernel.IntrinsicMesh imesh, Arr<double> stacked) {
+        int eCount = imesh.EdgeCount;
+        int faceCapacity = imesh.Triangles.Count;
+        Vector3d[] field = new Vector3d[faceCapacity];
+        foreach (int f in imesh.LiveFaceIndices()) {
+            (int A, int B, int C)? slot = imesh.Triangles[index: f];
+            if (slot is null) continue;
+            (int va, int vb, int vc) = slot.Value;
+            Point3d pa = mesh.Vertices[index: va];
+            Point3d pb = mesh.Vertices[index: vb];
+            Point3d pc = mesh.Vertices[index: vc];
+            Vector3d normal = Vector3d.CrossProduct(a: pb - pa, b: pc - pa);
+            if (!normal.Unitize()) continue;
+            int[] edges = imesh.EdgesOfFace(faceIdx: f);
+            Vector3d acc = Vector3d.Zero;
+            for (int k = 0; k < edges.Length; k++) {
+                int e = edges[k];
+                if (e < 0) continue;
+                MeshKernel.IntrinsicEdge edge = imesh.EdgeAt(index: e);
+                Vector3d tangent = (Vector3d)(mesh.Vertices[index: edge.Hi] - mesh.Vertices[index: edge.Lo]);
+                if (!tangent.Unitize()) continue;
+                Vector3d perp = Vector3d.CrossProduct(a: normal, b: tangent);
+                double xRe = stacked[index: e];
+                double xIm = stacked[index: e + eCount];
+                acc += (xRe * tangent) + (xIm * perp);
+            }
+            double mag = acc.Length;
+            field[f] = mag > RhinoMath.ZeroTolerance ? acc / mag : Vector3d.Zero;
+        }
+        return field;
+    }
+    // Cotangent vertex divergence on the intrinsic-Delaunay face set. Matches the extrinsic
+    // ComputeVertexDivergence formula but reads cotangents from intrinsic edge lengths (via
+    // Heron's law of cosines) and uses extrinsic vertex positions for the edge basis against
+    // which Y_f is projected. Required by SHM since L_CR is intrinsic — the divergence MUST be
+    // intrinsic to remain self-consistent on flipped faces.
+    internal static Arr<double> ComputeIntrinsicVertexDivergence(Mesh mesh, MeshKernel.IntrinsicMesh imesh, Vector3d[] faceFields) {
+        int n = mesh.Vertices.Count;
+        double[] div = new double[n];
+        foreach (int f in imesh.LiveFaceIndices()) {
+            (int A, int B, int C)? slot = imesh.Triangles[index: f];
+            if (slot is null) continue;
+            (int va, int vb, int vc) = slot.Value;
+            int[] edges = imesh.EdgesOfFace(faceIdx: f);
+            if (edges.Length != 3 || edges[0] < 0 || edges[1] < 0 || edges[2] < 0) continue;
+            double lAB = imesh.EdgeAt(index: edges[0]).Length;
+            double lBC = imesh.EdgeAt(index: edges[1]).Length;
+            double lCA = imesh.EdgeAt(index: edges[2]).Length;
+            double area = imesh.AreaOfFace(faceIdx: f);
+            if (area < DegenerateTriangleArea) continue;
+            double quadArea = 4.0 * area;
+            double cotA = ((lAB * lAB) + (lCA * lCA) - (lBC * lBC)) / quadArea;
+            double cotB = ((lAB * lAB) + (lBC * lBC) - (lCA * lCA)) / quadArea;
+            double cotC = ((lBC * lBC) + (lCA * lCA) - (lAB * lAB)) / quadArea;
+            Point3d pa = mesh.Vertices[index: va];
+            Point3d pb = mesh.Vertices[index: vb];
+            Point3d pc = mesh.Vertices[index: vc];
+            Vector3d ab = pb - pa;
+            Vector3d bc = pc - pb;
+            Vector3d ca = pa - pc;
+            Vector3d g = faceFields[f];
+            div[va] += 0.5 * ((cotB * (ab * g)) + (cotC * (-ca * g)));
+            div[vb] += 0.5 * ((cotC * (bc * g)) + (cotA * (-ab * g)));
+            div[vc] += 0.5 * ((cotA * (ca * g)) + (cotB * (-bc * g)));
+        }
+        return new Arr<double>(div);
+    }
+
+    // --- [CDS_HOLONOMY] ---------------------------------------------------------------------
+    // Discrete angle defect K_v = 2π − Σ_{f∋v} interior_angle, computed from intrinsic edge
+    // lengths via the law of cosines. Σ K_v = 2π·χ on closed meshes (discrete Gauss-Bonnet).
+    internal static Arr<double> ComputeIntrinsicAngleDefects(MeshKernel.IntrinsicMesh imesh) {
+        int n = imesh.VertexCount;
+        double[] defect = new double[n];
+        for (int v = 0; v < n; v++) defect[v] = 2.0 * Math.PI;
+        foreach (int f in imesh.LiveFaceIndices()) {
+            (int A, int B, int C)? slot = imesh.Triangles[index: f];
+            if (slot is null) continue;
+            (int va, int vb, int vc) = slot.Value;
+            int[] edges = imesh.EdgesOfFace(faceIdx: f);
+            if (edges.Length != 3 || edges[0] < 0 || edges[1] < 0 || edges[2] < 0) continue;
+            double lAB = imesh.EdgeAt(index: edges[0]).Length;
+            double lBC = imesh.EdgeAt(index: edges[1]).Length;
+            double lCA = imesh.EdgeAt(index: edges[2]).Length;
+            defect[va] -= AngleFromLengths(opposite: lBC, adjacent1: lAB, adjacent2: lCA);
+            defect[vb] -= AngleFromLengths(opposite: lCA, adjacent1: lAB, adjacent2: lBC);
+            defect[vc] -= AngleFromLengths(opposite: lAB, adjacent1: lBC, adjacent2: lCA);
+        }
+        return new Arr<double>(defect);
+    }
+    private static double AngleFromLengths(double opposite, double adjacent1, double adjacent2) {
+        double cosTheta = ((adjacent1 * adjacent1) + (adjacent2 * adjacent2) - (opposite * opposite)) / (2.0 * adjacent1 * adjacent2);
+        return Math.Acos(d: Math.Min(val1: 1.0, val2: Math.Max(val1: -1.0, val2: cosTheta)));
+    }
+
+    // Crane-Desbrun-Schröder 2010 trivial connection 1-form on the INTRINSIC-Delaunay edge set.
+    // Returns per-intrinsic-edge angle adjustment α_e such that ρ_ij ← ρ_ij + α_e produces a
+    // connection with prescribed singularities at cone vertices. Algorithm: (1) build closed
+    // primal 1-form u with target_v = 2π·k_v − K_v per vertex, distributed onto one incident
+    // intrinsic edge; (2) Hodge-decompose via coexact solve L_cot · β = d^T · diag(★₁) · u;
+    // (3) α_e = −(d₀β)_e per intrinsic edge. Closed mesh only; γ harmonic term (genus > 0)
+    // deferred. The intrinsic edge index space matches LaplacianCache.IntrinsicMeshSnapshot, so
+    // EnumerateConnectionEntries' α-lookup hits every flipped edge (no extrinsic mismatch).
+    internal static Fin<Arr<double>> DistributeHolonomy(MeshSpace space, MeshKernel.IntrinsicMesh imesh, Seq<(int Vertex, double ConeIndex)> cones, Op key) {
+        Arr<double> defects = ComputeIntrinsicAngleDefects(imesh: imesh);
+        return from _ in ValidateGaussBonnet(mesh: space.Native, imesh: imesh, defects: defects, cones: cones, key: key)
+               let u = BuildConePrimalOneForm(imesh: imesh, defects: defects, cones: cones)
+               let star1 = ComputeIntrinsicStar1(imesh: imesh)
+               let rhs = IntrinsicCoexactRhs(imesh: imesh, star1: star1, u: u)
+               from beta in space.Cache.Cholesky.Bind(factor => factor.Solve(rhs: rhs, key: key))
+               let dBeta = IntrinsicEdgeGradient(imesh: imesh, beta: beta)
+               select NegateInPlace(values: dBeta);
+    }
+    private static Fin<Unit> ValidateGaussBonnet(Mesh mesh, MeshKernel.IntrinsicMesh imesh, Arr<double> defects, Seq<(int Vertex, double ConeIndex)> cones, Op key) {
+        if ((mesh.GetNakedEdges()?.Length ?? 0) > 0) return Fin.Fail<Unit>(error: key.InvalidInput());
+        double sumK = 0.0;
+        for (int v = 0; v < defects.Count; v++) sumK += defects[index: v];
+        double euler = sumK / (2.0 * Math.PI);
+        double sumPrescribed = 0.0;
+        for (int c = 0; c < cones.Count; c++) sumPrescribed += cones[index: c].ConeIndex;
+        return Math.Abs(value: sumPrescribed - euler) > 1.0e-6
+            ? Fin.Fail<Unit>(error: key.InvalidInput())
+            : Fin.Succ(unit);
+    }
+    // Per-vertex target: 2π·k_v − K_v. Distribute onto one incident intrinsic edge (taken
+    // canonically via IntrinsicMesh.FirstIncidentEdge). The d₀ sign convention is −1 at Lo,
+    // +1 at Hi, so the dump sign is +target_v when v = Hi, −target_v when v = Lo.
+    private static Arr<double> BuildConePrimalOneForm(MeshKernel.IntrinsicMesh imesh, Arr<double> defects, Seq<(int Vertex, double ConeIndex)> cones) {
+        int n = imesh.VertexCount;
+        int eCount = imesh.EdgeCount;
+        double[] target = new double[n];
+        for (int v = 0; v < n; v++) target[v] = -defects[index: v];
+        for (int c = 0; c < cones.Count; c++) {
+            (int v, double k) = cones[index: c];
+            if (v >= 0 && v < n) target[v] += 2.0 * Math.PI * k;
+        }
+        double[] u = new double[eCount];
+        for (int v = 0; v < n; v++) {
+            if (Math.Abs(value: target[v]) < RhinoMath.ZeroTolerance) continue;
+            int e = imesh.FirstIncidentEdge(vertexIdx: v);
+            if (e < 0) continue;
+            MeshKernel.IntrinsicEdge edge = imesh.EdgeAt(index: e);
+            double sign = v == edge.Hi ? 1.0 : -1.0;
+            u[e] += target[v] * sign;
+        }
+        return new Arr<double>(u);
+    }
+    // Per-intrinsic-edge cotangent weight: Σ over incident faces of 0.5·cot(opposite angle),
+    // computed from intrinsic edge lengths via law of cosines / Heron area. Always ≥ 0 on
+    // intrinsic-Delaunay meshes. Shared by holonomy distribution (★₁) and connection-Laplacian
+    // assembly (off-diagonal cotangent weight w for each intrinsic edge).
+    internal static Arr<double> ComputeIntrinsicStar1(MeshKernel.IntrinsicMesh imesh) {
+        int eCount = imesh.EdgeCount;
+        double[] star1 = new double[eCount];
+        for (int e = 0; e < eCount; e++) {
+            MeshKernel.IntrinsicEdge edge = imesh.EdgeAt(index: e);
+            star1[e] = 0.5 * (CotAtOppositeCorner(imesh: imesh, edge: edge, faceIdx: edge.Face0)
+                            + CotAtOppositeCorner(imesh: imesh, edge: edge, faceIdx: edge.Face1));
+        }
+        return new Arr<double>(star1);
+    }
+    private static double CotAtOppositeCorner(MeshKernel.IntrinsicMesh imesh, MeshKernel.IntrinsicEdge edge, int faceIdx) {
+        if (faceIdx < 0) return 0.0;
+        (int A, int B, int C)? slot = imesh.Triangles[index: faceIdx];
+        if (slot is null) return 0.0;
+        (int va, int vb, int vc) = slot.Value;
+        int oppV = (va != edge.Lo && va != edge.Hi) ? va
+                 : (vb != edge.Lo && vb != edge.Hi) ? vb
+                 : vc;
+        int eOppLo = imesh.IndexOfEdge(lo: oppV, hi: edge.Lo);
+        int eOppHi = imesh.IndexOfEdge(lo: oppV, hi: edge.Hi);
+        if (eOppLo < 0 || eOppHi < 0) return 0.0;
+        double lOppLo = imesh.EdgeAt(index: eOppLo).Length;
+        double lOppHi = imesh.EdgeAt(index: eOppHi).Length;
+        double area = imesh.AreaOfFace(faceIdx: faceIdx);
+        return area < DegenerateTriangleArea
+            ? 0.0
+            : ((lOppLo * lOppLo) + (lOppHi * lOppHi) - (edge.Length * edge.Length)) / (4.0 * area);
+    }
+    // d_intrinsic^T · diag(★₁) · u: per-vertex contribution of incident intrinsic edges weighted
+    // by the per-edge cotan weight and the primal 1-form value. Sign matches the d₀ convention
+    // (−1 at Lo, +1 at Hi).
+    private static Arr<double> IntrinsicCoexactRhs(MeshKernel.IntrinsicMesh imesh, Arr<double> star1, Arr<double> u) {
+        int n = imesh.VertexCount;
+        int eCount = imesh.EdgeCount;
+        double[] rhs = new double[n];
+        for (int e = 0; e < eCount; e++) {
+            MeshKernel.IntrinsicEdge edge = imesh.EdgeAt(index: e);
+            double weighted = star1[index: e] * u[index: e];
+            rhs[edge.Lo] += -weighted;
+            rhs[edge.Hi] += +weighted;
+        }
+        return new Arr<double>(rhs);
+    }
+    // d_intrinsic · β per intrinsic edge: gradient of the vertex 0-form β along each edge.
+    private static Arr<double> IntrinsicEdgeGradient(MeshKernel.IntrinsicMesh imesh, Arr<double> beta) {
+        int eCount = imesh.EdgeCount;
+        double[] grad = new double[eCount];
+        for (int e = 0; e < eCount; e++) {
+            MeshKernel.IntrinsicEdge edge = imesh.EdgeAt(index: e);
+            grad[e] = beta[index: edge.Hi] - beta[index: edge.Lo];
+        }
+        return new Arr<double>(grad);
+    }
+    private static Arr<double> NegateInPlace(Arr<double> values) {
+        int n = values.Count;
+        double[] negated = new double[n];
+        for (int i = 0; i < n; i++) negated[i] = -values[index: i];
+        return new Arr<double>(negated);
+    }
+
+    // --- [HEAT_SCAFFOLD] --------------------------------------------------------------------
+    // Mass-weighted impulse at each source vertex; matches Crane heat-method convention so
+    // (M + tL)u = δ gives u(source) ≈ 1 in the small-t limit.
+    internal static Arr<double> BuildSourceDelta(int n, Seq<int> sources, Arr<double> mass) {
+        double[] delta = new double[n];
+        for (int s = 0; s < sources.Count; s++) delta[sources[index: s]] = mass[index: sources[index: s]];
+        return new Arr<double>(delta);
+    }
+    // Triplets for L_cot with a hard 1e10 pin at each source — breaks the constant-mode null
+    // space so the Poisson φ recovered from divergence has zero at the source. Falls back to
+    // pinning vertex 0 when no sources are supplied.
+    internal static List<(int Row, int Col, double Value)> PoissonTriplets(SparseLaplacian L, Seq<int> sources) {
+        List<(int Row, int Col, double Value)> result = [];
+        for (int i = 0; i < L.Stiffness.Rows.Value; i++)
+            for (int k = L.Stiffness.RowPtr[index: i]; k < L.Stiffness.RowPtr[index: i + 1]; k++)
+                result.Add(item: (i, L.Stiffness.ColInd[index: k], L.Stiffness.Values[index: k]));
+        Seq<int> pins = sources.IsEmpty ? Seq(0) : sources;
+        for (int i = 0; i < pins.Count; i++) result.Add(item: (pins[index: i], pins[index: i], 1.0e10));
+        return result;
+    }
+    // FEM gradient per triangle of a scalar field u: −∇u normalised to unit length.
+    // BOUNDARY ADAPTER — Rhino MeshFace + Vertices direct access; Seq materialisation
+    // doubles peak memory on dense meshes.
+    internal static Vector3d[] ComputeTriangleGradients(Mesh mesh, Arr<double> u) {
+        Vector3d[] gradients = new Vector3d[mesh.Faces.Count];
+        for (int f = 0; f < mesh.Faces.Count; f++) {
+            MeshFace face = mesh.Faces[index: f];
+            if (!face.IsTriangle) continue;
+            Point3d pa = mesh.Vertices[index: face.A]; Point3d pb = mesh.Vertices[index: face.B]; Point3d pc = mesh.Vertices[index: face.C];
+            Vector3d n = Vector3d.CrossProduct(a: pb - pa, b: pc - pa); double twoArea = n.Length;
+            if (twoArea < RhinoMath.ZeroTolerance) continue;
+            Vector3d nUnit = n / twoArea;
+            Vector3d ua = Vector3d.CrossProduct(a: nUnit, b: pc - pb) * u[index: face.A];
+            Vector3d ub = Vector3d.CrossProduct(a: nUnit, b: pa - pc) * u[index: face.B];
+            Vector3d uc = Vector3d.CrossProduct(a: nUnit, b: pb - pa) * u[index: face.C];
+            Vector3d g = (ua + ub + uc) / twoArea;
+            double len = g.Length;
+            gradients[f] = len > RhinoMath.ZeroTolerance ? -g / len : Vector3d.Zero;
+        }
+        return gradients;
+    }
+    // Cotangent vertex divergence of a per-triangle tangent field. Standard Crane heat-method
+    // ∇·X formula: ½ Σ_{f∋v} cot(α₁)·⟨e₁,X_f⟩ + cot(α₂)·⟨e₂,X_f⟩.
+    internal static Arr<double> ComputeVertexDivergence(Mesh mesh, Vector3d[] gradients) {
+        int n = mesh.Vertices.Count;
+        double[] div = new double[n];
+        for (int f = 0; f < mesh.Faces.Count; f++) {
+            MeshFace face = mesh.Faces[index: f];
+            if (!face.IsTriangle) continue;
+            Point3d pa = mesh.Vertices[index: face.A]; Point3d pb = mesh.Vertices[index: face.B]; Point3d pc = mesh.Vertices[index: face.C];
+            Vector3d ab = pb - pa; Vector3d bc = pc - pb; Vector3d ca = pa - pc;
+            double twoArea = Vector3d.CrossProduct(a: ab, b: pc - pa).Length;
+            if (twoArea < RhinoMath.ZeroTolerance) continue;
+            double cotA = -ab * ca / twoArea;
+            double cotB = ab * -bc / twoArea;
+            double cotC = bc * ca / twoArea;
+            Vector3d g = gradients[f];
+            div[face.A] += 0.5 * ((cotB * (ab * g)) + (cotC * (-ca * g)));
+            div[face.B] += 0.5 * ((cotC * (bc * g)) + (cotA * (-ab * g)));
+            div[face.C] += 0.5 * ((cotA * (ca * g)) + (cotB * (-bc * g)));
+        }
+        return new Arr<double>(div);
     }
 
     // --- [DEC_ASSEMBLY] ---------------------------------------------------------------------
