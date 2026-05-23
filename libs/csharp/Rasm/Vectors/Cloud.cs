@@ -1,5 +1,7 @@
 using Foundation.CSharp.Analyzers.Contracts;
 using MathNet.Numerics.Statistics;
+using DenseMatrixD = MathNet.Numerics.LinearAlgebra.Double.DenseMatrix;
+using DenseVectorD = MathNet.Numerics.LinearAlgebra.Double.DenseVector;
 
 namespace Rasm.Vectors;
 
@@ -33,7 +35,7 @@ public sealed partial class VectorCloudMetric {
     public static readonly VectorCloudMetric Spread = Cluster(key: 22, output: typeof(Vector3d), measure: static (pts, k) => CloudKernel.SpreadOf(points: pts, key: k).Map(static v => (object)v));
     public static readonly VectorCloudMetric OrientedNormals = new(key: 23, output: typeof(Seq<Vector3d>),
         admitsCase: static cloud => cloud is VectorCloud.ClusterCase,
-        measure: static (cloud, k) => PopulationKernel.OrientNormalsViaMst(cloud: cloud, key: k).Map(static v => (object)v));
+        measure: static (cloud, k) => CloudKernel.OrientNormalsViaMst(cloud: cloud, key: k).Map(static v => (object)v));
     private static VectorCloudMetric Ring(int key, Type output, Func<VectorCloud.RingCase, Op, Fin<object>> measure) =>
         new(key: key, output: output, admitsCase: static cloud => cloud is VectorCloud.RingCase, measure: (cloud, k) => measure((VectorCloud.RingCase)cloud, k));
     private static VectorCloudMetric All(int key, Type output, Func<VectorCloud, Op, Fin<object>> measure) =>
@@ -177,6 +179,8 @@ public abstract partial record VectorCloud {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class CloudKernel {
+    private const int NormalEstimationNeighbors = 10;
+
     // --- [RAILS] ------------------------------------------------------------------------
     internal static Fin<T> WithCaseRails<T>(
         VectorCloud cloud,
@@ -291,6 +295,17 @@ internal static class CloudKernel {
             < 3 => Fin.Fail<int>(key.InvalidInput()),
             _ => key.AcceptValue(value: (int)Math.Round(ring.Map((v, i) => (V0: v - query, V1: ring[(i + 1) % ring.Count] - query))
                 .Fold(initialState: 0.0, f: (sum, pair) => sum + Vector3d.VectorAngle(v1: pair.V0, v2: pair.V1, vNormal: planeNormal)) / RhinoMath.TwoPI)),
+        };
+    internal static Fin<TOut> Winding<TOut>(VectorCloud cloud, Point3d query, Op key) =>
+        cloud switch {
+            VectorCloud.RingCase ring =>
+                from normal in RingNormalOf(ring: ring, key: key)
+                from winding in PlanarWindingOf(ring: ring.Vertices, planeNormal: normal, query: query, key: key)
+                from output in typeof(TOut) == typeof(int)
+                    ? Fin.Succ((TOut)(object)winding)
+                    : Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(VectorCloud.RingCase), outputType: typeof(TOut)))
+                select output,
+            _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: cloud.GetType(), outputType: typeof(int))),
         };
 
     // --- [DISPATCH] ---------------------------------------------------------------------
@@ -560,4 +575,206 @@ internal static class CloudKernel {
             _ => key.AcceptValue(value: toSeq(Enumerable.Range(start: 0, count: points.Count - 1))
                 .Fold(initialState: 0.0, f: (sum, i) => sum + points[i + 1].DistanceTo(other: points[i]))),
         };
+
+    // --- [HULL] -----------------------------------------------------------------------------
+    internal static Fin<Mesh> ComputeHull(VectorCloud source, Context context, Op key) =>
+        source switch {
+            VectorCloud.ClusterCase cluster => ConvexHullOf(cluster: cluster, context: context, key: key),
+            _ => Fin.Fail<Mesh>(error: key.Unsupported(geometryType: source.GetType(), outputType: typeof(Mesh))),
+        };
+    private static Fin<Mesh> ConvexHullOf(VectorCloud.ClusterCase cluster, Context context, Op key) {
+        if (cluster.Vertices.Count < 4 || Point3d.ArePointsCoplanar(points: cluster.Vertices.AsIterable(), tolerance: context.Absolute.Value))
+            return Fin.Fail<Mesh>(error: key.InvalidInput());
+        using Mesh? hull = Mesh.CreateConvexHull3D(points: cluster.Vertices.AsIterable(), hullFacets: out _, tolerance: context.Absolute.Value, angleTolerance: context.Angle.Value);
+        return hull is not { IsValid: true }
+            ? Fin.Fail<Mesh>(error: key.InvalidResult())
+            : Fin.Succ(hull.DuplicateMesh());
+    }
+
+    // --- [NORMAL_ESTIMATION] -----------------------------------------------------------------
+    internal static Fin<Vector3d[]> EstimateNormalsViaCovariance(VectorCloud.ClusterCase target, Op key) =>
+        EstimateNormalGraph(target: target, key: key).Map(static graph => graph.Normals);
+    internal static Fin<(Vector3d[] Normals, int[][] Neighbors)> EstimateNormalGraph(VectorCloud.ClusterCase target, Op key) {
+        Point3d[] points = [.. target.Vertices.AsIterable()];
+        if (points.Length < 3) return Fin.Fail<(Vector3d[], int[][])>(key.InvalidInput());
+        int k = Math.Min(val1: NormalEstimationNeighbors, val2: points.Length);
+        int[][] neighborhoods = [.. RTree.PointCloudKNeighbors(pointcloud: target.Indexed, needlePts: points, amount: k)];
+        return EstimateNormalsFromPoints(points: points, neighborhoodOf: i => NeighborhoodOf(points: points, ids: neighborhoods.Length > i ? neighborhoods[i] : []), key: key)
+            .Map(normals => (Normals: normals, Neighbors: neighborhoods));
+    }
+    // --- [NORMAL_ORIENTATION] ---------------------------------------------------------------
+    // Hoppe-DeRose-Duchamp-McDonald-Stuetzle 1992: build minimum spanning tree over k-nearest
+    // neighbour graph weighted by 1 − |n_i · n_j|; flip normals to consistently agree along MST.
+    internal static Fin<Seq<Vector3d>> OrientNormalsViaMst(VectorCloud cloud, Op key) =>
+        cloud switch {
+            VectorCloud.ClusterCase cluster => OrientClusterNormals(cluster: cluster, key: key),
+            _ => Fin.Fail<Seq<Vector3d>>(error: key.Unsupported(geometryType: cloud.GetType(), outputType: typeof(Seq<Vector3d>))),
+        };
+    private static Fin<Seq<Vector3d>> OrientClusterNormals(VectorCloud.ClusterCase cluster, Op key) {
+        int n = cluster.Vertices.Count;
+        return n == 0
+            ? Fin.Fail<Seq<Vector3d>>(key.InvalidInput())
+            : EstimateNormalGraph(target: cluster, key: key).Bind(((Vector3d[] Normals, int[][] Neighbors) graph) => {
+                bool[] visited = new bool[n];
+                double[] bestWeight = [.. Enumerable.Repeat(element: double.PositiveInfinity, count: n)];
+                int[] parent = [.. Enumerable.Repeat(element: -1, count: n)];
+                for (int root = 0; root < n; root++) {
+                    if (visited[root]) continue;
+                    bestWeight[root] = 0.0;
+                    for (int step = 0; step < n; step++) {
+                        int curr = -1; double best = double.PositiveInfinity;
+                        for (int i = 0; i < n; i++)
+                            if (!visited[i] && bestWeight[i] < best) { best = bestWeight[i]; curr = i; }
+                        if (curr < 0 || double.IsPositiveInfinity(best)) break;
+                        visited[curr] = true;
+                        if (parent[curr] >= 0 && graph.Normals[parent[curr]] * graph.Normals[curr] < 0.0) graph.Normals[curr] = -graph.Normals[curr];
+                        int[] neighbors = graph.Neighbors.Length > curr ? graph.Neighbors[curr] : [];
+                        for (int e = 0; e < neighbors.Length; e++) {
+                            int j = neighbors[e];
+                            if (j < 0 || j >= n || visited[j] || curr == j) continue;
+                            double weight = 1.0 - Math.Abs(value: graph.Normals[curr] * graph.Normals[j]);
+                            if (weight < bestWeight[j]) { bestWeight[j] = weight; parent[j] = curr; }
+                        }
+                    }
+                }
+                return toSeq(graph.Normals).TraverseM(normal => key.AcceptValue(value: normal)).As();
+            });
+    }
+    internal static Fin<Vector3d[]> EstimateNormalsFromPoints(Point3d[] points, Op key) =>
+        EstimateNormalsFromPoints(points: points, neighborhoodOf: BatchedNeighborhoods(points: points), key: key);
+    private static Func<int, Seq<Point3d>> BatchedNeighborhoods(Point3d[] points) {
+        PointCloud cloud = [];
+        cloud.AddRange(points: points);
+        int k = Math.Min(val1: NormalEstimationNeighbors, val2: points.Length);
+        int[][] ids = [.. RTree.PointCloudKNeighbors(pointcloud: cloud, needlePts: points, amount: k)];
+        return i => NeighborhoodOf(points: points, ids: ids.Length > i ? ids[i] : []);
+    }
+    private static Seq<Point3d> NeighborhoodOf(Point3d[] points, int[] ids) =>
+        ids.Length == 0
+            ? toSeq(points.Take(Math.Min(val1: NormalEstimationNeighbors, val2: points.Length)))
+            : toSeq(ids.Where(i => i >= 0 && i < points.Length).Select(i => points[i]));
+    private static Fin<Vector3d[]> EstimateNormalsFromPoints(Point3d[] points, Func<int, Seq<Point3d>> neighborhoodOf, Op key) {
+        int n = points.Length;
+        if (n < 3) return Fin.Fail<Vector3d[]>(key.InvalidInput());
+        Vector3d[] normals = new Vector3d[n];
+        for (int i = 0; i < n; i++) {
+            Seq<Point3d> neighborhood = neighborhoodOf(arg: i);
+            if (neighborhood.Count < 3) return Fin.Fail<Vector3d[]>(key.InvalidInput());
+            Fin<Vector3d> normal =
+                from stats in CovarianceOf(points: neighborhood, key: key)
+                from eigen in stats.Cov.DecomposeEigen(key: key)
+                from _ in eigen.Count >= 3 && eigen[index: 1].Eigenvalue > RhinoMath.SqrtEpsilon
+                    ? Fin.Succ(unit)
+                    : Fin.Fail<Unit>(key.InvalidResult())
+                let raw = AsVector3d(v: eigen[index: 2].Eigenvector)
+                from direction in Direction.Of(value: raw, tolerance: RhinoMath.ZeroTolerance, key: key)
+                select direction.Value;
+            if (normal.IsFail) return normal.Map(static value => new[] { value });
+            normals[i] = normal.IfFail(Vector3d.Unset);
+        }
+        return Fin.Succ(normals);
+    }
+
+    // --- [TRANSPORT] ------------------------------------------------------------------------
+    internal static Fin<TOut> Sinkhorn<TOut>(VectorCloud source, VectorCloud target, double regularization, int maxIterations, bool unbiased, Op key) =>
+            (source, target) switch {
+                (VectorCloud.ClusterCase src, VectorCloud.ClusterCase tgt) => SinkhornCluster<TOut>(source: src, target: tgt, regularization: regularization, maxIterations: maxIterations, unbiased: unbiased, key: key),
+                _ => Fin.Fail<TOut>(key.Unsupported(geometryType: source.GetType(), outputType: typeof(TOut))),
+            };
+    private static Fin<TOut> SinkhornCluster<TOut>(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, double regularization, int maxIterations, bool unbiased, Op key) {
+        return source.Vertices.Count < 1 || target.Vertices.Count < 1
+            ? Fin.Fail<TOut>(error: key.InvalidInput())
+            : (from plan in SinkhornOt(source: source.Vertices, target: target.Vertices, reg: regularization, maxIter: maxIterations, key: key)
+               from distance in unbiased
+                    ? from sourceBias in SinkhornOt(source: source.Vertices, target: source.Vertices, reg: regularization, maxIter: maxIterations, key: key)
+                      from targetBias in SinkhornOt(source: target.Vertices, target: target.Vertices, reg: regularization, maxIter: maxIterations, key: key)
+                      select plan.Distance - (0.5 * sourceBias.Distance) - (0.5 * targetBias.Distance)
+                    : key.AcceptValue(value: plan.Distance)
+               from output in ProjectSinkhorn<TOut>(source: source, target: target, plan: plan, distance: distance, key: key)
+               select output);
+    }
+    private static Fin<TOut> ProjectSinkhorn<TOut>(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, SinkhornPlan plan, double distance, Op key) =>
+        typeof(TOut) switch {
+            Type t when t == typeof(double) => key.AcceptValue(value: distance).Map(static d => (TOut)(object)d),
+            Type t when t == typeof(Matrix) => ProjectCoupling<TOut>(plan: plan, key: key),
+            Type t when t == typeof(VectorCloud) => ProjectTransportedCloud<TOut>(source: source, target: target, plan: plan, key: key),
+            _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(VectorCloud), outputType: typeof(TOut))),
+        };
+    private sealed record SinkhornPlan(double Distance, DenseMatrixD Coupling, double SourceResidual, double TargetResidual, int Iterations, bool IsNumeric);
+    private static Fin<SinkhornPlan> SinkhornOt(Seq<Point3d> source, Seq<Point3d> target, double reg, int maxIter, Op key) {
+        int m = source.Count; int n = target.Count;
+        DenseMatrixD cost = DenseMatrixD.Create(rows: m, columns: n, value: 0.0);
+        DenseMatrixD kernel = DenseMatrixD.Create(rows: m, columns: n, value: 0.0);
+        for (int i = 0; i < m; i++)
+            for (int j = 0; j < n; j++) {
+                double d2 = source[index: i].DistanceToSquared(other: target[index: j]);
+                cost[i, j] = d2;
+                kernel[i, j] = Math.Exp(d: -d2 / reg);
+            }
+        DenseVectorD u = DenseVectorD.Create(m, 1.0);
+        DenseVectorD v = DenseVectorD.Create(n, 1.0);
+        double aMass = 1.0 / m; double bMass = 1.0 / n;
+        double sourceResidual = double.PositiveInfinity;
+        double targetResidual = double.PositiveInfinity;
+        int iterations = 0;
+        for (int iter = 0; iter < maxIter; iter++) {
+            iterations = iter + 1;
+            for (int i = 0; i < m; i++) {
+                double sum = 0.0;
+                for (int j = 0; j < n; j++) sum += kernel[i, j] * v[j];
+                u[i] = sum > RhinoMath.ZeroTolerance ? aMass / sum : aMass;
+            }
+            for (int j = 0; j < n; j++) {
+                double sum = 0.0;
+                for (int i = 0; i < m; i++) sum += kernel[i, j] * u[i];
+                v[j] = sum > RhinoMath.ZeroTolerance ? bMass / sum : bMass;
+            }
+            (sourceResidual, targetResidual) = SinkhornResiduals(kernel: kernel, u: u, v: v, aMass: aMass, bMass: bMass);
+            if (Math.Max(val1: sourceResidual, val2: targetResidual) <= RhinoMath.SqrtEpsilon) break;
+        }
+        double dist = 0.0;
+        DenseMatrixD coupling = DenseMatrixD.Create(rows: m, columns: n, value: 0.0);
+        for (int i = 0; i < m; i++)
+            for (int j = 0; j < n; j++) {
+                coupling[i, j] = u[i] * kernel[i, j] * v[j];
+                dist += coupling[i, j] * cost[i, j];
+            }
+        bool numeric = RhinoMath.IsValidDouble(x: dist) && coupling.Enumerate().All(RhinoMath.IsValidDouble);
+        return numeric && Math.Max(val1: sourceResidual, val2: targetResidual) <= RhinoMath.SqrtEpsilon
+            ? Fin.Succ(new SinkhornPlan(Distance: dist, Coupling: coupling, SourceResidual: sourceResidual, TargetResidual: targetResidual, Iterations: iterations, IsNumeric: numeric))
+            : Fin.Fail<SinkhornPlan>(key.InvalidResult());
+    }
+    private static (double Source, double Target) SinkhornResiduals(DenseMatrixD kernel, DenseVectorD u, DenseVectorD v, double aMass, double bMass) {
+        double sourceResidual = 0.0;
+        double targetResidual = 0.0;
+        for (int i = 0; i < kernel.RowCount; i++) {
+            double row = 0.0;
+            for (int j = 0; j < kernel.ColumnCount; j++) row += u[i] * kernel[i, j] * v[j];
+            sourceResidual = Math.Max(val1: sourceResidual, val2: Math.Abs(value: row - aMass));
+        }
+        for (int j = 0; j < kernel.ColumnCount; j++) {
+            double col = 0.0;
+            for (int i = 0; i < kernel.RowCount; i++) col += u[i] * kernel[i, j] * v[j];
+            targetResidual = Math.Max(val1: targetResidual, val2: Math.Abs(value: col - bMass));
+        }
+        return (Source: sourceResidual, Target: targetResidual);
+    }
+    private static Fin<TOut> ProjectCoupling<TOut>(SinkhornPlan plan, Op key) {
+        Dimension rows = Dimension.Create(value: plan.Coupling.RowCount);
+        Dimension cols = Dimension.Create(value: plan.Coupling.ColumnCount);
+        return key.AcceptValue(value: MatrixKernel.FromMathNet(m: plan.Coupling, rows: rows, cols: cols))
+            .Map(static matrix => (TOut)(object)matrix);
+    }
+    private static Fin<TOut> ProjectTransportedCloud<TOut>(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, SinkhornPlan plan, Op key) {
+        Point3d[] transported = new Point3d[source.Vertices.Count];
+        for (int i = 0; i < source.Vertices.Count; i++) {
+            double mass = plan.Coupling.Row(i).Sum();
+            Vector3d sum = Vector3d.Zero;
+            for (int j = 0; j < target.Vertices.Count; j++) sum += plan.Coupling[i, j] * (Vector3d)target.Vertices[index: j];
+            transported[i] = mass > RhinoMath.ZeroTolerance ? Point3d.Origin + (sum / mass) : source.Vertices[index: i];
+        }
+        return VectorCloud.Cluster(points: toSeq(transported), context: source.Tolerance, key: key)
+            .Map(static cloud => (TOut)(object)cloud);
+    }
+
 }

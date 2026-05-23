@@ -2,6 +2,61 @@ using Foundation.CSharp.Analyzers.Contracts;
 
 namespace Rasm.Vectors;
 
+// --- [TYPES] ------------------------------------------------------------------------------
+[SmartEnum<int>]
+public sealed partial class SupportProjection {
+    public static readonly SupportProjection Closest = Hit(key: 0, accepts: static output => output == typeof(Point3d) || output == typeof(ClosestHit), projectRaw: s => s.Output == typeof(Point3d) ? Accept(state: s, value: s.Hit.Point) : Accept(state: s, value: s.Hit));
+    public static readonly SupportProjection Direction = new(key: 1, capability: static (_, _) => true, accepts: static output => output == typeof(Direction) || output == typeof(Vector3d), projectRaw: s => DirectionOf(vector: s.Hit.Point - s.Sample, state: s));
+    public static readonly SupportProjection Span = SpanOf(key: 2, sign: 1.0);
+    public static readonly SupportProjection SignedSpanAway = SpanOf(key: 13, sign: -1.0);
+    public static readonly SupportProjection Normal = new(key: 3, capability: static (space, hit) => space.AdmitsNormal(hit: hit), accepts: DirectionOrHit, projectRaw: s => s.Output == typeof(ClosestHit) ? Accept(state: s, value: s.Hit) : s.Hit.Normal.ToFin(Fail: s.Key.InvalidResult()).Bind(normal => DirectionOf(vector: normal, state: s)));
+    public static readonly SupportProjection Distance = Hit(key: 4, accepts: static output => output == typeof(double) || output == typeof(ClosestHit), projectRaw: s => s.Output == typeof(double) ? s.Hit.Distance.ToFin(Fail: s.Key.InvalidResult()).Bind(distance => Accept(state: s, value: distance)) : Accept(state: s, value: s.Hit), capability: static (_, hit) => hit.Distance.IsSome);
+    public static readonly SupportProjection Parameter = Hit(key: 5, accepts: static output => output == typeof(double) || output == typeof(ClosestHit), projectRaw: s => s.Output == typeof(double) ? s.Hit.Parameter.ToFin(Fail: s.Key.InvalidResult()).Bind(parameter => Accept(state: s, value: parameter)) : Accept(state: s, value: s.Hit), capability: static (_, hit) => hit.Parameter.IsSome);
+    public static readonly SupportProjection Uv = Hit(key: 6, accepts: static output => output == typeof(Point2d) || output == typeof(ClosestHit), projectRaw: s => s.Output == typeof(Point2d) ? s.Hit.Uv.ToFin(Fail: s.Key.InvalidResult()).Bind(uv => Accept(state: s, value: uv)) : Accept(state: s, value: s.Hit), capability: static (_, hit) => hit.Uv.IsSome);
+    public static readonly SupportProjection Component = Hit(key: 7, accepts: static output => output == typeof(ComponentIndex) || output == typeof(ClosestHit), projectRaw: s => s.Output == typeof(ComponentIndex) ? s.Hit.Component.ToFin(Fail: s.Key.InvalidResult()).Bind(component => Accept(state: s, value: component)) : Accept(state: s, value: s.Hit), capability: static (_, hit) => hit.Component.IsSome);
+    public static readonly SupportProjection MeshPoint = Hit(key: 8, accepts: static output => output == typeof(MeshPoint) || output == typeof(ClosestHit), projectRaw: s => s.Output == typeof(MeshPoint) ? s.Hit.MeshPoint.ToFin(Fail: s.Key.InvalidResult()).Bind(meshPoint => Accept(state: s, value: meshPoint)) : Accept(state: s, value: s.Hit), capability: static (_, hit) => hit.MeshPoint.IsSome);
+    public static readonly SupportProjection SignedDistance = new(key: 9, capability: static (space, hit) => space.AdmitsSignedDistance(hit: hit), accepts: static output => output == typeof(double), projectRaw: s => s.Space.SignedDistance(hit: s.Hit, sample: s.Sample, key: s.Key).Bind(distance => Accept(state: s, value: distance)));
+    public static readonly SupportProjection ContainmentDistance = new(key: 10, capability: static (space, hit) => space.AdmitsContainmentDistance(hit: hit), accepts: static output => output == typeof(double), projectRaw: s => s.Space.ContainmentDistance(hit: s.Hit, sample: s.Sample, context: s.Context, key: s.Key).Bind(distance => Accept(state: s, value: distance)));
+    public static readonly SupportProjection Tangent = new(key: 11, capability: static (space, hit) => space.AdmitsTangent(hit: hit), accepts: DirectionOrHit, projectRaw: s => s.Output == typeof(ClosestHit) ? Accept(state: s, value: s.Hit) : s.Hit.Tangent.ToFin(Fail: s.Key.InvalidResult()).Bind(tangent => DirectionOf(vector: tangent, state: s)));
+    public static readonly SupportProjection Frame = Hit(key: 12, accepts: static output => output == typeof(Plane) || output == typeof(ClosestHit), projectRaw: s => s.Output == typeof(Plane) ? s.Hit.Frame.ToFin(Fail: s.Key.InvalidResult()).Bind(frame => Accept(state: s, value: frame)) : Accept(state: s, value: s.Hit), capability: static (space, hit) => space.AdmitsFrame(hit: hit));
+    [UseDelegateFromConstructor] private partial bool Capability(SupportSpace space, ClosestHit hit);
+    [UseDelegateFromConstructor] private partial bool Accepts(Type output);
+    [UseDelegateFromConstructor] private partial Fin<object> ProjectRaw(SupportProjectionState state);
+    internal bool CanProjectVector(SupportSpace space) =>
+        Equals(Direction)
+        || Equals(Span)
+        || Equals(SignedSpanAway)
+        || (Equals(Normal) && GeometryKernel.CanClosestNormal(type: space.SourceType))
+        || (Equals(Tangent) && GeometryKernel.CanClosestTangent(type: space.SourceType));
+    internal Fin<TOut> Project<TOut>(SupportSpace space, ClosestHit hit, Point3d sample, Context context, Op key) =>
+        (Capability(space: space, hit: hit), Accepts(output: typeof(TOut))) switch {
+            (false, _) => Fin.Fail<TOut>(error: key.Unsupported(geometryType: space.SourceType, outputType: typeof(TOut))),
+            (_, false) => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(SupportProjection), outputType: typeof(TOut))),
+            _ => ProjectRaw(state: new SupportProjectionState(Space: space, Hit: hit, Sample: sample, Context: context, Key: key, Output: typeof(TOut)))
+                .Bind(value => value is TOut output ? key.AcceptValue(value: output) : Fin.Fail<TOut>(error: key.InvalidResult())),
+        };
+    private static bool DirectionOrHit(Type output) => output == typeof(Direction) || output == typeof(Vector3d) || output == typeof(ClosestHit);
+    private static SupportProjection Hit(int key, Func<Type, bool> accepts, Func<SupportProjectionState, Fin<object>> projectRaw, Func<SupportSpace, ClosestHit, bool>? capability = null) =>
+        new(key: key, capability: capability ?? ((_, _) => true), accepts: accepts, projectRaw: projectRaw);
+    private static SupportProjection SpanOf(int key, double sign) =>
+        new(key: key, capability: static (_, _) => true, accepts: static output => output == typeof(VectorSpan) || output == typeof(Vector3d) || output == typeof(Line) || output == typeof(double),
+            projectRaw: state => VectorSpan.Of(anchor: state.Sample, vector: sign * (state.Hit.Point - state.Sample), context: state.Context, key: state.Key)
+                .Bind(span => state.Output switch {
+                    Type t when t == typeof(VectorSpan) => Accept(state: state, value: span),
+                    Type t when t == typeof(Vector3d) => Accept(state: state, value: span.Value),
+                    Type t when t == typeof(Line) => Accept(state: state, value: span.Axis),
+                    Type t when t == typeof(double) => Accept(state: state, value: span.Magnitude.Value),
+                    _ => Fin.Fail<object>(error: state.Key.Unsupported(geometryType: typeof(VectorSpan), outputType: state.Output)),
+                }));
+    private static Fin<object> DirectionOf(Vector3d vector, SupportProjectionState state) =>
+        Vectors.Direction.Of(value: vector, context: state.Context, key: state.Key)
+            .Bind(direction => state.Output == typeof(Direction) ? Accept(state: state, value: direction) : Accept(state: state, value: direction.Value));
+    private static Fin<object> Accept<T>(SupportProjectionState state, T value) =>
+        state.Key.AcceptValue(value: value).Map(static accepted => (object)accepted!);
+}
+
+internal readonly record struct SupportProjectionState(SupportSpace Space, ClosestHit Hit, Point3d Sample, Context Context, Op Key, Type Output);
+
 // --- [MODELS] -----------------------------------------------------------------------------
 [BoundaryAdapter]
 public sealed record SupportSpace {
@@ -53,4 +108,23 @@ public sealed record SupportSpace {
             Brep or Mesh => Fin.Fail<double>(error: key.InvalidInput()),
             _ => SignedDistance(hit: hit, sample: sample, key: key),
         };
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SurfaceSpace {
+    private SurfaceSpace(Surface native, Context tolerance) { Native = native; Tolerance = tolerance; }
+    public Surface Native { get; }
+    public Context Tolerance { get; }
+    public static Fin<SurfaceSpace> Of(Surface native, Context context, Op? key = null) {
+        Op op = key.OrDefault();
+        return from active in Optional(native).ToFin(op.InvalidInput())
+               from ctx in Optional(context).ToFin(op.MissingContext())
+               from _ in guard(active.IsValid, op.InvalidInput())
+               select new SurfaceSpace(native: active, tolerance: ctx);
+    }
+    internal Fin<TOut> Sample<TOut>(SurfaceProjection projection, double u, double v, Op? key = null) {
+        Op op = key.OrDefault();
+        Surface native = Native; Context tolerance = Tolerance;
+        return Optional(projection).ToFin(op.InvalidInput()).Bind(p => p.Project<TOut>(surface: native, u: u, v: v, context: tolerance, key: op));
+    }
 }

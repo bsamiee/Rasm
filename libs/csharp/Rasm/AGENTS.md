@@ -18,7 +18,7 @@ Build reusable category logic for advanced downstream code: analysis, vectors, d
 
 - `Domain/` is the kernel. It owns `Context`, tolerances, unit semantics, geometry kind detection, coercion, lifecycle ownership, validity, requirement checks, faults, statistics, residuals, distributions, and shared projection carriers.
 - `Analysis/` owns higher-order geometry analysis through `Analyze`, `Operation<TGeometry,TOut>`, and `IAspect`. It imports and extends `Domain` rather than duplicating validation, stats, coercion, or geometry-kind logic.
-- `Vectors/` owns vector intent, direction, support-space projection, fields, rays, spans, signed axes, relation logic, and vector projection through `Vector.Project`.
+- `Vectors/` owns vector intent, direction, support-space projection, fields, rays, spans, signed axes, relation logic, and intent projection through `VectorIntent.Project<TOut>`.
 - Future folders should follow the same pattern: one concern category, one consumer surface, compact intent/state records, and internal algorithms that reuse `Domain`.
 
 ## Domain Extension Rules
@@ -30,7 +30,7 @@ Build reusable category logic for advanced downstream code: analysis, vectors, d
 
 ## Surface Rules
 
-- Expose one access path per folder. `Analysis` routes through `Analyze`; `Vectors` routes through `Vector.Project`; future folders should have one equivalent owner.
+- Expose one access path per folder. `Analysis` routes through `Analyze`; `Vectors` routes through `VectorIntent.Project<TOut>` for intent projection; future folders should have one equivalent owner.
 - Do not give every file its own consumer API. Files inside a folder are parts of one unified boundary.
 - Do not create wrapper-only abstractions around RhinoCommon or existing domain code.
 - Do not bolt on new needs beside existing rails. Integrate into current owners, update callers, and remove obsolete paths.

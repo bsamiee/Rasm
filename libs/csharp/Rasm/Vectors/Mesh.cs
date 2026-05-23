@@ -91,6 +91,24 @@ public abstract partial record MeshDescriptor {
     public static MeshDescriptor ShapeDna => new ShapeDnaCase();
 }
 
+[Union]
+public abstract partial record RemeshKind {
+    private RemeshKind() { }
+    public sealed record QuadCase(PositiveMagnitude TargetEdge) : RemeshKind;
+    public sealed record SimplifyCase(ReduceMeshParameters Parameters) : RemeshKind;
+    public static Fin<RemeshKind> Quad(double targetEdge, Op? key = null) =>
+        key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: targetEdge).Map(t => (RemeshKind)new QuadCase(TargetEdge: t));
+    public static Fin<RemeshKind> Simplify(ReduceMeshParameters parameters, Op? key = null) {
+        Op op = key.OrDefault();
+        return Optional(parameters).ToFin(op.InvalidInput())
+            .Bind(active => active.DesiredPolygonCount >= 1
+                ? Fin.Succ<RemeshKind>(new SimplifyCase(Parameters: active))
+                : Fin.Fail<RemeshKind>(op.InvalidInput()));
+    }
+    internal Fin<Mesh> Apply(MeshSpace space, Op? key = null) =>
+        MeshKernel.ApplyRemesh(kind: this, space: space, key: key.OrDefault());
+}
+
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class MeshKernel {
     private const double DegenerateTriangleArea = 1e-14;
@@ -113,7 +131,7 @@ internal static class MeshKernel {
     // BOUNDARY ADAPTER — triplet accumulation for SparseMatrix.FromTriplets demands an
     // imperative pass over Rhino's face collection; materialising into Seq first doubles
     // memory and obscures the per-face fold pattern. Negative-cotangent rejection enforces
-    // the maximum principle per Roadmap [5.11] (obtuse triangles fail Cotangent assembly).
+    // the maximum principle: obtuse triangles fail Cotangent assembly.
     internal static Fin<SparseLaplacian> AssembleCotangent(Mesh mesh, Op key) {
         using Mesh active = mesh.DuplicateMesh();
         _ = active.Faces.ConvertQuadsToTriangles();
@@ -661,4 +679,63 @@ internal static class MeshKernel {
         _ = result.Unitize();
         return result;
     }
+
+    // --- [REMESH] ---------------------------------------------------------------------------
+    internal static Fin<Mesh> ApplyRemesh(RemeshKind kind, MeshSpace space, Op key) =>
+        kind switch {
+            RemeshKind.QuadCase quad => QuadRemeshOf(space: space, targetEdge: quad.TargetEdge.Value, key: key),
+            RemeshKind.SimplifyCase simplify => SimplifyOf(space: space, parameters: simplify.Parameters, key: key),
+            _ => Fin.Fail<Mesh>(error: key.Unsupported(geometryType: kind.GetType(), outputType: typeof(Mesh))),
+        };
+    private static Fin<Mesh> QuadRemeshOf(MeshSpace space, double targetEdge, Op key) {
+        QuadRemeshParameters parameters = new() { TargetEdgeLength = targetEdge, AdaptiveSize = 0.5, DetectHardEdges = true };
+        Mesh? result = space.Native.QuadRemesh(parameters: parameters);
+        return result is null || !result.IsValid
+            ? Fin.Fail<Mesh>(error: key.InvalidResult())
+            : Fin.Succ(result);
+    }
+    private static Fin<Mesh> SimplifyOf(MeshSpace space, ReduceMeshParameters parameters, Op key) {
+        Mesh clone = space.Native.DuplicateMesh();
+        bool ok = clone.Reduce(parameters: parameters);
+        return ok && clone.IsValid ? Fin.Succ(clone) : Fin.Fail<Mesh>(error: key.InvalidResult());
+    }
+
+    // --- [DESCRIPTORS] ----------------------------------------------------------------------
+    // Sun-Ovsjanikov-Guibas 2009 HKS(x, t) = Σ exp(-t λ_i) φ_i²(x); WKS analogous with log-energy.
+    internal static Fin<TOut> DescribeShape<TOut>(MeshSpace space, MeshDescriptor kind, int eigenpairs, Op key) =>
+        from laplacian in space.Laplacian(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
+        from eigen in MatrixKernel.GeneralizedEigenpairs(
+            stiffness: laplacian.Stiffness,
+            mass: laplacian.MassConsistent,
+            k: eigenpairs,
+            key: key)
+        from output in ProjectDescriptor<TOut>(kind: kind, eigen: eigen, key: key)
+        select output;
+    private static Fin<TOut> ProjectDescriptor<TOut>(MeshDescriptor kind, Seq<(double Eigenvalue, Arr<double> Eigenvector)> eigen, Op key) =>
+        kind switch {
+            MeshDescriptor.ShapeDnaCase => typeof(TOut) == typeof(Seq<double>)
+                ? key.AcceptValue(value: toSeq(eigen.Map(static p => p.Eigenvalue).AsIterable())).Map(static v => (TOut)(object)v)
+                : Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(MeshDescriptor.ShapeDnaCase), outputType: typeof(TOut))),
+            MeshDescriptor.HeatKernelSignatureCase hks => DescriptorAtTimes<TOut>(eigen: eigen, scales: hks.Times, project: static (t, lambda) => Math.Exp(d: -t * lambda), key: key),
+            MeshDescriptor.WaveKernelSignatureCase wks => DescriptorAtTimes<TOut>(eigen: eigen, scales: wks.Energies, project: (e, lambda) => Math.Exp(d: -Math.Pow(x: Math.Log(d: Math.Max(val1: lambda, val2: RhinoMath.ZeroTolerance)) - Math.Log(d: e), y: 2) / (2.0 * wks.Sigma * wks.Sigma)), key: key),
+            _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: kind.GetType(), outputType: typeof(TOut))),
+        };
+    private static Fin<TOut> DescriptorAtTimes<TOut>(Seq<(double Eigenvalue, Arr<double> Eigenvector)> eigen, Seq<double> scales, Func<double, double, double> project, Op key) {
+        if (eigen.IsEmpty || scales.IsEmpty) return Fin.Fail<TOut>(error: key.InvalidInput());
+        int n = eigen[index: 0].Eigenvector.Count;
+        double[][] result = [.. Enumerable.Range(0, n).Select(_ => new double[scales.Count])];
+        for (int s = 0; s < scales.Count; s++)
+            for (int i = 0; i < n; i++) {
+                double sum = 0.0;
+                for (int e = 0; e < eigen.Count; e++) {
+                    double phi = eigen[index: e].Eigenvector[index: i];
+                    sum += project(arg1: scales[index: s], arg2: eigen[index: e].Eigenvalue) * phi * phi;
+                }
+                result[i][s] = sum;
+            }
+        return typeof(TOut) == typeof(Arr<Arr<double>>)
+            ? key.AcceptValue(value: new Arr<Arr<double>>(result.Select(r => new Arr<double>(r)))).Map(static v => (TOut)(object)v)
+            : Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(MeshDescriptor), outputType: typeof(TOut)));
+    }
+
 }
