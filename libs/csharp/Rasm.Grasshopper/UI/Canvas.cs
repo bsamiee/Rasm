@@ -297,6 +297,11 @@ internal sealed record CanvasRequest(CanvasOp Op) : GhUiRequest<CanvasResult> {
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 internal static partial class UiRail {
+    // Maximum pixel dimension for canvas bitmap render. Bound matches Eto.Drawing.Bitmap's practical
+    // limit on macOS Quartz (16k × 16k px = ~1 GB for 32-bit BGRA — beyond this, allocation fails or
+    // Quartz silently downsamples). Keeping it consts here lets the validation message stay in sync.
+    internal const int MaxRenderDimension = 16384;
+
     // --- [OPERATIONS] -------------------------------------------------------------------------
     internal static Fin<CanvasResult> CanvasDispatch(GrasshopperUi.Scope scope, CanvasOp op) => op switch {
         CanvasOp.SnapshotCase =>
@@ -338,8 +343,8 @@ internal static partial class UiRail {
             scope.NeedCanvas().Map(canvas => (CanvasResult)new CanvasResult.ActionsResult(Snapshot: ActionSnapshotOf(canvas: canvas))),
         CanvasOp.RenderCase r =>
             Optional((r.Width, r.Height))
-                .Filter(static dim => dim.Width is > 0 and <= 16384 && dim.Height is > 0 and <= 16384)
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasOp.Render)), detail: "dimensions out of [1, 16384]"))
+                .Filter(static dim => dim.Width is > 0 and <= MaxRenderDimension && dim.Height is > 0 and <= MaxRenderDimension)
+                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasOp.Render)), detail: $"dimensions out of [1, {MaxRenderDimension}]"))
                 .Bind(dim => scope.NeedCanvas().Bind(canvas => EncodeBitmap(
                     bitmap: canvas.DrawToBitmap(
                         width: dim.Width, height: dim.Height,

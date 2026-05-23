@@ -385,6 +385,15 @@ public static class GhUi {
     public static GrasshopperUiIntent<T> Motion<T>(MotionRequest<T> request) =>
         Apply(request: request);
 
+    public static GrasshopperUiIntent<T> Tooltip<T>(TooltipRequest<T> request) =>
+        Apply(request: request);
+
+    public static GrasshopperUiIntent<T> FloatingButton<T>(FloatingButtonRequest<T> request) =>
+        Apply(request: request);
+
+    public static GrasshopperUiIntent<T> Interaction<T>(InteractionRequest<T> request) =>
+        Apply(request: request);
+
     public static GrasshopperUiIntent<Subscription> Event(UiEvent uiEvent) =>
         Apply(request: new EventRequest(Event: uiEvent));
 
