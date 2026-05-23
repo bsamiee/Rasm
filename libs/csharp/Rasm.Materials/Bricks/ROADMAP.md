@@ -1,179 +1,142 @@
-# Bricks — Roadmap to Generation/Assembly
+# Bricks Catalogue Boundary
 
 ## Status
 
-The `Bricks/` catalogue is **complete for the materials layer**. All downstream brick-aware geometry work happens OUTSIDE this folder, in `Rasm/Analysis/` (universal projection primitives), `Rasm.Rhino/` (universal block instancing), and a future `Rasm.Masonry/` (assembly composition). Materials never depends on Rhino, never references geometry, never owns layout.
+The `Bricks/` catalogue is a **catalogue foundation under source-truth refinement**. It owns brick material facts only: unit dimensions, source basis, bond names and static course seeds, joint profiles, coring archetypes, special-shape vocabulary, arch rules, and regional policy defaults.
 
-Final state (post critical review):
+Geometry, layout, placement, block instancing, projections, Grasshopper components, and Rhino drawing behavior stay outside `Rasm.Materials`.
 
-- **File(s)**: `Brick.cs` — `SpecialShape.Catalog` is a static field on the `SpecialShape` Union; `BrickRegion.Designations()` is an extension method.
-- **Brick** is attached to `BrickDesignation` SmartEnum via `Spec` plus delegate properties — consumers access `BrickDesignation.UsModular.Region`, `.Specified`, `.Coring`, `.Type`, etc. directly without `.Spec.` indirection.
-- **Bond course templates** attached to `BondName` SmartEnum (**34 bonds** — Gothic removed as geometrically identical to Monk; Dearnes removed as interpretive without authoritative diagram; RunningRotated reclassified Parametric).
-- **Regional masonry policy** (movement / expansion / weep / tie) attached to `BrickRegion` SmartEnum.
-- **Arch rules** attached to `ArchProfile` SmartEnum (BIA TN 31 universal).
-- **`Dim3`, `AspectRatio`, `VerticalCoursing`** are Thinktecture validated value objects (`[ComplexValueObject]` / `[ValueObject<double>]`) decorated with `[ValidationError<BrickFault>]` — validation failures emit a typed `BrickFault` (an `Error`-derived `[Union]` implementing `IValidationError<BrickFault>`) that flows directly into the LanguageExt `Fin<T>` rail at consumer call sites. `Dim3.TryCreate(...)` returns `BrickFault?` directly; no `MapFail` bridge needed.
-- **`AspectRatio.Accepts(actual)`** with `MatchTolerance = 0.15` constant — bond-brick compatibility check is one call.
-- **`BrickSource`** typed `[Union]` (BiaTn10Table1/Table2/BsEn771Part1/Din105/AsNzs4455Part1/Is1077, each `Note`).
-- **Special shapes** as `[Union] SpecialShape` cases (Bullnose/Cownose/Plinth/Coping/Cant/Squint/Voussoir/AirVent/Soap/Half/ThreeQuarter/Quoin/BrickOnEdgeSill) — 32 catalogued shapes in `SpecialShape.Catalog` `FrozenSet`.
-- **Ergonomic projections**: `BondName.AcceptsAspect(Brick)`, `BondName.CourseAt(int courseIndex)`, `ExpansionJointSpacing.SpacingFor(bool hasOpenings)`, `BrickRegion.Designations()`.
-- **No `BrickCatalog` class, no `BrickError` Union, no `WeepLocation`/`TieType`, no `WaterResistance`** — eliminated as speculative/dead.
+Current foundation:
 
-## Bond Coverage (34 entries, authoritative-only)
+- `Brick.cs` is the single catalogue source for this folder.
+- `BrickDesignation` attaches each `Brick` as `Unit` and exposes delegate properties such as `.Specified`, `.Region`, `.Coursing`, `.Coring`, `.Type`, and `.Source`.
+- `DimensionBasis` records whether a listed dimension is exact, an interval, or a midpoint derived from a published range. Queen and King units use midpoint basis instead of pretending their midpoint values are primary.
+- `BondName` carries `BondKind`, `ClosureRule`, optional `AspectRatio`, closure fraction, and optional static course seeds. Template bonds return `Some` from `Course(index)`; generated bonds return `None` unless a static seed is truthful.
+- `BrickType` is a classification vocabulary for ASTM FBX/FBS/FBA/HBX/HBS/HBA. It does not flatten ASTM dimensional tolerance, warpage, or chippage tables into false single values.
+- `BrickSource` is a typed union: BIA TN10 Table 1/Table 2, BS EN 771-1 context, current DIN/EN 771-1 context, AS/NZS 4455.1 requirements context, and IS 1077.
+- Coring notes describe typical archetypes. BIA TN9A backs void-area classes, not a specific hole count.
+- Regional policy is attached to `BrickRegion`. U.S. values remain a reference baseline; tie spacing is labelled from TMS 402/602-22 prescriptive summaries and should be rechecked when official edition tables are locally available.
+- Arch rules are profile-specific. Jack arches use `ArchRule.Jack`; other arch profiles currently use `ArchRule.General`.
+- Ergonomic projections are `BondName.Fits(Brick)`, `BondName.Course(int)`, `ExpansionJointSpacing.Spacing(bool)`, and `BrickRegion.Units()`.
 
-**Anglo-American (BIA TN 30 / BDA UK TIS-A4 / Lynch v.1)** — Running, ThirdRunning, Common, English, Flemish, Stack, EnglishCross, FlemishCross, Sussex, Scotch, Header, Monk, BasketWeave, Soldier, DoubleStretcherGardenWall, MixedGardenWall, FlemishStretcher, FlemishDiagonal, FlemishSpiral, TudorCrossHatch, Pinwheel, DellaRobbiaWeave, Diaper
+## Source Basis
 
-**Indian (IS 2212)** — RatTrap, Quetta
+Primary references for this foundation:
 
-**Variant UK Flemish (Lynch v.1)** — SingleFlemish, DoubleFlemish
+- [BIA Technical Notes](https://www.gobrick.com/resources/technical-notes)
+- [BIA TN10](https://www.gobrick.com/media/file/10-dimensioning-and-estimating-brick-masonry.pdf)
+- [BIA TN9A](https://www.gobrick.com/media/file/9a-specifications-for-and-classification-of-brick.pdf)
+- [BIA TN30](https://www.gobrick.com/media/file/30-bonds-and-patterns-in-brickwork.pdf)
+- [BIA TN31](https://www.gobrick.com/media/file/31-brick-masonry-arches.pdf)
+- [BIA TN18A](https://www.gobrick.com/media/file/18a-tn18a.pdf)
+- [Ibstock TIS-A4](https://assets.ctfassets.net/eta2vegx3yuv/OJ7h3HfyLcsH5vjPKB2Iy/c8187f3d295d5bd08f0f83098b15b98f/TIS-A4-BRICKWORK-BONDS.pdf)
+- [BS EN 771-1 context](https://www.wienerberger.co.uk/content/dam/wienerberger/united-kingdom/marketing/documents-magazines/technical/brick-technical-guidance-sheets/UK_MKT_DOC_Tech%20Guidance%20Sheet%20Dimensions%20and%20Tolerances.pdf)
+- [Thinktecture Runtime Extensions](https://github.com/pawelgerr/Thinktecture.Runtime.Extensions)
 
-**Continental European** — DutchMulti (Holländischer Verband), Wild (Wilder Verband, DIN 1053), Staffel (Dutch staircase), AppareilALaFrancaise (Wiktionnaire)
+## Bond Coverage
 
-**Roman** — OpusReticulatum
+The catalogue keeps 34 bond names where each name has a source, archetype, or capability note. The important distinction is now `BondKind`:
 
-**Parametric** (require runtime composition — rotation, randomness, or per-design diaper mask): RunningRotated, Herringbone45, OpusReticulatum, Diaper, FlemishDiagonal, FlemishSpiral, TudorCrossHatch, Pinwheel, Wild — **9 parametric** of 34 total.
+- `Template` means the course template is meaningful catalogue data and `Course(index)` returns `Some<CourseTemplate>`.
+- `Generated` means the name needs runtime composition, masking, rotation, randomness, or a geometry-specific generator; `Course(index)` returns `None`.
 
-Rejected as rebrands, folkloric, or insufficient authority (do NOT add): Silverlock (= RatTrap), Cross (= EnglishCross), Gothic (= Monk in 3-period mirror), Dearnes (interpretive — no published authoritative diagram for the brick-on-edge variant), Yorkshire (no authority), HeaderGardenWall (no authority), opus latericium/testaceum (= Running), MultiRow (= Common in Russian SP 15.13330), Mughal/Persian khishti/banna'i (ornamental, not structural bonds), Sint-Andriesverband (folkloric).
+Template bonds include Running, ThirdRunning, Common, English, Flemish, Stack, EnglishCross, FlemishCross, Sussex, Scotch, Header, Monk, RatTrap, Soldier, SingleFlemish, DoubleFlemish, DoubleStretcherGardenWall, FlemishStretcher, MixedGardenWall, DellaRobbiaWeave, AppareilALaFrancaise, DutchMulti, and Staffel.
 
-## Remaining Work — Categorised by Future Folder
+Generated bonds currently include RunningRotated, Herringbone45, BasketWeave, Quetta, Diaper, FlemishDiagonal, FlemishSpiral, Pinwheel, TudorCrossHatch, Wild, and OpusReticulatum.
 
-### `libs/csharp/Rasm.Rhino/Blocks/` — Universal block geometry (NOT brick-only)
+Names intentionally not promoted to static templates yet: Dearnes has BDA/Ibstock authority but needs a precise encoded template shape; Gothic is distinct from Monk but not encoded here until the static sequence is source-backed; Silverlock maps to RatTrap; Cross maps to EnglishCross; Yorkshire, HeaderGardenWall, Mughal/Persian khishti/banna'i, and Sint-Andriesverband remain outside the foundation until their source and data shape justify inclusion.
 
-**Purpose**: stamp any `GeometryBase` at N `Transform` placements with efficient `InstanceDefinition` reuse. Used by bricks today, by future steel sections / timber members / stone units tomorrow.
+## Future Ownership
 
-**Surface to provide (one polymorphic capsule)**:
-- `Blocks.Place(GeometryBase definition, Seq<Transform> placements, BlockTarget target, ObjectAttributes? attrs) → Fin<Seq<Guid>>`
-- `BlockTarget [Union] { Live(RhinoDoc) | Archive(File3dm) }` — discriminates archive-vs-live (`UpdateType`, `ArchiveFileStatus`, `UseCount` are live-doc-only per memory `reference_rhino_idef_archive_vs_live.md`)
-- Internal: `InstanceDefinitionTable.Add(name, description, basePoint, geometry, attributes)` once per definition + `ObjectTable.AddInstanceObject(int idefIndex, Transform xform, ObjectAttributes attrs)` per placement
-- Custom GH2 pear `InstanceReferencePear(Guid idefId, Transform xform)` + `BakeObject` override that routes through `AddInstanceObject` — **without this**, GH2 generic bake silently flattens N instances into N standalone Breps, losing the 55× memory advantage. **Verification gate before declaring `Blocks/` done**: bake 20K placements through the pear, open the resulting `.3dm`, assert `doc.InstanceDefinitions.Count == 1 && doc.Objects.OfType<InstanceObject>().Count() == 20000`.
+### `libs/csharp/Rasm.Masonry/`
 
-**Memory math** (plausibility check): per-`InstanceReferenceGeometry` is `Guid + Transform` ≈ 152 bytes (Guid 16 B + Transform 128 B + ref overhead); 20,000 instances ≈ 3.0 MB + 1 × shared Brep (~10 kB) ≈ ~3.0 MB resident. Compared to 20,000 standalone Breps (~10 kB each) ≈ 200 MB — order-of-magnitude reduction.
+`Rasm.Masonry` should turn `BrickDesignation x BondName x WallSpec` into layout and assembly records. It owns course walking, closure derivation, opening conflicts, curved-wall tolerance, arch voussoirs, and generated bond interpreters.
 
-**Verified API surfaces** (Rhino 9 WIP, RhinoCommon 2026-05-12 build):
-- `Box.ToBrep()` — canonical unit construction; `MakeValid` is `[Obsolete]` 9.0
-- `Brep.CreateBooleanDifferenceWithIndexMap(IEnumerable<Brep>, IEnumerable<Brep>, double tolerance, bool manifoldOnly, out int[] indexMap) → Brep[]` — `<since>8.13`, only overload with input→result map (per-brick attribute carryover)
-- `InstanceReferenceGeometry(Guid instanceDefinitionId, Transform transform)` — ctor only; `Xform` and `ParentIdefId` are **read-only**; retransform = construct new instance
-- `InstanceDefinitionTable.Add(name, description, basePoint, geometry, attributes)` returns `int` index (-1 on failure); `File3dmInstanceDefinitionTable.Add` mirrors for headless `File3dm` authoring
-- `ObjectTable.AddInstanceObject(int idefIndex, Transform xform, ObjectAttributes attrs, HistoryRecord, bool isReference)` — `<since>6.24`, `isReference=true` for transient previews that don't persist in archives
-- `RhinoObject.RenderMeshes(MeshType, ViewportInfo, List<InstanceObject>, ...)` — share one mesh across the instance ancestry for display performance
-- `InstanceDefinitionTable.ModifyGeometry(int, IEnumerable<GeometryBase>, ...)` — live re-keying of a definition; every existing `InstanceObject` updates in place (useful for material-swap UX)
+Likely material-to-layout types:
 
-### `libs/csharp/Rasm/Analysis/` — Universal 2D/3D projection primitives
+- `PlacedBrick(BrickDesignation Unit, Plane Frame, Orientation Orientation, Cut Cut, int SequenceId)`
+- `WallSpec` union for planar, curved, arch, and pier cases
+- `OpeningSpec` for wall openings
+- `LayoutError` union for incompatibility and assembly failures
 
-**Belongs in the existing geometry kernel, not `Rasm.Rhino/`**. `Rasm/` already imports `Rhino.Geometry` as a global using and `Rasm/Analysis/` already owns geometry analysis (`Faces.cs`, `Curves.cs`, `Intersect.cs`, `Spatial.cs`, `Topology.cs`). Projection is analysis algebra, not boundary/UI concern. Add a new `Rasm/Analysis/Projection.cs`.
+Single expected rail: `Masonry.Generate(WallSpec spec) -> Fin<MasonryAssembly>`.
 
-**Surface to provide**:
-- `Projection.Elevation(GeometryBase source, Plane viewPlane) → Fin<Seq<Curve>>` — silhouette + projection
-- `Projection.Plan(GeometryBase source, double elevation) → Fin<Seq<Curve>>` — horizontal section
-- `Projection.Section(GeometryBase source, Plane sectionPlane) → Fin<Seq<Curve>>` — vertical cut
+Course walking should consume `bond.Course(index)` as an `Option<CourseTemplate>`. Template bonds can be walked directly; generated bonds must dispatch to the matching generator.
 
-**Verified API surfaces**:
-- `Silhouette.Compute(GeometryBase, SilhouetteType, Vector3d parallelCameraDirection, double tolerance, double angleToleranceRadians, IEnumerable<Plane> clippingPlanes, CancellationToken)` — canonical elevation outline
-- `Brep.CreateContourCurves(Brep, Plane sectionPlane)` — canonical section
-- `Curve.ProjectToPlane(Curve, Plane)` — wrap silhouettes into the elevation/plan plane
-- `BrepFace.DuplicateFace(false).ToNurbsCurve()` — per-face outlines without isocurve noise
+Arch generation should use the attached `ArchProfile.Rule`. Jack arches use the jack depth rule; other profiles use the general rule until more profile-specific source tables are encoded. Voussoir count, wedge angle, and cut geometry belong here, not in Materials.
 
-### `libs/csharp/Rasm.Masonry/` — Wall / arch / pier assembly
+Curved-wall validation belongs here too. A useful starting heuristic is chord-arc sagitta `s ~= L^2 / (8R)` as a driver for head-joint taper and the rectangular-to-voussoir transition.
 
-**Purpose**: turn `BrickDesignation × BondName × WallGeometry` into a `Seq<PlacedBrick>` then a buildable Brep wall. Depends on `Rasm.Materials.Bricks` (read-only) + `Rasm.Rhino.Blocks` + `Rasm.Analysis.Projection` + `Rasm` (geometry kernel).
+### `libs/csharp/Rasm.Rhino/Blocks/`
 
-**Types it owns** (not Materials):
-- `sealed record PlacedBrick(BrickDesignation Unit, Plane Frame, Orientation Orientation, Cut Cut, int SequenceId)`
-- `[Union] WallSpec` — `Planar | Curved | Arch | Pier`
-- `sealed record OpeningSpec(Plane Frame, double WidthMm, double HeightMm, LintelKind Lintel)`
-- `[Union] LayoutError : Error` — `BondIncompatibleWithBrick(BondName, BrickDesignation)`, `WallTooShortForPatternRepeat`, `OpeningConflictsWithExpansionJoint`, `RadiusBelowVoussoirThreshold`, `UnsupportedSpecialShape`
+`Rasm.Rhino.Blocks` should consume `Rasm.Masonry` output for live/archive block placement. It should not become a dependency of core masonry logic and should stay universal: repetitive geometry for brick, steel, timber, stone, glass, and future materials.
 
-**Operations**:
-- Course transducer: walk `(course_index, bond.CourseAt(course_index).Sequence)` along wall length, emit `PlacedBrick` records. **Implementation rail**: state-folded `Schedule.recurs(courseCount) | Schedule.spaced(0)` inside `Eff<MasonryRuntime, Seq<PlacedBrick>>` — NOT for-loop, NOT `Enumerable.Range().SelectMany()`, NOT custom helper. The `Schedule` algebra already drives retry/backoff elsewhere in the project; reusing it as the iteration combinator keeps one primitive instead of two and gains free composition with `Schedule.upto(duration)` / `Schedule.whileInput(...)` for future tolerance-breach early-stop or time-budget capabilities. Concrete shape:
-  ```csharp
-  from runtime in Eff.runtime<MasonryRuntime>()
-  from courses in (Schedule.recurs(courseCount) | Schedule.spaced(0))
-      .Fold(state: Seq<PlacedBrick>.Empty,
-            action: (acc, iter) => acc.Concat(walkCourse(spec, iter.Iteration)))
-  select courses;
-  ```
-- Closure derivation: pattern-match on `bond.Closure` and wall corner geometry — `ClosureRule` `[Union]` dispatch
-- Arch voussoir generation per BIA TN 31: voussoir count `N` is odd (keystone-centred); per-voussoir wedge angle = `arch_subtended_angle / N` (e.g., `π / N` radians for a semicircular arch, `arc_radians / N` generally); voussoir depth ≥ `ArchProfile.<kind>.Rule.MinDepthPerFootMm × span_ft`; joint thickness ∈ `[Rule.JointThicknessMinMm, Rule.JointThicknessMaxMm]`; keystone height ≤ `Rule.KeystoneMaxFraction × arch_depth`
-- Curved-wall validation: per-brick chord-arc sagitta `s ≈ L² / (8R)` ; this drives the *head-joint taper* at the brick ends — taper magnitude grows with wall curvature; switch from rectangular bricks (uniform L) to voussoir-style tapered bricks when the resulting joint thickness exceeds `ArchRule.JointThicknessMaxMm` (typically below `R ≈ 10 × L`)
+Expected primitive: place one shared `GeometryBase` definition at many `Transform` placements through Rhino instance definitions, for both `RhinoDoc` and `File3dm`.
 
-**Single polymorphic entry**: `Masonry.Generate(WallSpec spec) → Fin<MasonryAssembly>`
+### `libs/csharp/Rasm/Analysis/`
 
-### `libs/csharp/Rasm.Grasshopper/Components/` — GH2 components (flat naming)
+Projection and section algebra belongs in the shared geometry kernel, not in Materials. Elevation, plan, and section extraction should be universal over geometry.
 
-Existing `Rasm.Grasshopper/Components/` is flat — no per-domain subfolders. Future masonry components follow the same convention with name-prefixed identification:
-- `MasonryWallComponent.cs`, `MasonryArchComponent.cs`, etc.
+### `libs/csharp/Rasm.Grasshopper/Components/`
 
-Do NOT introduce a `Components/Masonry/` subfolder — it would be the first per-domain folder in the existing flat layout and inconsistent with infrastructure files (`Bridge.cs`, `Component.cs`, `Output.cs`, `Port.cs`).
+Grasshopper components consume the masonry/block/projection rails. Keep the current flat component layout; do not introduce a `Components/Masonry/` subfolder unless the whole component taxonomy changes.
 
-## Consumer-side Example (truthful, post-refactor)
+## Consumer Example
 
 ```csharp
 using static LanguageExt.Prelude;
 using Rasm.Materials.Bricks;
-// future:
-// using Rasm.Masonry;
 
-// Direct catalogue access — delegate properties on BrickDesignation; no .Spec. indirection
-BrickRegion region = BrickDesignation.UsModular.Region;          // BrickRegion.Us
-Dim3 specified = BrickDesignation.UsModular.Specified;            // 92.075 × 57.15 × 193.675
+BrickRegion region = BrickDesignation.UsModular.Region;
+Dim3 specified = BrickDesignation.UsModular.Specified;
 double widthMm = specified.WidthMm;
-double mortarMm = BrickDesignation.UsModular.Region.StandardJointThicknessMm;  // 9.525
-double courseHeightMm = BrickDesignation.UsModular.Coursing.CourseHeightMm;    // 67.7333 (already includes joint via nominal coursing)
-Coring coring = BrickDesignation.UsModular.Coring;                // Coring.Cored3Hole
-double voidFraction = coring.VoidFraction;                        // 0.20
+double mortarMm = region.StandardJointThicknessMm;
+double courseHeightMm = BrickDesignation.UsModular.Coursing.CourseHeightMm;
+Coring coring = BrickDesignation.UsModular.Coring;
+double voidFraction = coring.VoidFraction;
 
-// Bond course walking — direct attached properties + projection helpers
-CourseTemplate row5 = BondName.English.CourseAt(courseIndex: 5);  // modulo handled inside
-ClosureRule corner = BondName.English.Closure;                    // QueenCloser(InsetCourses: 1)
+Option<CourseTemplate> row5 = BondName.English.Course(index: 5);
+ClosureRule corner = BondName.English.Closure;
 
-// Bond → brick compatibility (single call; tolerance internalized)
-bool fits = BondName.Common.AcceptsAspect(brick: BrickDesignation.UsModular.Spec);
+bool fits = BondName.Common.Fits(brick: BrickDesignation.UsModular.Unit);
 
-// Regional masonry policy (movement, expansion, weep, tie)
 RegionalMasonryPolicy policy = BrickDesignation.UsModular.Region.Policy;
-double expansionSpacingMm = policy.Expansion.SpacingFor(hasOpenings: true);  // 6096 if openings, 7620 if not
+double expansionSpacingMm = policy.Expansion.Spacing(hasOpenings: true);
 
-// Arch rule attached to ArchProfile
 ArchRule jackRule = ArchProfile.Jack.Rule;
-double maxArchJointMm = jackRule.JointThicknessMaxMm;             // 19.05 mm
+double minimumJackDepthMm = jackRule.MinimumDepthMm(spanFeet: 4.0);
 
-// Enumerate by facet — no BrickCatalog needed
 Seq<Coring> hollowCorings = toSeq(Coring.Items.Where(c => c.Classification == CoringClass.Hollow));
-Seq<BrickDesignation> usBricks = BrickRegion.Us.Designations();   // extension on BrickRegion
-FrozenSet<SpecialShape> specialShapes = SpecialShape.Catalog;     // static on the Union itself
+Seq<BrickDesignation> usBricks = BrickRegion.Us.Units();
+FrozenSet<SpecialShape> specialShapes = SpecialShape.Catalog;
 
-// Consumer-input value construction (future GH2 component reading user parameters)
-// — Dim3.TryCreate returns typed BrickFault on failure, flowing directly into Fin<T>
 Fin<Dim3> userDim =
     Dim3.TryCreate(widthMm: userWidth, heightMm: userHeight, lengthMm: userLength, out Dim3 dim, out BrickFault? fault)
         ? Fin.Succ(value: dim)
         : Fin.Fail<Dim3>(error: fault!);
-
-// Future masonry layout (Rasm.Masonry, not yet implemented)
-Fin<MasonryAssembly> wall =
-    from spec    in Fin.Succ(new WallSpec.Planar(Geometry: planar, Designation: BrickDesignation.UsModular, BondName: BondName.English, Joint: JointProfile.Concave))
-    from result  in Masonry.Generate(spec)
-    select result;
 ```
 
-## Out of Scope for `Rasm.Materials.Bricks`
+## Out Of Scope
 
-Do NOT add to this folder:
-- Geometry generation (`Box.ToBrep`, `Brep.CreateBooleanDifference`, …) — belongs to `Rasm.Rhino.Blocks` / `Rasm.Analysis.Projection`
-- Layout transducers (course walking, closure derivation, voussoir geometry) — belongs to `Rasm.Masonry`
-- Grasshopper2 components / pears / goos — belongs to `Rasm.Grasshopper/Components/`
-- `PlacedBrick`, `WallSpec`, `OpeningSpec`, `MasonryAssembly`, `LayoutError` — belong to `Rasm.Masonry`
-- Wall/arch/pier construction logic — belongs to `Rasm.Masonry`
-- Lintel structural design (load-case dependent) — out of scope for the entire material/masonry chain; consumer-supplied
-- Per-manufacturer SKU / pricing / sourcing — never part of standards-based catalogue
-- Mortar mix chemistry (Type N/S/M proportions) — future `Rasm.Materials.Mortars/` if needed
-- Thermal / acoustic / fire-rated assembly classification — assembly-level, belongs in future `Rasm.Masonry` or building-physics modules
+Do not add to `Rasm.Materials.Bricks`:
+
+- Geometry generation such as `Box.ToBrep` or boolean cutting
+- Layout transducers, closure derivation, generated bond interpreters, or voussoir placement
+- Rhino blocks, `Plane`, `Transform`, `GeometryBase`, `RhinoDoc`, or `File3dm`
+- Grasshopper2 components, pears, goos, or baking logic
+- `PlacedBrick`, `WallSpec`, `OpeningSpec`, `MasonryAssembly`, or layout errors
+- Lintel structural design
+- Manufacturer SKU, pricing, or sourcing data
+- Mortar mix chemistry
+- Thermal, acoustic, fire, or building-physics assembly classification
 
 ## Verification
 
-`bash scripts/check-cs.sh check` — 0 warnings, 0 errors across Rasm.Materials.
+Use static validation for this slice:
 
-## Block / Drawing Universalisation Note
+```bash
+rg -n "<stale public-name pattern from the implementation plan>" libs/csharp/Rasm.Materials
+bash scripts/check-cs.sh check
+```
 
-The `Rasm.Rhino/Blocks/` module is NOT brick-only — it's a universal primitive for any material that ships repetitive geometry (steel I-sections, timber studs, concrete blocks, glass panels, stone units). Brick is the first consumer; the API surface should encode that intent through generic `GeometryBase` parameters, not brick-specific signatures.
-
-The `Rasm/Analysis/Projection.cs` module is similarly universal — any 3D geometry, any view plane. When the next material lands (Steel/Concrete/Timber), the block/projection modules expand only if a NEW capability is needed (e.g., curved geometry stamping for tapered concrete) — never with material-specific overloads.
+Do not run Rhino runtime checks for this catalogue-only folder.
