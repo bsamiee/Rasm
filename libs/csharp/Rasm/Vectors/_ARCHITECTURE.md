@@ -1,6 +1,6 @@
 # Rasm.Vectors Architecture
 
-`Rasm.Vectors` is the typed vector geometry and numerics layer over RhinoCommon geometry, MathNet linear algebra, CSparse.NET sparse Cholesky, LanguageExt result rails, and Thinktecture-generated dispatch. Factories create atoms, spaces, fields, clouds, matrices, meshes, and intent cases; `VectorIntent.Project<TOut>(Context, Op?)` remains the singular consumer rail for executing an intent into a requested output shape. `Spectral.cs` is the shared substrate owning DEC operator assembly, the eigenpair cache, FEM heat-method scaffolding, the Crouzeix-Raviart connection Laplacian (Stein-Wardetzky-Jacobson-Grinspun 2020), the Crane-Desbrun-Schröder trivial-connection 1-form, and the polymorphic `SpectralFilter` algebra consumed by both mesh descriptors and scalar spectral fields.
+`Rasm.Vectors` is the typed vector geometry and numerics layer over RhinoCommon geometry, MathNet linear algebra, CSparse.NET sparse Cholesky, LanguageExt result rails, and Thinktecture-generated dispatch. Factories create atoms, spaces, fields, clouds, matrices, meshes, and intent cases; `VectorIntent.Project<TOut>(Context, Op?)` remains the singular consumer rail for executing an intent into a requested output shape. `Spectral.cs` is the shared substrate owning DEC operator assembly, spectral basis values, FEM heat-method scaffolding, the Crouzeix-Raviart connection Laplacian (Stein-Wardetzky-Jacobson-Grinspun 2020), the Crane-Desbrun-Schröder trivial-connection 1-form, and the polymorphic `SpectralFilter` algebra consumed by both mesh descriptors and scalar spectral fields. `Mesh.cs` owns `LaplacianCache`, which memoises spectral bases and factorisations per mesh snapshot.
 
 ```mermaid
 ---
@@ -22,7 +22,7 @@ config:
 ---
 flowchart TB
     accTitle: Rasm.Vectors projection rail with spectral substrate
-    accDescr: Factories build typed vector values and VectorIntent cases. Project validates context, dispatches to owning vector modules, and returns Fin of the requested output. Spectral.cs holds DEC operators, eigenpair cache, and spectral filter algebra shared by Mesh and Field.
+    accDescr: Factories build typed vector values and VectorIntent cases. Project validates context, dispatches to owning vector modules, and returns Fin of the requested output. Spectral.cs holds DEC operators, spectral basis values, and spectral filter algebra shared by Mesh and Field; Mesh-owned LaplacianCache memoises per-mesh bases and factors.
 
     subgraph Build["Typed Construction"]
         Factories["Factories<br/>Atoms, Space, Field, Cloud, Mesh, Matrix<br/>Modes, Flow, Sample, Align"]
@@ -42,13 +42,13 @@ flowchart TB
         Geometry["Geometry projections<br/>axis, angle, frame, support, surface"]
         FieldBand["Field algebra<br/>CSG, kernels, noise, gradients, streamlines"]
         CloudBand["Cloud workflows<br/>metrics, winding, hull, transport, ICP"]
-        MeshBand["Mesh workflows<br/>Laplacian, topology, remesh, descriptors"]
+        MeshBand["Mesh workflows<br/>Laplacian, topology, remesh, descriptors, caches"]
     end
 
     subgraph Spectral["Spectral Substrate"]
         direction LR
         Dec["DiscreteCalculus<br/>d0, d1, star0, star1, star2"]
-        Basis["SpectralBasis<br/>eigenpair cache"]
+        Basis["SpectralBasis<br/>eigenpair values"]
         Filter["SpectralFilter<br/>Heat, Wave, Biharmonic, Diffusion, CommuteTime, Identity"]
         Dec -->|operators| Filter
         Basis -->|modes| Filter
@@ -62,7 +62,11 @@ flowchart TB
     Dispatch --> CloudBand
     Dispatch --> MeshBand
 
+    MeshCache["LaplacianCache<br/>mesh snapshot caches"]
+
     FieldBand -->|mesh-aware fields| MeshBand
+    MeshBand -->|memoises| MeshCache
+    MeshCache -->|bases + factors| Spectral
     MeshBand -->|DEC + filters| Spectral
     Spectral --> Providers
     Geometry & CloudBand & MeshBand --> Providers
@@ -91,28 +95,28 @@ flowchart TB
 - `Flow.cs`: Runge-Kutta tableaus, fixed/adaptive integration, streamline state, termination predicates.
 - `Cloud.cs`: cloud construction (Ring / Polyline / Cluster), `VectorCloudMetric` SmartEnum (PCA, principal curvature, curvedness, shape index), plus separate intent rails for winding, hull, and transport. `CloudKernel.Sinkhorn` supports unbalanced transport via `Option<PositiveMagnitude> massRelaxation`.
 - `Sample.cs`: mesh-surface sampling -- Poisson disk, farthest, optimize, Lloyd, capacity.
-- `Align.cs`: cloud alignment -- `AlignKind` SmartEnum admits `Point`, `Plane`, `Symmetric` (Rusinkiewicz 2019), `Robust` (Welsch IRLS), `Generalized` (Segal-Haehnel-Thrun GICP 2009).
+- `Align.cs`: cloud alignment -- `AlignKind` SmartEnum admits `Point`, `Plane`, `Symmetric` (Rusinkiewicz 2019), `Robust` (Welsch IRLS), and `Generalized`, a GICP-inspired normal-weighted point-to-plane solve.
 - `Mesh.cs`: mesh snapshots, `LaplacianCache` (cotangent / IDT / robust Laplacian, scalar Cholesky factor, parametric scalar-heat / vector-connection / edge-connection Cholesky caches via `Atom<HashMap>`, spectral basis, mean edge length, mesh-invariant SHM φ via `Lazy<Fin<Arr<double>>>`, and typed per-kernel `Atom<HashMap<TKey, Fin<TValue>>>` caches for geodesic / MCF / cross-field / Hodge / vector-heat with structurally-equal record keys), `MeshLaplacian` SmartEnum (`Cotangent`, `IntrinsicDelaunay`, `Robust`), `MeshDescriptor` Union (single `SpectralCase`), `IntrinsicMesh` (post-IDT-flip frozen edge index + face-edge map + face areas + first-incident-edge per vertex — drives all intrinsic-edge-indexed kernels: connection Laplacian, cone holonomy α, SHM CR system), topology, features, remesh kernels, Hodge / vector heat (Sharp-Soliman-Crane 2019 real-2V Cholesky) / geodesic tangent / stripe / cross-field (GODF 2013 soft-penalty linear solve with hint encoding, CDS 2010 trivial-connection α applied per intrinsic edge) / SignedHeat (Feng-Crane 2024 via Crouzeix-Raviart edge connection Laplacian on the IDT edge set) kernels.
 - `Matrix.cs`: dense and sparse matrix models, MathNet conversion, decompositions, iterative solves, sparse Hermitian products, local LOBPCG eigensolves, `CholeskySparse` (CSparse.NET-backed SPD factor with Span-based solve).
-- `Spectral.cs`: `DiscreteCalculus` (DEC operators `d0`, `d1`, `star0`, `star1`, `star2`), `SpectralBasis` (eigenpairs cache), `SpectralFilter` Union (`Heat`, `Wave`, `Biharmonic`, `Diffusion`, `CommuteTime`, `Identity`) with unified `EvaluateFiltered` kernel and partial-monoid `Compose`, FEM heat scaffold (`BuildSourceDelta`, `PoissonTriplets`, `ComputeTriangleGradients`, `ComputeVertexDivergence`, intrinsic `ComputeIntrinsicVertexDivergence`), Crouzeix-Raviart connection Laplacian + face-barycenter sampling on the intrinsic-Delaunay edge set (Stein-Wardetzky-Jacobson-Grinspun 2020), `ComputeIntrinsicStar1` (per-edge cotangent weight shared by CDS holonomy and connection-Laplacian assembly), CDS 2010 holonomy distribution (`ComputeIntrinsicAngleDefects`, `DistributeHolonomy` returning α per intrinsic edge via primal closed 1-form + coexact Hodge solve, with intrinsic incidence operators in place of extrinsic DEC).
+- `Spectral.cs`: `DiscreteCalculus` (DEC operators `d0`, `d1`, `star0`, `star1`, `star2`), `SpectralBasis` (eigenpair values), `SpectralFilter` Union (`Heat`, `Wave`, `Biharmonic`, `Diffusion`, `CommuteTime`, `Identity`) with unified `EvaluateFiltered` kernel and partial-monoid `Compose`, FEM heat scaffold (`BuildSourceDelta`, `PoissonTriplets`, `ComputeTriangleGradients`, `ComputeVertexDivergence`, intrinsic `ComputeIntrinsicVertexDivergence`), Crouzeix-Raviart connection Laplacian + face-barycenter sampling on the intrinsic-Delaunay edge set (Stein-Wardetzky-Jacobson-Grinspun 2020), `ComputeIntrinsicStar1` (per-edge cotangent weight shared by CDS holonomy and connection-Laplacian assembly), CDS 2010 holonomy distribution (`ComputeIntrinsicAngleDefects`, `DistributeHolonomy` returning α per intrinsic edge via primal closed 1-form + coexact Hodge solve, with intrinsic incidence operators in place of extrinsic DEC).
 
 ## Invariants
 
 - `VectorIntent.Project<TOut>(Context, Op?)` is the only consumer projection rail.
-- `Spectral.cs` owns DEC operators, eigenpair cache (`LaplacianCache.SpectralBasisOf`), `SpectralFilter` dispatch + partial-monoid `Compose`, FEM heat scaffolding, the Crouzeix-Raviart edge connection Laplacian for SHM, and the CDS holonomy 1-form for trivial connections. Field and Mesh route spectral queries through this single substrate.
+- `Spectral.cs` owns DEC operators, spectral basis values, `SpectralFilter` dispatch + partial-monoid `Compose`, FEM heat scaffolding, the Crouzeix-Raviart edge connection Laplacian for SHM, and the CDS holonomy 1-form for trivial connections. Mesh-owned `LaplacianCache` memoises `SpectralBasisOf(k)` and downstream factors. Field and Mesh route spectral queries through this single substrate.
 - `MeshDescriptor` is a single `SpectralCase` parameterised by `SpectralFilter` and optional source set. HKS / WKS / ShapeDNA = `Heat` / `Wave` / `Identity` filter cases respectively.
 - `MeshLaplacian` admits `Cotangent`, `IntrinsicDelaunay`, `Robust` -- all route through `LaplacianCache`. `Robust` follows Sharp-Crane SGP 2020 (tufted cover via `Mesh.UnweldEdge` + intrinsic Delaunay flips on the locally-manifold cover).
 - `LaplacianCache` exposes lazy `Cotangent`, `IntrinsicDelaunay`, `Robust`, `Cholesky` (mass-pinned SPD regularisation), `IntrinsicMeshSnapshot` (post-flip frozen `IntrinsicMesh` with stable edge index), `SignedHeat` (mesh-invariant SHM φ via `Lazy<Fin<Arr<double>>>`), `DefaultSpectralBasis` (32 pairs, truncatable), `SpectralBasisOf(k)` (parametric), `ConnectionCholesky(symmetry, time)` (cached real-2V SPD factor of `(M + t·L_conn)`), `ConnectionCholeskyAdjusted(symmetry, time, edgeAdjustment)` (uncached, used by cone-affected paths), `ScalarHeatCholesky(time)` (cached factor of `(M + t·L_cot)`), `EdgeConnectionCholesky(time)` (cached real-2|E| factor of `(M_CR + t·L_CR)` built on the intrinsic edge set for Feng-Crane SHM), and typed `Atom<HashMap<TKey, Fin<TValue>>>`-backed `Geodesic / Mcf / CrossField / Hodge / VectorHeat` memoisers keyed by structurally-equal record (`GeodesicKey`, `McfKey`, `CrossFieldKey`, `HodgeKey`, `VectorHeatKey`).
 - Vector heat (Sharp-Soliman-Crane 2019): three solves on the cached factors give the per-vertex `X̄ · (φ/ψ)` recovery (direction × magnitude carrier ratio).
 - Constrained cross-field (GODF 2013, λ_T = 0 canonical): per-vertex hint encoded as tangent complex raised to `nSym`, B-norm rescaled, RHS = `B·q̂`, solve via `ConnectionCholesky(symmetry, 1e9)` then per-vertex unit-normalise. Cone-affected variant adds CDS α via `ConnectionCholeskyAdjusted`.
-- Trivial connections (CDS 2010, closed genus-0 default): build closed primal 1-form distributing `2π·k_v − K_v` per vertex onto one incident INTRINSIC edge, coexact solve `Lβ = d_intrinsic^T · diag(★₁_intrinsic) · u` via `LaplacianCache.Cholesky`, return α per intrinsic edge index (matching `IntrinsicMeshSnapshot.IndexOfEdge`). Flipped intrinsic edges are addressable; the prior extrinsic `TopologyEdges.GetEdgeIndex` lookup gap is closed. Bounded meshes return `Fault.InvalidInput`; consumers enforce Gauss-Bonnet `|Σ k_v − χ| < 1e-9` upstream.
-- SignedHeat (Feng-Crane 2024 SIGGRAPH, Stein-Wardetzky-Jacobson-Grinspun 2020 CR operator): encode boundary as per-INTRINSIC-edge `length·i·sign(orientation)` in `X₀ ∈ ℂ^{|E|}` stacked real-2|E|, solve `(M_CR + t·L_CR) X_t = X_0` via `EdgeConnectionCholesky` (L_CR built on intrinsic edges ⇒ guaranteed Hermitian PSD ⇒ Cholesky always succeeds, no non-Delaunay fallback needed), sample face barycenters via `SpectralCore.SampleCrouzeixRaviartFaceField` over intrinsic faces (canonical edge tangent + 90° in-face normal, normalise per face), vertex divergence via `SpectralCore.ComputeIntrinsicVertexDivergence` (intrinsic cotangents), Poisson `Lφ = ∇·Y` via cached scalar Cholesky, sign-flip and subtract mean φ along boundary. Sign emerges from source orientation; no `IsPointInside` involved. `t = (h̄/2)²` per paper. Cached as a mesh-invariant `Lazy<Fin<Arr<double>>>` (no per-query rebuild; invalidates only when the underlying mesh changes).
+- Trivial connections (CDS 2010, closed genus-0 default): build closed primal 1-form distributing `2π·k_v − K_v` per vertex onto one incident INTRINSIC edge, coexact solve `Lβ = d_intrinsic^T · diag(★₁_intrinsic) · u` via `LaplacianCache.Cholesky`, return α per intrinsic edge index (matching `IntrinsicMeshSnapshot.IndexOfEdge`). Flipped intrinsic edges are addressable; the prior extrinsic `TopologyEdges.GetEdgeIndex` lookup gap is closed. Bounded meshes return invalid-input faults; `SpectralCore.ValidateGaussBonnet` enforces `|Σ k_v − χ| < 1e-6` before solving.
+- SignedHeat (Feng-Crane 2024 SIGGRAPH, Stein-Wardetzky-Jacobson-Grinspun 2020 CR operator): encode boundary as per-INTRINSIC-edge `length·i·sign(orientation)` in `X₀ ∈ ℂ^{|E|}` stacked real-2|E|, solve `(M_CR + t·L_CR) X_t = X_0` via `EdgeConnectionCholesky` (L_CR built on intrinsic edges and routed through `Fin`, so factorisation failures stay explicit), sample face barycenters via `SpectralCore.SampleCrouzeixRaviartFaceField` over intrinsic faces (canonical edge tangent + 90° in-face normal, normalise per face), vertex divergence via `SpectralCore.ComputeIntrinsicVertexDivergence` (intrinsic cotangents), Poisson `Lφ = ∇·Y` via cached scalar Cholesky, sign-flip and subtract mean φ along boundary. Sign emerges from source orientation; no `IsPointInside` involved. `t = (h̄/2)²` per paper. Cached as a mesh-invariant `Lazy<Fin<Arr<double>>>` (no per-query rebuild; invalidates only when the underlying mesh changes).
 - `Field.ScalarField` extends a continuous scalar with mesh-aware cases that delegate to `MeshKernel`. `VectorField` extends with mesh-aware Hodge decomposition, vector heat, geodesic tangent, and cross-field with constrained / cone variants.
 - `Cloud.CloudKernel.Sinkhorn` accepts `Option<PositiveMagnitude>` for unbalanced transport (Chizat-Peyre-Schmitzer-Vialard 2018 KL-divergence relaxation).
 - Greenfield renames (no shims): `IterationCap` -> `MaxIterations`, `EigenpairCount` -> `Pairs`, `TargetEdge` -> `TargetLength`, `Sigma` -> `Spread`, `Unbiased` -> `Debiased`.
 - Domain owns shared Rhino geometry normalization and `ClosestHit`.
 - Vectors owns vector-specific intent, polymorphic field algebra, cloud metrics, mesh operators, sampling, alignment, and spectral substrate.
-- RhinoCommon provides native geometry, closest queries, transforms, convex hulls, mesh reduction, remeshing, mesh unwrap, normals, marching-cubes isosurface, point-in-solid, edge-unweld for tufted covers, and shape operator (`RhinoMath.EvaluateNormalPartials`).
+- RhinoCommon provides native geometry, closest queries, transforms, convex hulls, mesh reduction, remeshing, mesh unwrap, normals, marching-cubes isosurface, point-in-solid, edge-unweld for tufted covers, and surface-curvature principal directions via `SurfaceCurvature`.
 - MathNet owns dense and sparse numerical operations (decompositions, BiCGStab iterative solve).
 - CSparse.NET 4.3.0 provides sparse Cholesky factorisation with AMD ordering and Span-based solve for cached SPD systems.
 - Local kernels exist only where dependencies do not expose the required algorithm.
