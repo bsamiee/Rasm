@@ -124,6 +124,19 @@ public readonly record struct Direction {
     public static Vector3d operator *(Direction direction, double magnitude) => direction.Value * magnitude;
     public Direction Reflect(Direction normal) =>
         new(value: Transform.Mirror(pointOnMirrorPlane: Point3d.Origin, normalToMirrorPlane: normal.Value) * Value);
+    // Discrete parallel transport along a polyline frame chain via Transform.PlaneToPlane.
+    // Composes with VectorFrame.Chain Bishop frames for twist-free curve transport.
+    public Fin<Direction> ParallelTransport(Seq<Plane> frames, Op? key = null) {
+        Op op = key.OrDefault();
+        Fin<Direction> seed = Of(value: Value, tolerance: RhinoMath.ZeroTolerance, key: op);
+        return frames.Count < 2
+            ? seed
+            : toSeq(Enumerable.Range(start: 1, count: frames.Count - 1)).Fold(
+                initialState: seed,
+                f: (acc, i) => acc.Bind(prev => Of(
+                    value: Transform.PlaneToPlane(plane0: frames[index: i - 1], plane1: frames[index: i]) * prev.Value,
+                    tolerance: RhinoMath.ZeroTolerance, key: op)));
+    }
     public static Fin<Direction> Refract(Direction incident, Direction normal, double etaIncident, double etaTransmitted, Op key) =>
         from activeIncident in key.AcceptValidated<PositiveMagnitude>(candidate: etaIncident)
         from activeTransmitted in key.AcceptValidated<PositiveMagnitude>(candidate: etaTransmitted)

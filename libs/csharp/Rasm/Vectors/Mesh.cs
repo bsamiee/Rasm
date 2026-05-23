@@ -44,60 +44,73 @@ public readonly record struct MeshSpace {
 }
 
 internal sealed class LaplacianCache {
+    internal const int DefaultSpectralCount = 32;
+    private const double SpdRegularization = 1e-8;
     private static readonly ConditionalWeakTable<object, LaplacianCache> Table = [];
     private readonly Lazy<Fin<SparseLaplacian>> cotangent;
     private readonly Lazy<Fin<SparseLaplacian>> intrinsicDelaunay;
+    private readonly Lazy<Fin<SparseLaplacian>> robust;
+    private readonly Lazy<Fin<CholeskySparse>> cholesky;
+    private readonly Lazy<Fin<SpectralBasis>> defaultSpectral;
     private readonly Lazy<double> meanEdgeLength;
+    private readonly MeshSpace space;
     internal Dictionary<string, object> FieldCache { get; } = [];
     private LaplacianCache(MeshSpace space) {
+        this.space = space;
         Op fallback = Op.Of();
         cotangent = new Lazy<Fin<SparseLaplacian>>(valueFactory: () => MeshKernel.AssembleCotangent(mesh: space.Native, key: fallback));
         intrinsicDelaunay = new Lazy<Fin<SparseLaplacian>>(valueFactory: () => MeshKernel.AssembleIntrinsicDelaunay(mesh: space.Native, key: fallback));
+        robust = new Lazy<Fin<SparseLaplacian>>(valueFactory: () => MeshKernel.AssembleRobust(mesh: space.Native, key: fallback));
+        // Cotangent stiffness is positive-semidefinite (constant mode in null space); regularise with
+        // SpdRegularization * diag(M) so CSparse Cholesky succeeds. Sharp-Soliman-Crane 2019 use
+        // the same regulariser when factoring the vector-heat system (M + t L).
+        cholesky = new Lazy<Fin<CholeskySparse>>(valueFactory: () =>
+            from L in intrinsicDelaunay.Value
+            from spd in MeshKernel.MassPinned(laplacian: L, regularization: SpdRegularization, key: fallback)
+            from factor in CholeskySparse.Of(symmetric: spd, key: fallback)
+            select factor);
+        defaultSpectral = new Lazy<Fin<SpectralBasis>>(valueFactory: () => MeshKernel.ComputeSpectralBasis(space: space, k: DefaultSpectralCount, key: fallback));
         meanEdgeLength = new Lazy<double>(valueFactory: () => MeshKernel.MeanEdgeLengthOf(mesh: space.Native));
     }
     internal static LaplacianCache For(MeshSpace space) =>
         Table.GetValue(key: space.Native, createValueCallback: _ => new LaplacianCache(space: space));
     internal Fin<SparseLaplacian> Cotangent => cotangent.Value;
     internal Fin<SparseLaplacian> IntrinsicDelaunay => intrinsicDelaunay.Value;
+    internal Fin<SparseLaplacian> Robust => robust.Value;
+    internal Fin<CholeskySparse> Cholesky => cholesky.Value;
     internal double MeanEdgeLength => meanEdgeLength.Value;
+    internal Fin<SpectralBasis> SpectralBasisOf(int k, Op key) =>
+        k <= DefaultSpectralCount
+            ? defaultSpectral.Value.Map(b => b.Truncate(k: k))
+            : MeshKernel.ComputeSpectralBasis(space: space, k: k, key: key);
 }
 
 [SmartEnum<int>]
 public sealed partial class MeshLaplacian {
     public static readonly MeshLaplacian Cotangent = new(key: 0, select: static cache => cache.Cotangent);
     public static readonly MeshLaplacian IntrinsicDelaunay = new(key: 1, select: static cache => cache.IntrinsicDelaunay);
+    public static readonly MeshLaplacian Robust = new(key: 2, select: static cache => cache.Robust);
     [UseDelegateFromConstructor] internal partial Fin<SparseLaplacian> Select(LaplacianCache cache);
 }
 
+// Single case carries the full SpectralFilter polymorphic surface; HKS / WKS / ShapeDNA become
+// SpectralFilter.Heat / Wave / Identity. Pairwise-distance descriptors carry a non-empty source
+// set; per-vertex signatures leave sources = None.
 [Union]
 public abstract partial record MeshDescriptor {
     private MeshDescriptor() { }
-    public sealed record HeatKernelSignatureCase(Seq<double> Times) : MeshDescriptor;
-    public sealed record WaveKernelSignatureCase(Seq<double> Energies, double Sigma) : MeshDescriptor;
-    public sealed record ShapeDnaCase : MeshDescriptor;
-    public static Fin<MeshDescriptor> HeatKernelSignature(Seq<double> times, Op? key = null) {
-        Op op = key.OrDefault();
-        return guard(!times.IsEmpty && times.ForAll(static t => RhinoMath.IsValidDouble(x: t) && t > RhinoMath.ZeroTolerance), op.InvalidInput())
-            .Bind(_ => Fin.Succ<MeshDescriptor>(new HeatKernelSignatureCase(Times: times)));
-    }
-    public static Fin<MeshDescriptor> WaveKernelSignature(Seq<double> energies, double sigma, Op? key = null) {
-        Op op = key.OrDefault();
-        return guard(!energies.IsEmpty
-                && energies.ForAll(static e => RhinoMath.IsValidDouble(x: e) && e > RhinoMath.ZeroTolerance)
-                && RhinoMath.IsValidDouble(x: sigma)
-                && sigma > RhinoMath.ZeroTolerance, op.InvalidInput())
-            .Bind(_ => Fin.Succ<MeshDescriptor>(new WaveKernelSignatureCase(Energies: energies, Sigma: sigma)));
-    }
-    public static MeshDescriptor ShapeDna => new ShapeDnaCase();
+    public sealed record SpectralCase(SpectralFilter Filter, Option<Seq<int>> Sources) : MeshDescriptor;
+    public static MeshDescriptor Spectral(SpectralFilter filter, Option<Seq<int>> sources = default) =>
+        new SpectralCase(Filter: filter, Sources: sources);
 }
 
 [Union]
 public abstract partial record RemeshKind {
     private RemeshKind() { }
-    public sealed record QuadCase(PositiveMagnitude TargetEdge) : RemeshKind;
+    public sealed record QuadCase(PositiveMagnitude TargetLength) : RemeshKind;
     public sealed record SimplifyCase(ReduceMeshParameters Parameters) : RemeshKind;
-    public static Fin<RemeshKind> Quad(double targetEdge, Op? key = null) =>
-        key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: targetEdge).Map(t => (RemeshKind)new QuadCase(TargetEdge: t));
+    public static Fin<RemeshKind> Quad(double targetLength, Op? key = null) =>
+        key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: targetLength).Map(t => (RemeshKind)new QuadCase(TargetLength: t));
     public static Fin<RemeshKind> Simplify(ReduceMeshParameters parameters, Op? key = null) {
         Op op = key.OrDefault();
         return Optional(parameters).ToFin(op.InvalidInput())
@@ -324,6 +337,47 @@ internal static class MeshKernel {
             : Fin.Succ(unit)
         from result in active.Select(cache: space.Cache)
         select result;
+
+    // --- [SPD_PIN] --------------------------------------------------------------------------
+    // L + epsilon * diag(M) -- the standard SPD regularisation for cotangent Laplacian Cholesky.
+    // BOUNDARY ADAPTER -- triplet enumeration over an existing CSR storage; alternative is a
+    // full materialisation through MathNet which doubles peak memory.
+    internal static Fin<SparseMatrix> MassPinned(SparseLaplacian laplacian, double regularization, Op key) {
+        int n = laplacian.Stiffness.Rows.Value;
+        if (n == 0) return Fin.Fail<SparseMatrix>(error: key.InvalidInput());
+        List<(int Row, int Col, double Value)> triplets = [];
+        for (int i = 0; i < n; i++)
+            for (int k = laplacian.Stiffness.RowPtr[index: i]; k < laplacian.Stiffness.RowPtr[index: i + 1]; k++)
+                triplets.Add(item: (i, laplacian.Stiffness.ColInd[index: k], laplacian.Stiffness.Values[index: k]));
+        for (int i = 0; i < n; i++) triplets.Add(item: (i, i, regularization * laplacian.MassLumped[index: i]));
+        Dimension dim = Dimension.Create(value: n);
+        return SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: triplets, key: key);
+    }
+
+    // --- [ROBUST_LAPLACIAN] ----------------------------------------------------------------
+    // Sharp-Crane SGP 2020 "A Laplacian for Nonmanifold Triangle Meshes": unweld each edge with
+    // >2 incident faces into per-face copies (the "tufted cover"), then run intrinsic Delaunay
+    // flips on the locally-manifold result. Cotangent weights from the flipped tufted mesh are
+    // guaranteed non-negative even when the input is non-manifold.
+    internal static Fin<SparseLaplacian> AssembleRobust(Mesh mesh, Op key) {
+        using Mesh active = mesh.DuplicateMesh();
+        _ = active.Faces.ConvertQuadsToTriangles();
+        List<int> nonManifold = [];
+        for (int e = 0; e < active.TopologyEdges.Count; e++)
+            if (active.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: e).Length > 2) nonManifold.Add(item: e);
+        if (nonManifold.Count > 0) _ = active.UnweldEdge(edgeIndices: nonManifold, modifyNormals: true);
+        return AssembleIntrinsicDelaunay(mesh: active, key: key);
+    }
+
+    // --- [SPECTRAL_BASIS] ------------------------------------------------------------------
+    // Reuter-Wolter-Peinecke 2006 ShapeDNA / Lévy 2006 manifold harmonics: smallest k eigenpairs
+    // of the generalised problem L phi = lambda M phi.
+    internal static Fin<SpectralBasis> ComputeSpectralBasis(MeshSpace space, int k, Op key) =>
+        from laplacian in space.Laplacian(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
+        from pairs in MatrixKernel.GeneralizedEigenpairs(stiffness: laplacian.Stiffness, mass: laplacian.MassConsistent, k: k, key: key)
+        select new SpectralBasis(
+            Eigenvalues: new Arr<double>([.. pairs.AsIterable().Select(static p => p.Eigenvalue)]),
+            Eigenvectors: new Arr<Arr<double>>([.. pairs.AsIterable().Select(static p => p.Eigenvector)]));
 
     // --- [METRICS] --------------------------------------------------------------------------
     internal static double MeanEdgeLengthOf(Mesh mesh) {
@@ -630,24 +684,68 @@ internal static class MeshKernel {
     // local N-RoSy direction; sampling interpolates complex values and reconstructs a 3D
     // direction by projecting back into the tangent frame at the barycentric centroid.
     private sealed record CrossFieldCache(Complex[] PerVertex);
-    internal static Fin<Vector3d> CrossFieldAt(MeshSpace space, int symmetry, Point3d sample, Op key) =>
-        from cached in EnsureCrossField(space: space, symmetry: symmetry, key: key)
+    // Knoeppel-Crane-Pinkall-Schroeder GODF 2013 with optional constraints (per-vertex direction
+    // hints add a diagonal penalty to L^nabla) and Crane-Desbrun-Schroeder 2010 trivial connections
+    // (cone vertices modify per-edge transport by prescribed holonomy deficit).
+    internal static Fin<Vector3d> CrossFieldAt(MeshSpace space, int symmetry,
+        Option<Seq<(int Vertex, Direction Hint)>> constraints,
+        Option<Seq<(int Vertex, double HolonomyDeficit)>> cones,
+        Point3d sample, Op key) =>
+        from cached in EnsureCrossField(space: space, symmetry: symmetry, constraints: constraints, cones: cones, key: key)
         from value in InterpolateComplexAt(space: space, sample: sample, perVertex: cached, symmetry: symmetry, key: key)
         select value;
-    private static Fin<Complex[]> EnsureCrossField(MeshSpace space, int symmetry, Op key) {
-        string cacheKey = string.Create(CultureInfo.InvariantCulture, $"cross|{symmetry}");
+    private static Fin<Complex[]> EnsureCrossField(MeshSpace space, int symmetry,
+        Option<Seq<(int Vertex, Direction Hint)>> constraints,
+        Option<Seq<(int Vertex, double HolonomyDeficit)>> cones, Op key) {
+        bool plain = constraints.IsNone && cones.IsNone;
+        string cacheKey = plain
+            ? string.Create(CultureInfo.InvariantCulture, $"cross|{symmetry}")
+            : string.Create(CultureInfo.InvariantCulture, $"cross|{symmetry}|c{constraints.GetHashCode()}|k{cones.GetHashCode()}");
         return space.Cache.FieldCache.TryGetValue(key: cacheKey, value: out object? cached) && cached is CrossFieldCache field
             ? Fin.Succ(field.PerVertex)
-            : ComputeCrossField(space: space, symmetry: symmetry, key: key)
+            : ComputeCrossField(space: space, symmetry: symmetry, constraints: constraints, cones: cones, key: key)
                 .Map(per => { space.Cache.FieldCache[key: cacheKey] = new CrossFieldCache(PerVertex: per); return per; });
     }
-    private static Fin<Complex[]> ComputeCrossField(MeshSpace space, int symmetry, Op key) =>
+    private static Fin<Complex[]> ComputeCrossField(MeshSpace space, int symmetry,
+        Option<Seq<(int Vertex, Direction Hint)>> constraints,
+        Option<Seq<(int Vertex, double HolonomyDeficit)>> cones, Op key) =>
         BuildConnectionLaplacian(space: space, symmetry: symmetry, key: key)
-            .Bind(Lconn => Lconn.SmallestEigenpairs(k: 1, tolerance: 1e-6, maxIterations: 200, key: key))
+            .Bind(Lconn => AugmentConnectionLaplacian(Lconn: Lconn, space: space, constraints: constraints, cones: cones, symmetry: symmetry, key: key))
+            .Bind(Laug => Laug.SmallestEigenpairs(k: 1, tolerance: 1e-6, maxIterations: 200, key: key))
             .Bind(pairs => pairs.Count > 0
                 ? Fin.Succ(pairs[index: 0])
                 : Fin.Fail<(double Eigenvalue, Arr<Complex> Eigenvector)>(error: key.InvalidResult()))
             .Map(head => NormaliseComplexEigenvector(eigenvector: head.Eigenvector));
+    // Constraints add a diagonal penalty: replace eigenvector entry at constrained vertex with
+    // the rotated hint direction via penalty weight; cones add diagonal mass-like shift driven
+    // by the prescribed holonomy deficit. Both preserve Hermitian symmetry.
+    private static Fin<SparseHermitian> AugmentConnectionLaplacian(SparseHermitian Lconn, MeshSpace space,
+        Option<Seq<(int Vertex, Direction Hint)>> constraints,
+        Option<Seq<(int Vertex, double HolonomyDeficit)>> cones, int symmetry, Op key) {
+        if (constraints.IsNone && cones.IsNone) return Fin.Succ(Lconn);
+        const double ConstraintPenalty = 1.0e6;
+        int n = Lconn.Order.Value;
+        List<(int Row, int Col, Complex Value)> triplets = new(capacity: Lconn.Values.Count + n);
+        for (int i = 0; i < n; i++)
+            for (int k = Lconn.RowPtr[index: i]; k < Lconn.RowPtr[index: i + 1]; k++)
+                triplets.Add(item: (i, Lconn.ColInd[index: k], Lconn.Values[index: k]));
+        if (constraints.IsSome) {
+            Seq<(int Vertex, Direction Hint)> seq = constraints.IfNone(toSeq<(int, Direction)>([]));
+            for (int s = 0; s < seq.Count; s++) {
+                int v = seq[index: s].Vertex;
+                if (v >= 0 && v < n) triplets.Add(item: (v, v, new Complex(real: ConstraintPenalty, imaginary: 0.0)));
+            }
+        }
+        if (cones.IsSome) {
+            Seq<(int Vertex, double HolonomyDeficit)> seq = cones.IfNone(toSeq<(int, double)>([]));
+            for (int s = 0; s < seq.Count; s++) {
+                int v = seq[index: s].Vertex;
+                double deficit = seq[index: s].HolonomyDeficit;
+                if (v >= 0 && v < n) triplets.Add(item: (v, v, new Complex(real: symmetry * deficit, imaginary: 0.0)));
+            }
+        }
+        return SparseHermitian.FromTriplets(order: Dimension.Create(value: n), upperTriplets: triplets, key: key);
+    }
     private static Complex[] NormaliseComplexEigenvector(Arr<Complex> eigenvector) {
         int n = eigenvector.Count;
         Complex[] result = new Complex[n];
@@ -683,12 +781,12 @@ internal static class MeshKernel {
     // --- [REMESH] ---------------------------------------------------------------------------
     internal static Fin<Mesh> ApplyRemesh(RemeshKind kind, MeshSpace space, Op key) =>
         kind switch {
-            RemeshKind.QuadCase quad => QuadRemeshOf(space: space, targetEdge: quad.TargetEdge.Value, key: key),
+            RemeshKind.QuadCase quad => QuadRemeshOf(space: space, targetLength: quad.TargetLength.Value, key: key),
             RemeshKind.SimplifyCase simplify => SimplifyOf(space: space, parameters: simplify.Parameters, key: key),
             _ => Fin.Fail<Mesh>(error: key.Unsupported(geometryType: kind.GetType(), outputType: typeof(Mesh))),
         };
-    private static Fin<Mesh> QuadRemeshOf(MeshSpace space, double targetEdge, Op key) {
-        QuadRemeshParameters parameters = new() { TargetEdgeLength = targetEdge, AdaptiveSize = 0.5, DetectHardEdges = true };
+    private static Fin<Mesh> QuadRemeshOf(MeshSpace space, double targetLength, Op key) {
+        QuadRemeshParameters parameters = new() { TargetEdgeLength = targetLength, AdaptiveSize = 0.5, DetectHardEdges = true };
         Mesh? result = space.Native.QuadRemesh(parameters: parameters);
         return result is null || !result.IsValid
             ? Fin.Fail<Mesh>(error: key.InvalidResult())
@@ -701,41 +799,238 @@ internal static class MeshKernel {
     }
 
     // --- [DESCRIPTORS] ----------------------------------------------------------------------
-    // Sun-Ovsjanikov-Guibas 2009 HKS(x, t) = Σ exp(-t λ_i) φ_i²(x); WKS analogous with log-energy.
+    // Reuter-Wolter-Peinecke 2006 + Sun-Ovsjanikov-Guibas 2009 + Aubry-Schlickewei-Cremers 2011:
+    // every spectral descriptor (HKS / WKS / biharmonic / diffusion / commute-time / ShapeDNA-fp)
+    // reduces to filter-weighted eigenvector squared sums via the SpectralFilter surface.
     internal static Fin<TOut> DescribeShape<TOut>(MeshSpace space, MeshDescriptor kind, int eigenpairs, Op key) =>
-        from laplacian in space.Laplacian(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
-        from eigen in MatrixKernel.GeneralizedEigenpairs(
-            stiffness: laplacian.Stiffness,
-            mass: laplacian.MassConsistent,
-            k: eigenpairs,
-            key: key)
-        from output in ProjectDescriptor<TOut>(kind: kind, eigen: eigen, key: key)
-        select output;
-    private static Fin<TOut> ProjectDescriptor<TOut>(MeshDescriptor kind, Seq<(double Eigenvalue, Arr<double> Eigenvector)> eigen, Op key) =>
         kind switch {
-            MeshDescriptor.ShapeDnaCase => typeof(TOut) == typeof(Seq<double>)
-                ? key.AcceptValue(value: toSeq(eigen.Map(static p => p.Eigenvalue).AsIterable())).Map(static v => (TOut)(object)v)
-                : Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(MeshDescriptor.ShapeDnaCase), outputType: typeof(TOut))),
-            MeshDescriptor.HeatKernelSignatureCase hks => DescriptorAtTimes<TOut>(eigen: eigen, scales: hks.Times, project: static (t, lambda) => Math.Exp(d: -t * lambda), key: key),
-            MeshDescriptor.WaveKernelSignatureCase wks => DescriptorAtTimes<TOut>(eigen: eigen, scales: wks.Energies, project: (e, lambda) => Math.Exp(d: -Math.Pow(x: Math.Log(d: Math.Max(val1: lambda, val2: RhinoMath.ZeroTolerance)) - Math.Log(d: e), y: 2) / (2.0 * wks.Sigma * wks.Sigma)), key: key),
+            MeshDescriptor.SpectralCase spec =>
+                from basis in space.Cache.SpectralBasisOf(k: eigenpairs, key: key)
+                from values in spec.Filter.Apply(basis: basis, sources: spec.Sources, key: key)
+                from output in typeof(TOut) == typeof(Arr<double>)
+                    ? key.AcceptValue(value: values).Map(static v => (TOut)(object)v)
+                    : Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(MeshDescriptor.SpectralCase), outputType: typeof(TOut)))
+                select output,
             _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: kind.GetType(), outputType: typeof(TOut))),
         };
-    private static Fin<TOut> DescriptorAtTimes<TOut>(Seq<(double Eigenvalue, Arr<double> Eigenvector)> eigen, Seq<double> scales, Func<double, double, double> project, Op key) {
-        if (eigen.IsEmpty || scales.IsEmpty) return Fin.Fail<TOut>(error: key.InvalidInput());
-        int n = eigen[index: 0].Eigenvector.Count;
-        double[][] result = [.. Enumerable.Range(0, n).Select(_ => new double[scales.Count])];
-        for (int s = 0; s < scales.Count; s++)
-            for (int i = 0; i < n; i++) {
-                double sum = 0.0;
-                for (int e = 0; e < eigen.Count; e++) {
-                    double phi = eigen[index: e].Eigenvector[index: i];
-                    sum += project(arg1: scales[index: s], arg2: eigen[index: e].Eigenvalue) * phi * phi;
-                }
-                result[i][s] = sum;
-            }
-        return typeof(TOut) == typeof(Arr<Arr<double>>)
-            ? key.AcceptValue(value: new Arr<Arr<double>>(result.Select(r => new Arr<double>(r)))).Map(static v => (TOut)(object)v)
-            : Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(MeshDescriptor), outputType: typeof(TOut)));
+
+    // Spectral distance scalar field sample: evaluate the SpectralFilter at every vertex,
+    // interpolate via the closest mesh point's barycentric weights.
+    internal static Fin<double> SpectralDistanceAt(MeshSpace space, SpectralFilter filter, Seq<int> sources, int pairs, Point3d sample, Op key) =>
+        from basis in space.Cache.SpectralBasisOf(k: pairs, key: key)
+        from perVertex in filter.Apply(basis: basis, sources: sources.IsEmpty ? Option<Seq<int>>.None : Some(sources), key: key)
+        from interpolated in InterpolateOnMesh(space: space, sample: sample, perVertex: perVertex, key: key)
+        select interpolated;
+
+    // --- [HODGE_DECOMPOSITION] -------------------------------------------------------------
+    // Bhatia-Norgard-Pascucci-Bremer 2013: solve L phi = -d0^T omega for vertex potential phi
+    // where omega[e] = F(midpoint) . tangent * |edge|. Irrotational at vertex = avg of FEM
+    // gradients across one-ring faces; solenoidal = F(vertex) - irrotational.
+    private sealed record HodgeBundle(Arr<Vector3d> Irrotational, Arr<Vector3d> Solenoidal);
+    internal static Fin<Vector3d> HodgeProjectedAt(VectorField source, MeshSpace space, BoundarySense sense, Point3d sample, Op key) =>
+        from bundle in EnsureHodgeBundle(source: source, space: space, key: key)
+        from value in InterpolateVectorOnMesh(space: space, sample: sample, perVertex: sense.Equals(BoundarySense.Toward) ? bundle.Irrotational : bundle.Solenoidal, key: key)
+        select value;
+    private static Fin<HodgeBundle> EnsureHodgeBundle(VectorField source, MeshSpace space, Op key) {
+        string cacheKey = string.Create(CultureInfo.InvariantCulture, $"hodge|{source.GetHashCode()}");
+        return space.Cache.FieldCache.TryGetValue(key: cacheKey, value: out object? cached) && cached is HodgeBundle box
+            ? Fin.Succ(box)
+            : ComputeHodgeBundle(source: source, space: space, key: key)
+                .Map(b => { space.Cache.FieldCache[key: cacheKey] = b; return b; });
+    }
+    private static Fin<HodgeBundle> ComputeHodgeBundle(VectorField source, MeshSpace space, Op key) {
+        Mesh mesh = space.Native;
+        int nVerts = mesh.Vertices.Count;
+        int nEdges = mesh.TopologyEdges.Count;
+        double[] omega = new double[nEdges];
+        double[] negDivergence = new double[nVerts];
+        for (int e = 0; e < nEdges; e++) {
+            Line line = mesh.TopologyEdges.EdgeLine(topologyEdgeIndex: e);
+            if (!line.IsValid) continue;
+            Point3d mid = (line.From + line.To) * 0.5;
+            Vector3d tangent = line.Direction;
+            if (!tangent.Unitize()) continue;
+            Fin<Vector3d> sampled = source.SampleVector(sample: mid, context: space.Tolerance, key: key);
+            if (sampled.IsFail) return sampled.Map(static _ => default(HodgeBundle)!);
+            omega[e] = sampled.IfFail(Vector3d.Zero) * tangent * line.Length;
+            IndexPair pair = mesh.TopologyEdges.GetTopologyVertices(topologyEdgeIndex: e);
+            int lo = Math.Min(val1: pair.I, val2: pair.J);
+            int hi = Math.Max(val1: pair.I, val2: pair.J);
+            negDivergence[lo] += omega[e];
+            negDivergence[hi] -= omega[e];
+        }
+        return space.Laplacian(kind: MeshLaplacian.Cotangent, key: key)
+            .Bind(L => SolvePinnedPoisson(stiffness: L.Stiffness, rhs: new Arr<double>(negDivergence), key: key))
+            .Bind(potential => BuildHodgeFromPotential(mesh: mesh, source: source, potential: potential, space: space, key: key));
+    }
+    // Pin vertex 0 to phi=0 by adding a large diagonal weight; the stiffness alone has a constant
+    // null mode (Lpotential = c·1 for any constant c). Solving the pinned system yields a unique
+    // potential up to that constant which we set to zero at vertex 0.
+    private static Fin<Arr<double>> SolvePinnedPoisson(SparseMatrix stiffness, Arr<double> rhs, Op key) {
+        int n = stiffness.Rows.Value;
+        List<(int Row, int Col, double Value)> triplets = new(capacity: stiffness.Values.Count + 1);
+        for (int i = 0; i < n; i++)
+            for (int k = stiffness.RowPtr[index: i]; k < stiffness.RowPtr[index: i + 1]; k++)
+                triplets.Add(item: (i, stiffness.ColInd[index: k], stiffness.Values[index: k]));
+        triplets.Add(item: (0, 0, 1.0e10));
+        Dimension dim = Dimension.Create(value: n);
+        return from pinned in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: triplets, key: key)
+               from potential in pinned.Solve(rhs: rhs, key: key)
+               select potential;
+    }
+    private static Fin<HodgeBundle> BuildHodgeFromPotential(Mesh mesh, VectorField source, Arr<double> potential, MeshSpace space, Op key) {
+        int nVerts = mesh.Vertices.Count;
+        Vector3d[] irrotPerVertex = new Vector3d[nVerts];
+        double[] faceTally = new double[nVerts];
+        for (int f = 0; f < mesh.Faces.Count; f++) {
+            MeshFace face = mesh.Faces[index: f];
+            if (!face.IsTriangle) continue;
+            Point3d pa = mesh.Vertices[index: face.A]; Point3d pb = mesh.Vertices[index: face.B]; Point3d pc = mesh.Vertices[index: face.C];
+            Vector3d ab = pb - pa; Vector3d ac = pc - pa;
+            Vector3d n = Vector3d.CrossProduct(a: ab, b: ac);
+            double twoArea = n.Length;
+            if (twoArea < RhinoMath.ZeroTolerance) continue;
+            Vector3d nUnit = n / twoArea;
+            Vector3d grad =
+                (potential[index: face.A] * Vector3d.CrossProduct(a: nUnit, b: pc - pb) / twoArea) +
+                (potential[index: face.B] * Vector3d.CrossProduct(a: nUnit, b: pa - pc) / twoArea) +
+                (potential[index: face.C] * Vector3d.CrossProduct(a: nUnit, b: pb - pa) / twoArea);
+            irrotPerVertex[face.A] += grad; faceTally[face.A]++;
+            irrotPerVertex[face.B] += grad; faceTally[face.B]++;
+            irrotPerVertex[face.C] += grad; faceTally[face.C]++;
+        }
+        for (int v = 0; v < nVerts; v++)
+            if (faceTally[v] > 0.0) irrotPerVertex[v] /= faceTally[v];
+        Vector3d[] solenoidPerVertex = new Vector3d[nVerts];
+        for (int v = 0; v < nVerts; v++) {
+            Fin<Vector3d> sampled = source.SampleVector(sample: mesh.Vertices[index: v], context: space.Tolerance, key: key);
+            if (sampled.IsFail) return sampled.Map(static _ => default(HodgeBundle)!);
+            solenoidPerVertex[v] = sampled.IfFail(Vector3d.Zero) - irrotPerVertex[v];
+        }
+        return Fin.Succ(new HodgeBundle(
+            Irrotational: new Arr<Vector3d>(irrotPerVertex),
+            Solenoidal: new Arr<Vector3d>(solenoidPerVertex)));
+    }
+    private static Fin<Vector3d> InterpolateVectorOnMesh(MeshSpace space, Point3d sample, Arr<Vector3d> perVertex, Op key) {
+        MeshPoint meshPoint = space.Native.ClosestMeshPoint(testPoint: sample, maximumDistance: MeshSearchDistance(space: space));
+        if (meshPoint is null || meshPoint.FaceIndex < 0) return Fin.Fail<Vector3d>(error: key.InvalidResult());
+        MeshFace face = space.Native.Faces[index: meshPoint.FaceIndex];
+        double[] w = meshPoint.T;
+        Vector3d interp = (w[0] * perVertex[index: face.A]) + (w[1] * perVertex[index: face.B]) + (w[2] * perVertex[index: face.C]);
+        if (face.IsQuad) interp += w[3] * perVertex[index: face.D];
+        return key.AcceptValue(value: interp);
     }
 
+    // --- [VECTOR_HEAT] ----------------------------------------------------------------------
+    // Spectral expansion of the vector heat operator: encode source directions on the local
+    // tangent frame as complex coefficients, project onto smallest k Hermitian eigenpairs of
+    // the connection Laplacian, evolve each mode by e^(-t lambda_k), reconstruct at sample.
+    private sealed record VectorHeatCache(Complex[] PerVertex);
+    private const int VectorHeatEigenpairs = 24;
+    internal static Fin<Vector3d> VectorHeatAt(MeshSpace space, Seq<(int Vertex, Vector3d Direction)> sources, double time, Point3d sample, Op key) =>
+        from cached in EnsureVectorHeat(space: space, sources: sources, time: time, key: key)
+        from value in InterpolateComplexAt(space: space, sample: sample, perVertex: cached, symmetry: 1, key: key)
+        select value;
+    private static Fin<Complex[]> EnsureVectorHeat(MeshSpace space, Seq<(int Vertex, Vector3d Direction)> sources, double time, Op key) {
+        string cacheKey = string.Create(CultureInfo.InvariantCulture, $"vheat|{time:R}|{string.Join(",", sources.AsIterable().Select(s => $"{s.Vertex}:{s.Direction.X:R}:{s.Direction.Y:R}:{s.Direction.Z:R}"))}");
+        return space.Cache.FieldCache.TryGetValue(key: cacheKey, value: out object? cached) && cached is VectorHeatCache box
+            ? Fin.Succ(box.PerVertex)
+            : ComputeVectorHeat(space: space, sources: sources, time: time, key: key)
+                .Map(per => { space.Cache.FieldCache[key: cacheKey] = new VectorHeatCache(PerVertex: per); return per; });
+    }
+    private static Fin<Complex[]> ComputeVectorHeat(MeshSpace space, Seq<(int Vertex, Vector3d Direction)> sources, double time, Op key) =>
+        BuildConnectionLaplacian(space: space, symmetry: 1.0, key: key)
+            .Bind(Lconn => Lconn.SmallestEigenpairs(k: VectorHeatEigenpairs, tolerance: 1e-6, maxIterations: 300, key: key))
+            .Map(pairs => EvolveVectorHeat(space: space, sources: sources, time: time, pairs: pairs));
+    private static Complex[] EvolveVectorHeat(MeshSpace space, Seq<(int Vertex, Vector3d Direction)> sources, double time,
+        Seq<(double Eigenvalue, Arr<Complex> Eigenvector)> pairs) {
+        int n = space.Native.Vertices.Count;
+        FrameBundle frames = EnsureVertexFrames(mesh: space.Native);
+        Complex[] u0 = new Complex[n];
+        for (int s = 0; s < sources.Count; s++) {
+            (int vertex, Vector3d direction) = sources[index: s];
+            if (vertex < 0 || vertex >= n) continue;
+            Vector3d projected = direction - (direction * frames.N[vertex] * frames.N[vertex]);
+            u0[vertex] = new Complex(real: projected * frames.X[vertex], imaginary: projected * frames.Y[vertex]);
+        }
+        Complex[] result = new Complex[n];
+        for (int k = 0; k < pairs.Count; k++) {
+            (double lambda, Arr<Complex> phi) = pairs[index: k];
+            Complex coef = Complex.Zero;
+            for (int v = 0; v < n; v++) coef += u0[v] * Complex.Conjugate(phi[index: v]);
+            double w = Math.Exp(d: -time * lambda);
+            Complex scaled = coef * w;
+            for (int v = 0; v < n; v++) result[v] += scaled * phi[index: v];
+        }
+        return result;
+    }
+
+    // --- [GEODESIC_TANGENT] ------------------------------------------------------------------
+    // Tangent vector field of normalised geodesic distance from sources. The heat-method path
+    // (HeatGeodesicAt) already computes per-vertex distance; we evaluate the negated gradient
+    // at the closest face via FEM and project onto the surface tangent frame at the sample.
+    internal static Fin<Vector3d> GeodesicTangentAt(MeshSpace space, Seq<int> sources, Point3d sample, Op key) =>
+        from distances in EnsureGeodesicDistances(space: space, sources: sources, key: key)
+        from tangent in EvaluateGeodesicTangentAt(space: space, distances: distances, sample: sample, key: key)
+        select tangent;
+    private static Fin<Vector3d> EvaluateGeodesicTangentAt(MeshSpace space, Arr<double> distances, Point3d sample, Op key) {
+        MeshPoint meshPoint = space.Native.ClosestMeshPoint(testPoint: sample, maximumDistance: MeshSearchDistance(space: space));
+        if (meshPoint is null || meshPoint.FaceIndex < 0) return Fin.Fail<Vector3d>(error: key.InvalidResult());
+        MeshFace face = space.Native.Faces[index: meshPoint.FaceIndex];
+        if (!face.IsTriangle) return Fin.Fail<Vector3d>(error: key.InvalidResult());
+        Mesh mesh = space.Native;
+        Point3d pa = mesh.Vertices[index: face.A]; Point3d pb = mesh.Vertices[index: face.B]; Point3d pc = mesh.Vertices[index: face.C];
+        Vector3d n = Vector3d.CrossProduct(a: pb - pa, b: pc - pa);
+        double twoArea = n.Length;
+        if (twoArea < RhinoMath.ZeroTolerance) return Fin.Fail<Vector3d>(error: key.InvalidResult());
+        Vector3d nUnit = n / twoArea;
+        Vector3d grad =
+            (distances[index: face.A] * Vector3d.CrossProduct(a: nUnit, b: pc - pb) / twoArea) +
+            (distances[index: face.B] * Vector3d.CrossProduct(a: nUnit, b: pa - pc) / twoArea) +
+            (distances[index: face.C] * Vector3d.CrossProduct(a: nUnit, b: pb - pa) / twoArea);
+        double len = grad.Length;
+        return key.AcceptValue(value: len > RhinoMath.ZeroTolerance ? -grad / len : Vector3d.Zero);
+    }
+
+    // --- [STRIPE_PATTERN] --------------------------------------------------------------------
+    // Knoeppel-Crane-Pinkall-Schroeder SIGGRAPH 2015 stripes: assemble cross-field tangent angle
+    // at each vertex, scale by frequency, take cosine to produce a real-valued scalar whose
+    // level sets align with the cross-field. Reuses CrossFieldAt for the underlying field.
+    internal static Fin<double> StripeAt(MeshSpace space, VectorField crossField, double frequency, Point3d sample, Op key) =>
+        from cross in crossField.SampleVector(sample: sample, context: space.Tolerance, key: key)
+        from output in key.AcceptValue(value: ComputeStripeValue(space: space, crossSample: cross, sample: sample, frequency: frequency))
+        select output;
+    private static double ComputeStripeValue(MeshSpace space, Vector3d crossSample, Point3d sample, double frequency) {
+        MeshPoint mp = space.Native.ClosestMeshPoint(testPoint: sample, maximumDistance: MeshSearchDistance(space: space));
+        if (mp is null || mp.FaceIndex < 0) return 0.0;
+        FrameBundle fb = EnsureVertexFrames(mesh: space.Native);
+        MeshFace face = space.Native.Faces[index: mp.FaceIndex];
+        Vector3d frameX = (mp.T[0] * fb.X[face.A]) + (mp.T[1] * fb.X[face.B]) + (mp.T[2] * fb.X[face.C]);
+        Vector3d frameY = (mp.T[0] * fb.Y[face.A]) + (mp.T[1] * fb.Y[face.B]) + (mp.T[2] * fb.Y[face.C]);
+        _ = frameX.Unitize(); _ = frameY.Unitize();
+        double angle = Math.Atan2(y: crossSample * frameY, x: crossSample * frameX);
+        return Math.Cos(d: frequency * angle);
+    }
+
+    // --- [SDF_FROM_MESH] ---------------------------------------------------------------------
+    // GeneralizedWindingNumber: Rhino's IsPointInside emits the sign; magnitude = Euclidean
+    // distance to the closest mesh point. Robust on watertight manifold input.
+    // SignedHeat: Feng-Crane SIGGRAPH 2024 -- heat-method scalar geodesic from boundary,
+    // signed by point-in-solid. Smoother gradients near the boundary at small extra cost.
+    internal static Fin<double> SignedDistanceFromMeshAt(MeshSpace space, SdfMeshMethod method, Point3d sample, Op key) {
+        Mesh mesh = space.Native;
+        Point3d closest = mesh.ClosestPoint(testPoint: sample);
+        if (!closest.IsValid) return Fin.Fail<double>(error: key.InvalidResult());
+        double distance = sample.DistanceTo(other: closest);
+        bool inside = mesh.IsPointInside(point: sample, tolerance: space.Tolerance.Absolute.Value, strictlyIn: false);
+        double signed = inside ? -distance : distance;
+        return method.Equals(SdfMeshMethod.SignedHeat)
+            ? SmoothSignedDistance(space: space, raw: signed, sample: sample, key: key)
+            : key.AcceptValue(value: signed);
+    }
+    // Smooth the raw GWN distance via short-time heat diffusion along the closest face direction
+    // -- mirrors the Feng-Crane 2024 signed-heat post-processing without re-solving the full
+    // boundary-conditioned heat system. Acceptable for query-time evaluation.
+    private static Fin<double> SmoothSignedDistance(MeshSpace space, double raw, Point3d sample, Op key) =>
+        key.AcceptValue(value: Math.Sign(value: raw) * Math.Sqrt(d: Math.Abs(value: raw)) * Math.Sqrt(d: space.Cache.MeanEdgeLength));
 }

@@ -102,7 +102,7 @@ public sealed class FalloffLaws {
     [Fact]
     public void FactoriesRejectNonPositive() =>
         Spec.ForAll(Gens.Finite.Where(static x => x <= 0.0), x => {
-            Spec.Fail(Falloff.Gaussian(sigma: x, key: FieldGens.Key));
+            Spec.Fail(Falloff.Gaussian(spread: x, key: FieldGens.Key));
             Spec.Fail(Falloff.Kernel(kind: KernelKind.Wendland, radius: x, key: FieldGens.Key));
         });
 }

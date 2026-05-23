@@ -36,6 +36,15 @@ public sealed partial class VectorCloudMetric {
     public static readonly VectorCloudMetric OrientedNormals = new(key: 23, output: typeof(Seq<Vector3d>),
         admitsCase: static cloud => cloud is VectorCloud.ClusterCase,
         measure: static (cloud, k) => CloudKernel.OrientNormalsViaMst(cloud: cloud, key: k).Map(static v => (object)v));
+    public static readonly VectorCloudMetric PrincipalCurvature = new(key: 24, output: typeof(Seq<(double K1, double K2, Direction E1, Direction E2)>),
+        admitsCase: static cloud => cloud is VectorCloud.ClusterCase,
+        measure: static (cloud, k) => CloudKernel.PrincipalCurvaturesOf(cluster: (VectorCloud.ClusterCase)cloud, key: k).Map(static v => (object)v));
+    public static readonly VectorCloudMetric Curvedness = new(key: 25, output: typeof(Seq<double>),
+        admitsCase: static cloud => cloud is VectorCloud.ClusterCase,
+        measure: static (cloud, k) => CloudKernel.CurvednessOf(cluster: (VectorCloud.ClusterCase)cloud, key: k).Map(static v => (object)v));
+    public static readonly VectorCloudMetric ShapeIndex = new(key: 26, output: typeof(Seq<double>),
+        admitsCase: static cloud => cloud is VectorCloud.ClusterCase,
+        measure: static (cloud, k) => CloudKernel.ShapeIndexOf(cluster: (VectorCloud.ClusterCase)cloud, key: k).Map(static v => (object)v));
     private static VectorCloudMetric Ring(int key, Type output, Func<VectorCloud.RingCase, Op, Fin<object>> measure) =>
         new(key: key, output: output, admitsCase: static cloud => cloud is VectorCloud.RingCase, measure: (cloud, k) => measure((VectorCloud.RingCase)cloud, k));
     private static VectorCloudMetric All(int key, Type output, Func<VectorCloud, Op, Fin<object>> measure) =>
@@ -676,18 +685,18 @@ internal static class CloudKernel {
     }
 
     // --- [TRANSPORT] ------------------------------------------------------------------------
-    internal static Fin<TOut> Sinkhorn<TOut>(VectorCloud source, VectorCloud target, double regularization, int maxIterations, bool unbiased, Op key) =>
+    internal static Fin<TOut> Sinkhorn<TOut>(VectorCloud source, VectorCloud target, double regularization, int maxIterations, bool debiased, Option<PositiveMagnitude> massRelaxation, Op key) =>
             (source, target) switch {
-                (VectorCloud.ClusterCase src, VectorCloud.ClusterCase tgt) => SinkhornCluster<TOut>(source: src, target: tgt, regularization: regularization, maxIterations: maxIterations, unbiased: unbiased, key: key),
+                (VectorCloud.ClusterCase src, VectorCloud.ClusterCase tgt) => SinkhornCluster<TOut>(source: src, target: tgt, regularization: regularization, maxIterations: maxIterations, debiased: debiased, massRelaxation: massRelaxation, key: key),
                 _ => Fin.Fail<TOut>(key.Unsupported(geometryType: source.GetType(), outputType: typeof(TOut))),
             };
-    private static Fin<TOut> SinkhornCluster<TOut>(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, double regularization, int maxIterations, bool unbiased, Op key) {
+    private static Fin<TOut> SinkhornCluster<TOut>(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, double regularization, int maxIterations, bool debiased, Option<PositiveMagnitude> massRelaxation, Op key) {
         return source.Vertices.Count < 1 || target.Vertices.Count < 1
             ? Fin.Fail<TOut>(error: key.InvalidInput())
-            : (from plan in SinkhornOt(source: source.Vertices, target: target.Vertices, reg: regularization, maxIter: maxIterations, key: key)
-               from distance in unbiased
-                    ? from sourceBias in SinkhornOt(source: source.Vertices, target: source.Vertices, reg: regularization, maxIter: maxIterations, key: key)
-                      from targetBias in SinkhornOt(source: target.Vertices, target: target.Vertices, reg: regularization, maxIter: maxIterations, key: key)
+            : (from plan in SinkhornOt(source: source.Vertices, target: target.Vertices, reg: regularization, maxIter: maxIterations, massRelaxation: massRelaxation, key: key)
+               from distance in debiased
+                    ? from sourceBias in SinkhornOt(source: source.Vertices, target: source.Vertices, reg: regularization, maxIter: maxIterations, massRelaxation: massRelaxation, key: key)
+                      from targetBias in SinkhornOt(source: target.Vertices, target: target.Vertices, reg: regularization, maxIter: maxIterations, massRelaxation: massRelaxation, key: key)
                       select plan.Distance - (0.5 * sourceBias.Distance) - (0.5 * targetBias.Distance)
                     : key.AcceptValue(value: plan.Distance)
                from output in ProjectSinkhorn<TOut>(source: source, target: target, plan: plan, distance: distance, key: key)
@@ -701,7 +710,7 @@ internal static class CloudKernel {
             _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(VectorCloud), outputType: typeof(TOut))),
         };
     private sealed record SinkhornPlan(double Distance, DenseMatrixD Coupling, double SourceResidual, double TargetResidual, int Iterations, bool IsNumeric);
-    private static Fin<SinkhornPlan> SinkhornOt(Seq<Point3d> source, Seq<Point3d> target, double reg, int maxIter, Op key) {
+    private static Fin<SinkhornPlan> SinkhornOt(Seq<Point3d> source, Seq<Point3d> target, double reg, int maxIter, Option<PositiveMagnitude> massRelaxation, Op key) {
         int m = source.Count; int n = target.Count;
         DenseMatrixD cost = DenseMatrixD.Create(rows: m, columns: n, value: 0.0);
         DenseMatrixD kernel = DenseMatrixD.Create(rows: m, columns: n, value: 0.0);
@@ -714,6 +723,9 @@ internal static class CloudKernel {
         DenseVectorD u = DenseVectorD.Create(m, 1.0);
         DenseVectorD v = DenseVectorD.Create(n, 1.0);
         double aMass = 1.0 / m; double bMass = 1.0 / n;
+        // Chizat 2018: unbalanced Sinkhorn raises the balanced update to lambda/(lambda+reg);
+        // None => exponent 1.0 (balanced); Some(lambda) => marginal-relaxed iteration.
+        double exponent = massRelaxation.Match(Some: lambda => lambda.Value / (lambda.Value + reg), None: () => 1.0);
         double sourceResidual = double.PositiveInfinity;
         double targetResidual = double.PositiveInfinity;
         int iterations = 0;
@@ -722,12 +734,14 @@ internal static class CloudKernel {
             for (int i = 0; i < m; i++) {
                 double sum = 0.0;
                 for (int j = 0; j < n; j++) sum += kernel[i, j] * v[j];
-                u[i] = sum > RhinoMath.ZeroTolerance ? aMass / sum : aMass;
+                double raw = sum > RhinoMath.ZeroTolerance ? aMass / sum : aMass;
+                u[i] = exponent == 1.0 ? raw : Math.Pow(x: raw, y: exponent);
             }
             for (int j = 0; j < n; j++) {
                 double sum = 0.0;
                 for (int i = 0; i < m; i++) sum += kernel[i, j] * u[i];
-                v[j] = sum > RhinoMath.ZeroTolerance ? bMass / sum : bMass;
+                double raw = sum > RhinoMath.ZeroTolerance ? bMass / sum : bMass;
+                v[j] = exponent == 1.0 ? raw : Math.Pow(x: raw, y: exponent);
             }
             (sourceResidual, targetResidual) = SinkhornResiduals(kernel: kernel, u: u, v: v, aMass: aMass, bMass: bMass);
             if (Math.Max(val1: sourceResidual, val2: targetResidual) <= RhinoMath.SqrtEpsilon) break;
@@ -777,4 +791,104 @@ internal static class CloudKernel {
             .Map(static cloud => (TOut)(object)cloud);
     }
 
+    // --- [PRINCIPAL_CURVATURE] -------------------------------------------------------------
+    // Local quadric fit z = a u^2 + b u v + c v^2 + d u + e v + f in PCA tangent frame; shape
+    // operator at the centre is II = [[2a, b], [b, 2c]] and its symmetric eigen-decomposition
+    // yields signed principal curvatures (k1, k2) with tangent directions (e1, e2).
+    internal static Fin<Seq<(double K1, double K2, Direction E1, Direction E2)>> PrincipalCurvaturesOf(VectorCloud.ClusterCase cluster, Op key) {
+        int n = cluster.Vertices.Count;
+        if (n < 6) return Fin.Fail<Seq<(double, double, Direction, Direction)>>(error: key.InvalidInput());
+        Point3d[] points = [.. cluster.Vertices.AsIterable()];
+        int neighborCount = Math.Min(val1: NormalEstimationNeighbors, val2: n);
+        int[][] neighborhoods = [.. RTree.PointCloudKNeighbors(pointcloud: cluster.Indexed, needlePts: points, amount: neighborCount)];
+        (double K1, double K2, Direction E1, Direction E2)[] result = new (double, double, Direction, Direction)[n];
+        for (int i = 0; i < n; i++) {
+            Seq<Point3d> nbrs = NeighborhoodOf(points: points, ids: neighborhoods.Length > i ? neighborhoods[i] : []);
+            Fin<(double K1, double K2, Direction E1, Direction E2)> tensor = FitPrincipalCurvature(center: points[i], neighborhood: nbrs, key: key);
+            if (tensor.IsFail) return tensor.Map(static _ => Seq<(double, double, Direction, Direction)>());
+            result[i] = tensor.IfFail((K1: 0.0, K2: 0.0, E1: default, E2: default));
+        }
+        return key.AcceptValue(value: toSeq(result));
+    }
+
+    private static Fin<(double K1, double K2, Direction E1, Direction E2)> FitPrincipalCurvature(Point3d center, Seq<Point3d> neighborhood, Op key) =>
+        neighborhood.Count < 6
+            ? Fin.Fail<(double, double, Direction, Direction)>(error: key.InvalidInput())
+            : CovarianceOf(points: neighborhood, key: key)
+                .Bind(stats => stats.Cov.DecomposeEigen(key: key))
+                .Bind(eigen => eigen.Count < 3
+                    ? Fin.Fail<Seq<(double Eigenvalue, Arr<double> Eigenvector)>>(error: key.InvalidResult())
+                    : Fin.Succ(eigen))
+                .Bind(eigen => DecomposeCurvature(center: center, neighborhood: neighborhood, eigen: eigen, key: key));
+
+    private static Fin<(double K1, double K2, Direction E1, Direction E2)> DecomposeCurvature(
+        Point3d center, Seq<Point3d> neighborhood,
+        Seq<(double Eigenvalue, Arr<double> Eigenvector)> eigen, Op key) {
+        Vector3d normalRaw = AsVector3d(v: eigen[index: 2].Eigenvector);
+        Vector3d uRaw = AsVector3d(v: eigen[index: 0].Eigenvector);
+        return Direction.Of(value: normalRaw, tolerance: RhinoMath.ZeroTolerance, key: key)
+            .Bind(normal => {
+                _ = uRaw.Unitize();
+                Vector3d vRaw = Vector3d.CrossProduct(a: normal.Value, b: uRaw);
+                _ = vRaw.Unitize();
+                return QuadraticFit(center: center, neighborhood: neighborhood, uAxis: uRaw, vAxis: vRaw, normal: normal.Value, key: key)
+                    .Bind(fit => ShapeOperatorEigen(a: fit.A, b: fit.B, c: fit.C, uAxis: uRaw, vAxis: vRaw, key: key));
+            });
+    }
+
+    private static Fin<(double A, double B, double C)> QuadraticFit(Point3d center, Seq<Point3d> neighborhood, Vector3d uAxis, Vector3d vAxis, Vector3d normal, Op key) {
+        int m = neighborhood.Count;
+        double[] designFlat = new double[m * 6];
+        double[] rhs = new double[m];
+        for (int i = 0; i < m; i++) {
+            Vector3d offset = neighborhood[index: i] - center;
+            double u = offset * uAxis; double v = offset * vAxis; double n = offset * normal;
+            designFlat[(i * 6) + 0] = u * u;
+            designFlat[(i * 6) + 1] = u * v;
+            designFlat[(i * 6) + 2] = v * v;
+            designFlat[(i * 6) + 3] = u;
+            designFlat[(i * 6) + 4] = v;
+            designFlat[(i * 6) + 5] = 1.0;
+            rhs[i] = n;
+        }
+        return key.Catch(() => {
+            MathNet.Numerics.LinearAlgebra.Matrix<double> designMtx = DenseMatrixD.Build.Dense(rows: m, columns: 6, init: (i, j) => designFlat[(i * 6) + j]);
+            DenseVectorD rhsVec = DenseVectorD.OfArray(rhs);
+            MathNet.Numerics.LinearAlgebra.Factorization.QR<double> qr = designMtx.QR(MathNet.Numerics.LinearAlgebra.Factorization.QRMethod.Full);
+            double[] coeffs = [.. qr.Solve(rhsVec)];
+            return Fin.Succ((A: coeffs[0], B: coeffs[1], C: coeffs[2]));
+        });
+    }
+
+    // Closed-form 2x2 symmetric eigen-decomposition. II = [[2a, b], [b, 2c]] -> (k1, k2, e1, e2)
+    // with e1, e2 lifted into world via (uAxis, vAxis).
+    private static Fin<(double K1, double K2, Direction E1, Direction E2)> ShapeOperatorEigen(double a, double b, double c, Vector3d uAxis, Vector3d vAxis, Op key) {
+        double s11 = 2.0 * a; double s22 = 2.0 * c; double s12 = b;
+        double trace = s11 + s22;
+        double disc = Math.Sqrt(d: Math.Max(val1: 0.0, val2: (trace * trace) - (4.0 * ((s11 * s22) - (s12 * s12)))));
+        double k1 = 0.5 * (trace + disc);
+        double k2 = 0.5 * (trace - disc);
+        double angle = Math.Abs(value: s12) > RhinoMath.SqrtEpsilon
+            ? Math.Atan2(y: k1 - s11, x: s12)
+            : 0.0;
+        Vector3d e1World = (Math.Cos(d: angle) * uAxis) + (Math.Sin(a: angle) * vAxis);
+        Vector3d e2World = (-Math.Sin(a: angle) * uAxis) + (Math.Cos(d: angle) * vAxis);
+        return from e1 in Direction.Of(value: e1World, tolerance: RhinoMath.ZeroTolerance, key: key)
+               from e2 in Direction.Of(value: e2World, tolerance: RhinoMath.ZeroTolerance, key: key)
+               select (K1: k1, K2: k2, E1: e1, E2: e2);
+    }
+
+    internal static Fin<Seq<double>> CurvednessOf(VectorCloud.ClusterCase cluster, Op key) =>
+        PrincipalCurvaturesOf(cluster: cluster, key: key)
+            .Map(static curvatures => toSeq(curvatures.AsIterable().Select(static c => Math.Sqrt(d: 0.5 * ((c.K1 * c.K1) + (c.K2 * c.K2))))));
+
+    // Koenderink-van Doorn 1992 shape index: (2/pi) * atan2(k1+k2, k2-k1) in [-1, 1].
+    // Maps geometric type: -1 = cup, -0.5 = trough, 0 = saddle, 0.5 = ridge, 1 = cap.
+    internal static Fin<Seq<double>> ShapeIndexOf(VectorCloud.ClusterCase cluster, Op key) =>
+        PrincipalCurvaturesOf(cluster: cluster, key: key)
+            .Map(static curvatures => toSeq(curvatures.AsIterable().Select(static c => {
+                double diff = c.K2 - c.K1;
+                double sum = c.K1 + c.K2;
+                return Math.Abs(value: diff) < RhinoMath.SqrtEpsilon ? 0.0 : 2.0 / Math.PI * Math.Atan2(y: sum, x: diff);
+            })));
 }

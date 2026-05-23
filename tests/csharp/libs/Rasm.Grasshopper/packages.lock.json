@@ -168,6 +168,7 @@
       "rasm": {
         "type": "Project",
         "dependencies": {
+          "CSparse": "[4.3.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "MathNet.Numerics": "[6.0.0-beta2, )",
           "MathNet.Symbolics": "[0.25.0, )",
@@ -189,6 +190,12 @@
           "Rasm": "[1.0.0, )",
           "Thinktecture.Runtime.Extensions": "[10.2.0, )"
         }
+      },
+      "CSparse": {
+        "type": "CentralTransitive",
+        "requested": "[4.3.0, )",
+        "resolved": "4.3.0",
+        "contentHash": "IsY7xYSOsmrdKQFUsVmoKva7m1kR6dPbXOl7Qf3AZijkuBpcxFpRyZ9p9ytub0fYRcw3EoPFw/YV3OCQzgox2w=="
       },
       "FParsec": {
         "type": "CentralTransitive",
