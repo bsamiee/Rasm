@@ -53,6 +53,11 @@
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <NoWarn>$(NoWarn);CS1591;CA2225</NoWarn>
         <NoWarn Condition="'$(IsRhinoUiAwareProject)' == 'true'">$(NoWarn);CA1416</NoWarn>
+        <!-- CA1724 fires when Microsoft.macOS bindings ship a `Phase` namespace that collides with
+             Rasm's ComponentUi.Phase enum. The enum is the canonical Rasm vocabulary; renaming
+             ripples through downstream component consumers. Suppress on the Rhino-aware projects
+             that pull Microsoft.macOS as a transitive reference. -->
+        <NoWarn Condition="'$(IsRhinoUiAwareProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">$(NoWarn);CA1724</NoWarn>
         <LocalCSharpAnalyzerRoot>tools/cs-analyzer</LocalCSharpAnalyzerRoot>
         <LocalCSharpAnalyzerProject>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '$(LocalCSharpAnalyzerRoot)', 'CsAnalyzer.csproj'))</LocalCSharpAnalyzerProject>
         <BoundaryExemptionContractsPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '$(LocalCSharpAnalyzerRoot)', 'Contracts', 'BoundaryContracts.cs'))</BoundaryExemptionContractsPath>
@@ -82,6 +87,8 @@
         <RhinoUiReferencePath>$(RhinoWipResourcesPath)/Rhino.UI.dll</RhinoUiReferencePath>
         <SystemDrawingCommonReferencePath>$(RhinoWipResourcesPath)/System.Drawing.Common.dll</SystemDrawingCommonReferencePath>
         <EtoReferencePath>$(RhinoWipResourcesPath)/Eto.dll</EtoReferencePath>
+        <EtoMacOSReferencePath>$(RhinoWipResourcesPath)/Eto.macOS.dll</EtoMacOSReferencePath>
+        <MicrosoftMacOSReferencePath>$(RhinoWipResourcesPath)/Microsoft.macOS.dll</MicrosoftMacOSReferencePath>
         <Grasshopper2ReferencePath>$(RhinoWipResourcesPath)/ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.dll</Grasshopper2ReferencePath>
         <GrasshopperIoReferencePath>$(RhinoWipResourcesPath)/ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.dll</GrasshopperIoReferencePath>
         <RhinoRuntimeCodeReferencePath>$(RhinoWipResourcesPath)/Rhino.Runtime.Code.dll</RhinoRuntimeCodeReferencePath>
@@ -259,6 +266,16 @@
     <ItemGroup Label="Eto UI Libraries" Condition="'$(IsRhinoUiAwareProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">
         <Reference Include="Eto">
             <HintPath>$(EtoReferencePath)</HintPath>
+            <Private>false</Private>
+        </Reference>
+    </ItemGroup>
+
+    <!-- Microsoft.macOS bindings ship inside the RhinoWIP runtime alongside Eto.macOS.dll. Reference is
+         required for CADisplayLink / NSScreen / NSView / NSRunLoop access from the Motion.Pacer capsule.
+         The bundle's macOS floor is 15.0; CADisplayLink requires macOS 14.0 so the gate is satisfied. -->
+    <ItemGroup Label="Microsoft.macOS Bindings" Condition="'$(IsRhinoUiAwareProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">
+        <Reference Include="Microsoft.macOS">
+            <HintPath>$(MicrosoftMacOSReferencePath)</HintPath>
             <Private>false</Private>
         </Reference>
     </ItemGroup>

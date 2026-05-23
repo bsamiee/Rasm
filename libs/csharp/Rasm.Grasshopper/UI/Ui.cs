@@ -270,7 +270,7 @@ public abstract record GhUiRequest<T> {
 
 // --- [ERRORS] -----------------------------------------------------------------------------
 [Union]
-public abstract partial record UiFault : Expected {
+public abstract partial record UiFault : Expected, IValidationError<UiFault> {
     private UiFault() : base() { }
 
     public sealed record MissingScopeCase(string Field) : UiFault;
@@ -302,6 +302,13 @@ public abstract partial record UiFault : Expected {
     public static UiFault GhEditor(string detail) => new GhEditorCase(Detail: detail);
     public static UiFault ThreadMarshal(string detail) => new ThreadMarshalCase(Detail: detail);
     public static UiFault Cancelled(Op op) => new CancelledCase(Op: op);
+
+    // IValidationError<UiFault> — required by [ValidationError<UiFault>] on the validated VOs
+    // (ZoomFactor, SpringConfig, CornerRadii). The generator routes Validate(...) failures through
+    // this factory so the typed UiFault rail flows straight through Create/TryCreate without a
+    // ValidationException → MapFail bridge per call site.
+    public static UiFault Create(string message) =>
+        InvalidInput(op: Op.Of(name: "Validation"), detail: message);
 }
 
 public static partial class OpUiExtensions {
@@ -325,6 +332,24 @@ public static partial class OpUiExtensions {
         && (!nonNegative || value >= 0f)
             ? Fin.Succ(value)
             : Fin.Fail<float>(error: UiFault.InvalidInput(op: op, detail: detail));
+
+    // Native-boundary exception capsule. Wraps `Try.lift(f).Run().MapFail(e => UiFault.MutationRejected(op,
+    // $"{what} threw: {e.Message}"))` so call sites stay declarative. Use for any GH2/Eto/Rhino mutation
+    // that may throw native exceptions; the typed UiFault.MutationRejected case preserves the op + reason.
+    [BoundaryAdapter]
+    internal static Fin<T> Attempt<T>(this Op op, Func<T> body, string what = "") =>
+        Optional(body)
+            .ToFin(Fail: UiFault.InvalidInput(op: op, detail: "null delegate"))
+            .Bind(valid => Try.lift(f: valid).Run().MapFail(error => UiFault.MutationRejected(
+                op: op,
+                detail: string.IsNullOrEmpty(what)
+                    ? $"native call threw: {error.Message}"
+                    : $"{what} threw: {error.Message}")));
+
+    // Side-effect variant of Attempt. Returns Fin<Unit> for actions that don't yield a value.
+    [BoundaryAdapter]
+    internal static Fin<Unit> Attempt(this Op op, System.Action body, string what = "") =>
+        op.Attempt(body: () => { body(); return unit; }, what: what);
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------

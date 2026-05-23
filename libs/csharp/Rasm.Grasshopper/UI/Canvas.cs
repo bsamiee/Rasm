@@ -61,11 +61,14 @@ public partial record CanvasViewOp {
     public sealed record SelectionCase(Option<Seq<Guid>> Ids, CanvasViewPolicy Policy) : CanvasViewOp;
     public sealed record FitCase(CanvasFitTarget Target, CanvasViewPolicy Policy) : CanvasViewOp;
     public sealed record ProjectionCase(PointF Centre, float Zoom) : CanvasViewOp;
+    public sealed record PositionCase(ContentPosition Where, GhDuration Duration) : CanvasViewOp;
 
     public static CanvasViewOp Bounds(RectangleF bounds, CanvasViewPolicy policy = default) => new BoundsCase(Region: bounds, Policy: policy);
     public static CanvasViewOp Selection(Seq<Guid>? ids = null, CanvasViewPolicy policy = default) => new SelectionCase(Ids: Optional(ids), Policy: policy);
     public static CanvasViewOp Fit(CanvasFitTarget target, CanvasViewPolicy policy = default) => new FitCase(Target: target, Policy: policy);
     public static CanvasViewOp Projection(PointF centre, float zoom) => new ProjectionCase(Centre: centre, Zoom: zoom);
+    // Snap-to-edge / preset positioning via GH2-native ContentPosition (Top/Bottom/Left/Right/Centre/Fit/HundredPercent/TopLeft/...).
+    public static CanvasViewOp Position(ContentPosition position, GhDuration duration = GhDuration.Normal) => new PositionCase(Where: position, Duration: duration);
 }
 
 [Union]
@@ -119,10 +122,15 @@ public partial record CanvasResult {
 // --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CanvasViewPolicy(
-    float MinimumZoom = 0.05f,
-    float MaximumZoom = 2f,
+    float MinimumZoom = CanvasViewPolicy.DefaultMinimumZoom,
+    float MaximumZoom = CanvasViewPolicy.DefaultMaximumZoom,
     TimeSpan Duration = default,
-    float Padding = 0f);
+    float Padding = CanvasViewPolicy.DefaultPadding) {
+    public const float DefaultMinimumZoom = 0.05f;
+    public const float DefaultMaximumZoom = 2f;
+    public const float DefaultPadding = 0f;
+    public const float SelectionFitPadding = 48f;
+}
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CanvasInteractionPolicy(
@@ -139,15 +147,17 @@ public readonly record struct CanvasInteractionSnapshot(CanvasInteractionPolicy 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CanvasProjectionPolicy(Option<PointF> Centre = default, Option<float> Zoom = default);
 
-// Canonical zoom-factor primitive. Construction validates `IsFinite && (0, 1000]` once; downstream code
-// reads `.Value` without re-validating. Float not double — Eto.Drawing zoom and GH2 Projection are float-keyed.
+// Canonical zoom-factor primitive. Float not double — Eto.Drawing zoom and GH2 Projection are float-keyed.
+// `[ValidationError<UiFault>]` routes admission failures through `UiFault.Create(string)` so callers see a
+// typed UiFault on the Fin rail without a per-call-site MapFail bridge.
 [ValueObject<float>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+[ValidationError<UiFault>]
 public readonly partial struct ZoomFactor {
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) =>
+    static partial void ValidateFactoryArguments(ref UiFault? validationError, ref float value) =>
         validationError = float.IsFinite(value) && value is > 0f and <= 1000f
             ? null
-            : new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"ZoomFactor must be finite within (0, 1000] (got {value:R})."));
+            : UiFault.Create(message: string.Create(CultureInfo.InvariantCulture, $"ZoomFactor must be finite within (0, 1000] (got {value:R})."));
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -393,7 +403,7 @@ internal static partial class UiRail {
                 from canvas in scope.NeedCanvas()
                 from doc in scope.NeedDocument()
                 from objs in scope.NeedObjects()
-                let policy = ResolveView(raw: f.Policy, defaultPadding: 48f)
+                let policy = ResolveView(raw: f.Policy, defaultPadding: CanvasViewPolicy.SelectionFitPadding)
                 let targets = f.Ids
                     .Map(list => list.Choose(id => Optional(objs.Find(instanceId: id))))
                     .IfNone(toSeq(objs.SelectedObjects))
@@ -415,6 +425,14 @@ internal static partial class UiRail {
                         viewportCase: static (state, _) => state.canvas.VisibleFrame);
                     return (CanvasResult)NavigateTo(canvas: canvas, frame: frame, policy: ResolveView(raw: ft.Policy), document: doc, objects: objs);
                 }))),
+            CanvasViewOp.PositionCase pos =>
+                from canvas in scope.NeedCanvas()
+                from doc in scope.NeedDocument()
+                from objs in scope.NeedObjects()
+                from _ in Op.Of(name: nameof(CanvasViewOp.Position)).Attempt(
+                    body: () => { canvas.Navigate(position: pos.Where, duration: pos.Duration); return unit; },
+                    what: "FlexControl.Navigate(ContentPosition)")
+                select (CanvasResult)new CanvasResult.SnapshotResult(Snapshot: SnapshotOf(canvas: canvas, document: doc, objects: objs)),
             CanvasViewOp.ProjectionCase pr =>
                 from _ in ApplyProjection(scope: scope, policy: new CanvasProjectionPolicy(Centre: Some(pr.Centre), Zoom: Some(pr.Zoom)))
                 from canvas in scope.NeedCanvas()
@@ -439,12 +457,12 @@ internal static partial class UiRail {
         }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(CanvasViewOp.Projection)), detail: $"projection assign threw: {error.Message}"))
         select unit;
 
-    private static CanvasViewPolicy ResolveView(CanvasViewPolicy raw, float defaultPadding = 0f) {
+    private static CanvasViewPolicy ResolveView(CanvasViewPolicy raw, float defaultPadding = CanvasViewPolicy.DefaultPadding) {
         TimeSpan duration = raw.Duration == default ? Animators.DurationToTimeSpan(duration: GhDuration.Normal) : raw.Duration;
         bool minOk = float.IsFinite(raw.MinimumZoom) && raw.MinimumZoom > 0f;
         bool maxOk = float.IsFinite(raw.MaximumZoom) && raw.MaximumZoom >= raw.MinimumZoom;
-        float minimum = minOk ? raw.MinimumZoom : 0.05f;
-        float maximum = (minOk && maxOk) ? raw.MaximumZoom : Math.Max(val1: minimum, val2: 2f);
+        float minimum = minOk ? raw.MinimumZoom : CanvasViewPolicy.DefaultMinimumZoom;
+        float maximum = (minOk && maxOk) ? raw.MaximumZoom : Math.Max(val1: minimum, val2: CanvasViewPolicy.DefaultMaximumZoom);
         float padding = float.IsFinite(raw.Padding) && raw.Padding > 0f ? raw.Padding : defaultPadding;
         return new(MinimumZoom: minimum, MaximumZoom: maximum, Duration: duration, Padding: padding);
     }

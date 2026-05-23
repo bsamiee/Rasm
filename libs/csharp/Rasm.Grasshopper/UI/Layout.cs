@@ -102,7 +102,7 @@ public partial record LayoutMeasure {
     public sealed record SelectionCase : LayoutMeasure;
     public sealed record ObjectsCase(Seq<Guid> Ids) : LayoutMeasure;
     public static readonly LayoutMeasure Selection = new SelectionCase();
-    public static LayoutMeasure Objects(params Guid[] ids) => new ObjectsCase(Ids: toSeq(ids));
+    public static LayoutMeasure Objects(params ReadOnlySpan<Guid> ids) => new ObjectsCase(Ids: toSeq(ids.ToArray()));
 }
 
 [Union]
@@ -229,10 +229,11 @@ internal static partial class Layout {
                 let after = SnapshotOf(attributes: rightObj.Attributes)
                 select new LayoutMoveDelta(ObjectId: right, Dx: after.Pivot.X - before.Pivot.X, Dy: after.Pivot.Y - before.Pivot.Y, After: after, Snap: Option<SnappingSnapshot>.None));
 
-    internal static GrasshopperUiIntent<Snapshot<LayoutArrangeDelta>> Distribute(LayoutAxis axis, float gap, params Guid[] ids) =>
-        GhUi.Document(
+    internal static GrasshopperUiIntent<Snapshot<LayoutArrangeDelta>> Distribute(LayoutAxis axis, float gap, params ReadOnlySpan<Guid> ids) {
+        Guid[] snapshot = ids.ToArray();
+        return GhUi.Document(
             repaint: RepaintRequest.Canvas,
-            run: scope => Optional(ids)
+            run: scope => Optional(snapshot)
                 .Filter(static values => values.Length >= 2)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Distribute)), detail: "Distribute requires at least 2 ids"))
                 .Bind(validIds => Op.Of(name: nameof(Distribute)).AcceptFinite(value: gap, detail: "non-finite gap")
@@ -248,6 +249,7 @@ internal static partial class Layout {
                                 payload: new LayoutArrangeDelta(Moves: deltas),
                                 ownerId: Some(doc.Hash))));
                     })))));
+    }
 
     internal static GrasshopperUiIntent<Option<SnappingSnapshot>> Snap(SnapProbe probe) =>
         GhUi.Document(run: scope =>
