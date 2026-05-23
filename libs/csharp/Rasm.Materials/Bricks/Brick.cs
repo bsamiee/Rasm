@@ -637,6 +637,15 @@ public abstract partial record BrickFault : Error, IValidationError<BrickFault> 
     public sealed record InvalidDimension(string Detail) : BrickFault {
         public override string Message => $"Dimension validation failed: {Detail}";
     }
+    public sealed record InvalidLayout(string Detail) : BrickFault {
+        public override string Message => $"Brick layout validation failed: {Detail}";
+    }
+    public sealed record UnsupportedLayout(string Detail) : BrickFault {
+        public override string Message => $"Brick layout is unsupported: {Detail}";
+    }
+    public sealed record IncompatibleBond(string BondKey, string UnitKey) : BrickFault {
+        public override string Message => $"Bond '{BondKey}' is incompatible with brick unit '{UnitKey}'.";
+    }
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------

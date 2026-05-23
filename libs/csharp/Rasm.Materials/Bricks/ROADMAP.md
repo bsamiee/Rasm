@@ -1,23 +1,20 @@
-# Bricks Catalogue Boundary
+# Bricks Catalogue And Layout Boundary
 
 ## Status
 
-The `Bricks/` catalogue is a **catalogue foundation under source-truth refinement**. It owns brick material facts only: unit dimensions, source basis, bond names and static course seeds, joint profiles, coring archetypes, special-shape vocabulary, arch rules, and regional policy defaults.
+The `Bricks/` folder is a **brick-owned catalogue and layout foundation under source-truth refinement**. It owns brick material facts plus pure scalar layout data needed to assemble those facts into downstream document geometry.
 
-Geometry, layout, placement, block instancing, projections, Grasshopper components, and Rhino drawing behavior stay outside `Rasm.Materials`.
+This folder remains host-free. It does not draw, bake, instance, project, mutate documents, or create native geometry.
 
 Current foundation:
 
-- `Brick.cs` is the single catalogue source for this folder.
+- `Brick.cs` is the single catalogue source for units, bonds, shapes, joints, policies, and source basis.
+- `Layout.cs` is the single scalar layout source for straight and curved brick runs.
 - `BrickDesignation` attaches each `Brick` as `Unit` and exposes delegate properties such as `.Specified`, `.Region`, `.Coursing`, `.Coring`, `.Type`, and `.Source`.
-- `DimensionBasis` records whether a listed dimension is exact, an interval, or a midpoint derived from a published range. Queen and King units use midpoint basis instead of pretending their midpoint values are primary.
-- `BondName` carries `BondKind`, `ClosureRule`, optional `AspectRatio`, closure fraction, and optional static course seeds. Template bonds return `Some` from `Course(index)`; generated bonds return `None` unless a static seed is truthful.
-- `BrickType` is a classification vocabulary for ASTM FBX/FBS/FBA/HBX/HBS/HBA. It does not flatten ASTM dimensional tolerance, warpage, or chippage tables into false single values.
-- `BrickSource` is a typed union: BIA TN10 Table 1/Table 2, BS EN 771-1 context, current DIN/EN 771-1 context, AS/NZS 4455.1 requirements context, and IS 1077.
-- Coring notes describe typical archetypes. BIA TN9A backs void-area classes, not a specific hole count.
-- Regional policy is attached to `BrickRegion`. U.S. values remain a reference baseline; tie spacing is labelled from TMS 402/602-22 prescriptive summaries and should be rechecked when official edition tables are locally available.
-- Arch rules are profile-specific. Jack arches use `ArchRule.Jack`; other arch profiles currently use `ArchRule.General`.
-- Ergonomic projections are `BondName.Fits(Brick)`, `BondName.Course(int)`, `ExpansionJointSpacing.Spacing(bool)`, and `BrickRegion.Units()`.
+- `BondName` carries `BondKind`, `ClosureRule`, optional `AspectRatio`, closure fraction, and optional static course seeds. Template bonds return `Some` from `Course(index)`; generated bonds return `None`.
+- `BrickAssembly.Layout(BrickRun)` consumes template bonds and emits `BrickPlacement` rows in millimetres. Generated bonds fail explicitly until a real typed generator algebra exists.
+- `BrickPath.Line` and `BrickPath.Arc` share one station-space layout algorithm. Arc output adds path angle data; it does not create native curved geometry.
+- `ArchRule` stays catalogue constraint data. Arch layout is deferred because TN31 gives detailing constraints, not a complete scalar placement algorithm.
 
 ## Source Basis
 
@@ -33,110 +30,95 @@ Primary references for this foundation:
 - [BS EN 771-1 context](https://www.wienerberger.co.uk/content/dam/wienerberger/united-kingdom/marketing/documents-magazines/technical/brick-technical-guidance-sheets/UK_MKT_DOC_Tech%20Guidance%20Sheet%20Dimensions%20and%20Tolerances.pdf)
 - [Thinktecture Runtime Extensions](https://github.com/pawelgerr/Thinktecture.Runtime.Extensions)
 
-## Bond Coverage
+## Layout Rail
 
-The catalogue keeps 34 bond names where each name has a source, archetype, or capability note. The important distinction is now `BondKind`:
+`BrickAssembly.Layout` is the one public layout entrypoint. It accepts `BrickRun` and returns `Fin<BrickAssembly>`.
 
-- `Template` means the course template is meaningful catalogue data and `Course(index)` returns `Some<CourseTemplate>`.
-- `Generated` means the name needs runtime composition, masking, rotation, randomness, or a geometry-specific generator; `Course(index)` returns `None`.
+`BrickRun` carries:
 
-Template bonds include Running, ThirdRunning, Common, English, Flemish, Stack, EnglishCross, FlemishCross, Sussex, Scotch, Header, Monk, RatTrap, Soldier, SingleFlemish, DoubleFlemish, DoubleStretcherGardenWall, FlemishStretcher, MixedGardenWall, DellaRobbiaWeave, AppareilALaFrancaise, DutchMulti, and Staffel.
+- `BrickDesignation Unit`
+- `BondName Bond`
+- `BrickPath Path`
+- `double HeightMm`
+- `JointProfile Joint`
+- optional head and bed joint overrides
 
-Generated bonds currently include RunningRotated, Herringbone45, BasketWeave, Quetta, Diaper, FlemishDiagonal, FlemishSpiral, Pinwheel, TudorCrossHatch, Wild, and OpusReticulatum.
+`BrickAssembly` returns the resolved path length, course count, joint values, and `Seq<BrickPlacement>`.
 
-Names intentionally not promoted to static templates yet: Dearnes has BDA/Ibstock authority but needs a precise encoded template shape; Gothic is distinct from Monk but not encoded here until the static sequence is source-backed; Silverlock maps to RatTrap; Cross maps to EnglishCross; Yorkshire, HeaderGardenWall, Mughal/Persian khishti/banna'i, and Sint-Andriesverband remain outside the foundation until their source and data shape justify inclusion.
+`BrickPlacement` is scalar output only: course, sequence, station, elevation, unit run/rise, path angle, orientation, and cut. V1 emits full untrimmed units and sets cut to `Cut.None`.
 
-## Future Ownership
+## Extension Discipline
 
-### `libs/csharp/Rasm.Masonry/`
+Extend layout by normalizing every new concern into station-space before placement emission. Keep `BrickAssembly.Layout(BrickRun)` as the single public rail.
 
-`Rasm.Masonry` should turn `BrickDesignation x BondName x WallSpec` into layout and assembly records. It owns course walking, closure derivation, opening conflicts, curved-wall tolerance, arch voussoirs, and generated bond interpreters.
+Add new layout concerns in this order:
 
-Likely material-to-layout types:
+1. Extend the existing input rail with a typed union/member only when implementation lands.
+2. Normalize the concern into station/elevation intervals, path metrics, or station modifiers.
+3. Feed normalized values through the existing course fold and sequence fold.
+4. Emit `BrickPlacement` rows from one placement pass.
+5. Extend `BrickFault` for failures instead of adding a second layout error family.
 
-- `PlacedBrick(BrickDesignation Unit, Plane Frame, Orientation Orientation, Cut Cut, int SequenceId)`
-- `WallSpec` union for planar, curved, arch, and pier cases
-- `OpeningSpec` for wall openings
-- `LayoutError` union for incompatibility and assembly failures
+Concern-specific route:
 
-Single expected rail: `Masonry.Generate(WallSpec spec) -> Fin<MasonryAssembly>`.
+- Openings become station/elevation interruptions plus edge-cut requests.
+- Corners become endpoint conditions, turn metadata, and closure modifiers.
+- Arches become source-backed profile constraints plus a station-normalized path rule.
+- Generated bonds become typed generator algebra owned by `BondName`.
+- Warnings become assembly diagnostics, separate from hard layout failure.
 
-Course walking should consume `bond.Course(index)` as an `Option<CourseTemplate>`. Template bonds can be walked directly; generated bonds must dispatch to the matching generator.
+Refactor before adding a new body of code:
 
-Arch generation should use the attached `ArchProfile.Rule`. Jack arches use the jack depth rule; other profiles use the general rule until more profile-specific source tables are encoded. Voussoir count, wedge angle, and cut geometry belong here, not in Materials.
+- Move path metrics onto `BrickPath` when a third path shape lands.
+- Collapse repeated placement filters into one constraint union.
+- Collapse repeated station transforms into one modifier union.
+- Extend `BrickPlacement` once when consumers need a new scalar.
+- Split `Layout.cs` only after one file stops expressing one coherent rail.
 
-Curved-wall validation belongs here too. A useful starting heuristic is chord-arc sagitta `s ~= L^2 / (8R)` as a driver for head-joint taper and the rectangular-to-voussoir transition.
+## Deferred Work
 
-### `libs/csharp/Rasm.Rhino/Blocks/`
+Deferred brick-owned work:
 
-`Rasm.Rhino.Blocks` should consume `Rasm.Masonry` output for live/archive block placement. It should not become a dependency of core masonry logic and should stay universal: repetitive geometry for brick, steel, timber, stone, glass, and future materials.
+- opening subtraction and opening-edge cuts
+- closure solving beyond existing bond offsets
+- typed generated-bond interpreters
+- arch placement
+- pier layout
+- layout warnings that distinguish source-backed rules from heuristics
 
-Expected primitive: place one shared `GeometryBase` definition at many `Transform` placements through Rhino instance definitions, for both `RhinoDoc` and `File3dm`.
+Deferred downstream work:
 
-### `libs/csharp/Rasm/Analysis/`
-
-Projection and section algebra belongs in the shared geometry kernel, not in Materials. Elevation, plan, and section extraction should be universal over geometry.
-
-### `libs/csharp/Rasm.Grasshopper/Components/`
-
-Grasshopper components consume the masonry/block/projection rails. Keep the current flat component layout; do not introduce a `Components/Masonry/` subfolder unless the whole component taxonomy changes.
+- document placement and native object creation
+- block or instance definition reuse
+- component surfaces
+- projection, section, and drawing output
 
 ## Consumer Example
 
 ```csharp
-using static LanguageExt.Prelude;
 using Rasm.Materials.Bricks;
 
-BrickRegion region = BrickDesignation.UsModular.Region;
-Dim3 specified = BrickDesignation.UsModular.Specified;
-double widthMm = specified.WidthMm;
-double mortarMm = region.StandardJointThicknessMm;
-double courseHeightMm = BrickDesignation.UsModular.Coursing.CourseHeightMm;
-Coring coring = BrickDesignation.UsModular.Coring;
-double voidFraction = coring.VoidFraction;
+BrickRun run = new(
+    Unit: BrickDesignation.UsModular,
+    Bond: BondName.Running,
+    Path: new BrickPath.Line(LengthMm: 2400.0),
+    HeightMm: 1200.0,
+    Joint: JointProfile.Concave,
+    HeadJointMm: Option<double>.None,
+    BedJointMm: Option<double>.None);
 
-Option<CourseTemplate> row5 = BondName.English.Course(index: 5);
-ClosureRule corner = BondName.English.Closure;
-
-bool fits = BondName.Common.Fits(brick: BrickDesignation.UsModular.Unit);
-
-RegionalMasonryPolicy policy = BrickDesignation.UsModular.Region.Policy;
-double expansionSpacingMm = policy.Expansion.Spacing(hasOpenings: true);
-
-ArchRule jackRule = ArchProfile.Jack.Rule;
-double minimumJackDepthMm = jackRule.MinimumDepthMm(spanFeet: 4.0);
-
-Seq<Coring> hollowCorings = toSeq(Coring.Items.Where(c => c.Classification == CoringClass.Hollow));
-Seq<BrickDesignation> usBricks = BrickRegion.Us.Units();
-FrozenSet<SpecialShape> specialShapes = SpecialShape.Catalog;
-
-Fin<Dim3> userDim =
-    Dim3.TryCreate(widthMm: userWidth, heightMm: userHeight, lengthMm: userLength, out Dim3 dim, out BrickFault? fault)
-        ? Fin.Succ(value: dim)
-        : Fin.Fail<Dim3>(error: fault!);
+Fin<BrickAssembly> assembly = BrickAssembly.Layout(run: run);
 ```
-
-## Out Of Scope
-
-Do not add to `Rasm.Materials.Bricks`:
-
-- Geometry generation such as `Box.ToBrep` or boolean cutting
-- Layout transducers, closure derivation, generated bond interpreters, or voussoir placement
-- Rhino blocks, `Plane`, `Transform`, `GeometryBase`, `RhinoDoc`, or `File3dm`
-- Grasshopper2 components, pears, goos, or baking logic
-- `PlacedBrick`, `WallSpec`, `OpeningSpec`, `MasonryAssembly`, or layout errors
-- Lintel structural design
-- Manufacturer SKU, pricing, or sourcing data
-- Mortar mix chemistry
-- Thermal, acoustic, fire, or building-physics assembly classification
 
 ## Verification
 
 Use static validation for this slice:
 
 ```bash
-rg -n "<stale public-name pattern from the implementation plan>" libs/csharp/Rasm.Materials
+rg -n "<stale external-layout ownership tokens>" libs/csharp/Rasm.Materials
+rg -n "<host drawing/runtime type tokens>" libs/csharp/Rasm.Materials/Bricks
 bash scripts/check-cs.sh check
+git diff --check
 ```
 
-Do not run Rhino runtime checks for this catalogue-only folder.
+Do not run runtime host checks for this pure materials folder.

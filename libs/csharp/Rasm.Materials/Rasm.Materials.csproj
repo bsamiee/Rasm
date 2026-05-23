@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Architectural material catalogues — typed FrozenDictionary domain for bricks, with regional standards (BIA TN 10, BS EN 771-1, DIN 105, AS/NZS 4455.1, IS 1077), bonds as course-template data, special shapes, and joint specifications.</Description>
+        <Description>Architectural material catalogues and pure material-owned layout data for bricks, with regional standards, source-backed bonds, special shapes, joints, policies, and scalar assemblies.</Description>
     </PropertyGroup>
 
     <ItemGroup>

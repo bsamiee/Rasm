@@ -2,9 +2,9 @@
 
 ## Purpose
 
-`Rasm.Materials` is the architectural material catalogue. It is not a geometry library and not a Rhino-aware module.
+`Rasm.Materials` is the architectural material catalogue plus pure material-owned layout data. It is not a geometry library and not a Rhino-aware module.
 
-Encode building-material reference data (sizes, families, grades, types, bonds, special shapes, joints, properties) as typed in-memory catalogues carried by closed `SmartEnum` vocabularies, Thinktecture unions, and immutable records. Downstream consumers — geometry generators, Grasshopper components, structural assemblers — receive immutable typed records. No JSON, no SQL, no source generator, no native binary, no I/O.
+Encode building-material reference data (sizes, families, grades, types, bonds, special shapes, joints, properties) and material-domain layout outputs as typed in-memory data carried by closed `SmartEnum` vocabularies, Thinktecture unions, and immutable records. Downstream consumers — geometry generators, Grasshopper components, structural assemblers — receive immutable typed records. No JSON, no SQL, no source generator, no native binary, no I/O.
 
 ## Design Contract
 
@@ -13,10 +13,11 @@ Encode building-material reference data (sizes, families, grades, types, bonds, 
 - Keep public usage small and typed. Consumers access through SmartEnum-attached properties (`BrickDesignation.UsModular.Unit`, `BondName.English.Course(index)`, `brick.Region.Policy`) and small projections (`BrickRegion.Us.Units()`, `SpecialShape.Catalog`). Unit lookups are total; generated bond courses return `Option.None`.
 - Encode regional standards (BIA TN 10, BS EN 771-1, current DIN/EN 771-1 context, AS/NZS 4455.1 requirements context, IS 1077) as closed vocabularies inside a single `BrickDesignation` `SmartEnum`. Adding a brick = adding one factory line.
 - Express patterns as data + interpreter. Bonds are `CourseTemplate` records (orientations + offset fractions), never class hierarchies. Special shapes are catalogue records, not subtypes.
+- Keep material layout scalar and host-free. Brick-owned layout may emit course/station/elevation/angle records, but never native document or drawing objects.
 
 ## Folder Ownership
 
-- `Bricks/` owns the masonry catalogue: regional brick sizes (US/UK/DIN/AU/IS), bond patterns as template/generated data, special shapes, joint profiles with attached defaults (thickness, description), regional masonry policy (movement/expansion/weep/tie attached to `BrickRegion`), arch rules attached to `ArchProfile`, ASTM type classifications attached to `BrickType`, and coring archetypes with attached void-fraction and classification.
+- `Bricks/` owns the masonry catalogue and pure brick layout rail: regional brick sizes (US/UK/DIN/AU/IS), bond patterns as template/generated data, special shapes, joint profiles with attached defaults (thickness, description), regional masonry policy (movement/expansion/weep/tie attached to `BrickRegion`), arch rules attached to `ArchProfile`, ASTM type classifications attached to `BrickType`, coring archetypes with attached void-fraction and classification, and scalar brick assemblies.
 - Future material folders (`Steel/`, `Concrete/`, `Timber/`, `Glass/`, `Stone/`, …) follow the same pattern: one folder, one polymorphic catalogue, one query surface, one error union.
 
 ## Domain Extension Rules
@@ -24,6 +25,8 @@ Encode building-material reference data (sizes, families, grades, types, bonds, 
 - Treat each material folder as a closed bounded context. No cross-material data sharing at the catalogue level — a brick joint is not a stone joint; encode separately even when names overlap.
 - Add new bricks by extending the `BrickDesignation` `SmartEnum`. Never branch the regional taxonomy into per-region SmartEnums.
 - Flow outward from `Rasm.Materials.Bricks` into consumers. `Rasm.Materials` itself never depends on geometry, Rhino, or Grasshopper.
+- Keep layout ownership with the material when the output is pure scalar data. Downstream host modules translate scalar assemblies into document objects.
+- Extend brick layout by adding typed input variance, normalizing it into station/elevation constraints, and reusing the single `BrickAssembly.Layout` rail.
 - Regional masonry policy attaches to `BrickRegion` SmartEnum directly (movement coefficients, expansion-joint spacing, weep-hole spacing, tie spacing). The U.S. baseline is a reference/default policy, not a complete current-code authority table; UK/DIN/AU/IS reuse it until authoritative regional values are encoded — no fabricated splits.
 
 ## Surface Rules
@@ -44,3 +47,4 @@ Encode building-material reference data (sizes, families, grades, types, bonds, 
 - Standards-of-record: `BrickSource` `[Union]` (BiaTn10Table1/Table2/BsEn771Part1/DinEn771Part1/AsNzs4455Part1/Is1077, each carrying `string Note`). Every `Brick` carries a typed `BrickSource Source` — no stringly-typed citations.
 - Use `docs/system-api-map` for `FrozenDictionary`, BCL collection, and package/reference policy; keep catalog data in static frozen lookups unless a generated smart enum owns the behavior.
 - Cite the source standard inline as XML doc comment on each catalogue entry (e.g., `/// <summary>BIA TN 10 Table 1.</summary>`).
+- Refactor `Layout.cs` toward union-owned polymorphism as repetition appears: path metrics belong on `BrickPath`, layout constraints belong in one typed constraint union, and station transforms belong in one modifier union. Do not add concern-specific public layout methods.
