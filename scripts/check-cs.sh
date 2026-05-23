@@ -253,7 +253,10 @@ _build_targets() {
 _format_full() {
     dotnet format whitespace "${SOLUTION_PATH}" --verify-no-changes --no-restore
 }
-_format_targeted() {
+_style_full() {
+    dotnet format style "${SOLUTION_PATH}" --verify-no-changes --no-restore --severity error
+}
+_style_targeted() {
     (("$#" > 0)) || return 0
     local -a projects=()
     local route project file
@@ -268,7 +271,7 @@ _format_targeted() {
             file="${route#*|}"
             files+=("${file}")
         done
-        dotnet format whitespace "${ROOT_DIR}/${project}" --include "${files[@]}" --verify-no-changes --no-restore
+        dotnet format style "${ROOT_DIR}/${project}" --include "${files[@]}" --verify-no-changes --no-restore --severity error
     done
 }
 _run_gate() {
@@ -283,8 +286,8 @@ _run_gate() {
     _restore_targets "${targets[@]}"
     _build_targets "${scope}" "${targets[@]}"
     case "${scope}" in
-        full) _format_full ;;
-        *) _format_targeted "${__format_routes[@]}" ;;
+        full) _format_full; _style_full ;;
+        *) _style_targeted "${__format_routes[@]}" ;;
     esac
 }
 _run_mode() {

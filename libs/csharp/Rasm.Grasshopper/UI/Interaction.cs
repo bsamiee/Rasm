@@ -18,16 +18,16 @@ public partial record TooltipPainter {
     public sealed record ShortcutKeysCase(string Prefix, Keys Keys, string Suffix) : TooltipPainter;
     public sealed record ShortcutCharCase(string Prefix, char Key, string Suffix) : TooltipPainter;
     public sealed record TextAndIconCase(Seq<object> Elements) : TooltipPainter;
-    public sealed record CustomCase(Action<EtoContext, Eto.Drawing.Rectangle> Paint, Size PaintingSize) : TooltipPainter;
+    public sealed record CustomCase(Action<EtoContext, Rectangle> Paint, Size PaintingSize) : TooltipPainter;
 
     public static TooltipPainter Shortcut(string prefix, Keys keys, string suffix) => new ShortcutKeysCase(Prefix: prefix, Keys: keys, Suffix: suffix);
     public static TooltipPainter Shortcut(string prefix, char key, string suffix) => new ShortcutCharCase(Prefix: prefix, Key: key, Suffix: suffix);
     public static TooltipPainter TextAndIcon(params object[] elements) => new TextAndIconCase(Elements: toSeq(elements));
-    public static TooltipPainter Custom(Action<EtoContext, Eto.Drawing.Rectangle> paint, Size paintingSize) => new CustomCase(Paint: paint, PaintingSize: paintingSize);
+    public static TooltipPainter Custom(Action<EtoContext, Rectangle> paint, Size paintingSize) => new CustomCase(Paint: paint, PaintingSize: paintingSize);
 
     // GH2 CreateShortcutPainter / CreateTextAndIconPainter both return (Action, Size) — deconstruct
     // once at boundary so Show() can pass painter + paintingSize as separate args.
-    internal (Action<EtoContext, Eto.Drawing.Rectangle> Paint, Size Size) Resolve() =>
+    internal (Action<EtoContext, Rectangle> Paint, Size Size) Resolve() =>
         Switch(
             shortcutKeysCase: static s => GhTooltip.CreateShortcutPainter(prefix: s.Prefix, keys: s.Keys, suffix: s.Suffix),
             shortcutCharCase: static s => GhTooltip.CreateShortcutPainter(prefix: s.Prefix, key: s.Key, suffix: s.Suffix),
@@ -235,7 +235,7 @@ internal static class Tooltip {
         Bind(invoke: () => GhTooltip.Show(icon: icon, caption: caption, message: message, items: [.. panes], warnings: warnings, errors: errors));
 
     internal static GrasshopperUiIntent<Subscription> ShowPainter(IIcon icon, string caption, string message, TooltipPainter painter, bool warnings, bool errors) {
-        (Action<EtoContext, Eto.Drawing.Rectangle> paint, Size size) = painter.Resolve();
+        (Action<EtoContext, Rectangle> paint, Size size) = painter.Resolve();
         return Bind(invoke: () => GhTooltip.Show(icon: icon, caption: caption, message: message, painter: paint, paintingSize: size, warnings: warnings, errors: errors));
     }
 
@@ -258,10 +258,10 @@ internal static class Tooltip {
 
     // Token gates Dispose: a stale Subscription only hides if its captured Guid is still the active
     // owner — a subsequent Show overwrites the token, leaving prior Subscriptions as no-ops.
-    private static GrasshopperUiIntent<Subscription> Bind(System.Action invoke) =>
+    private static GrasshopperUiIntent<Subscription> Bind(Action invoke) =>
         GhUi.Canvas(run: scope => scope.NeedCanvas().Bind(_ => Resource(invoke: invoke)));
 
-    private static Fin<Subscription> Resource(System.Action invoke) {
+    private static Fin<Subscription> Resource(Action invoke) {
         Guid token = Guid.NewGuid();
         return Subscription.Bind(
             attach: () => Take(token: token, invoke: invoke),
@@ -269,7 +269,7 @@ internal static class Tooltip {
             marshalToUi: true);
     }
 
-    private static void Take(Guid token, System.Action invoke) {
+    private static void Take(Guid token, Action invoke) {
         _ = Owner.Swap(_ => Some(token));
         invoke();
     }

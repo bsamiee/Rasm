@@ -68,10 +68,32 @@ public sealed partial class BrickType {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+public sealed partial class CoringClass {
+    public static readonly CoringClass Solid = new(key: "solid");
+    public static readonly CoringClass Cored = new(key: "cored");
+    public static readonly CoringClass Perforated = new(key: "perforated");
+    public static readonly CoringClass Hollow = new(key: "hollow");
+}
+
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class Coring {
-    public static readonly Coring Solid = new(key: "solid");
-    public static readonly Coring Cored = new(key: "cored");
-    public static readonly Coring Hollow = new(key: "hollow");
+    public static readonly Coring None = new(key: "none", voidFraction: 0.00, classification: CoringClass.Solid);
+    public static readonly Coring SingleFrog = new(key: "single-frog", voidFraction: 0.10, classification: CoringClass.Solid);
+    public static readonly Coring DoubleFrog = new(key: "double-frog", voidFraction: 0.18, classification: CoringClass.Solid);
+    public static readonly Coring Cored3Hole = new(key: "cored-3-hole", voidFraction: 0.20, classification: CoringClass.Cored);
+    public static readonly Coring Cored5Hole = new(key: "cored-5-hole", voidFraction: 0.22, classification: CoringClass.Cored);
+    public static readonly Coring Cored10Hole = new(key: "cored-10-hole", voidFraction: 0.24, classification: CoringClass.Cored);
+    public static readonly Coring Perforated5Cell = new(key: "perforated-5-cell", voidFraction: 0.30, classification: CoringClass.Perforated);
+    public static readonly Coring Perforated10Cell = new(key: "perforated-10-cell", voidFraction: 0.42, classification: CoringClass.Perforated);
+    public static readonly Coring Perforated16Cell = new(key: "perforated-16-cell", voidFraction: 0.50, classification: CoringClass.Perforated);
+    public static readonly Coring Hollow2Cell = new(key: "hollow-2-cell", voidFraction: 0.38, classification: CoringClass.Hollow);
+    public static readonly Coring Hollow3Cell = new(key: "hollow-3-cell", voidFraction: 0.43, classification: CoringClass.Hollow);
+    public static readonly Coring Hollow4Cell = new(key: "hollow-4-cell", voidFraction: 0.48, classification: CoringClass.Hollow);
+    public static readonly Coring Slotted = new(key: "slotted", voidFraction: 0.50, classification: CoringClass.Perforated);
+    public double VoidFraction { get; }
+    public CoringClass Classification { get; }
 }
 
 [SmartEnum<string>]
