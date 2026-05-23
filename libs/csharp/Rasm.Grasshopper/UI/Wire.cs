@@ -92,18 +92,14 @@ public sealed partial class WireEdit {
     internal partial Fin<int> Apply(GhDocumentMethods methods, GhObjectList objects, IParameter source, IParameter target, ActionList actions);
 
     private static Fin<int> Native(Op op, string name, Func<bool> run) =>
-        Try.lift(f: run)
-            .Run()
-            .MapFail(error => UiFault.MutationRejected(op: op, detail: $"{name} threw: {error.Message}"))
+        op.Attempt(body: run, what: name)
             .Bind(changed => changed switch {
                 true => Fin.Succ(value: 1),
                 false => Fin.Fail<int>(error: UiFault.MutationRejected(op: op, detail: $"{name} returned false")),
             });
 
     private static Fin<int> NativeCount(Op op, string name, Func<int> run) =>
-        Try.lift(f: run)
-            .Run()
-            .MapFail(error => UiFault.MutationRejected(op: op, detail: $"{name} threw: {error.Message}"))
+        op.Attempt(body: run, what: name)
             .Bind(count => count switch {
                 >= 0 => Fin.Succ(value: count),
                 _ => Fin.Fail<int>(error: UiFault.MutationRejected(op: op, detail: string.Create(CultureInfo.InvariantCulture, $"{name} returned {count}"))),
@@ -294,10 +290,16 @@ internal static partial class Wire {
             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(TraverseObjects)), detail: $"parameter {startParameterId} not found"))
             .Map(parameter => toSeq(direction.Search(objects: objects, parameter: parameter)).Distinct());
 
-    private static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> MutateWire(
+    // Common selection-mutation scaffolding: NeedObjects/NeedDocument, optional precheck, native run via
+    // op.Attempt, then a (before, after) → changed projection. Centralizes the rail so MutateWire and
+    // MutateDeselectAll share one capsule. `precheck` returns Fin<Unit> for guard predicates; on Succ the
+    // before-metric snapshots, the native body runs, and the changed-delta projection computes the result.
+    private static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> MutateMetric(
         Op op,
-        WireSnapshot.ConnectedCase wire,
-        Func<GhObjectList, WireEnds, bool> run) =>
+        Func<GhObjectList, Fin<Unit>> precheck,
+        Func<GhObjectList, int> metric,
+        Func<GhObjectList, Fin<Unit>> action,
+        Func<int, int, int> delta) =>
             GrasshopperUi.Mutate(
                 op: op,
                 undo: UndoStrategy.Auto,
@@ -305,31 +307,35 @@ internal static partial class Wire {
                 mutate: scope =>
                     from objects in scope.NeedObjects()
                     from doc in scope.NeedDocument()
-                    let ends = new WireEnds(source: wire.Source, target: wire.Target)
-                    from live in Optional(IsConnected(objects: objects, wire: ends))
-                        .Filter(static live => live)
-                        .ToFin(Fail: UiFault.MutationRejected(op: op, detail: "wire is not currently connected"))
-                    let before = objects.IsWireSelected(wire: ends)
-                    from ran in Try.lift(f: () => run(arg1: objects, arg2: ends))
-                        .Run()
-                        .MapFail(error => UiFault.MutationRejected(op: op, detail: error.Message))
-                    let after = objects.IsWireSelected(wire: ends)
-                    select new DocumentMutationDelta(Changed: before == after ? 0 : 1, After: UiRail.DocumentSnapshotOf(document: doc, objects: objects)));
+                    from _gate in precheck(arg: objects)
+                    let before = metric(arg: objects)
+                    from _ran in action(arg: objects)
+                    let after = metric(arg: objects)
+                    select new DocumentMutationDelta(Changed: delta(arg1: before, arg2: after), After: UiRail.DocumentSnapshotOf(document: doc, objects: objects)));
+
+    private static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> MutateWire(
+        Op op,
+        WireSnapshot.ConnectedCase wire,
+        Func<GhObjectList, WireEnds, bool> run) {
+        WireEnds ends = new(source: wire.Source, target: wire.Target);
+        return MutateMetric(
+            op: op,
+            precheck: objects => Optional(IsConnected(objects: objects, wire: ends))
+                .Filter(static live => live)
+                .ToFin(Fail: UiFault.MutationRejected(op: op, detail: "wire is not currently connected"))
+                .Map(static _ => unit),
+            metric: objects => objects.IsWireSelected(wire: ends) ? 1 : 0,
+            action: objects => op.Attempt(body: () => run(arg1: objects, arg2: ends), what: "wire selection").Map(static _ => unit),
+            delta: static (before, after) => before == after ? 0 : 1);
+    }
 
     private static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> MutateDeselectAll(Op op) =>
-        GrasshopperUi.Mutate(
+        MutateMetric(
             op: op,
-            undo: UndoStrategy.Auto,
-            repaint: RepaintRequest.Canvas,
-            mutate: scope =>
-                from objects in scope.NeedObjects()
-                from doc in scope.NeedDocument()
-                let before = objects.SelectedWireCount
-                from ran in Try.lift(f: () => { objects.DeselectAllWires(); return unit; })
-                    .Run()
-                    .MapFail(error => UiFault.MutationRejected(op: op, detail: $"DeselectAllWires threw: {error.Message}"))
-                let after = objects.SelectedWireCount
-                select new DocumentMutationDelta(Changed: Math.Max(val1: 0, val2: before - after), After: UiRail.DocumentSnapshotOf(document: doc, objects: objects)));
+            precheck: static _ => Fin.Succ(value: unit),
+            metric: static objects => objects.SelectedWireCount,
+            action: objects => op.Attempt(body: () => objects.DeselectAllWires(), what: "DeselectAllWires"),
+            delta: static (before, after) => Math.Max(val1: 0, val2: before - after));
 
     private static (bool Changed, Option<Guid> Shout, Option<Guid> Listen) SplitWire(
         GhDocumentMethods methods, IParameter source, IParameter target, string name, PointF location, ActionList actions) {

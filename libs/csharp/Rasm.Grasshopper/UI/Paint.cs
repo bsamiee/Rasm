@@ -115,7 +115,7 @@ public readonly record struct PaintTextMeasurement(string Text, SizeF Size);
 // callers off the UI thread must marshal first (the paint hook pipeline already guarantees UI
 // thread). Cache hits skip the entire NSAttributedString + NSLayoutManager + BoundingRectWithSize
 // pipeline (verified against Eto.Mac.Drawing.FormattedTextHandler IL offset 37004-37271).
-internal static class TextMeasure {
+file static class TextMeasure {
     private readonly record struct Key(
         Font Font, string Text,
         FormattedTextWrapMode Wrap, FormattedTextAlignment Alignment, FormattedTextTrimming Trimming,
@@ -255,10 +255,10 @@ public partial record EdgeSource {
         cap == PenLineCap.Square && join == PenLineJoin.Miter && miterLimit == 10f;
 }
 
-// Per-corner rounded rectangle radii (clockwise from top-left). Each corner must be finite and
-// non-negative — GraphicsPath.GetRoundRect silently mis-renders with NaN or negative input, so the
-// invariant is enforced at construction.
+// Per-corner rounded rectangle radii (clockwise from top-left). GraphicsPath.GetRoundRect silently
+// mis-renders with NaN or negative input — the construction-time invariant prevents that.
 [ComplexValueObject]
+[ValidationError<UiFault>]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct CornerRadii {
     public float TopLeft { get; }
@@ -267,13 +267,13 @@ public readonly partial struct CornerRadii {
     public float BottomLeft { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float topLeft, ref float topRight, ref float bottomRight, ref float bottomLeft) =>
+    static partial void ValidateFactoryArguments(ref UiFault? validationError, ref float topLeft, ref float topRight, ref float bottomRight, ref float bottomLeft) =>
         validationError = (Valid(topLeft), Valid(topRight), Valid(bottomRight), Valid(bottomLeft)) switch {
             (true, true, true, true) => null,
-            (false, _, _, _) => new ValidationError(message: $"CornerRadii.TopLeft must be finite and >= 0 (got {topLeft:R})."),
-            (_, false, _, _) => new ValidationError(message: $"CornerRadii.TopRight must be finite and >= 0 (got {topRight:R})."),
-            (_, _, false, _) => new ValidationError(message: $"CornerRadii.BottomRight must be finite and >= 0 (got {bottomRight:R})."),
-            (_, _, _, false) => new ValidationError(message: $"CornerRadii.BottomLeft must be finite and >= 0 (got {bottomLeft:R})."),
+            (false, _, _, _) => UiFault.Create(message: $"CornerRadii.TopLeft must be finite and >= 0 (got {topLeft:R})."),
+            (_, false, _, _) => UiFault.Create(message: $"CornerRadii.TopRight must be finite and >= 0 (got {topRight:R})."),
+            (_, _, false, _) => UiFault.Create(message: $"CornerRadii.BottomRight must be finite and >= 0 (got {bottomRight:R})."),
+            (_, _, _, false) => UiFault.Create(message: $"CornerRadii.BottomLeft must be finite and >= 0 (got {bottomLeft:R})."),
         };
 
     private static bool Valid(float corner) => float.IsFinite(corner) && corner >= 0f;

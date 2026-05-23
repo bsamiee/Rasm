@@ -30,10 +30,14 @@ public partial record SelectionOp {
     public sealed record AllCase : SelectionOp;
     public sealed record NoneCase : SelectionOp;
     public sealed record InvertCase : SelectionOp;
+    public sealed record GrowCase(bool Upstream, bool Downstream) : SelectionOp;
+    public sealed record ShiftCase(bool Upstream) : SelectionOp;
 
     public static readonly SelectionOp All = new AllCase();
     public static readonly SelectionOp None = new NoneCase();
     public static readonly SelectionOp Invert = new InvertCase();
+    public static SelectionOp Grow(bool upstream = true, bool downstream = true) => new GrowCase(Upstream: upstream, Downstream: downstream);
+    public static SelectionOp Shift(bool upstream) => new ShiftCase(Upstream: upstream);
 }
 
 [Union]
@@ -294,7 +298,7 @@ public partial record DocumentTarget {
     public sealed record ObjectsCase(Seq<Guid> Ids) : DocumentTarget;
 
     public static readonly DocumentTarget Selection = new SelectionCase();
-    public static DocumentTarget Objects(params Guid[] ids) => new ObjectsCase(Ids: toSeq(ids));
+    public static DocumentTarget Objects(params ReadOnlySpan<Guid> ids) => new ObjectsCase(Ids: toSeq(ids.ToArray()));
 
     internal Fin<int> Apply(GhDocumentMethods methods, GhObjectList objects, DocumentTargetOp op, ActionList actions) =>
         Switch(
@@ -408,37 +412,49 @@ public abstract partial record DocumentTargetOp {
         ids.TraverseM(id => Optional(objects.Find(instanceId: id))
             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentTarget)), detail: $"object {id} not found")))
         .Map(static resolved => resolved.ToArray())
-        .Bind(targets => Switch(
-            state: (methods, targets, actions),
-            showCase: static (s, _) => Fin.Succ(value: s.methods.ShowObjects(objects: s.targets, actions: s.actions)),
-            hideCase: static (s, _) => Fin.Succ(value: s.methods.HideObjects(objects: s.targets, actions: s.actions)),
-            toggleVisibilityCase: static (s, _) => Fin.Succ(value: s.methods.ToggleDisplayObjects(objects: s.targets, actions: s.actions)),
-            enableCase: static (s, _) => Fin.Succ(value: s.methods.EnableObjects(objects: s.targets, actions: s.actions)),
-            disableCase: static (s, _) => Fin.Succ(value: s.methods.DisableObjects(objects: s.targets, actions: s.actions)),
-            deleteCase: static (s, delete) => Fin.Succ(value: delete.DataOnly
-                ? s.methods.DeleteObjectData(objects: s.targets, actions: s.actions)
-                : s.methods.DeleteObjects(objects: s.targets, wires: [.. delete.Wires], actions: s.actions)),
-            colourCase: static (s, colour) => Fin.Succ(value: s.methods.SetColourOverrideObjects(
-                objects: s.targets,
-                colour: colour.Override.Map(static value => (GhColour?)value).IfNone((GhColour?)null),
-                actions: s.actions)))).As();
+        .Bind(targets => Dispatch(methods: methods, actions: actions, targets: targets)).As();
 
     internal Fin<int> ApplySelected(GhDocumentMethods methods, ActionList actions) =>
+        Dispatch(methods: methods, actions: actions, targets: null);
+
+    // Unified target/selection dispatcher. Non-null `targets` routes through *Objects(targets, actions);
+    // null `targets` routes through *Selected(actions). Centralizes seven native verbs in one site.
+    // Null sentinel over Option<...> because CSP0705 forbids Option.Match mid-Switch-arm.
+    private Fin<int> Dispatch(GhDocumentMethods methods, ActionList actions, IDocumentObject[]? targets) =>
         Switch(
-            state: (methods, actions),
-            showCase: static (s, _) => Fin.Succ(value: s.methods.ShowSelected(actions: s.actions)),
-            hideCase: static (s, _) => Fin.Succ(value: s.methods.HideSelected(actions: s.actions)),
-            toggleVisibilityCase: static (s, _) => Fin.Succ(value: s.methods.ToggleDisplaySelected(actions: s.actions)),
-            enableCase: static (s, _) => Fin.Succ(value: s.methods.EnableSelected(actions: s.actions)),
-            disableCase: static (s, _) => Fin.Succ(value: s.methods.DisableSelected(actions: s.actions)),
-            deleteCase: static (s, delete) => Fin.Succ(value: delete.DataOnly
-                ? s.methods.DeleteSelectionData(actions: s.actions)
-                : delete.Wires.IsEmpty
-                    ? s.methods.DeleteSelection(actions: s.actions)
-                    : s.methods.DeleteObjects(objects: [], wires: [.. delete.Wires], actions: s.actions)),
-            colourCase: static (s, colour) => Fin.Succ(value: s.methods.SetColourOverrideSelected(
-                colour: colour.Override.Map(static value => (GhColour?)value).IfNone((GhColour?)null),
-                actions: s.actions)));
+            state: (methods, targets, actions),
+            showCase: static (s, _) => Fin.Succ(value: s.targets is null
+                ? s.methods.ShowSelected(actions: s.actions)
+                : s.methods.ShowObjects(objects: s.targets, actions: s.actions)),
+            hideCase: static (s, _) => Fin.Succ(value: s.targets is null
+                ? s.methods.HideSelected(actions: s.actions)
+                : s.methods.HideObjects(objects: s.targets, actions: s.actions)),
+            toggleVisibilityCase: static (s, _) => Fin.Succ(value: s.targets is null
+                ? s.methods.ToggleDisplaySelected(actions: s.actions)
+                : s.methods.ToggleDisplayObjects(objects: s.targets, actions: s.actions)),
+            enableCase: static (s, _) => Fin.Succ(value: s.targets is null
+                ? s.methods.EnableSelected(actions: s.actions)
+                : s.methods.EnableObjects(objects: s.targets, actions: s.actions)),
+            disableCase: static (s, _) => Fin.Succ(value: s.targets is null
+                ? s.methods.DisableSelected(actions: s.actions)
+                : s.methods.DisableObjects(objects: s.targets, actions: s.actions)),
+            deleteCase: static (s, delete) => Fin.Succ(value: s.targets is null
+                ? delete.DataOnly
+                    ? s.methods.DeleteSelectionData(actions: s.actions)
+                    : delete.Wires.IsEmpty
+                        ? s.methods.DeleteSelection(actions: s.actions)
+                        : s.methods.DeleteObjects(objects: [], wires: [.. delete.Wires], actions: s.actions)
+                : delete.DataOnly
+                    ? s.methods.DeleteObjectData(objects: s.targets, actions: s.actions)
+                    : s.methods.DeleteObjects(objects: s.targets, wires: [.. delete.Wires], actions: s.actions)),
+            colourCase: static (s, colour) => Fin.Succ(value: s.targets is null
+                ? s.methods.SetColourOverrideSelected(
+                    colour: colour.Override.Map(static value => (GhColour?)value).IfNone((GhColour?)null),
+                    actions: s.actions)
+                : s.methods.SetColourOverrideObjects(
+                    objects: s.targets,
+                    colour: colour.Override.Map(static value => (GhColour?)value).IfNone((GhColour?)null),
+                    actions: s.actions)));
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
@@ -515,7 +531,9 @@ internal static partial class UiRail {
             state: methods,
             allCase: static (m, _) => Fin.Succ(value: m.SelectAll()),
             noneCase: static (m, _) => Fin.Succ(value: m.DeselectAll()),
-            invertCase: static (m, _) => Fin.Succ(value: m.InvertSelection()));
+            invertCase: static (m, _) => Fin.Succ(value: m.InvertSelection()),
+            growCase: static (m, g) => Fin.Succ(value: m.GrowSelection(upstream: g.Upstream, downstream: g.Downstream)),
+            shiftCase: static (m, s) => Fin.Succ(value: m.ShiftSelection(upstream: s.Upstream)));
 
     internal static Fin<int> DisplayDispatch(GhDocumentMethods methods, DisplayOp op, ActionList actions) =>
         op.Switch(
