@@ -19,11 +19,14 @@ Each category folder owns one full Rhino concern. Capture native API capability 
 - `Commands/` owns staged command execution, command input, document mutation receipts, selection, options, prompt flow, and command-visible transactions.
 - `UI/` owns Eto/Rhino UI integration: dialogs, panels, overlays, mouse callbacks, progress, gumball-style interaction, and UI-thread protection.
 - `Camera/` owns viewport target resolution, live camera state, camera mutation, projections, frustums, named views, capture, and sequencing.
+- `Blocks/` owns block definitions, instances, live/archive linked state, placement, replacement, graph/audit, events, cleanup, preview/export, and block management. It consumes `Construction` output and preserves `Commands/Selection`, `Commands/Document`, and `Exchange` ownership boundaries.
+- `Construction/` owns Rhino geometry construction and projection: primitives, curves, surfaces, Breps, extrusions, meshes, SubD, transforms, framed bounds, annotations, and block/document/preview-ready output. It does not own document mutation, UI drawing, live input, camera application, or mesh/vector algorithms already owned by `Rasm.Vectors`.
 - Future folders should follow the same pattern: one concern, one public owner, one operation rail, compact state records, and native API truth preserved internally.
 
 ## API Ownership Rules
 
 - Verify risky Rhino behavior against RhinoWIP `RhinoCommon.xml`, decompile evidence when XML is absent, and `scripts/rhino.sh api doctor`.
+- For new category roadmaps, verify every named Rhino member through local XML/decompile evidence before presenting it as available. List false, obsolete, internal, and missing APIs directly in the roadmap.
 - Treat RhinoWIP 9 as target. Do not rely on older public examples unless current local API evidence confirms semantics.
 - Keep `Domain` and `Analysis` as quality references for C# shape, ROP rails, polymorphism, and density unless scope explicitly expands.
 - Reuse `LanguageExt` and `Thinktecture` deliberately when they collapse surface area, strengthen types, or remove repeated logic.
@@ -42,6 +45,7 @@ Each category folder owns one full Rhino concern. Capture native API capability 
 - Read existing folder files before editing. Extend canonical owners before creating new files or types.
 - Preserve Rhino native coherence. For example, camera location, target, direction, up vector, projection, and detail commit behavior must stay aligned unless an operation explicitly represents a lower-level native apply.
 - Convert native return shapes at the boundary: nullable to `Option`/`Fin`, bool failure to `Fin<Unit>`, resource lifetimes to scoped projection, document mutations to existing receipt vocabulary.
+- Keep block and construction value internal: idempotency, batch receipts, dependency graphs, source/link policy, overload selection, framed bounds, typed output projection, and native diagnostics belong behind the category rail.
 - Batch mutation rails when possible. Apply redraw, commit, disposal, and UI-thread protection at the boundary edge, not in every leaf call.
 - Prefer variable-driven algorithms over fixed values. When a default is useful, make it explicit, named, overridable, and tied to Rhino/native semantics.
 
@@ -70,5 +74,6 @@ These capabilities are missing from RhinoCommon (verified against RhinoWIP 9). F
 - **Worksession (`.rws`) enumeration** — `RhinoDoc.Worksession` is not exposed as a managed type; iteration over linked models, add/remove, and persistence are unavailable.
 - **`File3dm.Audit` / `IsValid`** — deprecated since v6; both return success unconditionally and provide no validation. Use `File3dm.ReadWithLog` log output and `FileResourceGraph.Validate(parallel: true)` for integrity checks instead.
 - **`DetailViewObject.SetScale(double, UnitSystem, ...)` overload is obsolete since v9**; use the `LengthUnit` overload only.
+- **No public Rhino geometry 2D primitive family** — `Line2d`, `Circle2d`, `Arc2d`, and `Rectangle2d` are absent as geometry types. `GetBaseClass.Line2d()` and `Rectangle2d()` are command input result names, not model geometry.
 - **Sheet-driven capture and raster transparency are mutually exclusive.** `ViewCaptureSettings.TransparentBackground` does not exist. `Rhino.Display.ViewCapture` is an instantiable class with an instance `TransparentBackground` property, but the property is honored only by the instance-based `new ViewCapture { TransparentBackground = true }.CaptureToBitmap(RhinoView)` path. The static `ViewCapture.CaptureToBitmap(ViewCaptureSettings)` used by `FilePublishTarget.Raster` does not consult it. Transparent raster output therefore requires either (a) switching to instance-based view capture (loses sheet/`ViewCaptureSettings`-driven page metadata) or (b) routing through `RenderSettings.TransparentBackground` (model-level, render-pipeline driven).
 - **No detail layer-override enumeration** — `Layer.SetPerViewportColor`/`SetPerViewportVisible` write per-viewport overrides keyed by the detail's viewport ID, but RhinoCommon exposes no enumeration API for inspecting which layers have overrides on a given detail. Round-tripping detail layer state requires walking every layer and probing per viewport.
