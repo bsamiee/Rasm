@@ -6,7 +6,7 @@ The `Bricks/` catalogue is **complete for the materials layer**. All downstream 
 
 Final state (post critical review):
 
-- **Single-file footprint**: `Brick.cs` only. `BrickCatalog.cs` eliminated — `SpecialShape.Catalog` is a static field on the `SpecialShape` Union; `BrickRegion.Designations()` is an extension method.
+- **File(s)**: `Brick.cs` — `SpecialShape.Catalog` is a static field on the `SpecialShape` Union; `BrickRegion.Designations()` is an extension method.
 - **Brick** is attached to `BrickDesignation` SmartEnum via `Spec` plus delegate properties — consumers access `BrickDesignation.UsModular.Region`, `.Specified`, `.Coring`, `.Type`, etc. directly without `.Spec.` indirection.
 - **Bond course templates** attached to `BondName` SmartEnum (**34 bonds** — Gothic removed as geometrically identical to Monk; Dearnes removed as interpretive without authoritative diagram; RunningRotated reclassified Parametric).
 - **Regional masonry policy** (movement / expansion / weep / tie) attached to `BrickRegion` SmartEnum.
