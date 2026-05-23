@@ -43,11 +43,8 @@ public readonly record struct FilePdfPage(
 [Union(SwitchMapStateParameterName = "ctx")]
 public abstract partial record FilePublishTarget {
     private FilePublishTarget() { }
-    // BOUNDARY ADAPTER — `FilePdf.SetCustomPages` REPLACES previously-added pages, so it cannot be
-    // mixed with `AddPage(ViewCaptureSettings)`. `Prefix` and `Suffix` use the blank-page
-    // `AddPage(width, height, dpi)` overload sequenced before/after sheet captures; each page
-    // carries its own annotation callback for cover/title/signature stamping. The top-level
-    // `Annotate` applies to sheet pages only.
+    // `FilePdf.SetCustomPages` is REPLACE-only; `Prefix`/`Suffix` use `AddPage(w,h,dpi)` to interleave
+    // blank pages around sheet captures. Per-page `Annotate` stamps cover/title; top-level applies to sheets.
     public sealed record Pdf(
         FileEndpoint Target,
         Seq<FilePdfPage> Prefix = default,
@@ -67,15 +64,20 @@ public abstract partial record FilePublishTarget {
             raster: static (ctx, target) => WriteRaster(target: target, pages: ctx.Pages, op: ctx.Op),
             svg: static (ctx, target) => WriteSvg(target: target, pages: ctx.Pages, op: ctx.Op));
 
+    // `LayersAsOptionalContentGroups` is per-document; hoisting prevents the per-page setter from
+    // silently dropping OCG layers when later pages were raster. All-raster sheets toggle off.
     private static Fin<FilePublishResult> WritePdf(Pdf target, Seq<FileSheetPage> pages, bool layers, Op op) =>
         from endpoint in target.Target.WithFormat(format: FileFormat.Pdf).Output(op: op)
         from pdf in Optional(FilePdf.Create()).ToFin(Fail: op.InvalidResult())
+        from _layers in op.Catch(() => {
+            pdf.LayersAsOptionalContentGroups = layers && pages.Exists(static page => !page.Sheet.Raster);
+            return Fin.Succ(value: unit);
+        })
         from _prefix in target.Prefix.TraverseM(spec => AddBlankPdfPage(pdf: pdf, spec: spec, op: op)).As()
         from _sheets in pages.TraverseM(page =>
             from settings in page.Sheet.Settings(page: page.Page, op: op)
             from index in op.Catch(() => {
                 using ViewCaptureSettings owned = settings;
-                pdf.LayersAsOptionalContentGroups = layers && !owned.RasterMode;
                 return pdf.AddPage(settings: owned) switch {
                     int value when value >= 0 => Fin.Succ(value: value),
                     _ => Fin.Fail<int>(error: op.InvalidResult()),
@@ -442,13 +444,9 @@ public static class FileOp {
                select FileReport.Of(phase: FilePhase.Publish, target: result.Target, format: result.Format, issues: result.Issues, nativeLog: result.NativeLog, receipt: Some(result.Receipt), sheets: result.Sheets);
     }
 
-    // BOUNDARY ADAPTER — SnapshotTable exposes only `Names[]`; save/restore/delete go through
-    // `RhinoApp.RunScript("-_Snapshot <verb> _Name <name> _Enter", echo: false)`. We bracket the
-    // body with: save-current-state-to-sentinel → restore-target-snapshot → body → restore-sentinel
-    // → delete-sentinel. The sentinel uses `Guid.NewGuid("N")` (32 hex chars, no whitespace) so the
-    // user's named snapshot table is left intact and macro quoting is unnecessary. `_Save` against
-    // a unique sentinel cannot collide; `_Restore` on an unknown name returns false and surfaces as
-    // `Op.InvalidResult`. The try/finally guarantees sentinel cleanup even when the body fails.
+    // BOUNDARY ADAPTER — SnapshotTable exposes only `Names[]`; save/restore/delete route through
+    // `RhinoApp.RunScript("-_Snapshot ...")`. Bracket: save-sentinel → restore-target → body →
+    // restore-sentinel → delete-sentinel; Guid-N sentinel keeps the user's table intact.
     private static Fin<T> InSnapshot<T>(RhinoDoc document, string snapshotName, Op op, Func<Fin<T>> body) =>
         from target in FileEndpoint.NonBlank(value: snapshotName, op: op)
         from _exists in toSeq(document.Snapshots.Names).Exists(name => string.Equals(a: name, b: target, comparisonType: StringComparison.Ordinal))
@@ -588,10 +586,11 @@ internal static class SheetEditOps {
             addDetail: static (ctx, edit) => AddDetail(document: ctx.Document, sheetName: edit.SheetName, spec: edit.Spec, op: ctx.Op),
             removeDetail: static (ctx, edit) => RemoveDetail(document: ctx.Document, sheetName: edit.SheetName, detailName: edit.DetailName, op: ctx.Op),
             activateDetail: static (ctx, edit) => ActivateDetail(document: ctx.Document, sheetName: edit.SheetName, detailName: edit.DetailName, op: ctx.Op),
-            layerOverride: static (ctx, edit) => ApplyLayerOverride(document: ctx.Document, sheetName: edit.SheetName, detailName: edit.DetailName, layerPath: edit.LayerPath, color: edit.Color, visible: edit.Visible, op: ctx.Op),
+            layerOverride: static (ctx, edit) => ApplyLayerOverride(document: ctx.Document, sheetName: edit.SheetName, detailName: edit.DetailName, layerPath: edit.LayerPath, color: edit.Color, visible: edit.Visible, plotColor: edit.PlotColor, plotWeight: edit.PlotWeight, op: ctx.Op),
             clippingOverride: static (ctx, edit) => ApplyClippingOverride(document: ctx.Document, sheetName: edit.SheetName, detailName: edit.DetailName, box: edit.Box, op: ctx.Op),
             refreshLinks: static (ctx, edit) => RefreshLinks(document: ctx.Document, archives: edit.Archives, skipUpToDate: edit.SkipUpToDate, op: ctx.Op),
-            flattenLinkedBlocks: static (ctx, edit) => FlattenLinkedBlocks(document: ctx.Document, archives: edit.Archives, ids: edit.Ids, op: ctx.Op));
+            flattenLinkedBlocks: static (ctx, edit) => FlattenLinkedBlocks(document: ctx.Document, archives: edit.Archives, ids: edit.Ids, op: ctx.Op),
+            exportBlock: static (ctx, edit) => ExportBlock(document: ctx.Document, blockName: edit.BlockName, target: edit.Target, op: ctx.Op));
 
     private static Fin<DocumentReceipt> CreateSheet(RhinoDoc document, FileSheetSpec spec, Op op) =>
         from name in FileEndpoint.NonBlank(value: spec.Name, op: op)
@@ -700,7 +699,9 @@ internal static class SheetEditOps {
             ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: detailName.IfNone(sheetName))),
         };
 
-    private static Fin<DocumentReceipt> ApplyLayerOverride(RhinoDoc document, string sheetName, string detailName, string layerPath, Option<System.Drawing.Color> color, Option<bool> visible, Op op) =>
+    // Per-viewport linetype has no setter (Layer.LinetypeIndex is document-wide); only color,
+    // visibility, plot color, plot weight are per-detail. CommitViewportChanges persists them.
+    private static Fin<DocumentReceipt> ApplyLayerOverride(RhinoDoc document, string sheetName, string detailName, string layerPath, Option<System.Drawing.Color> color, Option<bool> visible, Option<System.Drawing.Color> plotColor, Option<double> plotWeight, Op op) =>
         from page in Sheet(document: document, name: sheetName, op: op)
         from name in FileEndpoint.NonBlank(value: detailName, op: op)
         from path in FileEndpoint.NonBlank(value: layerPath, op: op)
@@ -710,6 +711,8 @@ internal static class SheetEditOps {
             Guid viewportId = detail.Viewport.Id;
             _ = color.Iter(value => layer.SetPerViewportColor(viewportId: viewportId, color: value));
             _ = visible.Iter(value => layer.SetPerViewportVisible(viewportId: viewportId, visible: value));
+            _ = plotColor.Iter(value => layer.SetPerViewportPlotColor(viewportId: viewportId, color: value));
+            _ = plotWeight.Iter(value => layer.SetPerViewportPlotWeight(viewportId: viewportId, plotWeight: value));
             _ = detail.CommitViewportChanges();
             return Fin.Succ(value: unit);
         })
@@ -718,6 +721,17 @@ internal static class SheetEditOps {
             ResourceChanged = Seq(
                 new DocumentResourceChange(Kind: DocumentResourceKind.Layer, Name: path),
                 new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: name)),
+        };
+
+    // `InstanceDefinitionTable.Export` (9.0+) is the canonical "save block as own file" primitive,
+    // replacing the prior `_-Export _Pause _Selected` RunScript that required selection bracketing.
+    private static Fin<DocumentReceipt> ExportBlock(RhinoDoc document, string blockName, FileEndpoint target, Op op) =>
+        from name in FileEndpoint.NonBlank(value: blockName, op: op)
+        from endpoint in target.Output(op: op)
+        from definition in Optional(document.InstanceDefinitions.Find(instanceDefinitionName: name)).ToFin(Fail: op.InvalidInput())
+        from _ in op.Confirm(success: document.InstanceDefinitions.Export(idefIndex: definition.Index, filename: endpoint.Path))
+        select DocumentReceipt.Empty with {
+            ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Block, Name: name)),
         };
 
     private static Fin<DocumentReceipt> ApplyClippingOverride(RhinoDoc document, string sheetName, string detailName, BoundingBox box, Op op) =>
@@ -735,11 +749,8 @@ internal static class SheetEditOps {
             ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: name)),
         };
 
-    // BOUNDARY ADAPTER — InstanceDefinitionTable.RefreshLinkedBlock is synchronous; reload + redraw
-    // happens on the caller's thread. `UpdateType` discriminates linked-vs-embedded definitions
-    // (SourceArchive alone is unreliable). `SkipUpToDate` consults `ArchiveFileStatus` to avoid
-    // reloading definitions whose source has not changed. TraverseM short-circuits on first failed
-    // refresh so callers see an InvalidResult error rather than silently dropped definitions.
+    // BOUNDARY ADAPTER — `RefreshLinkedBlock` is synchronous on the caller's thread. `UpdateType`
+    // (NOT SourceArchive) is the canonical linked discriminant; TraverseM short-circuits on first fail.
     private static Fin<DocumentReceipt> RefreshLinks(RhinoDoc document, Option<Seq<string>> archives, bool skipUpToDate, Op op) =>
         op.Catch(() =>
             toSeq(document.InstanceDefinitions)
@@ -757,15 +768,10 @@ internal static class SheetEditOps {
                     ResourceChanged = refreshed.Map(static definition => new DocumentResourceChange(Kind: DocumentResourceKind.Block, Name: definition.Name ?? string.Empty)),
                 }));
 
-    // BOUNDARY ADAPTER — InstanceDefinitionLayerStyle.Active is valid only when UpdateType==Linked
-    // (per RhinoCommon XML doc on the enum). LinkedAndEmbedded forbids Active; Static forbids it
-    // by design. Tenuous definitions are excluded because their layer-style mutation will not
-    // persist (tenuous defs are dropped from save unless referenced by a live instance). Negative
-    // ArchiveFileStatus (NotALinkedInstanceDefinition=-3, LinkedFileNotReadable=-2, NotFound=-1)
-    // means the linked archive cannot be read, so flattening would materialize incomplete tables.
-    // The pre-existing `LayerStyle == Active` filter avoids redundant writes and redundant
-    // InstanceDefinitionTableEvent.Modified fires. Flattening is NOT losslessly reversible:
-    // toggling back to Reference leaves orphan layer/material rows that must be purged manually.
+    // BOUNDARY ADAPTER — LayerStyle.Active is valid ONLY when UpdateType==Linked (LinkedAndEmbedded
+    // and Static forbid it). Filters: skip Tenuous (drops on save), skip negative ArchiveFileStatus
+    // (unreadable), skip already-Active (avoid redundant Modified fires). NOT reversible: toggling
+    // back to Reference leaves orphan layer/material rows requiring manual purge.
     private static Fin<DocumentReceipt> FlattenLinkedBlocks(RhinoDoc document, Option<Seq<string>> archives, Option<Seq<Guid>> ids, Op op) =>
         op.Catch(() => {
             Seq<InstanceDefinition> targets = toSeq(document.InstanceDefinitions)
@@ -804,6 +810,112 @@ internal static class SheetEditOps {
             int index when index >= 0 => Optional(document.Layers[index]).ToFin(Fail: op.InvalidInput()),
             _ => Fin.Fail<Layer>(error: op.InvalidInput()),
         };
+}
+
+// `EarthAnchorPoint` is IDisposable native; every op brackets in `using` so the pointer never
+// escapes. `GetModelToEarthTransform(LengthUnit)` is 9.0; the `UnitSystem` overload is `[Obsolete]`.
+// `SyncSun` encodes the Sun.North↔ModelNorth invariant `_SetGeoLocation` does not honour.
+public static class FileEarthOps {
+    public static Fin<Option<FileGeoLocation>> Read(RhinoDoc document) {
+        Op op = Op.Of(name: nameof(Read));
+        return Optional(document).ToFin(Fail: op.InvalidInput()).Bind(active => op.Catch(() => {
+            using EarthAnchorPoint? anchor = active.EarthAnchorPoint;
+            return Fin.Succ(value: FileGeoLocation.From(anchor: anchor));
+        }));
+    }
+
+    public static Fin<DocumentReceipt> Set(RhinoDoc document, FileGeoLocation location) {
+        Op op = Op.Of(name: nameof(Set));
+        return Optional(document).ToFin(Fail: op.InvalidInput()).Bind(active => op.Catch(() => {
+            using EarthAnchorPoint anchor = new();
+            _ = location.Latitude.Iter(value => anchor.EarthBasepointLatitude = value);
+            _ = location.Longitude.Iter(value => anchor.EarthBasepointLongitude = value);
+            _ = location.Elevation.Iter(value => anchor.EarthBasepointElevation = value);
+            anchor.EarthBasepointElevationCoordinateSystem = location.ElevationCoordinateSystem;
+            _ = location.ModelBasePoint.Iter(value => anchor.ModelBasePoint = value);
+            _ = location.ModelNorth.Iter(value => anchor.ModelNorth = value);
+            _ = location.ModelEast.Iter(value => anchor.ModelEast = value);
+            _ = location.Name.Iter(value => anchor.Name = value);
+            _ = location.Description.Iter(value => anchor.Description = value);
+            active.EarthAnchorPoint = anchor;
+            return Fin.Succ(value: DocumentReceipt.Empty with {
+                ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.EarthAnchor, Name: location.Name.IfNone(noneValue: "earth-anchor"))),
+            });
+        }));
+    }
+
+    public static Fin<Seq<(double Latitude, double Longitude, double Elevation)>> ProjectToEarth(RhinoDoc document, Seq<Point3d> points, LengthUnit modelUnits) =>
+        UseAnchor(document: document, op: Op.Of(name: nameof(ProjectToEarth)), requireEarth: true, use: (anchor, op) => {
+            Transform xform = anchor.GetModelToEarthTransform(modelUnits: modelUnits);
+            return xform.IsValid switch {
+                false => Fin.Fail<Seq<(double, double, double)>>(error: op.InvalidResult()),
+                true => Fin.Succ(value: points.Map(point => {
+                    Point3d projected = point;
+                    projected.Transform(xform: xform);
+                    return (projected.X, projected.Y, projected.Z);
+                })),
+            };
+        });
+
+    public static Fin<Seq<Point3d>> ProjectToModel(RhinoDoc document, Seq<(double Latitude, double Longitude, double Elevation)> coordinates, LengthUnit modelUnits) =>
+        UseAnchor(document: document, op: Op.Of(name: nameof(ProjectToModel)), requireEarth: true, use: (anchor, op) => {
+            Transform xform = anchor.GetModelToEarthTransform(modelUnits: modelUnits);
+            return xform.TryGetInverse(inverseTransform: out Transform inverse) switch {
+                false => Fin.Fail<Seq<Point3d>>(error: op.InvalidResult()),
+                true => Fin.Succ(value: coordinates.Map(coordinate => {
+                    Point3d earth = new(x: coordinate.Latitude, y: coordinate.Longitude, z: coordinate.Elevation);
+                    earth.Transform(xform: inverse);
+                    return earth;
+                })),
+            };
+        });
+
+    public static Fin<Plane> Compass(RhinoDoc document) =>
+        UseAnchor(document: document, op: Op.Of(name: nameof(Compass)), requireModel: true, use: static (anchor, op) =>
+            anchor.GetModelCompass() switch {
+                Plane plane when plane.IsValid => Fin.Succ(value: plane),
+                _ => Fin.Fail<Plane>(error: op.InvalidResult()),
+            });
+
+    public static Fin<Plane> AnchorPlane(RhinoDoc document) =>
+        UseAnchor(document: document, op: Op.Of(name: nameof(AnchorPlane)), requireModel: true, use: static (anchor, op) =>
+            anchor.GetEarthAnchorPlane(anchorNorth: out _) switch {
+                Plane plane when plane.IsValid => Fin.Succ(value: plane),
+                _ => Fin.Fail<Plane>(error: op.InvalidResult()),
+            });
+
+    public static Fin<Transform> OrientPlane(RhinoDoc document, Plane source) =>
+        UseAnchor(document: document, op: Op.Of(name: nameof(OrientPlane)), requireModel: true, use: (anchor, op) => {
+            Plane target = anchor.GetEarthAnchorPlane(anchorNorth: out _);
+            return (source.IsValid, target.IsValid) switch {
+                (true, true) => Fin.Succ(value: Transform.PlaneToPlane(plane0: source, plane1: target)),
+                _ => Fin.Fail<Transform>(error: op.InvalidInput()),
+            };
+        });
+
+    // `Sun.North` is degrees on world XY; project from `ModelNorth` via `Atan2(Y, X)` so sun studies
+    // reflect anchor-defined true north. `_SetGeoLocation` does NOT — call SyncSun after.
+    public static Fin<DocumentReceipt> SyncSun(RhinoDoc document) =>
+        UseAnchor(document: document, op: Op.Of(name: nameof(SyncSun)), requireEarth: true, requireModel: true, use: (anchor, op) => op.Catch(() => {
+            global::Rhino.Render.Sun sun = document.RenderSettings.Sun;
+            Vector3d north = anchor.ModelNorth;
+            sun.Latitude = anchor.EarthBasepointLatitude;
+            sun.Longitude = anchor.EarthBasepointLongitude;
+            sun.North = Math.Atan2(y: north.Y, x: north.X) * (180.0 / Math.PI);
+            return Fin.Succ(value: DocumentReceipt.Empty with {
+                ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Sun, Name: "sun")),
+            });
+        }));
+
+    private static Fin<T> UseAnchor<T>(RhinoDoc document, Op op, Func<EarthAnchorPoint, Op, Fin<T>> use, bool requireEarth = false, bool requireModel = false) =>
+        Optional(document).ToFin(Fail: op.InvalidInput()).Bind(active => op.Catch(() => {
+            using EarthAnchorPoint? anchor = active.EarthAnchorPoint;
+            return Optional(anchor).ToFin(Fail: op.InvalidResult()).Bind(valid =>
+                (requireEarth && !valid.EarthLocationIsSet(), requireModel && !valid.ModelLocationIsSet()) switch {
+                    (false, false) => use(arg1: valid, arg2: op),
+                    _ => Fin.Fail<T>(error: op.InvalidInput()),
+                });
+        }));
 }
 
 internal sealed class FileWatchSubscription : IDisposable {

@@ -101,6 +101,18 @@ public static class UiIntent {
                 true => Fin.Fail<global::Rhino.UI.ShowMessageResult>(error: Op.Of(name: nameof(Message)).InvalidInput()),
             });
 
+    // "What"-style read-only multiline viewer; preferred over `RhinoApp.WriteLine` for long payloads.
+    public static UiIntent<Unit> Text(string body, string title = "") =>
+        Request(
+            name: nameof(Text),
+            run: _ => string.IsNullOrWhiteSpace(value: body) switch {
+                true => Fin.Fail<Unit>(error: Op.Of(name: nameof(Text)).InvalidInput()),
+                false => Op.Of(name: nameof(Text)).Catch(() => {
+                    global::Rhino.UI.Dialogs.ShowTextDialog(message: body, title: title ?? string.Empty);
+                    return Fin.Succ(value: unit);
+                }),
+            });
+
     public static UiIntent<T> Choice<T>(string title, string message, IEnumerable<T> items, Option<T> selected = default, bool combo = false) =>
         Request(name: nameof(Choice), run: _ => {
             Fin<Seq<T>> values = Optional(items)

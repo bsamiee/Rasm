@@ -43,7 +43,48 @@ public readonly record struct FileArchiveMetadata(
     Option<double> ModelAngleToleranceRadians = default,
     Option<string> ModelUrl = default,
     Option<Point3d> ModelBasePoint = default,
-    Option<EarthAnchorPoint> EarthAnchor = default);
+    Option<FileGeoLocation> EarthAnchor = default);
+
+// `EarthAnchorPoint` is IDisposable; getters allocate a new wrapper per call. Storing the bare ref
+// past File3dm.Dispose dangles its m_ptr. `From(anchor)` projects scalars + KML triple at the boundary.
+public readonly record struct FileGeoLocation(
+    Option<double> Latitude,
+    Option<double> Longitude,
+    Option<double> Elevation,
+    EarthCoordinateSystem ElevationCoordinateSystem,
+    Option<Point3d> ModelBasePoint,
+    Option<Vector3d> ModelNorth,
+    Option<Vector3d> ModelEast,
+    Option<string> Name,
+    Option<string> Description,
+    Option<double> KmlHeadingDegrees,
+    Option<double> KmlTiltDegrees,
+    Option<double> KmlRollDegrees,
+    bool EarthLocationIsSet = false,
+    bool ModelLocationIsSet = false) {
+    public static Option<FileGeoLocation> From(EarthAnchorPoint? anchor) =>
+        Optional(anchor).Bind(active => (active.EarthLocationIsSet(), active.ModelLocationIsSet()) switch {
+            (false, false) => Option<FileGeoLocation>.None,
+            (bool earth, bool model) => Some(new FileGeoLocation(
+                Latitude: earth ? Some(active.EarthBasepointLatitude) : Option<double>.None,
+                Longitude: earth ? Some(active.EarthBasepointLongitude) : Option<double>.None,
+                Elevation: earth ? Some(active.EarthBasepointElevation) : Option<double>.None,
+                ElevationCoordinateSystem: active.EarthBasepointElevationCoordinateSystem,
+                ModelBasePoint: model ? Some(active.ModelBasePoint) : Option<Point3d>.None,
+                ModelNorth: model ? Some(active.ModelNorth) : Option<Vector3d>.None,
+                ModelEast: model ? Some(active.ModelEast) : Option<Vector3d>.None,
+                Name: TextField(value: active.Name),
+                Description: TextField(value: active.Description),
+                KmlHeadingDegrees: model ? Some(active.KMLOrientationHeadingAngleDegrees) : Option<double>.None,
+                KmlTiltDegrees: model ? Some(active.KMLOrientationTiltAngleDegrees) : Option<double>.None,
+                KmlRollDegrees: model ? Some(active.KMLOrientationRollAngleDegrees) : Option<double>.None,
+                EarthLocationIsSet: earth,
+                ModelLocationIsSet: model)),
+        });
+
+    private static Option<string> TextField(string? value) =>
+        Optional(value).Filter(static text => !string.IsNullOrWhiteSpace(value: text)).Map(static text => text.Trim());
+}
 
 public readonly record struct FileResourceEntry(
     DocumentResourceKind Kind,
@@ -219,7 +260,7 @@ internal static class FileArchiveOps {
             preview?.Dispose();
             _ = File3dmModel.ReadRevisionHistory(path: path.Path, createdBy: out string createdBy, lastEditedBy: out string lastEditedBy, revision: out int revision, createdOn: out DateTime createdOn, lastEditedOn: out DateTime lastEditedOn);
             File3dmModel.ReadApplicationData(path: path.Path, applicationName: out string applicationName, applicationUrl: out string applicationUrl, applicationDetails: out string applicationDetails);
-            EarthAnchorPoint? anchor = File3dmModel.ReadEarthAnchorPoint(path: path.Path);
+            using EarthAnchorPoint? anchor = File3dmModel.ReadEarthAnchorPoint(path: path.Path);
             return Fin.Succ(value: new FileArchiveMetadata(
                 ArchiveVersion: File3dmModel.ReadArchiveVersion(path: path.Path),
                 Notes: Text(value: File3dmModel.ReadNotes(path: path.Path)),
@@ -233,7 +274,7 @@ internal static class FileArchiveOps {
                 LastEditedOn: lastEditedOn == DateTime.MinValue ? Option<DateTime>.None : Some(lastEditedOn),
                 PageViews: toSeq(File3dmModel.ReadPageViews(path: path.Path)).Count,
                 Preview: preview is not null,
-                EarthAnchor: Optional(anchor)));
+                EarthAnchor: FileGeoLocation.From(anchor: anchor)));
         })
         select snapshot;
 
@@ -289,10 +330,8 @@ internal static class FileArchiveOps {
             + toSeq(model.RenderEnvironments).Map(static environment => (RenderContent)environment)
             + toSeq(model.RenderTextures).Map(static texture => (RenderContent)texture);
         Seq<string> embedded = toSeq(model.EmbeddedFiles).Map(static file => file.Filename);
-        // BOUNDARY ADAPTER — `File3dm.AllInstanceDefinitions` returns `InstanceDefinitionGeometry`
-        // (archive-time projection). `SourceArchive` is set to empty for unlinked definitions;
-        // non-empty implies linked. `UpdateType`/`ArchiveFileStatus` live on the live-doc
-        // `InstanceDefinition` and are unavailable from the read-only archive surface.
+        // BOUNDARY ADAPTER — archive `InstanceDefinitionGeometry` exposes only `SourceArchive`;
+        // `UpdateType`/`ArchiveFileStatus` are live-doc only. Non-empty SourceArchive ⇒ linked.
         Seq<string> linked = toSeq(model.AllInstanceDefinitions)
             .Choose(static definition => Text(value: definition.SourceArchive))
             .Distinct();
@@ -485,6 +524,7 @@ internal static class FileArchiveOps {
             DrawingBitmap? preview = model.GetPreviewImage();
             preview?.Dispose();
             File3dmSettings settings = model.Settings;
+            using EarthAnchorPoint? anchor = model.EarthAnchorPoint;
             return Fin.Succ(new FileArchiveMetadata(
                 ArchiveVersion: model.ArchiveVersion,
                 Notes: Text(value: model.Notes.Notes),
@@ -507,7 +547,7 @@ internal static class FileArchiveOps {
                 ModelAngleToleranceRadians: settings.ModelAngleToleranceRadians > 0.0 ? Some(settings.ModelAngleToleranceRadians) : Option<double>.None,
                 ModelUrl: Text(value: settings.ModelUrl),
                 ModelBasePoint: settings.ModelBasepoint == Point3d.Origin ? Option<Point3d>.None : Some(settings.ModelBasepoint),
-                EarthAnchor: Optional(model.EarthAnchorPoint)));
+                EarthAnchor: FileGeoLocation.From(anchor: anchor)));
         });
 
     private static Fin<FileEndpoint> ExtractFile(EmbeddedFile file, FileEndpoint folder, Op op) =>

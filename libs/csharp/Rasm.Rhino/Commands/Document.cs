@@ -32,6 +32,8 @@ public sealed partial class DocumentResourceKind {
     public static readonly DocumentResourceKind EmbeddedFile = new(key: 26, componentType: ModelComponentType.EmbeddedFile);
     public static readonly DocumentResourceKind Metadata = new(key: 27, componentType: ModelComponentType.Unset);
     public static readonly DocumentResourceKind Text = new(key: 28, componentType: ModelComponentType.Unset);
+    public static readonly DocumentResourceKind EarthAnchor = new(key: 29, componentType: ModelComponentType.Unset);
+    public static readonly DocumentResourceKind Sun = new(key: 30, componentType: ModelComponentType.Unset);
 
     public ModelComponentType ComponentType { get; }
 

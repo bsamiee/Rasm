@@ -9,21 +9,38 @@ namespace Rasm.Rhino.UI;
 // --- [TYPES] ------------------------------------------------------------------------------
 public enum PanelHostPhase { Shown, Hidden, Closed }
 
-public abstract record PanelPlacement {
+[Union(SwitchMapStateParameterName = "context")]
+public abstract partial record PanelPlacement {
     private PanelPlacement() { }
-    public static PanelPlacement Default { get; } = new DefaultPlacement();
-    public static Fin<PanelPlacement> Dock(Guid dockBarId) => dockBarId switch { Guid id when id != Guid.Empty => Fin.Succ<PanelPlacement>(value: new DockPlacement(id)), _ => Fin.Fail<PanelPlacement>(error: Op.Of(name: nameof(Dock)).InvalidInput()) };
-    public static Fin<PanelPlacement> Sibling(Guid panelId) => panelId switch { Guid id when id != Guid.Empty => Fin.Succ<PanelPlacement>(value: new SiblingPlacement(id)), _ => Fin.Fail<PanelPlacement>(error: Op.Of(name: nameof(Sibling)).InvalidInput()) };
-    internal abstract Fin<Unit> Open(Type panelType, Guid panelId, bool selected);
-    private sealed record DefaultPlacement : PanelPlacement {
-        internal override Fin<Unit> Open(Type panelType, Guid panelId, bool selected) => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.OpenPanel(panelType: panelType, makeSelectedPanel: selected); return Fin.Succ(value: unit); });
-    }
-    private sealed record DockPlacement(Guid DockBarId) : PanelPlacement {
-        internal override Fin<Unit> Open(Type panelType, Guid panelId, bool selected) => RhinoUi.Protect(valid: () => global::Rhino.UI.Panels.OpenPanel(dockBarId: DockBarId, panelType: panelType, makeSelectedPanel: selected) switch { Guid id when id != Guid.Empty || OperatingSystem.IsMacOS() => Fin.Succ(value: unit), _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(Open)).InvalidResult()) });
-    }
-    private sealed record SiblingPlacement(Guid PanelId) : PanelPlacement {
-        internal override Fin<Unit> Open(Type panelType, Guid panelId, bool selected) => RhinoUi.Protect(valid: () => global::Rhino.UI.Panels.OpenPanelAsSibling(panelId: panelId, siblingPanelId: PanelId, makeSelectedPanel: selected) switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(Open)).InvalidResult()) });
-    }
+    public sealed record Auto : PanelPlacement;
+    public sealed record AtDockBar(Guid DockBarId) : PanelPlacement;
+    public sealed record AsSibling(Guid SiblingPanelId) : PanelPlacement;
+
+    public static PanelPlacement Default { get; } = new Auto();
+    public static Fin<PanelPlacement> Dock(Guid dockBarId) =>
+        dockBarId == Guid.Empty
+            ? Fin.Fail<PanelPlacement>(error: Op.Of(name: nameof(Dock)).InvalidInput())
+            : Fin.Succ<PanelPlacement>(value: new AtDockBar(dockBarId));
+    public static Fin<PanelPlacement> Sibling(Guid panelId) =>
+        panelId == Guid.Empty
+            ? Fin.Fail<PanelPlacement>(error: Op.Of(name: nameof(Sibling)).InvalidInput())
+            : Fin.Succ<PanelPlacement>(value: new AsSibling(panelId));
+
+    internal Fin<Unit> Open(Type panelType, Guid panelId, bool selected) =>
+        RhinoUi.Protect(valid: () => Switch<(Type Type, Guid Id, bool Selected), Fin<Unit>>(
+            (panelType, panelId, selected),
+            auto: static (ctx, _) => {
+                global::Rhino.UI.Panels.OpenPanel(panelType: ctx.Type, makeSelectedPanel: ctx.Selected);
+                return Fin.Succ(value: unit);
+            },
+            atDockBar: static (ctx, dock) => global::Rhino.UI.Panels.OpenPanel(dockBarId: dock.DockBarId, panelType: ctx.Type, makeSelectedPanel: ctx.Selected) switch {
+                Guid id when id != Guid.Empty || OperatingSystem.IsMacOS() => Fin.Succ(value: unit),
+                _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(Open)).InvalidResult()),
+            },
+            asSibling: static (ctx, sibling) => global::Rhino.UI.Panels.OpenPanelAsSibling(panelId: ctx.Id, siblingPanelId: sibling.SiblingPanelId, makeSelectedPanel: ctx.Selected) switch {
+                true => Fin.Succ(value: unit),
+                false => Fin.Fail<Unit>(error: Op.Of(name: nameof(Open)).InvalidResult()),
+            }));
 }
 
 public enum UiChromeFileMode { Open, Close, Save, SaveAs }

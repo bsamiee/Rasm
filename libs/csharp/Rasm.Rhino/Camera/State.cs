@@ -213,6 +213,10 @@ public sealed record CameraSnapshot : IDisposable {
     public double CameraAngle { get; }
     public uint ChangeSerial { get; }
 
+    // `ChangeCounter` advances on every viewport mutation — cheapest staleness probe is uint equality.
+    public bool IsStale =>
+        Scope.Viewport.ChangeCounter != ChangeSerial;
+
     public void Dispose() {
         projection.Dispose();
         GC.SuppressFinalize(obj: this);
