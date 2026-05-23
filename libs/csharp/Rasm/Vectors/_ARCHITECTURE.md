@@ -120,3 +120,116 @@ flowchart TB
 - MathNet owns dense and sparse numerical operations (decompositions, BiCGStab iterative solve).
 - CSparse.NET 4.3.0 provides sparse Cholesky factorisation with AMD ordering and Span-based solve for cached SPD systems.
 - Local kernels exist only where dependencies do not expose the required algorithm.
+
+## Potential Use Cases And Value
+
+`Rasm.Vectors` is a downstream design-geometry kernel for Rhino WIP and GH2. It turns design intent into typed points, vectors, curves, meshes, frames, scalar fields, transforms, descriptors, and diagnostics through `VectorIntent.Project<TOut>(Context, Op?)`.
+
+### Intent And Projection Rails
+
+- Build one GH2 component family around `VectorIntent` instead of one-off commands for each vector operation.
+- Expose typed dropdown modes from SmartEnums (`SupportProjection`, `CurveProjection`, `SurfaceProjection`, `MeshLaplacian`, `SampleKind`, `AlignKind`, `RemeshKind`).
+- Project the same intent into alternate outputs: `Point3d`, `Vector3d`, `Plane`, `Curve`, `Polyline`, `Mesh`, scalar values, matrices, transforms, and descriptor values.
+- Surface predictable `Fin<TOut>` failures in Rhino/GH UI without exceptions or silent fallback geometry.
+- Share the same projection vocabulary between command plugins, GH2 components, and future app-layer tools.
+
+### Placement, Snapping, And Support Geometry
+
+- Place panels, fixtures, annotations, profiles, furniture-scale design objects, and facade modules onto Breps, meshes, curves, planes, and point clouds.
+- Generate tangent frames, normals, signed distances, containment distances, UV values, support parameters, mesh points, and component metadata at picked locations.
+- Create surface-aware handles that move objects along support geometry while preserving local frame orientation.
+- Build proximity masks, clearance previews, inside/outside classifiers, and design-envelope checks from signed distance and containment projections.
+- Convert selected Rhino geometry into reusable `SupportSpace` and `SurfaceSpace` inputs for downstream fields, sampling, routing, and alignment.
+
+### Frames, Rails, And Curve-Based Design
+
+- Generate stable section frames along rails for ribs, louvers, mullions, fins, stair strings, handrails, pipes, and ceiling baffles.
+- Use Frenet, Bishop, tangent, curvature, arc-length, and parallel-transport frames to avoid orientation flips on long curves.
+- Orient repeated components along paths with explicit angle pivots, signed axes, spans, cones, and vector relations.
+- Build sweep-ready profile frames for facade ribs, contour-following strips, ceiling tracks, and sculptural rails.
+- Evaluate curvature-driven local behavior for path smoothing, section rotation, and component spacing.
+
+### Field-Driven Layout And Patterning
+
+- Create attractor, repulsor, vortex, Coulomb, dipole, harmonic, saddle, helical, ring, curl-noise, and cross-product design fields.
+- Turn vector fields into streamlines for circulation sketches, facade flow lines, floor inlays, ceiling tracks, and generated path curves.
+- Drive aperture density, screen porosity, perforation radius, tile scale, fixture spacing, lighting density, and ornamental intensity from scalar fields.
+- Combine gradients, curls, divergences, Laplacians, clamps, scales, blends, and warps into controllable design fields.
+- Split fields with Hodge decomposition into gradient-like behavior and circulation-like behavior for simple UI controls.
+
+### Implicit Massing And Soft Boolean Geometry
+
+- Model concept solids from SDF primitives: sphere, box, capsule, cylinder, cone, capped cone, torus, hex prism, octahedron, and ellipsoid.
+- Blend, union, subtract, intersect, round, onion, elongate, displace, twist, and bend implicit volumes for early massing studies.
+- Generate Rhino meshes from scalar iso-surfaces for blob massing, carved voids, inflated envelopes, clearance solids, and smooth transitions.
+- Use mesh signed-distance fields to preview offsets, shrink-wrap behavior, proximity coloring, and inside/outside styling.
+- Route watertight mesh signing through generalized winding or signed-heat policy instead of ad-hoc point-in-solid guesses.
+
+### Surface And Mesh Pattern Systems
+
+- Generate facade panel directions, seam candidates, tile rotation, hatch grain, surface stripes, and anisotropic module orientation from cross-fields.
+- Interpolate designer strokes over meshes with vector heat for louver direction, panel rotation, surface grain, and facade flow.
+- Use tensor fields and principal curvature directions for curvature-responsive ornament, rib direction, panel alignment, and surface grain.
+- Build stripe, band, contour, and wave families from scalar fields, geodesic fields, and spectral filters.
+- Apply cone and hint constraints to cross-fields for controlled singularities and design-authored orientation anchors.
+
+### Geodesic Routing And Surface Distance
+
+- Compute heat geodesic, spectral distance, log-map, and geodesic-tangent behavior over mesh surfaces.
+- Route seams, cables, wayfinding marks, projected measurements, surface traces, and on-surface paths across curved forms.
+- Create distance-to-source scalar previews for zoning, panel influence, local falloff, and surface-aware selection.
+- Convert scalar geodesic output into contour-ready bands, isoline sources, or placement weights for downstream tools.
+- Cache mesh-local factors so repeated source edits reuse the same `LaplacianCache` substrate.
+
+### Sampling, Population, And Distribution
+
+- Distribute anchors, panels, lights, apertures, seats, paving marks, acoustic nodes, and facade modules across mesh surfaces.
+- Select Poisson disk, farthest-point, Lloyd, optimized, or capacity sampling depending on uniformity, coverage, and density goals.
+- Use sampled points as seeds for field traces, panel centers, fixture locations, perforation maps, and component placement.
+- Preserve deterministic sampling behavior for repeatable GH definitions and command previews.
+- Combine sampling with scalar fields to turn design intensity into population density.
+
+### Mesh Preparation, Flattening, And Descriptors
+
+- Prepare meshes for design workflows with topology summaries, feature edges, remeshing, reduction, unwrap, and flattening.
+- Generate fabrication previews, unrolled pattern studies, panel layout sheets, and texture-coordinate working surfaces.
+- Use cotangent, intrinsic-Delaunay, and robust Laplacians as selectable mesh-operator policies.
+- Compute spectral descriptors for shape matching, option comparison, ornament families, and similarity sliders.
+- Reuse intrinsic mesh snapshots for connection Laplacian, cone holonomy, signed heat, cross-field, vector-heat, and Hodge workflows.
+
+### Point Clouds, Alignment, And As-Built Workflows
+
+- Align scans, imported context, reference layouts, module kits, and repeated facade parts with point, plane, symmetric, robust, and GICP-inspired ICP.
+- Extract best-fit planes, principal axes, principal frames, covariance, spread, curvature, curvedness, shape index, and oriented normals.
+- Build quick design diagnostics for sampled geometry: local direction, compactness, anisotropy, footprint shape, and surface-like behavior.
+- Generate hulls, rough envelopes, footprint wrappers, containment regions, and selection boundaries from point or ring inputs.
+- Use robust alignment and cloud metrics as preflight checks before baking component arrays or matching as-built fragments.
+
+### Transport, Morphing, And Layout Transfer
+
+- Transfer point distributions between facade options, surface versions, module families, and sampled design layouts.
+- Use unbalanced Sinkhorn transport to tolerate differing point counts or changing density between alternatives.
+- Morph landmark layouts, aperture maps, panel centers, fixture plans, and ornamental seed sets between design states.
+- Compare alternatives by correspondence cost, transport plan structure, and distribution mismatch.
+- Use transport output as a bridge from analysis-like point sets back into editable design geometry.
+
+### Rhino/GH Product Surfaces
+
+- `Project Intent`: single component or command for projecting `VectorIntent` into requested Rhino-native output.
+- `Support Projection`: closest point, tangent, normal, signed distance, containment, UV, frame, and component projections.
+- `Sample Mesh`: Poisson, farthest, optimize, Lloyd, and capacity sampling with preview and bake paths.
+- `Trace Streamline`: vector-field seeds to curves or polylines with fixed/adaptive integration and termination modes.
+- `Cross Field`: mesh plus hints/cones to directional panel, stripe, or tile orientation fields.
+- `SDF IsoSurface`: primitive and mesh-backed scalar fields to Rhino mesh output.
+- `Mesh Distance`: heat geodesic, spectral distance, log map, stripe, and signed-distance previews.
+- `Align Clouds`: scan or module point sets to transforms with residual/convergence display.
+- `Transport Cloud`: remap point distributions between surfaces, options, or facade states.
+- `Mesh Prep`: topology, feature edges, remesh, reduce, unwrap, flatten, and spectral descriptor workflows.
+
+### Productization Boundaries
+
+- App UI, preview conduits, bake commands, GH2 parameter wrappers, and user-facing receipts live outside `Rasm.Vectors`.
+- Brep-heavy workflows need a canonical meshing or parameterization intake before mesh-only kernels run.
+- Advanced solvers benefit from exposed convergence and cache diagnostics for designer-facing feedback.
+- Cross-field cone flows need preflight guidance for topology, boundaries, and cone charge validity.
+- Contour and isoline extraction from scalar fields is a likely downstream rail; current folder provides scalar sources and mesh substrates.
