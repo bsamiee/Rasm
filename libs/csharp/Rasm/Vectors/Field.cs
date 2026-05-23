@@ -6,12 +6,12 @@ public sealed partial class FieldBlend {
     public static readonly FieldBlend Sum = new(key: 0, scale: static _ => 1.0);
     public static readonly FieldBlend Average = new(key: 1, scale: static count => count > 0 ? 1.0 / count : 1.0);
     internal Fin<Vector3d> Combine(Seq<Vector3d> vectors, Op key) =>
-        from _ in guard(!vectors.IsEmpty, key.InvalidResult())
-        from value in key.AcceptValue(value: vectors.Fold(initialState: Vector3d.Zero, f: static (sum, v) => sum + v) * Scale(count: vectors.Count))
-        select value;
+        CombineCore(values: vectors, zero: Vector3d.Zero, add: static (sum, v) => sum + v, scale: static (sum, factor) => sum * factor, key: key);
     internal Fin<double> CombineScalar(Seq<double> values, Op key) =>
+        CombineCore(values: values, zero: 0.0, add: static (sum, v) => sum + v, scale: static (sum, factor) => sum * factor, key: key);
+    private Fin<T> CombineCore<T>(Seq<T> values, T zero, Func<T, T, T> add, Func<T, double, T> scale, Op key) =>
         from _ in guard(!values.IsEmpty, key.InvalidResult())
-        from value in key.AcceptValue(value: values.Fold(initialState: 0.0, f: static (sum, v) => sum + v) * Scale(count: values.Count))
+        from value in key.AcceptValue(value: scale(arg1: values.Fold(initialState: zero, f: add), arg2: Scale(count: values.Count)))
         select value;
     [UseDelegateFromConstructor] private partial double Scale(int count);
 }
@@ -673,7 +673,7 @@ public partial record VectorField {
                 source: c.Source, sample: state.Sample, sense: c.Sense, context: state.Context, key: state.Key,
                 hitToScaled: (hit, op) => c.Projection.Equals(SupportProjection.Span) || c.Projection.Equals(SupportProjection.SignedSpanAway)
                     ? from span in c.Projection.Project<VectorSpan>(space: c.Source, hit: hit, sample: state.Sample, context: state.Context, key: op)
-                      select (Raw: span.Direction.Value, Scale: span.Magnitude)
+                      select (Raw: span.Direction.Value, Scale: span.Magnitude.Value)
                     : from raw in c.Projection.Project<Vector3d>(space: c.Source, hit: hit, sample: state.Sample, context: state.Context, key: op)
                       select (Raw: raw, Scale: 1.0))
             select vector,
@@ -806,7 +806,8 @@ public partial record TensorField {
     public sealed record BlendCase(Seq<TensorField> Fields, FieldBlend Mode) : TensorField;
     public static TensorField Constant(SymmetricMatrix value) => new ConstantCase(Value: value);
     public static TensorField Curvature(SurfaceSpace space) => new CurvatureCase(Space: space);
-    public static TensorField Lift(Func<Point3d, SymmetricMatrix> sampler) => new LiftCase(Sampler: sampler);
+    public static Fin<TensorField> Lift(Func<Point3d, SymmetricMatrix>? sampler, Op? key = null) =>
+        Optional(sampler).ToFin(key.OrDefault().InvalidInput()).Map(active => (TensorField)new LiftCase(Sampler: active));
     public static TensorField Warp(TensorField source, Transform spatial) => new WarpCase(Source: source, Spatial: spatial);
     public static TensorField ScaleBy(TensorField source, double scale) => new ScaledCase(Source: source, Scale: scale);
     public static TensorField Blend(Seq<TensorField> fields, FieldBlend? mode = null) =>
@@ -815,20 +816,22 @@ public partial record TensorField {
         state: (Sample: sample, Context: context, Key: key),
         constantCase: static (s, c) => s.Key.AcceptValue(value: c.Value),
         curvatureCase: static (s, c) => CurvatureTensorAt(space: c.Space, sample: s.Sample, key: s.Key),
-        liftCase: static (s, c) => s.Key.AcceptValue(value: c.Sampler(arg: s.Sample)),
+        liftCase: static (s, c) => s.Key.Catch(() => s.Key.AcceptValue(value: c.Sampler(arg: s.Sample))),
         warpCase: static (s, c) => c.Spatial.TryGetInverse(inverseTransform: out Transform inverse)
             ? c.Source.SampleTensor(sample: inverse * s.Sample, context: s.Context, key: s.Key)
+                .Bind(tensor => TransformTensor(tensor: tensor, spatial: c.Spatial, key: s.Key))
             : Fin.Fail<SymmetricMatrix>(error: s.Key.InvalidResult()),
         scaledCase: static (s, c) => c.Source.SampleTensor(sample: s.Sample, context: s.Context, key: s.Key)
             .Bind(m => s.Key.AcceptValue(value: new SymmetricMatrix(Dimension: m.Dimension, Upper: [.. m.Upper.AsIterable().Select(v => v * c.Scale)]))),
         blendCase: static (s, c) => c.Fields.TraverseM(f => f.SampleTensor(sample: s.Sample, context: s.Context, key: s.Key)).As()
             .Bind(tensors => BlendTensors(tensors: tensors, mode: c.Mode, key: s.Key)));
     private static Fin<SymmetricMatrix> BlendTensors(Seq<SymmetricMatrix> tensors, FieldBlend mode, Op key) =>
-        tensors.IsEmpty
+        tensors.IsEmpty || tensors.Exists(t => !t.IsValid || t.Dimension.Value != tensors[index: 0].Dimension.Value)
             ? Fin.Fail<SymmetricMatrix>(error: key.InvalidResult())
             : key.AcceptValue(value: AverageTensors(tensors: tensors, divisor: mode.Equals(FieldBlend.Sum) ? 1 : tensors.Count));
     internal Fin<Seq<(double Eigenvalue, Direction Eigenvector)>> PrincipalDirections(Point3d sample, Context context, Op key) =>
         from tensor in SampleTensor(sample: sample, context: context, key: key)
+        from _ in tensor.Dimension.Value == 3 ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput())
         from eigen in tensor.DecomposeEigen(key: key)
         from directions in eigen.TraverseM(pair => Direction.Of(value: CloudKernel.AsVector3d(v: pair.Eigenvector), context: context, key: key).Map(d => (pair.Eigenvalue, Eigenvector: d))).As()
         select directions;
@@ -853,7 +856,25 @@ public partial record TensorField {
             },
         };
     }
-    // BOUNDARY ADAPTER — accumulating element-wise across N upper-triangular arrays.
+    private static Fin<SymmetricMatrix> TransformTensor(SymmetricMatrix tensor, Transform spatial, Op key) {
+        if (tensor.Dimension.Value != 3) return Fin.Fail<SymmetricMatrix>(key.InvalidInput());
+        double[] a = [
+            tensor.At(i: 0, j: 0), tensor.At(i: 0, j: 1), tensor.At(i: 0, j: 2),
+            tensor.At(i: 1, j: 0), tensor.At(i: 1, j: 1), tensor.At(i: 1, j: 2),
+            tensor.At(i: 2, j: 0), tensor.At(i: 2, j: 1), tensor.At(i: 2, j: 2),
+        ];
+        double[] r = [spatial[0, 0], spatial[0, 1], spatial[0, 2], spatial[1, 0], spatial[1, 1], spatial[1, 2], spatial[2, 0], spatial[2, 1], spatial[2, 2]];
+        double[] upper = new double[6];
+        int cursor = 0;
+        for (int i = 0; i < 3; i++)
+            for (int j = i; j < 3; j++) {
+                double value = 0.0;
+                for (int p = 0; p < 3; p++)
+                    for (int q = 0; q < 3; q++) value += r[(i * 3) + p] * a[(p * 3) + q] * r[(j * 3) + q];
+                upper[cursor++] = value;
+            }
+        return SymmetricMatrix.Of(dim: Dimension.Create(value: 3), upper: new Arr<double>(upper), key: key);
+    }
     private static SymmetricMatrix AverageTensors(Seq<SymmetricMatrix> tensors, int divisor) {
         SymmetricMatrix first = tensors[index: 0];
         double[] accum = [.. first.Upper.AsIterable()];
@@ -975,7 +996,7 @@ public partial record ScalarField {
     }
     public static Fin<ScalarField> Elongate(ScalarField source, Vector3d extent, Op? key = null) {
         Op op = key.OrDefault();
-        return extent.IsValid
+        return extent.IsValid && extent.X >= 0.0 && extent.Y >= 0.0 && extent.Z >= 0.0
             ? Fin.Succ((ScalarField)new ElongateCase(Source: source, Extent: extent))
             : Fin.Fail<ScalarField>(op.InvalidInput());
     }

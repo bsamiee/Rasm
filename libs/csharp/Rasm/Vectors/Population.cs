@@ -26,7 +26,7 @@ public abstract partial record SamplingKind {
     private SamplingKind() { }
     public sealed record PoissonDiskCase(PositiveMagnitude Radius) : SamplingKind;
     public sealed record FarthestPointCase(Dimension Count) : SamplingKind;
-    public sealed record FarthestPointOptimizationCase(Dimension Count) : SamplingKind;
+    public sealed record FarthestPointOptimizationCase(Dimension Count, Dimension Iterations) : SamplingKind;
     public sealed record LloydCase(Dimension Count, Dimension Iterations) : SamplingKind;
     public sealed record CapacityConstrainedCase(Dimension Count, Dimension Capacity) : SamplingKind;
     public static Fin<SamplingKind> PoissonDisk(double radius, Op? key = null) =>
@@ -35,9 +35,11 @@ public abstract partial record SamplingKind {
         Op op = key.OrDefault();
         return op.AcceptValidated<Dimension>(candidate: count).Map(static value => (SamplingKind)new FarthestPointCase(Count: value));
     }
-    public static Fin<SamplingKind> FarthestPointOptimization(int count, Op? key = null) {
+    public static Fin<SamplingKind> FarthestPointOptimization(int count, int iterations, Op? key = null) {
         Op op = key.OrDefault();
-        return op.AcceptValidated<Dimension>(candidate: count).Map(static value => (SamplingKind)new FarthestPointOptimizationCase(Count: value));
+        return from c in op.AcceptValidated<Dimension>(candidate: count)
+               from i in op.AcceptValidated<Dimension>(candidate: iterations)
+               select (SamplingKind)new FarthestPointOptimizationCase(Count: c, Iterations: i);
     }
     public static Fin<SamplingKind> Lloyd(int count, int iterations, Op? key = null) {
         Op op = key.OrDefault();
@@ -53,8 +55,6 @@ public abstract partial record SamplingKind {
     }
     internal Fin<VectorCloud> Sample(MeshSpace domain, Context context, Op? key = null) =>
         PopulationKernel.SampleOnMesh(kind: this, domain: domain, context: context, key: key.OrDefault());
-    internal Fin<VectorCloud> Sample(ScalarField domain, BoundingBox region, Context context, Op? key = null) =>
-        PopulationKernel.SampleInScalarField(kind: this, domain: domain, region: region, context: context, key: key.OrDefault());
     internal double MeshCandidateDensity(double area) {
         double safeArea = Math.Max(val1: area, val2: RhinoMath.SqrtEpsilon);
         double target = this switch {
@@ -113,24 +113,31 @@ internal static class PopulationKernel {
     }
     // Iterative closest-point with correspondence re-association at each step; inner solve
     // selects between point-to-plane, symmetric, and robust by RegistrationKind.
-    private static Fin<Transform> IcpAlign(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, RegistrationKind kind, Op key) {
-        Vector3d[] targetNormals = EstimateNormalsViaCovariance(target: target);
+    private static Fin<Transform> IcpAlign(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, RegistrationKind kind, Op key) =>
+        from targetNormals in EstimateNormalsViaCovariance(target: target, key: key)
+        from aligned in IcpAlignWithNormals(source: source, target: target, kind: kind, targetNormals: targetNormals, key: key)
+        select aligned;
+    private static Fin<Transform> IcpAlignWithNormals(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, RegistrationKind kind, Vector3d[] targetNormals, Op key) {
         Transform current = Transform.Identity;
         for (int iter = 0; iter < IcpMaxIterations; iter++) {
             (Point3d[] matchedTarget, Vector3d[] matchedNormals, double[] residuals) = FindCorrespondences(source: source.Vertices, target: target, normals: targetNormals, current: current);
             Fin<Transform> deltaFin = kind.SolveStep(source: source.Vertices, target: matchedTarget, normals: matchedNormals, residuals: residuals, current: current, key: key);
+            if (deltaFin.IsFail) return deltaFin;
             Transform delta = deltaFin.IfFail(Transform.Unset);
-            if (!delta.IsValid) return Fin.Fail<Transform>(error: key.InvalidResult());
             current = delta * current;
             if (IsApproximatelyIdentity(delta: delta)) break;
         }
         return Fin.Succ(current);
     }
-    private static Vector3d[] EstimateNormalsViaCovariance(VectorCloud.ClusterCase target) {
+    private static Fin<Vector3d[]> EstimateNormalsViaCovariance(VectorCloud.ClusterCase target, Op key) =>
+        EstimateNormalGraph(target: target, key: key).Map(static graph => graph.Normals);
+    private static Fin<(Vector3d[] Normals, int[][] Neighbors)> EstimateNormalGraph(VectorCloud.ClusterCase target, Op key) {
         Point3d[] points = [.. target.Vertices.AsIterable()];
+        if (points.Length < 3) return Fin.Fail<(Vector3d[], int[][])>(key.InvalidInput());
         int k = Math.Min(val1: NormalEstimationNeighbors, val2: points.Length);
         int[][] neighborhoods = [.. RTree.PointCloudKNeighbors(pointcloud: target.Indexed, needlePts: points, amount: k)];
-        return EstimateNormalsFromPoints(points: points, neighborhoodOf: i => NeighborhoodOf(points: points, ids: neighborhoods.Length > i ? neighborhoods[i] : []));
+        return EstimateNormalsFromPoints(points: points, neighborhoodOf: i => NeighborhoodOf(points: points, ids: neighborhoods.Length > i ? neighborhoods[i] : []), key: key)
+            .Map(normals => (Normals: normals, Neighbors: neighborhoods));
     }
     private static (Point3d[] Target, Vector3d[] Normals, double[] Residuals) FindCorrespondences(Seq<Point3d> source, VectorCloud.ClusterCase target, Vector3d[] normals, Transform current) {
         int n = source.Count;
@@ -168,20 +175,21 @@ internal static class PopulationKernel {
     // the symmetric formulation has better convergence for high-curvature surfaces.
     internal static Fin<Transform> SolveSymmetric(Seq<Point3d> source, Point3d[] target, Vector3d[] normals, Transform current, Op key) {
         int n = source.Count;
-        Vector3d[] sourceNormals = EstimateSourceNormals(source: source, current: current);
-        double[] aFlat = new double[n * 6]; double[] b = new double[n];
-        for (int i = 0; i < n; i++) {
-            Point3d p = current * source[index: i]; Point3d q = target[i];
-            Vector3d nrm = (sourceNormals[i] + normals[i]) * 0.5; _ = nrm.Unitize();
-            Vector3d cross = Vector3d.CrossProduct(a: (Vector3d)p, b: nrm);
-            aFlat[(i * 6) + 0] = cross.X; aFlat[(i * 6) + 1] = cross.Y; aFlat[(i * 6) + 2] = cross.Z;
-            aFlat[(i * 6) + 3] = nrm.X; aFlat[(i * 6) + 4] = nrm.Y; aFlat[(i * 6) + 5] = nrm.Z;
-            b[i] = (q - p) * nrm;
-        }
-        return SolveLeastSquares6(aFlat: aFlat, b: b, n: n, key: key).Map(static x => ComposeRigidTransform(omega: new Vector3d(x: x[0], y: x[1], z: x[2]), translation: new Vector3d(x: x[3], y: x[4], z: x[5])));
+        return EstimateSourceNormals(source: source, current: current, key: key).Bind(sourceNormals => {
+            double[] aFlat = new double[n * 6]; double[] b = new double[n];
+            for (int i = 0; i < n; i++) {
+                Point3d p = current * source[index: i]; Point3d q = target[i];
+                Vector3d nrm = (sourceNormals[i] + normals[i]) * 0.5; _ = nrm.Unitize();
+                Vector3d cross = Vector3d.CrossProduct(a: (Vector3d)p, b: nrm);
+                aFlat[(i * 6) + 0] = cross.X; aFlat[(i * 6) + 1] = cross.Y; aFlat[(i * 6) + 2] = cross.Z;
+                aFlat[(i * 6) + 3] = nrm.X; aFlat[(i * 6) + 4] = nrm.Y; aFlat[(i * 6) + 5] = nrm.Z;
+                b[i] = (q - p) * nrm;
+            }
+            return SolveLeastSquares6(aFlat: aFlat, b: b, n: n, key: key).Map(static x => ComposeRigidTransform(omega: new Vector3d(x: x[0], y: x[1], z: x[2]), translation: new Vector3d(x: x[3], y: x[4], z: x[5])));
+        });
     }
-    private static Vector3d[] EstimateSourceNormals(Seq<Point3d> source, Transform current) =>
-        EstimateNormalsFromPoints(points: [.. source.Map(p => current * p).AsIterable()]);
+    private static Fin<Vector3d[]> EstimateSourceNormals(Seq<Point3d> source, Transform current, Op key) =>
+        EstimateNormalsFromPoints(points: [.. source.Map(p => current * p).AsIterable()], key: key);
     // Robust ICP via Welsch IRLS: w_i = exp(-r_i² / (2ν²)), then weighted Procrustes.
     internal static Fin<Transform> SolveRobustProcrustes(Seq<Point3d> source, Point3d[] target, double[] residuals, Transform current, Op key) {
         int n = source.Count;
@@ -284,10 +292,7 @@ internal static class PopulationKernel {
             : Fin.Succ(hull.DuplicateMesh());
     }
     // --- [SAMPLING] -------------------------------------------------------------------------
-    // Bridson 2007 dart-throwing for Poisson disk; greedy MaxMin for FarthestPoint; Lloyd's
-    // relaxation for centroidal Voronoi; greedy + post-relaxation for FPO; capacity-aware
-    // descent for CCVT. All operate on triangulated mesh surface; ScalarField sampling uses
-    // rejection-on-voxel-grid.
+    // Boundary algorithms operate on deterministic triangulated mesh candidates.
     internal static Fin<VectorCloud> SampleOnMesh(SamplingKind kind, MeshSpace domain, Context context, Op key) {
         using AreaMassProperties? props = AreaMassProperties.Compute(mesh: domain.Native);
         return props switch {
@@ -296,7 +301,7 @@ internal static class PopulationKernel {
                 Seq<Point3d> candidates => kind switch {
                     SamplingKind.PoissonDiskCase pd => FromArray(points: PoissonDiskSample(candidates: candidates, radius: pd.Radius.Value), context: context, key: key),
                     SamplingKind.FarthestPointCase fp => FromArray(points: FarthestPointSample(candidates: candidates, count: fp.Count.Value), context: context, key: key),
-                    SamplingKind.FarthestPointOptimizationCase fpo => FromArray(points: FpoSample(candidates: candidates, count: fpo.Count.Value), context: context, key: key),
+                    SamplingKind.FarthestPointOptimizationCase fpo => FromArray(points: FpoSample(candidates: candidates, count: fpo.Count.Value, iterations: fpo.Iterations.Value), context: context, key: key),
                     SamplingKind.LloydCase lloyd => FromArray(points: LloydRelaxation(candidates: candidates, count: lloyd.Count.Value, iterations: lloyd.Iterations.Value), context: context, key: key),
                     SamplingKind.CapacityConstrainedCase ccvt => CapacityConstrainedSample(candidates: candidates, count: ccvt.Count.Value, capacity: ccvt.Capacity.Value, key: key)
                         .Bind(points => FromArray(points: points, context: context, key: key)),
@@ -305,25 +310,10 @@ internal static class PopulationKernel {
             },
         };
     }
-    internal static Fin<VectorCloud> SampleInScalarField(SamplingKind kind, ScalarField domain, BoundingBox region, Context context, Op key) {
-        Seq<Point3d> candidates = EnumerateScalarFieldSubzero(field: domain, region: region, context: context, key: key);
-        return kind switch {
-            SamplingKind.PoissonDiskCase pd => FromArray(points: PoissonDiskSample(candidates: candidates, radius: pd.Radius.Value), context: context, key: key),
-            SamplingKind.FarthestPointCase fp => FromArray(points: FarthestPointSample(candidates: candidates, count: fp.Count.Value), context: context, key: key),
-            SamplingKind.FarthestPointOptimizationCase fpo => FromArray(points: FpoSample(candidates: candidates, count: fpo.Count.Value), context: context, key: key),
-            SamplingKind.LloydCase lloyd => FromArray(points: LloydRelaxation(candidates: candidates, count: lloyd.Count.Value, iterations: lloyd.Iterations.Value), context: context, key: key),
-            SamplingKind.CapacityConstrainedCase ccvt => CapacityConstrainedSample(candidates: candidates, count: ccvt.Count.Value, capacity: ccvt.Capacity.Value, key: key)
-                .Bind(points => FromArray(points: points, context: context, key: key)),
-            _ => Fin.Fail<VectorCloud>(error: key.Unsupported(geometryType: kind.GetType(), outputType: typeof(VectorCloud))),
-        };
-    }
     private static Fin<VectorCloud> FromArray(Point3d[] points, Context context, Op key) =>
         VectorCloud.Cluster(points: toSeq(points), context: context, key: key);
-    // Triangle-area-weighted candidate generator: density approximates samples per unit area.
-#pragma warning disable CA5394
     private static Seq<Point3d> EnumerateMeshSurface(Mesh mesh, double density) {
         List<Point3d> samples = [];
-        Random rng = new(Seed: 17);
         using Mesh triangulated = mesh.DuplicateMesh();
         _ = triangulated.Faces.ConvertQuadsToTriangles();
         for (int f = 0; f < triangulated.Faces.Count; f++) {
@@ -332,26 +322,17 @@ internal static class PopulationKernel {
             Point3d a = triangulated.Vertices[index: face.A]; Point3d b = triangulated.Vertices[index: face.B]; Point3d c = triangulated.Vertices[index: face.C];
             double area = 0.5 * Vector3d.CrossProduct(a: b - a, b: c - a).Length;
             int count = Math.Max(val1: 1, val2: (int)Math.Ceiling(a: area * density));
-            for (int s = 0; s < count; s++) {
-                double r1 = rng.NextDouble(); double r2 = rng.NextDouble();
-                double sqrtR1 = Math.Sqrt(d: r1);
-                double wa = 1.0 - sqrtR1; double wb = sqrtR1 * (1.0 - r2); double wc = sqrtR1 * r2;
-                samples.Add(item: new Point3d(x: (wa * a.X) + (wb * b.X) + (wc * c.X), y: (wa * a.Y) + (wb * b.Y) + (wc * c.Y), z: (wa * a.Z) + (wb * b.Z) + (wc * c.Z)));
+            int side = Math.Max(val1: 1, val2: (int)Math.Ceiling(a: Math.Sqrt(d: count * 2.0)));
+            int emitted = 0;
+            for (int i = 0; i <= side && emitted < count; i++) {
+                for (int j = 0; j <= side - i && emitted < count; j++) {
+                    double wa = (i + 1.0) / (side + 3.0);
+                    double wb = (j + 1.0) / (side + 3.0);
+                    double wc = 1.0 - wa - wb;
+                    samples.Add(item: new Point3d(x: (wa * a.X) + (wb * b.X) + (wc * c.X), y: (wa * a.Y) + (wb * b.Y) + (wc * c.Y), z: (wa * a.Z) + (wb * b.Z) + (wc * c.Z)));
+                    emitted++;
+                }
             }
-        }
-        return toSeq(samples);
-    }
-    private static Seq<Point3d> EnumerateScalarFieldSubzero(ScalarField field, BoundingBox region, Context context, Op key) {
-        Random rng = new(Seed: 23);
-        List<Point3d> samples = [];
-        int target = 2048;
-        for (int n = 0; n < target * 8; n++) {
-            Point3d candidate = new(
-                x: region.Min.X + (rng.NextDouble() * (region.Max.X - region.Min.X)),
-                y: region.Min.Y + (rng.NextDouble() * (region.Max.Y - region.Min.Y)),
-                z: region.Min.Z + (rng.NextDouble() * (region.Max.Z - region.Min.Z)));
-            _ = field.SampleScalar(sample: candidate, context: context, key: key).IfSucc(value => { if (value <= 0.0) samples.Add(item: candidate); });
-            if (samples.Count >= target) break;
         }
         return toSeq(samples);
     }
@@ -360,9 +341,10 @@ internal static class PopulationKernel {
         double r2 = radius * radius;
         List<Point3d> chosen = [];
         PointCloud chosenIndex = [];
-        Random rng = new(Seed: 19);
-        int[] order = [.. Enumerable.Range(start: 0, count: candidates.Count).OrderBy(_ => rng.Next())];
-#pragma warning restore CA5394
+        int[] order = [.. Enumerable.Range(start: 0, count: candidates.Count)
+            .OrderBy(i => candidates[index: i].X)
+            .ThenBy(i => candidates[index: i].Y)
+            .ThenBy(i => candidates[index: i].Z)];
         for (int idx = 0; idx < order.Length; idx++) {
             Point3d p = candidates[index: order[idx]];
             int nearest = chosenIndex.Count > 0 ? chosenIndex.ClosestPoint(testPoint: p) : -1;
@@ -372,44 +354,73 @@ internal static class PopulationKernel {
         return [.. chosen];
     }
     private static Point3d[] FarthestPointSample(Seq<Point3d> candidates, int count) {
+        int[] chosen = FarthestPointIndices(candidates: candidates, count: count);
+        return [.. chosen.Select(i => candidates[index: i])];
+    }
+    private static int[] FarthestPointIndices(Seq<Point3d> candidates, int count) {
         if (candidates.IsEmpty || count < 1) return [];
         int total = candidates.Count;
         int actualCount = Math.Min(val1: count, val2: total);
-        Point3d[] chosen = new Point3d[actualCount];
-        chosen[0] = candidates[index: 0];
+        int[] chosen = new int[actualCount];
+        chosen[0] = InitialCandidateIndex(candidates: candidates);
         double[] minDistSq = new double[total];
-        for (int i = 0; i < total; i++) minDistSq[i] = candidates[index: i].DistanceToSquared(other: chosen[0]);
+        for (int i = 0; i < total; i++) minDistSq[i] = candidates[index: i].DistanceToSquared(other: candidates[index: chosen[0]]);
         for (int pick = 1; pick < actualCount; pick++) {
             int farthest = 0; double best = -1.0;
             for (int i = 0; i < total; i++) if (minDistSq[i] > best) { best = minDistSq[i]; farthest = i; }
-            chosen[pick] = candidates[index: farthest];
-            for (int i = 0; i < total; i++) minDistSq[i] = Math.Min(val1: minDistSq[i], val2: candidates[index: i].DistanceToSquared(other: chosen[pick]));
+            chosen[pick] = farthest;
+            for (int i = 0; i < total; i++) minDistSq[i] = Math.Min(val1: minDistSq[i], val2: candidates[index: i].DistanceToSquared(other: candidates[index: farthest]));
         }
         return chosen;
     }
-    // Schlömer-Heck-Deussen 2011: greedy FPS seed + per-step toroidal relaxation that swaps each
-    // point with its nearest-rejected candidate when the swap reduces max nearest-neighbor distance.
-    private static Point3d[] FpoSample(Seq<Point3d> candidates, int count) {
-        Point3d[] chosen = FarthestPointSample(candidates: candidates, count: count);
-        if (chosen.Length < 2) return chosen;
-        PointCloud candidateIndex = CandidateIndex(candidates: candidates);
-        for (int iter = 0; iter < 8; iter++) {
-            for (int i = 0; i < chosen.Length; i++) {
-                Point3d centroid = Point3d.Origin;
-                int neighborCount = 0;
-                for (int j = 0; j < chosen.Length; j++) {
-                    if (i == j) continue;
-                    centroid = new Point3d(x: centroid.X + chosen[j].X, y: centroid.Y + chosen[j].Y, z: centroid.Z + chosen[j].Z);
-                    neighborCount++;
-                }
-                if (neighborCount > 0) {
-                    Point3d avg = new(x: centroid.X / neighborCount, y: centroid.Y / neighborCount, z: centroid.Z / neighborCount);
-                    Vector3d nudge = chosen[i] - avg; nudge *= 0.05;
-                    chosen[i] = NearestCandidate(candidates: candidates, index: candidateIndex, point: new Point3d(x: chosen[i].X + nudge.X, y: chosen[i].Y + nudge.Y, z: chosen[i].Z + nudge.Z));
-                }
-            }
+    private static int InitialCandidateIndex(Seq<Point3d> candidates) {
+        Point3d centroid = Point3d.Origin;
+        for (int i = 0; i < candidates.Count; i++)
+            centroid = new Point3d(x: centroid.X + candidates[index: i].X, y: centroid.Y + candidates[index: i].Y, z: centroid.Z + candidates[index: i].Z);
+        centroid = new Point3d(x: centroid.X / candidates.Count, y: centroid.Y / candidates.Count, z: centroid.Z / candidates.Count);
+        int farthest = 0; double best = -1.0;
+        for (int i = 0; i < candidates.Count; i++) {
+            double d = candidates[index: i].DistanceToSquared(other: centroid);
+            if (d > best) { best = d; farthest = i; }
         }
-        return chosen;
+        return farthest;
+    }
+    private static Point3d[] FpoSample(Seq<Point3d> candidates, int count, int iterations) {
+        int[] chosen = FarthestPointIndices(candidates: candidates, count: count);
+        if (chosen.Length < 2) return [.. chosen.Select(i => candidates[index: i])];
+        double bestScore = CoveringRadiusSquared(candidates: candidates, chosen: chosen);
+        for (int iter = 0; iter < iterations; iter++) {
+            bool improved = false;
+            int replacement = WorstCoveredCandidate(candidates: candidates, chosen: chosen);
+            for (int i = 0; i < chosen.Length; i++) {
+                if (chosen.Contains(value: replacement)) continue;
+                int previous = chosen[i];
+                chosen[i] = replacement;
+                double score = CoveringRadiusSquared(candidates: candidates, chosen: chosen);
+                if (score + RhinoMath.SqrtEpsilon < bestScore) { bestScore = score; improved = true; break; }
+                chosen[i] = previous;
+            }
+            if (!improved) break;
+        }
+        return [.. chosen.Select(i => candidates[index: i])];
+    }
+    private static double CoveringRadiusSquared(Seq<Point3d> candidates, int[] chosen) {
+        double worst = 0.0;
+        for (int i = 0; i < candidates.Count; i++) worst = Math.Max(val1: worst, val2: MinDistanceToChosen(candidates: candidates, chosen: chosen, candidateIndex: i));
+        return worst;
+    }
+    private static int WorstCoveredCandidate(Seq<Point3d> candidates, int[] chosen) {
+        int worst = 0; double best = -1.0;
+        for (int i = 0; i < candidates.Count; i++) {
+            double distance = MinDistanceToChosen(candidates: candidates, chosen: chosen, candidateIndex: i);
+            if (distance > best) { best = distance; worst = i; }
+        }
+        return worst;
+    }
+    private static double MinDistanceToChosen(Seq<Point3d> candidates, int[] chosen, int candidateIndex) {
+        double best = double.PositiveInfinity;
+        for (int i = 0; i < chosen.Length; i++) best = Math.Min(val1: best, val2: candidates[index: candidateIndex].DistanceToSquared(other: candidates[index: chosen[i]]));
+        return best;
     }
     private static Point3d[] LloydRelaxation(Seq<Point3d> candidates, int count, int iterations) {
         if (candidates.IsEmpty) return [];
@@ -445,6 +456,7 @@ internal static class PopulationKernel {
     private static Fin<Point3d[]> CapacityConstrainedSample(Seq<Point3d> candidates, int count, int capacity, Op key) {
         Point3d[] sites = FarthestPointSample(candidates: candidates, count: count);
         int total = candidates.Count;
+        if (sites.Length == 0 || (sites.Length * capacity) < total) return Fin.Fail<Point3d[]>(key.InvalidInput());
         int[] assignment = new int[total];
         int[] siteFill = new int[sites.Length];
         for (int i = 0; i < total; i++) {
@@ -494,39 +506,43 @@ internal static class PopulationKernel {
     // --- [NORMAL_ORIENTATION] ---------------------------------------------------------------
     // Hoppe-DeRose-Duchamp-McDonald-Stuetzle 1992: build minimum spanning tree over k-nearest
     // neighbour graph weighted by 1 − |n_i · n_j|; flip normals to consistently agree along MST.
-    internal static Fin<Seq<Vector3d>> OrientNormalsViaMst(VectorCloud cloud, Context context, Op key) =>
+    internal static Fin<Seq<Vector3d>> OrientNormalsViaMst(VectorCloud cloud, Op key) =>
         cloud switch {
-            VectorCloud.ClusterCase cluster => OrientClusterNormals(cluster: cluster, context: context, key: key),
+            VectorCloud.ClusterCase cluster => OrientClusterNormals(cluster: cluster, key: key),
             _ => Fin.Fail<Seq<Vector3d>>(error: key.Unsupported(geometryType: cloud.GetType(), outputType: typeof(Seq<Vector3d>))),
         };
-    private static Fin<Seq<Vector3d>> OrientClusterNormals(VectorCloud.ClusterCase cluster, Context context, Op key) {
+    private static Fin<Seq<Vector3d>> OrientClusterNormals(VectorCloud.ClusterCase cluster, Op key) {
         int n = cluster.Vertices.Count;
-        Vector3d[] unoriented = EstimateNormalsViaCovariance(target: cluster);
-        if (n == 0) return Fin.Fail<Seq<Vector3d>>(key.InvalidInput());
-        bool[] visited = new bool[n];
-        double[] bestWeight = [.. Enumerable.Repeat(element: double.PositiveInfinity, count: n)];
-        int[] parent = [.. Enumerable.Repeat(element: -1, count: n)];
-        int topVertex = 0; double topZ = double.MinValue;
-        for (int i = 0; i < n; i++) if (cluster.Vertices[index: i].Z > topZ) { topZ = cluster.Vertices[index: i].Z; topVertex = i; }
-        if (unoriented[topVertex] * Vector3d.ZAxis < 0.0) unoriented[topVertex] = -unoriented[topVertex];
-        bestWeight[topVertex] = 0.0;
-        for (int step = 0; step < n; step++) {
-            int curr = -1; double best = double.PositiveInfinity;
-            for (int i = 0; i < n; i++)
-                if (!visited[i] && bestWeight[i] < best) { best = bestWeight[i]; curr = i; }
-            if (curr < 0) break;
-            visited[curr] = true;
-            if (parent[curr] >= 0 && unoriented[parent[curr]] * unoriented[curr] < 0.0) unoriented[curr] = -unoriented[curr];
-            for (int j = 0; j < n; j++) {
-                if (visited[j] || curr == j) continue;
-                double weight = 1.0 - Math.Abs(value: unoriented[curr] * unoriented[j]);
-                if (weight < bestWeight[j]) { bestWeight[j] = weight; parent[j] = curr; }
-            }
-        }
-        return key.AcceptValue(value: toSeq(unoriented));
+        return n == 0
+            ? Fin.Fail<Seq<Vector3d>>(key.InvalidInput())
+            : EstimateNormalGraph(target: cluster, key: key).Bind(((Vector3d[] Normals, int[][] Neighbors) graph) => {
+                bool[] visited = new bool[n];
+                double[] bestWeight = [.. Enumerable.Repeat(element: double.PositiveInfinity, count: n)];
+                int[] parent = [.. Enumerable.Repeat(element: -1, count: n)];
+                for (int root = 0; root < n; root++) {
+                    if (visited[root]) continue;
+                    bestWeight[root] = 0.0;
+                    for (int step = 0; step < n; step++) {
+                        int curr = -1; double best = double.PositiveInfinity;
+                        for (int i = 0; i < n; i++)
+                            if (!visited[i] && bestWeight[i] < best) { best = bestWeight[i]; curr = i; }
+                        if (curr < 0 || double.IsPositiveInfinity(best)) break;
+                        visited[curr] = true;
+                        if (parent[curr] >= 0 && graph.Normals[parent[curr]] * graph.Normals[curr] < 0.0) graph.Normals[curr] = -graph.Normals[curr];
+                        int[] neighbors = graph.Neighbors.Length > curr ? graph.Neighbors[curr] : [];
+                        for (int e = 0; e < neighbors.Length; e++) {
+                            int j = neighbors[e];
+                            if (j < 0 || j >= n || visited[j] || curr == j) continue;
+                            double weight = 1.0 - Math.Abs(value: graph.Normals[curr] * graph.Normals[j]);
+                            if (weight < bestWeight[j]) { bestWeight[j] = weight; parent[j] = curr; }
+                        }
+                    }
+                }
+                return toSeq(graph.Normals).TraverseM(normal => key.AcceptValue(value: normal)).As();
+            });
     }
-    private static Vector3d[] EstimateNormalsFromPoints(Point3d[] points) =>
-        EstimateNormalsFromPoints(points: points, neighborhoodOf: BatchedNeighborhoods(points: points));
+    private static Fin<Vector3d[]> EstimateNormalsFromPoints(Point3d[] points, Op key) =>
+        EstimateNormalsFromPoints(points: points, neighborhoodOf: BatchedNeighborhoods(points: points), key: key);
     private static Func<int, Seq<Point3d>> BatchedNeighborhoods(Point3d[] points) {
         PointCloud cloud = [];
         cloud.AddRange(points: points);
@@ -538,17 +554,25 @@ internal static class PopulationKernel {
         ids.Length == 0
             ? toSeq(points.Take(Math.Min(val1: NormalEstimationNeighbors, val2: points.Length)))
             : toSeq(ids.Where(i => i >= 0 && i < points.Length).Select(i => points[i]));
-    private static Vector3d[] EstimateNormalsFromPoints(Point3d[] points, Func<int, Seq<Point3d>> neighborhoodOf) {
+    private static Fin<Vector3d[]> EstimateNormalsFromPoints(Point3d[] points, Func<int, Seq<Point3d>> neighborhoodOf, Op key) {
         int n = points.Length;
+        if (n < 3) return Fin.Fail<Vector3d[]>(key.InvalidInput());
         Vector3d[] normals = new Vector3d[n];
         for (int i = 0; i < n; i++) {
             Seq<Point3d> neighborhood = neighborhoodOf(arg: i);
-            normals[i] = CloudKernel.CovarianceOf(points: neighborhood, key: Op.Of())
-                .Bind(stats => stats.Cov.DecomposeEigen(key: Op.Of()))
-                .Map(eigen => CloudKernel.AsVector3d(v: eigen[index: 2].Eigenvector))
-                .Match(Succ: static value => value, Fail: static _ => Vector3d.ZAxis);
-            _ = normals[i].Unitize();
+            if (neighborhood.Count < 3) return Fin.Fail<Vector3d[]>(key.InvalidInput());
+            Fin<Vector3d> normal =
+                from stats in CloudKernel.CovarianceOf(points: neighborhood, key: key)
+                from eigen in stats.Cov.DecomposeEigen(key: key)
+                from _ in eigen.Count >= 3 && eigen[index: 1].Eigenvalue > RhinoMath.SqrtEpsilon
+                    ? Fin.Succ(unit)
+                    : Fin.Fail<Unit>(key.InvalidResult())
+                let raw = CloudKernel.AsVector3d(v: eigen[index: 2].Eigenvector)
+                from direction in Direction.Of(value: raw, tolerance: RhinoMath.ZeroTolerance, key: key)
+                select direction.Value;
+            if (normal.IsFail) return normal.Map(static value => new[] { value });
+            normals[i] = normal.IfFail(Vector3d.Unset);
         }
-        return normals;
+        return Fin.Succ(normals);
     }
 }

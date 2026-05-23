@@ -112,7 +112,8 @@ public sealed partial class CurveProjection {
         from output in (raw, typeof(TOut)) switch {
             (Vector3d v, Type t) when t == typeof(Vector3d) => key.AcceptValue(value: (TOut)(object)v),
             (Vector3d v, Type t) when t == typeof(Direction) => Direction.Of(value: v, context: context, key: key).Bind(d => d.Project<TOut>(key: key)),
-            (Vector3d v, Type t) when t == typeof(double) => key.AcceptValue(value: (TOut)(object)v.Length),
+            (Vector3d v, Type t) when t == typeof(double) =>
+                key.AcceptValue(value: v).Bind(valid => key.AcceptValue(value: (TOut)(object)valid.Length)),
             (Plane p, Type t) when t == typeof(Plane) => key.AcceptValue(value: (TOut)(object)p),
             (Plane p, Type t) when t == typeof(VectorFrame) => VectorFrame.Of(origin: p.Origin, normal: p.ZAxis, xHint: Some(p.XAxis), context: context, key: key).Bind(f => f.Project<TOut>(key: key)),
             (double d, Type t) when t == typeof(double) => key.AcceptValue(value: (TOut)(object)d),
@@ -138,17 +139,19 @@ public sealed partial class SurfaceProjection {
     [UseDelegateFromConstructor] private partial Fin<object> Sample(SurfaceCurvature curvature);
     internal Fin<TOut> Project<TOut>(Surface surface, double u, double v, Context context, Op key) =>
         from _ in guard(surface.Domain(direction: 0).IncludesParameter(t: u) && surface.Domain(direction: 1).IncludesParameter(t: v), key.InvalidInput())
-        from curvature in surface.CurvatureAt(u: u, v: v) is SurfaceCurvature sc && sc.IsSet
-            ? Fin.Succ(sc)
-            : Fin.Fail<SurfaceCurvature>(key.InvalidResult())
-        from raw in Sample(curvature: curvature).BindFail(_ => Fin.Fail<object>(key.InvalidResult()))
-        from output in (raw, typeof(TOut)) switch {
-            (double d, Type t) when t == typeof(double) => key.AcceptValue(value: (TOut)(object)d),
-            (Circle c, Type t) when t == typeof(Circle) => key.AcceptValue(value: (TOut)(object)c),
-            (Vector3d n, Type t) when t == typeof(Vector3d) => key.AcceptValue(value: (TOut)(object)n),
-            (Seq<double> ks, Type t) when t == typeof(Seq<double>) => key.AcceptValue(value: (TOut)(object)ks),
-            _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(SurfaceProjection), outputType: typeof(TOut))),
-        }
+        from output in surface.CurvatureAt(u: u, v: v) is SurfaceCurvature sc && sc.IsSet
+            ? new Lease<SurfaceCurvature>.Owned(Value: sc).Use(curvature =>
+                from raw in Sample(curvature: curvature).BindFail(_ => Fin.Fail<object>(key.InvalidResult()))
+                from projected in (raw, typeof(TOut)) switch {
+                    (double d, Type t) when t == typeof(double) => key.AcceptValue(value: (TOut)(object)d),
+                    (Circle c, Type t) when t == typeof(Circle) => key.AcceptValue(value: (TOut)(object)c),
+                    (Vector3d n, Type t) when t == typeof(Vector3d) => key.AcceptValue(value: (TOut)(object)n),
+                    (Seq<double> ks, Type t) when t == typeof(Seq<double>) =>
+                        ks.TraverseM(k => key.AcceptValue(value: k)).As().Map(static valid => (TOut)(object)valid),
+                    _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(SurfaceProjection), outputType: typeof(TOut))),
+                }
+                select projected)
+            : Fin.Fail<TOut>(key.InvalidResult())
         select output;
 }
 
@@ -187,7 +190,7 @@ public readonly record struct SurfaceSpace {
                from _ in guard(active.IsValid, op.InvalidInput())
                select new SurfaceSpace(native: active, tolerance: ctx);
     }
-    public Fin<TOut> Sample<TOut>(SurfaceProjection projection, double u, double v, Op? key = null) {
+    internal Fin<TOut> Sample<TOut>(SurfaceProjection projection, double u, double v, Op? key = null) {
         Op op = key.OrDefault();
         Surface native = Native; Context tolerance = Tolerance;
         return Optional(projection).ToFin(op.InvalidInput()).Bind(p => p.Project<TOut>(surface: native, u: u, v: v, context: tolerance, key: op));
@@ -272,26 +275,28 @@ public readonly record struct Direction {
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct VectorSpan {
-    private VectorSpan(Point3d anchor, Direction direction, double magnitude) {
+    private VectorSpan(Point3d anchor, Direction direction, PositiveMagnitude magnitude) {
         Anchor = anchor;
         Direction = direction;
         Magnitude = magnitude;
     }
     public Point3d Anchor { get; }
     public Direction Direction { get; }
-    public double Magnitude { get; }
-    public Vector3d Value => Direction * Magnitude;
+    public PositiveMagnitude Magnitude { get; }
+    public Vector3d Value => Direction * Magnitude.Value;
     public Line Axis => new(from: Anchor, to: Anchor + Value);
     public static Fin<VectorSpan> Of(Point3d anchor, Vector3d vector, Context context, Op? key = null) {
         Op op = key.OrDefault();
         return from point in op.AcceptValue(value: anchor)
                from direction in Direction.Of(value: vector, context: context, key: op)
                from magnitude in op.AcceptValidated<PositiveMagnitude>(candidate: vector.Length)
-               select new VectorSpan(anchor: point, direction: direction, magnitude: magnitude.Value);
+               let span = new VectorSpan(anchor: point, direction: direction, magnitude: magnitude)
+               from _ in guard(span.Axis.IsValid, op.InvalidResult())
+               select span;
     }
     internal static Fin<VectorSpan> Of(Point3d anchor, Direction direction, double magnitude, Op key) =>
         (key.AcceptValue(value: anchor), key.AcceptValidated<PositiveMagnitude>(candidate: magnitude))
-            .Apply((point, length) => new VectorSpan(anchor: point, direction: direction, magnitude: length.Value))
+            .Apply((point, length) => new VectorSpan(anchor: point, direction: direction, magnitude: length))
             .As()
             .Bind(span => guard(span.Axis.IsValid, key.InvalidResult()).Bind(_ => Fin.Succ(span)));
     internal Fin<(double X, double Y)> Components(Plane frame, Op key) {
@@ -310,7 +315,7 @@ public readonly record struct VectorSpan {
             Type t when t == typeof(Direction) => Direction.Project<TOut>(key: key),
             Type t when t == typeof(Vector3d) => key.AcceptValue(value: Value).Map(static value => (TOut)(object)value),
             Type t when t == typeof(Line) => key.AcceptValue(value: Axis).Map(static value => (TOut)(object)value),
-            Type t when t == typeof(double) => key.AcceptValue(value: Magnitude).Map(static value => (TOut)(object)value),
+            Type t when t == typeof(double) => key.AcceptValue(value: Magnitude.Value).Map(static value => (TOut)(object)value),
             _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(VectorSpan), outputType: typeof(TOut))),
         };
 }

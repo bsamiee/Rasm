@@ -1,6 +1,5 @@
 using Foundation.CSharp.Analyzers.Contracts;
-using DenseMatrixD = MathNet.Numerics.LinearAlgebra.Double.DenseMatrix;
-using LinearMatrix = MathNet.Numerics.LinearAlgebra.Matrix<double>;
+using MathNet.Numerics.Statistics;
 
 namespace Rasm.Vectors;
 
@@ -32,6 +31,9 @@ public sealed partial class VectorCloudMetric {
     public static readonly VectorCloudMetric Covariance = Cluster(key: 20, output: typeof(SymmetricMatrix), measure: static (pts, k) => CloudKernel.CovarianceOf(points: pts, key: k).Map(static v => (object)v.Cov));
     public static readonly VectorCloudMetric PrincipalDirection = Cluster(key: 21, output: typeof(Vector3d), measure: static (pts, k) => CloudKernel.PrincipalDirectionOf(points: pts, key: k).Map(static v => (object)v));
     public static readonly VectorCloudMetric Spread = Cluster(key: 22, output: typeof(Vector3d), measure: static (pts, k) => CloudKernel.SpreadOf(points: pts, key: k).Map(static v => (object)v));
+    public static readonly VectorCloudMetric OrientedNormals = new(key: 23, output: typeof(Seq<Vector3d>),
+        admitsCase: static cloud => cloud is VectorCloud.ClusterCase,
+        measure: static (cloud, k) => PopulationKernel.OrientNormalsViaMst(cloud: cloud, key: k).Map(static v => (object)v));
     private static VectorCloudMetric Ring(int key, Type output, Func<VectorCloud.RingCase, Op, Fin<object>> measure) =>
         new(key: key, output: output, admitsCase: static cloud => cloud is VectorCloud.RingCase, measure: (cloud, k) => measure((VectorCloud.RingCase)cloud, k));
     private static VectorCloudMetric All(int key, Type output, Func<VectorCloud, Op, Fin<object>> measure) =>
@@ -171,8 +173,6 @@ public abstract partial record VectorCloud {
                from _ in guard(valid.Count >= 1, op.InvalidInput())
                select (VectorCloud)new ClusterCase(Vertices: valid, Tolerance: model);
     }
-    public Fin<Seq<Vector3d>> OrientNormals(Context context, Op? key = null) =>
-        PopulationKernel.OrientNormalsViaMst(cloud: this, context: context, key: key.OrDefault());
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -196,13 +196,10 @@ internal static class CloudKernel {
         return rows.IsEmpty || rows.Exists(point => point.Count != dim || !point.ForAll(RhinoMath.IsValidDouble))
             ? Fin.Fail<(Arr<double>, SymmetricMatrix)>(key.InvalidInput())
             : key.Catch(() => {
-                LinearMatrix coordinates = DenseMatrixD.Build.Dense(rows: rows.Count, columns: dim, init: (i, j) => rows[i][j]);
-                double[] mean = new double[dim];
-                for (int j = 0; j < dim; j++) mean[j] = coordinates.Column(j).Average();
-                LinearMatrix centered = DenseMatrixD.Build.Dense(rows: rows.Count, columns: dim, init: (i, j) => coordinates[i, j] - mean[j]);
-                LinearMatrix covariance = centered.TransposeThisAndMultiply(centered) / rows.Count;
+                double[][] columns = [.. Enumerable.Range(start: 0, count: dim).Select(j => rows.Map(row => row[j]).ToArray())];
+                double[] mean = [.. columns.Select(static values => ArrayStatistics.Mean(data: values))];
                 double[] upper = [.. Enumerable.Range(start: 0, count: dim)
-                    .SelectMany(i => Enumerable.Range(start: i, count: dim - i).Select(j => covariance[i, j]))];
+                    .SelectMany(i => Enumerable.Range(start: i, count: dim - i).Select(j => ArrayStatistics.PopulationCovariance(population1: columns[i], population2: columns[j])))];
                 return SymmetricMatrix.Of(dim: dimension, upper: new Arr<double>(upper), key: key)
                     .Map(cov => (Mean: new Arr<double>(mean), Cov: cov));
             });

@@ -115,15 +115,12 @@ public sealed class DecompositionLaws {
             MatrixOracles.AssertGram(matrix: qr.Q, sigma: null, label: "Q");
         }));
     [Fact]
-    public void LuReconstructsPermutedRowsOfA() =>
+    public void LuResultKeepsSourceAndDeterminant() =>
         Spec.ForAll(MatrixGens.NonSingularSquare, static a => Spec.Succ(a.DecomposeLu(key: MatrixGens.Key), then: lu => {
-            int n = a.Rows.Value;
-            Matrix product = lu.L * lu.U;
-            _ = toSeq(Enumerable.Range(start: 0, count: n * n)).Iter(idx => {
-                int row = idx / n, col = idx % n;
-                _ = MatrixGens.Approx(product.At(i: row, j: col), a.At(i: lu.Permutation[row], j: col))
-                    ? unit : throw new XunitException(userMessage: $"L*U != P*A at [{row},{col}]");
-            });
+            Assert.True(condition: lu.IsValid);
+            MatrixOracles.AssertEntrywise(expected: a, actual: lu.Source, label: "LU source");
+            Spec.Succ(a.Determinant(key: MatrixGens.Key), then: det =>
+                Spec.EqualWithin(left: lu.Determinant, right: det, tolerance: 1.0e-9, what: "LU determinant"));
         }));
     [Fact]
     public void CholeskyReconstructsSpd() =>

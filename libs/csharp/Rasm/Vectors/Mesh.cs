@@ -26,46 +26,39 @@ public readonly record struct MeshSpace {
         return from active in Optional(native).ToFin(op.InvalidInput())
                from ctx in Optional(context).ToFin(op.MissingContext())
                from _ in guard(active.IsValid, op.InvalidInput())
-               select new MeshSpace(native: active, tolerance: ctx);
+               let snapshot = active.DuplicateMesh()
+               let __ = snapshot.Faces.ConvertQuadsToTriangles()
+               select new MeshSpace(native: snapshot, tolerance: ctx);
     }
     internal LaplacianCache Cache => LaplacianCache.For(space: this);
     public Fin<SparseLaplacian> Laplacian(MeshLaplacian kind, Op? key = null) =>
         MeshKernel.LaplacianOf(space: this, kind: kind, key: key.OrDefault());
-    public Fin<int> EulerCharacteristic(Op? key = null) =>
+    internal Fin<int> EulerCharacteristic(Op? key = null) =>
         MeshKernel.EulerCharacteristicOf(space: this, key: key.OrDefault());
-    public Fin<(int Euler, int Genus, int BoundaryComponents)> Topology(Op? key = null) =>
+    internal Fin<(int Euler, int Genus, int BoundaryComponents)> Topology(Op? key = null) =>
         MeshKernel.TopologyOf(space: this, key: key.OrDefault());
-    public Fin<Seq<(int A, int B)>> FeatureEdges(double dihedralRadians, Op? key = null) =>
+    internal Fin<Seq<(int A, int B)>> FeatureEdges(double dihedralRadians, Op? key = null) =>
         MeshKernel.DetectFeatureEdgesOf(space: this, dihedralRadians: dihedralRadians, key: key.OrDefault());
-    public Fin<double> MeanEdgeLength(Op? key = null) =>
+    internal Fin<double> MeanEdgeLength(Op? key = null) =>
         key.OrDefault().AcceptValue(value: Cache.MeanEdgeLength);
-    public Fin<RTree> FaceTree(Op? key = null) =>
-        Cache.FaceTree.Bind(tree => key.OrDefault().AcceptValue(value: tree));
 }
 
 internal sealed class LaplacianCache {
     private static readonly ConditionalWeakTable<object, LaplacianCache> Table = [];
     private readonly Lazy<Fin<SparseLaplacian>> cotangent;
     private readonly Lazy<Fin<SparseLaplacian>> intrinsicDelaunay;
-    private readonly Lazy<Fin<SparseLaplacian>> nonmanifold;
-    private readonly Lazy<Fin<RTree>> faceTree;
     private readonly Lazy<double> meanEdgeLength;
     internal Dictionary<string, object> FieldCache { get; } = [];
     private LaplacianCache(MeshSpace space) {
         Op fallback = Op.Of();
         cotangent = new Lazy<Fin<SparseLaplacian>>(valueFactory: () => MeshKernel.AssembleCotangent(mesh: space.Native, key: fallback));
         intrinsicDelaunay = new Lazy<Fin<SparseLaplacian>>(valueFactory: () => MeshKernel.AssembleIntrinsicDelaunay(mesh: space.Native, key: fallback));
-        nonmanifold = new Lazy<Fin<SparseLaplacian>>(valueFactory: () => MeshKernel.AssembleNonmanifold(mesh: space.Native, key: fallback));
-        faceTree = new Lazy<Fin<RTree>>(valueFactory: () =>
-            RTree.CreateMeshFaceTree(mesh: space.Native) is { } tree ? Fin.Succ(tree) : Fin.Fail<RTree>(fallback.InvalidResult()));
         meanEdgeLength = new Lazy<double>(valueFactory: () => MeshKernel.MeanEdgeLengthOf(mesh: space.Native));
     }
     internal static LaplacianCache For(MeshSpace space) =>
         Table.GetValue(key: space.Native, createValueCallback: _ => new LaplacianCache(space: space));
     internal Fin<SparseLaplacian> Cotangent => cotangent.Value;
     internal Fin<SparseLaplacian> IntrinsicDelaunay => intrinsicDelaunay.Value;
-    internal Fin<SparseLaplacian> Nonmanifold => nonmanifold.Value;
-    internal Fin<RTree> FaceTree => faceTree.Value;
     internal double MeanEdgeLength => meanEdgeLength.Value;
 }
 
@@ -73,7 +66,6 @@ internal sealed class LaplacianCache {
 public sealed partial class MeshLaplacian {
     public static readonly MeshLaplacian Cotangent = new(key: 0, select: static cache => cache.Cotangent);
     public static readonly MeshLaplacian IntrinsicDelaunay = new(key: 1, select: static cache => cache.IntrinsicDelaunay);
-    public static readonly MeshLaplacian Nonmanifold = new(key: 2, select: static cache => cache.Nonmanifold);
     [UseDelegateFromConstructor] internal partial Fin<SparseLaplacian> Select(LaplacianCache cache);
 }
 
@@ -167,19 +159,16 @@ internal static class MeshKernel {
     // interior edge satisfies the Delaunay condition (α + β ≤ π); cotangent weights assembled
     // on the flipped intrinsic mesh are then provably non-negative.
     internal static Fin<SparseLaplacian> AssembleIntrinsicDelaunay(Mesh mesh, Op key) =>
-        AssembleCotangentFromIntrinsic(imesh: FlipToDelaunay(IntrinsicMesh.FromMesh(mesh: mesh)), key: key);
-    // Sharp-Crane 2020 nonmanifold path: duplicate each face along nonmanifold edges into the
-    // tufted cover (each nonmanifold edge becomes paired manifold edges), then IDT-flip and
-    // assemble cotangent on the lift.
-    internal static Fin<SparseLaplacian> AssembleNonmanifold(Mesh mesh, Op key) =>
-        AssembleCotangentFromIntrinsic(imesh: FlipToDelaunay(IntrinsicMesh.TuftedCoverOf(mesh: mesh)), key: key);
+        from intrinsic in FlipToDelaunay(imesh: IntrinsicMesh.FromMesh(mesh: mesh), key: key)
+        from laplacian in AssembleCotangentFromIntrinsic(imesh: intrinsic, key: key)
+        select laplacian;
 
     private sealed class IntrinsicMesh {
-        public int VertexCount;
-        public readonly List<(int A, int B, int C)?> Triangles = [];
-        public readonly Dictionary<(int Lo, int Hi), (double Length, List<int> FaceIdx)> EdgeData = [];
+        internal int VertexCount;
+        internal readonly List<(int A, int B, int C)?> Triangles = [];
+        internal readonly Dictionary<(int Lo, int Hi), (double Length, List<int> FaceIdx)> EdgeData = [];
         private static (int, int) EdgeKey(int i, int j) => (Math.Min(val1: i, val2: j), Math.Max(val1: i, val2: j));
-        public static IntrinsicMesh FromMesh(Mesh mesh) {
+        internal static IntrinsicMesh FromMesh(Mesh mesh) {
             using Mesh active = mesh.DuplicateMesh();
             _ = active.Faces.ConvertQuadsToTriangles();
             IntrinsicMesh m = new() { VertexCount = active.Vertices.Count };
@@ -191,28 +180,7 @@ internal static class MeshKernel {
             }
             return m;
         }
-        // Tufted cover: for each nonmanifold edge (>2 incident faces or inconsistent orientation),
-        // duplicate the offending faces so every edge in the lift has exactly 1 or 2 incident faces.
-        public static IntrinsicMesh TuftedCoverOf(Mesh mesh) {
-            IntrinsicMesh original = FromMesh(mesh: mesh);
-            IntrinsicMesh covered = new() { VertexCount = original.VertexCount };
-            for (int f = 0; f < original.Triangles.Count; f++) {
-                (int A, int B, int C)? tri = original.Triangles[index: f];
-                if (tri is null) continue;
-                (int a, int b, int c) = tri.Value;
-                double lAB = original.EdgeLengthOf(i: a, j: b);
-                double lBC = original.EdgeLengthOf(i: b, j: c);
-                double lAC = original.EdgeLengthOf(i: a, j: c);
-                _ = covered.AddTriangle(a: a, b: b, c: c, lAB: lAB, lBC: lBC, lAC: lAC);
-                bool hasNonmanifoldEdge =
-                    original.EdgeData[key: EdgeKey(i: a, j: b)].FaceIdx.Count > 2 ||
-                    original.EdgeData[key: EdgeKey(i: b, j: c)].FaceIdx.Count > 2 ||
-                    original.EdgeData[key: EdgeKey(i: a, j: c)].FaceIdx.Count > 2;
-                if (hasNonmanifoldEdge) _ = covered.AddTriangle(a: a, b: c, c: b, lAB: lAC, lBC: lBC, lAC: lAB);
-            }
-            return covered;
-        }
-        public int AddTriangle(int a, int b, int c, double lAB, double lBC, double lAC) {
+        internal int AddTriangle(int a, int b, int c, double lAB, double lBC, double lAC) {
             int idx = Triangles.Count;
             Triangles.Add(item: (a, b, c));
             AddEdgeReference(i: a, j: b, length: lAB, faceIdx: idx);
@@ -225,14 +193,14 @@ internal static class MeshKernel {
             if (EdgeData.TryGetValue(key: key, value: out (double Length, List<int> FaceIdx) existing)) existing.FaceIdx.Add(item: faceIdx);
             else EdgeData[key: key] = (Length: length, FaceIdx: [faceIdx]);
         }
-        public double EdgeLengthOf(int i, int j) => EdgeData[key: EdgeKey(i: i, j: j)].Length;
-        public int OppositeVertex(int faceIdx, int i, int j) {
+        internal double EdgeLengthOf(int i, int j) => EdgeData[key: EdgeKey(i: i, j: j)].Length;
+        internal int OppositeVertex(int faceIdx, int i, int j) {
             (int a, int b, int c) = Triangles[index: faceIdx]!.Value;
             return a != i && a != j ? a : b != i && b != j ? b : c;
         }
-        public bool IsInterior(int i, int j) =>
+        internal bool IsInterior(int i, int j) =>
             EdgeData.TryGetValue(key: EdgeKey(i: i, j: j), value: out (double Length, List<int> FaceIdx) e) && e.FaceIdx.Count == 2;
-        public bool IsDelaunay(int i, int j) {
+        internal bool IsDelaunay(int i, int j) {
             if (!IsInterior(i: i, j: j)) return true;
             List<int> faces = EdgeData[key: EdgeKey(i: i, j: j)].FaceIdx;
             int k1 = OppositeVertex(faceIdx: faces[index: 0], i: i, j: j);
@@ -241,14 +209,11 @@ internal static class MeshKernel {
             double cosB = CosAngleOppositeEdge(i: i, j: j, k: k2);
             return cosA + cosB >= -RhinoMath.SqrtEpsilon;
         }
-        // Law of cosines: angle at k opposite edge (i, j). cos α = (l_ik² + l_jk² - l_ij²) / (2 l_ik l_jk).
-        public double CosAngleOppositeEdge(int i, int j, int k) {
+        internal double CosAngleOppositeEdge(int i, int j, int k) {
             double lij = EdgeLengthOf(i: i, j: j); double lik = EdgeLengthOf(i: i, j: k); double ljk = EdgeLengthOf(i: j, j: k);
             return ((lik * lik) + (ljk * ljk) - (lij * lij)) / (2.0 * lik * ljk);
         }
-        // Sharp-Soliman-Crane intrinsic flip on edge (i, j) between f1 and f2: new edge connects
-        // the two opposite vertices k1, k2; length computed via cosine law in the flat development.
-        public Seq<(int, int)> Flip(int i, int j) {
+        internal Seq<(int, int)> Flip(int i, int j) {
             (int Lo, int Hi) key = EdgeKey(i: i, j: j);
             List<int> faces = EdgeData[key: key].FaceIdx;
             int f1 = faces[index: 0]; int f2 = faces[index: 1];
@@ -275,7 +240,7 @@ internal static class MeshKernel {
             return Seq((i, k1), (j, k1), (i, k2), (j, k2));
         }
     }
-    private static IntrinsicMesh FlipToDelaunay(IntrinsicMesh imesh) {
+    private static Fin<IntrinsicMesh> FlipToDelaunay(IntrinsicMesh imesh, Op key) {
         Queue<(int, int)> queue = new(collection: imesh.EdgeData.Keys.Select(static k => (k.Lo, k.Hi)));
         int flipCap = imesh.EdgeData.Count * 16;
         int flips = 0;
@@ -286,7 +251,9 @@ internal static class MeshKernel {
             for (int s = 0; s < affected.Count; s++) queue.Enqueue(item: affected[s]);
             flips++;
         }
-        return imesh;
+        return imesh.EdgeData.Keys.All(edge => imesh.IsDelaunay(i: edge.Lo, j: edge.Hi))
+            ? Fin.Succ(imesh)
+            : Fin.Fail<IntrinsicMesh>(key.InvalidResult());
     }
     // Heron-based cotangent assembly from intrinsic edge lengths. After IDT flipping, every
     // interior cotangent (in the form 2·cot α = (l_ik² + l_jk² - l_ij²)/(2·area)) is positive.
@@ -309,6 +276,8 @@ internal static class MeshKernel {
             double cotA = ((lAC * lAC) + (lAB * lAB) - (lBC * lBC)) / (4.0 * area);
             double cotB = ((lAB * lAB) + (lBC * lBC) - (lAC * lAC)) / (4.0 * area);
             double cotC = ((lAC * lAC) + (lBC * lBC) - (lAB * lAB)) / (4.0 * area);
+            if (cotA < -RhinoMath.SqrtEpsilon || cotB < -RhinoMath.SqrtEpsilon || cotC < -RhinoMath.SqrtEpsilon)
+                return Fin.Fail<SparseLaplacian>(key.InvalidResult());
             stiffTriplets.Add(item: (vb, vc, -0.5 * cotA)); stiffTriplets.Add(item: (vc, vb, -0.5 * cotA));
             stiffTriplets.Add(item: (vc, va, -0.5 * cotB)); stiffTriplets.Add(item: (va, vc, -0.5 * cotB));
             stiffTriplets.Add(item: (va, vb, -0.5 * cotC)); stiffTriplets.Add(item: (vb, va, -0.5 * cotC));
@@ -332,7 +301,9 @@ internal static class MeshKernel {
     // --- [SELECTION] ------------------------------------------------------------------------
     internal static Fin<SparseLaplacian> LaplacianOf(MeshSpace space, MeshLaplacian kind, Op key) =>
         from active in Optional(kind).ToFin(key.InvalidInput())
-        from _ in AspectRatioGuard(mesh: space.Native, ceiling: AspectRatioCeiling, key: key)
+        from _ in active.Equals(MeshLaplacian.Cotangent)
+            ? AspectRatioGuard(mesh: space.Native, ceiling: AspectRatioCeiling, key: key)
+            : Fin.Succ(unit)
         from result in active.Select(cache: space.Cache)
         select result;
 
@@ -396,6 +367,11 @@ internal static class MeshKernel {
         List<(int A, int B)> features = [];
         for (int e = 0; e < mesh.TopologyEdges.Count; e++) {
             int[] faces = mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: e);
+            if (faces.Length == 1) {
+                IndexPair p = mesh.TopologyEdges.GetTopologyVertices(topologyEdgeIndex: e);
+                features.Add(item: (p.I, p.J));
+                continue;
+            }
             if (faces.Length != 2) continue;
             Vector3d na = (Vector3d)faceNormals[faces[0]]; Vector3d nb = (Vector3d)faceNormals[faces[1]];
             if (Vector3d.VectorAngle(a: na, b: nb) >= dihedralRadians) {
@@ -419,7 +395,7 @@ internal static class MeshKernel {
     private sealed record DoubleBoxArr(Arr<double> Values);
     internal static Fin<double> HeatGeodesicAt(MeshSpace space, Seq<int> sources, Point3d sample, Op key) =>
         from distances in EnsureGeodesicDistances(space: space, sources: sources, key: key)
-        from value in InterpolateOnFaceTree(space: space, sample: sample, perVertex: distances, key: key)
+        from value in InterpolateOnMesh(space: space, sample: sample, perVertex: distances, key: key)
         select value;
     private static Fin<Arr<double>> EnsureGeodesicDistances(MeshSpace space, Seq<int> sources, Op key) {
         string cacheKey = string.Create(CultureInfo.InvariantCulture, $"geodesic|{string.Join(separator: ",", values: sources.AsIterable().OrderBy(static i => i))}");
@@ -464,8 +440,8 @@ internal static class MeshKernel {
         for (int i = 0; i < L.Stiffness.Rows.Value; i++)
             for (int k = L.Stiffness.RowPtr[index: i]; k < L.Stiffness.RowPtr[index: i + 1]; k++)
                 result.Add(item: (i, L.Stiffness.ColInd[index: k], L.Stiffness.Values[index: k]));
-        int pin = sources.IsEmpty ? 0 : sources[index: 0];
-        result.Add(item: (pin, pin, 1.0e10));
+        Seq<int> pins = sources.IsEmpty ? Seq(0) : sources;
+        for (int i = 0; i < pins.Count; i++) result.Add(item: (pins[index: i], pins[index: i], 1.0e10));
         return result;
     }
     private static Vector3d[] ComputeTriangleGradients(Mesh mesh, Arr<double> u) {
@@ -510,7 +486,7 @@ internal static class MeshKernel {
         double min = values.Fold(initialState: double.MaxValue, f: static (m, v) => Math.Min(val1: m, val2: v));
         return new Arr<double>([.. values.AsIterable().Select(v => v - min)]);
     }
-    private static Fin<double> InterpolateOnFaceTree(MeshSpace space, Point3d sample, Arr<double> perVertex, Op key) {
+    private static Fin<double> InterpolateOnMesh(MeshSpace space, Point3d sample, Arr<double> perVertex, Op key) {
         MeshPoint meshPoint = space.Native.ClosestMeshPoint(testPoint: sample, maximumDistance: MeshSearchDistance(space: space));
         return meshPoint is null || meshPoint.FaceIndex < 0
             ? Fin.Fail<double>(key.InvalidResult())
@@ -531,7 +507,7 @@ internal static class MeshKernel {
     // scalar field — a proxy for total displacement induced by the flow.
     internal static Fin<double> MeanCurvatureMagnitudeAt(MeshSpace space, double timeStep, int iterations, Point3d sample, Op key) =>
         from displacements in EnsureMcfDisplacements(space: space, timeStep: timeStep, iterations: iterations, key: key)
-        from value in InterpolateOnFaceTree(space: space, sample: sample, perVertex: displacements, key: key)
+        from value in InterpolateOnMesh(space: space, sample: sample, perVertex: displacements, key: key)
         select value;
     private static Fin<Arr<double>> EnsureMcfDisplacements(MeshSpace space, double timeStep, int iterations, Op key) {
         string cacheKey = string.Create(CultureInfo.InvariantCulture, $"mcf|{timeStep:R}|{iterations}");
@@ -566,10 +542,8 @@ internal static class MeshKernel {
             Fin<Arr<double>> sy = system.Solve(rhs: new Arr<double>(rhsY), key: key);
             Fin<Arr<double>> sz = system.Solve(rhs: new Arr<double>(rhsZ), key: key);
             Fin<(Arr<double> X, Arr<double> Y, Arr<double> Z)> step = from a in sx from b in sy from c in sz select (X: a, Y: b, Z: c);
-            (Arr<double> nx, Arr<double> ny, Arr<double> nz) = step.Match(
-                Succ: static value => value,
-                Fail: static _ => (X: [], Y: [], Z: []));
-            if (nx.IsEmpty || ny.IsEmpty || nz.IsEmpty) return Fin.Fail<(double[], double[], double[])>(key.InvalidResult());
+            if (step.IsFail) return step.Map(static _ => (X: System.Array.Empty<double>(), Y: System.Array.Empty<double>(), Z: System.Array.Empty<double>()));
+            (Arr<double> nx, Arr<double> ny, Arr<double> nz) = step.IfFail((X: [], Y: [], Z: []));
             for (int i = 0; i < n; i++) { x[i] = nx[index: i]; y[i] = ny[index: i]; z[i] = nz[index: i]; }
         }
         return Fin.Succ((X: x, Y: y, Z: z));

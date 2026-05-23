@@ -75,7 +75,7 @@ public readonly record struct Matrix(Dimension Rows, Dimension Cols, Arr<double>
         kind is null ? Fin.Fail<double>(error: key.OrDefault().InvalidInput()) : Fin.Succ(kind.Compute(matrix: this));
     public Fin<double> Trace(Op? key = null) => key.OrDefault().AcceptValue(value: MatrixKernel.ToMathNet(this).Trace());
     public Fin<double> Determinant(Op? key = null) =>
-        DecomposeLu(key: key.OrDefault()).Map(static lu => lu.Determinant);
+        MatrixKernel.Determinant(matrix: this, key: key.OrDefault());
     public Fin<double> Spectral(Op? key = null) =>
         DecomposeSvd(key: key.OrDefault()).Map(static svd => svd.Sigma.IsEmpty ? 0.0 : svd.Sigma[0]);
     public Fin<Arr<double>> Solve(Arr<double> rhs, Op? key = null) =>
@@ -90,47 +90,18 @@ public readonly record struct Matrix(Dimension Rows, Dimension Cols, Arr<double>
             : op.Catch(() => Fin.Succ(MatrixKernel.FromMathNet(MatrixKernel.ToMathNet(self).Inverse(), self.Rows, self.Cols)));
     }
     public Fin<Matrix> PseudoInverse(Op? key = null) =>
-        DecomposeSvd(key: key.OrDefault()).Map(static svd => svd.PseudoInverse());
+        MatrixKernel.PseudoInverse(matrix: this, key: key.OrDefault());
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SvdResult(Matrix U, Arr<double> Sigma, Matrix V) {
+public readonly record struct SvdResult(Matrix U, Arr<double> Sigma, Matrix V, int Rank) {
     public bool IsValid => U.IsValid && V.IsValid && Sigma.All(static value => RhinoMath.IsValidDouble(x: value) && value >= 0.0);
-    public int NumericalRank() {
-        Arr<double> sigma = Sigma;
-        if (sigma.IsEmpty) return 0;
-        double maxSigma = sigma.Fold(initialState: 0.0, f: static (m, s) => Math.Max(val1: m, val2: s));
-        int largerDim = Math.Max(val1: U.Rows.Value, val2: V.Cols.Value);
-        double threshold = maxSigma * RhinoMath.SqrtEpsilon * largerDim;
-        return sigma.Fold(initialState: 0, f: (count, s) => s > threshold ? count + 1 : count);
-    }
-    public Matrix PseudoInverse() {
-        Arr<double> sigma = Sigma;
-        int uCols = U.Cols.Value;
-        int vCols = V.Cols.Value;
-        double threshold = sigma.IsEmpty ? 0.0 :
-            sigma.Fold(initialState: 0.0, f: static (m, s) => Math.Max(val1: m, val2: s)) * RhinoMath.SqrtEpsilon * Math.Max(uCols, vCols);
-        Matrix sigmaInv = new(Rows: V.Cols, Cols: U.Cols,
-            Entries: [.. toSeq(Enumerable.Range(start: 0, count: vCols * uCols))
-                .Map(idx => (idx / uCols) == (idx % uCols) && (idx / uCols) < sigma.Count && sigma[idx / uCols] > threshold
-                    ? 1.0 / sigma[idx / uCols]
-                    : 0.0)]);
-        return V * sigmaInv * U.Transpose();
-    }
+    public int NumericalRank() => Rank;
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct LuResult(Arr<int> Permutation, int SwapCount, Matrix L, Matrix U, Matrix Source) {
-    public bool IsValid => L.IsValid && U.IsValid && Permutation.Count == L.Rows.Value;
-    public double Determinant {
-        get {
-            Matrix u = U;
-            int n = L.Rows.Value;
-            double sign = (SwapCount % 2 == 0) ? 1.0 : -1.0;
-            return sign * toSeq(Enumerable.Range(start: 0, count: n))
-                .Fold(initialState: 1.0, f: (product, i) => product * u.At(i: i, j: i));
-        }
-    }
+public readonly record struct LuResult(Matrix Source, double Determinant) {
+    public bool IsValid => Source.IsValid && RhinoMath.IsValidDouble(x: Determinant);
     public Arr<double> Solve(Arr<double> rhs) => MatrixKernel.LuSolve(lu: this, rhs: rhs);
 }
 
@@ -236,46 +207,39 @@ public sealed partial class MatrixNormKind {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class MatrixKernel {
+    private const int RealInitialBasisSeed = 17;
+    private const int HermitianInitialBasisSeed = 19;
     // --- [BRIDGE] ---------------------------------------------------------------------------
     internal static DenseMatrixD ToMathNet(Matrix m) =>
         (DenseMatrixD)DenseMatrixD.Build.DenseOfRowMajor(m.Rows.Value, m.Cols.Value, m.Entries.AsIterable());
-    internal static Matrix FromMathNet(Matrix<double> m, Dimension rows, Dimension cols) {
-        double[] entries = new double[rows.Value * cols.Value];
-        for (int i = 0; i < rows.Value; i++)
-            for (int j = 0; j < cols.Value; j++)
-                entries[(i * cols.Value) + j] = m[i, j];
-        return new Matrix(Rows: rows, Cols: cols, Entries: new Arr<double>(entries));
-    }
+    internal static Matrix FromMathNet(Matrix<double> m, Dimension rows, Dimension cols) =>
+        new(Rows: rows, Cols: cols, Entries: new Arr<double>(m.ToRowMajorArray()));
     private static DenseMatrixC ToMathNetComplex(Matrix m) =>
         (DenseMatrixC)DenseMatrixC.Build.Dense(m.Rows.Value, m.Cols.Value, (i, j) => new Complex(m.At(i: i, j: j), 0.0));
     private static Arr<double> ArrFromVector(LinearVector v) => new(v.ToArray());
 
     // --- [DENSE_DECOMPOSITIONS] -------------------------------------------------------------
-    internal static Fin<SvdResult> Svd(Matrix matrix, Op key) {
+    internal static Fin<SvdResult> Svd(Matrix matrix, Op key) => key.Catch(() => {
         MathNet.Numerics.LinearAlgebra.Factorization.Svd<double> svd = ToMathNet(matrix).Svd(computeVectors: true);
         return Fin.Succ(new SvdResult(
             U: FromMathNet(svd.U, matrix.Rows, matrix.Rows),
             Sigma: ArrFromVector(svd.S),
-            V: FromMathNet(svd.VT.Transpose(), matrix.Cols, matrix.Cols)));
-    }
-    internal static Fin<LuResult> Lu(Matrix matrix, Op key) {
-        if (matrix.Rows.Value != matrix.Cols.Value) return Fin.Fail<LuResult>(key.InvalidInput());
-        MathNet.Numerics.LinearAlgebra.Factorization.LU<double> lu = ToMathNet(matrix).LU();
-        int n = matrix.Rows.Value;
-        Arr<int> permutation = ExtractPermutation(p: lu.P, n: n);
-        return Fin.Succ(new LuResult(
-            Permutation: permutation,
-            SwapCount: CountSwaps(perm: permutation, n: n),
-            L: FromMathNet(lu.L, matrix.Rows, matrix.Cols),
-            U: FromMathNet(lu.U, matrix.Rows, matrix.Cols),
-            Source: matrix));
-    }
-    internal static Fin<QrResult> Qr(Matrix matrix, Op key) {
+            V: FromMathNet(svd.VT.Transpose(), matrix.Cols, matrix.Cols),
+            Rank: svd.Rank));
+    });
+    internal static Fin<LuResult> Lu(Matrix matrix, Op key) =>
+        matrix.Rows.Value != matrix.Cols.Value
+            ? Fin.Fail<LuResult>(key.InvalidInput())
+            : key.Catch(() => {
+                MathNet.Numerics.LinearAlgebra.Factorization.LU<double> lu = ToMathNet(matrix).LU();
+                return Fin.Succ(new LuResult(Source: matrix, Determinant: lu.Determinant));
+            });
+    internal static Fin<QrResult> Qr(Matrix matrix, Op key) => key.Catch(() => {
         MathNet.Numerics.LinearAlgebra.Factorization.QR<double> qr = ToMathNet(matrix).QR(MathNet.Numerics.LinearAlgebra.Factorization.QRMethod.Full);
         return Fin.Succ(new QrResult(
             Q: FromMathNet(qr.Q, matrix.Rows, matrix.Rows),
             R: FromMathNet(qr.R, matrix.Rows, matrix.Cols)));
-    }
+    });
     internal static Fin<CholeskyResult> Cholesky(SymmetricMatrix matrix, Op key) =>
         key.Catch(() => {
             Matrix source = matrix.ToDense();
@@ -283,19 +247,22 @@ internal static class MatrixKernel {
                 L: FromMathNet(ToMathNet(source).Cholesky().Factor, matrix.Dimension, matrix.Dimension),
                 Source: source));
         });
-    internal static Fin<Seq<(double Eigenvalue, Arr<double> Eigenvector)>> SymmetricEigen(SymmetricMatrix matrix, Op key) {
+    internal static Fin<Seq<(double Eigenvalue, Arr<double> Eigenvector)>> SymmetricEigen(SymmetricMatrix matrix, Op key) => key.Catch(() => {
         MathNet.Numerics.LinearAlgebra.Factorization.Evd<double> evd = ToMathNet(matrix.ToDense()).Evd(Symmetricity.Symmetric);
         int n = matrix.Dimension.Value;
         return Fin.Succ(toSeq(Enumerable.Range(start: 0, count: n)
             .Select(i => (Eigenvalue: evd.EigenValues[i].Real, Eigenvector: ArrFromVector(evd.EigenVectors.Column(i))))
             .OrderByDescending(static p => Math.Abs(p.Eigenvalue))));
-    }
+    });
     internal static Fin<Seq<(Complex Eigenvalue, Arr<Complex> Eigenvector)>> GeneralEigen(Matrix matrix, Op key) {
-        if (matrix.Rows.Value != matrix.Cols.Value) return Fin.Fail<Seq<(Complex, Arr<Complex>)>>(key.InvalidInput());
-        MathNet.Numerics.LinearAlgebra.Factorization.Evd<Complex> evd = ToMathNetComplex(matrix).Evd(Symmetricity.Asymmetric);
-        int n = matrix.Rows.Value;
-        return Fin.Succ(toSeq(Enumerable.Range(start: 0, count: n)
-            .Select(i => (Eigenvalue: evd.EigenValues[i], Eigenvector: ArrFromComplexVector(evd.EigenVectors.Column(i))))));
+        return matrix.Rows.Value != matrix.Cols.Value
+            ? Fin.Fail<Seq<(Complex, Arr<Complex>)>>(key.InvalidInput())
+            : key.Catch(() => {
+                MathNet.Numerics.LinearAlgebra.Factorization.Evd<Complex> evd = ToMathNetComplex(matrix).Evd(Symmetricity.Asymmetric);
+                int n = matrix.Rows.Value;
+                return Fin.Succ(toSeq(Enumerable.Range(start: 0, count: n)
+                    .Select(i => (Eigenvalue: evd.EigenValues[i], Eigenvector: ArrFromComplexVector(evd.EigenVectors.Column(i))))));
+            });
     }
     private static Arr<Complex> ArrFromComplexVector(ComplexVector v) => new(v.ToArray());
     internal static Fin<Arr<double>> Solve(Matrix matrix, Arr<double> rhs, Op key) =>
@@ -304,20 +271,12 @@ internal static class MatrixKernel {
             : key.Catch(() => Fin.Succ(ArrFromVector(ToMathNet(matrix).LU().Solve(DenseVectorD.OfArray([.. rhs.AsIterable()])))));
     internal static Arr<double> LuSolve(LuResult lu, Arr<double> rhs) =>
         ArrFromVector(ToMathNet(lu.Source).LU().Solve(DenseVectorD.OfArray([.. rhs.AsIterable()])));
-    private static Arr<int> ExtractPermutation(MathNet.Numerics.Permutation p, int n) =>
-        [.. Enumerable.Range(0, n).Select(i => p[i])];
-    private static int CountSwaps(Arr<int> perm, int n) {
-        bool[] visited = new bool[n];
-        int swaps = 0;
-        for (int i = 0; i < n; i++) {
-            if (visited[i] || perm[i] == i) continue;
-            int j = i;
-            int cycle = 0;
-            while (!visited[j]) { visited[j] = true; j = perm[j]; cycle++; }
-            swaps += cycle - 1;
-        }
-        return swaps;
-    }
+    internal static Fin<double> Determinant(Matrix matrix, Op key) =>
+        matrix.Rows.Value != matrix.Cols.Value
+            ? Fin.Fail<double>(error: key.InvalidInput())
+            : key.Catch(() => Fin.Succ(ToMathNet(matrix).Determinant()));
+    internal static Fin<Matrix> PseudoInverse(Matrix matrix, Op key) =>
+        key.Catch(() => Fin.Succ(FromMathNet(m: ToMathNet(matrix).PseudoInverse(), rows: matrix.Cols, cols: matrix.Rows)));
 
     // --- [DENSE_CHOLESKY_SOLVE] -------------------------------------------------------------
     internal static Fin<Arr<double>> CholeskySolve(Matrix source, Arr<double> rhs, Op key) {
@@ -444,7 +403,7 @@ internal static class MatrixKernel {
         if (matrix.Rows.Value != matrix.Cols.Value || k < 1 || k >= n || !RhinoMath.IsValidDouble(tolerance) || tolerance <= 0)
             return Fin.Fail<Seq<(double, Arr<double>)>>(key.InvalidInput());
         Matrix<double> A = ToMathNetSparse(matrix);
-        Matrix<double> X = OrthonormalRandom(rows: n, k: k, seed: 17);
+        Matrix<double> X = OrthonormalRandom(rows: n, k: k, seed: RealInitialBasisSeed);
         LinearVector jacobi = ExtractDiagonalInverse(A);
         Matrix<double> P = DenseMatrixD.Create(n, k, 0.0);
         LinearVector? eigenvalues = null;
@@ -462,7 +421,9 @@ internal static class MatrixKernel {
             Matrix<double> S = AssembleSubspace(X: X, W: W, P: P);
             Matrix<double> Ahat = S.Transpose() * (A * S);
             Matrix<double> Mhat = S.Transpose() * S;
-            (LinearVector eigVals, Matrix<double> eigVecs) = SolveGeneralised(Ahat: Ahat, Mhat: Mhat);
+            Fin<(LinearVector Vals, Matrix<double> Vecs)> solved = key.Catch(() => Fin.Succ(SolveGeneralised(Ahat: Ahat, Mhat: Mhat)));
+            if (solved.IsFail) return solved.Map(static _ => Seq<(double Eigenvalue, Arr<double> Eigenvector)>());
+            (LinearVector eigVals, Matrix<double> eigVecs) = solved.IfFail((Vals: DenseVectorD.Create(0, 0.0), Vecs: DenseMatrixD.Create(0, 0, 0.0)));
             Matrix<double> Z = TakeSmallest(eigVals: eigVals, eigVecs: eigVecs, k: k);
             Matrix<double> Xnew = S * Z;
             P = (W * Z.SubMatrix(k, k, 0, k)) + (P * Z.SubMatrix(2 * k, k, 0, k));
@@ -483,7 +444,7 @@ internal static class MatrixKernel {
         if (k < 1 || k >= n || !RhinoMath.IsValidDouble(tolerance) || tolerance <= 0)
             return Fin.Fail<Seq<(double, Arr<Complex>)>>(key.InvalidInput());
         Matrix<Complex> A = ToMathNetHermitian(matrix);
-        Matrix<Complex> X = OrthonormalRandomComplex(rows: n, k: k, seed: 19);
+        Matrix<Complex> X = OrthonormalRandomComplex(rows: n, k: k, seed: HermitianInitialBasisSeed);
         ComplexVector jacobi = ExtractDiagonalInverseComplex(A);
         Matrix<Complex> P = DenseMatrixC.Create(n, k, Complex.Zero);
         ComplexVector? eigenvalues = null;
@@ -501,7 +462,9 @@ internal static class MatrixKernel {
             Matrix<Complex> S = AssembleSubspaceComplex(X: X, W: W, P: P);
             Matrix<Complex> Ahat = S.ConjugateTranspose() * (A * S);
             Matrix<Complex> Mhat = S.ConjugateTranspose() * S;
-            (ComplexVector eigVals, Matrix<Complex> eigVecs) = SolveGeneralisedComplex(Ahat: Ahat, Mhat: Mhat);
+            Fin<(ComplexVector Vals, Matrix<Complex> Vecs)> solved = key.Catch(() => Fin.Succ(SolveGeneralisedComplex(Ahat: Ahat, Mhat: Mhat)));
+            if (solved.IsFail) return solved.Map(static _ => Seq<(double Eigenvalue, Arr<Complex> Eigenvector)>());
+            (ComplexVector eigVals, Matrix<Complex> eigVecs) = solved.IfFail((Vals: DenseVectorC.Create(0, Complex.Zero), Vecs: DenseMatrixC.Create(0, 0, Complex.Zero)));
             Matrix<Complex> Z = TakeSmallestComplex(eigVals: eigVals, eigVecs: eigVecs, k: k);
             Matrix<Complex> Xnew = S * Z;
             P = (W * Z.SubMatrix(k, k, 0, k)) + (P * Z.SubMatrix(2 * k, k, 0, k));
@@ -673,34 +636,22 @@ internal static class MatrixKernel {
     private static Matrix<double> CongruentReduce(Matrix<double> factor, Matrix<double> matrix) {
         int n = matrix.RowCount;
         Matrix<double> adjoint = factor.Transpose();
-        DenseMatrixD reduced = DenseMatrixD.Create(n, n, 0.0);
-        for (int col = 0; col < n; col++) {
-            LinearVector basis = DenseVectorD.Create(n, i => i == col ? 1.0 : 0.0);
-            reduced.SetColumn(col, factor.Solve(matrix * adjoint.Solve(basis)));
-        }
-        return reduced;
+        Matrix<double> identity = DenseMatrixD.CreateIdentity(order: n);
+        return factor.Solve(matrix * adjoint.Solve(identity));
     }
     private static Matrix<double> BackTransform(Matrix<double> factor, Matrix<double> vectors) {
         Matrix<double> adjoint = factor.Transpose();
-        DenseMatrixD result = DenseMatrixD.Create(vectors.RowCount, vectors.ColumnCount, 0.0);
-        for (int col = 0; col < vectors.ColumnCount; col++) result.SetColumn(col, adjoint.Solve(vectors.Column(col)));
-        return result;
+        return adjoint.Solve(vectors);
     }
     private static Matrix<Complex> CongruentReduceComplex(Matrix<Complex> factor, Matrix<Complex> matrix) {
         int n = matrix.RowCount;
         Matrix<Complex> adjoint = factor.ConjugateTranspose();
-        DenseMatrixC reduced = DenseMatrixC.Create(n, n, Complex.Zero);
-        for (int col = 0; col < n; col++) {
-            ComplexVector basis = DenseVectorC.Create(n, i => i == col ? Complex.One : Complex.Zero);
-            reduced.SetColumn(col, factor.Solve(matrix * adjoint.Solve(basis)));
-        }
-        return reduced;
+        Matrix<Complex> identity = DenseMatrixC.CreateIdentity(order: n);
+        return factor.Solve(matrix * adjoint.Solve(identity));
     }
     private static Matrix<Complex> BackTransformComplex(Matrix<Complex> factor, Matrix<Complex> vectors) {
         Matrix<Complex> adjoint = factor.ConjugateTranspose();
-        DenseMatrixC result = DenseMatrixC.Create(vectors.RowCount, vectors.ColumnCount, Complex.Zero);
-        for (int col = 0; col < vectors.ColumnCount; col++) result.SetColumn(col, adjoint.Solve(vectors.Column(col)));
-        return result;
+        return adjoint.Solve(vectors);
     }
     private static Matrix<double> TakeSmallest(LinearVector eigVals, Matrix<double> eigVecs, int k) {
         int[] sorted = [.. Enumerable.Range(0, eigVals.Count).OrderBy(i => eigVals[i]).Take(k)];

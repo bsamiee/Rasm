@@ -46,7 +46,7 @@ public sealed partial class SupportProjection {
                     Type t when t == typeof(VectorSpan) => Accept(state: state, value: span),
                     Type t when t == typeof(Vector3d) => Accept(state: state, value: span.Value),
                     Type t when t == typeof(Line) => Accept(state: state, value: span.Axis),
-                    Type t when t == typeof(double) => Accept(state: state, value: span.Magnitude),
+                    Type t when t == typeof(double) => Accept(state: state, value: span.Magnitude.Value),
                     _ => Fin.Fail<object>(error: state.Key.Unsupported(geometryType: typeof(VectorSpan), outputType: state.Output)),
                 }));
     private static Fin<object> DirectionOf(Vector3d vector, SupportProjectionState state) =>
@@ -94,7 +94,7 @@ public abstract partial record VectorIntent {
     public sealed record RemeshCase(MeshSpace Space, RemeshKind Kind) : VectorIntent;
     public sealed record TransportCase(VectorCloud Source, VectorCloud Target, PositiveMagnitude Regularization, Dimension IterationCap, bool Unbiased) : VectorIntent;
     public sealed record TopologyCase(MeshSpace Space) : VectorIntent;
-    public sealed record FeaturesCase(MeshSpace Space, double DihedralRadians) : VectorIntent;
+    public sealed record FeaturesCase(MeshSpace Space, VectorAngle Dihedral) : VectorIntent;
     public sealed record DescriptorCase(MeshSpace Space, MeshDescriptor Kind, Dimension EigenpairCount) : VectorIntent;
     public Fin<TOut> Project<TOut>(Context context, Op? key = null) {
         Op op = key.OrDefault();
@@ -281,13 +281,13 @@ public abstract partial record VectorIntent {
             select output,
         transportCase: static (state, intent) => IntentKernel.Sinkhorn<TOut>(source: intent.Source, target: intent.Target, regularization: intent.Regularization.Value, maxIterations: intent.IterationCap.Value, unbiased: intent.Unbiased, key: state.Key),
         topologyCase: static (state, intent) =>
-            from topology in intent.Space.Topology(key: state.Key)
+            from topology in MeshKernel.TopologyOf(space: intent.Space, key: state.Key)
             from output in typeof(TOut) == typeof((int Euler, int Genus, int BoundaryComponents))
                 ? state.Key.AcceptValue(value: topology).Map(static v => (TOut)(object)v)
                 : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(TopologyCase), outputType: typeof(TOut)))
             select output,
         featuresCase: static (state, intent) =>
-            from edges in intent.Space.FeatureEdges(dihedralRadians: intent.DihedralRadians, key: state.Key)
+            from edges in MeshKernel.DetectFeatureEdgesOf(space: intent.Space, dihedralRadians: intent.Dihedral.Value, key: state.Key)
             from output in typeof(TOut) == typeof(Seq<(int A, int B)>)
                 ? state.Key.AcceptValue(value: edges).Map(static v => (TOut)(object)v)
                 : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(FeaturesCase), outputType: typeof(TOut)))
@@ -377,9 +377,10 @@ public abstract partial record VectorIntent {
     public static VectorIntent Topology(MeshSpace space) =>
         new TopologyCase(Space: space);
     public static Fin<VectorIntent> Features(MeshSpace space, double dihedralRadians, Op? key = null) =>
-        RhinoMath.IsValidDouble(x: dihedralRadians) && dihedralRadians > 0.0
-            ? Fin.Succ((VectorIntent)new FeaturesCase(Space: space, DihedralRadians: dihedralRadians))
-            : Fin.Fail<VectorIntent>(key.OrDefault().InvalidInput());
+        key.OrDefault().AcceptValidated<VectorAngle>(candidate: dihedralRadians)
+            .Bind(angle => angle.Value > RhinoMath.ZeroTolerance
+                ? Fin.Succ((VectorIntent)new FeaturesCase(Space: space, Dihedral: angle))
+                : Fin.Fail<VectorIntent>(key.OrDefault().InvalidInput()));
     public static Fin<VectorIntent> Descriptor(MeshSpace space, MeshDescriptor kind, int eigenpairCount, Op? key = null) {
         Op op = key.OrDefault();
         return from count in op.AcceptValidated<Dimension>(candidate: eigenpairCount)
