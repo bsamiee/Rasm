@@ -83,7 +83,14 @@ Rejected as rebrands, folkloric, or insufficient authority (do NOT add): Silverl
 - `[Union] LayoutError : Error` — `BondIncompatibleWithBrick(BondName, BrickDesignation)`, `WallTooShortForPatternRepeat`, `OpeningConflictsWithExpansionJoint`, `RadiusBelowVoussoirThreshold`, `UnsupportedSpecialShape`
 
 **Operations**:
-- Course transducer: walk `(course_index, bond.CourseAt(course_index).Sequence)` along wall length, emit `PlacedBrick` records
+- Course transducer: walk `(course_index, bond.CourseAt(course_index).Sequence)` along wall length, emit `PlacedBrick` records. **Implementation rail**: state-folded `Schedule.recurs(courseCount) | Schedule.spaced(0)` inside `Eff<MasonryRuntime, Seq<PlacedBrick>>` — NOT for-loop, NOT `Enumerable.Range().SelectMany()`, NOT custom helper. The `Schedule` algebra already drives retry/backoff elsewhere in the project; reusing it as the iteration combinator keeps one primitive instead of two and gains free composition with `Schedule.upto(duration)` / `Schedule.whileInput(...)` for future tolerance-breach early-stop or time-budget capabilities. Concrete shape:
+  ```csharp
+  from runtime in Eff.runtime<MasonryRuntime>()
+  from courses in (Schedule.recurs(courseCount) | Schedule.spaced(0))
+      .Fold(state: Seq<PlacedBrick>.Empty,
+            action: (acc, iter) => acc.Concat(walkCourse(spec, iter.Iteration)))
+  select courses;
+  ```
 - Closure derivation: pattern-match on `bond.Closure` and wall corner geometry — `ClosureRule` `[Union]` dispatch
 - Arch voussoir generation per BIA TN 31: voussoir count `N` is odd (keystone-centred); per-voussoir wedge angle = `arch_subtended_angle / N` (e.g., `π / N` radians for a semicircular arch, `arc_radians / N` generally); voussoir depth ≥ `ArchProfile.<kind>.Rule.MinDepthPerFootMm × span_ft`; joint thickness ∈ `[Rule.JointThicknessMinMm, Rule.JointThicknessMaxMm]`; keystone height ≤ `Rule.KeystoneMaxFraction × arch_depth`
 - Curved-wall validation: per-brick chord-arc sagitta `s ≈ L² / (8R)` ; this drives the *head-joint taper* at the brick ends — taper magnitude grows with wall curvature; switch from rectangular bricks (uniform L) to voussoir-style tapered bricks when the resulting joint thickness exceeds `ArchRule.JointThicknessMaxMm` (typically below `R ≈ 10 × L`)
