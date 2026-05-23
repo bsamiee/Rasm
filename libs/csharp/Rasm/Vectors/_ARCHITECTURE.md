@@ -1,5 +1,74 @@
 # Rasm.Vectors Architecture
 
+## TODO
+
+### Missing Categories
+
+- `Extraction.cs`: add one category-level owner for continuous-field-to-discrete-design output, including scalar contours, on-mesh isolines, vector glyphs, sampled grids, multi-seed stream bundles, and iso-surface intent routing.
+- Receipts: add typed app-facing result records for long-running or iterative computations instead of hiding convergence, residuals, cache state, and fallback status inside private locals.
+- Correspondences: add a first-class cloud or transport correspondence surface for matched point pairs, weights, assignment confidence, and remapped design payloads.
+- Weighted geometry: add weighted cloud/sample support where transport, density fields, panel layouts, and facade distributions need per-point mass rather than uniform assumptions.
+- Extraction domains: add canonical curve, boundary, Brep/surface, mesh, and cloud extraction domains so field outputs do not hard-code mesh-only workflows.
+
+### Intent And Projection Gaps
+
+- `Intent.cs`: add first-class `IsoSurface`, `Contour`, `Probe`, `Glyph`, and `StreamBundle` cases so `VectorIntent.Project<TOut>(Context, Op?)` remains the only public projection rail.
+- Streamline projection: return `Curve`, `Polyline`, `Seq<Point3d>`, and a trace receipt with termination reason, rejected steps, arc length, and final step health.
+- Sample projection: return `VectorCloud`, `Seq<Point3d>`, `PointCloud`, and a sample receipt with spacing, density error, rejection count, and convergence state.
+- Feature projection: return topology edge pairs, `Line` or `Curve` geometry, grouped feature polylines, and a feature receipt carrying threshold and boundary classification.
+- Flatten projection: return UV coordinates, a remapped mesh, and a flatten receipt carrying distortion, boundary pins, and mapping validity.
+- Descriptor projection: return descriptor values plus descriptor metadata, source set, eigenpair count, filter identity, and comparison-ready normalisation data.
+- Topology projection: return the current tuple plus a richer topology receipt with vertex/edge/face counts, boundary loops, nonmanifold edges, genus, and Euler validation.
+
+### Flow And Numerical Integration
+
+- `Flow.cs`: preserve current Runge-Kutta tableaus, but add mathematical order metadata because `Order` currently reads as stage count rather than method order.
+- `ButcherTableau`: add validation for row lengths, row sums, weight sums, embedded pair shape, and optional abscissae so malformed tableaus fail before integration.
+- Adaptive stepping: store embedded-pair order and exponent per method because Bogacki-Shampine 3(2), Cash-Karp 5(4), and Dormand-Prince 5(4) do not share one truthful metadata model.
+- Event handling: add dense output or event localisation for crossing surfaces and regions so termination can report the actual crossing location instead of the last accepted point.
+- Trace receipts: report accepted steps, rejected steps, final step size, termination cause, convergence health, and max-iteration exhaustion as typed output.
+
+### Fields, Kernels, And SDFs
+
+- `Field.cs`: expose scalar contours, vector glyphs, sampled grids, and iso-surfaces through intent-backed extraction outputs instead of keeping `IsoSurface` as a direct method only.
+- `KernelKind`: add derivative, gradient, and Laplacian support for kernels so density, smoothing, and reconstruction fields can produce normals and differential quantities.
+- Kernels: add anisotropic kernels for directional facade grain, stretched influence fields, tensor-guided falloff, and local panel orientation bias.
+- Reconstruction: add RBF or moving-least-squares field reconstruction from weighted samples so clouds and sampled design data can become smooth scalar/vector fields.
+- SDF primitives: add architectural primitives such as half-space, slab, rounded box, extrusion/profile, capped extrusion, and oriented prism fields where they collapse common massing workflows.
+- SDF outputs: route mesh-backed signing, Lipschitz metadata, and lossy fallback behaviour into explicit receipt or failure channels so product tools know when a preview is approximate.
+
+### Mesh And Spectral Operators
+
+- `Mesh.cs`: expose contour and isoline extraction over per-vertex scalar fields produced by geodesic, spectral, stripe, signed-distance, and custom scalar-field samples.
+- Mesh features: add ridge, valley, crease, boundary-loop, and region-boundary curve outputs beyond dihedral feature edge pairs.
+- Mesh segmentation: add scalar-field threshold regions, region growing, watershed-like bands, or descriptor clustering as mesh-local design selection rails.
+- Mesh diagnostics: expose cache hits, factorisation status, solver residuals, eigenpair count, intrinsic-Delaunay status, and fallback paths through typed receipts.
+- Spectral descriptors: add comparison and normalisation rails for descriptor distance, option ranking, and shape-family matching rather than returning only raw `Arr<double>`.
+- Remesh outputs: return remesh receipts with target edge length, reduction ratio, validity, hard-edge preservation, and topology change summary.
+
+### Clouds, Alignment, And Transport
+
+- `Cloud.cs`: promote transport internals into a public receipt carrying distance, coupling, source/target residuals, iteration count, numeric status, and correspondence summaries.
+- `Cloud.cs`: add weighted clusters, neighbourhood graphs, k-nearest/radius graph outputs, and local density estimates because current internals already need those concepts.
+- `Cloud.cs`: add 2D hull, concave outline, footprint wrapper, and planar alpha-shape style outputs for architectural footprint and facade-region workflows.
+- `Align.cs`: add an alignment receipt carrying transform, residual statistics, convergence flag, iteration count, correspondence count, and mode-specific diagnostics.
+- `Align.cs`: expose correspondences and per-point residual vectors so scan-to-model, module-fit, and as-built workflows can display why an alignment succeeded or failed.
+- `Transport`: add layout-transfer projections that apply a coupling to point payloads, panel IDs, seed weights, or module attributes instead of only moving points.
+
+### Sampling And Domain Coverage
+
+- `Sample.cs`: add weighted and scalar-field-driven sampling so density maps, facade gradients, and programmatic priorities control population.
+- `Sample.cs`: add curve, boundary, Brep/surface, and point-cloud sampling so the sampling rail is not limited to mesh domains.
+- `Sample.cs`: add density-function blue-noise and adaptive sampling where local spacing follows scalar-field intensity or curvature.
+- `Sample.cs`: expose sample receipts with candidate count, accepted count, rejected count, final spacing statistics, density error, and iteration convergence.
+
+### Modes, Matrices, And Product Boundary
+
+- `Modes.cs`: add surface metric, Jacobian, area scale, UV frame, principal-curvature frame, and explicit curve normal/binormal policy projections.
+- `Matrix.cs`: expose solver result metadata consistently across dense, sparse, spectral, and factorised paths so downstream operators can report residuals, stop reasons, conditioning, and factorisation status.
+- Receipts and failures: model non-convergence, unsupported topology, invalid factorisation, missing native capability, lossy fallback, and approximate output as explicit `Fin<T>` failures or receipt statuses.
+- Product boundary: keep UI, preview conduits, bake commands, GH2 parameter wrappers, and command receipts outside `Rasm.Vectors`, but ensure this folder returns enough typed geometry and diagnostics for those layers to stay thin.
+
 `Rasm.Vectors` is the typed vector geometry and numerics layer over RhinoCommon geometry, MathNet linear algebra, CSparse.NET sparse Cholesky, LanguageExt result rails, and Thinktecture-generated dispatch. Factories create atoms, spaces, fields, clouds, matrices, meshes, and intent cases; `VectorIntent.Project<TOut>(Context, Op?)` remains the singular consumer rail for executing an intent into a requested output shape. `Spectral.cs` is the shared substrate owning DEC operator assembly, spectral basis values, FEM heat-method scaffolding, the Crouzeix-Raviart connection Laplacian (Stein-Wardetzky-Jacobson-Grinspun 2020), the Crane-Desbrun-Schröder trivial-connection 1-form, and the polymorphic `SpectralFilter` algebra consumed by both mesh descriptors and scalar spectral fields. `Mesh.cs` owns `LaplacianCache`, which memoises spectral bases and factorisations per mesh snapshot.
 
 ```mermaid
