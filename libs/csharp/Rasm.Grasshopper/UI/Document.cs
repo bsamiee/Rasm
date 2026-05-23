@@ -142,11 +142,21 @@ public partial record DocumentOp {
     public sealed record QueryCase(DocumentQuery Request) : DocumentOp;
     public sealed record MutateCase(Seq<DocumentMutation> Mutations, DocumentMutationPolicy Policy) : DocumentOp;
     public sealed record HistoryCase(DocumentHistoryOp Request) : DocumentOp;
+    public sealed record InspectCase(DocumentInspect Kind) : DocumentOp;
 
     public static DocumentOp Query(DocumentQuery query) => new QueryCase(Request: query);
     public static DocumentOp Mutate(params DocumentMutation[] mutations) => new MutateCase(Mutations: toSeq(mutations), Policy: DocumentMutationPolicy.Default);
     public static DocumentOp Mutate(DocumentMutationPolicy policy, params DocumentMutation[] mutations) => new MutateCase(Mutations: toSeq(mutations), Policy: policy);
     public static DocumentOp History(DocumentHistoryOp history) => new HistoryCase(Request: history);
+    public static DocumentOp Inspect(DocumentInspect kind) => new InspectCase(Kind: kind);
+    public static readonly DocumentOp DependencyGraph = new InspectCase(Kind: DocumentInspect.DependencyGraph);
+}
+
+// Modal viewer kinds — currently DependencyGraph (DocumentMethods.ShowDependencyGraph), extensible
+// without bloating DocumentOp itself when more inspect surfaces land in GH2.
+[SmartEnum<int>]
+public sealed partial class DocumentInspect {
+    public static readonly DocumentInspect DependencyGraph = new(key: 0);
 }
 
 [Union]
@@ -162,6 +172,7 @@ public partial record DocumentResult {
     public sealed record UniverseResult(DocumentUniverseSnapshot Snapshot) : DocumentResult;
     public sealed record MutationResult(Snapshot<DocumentMutationDelta> Delta) : DocumentResult;
     public sealed record HistoryResult(DocumentHistorySnapshot Snapshot) : DocumentResult;
+    public sealed record InspectResult(DocumentInspect Kind) : DocumentResult;
 }
 
 [Union]
@@ -465,13 +476,29 @@ internal static partial class UiRail {
             state: scope,
             queryCase: static (s, q) => QueryDispatch(scope: s, query: q.Request),
             mutateCase: static (s, m) => MutateDispatch(scope: s, mutations: m.Mutations, policy: m.Policy),
-            historyCase: static (s, h) => HistoryDispatch(scope: s, op: h.Request));
+            historyCase: static (s, h) => HistoryDispatch(scope: s, op: h.Request),
+            inspectCase: static (s, i) => InspectDispatch(scope: s, kind: i.Kind));
 
     internal static GrasshopperUiPolicy DocumentPolicyFor(DocumentOp op) =>
         op.Switch(
             queryCase: static q => q.Request is DocumentQuery.UniverseCase ? GrasshopperUiPolicy.Read : GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
             mutateCase: static mutate => GrasshopperUiPolicy.Document(repaint: mutate.Policy.RepaintOrDefault),
-            historyCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None));
+            historyCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
+            inspectCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None));
+
+    private static Fin<DocumentResult> InspectDispatch(GrasshopperUi.Scope scope, DocumentInspect kind) =>
+        from methods in scope.NeedMethods()
+        from _ in Try.lift(f: () => InvokeInspect(methods: methods, kind: kind)).Run()
+            .MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(InspectDispatch)), detail: $"{kind.Key}: {error.Message}"))
+        select (DocumentResult)new DocumentResult.InspectResult(Kind: kind);
+
+    private static Unit InvokeInspect(GhDocumentMethods methods, DocumentInspect kind) {
+        if (kind == DocumentInspect.DependencyGraph) {
+            methods.ShowDependencyGraph();
+            return unit;
+        }
+        throw new InvalidOperationException(message: $"Unknown DocumentInspect kind: {kind.Key}");
+    }
 
     private static Fin<DocumentResult> QueryDispatch(GrasshopperUi.Scope scope, DocumentQuery query) => query switch {
         DocumentQuery.SnapshotCase =>

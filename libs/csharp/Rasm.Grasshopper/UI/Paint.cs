@@ -188,17 +188,11 @@ public partial record UiFont {
             emptyCase: static (r, _) => r(arg: SystemFonts.Default()));
 }
 
-// Polymorphic fill source. Solid hits Brushes.Cached for hot-path reuse; gradient/texture cases
-// build a fresh Brush per draw since each carries unique positioning. Per Eto 2.11.0 IL inspection
-// on macOS Quartz, every Brush.Dispose() is effectively inert: the handler ControlObject is non-
-// IDisposable (`BrushData` struct for Solid; non-IDisposable `BrushObject` reference types for
-// LinearGradient/RadialGradient/Texture), and native CGGradient/CGImage release only via the
-// finalizer of the wrapper NativeObject — there is no eager release path through the managed API.
-// Consequently `using` on the returned Brush is safe-but-pointless under current Eto; a
-// UseBrush<T> dispatcher would add ceremony without removing any leak. If a future Eto release
-// attaches IDisposable to a handler control object, switch CreateBrush to a higher-order form
-// at that point. IsCached remains as the defensive discriminant for callers that want to gate
-// on disposal policy proactively.
+// Solid hits Brushes.Cached for reuse; gradient/texture allocate fresh per draw. Eto 2.11.0 macOS
+// Brush.Dispose is inert (handler ControlObject is non-IDisposable; CGGradient/CGImage release
+// only via wrapper finalizer), so `using` on the returned Brush is safe-but-pointless — kept to
+// future-proof if Eto attaches IDisposable to the handler. IsCached gates callers that want to
+// branch on disposal policy.
 [Union]
 public partial record FillSource {
     private FillSource() { }
@@ -225,13 +219,11 @@ public partial record FillSource {
     internal bool IsCached => this is SolidCase;
 }
 
-// Polymorphic edge source. Solid+vanilla cap/join routes through Pens.Cached(color, thickness,
-// dash) for hot-path reuse. The vanilla predicate matches Eto.Mac.Drawing.PenHandler.Create exactly
-// (Eto 2.11.0 IL line 111: LineCap = PenLineCap.Square.ToCG(); LineJoin defaults to enum-zero =
-// kCGLineJoinMiter; MiterLimit = 10f; DashStyle = null). Non-vanilla paths and brush-backed pens
-// allocate fresh — caller-owned lifetime via `using` (also inert disposal under Eto 2.11 since
-// the PenControl ControlObject is non-IDisposable, but reserving `using` future-proofs against
-// upstream contract tightening).
+// Solid + vanilla cap/join/miter routes through Pens.Cached for hot-path reuse. The IsVanilla
+// predicate matches Eto.Mac.Drawing.PenHandler.Create defaults exactly (PenLineCap.Square →
+// kCGLineCapSquare, PenLineJoin.Miter, MiterLimit = 10f, DashStyle = null). Non-vanilla paths
+// and brush-backed pens allocate fresh — `using` is inert under Eto 2.11 but reserves future
+// IDisposable contract on the PenControl handler.
 [Union]
 public partial record EdgeSource {
     private EdgeSource() { }
@@ -251,14 +243,11 @@ public partial record EdgeSource {
     internal bool IsCached(PenLineCap cap, PenLineJoin join, float miterLimit) =>
         this is SolidCase && IsVanilla(cap: cap, join: join, miterLimit: miterLimit);
 
-    // Pens.Cached uses reference-equality DashStyle key and assumes default cap/join/miter; we hit the
-    // cache only when the requested pen matches that vanilla profile. Float equality on miterLimit is
-    // bit-exact here because 10f is the Eto default literal — no arithmetic separates the requested
-    // value from the constant — so MathF.Abs(...) < eps would only matter if a caller computed the
-    // limit. We accept exact equality and document the bound.
+    // 10f is the literal Eto default; bit-exact equality is correct (no arithmetic separates the
+    // requested value from the constant) and Pens.Cached treats DashStyle by reference identity.
     internal const float DefaultMiterLimit = 10f;
     private static bool IsVanilla(PenLineCap cap, PenLineJoin join, float miterLimit) =>
-        cap == PenLineCap.Square && join == PenLineJoin.Miter && Math.Abs(miterLimit - DefaultMiterLimit) < 1e-3f;
+        cap == PenLineCap.Square && join == PenLineJoin.Miter && miterLimit == DefaultMiterLimit;
 }
 
 // Per-corner rounded rectangle radii (clockwise from top-left). GraphicsPath.GetRoundRect silently

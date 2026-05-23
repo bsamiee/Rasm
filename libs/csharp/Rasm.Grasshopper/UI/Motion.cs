@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
 using AppKit;
 using CoreAnimation;
@@ -46,11 +47,11 @@ internal interface IMotionState<TSelf> where TSelf : struct, IMotionState<TSelf>
 public sealed partial class Easing {
     private delegate double EasingCurve(double t);
 
-    // Penner Back parameters (overshoot magnitudes). c2 = c1 * 1.525 for the In/Out variant.
+    // Robert Penner's easing constants (easings.net / robertpenner.com/easing). Back overshoot
+    // magnitudes (c2 = c1 * 1.525 for the InOut variant); Bounce piecewise normalization (n1, d1).
     private const double BackC1 = 1.70158;
     private const double BackC3 = BackC1 + 1.0;
     private const double BackC2 = BackC1 * 1.525;
-    // Bounce piecewise normalization constants.
     private const double BounceN1 = 7.5625;
     private const double BounceD1 = 2.75;
 
@@ -146,29 +147,29 @@ public sealed partial class Easing {
 }
 
 public abstract record MotionRequest<T> : GhUiRequest<T> {
-    public sealed record Tween<TValue>(Animated<TValue> Animated, Action<TValue> Sink) : MotionRequest<Subscription> {
+    public sealed record Tween<TValue>(Animated<TValue> Animated, Action<TValue> Sink, bool UseDisplayLink = false) : MotionRequest<Subscription> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled);
-        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Tween(animated: Animated, sink: Sink).Run(scope: scope);
+        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Tween(animated: Animated, sink: Sink, useDisplayLink: UseDisplayLink).Run(scope: scope);
     }
     public sealed record Spring<TValue>(TValue From, TValue To, SpringConfig Config, IMotionVector<TValue> Vector, Action<TValue> Sink, Option<TValue> InitialVelocity = default, TimeProvider? Clock = null, bool UseDisplayLink = false) : MotionRequest<SpringHandle<TValue>> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled);
         internal override Fin<SpringHandle<TValue>> Apply(GrasshopperUi.Scope scope) => Motion.Spring(start: From, target: To, config: Config, vector: Vector, sink: Sink, initialVelocity: InitialVelocity, clock: Clock, useDisplayLink: UseDisplayLink).Run(scope: scope);
     }
-    public sealed record Pulse<TValue>(TValue From, TValue To, GhDuration Duration, GhMotion Easing, IMotionVector<TValue> Vector, Action<TValue> Sink, int Cycles = 1, bool Yoyo = false, bool Infinite = false) : MotionRequest<Subscription> {
+    public sealed record Pulse<TValue>(TValue From, TValue To, GhDuration Duration, GhMotion Easing, IMotionVector<TValue> Vector, Action<TValue> Sink, int Cycles = 1, bool Yoyo = false, bool Infinite = false, bool UseDisplayLink = false) : MotionRequest<Subscription> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled);
-        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Pulse(start: From, target: To, duration: Duration, easing: Easing, cycles: Cycles, yoyo: Yoyo, infinite: Infinite, vector: Vector, sink: Sink).Run(scope: scope);
+        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Pulse(start: From, target: To, duration: Duration, easing: Easing, cycles: Cycles, yoyo: Yoyo, infinite: Infinite, vector: Vector, sink: Sink, useDisplayLink: UseDisplayLink).Run(scope: scope);
     }
-    public sealed record Stroke(AnimatedPath Path, GhDuration Duration, GhMotion Easing, PaintStyle Style, PointF Origin, float Scale = 1f, float Angle = 0f) : MotionRequest<Subscription> {
+    public sealed record Stroke(AnimatedPath Path, GhDuration Duration, GhMotion Easing, PaintStyle Style, PointF Origin, float Scale = 1f, float Angle = 0f, bool UseDisplayLink = false) : MotionRequest<Subscription> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled);
-        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Stroke(path: Path, duration: Duration, easing: Easing, style: Style, origin: Origin, scale: Scale, angle: Angle).Run(scope: scope);
+        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Stroke(path: Path, duration: Duration, easing: Easing, style: Style, origin: Origin, scale: Scale, angle: Angle, useDisplayLink: UseDisplayLink).Run(scope: scope);
     }
     public sealed record Sparkle(ISparkle Instance) : MotionRequest<Unit> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled);
         internal override Fin<Unit> Apply(GrasshopperUi.Scope scope) => Motion.Sparkle(instance: Instance).Run(scope: scope);
     }
-    public sealed record Theme(Skin From, Skin To, GhDuration Duration, GhMotion Easing, Action<Skin> Sink) : MotionRequest<Subscription> {
+    public sealed record Theme(Skin From, Skin To, GhDuration Duration, GhMotion Easing, Action<Skin> Sink, bool UseDisplayLink = false) : MotionRequest<Subscription> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled);
-        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Theme(start: From, target: To, duration: Duration, easing: Easing, sink: Sink).Run(scope: scope);
+        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Theme(start: From, target: To, duration: Duration, easing: Easing, sink: Sink, useDisplayLink: UseDisplayLink).Run(scope: scope);
     }
     public sealed record Navigate(PointF Centre, GhDuration Duration, float MinZoom = CanvasViewPolicy.DefaultMinimumZoom, float MaxZoom = CanvasViewPolicy.DefaultMaximumZoom) : MotionRequest<Unit> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
@@ -552,15 +553,23 @@ internal static class Motion {
     // (e.g., debugger break, long GC pause). Equivalent to "minimum 30 fps" assumption.
     internal const float MaxFrameDelta = 1f / 30f;
 
-    internal static GrasshopperUiIntent<Subscription> Tween<TValue>(Animated<TValue> animated, Action<TValue> sink) =>
+    internal static GrasshopperUiIntent<Subscription> Tween<TValue>(
+        Animated<TValue> animated, Action<TValue> sink, bool useDisplayLink = false) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
             from validSink in Optional(sink).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Tween)), detail: "sink delegate is required"))
+            from pacer in PacerOption(canvas: canvas, useDisplayLink: useDisplayLink)
+            let pausedPacer = pacer // bind for paint-hook closure; force value capture, not transparent-identifier deferral
             from sub in Paint.Hook(
                 phase: CanvasPaintPhase.BeforeBackground,
-                paint: _ => Try.lift(f: () => { validSink(canvas.Animate(animated: animated)); return unit; })
-                    .Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Tween)), detail: $"tick threw: {error.Message}"))).Run(scope: scope)
-            select sub);
+                paint: _ => Try.lift(f: () => {
+                    validSink(canvas.Animate(animated: animated));
+                    return PauseWhenFinished(state: animated.State, pacer: pausedPacer);
+                }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Tween)), detail: $"tick threw: {error.Message}"))).Run(scope: scope)
+            let bundle = MotionBundleOf(pacer: pacer, sub: sub, canvas: canvas)
+            from kickoff in Op.Of(name: nameof(Tween)).Attempt(body: bundle.Wake, what: $"{nameof(Tween)} initial wake")
+                .MapFail(error => UiFault.ThreadMarshal(detail: error.Message))
+            select bundle.Subscription);
 
     internal static GrasshopperUiIntent<SpringHandle<TValue>> Spring<TValue>(
         TValue start, TValue target, SpringConfig config, IMotionVector<TValue> vector,
@@ -569,9 +578,7 @@ internal static class Motion {
             from canvas in scope.NeedCanvas()
             from validVector in Optional(vector).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Spring)), detail: "vector is required"))
             from validSink in Optional(sink).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Spring)), detail: "sink delegate is required"))
-            from pacer in useDisplayLink
-                ? Pacer.Of(canvas: canvas).Map(p => Some(p))
-                : Fin.Succ(Option<Pacer>.None)
+            from pacer in PacerOption(canvas: canvas, useDisplayLink: useDisplayLink)
             let resolvedClock = clock ?? TimeProvider.System
             let cell = Atom(new SpringRunnerState<TValue>(
                 Value: start,
@@ -587,7 +594,7 @@ internal static class Motion {
                 phase: CanvasPaintPhase.BeforeBackground,
                 paint: _ => Try.lift(runner.Tick)
                     .Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Spring)), detail: $"tick threw: {error.Message}"))).Run(scope: scope)
-            let bundle = SpringBundleOf(pacer: pacer, sub: sub, canvas: canvas)
+            let bundle = MotionBundleOf(pacer: pacer, sub: sub, canvas: canvas)
             from initial in Op.Of(name: nameof(Spring)).Attempt(
                 body: bundle.Wake,
                 what: "Spring initial wake")
@@ -597,25 +604,37 @@ internal static class Motion {
                 subscription: bundle.Subscription,
                 wake: bundle.Wake));
 
-    // Composes the Spring subscription + wake closure given an optional Pacer. Centralizing the
-    // Pacer-vs-canvas routing here keeps the Spring expression-bodied without Option.Match
-    // mid-pipeline (CSP0705 forbidden). Subscription.Atom returns a Subscription that is owned
-    // through the `|` operator by the composite — no separate Dispose; CA2000 is a false positive.
+    // Pacer-aware subscription bundle for any motion intent. When the Pacer is present the
+    // composite owns its Release() — pool refcount decrements at detach, physical teardown runs at
+    // the final release. Wake routes to Resume (vsync) or canvas.ScheduleRedraw (message-loop).
     [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope",
         Justification = "Subscription.Atom is consumed by the Subscription `|` operator and disposed via the returned composite.")]
-    private static (Subscription Subscription, Action Wake) SpringBundleOf(
+    private static (Subscription Subscription, Action Wake) MotionBundleOf(
         Option<Pacer> pacer, Subscription sub, Grasshopper2.UI.Canvas.Canvas canvas) {
         if (pacer is not { IsSome: true, Case: Pacer p }) {
             return (Subscription: sub, Wake: canvas.ScheduleRedraw);
         }
-        Subscription composite = sub | Subscription.Atom(detach: p.Dispose);
+        Subscription composite = sub | Subscription.Atom(detach: () => p.Release().Ignore());
         return (Subscription: composite, WakeFn);
         void WakeFn() => p.Resume().Ignore();
     }
 
+    private static Fin<Option<Pacer>> PacerOption(Grasshopper2.UI.Canvas.Canvas canvas, bool useDisplayLink) =>
+        useDisplayLink ? Pacer.For(canvas: canvas).Map(Some) : Fin.Succ(Option<Pacer>.None);
+
+    // Finite-animation paint-hook helper: pause the optional Pacer once the underlying Animated<T>
+    // reaches Finished, so vsync ticks stop without disposing the subscription. Returns unit so the
+    // caller can sit at the tail of a Try.lift body and forward into Fin<Unit>.
+    private static Unit PauseWhenFinished(GhState state, Option<Pacer> pacer) {
+        if (state == GhState.Finished && pacer is { IsSome: true, Case: Pacer p }) {
+            _ = p.Pause();
+        }
+        return unit;
+    }
+
     internal static GrasshopperUiIntent<Subscription> Pulse<TValue>(
         TValue start, TValue target, GhDuration duration, GhMotion easing, int cycles, bool yoyo, bool infinite,
-        IMotionVector<TValue> vector, Action<TValue> sink) =>
+        IMotionVector<TValue> vector, Action<TValue> sink, bool useDisplayLink = false) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
             from validVector in Optional(vector).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Pulse)), detail: "vector is required"))
@@ -624,6 +643,7 @@ internal static class Motion {
                 ? Fin.Succ(1)
                 : Optional(cycles).Filter(static c => c >= 1)
                     .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Pulse)), detail: "cycles must be positive when not infinite"))
+            from pacer in PacerOption(canvas: canvas, useDisplayLink: useDisplayLink)
             let initial = Animated<TValue>.CreateUnfinished(
                 value0: start, value1: target,
                 duration: Animators.DurationToTimeSpan(duration: duration),
@@ -637,31 +657,37 @@ internal static class Motion {
                 CyclesRemaining: validCycles - 1,
                 Vector: validVector,
                 Sink: validSink))
-            let runner = MotionRunner<PulseRunnerState<TValue>>.Of(cell: cell, canvas: canvas)
+            let runner = MotionRunner<PulseRunnerState<TValue>>.Of(cell: cell, canvas: canvas, pacer: pacer)
             from sub in Paint.Hook(
                 phase: CanvasPaintPhase.BeforeBackground,
                 paint: _ => Try.lift(runner.Tick)
                     .Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Pulse)), detail: $"tick threw: {error.Message}"))).Run(scope: scope)
-            from kickoff in Try.lift(f: () => { canvas.ScheduleRedraw(); return unit; }).Run()
-                .MapFail(error => UiFault.ThreadMarshal(detail: $"{nameof(Pulse)} initial redraw threw: {error.Message}"))
-            select sub);
+            let bundle = MotionBundleOf(pacer: pacer, sub: sub, canvas: canvas)
+            from kickoff in Op.Of(name: nameof(Pulse)).Attempt(body: bundle.Wake, what: $"{nameof(Pulse)} initial wake")
+                .MapFail(error => UiFault.ThreadMarshal(detail: error.Message))
+            select bundle.Subscription);
 
     internal static GrasshopperUiIntent<Subscription> Stroke(
         AnimatedPath path, GhDuration duration, GhMotion easing, PaintStyle style,
-        PointF origin, float scale, float angle) =>
+        PointF origin, float scale, float angle, bool useDisplayLink = false) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
             from validPath in Optional(path).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Stroke)), detail: "path is required"))
             from validOrigin in Op.Of(name: nameof(Stroke)).AcceptPoint(value: origin, detail: "non-finite origin")
+            from pacer in PacerOption(canvas: canvas, useDisplayLink: useDisplayLink)
+            let pausedPacer = pacer // bind for paint-hook closure; force value capture, not transparent-identifier deferral
             let progress = Animators.Unfinished(value0: 0.0, value1: 1.0, duration: duration, motion: easing)
             from sub in Paint.Hook(
                 phase: CanvasPaintPhase.AfterObjects,
                 paint: paintScope => Try.lift(f: () => {
                     using Pen pen = style.Pen();
                     validPath.Draw(paintScope.Graphics.Content, pen, canvas.Animate(animated: progress), validOrigin, scale, angle);
-                    return unit;
+                    return PauseWhenFinished(state: progress.State, pacer: pausedPacer);
                 }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Stroke)), detail: $"draw threw: {error.Message}"))).Run(scope: scope)
-            select sub);
+            let bundle = MotionBundleOf(pacer: pacer, sub: sub, canvas: canvas)
+            from kickoff in Op.Of(name: nameof(Stroke)).Attempt(body: bundle.Wake, what: $"{nameof(Stroke)} initial wake")
+                .MapFail(error => UiFault.ThreadMarshal(detail: error.Message))
+            select bundle.Subscription);
 
     internal static GrasshopperUiIntent<Unit> Sparkle(ISparkle instance) =>
         GhUi.Canvas(
@@ -674,14 +700,15 @@ internal static class Motion {
                 select unit);
 
     internal static GrasshopperUiIntent<Subscription> Theme(
-        Skin start, Skin target, GhDuration duration, GhMotion easing, Action<Skin> sink) =>
+        Skin start, Skin target, GhDuration duration, GhMotion easing, Action<Skin> sink, bool useDisplayLink = false) =>
         Tween(
             animated: Animated<Skin>.CreateUnfinished(
                 value0: start, value1: target,
                 duration: Animators.DurationToTimeSpan(duration: duration),
                 motion: easing,
                 interpolator: static (a, b, t) => a.Interpolate(b, (float)t)),
-            sink: sink);
+            sink: sink,
+            useDisplayLink: useDisplayLink);
 
     internal static GrasshopperUiIntent<Unit> Navigate(PointF centre, GhDuration duration, float minZoom, float maxZoom) =>
         GhUi.Canvas(run: scope =>
@@ -709,16 +736,16 @@ internal static class Motion {
             select sub);
 
     // Unified motion capsule: state owns Step/Emit/IsActive/MergeInto; runner owns the cell+canvas
-    // plumbing, the cached applyScratch closure, and the redraw schedule. Per-tick allocations are
-    // limited to the unavoidable Atom Box<A> per swap — no per-frame closure capture. The optional
-    // `pacer` routes wake/rest through CADisplayLink (vsync-aligned 60/120Hz adaptive); when None
-    // the runner falls back to `canvas.ScheduleRedraw()` (message-loop coalesced).
+    // plumbing, the cached applyScratch closure, and the redraw schedule. When pacer is Some, the
+    // wantingTicks gate ensures Pacer.Resume / Pause fire only on transitions — concurrent runners
+    // sharing a pooled Pacer can independently raise/drop the want-tick refcount.
     internal sealed class MotionRunner<TState> where TState : struct, IMotionState<TState> {
         private readonly Atom<TState> cell;
         private readonly Grasshopper2.UI.Canvas.Canvas canvas;
         private readonly Option<Pacer> pacer;
         private readonly Func<TState, TState> applyScratch;
         private TState scratch;
+        private int wantingTicks;
 
         private MotionRunner(Atom<TState> cell, Grasshopper2.UI.Canvas.Canvas canvas, Option<Pacer> pacer) {
             this.cell = cell;
@@ -745,35 +772,42 @@ internal static class Motion {
             return unit;
         }
 
-        // Pacer-aware wake: CADisplayLink resumes vsync ticks (preferred=120Hz adaptive on ProMotion);
-        // falls back to ScheduleRedraw when no Pacer is attached. Null-routing instead of Option.Match
-        // because CSP0705 forbids Match mid-pipeline; the IsSome+Case pattern keeps the analyzer happy.
+        // Wake/Sleep run on the canvas paint thread (CanvasPaintPhase.BeforeBackground hook) which
+        // GH2 dispatches on the main UI thread; Pacer.Resume/Pause therefore see serialized calls.
+        // With pacer: only Resume on the 0→1 want-tick edge; the message-loop fallback re-schedules
+        // every tick (Eto coalesces) so transition-gating is unnecessary there.
         private Unit Wake() {
             if (pacer is { IsSome: true, Case: Pacer p }) {
-                return p.Resume();
+                return Interlocked.Exchange(ref wantingTicks, 1) == 0 ? p.Resume() : unit;
             }
             canvas.ScheduleRedraw();
             return unit;
         }
 
-        // Pacer-aware quiescence: Paused link consumes 0 CPU until next Retarget wakes it. Without
-        // Pacer we simply stop calling ScheduleRedraw (Eto paint loop naturally idles).
-        private Unit Sleep() => pacer is { IsSome: true, Case: Pacer p } ? p.Pause() : unit;
+        private Unit Sleep() =>
+            pacer is { IsSome: true, Case: Pacer p } && Interlocked.Exchange(ref wantingTicks, 0) == 1
+                ? p.Pause()
+                : unit;
     }
 
-    // CADisplayLink-driven scheduler. Wraps a view-bound display link that auto-tracks the screen the
-    // canvas is on (per WWDC23: NSView.GetDisplayLink retunes preferredFrameRateRange across multi-
-    // monitor moves). Tick handler is an instance method exported via [Export("tick:")] so AppKit
-    // dispatches the selector without a managed-delegate trampoline. Tick body just calls
-    // canvas.ScheduleRedraw() — the actual integration runs in the paint hook (CanvasPaintPhase.
-    // BeforeBackground), preserving the MotionRunner architecture and TimeProvider-driven dt.
+    // Canvas-scoped vsync scheduler. View-bound CADisplayLink auto-tracks the screen the canvas
+    // moves across (WWDC23: NSView.GetDisplayLink). Pooled per Canvas via ConditionalWeakTable so
+    // concurrent springs/pulses on one canvas share one link; refCount drives physical teardown,
+    // active drives the Paused gate while any subscriber still wants ticks.
     [SupportedOSPlatform("macos14.0")]
     internal sealed class Pacer : NSObject {
         private static readonly Selector TickSelector = new("tick:");
+        // ConditionalWeakTable lacks a collection-expression target, so IDE0028 cannot simplify; suppress.
+#pragma warning disable IDE0028
+        private static readonly ConditionalWeakTable<Grasshopper2.UI.Canvas.Canvas, Pacer> Pool = new();
+#pragma warning restore IDE0028
+        private static readonly Lock PoolGate = new();
 
         private readonly Grasshopper2.UI.Canvas.Canvas canvas;
         private readonly CADisplayLink link;
+        private int refCount;
         private int active;
+        private int disposed;
 
         private Pacer(Grasshopper2.UI.Canvas.Canvas canvas, NSView view, CAFrameRateRange range) {
             this.canvas = canvas;
@@ -783,37 +817,82 @@ internal static class Motion {
             link.AddToRunLoop(runloop: NSRunLoop.Main, mode: NSRunLoopMode.Common.GetConstant()!);
         }
 
-        // Construct via factory so the NSView cast failure surfaces on the Fin rail instead of
-        // throwing into the caller. Default frame-rate range is 30-120 preferred 120 — covers
-        // ProMotion adaptive on M-series MacBook Pro / Studio Display without forcing 60Hz floors.
-        internal static Fin<Pacer> Of(Grasshopper2.UI.Canvas.Canvas canvas, CAFrameRateRange? rate = null) =>
-            Optional(canvas.ControlObject as NSView)
+        // Pooled accessor. Default frame-rate range covers ProMotion adaptive (30-120 preferred 120)
+        // on M-series displays. Construction surfaces NSView cast failure on the Fin rail; the
+        // CAS-style re-check after construction adopts a peer entry if a concurrent For() raced.
+        internal static Fin<Pacer> For(Grasshopper2.UI.Canvas.Canvas canvas, CAFrameRateRange? rate = null) {
+            using (PoolGate.EnterScope()) {
+                if (Pool.TryGetValue(canvas, out Pacer? existing)) {
+                    _ = Interlocked.Increment(ref existing.refCount);
+                    return Fin.Succ(existing);
+                }
+            }
+            // Lock released here; CreateOrAdopt re-enters the gate after construction to win-or-adopt.
+            return Optional(canvas.ControlObject as NSView)
                 .ToFin(Fail: UiFault.MutationRejected(
                     op: Op.Of(name: nameof(Pacer)),
                     detail: "canvas.ControlObject is not an NSView"))
                 .Bind(view => Op.Of(name: nameof(Pacer)).Attempt(
-                    body: () => new Pacer(
+                    body: () => CreateOrAdopt(
                         canvas: canvas,
                         view: view,
                         range: rate ?? CAFrameRateRange.Create(minimum: 30f, maximum: 120f, preferred: 120f)),
                     what: "Pacer construction"));
+        }
+
+        [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope",
+            Justification = "The fresh Pacer either transfers ownership to the static Pool (lifecycle-managed via refCount/Release) or invalidates+disposes its link explicitly when it loses the race.")]
+        private static Pacer CreateOrAdopt(Grasshopper2.UI.Canvas.Canvas canvas, NSView view, CAFrameRateRange range) {
+            Pacer fresh = new(canvas: canvas, view: view, range: range);
+            using (PoolGate.EnterScope()) {
+                if (Pool.TryGetValue(canvas, out Pacer? adopted)) {
+                    fresh.link.Invalidate();
+                    fresh.link.Dispose();
+                    _ = Interlocked.Increment(ref adopted.refCount);
+                    return adopted;
+                }
+                Pool.Add(canvas, fresh);
+                _ = Interlocked.Increment(ref fresh.refCount);
+                return fresh;
+            }
+        }
 
         [Export("tick:")]
         public void Tick(CADisplayLink sender) => canvas.ScheduleRedraw();
 
+        // Subscriber-refcounted gate. Increment unpauses the link unconditionally (Paused=false is
+        // idempotent); decrement only re-pauses when the last wanting subscriber drops out.
         internal Unit Resume() {
-            _ = Interlocked.Exchange(ref active, 1) == 0 ? Apply(paused: false) : unit;
+            _ = Interlocked.Increment(ref active);
+            link.Paused = false;
             return unit;
         }
 
         internal Unit Pause() {
-            _ = Interlocked.Exchange(ref active, 0) == 1 ? Apply(paused: true) : unit;
+            if (Interlocked.Decrement(ref active) <= 0) {
+                link.Paused = true;
+            }
             return unit;
         }
 
-        private Unit Apply(bool paused) { link.Paused = paused; return unit; }
+        // Final decrement disposes physically. Held inside PoolGate so a concurrent For() cannot
+        // adopt an entry that is mid-teardown.
+        internal Unit Release() {
+            using (PoolGate.EnterScope()) {
+                if (Interlocked.Decrement(ref refCount) > 0) {
+                    return unit;
+                }
+                _ = Pool.Remove(canvas);
+            }
+            Dispose();
+            return unit;
+        }
 
         protected override void Dispose(bool disposing) {
+            if (Interlocked.Exchange(ref disposed, 1) == 1) {
+                base.Dispose(disposing);
+                return;
+            }
             if (disposing) {
                 link.Paused = true;
                 link.Invalidate();

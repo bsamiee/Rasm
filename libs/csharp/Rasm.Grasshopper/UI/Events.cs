@@ -300,13 +300,36 @@ internal static partial class Events {
             from validInterval in Optional(interval).Filter(static value => value > TimeSpan.Zero)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeTimer)), detail: "interval must be positive"))
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeTimer)), detail: "null handler"))
-            let timer = new UITimer { Interval = validInterval.TotalSeconds }
-            let elapsed = (EventHandler<EventArgs>)((_, _) => GrasshopperUi.Protect(valid: valid).Ignore())
+            let scope2 = new TimerScope(interval: validInterval, tick: () => GrasshopperUi.Protect(valid: valid).Ignore())
             from sub in Subscription.Bind(
-                attach: () => { timer.Elapsed += elapsed; timer.Start(); },
-                detach: () => { timer.Elapsed -= elapsed; timer.Stop(); timer.Dispose(); },
+                attach: scope2.Start,
+                detach: scope2.Dispose,
                 marshalToUi: true)
             select sub);
+
+    // Idempotent UITimer lifecycle wrapper. Attaches Elapsed handler on Start; Dispose is gated by
+    // Interlocked.Exchange so a double Subscription.Dispose (or rollback after Start success) is safe.
+    private sealed class TimerScope : IDisposable {
+        private readonly UITimer timer;
+        private readonly EventHandler<EventArgs> tick;
+        private int disposed;
+
+        internal TimerScope(TimeSpan interval, System.Action tick) {
+            timer = new UITimer { Interval = interval.TotalSeconds };
+            this.tick = (_, _) => tick();
+        }
+
+        internal void Start() { timer.Elapsed += tick; timer.Start(); }
+
+        public void Dispose() {
+            if (Interlocked.Exchange(ref disposed, 1) == 1) {
+                return;
+            }
+            timer.Stop();
+            timer.Elapsed -= tick;
+            timer.Dispose();
+        }
+    }
 
     private static GrasshopperUiIntent<Subscription> SubscribeControl(Control source, ControlEventKind kind, Func<ControlEventSnapshot, Fin<Unit>> handler) =>
         GhUi.Read(run: scope =>
