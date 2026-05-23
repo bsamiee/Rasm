@@ -6,11 +6,10 @@ IFS=$'\n\t'
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 readonly SCRIPT_DIR ROOT_DIR
-readonly SOLUTION_PATH="${ROOT_DIR}/Workspace.slnx" FORMAT_SEVERITY="${FORMAT_SEVERITY:-warn}" CONFIGURATIONS_RAW="${CONFIGURATIONS:-Debug Release}"
+readonly SOLUTION_PATH="${ROOT_DIR}/Workspace.slnx" CHECK_CS_MAX_CPU="${CHECK_CS_MAX_CPU:-4}"
 readonly LOCK_ROOT="${ROOT_DIR}/.artifacts/locks"
-readonly UNUSED_CODE_DIAGNOSTICS="IDE0005 IDE0051 IDE0052 CS0169 CS0649"
 readonly -a PROJECT_EXCLUDE_ARGS=(--exclude .artifacts --exclude .cache --exclude .git --exclude .nx --exclude bin --exclude coverage --exclude node_modules --exclude obj --exclude test-results --exclude tmp)
-readonly -a DOTNET_SERIAL_BUILD_ARGS=(-maxcpucount:1 -p:BuildInParallel=false)
+readonly -a DOTNET_BUILD_ARGS=("-maxcpucount:${CHECK_CS_MAX_CPU}")
 readonly -a FULL_TRIGGER_FILES=(Directory.Build.props Directory.Build.targets Directory.Packages.props Workspace.slnx .editorconfig global.json)
 declare -Ar MODE_SPEC=([check]=changed [full]=full)
 ACTIVE_LOCK="" ACTIVE_TOKEN=""
@@ -58,8 +57,10 @@ _with_lock() {
     local -r lock_meta="${lock_dir}/owner"
     mkdir -p -- "${LOCK_ROOT}"
     local -r deadline=$((BASH_MONOSECONDS + 120))
+    local waited=0
     until mkdir -- "${lock_dir}" 2>/dev/null; do
-        _lock_stale "${lock_dir}" && rm -rf -- "${lock_dir}"
+        _lock_stale "${lock_dir}" && { rm -rf -- "${lock_dir}"; continue; }
+        ((waited)) || { printf 'check-cs: waiting for quality gate lock: %s\n' "${lock_dir}" >&2; waited=1; }
         ((BASH_MONOSECONDS < deadline)) || _die "Timed out waiting for quality gate lock: ${lock_dir}"
         sleep 0.2
     done
@@ -98,7 +99,7 @@ _full_trigger() {
     local -r file="$1"
     local trigger
     for trigger in "${FULL_TRIGGER_FILES[@]}"; do [[ "${file}" == "${trigger}" ]] && return 0; done
-    [[ "${file}" == *.csproj || "${file}" == */packages.lock.json || "${file}" == packages.lock.json ]]
+    return 1
 }
 _route_file() {
     local -r file="$1"
@@ -106,7 +107,7 @@ _route_file() {
     _ignored_test_fixture "${file}" && { printf 'ignore\n'; return; }
     { _full_trigger "${file}" || [[ "${file}" == tools/cs-analyzer/* ]]; } && { printf 'full\n'; return; }
     case "${file}" in
-        *.cs|*.props|*.targets|*.json|*.resx|*.ico|*.ghicon|*.yml|*.yaml) ;;
+        *.cs|*.csproj|*.props|*.targets|*.json|*.resx|*.ico|*.ghicon|*.yml|*.yaml) ;;
         *) printf 'ignore\n'; return ;;
     esac
     project="$(_owning_project "${file}" || true)"
@@ -143,28 +144,51 @@ _solution_projects() {
 _project_references() {
     local -r project="$1"
     local -n __refs="$2"
-    local -a raw_refs=()
-    mapfile -t raw_refs < <(cd -- "${ROOT_DIR}" && dotnet list "${project}" reference | rg --no-line-number '\.csproj$' || true)
     __refs=()
-    local ref ref_dir resolved
-    for ref in "${raw_refs[@]}"; do
+    local -a ref_lines=()
+    mapfile -t ref_lines < <(rg --no-filename '<ProjectReference\b' "${ROOT_DIR}/${project}" || true)
+    local line ref ref_dir resolved
+    for line in "${ref_lines[@]}"; do
+        [[ "${line}" == *'OutputItemType="Analyzer"'* || "${line}" == *"OutputItemType='Analyzer'"* ]] && continue
+        [[ "${line}" == *'ReferenceOutputAssembly="false"'* || "${line}" == *"ReferenceOutputAssembly='false'"* ]] && continue
+        ref="${line#*Include=\"}"
+        [[ "${ref}" == "${line}" ]] && ref="${line#*Include=\'}"
+        [[ "${ref}" == "${line}" ]] && continue
+        ref="${ref%%\"*}"
+        ref="${ref%%\'*}"
+        [[ "${ref}" == *.csproj ]] || continue
         [[ "${ref}" == /* ]] && { __refs+=("${ref#"${ROOT_DIR}/"}"); continue; }
-        ref_dir="$(cd -- "${ROOT_DIR}/${project%/*}/${ref%/*}" && pwd -P)"
+        [[ "${ref}" == */* ]] && ref_dir="$(cd -- "${ROOT_DIR}/${project%/*}/${ref%/*}" && pwd -P)" || ref_dir="$(cd -- "${ROOT_DIR}/${project%/*}" && pwd -P)"
         resolved="${ref_dir}/${ref##*/}"
         __refs+=("${resolved#"${ROOT_DIR}/"}")
     done
 }
+_project_graph() {
+    local -n __graph="$1"
+    shift
+    __graph=()
+    local project
+    for project in "$@"; do
+        local -a refs=()
+        _project_references "${project}" refs
+        __graph["${project}"]="$(printf '%s\n' "${refs[@]}")"
+    done
+}
 _expand_projects() {
     local -n __projects="$1"
+    # shellcheck disable=SC2178  # nameref target name is a scalar input for an associative-array output.
+    local -n __graph="$2"
+    shift
     shift
     local -a solution_projects=("$@")
-    local changed=1 project candidate
+    local changed=1 project candidate raw_refs
     while ((changed)); do
         changed=0
         for candidate in "${solution_projects[@]}"; do
             _array_has "${candidate}" "${__projects[@]}" && continue
             local -a refs=()
-            _project_references "${candidate}" refs
+            raw_refs="${__graph[${candidate}]:-}"
+            [[ -n "${raw_refs}" ]] && mapfile -t refs <<< "${raw_refs}"
             for project in "${__projects[@]}"; do
                 _array_has "${project}" "${refs[@]}" || continue
                 __projects+=("${candidate}")
@@ -176,17 +200,19 @@ _expand_projects() {
     mapfile -t __projects < <(printf '%s\n' "${__projects[@]}" | LC_ALL=C sort -u)
 }
 _route_changed() {
-    local -r projects_ref="$1" full_ref="$2" routed_ref="$3"
+    local -r projects_ref="$1" full_ref="$2" routed_ref="$3" format_ref="$4"
     # shellcheck disable=SC2178  # nameref target names are scalar inputs for array/int outputs.
     local -n __projects="${projects_ref}"
     local -n __full="${full_ref}"
     # shellcheck disable=SC2178  # nameref target name is a scalar input for an array output.
     local -n __routed="${routed_ref}"
-    shift 3
-    local -a solution_projects=("$@") changed_files=()
+    # shellcheck disable=SC2178  # nameref target name is a scalar input for an array output.
+    local -n __format="${format_ref}"
+    local -a changed_files=()
     __projects=()
     __full=0
     __routed=()
+    __format=()
     _changed_files changed_files
     local file route project
     for file in "${changed_files[@]}"; do
@@ -196,51 +222,94 @@ _route_changed() {
         [[ "${route}" != full ]] || { __full=1; continue; }
         project="${route#project|}"
         _array_has "${project}" "${__projects[@]}" || __projects+=("${project}")
+        [[ "${file}" == *.cs ]] && __format+=("${project}|${file}")
     done
-    ((__full == 0)) || { __projects=("${solution_projects[@]}"); return 0; }
-    ((${#__projects[@]} == 0)) || _expand_projects "${projects_ref}" "${solution_projects[@]}"
+}
+_configurations() {
+    local -r scope="$1"
+    local -n __configurations="$2"
+    local raw="${CONFIGURATIONS:-}"
+    [[ -n "${raw}" ]] || { [[ "${scope}" == full ]] && raw="Debug Release" || raw="Debug"; }
+    IFS=' ' read -r -a __configurations <<< "${raw}"
+}
+_restore_targets() {
+    local target
+    for target in "$@"; do
+        dotnet restore "${target}" --locked-mode
+    done
 }
 _build_targets() {
+    local -r scope="$1"
+    shift
     local -a configurations=()
-    IFS=' ' read -r -a configurations <<< "${CONFIGURATIONS_RAW}"
+    _configurations "${scope}" configurations
     local configuration target
     for configuration in "${configurations[@]}"; do
         for target in "$@"; do
-            dotnet build "${target}" --configuration "${configuration}" --no-restore "${DOTNET_SERIAL_BUILD_ARGS[@]}"
+            dotnet build "${target}" --configuration "${configuration}" --no-restore "${DOTNET_BUILD_ARGS[@]}"
         done
     done
 }
-_format_targets() {
-    local target
-    for target in "$@"; do
-        dotnet format "${target}" --verify-no-changes --severity "${FORMAT_SEVERITY}" --no-restore
-        dotnet format "${target}" --verify-no-changes --severity info --diagnostics "${UNUSED_CODE_DIAGNOSTICS}" --no-restore
+_format_full() {
+    dotnet format whitespace "${SOLUTION_PATH}" --verify-no-changes --no-restore
+}
+_format_targeted() {
+    (("$#" > 0)) || return 0
+    local -a projects=()
+    local route project file
+    for route in "$@"; do
+        project="${route%%|*}"
+        _array_has "${project}" "${projects[@]}" || projects+=("${project}")
+    done
+    for project in "${projects[@]}"; do
+        local -a files=()
+        for route in "$@"; do
+            [[ "${route%%|*}" == "${project}" ]] || continue
+            file="${route#*|}"
+            files+=("${file}")
+        done
+        dotnet format whitespace "${ROOT_DIR}/${project}" --include "${files[@]}" --verify-no-changes --no-restore
     done
 }
 _run_gate() {
-    local -r scope="$1"
-    shift
-    local -a projects=("$@") targets=() format_targets=()
-    ((${#projects[@]} > 0)) || _die "No C# projects selected"
-    [[ "${scope}" == full ]] && targets=("${SOLUTION_PATH}") || targets=("${projects[@]/#/${ROOT_DIR}/}")
-    [[ "${scope}" == targeted && ${#targets[@]} -gt 1 ]] && format_targets=("${SOLUTION_PATH}") || format_targets=("${targets[@]}")
-    printf 'check-cs: %s gate (%d): %s\n' "${scope}" "${#projects[@]}" "${projects[*]}"
-    dotnet restore "${SOLUTION_PATH}" --locked-mode --disable-parallel
-    _build_targets "${targets[@]}"
-    _format_targets "${format_targets[@]}"
+    local -r scope="$1" projects_ref="$2" format_ref="$3"
+    # shellcheck disable=SC2178  # nameref target name is a scalar input for an array output.
+    local -n __projects="${projects_ref}"
+    local -n __format_routes="${format_ref}"
+    local -a targets=()
+    ((${#__projects[@]} > 0)) || _die "No C# projects selected"
+    [[ "${scope}" == full ]] && targets=("${SOLUTION_PATH}") || targets=("${__projects[@]/#/${ROOT_DIR}/}")
+    printf 'check-cs: %s gate (%d): %s\n' "${scope}" "${#__projects[@]}" "${__projects[*]}"
+    _restore_targets "${targets[@]}"
+    _build_targets "${scope}" "${targets[@]}"
+    case "${scope}" in
+        full) _format_full ;;
+        *) _format_targeted "${__format_routes[@]}" ;;
+    esac
 }
 _run_mode() {
     local -r mode="$1"
-    shift
     local -r scope="${MODE_SPEC[${mode}]}"
-    local -a solution_projects=("$@") projects=() routed=()
+    local -a solution_projects=() projects=() routed=()
+    # shellcheck disable=SC2034  # populated/read through namerefs in _route_changed/_run_gate.
+    local -a format_routes=()
+    # shellcheck disable=SC2034  # populated through nameref in _project_graph/_expand_projects.
+    local -A project_graph=()
     local full=0
     [[ "${scope}" == full ]] || {
-        _route_changed projects full routed "${solution_projects[@]}"
+        _route_changed projects full routed format_routes
         ((${#routed[@]} > 0)) || { printf 'check-cs: no C#-relevant changes; skipping dotnet gate\n'; return 0; }
-        ((full == 0)) && { _run_gate targeted "${projects[@]}"; return; }
+        _solution_projects solution_projects
+        ((full == 0)) && {
+            _project_graph project_graph "${solution_projects[@]}"
+            ((${#projects[@]} == 0)) || _expand_projects projects project_graph "${solution_projects[@]}"
+            _run_gate targeted projects format_routes
+            return
+        }
     }
-    _run_gate full "${solution_projects[@]}"
+    _solution_projects solution_projects
+    projects=("${solution_projects[@]}")
+    _run_gate full projects format_routes
 }
 _assert_eq() { [[ "$1" == "$2" ]] || _die "ASSERT ${FUNCNAME[1]}:${BASH_LINENO[0]}: '${1}' != '${2}'"; }
 _self_test() {
@@ -252,10 +321,12 @@ _self_test() {
     _assert_eq libs/csharp/Rasm.Rhino/Rasm.Rhino.csproj "${owner}"
     [[ -v MODE_SPEC[check] && -v MODE_SPEC[full] ]] || _die "Mode table incomplete"
     [[ ! -v MODE_SPEC[test] && ! -v MODE_SPEC[test-full] ]] || _die "Mode table must not advertise test routes; run scripts/test.sh"
-    _full_trigger Directory.Build.props && _full_trigger libs/csharp/Rasm.Rhino/Rasm.Rhino.csproj
+    _full_trigger Directory.Build.props && ! _full_trigger libs/csharp/Rasm.Rhino/Rasm.Rhino.csproj
     _ignored_test_fixture tests/tools/ast-grep/pass/src/domain/expression_flow.ts || _die "Ignored test fixture route failed"
     _assert_eq ignore "$(_route_file package.json)"
     _assert_eq full "$(_route_file tools/cs-analyzer/config.json)"
+    _assert_eq "project|libs/csharp/Rasm.Rhino/Rasm.Rhino.csproj" "$(_route_file libs/csharp/Rasm.Rhino/Rasm.Rhino.csproj)"
+    _assert_eq "project|libs/csharp/Rasm.Rhino/Rasm.Rhino.csproj" "$(_route_file libs/csharp/Rasm.Rhino/packages.lock.json)"
 }
 _main() {
     (($# <= 1)) || _die "Unexpected arguments: $*" 2
@@ -265,8 +336,6 @@ _main() {
     [[ -f "${SOLUTION_PATH}" ]] || _die "Missing solution: ${SOLUTION_PATH}"
     local command
     for command in dotnet fd git rg; do command -v "${command}" >/dev/null || _die "Missing required command: ${command}"; done
-    local -a solution_projects=()
-    _solution_projects solution_projects
-    _with_lock check-cs _run_mode "${mode}" "${solution_projects[@]}"
+    _with_lock check-cs _run_mode "${mode}"
 }
 _main "$@"

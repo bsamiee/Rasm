@@ -41,6 +41,6 @@ _main() {
     [[ "${1:-}" == "--self-test" ]] && { _self_test; printf 'test: self-test passed\n'; return 0; }
     command -v dotnet >/dev/null || _die "Missing required command: dotnet"
     (($# <= 1)) || _die "Unexpected arguments: $*" 2
-    _with_lock check-cs _run "${1:-}"
+    _with_lock test-cs _run "${1:-}"
 }
 _main "$@"
