@@ -48,6 +48,11 @@ public sealed partial class SurfaceProjection {
             : Fin.Fail<object>(Op.Of().InvalidResult()));
     public static readonly SurfaceProjection Normal = new(key: 4,
         sample: static sc => Fin.Succ((object)sc.Normal));
+    // Shape operator (k1, k2, e1, e2) as a ValueTuple. SurfaceCurvature.Direction(0)/Direction(1)
+    // expose the principal eigenvectors in world space; Kappa(0)/Kappa(1) the matching scalars.
+    public static readonly SurfaceProjection ShapeOperator = new(key: 5,
+        sample: static sc => Fin.Succ((object)new ValueTuple<double, double, Vector3d, Vector3d>(
+            sc.Kappa(direction: 0), sc.Kappa(direction: 1), sc.Direction(direction: 0), sc.Direction(direction: 1))));
     [UseDelegateFromConstructor] private partial Fin<object> Sample(SurfaceCurvature curvature);
     internal Fin<TOut> Project<TOut>(Surface surface, double u, double v, Context context, Op key) =>
         from _ in guard(surface.Domain(direction: 0).IncludesParameter(t: u) && surface.Domain(direction: 1).IncludesParameter(t: v), key.InvalidInput())
@@ -60,6 +65,8 @@ public sealed partial class SurfaceProjection {
                     (Vector3d n, Type t) when t == typeof(Vector3d) => key.AcceptValue(value: (TOut)(object)n),
                     (Seq<double> ks, Type t) when t == typeof(Seq<double>) =>
                         ks.TraverseM(k => key.AcceptValue(value: k)).As().Map(static valid => (TOut)(object)valid),
+                    (ValueTuple<double, double, Vector3d, Vector3d> tuple, Type t) when t == typeof(ValueTuple<double, double, Vector3d, Vector3d>) =>
+                        key.AcceptValue(value: tuple).Map(static v => (TOut)(object)v),
                     _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(SurfaceProjection), outputType: typeof(TOut))),
                 }
                 select projected)

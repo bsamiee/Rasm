@@ -161,8 +161,44 @@ public readonly record struct SparseSolveResult(
     string Solver,
     string Preconditioner,
     string StopStatus,
-    int IterationCap,
+    int MaxIterations,
     double Residual);
+
+// Cached sparse Cholesky factorisation backed by CSparse 4.3.0. SPD input only; symmetric CSR
+// stored in this.SparseMatrix maps to CSparse CSC unchanged (CSR == CSC for symmetric matrices).
+// Direct factor + back-substitute makes vector heat / log map / Karcher mean / shift-invert LOBPCG
+// practical at O(n^1.5) total vs O(n^2 k) via iterative BiCGStab per right-hand side.
+[BoundaryAdapter]
+public sealed record CholeskySparse {
+    private CholeskySparse(CSparse.Double.Factorization.SparseCholesky factor, Dimension order) {
+        Factor = factor;
+        Order = order;
+    }
+    internal CSparse.Double.Factorization.SparseCholesky Factor { get; }
+    public Dimension Order { get; }
+    public bool IsValid => Factor.NonZerosCount > 0 && Order.Value > 0;
+    public static Fin<CholeskySparse> Of(SparseMatrix symmetric, Op? key = null) {
+        Op op = key.OrDefault();
+        return symmetric.Rows.Value != symmetric.Cols.Value
+            ? Fin.Fail<CholeskySparse>(error: op.InvalidInput())
+            : op.Catch(() => {
+                CSparse.Storage.CompressedColumnStorage<double> csc = MatrixKernel.ToCSparseSymmetric(symmetric);
+                CSparse.Double.Factorization.SparseCholesky factor =
+                    CSparse.Double.Factorization.SparseCholesky.Create(A: csc, order: CSparse.ColumnOrdering.MinimumDegreeAtPlusA);
+                return Fin.Succ(new CholeskySparse(factor: factor, order: symmetric.Rows));
+            });
+    }
+    public Fin<Arr<double>> Solve(Arr<double> rhs, Op? key = null) {
+        Op op = key.OrDefault();
+        if (rhs.Count != Order.Value) return Fin.Fail<Arr<double>>(error: op.InvalidInput());
+        double[] b = [.. rhs.AsIterable()];
+        double[] x = new double[Order.Value];
+        Factor.Solve(input: b.AsSpan(), result: x.AsSpan());
+        return x.All(RhinoMath.IsValidDouble)
+            ? op.AcceptValue(value: new Arr<double>(x))
+            : Fin.Fail<Arr<double>>(error: op.InvalidResult());
+    }
+}
 
 // Upper-triangular storage; Multiply reconstructs the lower triangle by conjugate transpose.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -210,6 +246,23 @@ internal static class MatrixKernel {
     private const int RealInitialBasisSeed = 17;
     private const int HermitianInitialBasisSeed = 19;
     // --- [BRIDGE] ---------------------------------------------------------------------------
+    // For symmetric A: CSR(A) == CSC(A) because A = A^T. We forward the same arrays into the
+    // CSparse CompressedColumnStorage constructor (column indices in CSR become row indices in
+    // CSC, row pointers become column pointers). Asymmetric input WILL produce a transposed
+    // CSparse matrix; callers must verify symmetry upstream (Cholesky already requires SPD).
+    internal static CSparse.Double.SparseMatrix ToCSparseSymmetric(SparseMatrix s) {
+        int n = s.Rows.Value;
+        double[] values = [.. s.Values.AsIterable()];
+        int[] rowIndices = [.. s.ColInd.AsIterable()];
+        int[] columnPointers = [.. s.RowPtr.AsIterable()];
+        return new CSparse.Double.SparseMatrix(
+            rowCount: n,
+            columnCount: n,
+            values: values,
+            rowIndices: rowIndices,
+            columnPointers: columnPointers);
+    }
+
     internal static DenseMatrixD ToMathNet(Matrix m) =>
         (DenseMatrixD)DenseMatrixD.Build.DenseOfRowMajor(m.Rows.Value, m.Cols.Value, m.Entries.AsIterable());
     internal static Matrix FromMathNet(Matrix<double> m, Dimension rows, Dimension cols) =>
@@ -380,7 +433,7 @@ internal static class MatrixKernel {
                         Solver: nameof(MathNet.Numerics.LinearAlgebra.Double.Solvers.BiCgStab),
                         Preconditioner: nameof(MathNet.Numerics.LinearAlgebra.Double.Solvers.DiagonalPreconditioner),
                         StopStatus: iterator.Status.ToString(),
-                        IterationCap: iterationCap,
+                        MaxIterations: iterationCap,
                         Residual: residual))
                     : Fin.Fail<SparseSolveResult>(key.InvalidResult());
             });

@@ -2,6 +2,12 @@
   "version": 2,
   "dependencies": {
     "net10.0": {
+      "CSparse": {
+        "type": "Direct",
+        "requested": "[4.3.0, )",
+        "resolved": "4.3.0",
+        "contentHash": "IsY7xYSOsmrdKQFUsVmoKva7m1kR6dPbXOl7Qf3AZijkuBpcxFpRyZ9p9ytub0fYRcw3EoPFw/YV3OCQzgox2w=="
+      },
       "LanguageExt.Core": {
         "type": "Direct",
         "requested": "[5.0.0-beta-77, )",

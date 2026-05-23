@@ -34,10 +34,10 @@ public abstract partial record VectorIntent {
     public sealed record SampleCase(MeshSpace Domain, SampleKind Kind) : VectorIntent;
     public sealed record AlignCase(VectorCloud Source, VectorCloud Target, AlignKind Kind) : VectorIntent;
     public sealed record RemeshCase(MeshSpace Space, RemeshKind Kind) : VectorIntent;
-    public sealed record TransportCase(VectorCloud Source, VectorCloud Target, PositiveMagnitude Regularization, Dimension IterationCap, bool Unbiased) : VectorIntent;
+    public sealed record TransportCase(VectorCloud Source, VectorCloud Target, PositiveMagnitude Regularization, Dimension MaxIterations, bool Debiased, Option<PositiveMagnitude> MassRelaxation) : VectorIntent;
     public sealed record TopologyCase(MeshSpace Space) : VectorIntent;
     public sealed record FeaturesCase(MeshSpace Space, VectorAngle Dihedral) : VectorIntent;
-    public sealed record DescriptorCase(MeshSpace Space, MeshDescriptor Kind, Dimension EigenpairCount) : VectorIntent;
+    public sealed record DescriptorCase(MeshSpace Space, MeshDescriptor Kind, Dimension Pairs) : VectorIntent;
     public Fin<TOut> Project<TOut>(Context context, Op? key = null) {
         Op op = key.OrDefault();
         return from model in Optional(context).ToFin(op.MissingContext())
@@ -185,7 +185,7 @@ public abstract partial record VectorIntent {
                 ? state.Key.AcceptValue(value: mesh).Map(static v => (TOut)(object)v)
                 : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(RemeshCase), outputType: typeof(TOut)))
             select output,
-        transportCase: static (state, intent) => CloudKernel.Sinkhorn<TOut>(source: intent.Source, target: intent.Target, regularization: intent.Regularization.Value, maxIterations: intent.IterationCap.Value, unbiased: intent.Unbiased, key: state.Key),
+        transportCase: static (state, intent) => CloudKernel.Sinkhorn<TOut>(source: intent.Source, target: intent.Target, regularization: intent.Regularization.Value, maxIterations: intent.MaxIterations.Value, debiased: intent.Debiased, massRelaxation: intent.MassRelaxation, key: state.Key),
         topologyCase: static (state, intent) =>
             from topology in MeshKernel.TopologyOf(space: intent.Space, key: state.Key)
             from output in typeof(TOut) == typeof((int Euler, int Genus, int BoundaryComponents))
@@ -198,7 +198,7 @@ public abstract partial record VectorIntent {
                 ? state.Key.AcceptValue(value: edges).Map(static v => (TOut)(object)v)
                 : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(FeaturesCase), outputType: typeof(TOut)))
             select output,
-        descriptorCase: static (state, intent) => MeshKernel.DescribeShape<TOut>(space: intent.Space, kind: intent.Kind, eigenpairs: intent.EigenpairCount.Value, key: state.Key));
+        descriptorCase: static (state, intent) => MeshKernel.DescribeShape<TOut>(space: intent.Space, kind: intent.Kind, eigenpairs: intent.Pairs.Value, key: state.Key));
     public static VectorIntent Between(Point3d origin, SupportSpace target, BoundarySense? sense = null) =>
         new SupportCase(Space: target, Query: origin, Projection: (sense ?? BoundarySense.Toward).Equals(BoundarySense.Toward) ? SupportProjection.Span : SupportProjection.SignedSpanAway);
     public static VectorIntent Axis(SignedAxis axis, Plane? frame = null) =>
@@ -274,11 +274,18 @@ public abstract partial record VectorIntent {
         new AlignCase(Source: source, Target: target, Kind: kind);
     public static VectorIntent Remesh(MeshSpace space, RemeshKind kind) =>
         new RemeshCase(Space: space, Kind: kind);
-    public static Fin<VectorIntent> Transport(VectorCloud source, VectorCloud target, double regularization, int iterationCap, bool unbiased = false, Op? key = null) {
+    // Chizat-Peyré-Schmitzer-Vialard 2018 unbalanced Sinkhorn: massRelaxation = None gives the
+    // balanced transport (existing behaviour); Some(lambda) penalises marginal mass deviation
+    // via KL divergence with weight lambda, enabling cross-domain cloud matching where total
+    // source mass != total target mass.
+    public static Fin<VectorIntent> Transport(VectorCloud source, VectorCloud target, double regularization, int maxIterations, bool debiased = false, double? massRelaxation = null, Op? key = null) {
         Op op = key.OrDefault();
         return from reg in op.AcceptValidated<PositiveMagnitude>(candidate: regularization)
-               from cap in op.AcceptValidated<Dimension>(candidate: iterationCap)
-               select (VectorIntent)new TransportCase(Source: source, Target: target, Regularization: reg, IterationCap: cap, Unbiased: unbiased);
+               from cap in op.AcceptValidated<Dimension>(candidate: maxIterations)
+               from relax in massRelaxation is double lambda
+                    ? op.AcceptValidated<PositiveMagnitude>(candidate: lambda).Map(Some)
+                    : Fin.Succ(Option<PositiveMagnitude>.None)
+               select (VectorIntent)new TransportCase(Source: source, Target: target, Regularization: reg, MaxIterations: cap, Debiased: debiased, MassRelaxation: relax);
     }
     public static VectorIntent Topology(MeshSpace space) =>
         new TopologyCase(Space: space);
@@ -287,9 +294,9 @@ public abstract partial record VectorIntent {
             .Bind(angle => angle.Value > RhinoMath.ZeroTolerance
                 ? Fin.Succ((VectorIntent)new FeaturesCase(Space: space, Dihedral: angle))
                 : Fin.Fail<VectorIntent>(key.OrDefault().InvalidInput()));
-    public static Fin<VectorIntent> Descriptor(MeshSpace space, MeshDescriptor kind, int eigenpairCount, Op? key = null) {
+    public static Fin<VectorIntent> Descriptor(MeshSpace space, MeshDescriptor kind, int pairs, Op? key = null) {
         Op op = key.OrDefault();
-        return from count in op.AcceptValidated<Dimension>(candidate: eigenpairCount)
-               select (VectorIntent)new DescriptorCase(Space: space, Kind: kind, EigenpairCount: count);
+        return from count in op.AcceptValidated<Dimension>(candidate: pairs)
+               select (VectorIntent)new DescriptorCase(Space: space, Kind: kind, Pairs: count);
     }
 }

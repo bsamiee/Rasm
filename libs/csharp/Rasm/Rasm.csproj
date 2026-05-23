@@ -4,6 +4,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <PackageReference Include="CSparse" />
         <PackageReference Include="MathNet.Numerics" />
         <PackageReference Include="MathNet.Symbolics" />
     </ItemGroup>

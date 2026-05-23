@@ -16,6 +16,8 @@ public sealed partial class AlignKind {
         solveStep: static (source, target, normals, _, current, key) => AlignKernel.SolveSymmetric(source: source, target: target, normals: normals, current: current, key: key));
     public static readonly AlignKind Robust = new(key: 3,
         solveStep: static (source, target, _, residuals, current, key) => AlignKernel.SolveRobustProcrustes(source: source, target: target, residuals: residuals, current: current, key: key));
+    public static readonly AlignKind Generalized = new(key: 4,
+        solveStep: static (source, target, normals, _, current, key) => AlignKernel.SolveGeneralized(source: source, target: target, targetNormals: normals, current: current, key: key));
     [UseDelegateFromConstructor] internal partial Fin<Transform> SolveStep(Seq<Point3d> source, Point3d[] target, Vector3d[] normals, double[] residuals, Transform current, Op key);
     internal Fin<Transform> Align(VectorCloud source, VectorCloud target, Op? key = null) =>
         AlignKernel.AlignClouds(kind: this, source: source, target: target, key: key.OrDefault());
@@ -113,6 +115,28 @@ internal static class AlignKernel {
     }
     private static Fin<Vector3d[]> EstimateSourceNormals(Seq<Point3d> source, Transform current, Op key) =>
         CloudKernel.EstimateNormalsFromPoints(points: [.. source.Map(p => current * p).AsIterable()], key: key);
+    // Segal-Haehnel-Thrun 2009 linearized GICP: per-correspondence weight from source/target
+    // normal alignment (sqrt(|n_s . n_t|)) leaks tangential residual into the point-to-plane
+    // solve. Reduces to point-to-plane when normals are perfectly aligned; tempers contributions
+    // from poorly-oriented correspondences.
+    internal static Fin<Transform> SolveGeneralized(Seq<Point3d> source, Point3d[] target, Vector3d[] targetNormals, Transform current, Op key) =>
+        EstimateSourceNormals(source: source, current: current, key: key).Bind(sourceNormals => {
+            int n = source.Count;
+            double[] aFlat = new double[n * 6]; double[] b = new double[n];
+            for (int i = 0; i < n; i++) {
+                Point3d p = current * source[index: i]; Point3d q = target[i];
+                Vector3d ns = sourceNormals[i]; Vector3d nt = targetNormals[i];
+                double align = Math.Abs(value: ns * nt);
+                double weight = Math.Sqrt(d: Math.Max(val1: align, val2: RhinoMath.SqrtEpsilon));
+                Vector3d cross = Vector3d.CrossProduct(a: (Vector3d)p, b: nt);
+                aFlat[(i * 6) + 0] = weight * cross.X; aFlat[(i * 6) + 1] = weight * cross.Y; aFlat[(i * 6) + 2] = weight * cross.Z;
+                aFlat[(i * 6) + 3] = weight * nt.X; aFlat[(i * 6) + 4] = weight * nt.Y; aFlat[(i * 6) + 5] = weight * nt.Z;
+                b[i] = weight * ((q - p) * nt);
+            }
+            return SolveLeastSquares6(aFlat: aFlat, b: b, n: n, key: key)
+                .Map(static x => ComposeRigidTransform(omega: new Vector3d(x: x[0], y: x[1], z: x[2]), translation: new Vector3d(x: x[3], y: x[4], z: x[5])));
+        });
+
     // Robust ICP via Welsch IRLS: w_i = exp(-r_i² / (2ν²)), then weighted Procrustes.
     internal static Fin<Transform> SolveRobustProcrustes(Seq<Point3d> source, Point3d[] target, double[] residuals, Transform current, Op key) {
         int n = source.Count;
