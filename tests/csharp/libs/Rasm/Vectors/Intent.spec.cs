@@ -6,58 +6,63 @@ using Rhino.Geometry;
 namespace Rasm.Tests.Vectors;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-// SupportProjection metadata stays pure-managed; projection behavior itself routes through
-// SupportSpace and RhinoCommon, so projection laws belong in the bridge rail.
-[System.Diagnostics.CodeAnalysis.SuppressMessage(category: "Design", checkId: "CA1515", Justification = "xUnit discovers public test surface.")]
-public static class IntentGens {
+internal static class IntentGens {
     public static readonly Op Key = Op.Of(name: "intent-test");
-    public static readonly SupportProjection[] All = [
-        SupportProjection.Closest, SupportProjection.Direction, SupportProjection.Span, SupportProjection.SignedSpanAway,
-        SupportProjection.Normal, SupportProjection.Distance, SupportProjection.Parameter, SupportProjection.Uv,
-        SupportProjection.Component, SupportProjection.MeshPoint, SupportProjection.SignedDistance,
-        SupportProjection.ContainmentDistance, SupportProjection.Tangent, SupportProjection.Frame,
-    ];
-    public static readonly Gen<SupportProjection> Projection = Gen.OneOfConst(All);
+    public static readonly Context Model = Spec.SuccValue(Context.Of(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: Rhino.UnitSystem.Millimeters).ToFin(), label: "intent context");
+    public static readonly Gen<double> OutsideUnit = Gens.Finite.Where(static t => t is < 0.0 or > 1.0);
+    public static readonly Seq<Point3d> ClusterPoints = Seq(Point3d.Origin, new Point3d(x: 1.0, y: 0.0, z: 0.0), new Point3d(x: 0.0, y: 1.0, z: 0.0));
+    public static VectorCloud Cluster => Spec.SuccValue(VectorCloud.Cluster(points: ClusterPoints, context: Model, key: Key), label: "cluster");
+    public static Direction X => default;
+    public static Direction Y => default;
+    public static MeshSpace Space => default;
 }
 
 // --- [ALGEBRAIC] ----------------------------------------------------------------------------
-public sealed class SupportProjectionLaws {
+public sealed class VectorIntentFactoryLaws {
     [Fact]
-    public void KeysAreDistinctAcrossFourteenCases() =>
-        Assert.Equal(
-            expected: IntentGens.All.Length,
-            actual: IntentGens.All.Select(static (SupportProjection p) => p.Key).Distinct().Count());
+    public void InterpolationFactoriesValidateUnitInterval() {
+        Spec.ForAll(Gens.UnitClosed, t => {
+            Spec.Succ(VectorIntent.Lerp(a: Vector3d.XAxis, b: Vector3d.YAxis, t: t, key: IntentGens.Key),
+                then: intent => Spec.EqualWithin(left: Assert.IsType<VectorIntent.LerpCase>(@object: intent).Parameter.Value, right: t, tolerance: 0.0, what: "lerp t"));
+            Spec.Succ(VectorIntent.Pose(from: Plane.WorldXY, to: Plane.WorldZX, t: t, mode: MotionInterpolation.Linear, key: IntentGens.Key),
+                then: intent => Spec.EqualWithin(left: Assert.IsType<VectorIntent.PoseCase>(@object: intent).Parameter.Value, right: t, tolerance: 0.0, what: "pose t"));
+            Spec.Succ(VectorIntent.Slerp(a: IntentGens.X, b: IntentGens.Y, t: t, key: IntentGens.Key),
+                then: intent => Spec.EqualWithin(left: Assert.IsType<VectorIntent.SlerpCase>(@object: intent).Parameter.Value, right: t, tolerance: 0.0, what: "slerp t"));
+        });
+        Spec.ForAll(IntentGens.OutsideUnit, t => {
+            Spec.Fail(VectorIntent.Lerp(a: Vector3d.XAxis, b: Vector3d.YAxis, t: t, key: IntentGens.Key));
+            Spec.Fail(VectorIntent.Pose(from: Plane.WorldXY, to: Plane.WorldZX, t: t, mode: MotionInterpolation.Linear, key: IntentGens.Key));
+            Spec.Fail(VectorIntent.Slerp(a: IntentGens.X, b: IntentGens.Y, t: t, key: IntentGens.Key));
+        });
+    }
     [Fact]
-    public void ProjectionGeneratorEmitsDeclaredCases() =>
-        Spec.ForAll(IntentGens.Projection, p => Assert.Contains(expected: p, collection: IntentGens.All));
-    [Fact]
-    public void SignedSpanAwayIsDistinctFromSpan() =>
-        Assert.NotEqual(expected: SupportProjection.Span.Key, actual: SupportProjection.SignedSpanAway.Key);
-    [Fact]
-    public void ParameterIsDistinctFromDistance() =>
-        Assert.NotEqual(expected: SupportProjection.Distance.Key, actual: SupportProjection.Parameter.Key);
+    public void CloudTransportFeatureAndDescriptorFactoriesGateInvalidInputs() {
+        Spec.Succ(VectorIntent.Cloud(cloud: IntentGens.Cluster, metric: VectorCloudMetric.Covariance, key: IntentGens.Key), then: intent => Assert.IsType<VectorIntent.CloudCase>(@object: intent));
+        Spec.Fail(VectorIntent.Cloud(cloud: IntentGens.Cluster, metric: VectorCloudMetric.Area, key: IntentGens.Key));
+        Spec.Fail(VectorIntent.Winding(cloud: IntentGens.Cluster, query: Point3d.Origin, key: IntentGens.Key));
+        Spec.Succ(VectorIntent.Transport(source: IntentGens.Cluster, target: IntentGens.Cluster, regularization: 1.0, maxIterations: 32, massRelaxation: 2.0, key: IntentGens.Key),
+            then: intent => Assert.IsType<VectorIntent.TransportCase>(@object: intent));
+        Spec.Fail(VectorIntent.Transport(source: IntentGens.Cluster, target: IntentGens.Cluster, regularization: 0.0, maxIterations: 32, key: IntentGens.Key));
+        Spec.Fail(VectorIntent.Transport(source: IntentGens.Cluster, target: IntentGens.Cluster, regularization: 1.0, maxIterations: 0, key: IntentGens.Key));
+        Spec.Succ(VectorIntent.Features(space: IntentGens.Space, dihedralRadians: 0.1, key: IntentGens.Key));
+        Spec.Fail(VectorIntent.Features(space: IntentGens.Space, dihedralRadians: 0.0, key: IntentGens.Key));
+        Spec.Fail(VectorIntent.Descriptor(space: IntentGens.Space, kind: MeshDescriptor.Spectral(filter: SpectralFilter.Identity), pairs: 0, key: IntentGens.Key));
+    }
 }
 
-public sealed class InterpolationIntentLaws {
+public sealed class VectorIntentShapeLaws {
     [Fact]
-    public void LerpRejectsParametersOutsideUnitRange() =>
-        Spec.ForAll(Gens.Finite.Where(static t => t is < 0.0 or > 1.0), static t =>
-            Spec.Fail(VectorIntent.Lerp(a: Vector3d.XAxis, b: Vector3d.YAxis, t: t, key: IntentGens.Key)));
+    public void DirectConstructorsPreserveCasePayloads() {
+        _ = Assert.IsType<VectorIntent.ComponentsCase>(@object: VectorIntent.Components(anchor: Point3d.Origin, value: Vector3d.XAxis, frame: Plane.WorldXY));
+        _ = Assert.IsType<VectorIntent.ProjectOntoCase>(@object: VectorIntent.ProjectOnto(value: Vector3d.ZAxis, target: Plane.WorldXY));
+        _ = Assert.IsType<VectorIntent.MirrorCase>(@object: VectorIntent.Mirror(value: Vector3d.XAxis, across: Plane.WorldYZ));
+        _ = Assert.IsType<VectorIntent.RayCase>(@object: VectorIntent.Ray(origin: Point3d.Origin, direction: IntentGens.X));
+        _ = Assert.IsType<VectorIntent.StreamlineCase>(@object: Spec.SuccValue(VectorIntent.Streamline(field: VectorField.Constant(value: Vector3d.XAxis), seed: Point3d.Origin, initialStep: 0.1, termination: Spec.SuccValue(Termination.Steps(count: 1, key: IntentGens.Key), label: "steps"), key: IntentGens.Key), label: "streamline"));
+    }
     [Fact]
-    public void LerpAcceptsUnitRange() =>
-        Spec.ForAll(Gens.UnitClosed, static t =>
-            Spec.Succ(VectorIntent.Lerp(a: Vector3d.XAxis, b: Vector3d.YAxis, t: t, key: IntentGens.Key),
-                then: intent => Spec.EqualWithin(
-                    left: Assert.IsType<VectorIntent.LerpCase>(@object: intent).Parameter.Value,
-                    right: t,
-                    tolerance: 0.0,
-                    what: "lerp t")));
-    [Fact]
-    public void PoseValidatesUnitRange() {
-        Spec.ForAll(Gens.UnitClosed, t =>
-            Spec.Succ(VectorIntent.Pose(from: Plane.WorldXY, to: Plane.WorldZX, t: t, mode: MotionInterpolation.Linear, key: IntentGens.Key), then: intent =>
-                Spec.EqualWithin(left: Assert.IsType<VectorIntent.PoseCase>(@object: intent).Parameter.Value, right: t, tolerance: 0.0, what: "pose t")));
-        Spec.ForAll(Gens.Finite.Where(static t => t is < 0.0 or > 1.0), t =>
-            Spec.Fail(VectorIntent.Pose(from: Plane.WorldXY, to: Plane.WorldZX, t: t, mode: MotionInterpolation.Linear, key: IntentGens.Key)));
+    public void ProjectRequiresContextBeforeDispatch() {
+        Spec.Fail(VectorIntent.Direction(value: Vector3d.XAxis).Project<Vector3d>(context: null!, key: IntentGens.Key));
+        Spec.Fail(VectorIntent.Lerp(a: Vector3d.XAxis, b: Vector3d.YAxis, t: double.NaN, key: IntentGens.Key));
+        Spec.Fail(VectorIntent.Transport(source: IntentGens.Cluster, target: IntentGens.Cluster, regularization: double.NaN, maxIterations: 16, key: IntentGens.Key));
     }
 }

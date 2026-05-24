@@ -1,4 +1,6 @@
 using Rasm.Domain;
+using Rasm.Vectors;
+using Rhino;
 using Rhino.Geometry;
 
 namespace Rasm.TestKit;
@@ -11,12 +13,33 @@ public static class Gens {
     public static readonly Gen<double> NonPositive = Finite.Where(predicate: static x => x <= 0.0);
     public static readonly Gen<double> Positive = Gen.Double[start: 1.0e-6, finish: 1.0e6];
     public static readonly Gen<double> PositiveFinite = Finite.Where(predicate: static x => x > 0.0);
-    public static readonly Gen<double> Tolerance = Gen.Double[start: 1.0e-12, finish: 1.0e-3];
-    public static readonly Gen<double> UnitClosed = Gen.Frequency((98, Gen.Double.Unit), (1, Gen.Const(value: 0.0)), (1, Gen.Const(value: 1.0)));
+    public static readonly Gen<double> Tolerance = Gen.Frequency(
+        (90, Gen.Double[start: 1.0e-12, finish: 1.0e-3]),
+        (10, Gen.OneOfConst(RhinoMath.ZeroTolerance, RhinoMath.ZeroTolerance * 2.0, RhinoMath.SqrtEpsilon)));
+    public static readonly Gen<double> UnitClosed = Gen.Frequency(
+        (94, Gen.Double.Unit),
+        (2, Gen.Const(value: 0.0)),
+        (2, Gen.Const(value: 1.0)),
+        (1, Gen.Const(value: RhinoMath.ZeroTolerance)),
+        (1, Gen.Const(value: 1.0 - RhinoMath.ZeroTolerance)));
     public static readonly Gen<double> UnitInterior = Gen.Double[start: double.Epsilon, finish: 1.0 - double.Epsilon];
-    public static readonly Gen<double> UnitAngle = Gen.Double[start: 0.0, finish: 2.0 * Math.PI];
+    public static readonly Gen<double> UnitAngle = Gen.Frequency(
+        (90, Gen.Double[start: 0.0, finish: RhinoMath.TwoPI]),
+        (10, Gen.OneOfConst(0.0, RhinoMath.Epsilon * 2.0, Math.PI, RhinoMath.TwoPI - RhinoMath.ZeroTolerance, RhinoMath.TwoPI)));
     public static readonly Gen<double> Probability = Gen.Double.Unit;
     public static readonly Gen<int> SmallDimension = Gen.Int[start: 1, finish: 8];
+    public static readonly Gen<double> PositiveMagnitudeScalar = Gen.Frequency(
+        (90, Positive),
+        (10, Gen.OneOfConst(RhinoMath.ZeroTolerance * 2.0, RhinoMath.SqrtEpsilon, 1.0, 1.0e3)));
+    public static readonly Gen<Vectors.Dimension> Dimension = SmallDimension.Select(static value =>
+        Vectors.Dimension.TryCreate(value: value, obj: out Vectors.Dimension dimension) ? dimension : throw new InvalidOperationException(message: "generator invariant broken: Dimension"));
+    public static readonly Gen<PositiveMagnitude> PositiveMagnitude = PositiveMagnitudeScalar.Select(static value =>
+        Vectors.PositiveMagnitude.TryCreate(value: value, obj: out PositiveMagnitude magnitude) ? magnitude : throw new InvalidOperationException(message: "generator invariant broken: PositiveMagnitude"));
+    public static readonly Gen<UnitInterval> UnitInterval = UnitClosed.Select(static value =>
+        Vectors.UnitInterval.TryCreate(value: value, obj: out UnitInterval unit) ? unit : throw new InvalidOperationException(message: "generator invariant broken: UnitInterval"));
+    public static readonly Gen<Context> Context = Tolerance.Select(Gen.Double[start: 0.0, finish: 1.0e-3], Tolerance, Gen.OneOfConst(UnitSystem.Millimeters, UnitSystem.Centimeters, UnitSystem.Meters, UnitSystem.Inches),
+        static (double absolute, double relative, double angle, UnitSystem units) => Domain.Context.Of(absolute: absolute, relative: relative, angle: angle, units: units)
+            .Match(Succ: static context => context, Fail: static error => throw new InvalidOperationException(message: $"generator invariant broken: Context {error.Message}")));
     public static Gen<Seq<double>> Simplex(int count) =>
         count switch {
             <= 0 => Gen.Const(value: Seq<double>()),

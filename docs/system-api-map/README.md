@@ -3,7 +3,7 @@
 
 <br>
 
-[IMPORTANT] Use this folder before adding `System.*` packages, global usings, build metadata, BCL replacements, or host assembly references. Use `../external-libs/README.md` for non-`System.*` library APIs.
+[IMPORTANT] Use this folder before adding `System.*` packages, global usings, build metadata, BCL replacements, or host assembly references. Use `../external-libs/README.md` for product library APIs and `../testing-libs` for test-tool APIs.
 
 ---
 ## [1][FILES]

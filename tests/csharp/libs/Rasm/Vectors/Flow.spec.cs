@@ -6,8 +6,8 @@ using Rhino.Geometry;
 namespace Rasm.Tests.Vectors;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-[System.Diagnostics.CodeAnalysis.SuppressMessage(category: "Design", checkId: "CA1515", Justification = "xUnit discovers public test surface.")]
-public static class FlowGens {
+internal static class FlowGens {
+    public static readonly Context Model = Spec.SuccValue(Context.Of(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: Rhino.UnitSystem.Millimeters).ToFin(), label: "flow context");
     public static readonly Op Key = Op.Of(name: "flow-test");
     public static readonly Gen<IntegratorKind> Integrator = Gen.OneOfConst(
         IntegratorKind.Euler, IntegratorKind.Heun, IntegratorKind.Midpoint, IntegratorKind.Ralston, IntegratorKind.RK4, IntegratorKind.RK38,
@@ -35,11 +35,24 @@ public sealed class TerminationLaws {
         Termination steps = Spec.SuccValue(Termination.Steps(count: 5, key: FlowGens.Key), label: "steps");
         Termination arc = Spec.SuccValue(Termination.ArcLength(length: 2.0, key: FlowGens.Key), label: "arc");
         Termination mag = Spec.SuccValue(Termination.Magnitude(threshold: 1.0, key: FlowGens.Key), label: "mag");
-        Spec.Succ(steps.ShouldStop(state: state with { Steps = 5 }, currentSample: Vector3d.Zero, context: null!, key: FlowGens.Key), then: Assert.True);
-        Spec.Succ(steps.ShouldStop(state: state with { Steps = 4 }, currentSample: Vector3d.Zero, context: null!, key: FlowGens.Key), then: Assert.False);
-        Spec.Succ(arc.ShouldStop(state: state with { Arc = 2.0 }, currentSample: Vector3d.Zero, context: null!, key: FlowGens.Key), then: Assert.True);
-        Spec.Succ(mag.ShouldStop(state: state, currentSample: new Vector3d(x: 0.5, y: 0.0, z: 0.0), context: null!, key: FlowGens.Key), then: Assert.True);
-        Spec.Succ(mag.ShouldStop(state: state, currentSample: new Vector3d(x: 2.0, y: 0.0, z: 0.0), context: null!, key: FlowGens.Key), then: Assert.False);
+        Spec.Succ(steps.ShouldStop(state: state with { Steps = 5 }, currentSample: Vector3d.Zero, context: FlowGens.Model, key: FlowGens.Key), then: Assert.True);
+        Spec.Succ(steps.ShouldStop(state: state with { Steps = 4 }, currentSample: Vector3d.Zero, context: FlowGens.Model, key: FlowGens.Key), then: Assert.False);
+        Spec.Succ(arc.ShouldStop(state: state with { Arc = 2.0 }, currentSample: Vector3d.Zero, context: FlowGens.Model, key: FlowGens.Key), then: Assert.True);
+        Spec.Succ(mag.ShouldStop(state: state, currentSample: new Vector3d(x: 0.5, y: 0.0, z: 0.0), context: FlowGens.Model, key: FlowGens.Key), then: Assert.True);
+        Spec.Succ(mag.ShouldStop(state: state, currentSample: new Vector3d(x: 2.0, y: 0.0, z: 0.0), context: FlowGens.Model, key: FlowGens.Key), then: Assert.False);
+    }
+    [Fact]
+    public void RegionLoopAndSurfaceTerminatorsClassifyBoundaryModes() {
+        StreamlineState state = new(Trail: Seq(Point3d.Origin, new Point3d(x: 2.0, y: 0.0, z: 0.0), new Point3d(x: 3.0, y: 0.0, z: 0.0)), Current: new Point3d(x: 0.1, y: 0.0, z: 0.0), H: 1.0, Arc: 2.0, Steps: 2, Rejects: 0, RejectedSteps: 0, Stop: Option<StreamlineStopKind>.None);
+        Spec.Succ(Termination.LoopDetected(closureRadius: 0.2, key: FlowGens.Key),
+            then: t => Spec.Succ(t.ShouldStop(state: state, currentSample: Vector3d.XAxis, context: FlowGens.Model, key: FlowGens.Key), then: Assert.True));
+        Spec.Succ(Termination.EnterRegion(region: ScalarField.Constant(value: 1.0), threshold: 0.5, key: FlowGens.Key),
+            then: t => Spec.Succ(t.ShouldStop(state: state, currentSample: Vector3d.XAxis, context: FlowGens.Model, key: FlowGens.Key), then: Assert.False));
+        Spec.Succ(SupportSpace.Of(value: new Point3d(x: 0.0, y: 0.0, z: 0.0), key: FlowGens.Key),
+            then: s => Spec.Succ(Termination.CrossSurface(surface: s, key: FlowGens.Key)));
+        Spec.Fail(Termination.LoopDetected(closureRadius: 0.0, key: FlowGens.Key));
+        Spec.Fail(Termination.EnterRegion(region: ScalarField.Constant(value: 1.0), threshold: double.NaN, key: FlowGens.Key));
+        Spec.Fail(Termination.CrossSurface(surface: null!, key: FlowGens.Key));
     }
 }
 

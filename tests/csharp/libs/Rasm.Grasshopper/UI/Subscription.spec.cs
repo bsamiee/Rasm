@@ -4,7 +4,7 @@ using Rasm.TestKit;
 namespace Rasm.Grasshopper.Tests.UI;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-public static class SubscriptionGens {
+internal static class SubscriptionGens {
     public static readonly Op Key = Op.Of(name: "subscription-test");
     public static readonly Gen<int> Tag = Gen.Int[0, 1000];
     public static Subscription Of(int tag, IList<int> log) => Subscription.Atom(detach: () => log.Add(item: tag));
@@ -83,7 +83,7 @@ public sealed class SubscriptionLifoLaws {
         Assert.Same(expected: atom, actual: Subscription.Composite(members: Seq(atom)));
     }
     [Fact]
-    public void AtomDisposedRepeatedlyRunsDetachEachTime() {
+    public void AtomDisposeIsNonIdempotentAndRunsDetachEachTime() {
         int count = 0;
         Subscription atom = Subscription.Atom(detach: () => count++);
         atom.Dispose();
@@ -104,6 +104,20 @@ public sealed class SubscriptionBindLaws {
             sub.Dispose();
             Assert.Equal(expected: 1, actual: detaches);
         });
+    }
+    [Fact]
+    public void SuccessfulBindDetachFaultDoesNotEscapeDisposeRail() {
+        int attaches = 0;
+        Fin<Subscription> result = Subscription.Bind(attach: () => attaches++, detach: static () => throw new InvalidOperationException(message: "detach-boom"));
+        Spec.Succ(result: result, then: sub => {
+            sub.Dispose();
+            Assert.Equal(expected: 1, actual: attaches);
+        });
+    }
+    [Fact]
+    public void MarshalToUiIsClassifiedStaticallyAndExecutedByBridgeScenario() {
+        Subscription.AtomCase atom = Assert.IsType<Subscription.AtomCase>(@object: Subscription.Atom(detach: static () => { }, marshalToUi: true));
+        Assert.True(condition: atom.MarshalToUi);
     }
     [Fact]
     public void AttachThrowsTriggersRollbackDetach() {

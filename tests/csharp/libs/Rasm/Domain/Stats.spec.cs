@@ -1,10 +1,12 @@
 using Rasm.Domain;
 using Rasm.TestKit;
+using Rhino;
+using Rhino.Geometry;
 
 namespace Rasm.Tests.Domain;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-public static class StatGens {
+internal static class StatGens {
     public static readonly Op Key = Op.Of(name: "stats-test");
     public static readonly Func<double, double, bool> Approx = Gens.Approx(relativeTolerance: 1.0e-6);
     public static readonly Gen<Seq<double>> NonEmptyFinite = Gens.NonEmptySeq(element: Gens.Finite);
@@ -12,6 +14,8 @@ public static class StatGens {
     public static readonly Gen<Seq<double>> ConstantFinite = Gens.Finite.Select(Gen.Int[2, 64], static (double x, int n) => toSeq(Enumerable.Repeat(element: x, count: n)));
     public static readonly Gen<ScalarMetric> ScalarMetricCase = Gen.OneOfConst(ScalarMetric.Magnitude, ScalarMetric.Gaussian, ScalarMetric.Mean);
     public static readonly Gen<ExtremumDirection> ExtremumDirectionCase = Gen.OneOfConst(ExtremumDirection.Maximum, ExtremumDirection.Minimum);
+    public static readonly Gen<Seq<ResidualSample>> Residuals = Gens.NonEmptyArray(Gens.Finite.Select(Gen.Int[0, 20], static (double d, int i) =>
+        new ResidualSample(Index: i, Location: Point3d.Origin, Distance: Math.Abs(d), Tolerance: 0.5, WithinTolerance: Math.Abs(d) <= 0.5)), max: 24).Select(static rows => toSeq(rows));
 }
 
 // --- [ALGEBRAIC] ----------------------------------------------------------------------------
@@ -76,13 +80,45 @@ public sealed class StatComputationLaws {
 
 public sealed class DistributionLaws {
     [Fact]
-    public void MedianMatchesSortedMiddleOracle() =>
+    public void QuantilesIqrAndMedianMatchSortedInterpolationOracle() =>
         Spec.Metamorphic(StatGens.NonEmptyFinite,
-            path: static (Seq<double> xs) => Distribution.Of(values: xs, percentiles: Seq<double>(), key: StatGens.Key).Match(Succ: static d => d.Median, Fail: static _ => double.NaN),
+            path: static (Seq<double> xs) => Distribution.Of(values: xs, percentiles: Seq(0.0, 25.0, 50.0, 75.0, 100.0), key: StatGens.Key).Match(Succ: static d => (d.Median, d.Iqr, d.Percentiles[2].Value), Fail: static _ => (double.NaN, double.NaN, double.NaN)),
             oracle: static (Seq<double> xs) => Enumerable.OrderBy(xs.AsIterable(), static v => v).ToArray() switch {
-                double[] sorted => sorted.Length % 2 == 1 ? sorted[sorted.Length / 2] : 0.5 * (sorted[(sorted.Length / 2) - 1] + sorted[sorted.Length / 2]),
+                double[] sorted => (Q(sorted: sorted, fraction: 0.5), Q(sorted: sorted, fraction: 0.75) - Q(sorted: sorted, fraction: 0.25), Q(sorted: sorted, fraction: 0.5)),
             },
-            eq: StatGens.Approx);
+            eq: static (l, r) => StatGens.Approx(l.Item1, r.Item1) && StatGens.Approx(l.Item2, r.Item2) && StatGens.Approx(l.Item3, r.Item3));
+    [Fact]
+    public void RejectsInvalidPercentiles() {
+        Spec.Fail(Distribution.Of(values: Seq(1.0, 2.0, 3.0), percentiles: Seq(-1.0), key: StatGens.Key));
+        Spec.Fail(Distribution.Of(values: Seq(1.0, 2.0, 3.0), percentiles: Seq(101.0), key: StatGens.Key));
+        Spec.ForAll(Gens.NonFinite, value => Spec.Fail(Distribution.Of(values: Seq(1.0, 2.0, 3.0), percentiles: Seq(value), key: StatGens.Key)));
+    }
+    private static double Q(double[] sorted, double fraction) =>
+        ((sorted.Length - 1) * fraction) switch {
+            double idx when Math.Abs(idx - Math.Floor(idx)) <= RhinoMath.ZeroTolerance => sorted[(int)Math.Floor(idx)],
+            double idx => sorted[(int)Math.Floor(idx)] + ((sorted[(int)Math.Ceiling(idx)] - sorted[(int)Math.Floor(idx)]) * (idx - Math.Floor(idx))),
+        };
+}
+
+public sealed class ResidualAndCurvatureLaws {
+    [Fact]
+    public void ResidualDispatchOwnsDistancesSummaryMaximumDistributionAndUnsupported() =>
+        Spec.ForAll(StatGens.Residuals, samples => {
+            Spec.Succ(Stat.Residuals<Seq<double>>(samples: samples, key: StatGens.Key, aggregate: ResidualAggregate.Distances), then: distances => Assert.Equal(expected: samples.Count, actual: distances.Count));
+            Spec.Succ(Stat.Residuals<Stat>(samples: samples, key: StatGens.Key, aggregate: ResidualAggregate.Summary(tolerance: 0.5)), then: summary => Assert.Equal(expected: samples.Count, actual: summary.Count));
+            Spec.Succ(Stat.Residuals<ResidualSample>(samples: samples, key: StatGens.Key, aggregate: ResidualAggregate.Maximum), then: max => Assert.Equal(expected: samples.AsIterable().Max(static s => s.Distance), actual: max.Distance));
+            Spec.Succ(Stat.Residuals<Distribution>(samples: samples, key: StatGens.Key, aggregate: ResidualAggregate.Distribution(Seq(50.0))), then: dist => Assert.Single(collection: dist.Percentiles));
+            Spec.Fail(Stat.Residuals<int>(samples: samples, key: StatGens.Key, aggregate: ResidualAggregate.Distances));
+        });
+    [Fact]
+    public void ExtremaPreservesToleranceTiesAndCurvatureRoutesMetrics() {
+        Seq<(string Id, double Score)> items = Seq(("a", 1.0), ("b", 1.04), ("c", 0.0));
+        Assert.Equal<string>(expected: ["a", "b"], actual: Stat.Extrema(items: items, projection: static x => x.Score, tolerance: 0.05, direction: ExtremumDirection.Maximum).Map(static x => x.Id).AsIterable().ToArray());
+        Assert.True(CurvatureMode.Vector.IsCurveMagnitude);
+        Assert.True(CurvatureMode.Scalar(metric: ScalarMetric.Magnitude).IsCurveMagnitude);
+        Assert.Equal<ScalarMetric>(expected: [ScalarMetric.Gaussian, ScalarMetric.Mean], actual: CurvatureMode.Vector.SurfaceMetrics.AsIterable().ToArray());
+        Assert.Empty(collection: CurvatureMode.Scalar(metric: ScalarMetric.Magnitude).SurfaceMetrics);
+    }
 }
 
 public sealed class StatContextLaws {

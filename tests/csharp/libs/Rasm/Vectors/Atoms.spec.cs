@@ -7,10 +7,10 @@ using Rhino.Geometry;
 namespace Rasm.Tests.Vectors;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-// Direction/VectorSpan/VectorRing tests live in the bridge rail (*.verify.csx) because
+// Direction/VectorSpan/VectorFrame/VectorCone/VectorRing tests live in the bridge rail (*.verify.csx) because
 // RhinoCommon's Vector3d.IsTiny/IsValid/Unitize/VectorAngle delegate to native code that
 // loads only inside a Rhino runtime. The static rail covers pure-managed surfaces below.
-public static class AtomGens {
+internal static class AtomGens {
     public static readonly Op Key = Op.Of(name: "atoms-test");
     public static readonly Gen<VectorAngle> Angle = Gens.UnitAngle.Select(static (double radians) =>
         VectorAngle.TryCreate(value: radians, obj: out VectorAngle v) ? v : throw new InvalidOperationException("generator invariant broken: angle"));
@@ -26,7 +26,7 @@ public static class AtomGens {
 public sealed class VectorAngleProps {
     [Fact]
     public void ClosureRejectsOutsideUnitCircle() =>
-        Spec.ForAll(Gens.Finite.Where(static x => x is < 0.0 or > 7.0), static r => Assert.False(VectorAngle.TryCreate(value: r, obj: out _)));
+        Spec.ForAll(Gens.Finite.Where(static x => x is < 0.0 or > RhinoMath.TwoPI), static r => Assert.False(VectorAngle.TryCreate(value: r, obj: out _)));
     [Fact]
     public void ClosureRejectsNonFinite() =>
         Spec.ValueObjectRejects(invalid: Gens.NonFinite, tryCreate: static r => VectorAngle.TryCreate(value: r, obj: out _));
@@ -71,6 +71,14 @@ public sealed class UnitIntervalProps {
             UnitInterval.TryCreate(value: x, obj: out UnitInterval u) ? u : throw new InvalidOperationException("roundtrip lost value"));
 }
 
+public sealed class DimensionProps {
+    [Fact]
+    public void ClosureRejectsValuesBelowOneAndAcceptsPositiveIntegers() {
+        Spec.ForAll(Gen.Int[-100, 0], static value => Assert.False(Rasm.Vectors.Dimension.TryCreate(value: value, obj: out _)));
+        Spec.ForAll(Gens.Dimension, static value => Assert.True(value.Value >= 1));
+    }
+}
+
 public sealed class BoundarySenseLaws {
     [Fact]
     public void TowardCarriesPositiveUnitSign() => Assert.Equal(expected: 1.0, actual: BoundarySense.Toward.Sign);
@@ -103,4 +111,16 @@ public sealed class SignedAxisLaws {
                 condition: Math.Abs(value: cross * a.World) < 1.0e-12 && Math.Abs(value: cross * b.World) < 1.0e-12,
                 label: $"cross={cross} not perpendicular to a={a.World} or b={b.World}");
         });
+}
+
+public sealed class VectorRelationLaws {
+    [Fact]
+    public void RelationKeysAreDistinctAndProjectionRejectsForeignOutput() {
+        VectorRelation[] all = [VectorRelation.Oblique, VectorRelation.Parallel, VectorRelation.AntiParallel, VectorRelation.Perpendicular];
+        Spec.SmartEnumKeysUnique(items: all, key: static relation => relation.Key);
+        Spec.ForAll(Gen.OneOfConst(all), static relation => {
+            Spec.Succ(relation.Project<VectorRelation>(key: AtomGens.Key), then: actual => Assert.Same(expected: relation, actual: actual));
+            Spec.Fail(relation.Project<double>(key: AtomGens.Key));
+        });
+    }
 }

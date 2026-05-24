@@ -294,15 +294,16 @@ public readonly record struct VectorCone {
             (true, _, _) => Fin.Succ(left),
             (_, true, _) => Fin.Succ(right),
             (_, _, true) => Of(apex: left.Apex, axis: (a >= b ? left : right).Axis.Value, halfAngleRadians: Math.Max(val1: a, val2: b), context: context, key: key),
-            _ => from _ in guard(half <= Math.PI + tolerance, key.InvalidInput())
-                 let cross = Vector3d.CrossProduct(a: left.Axis.Value, b: right.Axis.Value)
-                 let rotationAxis = cross.IsTiny(context.Absolute.Value) ? VectorFrame.SeedPerpendicular(axis: left.Axis.Value) : cross
-                 from axis in Direction.Of(
-                     value: Transform.Rotation(angleRadians: half - a, rotationAxis: rotationAxis, rotationCenter: Point3d.Origin) * left.Axis.Value,
-                     context: context,
-                     key: key)
-                 from result in Of(apex: left.Apex, axis: axis.Value, halfAngleRadians: Math.Min(val1: Math.PI, val2: half), context: context, key: key)
-                 select result,
+            _ => guard(half <= Math.PI + tolerance, key.InvalidInput()).Bind(_ => {
+                Vector3d cross = Vector3d.CrossProduct(a: left.Axis.Value, b: right.Axis.Value);
+                Vector3d rotationAxis = cross.IsTiny(context.Absolute.Value) ? VectorFrame.SeedPerpendicular(axis: left.Axis.Value) : cross;
+                return from axis in Direction.Of(
+                           value: Transform.Rotation(angleRadians: half - a, rotationAxis: rotationAxis, rotationCenter: Point3d.Origin) * left.Axis.Value,
+                           context: context,
+                           key: key)
+                       from result in Of(apex: left.Apex, axis: axis.Value, halfAngleRadians: Math.Min(val1: Math.PI, val2: half), context: context, key: key)
+                       select result;
+            }),
         };
     }
     public Fin<Seq<Direction>> PartitionBy(int sectors, Context context, Op? key = null) {

@@ -1,6 +1,5 @@
 using System.Runtime.InteropServices;
 using DrawingRectangle = System.Drawing.Rectangle;
-using DrawingSize = System.Drawing.Size;
 
 namespace Rasm.Rhino;
 

@@ -463,6 +463,26 @@ public sealed class RuleBehaviorTests {
                     int idx => idx,
                 };
             """)),
+        new("CSP0728", File(scope: "Domain/Services", type: "MapFailDiscardsException"), """
+            namespace LanguageExt {
+                public sealed class Try<T> {
+                    public TryResult<T> Run() => new();
+                }
+                public sealed class TryResult<T> {
+                    public TryResult<T> MapFail(System.Func<object, object> project) => this;
+                }
+                public static class Try {
+                    public static Try<T> lift<T>(System.Func<T> run) => new();
+                }
+            }
+
+            namespace Domain.Services {
+                public sealed class MapFailDiscardsException {
+                    public LanguageExt.TryResult<int> Run() =>
+                        LanguageExt.Try.lift(run: static () => 1).Run().MapFail(project: static _ => new object());
+                }
+            }
+            """),
     ];
 
     [Theory]

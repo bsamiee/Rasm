@@ -334,4 +334,4 @@ dotnet_diagnostic.IDE0360.severity = error                                    # 
 dotnet_diagnostic.IDE1005.severity = error                                    # Prefer null-conditional delegate invocation (?.Invoke).
 
 [tests/**/*.cs]
-dotnet_diagnostic.CA1515.severity = none                                      # xUnit + CsCheck discovery requires public test classes and generators.
+dotnet_diagnostic.CA1515.severity = none                                      # xUnit discovery requires public test classes; spec-local generators stay non-public.

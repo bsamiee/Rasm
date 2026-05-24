@@ -1,3 +1,4 @@
+using System.Globalization;
 using Rasm.Domain;
 using Rhino.Geometry;
 using Xunit.Sdk;
@@ -7,65 +8,50 @@ namespace Rasm.TestKit;
 // --- [TYPES] --------------------------------------------------------------------------------
 public delegate bool TryCreate<TIn, TOut>(TIn value, out TOut obj);
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
-public static class TestTraits {
-    public const string Category = "Category";
-    public const string Speed = "Speed";
-    public const string Domain = "Domain";
-    public const string Algebra = "Algebra";
-    public const string Rail = "Rail";
-    public const string Snapshot = "Snapshot";
-    public const string Fast = "Fast";
-    public const string Slow = "Slow";
-    public const string Vectors = "Vectors";
-    public const string Stats = "Stats";
-    public const string Geometry = "Geometry";
-    public const string Grasshopper = "Grasshopper";
-}
-
 // --- [SERVICES] -----------------------------------------------------------------------------
 public static class Spec {
-    public static void ForAll<T>(Gen<T> gen, Action<T> property, string? seed = null, long iter = 100, int time = 0, int threads = 0) {
+    public static void ForAll<T>(Gen<T> gen, Action<T> property, string? seed = null, long? iter = null, int? time = null, int? threads = null) {
         ArgumentNullException.ThrowIfNull(argument: gen);
         bool Wrapped(T value) => Apply(action: property, value: value);
-        Action sample = (seed, iter, time, threads) switch {
-            (null, 100, 0, 0) => () => gen.Sample(Wrapped),
-            (null, _, _, _) => () => gen.Sample(predicate: Wrapped, iter: iter, time: time, threads: threads),
-            _ => () => gen.Sample(predicate: Wrapped, seed: seed!, iter: iter, time: time, threads: threads),
+        SamplePolicy policy = SamplePolicy.Of(seed: seed, iter: iter, time: time, threads: threads);
+        Action sample = policy switch {
+            { IsDefault: true } => () => gen.Sample(Wrapped),
+            { Seed: null } => () => gen.Sample(predicate: Wrapped, iter: policy.IterOrDefault, time: policy.TimeOrDefault, threads: policy.ThreadsOrDefault),
+            _ => () => gen.Sample(predicate: Wrapped, seed: policy.Seed!, iter: policy.IterOrDefault, time: policy.TimeOrDefault, threads: policy.ThreadsOrDefault),
         };
         sample();
     }
     public static void Implies<T>(Gen<T> gen, Func<T, bool> premise, Action<T> body) =>
-        gen.Sample(value => premise(value) switch { true => Apply(action: body, value: value), false => true });
+        ForAll(gen: gen, property: value => _ = premise(value) switch { true => Apply(action: body, value: value), false => true });
     public static void Roundtrip<TIn, TOut>(Gen<TIn> gen, Func<TIn, TOut> forward, Func<TOut, TIn> back, Func<TIn, TIn, bool>? eq = null) =>
-        gen.Sample(value => EqOrThrow(left: value, right: back(forward(value)), predicate: eq));
+        ForAll(gen: gen, property: value => _ = EqOrThrow(left: value, right: back(forward(value)), predicate: eq));
     public static void Identity<T>(Gen<T> gen, Func<T, T> f, Func<T, T, bool>? eq = null) =>
-        gen.Sample(value => EqOrThrow(left: value, right: f(value), predicate: eq));
+        ForAll(gen: gen, property: value => _ = EqOrThrow(left: value, right: f(value), predicate: eq));
     public static void Idempotent<T>(Gen<T> gen, Func<T, T> f, Func<T, T, bool>? eq = null) =>
-        gen.Sample(value => EqOrThrow(left: f(value), right: f(f(value)), predicate: eq));
+        ForAll(gen: gen, property: value => _ = EqOrThrow(left: f(value), right: f(f(value)), predicate: eq));
     public static void Commutative<T>(Gen<T> gen, Func<T, T, T> op, Func<T, T, bool>? eq = null) =>
-        gen.Select(gen).Sample((T a, T b) => EqOrThrow(left: op(a, b), right: op(b, a), predicate: eq));
+        ForAll(gen.Select(gen), ((T a, T b) p) => _ = EqOrThrow(left: op(p.a, p.b), right: op(p.b, p.a), predicate: eq));
     public static void Associative<T>(Gen<T> gen, Func<T, T, T> op, Func<T, T, bool>? eq = null) =>
-        gen.Select(gen, gen).Sample((T a, T b, T c) => EqOrThrow(left: op(op(a, b), c), right: op(a, op(b, c)), predicate: eq));
+        ForAll(gen.Select(gen, gen), ((T a, T b, T c) p) => _ = EqOrThrow(left: op(op(p.a, p.b), p.c), right: op(p.a, op(p.b, p.c)), predicate: eq));
     public static void Inverse<T>(Gen<T> gen, Func<T, T> f, Func<T, T> g, Func<T, T, bool>? eq = null) =>
-        gen.Sample(value => EqOrThrow(left: value, right: g(f(value)), predicate: eq));
+        ForAll(gen: gen, property: value => _ = EqOrThrow(left: value, right: g(f(value)), predicate: eq));
     public static void Monotone<T, TKey>(Gen<(T Lo, T Hi)> pairs, Func<T, TKey> projection, IComparer<TKey>? comparer = null) =>
-        pairs.Sample(p => (comparer ?? Comparer<TKey>.Default).Compare(x: projection(p.Lo), y: projection(p.Hi)) <= 0
+        ForAll(pairs, p => _ = (comparer ?? Comparer<TKey>.Default).Compare(x: projection(p.Lo), y: projection(p.Hi)) <= 0
             ? true
             : throw new XunitException($"Monotone violated: f({p.Lo}) = {projection(p.Lo)} > {projection(p.Hi)} = f({p.Hi})"));
     public static void Permutation<T, TResult>(Gen<T[]> gen, Func<T[], TResult> f, Func<TResult, TResult, bool>? eq = null) =>
-        gen.SelectMany(arr => Gen.Shuffle(arr).Select(perm => (Original: arr, Shuffled: perm))).Sample(p =>
-            EqOrThrow(left: f(p.Original), right: f(p.Shuffled), predicate: eq));
+        ForAll(gen.SelectMany(arr => Gen.Shuffle(arr).Select(perm => (Original: arr, Shuffled: perm))), p =>
+            _ = EqOrThrow(left: f(p.Original), right: f(p.Shuffled), predicate: eq));
     public static void ConcurrentProfiled<T>(Gen<T> init, Action<string> writeLine, params GenOperation<T>[] operations) =>
         Causal.Profile(action: () => (init ?? throw new ArgumentNullException(nameof(init))).SampleParallel(operations))
               .Output(output: writeLine ?? throw new ArgumentNullException(nameof(writeLine)));
     public static void ConcurrentProfiled<TActual, TModel>(Gen<(TActual Actual, TModel Model)> init, Action<string> writeLine, params GenOperation<TActual, TModel>[] operations) =>
         Causal.Profile(action: () => (init ?? throw new ArgumentNullException(nameof(init))).SampleParallel(operations))
               .Output(output: writeLine ?? throw new ArgumentNullException(nameof(writeLine)));
-    public static void Metamorphic<T, TResult>(Gen<T> gen, Func<T, TResult> path, Func<T, TResult> oracle, Func<TResult, TResult, bool>? eq = null) =>
-        gen.Sample(value => EqOrThrow(left: path(value), right: oracle(value), predicate: eq));
+    public static void Metamorphic<T, TResult>(Gen<T> gen, Func<T, TResult> path, Func<T, TResult> oracle, Func<TResult, TResult, bool>? eq = null, string? seed = null, long? iter = null, int? time = null, int? threads = null) =>
+        ForAll(gen: gen, property: value => _ = EqOrThrow(left: path(value), right: oracle(value), predicate: eq), seed: seed, iter: iter, time: time, threads: threads);
     public static void Regression<T>(Gen<T> gen, Action<T> property, string seed) =>
-        gen.Sample(value => Apply(action: property, value: value), seed: seed, iter: 1);
+        ForAll(gen: gen, property: property, seed: seed, iter: 1);
     public static T SuccValue<T>(Fin<T> result, string label) =>
         (result ?? throw new ArgumentNullException(nameof(result))).Match(
             Succ: static value => value,
@@ -102,6 +88,14 @@ public static class Spec {
                 return unit;
             });
     }
+    public static void Valid<T>(Validation<Error, T> result, Action<T>? then = null) =>
+        _ = (result ?? throw new ArgumentNullException(nameof(result))).Match(
+            Succ: value => Tap(action: then, value: value),
+            Fail: error => throw new XunitException($"Expected Valid; got Invalid: {error.Message}"));
+    public static void Invalid<T>(Validation<Error, T> result, Action<Error>? then = null) =>
+        _ = (result ?? throw new ArgumentNullException(nameof(result))).Match(
+            Succ: value => throw new XunitException($"Expected Invalid; got Valid: {value}"),
+            Fail: error => Tap(action: then, value: error));
     public static void Some<T>(Option<T> result, Action<T>? then = null) =>
         _ = result.Match(
             Some: value => Tap(action: then, value: value),
@@ -162,4 +156,20 @@ public static class Spec {
     private static Unit Tap<T>(Action<T>? action, T value) { action?.Invoke(value); return unit; }
     private static bool EqOrThrow<T>(T left, T right, Func<T, T, bool>? predicate) =>
         (predicate ?? EqualityComparer<T>.Default.Equals)(left, right) ? true : throw new XunitException($"Equality failed: {left} != {right}");
+    private readonly record struct SamplePolicy(string? Seed, long? Iter, int? Time, int? Threads) {
+        public bool IsDefault => Seed is null && Iter is null && Time is null && Threads is null;
+        public long IterOrDefault => Iter ?? Check.Iter;
+        public int TimeOrDefault => Time ?? Check.Time;
+        public int ThreadsOrDefault => Threads ?? Check.Threads;
+        public static SamplePolicy Of(string? seed, long? iter, int? time, int? threads) =>
+            new(
+                Seed: seed ?? Environment.GetEnvironmentVariable(variable: "CsCheck_Seed"),
+                Iter: iter ?? EnvLong(name: "CsCheck_Iter"),
+                Time: time ?? EnvInt(name: "CsCheck_Time"),
+                Threads: threads ?? EnvInt(name: "CsCheck_Threads"));
+        private static long? EnvLong(string name) =>
+            long.TryParse(s: Environment.GetEnvironmentVariable(variable: name), style: NumberStyles.Integer, provider: CultureInfo.InvariantCulture, result: out long value) && value > 0L ? value : null;
+        private static int? EnvInt(string name) =>
+            int.TryParse(s: Environment.GetEnvironmentVariable(variable: name), style: NumberStyles.Integer, provider: CultureInfo.InvariantCulture, result: out int value) && value > 0 ? value : null;
+    }
 }

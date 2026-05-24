@@ -316,10 +316,10 @@ public sealed record CameraSnapshot : IDisposable {
         Op op = Op.Of(name: nameof(CameraSnapshot));
         RhinoViewport viewport = scope.Viewport;
         return op.Catch(() => {
-            ViewportInfo? projection = null;
+            ViewportInfo? snapshotProjection = null;
             try {
-                projection = new ViewportInfo(rhinoViewport: viewport);
-                ViewportInfo captured = projection;
+                snapshotProjection = new ViewportInfo(rhinoViewport: viewport);
+                ViewportInfo captured = snapshotProjection;
                 return from frustum in CameraFrustum.Of(viewport: viewport, op: op)
                        from frame in CameraFrame.Of(viewport: viewport)
                        select new CameraSnapshot(
@@ -342,7 +342,7 @@ public sealed record CameraSnapshot : IDisposable {
                            documentSerial: scope.Document.RuntimeSerialNumber,
                            changeSerial: viewport.ChangeCounter);
             } catch {
-                projection?.Dispose();
+                snapshotProjection?.Dispose();
                 throw;
             }
         });

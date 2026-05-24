@@ -7,13 +7,10 @@ using Rhino.Geometry;
 namespace Rasm.Tests.Vectors;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-// VectorCloud factories (Ring/Polyline/Cluster), CloudKernel pipelines, and VectorCloudShape
-// invariants all route to the bridge rail because they invoke RhinoCommon native code
-// (Polyline.IsValid, Vector3d.IsValid, AcceptValue<Point3d>, etc.). The static surface here is
-// limited to VectorCloudMetric introspection: key uniqueness, Output-type integrity, and the
-// per-case AdmitsCase predicate domain (testable without instantiating a real VectorCloud).
-[System.Diagnostics.CodeAnalysis.SuppressMessage(category: "Design", checkId: "CA1515", Justification = "xUnit discovers public test surface.")]
-public static class CloudMetricGens {
+// Ring/polyline shape metrics route to the bridge rail because they invoke RhinoCommon native
+// code. The static surface owns metric metadata, pure cluster admission/projection, mass
+// normalization, and managed Sinkhorn receipt rails.
+internal static class CloudMetricGens {
     public static readonly Context Model = Context.Of(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: UnitSystem.Millimeters)
         .Match(Succ: static value => value, Fail: static _ => throw new InvalidOperationException(message: "context"));
     public static readonly VectorCloudMetric[] All = [
@@ -73,6 +70,16 @@ public sealed class VectorCloudMetricLaws {
         Assert.Equal(expected: typeof(Seq<double>), actual: VectorCloudMetric.Curvedness.Output);
         Assert.Equal(expected: typeof(Seq<double>), actual: VectorCloudMetric.ShapeIndex.Output);
     }
+    [Fact]
+    public void ClusterMetricsAdmitProjectAndRejectUnsupportedOutputs() {
+        VectorCloud cluster = Spec.SuccValue(VectorCloud.Cluster(points: CloudMetricGens.Triangle, context: CloudMetricGens.Model, key: Op.Of(name: "cloud-test")), label: "cluster");
+        Assert.True(VectorCloudMetric.Covariance.AdmitsCase(cloud: cluster));
+        Assert.False(VectorCloudMetric.Area.AdmitsCase(cloud: cluster));
+        Spec.Succ(VectorCloudMetric.Covariance.Project<SymmetricMatrix>(cloud: cluster, key: Op.Of(name: "cloud-test")),
+            then: cov => Assert.Equal(expected: 3, actual: cov.Dimension.Value));
+        Spec.Fail(VectorCloudMetric.Covariance.Project<double>(cloud: cluster, key: Op.Of(name: "cloud-test")));
+        Spec.Fail(VectorCloudMetric.Area.Project<double>(cloud: cluster, key: Op.Of(name: "cloud-test")));
+    }
 }
 
 public sealed class VectorCloudMassLaws {
@@ -108,5 +115,10 @@ public sealed class VectorCloudMassLaws {
             Assert.Equal(expected: SinkhornStopKind.BalancedMarginalsConverged, actual: receipt.Stop));
         Spec.Succ(CloudKernel.Sinkhorn<SinkhornReceipt>(source: source, target: target, regularization: 1.0, maxIterations: 32, debiased: false, massRelaxation: Some(relaxation), key: Op.Of(name: "cloud-test")), then: receipt =>
             Assert.Equal(expected: SinkhornStopKind.RelaxedScalingConverged, actual: receipt.Stop));
+        Spec.Succ(CloudKernel.Sinkhorn<double>(source: source, target: target, regularization: 1.0, maxIterations: 32, debiased: false, massRelaxation: Option<PositiveMagnitude>.None, key: Op.Of(name: "cloud-test")),
+            then: distance => Assert.True(condition: distance >= 0.0));
+        Spec.Fail(CloudKernel.Sinkhorn<double>(source: source, target: target, regularization: 0.0, maxIterations: 32, debiased: false, massRelaxation: Option<PositiveMagnitude>.None, key: Op.Of(name: "cloud-test")));
+        Spec.Fail(CloudKernel.Sinkhorn<double>(source: source, target: target, regularization: 1.0, maxIterations: 0, debiased: false, massRelaxation: Option<PositiveMagnitude>.None, key: Op.Of(name: "cloud-test")));
+        Spec.Fail(CloudKernel.Sinkhorn<Point3d>(source: source, target: target, regularization: 1.0, maxIterations: 32, debiased: false, massRelaxation: Option<PositiveMagnitude>.None, key: Op.Of(name: "cloud-test")));
     }
 }

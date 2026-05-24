@@ -71,8 +71,8 @@ public abstract partial record SpectralFilter {
     // CommuteTime×*, etc.) are not algebraically closed and return None — callers cannot fake
     // closure by silently producing approximate filters.
     public Option<SpectralFilter> Compose(SpectralFilter other) => (this, other) switch {
-        (HeatCase a, HeatCase b) => Positive(value: a.Time.Value + b.Time.Value).Map(static time => (SpectralFilter)Heat(time: time)),
-        (DiffusionCase a, DiffusionCase b) => Positive(value: a.Time.Value + b.Time.Value).Map(static time => (SpectralFilter)Diffusion(time: time)),
+        (HeatCase a, HeatCase b) => Positive(value: a.Time.Value + b.Time.Value).Map(static time => Heat(time: time)),
+        (DiffusionCase a, DiffusionCase b) => Positive(value: a.Time.Value + b.Time.Value).Map(static time => Diffusion(time: time)),
         (IdentityCase, _) => Some(other),
         (_, IdentityCase) => Some(this),
         _ => Option<SpectralFilter>.None,

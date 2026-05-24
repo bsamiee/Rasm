@@ -1,0 +1,58 @@
+using Rasm.Domain;
+using Rasm.TestKit;
+using Rasm.Vectors;
+using Rhino.Geometry;
+
+namespace Rasm.Tests.Vectors;
+
+// --- [CONSTANTS] ----------------------------------------------------------------------------
+internal static class SpaceGens {
+    public static readonly Op Key = Op.Of(name: "space-test");
+    public static readonly Context Model = Spec.SuccValue(Context.Of(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: Rhino.UnitSystem.Millimeters).ToFin(), label: "space context");
+    public static readonly SupportProjection[] All = [
+        SupportProjection.Closest, SupportProjection.Direction, SupportProjection.Span, SupportProjection.SignedSpanAway,
+        SupportProjection.Normal, SupportProjection.Distance, SupportProjection.Parameter, SupportProjection.Uv,
+        SupportProjection.Component, SupportProjection.MeshPoint, SupportProjection.SignedDistance,
+        SupportProjection.ContainmentDistance, SupportProjection.Tangent, SupportProjection.Frame,
+    ];
+    public static readonly Gen<SupportProjection> Projection = Gen.OneOfConst(All);
+    public static readonly SupportSpace PointSpace = Spec.SuccValue(SupportSpace.Of(value: new Point3d(x: 1.0, y: 0.0, z: 0.0), key: Key), label: "point space");
+    public static ClosestHit Hit(Option<double> parameter = default, Option<Point2d> uv = default, Option<ComponentIndex> component = default) =>
+        ClosestHit.At(target: Point3d.Origin, point: new Point3d(x: 1.0, y: 0.0, z: 0.0), parameter: parameter, uv: uv, component: component);
+}
+
+// --- [ALGEBRAIC] ----------------------------------------------------------------------------
+public sealed class SupportProjectionLaws {
+    [Fact]
+    public void KeysAreDistinctAndGeneratorEmitsDeclaredCases() {
+        Spec.SmartEnumKeysUnique(items: SpaceGens.All, key: static projection => projection.Key);
+        Spec.ForAll(SpaceGens.Projection, projection => Assert.Contains(expected: projection, collection: SpaceGens.All));
+    }
+    [Fact]
+    public void ClosestDistanceParameterUvAndComponentOwnOptionGatedOutputs() {
+        ClosestHit rich = SpaceGens.Hit(parameter: Some(0.25), uv: Some(new Point2d(x: 2.0, y: 3.0)), component: Some(new ComponentIndex(type: ComponentIndexType.PointCloudPoint, index: 4)));
+        Spec.Succ(SupportProjection.Closest.Project<Point3d>(space: SpaceGens.PointSpace, hit: rich, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key),
+            then: point => Spec.NearEqual(left: point, right: rich.Point));
+        Spec.Succ(SupportProjection.Distance.Project<double>(space: SpaceGens.PointSpace, hit: rich, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key),
+            then: distance => Spec.EqualWithin(left: distance, right: 1.0, tolerance: 1.0e-12, what: "distance"));
+        Spec.Succ(SupportProjection.Parameter.Project<double>(space: SpaceGens.PointSpace, hit: rich, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key),
+            then: parameter => Spec.EqualWithin(left: parameter, right: 0.25, tolerance: 0.0, what: "parameter"));
+        Spec.Succ(SupportProjection.Uv.Project<Point2d>(space: SpaceGens.PointSpace, hit: rich, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key),
+            then: uv => Assert.Equal(expected: new Point2d(x: 2.0, y: 3.0), actual: uv));
+        Spec.Succ(SupportProjection.Component.Project<ComponentIndex>(space: SpaceGens.PointSpace, hit: rich, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key),
+            then: component => Assert.Equal(expected: 4, actual: component.Index));
+        ClosestHit sparse = SpaceGens.Hit();
+        Spec.Fail(SupportProjection.Parameter.Project<double>(space: SpaceGens.PointSpace, hit: sparse, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key));
+        Spec.Fail(SupportProjection.Uv.Project<Point2d>(space: SpaceGens.PointSpace, hit: sparse, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key));
+        Spec.Fail(SupportProjection.Component.Project<ComponentIndex>(space: SpaceGens.PointSpace, hit: sparse, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key));
+    }
+    [Fact]
+    public void SpanOwnershipAndUnsupportedOutputAreExplicit() {
+        ClosestHit hit = SpaceGens.Hit();
+        Assert.True(condition: SupportProjection.Span.CanProjectVector(space: SpaceGens.PointSpace));
+        Assert.True(condition: SupportProjection.SignedSpanAway.CanProjectVector(space: SpaceGens.PointSpace));
+        Spec.Fail(SupportProjection.Span.Project<VectorFrame>(space: SpaceGens.PointSpace, hit: hit, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key));
+        Spec.Fail(SupportProjection.Closest.Project<VectorFrame>(space: SpaceGens.PointSpace, hit: hit, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key));
+        Spec.Fail(SupportSpace.Of(value: new object(), key: SpaceGens.Key));
+    }
+}

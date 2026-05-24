@@ -698,8 +698,7 @@ internal static class CloudKernel {
             : toSeq(ids.Where(i => i >= 0 && i < points.Length).Select(i => points[i]));
     private static Fin<Vector3d[]> EstimateNormalsFromPoints(Point3d[] points, Func<int, Seq<Point3d>> neighborhoodOf, Op key) {
         int n = points.Length;
-        if (n < 3) return Fin.Fail<Vector3d[]>(key.InvalidInput());
-        return toSeq(Enumerable.Range(start: 0, count: n)).TraverseM(i => {
+        return n < 3 ? Fin.Fail<Vector3d[]>(key.InvalidInput()) : toSeq(Enumerable.Range(start: 0, count: n)).TraverseM(i => {
             Seq<Point3d> neighborhood = neighborhoodOf(arg: i);
             return neighborhood.Count < 3
                 ? Fin.Fail<Vector3d>(key.InvalidInput())

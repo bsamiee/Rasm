@@ -363,12 +363,34 @@ internal static class Program {
     }
     private static async Task<(string Script, IReadOnlyList<string> References)?> SourceScriptAsync(ProjectBuild project, string? scriptPath) =>
         scriptPath is string sourceScriptPath
-            ? (string.Concat(
-                    ReferenceDirectives(references: project.HostFilteredRuntimeReferences),
-                    Environment.NewLine,
-                    await File.ReadAllTextAsync(path: ExistingFile(path: sourceScriptPath, label: "script"), encoding: Encoding.UTF8, cancellationToken: CancellationToken.None).ConfigureAwait(false)),
-                project.HostFilteredRuntimeReferences)
+            ? await SourceScenarioScriptAsync(project: project, scriptPath: ExistingFile(path: sourceScriptPath, label: "script")).ConfigureAwait(false)
             : null;
+    private static async Task<(string Script, IReadOnlyList<string> References)> SourceScenarioScriptAsync(ProjectBuild project, string scriptPath) {
+        IReadOnlyList<string> references = [.. new[] { project.TargetPath }.Concat(project.HostFilteredRuntimeReferences).Distinct(StringComparer.OrdinalIgnoreCase)];
+        string[] script = await File.ReadAllLinesAsync(path: scriptPath, encoding: Encoding.UTF8, cancellationToken: CancellationToken.None).ConfigureAwait(false);
+        string scenario = ScenarioName(scriptPath: scriptPath);
+        string capture = Path.Combine(path1: Path.GetDirectoryName(path: project.TargetPath) ?? Environment.CurrentDirectory, path2: ".verify", path3: $"{scenario}.png");
+        int bodyIndex = Array.FindIndex(array: script, match: static line => !SourceScenarioPreambleLine(line: line)) switch { -1 => script.Length, var index => index };
+        return (
+            string.Join(separator: Environment.NewLine, values: new[] {
+                ReferenceDirectives(references: references),
+            }.Concat(script.Take(count: bodyIndex).Where(static line => !SourceScenarioReferenceLine(line: line))).Concat([
+                $"const string SCENARIO_NAME = \"{Escape(value: scenario)}\";",
+                $"const string CAPTURE_PATH = \"{Escape(value: capture)}\";",
+            ]).Concat(script.Skip(count: bodyIndex))),
+            references);
+    }
+    private static bool SourceScenarioPreambleLine(string line) =>
+        string.IsNullOrWhiteSpace(value: line)
+        || line.TrimStart().StartsWith(value: "//", comparisonType: StringComparison.Ordinal)
+        || SourceScenarioReferenceLine(line: line)
+        || line.TrimStart().StartsWith(value: "using ", comparisonType: StringComparison.Ordinal)
+        || line.TrimStart().StartsWith(value: "using static ", comparisonType: StringComparison.Ordinal);
+    private static bool SourceScenarioReferenceLine(string line) =>
+        line.TrimStart().StartsWith(value: "#r ", comparisonType: StringComparison.Ordinal)
+        || line.TrimStart().StartsWith(value: "#load ", comparisonType: StringComparison.Ordinal);
+    private static string ScenarioName(string scriptPath) =>
+        Path.GetFileName(path: scriptPath).Replace(oldValue: ".verify.csx", newValue: string.Empty, comparisonType: StringComparison.OrdinalIgnoreCase);
     private static string SmokeScript(ProjectBuild project) {
         string references = ReferenceDirectives(references: project.HostFilteredRuntimeReferences);
         string target = Escape(value: project.TargetPath);

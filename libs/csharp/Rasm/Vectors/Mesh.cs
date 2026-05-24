@@ -1071,20 +1071,22 @@ internal static class MeshKernel {
             initialState: Fin.Succ(unit),
             f: (acc, e) => acc.Bind(_ => {
                 Line line = mesh.TopologyEdges.EdgeLine(topologyEdgeIndex: e);
-                if (!line.IsValid) return Fin.Succ(unit);
-                Point3d mid = (line.From + line.To) * 0.5;
-                Vector3d tangent = line.Direction;
-                if (!tangent.Unitize()) return Fin.Succ(unit);
-                return source.SampleVector(sample: mid, context: space.Tolerance, key: key)
-                    .Bind(sampled => key.AcceptValue(value: sampled * tangent * line.Length))
-                    .Map(value => {
-                        IndexPair pair = mesh.TopologyEdges.GetTopologyVertices(topologyEdgeIndex: e);
-                        int lo = Math.Min(val1: pair.I, val2: pair.J);
-                        int hi = Math.Max(val1: pair.I, val2: pair.J);
-                        negDivergence[lo] += value;
-                        negDivergence[hi] -= value;
-                        return unit;
-                    });
+                return line.IsValid switch {
+                    false => Fin.Succ(unit),
+                    true => line.Direction switch {
+                        Vector3d tangent when tangent.Unitize() => source.SampleVector(sample: (line.From + line.To) * 0.5, context: space.Tolerance, key: key)
+                            .Bind(sampled => key.AcceptValue(value: sampled * tangent * line.Length))
+                            .Map(value => {
+                                IndexPair pair = mesh.TopologyEdges.GetTopologyVertices(topologyEdgeIndex: e);
+                                int lo = Math.Min(val1: pair.I, val2: pair.J);
+                                int hi = Math.Max(val1: pair.I, val2: pair.J);
+                                negDivergence[lo] += value;
+                                negDivergence[hi] -= value;
+                                return unit;
+                            }),
+                        _ => Fin.Succ(unit),
+                    },
+                };
             }))
             .Bind(_ => space.Laplacian(kind: MeshLaplacian.Cotangent, key: key))
             .Bind(L => SolvePinnedPoisson(stiffness: L.Stiffness, rhs: new Arr<double>(negDivergence), key: key))

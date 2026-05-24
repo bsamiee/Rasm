@@ -296,22 +296,47 @@ _verify_run() {
         status="$(jq -r '.status // "failed"' "${result}" 2>/dev/null || printf 'failed')"
         result_files+=("${result}")
         case "${status}" in
-            ok) ((ok++)); printf '[OK]     %s capture=%s\n' "${scenario#"${ROOT_DIR}/"}" "${capture_dir}/${name}.png" >&2 ;;
-            *) ((failed++)); printf '[FAILED] %s rc=%s status=%s result=%s\n' "${scenario#"${ROOT_DIR}/"}" "${rc}" "${status}" "${result}" >&2 ;;
+            ok) ((ok += 1)); printf '[OK]     %s capture=%s\n' "${scenario#"${ROOT_DIR}/"}" "${capture_dir}/${name}.png" >&2 ;;
+            *) ((failed += 1)); printf '[FAILED] %s rc=%s status=%s result=%s\n' "${scenario#"${ROOT_DIR}/"}" "${rc}" "${status}" "${result}" >&2 ;;
         esac
     done
+    local -a valid_results=()
+    local result_file
+    local -r result_stream="${report_dir}/.tmp/results.jsonl"
+    : > "${result_stream}"
+    for result_file in "${result_files[@]}"; do
+        jq -c . "${result_file}" >> "${result_stream}" 2>/dev/null && valid_results+=("${result_file}")
+    done
     local -r summary="${report_dir}/summary.json"
-    jq -n --argjson ok "${ok}" --argjson failed "${failed}" --slurpfile s <(jq -s '.' "${result_files[@]}") '{summary:{ok:$ok,failed:$failed,total:($ok+$failed)},scenarios:$s[0]}' > "${summary}"
+    : "${valid_results[*]:-}"
+    jq -n --argjson ok "${ok}" --argjson failed "${failed}" --slurpfile s "${result_stream}" '{summary:{ok:$ok,failed:$failed,total:($ok+$failed)},scenarios:$s}' > "${summary}"
     cat "${summary}"
     ((failed == 0)) || exit 1
 }
 _verify_wrap() {
     local -r source="$1" name="$2" capture="$3" wrapped="$4"
-    {
-        printf 'const string SCENARIO_NAME = "%s";\n' "${name//\"/\\\"}"
-        printf 'const string CAPTURE_PATH = "%s";\n' "${capture//\"/\\\"}"
-        cat -- "${source}"
-    } > "${wrapped}"
+    local -r scenario_name="${name//\"/\\\"}"
+    local -r capture_path="${capture//\"/\\\"}"
+    awk -v scenario_name="${scenario_name}" -v capture_path="${capture_path}" '
+        function inject() {
+            if (!injected) {
+                printf "const string SCENARIO_NAME = \"%s\";\n", scenario_name
+                printf "const string CAPTURE_PATH = \"%s\";\n", capture_path
+                injected = 1
+            }
+        }
+        !injected && ($0 ~ /^[[:space:]]*$/ || $0 ~ /^[[:space:]]*\/\// || $0 ~ /^#(r|load)[[:space:]]/ || $0 ~ /^using([[:space:]]+static)?[[:space:]]/) {
+            print
+            next
+        }
+        {
+            inject()
+            print
+        }
+        END {
+            inject()
+        }
+    ' "${source}" > "${wrapped}"
 }
 _api_meta() {
     local -r key="$1"

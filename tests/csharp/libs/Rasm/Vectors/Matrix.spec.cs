@@ -5,7 +5,7 @@ using Rasm.Vectors;
 namespace Rasm.Tests.Vectors;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-public static class MatrixGens {
+internal static class MatrixGens {
     public static readonly Op Key = Op.Of(name: "matrix-test");
     public static readonly Func<double, double, bool> Approx = Gens.Approx(relativeTolerance: 1.0e-7);
     private const int MaxDim = 6;
@@ -25,10 +25,9 @@ public static class MatrixGens {
     });
     public static readonly Gen<SymmetricMatrix> Spd = Square.Select(static (Matrix a) => {
         int n = a.Rows.Value;
-        Matrix shifted = toSeq(Enumerable.Range(start: 0, count: n)).Fold(initialState: a.Transpose() * a,
-            f: (m, i) => m.With(i: i, j: i, value: m.At(i: i, j: i) + n));
         return Spec.SuccValue(SymmetricMatrix.Of(dim: Dimension.Create(value: n),
-            upper: [.. Enumerable.Range(start: 0, count: n).SelectMany(i => Enumerable.Range(start: i, count: n - i).Select(j => shifted.At(i: i, j: j)))], key: Key), label: "spd gen");
+            upper: [.. Enumerable.Range(start: 0, count: n).SelectMany(i => Enumerable.Range(start: i, count: n - i).Select(j =>
+                Numeric.Dot(count: n, left: k => a.At(i: k, j: i), right: k => a.At(i: k, j: j)) + (i == j ? n : 0.0)))], key: Key), label: "spd gen");
     });
 }
 
@@ -44,9 +43,9 @@ public sealed class MatrixCoreLaws {
     [Fact]
     public void IdentityIsBilateralUnitAndTransposeIsInvolution() =>
         Spec.ForAll(MatrixGens.TallOrSquare, static a => {
-            NumericSpec.Entrywise(rows: a.Rows.Value, cols: a.Cols.Value, expected: a.At, actual: (Matrix.Identity(dim: a.Rows) * a).At, tolerance: 1.0e-7, label: "I*A");
-            NumericSpec.Entrywise(rows: a.Rows.Value, cols: a.Cols.Value, expected: a.At, actual: (a * Matrix.Identity(dim: a.Cols)).At, tolerance: 1.0e-7, label: "A*I");
-            NumericSpec.Entrywise(rows: a.Rows.Value, cols: a.Cols.Value, expected: a.At, actual: a.Transpose().Transpose().At, tolerance: 1.0e-7, label: "T(T(A))");
+            Numeric.Product(rows: a.Rows.Value, width: a.Rows.Value, cols: a.Cols.Value, left: Matrix.Identity(dim: a.Rows).At, right: a.At, actual: (Matrix.Identity(dim: a.Rows) * a).At, tolerance: 1.0e-7, label: "I*A");
+            Numeric.Product(rows: a.Rows.Value, width: a.Cols.Value, cols: a.Cols.Value, left: a.At, right: Matrix.Identity(dim: a.Cols).At, actual: (a * Matrix.Identity(dim: a.Cols)).At, tolerance: 1.0e-7, label: "A*I");
+            Numeric.Entrywise(rows: a.Rows.Value, cols: a.Cols.Value, expected: a.At, actual: a.Transpose().Transpose().At, tolerance: 1.0e-7, label: "T(T(A))");
         });
     [Fact]
     public void TraceAndFrobeniusMatchClosedForm() {
@@ -72,7 +71,7 @@ public sealed class SymmetricMatrixLaws {
     public void ToDenseProducesSymmetricMatrix() =>
         Spec.ForAll(MatrixGens.Spd, static spd => {
             Matrix dense = spd.ToDense();
-            NumericSpec.Symmetric(dimension: spd.Dimension.Value, at: dense.At, tolerance: 1.0e-7, label: "dense");
+            Numeric.Symmetric(dimension: spd.Dimension.Value, at: dense.At, tolerance: 1.0e-7, label: "dense");
         });
 }
 
@@ -115,7 +114,7 @@ public sealed class SparseMatrixLaws {
         Spec.Succ(diagonal.SmallestEigenpairs(k: 1, tolerance: 1.0e-5, maxIterations: 80, key: MatrixGens.Key), then: pairs => {
             (double eigenvalue, Arr<double> eigenvector) = pairs[0];
             Spec.EqualWithin(left: eigenvalue, right: 1.0, tolerance: 1.0e-4, what: "smallest eigenvalue");
-            NumericSpec.Eigenpair(matrix: diagonal.ToDense(), eigenvalue: eigenvalue, eigenvector: eigenvector, eq: Gens.Approx(relativeTolerance: 1.0e-4), label: "lobpcg");
+            Numeric.Eigenpair(matrix: diagonal.ToDense(), eigenvalue: eigenvalue, eigenvector: eigenvector, eq: Gens.Approx(relativeTolerance: 1.0e-4), label: "lobpcg");
         });
         Spec.Fail(diagonal.SmallestEigenpairs(k: 1, tolerance: 1.0e-12, maxIterations: 0, key: MatrixGens.Key));
     }
@@ -125,7 +124,9 @@ public sealed class DecompositionLaws {
     [Fact]
     public void SvdReconstructsAEqualsUSigmaVtransposed() =>
         Spec.ForAll(MatrixGens.TallOrSquare, static a => Spec.Succ(a.DecomposeSvd(key: MatrixGens.Key),
-            then: svd => NumericSpec.Entrywise(rows: a.Rows.Value, cols: a.Cols.Value, expected: a.At, actual: SvdReconstruct(svd: svd, n: a.Cols.Value).At, tolerance: 1.0e-7, label: "U*Sigma*V^T")));
+            then: svd => Numeric.Entrywise(rows: a.Rows.Value, cols: a.Cols.Value, expected: a.At,
+                actual: (row, col) => Numeric.Dot(count: svd.Sigma.Count, left: k => svd.U.At(i: row, j: k), right: k => svd.Sigma[k] * svd.V.At(i: col, j: k)),
+                tolerance: 1.0e-7, label: "U*Sigma*V^T")));
     [Fact]
     public void SvdSigmaIsSortedNonNegativeAndMatchesSpectral() =>
         Spec.ForAll(MatrixGens.TallOrSquare, static a => Spec.Succ(a.DecomposeSvd(key: MatrixGens.Key), then: svd => {
@@ -138,35 +139,37 @@ public sealed class DecompositionLaws {
     [Fact]
     public void SvdFactorsAreOrthogonal() =>
         Spec.ForAll(MatrixGens.TallOrSquare, static a => Spec.Succ(a.DecomposeSvd(key: MatrixGens.Key), then: svd => {
-            NumericSpec.GramIdentity(matrix: svd.V, sigma: null, tolerance: 1.0e-7, label: "V");
-            NumericSpec.GramIdentity(matrix: svd.U, sigma: null, tolerance: 1.0e-7, label: "U");
+            Numeric.ColumnGramIdentity(matrix: svd.V, sigma: null, tolerance: 1.0e-7, label: "V");
+            Numeric.ColumnGramIdentity(matrix: svd.U, sigma: null, tolerance: 1.0e-7, label: "U");
         }));
     [Fact]
     public void QrReconstructsAndQIsOrthogonal() =>
         Spec.ForAll(MatrixGens.TallOrSquare, static a => Spec.Succ(a.DecomposeQr(key: MatrixGens.Key), then: qr => {
-            NumericSpec.Entrywise(rows: a.Rows.Value, cols: a.Cols.Value, expected: a.At, actual: (qr.Q * qr.R).At, tolerance: 1.0e-7, label: "Q*R");
-            NumericSpec.GramIdentity(matrix: qr.Q, sigma: null, tolerance: 1.0e-7, label: "Q");
+            Numeric.Entrywise(rows: a.Rows.Value, cols: a.Cols.Value, expected: a.At,
+                actual: (row, col) => Numeric.ProductAt(width: qr.Q.Cols.Value, left: qr.Q.At, right: qr.R.At, row: row, col: col),
+                tolerance: 1.0e-7, label: "Q*R");
+            Numeric.ColumnGramIdentity(matrix: qr.Q, sigma: null, tolerance: 1.0e-7, label: "Q");
         }));
     [Fact]
     public void LuResultKeepsSourceAndDeterminant() =>
         Spec.ForAll(MatrixGens.NonSingularSquare, static a => Spec.Succ(a.DecomposeLu(key: MatrixGens.Key), then: lu => {
             Assert.True(condition: lu.IsValid);
-            NumericSpec.Entrywise(rows: a.Rows.Value, cols: a.Cols.Value, expected: a.At, actual: lu.Source.At, tolerance: 1.0e-7, label: "LU source");
-            Spec.Succ(a.Determinant(key: MatrixGens.Key), then: det =>
-                Spec.EqualWithin(left: lu.Determinant, right: det, tolerance: 1.0e-9, what: "LU determinant"));
+            Numeric.Entrywise(rows: a.Rows.Value, cols: a.Cols.Value, expected: a.At, actual: lu.Source.At, tolerance: 1.0e-7, label: "LU source");
+            double det = Numeric.Determinant(n: a.Rows.Value, at: a.At);
+            Spec.EqualWithin(left: lu.Determinant, right: det, tolerance: Math.Max(val1: 1.0e-8, val2: Math.Abs(value: det) * 1.0e-12), what: "LU determinant");
         }));
     [Fact]
     public void CholeskyReconstructsSpd() =>
-        Spec.ForAll(MatrixGens.Spd, static spd => Spec.Succ(spd.DecomposeCholesky(key: MatrixGens.Key), then: chol =>
-            NumericSpec.Entrywise(rows: spd.Dimension.Value, cols: spd.Dimension.Value, expected: spd.ToDense().At, actual: (chol.L * chol.L.Transpose()).At, tolerance: 1.0e-7, label: "L*L^T")));
+        Spec.ForAll(MatrixGens.Spd, static spd => Spec.Succ(spd.DecomposeCholesky(key: MatrixGens.Key), then: chol => {
+            Matrix dense = spd.ToDense();
+            Numeric.Entrywise(rows: spd.Dimension.Value, cols: spd.Dimension.Value, expected: dense.At,
+                actual: (row, col) => Numeric.ProductAt(width: spd.Dimension.Value, left: chol.L.At, right: (i, j) => chol.L.At(i: j, j: i), row: row, col: col),
+                tolerance: 1.0e-7, label: "L*L^T");
+        }));
     [Fact]
     public void SymmetricEigenSatisfiesAvEqualsLambdaV() =>
         Spec.ForAll(MatrixGens.Spd, static spd => Spec.Succ(spd.DecomposeEigen(key: MatrixGens.Key), then: eigs => {
             Matrix dense = spd.ToDense();
-            _ = eigs.Iter(pair => NumericSpec.Eigenpair(matrix: dense, eigenvalue: pair.Eigenvalue, eigenvector: pair.Eigenvector, eq: MatrixGens.Approx, label: "symmetric eigen"));
+            _ = eigs.Iter(pair => Numeric.Eigenpair(matrix: dense, eigenvalue: pair.Eigenvalue, eigenvector: pair.Eigenvector, eq: MatrixGens.Approx, label: "symmetric eigen"));
         }));
-    private static Matrix SvdReconstruct(SvdResult svd, int n) =>
-        svd.U * new Matrix(Rows: svd.U.Cols, Cols: Dimension.Create(value: n),
-            Entries: [.. Enumerable.Range(start: 0, count: svd.U.Cols.Value * n).Select(idx =>
-                idx / n == idx % n && idx / n < svd.Sigma.Count ? svd.Sigma[idx / n] : 0.0)]) * svd.V.Transpose();
 }

@@ -427,10 +427,10 @@ internal static class FileArchiveOps {
             ObjectType: fileObject.Geometry.ObjectType,
             Material: MaterialOf(model: model, fileObject: fileObject).Bind(material => TextOption(value: material.Name)),
             UserStrings: (fileObject.Attributes.GetUserStrings()?.AllKeys switch {
-                string[] keys => toSeq(keys).Choose(Text),
+                string[] keys => toSeq(keys).Choose(static value => TextOption(value: value)),
                 _ => Seq<string>(),
             }) + (fileObject.Geometry.GetUserStrings()?.AllKeys switch {
-                string[] keys => toSeq(keys).Choose(Text),
+                string[] keys => toSeq(keys).Choose(static value => TextOption(value: value)),
                 _ => Seq<string>(),
             })));
 

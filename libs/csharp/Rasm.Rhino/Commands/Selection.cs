@@ -292,7 +292,7 @@ public sealed record CommandSelection {
             return Use(document: document, op: op, use: reference =>
                 from raw in Optional(reference.Geometry()).ToFin(Fail: op.InvalidResult())
                 from duplicate in Optional(raw.Duplicate()).ToFin(Fail: op.InvalidResult())
-                from typed in GeometrySource.Own(geometry: duplicate).Use<TGeometry>(op: op, use: geometry => geometry switch {
+                from typed in GeometrySource.Own(geometry: duplicate).Use(op: op, use: geometry => geometry switch {
                     TGeometry value => Fin.Succ(value: value),
                     _ => Fin.Fail<TGeometry>(error: op.InvalidResult()),
                 })

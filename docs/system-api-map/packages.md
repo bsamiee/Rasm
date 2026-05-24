@@ -33,6 +33,13 @@
 | [4] | `MathNet.Symbolics` | Active direct in `Rasm` | Symbolic formulas. |
 | [5] | MathNet/F# support closure | Transitive/supporting pins | Symbolics load-context proof, not direct C# API guidance. |
 | [6] | `System.Drawing.Common` | Conditioned compile surface | Rhino UI/raster boundary metadata. |
+| [7] | `Microsoft.NET.Test.Sdk` | Active shared for runnable tests | VSTest project execution. |
+| [8] | `xunit.v3.mtp-off` | Active shared for runnable tests | xUnit v3 framework without MTP. |
+| [9] | `xunit.v3.assert` | Active shared for testkit | Assertions and serializer extensibility. |
+| [10] | `xunit.runner.visualstudio` | Active shared for runnable tests | VSTest adapter. |
+| [11] | `CsCheck` | Active shared for tests/testkit | Property-based generation and shrinking. |
+| [12] | `coverlet.msbuild` | Active shared for runnable tests | Opt-in managed coverage. |
+| [13] | `dotnet-stryker` | Local tool manifest | Opt-in managed mutation testing. |
 
 ---
 ## [3][ADOPTION]
@@ -45,3 +52,14 @@
 - Use restore/build proof after graph changes.
 - Mark candidate packages as out of graph until consumed.
 - Reject packages that duplicate LanguageExt rails, Thinktecture shape, MathNet algorithms, or Rhino/GH semantics.
+
+---
+## [4][TEST_TOOL_SCOPE]
+>**Dictum:** *Test tools belong to the test rail, not product dependency policy.*
+
+<br>
+
+- Raw xUnit, CsCheck, coverlet, and Stryker API guidance lives under `docs/testing-libs`.
+- Test project package injection lives in `Directory.Build.props`; versions live in `Directory.Packages.props`.
+- Local mutation tooling lives in `.config/dotnet-tools.json` and is invoked by `scripts/mutate-cs.sh`.
+- Rejected adjacent testing packages stay out of the graph until a concrete test owner proves they add value beyond xUnit, CsCheck, coverlet, Stryker, bridge scenarios, and existing analyzers.

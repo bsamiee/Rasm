@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Rasm.Domain;
 using Rasm.TestKit;
 using Rasm.Vectors;
@@ -6,8 +7,8 @@ using Rhino.Geometry;
 namespace Rasm.Tests.Vectors;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-[System.Diagnostics.CodeAnalysis.SuppressMessage(category: "Design", checkId: "CA1515", Justification = "xUnit discovers public test surface.")]
-public static class FieldGens {
+internal static class FieldGens {
+    public static readonly Context Model = Spec.SuccValue(Context.Of(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: Rhino.UnitSystem.Millimeters).ToFin(), label: "field context");
     public static readonly Op Key = Op.Of(name: "field-test");
     public static readonly Gen<CsgKind> Csg = Gen.OneOfConst(CsgKind.Union, CsgKind.Intersect, CsgKind.Difference);
     public static readonly Gen<KernelKind> Kernel = Gen.OneOfConst(KernelKind.Wendland, KernelKind.Quintic, KernelKind.Cosine, KernelKind.Cubic, KernelKind.Linear, KernelKind.Epanechnikov);
@@ -55,6 +56,22 @@ public sealed class CsgKindLaws {
         Spec.SmartEnumKeysUnique(items: [CsgKind.Union, CsgKind.Intersect, CsgKind.Difference], key: static k => k.Key);
 }
 
+public sealed class BlendKindLaws {
+    [Fact]
+    public void SmoothFactoriesGatePositiveParametersAndNeverReduceBounds() {
+        Spec.ForAll(Gens.Positive, k => {
+            Spec.Succ(BlendKind.Polynomial(k: k, key: FieldGens.Key), then: b => Assert.True(condition: b.Erode(leftLip: 2.0, rightLip: 1.0) >= 2.0));
+            Spec.Succ(BlendKind.Exponential(k: k, key: FieldGens.Key), then: b => Assert.True(condition: b.Erode(leftLip: 2.0, rightLip: 1.0) >= 2.0));
+            Spec.Succ(BlendKind.Round(r: k, key: FieldGens.Key), then: b => Assert.True(condition: b.Erode(leftLip: 2.0, rightLip: 1.0) >= 2.0));
+            Spec.Succ(BlendKind.Groove(k: k, d: k, key: FieldGens.Key), then: b => Assert.True(condition: b.Erode(leftLip: 2.0, rightLip: 1.0) >= 2.0));
+        });
+        Spec.ForAll(Gens.NonPositive, k => {
+            Spec.Fail(BlendKind.Polynomial(k: k, key: FieldGens.Key));
+            Spec.Fail(BlendKind.Groove(k: 1.0, d: k, key: FieldGens.Key));
+        });
+    }
+}
+
 public sealed class KernelKindLaws {
     [Fact]
     public void WeightsMatchSupportLaws() {
@@ -98,6 +115,37 @@ public sealed class FalloffLaws {
             Spec.Fail(Falloff.Gaussian(spread: x, key: FieldGens.Key));
             Spec.Fail(Falloff.Kernel(kind: KernelKind.Wendland, radius: x, key: FieldGens.Key));
         });
+}
+
+public sealed class FieldPolicyAndSamplingLaws {
+    [Fact]
+    public void RayAndBouncePoliciesGatePositiveParameters() {
+        Spec.Succ(RayPolicy.Segment(length: 2.0, sense: BoundarySense.Away, key: FieldGens.Key), then: p => {
+            RayPolicy.SegmentCase segment = Assert.IsType<RayPolicy.SegmentCase>(@object: p);
+            Assert.Equal(expected: BoundarySense.Away, actual: segment.Sense);
+        });
+        Spec.Fail(RayPolicy.Segment(length: 0.0, key: FieldGens.Key));
+        Spec.Succ(BouncePolicy.Refract(etaIncident: 1.0, etaTransmitted: 1.5, key: FieldGens.Key), then: p => Assert.IsType<BouncePolicy.RefractCase>(@object: p));
+        Spec.Fail(BouncePolicy.Refract(etaIncident: 0.0, etaTransmitted: 1.5, key: FieldGens.Key));
+    }
+    [Fact]
+    public void ScalarConstantProjectAndNablaGradientAreStable() {
+        ScalarField constant = ScalarField.Constant(value: 7.0);
+        Spec.Succ(constant.Project<double>(sample: new Point3d(x: 1.0, y: 2.0, z: 3.0), context: FieldGens.Model, key: FieldGens.Key),
+            then: value => Spec.EqualWithin(left: value, right: 7.0, tolerance: 0.0, what: "constant"));
+        Spec.Fail(constant.Project<Vector3d>(sample: Point3d.Origin, context: FieldGens.Model, key: FieldGens.Key));
+        Spec.Succ(FieldNabla.GradientAt(field: constant, point: Point3d.Origin, eps: 0.01, context: FieldGens.Model, key: FieldGens.Key),
+            then: grad => Spec.EqualWithin(left: grad.Length, right: 0.0, tolerance: 1.0e-12, what: "constant gradient"));
+    }
+    [Fact]
+    public void SdfPrimitiveLipschitzAndRequiredKeysAreGated() {
+        ImmutableDictionary<string, double> sphere = ImmutableDictionary<string, double>.Empty.Add(key: "r", value: 1.0);
+        ImmutableDictionary<string, double> missing = [];
+        ScalarField primitive = new ScalarField.PrimitiveCase(Kind: SdfKind.Sphere, Parameters: sphere, Pose: default);
+        Spec.Some(primitive.LipschitzBound(), lip => Spec.EqualWithin(left: lip, right: SdfKind.Sphere.Lipschitz, tolerance: 0.0, what: "sphere lip"));
+        Assert.True(condition: SdfKind.Sphere.ValidateParameters(parameters: sphere));
+        Assert.False(condition: SdfKind.Sphere.ValidateParameters(parameters: missing));
+    }
 }
 
 public sealed class VectorFieldAlgebraLaws {

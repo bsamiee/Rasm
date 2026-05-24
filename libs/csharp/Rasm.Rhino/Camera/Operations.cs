@@ -65,8 +65,8 @@ public abstract partial record CameraEdit {
     private CameraEdit() { }
 
     // Native bridges. `Action` wraps a void native call; `Confirm` wraps a bool-returning one.
-    public sealed record Action(System.Action<RhinoViewport> Apply) : CameraEdit;
-    public sealed record Confirm(Func<RhinoViewport, bool> Apply) : CameraEdit;
+    public sealed record Action(Action<RhinoViewport> Run) : CameraEdit;
+    public sealed record Confirm(Func<RhinoViewport, bool> Run) : CameraEdit;
 
     // Camera triad
     public sealed record Frame(CameraFrame Value) : CameraEdit;
@@ -84,8 +84,8 @@ public abstract partial record CameraEdit {
 
     // Frame / CPlane / Plan
     public sealed record Frustum(CameraFrustum Value, bool UpdateTarget = true) : CameraEdit;
-    public sealed record PlanePlain(global::Rhino.Geometry.Plane Value) : CameraEdit;
-    public sealed record PlaneFull(global::Rhino.DocObjects.ConstructionPlane Value) : CameraEdit;
+    public sealed record PlanePlain(Plane Value) : CameraEdit;
+    public sealed record PlaneFull(ConstructionPlane Value) : CameraEdit;
     public sealed record Plan(Point3d Origin, Vector3d XDirection, Vector3d YDirection, bool SetConstructionPlane = true) : CameraEdit;
     public sealed record DisplayMode(DisplayModeDescription Value) : CameraEdit;
     public sealed record Clipping(BoundingBox Box) : CameraEdit;
@@ -102,13 +102,13 @@ public abstract partial record CameraEdit {
     // Interaction
     public sealed record Keyboard(bool RotateInPlace, bool LeftRight, double Amount) : CameraEdit;
     public sealed record KeyboardDolly(double Amount) : CameraEdit;
-    public sealed record Mouse(CameraMouseMove Move, DrawingPoint Previous, DrawingPoint Current) : CameraEdit;
-    public sealed record MouseLens(DrawingPoint Previous, DrawingPoint Current, bool MoveTarget) : CameraEdit;
+    public sealed record Mouse(CameraMouseMove Move, DrawingPoint PreviousPoint, DrawingPoint CurrentPoint) : CameraEdit;
+    public sealed record MouseLens(DrawingPoint PreviousPoint, DrawingPoint CurrentPoint, bool MoveTarget) : CameraEdit;
 
     // View stack — Push/Pop/Next/Previous return void (verified IL); PushView returns bool.
     public sealed record Push : CameraEdit;
     public sealed record Pop : CameraEdit;
-    public sealed record Next : CameraEdit;
+    public sealed record NextView : CameraEdit;
     public sealed record Previous : CameraEdit;
     public sealed record PushView(ViewInfo Info, bool IncludeTarget = true) : CameraEdit;
 
@@ -117,11 +117,11 @@ public abstract partial record CameraEdit {
     internal Fin<Unit> Apply(CameraScope scope, bool redraw) =>
         Switch(
             (Scope: scope, Redraw: redraw),
-            action: static (ctx, edit) => from valid in Optional(edit.Apply).ToFin(Fail: Op.Of(name: nameof(Action)).InvalidInput())
+            action: static (ctx, edit) => from valid in Optional(edit.Run).ToFin(Fail: Op.Of(name: nameof(Action)).InvalidInput())
                                           from _ in Fin.Succ(value: Op.Side(() => valid(obj: ctx.Scope.Viewport)))
                                           from done in RedrawIf(ctx)
                                           select done,
-            confirm: static (ctx, edit) => from valid in Optional(edit.Apply).ToFin(Fail: Op.Of(name: nameof(Confirm)).InvalidInput())
+            confirm: static (ctx, edit) => from valid in Optional(edit.Run).ToFin(Fail: Op.Of(name: nameof(Confirm)).InvalidInput())
                                            from _ in Op.Of(name: nameof(Confirm)).Confirm(success: valid(arg: ctx.Scope.Viewport))
                                            from done in RedrawIf(ctx)
                                            select done,
@@ -201,18 +201,18 @@ public abstract partial record CameraEdit {
                 ? vp.KeyboardRotate(leftRight: edit.LeftRight, angleRadians: edit.Amount)
                 : vp.KeyboardDolly(leftRight: edit.LeftRight, amount: edit.Amount), Op.Of(name: nameof(Keyboard))),
             keyboardDolly: static (ctx, edit) => Result(ctx, vp => vp.KeyboardDollyInOut(amount: edit.Amount), Op.Of(name: nameof(KeyboardDolly))),
-            mouse: static (ctx, edit) => Result(ctx, vp => edit.Move.Apply(viewport: vp, previous: edit.Previous, current: edit.Current), Op.Of(name: nameof(Mouse))),
-            mouseLens: static (ctx, edit) => Result(ctx, vp => vp.MouseAdjustLensLength(mousePreviousPoint: edit.Previous, mouseCurrentPoint: edit.Current, moveTarget: edit.MoveTarget), Op.Of(name: nameof(MouseLens))),
+            mouse: static (ctx, edit) => Result(ctx, vp => edit.Move.Apply(viewport: vp, previous: edit.PreviousPoint, current: edit.CurrentPoint), Op.Of(name: nameof(Mouse))),
+            mouseLens: static (ctx, edit) => Result(ctx, vp => vp.MouseAdjustLensLength(mousePreviousPoint: edit.PreviousPoint, mouseCurrentPoint: edit.CurrentPoint, moveTarget: edit.MoveTarget), Op.Of(name: nameof(MouseLens))),
             push: static (ctx, _) => Side(ctx, static vp => vp.PushViewProjection()),
             pop: static (ctx, _) => Side(ctx, static vp => vp.PopViewProjection()),
-            next: static (ctx, _) => Side(ctx, static vp => vp.NextViewProjection()),
+            nextView: static (ctx, _) => Side(ctx, static vp => vp.NextViewProjection()),
             previous: static (ctx, _) => Side(ctx, static vp => vp.PreviousViewProjection()),
-            pushView: static (ctx, edit) => Result(ctx, vp => vp.PushViewInfo(info: edit.Info, includeTarget: edit.IncludeTarget), Op.Of(name: nameof(PushView))));
+            pushView: static (ctx, edit) => Result(ctx, vp => vp.PushViewInfo(edit.Info, edit.IncludeTarget), Op.Of(name: nameof(PushView))));
 
     private static Fin<Unit> RedrawIf((CameraScope Scope, bool Redraw) ctx) =>
         ctx.Redraw ? ctx.Scope.Redraw() : Fin.Succ(value: unit);
 
-    private static Fin<Unit> Side((CameraScope Scope, bool Redraw) ctx, System.Action<RhinoViewport> apply) =>
+    private static Fin<Unit> Side((CameraScope Scope, bool Redraw) ctx, Action<RhinoViewport> apply) =>
         from _ in Fin.Succ(value: Op.Side(() => apply(obj: ctx.Scope.Viewport)))
         from done in RedrawIf(ctx)
         select done;

@@ -491,7 +491,7 @@ public sealed record DocumentEdit {
                    undoRecorded: plan.UndoRecorded && (plan.Operations.Exists(static operation => operation.RecordsUndo) || !plan.CustomUndo.IsEmpty),
                    run: (document, domain, runOp) =>
                        from customUndo in plan.CustomUndo.TraverseM(undo => undo.Register(document: document, op: Op.Of(name: name))).As()
-                       from result in plan.Operations.TraverseM(operation => operation.Apply(document: document, domain: domain)).As().Map(static receipts => receipts.Fold(DocumentReceipt.Empty, static (state, value) => state + value))
+                       from result in plan.Operations.TraverseM(operation => operation.Apply(document: document, domain: domain, op: runOp)).As().Map(static receipts => receipts.Fold(DocumentReceipt.Empty, static (state, value) => state + value))
                        select result with { CustomUndo = customUndo })
                select receipt;
     }
