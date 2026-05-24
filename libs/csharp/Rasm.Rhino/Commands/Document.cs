@@ -50,28 +50,35 @@ public readonly record struct DocumentSelectionPolicy(bool Highlight, bool Ignor
     public static DocumentSelectionPolicy Default { get; } = new(Highlight: true, IgnoreGrips: true, Persistent: true, IgnoreLayerLocking: false, IgnoreLayerVisibility: false);
 }
 
-file abstract record DocumentGeometry {
-    private DocumentGeometry() { }
+internal abstract record GeometrySource {
+    private GeometrySource() { }
     internal abstract Fin<T> Use<T>(Op op, Func<GeometryBase, Fin<T>> use);
-    internal static Fin<DocumentGeometry> Of(object source) =>
-        Optional(source).ToFin(Fail: Op.Of(name: nameof(DocumentGeometry)).InvalidInput()).Bind(static value => value switch {
-            GeometryBase geometry => Fin.Succ<DocumentGeometry>(value: new Borrowed(geometry)),
-            Point3d point when point.IsValid => Fin.Succ<DocumentGeometry>(value: new Owned(new Point(location: point))),
-            Line line when line.IsValid => Fin.Succ<DocumentGeometry>(value: new Owned(new LineCurve(line: line))),
-            Circle circle when circle.IsValid => Fin.Succ<DocumentGeometry>(value: new Owned(new ArcCurve(circle: circle))),
-            Arc arc when arc.IsValid => Fin.Succ<DocumentGeometry>(value: new Owned(new ArcCurve(arc: arc))),
-            Ellipse ellipse when ellipse.IsValid => Optional(ellipse.ToNurbsCurve()).ToFin(Fail: Op.Of(name: nameof(DocumentGeometry)).InvalidResult()).Map(static curve => (DocumentGeometry)new Owned(curve)),
-            Polyline polyline when polyline.IsValid => Fin.Succ<DocumentGeometry>(value: new Owned(new PolylineCurve(polyline))),
-            _ => Fin.Fail<DocumentGeometry>(error: Op.Of(name: nameof(DocumentGeometry)).InvalidInput()),
+
+    internal static Fin<GeometrySource> From(object source) {
+        Op op = Op.Of(name: nameof(GeometrySource));
+        return Optional(source).ToFin(Fail: op.InvalidInput()).Bind(value => value switch {
+            GeometryBase geometry => Fin.Succ<GeometrySource>(value: new Borrowed(geometry)),
+            Point3d point when point.IsValid => Fin.Succ<GeometrySource>(value: new Owned(new Point(location: point))),
+            Line line when line.IsValid => Fin.Succ<GeometrySource>(value: new Owned(new LineCurve(line: line))),
+            Circle circle when circle.IsValid => Fin.Succ<GeometrySource>(value: new Owned(new ArcCurve(circle: circle))),
+            Arc arc when arc.IsValid => Fin.Succ<GeometrySource>(value: new Owned(new ArcCurve(arc: arc))),
+            Ellipse ellipse when ellipse.IsValid => Optional(ellipse.ToNurbsCurve()).ToFin(Fail: op.InvalidResult()).Map(static curve => (GeometrySource)new Owned(curve)),
+            Polyline polyline when polyline.IsValid => Fin.Succ<GeometrySource>(value: new Owned(new PolylineCurve(polyline))),
+            _ => Fin.Fail<GeometrySource>(error: op.InvalidInput()),
         });
-    private sealed record Borrowed(GeometryBase Geometry) : DocumentGeometry {
+    }
+
+    internal static GeometrySource Borrow(GeometryBase geometry) => new Borrowed(geometry);
+    internal static GeometrySource Own(GeometryBase geometry) => new Owned(geometry);
+
+    private sealed record Borrowed(GeometryBase Geometry) : GeometrySource {
         internal override Fin<T> Use<T>(Op op, Func<GeometryBase, Fin<T>> use) =>
             op.Catch(() => from geometry in Optional(Geometry).ToFin(Fail: op.InvalidInput())
                            from valid in Optional(use).ToFin(Fail: op.InvalidInput())
                            from result in valid(arg: geometry)
                            select result);
     }
-    private sealed record Owned(GeometryBase Geometry) : DocumentGeometry {
+    private sealed record Owned(GeometryBase Geometry) : GeometrySource {
         internal override Fin<T> Use<T>(Op op, Func<GeometryBase, Fin<T>> use) =>
             op.Catch(() => Optional(use).ToFin(Fail: op.InvalidInput()).Bind(valid => {
                 using GeometryBase owned = Geometry;
@@ -248,7 +255,7 @@ public abstract record DocumentTarget {
 
     private static Fin<Unit> ReplaceGeometry(object replacement, Op op, Func<GeometryBase, bool> use) =>
         from valid in Optional(use).ToFin(Fail: op.InvalidInput())
-        from geometry in DocumentGeometry.Of(source: replacement)
+        from geometry in GeometrySource.From(source: replacement)
         from result in geometry.Use(op: op, use: native => op.Confirm(success: valid(arg: native)))
         select result;
 }
@@ -307,116 +314,157 @@ public readonly record struct DocumentCustomUndo(string Name, EventHandler<Custo
     }
 }
 
-public abstract record DocumentOp {
+[Union(SwitchMapStateParameterName = "context")]
+public abstract partial record DocumentOp {
     private DocumentOp() { }
-    internal abstract Fin<DocumentReceipt> Apply(RhinoDoc document, Context domain, Op op);
-    public sealed record Create(IEnumerable<object> Sources, ObjectAttributes? Attributes = null) : DocumentOp {
-        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Context domain, Op op) => from edit in Optional(document).ToFin(Fail: op.InvalidInput()) from ids in DocumentEdit.AddRaw(document: edit, domain: domain, sources: Sources, attributes: Attributes, op: op) select DocumentReceipt.Empty with { Created = ids };
-    }
 
-    public sealed record Replace(DocumentTarget Target, object Replacement, bool IgnoreModes = false) : DocumentOp {
-        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Context domain, Op op) => from target in Optional(Target).ToFin(Fail: op.InvalidInput()) from value in Optional(Replacement).ToFin(Fail: op.InvalidInput()) from ids in target.Ids(document: document, op: op) from _ in target.Replace(document: document, replacement: value, ignoreModes: IgnoreModes, op: op) select DocumentReceipt.Empty with { Replaced = ids };
-    }
-
-    public sealed record Delete(DocumentTarget Target, bool Quiet = true, bool IgnoreModes = false) : DocumentOp {
-        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Context domain, Op op) => from target in Optional(Target).ToFin(Fail: op.InvalidInput()) from ids in target.Ids(document: document, op: op) from _ in target.Delete(document: document, quiet: Quiet, ignoreModes: IgnoreModes, op: op) select DocumentReceipt.Empty with { Deleted = ids, LifecycleChanged = ids };
-    }
-
-    public sealed record Transform(DocumentTarget Target, global::Rhino.Geometry.Transform Xform, bool DeleteOriginal = true) : DocumentOp {
-        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Context domain, Op op) => from target in Optional(Target).ToFin(Fail: op.InvalidInput()) from _ in guard(Xform.IsValid, op.InvalidInput()) from originals in target.Ids(document: document, op: op) from ids in target.Transform(document: document, transform: Xform, deleteOriginal: DeleteOriginal, op: op) select DocumentReceipt.Empty with { Created = ids, Deleted = DeleteOriginal ? originals : Seq<Guid>(), Transformed = ids, LifecycleChanged = DeleteOriginal ? originals : Seq<Guid>() };
-    }
-
-    public sealed record AttributeChange(DocumentTarget Target, Func<ObjectAttributes, Fin<ObjectAttributes>> Change, bool Quiet = true) : DocumentOp {
-        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Context domain, Op op) =>
-            from target in Optional(Target).ToFin(Fail: op.InvalidInput())
-            from change in Optional(Change).ToFin(Fail: op.InvalidInput())
-            from ids in target.Ids(document: document, op: op)
-            from changed in ids.TraverseM(id => from native in Optional(document.Objects.FindId(id)).ToFin(Fail: op.InvalidResult()) from attributes in Optional(native.Attributes?.Duplicate()).ToFin(Fail: op.InvalidResult()) from next in change(arg: attributes) from _ in document.Objects.ModifyAttributes(objectId: id, newAttributes: next, quiet: Quiet) switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: op.InvalidResult()) } select id).As()
-            select DocumentReceipt.Empty with { AttributeChanged = changed };
-    }
-
-    public sealed record SetSelection(DocumentTarget Target, DocumentSelectionPolicy Policy) : DocumentOp {
-        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Context domain, Op op) =>
-            from target in Optional(Target).ToFin(Fail: op.InvalidInput())
-            from before in DocumentEdit.SelectedIds(document: document, op: op)
-            from _ in target.Select(document: document, selected: true, policy: Policy, op: op)
-            from after in DocumentEdit.SelectedIds(document: document, op: op)
-            select DocumentReceipt.Empty with {
-                Selected = after.Filter(id => !before.Exists(item => item == id)),
-                Unselected = before.Filter(id => !after.Exists(item => item == id)),
-            };
-    }
-
-    public sealed record UnselectAll(bool IgnorePersistentSelections = false) : DocumentOp {
-        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Context domain, Op op) =>
-            from before in DocumentEdit.SelectedIds(document: document, op: op)
-            from count in document.Objects.UnselectAll(ignorePersistentSelections: IgnorePersistentSelections) switch { int value and >= 0 => Fin.Succ(value: value), _ => Fin.Fail<int>(error: op.InvalidResult()) }
-            from after in DocumentEdit.SelectedIds(document: document, op: op)
-            select DocumentReceipt.Empty with { Unselected = before.Filter(id => !after.Exists(item => item == id)) };
-    }
-
+    public sealed record Create(IEnumerable<object> Sources, ObjectAttributes? Attributes = null) : DocumentOp;
+    public sealed record Replace(DocumentTarget Target, object Replacement, bool IgnoreModes = false) : DocumentOp;
+    public sealed record Delete(DocumentTarget Target, bool Quiet = true, bool IgnoreModes = false) : DocumentOp;
+    public sealed record Transform(DocumentTarget Target, global::Rhino.Geometry.Transform Xform, bool DeleteOriginal = true) : DocumentOp;
+    public sealed record AttributeChange(DocumentTarget Target, Func<ObjectAttributes, Fin<ObjectAttributes>> Change, bool Quiet = true) : DocumentOp;
+    public sealed record SetSelection(DocumentTarget Target, DocumentSelectionPolicy Policy) : DocumentOp;
+    public sealed record UnselectAll(bool IgnorePersistentSelections = false) : DocumentOp;
     public sealed record ObjectState(
         DocumentTarget Target,
         Option<bool> Selected = default,
         Option<bool> Hidden = default,
         Option<bool> Locked = default,
-        DocumentSelectionPolicy? SelectionPolicy = null) : DocumentOp {
-        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Context domain, Op op) =>
-            from target in Optional(Target).ToFin(Fail: op.InvalidInput())
-            from ids in target.Ids(document: document, op: op)
-            from selection in Selected.Case switch {
-                bool value => target.Select(document: document, selected: value, policy: SelectionPolicy ?? DocumentSelectionPolicy.Default, op: op).Map(_ => value switch {
-                    true => (Selected: ids, Unselected: Seq<Guid>()),
-                    false => (Selected: Seq<Guid>(), Unselected: ids),
-                }),
-                _ => Fin.Succ(value: (Selected: Seq<Guid>(), Unselected: Seq<Guid>())),
-            }
-            from hidden in Hidden.Case switch {
-                bool value => DocumentEdit.ApplyState(ids: ids, document: document, op: op, ready: native => !value || !native.IsLocked, done: native => native.IsHidden == value, apply: id => value ? document.Objects.Hide(objectId: id, ignoreLayerMode: true) : document.Objects.Show(objectId: id, ignoreLayerMode: true)),
-                _ => Fin.Succ(value: Seq<Guid>()),
-            }
-            from locked in Locked.Case switch {
-                bool value => DocumentEdit.ApplyState(ids: ids, document: document, op: op, ready: native => !value || !native.IsHidden, done: native => native.IsLocked == value, apply: id => value ? document.Objects.Lock(objectId: id, ignoreLayerMode: true) : document.Objects.Unlock(objectId: id, ignoreLayerMode: true)),
-                _ => Fin.Succ(value: Seq<Guid>()),
-            }
-            select DocumentReceipt.Empty with { Selected = selection.Selected, Unselected = selection.Unselected, Hidden = hidden, Locked = locked };
-    }
+        DocumentSelectionPolicy? SelectionPolicy = null) : DocumentOp;
+    public sealed record Flash(DocumentTarget Target, bool UseSelectionColor = true) : DocumentOp;
+    public sealed record Lifecycle(DocumentTarget Target, DocumentLifecycle Change) : DocumentOp;
+    public sealed record Resource(DocumentResourceKind Kind, string Name, Func<RhinoDoc, Fin<string>> Change) : DocumentOp;
 
-    public sealed record Flash(DocumentTarget Target, bool UseSelectionColor = true) : DocumentOp {
-        internal override bool RecordsUndo => false;
+    // Parent-body state-threaded dispatcher: one entry, all arms static. Flash is the only
+    // case that opts out of undo recording; the predicate is consolidated below.
+    internal Fin<DocumentReceipt> Apply(RhinoDoc document, Context domain, Op op) =>
+        Switch(
+            (Document: document, Domain: domain, Op: op),
+            create: static (ctx, edit) => from doc in Optional(ctx.Document).ToFin(Fail: ctx.Op.InvalidInput())
+                                          from ids in DocumentEdit.AddRaw(document: doc, domain: ctx.Domain, sources: edit.Sources, attributes: edit.Attributes, op: ctx.Op)
+                                          select DocumentReceipt.Empty with { Created = ids },
+            replace: static (ctx, edit) => from target in Optional(edit.Target).ToFin(Fail: ctx.Op.InvalidInput())
+                                           from value in Optional(edit.Replacement).ToFin(Fail: ctx.Op.InvalidInput())
+                                           from ids in target.Ids(document: ctx.Document, op: ctx.Op)
+                                           from _ in target.Replace(document: ctx.Document, replacement: value, ignoreModes: edit.IgnoreModes, op: ctx.Op)
+                                           select DocumentReceipt.Empty with { Replaced = ids },
+            delete: static (ctx, edit) => from target in Optional(edit.Target).ToFin(Fail: ctx.Op.InvalidInput())
+                                          from ids in target.Ids(document: ctx.Document, op: ctx.Op)
+                                          from _ in target.Delete(document: ctx.Document, quiet: edit.Quiet, ignoreModes: edit.IgnoreModes, op: ctx.Op)
+                                          select DocumentReceipt.Empty with { Deleted = ids, LifecycleChanged = ids },
+            transform: static (ctx, edit) => from target in Optional(edit.Target).ToFin(Fail: ctx.Op.InvalidInput())
+                                             from _ in guard(edit.Xform.IsValid, ctx.Op.InvalidInput())
+                                             from originals in target.Ids(document: ctx.Document, op: ctx.Op)
+                                             from ids in target.Transform(document: ctx.Document, transform: edit.Xform, deleteOriginal: edit.DeleteOriginal, op: ctx.Op)
+                                             select DocumentReceipt.Empty with {
+                                                 Created = ids,
+                                                 Deleted = edit.DeleteOriginal ? originals : Seq<Guid>(),
+                                                 Transformed = ids,
+                                                 LifecycleChanged = edit.DeleteOriginal ? originals : Seq<Guid>(),
+                                             },
+            attributeChange: static (ctx, edit) =>
+                from target in Optional(edit.Target).ToFin(Fail: ctx.Op.InvalidInput())
+                from change in Optional(edit.Change).ToFin(Fail: ctx.Op.InvalidInput())
+                from ids in target.Ids(document: ctx.Document, op: ctx.Op)
+                from changed in ids.TraverseM(id =>
+                    from native in Optional(ctx.Document.Objects.FindId(id)).ToFin(Fail: ctx.Op.InvalidResult())
+                    from attributes in Optional(native.Attributes?.Duplicate()).ToFin(Fail: ctx.Op.InvalidResult())
+                    from next in change(arg: attributes)
+                    from _ in ctx.Document.Objects.ModifyAttributes(objectId: id, newAttributes: next, quiet: edit.Quiet) switch {
+                        true => Fin.Succ(value: unit),
+                        false => Fin.Fail<Unit>(error: ctx.Op.InvalidResult()),
+                    }
+                    select id).As()
+                select DocumentReceipt.Empty with { AttributeChanged = changed },
+            setSelection: static (ctx, edit) =>
+                from target in Optional(edit.Target).ToFin(Fail: ctx.Op.InvalidInput())
+                from ids in target.Ids(document: ctx.Document, op: ctx.Op).Map(static values => values.Distinct())
+                from before in DocumentEdit.SelectedIds(document: ctx.Document, op: ctx.Op)
+                from _ in ctx.Document.Objects.SetSelectedObjects(
+                    objectIds: ids.AsIterable(),
+                    syncHighlight: edit.Policy.Highlight,
+                    persistentSelect: edit.Policy.Persistent,
+                    ignoreGripsState: edit.Policy.IgnoreGrips,
+                    ignoreLayerLocking: edit.Policy.IgnoreLayerLocking,
+                    ignoreLayerVisibility: edit.Policy.IgnoreLayerVisibility) switch {
+                        int value when value == ids.Count => Fin.Succ(value: unit),
+                        _ => Fin.Fail<Unit>(error: ctx.Op.InvalidResult()),
+                    }
+                from after in DocumentEdit.SelectedIds(document: ctx.Document, op: ctx.Op)
+                select DocumentReceipt.Empty with {
+                    Selected = after.Filter(id => !before.Exists(item => item == id)),
+                    Unselected = before.Filter(id => !after.Exists(item => item == id)),
+                },
+            unselectAll: static (ctx, edit) =>
+                from before in DocumentEdit.SelectedIds(document: ctx.Document, op: ctx.Op)
+                from count in ctx.Document.Objects.UnselectAll(ignorePersistentSelections: edit.IgnorePersistentSelections) switch {
+                    int value and >= 0 => Fin.Succ(value: value),
+                    _ => Fin.Fail<int>(error: ctx.Op.InvalidResult()),
+                }
+                from after in DocumentEdit.SelectedIds(document: ctx.Document, op: ctx.Op)
+                select DocumentReceipt.Empty with { Unselected = before.Filter(id => !after.Exists(item => item == id)) },
+            objectState: static (ctx, edit) =>
+                from target in Optional(edit.Target).ToFin(Fail: ctx.Op.InvalidInput())
+                from ids in target.Ids(document: ctx.Document, op: ctx.Op)
+                from selection in edit.Selected.Case switch {
+                    bool value => target.Select(document: ctx.Document, selected: value, policy: edit.SelectionPolicy ?? DocumentSelectionPolicy.Default, op: ctx.Op).Map(_ => value switch {
+                        true => (Selected: ids, Unselected: Seq<Guid>()),
+                        false => (Selected: Seq<Guid>(), Unselected: ids),
+                    }),
+                    _ => Fin.Succ(value: (Selected: Seq<Guid>(), Unselected: Seq<Guid>())),
+                }
+                from hidden in edit.Hidden.Case switch {
+                    bool value => DocumentEdit.ApplyState(ids: ids, document: ctx.Document, op: ctx.Op,
+                        ready: native => !value || !native.IsLocked,
+                        done: native => native.IsHidden == value,
+                        apply: id => value ? ctx.Document.Objects.Hide(objectId: id, ignoreLayerMode: true) : ctx.Document.Objects.Show(objectId: id, ignoreLayerMode: true)),
+                    _ => Fin.Succ(value: Seq<Guid>()),
+                }
+                from locked in edit.Locked.Case switch {
+                    bool value => DocumentEdit.ApplyState(ids: ids, document: ctx.Document, op: ctx.Op,
+                        ready: native => !value || !native.IsHidden,
+                        done: native => native.IsLocked == value,
+                        apply: id => value ? ctx.Document.Objects.Lock(objectId: id, ignoreLayerMode: true) : ctx.Document.Objects.Unlock(objectId: id, ignoreLayerMode: true)),
+                    _ => Fin.Succ(value: Seq<Guid>()),
+                }
+                select DocumentReceipt.Empty with {
+                    Selected = selection.Selected,
+                    Unselected = selection.Unselected,
+                    Hidden = hidden,
+                    Locked = locked,
+                },
+            flash: static (ctx, edit) =>
+                from target in Optional(edit.Target).ToFin(Fail: ctx.Op.InvalidInput())
+                from ids in target.Ids(document: ctx.Document, op: ctx.Op)
+                from objects in ids.TraverseM(id => Optional(ctx.Document.Objects.FindId(id)).ToFin(Fail: ctx.Op.InvalidResult())).As()
+                from _ in UI.RhinoUi.Protect(valid: () => {
+                    ctx.Document.Views.FlashObjects(list: objects.AsIterable(), useSelectionColor: edit.UseSelectionColor);
+                    return Fin.Succ(value: unit);
+                })
+                select DocumentReceipt.Empty with { Flashed = ids },
+            lifecycle: static (ctx, edit) =>
+                from target in Optional(edit.Target).ToFin(Fail: ctx.Op.InvalidInput())
+                from targets in target.RuntimeTargets(document: ctx.Document, op: ctx.Op)
+                from changed in targets.TraverseM(item => edit.Change switch {
+                    DocumentLifecycle.Purge => Optional(ctx.Document.Objects.Find(runtimeSerialNumber: item.RuntimeSerialNumber)).ToFin(Fail: ctx.Op.InvalidResult()).Bind(native => ctx.Document.Objects.Purge(native) switch {
+                        true => Fin.Succ(value: item.Id),
+                        false => Fin.Fail<Guid>(error: ctx.Op.InvalidResult()),
+                    }),
+                    DocumentLifecycle.Undelete => ctx.Document.Objects.Undelete(runtimeSerialNumber: item.RuntimeSerialNumber) switch {
+                        true => Fin.Succ(value: item.Id),
+                        false => Fin.Fail<Guid>(error: ctx.Op.InvalidResult()),
+                    },
+                    _ => Fin.Fail<Guid>(error: ctx.Op.InvalidInput()),
+                }).As()
+                select DocumentReceipt.Empty with { LifecycleChanged = changed },
+            resource: static (ctx, edit) =>
+                from name in DocumentEdit.NonBlank(value: edit.Name, op: ctx.Op)
+                from change in Optional(edit.Change).ToFin(Fail: ctx.Op.InvalidInput())
+                from label in change(arg: ctx.Document).Map(value => string.IsNullOrWhiteSpace(value: value) ? name : value)
+                select DocumentReceipt.Empty with { ResourceChanged = Seq(new DocumentResourceChange(Kind: edit.Kind, Name: label)) });
 
-        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Context domain, Op op) =>
-            from target in Optional(Target).ToFin(Fail: op.InvalidInput())
-            from ids in target.Ids(document: document, op: op)
-            from objects in ids.TraverseM(id => Optional(document.Objects.FindId(id)).ToFin(Fail: op.InvalidResult())).As()
-            from _ in UI.RhinoUi.Protect(valid: () => {
-                document.Views.FlashObjects(list: objects.AsIterable(), useSelectionColor: UseSelectionColor);
-                return Fin.Succ(value: unit);
-            })
-            select DocumentReceipt.Empty with { Flashed = ids };
-    }
-
-    public sealed record Lifecycle(DocumentTarget Target, DocumentLifecycle Change) : DocumentOp {
-        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Context domain, Op op) =>
-            from target in Optional(Target).ToFin(Fail: op.InvalidInput())
-            from targets in target.RuntimeTargets(document: document, op: op)
-            from changed in targets.TraverseM(item => Change switch {
-                DocumentLifecycle.Purge => Optional(document.Objects.Find(runtimeSerialNumber: item.RuntimeSerialNumber)).ToFin(Fail: op.InvalidResult()).Bind(native => document.Objects.Purge(native) switch { true => Fin.Succ(value: item.Id), false => Fin.Fail<Guid>(error: op.InvalidResult()) }),
-                DocumentLifecycle.Undelete => document.Objects.Undelete(runtimeSerialNumber: item.RuntimeSerialNumber) switch { true => Fin.Succ(value: item.Id), false => Fin.Fail<Guid>(error: op.InvalidResult()) },
-                _ => Fin.Fail<Guid>(error: op.InvalidInput()),
-            }).As()
-            select DocumentReceipt.Empty with { LifecycleChanged = changed };
-    }
-
-    public sealed record Resource(DocumentResourceKind Kind, string Name, Func<RhinoDoc, Fin<string>> Change) : DocumentOp {
-        internal override Fin<DocumentReceipt> Apply(RhinoDoc document, Context domain, Op op) =>
-            from name in DocumentEdit.NonBlank(value: Name, op: op)
-            from change in Optional(Change).ToFin(Fail: op.InvalidInput())
-            from label in change(arg: document).Map(value => string.IsNullOrWhiteSpace(value: value) ? name : value)
-            select DocumentReceipt.Empty with { ResourceChanged = Seq(new DocumentResourceChange(Kind: Kind, Name: label)) };
-    }
-
-    internal virtual bool RecordsUndo => true;
+    // Flash is the only case that opts out of undo recording (pure visual effect).
+    internal bool RecordsUndo => this is not Flash;
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
@@ -431,31 +479,35 @@ public sealed record DocumentEdit {
     public RhinoDoc Document { get; }
     public Context Domain { get; }
 
-    public Fin<DocumentReceipt> Commit(DocumentTransaction transaction) =>
-        from plan in Optional(transaction).ToFin(Fail: Op.Of(name: nameof(Commit)).InvalidInput())
-        from name in NonBlank(value: plan.Name, op: Op.Of(name: nameof(Commit)))
-        from _ in guard(!plan.Operations.IsEmpty || !plan.CustomUndo.IsEmpty, Op.Of(name: nameof(Commit)).InvalidInput())
-        from __ in guard(plan.UndoRecorded || plan.CustomUndo.IsEmpty, Op.Of(name: name).InvalidInput())
-        from receipt in Commit(
-            name: name,
-            redraw: plan.Redraw,
-            undoRecorded: plan.UndoRecorded && (plan.Operations.Exists(static operation => operation.RecordsUndo) || !plan.CustomUndo.IsEmpty),
-            run: (document, domain, op) =>
-            from customUndo in plan.CustomUndo.TraverseM(undo => undo.Register(document: document, op: Op.Of(name: name))).As()
-            from result in plan.Operations.TraverseM(operation => operation.Apply(document: document, domain: domain, op: op)).As().Map(static receipts => receipts.Fold(DocumentReceipt.Empty, static (state, value) => state + value))
-            select result with { CustomUndo = customUndo })
-        select receipt;
+    public Fin<DocumentReceipt> Commit(DocumentTransaction transaction) {
+        Op op = Op.Of(name: nameof(Commit));
+        return from plan in Optional(transaction).ToFin(Fail: op.InvalidInput())
+               from name in NonBlank(value: plan.Name, op: op)
+               from _ in guard(!plan.Operations.IsEmpty || !plan.CustomUndo.IsEmpty, op.InvalidInput())
+               from __ in guard(plan.UndoRecorded || plan.CustomUndo.IsEmpty, Op.Of(name: name).InvalidInput())
+               from receipt in Commit(
+                   name: name,
+                   redraw: plan.Redraw,
+                   undoRecorded: plan.UndoRecorded && (plan.Operations.Exists(static operation => operation.RecordsUndo) || !plan.CustomUndo.IsEmpty),
+                   run: (document, domain, runOp) =>
+                       from customUndo in plan.CustomUndo.TraverseM(undo => undo.Register(document: document, op: Op.Of(name: name))).As()
+                       from result in plan.Operations.TraverseM(operation => operation.Apply(document: document, domain: domain)).As().Map(static receipts => receipts.Fold(DocumentReceipt.Empty, static (state, value) => state + value))
+                       select result with { CustomUndo = customUndo })
+               select receipt;
+    }
 
-    internal Fin<DocumentReceipt> Commit(string name, DocumentRedraw redraw, bool undoRecorded, Func<RhinoDoc, Context, Op, Fin<DocumentReceipt>> run) =>
-        from document in Available(op: Op.Of(name: nameof(Commit)))
-        from label in NonBlank(value: name, op: Op.Of(name: nameof(Commit)))
-        from active in Optional(run).ToFin(Fail: Op.Of(name: label).InvalidInput())
-        from receipt in Mutate(document: document, name: label, recordsUndo: undoRecorded, suppressRedraw: redraw.SuppressDuringCommit, run: () => active(arg1: document, arg2: Domain, arg3: Op.Of(name: label)))
-        from _ in redraw.Enabled switch {
-            true => Redraw(),
-            false => Fin.Succ(value: unit),
-        }
-        select receipt;
+    internal Fin<DocumentReceipt> Commit(string name, DocumentRedraw redraw, bool undoRecorded, Func<RhinoDoc, Context, Op, Fin<DocumentReceipt>> run) {
+        Op op = Op.Of(name: nameof(Commit));
+        return from document in Available(op: op)
+               from label in NonBlank(value: name, op: op)
+               from active in Optional(run).ToFin(Fail: Op.Of(name: label).InvalidInput())
+               from receipt in Mutate(document: document, name: label, recordsUndo: undoRecorded, suppressRedraw: redraw.SuppressDuringCommit, run: () => active(arg1: document, arg2: Domain, arg3: Op.Of(name: label)))
+               from _ in redraw.Enabled switch {
+                   true => Redraw(),
+                   false => Fin.Succ(value: unit),
+               }
+               select receipt;
+    }
 
     internal Fin<Unit> Redraw() =>
         Available(op: Op.Of(name: nameof(Redraw)))
@@ -515,7 +567,7 @@ public sealed record DocumentEdit {
             _ => Fin.Fail<Seq<object>>(error: op.InvalidInput()),
         }
         from ids in values.TraverseM(value =>
-            from geometry in DocumentGeometry.Of(source: value)
+            from geometry in GeometrySource.From(source: value)
             from id in geometry.Use(op: op, use: native =>
                 from _ in Requirement.Basic.Apply(context: validDomain, value: native, cancel: CancellationToken.None).ToFin()
                 from created in DocumentTarget.IdResult(id: attributes switch { ObjectAttributes attrs => validDocument.Objects.Add(native, attrs), _ => validDocument.Objects.Add(native) }, op: op)

@@ -1,7 +1,9 @@
 using System.Drawing.Imaging;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using Rasm.Rhino.Commands;
+using Rhino.FileIO;
 using DrawingColor = System.Drawing.Color;
 using DrawingImageFormat = System.Drawing.Imaging.ImageFormat;
 using IODirectory = System.IO.Directory;
@@ -20,7 +22,6 @@ public enum FileFidelity { Model, Small, GeometryOnly }
 public enum FileResourcePolicy { Reference, Embed, Copy }
 public enum FileGrouping { Document, File, Layer, ObjectName, ObjectType, Material, Block, UserString }
 public enum FileSort { Stable, File, Layer, ObjectName, ObjectType, Material, Block, UserString }
-
 public enum FileTiffCompression { Default, None, Lzw, Ccitt3, Ccitt4, Rle }
 
 [Flags]
@@ -95,6 +96,39 @@ public sealed partial class FileIssueCode {
     public static readonly FileIssueCode EmptyArchive = new(key: "empty-archive");
     public static readonly FileIssueCode WatchFailure = new(key: "watch-failure");
     public static readonly FileIssueCode BrokenLink = new(key: "broken-link");
+}
+
+[SmartEnum<int>]
+public sealed partial class FileVectorUnit {
+    public static readonly FileVectorUnit Inches = new(
+        key: 0,
+        pdf: FilePdfReadOptions.PDF_UNITS.inches,
+        aiRead: FileAiReadOptions.Units.Inches,
+        aiWrite: FileAiWriteOptions.Units.Inches,
+        eps: FileEpsReadOptions.Units.Inches);
+    public static readonly FileVectorUnit Centimeters = new(
+        key: 1,
+        pdf: FilePdfReadOptions.PDF_UNITS.centimeters,
+        aiRead: FileAiReadOptions.Units.Centimeters,
+        aiWrite: FileAiWriteOptions.Units.Centimeters,
+        eps: FileEpsReadOptions.Units.Centimeters);
+    public static readonly FileVectorUnit Millimeters = new(
+        key: 2,
+        pdf: FilePdfReadOptions.PDF_UNITS.millimeters,
+        aiRead: FileAiReadOptions.Units.Millimeters,
+        aiWrite: FileAiWriteOptions.Units.Millimeters,
+        eps: FileEpsReadOptions.Units.Millimeters);
+    public static readonly FileVectorUnit Points = new(
+        key: 3,
+        pdf: FilePdfReadOptions.PDF_UNITS.points,
+        aiRead: FileAiReadOptions.Units.Points,
+        aiWrite: FileAiWriteOptions.Units.Points,
+        eps: FileEpsReadOptions.Units.Points);
+
+    internal FilePdfReadOptions.PDF_UNITS Pdf { get; }
+    internal FileAiReadOptions.Units AiRead { get; }
+    internal FileAiWriteOptions.Units AiWrite { get; }
+    internal FileEpsReadOptions.Units Eps { get; }
 }
 
 [SmartEnum<int>]
@@ -400,27 +434,87 @@ public sealed record FileEndpoint {
 }
 
 public sealed record FileProfile {
-    private FileProfile(FileFidelity fidelity, FileResourcePolicy resources, FileGrouping grouping, FileSort sort, Option<FileFormat> format) =>
-        (Fidelity, Resources, Grouping, Sort, Format) = (fidelity, resources, grouping, sort, format);
+    private FileProfile(FileFidelity fidelity, FileResourcePolicy resources, FileGrouping grouping, FileSort sort, Option<FileFormat> format, Option<FileVectorScale> scale) =>
+        (Fidelity, Resources, Grouping, Sort, Format, Scale) = (fidelity, resources, grouping, sort, format, scale);
 
     public FileFidelity Fidelity { get; }
     public FileResourcePolicy Resources { get; }
     public FileGrouping Grouping { get; }
     public FileSort Sort { get; }
     public Option<FileFormat> Format { get; }
+    public Option<FileVectorScale> Scale { get; }
 
-    public static FileProfile Model { get; } = new(fidelity: FileFidelity.Model, resources: FileResourcePolicy.Reference, grouping: FileGrouping.Document, sort: FileSort.Stable, format: Option<FileFormat>.None);
+    public static FileProfile Model { get; } = new(fidelity: FileFidelity.Model, resources: FileResourcePolicy.Reference, grouping: FileGrouping.Document, sort: FileSort.Stable, format: Option<FileFormat>.None, scale: Option<FileVectorScale>.None);
 
-    public FileProfile With(FileFidelity? fidelity = null, FileResourcePolicy? resources = null, FileGrouping? grouping = null, FileSort? sort = null, Option<FileFormat> format = default) =>
+    public FileProfile With(FileFidelity? fidelity = null, FileResourcePolicy? resources = null, FileGrouping? grouping = null, FileSort? sort = null, FileOverride<FileFormat> format = default, FileOverride<FileVectorScale> scale = default) =>
         new(
             fidelity: fidelity ?? Fidelity,
             resources: resources ?? Resources,
             grouping: grouping ?? Grouping,
             sort: sort ?? Sort,
-            format: format.Case switch {
-                FileFormat value => Some(value),
-                _ => Format,
-            });
+            format: format.Patch(current: Format),
+            scale: scale.Patch(current: Scale));
+
+    internal Fin<Unit> Validate(FilePhase phase, Op op) =>
+        phase == FilePhase.Import || phase == FilePhase.Headless || phase == FilePhase.Export || phase == FilePhase.WriteFile
+            ? Scale.Map(value => value.Validate(op: op).Map(static _ => unit)).IfNone(Fin.Succ(value: unit))
+            : Fin.Succ(value: unit);
+}
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct FileVectorScale(
+    Option<FileVectorUnit> Units = default,
+    Option<double> Source = default,
+    Option<double> Rhino = default,
+    Option<bool> Preserve = default) {
+    internal Fin<FileVectorScale> Validate(Op op) {
+        FileVectorScale self = this;
+        return from mode in self.Preserve.Case is true && self.HasExplicit
+                   ? Fin.Fail<Unit>(error: op.InvalidInput())
+                   : Fin.Succ(value: unit)
+               from source in self.Source.Map(value => RhinoMath.IsValidDouble(x: value) && value > 0.0 ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: op.InvalidInput())).IfNone(Fin.Succ(value: unit))
+               from rhino in self.Rhino.Map(value => RhinoMath.IsValidDouble(x: value) && value > 0.0 ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: op.InvalidInput())).IfNone(Fin.Succ(value: unit))
+               select self;
+    }
+
+    internal FilePdfReadOptions Apply(FilePdfReadOptions options) {
+        FileVectorScale self = this;
+        _ = self.PreserveMode.Iter(value => options.PreserveModelScale = value);
+        _ = self.Rhino.Iter(value => options.RhinoScale = value);
+        _ = self.Source.Iter(value => options.PDFScale = value);
+        _ = self.Units.Iter(value => options.PdfUnits = value.Pdf);
+        return options;
+    }
+
+    internal FileAiReadOptions Apply(FileAiReadOptions options) {
+        FileVectorScale self = this;
+        _ = self.PreserveMode.Iter(value => options.PreserveModelScale = value);
+        _ = self.Rhino.Iter(value => options.RhinoScale = value);
+        _ = self.Source.Iter(value => options.AiScale = value);
+        _ = self.Units.Iter(value => options.AiUnits = value.AiRead);
+        return options;
+    }
+
+    internal FileAiWriteOptions Apply(FileAiWriteOptions options) {
+        FileVectorScale self = this;
+        _ = self.PreserveMode.Iter(value => options.PreserveModelScale = value);
+        _ = self.Rhino.Iter(value => options.RhinoScale = value);
+        _ = self.Source.Iter(value => options.AIScale = value);
+        _ = self.Units.Iter(value => options.AiUnits = value.AiWrite);
+        return options;
+    }
+
+    internal FileEpsReadOptions Apply(FileEpsReadOptions options) {
+        FileVectorScale self = this;
+        _ = self.PreserveMode.Iter(value => options.PreserveModelScale = value);
+        _ = self.Rhino.Iter(value => options.RhinoScale = value);
+        _ = self.Source.Iter(value => options.EpsScale = value);
+        _ = self.Units.Iter(value => options.EpsUnits = value.Eps);
+        return options;
+    }
+
+    private bool HasExplicit => Source.IsSome || Rhino.IsSome || Units.IsSome;
+    private Option<bool> PreserveMode => Preserve | (HasExplicit ? Some(false) : Option<bool>.None);
 }
 
 public sealed record ArchiveProfile(ArchiveSlice Slice, FileArchiveProjection Projection, FileWritePolicy Write, Seq<string> Embedded = default) {
@@ -464,17 +558,19 @@ public sealed record FileSheet(
             (true, > 0.0) => Fin.Succ(value: Dpi),
             _ => Fin.Fail<double>(error: op.InvalidInput()),
         }
-        select Configure(settings: new ViewCaptureSettings(sourcePageView: active, dpi: dpi), page: active);
-
-    private ViewCaptureSettings Configure(ViewCaptureSettings settings, RhinoPageView page) {
-        settings.UsePrintWidths = PrintWidths;
-        settings.RasterMode = Raster;
-        settings.OutputColor = Color;
-        _ = Decor.Iter(decor => decor.Apply(settings: settings, page: page));
-        return settings;
-    }
+        let settings = new ViewCaptureSettings(sourcePageView: active, dpi: dpi) {
+            UsePrintWidths = PrintWidths,
+            RasterMode = Raster,
+            OutputColor = Color,
+        }
+        from configured in Decor.Map(decor => decor.Apply(settings: settings, page: active, op: op)).IfNone(Fin.Succ(value: settings))
+        from ready in configured.IsValid
+            ? Fin.Succ(value: configured)
+            : Fin.Fail<ViewCaptureSettings>(error: op.InvalidResult())
+        select ready;
 }
 
+[StructLayout(LayoutKind.Auto)]
 public readonly partial record struct FileSheetDecor(
     bool DrawGrid = false,
     bool DrawAxis = false,
@@ -490,28 +586,50 @@ public readonly partial record struct FileSheetDecor(
     Option<double> PointSizeMillimeters = default,
     Option<double> ArrowheadSizeMillimeters = default,
     Option<double> TextDotPointSize = default,
-    Option<double> ModelScale = default,
+    Option<CaptureLayout> Layout = default,
     Option<string> HeaderText = default,
     Option<string> FooterText = default) {
-    internal ViewCaptureSettings Apply(ViewCaptureSettings settings, RhinoPageView page) {
-        settings.DrawGrid = DrawGrid;
-        settings.DrawAxis = DrawAxis;
-        settings.DrawLights = DrawLights;
-        settings.DrawLockedObjects = DrawLockedObjects;
-        settings.DrawSelectedObjectsOnly = DrawSelectedObjectsOnly;
-        settings.DrawMargins = DrawMargins;
-        settings.DrawClippingPlanes = DrawClippingPlanes;
-        settings.DrawWallpaper = DrawWallpaper;
-        settings.DrawBackgroundBitmap = DrawBackgroundBitmap;
-        settings.DrawBackground = DrawBackground;
-        _ = WireThicknessScale.Iter(value => settings.WireThicknessScale = value);
-        _ = PointSizeMillimeters.Iter(value => settings.PointSizeMillimeters = value);
-        _ = ArrowheadSizeMillimeters.Iter(value => settings.ArrowheadSizeMillimeters = value);
-        _ = TextDotPointSize.Iter(value => settings.TextDotPointSize = value);
-        _ = ModelScale.Iter(settings.SetModelScaleToValue);
-        _ = HeaderText.Iter(value => settings.HeaderText = Interpolate(template: value, document: page.Document, page: page));
-        _ = FooterText.Iter(value => settings.FooterText = Interpolate(template: value, document: page.Document, page: page));
-        return settings;
+    internal Fin<ViewCaptureSettings> Apply(ViewCaptureSettings settings, RhinoPageView page, Op op) {
+        bool drawGrid = DrawGrid;
+        bool drawAxis = DrawAxis;
+        bool drawLights = DrawLights;
+        bool drawLocked = DrawLockedObjects;
+        bool drawSelected = DrawSelectedObjectsOnly;
+        bool drawMargins = DrawMargins;
+        bool drawClipping = DrawClippingPlanes;
+        bool drawWallpaper = DrawWallpaper;
+        bool drawBackgroundBitmap = DrawBackgroundBitmap;
+        bool drawBackground = DrawBackground;
+        Option<double> wire = WireThicknessScale;
+        Option<double> point = PointSizeMillimeters;
+        Option<double> arrow = ArrowheadSizeMillimeters;
+        Option<double> dot = TextDotPointSize;
+        Option<CaptureLayout> layout = Layout;
+        Option<string> header = HeaderText;
+        Option<string> footer = FooterText;
+        return from active in Optional(settings).ToFin(Fail: op.InvalidInput())
+               from sheet in Optional(page).ToFin(Fail: op.InvalidInput())
+               from configured in op.Catch(() => {
+                   active.DrawGrid = drawGrid;
+                   active.DrawAxis = drawAxis;
+                   active.DrawLights = drawLights;
+                   active.DrawLockedObjects = drawLocked;
+                   active.DrawSelectedObjectsOnly = drawSelected;
+                   active.DrawMargins = drawMargins;
+                   active.DrawClippingPlanes = drawClipping;
+                   active.DrawWallpaper = drawWallpaper;
+                   active.DrawBackgroundBitmap = drawBackgroundBitmap;
+                   active.DrawBackground = drawBackground;
+                   _ = wire.Iter(value => active.WireThicknessScale = value);
+                   _ = point.Iter(value => active.PointSizeMillimeters = value);
+                   _ = arrow.Iter(value => active.ArrowheadSizeMillimeters = value);
+                   _ = dot.Iter(value => active.TextDotPointSize = value);
+                   _ = header.Iter(value => active.HeaderText = Interpolate(template: value, document: sheet.Document, page: sheet));
+                   _ = footer.Iter(value => active.FooterText = Interpolate(template: value, document: sheet.Document, page: sheet));
+                   return Fin.Succ(value: active);
+               })
+               from layoutApplied in layout.Map(value => value.Apply(settings: configured, op: op)).IfNone(Fin.Succ(value: unit))
+               select configured;
     }
 
     private static string Interpolate(string template, RhinoDoc document, RhinoPageView page) {
@@ -530,11 +648,58 @@ public readonly partial record struct FileSheetDecor(
     private static partial Regex TokenPattern();
 }
 
+public readonly record struct FileSheetSize(UnitSystem Units, Option<double> Width = default, Option<double> Height = default) {
+    internal Fin<Option<(double Width, double Height)>> Create(RhinoDoc document, Op op) {
+        UnitSystem units = Units;
+        Option<double> width = Width;
+        Option<double> height = Height;
+        return (width.Case, height.Case) switch {
+            (double w, double h) => Resolve(value: (Width: w, Height: h), units: units, document: document, op: op).Map(value => Some(value: value)),
+            (double, _) or (_, double) => Fin.Fail<Option<(double Width, double Height)>>(error: op.InvalidInput()),
+            _ => Fin.Succ(value: Option<(double Width, double Height)>.None),
+        };
+    }
+
+    internal Fin<(Option<double> Width, Option<double> Height)> Resize(RhinoDoc document, Op op) {
+        UnitSystem units = Units;
+        Option<double> width = Width;
+        Option<double> height = Height;
+        return from resolvedWidth in width.Case switch {
+            double value => Resolve(value: value, units: units, document: document, op: op).Map(value => Some(value: value)),
+            _ => Fin.Succ(value: Option<double>.None),
+        }
+               from resolvedHeight in height.Case switch {
+                   double value => Resolve(value: value, units: units, document: document, op: op).Map(value => Some(value: value)),
+                   _ => Fin.Succ(value: Option<double>.None),
+               }
+               select (Width: resolvedWidth, Height: resolvedHeight);
+    }
+
+    private static Fin<(double Width, double Height)> Resolve((double Width, double Height) value, UnitSystem units, RhinoDoc document, Op op) =>
+        from resolvedWidth in Resolve(value: value.Width, units: units, document: document, op: op)
+        from resolvedHeight in Resolve(value: value.Height, units: units, document: document, op: op)
+        select (Width: resolvedWidth, Height: resolvedHeight);
+
+    private static Fin<double> Resolve(double value, UnitSystem units, RhinoDoc document, Op op) =>
+        from active in Optional(document).ToFin(Fail: op.InvalidInput())
+        from valid in guard(
+            units is not UnitSystem.None and not UnitSystem.Unset and not UnitSystem.CustomUnits
+            && active.PageUnitSystem is not UnitSystem.None and not UnitSystem.Unset and not UnitSystem.CustomUnits
+            && RhinoMath.IsValidDouble(x: value) && value > 0.0,
+            op.InvalidInput())
+        let scale = RhinoMath.UnitScale(units, active.PageUnitSystem)
+        let resolved = value * scale
+        from validResult in guard(
+            RhinoMath.IsValidDouble(x: scale) && scale > 0.0 && RhinoMath.IsValidDouble(x: resolved) && resolved > 0.0,
+            op.InvalidResult())
+        select resolved;
+}
+
 public readonly record struct FileSheetSpec(
     string Name,
-    Option<double> WidthMillimeters = default,
-    Option<double> HeightMillimeters = default,
-    Option<string> Group = default);
+    Option<FileSheetSize> Size = default,
+    Option<string> Group = default,
+    Option<string> Description = default);
 
 public readonly record struct FileDetailSpec(
     string Name,
@@ -542,7 +707,70 @@ public readonly record struct FileDetailSpec(
     Point2d Opposite,
     DefinedViewportProjection Projection = DefinedViewportProjection.Top,
     bool ProjectionLocked = true,
-    Option<Guid> DisplayMode = default);
+    Option<Guid> DisplayMode = default,
+    Option<FileDetailScale> Scale = default);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct FileOverride<T>(Option<T> Value = default, bool Inherit = false) {
+    public static FileOverride<T> operator |(FileOverride<T> left, FileOverride<T> right) =>
+        right.IsActive ? right : left;
+
+    internal Unit Apply(Action<T> set, Action inherit) =>
+        (Inherit, Value.Case) switch {
+            (true, _) => Op.Side(inherit),
+            (_, T value) => Op.Side(() => set(obj: value)),
+            _ => unit,
+        };
+
+    internal Option<T> Patch(Option<T> current) =>
+        (Inherit, Value.Case) switch {
+            (true, _) => Option<T>.None,
+            (_, T value) => Some(value),
+            _ => current,
+        };
+
+    private bool IsActive => Inherit || Value.IsSome;
+}
+
+public static class FileOverride {
+    public static FileOverride<T> Keep<T>() => default;
+    public static FileOverride<T> Set<T>(T value) => new(Value: Some(value));
+    public static FileOverride<T> Clear<T>() => new(Inherit: true);
+}
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct FileLayerOverrideSpec(
+    FileOverride<DrawingColor> Color = default,
+    FileOverride<bool> Visible = default,
+    FileOverride<bool> PersistentVisible = default,
+    FileOverride<DrawingColor> PlotColor = default,
+    FileOverride<double> PlotWeight = default) {
+    public static FileLayerOverrideSpec operator |(FileLayerOverrideSpec left, FileLayerOverrideSpec right) =>
+        new(
+            Color: left.Color | right.Color,
+            Visible: left.Visible | right.Visible,
+            PersistentVisible: left.PersistentVisible | right.PersistentVisible,
+            PlotColor: left.PlotColor | right.PlotColor,
+            PlotWeight: left.PlotWeight | right.PlotWeight);
+}
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct FileDetailScale(double ModelLength, LengthUnit ModelUnit, double PageLength, LengthUnit PageUnit) {
+    internal Fin<Unit> Apply(DetailView geometry, Op op) {
+        double modelLength = ModelLength;
+        LengthUnit modelUnit = ModelUnit;
+        double pageLength = PageLength;
+        LengthUnit pageUnit = PageUnit;
+        return from active in Optional(geometry).ToFin(Fail: op.InvalidInput())
+               from valid in guard(
+                   RhinoMath.IsValidDouble(x: modelLength) && modelLength > 0.0
+                   && RhinoMath.IsValidDouble(x: pageLength) && pageLength > 0.0
+                   && modelUnit != LengthUnit.None && pageUnit != LengthUnit.None,
+                   op.InvalidInput())
+               from applied in op.Confirm(success: active.SetScale(modelLength: modelLength, modelUnits: modelUnit, pageLength: pageLength, pageUnits: pageUnit))
+               select applied;
+    }
+}
 
 [Union(SwitchMapStateParameterName = "context")]
 public abstract partial record FileSheetEdit {
@@ -553,9 +781,12 @@ public abstract partial record FileSheetEdit {
     public sealed record Rename(string SheetName, string NewName) : FileSheetEdit;
     public sealed record Reorder(Seq<string> SheetNames) : FileSheetEdit;
     public sealed record AddDetail(string SheetName, FileDetailSpec Spec) : FileSheetEdit;
+    public sealed record Resize(string SheetName, Option<FileSheetSize> Size = default, Option<string> Description = default) : FileSheetEdit;
+    public sealed record ScaleDetail(string SheetName, string DetailName, FileDetailScale Scale) : FileSheetEdit;
+    public sealed record Import(FileEndpoint Source, Guid SourceViewportId, string Name) : FileSheetEdit;
     public sealed record RemoveDetail(string SheetName, string DetailName) : FileSheetEdit;
     public sealed record ActivateDetail(string SheetName, Option<string> DetailName) : FileSheetEdit;
-    public sealed record LayerOverride(string SheetName, string DetailName, string LayerPath, Option<DrawingColor> Color = default, Option<bool> Visible = default, Option<DrawingColor> PlotColor = default, Option<double> PlotWeight = default) : FileSheetEdit;
+    public sealed record LayerOverride(string SheetName, string DetailName, string LayerPath, FileLayerOverrideSpec Spec) : FileSheetEdit;
     public sealed record ClippingOverride(string SheetName, string DetailName, BoundingBox Box) : FileSheetEdit;
     public sealed record RefreshLinks(Option<Seq<string>> Archives = default, bool SkipUpToDate = false) : FileSheetEdit;
     public sealed record FlattenLinkedBlocks(Option<Seq<string>> Archives = default, Option<Seq<Guid>> Ids = default) : FileSheetEdit;
@@ -572,7 +803,8 @@ public readonly record struct FileArchiveMetadataPatch(
     Option<string> Notes,
     Option<string> ApplicationName,
     Option<string> ApplicationUrl,
-    Option<string> ApplicationDetails);
+    Option<string> ApplicationDetails,
+    Option<string> StartComments = default);
 
 public readonly record struct FileObjectManifest(
     Guid Id,

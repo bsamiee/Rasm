@@ -30,10 +30,8 @@ public sealed class RhinoFiles {
         new(document: Option<RhinoDoc>.None, mode: mode);
 
     public Fin<T> Run<T>(Eff<FileRuntime, T> operation) =>
-        Runtime().Bind(active => operation.Run(active));
-
-    private Fin<FileRuntime> Runtime() =>
-        document.Case switch {
+        from valid in Optional(operation).ToFin(Fail: Op.Of(name: nameof(Run)).InvalidInput())
+        from runtime in document.Case switch {
             RhinoDoc { IsAvailable: true, IsClosing: false, IsInitializing: false, IsOpening: false } active =>
                 Context.Of(doc: active).ToFin().Map(domain => new FileRuntime(
                     document: Some(active),
@@ -48,5 +46,7 @@ public sealed class RhinoFiles {
                 domain: Option<Context>.None,
                 edit: Option<DocumentEdit>.None,
                 ui: Option<RhinoUi>.None)),
-        };
+        }
+        from result in valid.Run(runtime)
+        select result;
 }

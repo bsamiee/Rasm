@@ -125,7 +125,7 @@ Do not create one file per Rhino geometry type.
 
 | [INDEX] | [CURRENT LOCATION] | [MOVE OR DELEGATE] | [REASON] |
 | :-----: | ------------------ | ------------------ | -------- |
-| **[1]** | `Commands/Document.cs` `DocumentGeometry.Of`. | Delegate primitive/value/annotation adaptation to construction projection. | Current adapter covers only `GeometryBase`, `Point3d`, `Line`, `Circle`, `Arc`, `Ellipse`, and `Polyline`. |
+| **[1]** | `Commands/Document.cs` `GeometrySource.From`. | Delegate primitive/value/annotation adaptation to construction projection. | Current adapter covers only `GeometryBase`, `Point3d`, `Line`, `Circle`, `Arc`, `Ellipse`, and `Polyline`. |
 | **[2]** | `Commands/Document.cs` `ReplaceGeometry`. | Delegate to same projection rail. | Add and replace require one owned/borrowed adaptation path. |
 | **[3]** | `Commands/Input.cs` point constraints and 2D result modes. | Preserve; consume construction specs where useful. | Commands own live `GetPoint` and screen/window input. |
 | **[4]** | `UI/Overlay.cs` `UiPreviewStyle.Draw`. | Preserve; consume preview-ready geometry and bounds. | UI owns drawing. |

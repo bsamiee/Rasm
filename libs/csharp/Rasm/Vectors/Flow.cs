@@ -14,14 +14,15 @@ public readonly record struct ButcherTableau(
     internal bool IsValid =>
         StageCount > 0
         && MethodOrder > 0
-        && EmbeddedOrder.Map(order => order > 0 && order < MethodOrder).IfNone(true)
+        && (EmbeddedOrder is not { IsSome: true, Case: int embedded } || (embedded > 0 && embedded < MethodOrder))
         && Coupling.Count == StageCount
         && CoefficientsAreFinite(values: Weights)
         && Math.Abs(value: SumCoefficients(values: Weights) - 1.0) <= 1.0e-9
         && Coupling.AsIterable().Select((row, index) => row.Count <= index && CoefficientsAreFinite(values: row)).All(static ok => ok)
-        && ErrorWeights.Map(weights => weights.Count == StageCount
-            && CoefficientsAreFinite(values: weights)
-            && Math.Abs(value: SumCoefficients(values: weights) - 1.0) <= 1.0e-9).IfNone(true);
+        && (ErrorWeights is not { IsSome: true, Case: Seq<double> ew }
+            || (ew.Count == StageCount
+                && CoefficientsAreFinite(values: ew)
+                && Math.Abs(value: SumCoefficients(values: ew) - 1.0) <= 1.0e-9));
     internal Fin<ButcherTableau> Admit(Op key) =>
         IsValid ? Fin.Succ(this) : Fin.Fail<ButcherTableau>(key.InvalidInput());
     private static bool CoefficientsAreFinite(Seq<double> values) =>
@@ -127,15 +128,13 @@ public abstract partial record FieldIntegrator {
     internal Fin<StreamlineStep> Step(VectorField field, Point3d point, double h, Context context, Op key) => Switch(
         state: (Field: field, Point: point, H: h, Context: context, Key: key),
         fixedCase: static (s, c) =>
-            from tableau in c.Kind.Tableau.Admit(key: s.Key)
-            from ks in ComputeStages(tableau: tableau, field: s.Field, point: s.Point, h: s.H, context: s.Context, key: s.Key)
-            from next in s.Key.AcceptValue(value: s.Point + (s.H * Combine(coefficients: tableau.Weights, vectors: ks)))
+            from ks in ComputeStages(tableau: c.Kind.Tableau, field: s.Field, point: s.Point, h: s.H, context: s.Context, key: s.Key)
+            from next in s.Key.AcceptValue(value: s.Point + (s.H * Combine(coefficients: c.Kind.Tableau.Weights, vectors: ks)))
             select (StreamlineStep)new StreamlineStep.AcceptedCase(Next: next, SuggestedStep: s.H),
         adaptiveCase: static (s, c) =>
-            from tableau in c.Kind.Tableau.Admit(key: s.Key)
-            from errWeights in tableau.ErrorWeights.ToFin(Fail: s.Key.InvalidInput())
-            from ks in ComputeStages(tableau: tableau, field: s.Field, point: s.Point, h: s.H, context: s.Context, key: s.Key)
-            let primary = s.Point + (s.H * Combine(coefficients: tableau.Weights, vectors: ks))
+            from errWeights in c.Kind.Tableau.ErrorWeights.ToFin(Fail: s.Key.InvalidInput())
+            from ks in ComputeStages(tableau: c.Kind.Tableau, field: s.Field, point: s.Point, h: s.H, context: s.Context, key: s.Key)
+            let primary = s.Point + (s.H * Combine(coefficients: c.Kind.Tableau.Weights, vectors: ks))
             let secondary = s.Point + (s.H * Combine(coefficients: errWeights, vectors: ks))
             let err = (primary - secondary).Length
             let scale = err > RhinoMath.ZeroTolerance
@@ -270,7 +269,7 @@ internal static class FlowKernel {
                             },
                             rejectedCase: (state, rejected) => state.Rejects >= integrator.RejectBudget
                                 ? state with { H = rejected.SuggestedStep, RejectedSteps = state.RejectedSteps + 1, Stop = Some(StreamlineStopKind.RejectBudgetExhausted) }
-                                : state with { H = rejected.SuggestedStep, Rejects = state.Rejects + 1, RejectedSteps = state.RejectedSteps + 1 })))))
+                                : state with { H = rejected.SuggestedStep, Rejects = state.Rejects + 1, RejectedSteps = state.RejectedSteps + 1 }))))))
             .Map(static s => new StreamlineTrace(
                 Trail: s.Trail,
                 Stop: s.Stop.IfNone(StreamlineStopKind.IterationCapExhausted),

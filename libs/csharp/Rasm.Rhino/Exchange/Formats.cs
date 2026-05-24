@@ -21,7 +21,7 @@ public enum FileCapability {
 
 // --- [MODELS] -----------------------------------------------------------------------------
 public sealed record FileFormat {
-    private FileFormat(string key, Seq<string> extensions, FileCapability capability,
+    private FileFormat(string key, Seq<string> extensions, FileCapability capability, FileCapability scale,
         Func<FileProfile, ArchivableDictionary>? read,
         Func<FileProfile, ArchivableDictionary>? write,
         Func<FileProfile, FileReadOptions, RhinoDoc, FileEndpoint, Fin<Unit>>? directRead,
@@ -30,6 +30,7 @@ public sealed record FileFormat {
         Key = key;
         Extensions = extensions;
         Capability = capability;
+        this.scale = scale;
         readBuilder = read;
         writeBuilder = write;
         directReadCall = directRead;
@@ -46,6 +47,7 @@ public sealed record FileFormat {
     private readonly Func<FileProfile, FileReadOptions, RhinoDoc, FileEndpoint, Fin<Unit>>? directReadCall;
     private readonly Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>>? directWriteCall;
     private readonly bool directWriteOptions;
+    private readonly FileCapability scale;
 
     internal Fin<Unit> Read(FileReadOptions options, RhinoDoc document, FileEndpoint source, FileProfile profile) =>
         directReadCall switch {
@@ -75,6 +77,13 @@ public sealed record FileFormat {
     internal bool Supports(FilePhase phase) =>
         phase.Allows(capability: Capability);
 
+    internal Fin<Unit> Validate(FileProfile profile, FilePhase phase, Op op) =>
+        from valid in profile.Validate(phase: phase, op: op)
+        from supported in profile.Scale.IsSome && !phase.Allows(capability: scale)
+            ? Fin.Fail<Unit>(error: op.InvalidInput())
+            : Fin.Succ(value: unit)
+        select supported;
+
     public static FileFormat ThreeDm { get; } = Native(key: "3dm", extensions: Seq(".3dm"), archive: true);
     public static FileFormat ThreeDs { get; } = Native(
         key: "3ds",
@@ -92,10 +101,11 @@ public sealed record FileFormat {
     public static FileFormat Ai { get; } = Native(
         key: "ai",
         extensions: Seq(".ai"),
-        read: static _ => new FileAiReadOptions().ToDictionary(),
+        read: static profile => AiReadOptions(profile: profile).ToDictionary(),
         write: static profile => AiWriteOptions(profile: profile).ToDictionary(),
-        directRead: DirectRead(NewRead<FileAiReadOptions>(), FileAi.Read, "aiRead"),
-        directWrite: DirectWrite(static (profile, _) => AiWriteOptions(profile: profile), FileAi.Write, "aiWrite"));
+        directRead: DirectRead(static (profile, _) => AiReadOptions(profile: profile), FileAi.Read, "aiRead"),
+        directWrite: DirectWrite(static (profile, _) => AiWriteOptions(profile: profile), FileAi.Write, "aiWrite"),
+        scale: FileCapability.Import | FileCapability.Export);
     public static FileFormat Amf { get; } = Native(
         key: "amf",
         extensions: Seq(".amf"),
@@ -119,7 +129,7 @@ public sealed record FileFormat {
     public static FileFormat Dgn { get; } = Native(key: "dgn", extensions: Seq(".dgn"), export: false, read: static _ => new FileDgnReadOptions().ToDictionary(), directRead: DirectRead(NewRead<FileDgnReadOptions>(), FileDgn.Read, "dgnRead"));
     public static FileFormat Dst { get; } = Native(key: "dst", extensions: Seq(".dst"), export: false, read: static _ => new FileDstReadOptions().ToDictionary(), directRead: DirectRead(NewRead<FileDstReadOptions>(), FileDst.Read, "dstRead"));
     public static FileFormat Dwg { get; } = Native(key: "dwg", extensions: Seq(".dwg", ".dxf"), read: static _ => new FileDwgReadOptions().ToDictionary(), write: static profile => DwgWriteOptions(profile: profile).ToDictionary(), directRead: DirectRead(NewRead<FileDwgReadOptions>(), FileDwg.Read, "dwgRead"), directWrite: DirectWrite(static (profile, _) => DwgWriteOptions(profile: profile), FileDwg.Write, "dwgWrite"));
-    public static FileFormat Eps { get; } = Native(key: "eps", extensions: Seq(".eps"), export: false, read: static _ => new FileEpsReadOptions().ToDictionary(), directRead: DirectRead(NewRead<FileEpsReadOptions>(), FileEps.Read, "epsRead"));
+    public static FileFormat Eps { get; } = Native(key: "eps", extensions: Seq(".eps"), export: false, read: static profile => EpsReadOptions(profile: profile).ToDictionary(), directRead: DirectRead(static (profile, _) => EpsReadOptions(profile: profile), FileEps.Read, "epsRead"), scale: FileCapability.Import);
     public static FileFormat Stl { get; } = Native(key: "stl", extensions: Seq(".stl"), read: static _ => new FileStlReadOptions().ToDictionary(), write: static _ => StlWriteOptions().ToDictionary(), directRead: DirectRead(NewRead<FileStlReadOptions>(), FileStl.Read, "stlRead"), directWrite: DirectWrite(static (_, _) => StlWriteOptions(), FileStl.Write, "stlWrite"));
     public static FileFormat Stp { get; } = Native(key: "stp", extensions: Seq(".stp", ".step"), read: static _ => new FileStpReadOptions().ToDictionary(), write: static _ => new FileStpWriteOptions().ToDictionary(), directRead: DirectRead(NewRead<FileStpReadOptions>(), FileStp.Read, "stpRead"), directWrite: DirectWrite(NewWrite<FileStpWriteOptions>(), FileStp.Write, "stpWrite"));
     public static FileFormat Fbx { get; } = Native(key: "fbx", extensions: Seq(".fbx"), read: static _ => new FileFbxReadOptions().ToDictionary(), write: static profile => FbxWriteOptions(profile: profile).ToDictionary(), directRead: DirectRead(NewRead<FileFbxReadOptions>(), FileFbx.Read, "fbxRead"), directWrite: DirectWrite(static (profile, _) => FbxWriteOptions(profile: profile), FileFbx.Write, "fbxWrite"));
@@ -152,20 +162,22 @@ public sealed record FileFormat {
         write: null,
         directRead: DirectRead(static (profile, _) => PdfReadOptions(profile: profile), FilePdf.Read, "pdfRead"),
         directWrite: null,
-        directWriteOptions: false);
+        directWriteOptions: false,
+        scale: FileCapability.Import);
     public static FileFormat Svg { get; } = new(
         key: "svg",
         extensions: Seq(".svg"),
         capability: FileCapability.Vector,
+        scale: FileCapability.None,
         read: static _ => new FileSvgReadOptions().ToDictionary(),
         write: null,
         directRead: DirectRead(NewRead<FileSvgReadOptions>(), FileSvg.Read, "svgRead"),
         directWrite: null,
         directWriteOptions: false);
-    public static FileFormat Png { get; } = new(key: "png", extensions: Seq(".png"), capability: FileCapability.Raster, read: null, write: null, directRead: null, directWrite: null, directWriteOptions: false);
-    public static FileFormat Jpeg { get; } = new(key: "jpeg", extensions: Seq(".jpg", ".jpeg"), capability: FileCapability.Raster, read: null, write: null, directRead: null, directWrite: null, directWriteOptions: false);
-    public static FileFormat Tiff { get; } = new(key: "tiff", extensions: Seq(".tif", ".tiff"), capability: FileCapability.Raster, read: null, write: null, directRead: null, directWrite: null, directWriteOptions: false);
-    public static FileFormat Bmp { get; } = new(key: "bmp", extensions: Seq(".bmp"), capability: FileCapability.Raster, read: null, write: null, directRead: null, directWrite: null, directWriteOptions: false);
+    public static FileFormat Png { get; } = new(key: "png", extensions: Seq(".png"), capability: FileCapability.Raster, scale: FileCapability.None, read: null, write: null, directRead: null, directWrite: null, directWriteOptions: false);
+    public static FileFormat Jpeg { get; } = new(key: "jpeg", extensions: Seq(".jpg", ".jpeg"), capability: FileCapability.Raster, scale: FileCapability.None, read: null, write: null, directRead: null, directWrite: null, directWriteOptions: false);
+    public static FileFormat Tiff { get; } = new(key: "tiff", extensions: Seq(".tif", ".tiff"), capability: FileCapability.Raster, scale: FileCapability.None, read: null, write: null, directRead: null, directWrite: null, directWriteOptions: false);
+    public static FileFormat Bmp { get; } = new(key: "bmp", extensions: Seq(".bmp"), capability: FileCapability.Raster, scale: FileCapability.None, read: null, write: null, directRead: null, directWrite: null, directWriteOptions: false);
 
     public static Seq<FileFormat> Known { get; } = Seq(ThreeDm, ThreeDs, ThreeMf, Ai, Amf, Obj, Ply, Cd, Dgn, Dst, Dwg, Eps, Stl, Stp, Fbx, Ghs, Gts, Iges, Lwo, Nwd, Pov, Sat, Skp, Slc, Sw, Udo, Vda, Vrml, X3dv, Xaml, Xt, Raw, Txt, Csv, Gltf, Usd, Pdf, Svg, Png, Jpeg, Tiff, Bmp);
 
@@ -205,7 +217,7 @@ public sealed record FileFormat {
                     : Fin.Succ(value: text.StartsWith('.') ? text : $".{text}"))).As()
         from _ in guard(!validExtensions.IsEmpty && capability != FileCapability.None, Op.Of(name: nameof(Custom)).InvalidInput())
         from __ in guard(!ByKey.ContainsKey(key: validKey.TrimStart('.')) && !validExtensions.Exists(ByExtension.ContainsKey), Op.Of(name: nameof(Custom)).InvalidInput())
-        select new FileFormat(key: validKey.TrimStart('.'), extensions: validExtensions.Distinct(), capability: capability, read: null, write: null, directRead: null, directWrite: null, directWriteOptions: false);
+        select new FileFormat(key: validKey.TrimStart('.'), extensions: validExtensions.Distinct(), capability: capability, scale: FileCapability.None, read: null, write: null, directRead: null, directWrite: null, directWriteOptions: false);
 
     public static string Filter(FilePhase phase, Seq<FileFormat> formats = default) =>
         (formats.IsEmpty ? Known : formats)
@@ -246,6 +258,7 @@ public sealed record FileFormat {
         bool import = true,
         bool export = true,
         bool archive = false,
+        FileCapability scale = FileCapability.None,
         Func<FileProfile, ArchivableDictionary>? read = null,
         Func<FileProfile, ArchivableDictionary>? write = null,
         Func<FileProfile, FileReadOptions, RhinoDoc, FileEndpoint, Fin<Unit>>? directRead = null,
@@ -255,7 +268,7 @@ public sealed record FileFormat {
             capability: archive
                 ? FileCapability.File3dm
                 : (import ? FileCapability.Import : FileCapability.None) | (export ? FileCapability.Export : FileCapability.None),
-            read: read, write: write, directRead: directRead, directWrite: directWrite, directWriteOptions: directWriteOptions);
+            scale: scale, read: read, write: write, directRead: directRead, directWrite: directWrite, directWriteOptions: directWriteOptions);
 
     private delegate bool NativeReadCall<in TOptions>(string path, RhinoDoc doc, TOptions options);
     private delegate bool NativeWriteCall<in TOptions>(string path, RhinoDoc doc, TOptions options);
@@ -279,8 +292,23 @@ public sealed record FileFormat {
     private static File3dsWriteOptions ThreeDsWriteOptions(FileProfile profile) =>
         new() { SaveViews = profile.Fidelity == FileFidelity.Model, SaveLights = profile.Fidelity == FileFidelity.Model };
 
-    private static FileAiWriteOptions AiWriteOptions(FileProfile profile) =>
-        new() { PreserveModelScale = profile.Fidelity == FileFidelity.Model, OrderLayers = profile.Grouping == FileGrouping.Layer || profile.Sort == FileSort.Layer };
+    private static FileAiWriteOptions AiWriteOptions(FileProfile profile) {
+        FileAiWriteOptions options = new() {
+            PreserveModelScale = profile.Fidelity == FileFidelity.Model,
+            OrderLayers = profile.Grouping == FileGrouping.Layer || profile.Sort == FileSort.Layer,
+        };
+        return profile.Scale.Map(scale => scale.Apply(options: options)).IfNone(options);
+    }
+
+    private static FileAiReadOptions AiReadOptions(FileProfile profile) {
+        FileAiReadOptions options = new() { PreserveModelScale = profile.Fidelity == FileFidelity.Model };
+        return profile.Scale.Map(scale => scale.Apply(options: options)).IfNone(options);
+    }
+
+    private static FileEpsReadOptions EpsReadOptions(FileProfile profile) {
+        FileEpsReadOptions options = new() { PreserveModelScale = profile.Fidelity == FileFidelity.Model };
+        return profile.Scale.Map(scale => scale.Apply(options: options)).IfNone(options);
+    }
 
     private static FileObjWriteOptions ObjWriteOptions(FileProfile profile, FileWriteOptions options) =>
         new(options) {
@@ -367,12 +395,14 @@ public sealed record FileFormat {
             ModelName = profile.Grouping == FileGrouping.Document ? string.Empty : "Model",
         };
 
-    private static FilePdfReadOptions PdfReadOptions(FileProfile profile) =>
-        new() {
+    private static FilePdfReadOptions PdfReadOptions(FileProfile profile) {
+        FilePdfReadOptions options = new() {
             PreserveModelScale = profile.Fidelity == FileFidelity.Model,
             ImportFillsAsHatches = profile.Fidelity != FileFidelity.GeometryOnly,
             LoadText = profile.Fidelity == FileFidelity.Model || profile.Grouping == FileGrouping.UserString,
         };
+        return profile.Scale.Map(scale => scale.Apply(options: options)).IfNone(options);
+    }
 
     private static FileCsvWriteOptions CsvOptions(FileProfile profile) {
         bool layer = profile.Grouping == FileGrouping.Layer || profile.Sort == FileSort.Layer;
@@ -421,15 +451,20 @@ internal static class FileFormatProjection {
 
     internal static Fin<FileFormat> Require(FileEndpoint endpoint, FileProfile profile, FilePhase phase, Op op) =>
         from format in Resolve(endpoint: endpoint, profile: profile).ToFin(Fail: op.InvalidInput())
-        from _ in guard(format.Supports(phase: phase), op.InvalidInput())
+        from valid in format.Validate(profile: profile, phase: phase, op: op)
+        from supported in guard(format.Supports(phase: phase), op.InvalidInput())
         select format;
 
     internal static Fin<ArchivableDictionary> Dictionary(FileEndpoint endpoint, FileProfile profile, FilePhase phase, Op op) =>
-        Resolve(endpoint: endpoint, profile: profile).Case switch {
-            FileFormat format when format.Supports(phase: phase) => Fin.Succ(value: format.Dictionary(profile: profile, phase: phase).IfNone(new ArchivableDictionary())),
+        from dictionary in Resolve(endpoint: endpoint, profile: profile).Case switch {
+            FileFormat format when format.Supports(phase: phase) =>
+                from _ in format.Validate(profile: profile, phase: phase, op: op)
+                select format.Dictionary(profile: profile, phase: phase).IfNone(new ArchivableDictionary()),
             FileFormat => Fin.Fail<ArchivableDictionary>(error: op.InvalidInput()),
+            _ when profile.Scale.IsSome => Fin.Fail<ArchivableDictionary>(error: op.InvalidInput()),
             _ => Fin.Succ(value: new ArchivableDictionary()),
-        };
+        }
+        select dictionary;
 
     internal static Fin<Unit> Import(RhinoDoc document, FileEndpoint source, FileProfile profile, Op op) =>
         from format in Require(endpoint: source, profile: profile, phase: FilePhase.Import, op: op)
@@ -452,12 +487,14 @@ internal static class FileFormatProjection {
                     return FileFormat.NativeBool(run: () => document.Write3dmFile(path: endpoint.Path, options: options), op: op);
                 })
                 : phase == FilePhase.SaveTemplate ? FileFormat.NativeBool(run: () => document.SaveAsTemplate(file3dmTemplatePath: endpoint.Path, version: endpoint.Write.Normalized.Version), op: op)
-                : phase == FilePhase.Export || phase == FilePhase.WriteFile ? Require(endpoint: endpoint, profile: profile, phase: phase, op: op).Bind(format => op.Catch(() => {
-                    using FileWriteOptions options = WriteOptions(endpoint: endpoint, profile: profile, phase: phase, selected: selected, updatePath: phase == FilePhase.WriteFile);
-                    return phase == FilePhase.Export
-                        ? format.Export(options: options, document: document, target: endpoint, profile: profile)
-                        : format.Write(options: options, document: document, target: endpoint, profile: profile);
-                }))
+                : phase == FilePhase.Export || phase == FilePhase.WriteFile ? Require(endpoint: endpoint, profile: profile, phase: phase, op: op).Bind(format =>
+                    from written in op.Catch(() => {
+                        using FileWriteOptions options = WriteOptions(endpoint: endpoint, profile: profile, phase: phase, selected: selected, updatePath: phase == FilePhase.WriteFile);
+                        return phase == FilePhase.Export
+                            ? format.Export(options: options, document: document, target: endpoint, profile: profile)
+                            : format.Write(options: options, document: document, target: endpoint, profile: profile);
+                    })
+                    select written)
                 : Fin.Fail<Unit>(error: op.InvalidInput()));
 
     internal static File3dmWriteOptions ArchiveWriteOptions(ArchiveProfile profile) {

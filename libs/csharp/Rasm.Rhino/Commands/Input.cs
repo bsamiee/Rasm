@@ -608,9 +608,19 @@ public static class CommandInputs {
         CommandInputPolicy policy = CommandInputPolicy.Merge(policies: active);
         CommandInputRequest<T> request = typeof(T) switch {
             Type t when t == typeof(CommandSelection) => Objects<T>(policy: policy, policies: active),
-            Type t when t == typeof(CommandOptionValue) => Getter(policy: policy, create: static () => new GetOption(), receive: static getter => getter.Get(), value: static (_, _, _) => Option<T>.None),
+            Type t when t == typeof(CommandOptionValue) => Getter(policy: policy, create: static () => new GetOption(), receive: static getter => getter.Get(), project: static (_, _, _) => (Value: Option<T>.None, Trim: Option<CommandSelection.TrimResult>.None)),
             Type t when t == typeof(CommandPoint) || t == typeof(Point3d) || t == typeof(DrawingPoint) => Point<T>(policy: policy),
             Type t when t == typeof(Transform) => Transform<T>(policy: policy),
+            Type t when t == typeof(double)
+                && !policy.IsLiteralText
+                && policy.ScalarMode.Map(static scalar => scalar.Kind is CommandInputPolicy.ScalarKind.Number).IfNone(noneValue: true) =>
+                Number<GetNumber, double, T>(
+                    policy: policy,
+                    create: static () => new GetNumber(),
+                    receive: static getter => getter.Get(),
+                    current: static getter => getter.Number(),
+                    setLower: static (getter, value, strict) => getter.SetLowerLimit(lowerLimit: value, strictlyGreaterThan: strict),
+                    setUpper: static (getter, value, strict) => getter.SetUpperLimit(upperLimit: value, strictlyLessThan: strict)),
             Type t when t == typeof(string) || t == typeof(double) => Text<T>(policy: policy),
             Type t when t == typeof(int) => Number<GetInteger, int, T>(policy: policy, create: static () => new GetInteger(), receive: static getter => getter.Get(), current: static getter => getter.Number(), setLower: static (getter, value, strict) => getter.SetLowerLimit(value, strict), setUpper: static (getter, value, strict) => getter.SetUpperLimit(value, strict)),
             Type t when t == typeof(bool) => Native(run: () => Bool<T>(prompt: policy.PromptText.IfNone(string.Empty), acceptNothing: policy.AcceptsNothing)),
@@ -624,7 +634,10 @@ public static class CommandInputs {
             Type t when t == typeof(Color) => Native(run: () => Color<T>(prompt: policy.PromptText.IfNone(string.Empty), acceptNothing: policy.AcceptsNothing)),
             _ => Invalid<T>(name: nameof(Get)),
         };
-        return request.BindPolicy(rebind: static values => Get<T>(policies: [.. values]));
+        return new CommandInputRequest<T>(
+            runEvent: request.RunEvent,
+            rebind: static values => Get<T>(policies: [.. values]),
+            scripted: request.Script);
     }
 
     private sealed class CommandTransformGetter(Func<RhinoViewport, Point3d, Transform> calculate) : GetTransform {
@@ -643,8 +656,11 @@ public static class CommandInputs {
                         selection.Maximum == 0 ? CommandInputPolicy.Accept(modes: CommandInputAccept.EnterWhenDone) : CommandInputPolicy.Empty) + policies),
                 create: static () => new GetObject(),
                 receive: getter => getter.GetMultiple(minimumNumber: selection.Minimum, maximumNumber: selection.Maximum),
-                value: (source, getter, raw) => SelectionValue<T>(source: source, getter: getter, raw: raw, policy: selection),
-                selectionTrim: (source, getter, raw) => SelectionTrim(source: source, getter: getter, raw: raw, policy: selection),
+                // Single trim computation reused for both Value and Trim projections (TP1).
+                project: (source, getter, raw) => SelectionTrim(source: source, getter: getter, raw: raw, policy: selection).Case switch {
+                    CommandSelection.TrimResult trim => (Value: trim.Require(policy: selection).ToOption().Bind(Cast<T>), Trim: Some(trim)),
+                    _ => (Value: Option<T>.None, Trim: Option<CommandSelection.TrimResult>.None),
+                },
                 transition: static (getter, raw, selected) => raw is GetResult.Option ? ((Func<(bool Continue, Option<CommandOptionValue> Selected)>)(() => { getter.EnablePreSelect(enable: false, ignoreUnacceptablePreselectedObjects: true); return (Continue: true, Selected: selected); }))() : (Continue: false, Selected: selected)),
         };
 
@@ -654,20 +670,19 @@ public static class CommandInputs {
             policy: policy,
             create: static () => new GetPoint(),
             receive: getter => getter.Get(onMouseUp: spec.OnMouseUp, get2DPoint: twoDimensional),
-            value: static (_, getter, raw) => raw is GetResult.Point or GetResult.Point2d ? PointValue<T>(getter: getter, raw: raw) : Option<T>.None);
+            project: static (_, getter, raw) => (raw is GetResult.Point or GetResult.Point2d ? PointValue<T>(getter: getter, raw: raw) : Option<T>.None, Option<CommandSelection.TrimResult>.None));
     }
 
     private static CommandInputRequest<T> Transform<T>(CommandInputPolicy policy) =>
-        Getter(policy: policy, create: () => new CommandTransformGetter(calculate: policy.TransformMode.IfNone(static (_, _) => global::Rhino.Geometry.Transform.Identity)), receive: static getter => getter.GetXform(), value: static (_, getter, _) => getter.HaveTransform && getter.Transform.IsValid ? Cast<T>(getter.Transform) : Option<T>.None);
+        Getter(policy: policy, create: () => new CommandTransformGetter(calculate: policy.TransformMode.IfNone(static (_, _) => global::Rhino.Geometry.Transform.Identity)), receive: static getter => getter.GetXform(),
+            project: static (_, getter, _) => (getter.HaveTransform && getter.Transform.IsValid ? Cast<T>(getter.Transform) : Option<T>.None, Option<CommandSelection.TrimResult>.None));
 
     private static CommandInputRequest<T> Text<T>(CommandInputPolicy policy) =>
-        policy.ScalarMode.Map(static scalar => scalar.Kind == CommandInputPolicy.ScalarKind.Number).IfNone(policy.LimitsMode.IsSome) && typeof(T) == typeof(double)
-            ? Number<GetNumber, double, T>(policy: policy, create: static () => new GetNumber(), receive: static getter => getter.Get(), current: static getter => getter.Number(), setLower: static (getter, value, strict) => getter.SetLowerLimit(value, strict), setUpper: static (getter, value, strict) => getter.SetUpperLimit(value, strict))
-            : Getter(
-                policy: policy,
-                create: static () => new GetString(),
-                receive: policy.IsLiteralText ? static getter => getter.GetLiteralString() : static getter => getter.Get(),
-                value: (source, getter, raw) => raw is GetResult.String ? Parse<T>(input: source, text: getter.StringResult(), scalar: policy.ScalarMode, bounds: policy.LimitsMode).Bind(Cast<T>) : Option<T>.None);
+        Getter(
+            policy: policy,
+            create: static () => new GetString(),
+            receive: policy.IsLiteralText ? static getter => getter.GetLiteralString() : static getter => getter.Get(),
+            project: (source, getter, raw) => (raw is GetResult.String ? Parse<T>(input: source, text: getter.StringResult(), scalar: policy.ScalarMode, bounds: policy.LimitsMode).Bind(Cast<T>) : Option<T>.None, Option<CommandSelection.TrimResult>.None));
 
     private static CommandInputRequest<TOut> Number<TGetter, TValue, TOut>(
         CommandInputPolicy policy,
@@ -681,14 +696,15 @@ public static class CommandInputs {
             create: create,
             receive: receive,
             configure: getter => Limits(getter: getter, bounds: policy.LimitsMode, setLower: setLower, setUpper: setUpper),
-            value: (_, getter, raw) => raw is GetResult.Number ? Cast<TOut>(current(arg: getter)!) : Option<TOut>.None);
+            project: (_, getter, raw) => (raw is GetResult.Number ? Cast<TOut>(current(arg: getter)!) : Option<TOut>.None, Option<CommandSelection.TrimResult>.None));
 
+    // TP1: single-tuple `project` callback replaces dual `value`/`selectionTrim` callbacks; one
+    // computation feeds both observers, eliminating the double-traversal on every `GetObject` event.
     private static CommandInputRequest<T> Getter<TGetter, T>(
         CommandInputPolicy policy,
         Func<TGetter> create,
         Func<TGetter, GetResult> receive,
-        Func<CommandInput, TGetter, GetResult, Option<T>> value,
-        Func<CommandInput, TGetter, GetResult, Option<CommandSelection.TrimResult>>? selectionTrim = null,
+        Func<CommandInput, TGetter, GetResult, (Option<T> Value, Option<CommandSelection.TrimResult> Trim)> project,
         Func<TGetter, Fin<Unit>>? configure = null,
         Func<TGetter, GetResult, Option<CommandOptionValue>, (bool Continue, Option<CommandOptionValue> Selected)>? transition = null) where TGetter : GetBaseClass, IDisposable =>
         new(runEvent: input => Optional(input).ToFin(Fail: Op.Of(name: nameof(Get)).InvalidInput()).Bind(valid => UI.RhinoUi.Protect(valid: () => {
@@ -699,7 +715,7 @@ public static class CommandInputs {
                    from events in getter is GetPoint point ? BindPointEvents(document: valid.Document, getter: point, events: policy.PointEvent, gumball: policy.Gumball, fullFrameRedraw: policy.FullFrameRedrawDuringGet, fault: eventFault) : Fin.Succ(value: unit)
                    from result in CommandOption.Bind(options: policy.OptionList, getter: getter).Bind(scope => {
                        using CommandOption.Scope active = scope;
-                       return ReadLoop(getter: getter, scope: active, receive: () => receive(arg: getter), value: (g, raw) => value(arg1: valid, arg2: g, arg3: raw), selectionTrim: selectionTrim is Func<CommandInput, TGetter, GetResult, Option<CommandSelection.TrimResult>> trim ? (g, raw) => trim(arg1: valid, arg2: g, arg3: raw) : static (_, _) => Option<CommandSelection.TrimResult>.None, selected: Option<CommandOptionValue>.None, acceptUndo: policy.AcceptsUndo, transition: transition ?? (static (_, _, selected) => (Continue: false, Selected: selected)));
+                       return ReadLoop(getter: getter, scope: active, receive: () => receive(arg: getter), project: (g, raw) => project(arg1: valid, arg2: g, arg3: raw), selected: Option<CommandOptionValue>.None, acceptUndo: policy.AcceptsUndo, transition: transition ?? (static (_, _, selected) => (Continue: false, Selected: selected)));
                    })
                    from checkedResult in eventFault.Value.Case switch {
                        Error error => Fin.Fail<CommandInputEvent<T>>(error: error),
@@ -735,8 +751,7 @@ public static class CommandInputs {
         TGetter getter,
         CommandOption.Scope scope,
         Func<GetResult> receive,
-        Func<TGetter, GetResult, Option<T>> value,
-        Func<TGetter, GetResult, Option<CommandSelection.TrimResult>> selectionTrim,
+        Func<TGetter, GetResult, (Option<T> Value, Option<CommandSelection.TrimResult> Trim)> project,
         Option<CommandOptionValue> selected,
         bool acceptUndo,
         Func<TGetter, GetResult, Option<CommandOptionValue>, (bool Continue, Option<CommandOptionValue> Selected)> transition) where TGetter : GetBaseClass =>
@@ -744,23 +759,28 @@ public static class CommandInputs {
             GetResult.Cancel => Fin.Succ(value: CommandInputEvent<T>.Cancelled),
             GetResult.ExitRhino => Fin.Succ(value: CommandInputEvent<T>.Exit),
             GetResult.Option => scope.Selected(getter: getter).Bind(option => transition(getter, GetResult.Option, Some(option)) switch {
-                (true, Option<CommandOptionValue> next) => ReadLoop(getter: getter, scope: scope, receive: receive, value: value, selectionTrim: selectionTrim, selected: next, acceptUndo: acceptUndo, transition: transition),
-                (false, Option<CommandOptionValue> next) => Read(getter: getter, raw: GetResult.Option, value: value(getter, GetResult.Option), selectionTrim: selectionTrim(getter, GetResult.Option), option: next),
+                (true, Option<CommandOptionValue> next) => ReadLoop(getter: getter, scope: scope, receive: receive, project: project, selected: next, acceptUndo: acceptUndo, transition: transition),
+                (false, Option<CommandOptionValue> next) => Read(getter: getter, raw: GetResult.Option, projected: project(getter, GetResult.Option), option: next),
             }),
-            GetResult.Undo when acceptUndo => Read(getter: getter, raw: GetResult.Undo, value: Option<T>.None, selectionTrim: Option<CommandSelection.TrimResult>.None, option: selected),
+            GetResult.Undo when acceptUndo => Read(getter: getter, raw: GetResult.Undo, projected: (Option<T>.None, Option<CommandSelection.TrimResult>.None), option: selected),
             GetResult.Undo => Fin.Fail<CommandInputEvent<T>>(error: Op.Of(name: nameof(ReadLoop)).InvalidResult()),
-            GetResult raw and (GetResult.NoResult or GetResult.Nothing or GetResult.Miss or GetResult.Timeout) => Read(getter: getter, raw: raw, value: Option<T>.None, selectionTrim: Option<CommandSelection.TrimResult>.None, option: selected),
+            GetResult raw and (GetResult.NoResult or GetResult.Nothing or GetResult.Miss or GetResult.Timeout) => Read(getter: getter, raw: raw, projected: (Option<T>.None, Option<CommandSelection.TrimResult>.None), option: selected),
             GetResult raw => transition(getter, raw, selected) switch {
-                (true, Option<CommandOptionValue> next) => ReadLoop(getter: getter, scope: scope, receive: receive, value: value, selectionTrim: selectionTrim, selected: next, acceptUndo: acceptUndo, transition: transition),
-                (false, Option<CommandOptionValue> next) => Read(getter: getter, raw: raw, value: value(getter, raw), selectionTrim: selectionTrim(getter, raw), option: next),
+                (true, Option<CommandOptionValue> next) => ReadLoop(getter: getter, scope: scope, receive: receive, project: project, selected: next, acceptUndo: acceptUndo, transition: transition),
+                (false, Option<CommandOptionValue> next) => Read(getter: getter, raw: raw, projected: project(getter, raw), option: next),
             },
         };
 
-    private static Fin<CommandInputEvent<T>> Read<TGetter, T>(TGetter getter, GetResult raw, Option<T> value, Option<CommandSelection.TrimResult> selectionTrim, Option<CommandOptionValue> option) where TGetter : GetBaseClass {
-        Option<T> projected = value | option.Bind(static selected => selected is T selectedValue ? Some(selectedValue) : Option<T>.None);
-        CommandGet<T> snapshot = CommandGet<T>.Of(getter: getter, raw: raw, value: projected, option: option, selectionTrim: selectionTrim);
-        return (raw, projected.IsSome || selectionTrim.IsSome || (raw == GetResult.Option && option.IsSome) || snapshot.Snapshot.Has(raw: raw)) switch {
-            (GetResult.Object or GetResult.Point or GetResult.Point2d or GetResult.Number or GetResult.String or GetResult.Color or GetResult.Rectangle2d or GetResult.Line2d, false) => Fin.Fail<CommandInputEvent<T>>(error: Op.Of(name: nameof(Read)).InvalidResult()),
+    private static Fin<CommandInputEvent<T>> Read<TGetter, T>(TGetter getter, GetResult raw, (Option<T> Value, Option<CommandSelection.TrimResult> Trim) projected, Option<CommandOptionValue> option) where TGetter : GetBaseClass {
+        Option<T> value = projected.Value | option.Bind(static selected => selected is T selectedValue ? Some(selectedValue) : Option<T>.None);
+        CommandGet<T> snapshot = CommandGet<T>.Of(getter: getter, raw: raw, value: value, option: option, selectionTrim: projected.Trim);
+        bool requiresValue = raw is GetResult.Object or GetResult.Point or GetResult.Point2d or GetResult.Number or GetResult.String
+            or GetResult.Color or GetResult.Rectangle2d or GetResult.Line2d or GetResult.Circle or GetResult.Plane
+            or GetResult.Cylinder or GetResult.Sphere or GetResult.Angle or GetResult.Distance
+            or GetResult.Direction or GetResult.Frame or GetResult.CustomMessage;
+        bool hasValue = value.IsSome || projected.Trim.IsSome || (raw == GetResult.Option && option.IsSome) || snapshot.Snapshot.Has(raw: raw);
+        return (requiresValue, hasValue) switch {
+            (true, false) => Fin.Fail<CommandInputEvent<T>>(error: Op.Of(name: nameof(Read)).InvalidResult()),
             _ => Fin.Succ(value: CommandInputEvent<T>.Of(result: snapshot)),
         };
     }
@@ -820,11 +840,6 @@ public static class CommandInputs {
                     ? toSeq(references).Filter(static reference => Optional(reference.Object()).Map(static item => item.IsSelected(checkSubObjects: true) > 0).IfNone(noneValue: false)).Map(static reference => (reference.ObjectId, reference.GeometryComponentIndex))
                     : Seq<(Guid ObjectId, ComponentIndex ComponentIndex)>()))
             : Option<CommandSelection>.None;
-
-    private static Option<T> SelectionValue<T>(CommandInput source, GetObject getter, GetResult raw, CommandObjectSelection policy) =>
-        SelectionTrim(source: source, getter: getter, raw: raw, policy: policy)
-            .Bind(trimmed => trimmed.Require(policy: policy).ToOption())
-            .Bind(Cast<T>);
 
     private static Option<CommandSelection.TrimResult> SelectionTrim(CommandInput source, GetObject getter, GetResult raw, CommandObjectSelection policy) =>
         SelectionOf(document: source.Document, getter: getter, raw: raw)
@@ -888,7 +903,4 @@ public static class CommandInputs {
                 }),
             _ => Fin.Succ(value: unit),
         };
-
-    private static CommandInputRequest<T> BindPolicy<T>(this CommandInputRequest<T> request, Func<Seq<CommandInputPolicy>, CommandInputRequest<T>> rebind) =>
-        new(runEvent: request.RunEvent, rebind: rebind, scripted: request.Script);
 }

@@ -287,15 +287,17 @@ public sealed record CommandSelection {
                 .Bind(static serial => Optional(RhinoView.FromRuntimeSerialNumber(serialNumber: serial)))
                 .ToFin(Fail: Op.Of(name: nameof(View)).MissingContext());
 
-        public Fin<TGeometry> Geometry<TGeometry>(RhinoDoc document) where TGeometry : GeometryBase =>
-            Use(document: document, op: Op.Of(name: nameof(Geometry)), use: reference =>
-                Optional(reference.Geometry())
-                    .ToFin(Fail: Op.Of(name: nameof(Geometry)).InvalidResult())
-                    .Bind(static geometry => Optional(geometry.Duplicate()).ToFin(Fail: Op.Of(name: nameof(Geometry)).InvalidResult()))
-                    .Bind(static geometry => geometry switch {
-                        TGeometry typed => Fin.Succ(value: typed),
-                        _ => Fin.Fail<TGeometry>(error: Op.Of(name: nameof(Geometry)).InvalidResult()),
-                    }));
+        public Fin<TGeometry> Geometry<TGeometry>(RhinoDoc document) where TGeometry : GeometryBase {
+            Op op = Op.Of(name: nameof(Geometry));
+            return Use(document: document, op: op, use: reference =>
+                from raw in Optional(reference.Geometry()).ToFin(Fail: op.InvalidResult())
+                from duplicate in Optional(raw.Duplicate()).ToFin(Fail: op.InvalidResult())
+                from typed in GeometrySource.Own(geometry: duplicate).Use<TGeometry>(op: op, use: geometry => geometry switch {
+                    TGeometry value => Fin.Succ(value: value),
+                    _ => Fin.Fail<TGeometry>(error: op.InvalidResult()),
+                })
+                select typed);
+        }
 
         public Fin<T> Object<TObject, T>(RhinoDoc document, Func<TObject, Fin<T>> use) where TObject : RhinoObject =>
             Use(document: document, op: Op.Of(name: nameof(Object)), use: reference =>

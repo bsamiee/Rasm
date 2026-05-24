@@ -584,9 +584,12 @@ internal static class SheetEditOps {
             rename: static (ctx, edit) => RenameSheet(document: ctx.Document, sheetName: edit.SheetName, newName: edit.NewName, op: ctx.Op),
             reorder: static (ctx, edit) => ReorderSheets(document: ctx.Document, sheetNames: edit.SheetNames, op: ctx.Op),
             addDetail: static (ctx, edit) => AddDetail(document: ctx.Document, sheetName: edit.SheetName, spec: edit.Spec, op: ctx.Op),
+            resize: static (ctx, edit) => ResizeSheet(document: ctx.Document, sheetName: edit.SheetName, size: edit.Size, description: edit.Description, op: ctx.Op),
+            scaleDetail: static (ctx, edit) => ScaleDetail(document: ctx.Document, sheetName: edit.SheetName, detailName: edit.DetailName, scale: edit.Scale, op: ctx.Op),
+            import: static (ctx, edit) => ImportSheet(document: ctx.Document, source: edit.Source, sourceViewportId: edit.SourceViewportId, name: edit.Name, op: ctx.Op),
             removeDetail: static (ctx, edit) => RemoveDetail(document: ctx.Document, sheetName: edit.SheetName, detailName: edit.DetailName, op: ctx.Op),
             activateDetail: static (ctx, edit) => ActivateDetail(document: ctx.Document, sheetName: edit.SheetName, detailName: edit.DetailName, op: ctx.Op),
-            layerOverride: static (ctx, edit) => ApplyLayerOverride(document: ctx.Document, sheetName: edit.SheetName, detailName: edit.DetailName, layerPath: edit.LayerPath, color: edit.Color, visible: edit.Visible, plotColor: edit.PlotColor, plotWeight: edit.PlotWeight, op: ctx.Op),
+            layerOverride: static (ctx, edit) => ApplyLayerOverride(document: ctx.Document, sheetName: edit.SheetName, detailName: edit.DetailName, layerPath: edit.LayerPath, spec: edit.Spec, op: ctx.Op),
             clippingOverride: static (ctx, edit) => ApplyClippingOverride(document: ctx.Document, sheetName: edit.SheetName, detailName: edit.DetailName, box: edit.Box, op: ctx.Op),
             refreshLinks: static (ctx, edit) => RefreshLinks(document: ctx.Document, archives: edit.Archives, skipUpToDate: edit.SkipUpToDate, op: ctx.Op),
             flattenLinkedBlocks: static (ctx, edit) => FlattenLinkedBlocks(document: ctx.Document, archives: edit.Archives, ids: edit.Ids, op: ctx.Op),
@@ -595,21 +598,29 @@ internal static class SheetEditOps {
     private static Fin<DocumentReceipt> CreateSheet(RhinoDoc document, FileSheetSpec spec, Op op) =>
         from name in FileEndpoint.NonBlank(value: spec.Name, op: op)
         from unique in guard(!toSeq(document.Views.GetPageViews()).Exists(view => string.Equals(a: view.PageName, b: name, comparisonType: StringComparison.OrdinalIgnoreCase)), op.InvalidInput())
+        from size in spec.Size.Map(value => value.Create(document: document, op: op)).IfNone(Fin.Succ(value: Option<(double Width, double Height)>.None))
         from page in op.Catch(() => {
-            RhinoPageView? created = (spec.WidthMillimeters.Case, spec.HeightMillimeters.Case) switch {
+            RhinoPageView? created = size.Case switch {
                 (double width, double height) => document.Views.AddPageView(title: name, pageWidth: width, pageHeight: height),
                 _ => document.Views.AddPageView(title: name),
             };
             return Optional(created).ToFin(Fail: op.InvalidResult());
         })
-        from grouped in op.Catch(() => {
-            _ = spec.Group.Case switch {
-                string groupName => document.PageViewGroups.FindName(name: groupName) switch {
-                    PageViewGroup => 0,
-                    _ => document.PageViewGroups.Add(groupMembers: Seq(page).AsIterable()),
-                },
-                _ => 0,
-            };
+        from grouped in spec.Group.Case switch {
+            string rawGroup =>
+                from groupName in FileEndpoint.NonBlank(value: rawGroup, op: op)
+                from joined in op.Catch(() => document.PageViewGroups.FindName(name: groupName) switch {
+                    PageViewGroup existing => Fin.Succ(value: Op.Side(() => page.AddToPageViewGroup(pageViewGroupIndex: existing.Index))),
+                    _ => document.PageViewGroups.Add(new PageViewGroup { Name = groupName }, Seq(page).AsIterable()) switch {
+                        int index when index >= 0 => Fin.Succ(value: unit),
+                        _ => Fin.Fail<Unit>(error: op.InvalidResult()),
+                    },
+                })
+                select joined,
+            _ => Fin.Succ(value: unit),
+        }
+        from described in op.Catch(() => {
+            _ = spec.Description.Iter(value => page.Description = value);
             return Fin.Succ(value: unit);
         })
         select DocumentReceipt.Empty with {
@@ -662,18 +673,64 @@ internal static class SheetEditOps {
         from page in Sheet(document: document, name: sheetName, op: op)
         from name in FileEndpoint.NonBlank(value: spec.Name, op: op)
         from detail in Optional(page.AddDetailView(title: name, corner0: spec.Corner, corner1: spec.Opposite, initialProjection: spec.Projection)).ToFin(Fail: op.InvalidResult())
-        from _ in op.Catch(() => {
-            _ = detail.DetailGeometry switch {
-                DetailViewGeometry geometry => Op.Side(() => geometry.IsProjectionLocked = spec.ProjectionLocked),
-                _ => unit,
-            };
+        from geometry in detail.DetailGeometry is DetailViewGeometry value
+            ? Fin.Succ(value: value)
+            : Fin.Fail<DetailViewGeometry>(error: op.InvalidResult())
+        from scaled in spec.Scale.Map(scale => scale.Apply(geometry: geometry, op: op)).IfNone(Fin.Succ(value: unit))
+        from committed in op.Catch(() => {
+            geometry.IsProjectionLocked = spec.ProjectionLocked;
             _ = spec.DisplayMode.Iter(id => Optional(DisplayModeDescription.GetDisplayMode(id: id)).Iter(mode => detail.Viewport.DisplayMode = mode));
-            _ = detail.CommitViewportChanges();
-            return Fin.Succ(value: unit);
+            return op.Confirm(success: detail.CommitViewportChanges());
         })
         select DocumentReceipt.Empty with {
             Created = Seq(detail.Id),
             ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: name)),
+        };
+
+    private static Fin<DocumentReceipt> ResizeSheet(RhinoDoc document, string sheetName, Option<FileSheetSize> size, Option<string> description, Op op) =>
+        from page in Sheet(document: document, name: sheetName, op: op)
+        from resolved in size.Map(value => value.Resize(document: document, op: op)).IfNone(Fin.Succ(value: (Width: Option<double>.None, Height: Option<double>.None)))
+        from requested in resolved.Width.IsSome || resolved.Height.IsSome || description.IsSome ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: op.InvalidInput())
+        from resized in op.Catch(() => {
+            _ = resolved.Width.Iter(value => page.PageWidth = value);
+            _ = resolved.Height.Iter(value => page.PageHeight = value);
+            _ = description.Iter(value => page.Description = value);
+            return Fin.Succ(value: unit);
+        })
+        select DocumentReceipt.Empty with {
+            AttributeChanged = Seq(page.MainViewport.Id),
+            ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: page.PageName)),
+        };
+
+    private static Fin<DocumentReceipt> ScaleDetail(RhinoDoc document, string sheetName, string detailName, FileDetailScale scale, Op op) =>
+        from page in Sheet(document: document, name: sheetName, op: op)
+        from name in FileEndpoint.NonBlank(value: detailName, op: op)
+        from detail in Detail(page: page, name: name, op: op)
+        from geometry in detail.DetailGeometry is DetailViewGeometry value
+            ? Fin.Succ(value: value)
+            : Fin.Fail<DetailViewGeometry>(error: op.InvalidResult())
+        from _ in scale.Apply(geometry: geometry, op: op)
+        from committed in op.Confirm(success: detail.CommitViewportChanges())
+        select DocumentReceipt.Empty with {
+            AttributeChanged = Seq(detail.Id),
+            ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: name)),
+        };
+
+    private static Fin<DocumentReceipt> ImportSheet(RhinoDoc document, FileEndpoint source, Guid sourceViewportId, string name, Op op) =>
+        from endpoint in source.Input(op: op)
+        from format in (endpoint.Format | FileFormat.Detect(path: endpoint.Path)).Filter(format => format == FileFormat.ThreeDm).ToFin(Fail: op.InvalidInput())
+        from pageName in FileEndpoint.NonBlank(value: name, op: op)
+        from unique in guard(!toSeq(document.Views.GetPageViews()).Exists(view => string.Equals(a: view.PageName, b: pageName, comparisonType: StringComparison.OrdinalIgnoreCase)), op.InvalidInput())
+        from id in sourceViewportId != Guid.Empty ? Fin.Succ(value: sourceViewportId) : Fin.Fail<Guid>(error: op.InvalidInput())
+        let before = toSeq(document.Views.GetPageViews()).Map(static page => page.MainViewport.Id)
+        from _ in op.Confirm(success: document.Views.ImportPageView(filename: endpoint.Path, mainViewportId: id, pageName: pageName))
+        from page in toSeq(document.Views.GetPageViews())
+            .Find(page => !before.Exists(viewportId => viewportId == page.MainViewport.Id)
+                && string.Equals(a: page.PageName, b: pageName, comparisonType: StringComparison.OrdinalIgnoreCase))
+            .ToFin(Fail: op.InvalidResult())
+        select DocumentReceipt.Empty with {
+            Created = Seq(page.MainViewport.Id),
+            ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: pageName)),
         };
 
     private static Fin<DocumentReceipt> RemoveDetail(RhinoDoc document, string sheetName, string detailName, Op op) =>
@@ -699,9 +756,8 @@ internal static class SheetEditOps {
             ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: detailName.IfNone(sheetName))),
         };
 
-    // Per-viewport linetype has no setter (Layer.LinetypeIndex is document-wide); only color,
-    // visibility, plot color, plot weight are per-detail. CommitViewportChanges persists them.
-    private static Fin<DocumentReceipt> ApplyLayerOverride(RhinoDoc document, string sheetName, string detailName, string layerPath, Option<System.Drawing.Color> color, Option<bool> visible, Option<System.Drawing.Color> plotColor, Option<double> plotWeight, Op op) =>
+    // Per-viewport linetype has no setter; Rhino layer override setters commit their own model changes.
+    private static Fin<DocumentReceipt> ApplyLayerOverride(RhinoDoc document, string sheetName, string detailName, string layerPath, FileLayerOverrideSpec spec, Op op) =>
         from page in Sheet(document: document, name: sheetName, op: op)
         from name in FileEndpoint.NonBlank(value: detailName, op: op)
         from path in FileEndpoint.NonBlank(value: layerPath, op: op)
@@ -709,11 +765,11 @@ internal static class SheetEditOps {
         from layer in Layer(document: document, path: path, op: op)
         from _ in op.Catch(() => {
             Guid viewportId = detail.Viewport.Id;
-            _ = color.Iter(value => layer.SetPerViewportColor(viewportId: viewportId, color: value));
-            _ = visible.Iter(value => layer.SetPerViewportVisible(viewportId: viewportId, visible: value));
-            _ = plotColor.Iter(value => layer.SetPerViewportPlotColor(viewportId: viewportId, color: value));
-            _ = plotWeight.Iter(value => layer.SetPerViewportPlotWeight(viewportId: viewportId, plotWeight: value));
-            _ = detail.CommitViewportChanges();
+            _ = spec.Color.Apply(set: value => layer.SetPerViewportColor(viewportId: viewportId, color: value), inherit: () => layer.DeletePerViewportColor(viewportId: viewportId));
+            _ = spec.Visible.Apply(set: value => layer.SetPerViewportVisible(viewportId: viewportId, visible: value), inherit: () => layer.DeletePerViewportVisible(viewportId: viewportId));
+            _ = spec.PersistentVisible.Apply(set: value => layer.SetPerViewportPersistentVisibility(viewportId: viewportId, persistentVisibility: value), inherit: () => layer.UnsetPerViewportPersistentVisibility(viewportId: viewportId));
+            _ = spec.PlotColor.Apply(set: value => layer.SetPerViewportPlotColor(viewportId: viewportId, color: value), inherit: () => layer.DeletePerViewportPlotColor(viewportId: viewportId));
+            _ = spec.PlotWeight.Apply(set: value => layer.SetPerViewportPlotWeight(viewportId: viewportId, plotWeight: value), inherit: () => layer.DeletePerViewportPlotWeight(viewportId: viewportId));
             return Fin.Succ(value: unit);
         })
         select DocumentReceipt.Empty with {
@@ -737,12 +793,11 @@ internal static class SheetEditOps {
     private static Fin<DocumentReceipt> ApplyClippingOverride(RhinoDoc document, string sheetName, string detailName, BoundingBox box, Op op) =>
         from page in Sheet(document: document, name: sheetName, op: op)
         from name in FileEndpoint.NonBlank(value: detailName, op: op)
-        from valid in box.IsValid ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: op.InvalidInput())
+        from validBox in op.AcceptValue(value: box)
         from detail in Detail(page: page, name: name, op: op)
         from applied in op.Catch(() => {
-            detail.Viewport.SetClippingPlanes(box: box);
-            _ = detail.CommitViewportChanges();
-            return Fin.Succ(value: unit);
+            detail.Viewport.SetClippingPlanes(box: validBox);
+            return op.Confirm(success: detail.CommitViewportChanges());
         })
         select DocumentReceipt.Empty with {
             AttributeChanged = Seq(detail.Id),
