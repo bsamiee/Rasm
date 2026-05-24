@@ -19,7 +19,7 @@ public readonly record struct SpectralBasis(Arr<double> Eigenvalues, Arr<Arr<dou
 }
 
 // d0: |E|x|V| signed vertex-edge incidence; d1: |F|x|E| signed edge-face incidence.
-// Star0/1/2 are the Hodge stars on 0/1/2-forms (lumped Voronoi area / half-cotangent / 1-area).
+// Star0/1/2 are Hodge stars on 0/1/2-forms (barycentric/lumped mass / half-cotangent / 1-area).
 // d1*d0 = 0 cohomology identity holds for manifold input.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct DiscreteCalculus(
@@ -34,7 +34,7 @@ public readonly record struct DiscreteCalculus(
         && Star1.Count == D0.Rows.Value
         && Star2.Count == D1.Rows.Value
         && Star0.ForAll(static v => RhinoMath.IsValidDouble(x: v) && v > 0.0)
-        && Star1.ForAll(RhinoMath.IsValidDouble)
+        && Star1.ForAll(static v => RhinoMath.IsValidDouble(x: v) && v >= 0.0)
         && Star2.ForAll(static v => RhinoMath.IsValidDouble(x: v) && v > 0.0);
 }
 
@@ -71,12 +71,16 @@ public abstract partial record SpectralFilter {
     // CommuteTime×*, etc.) are not algebraically closed and return None — callers cannot fake
     // closure by silently producing approximate filters.
     public Option<SpectralFilter> Compose(SpectralFilter other) => (this, other) switch {
-        (HeatCase a, HeatCase b) => Some(Heat(time: PositiveMagnitude.Create(value: a.Time.Value + b.Time.Value))),
-        (DiffusionCase a, DiffusionCase b) => Some(Diffusion(time: PositiveMagnitude.Create(value: a.Time.Value + b.Time.Value))),
+        (HeatCase a, HeatCase b) => Positive(value: a.Time.Value + b.Time.Value).Map(static time => (SpectralFilter)Heat(time: time)),
+        (DiffusionCase a, DiffusionCase b) => Positive(value: a.Time.Value + b.Time.Value).Map(static time => (SpectralFilter)Diffusion(time: time)),
         (IdentityCase, _) => Some(other),
         (_, IdentityCase) => Some(this),
         _ => Option<SpectralFilter>.None,
     };
+    private static Option<PositiveMagnitude> Positive(double value) =>
+        PositiveMagnitude.TryCreate(value: value, obj: out PositiveMagnitude magnitude)
+            ? Some(magnitude)
+            : Option<PositiveMagnitude>.None;
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -131,12 +135,13 @@ internal static class SpectralCore {
     // Stein-Wardetzky-Jacobson-Grinspun 2020 Crouzeix-Raviart connection Laplacian on edges,
     // verified against geometry-central `intrinsic_geometry_interface.cpp` lines 586-679. Feng-
     // Crane 2024 SHM diffuses per-edge complex tangent encodings via (M_CR + t·L_CR) X_t = X_0
-    // on the intrinsic-Delaunay edge set (cot ≥ 0 ⇒ L_CR is Hermitian PSD ⇒ real-2|E| block is
-    // SPD ⇒ Cholesky succeeds without a Delaunay fallback).
+    // on the unflipped intrinsic-Delaunay edge set. The system is SPD-intended; factorisation
+    // rejection remains a typed failure.
     // M_CR[e] = (1/3) Σ_{f∋e} area(f) (diagonal); used as both LHS coefficient and pivot for the
-    // real-2|E| SPD embedding [[A,-B],[B,A]] where H = A + iB is Hermitian.
+    // real-2|E| embedding [[A,-B],[B,A]] where H = A + iB is Hermitian.
     internal static Fin<SparseMatrix> BuildCrouzeixRaviartHeatSystem(MeshKernel.IntrinsicMesh mesh, double time, Op key) {
         if (!mesh.IsFrozen) return Fin.Fail<SparseMatrix>(error: key.InvalidInput());
+        if (mesh.HasFlips) return Fin.Fail<SparseMatrix>(error: key.Unsupported(geometryType: typeof(MeshKernel.IntrinsicMesh), outputType: typeof(SparseMatrix)));
         int eCount = mesh.EdgeCount;
         if (eCount == 0) return Fin.Fail<SparseMatrix>(error: key.InvalidInput());
         int faceCapacity = mesh.Triangles.Count;
@@ -322,10 +327,11 @@ internal static class SpectralCore {
                let rhs = IntrinsicCoexactRhs(imesh: imesh, star1: star1, u: u)
                from beta in space.Cache.Cholesky.Bind(factor => factor.Solve(rhs: rhs, key: key))
                let dBeta = IntrinsicEdgeGradient(imesh: imesh, beta: beta)
-               select NegateInPlace(values: dBeta);
+               select NegatedCopy(values: dBeta);
     }
     private static Fin<Unit> ValidateGaussBonnet(Mesh mesh, MeshKernel.IntrinsicMesh imesh, Arr<double> defects, Seq<(int Vertex, double ConeIndex)> cones, Op key) {
-        if ((mesh.GetNakedEdges()?.Length ?? 0) > 0) return Fin.Fail<Unit>(error: key.InvalidInput());
+        Polyline[]? naked = mesh.GetNakedEdges();
+        if (naked is null || naked.Length > 0) return Fin.Fail<Unit>(error: key.InvalidInput());
         double sumK = 0.0;
         for (int v = 0; v < defects.Count; v++) sumK += defects[index: v];
         double euler = sumK / (2.0 * Math.PI);
@@ -415,7 +421,7 @@ internal static class SpectralCore {
         }
         return new Arr<double>(grad);
     }
-    private static Arr<double> NegateInPlace(Arr<double> values) {
+    private static Arr<double> NegatedCopy(Arr<double> values) {
         int n = values.Count;
         double[] negated = new double[n];
         for (int i = 0; i < n; i++) negated[i] = -values[index: i];
@@ -430,16 +436,14 @@ internal static class SpectralCore {
         for (int s = 0; s < sources.Count; s++) delta[sources[index: s]] = mass[index: sources[index: s]];
         return new Arr<double>(delta);
     }
-    // Triplets for L_cot with a hard 1e10 pin at each source — breaks the constant-mode null
-    // space so the Poisson φ recovered from divergence has zero at the source. Falls back to
-    // pinning vertex 0 when no sources are supplied.
+    // Triplets for L_cot with a hard 1e10 pin at each source. Callers admit non-empty sources
+    // before assembly so a null-mode pin is never synthesized silently.
     internal static List<(int Row, int Col, double Value)> PoissonTriplets(SparseLaplacian L, Seq<int> sources) {
         List<(int Row, int Col, double Value)> result = [];
         for (int i = 0; i < L.Stiffness.Rows.Value; i++)
             for (int k = L.Stiffness.RowPtr[index: i]; k < L.Stiffness.RowPtr[index: i + 1]; k++)
                 result.Add(item: (i, L.Stiffness.ColInd[index: k], L.Stiffness.Values[index: k]));
-        Seq<int> pins = sources.IsEmpty ? Seq(0) : sources;
-        for (int i = 0; i < pins.Count; i++) result.Add(item: (pins[index: i], pins[index: i], 1.0e10));
+        for (int i = 0; i < sources.Count; i++) result.Add(item: (sources[index: i], sources[index: i], 1.0e10));
         return result;
     }
     // FEM gradient per triangle of a scalar field u: −∇u normalised to unit length.
@@ -487,60 +491,63 @@ internal static class SpectralCore {
     }
 
     // --- [DEC_ASSEMBLY] ---------------------------------------------------------------------
-    // DEC operators on a triangle mesh: d0 stores +1 at edge endpoint hi, -1 at lo (i<j);
-    // Star1[e] accumulates 0.5*(cot alpha + cot beta) across the two faces sharing e;
-    // d1[f,e] is +/-1 per GetEdgesForFace's sameOrientation contract.
     internal static Fin<DiscreteCalculus> Build(MeshSpace space, Op key) =>
-        space.Cache.Cotangent.Bind(L => AssembleDecOperators(mesh: space.Native, mass: L.MassLumped, key: key));
+        from imesh in space.Cache.IntrinsicMeshSnapshot
+        from laplacian in space.Cache.IntrinsicDelaunay
+        from dec in AssembleDecOperators(imesh: imesh, mass: laplacian.MassLumped, key: key)
+        select dec;
 
-    // BOUNDARY ADAPTER -- iterates Rhino's TopologyEdges and Faces directly; Seq materialisation
-    // doubles peak memory on dense meshes and obscures the per-face cot-weight accumulation.
-    private static Fin<DiscreteCalculus> AssembleDecOperators(Mesh mesh, Arr<double> mass, Op key) {
-        int vertCount = mesh.Vertices.Count;
-        int edgeCount = mesh.TopologyEdges.Count;
-        int faceCount = mesh.Faces.Count;
+    private static Fin<DiscreteCalculus> AssembleDecOperators(MeshKernel.IntrinsicMesh imesh, Arr<double> mass, Op key) {
+        int vertCount = imesh.VertexCount;
+        int edgeCount = imesh.EdgeCount;
+        int[] liveFaces = [.. imesh.LiveFaceIndices()];
+        int faceCount = liveFaces.Length;
         List<(int Row, int Col, double Value)> d0 = new(capacity: 2 * edgeCount);
         List<(int Row, int Col, double Value)> d1 = new(capacity: 3 * faceCount);
-        double[] star1 = new double[edgeCount];
+        Arr<double> star1 = ComputeIntrinsicStar1(imesh: imesh);
         double[] star2 = new double[faceCount];
         for (int e = 0; e < edgeCount; e++) {
-            IndexPair pair = mesh.TopologyEdges.GetTopologyVertices(topologyEdgeIndex: e);
-            int lo = Math.Min(val1: pair.I, val2: pair.J);
-            int hi = Math.Max(val1: pair.I, val2: pair.J);
-            d0.Add(item: (e, lo, -1.0));
-            d0.Add(item: (e, hi, +1.0));
+            MeshKernel.IntrinsicEdge edge = imesh.EdgeAt(index: e);
+            d0.Add(item: (e, edge.Lo, -1.0));
+            d0.Add(item: (e, edge.Hi, +1.0));
         }
-        for (int f = 0; f < faceCount; f++) {
-            MeshFace face = mesh.Faces[index: f];
-            if (!face.IsTriangle) continue;
-            Point3d pa = mesh.Vertices[index: face.A]; Point3d pb = mesh.Vertices[index: face.B]; Point3d pc = mesh.Vertices[index: face.C];
-            Vector3d ab = pb - pa; Vector3d ac = pc - pa; Vector3d bc = pc - pb;
-            double area = 0.5 * Vector3d.CrossProduct(a: ab, b: ac).Length;
+        for (int row = 0; row < faceCount; row++) {
+            int faceIdx = liveFaces[row];
+            (int A, int B, int C)? slot = imesh.Triangles[index: faceIdx];
+            if (slot is null) continue;
+            (int a, int b, int c) = slot.Value;
+            double area = imesh.AreaOfFace(faceIdx: faceIdx);
             if (area < DegenerateTriangleArea) continue;
-            star2[f] = 1.0 / area;
-            double cotA = -ab * -ac / (2.0 * area);
-            double cotB = ab * -bc / (2.0 * area);
-            double cotC = ac * bc / (2.0 * area);
-            int tvA = mesh.TopologyVertices.TopologyVertexIndex(vertexIndex: face.A);
-            int tvB = mesh.TopologyVertices.TopologyVertexIndex(vertexIndex: face.B);
-            int tvC = mesh.TopologyVertices.TopologyVertexIndex(vertexIndex: face.C);
-            int eBC = mesh.TopologyEdges.GetEdgeIndex(topologyVertex1: tvB, topologyVertex2: tvC);
-            int eCA = mesh.TopologyEdges.GetEdgeIndex(topologyVertex1: tvC, topologyVertex2: tvA);
-            int eAB = mesh.TopologyEdges.GetEdgeIndex(topologyVertex1: tvA, topologyVertex2: tvB);
-            if (eBC >= 0) star1[eBC] += 0.5 * cotA;
-            if (eCA >= 0) star1[eCA] += 0.5 * cotB;
-            if (eAB >= 0) star1[eAB] += 0.5 * cotC;
-            int[] edges = mesh.TopologyEdges.GetEdgesForFace(faceIndex: f, sameOrientation: out bool[] sameOrientation);
-            for (int k = 0; k < edges.Length; k++) {
-                if (edges[k] < 0) continue;
-                d1.Add(item: (f, edges[k], sameOrientation[k] ? 1.0 : -1.0));
-            }
+            star2[row] = 1.0 / area;
+            int[] edges = imesh.EdgesOfFace(faceIdx: faceIdx);
+            if (edges.Length != 3 || edges[0] < 0 || edges[1] < 0 || edges[2] < 0) continue;
+            d1.Add(item: (row, edges[0], EdgeOrientation(imesh: imesh, edgeIndex: edges[0], from: a, to: b)));
+            d1.Add(item: (row, edges[1], EdgeOrientation(imesh: imesh, edgeIndex: edges[1], from: b, to: c)));
+            d1.Add(item: (row, edges[2], EdgeOrientation(imesh: imesh, edgeIndex: edges[2], from: c, to: a)));
         }
         Dimension vDim = Dimension.Create(value: vertCount);
         Dimension eDim = Dimension.Create(value: edgeCount);
         Dimension fDim = Dimension.Create(value: faceCount);
-        return from D0 in SparseMatrix.FromTriplets(rows: eDim, cols: vDim, triplets: d0, key: key)
-               from D1 in SparseMatrix.FromTriplets(rows: fDim, cols: eDim, triplets: d1, key: key)
-               select new DiscreteCalculus(D0: D0, D1: D1, Star0: mass, Star1: new Arr<double>(star1), Star2: new Arr<double>(star2));
+        return mass.Count != vertCount
+            || !mass.ForAll(static value => RhinoMath.IsValidDouble(x: value) && value > 0.0)
+            || !BoundaryCompositionIsZero(d0: d0, d1: d1)
+            ? Fin.Fail<DiscreteCalculus>(key.InvalidResult())
+            : from D0 in SparseMatrix.FromTriplets(rows: eDim, cols: vDim, triplets: d0, key: key)
+              from D1 in SparseMatrix.FromTriplets(rows: fDim, cols: eDim, triplets: d1, key: key)
+              select new DiscreteCalculus(D0: D0, D1: D1, Star0: mass, Star1: star1, Star2: new Arr<double>(star2));
+    }
+    private static double EdgeOrientation(MeshKernel.IntrinsicMesh imesh, int edgeIndex, int from, int to) {
+        MeshKernel.IntrinsicEdge edge = imesh.EdgeAt(index: edgeIndex);
+        return edge.Lo == from && edge.Hi == to ? 1.0 : -1.0;
+    }
+    private static bool BoundaryCompositionIsZero(List<(int Row, int Col, double Value)> d0, List<(int Row, int Col, double Value)> d1) {
+        ILookup<int, (int Row, int Col, double Value)> d0ByEdge = d0.ToLookup(static row => row.Row);
+        Dictionary<(int Face, int Vertex), double> composed = [];
+        foreach ((int face, int edge, double fSign) in d1)
+            foreach ((int d0Edge, int vertex, double eSign) in d0ByEdge[key: edge]) {
+                (int Face, int Vertex) key = (face, vertex);
+                composed[key] = composed.GetValueOrDefault(key: key) + (fSign * eSign);
+            }
+        return composed.Values.All(static value => Math.Abs(value: value) <= RhinoMath.SqrtEpsilon);
     }
 }

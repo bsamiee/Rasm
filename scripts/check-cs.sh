@@ -8,7 +8,7 @@ ROOT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 readonly SCRIPT_DIR ROOT_DIR
 readonly SOLUTION_PATH="${ROOT_DIR}/Workspace.slnx" CHECK_CS_MAX_CPU="${CHECK_CS_MAX_CPU:-4}"
 readonly LOCK_ROOT="${ROOT_DIR}/.artifacts/locks"
-readonly -a PROJECT_EXCLUDE_ARGS=(--exclude .artifacts --exclude .cache --exclude .git --exclude .nx --exclude bin --exclude coverage --exclude node_modules --exclude obj --exclude test-results --exclude tmp)
+readonly -a PROJECT_EXCLUDE_ARGS=(--exclude .archive --exclude .artifacts --exclude .cache --exclude .git --exclude .nx --exclude bin --exclude coverage --exclude node_modules --exclude obj --exclude test-results --exclude tmp)
 readonly -a DOTNET_BUILD_ARGS=("-maxcpucount:${CHECK_CS_MAX_CPU}")
 readonly -a FULL_TRIGGER_FILES=(Directory.Build.props Directory.Build.targets Directory.Packages.props Workspace.slnx .editorconfig global.json)
 declare -Ar MODE_SPEC=([check]=changed [full]=full)

@@ -3,7 +3,6 @@ using Rasm.TestKit;
 using Rasm.Vectors;
 using Rhino;
 using Rhino.Geometry;
-using Xunit.Sdk;
 
 namespace Rasm.Tests.Vectors;
 
@@ -17,6 +16,8 @@ public static class AtomGens {
         VectorAngle.TryCreate(value: radians, obj: out VectorAngle v) ? v : throw new InvalidOperationException("generator invariant broken: angle"));
     public static readonly Gen<PositiveMagnitude> Magnitude = Gens.Positive.Select(static (double scalar) =>
         PositiveMagnitude.TryCreate(value: scalar, obj: out PositiveMagnitude m) ? m : throw new InvalidOperationException("generator invariant broken: magnitude"));
+    public static readonly Gen<UnitInterval> Unit = Gens.UnitClosed.Select(static (double scalar) =>
+        UnitInterval.TryCreate(value: scalar, obj: out UnitInterval u) ? u : throw new InvalidOperationException("generator invariant broken: unit interval"));
     public static readonly Gen<SignedAxis> Axis = Gen.OneOfConst(SignedAxis.PositiveX, SignedAxis.NegativeX, SignedAxis.PositiveY, SignedAxis.NegativeY, SignedAxis.PositiveZ, SignedAxis.NegativeZ);
     public static readonly Gen<BoundarySense> Sense = Gen.OneOfConst(BoundarySense.Toward, BoundarySense.Away);
 }
@@ -28,7 +29,7 @@ public sealed class VectorAngleProps {
         Spec.ForAll(Gens.Finite.Where(static x => x is < 0.0 or > 7.0), static r => Assert.False(VectorAngle.TryCreate(value: r, obj: out _)));
     [Fact]
     public void ClosureRejectsNonFinite() =>
-        Spec.ForAll(Gen.OneOfConst(double.NaN, double.PositiveInfinity, double.NegativeInfinity), static r => Assert.False(VectorAngle.TryCreate(value: r, obj: out _)));
+        Spec.ValueObjectRejects(invalid: Gens.NonFinite, tryCreate: static r => VectorAngle.TryCreate(value: r, obj: out _));
     [Fact]
     public void ClosureAcceptsUnitCircle() =>
         Spec.ForAll(Gens.UnitAngle, static r => Assert.True(VectorAngle.TryCreate(value: r, obj: out _)));
@@ -44,7 +45,7 @@ public sealed class PositiveMagnitudeProps {
         Spec.ForAll(Gens.Finite.Where(static x => x <= RhinoMath.ZeroTolerance), static x => Assert.False(PositiveMagnitude.TryCreate(value: x, obj: out _)));
     [Fact]
     public void ClosureRejectsNonFinite() =>
-        Spec.ForAll(Gen.OneOfConst(double.NaN, double.PositiveInfinity, double.NegativeInfinity), static x => Assert.False(PositiveMagnitude.TryCreate(value: x, obj: out _)));
+        Spec.ValueObjectRejects(invalid: Gens.NonFinite, tryCreate: static x => PositiveMagnitude.TryCreate(value: x, obj: out _));
     [Fact]
     public void ClosureAcceptsPositiveFinite() =>
         Spec.ForAll(Gens.Positive, static x => Assert.True(PositiveMagnitude.TryCreate(value: x, obj: out _)));
@@ -54,17 +55,37 @@ public sealed class PositiveMagnitudeProps {
             PositiveMagnitude.TryCreate(value: x, obj: out PositiveMagnitude m) ? m : throw new InvalidOperationException("roundtrip lost value"));
 }
 
+public sealed class UnitIntervalProps {
+    [Fact]
+    public void ClosureRejectsOutsideUnitRange() =>
+        Spec.ForAll(Gens.Finite.Where(static x => x is < 0.0 or > 1.0), static x => Assert.False(UnitInterval.TryCreate(value: x, obj: out _)));
+    [Fact]
+    public void ClosureRejectsNonFinite() =>
+        Spec.ValueObjectRejects(invalid: Gens.NonFinite, tryCreate: static x => UnitInterval.TryCreate(value: x, obj: out _));
+    [Fact]
+    public void ClosureAcceptsUnitRange() =>
+        Spec.ValueObjectAccepts(valid: Gens.UnitClosed, tryCreate: static x => UnitInterval.TryCreate(value: x, obj: out _));
+    [Fact]
+    public void ValueRoundtripsThroughFactory() =>
+        Spec.Roundtrip(AtomGens.Unit, forward: static (UnitInterval u) => u.Value, back: static (double x) =>
+            UnitInterval.TryCreate(value: x, obj: out UnitInterval u) ? u : throw new InvalidOperationException("roundtrip lost value"));
+}
+
 public sealed class BoundarySenseLaws {
-    [Fact] public void TowardCarriesPositiveUnitSign() => Assert.Equal(expected: 1.0, actual: BoundarySense.Toward.Sign);
-    [Fact] public void AwayCarriesNegativeUnitSign() => Assert.Equal(expected: -1.0, actual: BoundarySense.Away.Sign);
+    [Fact]
+    public void TowardCarriesPositiveUnitSign() => Assert.Equal(expected: 1.0, actual: BoundarySense.Toward.Sign);
+    [Fact]
+    public void AwayCarriesNegativeUnitSign() => Assert.Equal(expected: -1.0, actual: BoundarySense.Away.Sign);
     [Fact]
     public void SignIsUnitMagnitudeForEveryCase() =>
         Spec.ForAll(AtomGens.Sense, static s => Spec.EqualWithin(left: Math.Abs(s.Sign), right: 1.0, tolerance: 0.0, what: "sense unit magnitude"));
 }
 
 public sealed class SignedAxisLaws {
-    [Fact] public void CardinalPlanarYieldsFourAxes() => Assert.Equal(expected: 4, actual: SignedAxis.Cardinal(planar: true).Count);
-    [Fact] public void CardinalFullYieldsSixAxes() => Assert.Equal(expected: 6, actual: SignedAxis.Cardinal(planar: false).Count);
+    [Fact]
+    public void CardinalPlanarYieldsFourAxes() => Assert.Equal(expected: 4, actual: SignedAxis.Cardinal(planar: true).Count);
+    [Fact]
+    public void CardinalFullYieldsSixAxes() => Assert.Equal(expected: 6, actual: SignedAxis.Cardinal(planar: false).Count);
     [Fact]
     public void WorldAxisIsUnitLength() =>
         Spec.ForAll(AtomGens.Axis, static a => Spec.EqualWithin(left: a.World.Length, right: 1.0, tolerance: 1.0e-12, what: "axis world length"));
@@ -75,11 +96,11 @@ public sealed class SignedAxisLaws {
     }
     [Fact]
     public void CrossProductIsPerpendicularToBothInputs() =>
-        AtomGens.Axis.Select(AtomGens.Axis).Sample(static (SignedAxis a, SignedAxis b) => {
+        Spec.ForAll(AtomGens.Axis.Select(AtomGens.Axis), static p => {
+            (SignedAxis a, SignedAxis b) = p;
             Vector3d cross = Vector3d.CrossProduct(a: a.World, b: b.World);
-            return Math.Abs(value: cross * a.World) < 1.0e-12 && Math.Abs(value: cross * b.World) < 1.0e-12
-                ? true
-                : throw new XunitException($"cross={cross} not ⊥ to a={a.World} (dot={cross * a.World}) or b={b.World} (dot={cross * b.World})");
+            Spec.Holds(
+                condition: Math.Abs(value: cross * a.World) < 1.0e-12 && Math.Abs(value: cross * b.World) < 1.0e-12,
+                label: $"cross={cross} not perpendicular to a={a.World} or b={b.World}");
         });
 }
-

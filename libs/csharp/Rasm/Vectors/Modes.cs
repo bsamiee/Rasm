@@ -4,9 +4,15 @@ namespace Rasm.Vectors;
 [SmartEnum<int>]
 public sealed partial class CurveProjection {
     public static readonly CurveProjection Tangent = new(key: 0,
-        sample: static (curve, t, _) => Fin.Succ((object)curve.TangentAt(t: t)));
+        sample: static (curve, t, _) => curve.TangentAt(t: t) switch {
+            Vector3d tangent when tangent.IsValid && !tangent.IsTiny() => Fin.Succ((object)tangent),
+            _ => Fin.Fail<object>(Op.Of().InvalidResult()),
+        });
     public static readonly CurveProjection Curvature = new(key: 1,
-        sample: static (curve, t, _) => Fin.Succ((object)curve.CurvatureAt(t: t)));
+        sample: static (curve, t, _) => curve.CurvatureAt(t: t) switch {
+            Vector3d curvature when curvature.IsValid => Fin.Succ((object)curvature),
+            _ => Fin.Fail<object>(Op.Of().InvalidResult()),
+        });
     public static readonly CurveProjection FrenetFrame = new(key: 2,
         sample: static (curve, t, _) => curve.FrameAt(t: t, plane: out Plane p)
             ? Fin.Succ((object)p)
@@ -16,7 +22,10 @@ public sealed partial class CurveProjection {
             ? Fin.Succ((object)p)
             : Fin.Fail<object>(Op.Of().InvalidResult()));
     public static readonly CurveProjection ArcLength = new(key: 4,
-        sample: static (curve, t, context) => Fin.Succ((object)curve.GetLength(fractionalTolerance: context.Fractional, subdomain: new Interval(curve.Domain.T0, t))));
+        sample: static (curve, t, context) => curve.GetLength(fractionalTolerance: context.Fractional, subdomain: new Interval(curve.Domain.T0, t)) switch {
+            double length when RhinoMath.IsValidDouble(x: length) && length >= 0.0 => Fin.Succ((object)length),
+            _ => Fin.Fail<object>(Op.Of().InvalidResult()),
+        });
     [UseDelegateFromConstructor] private partial Fin<object> Sample(Curve curve, double parameter, Context context);
     internal Fin<TOut> Project<TOut>(Curve curve, double parameter, Context context, Op key) =>
         from _ in guard(curve.Domain.IncludesParameter(t: parameter), key.InvalidInput())
@@ -43,30 +52,40 @@ public sealed partial class SurfaceProjection {
     public static readonly SurfaceProjection Mean = new(key: 2,
         sample: static sc => Fin.Succ((object)sc.Mean));
     public static readonly SurfaceProjection OsculatingCircle = new(key: 3,
-        sample: static sc => sc.OsculatingCircle(0).IsValid
-            ? Fin.Succ((object)sc.OsculatingCircle(0))
-            : Fin.Fail<object>(Op.Of().InvalidResult()));
+        sample: static sc => sc.OsculatingCircle(0) switch {
+            Circle circle when circle.IsValid => Fin.Succ((object)circle),
+            _ => Fin.Fail<object>(Op.Of().InvalidResult()),
+        });
     public static readonly SurfaceProjection Normal = new(key: 4,
         sample: static sc => Fin.Succ((object)sc.Normal));
-    // Shape operator (k1, k2, e1, e2) as a ValueTuple. SurfaceCurvature.Direction(0)/Direction(1)
-    // expose the principal eigenvectors in world space; Kappa(0)/Kappa(1) the matching scalars.
     public static readonly SurfaceProjection ShapeOperator = new(key: 5,
-        sample: static sc => Fin.Succ((object)new ValueTuple<double, double, Vector3d, Vector3d>(
-            sc.Kappa(direction: 0), sc.Kappa(direction: 1), sc.Direction(direction: 0), sc.Direction(direction: 1))));
+        sample: static sc => SymmetricMatrix.Of(
+            dim: Dimension.Create(value: 3),
+            upper: new Arr<double>([
+                (sc.Kappa(direction: 0) * sc.Direction(direction: 0).X * sc.Direction(direction: 0).X) + (sc.Kappa(direction: 1) * sc.Direction(direction: 1).X * sc.Direction(direction: 1).X),
+                (sc.Kappa(direction: 0) * sc.Direction(direction: 0).X * sc.Direction(direction: 0).Y) + (sc.Kappa(direction: 1) * sc.Direction(direction: 1).X * sc.Direction(direction: 1).Y),
+                (sc.Kappa(direction: 0) * sc.Direction(direction: 0).X * sc.Direction(direction: 0).Z) + (sc.Kappa(direction: 1) * sc.Direction(direction: 1).X * sc.Direction(direction: 1).Z),
+                (sc.Kappa(direction: 0) * sc.Direction(direction: 0).Y * sc.Direction(direction: 0).Y) + (sc.Kappa(direction: 1) * sc.Direction(direction: 1).Y * sc.Direction(direction: 1).Y),
+                (sc.Kappa(direction: 0) * sc.Direction(direction: 0).Y * sc.Direction(direction: 0).Z) + (sc.Kappa(direction: 1) * sc.Direction(direction: 1).Y * sc.Direction(direction: 1).Z),
+                (sc.Kappa(direction: 0) * sc.Direction(direction: 0).Z * sc.Direction(direction: 0).Z) + (sc.Kappa(direction: 1) * sc.Direction(direction: 1).Z * sc.Direction(direction: 1).Z)]),
+            key: Op.Of()).Map(static value => (object)value));
     [UseDelegateFromConstructor] private partial Fin<object> Sample(SurfaceCurvature curvature);
     internal Fin<TOut> Project<TOut>(Surface surface, double u, double v, Context context, Op key) =>
-        from _ in guard(surface.Domain(direction: 0).IncludesParameter(t: u) && surface.Domain(direction: 1).IncludesParameter(t: v), key.InvalidInput())
-        from output in surface.CurvatureAt(u: u, v: v) is SurfaceCurvature sc && sc.IsSet
+        from uv in GeometryKernel.SurfaceUv(surface: surface, uv: new Point2d(x: u, y: v), context: context, key: key)
+        from output in surface.CurvatureAt(u: uv.X, v: uv.Y) is SurfaceCurvature sc && sc.IsSet
             ? new Lease<SurfaceCurvature>.Owned(Value: sc).Use(curvature =>
                 from raw in Sample(curvature: curvature).BindFail(_ => Fin.Fail<object>(key.InvalidResult()))
                 from projected in (raw, typeof(TOut)) switch {
                     (double d, Type t) when t == typeof(double) => key.AcceptValue(value: (TOut)(object)d),
                     (Circle c, Type t) when t == typeof(Circle) => key.AcceptValue(value: (TOut)(object)c),
-                    (Vector3d n, Type t) when t == typeof(Vector3d) => key.AcceptValue(value: (TOut)(object)n),
+                    (Vector3d n, Type t) when t == typeof(Vector3d) => ReferenceEquals(objA: this, objB: Normal)
+                        ? GeometryKernel.NormalAt(surface: surface, uv: uv, key: key).Map(static value => (TOut)(object)value)
+                        : key.AcceptValue(value: (TOut)(object)n),
                     (Seq<double> ks, Type t) when t == typeof(Seq<double>) =>
                         ks.TraverseM(k => key.AcceptValue(value: k)).As().Map(static valid => (TOut)(object)valid),
-                    (ValueTuple<double, double, Vector3d, Vector3d> tuple, Type t) when t == typeof(ValueTuple<double, double, Vector3d, Vector3d>) =>
-                        key.AcceptValue(value: tuple).Map(static v => (TOut)(object)v),
+                    (SymmetricMatrix matrix, Type t) when t == typeof(SymmetricMatrix) && matrix.IsValid =>
+                        key.AcceptValue(value: matrix).Map(static v => (TOut)(object)v),
+                    (SymmetricMatrix, Type t) when t == typeof(SymmetricMatrix) => Fin.Fail<TOut>(error: key.InvalidResult()),
                     _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(SurfaceProjection), outputType: typeof(TOut))),
                 }
                 select projected)
@@ -80,20 +99,22 @@ public sealed partial class MotionInterpolation {
         interpolate: static (a, b, t) => InterpolatePlanes(a: a, b: b, t: t, spherical: false));
     public static readonly MotionInterpolation Slerp = new(key: 1,
         interpolate: static (a, b, t) => InterpolatePlanes(a: a, b: b, t: t, spherical: true));
-    [UseDelegateFromConstructor] internal partial Fin<Plane> Interpolate(Plane a, Plane b, double t);
+    [UseDelegateFromConstructor] internal partial Fin<Plane> Interpolate(Plane a, Plane b, UnitInterval t);
 
-    private static Fin<Plane> InterpolatePlanes(Plane a, Plane b, double t, bool spherical) {
+    private static Fin<Plane> InterpolatePlanes(Plane a, Plane b, UnitInterval t, bool spherical) {
+        Op op = Op.Of();
+        if (!a.IsValid || !b.IsValid) return Fin.Fail<Plane>(op.InvalidInput());
         if (a.EpsilonEquals(other: b, epsilon: RhinoMath.ZeroTolerance)) return Fin.Succ(a);
         Quaternion qa = Quaternion.Rotation(plane0: Plane.WorldXY, plane1: a);
         Quaternion qb = Quaternion.Rotation(plane0: Plane.WorldXY, plane1: b);
         Quaternion qt = spherical
-            ? Quaternion.Slerp(a: qa, b: qb, t: t)
-            : Quaternion.Lerp(a: qa, b: qb, t: t);
+            ? Quaternion.Slerp(a: qa, b: qb, t: t.Value)
+            : Quaternion.Lerp(a: qa, b: qb, t: t.Value);
         Point3d origin = a.Origin;
-        origin.Interpolate(pA: a.Origin, pB: b.Origin, t: t);
+        origin.Interpolate(pA: a.Origin, pB: b.Origin, t: t.Value);
         return qt.GetRotation(plane: out Plane oriented) && oriented.IsValid
             ? Fin.Succ(new Plane(origin: origin, xDirection: oriented.XAxis, yDirection: oriented.YAxis))
-            : Fin.Fail<Plane>(Op.Of().InvalidResult());
+            : Fin.Fail<Plane>(op.InvalidResult());
     }
 }
 

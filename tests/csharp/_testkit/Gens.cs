@@ -7,11 +7,24 @@ namespace Rasm.TestKit;
 public static class Gens {
     // --- [SCALARS] -------------------------------------------------------------------------
     public static readonly Gen<double> Finite = Gen.Double[start: -1.0e6, finish: 1.0e6];
+    public static readonly Gen<double> NonFinite = Gen.OneOfConst(double.NaN, double.PositiveInfinity, double.NegativeInfinity);
+    public static readonly Gen<double> NonPositive = Finite.Where(predicate: static x => x <= 0.0);
     public static readonly Gen<double> Positive = Gen.Double[start: 1.0e-6, finish: 1.0e6];
     public static readonly Gen<double> PositiveFinite = Finite.Where(predicate: static x => x > 0.0);
     public static readonly Gen<double> Tolerance = Gen.Double[start: 1.0e-12, finish: 1.0e-3];
+    public static readonly Gen<double> UnitClosed = Gen.Frequency((98, Gen.Double.Unit), (1, Gen.Const(value: 0.0)), (1, Gen.Const(value: 1.0)));
+    public static readonly Gen<double> UnitInterior = Gen.Double[start: double.Epsilon, finish: 1.0 - double.Epsilon];
     public static readonly Gen<double> UnitAngle = Gen.Double[start: 0.0, finish: 2.0 * Math.PI];
     public static readonly Gen<double> Probability = Gen.Double.Unit;
+    public static readonly Gen<int> SmallDimension = Gen.Int[start: 1, finish: 8];
+    public static Gen<Seq<double>> Simplex(int count) =>
+        count switch {
+            <= 0 => Gen.Const(value: Seq<double>()),
+            _ => Positive.Array[count].Select(static values => {
+                double total = values.Sum();
+                return toSeq(values.Select(value => value / total));
+            }),
+        };
 
     // --- [GEOMETRY] ------------------------------------------------------------------------
     public static readonly Gen<Point3d> Point = Finite.Select(Finite, Finite, static (double x, double y, double z) => new Point3d(x: x, y: y, z: z));

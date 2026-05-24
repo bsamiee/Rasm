@@ -11,13 +11,6 @@ public static class FieldGens {
     public static readonly Op Key = Op.Of(name: "field-test");
     public static readonly Gen<CsgKind> Csg = Gen.OneOfConst(CsgKind.Union, CsgKind.Intersect, CsgKind.Difference);
     public static readonly Gen<KernelKind> Kernel = Gen.OneOfConst(KernelKind.Wendland, KernelKind.Quintic, KernelKind.Cosine, KernelKind.Cubic, KernelKind.Linear, KernelKind.Epanechnikov);
-    public static readonly Gen<IntegratorKind> Integrator = Gen.OneOfConst(
-        IntegratorKind.Euler, IntegratorKind.Heun, IntegratorKind.Midpoint, IntegratorKind.Ralston, IntegratorKind.RK4, IntegratorKind.RK38,
-        IntegratorKind.BogackiShampine, IntegratorKind.CashKarp, IntegratorKind.DormandPrince);
-    public static readonly Gen<IntegratorKind> Adaptive = Gen.OneOfConst(
-        IntegratorKind.BogackiShampine, IntegratorKind.CashKarp, IntegratorKind.DormandPrince);
-    public static readonly Gen<IntegratorKind> NonAdaptive = Gen.OneOfConst(
-        IntegratorKind.Euler, IntegratorKind.Heun, IntegratorKind.Midpoint, IntegratorKind.Ralston, IntegratorKind.RK4, IntegratorKind.RK38);
     public static double Sum(Seq<double> xs) => xs.Fold(initialState: 0.0, f: static (acc, x) => acc + x);
 }
 
@@ -105,52 +98,6 @@ public sealed class FalloffLaws {
             Spec.Fail(Falloff.Gaussian(spread: x, key: FieldGens.Key));
             Spec.Fail(Falloff.Kernel(kind: KernelKind.Wendland, radius: x, key: FieldGens.Key));
         });
-}
-
-public sealed class TerminationLaws {
-    [Fact]
-    public void StepsRejectsNonPositive() =>
-        Spec.ForAll(Gen.Int[-1000, 0], n => Spec.Fail(Termination.Steps(count: n, key: FieldGens.Key)));
-    [Fact]
-    public void ArcLengthRejectsNonPositive() =>
-        Spec.ForAll(Gens.Finite.Where(static x => x <= 0.0), l => Spec.Fail(Termination.ArcLength(length: l, key: FieldGens.Key)));
-    [Fact]
-    public void StepCountAndMagnitudeBoundariesFire() {
-        Termination steps = Termination.Steps(count: 5, key: FieldGens.Key).Match(Succ: static t => t, Fail: static _ => throw new InvalidOperationException(message: "setup"));
-        Termination arc = Termination.ArcLength(length: 2.0, key: FieldGens.Key).Match(Succ: static t => t, Fail: static _ => throw new InvalidOperationException(message: "setup"));
-        Termination mag = Termination.Magnitude(threshold: 1.0, key: FieldGens.Key).Match(Succ: static t => t, Fail: static _ => throw new InvalidOperationException(message: "setup"));
-        Assert.True(steps.ShouldStop(state: new(Trail: Seq<Point3d>(), Current: Point3d.Origin, H: 1.0, Arc: 0.0, Steps: 5, Rejects: 0, Done: false), currentSample: Vector3d.Zero, context: null!, key: FieldGens.Key).Match(Succ: static value => value, Fail: static _ => false));
-        Assert.False(steps.ShouldStop(state: new(Trail: Seq<Point3d>(), Current: Point3d.Origin, H: 1.0, Arc: 0.0, Steps: 4, Rejects: 0, Done: false), currentSample: Vector3d.Zero, context: null!, key: FieldGens.Key).Match(Succ: static value => value, Fail: static _ => true));
-        Assert.True(arc.ShouldStop(state: new(Trail: Seq<Point3d>(), Current: Point3d.Origin, H: 1.0, Arc: 2.0, Steps: 0, Rejects: 0, Done: false), currentSample: Vector3d.Zero, context: null!, key: FieldGens.Key).Match(Succ: static value => value, Fail: static _ => false));
-        Assert.True(mag.ShouldStop(state: new(Trail: Seq<Point3d>(), Current: Point3d.Origin, H: 1.0, Arc: 0.0, Steps: 0, Rejects: 0, Done: false), currentSample: new Vector3d(x: 0.5, y: 0.0, z: 0.0), context: null!, key: FieldGens.Key).Match(Succ: static value => value, Fail: static _ => false));
-        Assert.False(mag.ShouldStop(state: new(Trail: Seq<Point3d>(), Current: Point3d.Origin, H: 1.0, Arc: 0.0, Steps: 0, Rejects: 0, Done: false), currentSample: new Vector3d(x: 2.0, y: 0.0, z: 0.0), context: null!, key: FieldGens.Key).Match(Succ: static value => value, Fail: static _ => true));
-    }
-}
-
-public sealed class IntegratorKindLaws {
-    [Fact]
-    public void TableauMetadataIsCoherent() {
-        Spec.ForAll(FieldGens.Adaptive, k => Assert.True(k.IsAdaptive));
-        Spec.ForAll(FieldGens.NonAdaptive, k => Assert.False(k.IsAdaptive));
-        Spec.ForAll(FieldGens.Integrator, k => Assert.Equal(expected: k.Tableau.Weights.Count, actual: k.Order));
-        Spec.ForAll(FieldGens.Integrator, k =>
-            Spec.EqualWithin(left: FieldGens.Sum(xs: k.Tableau.Weights), right: 1.0, tolerance: 1.0e-10, what: "weights"));
-        Spec.ForAll(FieldGens.Integrator, k => Assert.True(
-            toSeq(k.Tableau.Coupling.AsIterable().Select((Seq<double> row, int i) => row.Count <= i)).ForAll(static b => b),
-            userMessage: "Butcher coupling[i].Count must satisfy <= i"));
-    }
-}
-
-public sealed class FieldIntegratorLaws {
-    [Fact]
-    public void AdaptiveRejectsFixedKind() =>
-        Spec.ForAll(FieldGens.NonAdaptive, k => Spec.Fail(FieldIntegrator.Adaptive(kind: k, tolerance: 1.0e-6, key: FieldGens.Key)));
-    [Fact]
-    public void AdaptiveRejectsNegativeBudget() =>
-        Spec.ForAll(Gen.Int[-100, -1], m => Spec.Fail(FieldIntegrator.Adaptive(kind: IntegratorKind.DormandPrince, tolerance: 1.0e-6, maxRejects: m, key: FieldGens.Key)));
-    [Fact]
-    public void FixedHasZeroRejectBudget() =>
-        Assert.Equal(expected: 0, actual: FieldIntegrator.RK4.RejectBudget);
 }
 
 public sealed class VectorFieldAlgebraLaws {

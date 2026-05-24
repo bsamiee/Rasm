@@ -21,12 +21,12 @@ public abstract partial record VectorIntent {
     public sealed record RelationCase(Vector3d A, Vector3d B) : VectorIntent;
     public sealed record BounceCase(Direction Incident, SupportSpace Surface, Point3d Query, BouncePolicy Policy) : VectorIntent;
     public sealed record StreamlineCase(VectorField Source, Point3d Seed, PositiveMagnitude InitialStep, FieldIntegrator Integrator, Termination Termination) : VectorIntent;
-    public sealed record LerpCase(Vector3d A, Vector3d B, double Parameter) : VectorIntent;
-    public sealed record SlerpCase(Direction A, Direction B, double Parameter) : VectorIntent;
+    public sealed record LerpCase(Vector3d A, Vector3d B, UnitInterval Parameter) : VectorIntent;
+    public sealed record SlerpCase(Direction A, Direction B, UnitInterval Parameter) : VectorIntent;
     public sealed record ProjectOntoCase(Vector3d Value, Plane Target) : VectorIntent;
     public sealed record MirrorCase(Vector3d Value, Plane Across) : VectorIntent;
     public sealed record SurfaceCase(SurfaceSpace SurfaceSource, double U, double V, SurfaceProjection Mode) : VectorIntent;
-    public sealed record PoseCase(Plane From, Plane To, double Parameter, MotionInterpolation Mode) : VectorIntent;
+    public sealed record PoseCase(Plane From, Plane To, UnitInterval Parameter, MotionInterpolation Mode) : VectorIntent;
     public sealed record TensorCase(TensorField Source, Point3d Point) : VectorIntent;
     public sealed record MeshOperatorCase(ScalarField MeshField, Point3d Point) : VectorIntent;
     public sealed record FlattenCase(MeshSpace Space) : VectorIntent;
@@ -103,7 +103,7 @@ public abstract partial record VectorIntent {
         streamlineCase: static (state, intent) => FlowKernel.Trace<TOut>(source: intent.Source, seed: intent.Seed, initialStep: intent.InitialStep, integrator: intent.Integrator, termination: intent.Termination, context: state.Context, key: state.Key),
         lerpCase: static (state, intent) =>
             from direction in Vectors.Direction.Of(
-                value: ((1.0 - intent.Parameter) * intent.A) + (intent.Parameter * intent.B),
+                value: ((1.0 - intent.Parameter.Value) * intent.A) + (intent.Parameter.Value * intent.B),
                 context: state.Context, key: state.Key)
             from output in direction.Project<TOut>(key: state.Key)
             select output,
@@ -115,7 +115,7 @@ public abstract partial record VectorIntent {
                     : Fin.Fail<Quaternion>(state.Key.InvalidResult()),
             }
             from direction in Vectors.Direction.Of(
-                value: Quaternion.Slerp(a: Quaternion.Identity, b: rotation, t: intent.Parameter).Rotate(v: intent.A.Value),
+                value: Quaternion.Slerp(a: Quaternion.Identity, b: rotation, t: intent.Parameter.Value).Rotate(v: intent.A.Value),
                 context: state.Context,
                 key: state.Key)
             from output in direction.Project<TOut>(key: state.Key)
@@ -167,15 +167,25 @@ public abstract partial record VectorIntent {
             }
             select output,
         sampleCase: static (state, intent) =>
-            from cloud in intent.Kind.Sample(domain: intent.Domain, context: state.Context, key: state.Key)
-            from output in typeof(TOut) == typeof(VectorCloud)
-                ? state.Key.AcceptValue(value: cloud).Map(static v => (TOut)(object)v)
-                : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(SampleCase), outputType: typeof(TOut)))
+            from output in typeof(TOut) switch {
+                Type t when t == typeof(VectorCloud) =>
+                    intent.Kind.Sample(domain: intent.Domain, context: state.Context, key: state.Key).Map(static v => (TOut)(object)v),
+                Type t when t == typeof(SampleReceipt) =>
+                    intent.Kind.SampleReceipt(domain: intent.Domain, context: state.Context, key: state.Key).Map(static v => (TOut)(object)v),
+                _ => Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(SampleCase), outputType: typeof(TOut))),
+            }
             select output,
         alignCase: static (state, intent) =>
-            from transform in intent.Kind.Align(source: intent.Source, target: intent.Target, key: state.Key)
             from output in typeof(TOut) switch {
-                Type t when t == typeof(Transform) => state.Key.AcceptValue(value: transform).Map(static v => (TOut)(object)v),
+                Type t when t == typeof(Transform) || t == typeof(AlignmentReceipt) =>
+                    from receipt in intent.Kind.AlignDetailed(source: intent.Source, target: intent.Target, key: state.Key)
+                    from projected in typeof(TOut) switch {
+                        Type tt when tt == typeof(Transform) && receipt.Stop.Equals(AlignmentStopKind.Converged) =>
+                            state.Key.AcceptValue(value: receipt.Transform).Map(static v => (TOut)(object)v),
+                        Type tt when tt == typeof(Transform) => Fin.Fail<TOut>(error: state.Key.InvalidResult()),
+                        _ => state.Key.AcceptValue(value: receipt).Map(static v => (TOut)(object)v),
+                    }
+                    select projected,
                 _ => Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(AlignCase), outputType: typeof(TOut))),
             }
             select output,
@@ -248,18 +258,21 @@ public abstract partial record VectorIntent {
         return op.AcceptValidated<PositiveMagnitude>(candidate: initialStep)
             .Map(h => (VectorIntent)new StreamlineCase(Source: field, Seed: seed, InitialStep: h, Integrator: integrator ?? FieldIntegrator.RK4, Termination: termination));
     }
-    public static VectorIntent Lerp(Vector3d a, Vector3d b, double t) =>
-        new LerpCase(A: a, B: b, Parameter: Math.Clamp(value: t, min: 0.0, max: 1.0));
-    public static VectorIntent Slerp(Direction a, Direction b, double t) =>
-        new SlerpCase(A: a, B: b, Parameter: Math.Clamp(value: t, min: 0.0, max: 1.0));
+    public static Fin<VectorIntent> Lerp(Vector3d a, Vector3d b, double t, Op? key = null) =>
+        key.OrDefault().AcceptValidated<UnitInterval>(candidate: t)
+            .Map(unit => (VectorIntent)new LerpCase(A: a, B: b, Parameter: unit));
+    public static Fin<VectorIntent> Slerp(Direction a, Direction b, double t, Op? key = null) =>
+        key.OrDefault().AcceptValidated<UnitInterval>(candidate: t)
+            .Map(unit => (VectorIntent)new SlerpCase(A: a, B: b, Parameter: unit));
     public static VectorIntent ProjectOnto(Vector3d value, Plane target) =>
         new ProjectOntoCase(Value: value, Target: target);
     public static VectorIntent Mirror(Vector3d value, Plane across) =>
         new MirrorCase(Value: value, Across: across);
     public static VectorIntent OnSurface(SurfaceSpace space, double u, double v, SurfaceProjection mode) =>
         new SurfaceCase(SurfaceSource: space, U: u, V: v, Mode: mode);
-    public static VectorIntent Pose(Plane from, Plane to, double t, MotionInterpolation mode) =>
-        new PoseCase(From: from, To: to, Parameter: Math.Clamp(value: t, min: 0.0, max: 1.0), Mode: mode);
+    public static Fin<VectorIntent> Pose(Plane from, Plane to, double t, MotionInterpolation mode, Op? key = null) =>
+        key.OrDefault().AcceptValidated<UnitInterval>(candidate: t)
+            .Map(unit => (VectorIntent)new PoseCase(From: from, To: to, Parameter: unit, Mode: mode));
     public static VectorIntent Tensor(TensorField source, Point3d point) =>
         new TensorCase(Source: source, Point: point);
     public static VectorIntent MeshOperator(ScalarField meshField, Point3d point) =>
@@ -274,10 +287,7 @@ public abstract partial record VectorIntent {
         new AlignCase(Source: source, Target: target, Kind: kind);
     public static VectorIntent Remesh(MeshSpace space, RemeshKind kind) =>
         new RemeshCase(Space: space, Kind: kind);
-    // Chizat-Peyré-Schmitzer-Vialard 2018 unbalanced Sinkhorn: massRelaxation = None gives the
-    // balanced transport (existing behaviour); Some(lambda) penalises marginal mass deviation
-    // via KL divergence with weight lambda, enabling cross-domain cloud matching where total
-    // source mass != total target mass.
+    // massRelaxation changes the KL marginal penalty over normalized uniform masses.
     public static Fin<VectorIntent> Transport(VectorCloud source, VectorCloud target, double regularization, int maxIterations, bool debiased = false, double? massRelaxation = null, Op? key = null) {
         Op op = key.OrDefault();
         return from reg in op.AcceptValidated<PositiveMagnitude>(candidate: regularization)

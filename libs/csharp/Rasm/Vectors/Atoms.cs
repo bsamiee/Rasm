@@ -36,6 +36,15 @@ public readonly partial struct PositiveMagnitude {
             : new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"PositiveMagnitude requires a positive finite value (got {value:R})."));
 }
 
+[ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+public readonly partial struct UnitInterval {
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
+        validationError = RhinoMath.IsValidDouble(x: value) && value is >= 0.0 and <= 1.0
+            ? null
+            : new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"UnitInterval must be in [0,1] (got {value:R})."));
+}
+
 [ValueObject<int>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct Dimension {
     [BoundaryAdapter]
@@ -173,18 +182,16 @@ public readonly record struct VectorSpan {
     public Line Axis => new(from: Anchor, to: Anchor + Value);
     public static Fin<VectorSpan> Of(Point3d anchor, Vector3d vector, Context context, Op? key = null) {
         Op op = key.OrDefault();
-        return from point in op.AcceptValue(value: anchor)
-               from direction in Direction.Of(value: vector, context: context, key: op)
-               from magnitude in op.AcceptValidated<PositiveMagnitude>(candidate: vector.Length)
-               let span = new VectorSpan(anchor: point, direction: direction, magnitude: magnitude)
-               from _ in guard(span.Axis.IsValid, op.InvalidResult())
+        return from direction in Direction.Of(value: vector, context: context, key: op)
+               from span in Of(anchor: anchor, direction: direction, magnitude: vector.Length, key: op)
                select span;
     }
     internal static Fin<VectorSpan> Of(Point3d anchor, Direction direction, double magnitude, Op key) =>
-        (key.AcceptValue(value: anchor), key.AcceptValidated<PositiveMagnitude>(candidate: magnitude))
-            .Apply((point, length) => new VectorSpan(anchor: point, direction: direction, magnitude: length))
-            .As()
-            .Bind(span => guard(span.Axis.IsValid, key.InvalidResult()).Bind(_ => Fin.Succ(span)));
+        from point in key.AcceptValue(value: anchor)
+        from length in key.AcceptValidated<PositiveMagnitude>(candidate: magnitude)
+        let span = new VectorSpan(anchor: point, direction: direction, magnitude: length)
+        from _ in guard(span.Axis.IsValid, key.InvalidResult())
+        select span;
     internal Fin<(double X, double Y)> Components(Plane frame, Op key) {
         Vector3d value = Value;
         return key.AcceptValue(value: frame).Bind(validFrame =>
@@ -275,14 +282,28 @@ public readonly record struct VectorCone {
         return from model in Optional(context).ToFin(op.MissingContext())
                from _ in guard(left.Apex.DistanceTo(other: right.Apex) <= model.Absolute.Value, op.InvalidInput())
                from between in VectorAngle.Of(a: left.Axis, b: right.Axis, pivot: AnglePivot.World, key: op)
-               let widest = Math.Max(val1: left.HalfAngle.Value, val2: right.HalfAngle.Value)
-               let combined = Math.Min(val1: Math.PI, val2: Math.Max(val1: widest, val2: (between.Value * 0.5) + widest))
-               from bisector in (left.Axis.Value + right.Axis.Value) switch {
-                   Vector3d sum when !sum.IsTiny() => Direction.Of(value: sum, context: model, key: op),
-                   _ => Direction.Of(value: VectorFrame.SeedPerpendicular(axis: left.Axis.Value), context: model, key: op),
-               }
-               from result in Of(apex: left.Apex, axis: bisector.Value, halfAngleRadians: combined, context: model, key: op)
+               from result in EncloseResolved(left: left, right: right, theta: between.Value, context: model, key: op)
                select result;
+    }
+    private static Fin<VectorCone> EncloseResolved(VectorCone left, VectorCone right, double theta, Context context, Op key) {
+        double a = left.HalfAngle.Value;
+        double b = right.HalfAngle.Value;
+        double tolerance = context.Angle.Value;
+        double half = (theta + a + b) * 0.5;
+        return (theta + b <= a + tolerance, theta + a <= b + tolerance, theta <= tolerance) switch {
+            (true, _, _) => Fin.Succ(left),
+            (_, true, _) => Fin.Succ(right),
+            (_, _, true) => Of(apex: left.Apex, axis: (a >= b ? left : right).Axis.Value, halfAngleRadians: Math.Max(val1: a, val2: b), context: context, key: key),
+            _ => from _ in guard(half <= Math.PI + tolerance, key.InvalidInput())
+                 let cross = Vector3d.CrossProduct(a: left.Axis.Value, b: right.Axis.Value)
+                 let rotationAxis = cross.IsTiny(context.Absolute.Value) ? VectorFrame.SeedPerpendicular(axis: left.Axis.Value) : cross
+                 from axis in Direction.Of(
+                     value: Transform.Rotation(angleRadians: half - a, rotationAxis: rotationAxis, rotationCenter: Point3d.Origin) * left.Axis.Value,
+                     context: context,
+                     key: key)
+                 from result in Of(apex: left.Apex, axis: axis.Value, halfAngleRadians: Math.Min(val1: Math.PI, val2: half), context: context, key: key)
+                 select result,
+        };
     }
     public Fin<Seq<Direction>> PartitionBy(int sectors, Context context, Op? key = null) {
         Op op = key.OrDefault();

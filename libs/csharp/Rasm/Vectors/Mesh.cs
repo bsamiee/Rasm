@@ -19,15 +19,15 @@ public readonly record struct MeshSpace {
         Native = native;
         Tolerance = tolerance;
     }
-    public Mesh Native { get; }
+    internal Mesh Native { get; }
     public Context Tolerance { get; }
+    public Mesh DuplicateNative() => Native.DuplicateMesh();
     public static Fin<MeshSpace> Of(Mesh native, Context context, Op? key = null) {
         Op op = key.OrDefault();
         return from active in Optional(native).ToFin(op.InvalidInput())
                from ctx in Optional(context).ToFin(op.MissingContext())
                from _ in guard(active.IsValid, op.InvalidInput())
                let snapshot = active.DuplicateMesh()
-               let __ = snapshot.Faces.ConvertQuadsToTriangles()
                select new MeshSpace(native: snapshot, tolerance: ctx);
     }
     internal LaplacianCache Cache => LaplacianCache.For(space: this);
@@ -88,8 +88,6 @@ internal sealed class LaplacianCache {
         cotangent = new Lazy<Fin<SparseLaplacian>>(valueFactory: () => MeshKernel.AssembleCotangent(mesh: space.Native, key: fallback));
         intrinsicDelaunay = new Lazy<Fin<SparseLaplacian>>(valueFactory: () => intrinsicMesh.Value.Bind(im => MeshKernel.AssembleCotangentFromIntrinsic(imesh: im, key: fallback)));
         robust = new Lazy<Fin<SparseLaplacian>>(valueFactory: () => MeshKernel.AssembleRobust(mesh: space.Native, key: fallback));
-        // Sharp-Soliman-Crane 2019: regularise the scalar (M+tL) by ε·diag(M) before Cholesky to
-        // break the constant null space; identical regulariser used for the vector-heat system.
         cholesky = new Lazy<Fin<CholeskySparse>>(valueFactory: () =>
             from L in intrinsicDelaunay.Value
             from spd in MeshKernel.MassPinned(laplacian: L, regularization: SpdRegularization, key: fallback)
@@ -120,49 +118,33 @@ internal sealed class LaplacianCache {
         k <= DefaultSpectralCount
             ? defaultSpectral.Value.Map(b => b.Truncate(k: k))
             : MeshKernel.ComputeSpectralBasis(space: space, k: k, key: key);
-    // Centralised memoisation helper: probe → on miss, run compute and persist. Atom.Swap is
-    // STM-safe for concurrent callers; the worst case is duplicate compute (last writer wins).
     private static Fin<T> Memoise<TKey, T>(Atom<HashMap<TKey, Fin<T>>> atom, TKey probe, Func<Fin<T>> compute) =>
         atom.Value.Find(key: probe).IfNone(() => {
             Fin<T> computed = compute();
             _ = atom.Swap(f: map => map.AddOrUpdate(key: probe, value: computed));
             return computed;
         });
-    // Parametric Cholesky factor of the 2V real-block embedding of (M + t·L_conn). Cached per
-    // (symmetry, time) so VHM queries with the same parameters reuse the AMD-ordered factor.
     internal Fin<CholeskySparse> ConnectionCholesky(int symmetry, double time, Op key) =>
         Memoise(atom: connectionCholesky, probe: (symmetry, time), compute: () =>
             from real in MeshKernel.BuildConnectionLaplacianRealSystem(space: space, symmetry: symmetry, time: time, edgeAdjustment: Option<Arr<double>>.None, key: key)
             from factor in CholeskySparse.Of(symmetric: real, key: key)
             select factor);
-    // Cone-affected uncached factor. Cones modify the connection at the off-diagonal level, so the
-    // factor cannot be keyed by (symmetry, time) alone; rebuild and refactor each call. Falls back
-    // to the cached path when edgeAdjustment is None (callers should prefer the cached overload).
     internal Fin<CholeskySparse> ConnectionCholeskyAdjusted(int symmetry, double time, Arr<double> edgeAdjustment, Op key) =>
         from real in MeshKernel.BuildConnectionLaplacianRealSystem(space: space, symmetry: symmetry, time: time, edgeAdjustment: Some(edgeAdjustment), key: key)
         from factor in CholeskySparse.Of(symmetric: real, key: key)
         select factor;
-    // Parametric Cholesky factor of the scalar heat system (M + t·L_cot). Used by VHM magnitude
-    // carriers (φ from |X₀|, ψ from δ_sources) and any heat-method consumer with fixed time step.
     internal Fin<CholeskySparse> ScalarHeatCholesky(double time, Op key) =>
         Memoise(atom: scalarHeatCholesky, probe: time, compute: () =>
             from L in intrinsicDelaunay.Value
             from system in MeshKernel.AssembleScalarHeatSystem(laplacian: L, time: time, key: key)
             from factor in CholeskySparse.Of(symmetric: system, key: key)
             select factor);
-    // Cholesky factor of the real-2|E| block (M_CR + t·L_CR) for the Crouzeix-Raviart connection
-    // system. Used by the Feng-Crane 2024 Signed Heat Method. SPD iff the underlying complex
-    // Hermitian L_CR is PSD — guaranteed because L_CR is assembled on the intrinsic-Delaunay
-    // edge set exposed through IntrinsicMeshSnapshot.
     internal Fin<CholeskySparse> EdgeConnectionCholesky(double time, Op key) =>
         Memoise(atom: edgeConnectionCholesky, probe: time, compute: () =>
             from imesh in intrinsicMesh.Value
             from system in SpectralCore.BuildCrouzeixRaviartHeatSystem(mesh: imesh, time: time, key: key)
             from factor in CholeskySparse.Of(symmetric: system, key: key)
             select factor);
-    // Typed per-kernel field caches. Each invocation memoises by the structurally-equal key
-    // record, returning the previously-computed Fin on cache hit (including failures, which the
-    // caller can retry by passing different inputs).
     internal Fin<Arr<double>> Geodesic(GeodesicKey probe, Func<Fin<Arr<double>>> compute) => Memoise(geodesicCache, probe, compute);
     internal Fin<Arr<double>> Mcf(McfKey probe, Func<Fin<Arr<double>>> compute) => Memoise(mcfCache, probe, compute);
     internal Fin<Complex[]> CrossField(CrossFieldKey probe, Func<Fin<Complex[]>> compute) => Memoise(crossFieldCache, probe, compute);
@@ -178,9 +160,9 @@ public sealed partial class MeshLaplacian {
     [UseDelegateFromConstructor] internal partial Fin<SparseLaplacian> Select(LaplacianCache cache);
 }
 
-// Single case carries the full SpectralFilter polymorphic surface; HKS / WKS / ShapeDNA become
-// SpectralFilter.Heat / Wave / Identity. Pairwise-distance descriptors carry a non-empty source
-// set; per-vertex signatures leave sources = None.
+// Single case carries the full SpectralFilter polymorphic surface; HKS / WKS route through
+// SpectralFilter.Heat / Wave, while Identity exposes raw spectral signatures. Pairwise-distance
+// descriptors carry a non-empty source set; per-vertex signatures leave sources = None.
 [Union]
 public abstract partial record MeshDescriptor {
     private MeshDescriptor() { }
@@ -211,6 +193,10 @@ public abstract partial record RemeshKind {
 internal static class MeshKernel {
     private const double DegenerateTriangleArea = 1e-14;
     private const double AspectRatioCeiling = 11.5;
+    private static bool ContainsQuads(Mesh mesh) {
+        for (int f = 0; f < mesh.Faces.Count; f++) if (mesh.Faces[index: f].IsQuad) return true;
+        return false;
+    }
 
     // --- [VALIDATION] -----------------------------------------------------------------------
     // BOUNDARY ADAPTER — iterates the native Rhino face list to enforce the aspect-ratio
@@ -232,7 +218,8 @@ internal static class MeshKernel {
     // the maximum principle: obtuse triangles fail Cotangent assembly.
     internal static Fin<SparseLaplacian> AssembleCotangent(Mesh mesh, Op key) {
         using Mesh active = mesh.DuplicateMesh();
-        _ = active.Faces.ConvertQuadsToTriangles();
+        if (ContainsQuads(mesh: active) && !active.Faces.ConvertQuadsToTriangles())
+            return Fin.Fail<SparseLaplacian>(key.InvalidResult());
         int vertCount = active.Vertices.Count;
         List<(int Row, int Col, double Value)> stiffTriplets = [];
         List<(int Row, int Col, double Value)> massTriplets = [];
@@ -281,8 +268,13 @@ internal static class MeshKernel {
     // index spaces become stable and immutable. Downstream consumers (SHM, cone holonomy, Hodge
     // decomposition) read frozen accessors only; mutating flip helpers are off-limits post-Freeze.
     internal static Fin<IntrinsicMesh> BuildIntrinsicMesh(Mesh mesh, Op key) =>
-        FlipToDelaunay(imesh: IntrinsicMesh.FromMesh(mesh: mesh), key: key)
-            .Map(im => { im.Freeze(); return im; });
+        from source in IntrinsicMesh.FromMesh(mesh: mesh, key: key)
+        from flipped in FlipToDelaunay(imesh: source, key: key)
+        select FreezeIntrinsic(imesh: flipped);
+    private static IntrinsicMesh FreezeIntrinsic(IntrinsicMesh imesh) {
+        imesh.Freeze();
+        return imesh;
+    }
 
     // Intrinsic edge (post-Freeze): undirected vertex pair with intrinsic length and the indices
     // of the (≤2) incident faces. Face1 = -1 for naked boundary edges.
@@ -295,6 +287,7 @@ internal static class MeshKernel {
         internal int VertexCount;
         internal readonly List<(int A, int B, int C)?> Triangles = [];
         internal readonly Dictionary<(int Lo, int Hi), (double Length, List<int> FaceIdx)> EdgeData = [];
+        internal bool HasFlips;
         // Post-Freeze projections (immutable). Index space stabilises only after all flips end.
         private IntrinsicEdge[]? frozenEdges;
         private Dictionary<(int Lo, int Hi), int>? frozenEdgeIndex;
@@ -320,11 +313,21 @@ internal static class MeshKernel {
         // are unchanged through IDT flips; interior edges may have been replaced by the flip
         // operations, and only the surviving edges in EdgeData populate the frozen index.
         internal void Freeze() {
-            int eCount = EdgeData.Count;
+            foreach (KeyValuePair<(int Lo, int Hi), (double Length, List<int> FaceIdx)> kv in EdgeData)
+                _ = kv.Value.FaceIdx.RemoveAll(match: face => face < 0 || face >= Triangles.Count || !Triangles[index: face].HasValue);
+            foreach ((int Lo, int Hi) key in EdgeData
+                         .Where(static kv => kv.Value.FaceIdx.Count == 0 || !RhinoMath.IsValidDouble(x: kv.Value.Length) || kv.Value.Length <= RhinoMath.ZeroTolerance)
+                         .Select(static kv => kv.Key)
+                         .ToArray())
+                _ = EdgeData.Remove(key: key);
+            List<KeyValuePair<(int Lo, int Hi), (double Length, List<int> FaceIdx)>> orderedEdges = [.. EdgeData
+                .OrderBy(static kv => kv.Key.Lo)
+                .ThenBy(static kv => kv.Key.Hi)];
+            int eCount = orderedEdges.Count;
             frozenEdges = new IntrinsicEdge[eCount];
             frozenEdgeIndex = new Dictionary<(int Lo, int Hi), int>(capacity: eCount);
             int idx = 0;
-            foreach (KeyValuePair<(int Lo, int Hi), (double Length, List<int> FaceIdx)> kv in EdgeData) {
+            foreach (KeyValuePair<(int Lo, int Hi), (double Length, List<int> FaceIdx)> kv in orderedEdges) {
                 List<int> faces = kv.Value.FaceIdx;
                 int f0 = faces.Count > 0 ? faces[index: 0] : -1;
                 int f1 = faces.Count > 1 ? faces[index: 1] : -1;
@@ -342,10 +345,11 @@ internal static class MeshKernel {
                 int eAB = IndexOfEdge(lo: a, hi: b);
                 int eBC = IndexOfEdge(lo: b, hi: c);
                 int eCA = IndexOfEdge(lo: c, hi: a);
+                if (eAB < 0 || eBC < 0 || eCA < 0) { Triangles[index: f] = null; frozenFaceEdges[f] = []; continue; }
                 frozenFaceEdges[f] = [eAB, eBC, eCA];
-                double lAB = eAB >= 0 ? frozenEdges[eAB].Length : 0.0;
-                double lBC = eBC >= 0 ? frozenEdges[eBC].Length : 0.0;
-                double lCA = eCA >= 0 ? frozenEdges[eCA].Length : 0.0;
+                double lAB = frozenEdges[eAB].Length;
+                double lBC = frozenEdges[eBC].Length;
+                double lCA = frozenEdges[eCA].Length;
                 double s = (lAB + lBC + lCA) * 0.5;
                 double argInside = s * (s - lAB) * (s - lBC) * (s - lCA);
                 frozenFaceAreas[f] = Math.Sqrt(d: Math.Max(val1: 0.0, val2: argInside));
@@ -359,9 +363,10 @@ internal static class MeshKernel {
             }
         }
         private static (int, int) EdgeKey(int i, int j) => (Math.Min(val1: i, val2: j), Math.Max(val1: i, val2: j));
-        internal static IntrinsicMesh FromMesh(Mesh mesh) {
+        internal static Fin<IntrinsicMesh> FromMesh(Mesh mesh, Op key) {
             using Mesh active = mesh.DuplicateMesh();
-            _ = active.Faces.ConvertQuadsToTriangles();
+            if (ContainsQuads(mesh: active) && !active.Faces.ConvertQuadsToTriangles())
+                return Fin.Fail<IntrinsicMesh>(key.InvalidResult());
             IntrinsicMesh m = new() { VertexCount = active.Vertices.Count };
             for (int f = 0; f < active.Faces.Count; f++) {
                 MeshFace face = active.Faces[index: f];
@@ -369,7 +374,7 @@ internal static class MeshKernel {
                 Point3d pa = active.Vertices[index: face.A]; Point3d pb = active.Vertices[index: face.B]; Point3d pc = active.Vertices[index: face.C];
                 _ = m.AddTriangle(a: face.A, b: face.B, c: face.C, lAB: pa.DistanceTo(other: pb), lBC: pb.DistanceTo(other: pc), lAC: pa.DistanceTo(other: pc));
             }
-            return m;
+            return Fin.Succ(m);
         }
         internal int AddTriangle(int a, int b, int c, double lAB, double lBC, double lAC) {
             int idx = Triangles.Count;
@@ -405,6 +410,7 @@ internal static class MeshKernel {
             return ((lik * lik) + (ljk * ljk) - (lij * lij)) / (2.0 * lik * ljk);
         }
         internal Seq<(int, int)> Flip(int i, int j) {
+            HasFlips = true;
             (int Lo, int Hi) key = EdgeKey(i: i, j: j);
             List<int> faces = EdgeData[key: key].FaceIdx;
             int f1 = faces[index: 0]; int f2 = faces[index: 1];
@@ -432,14 +438,17 @@ internal static class MeshKernel {
         }
     }
     private static Fin<IntrinsicMesh> FlipToDelaunay(IntrinsicMesh imesh, Op key) {
-        Queue<(int, int)> queue = new(collection: imesh.EdgeData.Keys.Select(static k => (k.Lo, k.Hi)));
+        Queue<(int, int)> queue = new(collection: imesh.EdgeData.Keys.OrderBy(static k => k.Lo).ThenBy(static k => k.Hi).Select(static k => (k.Lo, k.Hi)));
         int flipCap = imesh.EdgeData.Count * 16;
         int flips = 0;
         while (queue.Count > 0 && flips < flipCap) {
             (int i, int j) = queue.Dequeue();
             if (!imesh.IsInterior(i: i, j: j) || imesh.IsDelaunay(i: i, j: j)) continue;
             Seq<(int, int)> affected = imesh.Flip(i: i, j: j);
-            for (int s = 0; s < affected.Count; s++) queue.Enqueue(item: affected[s]);
+            foreach ((int A, int B) edge in affected.AsIterable()
+                         .OrderBy(static edge => Math.Min(val1: edge.Item1, val2: edge.Item2))
+                         .ThenBy(static edge => Math.Max(val1: edge.Item1, val2: edge.Item2)))
+                queue.Enqueue(item: edge);
             flips++;
         }
         return imesh.EdgeData.Keys.All(edge => imesh.IsDelaunay(i: edge.Lo, j: edge.Hi))
@@ -514,9 +523,8 @@ internal static class MeshKernel {
         return SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: triplets, key: key);
     }
 
-    // Assemble the scalar heat system (M + t·L_cot) as a real SPD SparseMatrix. M is the lumped
-    // mass; L_cot the cotangent stiffness. Used by ScalarHeatCholesky for VHM magnitude carriers
-    // and any other time-step-fixed heat solve.
+    // Assemble the scalar heat system (M + t·L_cot) as a real SPD-intended SparseMatrix. M is
+    // the lumped mass; L_cot the cotangent stiffness. Cholesky rejection remains typed.
     internal static Fin<SparseMatrix> AssembleScalarHeatSystem(SparseLaplacian laplacian, double time, Op key) {
         int n = laplacian.MassLumped.Count;
         if (n == 0) return Fin.Fail<SparseMatrix>(error: key.InvalidInput());
@@ -529,24 +537,12 @@ internal static class MeshKernel {
         return SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: triplets, key: key);
     }
 
-    // --- [ROBUST_LAPLACIAN] ----------------------------------------------------------------
-    // Sharp-Crane SGP 2020 "A Laplacian for Nonmanifold Triangle Meshes": unweld each edge with
-    // >2 incident faces into per-face copies (the "tufted cover"), then run intrinsic Delaunay
-    // flips on the locally-manifold result. Cotangent weights from the flipped tufted mesh are
-    // guaranteed non-negative even when the input is non-manifold.
-    internal static Fin<SparseLaplacian> AssembleRobust(Mesh mesh, Op key) {
-        using Mesh active = mesh.DuplicateMesh();
-        _ = active.Faces.ConvertQuadsToTriangles();
-        List<int> nonManifold = [];
-        for (int e = 0; e < active.TopologyEdges.Count; e++)
-            if (active.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: e).Length > 2) nonManifold.Add(item: e);
-        if (nonManifold.Count > 0) _ = active.UnweldEdge(edgeIndices: nonManifold, modifyNormals: true);
-        return AssembleIntrinsicDelaunay(mesh: active, key: key);
-    }
+    internal static Fin<SparseLaplacian> AssembleRobust(Mesh mesh, Op key) =>
+        Optional(mesh).ToFin(key.InvalidInput()).Bind(_ =>
+            Fin.Fail<SparseLaplacian>(key.Unsupported(geometryType: typeof(MeshLaplacian), outputType: typeof(SparseLaplacian))));
 
     // --- [SPECTRAL_BASIS] ------------------------------------------------------------------
-    // Reuter-Wolter-Peinecke 2006 ShapeDNA / Lévy 2006 manifold harmonics: smallest k eigenpairs
-    // of the generalised problem L phi = lambda M phi.
+    // Manifold-harmonic eigenbasis: smallest k eigenpairs of L phi = lambda M phi.
     internal static Fin<SpectralBasis> ComputeSpectralBasis(MeshSpace space, int k, Op key) =>
         from laplacian in space.Laplacian(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
         from pairs in MatrixKernel.GeneralizedEigenpairs(stiffness: laplacian.Stiffness, mass: laplacian.MassConsistent, k: k, key: key)
@@ -645,27 +641,27 @@ internal static class MeshKernel {
         select value;
     private static Fin<Arr<double>> EnsureGeodesicDistances(MeshSpace space, Seq<int> sources, Op key) {
         // Order-invariant key: distance-from-{a,b} == distance-from-{b,a}, so we sort.
-        Seq<int> ordered = toSeq(sources.AsIterable().OrderBy(static i => i));
-        return space.Cache.Geodesic(probe: new GeodesicKey(Sources: ordered),
-            compute: () => space.Laplacian(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
-                .Bind(L => ComputeHeatGeodesic(space: space, laplacian: L, sources: ordered, key: key)));
+        int n = space.Native.Vertices.Count;
+        Seq<int> ordered = toSeq(sources.AsIterable().Distinct().OrderBy(static i => i));
+        return ordered.IsEmpty || ordered.Exists(i => i < 0 || i >= n)
+            ? Fin.Fail<Arr<double>>(key.InvalidInput())
+            : space.Cache.Geodesic(probe: new GeodesicKey(Sources: ordered),
+                compute: () => from imesh in space.Cache.IntrinsicMeshSnapshot
+                               from _ in guard(!imesh.HasFlips, key.Unsupported(geometryType: typeof(IntrinsicMesh), outputType: typeof(Arr<double>)))
+                               from L in space.Laplacian(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
+                               from distances in ComputeHeatGeodesic(space: space, laplacian: L, sources: ordered, key: key)
+                               select distances);
     }
     private static Fin<Arr<double>> ComputeHeatGeodesic(MeshSpace space, SparseLaplacian laplacian, Seq<int> sources, Op key) {
         int n = space.Native.Vertices.Count;
+        if (sources.IsEmpty) return Fin.Fail<Arr<double>>(key.InvalidInput());
         double h = space.Cache.MeanEdgeLength;
         if (h <= RhinoMath.ZeroTolerance) return Fin.Fail<Arr<double>>(key.InvalidResult());
         double t = h * h;
-        List<(int Row, int Col, double Value)> aTriplets = [];
-        for (int i = 0; i < n; i++) aTriplets.Add(item: (i, i, laplacian.MassLumped[index: i]));
-        for (int i = 0; i < n; i++)
-            for (int k = laplacian.Stiffness.RowPtr[index: i]; k < laplacian.Stiffness.RowPtr[index: i + 1]; k++) {
-                int j = laplacian.Stiffness.ColInd[index: k];
-                aTriplets.Add(item: (i, j, t * laplacian.Stiffness.Values[index: k]));
-            }
         Dimension dim = Dimension.Create(value: n);
-        return from A in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: aTriplets, key: key)
+        return from heatFactor in space.Cache.ScalarHeatCholesky(time: t, key: key)
                from delta in Fin.Succ(SpectralCore.BuildSourceDelta(n: n, sources: sources, mass: laplacian.MassLumped))
-               from u in A.Solve(rhs: delta, key: key)
+               from u in heatFactor.Solve(rhs: delta, key: key)
                from gradient in Fin.Succ(SpectralCore.ComputeTriangleGradients(mesh: space.Native, u: u))
                from divergence in Fin.Succ(SpectralCore.ComputeVertexDivergence(mesh: space.Native, gradients: gradient))
                from poisson in space.Laplacian(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
@@ -702,7 +698,9 @@ internal static class MeshKernel {
         from value in InterpolateOnMesh(space: space, sample: sample, perVertex: displacements, key: key)
         select value;
     private static Fin<Arr<double>> EnsureMcfDisplacements(MeshSpace space, double timeStep, int iterations, Op key) =>
-        space.Cache.Mcf(probe: new McfKey(TimeStep: timeStep, Iterations: iterations),
+        !RhinoMath.IsValidDouble(x: timeStep) || timeStep <= 0.0 || iterations < 1
+            ? Fin.Fail<Arr<double>>(key.InvalidInput())
+            : space.Cache.Mcf(probe: new McfKey(TimeStep: timeStep, Iterations: iterations),
             compute: () => space.Laplacian(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
                 .Bind(L => ComputeMeanCurvatureFlow(space: space, laplacian: L, timeStep: timeStep, iterations: iterations, key: key)));
     private static Fin<Arr<double>> ComputeMeanCurvatureFlow(MeshSpace space, SparseLaplacian laplacian, double timeStep, int iterations, Op key) {
@@ -716,25 +714,24 @@ internal static class MeshKernel {
                 aTriplets.Add(item: (i, j, timeStep * laplacian.Stiffness.Values[index: k]));
             }
         return from A in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: aTriplets, key: key)
-               from final in IterateMcf(space: space, mass: laplacian.MassLumped, system: A, iterations: iterations, key: key)
+               from factor in CholeskySparse.Of(symmetric: A, key: key)
+               from final in IterateMcf(space: space, mass: laplacian.MassLumped, system: factor, iterations: iterations, key: key)
                select ComputeDisplacements(original: space.Native, smoothed: final);
     }
-    private static Fin<(double[] X, double[] Y, double[] Z)> IterateMcf(MeshSpace space, Arr<double> mass, SparseMatrix system, int iterations, Op key) {
+    private static Fin<(double[] X, double[] Y, double[] Z)> IterateMcf(MeshSpace space, Arr<double> mass, CholeskySparse system, int iterations, Op key) {
         int n = space.Native.Vertices.Count;
         double[] x = new double[n]; double[] y = new double[n]; double[] z = new double[n];
         for (int i = 0; i < n; i++) { Point3d v = space.Native.Vertices[index: i]; x[i] = v.X; y[i] = v.Y; z[i] = v.Z; }
-        for (int iter = 0; iter < iterations; iter++) {
-            double[] rhsX = new double[n]; double[] rhsY = new double[n]; double[] rhsZ = new double[n];
-            for (int i = 0; i < n; i++) { rhsX[i] = mass[index: i] * x[i]; rhsY[i] = mass[index: i] * y[i]; rhsZ[i] = mass[index: i] * z[i]; }
-            Fin<Arr<double>> sx = system.Solve(rhs: new Arr<double>(rhsX), key: key);
-            Fin<Arr<double>> sy = system.Solve(rhs: new Arr<double>(rhsY), key: key);
-            Fin<Arr<double>> sz = system.Solve(rhs: new Arr<double>(rhsZ), key: key);
-            Fin<(Arr<double> X, Arr<double> Y, Arr<double> Z)> step = from a in sx from b in sy from c in sz select (X: a, Y: b, Z: c);
-            if (step.IsFail) return step.Map(static _ => (X: System.Array.Empty<double>(), Y: System.Array.Empty<double>(), Z: System.Array.Empty<double>()));
-            (Arr<double> nx, Arr<double> ny, Arr<double> nz) = step.IfFail((X: [], Y: [], Z: []));
-            for (int i = 0; i < n; i++) { x[i] = nx[index: i]; y[i] = ny[index: i]; z[i] = nz[index: i]; }
-        }
-        return Fin.Succ((X: x, Y: y, Z: z));
+        return toSeq(Enumerable.Range(start: 0, count: iterations)).Fold(
+            initialState: Fin.Succ((X: x, Y: y, Z: z)),
+            f: (state, _) => state.Bind(current => {
+                double[] rhsX = new double[n]; double[] rhsY = new double[n]; double[] rhsZ = new double[n];
+                for (int i = 0; i < n; i++) { rhsX[i] = mass[index: i] * current.X[i]; rhsY[i] = mass[index: i] * current.Y[i]; rhsZ[i] = mass[index: i] * current.Z[i]; }
+                return from sx in system.Solve(rhs: new Arr<double>(rhsX), key: key)
+                       from sy in system.Solve(rhs: new Arr<double>(rhsY), key: key)
+                       from sz in system.Solve(rhs: new Arr<double>(rhsZ), key: key)
+                       select (X: sx.AsIterable().ToArray(), Y: sy.AsIterable().ToArray(), Z: sz.AsIterable().ToArray());
+            }));
     }
     private static Arr<double> ComputeDisplacements(Mesh original, (double[] X, double[] Y, double[] Z) smoothed) {
         int n = original.Vertices.Count;
@@ -774,10 +771,11 @@ internal static class MeshKernel {
     // Per-edge connection contributions sourced from the INTRINSIC-Delaunay edge set: upper-
     // triangular (Lo, Hi) cotangent weight w and raw transport angle ρ. Diagonal accumulates Σw
     // at both endpoints; off-diagonals carry -w·exp(iN·ρ) once symmetry N is applied by the
-    // consumer. Optional edgeAdjustment α_e (CDS 2010 trivial connection) is indexed by INTRINSIC
-    // edge — same index space as IntrinsicMeshSnapshot, so flipped edges are properly addressed.
+    // consumer. Flipped intrinsic edges need signpost transport, so this rail fails before use.
     private static Fin<Seq<(int I, int J, double Weight, double Rho)>> EnumerateConnectionEntries(MeshSpace space, Option<Arr<double>> edgeAdjustment, Op key) =>
-        space.Cache.IntrinsicMeshSnapshot.Map(imesh => {
+        space.Cache.IntrinsicMeshSnapshot.Bind(imesh => {
+            if (imesh.HasFlips)
+                return Fin.Fail<Seq<(int I, int J, double Weight, double Rho)>>(key.Unsupported(geometryType: typeof(IntrinsicMesh), outputType: typeof(SparseHermitian)));
             Mesh mesh = space.Native;
             FrameBundle fb = EnsureVertexFrames(mesh: mesh);
             int eCount = imesh.EdgeCount;
@@ -799,7 +797,7 @@ internal static class MeshKernel {
                 if (hasAdjustment && e < adjustment.Count) rho += adjustment[index: e];
                 entries.Add(item: (i, j, w, rho));
             }
-            return toSeq(entries);
+            return Fin.Succ(toSeq(entries));
         });
 
     // Hermitian connection Laplacian for N-symmetry: off-diagonal -w·exp(iN·ρ), diagonal +Σw.
@@ -824,10 +822,10 @@ internal static class MeshKernel {
         return triplets;
     }
 
-    // Real-block SPD reformulation of (M_V + t·L_conn) for direct Cholesky factor-and-solve.
+    // Real-block SPD-intended reformulation of (M_V + t·L_conn) for direct Cholesky factor-and-solve.
     // Hermitian H = A + iB (A symmetric, B antisymmetric) embeds as [[A,-B],[B,A]] of order 2V.
     // Per Sharp-Soliman-Crane 2019 Theorem 4.1, L_conn is PSD on intrinsic Delaunay meshes;
-    // the cache routes through IntrinsicDelaunay so the block matrix is SPD.
+    // factorisation failure is still surfaced as a typed failure.
     internal static Fin<SparseMatrix> BuildConnectionLaplacianRealSystem(MeshSpace space, double symmetry, double time, Option<Arr<double>> edgeAdjustment, Op key) =>
         from entries in EnumerateConnectionEntries(space: space, edgeAdjustment: edgeAdjustment, key: key)
         from laplacian in space.Laplacian(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
@@ -1030,9 +1028,8 @@ internal static class MeshKernel {
     }
 
     // --- [DESCRIPTORS] ----------------------------------------------------------------------
-    // Reuter-Wolter-Peinecke 2006 + Sun-Ovsjanikov-Guibas 2009 + Aubry-Schlickewei-Cremers 2011:
-    // every spectral descriptor (HKS / WKS / biharmonic / diffusion / commute-time / ShapeDNA-fp)
-    // reduces to filter-weighted eigenvector squared sums via the SpectralFilter surface.
+    // Sun-Ovsjanikov-Guibas 2009 + Aubry-Schlickewei-Cremers 2011: HKS / WKS plus
+    // biharmonic, diffusion, commute-time, and raw identity signatures through SpectralFilter.
     internal static Fin<TOut> DescribeShape<TOut>(MeshSpace space, MeshDescriptor kind, int eigenpairs, Op key) =>
         kind switch {
             MeshDescriptor.SpectralCase spec =>
@@ -1069,24 +1066,27 @@ internal static class MeshKernel {
         Mesh mesh = space.Native;
         int nVerts = mesh.Vertices.Count;
         int nEdges = mesh.TopologyEdges.Count;
-        double[] omega = new double[nEdges];
         double[] negDivergence = new double[nVerts];
-        for (int e = 0; e < nEdges; e++) {
-            Line line = mesh.TopologyEdges.EdgeLine(topologyEdgeIndex: e);
-            if (!line.IsValid) continue;
-            Point3d mid = (line.From + line.To) * 0.5;
-            Vector3d tangent = line.Direction;
-            if (!tangent.Unitize()) continue;
-            Fin<Vector3d> sampled = source.SampleVector(sample: mid, context: space.Tolerance, key: key);
-            if (sampled.IsFail) return sampled.Map(static _ => default(HodgeBundle)!);
-            omega[e] = sampled.IfFail(Vector3d.Zero) * tangent * line.Length;
-            IndexPair pair = mesh.TopologyEdges.GetTopologyVertices(topologyEdgeIndex: e);
-            int lo = Math.Min(val1: pair.I, val2: pair.J);
-            int hi = Math.Max(val1: pair.I, val2: pair.J);
-            negDivergence[lo] += omega[e];
-            negDivergence[hi] -= omega[e];
-        }
-        return space.Laplacian(kind: MeshLaplacian.Cotangent, key: key)
+        return toSeq(Enumerable.Range(start: 0, count: nEdges)).Fold(
+            initialState: Fin.Succ(unit),
+            f: (acc, e) => acc.Bind(_ => {
+                Line line = mesh.TopologyEdges.EdgeLine(topologyEdgeIndex: e);
+                if (!line.IsValid) return Fin.Succ(unit);
+                Point3d mid = (line.From + line.To) * 0.5;
+                Vector3d tangent = line.Direction;
+                if (!tangent.Unitize()) return Fin.Succ(unit);
+                return source.SampleVector(sample: mid, context: space.Tolerance, key: key)
+                    .Bind(sampled => key.AcceptValue(value: sampled * tangent * line.Length))
+                    .Map(value => {
+                        IndexPair pair = mesh.TopologyEdges.GetTopologyVertices(topologyEdgeIndex: e);
+                        int lo = Math.Min(val1: pair.I, val2: pair.J);
+                        int hi = Math.Max(val1: pair.I, val2: pair.J);
+                        negDivergence[lo] += value;
+                        negDivergence[hi] -= value;
+                        return unit;
+                    });
+            }))
+            .Bind(_ => space.Laplacian(kind: MeshLaplacian.Cotangent, key: key))
             .Bind(L => SolvePinnedPoisson(stiffness: L.Stiffness, rhs: new Arr<double>(negDivergence), key: key))
             .Bind(potential => BuildHodgeFromPotential(mesh: mesh, source: source, potential: potential, space: space, key: key));
     }
@@ -1128,15 +1128,12 @@ internal static class MeshKernel {
         }
         for (int v = 0; v < nVerts; v++)
             if (faceTally[v] > 0.0) irrotPerVertex[v] /= faceTally[v];
-        Vector3d[] solenoidPerVertex = new Vector3d[nVerts];
-        for (int v = 0; v < nVerts; v++) {
-            Fin<Vector3d> sampled = source.SampleVector(sample: mesh.Vertices[index: v], context: space.Tolerance, key: key);
-            if (sampled.IsFail) return sampled.Map(static _ => default(HodgeBundle)!);
-            solenoidPerVertex[v] = sampled.IfFail(Vector3d.Zero) - irrotPerVertex[v];
-        }
-        return Fin.Succ(new HodgeBundle(
-            Irrotational: new Arr<Vector3d>(irrotPerVertex),
-            Solenoidal: new Arr<Vector3d>(solenoidPerVertex)));
+        return toSeq(Enumerable.Range(start: 0, count: nVerts)).TraverseM(v =>
+            source.SampleVector(sample: mesh.Vertices[index: v], context: space.Tolerance, key: key)
+                .Map(sampled => sampled - irrotPerVertex[v])).As()
+            .Map(solenoid => new HodgeBundle(
+                Irrotational: new Arr<Vector3d>(irrotPerVertex),
+                Solenoidal: new Arr<Vector3d>([.. solenoid.AsIterable()])));
     }
     private static Fin<Vector3d> InterpolateVectorOnMesh(MeshSpace space, Point3d sample, Arr<Vector3d> perVertex, Op key) {
         MeshPoint meshPoint = space.Native.ClosestMeshPoint(testPoint: sample, maximumDistance: MeshSearchDistance(space: space));
@@ -1159,13 +1156,24 @@ internal static class MeshKernel {
         from cached in EnsureVectorHeat(space: space, sources: sources, time: time, key: key)
         from value in InterpolateTangentVectorAt(space: space, sample: sample, perVertex: cached, key: key)
         select value;
-    private static Fin<Complex[]> EnsureVectorHeat(MeshSpace space, Seq<(int Vertex, Vector3d Direction)> sources, double time, Op key) =>
-        space.Cache.VectorHeat(probe: new VectorHeatKey(Time: time, Sources: sources),
-            compute: () => ComputeVectorHeat(space: space, sources: sources, time: time, key: key));
+    private static Fin<Complex[]> EnsureVectorHeat(MeshSpace space, Seq<(int Vertex, Vector3d Direction)> sources, double time, Op key) {
+        int n = space.Native.Vertices.Count;
+        Seq<(int Vertex, Vector3d Direction)> ordered = toSeq(sources.AsIterable()
+            .OrderBy(static s => s.Vertex)
+            .ThenBy(static s => s.Direction.X)
+            .ThenBy(static s => s.Direction.Y)
+            .ThenBy(static s => s.Direction.Z));
+        return ordered.IsEmpty || !RhinoMath.IsValidDouble(x: time) || time <= 0.0 || ordered.Exists(s => s.Vertex < 0 || s.Vertex >= n || !s.Direction.IsValid || s.Direction.IsTiny())
+            ? Fin.Fail<Complex[]>(key.InvalidInput())
+            : space.Cache.VectorHeat(probe: new VectorHeatKey(Time: time, Sources: ordered),
+                compute: () => ComputeVectorHeat(space: space, sources: ordered, time: time, key: key));
+    }
     private static Fin<Complex[]> ComputeVectorHeat(MeshSpace space, Seq<(int Vertex, Vector3d Direction)> sources, double time, Op key) {
         int n = space.Native.Vertices.Count;
         FrameBundle frames = EnsureVertexFrames(mesh: space.Native);
-        return from laplacian in space.Laplacian(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
+        return from imesh in space.Cache.IntrinsicMeshSnapshot
+               from _ in guard(!imesh.HasFlips, key.Unsupported(geometryType: typeof(IntrinsicMesh), outputType: typeof(Complex[])))
+               from laplacian in space.Laplacian(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
                from connectionFactor in space.Cache.ConnectionCholesky(symmetry: 1, time: time, key: key)
                from scalarFactor in space.Cache.ScalarHeatCholesky(time: time, key: key)
                let rhs = EncodeVectorHeatSources(n: n, sources: sources, frames: frames, mass: laplacian.MassLumped)
@@ -1244,53 +1252,72 @@ internal static class MeshKernel {
     // level sets align with the cross-field. Reuses CrossFieldAt for the underlying field.
     internal static Fin<double> StripeAt(MeshSpace space, VectorField crossField, double frequency, Point3d sample, Op key) =>
         from cross in crossField.SampleVector(sample: sample, context: space.Tolerance, key: key)
-        from output in key.AcceptValue(value: ComputeStripeValue(space: space, crossSample: cross, sample: sample, frequency: frequency))
+        from output in ComputeStripeValue(space: space, crossSample: cross, sample: sample, frequency: frequency, key: key)
         select output;
-    private static double ComputeStripeValue(MeshSpace space, Vector3d crossSample, Point3d sample, double frequency) {
+    private static Fin<double> ComputeStripeValue(MeshSpace space, Vector3d crossSample, Point3d sample, double frequency, Op key) {
         MeshPoint mp = space.Native.ClosestMeshPoint(testPoint: sample, maximumDistance: MeshSearchDistance(space: space));
-        if (mp is null || mp.FaceIndex < 0) return 0.0;
+        if (mp is null || mp.FaceIndex < 0) return Fin.Fail<double>(error: key.InvalidResult());
         FrameBundle fb = EnsureVertexFrames(mesh: space.Native);
         MeshFace face = space.Native.Faces[index: mp.FaceIndex];
         Vector3d frameX = (mp.T[0] * fb.X[face.A]) + (mp.T[1] * fb.X[face.B]) + (mp.T[2] * fb.X[face.C]);
         Vector3d frameY = (mp.T[0] * fb.Y[face.A]) + (mp.T[1] * fb.Y[face.B]) + (mp.T[2] * fb.Y[face.C]);
         _ = frameX.Unitize(); _ = frameY.Unitize();
         double angle = Math.Atan2(y: crossSample * frameY, x: crossSample * frameX);
-        return Math.Cos(d: frequency * angle);
+        return key.AcceptValue(value: Math.Cos(d: frequency * angle));
     }
 
     // --- [SDF_FROM_MESH] ---------------------------------------------------------------------
-    // GeneralizedWindingNumber: Rhino IsPointInside emits the sign; magnitude = Euclidean distance
-    // to the closest mesh point. Robust on closed watertight input only.
-    // SignedHeat: Feng-Crane SIGGRAPH 2024 — diffuse oriented boundary normals via the Crouzeix-
-    // Raviart connection Laplacian on edges, sample face barycenters, normalise, take vertex
-    // divergence, Poisson-recover scalar φ; sign emerges from source orientation (NOT from
-    // IsPointInside, which fails on non-watertight input).
     internal static Fin<double> SignedDistanceFromMeshAt(MeshSpace space, SdfMeshMethod method, Point3d sample, Op key) =>
         method.Equals(SdfMeshMethod.SignedHeat)
             ? SignedHeatDistance(space: space, sample: sample, key: key)
-            : ClosestPointSignedDistance(space: space, sample: sample, key: key);
-    private static Fin<double> ClosestPointSignedDistance(MeshSpace space, Point3d sample, Op key) {
+            : GeneralizedWindingDistance(space: space, sample: sample, key: key);
+    private static Fin<double> GeneralizedWindingDistance(MeshSpace space, Point3d sample, Op key) {
         Mesh mesh = space.Native;
         Point3d closest = mesh.ClosestPoint(testPoint: sample);
         if (!closest.IsValid) return Fin.Fail<double>(error: key.InvalidResult());
         double distance = sample.DistanceTo(other: closest);
-        bool inside = mesh.IsPointInside(point: sample, tolerance: space.Tolerance.Absolute.Value, strictlyIn: false);
-        return key.AcceptValue(value: inside ? -distance : distance);
+        return from winding in SolidAngleWindingNumber(mesh: mesh, sample: sample, key: key)
+               from signed in key.AcceptValue(value: Math.Abs(value: winding) > 0.5 ? -distance : distance)
+               select signed;
     }
-    // SHM φ field — mesh-invariant (boundary topology only changes when the mesh changes, which
-    // invalidates the entire LaplacianCache). Stored as Lazy<Fin<Arr<double>>> via the cache; the
-    // sample-time path interpolates on the cached field.
+    private static Fin<double> SolidAngleWindingNumber(Mesh mesh, Point3d sample, Op key) {
+        double solidAngle = 0.0;
+        for (int f = 0; f < mesh.Faces.Count; f++) {
+            MeshFace face = mesh.Faces[index: f];
+            Point3d a = mesh.Vertices[index: face.A];
+            Point3d b = mesh.Vertices[index: face.B];
+            Point3d c = mesh.Vertices[index: face.C];
+            solidAngle += TriangleSolidAngle(a: a, b: b, c: c, sample: sample);
+            if (face.IsQuad) solidAngle += TriangleSolidAngle(a: a, b: c, c: mesh.Vertices[index: face.D], sample: sample);
+        }
+        return key.AcceptValue(value: solidAngle / (4.0 * Math.PI));
+    }
+    private static double TriangleSolidAngle(Point3d a, Point3d b, Point3d c, Point3d sample) {
+        Vector3d va = a - sample;
+        Vector3d vb = b - sample;
+        Vector3d vc = c - sample;
+        double la = va.Length;
+        double lb = vb.Length;
+        double lc = vc.Length;
+        if (la <= RhinoMath.ZeroTolerance || lb <= RhinoMath.ZeroTolerance || lc <= RhinoMath.ZeroTolerance) return 0.0;
+        double det = Vector3d.CrossProduct(a: va, b: vb) * vc;
+        double lengthProduct = la * lb * lc;
+        double abDot = va * vb;
+        double bcDot = vb * vc;
+        double caDot = vc * va;
+        double denom = lengthProduct + (abDot * lc) + (bcDot * la) + (caDot * lb);
+        return 2.0 * Math.Atan2(y: det, x: denom);
+    }
     private static Fin<double> SignedHeatDistance(MeshSpace space, Point3d sample, Op key) {
         Polyline[]? polylines = space.Native.GetNakedEdges();
         return polylines is null || polylines.Length == 0
-            ? ClosestPointSignedDistance(space: space, sample: sample, key: key)
+            ? Fin.Fail<double>(key.Unsupported(geometryType: typeof(SdfMeshMethod), outputType: typeof(double)))
             : from phi in space.Cache.SignedHeat
               from signed in InterpolateOnMesh(space: space, sample: sample, perVertex: phi, key: key)
               select signed;
     }
-    // Feng-Crane SHM end-to-end. Routes through the intrinsic-Delaunay edge set so L_CR is PSD
-    // and Cholesky succeeds on arbitrary input; boundary edges survive IDT flips unchanged so
-    // the source encoding maps cleanly to intrinsic edge indices.
+    // Feng-Crane SHM boundary-source path. The current implementation rejects flipped IDT
+    // snapshots until signpost/function-transfer data exists for CR edge fields.
     internal static Fin<Arr<double>> ComputeSignedHeat(MeshSpace space, Op key) {
         Mesh mesh = space.Native;
         Polyline[]? polylines = mesh.GetNakedEdges();
@@ -1299,14 +1326,17 @@ internal static class MeshKernel {
         if (h <= RhinoMath.ZeroTolerance) return Fin.Fail<Arr<double>>(error: key.InvalidResult());
         double t = 0.5 * h * (0.5 * h);
         return from imesh in space.Cache.IntrinsicMeshSnapshot
+               from _ in guard(!imesh.HasFlips, key.Unsupported(geometryType: typeof(IntrinsicMesh), outputType: typeof(Arr<double>)))
                let encoded = EncodeSignedHeatBoundarySource(mesh: mesh, imesh: imesh, polylines: polylines)
+               from admitted in AdmitSignedHeatSource(encoded: encoded, key: key)
                from heatFactor in space.Cache.EdgeConnectionCholesky(time: t, key: key)
-               from Xt in heatFactor.Solve(rhs: encoded.Rhs, key: key)
+               from Xt in heatFactor.Solve(rhs: admitted.Rhs, key: key)
                let faceField = SpectralCore.SampleCrouzeixRaviartFaceField(mesh: mesh, imesh: imesh, stacked: Xt)
                let divergence = SpectralCore.ComputeIntrinsicVertexDivergence(mesh: mesh, imesh: imesh, faceFields: faceField)
                from poissonFactor in space.Cache.Cholesky
                from phi in poissonFactor.Solve(rhs: divergence, key: key)
-               select ShiftSignedHeat(phi: phi, sourceVertices: encoded.SourceVertices);
+               from shifted in ShiftSignedHeat(phi: phi, sourceVertices: admitted.SourceVertices, key: key)
+               select shifted;
     }
     // Source encoding per Feng-Crane Algorithm 11 (edge-as-source): each polyline segment maps to
     // an intrinsic boundary edge (boundary preserved through IDT), contributing X₀[e] += length · i ·
@@ -1339,6 +1369,12 @@ internal static class MeshKernel {
         }
         return (Rhs: new Arr<double>(stacked), SourceVertices: toSeq(sources));
     }
+    private static Fin<(Arr<double> Rhs, Seq<int> SourceVertices)> AdmitSignedHeatSource((Arr<double> Rhs, Seq<int> SourceVertices) encoded, Op key) =>
+        encoded.SourceVertices.IsEmpty
+        || encoded.Rhs.AsIterable().Any(static value => !RhinoMath.IsValidDouble(x: value))
+        || encoded.Rhs.AsIterable().All(static value => Math.Abs(value: value) <= RhinoMath.ZeroTolerance)
+            ? Fin.Fail<(Arr<double>, Seq<int>)>(key.InvalidResult())
+            : Fin.Succ(encoded);
     private static int FindClosestVertex(Mesh mesh, int vertexCount, Point3d target, double tolSq) {
         int best = -1;
         double bestSq = double.MaxValue;
@@ -1353,15 +1389,15 @@ internal static class MeshKernel {
     }
     // Per geometry-central: flip sign (Laplacian is positive), then subtract average φ along the
     // boundary source so φ ≈ 0 on the boundary itself.
-    private static Arr<double> ShiftSignedHeat(Arr<double> phi, Seq<int> sourceVertices) {
+    private static Fin<Arr<double>> ShiftSignedHeat(Arr<double> phi, Seq<int> sourceVertices, Op key) {
+        if (sourceVertices.IsEmpty) return Fin.Fail<Arr<double>>(key.InvalidResult());
         int n = phi.Count;
         double[] result = new double[n];
         for (int v = 0; v < n; v++) result[v] = -phi[index: v];
-        if (sourceVertices.IsEmpty) return new Arr<double>(result);
         double sum = 0.0;
         for (int s = 0; s < sourceVertices.Count; s++) sum += result[sourceVertices[index: s]];
         double mean = sum / sourceVertices.Count;
         for (int v = 0; v < n; v++) result[v] -= mean;
-        return new Arr<double>(result);
+        return key.AcceptValue(value: new Arr<double>(result));
     }
 }

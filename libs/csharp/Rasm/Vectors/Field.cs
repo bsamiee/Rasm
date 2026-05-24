@@ -38,52 +38,48 @@ public sealed partial class CsgKind {
 public abstract partial record BlendKind {
     private BlendKind() { }
     public sealed record HardCase : BlendKind;
-    public sealed record PolynomialCase(double K) : BlendKind;
-    public sealed record ExponentialCase(double K) : BlendKind;
-    public sealed record RootCase(double K) : BlendKind;
-    public sealed record CubicCase(double K) : BlendKind;
-    public sealed record ChamferCase(double K) : BlendKind;
-    public sealed record GrooveCase(double K, double D) : BlendKind;
-    public sealed record RoundCase(double R) : BlendKind;
+    public sealed record PolynomialCase(PositiveMagnitude K) : BlendKind;
+    public sealed record ExponentialCase(PositiveMagnitude K) : BlendKind;
+    public sealed record RootCase(PositiveMagnitude K) : BlendKind;
+    public sealed record CubicCase(PositiveMagnitude K) : BlendKind;
+    public sealed record ChamferCase(PositiveMagnitude K) : BlendKind;
+    public sealed record GrooveCase(PositiveMagnitude K, PositiveMagnitude D) : BlendKind;
+    public sealed record RoundCase(PositiveMagnitude R) : BlendKind;
     public static BlendKind Hard => new HardCase();
-    private static Fin<BlendKind> WithPositive(double k, Func<double, BlendKind> wrap, Op? key) {
-        Op op = key.OrDefault();
-        return RhinoMath.IsValidDouble(x: k) && k > 0.0 ? Fin.Succ(wrap(arg: k)) : Fin.Fail<BlendKind>(op.InvalidInput());
-    }
-    public static Fin<BlendKind> Polynomial(double k, Op? key = null) => WithPositive(k: k, wrap: static v => new PolynomialCase(K: v), key: key);
-    public static Fin<BlendKind> Exponential(double k, Op? key = null) => WithPositive(k: k, wrap: static v => new ExponentialCase(K: v), key: key);
-    public static Fin<BlendKind> Root(double k, Op? key = null) => WithPositive(k: k, wrap: static v => new RootCase(K: v), key: key);
-    public static Fin<BlendKind> Cubic(double k, Op? key = null) => WithPositive(k: k, wrap: static v => new CubicCase(K: v), key: key);
-    public static Fin<BlendKind> Chamfer(double k, Op? key = null) => WithPositive(k: k, wrap: static v => new ChamferCase(K: v), key: key);
-    public static Fin<BlendKind> Round(double r, Op? key = null) => WithPositive(k: r, wrap: static v => new RoundCase(R: v), key: key);
+    public static Fin<BlendKind> Polynomial(double k, Op? key = null) => key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: k).Map(static v => (BlendKind)new PolynomialCase(K: v));
+    public static Fin<BlendKind> Exponential(double k, Op? key = null) => key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: k).Map(static v => (BlendKind)new ExponentialCase(K: v));
+    public static Fin<BlendKind> Root(double k, Op? key = null) => key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: k).Map(static v => (BlendKind)new RootCase(K: v));
+    public static Fin<BlendKind> Cubic(double k, Op? key = null) => key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: k).Map(static v => (BlendKind)new CubicCase(K: v));
+    public static Fin<BlendKind> Chamfer(double k, Op? key = null) => key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: k).Map(static v => (BlendKind)new ChamferCase(K: v));
+    public static Fin<BlendKind> Round(double r, Op? key = null) => key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: r).Map(static v => (BlendKind)new RoundCase(R: v));
     public static Fin<BlendKind> Groove(double k, double d, Op? key = null) {
         Op op = key.OrDefault();
-        return RhinoMath.IsValidDouble(x: k) && k > 0.0 && RhinoMath.IsValidDouble(x: d) && d > 0.0
-            ? Fin.Succ<BlendKind>(new GrooveCase(K: k, D: d))
-            : Fin.Fail<BlendKind>(op.InvalidInput());
+        return from kk in op.AcceptValidated<PositiveMagnitude>(candidate: k)
+               from dd in op.AcceptValidated<PositiveMagnitude>(candidate: d)
+               select (BlendKind)new GrooveCase(K: kk, D: dd);
     }
     internal double Smin(double a, double b) => Switch(
         state: (A: a, B: b),
         hardCase: static (s, _) => Math.Min(val1: s.A, val2: s.B),
         polynomialCase: static (s, c) => {
-            double h = Math.Max(val1: c.K - Math.Abs(value: s.A - s.B), val2: 0.0) / c.K;
-            return Math.Min(val1: s.A, val2: s.B) - (h * h * h * c.K * (1.0 / 6.0));
+            double h = Math.Max(val1: c.K.Value - Math.Abs(value: s.A - s.B), val2: 0.0) / c.K.Value;
+            return Math.Min(val1: s.A, val2: s.B) - (h * h * h * c.K.Value * (1.0 / 6.0));
         },
-        exponentialCase: static (s, c) => -Math.Log(d: Math.Exp(d: -c.K * s.A) + Math.Exp(d: -c.K * s.B)) / c.K,
+        exponentialCase: static (s, c) => -Math.Log(d: Math.Exp(d: -c.K.Value * s.A) + Math.Exp(d: -c.K.Value * s.B)) / c.K.Value,
         rootCase: static (s, c) => {
-            double h = Math.Max(val1: c.K - Math.Abs(value: s.A - s.B), val2: 0.0);
-            return Math.Min(val1: s.A, val2: s.B) - (h * h * 0.25 / c.K);
+            double h = Math.Max(val1: c.K.Value - Math.Abs(value: s.A - s.B), val2: 0.0);
+            return Math.Min(val1: s.A, val2: s.B) - (h * h * 0.25 / c.K.Value);
         },
         cubicCase: static (s, c) => {
-            double h = Math.Max(val1: c.K - Math.Abs(value: s.A - s.B), val2: 0.0) / c.K;
-            return Math.Min(val1: s.A, val2: s.B) - (h * h * c.K * 0.25);
+            double h = Math.Max(val1: c.K.Value - Math.Abs(value: s.A - s.B), val2: 0.0) / c.K.Value;
+            return Math.Min(val1: s.A, val2: s.B) - (h * h * c.K.Value * 0.25);
         },
-        chamferCase: static (s, c) => Math.Min(val1: Math.Min(val1: s.A, val2: s.B), val2: (s.A + s.B - c.K) * 0.7071067811865475),
-        grooveCase: static (s, c) => Math.Max(val1: s.A, val2: Math.Min(val1: c.D, val2: Math.Min(val1: s.A - c.K, val2: s.B - c.K))),
+        chamferCase: static (s, c) => Math.Min(val1: Math.Min(val1: s.A, val2: s.B), val2: (s.A + s.B - c.K.Value) * 0.7071067811865475),
+        grooveCase: static (s, c) => Math.Max(val1: s.A, val2: Math.Min(val1: c.D.Value, val2: Math.Min(val1: s.A - c.K.Value, val2: s.B - c.K.Value))),
         roundCase: static (s, c) => {
-            double ax = Math.Max(val1: c.R - s.A, val2: 0.0);
-            double bx = Math.Max(val1: c.R - s.B, val2: 0.0);
-            return Math.Max(val1: c.R, val2: Math.Min(val1: s.A, val2: s.B)) - Math.Sqrt(d: (ax * ax) + (bx * bx));
+            double ax = Math.Max(val1: c.R.Value - s.A, val2: 0.0);
+            double bx = Math.Max(val1: c.R.Value - s.B, val2: 0.0);
+            return Math.Max(val1: c.R.Value, val2: Math.Min(val1: s.A, val2: s.B)) - Math.Sqrt(d: (ax * ax) + (bx * bx));
         });
     internal double Erode(double leftLip, double rightLip) {
         double dominant = Math.Max(val1: leftLip, val2: rightLip);
@@ -359,8 +355,7 @@ public partial record VectorField {
     public sealed record CrossProductCase(VectorField Left, VectorField Right) : VectorField;
     public sealed record CurlNoiseCase(ScalarField Potential, PositiveMagnitude Epsilon, bool RaisesCaution) : VectorField;
     public sealed record CrossFieldCase(MeshSpace Space, int Symmetry, Option<Seq<(int Vertex, Direction Hint)>> Constraints, Option<Seq<(int Vertex, double HolonomyDeficit)>> Cones) : VectorField;
-    public sealed record HodgeIrrotationalCase(VectorField Source, MeshSpace Space) : VectorField;
-    public sealed record HodgeSolenoidalCase(VectorField Source, MeshSpace Space) : VectorField;
+    public sealed record HodgeCase(VectorField Source, MeshSpace Space, BoundarySense Sense) : VectorField;
     public sealed record VectorHeatCase(MeshSpace Space, Seq<(int Vertex, Vector3d Direction)> Sources, PositiveMagnitude Time) : VectorField;
     public sealed record GeodesicTangentCase(MeshSpace Space, Seq<int> Sources) : VectorField;
     public static VectorField Constant(Vector3d value) => new ConstantCase(Value: value);
@@ -450,36 +445,39 @@ public partial record VectorField {
         new CrossProductCase(Left: left, Right: right);
     public static Fin<VectorField> CrossField(MeshSpace space, int symmetry, Option<Seq<(int Vertex, Direction Hint)>> constraints = default, Option<Seq<(int Vertex, double HolonomyDeficit)>> cones = default, Op? key = null) {
         Op op = key.OrDefault();
-        return symmetry is 1 or 2 or 4 or 6
-            ? Fin.Succ((VectorField)new CrossFieldCase(Space: space, Symmetry: symmetry, Constraints: constraints, Cones: cones))
-            : Fin.Fail<VectorField>(op.InvalidInput());
+        return from active in Optional(space.Native).ToFin(op.InvalidInput())
+               from __ in guard(symmetry is 1 or 2 or 4 or 6, op.InvalidInput())
+               let vertexCount = active.Vertices.Count
+               from ___ in guard(
+                   constraints.Match(Some: values => values.ForAll(item => item.Vertex >= 0 && item.Vertex < vertexCount), None: static () => true)
+                   && cones.Match(Some: values => values.ForAll(item => item.Vertex >= 0 && item.Vertex < vertexCount && RhinoMath.IsValidDouble(x: item.HolonomyDeficit)), None: static () => true),
+                   op.InvalidInput())
+               select (VectorField)new CrossFieldCase(Space: space, Symmetry: symmetry, Constraints: constraints, Cones: cones);
     }
-    // Sharp-Soliman-Crane SIGGRAPH 2019 vector heat method via spectral expansion: encode source
-    // directions in tangent-frame complex coordinates, project onto Hermitian connection-Laplacian
-    // eigenbasis, evolve each mode by e^(-t lambda_k), reconstruct at query vertex.
+    // Sharp-Soliman-Crane SIGGRAPH 2019 vector heat method via direct cached heat solves:
+    // tangent complex direction, scalar magnitude, and scalar indicator recover the vector field.
     public static Fin<VectorField> VectorHeat(MeshSpace space, Seq<(int Vertex, Vector3d Direction)> sources, double time, Op? key = null) {
         Op op = key.OrDefault();
-        return sources.IsEmpty || sources.Exists(s => s.Vertex < 0 || s.Vertex >= space.Native.Vertices.Count)
-            ? Fin.Fail<VectorField>(op.InvalidInput())
-            : op.AcceptValidated<PositiveMagnitude>(candidate: time)
-                .Map(t => (VectorField)new VectorHeatCase(Space: space, Sources: sources, Time: t));
+        return from _ in Optional(space.Native).ToFin(op.InvalidInput())
+               from __ in guard(!sources.IsEmpty && sources.ForAll(s => s.Vertex >= 0 && s.Vertex < space.Native.Vertices.Count), op.InvalidInput())
+               from t in op.AcceptValidated<PositiveMagnitude>(candidate: time)
+               select (VectorField)new VectorHeatCase(Space: space, Sources: sources, Time: t);
     }
     // Tangent vector of normalised geodesic distance from sources -- gradient of HeatGeodesic
     // applied to the surface frame at the query point.
     public static Fin<VectorField> GeodesicTangent(MeshSpace space, Seq<int> sources, Op? key = null) {
         Op op = key.OrDefault();
-        return sources.IsEmpty || sources.Exists(i => i < 0 || i >= space.Native.Vertices.Count)
-            ? Fin.Fail<VectorField>(op.InvalidInput())
-            : Fin.Succ((VectorField)new GeodesicTangentCase(Space: space, Sources: sources));
+        return from _ in Optional(space.Native).ToFin(op.InvalidInput())
+               from __ in guard(!sources.IsEmpty && sources.ForAll(i => i >= 0 && i < space.Native.Vertices.Count), op.InvalidInput())
+               select (VectorField)new GeodesicTangentCase(Space: space, Sources: sources);
     }
     // Bhatia-Norgard-Pascucci-Bremer 2013 Helmholtz-Hodge: F = ∇φ + ∇×ψ + harmonic.
     // sense = Toward selects the irrotational part (∇φ); Away selects the solenoidal residual.
     public static Fin<VectorField> Hodge(VectorField source, MeshSpace space, BoundarySense? sense = null, Op? key = null) {
         Op op = key.OrDefault();
-        return Optional(source).ToFin(op.InvalidInput())
-            .Map<VectorField>(active => (sense ?? BoundarySense.Toward).Equals(BoundarySense.Toward)
-                ? new HodgeIrrotationalCase(Source: active, Space: space)
-                : new HodgeSolenoidalCase(Source: active, Space: space));
+        return from active in Optional(source).ToFin(op.InvalidInput())
+               from _ in Optional(space.Native).ToFin(op.InvalidInput())
+               select (VectorField)new HodgeCase(Source: active, Space: space, Sense: sense ?? BoundarySense.Toward);
     }
     public static Fin<VectorField> CurlNoise(ScalarField potential, double epsilon, Op? key = null) {
         Op op = key.OrDefault();
@@ -619,8 +617,7 @@ public partial record VectorField {
             from raw in state.Key.AcceptValue(value: new Vector3d(x: g3.Y - g2.Z, y: g1.Z - g3.X, z: g2.X - g1.Y))
             select raw,
         crossFieldCase: static (state, c) => MeshKernel.CrossFieldAt(space: c.Space, symmetry: c.Symmetry, constraints: c.Constraints, cones: c.Cones, sample: state.Sample, key: state.Key),
-        hodgeIrrotationalCase: static (state, c) => MeshKernel.HodgeProjectedAt(source: c.Source, space: c.Space, sense: BoundarySense.Toward, sample: state.Sample, key: state.Key),
-        hodgeSolenoidalCase: static (state, c) => MeshKernel.HodgeProjectedAt(source: c.Source, space: c.Space, sense: BoundarySense.Away, sample: state.Sample, key: state.Key),
+        hodgeCase: static (state, c) => MeshKernel.HodgeProjectedAt(source: c.Source, space: c.Space, sense: c.Sense, sample: state.Sample, key: state.Key),
         vectorHeatCase: static (state, c) => MeshKernel.VectorHeatAt(space: c.Space, sources: c.Sources, time: c.Time.Value, sample: state.Sample, key: state.Key),
         geodesicTangentCase: static (state, c) => MeshKernel.GeodesicTangentAt(space: c.Space, sources: c.Sources, sample: state.Sample, key: state.Key));
     // Biot-Savart law for a finite straight current segment from `start` to `end` carrying
@@ -694,25 +691,11 @@ public partial record TensorField {
         from eigen in tensor.DecomposeEigen(key: key)
         from directions in eigen.TraverseM(pair => Direction.Of(value: CloudKernel.AsVector3d(v: pair.Eigenvector), context: context, key: key).Map(d => (pair.Eigenvalue, Eigenvector: d))).As()
         select directions;
-    // Shape operator A = κ₁ d₁ d₁ᵀ + κ₂ d₂ d₂ᵀ lifted to 3D (zero curvature along surface normal).
     private static Fin<SymmetricMatrix> CurvatureTensorAt(SurfaceSpace space, Point3d sample, Op key) {
         Surface surface = space.Native;
         return surface.ClosestPoint(testPoint: sample, u: out double u, v: out double v) switch {
             false => Fin.Fail<SymmetricMatrix>(error: key.InvalidResult()),
-            true => surface.CurvatureAt(u: u, v: v) switch {
-                SurfaceCurvature sc when sc.IsSet =>
-                    SymmetricMatrix.Of(
-                        dim: Dimension.Create(value: 3),
-                        upper: new Arr<double>([
-                            (sc.Kappa(direction: 0) * sc.Direction(direction: 0).X * sc.Direction(direction: 0).X) + (sc.Kappa(direction: 1) * sc.Direction(direction: 1).X * sc.Direction(direction: 1).X),
-                            (sc.Kappa(direction: 0) * sc.Direction(direction: 0).X * sc.Direction(direction: 0).Y) + (sc.Kappa(direction: 1) * sc.Direction(direction: 1).X * sc.Direction(direction: 1).Y),
-                            (sc.Kappa(direction: 0) * sc.Direction(direction: 0).X * sc.Direction(direction: 0).Z) + (sc.Kappa(direction: 1) * sc.Direction(direction: 1).X * sc.Direction(direction: 1).Z),
-                            (sc.Kappa(direction: 0) * sc.Direction(direction: 0).Y * sc.Direction(direction: 0).Y) + (sc.Kappa(direction: 1) * sc.Direction(direction: 1).Y * sc.Direction(direction: 1).Y),
-                            (sc.Kappa(direction: 0) * sc.Direction(direction: 0).Y * sc.Direction(direction: 0).Z) + (sc.Kappa(direction: 1) * sc.Direction(direction: 1).Y * sc.Direction(direction: 1).Z),
-                            (sc.Kappa(direction: 0) * sc.Direction(direction: 0).Z * sc.Direction(direction: 0).Z) + (sc.Kappa(direction: 1) * sc.Direction(direction: 1).Z * sc.Direction(direction: 1).Z)]),
-                        key: key),
-                _ => Fin.Fail<SymmetricMatrix>(error: key.InvalidResult()),
-            },
+            true => SurfaceProjection.ShapeOperator.Project<SymmetricMatrix>(surface: surface, u: u, v: v, context: space.Tolerance, key: key),
         };
     }
     private static Fin<SymmetricMatrix> TransformTensor(SymmetricMatrix tensor, Transform spatial, Op key) {
@@ -774,7 +757,6 @@ public partial record ScalarField {
     public sealed record GeodesicCase(MeshSpace Space, Seq<int> Sources) : ScalarField;
     public sealed record MeanCurvatureFlowCase(MeshSpace Space, PositiveMagnitude TimeStep, Dimension Iterations) : ScalarField;
     public sealed record SpectralDistanceCase(MeshSpace Space, SpectralFilter Filter, Seq<int> Sources, Dimension Pairs) : ScalarField;
-    public sealed record LogMapCase(MeshSpace Space, int Origin) : ScalarField;
     public sealed record StripeCase(MeshSpace Space, VectorField CrossField, PositiveMagnitude Frequency) : ScalarField;
     public sealed record SignedDistanceFromMeshCase(MeshSpace Space, SdfMeshMethod Method) : ScalarField;
     public static ScalarField Constant(double value) => new ConstantCase(Value: value);
@@ -879,13 +861,14 @@ public partial record ScalarField {
     }
     public static Fin<ScalarField> Geodesic(MeshSpace space, Seq<int> sources, Op? key = null) {
         Op op = key.OrDefault();
-        return sources.IsEmpty || sources.Exists(i => i < 0 || i >= space.Native.Vertices.Count)
-            ? Fin.Fail<ScalarField>(op.InvalidInput())
-            : Fin.Succ((ScalarField)new GeodesicCase(Space: space, Sources: sources));
+        return from _ in Optional(space.Native).ToFin(op.InvalidInput())
+               from __ in guard(!sources.IsEmpty && sources.ForAll(i => i >= 0 && i < space.Native.Vertices.Count), op.InvalidInput())
+               select (ScalarField)new GeodesicCase(Space: space, Sources: sources);
     }
     public static Fin<ScalarField> MeanCurvatureFlow(MeshSpace space, double timeStep, int iterations, Op? key = null) {
         Op op = key.OrDefault();
-        return from t in op.AcceptValidated<PositiveMagnitude>(candidate: timeStep)
+        return from _ in Optional(space.Native).ToFin(op.InvalidInput())
+               from t in op.AcceptValidated<PositiveMagnitude>(candidate: timeStep)
                from count in op.AcceptValidated<Dimension>(candidate: iterations)
                select (ScalarField)new MeanCurvatureFlowCase(Space: space, TimeStep: t, Iterations: count);
     }
@@ -894,33 +877,30 @@ public partial record ScalarField {
     // distance, sources empty selects per-vertex signature.
     public static Fin<ScalarField> SpectralDistance(MeshSpace space, SpectralFilter filter, Seq<int> sources, int pairs, Op? key = null) {
         Op op = key.OrDefault();
-        return from active in Optional(filter).ToFin(op.InvalidInput())
+        return from _ in Optional(space.Native).ToFin(op.InvalidInput())
+               from active in Optional(filter).ToFin(op.InvalidInput())
                from count in op.AcceptValidated<Dimension>(candidate: pairs)
-               from _ in guard(sources.IsEmpty || sources.ForAll(i => i >= 0 && i < space.Native.Vertices.Count), op.InvalidInput())
+               from __ in guard(sources.IsEmpty || sources.ForAll(i => i >= 0 && i < space.Native.Vertices.Count), op.InvalidInput())
                select (ScalarField)new SpectralDistanceCase(Space: space, Filter: active, Sources: sources, Pairs: count);
     }
-    // Log map at a single origin reduces to scalar geodesic distance from {origin}; consumers
-    // wanting tangent direction use VectorField.GeodesicTangent on the same source set.
-    public static Fin<ScalarField> LogMap(MeshSpace space, int origin, Op? key = null) {
-        Op op = key.OrDefault();
-        return origin < 0 || origin >= space.Native.Vertices.Count
-            ? Fin.Fail<ScalarField>(op.InvalidInput())
-            : Fin.Succ((ScalarField)new LogMapCase(Space: space, Origin: origin));
-    }
+    // True tangent log-map coordinates remain deferred; this factory exposes scalar heat-geodesic distance from the origin vertex.
+    public static Fin<ScalarField> LogMap(MeshSpace space, int origin, Op? key = null) =>
+        Geodesic(space: space, sources: Seq(origin), key: key);
     // Knoeppel-Crane-Pinkall-Schroeder 2015 stripe patterns: scalar function whose level sets
     // align with the supplied cross-field at the requested spatial frequency.
     public static Fin<ScalarField> Stripe(MeshSpace space, VectorField crossField, double frequency, Op? key = null) {
         Op op = key.OrDefault();
-        return from active in Optional(crossField).ToFin(op.InvalidInput())
+        return from _ in Optional(space.Native).ToFin(op.InvalidInput())
+               from active in Optional(crossField).ToFin(op.InvalidInput())
                from freq in op.AcceptValidated<PositiveMagnitude>(candidate: frequency)
                select (ScalarField)new StripeCase(Space: space, CrossField: active, Frequency: freq);
     }
-    // Robust SDF from a (possibly non-watertight) mesh: GeneralizedWindingNumber (Jacobson 2013)
-    // for non-manifold input or SignedHeat (Feng-Crane SIGGRAPH 2024) for smoothness.
+    // Mesh SDF signing uses triangle solid-angle winding; SignedHeat is boundary-source only.
     public static Fin<ScalarField> SignedDistanceFromMesh(MeshSpace space, SdfMeshMethod method, Op? key = null) {
         Op op = key.OrDefault();
-        return Optional(method).ToFin(op.InvalidInput())
-            .Map(active => (ScalarField)new SignedDistanceFromMeshCase(Space: space, Method: active));
+        return from _ in Optional(space.Native).ToFin(op.InvalidInput())
+               from active in Optional(method).ToFin(op.InvalidInput())
+               select (ScalarField)new SignedDistanceFromMeshCase(Space: space, Method: active);
     }
     public static Fin<ScalarField> Periodic(ScalarField source, Vector3d period, Op? key = null) {
         Op op = key.OrDefault();
@@ -957,9 +937,7 @@ public partial record ScalarField {
     public static ScalarField operator -(ScalarField field) => new ScaledCase(Source: field, Scale: -1.0);
     public static ScalarField operator *(ScalarField field, double scale) => new ScaledCase(Source: field, Scale: scale);
     public static ScalarField operator *(double scale, ScalarField field) => new ScaledCase(Source: field, Scale: scale);
-    // Rhino-native marching cubes over the scalar field at the zero level set. Delegates the
-    // scalar evaluator to SampleScalar; failed samples fall back to 0.0 because the native
-    // root-finder cannot tolerate exceptions inside Func<Point3d, double>.
+    // Rhino-native zero-level marching cubes; evaluator failures stay on the outer Fin rail.
     public Fin<Mesh> IsoSurface(BoundingBox bounds, int resolution, int maxRootSteps, Context context, Op? key = null) {
         Op op = key.OrDefault();
         ScalarField self = this;
@@ -967,7 +945,8 @@ public partial record ScalarField {
             ? Fin.Fail<Mesh>(op.InvalidInput())
             : op.Catch(() => {
                 Mesh result = Mesh.CreateFromIsosurface(
-                    scalarFieldEvaluator: p => self.SampleScalar(sample: p, context: context, key: op).IfFail(0.0),
+                    scalarFieldEvaluator: p => self.SampleScalar(sample: p, context: context, key: op)
+                        .Match(Succ: static value => value, Fail: static _ => throw new InvalidOperationException(message: "Scalar field sample failed.")),
                     box: bounds, resolution: resolution, RootFindingMaxSteps: maxRootSteps);
                 return result is null || !result.IsValid
                     ? Fin.Fail<Mesh>(op.InvalidResult())
@@ -1110,7 +1089,6 @@ public partial record ScalarField {
         geodesicCase: static (state, c) => MeshKernel.HeatGeodesicAt(space: c.Space, sources: c.Sources, sample: state.Sample, key: state.Key),
         meanCurvatureFlowCase: static (state, c) => MeshKernel.MeanCurvatureMagnitudeAt(space: c.Space, timeStep: c.TimeStep.Value, iterations: c.Iterations.Value, sample: state.Sample, key: state.Key),
         spectralDistanceCase: static (state, c) => MeshKernel.SpectralDistanceAt(space: c.Space, filter: c.Filter, sources: c.Sources, pairs: c.Pairs.Value, sample: state.Sample, key: state.Key),
-        logMapCase: static (state, c) => MeshKernel.HeatGeodesicAt(space: c.Space, sources: Seq(c.Origin), sample: state.Sample, key: state.Key),
         stripeCase: static (state, c) => MeshKernel.StripeAt(space: c.Space, crossField: c.CrossField, frequency: c.Frequency.Value, sample: state.Sample, key: state.Key),
         signedDistanceFromMeshCase: static (state, c) => MeshKernel.SignedDistanceFromMeshAt(space: c.Space, method: c.Method, sample: state.Sample, key: state.Key));
 }

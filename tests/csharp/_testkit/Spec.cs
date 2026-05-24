@@ -25,8 +25,16 @@ public static class TestTraits {
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 public static class Spec {
-    public static void ForAll<T>(Gen<T> gen, Action<T> property) =>
-        gen.Sample(value => Apply(action: property, value: value));
+    public static void ForAll<T>(Gen<T> gen, Action<T> property, string? seed = null, long iter = 100, int time = 0, int threads = 0) {
+        ArgumentNullException.ThrowIfNull(argument: gen);
+        bool Wrapped(T value) => Apply(action: property, value: value);
+        Action sample = (seed, iter, time, threads) switch {
+            (null, 100, 0, 0) => () => gen.Sample(Wrapped),
+            (null, _, _, _) => () => gen.Sample(predicate: Wrapped, iter: iter, time: time, threads: threads),
+            _ => () => gen.Sample(predicate: Wrapped, seed: seed!, iter: iter, time: time, threads: threads),
+        };
+        sample();
+    }
     public static void Implies<T>(Gen<T> gen, Func<T, bool> premise, Action<T> body) =>
         gen.Sample(value => premise(value) switch { true => Apply(action: body, value: value), false => true });
     public static void Roundtrip<TIn, TOut>(Gen<TIn> gen, Func<TIn, TOut> forward, Func<TOut, TIn> back, Func<TIn, TIn, bool>? eq = null) =>
@@ -58,6 +66,12 @@ public static class Spec {
         gen.Sample(value => EqOrThrow(left: path(value), right: oracle(value), predicate: eq));
     public static void Regression<T>(Gen<T> gen, Action<T> property, string seed) =>
         gen.Sample(value => Apply(action: property, value: value), seed: seed, iter: 1);
+    public static T SuccValue<T>(Fin<T> result, string label) =>
+        (result ?? throw new ArgumentNullException(nameof(result))).Match(
+            Succ: static value => value,
+            Fail: error => throw new XunitException($"{label}: expected Succ; got Fail: {error.Message}"));
+    public static void Holds(bool condition, string label) =>
+        _ = condition ? unit : throw new XunitException(userMessage: label);
     public static void Succ<T>(Fin<T> result, Action<T>? then = null) =>
         _ = (result ?? throw new ArgumentNullException(nameof(result))).Match(
             Succ: value => Tap(action: then, value: value),
@@ -125,8 +139,19 @@ public static class Spec {
         ForAll(
             gen: Gen.OneOfConst(double.NaN, double.PositiveInfinity, double.NegativeInfinity),
             property: x => Assert.False(condition: (tryCreate ?? throw new ArgumentNullException(nameof(tryCreate)))(x)));
+    public static void ValueObjectAccepts<T>(Gen<T> valid, Func<T, bool> tryCreate) =>
+        ForAll(valid ?? throw new ArgumentNullException(nameof(valid)), value =>
+            Assert.True(condition: (tryCreate ?? throw new ArgumentNullException(nameof(tryCreate)))(value)));
+    public static void ValueObjectRejects<T>(Gen<T> invalid, Func<T, bool> tryCreate) =>
+        ForAll(invalid ?? throw new ArgumentNullException(nameof(invalid)), value =>
+            Assert.False(condition: (tryCreate ?? throw new ArgumentNullException(nameof(tryCreate)))(value)));
     public static void EqualWithin(double left, double right, double tolerance, string? what = null) =>
         _ = Math.Abs(left - right) <= tolerance ? true : throw new XunitException($"{what ?? "EqualWithin"}: |{left:R} - {right:R}| = {Math.Abs(left - right):R} > {tolerance:R}");
+    public static void SeqEqualWithin(Seq<double> left, Seq<double> right, double tolerance, string? what = null) {
+        Assert.Equal(expected: left.Count, actual: right.Count);
+        _ = toSeq(Enumerable.Range(start: 0, count: left.Count)).Iter(i =>
+            EqualWithin(left: left[index: i], right: right[index: i], tolerance: tolerance, what: $"{what ?? "Seq"}[{i}]"));
+    }
     public static void NearEqual(Point3d left, Point3d right, double tolerance = 1e-9) =>
         EqualWithin(left: left.DistanceTo(other: right), right: 0.0, tolerance: tolerance, what: "Point3d");
     public static void NearEqual(Vector3d left, Vector3d right, double tolerance = 1e-9) =>

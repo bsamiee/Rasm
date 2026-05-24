@@ -1,3 +1,5 @@
+using Foundation.CSharp.Analyzers.Contracts;
+
 namespace Rasm.Vectors;
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -34,7 +36,11 @@ public abstract partial record SampleKind {
                select (SampleKind)new CapacityCase(Count: c, Limit: cap);
     }
     internal Fin<VectorCloud> Sample(MeshSpace domain, Context context, Op? key = null) =>
-        SampleKernel.SampleOnMesh(kind: this, domain: domain, context: context, key: key.OrDefault());
+        SampleKernel.SampleOnMesh(kind: this, domain: domain, context: context, key: key.OrDefault())
+            .Map(static result => result.Cloud);
+    internal Fin<SampleReceipt> SampleReceipt(MeshSpace domain, Context context, Op? key = null) =>
+        SampleKernel.SampleOnMesh(kind: this, domain: domain, context: context, key: key.OrDefault())
+            .Map(static result => result.Receipt);
     internal double MeshCandidateDensity(double area) {
         double safeArea = Math.Max(val1: area, val2: RhinoMath.SqrtEpsilon);
         double target = this switch {
@@ -49,32 +55,40 @@ public abstract partial record SampleKind {
     }
 }
 
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SampleReceipt(int Attempted, int Emitted, int Rejected);
+
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class SampleKernel {
     // Boundary algorithms operate on deterministic triangulated mesh candidates.
-    internal static Fin<VectorCloud> SampleOnMesh(SampleKind kind, MeshSpace domain, Context context, Op key) {
-        using AreaMassProperties? props = AreaMassProperties.Compute(mesh: domain.Native);
+    internal static Fin<(VectorCloud Cloud, SampleReceipt Receipt)> SampleOnMesh(SampleKind kind, MeshSpace domain, Context context, Op key) {
+        using AreaMassProperties? props = AreaMassProperties.Compute(mesh: domain.Native, area: true, firstMoments: false, secondMoments: false, productMoments: false);
         return props switch {
-            null => Fin.Fail<VectorCloud>(error: key.InvalidResult()),
-            _ => EnumerateMeshSurface(mesh: domain.Native, density: kind.MeshCandidateDensity(area: props.Area)) switch {
-                Seq<Point3d> candidates => kind switch {
-                    SampleKind.PoissonDiskCase pd => FromArray(points: PoissonDiskSample(candidates: candidates, radius: pd.Radius.Value), context: context, key: key),
-                    SampleKind.FarthestCase fp => FromArray(points: FarthestSample(candidates: candidates, count: fp.Count.Value), context: context, key: key),
-                    SampleKind.OptimizeCase fpo => FromArray(points: FpoSample(candidates: candidates, count: fpo.Count.Value, iterations: fpo.Iterations.Value), context: context, key: key),
-                    SampleKind.LloydCase lloyd => FromArray(points: LloydRelaxation(candidates: candidates, count: lloyd.Count.Value, iterations: lloyd.Iterations.Value), context: context, key: key),
-                    SampleKind.CapacityCase ccvt => CapacitySample(candidates: candidates, count: ccvt.Count.Value, capacity: ccvt.Limit.Value, key: key)
-                        .Bind(points => FromArray(points: points, context: context, key: key)),
-                    _ => Fin.Fail<VectorCloud>(error: key.Unsupported(geometryType: kind.GetType(), outputType: typeof(VectorCloud))),
-                },
-            },
+            null => Fin.Fail<(VectorCloud, SampleReceipt)>(error: key.InvalidResult()),
+            _ => from candidates in EnumerateMeshSurface(mesh: domain.Native, density: kind.MeshCandidateDensity(area: props.Area), key: key)
+                 from points in kind switch {
+                     SampleKind.PoissonDiskCase pd => Fin.Succ(PoissonDiskSample(candidates: candidates, radius: pd.Radius.Value)),
+                     SampleKind.FarthestCase fp => Fin.Succ(FarthestSample(candidates: candidates, count: fp.Count.Value)),
+                     SampleKind.OptimizeCase fpo => Fin.Succ(FpoSample(candidates: candidates, count: fpo.Count.Value, iterations: fpo.Iterations.Value)),
+                     SampleKind.LloydCase lloyd => LloydRelaxation(candidates: candidates, count: lloyd.Count.Value, iterations: lloyd.Iterations.Value, key: key)
+                         .Map(static points => points),
+                     SampleKind.CapacityCase ccvt => CapacitySample(candidates: candidates, count: ccvt.Count.Value, capacity: ccvt.Limit.Value, key: key)
+                         .Map(static points => points),
+                     _ => Fin.Fail<Point3d[]>(error: key.Unsupported(geometryType: kind.GetType(), outputType: typeof(VectorCloud))),
+                 }
+                 from cloud in FromArray(points: points, context: context, key: key)
+                 let rejected = Math.Max(val1: 0, val2: candidates.Count - points.Length)
+                 select (Cloud: cloud, Receipt: new SampleReceipt(Attempted: candidates.Count, Emitted: points.Length, Rejected: rejected)),
         };
     }
     private static Fin<VectorCloud> FromArray(Point3d[] points, Context context, Op key) =>
         VectorCloud.Cluster(points: toSeq(points), context: context, key: key);
-    private static Seq<Point3d> EnumerateMeshSurface(Mesh mesh, double density) {
+    private static Fin<Seq<Point3d>> EnumerateMeshSurface(Mesh mesh, double density, Op key) {
         List<Point3d> samples = [];
         using Mesh triangulated = mesh.DuplicateMesh();
-        _ = triangulated.Faces.ConvertQuadsToTriangles();
+        if (Enumerable.Range(start: 0, count: triangulated.Faces.Count).Any(f => triangulated.Faces[index: f].IsQuad)
+            && !triangulated.Faces.ConvertQuadsToTriangles())
+            return Fin.Fail<Seq<Point3d>>(key.InvalidResult());
         for (int f = 0; f < triangulated.Faces.Count; f++) {
             MeshFace face = triangulated.Faces[index: f];
             if (!face.IsTriangle) continue;
@@ -93,7 +107,7 @@ internal static class SampleKernel {
                 }
             }
         }
-        return toSeq(samples);
+        return key.AcceptValue(value: toSeq(samples));
     }
     private static Point3d[] PoissonDiskSample(Seq<Point3d> candidates, double radius) {
         if (candidates.IsEmpty) return [];
@@ -101,9 +115,7 @@ internal static class SampleKernel {
         List<Point3d> chosen = [];
         PointCloud chosenIndex = [];
         int[] order = [.. Enumerable.Range(start: 0, count: candidates.Count)
-            .OrderBy(i => candidates[index: i].X)
-            .ThenBy(i => candidates[index: i].Y)
-            .ThenBy(i => candidates[index: i].Z)];
+            .OrderBy(i => CandidateOrderKey(point: candidates[index: i]))];
         for (int idx = 0; idx < order.Length; idx++) {
             Point3d p = candidates[index: order[idx]];
             int nearest = chosenIndex.Count > 0 ? chosenIndex.ClosestPoint(testPoint: p) : -1;
@@ -111,6 +123,15 @@ internal static class SampleKernel {
             if (!tooClose) { chosen.Add(item: p); chosenIndex.Add(point: p); }
         }
         return [.. chosen];
+    }
+    private static ulong CandidateOrderKey(Point3d point) {
+        static ulong Bits(double value) => (ulong)BitConverter.DoubleToInt64Bits(value: value == 0.0 ? 0.0 : value);
+        unchecked {
+            ulong hash = Bits(value: point.X) * 0x9E3779B185EBCA87UL;
+            hash ^= Bits(value: point.Y) + 0xC2B2AE3D27D4EB4FUL + (hash << 6) + (hash >> 2);
+            hash ^= Bits(value: point.Z) + 0x165667B19E3779F9UL + (hash << 6) + (hash >> 2);
+            return hash;
+        }
     }
     private static Point3d[] FarthestSample(Seq<Point3d> candidates, int count) {
         int[] chosen = FarthestIndices(candidates: candidates, count: count);
@@ -181,41 +202,42 @@ internal static class SampleKernel {
         for (int i = 0; i < chosen.Length; i++) best = Math.Min(val1: best, val2: candidates[index: candidateIndex].DistanceToSquared(other: candidates[index: chosen[i]]));
         return best;
     }
-    private static Point3d[] LloydRelaxation(Seq<Point3d> candidates, int count, int iterations) {
-        if (candidates.IsEmpty) return [];
+    private static Fin<Point3d[]> LloydRelaxation(Seq<Point3d> candidates, int count, int iterations, Op key) {
+        if (candidates.IsEmpty) return Fin.Succ(System.Array.Empty<Point3d>());
         int total = candidates.Count;
-        Point3d[] sites = FarthestSample(candidates: candidates, count: count);
         PointCloud candidateIndex = CandidateIndex(candidates: candidates);
-        for (int iter = 0; iter < iterations; iter++) {
-            Point3d[] sums = new Point3d[sites.Length];
-            int[] counts = new int[sites.Length];
-            PointCloud siteIndex = [];
-            siteIndex.AddRange(points: sites);
-            for (int i = 0; i < total; i++) {
-                int closest = siteIndex.ClosestPoint(testPoint: candidates[index: i]);
-                if (closest < 0 || closest >= sites.Length) closest = 0;
-                sums[closest] = new Point3d(x: sums[closest].X + candidates[index: i].X, y: sums[closest].Y + candidates[index: i].Y, z: sums[closest].Z + candidates[index: i].Z);
-                counts[closest]++;
-            }
-            for (int s = 0; s < sites.Length; s++)
-                if (counts[s] > 0) sites[s] = NearestCandidate(candidates: candidates, index: candidateIndex, point: new Point3d(x: sums[s].X / counts[s], y: sums[s].Y / counts[s], z: sums[s].Z / counts[s]));
-        }
-        return sites;
+        return toSeq(Enumerable.Range(start: 0, count: iterations)).Fold(
+            initialState: Fin.Succ(FarthestSample(candidates: candidates, count: count)),
+            f: (state, _) => state.Bind(sites => {
+                Vector3d[] sums = new Vector3d[sites.Length];
+                int[] counts = new int[sites.Length];
+                PointCloud siteIndex = [];
+                siteIndex.AddRange(points: sites);
+                for (int i = 0; i < total; i++) {
+                    int closest = siteIndex.ClosestPoint(testPoint: candidates[index: i]);
+                    if (closest < 0 || closest >= sites.Length) return Fin.Fail<Point3d[]>(key.InvalidResult());
+                    sums[closest] += (Vector3d)candidates[index: i];
+                    counts[closest]++;
+                }
+                return SnapSitesToCandidateCentroids(sites: sites, sums: sums, counts: counts, candidates: candidates, index: candidateIndex, key: key);
+            }));
     }
     private static PointCloud CandidateIndex(Seq<Point3d> candidates) {
         PointCloud cloud = [];
         cloud.AddRange(points: candidates.AsIterable());
         return cloud;
     }
-    private static Point3d NearestCandidate(Seq<Point3d> candidates, PointCloud index, Point3d point) =>
+    private static Fin<Point3d> NearestCandidate(Seq<Point3d> candidates, PointCloud index, Point3d point, Op key) =>
         index.ClosestPoint(testPoint: point) switch {
-            int nearest when nearest >= 0 && nearest < candidates.Count => candidates[index: nearest],
-            _ => candidates[index: 0],
+            int nearest when nearest >= 0 && nearest < candidates.Count => Fin.Succ(candidates[index: nearest]),
+            _ => Fin.Fail<Point3d>(key.InvalidResult()),
         };
     private static Fin<Point3d[]> CapacitySample(Seq<Point3d> candidates, int count, int capacity, Op key) {
         Point3d[] sites = FarthestSample(candidates: candidates, count: count);
         int total = candidates.Count;
-        if (sites.Length == 0 || (sites.Length * capacity) < total) return Fin.Fail<Point3d[]>(key.InvalidInput());
+        if (sites.Length == 0) return Fin.Succ(sites);
+        total = Math.Min(val1: total, val2: sites.Length * capacity);
+        PointCloud candidateIndex = CandidateIndex(candidates: candidates);
         int[] assignment = new int[total];
         int[] siteFill = new int[sites.Length];
         for (int i = 0; i < total; i++) {
@@ -225,21 +247,25 @@ internal static class SampleKernel {
                 double d = candidates[index: i].DistanceToSquared(other: sites[s]);
                 if (d < best) { best = d; closest = s; }
             }
-            if (closest < 0)
-                for (int s = 0; s < sites.Length; s++) {
-                    double d = candidates[index: i].DistanceToSquared(other: sites[s]);
-                    if (d < best) { best = d; closest = s; }
-                }
+            if (closest < 0) return Fin.Fail<Point3d[]>(key.InvalidResult());
             assignment[i] = closest; siteFill[closest]++;
         }
-        Point3d[] sums = new Point3d[sites.Length]; int[] counts = new int[sites.Length];
+        Vector3d[] sums = new Vector3d[sites.Length]; int[] counts = new int[sites.Length];
         for (int i = 0; i < total; i++) {
             int s = assignment[i];
-            sums[s] = new Point3d(x: sums[s].X + candidates[index: i].X, y: sums[s].Y + candidates[index: i].Y, z: sums[s].Z + candidates[index: i].Z);
+            sums[s] += (Vector3d)candidates[index: i];
             counts[s]++;
         }
-        for (int s = 0; s < sites.Length; s++)
-            if (counts[s] > 0) sites[s] = new Point3d(x: sums[s].X / counts[s], y: sums[s].Y / counts[s], z: sums[s].Z / counts[s]);
-        return Fin.Succ(sites);
+        return SnapSitesToCandidateCentroids(sites: sites, sums: sums, counts: counts, candidates: candidates, index: candidateIndex, key: key);
     }
+    private static Fin<Point3d[]> SnapSitesToCandidateCentroids(Point3d[] sites, Vector3d[] sums, int[] counts, Seq<Point3d> candidates, PointCloud index, Op key) =>
+        toSeq(Enumerable.Range(start: 0, count: sites.Length)).Fold(
+            initialState: Fin.Succ(sites),
+            f: (state, s) => counts[s] <= 0
+                ? state
+                : state.Bind(active => NearestCandidate(candidates: candidates, index: index, point: Point3d.Origin + (sums[s] / counts[s]), key: key)
+                    .Map(nearest => {
+                        active[s] = nearest;
+                        return active;
+                    })));
 }
