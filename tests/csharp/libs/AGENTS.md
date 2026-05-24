@@ -25,6 +25,8 @@
 - Static specs may classify bridge-owned behavior, but must not pretend to execute native runtime paths that fail outside Rhino.
 - Pair each bridge scenario with an owning source file for `scripts/rhino.sh bridge check-source <source> --script <scenario>`.
 - Treat host dependency collisions as product/packaging evidence. Do not rewrite bridge scenarios into weaker static assertions just because Rhino has preloaded a conflicting assembly.
+- For Rasm.Vectors on macOS, assume Rhino native geometry validity/materialization can cross into `rhcommon_c` unless a current static run proves otherwise. Static specs may own managed guards and failure categories for `Curve`, `Surface`, `Mesh`, `PlaneSurface`, `Point3d.IsValid`, `Vector3d.IsTiny`, and `Polyline.IsValid`, but successful native sampling/projection belongs in bridge scenarios.
+- Record bridge-owned gaps as executable scenario work, not skipped xUnit tests or shape-only assertions.
 
 ## [4][DENSITY]
 
@@ -33,3 +35,5 @@
 - Avoid circular tests, snapshots of implementation structure, and assertions on mutable incidental ordering unless ordering is the contract.
 - Keep every snapshot, benchmark, or fuzz target outside library specs unless the artifact is the behavior under test.
 - Prefer one generated law table that varies inputs, output kinds, failure categories, and invariants over many one-assertion facts.
+- Specs may reach 225 LOC, and exceptionally 300 LOC, only when every added line buys a real oracle, boundary, native classification, or product-bug guard that cannot be expressed more densely through existing `Spec`, `Gens`, `Numeric`, or local case tables.
+- If a spec starts to grow through repeated setup, collapse the repetition into a richer product generator or table inside the same owner before adding helper files.

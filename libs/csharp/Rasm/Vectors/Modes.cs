@@ -28,8 +28,9 @@ public sealed partial class CurveProjection {
         });
     [UseDelegateFromConstructor] private partial Fin<object> Sample(Curve curve, double parameter, Context context);
     internal Fin<TOut> Project<TOut>(Curve curve, double parameter, Context context, Op key) =>
-        from _ in guard(curve.Domain.IncludesParameter(t: parameter), key.InvalidInput())
-        from raw in Sample(curve: curve, parameter: parameter, context: context).BindFail(_ => Fin.Fail<object>(key.InvalidResult()))
+        from active in Optional(curve).ToFin(key.InvalidInput())
+        from _ in guard(active.Domain.IncludesParameter(t: parameter), key.InvalidInput())
+        from raw in Sample(curve: active, parameter: parameter, context: context).BindFail(_ => Fin.Fail<object>(key.InvalidResult()))
         from output in (raw, typeof(TOut)) switch {
             (Vector3d v, Type t) when t == typeof(Vector3d) => key.AcceptValue(value: (TOut)(object)v),
             (Vector3d v, Type t) when t == typeof(Direction) => Direction.Of(value: v, context: context, key: key).Bind(d => d.Project<TOut>(key: key)),
@@ -71,15 +72,16 @@ public sealed partial class SurfaceProjection {
             key: Op.Of()).Map(static value => (object)value));
     [UseDelegateFromConstructor] private partial Fin<object> Sample(SurfaceCurvature curvature);
     internal Fin<TOut> Project<TOut>(Surface surface, double u, double v, Context context, Op key) =>
-        from uv in GeometryKernel.SurfaceUv(surface: surface, uv: new Point2d(x: u, y: v), context: context, key: key)
-        from output in surface.CurvatureAt(u: uv.X, v: uv.Y) is SurfaceCurvature sc && sc.IsSet
+        from active in Optional(surface).ToFin(key.InvalidInput())
+        from uv in GeometryKernel.SurfaceUv(surface: active, uv: new Point2d(x: u, y: v), context: context, key: key)
+        from output in active.CurvatureAt(u: uv.X, v: uv.Y) is SurfaceCurvature sc && sc.IsSet
             ? new Lease<SurfaceCurvature>.Owned(Value: sc).Use(curvature =>
                 from raw in Sample(curvature: curvature).BindFail(_ => Fin.Fail<object>(key.InvalidResult()))
                 from projected in (raw, typeof(TOut)) switch {
                     (double d, Type t) when t == typeof(double) => key.AcceptValue(value: (TOut)(object)d),
                     (Circle c, Type t) when t == typeof(Circle) => key.AcceptValue(value: (TOut)(object)c),
                     (Vector3d n, Type t) when t == typeof(Vector3d) => ReferenceEquals(objA: this, objB: Normal)
-                        ? GeometryKernel.NormalAt(surface: surface, uv: uv, key: key).Map(static value => (TOut)(object)value)
+                        ? GeometryKernel.NormalAt(surface: active, uv: uv, key: key).Map(static value => (TOut)(object)value)
                         : key.AcceptValue(value: (TOut)(object)n),
                     (Seq<double> ks, Type t) when t == typeof(Seq<double>) =>
                         ks.TraverseM(k => key.AcceptValue(value: k)).As().Map(static valid => (TOut)(object)valid),

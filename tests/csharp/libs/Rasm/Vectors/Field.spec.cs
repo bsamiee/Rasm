@@ -163,6 +163,17 @@ public sealed class VectorFieldAlgebraLaws {
         Spec.ForAll(Gens.Finite, k => {
             VectorField scaled = VectorField.Constant(value: Vector3d.XAxis) * k;
             Assert.Equal(expected: k, actual: ((VectorField.ScaledCase)scaled).Scale);
+            Spec.Succ(scaled.Project<Vector3d>(sample: Point3d.Origin, context: FieldGens.Model, key: FieldGens.Key),
+                then: vector => Spec.NearEqual(left: vector, right: k * Vector3d.XAxis, tolerance: 1.0e-9));
         });
+    }
+    [Fact]
+    public void BlendProjectionMatchesIndependentVectorFold() {
+        VectorField x = VectorField.Constant(value: Vector3d.XAxis);
+        VectorField y = VectorField.Constant(value: Vector3d.YAxis);
+        Spec.Succ(VectorField.Blend(fields: Seq(x, y), blend: FieldBlend.Sum).Project<Vector3d>(sample: Point3d.Origin, context: FieldGens.Model, key: FieldGens.Key),
+            then: vector => Spec.NearEqual(left: vector, right: Vector3d.XAxis + Vector3d.YAxis, tolerance: 1.0e-12));
+        Spec.Succ(VectorField.Blend(fields: Seq(x, y), blend: FieldBlend.Average).Project<Vector3d>(sample: Point3d.Origin, context: FieldGens.Model, key: FieldGens.Key),
+            then: vector => Spec.NearEqual(left: vector, right: 0.5 * (Vector3d.XAxis + Vector3d.YAxis), tolerance: 1.0e-12));
     }
 }

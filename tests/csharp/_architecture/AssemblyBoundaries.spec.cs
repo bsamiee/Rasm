@@ -31,8 +31,7 @@ public sealed class AssemblyBoundaryLaws {
     public void CoreDoesNotDependOnBoundaryLibraries() =>
         ArchRuleDefinition.Types()
             .That().ResideInAssemblyMatching(ArchitectureModel.CoreAssembly)
-            .Should().NotDependOnAny(
-                ArchRuleDefinition.Types().That().ResideInAssemblyMatching(ArchitectureModel.GrasshopperAssembly).Or().ResideInAssemblyMatching(ArchitectureModel.RhinoAssembly))
+            .Should().NotDependOnAny(ArchRuleDefinition.Types().That().ResideInAssemblyMatching(ArchitectureModel.GrasshopperAssembly).Or().ResideInAssemblyMatching(ArchitectureModel.RhinoAssembly))
             .Because(reason: "Rasm is the canonical kernel consumed by GH2 and Rhino boundaries.")
             .Check(architecture: ArchitectureModel.Graph);
 
@@ -40,8 +39,23 @@ public sealed class AssemblyBoundaryLaws {
     public void MaterialsDoesNotDependOnRhinoOrGrasshopperBoundaries() =>
         ArchRuleDefinition.Types()
             .That().ResideInAssemblyMatching(ArchitectureModel.MaterialsAssembly)
-            .Should().NotDependOnAny(
-                ArchRuleDefinition.Types().That().ResideInAssemblyMatching(ArchitectureModel.GrasshopperAssembly).Or().ResideInAssemblyMatching(ArchitectureModel.RhinoAssembly))
+            .Should().NotDependOnAny(ArchRuleDefinition.Types().That().ResideInAssemblyMatching(ArchitectureModel.GrasshopperAssembly).Or().ResideInAssemblyMatching(ArchitectureModel.RhinoAssembly))
             .Because(reason: "material layout remains a host-free scalar rail.")
+            .Check(architecture: ArchitectureModel.Graph);
+
+    [Fact]
+    public void DomainDoesNotDependOnVectorOrAnalysisNamespaces() =>
+        ArchRuleDefinition.Types()
+            .That().ResideInNamespace("Rasm.Domain")
+            .Should().NotDependOnAny(ArchRuleDefinition.Types().That().ResideInNamespace("Rasm.Vectors").Or().ResideInNamespace("Rasm.Analysis"))
+            .Because(reason: "Domain owns generic geometry primitives; vector and analysis concerns stay downstream.")
+            .Check(architecture: ArchitectureModel.Graph);
+
+    [Fact]
+    public void VectorsDoesNotDependOnAnalysisNamespace() =>
+        ArchRuleDefinition.Types()
+            .That().ResideInNamespace("Rasm.Vectors")
+            .Should().NotDependOnAny(ArchRuleDefinition.Types().That().ResideInNamespace("Rasm.Analysis"))
+            .Because(reason: "Analysis consumes vector rails; vectors must not call back upward.")
             .Check(architecture: ArchitectureModel.Graph);
 }

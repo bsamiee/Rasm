@@ -15,6 +15,10 @@ internal static class MatrixGens {
         Gen.Int[start: 2, finish: MaxDim].Select(
             Gen.Int[start: 2, finish: MaxDim], Gen.Double[start: -10.0, finish: 10.0].Array[MaxDim * MaxDim],
             static (int a, int b, double[] buf) => MakeMatrix(rows: Math.Max(val1: a, val2: b), cols: Math.Min(val1: a, val2: b), buffer: buf));
+    public static readonly Gen<Matrix> Rectangular =
+        Gen.Int[start: 2, finish: MaxDim].Select(
+            Gen.Int[start: 2, finish: MaxDim], Gen.Double[start: -10.0, finish: 10.0].Array[MaxDim * MaxDim],
+            static (int a, int b, double[] buf) => MakeMatrix(rows: a == b ? (a == MaxDim ? a - 1 : a + 1) : a, cols: b, buffer: buf));
     public static readonly Gen<Matrix> Square =
         Gen.Int[start: 2, finish: MaxDim].Select(Gen.Double[start: -10.0, finish: 10.0].Array[MaxDim * MaxDim],
             static (int n, double[] buf) => MakeMatrix(rows: n, cols: n, buffer: buf));
@@ -52,6 +56,7 @@ public sealed class MatrixCoreLaws {
         Spec.ForAll(MatrixGens.Square, static a => Spec.Succ(a.Trace(key: MatrixGens.Key), then: t => Spec.EqualWithin(left: t,
             right: toSeq(Enumerable.Range(start: 0, count: a.Rows.Value)).Fold(initialState: 0.0, f: (s, i) => s + a.At(i: i, j: i)),
             tolerance: 1.0e-12, what: "trace")));
+        Spec.ForAll(MatrixGens.Rectangular, static a => Spec.FailCategory(a.Trace(key: MatrixGens.Key), category: "Input"));
         Spec.ForAll(MatrixGens.TallOrSquare, static a =>
             Spec.EqualWithin(left: a.Frobenius,
                 right: Math.Sqrt(d: a.Entries.Fold(initialState: 0.0, f: static (s, e) => s + (e * e))),
@@ -157,6 +162,9 @@ public sealed class DecompositionLaws {
             Numeric.Entrywise(rows: a.Rows.Value, cols: a.Cols.Value, expected: a.At, actual: lu.Source.At, tolerance: 1.0e-7, label: "LU source");
             double det = Numeric.Determinant(n: a.Rows.Value, at: a.At);
             Spec.EqualWithin(left: lu.Determinant, right: det, tolerance: Math.Max(val1: 1.0e-8, val2: Math.Abs(value: det) * 1.0e-12), what: "LU determinant");
+            Arr<double> rhs = new([.. Enumerable.Range(start: 1, count: a.Rows.Value).Select(static i => (double)i)]);
+            Spec.Succ(lu.Solve(rhs: rhs, key: MatrixGens.Key), then: x => Numeric.Residual(matrix: a, x: x, b: rhs, tolerance: 1.0e-7, label: "LU solve"));
+            Spec.FailCategory(lu.Solve(rhs: new Arr<double>([1.0]), key: MatrixGens.Key), category: "Input");
         }));
     [Fact]
     public void CholeskyReconstructsSpd() =>

@@ -316,14 +316,21 @@ public abstract partial record VectorIntent {
     }
     public static VectorIntent Topology(MeshSpace space) =>
         new TopologyCase(Space: space);
-    public static Fin<VectorIntent> Features(MeshSpace space, double dihedralRadians, Op? key = null) =>
-        key.OrDefault().AcceptValidated<VectorAngle>(candidate: dihedralRadians)
-            .Bind(angle => angle.Value > RhinoMath.ZeroTolerance
+    public static Fin<VectorIntent> Features(MeshSpace space, double dihedralRadians, Op? key = null) {
+        Op op = key.OrDefault();
+        return from _ in Optional(space.Native).ToFin(op.InvalidInput())
+               from angle in op.AcceptValidated<VectorAngle>(candidate: dihedralRadians)
+               from intent in angle.Value > RhinoMath.ZeroTolerance
                 ? Fin.Succ((VectorIntent)new FeaturesCase(Space: space, Dihedral: angle))
-                : Fin.Fail<VectorIntent>(key.OrDefault().InvalidInput()));
+                : Fin.Fail<VectorIntent>(op.InvalidInput())
+               select intent;
+    }
     public static Fin<VectorIntent> Descriptor(MeshSpace space, MeshDescriptor kind, int pairs, Op? key = null) {
         Op op = key.OrDefault();
-        return from count in op.AcceptValidated<Dimension>(candidate: pairs)
-               select (VectorIntent)new DescriptorCase(Space: space, Kind: kind, Pairs: count);
+        return from _ in Optional(space.Native).ToFin(op.InvalidInput())
+               from active in Optional(kind).ToFin(op.InvalidInput())
+               from __ in guard(active.IsValid, op.InvalidInput())
+               from count in op.AcceptValidated<Dimension>(candidate: pairs)
+               select (VectorIntent)new DescriptorCase(Space: space, Kind: active, Pairs: count);
     }
 }

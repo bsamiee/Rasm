@@ -151,7 +151,7 @@ public readonly record struct Direction {
         from activeTransmitted in key.AcceptValidated<PositiveMagnitude>(candidate: etaTransmitted)
         let exiting = incident.Value * normal.Value > 0.0
         let orientedNormal = exiting ? -normal.Value : normal.Value
-        let eta = exiting ? activeTransmitted.Value / activeIncident.Value : activeIncident.Value / activeTransmitted.Value
+        let eta = activeIncident.Value / activeTransmitted.Value
         let cosI = Math.Clamp(value: -(incident.Value * orientedNormal), min: -1.0, max: 1.0)
         let k = 1.0 - (eta * eta * (1.0 - (cosI * cosI)))
         from direction in k switch {

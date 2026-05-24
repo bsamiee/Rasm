@@ -19,6 +19,7 @@
 - Architecture tests own assembly dependency direction only; code-shape rules stay in `tools/cs-analyzer`.
 - Benchmarks and fuzz harnesses are separate executable rails, not xUnit specs.
 - Verify snapshots compare stable artifacts only; never snapshot current implementation output as a domain oracle.
+- Prove non-zero VSTest discovery before using Stryker survivor data; if Stryker reports zero tests while `bash scripts/test.sh` finds tests, treat mutation output as tooling evidence, not code quality evidence.
 - Generated reports, corpora, mutation output, benchmark output, and transient test results belong under `/Users/bardiasamiee/Documents/99.Github/Rasm/.artifacts`; do not create local scratch roots such as `.remember`.
 - If bridge execution reports `LanguageExt.*` value-type mismatch or already-loaded assembly identity failures, investigate loaded Rhino packages/assemblies before changing the scenario or static spec.
 
@@ -30,6 +31,11 @@
 - Use explicit seeds only to preserve a discovered regression; otherwise let `CsCheck_*` environment policy flow through `Spec`.
 - Grade every expected-value path: prefer independent closed form, smaller model, or metamorphic relation; reject implementation mirrors.
 - Treat Stryker survivors as missing oracle, equivalent mutant, bridge-owned path, or product bug before editing tests.
+- Shape-only assertions are Grade D. They are acceptable only as supplemental dispatch proof when paired with at least one Grade A/B oracle or a durable Grade C failure/category rail.
+- Good laws attack more than one dimension: construction, projection, unsupported output, failure category, receipt metadata, and a metamorphic or closed-form invariant should share the same generated sample whenever the source behavior allows it.
+- Use deliberately distinct payload values in product generators so tests catch swapped fields, stale branches, and ignored input rather than only proving that "some value" survived.
+- For numeric/domain code, prefer an independent scalar loop, small fixture geometry, or algebraic identity over reusing the production method with different spelling.
+- A useful failing test is preserved by fixing the production owner first. Only weaken or delete the law after proving the expected value was circular or the behavior is bridge-owned.
 
 ## [3][TESTKIT]
 
@@ -38,6 +44,8 @@
 - Use `Numeric` for independent matrix/vector oracles; do not use production `Matrix` operators to compute expected values.
 - Extend `_testkit` only when two or more specs will consume the abstraction. Testkit files may reach 350 LOC, but must stay polymorphic and dense.
 - Do not add package versions as future intent. Every test tool package must have a concrete spec, benchmark, harness, or artifact owner.
+- Promote only anti-circular value: reusable finite point sets, centroid/covariance/distance oracles, row-major residuals, Hermitian matvec/residuals, and stable serializers are valid candidates once multiple specs need them.
+- Do not promote benchmark, fuzz, bridge, or one-off fixture adapters into `_testkit`; those rails have their own executable owners.
 
 ## [4][SUPPRESSIONS_AND_GATES]
 

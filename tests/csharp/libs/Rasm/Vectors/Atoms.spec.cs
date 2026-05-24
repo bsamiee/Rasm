@@ -12,6 +12,7 @@ namespace Rasm.Tests.Vectors;
 // loads only inside a Rhino runtime. The static rail covers pure-managed surfaces below.
 internal static class AtomGens {
     public static readonly Op Key = Op.Of(name: "atoms-test");
+    public static readonly Context Model = Spec.SuccValue(Context.Of(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: UnitSystem.Millimeters).ToFin(), label: "atoms context");
     public static readonly Gen<VectorAngle> Angle = Gens.UnitAngle.Select(static (double radians) =>
         VectorAngle.TryCreate(value: radians, obj: out VectorAngle v) ? v : throw new InvalidOperationException("generator invariant broken: angle"));
     public static readonly Gen<PositiveMagnitude> Magnitude = Gens.Positive.Select(static (double scalar) =>
@@ -37,6 +38,13 @@ public sealed class VectorAngleProps {
     public void ValueRoundtripsThroughFactory() =>
         Spec.Roundtrip(AtomGens.Angle, forward: static (VectorAngle a) => a.Value, back: static (double r) =>
             VectorAngle.TryCreate(value: r, obj: out VectorAngle v) ? v : throw new InvalidOperationException("roundtrip lost value"));
+    [Fact]
+    public void ProjectionOwnsSelfScalarAndUnsupportedRails() =>
+        Spec.ForAll(AtomGens.Angle, static angle => {
+            Spec.Succ(angle.Project<VectorAngle>(key: AtomGens.Key), then: actual => Assert.Equal(expected: angle, actual: actual));
+            Spec.Succ(angle.Project<double>(key: AtomGens.Key), then: value => Spec.EqualWithin(left: value, right: angle.Value, tolerance: 0.0, what: "angle scalar"));
+            Spec.FailCategory(angle.Project<Point3d>(key: AtomGens.Key), category: "Unsupported");
+        });
 }
 
 public sealed class PositiveMagnitudeProps {

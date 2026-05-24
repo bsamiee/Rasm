@@ -5,13 +5,18 @@ namespace Rasm.Vectors;
 // --- [MODELS] -----------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SpectralBasis(Arr<double> Eigenvalues, Arr<Arr<double>> Eigenvectors) {
-    public bool IsValid =>
-        Eigenvalues.Count == Eigenvectors.Count
-        && Eigenvalues.ForAll(static lambda => RhinoMath.IsValidDouble(x: lambda) && lambda >= -RhinoMath.SqrtEpsilon)
-        && Eigenvectors.ForAll(static phi => !phi.IsEmpty && phi.ForAll(RhinoMath.IsValidDouble));
+    public bool IsValid {
+        get {
+            int vertexCount = VertexCount;
+            return Eigenvalues.Count > 0
+                && Eigenvalues.Count == Eigenvectors.Count
+                && Eigenvalues.ForAll(static lambda => RhinoMath.IsValidDouble(x: lambda) && lambda >= -RhinoMath.SqrtEpsilon)
+                && Eigenvectors.ForAll(phi => !phi.IsEmpty && phi.Count == vertexCount && phi.ForAll(RhinoMath.IsValidDouble));
+        }
+    }
     internal int VertexCount => Eigenvectors.IsEmpty ? 0 : Eigenvectors[index: 0].Count;
     public SpectralBasis Truncate(int k) =>
-        k >= Eigenvalues.Count
+        k <= 0 || k >= Eigenvalues.Count
             ? this
             : new SpectralBasis(
                 Eigenvalues: new Arr<double>([.. Eigenvalues.AsIterable().Take(k)]),
@@ -104,7 +109,8 @@ internal static class SpectralCore {
     internal static Fin<Arr<double>> EvaluateFiltered(SpectralBasis basis, Option<Seq<int>> sources, SpectralFilter filter, Op key) {
         int n = basis.VertexCount;
         if (n == 0) return Fin.Fail<Arr<double>>(error: key.InvalidInput());
-        Seq<int> sourceSet = sources.IfNone(toSeq<int>([]));
+        Seq<int> sourceSet = sources.Match(Some: static values => values, None: static () => toSeq<int>([]));
+        if (sources.IsSome && sourceSet.IsEmpty) return Fin.Fail<Arr<double>>(error: key.InvalidInput());
         if (!sourceSet.IsEmpty && sourceSet.AsIterable().Any(s => s < 0 || s >= n))
             return Fin.Fail<Arr<double>>(error: key.InvalidInput());
         if (!basis.Eigenvectors.ForAll(phi => phi.Count == n))
@@ -128,7 +134,9 @@ internal static class SpectralCore {
         }
         if (isPairwise)
             for (int v = 0; v < n; v++) result[v] = Math.Sqrt(d: Math.Max(val1: 0.0, val2: result[v] * normFactor));
-        return key.AcceptValue(value: new Arr<double>(result));
+        return result.All(RhinoMath.IsValidDouble)
+            ? Fin.Succ(new Arr<double>(result))
+            : Fin.Fail<Arr<double>>(key.InvalidResult());
     }
 
     // --- [CROUZEIX_RAVIART] -----------------------------------------------------------------

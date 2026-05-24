@@ -27,6 +27,12 @@
 | D | Structural assertion | Supplemental shape proof only. |
 | F | Implementation mirror or current-output snapshot | Reject. |
 
+[CRITICAL]:
+- Grade D is never the main oracle for a behavior owner. A factory shape check, non-null output check, or `typeof(TOut)` branch assertion must be paired with a closed form, smaller model, metamorphic law, or stable failure/category rail.
+- A real oracle can be tiny: a one-triangle mesh, one-point transport plan, scalar ODE, diagonal matrix, row-major residual loop, or signed-distance formula is enough when it is independent from the production path.
+- Product generators should carry distinct values through every field or output channel under test. This turns transport/dispatch tests into swap detectors instead of presence checks.
+- Category rails are real value when the category is contractual: `Input`, `Tolerance`, `Result`, `Unsupported`, and `Operation` catch exception-shaped failures without overfitting exact prose.
+
 ---
 ## [3][LAW_MATRIX]
 
@@ -50,3 +56,5 @@
 - Testing only happy-path construction while projection/unsupported rails remain untouched.
 - Using broad `Assert.True` labels that hide the generated input and law.
 - Adding a shared helper for one file instead of inlining or promoting a universal testkit primitive.
+- Counting coverage from static specs by calling native Rhino geometry methods that require RhinoWIP host initialization.
+- Reusing production projection/operators as expected-value engines under a different name.

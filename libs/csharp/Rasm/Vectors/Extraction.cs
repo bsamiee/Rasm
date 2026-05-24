@@ -137,7 +137,7 @@ public abstract partial record ExtractionProbe {
             tensorCase: static (state, probe) =>
                 from tensor in probe.Source.SampleTensor(sample: state.Sample, context: state.Context, key: state.Key)
                 from output in typeof(TOut) switch {
-                    Type t when t == typeof(SymmetricMatrix) => state.Key.AcceptValue(value: tensor).Map(static v => (TOut)(object)v),
+                    Type t when t == typeof(SymmetricMatrix) => Fin.Succ((TOut)(object)tensor),
                     Type t when t == typeof(Seq<(double Eigenvalue, Direction Eigenvector)>) =>
                         probe.Source.PrincipalDirections(sample: state.Sample, context: state.Context, key: state.Key).Map(static p => (TOut)(object)p),
                     _ => Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(TensorCase), outputType: typeof(TOut))),

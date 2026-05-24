@@ -73,7 +73,12 @@ public readonly record struct Matrix(Dimension Rows, Dimension Cols, Arr<double>
     public double Frobenius => MatrixNormKind.Frobenius.Compute(matrix: this);
     public Fin<double> Norm(MatrixNormKind kind, Op? key = null) =>
         kind is null ? Fin.Fail<double>(error: key.OrDefault().InvalidInput()) : Fin.Succ(kind.Compute(matrix: this));
-    public Fin<double> Trace(Op? key = null) => key.OrDefault().AcceptValue(value: MatrixKernel.ToMathNet(this).Trace());
+    public Fin<double> Trace(Op? key = null) {
+        Op op = key.OrDefault();
+        return Rows.Value != Cols.Value
+            ? Fin.Fail<double>(op.InvalidInput())
+            : op.AcceptValue(value: MatrixKernel.ToMathNet(this).Trace());
+    }
     public Fin<double> Determinant(Op? key = null) =>
         MatrixKernel.Determinant(matrix: this, key: key.OrDefault());
     public Fin<double> Spectral(Op? key = null) =>
@@ -110,7 +115,8 @@ public readonly record struct LuResult {
     public double Determinant { get; }
     internal MathNet.Numerics.LinearAlgebra.Factorization.LU<double> Factor { get; }
     public bool IsValid => Source.IsValid && RhinoMath.IsValidDouble(x: Determinant);
-    public Arr<double> Solve(Arr<double> rhs) => MatrixKernel.LuSolve(lu: this, rhs: rhs);
+    public Fin<Arr<double>> Solve(Arr<double> rhs, Op? key = null) =>
+        MatrixKernel.LuSolve(lu: this, rhs: rhs, key: key.OrDefault());
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -368,8 +374,15 @@ internal static class MatrixKernel {
         rhs.Count != matrix.Rows.Value || matrix.Rows.Value != matrix.Cols.Value
             ? Fin.Fail<Arr<double>>(error: key.InvalidInput())
             : key.Catch(() => Fin.Succ(ArrFromVector(ToMathNet(matrix).LU().Solve(DenseVectorD.OfArray([.. rhs.AsIterable()])))));
-    internal static Arr<double> LuSolve(LuResult lu, Arr<double> rhs) =>
-        ArrFromVector(lu.Factor.Solve(DenseVectorD.OfArray([.. rhs.AsIterable()])));
+    internal static Fin<Arr<double>> LuSolve(LuResult lu, Arr<double> rhs, Op key) =>
+        rhs.Count != lu.Source.Rows.Value || lu.Source.Rows.Value != lu.Source.Cols.Value
+            ? Fin.Fail<Arr<double>>(key.InvalidInput())
+            : key.Catch(() => {
+                Arr<double> solved = ArrFromVector(lu.Factor.Solve(DenseVectorD.OfArray([.. rhs.AsIterable()])));
+                return solved.ForAll(RhinoMath.IsValidDouble)
+                    ? Fin.Succ(solved)
+                    : Fin.Fail<Arr<double>>(key.InvalidResult());
+            });
     internal static Fin<double> Determinant(Matrix matrix, Op key) =>
         matrix.Rows.Value != matrix.Cols.Value
             ? Fin.Fail<double>(error: key.InvalidInput())

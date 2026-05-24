@@ -39,3 +39,7 @@ Every owning spec should explicitly consider these axes:
 - Prefer `Spec.SuccValue` once per fixture object, then generated assertions over that object.
 - Keep one-off expected values inline only when they are true mathematical constants.
 - Promote only reusable generators and independent oracles to `_testkit`.
+- Prefer product generators that vary mode, payload, output kind, and invalid edge together; this catches branch swaps with fewer lines than one fact per mode.
+- Use local fixture geometry only when it is the independent model: asymmetric tetrahedra, a unit segment, one triangle, one square, diagonal matrices, and one-point probability plans often expose more bugs than large random fixtures.
+- Raise the 175 LOC target only after collapsing repeated setup into arrays, `Spec.Cases`, `Spec.SmartEnumKeysUnique`, `Numeric`, or a two-consumer testkit primitive.
+- Keep bridge classification concise in static specs; executable native success belongs in `*.verify.csx`, not in long static workarounds.

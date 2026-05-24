@@ -206,7 +206,7 @@ public abstract partial record VectorCloud {
         double[] values = [.. mass.AsIterable()];
         double total = values.Sum();
         return values.Length == count
-            && values.All(static value => RhinoMath.IsValidDouble(x: value) && value >= 0.0)
+            && values.All(static value => RhinoMath.IsValidDouble(x: value) && value > 0.0)
             && RhinoMath.IsValidDouble(x: total)
             && total > RhinoMath.ZeroTolerance
             ? Fin.Succ(new Arr<double>([.. values.Select(value => value / total)]))
@@ -924,7 +924,7 @@ internal static class CloudKernel {
         double k2 = 0.5 * (trace - disc);
         double angle = Math.Abs(value: s12) > RhinoMath.SqrtEpsilon
             ? Math.Atan2(y: k1 - s11, x: s12)
-            : 0.0;
+            : s22 > s11 ? Math.PI / 2.0 : 0.0;
         Vector3d e1World = (Math.Cos(d: angle) * uAxis) + (Math.Sin(a: angle) * vAxis);
         Vector3d e2World = (-Math.Sin(a: angle) * uAxis) + (Math.Cos(d: angle) * vAxis);
         return from e1 in Direction.Of(value: e1World, tolerance: RhinoMath.ZeroTolerance, key: key)
@@ -936,13 +936,15 @@ internal static class CloudKernel {
         PrincipalCurvaturesOf(cluster: cluster, key: key)
             .Map(static curvatures => toSeq(curvatures.AsIterable().Select(static c => Math.Sqrt(d: 0.5 * ((c.K1 * c.K1) + (c.K2 * c.K2))))));
 
-    // Koenderink-van Doorn 1992 shape index: (2/pi) * atan2(k1+k2, k2-k1) in [-1, 1].
+    // Koenderink-van Doorn 1992 shape index: (2/pi) * atan2(k1+k2, k1-k2) in [-1, 1].
     // Maps geometric type: -1 = cup, -0.5 = trough, 0 = saddle, 0.5 = ridge, 1 = cap.
     internal static Fin<Seq<double>> ShapeIndexOf(VectorCloud.ClusterCase cluster, Op key) =>
         PrincipalCurvaturesOf(cluster: cluster, key: key)
             .Map(static curvatures => toSeq(curvatures.AsIterable().Select(static c => {
-                double diff = c.K2 - c.K1;
+                double diff = c.K1 - c.K2;
                 double sum = c.K1 + c.K2;
-                return Math.Abs(value: diff) < RhinoMath.SqrtEpsilon ? 0.0 : 2.0 / Math.PI * Math.Atan2(y: sum, x: diff);
+                return Math.Abs(value: diff) < RhinoMath.SqrtEpsilon
+                    ? Math.Sign(value: sum)
+                    : 2.0 / Math.PI * Math.Atan2(y: sum, x: diff);
             })));
 }

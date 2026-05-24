@@ -670,21 +670,24 @@ public partial record TensorField {
         new BlendCase(Fields: fields, Mode: mode ?? FieldBlend.Sum);
     internal Fin<SymmetricMatrix> SampleTensor(Point3d sample, Context context, Op key) => Switch(
         state: (Sample: sample, Context: context, Key: key),
-        constantCase: static (s, c) => s.Key.AcceptValue(value: c.Value),
+        constantCase: static (s, c) => c.Value.IsValid ? Fin.Succ(c.Value) : Fin.Fail<SymmetricMatrix>(s.Key.InvalidResult()),
         curvatureCase: static (s, c) => CurvatureTensorAt(space: c.Space, sample: s.Sample, key: s.Key),
-        liftCase: static (s, c) => s.Key.Catch(() => s.Key.AcceptValue(value: c.Sampler(arg: s.Sample))),
+        liftCase: static (s, c) => s.Key.Catch(() => {
+            SymmetricMatrix value = c.Sampler(arg: s.Sample);
+            return value.IsValid ? Fin.Succ(value) : Fin.Fail<SymmetricMatrix>(s.Key.InvalidResult());
+        }),
         warpCase: static (s, c) => c.Spatial.TryGetInverse(inverseTransform: out Transform inverse)
             ? c.Source.SampleTensor(sample: inverse * s.Sample, context: s.Context, key: s.Key)
                 .Bind(tensor => TransformTensor(tensor: tensor, spatial: c.Spatial, key: s.Key))
             : Fin.Fail<SymmetricMatrix>(error: s.Key.InvalidResult()),
         scaledCase: static (s, c) => c.Source.SampleTensor(sample: s.Sample, context: s.Context, key: s.Key)
-            .Bind(m => s.Key.AcceptValue(value: new SymmetricMatrix(Dimension: m.Dimension, Upper: [.. m.Upper.AsIterable().Select(v => v * c.Scale)]))),
+            .Bind(m => SymmetricMatrix.Of(dim: m.Dimension, upper: [.. m.Upper.AsIterable().Select(v => v * c.Scale)], key: s.Key)),
         blendCase: static (s, c) => c.Fields.TraverseM(f => f.SampleTensor(sample: s.Sample, context: s.Context, key: s.Key)).As()
             .Bind(tensors => BlendTensors(tensors: tensors, mode: c.Mode, key: s.Key)));
     private static Fin<SymmetricMatrix> BlendTensors(Seq<SymmetricMatrix> tensors, FieldBlend mode, Op key) =>
         tensors.IsEmpty || tensors.Exists(t => !t.IsValid || t.Dimension.Value != tensors[index: 0].Dimension.Value)
             ? Fin.Fail<SymmetricMatrix>(error: key.InvalidResult())
-            : key.AcceptValue(value: AverageTensors(tensors: tensors, divisor: mode.Equals(FieldBlend.Sum) ? 1 : tensors.Count));
+            : Fin.Succ(AverageTensors(tensors: tensors, divisor: mode.Equals(FieldBlend.Sum) ? 1 : tensors.Count));
     internal Fin<Seq<(double Eigenvalue, Direction Eigenvector)>> PrincipalDirections(Point3d sample, Context context, Op key) =>
         from tensor in SampleTensor(sample: sample, context: context, key: key)
         from _ in tensor.Dimension.Value == 3 ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput())

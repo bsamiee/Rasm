@@ -22,6 +22,9 @@ internal static class SpaceGens {
 }
 
 // --- [ALGEBRAIC] ----------------------------------------------------------------------------
+// Brep/Mesh containment, surface sampling, and span vector materialization project through
+// Rhino native geometry and belong in bridge scenarios. The static rail owns typed admission
+// and option-gated failures that return before native dispatch.
 public sealed class SupportProjectionLaws {
     [Fact]
     public void KeysAreDistinctAndGeneratorEmitsDeclaredCases() {
@@ -42,17 +45,20 @@ public sealed class SupportProjectionLaws {
         Spec.Succ(SupportProjection.Component.Project<ComponentIndex>(space: SpaceGens.PointSpace, hit: rich, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key),
             then: component => Assert.Equal(expected: 4, actual: component.Index));
         ClosestHit sparse = SpaceGens.Hit();
-        Spec.Fail(SupportProjection.Parameter.Project<double>(space: SpaceGens.PointSpace, hit: sparse, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key));
-        Spec.Fail(SupportProjection.Uv.Project<Point2d>(space: SpaceGens.PointSpace, hit: sparse, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key));
-        Spec.Fail(SupportProjection.Component.Project<ComponentIndex>(space: SpaceGens.PointSpace, hit: sparse, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key));
+        Spec.FailCategory(SupportProjection.Parameter.Project<double>(space: SpaceGens.PointSpace, hit: sparse, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key), category: "Unsupported");
+        Spec.FailCategory(SupportProjection.Uv.Project<Point2d>(space: SpaceGens.PointSpace, hit: sparse, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key), category: "Unsupported");
+        Spec.FailCategory(SupportProjection.Component.Project<ComponentIndex>(space: SpaceGens.PointSpace, hit: sparse, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key), category: "Unsupported");
     }
     [Fact]
     public void SpanOwnershipAndUnsupportedOutputAreExplicit() {
         ClosestHit hit = SpaceGens.Hit();
         Assert.True(condition: SupportProjection.Span.CanProjectVector(space: SpaceGens.PointSpace));
         Assert.True(condition: SupportProjection.SignedSpanAway.CanProjectVector(space: SpaceGens.PointSpace));
-        Spec.Fail(SupportProjection.Span.Project<VectorFrame>(space: SpaceGens.PointSpace, hit: hit, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key));
-        Spec.Fail(SupportProjection.Closest.Project<VectorFrame>(space: SpaceGens.PointSpace, hit: hit, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key));
-        Spec.Fail(SupportSpace.Of(value: new object(), key: SpaceGens.Key));
+        Spec.FailCategory(SupportProjection.Span.Project<VectorFrame>(space: SpaceGens.PointSpace, hit: hit, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key), category: "Unsupported");
+        Spec.FailCategory(SupportProjection.Closest.Project<VectorFrame>(space: SpaceGens.PointSpace, hit: hit, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key), category: "Unsupported");
+        Spec.FailCategory(SupportSpace.Of(value: new object(), key: SpaceGens.Key), category: "Unsupported");
     }
+    [Fact]
+    public void SurfaceSpaceAdmissionFailsBeforeProjectionDispatch() =>
+        Spec.FailCategory(SurfaceSpace.Of(native: null!, context: SpaceGens.Model, key: SpaceGens.Key), category: "Input");
 }

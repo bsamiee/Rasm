@@ -57,10 +57,10 @@ internal static class FlowGens {
 public sealed class TerminationLaws {
     [Fact]
     public void FactoriesRejectInvalidBudgets() {
-        Spec.ForAll(Gen.Int[-1000, 0], n => Spec.Fail(Termination.Steps(count: n, key: FlowGens.Key)));
+        Spec.ForAll(Gen.Int[-1000, 0], n => Spec.FailCategory(Termination.Steps(count: n, key: FlowGens.Key), category: "Input"));
         Spec.ForAll(Gens.NonPositive, x => {
-            Spec.Fail(Termination.ArcLength(length: x, key: FlowGens.Key));
-            Spec.Fail(Termination.Magnitude(threshold: x, key: FlowGens.Key));
+            Spec.FailCategory(Termination.ArcLength(length: x, key: FlowGens.Key), category: "Tolerance");
+            Spec.FailCategory(Termination.Magnitude(threshold: x, key: FlowGens.Key), category: "Tolerance");
         });
     }
     [Fact]
@@ -139,5 +139,24 @@ public sealed class FieldIntegratorLaws {
         Spec.Fail(FlowKernel.ProjectTrace<Curve>(trace: FlowGens.Trace(stop: StreamlineStopKind.IterationCapExhausted), key: FlowGens.Key));
         Spec.Succ(FlowKernel.ProjectTrace<Seq<Point3d>>(trace: FlowGens.Trace(stop: StreamlineStopKind.IterationCapExhausted), key: FlowGens.Key),
             then: points => Assert.Single(collection: points));
+    }
+    [Fact]
+    public void ConstantFieldTraceIsExactAndArcLengthMatchesFoldOracle() {
+        PositiveMagnitude step = Spec.SuccValue(FlowGens.Key.AcceptValidated<PositiveMagnitude>(candidate: 0.25), label: "trace step");
+        Termination stop = Spec.SuccValue(Termination.Steps(count: 4, key: FlowGens.Key), label: "trace stop");
+        Spec.Succ(FlowKernel.Trace<StreamlineTrace>(
+            source: VectorField.Constant(value: Vector3d.XAxis),
+            seed: Point3d.Origin,
+            initialStep: step,
+            integrator: FieldIntegrator.RK4,
+            termination: stop,
+            context: FlowGens.Model,
+            key: FlowGens.Key), then: trace => {
+                Assert.Equal(expected: StreamlineStopKind.Terminated, actual: trace.Stop);
+                Assert.Equal(expected: 4, actual: trace.AcceptedSteps);
+                Assert.Equal(expected: 5, actual: trace.Trail.Count);
+                Spec.NearEqual(left: trace.Trail[index: 4], right: new Point3d(x: 1.0, y: 0.0, z: 0.0), tolerance: 1.0e-12);
+                Spec.EqualWithin(left: trace.ArcLength, right: toSeq(Enumerable.Range(start: 1, count: trace.Trail.Count - 1)).Fold(initialState: 0.0, f: (sum, i) => sum + trace.Trail[i].DistanceTo(other: trace.Trail[i - 1])), tolerance: 1.0e-12, what: "arc fold");
+            });
     }
 }

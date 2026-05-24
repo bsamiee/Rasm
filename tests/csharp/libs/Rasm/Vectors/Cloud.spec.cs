@@ -27,6 +27,8 @@ internal static class CloudMetricGens {
     public static readonly Seq<Point3d> Triangle = Seq(new Point3d(x: 0.0, y: 0.0, z: 0.0), new Point3d(x: 1.0, y: 0.0, z: 0.0), new Point3d(x: 0.0, y: 1.0, z: 0.0));
     public static readonly Gen<Seq<double>> RawMass3 = Gens.Positive.Array[3].Select(static values => toSeq(values));
     public static readonly Gen<Seq<double>> Simplex3 = Gens.Simplex(count: 3);
+    public static readonly Gen<Seq<double>> ZeroMass3 = Gens.Positive.Select(Gen.Int[start: 0, finish: 2], static (double mass, int zero) =>
+        toSeq(Enumerable.Range(start: 0, count: 3).Select(i => i == zero ? 0.0 : mass + i + 1.0)));
     public static readonly Type[] RingFamily = [
         typeof(Vector3d), typeof(double), typeof(Point3d), typeof(Plane),
         typeof(Seq<Vector3d>), typeof(VectorCloudShape), typeof(Seq<Plane>),
@@ -85,11 +87,13 @@ public sealed class VectorCloudMassLaws {
         }));
     [Fact]
     public void WeightedClusterRejectsBadMassRails() {
-        Spec.Fail(VectorCloud.WeightedCluster(points: CloudMetricGens.Triangle, mass: Seq(1.0, 2.0), context: CloudMetricGens.Model, key: Op.Of(name: "cloud-test")));
-        Spec.Fail(VectorCloud.WeightedCluster(points: CloudMetricGens.Triangle, mass: Seq(1.0, -1.0, 1.0), context: CloudMetricGens.Model, key: Op.Of(name: "cloud-test")));
-        Spec.Fail(VectorCloud.WeightedCluster(points: CloudMetricGens.Triangle, mass: Seq(0.0, 0.0, 0.0), context: CloudMetricGens.Model, key: Op.Of(name: "cloud-test")));
+        Spec.FailCategory(VectorCloud.WeightedCluster(points: CloudMetricGens.Triangle, mass: Seq(1.0, 2.0), context: CloudMetricGens.Model, key: Op.Of(name: "cloud-test")), category: "Input");
+        Spec.FailCategory(VectorCloud.WeightedCluster(points: CloudMetricGens.Triangle, mass: Seq(1.0, -1.0, 1.0), context: CloudMetricGens.Model, key: Op.Of(name: "cloud-test")), category: "Input");
+        Spec.FailCategory(VectorCloud.WeightedCluster(points: CloudMetricGens.Triangle, mass: Seq(0.0, 0.0, 0.0), context: CloudMetricGens.Model, key: Op.Of(name: "cloud-test")), category: "Input");
+        Spec.ForAll(CloudMetricGens.ZeroMass3, mass =>
+            Spec.FailCategory(VectorCloud.WeightedCluster(points: CloudMetricGens.Triangle, mass: mass, context: CloudMetricGens.Model, key: Op.Of(name: "cloud-test")), category: "Input"));
         Spec.ForAll(Gens.NonFinite, x =>
-            Spec.Fail(VectorCloud.WeightedCluster(points: CloudMetricGens.Triangle, mass: Seq(1.0, x, 1.0), context: CloudMetricGens.Model, key: Op.Of(name: "cloud-test"))));
+            Spec.FailCategory(VectorCloud.WeightedCluster(points: CloudMetricGens.Triangle, mass: Seq(1.0, x, 1.0), context: CloudMetricGens.Model, key: Op.Of(name: "cloud-test")), category: "Input"));
     }
     [Fact]
     public void AlreadyNormalMassRailStaysProportional() =>
@@ -106,9 +110,9 @@ public sealed class VectorCloudMassLaws {
         Spec.Succ(CloudKernel.Sinkhorn<SinkhornReceipt>(source: source, target: target, regularization: 1.0, maxIterations: 32, debiased: false, massRelaxation: Some(relaxation), key: Op.Of(name: "cloud-test")), then: receipt =>
             Assert.Equal(expected: SinkhornStopKind.RelaxedScalingConverged, actual: receipt.Stop));
         Spec.Succ(CloudKernel.Sinkhorn<double>(source: source, target: target, regularization: 1.0, maxIterations: 32, debiased: false, massRelaxation: Option<PositiveMagnitude>.None, key: Op.Of(name: "cloud-test")),
-            then: distance => Assert.True(condition: distance >= 0.0));
-        Spec.Fail(CloudKernel.Sinkhorn<double>(source: source, target: target, regularization: 0.0, maxIterations: 32, debiased: false, massRelaxation: Option<PositiveMagnitude>.None, key: Op.Of(name: "cloud-test")));
-        Spec.Fail(CloudKernel.Sinkhorn<double>(source: source, target: target, regularization: 1.0, maxIterations: 0, debiased: false, massRelaxation: Option<PositiveMagnitude>.None, key: Op.Of(name: "cloud-test")));
-        Spec.Fail(CloudKernel.Sinkhorn<Point3d>(source: source, target: target, regularization: 1.0, maxIterations: 32, debiased: false, massRelaxation: Option<PositiveMagnitude>.None, key: Op.Of(name: "cloud-test")));
+            then: distance => Spec.EqualWithin(left: distance, right: 1.0, tolerance: 1.0e-12, what: "one-point OT distance"));
+        Spec.FailCategory(CloudKernel.Sinkhorn<double>(source: source, target: target, regularization: 0.0, maxIterations: 32, debiased: false, massRelaxation: Option<PositiveMagnitude>.None, key: Op.Of(name: "cloud-test")), category: "Input");
+        Spec.FailCategory(CloudKernel.Sinkhorn<double>(source: source, target: target, regularization: 1.0, maxIterations: 0, debiased: false, massRelaxation: Option<PositiveMagnitude>.None, key: Op.Of(name: "cloud-test")), category: "Input");
+        Spec.FailCategory(CloudKernel.Sinkhorn<Point3d>(source: source, target: target, regularization: 1.0, maxIterations: 32, debiased: false, massRelaxation: Option<PositiveMagnitude>.None, key: Op.Of(name: "cloud-test")), category: "Unsupported");
     }
 }

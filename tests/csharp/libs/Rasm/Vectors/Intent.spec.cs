@@ -40,15 +40,16 @@ public sealed class VectorIntentFactoryLaws {
     [Fact]
     public void CloudTransportFeatureAndDescriptorFactoriesGateInvalidInputs() {
         Spec.Succ(VectorIntent.Cloud(cloud: IntentGens.Cluster, metric: VectorCloudMetric.Covariance, key: IntentGens.Key), then: intent => Assert.IsType<VectorIntent.CloudCase>(@object: intent));
-        Spec.Fail(VectorIntent.Cloud(cloud: IntentGens.Cluster, metric: VectorCloudMetric.Area, key: IntentGens.Key));
-        Spec.Fail(VectorIntent.Winding(cloud: IntentGens.Cluster, query: Point3d.Origin, key: IntentGens.Key));
+        Spec.FailCategory(VectorIntent.Cloud(cloud: IntentGens.Cluster, metric: VectorCloudMetric.Area, key: IntentGens.Key), category: "Unsupported");
+        Spec.FailCategory(VectorIntent.Winding(cloud: IntentGens.Cluster, query: Point3d.Origin, key: IntentGens.Key), category: "Unsupported");
         Spec.Succ(VectorIntent.Transport(source: IntentGens.Cluster, target: IntentGens.Cluster, regularization: 1.0, maxIterations: 32, massRelaxation: 2.0, key: IntentGens.Key),
             then: intent => Assert.IsType<VectorIntent.TransportCase>(@object: intent));
-        Spec.Fail(VectorIntent.Transport(source: IntentGens.Cluster, target: IntentGens.Cluster, regularization: 0.0, maxIterations: 32, key: IntentGens.Key));
-        Spec.Fail(VectorIntent.Transport(source: IntentGens.Cluster, target: IntentGens.Cluster, regularization: 1.0, maxIterations: 0, key: IntentGens.Key));
-        Spec.Succ(VectorIntent.Features(space: IntentGens.Space, dihedralRadians: 0.1, key: IntentGens.Key));
-        Spec.Fail(VectorIntent.Features(space: IntentGens.Space, dihedralRadians: 0.0, key: IntentGens.Key));
-        Spec.Fail(VectorIntent.Descriptor(space: IntentGens.Space, kind: MeshDescriptor.Spectral(filter: SpectralFilter.Identity), pairs: 0, key: IntentGens.Key));
+        Spec.FailCategory(VectorIntent.Transport(source: IntentGens.Cluster, target: IntentGens.Cluster, regularization: 0.0, maxIterations: 32, key: IntentGens.Key), category: "Tolerance");
+        Spec.FailCategory(VectorIntent.Transport(source: IntentGens.Cluster, target: IntentGens.Cluster, regularization: 1.0, maxIterations: 0, key: IntentGens.Key), category: "Tolerance");
+        Spec.FailCategory(VectorIntent.Features(space: IntentGens.Space, dihedralRadians: 0.1, key: IntentGens.Key), category: "Input");
+        Spec.FailCategory(VectorIntent.Features(space: IntentGens.Space, dihedralRadians: 0.0, key: IntentGens.Key), category: "Input");
+        Spec.FailCategory(VectorIntent.Descriptor(space: IntentGens.Space, kind: MeshDescriptor.Spectral(filter: SpectralFilter.Identity), pairs: 4, key: IntentGens.Key), category: "Input");
+        Spec.FailCategory(VectorIntent.Descriptor(space: IntentGens.Space, kind: MeshDescriptor.Spectral(filter: null!), pairs: 4, key: IntentGens.Key), category: "Input");
     }
 }
 
@@ -78,9 +79,9 @@ public sealed class VectorIntentShapeLaws {
     }
     [Fact]
     public void ProjectRequiresContextBeforeDispatch() {
-        Spec.Fail(VectorIntent.Direction(value: Vector3d.XAxis).Project<Vector3d>(context: null!, key: IntentGens.Key));
-        Spec.Fail(VectorIntent.Lerp(a: Vector3d.XAxis, b: Vector3d.YAxis, t: double.NaN, key: IntentGens.Key));
-        Spec.Fail(VectorIntent.Transport(source: IntentGens.Cluster, target: IntentGens.Cluster, regularization: double.NaN, maxIterations: 16, key: IntentGens.Key));
-        Spec.Fail(VectorIntent.IsoSurface(field: ScalarField.Constant(value: 0.0), bounds: BoundingBox.Empty, resolution: 1, maxRootSteps: 0, key: IntentGens.Key));
+        Spec.FailCategory(VectorIntent.Direction(value: Vector3d.XAxis).Project<Vector3d>(context: null!, key: IntentGens.Key), category: "Operation");
+        Spec.FailCategory(VectorIntent.Lerp(a: Vector3d.XAxis, b: Vector3d.YAxis, t: double.NaN, key: IntentGens.Key), category: "Tolerance");
+        Spec.FailCategory(VectorIntent.Transport(source: IntentGens.Cluster, target: IntentGens.Cluster, regularization: double.NaN, maxIterations: 16, key: IntentGens.Key), category: "Tolerance");
+        Spec.FailCategory(VectorIntent.IsoSurface(field: ScalarField.Constant(value: 0.0), bounds: BoundingBox.Empty, resolution: 1, maxRootSteps: 0, key: IntentGens.Key), category: "Input");
     }
 }

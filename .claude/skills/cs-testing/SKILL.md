@@ -23,11 +23,12 @@ Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` 
 
 1. Read the owning production file and its sibling tests.
 2. Classify each behavior as static-managed or bridge-owned native/runtime.
-3. Select laws from [oracles-laws.md](references/oracles-laws.md) and density axes from [density-axes.md](references/density-axes.md).
-4. Reuse `Rasm.TestKit` contracts from [testkit.md](references/testkit.md).
-5. Check raw tool API in `docs/testing-libs` before using unfamiliar APIs.
-6. Write the spec from [unit-pbt.spec.template.md](templates/unit-pbt.spec.template.md).
-7. Validate with the smallest targeted build/test first, then the full C# gates.
+3. Inventory public APIs, union/SmartEnum cases, failure categories, output projections, native calls, and receipt metadata before writing assertions.
+4. Select laws from [oracles-laws.md](references/oracles-laws.md) and density axes from [density-axes.md](references/density-axes.md).
+5. Reuse `Rasm.TestKit` contracts from [testkit.md](references/testkit.md).
+6. Check raw tool API in `docs/testing-libs` before using unfamiliar APIs.
+7. Write the spec from [unit-pbt.spec.template.md](templates/unit-pbt.spec.template.md).
+8. Validate with the smallest targeted build/test first, then the full C# gates.
 
 ---
 ## [2][RAILS]
@@ -50,6 +51,7 @@ Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` 
 - Do not move native behavior into static xUnit just to improve coverage.
 - Do not document a bridge gap when an executable `*.verify.csx` can own it.
 - Do not add test-specific shared helpers. Promote only universal abstractions with at least two real consumers.
+- Treat shape-only assertions as Grade D unless paired with a Grade A/B oracle or a durable Grade C failure/category rail.
 
 ---
 ## [3][SPEC_SHAPE]
@@ -65,6 +67,12 @@ Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` 
 | [4] | Attributes | `[Fact]`/`[Theory]` on their own line. No local analyzer suppressions for normal test shape. |
 | [5] | Generators | Route reusable value-object generators through production factories. Avoid parallel constructors. |
 | [6] | Names | PascalCase law names; no underscores. |
+
+[CRITICAL]:
+- A spec is not "world-class" because it has many facts. It is strong when one generated domain attacks construction, projection, unsupported outputs, failure categories, receipt invariants, and an independent oracle without mirroring production code.
+- Use distinct generated payload values when a source function transports or dispatches multiple inputs. Equal or placeholder payloads hide swaps and ignored branches.
+- Allow 225 LOC, and exceptionally 300 LOC, only when each added line buys a real oracle, boundary, bridge classification, or product-bug guard that cannot be compressed through `Spec`, `Gens`, `Numeric`, local arrays, or product generators.
+- If a failing law reveals a real production bug, fix the owner. Do not weaken the law into shape-only proof.
 
 ---
 ## [4][TOOL_RAIL]

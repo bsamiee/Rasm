@@ -142,13 +142,16 @@ internal static class SampleKernel {
         int total = candidates.Count;
         int actualCount = Math.Min(val1: count, val2: total);
         int[] chosen = new int[actualCount];
+        bool[] selected = new bool[total];
         chosen[0] = InitialCandidateIndex(candidates: candidates);
+        selected[chosen[0]] = true;
         double[] minDistSq = new double[total];
         for (int i = 0; i < total; i++) minDistSq[i] = candidates[index: i].DistanceToSquared(other: candidates[index: chosen[0]]);
         for (int pick = 1; pick < actualCount; pick++) {
             int farthest = 0; double best = -1.0;
-            for (int i = 0; i < total; i++) if (minDistSq[i] > best) { best = minDistSq[i]; farthest = i; }
+            for (int i = 0; i < total; i++) if (!selected[i] && minDistSq[i] > best) { best = minDistSq[i]; farthest = i; }
             chosen[pick] = farthest;
+            selected[farthest] = true;
             for (int i = 0; i < total; i++) minDistSq[i] = Math.Min(val1: minDistSq[i], val2: candidates[index: i].DistanceToSquared(other: candidates[index: farthest]));
         }
         return chosen;

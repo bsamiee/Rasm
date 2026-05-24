@@ -149,6 +149,7 @@ internal static class AlignKernel {
             rowNormal: (i, normal) => (Normal: normal, Weight: Math.Sqrt(d: Math.Max(val1: Math.Abs(value: sourceNormals[i] * normal), val2: RhinoMath.SqrtEpsilon)))));
     private static Fin<Transform> SolveLinearizedRows(Seq<Point3d> source, Point3d[] target, Vector3d[] normals, Transform current, Op key, Func<int, Vector3d, (Vector3d Normal, double Weight)> rowNormal) {
         int n = source.Count;
+        if (n < 6 || target.Length != n || normals.Length != n) return Fin.Fail<Transform>(key.InvalidInput());
         double[] aFlat = new double[n * 6]; double[] b = new double[n];
         for (int i = 0; i < n; i++) {
             (Vector3d rawNormal, double weight) = rowNormal(i, normals[i]);
@@ -165,6 +166,7 @@ internal static class AlignKernel {
 
     internal static Fin<Transform> SolveRobustProcrustes(Seq<Point3d> source, Point3d[] target, double[] residuals, Transform current, Op key) {
         int n = source.Count;
+        if (n < 3 || target.Length != n || residuals.Length != n) return Fin.Fail<Transform>(key.InvalidInput());
         double[] weights = new double[n];
         double[] sortedResiduals = [.. residuals.Select(static residual => Math.Abs(value: residual)).Order()];
         double median = sortedResiduals.Length == 0 ? 1.0 : sortedResiduals[sortedResiduals.Length / 2];
@@ -226,13 +228,16 @@ internal static class AlignKernel {
         return Point3d.Origin + (sum / points.Count);
     }
     private static Fin<double[]> SolveLeastSquares6(double[] aFlat, double[] b, int n, Op key) =>
-        n < 6
+        n < 6 || aFlat.Length != n * 6 || b.Length != n || !aFlat.All(RhinoMath.IsValidDouble) || !b.All(RhinoMath.IsValidDouble)
             ? Fin.Fail<double[]>(key.InvalidInput())
             : key.Catch(() => {
                 LinearMatrix design = DenseMatrixD.Build.Dense(rows: n, columns: 6, init: (i, j) => aFlat[(i * 6) + j]);
                 DenseVectorD rhs = DenseVectorD.OfArray(b);
                 QR<double> qr = design.QR(QRMethod.Full);
-                return Fin.Succ(qr.Solve(rhs).ToArray());
+                double[] solved = [.. qr.Solve(rhs)];
+                return solved.Length == 6 && solved.All(RhinoMath.IsValidDouble)
+                    ? Fin.Succ(solved)
+                    : Fin.Fail<double[]>(key.InvalidResult());
             });
     // Construct R ≈ I + [ω]× via Rodrigues approximation for small ω; combine with translation.
     private static Transform ComposeRigidTransform(Vector3d omega, Vector3d translation) {

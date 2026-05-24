@@ -167,6 +167,8 @@ public sealed partial class MeshLaplacian {
 public abstract partial record MeshDescriptor {
     private MeshDescriptor() { }
     public sealed record SpectralCase(SpectralFilter Filter, Option<Seq<int>> Sources) : MeshDescriptor;
+    internal bool IsValid =>
+        this is SpectralCase { Filter: not null };
     public static MeshDescriptor Spectral(SpectralFilter filter, Option<Seq<int>> sources = default) =>
         new SpectralCase(Filter: filter, Sources: sources);
 }
@@ -1031,16 +1033,17 @@ internal static class MeshKernel {
     // Sun-Ovsjanikov-Guibas 2009 + Aubry-Schlickewei-Cremers 2011: HKS / WKS plus
     // biharmonic, diffusion, commute-time, and raw identity signatures through SpectralFilter.
     internal static Fin<TOut> DescribeShape<TOut>(MeshSpace space, MeshDescriptor kind, int eigenpairs, Op key) =>
-        kind switch {
-            MeshDescriptor.SpectralCase spec =>
-                from basis in space.Cache.SpectralBasisOf(k: eigenpairs, key: key)
-                from values in spec.Filter.Apply(basis: basis, sources: spec.Sources, key: key)
-                from output in typeof(TOut) == typeof(Arr<double>)
-                    ? key.AcceptValue(value: values).Map(static v => (TOut)(object)v)
-                    : Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(MeshDescriptor.SpectralCase), outputType: typeof(TOut)))
-                select output,
-            _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: kind.GetType(), outputType: typeof(TOut))),
-        };
+        Optional(kind).ToFin(key.InvalidInput()).Bind(active =>
+            guard(active.IsValid, key.InvalidInput()).Bind(_ => active switch {
+                MeshDescriptor.SpectralCase spec =>
+                    from basis in space.Cache.SpectralBasisOf(k: eigenpairs, key: key)
+                    from values in spec.Filter.Apply(basis: basis, sources: spec.Sources, key: key)
+                    from output in typeof(TOut) == typeof(Arr<double>)
+                        ? key.AcceptValue(value: values).Map(static v => (TOut)(object)v)
+                        : Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(MeshDescriptor.SpectralCase), outputType: typeof(TOut)))
+                    select output,
+                _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: active.GetType(), outputType: typeof(TOut))),
+            }));
 
     // Spectral distance scalar field sample: evaluate the SpectralFilter at every vertex,
     // interpolate via the closest mesh point's barycentric weights.
