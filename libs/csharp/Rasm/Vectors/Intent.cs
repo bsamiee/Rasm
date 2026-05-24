@@ -33,7 +33,7 @@ public abstract partial record VectorIntent {
     public sealed record PoseCase(Plane From, Plane To, UnitInterval Parameter, MotionInterpolation Mode) : VectorIntent;
     public sealed record FlattenCase(MeshSpace Space) : VectorIntent;
     public sealed record HullCase(VectorCloud Source) : VectorIntent;
-    public sealed record SampleCase(MeshSpace Domain, SampleKind Kind) : VectorIntent;
+    public sealed record SampleCase(ExtractionDomain Domain, SampleKind Kind) : VectorIntent;
     public sealed record AlignCase(VectorCloud Source, VectorCloud Target, AlignKind Kind) : VectorIntent;
     public sealed record RemeshCase(MeshSpace Space, RemeshKind Kind) : VectorIntent;
     public sealed record TransportCase(VectorCloud Source, VectorCloud Target, PositiveMagnitude Regularization, Dimension MaxIterations, bool Debiased, Option<PositiveMagnitude> MassRelaxation) : VectorIntent;
@@ -163,14 +163,7 @@ public abstract partial record VectorIntent {
             }
             select output,
         sampleCase: static (state, intent) =>
-            from output in typeof(TOut) switch {
-                Type t when t == typeof(VectorCloud) =>
-                    intent.Kind.Sample(domain: intent.Domain, context: state.Context, key: state.Key).Map(static v => (TOut)(object)v),
-                Type t when t == typeof(SampleReceipt) =>
-                    intent.Kind.SampleReceipt(domain: intent.Domain, context: state.Context, key: state.Key).Map(static v => (TOut)(object)v),
-                _ => Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(SampleCase), outputType: typeof(TOut))),
-            }
-            select output,
+            intent.Kind.Project<TOut>(domain: intent.Domain, context: state.Context, key: state.Key),
         alignCase: static (state, intent) =>
             from output in typeof(TOut) switch {
                 Type t when t == typeof(Transform) || t == typeof(AlignmentReceipt) =>
@@ -298,7 +291,7 @@ public abstract partial record VectorIntent {
         new FlattenCase(Space: space);
     public static VectorIntent Hull(VectorCloud source) =>
         new HullCase(Source: source);
-    public static VectorIntent Sample(MeshSpace domain, SampleKind kind) =>
+    public static VectorIntent Sample(ExtractionDomain domain, SampleKind kind) =>
         new SampleCase(Domain: domain, Kind: kind);
     public static VectorIntent Align(VectorCloud source, VectorCloud target, AlignKind kind) =>
         new AlignCase(Source: source, Target: target, Kind: kind);

@@ -74,3 +74,15 @@ public sealed class MeshDescriptorAndRemeshLaws {
         Spec.FailCategory(RemeshKind.Simplify(parameters: new ReduceMeshParameters { DesiredPolygonCount = 0 }, key: MeshGens.Key), category: "Input");
     }
 }
+
+public sealed class MeshScalarPolicyLaws {
+    [Fact]
+    public void ScalarContourPolicyGatesFinitePayloadAndLevels() {
+        ContourPolicy policy = Spec.SuccValue(ContourPolicy.MeshScalar(values: new Arr<double>([-1.0, 1.0, 1.0]), levels: Seq(0.0), key: MeshGens.Key), label: "scalar contour policy");
+        ContourPolicy.MeshScalarCase scalar = Assert.IsType<ContourPolicy.MeshScalarCase>(@object: policy);
+        Assert.Equal(expected: 3, actual: scalar.Values.Count);
+        _ = Assert.Single(collection: scalar.Levels);
+        Spec.FailCategory(ContourPolicy.MeshScalar(values: new Arr<double>([double.NaN]), levels: Seq(0.0), key: MeshGens.Key), category: "Input");
+        Spec.FailCategory(ContourPolicy.MeshScalar(values: new Arr<double>([0.0]), levels: Seq<double>(), key: MeshGens.Key), category: "Input");
+    }
+}

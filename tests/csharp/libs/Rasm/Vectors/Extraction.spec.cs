@@ -16,6 +16,17 @@ internal static class ExtractionGens {
 // --- [ALGEBRAIC] ----------------------------------------------------------------------------
 public sealed class ExtractionProjectionLaws {
     [Fact]
+    public void DomainAdmissionRoutesManagedInputsThroughCanonicalOwners() {
+        VectorCloud cloud = Spec.SuccValue(VectorCloud.Cluster(points: ExtractionGens.Samples, context: ExtractionGens.Model, key: ExtractionGens.Key), label: "domain cloud");
+        Spec.Succ(ExtractionDomain.Of(value: cloud, context: ExtractionGens.Model, key: ExtractionGens.Key),
+            then: domain => Assert.IsType<ExtractionDomain.CloudCase>(@object: domain));
+        Spec.Succ(ExtractionDomain.Of(value: Point3d.Origin, context: ExtractionGens.Model, key: ExtractionGens.Key),
+            then: domain => Assert.IsType<ExtractionDomain.SupportCase>(@object: domain));
+        Spec.FailCategory(ExtractionDomain.Of(value: null, context: ExtractionGens.Model, key: ExtractionGens.Key), category: "Input");
+        Spec.FailCategory(ContourPolicy.Plane(section: Plane.Unset, key: ExtractionGens.Key), category: "Input");
+        Spec.Succ(ContourPolicy.Plane(section: Plane.WorldXY, key: ExtractionGens.Key));
+    }
+    [Fact]
     public void ProbeKeepsFieldProjectionOnIntentRail() {
         SymmetricMatrix tensor = Spec.SuccValue(SymmetricMatrix.Of(dim: Dimension.Create(value: 2), upper: [1.0, 0.25, 2.0], key: ExtractionGens.Key), label: "tensor");
         Spec.Succ(
@@ -38,20 +49,23 @@ public sealed class ExtractionProjectionLaws {
     [Fact]
     public void GridsReturnComputedReceipts() {
         ExtractionDomain domain = ExtractionDomain.Cloud(value: Spec.SuccValue(VectorCloud.Cluster(points: ExtractionGens.Samples, context: ExtractionGens.Model, key: ExtractionGens.Key), label: "domain cloud"));
+        SampleKind samples = Spec.SuccValue(SampleKind.Explicit(points: ExtractionGens.Samples, key: ExtractionGens.Key), label: "explicit samples");
         VectorIntent grid = VectorIntent.SampleGrid(
             field: ScalarField.Constant(value: 4.0),
             domain: domain,
-            policy: new GridPolicy(Samples: ExtractionGens.Samples));
+            policy: new GridPolicy(Kind: samples));
         Spec.Succ(grid.Project<Seq<(Point3d Point, double Value)>>(context: ExtractionGens.Model, key: ExtractionGens.Key),
             then: samples => Assert.Equal(expected: ExtractionGens.Samples.Count, actual: samples.Count));
         Spec.Succ(grid.Project<ExtractionReceipt>(context: ExtractionGens.Model, key: ExtractionGens.Key),
             then: receipt => Assert.Equal(expected: ExtractionGens.Samples.Count, actual: receipt.Emitted));
     }
     [Fact]
-    public void IsoContourPolicyAdmitsOnlyNativeSurfaceDirections() {
-        Spec.Succ(ContourPolicy.Iso(direction: 0, parameter: 0.5, key: ExtractionGens.Key));
-        Spec.Succ(ContourPolicy.Iso(direction: 1, parameter: 0.5, key: ExtractionGens.Key));
-        Spec.FailCategory(ContourPolicy.Iso(direction: 2, parameter: 0.5, key: ExtractionGens.Key), category: "Input");
-        Spec.FailCategory(ContourPolicy.Iso(direction: 0, parameter: double.NaN, key: ExtractionGens.Key), category: "Input");
+    public void IsoContourPolicyAdmitsOnlyNativeSurfaceStatuses() {
+        Spec.Succ(ContourPolicy.SurfaceIso(status: IsoStatus.X, parameter: 0.5, key: ExtractionGens.Key));
+        Spec.Succ(ContourPolicy.SurfaceIso(status: IsoStatus.Y, parameter: 0.5, key: ExtractionGens.Key));
+        Spec.Succ(ContourPolicy.SurfaceIso(status: IsoStatus.North, parameter: 0.5, key: ExtractionGens.Key));
+        Spec.Succ(ContourPolicy.SurfaceIso(status: IsoStatus.East, parameter: 0.5, key: ExtractionGens.Key));
+        Spec.FailCategory(ContourPolicy.SurfaceIso(status: IsoStatus.None, parameter: 0.5, key: ExtractionGens.Key), category: "Input");
+        Spec.FailCategory(ContourPolicy.SurfaceIso(status: IsoStatus.X, parameter: double.NaN, key: ExtractionGens.Key), category: "Input");
     }
 }

@@ -6,11 +6,18 @@ namespace Rasm.Vectors;
 [Union]
 public abstract partial record SampleKind {
     private SampleKind() { }
+    public sealed record ExplicitCase(Seq<Point3d> Points) : SampleKind;
     public sealed record PoissonDiskCase(PositiveMagnitude Radius) : SampleKind;
     public sealed record FarthestCase(Dimension Count) : SampleKind;
     public sealed record OptimizeCase(Dimension Count, Dimension Iterations) : SampleKind;
     public sealed record LloydCase(Dimension Count, Dimension Iterations) : SampleKind;
     public sealed record CapacityCase(Dimension Count, Dimension Limit) : SampleKind;
+    public static Fin<SampleKind> Explicit(Seq<Point3d> points, Op? key = null) {
+        Op op = key.OrDefault();
+        return points.IsEmpty
+            ? Fin.Fail<SampleKind>(op.InvalidInput())
+            : Fin.Succ<SampleKind>(new ExplicitCase(Points: points));
+    }
     public static Fin<SampleKind> PoissonDisk(double radius, Op? key = null) =>
         key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: radius).Map(r => (SampleKind)new PoissonDiskCase(Radius: r));
     public static Fin<SampleKind> Farthest(int count, Op? key = null) {
@@ -35,15 +42,27 @@ public abstract partial record SampleKind {
                from cap in op.AcceptValidated<Dimension>(candidate: capacity)
                select (SampleKind)new CapacityCase(Count: c, Limit: cap);
     }
-    internal Fin<VectorCloud> Sample(MeshSpace domain, Context context, Op? key = null) =>
-        SampleKernel.SampleOnMesh(kind: this, domain: domain, context: context, key: key.OrDefault())
-            .Map(static result => result.Cloud);
-    internal Fin<SampleReceipt> SampleReceipt(MeshSpace domain, Context context, Op? key = null) =>
-        SampleKernel.SampleOnMesh(kind: this, domain: domain, context: context, key: key.OrDefault())
-            .Map(static result => result.Receipt);
+    internal Fin<SampleResult> Evaluate(ExtractionDomain domain, Context context, Op key) =>
+        SampleKernel.Sample(kind: this, domain: domain, context: context, key: key);
+    internal Fin<TOut> Project<TOut>(ExtractionDomain domain, Context context, Op? key = null) {
+        Op op = key.OrDefault();
+        return from result in Evaluate(domain: domain, context: context, key: op)
+               from output in typeof(TOut) switch {
+                   Type t when t == typeof(Seq<Point3d>) => Fin.Succ((TOut)(object)result.Points),
+                   Type t when t == typeof(VectorCloud) => VectorCloud.Cluster(points: result.Points, context: context, key: op).Map(static value => (TOut)(object)value),
+                   Type t when t == typeof(PointCloud) => VectorCloud.Cluster(points: result.Points, context: context, key: op)
+                       .Bind(cloud => cloud is VectorCloud.ClusterCase cluster
+                           ? Fin.Succ((TOut)(object)cluster.Indexed)
+                           : Fin.Fail<TOut>(op.InvalidResult())),
+                   Type t when t == typeof(SampleReceipt) => Fin.Succ((TOut)(object)result.Receipt),
+                   _ => Fin.Fail<TOut>(error: op.Unsupported(geometryType: typeof(SampleKind), outputType: typeof(TOut))),
+               }
+               select output;
+    }
     internal double MeshCandidateDensity(double area) {
         double safeArea = Math.Max(val1: area, val2: RhinoMath.SqrtEpsilon);
         double target = this switch {
+            ExplicitCase ex => ex.Points.Count,
             PoissonDiskCase pd => safeArea / Math.Max(val1: pd.Radius.Value * pd.Radius.Value, val2: RhinoMath.SqrtEpsilon),
             FarthestCase fp => fp.Count.Value,
             OptimizeCase fpo => fpo.Count.Value,
@@ -59,34 +78,89 @@ public abstract partial record SampleKind {
 public readonly record struct SampleReceipt(int Attempted, int Emitted, int Rejected);
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
+internal readonly record struct SampleResult(Seq<Point3d> Points, SampleReceipt Receipt);
+
 internal static class SampleKernel {
     // Boundary algorithms operate on deterministic triangulated mesh candidates.
-    internal static Fin<(VectorCloud Cloud, SampleReceipt Receipt)> SampleOnMesh(SampleKind kind, MeshSpace domain, Context context, Op key) {
-        using AreaMassProperties? props = AreaMassProperties.Compute(mesh: domain.Native, area: true, firstMoments: false, secondMoments: false, productMoments: false);
-        return props switch {
-            null => Fin.Fail<(VectorCloud, SampleReceipt)>(error: key.InvalidResult()),
-            _ => from candidates in EnumerateMeshSurface(mesh: domain.Native, density: kind.MeshCandidateDensity(area: props.Area), key: key)
-                 from points in kind switch {
-                     SampleKind.PoissonDiskCase pd => Fin.Succ(PoissonDiskSample(candidates: candidates, radius: pd.Radius.Value)),
-                     SampleKind.FarthestCase fp => Fin.Succ(FarthestSample(candidates: candidates, count: fp.Count.Value)),
-                     SampleKind.OptimizeCase fpo => Fin.Succ(FpoSample(candidates: candidates, count: fpo.Count.Value, iterations: fpo.Iterations.Value)),
-                     SampleKind.LloydCase lloyd => LloydRelaxation(candidates: candidates, count: lloyd.Count.Value, iterations: lloyd.Iterations.Value, key: key)
-                         .Map(static points => points),
-                     SampleKind.CapacityCase ccvt => CapacitySample(candidates: candidates, count: ccvt.Count.Value, capacity: ccvt.Limit.Value, key: key)
-                         .Map(static points => points),
-                     _ => Fin.Fail<Point3d[]>(error: key.Unsupported(geometryType: kind.GetType(), outputType: typeof(VectorCloud))),
-                 }
-                 from cloud in FromArray(points: points, context: context, key: key)
-                 let rejected = Math.Max(val1: 0, val2: candidates.Count - points.Length)
-                 select (Cloud: cloud, Receipt: new SampleReceipt(Attempted: candidates.Count, Emitted: points.Length, Rejected: rejected)),
+    internal static Fin<SampleResult> Sample(SampleKind kind, ExtractionDomain domain, Context context, Op key) =>
+        kind switch {
+            SampleKind.ExplicitCase explicitCase => SampleExplicit(points: explicitCase.Points, domain: domain, context: context, key: key),
+            _ => domain.Switch(
+                state: (Kind: kind, Context: context, Key: key),
+                supportCase: static (state, d) => SampleGeneratedSupport(kind: state.Kind, space: d.Value, context: state.Context, key: state.Key),
+                meshCase: static (state, d) => SampleOnMesh(kind: state.Kind, domain: d.Value, context: state.Context, key: state.Key),
+                cloudCase: static (state, d) => d.Value is VectorCloud.ClusterCase cluster
+                    ? SampleOnCandidates(kind: state.Kind, candidates: cluster.Vertices, admitsPoisson: false, context: state.Context, key: state.Key)
+                    : Fin.Fail<SampleResult>(state.Key.Unsupported(geometryType: d.Value.GetType(), outputType: typeof(SampleResult)))),
+        };
+    private static Fin<SampleResult> SampleExplicit(Seq<Point3d> points, ExtractionDomain domain, Context context, Op key) =>
+        from admitted in points.Fold(
+            initialState: Fin.Succ((Accepted: (Seq<Point3d>)[], Rejected: 0)),
+            f: (state, point) => state.Bind(current =>
+                AdmitPoint(point: point, domain: domain, context: context, key: key).Match(
+                    Succ: accepted => Fin.Succ((Accepted: current.Accepted.Add(accepted), current.Rejected)),
+                    Fail: _ => Fin.Succ((current.Accepted, Rejected: current.Rejected + 1)))))
+        select new SampleResult(
+            Points: admitted.Accepted,
+            Receipt: new SampleReceipt(Attempted: points.Count, Emitted: admitted.Accepted.Count, Rejected: admitted.Rejected));
+    private static Fin<Point3d> AdmitPoint(Point3d point, ExtractionDomain domain, Context context, Op key) =>
+        key.AcceptValue(value: point).Bind(valid => domain.Switch(
+            state: (Point: valid, Context: context, Key: key),
+            supportCase: static (state, d) => d.Value.Closest(sample: state.Point, key: state.Key)
+                .Bind(hit => state.Key.AcceptValue(value: hit.Point)),
+            meshCase: static (state, d) => Optional(d.Value.Native.ClosestMeshPoint(testPoint: state.Point, maximumDistance: state.Context.Absolute.Value))
+                .ToFin(state.Key.InvalidResult())
+                .Bind(meshPoint => state.Key.AcceptValue(value: meshPoint.Point)),
+            cloudCase: static (state, d) => d.Value is VectorCloud.ClusterCase cluster
+                ? AdmitClusterPoint(cluster: cluster, point: state.Point, tolerance: state.Context.Absolute.Value, key: state.Key)
+                : Fin.Fail<Point3d>(state.Key.Unsupported(geometryType: d.Value.GetType(), outputType: typeof(Point3d)))));
+    private static Fin<Point3d> AdmitClusterPoint(VectorCloud.ClusterCase cluster, Point3d point, double tolerance, Op key) {
+        double toleranceSquared = tolerance * tolerance;
+        return cluster.Vertices.Find(vertex => vertex.DistanceToSquared(other: point) <= toleranceSquared) switch {
+            { IsSome: true, Case: Point3d hit } => key.AcceptValue(value: hit),
+            _ => Fin.Fail<Point3d>(key.InvalidInput()),
         };
     }
-    private static Fin<VectorCloud> FromArray(Point3d[] points, Context context, Op key) =>
-        VectorCloud.Cluster(points: toSeq(points), context: context, key: key);
+    private static Fin<SampleResult> SampleGeneratedSupport(SampleKind kind, SupportSpace space, Context context, Op key) =>
+        CountOf(kind: kind, key: key).Bind(count =>
+            GeometryKernel.SamplePoints(source: space.Value, count: count, context: context, key: key)
+                .Bind(points => SampleExplicit(points: points, domain: ExtractionDomain.Support(value: space), context: context, key: key)));
+    private static Fin<int> CountOf(SampleKind kind, Op key) =>
+        kind switch {
+            SampleKind.FarthestCase c => Fin.Succ(c.Count.Value),
+            SampleKind.OptimizeCase c => Fin.Succ(c.Count.Value),
+            SampleKind.LloydCase c => Fin.Succ(c.Count.Value),
+            SampleKind.CapacityCase c => Fin.Succ(c.Count.Value),
+            _ => Fin.Fail<int>(key.Unsupported(geometryType: kind.GetType(), outputType: typeof(SampleResult))),
+        };
+    private static Fin<SampleResult> SampleOnMesh(SampleKind kind, MeshSpace domain, Context context, Op key) {
+        using AreaMassProperties? props = AreaMassProperties.Compute(mesh: domain.Native, area: true, firstMoments: false, secondMoments: false, productMoments: false);
+        return props switch {
+            null => Fin.Fail<SampleResult>(error: key.InvalidResult()),
+            _ => from candidates in EnumerateMeshSurface(mesh: domain.Native, density: kind.MeshCandidateDensity(area: props.Area), key: key)
+                 from sampled in SampleOnCandidates(kind: kind, candidates: candidates, admitsPoisson: true, context: context, key: key)
+                 select sampled,
+        };
+    }
+    private static Fin<SampleResult> SampleOnCandidates(SampleKind kind, Seq<Point3d> candidates, bool admitsPoisson, Context context, Op key) =>
+        from points in kind switch {
+            SampleKind.PoissonDiskCase pd when admitsPoisson => Fin.Succ(PoissonDiskSample(candidates: candidates, radius: pd.Radius.Value)),
+            SampleKind.FarthestCase fp => Fin.Succ(FarthestSample(candidates: candidates, count: fp.Count.Value)),
+            SampleKind.OptimizeCase fpo => Fin.Succ(FpoSample(candidates: candidates, count: fpo.Count.Value, iterations: fpo.Iterations.Value)),
+            SampleKind.LloydCase lloyd => LloydRelaxation(candidates: candidates, count: lloyd.Count.Value, iterations: lloyd.Iterations.Value, key: key),
+            SampleKind.CapacityCase ccvt => CapacitySample(candidates: candidates, count: ccvt.Count.Value, capacity: ccvt.Limit.Value, key: key),
+            SampleKind.PoissonDiskCase pd => Fin.Fail<Point3d[]>(error: key.Unsupported(geometryType: pd.GetType(), outputType: typeof(SampleResult))),
+            _ => Fin.Fail<Point3d[]>(error: key.Unsupported(geometryType: kind.GetType(), outputType: typeof(SampleResult))),
+        }
+        let sampled = toSeq(points)
+        let rejected = Math.Max(val1: 0, val2: candidates.Count - points.Length)
+        select new SampleResult(
+            Points: sampled,
+            Receipt: new SampleReceipt(Attempted: candidates.Count, Emitted: points.Length, Rejected: rejected));
     private static Fin<Seq<Point3d>> EnumerateMeshSurface(Mesh mesh, double density, Op key) {
         List<Point3d> samples = [];
         using Mesh triangulated = mesh.DuplicateMesh();
-        if (Enumerable.Range(start: 0, count: triangulated.Faces.Count).Any(f => triangulated.Faces[index: f].IsQuad)
+        if (triangulated.Faces.QuadCount > 0
             && !triangulated.Faces.ConvertQuadsToTriangles())
             return Fin.Fail<Seq<Point3d>>(key.InvalidResult());
         for (int f = 0; f < triangulated.Faces.Count; f++) {

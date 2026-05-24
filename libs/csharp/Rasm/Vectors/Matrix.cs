@@ -92,7 +92,10 @@ public readonly record struct Matrix(Dimension Rows, Dimension Cols, Arr<double>
         Matrix self = this;
         return Rows.Value != Cols.Value
             ? Fin.Fail<Matrix>(error: op.InvalidInput())
-            : op.Catch(() => Fin.Succ(MatrixKernel.FromMathNet(MatrixKernel.ToMathNet(self).Inverse(), self.Rows, self.Cols)));
+            : op.Catch(() => {
+                Matrix inverse = MatrixKernel.FromMathNet(MatrixKernel.ToMathNet(self).Inverse(), self.Rows, self.Cols);
+                return inverse.IsValid ? Fin.Succ(inverse) : Fin.Fail<Matrix>(op.InvalidResult());
+            });
     }
     public Fin<Matrix> PseudoInverse(Op? key = null) =>
         MatrixKernel.PseudoInverse(matrix: this, key: key.OrDefault());

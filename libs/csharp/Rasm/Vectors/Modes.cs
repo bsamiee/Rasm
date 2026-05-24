@@ -74,15 +74,15 @@ public sealed partial class SurfaceProjection {
     internal Fin<TOut> Project<TOut>(Surface surface, double u, double v, Context context, Op key) =>
         from active in Optional(surface).ToFin(key.InvalidInput())
         from uv in GeometryKernel.SurfaceUv(surface: active, uv: new Point2d(x: u, y: v), context: context, key: key)
-        from output in active.CurvatureAt(u: uv.X, v: uv.Y) is SurfaceCurvature sc && sc.IsSet
+        from output in ReferenceEquals(objA: this, objB: Normal) && typeof(TOut) == typeof(Vector3d)
+            ? GeometryKernel.NormalAt(surface: active, uv: uv, key: key).Map(static value => (TOut)(object)value)
+            : active.CurvatureAt(u: uv.X, v: uv.Y) is SurfaceCurvature sc && sc.IsSet
             ? new Lease<SurfaceCurvature>.Owned(Value: sc).Use(curvature =>
                 from raw in Sample(curvature: curvature).BindFail(_ => Fin.Fail<object>(key.InvalidResult()))
                 from projected in (raw, typeof(TOut)) switch {
                     (double d, Type t) when t == typeof(double) => key.AcceptValue(value: (TOut)(object)d),
                     (Circle c, Type t) when t == typeof(Circle) => key.AcceptValue(value: (TOut)(object)c),
-                    (Vector3d n, Type t) when t == typeof(Vector3d) => ReferenceEquals(objA: this, objB: Normal)
-                        ? GeometryKernel.NormalAt(surface: active, uv: uv, key: key).Map(static value => (TOut)(object)value)
-                        : key.AcceptValue(value: (TOut)(object)n),
+                    (Vector3d n, Type t) when t == typeof(Vector3d) => key.AcceptValue(value: (TOut)(object)n),
                     (Seq<double> ks, Type t) when t == typeof(Seq<double>) =>
                         ks.TraverseM(k => key.AcceptValue(value: k)).As().Map(static valid => (TOut)(object)valid),
                     (SymmetricMatrix matrix, Type t) when t == typeof(SymmetricMatrix) && matrix.IsValid =>

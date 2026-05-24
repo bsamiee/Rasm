@@ -69,21 +69,30 @@ public sealed class TerminationLaws {
         Termination steps = Spec.SuccValue(Termination.Steps(count: 5, key: FlowGens.Key), label: "steps");
         Termination arc = Spec.SuccValue(Termination.ArcLength(length: 2.0, key: FlowGens.Key), label: "arc");
         Termination mag = Spec.SuccValue(Termination.Magnitude(threshold: 1.0, key: FlowGens.Key), label: "mag");
-        Spec.Succ(steps.ShouldStop(state: state with { Steps = 5 }, currentSample: Vector3d.Zero, context: FlowGens.Model, key: FlowGens.Key), then: Assert.True);
-        Spec.Succ(steps.ShouldStop(state: state with { Steps = 4 }, currentSample: Vector3d.Zero, context: FlowGens.Model, key: FlowGens.Key), then: Assert.False);
-        Spec.Succ(arc.ShouldStop(state: state with { Arc = 2.0 }, currentSample: Vector3d.Zero, context: FlowGens.Model, key: FlowGens.Key), then: Assert.True);
-        Spec.Succ(mag.ShouldStop(state: state, currentSample: new Vector3d(x: 0.5, y: 0.0, z: 0.0), context: FlowGens.Model, key: FlowGens.Key), then: Assert.True);
-        Spec.Succ(mag.ShouldStop(state: state, currentSample: new Vector3d(x: 2.0, y: 0.0, z: 0.0), context: FlowGens.Model, key: FlowGens.Key), then: Assert.False);
+        Spec.Succ(steps.Evaluate(state: state with { Steps = 5 }, currentSample: Vector3d.Zero, context: FlowGens.Model, key: FlowGens.Key),
+            then: decision => { Assert.True(condition: decision.Stop); Assert.True(condition: decision.Event.IsNone); });
+        Spec.Succ(steps.Evaluate(state: state with { Steps = 4 }, currentSample: Vector3d.Zero, context: FlowGens.Model, key: FlowGens.Key),
+            then: decision => { Assert.False(condition: decision.Stop); Assert.True(condition: decision.Event.IsNone); });
+        Spec.Succ(arc.Evaluate(state: state with { Arc = 2.0 }, currentSample: Vector3d.Zero, context: FlowGens.Model, key: FlowGens.Key),
+            then: decision => { Assert.True(condition: decision.Stop); Assert.True(condition: decision.Event.IsNone); });
+        Spec.Succ(mag.Evaluate(state: state, currentSample: new Vector3d(x: 0.5, y: 0.0, z: 0.0), context: FlowGens.Model, key: FlowGens.Key),
+            then: decision => { Assert.True(condition: decision.Stop); Assert.True(condition: decision.Event.IsNone); });
+        Spec.Succ(mag.Evaluate(state: state, currentSample: new Vector3d(x: 2.0, y: 0.0, z: 0.0), context: FlowGens.Model, key: FlowGens.Key),
+            then: decision => { Assert.False(condition: decision.Stop); Assert.True(condition: decision.Event.IsNone); });
     }
     [Fact]
     public void RegionLoopAndSurfaceTerminatorsClassifyBoundaryModes() {
         StreamlineState state = FlowGens.State(trail: Seq(Point3d.Origin, new Point3d(x: 2.0, y: 0.0, z: 0.0), new Point3d(x: 3.0, y: 0.0, z: 0.0)), current: new Point3d(x: 0.1, y: 0.0, z: 0.0), h: 1.0, arc: 2.0, steps: 2);
         Spec.Succ(Termination.LoopDetected(closureRadius: 0.2, key: FlowGens.Key),
-            then: t => Spec.Succ(t.ShouldStop(state: state, currentSample: Vector3d.XAxis, context: FlowGens.Model, key: FlowGens.Key), then: Assert.True));
+            then: t => Spec.Succ(t.Evaluate(state: state, currentSample: Vector3d.XAxis, context: FlowGens.Model, key: FlowGens.Key),
+                then: decision => { Assert.True(condition: decision.Stop); Assert.True(condition: decision.Event.IsNone); }));
         Spec.Succ(Termination.EnterRegion(region: ScalarField.Constant(value: 1.0), threshold: 0.5, key: FlowGens.Key),
-            then: t => Spec.Succ(t.ShouldStop(state: state, currentSample: Vector3d.XAxis, context: FlowGens.Model, key: FlowGens.Key), then: Assert.False));
-        Spec.Succ(SupportSpace.Of(value: new Point3d(x: 0.0, y: 0.0, z: 0.0), key: FlowGens.Key),
+            then: t => Spec.Succ(t.Evaluate(state: state, currentSample: Vector3d.XAxis, context: FlowGens.Model, key: FlowGens.Key),
+                then: decision => { Assert.False(condition: decision.Stop); Assert.True(condition: decision.Event.IsNone); }));
+        Spec.Succ(SupportSpace.Of(value: Plane.WorldYZ, key: FlowGens.Key),
             then: s => Spec.Succ(Termination.CrossSurface(surface: s, key: FlowGens.Key)));
+        Spec.Succ(SupportSpace.Of(value: new Point3d(x: 0.0, y: 0.0, z: 0.0), key: FlowGens.Key),
+            then: s => Spec.Fail(Termination.CrossSurface(surface: s, key: FlowGens.Key)));
         Spec.Fail(Termination.LoopDetected(closureRadius: 0.0, key: FlowGens.Key));
         Spec.Fail(Termination.EnterRegion(region: ScalarField.Constant(value: 1.0), threshold: double.NaN, key: FlowGens.Key));
         Spec.Fail(Termination.CrossSurface(surface: null!, key: FlowGens.Key));
@@ -158,5 +167,30 @@ public sealed class FieldIntegratorLaws {
                 Spec.NearEqual(left: trace.Trail[index: 4], right: new Point3d(x: 1.0, y: 0.0, z: 0.0), tolerance: 1.0e-12);
                 Spec.EqualWithin(left: trace.ArcLength, right: toSeq(Enumerable.Range(start: 1, count: trace.Trail.Count - 1)).Fold(initialState: 0.0, f: (sum, i) => sum + trace.Trail[i].DistanceTo(other: trace.Trail[i - 1])), tolerance: 1.0e-12, what: "arc fold");
             });
+    }
+    [Fact]
+    public void TraceEventMetadataIsValidatedOnTraceRail() {
+        TraceEvent @event = new(
+            Kind: TraceEventKind.CrossSurface,
+            Status: TraceEventStatus.BracketedCrossing,
+            Previous: Point3d.Origin,
+            Current: new Point3d(x: 1.0, y: 0.0, z: 0.0),
+            Localized: new Point3d(x: 0.5, y: 0.0, z: 0.0),
+            PreviousValue: -1.0,
+            CurrentValue: 1.0,
+            LocalizedValue: 0.0,
+            Parameter: 0.5,
+            Tolerance: FlowGens.Model.Absolute.Value,
+            Residual: 0.0,
+            Iterations: 12);
+        StreamlineTrace trace = FlowGens.Trace(stop: StreamlineStopKind.Terminated) with {
+            TerminationPoint = @event.Localized,
+            Event = Some(@event),
+        };
+        Spec.Succ(FlowKernel.ProjectTrace<StreamlineTrace>(trace: trace, key: FlowGens.Key), then: valid =>
+            Spec.Some(valid.Event, accepted => {
+                Assert.Equal(expected: TraceEventKind.CrossSurface, actual: accepted.Kind);
+                Assert.Equal(expected: TraceEventStatus.BracketedCrossing, actual: accepted.Status);
+            }));
     }
 }

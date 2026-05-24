@@ -4,26 +4,26 @@
 
 ### Implementation Order
 
-1. `[current][session-sized]` Finish extraction rail truth: domain admission, contour receipt counts, mesh scalar isolines, and Flow endpoint/event semantics. Keep native Rhino runtime checks outside default validation unless explicitly reopened.
+1. `[implemented][session-sized]` Extraction rail truth landed for the current slice: domain admission is `SupportSpace` / `MeshSpace` / `VectorCloud`, sample policies route through `SampleKind`, native contour receipts preserve raw accepted/rejected counts, mesh scalar isolines use a local PL kernel, and Flow events expose endpoint/bracket status. Static vector tests cover managed rails; Rhino runtime bridge checks remain deferred unless explicitly reopened.
 2. `[next][session-sized]` Matrix receipts and solve ownership: fix CSparse symmetric admission, add solve/eigen receipts, and move QR least-squares from `Align.cs` / `Cloud.cs` into `Matrix.cs`.
 3. `[next][session-sized]` Cloud, alignment, and transport diagnostics: add `CloudCorrespondenceSet`, deepen computed `SinkhornReceipt`, propagate existing weighted mass, and keep true GICP unsupported.
-4. `[next][session-sized]` Mesh and spectral receipts: add topology, feature, flatten, remesh, descriptor receipts, scalar isolines, and truthful raw-vs-normalized descriptor status.
-5. `[next][session-sized]` Field, kernels, and SDFs: add kernel profiles, anisotropic kernels, non-duplicative SDF primitives, SDF receipts, and defer RBF/MLS until matrix receipts are in place.
-6. `[next][session-sized]` Sampling and modes: route sampling through canonical extraction domains, deepen sample receipts, and add native surface/curve frame projections with explicit policy.
+4. `[next][session-sized]` Mesh and spectral receipts: add topology, feature, flatten, remesh, descriptor receipts, scalar-isoline diagnostics, and truthful raw-vs-normalized descriptor status.
+5. `[next][session-sized]` Sampling, domains, and modes: deepen sample receipts, add weighted/scalar-density/adaptive sampling, add native surface/curve frame projections with explicit policy, and keep static tests off native-only Rhino runtime behavior.
+6. `[next][session-sized]` Field, kernels, and SDFs: add kernel profiles, anisotropic kernels, non-duplicative SDF primitives, SDF receipts, and defer RBF/MLS until matrix receipts are in place.
 
 ### Missing Categories
 
-- `[native-routed][partial]` `Extraction.cs`: intent-backed owner exists and is internal to the rail; native contours, sampled grids, stream bundles, and iso-surface routing exist. Next: make domain-backed glyph/grid/bundle sampling real, add mesh scalar isolines, and preserve raw/valid/rejected native curve counts.
-- `[partial]` Receipts: `StreamlineTrace` and `ExtractionReceipt` are deeper, while `SampleReceipt`, `AlignmentReceipt`, `SinkhornReceipt`, and solver receipts remain shallow. Add fields only from values kernels already compute, and prefer failure rails for nonconverged geometry outputs.
+- `[native-routed][implemented-for-current-slice][partial]` `Extraction.cs`: domain-backed glyph/grid/bundle sampling, mesh scalar isolines, surface `IsoStatus`, point-cloud section curves, and raw native contour receipt counts are implemented. Brep native contours inherit Rhino document/default tolerance because RhinoWIP exposes no context-tolerance overload; optional bridge proof should own runtime behavior if reopened.
+- `[partial]` Receipts: `StreamlineTrace` now carries explicit event kind/status metadata, `ExtractionReceipt` reports status plus raw/valid/rejected contour counts, and `SampleReceipt` is still intentionally count-only. `AlignmentReceipt`, `SinkhornReceipt`, and solver receipts remain shallow; add fields only from values kernels already compute.
 - `[missing]` Correspondences: add `CloudCorrespondence` / `CloudCorrespondenceSet` once, then feed it from ICP matching and Sinkhorn coupling. Confidence remains optional until a kernel computes it.
 - `[partial]` Weighted geometry: `WeightedCluster` exists; weighted centroid/covariance, transport, density, and sampling still need mass propagation. Do not add a second weight owner.
-- `[partial]` Extraction domains: support, mesh, cloud, curve, surface, and Brep domains exist, but boundary domains and domain-owned sample/seed admission are incomplete. Raw curve/surface/Brep domain factories need validity admission.
+- `[partial]` Extraction domains: public domain ownership collapsed to `SupportSpace`, `MeshSpace`, and `VectorCloud`; `ExtractionDomain.Of` admits raw curve/surface/Brep through `SupportSpace.Of`. Boundary domains and richer domain-owned density/admission policies remain incomplete.
 
 ### Intent And Projection Gaps
 
-- `[partial]` `Intent.cs`: first-class `Probe`, `IsoSurface`, `Contour`, `Glyph`, `SampleGrid`, and `StreamBundle` cases route through `VectorIntent.Project<TOut>`. Next: validate all new factories and move sample projection admission into `SampleKind`.
-- `[partial]` Streamline projection: `Curve` output, localized event point, and richer trace health exist; dense output and event status remain missing. Current localization is bounded bisection, not RK dense output.
-- `[missing]` Sample projection: current sample rail remains mesh-only and returns `VectorCloud` / shallow `SampleReceipt`. Next: move sampling to extraction domains and add `Seq<Point3d>`, `PointCloud`, spacing, density-error, and convergence metadata.
+- `[implemented-for-current-slice][partial]` `Intent.cs`: sample, contour, glyph, grid, and stream-bundle intents route through `ExtractionDomain + SampleKind` under `VectorIntent.Project<TOut>`. Remaining validation work belongs to broader factories not touched by this extraction slice.
+- `[implemented-for-current-slice][partial]` Streamline projection: `Curve` output, localized event point, richer trace health, and event kind/status metadata exist. Event-stopped polyline/curve projection replaces the overshoot endpoint with the localized event point; dense output remains missing and localization is bounded bisection/chord evaluation, not RK dense output.
+- `[implemented-for-current-slice][partial]` Sample projection: sampling is no longer mesh-only and projects `Seq<Point3d>`, `PointCloud`, `VectorCloud`, and `SampleReceipt` through one `SampleKind` execution. Non-mesh domains support count-backed policies only; Poisson length/area density, spacing stats, density error, and convergence metadata remain future work.
 - `[partial]` Feature projection: dihedral/boundary edge pairs exist, but classified `Line` / `Curve` / grouped polyline outputs and `FeatureReceipt` are missing. Boundary classification should be factual before ridge/valley expansion.
 - `[partial]` Flatten projection: UV flattening exists through `MeshUnwrapper`; remapped mesh and `FlattenReceipt` are missing. Receipt should report UV count, boundary pins, validity, and distortion only when computed.
 - `[partial]` Descriptor projection: raw spectral descriptor values exist; descriptor metadata and comparison-ready normalization are missing. `SpectralFilter.Wave` remains a raw spectral filter until WKS energy/bandwidth normalization lands.
@@ -34,24 +34,24 @@
 - `[implemented]` `Flow.cs`: preserve current Runge-Kutta tableaus and method-order / embedded-order metadata; `Order` is method order and `StageCount` is separate.
 - `[partial]` `ButcherTableau`: structural validation covers row sums, primary/embedded weight sums, and abscissae. Higher-order moment consistency remains future work.
 - `[implemented]` Adaptive stepping: store embedded-pair order and exponent per method because Bogacki-Shampine 3(2), Cash-Karp 5(4), and Dormand-Prince 5(4) do not share one truthful metadata model.
-- `[partial]` Event handling: surface/region localization uses bounded bisection and reports localized termination points. Endpoint-touch status and RK dense-output coefficients remain missing.
-- `[partial]` Trace receipts: method order, embedded order, errors, min/max step, termination point, and event data exist. Add explicit event status before product layers treat localization as exact.
+- `[implemented-for-current-slice][partial]` Event handling: surface/region localization uses bounded bisection, admits residuals against tolerance, sets localized termination points, and distinguishes initial/previous/current endpoint touches from strict bracketed crossings. Cross-surface now requires signed-distance-capable support and uses model absolute tolerance; RK dense-output coefficients remain future work.
+- `[implemented-for-current-slice][partial]` Trace receipts: method order, embedded order, errors, min/max step, termination point, event values, event kind, and event status exist. Product layers still need wording that treats localization as bounded bisection, not exact dense output.
 
 ### Fields, Kernels, And SDFs
 
 - `[native-routed][partial][threading-risk]` `Field.cs`: iso-surface routes through intent/extraction, but public `ScalarField.IsoSurface` still owns the Rhino callback. Rhino WIP evaluates the callback in parallel, so receipts must label fixed-tolerance/parallel native behavior until constrained or runtime-proven.
-- `[missing]` `KernelKind`: add a radial profile with value, first derivative, and second derivative; keep `Weight` as `Profile.Value`. Use this before claiming gradients/Laplacians.
+- `[missing]` `KernelKind`: add a radial profile with value, first derivative, and second derivative; keep `Weight` as `Profile.Value`. Current `Weight`-only API remains insufficient for truthful kernel gradients/Laplacians.
 - `[missing]` Kernels: add anisotropic kernels through explicit metric/tensor ownership, not a parallel kernel model. This should feed facade grain, stretched influence, and tensor-guided falloff.
 - `[missing]` Reconstruction: add RBF/MLS after matrix solve receipts exist. Receipt must state interpolation vs approximation, smoothing, sample count, residual, and nonconvergence.
 - `[partial]` SDF primitives: existing primitives cover several massing cases; add only half-space, slab, capped/profile extrusion, and oriented prism if composition cannot express them. Do not duplicate rounded box.
-- `[missing]` SDF outputs: add Lipschitz, mesh-backed signing, watertight preflight, lossy fallback, and approximate preview status. Mesh-backed signing currently lacks explicit receipt/failure metadata.
+- `[partial]` SDF outputs: `ScalarField.LipschitzBound()` exists and mesh-backed signing routes through generalized winding / boundary-source signed heat. Watertight preflight, lossy fallback, approximate preview status, and explicit SDF receipts remain missing.
 
 ### Mesh And Spectral Operators
 
-- `[missing]` `Mesh.cs`: add per-vertex scalar isolines with payload-length admission and edge interpolation. Rhino plane/axis contours are not scalar-field isolines.
+- `[implemented-for-current-slice][partial]` `Mesh.cs`: per-vertex scalar isolines exist as local PL mesh contours with payload-length admission, finite-level validation, Rhino quad triangulation, edge interpolation, exact-edge dedupe, plateau rejection, branch-safe stitching, and stitched candidate counts. Rich plateau/branch diagnostics and runtime bridge proofs remain future work.
 - `[partial]` Mesh features: raw dihedral/boundary edge pairs exist; ridge/valley/crease/boundary/region-boundary geometry outputs and `FeatureReceipt` are missing.
-- `[missing]` Mesh segmentation: add scalar threshold regions, region growing, watershed-like bands, or descriptor clustering only after scalar payload and receipts exist.
-- `[partial]` Mesh diagnostics: `LaplacianCache` exists, but cache hit/factorization/residual/eigenpair/fallback receipts do not. Robust tufted Laplacian, flipped signpost vector heat, closed SignedHeat, and true tangent log-map remain unsupported.
+- `[missing]` Mesh segmentation: scalar contour payload now exists, but threshold regions, region growing, watershed-like bands, and descriptor clustering remain unimplemented. Build them only after receipts expose enough factual region diagnostics.
+- `[partial]` Mesh diagnostics: `LaplacianCache` exists, but cache hit/factorization/residual/eigenpair/fallback receipts do not. Robust tufted Laplacian, flipped signpost vector heat, closed SignedHeat, runtime scalar-isoline geometry proof, and true tangent log-map remain unsupported.
 - `[partial]` Spectral descriptors: raw filters exist; descriptor metadata, normalization, comparison, and ranking are missing. Genus-positive trivial connections remain unsupported until harmonic handling lands.
 - `[partial]` Remesh outputs: native remesh returns mesh only; `RemeshReceipt` with target length, reduction ratio, validity, hard-edge preservation, and topology-change summary is missing.
 
@@ -60,21 +60,21 @@
 - `[partial]` `Cloud.cs`: deepen `SinkhornReceipt` with coupling summaries, source/target residual semantics, numeric status, and correspondence summaries without adding fields the current kernel does not compute.
 - `[partial]` `Cloud.cs`: propagate existing weighted clusters into neighbourhood graphs, k-nearest/radius graph outputs, and local density estimates because current internals already need those concepts.
 - `[missing]` `Cloud.cs`: add 2D hull, concave outline, footprint wrapper, and alpha-style outputs with explicit unsupported/fallback receipts. Current hull support is 3D convex only.
-- `[partial][approximate]` `Align.cs`: receipt has transform, count, RMSE, median, and final delta; mode-specific diagnostics and quantiles are missing. Current symmetric ICP is a normal-sum linearized approximation, not true GICP.
+- `[partial][approximate]` `Align.cs`: receipt has transform, count, RMSE, statistical median residual, and final delta; mode-specific diagnostics and quantiles are missing. Current symmetric ICP is a normal-sum linearized approximation, not true GICP; future correspondences should project from the existing matching pass.
 - `[missing]` `Align.cs`: expose correspondences and per-point residual vectors from the existing matching pass. Always resolve native IDs through `PointCloud.PointAt(index)`.
 - `[partial]` `Transport`: coupling, distance, receipt, and transported cloud exist; correspondences, residuals, and weighted payload transfer remain missing. Product IDs and module attributes stay outside this library.
 
 ### Sampling And Domain Coverage
 
 - `[missing]` `Sample.cs`: add weighted and scalar-field-driven sampling so density maps, facade gradients, and programmatic priorities control population.
-- `[partial]` `Sample.cs`: current sampling is mesh-only through `MeshSpace`; route curve, boundary, Brep/surface, and cloud sampling through `ExtractionDomain`.
+- `[implemented-for-current-slice][partial]` `Sample.cs`: sampling routes through `ExtractionDomain` for explicit samples, mesh policies, support count-backed sampling, and deterministic cloud-vertex candidates. Explicit receipts can report all-rejected samples without forcing cloud output success; boundary domains, non-mesh Poisson density, and scalar/weighted sampling remain future work.
 - `[missing]` `Sample.cs`: add density-function blue-noise and adaptive sampling where local spacing follows scalar-field intensity or curvature.
-- `[partial]` `Sample.cs`: `SampleReceipt` only carries attempted/emitted/rejected counts. Add spacing stats, density error, iteration count, convergence stop, and domain status when kernels compute them.
+- `[partial]` `Sample.cs`: `SampleReceipt` only carries attempted/emitted/rejected counts, now from the same sample execution used by glyph/grid/bundle output projection. Add spacing stats, density error, iteration count, convergence stop, and domain status only when kernels compute them.
 
 ### Modes, Matrices, And Product Boundary
 
-- `[partial]` `Modes.cs`: curvature projection exists, but metric, Jacobian, area scale, UV frame, and explicit curve normal/binormal policy projections are missing. Use native `Surface.Evaluate`, `FrameAt`, `NormalAt`, `CurvatureAt`, and `Curve.PerpendicularFrameAt` directly.
-- `[partial]` `Matrix.cs`: sparse solve metadata exists only shallowly; dense, factorized, spectral, and generalized paths need `SolveReceipt` / `EigenSolveReceipt`. Fix CSparse symmetric one-triangle admission before broad receipt work.
+- `[partial]` `Modes.cs`: curvature projection exists and `SurfaceProjection.Normal` now routes directly through native `Surface.NormalAt`, but metric, Jacobian, area scale, UV frame, and explicit curve normal/binormal policy projections are missing. Continue using native `Surface.Evaluate`, `FrameAt`, `NormalAt`, `CurvatureAt`, and `Curve.PerpendicularFrameAt` directly.
+- `[partial]` `Matrix.cs`: sparse solve metadata exists only shallowly, dense inverse now validates finite output, and dense/factorized/spectral/generalized paths still need `SolveReceipt` / `EigenSolveReceipt`. Next collapse should move duplicated QR least-squares from `Align.cs` / `Cloud.cs` into `Matrix.cs` and keep CSparse one-triangle admission covered by real off-diagonal solve tests.
 - `[partial]` Receipts and failures: several paths still use raw values or sentinel-style fallback. Model nonconvergence, unsupported topology, invalid factorization, missing native capability, lossy fallback, and approximate output through `Fin<T>` failures or typed statuses.
 - `[implemented]` Product boundary: no UI, preview conduits, bake commands, GH2 parameter wrappers, or command receipts belong in `Rasm.Vectors`. Keep returning typed geometry, weights, coupling, correspondences, residuals, and factual diagnostics only.
 
@@ -172,15 +172,16 @@ flowchart TB
 - `Field.cs`: scalar/vector/tensor field algebra (CSG blending, falloff, kernels, noise, finite difference). Mesh-aware extensions: `ScalarField` adds `Geodesic`, `MeanCurvatureFlow`, `SpectralDistance`, scalar `LogMap` routing to heat-geodesic distance, `Stripe`, and `SignedDistanceFromMesh`; `VectorField` adds `CrossField`, one `Hodge` case carrying `BoundarySense`, `VectorHeat`, and `GeodesicTangent`.
 - `Flow.cs`: validated Runge-Kutta tableaus, fixed/adaptive integration, streamline state, termination predicates, and `StreamlineTrace` projection receipts.
 - `Cloud.cs`: cloud construction (Ring / Polyline / Cluster / WeightedCluster), `VectorCloudMetric` SmartEnum (PCA, oriented normals, principal curvature, curvedness, shape index), plus separate intent rails for winding, hull, and transport. `CloudKernel.Sinkhorn` uses log-domain scaling; `massRelaxation` changes KL marginal penalties over validated normalized masses.
-- `Sample.cs`: mesh-surface sampling -- Poisson disk, farthest, optimize, Lloyd, capacity.
+- `Sample.cs`: canonical `SampleKind` owner for explicit points, mesh-surface policies, support count-backed sampling, deterministic cloud candidates, and `SampleReceipt`.
 - `Align.cs`: cloud alignment -- `AlignKind` SmartEnum admits `Point`, `Plane`, `Symmetric` (Rusinkiewicz 2019 with oriented normal sum), `Robust` (MAD-scaled Welsch IRLS), and `NormalWeightedPointToPlane`.
-- `Mesh.cs`: mesh snapshots, `LaplacianCache` (cotangent / IDT / explicitly unsupported robust Laplacian, scalar Cholesky factor, parametric scalar-heat / vector-connection / edge-connection Cholesky caches via `Atom<HashMap>`, spectral basis, mean edge length, mesh-invariant SHM φ via `Lazy<Fin<Arr<double>>>`, and typed per-kernel `Atom<HashMap<TKey, Fin<TValue>>>` caches for geodesic / MCF / cross-field / Hodge / vector-heat with structurally-equal record keys), `MeshLaplacian` SmartEnum (`Cotangent`, `IntrinsicDelaunay`, `Robust`), `MeshDescriptor` Union (single `SpectralCase`), `IntrinsicMesh` (post-IDT-flip frozen edge index + face-edge map + face areas + first-incident-edge per vertex), topology, features, remesh kernels, Hodge, vector heat, geodesic tangent, stripe, cross-field, triangle solid-angle winding SDF, and boundary-source SignedHeat kernels.
+- `Mesh.cs`: mesh snapshots, local PL scalar isolines, `LaplacianCache` (cotangent / IDT / explicitly unsupported robust Laplacian, scalar Cholesky factor, parametric scalar-heat / vector-connection / edge-connection Cholesky caches via `Atom<HashMap>`, spectral basis, mean edge length, mesh-invariant SHM φ via `Lazy<Fin<Arr<double>>>`, and typed per-kernel `Atom<HashMap<TKey, Fin<TValue>>>` caches for geodesic / MCF / cross-field / Hodge / vector-heat with structurally-equal record keys), `MeshLaplacian` SmartEnum (`Cotangent`, `IntrinsicDelaunay`, `Robust`), `MeshDescriptor` Union (single `SpectralCase`), `IntrinsicMesh` (post-IDT-flip frozen edge index + face-edge map + face areas + first-incident-edge per vertex), topology, features, remesh kernels, Hodge, vector heat, geodesic tangent, stripe, cross-field, triangle solid-angle winding SDF, and boundary-source SignedHeat kernels.
 - `Matrix.cs`: dense and sparse matrix models, MathNet conversion, dense decompositions, BiCGStab sparse solves with MathNet direct-solve fallback, sparse Hermitian products, local LOBPCG eigensolves, and `CholeskySparse` for CSparse.NET-backed SPD-intended factorisation with typed factorisation failure.
 - `Spectral.cs`: `DiscreteCalculus` (DEC operators `d0`, `d1`, `star0` barycentric/lumped mass, `star1`, `star2`), `SpectralBasis` eigenpair values, `SpectralFilter` algebra, FEM heat scaffold, Crouzeix-Raviart connection Laplacian, `ComputeIntrinsicStar1`, and CDS 2010 holonomy distribution over intrinsic incidence operators.
 
 ## Invariants
 
 - `VectorIntent.Project<TOut>(Context, Op?)` is the only consumer projection rail.
+- `ExtractionDomain + SampleKind` is the only sampling/extraction rail for sample, glyph, grid, stream-bundle, contour, and sample receipt projections; no parallel sample-source union exists.
 - `Spectral.cs` owns DEC operators, spectral basis values, `SpectralFilter` dispatch + partial-monoid `Compose`, FEM heat scaffolding, the Crouzeix-Raviart edge connection Laplacian for SHM, and the CDS holonomy 1-form for trivial connections. Mesh-owned `LaplacianCache` memoises `SpectralBasisOf(k)` and downstream factors. Field and Mesh route spectral queries through this single substrate.
 - `MeshDescriptor` is a single `SpectralCase` parameterised by `SpectralFilter` and optional source set. HKS and WKS route through `Heat` and `Wave`; `Identity` exposes raw spectral signatures and is not a full ShapeDNA implementation.
 - `MeshLaplacian` admits `Cotangent`, `IntrinsicDelaunay`, and `Robust`; `Robust` currently returns typed `Unsupported` until a true Sharp-Crane tufted cover lands.
@@ -265,7 +266,7 @@ flowchart TB
 - Select Poisson disk, farthest-point, Lloyd, optimized, or capacity sampling depending on uniformity, coverage, and density goals.
 - Use sampled points as seeds for field traces, panel centers, fixture locations, perforation maps, and component placement.
 - Preserve deterministic sampling behavior for repeatable GH definitions and command previews.
-- Combine sampling with scalar fields to turn design intensity into population density.
+- Combine sampling with scalar fields to turn design intensity into population density once scalar/weighted sampling lands.
 
 ### Mesh Preparation, Flattening, And Descriptors
 
@@ -310,4 +311,4 @@ flowchart TB
 - Brep-heavy workflows need a canonical meshing or parameterization intake before mesh-only kernels run.
 - Advanced solvers benefit from exposed convergence and cache diagnostics for designer-facing feedback.
 - Cross-field cone flows need preflight guidance for topology, boundaries, and cone charge validity.
-- Contour and isoline extraction from scalar fields is a likely downstream rail; current folder provides scalar sources and mesh substrates.
+- Contour and isoline extraction from scalar fields now has a local mesh PL rail; richer scalar-field contour receipts and runtime Rhino proofs remain productization work.

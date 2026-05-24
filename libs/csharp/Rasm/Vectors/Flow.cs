@@ -94,11 +94,32 @@ public sealed partial class StreamlineStopKind {
     public static readonly StreamlineStopKind IterationCapExhausted = new(key: 2);
 }
 
+[SmartEnum<int>]
+public sealed partial class TraceEventKind {
+    public static readonly TraceEventKind CrossSurface = new(key: 0);
+    public static readonly TraceEventKind EnterRegion = new(key: 1);
+}
+
+[SmartEnum<int>]
+public sealed partial class TraceEventStatus {
+    public static readonly TraceEventStatus InitialEndpointTouch = new(key: 0);
+    public static readonly TraceEventStatus PreviousEndpointTouch = new(key: 1);
+    public static readonly TraceEventStatus CurrentEndpointTouch = new(key: 2);
+    public static readonly TraceEventStatus BracketedCrossing = new(key: 3);
+}
+
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct TraceEvent(
+    TraceEventKind Kind,
+    TraceEventStatus Status,
     Point3d Previous,
     Point3d Current,
     Point3d Localized,
+    double PreviousValue,
+    double CurrentValue,
+    double LocalizedValue,
+    double Parameter,
+    double Tolerance,
     double Residual,
     int Iterations);
 
@@ -212,6 +233,7 @@ internal readonly record struct StreamlineState(
 
 [Union]
 public abstract partial record Termination {
+    private const int EventBisectionMaxIterations = 64;
     private Termination() { }
     public sealed record StepCountCase(int Count) : Termination;
     public sealed record ArcLengthCase(PositiveMagnitude Length) : Termination;
@@ -238,7 +260,7 @@ public abstract partial record Termination {
     public static Fin<Termination> CrossSurface(SupportSpace surface, Op? key = null) {
         Op op = key.OrDefault();
         return Optional(surface).ToFin(op.InvalidInput())
-            .Bind(active => GeometryKernel.CanClosest(type: active.SourceType)
+            .Bind(active => GeometryKernel.CanClosest(type: active.SourceType) && active.CanSignedDistance
                 ? Fin.Succ<Termination>(new CrossSurfaceCase(Surface: active))
                 : Fin.Fail<Termination>(op.Unsupported(geometryType: active.SourceType, outputType: typeof(double))));
     }
@@ -254,68 +276,97 @@ public abstract partial record Termination {
         return op.AcceptValidated<PositiveMagnitude>(candidate: closureRadius)
             .Map(static r => (Termination)new LoopDetectedCase(ClosureRadius: r));
     }
-    internal Fin<bool> ShouldStop(StreamlineState state, Vector3d currentSample, Context context, Op key) => Switch(
+    internal Fin<bool> ShouldStop(StreamlineState state, Vector3d currentSample, Context context, Op key) =>
+        Evaluate(state: state, currentSample: currentSample, context: context, key: key)
+            .Map(static decision => decision.Stop);
+    internal Fin<(bool Stop, Option<TraceEvent> Event)> Evaluate(StreamlineState state, Vector3d currentSample, Context context, Op key) => Switch(
         state: (Field: state, Sample: currentSample, Context: context, Key: key),
-        stepCountCase: static (s, c) => Fin.Succ(s.Field.Steps >= c.Count),
-        arcLengthCase: static (s, c) => Fin.Succ(s.Field.Arc >= c.Length.Value),
-        magnitudeFloorCase: static (s, c) => Fin.Succ(s.Sample.Length < c.Threshold.Value),
-        crossSurfaceCase: static (s, c) => CrossSurfaceDetected(state: s.Field, space: c.Surface, key: s.Key),
-        enterRegionCase: static (s, c) => EnterRegionDetected(state: s.Field, region: c.Region, threshold: c.Threshold, context: s.Context, key: s.Key),
-        loopDetectedCase: static (s, c) => Fin.Succ(LoopDetected(state: s.Field, radius: c.ClosureRadius.Value)));
-    internal Fin<Option<TraceEvent>> LocateEvent(StreamlineState state, Context context, Op key) => Switch(
-        state: (Field: state, Context: context, Key: key),
-        stepCountCase: static (s, _) => Fin.Succ(Option<TraceEvent>.None),
-        arcLengthCase: static (s, _) => Fin.Succ(Option<TraceEvent>.None),
-        magnitudeFloorCase: static (s, _) => Fin.Succ(Option<TraceEvent>.None),
-        loopDetectedCase: static (s, _) => Fin.Succ(Option<TraceEvent>.None),
-        crossSurfaceCase: static (s, c) => LocateSurfaceEvent(state: s.Field, space: c.Surface, key: s.Key),
-        enterRegionCase: static (s, c) => LocateRegionEvent(state: s.Field, region: c.Region, threshold: c.Threshold, context: s.Context, key: s.Key));
+        stepCountCase: static (s, c) => Fin.Succ((Stop: s.Field.Steps >= c.Count, Event: Option<TraceEvent>.None)),
+        arcLengthCase: static (s, c) => Fin.Succ((Stop: s.Field.Arc >= c.Length.Value, Event: Option<TraceEvent>.None)),
+        magnitudeFloorCase: static (s, c) => Fin.Succ((Stop: s.Sample.Length < c.Threshold.Value, Event: Option<TraceEvent>.None)),
+        loopDetectedCase: static (s, c) => Fin.Succ((Stop: LoopDetected(state: s.Field, radius: c.ClosureRadius.Value), Event: Option<TraceEvent>.None)),
+        crossSurfaceCase: static (s, c) => EvaluateSurfaceEvent(state: s.Field, space: c.Surface, context: s.Context, key: s.Key).Map(@event => (Stop: @event.IsSome, Event: @event)),
+        enterRegionCase: static (s, c) => EvaluateRegionEvent(state: s.Field, region: c.Region, threshold: c.Threshold, context: s.Context, key: s.Key).Map(@event => (Stop: @event.IsSome, Event: @event)));
     private static Fin<double> SignedDistanceFrom(SupportSpace space, Point3d sample, Op key) =>
         from hit in space.Closest(sample: sample, key: key)
         from value in space.AdmitsSignedDistance(hit: hit)
             ? space.SignedDistance(hit: hit, sample: sample, key: key)
-            : hit.Distance.ToFin(Fail: key.InvalidResult())
+            : Fin.Fail<double>(key.InvalidResult())
         select value;
-    private static Fin<bool> CrossSurfaceDetected(StreamlineState state, SupportSpace space, Op key) =>
-        state.Trail.Count < 2
-            ? Fin.Succ(false)
-            : from prev in SignedDistanceFrom(space: space, sample: state.Trail[state.Trail.Count - 2], key: key)
-              from curr in SignedDistanceFrom(space: space, sample: state.Current, key: key)
-              select prev * curr < 0.0;
-    private static Fin<bool> EnterRegionDetected(StreamlineState state, ScalarField region, double threshold, Context context, Op key) =>
-        state.Trail.Count < 2
-            ? Fin.Succ(false)
-            : from prev in region.SampleScalar(sample: state.Trail[state.Trail.Count - 2], context: context, key: key)
-              from curr in region.SampleScalar(sample: state.Current, context: context, key: key)
-              select (prev - threshold) * (curr - threshold) < 0.0;
-    private static Fin<Option<TraceEvent>> LocateSurfaceEvent(StreamlineState state, SupportSpace space, Op key) =>
-        state.Trail.Count < 2
-            ? Fin.Succ(Option<TraceEvent>.None)
-            : LocateRoot(previous: state.Trail[state.Trail.Count - 2], current: state.Current, sample: point => SignedDistanceFrom(space: space, sample: point, key: key), key: key).Map(Some);
-    private static Fin<Option<TraceEvent>> LocateRegionEvent(StreamlineState state, ScalarField region, double threshold, Context context, Op key) =>
-        state.Trail.Count < 2
-            ? Fin.Succ(Option<TraceEvent>.None)
-            : LocateRoot(previous: state.Trail[state.Trail.Count - 2], current: state.Current, sample: point => region.SampleScalar(sample: point, context: context, key: key).Map(value => value - threshold), key: key).Map(Some);
-    private static Fin<TraceEvent> LocateRoot(Point3d previous, Point3d current, Func<Point3d, Fin<double>> sample, Op key) =>
-        from a in sample(previous)
-        from b in sample(current)
-        from bracket in toSeq(Enumerable.Range(start: 0, count: 12)).Fold(
-            initialState: Fin.Succ((A: previous, B: current, FA: a, FB: b)),
-            f: (acc, _) => acc.Bind(state => {
-                Point3d mid = new(
+    private static Fin<Option<TraceEvent>> EvaluateSurfaceEvent(StreamlineState state, SupportSpace space, Context context, Op key) =>
+        EvaluateEvent(
+            state: state,
+            kind: TraceEventKind.CrossSurface,
+            tolerance: context.Absolute.Value,
+            sample: point => SignedDistanceFrom(space: space, sample: point, key: key),
+            key: key);
+    private static Fin<Option<TraceEvent>> EvaluateRegionEvent(StreamlineState state, ScalarField region, double threshold, Context context, Op key) =>
+        EvaluateEvent(
+            state: state,
+            kind: TraceEventKind.EnterRegion,
+            tolerance: context.Fractional * Math.Max(val1: 1.0, val2: Math.Abs(value: threshold)),
+            sample: point => region.SampleScalar(sample: point, context: context, key: key).Map(value => value - threshold),
+            key: key);
+    private static Fin<Option<TraceEvent>> EvaluateEvent(StreamlineState state, TraceEventKind kind, double tolerance, Func<Point3d, Fin<double>> sample, Op key) =>
+        from currentValue in sample(state.Current)
+        from output in state.Trail.Count < 2
+            ? Math.Abs(value: currentValue) <= tolerance
+                ? EventAt(kind: kind, status: TraceEventStatus.InitialEndpointTouch, previous: state.Current, current: state.Current, localized: state.Current, previousValue: currentValue, currentValue: currentValue, localizedValue: currentValue, parameter: 0.0, tolerance: tolerance, iterations: 0, key: key).Map(Some)
+                : Fin.Succ(Option<TraceEvent>.None)
+            : EvaluateSegmentEvent(previous: state.Trail[state.Trail.Count - 2], current: state.Current, currentValue: currentValue, kind: kind, tolerance: tolerance, sample: sample, key: key)
+        select output;
+    private static Fin<Option<TraceEvent>> EvaluateSegmentEvent(Point3d previous, Point3d current, double currentValue, TraceEventKind kind, double tolerance, Func<Point3d, Fin<double>> sample, Op key) =>
+        from previousValue in sample(previous)
+        from output in Math.Abs(value: previousValue) <= tolerance
+            ? EventAt(kind: kind, status: TraceEventStatus.PreviousEndpointTouch, previous: previous, current: current, localized: previous, previousValue: previousValue, currentValue: currentValue, localizedValue: previousValue, parameter: 0.0, tolerance: tolerance, iterations: 0, key: key).Map(Some)
+            : Math.Abs(value: currentValue) <= tolerance
+                ? EventAt(kind: kind, status: TraceEventStatus.CurrentEndpointTouch, previous: previous, current: current, localized: current, previousValue: previousValue, currentValue: currentValue, localizedValue: currentValue, parameter: 1.0, tolerance: tolerance, iterations: 0, key: key).Map(Some)
+                : previousValue * currentValue < 0.0
+                    ? LocateRoot(previous: previous, current: current, previousValue: previousValue, currentValue: currentValue, kind: kind, tolerance: tolerance, sample: sample, key: key).Map(Some)
+                    : Fin.Succ(Option<TraceEvent>.None)
+        select output;
+    private static Fin<TraceEvent> EventAt(TraceEventKind kind, TraceEventStatus status, Point3d previous, Point3d current, Point3d localized, double previousValue, double currentValue, double localizedValue, double parameter, double tolerance, int iterations, Op key) =>
+        key.AcceptValue(value: new TraceEvent(
+            Kind: kind,
+            Status: status,
+            Previous: previous,
+            Current: current,
+            Localized: localized,
+            PreviousValue: previousValue,
+            CurrentValue: currentValue,
+            LocalizedValue: localizedValue,
+            Parameter: parameter,
+            Tolerance: tolerance,
+            Residual: Math.Abs(value: localizedValue),
+            Iterations: iterations));
+    private static Fin<TraceEvent> LocateRoot(Point3d previous, Point3d current, double previousValue, double currentValue, TraceEventKind kind, double tolerance, Func<Point3d, Fin<double>> sample, Op key) =>
+        from bracket in toSeq(Enumerable.Range(start: 0, count: EventBisectionMaxIterations)).Fold(
+            initialState: Fin.Succ((A: previous, B: current, FA: previousValue, FB: currentValue, TA: 0.0, TB: 1.0, Done: false, Iterations: 0)),
+            f: (acc, _) => acc.Bind(state => state.Done
+                ? Fin.Succ(state)
+                : sample(new Point3d(
                     x: 0.5 * (state.A.X + state.B.X),
                     y: 0.5 * (state.A.Y + state.B.Y),
-                    z: 0.5 * (state.A.Z + state.B.Z));
-                return sample(mid).Map(fm => state.FA * fm <= 0.0
-                    ? (state.A, mid, state.FA, fm)
-                    : (mid, state.B, fm, state.FB));
-            }))
+                    z: 0.5 * (state.A.Z + state.B.Z))).Map(fm => {
+                        Point3d mid = new(
+                            x: 0.5 * (state.A.X + state.B.X),
+                            y: 0.5 * (state.A.Y + state.B.Y),
+                            z: 0.5 * (state.A.Z + state.B.Z));
+                        double tm = 0.5 * (state.TA + state.TB);
+                        bool localized = Math.Abs(value: fm) <= tolerance || mid.DistanceTo(other: state.A) <= tolerance || mid.DistanceTo(other: state.B) <= tolerance;
+                        return state.FA * fm <= 0.0
+                            ? (state.A, mid, state.FA, fm, state.TA, tm, localized, state.Iterations + 1)
+                            : (mid, state.B, fm, state.FB, tm, state.TB, localized, state.Iterations + 1);
+                    })))
         let localized = new Point3d(
             x: 0.5 * (bracket.A.X + bracket.B.X),
             y: 0.5 * (bracket.A.Y + bracket.B.Y),
             z: 0.5 * (bracket.A.Z + bracket.B.Z))
         from residual in sample(localized)
-        select new TraceEvent(Previous: previous, Current: current, Localized: localized, Residual: Math.Abs(value: residual), Iterations: 12);
+        from @event in Math.Abs(value: residual) <= tolerance || localized.DistanceTo(other: bracket.A) <= tolerance || localized.DistanceTo(other: bracket.B) <= tolerance
+            ? EventAt(kind: kind, status: TraceEventStatus.BracketedCrossing, previous: previous, current: current, localized: localized, previousValue: previousValue, currentValue: currentValue, localizedValue: residual, parameter: 0.5 * (bracket.TA + bracket.TB), tolerance: tolerance, iterations: bracket.Iterations, key: key)
+            : Fin.Fail<TraceEvent>(key.InvalidResult())
+        select @event;
     private static bool LoopDetected(StreamlineState state, double radius) =>
         state.Trail.Count >= 3
         && toSeq(Enumerable.Range(start: 0, count: state.Trail.Count - 2))
@@ -329,7 +380,7 @@ internal static class FlowKernel {
     internal static Fin<TOut> Trace<TOut>(VectorField source, Point3d seed, PositiveMagnitude initialStep, FieldIntegrator integrator, Termination termination, Context context, Op key) =>
         from state in TraceState(source: source, seed: seed, initialStep: initialStep, integrator: integrator, termination: termination, context: context, key: key)
         let trace = ToTrace(state: state)
-        from output in ProjectTraceOutput<TOut>(trace: trace, key: key)
+        from output in ProjectTrace<TOut>(trace: trace, key: key)
         select output;
     private static Fin<StreamlineState> TraceState(VectorField source, Point3d seed, PositiveMagnitude initialStep, FieldIntegrator integrator, Termination termination, Context context, Op key) =>
         toSeq(Enumerable.Range(start: 0, count: MaxIterations)).Fold(
@@ -355,10 +406,9 @@ internal static class FlowKernel {
         state.Stop.IsSome
             ? Fin.Succ(state)
             : from vector in source.SampleVector(sample: state.Current, context: context, key: key)
-              from stop in termination.ShouldStop(state: state, currentSample: vector, context: context, key: key)
-              from next in stop
-                  ? termination.LocateEvent(state: state, context: context, key: key)
-                      .Map(@event => state with { Event = @event, Stop = Some(StreamlineStopKind.Terminated) })
+              from decision in termination.Evaluate(state: state, currentSample: vector, context: context, key: key)
+              from next in decision.Stop
+                  ? Fin.Succ(state with { Event = decision.Event, Stop = Some(StreamlineStopKind.Terminated) })
                   : integrator.Step(field: source, point: state.Current, h: state.H, context: context, key: key)
                       .Map(step => step.Switch(
                           state: state,
@@ -410,8 +460,6 @@ internal static class FlowKernel {
             MaxStep: state.MaxStep,
             TerminationPoint: state.Event.Map(static @event => @event.Localized).IfNone(state.Current),
             Event: state.Event);
-    private static Fin<TOut> ProjectTraceOutput<TOut>(StreamlineTrace trace, Op key) =>
-        ProjectTrace<TOut>(trace: trace, key: key);
     internal static Fin<TOut> ProjectTrace<TOut>(StreamlineTrace trace, Op key) =>
         typeof(TOut) switch {
             Type t when t == typeof(StreamlineTrace) => ValidateTrace(trace: trace, key: key).Map(static value => (TOut)(object)value),
@@ -439,12 +487,21 @@ internal static class FlowKernel {
         || trace.MinStep < 0.0
         || trace.MaxStep < trace.MinStep
         || trace.LastError.Map(static error => !RhinoMath.IsValidDouble(x: error) || error < 0.0).IfNone(false)
-        || trace.Event.Map(static @event => !@event.Previous.IsValid || !@event.Current.IsValid || !@event.Localized.IsValid || !RhinoMath.IsValidDouble(x: @event.Residual) || @event.Residual < 0.0 || @event.Iterations < 0).IfNone(false)
+        || trace.Event.Map(static @event => @event.Kind is null || @event.Status is null || !@event.Previous.IsValid || !@event.Current.IsValid || !@event.Localized.IsValid
+            || !RhinoMath.IsValidDouble(x: @event.PreviousValue) || !RhinoMath.IsValidDouble(x: @event.CurrentValue) || !RhinoMath.IsValidDouble(x: @event.LocalizedValue)
+            || !RhinoMath.IsValidDouble(x: @event.Parameter) || @event.Parameter is < 0.0 or > 1.0
+            || !RhinoMath.IsValidDouble(x: @event.Tolerance) || @event.Tolerance < 0.0
+            || !RhinoMath.IsValidDouble(x: @event.Residual) || @event.Residual < 0.0 || @event.Iterations < 0).IfNone(false)
         || !trace.TerminationPoint.IsValid
             ? Fin.Fail<StreamlineTrace>(error: key.InvalidResult())
             : Fin.Succ(trace);
     private static Fin<Polyline> PolylineOf(StreamlineTrace trace, Op key) {
-        Polyline polyline = [.. trace.Trail.AsIterable()];
+        Point3d[] points = [.. trace.Trail.AsIterable()];
+        _ = trace.Event.Map(@event => {
+            points[^1] = @event.Localized;
+            return unit;
+        });
+        Polyline polyline = [.. points];
         return polyline.IsValid
             ? key.AcceptValue(value: polyline)
             : Fin.Fail<Polyline>(key.InvalidResult());

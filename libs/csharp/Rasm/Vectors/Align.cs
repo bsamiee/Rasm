@@ -114,7 +114,7 @@ internal static class AlignKernel {
             Residuals: residuals,
             Count: n,
             Rmse: n > 0 ? Math.Sqrt(d: squared / n) : 0.0,
-            MedianResidual: sorted.Length > 0 ? sorted[sorted.Length / 2] : 0.0));
+            MedianResidual: sorted.Length > 0 ? (sorted[(sorted.Length - 1) / 2] + sorted[sorted.Length / 2]) * 0.5 : 0.0));
     }
     internal static Fin<Transform> SolvePointToPoint(Seq<Point3d> source, Point3d[] target, Transform current, Op key) {
         Seq<Point3d> transformedSource = toSeq(source.AsIterable().Select(p => current * p));

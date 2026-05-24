@@ -195,10 +195,14 @@ public abstract partial record RemeshKind {
 internal static class MeshKernel {
     private const double DegenerateTriangleArea = 1e-14;
     private const double AspectRatioCeiling = 11.5;
-    private static bool ContainsQuads(Mesh mesh) {
-        for (int f = 0; f < mesh.Faces.Count; f++) if (mesh.Faces[index: f].IsQuad) return true;
-        return false;
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct Segment(Point3d A, Point3d B);
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct PointKey(long X, long Y, long Z) {
+        internal int Compare(PointKey other) =>
+            X != other.X ? X.CompareTo(value: other.X) : Y != other.Y ? Y.CompareTo(value: other.Y) : Z.CompareTo(value: other.Z);
     }
+    private static bool ContainsQuads(Mesh mesh) => mesh.Faces.QuadCount > 0;
 
     // --- [VALIDATION] -----------------------------------------------------------------------
     // BOUNDARY ADAPTER — iterates the native Rhino face list to enforce the aspect-ratio
@@ -211,6 +215,136 @@ internal static class MeshKernel {
                 return Fin.Fail<Unit>(key.Caution(concern: $"Face {f} aspect ratio exceeds {ceiling}."));
         }
         return Fin.Succ(unit);
+    }
+
+    // BOUNDARY ADAPTER — scalar contouring is absent from RhinoCommon; this local PL kernel
+    // follows Rhino's triangulated mesh topology and returns stitched curve candidates only.
+    internal static Fin<(Seq<Curve> Curves, int Attempted)> ScalarIsolines(Mesh mesh, Arr<double> values, Seq<double> levels, Context context, Op key) {
+        if (values.Count != mesh.Vertices.Count || values.Exists(static value => !RhinoMath.IsValidDouble(x: value)) || levels.IsEmpty || levels.Exists(static value => !RhinoMath.IsValidDouble(x: value)))
+            return Fin.Fail<(Seq<Curve>, int)>(key.InvalidInput());
+        using Mesh triangulated = mesh.DuplicateMesh();
+        if (ContainsQuads(mesh: triangulated) && !triangulated.Faces.ConvertQuadsToTriangles())
+            return Fin.Fail<(Seq<Curve>, int)>(key.InvalidResult());
+        if (triangulated.Vertices.Count != values.Count)
+            return Fin.Fail<(Seq<Curve>, int)>(key.InvalidResult());
+        List<Segment> segments = [];
+        for (int f = 0; f < triangulated.Faces.Count; f++) {
+            MeshFace face = triangulated.Faces[index: f];
+            if (face.IsTriangle)
+                AddFaceIsolines(mesh: triangulated, face: face, values: values, levels: levels, tolerance: context.Absolute.Value, segments: segments);
+        }
+        (Seq<Curve> Curves, int Attempted) stitched = StitchSegments(segments: DeduplicateSegments(segments: segments, tolerance: context.Absolute.Value), tolerance: context.Absolute.Value);
+        return key.AcceptValue(value: stitched);
+    }
+    private static void AddFaceIsolines(Mesh mesh, MeshFace face, Arr<double> values, Seq<double> levels, double tolerance, List<Segment> segments) {
+        Point3d[] points = [mesh.Vertices[index: face.A], mesh.Vertices[index: face.B], mesh.Vertices[index: face.C]];
+        double[] scalars = [values[index: face.A], values[index: face.B], values[index: face.C]];
+        foreach (double level in levels.AsIterable()) {
+            double epsilon = ScalarEpsilon(level: level, scalars: scalars);
+            bool[] on = [Math.Abs(value: scalars[0] - level) <= epsilon, Math.Abs(value: scalars[1] - level) <= epsilon, Math.Abs(value: scalars[2] - level) <= epsilon];
+            if (on.All(static value => value)) continue;
+            List<Point3d> hits = [];
+            AddEdgeHit(a: 0, b: 1, level: level, epsilon: epsilon, points: points, scalars: scalars, hits: hits, segments: segments);
+            AddEdgeHit(a: 1, b: 2, level: level, epsilon: epsilon, points: points, scalars: scalars, hits: hits, segments: segments);
+            AddEdgeHit(a: 2, b: 0, level: level, epsilon: epsilon, points: points, scalars: scalars, hits: hits, segments: segments);
+            Point3d[] unique = [.. hits.Where(point => point.IsValid).DistinctBy(point => KeyOf(point: point, tolerance: tolerance))];
+            if (unique.Length == 2)
+                segments.Add(item: new Segment(A: unique[0], B: unique[1]));
+        }
+    }
+    private static void AddEdgeHit(int a, int b, double level, double epsilon, Point3d[] points, double[] scalars, List<Point3d> hits, List<Segment> segments) {
+        bool aOn = Math.Abs(value: scalars[a] - level) <= epsilon;
+        bool bOn = Math.Abs(value: scalars[b] - level) <= epsilon;
+        switch (aOn, bOn, (scalars[a] - level) * (scalars[b] - level) < 0.0) {
+            case (true, true, _):
+                segments.Add(item: new Segment(A: points[a], B: points[b]));
+                break;
+            case (true, false, _):
+                hits.Add(item: points[a]);
+                break;
+            case (false, true, _):
+                hits.Add(item: points[b]);
+                break;
+            case (false, false, true):
+                double t = (level - scalars[a]) / (scalars[b] - scalars[a]);
+                hits.Add(item: new Point3d(
+                    x: points[a].X + (t * (points[b].X - points[a].X)),
+                    y: points[a].Y + (t * (points[b].Y - points[a].Y)),
+                    z: points[a].Z + (t * (points[b].Z - points[a].Z))));
+                break;
+        }
+    }
+    private static double ScalarEpsilon(double level, double[] scalars) =>
+        RhinoMath.SqrtEpsilon * Math.Max(val1: 1.0, val2: Math.Max(val1: Math.Abs(value: level), val2: scalars.Max(static value => Math.Abs(value: value))));
+    private static Seq<Segment> DeduplicateSegments(List<Segment> segments, double tolerance) {
+        System.Collections.Generic.HashSet<(PointKey A, PointKey B)> seen = [];
+        List<Segment> unique = [];
+        foreach (Segment segment in segments) {
+            PointKey a = KeyOf(point: segment.A, tolerance: tolerance);
+            PointKey b = KeyOf(point: segment.B, tolerance: tolerance);
+            if (a.Equals(b)) continue;
+            (PointKey A, PointKey B) key = a.Compare(other: b) <= 0 ? (a, b) : (b, a);
+            if (seen.Add(item: key)) unique.Add(item: segment);
+        }
+        return toSeq(unique);
+    }
+    private static (Seq<Curve> Curves, int Attempted) StitchSegments(Seq<Segment> segments, double tolerance) {
+        Segment[] all = [.. segments.AsIterable()];
+        bool[] used = new bool[all.Length];
+        Dictionary<PointKey, List<int>> incident = [];
+        for (int i = 0; i < all.Length; i++) {
+            AddIncident(map: incident, key: KeyOf(point: all[i].A, tolerance: tolerance), index: i);
+            AddIncident(map: incident, key: KeyOf(point: all[i].B, tolerance: tolerance), index: i);
+        }
+        List<Curve> curves = [];
+        int attempted = 0;
+        for (int i = 0; i < all.Length; i++) {
+            if (used[i]) continue;
+            List<Point3d> points = [all[i].A, all[i].B];
+            used[i] = true;
+            Extend(points: points, atEnd: true, all: all, used: used, incident: incident, tolerance: tolerance);
+            Extend(points: points, atEnd: false, all: all, used: used, incident: incident, tolerance: tolerance);
+            Polyline polyline = [.. points];
+            attempted++;
+            if (polyline.IsValid && polyline.Count >= 2) curves.Add(item: polyline.ToPolylineCurve());
+        }
+        return (Curves: toSeq(curves), Attempted: attempted);
+    }
+    private static void Extend(List<Point3d> points, bool atEnd, Segment[] all, bool[] used, Dictionary<PointKey, List<int>> incident, double tolerance) {
+        bool moved = true;
+        while (moved) {
+            moved = false;
+            Point3d anchor = atEnd ? points[^1] : points[index: 0];
+            PointKey key = KeyOf(point: anchor, tolerance: tolerance);
+            if (!incident.TryGetValue(key: key, value: out List<int>? candidates)) continue;
+            foreach (int index in candidates) {
+                if (used[index]) continue;
+                Segment segment = all[index];
+                PointKey a = KeyOf(point: segment.A, tolerance: tolerance);
+                Point3d next = a.Equals(key) ? segment.B : segment.A;
+                int available = candidates.Count(candidate => !used[candidate]);
+                if (available == 1) {
+                    if (atEnd) points.Add(item: next); else points.Insert(index: 0, item: next);
+                    used[index] = true;
+                    moved = true;
+                }
+                break;
+            }
+        }
+    }
+    private static void AddIncident(Dictionary<PointKey, List<int>> map, PointKey key, int index) {
+        if (!map.TryGetValue(key: key, value: out List<int>? values)) {
+            values = [];
+            map.Add(key: key, value: values);
+        }
+        values.Add(item: index);
+    }
+    private static PointKey KeyOf(Point3d point, double tolerance) {
+        double scale = 1.0 / Math.Max(val1: tolerance, val2: RhinoMath.SqrtEpsilon);
+        return new PointKey(
+            X: (long)Math.Round(a: point.X * scale),
+            Y: (long)Math.Round(a: point.Y * scale),
+            Z: (long)Math.Round(a: point.Z * scale));
     }
 
     // --- [COTANGENT_ASSEMBLY] ---------------------------------------------------------------
