@@ -63,8 +63,16 @@ public readonly record struct Matrix(Dimension Rows, Dimension Cols, Arr<double>
     public static Matrix Zero(Dimension rows, Dimension cols) =>
         MatrixKernel.FromMathNet(m: DenseMatrixD.Create(rows: rows.Value, columns: cols.Value, value: 0.0), rows: rows, cols: cols);
     public Matrix Transpose() => MatrixKernel.FromMathNet(MatrixKernel.ToMathNet(this).Transpose(), Cols, Rows);
-    public static Matrix operator *(Matrix a, Matrix b) =>
-        MatrixKernel.FromMathNet(MatrixKernel.ToMathNet(a).Multiply(MatrixKernel.ToMathNet(b)), a.Rows, b.Cols);
+    public Fin<Matrix> Multiply(Matrix other, Op? key = null) {
+        Op op = key.OrDefault();
+        Matrix self = this;
+        return !self.IsValid || !other.IsValid || self.Cols.Value != other.Rows.Value
+            ? Fin.Fail<Matrix>(error: op.InvalidInput())
+            : op.Catch(() => {
+                Matrix product = MatrixKernel.FromMathNet(MatrixKernel.ToMathNet(self).Multiply(MatrixKernel.ToMathNet(other)), self.Rows, other.Cols);
+                return product.IsValid ? Fin.Succ(product) : Fin.Fail<Matrix>(error: op.InvalidResult());
+            });
+    }
     public Fin<Seq<(Complex Eigenvalue, Arr<Complex> Eigenvector)>> DecomposeEigen(Op? key = null) =>
         MatrixKernel.GeneralEigen(matrix: this, key: key.OrDefault());
     public Fin<SvdResult> DecomposeSvd(Op? key = null) => MatrixKernel.Svd(matrix: this, key: key.OrDefault());

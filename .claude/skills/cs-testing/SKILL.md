@@ -50,8 +50,14 @@ Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` 
 [CRITICAL]:
 - Do not move native behavior into static xUnit just to improve coverage.
 - Do not document a bridge gap when an executable `*.verify.csx` can own it.
-- Do not add test-specific shared helpers. Promote only universal abstractions with at least two real consumers.
+- Do not add test-specific shared helpers. Promote only universal higher-order capability with at least two real consumers.
+- Treat testkit additions as law/oracle/generator functionality, not extraction. Shared code must replace repeated spec logic with stronger evidence, not shorter spelling.
 - Treat shape-only assertions as Grade D unless paired with a Grade A/B oracle or a durable Grade C failure/category rail.
+- Pair every declared `Output`/accepted `TOut` surface with an actual projection law. Metadata-only output checks do not prove dispatch.
+- Public union cases, record structs, and policy records that bypass factory methods need default-invalid/raw-payload laws or must be made unconstructable by design.
+- Mixed guards must preserve categories: invalid input stays `Input`/`Tolerance`; unsupported capability stays `Unsupported`.
+- Paired raw/domain outputs both need laws, for example `Vector3d` and `Direction`, receipt and geometry, scalar and value-object projections.
+- For `Rasm.Vectors`, static specs own pure MathNet/Spectral/factory/failure laws; Mesh/native Rhino success, point-cloud kNN, ICP, contours, validity, and materialization belong in bridge scenarios.
 
 ---
 ## [3][SPEC_SHAPE]
@@ -70,6 +76,7 @@ Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` 
 
 [CRITICAL]:
 - A spec is not "world-class" because it has many facts. It is strong when one generated domain attacks construction, projection, unsupported outputs, failure categories, receipt invariants, and an independent oracle without mirroring production code.
+- A real oracle predicts behavior from another source of truth: closed-form math, conservation, fixture geometry, category contract, runtime bridge observation, or documented external behavior. A law varies a behavior family enough to catch swapped inputs, missing validation, unsupported outputs, and receipt drift.
 - Use distinct generated payload values when a source function transports or dispatches multiple inputs. Equal or placeholder payloads hide swaps and ignored branches.
 - Allow 225 LOC, and exceptionally 300 LOC, only when each added line buys a real oracle, boundary, bridge classification, or product-bug guard that cannot be compressed through `Spec`, `Gens`, `Numeric`, local arrays, or product generators.
 - If a failing law reveals a real production bug, fix the owner. Do not weaken the law into shape-only proof.

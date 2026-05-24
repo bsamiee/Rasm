@@ -17,8 +17,8 @@ internal static class SpaceGens {
     ];
     public static readonly Gen<SupportProjection> Projection = Gen.OneOfConst(All);
     public static readonly SupportSpace PointSpace = Spec.SuccValue(SupportSpace.Of(value: new Point3d(x: 1.0, y: 0.0, z: 0.0), key: Key), label: "point space");
-    public static ClosestHit Hit(Option<double> parameter = default, Option<Point2d> uv = default, Option<ComponentIndex> component = default) =>
-        ClosestHit.At(target: Point3d.Origin, point: new Point3d(x: 1.0, y: 0.0, z: 0.0), parameter: parameter, uv: uv, component: component);
+    public static ClosestHit Hit(Option<double> parameter = default, Option<Point2d> uv = default, Option<ComponentIndex> component = default, Option<Point3d> point = default) =>
+        ClosestHit.At(target: new Point3d(x: 10.0, y: 0.0, z: 0.0), point: point.IfNone(new Point3d(x: 1.0, y: 0.0, z: 0.0)), parameter: parameter, uv: uv, component: component);
 }
 
 // --- [ALGEBRAIC] ----------------------------------------------------------------------------
@@ -37,13 +37,16 @@ public sealed class SupportProjectionLaws {
         Spec.Succ(SupportProjection.Closest.Project<Point3d>(space: SpaceGens.PointSpace, hit: rich, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key),
             then: point => Spec.NearEqual(left: point, right: rich.Point));
         Spec.Succ(SupportProjection.Distance.Project<double>(space: SpaceGens.PointSpace, hit: rich, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key),
-            then: distance => Spec.EqualWithin(left: distance, right: 1.0, tolerance: 1.0e-12, what: "distance"));
+            then: distance => Spec.EqualWithin(left: distance, right: 9.0, tolerance: 1.0e-12, what: "distance"));
         Spec.Succ(SupportProjection.Parameter.Project<double>(space: SpaceGens.PointSpace, hit: rich, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key),
             then: parameter => Spec.EqualWithin(left: parameter, right: 0.25, tolerance: 0.0, what: "parameter"));
         Spec.Succ(SupportProjection.Uv.Project<Point2d>(space: SpaceGens.PointSpace, hit: rich, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key),
             then: uv => Assert.Equal(expected: new Point2d(x: 2.0, y: 3.0), actual: uv));
         Spec.Succ(SupportProjection.Component.Project<ComponentIndex>(space: SpaceGens.PointSpace, hit: rich, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key),
-            then: component => Assert.Equal(expected: 4, actual: component.Index));
+            then: component => {
+                Assert.Equal(expected: ComponentIndexType.PointCloudPoint, actual: component.ComponentIndexType);
+                Assert.Equal(expected: 4, actual: component.Index);
+            });
         ClosestHit sparse = SpaceGens.Hit();
         Spec.FailCategory(SupportProjection.Parameter.Project<double>(space: SpaceGens.PointSpace, hit: sparse, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key), category: "Unsupported");
         Spec.FailCategory(SupportProjection.Uv.Project<Point2d>(space: SpaceGens.PointSpace, hit: sparse, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key), category: "Unsupported");
@@ -54,6 +57,18 @@ public sealed class SupportProjectionLaws {
         ClosestHit hit = SpaceGens.Hit();
         Assert.True(condition: SupportProjection.Span.CanProjectVector(space: SpaceGens.PointSpace));
         Assert.True(condition: SupportProjection.SignedSpanAway.CanProjectVector(space: SpaceGens.PointSpace));
+        ClosestHit zero = SpaceGens.Hit(point: Some(Point3d.Origin));
+        ClosestHit nonzero = SpaceGens.Hit(point: Some(new Point3d(x: 3.0, y: 4.0, z: 0.0)));
+        Spec.Succ(SupportProjection.Span.Project<Vector3d>(space: SpaceGens.PointSpace, hit: zero, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key),
+            then: vector => Spec.NearEqual(left: vector, right: Vector3d.Zero, tolerance: 0.0));
+        Spec.Succ(SupportProjection.Span.Project<double>(space: SpaceGens.PointSpace, hit: zero, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key),
+            then: distance => Spec.EqualWithin(left: distance, right: 0.0, tolerance: 0.0, what: "zero span distance"));
+        Spec.Succ(SupportProjection.Span.Project<Vector3d>(space: SpaceGens.PointSpace, hit: nonzero, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key),
+            then: vector => Spec.NearEqual(left: vector, right: new Vector3d(x: 3.0, y: 4.0, z: 0.0), tolerance: 0.0));
+        Spec.Succ(SupportProjection.SignedSpanAway.Project<Vector3d>(space: SpaceGens.PointSpace, hit: nonzero, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key),
+            then: vector => Spec.NearEqual(left: vector, right: new Vector3d(x: -3.0, y: -4.0, z: 0.0), tolerance: 0.0));
+        Spec.Succ(SupportProjection.SignedSpanAway.Project<double>(space: SpaceGens.PointSpace, hit: nonzero, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key),
+            then: distance => Spec.EqualWithin(left: distance, right: 5.0, tolerance: 0.0, what: "away span distance"));
         Spec.FailCategory(SupportProjection.Span.Project<VectorFrame>(space: SpaceGens.PointSpace, hit: hit, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key), category: "Unsupported");
         Spec.FailCategory(SupportProjection.Closest.Project<VectorFrame>(space: SpaceGens.PointSpace, hit: hit, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key), category: "Unsupported");
         Spec.FailCategory(SupportSpace.Of(value: new object(), key: SpaceGens.Key), category: "Unsupported");

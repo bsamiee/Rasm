@@ -18,6 +18,9 @@
 - Use `Spec.Cases` or `Spec.SmartEnumKeysUnique` for bounded catalogs instead of repeating tiny key facts.
 - Keep model-based checks spec-local unless two source owners need the same actual-vs-model adapter.
 - Add `_testkit` surface only after the second consumer appears, or when the primitive is a cross-rail law/oracle that prevents circular tests across many future specs.
+- Promote shared testkit code only after naming the higher-order purpose it owns. Valid promotions are law/oracle/generator capability, not copy-paste extraction or shorter spelling for one owner.
+- In vector specs, a declared output type must be paired with an actual projection law for at least one static-safe payload. Metadata-only checks are not enough.
+- Do not use production vector operators, projections, or kernels as expected-value engines for the same behavior. Use `Numeric`, a closed form, a smaller model, or a bridge observation.
 
 ## [3][BRIDGE_BOUNDARIES]
 
@@ -27,6 +30,7 @@
 - Treat host dependency collisions as product/packaging evidence. Do not rewrite bridge scenarios into weaker static assertions just because Rhino has preloaded a conflicting assembly.
 - For Rasm.Vectors on macOS, assume Rhino native geometry validity/materialization can cross into `rhcommon_c` unless a current static run proves otherwise. Static specs may own managed guards and failure categories for `Curve`, `Surface`, `Mesh`, `PlaneSurface`, `Point3d.IsValid`, `Vector3d.IsTiny`, and `Polyline.IsValid`, but successful native sampling/projection belongs in bridge scenarios.
 - Record bridge-owned gaps as executable scenario work, not skipped xUnit tests or shape-only assertions.
+- Vector bridge-owned successes include ICP/RTree point-cloud ordering, native contours/materialization, mesh topology/Laplacian/remesh/SDF/heat, curve/surface projections, Rhino validity/unitization, and mass properties.
 
 ## [4][DENSITY]
 
@@ -37,3 +41,4 @@
 - Prefer one generated law table that varies inputs, output kinds, failure categories, and invariants over many one-assertion facts.
 - Specs may reach 225 LOC, and exceptionally 300 LOC, only when every added line buys a real oracle, boundary, native classification, or product-bug guard that cannot be expressed more densely through existing `Spec`, `Gens`, `Numeric`, or local case tables.
 - If a spec starts to grow through repeated setup, collapse the repetition into a richer product generator or table inside the same owner before adding helper files.
+- Thin tests found during review are bugs in the test design. Replace them with multi-axis laws, delete them when they only mirror implementation, or classify the behavior as bridge-owned/product-direction instead of preserving low-value coverage.

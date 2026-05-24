@@ -76,6 +76,10 @@ public sealed partial class SurfaceProjection {
         from uv in GeometryKernel.SurfaceUv(surface: active, uv: new Point2d(x: u, y: v), context: context, key: key)
         from output in ReferenceEquals(objA: this, objB: Normal) && typeof(TOut) == typeof(Vector3d)
             ? GeometryKernel.NormalAt(surface: active, uv: uv, key: key).Map(static value => (TOut)(object)value)
+            : ReferenceEquals(objA: this, objB: Normal) && typeof(TOut) == typeof(Direction)
+            ? GeometryKernel.NormalAt(surface: active, uv: uv, key: key).Bind(normal => Direction.Of(value: normal, context: context, key: key).Map(static value => (TOut)(object)value))
+            : ReferenceEquals(objA: this, objB: Normal)
+            ? Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(SurfaceProjection), outputType: typeof(TOut)))
             : active.CurvatureAt(u: uv.X, v: uv.Y) is SurfaceCurvature sc && sc.IsSet
             ? new Lease<SurfaceCurvature>.Owned(Value: sc).Use(curvature =>
                 from raw in Sample(curvature: curvature).BindFail(_ => Fin.Fail<object>(key.InvalidResult()))
@@ -83,6 +87,7 @@ public sealed partial class SurfaceProjection {
                     (double d, Type t) when t == typeof(double) => key.AcceptValue(value: (TOut)(object)d),
                     (Circle c, Type t) when t == typeof(Circle) => key.AcceptValue(value: (TOut)(object)c),
                     (Vector3d n, Type t) when t == typeof(Vector3d) => key.AcceptValue(value: (TOut)(object)n),
+                    (Vector3d n, Type t) when t == typeof(Direction) => Direction.Of(value: n, context: context, key: key).Map(static value => (TOut)(object)value),
                     (Seq<double> ks, Type t) when t == typeof(Seq<double>) =>
                         ks.TraverseM(k => key.AcceptValue(value: k)).As().Map(static valid => (TOut)(object)valid),
                     (SymmetricMatrix matrix, Type t) when t == typeof(SymmetricMatrix) && matrix.IsValid =>
@@ -132,8 +137,8 @@ public sealed partial class ConeProjection {
             (VectorAngle a, Type t) when t == typeof(VectorAngle) => Fin.Succ((TOut)(object)a),
             (VectorAngle a, Type t) when t == typeof(double) => key.AcceptValue(value: a.Value).Map(static x => (TOut)(object)x),
             (double d, Type t) when t == typeof(double) => key.AcceptValue(value: d).Map(static x => (TOut)(object)x),
-            (Direction d, Type t) when t == typeof(Direction) => Fin.Succ((TOut)(object)d),
-            (Direction d, Type t) when t == typeof(Vector3d) => key.AcceptValue(value: d.Value).Map(static x => (TOut)(object)x),
+            (Direction d, Type t) when t == typeof(Direction) => d.Project<TOut>(key: key),
+            (Direction d, Type t) when t == typeof(Vector3d) => d.Project<Vector3d>(key: key).Map(static x => (TOut)(object)x),
             (Point3d p, Type t) when t == typeof(Point3d) => key.AcceptValue(value: p).Map(static x => (TOut)(object)x),
             _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(ConeProjection), outputType: typeof(TOut))),
         };

@@ -140,7 +140,7 @@ public abstract partial record VectorIntent {
             select output,
         surfaceCase: static (state, intent) => intent.SurfaceSource.Sample<TOut>(projection: intent.Mode, u: intent.U, v: intent.V, key: state.Key),
         poseCase: static (state, intent) =>
-            from pose in intent.Mode.Interpolate(a: intent.From, b: intent.To, t: intent.Parameter).BindFail(_ => Fin.Fail<Plane>(state.Key.InvalidResult()))
+            from pose in intent.Mode.Interpolate(a: intent.From, b: intent.To, t: intent.Parameter)
             from output in typeof(TOut) == typeof(Plane)
                 ? state.Key.AcceptValue(value: pose).Map(static v => (TOut)(object)v)
                 : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(PoseCase), outputType: typeof(TOut)))
@@ -218,14 +218,14 @@ public abstract partial record VectorIntent {
         new ProbeCase(Source: source, Query: sample);
     public static Fin<VectorIntent> IsoSurface(ScalarField field, BoundingBox bounds, int resolution, int maxRootSteps, Op? key = null) {
         Op op = key.OrDefault();
-        return bounds is { IsValid: true, Diagonal: Vector3d d }
+        return Optional(field).ToFin(op.InvalidInput()).Bind(validField => bounds is { IsValid: true, Diagonal: Vector3d d }
             && d.X > RhinoMath.ZeroTolerance
             && d.Y > RhinoMath.ZeroTolerance
             && d.Z > RhinoMath.ZeroTolerance
             && resolution >= 2
             && maxRootSteps >= 1
-            ? Fin.Succ<VectorIntent>(new IsoSurfaceCase(Source: field, Bounds: bounds, Resolution: resolution, MaxRootSteps: maxRootSteps))
-            : Fin.Fail<VectorIntent>(op.InvalidInput());
+            ? Fin.Succ<VectorIntent>(new IsoSurfaceCase(Source: validField, Bounds: bounds, Resolution: resolution, MaxRootSteps: maxRootSteps))
+            : Fin.Fail<VectorIntent>(op.InvalidInput()));
     }
     public static VectorIntent Contour(ExtractionDomain domain, ContourPolicy policy) =>
         new ContourCase(Domain: domain, Policy: policy);
@@ -265,8 +265,10 @@ public abstract partial record VectorIntent {
         new BounceCase(Incident: incident, Surface: surface, Query: sample, Policy: policy ?? BouncePolicy.Reflect);
     public static Fin<VectorIntent> Streamline(VectorField field, Point3d seed, double initialStep, Termination termination, FieldIntegrator? integrator = null, Op? key = null) {
         Op op = key.OrDefault();
-        return op.AcceptValidated<PositiveMagnitude>(candidate: initialStep)
-            .Map(h => (VectorIntent)new StreamlineCase(Source: field, Seed: seed, InitialStep: h, Integrator: integrator ?? FieldIntegrator.RK4, Termination: termination));
+        return from validField in Optional(field).ToFin(op.InvalidInput())
+               from validStop in Optional(termination).ToFin(op.InvalidInput())
+               from h in op.AcceptValidated<PositiveMagnitude>(candidate: initialStep)
+               select (VectorIntent)new StreamlineCase(Source: validField, Seed: seed, InitialStep: h, Integrator: integrator ?? FieldIntegrator.RK4, Termination: validStop);
     }
     public static Fin<VectorIntent> Lerp(Vector3d a, Vector3d b, double t, Op? key = null) =>
         key.OrDefault().AcceptValidated<UnitInterval>(candidate: t)
@@ -300,12 +302,14 @@ public abstract partial record VectorIntent {
     // massRelaxation changes the KL marginal penalty over normalized uniform masses.
     public static Fin<VectorIntent> Transport(VectorCloud source, VectorCloud target, double regularization, int maxIterations, bool debiased = false, double? massRelaxation = null, Op? key = null) {
         Op op = key.OrDefault();
-        return from reg in op.AcceptValidated<PositiveMagnitude>(candidate: regularization)
+        return from validSource in Optional(source).ToFin(op.InvalidInput())
+               from validTarget in Optional(target).ToFin(op.InvalidInput())
+               from reg in op.AcceptValidated<PositiveMagnitude>(candidate: regularization)
                from cap in op.AcceptValidated<Dimension>(candidate: maxIterations)
                from relax in massRelaxation is double lambda
                     ? op.AcceptValidated<PositiveMagnitude>(candidate: lambda).Map(Some)
                     : Fin.Succ(Option<PositiveMagnitude>.None)
-               select (VectorIntent)new TransportCase(Source: source, Target: target, Regularization: reg, MaxIterations: cap, Debiased: debiased, MassRelaxation: relax);
+               select (VectorIntent)new TransportCase(Source: validSource, Target: validTarget, Regularization: reg, MaxIterations: cap, Debiased: debiased, MassRelaxation: relax);
     }
     public static VectorIntent Topology(MeshSpace space) =>
         new TopologyCase(Space: space);

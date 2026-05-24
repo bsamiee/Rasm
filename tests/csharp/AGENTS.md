@@ -15,6 +15,7 @@
   - `/Users/bardiasamiee/Documents/99.Github/Rasm/docs/testing-libs/benchmarkdotnet/api.md`
   - `/Users/bardiasamiee/Documents/99.Github/Rasm/docs/testing-libs/sharpfuzz/api.md`
 - Keep specs law-matrix shaped: each test should cover a behavior family, oracle, failure rail, or metamorphic relation.
+- Build dense laws before adding facts: one generated sample should attack construction, projection, unsupported output, category, receipt, and an independent oracle when the owner exposes those axes.
 - Static xUnit owns pure-managed behavior; native Rhino/GH behavior belongs in `*.verify.csx` bridge scenarios.
 - Architecture tests own assembly dependency direction only; code-shape rules stay in `tools/cs-analyzer`.
 - Benchmarks and fuzz harnesses are separate executable rails, not xUnit specs.
@@ -35,6 +36,7 @@
 - Good laws attack more than one dimension: construction, projection, unsupported output, failure category, receipt metadata, and a metamorphic or closed-form invariant should share the same generated sample whenever the source behavior allows it.
 - Use deliberately distinct payload values in product generators so tests catch swapped fields, stale branches, and ignored input rather than only proving that "some value" survived.
 - For numeric/domain code, prefer an independent scalar loop, small fixture geometry, or algebraic identity over reusing the production method with different spelling.
+- A real oracle predicts behavior from another source of truth: closed-form math, conservation law, fixture geometry, category contract, external documented runtime behavior, or a bridge observation. A law states an invariant over a behavior family and varies enough axes to catch swapped inputs, missing validation, unsupported outputs, and receipt drift.
 - A useful failing test is preserved by fixing the production owner first. Only weaken or delete the law after proving the expected value was circular or the behavior is bridge-owned.
 
 ## [3][TESTKIT]
@@ -45,6 +47,7 @@
 - Extend `_testkit` only when two or more specs will consume the abstraction. Testkit files may reach 350 LOC, but must stay polymorphic and dense.
 - Do not add package versions as future intent. Every test tool package must have a concrete spec, benchmark, harness, or artifact owner.
 - Promote only anti-circular value: reusable finite point sets, centroid/covariance/distance oracles, row-major residuals, Hermitian matvec/residuals, and stable serializers are valid candidates once multiple specs need them.
+- Treat `_testkit` additions as higher-order testing capability, not extraction. New surface should replace repeated spec logic with a stronger oracle, generator, serializer, or law adapter that immediately improves multiple owners.
 - Do not promote benchmark, fuzz, bridge, or one-off fixture adapters into `_testkit`; those rails have their own executable owners.
 
 ## [4][SUPPRESSIONS_AND_GATES]

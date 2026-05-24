@@ -9,6 +9,8 @@ public readonly record struct SparseLaplacian(SparseMatrix Stiffness, SparseMatr
     public bool IsValid =>
         Stiffness.IsValid && MassConsistent.IsValid
         && Stiffness.Rows.Value == MassConsistent.Rows.Value
+        && Stiffness.Cols.Value == MassConsistent.Cols.Value
+        && Stiffness.Rows.Value == Stiffness.Cols.Value
         && MassLumped.Count == Stiffness.Rows.Value
         && MassLumped.All(static v => RhinoMath.IsValidDouble(x: v) && v >= 0.0);
 }

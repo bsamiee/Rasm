@@ -10,7 +10,7 @@ namespace Rasm.Tests.Vectors;
 internal static class ExtractionGens {
     public static readonly Op Key = Op.Of(name: "extraction-test");
     public static readonly Context Model = Spec.SuccValue(Context.Of(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: Rhino.UnitSystem.Millimeters).ToFin(), label: "extraction context");
-    public static readonly Seq<Point3d> Samples = Seq(Point3d.Origin, new Point3d(x: 1.0, y: 0.0, z: 0.0));
+    public static readonly Seq<Point3d> Samples = Gens.UnitSegment3;
 }
 
 // --- [ALGEBRAIC] ----------------------------------------------------------------------------
@@ -36,7 +36,7 @@ public sealed class ExtractionProjectionLaws {
         Spec.Succ(
             VectorIntent.Probe(source: ExtractionProbe.Vector(source: VectorField.Constant(value: Vector3d.XAxis)), sample: Point3d.Origin)
                 .Project<Vector3d>(context: ExtractionGens.Model, key: ExtractionGens.Key),
-            then: vector => Spec.EqualWithin(left: vector.Length, right: 1.0, tolerance: 0.0, what: "vector probe"));
+            then: vector => Spec.NearEqual(left: vector, right: Vector3d.XAxis, tolerance: 0.0));
         Spec.Succ(
             VectorIntent.Probe(source: ExtractionProbe.Tensor(source: TensorField.Constant(value: tensor)), sample: Point3d.Origin)
                 .Project<SymmetricMatrix>(context: ExtractionGens.Model, key: ExtractionGens.Key),
@@ -55,16 +55,32 @@ public sealed class ExtractionProjectionLaws {
             domain: domain,
             policy: new GridPolicy(Kind: samples));
         Spec.Succ(grid.Project<Seq<(Point3d Point, double Value)>>(context: ExtractionGens.Model, key: ExtractionGens.Key),
-            then: samples => Assert.Equal(expected: ExtractionGens.Samples.Count, actual: samples.Count));
-        Spec.Succ(grid.Project<ExtractionReceipt>(context: ExtractionGens.Model, key: ExtractionGens.Key),
-            then: receipt => Assert.Equal(expected: ExtractionGens.Samples.Count, actual: receipt.Emitted));
+            then: samples => {
+                Assert.Equal(expected: ExtractionGens.Samples.Count, actual: samples.Count);
+                _ = samples.Zip(ExtractionGens.Samples).Iter(pair => {
+                    Spec.NearEqual(left: pair.Item1.Point, right: pair.Item2, tolerance: 0.0);
+                    Spec.EqualWithin(left: pair.Item1.Value, right: 4.0, tolerance: 0.0, what: "constant grid value");
+                });
+            });
+        Spec.Succ(grid.Project<ExtractionReceipt>(context: ExtractionGens.Model, key: ExtractionGens.Key), then: receipt => {
+            Spec.CountsConserve(attempted: receipt.Attempted, emitted: receipt.Emitted, rejected: receipt.Rejected, label: "grid receipt");
+            Assert.Equal(expected: ExtractionStatus.Complete, actual: receipt.Status);
+            Assert.Equal(expected: ExtractionGens.Samples.Count, actual: receipt.Attempted);
+            Assert.Equal(expected: ExtractionGens.Samples.Count, actual: receipt.Emitted);
+            Assert.Equal(expected: 0, actual: receipt.Rejected);
+            Assert.False(condition: receipt.NativeRouted);
+        });
+        Spec.FailCategory(grid.Project<Point3d>(context: ExtractionGens.Model, key: ExtractionGens.Key), category: "Unsupported");
     }
     [Fact]
     public void IsoContourPolicyAdmitsOnlyNativeSurfaceStatuses() {
+        Spec.SmartEnumKeysUnique(items: [ExtractionStatus.Complete, ExtractionStatus.Approximate], key: static status => status.Key);
         Spec.Succ(ContourPolicy.SurfaceIso(status: IsoStatus.X, parameter: 0.5, key: ExtractionGens.Key));
         Spec.Succ(ContourPolicy.SurfaceIso(status: IsoStatus.Y, parameter: 0.5, key: ExtractionGens.Key));
         Spec.Succ(ContourPolicy.SurfaceIso(status: IsoStatus.North, parameter: 0.5, key: ExtractionGens.Key));
         Spec.Succ(ContourPolicy.SurfaceIso(status: IsoStatus.East, parameter: 0.5, key: ExtractionGens.Key));
+        Spec.Succ(ContourPolicy.SurfaceIso(status: IsoStatus.South, parameter: 0.5, key: ExtractionGens.Key));
+        Spec.Succ(ContourPolicy.SurfaceIso(status: IsoStatus.West, parameter: 0.5, key: ExtractionGens.Key));
         Spec.FailCategory(ContourPolicy.SurfaceIso(status: IsoStatus.None, parameter: 0.5, key: ExtractionGens.Key), category: "Input");
         Spec.FailCategory(ContourPolicy.SurfaceIso(status: IsoStatus.X, parameter: double.NaN, key: ExtractionGens.Key), category: "Input");
     }

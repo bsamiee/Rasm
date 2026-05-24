@@ -64,6 +64,12 @@ public sealed partial class VectorCloudMetric {
                     Seq<Vector3d> vectors => vectors.TraverseM(v => key.AcceptValue(value: v)).As().Map(static valid => (TOut)(object)valid),
                     Seq<double> scalars => scalars.TraverseM(s => key.AcceptValue(value: s)).As().Map(static valid => (TOut)(object)valid),
                     Seq<Plane> planes => planes.TraverseM(p => key.AcceptValue(value: p)).As().Map(static valid => (TOut)(object)valid),
+                    Seq<(double K1, double K2, Direction E1, Direction E2)> curvatures => curvatures.TraverseM(c =>
+                        from k1 in key.AcceptValue(value: c.K1)
+                        from k2 in key.AcceptValue(value: c.K2)
+                        from e1 in key.AcceptValue(value: c.E1.Value)
+                        from e2 in key.AcceptValue(value: c.E2.Value)
+                        select (k1, k2, c.E1, c.E2)).As().Map(static valid => (TOut)(object)valid),
                     VectorCloudShape shape when shape.IsValid => Fin.Succ((TOut)(object)shape),
                     VectorCloudShape => Fin.Fail<TOut>(key.InvalidResult()),
                     SymmetricMatrix matrix when matrix.IsValid => Fin.Succ((TOut)value),

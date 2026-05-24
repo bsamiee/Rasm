@@ -61,7 +61,20 @@ public static class Gens {
     public static readonly Gen<BoundingBox> Bbox = Point.Select(Point, static (Point3d a, Point3d b) => new BoundingBox(
         min: new Point3d(x: Math.Min(val1: a.X, val2: b.X), y: Math.Min(val1: a.Y, val2: b.Y), z: Math.Min(val1: a.Z, val2: b.Z)),
         max: new Point3d(x: Math.Max(val1: a.X, val2: b.X), y: Math.Max(val1: a.Y, val2: b.Y), z: Math.Max(val1: a.Z, val2: b.Z))));
-    public static readonly Gen<BoundingBox> NonEmptyBbox = Bbox.Where(predicate: static b => b.IsValid && b.Diagonal.Length > 1.0e-6);
+    public static readonly Gen<BoundingBox> NonEmptyBbox = Point.Select(
+        Gen.Double[start: 1.0e-3, finish: 1.0e3],
+        Gen.Double[start: 1.0e-3, finish: 1.0e3],
+        Gen.Double[start: 1.0e-3, finish: 1.0e3],
+        static (Point3d origin, double dx, double dy, double dz) => new BoundingBox(
+            min: origin,
+            max: new Point3d(x: origin.X + dx, y: origin.Y + dy, z: origin.Z + dz)));
+    public static readonly Seq<Point3d> UnitSegment3 = Seq(
+        new Point3d(x: 0.0, y: 0.0, z: 0.0),
+        new Point3d(x: 1.0, y: 0.0, z: 0.0));
+    public static readonly Seq<Point3d> UnitTriangle3 = Seq(
+        new Point3d(x: 0.0, y: 0.0, z: 0.0),
+        new Point3d(x: 1.0, y: 0.0, z: 0.0),
+        new Point3d(x: 0.0, y: 1.0, z: 0.0));
     public static Func<double, double, bool> Approx(double relativeTolerance = 1.0e-9) =>
         (a, b) => Math.Abs(value: a - b) <= relativeTolerance * Math.Max(val1: 1.0, val2: Math.Abs(value: a) + Math.Abs(value: b));
 

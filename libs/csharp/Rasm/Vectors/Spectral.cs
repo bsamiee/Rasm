@@ -75,13 +75,15 @@ public abstract partial record SpectralFilter {
     // (time-additive), Identity neutral. All other pairs (Wave×Wave, Biharmonic×Heat,
     // CommuteTime×*, etc.) are not algebraically closed and return None — callers cannot fake
     // closure by silently producing approximate filters.
-    public Option<SpectralFilter> Compose(SpectralFilter other) => (this, other) switch {
-        (HeatCase a, HeatCase b) => Positive(value: a.Time.Value + b.Time.Value).Map(static time => Heat(time: time)),
-        (DiffusionCase a, DiffusionCase b) => Positive(value: a.Time.Value + b.Time.Value).Map(static time => Diffusion(time: time)),
-        (IdentityCase, _) => Some(other),
-        (_, IdentityCase) => Some(this),
-        _ => Option<SpectralFilter>.None,
-    };
+    public Option<SpectralFilter> Compose(SpectralFilter? other) => Optional(other).Match(
+        Some: active => (this, active) switch {
+            (HeatCase a, HeatCase b) => Positive(value: a.Time.Value + b.Time.Value).Map(static time => Heat(time: time)),
+            (DiffusionCase a, DiffusionCase b) => Positive(value: a.Time.Value + b.Time.Value).Map(static time => Diffusion(time: time)),
+            (IdentityCase, _) => Some(active),
+            (_, IdentityCase) => Some(this),
+            _ => Option<SpectralFilter>.None,
+        },
+        None: static () => Option<SpectralFilter>.None);
     private static Option<PositiveMagnitude> Positive(double value) =>
         PositiveMagnitude.TryCreate(value: value, obj: out PositiveMagnitude magnitude)
             ? Some(magnitude)

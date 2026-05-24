@@ -40,14 +40,16 @@ public sealed partial class SupportProjection {
         new(key: key, capability: capability ?? ((_, _) => true), accepts: accepts, projectRaw: projectRaw);
     private static SupportProjection SpanOf(int key, double sign) =>
         new(key: key, capability: static (_, _) => true, accepts: static output => output == typeof(VectorSpan) || output == typeof(Vector3d) || output == typeof(Line) || output == typeof(double),
-            projectRaw: state => VectorSpan.Of(anchor: state.Sample, vector: sign * (state.Hit.Point - state.Sample), context: state.Context, key: state.Key)
-                .Bind(span => state.Output switch {
-                    Type t when t == typeof(VectorSpan) => Accept(state: state, value: span),
-                    Type t when t == typeof(Vector3d) => Accept(state: state, value: span.Value),
-                    Type t when t == typeof(Line) => Accept(state: state, value: span.Axis),
-                    Type t when t == typeof(double) => Accept(state: state, value: span.Magnitude.Value),
-                    _ => Fin.Fail<object>(error: state.Key.Unsupported(geometryType: typeof(VectorSpan), outputType: state.Output)),
-                }));
+            projectRaw: state => state.Output switch {
+                Type t when t == typeof(Vector3d) => Accept(state: state, value: sign * (state.Hit.Point - state.Sample)),
+                Type t when t == typeof(double) => Accept(state: state, value: (state.Hit.Point - state.Sample).Length),
+                _ => VectorSpan.Of(anchor: state.Sample, vector: sign * (state.Hit.Point - state.Sample), context: state.Context, key: state.Key)
+                    .Bind(span => state.Output switch {
+                        Type t when t == typeof(VectorSpan) => Accept(state: state, value: span),
+                        Type t when t == typeof(Line) => Accept(state: state, value: span.Axis),
+                        _ => Fin.Fail<object>(error: state.Key.Unsupported(geometryType: typeof(VectorSpan), outputType: state.Output)),
+                    }),
+            });
     private static Fin<object> DirectionOf(Vector3d vector, SupportProjectionState state) =>
         Vectors.Direction.Of(value: vector, context: state.Context, key: state.Key)
             .Bind(direction => state.Output == typeof(Direction) ? Accept(state: state, value: direction) : Accept(state: state, value: direction.Value));

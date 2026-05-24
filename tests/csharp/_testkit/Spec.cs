@@ -71,6 +71,12 @@ public static class Spec {
         Fail(result: result, then: error => Assert.Equal(expected: category, actual: error.Category()));
     public static void FailCode<T>(Fin<T> result, int code) =>
         Fail(result: result, then: error => Assert.Equal(expected: code, actual: error.Code));
+    public static void CountsConserve(int attempted, int emitted, int rejected, string label) {
+        Assert.True(condition: attempted >= 0, userMessage: $"{label}: attempted is negative");
+        Assert.True(condition: emitted >= 0, userMessage: $"{label}: emitted is negative");
+        Assert.True(condition: rejected >= 0, userMessage: $"{label}: rejected is negative");
+        Assert.Equal(expected: attempted, actual: emitted + rejected);
+    }
     // Accumulated-errors assertion for Validation — order-independent; matches LE's commutative Apply.
     // Validation<Error,T> aggregates via Error.+ which produces ManyErrors; flatten to per-error category list.
     public static void AllErrors<T>(Validation<Error, T> v, params string[] expectedCategories) {

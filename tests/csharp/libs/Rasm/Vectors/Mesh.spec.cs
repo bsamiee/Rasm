@@ -44,11 +44,19 @@ public sealed class SparseLaplacianLaws {
                 triplets: [(0, 0, 1.0)],
                 key: MeshGens.Key), label: "bad shape"),
         };
+        SparseLaplacian badColumns = valid with {
+            MassConsistent = Spec.SuccValue(SparseMatrix.FromTriplets(
+                rows: Dimension.Create(value: 2),
+                cols: Dimension.Create(value: 3),
+                triplets: [(0, 0, 1.0)],
+                key: MeshGens.Key), label: "bad columns"),
+        };
         Assert.True(condition: valid.IsValid);
         Assert.False(condition: badMass.IsValid);
         Assert.False(condition: negativeMass.IsValid);
         Assert.False(condition: nonFiniteMass.IsValid);
         Assert.False(condition: badShape.IsValid);
+        Assert.False(condition: badColumns.IsValid);
     }
 }
 

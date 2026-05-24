@@ -16,7 +16,6 @@ internal static class FlowGens {
         IntegratorKind.BogackiShampine, IntegratorKind.CashKarp, IntegratorKind.DormandPrince);
     public static readonly Gen<IntegratorKind> NonAdaptive = Gen.OneOfConst(
         IntegratorKind.Euler, IntegratorKind.Heun, IntegratorKind.Midpoint, IntegratorKind.Ralston, IntegratorKind.RK4, IntegratorKind.RK38);
-    public static double Sum(Seq<double> xs) => xs.Fold(initialState: 0.0, f: static (acc, x) => acc + x);
     public static StreamlineState State(Seq<Point3d> trail, Point3d current, double h, double arc, int steps) =>
         new(
             Trail: trail,
@@ -37,7 +36,7 @@ internal static class FlowGens {
             Stop: Option<StreamlineStopKind>.None);
     public static StreamlineTrace Trace(StreamlineStopKind stop) =>
         new(
-            Trail: stop.Equals(StreamlineStopKind.Terminated) ? Seq(Point3d.Origin, new Point3d(x: 1.0, y: 0.0, z: 0.0)) : Seq(Point3d.Origin),
+            Trail: stop.Equals(StreamlineStopKind.Terminated) ? Gens.UnitSegment3 : Seq(Point3d.Origin),
             Stop: stop,
             AcceptedSteps: stop.Equals(StreamlineStopKind.Terminated) ? 1 : 0,
             RejectedSteps: 0,
@@ -108,8 +107,8 @@ public sealed class IntegratorKindLaws {
             Assert.True(k.Tableau.IsValid);
             Assert.Equal(expected: k.Tableau.Weights.Count, actual: k.StageCount);
             Assert.Equal(expected: k.Tableau.MethodOrder, actual: k.Order);
-            Spec.EqualWithin(left: FlowGens.Sum(xs: k.Tableau.Weights), right: 1.0, tolerance: 1.0e-10, what: "weights");
-            Spec.Holds(condition: k.Tableau.Coupling.Zip(k.Tableau.Abscissae).ForAll(pair => Math.Abs(value: FlowGens.Sum(xs: pair.Item1) - pair.Item2) <= 1.0e-10), label: "Butcher row sums match abscissae");
+            Spec.EqualWithin(left: Numeric.Sum(values: k.Tableau.Weights), right: 1.0, tolerance: 1.0e-10, what: "weights");
+            Spec.Holds(condition: k.Tableau.Coupling.Zip(k.Tableau.Abscissae).ForAll(pair => Math.Abs(value: Numeric.Sum(values: pair.Item1) - pair.Item2) <= 1.0e-10), label: "Butcher row sums match abscissae");
             Spec.Holds(condition: k.Tableau.Coupling.AsIterable().Select((row, i) => row.Count <= i).All(static ok => ok), label: "Butcher coupling[i].Count <= i");
         });
         Spec.ForAll(FlowGens.Adaptive, k => Spec.EqualWithin(
@@ -130,13 +129,21 @@ public sealed class IntegratorKindLaws {
 public sealed class FieldIntegratorLaws {
     [Fact]
     public void AdaptiveFactoryAdmitsOnlyAdaptiveKinds() {
-        Spec.ForAll(FlowGens.Adaptive, k => Spec.Succ(FieldIntegrator.Adaptive(kind: k, tolerance: 1.0e-6, key: FlowGens.Key)));
+        Spec.ForAll(FlowGens.Adaptive, k => Spec.Succ(FieldIntegrator.Adaptive(kind: k, tolerance: 1.0e-6, maxRejects: 2, key: FlowGens.Key), then: integrator => {
+            FieldIntegrator.AdaptiveCase adaptive = Assert.IsType<FieldIntegrator.AdaptiveCase>(@object: integrator);
+            Assert.Equal(expected: k, actual: adaptive.Kind);
+            Assert.Equal(expected: 2, actual: adaptive.MaxRejects);
+            Spec.EqualWithin(left: adaptive.Tolerance.Value, right: 1.0e-6, tolerance: 0.0, what: "adaptive tolerance");
+        }));
         Spec.ForAll(FlowGens.NonAdaptive, k => Spec.Fail(FieldIntegrator.Adaptive(kind: k, tolerance: 1.0e-6, key: FlowGens.Key)));
     }
     [Fact]
     public void AdaptiveRejectsInvalidToleranceOrBudget() {
-        Spec.ForAll(Gens.NonPositive, t => Spec.Fail(FieldIntegrator.Adaptive(kind: IntegratorKind.DormandPrince, tolerance: t, key: FlowGens.Key)));
-        Spec.ForAll(Gen.Int[-100, -1], m => Spec.Fail(FieldIntegrator.Adaptive(kind: IntegratorKind.DormandPrince, tolerance: 1.0e-6, maxRejects: m, key: FlowGens.Key)));
+        Spec.ForAll(Gens.NonPositive, t => Spec.FailCategory(FieldIntegrator.Adaptive(kind: IntegratorKind.DormandPrince, tolerance: t, key: FlowGens.Key), category: "Tolerance"));
+        Spec.ForAll(Gens.NonFinite, t => Spec.FailCategory(FieldIntegrator.Adaptive(kind: IntegratorKind.DormandPrince, tolerance: t, key: FlowGens.Key), category: "Tolerance"));
+        Spec.ForAll(Gen.Int[-100, -1], m => Spec.FailCategory(FieldIntegrator.Adaptive(kind: IntegratorKind.DormandPrince, tolerance: 1.0e-6, maxRejects: m, key: FlowGens.Key), category: "Input"));
+        Spec.ForAll(FlowGens.NonAdaptive, k => Spec.FailCategory(FieldIntegrator.Adaptive(kind: k, tolerance: 1.0e-6, maxRejects: 3, key: FlowGens.Key), category: "Unsupported"));
+        Spec.ForAll(FlowGens.NonAdaptive, k => Spec.FailCategory(FieldIntegrator.Adaptive(kind: k, tolerance: 1.0e-6, maxRejects: -1, key: FlowGens.Key), category: "Input"));
     }
     [Fact]
     public void FixedAndTraceReceiptsExposeBoundedStops() {
@@ -148,6 +155,8 @@ public sealed class FieldIntegratorLaws {
         Spec.Fail(FlowKernel.ProjectTrace<Curve>(trace: FlowGens.Trace(stop: StreamlineStopKind.IterationCapExhausted), key: FlowGens.Key));
         Spec.Succ(FlowKernel.ProjectTrace<Seq<Point3d>>(trace: FlowGens.Trace(stop: StreamlineStopKind.IterationCapExhausted), key: FlowGens.Key),
             then: points => Assert.Single(collection: points));
+        Spec.FailCategory(FlowKernel.ProjectTrace<double>(trace: FlowGens.Trace(stop: StreamlineStopKind.Terminated), key: FlowGens.Key), category: "Unsupported");
+        Spec.FailCategory(FlowKernel.ProjectTrace<Seq<Point3d>>(trace: FlowGens.Trace(stop: StreamlineStopKind.Terminated) with { AcceptedSteps = 0 }, key: FlowGens.Key), category: "Result");
     }
     [Fact]
     public void ConstantFieldTraceIsExactAndArcLengthMatchesFoldOracle() {
@@ -165,7 +174,7 @@ public sealed class FieldIntegratorLaws {
                 Assert.Equal(expected: 4, actual: trace.AcceptedSteps);
                 Assert.Equal(expected: 5, actual: trace.Trail.Count);
                 Spec.NearEqual(left: trace.Trail[index: 4], right: new Point3d(x: 1.0, y: 0.0, z: 0.0), tolerance: 1.0e-12);
-                Spec.EqualWithin(left: trace.ArcLength, right: toSeq(Enumerable.Range(start: 1, count: trace.Trail.Count - 1)).Fold(initialState: 0.0, f: (sum, i) => sum + trace.Trail[i].DistanceTo(other: trace.Trail[i - 1])), tolerance: 1.0e-12, what: "arc fold");
+                Spec.EqualWithin(left: trace.ArcLength, right: Numeric.ArcLength(points: trace.Trail), tolerance: 1.0e-12, what: "arc fold");
             });
     }
     [Fact]

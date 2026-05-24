@@ -32,12 +32,18 @@ public sealed class SpectralBasisLaws {
             new Arr<double>([1.0, 2.0]),
             new Arr<double>([1.0]),
         ])).IsValid);
+        Assert.False(condition: new SpectralBasis(Eigenvalues: new Arr<double>([double.NaN]), Eigenvectors: new Arr<Arr<double>>([new Arr<double>([1.0])])).IsValid);
+        Assert.False(condition: new SpectralBasis(Eigenvalues: new Arr<double>([-Rhino.RhinoMath.SqrtEpsilon * 2.0]), Eigenvectors: new Arr<Arr<double>>([new Arr<double>([1.0])])).IsValid);
+        Assert.True(condition: new SpectralBasis(Eigenvalues: new Arr<double>([-Rhino.RhinoMath.SqrtEpsilon * 0.5]), Eigenvectors: new Arr<Arr<double>>([new Arr<double>([1.0])])).IsValid);
     }
     [Fact]
-    public void TruncationCannotProduceValidEmptyBasis() {
+    public void TruncationPreservesPrefixAndCannotProduceValidEmptyBasis() {
         Assert.Equal(expected: SpectralGens.Basis.Eigenvalues.Count, actual: SpectralGens.Basis.Truncate(k: 0).Eigenvalues.Count);
         Assert.Equal(expected: SpectralGens.Basis.Eigenvalues.Count, actual: SpectralGens.Basis.Truncate(k: -4).Eigenvalues.Count);
         Assert.Equal(expected: 1, actual: SpectralGens.Basis.Truncate(k: 1).Eigenvalues.Count);
+        Assert.True(condition: SpectralGens.Basis.Truncate(k: 1).IsValid);
+        Assert.Equal(expected: SpectralGens.Basis.Eigenvalues[0], actual: SpectralGens.Basis.Truncate(k: 1).Eigenvalues[0]);
+        Assert.Equal(expected: SpectralGens.Basis.Eigenvalues.Count, actual: SpectralGens.Basis.Truncate(k: 99).Eigenvalues.Count);
     }
 }
 
@@ -61,10 +67,18 @@ public sealed class SpectralFilterLaws {
     public void ClosedCompositionsAreAlgebraicAndUnsupportedPairsStayNone() {
         SpectralFilter heatA = SpectralFilter.Heat(time: SpectralGens.Positive(value: 0.25));
         SpectralFilter heatB = SpectralFilter.Heat(time: SpectralGens.Positive(value: 0.75));
+        SpectralFilter heatC = SpectralFilter.Heat(time: SpectralGens.Positive(value: 0.5));
         Spec.Some(heatA.Compose(other: heatB), composed =>
             Spec.EqualWithin(left: ((SpectralFilter.HeatCase)composed).Time.Value, right: 1.0, tolerance: 1.0e-12, what: "heat time"));
+        Option<SpectralFilter> left = heatA.Compose(other: heatB).Bind(composed => composed.Compose(other: heatC));
+        Spec.Some(heatB.Compose(other: heatC), bc => Spec.Some(left, l => Spec.Some(heatA.Compose(other: bc), r => Assert.Equal(expected: l, actual: r))));
+        Spec.Some(SpectralFilter.Diffusion(time: SpectralGens.Positive(value: 0.25)).Compose(other: SpectralFilter.Diffusion(time: SpectralGens.Positive(value: 0.75))), composed =>
+            Spec.EqualWithin(left: ((SpectralFilter.DiffusionCase)composed).Time.Value, right: 1.0, tolerance: 1.0e-12, what: "diffusion time"));
         Spec.Some(SpectralFilter.Identity.Compose(other: heatA), composed => Assert.Equal(expected: heatA, actual: composed));
+        Spec.Some(heatA.Compose(other: SpectralFilter.Identity), composed => Assert.Equal(expected: heatA, actual: composed));
+        Spec.None(SpectralFilter.Identity.Compose(other: null!));
         Spec.None(SpectralFilter.Wave(energy: SpectralGens.Positive(value: 1.0), bandwidth: SpectralGens.Positive(value: 0.2)).Compose(other: heatA));
+        Spec.None(SpectralFilter.Biharmonic.Compose(other: heatA));
     }
     [Fact]
     public void FilterWeightsMatchIndependentClosedForms() =>

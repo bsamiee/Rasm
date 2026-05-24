@@ -201,12 +201,13 @@ internal static class AlignKernel {
                select PromoteToTransform(rotation: rotation, srcCentroid: srcCentroid, tgtCentroid: tgtCentroid);
     }
     private static Fin<Transform> BuildRotation(Matrix u, Matrix v, Op key) {
-        Matrix vu = v * u.Transpose();
-        return from det in vu.Determinant(key: key)
+        return from vu in v.Multiply(other: u.Transpose(), key: key)
+               from det in vu.Determinant(key: key)
                let diag = new[] { 1.0, 1.0, det >= 0.0 ? 1.0 : -1.0 }
                let d = new Matrix(Rows: Dimension.Create(value: 3), Cols: Dimension.Create(value: 3),
                    Entries: [.. Enumerable.Range(start: 0, count: 9).Select(idx => (idx / 3) == (idx % 3) ? diag[idx / 3] : 0.0)])
-               let rot = v * d * u.Transpose()
+               from vd in v.Multiply(other: d, key: key)
+               from rot in vd.Multiply(other: u.Transpose(), key: key)
                select RotationTransformOf(rotation: rot);
     }
     private static Transform RotationTransformOf(Matrix rotation) {

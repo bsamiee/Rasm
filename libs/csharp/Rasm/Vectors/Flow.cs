@@ -161,7 +161,8 @@ public abstract partial record FieldIntegrator {
     public static Fin<FieldIntegrator> Adaptive(IntegratorKind kind, double tolerance, int maxRejects = 3, Op? key = null) {
         Op op = key.OrDefault();
         return from active in Optional(kind).ToFin(op.InvalidInput())
-               from _ in guard(active.IsAdaptive && maxRejects >= 0, op.Unsupported(geometryType: active.GetType(), outputType: typeof(AdaptiveCase)))
+               from _ in guard(maxRejects >= 0, op.InvalidInput())
+               from __ in guard(active.IsAdaptive, op.Unsupported(geometryType: active.GetType(), outputType: typeof(AdaptiveCase)))
                from validated in op.AcceptValidated<PositiveMagnitude>(candidate: tolerance)
                select (FieldIntegrator)new AdaptiveCase(Kind: active, Tolerance: validated, MaxRejects: maxRejects);
     }
@@ -463,10 +464,12 @@ internal static class FlowKernel {
     internal static Fin<TOut> ProjectTrace<TOut>(StreamlineTrace trace, Op key) =>
         typeof(TOut) switch {
             Type t when t == typeof(StreamlineTrace) => ValidateTrace(trace: trace, key: key).Map(static value => (TOut)(object)value),
-            Type t when t == typeof(Seq<Point3d>) => trace.Trail.TraverseM(point => key.AcceptValue(value: point)).As().Map(static value => (TOut)(object)value),
-            Type t when (t == typeof(Polyline) || t == typeof(Curve)) && !trace.IsComplete => Fin.Fail<TOut>(key.InvalidResult()),
-            Type t when t == typeof(Polyline) => PolylineOf(trace: trace, key: key).Map(static value => (TOut)(object)value),
-            Type t when t == typeof(Curve) => PolylineOf(trace: trace, key: key)
+            Type t when t == typeof(Seq<Point3d>) => ValidateTrace(trace: trace, key: key)
+                .Bind(valid => valid.Trail.TraverseM(point => key.AcceptValue(value: point)).As())
+                .Map(static value => (TOut)(object)value),
+            Type t when (t == typeof(Polyline) || t == typeof(Curve)) && !trace.IsComplete => ValidateTrace(trace: trace, key: key).Bind(_ => Fin.Fail<TOut>(key.InvalidResult())),
+            Type t when t == typeof(Polyline) => ValidateTrace(trace: trace, key: key).Bind(valid => PolylineOf(trace: valid, key: key)).Map(static value => (TOut)(object)value),
+            Type t when t == typeof(Curve) => ValidateTrace(trace: trace, key: key).Bind(valid => PolylineOf(trace: valid, key: key))
                     .Bind(polyline => Optional(polyline.ToPolylineCurve()).ToFin(key.InvalidResult()))
                     .Map(static value => (TOut)(object)value),
             _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(StreamlineTrace), outputType: typeof(TOut))),
@@ -477,7 +480,8 @@ internal static class FlowKernel {
         || trace.EmbeddedOrder.Map(order => order <= 0 || order >= trace.MethodOrder).IfNone(false)
         || trace.AcceptedSteps < 0
         || trace.RejectedSteps < 0
-        || trace.AcceptedSteps > trace.Trail.Count - 1
+        || trace.AcceptedSteps != trace.Trail.Count - 1
+        || trace.Trail.Exists(static point => !point.IsValid)
         || !RhinoMath.IsValidDouble(x: trace.ArcLength)
         || !RhinoMath.IsValidDouble(x: trace.FinalStep)
         || !RhinoMath.IsValidDouble(x: trace.MinStep)
@@ -487,11 +491,13 @@ internal static class FlowKernel {
         || trace.MinStep < 0.0
         || trace.MaxStep < trace.MinStep
         || trace.LastError.Map(static error => !RhinoMath.IsValidDouble(x: error) || error < 0.0).IfNone(false)
-        || trace.Event.Map(static @event => @event.Kind is null || @event.Status is null || !@event.Previous.IsValid || !@event.Current.IsValid || !@event.Localized.IsValid
+        || trace.Event.Map(@event => @event.Kind is null || @event.Status is null || !@event.Previous.IsValid || !@event.Current.IsValid || !@event.Localized.IsValid
             || !RhinoMath.IsValidDouble(x: @event.PreviousValue) || !RhinoMath.IsValidDouble(x: @event.CurrentValue) || !RhinoMath.IsValidDouble(x: @event.LocalizedValue)
             || !RhinoMath.IsValidDouble(x: @event.Parameter) || @event.Parameter is < 0.0 or > 1.0
             || !RhinoMath.IsValidDouble(x: @event.Tolerance) || @event.Tolerance < 0.0
-            || !RhinoMath.IsValidDouble(x: @event.Residual) || @event.Residual < 0.0 || @event.Iterations < 0).IfNone(false)
+            || !RhinoMath.IsValidDouble(x: @event.Residual) || @event.Residual < 0.0 || @event.Iterations < 0
+            || trace.TerminationPoint.DistanceTo(other: @event.Localized) > RhinoMath.ZeroTolerance
+            || Math.Abs(value: @event.Residual - Math.Abs(value: @event.LocalizedValue)) > RhinoMath.SqrtEpsilon).IfNone(false)
         || !trace.TerminationPoint.IsValid
             ? Fin.Fail<StreamlineTrace>(error: key.InvalidResult())
             : Fin.Succ(trace);

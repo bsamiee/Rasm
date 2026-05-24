@@ -25,7 +25,7 @@ internal static class MatrixGens {
     public static readonly Gen<Matrix> NonSingularSquare = Square.Select(static (Matrix a) => {
         int n = a.Rows.Value;
         return toSeq(Enumerable.Range(start: 0, count: n)).Fold(initialState: a,
-            f: (m, i) => m.With(i: i, j: i, value: m.At(i: i, j: i) + (n + 20.0)));
+            f: (m, i) => m.With(i: i, j: i, value: 1.0 + toSeq(Enumerable.Range(start: 0, count: n)).Fold(initialState: 0.0, f: (sum, j) => sum + Math.Abs(value: i == j ? 0.0 : m.At(i: i, j: j)))));
     });
     public static readonly Gen<SymmetricMatrix> Spd = Square.Select(static (Matrix a) => {
         int n = a.Rows.Value;
@@ -47,10 +47,21 @@ public sealed class MatrixCoreLaws {
     [Fact]
     public void IdentityIsBilateralUnitAndTransposeIsInvolution() =>
         Spec.ForAll(MatrixGens.TallOrSquare, static a => {
-            Numeric.Product(rows: a.Rows.Value, width: a.Rows.Value, cols: a.Cols.Value, left: Matrix.Identity(dim: a.Rows).At, right: a.At, actual: (Matrix.Identity(dim: a.Rows) * a).At, tolerance: 1.0e-7, label: "I*A");
-            Numeric.Product(rows: a.Rows.Value, width: a.Cols.Value, cols: a.Cols.Value, left: a.At, right: Matrix.Identity(dim: a.Cols).At, actual: (a * Matrix.Identity(dim: a.Cols)).At, tolerance: 1.0e-7, label: "A*I");
+            Spec.Succ(Matrix.Identity(dim: a.Rows).Multiply(other: a, key: MatrixGens.Key), then: product =>
+                Numeric.Product(rows: a.Rows.Value, width: a.Rows.Value, cols: a.Cols.Value, left: Matrix.Identity(dim: a.Rows).At, right: a.At, actual: product.At, tolerance: 1.0e-7, label: "I*A"));
+            Spec.Succ(a.Multiply(other: Matrix.Identity(dim: a.Cols), key: MatrixGens.Key), then: product =>
+                Numeric.Product(rows: a.Rows.Value, width: a.Cols.Value, cols: a.Cols.Value, left: a.At, right: Matrix.Identity(dim: a.Cols).At, actual: product.At, tolerance: 1.0e-7, label: "A*I"));
             Numeric.Entrywise(rows: a.Rows.Value, cols: a.Cols.Value, expected: a.At, actual: a.Transpose().Transpose().At, tolerance: 1.0e-7, label: "T(T(A))");
         });
+    [Fact]
+    public void MultiplyRailRejectsDimensionMismatchAndMatchesIndependentProduct() {
+        Matrix left = Spec.SuccValue(Matrix.Of(rows: Dimension.Create(value: 2), cols: Dimension.Create(value: 3), entries: [1.0, 2.0, 3.0, 4.0, 5.0, 6.0], key: MatrixGens.Key), label: "left");
+        Matrix right = Spec.SuccValue(Matrix.Of(rows: Dimension.Create(value: 2), cols: Dimension.Create(value: 2), entries: [1.0, 0.0, 0.0, 1.0], key: MatrixGens.Key), label: "right");
+        Spec.FailCategory(left.Multiply(other: right, key: MatrixGens.Key), category: "Input");
+        Matrix compatible = Spec.SuccValue(Matrix.Of(rows: Dimension.Create(value: 3), cols: Dimension.Create(value: 2), entries: [1.0, 2.0, 0.0, 1.0, -1.0, 0.0], key: MatrixGens.Key), label: "compatible");
+        Spec.Succ(left.Multiply(other: compatible, key: MatrixGens.Key), then: product =>
+            Numeric.Product(rows: left.Rows.Value, width: left.Cols.Value, cols: compatible.Cols.Value, left: left.At, right: compatible.At, actual: product.At, tolerance: 1.0e-12, label: "A*B"));
+    }
     [Fact]
     public void TraceAndFrobeniusMatchClosedForm() {
         Spec.ForAll(MatrixGens.Square, static a => Spec.Succ(a.Trace(key: MatrixGens.Key), then: t => Spec.EqualWithin(left: t,
@@ -62,6 +73,21 @@ public sealed class MatrixCoreLaws {
                 right: Math.Sqrt(d: a.Entries.Fold(initialState: 0.0, f: static (s, e) => s + (e * e))),
                 tolerance: 1.0e-10, what: "frobenius"));
     }
+    [Fact]
+    public void SolveInversePseudoInverseAndRankUseResidualOrShapeLaws() =>
+        Spec.ForAll(MatrixGens.NonSingularSquare, static a => {
+            Arr<double> rhs = new([.. Enumerable.Range(start: 1, count: a.Rows.Value).Select(static i => (double)i)]);
+            Spec.Succ(a.Solve(rhs: rhs, key: MatrixGens.Key), then: x => Numeric.Residual(matrix: a, x: x, b: rhs, tolerance: 1.0e-7, label: "solve"));
+            Spec.Succ(a.Inverse(key: MatrixGens.Key), then: inverse => {
+                Numeric.Product(rows: a.Rows.Value, width: a.Cols.Value, cols: a.Cols.Value, left: a.At, right: inverse.At, actual: (row, col) => row == col ? 1.0 : 0.0, tolerance: 1.0e-7, label: "A*A^-1");
+                Numeric.Product(rows: inverse.Rows.Value, width: inverse.Cols.Value, cols: inverse.Cols.Value, left: inverse.At, right: a.At, actual: (row, col) => row == col ? 1.0 : 0.0, tolerance: 1.0e-7, label: "A^-1*A");
+            });
+            Spec.Succ(a.PseudoInverse(key: MatrixGens.Key), then: pinv =>
+                Numeric.Entrywise(rows: a.Rows.Value, cols: a.Cols.Value, expected: a.At,
+                    actual: (row, col) => Numeric.ProductAt(width: pinv.Cols.Value, left: a.At, right: (i, j) => Numeric.ProductAt(width: a.Cols.Value, left: pinv.At, right: a.At, row: i, col: j), row: row, col: col),
+                    tolerance: 1.0e-6, label: "A*A+*A"));
+            Spec.Succ(a.Rank(key: MatrixGens.Key), then: rank => Assert.Equal(expected: a.Rows.Value, actual: rank));
+        });
     [Fact]
     public void NormKindsHaveDistinctKeysAndNonNegativeValues() {
         MatrixNormKind[] all = [MatrixNormKind.Frobenius, MatrixNormKind.MaxAbs, MatrixNormKind.L1, MatrixNormKind.LInf];
@@ -97,6 +123,17 @@ public sealed class SparseMatrixLaws {
         });
     }
     [Fact]
+    public void SparseAssemblySumsDuplicatesAndKeepsRowPointersMonotone() {
+        SparseMatrix matrix = Sparse(dimension: 3, (0, 0, 1.0), (0, 0, 2.0), (1, 2, 4.0), (2, 1, -1.0));
+        Assert.True(condition: matrix.IsValid);
+        Assert.True(condition: SparseMatrix.RowPointersAreMonotone(rowPtr: matrix.RowPtr));
+        Matrix dense = matrix.ToDense();
+        Spec.EqualWithin(left: dense.At(i: 0, j: 0), right: 3.0, tolerance: 0.0, what: "duplicate sum");
+        Spec.EqualWithin(left: dense.At(i: 1, j: 2), right: 4.0, tolerance: 0.0, what: "entry 1,2");
+        Spec.EqualWithin(left: dense.At(i: 2, j: 1), right: -1.0, tolerance: 0.0, what: "entry 2,1");
+        Spec.FailCategory(SparseMatrix.FromTriplets(rows: Dimension.Create(value: 2), cols: Dimension.Create(value: 2), triplets: [(0, 2, 1.0)], key: MatrixGens.Key), category: "Input");
+    }
+    [Fact]
     public void SparseCholeskyRejectsNonSymmetricAdmission() {
         Spec.Fail(CholeskySparse.Of(symmetric: Sparse2((0, 0, 2.0), (0, 1, 1.0), (1, 1, 2.0)), key: MatrixGens.Key));
         Spec.Fail(CholeskySparse.Of(symmetric: Sparse2((0, 0, 2.0), (0, 1, 1.0), (1, 0, 0.5), (1, 1, 2.0)), key: MatrixGens.Key));
@@ -121,7 +158,7 @@ public sealed class SparseMatrixLaws {
             Spec.EqualWithin(left: eigenvalue, right: 1.0, tolerance: 1.0e-4, what: "smallest eigenvalue");
             Numeric.Eigenpair(matrix: diagonal.ToDense(), eigenvalue: eigenvalue, eigenvector: eigenvector, eq: Gens.Approx(relativeTolerance: 1.0e-4), label: "lobpcg");
         });
-        Spec.Fail(diagonal.SmallestEigenpairs(k: 1, tolerance: 1.0e-12, maxIterations: 0, key: MatrixGens.Key));
+        Spec.FailCategory(diagonal.SmallestEigenpairs(k: 1, tolerance: 1.0e-12, maxIterations: 0, key: MatrixGens.Key), category: "Input");
     }
 }
 
@@ -178,6 +215,7 @@ public sealed class DecompositionLaws {
     public void SymmetricEigenSatisfiesAvEqualsLambdaV() =>
         Spec.ForAll(MatrixGens.Spd, static spd => Spec.Succ(spd.DecomposeEigen(key: MatrixGens.Key), then: eigs => {
             Matrix dense = spd.ToDense();
+            Assert.Equal(expected: spd.Dimension.Value, actual: eigs.Count);
             _ = eigs.Iter(pair => Numeric.Eigenpair(matrix: dense, eigenvalue: pair.Eigenvalue, eigenvector: pair.Eigenvector, eq: MatrixGens.Approx, label: "symmetric eigen"));
         }));
 }
