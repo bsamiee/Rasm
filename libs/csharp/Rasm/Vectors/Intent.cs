@@ -9,8 +9,12 @@ public abstract partial record VectorIntent {
     public sealed record AxesCase(Option<Seq<Vector3d>> Values, bool Planar) : VectorIntent;
     public sealed record AngularCase(Vector3d A, Vector3d B, AnglePivot Pivot) : VectorIntent;
     public sealed record SupportCase(SupportSpace Space, Point3d Query, SupportProjection Projection) : VectorIntent;
-    public sealed record VectorFieldCase(VectorField Value, Point3d Query) : VectorIntent;
-    public sealed record ScalarFieldCase(ScalarField Value, Point3d Query) : VectorIntent;
+    public sealed record ProbeCase(ExtractionProbe Source, Point3d Query) : VectorIntent;
+    public sealed record IsoSurfaceCase(ScalarField Source, BoundingBox Bounds, int Resolution, int MaxRootSteps) : VectorIntent;
+    public sealed record ContourCase(ExtractionDomain Domain, ContourPolicy Policy) : VectorIntent;
+    public sealed record GlyphCase(VectorField Source, ExtractionDomain Domain, GlyphPolicy Policy) : VectorIntent;
+    public sealed record SampleGridCase(ScalarField Source, ExtractionDomain Domain, GridPolicy Policy) : VectorIntent;
+    public sealed record StreamBundleCase(VectorField Source, ExtractionDomain Domain, StreamBundlePolicy Policy) : VectorIntent;
     public sealed record RayCase(Point3d Origin, Direction RayDirection, RayPolicy Policy) : VectorIntent;
     public sealed record FrameCase(Point3d Origin, Vector3d Normal, Option<Vector3d> XHint) : VectorIntent;
     public sealed record CurveCase(Curve Source, double Parameter, CurveProjection Mode) : VectorIntent;
@@ -27,8 +31,6 @@ public abstract partial record VectorIntent {
     public sealed record MirrorCase(Vector3d Value, Plane Across) : VectorIntent;
     public sealed record SurfaceCase(SurfaceSpace SurfaceSource, double U, double V, SurfaceProjection Mode) : VectorIntent;
     public sealed record PoseCase(Plane From, Plane To, UnitInterval Parameter, MotionInterpolation Mode) : VectorIntent;
-    public sealed record TensorCase(TensorField Source, Point3d Point) : VectorIntent;
-    public sealed record MeshOperatorCase(ScalarField MeshField, Point3d Point) : VectorIntent;
     public sealed record FlattenCase(MeshSpace Space) : VectorIntent;
     public sealed record HullCase(VectorCloud Source) : VectorIntent;
     public sealed record SampleCase(MeshSpace Domain, SampleKind Kind) : VectorIntent;
@@ -71,8 +73,12 @@ public abstract partial record VectorIntent {
             from hit in intent.Space.Closest(sample: intent.Query, key: state.Key)
             from output in intent.Projection.Project<TOut>(space: intent.Space, hit: hit, sample: intent.Query, context: state.Context, key: state.Key)
             select output,
-        vectorFieldCase: static (state, intent) => intent.Value.Project<TOut>(sample: intent.Query, context: state.Context, key: state.Key),
-        scalarFieldCase: static (state, intent) => intent.Value.Project<TOut>(sample: intent.Query, context: state.Context, key: state.Key),
+        probeCase: static (state, intent) => Extraction.Probe(source: intent.Source, sample: intent.Query).Project<TOut>(context: state.Context, key: state.Key),
+        isoSurfaceCase: static (state, intent) => Extraction.IsoSurface(field: intent.Source, bounds: intent.Bounds, resolution: intent.Resolution, maxRootSteps: intent.MaxRootSteps).Project<TOut>(context: state.Context, key: state.Key),
+        contourCase: static (state, intent) => Extraction.Contour(domain: intent.Domain, policy: intent.Policy).Project<TOut>(context: state.Context, key: state.Key),
+        glyphCase: static (state, intent) => Extraction.Glyph(field: intent.Source, domain: intent.Domain, policy: intent.Policy).Project<TOut>(context: state.Context, key: state.Key),
+        sampleGridCase: static (state, intent) => Extraction.SampleGrid(field: intent.Source, domain: intent.Domain, policy: intent.Policy).Project<TOut>(context: state.Context, key: state.Key),
+        streamBundleCase: static (state, intent) => Extraction.StreamBundle(field: intent.Source, domain: intent.Domain, policy: intent.Policy).Project<TOut>(context: state.Context, key: state.Key),
         rayCase: static (state, intent) => intent.Policy.Project<TOut>(origin: intent.Origin, direction: intent.RayDirection, context: state.Context, key: state.Key),
         frameCase: static (state, intent) =>
             from frame in VectorFrame.Of(origin: intent.Origin, normal: intent.Normal, xHint: intent.XHint, context: state.Context, key: state.Key)
@@ -139,16 +145,6 @@ public abstract partial record VectorIntent {
                 ? state.Key.AcceptValue(value: pose).Map(static v => (TOut)(object)v)
                 : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(PoseCase), outputType: typeof(TOut)))
             select output,
-        tensorCase: static (state, intent) =>
-            from tensor in intent.Source.SampleTensor(sample: intent.Point, context: state.Context, key: state.Key)
-            from output in typeof(TOut) switch {
-                Type t when t == typeof(SymmetricMatrix) => state.Key.AcceptValue(value: tensor).Map(static v => (TOut)(object)v),
-                Type t when t == typeof(Seq<(double Eigenvalue, Direction Eigenvector)>) =>
-                    intent.Source.PrincipalDirections(sample: intent.Point, context: state.Context, key: state.Key).Map(static p => (TOut)(object)p),
-                _ => Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(TensorCase), outputType: typeof(TOut))),
-            }
-            select output,
-        meshOperatorCase: static (state, intent) => intent.MeshField.Project<TOut>(sample: intent.Point, context: state.Context, key: state.Key),
         flattenCase: static (state, intent) =>
             from coords in MeshKernel.ParameterizeFlatten(space: intent.Space, key: state.Key)
             from output in typeof(TOut) == typeof(Arr<Point2d>)
@@ -222,9 +218,30 @@ public abstract partial record VectorIntent {
     public static VectorIntent Support(SupportSpace space, Point3d sample, SupportProjection projection) =>
         new SupportCase(Space: space, Query: sample, Projection: projection);
     public static VectorIntent Field(VectorField field, Point3d sample) =>
-        new VectorFieldCase(Value: field, Query: sample);
+        new ProbeCase(Source: ExtractionProbe.Vector(source: field), Query: sample);
     public static VectorIntent Scalar(ScalarField field, Point3d sample) =>
-        new ScalarFieldCase(Value: field, Query: sample);
+        new ProbeCase(Source: ExtractionProbe.Scalar(source: field), Query: sample);
+    public static VectorIntent Probe(ExtractionProbe source, Point3d sample) =>
+        new ProbeCase(Source: source, Query: sample);
+    public static Fin<VectorIntent> IsoSurface(ScalarField field, BoundingBox bounds, int resolution, int maxRootSteps, Op? key = null) {
+        Op op = key.OrDefault();
+        return bounds is { IsValid: true, Diagonal: Vector3d d }
+            && d.X > RhinoMath.ZeroTolerance
+            && d.Y > RhinoMath.ZeroTolerance
+            && d.Z > RhinoMath.ZeroTolerance
+            && resolution >= 2
+            && maxRootSteps >= 1
+            ? Fin.Succ<VectorIntent>(new IsoSurfaceCase(Source: field, Bounds: bounds, Resolution: resolution, MaxRootSteps: maxRootSteps))
+            : Fin.Fail<VectorIntent>(op.InvalidInput());
+    }
+    public static VectorIntent Contour(ExtractionDomain domain, ContourPolicy policy) =>
+        new ContourCase(Domain: domain, Policy: policy);
+    public static VectorIntent Glyph(VectorField field, ExtractionDomain domain, GlyphPolicy policy) =>
+        new GlyphCase(Source: field, Domain: domain, Policy: policy);
+    public static VectorIntent SampleGrid(ScalarField field, ExtractionDomain domain, GridPolicy policy) =>
+        new SampleGridCase(Source: field, Domain: domain, Policy: policy);
+    public static VectorIntent StreamBundle(VectorField field, ExtractionDomain domain, StreamBundlePolicy policy) =>
+        new StreamBundleCase(Source: field, Domain: domain, Policy: policy);
     public static VectorIntent Ray(Point3d origin, Direction direction, RayPolicy? policy = null) =>
         new RayCase(Origin: origin, RayDirection: direction, Policy: policy ?? RayPolicy.Forward);
     public static VectorIntent Frame(Point3d origin, Vector3d normal, Option<Vector3d> xHint = default) =>
@@ -274,9 +291,9 @@ public abstract partial record VectorIntent {
         key.OrDefault().AcceptValidated<UnitInterval>(candidate: t)
             .Map(unit => (VectorIntent)new PoseCase(From: from, To: to, Parameter: unit, Mode: mode));
     public static VectorIntent Tensor(TensorField source, Point3d point) =>
-        new TensorCase(Source: source, Point: point);
+        new ProbeCase(Source: ExtractionProbe.Tensor(source: source), Query: point);
     public static VectorIntent MeshOperator(ScalarField meshField, Point3d point) =>
-        new MeshOperatorCase(MeshField: meshField, Point: point);
+        new ProbeCase(Source: ExtractionProbe.MeshScalar(source: meshField), Query: point);
     public static VectorIntent Flatten(MeshSpace space) =>
         new FlattenCase(Space: space);
     public static VectorIntent Hull(VectorCloud source) =>

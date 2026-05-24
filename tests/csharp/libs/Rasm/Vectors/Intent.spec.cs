@@ -12,6 +12,8 @@ internal static class IntentGens {
     public static readonly Gen<double> OutsideUnit = Gens.Finite.Where(static t => t is < 0.0 or > 1.0);
     public static readonly Seq<Point3d> ClusterPoints = Seq(Point3d.Origin, new Point3d(x: 1.0, y: 0.0, z: 0.0), new Point3d(x: 0.0, y: 1.0, z: 0.0));
     public static VectorCloud Cluster => Spec.SuccValue(VectorCloud.Cluster(points: ClusterPoints, context: Model, key: Key), label: "cluster");
+    public static PositiveMagnitude Step => Spec.SuccValue(Key.AcceptValidated<PositiveMagnitude>(candidate: 0.1), label: "step");
+    public static Termination Stop => Spec.SuccValue(Termination.Steps(count: 1, key: Key), label: "stop");
     public static Direction X => default;
     public static Direction Y => default;
     public static MeshSpace Space => default;
@@ -57,12 +59,28 @@ public sealed class VectorIntentShapeLaws {
         _ = Assert.IsType<VectorIntent.ProjectOntoCase>(@object: VectorIntent.ProjectOnto(value: Vector3d.ZAxis, target: Plane.WorldXY));
         _ = Assert.IsType<VectorIntent.MirrorCase>(@object: VectorIntent.Mirror(value: Vector3d.XAxis, across: Plane.WorldYZ));
         _ = Assert.IsType<VectorIntent.RayCase>(@object: VectorIntent.Ray(origin: Point3d.Origin, direction: IntentGens.X));
-        _ = Assert.IsType<VectorIntent.StreamlineCase>(@object: Spec.SuccValue(VectorIntent.Streamline(field: VectorField.Constant(value: Vector3d.XAxis), seed: Point3d.Origin, initialStep: 0.1, termination: Spec.SuccValue(Termination.Steps(count: 1, key: IntentGens.Key), label: "steps"), key: IntentGens.Key), label: "streamline"));
+        _ = Assert.IsType<VectorIntent.StreamlineCase>(@object: Spec.SuccValue(VectorIntent.Streamline(field: VectorField.Constant(value: Vector3d.XAxis), seed: Point3d.Origin, initialStep: 0.1, termination: IntentGens.Stop, key: IntentGens.Key), label: "streamline"));
+        _ = Assert.IsType<VectorIntent.ProbeCase>(@object: VectorIntent.Field(field: VectorField.Constant(value: Vector3d.XAxis), sample: Point3d.Origin));
+        _ = Assert.IsType<VectorIntent.ProbeCase>(@object: VectorIntent.Scalar(field: ScalarField.Constant(value: 1.0), sample: Point3d.Origin));
+        _ = Assert.IsType<VectorIntent.ContourCase>(@object: VectorIntent.Contour(domain: ExtractionDomain.Cloud(value: IntentGens.Cluster), policy: ContourPolicy.Plane(section: Plane.WorldXY)));
+        _ = Assert.IsType<VectorIntent.GlyphCase>(@object: VectorIntent.Glyph(
+            field: VectorField.Constant(value: Vector3d.XAxis),
+            domain: ExtractionDomain.Cloud(value: IntentGens.Cluster),
+            policy: new GlyphPolicy(Samples: IntentGens.ClusterPoints, Scale: IntentGens.Step)));
+        _ = Assert.IsType<VectorIntent.SampleGridCase>(@object: VectorIntent.SampleGrid(
+            field: ScalarField.Constant(value: 1.0),
+            domain: ExtractionDomain.Cloud(value: IntentGens.Cluster),
+            policy: new GridPolicy(Samples: IntentGens.ClusterPoints)));
+        _ = Assert.IsType<VectorIntent.StreamBundleCase>(@object: VectorIntent.StreamBundle(
+            field: VectorField.Constant(value: Vector3d.XAxis),
+            domain: ExtractionDomain.Cloud(value: IntentGens.Cluster),
+            policy: new StreamBundlePolicy(Seeds: IntentGens.ClusterPoints, InitialStep: IntentGens.Step, Integrator: FieldIntegrator.RK4, Termination: IntentGens.Stop)));
     }
     [Fact]
     public void ProjectRequiresContextBeforeDispatch() {
         Spec.Fail(VectorIntent.Direction(value: Vector3d.XAxis).Project<Vector3d>(context: null!, key: IntentGens.Key));
         Spec.Fail(VectorIntent.Lerp(a: Vector3d.XAxis, b: Vector3d.YAxis, t: double.NaN, key: IntentGens.Key));
         Spec.Fail(VectorIntent.Transport(source: IntentGens.Cluster, target: IntentGens.Cluster, regularization: double.NaN, maxIterations: 16, key: IntentGens.Key));
+        Spec.Fail(VectorIntent.IsoSurface(field: ScalarField.Constant(value: 0.0), bounds: BoundingBox.Empty, resolution: 1, maxRootSteps: 0, key: IntentGens.Key));
     }
 }

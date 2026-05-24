@@ -17,6 +17,40 @@ internal static class FlowGens {
     public static readonly Gen<IntegratorKind> NonAdaptive = Gen.OneOfConst(
         IntegratorKind.Euler, IntegratorKind.Heun, IntegratorKind.Midpoint, IntegratorKind.Ralston, IntegratorKind.RK4, IntegratorKind.RK38);
     public static double Sum(Seq<double> xs) => xs.Fold(initialState: 0.0, f: static (acc, x) => acc + x);
+    public static StreamlineState State(Seq<Point3d> trail, Point3d current, double h, double arc, int steps) =>
+        new(
+            Trail: trail,
+            Current: current,
+            H: h,
+            Arc: arc,
+            Steps: steps,
+            Rejects: 0,
+            RejectedSteps: 0,
+            RejectBudget: 0,
+            MethodOrder: IntegratorKind.RK4.Order,
+            EmbeddedOrder: Option<int>.None,
+            MinStep: h,
+            MaxStep: h,
+            LastError: Option<double>.None,
+            MaxError: 0.0,
+            Event: Option<TraceEvent>.None,
+            Stop: Option<StreamlineStopKind>.None);
+    public static StreamlineTrace Trace(StreamlineStopKind stop) =>
+        new(
+            Trail: stop.Equals(StreamlineStopKind.Terminated) ? Seq(Point3d.Origin, new Point3d(x: 1.0, y: 0.0, z: 0.0)) : Seq(Point3d.Origin),
+            Stop: stop,
+            AcceptedSteps: stop.Equals(StreamlineStopKind.Terminated) ? 1 : 0,
+            RejectedSteps: 0,
+            ArcLength: stop.Equals(StreamlineStopKind.Terminated) ? 1.0 : 0.0,
+            FinalStep: 0.5,
+            MethodOrder: IntegratorKind.RK4.Order,
+            EmbeddedOrder: Option<int>.None,
+            LastError: Option<double>.None,
+            MaxError: 0.0,
+            MinStep: 0.5,
+            MaxStep: 0.5,
+            TerminationPoint: Point3d.Origin,
+            Event: Option<TraceEvent>.None);
 }
 
 // --- [ALGEBRAIC] ----------------------------------------------------------------------------
@@ -31,7 +65,7 @@ public sealed class TerminationLaws {
     }
     [Fact]
     public void StepCountArcAndMagnitudeBoundariesFire() {
-        StreamlineState state = new(Trail: Seq(Point3d.Origin), Current: Point3d.Origin, H: 1.0, Arc: 0.0, Steps: 0, Rejects: 0, RejectedSteps: 0, Stop: Option<StreamlineStopKind>.None);
+        StreamlineState state = FlowGens.State(trail: Seq(Point3d.Origin), current: Point3d.Origin, h: 1.0, arc: 0.0, steps: 0);
         Termination steps = Spec.SuccValue(Termination.Steps(count: 5, key: FlowGens.Key), label: "steps");
         Termination arc = Spec.SuccValue(Termination.ArcLength(length: 2.0, key: FlowGens.Key), label: "arc");
         Termination mag = Spec.SuccValue(Termination.Magnitude(threshold: 1.0, key: FlowGens.Key), label: "mag");
@@ -43,7 +77,7 @@ public sealed class TerminationLaws {
     }
     [Fact]
     public void RegionLoopAndSurfaceTerminatorsClassifyBoundaryModes() {
-        StreamlineState state = new(Trail: Seq(Point3d.Origin, new Point3d(x: 2.0, y: 0.0, z: 0.0), new Point3d(x: 3.0, y: 0.0, z: 0.0)), Current: new Point3d(x: 0.1, y: 0.0, z: 0.0), H: 1.0, Arc: 2.0, Steps: 2, Rejects: 0, RejectedSteps: 0, Stop: Option<StreamlineStopKind>.None);
+        StreamlineState state = FlowGens.State(trail: Seq(Point3d.Origin, new Point3d(x: 2.0, y: 0.0, z: 0.0), new Point3d(x: 3.0, y: 0.0, z: 0.0)), current: new Point3d(x: 0.1, y: 0.0, z: 0.0), h: 1.0, arc: 2.0, steps: 2);
         Spec.Succ(Termination.LoopDetected(closureRadius: 0.2, key: FlowGens.Key),
             then: t => Spec.Succ(t.ShouldStop(state: state, currentSample: Vector3d.XAxis, context: FlowGens.Model, key: FlowGens.Key), then: Assert.True));
         Spec.Succ(Termination.EnterRegion(region: ScalarField.Constant(value: 1.0), threshold: 0.5, key: FlowGens.Key),
@@ -66,6 +100,7 @@ public sealed class IntegratorKindLaws {
             Assert.Equal(expected: k.Tableau.Weights.Count, actual: k.StageCount);
             Assert.Equal(expected: k.Tableau.MethodOrder, actual: k.Order);
             Spec.EqualWithin(left: FlowGens.Sum(xs: k.Tableau.Weights), right: 1.0, tolerance: 1.0e-10, what: "weights");
+            Spec.Holds(condition: k.Tableau.Coupling.Zip(k.Tableau.Abscissae).ForAll(pair => Math.Abs(value: FlowGens.Sum(xs: pair.Item1) - pair.Item2) <= 1.0e-10), label: "Butcher row sums match abscissae");
             Spec.Holds(condition: k.Tableau.Coupling.AsIterable().Select((row, i) => row.Count <= i).All(static ok => ok), label: "Butcher coupling[i].Count <= i");
         });
         Spec.ForAll(FlowGens.Adaptive, k => Spec.EqualWithin(
@@ -76,9 +111,10 @@ public sealed class IntegratorKindLaws {
     }
     [Fact]
     public void TableauAdmissionRejectsFalseMethodClaims() {
-        Spec.Fail(new ButcherTableau(Coupling: Seq(Seq<double>()), Weights: Seq(1.0), ErrorWeights: Option<Seq<double>>.None, MethodOrder: 0, EmbeddedOrder: Option<int>.None).Admit(key: FlowGens.Key));
-        Spec.Fail(new ButcherTableau(Coupling: Seq(Seq<double>(), Seq(1.0)), Weights: Seq(0.5, 0.5), ErrorWeights: Some(Seq(0.5, 0.5)), MethodOrder: 2, EmbeddedOrder: Some(2)).Admit(key: FlowGens.Key));
-        Spec.Fail(new ButcherTableau(Coupling: Seq(Seq<double>()), Weights: Seq(0.5), ErrorWeights: Option<Seq<double>>.None, MethodOrder: 1, EmbeddedOrder: Option<int>.None).Admit(key: FlowGens.Key));
+        Spec.Fail(new ButcherTableau(Coupling: Seq(Seq<double>()), Abscissae: Seq(0.0), Weights: Seq(1.0), EmbeddedWeights: Option<Seq<double>>.None, MethodOrder: 0, EmbeddedOrder: Option<int>.None).Admit(key: FlowGens.Key));
+        Spec.Fail(new ButcherTableau(Coupling: Seq(Seq<double>(), Seq(1.0)), Abscissae: Seq(0.0, 1.0), Weights: Seq(0.5, 0.5), EmbeddedWeights: Some(Seq(0.5, 0.5)), MethodOrder: 2, EmbeddedOrder: Some(2)).Admit(key: FlowGens.Key));
+        Spec.Fail(new ButcherTableau(Coupling: Seq(Seq<double>()), Abscissae: Seq(0.0), Weights: Seq(0.5), EmbeddedWeights: Option<Seq<double>>.None, MethodOrder: 1, EmbeddedOrder: Option<int>.None).Admit(key: FlowGens.Key));
+        Spec.Fail(new ButcherTableau(Coupling: Seq(Seq<double>(), Seq(0.5)), Abscissae: Seq(0.0, 1.0), Weights: Seq(0.5, 0.5), EmbeddedWeights: Option<Seq<double>>.None, MethodOrder: 2, EmbeddedOrder: Option<int>.None).Admit(key: FlowGens.Key));
     }
 }
 
@@ -98,7 +134,10 @@ public sealed class FieldIntegratorLaws {
         Assert.Equal(expected: 0, actual: FieldIntegrator.RK4.RejectBudget);
         StreamlineStopKind[] stops = [StreamlineStopKind.Terminated, StreamlineStopKind.RejectBudgetExhausted, StreamlineStopKind.IterationCapExhausted];
         Spec.SmartEnumKeysUnique(items: stops, key: static s => s.Key);
-        Assert.True(new StreamlineTrace(Trail: Seq(Point3d.Origin), Stop: StreamlineStopKind.Terminated, AcceptedSteps: 1, RejectedSteps: 0, ArcLength: 1.0, FinalStep: 0.5).IsComplete);
-        Assert.False(new StreamlineTrace(Trail: Seq(Point3d.Origin), Stop: StreamlineStopKind.IterationCapExhausted, AcceptedSteps: 0, RejectedSteps: 0, ArcLength: 0.0, FinalStep: 0.5).IsComplete);
+        Assert.True(FlowGens.Trace(stop: StreamlineStopKind.Terminated).IsComplete);
+        Assert.False(FlowGens.Trace(stop: StreamlineStopKind.IterationCapExhausted).IsComplete);
+        Spec.Fail(FlowKernel.ProjectTrace<Curve>(trace: FlowGens.Trace(stop: StreamlineStopKind.IterationCapExhausted), key: FlowGens.Key));
+        Spec.Succ(FlowKernel.ProjectTrace<Seq<Point3d>>(trace: FlowGens.Trace(stop: StreamlineStopKind.IterationCapExhausted), key: FlowGens.Key),
+            then: points => Assert.Single(collection: points));
     }
 }
